@@ -238,6 +238,11 @@ auto HelloTextureEngine::MakeLightingConstants() const -> LightingConstants
         m_lightingParams.iblDebugExposure,
         m_rayTracingSupport.IsSupported() ? 1.0f : 0.0f,
         m_shadowSettings.softShadowEnabled ? 1.0f : 0.0f,
+        (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
+         m_hybridReflectionSettings.hitOverlayEnabled) ?
+            1.0f :
+            0.0f,
+        m_hybridReflectionSettings.hitOverlayIntensity,
     };
 }
 

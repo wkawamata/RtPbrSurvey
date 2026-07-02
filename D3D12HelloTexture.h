@@ -193,6 +193,8 @@ public:
         bool materialGateEnabled = false;
         float maxRoughness = 0.35f;
         float minMetallic = 0.0f;
+        bool hitOverlayEnabled = false;
+        float hitOverlayIntensity = 0.2f;
     };
 
     struct SpecularDebugLineSettings
@@ -428,6 +430,8 @@ private:
         float iblDebugExposure = 0.25f;
         float rayTracingSupported = 0.0f;
         float shadowMaskBlurEnabled = 0.0f;
+        float reflectionHitOverlayEnabled = 0.0f;
+        float reflectionHitOverlayIntensity = 0.2f;
     };
 
     LightingConstants MakeLightingConstants() const;

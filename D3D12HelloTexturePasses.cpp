@@ -258,6 +258,10 @@ auto HelloTextureEngine::MakeLightingPass() -> RenderPass
     if (m_rayTracingSupport.IsSupported())
     {
         reads.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        if (m_hybridReflectionSettings.enabled && m_hybridReflectionSettings.hitOverlayEnabled)
+        {
+            reads.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        }
     }
 
     auto builder = m_renderGraphRuntime.Authoring()
@@ -271,6 +275,7 @@ auto HelloTextureEngine::MakeLightingPass() -> RenderPass
         .Descriptor(RootSignatureLayout::CameraConstants, Desc::CameraCbv)
         .Descriptor(RootSignatureLayout::LightConstants, Desc::LightCbv)
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ShadowMaskSrv)
+        .Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
         .Rtv(RtvName::LightPass)
         .Operation(Op::Lighting, &HelloTextureEngine::ExecuteLightingPass);
 

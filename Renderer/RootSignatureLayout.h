@@ -31,6 +31,9 @@ enum RootParameterIndex
     ToneMapSceneColor,
     ToneMapConstants,
 
+    // Hybrid reflection debug/composite inputs.
+    ReflectionRayHit,
+
     Count
 };
 
@@ -43,6 +46,7 @@ static constexpr UINT kMaterialSrvSpace = 2;
 static constexpr UINT kGBufferSrvSpace = 3;
 static constexpr UINT kToneMapSceneColorSrvSpace = 4;
 static constexpr UINT kEnvironmentMapSrvSpace = 5;
+static constexpr UINT kReflectionRayHitSrvSpace = 6;
 
 // Per-frame and per-pass CBVs.
 static constexpr UINT kCameraCbvRegister = 0;

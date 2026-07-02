@@ -1206,6 +1206,14 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
 
         changed |= ImGui::Checkbox("Enabled", &reflectionSettings.enabled);
 
+        ImGui::BeginDisabled(!reflectionSettings.enabled);
+        changed |= ImGui::Checkbox("Hit Overlay", &reflectionSettings.hitOverlayEnabled);
+
+        ImGui::BeginDisabled(!reflectionSettings.hitOverlayEnabled);
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Hit Overlay Intensity", &reflectionSettings.hitOverlayIntensity, 0.0f, 1.0f, 0.05f, 0.2f);
+        ImGui::EndDisabled();
+
         changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
 
         ImGui::BeginDisabled(!reflectionSettings.enabled || !reflectionSettings.materialGateEnabled);
@@ -1214,6 +1222,7 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
 
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Min Metallic", &reflectionSettings.minMetallic, 0.0f, 1.0f, 0.05f, 0.0f);
+        ImGui::EndDisabled();
         ImGui::EndDisabled();
 
         if (changed)
