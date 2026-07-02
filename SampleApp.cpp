@@ -1204,9 +1204,11 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
         auto reflectionSettings = m_engine.GetHybridReflectionSettings();
         bool changed = false;
 
+        changed |= ImGui::Checkbox("Enabled", &reflectionSettings.enabled);
+
         changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
 
-        ImGui::BeginDisabled(!reflectionSettings.materialGateEnabled);
+        ImGui::BeginDisabled(!reflectionSettings.enabled || !reflectionSettings.materialGateEnabled);
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Max Roughness", &reflectionSettings.maxRoughness, 0.0f, 1.0f, 0.05f, 0.35f);
 
@@ -1262,14 +1264,23 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
         ImGui::RadioButton("Shadow Mask", &renderViewMode, static_cast<int>(RenderViewMode::ShadowMask));
         ImGui::SameLine();
         ImGui::RadioButton("TLAS Debug", &renderViewMode, static_cast<int>(RenderViewMode::TlasDebug));
+        const bool reflectionDebugEnabled = m_engine.GetHybridReflectionSettings().enabled;
+        ImGui::BeginDisabled(!reflectionDebugEnabled);
         ImGui::RadioButton("Reflection Hit", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayHit));
         ImGui::SameLine();
         ImGui::RadioButton("Reflection Distance", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayDistance));
+        ImGui::EndDisabled();
         ImGui::EndDisabled();
         m_renderViewMode = static_cast<RenderViewMode>(renderViewMode);
         if (!context.rayTracingSupported &&
             (m_renderViewMode == RenderViewMode::ShadowMask || m_renderViewMode == RenderViewMode::TlasDebug ||
              m_renderViewMode == RenderViewMode::ReflectionRayHit ||
+             m_renderViewMode == RenderViewMode::ReflectionRayDistance))
+        {
+            m_renderViewMode = RenderViewMode::LightPass;
+        }
+        if (!reflectionDebugEnabled &&
+            (m_renderViewMode == RenderViewMode::ReflectionRayHit ||
              m_renderViewMode == RenderViewMode::ReflectionRayDistance))
         {
             m_renderViewMode = RenderViewMode::LightPass;

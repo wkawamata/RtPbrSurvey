@@ -189,6 +189,7 @@ public:
 
     struct HybridReflectionSettings
     {
+        bool enabled = true;
         bool materialGateEnabled = false;
         float maxRoughness = 0.35f;
         float minMetallic = 0.0f;

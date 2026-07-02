@@ -48,7 +48,10 @@ void HelloTextureEngine::AddSceneRenderPasses()
         if (m_rayTracingSupport.IsSupported())
         {
             AddPass(MakeRayQueryShadowPass());
-            AddPass(MakeHybridReflectionPass());
+            if (m_hybridReflectionSettings.enabled)
+            {
+                AddPass(MakeHybridReflectionPass());
+            }
             if (m_specularDebugRayQueryRequested)
             {
                 AddPass(MakeSpecularDebugRayQueryPass());
@@ -68,8 +71,9 @@ void HelloTextureEngine::AddSceneRenderPasses()
 
 void HelloTextureEngine::AddDeferredSceneOutputPass()
 {
-    if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayHit ||
-        m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayDistance)
+    if (m_hybridReflectionSettings.enabled &&
+        (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayHit ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayDistance))
     {
         AddPass(MakeReflectionRayHitDebugPass());
     }
