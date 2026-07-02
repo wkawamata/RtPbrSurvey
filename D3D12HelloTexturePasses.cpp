@@ -24,6 +24,7 @@ void HelloTextureEngine::BuildRenderPasses()
     {
         AddPass(MakeDepthPrePass());
         AddSceneRenderPasses();
+        AddPass(MakeDebugLinePass());
         AddPass(MakeToneMapPass());
 
         if (m_debugViewSettings.requestHdrDump)
@@ -47,10 +48,18 @@ void HelloTextureEngine::AddSceneRenderPasses()
         if (m_rayTracingSupport.IsSupported())
         {
             AddPass(MakeRayQueryShadowPass());
+            if (m_specularDebugRayQueryRequested)
+            {
+                AddPass(MakeSpecularDebugRayQueryPass());
+            }
             if (m_debugViewSettings.renderViewMode == RenderViewMode::TlasDebug)
             {
                 AddPass(MakeRayQueryTlasDebugPass());
             }
+        }
+        if (m_pixelPickRequested)
+        {
+            AddPass(MakePixelPickPass());
         }
         AddDeferredSceneOutputPass();
     }
@@ -202,6 +211,14 @@ auto HelloTextureEngine::MakeRayQueryShadowPass() -> RenderPass
         .Build();
 }
 
+auto HelloTextureEngine::MakeSpecularDebugRayQueryPass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"SpecularDebugRayQueryPass")
+        .Operation(Op::SpecularDebugRayQuery, &HelloTextureEngine::ExecuteSpecularDebugRayQueryPass)
+        .Build();
+}
+
 auto HelloTextureEngine::MakeRayQueryTlasDebugPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
@@ -279,6 +296,22 @@ auto HelloTextureEngine::MakeDebugDumpPass() -> RenderPass
         .Build();
 }
 
+auto HelloTextureEngine::MakePixelPickPass() -> RenderPass
+{
+    Engine::ResourceUsages reads = {{kDepthStencilResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
+                                    {kShadowMaskResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}};
+    for (UINT i = 0; i < Engine::GBuffer::kCount; ++i)
+    {
+        reads.push_back({kGBufferResourceNames[i], D3D12_RESOURCE_STATE_COPY_SOURCE});
+    }
+
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"PixelPick")
+        .Reads(std::move(reads))
+        .Operation(Op::PixelPick, &HelloTextureEngine::ExecutePixelPickPass)
+        .Build();
+}
+
 auto HelloTextureEngine::MakeGBufferDebugPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
@@ -303,6 +336,16 @@ auto HelloTextureEngine::MakeShadowMaskDebugPass() -> RenderPass
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ShadowMaskSrv)
         .Rtv(RtvName::LightPass)
         .Operation(Op::ShadowMaskDebug, &HelloTextureEngine::ExecuteShadowMaskDebugPass)
+        .Build();
+}
+
+auto HelloTextureEngine::MakeDebugLinePass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"DebugLinePass")
+        .Writes({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Rtv(RtvName::LightPass)
+        .Operation(Op::DebugLine, &HelloTextureEngine::ExecuteDebugLinePass)
         .Build();
 }
 

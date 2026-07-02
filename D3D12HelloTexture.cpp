@@ -25,6 +25,7 @@
 #include <random>
 #include <combaseapi.h>
 #include <DirectXMath.h>
+#include <DirectXPackedVector.h>
 #include <DirectXMathConvert.inl>
 #include <DirectXMathMatrix.inl>
 #include <wrl\client.h>
@@ -48,6 +49,7 @@
 #include "Renderer\Material.h"
 #include "Renderer\PipelineFactory.h"
 #include "Renderer\RayQueryShadowPass.h"
+#include "Renderer\SpecularDebugRayQueryPass.h"
 #include "Renderer\RayQueryTlasDebugPass.h"
 #include "Renderer\RayTracingSupport.h"
 #include "Renderer\RenderPassExecution.h"
@@ -314,6 +316,24 @@ void HelloTextureEngine::SetRenderViewMode(RenderViewMode mode)
 void HelloTextureEngine::SetRequestHdrDump(bool request)
 {
     m_debugViewSettings.requestHdrDump = request;
+}
+
+void HelloTextureEngine::RequestPixelPick(int screenX, int screenY)
+{
+    m_pixelPickRequested = true;
+    m_specularDebugRayQueryRequested = false;
+    m_specularDebugRayQueryPending = false;
+    m_pixelPickScreenX = screenX;
+    m_pixelPickScreenY = screenY;
+    m_pixelPickResult = {};
+}
+
+void HelloTextureEngine::SetSpecularDebugLineSettings(const SpecularDebugLineSettings& settings)
+{
+    m_specularDebugLineSettings = settings;
+    m_specularDebugLineSettings.lineLength =
+        (std::max)(0.01f, m_specularDebugLineSettings.lineLength);
+    UpdateDebugLines();
 }
 
 void HelloTextureEngine::ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings)
@@ -1037,7 +1057,17 @@ void HelloTextureEngine::LoadAssets()
     CreateRootSignature();
     CreateProceduralEnvRootSignature();
     CreateRayQueryShadowRootSignature();
+    CreateSpecularDebugRayQueryRootSignature();
     CreateRayQueryTlasDebugRootSignature();
+    {
+        const ShaderBytecode debugLineVs = LoadShaderBytecode(L"shaders_DebugLine_VSMain.cso");
+        const ShaderBytecode debugLinePs = LoadShaderBytecode(L"shaders_DebugLine_PSMain.cso");
+        m_debugLinePass.Create(
+            m_graphicsDevice.Device(),
+            CD3DX12_SHADER_BYTECODE(debugLineVs.data, debugLineVs.size),
+            CD3DX12_SHADER_BYTECODE(debugLinePs.data, debugLinePs.size));
+    }
+    CreateSpecularDebugRayQueryResources();
     CreatePipelineStates();
     CreateGBuffer();
     CreateShadowMask(m_width, m_height);
@@ -1134,6 +1164,36 @@ void HelloTextureEngine::CreateRayQueryShadowRootSignature()
         0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_rayQueryShadowRootSignature)));
 }
 
+void HelloTextureEngine::CreateSpecularDebugRayQueryRootSignature()
+{
+    CD3DX12_DESCRIPTOR_RANGE1 tlasSrvRange = {};
+    tlasSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
+
+    CD3DX12_ROOT_PARAMETER1 rootParameters[3] = {};
+    rootParameters[0].InitAsUnorderedAccessView(0);            // g_result (u0)
+    rootParameters[1].InitAsDescriptorTable(1, &tlasSrvRange); // g_tlas (t0)
+    rootParameters[2].InitAsConstants(8, 0, 0);                // ray origin/tmin, direction/tmax (b0)
+
+    D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
+    featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
+    if (FAILED(m_graphicsDevice.Device()->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData))))
+    {
+        featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
+    }
+    const D3D_ROOT_SIGNATURE_VERSION rootSignatureVersion = featureData.HighestVersion;
+
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
+    rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_NONE);
+
+    ComPtr<ID3DBlob> signature;
+    ComPtr<ID3DBlob> error;
+    ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, rootSignatureVersion, &signature, &error));
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateRootSignature(0,
+                                                                 signature->GetBufferPointer(),
+                                                                 signature->GetBufferSize(),
+                                                                 IID_PPV_ARGS(&m_specularDebugRayQueryRootSignature)));
+}
+
 void HelloTextureEngine::CreateRayQueryTlasDebugRootSignature()
 {
     CD3DX12_DESCRIPTOR_RANGE1 uavRange = {};
@@ -1177,6 +1237,29 @@ void HelloTextureEngine::CreateRayQueryTlasDebugRootSignature()
         0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_rayQueryTlasDebugRootSignature)));
 }
 
+void HelloTextureEngine::CreateSpecularDebugRayQueryResources()
+{
+    static constexpr UINT64 kResultBufferSize = 32;
+
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateCommittedResource(
+        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+        D3D12_HEAP_FLAG_NONE,
+        &CD3DX12_RESOURCE_DESC::Buffer(kResultBufferSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
+        D3D12_RESOURCE_STATE_COMMON,
+        nullptr,
+        IID_PPV_ARGS(&m_specularDebugRayQueryResult)));
+    m_specularDebugRayQueryResult->SetName(L"SpecularDebugRayQuery.Result");
+
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateCommittedResource(
+        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK),
+        D3D12_HEAP_FLAG_NONE,
+        &CD3DX12_RESOURCE_DESC::Buffer(kResultBufferSize),
+        D3D12_RESOURCE_STATE_COPY_DEST,
+        nullptr,
+        IID_PPV_ARGS(&m_specularDebugRayQueryReadback)));
+    m_specularDebugRayQueryReadback->SetName(L"SpecularDebugRayQuery.Readback");
+}
+
 auto HelloTextureEngine::LoadShaderBytecode(LPCWSTR assetName) -> ShaderBytecode
 {
     UINT8* data = nullptr;
@@ -1204,6 +1287,7 @@ auto HelloTextureEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
                        LoadShaderBytecode(L"shaders_ToneMap_PSMain.cso")};
     shaders.proceduralEnv = LoadShaderBytecode(L"shaders_ProceduralEnvMap_CSMain.cso");
     shaders.rayQueryShadow = LoadShaderBytecode(L"shaders_RayQueryShadow_CSMain.cso");
+    shaders.specularDebugRayQuery = LoadShaderBytecode(L"shaders_SpecularDebugRayQuery_CSMain.cso");
     shaders.rayQueryTlasDebug = LoadShaderBytecode(L"shaders_RayQueryTlasDebug_CSMain.cso");
     return shaders;
 }
@@ -1224,6 +1308,14 @@ void HelloTextureEngine::CreatePipelineStates()
     rayQueryShadowDesc.CS = CD3DX12_SHADER_BYTECODE(shaders.rayQueryShadow.data, shaders.rayQueryShadow.size);
     ThrowIfFailed(m_graphicsDevice.Device()->CreateComputePipelineState(&rayQueryShadowDesc,
                                                                          IID_PPV_ARGS(&m_rayQueryShadowPipeline)));
+
+    D3D12_COMPUTE_PIPELINE_STATE_DESC specularDebugRayQueryDesc = {};
+    specularDebugRayQueryDesc.pRootSignature = m_specularDebugRayQueryRootSignature.Get();
+    specularDebugRayQueryDesc.CS =
+        CD3DX12_SHADER_BYTECODE(shaders.specularDebugRayQuery.data, shaders.specularDebugRayQuery.size);
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateComputePipelineState(
+        &specularDebugRayQueryDesc,
+        IID_PPV_ARGS(&m_specularDebugRayQueryPipeline)));
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC rayQueryTlasDebugDesc = {};
     rayQueryTlasDebugDesc.pRootSignature = m_rayQueryTlasDebugRootSignature.Get();
@@ -1597,6 +1689,15 @@ void HelloTextureEngine::ReleaseSceneResources()
     m_usesIndexedDraw = false;
     m_sceneHasMaterials = false;
     m_sceneTextureCount = 0;
+    m_pixelPickRequested = false;
+    m_pixelPickPending = false;
+    m_pixelPickScreenX = 0;
+    m_pixelPickScreenY = 0;
+    m_pixelPickResult = {};
+    m_specularDebugRayQueryRequested = false;
+    m_specularDebugRayQueryPending = false;
+    m_debugLineVertices.clear();
+    ResetPixelPickReadbacks();
 
     m_materialBuffer.Reset();
     for (FrameResource& frameResource : m_frameResources)
@@ -2168,6 +2269,20 @@ void HelloTextureEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
         m_debugViewSettings.hdrDumpPending = false;
     }
 
+    if (m_pixelPickPending)
+    {
+        WaitForGpu();
+        ReadbackPixelPick();
+        m_pixelPickPending = false;
+    }
+
+    if (m_specularDebugRayQueryPending)
+    {
+        WaitForGpu();
+        ReadbackSpecularDebugRayQuery();
+        m_specularDebugRayQueryPending = false;
+    }
+
     // Present the frame.
     m_graphicsDevice.Present(1, 0);
 
@@ -2618,6 +2733,55 @@ void HelloTextureEngine::ExecuteRayQueryShadowPass(const RenderPass& pass)
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "RayQuery Shadow Pass");
 }
 
+void HelloTextureEngine::ExecuteSpecularDebugRayQueryPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+
+    if (!m_pixelPickResult.valid || !m_accelerationStructures.tlasSrv.IsValid() ||
+        m_specularDebugRayQueryResult == nullptr || m_specularDebugRayQueryReadback == nullptr)
+    {
+        m_specularDebugRayQueryRequested = false;
+        return;
+    }
+
+    const XMVECTOR origin = XMLoadFloat3(&m_pixelPickResult.worldPos);
+    const XMVECTOR normal = XMVector3Normalize(XMLoadFloat3(&m_pixelPickResult.normal));
+    const XMVECTOR biasedOrigin = XMVectorAdd(origin, XMVectorScale(normal, m_shadowSettings.normalBias));
+    const XMVECTOR direction = XMVector3Normalize(XMLoadFloat3(&m_pixelPickResult.reflectionDir));
+
+    Engine::SpecularDebugRayQueryPassDesc passDesc = {};
+    passDesc.rootSignature = m_specularDebugRayQueryRootSignature.Get();
+    passDesc.pipelineState = m_specularDebugRayQueryPipeline.Get();
+    passDesc.resultUav = m_specularDebugRayQueryResult->GetGPUVirtualAddress();
+    passDesc.tlasSrv = m_accelerationStructures.tlasSrv.Gpu();
+    XMStoreFloat3(&passDesc.constants.rayOrigin, biasedOrigin);
+    XMStoreFloat3(&passDesc.constants.rayDirection, direction);
+    passDesc.constants.rayTMin = m_shadowSettings.rayTMin;
+    passDesc.constants.rayTMax = m_shadowSettings.rayTMax;
+
+    D3D12_RESOURCE_BARRIER toUav = CD3DX12_RESOURCE_BARRIER::Transition(m_specularDebugRayQueryResult.Get(),
+                                                                        D3D12_RESOURCE_STATE_COMMON,
+                                                                        D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    m_commandList->ResourceBarrier(1, &toUav);
+    Engine::RecordSpecularDebugRayQueryPass(m_commandList.Get(), passDesc);
+    D3D12_RESOURCE_BARRIER uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(m_specularDebugRayQueryResult.Get());
+    m_commandList->ResourceBarrier(1, &uavBarrier);
+    D3D12_RESOURCE_BARRIER toCopySource =
+        CD3DX12_RESOURCE_BARRIER::Transition(m_specularDebugRayQueryResult.Get(),
+                                             D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+                                             D3D12_RESOURCE_STATE_COPY_SOURCE);
+    m_commandList->ResourceBarrier(1, &toCopySource);
+    m_commandList->CopyResource(m_specularDebugRayQueryReadback.Get(), m_specularDebugRayQueryResult.Get());
+    D3D12_RESOURCE_BARRIER toCommon = CD3DX12_RESOURCE_BARRIER::Transition(m_specularDebugRayQueryResult.Get(),
+                                                                          D3D12_RESOURCE_STATE_COPY_SOURCE,
+                                                                          D3D12_RESOURCE_STATE_COMMON);
+    m_commandList->ResourceBarrier(1, &toCommon);
+
+    m_specularDebugRayQueryPending = true;
+    m_specularDebugRayQueryRequested = false;
+    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Specular Debug RayQuery Pass");
+}
+
 void HelloTextureEngine::ExecuteRayQueryTlasDebugPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
@@ -2676,6 +2840,16 @@ void HelloTextureEngine::ExecuteDebugDumpPass(const RenderPass& pass)
     RecordDebugDumpPass();
 }
 
+void HelloTextureEngine::ExecutePixelPickPass(const RenderPass& pass)
+{
+    if (!m_pixelPickRequested)
+    {
+        return;
+    }
+
+    RecordPixelPickPass();
+}
+
 void HelloTextureEngine::ExecuteGBufferDebugPass(const RenderPass& pass)
 {
     Engine::RecordGBufferDebugPass(m_commandList.Get());
@@ -2688,6 +2862,22 @@ void HelloTextureEngine::ExecuteShadowMaskDebugPass(const RenderPass& pass)
 
     Engine::RecordShadowMaskDebugPass(m_commandList.Get());
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ShadowMask Debug Pass");
+}
+
+void HelloTextureEngine::ExecuteDebugLinePass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+
+    if (m_debugLineVertices.empty())
+    {
+        return;
+    }
+
+    m_debugLinePass.UpdateLines(m_debugLineVertices, m_commandList.Get());
+    m_debugLinePass.RecordDraw(m_commandList.Get(),
+                                m_frameResources[m_currentFrameIndex].cameraCB.buffer->GetGPUVirtualAddress());
+    m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "DebugLine Pass");
 }
 
 void HelloTextureEngine::ExecuteImGuiPass(const RenderPass& pass)
@@ -2706,6 +2896,281 @@ void HelloTextureEngine::RecordDebugDumpPass()
     m_debugViewSettings.hdrDumpPending = true;
 
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Debug Dump");
+}
+
+void HelloTextureEngine::RecordPixelPickPass()
+{
+    PIXBeginEvent(m_commandList.Get(), 0, L"PixelPick");
+
+    const int clampedX = (std::max)(0, (std::min)(m_pixelPickScreenX, static_cast<int>(m_width) - 1));
+    const int clampedY = (std::max)(0, (std::min)(m_pixelPickScreenY, static_cast<int>(m_height) - 1));
+    const UINT x = static_cast<UINT>(clampedX);
+    const UINT y = static_cast<UINT>(clampedY);
+    m_pixelPickScreenX = clampedX;
+    m_pixelPickScreenY = clampedY;
+
+    CreatePixelPickReadback(m_depthStencil.Get(), m_pixelPickDepthReadback);
+    CopyPixelPickSource(m_depthStencil.Get(), m_pixelPickDepthReadback, x, y);
+
+    for (UINT i = 0; i < Engine::GBuffer::kCount; ++i)
+    {
+        CreatePixelPickReadback(m_gbuffer.resources[i].Get(), m_pixelPickGBufferReadbacks[i]);
+        CopyPixelPickSource(m_gbuffer.resources[i].Get(), m_pixelPickGBufferReadbacks[i], x, y);
+    }
+
+    if (m_shadowMask)
+    {
+        CreatePixelPickReadback(m_shadowMask.Get(), m_pixelPickShadowMaskReadback);
+        CopyPixelPickSource(m_shadowMask.Get(), m_pixelPickShadowMaskReadback, x, y);
+    }
+
+    m_pixelPickPending = true;
+    m_pixelPickRequested = false;
+
+    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "PixelPick");
+    PIXEndEvent(m_commandList.Get());
+}
+
+void HelloTextureEngine::ResetPixelPickReadbacks()
+{
+    m_pixelPickDepthReadback = {};
+    m_pixelPickGBufferReadbacks = {};
+    m_pixelPickShadowMaskReadback = {};
+}
+
+void HelloTextureEngine::CreatePixelPickReadback(ID3D12Resource* source, PixelPickReadback& readback) const
+{
+    assert(source != nullptr);
+
+    auto device = m_graphicsDevice.Device();
+    D3D12_RESOURCE_DESC desc = source->GetDesc();
+    UINT numRows = 0;
+    UINT64 rowSizeInBytes = 0;
+    UINT64 totalBytes = 0;
+    readback = {};
+    device->GetCopyableFootprints(&desc, 0, 1, 0, &readback.layout, &numRows, &rowSizeInBytes, &totalBytes);
+    ThrowIfFailed(device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK),
+                                                  D3D12_HEAP_FLAG_NONE,
+                                                  &CD3DX12_RESOURCE_DESC::Buffer(totalBytes),
+                                                  D3D12_RESOURCE_STATE_COPY_DEST,
+                                                  nullptr,
+                                                  IID_PPV_ARGS(&readback.resource)));
+}
+
+void HelloTextureEngine::CopyPixelPickSource(ID3D12Resource* source,
+                                             const PixelPickReadback& readback,
+                                             UINT x,
+                                             UINT y)
+{
+    assert(source != nullptr);
+    assert(readback.resource != nullptr);
+
+    const D3D12_BOX srcBox = {x, y, 0, x + 1, y + 1, 1};
+    CD3DX12_TEXTURE_COPY_LOCATION dst(readback.resource.Get(), readback.layout);
+    CD3DX12_TEXTURE_COPY_LOCATION src(source, 0);
+    m_commandList->CopyTextureRegion(&dst, 0, 0, 0, &src, &srcBox);
+}
+
+void HelloTextureEngine::ReadbackPixelPick()
+{
+    if (!m_pixelPickDepthReadback.resource ||
+        !m_pixelPickGBufferReadbacks[Engine::GBuffer::Normal].resource)
+    {
+        return;
+    }
+
+    auto readPixel = [](PixelPickReadback& readback, auto&& read)
+    {
+        if (!readback.resource)
+        {
+            return;
+        }
+
+        const D3D12_RANGE readRange = {0, static_cast<SIZE_T>(readback.layout.Footprint.RowPitch)};
+        void* data = nullptr;
+        ThrowIfFailed(readback.resource->Map(0, &readRange, &data));
+        read(static_cast<const UINT8*>(data));
+        readback.resource->Unmap(0, nullptr);
+        readback = {};
+    };
+
+    // Read depth (float32)
+    readPixel(m_pixelPickDepthReadback,
+              [this](const UINT8* row)
+              {
+                  m_pixelPickResult.depthNdc = *reinterpret_cast<const float*>(row);
+              });
+
+    // Read albedo (R8G8B8A8_UNORM, already linear from GBuffer)
+    readPixel(m_pixelPickGBufferReadbacks[Engine::GBuffer::Albedo],
+              [this](const UINT8* row)
+              {
+                  m_pixelPickResult.albedo = {static_cast<float>(row[0]) / 255.0f,
+                                              static_cast<float>(row[1]) / 255.0f,
+                                              static_cast<float>(row[2]) / 255.0f,
+                                              static_cast<float>(row[3]) / 255.0f};
+              });
+
+    // Read normal (R16G16B16A16_FLOAT -> 4 half values)
+    readPixel(m_pixelPickGBufferReadbacks[Engine::GBuffer::Normal],
+              [this](const UINT8* row)
+              {
+                  const auto* half4 = reinterpret_cast<const UINT16*>(row);
+                  m_pixelPickResult.normal = {DirectX::PackedVector::XMConvertHalfToFloat(half4[0]),
+                                              DirectX::PackedVector::XMConvertHalfToFloat(half4[1]),
+                                              DirectX::PackedVector::XMConvertHalfToFloat(half4[2])};
+              });
+
+    // Read material id (R32_UINT)
+    readPixel(m_pixelPickGBufferReadbacks[Engine::GBuffer::Material],
+              [this](const UINT8* row)
+              {
+                  m_pixelPickResult.materialId = *reinterpret_cast<const UINT*>(row);
+              });
+
+    // Read PBR params (R8G8B8A8_UNORM: metallic, roughness, ambient occlusion)
+    readPixel(m_pixelPickGBufferReadbacks[Engine::GBuffer::PBRParams],
+              [this](const UINT8* row)
+              {
+                  m_pixelPickResult.metallic = static_cast<float>(row[0]) / 255.0f;
+                  m_pixelPickResult.roughness = static_cast<float>(row[1]) / 255.0f;
+                  m_pixelPickResult.ambientOcclusion = static_cast<float>(row[2]) / 255.0f;
+              });
+
+    // Read emissive (R16G16B16A16_FLOAT)
+    readPixel(m_pixelPickGBufferReadbacks[Engine::GBuffer::Emissive],
+              [this](const UINT8* row)
+              {
+                  const auto* half4 = reinterpret_cast<const UINT16*>(row);
+                  m_pixelPickResult.emissive = {DirectX::PackedVector::XMConvertHalfToFloat(half4[0]),
+                                                DirectX::PackedVector::XMConvertHalfToFloat(half4[1]),
+                                                DirectX::PackedVector::XMConvertHalfToFloat(half4[2])};
+              });
+
+    // Read shadow mask (R8_UNORM)
+    m_pixelPickResult.shadowMask = 1.0f;
+    readPixel(m_pixelPickShadowMaskReadback,
+              [this](const UINT8* row)
+              {
+                  m_pixelPickResult.shadowMask = static_cast<float>(row[0]) / 255.0f;
+              });
+
+    m_pixelPickResult.screenX = m_pixelPickScreenX;
+    m_pixelPickResult.screenY = m_pixelPickScreenY;
+
+    // Reconstruct world position from depth using inverse view-projection
+    const float pixelCenterX = static_cast<float>(m_pixelPickResult.screenX) + 0.5f;
+    const float pixelCenterY = static_cast<float>(m_pixelPickResult.screenY) + 0.5f;
+    const float ndcX = (2.0f * pixelCenterX) / static_cast<float>(m_width) - 1.0f;
+    const float ndcY = 1.0f - (2.0f * pixelCenterY) / static_cast<float>(m_height);
+
+    const XMMATRIX invVP = XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.invViewProjection));
+    const XMVECTOR clipPos = XMVectorSet(ndcX, ndcY, m_pixelPickResult.depthNdc, 1.0f);
+    XMVECTOR worldPos = XMVector4Transform(clipPos, invVP);
+    worldPos = XMVectorDivide(worldPos, XMVectorSplatW(worldPos));
+    XMStoreFloat3(&m_pixelPickResult.worldPos, worldPos);
+
+    // View direction: hit point -> camera, matching the lighting shader convention.
+    const XMVECTOR camPos = XMLoadFloat3(&m_constantBufferData.cameraPosition);
+    const XMVECTOR viewDir = XMVector3Normalize(XMVectorSubtract(camPos, worldPos));
+    XMStoreFloat3(&m_pixelPickResult.viewDir, viewDir);
+
+    // Normal (world space from GBuffer)
+    const XMVECTOR normal = XMVector3Normalize(XMLoadFloat3(&m_pixelPickResult.normal));
+
+    const XMVECTOR reflection = XMVector3Reflect(XMVectorNegate(viewDir), normal);
+    XMStoreFloat3(&m_pixelPickResult.reflectionDir, reflection);
+
+    m_pixelPickResult.reflectionHit = false;
+    m_pixelPickResult.reflectionHitDistance = 0.0f;
+    m_pixelPickResult.reflectionHitWorldPos = {0.0f, 0.0f, 0.0f};
+    m_pixelPickResult.valid = true;
+    m_specularDebugRayQueryRequested = m_pixelPickResult.depthNdc < 1.0f &&
+                                       m_rayTracingSupport.IsSupported() &&
+                                       m_accelerationStructures.tlasSrv.IsValid();
+
+    UpdateDebugLines();
+
+    ResetPixelPickReadbacks();
+}
+
+void HelloTextureEngine::ReadbackSpecularDebugRayQuery()
+{
+    if (!m_specularDebugRayQueryReadback)
+    {
+        return;
+    }
+
+    struct RayQueryResultData
+    {
+        UINT hit = 0;
+        float distance = 0.0f;
+        XMFLOAT3 hitPosition = {0.0f, 0.0f, 0.0f};
+    };
+
+    const D3D12_RANGE readRange = {0, sizeof(RayQueryResultData)};
+    void* mappedData = nullptr;
+    ThrowIfFailed(m_specularDebugRayQueryReadback->Map(0, &readRange, &mappedData));
+    const auto* result = reinterpret_cast<const RayQueryResultData*>(mappedData);
+    m_pixelPickResult.reflectionHit = result->hit != 0;
+    m_pixelPickResult.reflectionHitDistance = result->distance;
+    m_pixelPickResult.reflectionHitWorldPos = result->hitPosition;
+    m_specularDebugRayQueryReadback->Unmap(0, nullptr);
+
+    UpdateDebugLines();
+}
+
+void HelloTextureEngine::UpdateDebugLines()
+{
+    m_debugLineVertices.clear();
+
+    if (!m_pixelPickResult.valid)
+    {
+        return;
+    }
+
+    if (!m_specularDebugLineSettings.enabled)
+    {
+        return;
+    }
+
+    const XMFLOAT3& origin = m_pixelPickResult.worldPos;
+    const float lineLength = m_specularDebugLineSettings.lineLength;
+
+    // View ray: yellow
+    if (m_specularDebugLineSettings.showViewRay)
+    {
+        const XMFLOAT3& dir = m_pixelPickResult.viewDir;
+        XMFLOAT3 end = {origin.x + dir.x * lineLength,
+                        origin.y + dir.y * lineLength,
+                        origin.z + dir.z * lineLength};
+        m_debugLineVertices.push_back({origin, {1.0f, 1.0f, 0.0f, 1.0f}});
+        m_debugLineVertices.push_back({end,   {1.0f, 1.0f, 0.0f, 1.0f}});
+    }
+
+    // Picked normal: blue
+    if (m_specularDebugLineSettings.showNormal)
+    {
+        const XMFLOAT3& dir = m_pixelPickResult.normal;
+        XMFLOAT3 end = {origin.x + dir.x * lineLength,
+                        origin.y + dir.y * lineLength,
+                        origin.z + dir.z * lineLength};
+        m_debugLineVertices.push_back({origin, {0.0f, 0.0f, 1.0f, 1.0f}});
+        m_debugLineVertices.push_back({end,   {0.0f, 0.0f, 1.0f, 1.0f}});
+    }
+
+    // Reflection ray: magenta
+    if (m_specularDebugLineSettings.showReflection)
+    {
+        const XMFLOAT3& dir = m_pixelPickResult.reflectionDir;
+        XMFLOAT3 end = {origin.x + dir.x * lineLength, origin.y + dir.y * lineLength, origin.z + dir.z * lineLength};
+        if (m_pixelPickResult.reflectionHit)
+        {
+            end = m_pixelPickResult.reflectionHitWorldPos;
+        }
+        m_debugLineVertices.push_back({origin, {1.0f, 0.0f, 1.0f, 1.0f}});
+        m_debugLineVertices.push_back({end,   {1.0f, 0.0f, 1.0f, 1.0f}});
+    }
 }
 
 void HelloTextureEngine::PrintDebugDump()

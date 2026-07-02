@@ -27,6 +27,7 @@
 #include "Renderer/PipelineFactory.h"
 #include "Renderer/AccelerationStructureResources.h"
 #include "Renderer/RayQueryShadowPass.h"
+#include "Renderer/SpecularDebugRayQueryPass.h"
 #include "Renderer/RayQueryTlasDebugPass.h"
 #include "Renderer/RayTracingSupport.h"
 #include "Renderer/RenderPassExecution.h"
@@ -36,6 +37,7 @@
 #include "Renderer/SceneGeometryPass.h"
 #include "Renderer/SimpleDescriptorHeapAllocator.h"
 #include "Renderer/ShadowMaskDebugPass.h"
+#include "Renderer/DebugLinePass.h"
 #include "Renderer/ToneMap.h"
 #include "Scene/Scene.h"
 #include "TextureSemantic.h"
@@ -147,6 +149,28 @@ public:
         float maxDisplayNits = 1000.0f;
     };
 
+    struct PixelPickResult
+    {
+        bool valid = false;
+        int screenX = 0;
+        int screenY = 0;
+        float depthNdc = 0.0f;
+        XMFLOAT4 albedo = {0.0f, 0.0f, 0.0f, 1.0f};
+        XMFLOAT3 normal = {0.0f, 0.0f, 0.0f};
+        UINT materialId = 0;
+        float metallic = 0.0f;
+        float roughness = 0.0f;
+        float ambientOcclusion = 0.0f;
+        XMFLOAT3 emissive = {0.0f, 0.0f, 0.0f};
+        float shadowMask = 1.0f;
+        XMFLOAT3 worldPos = {0.0f, 0.0f, 0.0f};
+        XMFLOAT3 viewDir = {0.0f, 0.0f, 0.0f};
+        XMFLOAT3 reflectionDir = {0.0f, 0.0f, 0.0f};
+        bool reflectionHit = false;
+        float reflectionHitDistance = 0.0f;
+        XMFLOAT3 reflectionHitWorldPos = {0.0f, 0.0f, 0.0f};
+    };
+
     struct ShadowSettings
     {
         bool enabled = true;
@@ -157,6 +181,15 @@ public:
         int sampleCount = 8;
         float lightAngularRadius = 0.1f;
         float jitterStrength = 2.0f;
+    };
+
+    struct SpecularDebugLineSettings
+    {
+        bool enabled = true;
+        float lineLength = 1.0f;
+        bool showViewRay = true;
+        bool showNormal = true;
+        bool showReflection = true;
     };
 
     struct UiFrameContext
@@ -200,6 +233,10 @@ public:
     void SetRenderViewMode(RenderViewMode mode);
     void SetRequestHdrDump(bool request);
     void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
+    void RequestPixelPick(int screenX, int screenY);
+    const PixelPickResult& GetPixelPickResult() const { return m_pixelPickResult; }
+    void SetSpecularDebugLineSettings(const SpecularDebugLineSettings& settings);
+    const SpecularDebugLineSettings& GetSpecularDebugLineSettings() const { return m_specularDebugLineSettings; }
 
 private:
     static constexpr UINT kFrameCount = kSwapChainBufferCount;
@@ -225,8 +262,10 @@ private:
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* GBufferDebug = "GBufferDebug";
             static constexpr const char* RayQueryShadow = "RayQueryShadow";
+            static constexpr const char* SpecularDebugRayQuery = "SpecularDebugRayQuery";
             static constexpr const char* RayQueryTlasDebug = "RayQueryTlasDebug";
             static constexpr const char* ShadowMaskDebug = "ShadowMaskDebug";
+            static constexpr const char* DebugLine = "DebugLine";
         };
 
         struct Descriptor
@@ -274,9 +313,12 @@ private:
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* DebugDump = "DebugDump";
+            static constexpr const char* PixelPick = "PixelPick";
             static constexpr const char* GBufferDebug = "GBufferDebug";
             static constexpr const char* ShadowMaskDebug = "ShadowMaskDebug";
+            static constexpr const char* DebugLine = "DebugLine";
             static constexpr const char* RayQueryShadow = "RayQueryShadow";
+            static constexpr const char* SpecularDebugRayQuery = "SpecularDebugRayQuery";
             static constexpr const char* RayQueryTlasDebug = "RayQueryTlasDebug";
             static constexpr const char* ImGui = "ImGui";
         };
@@ -448,11 +490,13 @@ private:
     ComPtr<ID3D12RootSignature> m_rootSignature;
     ComPtr<ID3D12RootSignature> m_proceduralEnvRootSignature;
     ComPtr<ID3D12RootSignature> m_rayQueryShadowRootSignature;
+    ComPtr<ID3D12RootSignature> m_specularDebugRayQueryRootSignature;
     ComPtr<ID3D12RootSignature> m_rayQueryTlasDebugRootSignature;
     ComPtr<ID3D12RootSignature> m_lightingRootSignature; // not used in this sample but created for future use
 
     ComPtr<ID3D12PipelineState> m_proceduralEnvPipeline;
     ComPtr<ID3D12PipelineState> m_rayQueryShadowPipeline;
+    ComPtr<ID3D12PipelineState> m_specularDebugRayQueryPipeline;
     ComPtr<ID3D12PipelineState> m_rayQueryTlasDebugPipeline;
 
     ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
@@ -467,6 +511,7 @@ private:
     bool m_lightingPassDebugGradientEnabled = false;
     Engine::RayTracingSupportInfo m_rayTracingSupport;
     Engine::ToneMapPass m_toneMapPass;
+    Engine::DebugLinePass m_debugLinePass;
 
     ComPtr<ID3D12GraphicsCommandList> m_commandList;
     UINT m_rtvDescriptorSize;
@@ -474,6 +519,31 @@ private:
     HdrOutputPolicy m_hdrOutputPolicy;
     DebugViewSettings m_debugViewSettings;
     Engine::DebugDumpCapture m_debugDumpCapture;
+
+    // Pixel pick (Ctrl+Click to inspect reflection vector)
+    bool m_pixelPickRequested = false;
+    bool m_pixelPickPending = false;
+    int m_pixelPickScreenX = 0;
+    int m_pixelPickScreenY = 0;
+    PixelPickResult m_pixelPickResult;
+    struct PixelPickReadback
+    {
+        ComPtr<ID3D12Resource> resource;
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+    };
+    PixelPickReadback m_pixelPickDepthReadback;
+    std::array<PixelPickReadback, Engine::GBuffer::kCount> m_pixelPickGBufferReadbacks;
+    PixelPickReadback m_pixelPickShadowMaskReadback;
+
+    bool m_specularDebugRayQueryRequested = false;
+    bool m_specularDebugRayQueryPending = false;
+    ComPtr<ID3D12Resource> m_specularDebugRayQueryResult;
+    ComPtr<ID3D12Resource> m_specularDebugRayQueryReadback;
+
+    // Debug line data derived from the picked pixel.
+    std::vector<Engine::DebugLineVertex> m_debugLineVertices;
+    void UpdateDebugLines();
+
     std::array<float, 4> m_backBufferClearColor = {0.0f, 0.2f, 0.4f, 1.0f};
 
     DescriptorHeapHandle m_textureTableStart;
@@ -484,6 +554,7 @@ private:
     std::vector<Engine::Material> m_materialData;
     LightingParams m_lightingParams;
     ShadowSettings m_shadowSettings;
+    SpecularDebugLineSettings m_specularDebugLineSettings;
     Engine::ProceduralEnvironmentSettings m_environmentSettings;
 
     ComPtr<ID3D12Resource> m_vertexBuffer;
@@ -609,6 +680,7 @@ private:
         GraphicsPipelineShaderSet toneMap;
         ShaderBytecode proceduralEnv;
         ShaderBytecode rayQueryShadow;
+        ShaderBytecode specularDebugRayQuery;
         ShaderBytecode rayQueryTlasDebug;
     };
 
@@ -617,7 +689,9 @@ private:
     void CreateRootSignature();
     void CreateProceduralEnvRootSignature();
     void CreateRayQueryShadowRootSignature();
+    void CreateSpecularDebugRayQueryRootSignature();
     void CreateRayQueryTlasDebugRootSignature();
+    void CreateSpecularDebugRayQueryResources();
     void CreatePipelineStates();
     ShaderBytecode LoadShaderBytecode(LPCWSTR assetName);
     PipelineShaderBytecode LoadPipelineShaderBytecode();
@@ -709,14 +783,17 @@ private:
     RenderPass MakeDepthPrePass();
     RenderPass MakeGBufferPass();
     RenderPass MakeRayQueryShadowPass();
+    RenderPass MakeSpecularDebugRayQueryPass();
     RenderPass MakeRayQueryTlasDebugPass();
     RenderPass MakeForwardPass();
     RenderPass MakeLightingPass();
     RenderPass MakeLightingDebugGradientPass();
     RenderPass MakeToneMapPass();
     RenderPass MakeDebugDumpPass();
+    RenderPass MakePixelPickPass();
     RenderPass MakeGBufferDebugPass();
     RenderPass MakeShadowMaskDebugPass();
+    RenderPass MakeDebugLinePass();
     RenderPass MakeImGuiPass();
     void BuildRenderPasses();
     void AddSceneRenderPasses();
@@ -762,16 +839,25 @@ private:
     void ExecuteDepthPrePass(const RenderPass& pass);
     void ExecuteGBufferPass(const RenderPass& pass);
     void ExecuteRayQueryShadowPass(const RenderPass& pass);
+    void ExecuteSpecularDebugRayQueryPass(const RenderPass& pass);
     void ExecuteRayQueryTlasDebugPass(const RenderPass& pass);
     void ExecuteForwardPass(const RenderPass& pass);
     void ExecuteLightingPass(const RenderPass& pass);
     void ExecuteLightingDebugGradientPass(const RenderPass& pass);
     void ExecuteToneMapPass(const RenderPass& pass);
     void ExecuteDebugDumpPass(const RenderPass& pass);
+    void ExecutePixelPickPass(const RenderPass& pass);
     void ExecuteGBufferDebugPass(const RenderPass& pass);
     void ExecuteShadowMaskDebugPass(const RenderPass& pass);
+    void ExecuteDebugLinePass(const RenderPass& pass);
     void ExecuteImGuiPass(const RenderPass& pass);
     void RecordDebugDumpPass();
+    void RecordPixelPickPass();
+    void ReadbackPixelPick();
+    void ReadbackSpecularDebugRayQuery();
+    void ResetPixelPickReadbacks();
+    void CreatePixelPickReadback(ID3D12Resource* source, PixelPickReadback& readback) const;
+    void CopyPixelPickSource(ID3D12Resource* source, const PixelPickReadback& readback, UINT x, UINT y);
     void RecordImGuiPass();
     void EndFrame();
     void PrintDebugDump();

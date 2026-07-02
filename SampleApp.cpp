@@ -351,6 +351,11 @@ void SampleApp::OnMouseDown(UINT8 button, int x, int y)
 
     if (button == VK_LBUTTON)
     {
+        if (m_renderingPath == HelloTextureEngine::RenderingPath::Deferred && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
+        {
+            m_engine.RequestPixelPick(x, y);
+            return;
+        }
         m_isDragging = true;
         m_lastMouseX = x;
         m_lastMouseY = y;
@@ -1285,23 +1290,101 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
         }
     }
 
-    ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
-
-    const auto& gpuCheckPoints = context.gpuCheckPoints;
-    const size_t gpuCheckPointCount = gpuCheckPoints.size();
-    if (gpuCheckPointCount >= 2)
+    if (ImGui::CollapsingHeader("Pixel Pick (Ctrl+Click)", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        for (int i = 1; i < static_cast<int>(gpuCheckPointCount); i++)
+        const auto& pick = m_engine.GetPixelPickResult();
+        if (pick.valid)
         {
-            const auto& checkPoint = gpuCheckPoints[i];
-            if (i < static_cast<int>(gpuCheckPointCount) - 1)
+            ImGui::Text("Screen / Depth / Material");
+            ImGui::Text("  Screen: (%d, %d)  Mat ID: %u", pick.screenX, pick.screenY, pick.materialId);
+            ImGui::Text("  Depth (NDC): %.4f", pick.depthNdc);
+            ImGui::Separator();
+            ImGui::Text("World Vectors");
+            ImGui::Text("  World Pos:   (%.3f, %.3f, %.3f)", pick.worldPos.x, pick.worldPos.y, pick.worldPos.z);
+            ImGui::Text("  Normal:      (%.3f, %.3f, %.3f)", pick.normal.x, pick.normal.y, pick.normal.z);
+            ImGui::Text("  View Dir:    (%.3f, %.3f, %.3f)", pick.viewDir.x, pick.viewDir.y, pick.viewDir.z);
+            ImGui::Text("  Reflect Dir: (%.3f, %.3f, %.3f)", pick.reflectionDir.x, pick.reflectionDir.y,
+                         pick.reflectionDir.z);
+            ImGui::Separator();
+            ImGui::Text("GBuffer Material");
+            ImGui::Text("  Albedo:      (%.3f, %.3f, %.3f, %.3f)", pick.albedo.x, pick.albedo.y, pick.albedo.z,
+                         pick.albedo.w);
+            ImGui::Text("  Metallic:    %.3f", pick.metallic);
+            ImGui::Text("  Roughness:   %.3f", pick.roughness);
+            ImGui::Text("  AO:          %.3f", pick.ambientOcclusion);
+            ImGui::Text("  Emissive:    (%.3f, %.3f, %.3f)", pick.emissive.x, pick.emissive.y, pick.emissive.z);
+            ImGui::Separator();
+            ImGui::Text("Shadow Mask:   %.3f", pick.shadowMask);
+            ImGui::Separator();
+            if (ImGui::TreeNodeEx("Specular Reflection", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                const float timeFromPrevious = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
-                ImGui::Text("GPU[%d] %s: %f ms", i, checkPoint.name.c_str(), timeFromPrevious);
+                ImGui::Text("Status: %s", pick.reflectionHit ? "Hit" : "Miss");
+                if (pick.reflectionHit)
+                {
+                    ImGui::Text("Dist: %.3f", pick.reflectionHitDistance);
+                    ImGui::Text("Pos:  (%.3f, %.3f, %.3f)",
+                                pick.reflectionHitWorldPos.x,
+                                pick.reflectionHitWorldPos.y,
+                                pick.reflectionHitWorldPos.z);
+                }
+                ImGui::TreePop();
             }
-            else
+
+        }
+        else
+        {
+            ImGui::Text("Ctrl+Click on viewport to pick a pixel.");
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Specular Debug Lines", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        auto debugLines = m_engine.GetSpecularDebugLineSettings();
+
+        ImGui::Checkbox("Enable Debug Lines", &debugLines.enabled);
+        ImGui::SliderFloat("Line Length", &debugLines.lineLength, 0.1f, 5.0f, "%.1f");
+
+        ImGui::Checkbox("View Ray (yellow)", &debugLines.showViewRay);
+        ImGui::Checkbox("Normal (blue)", &debugLines.showNormal);
+        ImGui::Checkbox("Reflection (magenta)", &debugLines.showReflection);
+
+        // Compact legend
+        ImGui::Separator();
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "---");
+        ImGui::SameLine();
+        ImGui::Text("View Ray");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.0f, 0.0f, 1.0f, 1.0f), "---");
+        ImGui::SameLine();
+        ImGui::Text("Normal");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 1.0f, 1.0f), "---");
+        ImGui::SameLine();
+        ImGui::Text("Reflection");
+
+        m_engine.SetSpecularDebugLineSettings(debugLines);
+    }
+
+    if (ImGui::CollapsingHeader("WorkMeter"))
+    {
+        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
+
+        const auto& gpuCheckPoints = context.gpuCheckPoints;
+        const size_t gpuCheckPointCount = gpuCheckPoints.size();
+        if (gpuCheckPointCount >= 2)
+        {
+            for (int i = 1; i < static_cast<int>(gpuCheckPointCount); i++)
             {
-                ImGui::Text("GPU[%d] Total: %f ms", i, checkPoint.timeStamp);
+                const auto& checkPoint = gpuCheckPoints[i];
+                if (i < static_cast<int>(gpuCheckPointCount) - 1)
+                {
+                    const float timeFromPrevious = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
+                    ImGui::Text("GPU[%d] %s: %f ms", i, checkPoint.name.c_str(), timeFromPrevious);
+                }
+                else
+                {
+                    ImGui::Text("GPU[%d] Total: %f ms", i, checkPoint.timeStamp);
+                }
             }
         }
     }
