@@ -195,6 +195,11 @@ void HelloTextureEngine::SetShadowSettings(const ShadowSettings& settings)
     m_shadowSettings = settings;
 }
 
+void HelloTextureEngine::SetHybridReflectionSettings(const HybridReflectionSettings& settings)
+{
+    m_hybridReflectionSettings = settings;
+}
+
 void HelloTextureEngine::SetMaterialParams(UINT materialIndex, const MaterialParams& params)
 {
     if (materialIndex >= m_materialData.size())
@@ -2856,8 +2861,16 @@ void HelloTextureEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     passDesc.normalBias = m_shadowSettings.normalBias;
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
-    passDesc.maxRoughness = 1.0f;
-    passDesc.minMetallic = 0.0f;
+    if (m_hybridReflectionSettings.materialGateEnabled)
+    {
+        passDesc.maxRoughness = m_hybridReflectionSettings.maxRoughness;
+        passDesc.minMetallic = m_hybridReflectionSettings.minMetallic;
+    }
+    else
+    {
+        passDesc.maxRoughness = 1.0f;
+        passDesc.minMetallic = 0.0f;
+    }
     passDesc.width = m_width;
     passDesc.height = m_height;
 

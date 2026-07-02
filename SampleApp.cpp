@@ -1199,6 +1199,27 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
         }
     }
 
+    if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        auto reflectionSettings = m_engine.GetHybridReflectionSettings();
+        bool changed = false;
+
+        changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
+
+        ImGui::BeginDisabled(!reflectionSettings.materialGateEnabled);
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Max Roughness", &reflectionSettings.maxRoughness, 0.0f, 1.0f, 0.05f, 0.35f);
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Min Metallic", &reflectionSettings.minMetallic, 0.0f, 1.0f, 0.05f, 0.0f);
+        ImGui::EndDisabled();
+
+        if (changed)
+        {
+            m_engine.SetHybridReflectionSettings(reflectionSettings);
+        }
+    }
+
     if (ImGui::CollapsingHeader("Debug", ImGuiTreeNodeFlags_DefaultOpen))
     {
         int renderingPath = static_cast<int>(m_renderingPath);

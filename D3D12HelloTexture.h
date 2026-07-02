@@ -187,6 +187,13 @@ public:
         float jitterStrength = 2.0f;
     };
 
+    struct HybridReflectionSettings
+    {
+        bool materialGateEnabled = false;
+        float maxRoughness = 0.35f;
+        float minMetallic = 0.0f;
+    };
+
     struct SpecularDebugLineSettings
     {
         bool enabled = true;
@@ -228,6 +235,8 @@ public:
     void SetLightingParams(const LightingParams& params);
     void SetShadowSettings(const ShadowSettings& settings);
     const ShadowSettings& GetShadowSettings() const { return m_shadowSettings; }
+    void SetHybridReflectionSettings(const HybridReflectionSettings& settings);
+    const HybridReflectionSettings& GetHybridReflectionSettings() const { return m_hybridReflectionSettings; }
     void SetMaterialParams(UINT materialIndex, const MaterialParams& params);
     void SetRenderingPath(RenderingPath renderingPath);
     void SetLightingPassDebugGradient(bool enabled);
@@ -580,6 +589,7 @@ private:
     std::vector<Engine::Material> m_materialData;
     LightingParams m_lightingParams;
     ShadowSettings m_shadowSettings;
+    HybridReflectionSettings m_hybridReflectionSettings;
     SpecularDebugLineSettings m_specularDebugLineSettings;
     Engine::ProceduralEnvironmentSettings m_environmentSettings;
 

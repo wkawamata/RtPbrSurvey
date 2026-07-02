@@ -61,6 +61,14 @@ Same pattern as `CreateRayQueryShadowRootSignature` + `D3D12_COMPUTE_PIPELINE_ST
 - Initial scaffold uses `ReflectionRayHit` with `DXGI_FORMAT_R16G16_FLOAT`.
 - Can be packed into R16G16_UNORM later for bandwidth savings if needed, but keep float storage while debugging.
 
+## Material Gating
+
+The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params:
+
+- Disabled by default: `maxRoughness = 1.0`, `minMetallic = 0.0`, preserving the initial "trace all visible pixels" behavior.
+- When `Material Gate` is enabled in the Debug UI, the pass uses `HybridReflectionSettings::maxRoughness` and `minMetallic`.
+- The first useful debug setting is roughness-focused (`maxRoughness = 0.35`, `minMetallic = 0.0`) so glossy dielectric and metallic surfaces can both be inspected.
+
 ## Descriptors Required
 
 - 1 UAV: reflection output texture
