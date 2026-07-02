@@ -1220,6 +1220,13 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
             "Hit Overlay Intensity", &reflectionSettings.hitOverlayIntensity, 0.0f, 1.0f, 0.05f, 0.2f);
         ImGui::EndDisabled();
 
+        changed |= ImGui::Checkbox("Reflection Contribution", &reflectionSettings.contributionEnabled);
+
+        ImGui::BeginDisabled(!reflectionSettings.contributionEnabled);
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Contribution Intensity", &reflectionSettings.contributionIntensity, 0.0f, 2.0f, 0.05f, 0.25f);
+        ImGui::EndDisabled();
+
         changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
 
         ImGui::BeginDisabled(!reflectionSettings.enabled || !reflectionSettings.materialGateEnabled);

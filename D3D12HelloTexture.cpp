@@ -244,6 +244,11 @@ auto HelloTextureEngine::MakeLightingConstants() const -> LightingConstants
             0.0f,
         m_hybridReflectionSettings.hitOverlayIntensity,
         static_cast<float>(m_hybridReflectionSettings.hitOverlayMode),
+        (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
+         m_hybridReflectionSettings.contributionEnabled) ?
+            1.0f :
+            0.0f,
+        m_hybridReflectionSettings.contributionIntensity,
     };
 }
 

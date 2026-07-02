@@ -196,6 +196,8 @@ public:
         bool hitOverlayEnabled = false;
         int hitOverlayMode = 0;
         float hitOverlayIntensity = 0.2f;
+        bool contributionEnabled = false;
+        float contributionIntensity = 0.25f;
     };
 
     struct SpecularDebugLineSettings
@@ -434,6 +436,8 @@ private:
         float reflectionHitOverlayEnabled = 0.0f;
         float reflectionHitOverlayIntensity = 0.2f;
         float reflectionHitOverlayMode = 0.0f;
+        float reflectionContributionEnabled = 0.0f;
+        float reflectionContributionIntensity = 0.25f;
     };
 
     LightingConstants MakeLightingConstants() const;

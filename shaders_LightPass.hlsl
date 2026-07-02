@@ -50,6 +50,8 @@ cbuffer LightingConstants : register(b2)
     float reflectionHitOverlayEnabled;
     float reflectionHitOverlayIntensity;
     float reflectionHitOverlayMode;
+    float reflectionContributionEnabled;
+    float reflectionContributionIntensity;
 };
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
@@ -261,9 +263,13 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 iblSpecular =
         environmentSpecular * (specularFresnel * brdf.x + brdf.y) * iblIntensity * specularOcclusion * specularIblEnabled;
     float3 color = iblDiffuse + iblSpecular + directLighting + emissive * emissiveEnabled;
+    float2 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
+    if (reflectionContributionEnabled > 0.5)
+    {
+        color += iblSpecular * reflectionHit.y * reflectionContributionIntensity;
+    }
     if (reflectionHitOverlayEnabled > 0.5)
     {
-        float2 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
         float3 overlayColor = float3(0.0, 0.85, 1.0);
         if (reflectionHitOverlayMode > 1.5)
         {
