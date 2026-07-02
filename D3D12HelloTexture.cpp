@@ -151,6 +151,7 @@ void HelloTextureEngine::InitResourceDefaultStates()
     m_resourceDefaultStates.push_back({kDepthStencilResourceName, D3D12_RESOURCE_STATE_DEPTH_WRITE});
     m_resourceDefaultStates.push_back({kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     m_resourceDefaultStates.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
+    m_resourceDefaultStates.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     for (UINT i = 0; i < Engine::GBuffer::kCount; ++i)
     {
         m_resourceDefaultStates.push_back({kGBufferResourceNames[i], D3D12_RESOURCE_STATE_RENDER_TARGET});
@@ -1071,6 +1072,7 @@ void HelloTextureEngine::LoadAssets()
     CreatePipelineStates();
     CreateGBuffer();
     CreateShadowMask(m_width, m_height);
+    CreateReflectionRayHit(m_width, m_height);
     CreateInitialCommandList();
 
     // Close the initial command list so ReloadEnvironmentResources can reset it.
@@ -2026,6 +2028,52 @@ void HelloTextureEngine::CreateShadowMaskDescriptors()
                                                          m_stageAllocator.CpuHandle(m_shadowMaskRange.Start + 1));
 }
 
+void HelloTextureEngine::CreateReflectionRayHit(UINT width, UINT height)
+{
+    m_reflectionRayHit.Reset();
+
+    D3D12_RESOURCE_DESC desc = {};
+    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    desc.Width = width;
+    desc.Height = height;
+    desc.DepthOrArraySize = 1;
+    desc.MipLevels = 1;
+    desc.Format = DXGI_FORMAT_R16G16_FLOAT;
+    desc.SampleDesc.Count = 1;
+    desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+                                                                     D3D12_HEAP_FLAG_NONE,
+                                                                     &desc,
+                                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+                                                                     nullptr,
+                                                                     IID_PPV_ARGS(&m_reflectionRayHit)));
+    m_reflectionRayHit->SetName(L"ReflectionRayHit");
+
+    CreateReflectionRayHitDescriptors();
+}
+
+void HelloTextureEngine::CreateReflectionRayHitDescriptors()
+{
+    m_reflectionRayHitSrv = m_descriptorHeapAllocator.AllocWithHandle();
+    m_reflectionRayHitUav = m_descriptorHeapAllocator.AllocWithHandle();
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = DXGI_FORMAT_R16G16_FLOAT;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Texture2D.MipLevels = 1;
+    m_graphicsDevice.Device()->CreateShaderResourceView(
+        m_reflectionRayHit.Get(), &srvDesc, m_reflectionRayHitSrv.cpu);
+
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    uavDesc.Format = DXGI_FORMAT_R16G16_FLOAT;
+    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+    m_graphicsDevice.Device()->CreateUnorderedAccessView(
+        m_reflectionRayHit.Get(), nullptr, &uavDesc, m_reflectionRayHitUav.cpu);
+}
+
 D3D12_CPU_DESCRIPTOR_HANDLE HelloTextureEngine::GetBackBufferRtv() const
 {
     CD3DX12_CPU_DESCRIPTOR_HANDLE h(
@@ -2103,6 +2151,18 @@ void HelloTextureEngine::RegisterPassBindingResolvers()
                                                        {
                                                            return m_stageAllocator.GpuHandle(m_shadowMaskRange.Start + 1);
                                                        });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionRayHitSrv),
+        [this]()
+        {
+            return m_reflectionRayHitSrv.gpu;
+        });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionRayHitUav),
+        [this]()
+        {
+            return m_reflectionRayHitUav.gpu;
+        });
     m_renderGraphRuntime.Bindings().RegisterDescriptor(m_renderGraphRuntime.RegisterDescriptor(Desc::TlasDebugUav),
                                                        [this]()
                                                        {
@@ -2139,6 +2199,8 @@ void HelloTextureEngine::RegisterResourceResolvers()
     m_renderGraphRuntime.Resources().RegisterResource(kLightPassRenderTargetResourceName,
                                                       [this]() { return m_lightPassRenderTarget.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kShadowMaskResourceName, [this]() { return m_shadowMask.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kReflectionRayHitResourceName,
+                                                       [this]() { return m_reflectionRayHit.Get(); });
     for (UINT i = 0; i < Engine::GBuffer::kCount; ++i)
     {
         m_renderGraphRuntime.Resources().RegisterResource(kGBufferResourceNames[i],
@@ -2371,12 +2433,14 @@ void HelloTextureEngine::ApplyResize(UINT width, UINT height)
     m_depthStencil.Reset();
     m_lightPassRenderTarget.Reset();
     m_shadowMask.Reset();
+    m_reflectionRayHit.Reset();
     m_resourceRegistry.UnregisterTransientResource(kDepthStencilResourceName);
     m_resourceRegistry.UnregisterTransientResource(kLightPassRenderTargetResourceName);
     RegisterDepthStencil(m_width, m_height);
     RegisterLightPassRenderTarget(m_width, m_height);
     CreateGBuffer();
     CreateShadowMask(m_width, m_height);
+    CreateReflectionRayHit(m_width, m_height);
 
     // Camera
     UpdateCameraConstantBuffer();
