@@ -1241,10 +1241,15 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
         ImGui::RadioButton("Shadow Mask", &renderViewMode, static_cast<int>(RenderViewMode::ShadowMask));
         ImGui::SameLine();
         ImGui::RadioButton("TLAS Debug", &renderViewMode, static_cast<int>(RenderViewMode::TlasDebug));
+        ImGui::RadioButton("Reflection Hit", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayHit));
+        ImGui::SameLine();
+        ImGui::RadioButton("Reflection Distance", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayDistance));
         ImGui::EndDisabled();
         m_renderViewMode = static_cast<RenderViewMode>(renderViewMode);
         if (!context.rayTracingSupported &&
-            (m_renderViewMode == RenderViewMode::ShadowMask || m_renderViewMode == RenderViewMode::TlasDebug))
+            (m_renderViewMode == RenderViewMode::ShadowMask || m_renderViewMode == RenderViewMode::TlasDebug ||
+             m_renderViewMode == RenderViewMode::ReflectionRayHit ||
+             m_renderViewMode == RenderViewMode::ReflectionRayDistance))
         {
             m_renderViewMode = RenderViewMode::LightPass;
         }

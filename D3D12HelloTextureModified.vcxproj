@@ -145,6 +145,7 @@
     <ClInclude Include="Renderer\FullscreenTriangle.h" />
     <ClInclude Include="Renderer\GBuffer.h" />
     <ClInclude Include="Renderer\HdrOutput.h" />
+    <ClInclude Include="Renderer\HybridReflectionPass.h" />
     <ClInclude Include="Renderer\LightingPass.h" />
     <ClInclude Include="Renderer\Material.h" />
     <ClInclude Include="Renderer\MaterialBuffer.h" />
@@ -153,6 +154,7 @@
     <ClInclude Include="Renderer\RayQueryShadowPass.h" />
     <ClInclude Include="Renderer\SpecularDebugRayQueryPass.h" />
     <ClInclude Include="Renderer\RayQueryTlasDebugPass.h" />
+    <ClInclude Include="Renderer\ReflectionRayHitDebugPass.h" />
     <ClInclude Include="Renderer\RayTracingSupport.h" />
     <ClInclude Include="Renderer\ShadowMaskDebugPass.h" />
     <ClInclude Include="Renderer\RenderPassExecution.h" />
@@ -193,6 +195,7 @@
     <ClCompile Include="Renderer\FullscreenTriangle.cpp" />
     <ClCompile Include="Renderer\GBuffer.cpp" />
     <ClCompile Include="Renderer\HdrOutput.cpp" />
+    <ClCompile Include="Renderer\HybridReflectionPass.cpp" />
     <ClCompile Include="Renderer\LightingPass.cpp" />
     <ClCompile Include="Renderer\MaterialBuffer.cpp" />
     <ClCompile Include="Renderer\PipelineFactory.cpp" />
@@ -200,6 +203,7 @@
     <ClCompile Include="Renderer\RayQueryShadowPass.cpp" />
     <ClCompile Include="Renderer\SpecularDebugRayQueryPass.cpp" />
     <ClCompile Include="Renderer\RayQueryTlasDebugPass.cpp" />
+    <ClCompile Include="Renderer\ReflectionRayHitDebugPass.cpp" />
     <ClCompile Include="Renderer\RayTracingSupport.cpp" />
     <ClCompile Include="Renderer\ShadowMaskDebugPass.cpp" />
     <ClCompile Include="Renderer\RootSignatureFactory.cpp" />
@@ -301,6 +305,20 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
     </CustomBuild>
+    <CustomBuild Include="shaders_ReflectionRayHitDebug.hlsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DeploymentContent>true</DeploymentContent>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Identity)</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Identity)</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">dxc.exe -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_VSMain.cso" "%(FullPath)"
+dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_PSMain.cso" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dxc.exe -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_VSMain.cso" "%(FullPath)"
+dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_PSMain.cso" "%(FullPath)"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
+    </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="shaders_LightPass.hlsl">
@@ -358,6 +376,17 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
     </CustomBuild>
     <CustomBuild Include="shaders_RayQueryShadow.hlsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Identity)</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Identity)</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">dxc.exe -nologo -Tcs_6_5 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dxc.exe -nologo -Tcs_6_5 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="shaders_HybridReflection.hlsl">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
       <FileType>Document</FileType>

@@ -84,6 +84,9 @@
     <ClInclude Include="Renderer\HdrOutput.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\HybridReflectionPass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\LightingPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -103,6 +106,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
     <ClInclude Include="Renderer\RayQueryTlasDebugPass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\ReflectionRayHitDebugPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
     <ClInclude Include="Renderer\ShadowMaskDebugPass.h">
@@ -230,6 +236,9 @@
     <ClCompile Include="Renderer\HdrOutput.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\HybridReflectionPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\LightingPass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
@@ -246,6 +255,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\RayQueryTlasDebugPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\ReflectionRayHitDebugPass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\ShadowMaskDebugPass.cpp">
@@ -301,6 +313,9 @@
     <CustomBuild Include="shaders_ShadowMaskDebug.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
+    <CustomBuild Include="shaders_ReflectionRayHitDebug.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
     <CustomBuild Include="shaders_LightPass.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
@@ -308,6 +323,9 @@
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="shaders_RayQueryShadow.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="shaders_HybridReflection.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="shaders_RayQueryTlasDebug.hlsl">

@@ -20,6 +20,7 @@
 #include "Renderer/EnvironmentMap.h"
 #include "Renderer/GBuffer.h"
 #include "Renderer/HdrOutput.h"
+#include "Renderer/HybridReflectionPass.h"
 #include "Renderer/LightingPass.h"
 #include "Renderer/Material.h"
 #include "Renderer/MaterialBuffer.h"
@@ -29,6 +30,7 @@
 #include "Renderer/RayQueryShadowPass.h"
 #include "Renderer/SpecularDebugRayQueryPass.h"
 #include "Renderer/RayQueryTlasDebugPass.h"
+#include "Renderer/ReflectionRayHitDebugPass.h"
 #include "Renderer/RayTracingSupport.h"
 #include "Renderer/RenderPassExecution.h"
 #include "Renderer/RenderPassGraph.h"
@@ -97,6 +99,8 @@ public:
         IblDiffuseIrradiance,
         IblSpecularPrefilter,
         IblBrdfLut,
+        ReflectionRayHit,
+        ReflectionRayDistance,
         ShadowMask,
         TlasDebug,
     };
@@ -261,6 +265,8 @@ private:
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* GBufferDebug = "GBufferDebug";
+            static constexpr const char* HybridReflection = "HybridReflection";
+            static constexpr const char* ReflectionRayHitDebug = "ReflectionRayHitDebug";
             static constexpr const char* RayQueryShadow = "RayQueryShadow";
             static constexpr const char* SpecularDebugRayQuery = "SpecularDebugRayQuery";
             static constexpr const char* RayQueryTlasDebug = "RayQueryTlasDebug";
@@ -319,6 +325,8 @@ private:
             static constexpr const char* GBufferDebug = "GBufferDebug";
             static constexpr const char* ShadowMaskDebug = "ShadowMaskDebug";
             static constexpr const char* DebugLine = "DebugLine";
+            static constexpr const char* HybridReflection = "HybridReflection";
+            static constexpr const char* ReflectionRayHitDebug = "ReflectionRayHitDebug";
             static constexpr const char* RayQueryShadow = "RayQueryShadow";
             static constexpr const char* SpecularDebugRayQuery = "SpecularDebugRayQuery";
             static constexpr const char* RayQueryTlasDebug = "RayQueryTlasDebug";
@@ -329,6 +337,7 @@ private:
         {
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* GBufferDebugTarget = "GBufferDebugTarget";
+            static constexpr const char* ReflectionRayHitDebugTarget = "ReflectionRayHitDebugTarget";
         };
     };
 
@@ -447,6 +456,8 @@ private:
         bool IsGBufferDebugView() const
         {
             return renderViewMode != RenderViewMode::LightPass &&
+                   renderViewMode != RenderViewMode::ReflectionRayHit &&
+                   renderViewMode != RenderViewMode::ReflectionRayDistance &&
                    renderViewMode != RenderViewMode::ShadowMask &&
                    renderViewMode != RenderViewMode::TlasDebug &&
                    !IsLightPassDebugView();
@@ -466,6 +477,12 @@ private:
         {
             assert(IsGBufferDebugView());
             return static_cast<UINT>(renderViewMode) - static_cast<UINT>(RenderViewMode::GBufferAlbedo);
+        }
+        UINT GetReflectionRayHitDebugTarget() const
+        {
+            assert(renderViewMode == RenderViewMode::ReflectionRayHit ||
+                   renderViewMode == RenderViewMode::ReflectionRayDistance);
+            return renderViewMode == RenderViewMode::ReflectionRayHit ? 0u : 1u;
         }
     };
 
@@ -496,12 +513,14 @@ private:
 
     ComPtr<ID3D12RootSignature> m_rootSignature;
     ComPtr<ID3D12RootSignature> m_proceduralEnvRootSignature;
+    ComPtr<ID3D12RootSignature> m_hybridReflectionRootSignature;
     ComPtr<ID3D12RootSignature> m_rayQueryShadowRootSignature;
     ComPtr<ID3D12RootSignature> m_specularDebugRayQueryRootSignature;
     ComPtr<ID3D12RootSignature> m_rayQueryTlasDebugRootSignature;
     ComPtr<ID3D12RootSignature> m_lightingRootSignature; // not used in this sample but created for future use
 
     ComPtr<ID3D12PipelineState> m_proceduralEnvPipeline;
+    ComPtr<ID3D12PipelineState> m_hybridReflectionPipeline;
     ComPtr<ID3D12PipelineState> m_rayQueryShadowPipeline;
     ComPtr<ID3D12PipelineState> m_specularDebugRayQueryPipeline;
     ComPtr<ID3D12PipelineState> m_rayQueryTlasDebugPipeline;
@@ -683,9 +702,11 @@ private:
         GraphicsPipelineShaderSet gbuffer;
         GraphicsPipelineShaderSet gbufferDebug;
         GraphicsPipelineShaderSet shadowMaskDebug;
+        GraphicsPipelineShaderSet reflectionRayHitDebug;
         GraphicsPipelineShaderSet lighting;
         GraphicsPipelineShaderSet lightingDebugGradient;
         GraphicsPipelineShaderSet toneMap;
+        ShaderBytecode hybridReflection;
         ShaderBytecode proceduralEnv;
         ShaderBytecode rayQueryShadow;
         ShaderBytecode specularDebugRayQuery;
@@ -696,6 +717,7 @@ private:
     void LoadAssets();
     void CreateRootSignature();
     void CreateProceduralEnvRootSignature();
+    void CreateHybridReflectionRootSignature();
     void CreateRayQueryShadowRootSignature();
     void CreateSpecularDebugRayQueryRootSignature();
     void CreateRayQueryTlasDebugRootSignature();
@@ -792,6 +814,7 @@ private:
     RenderPass MakeClearPass();
     RenderPass MakeDepthPrePass();
     RenderPass MakeGBufferPass();
+    RenderPass MakeHybridReflectionPass();
     RenderPass MakeRayQueryShadowPass();
     RenderPass MakeSpecularDebugRayQueryPass();
     RenderPass MakeRayQueryTlasDebugPass();
@@ -802,6 +825,7 @@ private:
     RenderPass MakeDebugDumpPass();
     RenderPass MakePixelPickPass();
     RenderPass MakeGBufferDebugPass();
+    RenderPass MakeReflectionRayHitDebugPass();
     RenderPass MakeShadowMaskDebugPass();
     RenderPass MakeDebugLinePass();
     RenderPass MakeImGuiPass();
@@ -848,6 +872,7 @@ private:
     void ExecuteClearPass(const RenderPass& pass);
     void ExecuteDepthPrePass(const RenderPass& pass);
     void ExecuteGBufferPass(const RenderPass& pass);
+    void ExecuteHybridReflectionPass(const RenderPass& pass);
     void ExecuteRayQueryShadowPass(const RenderPass& pass);
     void ExecuteSpecularDebugRayQueryPass(const RenderPass& pass);
     void ExecuteRayQueryTlasDebugPass(const RenderPass& pass);
@@ -858,6 +883,7 @@ private:
     void ExecuteDebugDumpPass(const RenderPass& pass);
     void ExecutePixelPickPass(const RenderPass& pass);
     void ExecuteGBufferDebugPass(const RenderPass& pass);
+    void ExecuteReflectionRayHitDebugPass(const RenderPass& pass);
     void ExecuteShadowMaskDebugPass(const RenderPass& pass);
     void ExecuteDebugLinePass(const RenderPass& pass);
     void ExecuteImGuiPass(const RenderPass& pass);

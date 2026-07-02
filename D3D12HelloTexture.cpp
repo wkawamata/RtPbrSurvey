@@ -45,12 +45,14 @@
 #include "Renderer\ClearPass.h"
 #include "Renderer\DebugDumpCapture.h"
 #include "Renderer\GBuffer.h"
+#include "Renderer\HybridReflectionPass.h"
 #include "Renderer\LightingPass.h"
 #include "Renderer\Material.h"
 #include "Renderer\PipelineFactory.h"
 #include "Renderer\RayQueryShadowPass.h"
 #include "Renderer\SpecularDebugRayQueryPass.h"
 #include "Renderer\RayQueryTlasDebugPass.h"
+#include "Renderer\ReflectionRayHitDebugPass.h"
 #include "Renderer\RayTracingSupport.h"
 #include "Renderer\RenderPassExecution.h"
 #include "Renderer\RenderPassResources.h"
@@ -1057,6 +1059,7 @@ void HelloTextureEngine::LoadAssets()
 {
     CreateRootSignature();
     CreateProceduralEnvRootSignature();
+    CreateHybridReflectionRootSignature();
     CreateRayQueryShadowRootSignature();
     CreateSpecularDebugRayQueryRootSignature();
     CreateRayQueryTlasDebugRootSignature();
@@ -1120,6 +1123,56 @@ void HelloTextureEngine::CreateProceduralEnvRootSignature()
     ThrowIfFailed(D3D12SerializeVersionedRootSignature(&rootSignatureDesc, &signature, &error));
     ThrowIfFailed(m_graphicsDevice.Device()->CreateRootSignature(
         0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_proceduralEnvRootSignature)));
+}
+
+void HelloTextureEngine::CreateHybridReflectionRootSignature()
+{
+    CD3DX12_DESCRIPTOR_RANGE1 uavRange = {};
+    uavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
+
+    CD3DX12_DESCRIPTOR_RANGE1 tlasSrvRange = {};
+    tlasSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
+
+    CD3DX12_DESCRIPTOR_RANGE1 depthSrvRange = {};
+    depthSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 0);
+
+    CD3DX12_DESCRIPTOR_RANGE1 normalSrvRange = {};
+    normalSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2, 0);
+
+    CD3DX12_DESCRIPTOR_RANGE1 pbrParamsSrvRange = {};
+    pbrParamsSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3, 0);
+
+    CD3DX12_DESCRIPTOR_RANGE1 cameraCbvRange = {};
+    cameraCbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0);
+
+    CD3DX12_ROOT_PARAMETER1 rootParameters[7] = {};
+    rootParameters[0].InitAsDescriptorTable(1, &uavRange);          // g_reflectionRayHit (u0)
+    rootParameters[1].InitAsDescriptorTable(1, &tlasSrvRange);      // g_tlas (t0)
+    rootParameters[2].InitAsDescriptorTable(1, &depthSrvRange);     // g_depth (t1)
+    rootParameters[3].InitAsDescriptorTable(1, &normalSrvRange);    // g_normal (t2)
+    rootParameters[4].InitAsDescriptorTable(1, &pbrParamsSrvRange); // g_pbrParams (t3)
+    rootParameters[5].InitAsDescriptorTable(1, &cameraCbvRange);    // CameraCB (b0)
+    rootParameters[6].InitAsConstants(5, 1, 0);                     // ReflectionConstants (b1)
+
+    D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
+    featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
+    if (FAILED(m_graphicsDevice.Device()->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData))))
+    {
+        featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
+    }
+    const D3D_ROOT_SIGNATURE_VERSION rootSignatureVersion = featureData.HighestVersion;
+
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
+    rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_NONE);
+
+    ComPtr<ID3DBlob> signature;
+    ComPtr<ID3DBlob> error;
+    ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, rootSignatureVersion, &signature, &error));
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateRootSignature(
+        0,
+        signature->GetBufferPointer(),
+        signature->GetBufferSize(),
+        IID_PPV_ARGS(&m_hybridReflectionRootSignature)));
 }
 
 void HelloTextureEngine::CreateRayQueryShadowRootSignature()
@@ -1281,12 +1334,15 @@ auto HelloTextureEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
                             LoadShaderBytecode(L"shaders_GBufferDebug_PSMain.cso")};
     shaders.shadowMaskDebug = {LoadShaderBytecode(L"shaders_ShadowMaskDebug_VSMain.cso"),
                                LoadShaderBytecode(L"shaders_ShadowMaskDebug_PSMain.cso")};
+    shaders.reflectionRayHitDebug = {LoadShaderBytecode(L"shaders_ReflectionRayHitDebug_VSMain.cso"),
+                                     LoadShaderBytecode(L"shaders_ReflectionRayHitDebug_PSMain.cso")};
     shaders.lighting = {LoadShaderBytecode(L"shaders_LightPass_VSMain.cso"),
                         LoadShaderBytecode(L"shaders_LightPass_PSMain.cso")};
     shaders.lightingDebugGradient = {LoadShaderBytecode(L"shaders_LightPassDebugGradient_VSMain.cso"),
                                      LoadShaderBytecode(L"shaders_LightPassDebugGradient_PSMain.cso")};
     shaders.toneMap = {LoadShaderBytecode(L"shaders_ToneMap_VSMain.cso"),
                        LoadShaderBytecode(L"shaders_ToneMap_PSMain.cso")};
+    shaders.hybridReflection = LoadShaderBytecode(L"shaders_HybridReflection_CSMain.cso");
     shaders.proceduralEnv = LoadShaderBytecode(L"shaders_ProceduralEnvMap_CSMain.cso");
     shaders.rayQueryShadow = LoadShaderBytecode(L"shaders_RayQueryShadow_CSMain.cso");
     shaders.specularDebugRayQuery = LoadShaderBytecode(L"shaders_SpecularDebugRayQuery_CSMain.cso");
@@ -1304,6 +1360,13 @@ void HelloTextureEngine::CreatePipelineStates()
     computeDesc.CS = CD3DX12_SHADER_BYTECODE(shaders.proceduralEnv.data, shaders.proceduralEnv.size);
     ThrowIfFailed(
         m_graphicsDevice.Device()->CreateComputePipelineState(&computeDesc, IID_PPV_ARGS(&m_proceduralEnvPipeline)));
+
+    D3D12_COMPUTE_PIPELINE_STATE_DESC hybridReflectionDesc = {};
+    hybridReflectionDesc.pRootSignature = m_hybridReflectionRootSignature.Get();
+    hybridReflectionDesc.CS = CD3DX12_SHADER_BYTECODE(shaders.hybridReflection.data, shaders.hybridReflection.size);
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateComputePipelineState(
+        &hybridReflectionDesc,
+        IID_PPV_ARGS(&m_hybridReflectionPipeline)));
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC rayQueryShadowDesc = {};
     rayQueryShadowDesc.pRootSignature = m_rayQueryShadowRootSignature.Get();
@@ -1361,6 +1424,7 @@ void HelloTextureEngine::RegisterPipelineStates(const PipelineShaderBytecode& sh
          {Pipe::LightingDebugGradient, shaders.lightingDebugGradient, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::ToneMap, shaders.toneMap, m_backBufferFormat},
          {Pipe::GBufferDebug, shaders.gbufferDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
+         {Pipe::ReflectionRayHitDebug, shaders.reflectionRayHitDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::ShadowMaskDebug, shaders.shadowMaskDebug, DXGI_FORMAT_R16G16B16A16_FLOAT}});
 
     //
@@ -2187,6 +2251,13 @@ void HelloTextureEngine::RegisterPassConstantsHandlers()
                                                   m_commandList->SetGraphicsRoot32BitConstants(
                                                       rootParameterIndex, 1, &debugTarget, 0);
                                               });
+    m_renderGraphRuntime.Constants().Register(
+        m_renderGraphRuntime.RegisterConstants(ConstName::ReflectionRayHitDebugTarget),
+        [this](UINT rootParameterIndex)
+        {
+            const UINT debugTarget = m_debugViewSettings.GetReflectionRayHitDebugTarget();
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 1, &debugTarget, 0);
+        });
 }
 
 void HelloTextureEngine::RegisterResourceResolvers()
@@ -2769,6 +2840,31 @@ void HelloTextureEngine::ExecuteGBufferPass(const RenderPass& pass)
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "GBuffer Pass");
 }
 
+void HelloTextureEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+
+    Engine::HybridReflectionPassDesc passDesc = {};
+    passDesc.rootSignature = m_hybridReflectionRootSignature.Get();
+    passDesc.pipelineState = m_hybridReflectionPipeline.Get();
+    passDesc.reflectionRayHitUav = m_reflectionRayHitUav.gpu;
+    passDesc.tlasSrv = m_accelerationStructures.tlasSrv.Gpu();
+    passDesc.depthSrv = m_depthStencilSrv.gpu;
+    passDesc.normalSrv = m_gbuffer.srvHandles[Engine::GBuffer::Normal].gpu;
+    passDesc.pbrParamsSrv = m_gbuffer.srvHandles[Engine::GBuffer::PBRParams].gpu;
+    passDesc.cameraCbv = m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu;
+    passDesc.normalBias = m_shadowSettings.normalBias;
+    passDesc.rayTMin = m_shadowSettings.rayTMin;
+    passDesc.rayTMax = m_shadowSettings.rayTMax;
+    passDesc.maxRoughness = 1.0f;
+    passDesc.minMetallic = 0.0f;
+    passDesc.width = m_width;
+    passDesc.height = m_height;
+
+    Engine::RecordHybridReflectionPass(m_commandList.Get(), passDesc);
+    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Hybrid Reflection Pass");
+}
+
 void HelloTextureEngine::ExecuteRayQueryShadowPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
@@ -2918,6 +3014,14 @@ void HelloTextureEngine::ExecuteGBufferDebugPass(const RenderPass& pass)
 {
     Engine::RecordGBufferDebugPass(m_commandList.Get());
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "GBuffer Debug Pass");
+}
+
+void HelloTextureEngine::ExecuteReflectionRayHitDebugPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+
+    Engine::RecordReflectionRayHitDebugPass(m_commandList.Get());
+    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ReflectionRayHit Debug Pass");
 }
 
 void HelloTextureEngine::ExecuteShadowMaskDebugPass(const RenderPass& pass)

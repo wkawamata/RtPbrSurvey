@@ -48,6 +48,7 @@ void HelloTextureEngine::AddSceneRenderPasses()
         if (m_rayTracingSupport.IsSupported())
         {
             AddPass(MakeRayQueryShadowPass());
+            AddPass(MakeHybridReflectionPass());
             if (m_specularDebugRayQueryRequested)
             {
                 AddPass(MakeSpecularDebugRayQueryPass());
@@ -67,7 +68,12 @@ void HelloTextureEngine::AddSceneRenderPasses()
 
 void HelloTextureEngine::AddDeferredSceneOutputPass()
 {
-    if (m_debugViewSettings.renderViewMode == RenderViewMode::ShadowMask ||
+    if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayHit ||
+        m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayDistance)
+    {
+        AddPass(MakeReflectionRayHitDebugPass());
+    }
+    else if (m_debugViewSettings.renderViewMode == RenderViewMode::ShadowMask ||
         m_debugViewSettings.renderViewMode == RenderViewMode::TlasDebug)
     {
         AddPass(MakeShadowMaskDebugPass());
@@ -178,6 +184,18 @@ auto HelloTextureEngine::MakeGBufferPass() -> RenderPass
                RtvName::GBufferEmissive})
         .Dsv(DsvName::Depth)
         .Operation(Op::GBuffer, &HelloTextureEngine::ExecuteGBufferPass)
+        .Build();
+}
+
+auto HelloTextureEngine::MakeHybridReflectionPass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"HybridReflectionPass")
+        .Reads({{kDepthStencilResourceName, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE}})
+        .Writes({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
+        .Operation(Op::HybridReflection, &HelloTextureEngine::ExecuteHybridReflectionPass)
         .Build();
 }
 
@@ -336,6 +354,20 @@ auto HelloTextureEngine::MakeShadowMaskDebugPass() -> RenderPass
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ShadowMaskSrv)
         .Rtv(RtvName::LightPass)
         .Operation(Op::ShadowMaskDebug, &HelloTextureEngine::ExecuteShadowMaskDebugPass)
+        .Build();
+}
+
+auto HelloTextureEngine::MakeReflectionRayHitDebugPass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"ReflectionRayHitDebugPass")
+        .Pipeline(Pipe::ReflectionRayHitDebug)
+        .Reads({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Writes({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ReflectionRayHitSrv)
+        .Rtv(RtvName::LightPass)
+        .Operation(Op::ReflectionRayHitDebug, &HelloTextureEngine::ExecuteReflectionRayHitDebugPass)
+        .Constants(RootSignatureLayout::GBufferDebugConstants, ConstName::ReflectionRayHitDebugTarget)
         .Build();
 }
 

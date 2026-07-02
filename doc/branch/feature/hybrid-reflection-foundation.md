@@ -4,6 +4,8 @@
 
 Recommendation for the shape of a full-screen HybridReflectionPass using RayQuery inline raytracing to compute specular reflections from the GBuffer.
 
+Current implementation status: HybridReflectionPass scaffold is wired into the render graph and writes `ReflectionRayHit` as `.x = hit distance`, `.y = hit flag`. `Reflection Hit` and `Reflection Distance` debug views can display the generated buffer from the Debug UI.
+
 ## Existing Pass Survey
 
 ### RayQueryShadowPass (full-screen, descriptor-table-based)
@@ -40,10 +42,11 @@ Follow RayQueryShadowPass's descriptor-table approach (identical pattern):
 | 1     | SRV table     | t0       | TLAS                             |
 | 2     | SRV table     | t1       | Depth                            |
 | 3     | SRV table     | t2       | GBuffer Normal                   |
-| 4     | CBV table     | b0       | CameraCB                         |
-| 5     | 32-bit consts | b1       | Reflection constants (see below) |
+| 4     | SRV table     | t3       | GBuffer PBR params               |
+| 5     | CBV table     | b0       | CameraCB                         |
+| 6     | 32-bit consts | b1       | Reflection constants (see below) |
 
-Constants (b1): rayOriginOffset (normalBias, 1 float), rayTMin, rayTMax, maxRoughnessGlossyCutoff (1 float), pad to 4.
+Constants (b1): normalBias, rayTMin, rayTMax, maxRoughness, minMetallic.
 
 ## PSO Creation
 
@@ -63,12 +66,13 @@ Same pattern as `CreateRayQueryShadowRootSignature` + `D3D12_COMPUTE_PIPELINE_ST
 - 1 UAV: reflection output texture
 - 1 SRV: TLAS (`m_accelerationStructures.tlasSrv.Gpu()`, register t0)
 - 1 SRV: depth buffer
-- 1 SRV: GBuffer normal (more GBuffer SRVs can be added later)
+- 1 SRV: GBuffer normal
+- 1 SRV: GBuffer PBR params
 - 1 CBV: camera constants
 
 ## Resource States
 
-- Reads: depth + normal GBuffer as `D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE`
+- Reads: depth + normal GBuffer + PBR params GBuffer as `D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE`
 - Writes: reflection output as `D3D12_RESOURCE_STATE_UNORDERED_ACCESS`
 
 ## Render Graph Placement
