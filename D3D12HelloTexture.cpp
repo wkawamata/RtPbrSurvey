@@ -243,6 +243,7 @@ auto HelloTextureEngine::MakeLightingConstants() const -> LightingConstants
             1.0f :
             0.0f,
         m_hybridReflectionSettings.hitOverlayIntensity,
+        m_hybridReflectionSettings.hitPositionColorEnabled ? 1.0f : 0.0f,
     };
 }
 

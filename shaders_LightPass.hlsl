@@ -49,6 +49,7 @@ cbuffer LightingConstants : register(b2)
     float shadowMaskBlurEnabled;
     float reflectionHitOverlayEnabled;
     float reflectionHitOverlayIntensity;
+    float reflectionHitPositionColorEnabled;
 };
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
@@ -262,8 +263,14 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 color = iblDiffuse + iblSpecular + directLighting + emissive * emissiveEnabled;
     if (reflectionHitOverlayEnabled > 0.5)
     {
-        float hit = g_reflectionRayHit.Sample(g_sampler, input.uv).y;
-        color = lerp(color, float3(0.0, 0.85, 1.0), saturate(hit * reflectionHitOverlayIntensity));
+        float2 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
+        float3 overlayColor = float3(0.0, 0.85, 1.0);
+        if (reflectionHitPositionColorEnabled > 0.5)
+        {
+            float3 hitPosition = worldPos + reflectionDir * reflectionHit.x;
+            overlayColor = saturate(hitPosition * 0.05 + 0.5);
+        }
+        color = lerp(color, overlayColor, saturate(reflectionHit.y * reflectionHitOverlayIntensity));
     }
 
     return float4(color, 1.0);

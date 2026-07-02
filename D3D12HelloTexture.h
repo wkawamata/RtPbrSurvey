@@ -194,6 +194,7 @@ public:
         float maxRoughness = 0.35f;
         float minMetallic = 0.0f;
         bool hitOverlayEnabled = false;
+        bool hitPositionColorEnabled = false;
         float hitOverlayIntensity = 0.2f;
     };
 
@@ -432,6 +433,7 @@ private:
         float shadowMaskBlurEnabled = 0.0f;
         float reflectionHitOverlayEnabled = 0.0f;
         float reflectionHitOverlayIntensity = 0.2f;
+        float reflectionHitPositionColorEnabled = 0.0f;
     };
 
     LightingConstants MakeLightingConstants() const;
