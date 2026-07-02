@@ -3340,17 +3340,19 @@ void HelloTextureEngine::UpdateDebugLines()
         m_debugLineVertices.push_back({end,   {0.0f, 0.0f, 1.0f, 1.0f}});
     }
 
-    // Reflection ray: magenta
+    // Reflection ray: magenta on hit, gray on miss.
     if (m_specularDebugLineSettings.showReflection)
     {
         const XMFLOAT3& dir = m_pixelPickResult.reflectionDir;
         XMFLOAT3 end = {origin.x + dir.x * lineLength, origin.y + dir.y * lineLength, origin.z + dir.z * lineLength};
+        XMFLOAT4 color = {0.45f, 0.45f, 0.45f, 1.0f};
         if (m_pixelPickResult.reflectionHit)
         {
             end = m_pixelPickResult.reflectionHitWorldPos;
+            color = {1.0f, 0.0f, 1.0f, 1.0f};
         }
-        m_debugLineVertices.push_back({origin, {1.0f, 0.0f, 1.0f, 1.0f}});
-        m_debugLineVertices.push_back({end,   {1.0f, 0.0f, 1.0f, 1.0f}});
+        m_debugLineVertices.push_back({origin, color});
+        m_debugLineVertices.push_back({end,   color});
     }
 }
 

@@ -1372,7 +1372,7 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
 
         ImGui::Checkbox("View Ray (yellow)", &debugLines.showViewRay);
         ImGui::Checkbox("Normal (blue)", &debugLines.showNormal);
-        ImGui::Checkbox("Reflection (magenta)", &debugLines.showReflection);
+        ImGui::Checkbox("Reflection (hit magenta / miss gray)", &debugLines.showReflection);
 
         // Compact legend
         ImGui::Separator();
