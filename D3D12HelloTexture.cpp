@@ -239,11 +239,11 @@ auto HelloTextureEngine::MakeLightingConstants() const -> LightingConstants
         m_rayTracingSupport.IsSupported() ? 1.0f : 0.0f,
         m_shadowSettings.softShadowEnabled ? 1.0f : 0.0f,
         (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
-         m_hybridReflectionSettings.hitOverlayEnabled) ?
+        m_hybridReflectionSettings.hitOverlayEnabled) ?
             1.0f :
             0.0f,
         m_hybridReflectionSettings.hitOverlayIntensity,
-        m_hybridReflectionSettings.hitPositionColorEnabled ? 1.0f : 0.0f,
+        static_cast<float>(m_hybridReflectionSettings.hitOverlayMode),
     };
 }
 

@@ -1210,7 +1210,11 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
         changed |= ImGui::Checkbox("Hit Overlay", &reflectionSettings.hitOverlayEnabled);
 
         ImGui::BeginDisabled(!reflectionSettings.hitOverlayEnabled);
-        changed |= ImGui::Checkbox("Hit Position Color", &reflectionSettings.hitPositionColorEnabled);
+        changed |= ImGui::RadioButton("Overlay Cyan", &reflectionSettings.hitOverlayMode, 0);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Hit Position", &reflectionSettings.hitOverlayMode, 1);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Environment", &reflectionSettings.hitOverlayMode, 2);
 
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Hit Overlay Intensity", &reflectionSettings.hitOverlayIntensity, 0.0f, 1.0f, 0.05f, 0.2f);

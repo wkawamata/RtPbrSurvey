@@ -49,7 +49,7 @@ cbuffer LightingConstants : register(b2)
     float shadowMaskBlurEnabled;
     float reflectionHitOverlayEnabled;
     float reflectionHitOverlayIntensity;
-    float reflectionHitPositionColorEnabled;
+    float reflectionHitOverlayMode;
 };
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
@@ -265,7 +265,11 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     {
         float2 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
         float3 overlayColor = float3(0.0, 0.85, 1.0);
-        if (reflectionHitPositionColorEnabled > 0.5)
+        if (reflectionHitOverlayMode > 1.5)
+        {
+            overlayColor = environmentSpecular / (1.0 + environmentSpecular);
+        }
+        else if (reflectionHitOverlayMode > 0.5)
         {
             float3 hitPosition = worldPos + reflectionDir * reflectionHit.x;
             overlayColor = saturate(hitPosition * 0.05 + 0.5);
