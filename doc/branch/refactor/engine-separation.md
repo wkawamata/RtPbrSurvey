@@ -571,6 +571,34 @@ Verification:
 * Debug x64 build successful.
 * Existing build warnings remain, errors 0.
 
+### Staged descriptor allocator header: remove final Renderer header Sample helper include
+
+Purpose:
+
+* Remove the last direct `DXSampleHelper.h` include from `Renderer/*.h`.
+* Keep `StagedDescriptorAllocator.h` self-contained for D3D12, WRL, and its inline HRESULT failure path.
+
+Changes:
+
+* `Renderer/StagedDescriptorAllocator.h`
+  * Removed direct `DXSampleHelper.h` include.
+  * Added direct `<d3d12.h>`, `<wrl/client.h>`, and `<stdexcept>` includes.
+  * Changed descriptor heap members and locals from `ComPtr<ID3D12DescriptorHeap>` to `Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>`.
+  * Added a private inline HRESULT check for allocator-internal failures.
+
+* `Renderer/StagedDescriptorAllocator_Test.cpp`
+  * Added direct `DXSampleHelper.h` include because the test file uses Sample helper symbols itself.
+
+Notes:
+
+* `rg -n "DXSampleHelper\\.h" Renderer -g "*.h"` now reports no Renderer header matches.
+* Implementation `.cpp` files may still include `DXSampleHelper.h` for implementation-only helper use.
+
+Verification:
+
+* Debug x64 build successful.
+* Existing build warnings remain, errors 0.
+
 ### Deferred GPU release queue header: reduce Sample helper dependency
 
 Purpose:

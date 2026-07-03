@@ -1,5 +1,6 @@
 #include "stdafx.h"
 
+#include "../DXSampleHelper.h"
 #include "StagedDescriptorAllocator.h"
 
 #include <cstdio>

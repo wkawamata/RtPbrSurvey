@@ -1,10 +1,11 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
-
 #include <algorithm>
 #include <cassert>
+#include <d3d12.h>
+#include <stdexcept>
 #include <vector>
+#include <wrl/client.h>
 
 // A slot-only handle returned by StagedDescriptorAllocator::Allocate().
 // The Index is stable across Grow() calls; CPU/GPU descriptor handles
@@ -344,7 +345,7 @@ private:
         desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
         desc.NodeMask = 0;
 
-        ComPtr<ID3D12DescriptorHeap> newCpuHeap;
+        Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> newCpuHeap;
         ThrowIfFailed(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&newCpuHeap)));
         newCpuHeap->SetName(L"StagedDescriptorAllocator (CPU)");
 
@@ -409,10 +410,18 @@ private:
         return m_stageOffset + m_frameIndex * m_reservedCount;
     }
 
+    static void ThrowIfFailed(HRESULT hr)
+    {
+        if (FAILED(hr))
+        {
+            throw std::runtime_error("HRESULT failure in StagedDescriptorAllocator");
+        }
+    }
+
     ID3D12Device* m_device = nullptr;
     D3D12_DESCRIPTOR_HEAP_TYPE m_heapType = D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES;
 
-    ComPtr<ID3D12DescriptorHeap> m_cpuHeap;
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_cpuHeap;
 
     // Start of the CPU heap (authoritative storage).
     D3D12_CPU_DESCRIPTOR_HANDLE m_cpuStart{};
