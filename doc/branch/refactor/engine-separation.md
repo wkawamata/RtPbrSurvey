@@ -415,3 +415,35 @@ git filter-repo `
 
 * Debug x64 build 成功。
 * build 時に既存 warning は残るが error は 0。
+
+### Small Renderer headers の Sample helper 依存を削減
+
+目的:
+
+* 定数・軽量 D3D12 型だけを公開する Renderer header が `DXSampleHelper.h` に依存しないようにする。
+* `Renderer/` の public header surface を少しずつ自立させる。
+
+変更:
+
+* `Renderer/RootSignatureLayout.h`
+  * `DXSampleHelper.h` include を削除。
+  * `<cstdint>` を include。
+  * root signature constants を `UINT` から `uint32_t` に変更。
+
+* `Renderer/ResolvedRenderTargets.h`
+  * `DXSampleHelper.h` include を削除。
+  * `<d3d12.h>` を直接 include。
+
+* `Renderer/FullscreenTriangle.h`
+  * `DXSampleHelper.h` include を削除。
+  * `<d3d12.h>` を直接 include。
+
+* `Renderer/DebugLinePass.h`
+  * `DXSampleHelper.h` include を削除。
+  * 既存の `<d3d12.h>` / WRL include に依存する形へ整理。
+
+確認:
+
+* `git diff --check` OK。
+* Debug x64 build 成功。
+* build 時に既存 warning は残るが error は 0。

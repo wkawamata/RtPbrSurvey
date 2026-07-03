@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
+#include <cstdint>
 
 namespace Engine
 {
@@ -37,35 +37,35 @@ enum RootParameterIndex
     Count
 };
 
-static constexpr UINT kBaseRegister = 0;
+static constexpr uint32_t kBaseRegister = 0;
 
 // SRV descriptor tables.
-static constexpr UINT kTextureSrvSpace = 0;
-static constexpr UINT kInstanceSrvSpace = 1;
-static constexpr UINT kMaterialSrvSpace = 2;
-static constexpr UINT kGBufferSrvSpace = 3;
-static constexpr UINT kToneMapSceneColorSrvSpace = 4;
-static constexpr UINT kEnvironmentMapSrvSpace = 5;
-static constexpr UINT kReflectionRayHitSrvSpace = 6;
+static constexpr uint32_t kTextureSrvSpace = 0;
+static constexpr uint32_t kInstanceSrvSpace = 1;
+static constexpr uint32_t kMaterialSrvSpace = 2;
+static constexpr uint32_t kGBufferSrvSpace = 3;
+static constexpr uint32_t kToneMapSceneColorSrvSpace = 4;
+static constexpr uint32_t kEnvironmentMapSrvSpace = 5;
+static constexpr uint32_t kReflectionRayHitSrvSpace = 6;
 
 // Per-frame and per-pass CBVs.
-static constexpr UINT kCameraCbvRegister = 0;
-static constexpr UINT kCameraCbvSpace = 0;
-static constexpr UINT kLightCbvRegister = 2;
-static constexpr UINT kLightCbvSpace = 0;
+static constexpr uint32_t kCameraCbvRegister = 0;
+static constexpr uint32_t kCameraCbvSpace = 0;
+static constexpr uint32_t kLightCbvRegister = 2;
+static constexpr uint32_t kLightCbvSpace = 0;
 
 // Root constants.
-static constexpr UINT kGBufferDebugConstantsRegister = 1;
-static constexpr UINT kGBufferDebugConstantsSpace = 0;
-static constexpr UINT kGBufferDebugConstantsCount = 1;
+static constexpr uint32_t kGBufferDebugConstantsRegister = 1;
+static constexpr uint32_t kGBufferDebugConstantsSpace = 0;
+static constexpr uint32_t kGBufferDebugConstantsCount = 1;
 
-static constexpr UINT kToneMapConstantsRegister = 3;
-static constexpr UINT kToneMapConstantsSpace = 0;
-static constexpr UINT kToneMapConstantsCount = 5;
+static constexpr uint32_t kToneMapConstantsRegister = 3;
+static constexpr uint32_t kToneMapConstantsSpace = 0;
+static constexpr uint32_t kToneMapConstantsCount = 5;
 
 // Static texture sampler.
-static constexpr UINT kStaticSamplerRegister = 0;
-static constexpr UINT kStaticSamplerSpace = 0;
+static constexpr uint32_t kStaticSamplerRegister = 0;
+static constexpr uint32_t kStaticSamplerSpace = 0;
 
 } // namespace RootSignatureLayout
 } // namespace Engine

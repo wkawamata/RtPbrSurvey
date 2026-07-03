@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
 #include <d3d12.h>
 #include <d3dx12_core.h>
 #include <wrl/client.h>
