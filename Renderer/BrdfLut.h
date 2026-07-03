@@ -1,7 +1,9 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
 #include "SimpleDescriptorHeapAllocator.h"
+
+#include <d3d12.h>
+#include <wrl/client.h>
 
 namespace Engine
 {
@@ -13,7 +15,7 @@ public:
                 ID3D12GraphicsCommandList* commandList,
                 SimpleDescriptorHeapAllocator& descriptorHeapAllocator,
                 UINT size,
-                ComPtr<ID3D12Resource>& uploadHeap);
+                Microsoft::WRL::ComPtr<ID3D12Resource>& uploadHeap);
 
     void Release(SimpleDescriptorHeapAllocator& descriptorHeapAllocator);
 
@@ -28,7 +30,7 @@ public:
     }
 
 private:
-    ComPtr<ID3D12Resource> m_resource;
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_resource;
     DescriptorHeapHandle m_srv;
 };
 

@@ -1,13 +1,15 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
+#include <cstdint>
+#include <d3d12.h>
+#include <wrl/client.h>
 
 namespace Engine
 {
 
 struct DebugDumpReadback
 {
-    ComPtr<ID3D12Resource> resource;
+    Microsoft::WRL::ComPtr<ID3D12Resource> resource;
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
 
     bool IsValid() const;

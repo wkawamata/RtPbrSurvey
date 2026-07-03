@@ -2,6 +2,8 @@
 
 #include "HdrOutput.h"
 
+#include "../DXSampleHelper.h"
+
 #include <algorithm>
 #include <cmath>
 

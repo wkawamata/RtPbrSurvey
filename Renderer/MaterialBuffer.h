@@ -1,11 +1,11 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
-#include "../MyDx12Utils.h"
 #include "Material.h"
 #include "SimpleDescriptorHeapAllocator.h"
 
+#include <d3d12.h>
 #include <vector>
+#include <wrl/client.h>
 
 namespace Engine
 {
@@ -25,7 +25,7 @@ public:
     }
 
 private:
-    ComPtr<ID3D12Resource> m_buffer;
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_buffer;
     DescriptorAllocation m_srv;
 };
 

@@ -483,3 +483,40 @@ git filter-repo `
 * `git diff --check` OK。
 * Debug x64 build 成功。
 * build 時に既存 warning は残るが error は 0。
+
+### Resource utility headers の Sample helper 依存を削減
+
+目的:
+
+* Debug dump / BRDF LUT / material buffer / HDR output の public headers が `DXSampleHelper.h` に直接依存しないようにする。
+* `ComPtr` using 依存を header から減らし、WRL 型を明示する。
+
+変更:
+
+* `Renderer/DebugDumpCapture.h`
+  * `DXSampleHelper.h` include を削除。
+  * `<d3d12.h>`, `<wrl/client.h>`, `<cstdint>` を直接 include。
+  * `ComPtr<ID3D12Resource>` を `Microsoft::WRL::ComPtr<ID3D12Resource>` に変更。
+
+* `Renderer/BrdfLut.h`
+  * `DXSampleHelper.h` include を削除。
+  * `<d3d12.h>` と `<wrl/client.h>` を直接 include。
+  * `ComPtr<ID3D12Resource>` を `Microsoft::WRL::ComPtr<ID3D12Resource>` に変更。
+
+* `Renderer/MaterialBuffer.h`
+  * `DXSampleHelper.h` / `MyDx12Utils.h` include を削除。
+  * `<d3d12.h>` と `<wrl/client.h>` を直接 include。
+  * `ComPtr<ID3D12Resource>` を `Microsoft::WRL::ComPtr<ID3D12Resource>` に変更。
+
+* `Renderer/HdrOutput.h`
+  * `DXSampleHelper.h` include を削除。
+  * `<windows.h>` と `<dxgi1_6.h>` を直接 include。
+
+* `.cpp` 側
+  * `ThrowIfFailed` / `MyDx12Util` を使う `.cpp` に `DXSampleHelper.h` / `MyDx12Utils.h` include を明示。
+
+確認:
+
+* `git diff --check` OK。
+* Debug x64 build 成功。
+* build 時に既存 warning は残るが error は 0。

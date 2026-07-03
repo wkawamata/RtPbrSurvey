@@ -2,6 +2,8 @@
 
 #include "BrdfLut.h"
 
+#include "../DXSampleHelper.h"
+
 #include <DirectXPackedVector.h>
 #include <algorithm>
 #include <cmath>
@@ -105,7 +107,7 @@ void BrdfLut::Create(ID3D12Device* device,
                      ID3D12GraphicsCommandList* commandList,
                      SimpleDescriptorHeapAllocator& descriptorHeapAllocator,
                      UINT size,
-                     ComPtr<ID3D12Resource>& uploadHeap)
+                     Microsoft::WRL::ComPtr<ID3D12Resource>& uploadHeap)
 {
     D3D12_RESOURCE_DESC textureDesc = {};
     textureDesc.MipLevels = 1;

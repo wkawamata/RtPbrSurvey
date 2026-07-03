@@ -2,6 +2,8 @@
 
 #include "DebugDumpCapture.h"
 
+#include "../DXSampleHelper.h"
+
 #include <DirectXPackedVector.h>
 #include <pix3.h>
 

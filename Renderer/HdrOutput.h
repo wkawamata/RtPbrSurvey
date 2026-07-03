@@ -1,6 +1,7 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
+#include <windows.h>
+#include <dxgi1_6.h>
 
 static constexpr DXGI_COLOR_SPACE_TYPE kHdr10ColorSpace = DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020;
 static constexpr DXGI_COLOR_SPACE_TYPE kSdrColorSpace = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
