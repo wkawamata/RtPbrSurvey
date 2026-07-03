@@ -1,6 +1,7 @@
 #include "Material.hlsli"
 
 RWTexture2D<float4> g_reflectionRayHit : register(u0);
+RWTexture2D<float4> g_reflectionRayColor : register(u1);
 RaytracingAccelerationStructure g_tlas : register(t0);
 Texture2D<float> g_depth : register(t1);
 Texture2D<float4> g_normal : register(t2);
@@ -186,6 +187,14 @@ float3 HitAlbedoToDebugNormal(uint index0, uint index1, uint index2, float2 bary
     return normalize(color * 2.0 - 1.0);
 }
 
+float3 LoadCommittedHitAlbedo(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
+{
+    uint materialId = LoadCommittedHitMaterialId(index0, index1, index2, barycentric, instanceId);
+    Material material = g_materialData[materialId];
+    float2 uv = LoadCommittedHitUv(index0, index1, index2, barycentric);
+    return SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb);
+}
+
 uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
 {
     float bary0 = 1.0 - barycentric.x - barycentric.y;
@@ -271,6 +280,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     if (depth >= 1.0)
     {
         g_reflectionRayHit[pixel] = float4(0.0, 0.0, 0.0, 0.0);
+        g_reflectionRayColor[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         return;
     }
 
@@ -290,6 +300,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     if (roughness > maxRoughness || metallic < minMetallic)
     {
         g_reflectionRayHit[pixel] = float4(0.0, 0.0, 0.0, 0.0);
+        g_reflectionRayColor[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         return;
     }
 
@@ -309,14 +320,24 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     if (query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
     {
+        uint index0;
+        uint index1;
+        uint index2;
+        const uint primitiveIndex = query.CommittedPrimitiveIndex();
+        const float2 barycentric = query.CommittedTriangleBarycentrics();
+        const uint instanceId = query.CommittedInstanceID();
+        LoadPrimitiveVertexIndices(primitiveIndex, index0, index1, index2);
+
         float3 hitNormal = LoadCommittedHitNormal(query.CommittedPrimitiveIndex(),
-                                                  query.CommittedTriangleBarycentrics(),
+                                                  barycentric,
                                                   query.CommittedObjectToWorld3x4(),
-                                                  query.CommittedInstanceID());
+                                                  instanceId);
         g_reflectionRayHit[pixel] = float4(query.CommittedRayT(), 1.0, EncodeNormalOctahedron(hitNormal));
+        g_reflectionRayColor[pixel] = float4(LoadCommittedHitAlbedo(index0, index1, index2, barycentric, instanceId), 1.0);
     }
     else
     {
         g_reflectionRayHit[pixel] = float4(0.0, 0.0, 0.0, 0.0);
+        g_reflectionRayColor[pixel] = float4(0.0, 0.0, 0.0, 0.0);
     }
 }

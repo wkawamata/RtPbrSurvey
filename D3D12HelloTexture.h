@@ -389,7 +389,7 @@ private:
         PersistentSrvSlotCount,
     };
     static constexpr UINT kShadowMaskDescriptorCount = 2; // SRV + UAV (dynamically allocated)
-    static constexpr UINT kReflectionRayHitDescriptorCount = 2; // SRV + UAV
+    static constexpr UINT kReflectionRayHitDescriptorCount = 4; // Hit SRV/UAV + Color SRV/UAV
     static constexpr UINT kTlasDescriptorCount = 1;       // TLAS SRV
 
     // Descriptor allocation order is tracked by DescriptorHeapHandle.
@@ -529,8 +529,11 @@ private:
     ComPtr<ID3D12Resource> m_lightPassRenderTarget;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
+    ComPtr<ID3D12Resource> m_reflectionRayColor;
     DescriptorHeapHandle m_reflectionRayHitSrv;
     DescriptorHeapHandle m_reflectionRayHitUav;
+    DescriptorHeapHandle m_reflectionRayColorSrv;
+    DescriptorHeapHandle m_reflectionRayColorUav;
     DescriptorHeapHandle m_depthStencilSrv;
     DescriptorHeapHandle m_lightPassColorSrv;
     StagedDescriptorRange m_shadowMaskRange;
@@ -689,6 +692,7 @@ private:
         "GBuffer.Emissive"};
     static constexpr const char* kShadowMaskResourceName = "ShadowMask";
     static constexpr const char* kReflectionRayHitResourceName = "ReflectionRayHit";
+    static constexpr const char* kReflectionRayColorResourceName = "ReflectionRayColor";
 
     using TransientResourceState = Engine::TransientResourceState;
 
@@ -822,6 +826,8 @@ private:
     void CreateShadowMaskDescriptors();
     void CreateReflectionRayHit(UINT width, UINT height);
     void CreateReflectionRayHitDescriptors();
+    void CreateReflectionRayColor(UINT width, UINT height);
+    void CreateReflectionRayColorDescriptors();
     D3D12_CPU_DESCRIPTOR_HANDLE GetBackBufferRtv() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetDepthDsv() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetGBufferRTV(UINT index) const;
