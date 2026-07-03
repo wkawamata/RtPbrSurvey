@@ -1215,10 +1215,16 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
         changed |= ImGui::RadioButton("Hit Position", &reflectionSettings.hitOverlayMode, 1);
         ImGui::SameLine();
         changed |= ImGui::RadioButton("Environment", &reflectionSettings.hitOverlayMode, 2);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Hit Normal", &reflectionSettings.hitOverlayMode, 3);
 
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Hit Overlay Intensity", &reflectionSettings.hitOverlayIntensity, 0.0f, 1.0f, 0.05f, 0.2f);
         ImGui::EndDisabled();
+
+        changed |= ImGui::RadioButton("Hit Normal Vertex", &reflectionSettings.hitNormalSource, 0);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Hit Normal Geometric", &reflectionSettings.hitNormalSource, 1);
 
         changed |= ImGui::Checkbox("Reflection Contribution", &reflectionSettings.contributionEnabled);
 

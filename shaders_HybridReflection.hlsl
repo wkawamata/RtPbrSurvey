@@ -25,10 +25,25 @@ cbuffer ReflectionConstants : register(b1)
     uint usesIndexedDraw;
     uint vertexCount;
     uint indexCount;
+    uint hitNormalSource;
 };
 
 static const uint kSceneVertexStride = 52;
+static const uint kSceneVertexPositionOffset = 0;
 static const uint kSceneVertexNormalOffset = 20;
+
+float3 LoadSceneVertexPosition(uint vertexIndex)
+{
+    if (vertexIndex >= vertexCount)
+    {
+        return float3(0.0, 0.0, 0.0);
+    }
+
+    uint positionOffset = vertexIndex * kSceneVertexStride + kSceneVertexPositionOffset;
+    return asfloat(uint3(g_sceneVertices.Load(positionOffset),
+                         g_sceneVertices.Load(positionOffset + 4),
+                         g_sceneVertices.Load(positionOffset + 8)));
+}
 
 float3 LoadSceneVertexNormal(uint vertexIndex)
 {
@@ -70,6 +85,20 @@ void LoadPrimitiveVertexIndices(uint primitiveIndex, out uint index0, out uint i
     }
 }
 
+float3 TransformObjectPointToWorld(float3 objectPosition, float3x4 objectToWorld)
+{
+    float4 objectPosition4 = float4(objectPosition, 1.0);
+    return float3(dot(objectToWorld[0], objectPosition4),
+                  dot(objectToWorld[1], objectPosition4),
+                  dot(objectToWorld[2], objectPosition4));
+}
+
+float3 TransformObjectNormalToWorld(float3 objectNormal, float3x4 objectToWorld)
+{
+    float3x3 objectToWorld3x3 = float3x3(objectToWorld[0].xyz, objectToWorld[1].xyz, objectToWorld[2].xyz);
+    return normalize(mul(objectNormal, objectToWorld3x3));
+}
+
 float3 LoadCommittedHitNormal(uint primitiveIndex, float2 barycentric, float3x4 objectToWorld)
 {
     uint index0;
@@ -82,8 +111,15 @@ float3 LoadCommittedHitNormal(uint primitiveIndex, float2 barycentric, float3x4 
                                     LoadSceneVertexNormal(index1) * barycentric.x +
                                     LoadSceneVertexNormal(index2) * barycentric.y);
 
-    float3x3 objectToWorld3x3 = float3x3(objectToWorld[0].xyz, objectToWorld[1].xyz, objectToWorld[2].xyz);
-    return normalize(mul(objectNormal, objectToWorld3x3));
+    if (hitNormalSource == 1)
+    {
+        float3 position0 = TransformObjectPointToWorld(LoadSceneVertexPosition(index0), objectToWorld);
+        float3 position1 = TransformObjectPointToWorld(LoadSceneVertexPosition(index1), objectToWorld);
+        float3 position2 = TransformObjectPointToWorld(LoadSceneVertexPosition(index2), objectToWorld);
+        return normalize(cross(position1 - position0, position2 - position0));
+    }
+
+    return TransformObjectNormalToWorld(objectNormal, objectToWorld);
 }
 
 float2 EncodeNormalOctahedron(float3 normal)

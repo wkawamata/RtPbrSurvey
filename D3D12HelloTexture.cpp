@@ -1173,7 +1173,7 @@ void HelloTextureEngine::CreateHybridReflectionRootSignature()
     rootParameters[5].InitAsDescriptorTable(1, &cameraCbvRange);    // CameraCB (b0)
     rootParameters[6].InitAsShaderResourceView(4, 0);               // g_sceneVertices (t4)
     rootParameters[7].InitAsShaderResourceView(5, 0);               // g_sceneIndices (t5)
-    rootParameters[8].InitAsConstants(8, 1, 0);                     // ReflectionConstants (b1)
+    rootParameters[8].InitAsConstants(9, 1, 0);                     // ReflectionConstants (b1)
 
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
     featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
@@ -2882,6 +2882,7 @@ void HelloTextureEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     passDesc.usesIndexedDraw = m_usesIndexedDraw ? 1u : 0u;
     passDesc.vertexCount = m_vertexCountPerInstance;
     passDesc.indexCount = m_indexCountPerInstance;
+    passDesc.hitNormalSource = static_cast<UINT>(m_hybridReflectionSettings.hitNormalSource);
     if (m_hybridReflectionSettings.materialGateEnabled)
     {
         passDesc.maxRoughness = m_hybridReflectionSettings.maxRoughness;

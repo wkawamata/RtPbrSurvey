@@ -6,6 +6,23 @@
 
 namespace Engine
 {
+namespace
+{
+
+struct HybridReflectionShaderConstants
+{
+    float normalBias;
+    float rayTMin;
+    float rayTMax;
+    float maxRoughness;
+    float minMetallic;
+    UINT usesIndexedDraw;
+    UINT vertexCount;
+    UINT indexCount;
+    UINT hitNormalSource;
+};
+
+} // namespace
 
 void RecordHybridReflectionPass(ID3D12GraphicsCommandList* commandList, const HybridReflectionPassDesc& desc)
 {
@@ -21,7 +38,18 @@ void RecordHybridReflectionPass(ID3D12GraphicsCommandList* commandList, const Hy
     commandList->SetComputeRootDescriptorTable(5, desc.cameraCbv);
     commandList->SetComputeRootShaderResourceView(6, desc.vertexBufferSrv);
     commandList->SetComputeRootShaderResourceView(7, desc.indexBufferSrv);
-    commandList->SetComputeRoot32BitConstants(8, 8, &desc.normalBias, 0);
+
+    const HybridReflectionShaderConstants constants = {
+        desc.normalBias,
+        desc.rayTMin,
+        desc.rayTMax,
+        desc.maxRoughness,
+        desc.minMetallic,
+        desc.usesIndexedDraw,
+        desc.vertexCount,
+        desc.indexCount,
+        desc.hitNormalSource};
+    commandList->SetComputeRoot32BitConstants(8, 9, &constants, 0);
 
     constexpr UINT kThreadGroupSize = 8;
     const UINT dispatchX = (desc.width + kThreadGroupSize - 1) / kThreadGroupSize;

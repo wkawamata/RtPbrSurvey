@@ -25,6 +25,7 @@ struct HybridReflectionPassDesc
     UINT usesIndexedDraw = 0;
     UINT vertexCount = 0;
     UINT indexCount = 0;
+    UINT hitNormalSource = 0;
     UINT width = 0;
     UINT height = 0;
 };

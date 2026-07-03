@@ -172,6 +172,19 @@ float SampleShadowMask(float2 uv, float4 position)
     return shadow / 16.0;
 }
 
+float3 DecodeNormalOctahedron(float2 encodedNormal)
+{
+    float2 f = encodedNormal * 2.0 - 1.0;
+    float3 normal = float3(f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
+    if (normal.z < 0.0)
+    {
+        float2 signNotZero = float2(normal.x >= 0.0 ? 1.0 : -1.0, normal.y >= 0.0 ? 1.0 : -1.0);
+        normal.xy = (1.0 - abs(normal.yx)) * signNotZero;
+    }
+
+    return normalize(normal);
+}
+
 float4 PSMain(FullscreenVSOutput input) : SV_TARGET
 {
     float depth = g_depth.Load(int3(input.position.xy, 0));
@@ -271,7 +284,12 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     if (reflectionHitOverlayEnabled > 0.5)
     {
         float3 overlayColor = float3(0.0, 0.85, 1.0);
-        if (reflectionHitOverlayMode > 1.5)
+        if (reflectionHitOverlayMode > 2.5)
+        {
+            float3 hitNormal = DecodeNormalOctahedron(reflectionHit.zw);
+            overlayColor = hitNormal * 0.5 + 0.5;
+        }
+        else if (reflectionHitOverlayMode > 1.5)
         {
             overlayColor = environmentSpecular / (1.0 + environmentSpecular);
         }

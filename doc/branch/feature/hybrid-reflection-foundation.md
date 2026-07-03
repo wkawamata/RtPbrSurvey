@@ -48,7 +48,7 @@ Follow RayQueryShadowPass's descriptor-table approach (identical pattern):
 | 7     | Root SRV      | t5       | Scene index buffer bytes         |
 | 8     | 32-bit consts | b1       | Reflection constants (see below) |
 
-Constants (b1): normalBias, rayTMin, rayTMax, maxRoughness, minMetallic, usesIndexedDraw, vertexCount, indexCount.
+Constants (b1): normalBias, rayTMin, rayTMax, maxRoughness, minMetallic, usesIndexedDraw, vertexCount, indexCount, hitNormalSource.
 
 ## PSO Creation
 
@@ -63,6 +63,7 @@ Same pattern as `CreateRayQueryShadowRootSignature` + `D3D12_COMPUTE_PIPELINE_ST
 - Current scaffold uses `ReflectionRayHit` with `DXGI_FORMAT_R16G16B16A16_FLOAT`.
 - Hit position can be reconstructed in LightPass as `worldPos + reflectionDir * hitDistance`.
 - Hit normal is reconstructed in the ray query shader from `CommittedPrimitiveIndex()`, `CommittedTriangleBarycentrics()`, and the scene vertex/index buffers, then transformed by the committed object-to-world matrix.
+- The debug UI can switch hit normal source between interpolated vertex normal and geometric triangle normal for diagnosis.
 - Can be packed into R16G16_UNORM later for bandwidth savings if needed, but keep float storage while debugging.
 
 ## Material Gating
@@ -74,6 +75,7 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 - `Hit Overlay` is a temporary LightPass composite aid. It tints pixels with `ReflectionRayHit.y > 0` in cyan and does not represent final reflection color.
 - `Hit Position Color` changes the overlay tint to `worldPos + reflectionDir * hitDistance` based debug color. This is still a diagnostic color, not reflected surface shading.
 - `Environment` overlay mode tints hit pixels with the existing specular prefilter environment sample along the reflection direction. It validates the reflection-direction sampling path, not scene-surface reflection.
+- `Hit Normal` overlay mode decodes the hit normal stored in `ReflectionRayHit.zw` and tints hit pixels with normal color over the lit scene.
 - `Reflection Contribution` adds the existing IBL specular term only on hit pixels. This validates composite plumbing but is not final scene reflection.
 - Material Gate is disabled by default: `maxRoughness = 1.0`, `minMetallic = 0.0`, preserving the initial "trace all visible pixels" behavior.
 - When `Material Gate` is enabled in the Debug UI, the pass uses `HybridReflectionSettings::maxRoughness` and `minMetallic`.

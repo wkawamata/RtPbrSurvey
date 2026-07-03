@@ -197,6 +197,7 @@ public:
         bool hitOverlayEnabled = false;
         int hitOverlayMode = 0;
         float hitOverlayIntensity = 0.2f;
+        int hitNormalSource = 0;
         bool contributionEnabled = false;
         float contributionIntensity = 0.25f;
     };
