@@ -82,6 +82,9 @@ extern "C"
 namespace
 {
 
+static_assert(sizeof(Engine::SceneVertex) == 52,
+              "shaders_HybridReflection.hlsl reads SceneVertex normals through a byte-address buffer.");
+
 const wchar_t* EnvironmentSourceName(Engine::EnvironmentSource source)
 {
     switch (source)
@@ -1161,14 +1164,16 @@ void HelloTextureEngine::CreateHybridReflectionRootSignature()
     CD3DX12_DESCRIPTOR_RANGE1 cameraCbvRange = {};
     cameraCbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[7] = {};
+    CD3DX12_ROOT_PARAMETER1 rootParameters[9] = {};
     rootParameters[0].InitAsDescriptorTable(1, &uavRange);          // g_reflectionRayHit (u0)
     rootParameters[1].InitAsDescriptorTable(1, &tlasSrvRange);      // g_tlas (t0)
     rootParameters[2].InitAsDescriptorTable(1, &depthSrvRange);     // g_depth (t1)
     rootParameters[3].InitAsDescriptorTable(1, &normalSrvRange);    // g_normal (t2)
     rootParameters[4].InitAsDescriptorTable(1, &pbrParamsSrvRange); // g_pbrParams (t3)
     rootParameters[5].InitAsDescriptorTable(1, &cameraCbvRange);    // CameraCB (b0)
-    rootParameters[6].InitAsConstants(5, 1, 0);                     // ReflectionConstants (b1)
+    rootParameters[6].InitAsShaderResourceView(4, 0);               // g_sceneVertices (t4)
+    rootParameters[7].InitAsShaderResourceView(5, 0);               // g_sceneIndices (t5)
+    rootParameters[8].InitAsConstants(8, 1, 0);                     // ReflectionConstants (b1)
 
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
     featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
@@ -2118,7 +2123,7 @@ void HelloTextureEngine::CreateReflectionRayHit(UINT width, UINT height)
     desc.Height = height;
     desc.DepthOrArraySize = 1;
     desc.MipLevels = 1;
-    desc.Format = DXGI_FORMAT_R16G16_FLOAT;
+    desc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
     desc.SampleDesc.Count = 1;
     desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
     desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
@@ -2140,7 +2145,7 @@ void HelloTextureEngine::CreateReflectionRayHitDescriptors()
     m_reflectionRayHitUav = m_descriptorHeapAllocator.AllocWithHandle();
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = DXGI_FORMAT_R16G16_FLOAT;
+    srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MipLevels = 1;
@@ -2148,7 +2153,7 @@ void HelloTextureEngine::CreateReflectionRayHitDescriptors()
         m_reflectionRayHit.Get(), &srvDesc, m_reflectionRayHitSrv.cpu);
 
     D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-    uavDesc.Format = DXGI_FORMAT_R16G16_FLOAT;
+    uavDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
     m_graphicsDevice.Device()->CreateUnorderedAccessView(
         m_reflectionRayHit.Get(), nullptr, &uavDesc, m_reflectionRayHitUav.cpu);
@@ -2872,6 +2877,11 @@ void HelloTextureEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     passDesc.normalBias = m_shadowSettings.normalBias;
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
+    passDesc.vertexBufferSrv = m_vertexBuffer ? m_vertexBuffer->GetGPUVirtualAddress() : 0;
+    passDesc.indexBufferSrv = m_indexBuffer ? m_indexBuffer->GetGPUVirtualAddress() : passDesc.vertexBufferSrv;
+    passDesc.usesIndexedDraw = m_usesIndexedDraw ? 1u : 0u;
+    passDesc.vertexCount = m_vertexCountPerInstance;
+    passDesc.indexCount = m_indexCountPerInstance;
     if (m_hybridReflectionSettings.materialGateEnabled)
     {
         passDesc.maxRoughness = m_hybridReflectionSettings.maxRoughness;

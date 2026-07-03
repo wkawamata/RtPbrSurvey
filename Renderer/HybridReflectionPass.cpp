@@ -19,7 +19,9 @@ void RecordHybridReflectionPass(ID3D12GraphicsCommandList* commandList, const Hy
     commandList->SetComputeRootDescriptorTable(3, desc.normalSrv);
     commandList->SetComputeRootDescriptorTable(4, desc.pbrParamsSrv);
     commandList->SetComputeRootDescriptorTable(5, desc.cameraCbv);
-    commandList->SetComputeRoot32BitConstants(6, 5, &desc.normalBias, 0);
+    commandList->SetComputeRootShaderResourceView(6, desc.vertexBufferSrv);
+    commandList->SetComputeRootShaderResourceView(7, desc.indexBufferSrv);
+    commandList->SetComputeRoot32BitConstants(8, 8, &desc.normalBias, 0);
 
     constexpr UINT kThreadGroupSize = 8;
     const UINT dispatchX = (desc.width + kThreadGroupSize - 1) / kThreadGroupSize;

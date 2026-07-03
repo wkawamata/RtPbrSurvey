@@ -73,7 +73,8 @@ void HelloTextureEngine::AddDeferredSceneOutputPass()
 {
     if (m_hybridReflectionSettings.enabled &&
         (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayHit ||
-         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayDistance))
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayDistance ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayNormal))
     {
         AddPass(MakeReflectionRayHitDebugPass());
     }

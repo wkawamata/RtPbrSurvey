@@ -4,7 +4,7 @@
 
 Recommendation for the shape of a full-screen HybridReflectionPass using RayQuery inline raytracing to compute specular reflections from the GBuffer.
 
-Current implementation status: HybridReflectionPass scaffold is wired into the render graph and writes `ReflectionRayHit` as `.x = hit distance`, `.y = hit flag`. `Reflection Hit` and `Reflection Distance` debug views can display the generated buffer from the Debug UI.
+Current implementation status: HybridReflectionPass scaffold is wired into the render graph and writes `ReflectionRayHit` as `.x = hit distance`, `.y = hit flag`, `.z/.w = oct-encoded hit normal`. `Reflection Hit`, `Reflection Distance`, and `Reflection Normal` debug views can display the generated buffer from the Debug UI.
 
 ## Existing Pass Survey
 
@@ -44,9 +44,11 @@ Follow RayQueryShadowPass's descriptor-table approach (identical pattern):
 | 3     | SRV table     | t2       | GBuffer Normal                   |
 | 4     | SRV table     | t3       | GBuffer PBR params               |
 | 5     | CBV table     | b0       | CameraCB                         |
-| 6     | 32-bit consts | b1       | Reflection constants (see below) |
+| 6     | Root SRV      | t4       | Scene vertex buffer bytes        |
+| 7     | Root SRV      | t5       | Scene index buffer bytes         |
+| 8     | 32-bit consts | b1       | Reflection constants (see below) |
 
-Constants (b1): normalBias, rayTMin, rayTMax, maxRoughness, minMetallic.
+Constants (b1): normalBias, rayTMin, rayTMax, maxRoughness, minMetallic, usesIndexedDraw, vertexCount, indexCount.
 
 ## PSO Creation
 
@@ -54,11 +56,13 @@ Same pattern as `CreateRayQueryShadowRootSignature` + `D3D12_COMPUTE_PIPELINE_ST
 
 ## First Shader Output Format
 
-**Recommendation: Both hit/miss + hit distance**:
+**Current format: hit/miss + hit distance + hit normal**:
 
-- `RWTexture2D<float2>` -- .x = hit distance (0 on miss), .y = hit flag (1.0 hit, 0.0 miss)
+- `RWTexture2D<float4>` -- .x = hit distance (0 on miss), .y = hit flag (1.0 hit, 0.0 miss), .z/.w = oct-encoded hit normal.
 - Rationale: `q.CommittedRayT()` is free to capture, enables temporal denoising (distance-based confidence), and aids debugging.
-- Initial scaffold uses `ReflectionRayHit` with `DXGI_FORMAT_R16G16_FLOAT`.
+- Current scaffold uses `ReflectionRayHit` with `DXGI_FORMAT_R16G16B16A16_FLOAT`.
+- Hit position can be reconstructed in LightPass as `worldPos + reflectionDir * hitDistance`.
+- Hit normal is reconstructed in the ray query shader from `CommittedPrimitiveIndex()`, `CommittedTriangleBarycentrics()`, and the scene vertex/index buffers, then transformed by the committed object-to-world matrix.
 - Can be packed into R16G16_UNORM later for bandwidth savings if needed, but keep float storage while debugging.
 
 ## Material Gating
@@ -83,6 +87,7 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 - 1 SRV: GBuffer normal
 - 1 SRV: GBuffer PBR params
 - 1 CBV: camera constants
+- 2 root SRVs: scene vertex/index buffers for committed hit normal reconstruction
 
 ## Resource States
 

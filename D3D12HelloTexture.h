@@ -101,6 +101,7 @@ public:
         IblBrdfLut,
         ReflectionRayHit,
         ReflectionRayDistance,
+        ReflectionRayNormal,
         ShadowMask,
         TlasDebug,
     };
@@ -478,6 +479,7 @@ private:
             return renderViewMode != RenderViewMode::LightPass &&
                    renderViewMode != RenderViewMode::ReflectionRayHit &&
                    renderViewMode != RenderViewMode::ReflectionRayDistance &&
+                   renderViewMode != RenderViewMode::ReflectionRayNormal &&
                    renderViewMode != RenderViewMode::ShadowMask &&
                    renderViewMode != RenderViewMode::TlasDebug &&
                    !IsLightPassDebugView();
@@ -501,8 +503,13 @@ private:
         UINT GetReflectionRayHitDebugTarget() const
         {
             assert(renderViewMode == RenderViewMode::ReflectionRayHit ||
-                   renderViewMode == RenderViewMode::ReflectionRayDistance);
-            return renderViewMode == RenderViewMode::ReflectionRayHit ? 0u : 1u;
+                   renderViewMode == RenderViewMode::ReflectionRayDistance ||
+                   renderViewMode == RenderViewMode::ReflectionRayNormal);
+            if (renderViewMode == RenderViewMode::ReflectionRayHit)
+            {
+                return 0u;
+            }
+            return renderViewMode == RenderViewMode::ReflectionRayDistance ? 1u : 2u;
         }
     };
 

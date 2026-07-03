@@ -13,7 +13,7 @@ TextureCube<float4> g_specularPrefilterMap : register(t2, space5);
 Texture2D<float2> g_brdfLut : register(t3, space5);
 SamplerState g_sampler : register(s0);
 Texture2D<float> g_shadowMask : register(t0, space4);
-Texture2D<float2> g_reflectionRayHit : register(t0, space6);
+Texture2D<float4> g_reflectionRayHit : register(t0, space6);
 StructuredBuffer<Material> g_materialData : register(t0, space2);
 
 static const float PI = 3.14159265;
@@ -263,7 +263,7 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 iblSpecular =
         environmentSpecular * (specularFresnel * brdf.x + brdf.y) * iblIntensity * specularOcclusion * specularIblEnabled;
     float3 color = iblDiffuse + iblSpecular + directLighting + emissive * emissiveEnabled;
-    float2 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
+    float4 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
     if (reflectionContributionEnabled > 0.5)
     {
         color += iblSpecular * reflectionHit.y * reflectionContributionIntensity;
