@@ -548,6 +548,29 @@ Verification:
 * Debug x64 build successful.
 * Existing build warnings remain, errors 0.
 
+### Environment map header: reduce Sample helper dependency
+
+Purpose:
+
+* Keep the environment map public header independent from `DXSampleHelper.h`.
+* Make D3D12 and WRL dependencies explicit in the environment map API.
+
+Changes:
+
+* `Renderer/EnvironmentMap.h`
+  * Removed direct `DXSampleHelper.h` include.
+  * Added direct `<d3d12.h>` and `<wrl/client.h>` includes.
+  * Changed public and private `ComPtr<ID3D12Resource>` API usage to `Microsoft::WRL::ComPtr<ID3D12Resource>`.
+
+Notes:
+
+* `Renderer/EnvironmentMap.cpp` still includes `DXSampleHelper.h` for implementation-only helpers such as `ThrowIfFailed`.
+
+Verification:
+
+* Debug x64 build successful.
+* Existing build warnings remain, errors 0.
+
 ### Deferred GPU release queue header: reduce Sample helper dependency
 
 Purpose:

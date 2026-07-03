@@ -1,12 +1,12 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
 #include "SimpleDescriptorHeapAllocator.h"
 
 #include <DirectXMath.h>
+#include <d3d12.h>
 #include <utility>
 #include <vector>
-#include <wrl.h>
+#include <wrl/client.h>
 
 namespace Engine
 {
@@ -55,7 +55,7 @@ public:
                                          const HdrImage& image,
                                          UINT outputSize,
                                          bool createDiffuseIrradiance,
-                                         ComPtr<ID3D12Resource>& uploadHeap);
+                                         Microsoft::WRL::ComPtr<ID3D12Resource>& uploadHeap);
 
     bool TryCreateSpecularPrefilterFromHdrEquirectangular(ID3D12Device* device,
                                                           ID3D12GraphicsCommandList* commandList,
@@ -63,18 +63,18 @@ public:
                                                           const HdrImage& image,
                                                           UINT outputSize,
                                                           UINT mipCount,
-                                                          ComPtr<ID3D12Resource>& uploadHeap);
+                                                          Microsoft::WRL::ComPtr<ID3D12Resource>& uploadHeap);
 
     void CreateFromDdsOrProceduralFallback(ID3D12Device* device,
                                            ID3D12GraphicsCommandList* commandList,
                                            SimpleDescriptorHeapAllocator& descriptorHeapAllocator,
                                            const wchar_t* ddsPath,
-                                           ComPtr<ID3D12Resource>& uploadHeap);
+                                           Microsoft::WRL::ComPtr<ID3D12Resource>& uploadHeap);
 
     void CreateProceduralFallback(ID3D12Device* device,
                                   ID3D12GraphicsCommandList* commandList,
                                   SimpleDescriptorHeapAllocator& descriptorHeapAllocator,
-                                  ComPtr<ID3D12Resource>& uploadHeap);
+                                  Microsoft::WRL::ComPtr<ID3D12Resource>& uploadHeap);
 
     void CreateProcedural(ID3D12Device* device,
                           ID3D12GraphicsCommandList* commandList,
@@ -82,7 +82,7 @@ public:
                           const ProceduralEnvironmentSettings& settings,
                           UINT outputSize,
                           bool createDiffuseIrradiance,
-                          ComPtr<ID3D12Resource>& uploadHeap);
+                          Microsoft::WRL::ComPtr<ID3D12Resource>& uploadHeap);
 
     void CreateSpecularPrefilterProcedural(ID3D12Device* device,
                                            ID3D12GraphicsCommandList* commandList,
@@ -90,17 +90,17 @@ public:
                                            const ProceduralEnvironmentSettings& settings,
                                            UINT outputSize,
                                            UINT mipCount,
-                                           ComPtr<ID3D12Resource>& uploadHeap);
+                                           Microsoft::WRL::ComPtr<ID3D12Resource>& uploadHeap);
 
     void Release(SimpleDescriptorHeapAllocator& descriptorHeapAllocator);
 
-    void Attach(ComPtr<ID3D12Resource> resource, DescriptorHeapHandle srv)
+    void Attach(Microsoft::WRL::ComPtr<ID3D12Resource> resource, DescriptorHeapHandle srv)
     {
         m_resource = std::move(resource);
         m_srv = srv;
     }
 
-    void Detach(ComPtr<ID3D12Resource>& resource, DescriptorHeapHandle& srv)
+    void Detach(Microsoft::WRL::ComPtr<ID3D12Resource>& resource, DescriptorHeapHandle& srv)
     {
         resource = std::move(m_resource);
         srv = m_srv;
@@ -122,13 +122,13 @@ private:
                           ID3D12GraphicsCommandList* commandList,
                           SimpleDescriptorHeapAllocator& descriptorHeapAllocator,
                           const wchar_t* ddsPath,
-                          ComPtr<ID3D12Resource>& uploadHeap);
+                          Microsoft::WRL::ComPtr<ID3D12Resource>& uploadHeap);
 
     DescriptorHeapHandle AllocateTextureCubeSRV(ID3D12Device* device,
                                                 SimpleDescriptorHeapAllocator& descriptorHeapAllocator,
                                                 ID3D12Resource* texture);
 
-    ComPtr<ID3D12Resource> m_resource;
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_resource;
     DescriptorHeapHandle m_srv;
 };
 
