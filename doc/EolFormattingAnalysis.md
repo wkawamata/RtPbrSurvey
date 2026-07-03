@@ -42,7 +42,7 @@ Covers the actual formatting rules for clang-format. Matches AGENTS.md conventio
 - `D3D12HelloTexture.cpp/.h` — refactored to use deferred release queue
 - `EnvironmentMap.h` — added `std::move` in `Attach`/`Detach`
 - `.vcxproj` / `.vcxproj.filters` — added new file entry
-- `docs/EnvMapReloadTestProcedure.md` — new doc
+- `doc/EnvMapReloadTestProcedure.md` — new doc
 
 No trailing whitespace, no brace style changes, no include reordering in the diff.
 
