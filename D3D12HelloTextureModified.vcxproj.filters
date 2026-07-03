@@ -19,6 +19,12 @@
     <Filter Include="Source Files\Ui">
       <UniqueIdentifier>{b7cda286-3ee3-47f5-8538-10f048e2db52}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Shared">
+      <UniqueIdentifier>{2a3b4c5d-6e7f-8a9b-0c1d-2e3f4a5b6c7d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Platform">
+      <UniqueIdentifier>{8d9e0f1a-2b3c-4d5e-6f7a-8b9c0d1e2f3a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CubeMesh.h">
@@ -173,6 +179,21 @@
     </ClInclude>
     <ClInclude Include="ImGuiWidgets.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Platform\FileIO.h">
+      <Filter>Source Files\Platform</Filter>
+    </ClInclude>
+    <ClInclude Include="Platform\ShaderCompiler.h">
+      <Filter>Source Files\Platform</Filter>
+    </ClInclude>
+    <ClInclude Include="Shared\D3d12DebugName.h">
+      <Filter>Source Files\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="Shared\D3d12Helpers.h">
+      <Filter>Source Files\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="Shared\Error.h">
+      <Filter>Source Files\Shared</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

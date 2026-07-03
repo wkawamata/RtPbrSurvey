@@ -639,3 +639,48 @@ Verification:
 * `rg "DXSampleHelper.h" Platform -g "*.h" -g "*.cpp"` → 0 matches (新ファイルからの依存なし)。
 * EOL: CRLF。
 * git commit `4c1eb1f002`。
+
+### Shared/Error.h を抽出 (Step 2 of Candidate 2)
+
+目的:
+
+* `DXSampleHelper.h` から Shared error handling (`HrToString`, `HrException`, `SAFE_RELEASE`, `ThrowIfFailed`) を分離する。
+
+変更:
+
+* `Shared/Error.h` を作成。上記 4 要素を移動。
+  * `<windows.h>` と `<stdexcept>` と `<string>` を直接 include。
+* `DXSampleHelper.h`
+  * 上記 4 要素を削除。
+  * `#include "Shared/Error.h"` を追加。
+
+確認:
+
+* Debug x64 build 成功 (0 errors)。
+* EOL: CRLF。
+* git commit `81ae3bd0d3`。
+
+### Shared/D3d12DebugName.h, Shared/D3d12Helpers.h, Platform/ShaderCompiler.h を抽出 (Step 3 of Candidate 2)
+
+目的:
+
+* `DXSampleHelper.h` から残りの Engine helpers (`SetName`, `SetNameIndexed`, `NAME_D3D12_OBJECT` macros, `CalculateConstantBufferByteSize`, `ResetComPtrArray`, `ResetUniquePtrArray`, `CompileShader`) を分離する。
+* `DXSampleHelper.h` の全関数を新ヘッダーへ移動し、`DXSampleHelper.h` を pure aggregation header にする。
+* これで `DXSampleHelper.h` には `using namespace DirectX;` と `using Microsoft::WRL::ComPtr;` だけが残る。
+
+変更:
+
+* `Shared/D3d12DebugName.h` を作成。`SetName`, `SetNameIndexed`, `NAME_D3D12_OBJECT`, `NAME_D3D12_OBJECT_INDEXED` を移動。
+* `Shared/D3d12Helpers.h` を作成。`CalculateConstantBufferByteSize`, `ResetComPtrArray`, `ResetUniquePtrArray` を移動。
+* `Platform/ShaderCompiler.h` を作成。`CompileShader` を移動。
+* `DXSampleHelper.h`
+  * 上記全関数を削除。
+  * `#include "Shared/D3d12DebugName.h"`, `#include "Shared/D3d12Helpers.h"`, `#include "Platform/ShaderCompiler.h"` を追加。
+* `D3D12HelloTextureModified.vcxproj` / `.filters`
+  * 新ファイルの `<ClInclude>` エントリとフィルタ `Source Files\Shared`, `Source Files\Platform` を追加し、IDE の表示とビルド管理に反映。
+
+確認:
+
+* Debug x64 build 成功 (0 errors)。
+* 移動した 6 関数はすべて dead code（どの .cpp からも呼び出しなし）。
+* EOL: CRLF。
