@@ -447,3 +447,39 @@ git filter-repo `
 * `git diff --check` OK。
 * Debug x64 build 成功。
 * build 時に既存 warning は残るが error は 0。
+
+### Render pass headers の Sample helper 依存を削減
+
+目的:
+
+* Render pass 宣言 header が `DXSampleHelper.h` に直接依存しないようにする。
+* Pass desc が使う D3D12 / DirectXMath 型を各 header が明示的に include する。
+
+変更:
+
+* `Renderer/LightingPass.h`
+* `Renderer/ShadowMaskDebugPass.h`
+* `Renderer/ReflectionRayHitDebugPass.h`
+* `Renderer/RayQueryShadowPass.h`
+* `Renderer/RayQueryTlasDebugPass.h`
+* `Renderer/SpecularDebugRayQueryPass.h`
+* `Renderer/HybridReflectionPass.h`
+* `Renderer/SceneGeometryPass.h`
+* `Renderer/ToneMap.h`
+* `Renderer/GBuffer.h`
+
+上記から `DXSampleHelper.h` の直接 include を削除し、必要な `<d3d12.h>`, `<DirectXMath.h>`, `<cstdint>`, `<wrl/client.h>` を明示。
+
+追加調整:
+
+* `Renderer/GBuffer.h`
+  * `ComPtr<ID3D12Resource>` を `Microsoft::WRL::ComPtr<ID3D12Resource>` に変更。
+
+* `Renderer/GBuffer.cpp`
+  * `ThrowIfFailed` を使うため、`DXSampleHelper.h` include を `.cpp` 側に明示。
+
+確認:
+
+* `git diff --check` OK。
+* Debug x64 build 成功。
+* build 時に既存 warning は残るが error は 0。

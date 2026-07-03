@@ -1,9 +1,11 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
 #include "ResolvedRenderTargets.h"
 #include "SceneGeometryPass.h"
 #include "SimpleDescriptorHeapAllocator.h"
+
+#include <d3d12.h>
+#include <wrl/client.h>
 
 namespace Engine
 {
@@ -22,7 +24,7 @@ struct GBuffer
         Emissive = 5,
     };
 
-    ComPtr<ID3D12Resource> resources[kCount];
+    Microsoft::WRL::ComPtr<ID3D12Resource> resources[kCount];
 
     DXGI_FORMAT formats[kCount] = {
         DXGI_FORMAT_R8G8B8A8_UNORM,     // Albedo

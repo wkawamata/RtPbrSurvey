@@ -1,6 +1,8 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
+#include <DirectXMath.h>
+#include <cstdint>
+#include <d3d12.h>
 
 namespace Engine
 {

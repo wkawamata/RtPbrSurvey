@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
 #include "HdrOutput.h"
 
 #include <algorithm>
+#include <d3d12.h>
 
 namespace Engine
 {
