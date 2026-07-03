@@ -34,6 +34,7 @@ cbuffer ReflectionConstants : register(b1)
 
 static const uint kSceneVertexStride = 52;
 static const uint kSceneVertexPositionOffset = 0;
+static const uint kSceneVertexUvOffset = 12;
 static const uint kSceneVertexNormalOffset = 20;
 static const uint kSceneVertexMaterialIdOffset = 48;
 static const uint kInstanceDataStride = 144;
@@ -64,6 +65,17 @@ float3 LoadSceneVertexNormal(uint vertexIndex)
     return normalize(asfloat(uint3(g_sceneVertices.Load(normalOffset),
                                    g_sceneVertices.Load(normalOffset + 4),
                                    g_sceneVertices.Load(normalOffset + 8))));
+}
+
+float2 LoadSceneVertexUv(uint vertexIndex)
+{
+    if (vertexIndex >= vertexCount)
+    {
+        return float2(0.0, 0.0);
+    }
+
+    uint uvOffset = vertexIndex * kSceneVertexStride + kSceneVertexUvOffset;
+    return asfloat(uint2(g_sceneVertices.Load(uvOffset), g_sceneVertices.Load(uvOffset + 4)));
 }
 
 uint LoadSceneVertexMaterialId(uint vertexIndex)
@@ -138,6 +150,16 @@ float3 MaterialParamsToDebugNormal(uint materialId)
     return normalize(color * 2.0 - 1.0);
 }
 
+float3 HitUvToDebugNormal(uint index0, uint index1, uint index2, float2 barycentric)
+{
+    float bary0 = 1.0 - barycentric.x - barycentric.y;
+    float2 uv = LoadSceneVertexUv(index0) * bary0 +
+                LoadSceneVertexUv(index1) * barycentric.x +
+                LoadSceneVertexUv(index2) * barycentric.y;
+    float3 color = float3(frac(uv), 0.25);
+    return normalize(color * 2.0 - 1.0);
+}
+
 uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
 {
     float bary0 = 1.0 - barycentric.x - barycentric.y;
@@ -173,6 +195,10 @@ float3 LoadCommittedHitNormal(uint primitiveIndex, float2 barycentric, float3x4 
     if (hitNormalSource == 3)
     {
         return MaterialParamsToDebugNormal(LoadCommittedHitMaterialId(index0, index1, index2, barycentric, instanceId));
+    }
+    if (hitNormalSource == 4)
+    {
+        return HitUvToDebugNormal(index0, index1, index2, barycentric);
     }
 
     if (hitNormalSource == 1)

@@ -1216,19 +1216,22 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
         ImGui::SameLine();
         changed |= ImGui::RadioButton("Environment", &reflectionSettings.hitOverlayMode, 2);
         ImGui::SameLine();
-        changed |= ImGui::RadioButton("Hit Normal", &reflectionSettings.hitOverlayMode, 3);
+        changed |= ImGui::RadioButton("Hit Attribute", &reflectionSettings.hitOverlayMode, 3);
 
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Hit Overlay Intensity", &reflectionSettings.hitOverlayIntensity, 0.0f, 1.0f, 0.05f, 0.2f);
         ImGui::EndDisabled();
 
-        changed |= ImGui::RadioButton("Hit Normal Vertex", &reflectionSettings.hitNormalSource, 0);
+        ImGui::BeginDisabled(reflectionSettings.hitOverlayMode != 3);
+        changed |= ImGui::RadioButton("Attr Vertex Normal", &reflectionSettings.hitNormalSource, 0);
         ImGui::SameLine();
-        changed |= ImGui::RadioButton("Hit Normal Geometric", &reflectionSettings.hitNormalSource, 1);
+        changed |= ImGui::RadioButton("Attr Geometric Normal", &reflectionSettings.hitNormalSource, 1);
         ImGui::SameLine();
-        changed |= ImGui::RadioButton("Hit MaterialId", &reflectionSettings.hitNormalSource, 2);
+        changed |= ImGui::RadioButton("Attr MaterialId", &reflectionSettings.hitNormalSource, 2);
+        changed |= ImGui::RadioButton("Attr Material Params", &reflectionSettings.hitNormalSource, 3);
         ImGui::SameLine();
-        changed |= ImGui::RadioButton("Hit Material Params", &reflectionSettings.hitNormalSource, 3);
+        changed |= ImGui::RadioButton("Attr UV", &reflectionSettings.hitNormalSource, 4);
+        ImGui::EndDisabled();
 
         changed |= ImGui::Checkbox("Reflection Contribution", &reflectionSettings.contributionEnabled);
 
