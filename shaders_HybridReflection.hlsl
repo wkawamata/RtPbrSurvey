@@ -1,3 +1,5 @@
+#include "Material.hlsli"
+
 RWTexture2D<float4> g_reflectionRayHit : register(u0);
 RaytracingAccelerationStructure g_tlas : register(t0);
 Texture2D<float> g_depth : register(t1);
@@ -6,6 +8,7 @@ Texture2D<float4> g_pbrParams : register(t3);
 ByteAddressBuffer g_sceneVertices : register(t4);
 ByteAddressBuffer g_sceneIndices : register(t5);
 ByteAddressBuffer g_instanceData : register(t6);
+StructuredBuffer<Material> g_materialData : register(t7);
 
 cbuffer CameraCB : register(b0)
 {
@@ -128,6 +131,13 @@ float3 HashMaterialIdToDebugNormal(uint materialId)
     return normalize(color * 2.0 - 1.0);
 }
 
+float3 MaterialParamsToDebugNormal(uint materialId)
+{
+    Material material = g_materialData[materialId];
+    float3 color = float3(saturate(material.metallicFactor), saturate(material.roughnessFactor), 0.25);
+    return normalize(color * 2.0 - 1.0);
+}
+
 uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
 {
     float bary0 = 1.0 - barycentric.x - barycentric.y;
@@ -159,6 +169,10 @@ float3 LoadCommittedHitNormal(uint primitiveIndex, float2 barycentric, float3x4 
     if (hitNormalSource == 2)
     {
         return HashMaterialIdToDebugNormal(LoadCommittedHitMaterialId(index0, index1, index2, barycentric, instanceId));
+    }
+    if (hitNormalSource == 3)
+    {
+        return MaterialParamsToDebugNormal(LoadCommittedHitMaterialId(index0, index1, index2, barycentric, instanceId));
     }
 
     if (hitNormalSource == 1)

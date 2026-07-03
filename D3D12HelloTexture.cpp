@@ -1166,7 +1166,10 @@ void HelloTextureEngine::CreateHybridReflectionRootSignature()
     CD3DX12_DESCRIPTOR_RANGE1 cameraCbvRange = {};
     cameraCbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[10] = {};
+    CD3DX12_DESCRIPTOR_RANGE1 materialSrvRange = {};
+    materialSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 7, 0);
+
+    CD3DX12_ROOT_PARAMETER1 rootParameters[11] = {};
     rootParameters[0].InitAsDescriptorTable(1, &uavRange);          // g_reflectionRayHit (u0)
     rootParameters[1].InitAsDescriptorTable(1, &tlasSrvRange);      // g_tlas (t0)
     rootParameters[2].InitAsDescriptorTable(1, &depthSrvRange);     // g_depth (t1)
@@ -1176,7 +1179,8 @@ void HelloTextureEngine::CreateHybridReflectionRootSignature()
     rootParameters[6].InitAsShaderResourceView(4, 0);               // g_sceneVertices (t4)
     rootParameters[7].InitAsShaderResourceView(5, 0);               // g_sceneIndices (t5)
     rootParameters[8].InitAsShaderResourceView(6, 0);               // g_instanceData (t6)
-    rootParameters[9].InitAsConstants(9, 1, 0);                     // ReflectionConstants (b1)
+    rootParameters[9].InitAsDescriptorTable(1, &materialSrvRange);  // g_materialData (t7)
+    rootParameters[10].InitAsConstants(9, 1, 0);                    // ReflectionConstants (b1)
 
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
     featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
@@ -2877,6 +2881,7 @@ void HelloTextureEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     passDesc.normalSrv = m_gbuffer.srvHandles[Engine::GBuffer::Normal].gpu;
     passDesc.pbrParamsSrv = m_gbuffer.srvHandles[Engine::GBuffer::PBRParams].gpu;
     passDesc.cameraCbv = m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu;
+    passDesc.materialBufferSrv = m_materialBuffer.Srv().gpu;
     passDesc.normalBias = m_shadowSettings.normalBias;
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
