@@ -601,18 +601,44 @@ Verification:
 
 ### Deferred GPU release queue header: reduce Sample helper dependency
 
-Purpose:
+目的:
 
 * Keep the deferred release queue header independent from `DXSampleHelper.h`.
 * Make the D3D12 and WRL dependencies explicit at the header boundary.
 
-Changes:
+変更:
 
 * `Renderer/DeferredGpuReleaseQueue.h`
   * Removed direct `DXSampleHelper.h` include.
   * Added direct `<d3d12.h>` and `<wrl/client.h>` includes.
 
-Verification:
+確認:
 
 * Debug x64 build successful.
 * Existing build warnings remain, errors 0.
+
+### Candidate 2: Split `DXSampleHelper.h` by responsibility
+
+目的:
+
+* `DXSampleHelper.h` に混在する Platform file I/O / Engine D3D12 helper / Shared error handling を責務ごとに分割する。
+* include surface が広いため、新 header 追加 + include 置換を小さく進める。
+
+計画:
+
+1. Platform file I/O (`GetAssetsPath`, `ReadDataFromFile`, `ReadDataFromDDSFile`) を `Platform/FileIO.h` へ抽出。
+2. D3D12 helper (`SetName`, `SetNameIndexed`, `CompileShader`, `CalculateConstantBufferByteSize`) を `Engine/D3dHelpers.h` へ抽出。
+3. Error handling (`HrException`, `ThrowIfFailed`, `SAFE_RELEASE`, `HrToString`) を `Shared/Error.h` へ抽出。
+4. `DXSampleHelper.h` を新しい 3 header を include する互換性 umbrella に変更。
+5. 個別ファイルの include を新しい header へ段階的に置き換え。
+
+初回変更:
+
+* `Platform/FileIO.h` を作成し、file I/O 関数を移動。
+* `DXSampleHelper.h` からファイル I/O 関数を削除し、`Platform/FileIO.h` を include。
+* 最初に `ReadDataFromFile` / `ReadDataFromDDSFile` のみを使うファイルの include を置き換え。
+
+確認予定:
+
+* Debug x64 build 成功。
+* `grep "DXSampleHelper.h" Platform/ -g "*.h" -g "*.cpp"` で新ファイルからの依存がないこと。
