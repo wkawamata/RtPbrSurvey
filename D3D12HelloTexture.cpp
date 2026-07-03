@@ -3381,7 +3381,7 @@ void HelloTextureEngine::ReadbackPixelPick()
     XMStoreFloat3(&m_pixelPickResult.reflectionDir, reflection);
 
     m_pixelPickResult.reflectionHit = false;
-    m_pixelPickResult.reflectionHitDistance = 0.0f;
+    m_pixelPickResult.reflectionHitResult = 0.0f;
     m_pixelPickResult.reflectionHitWorldPos = {0.0f, 0.0f, 0.0f};
     m_pixelPickResult.valid = true;
     m_specularDebugRayQueryRequested = m_pixelPickResult.depthNdc < 1.0f &&
@@ -3412,7 +3412,7 @@ void HelloTextureEngine::ReadbackSpecularDebugRayQuery()
     ThrowIfFailed(m_specularDebugRayQueryReadback->Map(0, &readRange, &mappedData));
     const auto* result = reinterpret_cast<const RayQueryResultData*>(mappedData);
     m_pixelPickResult.reflectionHit = result->hit != 0;
-    m_pixelPickResult.reflectionHitDistance = result->distance;
+    m_pixelPickResult.reflectionHitResult = result->distance;
     m_pixelPickResult.reflectionHitWorldPos = result->hitPosition;
     m_specularDebugRayQueryReadback->Unmap(0, nullptr);
 

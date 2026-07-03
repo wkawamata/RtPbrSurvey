@@ -172,7 +172,7 @@ public:
         XMFLOAT3 viewDir = {0.0f, 0.0f, 0.0f};
         XMFLOAT3 reflectionDir = {0.0f, 0.0f, 0.0f};
         bool reflectionHit = false;
-        float reflectionHitDistance = 0.0f;
+        float reflectionHitResult = 0.0f;
         XMFLOAT3 reflectionHitWorldPos = {0.0f, 0.0f, 0.0f};
     };
 

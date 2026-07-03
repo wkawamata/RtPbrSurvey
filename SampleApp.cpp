@@ -1399,7 +1399,7 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
                 ImGui::Text("Status: %s", pick.reflectionHit ? "Hit" : "Miss");
                 if (pick.reflectionHit)
                 {
-                    ImGui::Text("Dist: %.3f", pick.reflectionHitDistance);
+                    ImGui::Text("Dist: %.3f", pick.reflectionHitResult);
                     ImGui::Text("Pos:  (%.3f, %.3f, %.3f)",
                                 pick.reflectionHitWorldPos.x,
                                 pick.reflectionHitWorldPos.y,
