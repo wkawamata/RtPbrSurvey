@@ -617,28 +617,25 @@ Verification:
 * Debug x64 build successful.
 * Existing build warnings remain, errors 0.
 
-### Candidate 2: Split `DXSampleHelper.h` by responsibility
+### Platform/FileIO.h を抽出 (Step 1 of Candidate 2)
 
 目的:
 
-* `DXSampleHelper.h` に混在する Platform file I/O / Engine D3D12 helper / Shared error handling を責務ごとに分割する。
-* include surface が広いため、新 header 追加 + include 置換を小さく進める。
+* `DXSampleHelper.h` から Platform file I/O (`GetAssetsPath`, `ReadDataFromFile`, `ReadDataFromDDSFile`) を分離する。
+* include surface が広いため、新 header 追加 で小さく進める。
 
-計画:
+変更:
 
-1. Platform file I/O (`GetAssetsPath`, `ReadDataFromFile`, `ReadDataFromDDSFile`) を `Platform/FileIO.h` へ抽出。
-2. D3D12 helper (`SetName`, `SetNameIndexed`, `CompileShader`, `CalculateConstantBufferByteSize`) を `Engine/D3dHelpers.h` へ抽出。
-3. Error handling (`HrException`, `ThrowIfFailed`, `SAFE_RELEASE`, `HrToString`) を `Shared/Error.h` へ抽出。
-4. `DXSampleHelper.h` を新しい 3 header を include する互換性 umbrella に変更。
-5. 個別ファイルの include を新しい header へ段階的に置き換え。
+* `Platform/FileIO.h` を作成。`GetAssetsPath`, `ReadDataFromFile`, `ReadDataFromDDSFile` を移動。
+  * `<windows.h>` と `<stdexcept>` を直接 include し、Win32 型に自立。
+* `DXSampleHelper.h`
+  * 上記 3 関数を削除。
+  * 互換性のため `#include "Platform/FileIO.h"` を追加。
+* ファイル I/O を使うファイルの include はそのまま `DXSampleHelper.h` 経由で有効。
 
-初回変更:
+確認:
 
-* `Platform/FileIO.h` を作成し、file I/O 関数を移動。
-* `DXSampleHelper.h` からファイル I/O 関数を削除し、`Platform/FileIO.h` を include。
-* 最初に `ReadDataFromFile` / `ReadDataFromDDSFile` のみを使うファイルの include を置き換え。
-
-確認予定:
-
-* Debug x64 build 成功。
-* `grep "DXSampleHelper.h" Platform/ -g "*.h" -g "*.cpp"` で新ファイルからの依存がないこと。
+* Debug x64 build 成功 (0 errors)。
+* `rg "DXSampleHelper.h" Platform -g "*.h" -g "*.cpp"` → 0 matches (新ファイルからの依存なし)。
+* EOL: CRLF。
+* git commit `4c1eb1f002`。
