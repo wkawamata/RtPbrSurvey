@@ -1225,6 +1225,8 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
         changed |= ImGui::RadioButton("Hit Normal Vertex", &reflectionSettings.hitNormalSource, 0);
         ImGui::SameLine();
         changed |= ImGui::RadioButton("Hit Normal Geometric", &reflectionSettings.hitNormalSource, 1);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Hit MaterialId", &reflectionSettings.hitNormalSource, 2);
 
         changed |= ImGui::Checkbox("Reflection Contribution", &reflectionSettings.contributionEnabled);
 

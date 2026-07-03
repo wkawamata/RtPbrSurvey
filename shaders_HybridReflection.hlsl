@@ -5,6 +5,7 @@ Texture2D<float4> g_normal : register(t2);
 Texture2D<float4> g_pbrParams : register(t3);
 ByteAddressBuffer g_sceneVertices : register(t4);
 ByteAddressBuffer g_sceneIndices : register(t5);
+ByteAddressBuffer g_instanceData : register(t6);
 
 cbuffer CameraCB : register(b0)
 {
@@ -31,6 +32,10 @@ cbuffer ReflectionConstants : register(b1)
 static const uint kSceneVertexStride = 52;
 static const uint kSceneVertexPositionOffset = 0;
 static const uint kSceneVertexNormalOffset = 20;
+static const uint kSceneVertexMaterialIdOffset = 48;
+static const uint kInstanceDataStride = 144;
+static const uint kInstanceDataMaterialIdOffset = 128;
+static const uint kMaterialFromInstance = 0xffffffff;
 
 float3 LoadSceneVertexPosition(uint vertexIndex)
 {
@@ -56,6 +61,21 @@ float3 LoadSceneVertexNormal(uint vertexIndex)
     return normalize(asfloat(uint3(g_sceneVertices.Load(normalOffset),
                                    g_sceneVertices.Load(normalOffset + 4),
                                    g_sceneVertices.Load(normalOffset + 8))));
+}
+
+uint LoadSceneVertexMaterialId(uint vertexIndex)
+{
+    if (vertexIndex >= vertexCount)
+    {
+        return 0;
+    }
+
+    return g_sceneVertices.Load(vertexIndex * kSceneVertexStride + kSceneVertexMaterialIdOffset);
+}
+
+uint LoadInstanceMaterialId(uint instanceId)
+{
+    return g_instanceData.Load(instanceId * kInstanceDataStride + kInstanceDataMaterialIdOffset);
 }
 
 uint LoadSceneIndex(uint indexIndex)
@@ -99,7 +119,32 @@ float3 TransformObjectNormalToWorld(float3 objectNormal, float3x4 objectToWorld)
     return normalize(mul(objectNormal, objectToWorld3x3));
 }
 
-float3 LoadCommittedHitNormal(uint primitiveIndex, float2 barycentric, float3x4 objectToWorld)
+float3 HashMaterialIdToDebugNormal(uint materialId)
+{
+    uint hash = materialId * 1664525u + 1013904223u;
+    float3 color = float3((hash & 255u) / 255.0,
+                          ((hash >> 8) & 255u) / 255.0,
+                          ((hash >> 16) & 255u) / 255.0);
+    return normalize(color * 2.0 - 1.0);
+}
+
+uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
+{
+    float bary0 = 1.0 - barycentric.x - barycentric.y;
+    uint materialId = LoadSceneVertexMaterialId(index0);
+    if (barycentric.x > bary0 && barycentric.x >= barycentric.y)
+    {
+        materialId = LoadSceneVertexMaterialId(index1);
+    }
+    else if (barycentric.y > bary0 && barycentric.y > barycentric.x)
+    {
+        materialId = LoadSceneVertexMaterialId(index2);
+    }
+
+    return materialId == kMaterialFromInstance ? LoadInstanceMaterialId(instanceId) : materialId;
+}
+
+float3 LoadCommittedHitNormal(uint primitiveIndex, float2 barycentric, float3x4 objectToWorld, uint instanceId)
 {
     uint index0;
     uint index1;
@@ -110,6 +155,11 @@ float3 LoadCommittedHitNormal(uint primitiveIndex, float2 barycentric, float3x4 
     float3 objectNormal = normalize(LoadSceneVertexNormal(index0) * bary0 +
                                     LoadSceneVertexNormal(index1) * barycentric.x +
                                     LoadSceneVertexNormal(index2) * barycentric.y);
+
+    if (hitNormalSource == 2)
+    {
+        return HashMaterialIdToDebugNormal(LoadCommittedHitMaterialId(index0, index1, index2, barycentric, instanceId));
+    }
 
     if (hitNormalSource == 1)
     {
@@ -191,7 +241,8 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     {
         float3 hitNormal = LoadCommittedHitNormal(query.CommittedPrimitiveIndex(),
                                                   query.CommittedTriangleBarycentrics(),
-                                                  query.CommittedObjectToWorld3x4());
+                                                  query.CommittedObjectToWorld3x4(),
+                                                  query.CommittedInstanceID());
         g_reflectionRayHit[pixel] = float4(query.CommittedRayT(), 1.0, EncodeNormalOctahedron(hitNormal));
     }
     else

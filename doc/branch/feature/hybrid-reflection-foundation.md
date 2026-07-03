@@ -46,7 +46,8 @@ Follow RayQueryShadowPass's descriptor-table approach (identical pattern):
 | 5     | CBV table     | b0       | CameraCB                         |
 | 6     | Root SRV      | t4       | Scene vertex buffer bytes        |
 | 7     | Root SRV      | t5       | Scene index buffer bytes         |
-| 8     | 32-bit consts | b1       | Reflection constants (see below) |
+| 8     | Root SRV      | t6       | Instance buffer bytes            |
+| 9     | 32-bit consts | b1       | Reflection constants (see below) |
 
 Constants (b1): normalBias, rayTMin, rayTMax, maxRoughness, minMetallic, usesIndexedDraw, vertexCount, indexCount, hitNormalSource.
 
@@ -63,7 +64,7 @@ Same pattern as `CreateRayQueryShadowRootSignature` + `D3D12_COMPUTE_PIPELINE_ST
 - Current scaffold uses `ReflectionRayHit` with `DXGI_FORMAT_R16G16B16A16_FLOAT`.
 - Hit position can be reconstructed in LightPass as `worldPos + reflectionDir * hitDistance`.
 - Hit normal is reconstructed in the ray query shader from `CommittedPrimitiveIndex()`, `CommittedTriangleBarycentrics()`, and the scene vertex/index buffers, then transformed by the committed object-to-world matrix.
-- The debug UI can switch hit normal source between interpolated vertex normal and geometric triangle normal for diagnosis.
+- The debug UI can switch hit normal source between interpolated vertex normal, geometric triangle normal, and materialId debug color for diagnosis.
 - Can be packed into R16G16_UNORM later for bandwidth savings if needed, but keep float storage while debugging.
 
 ## Material Gating
@@ -89,7 +90,7 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 - 1 SRV: GBuffer normal
 - 1 SRV: GBuffer PBR params
 - 1 CBV: camera constants
-- 2 root SRVs: scene vertex/index buffers for committed hit normal reconstruction
+- 3 root SRVs: scene vertex/index/instance buffers for committed hit normal and materialId reconstruction
 
 ## Resource States
 

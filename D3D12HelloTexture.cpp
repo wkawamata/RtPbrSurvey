@@ -84,6 +84,8 @@ namespace
 
 static_assert(sizeof(Engine::SceneVertex) == 52,
               "shaders_HybridReflection.hlsl reads SceneVertex normals through a byte-address buffer.");
+static_assert(sizeof(Engine::InstanceData) == 144,
+              "shaders_HybridReflection.hlsl reads InstanceData materialId through a byte-address buffer.");
 
 const wchar_t* EnvironmentSourceName(Engine::EnvironmentSource source)
 {
@@ -1164,7 +1166,7 @@ void HelloTextureEngine::CreateHybridReflectionRootSignature()
     CD3DX12_DESCRIPTOR_RANGE1 cameraCbvRange = {};
     cameraCbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[9] = {};
+    CD3DX12_ROOT_PARAMETER1 rootParameters[10] = {};
     rootParameters[0].InitAsDescriptorTable(1, &uavRange);          // g_reflectionRayHit (u0)
     rootParameters[1].InitAsDescriptorTable(1, &tlasSrvRange);      // g_tlas (t0)
     rootParameters[2].InitAsDescriptorTable(1, &depthSrvRange);     // g_depth (t1)
@@ -1173,7 +1175,8 @@ void HelloTextureEngine::CreateHybridReflectionRootSignature()
     rootParameters[5].InitAsDescriptorTable(1, &cameraCbvRange);    // CameraCB (b0)
     rootParameters[6].InitAsShaderResourceView(4, 0);               // g_sceneVertices (t4)
     rootParameters[7].InitAsShaderResourceView(5, 0);               // g_sceneIndices (t5)
-    rootParameters[8].InitAsConstants(9, 1, 0);                     // ReflectionConstants (b1)
+    rootParameters[8].InitAsShaderResourceView(6, 0);               // g_instanceData (t6)
+    rootParameters[9].InitAsConstants(9, 1, 0);                     // ReflectionConstants (b1)
 
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
     featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
@@ -2879,6 +2882,9 @@ void HelloTextureEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     passDesc.rayTMax = m_shadowSettings.rayTMax;
     passDesc.vertexBufferSrv = m_vertexBuffer ? m_vertexBuffer->GetGPUVirtualAddress() : 0;
     passDesc.indexBufferSrv = m_indexBuffer ? m_indexBuffer->GetGPUVirtualAddress() : passDesc.vertexBufferSrv;
+    passDesc.instanceBufferSrv = m_frameResources[m_currentFrameIndex].instanceBuffer ?
+        m_frameResources[m_currentFrameIndex].instanceBuffer->GetGPUVirtualAddress() :
+        0;
     passDesc.usesIndexedDraw = m_usesIndexedDraw ? 1u : 0u;
     passDesc.vertexCount = m_vertexCountPerInstance;
     passDesc.indexCount = m_indexCountPerInstance;
