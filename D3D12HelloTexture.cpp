@@ -86,6 +86,7 @@ static_assert(sizeof(Engine::SceneVertex) == 52,
               "shaders_HybridReflection.hlsl reads SceneVertex normals through a byte-address buffer.");
 static_assert(sizeof(Engine::InstanceData) == 144,
               "shaders_HybridReflection.hlsl reads InstanceData materialId through a byte-address buffer.");
+static_assert(sizeof(Engine::Material) == 44, "Material.hlsli must match Engine::Material structured buffer layout.");
 
 const wchar_t* EnvironmentSourceName(Engine::EnvironmentSource source)
 {

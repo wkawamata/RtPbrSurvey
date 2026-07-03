@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
 #include "../GltfLoader.h"
 
+#include <cstdint>
 #include <vector>
 
 namespace Engine
@@ -20,7 +20,7 @@ struct alignas(16) InstanceData
 {
     DirectX::XMFLOAT4X4 world;
     DirectX::XMFLOAT4X4 prevWorld;
-    UINT materialId;
+    uint32_t materialId;
 };
 
 using SceneVertex = GltfVertex;

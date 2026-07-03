@@ -1,27 +1,27 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
+#include <cstdint>
 
 namespace Engine
 {
 
-static constexpr UINT kMaterialCount = 256;
-static constexpr UINT kMaterialFlagUnlit = 1u << 0;
-static constexpr UINT kMaterialFlagHasNormalTexture = 1u << 1;
+static constexpr uint32_t kMaterialCount = 256;
+static constexpr uint32_t kMaterialFlagUnlit = 1u << 0;
+static constexpr uint32_t kMaterialFlagHasNormalTexture = 1u << 1;
 
 struct Material
 {
-    UINT albedoTexIndex;
-    UINT metallicRoughnessTexIndex;
-    UINT emissiveTexIndex;
-    UINT occlusionTexIndex;
-    UINT normalTexIndex;
+    uint32_t albedoTexIndex;
+    uint32_t metallicRoughnessTexIndex;
+    uint32_t emissiveTexIndex;
+    uint32_t occlusionTexIndex;
+    uint32_t normalTexIndex;
     float roughnessFactor;
     float metallicFactor;
     float occlusionStrength;
     float ambientOcclusionFactor;
     float emissiveScale;
-    UINT flags;
+    uint32_t flags;
 };
 
 } // namespace Engine
