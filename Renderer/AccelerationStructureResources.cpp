@@ -2,6 +2,7 @@
 
 #include "AccelerationStructureResources.h"
 
+#include "../DXSampleHelper.h"
 #include "../Scene/Scene.h"
 
 #include <d3dx12_core.h>

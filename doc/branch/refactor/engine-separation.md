@@ -392,3 +392,26 @@ git filter-repo `
 
 * `SimpleDescriptorHeapAllocator.h` 経由の Sample helper 依存はまだ残っている。
 * 次に進めるなら descriptor allocator header の自立化を検討する。
+
+### SimpleDescriptorHeapAllocator header の Sample helper 依存を削減
+
+目的:
+
+* `Renderer/SimpleDescriptorHeapAllocator.h` が `DXSampleHelper.h` と `MyDx12Utils.h` に依存しないようにする。
+* Descriptor allocator を Renderer 内の自立した utility header に近づける。
+
+変更:
+
+* `Renderer/SimpleDescriptorHeapAllocator.h`
+  * `DXSampleHelper.h` include を削除。
+  * `MyDx12Utils.h` include を削除。
+  * `<d3d12.h>` と `<climits>` を直接 include。
+  * `DBG_PRINT` を使った debug allocation log を削除。
+
+* `Renderer/AccelerationStructureResources.cpp`
+  * `ThrowIfFailed` は `.cpp` 内部だけで使うため、`DXSampleHelper.h` include を `.cpp` 側に明示。
+
+確認:
+
+* Debug x64 build 成功。
+* build 時に既存 warning は残るが error は 0。

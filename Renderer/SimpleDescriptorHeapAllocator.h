@@ -1,10 +1,9 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
-#include "../MyDx12Utils.h"
-
 #include <algorithm>
 #include <cassert>
+#include <climits>
+#include <d3d12.h>
 #include <vector>
 
 struct DescriptorHeapHandle
@@ -119,9 +118,6 @@ struct SimpleDescriptorHeapAllocator
         if (out_gpu_desc_handle)
             *out_gpu_desc_handle = handle.gpu;
 
-#ifdef _DEBUG
-        DBG_PRINT("[SimpleDescriptorHeapAllocator] Alloc() returns idx=%d\n", idx);
-#endif
         return idx;
     }
 
