@@ -1,18 +1,21 @@
 #pragma once
 
-#include "../DXSampleHelper.h"
-#include "../Scene/Scene.h"
 #include "SimpleDescriptorHeapAllocator.h"
+
+#include <d3d12.h>
+#include <wrl/client.h>
 
 namespace Engine
 {
 
+struct InstanceData;
+
 struct AccelerationStructureResources
 {
-    ComPtr<ID3D12Resource> blas;
-    ComPtr<ID3D12Resource> blasScratch;
-    ComPtr<ID3D12Resource> tlas;
-    ComPtr<ID3D12Resource> tlasScratch;
+    Microsoft::WRL::ComPtr<ID3D12Resource> blas;
+    Microsoft::WRL::ComPtr<ID3D12Resource> blasScratch;
+    Microsoft::WRL::ComPtr<ID3D12Resource> tlas;
+    Microsoft::WRL::ComPtr<ID3D12Resource> tlasScratch;
     DescriptorAllocation tlasSrv;
 
     void Build(
