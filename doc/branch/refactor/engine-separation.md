@@ -520,3 +520,30 @@ git filter-repo `
 * `git diff --check` OK。
 * Debug x64 build 成功。
 * build 時に既存 warning は残るが error は 0。
+
+### Pipeline / root signature factory headers: reduce Sample helper dependency
+
+Purpose:
+
+* Keep factory public headers independent from `DXSampleHelper.h`.
+* Make D3D12 and bytecode-facing types explicit in the renderer factory API.
+
+Changes:
+
+* `Renderer/PipelineFactory.h`
+  * Removed direct `DXSampleHelper.h` include.
+  * Added direct `<cstdint>`, `<d3d12.h>`, and `<dxgiformat.h>` includes.
+  * Changed `ShaderBytecode::data` from `const UINT8*` to `const uint8_t*`.
+
+* `Renderer/RootSignatureFactory.h`
+  * Removed direct `DXSampleHelper.h` include.
+  * Added direct `<d3d12.h>` and `<wrl/client.h>` includes.
+
+* `Renderer/RootSignatureFactory.cpp`
+  * Kept `ThrowIfFailed` dependency in the implementation by including `DXSampleHelper.h` in `.cpp`.
+  * Changed local blob variables to `Microsoft::WRL::ComPtr<ID3DBlob>`.
+
+Verification:
+
+* Debug x64 build successful.
+* Existing build warnings remain, errors 0.

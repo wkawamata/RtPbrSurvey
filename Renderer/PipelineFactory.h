@@ -1,13 +1,15 @@
-﻿#pragma once
+#pragma once
 
-#include "../DXSampleHelper.h"
+#include <cstdint>
+#include <d3d12.h>
+#include <dxgiformat.h>
 
 namespace Engine
 {
 
 struct ShaderBytecode
 {
-    const UINT8* data = nullptr;
+    const uint8_t* data = nullptr;
     UINT size = 0;
 };
 

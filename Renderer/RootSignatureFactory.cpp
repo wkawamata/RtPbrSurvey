@@ -2,6 +2,7 @@
 
 #include "RootSignatureFactory.h"
 
+#include "../DXSampleHelper.h"
 #include "RootSignatureLayout.h"
 
 namespace Engine
@@ -182,8 +183,8 @@ void CreateRootSignature(ID3D12Device* device,
                                &sampler,
                                D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
-    ComPtr<ID3DBlob> signature;
-    ComPtr<ID3DBlob> error;
+    Microsoft::WRL::ComPtr<ID3DBlob> signature;
+    Microsoft::WRL::ComPtr<ID3DBlob> error;
     ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, rootSignatureVersion, &signature, &error));
     ThrowIfFailed(device->CreateRootSignature(
         0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature)));
