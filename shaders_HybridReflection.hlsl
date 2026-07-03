@@ -9,6 +9,8 @@ ByteAddressBuffer g_sceneVertices : register(t4);
 ByteAddressBuffer g_sceneIndices : register(t5);
 ByteAddressBuffer g_instanceData : register(t6);
 StructuredBuffer<Material> g_materialData : register(t7);
+Texture2D g_texture[] : register(t0, space8);
+SamplerState g_sampler : register(s0);
 
 cbuffer CameraCB : register(b0)
 {
@@ -160,6 +162,30 @@ float3 HitUvToDebugNormal(uint index0, uint index1, uint index2, float2 barycent
     return normalize(color * 2.0 - 1.0);
 }
 
+float2 LoadCommittedHitUv(uint index0, uint index1, uint index2, float2 barycentric)
+{
+    float bary0 = 1.0 - barycentric.x - barycentric.y;
+    return LoadSceneVertexUv(index0) * bary0 +
+           LoadSceneVertexUv(index1) * barycentric.x +
+           LoadSceneVertexUv(index2) * barycentric.y;
+}
+
+float3 SrgbToLinear(float3 color)
+{
+    return pow(saturate(color), 2.2);
+}
+
+uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId);
+
+float3 HitAlbedoToDebugNormal(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
+{
+    uint materialId = LoadCommittedHitMaterialId(index0, index1, index2, barycentric, instanceId);
+    Material material = g_materialData[materialId];
+    float2 uv = LoadCommittedHitUv(index0, index1, index2, barycentric);
+    float3 color = SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb);
+    return normalize(color * 2.0 - 1.0);
+}
+
 uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
 {
     float bary0 = 1.0 - barycentric.x - barycentric.y;
@@ -199,6 +225,10 @@ float3 LoadCommittedHitNormal(uint primitiveIndex, float2 barycentric, float3x4 
     if (hitNormalSource == 4)
     {
         return HitUvToDebugNormal(index0, index1, index2, barycentric);
+    }
+    if (hitNormalSource == 5)
+    {
+        return HitAlbedoToDebugNormal(index0, index1, index2, barycentric, instanceId);
     }
 
     if (hitNormalSource == 1)

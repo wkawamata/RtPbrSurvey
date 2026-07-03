@@ -40,6 +40,7 @@ void RecordHybridReflectionPass(ID3D12GraphicsCommandList* commandList, const Hy
     commandList->SetComputeRootShaderResourceView(7, desc.indexBufferSrv);
     commandList->SetComputeRootShaderResourceView(8, desc.instanceBufferSrv);
     commandList->SetComputeRootDescriptorTable(9, desc.materialBufferSrv);
+    commandList->SetComputeRootDescriptorTable(10, desc.textureTableSrv);
 
     const HybridReflectionShaderConstants constants = {
         desc.normalBias,
@@ -51,7 +52,7 @@ void RecordHybridReflectionPass(ID3D12GraphicsCommandList* commandList, const Hy
         desc.vertexCount,
         desc.indexCount,
         desc.hitNormalSource};
-    commandList->SetComputeRoot32BitConstants(10, 9, &constants, 0);
+    commandList->SetComputeRoot32BitConstants(11, 9, &constants, 0);
 
     constexpr UINT kThreadGroupSize = 8;
     const UINT dispatchX = (desc.width + kThreadGroupSize - 1) / kThreadGroupSize;

@@ -1231,6 +1231,8 @@ void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
         changed |= ImGui::RadioButton("Attr Material Params", &reflectionSettings.hitNormalSource, 3);
         ImGui::SameLine();
         changed |= ImGui::RadioButton("Attr UV", &reflectionSettings.hitNormalSource, 4);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Attr Albedo Texture", &reflectionSettings.hitNormalSource, 5);
         ImGui::EndDisabled();
 
         changed |= ImGui::Checkbox("Reflection Contribution", &reflectionSettings.contributionEnabled);
