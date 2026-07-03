@@ -547,3 +547,21 @@ Verification:
 
 * Debug x64 build successful.
 * Existing build warnings remain, errors 0.
+
+### Deferred GPU release queue header: reduce Sample helper dependency
+
+Purpose:
+
+* Keep the deferred release queue header independent from `DXSampleHelper.h`.
+* Make the D3D12 and WRL dependencies explicit at the header boundary.
+
+Changes:
+
+* `Renderer/DeferredGpuReleaseQueue.h`
+  * Removed direct `DXSampleHelper.h` include.
+  * Added direct `<d3d12.h>` and `<wrl/client.h>` includes.
+
+Verification:
+
+* Debug x64 build successful.
+* Existing build warnings remain, errors 0.

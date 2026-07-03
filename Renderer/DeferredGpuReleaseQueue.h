@@ -10,12 +10,13 @@
 //*********************************************************
 
 #pragma once
-#include "../DXSampleHelper.h"
 #include "SimpleDescriptorHeapAllocator.h"
 
 #include <cstddef>
+#include <d3d12.h>
 #include <utility>
 #include <vector>
+#include <wrl/client.h>
 
 namespace Engine
 {
