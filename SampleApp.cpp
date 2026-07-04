@@ -499,29 +499,6 @@ void SampleApp::OnIdle()
     }
 }
 
-void SampleApp::OnUpdate()
-{
-    // Win32Application does not call OnUpdate() in the current DXSample loop.
-    // It calls OnIdle(), which is delegated to HelloTextureEngine::RunFrame().
-    // The engine invokes UpdateHandler at the appropriate point in its frame.
-    //
-    // Keep this override for the DXSample interface. If Win32Application starts
-    // calling OnUpdate() in the future, SampleApp frame state should still update
-    // through the same path used by the engine callback.
-    UpdateSampleState(); // currently this is not called.
-}
-
-void SampleApp::OnRender()
-{
-    // Win32Application does not call OnRender() in the current DXSample loop.
-    // Rendering is driven by HelloTextureEngine::RunFrame(), which calls the engine's
-    // render path after its frame update.
-    // Keep this override for the DXSample interface. If Win32Application starts
-    // calling OnRender() in the future, delegate to the engine render path.
-    UpdateUiFrame();
-    m_engine.RenderFrame([this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); });
-}
-
 void SampleApp::OnDestroy()
 {
     if (m_logFile)

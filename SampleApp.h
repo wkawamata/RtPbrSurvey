@@ -29,8 +29,6 @@ public:
     SampleApp(UINT width, UINT height, std::wstring name);
 
     void OnInit() override;
-    void OnUpdate() override;
-    void OnRender() override;
     void OnDestroy() override;
     void OnKeyDown(UINT8 key) override;
     void OnKeyUp(UINT8 key) override;
