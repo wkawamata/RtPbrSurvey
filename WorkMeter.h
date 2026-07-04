@@ -4,7 +4,8 @@
 #include <vector>
 #include <string>
 #include <assert.h>
-#include "DXSampleHelper.h"
+#include <wrl/client.h>
+#include "Shared/Error.h"
 #include "MyDx12Utils.h"
 
 using Microsoft::WRL::ComPtr;

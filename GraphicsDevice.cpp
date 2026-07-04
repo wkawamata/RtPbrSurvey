@@ -12,6 +12,7 @@
 #include "stdafx.h"
 
 #include "GraphicsDevice.h"
+#include "Shared/Error.h"
 
 static void GetHardwareAdapter(IDXGIFactory1* pFactory,
                                IDXGIAdapter1** ppAdapter,

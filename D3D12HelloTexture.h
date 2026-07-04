@@ -10,7 +10,7 @@
 //*********************************************************
 
 #pragma once
-#include "DXSampleHelper.h"
+#include <wrl/client.h>
 #include "GraphicsDevice.h"
 #include "MyDx12Utils.h"
 #include "Renderer/ClearPass.h"

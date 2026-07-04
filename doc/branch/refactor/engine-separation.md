@@ -729,3 +729,52 @@ Verification:
 * `git diff --check` → 問題なし。
 * Debug x64 build 成功 (0 errors)。
 * 既存の build warning は残るが error は 0。
+* git commit `60c06c7e19`。
+
+### 全ソースファイルから DXSampleHelper.h include を完全除去
+
+目的:
+
+* `DXSampleHelper.h`（互換性 aggregation header）への依存を全ソースファイルから除去する。
+* DX12/RHI コードは直接 owner header を include する形に統一する。
+* `DXSampleHelper.h` は compatibility shim として残すが、誰も include しない状態にする。
+
+方針:
+
+* 前ステップで `Renderer/*.cpp` は完了済み。
+* 残っていた非 Renderer ファイル（`WorkMeter.h`, `GraphicsDevice.h/.cpp`, `MyDx12Utils.h`, `DXSample.h/.cpp`, `D3D12HelloTexture.h/.cpp`）を同様に置き換え。
+
+変更:
+
+以下の 9 ファイルを修正:
+
+* `WorkMeter.h`
+  * `#include "DXSampleHelper.h"` → `<wrl/client.h>` + `Shared/Error.h`
+  * （`ThrowIfFailed`, `ComPtr` を使用）
+* `GraphicsDevice.h`
+  * `#include "DXSampleHelper.h"` → `<wrl/client.h>`
+  * （`ComPtr` のみ使用、自身の `using Microsoft::WRL::ComPtr;` を維持）
+* `GraphicsDevice.cpp`
+  * `#include "Shared/Error.h"` を追加
+  * （`ThrowIfFailed` を使用、.h からの supply が切れたため）
+* `MyDx12Utils.h`
+  * `#include "DXSampleHelper.h"` → `<wrl/client.h>` + `Shared/Error.h`
+  * （`ThrowIfFailed`, `ComPtr` を使用、自身の `using` を維持）
+* `DXSample.h`
+  * `#include "DXSampleHelper.h"` を削除（この header は DXSampleHelper のシンボルを直接使っていない）
+* `DXSample.cpp`
+  * `#include "Platform/FileIO.h"` を追加
+  * （`GetAssetsPath` を使用）
+* `D3D12HelloTexture.h`
+  * `#include "DXSampleHelper.h"` → `<wrl/client.h>`
+  * （`ComPtr` のみ使用、自身の `using Microsoft::WRL::ComPtr;` を維持）
+* `D3D12HelloTexture.cpp`
+  * `#include "DXSampleHelper.h"` → `Shared/Error.h` + `Platform/FileIO.h`
+  * （`ThrowIfFailed`, `ReadDataFromFile` を使用）
+
+確認:
+
+* `DXSampleHelper.h` の include が全ソースファイルで **0 件**。
+* `git diff --check` → 問題なし。
+* Debug x64 build 成功 (0 errors)。
+* D3D12 Debug Layer: `[ERROR]` / `[WARNING]` なし（5秒間動作確認）。

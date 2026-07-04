@@ -40,7 +40,8 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "DXSampleHelper.h"
+#include "Shared/Error.h"
+#include "Platform/FileIO.h"
 #include "GraphicsDevice.h"
 #include "Renderer\ClearPass.h"
 #include "Renderer\DebugDumpCapture.h"

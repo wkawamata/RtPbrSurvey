@@ -11,6 +11,7 @@
 
 #include "stdafx.h"
 #include "DXSample.h"
+#include "Platform/FileIO.h"
 
 using namespace Microsoft::WRL;
 
