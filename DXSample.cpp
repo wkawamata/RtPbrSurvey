@@ -12,7 +12,6 @@
 #include "stdafx.h"
 #include "DXSample.h"
 #include "Platform/FileIO.h"
-#include "Win32Application.h"
 
 DXSample::DXSample(UINT width, UINT height, std::wstring name)
     : m_windowInfo(Platform::CreateWindowInfo(width, height, name))
@@ -28,13 +27,6 @@ DXSample::~DXSample() {}
 std::wstring DXSample::GetAssetFullPath(LPCWSTR assetName)
 {
     return m_assetsPath + assetName;
-}
-
-// Helper function for setting the window's title text.
-void DXSample::SetCustomWindowText(LPCWSTR text)
-{
-    std::wstring windowText = m_windowInfo.title + L": " + text;
-    SetWindowText(Win32Application::GetHwnd(), windowText.c_str());
 }
 
 // Helper function for parsing any supplied command line args.

@@ -56,8 +56,6 @@ public:
 protected:
     std::wstring GetAssetFullPath(LPCWSTR assetName);
 
-    void SetCustomWindowText(LPCWSTR text);
-
     Platform::WindowInfo m_windowInfo;
 
     // Adapter info.

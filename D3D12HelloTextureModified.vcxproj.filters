@@ -196,6 +196,9 @@
     <ClInclude Include="Platform\WindowInfo.h">
       <Filter>Source Files\Platform</Filter>
     </ClInclude>
+    <ClInclude Include="Platform\WindowTitle.h">
+      <Filter>Source Files\Platform</Filter>
+    </ClInclude>
     <ClInclude Include="Shared\D3d12DebugName.h">
       <Filter>Source Files\Shared</Filter>
     </ClInclude>
