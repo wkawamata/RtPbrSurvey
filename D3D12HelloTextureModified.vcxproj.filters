@@ -178,6 +178,9 @@
     <ClInclude Include="ImGuiWidgets.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="Platform\CommandLineOptions.h">
+      <Filter>Source Files\Platform</Filter>
+    </ClInclude>
     <ClInclude Include="Platform\FileIO.h">
       <Filter>Source Files\Platform</Filter>
     </ClInclude>
@@ -230,6 +233,9 @@
     </ClCompile>
     <ClCompile Include="GraphicsDevice.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Platform\CommandLineOptions.cpp">
+      <Filter>Source Files\Platform</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\BrdfLut.cpp">
       <Filter>Source Files\Renderer</Filter>

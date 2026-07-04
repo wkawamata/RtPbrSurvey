@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "Platform/CommandLineOptions.h"
 #include "Win32Application.h"
 
 #include <string>
@@ -67,12 +68,7 @@ protected:
     float m_aspectRatio;
 
     // Adapter info.
-    bool m_useWarpDevice;
-
-    // CLI-driven automation (parsed from command line args).
-    std::wstring m_logFilePath;
-    UINT m_logFpsInterval = 0;     // 0 = disabled
-    bool m_autoSelectGltfDamagedHelmet = false;
+    Platform::CommandLineOptions m_commandLineOptions;
 
 private:
     // Root assets path.

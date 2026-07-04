@@ -548,6 +548,35 @@ Verification:
 * Debug x64 build successful.
 * Existing build warnings remain, errors 0.
 
+### DXSample command line options: extract Platform value object
+
+Purpose:
+
+* Start splitting Sample framework responsibilities by moving command-line parsing state out of `DXSample`.
+* Keep `DXSample::ParseCommandLineArgs` as a compatibility entry point for `Win32Application`.
+* Make CLI options a Platform-owned value object before larger `DXSample` lifecycle changes.
+
+Changes:
+
+* Added `Platform/CommandLineOptions.h` and `Platform/CommandLineOptions.cpp`.
+  * Defines `Platform::CommandLineOptions`.
+  * Parses `-warp` / `/warp`, `-LogToFile`, `-LogFPS`, and `-AutoSelectGltfDamagedHelmet`.
+
+* `DXSample`
+  * Replaced individual protected CLI members with `Platform::CommandLineOptions m_commandLineOptions`.
+  * Kept WARP title suffix behavior in `DXSample::ParseCommandLineArgs`.
+
+* `SampleApp`
+  * Reads WARP, log file, FPS log interval, and auto-select settings from `m_commandLineOptions`.
+
+* Project files
+  * Registered the new Platform source/header in `.vcxproj` and `.filters`.
+
+Verification:
+
+* Debug x64 build successful.
+* Existing build warnings remain, errors 0.
+
 ### Environment map header: reduce Sample helper dependency
 
 Purpose:

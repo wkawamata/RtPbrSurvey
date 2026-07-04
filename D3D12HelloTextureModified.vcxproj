@@ -179,6 +179,7 @@
     <ClInclude Include="Win32Application.h" />
     <ClInclude Include="D3D12HelloTexture.h" />
     <ClInclude Include="DXSample.h" />
+    <ClInclude Include="Platform\CommandLineOptions.h" />
     <ClInclude Include="Platform\FileIO.h" />
     <ClInclude Include="Platform\ShaderCompiler.h" />
     <ClInclude Include="Shared\D3d12DebugName.h" />
@@ -191,6 +192,7 @@
     <ClCompile Include="CubeMesh.cpp" />
     <ClCompile Include="GltfLoader.cpp" />
     <ClCompile Include="GraphicsDevice.cpp" />
+    <ClCompile Include="Platform\CommandLineOptions.cpp" />
     <ClCompile Include="Renderer\BrdfLut.cpp" />
     <ClCompile Include="Renderer\ClearPass.cpp" />
     <ClCompile Include="Renderer\DebugDumpCapture.cpp" />

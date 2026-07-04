@@ -167,14 +167,14 @@ void SampleApp::OnInit()
     deviceDesc.swapChainHeight = GetHeight();
     deviceDesc.bufferCount = HelloTextureEngine::kSwapChainBufferCount;
     deviceDesc.swapChainFormat = HelloTextureEngine::kSwapChainFormat;
-    deviceDesc.useWarpDevice = m_useWarpDevice;
+    deviceDesc.useWarpDevice = m_commandLineOptions.useWarpDevice;
     m_graphicsDevice.Initialize(deviceDesc);
 
     // Open debug log file and query ID3D12InfoQueue for D3D12 message capture.
-    if (!m_logFilePath.empty())
+    if (!m_commandLineOptions.logFilePath.empty())
     {
         int fd;
-        errno_t err = _wsopen_s(&fd, m_logFilePath.c_str(), _O_WRONLY | _O_CREAT | _O_TRUNC | _O_TEXT,
+        errno_t err = _wsopen_s(&fd, m_commandLineOptions.logFilePath.c_str(), _O_WRONLY | _O_CREAT | _O_TRUNC | _O_TEXT,
                                 _SH_DENYNO, _S_IREAD | _S_IWRITE);
         if (err == 0)
         {
@@ -203,7 +203,7 @@ void SampleApp::OnInit()
 
     m_engine.Initialize(GetWidth(), GetHeight());
 
-    if (m_autoSelectGltfDamagedHelmet)
+    if (m_commandLineOptions.autoSelectGltfDamagedHelmet)
     {
         m_selectedSceneIndex = kDefaultSceneIndex;
         OpenSelectedScene();
@@ -561,10 +561,10 @@ void SampleApp::OnIdle()
         {
             FlushD3D12DebugMessages();
         }
-        if (m_logFpsInterval > 0)
+        if (m_commandLineOptions.logFpsInterval > 0)
         {
             ++m_fpsLogFrameCounter;
-            if (m_fpsLogFrameCounter % m_logFpsInterval == 0)
+            if (m_fpsLogFrameCounter % m_commandLineOptions.logFpsInterval == 0)
             {
                 LogFpsToFile(m_engine.CpuFrameTimeMs());
             }
