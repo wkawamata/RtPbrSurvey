@@ -2,7 +2,6 @@
 
 #include "MaterialBuffer.h"
 
-#include "../DXSampleHelper.h"
 #include "../MyDx12Utils.h"
 
 namespace Engine

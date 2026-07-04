@@ -684,3 +684,48 @@ Verification:
 * Debug x64 build 成功 (0 errors)。
 * 移動した 6 関数はすべて dead code（どの .cpp からも呼び出しなし）。
 * EOL: CRLF。
+
+### Renderer/*.cpp の DXSampleHelper.h include を直接オーナーヘッダーに置き換え
+
+目的:
+
+* `Renderer/*.cpp` が `DXSampleHelper.h`（Sample 互換性アグリゲーションヘッダー）を介さず、必要な DX12/RHI ヘルパーを直接 include するようにする。
+* DX12/RHI レイヤーが Sample 由来の compatibility shim ではなく、明示的な owner header を使う形に寄せる。
+
+方針:
+
+* DX12/RHI 実装コードが DX12 ヘルパーを直接 include するのは許容する（`Shared/Error.h`, `Shared/D3d12DebugName.h`, `Shared/D3d12Helpers.h`, `Platform/FileIO.h`, `Platform/ShaderCompiler.h`）。
+* `DXSampleHelper.h` は一時的な互換性 shim として扱い、新規コードからの include は避ける。
+* `ComPtr` の using は、必要なファイルが `<wrl/client.h>` を直接 include し `Microsoft::WRL::ComPtr` を使うか、`.cpp` 内で局所的に using する。
+
+変更:
+
+以下の 9 ファイルを修正:
+
+* `Renderer/AccelerationStructureResources.cpp`
+  * `#include "../DXSampleHelper.h"` → `../Shared/Error.h`
+* `Renderer/BrdfLut.cpp`
+  * `#include "../DXSampleHelper.h"` → `../Shared/Error.h`
+* `Renderer/DebugDumpCapture.cpp`
+  * `#include "../DXSampleHelper.h"` → `../Shared/Error.h`
+* `Renderer/EnvironmentMap.cpp`
+  * `#include "..\DXSampleHelper.h"` → `../Shared/Error.h` + `../Platform/FileIO.h`
+  * （`ReadDataFromFile` を使用しているため）
+* `Renderer/GBuffer.cpp`
+  * `#include "../DXSampleHelper.h"` → `../Shared/Error.h`
+* `Renderer/HdrOutput.cpp`
+  * `#include "../DXSampleHelper.h"` → `../Shared/Error.h`
+* `Renderer/MaterialBuffer.cpp`
+  * `#include "../DXSampleHelper.h"` → 削除（このファイルは DXSampleHelper のシンボルを直接使っていない）
+* `Renderer/RootSignatureFactory.cpp`
+  * `#include "../DXSampleHelper.h"` → `../Shared/Error.h`
+* `Renderer/StagedDescriptorAllocator_Test.cpp`
+  * `#include "../DXSampleHelper.h"` → `../Shared/Error.h` + `<wrl/client.h>` + `using Microsoft::WRL::ComPtr;`
+  * （bare `ComPtr` を維持するため局所的に using を追加）
+
+確認:
+
+* `rg "DXSampleHelper\.h" Renderer -g "*.cpp" -g "*.h"` → 0 matches（Renderer から `DXSampleHelper.h` の直接 include が完全に消えた）。
+* `git diff --check` → 問題なし。
+* Debug x64 build 成功 (0 errors)。
+* 既存の build warning は残るが error は 0。

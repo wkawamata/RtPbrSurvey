@@ -2,7 +2,7 @@
 
 #include "DebugDumpCapture.h"
 
-#include "../DXSampleHelper.h"
+#include "../Shared/Error.h"
 
 #include <DirectXPackedVector.h>
 #include <pix3.h>

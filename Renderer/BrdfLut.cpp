@@ -2,7 +2,7 @@
 
 #include "BrdfLut.h"
 
-#include "../DXSampleHelper.h"
+#include "../Shared/Error.h"
 
 #include <DirectXPackedVector.h>
 #include <algorithm>

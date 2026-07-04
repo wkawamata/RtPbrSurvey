@@ -17,7 +17,8 @@
 #include <fileapi.h>
 #include <Windows.h>
 #include <wrl\client.h>
-#include "..\DXSampleHelper.h"
+#include "../Shared/Error.h"
+#include "../Platform/FileIO.h"
 #include "..\MyDx12Utils.h"
 #include "SimpleDescriptorHeapAllocator.h"
 #include <d3d12.h>

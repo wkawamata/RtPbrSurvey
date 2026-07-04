@@ -2,7 +2,7 @@
 
 #include "RootSignatureFactory.h"
 
-#include "../DXSampleHelper.h"
+#include "../Shared/Error.h"
 #include "RootSignatureLayout.h"
 
 namespace Engine

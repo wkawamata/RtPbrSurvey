@@ -1,9 +1,12 @@
 #include "stdafx.h"
 
-#include "../DXSampleHelper.h"
+#include "../Shared/Error.h"
+#include <wrl/client.h>
 #include "StagedDescriptorAllocator.h"
 
 #include <cstdio>
+
+using Microsoft::WRL::ComPtr;
 
 // Helper: create a temporary shader-visible heap to pass to the allocator.
 static ComPtr<ID3D12DescriptorHeap> CreateTestExternalHeap(ID3D12Device* device, UINT count)
