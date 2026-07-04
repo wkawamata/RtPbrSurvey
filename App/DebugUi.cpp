@@ -1,0 +1,644 @@
+#include "stdafx.h"
+#include "DebugUi.h"
+#include "../SampleApp.h"
+#include "../ImGuiWidgets.h"
+
+#include <imgui.h>
+
+void RunStagedAllocatorTests(ID3D12Device* device);
+
+namespace
+{
+
+const char* EnvironmentSourceLabel(Engine::EnvironmentSource source)
+{
+    switch (source)
+    {
+        case Engine::EnvironmentSource::AssetHdr:
+            return "Asset HDR";
+        case Engine::EnvironmentSource::ProceduralStudio:
+            return "Procedural Studio";
+        case Engine::EnvironmentSource::ProceduralSun:
+            return "Procedural Sun";
+        case Engine::EnvironmentSource::ProceduralColorPanels:
+            return "Procedural Color Panels";
+        case Engine::EnvironmentSource::ProceduralHorizon:
+            return "Procedural Horizon";
+        default:
+            return "Unknown";
+    }
+}
+
+void ApplyEnvironmentPreset(Engine::ProceduralEnvironmentSettings& settings, Engine::EnvironmentSource source)
+{
+    settings = {};
+    settings.source = source;
+
+    switch (source)
+    {
+        case Engine::EnvironmentSource::ProceduralStudio:
+            settings.skyColor = {0.50f, 0.52f, 0.54f};
+            settings.groundColor = {0.16f, 0.16f, 0.15f};
+            settings.lightColor = {1.0f, 0.98f, 0.92f};
+            settings.lightDirection = {0.25f, 0.85f, 0.35f};
+            settings.backgroundIntensity = 0.35f;
+            settings.lightIntensity = 4.0f;
+            settings.lightSize = 0.22f;
+            settings.fillIntensity = 0.08f;
+            break;
+        case Engine::EnvironmentSource::ProceduralSun:
+            settings.skyColor = {0.25f, 0.43f, 0.75f};
+            settings.groundColor = {0.09f, 0.075f, 0.055f};
+            settings.lightColor = {1.0f, 0.82f, 0.52f};
+            settings.lightDirection = {0.22f, 0.72f, 0.66f};
+            settings.backgroundIntensity = 0.20f;
+            settings.lightIntensity = 32.0f;
+            settings.lightSize = 0.035f;
+            settings.fillIntensity = 0.03f;
+            break;
+        case Engine::EnvironmentSource::ProceduralColorPanels:
+            settings.skyColor = {0.02f, 0.02f, 0.025f};
+            settings.groundColor = {0.015f, 0.015f, 0.015f};
+            settings.lightColor = {1.0f, 1.0f, 1.0f};
+            settings.lightDirection = {0.35f, 0.75f, 0.25f};
+            settings.backgroundIntensity = 0.05f;
+            settings.lightIntensity = 0.0f;
+            settings.lightSize = 0.12f;
+            settings.fillIntensity = 0.02f;
+            settings.colorPanelIntensity = 3.5f;
+            break;
+        case Engine::EnvironmentSource::ProceduralHorizon:
+            settings.skyColor = {0.34f, 0.50f, 0.86f};
+            settings.groundColor = {0.18f, 0.15f, 0.10f};
+            settings.lightColor = {1.0f, 0.86f, 0.62f};
+            settings.lightDirection = {0.1f, 0.08f, 0.99f};
+            settings.backgroundIntensity = 0.45f;
+            settings.lightIntensity = 5.0f;
+            settings.lightSize = 0.12f;
+            settings.fillIntensity = 0.03f;
+            settings.horizonSharpness = 0.035f;
+            break;
+        case Engine::EnvironmentSource::AssetHdr:
+        default:
+            break;
+    }
+}
+
+} // namespace
+
+namespace App
+{
+
+void DrawDebugUi(SampleApp& app, const HelloTextureEngine::UiFrameContext& context)
+{
+    using RenderingPath = HelloTextureEngine::RenderingPath;
+    using RenderViewMode = HelloTextureEngine::RenderViewMode;
+
+    if (app.m_appMode == SampleApp::AppMode::SceneSelect)
+    {
+        app.DrawSceneSelectUi();
+        return;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(400, 140), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Debug");
+
+    Engine::SampleScene& loadedScene = app.LoadedScene();
+    Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();
+
+    ImGui::Text("Hello ImGui");
+    ImGui::Text("Scene: %s", loadedScene.Name());
+    ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
+    ImGui::Text("FrameIndex: %d", context.frameIndex);
+    ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
+                context.rayTracingSupported ? "Supported" : "Not supported",
+                context.rayTracingTierName,
+                context.rayTracingTierRaw);
+    if (ImGui::Button("Close Scene"))
+    {
+        app.CloseRunningScene();
+        ImGui::End();
+        return;
+    }
+    if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGuiWidgets::SliderFloatWithControls("FovH", &loadedScene.GetScene().camera.fov, 20.f, 150.f, 5.f, 60.f);
+        int cameraMode = static_cast<int>(app.m_cameraMode);
+        if (ImGui::Combo("Mode", &cameraMode, "FreeLook\0Arcball\0"))
+        {
+            app.m_cameraMode = static_cast<SampleApp::CameraMode>(cameraMode);
+            if (app.m_cameraMode == SampleApp::CameraMode::Arcball)
+            {
+                app.InitObjectViewerFromCamera();
+            }
+        }
+    }
+    if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGuiWidgets::SliderIntWithControls("Display Instance Count", &app.m_displayInstanceCount, 0,
+                                             loadedScene.MaxDisplayInstanceCount(), 1, 0);
+        loadedScene.SetDisplayInstanceCount(app.m_displayInstanceCount);
+        ImGuiWidgets::SliderFloatWithControls("Mesh Scale", &app.m_meshScale, 0.1f, 2.0f, 0.05f, 0.5f);
+        ImGui::ColorEdit4("Background Color", app.m_backBufferClearColor.data());
+    }
+    if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        {
+            static constexpr float defaultDir[] = {0.0f, 1.0f, -1.0f};
+            ImGuiWidgets::SliderFloat3WithControls("Light Direction", &app.m_lightingParams.lightDirection.x, -1.0f, 1.0f,
+                                                     0.05f, defaultDir);
+        }
+        ImGui::SameLine();
+        ImGuiWidgets::SliderFloatWithControls("Direct Light Intensity", &app.m_lightingParams.diffuseIntensity, 0.0f, 4.0f,
+                                               0.1f, 1.0f);
+        ImGui::ColorEdit3("Light Color", &app.m_lightingParams.lightColor.x);
+        ImGui::Checkbox("IBL Enabled", &app.m_iblEnabled);
+        ImGui::BeginDisabled(!app.m_iblEnabled);
+        ImGuiWidgets::SliderFloatWithControls("IBL Intensity", &app.m_lightingParams.iblIntensity, 0.0f, 2.0f, 0.05f, 1.0f);
+        ImGui::Checkbox("Diffuse IBL", &app.m_lightingParams.diffuseIblEnabled);
+        ImGui::SameLine();
+        ImGui::Checkbox("Specular IBL", &app.m_lightingParams.specularIblEnabled);
+        ImGui::EndDisabled();
+        ImGui::Checkbox("Direct Light", &app.m_lightingParams.directLightEnabled);
+        ImGui::SameLine();
+        ImGui::Checkbox("Emissive", &app.m_lightingParams.emissiveEnabled);
+    }
+    if (ImGui::CollapsingHeader("Environment Map", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        bool environmentApplyRequested = false;
+        int environmentSource = static_cast<int>(app.m_environmentSettings.source);
+        if (ImGui::Combo("Source",
+                         &environmentSource,
+                         "Asset HDR\0Procedural Studio\0Procedural Sun\0Procedural Color Panels\0Procedural Horizon\0"))
+        {
+            ApplyEnvironmentPreset(app.m_environmentSettings, static_cast<Engine::EnvironmentSource>(environmentSource));
+            environmentApplyRequested = true;
+        }
+        ImGui::SameLine();
+        ImGui::Text("%s", EnvironmentSourceLabel(app.m_environmentSettings.source));
+        if (app.m_environmentSettings.source != Engine::EnvironmentSource::AssetHdr)
+        {
+            ImGui::SameLine();
+            ImGui::Checkbox("Auto Update", &app.m_environmentAutoUpdate);
+            environmentApplyRequested |= ImGui::ColorEdit3("Sky Color", &app.m_environmentSettings.skyColor.x);
+            environmentApplyRequested |= ImGui::ColorEdit3("Ground Color", &app.m_environmentSettings.groundColor.x);
+            const bool colorPanels = app.m_environmentSettings.source == Engine::EnvironmentSource::ProceduralColorPanels;
+            if (!colorPanels)
+            {
+                environmentApplyRequested |= ImGui::ColorEdit3("Env Light Color", &app.m_environmentSettings.lightColor.x);
+                static constexpr float defaultEnvLightDir[] = {0.35f, 0.75f, 0.25f};
+                if (ImGuiWidgets::SliderFloat3WithControls("Env Light Direction", &app.m_environmentSettings.lightDirection.x,
+                                                        -1.0f, 1.0f, 0.05f, defaultEnvLightDir))
+                {
+                    environmentApplyRequested = true;
+                }
+            }
+            if (ImGuiWidgets::SliderFloatWithControls("Env Background",
+                                                      &app.m_environmentSettings.backgroundIntensity,
+                                                      0.0f,
+                                                      4.0f,
+                                                      0.05f,
+                                                      0.6f))
+            {
+                environmentApplyRequested = true;
+            }
+            if (!colorPanels)
+            {
+                if (ImGuiWidgets::SliderFloatWithControls("Env Light Intensity",
+                                                          &app.m_environmentSettings.lightIntensity,
+                                                          0.0f,
+                                                          40.0f,
+                                                          0.5f,
+                                                          6.0f))
+                {
+                    environmentApplyRequested = true;
+                }
+                if (ImGuiWidgets::SliderFloatWithControls("Env Light Size",
+                                                          &app.m_environmentSettings.lightSize,
+                                                          0.01f,
+                                                          0.8f,
+                                                          0.01f,
+                                                          0.12f))
+                {
+                    environmentApplyRequested = true;
+                }
+            }
+            if (ImGuiWidgets::SliderFloatWithControls(
+                "Env Fill", &app.m_environmentSettings.fillIntensity, 0.0f, 2.0f, 0.05f, 0.12f))
+            {
+                environmentApplyRequested = true;
+            }
+            if (colorPanels)
+            {
+                if (ImGuiWidgets::SliderFloatWithControls("Color Panel Intensity",
+                                                          &app.m_environmentSettings.colorPanelIntensity,
+                                                          0.0f,
+                                                          8.0f,
+                                                          0.1f,
+                                                          1.5f))
+                {
+                    environmentApplyRequested = true;
+                }
+            }
+            if (app.m_environmentSettings.source == Engine::EnvironmentSource::ProceduralHorizon)
+            {
+                if (ImGuiWidgets::SliderFloatWithControls("Horizon Width",
+                                                          &app.m_environmentSettings.horizonSharpness,
+                                                          0.01f,
+                                                          0.5f,
+                                                          0.01f,
+                                                          0.08f))
+                {
+                    environmentApplyRequested = true;
+                }
+            }
+        }
+        ImGui::Checkbox("Show Skybox", &app.m_lightingParams.skyboxEnabled);
+        ImGui::Checkbox("Skybox Preview", &app.m_lightingParams.skyboxPreview);
+        ImGui::BeginDisabled(!app.m_lightingParams.skyboxPreview);
+        ImGuiWidgets::SliderFloatWithControls("Skybox Preview Exposure", &app.m_lightingParams.skyboxPreviewExposure, 0.0f,
+                                              2.0f, 0.05f, 1.0f);
+        ImGui::EndDisabled();
+        if (environmentApplyRequested)
+        {
+            app.m_environmentReloadPending = true;
+        }
+        if (app.m_environmentReloadPending && app.m_environmentAutoUpdate && !ImGui::IsAnyItemActive())
+        {
+            app.m_engine.ReloadEnvironmentResources(app.m_environmentSettings);
+            app.m_environmentReloadPending = false;
+        }
+    }
+
+    if (!sceneMesh.materials.empty())
+    {
+        if (ImGui::CollapsingHeader("Material Controls", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            const int materialCount = static_cast<int>(sceneMesh.materials.size());
+            if (app.m_selectedMaterialIndex >= materialCount)
+            {
+                app.m_selectedMaterialIndex = materialCount - 1;
+            }
+            ImGuiWidgets::SliderIntWithControls("Material", &app.m_selectedMaterialIndex, 0, materialCount - 1, 1, 0);
+
+            Engine::SceneMaterial& material = sceneMesh.materials[app.m_selectedMaterialIndex];
+            bool materialChanged = false;
+            materialChanged |= ImGuiWidgets::SliderFloatWithControls("Roughness", &material.roughnessFactor, 0.04f, 1.0f,
+                                                                       0.02f, 0.5f);
+            materialChanged |= ImGuiWidgets::SliderFloatWithControls("Metallic", &material.metallicFactor, 0.0f, 1.0f,
+                                                                       0.05f, 0.0f);
+            materialChanged |= ImGuiWidgets::SliderFloatWithControls("Indirect Occlusion",
+                                                                       &material.ambientOcclusionFactor, 0.0f, 1.0f,
+                                                                       0.05f, 1.0f);
+            materialChanged |= ImGuiWidgets::SliderFloatWithControls("Emissive Luminance", &material.emissiveScale, 0.0f,
+                                                                       4.0f, 0.1f, 1.0f);
+
+            const float f0 = 0.04f * (1.0f - material.metallicFactor) + material.metallicFactor;
+            ImGui::Text("Specular F0: %.2f", f0);
+
+            if (materialChanged)
+            {
+                HelloTextureEngine::MaterialParams params = {};
+                params.roughnessFactor = material.roughnessFactor;
+                params.metallicFactor = material.metallicFactor;
+                params.ambientOcclusionFactor = material.ambientOcclusionFactor;
+                params.emissiveScale = material.emissiveScale;
+                app.m_engine.SetMaterialParams(static_cast<UINT>(app.m_selectedMaterialIndex), params);
+            }
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::RadioButton("None", &app.m_toneMapParams.operatorIndex, 0);
+        ImGui::SameLine();
+        ImGui::RadioButton("Reinhard", &app.m_toneMapParams.operatorIndex, 1);
+        ImGui::SameLine();
+        ImGui::RadioButton("ACES", &app.m_toneMapParams.operatorIndex, 2);
+        ImGuiWidgets::SliderFloatWithControls("Exposure", &app.m_toneMapParams.exposure, 0.0f, 4.0f, 0.1f, 1.0f);
+        ImGuiWidgets::SliderFloatWithControls("Paper White", &app.m_toneMapParams.paperWhiteNits, 80.0f, 500.0f, 10.f,
+                                              300.0f, "%.0f nits");
+        ImGuiWidgets::SliderFloatWithControls("Display Max", &app.m_toneMapParams.maxDisplayNits, 100.0f, 4000.0f, 50.f,
+                                              1000.0f, "%.0f nits");
+    }
+
+    if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        auto shadowSettings = app.m_engine.GetShadowSettings();
+        bool changed = false;
+
+        changed |= ImGui::Checkbox("Shadow Enable", &shadowSettings.enabled);
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Normal Bias", &shadowSettings.normalBias, 0.0f, 0.1f, 0.001f, 0.01f);
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Ray TMin", &shadowSettings.rayTMin, 0.0f, 0.1f, 0.001f, 0.001f);
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Ray TMax", &shadowSettings.rayTMax, 1.0f, 10000.0f, 100.0f, 10000.0f);
+
+        ImGui::Separator();
+        changed |= ImGui::Checkbox("Soft Shadow Enable", &shadowSettings.softShadowEnabled);
+
+        changed |= ImGuiWidgets::SliderIntWithControls(
+            "Sample Count", &shadowSettings.sampleCount, 1, 16, 1, 8);
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Light Angular Radius", &shadowSettings.lightAngularRadius, 0.0f, 0.1f, 0.001f, 0.1f, "%.4f");
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Jitter Strength", &shadowSettings.jitterStrength, 0.0f, 2.0f, 0.1f, 2.0f);
+
+        if (changed)
+        {
+            app.m_engine.SetShadowSettings(shadowSettings);
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        auto reflectionSettings = app.m_engine.GetHybridReflectionSettings();
+        bool changed = false;
+
+        changed |= ImGui::Checkbox("Enabled", &reflectionSettings.enabled);
+
+        ImGui::BeginDisabled(!reflectionSettings.enabled);
+        changed |= ImGui::Checkbox("Hit Overlay", &reflectionSettings.hitOverlayEnabled);
+
+        ImGui::BeginDisabled(!reflectionSettings.hitOverlayEnabled);
+        changed |= ImGui::RadioButton("Overlay Cyan", &reflectionSettings.hitOverlayMode, 0);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Hit Position", &reflectionSettings.hitOverlayMode, 1);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Environment", &reflectionSettings.hitOverlayMode, 2);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Hit Attribute", &reflectionSettings.hitOverlayMode, 3);
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Hit Overlay Intensity", &reflectionSettings.hitOverlayIntensity, 0.0f, 1.0f, 0.05f, 0.2f);
+        ImGui::EndDisabled();
+
+        ImGui::BeginDisabled(reflectionSettings.hitOverlayMode != 3);
+        changed |= ImGui::RadioButton("Attr Vertex Normal", &reflectionSettings.hitNormalSource, 0);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Attr Geometric Normal", &reflectionSettings.hitNormalSource, 1);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Attr MaterialId", &reflectionSettings.hitNormalSource, 2);
+        changed |= ImGui::RadioButton("Attr Material Params", &reflectionSettings.hitNormalSource, 3);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Attr UV", &reflectionSettings.hitNormalSource, 4);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Attr Albedo Texture", &reflectionSettings.hitNormalSource, 5);
+        ImGui::EndDisabled();
+
+        changed |= ImGui::Checkbox("Reflection Contribution", &reflectionSettings.contributionEnabled);
+
+        ImGui::BeginDisabled(!reflectionSettings.contributionEnabled);
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Contribution Intensity", &reflectionSettings.contributionIntensity, 0.0f, 2.0f, 0.05f, 0.25f);
+        ImGui::EndDisabled();
+
+        changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
+
+        ImGui::BeginDisabled(!reflectionSettings.enabled || !reflectionSettings.materialGateEnabled);
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Max Roughness", &reflectionSettings.maxRoughness, 0.0f, 1.0f, 0.05f, 0.35f);
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Min Metallic", &reflectionSettings.minMetallic, 0.0f, 1.0f, 0.05f, 0.0f);
+        ImGui::EndDisabled();
+        ImGui::EndDisabled();
+
+        if (changed)
+        {
+            app.m_engine.SetHybridReflectionSettings(reflectionSettings);
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Debug", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        int renderingPath = static_cast<int>(app.m_renderingPath);
+        ImGui::RadioButton("Forward", &renderingPath, static_cast<int>(RenderingPath::Forward));
+        ImGui::SameLine();
+        ImGui::RadioButton("Deferred", &renderingPath, static_cast<int>(RenderingPath::Deferred));
+        app.m_renderingPath = static_cast<RenderingPath>(renderingPath);
+
+        const bool deferredRendering = app.m_renderingPath == RenderingPath::Deferred;
+        int renderViewMode = static_cast<int>(app.m_renderViewMode);
+        ImGui::BeginDisabled(!deferredRendering);
+        ImGui::RadioButton("Lit", &renderViewMode, static_cast<int>(RenderViewMode::LightPass));
+        ImGui::RadioButton("Albedo", &renderViewMode, static_cast<int>(RenderViewMode::GBufferAlbedo));
+        ImGui::SameLine();
+        ImGui::RadioButton("Normal", &renderViewMode, static_cast<int>(RenderViewMode::GBufferNormal));
+        ImGui::SameLine();
+        ImGui::RadioButton("Material", &renderViewMode, static_cast<int>(RenderViewMode::GBufferMaterial));
+        ImGui::RadioButton("MotionVector", &renderViewMode, static_cast<int>(RenderViewMode::GBufferMotionVector));
+        ImGui::SameLine();
+        ImGui::RadioButton("PBR Params", &renderViewMode, static_cast<int>(RenderViewMode::GBufferPBRParams));
+        ImGui::SameLine();
+        ImGui::RadioButton("Emissive", &renderViewMode, static_cast<int>(RenderViewMode::GBufferEmissive));
+        ImGui::SameLine();
+        ImGui::RadioButton("Depth", &renderViewMode, static_cast<int>(RenderViewMode::Depth));
+        ImGui::SameLine();
+        ImGui::RadioButton("ReflectionDir", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionDirection));
+        ImGui::RadioButton("ViewDir", &renderViewMode, static_cast<int>(RenderViewMode::ViewDirection));
+        ImGui::SameLine();
+        ImGui::RadioButton("WorldPos", &renderViewMode, static_cast<int>(RenderViewMode::WorldPosition));
+        ImGui::SameLine();
+        ImGui::RadioButton("NdotV", &renderViewMode, static_cast<int>(RenderViewMode::NdotV));
+        ImGui::RadioButton("IBL Env", &renderViewMode, static_cast<int>(RenderViewMode::IblEnvironment));
+        ImGui::SameLine();
+        ImGui::RadioButton("IBL Irradiance", &renderViewMode, static_cast<int>(RenderViewMode::IblDiffuseIrradiance));
+        ImGui::SameLine();
+        ImGui::RadioButton("IBL Prefilter", &renderViewMode, static_cast<int>(RenderViewMode::IblSpecularPrefilter));
+        ImGui::SameLine();
+        ImGui::RadioButton("IBL BRDF LUT", &renderViewMode, static_cast<int>(RenderViewMode::IblBrdfLut));
+        ImGui::BeginDisabled(!context.rayTracingSupported);
+        ImGui::RadioButton("Shadow Mask", &renderViewMode, static_cast<int>(RenderViewMode::ShadowMask));
+        ImGui::SameLine();
+        ImGui::RadioButton("TLAS Debug", &renderViewMode, static_cast<int>(RenderViewMode::TlasDebug));
+        const bool reflectionDebugEnabled = app.m_engine.GetHybridReflectionSettings().enabled;
+        ImGui::BeginDisabled(!reflectionDebugEnabled);
+        ImGui::RadioButton("Reflection Hit", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayHit));
+        ImGui::SameLine();
+        ImGui::RadioButton("Reflection Distance", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayDistance));
+        ImGui::SameLine();
+        ImGui::RadioButton("Reflection Normal", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayNormal));
+        ImGui::EndDisabled();
+        ImGui::EndDisabled();
+        app.m_renderViewMode = static_cast<RenderViewMode>(renderViewMode);
+        if (!context.rayTracingSupported &&
+            (app.m_renderViewMode == RenderViewMode::ShadowMask || app.m_renderViewMode == RenderViewMode::TlasDebug ||
+             app.m_renderViewMode == RenderViewMode::ReflectionRayHit ||
+             app.m_renderViewMode == RenderViewMode::ReflectionRayDistance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionRayNormal))
+        {
+            app.m_renderViewMode = RenderViewMode::LightPass;
+        }
+        if (!reflectionDebugEnabled &&
+            (app.m_renderViewMode == RenderViewMode::ReflectionRayHit ||
+             app.m_renderViewMode == RenderViewMode::ReflectionRayDistance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionRayNormal))
+        {
+            app.m_renderViewMode = RenderViewMode::LightPass;
+        }
+        const bool iblDebugView = app.m_renderViewMode == RenderViewMode::IblEnvironment ||
+            app.m_renderViewMode == RenderViewMode::IblDiffuseIrradiance ||
+            app.m_renderViewMode == RenderViewMode::IblSpecularPrefilter;
+        ImGui::BeginDisabled(!iblDebugView);
+        ImGuiWidgets::SliderFloatWithControls(
+            "IBL Cube Exposure", &app.m_lightingParams.iblDebugExposure, 0.01f, 2.0f, 0.05f, 0.25f);
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(app.m_renderViewMode != RenderViewMode::IblSpecularPrefilter);
+        ImGuiWidgets::SliderFloatWithControls("Prefilter Mip",
+                                              &app.m_lightingParams.iblDebugMip,
+                                              0.0f,
+                                              static_cast<float>(HelloTextureEngine::kSpecularPrefilterMipCount - 1),
+                                              1.0f,
+                                              0.0f);
+        ImGui::EndDisabled();
+        ImGui::EndDisabled();
+
+        if (!deferredRendering)
+        {
+            app.m_renderViewMode = RenderViewMode::LightPass;
+        }
+
+        const bool lightPassView = deferredRendering && app.m_renderViewMode == RenderViewMode::LightPass;
+        ImGui::BeginDisabled(!lightPassView);
+        ImGui::Checkbox("Debug LightPass Gradient", &app.m_lightingPassDebugGradient);
+        ImGui::EndDisabled();
+
+        if (lightPassView && app.m_lightingPassDebugGradient)
+        {
+            if (ImGui::Button("Validate HDR Gradient"))
+            {
+                app.m_requestHdrDump = true;
+            }
+        }
+
+        ImGui::Separator();
+        if (ImGui::Button("Run Descriptor Allocator Tests"))
+        {
+            RunStagedAllocatorTests(app.m_graphicsDevice.Device());
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Pixel Pick (Ctrl+Click)", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        const auto& pick = app.m_engine.GetPixelPickResult();
+        if (pick.valid)
+        {
+            ImGui::Text("Screen / Depth / Material");
+            ImGui::Text("  Screen: (%d, %d)  Mat ID: %u", pick.screenX, pick.screenY, pick.materialId);
+            ImGui::Text("  Depth (NDC): %.4f", pick.depthNdc);
+            ImGui::Separator();
+            ImGui::Text("World Vectors");
+            ImGui::Text("  World Pos:   (%.3f, %.3f, %.3f)", pick.worldPos.x, pick.worldPos.y, pick.worldPos.z);
+            ImGui::Text("  Normal:      (%.3f, %.3f, %.3f)", pick.normal.x, pick.normal.y, pick.normal.z);
+            ImGui::Text("  View Dir:    (%.3f, %.3f, %.3f)", pick.viewDir.x, pick.viewDir.y, pick.viewDir.z);
+            ImGui::Text("  Reflect Dir: (%.3f, %.3f, %.3f)", pick.reflectionDir.x, pick.reflectionDir.y,
+                         pick.reflectionDir.z);
+            ImGui::Separator();
+            ImGui::Text("GBuffer Material");
+            ImGui::Text("  Albedo:      (%.3f, %.3f, %.3f, %.3f)", pick.albedo.x, pick.albedo.y, pick.albedo.z,
+                         pick.albedo.w);
+            ImGui::Text("  Metallic:    %.3f", pick.metallic);
+            ImGui::Text("  Roughness:   %.3f", pick.roughness);
+            ImGui::Text("  AO:          %.3f", pick.ambientOcclusion);
+            ImGui::Text("  Emissive:    (%.3f, %.3f, %.3f)", pick.emissive.x, pick.emissive.y, pick.emissive.z);
+            ImGui::Separator();
+            ImGui::Text("Shadow Mask:   %.3f", pick.shadowMask);
+            ImGui::Separator();
+            if (ImGui::TreeNodeEx("Specular Reflection", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Text("Status: %s", pick.reflectionHit ? "Hit" : "Miss");
+                if (pick.reflectionHit)
+                {
+                    ImGui::Text("Dist: %.3f", pick.reflectionHitResult);
+                    ImGui::Text("Pos:  (%.3f, %.3f, %.3f)",
+                                pick.reflectionHitWorldPos.x,
+                                pick.reflectionHitWorldPos.y,
+                                pick.reflectionHitWorldPos.z);
+                }
+                ImGui::TreePop();
+            }
+
+        }
+        else
+        {
+            ImGui::Text("Ctrl+Click on viewport to pick a pixel.");
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Specular Debug Lines", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        auto debugLines = app.m_engine.GetSpecularDebugLineSettings();
+
+        ImGui::Checkbox("Enable Debug Lines", &debugLines.enabled);
+        ImGui::SliderFloat("Line Length", &debugLines.lineLength, 0.1f, 5.0f, "%.1f");
+
+        ImGui::Checkbox("View Ray (yellow)", &debugLines.showViewRay);
+        ImGui::Checkbox("Normal (blue)", &debugLines.showNormal);
+        ImGui::Checkbox("Reflection (hit magenta / miss gray)", &debugLines.showReflection);
+
+        ImGui::Separator();
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "---");
+        ImGui::SameLine();
+        ImGui::Text("View Ray");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.0f, 0.0f, 1.0f, 1.0f), "---");
+        ImGui::SameLine();
+        ImGui::Text("Normal");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 1.0f, 1.0f), "---");
+        ImGui::SameLine();
+        ImGui::Text("Reflection");
+
+        app.m_engine.SetSpecularDebugLineSettings(debugLines);
+    }
+
+    if (ImGui::CollapsingHeader("WorkMeter"))
+    {
+        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
+
+        const auto& gpuCheckPoints = context.gpuCheckPoints;
+        const size_t gpuCheckPointCount = gpuCheckPoints.size();
+        if (gpuCheckPointCount >= 2)
+        {
+            for (int i = 1; i < static_cast<int>(gpuCheckPointCount); i++)
+            {
+                const auto& checkPoint = gpuCheckPoints[i];
+                if (i < static_cast<int>(gpuCheckPointCount) - 1)
+                {
+                    const float timeFromPrevious = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
+                    ImGui::Text("GPU[%d] %s: %f ms", i, checkPoint.name.c_str(), timeFromPrevious);
+                }
+                else
+                {
+                    ImGui::Text("GPU[%d] Total: %f ms", i, checkPoint.timeStamp);
+                }
+            }
+        }
+    }
+
+    ImGui::End();
+
+    HelloTextureEngine::LightingParams lightingParams = app.m_lightingParams;
+    if (!app.m_iblEnabled)
+    {
+        lightingParams.iblIntensity = 0.0f;
+    }
+    app.m_engine.SetLightingParams(lightingParams);
+    app.m_engine.SetRenderingPath(app.m_renderingPath);
+    app.m_engine.SetLightingPassDebugGradient(app.m_lightingPassDebugGradient);
+    app.m_engine.SetBackBufferClearColor(app.m_backBufferClearColor);
+    app.m_engine.SetDisplayInstanceCount(loadedScene.DisplayInstanceCount());
+    app.m_engine.SetToneMapParams(app.m_toneMapParams);
+    app.m_engine.SetRenderViewMode(app.m_renderViewMode);
+    app.m_engine.SetRequestHdrDump(app.m_requestHdrDump);
+    app.m_requestHdrDump = false;
+}
+
+} // namespace App

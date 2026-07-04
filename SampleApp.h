@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "App/DebugUi.h"
 #include "D3D12HelloTexture.h"
 #include "DXSample.h"
 #include "Scene/SampleScene.h"
@@ -42,6 +43,8 @@ public:
     void UpdateSampleState();
 
 private:
+    friend void App::DrawDebugUi(SampleApp& app, const HelloTextureEngine::UiFrameContext& context);
+
     enum class CameraMode
     {
         FreeLook,
