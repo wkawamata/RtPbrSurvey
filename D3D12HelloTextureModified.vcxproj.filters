@@ -196,6 +196,9 @@
     <ClInclude Include="Platform\FileIO.h">
       <Filter>Source Files\Platform</Filter>
     </ClInclude>
+    <ClInclude Include="Platform\IApplication.h">
+      <Filter>Source Files\Platform</Filter>
+    </ClInclude>
     <ClInclude Include="Platform\ShaderCompiler.h">
       <Filter>Source Files\Platform</Filter>
     </ClInclude>

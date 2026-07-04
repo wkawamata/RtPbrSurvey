@@ -21,12 +21,12 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 
 HWND Win32Application::m_hwnd = nullptr;
 
-int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
+int Win32Application::Run(Platform::IApplication* pApp, HINSTANCE hInstance, int nCmdShow)
 {
     // Parse the command line parameters
     int argc;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-    pSample->ParseCommandLineArgs(argv, argc);
+    pApp->ParseCommandLineArgs(argv, argc);
     LocalFree(argv);
 
     // Initialize the window class.
@@ -39,12 +39,12 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
     windowClass.lpszClassName = L"DXSampleClass";
     RegisterClassEx(&windowClass);
 
-    RECT windowRect = {0, 0, static_cast<LONG>(pSample->GetWidth()), static_cast<LONG>(pSample->GetHeight())};
+    RECT windowRect = {0, 0, static_cast<LONG>(pApp->GetWidth()), static_cast<LONG>(pApp->GetHeight())};
     AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
 
     // Create the window and store a handle to it.
     m_hwnd = CreateWindow(windowClass.lpszClassName,
-                          pSample->GetTitle(),
+                          pApp->GetTitle(),
                           WS_OVERLAPPEDWINDOW,
                           CW_USEDEFAULT,
                           CW_USEDEFAULT,
@@ -53,10 +53,10 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
                           nullptr, // We have no parent window.
                           nullptr, // We aren't using menus.
                           hInstance,
-                          pSample);
+                          pApp);
 
-    // Initialize the sample. OnInit is defined in each child-implementation of DXSample.
-    pSample->OnInit();
+    // Initialize the application. OnInit is defined in each child-implementation of IApplication.
+    pApp->OnInit();
 
     ShowWindow(m_hwnd, nCmdShow);
 
@@ -84,10 +84,10 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
         }
 
         // DBG_PRINT("idle\n", msg.message);
-        pSample->OnIdle();
+        pApp->OnIdle();
     }
 
-    pSample->OnDestroy();
+    pApp->OnDestroy();
 
     // Return this part of the WM_QUIT message to Windows.
     return static_cast<char>(msg.wParam);
@@ -99,109 +99,109 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
     if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
         return true;
 
-    DXSample* pSample = reinterpret_cast<DXSample*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+    Platform::IApplication* pApp = reinterpret_cast<Platform::IApplication*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 
     switch (message)
     {
         case WM_CREATE:
         {
-            // Save the DXSample* passed in to CreateWindow.
+            // Save the IApplication* passed in to CreateWindow.
             LPCREATESTRUCT pCreateStruct = reinterpret_cast<LPCREATESTRUCT>(lParam);
             SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pCreateStruct->lpCreateParams));
         }
             return 0;
 
         case WM_SIZE:
-            if (pSample)
+            if (pApp)
             {
                 UINT width = LOWORD(lParam);
                 UINT height = HIWORD(lParam);
 
                 if (wParam != SIZE_MINIMIZED)
                 {
-                    pSample->OnWindowSizeChanged(width, height);
+                    pApp->OnWindowSizeChanged(width, height);
                 }
             }
             return 0;
 
         case WM_KEYDOWN:
-            if (pSample)
+            if (pApp)
             {
                 const bool wasKeyDown = (lParam & (1 << 30)) != 0;
                 if (!wasKeyDown)
                 {
-                    pSample->OnKeyDown(static_cast<UINT8>(wParam));
+                    pApp->OnKeyDown(static_cast<UINT8>(wParam));
                 }
             }
             return 0;
 
         case WM_KEYUP:
-            if (pSample)
+            if (pApp)
             {
-                pSample->OnKeyUp(static_cast<UINT8>(wParam));
+                pApp->OnKeyUp(static_cast<UINT8>(wParam));
             }
             return 0;
 
         case WM_LBUTTONDOWN:
-            if (pSample)
+            if (pApp)
             {
                 if (ImGui::GetIO().WantCaptureMouse)
                 {
                     return 0;
                 }
                 SetCapture(hWnd);
-                pSample->OnMouseDown(VK_LBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+                pApp->OnMouseDown(VK_LBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             }
             return 0;
 
         case WM_LBUTTONUP:
-            if (pSample)
+            if (pApp)
             {
                 ReleaseCapture();
-                pSample->OnMouseUp(VK_LBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+                pApp->OnMouseUp(VK_LBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             }
             return 0;
 
         case WM_MBUTTONDOWN:
-            if (pSample)
+            if (pApp)
             {
                 if (ImGui::GetIO().WantCaptureMouse)
                 {
                     return 0;
                 }
                 SetCapture(hWnd);
-                pSample->OnMouseDown(VK_MBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+                pApp->OnMouseDown(VK_MBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             }
             return 0;
 
         case WM_MBUTTONUP:
-            if (pSample)
+            if (pApp)
             {
                 ReleaseCapture();
-                pSample->OnMouseUp(VK_MBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+                pApp->OnMouseUp(VK_MBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             }
             return 0;
 
         case WM_MOUSEMOVE:
-            if (pSample)
+            if (pApp)
             {
-                pSample->OnMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+                pApp->OnMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             }
             return 0;
 
         case WM_MOUSEWHEEL:
-            if (pSample)
+            if (pApp)
             {
                 if (ImGui::GetIO().WantCaptureMouse)
                 {
                     return 0;
                 }
-                pSample->OnMouseWheel(GET_WHEEL_DELTA_WPARAM(wParam));
+                pApp->OnMouseWheel(GET_WHEEL_DELTA_WPARAM(wParam));
             }
             return 0;
 
         case WM_PAINT:
-            if (pSample)
+            if (pApp)
             {
                 PAINTSTRUCT ps;
                 BeginPaint(hWnd, &ps);

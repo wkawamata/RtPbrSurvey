@@ -184,6 +184,7 @@
     <ClInclude Include="Platform\AssetPath.h" />
     <ClInclude Include="Platform\CommandLineOptions.h" />
     <ClInclude Include="Platform\FileIO.h" />
+    <ClInclude Include="Platform\IApplication.h" />
     <ClInclude Include="Platform\ShaderCompiler.h" />
     <ClInclude Include="Platform\WindowInfo.h" />
     <ClInclude Include="Platform\WindowTitle.h" />

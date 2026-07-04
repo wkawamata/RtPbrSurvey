@@ -12,44 +12,44 @@
 #pragma once
 
 #include "Platform/CommandLineOptions.h"
+#include "Platform/IApplication.h"
 #include "Platform/WindowInfo.h"
 
 #include <string>
 
-class DXSample
+class DXSample : public Platform::IApplication
 {
 public:
     DXSample(UINT width, UINT height, std::wstring name);
     virtual ~DXSample();
 
-    virtual void OnInit() = 0;
-    virtual void OnDestroy() = 0;
+    // IApplication overrides.
+    void OnInit() override = 0;
+    void OnDestroy() override = 0;
 
-    // Samples override the event handlers to handle specific messages.
-    virtual void OnKeyDown(UINT8 /*key*/) {}
-    virtual void OnKeyUp(UINT8 /*key*/) {}
-    virtual void OnMouseDown(UINT8 /*button*/, int /*x*/, int /*y*/) {}
-    virtual void OnMouseUp(UINT8 /*button*/, int /*x*/, int /*y*/) {}
-    virtual void OnMouseMove(int /*x*/, int /*y*/) {}
-    virtual void OnMouseWheel(int /*wheelDelta*/) {}
-    virtual void OnWindowSizeChanged(UINT, UINT) {}
-    virtual void OnIdle() {}
+    void OnKeyDown(UINT8 /*key*/) override {}
+    void OnKeyUp(UINT8 /*key*/) override {}
+    void OnMouseDown(UINT8 /*button*/, int /*x*/, int /*y*/) override {}
+    void OnMouseUp(UINT8 /*button*/, int /*x*/, int /*y*/) override {}
+    void OnMouseMove(int /*x*/, int /*y*/) override {}
+    void OnMouseWheel(int /*wheelDelta*/) override {}
+    void OnWindowSizeChanged(UINT, UINT) override {}
+    void OnIdle() override {}
 
-    // Accessors.
-    UINT GetWidth() const
+    UINT GetWidth() const override
     {
         return m_windowInfo.width;
     }
-    UINT GetHeight() const
+    UINT GetHeight() const override
     {
         return m_windowInfo.height;
     }
-    const WCHAR* GetTitle() const
+    const WCHAR* GetTitle() const override
     {
         return m_windowInfo.title.c_str();
     }
 
-    void ParseCommandLineArgs(_In_reads_(argc) WCHAR* argv[], int argc);
+    void ParseCommandLineArgs(_In_reads_(argc) WCHAR* argv[], int argc) override;
 
 protected:
     Platform::WindowInfo m_windowInfo;

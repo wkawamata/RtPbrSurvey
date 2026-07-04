@@ -11,14 +11,12 @@
 
 #pragma once
 
-#include "DXSample.h"
-
-class DXSample;
+#include "Platform/IApplication.h"
 
 class Win32Application
 {
 public:
-    static int Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow);
+    static int Run(Platform::IApplication* pApp, HINSTANCE hInstance, int nCmdShow);
     static HWND GetHwnd()
     {
         return m_hwnd;
