@@ -28,6 +28,9 @@
     <Filter Include="Source Files\App">
       <UniqueIdentifier>{3a4b5c6d-7e8f-9a0b-1c2d-3e4f5a6b7c8d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Engine\FrameGraph">
+      <UniqueIdentifier>{5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CubeMesh.h">
@@ -133,17 +136,17 @@
     <ClInclude Include="Renderer\RayTracingSupport.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
-    <ClInclude Include="Renderer\RenderPassExecution.h">
-      <Filter>Source Files\Renderer</Filter>
+    <ClInclude Include="Engine\FrameGraph\RenderPassExecution.h">
+      <Filter>Source Files\Engine\FrameGraph</Filter>
     </ClInclude>
-    <ClInclude Include="Renderer\RenderPassGraph.h">
-      <Filter>Source Files\Renderer</Filter>
+    <ClInclude Include="Engine\FrameGraph\RenderPassGraph.h">
+      <Filter>Source Files\Engine\FrameGraph</Filter>
     </ClInclude>
-    <ClInclude Include="Renderer\RenderPassKeys.h">
-      <Filter>Source Files\Renderer</Filter>
+    <ClInclude Include="Engine\FrameGraph\RenderPassKeys.h">
+      <Filter>Source Files\Engine\FrameGraph</Filter>
     </ClInclude>
-    <ClInclude Include="Renderer\RenderPassResources.h">
-      <Filter>Source Files\Renderer</Filter>
+    <ClInclude Include="Engine\FrameGraph\RenderPassResources.h">
+      <Filter>Source Files\Engine\FrameGraph</Filter>
     </ClInclude>
     <ClInclude Include="Renderer\ResolvedRenderTargets.h">
       <Filter>Source Files\Renderer</Filter>
