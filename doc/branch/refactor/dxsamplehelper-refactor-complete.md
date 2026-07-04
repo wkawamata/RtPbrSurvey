@@ -8,7 +8,7 @@ Date: 2026-07-04
 `DXSampleHelper.h` は DirectX-Graphics-Samples 由来の便利関数・マクロが混在した catch-all header でした。
 これを責務ごとに 5 つの owner header へ分割し、全 consumer を直接 owner header に置き換えました。
 
-現在 `DXSampleHelper.h` は誰も include していない互換性 shim として残っています。
+現在 `DXSampleHelper.h` は削除済みです。
 
 ## Commit History
 
@@ -71,7 +71,7 @@ Total: ~28 files touched across all commits:
 
 | Priority | Item | Description |
 |----------|------|-------------|
-| High | Decide fate of `DXSampleHelper.h` | Delete or keep as compatibility shim |
+| Done | `DXSampleHelper.h` deleted | No longer needed — 0 consumers, 0 includes |
 | Medium | Candidate 3 | Extract App debug UI (`SampleApp::DrawDebugUi` → `App/`) |
 | Medium | Candidate 4 | Define `Engine/FrameGraph` boundary (`Renderer/RenderPass*.h`) |
 | Medium | Step 2 | App/Platform interface definition (DXSample splitting) |

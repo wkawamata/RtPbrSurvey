@@ -179,7 +179,6 @@
     <ClInclude Include="Win32Application.h" />
     <ClInclude Include="D3D12HelloTexture.h" />
     <ClInclude Include="DXSample.h" />
-    <ClInclude Include="DXSampleHelper.h" />
     <ClInclude Include="Platform\FileIO.h" />
     <ClInclude Include="Platform\ShaderCompiler.h" />
     <ClInclude Include="Shared\D3d12DebugName.h" />

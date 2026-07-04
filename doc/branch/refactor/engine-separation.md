@@ -778,3 +778,22 @@ Verification:
 * `git diff --check` → 問題なし。
 * Debug x64 build 成功 (0 errors)。
 * D3D12 Debug Layer: `[ERROR]` / `[WARNING]` なし（5秒間動作確認）。
+* git commit `b1cc57f3c4`。
+
+### DXSampleHelper.h を削除
+
+目的:
+
+* 全 consumer の置き換えが完了し、誰も include していない互換性 shim を削除する。
+
+変更:
+
+* `DXSampleHelper.h` ファイルを削除。
+* `D3D12HelloTextureModified.vcxproj` から `<ClInclude>` エントリを削除。
+* `D3D12HelloTextureModified.vcxproj.filters` からフィルターエントリを削除。
+
+確認:
+
+* `DXSampleHelper.h` の参照が全ソースファイルで **0 件**。
+* vcxproj / filters からエントリ削除。
+* Debug x64 build 成功 (0 errors)。

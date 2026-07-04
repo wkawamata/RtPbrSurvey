@@ -36,9 +36,7 @@
     <ClInclude Include="DXSample.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="DXSampleHelper.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
+
     <ClInclude Include="MyDx12Utils.h">
       <Filter>Source Files</Filter>
     </ClInclude>
