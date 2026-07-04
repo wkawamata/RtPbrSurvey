@@ -11,7 +11,7 @@
 
 #include "stdafx.h"
 
-#include "D3D12HelloTexture.h"
+#include "HelloTextureEngine.h"
 
 void HelloTextureEngine::BuildRenderPasses()
 {

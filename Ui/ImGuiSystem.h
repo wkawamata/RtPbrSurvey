@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../GraphicsDevice.h"
+#include "../Engine/Rhi/Dx12/GraphicsDevice.h"
 #include "../Renderer/SimpleDescriptorHeapAllocator.h"
 
 namespace Engine

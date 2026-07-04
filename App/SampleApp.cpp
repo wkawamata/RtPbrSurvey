@@ -18,8 +18,8 @@
 #include <share.h>
 #include <sys/stat.h>
 #include "SampleApp.h"
-#include "Win32Application.h"
-#include "Scene\SceneFactory.h"
+#include "../Platform/Win32Application.h"
+#include "../Scene/SceneFactory.h"
 #include "imgui.h"
 #include "ImGuiWidgets.h"
 

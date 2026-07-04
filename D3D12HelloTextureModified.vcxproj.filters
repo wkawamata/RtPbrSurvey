@@ -31,13 +31,19 @@
     <Filter Include="Source Files\Engine\FrameGraph">
       <UniqueIdentifier>{5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Engine">
+      <UniqueIdentifier>{6a7b8c9d-0e1f-2a3b-4c5d-6e7f8a9b0c1d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Engine\Rhi\Dx12">
+      <UniqueIdentifier>{7b8c9d0e-1f2a-3b4c-5d6e-7f8a9b0c1d2e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CubeMesh.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="D3D12HelloTexture.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="Engine\HelloTextureEngine.h">
+      <Filter>Source Files\Engine</Filter>
     </ClInclude>
     <ClInclude Include="DXSample.h">
       <Filter>Source Files</Filter>
@@ -49,8 +55,8 @@
     <ClInclude Include="stdafx.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="Win32Application.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="Platform\Win32Application.h">
+      <Filter>Source Files\Platform</Filter>
     </ClInclude>
     <ClInclude Include="App\DebugUi.h">
       <Filter>Source Files\App</Filter>
@@ -58,8 +64,8 @@
     <ClInclude Include="App\SceneSelectUi.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>
-    <ClInclude Include="SampleApp.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="App\SampleApp.h">
+      <Filter>Source Files\App</Filter>
     </ClInclude>
     <ClInclude Include="TextureSemantic.h">
       <Filter>Source Files</Filter>
@@ -70,8 +76,8 @@
     <ClInclude Include="GltfLoader.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="GraphicsDevice.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="Engine\Rhi\Dx12\GraphicsDevice.h">
+      <Filter>Source Files\Engine\Rhi\Dx12</Filter>
     </ClInclude>
     <ClInclude Include="Renderer\BrdfLut.h">
       <Filter>Source Files\Renderer</Filter>
@@ -237,20 +243,20 @@
     <ClCompile Include="App\SceneSelectUi.cpp">
       <Filter>Source Files\App</Filter>
     </ClCompile>
-    <ClCompile Include="SampleApp.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="App\SampleApp.cpp">
+      <Filter>Source Files\App</Filter>
     </ClCompile>
     <ClCompile Include="DXSample.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="D3D12HelloTexture.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Engine\HelloTextureEngine.cpp">
+      <Filter>Source Files\Engine</Filter>
     </ClCompile>
-    <ClCompile Include="D3D12HelloTexturePasses.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Engine\HelloTextureEnginePasses.cpp">
+      <Filter>Source Files\Engine</Filter>
     </ClCompile>
-    <ClCompile Include="Win32Application.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Platform\Win32Application.cpp">
+      <Filter>Source Files\Platform</Filter>
     </ClCompile>
     <ClCompile Include="TiniGgltfImpl.cpp">
       <Filter>Source Files</Filter>
@@ -261,8 +267,8 @@
     <ClCompile Include="GltfLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GraphicsDevice.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Engine\Rhi\Dx12\GraphicsDevice.cpp">
+      <Filter>Source Files\Engine\Rhi\Dx12</Filter>
     </ClCompile>
     <ClCompile Include="Platform\CommandLineOptions.cpp">
       <Filter>Source Files\Platform</Filter>

@@ -11,7 +11,7 @@
 
 #pragma once
 #include <wrl/client.h>
-#include "GraphicsDevice.h"
+#include "Rhi/Dx12/GraphicsDevice.h"
 #include "MyDx12Utils.h"
 #include "Renderer/ClearPass.h"
 #include "Renderer/BrdfLut.h"
@@ -32,9 +32,9 @@
 #include "Renderer/RayQueryTlasDebugPass.h"
 #include "Renderer/ReflectionRayHitDebugPass.h"
 #include "Renderer/RayTracingSupport.h"
-#include "Engine/FrameGraph/RenderPassExecution.h"
-#include "Engine/FrameGraph/RenderPassGraph.h"
-#include "Engine/FrameGraph/RenderPassResources.h"
+#include "FrameGraph/RenderPassExecution.h"
+#include "FrameGraph/RenderPassGraph.h"
+#include "FrameGraph/RenderPassResources.h"
 #include "Renderer/RootSignatureLayout.h"
 #include "Renderer/SceneGeometryPass.h"
 #include "Renderer/SimpleDescriptorHeapAllocator.h"

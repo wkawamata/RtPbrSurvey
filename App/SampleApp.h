@@ -13,7 +13,7 @@
 
 #include "App/DebugUi.h"
 #include "App/SceneSelectUi.h"
-#include "D3D12HelloTexture.h"
+#include "../Engine/HelloTextureEngine.h"
 #include "DXSample.h"
 #include "Scene/SampleScene.h"
 #include "Ui/ImGuiSystem.h"

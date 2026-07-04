@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "SceneSelectUi.h"
-#include "../SampleApp.h"
+#include "SampleApp.h"
 
 #include <imgui.h>
 

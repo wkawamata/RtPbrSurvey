@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "DebugUi.h"
 #include "SceneSelectUi.h"
-#include "../SampleApp.h"
+#include "SampleApp.h"
 #include "../ImGuiWidgets.h"
 
 #include <imgui.h>

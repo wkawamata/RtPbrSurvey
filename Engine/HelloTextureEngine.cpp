@@ -11,7 +11,7 @@
 
 #include "stdafx.h"
 
-#include "D3D12HelloTexture.h"
+#include "HelloTextureEngine.h"
 
 #include <algorithm>
 #include <windows.h>
@@ -42,7 +42,7 @@
 #include <vector>
 #include "Shared/Error.h"
 #include "Platform/FileIO.h"
-#include "GraphicsDevice.h"
+#include "Rhi/Dx12/GraphicsDevice.h"
 #include "Renderer\ClearPass.h"
 #include "Renderer\DebugDumpCapture.h"
 #include "Renderer\GBuffer.h"
@@ -55,8 +55,8 @@
 #include "Renderer\RayQueryTlasDebugPass.h"
 #include "Renderer\ReflectionRayHitDebugPass.h"
 #include "Renderer\RayTracingSupport.h"
-#include "Engine\FrameGraph\RenderPassExecution.h"
-#include "Engine\FrameGraph\RenderPassResources.h"
+#include "FrameGraph/RenderPassExecution.h"
+#include "FrameGraph/RenderPassResources.h"
 #include "Renderer\ResolvedRenderTargets.h"
 #include "Renderer\SceneGeometryPass.h"
 #include "Renderer\SimpleDescriptorHeapAllocator.h"

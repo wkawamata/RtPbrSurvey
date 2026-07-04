@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../D3D12HelloTexture.h"
+#include "../Engine/HelloTextureEngine.h"
 
 class SampleApp;
 
