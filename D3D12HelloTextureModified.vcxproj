@@ -175,6 +175,7 @@
     <ClInclude Include="Scene\SampleScene.h" />
     <ClInclude Include="Ui\ImGuiSystem.h" />
     <ClInclude Include="App\DebugUi.h" />
+    <ClInclude Include="App\SceneSelectUi.h" />
     <ClInclude Include="SampleApp.h" />
     <ClInclude Include="TextureSemantic.h" />
     <ClInclude Include="Win32Application.h" />
@@ -231,6 +232,7 @@
     <ClCompile Include="DXSample.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="App\DebugUi.cpp" />
+    <ClCompile Include="App\SceneSelectUi.cpp" />
     <ClCompile Include="SampleApp.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

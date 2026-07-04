@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "DebugUi.h"
+#include "SceneSelectUi.h"
 #include "../SampleApp.h"
 #include "../ImGuiWidgets.h"
 
@@ -96,7 +97,7 @@ void DrawDebugUi(SampleApp& app, const HelloTextureEngine::UiFrameContext& conte
 
     if (app.m_appMode == SampleApp::AppMode::SceneSelect)
     {
-        app.DrawSceneSelectUi();
+        App::DrawSceneSelectUi(app);
         return;
     }
 

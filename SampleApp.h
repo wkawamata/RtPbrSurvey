@@ -12,6 +12,7 @@
 #pragma once
 
 #include "App/DebugUi.h"
+#include "App/SceneSelectUi.h"
 #include "D3D12HelloTexture.h"
 #include "DXSample.h"
 #include "Scene/SampleScene.h"
@@ -44,6 +45,7 @@ public:
 
 private:
     friend void App::DrawDebugUi(SampleApp& app, const HelloTextureEngine::UiFrameContext& context);
+    friend void App::DrawSceneSelectUi(SampleApp& app);
 
     enum class CameraMode
     {
@@ -70,7 +72,6 @@ private:
     Engine::SampleScene& LoadedScene();
     const Engine::SampleScene& LoadedScene() const;
     void DrawDebugUi(const HelloTextureEngine::UiFrameContext& context);
-    void DrawSceneSelectUi();
 
     static constexpr UINT kMaxInstanceCount = HelloTextureEngine::kMaxInstanceCount;
     static constexpr float kMousePanSpeed = 0.01f;
