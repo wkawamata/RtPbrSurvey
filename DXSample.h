@@ -12,6 +12,7 @@
 #pragma once
 
 #include "Platform/CommandLineOptions.h"
+#include "Platform/WindowInfo.h"
 #include "Win32Application.h"
 
 #include <string>
@@ -40,15 +41,15 @@ public:
     // Accessors.
     UINT GetWidth() const
     {
-        return m_width;
+        return m_windowInfo.width;
     }
     UINT GetHeight() const
     {
-        return m_height;
+        return m_windowInfo.height;
     }
     const WCHAR* GetTitle() const
     {
-        return m_title.c_str();
+        return m_windowInfo.title.c_str();
     }
 
     void ParseCommandLineArgs(_In_reads_(argc) WCHAR* argv[], int argc);
@@ -62,10 +63,7 @@ protected:
 
     void SetCustomWindowText(LPCWSTR text);
 
-    // Viewport dimensions.
-    UINT m_width;
-    UINT m_height;
-    float m_aspectRatio;
+    Platform::WindowInfo m_windowInfo;
 
     // Adapter info.
     Platform::CommandLineOptions m_commandLineOptions;
@@ -74,6 +72,4 @@ private:
     // Root assets path.
     std::wstring m_assetsPath;
 
-    // Window title.
-    std::wstring m_title;
 };

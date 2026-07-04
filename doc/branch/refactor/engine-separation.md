@@ -548,6 +548,32 @@ Verification:
 * Debug x64 build successful.
 * Existing build warnings remain, errors 0.
 
+### DXSample window metadata: extract Platform value object
+
+Purpose:
+
+* Continue the App/Platform boundary definition by moving window metadata out of individual `DXSample` fields.
+* Keep the existing `DXSample` accessors and `Win32Application` call sites stable while introducing a Platform-owned shape.
+
+Changes:
+
+* Added `Platform/WindowInfo.h`.
+  * Defines `Platform::WindowInfo`.
+  * Provides `Platform::CreateWindowInfo` for width, height, aspect ratio, and title initialization.
+
+* `DXSample`
+  * Replaced `m_width`, `m_height`, `m_aspectRatio`, and `m_title` with `Platform::WindowInfo m_windowInfo`.
+  * Kept `GetWidth`, `GetHeight`, and `GetTitle` behavior unchanged.
+  * Kept WARP title suffix behavior in `ParseCommandLineArgs`.
+
+* Project files
+  * Registered the new Platform header in `.vcxproj` and `.filters`.
+
+Verification:
+
+* Debug x64 build successful.
+* Existing build warnings remain, errors 0.
+
 ### DXSample command line options: extract Platform value object
 
 Purpose:

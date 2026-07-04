@@ -16,13 +16,11 @@
 using namespace Microsoft::WRL;
 
 DXSample::DXSample(UINT width, UINT height, std::wstring name)
-    : m_width(width), m_height(height), m_title(name)
+    : m_windowInfo(Platform::CreateWindowInfo(width, height, name))
 {
     WCHAR assetsPath[512];
     GetAssetsPath(assetsPath, _countof(assetsPath));
     m_assetsPath = assetsPath;
-
-    m_aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 }
 
 DXSample::~DXSample() {}
@@ -100,7 +98,7 @@ DXSample::GetHardwareAdapter(IDXGIFactory1* pFactory, IDXGIAdapter1** ppAdapter,
 // Helper function for setting the window's title text.
 void DXSample::SetCustomWindowText(LPCWSTR text)
 {
-    std::wstring windowText = m_title + L": " + text;
+    std::wstring windowText = m_windowInfo.title + L": " + text;
     SetWindowText(Win32Application::GetHwnd(), windowText.c_str());
 }
 
@@ -110,6 +108,6 @@ _Use_decl_annotations_ void DXSample::ParseCommandLineArgs(WCHAR* argv[], int ar
     m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
     if (m_commandLineOptions.useWarpDevice)
     {
-        m_title = m_title + L" (WARP)";
+        m_windowInfo.title = m_windowInfo.title + L" (WARP)";
     }
 }

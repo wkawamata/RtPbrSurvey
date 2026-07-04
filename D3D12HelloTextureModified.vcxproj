@@ -182,6 +182,7 @@
     <ClInclude Include="Platform\CommandLineOptions.h" />
     <ClInclude Include="Platform\FileIO.h" />
     <ClInclude Include="Platform\ShaderCompiler.h" />
+    <ClInclude Include="Platform\WindowInfo.h" />
     <ClInclude Include="Shared\D3d12DebugName.h" />
     <ClInclude Include="Shared\D3d12Helpers.h" />
     <ClInclude Include="Shared\Error.h" />
