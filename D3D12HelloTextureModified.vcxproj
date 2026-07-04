@@ -180,6 +180,7 @@
     <ClInclude Include="Win32Application.h" />
     <ClInclude Include="D3D12HelloTexture.h" />
     <ClInclude Include="DXSample.h" />
+    <ClInclude Include="Platform\AssetPath.h" />
     <ClInclude Include="Platform\CommandLineOptions.h" />
     <ClInclude Include="Platform\FileIO.h" />
     <ClInclude Include="Platform\ShaderCompiler.h" />

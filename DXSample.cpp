@@ -11,23 +11,13 @@
 
 #include "stdafx.h"
 #include "DXSample.h"
-#include "Platform/FileIO.h"
 
 DXSample::DXSample(UINT width, UINT height, std::wstring name)
     : m_windowInfo(Platform::CreateWindowInfo(width, height, name))
 {
-    WCHAR assetsPath[512];
-    GetAssetsPath(assetsPath, _countof(assetsPath));
-    m_assetsPath = assetsPath;
 }
 
 DXSample::~DXSample() {}
-
-// Helper function for resolving the full path of assets.
-std::wstring DXSample::GetAssetFullPath(LPCWSTR assetName)
-{
-    return m_assetsPath + assetName;
-}
 
 // Helper function for parsing any supplied command line args.
 _Use_decl_annotations_ void DXSample::ParseCommandLineArgs(WCHAR* argv[], int argc)

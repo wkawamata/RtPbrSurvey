@@ -54,15 +54,10 @@ public:
     void ParseCommandLineArgs(_In_reads_(argc) WCHAR* argv[], int argc);
 
 protected:
-    std::wstring GetAssetFullPath(LPCWSTR assetName);
-
     Platform::WindowInfo m_windowInfo;
 
     // Adapter info.
     Platform::CommandLineOptions m_commandLineOptions;
 
 private:
-    // Root assets path.
-    std::wstring m_assetsPath;
-
 };
