@@ -25,10 +25,10 @@
 #include <chrono>
 #include <memory>
 
-class SampleApp : public Platform::IApplication
+class HelloTextureApp : public Platform::IApplication
 {
 public:
-    SampleApp(UINT width, UINT height, std::wstring name);
+    HelloTextureApp(UINT width, UINT height, std::wstring name);
 
     // IApplication overrides.
     void OnInit() override;
@@ -60,8 +60,8 @@ public:
     void UpdateSampleState();
 
 private:
-    friend void App::DrawDebugUi(SampleApp& app, const HelloTextureEngine::UiFrameContext& context);
-    friend void App::DrawSceneSelectUi(SampleApp& app);
+    friend void App::DrawDebugUi(HelloTextureApp& app, const HelloTextureEngine::UiFrameContext& context);
+    friend void App::DrawSceneSelectUi(HelloTextureApp& app);
 
     enum class CameraMode
     {

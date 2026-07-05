@@ -10,7 +10,7 @@
 
 ## CLI Flags (for AI-driven automation)
 
-Flags are parsed in `DXSample::ParseCommandLineArgs()` (`DXSample.cpp:107`).
+Flags are parsed in `HelloTextureApp::ParseCommandLineArgs()` (`App/HelloTextureApp.cpp:87`).
 
 | Flag | Example | Description |
 |------|---------|-------------|

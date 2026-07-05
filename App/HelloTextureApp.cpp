@@ -17,7 +17,7 @@
 #include <io.h>
 #include <share.h>
 #include <sys/stat.h>
-#include "SampleApp.h"
+#include "HelloTextureApp.h"
 #include "../Platform/Win32Application.h"
 #include "../Scene/SceneFactory.h"
 #include "imgui.h"
@@ -79,12 +79,12 @@ XMFLOAT4 ArcballDeltaQuaternion(const XMFLOAT3& from, const XMFLOAT3& to)
 
 } // namespace
 
-SampleApp::SampleApp(UINT width, UINT height, std::wstring name)
+HelloTextureApp::HelloTextureApp(UINT width, UINT height, std::wstring name)
     : m_windowInfo(Platform::CreateWindowInfo(width, height, name)), m_prevTime(std::chrono::steady_clock::now()), m_engine(m_graphicsDevice)
 {
 }
 
-_Use_decl_annotations_ void SampleApp::ParseCommandLineArgs(WCHAR* argv[], int argc)
+_Use_decl_annotations_ void HelloTextureApp::ParseCommandLineArgs(WCHAR* argv[], int argc)
 {
     m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
     if (m_commandLineOptions.useWarpDevice)
@@ -93,7 +93,7 @@ _Use_decl_annotations_ void SampleApp::ParseCommandLineArgs(WCHAR* argv[], int a
     }
 }
 
-void SampleApp::OnInit()
+void HelloTextureApp::OnInit()
 {
     CreateSampleScenes();
 
@@ -146,7 +146,7 @@ void SampleApp::OnInit()
     }
 }
 
-void SampleApp::UpdateSampleState()
+void HelloTextureApp::UpdateSampleState()
 {
     auto now = std::chrono::steady_clock::now();
     const float deltaTime = std::chrono::duration<float>(now - m_prevTime).count();
@@ -247,7 +247,7 @@ void SampleApp::UpdateSampleState()
     m_engine.SetDisplayInstanceCount(LoadedScene().DisplayInstanceCount());
 }
 
-void SampleApp::OnKeyDown(UINT8 key)
+void HelloTextureApp::OnKeyDown(UINT8 key)
 {
     if (m_appMode == AppMode::SceneSelect && key == VK_ESCAPE)
     {
@@ -276,9 +276,9 @@ void SampleApp::OnKeyDown(UINT8 key)
     }
 }
 
-void SampleApp::OnKeyUp(UINT8 key) {}
+void HelloTextureApp::OnKeyUp(UINT8 key) {}
 
-void SampleApp::OnMouseDown(UINT8 button, int x, int y)
+void HelloTextureApp::OnMouseDown(UINT8 button, int x, int y)
 {
     if (m_appMode == AppMode::SceneSelect)
     {
@@ -311,7 +311,7 @@ void SampleApp::OnMouseDown(UINT8 button, int x, int y)
     }
 }
 
-void SampleApp::OnMouseUp(UINT8 button, int x, int y)
+void HelloTextureApp::OnMouseUp(UINT8 button, int x, int y)
 {
     if (button == VK_LBUTTON)
     {
@@ -331,7 +331,7 @@ void SampleApp::OnMouseUp(UINT8 button, int x, int y)
     }
 }
 
-void SampleApp::OnMouseMove(int x, int y)
+void HelloTextureApp::OnMouseMove(int x, int y)
 {
     if (m_appMode == AppMode::SceneSelect)
     {
@@ -445,7 +445,7 @@ void SampleApp::OnMouseMove(int x, int y)
     }
 }
 
-void SampleApp::OnMouseWheel(int wheelDelta)
+void HelloTextureApp::OnMouseWheel(int wheelDelta)
 {
     if (m_appMode == AppMode::SceneSelect)
     {
@@ -479,13 +479,13 @@ void SampleApp::OnMouseWheel(int wheelDelta)
     }
 }
 
-void SampleApp::OnWindowSizeChanged(UINT width, UINT height)
+void HelloTextureApp::OnWindowSizeChanged(UINT width, UINT height)
 {
     m_engine.RequestResize(width, height);
     m_imguiSystem.SetDisplaySize(width, height);
 }
 
-void SampleApp::OnIdle()
+void HelloTextureApp::OnIdle()
 {
     UpdateUiFrame();
     m_engine.RunFrame([this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); });
@@ -508,7 +508,7 @@ void SampleApp::OnIdle()
     }
 }
 
-void SampleApp::OnDestroy()
+void HelloTextureApp::OnDestroy()
 {
     if (m_logFile)
     {
@@ -526,7 +526,7 @@ void SampleApp::OnDestroy()
     m_d3d12InfoQueue.Reset();
 }
 
-void SampleApp::FlushD3D12DebugMessages()
+void HelloTextureApp::FlushD3D12DebugMessages()
 {
     if (!m_d3d12InfoQueue || !m_logFile)
     {
@@ -563,7 +563,7 @@ void SampleApp::FlushD3D12DebugMessages()
     fflush(m_logFile);
 }
 
-void SampleApp::LogFpsToFile(float cpuFrameTimeMs)
+void HelloTextureApp::LogFpsToFile(float cpuFrameTimeMs)
 {
     if (!m_logFile || cpuFrameTimeMs <= 0.0f)
     {
@@ -575,7 +575,7 @@ void SampleApp::LogFpsToFile(float cpuFrameTimeMs)
     fflush(m_logFile);
 }
 
-void SampleApp::CreateSampleScenes()
+void HelloTextureApp::CreateSampleScenes()
 {
     m_sampleScenes.clear();
 
@@ -619,7 +619,7 @@ void SampleApp::CreateSampleScenes()
     m_sampleScenes.push_back(Engine::SceneFactory::CreateCornellBox());
 }
 
-void SampleApp::LoadSceneCpuData(int sceneIndex)
+void HelloTextureApp::LoadSceneCpuData(int sceneIndex)
 {
     assert(sceneIndex >= 0 && sceneIndex < static_cast<int>(m_sampleScenes.size()));
 
@@ -657,7 +657,7 @@ void SampleApp::LoadSceneCpuData(int sceneIndex)
     }
 }
 
-void SampleApp::OpenSelectedScene()
+void HelloTextureApp::OpenSelectedScene()
 {
     if (m_selectedSceneIndex != m_loadedSceneIndex)
     {
@@ -675,7 +675,7 @@ void SampleApp::OpenSelectedScene()
     m_appMode = AppMode::Running;
 }
 
-void SampleApp::CloseRunningScene()
+void HelloTextureApp::CloseRunningScene()
 {
     m_appMode = AppMode::SceneSelect;
     m_isPlaying = false;
@@ -691,12 +691,12 @@ void SampleApp::CloseRunningScene()
     m_engine.CloseSceneResources();
 }
 
-bool SampleApp::IsGltfViewerSceneIndex(int index) const
+bool HelloTextureApp::IsGltfViewerSceneIndex(int index) const
 {
     return index >= 0 && index < m_gltfViewerCount;
 }
 
-void SampleApp::InitObjectViewerFromCamera()
+void HelloTextureApp::InitObjectViewerFromCamera()
 {
     auto& camera = LoadedScene().GetScene().camera;
     const XMVECTOR pivot = XMLoadFloat3(&m_objectViewerPivot);
@@ -704,7 +704,7 @@ void SampleApp::InitObjectViewerFromCamera()
     SetObjectViewerOrbitFromOffset(camPos - pivot);
 }
 
-void SampleApp::SetObjectViewerOrbitFromOffset(DirectX::FXMVECTOR offset)
+void HelloTextureApp::SetObjectViewerOrbitFromOffset(DirectX::FXMVECTOR offset)
 {
     m_objectViewerDistance = XMVectorGetX(XMVector3Length(offset));
     if (m_objectViewerDistance < 0.001f)
@@ -721,7 +721,7 @@ void SampleApp::SetObjectViewerOrbitFromOffset(DirectX::FXMVECTOR offset)
     m_objectViewerPitch = std::asin(std::clamp(dirF.y, -1.0f, 1.0f));
 }
 
-void SampleApp::UpdateObjectViewerCamera()
+void HelloTextureApp::UpdateObjectViewerCamera()
 {
     auto& camera = LoadedScene().GetScene().camera;
     m_objectViewerPitch = std::clamp(m_objectViewerPitch, -kObjectViewerPitchLimit, kObjectViewerPitchLimit);
@@ -745,7 +745,7 @@ void SampleApp::UpdateObjectViewerCamera()
     camera.gazePoint = m_objectViewerPivot;
 }
 
-void SampleApp::InitializeImGui()
+void HelloTextureApp::InitializeImGui()
 {
     D3D12_DESCRIPTOR_HEAP_DESC imguiHeapDesc = {};
     imguiHeapDesc.NumDescriptors = kImGuiDescriptorCount;
@@ -760,26 +760,26 @@ void SampleApp::InitializeImGui()
                              HelloTextureEngine::kSwapChainFormat);
 }
 
-void SampleApp::UpdateUiFrame()
+void HelloTextureApp::UpdateUiFrame()
 {
     m_imguiSystem.BeginFrame();
     DrawDebugUi(m_engine.GetUiFrameContext());
     m_imguiSystem.EndFrame();
 }
 
-Engine::SampleScene& SampleApp::LoadedScene()
+Engine::SampleScene& HelloTextureApp::LoadedScene()
 {
     assert(m_loadedScene != nullptr);
     return *m_loadedScene;
 }
 
-const Engine::SampleScene& SampleApp::LoadedScene() const
+const Engine::SampleScene& HelloTextureApp::LoadedScene() const
 {
     assert(m_loadedScene != nullptr);
     return *m_loadedScene;
 }
 
-void SampleApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
+void HelloTextureApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
 {
     App::DrawDebugUi(*this, context);
 }

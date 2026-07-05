@@ -1,13 +1,13 @@
 #include "stdafx.h"
 #include "SceneSelectUi.h"
-#include "SampleApp.h"
+#include "HelloTextureApp.h"
 
 #include <imgui.h>
 
 namespace App
 {
 
-void DrawSceneSelectUi(SampleApp& app)
+void DrawSceneSelectUi(HelloTextureApp& app)
 {
     ImGui::SetNextWindowSize(ImVec2(360, 360), ImGuiCond_FirstUseEver);
     ImGui::Begin("Scene Select");

@@ -60,7 +60,7 @@
     <ClInclude Include="App\SceneSelectUi.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>
-    <ClInclude Include="App\SampleApp.h">
+    <ClInclude Include="App\HelloTextureApp.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>
     <ClInclude Include="TextureSemantic.h">
@@ -239,7 +239,7 @@
     <ClCompile Include="App\SceneSelectUi.cpp">
       <Filter>Source Files\App</Filter>
     </ClCompile>
-    <ClCompile Include="App\SampleApp.cpp">
+    <ClCompile Include="App\HelloTextureApp.cpp">
       <Filter>Source Files\App</Filter>
     </ClCompile>
     <ClCompile Include="Engine\HelloTextureEngine.cpp">

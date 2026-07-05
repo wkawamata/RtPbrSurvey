@@ -10,11 +10,11 @@
 //*********************************************************
 
 #include "stdafx.h"
-#include "App/SampleApp.h"
+#include "App/HelloTextureApp.h"
 #include "Platform/Win32Application.h"
 
 _Use_decl_annotations_ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 {
-    SampleApp sample(1920, 1080, L"D3D12 Hello Texture Modified");
+    HelloTextureApp sample(1920, 1080, L"D3D12 Hello Texture Modified");
     return Win32Application::Run(&sample, hInstance, nCmdShow);
 }

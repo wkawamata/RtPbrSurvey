@@ -2,11 +2,11 @@
 
 #include "../Engine/HelloTextureEngine.h"
 
-class SampleApp;
+class HelloTextureApp;
 
 namespace App
 {
 
-void DrawDebugUi(SampleApp& app, const HelloTextureEngine::UiFrameContext& context);
+void DrawDebugUi(HelloTextureApp& app, const HelloTextureEngine::UiFrameContext& context);
 
 } // namespace App

@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "DebugUi.h"
 #include "SceneSelectUi.h"
-#include "SampleApp.h"
+#include "HelloTextureApp.h"
 #include "../ImGuiWidgets.h"
 
 #include <imgui.h>
@@ -90,12 +90,12 @@ void ApplyEnvironmentPreset(Engine::ProceduralEnvironmentSettings& settings, Eng
 namespace App
 {
 
-void DrawDebugUi(SampleApp& app, const HelloTextureEngine::UiFrameContext& context)
+void DrawDebugUi(HelloTextureApp& app, const HelloTextureEngine::UiFrameContext& context)
 {
     using RenderingPath = HelloTextureEngine::RenderingPath;
     using RenderViewMode = HelloTextureEngine::RenderViewMode;
 
-    if (app.m_appMode == SampleApp::AppMode::SceneSelect)
+    if (app.m_appMode == HelloTextureApp::AppMode::SceneSelect)
     {
         App::DrawSceneSelectUi(app);
         return;
@@ -127,8 +127,8 @@ void DrawDebugUi(SampleApp& app, const HelloTextureEngine::UiFrameContext& conte
         int cameraMode = static_cast<int>(app.m_cameraMode);
         if (ImGui::Combo("Mode", &cameraMode, "FreeLook\0Arcball\0"))
         {
-            app.m_cameraMode = static_cast<SampleApp::CameraMode>(cameraMode);
-            if (app.m_cameraMode == SampleApp::CameraMode::Arcball)
+            app.m_cameraMode = static_cast<HelloTextureApp::CameraMode>(cameraMode);
+            if (app.m_cameraMode == HelloTextureApp::CameraMode::Arcball)
             {
                 app.InitObjectViewerFromCamera();
             }
