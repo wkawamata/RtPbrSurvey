@@ -180,7 +180,6 @@
     <ClInclude Include="TextureSemantic.h" />
     <ClInclude Include="Platform\Win32Application.h" />
     <ClInclude Include="Engine\HelloTextureEngine.h" />
-    <ClInclude Include="DXSample.h" />
     <ClInclude Include="Platform\AssetPath.h" />
     <ClInclude Include="Platform\CommandLineOptions.h" />
     <ClInclude Include="Platform\FileIO.h" />
@@ -230,7 +229,6 @@
     <ClCompile Include="Platform\Win32Application.cpp" />
     <ClCompile Include="Engine\HelloTextureEngine.cpp" />
     <ClCompile Include="Engine\HelloTextureEnginePasses.cpp" />
-    <ClCompile Include="DXSample.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="App\DebugUi.cpp" />
     <ClCompile Include="App\SceneSelectUi.cpp" />

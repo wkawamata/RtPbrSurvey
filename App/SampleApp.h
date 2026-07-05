@@ -14,7 +14,9 @@
 #include "App/DebugUi.h"
 #include "App/SceneSelectUi.h"
 #include "../Engine/HelloTextureEngine.h"
-#include "DXSample.h"
+#include "Platform/CommandLineOptions.h"
+#include "Platform/IApplication.h"
+#include "Platform/WindowInfo.h"
 #include "Scene/SampleScene.h"
 #include "Ui/ImGuiSystem.h"
 
@@ -23,11 +25,12 @@
 #include <chrono>
 #include <memory>
 
-class SampleApp : public DXSample
+class SampleApp : public Platform::IApplication
 {
 public:
     SampleApp(UINT width, UINT height, std::wstring name);
 
+    // IApplication overrides.
     void OnInit() override;
     void OnDestroy() override;
     void OnKeyDown(UINT8 key) override;
@@ -38,6 +41,21 @@ public:
     void OnMouseWheel(int wheelDelta) override;
     void OnWindowSizeChanged(UINT width, UINT height) override;
     void OnIdle() override;
+
+    void ParseCommandLineArgs(_In_reads_(argc) WCHAR* argv[], int argc) override;
+
+    UINT GetWidth() const override
+    {
+        return m_windowInfo.width;
+    }
+    UINT GetHeight() const override
+    {
+        return m_windowInfo.height;
+    }
+    const WCHAR* GetTitle() const override
+    {
+        return m_windowInfo.title.c_str();
+    }
 
     void UpdateSampleState();
 
@@ -133,11 +151,13 @@ private:
 
     std::chrono::steady_clock::time_point m_prevTime;
 
+    Platform::WindowInfo m_windowInfo;
+    Platform::CommandLineOptions m_commandLineOptions;
+
     GraphicsDevice m_graphicsDevice;
     ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
     Engine::ImGuiSystem m_imguiSystem;
 
-    // The engine receives the graphics device so DXSample ownership can stay in SampleApp.
     HelloTextureEngine m_engine;
 
     // Debug logging to file (-LogToFile / -LogFPS).

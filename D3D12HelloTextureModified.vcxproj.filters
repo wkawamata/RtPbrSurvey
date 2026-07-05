@@ -45,10 +45,6 @@
     <ClInclude Include="Engine\HelloTextureEngine.h">
       <Filter>Source Files\Engine</Filter>
     </ClInclude>
-    <ClInclude Include="DXSample.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-
     <ClInclude Include="MyDx12Utils.h">
       <Filter>Source Files</Filter>
     </ClInclude>
@@ -245,9 +241,6 @@
     </ClCompile>
     <ClCompile Include="App\SampleApp.cpp">
       <Filter>Source Files\App</Filter>
-    </ClCompile>
-    <ClCompile Include="DXSample.cpp">
-      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Engine\HelloTextureEngine.cpp">
       <Filter>Source Files\Engine</Filter>

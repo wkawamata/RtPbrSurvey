@@ -80,8 +80,17 @@ XMFLOAT4 ArcballDeltaQuaternion(const XMFLOAT3& from, const XMFLOAT3& to)
 } // namespace
 
 SampleApp::SampleApp(UINT width, UINT height, std::wstring name)
-    : DXSample(width, height, name), m_prevTime(std::chrono::steady_clock::now()), m_engine(m_graphicsDevice)
+    : m_windowInfo(Platform::CreateWindowInfo(width, height, name)), m_prevTime(std::chrono::steady_clock::now()), m_engine(m_graphicsDevice)
 {
+}
+
+_Use_decl_annotations_ void SampleApp::ParseCommandLineArgs(WCHAR* argv[], int argc)
+{
+    m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
+    if (m_commandLineOptions.useWarpDevice)
+    {
+        m_windowInfo.title = m_windowInfo.title + L" (WARP)";
+    }
 }
 
 void SampleApp::OnInit()
