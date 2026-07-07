@@ -1,3 +1,4 @@
-﻿vcpkg_installed/
+vcpkg_installed/
+packages/
 imgui.ini
 d3d12_debug.log
