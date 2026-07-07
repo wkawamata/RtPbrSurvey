@@ -21,7 +21,6 @@ The project is close to being extractable from the `DirectX-Graphics-Samples` re
 |---|---|---|---|---|
 | **Must** | nuGet packages referenced via `..\packages\` relative path | `.vcxproj` lines 3-4, 450-462: `..\packages\Microsoft.Direct3D.D3D12.1.618.3\` etc. | After `git filter-repo`, the `..\packages\` parent path does not exist. **Build breaks.** | Move `packages/` into the project subtree or switch to vcpkg for D3D12/DXC/WinPixEventRuntime. |
 | **Must** | `packages.config` references packages that are siblings, not children | `packages.config` exists alongside vcpkg.json (dual package management) | After extraction, the `..\packages\` path is lost. | Resolve package strategy: either keep nuGet with local `packages/` dir, or fully migrate to vcpkg for D3D12/DXC. |
-| **Should** | Window class name still says `DXSampleClass` | `Platform/Win32Application.cpp:39`: `L"DXSampleClass"` | Cosmetic, but the word "DXSample" survives in the final binary. | Rename to `L"HelloTextureAppClass"`. |
 | **Should** | `$(ProjectDir)` added to AdditionalIncludeDirectories | `.vcxproj:76,108` — works but is a workaround for subdirectory source files | After extraction, `$(ProjectDir)` resolves to the new repo root, which is fine. | No change needed, but worth verifying after extraction. |
 | **Could** | `bin/` and `obj/` directories not in `.gitignore` | Build output directories exist locally, but current ignore rules/status need a separate check before changing policy. | Preventive cleanup only; not a standalone extraction blocker if they remain untracked. | Optionally add explicit build-output ignore entries after confirming current ignore behavior. |
 
@@ -62,7 +61,7 @@ All shader and asset paths are local (`Shaders/`, `Assets/`). No issues.
 | `HelloTextureApp` | App class (App/HelloTextureApp.h) | Already renamed |
 | `HelloTextureEngine` | Engine class (Engine/HelloTextureEngine.h) | Already renamed |
 | `Win32Application` | Platform class (Platform/Win32Application.h) | Acceptable — descriptive name |
-| `DXSampleClass` | Window class string in Win32Application.cpp:39 | **Stale** — should rename |
+| `HelloTextureAppClass` | Window class string in Win32Application.cpp:39 | OK — no Sample-derived class name remains |
 
 ## Root File Ownership
 
@@ -119,10 +118,9 @@ The `bin/` and `obj/` directories contain build outputs. They are not reported b
 ## Recommended Next Commit-Sized Tasks
 
 1. **Fix nuGet package paths** — Move `packages/` into the project tree (e.g., as a sibling or use vcpkg for D3D12/DXC). This is the only *must-fix-before-extraction* issue.
-2. **Rename window class** — `L"DXSampleClass"` → `L"HelloTextureAppClass"` in `Platform/Win32Application.cpp:39`.
-3. **Optionally add explicit build-output ignore entries** — Add `bin/`, `obj/`, and Visual Studio user/cache patterns after confirming current ignore behavior.
-4. **Remove stale `doc/` planning directory** — All refactoring planning docs are obsolete.
-5. **(Optional) Move root utility files** — `CubeMesh.*`, `GltfLoader.*`, `TextureSemantic.h`, `WorkMeter.*`, `MyDx12Utils.h`, `ImGuiWidgets.h`, `TiniGgltfImpl.cpp` into subdirectories.
+2. **Optionally add explicit build-output ignore entries** — Add `bin/`, `obj/`, and Visual Studio user/cache patterns after confirming current ignore behavior.
+3. **Remove stale `doc/` planning directory** — All refactoring planning docs are obsolete.
+4. **(Optional) Move root utility files** — `CubeMesh.*`, `GltfLoader.*`, `TextureSemantic.h`, `WorkMeter.*`, `MyDx12Utils.h`, `ImGuiWidgets.h`, `TiniGgltfImpl.cpp` into subdirectories.
 
 ## Verification
 
