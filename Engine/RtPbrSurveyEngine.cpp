@@ -11,7 +11,7 @@
 
 #include "stdafx.h"
 
-#include "HelloTextureEngine.h"
+#include "RtPbrSurveyEngine.h"
 
 #include <algorithm>
 #include <windows.h>
@@ -110,7 +110,7 @@ const wchar_t* EnvironmentSourceName(Engine::EnvironmentSource source)
 
 } // namespace
 
-HelloTextureEngine::HelloTextureEngine(GraphicsDevice& graphicsDevice)
+RtPbrSurveyEngine::RtPbrSurveyEngine(GraphicsDevice& graphicsDevice)
     : m_graphicsDevice(graphicsDevice), m_width(0), m_height(0), m_aspectRatio(1.0f), m_previousFrameIndex(0),
       m_currentFrameIndex(0), m_rtvDescriptorSize(0)
 {
@@ -124,7 +124,7 @@ HelloTextureEngine::HelloTextureEngine(GraphicsDevice& graphicsDevice)
     RegisterResourceResolvers();
 }
 
-void HelloTextureEngine::Initialize(UINT width, UINT height)
+void RtPbrSurveyEngine::Initialize(UINT width, UINT height)
 {
     assert(m_graphicsDevice.Device() != nullptr);
     assert(m_graphicsDevice.HasSwapChain());
@@ -138,7 +138,7 @@ void HelloTextureEngine::Initialize(UINT width, UINT height)
     InitializeFrameResources();
 }
 
-void HelloTextureEngine::InitializeFrameResources()
+void RtPbrSurveyEngine::InitializeFrameResources()
 {
     m_rayTracingSupport = Engine::RayTracingSupportInfo::Create(m_graphicsDevice.Device());
     wchar_t debugMessage[128] = {};
@@ -155,7 +155,7 @@ void HelloTextureEngine::InitializeFrameResources()
     InitResourceDefaultStates();
 }
 
-void HelloTextureEngine::InitResourceDefaultStates()
+void RtPbrSurveyEngine::InitResourceDefaultStates()
 {
     m_resourceDefaultStates.clear();
     m_resourceDefaultStates.push_back({kBackBufferResourceName, D3D12_RESOURCE_STATE_PRESENT});
@@ -170,17 +170,17 @@ void HelloTextureEngine::InitResourceDefaultStates()
     }
 }
 
-std::wstring HelloTextureEngine::GetAssetFullPath(LPCWSTR assetName)
+std::wstring RtPbrSurveyEngine::GetAssetFullPath(LPCWSTR assetName)
 {
     return m_assetsPath + assetName;
 }
 
-std::wstring HelloTextureEngine::GetShaderFullPath(LPCWSTR shaderName)
+std::wstring RtPbrSurveyEngine::GetShaderFullPath(LPCWSTR shaderName)
 {
     return m_shaderPath + shaderName;
 }
 
-HelloTextureEngine::UiFrameContext HelloTextureEngine::GetUiFrameContext() const
+RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
 {
     return {static_cast<int>(m_currentFrameIndex),
             m_cpuFrameTime,
@@ -190,27 +190,27 @@ HelloTextureEngine::UiFrameContext HelloTextureEngine::GetUiFrameContext() const
             m_frameResources[m_previousFrameIndex].gpuWorkMeterCheckPoints};
 }
 
-void HelloTextureEngine::SetUpdateHandler(UpdateHandler handler)
+void RtPbrSurveyEngine::SetUpdateHandler(UpdateHandler handler)
 {
     m_updateHandler = std::move(handler);
 }
 
-void HelloTextureEngine::SetLightingParams(const LightingParams& params)
+void RtPbrSurveyEngine::SetLightingParams(const LightingParams& params)
 {
     m_lightingParams = params;
 }
 
-void HelloTextureEngine::SetShadowSettings(const ShadowSettings& settings)
+void RtPbrSurveyEngine::SetShadowSettings(const ShadowSettings& settings)
 {
     m_shadowSettings = settings;
 }
 
-void HelloTextureEngine::SetHybridReflectionSettings(const HybridReflectionSettings& settings)
+void RtPbrSurveyEngine::SetHybridReflectionSettings(const HybridReflectionSettings& settings)
 {
     m_hybridReflectionSettings = settings;
 }
 
-void HelloTextureEngine::SetMaterialParams(UINT materialIndex, const MaterialParams& params)
+void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialParams& params)
 {
     if (materialIndex >= m_materialData.size())
     {
@@ -225,7 +225,7 @@ void HelloTextureEngine::SetMaterialParams(UINT materialIndex, const MaterialPar
     m_materialBuffer.Update(m_materialData);
 }
 
-auto HelloTextureEngine::MakeLightingConstants() const -> LightingConstants
+auto RtPbrSurveyEngine::MakeLightingConstants() const -> LightingConstants
 {
     return {
         m_lightingParams.lightDirection,
@@ -262,27 +262,27 @@ auto HelloTextureEngine::MakeLightingConstants() const -> LightingConstants
     };
 }
 
-void HelloTextureEngine::SetRenderingPath(RenderingPath renderingPath)
+void RtPbrSurveyEngine::SetRenderingPath(RenderingPath renderingPath)
 {
     m_renderingPath = renderingPath;
 }
 
-void HelloTextureEngine::SetLightingPassDebugGradient(bool enabled)
+void RtPbrSurveyEngine::SetLightingPassDebugGradient(bool enabled)
 {
     m_lightingPassDebugGradientEnabled = enabled;
 }
 
-void HelloTextureEngine::SetBackBufferClearColor(const std::array<float, 4>& color)
+void RtPbrSurveyEngine::SetBackBufferClearColor(const std::array<float, 4>& color)
 {
     m_backBufferClearColor = color;
 }
 
-void HelloTextureEngine::SetScene(const Scene& scene)
+void RtPbrSurveyEngine::SetScene(const Scene& scene)
 {
     m_scene = scene;
 }
 
-void HelloTextureEngine::ReloadSceneResources(const Scene& scene)
+void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
 {
     WaitForGpu();
     ReleaseSceneResources();
@@ -318,18 +318,18 @@ void HelloTextureEngine::ReloadSceneResources(const Scene& scene)
     WaitForGpu();
 }
 
-void HelloTextureEngine::CloseSceneResources()
+void RtPbrSurveyEngine::CloseSceneResources()
 {
     WaitForGpu();
     ReleaseSceneResources();
 }
 
-void HelloTextureEngine::SetDisplayInstanceCount(int count)
+void RtPbrSurveyEngine::SetDisplayInstanceCount(int count)
 {
     m_displayInstanceCount = std::clamp(count, 0, static_cast<int>(kMaxInstanceCount));
 }
 
-void HelloTextureEngine::SetToneMapParams(const ToneMapParams& params)
+void RtPbrSurveyEngine::SetToneMapParams(const ToneMapParams& params)
 {
     m_toneMapPass.settings.operatorIndex = params.operatorIndex;
     m_toneMapPass.settings.exposure = params.exposure;
@@ -337,17 +337,17 @@ void HelloTextureEngine::SetToneMapParams(const ToneMapParams& params)
     m_toneMapPass.settings.maxDisplayNits = params.maxDisplayNits;
 }
 
-void HelloTextureEngine::SetRenderViewMode(RenderViewMode mode)
+void RtPbrSurveyEngine::SetRenderViewMode(RenderViewMode mode)
 {
     m_debugViewSettings.renderViewMode = mode;
 }
 
-void HelloTextureEngine::SetRequestHdrDump(bool request)
+void RtPbrSurveyEngine::SetRequestHdrDump(bool request)
 {
     m_debugViewSettings.requestHdrDump = request;
 }
 
-void HelloTextureEngine::RequestPixelPick(int screenX, int screenY)
+void RtPbrSurveyEngine::RequestPixelPick(int screenX, int screenY)
 {
     m_pixelPickRequested = true;
     m_specularDebugRayQueryRequested = false;
@@ -357,7 +357,7 @@ void HelloTextureEngine::RequestPixelPick(int screenX, int screenY)
     m_pixelPickResult = {};
 }
 
-void HelloTextureEngine::SetSpecularDebugLineSettings(const SpecularDebugLineSettings& settings)
+void RtPbrSurveyEngine::SetSpecularDebugLineSettings(const SpecularDebugLineSettings& settings)
 {
     m_specularDebugLineSettings = settings;
     m_specularDebugLineSettings.lineLength =
@@ -365,7 +365,7 @@ void HelloTextureEngine::SetSpecularDebugLineSettings(const SpecularDebugLineSet
     UpdateDebugLines();
 }
 
-void HelloTextureEngine::ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings)
+void RtPbrSurveyEngine::ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings)
 {
     MyDx12Util::ScopedTimer _reloadTimer("ReloadEnvironmentResources total");
 
@@ -432,7 +432,7 @@ void HelloTextureEngine::ReloadEnvironmentResources(const Engine::ProceduralEnvi
     }
 }
 
-void HelloTextureEngine::UpdateCameraConstantBuffer()
+void RtPbrSurveyEngine::UpdateCameraConstantBuffer()
 {
     m_scene.camera.fov = std::clamp(m_scene.camera.fov, 0.1f, 179.0f);
     const float aspect = static_cast<float>(m_width) / static_cast<float>(m_height);
@@ -450,7 +450,7 @@ void HelloTextureEngine::UpdateCameraConstantBuffer()
 }
 
 // Load the rendering pipeline dependencies.
-void HelloTextureEngine::LoadPipeline()
+void RtPbrSurveyEngine::LoadPipeline()
 {
     assert(m_graphicsDevice.Device() != nullptr);
     assert(m_graphicsDevice.HasSwapChain());
@@ -532,13 +532,13 @@ void HelloTextureEngine::LoadPipeline()
 
 }
 
-void HelloTextureEngine::UpdateHdr10DisplayMode()
+void RtPbrSurveyEngine::UpdateHdr10DisplayMode()
 {
     m_graphicsDevice.EnsureCurrentDxgiFactory();
     m_hdrOutputPolicy.Update(m_graphicsDevice.DxgiFactory(), m_graphicsDevice.SwapChain(), m_graphicsDevice.Hwnd());
 }
 
-DescriptorAllocation HelloTextureEngine::CreateTextureFromRGBA8(
+DescriptorAllocation RtPbrSurveyEngine::CreateTextureFromRGBA8(
     const UINT8* pixels, UINT width, UINT height, ComPtr<ID3D12Resource>& texture, ComPtr<ID3D12Resource>& uploadHeap)
 {
     D3D12_RESOURCE_DESC textureDesc = {};
@@ -584,7 +584,7 @@ DescriptorAllocation HelloTextureEngine::CreateTextureFromRGBA8(
     return AllocateTextureSRV(texture.Get());
 }
 
-void HelloTextureEngine::CreateEnvironmentMapResources(ComPtr<ID3D12Resource>& environmentMapUploadHeap,
+void RtPbrSurveyEngine::CreateEnvironmentMapResources(ComPtr<ID3D12Resource>& environmentMapUploadHeap,
                                                        ComPtr<ID3D12Resource>& diffuseIrradianceUploadHeap,
                                                        ComPtr<ID3D12Resource>& specularPrefilterUploadHeap)
 {
@@ -667,7 +667,7 @@ void HelloTextureEngine::CreateEnvironmentMapResources(ComPtr<ID3D12Resource>& e
                                                              specularPrefilterUploadHeap);
 }
 
-void HelloTextureEngine::ReleaseEnvironmentMapResources()
+void RtPbrSurveyEngine::ReleaseEnvironmentMapResources()
 {
     if (m_environmentDescriptorTable.IsValid())
     {
@@ -686,7 +686,7 @@ void HelloTextureEngine::ReleaseEnvironmentMapResources()
     m_environmentMap.Release(m_descriptorHeapAllocator);
 }
 
-UINT64 HelloTextureEngine::SignalFenceForQueuedGpuWork()
+UINT64 RtPbrSurveyEngine::SignalFenceForQueuedGpuWork()
 {
     const UINT64 fenceValue = m_frameResources[m_currentFrameIndex].fenceValue;
     m_graphicsDevice.SignalFence(fenceValue);
@@ -694,7 +694,7 @@ UINT64 HelloTextureEngine::SignalFenceForQueuedGpuWork()
     return fenceValue;
 }
 
-Engine::DeferredGpuRelease HelloTextureEngine::CreateActiveEnvironmentRelease(UINT64 retireFenceValue)
+Engine::DeferredGpuRelease RtPbrSurveyEngine::CreateActiveEnvironmentRelease(UINT64 retireFenceValue)
 {
     Engine::DeferredGpuRelease release = {};
     release.retireFenceValue = retireFenceValue;
@@ -722,7 +722,7 @@ Engine::DeferredGpuRelease HelloTextureEngine::CreateActiveEnvironmentRelease(UI
     return release;
 }
 
-void HelloTextureEngine::QueueActiveEnvironmentResourcesForRelease(UINT64 retireFenceValue)
+void RtPbrSurveyEngine::QueueActiveEnvironmentResourcesForRelease(UINT64 retireFenceValue)
 {
     Engine::DeferredGpuRelease release = CreateActiveEnvironmentRelease(retireFenceValue);
     m_environmentDescriptorTable = {};
@@ -730,7 +730,7 @@ void HelloTextureEngine::QueueActiveEnvironmentResourcesForRelease(UINT64 retire
     m_deferredGpuReleaseQueue.Retire(std::move(release));
 }
 
-Engine::DeferredGpuRelease HelloTextureEngine::CreateProceduralEnvGenerationRelease(
+Engine::DeferredGpuRelease RtPbrSurveyEngine::CreateProceduralEnvGenerationRelease(
     UINT64 retireFenceValue,
     ComPtr<ID3D12CommandAllocator> proceduralEnvCommandAllocator)
 {
@@ -743,7 +743,7 @@ Engine::DeferredGpuRelease HelloTextureEngine::CreateProceduralEnvGenerationRele
     return release;
 }
 
-void HelloTextureEngine::QueueProceduralEnvGenerationResourcesForRelease(
+void RtPbrSurveyEngine::QueueProceduralEnvGenerationResourcesForRelease(
     UINT64 retireFenceValue,
     ComPtr<ID3D12CommandAllocator> proceduralEnvCommandAllocator)
 {
@@ -752,13 +752,13 @@ void HelloTextureEngine::QueueProceduralEnvGenerationResourcesForRelease(
     m_deferredGpuReleaseQueue.Retire(std::move(release));
 }
 
-void HelloTextureEngine::CollectDeferredGpuReleases()
+void RtPbrSurveyEngine::CollectDeferredGpuReleases()
 {
     const UINT64 completedFenceValue = m_graphicsDevice.CompletedFenceValue();
     m_deferredGpuReleaseQueue.Collect(completedFenceValue, m_descriptorHeapAllocator);
 }
 
-std::vector<DescriptorHeapHandle> HelloTextureEngine::CreateEnvironmentDescriptorHandles(
+std::vector<DescriptorHeapHandle> RtPbrSurveyEngine::CreateEnvironmentDescriptorHandles(
     const EnvironmentDescriptorTable& table,
     DescriptorHeapHandle environmentSrv,
     DescriptorHeapHandle diffuseIrradianceSrv,
@@ -772,7 +772,7 @@ std::vector<DescriptorHeapHandle> HelloTextureEngine::CreateEnvironmentDescripto
     return {environmentSrv, diffuseIrradianceSrv, specularPrefilterSrv};
 }
 
-auto HelloTextureEngine::AllocateEnvironmentDescriptorTable() -> EnvironmentDescriptorTable
+auto RtPbrSurveyEngine::AllocateEnvironmentDescriptorTable() -> EnvironmentDescriptorTable
 {
     EnvironmentDescriptorTable table = {};
     table.environment = m_descriptorHeapAllocator.AllocContiguous(kEnvironmentDescriptorTableSize);
@@ -782,7 +782,7 @@ auto HelloTextureEngine::AllocateEnvironmentDescriptorTable() -> EnvironmentDesc
     return table;
 }
 
-void HelloTextureEngine::FreeEnvironmentDescriptorTable(const EnvironmentDescriptorTable& table)
+void RtPbrSurveyEngine::FreeEnvironmentDescriptorTable(const EnvironmentDescriptorTable& table)
 {
     if (!table.IsValid())
     {
@@ -795,7 +795,7 @@ void HelloTextureEngine::FreeEnvironmentDescriptorTable(const EnvironmentDescrip
     m_descriptorHeapAllocator.Free(table.environment);
 }
 
-void HelloTextureEngine::CreateEnvironmentDescriptorTableSrvs(ID3D12Resource* environmentMap,
+void RtPbrSurveyEngine::CreateEnvironmentDescriptorTableSrvs(ID3D12Resource* environmentMap,
                                                               ID3D12Resource* diffuseIrradianceMap,
                                                               ID3D12Resource* specularPrefilterMap,
                                                               const EnvironmentDescriptorTable& table)
@@ -818,7 +818,7 @@ void HelloTextureEngine::CreateEnvironmentDescriptorTableSrvs(ID3D12Resource* en
     CreateEnvironmentBrdfLutSrv(table);
 }
 
-void HelloTextureEngine::CreateEnvironmentBrdfLutSrv(const EnvironmentDescriptorTable& table)
+void RtPbrSurveyEngine::CreateEnvironmentBrdfLutSrv(const EnvironmentDescriptorTable& table)
 {
     if (!table.IsValid() || m_brdfLut.Resource() == nullptr)
     {
@@ -833,7 +833,7 @@ void HelloTextureEngine::CreateEnvironmentBrdfLutSrv(const EnvironmentDescriptor
     m_graphicsDevice.Device()->CreateShaderResourceView(m_brdfLut.Resource(), &brdfSrvDesc, table.brdfLut.cpu);
 }
 
-void HelloTextureEngine::CreateEnvironmentMapResourcesGpu(ComPtr<ID3D12Resource>& diffuseIrradianceUploadHeap,
+void RtPbrSurveyEngine::CreateEnvironmentMapResourcesGpu(ComPtr<ID3D12Resource>& diffuseIrradianceUploadHeap,
                                                           ComPtr<ID3D12Resource>& specularPrefilterUploadHeap)
 {
     MyDx12Util::ScopedTimer _total("  CreateEnvironmentMapResourcesGpu total");
@@ -1055,7 +1055,7 @@ void HelloTextureEngine::CreateEnvironmentMapResourcesGpu(ComPtr<ID3D12Resource>
     m_specularPrefilterMap.Attach(std::move(specularPrefilterMap), m_environmentDescriptorTable.specularPrefilter);
 }
 
-void HelloTextureEngine::ValidateEnvironmentMapDescriptorTable() const
+void RtPbrSurveyEngine::ValidateEnvironmentMapDescriptorTable() const
 {
     const UINT environmentMapIndex = m_environmentMap.Srv().Index;
     const UINT diffuseIrradianceMapIndex = m_diffuseIrradianceMap.Srv().Index;
@@ -1081,7 +1081,7 @@ void HelloTextureEngine::ValidateEnvironmentMapDescriptorTable() const
 }
 
 // Load the sample assets.
-void HelloTextureEngine::LoadAssets()
+void RtPbrSurveyEngine::LoadAssets()
 {
     CreateRootSignature();
     CreateProceduralEnvRootSignature();
@@ -1127,13 +1127,13 @@ void HelloTextureEngine::LoadAssets()
     ExecuteInitialGpuSetup();
 }
 
-void HelloTextureEngine::CreateRootSignature()
+void RtPbrSurveyEngine::CreateRootSignature()
 {
     Engine::CreateRootSignature(
         m_graphicsDevice.Device(), kTextureDescriptorCapacity, Engine::GBuffer::kCount + 1, m_rootSignature);
 }
 
-void HelloTextureEngine::CreateProceduralEnvRootSignature()
+void RtPbrSurveyEngine::CreateProceduralEnvRootSignature()
 {
     CD3DX12_DESCRIPTOR_RANGE1 uavRange = {};
     uavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
@@ -1152,7 +1152,7 @@ void HelloTextureEngine::CreateProceduralEnvRootSignature()
         0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_proceduralEnvRootSignature)));
 }
 
-void HelloTextureEngine::CreateHybridReflectionRootSignature()
+void RtPbrSurveyEngine::CreateHybridReflectionRootSignature()
 {
     static constexpr UINT kHybridReflectionTextureSrvSpace = 8;
 
@@ -1240,7 +1240,7 @@ void HelloTextureEngine::CreateHybridReflectionRootSignature()
         IID_PPV_ARGS(&m_hybridReflectionRootSignature)));
 }
 
-void HelloTextureEngine::CreateRayQueryShadowRootSignature()
+void RtPbrSurveyEngine::CreateRayQueryShadowRootSignature()
 {
     CD3DX12_DESCRIPTOR_RANGE1 uavRange = {};
     uavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
@@ -1284,7 +1284,7 @@ void HelloTextureEngine::CreateRayQueryShadowRootSignature()
         0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_rayQueryShadowRootSignature)));
 }
 
-void HelloTextureEngine::CreateSpecularDebugRayQueryRootSignature()
+void RtPbrSurveyEngine::CreateSpecularDebugRayQueryRootSignature()
 {
     CD3DX12_DESCRIPTOR_RANGE1 tlasSrvRange = {};
     tlasSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
@@ -1314,7 +1314,7 @@ void HelloTextureEngine::CreateSpecularDebugRayQueryRootSignature()
                                                                  IID_PPV_ARGS(&m_specularDebugRayQueryRootSignature)));
 }
 
-void HelloTextureEngine::CreateRayQueryTlasDebugRootSignature()
+void RtPbrSurveyEngine::CreateRayQueryTlasDebugRootSignature()
 {
     CD3DX12_DESCRIPTOR_RANGE1 uavRange = {};
     uavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
@@ -1357,7 +1357,7 @@ void HelloTextureEngine::CreateRayQueryTlasDebugRootSignature()
         0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_rayQueryTlasDebugRootSignature)));
 }
 
-void HelloTextureEngine::CreateSpecularDebugRayQueryResources()
+void RtPbrSurveyEngine::CreateSpecularDebugRayQueryResources()
 {
     static constexpr UINT64 kResultBufferSize = 32;
 
@@ -1380,7 +1380,7 @@ void HelloTextureEngine::CreateSpecularDebugRayQueryResources()
     m_specularDebugRayQueryReadback->SetName(L"SpecularDebugRayQuery.Readback");
 }
 
-auto HelloTextureEngine::LoadShaderBytecode(LPCWSTR assetName) -> ShaderBytecode
+auto RtPbrSurveyEngine::LoadShaderBytecode(LPCWSTR assetName) -> ShaderBytecode
 {
     UINT8* data = nullptr;
     UINT size = 0;
@@ -1388,7 +1388,7 @@ auto HelloTextureEngine::LoadShaderBytecode(LPCWSTR assetName) -> ShaderBytecode
     return {data, size};
 }
 
-auto HelloTextureEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
+auto RtPbrSurveyEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
 {
     PipelineShaderBytecode shaders = {};
     shaders.forward = {LoadShaderBytecode(L"shaders_VSMain.cso"), LoadShaderBytecode(L"shaders_PSMain.cso")};
@@ -1415,7 +1415,7 @@ auto HelloTextureEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
     return shaders;
 }
 
-void HelloTextureEngine::CreatePipelineStates()
+void RtPbrSurveyEngine::CreatePipelineStates()
 {
     const PipelineShaderBytecode shaders = LoadPipelineShaderBytecode();
     RegisterPipelineStates(shaders);
@@ -1454,7 +1454,7 @@ void HelloTextureEngine::CreatePipelineStates()
                                                                          IID_PPV_ARGS(&m_rayQueryTlasDebugPipeline)));
 }
 
-void HelloTextureEngine::RegisterPipelineStates(const PipelineShaderBytecode& shaders)
+void RtPbrSurveyEngine::RegisterPipelineStates(const PipelineShaderBytecode& shaders)
 {
     // Define the vertex input layout.
     D3D12_INPUT_ELEMENT_DESC inputElementDescs[] = {
@@ -1498,7 +1498,7 @@ void HelloTextureEngine::RegisterPipelineStates(const PipelineShaderBytecode& sh
     RegisterDepthPrePassPipeline(psoDesc, {Pipe::DepthPrePass, depthInputLayout, shaders.depthPrePass});
 }
 
-void HelloTextureEngine::CreateInitialCommandList()
+void RtPbrSurveyEngine::CreateInitialCommandList()
 {
     ThrowIfFailed(
         m_graphicsDevice.Device()->CreateCommandList(0,
@@ -1508,7 +1508,7 @@ void HelloTextureEngine::CreateInitialCommandList()
                                                      IID_PPV_ARGS(&m_commandList)));
 }
 
-void HelloTextureEngine::CreateSceneGeometryBuffers()
+void RtPbrSurveyEngine::CreateSceneGeometryBuffers()
 {
     assert(m_scene.mesh != nullptr);
     const Engine::SceneMesh& mesh = *m_scene.mesh;
@@ -1555,7 +1555,7 @@ void HelloTextureEngine::CreateSceneGeometryBuffers()
     }
 }
 
-void HelloTextureEngine::CreateSceneTextureResources(std::vector<ComPtr<ID3D12Resource>>& textureUploadHeap)
+void RtPbrSurveyEngine::CreateSceneTextureResources(std::vector<ComPtr<ID3D12Resource>>& textureUploadHeap)
 {
     assert(m_scene.mesh != nullptr);
     const Engine::SceneMesh& mesh = *m_scene.mesh;
@@ -1647,7 +1647,7 @@ void HelloTextureEngine::CreateSceneTextureResources(std::vector<ComPtr<ID3D12Re
     }
 }
 
-void HelloTextureEngine::PrepareSceneInstanceData()
+void RtPbrSurveyEngine::PrepareSceneInstanceData()
 {
     // Instance data is provided by the application via SetScene().
     // Pre-allocate the buffer for kMaxInstanceCount entries.
@@ -1657,7 +1657,7 @@ void HelloTextureEngine::PrepareSceneInstanceData()
     }
 }
 
-void HelloTextureEngine::CreateSceneMaterialResources()
+void RtPbrSurveyEngine::CreateSceneMaterialResources()
 {
     assert(m_scene.mesh != nullptr);
     const Engine::SceneMesh& mesh = *m_scene.mesh;
@@ -1721,7 +1721,7 @@ void HelloTextureEngine::CreateSceneMaterialResources()
     m_materialBuffer.Create(m_graphicsDevice.Device(), m_descriptorHeapAllocator, m_materialData);
 }
 
-void HelloTextureEngine::CreateInstanceBuffers()
+void RtPbrSurveyEngine::CreateInstanceBuffers()
 {
     // Create the instance buffer.
     for (int n = 0; n < kFrameCount; n++)
@@ -1766,7 +1766,7 @@ void HelloTextureEngine::CreateInstanceBuffers()
     m_sceneResourcesAvailable = true;
 }
 
-void HelloTextureEngine::BuildAccelerationStructures()
+void RtPbrSurveyEngine::BuildAccelerationStructures()
 {
     const UINT instanceCount = (std::min)(
         static_cast<UINT>(m_scene.instances.size()),
@@ -1786,7 +1786,7 @@ void HelloTextureEngine::BuildAccelerationStructures()
         m_descriptorHeapAllocator);
 }
 
-void HelloTextureEngine::RebuildAccelerationStructures()
+void RtPbrSurveyEngine::RebuildAccelerationStructures()
 {
     if (!m_sceneResourcesAvailable || !m_rayTracingSupport.IsSupported())
     {
@@ -1805,7 +1805,7 @@ void HelloTextureEngine::RebuildAccelerationStructures()
         m_frameResources[m_currentFrameIndex].tlasInstanceBuffer.Get());
 }
 
-void HelloTextureEngine::ReleaseSceneResources()
+void RtPbrSurveyEngine::ReleaseSceneResources()
 {
     m_displayInstanceCount = 0;
     m_sceneResourcesAvailable = false;
@@ -1856,7 +1856,7 @@ void HelloTextureEngine::ReleaseSceneResources()
     }
 }
 
-void HelloTextureEngine::CreateFrameConstantBuffers()
+void RtPbrSurveyEngine::CreateFrameConstantBuffers()
 {
     UpdateCameraConstantBuffer();
     m_constantBufferData.prevViewProjection = m_constantBufferData.viewProjection;
@@ -1870,7 +1870,7 @@ void HelloTextureEngine::CreateFrameConstantBuffers()
     }
 }
 
-void HelloTextureEngine::ExecuteInitialGpuSetup()
+void RtPbrSurveyEngine::ExecuteInitialGpuSetup()
 {
     // Close the command list and execute it to begin the initial GPU setup.
     ThrowIfFailed(m_commandList->Close());
@@ -1883,7 +1883,7 @@ void HelloTextureEngine::ExecuteInitialGpuSetup()
     WaitForGpu();
 }
 
-void HelloTextureEngine::CreateConstantBuffer(ConstantBufferResource& constantBuffer,
+void RtPbrSurveyEngine::CreateConstantBuffer(ConstantBufferResource& constantBuffer,
                                               const void* initialData,
                                               UINT sizeInBytes)
 {
@@ -1908,7 +1908,7 @@ void HelloTextureEngine::CreateConstantBuffer(ConstantBufferResource& constantBu
     memcpy(constantBuffer.mappedData, initialData, sizeInBytes);
 }
 
-DescriptorAllocation HelloTextureEngine::AllocateTextureSRV(ID3D12Resource* texture)
+DescriptorAllocation RtPbrSurveyEngine::AllocateTextureSRV(ID3D12Resource* texture)
 {
     DescriptorAllocation handle = m_descriptorHeapAllocator.Allocate();
 
@@ -1923,7 +1923,7 @@ DescriptorAllocation HelloTextureEngine::AllocateTextureSRV(ID3D12Resource* text
 }
 
 // Generate a simple black and white checkerboard texture.
-std::vector<UINT8> HelloTextureEngine::GenerateCheckerboardTextureData()
+std::vector<UINT8> RtPbrSurveyEngine::GenerateCheckerboardTextureData()
 {
     const UINT rowPitch = kTextureWidth * kTexturePixelSize;
     const UINT cellPitch = rowPitch >> 3;       // The width of a cell in the checkboard texture.
@@ -1967,7 +1967,7 @@ std::vector<UINT8> HelloTextureEngine::GenerateCheckerboardTextureData()
     return data;
 }
 
-std::vector<UINT8> HelloTextureEngine::GenerateSolidTextureData(UINT8 r, UINT8 g, UINT8 b, UINT8 a)
+std::vector<UINT8> RtPbrSurveyEngine::GenerateSolidTextureData(UINT8 r, UINT8 g, UINT8 b, UINT8 a)
 {
     const UINT textureSize = kTextureWidth * kTextureHeight * kTexturePixelSize;
     std::vector<UINT8> data(textureSize);
@@ -1983,7 +1983,7 @@ std::vector<UINT8> HelloTextureEngine::GenerateSolidTextureData(UINT8 r, UINT8 g
     return data;
 }
 
-std::vector<UINT8> HelloTextureEngine::GenerateSemanticFallbackTextureData(Engine::TextureSemantic semantic)
+std::vector<UINT8> RtPbrSurveyEngine::GenerateSemanticFallbackTextureData(Engine::TextureSemantic semantic)
 {
     switch (semantic)
     {
@@ -2002,7 +2002,7 @@ std::vector<UINT8> HelloTextureEngine::GenerateSemanticFallbackTextureData(Engin
     }
 }
 
-void HelloTextureEngine::CreateDsvHeap()
+void RtPbrSurveyEngine::CreateDsvHeap()
 {
     if (m_dsvHeap)
         return;
@@ -2015,7 +2015,7 @@ void HelloTextureEngine::CreateDsvHeap()
     ThrowIfFailed(m_graphicsDevice.Device()->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
 }
 
-void HelloTextureEngine::CreateGBuffer()
+void RtPbrSurveyEngine::CreateGBuffer()
 {
     m_gbuffer.CreateResources(m_graphicsDevice.Device(), m_width, m_height);
     m_gbuffer.CreateRTVs(m_graphicsDevice.Device(), m_rtvHeap.Get(), kGBufferRTVBaseIndex, m_rtvDescriptorSize);
@@ -2034,7 +2034,7 @@ void HelloTextureEngine::CreateGBuffer()
     assert(m_lightPassColorSrv.Index == m_depthStencilSrv.Index + 1);
 }
 
-void HelloTextureEngine::RegisterDepthStencil(UINT width, UINT height)
+void RtPbrSurveyEngine::RegisterDepthStencil(UINT width, UINT height)
 {
     TransientResource r;
 
@@ -2061,7 +2061,7 @@ void HelloTextureEngine::RegisterDepthStencil(UINT width, UINT height)
     m_resourceRegistry.RegisterTransientResource(std::move(r));
 }
 
-void HelloTextureEngine::RegisterLightPassRenderTarget(UINT width, UINT height)
+void RtPbrSurveyEngine::RegisterLightPassRenderTarget(UINT width, UINT height)
 {
     TransientResource r;
 
@@ -2090,7 +2090,7 @@ void HelloTextureEngine::RegisterLightPassRenderTarget(UINT width, UINT height)
     m_resourceRegistry.RegisterTransientResource(std::move(r));
 }
 
-void HelloTextureEngine::CreateDepthStencilDescriptors()
+void RtPbrSurveyEngine::CreateDepthStencilDescriptors()
 {
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
@@ -2109,7 +2109,7 @@ void HelloTextureEngine::CreateDepthStencilDescriptors()
     m_graphicsDevice.Device()->CreateShaderResourceView(m_depthStencil.Get(), &srvDesc, m_depthStencilSrv.cpu);
 }
 
-void HelloTextureEngine::CreateShadowMask(UINT width, UINT height)
+void RtPbrSurveyEngine::CreateShadowMask(UINT width, UINT height)
 {
     m_shadowMask.Reset();
 
@@ -2135,7 +2135,7 @@ void HelloTextureEngine::CreateShadowMask(UINT width, UINT height)
     CreateShadowMaskDescriptors();
 }
 
-void HelloTextureEngine::CreateShadowMaskDescriptors()
+void RtPbrSurveyEngine::CreateShadowMaskDescriptors()
 {
     if (!m_shadowMaskRange.IsValid())
     {
@@ -2157,7 +2157,7 @@ void HelloTextureEngine::CreateShadowMaskDescriptors()
                                                          m_stageAllocator.CpuHandle(m_shadowMaskRange.Start + 1));
 }
 
-void HelloTextureEngine::CreateReflectionRayHit(UINT width, UINT height)
+void RtPbrSurveyEngine::CreateReflectionRayHit(UINT width, UINT height)
 {
     m_reflectionRayHit.Reset();
 
@@ -2183,7 +2183,7 @@ void HelloTextureEngine::CreateReflectionRayHit(UINT width, UINT height)
     CreateReflectionRayHitDescriptors();
 }
 
-void HelloTextureEngine::CreateReflectionRayHitDescriptors()
+void RtPbrSurveyEngine::CreateReflectionRayHitDescriptors()
 {
     m_reflectionRayHitSrv = m_descriptorHeapAllocator.AllocWithHandle();
     m_reflectionRayHitUav = m_descriptorHeapAllocator.AllocWithHandle();
@@ -2203,7 +2203,7 @@ void HelloTextureEngine::CreateReflectionRayHitDescriptors()
         m_reflectionRayHit.Get(), nullptr, &uavDesc, m_reflectionRayHitUav.cpu);
 }
 
-void HelloTextureEngine::CreateReflectionRayColor(UINT width, UINT height)
+void RtPbrSurveyEngine::CreateReflectionRayColor(UINT width, UINT height)
 {
     m_reflectionRayColor.Reset();
 
@@ -2229,7 +2229,7 @@ void HelloTextureEngine::CreateReflectionRayColor(UINT width, UINT height)
     CreateReflectionRayColorDescriptors();
 }
 
-void HelloTextureEngine::CreateReflectionRayColorDescriptors()
+void RtPbrSurveyEngine::CreateReflectionRayColorDescriptors()
 {
     m_reflectionRayColorSrv = m_descriptorHeapAllocator.AllocWithHandle();
     m_reflectionRayColorUav = m_descriptorHeapAllocator.AllocWithHandle();
@@ -2249,31 +2249,31 @@ void HelloTextureEngine::CreateReflectionRayColorDescriptors()
         m_reflectionRayColor.Get(), nullptr, &uavDesc, m_reflectionRayColorUav.cpu);
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE HelloTextureEngine::GetBackBufferRtv() const
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetBackBufferRtv() const
 {
     CD3DX12_CPU_DESCRIPTOR_HANDLE h(
         m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_currentFrameIndex, m_rtvDescriptorSize);
     return h;
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE HelloTextureEngine::GetDepthDsv() const
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetDepthDsv() const
 {
     return m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE HelloTextureEngine::GetGBufferRTV(UINT index) const
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetGBufferRTV(UINT index) const
 {
     return m_gbuffer.GetRTV(m_rtvHeap.Get(), m_rtvDescriptorSize, index);
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE HelloTextureEngine::GetLightPassRTV() const
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetLightPassRTV() const
 {
     CD3DX12_CPU_DESCRIPTOR_HANDLE h(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
     h.Offset(kLightPassRTVIndex, m_rtvDescriptorSize);
     return h;
 }
 
-void HelloTextureEngine::RegisterPassBindingResolvers()
+void RtPbrSurveyEngine::RegisterPassBindingResolvers()
 {
     m_renderGraphRuntime.Bindings().Clear();
 
@@ -2345,7 +2345,7 @@ void HelloTextureEngine::RegisterPassBindingResolvers()
                                                        });
 }
 
-void HelloTextureEngine::RegisterPassConstantsHandlers()
+void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
 {
     m_renderGraphRuntime.Constants().Clear();
     m_renderGraphRuntime.Constants().Register(
@@ -2371,7 +2371,7 @@ void HelloTextureEngine::RegisterPassConstantsHandlers()
         });
 }
 
-void HelloTextureEngine::RegisterResourceResolvers()
+void RtPbrSurveyEngine::RegisterResourceResolvers()
 {
     m_renderGraphRuntime.Resources().Clear();
     m_renderGraphRuntime.Resources().RegisterResource(kBackBufferResourceName,
@@ -2394,7 +2394,7 @@ void HelloTextureEngine::RegisterResourceResolvers()
                                                          { return FindTransientD3DResource(name); });
 }
 
-void HelloTextureEngine::CreateDepthStencil(UINT width, UINT height)
+void RtPbrSurveyEngine::CreateDepthStencil(UINT width, UINT height)
 {
     // Release if DS exist
     m_depthStencil.Reset();
@@ -2435,7 +2435,7 @@ void HelloTextureEngine::CreateDepthStencil(UINT width, UINT height)
 }
 
 // Update frame-based values.
-void HelloTextureEngine::UpdateFrame()
+void RtPbrSurveyEngine::UpdateFrame()
 {
     PIXBeginEvent(0, L"UpdateFrame");
 
@@ -2467,14 +2467,14 @@ void HelloTextureEngine::UpdateFrame()
     PIXEndEvent();
 }
 
-void HelloTextureEngine::UpdatePerFrameRenderSettings()
+void RtPbrSurveyEngine::UpdatePerFrameRenderSettings()
 {
     m_toneMapPass.settings.Normalize();
     const LightingConstants lightingConstants = MakeLightingConstants();
     memcpy(m_frameResources[m_currentFrameIndex].lightCB.mappedData, &lightingConstants, sizeof(lightingConstants));
 }
 
-UINT HelloTextureEngine::GetVisibleCubeCount() const
+UINT RtPbrSurveyEngine::GetVisibleCubeCount() const
 {
     if (!m_sceneResourcesAvailable)
     {
@@ -2485,7 +2485,7 @@ UINT HelloTextureEngine::GetVisibleCubeCount() const
 }
 
 // Render the scene.
-void HelloTextureEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
+void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
 {
     PIXBeginEvent(0, L"RenderFrame");
 
@@ -2545,14 +2545,14 @@ void HelloTextureEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     PIXEndEvent();
 }
 
-void HelloTextureEngine::RequestResize(UINT width, UINT height)
+void RtPbrSurveyEngine::RequestResize(UINT width, UINT height)
 {
     m_pendingResize = true;
     m_pendingResizeWidth = width;
     m_pendingResizeHeight = height;
 }
 
-void HelloTextureEngine::RunFrame(const UiRenderHandler& uiRenderHandler)
+void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler)
 {
     if (m_pendingResize)
     {
@@ -2569,9 +2569,9 @@ void HelloTextureEngine::RunFrame(const UiRenderHandler& uiRenderHandler)
     m_cpuFrameTime = m_workMeter.GetCpuFrameTimeMs();
 }
 
-void HelloTextureEngine::ApplyResize(UINT width, UINT height)
+void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
 {
-    DBG_PRINT("HelloTextureEngine::ApplyResize() %d %d\n", width, height);
+    DBG_PRINT("RtPbrSurveyEngine::ApplyResize() %d %d\n", width, height);
     m_width = width;
     m_height = height;
 
@@ -2637,12 +2637,12 @@ void HelloTextureEngine::ApplyResize(UINT width, UINT height)
     m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_width), static_cast<LONG>(m_height));
 }
 
-void HelloTextureEngine::Shutdown()
+void RtPbrSurveyEngine::Shutdown()
 {
     DestroyFrameResources();
 }
 
-void HelloTextureEngine::DestroyFrameResources()
+void RtPbrSurveyEngine::DestroyFrameResources()
 {
     // Ensure that the GPU is no longer referencing resources that are about to be
     // cleaned up by the destructor.
@@ -2651,7 +2651,7 @@ void HelloTextureEngine::DestroyFrameResources()
     m_graphicsDevice.CloseFenceEvent();
 }
 
-void HelloTextureEngine::RegisterFullscreenPipeline(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& baseDesc,
+void RtPbrSurveyEngine::RegisterFullscreenPipeline(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& baseDesc,
                                                     const FullscreenPipelineDefinition& definition)
 {
     const D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = Engine::CreateFullscreenPipelineDesc(baseDesc, definition);
@@ -2659,7 +2659,7 @@ void HelloTextureEngine::RegisterFullscreenPipeline(const D3D12_GRAPHICS_PIPELIN
     ThrowIfFailed(m_renderGraphRuntime.Pipelines().Create(m_graphicsDevice.Device(), key, desc));
 }
 
-void HelloTextureEngine::RegisterFullscreenPipelines(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& baseDesc,
+void RtPbrSurveyEngine::RegisterFullscreenPipelines(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& baseDesc,
                                                      std::initializer_list<FullscreenPipelineDefinition> definitions)
 {
     for (const FullscreenPipelineDefinition& definition : definitions)
@@ -2668,7 +2668,7 @@ void HelloTextureEngine::RegisterFullscreenPipelines(const D3D12_GRAPHICS_PIPELI
     }
 }
 
-void HelloTextureEngine::RegisterForwardPipeline(D3D12_GRAPHICS_PIPELINE_STATE_DESC& baseDesc,
+void RtPbrSurveyEngine::RegisterForwardPipeline(D3D12_GRAPHICS_PIPELINE_STATE_DESC& baseDesc,
                                                  const ForwardPipelineDefinition& definition)
 {
     baseDesc = Engine::CreateForwardPipelineDesc(baseDesc, m_rootSignature.Get(), definition);
@@ -2676,7 +2676,7 @@ void HelloTextureEngine::RegisterForwardPipeline(D3D12_GRAPHICS_PIPELINE_STATE_D
     ThrowIfFailed(m_renderGraphRuntime.Pipelines().Create(m_graphicsDevice.Device(), key, baseDesc));
 }
 
-void HelloTextureEngine::RegisterGBufferPipeline(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& baseDesc,
+void RtPbrSurveyEngine::RegisterGBufferPipeline(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& baseDesc,
                                                  const GBufferPipelineDefinition& definition)
 {
     const D3D12_GRAPHICS_PIPELINE_STATE_DESC desc =
@@ -2685,7 +2685,7 @@ void HelloTextureEngine::RegisterGBufferPipeline(const D3D12_GRAPHICS_PIPELINE_S
     ThrowIfFailed(m_renderGraphRuntime.Pipelines().Create(m_graphicsDevice.Device(), key, desc));
 }
 
-void HelloTextureEngine::RegisterDepthPrePassPipeline(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& baseDesc,
+void RtPbrSurveyEngine::RegisterDepthPrePassPipeline(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& baseDesc,
                                                       const DepthPrePassPipelineDefinition& definition)
 {
     const D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = Engine::CreateDepthPrePassPipelineDesc(baseDesc, definition);
@@ -2693,7 +2693,7 @@ void HelloTextureEngine::RegisterDepthPrePassPipeline(const D3D12_GRAPHICS_PIPEL
     ThrowIfFailed(m_renderGraphRuntime.Pipelines().Create(m_graphicsDevice.Device(), key, desc));
 }
 
-void HelloTextureEngine::PopulateCommandList()
+void RtPbrSurveyEngine::PopulateCommandList()
 {
     PIXBeginEvent(1, L"PopulateCommandList");
 
@@ -2710,12 +2710,12 @@ void HelloTextureEngine::PopulateCommandList()
     PIXEndEvent();
 }
 
-void HelloTextureEngine::AnalyzeResourceLifetimes()
+void RtPbrSurveyEngine::AnalyzeResourceLifetimes()
 {
     m_resourceRegistry.AnalyzeLifetimes(m_renderGraphRuntime.Graph().Passes());
 }
 
-void HelloTextureEngine::DebugPrintLifetimes()
+void RtPbrSurveyEngine::DebugPrintLifetimes()
 {
     DBG_PRINT("Resource Lifetimes:\n");
     for (auto& [name, lt] : m_resourceRegistry.lifetimes)
@@ -2724,12 +2724,12 @@ void HelloTextureEngine::DebugPrintLifetimes()
     }
 }
 
-ID3D12PipelineState* HelloTextureEngine::GetPipelineState(PipelineKey pipeline) const
+ID3D12PipelineState* RtPbrSurveyEngine::GetPipelineState(PipelineKey pipeline) const
 {
     return m_renderGraphRuntime.Pipelines().Find(pipeline);
 }
 
-void HelloTextureEngine::ExecutePasses()
+void RtPbrSurveyEngine::ExecutePasses()
 {
     Engine::ResourceTransitionContext resourceTransitions = MakeResourceTransitionContext();
     Engine::ExecuteRenderPassGraph(m_renderGraphRuntime.Graph(),
@@ -2743,7 +2743,7 @@ void HelloTextureEngine::ExecutePasses()
                                     [this](int passIndex) { ReleaseResourcesAfterPass(passIndex); }});
 }
 
-void HelloTextureEngine::ExecutePassOperation(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecutePassOperation(const RenderPass& pass)
 {
     const PassOperationHandler* handler = m_renderGraphRuntime.Operations().Find(pass.operation);
     assert(handler != nullptr && "Unsupported pass operation.");
@@ -2754,7 +2754,7 @@ void HelloTextureEngine::ExecutePassOperation(const RenderPass& pass)
     }
 }
 
-void HelloTextureEngine::CreateResourcesForPass(int passIndex)
+void RtPbrSurveyEngine::CreateResourcesForPass(int passIndex)
 {
     const std::vector<std::string> resourceNames =
         m_resourceRegistry.GetResourcesStartingAtPass(passIndex, kBackBufferResourceName);
@@ -2774,7 +2774,7 @@ void HelloTextureEngine::CreateResourcesForPass(int passIndex)
     }
 }
 
-void HelloTextureEngine::CreateCommittedTransientResource(TransientResource& resource)
+void RtPbrSurveyEngine::CreateCommittedTransientResource(TransientResource& resource)
 {
     ThrowIfFailed(m_graphicsDevice.Device()->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
                                                                      D3D12_HEAP_FLAG_NONE,
@@ -2784,7 +2784,7 @@ void HelloTextureEngine::CreateCommittedTransientResource(TransientResource& res
                                                                      IID_PPV_ARGS(&resource.resource)));
 }
 
-void HelloTextureEngine::BindCreatedTransientResource(const std::string& name, ID3D12Resource* resource)
+void RtPbrSurveyEngine::BindCreatedTransientResource(const std::string& name, ID3D12Resource* resource)
 {
     if (name == kDepthStencilResourceName)
     {
@@ -2803,7 +2803,7 @@ void HelloTextureEngine::BindCreatedTransientResource(const std::string& name, I
     assert(false && "Unsupported resource in BindCreatedTransientResource()");
 }
 
-void HelloTextureEngine::CreateLightPassRenderTargetDescriptors()
+void RtPbrSurveyEngine::CreateLightPassRenderTargetDescriptors()
 {
     m_graphicsDevice.Device()->CreateRenderTargetView(m_lightPassRenderTarget.Get(), nullptr, GetLightPassRTV());
 
@@ -2816,17 +2816,17 @@ void HelloTextureEngine::CreateLightPassRenderTargetDescriptors()
         m_lightPassRenderTarget.Get(), &srvDesc, m_lightPassColorSrv.cpu);
 }
 
-void HelloTextureEngine::ReleaseResourcesAfterPass(int passIndex)
+void RtPbrSurveyEngine::ReleaseResourcesAfterPass(int passIndex)
 {
     m_resourceRegistry.MarkEndOfLifeResources(passIndex, kBackBufferResourceName);
 }
 
-void HelloTextureEngine::MarkPendingTransientResources(UINT64 fenceValue)
+void RtPbrSurveyEngine::MarkPendingTransientResources(UINT64 fenceValue)
 {
     m_resourceRegistry.MarkPendingTransientResources(fenceValue);
 }
 
-void HelloTextureEngine::CollectGarbageTransientResources()
+void RtPbrSurveyEngine::CollectGarbageTransientResources()
 {
     const UINT64 completed = m_graphicsDevice.CompletedFenceValue();
     const std::vector<std::string> releasedResources = m_resourceRegistry.CollectGarbageTransientResources(completed);
@@ -2852,7 +2852,7 @@ void HelloTextureEngine::CollectGarbageTransientResources()
     }
 }
 
-void HelloTextureEngine::ResetResourceStates()
+void RtPbrSurveyEngine::ResetResourceStates()
 {
     m_resourceRegistry.states.clear();
     for (const auto& usage : m_resourceDefaultStates)
@@ -2861,7 +2861,7 @@ void HelloTextureEngine::ResetResourceStates()
     }
 }
 
-Engine::ResourceTransitionContext HelloTextureEngine::MakeResourceTransitionContext()
+Engine::ResourceTransitionContext RtPbrSurveyEngine::MakeResourceTransitionContext()
 {
     return {m_commandList.Get(),
             [this](const std::string& name) { return m_renderGraphRuntime.Resources().Resolve(name); },
@@ -2871,17 +2871,17 @@ Engine::ResourceTransitionContext HelloTextureEngine::MakeResourceTransitionCont
             { DBG_PRINT("Resource %s is null. Skip transition.\n", usage.name.c_str()); }};
 }
 
-void HelloTextureEngine::TransitionPassResources(const RenderPass& pass)
+void RtPbrSurveyEngine::TransitionPassResources(const RenderPass& pass)
 {
     Engine::TransitionPassResources(MakeResourceTransitionContext(), pass);
 }
 
-void HelloTextureEngine::TransitionResource(const ResourceUsage& usage)
+void RtPbrSurveyEngine::TransitionResource(const ResourceUsage& usage)
 {
     Engine::TransitionResource(MakeResourceTransitionContext(), usage);
 }
 
-ID3D12Resource* HelloTextureEngine::FindTransientD3DResource(const std::string& name) const
+ID3D12Resource* RtPbrSurveyEngine::FindTransientD3DResource(const std::string& name) const
 {
     auto transientResource = m_resourceRegistry.transientResources.find(name);
     if (transientResource == m_resourceRegistry.transientResources.end())
@@ -2892,17 +2892,17 @@ ID3D12Resource* HelloTextureEngine::FindTransientD3DResource(const std::string& 
     return transientResource->second.resource.Get();
 }
 
-D3D12_RESOURCE_STATES HelloTextureEngine::GetResourceState(const std::string& name) const
+D3D12_RESOURCE_STATES RtPbrSurveyEngine::GetResourceState(const std::string& name) const
 {
     return m_resourceRegistry.GetState(name);
 }
 
-void HelloTextureEngine::SetResourceState(const std::string& name, D3D12_RESOURCE_STATES state)
+void RtPbrSurveyEngine::SetResourceState(const std::string& name, D3D12_RESOURCE_STATES state)
 {
     m_resourceRegistry.SetState(name, state);
 }
 
-void HelloTextureEngine::BeginFrame()
+void RtPbrSurveyEngine::BeginFrame()
 {
 
     // Command list allocators can only be reset when the associated
@@ -2930,19 +2930,19 @@ void HelloTextureEngine::BeginFrame()
     m_gpuWorkMeter.StartGpu(m_commandList.Get(), m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints);
 }
 
-void HelloTextureEngine::ExecuteClearPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteClearPass(const RenderPass& pass)
 {
     Engine::RecordClearPass(m_commandList.Get(), ResolveRenderTargets(pass.renderTargets));
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Clear");
 }
 
-void HelloTextureEngine::ExecuteDepthPrePass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteDepthPrePass(const RenderPass& pass)
 {
     Engine::RecordDepthPrePass(m_commandList.Get(), MakeSceneGeometryDrawDesc());
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Depth Prepass");
 }
 
-void HelloTextureEngine::ExecuteGBufferPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteGBufferPass(const RenderPass& pass)
 {
     assert(pass.renderTargets.rtvs.size() == Engine::GBuffer::kCount);
 
@@ -2955,7 +2955,7 @@ void HelloTextureEngine::ExecuteGBufferPass(const RenderPass& pass)
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "GBuffer Pass");
 }
 
-void HelloTextureEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 
@@ -3000,7 +3000,7 @@ void HelloTextureEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Hybrid Reflection Pass");
 }
 
-void HelloTextureEngine::ExecuteRayQueryShadowPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteRayQueryShadowPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 
@@ -3028,7 +3028,7 @@ void HelloTextureEngine::ExecuteRayQueryShadowPass(const RenderPass& pass)
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "RayQuery Shadow Pass");
 }
 
-void HelloTextureEngine::ExecuteSpecularDebugRayQueryPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteSpecularDebugRayQueryPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 
@@ -3077,7 +3077,7 @@ void HelloTextureEngine::ExecuteSpecularDebugRayQueryPass(const RenderPass& pass
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Specular Debug RayQuery Pass");
 }
 
-void HelloTextureEngine::ExecuteRayQueryTlasDebugPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteRayQueryTlasDebugPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 
@@ -3097,7 +3097,7 @@ void HelloTextureEngine::ExecuteRayQueryTlasDebugPass(const RenderPass& pass)
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "RayQuery TlasDebug Pass");
 }
 
-void HelloTextureEngine::ExecuteForwardPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteForwardPass(const RenderPass& pass)
 {
     Engine::ForwardPassDesc passDesc = {};
     passDesc.renderTargets = ResolveRenderTargets(pass.renderTargets);
@@ -3107,25 +3107,25 @@ void HelloTextureEngine::ExecuteForwardPass(const RenderPass& pass)
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Main Pass");
 }
 
-void HelloTextureEngine::ExecuteLightingPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteLightingPass(const RenderPass& pass)
 {
     Engine::RecordLightingPass(m_commandList.Get());
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Lighting Pass");
 }
 
-void HelloTextureEngine::ExecuteLightingDebugGradientPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteLightingDebugGradientPass(const RenderPass& pass)
 {
     Engine::RecordLightingDebugGradientPass(m_commandList.Get());
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "LightPassDebugGradient Pass");
 }
 
-void HelloTextureEngine::ExecuteToneMapPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteToneMapPass(const RenderPass& pass)
 {
     Engine::RecordToneMapPass(m_commandList.Get());
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ToneMap Pass");
 }
 
-void HelloTextureEngine::ExecuteDebugDumpPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteDebugDumpPass(const RenderPass& pass)
 {
     if (!m_lightingPassDebugGradientEnabled)
     {
@@ -3135,7 +3135,7 @@ void HelloTextureEngine::ExecuteDebugDumpPass(const RenderPass& pass)
     RecordDebugDumpPass();
 }
 
-void HelloTextureEngine::ExecutePixelPickPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecutePixelPickPass(const RenderPass& pass)
 {
     if (!m_pixelPickRequested)
     {
@@ -3145,13 +3145,13 @@ void HelloTextureEngine::ExecutePixelPickPass(const RenderPass& pass)
     RecordPixelPickPass();
 }
 
-void HelloTextureEngine::ExecuteGBufferDebugPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteGBufferDebugPass(const RenderPass& pass)
 {
     Engine::RecordGBufferDebugPass(m_commandList.Get());
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "GBuffer Debug Pass");
 }
 
-void HelloTextureEngine::ExecuteReflectionRayHitDebugPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteReflectionRayHitDebugPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 
@@ -3159,7 +3159,7 @@ void HelloTextureEngine::ExecuteReflectionRayHitDebugPass(const RenderPass& pass
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ReflectionRayHit Debug Pass");
 }
 
-void HelloTextureEngine::ExecuteShadowMaskDebugPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteShadowMaskDebugPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 
@@ -3167,7 +3167,7 @@ void HelloTextureEngine::ExecuteShadowMaskDebugPass(const RenderPass& pass)
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ShadowMask Debug Pass");
 }
 
-void HelloTextureEngine::ExecuteDebugLinePass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteDebugLinePass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 
@@ -3183,12 +3183,12 @@ void HelloTextureEngine::ExecuteDebugLinePass(const RenderPass& pass)
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "DebugLine Pass");
 }
 
-void HelloTextureEngine::ExecuteImGuiPass(const RenderPass& pass)
+void RtPbrSurveyEngine::ExecuteImGuiPass(const RenderPass& pass)
 {
     RecordImGuiPass();
 }
 
-void HelloTextureEngine::RecordDebugDumpPass()
+void RtPbrSurveyEngine::RecordDebugDumpPass()
 {
     Engine::RecordDebugDumpCapture(m_commandList.Get(),
                                    m_graphicsDevice.Device(),
@@ -3201,7 +3201,7 @@ void HelloTextureEngine::RecordDebugDumpPass()
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Debug Dump");
 }
 
-void HelloTextureEngine::RecordPixelPickPass()
+void RtPbrSurveyEngine::RecordPixelPickPass()
 {
     PIXBeginEvent(m_commandList.Get(), 0, L"PixelPick");
 
@@ -3234,14 +3234,14 @@ void HelloTextureEngine::RecordPixelPickPass()
     PIXEndEvent(m_commandList.Get());
 }
 
-void HelloTextureEngine::ResetPixelPickReadbacks()
+void RtPbrSurveyEngine::ResetPixelPickReadbacks()
 {
     m_pixelPickDepthReadback = {};
     m_pixelPickGBufferReadbacks = {};
     m_pixelPickShadowMaskReadback = {};
 }
 
-void HelloTextureEngine::CreatePixelPickReadback(ID3D12Resource* source, PixelPickReadback& readback) const
+void RtPbrSurveyEngine::CreatePixelPickReadback(ID3D12Resource* source, PixelPickReadback& readback) const
 {
     assert(source != nullptr);
 
@@ -3260,7 +3260,7 @@ void HelloTextureEngine::CreatePixelPickReadback(ID3D12Resource* source, PixelPi
                                                   IID_PPV_ARGS(&readback.resource)));
 }
 
-void HelloTextureEngine::CopyPixelPickSource(ID3D12Resource* source,
+void RtPbrSurveyEngine::CopyPixelPickSource(ID3D12Resource* source,
                                              const PixelPickReadback& readback,
                                              UINT x,
                                              UINT y)
@@ -3274,7 +3274,7 @@ void HelloTextureEngine::CopyPixelPickSource(ID3D12Resource* source,
     m_commandList->CopyTextureRegion(&dst, 0, 0, 0, &src, &srcBox);
 }
 
-void HelloTextureEngine::ReadbackPixelPick()
+void RtPbrSurveyEngine::ReadbackPixelPick()
 {
     if (!m_pixelPickDepthReadback.resource ||
         !m_pixelPickGBufferReadbacks[Engine::GBuffer::Normal].resource)
@@ -3397,7 +3397,7 @@ void HelloTextureEngine::ReadbackPixelPick()
     ResetPixelPickReadbacks();
 }
 
-void HelloTextureEngine::ReadbackSpecularDebugRayQuery()
+void RtPbrSurveyEngine::ReadbackSpecularDebugRayQuery()
 {
     if (!m_specularDebugRayQueryReadback)
     {
@@ -3423,7 +3423,7 @@ void HelloTextureEngine::ReadbackSpecularDebugRayQuery()
     UpdateDebugLines();
 }
 
-void HelloTextureEngine::UpdateDebugLines()
+void RtPbrSurveyEngine::UpdateDebugLines()
 {
     m_debugLineVertices.clear();
 
@@ -3478,7 +3478,7 @@ void HelloTextureEngine::UpdateDebugLines()
     }
 }
 
-void HelloTextureEngine::PrintDebugDump()
+void RtPbrSurveyEngine::PrintDebugDump()
 {
     if (!m_lightingPassDebugGradientEnabled)
     {
@@ -3503,7 +3503,7 @@ void HelloTextureEngine::PrintDebugDump()
     Engine::UnmapDebugDumpCapture(m_debugDumpCapture);
 }
 
-auto HelloTextureEngine::MakeSceneGeometryDrawDesc() const -> Engine::SceneGeometryDrawDesc
+auto RtPbrSurveyEngine::MakeSceneGeometryDrawDesc() const -> Engine::SceneGeometryDrawDesc
 {
     return {m_vertexBufferView,
             m_indexBufferView,
@@ -3513,7 +3513,7 @@ auto HelloTextureEngine::MakeSceneGeometryDrawDesc() const -> Engine::SceneGeome
             GetVisibleCubeCount()};
 }
 
-auto HelloTextureEngine::ResolveRenderTargets(const PassRenderTargetBinding& renderTargets) const
+auto RtPbrSurveyEngine::ResolveRenderTargets(const PassRenderTargetBinding& renderTargets) const
     -> Engine::ResolvedRenderTargets
 {
     Engine::ResolvedRenderTargets resolvedRenderTargets = {};
@@ -3533,7 +3533,7 @@ auto HelloTextureEngine::ResolveRenderTargets(const PassRenderTargetBinding& ren
     return resolvedRenderTargets;
 }
 
-void HelloTextureEngine::RecordImGuiPass()
+void RtPbrSurveyEngine::RecordImGuiPass()
 {
     if (m_activeUiRenderHandler != nullptr && *m_activeUiRenderHandler)
     {
@@ -3545,7 +3545,7 @@ void HelloTextureEngine::RecordImGuiPass()
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ImGUI");
 }
 
-void HelloTextureEngine::EndFrame()
+void RtPbrSurveyEngine::EndFrame()
 {
     m_gpuWorkMeter.EndGpu(m_commandList.Get());
 
@@ -3558,7 +3558,7 @@ void HelloTextureEngine::EndFrame()
 }
 
 // Wait for pending GPU work to complete.
-void HelloTextureEngine::WaitForGpu()
+void RtPbrSurveyEngine::WaitForGpu()
 {
     PIXBeginEvent(3, L"WaitForGpu");
 
@@ -3574,7 +3574,7 @@ void HelloTextureEngine::WaitForGpu()
     PIXEndEvent();
 }
 
-void HelloTextureEngine::FlushGpu()
+void RtPbrSurveyEngine::FlushGpu()
 {
     for (UINT n = 0; n < kFrameCount; n++)
     {
@@ -3586,7 +3586,7 @@ void HelloTextureEngine::FlushGpu()
 }
 
 // Prepare to render the next frame.
-UINT64 HelloTextureEngine::MoveToNextFrame()
+UINT64 RtPbrSurveyEngine::MoveToNextFrame()
 {
     PIXBeginEvent(2, L"MoveToNextFrame");
 

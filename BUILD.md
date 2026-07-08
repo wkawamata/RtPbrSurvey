@@ -30,11 +30,11 @@ Or place a local copy at `tools\nuget.exe`. That file is ignored by Git.
 Build the standalone solution:
 
 ```powershell
-msbuild HelloTextureModified.sln /p:Configuration=Debug /p:Platform=x64
+msbuild RtPbrSurvey.sln /p:Configuration=Debug /p:Platform=x64
 ```
 
 If vcpkg is not globally integrated, pass the root explicitly:
 
 ```powershell
-msbuild HelloTextureModified.sln /p:Configuration=Debug /p:Platform=x64 /p:VcpkgRoot=C:\dev\vcpkg\
+msbuild RtPbrSurvey.sln /p:Configuration=Debug /p:Platform=x64 /p:VcpkgRoot=C:\dev\vcpkg\
 ```

@@ -43,7 +43,7 @@ GBuffer ベースの deferred rendering パイプラインに RayQuery パスを
   - `ExecuteRayQueryShadowPass()`: passDesc に各ハンドルを設定して Record を呼び出し
 - `D3D12HelloTexturePasses.cpp`:
   - `MakeRayQueryShadowPass()`: Depth と GBuffer.Normal を `NON_PIXEL_SHADER_RESOURCE` read として登録
-- `D3D12HelloTextureModified.vcxproj` / `.filters`: 新規ファイル追加
+- `RtPbrSurvey.vcxproj` / `.filters`: 新規ファイル追加
 - `Renderer/AccelerationStructureResources.cpp`:
   - `FillTlasInstanceDescs()` の Transform 展開バグ修正:
     - `InstanceData::world` は `XMMatrixTranspose(M)` で格納されている
@@ -63,7 +63,7 @@ Rebase dropped header declarations from the original commit. Restored in `D3D12H
 
 Rebase dropped the `.cpp` implementation and project entries. Restored:
 - `D3D12HelloTexture.cpp`: `BuildAccelerationStructures()` implementation, `CreateInstanceBuffers()` call in `LoadAssets()`
-- `D3D12HelloTextureModified.vcxproj` / `.filters`: `<ClCompile>` / `<ClInclude>` entries for `AccelerationStructureResources.cpp/.h` and `RayQueryShadowPass.cpp/.h`
+- `RtPbrSurvey.vcxproj` / `.filters`: `<ClCompile>` / `<ClInclude>` entries for `AccelerationStructureResources.cpp/.h` and `RayQueryShadowPass.cpp/.h`
 
 ### Commit e5b54e8b: Split RayQuery TLAS debug from shadow mask
 

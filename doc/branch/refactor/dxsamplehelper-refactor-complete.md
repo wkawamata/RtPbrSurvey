@@ -57,7 +57,7 @@ Total: ~28 files touched across all commits:
 - `MyDx12Utils.h` — include 置換
 - `WorkMeter.h` — include 置換
 - `Renderer/*.cpp` (9 files) — include 置換
-- `D3D12HelloTextureModified.vcxproj`, `.filters` — 新ファイル登録
+- `RtPbrSurvey.vcxproj`, `.filters` — 新ファイル登録
 - `doc/branch/refactor/engine-separation.md` — 各 commit の記録
 
 ## Verification

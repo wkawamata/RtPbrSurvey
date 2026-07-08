@@ -6,7 +6,7 @@ Prepare the split of the DirectX-Graphics-Samples application framework code.
 
 This task is an **inventory and plan task**, not a broad implementation task. The goal is to classify the responsibilities currently gathered around `DXSample`, `Win32Application`, `SampleApp`, and `D3D12HelloTexture`, then recommend the first small safe split.
 
-The end goal is a standalone `HelloTextureModified` repository with clear ownership boundaries:
+The end goal is a standalone `RtPbrSurvey` repository with clear ownership boundaries:
 
 ```txt
 App/
@@ -20,7 +20,7 @@ Do not move large code blocks yet unless the change is obviously tiny and low ri
 ## Workspace
 
 ```txt
-C:\work\DirectX-Graphics-Samples\Samples\Desktop\D3D12HelloWorld\src\HelloTextureModified
+C:\work\DirectX-Graphics-Samples\Samples\Desktop\D3D12HelloWorld\src\RtPbrSurvey
 ```
 
 ## Background
@@ -60,8 +60,8 @@ Renderer/
 Also inspect project registration if needed:
 
 ```txt
-D3D12HelloTextureModified.vcxproj
-D3D12HelloTextureModified.vcxproj.filters
+RtPbrSurvey.vcxproj
+RtPbrSurvey.vcxproj.filters
 ```
 
 ## Questions To Answer
@@ -156,7 +156,7 @@ Examples:
 Possible future names:
 
 ```txt
-App/HelloTextureApp.h
+App/RtPbrSurveyApp.h
 App/AppSettings.h
 App/DebugUiController.h
 ```
@@ -235,7 +235,7 @@ Code changes are optional and should only happen if the first split is tiny.
 If code changes are made:
 
 1. Keep them very small.
-2. Update `D3D12HelloTextureModified.vcxproj` and `.filters` if files are added.
+2. Update `RtPbrSurvey.vcxproj` and `.filters` if files are added.
 3. Update `doc\branch\refactor\engine-separation.md` with a commit-unit note.
 4. Preserve CRLF line endings.
 5. Do not reorder unrelated includes.
@@ -251,7 +251,7 @@ git diff --check
 If code changed, run Debug x64 build:
 
 ```powershell
-& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" D3D12HelloTextureModified.vcxproj /p:Configuration=Debug /p:Platform=x64 /m
+& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" RtPbrSurvey.vcxproj /p:Configuration=Debug /p:Platform=x64 /m
 ```
 
 If no code changed, build is optional. Say whether it was skipped.

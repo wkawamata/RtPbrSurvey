@@ -1,12 +1,12 @@
 #pragma once
 
-#include "../Engine/HelloTextureEngine.h"
+#include "../Engine/RtPbrSurveyEngine.h"
 
-class HelloTextureApp;
+class RtPbrSurveyApp;
 
 namespace App
 {
 
-void DrawDebugUi(HelloTextureApp& app, const HelloTextureEngine::UiFrameContext& context);
+void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& context);
 
 } // namespace App

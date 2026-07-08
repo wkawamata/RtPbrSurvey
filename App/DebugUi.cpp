@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "DebugUi.h"
 #include "SceneSelectUi.h"
-#include "HelloTextureApp.h"
+#include "RtPbrSurveyApp.h"
 #include "../ImGuiWidgets.h"
 
 #include <imgui.h>
@@ -90,12 +90,12 @@ void ApplyEnvironmentPreset(Engine::ProceduralEnvironmentSettings& settings, Eng
 namespace App
 {
 
-void DrawDebugUi(HelloTextureApp& app, const HelloTextureEngine::UiFrameContext& context)
+void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& context)
 {
-    using RenderingPath = HelloTextureEngine::RenderingPath;
-    using RenderViewMode = HelloTextureEngine::RenderViewMode;
+    using RenderingPath = RtPbrSurveyEngine::RenderingPath;
+    using RenderViewMode = RtPbrSurveyEngine::RenderViewMode;
 
-    if (app.m_appMode == HelloTextureApp::AppMode::SceneSelect)
+    if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneSelect)
     {
         App::DrawSceneSelectUi(app);
         return;
@@ -127,8 +127,8 @@ void DrawDebugUi(HelloTextureApp& app, const HelloTextureEngine::UiFrameContext&
         int cameraMode = static_cast<int>(app.m_cameraMode);
         if (ImGui::Combo("Mode", &cameraMode, "FreeLook\0Arcball\0"))
         {
-            app.m_cameraMode = static_cast<HelloTextureApp::CameraMode>(cameraMode);
-            if (app.m_cameraMode == HelloTextureApp::CameraMode::Arcball)
+            app.m_cameraMode = static_cast<RtPbrSurveyApp::CameraMode>(cameraMode);
+            if (app.m_cameraMode == RtPbrSurveyApp::CameraMode::Arcball)
             {
                 app.InitObjectViewerFromCamera();
             }
@@ -299,7 +299,7 @@ void DrawDebugUi(HelloTextureApp& app, const HelloTextureEngine::UiFrameContext&
 
             if (materialChanged)
             {
-                HelloTextureEngine::MaterialParams params = {};
+                RtPbrSurveyEngine::MaterialParams params = {};
                 params.roughnessFactor = material.roughnessFactor;
                 params.metallicFactor = material.metallicFactor;
                 params.ambientOcclusionFactor = material.ambientOcclusionFactor;
@@ -495,7 +495,7 @@ void DrawDebugUi(HelloTextureApp& app, const HelloTextureEngine::UiFrameContext&
         ImGuiWidgets::SliderFloatWithControls("Prefilter Mip",
                                               &app.m_lightingParams.iblDebugMip,
                                               0.0f,
-                                              static_cast<float>(HelloTextureEngine::kSpecularPrefilterMipCount - 1),
+                                              static_cast<float>(RtPbrSurveyEngine::kSpecularPrefilterMipCount - 1),
                                               1.0f,
                                               0.0f);
         ImGui::EndDisabled();
@@ -626,7 +626,7 @@ void DrawDebugUi(HelloTextureApp& app, const HelloTextureEngine::UiFrameContext&
 
     ImGui::End();
 
-    HelloTextureEngine::LightingParams lightingParams = app.m_lightingParams;
+    RtPbrSurveyEngine::LightingParams lightingParams = app.m_lightingParams;
     if (!app.m_iblEnabled)
     {
         lightingParams.iblIntensity = 0.0f;

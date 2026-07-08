@@ -1,10 +1,10 @@
 #pragma once
 
-class HelloTextureApp;
+class RtPbrSurveyApp;
 
 namespace App
 {
 
-void DrawSceneSelectUi(HelloTextureApp& app);
+void DrawSceneSelectUi(RtPbrSurveyApp& app);
 
 } // namespace App

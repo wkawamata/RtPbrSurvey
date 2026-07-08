@@ -1,6 +1,6 @@
 # Render Pass Authoring Guide 日本語版
 
-このメモは、`D3D12HelloTexture` に render pass を追加、または変更するときの作業手順を説明します。
+このメモは、`RtPbrSurveyEngine` に render pass を追加、または変更するときの作業手順を説明します。
 現在の pass graph は data-first の設計です。`RenderPass` は、リソース、バインディング、出力先、GPU pipeline の選択、そして実際に記録する operation をまとめて記述します。
 
 ## 基本モデル
@@ -10,7 +10,7 @@
 - `Pipeline`: pass の command を記録する前に、どの GPU pipeline state を bind するか。
 - `Operation`: この pass で、どの C++ の記録関数が command を emit するか。
 
-たとえば、`PipelineId(Pipe::ToneMap)` は ToneMap 用 PSO を選択します。`RegisterPassOperation(Op::ToneMap, &D3D12HelloTexture::ExecuteToneMapPass)` は operation handler を選択、登録し、現在はそこから `RecordToneMapPass()` が呼ばれます。
+たとえば、`PipelineId(Pipe::ToneMap)` は ToneMap 用 PSO を選択します。`RegisterPassOperation(Op::ToneMap, &RtPbrSurveyEngine::ExecuteToneMapPass)` は operation handler を選択、登録し、現在はそこから `RecordToneMapPass()` が呼ばれます。
 
 実行の流れは以下です。
 
@@ -155,12 +155,12 @@ struct PassRenderTargetBinding
 
 C++ 側の command-recording behavior を表す logical key です。
 
-`RegisterPassOperation(Op::SomePass, &D3D12HelloTexture::ExecuteSomePass)` を使います。これは `pipeline` とは意図的に分離されています。2つの pass が異なる PSO を使いながら同じ operation を共有することもできますし、PSO を持たない pass が operation だけを持つこともできます。
+`RegisterPassOperation(Op::SomePass, &RtPbrSurveyEngine::ExecuteSomePass)` を使います。これは `pipeline` とは意図的に分離されています。2つの pass が異なる PSO を使いながら同じ operation を共有することもできますし、PSO を持たない pass が operation だけを持つこともできます。
 
 pass 構築時に、`RegisterPassOperation(...)` が operation key と member function を対応づけ、`RenderPass` に入れる key を返します。
 
 ```cpp
-RegisterPassOperation(Op::ToneMap, &D3D12HelloTexture::ExecuteToneMapPass)
+RegisterPassOperation(Op::ToneMap, &RtPbrSurveyEngine::ExecuteToneMapPass)
 ```
 
 実行時には、`ExecutePassOperation()` が `pass.operation` を `PassOperationRegistry` から探し、対応する handler を呼びます。handler は pass 固有の command だけを記録するのが基本です。resource transition、descriptor binding、render target binding、pipeline binding、constant binding は shared pass execution path に残します。
@@ -208,7 +208,7 @@ return RenderPassBuilder(L"ToneMapPass")
     .Writes({{kBackBufferResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
     .Descriptor(RootSignatureLayout::ToneMapSceneColor, DescriptorId(Desc::ToneMapSceneColorSrv))
     .Rtv(RtvId(RtvName::BackBuffer))
-    .Operation(RegisterPassOperation(Op::ToneMap, &D3D12HelloTexture::ExecuteToneMapPass))
+    .Operation(RegisterPassOperation(Op::ToneMap, &RtPbrSurveyEngine::ExecuteToneMapPass))
     .Constants(RootSignatureLayout::ToneMapConstants, ConstantsId(ConstName::ToneMap))
     .Build();
 ```

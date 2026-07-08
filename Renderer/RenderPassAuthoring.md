@@ -1,6 +1,6 @@
 # Render Pass Authoring Guide
 
-This note describes how to add or modify a render pass in `D3D12HelloTexture`.
+This note describes how to add or modify a render pass in `RtPbrSurveyEngine`.
 The pass graph is intentionally data-first: a `RenderPass` describes resources, bindings, output targets, GPU pipeline selection, and the operation to record.
 
 ## Mental Model
@@ -10,7 +10,7 @@ The pass graph is intentionally data-first: a `RenderPass` describes resources, 
 - `Pipeline` answers: which GPU pipeline state should be bound before the pass records commands?
 - `Operation` answers: which C++ recording function should emit commands for this pass?
 
-For example, `PipelineId(Pipe::ToneMap)` selects the ToneMap PSO. `RegisterPassOperation(Op::ToneMap, &D3D12HelloTexture::ExecuteToneMapPass)` selects and registers the operation handler, which currently calls `RecordToneMapPass()`.
+For example, `PipelineId(Pipe::ToneMap)` selects the ToneMap PSO. `RegisterPassOperation(Op::ToneMap, &RtPbrSurveyEngine::ExecuteToneMapPass)` selects and registers the operation handler, which currently calls `RecordToneMapPass()`.
 
 The execution flow is:
 
@@ -155,12 +155,12 @@ When adding a new target key:
 
 The logical key for the C++ command-recording behavior.
 
-Use `RegisterPassOperation(Op::SomePass, &D3D12HelloTexture::ExecuteSomePass)`. This is intentionally independent from `pipeline`; two passes can share an operation with different PSOs, and a pass can have an operation without a PSO.
+Use `RegisterPassOperation(Op::SomePass, &RtPbrSurveyEngine::ExecuteSomePass)`. This is intentionally independent from `pipeline`; two passes can share an operation with different PSOs, and a pass can have an operation without a PSO.
 
 During pass construction, `RegisterPassOperation(...)` maps the operation key to a member function and returns the key for the `RenderPass`:
 
 ```cpp
-RegisterPassOperation(Op::ToneMap, &D3D12HelloTexture::ExecuteToneMapPass)
+RegisterPassOperation(Op::ToneMap, &RtPbrSurveyEngine::ExecuteToneMapPass)
 ```
 
 At execution time, `ExecutePassOperation()` looks up `pass.operation` in `PassOperationRegistry` and calls the handler. The handler should record only the pass-specific commands; resource transitions, descriptor binding, render target binding, pipeline binding, and constant binding should stay in the shared pass execution path.
@@ -208,7 +208,7 @@ return RenderPassBuilder(L"ToneMapPass")
     .Writes({{kBackBufferResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
     .Descriptor(RootSignatureLayout::ToneMapSceneColor, DescriptorId(Desc::ToneMapSceneColorSrv))
     .Rtv(RtvId(RtvName::BackBuffer))
-    .Operation(RegisterPassOperation(Op::ToneMap, &D3D12HelloTexture::ExecuteToneMapPass))
+    .Operation(RegisterPassOperation(Op::ToneMap, &RtPbrSurveyEngine::ExecuteToneMapPass))
     .Constants(RootSignatureLayout::ToneMapConstants, ConstantsId(ConstName::ToneMap))
     .Build();
 ```

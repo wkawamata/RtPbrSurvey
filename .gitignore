@@ -3,3 +3,5 @@ packages/
 tools/nuget.exe
 imgui.ini
 d3d12_debug.log
+bin/
+obj/

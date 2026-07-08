@@ -78,7 +78,7 @@ using DepthPrePassPipelineDefinition = Engine::DepthPrePassPipelineDefinition;
 using FullscreenPipelineDefinition = Engine::FullscreenPipelineDefinition;
 namespace RootSignatureLayout = Engine::RootSignatureLayout;
 
-class HelloTextureEngine
+class RtPbrSurveyEngine
 {
 public:
     enum class RenderViewMode
@@ -227,7 +227,7 @@ public:
     static constexpr UINT kSwapChainBufferCount = 2;
     static constexpr DXGI_FORMAT kSwapChainFormat = DXGI_FORMAT_R10G10B10A2_UNORM;
 
-    HelloTextureEngine(GraphicsDevice& graphicsDevice);
+    RtPbrSurveyEngine(GraphicsDevice& graphicsDevice);
 
     void RequestResize(UINT width, UINT height);
     void Initialize(UINT width, UINT height);
@@ -724,7 +724,7 @@ private:
 
     ResourceRegistry m_resourceRegistry;
     std::vector<ResourceUsage> m_resourceDefaultStates;
-    using PassOperationHandler = void (HelloTextureEngine::*)(const RenderPass& pass);
+    using PassOperationHandler = void (RtPbrSurveyEngine::*)(const RenderPass& pass);
     using RenderGraphRuntime = Engine::RenderGraphRuntime<PassOperationHandler>;
     RenderGraphRuntime m_renderGraphRuntime;
 

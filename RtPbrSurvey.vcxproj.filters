@@ -42,7 +42,7 @@
     <ClInclude Include="CubeMesh.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="Engine\HelloTextureEngine.h">
+    <ClInclude Include="Engine\RtPbrSurveyEngine.h">
       <Filter>Source Files\Engine</Filter>
     </ClInclude>
     <ClInclude Include="MyDx12Utils.h">
@@ -60,7 +60,7 @@
     <ClInclude Include="App\SceneSelectUi.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>
-    <ClInclude Include="App\HelloTextureApp.h">
+    <ClInclude Include="App\RtPbrSurveyApp.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>
     <ClInclude Include="TextureSemantic.h">
@@ -239,13 +239,13 @@
     <ClCompile Include="App\SceneSelectUi.cpp">
       <Filter>Source Files\App</Filter>
     </ClCompile>
-    <ClCompile Include="App\HelloTextureApp.cpp">
+    <ClCompile Include="App\RtPbrSurveyApp.cpp">
       <Filter>Source Files\App</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\HelloTextureEngine.cpp">
+    <ClCompile Include="Engine\RtPbrSurveyEngine.cpp">
       <Filter>Source Files\Engine</Filter>
     </ClCompile>
-    <ClCompile Include="Engine\HelloTextureEnginePasses.cpp">
+    <ClCompile Include="Engine\RtPbrSurveyEnginePasses.cpp">
       <Filter>Source Files\Engine</Filter>
     </ClCompile>
     <ClCompile Include="Platform\Win32Application.cpp">

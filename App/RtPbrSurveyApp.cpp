@@ -17,7 +17,7 @@
 #include <io.h>
 #include <share.h>
 #include <sys/stat.h>
-#include "HelloTextureApp.h"
+#include "RtPbrSurveyApp.h"
 #include "../Platform/Win32Application.h"
 #include "../Scene/SceneFactory.h"
 #include "imgui.h"
@@ -79,12 +79,12 @@ XMFLOAT4 ArcballDeltaQuaternion(const XMFLOAT3& from, const XMFLOAT3& to)
 
 } // namespace
 
-HelloTextureApp::HelloTextureApp(UINT width, UINT height, std::wstring name)
+RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
     : m_windowInfo(Platform::CreateWindowInfo(width, height, name)), m_prevTime(std::chrono::steady_clock::now()), m_engine(m_graphicsDevice)
 {
 }
 
-_Use_decl_annotations_ void HelloTextureApp::ParseCommandLineArgs(WCHAR* argv[], int argc)
+_Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], int argc)
 {
     m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
     if (m_commandLineOptions.useWarpDevice)
@@ -93,7 +93,7 @@ _Use_decl_annotations_ void HelloTextureApp::ParseCommandLineArgs(WCHAR* argv[],
     }
 }
 
-void HelloTextureApp::OnInit()
+void RtPbrSurveyApp::OnInit()
 {
     CreateSampleScenes();
 
@@ -101,8 +101,8 @@ void HelloTextureApp::OnInit()
     deviceDesc.hwnd = Win32Application::GetHwnd();
     deviceDesc.swapChainWidth = GetWidth();
     deviceDesc.swapChainHeight = GetHeight();
-    deviceDesc.bufferCount = HelloTextureEngine::kSwapChainBufferCount;
-    deviceDesc.swapChainFormat = HelloTextureEngine::kSwapChainFormat;
+    deviceDesc.bufferCount = RtPbrSurveyEngine::kSwapChainBufferCount;
+    deviceDesc.swapChainFormat = RtPbrSurveyEngine::kSwapChainFormat;
     deviceDesc.useWarpDevice = m_commandLineOptions.useWarpDevice;
     m_graphicsDevice.Initialize(deviceDesc);
 
@@ -146,7 +146,7 @@ void HelloTextureApp::OnInit()
     }
 }
 
-void HelloTextureApp::UpdateSampleState()
+void RtPbrSurveyApp::UpdateSampleState()
 {
     auto now = std::chrono::steady_clock::now();
     const float deltaTime = std::chrono::duration<float>(now - m_prevTime).count();
@@ -247,7 +247,7 @@ void HelloTextureApp::UpdateSampleState()
     m_engine.SetDisplayInstanceCount(LoadedScene().DisplayInstanceCount());
 }
 
-void HelloTextureApp::OnKeyDown(UINT8 key)
+void RtPbrSurveyApp::OnKeyDown(UINT8 key)
 {
     if (m_appMode == AppMode::SceneSelect && key == VK_ESCAPE)
     {
@@ -276,9 +276,9 @@ void HelloTextureApp::OnKeyDown(UINT8 key)
     }
 }
 
-void HelloTextureApp::OnKeyUp(UINT8 key) {}
+void RtPbrSurveyApp::OnKeyUp(UINT8 key) {}
 
-void HelloTextureApp::OnMouseDown(UINT8 button, int x, int y)
+void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
 {
     if (m_appMode == AppMode::SceneSelect)
     {
@@ -287,7 +287,7 @@ void HelloTextureApp::OnMouseDown(UINT8 button, int x, int y)
 
     if (button == VK_LBUTTON)
     {
-        if (m_renderingPath == HelloTextureEngine::RenderingPath::Deferred && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
+        if (m_renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
         {
             m_engine.RequestPixelPick(x, y);
             return;
@@ -311,7 +311,7 @@ void HelloTextureApp::OnMouseDown(UINT8 button, int x, int y)
     }
 }
 
-void HelloTextureApp::OnMouseUp(UINT8 button, int x, int y)
+void RtPbrSurveyApp::OnMouseUp(UINT8 button, int x, int y)
 {
     if (button == VK_LBUTTON)
     {
@@ -331,7 +331,7 @@ void HelloTextureApp::OnMouseUp(UINT8 button, int x, int y)
     }
 }
 
-void HelloTextureApp::OnMouseMove(int x, int y)
+void RtPbrSurveyApp::OnMouseMove(int x, int y)
 {
     if (m_appMode == AppMode::SceneSelect)
     {
@@ -445,7 +445,7 @@ void HelloTextureApp::OnMouseMove(int x, int y)
     }
 }
 
-void HelloTextureApp::OnMouseWheel(int wheelDelta)
+void RtPbrSurveyApp::OnMouseWheel(int wheelDelta)
 {
     if (m_appMode == AppMode::SceneSelect)
     {
@@ -479,13 +479,13 @@ void HelloTextureApp::OnMouseWheel(int wheelDelta)
     }
 }
 
-void HelloTextureApp::OnWindowSizeChanged(UINT width, UINT height)
+void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 {
     m_engine.RequestResize(width, height);
     m_imguiSystem.SetDisplaySize(width, height);
 }
 
-void HelloTextureApp::OnIdle()
+void RtPbrSurveyApp::OnIdle()
 {
     UpdateUiFrame();
     m_engine.RunFrame([this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); });
@@ -508,7 +508,7 @@ void HelloTextureApp::OnIdle()
     }
 }
 
-void HelloTextureApp::OnDestroy()
+void RtPbrSurveyApp::OnDestroy()
 {
     if (m_logFile)
     {
@@ -526,7 +526,7 @@ void HelloTextureApp::OnDestroy()
     m_d3d12InfoQueue.Reset();
 }
 
-void HelloTextureApp::FlushD3D12DebugMessages()
+void RtPbrSurveyApp::FlushD3D12DebugMessages()
 {
     if (!m_d3d12InfoQueue || !m_logFile)
     {
@@ -563,7 +563,7 @@ void HelloTextureApp::FlushD3D12DebugMessages()
     fflush(m_logFile);
 }
 
-void HelloTextureApp::LogFpsToFile(float cpuFrameTimeMs)
+void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
 {
     if (!m_logFile || cpuFrameTimeMs <= 0.0f)
     {
@@ -575,7 +575,7 @@ void HelloTextureApp::LogFpsToFile(float cpuFrameTimeMs)
     fflush(m_logFile);
 }
 
-void HelloTextureApp::CreateSampleScenes()
+void RtPbrSurveyApp::CreateSampleScenes()
 {
     m_sampleScenes.clear();
 
@@ -619,7 +619,7 @@ void HelloTextureApp::CreateSampleScenes()
     m_sampleScenes.push_back(Engine::SceneFactory::CreateCornellBox());
 }
 
-void HelloTextureApp::LoadSceneCpuData(int sceneIndex)
+void RtPbrSurveyApp::LoadSceneCpuData(int sceneIndex)
 {
     assert(sceneIndex >= 0 && sceneIndex < static_cast<int>(m_sampleScenes.size()));
 
@@ -657,7 +657,7 @@ void HelloTextureApp::LoadSceneCpuData(int sceneIndex)
     }
 }
 
-void HelloTextureApp::OpenSelectedScene()
+void RtPbrSurveyApp::OpenSelectedScene()
 {
     if (m_selectedSceneIndex != m_loadedSceneIndex)
     {
@@ -675,7 +675,7 @@ void HelloTextureApp::OpenSelectedScene()
     m_appMode = AppMode::Running;
 }
 
-void HelloTextureApp::CloseRunningScene()
+void RtPbrSurveyApp::CloseRunningScene()
 {
     m_appMode = AppMode::SceneSelect;
     m_isPlaying = false;
@@ -691,12 +691,12 @@ void HelloTextureApp::CloseRunningScene()
     m_engine.CloseSceneResources();
 }
 
-bool HelloTextureApp::IsGltfViewerSceneIndex(int index) const
+bool RtPbrSurveyApp::IsGltfViewerSceneIndex(int index) const
 {
     return index >= 0 && index < m_gltfViewerCount;
 }
 
-void HelloTextureApp::InitObjectViewerFromCamera()
+void RtPbrSurveyApp::InitObjectViewerFromCamera()
 {
     auto& camera = LoadedScene().GetScene().camera;
     const XMVECTOR pivot = XMLoadFloat3(&m_objectViewerPivot);
@@ -704,7 +704,7 @@ void HelloTextureApp::InitObjectViewerFromCamera()
     SetObjectViewerOrbitFromOffset(camPos - pivot);
 }
 
-void HelloTextureApp::SetObjectViewerOrbitFromOffset(DirectX::FXMVECTOR offset)
+void RtPbrSurveyApp::SetObjectViewerOrbitFromOffset(DirectX::FXMVECTOR offset)
 {
     m_objectViewerDistance = XMVectorGetX(XMVector3Length(offset));
     if (m_objectViewerDistance < 0.001f)
@@ -721,7 +721,7 @@ void HelloTextureApp::SetObjectViewerOrbitFromOffset(DirectX::FXMVECTOR offset)
     m_objectViewerPitch = std::asin(std::clamp(dirF.y, -1.0f, 1.0f));
 }
 
-void HelloTextureApp::UpdateObjectViewerCamera()
+void RtPbrSurveyApp::UpdateObjectViewerCamera()
 {
     auto& camera = LoadedScene().GetScene().camera;
     m_objectViewerPitch = std::clamp(m_objectViewerPitch, -kObjectViewerPitchLimit, kObjectViewerPitchLimit);
@@ -745,7 +745,7 @@ void HelloTextureApp::UpdateObjectViewerCamera()
     camera.gazePoint = m_objectViewerPivot;
 }
 
-void HelloTextureApp::InitializeImGui()
+void RtPbrSurveyApp::InitializeImGui()
 {
     D3D12_DESCRIPTOR_HEAP_DESC imguiHeapDesc = {};
     imguiHeapDesc.NumDescriptors = kImGuiDescriptorCount;
@@ -756,30 +756,30 @@ void HelloTextureApp::InitializeImGui()
     m_imguiSystem.Initialize(Win32Application::GetHwnd(),
                              m_graphicsDevice,
                              m_imguiHeap.Get(),
-                             HelloTextureEngine::kSwapChainBufferCount,
-                             HelloTextureEngine::kSwapChainFormat);
+                             RtPbrSurveyEngine::kSwapChainBufferCount,
+                             RtPbrSurveyEngine::kSwapChainFormat);
 }
 
-void HelloTextureApp::UpdateUiFrame()
+void RtPbrSurveyApp::UpdateUiFrame()
 {
     m_imguiSystem.BeginFrame();
     DrawDebugUi(m_engine.GetUiFrameContext());
     m_imguiSystem.EndFrame();
 }
 
-Engine::SampleScene& HelloTextureApp::LoadedScene()
+Engine::SampleScene& RtPbrSurveyApp::LoadedScene()
 {
     assert(m_loadedScene != nullptr);
     return *m_loadedScene;
 }
 
-const Engine::SampleScene& HelloTextureApp::LoadedScene() const
+const Engine::SampleScene& RtPbrSurveyApp::LoadedScene() const
 {
     assert(m_loadedScene != nullptr);
     return *m_loadedScene;
 }
 
-void HelloTextureApp::DrawDebugUi(const HelloTextureEngine::UiFrameContext& context)
+void RtPbrSurveyApp::DrawDebugUi(const RtPbrSurveyEngine::UiFrameContext& context)
 {
     App::DrawDebugUi(*this, context);
 }

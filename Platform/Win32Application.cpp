@@ -36,7 +36,7 @@ int Win32Application::Run(Platform::IApplication* pApp, HINSTANCE hInstance, int
     windowClass.lpfnWndProc = WindowProc;
     windowClass.hInstance = hInstance;
     windowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-    windowClass.lpszClassName = L"HelloTextureAppClass";
+    windowClass.lpszClassName = L"RtPbrSurveyAppClass";
     RegisterClassEx(&windowClass);
 
     RECT windowRect = {0, 0, static_cast<LONG>(pApp->GetWidth()), static_cast<LONG>(pApp->GetHeight())};

@@ -10,7 +10,7 @@
 
 ## CLI Flags (for AI-driven automation)
 
-Flags are parsed in `HelloTextureApp::ParseCommandLineArgs()` (`App/HelloTextureApp.cpp:87`).
+Flags are parsed in `RtPbrSurveyApp::ParseCommandLineArgs()` (`App/RtPbrSurveyApp.cpp:87`).
 
 | Flag | Example | Description |
 |------|---------|-------------|
@@ -25,7 +25,7 @@ Use the Debug build with CLI automation when checking whether a change introduce
 From this directory:
 
 ```powershell
-.\bin\x64\Debug\D3D12HelloTextureModified.exe -AutoSelectGltfDamagedHelmet -LogToFile d3d12_debug.log -LogFPS 120
+.\bin\x64\Debug\RtPbrSurvey.exe -AutoSelectGltfDamagedHelmet -LogToFile d3d12_debug.log -LogFPS 120
 ```
 
 Recommended check:

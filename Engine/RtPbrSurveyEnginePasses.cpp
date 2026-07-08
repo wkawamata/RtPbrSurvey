@@ -11,9 +11,9 @@
 
 #include "stdafx.h"
 
-#include "HelloTextureEngine.h"
+#include "RtPbrSurveyEngine.h"
 
-void HelloTextureEngine::BuildRenderPasses()
+void RtPbrSurveyEngine::BuildRenderPasses()
 {
     m_renderGraphRuntime.Graph().Clear();
     m_renderGraphRuntime.Operations().Clear();
@@ -36,7 +36,7 @@ void HelloTextureEngine::BuildRenderPasses()
     AddPass(MakeImGuiPass());
 }
 
-void HelloTextureEngine::AddSceneRenderPasses()
+void RtPbrSurveyEngine::AddSceneRenderPasses()
 {
     if (m_renderingPath == RenderingPath::Forward)
     {
@@ -69,7 +69,7 @@ void HelloTextureEngine::AddSceneRenderPasses()
     }
 }
 
-void HelloTextureEngine::AddDeferredSceneOutputPass()
+void RtPbrSurveyEngine::AddDeferredSceneOutputPass()
 {
     if (m_hybridReflectionSettings.enabled &&
         (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayHit ||
@@ -97,12 +97,12 @@ void HelloTextureEngine::AddDeferredSceneOutputPass()
     }
 }
 
-void HelloTextureEngine::AddPass(RenderPass pass)
+void RtPbrSurveyEngine::AddPass(RenderPass pass)
 {
     m_renderGraphRuntime.Graph().Add(std::move(pass));
 }
 
-void HelloTextureEngine::ValidateRenderPassGraph() const
+void RtPbrSurveyEngine::ValidateRenderPassGraph() const
 {
     Engine::ValidateRenderPassGraph(
         m_renderGraphRuntime.Graph().Passes(),
@@ -112,12 +112,12 @@ void HelloTextureEngine::ValidateRenderPassGraph() const
                                                                        &m_renderGraphRuntime.Constants()});
 }
 
-auto HelloTextureEngine::MakeResourceUsages(std::initializer_list<ResourceUsage> usages) const -> ResourceUsages
+auto RtPbrSurveyEngine::MakeResourceUsages(std::initializer_list<ResourceUsage> usages) const -> ResourceUsages
 {
     return ResourceUsages(usages);
 }
 
-auto HelloTextureEngine::MakeGBufferReadUsages() const -> ResourceUsages
+auto RtPbrSurveyEngine::MakeGBufferReadUsages() const -> ResourceUsages
 {
     return MakeResourceUsages(
         {{kGBufferResourceNames[Engine::GBuffer::Albedo], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
@@ -129,17 +129,17 @@ auto HelloTextureEngine::MakeGBufferReadUsages() const -> ResourceUsages
          {kDepthStencilResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}});
 }
 
-PipelineKey HelloTextureEngine::PipelineId(const std::string& name)
+PipelineKey RtPbrSurveyEngine::PipelineId(const std::string& name)
 {
     return m_renderGraphRuntime.RegisterPipeline(name);
 }
 
-DescriptorKey HelloTextureEngine::DescriptorId(const std::string& name)
+DescriptorKey RtPbrSurveyEngine::DescriptorId(const std::string& name)
 {
     return m_renderGraphRuntime.RegisterDescriptor(name);
 }
 
-auto HelloTextureEngine::MakeClearPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeClearPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"Clear")
@@ -148,11 +148,11 @@ auto HelloTextureEngine::MakeClearPass() -> RenderPass
         .Rtv(RtvName::BackBuffer)
         .Dsv(DsvName::Depth)
         .ClearColor(m_backBufferClearColor)
-        .Operation(Op::Clear, &HelloTextureEngine::ExecuteClearPass)
+        .Operation(Op::Clear, &RtPbrSurveyEngine::ExecuteClearPass)
         .Build();
 }
 
-auto HelloTextureEngine::MakeDepthPrePass() -> RenderPass
+auto RtPbrSurveyEngine::MakeDepthPrePass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"Depth PrePass")
@@ -161,11 +161,11 @@ auto HelloTextureEngine::MakeDepthPrePass() -> RenderPass
         .Descriptor(RootSignatureLayout::InstanceSrv, Desc::InstanceBufferSrv)
         .Descriptor(RootSignatureLayout::CameraConstants, Desc::CameraCbv)
         .Dsv(DsvName::Depth)
-        .Operation(Op::DepthPrePass, &HelloTextureEngine::ExecuteDepthPrePass)
+        .Operation(Op::DepthPrePass, &RtPbrSurveyEngine::ExecuteDepthPrePass)
         .Build();
 }
 
-auto HelloTextureEngine::MakeGBufferPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeGBufferPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"GBufferPass")
@@ -188,11 +188,11 @@ auto HelloTextureEngine::MakeGBufferPass() -> RenderPass
                RtvName::GBufferPBRParams,
                RtvName::GBufferEmissive})
         .Dsv(DsvName::Depth)
-        .Operation(Op::GBuffer, &HelloTextureEngine::ExecuteGBufferPass)
+        .Operation(Op::GBuffer, &RtPbrSurveyEngine::ExecuteGBufferPass)
         .Build();
 }
 
-auto HelloTextureEngine::MakeHybridReflectionPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeHybridReflectionPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"HybridReflectionPass")
@@ -201,11 +201,11 @@ auto HelloTextureEngine::MakeHybridReflectionPass() -> RenderPass
                 {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE}})
         .Writes({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
-        .Operation(Op::HybridReflection, &HelloTextureEngine::ExecuteHybridReflectionPass)
+        .Operation(Op::HybridReflection, &RtPbrSurveyEngine::ExecuteHybridReflectionPass)
         .Build();
 }
 
-auto HelloTextureEngine::MakeForwardPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeForwardPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"ForwardPass")
@@ -220,41 +220,41 @@ auto HelloTextureEngine::MakeForwardPass() -> RenderPass
         .Rtv(RtvName::LightPass)
         .Dsv(DsvName::Depth)
         .ClearColor({0.0f, 0.0f, 0.0f, 1.0f})
-        .Operation(Op::Forward, &HelloTextureEngine::ExecuteForwardPass)
+        .Operation(Op::Forward, &RtPbrSurveyEngine::ExecuteForwardPass)
         .Build();
 }
 
-auto HelloTextureEngine::MakeRayQueryShadowPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeRayQueryShadowPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"RayQueryShadowPass")
         .Reads({{kDepthStencilResourceName, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE},
                 {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE}})
         .Writes({{kShadowMaskResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
-        .Operation(Op::RayQueryShadow, &HelloTextureEngine::ExecuteRayQueryShadowPass)
+        .Operation(Op::RayQueryShadow, &RtPbrSurveyEngine::ExecuteRayQueryShadowPass)
         .Build();
 }
 
-auto HelloTextureEngine::MakeSpecularDebugRayQueryPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeSpecularDebugRayQueryPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"SpecularDebugRayQueryPass")
-        .Operation(Op::SpecularDebugRayQuery, &HelloTextureEngine::ExecuteSpecularDebugRayQueryPass)
+        .Operation(Op::SpecularDebugRayQuery, &RtPbrSurveyEngine::ExecuteSpecularDebugRayQueryPass)
         .Build();
 }
 
-auto HelloTextureEngine::MakeRayQueryTlasDebugPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeRayQueryTlasDebugPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"RayQueryTlasDebugPass")
         .Reads({{kDepthStencilResourceName, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE},
                 {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE}})
         .Writes({{kShadowMaskResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
-        .Operation(Op::RayQueryTlasDebug, &HelloTextureEngine::ExecuteRayQueryTlasDebugPass)
+        .Operation(Op::RayQueryTlasDebug, &RtPbrSurveyEngine::ExecuteRayQueryTlasDebugPass)
         .Build();
 }
 
-auto HelloTextureEngine::MakeLightingPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
 {
     ResourceUsages reads = MakeGBufferReadUsages();
     if (m_rayTracingSupport.IsSupported())
@@ -279,12 +279,12 @@ auto HelloTextureEngine::MakeLightingPass() -> RenderPass
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ShadowMaskSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
         .Rtv(RtvName::LightPass)
-        .Operation(Op::Lighting, &HelloTextureEngine::ExecuteLightingPass);
+        .Operation(Op::Lighting, &RtPbrSurveyEngine::ExecuteLightingPass);
 
     return builder.Build();
 }
 
-auto HelloTextureEngine::MakeLightingDebugGradientPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeLightingDebugGradientPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"LightPassDebugGradient")
@@ -296,12 +296,12 @@ auto HelloTextureEngine::MakeLightingDebugGradientPass() -> RenderPass
         .Descriptor(RootSignatureLayout::CameraConstants, Desc::CameraCbv)
         .Descriptor(RootSignatureLayout::LightConstants, Desc::LightCbv)
         .Rtv(RtvName::LightPass)
-        .Operation(Op::LightingDebugGradient, &HelloTextureEngine::ExecuteLightingDebugGradientPass)
+        .Operation(Op::LightingDebugGradient, &RtPbrSurveyEngine::ExecuteLightingDebugGradientPass)
         .Constants(RootSignatureLayout::ToneMapConstants, ConstName::ToneMap)
         .Build();
 }
 
-auto HelloTextureEngine::MakeToneMapPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeToneMapPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"ToneMapPass")
@@ -310,22 +310,22 @@ auto HelloTextureEngine::MakeToneMapPass() -> RenderPass
         .Writes({{kBackBufferResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ToneMapSceneColorSrv)
         .Rtv(RtvName::BackBuffer)
-        .Operation(Op::ToneMap, &HelloTextureEngine::ExecuteToneMapPass)
+        .Operation(Op::ToneMap, &RtPbrSurveyEngine::ExecuteToneMapPass)
         .Constants(RootSignatureLayout::ToneMapConstants, ConstName::ToneMap)
         .Build();
 }
 
-auto HelloTextureEngine::MakeDebugDumpPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeDebugDumpPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"DebugDump")
         .Reads({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
                 {kBackBufferResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
-        .Operation(Op::DebugDump, &HelloTextureEngine::ExecuteDebugDumpPass)
+        .Operation(Op::DebugDump, &RtPbrSurveyEngine::ExecuteDebugDumpPass)
         .Build();
 }
 
-auto HelloTextureEngine::MakePixelPickPass() -> RenderPass
+auto RtPbrSurveyEngine::MakePixelPickPass() -> RenderPass
 {
     Engine::ResourceUsages reads = {{kDepthStencilResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
                                     {kShadowMaskResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}};
@@ -337,11 +337,11 @@ auto HelloTextureEngine::MakePixelPickPass() -> RenderPass
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"PixelPick")
         .Reads(std::move(reads))
-        .Operation(Op::PixelPick, &HelloTextureEngine::ExecutePixelPickPass)
+        .Operation(Op::PixelPick, &RtPbrSurveyEngine::ExecutePixelPickPass)
         .Build();
 }
 
-auto HelloTextureEngine::MakeGBufferDebugPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeGBufferDebugPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"GBufferDebugPass")
@@ -350,12 +350,12 @@ auto HelloTextureEngine::MakeGBufferDebugPass() -> RenderPass
         .Writes({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
         .Rtv(RtvName::LightPass)
-        .Operation(Op::GBufferDebug, &HelloTextureEngine::ExecuteGBufferDebugPass)
+        .Operation(Op::GBufferDebug, &RtPbrSurveyEngine::ExecuteGBufferDebugPass)
         .Constants(RootSignatureLayout::GBufferDebugConstants, ConstName::GBufferDebugTarget)
         .Build();
 }
 
-auto HelloTextureEngine::MakeShadowMaskDebugPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeShadowMaskDebugPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"ShadowMaskDebugPass")
@@ -364,11 +364,11 @@ auto HelloTextureEngine::MakeShadowMaskDebugPass() -> RenderPass
         .Writes({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ShadowMaskSrv)
         .Rtv(RtvName::LightPass)
-        .Operation(Op::ShadowMaskDebug, &HelloTextureEngine::ExecuteShadowMaskDebugPass)
+        .Operation(Op::ShadowMaskDebug, &RtPbrSurveyEngine::ExecuteShadowMaskDebugPass)
         .Build();
 }
 
-auto HelloTextureEngine::MakeReflectionRayHitDebugPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"ReflectionRayHitDebugPass")
@@ -377,27 +377,27 @@ auto HelloTextureEngine::MakeReflectionRayHitDebugPass() -> RenderPass
         .Writes({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ReflectionRayHitSrv)
         .Rtv(RtvName::LightPass)
-        .Operation(Op::ReflectionRayHitDebug, &HelloTextureEngine::ExecuteReflectionRayHitDebugPass)
+        .Operation(Op::ReflectionRayHitDebug, &RtPbrSurveyEngine::ExecuteReflectionRayHitDebugPass)
         .Constants(RootSignatureLayout::GBufferDebugConstants, ConstName::ReflectionRayHitDebugTarget)
         .Build();
 }
 
-auto HelloTextureEngine::MakeDebugLinePass() -> RenderPass
+auto RtPbrSurveyEngine::MakeDebugLinePass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"DebugLinePass")
         .Writes({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Rtv(RtvName::LightPass)
-        .Operation(Op::DebugLine, &HelloTextureEngine::ExecuteDebugLinePass)
+        .Operation(Op::DebugLine, &RtPbrSurveyEngine::ExecuteDebugLinePass)
         .Build();
 }
 
-auto HelloTextureEngine::MakeImGuiPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeImGuiPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"ImGui")
         .Writes({{kBackBufferResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Rtv(RtvName::BackBuffer)
-        .Operation(Op::ImGui, &HelloTextureEngine::ExecuteImGuiPass)
+        .Operation(Op::ImGui, &RtPbrSurveyEngine::ExecuteImGuiPass)
         .Build();
 }

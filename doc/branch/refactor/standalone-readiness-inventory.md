@@ -2,7 +2,7 @@
 
 ## Summary
 
-The project is close to being extractable from the `DirectX-Graphics-Samples` repository. The major refactoring (DXSample removal, SampleApp→HelloTextureApp rename, file moves into App/Platform/Engine/, RenderPass→FrameGraph) is complete. NuGet packages are now expected under the project-local `packages/` directory, so standalone checkouts need a local NuGet restore step.
+The project is close to being extractable from the `DirectX-Graphics-Samples` repository. The major refactoring (DXSample removal, SampleApp→RtPbrSurveyApp rename, file moves into App/Platform/Engine/, RenderPass→FrameGraph) is complete. NuGet packages are now expected under the project-local `packages/` directory, so standalone checkouts need a local NuGet restore step.
 
 ## Current Good State
 
@@ -63,13 +63,13 @@ All shader and asset paths are local (`Shaders/`, `Assets/`). No issues.
 
 | Name | Location | Status |
 |---|---|---|
-| `D3D12HelloTextureModified.vcxproj` | Root project file | Cosmetic — sample-derived name |
-| `D3D12HelloTextureModified.exe` | Output binary | Cosmetic — sample-derived name |
-| `D3D12HelloTextureModified.lib` | Output library | Cosmetic |
-| `HelloTextureApp` | App class (App/HelloTextureApp.h) | Already renamed |
-| `HelloTextureEngine` | Engine class (Engine/HelloTextureEngine.h) | Already renamed |
+| `RtPbrSurvey.vcxproj` | Root project file | Cosmetic — sample-derived name |
+| `RtPbrSurvey.exe` | Output binary | Cosmetic — sample-derived name |
+| `RtPbrSurvey.lib` | Output library | Cosmetic |
+| `RtPbrSurveyApp` | App class (App/RtPbrSurveyApp.h) | Already renamed |
+| `RtPbrSurveyEngine` | Engine class (Engine/RtPbrSurveyEngine.h) | Already renamed |
 | `Win32Application` | Platform class (Platform/Win32Application.h) | Acceptable — descriptive name |
-| `HelloTextureAppClass` | Window class string in Win32Application.cpp:39 | OK — no Sample-derived class name remains |
+| `RtPbrSurveyAppClass` | Window class string in Win32Application.cpp:39 | OK — no Sample-derived class name remains |
 
 ## Root File Ownership
 

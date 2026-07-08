@@ -2,7 +2,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "D3D12HelloTextureModified", "D3D12HelloTextureModified.vcxproj", "{0D06AEAD-DA2E-40CA-B7D9-51BC7B00EABF}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RtPbrSurvey", "RtPbrSurvey.vcxproj", "{0D06AEAD-DA2E-40CA-B7D9-51BC7B00EABF}"
 EndProject
 Global
     GlobalSection(SolutionConfigurationPlatforms) = preSolution

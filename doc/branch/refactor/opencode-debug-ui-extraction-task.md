@@ -15,7 +15,7 @@ This is a medium-sized refactor. Keep it reviewable and avoid changing UI behavi
 ## Workspace
 
 ```txt
-C:\work\DirectX-Graphics-Samples\Samples\Desktop\D3D12HelloWorld\src\HelloTextureModified
+C:\work\DirectX-Graphics-Samples\Samples\Desktop\D3D12HelloWorld\src\RtPbrSurvey
 ```
 
 ## Policy Documents
@@ -90,7 +90,7 @@ Acceptable first-step examples:
 ```cpp
 namespace App
 {
-void DrawDebugUi(SampleApp& app, const HelloTextureEngine::UiFrameContext& context);
+void DrawDebugUi(SampleApp& app, const RtPbrSurveyEngine::UiFrameContext& context);
 }
 ```
 
@@ -102,7 +102,7 @@ namespace App
 class DebugUi
 {
 public:
-    void Draw(SampleApp& app, const HelloTextureEngine::UiFrameContext& context);
+    void Draw(SampleApp& app, const RtPbrSurveyEngine::UiFrameContext& context);
 };
 }
 ```
@@ -184,8 +184,8 @@ Do not do these in this task:
 If new files are added, update:
 
 ```txt
-D3D12HelloTextureModified.vcxproj
-D3D12HelloTextureModified.vcxproj.filters
+RtPbrSurvey.vcxproj
+RtPbrSurvey.vcxproj.filters
 ```
 
 If adding `App\`, add a Visual Studio filter such as:
@@ -229,13 +229,13 @@ git diff --check
 If code changed, run Debug x64 build:
 
 ```powershell
-& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" D3D12HelloTextureModified.vcxproj /p:Configuration=Debug /p:Platform=x64 /m
+& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" RtPbrSurvey.vcxproj /p:Configuration=Debug /p:Platform=x64 /m
 ```
 
 Recommended runtime smoke check if practical:
 
 ```powershell
-.\bin\x64\Debug\D3D12HelloTextureModified.exe -AutoSelectGltfDamagedHelmet -LogToFile d3d12_debug.log -LogFPS 120
+.\bin\x64\Debug\RtPbrSurvey.exe -AutoSelectGltfDamagedHelmet -LogToFile d3d12_debug.log -LogFPS 120
 ```
 
 Let it run briefly, close it, then inspect:

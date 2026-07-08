@@ -55,7 +55,7 @@
 
 指示案:
 
-1. `HelloTextureEngine` に `StagedDescriptorAllocator m_stagedDescriptorAllocator` を追加する。
+1. `RtPbrSurveyEngine` に `StagedDescriptorAllocator m_stagedDescriptorAllocator` を追加する。
 2. 初期 capacity は小さく、例えば `4` から始める。
 3. ShadowMask SRV/UAV 用に `StagedDescriptorRange m_shadowMaskDescriptorRange` を持つ。
 4. ShadowMask resource 作成時に `AllocContiguous(2, retireFenceValue)` で range を確保する。

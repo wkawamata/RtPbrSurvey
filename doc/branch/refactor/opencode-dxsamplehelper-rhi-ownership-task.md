@@ -18,7 +18,7 @@ In other words:
 Workspace:
 
 ```txt
-C:\work\DirectX-Graphics-Samples\Samples\Desktop\D3D12HelloWorld\src\HelloTextureModified
+C:\work\DirectX-Graphics-Samples\Samples\Desktop\D3D12HelloWorld\src\RtPbrSurvey
 ```
 
 Policy document:
@@ -165,7 +165,7 @@ git diff --check
 Run Debug x64 build:
 
 ```powershell
-& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" D3D12HelloTextureModified.vcxproj /p:Configuration=Debug /p:Platform=x64 /m
+& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" RtPbrSurvey.vcxproj /p:Configuration=Debug /p:Platform=x64 /m
 ```
 
 If available, also confirm:

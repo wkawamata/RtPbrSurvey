@@ -1,13 +1,13 @@
 #include "stdafx.h"
 #include "SceneSelectUi.h"
-#include "HelloTextureApp.h"
+#include "RtPbrSurveyApp.h"
 
 #include <imgui.h>
 
 namespace App
 {
 
-void DrawSceneSelectUi(HelloTextureApp& app)
+void DrawSceneSelectUi(RtPbrSurveyApp& app)
 {
     ImGui::SetNextWindowSize(ImVec2(360, 360), ImGuiCond_FirstUseEver);
     ImGui::Begin("Scene Select");

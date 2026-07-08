@@ -2,14 +2,14 @@
 
 ## Objective
 
-Audit what still prevents `HelloTextureModified` from becoming a standalone repository while preserving history.
+Audit what still prevents `RtPbrSurvey` from becoming a standalone repository while preserving history.
 
 This is an inventory task. Do not implement broad changes. The output should help the next Codex/OpenCode pass choose commit-sized tasks that move the project closer to extraction from `DirectX-Graphics-Samples`.
 
 ## Workspace
 
 ```txt
-C:\work\DirectX-Graphics-Samples\Samples\Desktop\D3D12HelloWorld\src\HelloTextureModified
+C:\work\DirectX-Graphics-Samples\Samples\Desktop\D3D12HelloWorld\src\RtPbrSurvey
 ```
 
 ## Final Goal
@@ -37,8 +37,8 @@ doc\branch\refactor\standalone-readiness-inventory.md
 Inspect at least these areas:
 
 ```txt
-D3D12HelloTextureModified.vcxproj
-D3D12HelloTextureModified.vcxproj.filters
+RtPbrSurvey.vcxproj
+RtPbrSurvey.vcxproj.filters
 packages.config
 vcpkg.json
 Assets\
@@ -74,7 +74,7 @@ Use `rg` and include exact evidence in the report.
 Suggested searches:
 
 ```powershell
-rg -n "DirectX-Graphics-Samples|Samples/Desktop|D3D12HelloTextureModified|HelloTextureModified|D3D12HelloWorld|src/packages|packages\\|packages/" -g "*"
+rg -n "DirectX-Graphics-Samples|Samples/Desktop|RtPbrSurvey|RtPbrSurvey|D3D12HelloWorld|src/packages|packages\\|packages/" -g "*"
 ```
 
 ```powershell
@@ -82,7 +82,7 @@ rg -n "#include\s+[<\"]\.\.|#include\s+\".*\.\." -g "*.h" -g "*.cpp" -g "*.hlsl"
 ```
 
 ```powershell
-rg -n "\$\(ProjectDir\)|\$\(SolutionDir\)|\.\.\\|\.\./|Assets\\|Assets/|Shaders\\|Shaders/" D3D12HelloTextureModified.vcxproj D3D12HelloTextureModified.vcxproj.filters packages.config vcpkg.json
+rg -n "\$\(ProjectDir\)|\$\(SolutionDir\)|\.\.\\|\.\./|Assets\\|Assets/|Shaders\\|Shaders/" RtPbrSurvey.vcxproj RtPbrSurvey.vcxproj.filters packages.config vcpkg.json
 ```
 
 ```powershell
@@ -137,12 +137,12 @@ Classify findings into:
 
 Answer these:
 
-1. Would `git filter-repo --path Samples/Desktop/D3D12HelloWorld/src/HelloTextureModified/ --path-rename Samples/Desktop/D3D12HelloWorld/src/HelloTextureModified/:` leave the project buildable?
+1. Would `git filter-repo --path Samples/Desktop/D3D12HelloWorld/src/RtPbrSurvey/ --path-rename Samples/Desktop/D3D12HelloWorld/src/RtPbrSurvey/:` leave the project buildable?
 2. Which project paths would break after extraction?
 3. Are there references to parent repository package folders such as `src/packages`?
 4. Are `Assets` and `Shaders` fully inside the extracted path?
 5. Are generated files or logs currently tracked or likely to be committed accidentally?
-6. What project/executable names still say `D3D12HelloTextureModified`, `D3D12HelloWorld`, or other sample-derived names?
+6. What project/executable names still say `RtPbrSurvey`, `D3D12HelloWorld`, or other sample-derived names?
 7. Which root files still need ownership relocation before the repository feels standalone?
 8. What are the next 3-5 safest commit-sized tasks?
 
@@ -170,7 +170,7 @@ Build is optional because this is an inventory task. If no code changed, say bui
 If code is changed despite the inventory scope, run Debug x64 build:
 
 ```powershell
-& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" D3D12HelloTextureModified.vcxproj /p:Configuration=Debug /p:Platform=x64 /m
+& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" RtPbrSurvey.vcxproj /p:Configuration=Debug /p:Platform=x64 /m
 ```
 
 ## Expected OpenCode Report

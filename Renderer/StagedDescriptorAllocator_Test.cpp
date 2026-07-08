@@ -205,7 +205,7 @@ static bool RunContiguousAllocTest(ID3D12Device* device)
     return true;
 }
 
-// Entry point called from D3D12HelloTexture after device init (debug builds only).
+// Entry point called from RtPbrSurveyEngine after device init (debug builds only).
 void RunStagedAllocatorTests(ID3D12Device* device)
 {
     RunStagedAllocatorTest(device);

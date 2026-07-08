@@ -74,7 +74,7 @@
 ### Renderer
 
 `Renderer/*` は概ね良い状態です。
-OpenCode 調査では、`Renderer/` 配下の主要ファイルは `HelloTextureEngine`, `SampleApp`, `DXSample`, `Win32Application`, ImGui header に直接依存していません。
+OpenCode 調査では、`Renderer/` 配下の主要ファイルは `RtPbrSurveyEngine`, `SampleApp`, `DXSample`, `Win32Application`, ImGui header に直接依存していません。
 
 例外は以下です。
 

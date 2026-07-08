@@ -1,4 +1,4 @@
-﻿//*********************************************************
+//*********************************************************
 //
 // Copyright (c) Microsoft. All rights reserved.
 // This code is licensed under the MIT License (MIT).
@@ -10,11 +10,11 @@
 //*********************************************************
 
 #include "stdafx.h"
-#include "App/HelloTextureApp.h"
+#include "App/RtPbrSurveyApp.h"
 #include "Platform/Win32Application.h"
 
 _Use_decl_annotations_ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 {
-    HelloTextureApp sample(1920, 1080, L"D3D12 Hello Texture Modified");
+    RtPbrSurveyApp sample(1920, 1080, L"RtPbrSurvey");
     return Win32Application::Run(&sample, hInstance, nCmdShow);
 }

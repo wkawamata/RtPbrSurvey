@@ -13,7 +13,7 @@
 
 #include "App/DebugUi.h"
 #include "App/SceneSelectUi.h"
-#include "../Engine/HelloTextureEngine.h"
+#include "../Engine/RtPbrSurveyEngine.h"
 #include "Platform/CommandLineOptions.h"
 #include "Platform/IApplication.h"
 #include "Platform/WindowInfo.h"
@@ -25,10 +25,10 @@
 #include <chrono>
 #include <memory>
 
-class HelloTextureApp : public Platform::IApplication
+class RtPbrSurveyApp : public Platform::IApplication
 {
 public:
-    HelloTextureApp(UINT width, UINT height, std::wstring name);
+    RtPbrSurveyApp(UINT width, UINT height, std::wstring name);
 
     // IApplication overrides.
     void OnInit() override;
@@ -60,8 +60,8 @@ public:
     void UpdateSampleState();
 
 private:
-    friend void App::DrawDebugUi(HelloTextureApp& app, const HelloTextureEngine::UiFrameContext& context);
-    friend void App::DrawSceneSelectUi(HelloTextureApp& app);
+    friend void App::DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& context);
+    friend void App::DrawSceneSelectUi(RtPbrSurveyApp& app);
 
     enum class CameraMode
     {
@@ -87,9 +87,9 @@ private:
     void LogFpsToFile(float cpuFrameTimeMs);
     Engine::SampleScene& LoadedScene();
     const Engine::SampleScene& LoadedScene() const;
-    void DrawDebugUi(const HelloTextureEngine::UiFrameContext& context);
+    void DrawDebugUi(const RtPbrSurveyEngine::UiFrameContext& context);
 
-    static constexpr UINT kMaxInstanceCount = HelloTextureEngine::kMaxInstanceCount;
+    static constexpr UINT kMaxInstanceCount = RtPbrSurveyEngine::kMaxInstanceCount;
     static constexpr float kMousePanSpeed = 0.01f;
     static constexpr float kMouseCameraRotationSpeed = 0.005f;
     static constexpr float kMouseWheelCameraSpeed = 0.25f;
@@ -112,17 +112,17 @@ private:
     AppMode m_appMode = AppMode::SceneSelect;
     bool m_sceneResourcesLoaded = false;
 
-    HelloTextureEngine::LightingParams m_lightingParams;
+    RtPbrSurveyEngine::LightingParams m_lightingParams;
     Engine::ProceduralEnvironmentSettings m_environmentSettings;
     bool m_environmentAutoUpdate = Engine::kUseGpuProceduralEnvMap;
     bool m_environmentReloadPending = false;
-    HelloTextureEngine::RenderingPath m_renderingPath = HelloTextureEngine::RenderingPath::Deferred;
+    RtPbrSurveyEngine::RenderingPath m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
     bool m_iblEnabled = true;
     bool m_lightingPassDebugGradient = false;
     int m_selectedMaterialIndex = 0;
     std::array<float, 4> m_backBufferClearColor = {0.0f, 0.2f, 0.4f, 1.0f};
-    HelloTextureEngine::ToneMapParams m_toneMapParams;
-    HelloTextureEngine::RenderViewMode m_renderViewMode = HelloTextureEngine::RenderViewMode::LightPass;
+    RtPbrSurveyEngine::ToneMapParams m_toneMapParams;
+    RtPbrSurveyEngine::RenderViewMode m_renderViewMode = RtPbrSurveyEngine::RenderViewMode::LightPass;
     bool m_requestHdrDump = false;
 
     int m_displayInstanceCount = static_cast<int>(kMaxInstanceCount);
@@ -158,7 +158,7 @@ private:
     ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
     Engine::ImGuiSystem m_imguiSystem;
 
-    HelloTextureEngine m_engine;
+    RtPbrSurveyEngine m_engine;
 
     // Debug logging to file (-LogToFile / -LogFPS).
     ComPtr<ID3D12InfoQueue> m_d3d12InfoQueue;
