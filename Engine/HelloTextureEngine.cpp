@@ -115,7 +115,9 @@ HelloTextureEngine::HelloTextureEngine(GraphicsDevice& graphicsDevice)
       m_currentFrameIndex(0), m_rtvDescriptorSize(0)
 {
     m_assetsPath = L"./Assets\\";
-    m_shaderPath = L"./bin\\x64\\Debug\\";
+    WCHAR shaderPath[512];
+    GetAssetsPath(shaderPath, _countof(shaderPath));
+    m_shaderPath = shaderPath;
 
     RegisterPassBindingResolvers();
     RegisterPassConstantsHandlers();
