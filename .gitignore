@@ -1,4 +1,5 @@
 vcpkg_installed/
 packages/
+tools/nuget.exe
 imgui.ini
 d3d12_debug.log
