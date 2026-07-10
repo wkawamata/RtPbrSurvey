@@ -12,6 +12,7 @@
 #pragma once
 
 #include "App/DebugUi.h"
+#include "App/SceneConfig.h"
 #include "App/SceneSelectUi.h"
 #include "../Engine/RtPbrSurveyEngine.h"
 #include "Platform/CommandLineOptions.h"
@@ -62,6 +63,7 @@ public:
 private:
     friend void App::DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& context);
     friend void App::DrawSceneSelectUi(RtPbrSurveyApp& app);
+    friend class App::SceneConfigManager;
 
     enum class CameraMode
     {
@@ -159,6 +161,7 @@ private:
     Engine::ImGuiSystem m_imguiSystem;
 
     RtPbrSurveyEngine m_engine;
+    App::SceneConfigManager m_sceneConfig;
 
     // Debug logging to file (-LogToFile / -LogFPS).
     ComPtr<ID3D12InfoQueue> m_d3d12InfoQueue;

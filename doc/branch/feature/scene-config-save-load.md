@@ -388,3 +388,31 @@ No new engine getters/setters needed for v1. All saveable state is readable from
 - Whether to add `Ctrl+S` / `Ctrl+R` keyboard shortcuts in v1
 - glTF viewer and glTF grid benchmark scenes share the same name (e.g., "DamagedHelmet" appears twice in the scene list). In v1, both share the same config key. If separate configs are needed, the key can be disambiguated by checking whether the scene is within the grid-scene index range.
 - Default config includes camera positions for all non-stub scenes (loaded assets + demos + Cornell Box). Stub scenes (FlightHelmet, Suzanne, BoxTextured, CesiumMan) are omitted.
+
+## Step 4: Camera + Scene Params (done)
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `App/RtPbrSurveyApp.h` | Added `#include "SceneConfig.h"`, `friend class App::SceneConfigManager`, `m_sceneConfig` member |
+| `App/RtPbrSurveyApp.cpp` | Wired `SetPaths()` in `OnInit()`, save in `OpenSelectedScene()`/`CloseRunningScene()`/`OnDestroy()`, load in `OpenSelectedScene()` |
+| `App/SceneConfig.cpp` | Implemented `CaptureFromApp()` (camera + scene params), `ApplyToEngine()` (camera + scene params), `LoadAndApplyForScene()`, `SaveCurrentScene()`, `LoadDefaultsForScene()`, `ResetCurrentScene()`, `ResetAllScenes()` |
+| `App/DebugUi.cpp` | Added "Scene Config" panel with Save/Load/Reset buttons + Reset All confirmation popup |
+
+### Scope verified
+
+- Only camera mode + arcball params (yaw/pitch/distance/pivot) + freelook params (pos/rot/fov) + meshScale + displayInstanceCount + selectedMaterialIndex + isPlaying are saved/loaded.
+- Lighting, environment, tone map, shadow, hybrid reflection, specular debug lines, render path, render view mode are untouched.
+- Build: 0 errors.
+
+### UI (minimal)
+
+```
+[>] Scene Config
+    Source: Default config / User config / Code defaults
+    [Save Current]  [Load Defaults]
+    [Reset Current Scene]  [Reset All Scenes]
+```
+
+Reset All uses an ImGui popup modal confirmation.

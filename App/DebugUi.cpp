@@ -600,6 +600,65 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         app.m_engine.SetSpecularDebugLineSettings(debugLines);
     }
 
+    if (ImGui::CollapsingHeader("Scene Config"))
+    {
+        const auto source = app.m_sceneConfig.ActiveSource(
+            app.LoadedScene().Name());
+
+        const char* sourceLabel = "Code defaults";
+        switch (source)
+        {
+            case App::ConfigSource::DefaultFile:
+                sourceLabel = "Default config";
+                break;
+            case App::ConfigSource::UserFile:
+                sourceLabel = "User config";
+                break;
+            default:
+                break;
+        }
+        ImGui::Text("Source: %s", sourceLabel);
+
+        if (ImGui::Button("Save Current"))
+        {
+            app.m_sceneConfig.SaveCurrentScene(
+                app.m_loadedSceneIndex, app, app.m_engine, app.LoadedScene());
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Load Defaults"))
+        {
+            app.m_sceneConfig.LoadDefaultsForScene(
+                app.m_loadedSceneIndex, app, app.m_engine, app.LoadedScene());
+        }
+
+        if (ImGui::Button("Reset Current Scene"))
+        {
+            app.m_sceneConfig.ResetCurrentScene(
+                app.m_loadedSceneIndex, app, app.m_engine, app.LoadedScene());
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Reset All Scenes"))
+        {
+            ImGui::OpenPopup("Reset All##confirm");
+        }
+
+        if (ImGui::BeginPopupModal("Reset All##confirm", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::Text("Reset all scene configurations to defaults?\n\nThis cannot be undone.\n\n");
+            if (ImGui::Button("OK", ImVec2(120, 0)))
+            {
+                app.m_sceneConfig.ResetAllScenes(app, app.m_engine, app.LoadedScene());
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(120, 0)))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+    }
+
     if (ImGui::CollapsingHeader("WorkMeter"))
     {
         ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);

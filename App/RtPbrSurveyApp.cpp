@@ -19,6 +19,7 @@
 #include <sys/stat.h>
 #include "RtPbrSurveyApp.h"
 #include "../Platform/Win32Application.h"
+#include "../Platform/AssetPath.h"
 #include "../Scene/SceneFactory.h"
 #include "imgui.h"
 #include "ImGuiWidgets.h"
@@ -138,6 +139,30 @@ void RtPbrSurveyApp::OnInit()
     m_engine.SetRenderViewMode(m_renderViewMode);
 
     m_engine.Initialize(GetWidth(), GetHeight());
+
+    // Initialize scene config paths
+    {
+        std::wstring exeDir = Platform::GetApplicationAssetsPath();
+        char exeDirA[MAX_PATH];
+        WideCharToMultiByte(CP_UTF8, 0, exeDir.c_str(), -1, exeDirA, MAX_PATH, nullptr, nullptr);
+        const std::string defaultsPath = std::string(exeDirA) + "Config\\scene_config_default.json";
+
+        char appDataPath[MAX_PATH];
+        DWORD appDataLen = GetEnvironmentVariableA("APPDATA", appDataPath, MAX_PATH);
+        std::string userConfigPath;
+        if (appDataLen > 0 && appDataLen < MAX_PATH)
+        {
+            userConfigPath = std::string(appDataPath) + "\\RtPbrSurvey";
+            CreateDirectoryA(userConfigPath.c_str(), nullptr);
+            userConfigPath += "\\scene_config.json";
+        }
+        else
+        {
+            userConfigPath = std::string(exeDirA) + "scene_config.json";
+        }
+
+        m_sceneConfig.SetPaths(defaultsPath, userConfigPath);
+    }
 
     if (m_commandLineOptions.autoSelectGltfDamagedHelmet)
     {
@@ -510,6 +535,13 @@ void RtPbrSurveyApp::OnIdle()
 
 void RtPbrSurveyApp::OnDestroy()
 {
+    // Save current scene config before shutdown
+    if (m_loadedSceneIndex >= 0)
+    {
+        m_sceneConfig.SaveCurrentScene(
+            m_loadedSceneIndex, *this, m_engine, LoadedScene());
+    }
+
     if (m_logFile)
     {
         FlushD3D12DebugMessages();
@@ -659,6 +691,14 @@ void RtPbrSurveyApp::LoadSceneCpuData(int sceneIndex)
 
 void RtPbrSurveyApp::OpenSelectedScene()
 {
+    // Save outgoing scene config before switching
+    if (m_loadedSceneIndex >= 0 && m_selectedSceneIndex != m_loadedSceneIndex)
+    {
+        m_sceneConfig.SaveCurrentScene(
+            m_loadedSceneIndex, *this, m_engine,
+            *m_sampleScenes[static_cast<size_t>(m_loadedSceneIndex)]);
+    }
+
     if (m_selectedSceneIndex != m_loadedSceneIndex)
     {
         LoadSceneCpuData(m_selectedSceneIndex);
@@ -670,6 +710,10 @@ void RtPbrSurveyApp::OpenSelectedScene()
         m_sceneResourcesLoaded = true;
     }
 
+    // Apply saved config for the incoming scene
+    m_sceneConfig.LoadAndApplyForScene(
+        m_selectedSceneIndex, *this, m_engine, LoadedScene());
+
     m_displayInstanceCount = LoadedScene().DisplayInstanceCount();
     m_engine.SetDisplayInstanceCount(m_displayInstanceCount);
     m_appMode = AppMode::Running;
@@ -677,6 +721,13 @@ void RtPbrSurveyApp::OpenSelectedScene()
 
 void RtPbrSurveyApp::CloseRunningScene()
 {
+    // Save current scene config before closing
+    if (m_loadedSceneIndex >= 0)
+    {
+        m_sceneConfig.SaveCurrentScene(
+            m_loadedSceneIndex, *this, m_engine, LoadedScene());
+    }
+
     m_appMode = AppMode::SceneSelect;
     m_isPlaying = false;
     m_isDragging = false;
