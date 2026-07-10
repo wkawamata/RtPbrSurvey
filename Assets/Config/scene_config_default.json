@@ -1,98 +1,1268 @@
 {
-    "version": 1,
-    "scenes": {
-        "DamagedHelmet": {
-            "camera": {
-                "mode": "arcball",
-                "yaw": 0.45,
-                "pitch": 0.35,
-                "distance": 5.0,
-                "fov": 60.0
-            }
-        },
-        "Avocado": {
-            "camera": {
-                "mode": "arcball",
-                "yaw": 0.3,
-                "pitch": 0.2,
-                "distance": 6.0,
-                "fov": 60.0
-            }
-        },
-        "BoomBox": {
-            "camera": {
-                "mode": "arcball",
-                "yaw": 0.5,
-                "pitch": 0.3,
-                "distance": 4.0,
-                "fov": 60.0
-            }
-        },
-        "Lantern": {
-            "camera": {
-                "mode": "arcball",
-                "yaw": 0.4,
-                "pitch": 0.25,
-                "distance": 5.0,
-                "fov": 60.0
-            }
-        },
-        "Sponza": {
-            "camera": {
-                "mode": "freelook",
-                "position": [0.0, 2.0, 0.0],
-                "rotation": [0.0, 0.0, 0.0],
-                "fov": 60.0
-            }
-        },
-        "Metallic/Roughness Spheres": {
-            "camera": {
-                "mode": "arcball",
-                "yaw": 0.0,
-                "pitch": 0.3,
-                "distance": 8.0,
-                "fov": 55.0
-            }
-        },
-        "Shadow Test: Ground + Cubes": {
-            "camera": {
-                "mode": "freelook",
-                "position": [4.5, 3.0, -4.5],
-                "rotation": [0.35, 0.6, 0.0],
-                "fov": 50.0
-            }
-        },
-        "Animated Shadow Grid": {
-            "camera": {
-                "mode": "freelook",
-                "position": [5.0, 5.0, -5.0],
-                "rotation": [0.5, 0.7, 0.0],
-                "fov": 50.0
-            }
-        },
-        "Contact Shadow Test": {
-            "camera": {
-                "mode": "freelook",
-                "position": [0.8, 0.5, -1.5],
-                "rotation": [0.1, 0.0, 0.0],
-                "fov": 60.0
-            }
-        },
-        "Occluder Wall Test": {
-            "camera": {
-                "mode": "freelook",
-                "position": [0.0, 1.0, -4.0],
-                "rotation": [0.1, 0.0, 0.0],
-                "fov": 55.0
-            }
-        },
-        "Cornell Box + Mirror Ball": {
-            "camera": {
-                "mode": "freelook",
-                "position": [0.0, 0.5, -4.5],
-                "rotation": [0.1, 0.0, 0.0],
-                "fov": 50.0
-            }
-        }
-    }
+    "version":  1,
+    "scenes":  {
+                   "DamagedHelmet":  {
+                                         "camera":  {
+                                                        "mode":  "arcball",
+                                                        "yaw":  0.45,
+                                                        "pitch":  0.35,
+                                                        "distance":  5.0,
+                                                        "fov":  60.0
+                                                    },
+                                         "meshScale":  0.5,
+                                         "displayInstanceCount":  1,
+                                         "selectedMaterialIndex":  0,
+                                         "isPlaying":  false,
+                                         "renderingPath":  1,
+                                         "renderViewMode":  0,
+                                         "lightingPassDebugGradient":  false,
+                                         "backBufferClearColor":  [
+                                                                      0.0,
+                                                                      0.2,
+                                                                      0.4,
+                                                                      1.0
+                                                                  ],
+                                         "iblEnabled":  true,
+                                         "environmentAutoUpdate":  true,
+                                         "lighting":  {
+                                                          "lightDirection":  [
+                                                                                 0.0,
+                                                                                 1.0,
+                                                                                 -1.0
+                                                                             ],
+                                                          "lightColor":  [
+                                                                             1.0,
+                                                                             1.0,
+                                                                             1.0
+                                                                         ],
+                                                          "iblIntensity":  0.10,
+                                                          "diffuseIntensity":  1.0,
+                                                          "skyboxEnabled":  true,
+                                                          "skyboxPreview":  false,
+                                                          "skyboxPreviewExposure":  1.0,
+                                                          "directLightEnabled":  true,
+                                                          "diffuseIblEnabled":  true,
+                                                          "specularIblEnabled":  true,
+                                                          "emissiveEnabled":  true,
+                                                          "iblDebugMip":  0,
+                                                          "iblDebugExposure":  0.25
+                                                      },
+                                         "environment":  {
+                                                             "source":  0,
+                                                             "skyColor":  [
+                                                                              0.42,
+                                                                              0.56,
+                                                                              0.72
+                                                                          ],
+                                                             "groundColor":  [
+                                                                                 0.18,
+                                                                                 0.17,
+                                                                                 0.15
+                                                                             ],
+                                                             "lightColor":  [
+                                                                                1.0,
+                                                                                0.96,
+                                                                                0.86
+                                                                            ],
+                                                             "lightDirection":  [
+                                                                                    0.35,
+                                                                                    0.75,
+                                                                                    0.25
+                                                                                ],
+                                                             "backgroundIntensity":  0.6,
+                                                             "lightIntensity":  6.0,
+                                                             "lightSize":  0.12,
+                                                             "fillIntensity":  0.12,
+                                                             "colorPanelIntensity":  1.5,
+                                                             "horizonSharpness":  0.08
+                                                         },
+                                         "toneMap":  {
+                                                         "operatorIndex":  0,
+                                                         "exposure":  1.0,
+                                                         "paperWhiteNits":  300.0,
+                                                         "maxDisplayNits":  1000.0
+                                                     },
+                                         "shadow":  {
+                                                        "enabled":  true,
+                                                        "normalBias":  0.01,
+                                                        "rayTMin":  0.001,
+                                                        "rayTMax":  10000.0,
+                                                        "softShadowEnabled":  true,
+                                                        "sampleCount":  8,
+                                                        "lightAngularRadius":  0.1,
+                                                        "jitterStrength":  2.0
+                                                    },
+                                         "hybridReflection":  {
+                                                                  "enabled":  true,
+                                                                  "materialGateEnabled":  false,
+                                                                  "maxRoughness":  0.35,
+                                                                  "minMetallic":  0.0,
+                                                                  "hitOverlayEnabled":  false,
+                                                                  "hitOverlayMode":  0,
+                                                                  "hitOverlayIntensity":  0.2,
+                                                                  "hitNormalSource":  0,
+                                                                  "contributionEnabled":  false,
+                                                                  "contributionIntensity":  0.25
+                                                              },
+                                         "specularDebugLines":  {
+                                                                    "enabled":  true,
+                                                                    "lineLength":  1.0,
+                                                                    "showViewRay":  true,
+                                                                    "showNormal":  true,
+                                                                    "showReflection":  true
+                                                                }
+                                     },
+                   "Avocado":  {
+                                   "camera":  {
+                                                  "mode":  "arcball",
+                                                  "yaw":  0.3,
+                                                  "pitch":  0.2,
+                                                  "distance":  6.0,
+                                                  "fov":  60.0
+                                              },
+                                   "meshScale":  0.5,
+                                   "displayInstanceCount":  1,
+                                   "selectedMaterialIndex":  0,
+                                   "isPlaying":  false,
+                                   "renderingPath":  1,
+                                   "renderViewMode":  0,
+                                   "lightingPassDebugGradient":  false,
+                                   "backBufferClearColor":  [
+                                                                0.0,
+                                                                0.2,
+                                                                0.4,
+                                                                1.0
+                                                            ],
+                                   "iblEnabled":  true,
+                                   "environmentAutoUpdate":  true,
+                                   "lighting":  {
+                                                    "lightDirection":  [
+                                                                           0.0,
+                                                                           1.0,
+                                                                           -1.0
+                                                                       ],
+                                                    "lightColor":  [
+                                                                       1.0,
+                                                                       1.0,
+                                                                       1.0
+                                                                   ],
+                                                    "iblIntensity":  0.10,
+                                                    "diffuseIntensity":  1.0,
+                                                    "skyboxEnabled":  true,
+                                                    "skyboxPreview":  false,
+                                                    "skyboxPreviewExposure":  1.0,
+                                                    "directLightEnabled":  true,
+                                                    "diffuseIblEnabled":  true,
+                                                    "specularIblEnabled":  true,
+                                                    "emissiveEnabled":  true,
+                                                    "iblDebugMip":  0,
+                                                    "iblDebugExposure":  0.25
+                                                },
+                                   "environment":  {
+                                                       "source":  0,
+                                                       "skyColor":  [
+                                                                        0.42,
+                                                                        0.56,
+                                                                        0.72
+                                                                    ],
+                                                       "groundColor":  [
+                                                                           0.18,
+                                                                           0.17,
+                                                                           0.15
+                                                                       ],
+                                                       "lightColor":  [
+                                                                          1.0,
+                                                                          0.96,
+                                                                          0.86
+                                                                      ],
+                                                       "lightDirection":  [
+                                                                              0.35,
+                                                                              0.75,
+                                                                              0.25
+                                                                          ],
+                                                       "backgroundIntensity":  0.6,
+                                                       "lightIntensity":  6.0,
+                                                       "lightSize":  0.12,
+                                                       "fillIntensity":  0.12,
+                                                       "colorPanelIntensity":  1.5,
+                                                       "horizonSharpness":  0.08
+                                                   },
+                                   "toneMap":  {
+                                                   "operatorIndex":  0,
+                                                   "exposure":  1.0,
+                                                   "paperWhiteNits":  300.0,
+                                                   "maxDisplayNits":  1000.0
+                                               },
+                                   "shadow":  {
+                                                  "enabled":  true,
+                                                  "normalBias":  0.01,
+                                                  "rayTMin":  0.001,
+                                                  "rayTMax":  10000.0,
+                                                  "softShadowEnabled":  true,
+                                                  "sampleCount":  8,
+                                                  "lightAngularRadius":  0.1,
+                                                  "jitterStrength":  2.0
+                                              },
+                                   "hybridReflection":  {
+                                                            "enabled":  true,
+                                                            "materialGateEnabled":  false,
+                                                            "maxRoughness":  0.35,
+                                                            "minMetallic":  0.0,
+                                                            "hitOverlayEnabled":  false,
+                                                            "hitOverlayMode":  0,
+                                                            "hitOverlayIntensity":  0.2,
+                                                            "hitNormalSource":  0,
+                                                            "contributionEnabled":  false,
+                                                            "contributionIntensity":  0.25
+                                                        },
+                                   "specularDebugLines":  {
+                                                              "enabled":  true,
+                                                              "lineLength":  1.0,
+                                                              "showViewRay":  true,
+                                                              "showNormal":  true,
+                                                              "showReflection":  true
+                                                          }
+                               },
+                   "BoomBox":  {
+                                   "camera":  {
+                                                  "mode":  "arcball",
+                                                  "yaw":  0.5,
+                                                  "pitch":  0.3,
+                                                  "distance":  4.0,
+                                                  "fov":  60.0
+                                              },
+                                   "meshScale":  0.5,
+                                   "displayInstanceCount":  1,
+                                   "selectedMaterialIndex":  0,
+                                   "isPlaying":  false,
+                                   "renderingPath":  1,
+                                   "renderViewMode":  0,
+                                   "lightingPassDebugGradient":  false,
+                                   "backBufferClearColor":  [
+                                                                0.0,
+                                                                0.2,
+                                                                0.4,
+                                                                1.0
+                                                            ],
+                                   "iblEnabled":  true,
+                                   "environmentAutoUpdate":  true,
+                                   "lighting":  {
+                                                    "lightDirection":  [
+                                                                           0.0,
+                                                                           1.0,
+                                                                           -1.0
+                                                                       ],
+                                                    "lightColor":  [
+                                                                       1.0,
+                                                                       1.0,
+                                                                       1.0
+                                                                   ],
+                                                    "iblIntensity":  0.10,
+                                                    "diffuseIntensity":  1.0,
+                                                    "skyboxEnabled":  true,
+                                                    "skyboxPreview":  false,
+                                                    "skyboxPreviewExposure":  1.0,
+                                                    "directLightEnabled":  true,
+                                                    "diffuseIblEnabled":  true,
+                                                    "specularIblEnabled":  true,
+                                                    "emissiveEnabled":  true,
+                                                    "iblDebugMip":  0,
+                                                    "iblDebugExposure":  0.25
+                                                },
+                                   "environment":  {
+                                                       "source":  0,
+                                                       "skyColor":  [
+                                                                        0.42,
+                                                                        0.56,
+                                                                        0.72
+                                                                    ],
+                                                       "groundColor":  [
+                                                                           0.18,
+                                                                           0.17,
+                                                                           0.15
+                                                                       ],
+                                                       "lightColor":  [
+                                                                          1.0,
+                                                                          0.96,
+                                                                          0.86
+                                                                      ],
+                                                       "lightDirection":  [
+                                                                              0.35,
+                                                                              0.75,
+                                                                              0.25
+                                                                          ],
+                                                       "backgroundIntensity":  0.6,
+                                                       "lightIntensity":  6.0,
+                                                       "lightSize":  0.12,
+                                                       "fillIntensity":  0.12,
+                                                       "colorPanelIntensity":  1.5,
+                                                       "horizonSharpness":  0.08
+                                                   },
+                                   "toneMap":  {
+                                                   "operatorIndex":  0,
+                                                   "exposure":  1.0,
+                                                   "paperWhiteNits":  300.0,
+                                                   "maxDisplayNits":  1000.0
+                                               },
+                                   "shadow":  {
+                                                  "enabled":  true,
+                                                  "normalBias":  0.01,
+                                                  "rayTMin":  0.001,
+                                                  "rayTMax":  10000.0,
+                                                  "softShadowEnabled":  true,
+                                                  "sampleCount":  8,
+                                                  "lightAngularRadius":  0.1,
+                                                  "jitterStrength":  2.0
+                                              },
+                                   "hybridReflection":  {
+                                                            "enabled":  true,
+                                                            "materialGateEnabled":  false,
+                                                            "maxRoughness":  0.35,
+                                                            "minMetallic":  0.0,
+                                                            "hitOverlayEnabled":  false,
+                                                            "hitOverlayMode":  0,
+                                                            "hitOverlayIntensity":  0.2,
+                                                            "hitNormalSource":  0,
+                                                            "contributionEnabled":  false,
+                                                            "contributionIntensity":  0.25
+                                                        },
+                                   "specularDebugLines":  {
+                                                              "enabled":  true,
+                                                              "lineLength":  1.0,
+                                                              "showViewRay":  true,
+                                                              "showNormal":  true,
+                                                              "showReflection":  true
+                                                          }
+                               },
+                   "Lantern":  {
+                                   "camera":  {
+                                                  "mode":  "arcball",
+                                                  "yaw":  0.4,
+                                                  "pitch":  0.25,
+                                                  "distance":  5.0,
+                                                  "fov":  60.0
+                                              },
+                                   "meshScale":  0.5,
+                                   "displayInstanceCount":  1,
+                                   "selectedMaterialIndex":  0,
+                                   "isPlaying":  false,
+                                   "renderingPath":  1,
+                                   "renderViewMode":  0,
+                                   "lightingPassDebugGradient":  false,
+                                   "backBufferClearColor":  [
+                                                                0.0,
+                                                                0.2,
+                                                                0.4,
+                                                                1.0
+                                                            ],
+                                   "iblEnabled":  true,
+                                   "environmentAutoUpdate":  true,
+                                   "lighting":  {
+                                                    "lightDirection":  [
+                                                                           0.0,
+                                                                           1.0,
+                                                                           -1.0
+                                                                       ],
+                                                    "lightColor":  [
+                                                                       1.0,
+                                                                       1.0,
+                                                                       1.0
+                                                                   ],
+                                                    "iblIntensity":  0.10,
+                                                    "diffuseIntensity":  1.0,
+                                                    "skyboxEnabled":  true,
+                                                    "skyboxPreview":  false,
+                                                    "skyboxPreviewExposure":  1.0,
+                                                    "directLightEnabled":  true,
+                                                    "diffuseIblEnabled":  true,
+                                                    "specularIblEnabled":  true,
+                                                    "emissiveEnabled":  true,
+                                                    "iblDebugMip":  0,
+                                                    "iblDebugExposure":  0.25
+                                                },
+                                   "environment":  {
+                                                       "source":  0,
+                                                       "skyColor":  [
+                                                                        0.42,
+                                                                        0.56,
+                                                                        0.72
+                                                                    ],
+                                                       "groundColor":  [
+                                                                           0.18,
+                                                                           0.17,
+                                                                           0.15
+                                                                       ],
+                                                       "lightColor":  [
+                                                                          1.0,
+                                                                          0.96,
+                                                                          0.86
+                                                                      ],
+                                                       "lightDirection":  [
+                                                                              0.35,
+                                                                              0.75,
+                                                                              0.25
+                                                                          ],
+                                                       "backgroundIntensity":  0.6,
+                                                       "lightIntensity":  6.0,
+                                                       "lightSize":  0.12,
+                                                       "fillIntensity":  0.12,
+                                                       "colorPanelIntensity":  1.5,
+                                                       "horizonSharpness":  0.08
+                                                   },
+                                   "toneMap":  {
+                                                   "operatorIndex":  0,
+                                                   "exposure":  1.0,
+                                                   "paperWhiteNits":  300.0,
+                                                   "maxDisplayNits":  1000.0
+                                               },
+                                   "shadow":  {
+                                                  "enabled":  true,
+                                                  "normalBias":  0.01,
+                                                  "rayTMin":  0.001,
+                                                  "rayTMax":  10000.0,
+                                                  "softShadowEnabled":  true,
+                                                  "sampleCount":  8,
+                                                  "lightAngularRadius":  0.1,
+                                                  "jitterStrength":  2.0
+                                              },
+                                   "hybridReflection":  {
+                                                            "enabled":  true,
+                                                            "materialGateEnabled":  false,
+                                                            "maxRoughness":  0.35,
+                                                            "minMetallic":  0.0,
+                                                            "hitOverlayEnabled":  false,
+                                                            "hitOverlayMode":  0,
+                                                            "hitOverlayIntensity":  0.2,
+                                                            "hitNormalSource":  0,
+                                                            "contributionEnabled":  false,
+                                                            "contributionIntensity":  0.25
+                                                        },
+                                   "specularDebugLines":  {
+                                                              "enabled":  true,
+                                                              "lineLength":  1.0,
+                                                              "showViewRay":  true,
+                                                              "showNormal":  true,
+                                                              "showReflection":  true
+                                                          }
+                               },
+                   "Sponza":  {
+                                  "camera":  {
+                                                 "mode":  "freelook",
+                                                 "position":  [
+                                                                  0.0,
+                                                                  2.0,
+                                                                  0.0
+                                                              ],
+                                                 "rotation":  [
+                                                                  0.0,
+                                                                  0.0,
+                                                                  0.0
+                                                              ],
+                                                 "fov":  60.0
+                                             },
+                                  "meshScale":  0.5,
+                                  "displayInstanceCount":  1,
+                                  "selectedMaterialIndex":  0,
+                                  "isPlaying":  false,
+                                  "renderingPath":  1,
+                                  "renderViewMode":  0,
+                                  "lightingPassDebugGradient":  false,
+                                  "backBufferClearColor":  [
+                                                               0.0,
+                                                               0.2,
+                                                               0.4,
+                                                               1.0
+                                                           ],
+                                  "iblEnabled":  true,
+                                  "environmentAutoUpdate":  true,
+                                  "lighting":  {
+                                                   "lightDirection":  [
+                                                                          0.0,
+                                                                          1.0,
+                                                                          -1.0
+                                                                      ],
+                                                   "lightColor":  [
+                                                                      1.0,
+                                                                      1.0,
+                                                                      1.0
+                                                                  ],
+                                                   "iblIntensity":  0.10,
+                                                   "diffuseIntensity":  1.0,
+                                                   "skyboxEnabled":  true,
+                                                   "skyboxPreview":  false,
+                                                   "skyboxPreviewExposure":  1.0,
+                                                   "directLightEnabled":  true,
+                                                   "diffuseIblEnabled":  true,
+                                                   "specularIblEnabled":  true,
+                                                   "emissiveEnabled":  true,
+                                                   "iblDebugMip":  0,
+                                                   "iblDebugExposure":  0.25
+                                               },
+                                  "environment":  {
+                                                      "source":  0,
+                                                      "skyColor":  [
+                                                                       0.42,
+                                                                       0.56,
+                                                                       0.72
+                                                                   ],
+                                                      "groundColor":  [
+                                                                          0.18,
+                                                                          0.17,
+                                                                          0.15
+                                                                      ],
+                                                      "lightColor":  [
+                                                                         1.0,
+                                                                         0.96,
+                                                                         0.86
+                                                                     ],
+                                                      "lightDirection":  [
+                                                                             0.35,
+                                                                             0.75,
+                                                                             0.25
+                                                                         ],
+                                                      "backgroundIntensity":  0.6,
+                                                      "lightIntensity":  6.0,
+                                                      "lightSize":  0.12,
+                                                      "fillIntensity":  0.12,
+                                                      "colorPanelIntensity":  1.5,
+                                                      "horizonSharpness":  0.08
+                                                  },
+                                  "toneMap":  {
+                                                  "operatorIndex":  0,
+                                                  "exposure":  1.0,
+                                                  "paperWhiteNits":  300.0,
+                                                  "maxDisplayNits":  1000.0
+                                              },
+                                  "shadow":  {
+                                                 "enabled":  true,
+                                                 "normalBias":  0.01,
+                                                 "rayTMin":  0.001,
+                                                 "rayTMax":  10000.0,
+                                                 "softShadowEnabled":  true,
+                                                 "sampleCount":  8,
+                                                 "lightAngularRadius":  0.1,
+                                                 "jitterStrength":  2.0
+                                             },
+                                  "hybridReflection":  {
+                                                           "enabled":  true,
+                                                           "materialGateEnabled":  false,
+                                                           "maxRoughness":  0.35,
+                                                           "minMetallic":  0.0,
+                                                           "hitOverlayEnabled":  false,
+                                                           "hitOverlayMode":  0,
+                                                           "hitOverlayIntensity":  0.2,
+                                                           "hitNormalSource":  0,
+                                                           "contributionEnabled":  false,
+                                                           "contributionIntensity":  0.25
+                                                       },
+                                  "specularDebugLines":  {
+                                                             "enabled":  true,
+                                                             "lineLength":  1.0,
+                                                             "showViewRay":  true,
+                                                             "showNormal":  true,
+                                                             "showReflection":  true
+                                                         }
+                              },
+                   "Metallic/Roughness Spheres":  {
+                                                      "camera":  {
+                                                                     "mode":  "arcball",
+                                                                     "yaw":  0.0,
+                                                                     "pitch":  0.3,
+                                                                     "distance":  8.0,
+                                                                     "fov":  55.0
+                                                                 },
+                                                      "meshScale":  0.5,
+                                                      "displayInstanceCount":  1,
+                                                      "selectedMaterialIndex":  0,
+                                                      "isPlaying":  false,
+                                                      "renderingPath":  1,
+                                                      "renderViewMode":  0,
+                                                      "lightingPassDebugGradient":  false,
+                                                      "backBufferClearColor":  [
+                                                                                   0.0,
+                                                                                   0.2,
+                                                                                   0.4,
+                                                                                   1.0
+                                                                               ],
+                                                      "iblEnabled":  true,
+                                                      "environmentAutoUpdate":  true,
+                                                      "lighting":  {
+                                                                       "lightDirection":  [
+                                                                                              0.0,
+                                                                                              1.0,
+                                                                                              -1.0
+                                                                                          ],
+                                                                       "lightColor":  [
+                                                                                          1.0,
+                                                                                          1.0,
+                                                                                          1.0
+                                                                                      ],
+                                                                       "iblIntensity":  0.10,
+                                                                       "diffuseIntensity":  1.0,
+                                                                       "skyboxEnabled":  true,
+                                                                       "skyboxPreview":  false,
+                                                                       "skyboxPreviewExposure":  1.0,
+                                                                       "directLightEnabled":  true,
+                                                                       "diffuseIblEnabled":  true,
+                                                                       "specularIblEnabled":  true,
+                                                                       "emissiveEnabled":  true,
+                                                                       "iblDebugMip":  0,
+                                                                       "iblDebugExposure":  0.25
+                                                                   },
+                                                      "environment":  {
+                                                                          "source":  0,
+                                                                          "skyColor":  [
+                                                                                           0.42,
+                                                                                           0.56,
+                                                                                           0.72
+                                                                                       ],
+                                                                          "groundColor":  [
+                                                                                              0.18,
+                                                                                              0.17,
+                                                                                              0.15
+                                                                                          ],
+                                                                          "lightColor":  [
+                                                                                             1.0,
+                                                                                             0.96,
+                                                                                             0.86
+                                                                                         ],
+                                                                          "lightDirection":  [
+                                                                                                 0.35,
+                                                                                                 0.75,
+                                                                                                 0.25
+                                                                                             ],
+                                                                          "backgroundIntensity":  0.6,
+                                                                          "lightIntensity":  6.0,
+                                                                          "lightSize":  0.12,
+                                                                          "fillIntensity":  0.12,
+                                                                          "colorPanelIntensity":  1.5,
+                                                                          "horizonSharpness":  0.08
+                                                                      },
+                                                      "toneMap":  {
+                                                                      "operatorIndex":  0,
+                                                                      "exposure":  1.0,
+                                                                      "paperWhiteNits":  300.0,
+                                                                      "maxDisplayNits":  1000.0
+                                                                  },
+                                                      "shadow":  {
+                                                                     "enabled":  true,
+                                                                     "normalBias":  0.01,
+                                                                     "rayTMin":  0.001,
+                                                                     "rayTMax":  10000.0,
+                                                                     "softShadowEnabled":  true,
+                                                                     "sampleCount":  8,
+                                                                     "lightAngularRadius":  0.1,
+                                                                     "jitterStrength":  2.0
+                                                                 },
+                                                      "hybridReflection":  {
+                                                                               "enabled":  true,
+                                                                               "materialGateEnabled":  false,
+                                                                               "maxRoughness":  0.35,
+                                                                               "minMetallic":  0.0,
+                                                                               "hitOverlayEnabled":  false,
+                                                                               "hitOverlayMode":  0,
+                                                                               "hitOverlayIntensity":  0.2,
+                                                                               "hitNormalSource":  0,
+                                                                               "contributionEnabled":  false,
+                                                                               "contributionIntensity":  0.25
+                                                                           },
+                                                      "specularDebugLines":  {
+                                                                                 "enabled":  true,
+                                                                                 "lineLength":  1.0,
+                                                                                 "showViewRay":  true,
+                                                                                 "showNormal":  true,
+                                                                                 "showReflection":  true
+                                                                             }
+                                                  },
+                   "Shadow Test: Ground + Cubes":  {
+                                                       "camera":  {
+                                                                      "mode":  "freelook",
+                                                                      "position":  [
+                                                                                       4.5,
+                                                                                       3.0,
+                                                                                       -4.5
+                                                                                   ],
+                                                                      "rotation":  [
+                                                                                       0.35,
+                                                                                       0.6,
+                                                                                       0.0
+                                                                                   ],
+                                                                      "fov":  50.0
+                                                                  },
+                                                       "meshScale":  0.5,
+                                                       "displayInstanceCount":  1,
+                                                       "selectedMaterialIndex":  0,
+                                                       "isPlaying":  false,
+                                                       "renderingPath":  1,
+                                                       "renderViewMode":  0,
+                                                       "lightingPassDebugGradient":  false,
+                                                       "backBufferClearColor":  [
+                                                                                    0.0,
+                                                                                    0.2,
+                                                                                    0.4,
+                                                                                    1.0
+                                                                                ],
+                                                       "iblEnabled":  true,
+                                                       "environmentAutoUpdate":  true,
+                                                       "lighting":  {
+                                                                        "lightDirection":  [
+                                                                                               0.0,
+                                                                                               1.0,
+                                                                                               -1.0
+                                                                                           ],
+                                                                        "lightColor":  [
+                                                                                           1.0,
+                                                                                           1.0,
+                                                                                           1.0
+                                                                                       ],
+                                                                        "iblIntensity":  0.10,
+                                                                        "diffuseIntensity":  1.0,
+                                                                        "skyboxEnabled":  true,
+                                                                        "skyboxPreview":  false,
+                                                                        "skyboxPreviewExposure":  1.0,
+                                                                        "directLightEnabled":  true,
+                                                                        "diffuseIblEnabled":  true,
+                                                                        "specularIblEnabled":  true,
+                                                                        "emissiveEnabled":  true,
+                                                                        "iblDebugMip":  0,
+                                                                        "iblDebugExposure":  0.25
+                                                                    },
+                                                       "environment":  {
+                                                                           "source":  0,
+                                                                           "skyColor":  [
+                                                                                            0.42,
+                                                                                            0.56,
+                                                                                            0.72
+                                                                                        ],
+                                                                           "groundColor":  [
+                                                                                               0.18,
+                                                                                               0.17,
+                                                                                               0.15
+                                                                                           ],
+                                                                           "lightColor":  [
+                                                                                              1.0,
+                                                                                              0.96,
+                                                                                              0.86
+                                                                                          ],
+                                                                           "lightDirection":  [
+                                                                                                  0.35,
+                                                                                                  0.75,
+                                                                                                  0.25
+                                                                                              ],
+                                                                           "backgroundIntensity":  0.6,
+                                                                           "lightIntensity":  6.0,
+                                                                           "lightSize":  0.12,
+                                                                           "fillIntensity":  0.12,
+                                                                           "colorPanelIntensity":  1.5,
+                                                                           "horizonSharpness":  0.08
+                                                                       },
+                                                       "toneMap":  {
+                                                                       "operatorIndex":  0,
+                                                                       "exposure":  1.0,
+                                                                       "paperWhiteNits":  300.0,
+                                                                       "maxDisplayNits":  1000.0
+                                                                   },
+                                                       "shadow":  {
+                                                                      "enabled":  true,
+                                                                      "normalBias":  0.01,
+                                                                      "rayTMin":  0.001,
+                                                                      "rayTMax":  10000.0,
+                                                                      "softShadowEnabled":  true,
+                                                                      "sampleCount":  8,
+                                                                      "lightAngularRadius":  0.1,
+                                                                      "jitterStrength":  2.0
+                                                                  },
+                                                       "hybridReflection":  {
+                                                                                "enabled":  true,
+                                                                                "materialGateEnabled":  false,
+                                                                                "maxRoughness":  0.35,
+                                                                                "minMetallic":  0.0,
+                                                                                "hitOverlayEnabled":  false,
+                                                                                "hitOverlayMode":  0,
+                                                                                "hitOverlayIntensity":  0.2,
+                                                                                "hitNormalSource":  0,
+                                                                                "contributionEnabled":  false,
+                                                                                "contributionIntensity":  0.25
+                                                                            },
+                                                       "specularDebugLines":  {
+                                                                                  "enabled":  true,
+                                                                                  "lineLength":  1.0,
+                                                                                  "showViewRay":  true,
+                                                                                  "showNormal":  true,
+                                                                                  "showReflection":  true
+                                                                              }
+                                                   },
+                   "Animated Shadow Grid":  {
+                                                "camera":  {
+                                                               "mode":  "freelook",
+                                                               "position":  [
+                                                                                5.0,
+                                                                                5.0,
+                                                                                -5.0
+                                                                            ],
+                                                               "rotation":  [
+                                                                                0.5,
+                                                                                0.7,
+                                                                                0.0
+                                                                            ],
+                                                               "fov":  50.0
+                                                           },
+                                                "meshScale":  0.5,
+                                                "displayInstanceCount":  1,
+                                                "selectedMaterialIndex":  0,
+                                                "isPlaying":  false,
+                                                "renderingPath":  1,
+                                                "renderViewMode":  0,
+                                                "lightingPassDebugGradient":  false,
+                                                "backBufferClearColor":  [
+                                                                             0.0,
+                                                                             0.2,
+                                                                             0.4,
+                                                                             1.0
+                                                                         ],
+                                                "iblEnabled":  true,
+                                                "environmentAutoUpdate":  true,
+                                                "lighting":  {
+                                                                 "lightDirection":  [
+                                                                                        0.0,
+                                                                                        1.0,
+                                                                                        -1.0
+                                                                                    ],
+                                                                 "lightColor":  [
+                                                                                    1.0,
+                                                                                    1.0,
+                                                                                    1.0
+                                                                                ],
+                                                                 "iblIntensity":  0.10,
+                                                                 "diffuseIntensity":  1.0,
+                                                                 "skyboxEnabled":  true,
+                                                                 "skyboxPreview":  false,
+                                                                 "skyboxPreviewExposure":  1.0,
+                                                                 "directLightEnabled":  true,
+                                                                 "diffuseIblEnabled":  true,
+                                                                 "specularIblEnabled":  true,
+                                                                 "emissiveEnabled":  true,
+                                                                 "iblDebugMip":  0,
+                                                                 "iblDebugExposure":  0.25
+                                                             },
+                                                "environment":  {
+                                                                    "source":  0,
+                                                                    "skyColor":  [
+                                                                                     0.42,
+                                                                                     0.56,
+                                                                                     0.72
+                                                                                 ],
+                                                                    "groundColor":  [
+                                                                                        0.18,
+                                                                                        0.17,
+                                                                                        0.15
+                                                                                    ],
+                                                                    "lightColor":  [
+                                                                                       1.0,
+                                                                                       0.96,
+                                                                                       0.86
+                                                                                   ],
+                                                                    "lightDirection":  [
+                                                                                           0.35,
+                                                                                           0.75,
+                                                                                           0.25
+                                                                                       ],
+                                                                    "backgroundIntensity":  0.6,
+                                                                    "lightIntensity":  6.0,
+                                                                    "lightSize":  0.12,
+                                                                    "fillIntensity":  0.12,
+                                                                    "colorPanelIntensity":  1.5,
+                                                                    "horizonSharpness":  0.08
+                                                                },
+                                                "toneMap":  {
+                                                                "operatorIndex":  0,
+                                                                "exposure":  1.0,
+                                                                "paperWhiteNits":  300.0,
+                                                                "maxDisplayNits":  1000.0
+                                                            },
+                                                "shadow":  {
+                                                               "enabled":  true,
+                                                               "normalBias":  0.01,
+                                                               "rayTMin":  0.001,
+                                                               "rayTMax":  10000.0,
+                                                               "softShadowEnabled":  true,
+                                                               "sampleCount":  8,
+                                                               "lightAngularRadius":  0.1,
+                                                               "jitterStrength":  2.0
+                                                           },
+                                                "hybridReflection":  {
+                                                                         "enabled":  true,
+                                                                         "materialGateEnabled":  false,
+                                                                         "maxRoughness":  0.35,
+                                                                         "minMetallic":  0.0,
+                                                                         "hitOverlayEnabled":  false,
+                                                                         "hitOverlayMode":  0,
+                                                                         "hitOverlayIntensity":  0.2,
+                                                                         "hitNormalSource":  0,
+                                                                         "contributionEnabled":  false,
+                                                                         "contributionIntensity":  0.25
+                                                                     },
+                                                "specularDebugLines":  {
+                                                                           "enabled":  true,
+                                                                           "lineLength":  1.0,
+                                                                           "showViewRay":  true,
+                                                                           "showNormal":  true,
+                                                                           "showReflection":  true
+                                                                       }
+                                            },
+                   "Contact Shadow Test":  {
+                                               "camera":  {
+                                                              "mode":  "freelook",
+                                                              "position":  [
+                                                                               0.8,
+                                                                               0.5,
+                                                                               -1.5
+                                                                           ],
+                                                              "rotation":  [
+                                                                               0.1,
+                                                                               0.0,
+                                                                               0.0
+                                                                           ],
+                                                              "fov":  60.0
+                                                          },
+                                               "meshScale":  0.5,
+                                               "displayInstanceCount":  1,
+                                               "selectedMaterialIndex":  0,
+                                               "isPlaying":  false,
+                                               "renderingPath":  1,
+                                               "renderViewMode":  0,
+                                               "lightingPassDebugGradient":  false,
+                                               "backBufferClearColor":  [
+                                                                            0.0,
+                                                                            0.2,
+                                                                            0.4,
+                                                                            1.0
+                                                                        ],
+                                               "iblEnabled":  true,
+                                               "environmentAutoUpdate":  true,
+                                               "lighting":  {
+                                                                "lightDirection":  [
+                                                                                       0.0,
+                                                                                       1.0,
+                                                                                       -1.0
+                                                                                   ],
+                                                                "lightColor":  [
+                                                                                   1.0,
+                                                                                   1.0,
+                                                                                   1.0
+                                                                               ],
+                                                                "iblIntensity":  0.10,
+                                                                "diffuseIntensity":  1.0,
+                                                                "skyboxEnabled":  true,
+                                                                "skyboxPreview":  false,
+                                                                "skyboxPreviewExposure":  1.0,
+                                                                "directLightEnabled":  true,
+                                                                "diffuseIblEnabled":  true,
+                                                                "specularIblEnabled":  true,
+                                                                "emissiveEnabled":  true,
+                                                                "iblDebugMip":  0,
+                                                                "iblDebugExposure":  0.25
+                                                            },
+                                               "environment":  {
+                                                                   "source":  0,
+                                                                   "skyColor":  [
+                                                                                    0.42,
+                                                                                    0.56,
+                                                                                    0.72
+                                                                                ],
+                                                                   "groundColor":  [
+                                                                                       0.18,
+                                                                                       0.17,
+                                                                                       0.15
+                                                                                   ],
+                                                                   "lightColor":  [
+                                                                                      1.0,
+                                                                                      0.96,
+                                                                                      0.86
+                                                                                  ],
+                                                                   "lightDirection":  [
+                                                                                          0.35,
+                                                                                          0.75,
+                                                                                          0.25
+                                                                                      ],
+                                                                   "backgroundIntensity":  0.6,
+                                                                   "lightIntensity":  6.0,
+                                                                   "lightSize":  0.12,
+                                                                   "fillIntensity":  0.12,
+                                                                   "colorPanelIntensity":  1.5,
+                                                                   "horizonSharpness":  0.08
+                                                               },
+                                               "toneMap":  {
+                                                               "operatorIndex":  0,
+                                                               "exposure":  1.0,
+                                                               "paperWhiteNits":  300.0,
+                                                               "maxDisplayNits":  1000.0
+                                                           },
+                                               "shadow":  {
+                                                              "enabled":  true,
+                                                              "normalBias":  0.01,
+                                                              "rayTMin":  0.001,
+                                                              "rayTMax":  10000.0,
+                                                              "softShadowEnabled":  true,
+                                                              "sampleCount":  8,
+                                                              "lightAngularRadius":  0.1,
+                                                              "jitterStrength":  2.0
+                                                          },
+                                               "hybridReflection":  {
+                                                                        "enabled":  true,
+                                                                        "materialGateEnabled":  false,
+                                                                        "maxRoughness":  0.35,
+                                                                        "minMetallic":  0.0,
+                                                                        "hitOverlayEnabled":  false,
+                                                                        "hitOverlayMode":  0,
+                                                                        "hitOverlayIntensity":  0.2,
+                                                                        "hitNormalSource":  0,
+                                                                        "contributionEnabled":  false,
+                                                                        "contributionIntensity":  0.25
+                                                                    },
+                                               "specularDebugLines":  {
+                                                                          "enabled":  true,
+                                                                          "lineLength":  1.0,
+                                                                          "showViewRay":  true,
+                                                                          "showNormal":  true,
+                                                                          "showReflection":  true
+                                                                      }
+                                           },
+                   "Occluder Wall Test":  {
+                                              "camera":  {
+                                                             "mode":  "freelook",
+                                                             "position":  [
+                                                                              0.0,
+                                                                              1.0,
+                                                                              -4.0
+                                                                          ],
+                                                             "rotation":  [
+                                                                              0.1,
+                                                                              0.0,
+                                                                              0.0
+                                                                          ],
+                                                             "fov":  55.0
+                                                         },
+                                              "meshScale":  0.5,
+                                              "displayInstanceCount":  1,
+                                              "selectedMaterialIndex":  0,
+                                              "isPlaying":  false,
+                                              "renderingPath":  1,
+                                              "renderViewMode":  0,
+                                              "lightingPassDebugGradient":  false,
+                                              "backBufferClearColor":  [
+                                                                           0.0,
+                                                                           0.2,
+                                                                           0.4,
+                                                                           1.0
+                                                                       ],
+                                              "iblEnabled":  true,
+                                              "environmentAutoUpdate":  true,
+                                              "lighting":  {
+                                                               "lightDirection":  [
+                                                                                      0.0,
+                                                                                      1.0,
+                                                                                      -1.0
+                                                                                  ],
+                                                               "lightColor":  [
+                                                                                  1.0,
+                                                                                  1.0,
+                                                                                  1.0
+                                                                              ],
+                                                               "iblIntensity":  0.10,
+                                                               "diffuseIntensity":  1.0,
+                                                               "skyboxEnabled":  true,
+                                                               "skyboxPreview":  false,
+                                                               "skyboxPreviewExposure":  1.0,
+                                                               "directLightEnabled":  true,
+                                                               "diffuseIblEnabled":  true,
+                                                               "specularIblEnabled":  true,
+                                                               "emissiveEnabled":  true,
+                                                               "iblDebugMip":  0,
+                                                               "iblDebugExposure":  0.25
+                                                           },
+                                              "environment":  {
+                                                                  "source":  0,
+                                                                  "skyColor":  [
+                                                                                   0.42,
+                                                                                   0.56,
+                                                                                   0.72
+                                                                               ],
+                                                                  "groundColor":  [
+                                                                                      0.18,
+                                                                                      0.17,
+                                                                                      0.15
+                                                                                  ],
+                                                                  "lightColor":  [
+                                                                                     1.0,
+                                                                                     0.96,
+                                                                                     0.86
+                                                                                 ],
+                                                                  "lightDirection":  [
+                                                                                         0.35,
+                                                                                         0.75,
+                                                                                         0.25
+                                                                                     ],
+                                                                  "backgroundIntensity":  0.6,
+                                                                  "lightIntensity":  6.0,
+                                                                  "lightSize":  0.12,
+                                                                  "fillIntensity":  0.12,
+                                                                  "colorPanelIntensity":  1.5,
+                                                                  "horizonSharpness":  0.08
+                                                              },
+                                              "toneMap":  {
+                                                              "operatorIndex":  0,
+                                                              "exposure":  1.0,
+                                                              "paperWhiteNits":  300.0,
+                                                              "maxDisplayNits":  1000.0
+                                                          },
+                                              "shadow":  {
+                                                             "enabled":  true,
+                                                             "normalBias":  0.01,
+                                                             "rayTMin":  0.001,
+                                                             "rayTMax":  10000.0,
+                                                             "softShadowEnabled":  true,
+                                                             "sampleCount":  8,
+                                                             "lightAngularRadius":  0.1,
+                                                             "jitterStrength":  2.0
+                                                         },
+                                              "hybridReflection":  {
+                                                                       "enabled":  true,
+                                                                       "materialGateEnabled":  false,
+                                                                       "maxRoughness":  0.35,
+                                                                       "minMetallic":  0.0,
+                                                                       "hitOverlayEnabled":  false,
+                                                                       "hitOverlayMode":  0,
+                                                                       "hitOverlayIntensity":  0.2,
+                                                                       "hitNormalSource":  0,
+                                                                       "contributionEnabled":  false,
+                                                                       "contributionIntensity":  0.25
+                                                                   },
+                                              "specularDebugLines":  {
+                                                                         "enabled":  true,
+                                                                         "lineLength":  1.0,
+                                                                         "showViewRay":  true,
+                                                                         "showNormal":  true,
+                                                                         "showReflection":  true
+                                                                     }
+                                          },
+                   "Cornell Box + Mirror Ball":  {
+                                                     "camera":  {
+                                                                    "mode":  "freelook",
+                                                                    "position":  [
+                                                                                     0.0,
+                                                                                     0.5,
+                                                                                     -4.5
+                                                                                 ],
+                                                                    "rotation":  [
+                                                                                     0.1,
+                                                                                     0.0,
+                                                                                     0.0
+                                                                                 ],
+                                                                    "fov":  50.0
+                                                                },
+                                                     "meshScale":  0.5,
+                                                     "displayInstanceCount":  1,
+                                                     "selectedMaterialIndex":  0,
+                                                     "isPlaying":  false,
+                                                     "renderingPath":  1,
+                                                     "renderViewMode":  0,
+                                                     "lightingPassDebugGradient":  false,
+                                                     "backBufferClearColor":  [
+                                                                                  0.1,
+                                                                                  0.1,
+                                                                                  0.1,
+                                                                                  1.0
+                                                                              ],
+                                                     "iblEnabled":  true,
+                                                     "environmentAutoUpdate":  true,
+                                                     "lighting":  {
+                                                                      "lightDirection":  [
+                                                                                             0.0,
+                                                                                             1.0,
+                                                                                             -1.0
+                                                                                         ],
+                                                                      "lightColor":  [
+                                                                                         1.0,
+                                                                                         1.0,
+                                                                                         1.0
+                                                                                     ],
+                                                                      "iblIntensity":  0.10,
+                                                                      "diffuseIntensity":  1.0,
+                                                                      "skyboxEnabled":  true,
+                                                                      "skyboxPreview":  false,
+                                                                      "skyboxPreviewExposure":  1.0,
+                                                                      "directLightEnabled":  true,
+                                                                      "diffuseIblEnabled":  true,
+                                                                      "specularIblEnabled":  true,
+                                                                      "emissiveEnabled":  true,
+                                                                      "iblDebugMip":  0,
+                                                                      "iblDebugExposure":  0.25
+                                                                  },
+                                                     "environment":  {
+                                                                         "source":  0,
+                                                                         "skyColor":  [
+                                                                                          0.42,
+                                                                                          0.56,
+                                                                                          0.72
+                                                                                      ],
+                                                                         "groundColor":  [
+                                                                                             0.18,
+                                                                                             0.17,
+                                                                                             0.15
+                                                                                         ],
+                                                                         "lightColor":  [
+                                                                                            1.0,
+                                                                                            0.96,
+                                                                                            0.86
+                                                                                        ],
+                                                                         "lightDirection":  [
+                                                                                                0.35,
+                                                                                                0.75,
+                                                                                                0.25
+                                                                                            ],
+                                                                         "backgroundIntensity":  0.6,
+                                                                         "lightIntensity":  6.0,
+                                                                         "lightSize":  0.12,
+                                                                         "fillIntensity":  0.12,
+                                                                         "colorPanelIntensity":  1.5,
+                                                                         "horizonSharpness":  0.08
+                                                                     },
+                                                     "toneMap":  {
+                                                                     "operatorIndex":  0,
+                                                                     "exposure":  1.0,
+                                                                     "paperWhiteNits":  300.0,
+                                                                     "maxDisplayNits":  1000.0
+                                                                 },
+                                                     "shadow":  {
+                                                                    "enabled":  true,
+                                                                    "normalBias":  0.01,
+                                                                    "rayTMin":  0.001,
+                                                                    "rayTMax":  10000.0,
+                                                                    "softShadowEnabled":  true,
+                                                                    "sampleCount":  8,
+                                                                    "lightAngularRadius":  0.1,
+                                                                    "jitterStrength":  2.0
+                                                                },
+                                                     "hybridReflection":  {
+                                                                              "enabled":  true,
+                                                                              "materialGateEnabled":  false,
+                                                                              "maxRoughness":  0.35,
+                                                                              "minMetallic":  0.0,
+                                                                              "hitOverlayEnabled":  false,
+                                                                              "hitOverlayMode":  0,
+                                                                              "hitOverlayIntensity":  0.2,
+                                                                              "hitNormalSource":  0,
+                                                                              "contributionEnabled":  false,
+                                                                              "contributionIntensity":  0.25
+                                                                          },
+                                                     "specularDebugLines":  {
+                                                                                "enabled":  true,
+                                                                                "lineLength":  1.0,
+                                                                                "showViewRay":  true,
+                                                                                "showNormal":  true,
+                                                                                "showReflection":  true
+                                                                            }
+                                                 }
+               }
 }

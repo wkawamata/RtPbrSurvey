@@ -38,6 +38,8 @@ struct SceneLightingConfig
     std::array<float, 3> lightColor = {1.0f, 1.0f, 1.0f};
     float iblIntensity = 0.10f;
     float diffuseIntensity = 1.0f;
+    float iblDebugMip = 0.0f;
+    float iblDebugExposure = 0.25f;
     bool skyboxEnabled = true;
     bool skyboxPreview = false;
     float skyboxPreviewExposure = 1.0f;
