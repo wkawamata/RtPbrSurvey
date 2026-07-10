@@ -97,6 +97,7 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 - 3 root SRVs: scene vertex/index/instance buffers for committed hit normal and materialId reconstruction
 - 1 SRV: material buffer for hit material parameter debug
 - 1 SRV table: scene texture table for hit albedo texture debug
+- 1 SRV: ReflectionRayColor for LightPass hit-color overlay and future reflection contribution
 
 ## Resource States
 

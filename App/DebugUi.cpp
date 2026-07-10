@@ -376,6 +376,9 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::SameLine();
         changed |= ImGui::RadioButton("Hit Attribute", &reflectionSettings.hitOverlayMode, 3);
 
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Hit Albedo", &reflectionSettings.hitOverlayMode, 4);
+
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Hit Overlay Intensity", &reflectionSettings.hitOverlayIntensity, 0.0f, 1.0f, 0.05f, 0.2f);
         ImGui::EndDisabled();

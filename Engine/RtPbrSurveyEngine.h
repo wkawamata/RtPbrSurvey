@@ -304,6 +304,7 @@ private:
             static constexpr const char* ShadowMaskSrv = "ShadowMaskSrv";
             static constexpr const char* ShadowMaskUav = "ShadowMaskUav";
             static constexpr const char* ReflectionRayHitSrv = "ReflectionRayHitSrv";
+            static constexpr const char* ReflectionRayColorSrv = "ReflectionRayColorSrv";
             static constexpr const char* ReflectionRayHitUav = "ReflectionRayHitUav";
             static constexpr const char* TlasDebugUav = "TlasDebugUav";
             static constexpr const char* AccelerationStructureSrv = "AccelerationStructureSrv";

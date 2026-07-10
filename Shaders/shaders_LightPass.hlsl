@@ -14,6 +14,7 @@ Texture2D<float2> g_brdfLut : register(t3, space5);
 SamplerState g_sampler : register(s0);
 Texture2D<float> g_shadowMask : register(t0, space4);
 Texture2D<float4> g_reflectionRayHit : register(t0, space6);
+Texture2D<float4> g_reflectionRayColor : register(t0, space7);
 StructuredBuffer<Material> g_materialData : register(t0, space2);
 
 static const float PI = 3.14159265;
@@ -284,7 +285,12 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     if (reflectionHitOverlayEnabled > 0.5)
     {
         float3 overlayColor = float3(0.0, 0.85, 1.0);
-        if (reflectionHitOverlayMode > 2.5)
+        if (reflectionHitOverlayMode > 3.5)
+        {
+            float3 hitColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
+            overlayColor = hitColor / (1.0 + hitColor);
+        }
+        else if (reflectionHitOverlayMode > 2.5)
         {
             float3 hitNormal = DecodeNormalOctahedron(reflectionHit.zw);
             overlayColor = hitNormal * 0.5 + 0.5;

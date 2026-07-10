@@ -2333,6 +2333,12 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
             return m_reflectionRayHitSrv.gpu;
         });
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionRayColorSrv),
+        [this]()
+        {
+            return m_reflectionRayColorSrv.gpu;
+        });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionRayHitUav),
         [this]()
         {
