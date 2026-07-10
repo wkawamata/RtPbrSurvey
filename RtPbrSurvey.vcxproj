@@ -177,6 +177,7 @@
     <ClInclude Include="App\DebugUi.h" />
     <ClInclude Include="App\SceneSelectUi.h" />
     <ClInclude Include="App\RtPbrSurveyApp.h" />
+    <ClInclude Include="App\SceneConfig.h" />
     <ClInclude Include="TextureSemantic.h" />
     <ClInclude Include="Platform\Win32Application.h" />
     <ClInclude Include="Engine\RtPbrSurveyEngine.h" />
@@ -233,6 +234,7 @@
     <ClCompile Include="App\DebugUi.cpp" />
     <ClCompile Include="App\SceneSelectUi.cpp" />
     <ClCompile Include="App\RtPbrSurveyApp.cpp" />
+    <ClCompile Include="App\SceneConfig.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
