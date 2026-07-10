@@ -278,16 +278,18 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         environmentSpecular * (specularFresnel * brdf.x + brdf.y) * iblIntensity * specularOcclusion * specularIblEnabled;
     float3 color = iblDiffuse + iblSpecular + directLighting + emissive * emissiveEnabled;
     float4 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
+    float3 reflectionHitColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
     if (reflectionContributionEnabled > 0.5)
     {
-        color += iblSpecular * reflectionHit.y * reflectionContributionIntensity;
+        float reflectionStrength = reflectionHit.y * (1.0 - roughness) * reflectionContributionIntensity;
+        color += reflectionHitColor * specularFresnel * reflectionStrength;
     }
     if (reflectionHitOverlayEnabled > 0.5)
     {
         float3 overlayColor = float3(0.0, 0.85, 1.0);
         if (reflectionHitOverlayMode > 3.5)
         {
-            float3 hitColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
+            float3 hitColor = reflectionHitColor;
             overlayColor = hitColor / (1.0 + hitColor);
         }
         else if (reflectionHitOverlayMode > 2.5)
