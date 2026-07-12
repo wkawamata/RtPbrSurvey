@@ -48,6 +48,7 @@
 #include "Renderer\GBuffer.h"
 #include "Renderer\HybridReflectionPass.h"
 #include "Renderer\LightingPass.h"
+#include "Renderer\ReflectionEvaluatePass.h"
 #include "Renderer\Material.h"
 #include "Renderer\PipelineFactory.h"
 #include "Renderer\RayQueryShadowPass.h"
@@ -161,6 +162,7 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
     m_resourceDefaultStates.push_back({kBackBufferResourceName, D3D12_RESOURCE_STATE_PRESENT});
     m_resourceDefaultStates.push_back({kDepthStencilResourceName, D3D12_RESOURCE_STATE_DEPTH_WRITE});
     m_resourceDefaultStates.push_back({kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
+    m_resourceDefaultStates.push_back({kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     m_resourceDefaultStates.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
@@ -521,6 +523,7 @@ void RtPbrSurveyEngine::LoadPipeline()
         CreateDsvHeap();
         RegisterDepthStencil(m_width, m_height);
         RegisterLightPassRenderTarget(m_width, m_height);
+        RegisterReflectionRadiance(m_width, m_height);
     }
 
     // create command allocators.
@@ -1414,6 +1417,8 @@ auto RtPbrSurveyEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
                         LoadShaderBytecode(L"shaders_LightPass_PSMain.cso")};
     shaders.lightingDebugGradient = {LoadShaderBytecode(L"shaders_LightPassDebugGradient_VSMain.cso"),
                                      LoadShaderBytecode(L"shaders_LightPassDebugGradient_PSMain.cso")};
+    shaders.reflectionEvaluate = {LoadShaderBytecode(L"shaders_ReflectionEvaluate_VSMain.cso"),
+                                  LoadShaderBytecode(L"shaders_ReflectionEvaluate_PSMain.cso")};
     shaders.toneMap = {LoadShaderBytecode(L"shaders_ToneMap_VSMain.cso"),
                        LoadShaderBytecode(L"shaders_ToneMap_PSMain.cso")};
     shaders.hybridReflection = LoadShaderBytecode(L"shaders_HybridReflection_CSMain.cso");
@@ -1496,6 +1501,7 @@ void RtPbrSurveyEngine::RegisterPipelineStates(const PipelineShaderBytecode& sha
         psoDesc,
         {{Pipe::Lighting, shaders.lighting, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::LightingDebugGradient, shaders.lightingDebugGradient, DXGI_FORMAT_R16G16B16A16_FLOAT},
+         {Pipe::ReflectionEvaluate, shaders.reflectionEvaluate, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::ToneMap, shaders.toneMap, m_backBufferFormat},
          {Pipe::GBufferDebug, shaders.gbufferDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::ReflectionRayHitDebug, shaders.reflectionRayHitDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
@@ -2041,6 +2047,12 @@ void RtPbrSurveyEngine::CreateGBuffer()
         m_lightPassColorSrv = m_descriptorHeapAllocator.AllocWithHandle();
     }
     assert(m_lightPassColorSrv.Index == m_depthStencilSrv.Index + 1);
+
+    if (m_reflectionRadianceSrv.Index == UINT_MAX)
+    {
+        m_reflectionRadianceSrv = m_descriptorHeapAllocator.AllocWithHandle();
+    }
+    assert(m_reflectionRadianceSrv.Index == m_lightPassColorSrv.Index + 1);
 }
 
 void RtPbrSurveyEngine::RegisterDepthStencil(UINT width, UINT height)
@@ -2076,6 +2088,35 @@ void RtPbrSurveyEngine::RegisterLightPassRenderTarget(UINT width, UINT height)
 
     r.state = TransientResourceState::Initialized;
     r.name = kLightPassRenderTargetResourceName;
+    r.persistent = true;
+
+    r.desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    r.desc.Width = width;
+    r.desc.Height = height;
+    r.desc.DepthOrArraySize = 1;
+    r.desc.MipLevels = 1;
+    r.desc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    r.desc.SampleDesc.Count = 1;
+    r.desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    r.desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+
+    r.clearValue.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    r.clearValue.Color[0] = 0.0f;
+    r.clearValue.Color[1] = 0.0f;
+    r.clearValue.Color[2] = 0.0f;
+    r.clearValue.Color[3] = 1.0f;
+
+    r.initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+
+    m_resourceRegistry.RegisterTransientResource(std::move(r));
+}
+
+void RtPbrSurveyEngine::RegisterReflectionRadiance(UINT width, UINT height)
+{
+    TransientResource r;
+
+    r.state = TransientResourceState::Initialized;
+    r.name = kReflectionRadianceResourceName;
     r.persistent = true;
 
     r.desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -2328,6 +2369,13 @@ D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetLightPassRTV() const
     return h;
 }
 
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionRadianceRTV() const
+{
+    CD3DX12_CPU_DESCRIPTOR_HANDLE h(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
+    h.Offset(kReflectionRadianceRTVIndex, m_rtvDescriptorSize);
+    return h;
+}
+
 void RtPbrSurveyEngine::RegisterPassBindingResolvers()
 {
     m_renderGraphRuntime.Bindings().Clear();
@@ -2348,6 +2396,8 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
                                                 [this]() { return GetGBufferRTV(Engine::GBuffer::Emissive); });
     m_renderGraphRuntime.Bindings().RegisterRtv(m_renderGraphRuntime.RegisterRtv(RtvName::LightPass),
                                                 [this]() { return GetLightPassRTV(); });
+    m_renderGraphRuntime.Bindings().RegisterRtv(m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionRadiance),
+                                                [this]() { return GetReflectionRadianceRTV(); });
 
     m_renderGraphRuntime.Bindings().RegisterDsv(m_renderGraphRuntime.RegisterDsv(DsvName::Depth),
                                                 [this]() { return GetDepthDsv(); });
@@ -2373,6 +2423,9 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ToneMapSceneColorSrv),
         [this]() { return m_lightPassColorSrv.gpu; });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionRadianceSrv),
+        [this]() { return m_reflectionRadianceSrv.gpu; });
     m_renderGraphRuntime.Bindings().RegisterDescriptor(m_renderGraphRuntime.RegisterDescriptor(Desc::ShadowMaskSrv),
                                                        [this]()
                                                        { return m_stageAllocator.GpuHandle(m_shadowMaskRange.Start); });
@@ -2455,6 +2508,8 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
                                                       [this]() { return m_depthStencil.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kLightPassRenderTargetResourceName,
                                                       [this]() { return m_lightPassRenderTarget.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kReflectionRadianceResourceName,
+                                                      [this]() { return m_reflectionRadiance.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kShadowMaskResourceName, [this]() { return m_shadowMask.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kReflectionRayHitResourceName,
                                                        [this]() { return m_reflectionRayHit.Get(); });
@@ -2693,14 +2748,17 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
 
     m_depthStencil.Reset();
     m_lightPassRenderTarget.Reset();
+    m_reflectionRadiance.Reset();
     m_shadowMask.Reset();
     m_reflectionRayHit.Reset();
     m_reflectionRayColor.Reset();
     m_reflectionRayMaterial.Reset();
     m_resourceRegistry.UnregisterTransientResource(kDepthStencilResourceName);
     m_resourceRegistry.UnregisterTransientResource(kLightPassRenderTargetResourceName);
+    m_resourceRegistry.UnregisterTransientResource(kReflectionRadianceResourceName);
     RegisterDepthStencil(m_width, m_height);
     RegisterLightPassRenderTarget(m_width, m_height);
+    RegisterReflectionRadiance(m_width, m_height);
     CreateGBuffer();
     CreateShadowMask(m_width, m_height);
     CreateReflectionRayHit(m_width, m_height);
@@ -2879,6 +2937,13 @@ void RtPbrSurveyEngine::BindCreatedTransientResource(const std::string& name, ID
         return;
     }
 
+    if (name == kReflectionRadianceResourceName)
+    {
+        m_reflectionRadiance = resource;
+        CreateReflectionRadianceDescriptors();
+        return;
+    }
+
     assert(false && "Unsupported resource in BindCreatedTransientResource()");
 }
 
@@ -2893,6 +2958,19 @@ void RtPbrSurveyEngine::CreateLightPassRenderTargetDescriptors()
     srvDesc.Texture2D.MipLevels = 1;
     m_graphicsDevice.Device()->CreateShaderResourceView(
         m_lightPassRenderTarget.Get(), &srvDesc, m_lightPassColorSrv.cpu);
+}
+
+void RtPbrSurveyEngine::CreateReflectionRadianceDescriptors()
+{
+    m_graphicsDevice.Device()->CreateRenderTargetView(m_reflectionRadiance.Get(), nullptr, GetReflectionRadianceRTV());
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Texture2D.MipLevels = 1;
+    m_graphicsDevice.Device()->CreateShaderResourceView(
+        m_reflectionRadiance.Get(), &srvDesc, m_reflectionRadianceSrv.cpu);
 }
 
 void RtPbrSurveyEngine::ReleaseResourcesAfterPass(int passIndex)
@@ -2927,6 +3005,11 @@ void RtPbrSurveyEngine::CollectGarbageTransientResources()
         if (name == kLightPassRenderTargetResourceName)
         {
             m_lightPassRenderTarget.Reset();
+        }
+
+        if (name == kReflectionRadianceResourceName)
+        {
+            m_reflectionRadiance.Reset();
         }
     }
 }
@@ -3191,6 +3274,12 @@ void RtPbrSurveyEngine::ExecuteLightingPass(const RenderPass& pass)
 {
     Engine::RecordLightingPass(m_commandList.Get());
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Lighting Pass");
+}
+
+void RtPbrSurveyEngine::ExecuteReflectionEvaluatePass(const RenderPass& pass)
+{
+    Engine::RecordReflectionEvaluatePass(m_commandList.Get());
+    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Reflection Evaluate Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteLightingDebugGradientPass(const RenderPass& pass)

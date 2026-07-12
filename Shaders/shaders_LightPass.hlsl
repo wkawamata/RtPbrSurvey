@@ -15,7 +15,7 @@ SamplerState g_sampler : register(s0);
 Texture2D<float> g_shadowMask : register(t0, space4);
 Texture2D<float4> g_reflectionRayHit : register(t0, space6);
 Texture2D<float4> g_reflectionRayColor : register(t0, space7);
-Texture2D<float4> g_reflectionRayMaterial : register(t0, space8);
+Texture2D<float4> g_reflectionRadiance : register(t0, space9);
 StructuredBuffer<Material> g_materialData : register(t0, space2);
 
 static const float PI = 3.14159265;
@@ -279,18 +279,16 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 iblSpecular =
         environmentSpecular * (specularFresnel * brdf.x + brdf.y) * iblIntensity * specularOcclusion * specularIblEnabled;
     float3 color = iblDiffuse + iblSpecular + directLighting + emissive * emissiveEnabled;
-    float4 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
-    // ReflectionRayColor is a provisional payload. It is currently hit material color, not reflected radiance.
-    float3 reflectionHitColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
     if (reflectionContributionEnabled > 0.5)
     {
-        float hitRoughness = saturate(g_reflectionRayMaterial.Sample(g_sampler, input.uv).y);
-        float distanceFade = saturate(1.0 - reflectionHit.x / max(reflectionContributionMaxDistance, 0.001));
-        float reflectionStrength = reflectionHit.y * distanceFade * (1.0 - hitRoughness) * reflectionContributionIntensity;
-        color += reflectionHitColor * specularFresnel * reflectionStrength;
+        float3 reflectionRadiance = g_reflectionRadiance.Sample(g_sampler, input.uv).rgb;
+        color += reflectionRadiance * specularFresnel;
     }
     if (reflectionHitOverlayEnabled > 0.5)
     {
+        float4 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
+        // ReflectionRayColor is a provisional payload. It is currently hit material color, not reflected radiance.
+        float3 reflectionHitColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
         float3 overlayColor = float3(0.0, 0.85, 1.0);
         if (reflectionHitOverlayMode > 3.5)
         {

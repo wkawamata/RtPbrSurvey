@@ -51,6 +51,10 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
             if (m_hybridReflectionSettings.enabled)
             {
                 AddPass(MakeHybridReflectionPass());
+                if (m_hybridReflectionSettings.contributionEnabled)
+                {
+                    AddPass(MakeReflectionEvaluatePass());
+                }
             }
             if (m_specularDebugRayQueryRequested)
             {
@@ -265,12 +269,14 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
     if (m_rayTracingSupport.IsSupported())
     {
         reads.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
-        if (m_hybridReflectionSettings.enabled &&
-            (m_hybridReflectionSettings.hitOverlayEnabled || m_hybridReflectionSettings.contributionEnabled))
+        if (m_hybridReflectionSettings.enabled && m_hybridReflectionSettings.contributionEnabled)
+        {
+            reads.push_back({kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        }
+        if (m_hybridReflectionSettings.enabled && m_hybridReflectionSettings.hitOverlayEnabled)
         {
             reads.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
             reads.push_back({kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
-            reads.push_back({kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
         }
     }
 
@@ -288,10 +294,29 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
         .Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayMaterial, Desc::ReflectionRayMaterialSrv)
+        .Descriptor(RootSignatureLayout::ReflectionRadiance, Desc::ReflectionRadianceSrv)
         .Rtv(RtvName::LightPass)
         .Operation(Op::Lighting, &RtPbrSurveyEngine::ExecuteLightingPass);
 
     return builder.Build();
+}
+
+auto RtPbrSurveyEngine::MakeReflectionEvaluatePass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"ReflectionEvaluatePass")
+        .Pipeline(Pipe::ReflectionEvaluate)
+        .Reads({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Writes({{kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
+        .Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv)
+        .Descriptor(RootSignatureLayout::ReflectionRayMaterial, Desc::ReflectionRayMaterialSrv)
+        .Descriptor(RootSignatureLayout::LightConstants, Desc::LightCbv)
+        .Rtv(RtvName::ReflectionRadiance)
+        .Operation(Op::ReflectionEvaluate, &RtPbrSurveyEngine::ExecuteReflectionEvaluatePass)
+        .Build();
 }
 
 auto RtPbrSurveyEngine::MakeLightingDebugGradientPass() -> RenderPass
