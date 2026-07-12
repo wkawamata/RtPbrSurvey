@@ -195,6 +195,8 @@ float3 LoadCommittedHitAlbedo(uint index0, uint index1, uint index2, float2 bary
     return SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb);
 }
 
+// ReflectionRayColor currently stores linear hit albedo, not fully shaded reflected radiance.
+
 uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
 {
     float bary0 = 1.0 - barycentric.x - barycentric.y;

@@ -279,6 +279,7 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         environmentSpecular * (specularFresnel * brdf.x + brdf.y) * iblIntensity * specularOcclusion * specularIblEnabled;
     float3 color = iblDiffuse + iblSpecular + directLighting + emissive * emissiveEnabled;
     float4 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
+    // ReflectionRayColor is a provisional payload. It is currently hit albedo, not shaded reflected radiance.
     float3 reflectionHitColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
     if (reflectionContributionEnabled > 0.5)
     {

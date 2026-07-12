@@ -54,6 +54,7 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
 
     if (debugTarget == 3)
     {
+        // Debug target 3 visualizes the current ReflectionRayColor payload: linear hit albedo.
         return float4(rayColor / (1.0 + rayColor), 1.0);
     }
 
