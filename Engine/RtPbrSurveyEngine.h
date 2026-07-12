@@ -200,6 +200,7 @@ public:
         int hitNormalSource = 0;
         bool contributionEnabled = false;
         float contributionIntensity = 0.25f;
+        float contributionMaxDistance = 20.0f;
     };
 
     struct SpecularDebugLineSettings
@@ -441,6 +442,7 @@ private:
         float reflectionHitOverlayMode = 0.0f;
         float reflectionContributionEnabled = 0.0f;
         float reflectionContributionIntensity = 0.25f;
+        float reflectionContributionMaxDistance = 20.0f;
     };
 
     LightingConstants MakeLightingConstants() const;

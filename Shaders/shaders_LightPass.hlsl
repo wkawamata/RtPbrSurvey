@@ -53,6 +53,7 @@ cbuffer LightingConstants : register(b2)
     float reflectionHitOverlayMode;
     float reflectionContributionEnabled;
     float reflectionContributionIntensity;
+    float reflectionContributionMaxDistance;
 };
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
@@ -281,7 +282,8 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 reflectionHitColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
     if (reflectionContributionEnabled > 0.5)
     {
-        float reflectionStrength = reflectionHit.y * (1.0 - roughness) * reflectionContributionIntensity;
+        float distanceFade = saturate(1.0 - reflectionHit.x / max(reflectionContributionMaxDistance, 0.001));
+        float reflectionStrength = reflectionHit.y * distanceFade * (1.0 - roughness) * reflectionContributionIntensity;
         color += reflectionHitColor * specularFresnel * reflectionStrength;
     }
     if (reflectionHitOverlayEnabled > 0.5)

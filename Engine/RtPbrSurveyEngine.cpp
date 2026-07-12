@@ -259,6 +259,7 @@ auto RtPbrSurveyEngine::MakeLightingConstants() const -> LightingConstants
             1.0f :
             0.0f,
         m_hybridReflectionSettings.contributionIntensity,
+        m_hybridReflectionSettings.contributionMaxDistance,
     };
 }
 

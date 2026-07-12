@@ -401,6 +401,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::BeginDisabled(!reflectionSettings.contributionEnabled);
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Contribution Intensity", &reflectionSettings.contributionIntensity, 0.0f, 2.0f, 0.05f, 0.25f);
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Contribution Max Distance", &reflectionSettings.contributionMaxDistance, 0.1f, 100.0f, 0.5f, 20.0f);
         ImGui::EndDisabled();
 
         changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
