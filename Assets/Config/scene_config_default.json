@@ -460,66 +460,69 @@
     },
     "Cornell Box + Mirror Ball": {
       "backBufferClearColor": [
-        0.1,
-        0.1,
-        0.1,
+        0.0,
+        0.20000000298023224,
+        0.4000000059604645,
         1.0
       ],
       "camera": {
-        "fov": 50.0,
+        "farZ": 10000.0,
+        "fov": 65.0,
         "mode": "freelook",
+        "nearZ": 0.10000000149011612,
         "position": [
-          0.0,
-          0.5,
-          -4.5
+          0.24646563827991486,
+          -0.3859568238258362,
+          4.118144989013672
         ],
         "rotation": [
-          0.1,
-          0.0,
+          -0.04614991694688797,
+          -3.1265928745269775,
           0.0
-        ]
+        ],
+        "speedMultiplier": 1.0
       },
       "displayInstanceCount": 1,
       "environment": {
-        "backgroundIntensity": 0.6,
+        "backgroundIntensity": 0.20000000298023224,
         "colorPanelIntensity": 1.5,
-        "fillIntensity": 0.12,
+        "fillIntensity": 0.029999999329447746,
         "groundColor": [
-          0.18,
-          0.17,
-          0.15
+          0.09000000357627869,
+          0.07500000298023224,
+          0.054999999701976776
         ],
-        "horizonSharpness": 0.08,
+        "horizonSharpness": 0.07999999821186066,
         "lightColor": [
           1.0,
-          0.96,
-          0.86
+          0.8199999928474426,
+          0.5199999809265137
         ],
         "lightDirection": [
-          0.35,
-          0.75,
-          0.25
+          0.2199999988079071,
+          0.7200000286102295,
+          0.6600000262260437
         ],
-        "lightIntensity": 6.0,
-        "lightSize": 0.12,
+        "lightIntensity": 32.0,
+        "lightSize": 0.03500000014901161,
         "skyColor": [
-          0.42,
-          0.56,
-          0.72
+          0.25,
+          0.4300000071525574,
+          0.75
         ],
-        "source": 0
+        "source": 2
       },
       "environmentAutoUpdate": true,
       "hybridReflection": {
-        "contributionEnabled": false,
+        "contributionEnabled": true,
         "contributionIntensity": 0.25,
         "enabled": true,
         "hitNormalSource": 0,
         "hitOverlayEnabled": false,
-        "hitOverlayIntensity": 0.2,
+        "hitOverlayIntensity": 0.20000000298023224,
         "hitOverlayMode": 0,
         "materialGateEnabled": false,
-        "maxRoughness": 0.35,
+        "maxRoughness": 0.3499999940395355,
         "minMetallic": 0.0
       },
       "iblEnabled": true,
@@ -530,8 +533,8 @@
         "directLightEnabled": true,
         "emissiveEnabled": true,
         "iblDebugExposure": 0.25,
-        "iblDebugMip": 0,
-        "iblIntensity": 0.1,
+        "iblDebugMip": 0.0,
+        "iblIntensity": 0.10000000149011612,
         "lightColor": [
           1.0,
           1.0,
@@ -548,17 +551,17 @@
         "specularIblEnabled": true
       },
       "lightingPassDebugGradient": false,
-      "meshScale": 0.5,
+      "meshScale": 1.0,
       "renderViewMode": 0,
       "renderingPath": 1,
       "selectedMaterialIndex": 0,
       "shadow": {
         "enabled": true,
         "jitterStrength": 2.0,
-        "lightAngularRadius": 0.1,
-        "normalBias": 0.01,
+        "lightAngularRadius": 0.10000000149011612,
+        "normalBias": 0.009999999776482582,
         "rayTMax": 10000.0,
-        "rayTMin": 0.001,
+        "rayTMin": 0.0010000000474974513,
         "sampleCount": 8,
         "softShadowEnabled": true
       },
