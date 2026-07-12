@@ -86,6 +86,7 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 - `Reflection Material Params` debug view visualizes `ReflectionRayMaterial` as `R = metallic`, `G = roughness`, `B = unlit flag`.
 - `Reflection Contribution` adds `ReflectionRayColor * Fresnel * (1 - hit roughness) * intensity` only on hit pixels, using hit roughness from `ReflectionRayMaterial.y`. Today `ReflectionRayColor` means hit material color, so this remains a provisional material-color composite rather than final reflected radiance.
 - `ReflectionEvaluatePass` writes the provisional contribution into `ReflectionRadiance`; LightPass samples that texture and applies the visible-surface Fresnel term. Direct hit-point lighting, IBL, and miss fallback should move into this pass incrementally.
+- `Reflection Radiance` debug view visualizes the current `ReflectionRadiance` texture with simple tone mapping.
 - `Reflection Contribution Max Distance` fades the provisional contribution by hit distance, reducing far-hit color bleeding while the reflection color is still approximate.
 - Material Gate is disabled by default: `maxRoughness = 1.0`, `minMetallic = 0.0`, preserving the initial "trace all visible pixels" behavior.
 - When `Material Gate` is enabled in the Debug UI, the pass uses `HybridReflectionSettings::maxRoughness` and `minMetallic`.

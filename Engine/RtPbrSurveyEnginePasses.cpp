@@ -51,7 +51,8 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
             if (m_hybridReflectionSettings.enabled)
             {
                 AddPass(MakeHybridReflectionPass());
-                if (m_hybridReflectionSettings.contributionEnabled)
+                if (m_hybridReflectionSettings.contributionEnabled ||
+                    m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance)
                 {
                     AddPass(MakeReflectionEvaluatePass());
                 }
@@ -81,6 +82,7 @@ void RtPbrSurveyEngine::AddDeferredSceneOutputPass()
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayNormal ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayColor ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayMaterial ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionContributionStrength))
     {
@@ -410,11 +412,13 @@ auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
         .Pipeline(Pipe::ReflectionRayHitDebug)
         .Reads({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                 {kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
-                {kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+                {kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
         .Writes({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ReflectionRayHitSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayMaterial, Desc::ReflectionRayMaterialSrv)
+        .Descriptor(RootSignatureLayout::ReflectionRadiance, Desc::ReflectionRadianceSrv)
         .Rtv(RtvName::LightPass)
         .Operation(Op::ReflectionRayHitDebug, &RtPbrSurveyEngine::ExecuteReflectionRayHitDebugPass)
         .Constants(RootSignatureLayout::GBufferDebugConstants, ConstName::ReflectionRayHitDebugTarget)
