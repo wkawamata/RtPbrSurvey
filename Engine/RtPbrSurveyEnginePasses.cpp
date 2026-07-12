@@ -265,10 +265,12 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
     if (m_rayTracingSupport.IsSupported())
     {
         reads.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
-        if (m_hybridReflectionSettings.enabled && m_hybridReflectionSettings.hitOverlayEnabled)
+        if (m_hybridReflectionSettings.enabled &&
+            (m_hybridReflectionSettings.hitOverlayEnabled || m_hybridReflectionSettings.contributionEnabled))
         {
             reads.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
             reads.push_back({kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+            reads.push_back({kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
         }
     }
 
@@ -285,6 +287,7 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ShadowMaskSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv)
+        .Descriptor(RootSignatureLayout::ReflectionRayMaterial, Desc::ReflectionRayMaterialSrv)
         .Rtv(RtvName::LightPass)
         .Operation(Op::Lighting, &RtPbrSurveyEngine::ExecuteLightingPass);
 

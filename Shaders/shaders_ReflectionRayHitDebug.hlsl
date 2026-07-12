@@ -69,7 +69,7 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     if (debugTarget == 5)
     {
         float distanceFade = saturate(1.0 - hitDistance / max(contributionMaxDistance, 0.001));
-        float contributionStrength = hitFlag * distanceFade * contributionIntensity;
+        float contributionStrength = hitFlag * distanceFade * (1.0 - saturate(rayMaterial.y)) * contributionIntensity;
         return float4(contributionStrength.xxx, 1.0);
     }
 
