@@ -10,7 +10,6 @@ ByteAddressBuffer g_sceneVertices : register(t4);
 ByteAddressBuffer g_sceneIndices : register(t5);
 ByteAddressBuffer g_instanceData : register(t6);
 StructuredBuffer<Material> g_materialData : register(t7);
-TextureCube<float4> g_diffuseIrradianceMap : register(t1, space5);
 Texture2D g_texture[] : register(t0, space8);
 SamplerState g_sampler : register(s0);
 
@@ -34,12 +33,6 @@ cbuffer ReflectionConstants : register(b1)
     uint vertexCount;
     uint indexCount;
     uint hitNormalSource;
-    float3 lightDirection;
-    uint directLightEnabled;
-    float3 lightColor;
-    float diffuseIntensity;
-    float iblIntensity;
-    uint diffuseIblEnabled;
 };
 
 static const uint kSceneVertexStride = 52;
@@ -50,7 +43,6 @@ static const uint kSceneVertexMaterialIdOffset = 48;
 static const uint kInstanceDataStride = 144;
 static const uint kInstanceDataMaterialIdOffset = 128;
 static const uint kMaterialFromInstance = 0xffffffff;
-static const float PI = 3.14159265;
 
 struct HitMaterialSample
 {
@@ -221,18 +213,9 @@ HitMaterialSample LoadCommittedHitMaterialSample(uint index0, uint index1, uint 
     return result;
 }
 
-float3 ComputeSimpleHitDirectColor(HitMaterialSample hitMaterial, float3 hitNormal)
+float3 ComputeHitMaterialColor(HitMaterialSample hitMaterial)
 {
-    float ndotl = saturate(dot(normalize(hitNormal), normalize(lightDirection)));
-    float diffuseWeight = 1.0 - hitMaterial.metallic;
-    float receiveLighting = (hitMaterial.flags & MaterialFlagUnlit) ? 0.0 : 1.0;
-    float3 diffuseBrdf = hitMaterial.albedo * diffuseWeight / PI;
-    float3 directDiffuse = diffuseBrdf * lightColor * diffuseIntensity * ndotl *
-                           receiveLighting * (directLightEnabled != 0 ? 1.0 : 0.0);
-    float3 irradiance = g_diffuseIrradianceMap.SampleLevel(g_sampler, normalize(hitNormal), 0).rgb;
-    float3 iblDiffuse =
-        irradiance * diffuseBrdf * iblIntensity * receiveLighting * (diffuseIblEnabled != 0 ? 1.0 : 0.0);
-    return directDiffuse + iblDiffuse + hitMaterial.emissive;
+    return hitMaterial.albedo + hitMaterial.emissive;
 }
 
 uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
@@ -374,7 +357,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
                                                   instanceId);
         HitMaterialSample hitMaterial = LoadCommittedHitMaterialSample(index0, index1, index2, barycentric, instanceId);
         g_reflectionRayHit[pixel] = float4(query.CommittedRayT(), 1.0, EncodeNormalOctahedron(hitNormal));
-        g_reflectionRayColor[pixel] = float4(ComputeSimpleHitDirectColor(hitMaterial, hitNormal), 1.0);
+        g_reflectionRayColor[pixel] = float4(ComputeHitMaterialColor(hitMaterial), 1.0);
     }
     else
     {

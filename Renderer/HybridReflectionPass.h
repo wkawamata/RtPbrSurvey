@@ -1,8 +1,6 @@
 #pragma once
 
 #include <d3d12.h>
-#include <DirectXMath.h>
-
 namespace Engine
 {
 
@@ -19,7 +17,6 @@ struct HybridReflectionPassDesc
     D3D12_GPU_DESCRIPTOR_HANDLE cameraCbv = {};
     D3D12_GPU_DESCRIPTOR_HANDLE materialBufferSrv = {};
     D3D12_GPU_DESCRIPTOR_HANDLE textureTableSrv = {};
-    D3D12_GPU_DESCRIPTOR_HANDLE environmentMapSrv = {};
     float normalBias = 0.01f;
     float rayTMin = 0.001f;
     float rayTMax = 10000.0f;
@@ -32,12 +29,6 @@ struct HybridReflectionPassDesc
     UINT vertexCount = 0;
     UINT indexCount = 0;
     UINT hitNormalSource = 0;
-    DirectX::XMFLOAT3 lightDirection = {0.0f, 1.0f, -1.0f};
-    UINT directLightEnabled = 1;
-    DirectX::XMFLOAT3 lightColor = {1.0f, 1.0f, 1.0f};
-    float diffuseIntensity = 1.0f;
-    float iblIntensity = 0.1f;
-    UINT diffuseIblEnabled = 1;
     UINT width = 0;
     UINT height = 0;
 };
