@@ -146,6 +146,39 @@ struct SimpleDescriptorHeapAllocator
         }
     }
 
+    UINT LargestContiguousFreeRange() const
+    {
+        if (FreeIndices.empty())
+        {
+            return 0;
+        }
+
+        std::vector<UINT> sortedFree = FreeIndices;
+        std::sort(sortedFree.begin(), sortedFree.end());
+
+        UINT largestRun = 1;
+        UINT runLen = 1;
+        for (size_t i = 1; i < sortedFree.size(); ++i)
+        {
+            if (sortedFree[i] == sortedFree[i - 1] + 1)
+            {
+                ++runLen;
+                largestRun = (std::max)(largestRun, runLen);
+            }
+            else
+            {
+                runLen = 1;
+            }
+        }
+
+        return largestRun;
+    }
+
+    bool CanAllocContiguous(UINT count) const
+    {
+        return count > 0 && LargestContiguousFreeRange() >= count;
+    }
+
     // Find and allocate a contiguous block of descriptor indices.
     // Scans sorted free indices in O(F log F + F + count * F) instead of
     // the naive O(Capacity * count * F).

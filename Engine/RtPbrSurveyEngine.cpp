@@ -781,6 +781,17 @@ std::vector<DescriptorHeapHandle> RtPbrSurveyEngine::CreateEnvironmentDescriptor
 
 auto RtPbrSurveyEngine::AllocateEnvironmentDescriptorTable() -> EnvironmentDescriptorTable
 {
+    CollectDeferredGpuReleases();
+    if (!m_descriptorHeapAllocator.CanAllocContiguous(kEnvironmentDescriptorTableSize))
+    {
+        WaitForGpu();
+        CollectDeferredGpuReleases();
+    }
+    if (!m_descriptorHeapAllocator.CanAllocContiguous(kEnvironmentDescriptorTableSize))
+    {
+        ThrowIfFailed(E_OUTOFMEMORY);
+    }
+
     EnvironmentDescriptorTable table = {};
     table.environment = m_descriptorHeapAllocator.AllocContiguous(kEnvironmentDescriptorTableSize);
     table.diffuseIrradiance = m_descriptorHeapAllocator.HandleFromIndex(table.environment.Index + 1);
