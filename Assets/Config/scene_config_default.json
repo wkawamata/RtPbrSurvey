@@ -1153,19 +1153,21 @@
         1.0
       ],
       "camera": {
+        "farZ": 1000.0,
         "fov": 53.5,
         "mode": "freelook",
+        "nearZ": 0.0010000000474974513,
         "position": [
-          0.10670893639326096,
-          -0.09480565041303635,
-          -0.0009475195547565818
+          0.21662721037864685,
+          -0.09810513257980347,
+          0.0017134296940639615
         ],
         "rotation": [
           -0.029999997466802597,
           -1.595000147819519,
           0.0
         ],
-        "speedMultiplier": 0.10000000149011612
+        "speedMultiplier": 1.0
       },
       "displayInstanceCount": 1,
       "environment": {
@@ -1226,9 +1228,9 @@
           1.0
         ],
         "lightDirection": [
-          0.26100000739097595,
-          1.0,
-          0.06300000101327896
+          0.30399999022483826,
+          0.5320000052452087,
+          0.020999999716877937
         ],
         "skyboxEnabled": true,
         "skyboxPreview": false,
@@ -1252,7 +1254,7 @@
       },
       "specularDebugLines": {
         "enabled": true,
-        "lineLength": 0.20000000298023224,
+        "lineLength": 1.0,
         "showNormal": true,
         "showReflection": true,
         "showViewRay": true

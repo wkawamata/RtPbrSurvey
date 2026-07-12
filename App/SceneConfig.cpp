@@ -53,6 +53,8 @@ static json CameraToJson(const SceneCameraConfig& c)
     }
     j["fov"] = c.fov;
     j["speedMultiplier"] = c.speedMultiplier;
+    j["nearZ"] = c.nearZ;
+    j["farZ"] = c.farZ;
     return j;
 }
 
@@ -62,6 +64,8 @@ static SceneCameraConfig CameraFromJson(const json& j)
     c.mode = j.value("mode", "freelook");
     c.fov = j.value("fov", 60.0f);
     c.speedMultiplier = j.value("speedMultiplier", 1.0f);
+    c.nearZ = j.value("nearZ", 0.1f);
+    c.farZ = j.value("farZ", 10000.0f);
     if (c.mode == "arcball")
     {
         c.yaw = j.value("yaw", 0.0f);
@@ -464,6 +468,8 @@ SceneConfig SceneConfigManager::CaptureFromApp(
     }
 
     cfg.camera.speedMultiplier = app.m_cameraSpeedMultiplier;
+    cfg.camera.nearZ = camera.nearZ;
+    cfg.camera.farZ = camera.farZ;
 
     cfg.meshScale = app.m_meshScale;
     cfg.displayInstanceCount = scene.DisplayInstanceCount();
@@ -585,6 +591,8 @@ void SceneConfigManager::ApplyToEngine(
 {
     auto& camera = app.LoadedScene().GetScene().camera;
     camera.fov = cfg.camera.fov;
+    camera.nearZ = cfg.camera.nearZ;
+    camera.farZ = cfg.camera.farZ;
     app.m_cameraSpeedMultiplier = cfg.camera.speedMultiplier;
 
     // Camera mode

@@ -164,6 +164,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 ImGui::SameLine();
             }
             ImGui::NewLine();
+            ImGuiWidgets::SliderFloatWithControls("NearZ", &loadedScene.GetScene().camera.nearZ, 0.01f, 10.0f, 0.01f, 0.1f);
+            ImGuiWidgets::SliderFloatWithControls("FarZ", &loadedScene.GetScene().camera.farZ, 10.0f, 100000.0f, 100.0f, 10000.0f);
         }
     }
     if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
