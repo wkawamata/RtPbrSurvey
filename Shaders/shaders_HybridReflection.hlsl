@@ -47,6 +47,7 @@ static const uint kSceneVertexMaterialIdOffset = 48;
 static const uint kInstanceDataStride = 144;
 static const uint kInstanceDataMaterialIdOffset = 128;
 static const uint kMaterialFromInstance = 0xffffffff;
+static const float PI = 3.14159265;
 static const float kSimpleHitAmbientIntensity = 0.04;
 
 struct HitMaterialSample
@@ -223,9 +224,10 @@ float3 ComputeSimpleHitDirectColor(HitMaterialSample hitMaterial, float3 hitNorm
     float ndotl = saturate(dot(normalize(hitNormal), normalize(lightDirection)));
     float diffuseWeight = 1.0 - hitMaterial.metallic;
     float receiveLighting = (hitMaterial.flags & MaterialFlagUnlit) ? 0.0 : 1.0;
-    float3 directDiffuse = hitMaterial.albedo * diffuseWeight * lightColor * diffuseIntensity * ndotl *
+    float3 diffuseBrdf = hitMaterial.albedo * diffuseWeight / PI;
+    float3 directDiffuse = diffuseBrdf * lightColor * diffuseIntensity * ndotl *
                            receiveLighting * (directLightEnabled != 0 ? 1.0 : 0.0);
-    float3 ambientDiffuse = hitMaterial.albedo * diffuseWeight * kSimpleHitAmbientIntensity * receiveLighting;
+    float3 ambientDiffuse = diffuseBrdf * kSimpleHitAmbientIntensity * receiveLighting;
     return directDiffuse + ambientDiffuse + hitMaterial.emissive;
 }
 

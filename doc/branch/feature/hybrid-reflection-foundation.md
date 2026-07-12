@@ -4,7 +4,7 @@
 
 Recommendation for the shape of a full-screen HybridReflectionPass using RayQuery inline raytracing to compute specular reflections from the GBuffer.
 
-Current implementation status: HybridReflectionPass scaffold is wired into the render graph and writes `ReflectionRayHit` as `.x = hit distance`, `.y = hit flag`, `.z/.w = oct-encoded hit attribute`. It also writes `ReflectionRayColor.rgb` with a simple hit-surface color: emissive plus direct diffuse from linear hit albedo, `(1 - hit metallic)`, `NdotL`, `lightColor`, and `diffuseIntensity`, with a small fixed ambient diffuse floor. This is a provisional payload, not fully shaded reflected radiance.
+Current implementation status: HybridReflectionPass scaffold is wired into the render graph and writes `ReflectionRayHit` as `.x = hit distance`, `.y = hit flag`, `.z/.w = oct-encoded hit attribute`. It also writes `ReflectionRayColor.rgb` with a simple hit-surface color: emissive plus Lambert direct diffuse from linear hit albedo, `(1 - hit metallic)`, `NdotL`, `lightColor`, and `diffuseIntensity`, with a small fixed ambient diffuse floor. This is a provisional payload, not fully shaded reflected radiance.
 
 ## Existing Pass Survey
 
@@ -63,7 +63,7 @@ Same pattern as `CreateRayQueryShadowRootSignature` + `D3D12_COMPUTE_PIPELINE_ST
 **Current format: hit/miss + hit distance + hit normal**:
 
 - `RWTexture2D<float4>` -- .x = hit distance (0 on miss), .y = hit flag (1.0 hit, 0.0 miss), .z/.w = oct-encoded hit normal.
-- `RWTexture2D<float4>` color -- simple hit-surface color from emissive, a small fixed ambient diffuse floor, and direct-lit linear hit albedo, hit metallic, hit normal, and current direct light settings. This is not yet full hit-surface lighting or reflected radiance.
+- `RWTexture2D<float4>` color -- simple hit-surface color from emissive, a small fixed ambient diffuse floor, and Lambert direct-lit linear hit albedo, hit metallic, hit normal, and current direct light settings. This is not yet full hit-surface lighting or reflected radiance.
 - Rationale: `q.CommittedRayT()` is free to capture, enables temporal denoising (distance-based confidence), and aids debugging.
 - Current scaffold uses `ReflectionRayHit` with `DXGI_FORMAT_R16G16B16A16_FLOAT`.
 - Hit position can be reconstructed in LightPass as `worldPos + reflectionDir * hitDistance`.
