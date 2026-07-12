@@ -542,6 +542,14 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         {
             app.m_renderViewMode = RenderViewMode::LightPass;
         }
+        if (app.m_renderViewMode == RenderViewMode::ReflectionRadiance)
+        {
+            ImGui::Separator();
+            ImGui::TextWrapped("ReflectionRadiance は LightPass に渡す前の反射 radiance buffer です。");
+            ImGui::TextWrapped("最終反射色ではなく、ReflectionEvaluatePass の出力を表示します。");
+            ImGui::TextWrapped("現時点では hit material color に distance fade と hit roughness 減衰を掛けた暫定値です。");
+            ImGui::TextWrapped("LightPass 側では、この値に表示面 Fresnel を掛けて加算します。");
+        }
         const bool iblDebugView = app.m_renderViewMode == RenderViewMode::IblEnvironment ||
             app.m_renderViewMode == RenderViewMode::IblDiffuseIrradiance ||
             app.m_renderViewMode == RenderViewMode::IblSpecularPrefilter;
