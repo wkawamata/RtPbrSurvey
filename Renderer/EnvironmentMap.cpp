@@ -718,7 +718,7 @@ bool CreateCubeFromHdrImage(ID3D12Device* device,
     commandList->ResourceBarrier(1,
                                  &CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(),
                                                                        D3D12_RESOURCE_STATE_COPY_DEST,
-                                                                       D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+                                                                       D3D12_RESOURCE_STATE_GENERIC_READ));
     srv = AllocateTextureCubeSRV(device, descriptorHeapAllocator, resource.Get());
     return true;
 }
@@ -789,7 +789,7 @@ bool CreateCubeFromProceduralEnvironment(ID3D12Device* device,
     commandList->ResourceBarrier(1,
                                  &CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(),
                                                                        D3D12_RESOURCE_STATE_COPY_DEST,
-                                                                       D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+                                                                       D3D12_RESOURCE_STATE_GENERIC_READ));
     srv = AllocateTextureCubeSRV(device, descriptorHeapAllocator, resource.Get());
     return true;
 }
@@ -867,7 +867,7 @@ bool CreateSpecularPrefilterCubeFromHdrImage(ID3D12Device* device,
     commandList->ResourceBarrier(1,
                                  &CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(),
                                                                        D3D12_RESOURCE_STATE_COPY_DEST,
-                                                                       D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+                                                                       D3D12_RESOURCE_STATE_GENERIC_READ));
     srv = AllocateTextureCubeSRV(device, descriptorHeapAllocator, resource.Get());
     return true;
 }
@@ -945,7 +945,7 @@ bool CreateSpecularPrefilterCubeFromProceduralEnvironment(ID3D12Device* device,
     commandList->ResourceBarrier(1,
                                  &CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(),
                                                                        D3D12_RESOURCE_STATE_COPY_DEST,
-                                                                       D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+                                                                       D3D12_RESOURCE_STATE_GENERIC_READ));
     srv = AllocateTextureCubeSRV(device, descriptorHeapAllocator, resource.Get());
     return true;
 }
@@ -1165,7 +1165,7 @@ bool EnvironmentMap::TryCreateFromDds(ID3D12Device* device,
     commandList->ResourceBarrier(1,
                                  &CD3DX12_RESOURCE_BARRIER::Transition(m_resource.Get(),
                                                                        D3D12_RESOURCE_STATE_COPY_DEST,
-                                                                       D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+                                                                       D3D12_RESOURCE_STATE_GENERIC_READ));
     m_srv = AllocateTextureCubeSRV(device, descriptorHeapAllocator, m_resource.Get());
     DBG_PRINT("Loaded environment DDS: %ls\n", ddsPath);
     return true;

@@ -24,6 +24,8 @@ struct HybridReflectionShaderConstants
     UINT directLightEnabled;
     DirectX::XMFLOAT3 lightColor;
     float diffuseIntensity;
+    float iblIntensity;
+    UINT diffuseIblEnabled;
 };
 
 } // namespace
@@ -46,6 +48,7 @@ void RecordHybridReflectionPass(ID3D12GraphicsCommandList* commandList, const Hy
     commandList->SetComputeRootShaderResourceView(9, desc.instanceBufferSrv);
     commandList->SetComputeRootDescriptorTable(10, desc.materialBufferSrv);
     commandList->SetComputeRootDescriptorTable(11, desc.textureTableSrv);
+    commandList->SetComputeRootDescriptorTable(13, desc.environmentMapSrv);
 
     const HybridReflectionShaderConstants constants = {
         desc.normalBias,
@@ -60,8 +63,10 @@ void RecordHybridReflectionPass(ID3D12GraphicsCommandList* commandList, const Hy
         desc.lightDirection,
         desc.directLightEnabled,
         desc.lightColor,
-        desc.diffuseIntensity};
-    commandList->SetComputeRoot32BitConstants(12, 17, &constants, 0);
+        desc.diffuseIntensity,
+        desc.iblIntensity,
+        desc.diffuseIblEnabled};
+    commandList->SetComputeRoot32BitConstants(12, 19, &constants, 0);
 
     constexpr UINT kThreadGroupSize = 8;
     const UINT dispatchX = (desc.width + kThreadGroupSize - 1) / kThreadGroupSize;

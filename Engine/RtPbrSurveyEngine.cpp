@@ -1034,13 +1034,13 @@ void RtPbrSurveyEngine::CreateEnvironmentMapResourcesGpu(ComPtr<ID3D12Resource>&
         CD3DX12_RESOURCE_BARRIER barriers[] = {
             CD3DX12_RESOURCE_BARRIER::Transition(environmentMap.Get(),
                                                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                                                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE),
+                                                 D3D12_RESOURCE_STATE_GENERIC_READ),
             CD3DX12_RESOURCE_BARRIER::Transition(diffuseIrradianceMap.Get(),
                                                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                                                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE),
+                                                 D3D12_RESOURCE_STATE_GENERIC_READ),
             CD3DX12_RESOURCE_BARRIER::Transition(specularPrefilterMap.Get(),
                                                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                                                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE),
+                                                 D3D12_RESOURCE_STATE_GENERIC_READ),
         };
         commandList->ResourceBarrier(_countof(barriers), barriers);
     }
@@ -1189,7 +1189,15 @@ void RtPbrSurveyEngine::CreateHybridReflectionRootSignature()
                          D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE |
                              D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[13] = {};
+    CD3DX12_DESCRIPTOR_RANGE1 environmentMapSrvRange = {};
+    environmentMapSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+                                4,
+                                0,
+                                RootSignatureLayout::kEnvironmentMapSrvSpace,
+                                D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE |
+                                    D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+
+    CD3DX12_ROOT_PARAMETER1 rootParameters[14] = {};
     rootParameters[0].InitAsDescriptorTable(1, &uavRange);          // g_reflectionRayHit (u0)
     rootParameters[1].InitAsDescriptorTable(1, &colorUavRange);     // g_reflectionRayColor (u1)
     rootParameters[2].InitAsDescriptorTable(1, &tlasSrvRange);      // g_tlas (t0)
@@ -1202,7 +1210,8 @@ void RtPbrSurveyEngine::CreateHybridReflectionRootSignature()
     rootParameters[9].InitAsShaderResourceView(6, 0);               // g_instanceData (t6)
     rootParameters[10].InitAsDescriptorTable(1, &materialSrvRange); // g_materialData (t7)
     rootParameters[11].InitAsDescriptorTable(1, &textureSrvRange);  // g_texture[] (t0, space8)
-    rootParameters[12].InitAsConstants(17, 1, 0);                   // ReflectionConstants (b1)
+    rootParameters[12].InitAsConstants(19, 1, 0);                   // ReflectionConstants (b1)
+    rootParameters[13].InitAsDescriptorTable(1, &environmentMapSrvRange); // Environment maps (t0-t3, space5)
 
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
     featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
@@ -2986,6 +2995,7 @@ void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     passDesc.cameraCbv = m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu;
     passDesc.materialBufferSrv = m_materialBuffer.Srv().gpu;
     passDesc.textureTableSrv = m_textureTableStart.gpu;
+    passDesc.environmentMapSrv = m_environmentMap.Srv().gpu;
     passDesc.normalBias = m_shadowSettings.normalBias;
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
@@ -3002,6 +3012,8 @@ void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     passDesc.directLightEnabled = m_lightingParams.directLightEnabled ? 1u : 0u;
     passDesc.lightColor = m_lightingParams.lightColor;
     passDesc.diffuseIntensity = m_lightingParams.diffuseIntensity;
+    passDesc.iblIntensity = m_lightingParams.iblIntensity;
+    passDesc.diffuseIblEnabled = m_lightingParams.diffuseIblEnabled ? 1u : 0u;
     if (m_hybridReflectionSettings.materialGateEnabled)
     {
         passDesc.maxRoughness = m_hybridReflectionSettings.maxRoughness;

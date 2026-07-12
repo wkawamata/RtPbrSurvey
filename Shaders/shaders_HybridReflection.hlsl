@@ -10,6 +10,7 @@ ByteAddressBuffer g_sceneVertices : register(t4);
 ByteAddressBuffer g_sceneIndices : register(t5);
 ByteAddressBuffer g_instanceData : register(t6);
 StructuredBuffer<Material> g_materialData : register(t7);
+TextureCube<float4> g_diffuseIrradianceMap : register(t1, space5);
 Texture2D g_texture[] : register(t0, space8);
 SamplerState g_sampler : register(s0);
 
@@ -37,6 +38,8 @@ cbuffer ReflectionConstants : register(b1)
     uint directLightEnabled;
     float3 lightColor;
     float diffuseIntensity;
+    float iblIntensity;
+    uint diffuseIblEnabled;
 };
 
 static const uint kSceneVertexStride = 52;
@@ -48,7 +51,6 @@ static const uint kInstanceDataStride = 144;
 static const uint kInstanceDataMaterialIdOffset = 128;
 static const uint kMaterialFromInstance = 0xffffffff;
 static const float PI = 3.14159265;
-static const float kSimpleHitAmbientIntensity = 0.04;
 
 struct HitMaterialSample
 {
@@ -227,8 +229,10 @@ float3 ComputeSimpleHitDirectColor(HitMaterialSample hitMaterial, float3 hitNorm
     float3 diffuseBrdf = hitMaterial.albedo * diffuseWeight / PI;
     float3 directDiffuse = diffuseBrdf * lightColor * diffuseIntensity * ndotl *
                            receiveLighting * (directLightEnabled != 0 ? 1.0 : 0.0);
-    float3 ambientDiffuse = diffuseBrdf * kSimpleHitAmbientIntensity * receiveLighting;
-    return directDiffuse + ambientDiffuse + hitMaterial.emissive;
+    float3 irradiance = g_diffuseIrradianceMap.SampleLevel(g_sampler, normalize(hitNormal), 0).rgb;
+    float3 iblDiffuse =
+        irradiance * diffuseBrdf * iblIntensity * receiveLighting * (diffuseIblEnabled != 0 ? 1.0 : 0.0);
+    return directDiffuse + iblDiffuse + hitMaterial.emissive;
 }
 
 uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)

@@ -4,7 +4,7 @@
 
 Recommendation for the shape of a full-screen HybridReflectionPass using RayQuery inline raytracing to compute specular reflections from the GBuffer.
 
-Current implementation status: HybridReflectionPass scaffold is wired into the render graph and writes `ReflectionRayHit` as `.x = hit distance`, `.y = hit flag`, `.z/.w = oct-encoded hit attribute`. It also writes `ReflectionRayColor.rgb` with a simple hit-surface color: emissive plus Lambert direct diffuse from linear hit albedo, `(1 - hit metallic)`, `NdotL`, `lightColor`, and `diffuseIntensity`, with a small fixed ambient diffuse floor. This is a provisional payload, not fully shaded reflected radiance.
+Current implementation status: HybridReflectionPass scaffold is wired into the render graph and writes `ReflectionRayHit` as `.x = hit distance`, `.y = hit flag`, `.z/.w = oct-encoded hit attribute`. It also writes `ReflectionRayColor.rgb` with a simple hit-surface color: emissive plus Lambert direct diffuse and diffuse IBL from linear hit albedo, `(1 - hit metallic)`, hit normal, and current lighting settings. This is a provisional payload, not fully shaded reflected radiance.
 
 ## Existing Pass Survey
 
@@ -51,8 +51,9 @@ Follow RayQueryShadowPass's descriptor-table approach (identical pattern):
 | 10    | SRV table     | t7       | Material buffer                  |
 | 11    | SRV table     | t0 s8    | Texture table                    |
 | 12    | 32-bit consts | b1       | Reflection constants (see below) |
+| 13    | SRV table     | t0 s5    | Environment table                |
 
-Constants (b1): normalBias, rayTMin, rayTMax, maxRoughness, minMetallic, usesIndexedDraw, vertexCount, indexCount, hitNormalSource, lightDirection, directLightEnabled, lightColor, diffuseIntensity.
+Constants (b1): normalBias, rayTMin, rayTMax, maxRoughness, minMetallic, usesIndexedDraw, vertexCount, indexCount, hitNormalSource, lightDirection, directLightEnabled, lightColor, diffuseIntensity, iblIntensity, diffuseIblEnabled.
 
 ## PSO Creation
 
@@ -63,7 +64,7 @@ Same pattern as `CreateRayQueryShadowRootSignature` + `D3D12_COMPUTE_PIPELINE_ST
 **Current format: hit/miss + hit distance + hit normal**:
 
 - `RWTexture2D<float4>` -- .x = hit distance (0 on miss), .y = hit flag (1.0 hit, 0.0 miss), .z/.w = oct-encoded hit normal.
-- `RWTexture2D<float4>` color -- simple hit-surface color from emissive, a small fixed ambient diffuse floor, and Lambert direct-lit linear hit albedo, hit metallic, hit normal, and current direct light settings. This is not yet full hit-surface lighting or reflected radiance.
+- `RWTexture2D<float4>` color -- simple hit-surface color from emissive, Lambert direct diffuse, and diffuse IBL using linear hit albedo, hit metallic, hit normal, and current lighting settings. This is not yet full hit-surface lighting or reflected radiance.
 - Rationale: `q.CommittedRayT()` is free to capture, enables temporal denoising (distance-based confidence), and aids debugging.
 - Current scaffold uses `ReflectionRayHit` with `DXGI_FORMAT_R16G16B16A16_FLOAT`.
 - Hit position can be reconstructed in LightPass as `worldPos + reflectionDir * hitDistance`.
@@ -98,6 +99,7 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 - 3 root SRVs: scene vertex/index/instance buffers for committed hit normal and materialId reconstruction
 - 1 SRV: material buffer for hit material parameter debug
 - 1 SRV table: scene texture table for hit albedo texture debug
+- 1 SRV table: environment map table for hit diffuse irradiance sampling
 - 1 SRV: ReflectionRayColor for LightPass hit-color overlay and future reflection contribution
 
 ## Resource States
