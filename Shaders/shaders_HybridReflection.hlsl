@@ -51,8 +51,10 @@ static const uint kMaterialFromInstance = 0xffffffff;
 struct HitMaterialSample
 {
     float3 albedo;
+    float3 emissive;
     float metallic;
     float roughness;
+    uint flags;
 };
 
 float3 LoadSceneVertexPosition(uint vertexIndex)
@@ -207,8 +209,11 @@ HitMaterialSample LoadCommittedHitMaterialSample(uint index0, uint index1, uint 
 
     HitMaterialSample result;
     result.albedo = SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb);
+    result.emissive =
+        SrgbToLinear(g_texture[material.emissiveTexIndex].SampleLevel(g_sampler, uv, 0).rgb) * material.emissiveScale;
     result.metallic = saturate(metallicRoughness.b * material.metallicFactor);
     result.roughness = saturate(metallicRoughness.g * material.roughnessFactor);
+    result.flags = material.flags;
     return result;
 }
 
@@ -216,7 +221,10 @@ float3 ComputeSimpleHitDirectColor(HitMaterialSample hitMaterial, float3 hitNorm
 {
     float ndotl = saturate(dot(normalize(hitNormal), normalize(lightDirection)));
     float diffuseWeight = 1.0 - hitMaterial.metallic;
-    return hitMaterial.albedo * diffuseWeight * lightColor * diffuseIntensity * ndotl * (directLightEnabled != 0 ? 1.0 : 0.0);
+    float receiveLighting = (hitMaterial.flags & MaterialFlagUnlit) ? 0.0 : 1.0;
+    float3 directDiffuse = hitMaterial.albedo * diffuseWeight * lightColor * diffuseIntensity * ndotl *
+                           receiveLighting * (directLightEnabled != 0 ? 1.0 : 0.0);
+    return directDiffuse + hitMaterial.emissive;
 }
 
 uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
