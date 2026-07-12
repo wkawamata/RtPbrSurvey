@@ -469,3 +469,63 @@ User config files saved by Step 4 only contain camera + scene-params fields. Loa
 ### Step 5 review fix
 
 iblDebugMip and iblDebugExposure are included in lighting config serialization, capture, apply, and default scene config entries.
+
+## Step 6: Scene Config UI Polish + Validation (done)
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `App/SceneConfig.h` | Added `UserConfigPath()` const accessor for UI display |
+| `App/DebugUi.cpp` | Scene Config panel: show source (Code defaults / Default config / User config), show user config path, status message after Save/Load/Reset (auto-clears after 2s), reset confirmation popup sets status, cleaned up button layout |
+
+### UI layout (after)
+
+```
+[>] Scene Config
+    Source: User config
+    Path: C:\Users\...\AppData\Roaming\RtPbrSurvey\scene_config.json
+    [Save Current] [Load Defaults]
+    [Reset Current Scene] [Reset All Scenes]
+    >> Saved.                     (auto-clears)
+```
+
+### Source labels
+
+| ConfigSource | Label |
+|--------------|-------|
+| CodeDefaults | "Code defaults" |
+| DefaultFile  | "Default config" |
+| UserFile     | "User config" |
+
+### Status messages
+
+| Action | Status message | Duration |
+|--------|---------------|----------|
+| Save Current | `>> Saved.` | ~2s (120 frames) |
+| Load Defaults | `>> Loaded defaults.` | ~2s |
+| Reset Current Scene | `>> Reset current scene.` | ~2s |
+| Reset All Scenes (OK) | `>> Reset all scenes.` | ~2s |
+
+Status is tracked via static variables in `DrawDebugUi()` (no SceneConfigManager changes needed for status).
+
+### Validation
+
+- Build: 0 errors, 0 D3D12 debug layer errors.
+- Defaults JSON validated (102998 bytes, valid JSON, 11 scenes with all fields).
+- App launches with `-AutoSelectGltfDamagedHelmet` without crash.
+- Saved fields verified by code review: camera, meshScale, displayInstanceCount, selectedMaterialIndex, isPlaying, renderingPath, renderViewMode, lightingPassDebugGradient, backBufferClearColor, iblEnabled, environmentAutoUpdate, lighting (all), environment (all), toneMap, shadow, hybridReflection, specularDebugLines.
+- Manual validation steps (user):
+  1. Launch app, open DamagedHelmet.
+  2. Change lighting/environment/tone settings via UI panels.
+  3. Click "Save Current" in Scene Config panel -> status shows ">> Saved.".
+  4. Switch to another scene (e.g., Cornell Box), switch back -> settings restored.
+  5. Click "Load Defaults" -> settings reset to defaults file values.
+  6. Click "Reset Current Scene" -> scene entry removed from user config, defaults applied.
+  7. Click "Reset All Scenes" -> confirm popup, OK -> all entries removed, defaults applied.
+  8. Check `%APPDATA%\RtPbrSurvey\scene_config.json` for saved data.
+
+### Known limitations
+
+- Automated GUI shutdown for file write validation not achieved (WM_CLOSE via EnumWindows sent but process requires force-kill; `OnDestroy` save path verified by code review).
+- Status text uses static locals (not per-instance); fine for single-app usage.

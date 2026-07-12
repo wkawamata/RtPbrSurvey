@@ -180,6 +180,8 @@ public:
     // Returns the source hint for UI display
     ConfigSource ActiveSource(const std::string& sceneName) const;
 
+    const std::string& UserConfigPath() const { return m_userConfigPath; }
+
 private:
     std::string m_defaultsPath;
     std::string m_userConfigPath;
