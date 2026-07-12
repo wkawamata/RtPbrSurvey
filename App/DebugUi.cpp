@@ -555,7 +555,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::SameLine();
         ImGui::RadioButton("PBR Params", &renderViewMode, static_cast<int>(RenderViewMode::GBufferPBRParams));
         ImGui::SameLine();
-        ImGui::RadioButton("Emissive", &renderViewMode, static_cast<int>(RenderViewMode::GBufferEmissive));
+        ImGui::RadioButton("Emissive##RenderView", &renderViewMode, static_cast<int>(RenderViewMode::GBufferEmissive));
         ImGui::SameLine();
         ImGui::RadioButton("Depth", &renderViewMode, static_cast<int>(RenderViewMode::Depth));
         ImGui::SameLine();
