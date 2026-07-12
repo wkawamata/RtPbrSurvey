@@ -52,6 +52,7 @@ static json CameraToJson(const SceneCameraConfig& c)
         j["rotation"] = ToJson(c.rotation);
     }
     j["fov"] = c.fov;
+    j["speedMultiplier"] = c.speedMultiplier;
     return j;
 }
 
@@ -60,6 +61,7 @@ static SceneCameraConfig CameraFromJson(const json& j)
     SceneCameraConfig c;
     c.mode = j.value("mode", "freelook");
     c.fov = j.value("fov", 60.0f);
+    c.speedMultiplier = j.value("speedMultiplier", 1.0f);
     if (c.mode == "arcball")
     {
         c.yaw = j.value("yaw", 0.0f);
@@ -461,6 +463,8 @@ SceneConfig SceneConfigManager::CaptureFromApp(
         cfg.camera.fov = camera.fov;
     }
 
+    cfg.camera.speedMultiplier = app.m_cameraSpeedMultiplier;
+
     cfg.meshScale = app.m_meshScale;
     cfg.displayInstanceCount = scene.DisplayInstanceCount();
     cfg.selectedMaterialIndex = app.m_selectedMaterialIndex;
@@ -581,6 +585,7 @@ void SceneConfigManager::ApplyToEngine(
 {
     auto& camera = app.LoadedScene().GetScene().camera;
     camera.fov = cfg.camera.fov;
+    app.m_cameraSpeedMultiplier = cfg.camera.speedMultiplier;
 
     // Camera mode
     if (cfg.camera.mode == "arcball")

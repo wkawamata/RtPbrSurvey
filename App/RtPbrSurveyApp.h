@@ -141,6 +141,7 @@ private:
     XMFLOAT2 m_dragPan = {0.0f, 0.0f};
 
     CameraMode m_cameraMode = CameraMode::Arcball;
+    float m_cameraSpeedMultiplier = 1.0f;
     float m_objectViewerYaw = 0.0f;
     float m_objectViewerPitch = 0.0f;
     float m_objectViewerDistance = 5.0f;

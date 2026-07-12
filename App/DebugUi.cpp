@@ -11,6 +11,12 @@ void RunStagedAllocatorTests(ID3D12Device* device);
 namespace
 {
 
+struct CameraSpeedPreset
+{
+    const char* label;
+    float multiplier;
+};
+
 const char* EnvironmentSourceLabel(Engine::EnvironmentSource source)
 {
     switch (source)
@@ -132,6 +138,32 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             {
                 app.InitObjectViewerFromCamera();
             }
+        }
+
+        {
+            static constexpr CameraSpeedPreset presets[] = {
+                {"1/10", 0.1f},
+                {"1/5",  0.2f},
+                {"1/3",  0.333f},
+                {"1/2",  0.5f},
+                {"x1",   1.0f},
+                {"x2",   2.0f},
+                {"x3",   3.0f},
+                {"x5",   5.0f},
+                {"x10", 10.0f},
+            };
+            for (const auto& p : presets)
+            {
+                const bool isActive = (app.m_cameraSpeedMultiplier == p.multiplier);
+                if (isActive)
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+                if (ImGui::SmallButton(p.label))
+                    app.m_cameraSpeedMultiplier = p.multiplier;
+                if (isActive)
+                    ImGui::PopStyleColor();
+                ImGui::SameLine();
+            }
+            ImGui::NewLine();
         }
     }
     if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))

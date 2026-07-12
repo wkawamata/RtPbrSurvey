@@ -204,6 +204,7 @@ void RtPbrSurveyApp::UpdateSampleState()
     }
 
     static constexpr float kCameraMoveSpeed = 0.01f;
+    const float speedMul = m_cameraSpeedMultiplier;
     if (GetForegroundWindow() == Win32Application::GetHwnd())
     {
         auto& camera = LoadedScene().GetScene().camera;
@@ -213,17 +214,17 @@ void RtPbrSurveyApp::UpdateSampleState()
             XMVECTOR localMove = XMVectorZero();
 
             if (GetAsyncKeyState('A') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(-kCameraMoveSpeed, 0.0f, 0.0f, 0.0f));
+                localMove = XMVectorAdd(localMove, XMVectorSet(-kCameraMoveSpeed * speedMul, 0.0f, 0.0f, 0.0f));
             if (GetAsyncKeyState('D') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(kCameraMoveSpeed, 0.0f, 0.0f, 0.0f));
+                localMove = XMVectorAdd(localMove, XMVectorSet(kCameraMoveSpeed * speedMul, 0.0f, 0.0f, 0.0f));
             if (GetAsyncKeyState('W') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, 0.0f, kCameraMoveSpeed, 0.0f));
+                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, 0.0f, kCameraMoveSpeed * speedMul, 0.0f));
             if (GetAsyncKeyState('S') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, 0.0f, -kCameraMoveSpeed, 0.0f));
+                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, 0.0f, -kCameraMoveSpeed * speedMul, 0.0f));
             if (GetAsyncKeyState('E') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, kCameraVerticalSpeed, 0.0f, 0.0f));
+                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, kCameraVerticalSpeed * speedMul, 0.0f, 0.0f));
             if (GetAsyncKeyState('Q') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, -kCameraVerticalSpeed, 0.0f, 0.0f));
+                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, -kCameraVerticalSpeed * speedMul, 0.0f, 0.0f));
             if (GetAsyncKeyState('Z') & 0x8000)
                 camera.fov = std::clamp(camera.fov - kCameraFovZoomSpeed, 20.0f, 150.0f);
             if (GetAsyncKeyState('C') & 0x8000)
@@ -252,17 +253,17 @@ void RtPbrSurveyApp::UpdateSampleState()
         {
             XMVECTOR localMove = XMVectorZero();
             if (GetAsyncKeyState('A') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(-kCameraMoveSpeed, 0.0f, 0.0f, 0.0f));
+                localMove = XMVectorAdd(localMove, XMVectorSet(-kCameraMoveSpeed * speedMul, 0.0f, 0.0f, 0.0f));
             if (GetAsyncKeyState('D') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(kCameraMoveSpeed, 0.0f, 0.0f, 0.0f));
+                localMove = XMVectorAdd(localMove, XMVectorSet(kCameraMoveSpeed * speedMul, 0.0f, 0.0f, 0.0f));
             if ((GetAsyncKeyState('W') & 0x8000) && (GetAsyncKeyState(VK_SHIFT) & 0x8000))
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, kCameraVerticalSpeed, 0.0f, 0.0f));
+                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, kCameraVerticalSpeed * speedMul, 0.0f, 0.0f));
             if ((GetAsyncKeyState('S') & 0x8000) && (GetAsyncKeyState(VK_SHIFT) & 0x8000))
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, -kCameraVerticalSpeed, 0.0f, 0.0f));
+                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, -kCameraVerticalSpeed * speedMul, 0.0f, 0.0f));
             if ((GetAsyncKeyState('W') & 0x8000) && !(GetAsyncKeyState(VK_SHIFT) & 0x8000))
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, 0.0f, kCameraMoveSpeed, 0.0f));
+                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, 0.0f, kCameraMoveSpeed * speedMul, 0.0f));
             if ((GetAsyncKeyState('S') & 0x8000) && !(GetAsyncKeyState(VK_SHIFT) & 0x8000))
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, 0.0f, -kCameraMoveSpeed, 0.0f));
+                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, 0.0f, -kCameraMoveSpeed * speedMul, 0.0f));
 
             const XMMATRIX cameraRotation = XMMatrixRotationRollPitchYaw(camera.rot.x, camera.rot.y, camera.rot.z);
             const XMVECTOR worldMove = XMVector3TransformNormal(localMove, cameraRotation);
@@ -426,8 +427,8 @@ void RtPbrSurveyApp::OnMouseMove(int x, int y)
             m_lastMouseX = x;
             m_lastMouseY = y;
 
-            const XMVECTOR localPan = XMVectorSet(static_cast<float>(dx) * kMousePanSpeed,
-                                                  -static_cast<float>(dy) * kMousePanSpeed, 0.0f, 0.0f);
+            const XMVECTOR localPan = XMVectorSet(static_cast<float>(dx) * kMousePanSpeed * m_cameraSpeedMultiplier,
+                                                   -static_cast<float>(dy) * kMousePanSpeed * m_cameraSpeedMultiplier, 0.0f, 0.0f);
             const XMMATRIX cameraRotation = XMMatrixRotationRollPitchYaw(camera.rot.x, camera.rot.y, camera.rot.z);
             const XMVECTOR worldPan = XMVector3TransformNormal(localPan, cameraRotation);
             XMFLOAT3 pan = {};
@@ -508,7 +509,7 @@ void RtPbrSurveyApp::OnMouseWheel(int wheelDelta)
 
     if (m_cameraMode == CameraMode::FreeLook)
     {
-        const XMVECTOR localMove = XMVectorSet(0.0f, 0.0f, wheelSteps * kMouseWheelCameraSpeed, 0.0f);
+        const XMVECTOR localMove = XMVectorSet(0.0f, 0.0f, wheelSteps * kMouseWheelCameraSpeed * m_cameraSpeedMultiplier, 0.0f);
         const XMMATRIX cameraRotation = XMMatrixRotationRollPitchYaw(camera.rot.x, camera.rot.y, camera.rot.z);
         const XMVECTOR worldMove = XMVector3TransformNormal(localMove, cameraRotation);
         XMFLOAT3 move = {};

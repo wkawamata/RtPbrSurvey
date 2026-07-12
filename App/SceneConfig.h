@@ -30,6 +30,7 @@ struct SceneCameraConfig
 
     // Common
     float fov = 60.0f;
+    float speedMultiplier = 1.0f;
 };
 
 struct SceneLightingConfig
