@@ -632,54 +632,67 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             statusFrames = 120;
         }
 
-        // Row 2: Reset (both use confirmation popups)
-        if (ImGui::Button("Reset Current Scene"))
+        // Collapsible section for Reset / Save as Default
+        if (ImGui::TreeNode("Reset / Save as Default"))
         {
-            ImGui::OpenPopup("Reset Current##confirm");
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Reset All Scenes"))
-        {
-            ImGui::OpenPopup("Reset All##confirm");
-        }
-
-        // Confirmation: Reset Current Scene
-        if (ImGui::BeginPopupModal("Reset Current##confirm", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
-        {
-            ImGui::Text("Reset current scene configuration to defaults?\n\nThis cannot be undone.\n\n");
-            if (ImGui::Button("OK", ImVec2(120, 0)))
+            if (ImGui::Button("Save as Default"))
             {
-                app.m_sceneConfig.ResetCurrentScene(
+                app.m_sceneConfig.SaveAsDefault(
                     app.m_loadedSceneIndex, app, app.m_engine, app.LoadedScene());
-                statusMsg = "Reset current scene.";
+                statusMsg = "Saved as default.";
                 statusFrames = 120;
-                ImGui::CloseCurrentPopup();
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Cancel", ImVec2(120, 0)))
-            {
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
-        }
 
-        // Confirmation: Reset All Scenes
-        if (ImGui::BeginPopupModal("Reset All##confirm", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
-        {
-            ImGui::Text("Reset all scene configurations to defaults?\n\nThis cannot be undone.\n\n");
-            if (ImGui::Button("OK", ImVec2(120, 0)))
+            if (ImGui::Button("Reset Current Scene"))
             {
-                app.m_sceneConfig.ResetAllScenes(app, app.m_engine, app.LoadedScene());
-                statusMsg = "Reset all scenes.";
-                statusFrames = 120;
-                ImGui::CloseCurrentPopup();
+                ImGui::OpenPopup("Reset Current##confirm");
             }
             ImGui::SameLine();
-            if (ImGui::Button("Cancel", ImVec2(120, 0)))
+            if (ImGui::Button("Reset All Scenes"))
             {
-                ImGui::CloseCurrentPopup();
+                ImGui::OpenPopup("Reset All##confirm");
             }
-            ImGui::EndPopup();
+
+            // Confirmation: Reset Current Scene
+            if (ImGui::BeginPopupModal("Reset Current##confirm", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+            {
+                ImGui::Text("Reset current scene configuration to defaults?\n\nThis cannot be undone.\n\n");
+                if (ImGui::Button("OK", ImVec2(120, 0)))
+                {
+                    app.m_sceneConfig.ResetCurrentScene(
+                        app.m_loadedSceneIndex, app, app.m_engine, app.LoadedScene());
+                    statusMsg = "Reset current scene.";
+                    statusFrames = 120;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel", ImVec2(120, 0)))
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+
+            // Confirmation: Reset All Scenes
+            if (ImGui::BeginPopupModal("Reset All##confirm", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+            {
+                ImGui::Text("Reset all scene configurations to defaults?\n\nThis cannot be undone.\n\n");
+                if (ImGui::Button("OK", ImVec2(120, 0)))
+                {
+                    app.m_sceneConfig.ResetAllScenes(app, app.m_engine, app.LoadedScene());
+                    statusMsg = "Reset all scenes.";
+                    statusFrames = 120;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel", ImVec2(120, 0)))
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+
+            ImGui::TreePop();
         }
 
         // Status text (auto-clears)

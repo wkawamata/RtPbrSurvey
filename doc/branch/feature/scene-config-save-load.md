@@ -486,7 +486,9 @@ iblDebugMip and iblDebugExposure are included in lighting config serialization, 
     Source: User config
     Path: C:\Users\...\AppData\Roaming\RtPbrSurvey\scene_config.json
     [Save Current] [Load Defaults]
-    [Reset Current Scene] [Reset All Scenes]
+    [>] Reset / Save as Default      (collapsible)
+        [Save as Default]
+        [Reset Current Scene] [Reset All Scenes]
     >> Saved.                     (auto-clears)
 ```
 
@@ -503,8 +505,9 @@ iblDebugMip and iblDebugExposure are included in lighting config serialization, 
 | Action | Status message | Duration |
 |--------|---------------|----------|
 | Save Current | `>> Saved.` | ~2s (120 frames) |
+| Save as Default | `>> Saved as default.` | ~2s |
 | Load Defaults | `>> Loaded defaults.` | ~2s |
-| Reset Current Scene | `>> Reset current scene.` | ~2s |
+| Reset Current Scene (OK) | `>> Reset current scene.` | ~2s |
 | Reset All Scenes (OK) | `>> Reset all scenes.` | ~2s |
 
 Status is tracked via static variables in `DrawDebugUi()` (no SceneConfigManager changes needed for status).
@@ -524,6 +527,18 @@ Status is tracked via static variables in `DrawDebugUi()` (no SceneConfigManager
   6. Click "Reset Current Scene" -> scene entry removed from user config, defaults applied.
   7. Click "Reset All Scenes" -> confirm popup, OK -> all entries removed, defaults applied.
   8. Check `%APPDATA%\RtPbrSurvey\scene_config.json` for saved data.
+
+### Added: Save as Default
+
+`SaveAsDefault()` captures the current scene state and writes it directly to `scene_config_default.json` (the git-tracked defaults file). This allows users to permanently customize the default camera/lighting/etc. for a scene.
+
+### Files changed (final)
+
+| File | Change |
+|------|--------|
+| `App/SceneConfig.h` | Added `UserConfigPath()` accessor, `SaveAsDefault()` method declaration |
+| `App/SceneConfig.cpp` | Implemented `SaveAsDefault()` (capture -> read defaults JSON -> update entry -> write back) |
+| `App/DebugUi.cpp` | Added "Save as Default" button, wrapped Reset + Save as Default in `ImGui::TreeNode` collapsible section |
 
 ### Known limitations
 

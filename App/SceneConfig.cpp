@@ -769,6 +769,43 @@ void SceneConfigManager::SaveCurrentScene(
     WriteUserConfigToDisk();
 }
 
+void SceneConfigManager::SaveAsDefault(
+    int sceneIndex,
+    RtPbrSurveyApp& app,
+    RtPbrSurveyEngine& engine,
+    const Engine::SampleScene& scene)
+{
+    const SceneConfig cfg = CaptureFromApp(app, engine, scene);
+
+    // Read current defaults file
+    std::ifstream inFile(m_defaultsPath);
+    json root;
+    root["version"] = 1;
+    root["scenes"] = json::object();
+    if (inFile.is_open())
+    {
+        try
+        {
+            inFile >> root;
+        }
+        catch (...) {}
+    }
+
+    // Update the entry for this scene
+    root["scenes"][scene.Name()] = SceneConfigToJson(cfg);
+
+    // Write back
+    std::ofstream outFile(m_defaultsPath);
+    if (outFile.is_open())
+    {
+        outFile << root.dump(2);
+        outFile.close();
+    }
+
+    // Refresh in-memory defaults
+    ReadDefaultsFromDisk();
+}
+
 void SceneConfigManager::LoadDefaultsForScene(
     int sceneIndex,
     RtPbrSurveyApp& app,

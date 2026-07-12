@@ -142,10 +142,26 @@ void RtPbrSurveyApp::OnInit()
 
     // Initialize scene config paths
     {
+        // EXE dir: "C:\work\RtPbrSurvey-work\bin\x64\Debug\"
         std::wstring exeDir = Platform::GetApplicationAssetsPath();
-        char exeDirA[MAX_PATH];
-        WideCharToMultiByte(CP_UTF8, 0, exeDir.c_str(), -1, exeDirA, MAX_PATH, nullptr, nullptr);
-        const std::string defaultsPath = std::string(exeDirA) + "Config\\scene_config_default.json";
+        // Project root: navigate up 3 levels from exeDir
+        //   bin\x64\Debug\ -> bin\x64\ -> bin\ -> (project root)
+        char defaultsPathA[MAX_PATH];
+        {
+            WCHAR exeCopy[MAX_PATH];
+            wcscpy_s(exeCopy, exeDir.c_str());
+            // Remove trailing backslash
+            size_t len = wcslen(exeCopy);
+            if (len > 0 && exeCopy[len - 1] == L'\\') exeCopy[len - 1] = L'\0';
+            // Walk up 3 times (bin\x64\Debug\ -> project root)
+            for (int i = 0; i < 3; ++i)
+            {
+                WCHAR* slash = wcsrchr(exeCopy, L'\\');
+                if (slash) *slash = L'\0';
+            }
+            wcscat_s(exeCopy, L"\\Assets\\Config\\scene_config_default.json");
+            WideCharToMultiByte(CP_UTF8, 0, exeCopy, -1, defaultsPathA, MAX_PATH, nullptr, nullptr);
+        }
 
         char appDataPath[MAX_PATH];
         DWORD appDataLen = GetEnvironmentVariableA("APPDATA", appDataPath, MAX_PATH);
@@ -158,10 +174,14 @@ void RtPbrSurveyApp::OnInit()
         }
         else
         {
-            userConfigPath = std::string(exeDirA) + "scene_config.json";
+            userConfigPath = std::string(defaultsPathA);
+            size_t pos = userConfigPath.rfind('\\');
+            if (pos != std::string::npos)
+                userConfigPath.resize(pos + 1);
+            userConfigPath += "scene_config.json";
         }
 
-        m_sceneConfig.SetPaths(defaultsPath, userConfigPath);
+        m_sceneConfig.SetPaths(defaultsPathA, userConfigPath);
     }
 
     if (m_commandLineOptions.autoSelectGltfDamagedHelmet)

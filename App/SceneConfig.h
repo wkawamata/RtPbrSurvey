@@ -160,6 +160,12 @@ public:
                           const RtPbrSurveyEngine& engine,
                           const Engine::SampleScene& scene);
 
+    // Saves current scene state as the default (overwrites defaults file entry)
+    void SaveAsDefault(int sceneIndex,
+                       RtPbrSurveyApp& app,
+                       RtPbrSurveyEngine& engine,
+                       const Engine::SampleScene& scene);
+
     // Re-reads default file and applies (user file on disk untouched)
     void LoadDefaultsForScene(int sceneIndex,
                               RtPbrSurveyApp& app,
