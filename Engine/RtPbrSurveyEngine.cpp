@@ -1202,7 +1202,7 @@ void RtPbrSurveyEngine::CreateHybridReflectionRootSignature()
     rootParameters[9].InitAsShaderResourceView(6, 0);               // g_instanceData (t6)
     rootParameters[10].InitAsDescriptorTable(1, &materialSrvRange); // g_materialData (t7)
     rootParameters[11].InitAsDescriptorTable(1, &textureSrvRange);  // g_texture[] (t0, space8)
-    rootParameters[12].InitAsConstants(9, 1, 0);                    // ReflectionConstants (b1)
+    rootParameters[12].InitAsConstants(17, 1, 0);                   // ReflectionConstants (b1)
 
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
     featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
@@ -2998,6 +2998,10 @@ void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     passDesc.vertexCount = m_vertexCountPerInstance;
     passDesc.indexCount = m_indexCountPerInstance;
     passDesc.hitNormalSource = static_cast<UINT>(m_hybridReflectionSettings.hitNormalSource);
+    passDesc.lightDirection = m_lightingParams.lightDirection;
+    passDesc.directLightEnabled = m_lightingParams.directLightEnabled ? 1u : 0u;
+    passDesc.lightColor = m_lightingParams.lightColor;
+    passDesc.diffuseIntensity = m_lightingParams.diffuseIntensity;
     if (m_hybridReflectionSettings.materialGateEnabled)
     {
         passDesc.maxRoughness = m_hybridReflectionSettings.maxRoughness;

@@ -20,6 +20,10 @@ struct HybridReflectionShaderConstants
     UINT vertexCount;
     UINT indexCount;
     UINT hitNormalSource;
+    DirectX::XMFLOAT3 lightDirection;
+    UINT directLightEnabled;
+    DirectX::XMFLOAT3 lightColor;
+    float diffuseIntensity;
 };
 
 } // namespace
@@ -52,8 +56,12 @@ void RecordHybridReflectionPass(ID3D12GraphicsCommandList* commandList, const Hy
         desc.usesIndexedDraw,
         desc.vertexCount,
         desc.indexCount,
-        desc.hitNormalSource};
-    commandList->SetComputeRoot32BitConstants(12, 9, &constants, 0);
+        desc.hitNormalSource,
+        desc.lightDirection,
+        desc.directLightEnabled,
+        desc.lightColor,
+        desc.diffuseIntensity};
+    commandList->SetComputeRoot32BitConstants(12, 17, &constants, 0);
 
     constexpr UINT kThreadGroupSize = 8;
     const UINT dispatchX = (desc.width + kThreadGroupSize - 1) / kThreadGroupSize;

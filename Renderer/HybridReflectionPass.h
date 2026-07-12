@@ -1,6 +1,7 @@
 #pragma once
 
 #include <d3d12.h>
+#include <DirectXMath.h>
 
 namespace Engine
 {
@@ -30,6 +31,10 @@ struct HybridReflectionPassDesc
     UINT vertexCount = 0;
     UINT indexCount = 0;
     UINT hitNormalSource = 0;
+    DirectX::XMFLOAT3 lightDirection = {0.0f, 1.0f, -1.0f};
+    UINT directLightEnabled = 1;
+    DirectX::XMFLOAT3 lightColor = {1.0f, 1.0f, 1.0f};
+    float diffuseIntensity = 1.0f;
     UINT width = 0;
     UINT height = 0;
 };

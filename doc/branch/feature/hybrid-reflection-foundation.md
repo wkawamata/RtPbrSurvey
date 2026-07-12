@@ -4,7 +4,7 @@
 
 Recommendation for the shape of a full-screen HybridReflectionPass using RayQuery inline raytracing to compute specular reflections from the GBuffer.
 
-Current implementation status: HybridReflectionPass scaffold is wired into the render graph and writes `ReflectionRayHit` as `.x = hit distance`, `.y = hit flag`, `.z/.w = oct-encoded hit attribute`. It also writes `ReflectionRayColor.rgb` with linear hit albedo texture color as the first reflection color payload. This is a provisional payload, not fully shaded reflected radiance.
+Current implementation status: HybridReflectionPass scaffold is wired into the render graph and writes `ReflectionRayHit` as `.x = hit distance`, `.y = hit flag`, `.z/.w = oct-encoded hit attribute`. It also writes `ReflectionRayColor.rgb` with a simple direct-lit hit color: linear hit albedo multiplied by `NdotL`, `lightColor`, and `diffuseIntensity`. This is a provisional payload, not fully shaded reflected radiance.
 
 ## Existing Pass Survey
 
@@ -52,7 +52,7 @@ Follow RayQueryShadowPass's descriptor-table approach (identical pattern):
 | 11    | SRV table     | t0 s8    | Texture table                    |
 | 12    | 32-bit consts | b1       | Reflection constants (see below) |
 
-Constants (b1): normalBias, rayTMin, rayTMax, maxRoughness, minMetallic, usesIndexedDraw, vertexCount, indexCount, hitNormalSource.
+Constants (b1): normalBias, rayTMin, rayTMax, maxRoughness, minMetallic, usesIndexedDraw, vertexCount, indexCount, hitNormalSource, lightDirection, directLightEnabled, lightColor, diffuseIntensity.
 
 ## PSO Creation
 
@@ -63,7 +63,7 @@ Same pattern as `CreateRayQueryShadowRootSignature` + `D3D12_COMPUTE_PIPELINE_ST
 **Current format: hit/miss + hit distance + hit normal**:
 
 - `RWTexture2D<float4>` -- .x = hit distance (0 on miss), .y = hit flag (1.0 hit, 0.0 miss), .z/.w = oct-encoded hit normal.
-- `RWTexture2D<float4>` color -- linear hit albedo texture color, initially for debug and provisional reflection contribution. This is not yet hit-surface lighting or reflected radiance.
+- `RWTexture2D<float4>` color -- simple direct-lit hit color from linear hit albedo, hit normal, and current direct light settings. This is not yet full hit-surface lighting or reflected radiance.
 - Rationale: `q.CommittedRayT()` is free to capture, enables temporal denoising (distance-based confidence), and aids debugging.
 - Current scaffold uses `ReflectionRayHit` with `DXGI_FORMAT_R16G16B16A16_FLOAT`.
 - Hit position can be reconstructed in LightPass as `worldPos + reflectionDir * hitDistance`.
@@ -81,7 +81,7 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 - `Hit Position Color` changes the overlay tint to `worldPos + reflectionDir * hitDistance` based debug color. This is still a diagnostic color, not reflected surface shading.
 - `Environment` overlay mode tints hit pixels with the existing specular prefilter environment sample along the reflection direction. It validates the reflection-direction sampling path, not scene-surface reflection.
 - `Hit Normal` overlay mode decodes the hit normal stored in `ReflectionRayHit.zw` and tints hit pixels with normal color over the lit scene.
-- `Reflection Contribution` adds `ReflectionRayColor * Fresnel * (1 - roughness) * intensity` only on hit pixels. Today `ReflectionRayColor` means linear hit albedo, so this is still a provisional hit-color composite, not final hit-surface shading.
+- `Reflection Contribution` adds `ReflectionRayColor * Fresnel * (1 - roughness) * intensity` only on hit pixels. Today `ReflectionRayColor` means simple direct-lit hit color, so this is still a provisional hit-color composite, not final hit-surface shading.
 - `Reflection Contribution Max Distance` fades the provisional contribution by hit distance, reducing far-hit color bleeding while the reflection color is still approximate.
 - Material Gate is disabled by default: `maxRoughness = 1.0`, `minMetallic = 0.0`, preserving the initial "trace all visible pixels" behavior.
 - When `Material Gate` is enabled in the Debug UI, the pass uses `HybridReflectionSettings::maxRoughness` and `minMetallic`.

@@ -33,6 +33,10 @@ cbuffer ReflectionConstants : register(b1)
     uint vertexCount;
     uint indexCount;
     uint hitNormalSource;
+    float3 lightDirection;
+    uint directLightEnabled;
+    float3 lightColor;
+    float diffuseIntensity;
 };
 
 static const uint kSceneVertexStride = 52;
@@ -195,7 +199,11 @@ float3 LoadCommittedHitAlbedo(uint index0, uint index1, uint index2, float2 bary
     return SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb);
 }
 
-// ReflectionRayColor currently stores linear hit albedo, not fully shaded reflected radiance.
+float3 ComputeSimpleHitDirectColor(float3 hitAlbedo, float3 hitNormal)
+{
+    float ndotl = saturate(dot(normalize(hitNormal), normalize(lightDirection)));
+    return hitAlbedo * lightColor * diffuseIntensity * ndotl * (directLightEnabled != 0 ? 1.0 : 0.0);
+}
 
 uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
 {
@@ -334,8 +342,9 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
                                                   barycentric,
                                                   query.CommittedObjectToWorld3x4(),
                                                   instanceId);
+        float3 hitAlbedo = LoadCommittedHitAlbedo(index0, index1, index2, barycentric, instanceId);
         g_reflectionRayHit[pixel] = float4(query.CommittedRayT(), 1.0, EncodeNormalOctahedron(hitNormal));
-        g_reflectionRayColor[pixel] = float4(LoadCommittedHitAlbedo(index0, index1, index2, barycentric, instanceId), 1.0);
+        g_reflectionRayColor[pixel] = float4(ComputeSimpleHitDirectColor(hitAlbedo, hitNormal), 1.0);
     }
     else
     {
