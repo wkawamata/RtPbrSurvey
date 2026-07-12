@@ -2,6 +2,7 @@
 
 Texture2D<float4> g_reflectionRayHit : register(t0, space4);
 Texture2D<float4> g_reflectionRayColor : register(t0, space7);
+Texture2D<float4> g_reflectionRayMaterial : register(t0, space8);
 SamplerState g_sampler : register(s0);
 
 cbuffer ReflectionRayHitDebugConstants : register(b1)
@@ -33,6 +34,7 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
 {
     float4 rayHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
     float3 rayColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
+    float4 rayMaterial = g_reflectionRayMaterial.Sample(g_sampler, input.uv);
     float hitDistance = rayHit.x;
     float hitFlag = rayHit.y;
 
@@ -69,6 +71,11 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         float distanceFade = saturate(1.0 - hitDistance / max(contributionMaxDistance, 0.001));
         float contributionStrength = hitFlag * distanceFade * contributionIntensity;
         return float4(contributionStrength.xxx, 1.0);
+    }
+
+    if (debugTarget == 6)
+    {
+        return float4(rayMaterial.x, rayMaterial.y, rayMaterial.z, 1.0);
     }
 
     float normalizedDistance = saturate(hitDistance / 50.0);

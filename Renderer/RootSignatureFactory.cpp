@@ -20,6 +20,7 @@ struct DescriptorRanges
     CD3DX12_DESCRIPTOR_RANGE1 toneMapSceneColorSrv;
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRayHitSrv;
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRayColorSrv;
+    CD3DX12_DESCRIPTOR_RANGE1 reflectionRayMaterialSrv;
     CD3DX12_DESCRIPTOR_RANGE1 cameraCbv;
     CD3DX12_DESCRIPTOR_RANGE1 lightCbv;
 };
@@ -101,6 +102,13 @@ DescriptorRanges CreateDescriptorRanges(UINT textureSrvCount, UINT gbufferSrvCou
                                       RootSignatureLayout::kReflectionRayColorSrvSpace,
                                       D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
+    // t0 : Reflection ray material buffer SRV, space 8
+    ranges.reflectionRayMaterialSrv.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+                                         1,
+                                         RootSignatureLayout::kBaseRegister,
+                                         RootSignatureLayout::kReflectionRayMaterialSrvSpace,
+                                         D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+
     ranges.cameraCbv.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
                           1,
                           RootSignatureLayout::kCameraCbvRegister,
@@ -149,6 +157,8 @@ void CreateRootParameters(const DescriptorRanges& ranges,
         1, &ranges.reflectionRayHitSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Reflection ray hit buffer
     rootParameters[RootSignatureLayout::ReflectionRayColor].InitAsDescriptorTable(
         1, &ranges.reflectionRayColorSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Reflection ray color buffer
+    rootParameters[RootSignatureLayout::ReflectionRayMaterial].InitAsDescriptorTable(
+        1, &ranges.reflectionRayMaterialSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Reflection ray material buffer
 }
 
 D3D12_STATIC_SAMPLER_DESC CreateStaticSampler()

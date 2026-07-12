@@ -107,6 +107,7 @@ public:
         ReflectionContributionStrength,
         ShadowMask,
         TlasDebug,
+        ReflectionRayMaterial,
     };
 
     enum class RenderingPath
@@ -489,6 +490,7 @@ private:
                    renderViewMode != RenderViewMode::ReflectionRayDistance &&
                    renderViewMode != RenderViewMode::ReflectionRayNormal &&
                    renderViewMode != RenderViewMode::ReflectionRayColor &&
+                   renderViewMode != RenderViewMode::ReflectionRayMaterial &&
                    renderViewMode != RenderViewMode::ReflectionRayDistanceFade &&
                    renderViewMode != RenderViewMode::ReflectionContributionStrength &&
                    renderViewMode != RenderViewMode::ShadowMask &&
@@ -517,6 +519,7 @@ private:
                    renderViewMode == RenderViewMode::ReflectionRayDistance ||
                    renderViewMode == RenderViewMode::ReflectionRayNormal ||
                    renderViewMode == RenderViewMode::ReflectionRayColor ||
+                   renderViewMode == RenderViewMode::ReflectionRayMaterial ||
                    renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
                    renderViewMode == RenderViewMode::ReflectionContributionStrength);
             if (renderViewMode == RenderViewMode::ReflectionRayHit)
@@ -534,6 +537,10 @@ private:
             if (renderViewMode == RenderViewMode::ReflectionRayColor)
             {
                 return 3u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRayMaterial)
+            {
+                return 6u;
             }
             return renderViewMode == RenderViewMode::ReflectionRayDistanceFade ? 4u : 5u;
         }

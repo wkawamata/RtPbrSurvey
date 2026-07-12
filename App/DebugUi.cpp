@@ -507,6 +507,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton("Reflection Normal", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayNormal));
         ImGui::RadioButton("Reflection Material Color", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayColor));
         ImGui::SameLine();
+        ImGui::RadioButton(
+            "Reflection Material Params", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayMaterial));
         ImGui::RadioButton("Reflection Fade", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayDistanceFade));
         ImGui::SameLine();
         ImGui::RadioButton("Reflection Strength", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionContributionStrength));
@@ -519,6 +521,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionRayDistance ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayNormal ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayColor ||
+             app.m_renderViewMode == RenderViewMode::ReflectionRayMaterial ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
              app.m_renderViewMode == RenderViewMode::ReflectionContributionStrength))
         {
@@ -529,6 +532,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionRayDistance ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayNormal ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayColor ||
+             app.m_renderViewMode == RenderViewMode::ReflectionRayMaterial ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
              app.m_renderViewMode == RenderViewMode::ReflectionContributionStrength))
         {
