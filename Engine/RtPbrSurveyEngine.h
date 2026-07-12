@@ -309,6 +309,7 @@ private:
             static constexpr const char* ShadowMaskUav = "ShadowMaskUav";
             static constexpr const char* ReflectionRayHitSrv = "ReflectionRayHitSrv";
             static constexpr const char* ReflectionRayColorSrv = "ReflectionRayColorSrv";
+            static constexpr const char* ReflectionRayMaterialSrv = "ReflectionRayMaterialSrv";
             static constexpr const char* ReflectionRayHitUav = "ReflectionRayHitUav";
             static constexpr const char* TlasDebugUav = "TlasDebugUav";
             static constexpr const char* AccelerationStructureSrv = "AccelerationStructureSrv";
@@ -394,7 +395,7 @@ private:
         PersistentSrvSlotCount,
     };
     static constexpr UINT kShadowMaskDescriptorCount = 2; // SRV + UAV (dynamically allocated)
-    static constexpr UINT kReflectionRayHitDescriptorCount = 4; // Hit SRV/UAV + Color SRV/UAV
+    static constexpr UINT kReflectionRayHitDescriptorCount = 6; // Hit SRV/UAV + Color SRV/UAV + Material SRV/UAV
     static constexpr UINT kTlasDescriptorCount = 1;       // TLAS SRV
 
     // Descriptor allocation order is tracked by DescriptorHeapHandle.
@@ -554,10 +555,13 @@ private:
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
     ComPtr<ID3D12Resource> m_reflectionRayColor;
+    ComPtr<ID3D12Resource> m_reflectionRayMaterial;
     DescriptorHeapHandle m_reflectionRayHitSrv;
     DescriptorHeapHandle m_reflectionRayHitUav;
     DescriptorHeapHandle m_reflectionRayColorSrv;
     DescriptorHeapHandle m_reflectionRayColorUav;
+    DescriptorHeapHandle m_reflectionRayMaterialSrv;
+    DescriptorHeapHandle m_reflectionRayMaterialUav;
     DescriptorHeapHandle m_depthStencilSrv;
     DescriptorHeapHandle m_lightPassColorSrv;
     StagedDescriptorRange m_shadowMaskRange;
@@ -715,6 +719,7 @@ private:
     static constexpr const char* kShadowMaskResourceName = "ShadowMask";
     static constexpr const char* kReflectionRayHitResourceName = "ReflectionRayHit";
     static constexpr const char* kReflectionRayColorResourceName = "ReflectionRayColor";
+    static constexpr const char* kReflectionRayMaterialResourceName = "ReflectionRayMaterial";
 
     using TransientResourceState = Engine::TransientResourceState;
 
@@ -850,6 +855,8 @@ private:
     void CreateReflectionRayHitDescriptors();
     void CreateReflectionRayColor(UINT width, UINT height);
     void CreateReflectionRayColorDescriptors();
+    void CreateReflectionRayMaterial(UINT width, UINT height);
+    void CreateReflectionRayMaterialDescriptors();
     D3D12_CPU_DESCRIPTOR_HANDLE GetBackBufferRtv() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetDepthDsv() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetGBufferRTV(UINT index) const;

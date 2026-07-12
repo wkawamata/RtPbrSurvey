@@ -4,7 +4,7 @@
 
 Recommendation for the shape of a full-screen HybridReflectionPass using RayQuery inline raytracing to compute specular reflections from the GBuffer.
 
-Current implementation status: HybridReflectionPass scaffold is wired into the render graph and writes `ReflectionRayHit` as `.x = hit distance`, `.y = hit flag`, `.z/.w = oct-encoded hit attribute`. It also writes `ReflectionRayColor.rgb` with hit material color: linear hit albedo plus hit emissive. This is material payload data, not reflected radiance.
+Current implementation status: HybridReflectionPass scaffold is wired into the render graph and writes `ReflectionRayHit` as `.x = hit distance`, `.y = hit flag`, `.z/.w = oct-encoded hit attribute`. It writes `ReflectionRayColor.rgb` with hit material color: linear hit albedo plus hit emissive. It also writes `ReflectionRayMaterial` as `.x = metallic`, `.y = roughness`, `.z = unlit flag`, `.w = reserved`. These are material payloads, not reflected radiance.
 
 ## Existing Pass Survey
 
@@ -40,17 +40,18 @@ Follow RayQueryShadowPass's descriptor-table approach (identical pattern):
 |-------|---------------|----------|----------------------------------|
 | 0     | UAV table     | u0       | Reflection hit output            |
 | 1     | UAV table     | u1       | Reflection color output          |
-| 2     | SRV table     | t0       | TLAS                             |
-| 3     | SRV table     | t1       | Depth                            |
-| 4     | SRV table     | t2       | GBuffer Normal                   |
-| 5     | SRV table     | t3       | GBuffer PBR params               |
-| 6     | CBV table     | b0       | CameraCB                         |
-| 7     | Root SRV      | t4       | Scene vertex buffer bytes        |
-| 8     | Root SRV      | t5       | Scene index buffer bytes         |
-| 9     | Root SRV      | t6       | Instance buffer bytes            |
-| 10    | SRV table     | t7       | Material buffer                  |
-| 11    | SRV table     | t0 s8    | Texture table                    |
-| 12    | 32-bit consts | b1       | Reflection constants (see below) |
+| 2     | UAV table     | u2       | Reflection material output       |
+| 3     | SRV table     | t0       | TLAS                             |
+| 4     | SRV table     | t1       | Depth                            |
+| 5     | SRV table     | t2       | GBuffer Normal                   |
+| 6     | SRV table     | t3       | GBuffer PBR params               |
+| 7     | CBV table     | b0       | CameraCB                         |
+| 8     | Root SRV      | t4       | Scene vertex buffer bytes        |
+| 9     | Root SRV      | t5       | Scene index buffer bytes         |
+| 10    | Root SRV      | t6       | Instance buffer bytes            |
+| 11    | SRV table     | t7       | Material buffer                  |
+| 12    | SRV table     | t0 s8    | Texture table                    |
+| 13    | 32-bit consts | b1       | Reflection constants (see below) |
 
 Constants (b1): normalBias, rayTMin, rayTMax, maxRoughness, minMetallic, usesIndexedDraw, vertexCount, indexCount, hitNormalSource.
 
@@ -64,6 +65,7 @@ Same pattern as `CreateRayQueryShadowRootSignature` + `D3D12_COMPUTE_PIPELINE_ST
 
 - `RWTexture2D<float4>` -- .x = hit distance (0 on miss), .y = hit flag (1.0 hit, 0.0 miss), .z/.w = oct-encoded hit normal.
 - `RWTexture2D<float4>` color -- hit material color from linear hit albedo plus hit emissive. This is not reflected radiance; lighting should move to a later reflection evaluation step.
+- `RWTexture2D<float4>` material -- hit material payload: metallic, roughness, unlit flag, reserved. This separates material parameters from color so the next reflection-evaluation step can use a BRDF-shaped payload instead of overloading `ReflectionRayColor`.
 - Rationale: `q.CommittedRayT()` is free to capture, enables temporal denoising (distance-based confidence), and aids debugging.
 - Current scaffold uses `ReflectionRayHit` with `DXGI_FORMAT_R16G16B16A16_FLOAT`.
 - Hit position can be reconstructed in LightPass as `worldPos + reflectionDir * hitDistance`.
@@ -89,7 +91,7 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 
 ## Descriptors Required
 
-- 1 UAV: reflection output texture
+- 3 UAVs: reflection hit, color, and material payload output textures
 - 1 SRV: TLAS (`m_accelerationStructures.tlasSrv.Gpu()`, register t0)
 - 1 SRV: depth buffer
 - 1 SRV: GBuffer normal
@@ -99,11 +101,12 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 - 1 SRV: material buffer for hit material parameter debug
 - 1 SRV table: scene texture table for hit albedo texture debug
 - 1 SRV: ReflectionRayColor for LightPass hit-color overlay and future reflection contribution
+- 1 SRV: ReflectionRayMaterial for future reflection evaluation
 
 ## Resource States
 
 - Reads: depth + normal GBuffer + PBR params GBuffer as `D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE`
-- Writes: reflection output as `D3D12_RESOURCE_STATE_UNORDERED_ACCESS`
+- Writes: reflection hit/color/material payload outputs as `D3D12_RESOURCE_STATE_UNORDERED_ACCESS`
 
 ## Render Graph Placement
 
