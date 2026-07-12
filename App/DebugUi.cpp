@@ -36,6 +36,84 @@ const char* EnvironmentSourceLabel(Engine::EnvironmentSource source)
     }
 }
 
+const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
+{
+    using RenderViewMode = RtPbrSurveyEngine::RenderViewMode;
+
+    switch (mode)
+    {
+        case RenderViewMode::LightPass:
+            return "Final lit scene after deferred lighting and enabled reflection composite.";
+        case RenderViewMode::GBufferAlbedo:
+            return "GBuffer albedo: base surface color written by the material pass.";
+        case RenderViewMode::GBufferNormal:
+            return "GBuffer normal: encoded visible-surface normal decoded for inspection.";
+        case RenderViewMode::GBufferMaterial:
+            return "GBuffer material id / material data debug view.";
+        case RenderViewMode::GBufferMotionVector:
+            return "GBuffer motion vector: screen-space motion data for temporal effects.";
+        case RenderViewMode::GBufferPBRParams:
+            return "GBuffer PBR params: metallic, roughness, ambient occlusion, and related material terms.";
+        case RenderViewMode::GBufferEmissive:
+            return "GBuffer emissive: material emission before lighting composite.";
+        case RenderViewMode::Depth:
+            return "Depth buffer debug view.";
+        case RenderViewMode::ReflectionDirection:
+            return "Visible-surface reflection direction used for specular IBL and ray setup.";
+        case RenderViewMode::ViewDirection:
+            return "View direction from visible surface toward the camera.";
+        case RenderViewMode::WorldPosition:
+            return "Reconstructed visible-surface world position.";
+        case RenderViewMode::NdotV:
+            return "NdotV: cosine between visible normal and view direction.";
+        case RenderViewMode::IblEnvironment:
+            return "Environment cubemap sample used by IBL debug inspection.";
+        case RenderViewMode::IblDiffuseIrradiance:
+            return "Diffuse irradiance cubemap used for ambient diffuse IBL.";
+        case RenderViewMode::IblSpecularPrefilter:
+            return "Specular prefilter cubemap. Use Prefilter Mip to inspect roughness levels.";
+        case RenderViewMode::IblBrdfLut:
+            return "BRDF integration LUT used by split-sum specular IBL.";
+        case RenderViewMode::ReflectionRayHit:
+            return "Reflection ray hit mask. White means the ray hit scene geometry.";
+        case RenderViewMode::ReflectionRayDistance:
+            return "Reflection hit distance, normalized for debug display.";
+        case RenderViewMode::ReflectionRayNormal:
+            return "Normal at the reflection hit point, reconstructed from ray query hit data.";
+        case RenderViewMode::ReflectionRayColor:
+            return "ReflectionRayColor payload: hit material color. This is not reflected radiance.";
+        case RenderViewMode::ReflectionRayDistanceFade:
+            return "Distance fade applied to the provisional reflection contribution.";
+        case RenderViewMode::ReflectionContributionStrength:
+            return "Scalar reflection contribution strength before visible-surface Fresnel is applied.";
+        case RenderViewMode::ShadowMask:
+            return "Ray query shadow mask. Darker pixels receive less direct light.";
+        case RenderViewMode::TlasDebug:
+            return "TLAS ray query debug view for acceleration-structure hit inspection.";
+        case RenderViewMode::ReflectionRayMaterial:
+            return "ReflectionRayMaterial payload: R=metallic, G=roughness, B=unlit flag at the hit point.";
+        case RenderViewMode::ReflectionRadiance:
+            return "ReflectionRadiance is the reflection radiance buffer before LightPass.\n"
+                   "This view shows ReflectionEvaluatePass output, not the final reflected color.\n"
+                   "Current value is provisional: hit material color with distance fade and hit roughness attenuation.\n"
+                   "LightPass applies the visible-surface Fresnel term before adding it.";
+        default:
+            return nullptr;
+    }
+}
+
+void DrawRenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
+{
+    const char* description = RenderViewDescription(mode);
+    if (description == nullptr || description[0] == '\0')
+    {
+        return;
+    }
+
+    ImGui::Separator();
+    ImGui::TextWrapped("%s", description);
+}
+
 void ApplyEnvironmentPreset(Engine::ProceduralEnvironmentSettings& settings, Engine::EnvironmentSource source)
 {
     settings = {};
@@ -542,14 +620,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         {
             app.m_renderViewMode = RenderViewMode::LightPass;
         }
-        if (app.m_renderViewMode == RenderViewMode::ReflectionRadiance)
-        {
-            ImGui::Separator();
-            ImGui::TextWrapped("ReflectionRadiance is the reflection radiance buffer before LightPass.");
-            ImGui::TextWrapped("This view shows ReflectionEvaluatePass output, not the final reflected color.");
-            ImGui::TextWrapped("Current value is provisional: hit material color with distance fade and hit roughness attenuation.");
-            ImGui::TextWrapped("LightPass applies the visible-surface Fresnel term before adding it.");
-        }
+        DrawRenderViewDescription(app.m_renderViewMode);
         const bool iblDebugView = app.m_renderViewMode == RenderViewMode::IblEnvironment ||
             app.m_renderViewMode == RenderViewMode::IblDiffuseIrradiance ||
             app.m_renderViewMode == RenderViewMode::IblSpecularPrefilter;
