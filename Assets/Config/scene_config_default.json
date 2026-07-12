@@ -9,6 +9,8 @@
       ],
       "camera": {
         "fov": 50.0,
+        "nearZ": 0.1,
+        "farZ": 10000.0,
         "mode": "freelook",
         "position": [
           5.0,
@@ -128,6 +130,8 @@
       "camera": {
         "distance": 6.0,
         "fov": 60.0,
+        "nearZ": 0.1,
+        "farZ": 10000.0,
         "mode": "arcball",
         "pitch": 0.2,
         "yaw": 0.3
@@ -239,6 +243,8 @@
       "camera": {
         "distance": 4.0,
         "fov": 60.0,
+        "nearZ": 0.1,
+        "farZ": 10000.0,
         "mode": "arcball",
         "pitch": 0.3,
         "yaw": 0.5
@@ -349,6 +355,8 @@
       ],
       "camera": {
         "fov": 60.0,
+        "nearZ": 0.1,
+        "farZ": 10000.0,
         "mode": "freelook",
         "position": [
           0.8,
@@ -467,6 +475,8 @@
       ],
       "camera": {
         "fov": 50.0,
+        "nearZ": 0.1,
+        "farZ": 10000.0,
         "mode": "freelook",
         "position": [
           0.0,
@@ -586,6 +596,8 @@
       "camera": {
         "distance": 5.0,
         "fov": 60.0,
+        "nearZ": 0.1,
+        "farZ": 10000.0,
         "mode": "arcball",
         "pitch": 0.35,
         "yaw": 0.45
@@ -697,6 +709,8 @@
       "camera": {
         "distance": 5.0,
         "fov": 60.0,
+        "nearZ": 0.1,
+        "farZ": 10000.0,
         "mode": "arcball",
         "pitch": 0.25,
         "yaw": 0.4
@@ -808,6 +822,8 @@
       "camera": {
         "distance": 8.0,
         "fov": 55.0,
+        "nearZ": 0.1,
+        "farZ": 10000.0,
         "mode": "arcball",
         "pitch": 0.3,
         "yaw": 0.0
@@ -918,6 +934,8 @@
       ],
       "camera": {
         "fov": 55.0,
+        "nearZ": 0.1,
+        "farZ": 10000.0,
         "mode": "freelook",
         "position": [
           0.0,
@@ -1036,6 +1054,8 @@
       ],
       "camera": {
         "fov": 50.0,
+        "nearZ": 0.1,
+        "farZ": 10000.0,
         "mode": "freelook",
         "position": [
           4.5,
@@ -1153,10 +1173,10 @@
         1.0
       ],
       "camera": {
-        "farZ": 1000.0,
         "fov": 53.5,
+        "nearZ": 0.1,
+        "farZ": 10000.0,
         "mode": "freelook",
-        "nearZ": 0.0010000000474974513,
         "position": [
           0.21662721037864685,
           -0.09810513257980347,
