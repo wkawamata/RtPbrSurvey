@@ -30,6 +30,9 @@ struct SceneCameraConfig
 
     // Common
     float fov = 60.0f;
+    float speedMultiplier = 1.0f;
+    float nearZ = 0.1f;
+    float farZ = 10000.0f;
 };
 
 struct SceneLightingConfig
@@ -38,6 +41,8 @@ struct SceneLightingConfig
     std::array<float, 3> lightColor = {1.0f, 1.0f, 1.0f};
     float iblIntensity = 0.10f;
     float diffuseIntensity = 1.0f;
+    float iblDebugMip = 0.0f;
+    float iblDebugExposure = 0.25f;
     bool skyboxEnabled = true;
     bool skyboxPreview = false;
     float skyboxPreviewExposure = 1.0f;
@@ -158,6 +163,12 @@ public:
                           const RtPbrSurveyEngine& engine,
                           const Engine::SampleScene& scene);
 
+    // Saves current scene state as the default (overwrites defaults file entry)
+    void SaveAsDefault(int sceneIndex,
+                       RtPbrSurveyApp& app,
+                       RtPbrSurveyEngine& engine,
+                       const Engine::SampleScene& scene);
+
     // Re-reads default file and applies (user file on disk untouched)
     void LoadDefaultsForScene(int sceneIndex,
                               RtPbrSurveyApp& app,
@@ -177,6 +188,8 @@ public:
 
     // Returns the source hint for UI display
     ConfigSource ActiveSource(const std::string& sceneName) const;
+
+    const std::string& UserConfigPath() const { return m_userConfigPath; }
 
 private:
     std::string m_defaultsPath;

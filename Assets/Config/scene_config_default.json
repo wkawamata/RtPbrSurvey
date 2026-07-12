@@ -1,98 +1,1271 @@
 {
-    "version": 1,
-    "scenes": {
-        "DamagedHelmet": {
-            "camera": {
-                "mode": "arcball",
-                "yaw": 0.45,
-                "pitch": 0.35,
-                "distance": 5.0,
-                "fov": 60.0
-            }
-        },
-        "Avocado": {
-            "camera": {
-                "mode": "arcball",
-                "yaw": 0.3,
-                "pitch": 0.2,
-                "distance": 6.0,
-                "fov": 60.0
-            }
-        },
-        "BoomBox": {
-            "camera": {
-                "mode": "arcball",
-                "yaw": 0.5,
-                "pitch": 0.3,
-                "distance": 4.0,
-                "fov": 60.0
-            }
-        },
-        "Lantern": {
-            "camera": {
-                "mode": "arcball",
-                "yaw": 0.4,
-                "pitch": 0.25,
-                "distance": 5.0,
-                "fov": 60.0
-            }
-        },
-        "Sponza": {
-            "camera": {
-                "mode": "freelook",
-                "position": [0.0, 2.0, 0.0],
-                "rotation": [0.0, 0.0, 0.0],
-                "fov": 60.0
-            }
-        },
-        "Metallic/Roughness Spheres": {
-            "camera": {
-                "mode": "arcball",
-                "yaw": 0.0,
-                "pitch": 0.3,
-                "distance": 8.0,
-                "fov": 55.0
-            }
-        },
-        "Shadow Test: Ground + Cubes": {
-            "camera": {
-                "mode": "freelook",
-                "position": [4.5, 3.0, -4.5],
-                "rotation": [0.35, 0.6, 0.0],
-                "fov": 50.0
-            }
-        },
-        "Animated Shadow Grid": {
-            "camera": {
-                "mode": "freelook",
-                "position": [5.0, 5.0, -5.0],
-                "rotation": [0.5, 0.7, 0.0],
-                "fov": 50.0
-            }
-        },
-        "Contact Shadow Test": {
-            "camera": {
-                "mode": "freelook",
-                "position": [0.8, 0.5, -1.5],
-                "rotation": [0.1, 0.0, 0.0],
-                "fov": 60.0
-            }
-        },
-        "Occluder Wall Test": {
-            "camera": {
-                "mode": "freelook",
-                "position": [0.0, 1.0, -4.0],
-                "rotation": [0.1, 0.0, 0.0],
-                "fov": 55.0
-            }
-        },
-        "Cornell Box + Mirror Ball": {
-            "camera": {
-                "mode": "freelook",
-                "position": [0.0, 0.5, -4.5],
-                "rotation": [0.1, 0.0, 0.0],
-                "fov": 50.0
-            }
-        }
+  "scenes": {
+    "Animated Shadow Grid": {
+      "backBufferClearColor": [
+        0.0,
+        0.2,
+        0.4,
+        1.0
+      ],
+      "camera": {
+        "fov": 50.0,
+        "mode": "freelook",
+        "position": [
+          5.0,
+          5.0,
+          -5.0
+        ],
+        "rotation": [
+          0.5,
+          0.7,
+          0.0
+        ]
+      },
+      "displayInstanceCount": 1,
+      "environment": {
+        "backgroundIntensity": 0.6,
+        "colorPanelIntensity": 1.5,
+        "fillIntensity": 0.12,
+        "groundColor": [
+          0.18,
+          0.17,
+          0.15
+        ],
+        "horizonSharpness": 0.08,
+        "lightColor": [
+          1.0,
+          0.96,
+          0.86
+        ],
+        "lightDirection": [
+          0.35,
+          0.75,
+          0.25
+        ],
+        "lightIntensity": 6.0,
+        "lightSize": 0.12,
+        "skyColor": [
+          0.42,
+          0.56,
+          0.72
+        ],
+        "source": 0
+      },
+      "environmentAutoUpdate": true,
+      "hybridReflection": {
+        "contributionEnabled": false,
+        "contributionIntensity": 0.25,
+        "enabled": true,
+        "hitNormalSource": 0,
+        "hitOverlayEnabled": false,
+        "hitOverlayIntensity": 0.2,
+        "hitOverlayMode": 0,
+        "materialGateEnabled": false,
+        "maxRoughness": 0.35,
+        "minMetallic": 0.0
+      },
+      "iblEnabled": true,
+      "isPlaying": false,
+      "lighting": {
+        "diffuseIblEnabled": true,
+        "diffuseIntensity": 1.0,
+        "directLightEnabled": true,
+        "emissiveEnabled": true,
+        "iblDebugExposure": 0.25,
+        "iblDebugMip": 0,
+        "iblIntensity": 0.1,
+        "lightColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightDirection": [
+          0.0,
+          1.0,
+          -1.0
+        ],
+        "skyboxEnabled": true,
+        "skyboxPreview": false,
+        "skyboxPreviewExposure": 1.0,
+        "specularIblEnabled": true
+      },
+      "lightingPassDebugGradient": false,
+      "meshScale": 0.5,
+      "renderViewMode": 0,
+      "renderingPath": 1,
+      "selectedMaterialIndex": 0,
+      "shadow": {
+        "enabled": true,
+        "jitterStrength": 2.0,
+        "lightAngularRadius": 0.1,
+        "normalBias": 0.01,
+        "rayTMax": 10000.0,
+        "rayTMin": 0.001,
+        "sampleCount": 8,
+        "softShadowEnabled": true
+      },
+      "specularDebugLines": {
+        "enabled": true,
+        "lineLength": 1.0,
+        "showNormal": true,
+        "showReflection": true,
+        "showViewRay": true
+      },
+      "toneMap": {
+        "exposure": 1.0,
+        "maxDisplayNits": 1000.0,
+        "operatorIndex": 0,
+        "paperWhiteNits": 300.0
+      }
+    },
+    "Avocado": {
+      "backBufferClearColor": [
+        0.0,
+        0.2,
+        0.4,
+        1.0
+      ],
+      "camera": {
+        "distance": 6.0,
+        "fov": 60.0,
+        "mode": "arcball",
+        "pitch": 0.2,
+        "yaw": 0.3
+      },
+      "displayInstanceCount": 1,
+      "environment": {
+        "backgroundIntensity": 0.6,
+        "colorPanelIntensity": 1.5,
+        "fillIntensity": 0.12,
+        "groundColor": [
+          0.18,
+          0.17,
+          0.15
+        ],
+        "horizonSharpness": 0.08,
+        "lightColor": [
+          1.0,
+          0.96,
+          0.86
+        ],
+        "lightDirection": [
+          0.35,
+          0.75,
+          0.25
+        ],
+        "lightIntensity": 6.0,
+        "lightSize": 0.12,
+        "skyColor": [
+          0.42,
+          0.56,
+          0.72
+        ],
+        "source": 0
+      },
+      "environmentAutoUpdate": true,
+      "hybridReflection": {
+        "contributionEnabled": false,
+        "contributionIntensity": 0.25,
+        "enabled": true,
+        "hitNormalSource": 0,
+        "hitOverlayEnabled": false,
+        "hitOverlayIntensity": 0.2,
+        "hitOverlayMode": 0,
+        "materialGateEnabled": false,
+        "maxRoughness": 0.35,
+        "minMetallic": 0.0
+      },
+      "iblEnabled": true,
+      "isPlaying": false,
+      "lighting": {
+        "diffuseIblEnabled": true,
+        "diffuseIntensity": 1.0,
+        "directLightEnabled": true,
+        "emissiveEnabled": true,
+        "iblDebugExposure": 0.25,
+        "iblDebugMip": 0,
+        "iblIntensity": 0.1,
+        "lightColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightDirection": [
+          0.0,
+          1.0,
+          -1.0
+        ],
+        "skyboxEnabled": true,
+        "skyboxPreview": false,
+        "skyboxPreviewExposure": 1.0,
+        "specularIblEnabled": true
+      },
+      "lightingPassDebugGradient": false,
+      "meshScale": 0.5,
+      "renderViewMode": 0,
+      "renderingPath": 1,
+      "selectedMaterialIndex": 0,
+      "shadow": {
+        "enabled": true,
+        "jitterStrength": 2.0,
+        "lightAngularRadius": 0.1,
+        "normalBias": 0.01,
+        "rayTMax": 10000.0,
+        "rayTMin": 0.001,
+        "sampleCount": 8,
+        "softShadowEnabled": true
+      },
+      "specularDebugLines": {
+        "enabled": true,
+        "lineLength": 1.0,
+        "showNormal": true,
+        "showReflection": true,
+        "showViewRay": true
+      },
+      "toneMap": {
+        "exposure": 1.0,
+        "maxDisplayNits": 1000.0,
+        "operatorIndex": 0,
+        "paperWhiteNits": 300.0
+      }
+    },
+    "BoomBox": {
+      "backBufferClearColor": [
+        0.0,
+        0.2,
+        0.4,
+        1.0
+      ],
+      "camera": {
+        "distance": 4.0,
+        "fov": 60.0,
+        "mode": "arcball",
+        "pitch": 0.3,
+        "yaw": 0.5
+      },
+      "displayInstanceCount": 1,
+      "environment": {
+        "backgroundIntensity": 0.6,
+        "colorPanelIntensity": 1.5,
+        "fillIntensity": 0.12,
+        "groundColor": [
+          0.18,
+          0.17,
+          0.15
+        ],
+        "horizonSharpness": 0.08,
+        "lightColor": [
+          1.0,
+          0.96,
+          0.86
+        ],
+        "lightDirection": [
+          0.35,
+          0.75,
+          0.25
+        ],
+        "lightIntensity": 6.0,
+        "lightSize": 0.12,
+        "skyColor": [
+          0.42,
+          0.56,
+          0.72
+        ],
+        "source": 0
+      },
+      "environmentAutoUpdate": true,
+      "hybridReflection": {
+        "contributionEnabled": false,
+        "contributionIntensity": 0.25,
+        "enabled": true,
+        "hitNormalSource": 0,
+        "hitOverlayEnabled": false,
+        "hitOverlayIntensity": 0.2,
+        "hitOverlayMode": 0,
+        "materialGateEnabled": false,
+        "maxRoughness": 0.35,
+        "minMetallic": 0.0
+      },
+      "iblEnabled": true,
+      "isPlaying": false,
+      "lighting": {
+        "diffuseIblEnabled": true,
+        "diffuseIntensity": 1.0,
+        "directLightEnabled": true,
+        "emissiveEnabled": true,
+        "iblDebugExposure": 0.25,
+        "iblDebugMip": 0,
+        "iblIntensity": 0.1,
+        "lightColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightDirection": [
+          0.0,
+          1.0,
+          -1.0
+        ],
+        "skyboxEnabled": true,
+        "skyboxPreview": false,
+        "skyboxPreviewExposure": 1.0,
+        "specularIblEnabled": true
+      },
+      "lightingPassDebugGradient": false,
+      "meshScale": 0.5,
+      "renderViewMode": 0,
+      "renderingPath": 1,
+      "selectedMaterialIndex": 0,
+      "shadow": {
+        "enabled": true,
+        "jitterStrength": 2.0,
+        "lightAngularRadius": 0.1,
+        "normalBias": 0.01,
+        "rayTMax": 10000.0,
+        "rayTMin": 0.001,
+        "sampleCount": 8,
+        "softShadowEnabled": true
+      },
+      "specularDebugLines": {
+        "enabled": true,
+        "lineLength": 1.0,
+        "showNormal": true,
+        "showReflection": true,
+        "showViewRay": true
+      },
+      "toneMap": {
+        "exposure": 1.0,
+        "maxDisplayNits": 1000.0,
+        "operatorIndex": 0,
+        "paperWhiteNits": 300.0
+      }
+    },
+    "Contact Shadow Test": {
+      "backBufferClearColor": [
+        0.0,
+        0.2,
+        0.4,
+        1.0
+      ],
+      "camera": {
+        "fov": 60.0,
+        "mode": "freelook",
+        "position": [
+          0.8,
+          0.5,
+          -1.5
+        ],
+        "rotation": [
+          0.1,
+          0.0,
+          0.0
+        ]
+      },
+      "displayInstanceCount": 1,
+      "environment": {
+        "backgroundIntensity": 0.6,
+        "colorPanelIntensity": 1.5,
+        "fillIntensity": 0.12,
+        "groundColor": [
+          0.18,
+          0.17,
+          0.15
+        ],
+        "horizonSharpness": 0.08,
+        "lightColor": [
+          1.0,
+          0.96,
+          0.86
+        ],
+        "lightDirection": [
+          0.35,
+          0.75,
+          0.25
+        ],
+        "lightIntensity": 6.0,
+        "lightSize": 0.12,
+        "skyColor": [
+          0.42,
+          0.56,
+          0.72
+        ],
+        "source": 0
+      },
+      "environmentAutoUpdate": true,
+      "hybridReflection": {
+        "contributionEnabled": false,
+        "contributionIntensity": 0.25,
+        "enabled": true,
+        "hitNormalSource": 0,
+        "hitOverlayEnabled": false,
+        "hitOverlayIntensity": 0.2,
+        "hitOverlayMode": 0,
+        "materialGateEnabled": false,
+        "maxRoughness": 0.35,
+        "minMetallic": 0.0
+      },
+      "iblEnabled": true,
+      "isPlaying": false,
+      "lighting": {
+        "diffuseIblEnabled": true,
+        "diffuseIntensity": 1.0,
+        "directLightEnabled": true,
+        "emissiveEnabled": true,
+        "iblDebugExposure": 0.25,
+        "iblDebugMip": 0,
+        "iblIntensity": 0.1,
+        "lightColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightDirection": [
+          0.0,
+          1.0,
+          -1.0
+        ],
+        "skyboxEnabled": true,
+        "skyboxPreview": false,
+        "skyboxPreviewExposure": 1.0,
+        "specularIblEnabled": true
+      },
+      "lightingPassDebugGradient": false,
+      "meshScale": 0.5,
+      "renderViewMode": 0,
+      "renderingPath": 1,
+      "selectedMaterialIndex": 0,
+      "shadow": {
+        "enabled": true,
+        "jitterStrength": 2.0,
+        "lightAngularRadius": 0.1,
+        "normalBias": 0.01,
+        "rayTMax": 10000.0,
+        "rayTMin": 0.001,
+        "sampleCount": 8,
+        "softShadowEnabled": true
+      },
+      "specularDebugLines": {
+        "enabled": true,
+        "lineLength": 1.0,
+        "showNormal": true,
+        "showReflection": true,
+        "showViewRay": true
+      },
+      "toneMap": {
+        "exposure": 1.0,
+        "maxDisplayNits": 1000.0,
+        "operatorIndex": 0,
+        "paperWhiteNits": 300.0
+      }
+    },
+    "Cornell Box + Mirror Ball": {
+      "backBufferClearColor": [
+        0.1,
+        0.1,
+        0.1,
+        1.0
+      ],
+      "camera": {
+        "fov": 50.0,
+        "mode": "freelook",
+        "position": [
+          0.0,
+          0.5,
+          -4.5
+        ],
+        "rotation": [
+          0.1,
+          0.0,
+          0.0
+        ]
+      },
+      "displayInstanceCount": 1,
+      "environment": {
+        "backgroundIntensity": 0.6,
+        "colorPanelIntensity": 1.5,
+        "fillIntensity": 0.12,
+        "groundColor": [
+          0.18,
+          0.17,
+          0.15
+        ],
+        "horizonSharpness": 0.08,
+        "lightColor": [
+          1.0,
+          0.96,
+          0.86
+        ],
+        "lightDirection": [
+          0.35,
+          0.75,
+          0.25
+        ],
+        "lightIntensity": 6.0,
+        "lightSize": 0.12,
+        "skyColor": [
+          0.42,
+          0.56,
+          0.72
+        ],
+        "source": 0
+      },
+      "environmentAutoUpdate": true,
+      "hybridReflection": {
+        "contributionEnabled": false,
+        "contributionIntensity": 0.25,
+        "enabled": true,
+        "hitNormalSource": 0,
+        "hitOverlayEnabled": false,
+        "hitOverlayIntensity": 0.2,
+        "hitOverlayMode": 0,
+        "materialGateEnabled": false,
+        "maxRoughness": 0.35,
+        "minMetallic": 0.0
+      },
+      "iblEnabled": true,
+      "isPlaying": false,
+      "lighting": {
+        "diffuseIblEnabled": true,
+        "diffuseIntensity": 1.0,
+        "directLightEnabled": true,
+        "emissiveEnabled": true,
+        "iblDebugExposure": 0.25,
+        "iblDebugMip": 0,
+        "iblIntensity": 0.1,
+        "lightColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightDirection": [
+          0.0,
+          1.0,
+          -1.0
+        ],
+        "skyboxEnabled": true,
+        "skyboxPreview": false,
+        "skyboxPreviewExposure": 1.0,
+        "specularIblEnabled": true
+      },
+      "lightingPassDebugGradient": false,
+      "meshScale": 0.5,
+      "renderViewMode": 0,
+      "renderingPath": 1,
+      "selectedMaterialIndex": 0,
+      "shadow": {
+        "enabled": true,
+        "jitterStrength": 2.0,
+        "lightAngularRadius": 0.1,
+        "normalBias": 0.01,
+        "rayTMax": 10000.0,
+        "rayTMin": 0.001,
+        "sampleCount": 8,
+        "softShadowEnabled": true
+      },
+      "specularDebugLines": {
+        "enabled": true,
+        "lineLength": 1.0,
+        "showNormal": true,
+        "showReflection": true,
+        "showViewRay": true
+      },
+      "toneMap": {
+        "exposure": 1.0,
+        "maxDisplayNits": 1000.0,
+        "operatorIndex": 0,
+        "paperWhiteNits": 300.0
+      }
+    },
+    "DamagedHelmet": {
+      "backBufferClearColor": [
+        0.0,
+        0.2,
+        0.4,
+        1.0
+      ],
+      "camera": {
+        "distance": 5.0,
+        "fov": 60.0,
+        "mode": "arcball",
+        "pitch": 0.35,
+        "yaw": 0.45
+      },
+      "displayInstanceCount": 1,
+      "environment": {
+        "backgroundIntensity": 0.6,
+        "colorPanelIntensity": 1.5,
+        "fillIntensity": 0.12,
+        "groundColor": [
+          0.18,
+          0.17,
+          0.15
+        ],
+        "horizonSharpness": 0.08,
+        "lightColor": [
+          1.0,
+          0.96,
+          0.86
+        ],
+        "lightDirection": [
+          0.35,
+          0.75,
+          0.25
+        ],
+        "lightIntensity": 6.0,
+        "lightSize": 0.12,
+        "skyColor": [
+          0.42,
+          0.56,
+          0.72
+        ],
+        "source": 0
+      },
+      "environmentAutoUpdate": true,
+      "hybridReflection": {
+        "contributionEnabled": false,
+        "contributionIntensity": 0.25,
+        "enabled": true,
+        "hitNormalSource": 0,
+        "hitOverlayEnabled": false,
+        "hitOverlayIntensity": 0.2,
+        "hitOverlayMode": 0,
+        "materialGateEnabled": false,
+        "maxRoughness": 0.35,
+        "minMetallic": 0.0
+      },
+      "iblEnabled": true,
+      "isPlaying": false,
+      "lighting": {
+        "diffuseIblEnabled": true,
+        "diffuseIntensity": 1.0,
+        "directLightEnabled": true,
+        "emissiveEnabled": true,
+        "iblDebugExposure": 0.25,
+        "iblDebugMip": 0,
+        "iblIntensity": 0.1,
+        "lightColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightDirection": [
+          0.0,
+          1.0,
+          -1.0
+        ],
+        "skyboxEnabled": true,
+        "skyboxPreview": false,
+        "skyboxPreviewExposure": 1.0,
+        "specularIblEnabled": true
+      },
+      "lightingPassDebugGradient": false,
+      "meshScale": 0.5,
+      "renderViewMode": 0,
+      "renderingPath": 1,
+      "selectedMaterialIndex": 0,
+      "shadow": {
+        "enabled": true,
+        "jitterStrength": 2.0,
+        "lightAngularRadius": 0.1,
+        "normalBias": 0.01,
+        "rayTMax": 10000.0,
+        "rayTMin": 0.001,
+        "sampleCount": 8,
+        "softShadowEnabled": true
+      },
+      "specularDebugLines": {
+        "enabled": true,
+        "lineLength": 1.0,
+        "showNormal": true,
+        "showReflection": true,
+        "showViewRay": true
+      },
+      "toneMap": {
+        "exposure": 1.0,
+        "maxDisplayNits": 1000.0,
+        "operatorIndex": 0,
+        "paperWhiteNits": 300.0
+      }
+    },
+    "Lantern": {
+      "backBufferClearColor": [
+        0.0,
+        0.2,
+        0.4,
+        1.0
+      ],
+      "camera": {
+        "distance": 5.0,
+        "fov": 60.0,
+        "mode": "arcball",
+        "pitch": 0.25,
+        "yaw": 0.4
+      },
+      "displayInstanceCount": 1,
+      "environment": {
+        "backgroundIntensity": 0.6,
+        "colorPanelIntensity": 1.5,
+        "fillIntensity": 0.12,
+        "groundColor": [
+          0.18,
+          0.17,
+          0.15
+        ],
+        "horizonSharpness": 0.08,
+        "lightColor": [
+          1.0,
+          0.96,
+          0.86
+        ],
+        "lightDirection": [
+          0.35,
+          0.75,
+          0.25
+        ],
+        "lightIntensity": 6.0,
+        "lightSize": 0.12,
+        "skyColor": [
+          0.42,
+          0.56,
+          0.72
+        ],
+        "source": 0
+      },
+      "environmentAutoUpdate": true,
+      "hybridReflection": {
+        "contributionEnabled": false,
+        "contributionIntensity": 0.25,
+        "enabled": true,
+        "hitNormalSource": 0,
+        "hitOverlayEnabled": false,
+        "hitOverlayIntensity": 0.2,
+        "hitOverlayMode": 0,
+        "materialGateEnabled": false,
+        "maxRoughness": 0.35,
+        "minMetallic": 0.0
+      },
+      "iblEnabled": true,
+      "isPlaying": false,
+      "lighting": {
+        "diffuseIblEnabled": true,
+        "diffuseIntensity": 1.0,
+        "directLightEnabled": true,
+        "emissiveEnabled": true,
+        "iblDebugExposure": 0.25,
+        "iblDebugMip": 0,
+        "iblIntensity": 0.1,
+        "lightColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightDirection": [
+          0.0,
+          1.0,
+          -1.0
+        ],
+        "skyboxEnabled": true,
+        "skyboxPreview": false,
+        "skyboxPreviewExposure": 1.0,
+        "specularIblEnabled": true
+      },
+      "lightingPassDebugGradient": false,
+      "meshScale": 0.5,
+      "renderViewMode": 0,
+      "renderingPath": 1,
+      "selectedMaterialIndex": 0,
+      "shadow": {
+        "enabled": true,
+        "jitterStrength": 2.0,
+        "lightAngularRadius": 0.1,
+        "normalBias": 0.01,
+        "rayTMax": 10000.0,
+        "rayTMin": 0.001,
+        "sampleCount": 8,
+        "softShadowEnabled": true
+      },
+      "specularDebugLines": {
+        "enabled": true,
+        "lineLength": 1.0,
+        "showNormal": true,
+        "showReflection": true,
+        "showViewRay": true
+      },
+      "toneMap": {
+        "exposure": 1.0,
+        "maxDisplayNits": 1000.0,
+        "operatorIndex": 0,
+        "paperWhiteNits": 300.0
+      }
+    },
+    "Metallic/Roughness Spheres": {
+      "backBufferClearColor": [
+        0.0,
+        0.2,
+        0.4,
+        1.0
+      ],
+      "camera": {
+        "distance": 8.0,
+        "fov": 55.0,
+        "mode": "arcball",
+        "pitch": 0.3,
+        "yaw": 0.0
+      },
+      "displayInstanceCount": 1,
+      "environment": {
+        "backgroundIntensity": 0.6,
+        "colorPanelIntensity": 1.5,
+        "fillIntensity": 0.12,
+        "groundColor": [
+          0.18,
+          0.17,
+          0.15
+        ],
+        "horizonSharpness": 0.08,
+        "lightColor": [
+          1.0,
+          0.96,
+          0.86
+        ],
+        "lightDirection": [
+          0.35,
+          0.75,
+          0.25
+        ],
+        "lightIntensity": 6.0,
+        "lightSize": 0.12,
+        "skyColor": [
+          0.42,
+          0.56,
+          0.72
+        ],
+        "source": 0
+      },
+      "environmentAutoUpdate": true,
+      "hybridReflection": {
+        "contributionEnabled": false,
+        "contributionIntensity": 0.25,
+        "enabled": true,
+        "hitNormalSource": 0,
+        "hitOverlayEnabled": false,
+        "hitOverlayIntensity": 0.2,
+        "hitOverlayMode": 0,
+        "materialGateEnabled": false,
+        "maxRoughness": 0.35,
+        "minMetallic": 0.0
+      },
+      "iblEnabled": true,
+      "isPlaying": false,
+      "lighting": {
+        "diffuseIblEnabled": true,
+        "diffuseIntensity": 1.0,
+        "directLightEnabled": true,
+        "emissiveEnabled": true,
+        "iblDebugExposure": 0.25,
+        "iblDebugMip": 0,
+        "iblIntensity": 0.1,
+        "lightColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightDirection": [
+          0.0,
+          1.0,
+          -1.0
+        ],
+        "skyboxEnabled": true,
+        "skyboxPreview": false,
+        "skyboxPreviewExposure": 1.0,
+        "specularIblEnabled": true
+      },
+      "lightingPassDebugGradient": false,
+      "meshScale": 0.5,
+      "renderViewMode": 0,
+      "renderingPath": 1,
+      "selectedMaterialIndex": 0,
+      "shadow": {
+        "enabled": true,
+        "jitterStrength": 2.0,
+        "lightAngularRadius": 0.1,
+        "normalBias": 0.01,
+        "rayTMax": 10000.0,
+        "rayTMin": 0.001,
+        "sampleCount": 8,
+        "softShadowEnabled": true
+      },
+      "specularDebugLines": {
+        "enabled": true,
+        "lineLength": 1.0,
+        "showNormal": true,
+        "showReflection": true,
+        "showViewRay": true
+      },
+      "toneMap": {
+        "exposure": 1.0,
+        "maxDisplayNits": 1000.0,
+        "operatorIndex": 0,
+        "paperWhiteNits": 300.0
+      }
+    },
+    "Occluder Wall Test": {
+      "backBufferClearColor": [
+        0.0,
+        0.2,
+        0.4,
+        1.0
+      ],
+      "camera": {
+        "fov": 55.0,
+        "mode": "freelook",
+        "position": [
+          0.0,
+          1.0,
+          -4.0
+        ],
+        "rotation": [
+          0.1,
+          0.0,
+          0.0
+        ]
+      },
+      "displayInstanceCount": 1,
+      "environment": {
+        "backgroundIntensity": 0.6,
+        "colorPanelIntensity": 1.5,
+        "fillIntensity": 0.12,
+        "groundColor": [
+          0.18,
+          0.17,
+          0.15
+        ],
+        "horizonSharpness": 0.08,
+        "lightColor": [
+          1.0,
+          0.96,
+          0.86
+        ],
+        "lightDirection": [
+          0.35,
+          0.75,
+          0.25
+        ],
+        "lightIntensity": 6.0,
+        "lightSize": 0.12,
+        "skyColor": [
+          0.42,
+          0.56,
+          0.72
+        ],
+        "source": 0
+      },
+      "environmentAutoUpdate": true,
+      "hybridReflection": {
+        "contributionEnabled": false,
+        "contributionIntensity": 0.25,
+        "enabled": true,
+        "hitNormalSource": 0,
+        "hitOverlayEnabled": false,
+        "hitOverlayIntensity": 0.2,
+        "hitOverlayMode": 0,
+        "materialGateEnabled": false,
+        "maxRoughness": 0.35,
+        "minMetallic": 0.0
+      },
+      "iblEnabled": true,
+      "isPlaying": false,
+      "lighting": {
+        "diffuseIblEnabled": true,
+        "diffuseIntensity": 1.0,
+        "directLightEnabled": true,
+        "emissiveEnabled": true,
+        "iblDebugExposure": 0.25,
+        "iblDebugMip": 0,
+        "iblIntensity": 0.1,
+        "lightColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightDirection": [
+          0.0,
+          1.0,
+          -1.0
+        ],
+        "skyboxEnabled": true,
+        "skyboxPreview": false,
+        "skyboxPreviewExposure": 1.0,
+        "specularIblEnabled": true
+      },
+      "lightingPassDebugGradient": false,
+      "meshScale": 0.5,
+      "renderViewMode": 0,
+      "renderingPath": 1,
+      "selectedMaterialIndex": 0,
+      "shadow": {
+        "enabled": true,
+        "jitterStrength": 2.0,
+        "lightAngularRadius": 0.1,
+        "normalBias": 0.01,
+        "rayTMax": 10000.0,
+        "rayTMin": 0.001,
+        "sampleCount": 8,
+        "softShadowEnabled": true
+      },
+      "specularDebugLines": {
+        "enabled": true,
+        "lineLength": 1.0,
+        "showNormal": true,
+        "showReflection": true,
+        "showViewRay": true
+      },
+      "toneMap": {
+        "exposure": 1.0,
+        "maxDisplayNits": 1000.0,
+        "operatorIndex": 0,
+        "paperWhiteNits": 300.0
+      }
+    },
+    "Shadow Test: Ground + Cubes": {
+      "backBufferClearColor": [
+        0.0,
+        0.2,
+        0.4,
+        1.0
+      ],
+      "camera": {
+        "fov": 50.0,
+        "mode": "freelook",
+        "position": [
+          4.5,
+          3.0,
+          -4.5
+        ],
+        "rotation": [
+          0.35,
+          0.6,
+          0.0
+        ]
+      },
+      "displayInstanceCount": 1,
+      "environment": {
+        "backgroundIntensity": 0.6,
+        "colorPanelIntensity": 1.5,
+        "fillIntensity": 0.12,
+        "groundColor": [
+          0.18,
+          0.17,
+          0.15
+        ],
+        "horizonSharpness": 0.08,
+        "lightColor": [
+          1.0,
+          0.96,
+          0.86
+        ],
+        "lightDirection": [
+          0.35,
+          0.75,
+          0.25
+        ],
+        "lightIntensity": 6.0,
+        "lightSize": 0.12,
+        "skyColor": [
+          0.42,
+          0.56,
+          0.72
+        ],
+        "source": 0
+      },
+      "environmentAutoUpdate": true,
+      "hybridReflection": {
+        "contributionEnabled": false,
+        "contributionIntensity": 0.25,
+        "enabled": true,
+        "hitNormalSource": 0,
+        "hitOverlayEnabled": false,
+        "hitOverlayIntensity": 0.2,
+        "hitOverlayMode": 0,
+        "materialGateEnabled": false,
+        "maxRoughness": 0.35,
+        "minMetallic": 0.0
+      },
+      "iblEnabled": true,
+      "isPlaying": false,
+      "lighting": {
+        "diffuseIblEnabled": true,
+        "diffuseIntensity": 1.0,
+        "directLightEnabled": true,
+        "emissiveEnabled": true,
+        "iblDebugExposure": 0.25,
+        "iblDebugMip": 0,
+        "iblIntensity": 0.1,
+        "lightColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightDirection": [
+          0.0,
+          1.0,
+          -1.0
+        ],
+        "skyboxEnabled": true,
+        "skyboxPreview": false,
+        "skyboxPreviewExposure": 1.0,
+        "specularIblEnabled": true
+      },
+      "lightingPassDebugGradient": false,
+      "meshScale": 0.5,
+      "renderViewMode": 0,
+      "renderingPath": 1,
+      "selectedMaterialIndex": 0,
+      "shadow": {
+        "enabled": true,
+        "jitterStrength": 2.0,
+        "lightAngularRadius": 0.1,
+        "normalBias": 0.01,
+        "rayTMax": 10000.0,
+        "rayTMin": 0.001,
+        "sampleCount": 8,
+        "softShadowEnabled": true
+      },
+      "specularDebugLines": {
+        "enabled": true,
+        "lineLength": 1.0,
+        "showNormal": true,
+        "showReflection": true,
+        "showViewRay": true
+      },
+      "toneMap": {
+        "exposure": 1.0,
+        "maxDisplayNits": 1000.0,
+        "operatorIndex": 0,
+        "paperWhiteNits": 300.0
+      }
+    },
+    "Sponza": {
+      "backBufferClearColor": [
+        0.0,
+        0.20000000298023224,
+        0.4000000059604645,
+        1.0
+      ],
+      "camera": {
+        "farZ": 1000.0,
+        "fov": 53.5,
+        "mode": "freelook",
+        "nearZ": 0.0010000000474974513,
+        "position": [
+          0.21662721037864685,
+          -0.09810513257980347,
+          0.0017134296940639615
+        ],
+        "rotation": [
+          -0.029999997466802597,
+          -1.595000147819519,
+          0.0
+        ],
+        "speedMultiplier": 1.0
+      },
+      "displayInstanceCount": 1,
+      "environment": {
+        "backgroundIntensity": 0.6000000238418579,
+        "colorPanelIntensity": 1.5,
+        "fillIntensity": 0.11999999731779099,
+        "groundColor": [
+          0.18000000715255737,
+          0.17000000178813934,
+          0.15000000596046448
+        ],
+        "horizonSharpness": 0.07999999821186066,
+        "lightColor": [
+          1.0,
+          0.9599999785423279,
+          0.8600000143051147
+        ],
+        "lightDirection": [
+          0.3499999940395355,
+          0.75,
+          0.25
+        ],
+        "lightIntensity": 6.0,
+        "lightSize": 0.11999999731779099,
+        "skyColor": [
+          0.41999998688697815,
+          0.5600000023841858,
+          0.7200000286102295
+        ],
+        "source": 0
+      },
+      "environmentAutoUpdate": true,
+      "hybridReflection": {
+        "contributionEnabled": false,
+        "contributionIntensity": 0.25,
+        "enabled": true,
+        "hitNormalSource": 0,
+        "hitOverlayEnabled": false,
+        "hitOverlayIntensity": 0.20000000298023224,
+        "hitOverlayMode": 0,
+        "materialGateEnabled": false,
+        "maxRoughness": 0.3499999940395355,
+        "minMetallic": 0.0
+      },
+      "iblEnabled": true,
+      "isPlaying": false,
+      "lighting": {
+        "diffuseIblEnabled": true,
+        "diffuseIntensity": 1.0,
+        "directLightEnabled": true,
+        "emissiveEnabled": true,
+        "iblDebugExposure": 0.25,
+        "iblDebugMip": 0.0,
+        "iblIntensity": 0.10000000149011612,
+        "lightColor": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "lightDirection": [
+          0.30399999022483826,
+          0.5320000052452087,
+          0.020999999716877937
+        ],
+        "skyboxEnabled": true,
+        "skyboxPreview": false,
+        "skyboxPreviewExposure": 1.0,
+        "specularIblEnabled": true
+      },
+      "lightingPassDebugGradient": false,
+      "meshScale": 0.009999999776482582,
+      "renderViewMode": 0,
+      "renderingPath": 1,
+      "selectedMaterialIndex": 0,
+      "shadow": {
+        "enabled": true,
+        "jitterStrength": 2.0,
+        "lightAngularRadius": 0.10000000149011612,
+        "normalBias": 0.009999999776482582,
+        "rayTMax": 10000.0,
+        "rayTMin": 0.0010000000474974513,
+        "sampleCount": 8,
+        "softShadowEnabled": true
+      },
+      "specularDebugLines": {
+        "enabled": true,
+        "lineLength": 1.0,
+        "showNormal": true,
+        "showReflection": true,
+        "showViewRay": true
+      },
+      "toneMap": {
+        "exposure": 1.0,
+        "maxDisplayNits": 1000.0,
+        "operatorIndex": 0,
+        "paperWhiteNits": 300.0
+      }
     }
+  },
+  "version": 1
 }

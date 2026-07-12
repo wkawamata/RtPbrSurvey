@@ -14,6 +14,8 @@ struct CameraState
     DirectX::XMFLOAT3 rot = {0.0f, 0.0f, 0.0f};
     DirectX::XMFLOAT3 gazePoint = {0.0f, 0.0f, 0.0f};
     float fov = 60.0f;
+    float nearZ = 0.1f;
+    float farZ = 10000.0f;
 };
 
 struct alignas(16) InstanceData

@@ -11,6 +11,12 @@ void RunStagedAllocatorTests(ID3D12Device* device);
 namespace
 {
 
+struct CameraSpeedPreset
+{
+    const char* label;
+    float multiplier;
+};
+
 const char* EnvironmentSourceLabel(Engine::EnvironmentSource source)
 {
     switch (source)
@@ -132,6 +138,34 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             {
                 app.InitObjectViewerFromCamera();
             }
+        }
+
+        {
+            static constexpr CameraSpeedPreset presets[] = {
+                {"1/10", 0.1f},
+                {"1/5",  0.2f},
+                {"1/3",  0.333f},
+                {"1/2",  0.5f},
+                {"x1",   1.0f},
+                {"x2",   2.0f},
+                {"x3",   3.0f},
+                {"x5",   5.0f},
+                {"x10", 10.0f},
+            };
+            for (const auto& p : presets)
+            {
+                const bool isActive = (app.m_cameraSpeedMultiplier == p.multiplier);
+                if (isActive)
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+                if (ImGui::SmallButton(p.label))
+                    app.m_cameraSpeedMultiplier = p.multiplier;
+                if (isActive)
+                    ImGui::PopStyleColor();
+                ImGui::SameLine();
+            }
+            ImGui::NewLine();
+            ImGuiWidgets::SliderFloatWithControls("NearZ", &loadedScene.GetScene().camera.nearZ, 0.01f, 10.0f, 0.01f, 0.1f);
+            ImGuiWidgets::SliderFloatWithControls("FarZ", &loadedScene.GetScene().camera.farZ, 10.0f, 100000.0f, 100.0f, 10000.0f);
         }
     }
     if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
@@ -618,60 +652,104 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     if (ImGui::CollapsingHeader("Scene Config"))
     {
+        // Status message (auto-clears after ~2 seconds)
+        static int statusFrames = 0;
+        static const char* statusMsg = "";
+
+        // Source indicator
         const auto source = app.m_sceneConfig.ActiveSource(
             app.LoadedScene().Name());
+        const char* sourceLabels[] = { "Code defaults", "Default config", "User config" };
+        ImGui::Text("Source: %s", sourceLabels[static_cast<int>(source)]);
 
-        const char* sourceLabel = "Code defaults";
-        switch (source)
-        {
-            case App::ConfigSource::DefaultFile:
-                sourceLabel = "Default config";
-                break;
-            case App::ConfigSource::UserFile:
-                sourceLabel = "User config";
-                break;
-            default:
-                break;
-        }
-        ImGui::Text("Source: %s", sourceLabel);
+        // User config path (compact)
+        ImGui::Text("Path: %s", app.m_sceneConfig.UserConfigPath().c_str());
 
+        // Row 1: Save / Load
         if (ImGui::Button("Save Current"))
         {
             app.m_sceneConfig.SaveCurrentScene(
                 app.m_loadedSceneIndex, app, app.m_engine, app.LoadedScene());
+            statusMsg = "Saved.";
+            statusFrames = 120;
         }
         ImGui::SameLine();
         if (ImGui::Button("Load Defaults"))
         {
             app.m_sceneConfig.LoadDefaultsForScene(
                 app.m_loadedSceneIndex, app, app.m_engine, app.LoadedScene());
+            statusMsg = "Loaded defaults.";
+            statusFrames = 120;
         }
 
-        if (ImGui::Button("Reset Current Scene"))
+        // Collapsible section for Reset / Save as Default
+        if (ImGui::TreeNode("Reset / Save as Default"))
         {
-            app.m_sceneConfig.ResetCurrentScene(
-                app.m_loadedSceneIndex, app, app.m_engine, app.LoadedScene());
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Reset All Scenes"))
-        {
-            ImGui::OpenPopup("Reset All##confirm");
-        }
-
-        if (ImGui::BeginPopupModal("Reset All##confirm", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
-        {
-            ImGui::Text("Reset all scene configurations to defaults?\n\nThis cannot be undone.\n\n");
-            if (ImGui::Button("OK", ImVec2(120, 0)))
+            if (ImGui::Button("Save as Default"))
             {
-                app.m_sceneConfig.ResetAllScenes(app, app.m_engine, app.LoadedScene());
-                ImGui::CloseCurrentPopup();
+                app.m_sceneConfig.SaveAsDefault(
+                    app.m_loadedSceneIndex, app, app.m_engine, app.LoadedScene());
+                statusMsg = "Saved as default.";
+                statusFrames = 120;
+            }
+
+            if (ImGui::Button("Reset Current Scene"))
+            {
+                ImGui::OpenPopup("Reset Current##confirm");
             }
             ImGui::SameLine();
-            if (ImGui::Button("Cancel", ImVec2(120, 0)))
+            if (ImGui::Button("Reset All Scenes"))
             {
-                ImGui::CloseCurrentPopup();
+                ImGui::OpenPopup("Reset All##confirm");
             }
-            ImGui::EndPopup();
+
+            // Confirmation: Reset Current Scene
+            if (ImGui::BeginPopupModal("Reset Current##confirm", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+            {
+                ImGui::Text("Reset current scene configuration to defaults?\n\nThis cannot be undone.\n\n");
+                if (ImGui::Button("OK", ImVec2(120, 0)))
+                {
+                    app.m_sceneConfig.ResetCurrentScene(
+                        app.m_loadedSceneIndex, app, app.m_engine, app.LoadedScene());
+                    statusMsg = "Reset current scene.";
+                    statusFrames = 120;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel", ImVec2(120, 0)))
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+
+            // Confirmation: Reset All Scenes
+            if (ImGui::BeginPopupModal("Reset All##confirm", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+            {
+                ImGui::Text("Reset all scene configurations to defaults?\n\nThis cannot be undone.\n\n");
+                if (ImGui::Button("OK", ImVec2(120, 0)))
+                {
+                    app.m_sceneConfig.ResetAllScenes(app, app.m_engine, app.LoadedScene());
+                    statusMsg = "Reset all scenes.";
+                    statusFrames = 120;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel", ImVec2(120, 0)))
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+
+            ImGui::TreePop();
+        }
+
+        // Status text (auto-clears)
+        if (statusFrames > 0)
+        {
+            --statusFrames;
+            ImGui::Text(">> %s", statusMsg);
         }
     }
 

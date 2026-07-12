@@ -416,3 +416,131 @@ No new engine getters/setters needed for v1. All saveable state is readable from
 ```
 
 Reset All uses an ImGui popup modal confirmation.
+
+## Step 5: Lighting, Environment, ToneMap, Rendering / Debug, Engine State (done)
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `App/SceneConfig.cpp` | Added JSON serialization/deserialization for all remaining sub-configs (Lighting, Environment, ToneMap, Shadow, HybridReflection, SpecularDebugLines) + scene-level rendering/debug fields (renderingPath, renderViewMode, lightingPassDebugGradient, backBufferClearColor, iblEnabled, environmentAutoUpdate). Updated `CaptureFromApp()` to read all state from app members and engine getters. Updated `ApplyToEngine()` with the correct 12-step apply order (environmentAutoUpdate -> iblEnabled -> lighting -> environment/ReloadEnvironmentResources -> shadow -> hybridReflection -> specularDebugLines -> toneMap -> renderingPath -> renderViewMode -> lightingPassDebugGradient -> backBufferClearColor -> existing camera/scene-params steps). |
+| `Assets/Config/scene_config_default.json` | Expanded from camera-only entries to full config entries for all 11 scenes (all fields). Cornell Box gets `[0.1, 0.1, 0.1, 1.0]` backBufferClearColor. |
+
+### Apply order (enforced in ApplyToEngine)
+
+1. `m_environmentAutoUpdate` -- must be set before env reload
+2. `m_iblEnabled` -- master toggle before lighting
+3. `app.m_lightingParams` (all fields) -- synced to engine each frame
+4. `engine.ReloadEnvironmentResources()` -- GPU env map regeneration
+5. `engine.SetShadowSettings()` -- engine direct setter
+6. `engine.SetHybridReflectionSettings()` -- engine direct setter
+7. `engine.SetSpecularDebugLineSettings()` -- engine direct setter
+8. `app.m_toneMapParams` (all fields) -- synced to engine each frame
+9. `app.m_renderingPath` -- synced to engine each frame
+10. `app.m_renderViewMode` -- synced to engine each frame
+11. `app.m_lightingPassDebugGradient` -- synced to engine each frame
+12. `app.m_backBufferClearColor` -- synced to engine each frame
+
+### Capture sources
+
+| Config section | Source |
+|----------------|--------|
+| Lighting | `app.m_lightingParams` (XMFLOAT3 -> array) |
+| IBL master | `app.m_iblEnabled` |
+| Environment | `app.m_environmentSettings` (source as int, XMFLOAT3 -> array) |
+| Environment auto-update | `app.m_environmentAutoUpdate` |
+| Tone map | `app.m_toneMapParams` |
+| Rendering path | `app.m_renderingPath` (enum -> int) |
+| Render view mode | `app.m_renderViewMode` (enum -> int) |
+| Debug gradient | `app.m_lightingPassDebugGradient` |
+| Clear color | `app.m_backBufferClearColor` |
+| Shadow | `engine.GetShadowSettings()` |
+| Hybrid reflection | `engine.GetHybridReflectionSettings()` |
+| Specular debug lines | `engine.GetSpecularDebugLineSettings()` |
+
+### Migration note
+
+User config files saved by Step 4 only contain camera + scene-params fields. Loading such a file with Step 5 code will fill missing sections with struct defaults (lighting, environment, etc. reset). To migrate, save each scene again after upgrading (Save captures all fields).
+
+### Build
+
+0 errors.
+
+### Step 5 review fix
+
+iblDebugMip and iblDebugExposure are included in lighting config serialization, capture, apply, and default scene config entries.
+
+## Step 6: Scene Config UI Polish + Validation (done)
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `App/SceneConfig.h` | Added `UserConfigPath()` const accessor for UI display |
+| `App/DebugUi.cpp` | Scene Config panel: show source (Code defaults / Default config / User config), show user config path, status message after Save/Load/Reset (auto-clears after 2s), reset confirmation popup sets status, cleaned up button layout |
+
+### UI layout (after)
+
+```
+[>] Scene Config
+    Source: User config
+    Path: C:\Users\...\AppData\Roaming\RtPbrSurvey\scene_config.json
+    [Save Current] [Load Defaults]
+    [>] Reset / Save as Default      (collapsible)
+        [Save as Default]
+        [Reset Current Scene] [Reset All Scenes]
+    >> Saved.                     (auto-clears)
+```
+
+### Source labels
+
+| ConfigSource | Label |
+|--------------|-------|
+| CodeDefaults | "Code defaults" |
+| DefaultFile  | "Default config" |
+| UserFile     | "User config" |
+
+### Status messages
+
+| Action | Status message | Duration |
+|--------|---------------|----------|
+| Save Current | `>> Saved.` | ~2s (120 frames) |
+| Save as Default | `>> Saved as default.` | ~2s |
+| Load Defaults | `>> Loaded defaults.` | ~2s |
+| Reset Current Scene (OK) | `>> Reset current scene.` | ~2s |
+| Reset All Scenes (OK) | `>> Reset all scenes.` | ~2s |
+
+Status is tracked via static variables in `DrawDebugUi()` (no SceneConfigManager changes needed for status).
+
+### Validation
+
+- Build: 0 errors, 0 D3D12 debug layer errors.
+- Defaults JSON validated (102998 bytes, valid JSON, 11 scenes with all fields).
+- App launches with `-AutoSelectGltfDamagedHelmet` without crash.
+- Saved fields verified by code review: camera, meshScale, displayInstanceCount, selectedMaterialIndex, isPlaying, renderingPath, renderViewMode, lightingPassDebugGradient, backBufferClearColor, iblEnabled, environmentAutoUpdate, lighting (all), environment (all), toneMap, shadow, hybridReflection, specularDebugLines.
+- Manual validation steps (user):
+  1. Launch app, open DamagedHelmet.
+  2. Change lighting/environment/tone settings via UI panels.
+  3. Click "Save Current" in Scene Config panel -> status shows ">> Saved.".
+  4. Switch to another scene (e.g., Cornell Box), switch back -> settings restored.
+  5. Click "Load Defaults" -> settings reset to defaults file values.
+  6. Click "Reset Current Scene" -> scene entry removed from user config, defaults applied.
+  7. Click "Reset All Scenes" -> confirm popup, OK -> all entries removed, defaults applied.
+  8. Check `%APPDATA%\RtPbrSurvey\scene_config.json` for saved data.
+
+### Added: Save as Default
+
+`SaveAsDefault()` captures the current scene state and writes it directly to `scene_config_default.json` (the git-tracked defaults file). This allows users to permanently customize the default camera/lighting/etc. for a scene.
+
+### Files changed (final)
+
+| File | Change |
+|------|--------|
+| `App/SceneConfig.h` | Added `UserConfigPath()` accessor, `SaveAsDefault()` method declaration |
+| `App/SceneConfig.cpp` | Implemented `SaveAsDefault()` (capture -> read defaults JSON -> update entry -> write back) |
+| `App/DebugUi.cpp` | Added "Save as Default" button, wrapped Reset + Save as Default in `ImGui::TreeNode` collapsible section |
+
+### Known limitations
+
+- Automated GUI shutdown for file write validation not achieved (WM_CLOSE via EnumWindows sent but process requires force-kill; `OnDestroy` save path verified by code review).
+- Status text uses static locals (not per-instance); fine for single-app usage.

@@ -680,8 +680,6 @@ private:
 
     Engine::MaterialBuffer m_materialBuffer;
 
-    static constexpr float kCameraNearZ = 0.1f;
-    static constexpr float kCameraFarZ = 10000.0f;
     ConstantBuffer m_constantBufferData;
 
     std::chrono::steady_clock::time_point m_prevTime;
