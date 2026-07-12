@@ -471,6 +471,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton("Reflection Distance", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayDistance));
         ImGui::SameLine();
         ImGui::RadioButton("Reflection Normal", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayNormal));
+        ImGui::RadioButton("Reflection Color", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayColor));
+        ImGui::SameLine();
+        ImGui::RadioButton("Reflection Fade", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayDistanceFade));
+        ImGui::SameLine();
+        ImGui::RadioButton("Reflection Strength", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionContributionStrength));
         ImGui::EndDisabled();
         ImGui::EndDisabled();
         app.m_renderViewMode = static_cast<RenderViewMode>(renderViewMode);
@@ -478,14 +483,20 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             (app.m_renderViewMode == RenderViewMode::ShadowMask || app.m_renderViewMode == RenderViewMode::TlasDebug ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayHit ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayDistance ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRayNormal))
+             app.m_renderViewMode == RenderViewMode::ReflectionRayNormal ||
+             app.m_renderViewMode == RenderViewMode::ReflectionRayColor ||
+             app.m_renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
+             app.m_renderViewMode == RenderViewMode::ReflectionContributionStrength))
         {
             app.m_renderViewMode = RenderViewMode::LightPass;
         }
         if (!reflectionDebugEnabled &&
             (app.m_renderViewMode == RenderViewMode::ReflectionRayHit ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayDistance ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRayNormal))
+             app.m_renderViewMode == RenderViewMode::ReflectionRayNormal ||
+             app.m_renderViewMode == RenderViewMode::ReflectionRayColor ||
+             app.m_renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
+             app.m_renderViewMode == RenderViewMode::ReflectionContributionStrength))
         {
             app.m_renderViewMode = RenderViewMode::LightPass;
         }

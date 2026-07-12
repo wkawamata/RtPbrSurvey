@@ -59,7 +59,7 @@ static constexpr uint32_t kLightCbvSpace = 0;
 // Root constants.
 static constexpr uint32_t kGBufferDebugConstantsRegister = 1;
 static constexpr uint32_t kGBufferDebugConstantsSpace = 0;
-static constexpr uint32_t kGBufferDebugConstantsCount = 1;
+static constexpr uint32_t kGBufferDebugConstantsCount = 3;
 
 static constexpr uint32_t kToneMapConstantsRegister = 3;
 static constexpr uint32_t kToneMapConstantsSpace = 0;

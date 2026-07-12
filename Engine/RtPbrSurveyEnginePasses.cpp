@@ -74,7 +74,10 @@ void RtPbrSurveyEngine::AddDeferredSceneOutputPass()
     if (m_hybridReflectionSettings.enabled &&
         (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayHit ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayDistance ||
-         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayNormal))
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayNormal ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayColor ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionContributionStrength))
     {
         AddPass(MakeReflectionRayHitDebugPass());
     }
@@ -375,9 +378,11 @@ auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"ReflectionRayHitDebugPass")
         .Pipeline(Pipe::ReflectionRayHitDebug)
-        .Reads({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Reads({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
         .Writes({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ReflectionRayHitSrv)
+        .Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv)
         .Rtv(RtvName::LightPass)
         .Operation(Op::ReflectionRayHitDebug, &RtPbrSurveyEngine::ExecuteReflectionRayHitDebugPass)
         .Constants(RootSignatureLayout::GBufferDebugConstants, ConstName::ReflectionRayHitDebugTarget)

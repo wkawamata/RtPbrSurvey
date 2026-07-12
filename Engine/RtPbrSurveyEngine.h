@@ -102,6 +102,9 @@ public:
         ReflectionRayHit,
         ReflectionRayDistance,
         ReflectionRayNormal,
+        ReflectionRayColor,
+        ReflectionRayDistanceFade,
+        ReflectionContributionStrength,
         ShadowMask,
         TlasDebug,
     };
@@ -484,6 +487,9 @@ private:
                    renderViewMode != RenderViewMode::ReflectionRayHit &&
                    renderViewMode != RenderViewMode::ReflectionRayDistance &&
                    renderViewMode != RenderViewMode::ReflectionRayNormal &&
+                   renderViewMode != RenderViewMode::ReflectionRayColor &&
+                   renderViewMode != RenderViewMode::ReflectionRayDistanceFade &&
+                   renderViewMode != RenderViewMode::ReflectionContributionStrength &&
                    renderViewMode != RenderViewMode::ShadowMask &&
                    renderViewMode != RenderViewMode::TlasDebug &&
                    !IsLightPassDebugView();
@@ -508,12 +514,27 @@ private:
         {
             assert(renderViewMode == RenderViewMode::ReflectionRayHit ||
                    renderViewMode == RenderViewMode::ReflectionRayDistance ||
-                   renderViewMode == RenderViewMode::ReflectionRayNormal);
+                   renderViewMode == RenderViewMode::ReflectionRayNormal ||
+                   renderViewMode == RenderViewMode::ReflectionRayColor ||
+                   renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
+                   renderViewMode == RenderViewMode::ReflectionContributionStrength);
             if (renderViewMode == RenderViewMode::ReflectionRayHit)
             {
                 return 0u;
             }
-            return renderViewMode == RenderViewMode::ReflectionRayDistance ? 1u : 2u;
+            if (renderViewMode == RenderViewMode::ReflectionRayDistance)
+            {
+                return 1u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRayNormal)
+            {
+                return 2u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRayColor)
+            {
+                return 3u;
+            }
+            return renderViewMode == RenderViewMode::ReflectionRayDistanceFade ? 4u : 5u;
         }
     };
 

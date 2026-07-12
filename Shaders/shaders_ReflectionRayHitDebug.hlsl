@@ -1,11 +1,14 @@
 #include "FullscreenTriangle.hlsli"
 
 Texture2D<float4> g_reflectionRayHit : register(t0, space4);
+Texture2D<float4> g_reflectionRayColor : register(t0, space7);
 SamplerState g_sampler : register(s0);
 
 cbuffer ReflectionRayHitDebugConstants : register(b1)
 {
     uint debugTarget;
+    float contributionMaxDistance;
+    float contributionIntensity;
 };
 
 float3 DecodeNormalOctahedron(float2 encodedNormal)
@@ -29,6 +32,7 @@ FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
 float4 PSMain(FullscreenVSOutput input) : SV_TARGET
 {
     float4 rayHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
+    float3 rayColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
     float hitDistance = rayHit.x;
     float hitFlag = rayHit.y;
 
@@ -46,6 +50,24 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
 
         float3 normal = DecodeNormalOctahedron(rayHit.zw);
         return float4(normal * 0.5 + 0.5, 1.0);
+    }
+
+    if (debugTarget == 3)
+    {
+        return float4(rayColor / (1.0 + rayColor), 1.0);
+    }
+
+    if (debugTarget == 4)
+    {
+        float distanceFade = saturate(1.0 - hitDistance / max(contributionMaxDistance, 0.001));
+        return float4(distanceFade.xxx * hitFlag, 1.0);
+    }
+
+    if (debugTarget == 5)
+    {
+        float distanceFade = saturate(1.0 - hitDistance / max(contributionMaxDistance, 0.001));
+        float contributionStrength = hitFlag * distanceFade * contributionIntensity;
+        return float4(contributionStrength.xxx, 1.0);
     }
 
     float normalizedDistance = saturate(hitDistance / 50.0);

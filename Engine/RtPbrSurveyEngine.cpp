@@ -2373,8 +2373,16 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
         m_renderGraphRuntime.RegisterConstants(ConstName::ReflectionRayHitDebugTarget),
         [this](UINT rootParameterIndex)
         {
-            const UINT debugTarget = m_debugViewSettings.GetReflectionRayHitDebugTarget();
-            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 1, &debugTarget, 0);
+            struct ReflectionRayHitDebugConstants
+            {
+                UINT debugTarget;
+                float contributionMaxDistance;
+                float contributionIntensity;
+            };
+            const ReflectionRayHitDebugConstants constants = {m_debugViewSettings.GetReflectionRayHitDebugTarget(),
+                                                              m_hybridReflectionSettings.contributionMaxDistance,
+                                                              m_hybridReflectionSettings.contributionIntensity};
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 3, &constants, 0);
         });
 }
 
