@@ -48,6 +48,13 @@ static const uint kInstanceDataStride = 144;
 static const uint kInstanceDataMaterialIdOffset = 128;
 static const uint kMaterialFromInstance = 0xffffffff;
 
+struct HitMaterialSample
+{
+    float3 albedo;
+    float metallic;
+    float roughness;
+};
+
 float3 LoadSceneVertexPosition(uint vertexIndex)
 {
     if (vertexIndex >= vertexCount)
@@ -191,18 +198,25 @@ float3 HitAlbedoToDebugNormal(uint index0, uint index1, uint index2, float2 bary
     return normalize(color * 2.0 - 1.0);
 }
 
-float3 LoadCommittedHitAlbedo(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
+HitMaterialSample LoadCommittedHitMaterialSample(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
 {
     uint materialId = LoadCommittedHitMaterialId(index0, index1, index2, barycentric, instanceId);
     Material material = g_materialData[materialId];
     float2 uv = LoadCommittedHitUv(index0, index1, index2, barycentric);
-    return SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb);
+    float4 metallicRoughness = g_texture[material.metallicRoughnessTexIndex].SampleLevel(g_sampler, uv, 0);
+
+    HitMaterialSample result;
+    result.albedo = SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb);
+    result.metallic = saturate(metallicRoughness.b * material.metallicFactor);
+    result.roughness = saturate(metallicRoughness.g * material.roughnessFactor);
+    return result;
 }
 
-float3 ComputeSimpleHitDirectColor(float3 hitAlbedo, float3 hitNormal)
+float3 ComputeSimpleHitDirectColor(HitMaterialSample hitMaterial, float3 hitNormal)
 {
     float ndotl = saturate(dot(normalize(hitNormal), normalize(lightDirection)));
-    return hitAlbedo * lightColor * diffuseIntensity * ndotl * (directLightEnabled != 0 ? 1.0 : 0.0);
+    float diffuseWeight = 1.0 - hitMaterial.metallic;
+    return hitMaterial.albedo * diffuseWeight * lightColor * diffuseIntensity * ndotl * (directLightEnabled != 0 ? 1.0 : 0.0);
 }
 
 uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
@@ -342,9 +356,9 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
                                                   barycentric,
                                                   query.CommittedObjectToWorld3x4(),
                                                   instanceId);
-        float3 hitAlbedo = LoadCommittedHitAlbedo(index0, index1, index2, barycentric, instanceId);
+        HitMaterialSample hitMaterial = LoadCommittedHitMaterialSample(index0, index1, index2, barycentric, instanceId);
         g_reflectionRayHit[pixel] = float4(query.CommittedRayT(), 1.0, EncodeNormalOctahedron(hitNormal));
-        g_reflectionRayColor[pixel] = float4(ComputeSimpleHitDirectColor(hitAlbedo, hitNormal), 1.0);
+        g_reflectionRayColor[pixel] = float4(ComputeSimpleHitDirectColor(hitMaterial, hitNormal), 1.0);
     }
     else
     {
