@@ -385,7 +385,7 @@ private:
     // Procedural environment reloads keep the previous descriptor table alive until its fence retires.
     // Each table is env / diffuse irradiance / specular prefilter / BRDF LUT, plus m_brdfLut owns one SRV.
     static constexpr UINT kEnvironmentDescriptorTableSize = 4;
-    static constexpr UINT kEnvironmentDescriptorTableCapacity = 4;
+    static constexpr UINT kEnvironmentDescriptorTableCapacity = 8;
     static constexpr UINT kEnvironmentMapDescriptorCount =
         kEnvironmentDescriptorTableSize * kEnvironmentDescriptorTableCapacity + 1;
     static constexpr UINT kConstantBufferCount = kFrameCount;
