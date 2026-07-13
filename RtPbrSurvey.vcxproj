@@ -169,6 +169,7 @@
     <ClInclude Include="Renderer\StagedDescriptorAllocator.h" />
     <ClInclude Include="Renderer\ToneMap.h" />
     <ClInclude Include="Renderer\DebugLinePass.h" />
+    <ClInclude Include="Runtime\SceneRenderer.h" />
     <ClInclude Include="Scene\ProceduralSceneBuilder.h" />
     <ClInclude Include="Scene\SceneFactory.h" />
     <ClInclude Include="Scene\Scene.h" />
@@ -223,6 +224,7 @@
     <ClCompile Include="Renderer\SceneGeometryPass.cpp" />
     <ClCompile Include="Renderer\ToneMap.cpp" />
     <ClCompile Include="Renderer\DebugLinePass.cpp" />
+    <ClCompile Include="Runtime\SceneRenderer.cpp" />
     <ClCompile Include="Scene\ProceduralSceneBuilder.cpp" />
     <ClCompile Include="Scene\SceneFactory.cpp" />
     <ClCompile Include="Scene\SampleScene.cpp" />

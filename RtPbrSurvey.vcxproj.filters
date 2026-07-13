@@ -37,6 +37,9 @@
     <Filter Include="Source Files\Engine\Rhi\Dx12">
       <UniqueIdentifier>{7b8c9d0e-1f2a-3b4c-5d6e-7f8a9b0c1d2e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime">
+      <UniqueIdentifier>{8c9d0e1f-2a3b-4c5d-6e7f-8a9b0c1d2e3f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CubeMesh.h">
@@ -173,6 +176,9 @@
     </ClInclude>
     <ClInclude Include="Renderer\DebugLinePass.h">
       <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\SceneRenderer.h">
+      <Filter>Source Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Scene.h">
       <Filter>Source Files\Scene</Filter>
@@ -337,6 +343,9 @@
     </ClCompile>
     <ClCompile Include="Renderer\DebugLinePass.cpp">
       <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Runtime\SceneRenderer.cpp">
+      <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="Scene\SampleScene.cpp">
       <Filter>Source Files\Scene</Filter>
