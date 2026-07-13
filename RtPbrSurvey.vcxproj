@@ -132,6 +132,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="CubeMesh.h" />
+    <ClInclude Include="Camera\DebugCameraController.h" />
     <ClInclude Include="GltfLoader.h" />
     <ClInclude Include="Engine\Rhi\Dx12\GraphicsDevice.h" />
     <ClInclude Include="ImGuiWidgets.h" />
@@ -198,6 +199,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CubeMesh.cpp" />
+    <ClCompile Include="Camera\DebugCameraController.cpp" />
     <ClCompile Include="GltfLoader.cpp" />
     <ClCompile Include="Engine\Rhi\Dx12\GraphicsDevice.cpp" />
     <ClCompile Include="Platform\CommandLineOptions.cpp" />

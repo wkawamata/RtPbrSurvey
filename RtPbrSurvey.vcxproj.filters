@@ -28,6 +28,9 @@
     <Filter Include="Source Files\App">
       <UniqueIdentifier>{3a4b5c6d-7e8f-9a0b-1c2d-3e4f5a6b7c8d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Camera">
+      <UniqueIdentifier>{4b5c6d7e-8f9a-0b1c-2d3e-4f5a6b7c8d9e}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Engine\FrameGraph">
       <UniqueIdentifier>{5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b}</UniqueIdentifier>
     </Filter>
@@ -44,6 +47,9 @@
   <ItemGroup>
     <ClInclude Include="CubeMesh.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera\DebugCameraController.h">
+      <Filter>Source Files\Camera</Filter>
     </ClInclude>
     <ClInclude Include="Engine\RtPbrSurveyEngine.h">
       <Filter>Source Files\Engine</Filter>
@@ -235,6 +241,9 @@
   <ItemGroup>
     <ClCompile Include="CubeMesh.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera\DebugCameraController.cpp">
+      <Filter>Source Files\Camera</Filter>
     </ClCompile>
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
