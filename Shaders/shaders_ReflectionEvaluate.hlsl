@@ -4,10 +4,13 @@ Texture2D<float4> g_normal : register(t1, space3);
 Texture2D<float4> g_pbrParams : register(t4, space3);
 Texture2D<float> g_depth : register(t6, space3);
 TextureCube<float4> g_environmentMap : register(t0, space5);
+TextureCube<float4> g_diffuseIrradianceMap : register(t1, space5);
 Texture2D<float4> g_reflectionRayHit : register(t0, space6);
 Texture2D<float4> g_reflectionRayColor : register(t0, space7);
 Texture2D<float4> g_reflectionRayMaterial : register(t0, space8);
 SamplerState g_sampler : register(s0);
+
+static const float PI = 3.14159265;
 
 cbuffer ConstantBuffer : register(b0)
 {
@@ -82,6 +85,7 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float4 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
     float3 hitColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
     float4 hitMaterial = g_reflectionRayMaterial.Sample(g_sampler, input.uv);
+    float hitMetallic = saturate(hitMaterial.x);
     float hitRoughness = saturate(hitMaterial.y);
     float hitUnlit = saturate(hitMaterial.z);
 
@@ -100,7 +104,9 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 hitNormal = DecodeNormalOctahedron(reflectionHit.zw);
     float ndotl = saturate(dot(hitNormal, normalize(lightDirection)));
     float3 directRadiance = hitColor * lightColor * diffuseIntensity * ndotl * directLightEnabled;
-    float3 shadedHitColor = lerp(directRadiance, hitColor, hitUnlit);
+    float3 diffuseIrradiance = g_diffuseIrradianceMap.Sample(g_sampler, hitNormal).rgb;
+    float3 diffuseIbl = diffuseIrradiance * hitColor * (1.0 - hitMetallic) * iblIntensity * diffuseIblEnabled / PI;
+    float3 shadedHitColor = lerp(directRadiance + diffuseIbl, hitColor, hitUnlit);
 
     float distanceFade = saturate(1.0 - reflectionHit.x / max(reflectionContributionMaxDistance, 0.001));
     float strength = reflectionHit.y * distanceFade * (1.0 - hitRoughness) * reflectionContributionIntensity;
