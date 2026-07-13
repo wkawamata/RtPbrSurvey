@@ -82,6 +82,8 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
             return "Normal at the reflection hit point, reconstructed from ray query hit data.";
         case RenderViewMode::ReflectionRayColor:
             return "ReflectionRayColor payload: hit albedo. This is not reflected radiance.";
+        case RenderViewMode::ReflectionRayEmission:
+            return "ReflectionRayEmission payload: hit emissive color before ReflectionEvaluatePass shading.";
         case RenderViewMode::ReflectionRayDistanceFade:
             return "Distance fade applied to the provisional reflection contribution.";
         case RenderViewMode::ReflectionContributionStrength:
@@ -588,6 +590,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton(
             "Reflection Material Params", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayMaterial));
         ImGui::SameLine();
+        ImGui::RadioButton("Reflection Emission", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayEmission));
+        ImGui::SameLine();
         ImGui::RadioButton("Reflection Radiance", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRadiance));
         ImGui::RadioButton("Reflection Fade", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayDistanceFade));
         ImGui::SameLine();
@@ -602,6 +606,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionRayNormal ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayColor ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayMaterial ||
+             app.m_renderViewMode == RenderViewMode::ReflectionRayEmission ||
              app.m_renderViewMode == RenderViewMode::ReflectionRadiance ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
              app.m_renderViewMode == RenderViewMode::ReflectionContributionStrength))
@@ -614,6 +619,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionRayNormal ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayColor ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayMaterial ||
+             app.m_renderViewMode == RenderViewMode::ReflectionRayEmission ||
              app.m_renderViewMode == RenderViewMode::ReflectionRadiance ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
              app.m_renderViewMode == RenderViewMode::ReflectionContributionStrength))

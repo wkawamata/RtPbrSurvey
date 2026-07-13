@@ -109,6 +109,7 @@ public:
         ShadowMask,
         TlasDebug,
         ReflectionRayMaterial,
+        ReflectionRayEmission,
         ReflectionRadiance,
     };
 
@@ -502,6 +503,7 @@ private:
                    renderViewMode != RenderViewMode::ReflectionRayNormal &&
                    renderViewMode != RenderViewMode::ReflectionRayColor &&
                    renderViewMode != RenderViewMode::ReflectionRayMaterial &&
+                   renderViewMode != RenderViewMode::ReflectionRayEmission &&
                    renderViewMode != RenderViewMode::ReflectionRayDistanceFade &&
                    renderViewMode != RenderViewMode::ReflectionContributionStrength &&
                    renderViewMode != RenderViewMode::ShadowMask &&
@@ -532,6 +534,7 @@ private:
                    renderViewMode == RenderViewMode::ReflectionRayNormal ||
                    renderViewMode == RenderViewMode::ReflectionRayColor ||
                    renderViewMode == RenderViewMode::ReflectionRayMaterial ||
+                   renderViewMode == RenderViewMode::ReflectionRayEmission ||
                    renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
                    renderViewMode == RenderViewMode::ReflectionContributionStrength ||
                    renderViewMode == RenderViewMode::ReflectionRadiance);
@@ -554,6 +557,10 @@ private:
             if (renderViewMode == RenderViewMode::ReflectionRayMaterial)
             {
                 return 6u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRayEmission)
+            {
+                return 8u;
             }
             if (renderViewMode == RenderViewMode::ReflectionRadiance)
             {

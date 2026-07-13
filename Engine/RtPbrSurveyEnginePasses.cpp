@@ -82,6 +82,7 @@ void RtPbrSurveyEngine::AddDeferredSceneOutputPass()
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayNormal ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayColor ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayMaterial ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayEmission ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionContributionStrength))
