@@ -1,5 +1,6 @@
 #include "FullscreenTriangle.hlsli"
 
+Texture2D<float4> g_pbrParams : register(t4, space3);
 Texture2D<float4> g_reflectionRayHit : register(t0, space4);
 Texture2D<float4> g_reflectionRayColor : register(t0, space7);
 Texture2D<float4> g_reflectionRayMaterial : register(t0, space8);
@@ -38,6 +39,7 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 rayColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
     float4 rayMaterial = g_reflectionRayMaterial.Sample(g_sampler, input.uv);
     float3 rayEmission = g_reflectionRayEmission.Sample(g_sampler, input.uv).rgb;
+    float visibleRoughness = saturate(g_pbrParams.Sample(g_sampler, input.uv).g);
     float hitDistance = rayHit.x;
     float hitFlag = rayHit.y;
 
@@ -72,7 +74,7 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     if (debugTarget == 5)
     {
         float distanceFade = saturate(1.0 - hitDistance / max(contributionMaxDistance, 0.001));
-        float contributionStrength = hitFlag * distanceFade * (1.0 - saturate(rayMaterial.y)) * contributionIntensity;
+        float contributionStrength = hitFlag * distanceFade * (1.0 - visibleRoughness) * contributionIntensity;
         return float4(contributionStrength.xxx, 1.0);
     }
 

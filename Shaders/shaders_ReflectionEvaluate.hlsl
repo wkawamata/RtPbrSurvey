@@ -120,6 +120,6 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 shadedHitColor = lerp(litHitColor, hitColor + hitEmission * emissiveEnabled, hitUnlit);
 
     float distanceFade = saturate(1.0 - reflectionHit.x / max(reflectionContributionMaxDistance, 0.001));
-    float strength = reflectionHit.y * distanceFade * (1.0 - hitRoughness) * reflectionContributionIntensity;
+    float strength = reflectionHit.y * distanceFade * (1.0 - visibleRoughness) * reflectionContributionIntensity;
     return float4(shadedHitColor * strength, 1.0);
 }
