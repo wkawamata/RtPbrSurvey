@@ -312,6 +312,11 @@ void RtPbrSurveyApp::OnKeyDown(UINT8 key)
         m_isPlaying = !m_isPlaying;
     }
 
+    if (m_appMode == AppMode::Running && key == VK_F1)
+    {
+        m_debugUiVisible = !m_debugUiVisible;
+    }
+
     if (m_appMode == AppMode::Running && key == VK_TAB)
     {
         m_cameraMode = (m_cameraMode == CameraMode::Arcball) ? CameraMode::FreeLook : CameraMode::Arcball;
@@ -835,7 +840,10 @@ void RtPbrSurveyApp::InitializeImGui()
 void RtPbrSurveyApp::UpdateUiFrame()
 {
     m_imguiSystem.BeginFrame();
-    DrawDebugUi(m_sceneRenderer.GetUiFrameContext());
+    if (m_appMode == AppMode::SceneSelect || m_debugUiVisible)
+    {
+        DrawDebugUi(m_sceneRenderer.GetUiFrameContext());
+    }
     m_sceneRenderer.DrawToolUi();
     m_imguiSystem.EndFrame();
 }

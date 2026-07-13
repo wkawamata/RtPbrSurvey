@@ -122,6 +122,7 @@ private:
     RtPbrSurveyEngine::RenderingPath m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
     bool m_iblEnabled = true;
     bool m_lightingPassDebugGradient = false;
+    bool m_debugUiVisible = false;
     int m_selectedMaterialIndex = 0;
     std::array<float, 4> m_backBufferClearColor = {0.0f, 0.2f, 0.4f, 1.0f};
     RtPbrSurveyEngine::ToneMapParams m_toneMapParams;
