@@ -91,13 +91,14 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float hitRoughness = saturate(hitMaterial.y);
     float hitUnlit = saturate(hitMaterial.z);
 
+    float3 normal = normalize(g_normal.Sample(g_sampler, input.uv).rgb);
+    float visibleRoughness = saturate(g_pbrParams.Sample(g_sampler, input.uv).g);
+    float3 worldPos = ReconstructWorldPosition(input.uv, depth);
+    float3 viewDir = normalize(cameraPosition - worldPos);
+    float3 reflectionDir = reflect(-viewDir, normal);
+
     if (reflectionHit.y <= 0.0)
     {
-        float3 normal = normalize(g_normal.Sample(g_sampler, input.uv).rgb);
-        float visibleRoughness = saturate(g_pbrParams.Sample(g_sampler, input.uv).g);
-        float3 worldPos = ReconstructWorldPosition(input.uv, depth);
-        float3 viewDir = normalize(cameraPosition - worldPos);
-        float3 reflectionDir = reflect(-viewDir, normal);
         float3 environmentRadiance = g_environmentMap.Sample(g_sampler, reflectionDir).rgb * iblIntensity * specularIblEnabled;
         float missStrength = (1.0 - visibleRoughness) * reflectionContributionIntensity;
         return float4(environmentRadiance * missStrength, 1.0);
@@ -110,7 +111,8 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 diffuseIbl = diffuseIrradiance * hitColor * (1.0 - hitMetallic) * iblIntensity * diffuseIblEnabled / PI;
     float3 hitF0 = lerp(float3(0.04, 0.04, 0.04), hitColor, hitMetallic);
     float specularMip = hitRoughness * SPECULAR_PREFILTER_MAX_MIP;
-    float3 specularIbl = g_specularPrefilterMap.SampleLevel(g_sampler, hitNormal, specularMip).rgb * hitF0 *
+    float3 hitSpecularDirection = reflect(reflectionDir, hitNormal);
+    float3 specularIbl = g_specularPrefilterMap.SampleLevel(g_sampler, hitSpecularDirection, specularMip).rgb * hitF0 *
                          iblIntensity * specularIblEnabled;
     float3 shadedHitColor = lerp(directRadiance + diffuseIbl + specularIbl, hitColor, hitUnlit);
 
