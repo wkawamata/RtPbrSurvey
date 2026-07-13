@@ -99,7 +99,7 @@ public:
         Procedural::AddQuad(m_mesh,
             XMFLOAT3{0.0f, halfH - 0.02f, 0.0f},
             XMFLOAT3{0.4f, 0.0f, 0.4f},
-            XMFLOAT3{0.0f, -1.0f, 0.0f}, 5);
+            XMFLOAT3{0.0f, -1.0f, 0.0f}, 5, true);
 
         m_scene.mesh = &m_mesh;
         Reset();
