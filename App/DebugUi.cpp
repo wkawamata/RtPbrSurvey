@@ -588,7 +588,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton("Normal", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayNormal));
         ImGui::SameLine();
         ImGui::RadioButton("Albedo", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayColor));
-        ImGui::RadioButton("Material", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayMaterial));
+        ImGui::RadioButton("Material##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayMaterial));
         ImGui::SameLine();
         ImGui::RadioButton("Emission", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayEmission));
         ImGui::SameLine();
