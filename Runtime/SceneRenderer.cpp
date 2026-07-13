@@ -60,6 +60,19 @@ namespace RtPbrSurvey
         m_engine.SetUpdateHandler(std::move(handler));
     }
 
+    void SceneRenderer::SetToolUiHandler(ToolUiHandler handler)
+    {
+        m_toolUiHandler = std::move(handler);
+    }
+
+    void SceneRenderer::DrawToolUi()
+    {
+        if (m_toolUiHandler)
+        {
+            m_toolUiHandler();
+        }
+    }
+
     auto SceneRenderer::GetUiFrameContext() const -> UiFrameContext
     {
         return m_engine.GetUiFrameContext();

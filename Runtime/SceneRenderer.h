@@ -13,6 +13,8 @@
 
 #include "Engine/RtPbrSurveyEngine.h"
 
+#include <functional>
+
 namespace RtPbrSurvey
 {
     class SceneRenderer
@@ -21,6 +23,7 @@ namespace RtPbrSurvey
         using Scene = RtPbrSurveyEngine::Scene;
         using UiFrameContext = RtPbrSurveyEngine::UiFrameContext;
         using UiRenderHandler = RtPbrSurveyEngine::UiRenderHandler;
+        using ToolUiHandler = std::function<void()>;
         using UpdateHandler = RtPbrSurveyEngine::UpdateHandler;
 
         explicit SceneRenderer(GraphicsDevice& graphicsDevice);
@@ -35,6 +38,8 @@ namespace RtPbrSurvey
         void CloseSceneResources();
 
         void SetUpdateHandler(UpdateHandler handler);
+        void SetToolUiHandler(ToolUiHandler handler);
+        void DrawToolUi();
         UiFrameContext GetUiFrameContext() const;
         float CpuFrameTimeMs() const;
 
@@ -62,5 +67,6 @@ namespace RtPbrSurvey
 
     private:
         RtPbrSurveyEngine m_engine;
+        ToolUiHandler m_toolUiHandler;
     };
 }

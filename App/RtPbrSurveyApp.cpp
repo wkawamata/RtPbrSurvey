@@ -836,6 +836,7 @@ void RtPbrSurveyApp::UpdateUiFrame()
 {
     m_imguiSystem.BeginFrame();
     DrawDebugUi(m_sceneRenderer.GetUiFrameContext());
+    m_sceneRenderer.DrawToolUi();
     m_imguiSystem.EndFrame();
 }
 
