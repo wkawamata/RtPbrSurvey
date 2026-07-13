@@ -18,6 +18,7 @@
 #include "Platform/CommandLineOptions.h"
 #include "Platform/IApplication.h"
 #include "Platform/WindowInfo.h"
+#include "Runtime/SceneRenderer.h"
 #include "Scene/SampleScene.h"
 #include "Ui/ImGuiSystem.h"
 
@@ -161,7 +162,7 @@ private:
     ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
     Engine::ImGuiSystem m_imguiSystem;
 
-    RtPbrSurveyEngine m_engine;
+    RtPbrSurvey::SceneRenderer m_sceneRenderer;
     App::SceneConfigManager m_sceneConfig;
 
     // Debug logging to file (-LogToFile / -LogFPS).

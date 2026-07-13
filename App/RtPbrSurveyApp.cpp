@@ -81,7 +81,7 @@ XMFLOAT4 ArcballDeltaQuaternion(const XMFLOAT3& from, const XMFLOAT3& to)
 } // namespace
 
 RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
-    : m_windowInfo(Platform::CreateWindowInfo(width, height, name)), m_prevTime(std::chrono::steady_clock::now()), m_engine(m_graphicsDevice)
+    : m_windowInfo(Platform::CreateWindowInfo(width, height, name)), m_prevTime(std::chrono::steady_clock::now()), m_sceneRenderer(m_graphicsDevice)
 {
 }
 
@@ -129,16 +129,16 @@ void RtPbrSurveyApp::OnInit()
     }
 
     InitializeImGui();
-    m_engine.SetUpdateHandler([this]() { UpdateSampleState(); });
-    m_engine.SetLightingParams(m_lightingParams);
-    m_engine.SetRenderingPath(m_renderingPath);
-    m_engine.SetLightingPassDebugGradient(m_lightingPassDebugGradient);
-    m_engine.SetBackBufferClearColor(m_backBufferClearColor);
-    m_engine.SetDisplayInstanceCount(0);
-    m_engine.SetToneMapParams(m_toneMapParams);
-    m_engine.SetRenderViewMode(m_renderViewMode);
+    m_sceneRenderer.SetUpdateHandler([this]() { UpdateSampleState(); });
+    m_sceneRenderer.SetLightingParams(m_lightingParams);
+    m_sceneRenderer.SetRenderingPath(m_renderingPath);
+    m_sceneRenderer.SetLightingPassDebugGradient(m_lightingPassDebugGradient);
+    m_sceneRenderer.SetBackBufferClearColor(m_backBufferClearColor);
+    m_sceneRenderer.SetDisplayInstanceCount(0);
+    m_sceneRenderer.SetToneMapParams(m_toneMapParams);
+    m_sceneRenderer.SetRenderViewMode(m_renderViewMode);
 
-    m_engine.Initialize(GetWidth(), GetHeight());
+    m_sceneRenderer.Initialize(GetWidth(), GetHeight());
 
     // Initialize scene config paths
     {
@@ -199,7 +199,7 @@ void RtPbrSurveyApp::UpdateSampleState()
 
     if (m_appMode == AppMode::SceneSelect)
     {
-        m_engine.SetDisplayInstanceCount(0);
+        m_sceneRenderer.SetDisplayInstanceCount(0);
         return;
     }
 
@@ -289,8 +289,8 @@ void RtPbrSurveyApp::UpdateSampleState()
     sceneUpdate.dragRotation = m_dragRotation;
     LoadedScene().Update(deltaTime, sceneUpdate);
 
-    m_engine.SetScene(LoadedScene().GetScene());
-    m_engine.SetDisplayInstanceCount(LoadedScene().DisplayInstanceCount());
+    m_sceneRenderer.SetScene(LoadedScene().GetScene());
+    m_sceneRenderer.SetDisplayInstanceCount(LoadedScene().DisplayInstanceCount());
 }
 
 void RtPbrSurveyApp::OnKeyDown(UINT8 key)
@@ -335,7 +335,7 @@ void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
     {
         if (m_renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
         {
-            m_engine.RequestPixelPick(x, y);
+            m_sceneRenderer.RequestPixelPick(x, y);
             return;
         }
         m_isDragging = true;
@@ -527,14 +527,14 @@ void RtPbrSurveyApp::OnMouseWheel(int wheelDelta)
 
 void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 {
-    m_engine.RequestResize(width, height);
+    m_sceneRenderer.RequestResize(width, height);
     m_imguiSystem.SetDisplaySize(width, height);
 }
 
 void RtPbrSurveyApp::OnIdle()
 {
     UpdateUiFrame();
-    m_engine.RunFrame([this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); });
+    m_sceneRenderer.RunFrame([this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); });
 
     // Poll D3D12 debug messages and FPS logging.
     if (m_logFile)
@@ -548,7 +548,7 @@ void RtPbrSurveyApp::OnIdle()
             ++m_fpsLogFrameCounter;
             if (m_fpsLogFrameCounter % m_commandLineOptions.logFpsInterval == 0)
             {
-                LogFpsToFile(m_engine.CpuFrameTimeMs());
+                LogFpsToFile(m_sceneRenderer.CpuFrameTimeMs());
             }
         }
     }
@@ -560,14 +560,14 @@ void RtPbrSurveyApp::OnDestroy()
     if (m_loadedSceneIndex >= 0)
     {
         m_sceneConfig.SaveCurrentScene(
-            m_loadedSceneIndex, *this, m_engine, LoadedScene());
+            m_loadedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
     }
 
     if (m_logFile)
     {
         FlushD3D12DebugMessages();
     }
-    m_engine.Shutdown();
+    m_sceneRenderer.Shutdown();
     m_imguiSystem.Shutdown();
     m_imguiHeap.Reset();
     if (m_logFile)
@@ -716,7 +716,7 @@ void RtPbrSurveyApp::OpenSelectedScene()
     if (m_loadedSceneIndex >= 0 && m_selectedSceneIndex != m_loadedSceneIndex)
     {
         m_sceneConfig.SaveCurrentScene(
-            m_loadedSceneIndex, *this, m_engine,
+            m_loadedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(),
             *m_sampleScenes[static_cast<size_t>(m_loadedSceneIndex)]);
     }
 
@@ -727,16 +727,16 @@ void RtPbrSurveyApp::OpenSelectedScene()
 
     if (!m_sceneResourcesLoaded)
     {
-        m_engine.ReloadSceneResources(LoadedScene().GetScene());
+        m_sceneRenderer.ReloadSceneResources(LoadedScene().GetScene());
         m_sceneResourcesLoaded = true;
     }
 
     // Apply saved config for the incoming scene
     m_sceneConfig.LoadAndApplyForScene(
-        m_selectedSceneIndex, *this, m_engine, LoadedScene());
+        m_selectedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
 
     m_displayInstanceCount = LoadedScene().DisplayInstanceCount();
-    m_engine.SetDisplayInstanceCount(m_displayInstanceCount);
+    m_sceneRenderer.SetDisplayInstanceCount(m_displayInstanceCount);
     m_appMode = AppMode::Running;
 }
 
@@ -746,7 +746,7 @@ void RtPbrSurveyApp::CloseRunningScene()
     if (m_loadedSceneIndex >= 0)
     {
         m_sceneConfig.SaveCurrentScene(
-            m_loadedSceneIndex, *this, m_engine, LoadedScene());
+            m_loadedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
     }
 
     m_appMode = AppMode::SceneSelect;
@@ -759,8 +759,8 @@ void RtPbrSurveyApp::CloseRunningScene()
     }
     m_displayInstanceCount = 0;
     m_sceneResourcesLoaded = false;
-    m_engine.SetDisplayInstanceCount(0);
-    m_engine.CloseSceneResources();
+    m_sceneRenderer.SetDisplayInstanceCount(0);
+    m_sceneRenderer.CloseSceneResources();
 }
 
 bool RtPbrSurveyApp::IsGltfViewerSceneIndex(int index) const
@@ -835,7 +835,7 @@ void RtPbrSurveyApp::InitializeImGui()
 void RtPbrSurveyApp::UpdateUiFrame()
 {
     m_imguiSystem.BeginFrame();
-    DrawDebugUi(m_engine.GetUiFrameContext());
+    DrawDebugUi(m_sceneRenderer.GetUiFrameContext());
     m_imguiSystem.EndFrame();
 }
 

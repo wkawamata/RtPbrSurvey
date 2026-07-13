@@ -38,6 +38,25 @@ namespace RtPbrSurvey
         UiFrameContext GetUiFrameContext() const;
         float CpuFrameTimeMs() const;
 
+        void SetLightingParams(const RtPbrSurveyEngine::LightingParams& params);
+        void SetShadowSettings(const RtPbrSurveyEngine::ShadowSettings& settings);
+        const RtPbrSurveyEngine::ShadowSettings& GetShadowSettings() const;
+        void SetHybridReflectionSettings(const RtPbrSurveyEngine::HybridReflectionSettings& settings);
+        const RtPbrSurveyEngine::HybridReflectionSettings& GetHybridReflectionSettings() const;
+        void SetMaterialParams(UINT materialIndex, const RtPbrSurveyEngine::MaterialParams& params);
+        void SetRenderingPath(RtPbrSurveyEngine::RenderingPath renderingPath);
+        void SetLightingPassDebugGradient(bool enabled);
+        void SetBackBufferClearColor(const std::array<float, 4>& color);
+        void SetDisplayInstanceCount(int count);
+        void SetToneMapParams(const RtPbrSurveyEngine::ToneMapParams& params);
+        void SetRenderViewMode(RtPbrSurveyEngine::RenderViewMode mode);
+        void SetRequestHdrDump(bool request);
+        void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
+        void RequestPixelPick(int screenX, int screenY);
+        const RtPbrSurveyEngine::PixelPickResult& GetPixelPickResult() const;
+        void SetSpecularDebugLineSettings(const RtPbrSurveyEngine::SpecularDebugLineSettings& settings);
+        const RtPbrSurveyEngine::SpecularDebugLineSettings& GetSpecularDebugLineSettings() const;
+
         RtPbrSurveyEngine& EngineForDebugTools();
         const RtPbrSurveyEngine& EngineForDebugTools() const;
 
