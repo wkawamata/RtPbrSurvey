@@ -581,7 +581,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         const bool reflectionDebugEnabled = app.m_engine.GetHybridReflectionSettings().enabled;
         ImGui::BeginDisabled(!reflectionDebugEnabled);
         ImGui::TextUnformatted("Reflection Debug:");
-        ImGui::SameLine();
         ImGui::RadioButton("Hit", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayHit));
         ImGui::SameLine();
         ImGui::RadioButton("Distance", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayDistance));
@@ -592,6 +591,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton("Material", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayMaterial));
         ImGui::SameLine();
         ImGui::RadioButton("Emission", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayEmission));
+        ImGui::SameLine();
         ImGui::RadioButton("Radiance", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRadiance));
         ImGui::SameLine();
         ImGui::RadioButton("Fade", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayDistanceFade));
