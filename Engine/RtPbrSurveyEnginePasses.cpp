@@ -294,12 +294,20 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
         .Descriptor(RootSignatureLayout::CameraConstants, Desc::CameraCbv)
         .Descriptor(RootSignatureLayout::LightConstants, Desc::LightCbv)
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ShadowMaskSrv)
-        .Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
-        .Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv)
-        .Descriptor(RootSignatureLayout::ReflectionRayMaterial, Desc::ReflectionRayMaterialSrv)
-        .Descriptor(RootSignatureLayout::ReflectionRadiance, Desc::ReflectionRadianceSrv)
         .Rtv(RtvName::LightPass)
         .Operation(Op::Lighting, &RtPbrSurveyEngine::ExecuteLightingPass);
+
+    if (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
+        m_hybridReflectionSettings.contributionEnabled)
+    {
+        builder.Descriptor(RootSignatureLayout::ReflectionRadiance, Desc::ReflectionRadianceSrv);
+    }
+    if (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
+        m_hybridReflectionSettings.hitOverlayEnabled)
+    {
+        builder.Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
+            .Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv);
+    }
 
     return builder.Build();
 }
@@ -416,24 +424,33 @@ auto RtPbrSurveyEngine::MakeShadowMaskDebugPass() -> RenderPass
 
 auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
 {
-    return m_renderGraphRuntime.Authoring()
+    ResourceUsages reads = {{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                            {kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                            {kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                            {kReflectionRayEmissionResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
+    if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance)
+    {
+        reads.push_back({kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+    }
+
+    auto builder = m_renderGraphRuntime.Authoring()
         .CreatePass(L"ReflectionRayHitDebugPass")
         .Pipeline(Pipe::ReflectionRayHitDebug)
-        .Reads({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
-                {kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
-                {kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
-                {kReflectionRayEmissionResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
-                {kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Reads(std::move(reads))
         .Writes({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ReflectionRayHitSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayMaterial, Desc::ReflectionRayMaterialSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayEmission, Desc::ReflectionRayEmissionSrv)
-        .Descriptor(RootSignatureLayout::ReflectionRadiance, Desc::ReflectionRadianceSrv)
         .Rtv(RtvName::LightPass)
         .Operation(Op::ReflectionRayHitDebug, &RtPbrSurveyEngine::ExecuteReflectionRayHitDebugPass)
-        .Constants(RootSignatureLayout::GBufferDebugConstants, ConstName::ReflectionRayHitDebugTarget)
-        .Build();
+        .Constants(RootSignatureLayout::GBufferDebugConstants, ConstName::ReflectionRayHitDebugTarget);
+    if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance)
+    {
+        builder.Descriptor(RootSignatureLayout::ReflectionRadiance, Desc::ReflectionRadianceSrv);
+    }
+
+    return builder.Build();
 }
 
 auto RtPbrSurveyEngine::MakeDebugLinePass() -> RenderPass
