@@ -310,8 +310,14 @@ auto RtPbrSurveyEngine::MakeReflectionEvaluatePass() -> RenderPass
         .Pipeline(Pipe::ReflectionEvaluate)
         .Reads({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                 {kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
-                {kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+                {kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kDepthStencilResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
         .Writes({{kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
+        .Descriptor(RootSignatureLayout::EnvironmentMap, Desc::EnvironmentMapSrv)
+        .Descriptor(RootSignatureLayout::CameraConstants, Desc::CameraCbv)
         .Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayMaterial, Desc::ReflectionRayMaterialSrv)
