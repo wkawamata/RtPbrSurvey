@@ -1,6 +1,11 @@
 #include "FullscreenTriangle.hlsli"
 
+Texture2D<float4> g_normal : register(t1, space3);
 Texture2D<float4> g_pbrParams : register(t4, space3);
+Texture2D<float> g_depth : register(t6, space3);
+TextureCube<float4> g_environmentMap : register(t0, space5);
+TextureCube<float4> g_diffuseIrradianceMap : register(t1, space5);
+TextureCube<float4> g_specularPrefilterMap : register(t2, space5);
 Texture2D<float4> g_reflectionRayHit : register(t0, space4);
 Texture2D<float4> g_reflectionRayColor : register(t0, space7);
 Texture2D<float4> g_reflectionRayMaterial : register(t0, space8);
@@ -8,11 +13,50 @@ Texture2D<float4> g_reflectionRadiance : register(t0, space9);
 Texture2D<float4> g_reflectionRayEmission : register(t0, space10);
 SamplerState g_sampler : register(s0);
 
+static const float PI = 3.14159265;
+static const float SPECULAR_PREFILTER_MAX_MIP = 5.0;
+
+cbuffer ConstantBuffer : register(b0)
+{
+    float4x4 viewProj;
+    float4x4 prevViewProj;
+    float4x4 invViewProj;
+    float3 cameraPosition;
+    float constantBufferPadding;
+};
+
 cbuffer ReflectionRayHitDebugConstants : register(b1)
 {
     uint debugTarget;
     float contributionMaxDistance;
     float contributionIntensity;
+};
+
+cbuffer LightingConstants : register(b2)
+{
+    float3 lightDirection;
+    float iblIntensity;
+    float3 lightColor;
+    float diffuseIntensity;
+    float4 backgroundColor;
+    float skyboxEnabled;
+    float skyboxPreview;
+    float skyboxPreviewExposure;
+    float lightPassDebugViewMode;
+    float directLightEnabled;
+    float diffuseIblEnabled;
+    float specularIblEnabled;
+    float emissiveEnabled;
+    float iblDebugMip;
+    float iblDebugExposure;
+    float rayTracingSupported;
+    float shadowMaskBlurEnabled;
+    float reflectionHitOverlayEnabled;
+    float reflectionHitOverlayIntensity;
+    float reflectionHitOverlayMode;
+    float reflectionContributionEnabled;
+    float reflectionContributionIntensity;
+    float reflectionContributionMaxDistance;
 };
 
 float3 DecodeNormalOctahedron(float2 encodedNormal)
@@ -26,6 +70,14 @@ float3 DecodeNormalOctahedron(float2 encodedNormal)
     }
 
     return normalize(normal);
+}
+
+float3 ReconstructWorldPosition(float2 uv, float depth)
+{
+    float2 ndc = float2(uv.x * 2.0 - 1.0, (1.0 - uv.y) * 2.0 - 1.0);
+    float4 clipPos = float4(ndc, depth, 1.0);
+    float4 worldPos = mul(clipPos, invViewProj);
+    return worldPos.xyz / worldPos.w;
 }
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
@@ -92,6 +144,60 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     if (debugTarget == 8)
     {
         return float4(rayEmission / (1.0 + rayEmission), 1.0);
+    }
+
+    if (debugTarget >= 9 && debugTarget <= 12)
+    {
+        if (hitFlag <= 0.0)
+        {
+            return float4(0.0, 0.0, 0.0, 1.0);
+        }
+
+        float depth = g_depth.Sample(g_sampler, input.uv);
+        if (depth >= 1.0)
+        {
+            return float4(0.0, 0.0, 0.0, 1.0);
+        }
+
+        float3 visibleNormal = normalize(g_normal.Sample(g_sampler, input.uv).rgb);
+        float3 worldPos = ReconstructWorldPosition(input.uv, depth);
+        float3 viewDir = normalize(cameraPosition - worldPos);
+        float3 reflectionDir = reflect(-viewDir, visibleNormal);
+        float3 hitNormal = DecodeNormalOctahedron(rayHit.zw);
+        float hitMetallic = saturate(rayMaterial.x);
+        float hitRoughness = saturate(rayMaterial.y);
+        float hitUnlit = saturate(rayMaterial.z);
+        float distanceFade = saturate(1.0 - hitDistance / max(contributionMaxDistance, 0.001));
+        float strength = hitFlag * distanceFade * (1.0 - visibleRoughness) * contributionIntensity;
+
+        float ndotl = saturate(dot(hitNormal, normalize(lightDirection)));
+        float3 directRadiance = rayColor * (1.0 - hitMetallic) * lightColor * diffuseIntensity * ndotl * directLightEnabled;
+        float3 diffuseIrradiance = g_diffuseIrradianceMap.Sample(g_sampler, hitNormal).rgb;
+        float3 diffuseIbl = diffuseIrradiance * rayColor * (1.0 - hitMetallic) * iblIntensity * diffuseIblEnabled / PI;
+        float3 hitF0 = lerp(float3(0.04, 0.04, 0.04), rayColor, hitMetallic);
+        float specularMip = hitRoughness * SPECULAR_PREFILTER_MAX_MIP;
+        float3 hitSpecularDirection = reflect(reflectionDir, hitNormal);
+        float3 specularIbl = g_specularPrefilterMap.SampleLevel(g_sampler, hitSpecularDirection, specularMip).rgb *
+                             hitF0 * iblIntensity * specularIblEnabled;
+        float3 emissiveRadiance = rayEmission * emissiveEnabled;
+
+        float3 component = directRadiance;
+        if (debugTarget == 10)
+        {
+            component = diffuseIbl;
+        }
+        else if (debugTarget == 11)
+        {
+            component = specularIbl;
+        }
+        else if (debugTarget == 12)
+        {
+            component = emissiveRadiance;
+        }
+
+        component *= debugTarget == 12 ? 1.0 : (1.0 - hitUnlit);
+        component *= strength;
+        return float4(component / (1.0 + component), 1.0);
     }
 
     float normalizedDistance = saturate(hitDistance / 50.0);

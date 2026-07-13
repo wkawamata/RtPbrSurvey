@@ -84,6 +84,10 @@ void RtPbrSurveyEngine::AddDeferredSceneOutputPass()
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayMaterial ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayEmission ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadianceDirect ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadianceIblDiffuse ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadianceIblSpecular ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadianceEmissive ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionContributionStrength))
     {
@@ -429,8 +433,11 @@ auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
                             {kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                             {kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                             {kReflectionRayEmissionResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                            {kGBufferResourceNames[Engine::GBuffer::Normal],
+                             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                             {kGBufferResourceNames[Engine::GBuffer::PBRParams],
-                             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
+                             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                            {kDepthStencilResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
     if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance)
     {
         reads.push_back({kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
@@ -446,6 +453,9 @@ auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
         .Descriptor(RootSignatureLayout::ReflectionRayMaterial, Desc::ReflectionRayMaterialSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayEmission, Desc::ReflectionRayEmissionSrv)
         .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
+        .Descriptor(RootSignatureLayout::EnvironmentMap, Desc::EnvironmentMapSrv)
+        .Descriptor(RootSignatureLayout::CameraConstants, Desc::CameraCbv)
+        .Descriptor(RootSignatureLayout::LightConstants, Desc::LightCbv)
         .Rtv(RtvName::LightPass)
         .Operation(Op::ReflectionRayHitDebug, &RtPbrSurveyEngine::ExecuteReflectionRayHitDebugPass)
         .Constants(RootSignatureLayout::GBufferDebugConstants, ConstName::ReflectionRayHitDebugTarget);

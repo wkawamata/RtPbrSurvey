@@ -108,7 +108,7 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
 
     float3 hitNormal = DecodeNormalOctahedron(reflectionHit.zw);
     float ndotl = saturate(dot(hitNormal, normalize(lightDirection)));
-    float3 directRadiance = hitColor * lightColor * diffuseIntensity * ndotl * directLightEnabled;
+    float3 directRadiance = hitColor * (1.0 - hitMetallic) * lightColor * diffuseIntensity * ndotl * directLightEnabled;
     float3 diffuseIrradiance = g_diffuseIrradianceMap.Sample(g_sampler, hitNormal).rgb;
     float3 diffuseIbl = diffuseIrradiance * hitColor * (1.0 - hitMetallic) * iblIntensity * diffuseIblEnabled / PI;
     float3 hitF0 = lerp(float3(0.04, 0.04, 0.04), hitColor, hitMetallic);

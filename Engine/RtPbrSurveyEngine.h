@@ -111,6 +111,10 @@ public:
         ReflectionRayMaterial,
         ReflectionRayEmission,
         ReflectionRadiance,
+        ReflectionRadianceDirect,
+        ReflectionRadianceIblDiffuse,
+        ReflectionRadianceIblSpecular,
+        ReflectionRadianceEmissive,
     };
 
     enum class RenderingPath
@@ -509,6 +513,10 @@ private:
                    renderViewMode != RenderViewMode::ShadowMask &&
                    renderViewMode != RenderViewMode::TlasDebug &&
                    renderViewMode != RenderViewMode::ReflectionRadiance &&
+                   renderViewMode != RenderViewMode::ReflectionRadianceDirect &&
+                   renderViewMode != RenderViewMode::ReflectionRadianceIblDiffuse &&
+                   renderViewMode != RenderViewMode::ReflectionRadianceIblSpecular &&
+                   renderViewMode != RenderViewMode::ReflectionRadianceEmissive &&
                    !IsLightPassDebugView();
         }
         bool IsLightPassDebugView() const
@@ -537,7 +545,11 @@ private:
                    renderViewMode == RenderViewMode::ReflectionRayEmission ||
                    renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
                    renderViewMode == RenderViewMode::ReflectionContributionStrength ||
-                   renderViewMode == RenderViewMode::ReflectionRadiance);
+                   renderViewMode == RenderViewMode::ReflectionRadiance ||
+                   renderViewMode == RenderViewMode::ReflectionRadianceDirect ||
+                   renderViewMode == RenderViewMode::ReflectionRadianceIblDiffuse ||
+                   renderViewMode == RenderViewMode::ReflectionRadianceIblSpecular ||
+                   renderViewMode == RenderViewMode::ReflectionRadianceEmissive);
             if (renderViewMode == RenderViewMode::ReflectionRayHit)
             {
                 return 0u;
@@ -565,6 +577,22 @@ private:
             if (renderViewMode == RenderViewMode::ReflectionRadiance)
             {
                 return 7u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRadianceDirect)
+            {
+                return 9u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRadianceIblDiffuse)
+            {
+                return 10u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRadianceIblSpecular)
+            {
+                return 11u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRadianceEmissive)
+            {
+                return 12u;
             }
             return renderViewMode == RenderViewMode::ReflectionRayDistanceFade ? 4u : 5u;
         }

@@ -84,13 +84,23 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 - `Environment` overlay mode tints hit pixels with the existing specular prefilter environment sample along the reflection direction. It validates the reflection-direction sampling path, not scene-surface reflection.
 - `Hit Normal` overlay mode decodes the hit normal stored in `ReflectionRayHit.zw` and tints hit pixels with normal color over the lit scene.
 - `Reflection Material Params` debug view visualizes `ReflectionRayMaterial` as `R = metallic`, `G = roughness`, `B = unlit flag`.
-- `Reflection Contribution` adds `ReflectionRayColor * Fresnel * (1 - hit roughness) * intensity` only on hit pixels, using hit roughness from `ReflectionRayMaterial.y`. Today `ReflectionRayColor` means hit material color, so this remains a provisional material-color composite rather than final reflected radiance.
-- `ReflectionEvaluatePass` writes the provisional contribution into `ReflectionRadiance`; LightPass samples that texture and applies the visible-surface Fresnel term. Direct hit-point lighting, IBL, and miss fallback should move into this pass incrementally.
+- `Reflection Contribution` lets LightPass consume `ReflectionRadiance`; LightPass applies the visible-surface Fresnel term before adding it.
+- `ReflectionEvaluatePass` writes one-bounce hit-point radiance into `ReflectionRadiance`, including direct light, diffuse IBL, specular IBL approximation, emissive, miss fallback, distance fade, and visible-surface roughness fade.
+- Hit direct lighting is still a light approximation, but its diffuse term is suppressed by hit metallic so metallic reflection hits are not lit as flat diffuse gray.
 - `Reflection Radiance` debug view visualizes the current `ReflectionRadiance` texture with simple tone mapping.
+- Reflection radiance component debug views visualize the direct, diffuse IBL, specular IBL, and emissive contributions recomputed from the hit payload.
 - `Reflection Contribution Max Distance` fades the provisional contribution by hit distance, reducing far-hit color bleeding while the reflection color is still approximate.
 - Material Gate is disabled by default: `maxRoughness = 1.0`, `minMetallic = 0.0`, preserving the initial "trace all visible pixels" behavior.
 - When `Material Gate` is enabled in the Debug UI, the pass uses `HybridReflectionSettings::maxRoughness` and `minMetallic`.
 - The first useful debug setting is roughness-focused (`maxRoughness = 0.35`, `minMetallic = 0.0`) so glossy dielectric and metallic surfaces can both be inspected.
+
+## Remaining Reflection Radiance Work
+
+- Move hit direct lighting closer to the LightPass PBR direct-light BRDF instead of the current lightweight approximation.
+- Add BRDF LUT based specular IBL for hit points so metallic/roughness differences in reflection hits better match normal scene shading.
+- Keep raw hit payload, evaluated reflection radiance, and debug component views distinct for future DLSS RR and denoising work.
+- Consider screen-space resolved color reuse for visible hit points after the one-bounce hit-point shading path is stable.
+- Add temporal accumulation / denoise once reflection radiance is physically closer to the intended signal.
 
 ## Descriptors Required
 
