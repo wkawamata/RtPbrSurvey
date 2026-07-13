@@ -1,6 +1,6 @@
 # feature/scene-config-save-load
 
-Per-scene save/load of camera position and ImGui parameters, with developer-provided defaults and user overrides.
+Per-scene save/load of camera, UI, lighting, rendering, and debug parameters, with developer-provided defaults and user overrides.
 
 ## Files
 
@@ -17,7 +17,7 @@ Per-scene save/load of camera position and ImGui parameters, with developer-prov
 |------|---------|
 | `App/RtPbrSurveyApp.h` | Add `SceneConfigManager m_sceneConfig` member |
 | `App/RtPbrSurveyApp.cpp` | Integrate save/load in `OpenSelectedScene()`, `OnDestroy()`, `OnInit()` |
-| `App/DebugUi.cpp` | "Scene Config" UI panel with Save/Load/Reset buttons |
+| `App/DebugUi.cpp` | "Scene Config" UI panel with Save/Load/Reset/Save as Default buttons |
 | `RtPbrSurvey.vcxproj` | Add new source files |
 
 ## Two Config Files
@@ -51,6 +51,7 @@ User config (from AppData/)  <-- wins if present
 
 Arcball mode: `mode`, `yaw`, `pitch`, `distance`, `fov`
 FreeLook mode: `mode`, `position[x,y,z]`, `rotation[x,y,z]`, `fov`
+Common camera fields: `nearZ`, `farZ`, `speedMultiplier`
 
 ### Scene params
 
@@ -100,7 +101,10 @@ Additional: `autoUpdate`, `iblEnabled` (master toggle)
         "yaw": 0.785,
         "pitch": 0.349,
         "distance": 8.5,
-        "fov": 60.0
+        "fov": 60.0,
+        "nearZ": 0.1,
+        "farZ": 10000.0,
+        "speedMultiplier": 1.0
       },
       "meshScale": 0.5,
       "displayInstanceCount": 1,
@@ -179,7 +183,10 @@ Additional: `autoUpdate`, `iblEnabled` (master toggle)
         "mode": "freelook",
         "position": [1.5, 0.5, -3.0],
         "rotation": [0.0, 0.0, 0.0],
-        "fov": 55.0
+        "fov": 55.0,
+        "nearZ": 0.1,
+        "farZ": 10000.0,
+        "speedMultiplier": 1.0
       }
     }
   }
@@ -220,6 +227,12 @@ public:
                         RtPbrSurveyEngine& engine,
                         int currentSceneIndex,
                         const Engine::SampleScene& currentScene);
+
+    // Capture current state and write it to the git-tracked defaults file
+    bool SaveAsDefault(int sceneIndex,
+                       const RtPbrSurveyApp& app,
+                       const RtPbrSurveyEngine& engine,
+                       const Engine::SampleScene& scene);
 
     // Human-readable source hint for UI display
     const char* ActiveSourceHint(const std::string& sceneName) const;
@@ -341,6 +354,9 @@ All reads re-read from disk (no in-memory cache staleness).
 | FreeLook position | `scene.camera.pos` (via `LoadedScene().GetScene()`) | `XMFLOAT3` |
 | FreeLook rotation | `scene.camera.rot` | `XMFLOAT3` |
 | FOV | `scene.camera.fov` | `float` |
+| Near clip | `scene.camera.nearZ` | `float` |
+| Far clip | `scene.camera.farZ` | `float` |
+| Camera speed multiplier | `app.m_cameraSpeedMultiplier` | `float` |
 
 ### Engine Setters (all available)
 
@@ -530,7 +546,9 @@ Status is tracked via static variables in `DrawDebugUi()` (no SceneConfigManager
 
 ### Added: Save as Default
 
-`SaveAsDefault()` captures the current scene state and writes it directly to `scene_config_default.json` (the git-tracked defaults file). This allows users to permanently customize the default camera/lighting/etc. for a scene.
+`SaveAsDefault()` captures the current scene state and writes it directly to `scene_config_default.json` (the git-tracked defaults file). This allows developers to permanently customize the default camera/lighting/etc. for a scene.
+
+Because the defaults file is tracked by Git, Save as Default is a source change. Review the JSON diff before committing; it can include incidental camera, lighting, debug, and rendering state from the current session.
 
 ### Files changed (final)
 
@@ -539,6 +557,39 @@ Status is tracked via static variables in `DrawDebugUi()` (no SceneConfigManager
 | `App/SceneConfig.h` | Added `UserConfigPath()` accessor, `SaveAsDefault()` method declaration |
 | `App/SceneConfig.cpp` | Implemented `SaveAsDefault()` (capture -> read defaults JSON -> update entry -> write back) |
 | `App/DebugUi.cpp` | Added "Save as Default" button, wrapped Reset + Save as Default in `ImGui::TreeNode` collapsible section |
+
+## Step 7: Camera Speed and Clip Defaults (done)
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `Scene/Scene.h` | Added `nearZ` / `farZ` to `CameraState` with defaults `0.1f` / `10000.0f` |
+| `App/RtPbrSurveyApp.h` | Added `m_cameraSpeedMultiplier`, default `1.0f` |
+| `App/RtPbrSurveyApp.cpp` | Applied camera speed multiplier to FreeLook WASD/EQ and FreeLook middle-drag pan/wheel dolly |
+| `Engine/RtPbrSurveyEngine.cpp` | Projection uses `scene.camera.nearZ` / `scene.camera.farZ`; values are clamped before `XMMatrixPerspectiveFovLH` |
+| `App/SceneConfig.h` / `.cpp` | Added `nearZ`, `farZ`, and `speedMultiplier` serialization/capture/apply |
+| `App/DebugUi.cpp` | Added camera speed preset buttons and `NearZ` / `FarZ` sliders in the Camera section |
+| `Assets/Config/scene_config_default.json` | All 11 scene camera entries explicitly include `nearZ: 0.1` and `farZ: 10000.0` |
+
+### Camera speed presets
+
+The Camera section exposes fixed speed buttons:
+
+`1/10`, `1/5`, `1/3`, `1/2`, `x1`, `x2`, `x3`, `x5`, `x10`
+
+`x1` is the default. The selected preset is highlighted with an ImGui button color push/pop scoped to the pre-click selection state.
+
+Current `main` applies the multiplier to FreeLook movement. ObjectViewer middle-drag pan and wheel dolly still use their fixed `kObjectViewerPanSpeed` / `kObjectViewerDollySpeed` values.
+
+### Clip plane policy
+
+Default scene config entries use the code defaults:
+
+- `nearZ`: `0.1`
+- `farZ`: `10000.0`
+
+The engine clamps camera clip values before building the projection matrix, so hand-edited config values cannot produce `nearZ >= farZ` or non-positive near planes.
 
 ### Known limitations
 
