@@ -5,12 +5,14 @@ Texture2D<float4> g_pbrParams : register(t4, space3);
 Texture2D<float> g_depth : register(t6, space3);
 TextureCube<float4> g_environmentMap : register(t0, space5);
 TextureCube<float4> g_diffuseIrradianceMap : register(t1, space5);
+TextureCube<float4> g_specularPrefilterMap : register(t2, space5);
 Texture2D<float4> g_reflectionRayHit : register(t0, space6);
 Texture2D<float4> g_reflectionRayColor : register(t0, space7);
 Texture2D<float4> g_reflectionRayMaterial : register(t0, space8);
 SamplerState g_sampler : register(s0);
 
 static const float PI = 3.14159265;
+static const float SPECULAR_PREFILTER_MAX_MIP = 5.0;
 
 cbuffer ConstantBuffer : register(b0)
 {
@@ -106,7 +108,11 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 directRadiance = hitColor * lightColor * diffuseIntensity * ndotl * directLightEnabled;
     float3 diffuseIrradiance = g_diffuseIrradianceMap.Sample(g_sampler, hitNormal).rgb;
     float3 diffuseIbl = diffuseIrradiance * hitColor * (1.0 - hitMetallic) * iblIntensity * diffuseIblEnabled / PI;
-    float3 shadedHitColor = lerp(directRadiance + diffuseIbl, hitColor, hitUnlit);
+    float3 hitF0 = lerp(float3(0.04, 0.04, 0.04), hitColor, hitMetallic);
+    float specularMip = hitRoughness * SPECULAR_PREFILTER_MAX_MIP;
+    float3 specularIbl = g_specularPrefilterMap.SampleLevel(g_sampler, hitNormal, specularMip).rgb * hitF0 *
+                         iblIntensity * specularIblEnabled;
+    float3 shadedHitColor = lerp(directRadiance + diffuseIbl + specularIbl, hitColor, hitUnlit);
 
     float distanceFade = saturate(1.0 - reflectionHit.x / max(reflectionContributionMaxDistance, 0.001));
     float strength = reflectionHit.y * distanceFade * (1.0 - hitRoughness) * reflectionContributionIntensity;
