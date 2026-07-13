@@ -591,8 +591,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             "Reflection Material Params", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayMaterial));
         ImGui::SameLine();
         ImGui::RadioButton("Reflection Emission", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayEmission));
-        ImGui::SameLine();
         ImGui::RadioButton("Reflection Radiance", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRadiance));
+        ImGui::SameLine();
         ImGui::RadioButton("Reflection Fade", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayDistanceFade));
         ImGui::SameLine();
         ImGui::RadioButton("Reflection Strength", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionContributionStrength));
