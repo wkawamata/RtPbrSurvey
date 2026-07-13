@@ -3,6 +3,7 @@
 RWTexture2D<float4> g_reflectionRayHit : register(u0);
 RWTexture2D<float4> g_reflectionRayColor : register(u1);
 RWTexture2D<float4> g_reflectionRayMaterial : register(u2);
+RWTexture2D<float4> g_reflectionRayEmission : register(u3);
 RaytracingAccelerationStructure g_tlas : register(t0);
 Texture2D<float> g_depth : register(t1);
 Texture2D<float4> g_normal : register(t2);
@@ -216,7 +217,7 @@ HitMaterialSample LoadCommittedHitMaterialSample(uint index0, uint index1, uint 
 
 float3 ComputeHitMaterialColor(HitMaterialSample hitMaterial)
 {
-    return hitMaterial.albedo + hitMaterial.emissive;
+    return hitMaterial.albedo;
 }
 
 float4 EncodeHitMaterialPayload(HitMaterialSample hitMaterial)
@@ -312,6 +313,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         g_reflectionRayHit[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         g_reflectionRayColor[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         g_reflectionRayMaterial[pixel] = float4(0.0, 0.0, 0.0, 0.0);
+        g_reflectionRayEmission[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         return;
     }
 
@@ -333,6 +335,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         g_reflectionRayHit[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         g_reflectionRayColor[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         g_reflectionRayMaterial[pixel] = float4(0.0, 0.0, 0.0, 0.0);
+        g_reflectionRayEmission[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         return;
     }
 
@@ -368,11 +371,13 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         g_reflectionRayHit[pixel] = float4(query.CommittedRayT(), 1.0, EncodeNormalOctahedron(hitNormal));
         g_reflectionRayColor[pixel] = float4(ComputeHitMaterialColor(hitMaterial), 1.0);
         g_reflectionRayMaterial[pixel] = EncodeHitMaterialPayload(hitMaterial);
+        g_reflectionRayEmission[pixel] = float4(hitMaterial.emissive, 1.0);
     }
     else
     {
         g_reflectionRayHit[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         g_reflectionRayColor[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         g_reflectionRayMaterial[pixel] = float4(0.0, 0.0, 0.0, 0.0);
+        g_reflectionRayEmission[pixel] = float4(0.0, 0.0, 0.0, 0.0);
     }
 }

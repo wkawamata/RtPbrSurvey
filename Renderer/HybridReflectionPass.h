@@ -11,6 +11,7 @@ struct HybridReflectionPassDesc
     D3D12_GPU_DESCRIPTOR_HANDLE reflectionRayHitUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE reflectionRayColorUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE reflectionRayMaterialUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE reflectionRayEmissionUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE tlasSrv = {};
     D3D12_GPU_DESCRIPTOR_HANDLE depthSrv = {};
     D3D12_GPU_DESCRIPTOR_HANDLE normalSrv = {};

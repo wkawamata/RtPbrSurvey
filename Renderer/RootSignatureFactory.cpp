@@ -21,6 +21,7 @@ struct DescriptorRanges
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRayHitSrv;
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRayColorSrv;
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRayMaterialSrv;
+    CD3DX12_DESCRIPTOR_RANGE1 reflectionRayEmissionSrv;
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRadianceSrv;
     CD3DX12_DESCRIPTOR_RANGE1 cameraCbv;
     CD3DX12_DESCRIPTOR_RANGE1 lightCbv;
@@ -110,6 +111,13 @@ DescriptorRanges CreateDescriptorRanges(UINT textureSrvCount, UINT gbufferSrvCou
                                          RootSignatureLayout::kReflectionRayMaterialSrvSpace,
                                          D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
+    // t0 : Reflection ray emission buffer SRV, space 10
+    ranges.reflectionRayEmissionSrv.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+                                         1,
+                                         RootSignatureLayout::kBaseRegister,
+                                         RootSignatureLayout::kReflectionRayEmissionSrvSpace,
+                                         D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+
     // t0 : Reflection radiance buffer SRV, space 9
     ranges.reflectionRadianceSrv.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
                                       1,
@@ -167,6 +175,8 @@ void CreateRootParameters(const DescriptorRanges& ranges,
         1, &ranges.reflectionRayColorSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Reflection ray color buffer
     rootParameters[RootSignatureLayout::ReflectionRayMaterial].InitAsDescriptorTable(
         1, &ranges.reflectionRayMaterialSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Reflection ray material buffer
+    rootParameters[RootSignatureLayout::ReflectionRayEmission].InitAsDescriptorTable(
+        1, &ranges.reflectionRayEmissionSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Reflection ray emission buffer
     rootParameters[RootSignatureLayout::ReflectionRadiance].InitAsDescriptorTable(
         1, &ranges.reflectionRadianceSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Reflection radiance buffer
 }

@@ -287,7 +287,7 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     if (reflectionHitOverlayEnabled > 0.5)
     {
         float4 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
-        // ReflectionRayColor is a provisional payload. It is currently hit material color, not reflected radiance.
+        // ReflectionRayColor is the hit albedo payload, not reflected radiance.
         float3 reflectionHitColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
         float3 overlayColor = float3(0.0, 0.85, 1.0);
         if (reflectionHitOverlayMode > 3.5)

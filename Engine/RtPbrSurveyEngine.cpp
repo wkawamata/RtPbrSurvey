@@ -167,6 +167,7 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
     m_resourceDefaultStates.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
+    m_resourceDefaultStates.push_back({kReflectionRayEmissionResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     for (UINT i = 0; i < Engine::GBuffer::kCount; ++i)
     {
         m_resourceDefaultStates.push_back({kGBufferResourceNames[i], D3D12_RESOURCE_STATE_RENDER_TARGET});
@@ -1122,6 +1123,7 @@ void RtPbrSurveyEngine::LoadAssets()
     CreateReflectionRayHit(m_width, m_height);
     CreateReflectionRayColor(m_width, m_height);
     CreateReflectionRayMaterial(m_width, m_height);
+    CreateReflectionRayEmission(m_width, m_height);
     CreateInitialCommandList();
 
     // Close the initial command list so ReloadEnvironmentResources can reset it.
@@ -1184,6 +1186,9 @@ void RtPbrSurveyEngine::CreateHybridReflectionRootSignature()
     CD3DX12_DESCRIPTOR_RANGE1 materialUavRange = {};
     materialUavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 2, 0);
 
+    CD3DX12_DESCRIPTOR_RANGE1 emissionUavRange = {};
+    emissionUavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 3, 0);
+
     CD3DX12_DESCRIPTOR_RANGE1 tlasSrvRange = {};
     tlasSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
 
@@ -1210,21 +1215,22 @@ void RtPbrSurveyEngine::CreateHybridReflectionRootSignature()
                          D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE |
                              D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[14] = {};
+    CD3DX12_ROOT_PARAMETER1 rootParameters[15] = {};
     rootParameters[0].InitAsDescriptorTable(1, &uavRange);          // g_reflectionRayHit (u0)
     rootParameters[1].InitAsDescriptorTable(1, &colorUavRange);     // g_reflectionRayColor (u1)
     rootParameters[2].InitAsDescriptorTable(1, &materialUavRange);  // g_reflectionRayMaterial (u2)
-    rootParameters[3].InitAsDescriptorTable(1, &tlasSrvRange);      // g_tlas (t0)
-    rootParameters[4].InitAsDescriptorTable(1, &depthSrvRange);     // g_depth (t1)
-    rootParameters[5].InitAsDescriptorTable(1, &normalSrvRange);    // g_normal (t2)
-    rootParameters[6].InitAsDescriptorTable(1, &pbrParamsSrvRange); // g_pbrParams (t3)
-    rootParameters[7].InitAsDescriptorTable(1, &cameraCbvRange);    // CameraCB (b0)
-    rootParameters[8].InitAsShaderResourceView(4, 0);               // g_sceneVertices (t4)
-    rootParameters[9].InitAsShaderResourceView(5, 0);               // g_sceneIndices (t5)
-    rootParameters[10].InitAsShaderResourceView(6, 0);              // g_instanceData (t6)
-    rootParameters[11].InitAsDescriptorTable(1, &materialSrvRange); // g_materialData (t7)
-    rootParameters[12].InitAsDescriptorTable(1, &textureSrvRange);  // g_texture[] (t0, space8)
-    rootParameters[13].InitAsConstants(9, 1, 0);                    // ReflectionConstants (b1)
+    rootParameters[3].InitAsDescriptorTable(1, &emissionUavRange);  // g_reflectionRayEmission (u3)
+    rootParameters[4].InitAsDescriptorTable(1, &tlasSrvRange);      // g_tlas (t0)
+    rootParameters[5].InitAsDescriptorTable(1, &depthSrvRange);     // g_depth (t1)
+    rootParameters[6].InitAsDescriptorTable(1, &normalSrvRange);    // g_normal (t2)
+    rootParameters[7].InitAsDescriptorTable(1, &pbrParamsSrvRange); // g_pbrParams (t3)
+    rootParameters[8].InitAsDescriptorTable(1, &cameraCbvRange);    // CameraCB (b0)
+    rootParameters[9].InitAsShaderResourceView(4, 0);               // g_sceneVertices (t4)
+    rootParameters[10].InitAsShaderResourceView(5, 0);              // g_sceneIndices (t5)
+    rootParameters[11].InitAsShaderResourceView(6, 0);              // g_instanceData (t6)
+    rootParameters[12].InitAsDescriptorTable(1, &materialSrvRange); // g_materialData (t7)
+    rootParameters[13].InitAsDescriptorTable(1, &textureSrvRange);  // g_texture[] (t0, space8)
+    rootParameters[14].InitAsConstants(9, 1, 0);                    // ReflectionConstants (b1)
 
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
     featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
@@ -2356,6 +2362,52 @@ void RtPbrSurveyEngine::CreateReflectionRayMaterialDescriptors()
         m_reflectionRayMaterial.Get(), nullptr, &uavDesc, m_reflectionRayMaterialUav.cpu);
 }
 
+void RtPbrSurveyEngine::CreateReflectionRayEmission(UINT width, UINT height)
+{
+    m_reflectionRayEmission.Reset();
+
+    D3D12_RESOURCE_DESC desc = {};
+    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    desc.Width = width;
+    desc.Height = height;
+    desc.DepthOrArraySize = 1;
+    desc.MipLevels = 1;
+    desc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    desc.SampleDesc.Count = 1;
+    desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+                                                                     D3D12_HEAP_FLAG_NONE,
+                                                                     &desc,
+                                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+                                                                     nullptr,
+                                                                     IID_PPV_ARGS(&m_reflectionRayEmission)));
+    m_reflectionRayEmission->SetName(L"ReflectionRayEmission");
+
+    CreateReflectionRayEmissionDescriptors();
+}
+
+void RtPbrSurveyEngine::CreateReflectionRayEmissionDescriptors()
+{
+    m_reflectionRayEmissionSrv = m_descriptorHeapAllocator.AllocWithHandle();
+    m_reflectionRayEmissionUav = m_descriptorHeapAllocator.AllocWithHandle();
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Texture2D.MipLevels = 1;
+    m_graphicsDevice.Device()->CreateShaderResourceView(
+        m_reflectionRayEmission.Get(), &srvDesc, m_reflectionRayEmissionSrv.cpu);
+
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    uavDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+    m_graphicsDevice.Device()->CreateUnorderedAccessView(
+        m_reflectionRayEmission.Get(), nullptr, &uavDesc, m_reflectionRayEmissionUav.cpu);
+}
+
 D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetBackBufferRtv() const
 {
     CD3DX12_CPU_DESCRIPTOR_HANDLE h(
@@ -2464,6 +2516,12 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
             return m_reflectionRayMaterialSrv.gpu;
         });
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionRayEmissionSrv),
+        [this]()
+        {
+            return m_reflectionRayEmissionSrv.gpu;
+        });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionRayHitUav),
         [this]()
         {
@@ -2528,6 +2586,8 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
                                                        [this]() { return m_reflectionRayColor.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kReflectionRayMaterialResourceName,
                                                        [this]() { return m_reflectionRayMaterial.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kReflectionRayEmissionResourceName,
+                                                       [this]() { return m_reflectionRayEmission.Get(); });
     for (UINT i = 0; i < Engine::GBuffer::kCount; ++i)
     {
         m_renderGraphRuntime.Resources().RegisterResource(kGBufferResourceNames[i],
@@ -2764,6 +2824,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_reflectionRayHit.Reset();
     m_reflectionRayColor.Reset();
     m_reflectionRayMaterial.Reset();
+    m_reflectionRayEmission.Reset();
     m_resourceRegistry.UnregisterTransientResource(kDepthStencilResourceName);
     m_resourceRegistry.UnregisterTransientResource(kLightPassRenderTargetResourceName);
     m_resourceRegistry.UnregisterTransientResource(kReflectionRadianceResourceName);
@@ -2775,6 +2836,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     CreateReflectionRayHit(m_width, m_height);
     CreateReflectionRayColor(m_width, m_height);
     CreateReflectionRayMaterial(m_width, m_height);
+    CreateReflectionRayEmission(m_width, m_height);
 
     // Camera
     UpdateCameraConstantBuffer();
@@ -3138,6 +3200,7 @@ void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     passDesc.reflectionRayHitUav = m_reflectionRayHitUav.gpu;
     passDesc.reflectionRayColorUav = m_reflectionRayColorUav.gpu;
     passDesc.reflectionRayMaterialUav = m_reflectionRayMaterialUav.gpu;
+    passDesc.reflectionRayEmissionUav = m_reflectionRayEmissionUav.gpu;
     passDesc.tlasSrv = m_accelerationStructures.tlasSrv.Gpu();
     passDesc.depthSrv = m_depthStencilSrv.gpu;
     passDesc.normalSrv = m_gbuffer.srvHandles[Engine::GBuffer::Normal].gpu;

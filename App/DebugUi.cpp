@@ -81,7 +81,7 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
         case RenderViewMode::ReflectionRayNormal:
             return "Normal at the reflection hit point, reconstructed from ray query hit data.";
         case RenderViewMode::ReflectionRayColor:
-            return "ReflectionRayColor payload: hit material color. This is not reflected radiance.";
+            return "ReflectionRayColor payload: hit albedo. This is not reflected radiance.";
         case RenderViewMode::ReflectionRayDistanceFade:
             return "Distance fade applied to the provisional reflection contribution.";
         case RenderViewMode::ReflectionContributionStrength:
@@ -95,7 +95,7 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
         case RenderViewMode::ReflectionRadiance:
             return "ReflectionRadiance is the reflection radiance buffer before LightPass.\n"
                    "This view shows ReflectionEvaluatePass output, not the final reflected color.\n"
-                   "Current value is provisional: hit material color with distance fade and hit roughness attenuation.\n"
+                   "Current value includes hit albedo/emission shading with distance fade and roughness attenuation.\n"
                    "LightPass applies the visible-surface Fresnel term before adding it.";
         default:
             return nullptr;

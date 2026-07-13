@@ -33,16 +33,17 @@ void RecordHybridReflectionPass(ID3D12GraphicsCommandList* commandList, const Hy
     commandList->SetComputeRootDescriptorTable(0, desc.reflectionRayHitUav);
     commandList->SetComputeRootDescriptorTable(1, desc.reflectionRayColorUav);
     commandList->SetComputeRootDescriptorTable(2, desc.reflectionRayMaterialUav);
-    commandList->SetComputeRootDescriptorTable(3, desc.tlasSrv);
-    commandList->SetComputeRootDescriptorTable(4, desc.depthSrv);
-    commandList->SetComputeRootDescriptorTable(5, desc.normalSrv);
-    commandList->SetComputeRootDescriptorTable(6, desc.pbrParamsSrv);
-    commandList->SetComputeRootDescriptorTable(7, desc.cameraCbv);
-    commandList->SetComputeRootShaderResourceView(8, desc.vertexBufferSrv);
-    commandList->SetComputeRootShaderResourceView(9, desc.indexBufferSrv);
-    commandList->SetComputeRootShaderResourceView(10, desc.instanceBufferSrv);
-    commandList->SetComputeRootDescriptorTable(11, desc.materialBufferSrv);
-    commandList->SetComputeRootDescriptorTable(12, desc.textureTableSrv);
+    commandList->SetComputeRootDescriptorTable(3, desc.reflectionRayEmissionUav);
+    commandList->SetComputeRootDescriptorTable(4, desc.tlasSrv);
+    commandList->SetComputeRootDescriptorTable(5, desc.depthSrv);
+    commandList->SetComputeRootDescriptorTable(6, desc.normalSrv);
+    commandList->SetComputeRootDescriptorTable(7, desc.pbrParamsSrv);
+    commandList->SetComputeRootDescriptorTable(8, desc.cameraCbv);
+    commandList->SetComputeRootShaderResourceView(9, desc.vertexBufferSrv);
+    commandList->SetComputeRootShaderResourceView(10, desc.indexBufferSrv);
+    commandList->SetComputeRootShaderResourceView(11, desc.instanceBufferSrv);
+    commandList->SetComputeRootDescriptorTable(12, desc.materialBufferSrv);
+    commandList->SetComputeRootDescriptorTable(13, desc.textureTableSrv);
 
     const HybridReflectionShaderConstants constants = {
         desc.normalBias,
@@ -54,7 +55,7 @@ void RecordHybridReflectionPass(ID3D12GraphicsCommandList* commandList, const Hy
         desc.vertexCount,
         desc.indexCount,
         desc.hitNormalSource};
-    commandList->SetComputeRoot32BitConstants(13, 9, &constants, 0);
+    commandList->SetComputeRoot32BitConstants(14, 9, &constants, 0);
 
     constexpr UINT kThreadGroupSize = 8;
     const UINT dispatchX = (desc.width + kThreadGroupSize - 1) / kThreadGroupSize;
