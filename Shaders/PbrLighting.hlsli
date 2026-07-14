@@ -127,3 +127,33 @@ float3 EvaluatePbrSpecularIbl(float3 environmentSpecular,
     float specularOcclusion = ComputeSpecularOcclusion(ndotv, ambientOcclusion, roughness);
     return environmentSpecular * (specularFresnel * brdf.x + brdf.y) * specularOcclusion;
 }
+
+PbrRadianceComponents EvaluatePbrRadianceComponents(PbrSurface surface,
+                                                    float3 viewDir,
+                                                    float3 lightDir,
+                                                    float3 lightRadiance,
+                                                    float3 diffuseIrradiance,
+                                                    float3 environmentSpecular,
+                                                    float2 brdf,
+                                                    float ndotv,
+                                                    float directScale,
+                                                    float diffuseIblScale,
+                                                    float specularIblScale)
+{
+    PbrRadianceComponents components;
+    float directRoughness = max(surface.roughness, 0.04);
+    float3 f0 = PbrF0(surface.albedo, surface.metallic);
+
+    components.direct =
+        EvaluatePbrDirectLighting(
+            surface.albedo, surface.metallic, directRoughness, surface.normal, viewDir, lightDir, lightRadiance) *
+        directScale;
+    components.diffuseIbl =
+        EvaluatePbrDiffuseIbl(diffuseIrradiance, surface.albedo, surface.metallic, surface.ambientOcclusion) *
+        diffuseIblScale;
+    components.specularIbl =
+        EvaluatePbrSpecularIbl(environmentSpecular, brdf, f0, surface.roughness, ndotv, surface.ambientOcclusion) *
+        specularIblScale;
+    components.emissive = surface.emissive;
+    return components;
+}

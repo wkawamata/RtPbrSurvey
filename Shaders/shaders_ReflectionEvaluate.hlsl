@@ -79,14 +79,6 @@ float3 ReconstructWorldPosition(float2 uv, float depth)
     return worldPos.xyz / worldPos.w;
 }
 
-float3 ComputeDirectRadiance(float3 albedo, float metallic, float roughness, float3 normal, float3 viewDir)
-{
-    float3 lightDir = normalize(lightDirection);
-    float3 radiance = lightColor * diffuseIntensity;
-    return EvaluatePbrDirectLighting(albedo, metallic, roughness, normal, viewDir, lightDir, radiance) *
-           directLightEnabled;
-}
-
 PbrSurface MakeReflectionHitSurface(float3 albedo, float4 material, float3 normal, float3 emissive)
 {
     return MakePbrSurface(albedo, normal, emissive, material.x, material.y, 1.0, material.z);
@@ -121,27 +113,25 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 hitNormal = DecodeNormalOctahedron(reflectionHit.zw);
     PbrSurface hitSurface = MakeReflectionHitSurface(hitColor, hitMaterial, hitNormal, hitEmission);
     float3 hitViewDir = -reflectionDir;
-    float directRoughness = max(hitSurface.roughness, 0.04);
-    PbrRadianceComponents hitRadiance;
-    hitRadiance.direct =
-        ComputeDirectRadiance(hitSurface.albedo, hitSurface.metallic, directRoughness, hitSurface.normal, hitViewDir);
     float3 diffuseIrradiance = g_diffuseIrradianceMap.Sample(g_sampler, hitSurface.normal).rgb;
-    hitRadiance.diffuseIbl = EvaluatePbrDiffuseIbl(
-                            diffuseIrradiance, hitSurface.albedo, hitSurface.metallic, hitSurface.ambientOcclusion) *
-                        iblIntensity *
-                        diffuseIblEnabled;
-    float3 hitF0 = PbrF0(hitSurface.albedo, hitSurface.metallic);
     float specularMip = hitSurface.roughness * SPECULAR_PREFILTER_MAX_MIP;
     float3 hitSpecularDirection = reflect(reflectionDir, hitSurface.normal);
     float hitNdotV = saturate(dot(hitSurface.normal, -reflectionDir));
     float2 hitBrdf = g_brdfLut.Sample(g_sampler, float2(hitNdotV, hitSurface.roughness)).rg;
     float3 hitEnvironmentSpecular = g_specularPrefilterMap.SampleLevel(g_sampler, hitSpecularDirection, specularMip).rgb;
-    hitRadiance.specularIbl = EvaluatePbrSpecularIbl(
-                             hitEnvironmentSpecular, hitBrdf, hitF0, hitSurface.roughness, hitNdotV,
-                             hitSurface.ambientOcclusion) *
-                         iblIntensity *
-        specularIblEnabled;
-    hitRadiance.emissive = hitSurface.emissive;
+    float3 lightDir = normalize(lightDirection);
+    float3 lightRadiance = lightColor * diffuseIntensity;
+    PbrRadianceComponents hitRadiance = EvaluatePbrRadianceComponents(hitSurface,
+                                                                      hitViewDir,
+                                                                      lightDir,
+                                                                      lightRadiance,
+                                                                      diffuseIrradiance,
+                                                                      hitEnvironmentSpecular,
+                                                                      hitBrdf,
+                                                                      hitNdotV,
+                                                                      directLightEnabled,
+                                                                      iblIntensity * diffuseIblEnabled,
+                                                                      iblIntensity * specularIblEnabled);
     float3 shadedHitColor = EvaluatePbrSurfaceRadiance(hitSurface, hitRadiance, emissiveEnabled);
 
     float distanceFade = saturate(1.0 - reflectionHit.x / max(reflectionContributionMaxDistance, 0.001));
