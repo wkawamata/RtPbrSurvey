@@ -16,20 +16,40 @@ Make the RtPbrSurvey renderer usable from host applications such as TankPhysicsS
 
 A host app should own its platform window, message loop, ImGui frame, simulation state, and any product-specific tools. RtPbrSurvey should own renderer resources and scene submission through `SceneRenderer`.
 
-Typical frame flow:
+The host currently owns `GraphicsDevice` and passes it to `SceneRenderer`. Use `RtPbrSurveyApp::OnInit()` as the reference setup:
 
 ```cpp
-// Host update.
-debugCamera.UpdateFreeLookKeyboard(...);
-simulation.Step(...);
-sceneBuilder.Clear();
-// Fill sceneBuilder from simulation objects.
+GraphicsDeviceDesc deviceDesc = {};
+deviceDesc.hwnd = hwnd;
+deviceDesc.swapChainWidth = width;
+deviceDesc.swapChainHeight = height;
+deviceDesc.bufferCount = RtPbrSurveyEngine::kSwapChainBufferCount;
+deviceDesc.swapChainFormat = RtPbrSurveyEngine::kSwapChainFormat;
+graphicsDevice.Initialize(deviceDesc);
 
-renderer.SetScene(sceneBuilder.GetScene());
+RtPbrSurvey::SceneRenderer renderer(graphicsDevice);
+renderer.Initialize(width, height);
+```
+
+For dynamic host state, prefer `SceneRenderer::SetUpdateHandler()`. The handler runs from `SceneRenderer::RunFrame()` before render passes consume the current scene. This makes it the right place for Tank to step physics, rebuild or update the host scene, and call `SetScene()`.
+
+```cpp
+renderer.SetUpdateHandler([&]() {
+    debugCamera.UpdateFreeLookKeyboard(...);
+    simulation.Step(...);
+
+    sceneBuilder.Clear();
+    // Fill sceneBuilder from simulation objects.
+    // Use AddInstance(world, prevWorld, materialId) for moving objects.
+    renderer.SetScene(sceneBuilder.GetScene());
+});
+
 renderer.RunFrame([&](ID3D12GraphicsCommandList* commandList) {
     imguiSystem.Render(commandList);
 });
 ```
+
+Call `ReloadSceneResources()` when the mesh, materials, textures, or instance capacity change. Per-frame transform-only updates should use `SetScene()` from the update handler after resources are loaded.
 
 Use `SceneRenderer::SetToolUiHandler()` or draw host ImGui windows before `RunFrame()`'s UI render callback. Tank-specific panels can stay in Tank code; renderer debug UI can remain hidden by default and only be opened when needed.
 
