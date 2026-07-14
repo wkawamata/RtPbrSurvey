@@ -171,6 +171,9 @@
     <ClInclude Include="Renderer\StagedDescriptorAllocator.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\TemporalUpscalerSupport.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\ToneMap.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -336,6 +339,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\SceneGeometryPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\TemporalUpscalerSupport.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\ToneMap.cpp">

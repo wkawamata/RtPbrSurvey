@@ -209,6 +209,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 context.rayTracingSupported ? "Supported" : "Not supported",
                 context.rayTracingTierName,
                 context.rayTracingTierRaw);
+    ImGui::Text("Temporal Upscaler: %s (%s, %s)",
+                context.temporalUpscalerAvailable ? "Available" : "Unavailable",
+                context.temporalUpscalerBackendName,
+                context.temporalUpscalerStatusText);
     if (ImGui::Button("Close Scene"))
     {
         app.CloseRunningScene();

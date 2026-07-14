@@ -41,6 +41,7 @@
 #include "Renderer/SimpleDescriptorHeapAllocator.h"
 #include "Renderer/ShadowMaskDebugPass.h"
 #include "Renderer/DebugLinePass.h"
+#include "Renderer/TemporalUpscalerSupport.h"
 #include "Renderer/ToneMap.h"
 #include "Scene/Scene.h"
 #include "TextureSemantic.h"
@@ -230,6 +231,9 @@ public:
         bool rayTracingSupported;
         const wchar_t* rayTracingTierName;
         int rayTracingTierRaw;
+        bool temporalUpscalerAvailable;
+        const char* temporalUpscalerBackendName;
+        const char* temporalUpscalerStatusText;
         const std::vector<MyDx12Util::GpuWorkMeter::CheckPoint>& gpuCheckPoints;
     };
 
@@ -659,6 +663,7 @@ private:
     RenderingPath m_renderingPath = RenderingPath::Deferred;
     bool m_lightingPassDebugGradientEnabled = false;
     Engine::RayTracingSupportInfo m_rayTracingSupport;
+    Engine::TemporalUpscalerSupportInfo m_temporalUpscalerSupport;
     Engine::ToneMapPass m_toneMapPass;
     Engine::DebugLinePass m_debugLinePass;
 

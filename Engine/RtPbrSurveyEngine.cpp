@@ -56,6 +56,7 @@
 #include "Renderer\RayQueryTlasDebugPass.h"
 #include "Renderer\ReflectionRayHitDebugPass.h"
 #include "Renderer\RayTracingSupport.h"
+#include "Renderer\TemporalUpscalerSupport.h"
 #include "FrameGraph/RenderPassExecution.h"
 #include "FrameGraph/RenderPassResources.h"
 #include "Renderer\ResolvedRenderTargets.h"
@@ -142,12 +143,16 @@ void RtPbrSurveyEngine::Initialize(UINT width, UINT height)
 void RtPbrSurveyEngine::InitializeFrameResources()
 {
     m_rayTracingSupport = Engine::RayTracingSupportInfo::Create(m_graphicsDevice.Device());
-    wchar_t debugMessage[128] = {};
+    m_temporalUpscalerSupport = Engine::TemporalUpscalerSupportInfo::Create();
+    wchar_t debugMessage[256] = {};
     swprintf_s(debugMessage,
-               L"Ray tracing support: supported=%s tier=%s raw=%d\n",
+               L"Ray tracing support: supported=%s tier=%s raw=%d\nTemporal upscaler support: available=%S backend=%S status=%S\n",
                m_rayTracingSupport.IsSupported() ? L"true" : L"false",
                m_rayTracingSupport.TierName(),
-               static_cast<int>(m_rayTracingSupport.Tier()));
+               static_cast<int>(m_rayTracingSupport.Tier()),
+               m_temporalUpscalerSupport.IsAvailable() ? "true" : "false",
+               m_temporalUpscalerSupport.BackendName(),
+               m_temporalUpscalerSupport.StatusText());
     OutputDebugStringW(debugMessage);
 
     m_prevTime = std::chrono::steady_clock::now();
@@ -191,6 +196,9 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_rayTracingSupport.IsSupported(),
             m_rayTracingSupport.TierName(),
             static_cast<int>(m_rayTracingSupport.Tier()),
+            m_temporalUpscalerSupport.IsAvailable(),
+            m_temporalUpscalerSupport.BackendName(),
+            m_temporalUpscalerSupport.StatusText(),
             m_frameResources[m_previousFrameIndex].gpuWorkMeterCheckPoints};
 }
 
