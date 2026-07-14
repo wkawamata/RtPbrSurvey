@@ -134,6 +134,7 @@ void RtPbrSurveyApp::OnInit()
     {
         m_selectedSceneIndex = kDefaultSceneIndex;
         OpenSelectedScene();
+        m_debugUiVisible = false;
     }
 }
 
@@ -483,6 +484,7 @@ void RtPbrSurveyApp::OpenSelectedScene()
     m_displayInstanceCount = LoadedScene().DisplayInstanceCount();
     m_sceneRenderer.SetDisplayInstanceCount(m_displayInstanceCount);
     m_appMode = AppMode::Running;
+    m_debugUiVisible = true;
 }
 
 void RtPbrSurveyApp::CloseRunningScene()
