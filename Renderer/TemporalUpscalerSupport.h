@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 namespace Engine
 {
 
@@ -7,6 +9,17 @@ enum class TemporalUpscalerBackend
 {
     None = 0,
     Streamline,
+};
+
+struct TemporalUpscalerSettings
+{
+    static constexpr float kMinRenderScale = 0.25f;
+    static constexpr float kMaxRenderScale = 1.0f;
+
+    bool enabled = false;
+    float renderScale = 1.0f;
+
+    float ClampedRenderScale() const;
 };
 
 struct TemporalUpscalerSupportInfo

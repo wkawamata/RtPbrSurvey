@@ -2,8 +2,15 @@
 
 #include "TemporalUpscalerSupport.h"
 
+#include <algorithm>
+
 namespace Engine
 {
+
+float TemporalUpscalerSettings::ClampedRenderScale() const
+{
+    return std::clamp(renderScale, kMinRenderScale, kMaxRenderScale);
+}
 
 const char* TemporalUpscalerSupportInfo::BackendName() const
 {

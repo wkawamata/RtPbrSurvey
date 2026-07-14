@@ -259,6 +259,8 @@ public:
     void SetLightingParams(const LightingParams& params);
     void SetShadowSettings(const ShadowSettings& settings);
     const ShadowSettings& GetShadowSettings() const { return m_shadowSettings; }
+    void SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings);
+    const Engine::TemporalUpscalerSettings& GetTemporalUpscalerSettings() const { return m_temporalUpscalerSettings; }
     void SetHybridReflectionSettings(const HybridReflectionSettings& settings);
     const HybridReflectionSettings& GetHybridReflectionSettings() const { return m_hybridReflectionSettings; }
     void SetMaterialParams(UINT materialIndex, const MaterialParams& params);
@@ -606,6 +608,8 @@ private:
     GraphicsDevice& m_graphicsDevice;
     UINT m_width = 0;
     UINT m_height = 0;
+    UINT m_renderWidth = 0;
+    UINT m_renderHeight = 0;
     float m_aspectRatio = 0.0f;
     std::wstring m_assetsPath;
     std::wstring m_shaderPath;
@@ -664,6 +668,7 @@ private:
     bool m_lightingPassDebugGradientEnabled = false;
     Engine::RayTracingSupportInfo m_rayTracingSupport;
     Engine::TemporalUpscalerSupportInfo m_temporalUpscalerSupport;
+    Engine::TemporalUpscalerSettings m_temporalUpscalerSettings;
     Engine::ToneMapPass m_toneMapPass;
     Engine::DebugLinePass m_debugLinePass;
 
@@ -940,6 +945,7 @@ private:
     void RegisterPassBindingResolvers();
     void RegisterPassConstantsHandlers();
     void RegisterResourceResolvers();
+    void UpdateRenderDimensions();
 
     std::vector<UINT8> GenerateCheckerboardTextureData();
     std::vector<UINT8> GenerateSolidTextureData(UINT8 r, UINT8 g, UINT8 b, UINT8 a);

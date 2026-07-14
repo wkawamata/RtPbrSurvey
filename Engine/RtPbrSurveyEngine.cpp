@@ -113,8 +113,8 @@ const wchar_t* EnvironmentSourceName(Engine::EnvironmentSource source)
 } // namespace
 
 RtPbrSurveyEngine::RtPbrSurveyEngine(GraphicsDevice& graphicsDevice)
-    : m_graphicsDevice(graphicsDevice), m_width(0), m_height(0), m_aspectRatio(1.0f), m_previousFrameIndex(0),
-      m_currentFrameIndex(0), m_rtvDescriptorSize(0)
+    : m_graphicsDevice(graphicsDevice), m_width(0), m_height(0), m_renderWidth(0), m_renderHeight(0),
+      m_aspectRatio(1.0f), m_previousFrameIndex(0), m_currentFrameIndex(0), m_rtvDescriptorSize(0)
 {
     m_assetsPath = L"./Assets\\";
     WCHAR shaderPath[512];
@@ -133,11 +133,27 @@ void RtPbrSurveyEngine::Initialize(UINT width, UINT height)
 
     m_width = width;
     m_height = height;
-    m_aspectRatio = static_cast<float>(m_width) / static_cast<float>(m_height);
+    UpdateRenderDimensions();
     m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(m_width), static_cast<float>(m_height));
     m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_width), static_cast<LONG>(m_height));
 
     InitializeFrameResources();
+}
+
+void RtPbrSurveyEngine::UpdateRenderDimensions()
+{
+    if (m_width == 0 || m_height == 0)
+    {
+        m_renderWidth = 0;
+        m_renderHeight = 0;
+        m_aspectRatio = 1.0f;
+        return;
+    }
+
+    const float renderScale = m_temporalUpscalerSettings.ClampedRenderScale();
+    m_renderWidth = (std::max)(1u, static_cast<UINT>(static_cast<float>(m_width) * renderScale + 0.5f));
+    m_renderHeight = (std::max)(1u, static_cast<UINT>(static_cast<float>(m_height) * renderScale + 0.5f));
+    m_aspectRatio = static_cast<float>(m_renderWidth) / static_cast<float>(m_renderHeight);
 }
 
 void RtPbrSurveyEngine::InitializeFrameResources()
@@ -215,6 +231,12 @@ void RtPbrSurveyEngine::SetLightingParams(const LightingParams& params)
 void RtPbrSurveyEngine::SetShadowSettings(const ShadowSettings& settings)
 {
     m_shadowSettings = settings;
+}
+
+void RtPbrSurveyEngine::SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings)
+{
+    m_temporalUpscalerSettings = settings;
+    UpdateRenderDimensions();
 }
 
 void RtPbrSurveyEngine::SetHybridReflectionSettings(const HybridReflectionSettings& settings)
@@ -450,13 +472,12 @@ void RtPbrSurveyEngine::UpdateCameraConstantBuffer()
     m_scene.camera.fov = std::clamp(m_scene.camera.fov, 0.1f, 179.0f);
     m_scene.camera.nearZ = std::clamp(m_scene.camera.nearZ, 0.001f, 100000.0f);
     m_scene.camera.farZ = std::clamp(m_scene.camera.farZ, m_scene.camera.nearZ + 0.001f, 1000000.0f);
-    const float aspect = static_cast<float>(m_width) / static_cast<float>(m_height);
     const XMVECTOR eye = XMLoadFloat3(&m_scene.camera.pos);
     const XMVECTOR at = XMLoadFloat3(&m_scene.camera.gazePoint);
     const XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
     const XMMATRIX view = XMMatrixLookAtLH(eye, at, up);
     const XMMATRIX projection =
-        XMMatrixPerspectiveFovLH(XMConvertToRadians(m_scene.camera.fov), aspect, m_scene.camera.nearZ, m_scene.camera.farZ);
+        XMMatrixPerspectiveFovLH(XMConvertToRadians(m_scene.camera.fov), m_aspectRatio, m_scene.camera.nearZ, m_scene.camera.farZ);
     const XMMATRIX viewProjection = XMMatrixMultiply(view, projection);
     XMStoreFloat4x4(&m_constantBufferData.viewProjection, XMMatrixTranspose(viewProjection));
     XMStoreFloat4x4(&m_constantBufferData.invViewProjection,
@@ -530,9 +551,9 @@ void RtPbrSurveyEngine::LoadPipeline()
     // Create the depth stencil view.
     {
         CreateDsvHeap();
-        RegisterDepthStencil(m_width, m_height);
-        RegisterLightPassRenderTarget(m_width, m_height);
-        RegisterReflectionRadiance(m_width, m_height);
+        RegisterDepthStencil(m_renderWidth, m_renderHeight);
+        RegisterLightPassRenderTarget(m_renderWidth, m_renderHeight);
+        RegisterReflectionRadiance(m_renderWidth, m_renderHeight);
     }
 
     // create command allocators.
@@ -1127,11 +1148,11 @@ void RtPbrSurveyEngine::LoadAssets()
     CreateSpecularDebugRayQueryResources();
     CreatePipelineStates();
     CreateGBuffer();
-    CreateShadowMask(m_width, m_height);
-    CreateReflectionRayHit(m_width, m_height);
-    CreateReflectionRayColor(m_width, m_height);
-    CreateReflectionRayMaterial(m_width, m_height);
-    CreateReflectionRayEmission(m_width, m_height);
+    CreateShadowMask(m_renderWidth, m_renderHeight);
+    CreateReflectionRayHit(m_renderWidth, m_renderHeight);
+    CreateReflectionRayColor(m_renderWidth, m_renderHeight);
+    CreateReflectionRayMaterial(m_renderWidth, m_renderHeight);
+    CreateReflectionRayEmission(m_renderWidth, m_renderHeight);
     CreateInitialCommandList();
 
     // Close the initial command list so ReloadEnvironmentResources can reset it.
@@ -2057,7 +2078,7 @@ void RtPbrSurveyEngine::CreateDsvHeap()
 
 void RtPbrSurveyEngine::CreateGBuffer()
 {
-    m_gbuffer.CreateResources(m_graphicsDevice.Device(), m_width, m_height);
+    m_gbuffer.CreateResources(m_graphicsDevice.Device(), m_renderWidth, m_renderHeight);
     m_gbuffer.CreateRTVs(m_graphicsDevice.Device(), m_rtvHeap.Get(), kGBufferRTVBaseIndex, m_rtvDescriptorSize);
     m_gbuffer.CreateSRVs(m_graphicsDevice.Device(), m_descriptorHeapAllocator);
 
@@ -2785,6 +2806,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     DBG_PRINT("RtPbrSurveyEngine::ApplyResize() %d %d\n", width, height);
     m_width = width;
     m_height = height;
+    UpdateRenderDimensions();
 
     if (width == 0 || height == 0)
     {
@@ -2836,15 +2858,15 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_resourceRegistry.UnregisterTransientResource(kDepthStencilResourceName);
     m_resourceRegistry.UnregisterTransientResource(kLightPassRenderTargetResourceName);
     m_resourceRegistry.UnregisterTransientResource(kReflectionRadianceResourceName);
-    RegisterDepthStencil(m_width, m_height);
-    RegisterLightPassRenderTarget(m_width, m_height);
-    RegisterReflectionRadiance(m_width, m_height);
+    RegisterDepthStencil(m_renderWidth, m_renderHeight);
+    RegisterLightPassRenderTarget(m_renderWidth, m_renderHeight);
+    RegisterReflectionRadiance(m_renderWidth, m_renderHeight);
     CreateGBuffer();
-    CreateShadowMask(m_width, m_height);
-    CreateReflectionRayHit(m_width, m_height);
-    CreateReflectionRayColor(m_width, m_height);
-    CreateReflectionRayMaterial(m_width, m_height);
-    CreateReflectionRayEmission(m_width, m_height);
+    CreateShadowMask(m_renderWidth, m_renderHeight);
+    CreateReflectionRayHit(m_renderWidth, m_renderHeight);
+    CreateReflectionRayColor(m_renderWidth, m_renderHeight);
+    CreateReflectionRayMaterial(m_renderWidth, m_renderHeight);
+    CreateReflectionRayEmission(m_renderWidth, m_renderHeight);
 
     // Camera
     UpdateCameraConstantBuffer();
@@ -3238,8 +3260,8 @@ void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
         passDesc.maxRoughness = 1.0f;
         passDesc.minMetallic = 0.0f;
     }
-    passDesc.width = m_width;
-    passDesc.height = m_height;
+    passDesc.width = m_renderWidth;
+    passDesc.height = m_renderHeight;
 
     Engine::RecordHybridReflectionPass(m_commandList.Get(), passDesc);
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Hybrid Reflection Pass");
@@ -3266,8 +3288,8 @@ void RtPbrSurveyEngine::ExecuteRayQueryShadowPass(const RenderPass& pass)
     passDesc.sampleCount = static_cast<uint32_t>(m_shadowSettings.sampleCount);
     passDesc.lightAngularRadius = m_shadowSettings.lightAngularRadius;
     passDesc.jitterStrength = m_shadowSettings.jitterStrength;
-    passDesc.width = m_width;
-    passDesc.height = m_height;
+    passDesc.width = m_renderWidth;
+    passDesc.height = m_renderHeight;
 
     Engine::RecordRayQueryShadowPass(m_commandList.Get(), passDesc);
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "RayQuery Shadow Pass");
@@ -3335,8 +3357,8 @@ void RtPbrSurveyEngine::ExecuteRayQueryTlasDebugPass(const RenderPass& pass)
     passDesc.normalSrv = m_gbuffer.srvHandles[Engine::GBuffer::Normal].gpu;
     passDesc.cameraCbv = m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu;
     passDesc.lightDirection = m_lightingParams.lightDirection;
-    passDesc.width = m_width;
-    passDesc.height = m_height;
+    passDesc.width = m_renderWidth;
+    passDesc.height = m_renderHeight;
 
     Engine::RecordRayQueryTlasDebugPass(m_commandList.Get(), passDesc);
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "RayQuery TlasDebug Pass");
@@ -3456,12 +3478,20 @@ void RtPbrSurveyEngine::RecordPixelPickPass()
 {
     PIXBeginEvent(m_commandList.Get(), 0, L"PixelPick");
 
-    const int clampedX = (std::max)(0, (std::min)(m_pixelPickScreenX, static_cast<int>(m_width) - 1));
-    const int clampedY = (std::max)(0, (std::min)(m_pixelPickScreenY, static_cast<int>(m_height) - 1));
-    const UINT x = static_cast<UINT>(clampedX);
-    const UINT y = static_cast<UINT>(clampedY);
-    m_pixelPickScreenX = clampedX;
-    m_pixelPickScreenY = clampedY;
+    const int clampedOutputX = (std::max)(0, (std::min)(m_pixelPickScreenX, static_cast<int>(m_width) - 1));
+    const int clampedOutputY = (std::max)(0, (std::min)(m_pixelPickScreenY, static_cast<int>(m_height) - 1));
+    const float renderXScale = static_cast<float>(m_renderWidth) / static_cast<float>(m_width);
+    const float renderYScale = static_cast<float>(m_renderHeight) / static_cast<float>(m_height);
+    const int clampedRenderX = (std::max)(
+        0, (std::min)(static_cast<int>(static_cast<float>(clampedOutputX) * renderXScale),
+                      static_cast<int>(m_renderWidth) - 1));
+    const int clampedRenderY = (std::max)(
+        0, (std::min)(static_cast<int>(static_cast<float>(clampedOutputY) * renderYScale),
+                      static_cast<int>(m_renderHeight) - 1));
+    const UINT x = static_cast<UINT>(clampedRenderX);
+    const UINT y = static_cast<UINT>(clampedRenderY);
+    m_pixelPickScreenX = clampedRenderX;
+    m_pixelPickScreenY = clampedRenderY;
 
     CreatePixelPickReadback(m_depthStencil.Get(), m_pixelPickDepthReadback);
     CopyPixelPickSource(m_depthStencil.Get(), m_pixelPickDepthReadback, x, y);
@@ -3615,8 +3645,8 @@ void RtPbrSurveyEngine::ReadbackPixelPick()
     // Reconstruct world position from depth using inverse view-projection
     const float pixelCenterX = static_cast<float>(m_pixelPickResult.screenX) + 0.5f;
     const float pixelCenterY = static_cast<float>(m_pixelPickResult.screenY) + 0.5f;
-    const float ndcX = (2.0f * pixelCenterX) / static_cast<float>(m_width) - 1.0f;
-    const float ndcY = 1.0f - (2.0f * pixelCenterY) / static_cast<float>(m_height);
+    const float ndcX = (2.0f * pixelCenterX) / static_cast<float>(m_renderWidth) - 1.0f;
+    const float ndcY = 1.0f - (2.0f * pixelCenterY) / static_cast<float>(m_renderHeight);
 
     const XMMATRIX invVP = XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.invViewProjection));
     const XMVECTOR clipPos = XMVectorSet(ndcX, ndcY, m_pixelPickResult.depthNdc, 1.0f);
