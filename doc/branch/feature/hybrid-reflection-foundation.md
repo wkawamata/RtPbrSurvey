@@ -86,7 +86,9 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 - `Reflection Material Params` debug view visualizes `ReflectionRayMaterial` as `R = metallic`, `G = roughness`, `B = unlit flag`.
 - `Reflection Contribution` lets LightPass consume `ReflectionRadiance`; LightPass applies the visible-surface Fresnel term before adding it.
 - `ReflectionEvaluatePass` writes one-bounce hit-point radiance into `ReflectionRadiance`, including direct light, diffuse IBL, specular IBL approximation, emissive, miss fallback, distance fade, and visible-surface roughness fade.
-- Hit direct lighting is still a light approximation, but its diffuse term is suppressed by hit metallic so metallic reflection hits are not lit as flat diffuse gray.
+- Reflection hit direct lighting now uses the shared PBR direct-light BRDF helper.
+- Reflection hit diffuse/specular IBL uses the shared PBR IBL helpers, including BRDF LUT based specular IBL.
+- Reflection hit shading is organized as `PbrSurface -> PbrRadianceComponents -> evaluated radiance` in shared HLSL helpers.
 - `Reflection Radiance` debug view visualizes the current `ReflectionRadiance` texture with simple tone mapping.
 - Reflection radiance component debug views visualize the direct, diffuse IBL, specular IBL, and emissive contributions recomputed from the hit payload.
 - `Reflection Contribution Max Distance` fades the provisional contribution by hit distance, reducing far-hit color bleeding while the reflection color is still approximate.
@@ -96,11 +98,19 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 
 ## Remaining Reflection Radiance Work
 
-- Move hit direct lighting closer to the LightPass PBR direct-light BRDF instead of the current lightweight approximation.
-- Add BRDF LUT based specular IBL for hit points so metallic/roughness differences in reflection hits better match normal scene shading.
+- Decide whether the reflection hit path needs hit ambient occlusion or should keep `ambientOcclusion = 1.0` until a payload/source exists.
+- Decide whether miss fallback should use the same roughness-aware prefiltered environment path as hit specular IBL.
 - Keep raw hit payload, evaluated reflection radiance, and debug component views distinct for future DLSS RR and denoising work.
 - Consider screen-space resolved color reuse for visible hit points after the one-bounce hit-point shading path is stable.
 - Add temporal accumulation / denoise once reflection radiance is physically closer to the intended signal.
+
+## Shared PBR Shader Helpers
+
+- `Shaders/PbrLighting.hlsli` owns shared BRDF math and lightweight shading helpers used by LightPass and reflection evaluation.
+- Shared types include `PbrSurface` and `PbrRadianceComponents`.
+- Shared helper flow is `EvaluatePbrDirectLighting()`, `EvaluatePbrDiffuseIbl()`, `EvaluatePbrSpecularIbl()`, and `EvaluatePbrSurfaceRadiance()`.
+- The current ReflectionEvaluate path keeps texture sampling pass-local, then feeds sampled irradiance/prefilter/BRDF inputs into the shared helpers.
+- This is intended as a future PathTracing bridge: ray hit shaders should be able to produce a `PbrSurface` and reuse the same BRDF helpers.
 
 ## Descriptors Required
 
