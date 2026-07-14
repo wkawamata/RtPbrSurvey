@@ -89,15 +89,7 @@ float3 ComputeDirectRadiance(float3 albedo, float metallic, float roughness, flo
 
 PbrSurface MakeReflectionHitSurface(float3 albedo, float4 material, float3 normal, float3 emissive)
 {
-    PbrSurface surface;
-    surface.albedo = albedo;
-    surface.normal = normal;
-    surface.emissive = emissive;
-    surface.metallic = saturate(material.x);
-    surface.roughness = saturate(material.y);
-    surface.ambientOcclusion = 1.0;
-    surface.unlit = saturate(material.z);
-    return surface;
+    return MakePbrSurface(albedo, normal, emissive, material.x, material.y, 1.0, material.z);
 }
 
 float4 PSMain(FullscreenVSOutput input) : SV_TARGET

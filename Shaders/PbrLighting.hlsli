@@ -11,6 +11,25 @@ struct PbrSurface
     float unlit;
 };
 
+PbrSurface MakePbrSurface(float3 albedo,
+                          float3 normal,
+                          float3 emissive,
+                          float metallic,
+                          float roughness,
+                          float ambientOcclusion,
+                          float unlit)
+{
+    PbrSurface surface;
+    surface.albedo = albedo;
+    surface.normal = normal;
+    surface.emissive = emissive;
+    surface.metallic = saturate(metallic);
+    surface.roughness = saturate(roughness);
+    surface.ambientOcclusion = saturate(ambientOcclusion);
+    surface.unlit = saturate(unlit);
+    return surface;
+}
+
 float3 PbrF0(float3 albedo, float metallic)
 {
     return lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
