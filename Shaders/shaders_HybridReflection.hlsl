@@ -2,6 +2,8 @@
 
 RWTexture2D<float4> g_reflectionRayHit : register(u0);
 RWTexture2D<float4> g_reflectionRayColor : register(u1);
+RWTexture2D<float4> g_reflectionRayMaterial : register(u2);
+RWTexture2D<float4> g_reflectionRayEmission : register(u3);
 RaytracingAccelerationStructure g_tlas : register(t0);
 Texture2D<float> g_depth : register(t1);
 Texture2D<float4> g_normal : register(t2);
@@ -43,6 +45,15 @@ static const uint kSceneVertexMaterialIdOffset = 48;
 static const uint kInstanceDataStride = 144;
 static const uint kInstanceDataMaterialIdOffset = 128;
 static const uint kMaterialFromInstance = 0xffffffff;
+
+struct HitMaterialSample
+{
+    float3 albedo;
+    float3 emissive;
+    float metallic;
+    float roughness;
+    uint flags;
+};
 
 float3 LoadSceneVertexPosition(uint vertexIndex)
 {
@@ -187,12 +198,32 @@ float3 HitAlbedoToDebugNormal(uint index0, uint index1, uint index2, float2 bary
     return normalize(color * 2.0 - 1.0);
 }
 
-float3 LoadCommittedHitAlbedo(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
+HitMaterialSample LoadCommittedHitMaterialSample(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
 {
     uint materialId = LoadCommittedHitMaterialId(index0, index1, index2, barycentric, instanceId);
     Material material = g_materialData[materialId];
     float2 uv = LoadCommittedHitUv(index0, index1, index2, barycentric);
-    return SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb);
+    float4 metallicRoughness = g_texture[material.metallicRoughnessTexIndex].SampleLevel(g_sampler, uv, 0);
+
+    HitMaterialSample result;
+    result.albedo = SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb);
+    result.emissive =
+        SrgbToLinear(g_texture[material.emissiveTexIndex].SampleLevel(g_sampler, uv, 0).rgb) * material.emissiveScale;
+    result.metallic = saturate(metallicRoughness.b * material.metallicFactor);
+    result.roughness = saturate(metallicRoughness.g * material.roughnessFactor);
+    result.flags = material.flags;
+    return result;
+}
+
+float3 ComputeHitMaterialColor(HitMaterialSample hitMaterial)
+{
+    return hitMaterial.albedo;
+}
+
+float4 EncodeHitMaterialPayload(HitMaterialSample hitMaterial)
+{
+    float unlit = (hitMaterial.flags & MaterialFlagUnlit) ? 1.0 : 0.0;
+    return float4(hitMaterial.metallic, hitMaterial.roughness, unlit, 0.0);
 }
 
 uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId)
@@ -281,6 +312,8 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     {
         g_reflectionRayHit[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         g_reflectionRayColor[pixel] = float4(0.0, 0.0, 0.0, 0.0);
+        g_reflectionRayMaterial[pixel] = float4(0.0, 0.0, 0.0, 0.0);
+        g_reflectionRayEmission[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         return;
     }
 
@@ -301,6 +334,8 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     {
         g_reflectionRayHit[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         g_reflectionRayColor[pixel] = float4(0.0, 0.0, 0.0, 0.0);
+        g_reflectionRayMaterial[pixel] = float4(0.0, 0.0, 0.0, 0.0);
+        g_reflectionRayEmission[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         return;
     }
 
@@ -332,12 +367,17 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
                                                   barycentric,
                                                   query.CommittedObjectToWorld3x4(),
                                                   instanceId);
+        HitMaterialSample hitMaterial = LoadCommittedHitMaterialSample(index0, index1, index2, barycentric, instanceId);
         g_reflectionRayHit[pixel] = float4(query.CommittedRayT(), 1.0, EncodeNormalOctahedron(hitNormal));
-        g_reflectionRayColor[pixel] = float4(LoadCommittedHitAlbedo(index0, index1, index2, barycentric, instanceId), 1.0);
+        g_reflectionRayColor[pixel] = float4(ComputeHitMaterialColor(hitMaterial), 1.0);
+        g_reflectionRayMaterial[pixel] = EncodeHitMaterialPayload(hitMaterial);
+        g_reflectionRayEmission[pixel] = float4(hitMaterial.emissive, 1.0);
     }
     else
     {
         g_reflectionRayHit[pixel] = float4(0.0, 0.0, 0.0, 0.0);
         g_reflectionRayColor[pixel] = float4(0.0, 0.0, 0.0, 0.0);
+        g_reflectionRayMaterial[pixel] = float4(0.0, 0.0, 0.0, 0.0);
+        g_reflectionRayEmission[pixel] = float4(0.0, 0.0, 0.0, 0.0);
     }
 }

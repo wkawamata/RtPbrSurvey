@@ -129,6 +129,9 @@
     <ClInclude Include="Renderer\ReflectionRayHitDebugPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\ReflectionEvaluatePass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\ShadowMaskDebugPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -296,6 +299,9 @@
     <ClCompile Include="Renderer\LightingPass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\MaterialBuffer.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
@@ -376,6 +382,9 @@
     <CustomBuild Include="Shaders\shaders_LightPassDebugGradient.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_ReflectionEvaluate.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
     <CustomBuild Include="Shaders\shaders_RayQueryShadow.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
@@ -403,6 +412,9 @@
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="Shaders\InstanceData.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\PbrLighting.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="packages.config" />

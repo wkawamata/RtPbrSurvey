@@ -55,7 +55,7 @@ public:
         // 4: Diffuse sphere
         m_mesh.materials.push_back(MakeMat(whiteTex, whiteTex, blackTex, whiteTex, 0.9f,  0.0f, 0.0f));
         // 5: Emissive panel
-        m_mesh.materials.push_back(MakeMat(whiteTex, whiteTex, whiteTex, whiteTex, 0.8f,  0.0f, 1.0f));
+        m_mesh.materials.push_back(MakeMat(whiteTex, whiteTex, whiteTex, whiteTex, 0.8f,  0.0f, 4.0f));
 
         m_mesh.materialIndex = 0;
 
@@ -97,9 +97,9 @@ public:
             XMFLOAT3{0.6f, -0.9f, 0.0f}, 0.3f, 4);
         // Emissive panel on ceiling
         Procedural::AddQuad(m_mesh,
-            XMFLOAT3{0.0f, halfH - 0.02f, 0.0f},
-            XMFLOAT3{0.4f, 0.0f, 0.4f},
-            XMFLOAT3{0.0f, -1.0f, 0.0f}, 5);
+            XMFLOAT3{0.0f, halfH - 0.05f, 0.0f},
+            XMFLOAT3{1.0f, 0.0f, 1.0f},
+            XMFLOAT3{0.0f, -1.0f, 0.0f}, 5, true);
 
         m_scene.mesh = &m_mesh;
         Reset();

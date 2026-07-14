@@ -33,6 +33,10 @@ enum RootParameterIndex
 
     // Hybrid reflection debug/composite inputs.
     ReflectionRayHit,
+    ReflectionRayColor,
+    ReflectionRayMaterial,
+    ReflectionRayEmission,
+    ReflectionRadiance,
 
     Count
 };
@@ -47,6 +51,10 @@ static constexpr uint32_t kGBufferSrvSpace = 3;
 static constexpr uint32_t kToneMapSceneColorSrvSpace = 4;
 static constexpr uint32_t kEnvironmentMapSrvSpace = 5;
 static constexpr uint32_t kReflectionRayHitSrvSpace = 6;
+static constexpr uint32_t kReflectionRayColorSrvSpace = 7;
+static constexpr uint32_t kReflectionRayMaterialSrvSpace = 8;
+static constexpr uint32_t kReflectionRadianceSrvSpace = 9;
+static constexpr uint32_t kReflectionRayEmissionSrvSpace = 10;
 
 // Per-frame and per-pass CBVs.
 static constexpr uint32_t kCameraCbvRegister = 0;
@@ -57,7 +65,7 @@ static constexpr uint32_t kLightCbvSpace = 0;
 // Root constants.
 static constexpr uint32_t kGBufferDebugConstantsRegister = 1;
 static constexpr uint32_t kGBufferDebugConstantsSpace = 0;
-static constexpr uint32_t kGBufferDebugConstantsCount = 1;
+static constexpr uint32_t kGBufferDebugConstantsCount = 3;
 
 static constexpr uint32_t kToneMapConstantsRegister = 3;
 static constexpr uint32_t kToneMapConstantsSpace = 0;

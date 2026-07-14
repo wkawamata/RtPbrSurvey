@@ -1,5 +1,6 @@
 #include "FullscreenTriangle.hlsli"
 #include "Material.hlsli"
+#include "PbrLighting.hlsli"
 
 Texture2D<float4> g_albedo : register(t0, space3);
 Texture2D<float4> g_normal : register(t1, space3);
@@ -14,6 +15,8 @@ Texture2D<float2> g_brdfLut : register(t3, space5);
 SamplerState g_sampler : register(s0);
 Texture2D<float> g_shadowMask : register(t0, space4);
 Texture2D<float4> g_reflectionRayHit : register(t0, space6);
+Texture2D<float4> g_reflectionRayColor : register(t0, space7);
+Texture2D<float4> g_reflectionRadiance : register(t0, space9);
 StructuredBuffer<Material> g_materialData : register(t0, space2);
 
 static const float PI = 3.14159265;
@@ -52,6 +55,7 @@ cbuffer LightingConstants : register(b2)
     float reflectionHitOverlayMode;
     float reflectionContributionEnabled;
     float reflectionContributionIntensity;
+    float reflectionContributionMaxDistance;
 };
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
@@ -106,42 +110,6 @@ float4 RenderIblDebugView(float2 uv)
 
     float2 brdf = g_brdfLut.Sample(g_sampler, saturate(uv)).rg;
     return float4(brdf.r, brdf.g, 0.0, 1.0);
-}
-
-float DistributionGGX(float ndoth, float roughness)
-{
-    float a = roughness * roughness;
-    float a2 = a * a;
-    float denom = ndoth * ndoth * (a2 - 1.0) + 1.0;
-    return a2 / max(PI * denom * denom, 0.000001);
-}
-
-float GeometrySchlickGGX(float ndotx, float roughness)
-{
-    float r = roughness + 1.0;
-    float k = (r * r) / 8.0;
-    return ndotx / max(ndotx * (1.0 - k) + k, 0.000001);
-}
-
-float GeometrySmith(float ndotv, float ndotl, float roughness)
-{
-    return GeometrySchlickGGX(ndotv, roughness) * GeometrySchlickGGX(ndotl, roughness);
-}
-
-float3 FresnelSchlick(float cosTheta, float3 f0)
-{
-    return f0 + (1.0 - f0) * pow(saturate(1.0 - cosTheta), 5.0);
-}
-
-float3 FresnelSchlickRoughness(float cosTheta, float3 f0, float roughness)
-{
-    return f0 + (max(float3(1.0 - roughness, 1.0 - roughness, 1.0 - roughness), f0) - f0) *
-                    pow(saturate(1.0 - cosTheta), 5.0);
-}
-
-float ComputeSpecularOcclusion(float ndotv, float ambientOcclusion, float roughness)
-{
-    return saturate(pow(ndotv + ambientOcclusion, exp2(-16.0 * roughness - 1.0)) - 1.0 + ambientOcclusion);
 }
 
 float SampleShadowMask(float2 uv, float4 position)
@@ -227,28 +195,23 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 worldPos = ReconstructWorldPosition(input.uv, depth);
     float3 lightDir = normalize(lightDirection);
     float3 viewDir = normalize(cameraPosition - worldPos);
-    float3 halfDir = normalize(lightDir + viewDir);
     float ndotl = saturate(dot(normal, lightDir));
     float ndotv = saturate(dot(normal, viewDir));
-    float ndoth = saturate(dot(normal, halfDir));
-    float vdoth = saturate(dot(viewDir, halfDir));
 
     float receiveLighting = (material.flags & MaterialFlagUnlit) ? 0.0 : 1.0;
-    float3 f0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
-    float3 fresnel = FresnelSchlick(vdoth, f0);
-    float distribution = DistributionGGX(ndoth, roughness);
-    float geometry = GeometrySmith(ndotv, ndotl, roughness);
-    float3 specularBrdf = distribution * geometry * fresnel / max(4.0 * ndotv * ndotl, 0.0001);
-    float3 diffuseBrdf = (1.0 - fresnel) * (1.0 - metallic) * albedo / PI;
+    float3 f0 = PbrF0(albedo, metallic);
     float3 radiance = lightColor * diffuseIntensity;
     float shadowMask = 1.0;
     if (rayTracingSupported)
     {
         shadowMask = SampleShadowMask(input.uv, input.position);
     }
-    float3 directLighting = (diffuseBrdf + specularBrdf) * radiance * ndotl * receiveLighting * shadowMask * directLightEnabled;
+    float3 directLighting =
+        EvaluatePbrDirectLighting(albedo, metallic, roughness, normal, viewDir, lightDir, radiance) * receiveLighting *
+        shadowMask * directLightEnabled;
     float3 irradiance = g_diffuseIrradianceMap.Sample(g_sampler, normal).rgb;
-    float3 iblDiffuse = irradiance * albedo * (1.0 - metallic) * iblIntensity * occlusion * diffuseIblEnabled / PI;
+    float3 iblDiffuse = EvaluatePbrDiffuseIbl(irradiance, albedo, metallic, occlusion) * iblIntensity *
+                        diffuseIblEnabled;
     float3 reflectionDir = reflect(-viewDir, normal);
     if (lightPassDebugViewMode > 0.5 && lightPassDebugViewMode < 1.5)
     {
@@ -272,19 +235,26 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 environmentSpecular = g_specularPrefilterMap.SampleLevel(g_sampler, reflectionDir, specularMip).rgb;
     float3 specularFresnel = FresnelSchlickRoughness(ndotv, f0, roughness);
     float2 brdf = g_brdfLut.Sample(g_sampler, float2(ndotv, roughness)).rg;
-    float specularOcclusion = ComputeSpecularOcclusion(ndotv, occlusion, roughness);
-    float3 iblSpecular =
-        environmentSpecular * (specularFresnel * brdf.x + brdf.y) * iblIntensity * specularOcclusion * specularIblEnabled;
+    float3 iblSpecular = EvaluatePbrSpecularIbl(environmentSpecular, brdf, f0, roughness, ndotv, occlusion) *
+                         iblIntensity * specularIblEnabled;
     float3 color = iblDiffuse + iblSpecular + directLighting + emissive * emissiveEnabled;
-    float4 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
     if (reflectionContributionEnabled > 0.5)
     {
-        color += iblSpecular * reflectionHit.y * reflectionContributionIntensity;
+        float3 reflectionRadiance = g_reflectionRadiance.Sample(g_sampler, input.uv).rgb;
+        color += reflectionRadiance * specularFresnel;
     }
     if (reflectionHitOverlayEnabled > 0.5)
     {
+        float4 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
+        // ReflectionRayColor is the hit albedo payload, not reflected radiance.
+        float3 reflectionHitColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
         float3 overlayColor = float3(0.0, 0.85, 1.0);
-        if (reflectionHitOverlayMode > 2.5)
+        if (reflectionHitOverlayMode > 3.5)
+        {
+            float3 hitColor = reflectionHitColor;
+            overlayColor = hitColor / (1.0 + hitColor);
+        }
+        else if (reflectionHitOverlayMode > 2.5)
         {
             float3 hitNormal = DecodeNormalOctahedron(reflectionHit.zw);
             overlayColor = hitNormal * 0.5 + 0.5;
