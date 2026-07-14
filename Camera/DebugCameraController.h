@@ -21,6 +21,7 @@ public:
 
     Mode GetMode() const;
     void SetMode(Mode mode);
+    bool IsRightDragging() const;
 
     float SpeedMultiplier() const;
     void SetSpeedMultiplier(float multiplier);
@@ -33,11 +34,20 @@ public:
 
     void InitObjectViewerFromCamera();
     void UpdateObjectViewerCamera();
+    void ResetInputState();
 
     void OnMouseDown(UINT8 button, int x, int y);
     void OnMouseUp(UINT8 button, int x, int y);
     void OnMouseMove(int x, int y);
     void OnMouseWheel(int wheelDelta, bool fovZoom);
+    void UpdateRightDragKeyboard(bool moveLeft,
+                                 bool moveRight,
+                                 bool moveForward,
+                                 bool moveBackward,
+                                 bool moveUp,
+                                 bool moveDown,
+                                 bool zoomIn,
+                                 bool zoomOut);
     void UpdateFreeLookKeyboard(float deltaTime,
                                 bool moveLeft,
                                 bool moveRight,

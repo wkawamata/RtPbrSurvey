@@ -26,60 +26,6 @@
 
 void RunStagedAllocatorTests(ID3D12Device* device);
 
-namespace
-{
-
-XMFLOAT3 ProjectToArcball(int x, int y, UINT width, UINT height)
-{
-    const float minDimension = static_cast<float>((std::max)(1u, (std::min)(width, height)));
-    const float sx = (2.0f * static_cast<float>(x) - static_cast<float>(width)) / minDimension;
-    const float sy = (static_cast<float>(height) - 2.0f * static_cast<float>(y)) / minDimension;
-    const float lengthSquared = sx * sx + sy * sy;
-
-    XMVECTOR projected = {};
-    if (lengthSquared <= 1.0f)
-    {
-        projected = XMVectorSet(sx, sy, std::sqrt(1.0f - lengthSquared), 0.0f);
-    }
-    else
-    {
-        projected = XMVector3Normalize(XMVectorSet(sx, sy, 0.0f, 0.0f));
-    }
-
-    XMFLOAT3 result = {};
-    XMStoreFloat3(&result, projected);
-    return result;
-}
-
-XMFLOAT4 ArcballDeltaQuaternion(const XMFLOAT3& from, const XMFLOAT3& to)
-{
-    const XMVECTOR fromVec = XMVector3Normalize(XMLoadFloat3(&from));
-    const XMVECTOR toVec = XMVector3Normalize(XMLoadFloat3(&to));
-    const float dot = XMVectorGetX(XMVector3Dot(fromVec, toVec));
-
-    if (dot > 0.9999f)
-    {
-        return {0.0f, 0.0f, 0.0f, 1.0f};
-    }
-
-    XMVECTOR axis = XMVector3Cross(fromVec, toVec);
-    if (dot < -0.9999f)
-    {
-        axis = XMVector3Cross(fromVec, XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f));
-        if (XMVectorGetX(XMVector3LengthSq(axis)) < 0.0001f)
-        {
-            axis = XMVector3Cross(fromVec, XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
-        }
-    }
-
-    const XMVECTOR quaternion = XMQuaternionNormalize(XMVectorSetW(axis, 1.0f + dot));
-    XMFLOAT4 result = {};
-    XMStoreFloat4(&result, quaternion);
-    return result;
-}
-
-} // namespace
-
 RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
     : m_windowInfo(Platform::CreateWindowInfo(width, height, name)), m_prevTime(std::chrono::steady_clock::now()), m_sceneRenderer(m_graphicsDevice)
 {
@@ -203,83 +149,35 @@ void RtPbrSurveyApp::UpdateSampleState()
         return;
     }
 
-    static constexpr float kCameraMoveSpeed = 0.01f;
-    const float speedMul = m_cameraSpeedMultiplier;
     if (GetForegroundWindow() == Win32Application::GetHwnd())
     {
-        auto& camera = LoadedScene().GetScene().camera;
+        const bool shiftDown = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+        const bool moveLeft = (GetAsyncKeyState('A') & 0x8000) != 0;
+        const bool moveRight = (GetAsyncKeyState('D') & 0x8000) != 0;
+        const bool wDown = (GetAsyncKeyState('W') & 0x8000) != 0;
+        const bool sDown = (GetAsyncKeyState('S') & 0x8000) != 0;
+        const bool rightMoveUp = (GetAsyncKeyState('E') & 0x8000) != 0;
+        const bool rightMoveDown = (GetAsyncKeyState('Q') & 0x8000) != 0;
+        const bool moveUp = wDown && shiftDown;
+        const bool moveDown = sDown && shiftDown;
+        const bool moveForward = wDown && !shiftDown;
+        const bool moveBackward = sDown && !shiftDown;
+        const bool zoomIn = (GetAsyncKeyState('Z') & 0x8000) != 0;
+        const bool zoomOut = (GetAsyncKeyState('C') & 0x8000) != 0;
 
-        if (m_isRightDragging)
+        if (m_debugCamera.IsRightDragging())
         {
-            XMVECTOR localMove = XMVectorZero();
-
-            if (GetAsyncKeyState('A') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(-kCameraMoveSpeed * speedMul, 0.0f, 0.0f, 0.0f));
-            if (GetAsyncKeyState('D') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(kCameraMoveSpeed * speedMul, 0.0f, 0.0f, 0.0f));
-            if (GetAsyncKeyState('W') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, 0.0f, kCameraMoveSpeed * speedMul, 0.0f));
-            if (GetAsyncKeyState('S') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, 0.0f, -kCameraMoveSpeed * speedMul, 0.0f));
-            if (GetAsyncKeyState('E') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, kCameraVerticalSpeed * speedMul, 0.0f, 0.0f));
-            if (GetAsyncKeyState('Q') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, -kCameraVerticalSpeed * speedMul, 0.0f, 0.0f));
-            if (GetAsyncKeyState('Z') & 0x8000)
-                camera.fov = std::clamp(camera.fov - kCameraFovZoomSpeed, 20.0f, 150.0f);
-            if (GetAsyncKeyState('C') & 0x8000)
-                camera.fov = std::clamp(camera.fov + kCameraFovZoomSpeed, 20.0f, 150.0f);
-
-            const float sy = std::sin(camera.rot.y);
-            const float cy = std::cos(camera.rot.y);
-            const XMVECTOR forward = XMVectorSet(sy, 0.0f, cy, 0.0f);
-            const XMVECTOR right = XMVectorSet(cy, 0.0f, -sy, 0.0f);
-            const XMVECTOR worldMove = XMVectorAdd(
-                XMVectorAdd(
-                    XMVectorScale(forward, XMVectorGetZ(localMove)),
-                    XMVectorScale(right, XMVectorGetX(localMove))),
-                XMVectorSet(0.0f, XMVectorGetY(localMove), 0.0f, 0.0f));
-            XMFLOAT3 move = {};
-            XMStoreFloat3(&move, worldMove);
-            camera.pos.x += move.x;
-            camera.pos.y += move.y;
-            camera.pos.z += move.z;
-
-            const XMMATRIX camRot = XMMatrixRotationRollPitchYaw(camera.rot.x, camera.rot.y, camera.rot.z);
-            const XMVECTOR fwd = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRot);
-            XMStoreFloat3(&camera.gazePoint, XMLoadFloat3(&camera.pos) + fwd);
+            m_debugCamera.UpdateRightDragKeyboard(
+                moveLeft, moveRight, wDown, sDown, rightMoveUp, rightMoveDown, zoomIn, zoomOut);
         }
-        else if (m_cameraMode == CameraMode::FreeLook)
+        else if (m_debugCamera.GetMode() == RtPbrSurvey::DebugCameraController::Mode::FreeLook)
         {
-            XMVECTOR localMove = XMVectorZero();
-            if (GetAsyncKeyState('A') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(-kCameraMoveSpeed * speedMul, 0.0f, 0.0f, 0.0f));
-            if (GetAsyncKeyState('D') & 0x8000)
-                localMove = XMVectorAdd(localMove, XMVectorSet(kCameraMoveSpeed * speedMul, 0.0f, 0.0f, 0.0f));
-            if ((GetAsyncKeyState('W') & 0x8000) && (GetAsyncKeyState(VK_SHIFT) & 0x8000))
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, kCameraVerticalSpeed * speedMul, 0.0f, 0.0f));
-            if ((GetAsyncKeyState('S') & 0x8000) && (GetAsyncKeyState(VK_SHIFT) & 0x8000))
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, -kCameraVerticalSpeed * speedMul, 0.0f, 0.0f));
-            if ((GetAsyncKeyState('W') & 0x8000) && !(GetAsyncKeyState(VK_SHIFT) & 0x8000))
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, 0.0f, kCameraMoveSpeed * speedMul, 0.0f));
-            if ((GetAsyncKeyState('S') & 0x8000) && !(GetAsyncKeyState(VK_SHIFT) & 0x8000))
-                localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, 0.0f, -kCameraMoveSpeed * speedMul, 0.0f));
-
-            const XMMATRIX cameraRotation = XMMatrixRotationRollPitchYaw(camera.rot.x, camera.rot.y, camera.rot.z);
-            const XMVECTOR worldMove = XMVector3TransformNormal(localMove, cameraRotation);
-            XMFLOAT3 move = {};
-            XMStoreFloat3(&move, worldMove);
-            camera.pos.x += move.x;
-            camera.pos.y += move.y;
-            camera.pos.z += move.z;
-
-            const XMMATRIX camRot = XMMatrixRotationRollPitchYaw(camera.rot.x, camera.rot.y, camera.rot.z);
-            const XMVECTOR fwd = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRot);
-            XMStoreFloat3(&camera.gazePoint, XMLoadFloat3(&camera.pos) + fwd);
+            m_debugCamera.UpdateFreeLookKeyboard(
+                deltaTime, moveLeft, moveRight, moveForward, moveBackward, moveUp, moveDown, zoomIn, zoomOut);
         }
         else
         {
-            UpdateObjectViewerCamera();
+            m_debugCamera.UpdateObjectViewerCamera();
         }
     }
 
@@ -319,11 +217,8 @@ void RtPbrSurveyApp::OnKeyDown(UINT8 key)
 
     if (m_appMode == AppMode::Running && key == VK_TAB)
     {
-        m_cameraMode = (m_cameraMode == CameraMode::Arcball) ? CameraMode::FreeLook : CameraMode::Arcball;
-        if (m_cameraMode == CameraMode::Arcball)
-        {
-            InitObjectViewerFromCamera();
-        }
+        using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
+        m_debugCamera.SetMode(m_debugCamera.GetMode() == CameraMode::Arcball ? CameraMode::FreeLook : CameraMode::Arcball);
     }
 }
 
@@ -343,43 +238,13 @@ void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
             m_sceneRenderer.RequestPixelPick(x, y);
             return;
         }
-        m_isDragging = true;
-        m_lastMouseX = x;
-        m_lastMouseY = y;
-        m_lastArcballVector = ProjectToArcball(x, y, GetWidth(), GetHeight());
     }
-    else if (button == VK_MBUTTON)
-    {
-        m_isMiddleDragging = true;
-        m_lastMouseX = x;
-        m_lastMouseY = y;
-    }
-    else if (button == VK_RBUTTON)
-    {
-        m_isRightDragging = true;
-        m_lastMouseX = x;
-        m_lastMouseY = y;
-    }
+    m_debugCamera.OnMouseDown(button, x, y);
 }
 
 void RtPbrSurveyApp::OnMouseUp(UINT8 button, int x, int y)
 {
-    if (button == VK_LBUTTON)
-    {
-        m_isDragging = false;
-    }
-    else if (button == VK_MBUTTON)
-    {
-        m_isMiddleDragging = false;
-    }
-    else if (button == VK_RBUTTON)
-    {
-        m_isRightDragging = false;
-        if (m_cameraMode == CameraMode::Arcball)
-        {
-            InitObjectViewerFromCamera();
-        }
-    }
+    m_debugCamera.OnMouseUp(button, x, y);
 }
 
 void RtPbrSurveyApp::OnMouseMove(int x, int y)
@@ -389,111 +254,7 @@ void RtPbrSurveyApp::OnMouseMove(int x, int y)
         return;
     }
 
-    auto& camera = LoadedScene().GetScene().camera;
-
-    if (m_isRightDragging)
-    {
-        const int dx = x - m_lastMouseX;
-        const int dy = y - m_lastMouseY;
-        m_lastMouseX = x;
-        m_lastMouseY = y;
-
-        camera.rot.x = std::clamp(camera.rot.x + static_cast<float>(dy) * kMouseCameraRotationSpeed,
-                                  -kCameraPitchLimit, kCameraPitchLimit);
-        camera.rot.y += static_cast<float>(dx) * kMouseCameraRotationSpeed;
-
-        const XMMATRIX camRot = XMMatrixRotationRollPitchYaw(camera.rot.x, camera.rot.y, camera.rot.z);
-        const XMVECTOR fwd = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRot);
-        XMStoreFloat3(&camera.gazePoint, XMLoadFloat3(&camera.pos) + fwd);
-        return;
-    }
-
-    if (m_cameraMode == CameraMode::FreeLook)
-    {
-        if (m_isDragging)
-        {
-            const int dx = x - m_lastMouseX;
-            const int dy = y - m_lastMouseY;
-            m_lastMouseX = x;
-            m_lastMouseY = y;
-
-            camera.rot.x = std::clamp(camera.rot.x + static_cast<float>(dy) * kMouseCameraRotationSpeed,
-                                      -kCameraPitchLimit, kCameraPitchLimit);
-            camera.rot.y += static_cast<float>(dx) * kMouseCameraRotationSpeed;
-
-            const XMMATRIX camRot = XMMatrixRotationRollPitchYaw(camera.rot.x, camera.rot.y, camera.rot.z);
-            const XMVECTOR fwd = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRot);
-            XMStoreFloat3(&camera.gazePoint, XMLoadFloat3(&camera.pos) + fwd);
-        }
-        else if (m_isMiddleDragging)
-        {
-            const int dx = x - m_lastMouseX;
-            const int dy = y - m_lastMouseY;
-            m_lastMouseX = x;
-            m_lastMouseY = y;
-
-            const XMVECTOR localPan = XMVectorSet(static_cast<float>(dx) * kMousePanSpeed * m_cameraSpeedMultiplier,
-                                                   -static_cast<float>(dy) * kMousePanSpeed * m_cameraSpeedMultiplier, 0.0f, 0.0f);
-            const XMMATRIX cameraRotation = XMMatrixRotationRollPitchYaw(camera.rot.x, camera.rot.y, camera.rot.z);
-            const XMVECTOR worldPan = XMVector3TransformNormal(localPan, cameraRotation);
-            XMFLOAT3 pan = {};
-            XMStoreFloat3(&pan, worldPan);
-            camera.pos.x += pan.x;
-            camera.pos.y += pan.y;
-            camera.pos.z += pan.z;
-        }
-    }
-    else
-    {
-        if (m_isDragging)
-        {
-            const int dx = x - m_lastMouseX;
-            int dy = y - m_lastMouseY;
-            m_lastMouseX = x;
-            m_lastMouseY = y;
-            if (std::abs(dy) <= kObjectViewerOrbitPitchDeadZonePixels)
-            {
-                dy = 0;
-            }
-
-            const XMVECTOR pivot = XMLoadFloat3(&m_objectViewerPivot);
-            XMVECTOR offset = XMLoadFloat3(&camera.pos) - pivot;
-            if (dx != 0)
-            {
-                const XMMATRIX yawRotation =
-                    XMMatrixRotationY(static_cast<float>(dx) * kMouseCameraRotationSpeed);
-                offset = XMVector3TransformNormal(offset, yawRotation);
-            }
-            if (dy != 0)
-            {
-                const XMVECTOR lookDir = XMVector3Normalize(-offset);
-                const XMVECTOR right = XMVector3Normalize(
-                    XMVector3Cross(XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), lookDir));
-                const XMMATRIX pitchRotation =
-                    XMMatrixRotationAxis(right, static_cast<float>(dy) * kMouseCameraRotationSpeed);
-                offset = XMVector3TransformNormal(offset, pitchRotation);
-            }
-            SetObjectViewerOrbitFromOffset(offset);
-            UpdateObjectViewerCamera();
-        }
-        else if (m_isMiddleDragging)
-        {
-            const int dx = x - m_lastMouseX;
-            const int dy = y - m_lastMouseY;
-            m_lastMouseX = x;
-            m_lastMouseY = y;
-
-            const XMVECTOR localPan = XMVectorSet(static_cast<float>(dx) * kObjectViewerPanSpeed,
-                                                  -static_cast<float>(dy) * kObjectViewerPanSpeed, 0.0f, 0.0f);
-            const XMMATRIX cameraRotation = XMMatrixRotationRollPitchYaw(camera.rot.x, camera.rot.y, camera.rot.z);
-            const XMVECTOR worldPan = XMVector3TransformNormal(localPan, cameraRotation);
-            XMFLOAT3 pan = {};
-            XMStoreFloat3(&pan, worldPan);
-            m_objectViewerPivot.x += pan.x;
-            m_objectViewerPivot.y += pan.y;
-            m_objectViewerPivot.z += pan.z;
-        }
-    }
+    m_debugCamera.OnMouseMove(x, y);
 }
 
 void RtPbrSurveyApp::OnMouseWheel(int wheelDelta)
@@ -503,36 +264,13 @@ void RtPbrSurveyApp::OnMouseWheel(int wheelDelta)
         return;
     }
 
-    auto& camera = LoadedScene().GetScene().camera;
-    const float wheelSteps = static_cast<float>(wheelDelta) / static_cast<float>(WHEEL_DELTA);
-
-    if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
-    {
-        camera.fov = std::clamp(camera.fov - wheelSteps * kMouseWheelFovSpeed, 20.0f, 150.0f);
-        return;
-    }
-
-    if (m_cameraMode == CameraMode::FreeLook)
-    {
-        const XMVECTOR localMove = XMVectorSet(0.0f, 0.0f, wheelSteps * kMouseWheelCameraSpeed * m_cameraSpeedMultiplier, 0.0f);
-        const XMMATRIX cameraRotation = XMMatrixRotationRollPitchYaw(camera.rot.x, camera.rot.y, camera.rot.z);
-        const XMVECTOR worldMove = XMVector3TransformNormal(localMove, cameraRotation);
-        XMFLOAT3 move = {};
-        XMStoreFloat3(&move, worldMove);
-        camera.pos.x += move.x;
-        camera.pos.y += move.y;
-        camera.pos.z += move.z;
-    }
-    else
-    {
-        m_objectViewerDistance -= wheelSteps * kObjectViewerDollySpeed;
-        m_objectViewerDistance = (std::max)(0.1f, m_objectViewerDistance);
-    }
+    m_debugCamera.OnMouseWheel(wheelDelta, (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0);
 }
 
 void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 {
     m_sceneRenderer.RequestResize(width, height);
+    m_debugCamera.SetWindowSize(width, height);
     m_imguiSystem.SetDisplaySize(width, height);
 }
 
@@ -688,19 +426,21 @@ void RtPbrSurveyApp::LoadSceneCpuData(int sceneIndex)
     m_meshScale = m_loadedScene->DefaultMeshScale();
     m_displayInstanceCount = m_loadedScene->DisplayInstanceCount();
     m_selectedMaterialIndex = 0;
-    m_lastArcballVector = {0.0f, 0.0f, 1.0f};
     m_dragRotation = {0.0f, 0.0f, 0.0f, 1.0f};
-    m_objectViewerPivot = {0.0f, 0.0f, 0.0f};
     m_sceneResourcesLoaded = false;
+    m_debugCamera.SetCameraState(&m_loadedScene->GetScene().camera);
+    m_debugCamera.SetWindowSize(GetWidth(), GetHeight());
 
-    m_cameraMode = IsGltfViewerSceneIndex(m_loadedSceneIndex) ? CameraMode::Arcball : CameraMode::FreeLook;
+    using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
+    CameraMode cameraMode = IsGltfViewerSceneIndex(m_loadedSceneIndex) ? CameraMode::Arcball : CameraMode::FreeLook;
     if (strstr(m_loadedScene->Name(), "Sponza") != nullptr)
     {
-        m_cameraMode = CameraMode::FreeLook;
+        cameraMode = CameraMode::FreeLook;
     }
-    if (m_cameraMode == CameraMode::Arcball)
+    m_debugCamera.SetMode(cameraMode);
+    if (cameraMode == CameraMode::Arcball)
     {
-        InitObjectViewerFromCamera();
+        m_debugCamera.InitObjectViewerFromCamera();
     }
     else
     {
@@ -756,8 +496,7 @@ void RtPbrSurveyApp::CloseRunningScene()
 
     m_appMode = AppMode::SceneSelect;
     m_isPlaying = false;
-    m_isDragging = false;
-    m_isMiddleDragging = false;
+    m_debugCamera.ResetInputState();
     if (m_loadedSceneIndex >= 0)
     {
         m_selectedSceneIndex = m_loadedSceneIndex;
@@ -771,55 +510,6 @@ void RtPbrSurveyApp::CloseRunningScene()
 bool RtPbrSurveyApp::IsGltfViewerSceneIndex(int index) const
 {
     return index >= 0 && index < m_gltfViewerCount;
-}
-
-void RtPbrSurveyApp::InitObjectViewerFromCamera()
-{
-    auto& camera = LoadedScene().GetScene().camera;
-    const XMVECTOR pivot = XMLoadFloat3(&m_objectViewerPivot);
-    const XMVECTOR camPos = XMLoadFloat3(&camera.pos);
-    SetObjectViewerOrbitFromOffset(camPos - pivot);
-}
-
-void RtPbrSurveyApp::SetObjectViewerOrbitFromOffset(DirectX::FXMVECTOR offset)
-{
-    m_objectViewerDistance = XMVectorGetX(XMVector3Length(offset));
-    if (m_objectViewerDistance < 0.001f)
-    {
-        m_objectViewerDistance = 5.0f;
-        m_objectViewerYaw = 0.0f;
-        m_objectViewerPitch = 0.0f;
-        return;
-    }
-    const XMVECTOR dir = XMVector3Normalize(offset);
-    XMFLOAT3 dirF = {};
-    XMStoreFloat3(&dirF, dir);
-    m_objectViewerYaw = std::atan2(dirF.x, dirF.z);
-    m_objectViewerPitch = std::asin(std::clamp(dirF.y, -1.0f, 1.0f));
-}
-
-void RtPbrSurveyApp::UpdateObjectViewerCamera()
-{
-    auto& camera = LoadedScene().GetScene().camera;
-    m_objectViewerPitch = std::clamp(m_objectViewerPitch, -kObjectViewerPitchLimit, kObjectViewerPitchLimit);
-
-    const float cp = std::cos(m_objectViewerPitch);
-    const float sp = std::sin(m_objectViewerPitch);
-    const float cy = std::cos(m_objectViewerYaw);
-    const float sy = std::sin(m_objectViewerYaw);
-    camera.pos.x = m_objectViewerPivot.x + m_objectViewerDistance * cp * sy;
-    camera.pos.y = m_objectViewerPivot.y + m_objectViewerDistance * sp;
-    camera.pos.z = m_objectViewerPivot.z + m_objectViewerDistance * cp * cy;
-
-    const XMVECTOR toPivot = XMLoadFloat3(&m_objectViewerPivot) - XMLoadFloat3(&camera.pos);
-    const XMVECTOR dir = XMVector3Normalize(toPivot);
-    XMFLOAT3 dirF = {};
-    XMStoreFloat3(&dirF, dir);
-    camera.rot.x = std::asin(std::clamp(dirF.y, -1.0f, 1.0f));
-    camera.rot.y = std::atan2(dirF.x, dirF.z);
-    camera.rot.z = 0.0f;
-
-    camera.gazePoint = m_objectViewerPivot;
 }
 
 void RtPbrSurveyApp::InitializeImGui()

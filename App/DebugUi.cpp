@@ -100,6 +100,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 {
     using RenderingPath = RtPbrSurveyEngine::RenderingPath;
     using RenderViewMode = RtPbrSurveyEngine::RenderViewMode;
+    using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
 
     if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneSelect)
     {
@@ -130,14 +131,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGuiWidgets::SliderFloatWithControls("FovH", &loadedScene.GetScene().camera.fov, 20.f, 150.f, 5.f, 60.f);
-        int cameraMode = static_cast<int>(app.m_cameraMode);
+        int cameraMode = static_cast<int>(app.DebugCamera().GetMode());
         if (ImGui::Combo("Mode", &cameraMode, "FreeLook\0Arcball\0"))
         {
-            app.m_cameraMode = static_cast<RtPbrSurveyApp::CameraMode>(cameraMode);
-            if (app.m_cameraMode == RtPbrSurveyApp::CameraMode::Arcball)
-            {
-                app.InitObjectViewerFromCamera();
-            }
+            app.DebugCamera().SetMode(static_cast<CameraMode>(cameraMode));
         }
 
         {
@@ -154,11 +151,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             };
             for (const auto& p : presets)
             {
-                const bool isActive = (app.m_cameraSpeedMultiplier == p.multiplier);
+                const bool isActive = (app.DebugCamera().SpeedMultiplier() == p.multiplier);
                 if (isActive)
                     ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
                 if (ImGui::SmallButton(p.label))
-                    app.m_cameraSpeedMultiplier = p.multiplier;
+                    app.DebugCamera().SetSpeedMultiplier(p.multiplier);
                 if (isActive)
                     ImGui::PopStyleColor();
                 ImGui::SameLine();

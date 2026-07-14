@@ -57,6 +57,11 @@ void DebugCameraController::SetMode(Mode mode)
     }
 }
 
+bool DebugCameraController::IsRightDragging() const
+{
+    return m_isRightDragging;
+}
+
 float DebugCameraController::SpeedMultiplier() const
 {
     return m_speedMultiplier;
@@ -136,6 +141,13 @@ void DebugCameraController::UpdateObjectViewerCamera()
     camera->rot.z = 0.0f;
 
     camera->gazePoint = m_objectViewerPivot;
+}
+
+void DebugCameraController::ResetInputState()
+{
+    m_isDragging = false;
+    m_isMiddleDragging = false;
+    m_isRightDragging = false;
 }
 
 void DebugCameraController::OnMouseDown(UINT8 button, int x, int y)
@@ -293,6 +305,7 @@ void DebugCameraController::OnMouseMove(int x, int y)
             m_objectViewerPivot.x += pan.x;
             m_objectViewerPivot.y += pan.y;
             m_objectViewerPivot.z += pan.z;
+            UpdateObjectViewerCamera();
         }
     }
 }
@@ -329,7 +342,66 @@ void DebugCameraController::OnMouseWheel(int wheelDelta, bool fovZoom)
     {
         m_objectViewerDistance -= wheelSteps * kObjectViewerDollySpeed;
         m_objectViewerDistance = (std::max)(0.1f, m_objectViewerDistance);
+        UpdateObjectViewerCamera();
     }
+}
+
+void DebugCameraController::UpdateRightDragKeyboard(bool moveLeft,
+                                                    bool moveRight,
+                                                    bool moveForward,
+                                                    bool moveBackward,
+                                                    bool moveUp,
+                                                    bool moveDown,
+                                                    bool zoomIn,
+                                                    bool zoomOut)
+{
+    Engine::CameraState* camera = Camera();
+    if (camera == nullptr)
+    {
+        return;
+    }
+
+    if (zoomIn)
+    {
+        camera->fov = std::clamp(camera->fov - kCameraFovZoomSpeed, 20.0f, 150.0f);
+    }
+    if (zoomOut)
+    {
+        camera->fov = std::clamp(camera->fov + kCameraFovZoomSpeed, 20.0f, 150.0f);
+    }
+
+    XMVECTOR localMove = XMVectorZero();
+    if (moveLeft)
+        localMove = XMVectorAdd(localMove, XMVectorSet(-kCameraMoveSpeed * m_speedMultiplier, 0.0f, 0.0f, 0.0f));
+    if (moveRight)
+        localMove = XMVectorAdd(localMove, XMVectorSet(kCameraMoveSpeed * m_speedMultiplier, 0.0f, 0.0f, 0.0f));
+    if (moveForward)
+        localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, 0.0f, kCameraMoveSpeed * m_speedMultiplier, 0.0f));
+    if (moveBackward)
+        localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, 0.0f, -kCameraMoveSpeed * m_speedMultiplier, 0.0f));
+    if (moveUp)
+        localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, kCameraVerticalSpeed * m_speedMultiplier, 0.0f, 0.0f));
+    if (moveDown)
+        localMove = XMVectorAdd(localMove, XMVectorSet(0.0f, -kCameraVerticalSpeed * m_speedMultiplier, 0.0f, 0.0f));
+
+    const float sy = std::sin(camera->rot.y);
+    const float cy = std::cos(camera->rot.y);
+    const XMVECTOR forward = XMVectorSet(sy, 0.0f, cy, 0.0f);
+    const XMVECTOR right = XMVectorSet(cy, 0.0f, -sy, 0.0f);
+    const XMVECTOR worldMove = XMVectorAdd(
+        XMVectorAdd(
+            DirectX::XMVectorScale(forward, DirectX::XMVectorGetZ(localMove)),
+            DirectX::XMVectorScale(right, DirectX::XMVectorGetX(localMove))),
+        XMVectorSet(0.0f, DirectX::XMVectorGetY(localMove), 0.0f, 0.0f));
+    XMFLOAT3 move = {};
+    XMStoreFloat3(&move, worldMove);
+    camera->pos.x += move.x;
+    camera->pos.y += move.y;
+    camera->pos.z += move.z;
+
+    const auto camRot = XMMatrixRotationRollPitchYaw(camera->rot.x, camera->rot.y, camera->rot.z);
+    const XMVECTOR fwd = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRot);
+    XMStoreFloat3(&camera->gazePoint, XMVectorAdd(XMLoadFloat3(&camera->pos), fwd));
 }
 
 void DebugCameraController::UpdateFreeLookKeyboard(float,
