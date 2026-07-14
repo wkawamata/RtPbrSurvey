@@ -87,6 +87,19 @@ float3 ComputeDirectRadiance(float3 albedo, float metallic, float roughness, flo
            directLightEnabled;
 }
 
+PbrSurface MakeReflectionHitSurface(float3 albedo, float4 material, float3 normal, float3 emissive)
+{
+    PbrSurface surface;
+    surface.albedo = albedo;
+    surface.normal = normal;
+    surface.emissive = emissive;
+    surface.metallic = saturate(material.x);
+    surface.roughness = saturate(material.y);
+    surface.ambientOcclusion = 1.0;
+    surface.unlit = saturate(material.z);
+    return surface;
+}
+
 float4 PSMain(FullscreenVSOutput input) : SV_TARGET
 {
     float depth = g_depth.Load(int3(input.position.xy, 0));
@@ -99,9 +112,6 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 hitColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
     float4 hitMaterial = g_reflectionRayMaterial.Sample(g_sampler, input.uv);
     float3 hitEmission = g_reflectionRayEmission.Sample(g_sampler, input.uv).rgb;
-    float hitMetallic = saturate(hitMaterial.x);
-    float hitRoughness = saturate(hitMaterial.y);
-    float hitUnlit = saturate(hitMaterial.z);
 
     float3 normal = normalize(g_normal.Sample(g_sampler, input.uv).rgb);
     float visibleRoughness = saturate(g_pbrParams.Sample(g_sampler, input.uv).g);
@@ -117,23 +127,30 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     }
 
     float3 hitNormal = DecodeNormalOctahedron(reflectionHit.zw);
+    PbrSurface hitSurface = MakeReflectionHitSurface(hitColor, hitMaterial, hitNormal, hitEmission);
     float3 hitViewDir = -reflectionDir;
-    float directRoughness = max(hitRoughness, 0.04);
-    float3 directRadiance = ComputeDirectRadiance(hitColor, hitMetallic, directRoughness, hitNormal, hitViewDir);
-    float3 diffuseIrradiance = g_diffuseIrradianceMap.Sample(g_sampler, hitNormal).rgb;
-    float3 diffuseIbl = EvaluatePbrDiffuseIbl(diffuseIrradiance, hitColor, hitMetallic, 1.0) * iblIntensity *
+    float directRoughness = max(hitSurface.roughness, 0.04);
+    float3 directRadiance =
+        ComputeDirectRadiance(hitSurface.albedo, hitSurface.metallic, directRoughness, hitSurface.normal, hitViewDir);
+    float3 diffuseIrradiance = g_diffuseIrradianceMap.Sample(g_sampler, hitSurface.normal).rgb;
+    float3 diffuseIbl = EvaluatePbrDiffuseIbl(
+                            diffuseIrradiance, hitSurface.albedo, hitSurface.metallic, hitSurface.ambientOcclusion) *
+                        iblIntensity *
                         diffuseIblEnabled;
-    float3 hitF0 = lerp(float3(0.04, 0.04, 0.04), hitColor, hitMetallic);
-    float specularMip = hitRoughness * SPECULAR_PREFILTER_MAX_MIP;
-    float3 hitSpecularDirection = reflect(reflectionDir, hitNormal);
-    float hitNdotV = saturate(dot(hitNormal, -reflectionDir));
-    float2 hitBrdf = g_brdfLut.Sample(g_sampler, float2(hitNdotV, hitRoughness)).rg;
+    float3 hitF0 = PbrF0(hitSurface.albedo, hitSurface.metallic);
+    float specularMip = hitSurface.roughness * SPECULAR_PREFILTER_MAX_MIP;
+    float3 hitSpecularDirection = reflect(reflectionDir, hitSurface.normal);
+    float hitNdotV = saturate(dot(hitSurface.normal, -reflectionDir));
+    float2 hitBrdf = g_brdfLut.Sample(g_sampler, float2(hitNdotV, hitSurface.roughness)).rg;
     float3 hitEnvironmentSpecular = g_specularPrefilterMap.SampleLevel(g_sampler, hitSpecularDirection, specularMip).rgb;
-    float3 specularIbl =
-        EvaluatePbrSpecularIbl(hitEnvironmentSpecular, hitBrdf, hitF0, hitRoughness, hitNdotV, 1.0) * iblIntensity *
+    float3 specularIbl = EvaluatePbrSpecularIbl(
+                             hitEnvironmentSpecular, hitBrdf, hitF0, hitSurface.roughness, hitNdotV,
+                             hitSurface.ambientOcclusion) *
+                         iblIntensity *
         specularIblEnabled;
-    float3 litHitColor = directRadiance + diffuseIbl + specularIbl + hitEmission * emissiveEnabled;
-    float3 shadedHitColor = lerp(litHitColor, hitColor + hitEmission * emissiveEnabled, hitUnlit);
+    float3 litHitColor = directRadiance + diffuseIbl + specularIbl + hitSurface.emissive * emissiveEnabled;
+    float3 shadedHitColor =
+        lerp(litHitColor, hitSurface.albedo + hitSurface.emissive * emissiveEnabled, hitSurface.unlit);
 
     float distanceFade = saturate(1.0 - reflectionHit.x / max(reflectionContributionMaxDistance, 0.001));
     float strength = reflectionHit.y * distanceFade * (1.0 - visibleRoughness) * reflectionContributionIntensity;

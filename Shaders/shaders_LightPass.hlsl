@@ -199,7 +199,7 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float ndotv = saturate(dot(normal, viewDir));
 
     float receiveLighting = (material.flags & MaterialFlagUnlit) ? 0.0 : 1.0;
-    float3 f0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
+    float3 f0 = PbrF0(albedo, metallic);
     float3 radiance = lightColor * diffuseIntensity;
     float shadowMask = 1.0;
     if (rayTracingSupported)

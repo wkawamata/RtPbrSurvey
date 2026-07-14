@@ -1,5 +1,21 @@
 static const float PBR_PI = 3.14159265;
 
+struct PbrSurface
+{
+    float3 albedo;
+    float3 normal;
+    float3 emissive;
+    float metallic;
+    float roughness;
+    float ambientOcclusion;
+    float unlit;
+};
+
+float3 PbrF0(float3 albedo, float metallic)
+{
+    return lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
+}
+
 float DistributionGGX(float ndoth, float roughness)
 {
     float a = roughness * roughness;
@@ -50,7 +66,7 @@ float3 EvaluatePbrDirectLighting(float3 albedo,
     float ndoth = saturate(dot(normal, halfDir));
     float vdoth = saturate(dot(viewDir, halfDir));
 
-    float3 f0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
+    float3 f0 = PbrF0(albedo, metallic);
     float3 fresnel = FresnelSchlick(vdoth, f0);
     float distribution = DistributionGGX(ndoth, roughness);
     float geometry = GeometrySmith(ndotv, ndotl, roughness);
