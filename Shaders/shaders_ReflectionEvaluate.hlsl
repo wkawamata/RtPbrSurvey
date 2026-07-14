@@ -6,6 +6,7 @@ Texture2D<float> g_depth : register(t6, space3);
 TextureCube<float4> g_environmentMap : register(t0, space5);
 TextureCube<float4> g_diffuseIrradianceMap : register(t1, space5);
 TextureCube<float4> g_specularPrefilterMap : register(t2, space5);
+Texture2D<float2> g_brdfLut : register(t3, space5);
 Texture2D<float4> g_reflectionRayHit : register(t0, space6);
 Texture2D<float4> g_reflectionRayColor : register(t0, space7);
 Texture2D<float4> g_reflectionRayMaterial : register(t0, space8);
@@ -114,8 +115,10 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 hitF0 = lerp(float3(0.04, 0.04, 0.04), hitColor, hitMetallic);
     float specularMip = hitRoughness * SPECULAR_PREFILTER_MAX_MIP;
     float3 hitSpecularDirection = reflect(reflectionDir, hitNormal);
-    float3 specularIbl = g_specularPrefilterMap.SampleLevel(g_sampler, hitSpecularDirection, specularMip).rgb * hitF0 *
-                         iblIntensity * specularIblEnabled;
+    float hitNdotV = saturate(dot(hitNormal, -reflectionDir));
+    float2 hitBrdf = g_brdfLut.Sample(g_sampler, float2(hitNdotV, hitRoughness)).rg;
+    float3 specularIbl = g_specularPrefilterMap.SampleLevel(g_sampler, hitSpecularDirection, specularMip).rgb *
+                         (hitF0 * hitBrdf.x + hitBrdf.y) * iblIntensity * specularIblEnabled;
     float3 litHitColor = directRadiance + diffuseIbl + specularIbl + hitEmission * emissiveEnabled;
     float3 shadedHitColor = lerp(litHitColor, hitColor + hitEmission * emissiveEnabled, hitUnlit);
 
