@@ -115,9 +115,14 @@ uint32_t SceneBuilder::AddSolidColorMaterial(uint8_t r, uint8_t g, uint8_t b, ui
 
 void SceneBuilder::AddInstance(DirectX::FXMMATRIX world, uint32_t materialId)
 {
+    AddInstance(world, world, materialId);
+}
+
+void SceneBuilder::AddInstance(DirectX::FXMMATRIX world, DirectX::CXMMATRIX prevWorld, uint32_t materialId)
+{
     InstanceData instance = {};
     DirectX::XMStoreFloat4x4(&instance.world, world);
-    DirectX::XMStoreFloat4x4(&instance.prevWorld, world);
+    DirectX::XMStoreFloat4x4(&instance.prevWorld, prevWorld);
     instance.materialId = materialId;
     m_scene.instances.push_back(instance);
 }
