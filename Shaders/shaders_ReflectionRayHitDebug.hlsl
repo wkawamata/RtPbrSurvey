@@ -184,14 +184,18 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         float directRoughness = max(hitRoughness, 0.04);
         float3 directRadiance = ComputeDirectRadiance(rayColor, hitMetallic, directRoughness, hitNormal, hitViewDir);
         float3 diffuseIrradiance = g_diffuseIrradianceMap.Sample(g_sampler, hitNormal).rgb;
-        float3 diffuseIbl = diffuseIrradiance * rayColor * (1.0 - hitMetallic) * iblIntensity * diffuseIblEnabled / PI;
+        float3 diffuseIbl = EvaluatePbrDiffuseIbl(diffuseIrradiance, rayColor, hitMetallic, 1.0) * iblIntensity *
+                            diffuseIblEnabled;
         float3 hitF0 = lerp(float3(0.04, 0.04, 0.04), rayColor, hitMetallic);
         float specularMip = hitRoughness * SPECULAR_PREFILTER_MAX_MIP;
         float3 hitSpecularDirection = reflect(reflectionDir, hitNormal);
         float hitNdotV = saturate(dot(hitNormal, -reflectionDir));
         float2 hitBrdf = g_brdfLut.Sample(g_sampler, float2(hitNdotV, hitRoughness)).rg;
-        float3 specularIbl = g_specularPrefilterMap.SampleLevel(g_sampler, hitSpecularDirection, specularMip).rgb *
-                             (hitF0 * hitBrdf.x + hitBrdf.y) * iblIntensity * specularIblEnabled;
+        float3 hitEnvironmentSpecular =
+            g_specularPrefilterMap.SampleLevel(g_sampler, hitSpecularDirection, specularMip).rgb;
+        float3 specularIbl =
+            EvaluatePbrSpecularIbl(hitEnvironmentSpecular, hitBrdf, hitF0, hitRoughness, hitNdotV, 1.0) * iblIntensity *
+            specularIblEnabled;
         float3 emissiveRadiance = rayEmission * emissiveEnabled;
 
         float3 component = directRadiance;

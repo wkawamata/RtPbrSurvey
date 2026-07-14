@@ -210,7 +210,8 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         EvaluatePbrDirectLighting(albedo, metallic, roughness, normal, viewDir, lightDir, radiance) * receiveLighting *
         shadowMask * directLightEnabled;
     float3 irradiance = g_diffuseIrradianceMap.Sample(g_sampler, normal).rgb;
-    float3 iblDiffuse = irradiance * albedo * (1.0 - metallic) * iblIntensity * occlusion * diffuseIblEnabled / PI;
+    float3 iblDiffuse = EvaluatePbrDiffuseIbl(irradiance, albedo, metallic, occlusion) * iblIntensity *
+                        diffuseIblEnabled;
     float3 reflectionDir = reflect(-viewDir, normal);
     if (lightPassDebugViewMode > 0.5 && lightPassDebugViewMode < 1.5)
     {
@@ -234,9 +235,8 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 environmentSpecular = g_specularPrefilterMap.SampleLevel(g_sampler, reflectionDir, specularMip).rgb;
     float3 specularFresnel = FresnelSchlickRoughness(ndotv, f0, roughness);
     float2 brdf = g_brdfLut.Sample(g_sampler, float2(ndotv, roughness)).rg;
-    float specularOcclusion = ComputeSpecularOcclusion(ndotv, occlusion, roughness);
-    float3 iblSpecular =
-        environmentSpecular * (specularFresnel * brdf.x + brdf.y) * iblIntensity * specularOcclusion * specularIblEnabled;
+    float3 iblSpecular = EvaluatePbrSpecularIbl(environmentSpecular, brdf, f0, roughness, ndotv, occlusion) *
+                         iblIntensity * specularIblEnabled;
     float3 color = iblDiffuse + iblSpecular + directLighting + emissive * emissiveEnabled;
     if (reflectionContributionEnabled > 0.5)
     {

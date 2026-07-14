@@ -59,3 +59,20 @@ float3 EvaluatePbrDirectLighting(float3 albedo,
 
     return (diffuseBrdf + specularBrdf) * lightRadiance * ndotl;
 }
+
+float3 EvaluatePbrDiffuseIbl(float3 irradiance, float3 albedo, float metallic, float ambientOcclusion)
+{
+    return irradiance * albedo * (1.0 - metallic) * ambientOcclusion / PBR_PI;
+}
+
+float3 EvaluatePbrSpecularIbl(float3 environmentSpecular,
+                              float2 brdf,
+                              float3 f0,
+                              float roughness,
+                              float ndotv,
+                              float ambientOcclusion)
+{
+    float3 specularFresnel = FresnelSchlickRoughness(ndotv, f0, roughness);
+    float specularOcclusion = ComputeSpecularOcclusion(ndotv, ambientOcclusion, roughness);
+    return environmentSpecular * (specularFresnel * brdf.x + brdf.y) * specularOcclusion;
+}
