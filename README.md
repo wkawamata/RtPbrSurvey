@@ -1,6 +1,24 @@
 # RtPbrSurvey
 
-A real-time Physically Based Rendering (PBR) survey tool for DirectX 12 that explores, compares, and debugs modern real-time rendering techniques including deferred/forward PBR, DXR RayQuery shadows, hybrid ray-traced reflections, image-based lighting, and procedural environment maps.
+RtPbrSurvey is a real-time rendering benchmark and survey tool for studying the
+transition from rasterizer-centered pipelines to path tracing-centered
+pipelines.
+
+Its goal is to compare raster, ray tracing, hybrid, and eventually path tracing
+approaches from practical viewpoints such as image quality, frame time, latency,
+memory usage, scene authoring cost, debugability, and hardware requirements. It
+also aims to measure how much modern AI-enhanced rendering techniques improve
+quality, stability, or performance for a given rendering budget.
+
+The current DirectX 12 implementation explores, compares, and debugs techniques
+including deferred/forward PBR, DXR RayQuery shadows, hybrid ray-traced
+reflections, image-based lighting, and procedural environment maps.
+
+This repository is still an early foundation for that larger goal. The current
+tool is a set of renderer experiments, debug views, scenes, and measurement
+hooks that can become a benchmark suite, but the validation coverage,
+repeatability, reference comparisons, and report generation are still
+incomplete.
 
 ## Features
 
@@ -78,9 +96,18 @@ The engine is built on a declarative render pass graph that automatically manage
 
 ## License
 
-See copyright headers in source files for licensing details.
+Application source is licensed under the MIT License. See [LICENSE](LICENSE).
+
+This repository also includes third-party sample assets and Microsoft
+sample-derived code. Asset licenses are separate from the application source
+license. Bundled assets are included as free-use validation and demonstration
+data, and should be reviewed separately before paid application distribution.
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for download sources,
+license notes, and acknowledgements.
 
 ## See Also
 
 - [BUILD.md](BUILD.md) - Detailed build instructions
+- [PROJECT_VISION.md](doc/PROJECT_VISION.md) - Long-term project goal and benchmark direction
 - [RenderPassAuthoring.md](Renderer/RenderPassAuthoring.md) - Guide for adding/modifying render passes
+- [PUBLIC_RELEASE_CHECKLIST.md](doc/PUBLIC_RELEASE_CHECKLIST.md) - Public release readiness checklist
