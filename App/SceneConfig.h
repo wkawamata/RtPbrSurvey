@@ -188,6 +188,7 @@ public:
 
     // Returns the source hint for UI display
     ConfigSource ActiveSource(const std::string& sceneName) const;
+    ConfigSource ActiveSourceForScene(const Engine::SampleScene& scene, int sceneIndex) const;
 
     const std::string& UserConfigPath() const { return m_userConfigPath; }
 
@@ -219,7 +220,10 @@ private:
 
     std::optional<SceneConfig> FindEntryByIndex(
         const std::unordered_map<std::string, SceneConfig>& configs,
+        const Engine::SampleScene& scene,
         int sceneIndex) const;
+
+    std::string SceneConfigKey(const Engine::SampleScene& scene, int sceneIndex) const;
 };
 
 } // namespace App

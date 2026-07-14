@@ -775,8 +775,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         static const char* statusMsg = "";
 
         // Source indicator
-        const auto source = app.m_sceneConfig.ActiveSource(
-            app.LoadedScene().Name());
+        const auto source = app.m_sceneConfig.ActiveSourceForScene(app.LoadedScene(), app.m_loadedSceneIndex);
         const char* sourceLabels[] = { "Code defaults", "Default config", "User config" };
         ImGui::Text("Source: %s", sourceLabels[static_cast<int>(source)]);
 
