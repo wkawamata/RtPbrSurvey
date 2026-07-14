@@ -262,6 +262,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\FullscreenTriangle.hlsli" />
     <None Include="Shaders\Material.hlsli" />
     <None Include="Shaders\InstanceData.hlsli" />
+    <None Include="Shaders\PbrLighting.hlsli" />
     <None Include="packages.config" />
     <None Include="vcpkg.json" />
   </ItemGroup>

@@ -414,6 +414,9 @@
     <None Include="Shaders\InstanceData.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
+    <None Include="Shaders\PbrLighting.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
     <None Include="packages.config" />
     <None Include="vcpkg.json" />
   </ItemGroup>
