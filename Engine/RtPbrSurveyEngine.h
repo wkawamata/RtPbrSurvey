@@ -22,6 +22,7 @@
 #include "Renderer/HdrOutput.h"
 #include "Renderer/HybridReflectionPass.h"
 #include "Renderer/LightingPass.h"
+#include "Renderer/ReflectionEvaluatePass.h"
 #include "Renderer/Material.h"
 #include "Renderer/MaterialBuffer.h"
 #include "Renderer/StagedDescriptorAllocator.h"
@@ -102,8 +103,18 @@ public:
         ReflectionRayHit,
         ReflectionRayDistance,
         ReflectionRayNormal,
+        ReflectionRayColor,
+        ReflectionRayDistanceFade,
+        ReflectionContributionStrength,
         ShadowMask,
         TlasDebug,
+        ReflectionRayMaterial,
+        ReflectionRayEmission,
+        ReflectionRadiance,
+        ReflectionRadianceDirect,
+        ReflectionRadianceIblDiffuse,
+        ReflectionRadianceIblSpecular,
+        ReflectionRadianceEmissive,
     };
 
     enum class RenderingPath
@@ -200,6 +211,7 @@ public:
         int hitNormalSource = 0;
         bool contributionEnabled = false;
         float contributionIntensity = 0.25f;
+        float contributionMaxDistance = 20.0f;
     };
 
     struct SpecularDebugLineSettings
@@ -280,6 +292,7 @@ private:
             static constexpr const char* GBuffer = "GBuffer";
             static constexpr const char* Lighting = "Lighting";
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
+            static constexpr const char* ReflectionEvaluate = "ReflectionEvaluate";
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* GBufferDebug = "GBufferDebug";
             static constexpr const char* HybridReflection = "HybridReflection";
@@ -304,6 +317,10 @@ private:
             static constexpr const char* ShadowMaskSrv = "ShadowMaskSrv";
             static constexpr const char* ShadowMaskUav = "ShadowMaskUav";
             static constexpr const char* ReflectionRayHitSrv = "ReflectionRayHitSrv";
+            static constexpr const char* ReflectionRayColorSrv = "ReflectionRayColorSrv";
+            static constexpr const char* ReflectionRayMaterialSrv = "ReflectionRayMaterialSrv";
+            static constexpr const char* ReflectionRayEmissionSrv = "ReflectionRayEmissionSrv";
+            static constexpr const char* ReflectionRadianceSrv = "ReflectionRadianceSrv";
             static constexpr const char* ReflectionRayHitUav = "ReflectionRayHitUav";
             static constexpr const char* TlasDebugUav = "TlasDebugUav";
             static constexpr const char* AccelerationStructureSrv = "AccelerationStructureSrv";
@@ -319,6 +336,7 @@ private:
             static constexpr const char* GBufferPBRParams = "GBufferPBRParams";
             static constexpr const char* GBufferEmissive = "GBufferEmissive";
             static constexpr const char* LightPass = "LightPass";
+            static constexpr const char* ReflectionRadiance = "ReflectionRadiance";
         };
 
         struct Dsv
@@ -336,6 +354,7 @@ private:
             static constexpr const char* Forward = "Forward";
             static constexpr const char* Lighting = "Lighting";
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
+            static constexpr const char* ReflectionEvaluate = "ReflectionEvaluate";
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* DebugDump = "DebugDump";
             static constexpr const char* PixelPick = "PixelPick";
@@ -373,7 +392,7 @@ private:
     // Procedural environment reloads keep the previous descriptor table alive until its fence retires.
     // Each table is env / diffuse irradiance / specular prefilter / BRDF LUT, plus m_brdfLut owns one SRV.
     static constexpr UINT kEnvironmentDescriptorTableSize = 4;
-    static constexpr UINT kEnvironmentDescriptorTableCapacity = 4;
+    static constexpr UINT kEnvironmentDescriptorTableCapacity = 8;
     static constexpr UINT kEnvironmentMapDescriptorCount =
         kEnvironmentDescriptorTableSize * kEnvironmentDescriptorTableCapacity + 1;
     static constexpr UINT kConstantBufferCount = kFrameCount;
@@ -389,7 +408,9 @@ private:
         PersistentSrvSlotCount,
     };
     static constexpr UINT kShadowMaskDescriptorCount = 2; // SRV + UAV (dynamically allocated)
-    static constexpr UINT kReflectionRayHitDescriptorCount = 4; // Hit SRV/UAV + Color SRV/UAV
+    static constexpr UINT kReflectionRayHitDescriptorCount =
+        8; // Hit SRV/UAV + Color SRV/UAV + Material SRV/UAV + Emission SRV/UAV
+    static constexpr UINT kReflectionRadianceDescriptorCount = 1; // ReflectionRadiance SRV
     static constexpr UINT kTlasDescriptorCount = 1;       // TLAS SRV
 
     // Descriptor allocation order is tracked by DescriptorHeapHandle.
@@ -402,6 +423,7 @@ private:
                                                       kConstantBufferCount + kLightConstantBufferCount +
                                                       Engine::GBuffer::kCount + PersistentSrvSlotCount +
                                                       kReflectionRayHitDescriptorCount +
+                                                      kReflectionRadianceDescriptorCount +
                                                       kTlasDescriptorCount;
     static constexpr UINT kStagedDescriptorReservedCount = 64;
 
@@ -440,6 +462,7 @@ private:
         float reflectionHitOverlayMode = 0.0f;
         float reflectionContributionEnabled = 0.0f;
         float reflectionContributionIntensity = 0.25f;
+        float reflectionContributionMaxDistance = 20.0f;
     };
 
     LightingConstants MakeLightingConstants() const;
@@ -467,7 +490,8 @@ private:
     static constexpr UINT kSwapChainRTVCount = kFrameCount;
     static constexpr UINT kGBufferRTVBaseIndex = kSwapChainRTVCount;
     static constexpr UINT kLightPassRTVIndex = kGBufferRTVBaseIndex + Engine::GBuffer::kCount;
-    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 1;
+    static constexpr UINT kReflectionRadianceRTVIndex = kLightPassRTVIndex + 1;
+    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 2;
 
     struct DebugViewSettings
     {
@@ -481,8 +505,18 @@ private:
                    renderViewMode != RenderViewMode::ReflectionRayHit &&
                    renderViewMode != RenderViewMode::ReflectionRayDistance &&
                    renderViewMode != RenderViewMode::ReflectionRayNormal &&
+                   renderViewMode != RenderViewMode::ReflectionRayColor &&
+                   renderViewMode != RenderViewMode::ReflectionRayMaterial &&
+                   renderViewMode != RenderViewMode::ReflectionRayEmission &&
+                   renderViewMode != RenderViewMode::ReflectionRayDistanceFade &&
+                   renderViewMode != RenderViewMode::ReflectionContributionStrength &&
                    renderViewMode != RenderViewMode::ShadowMask &&
                    renderViewMode != RenderViewMode::TlasDebug &&
+                   renderViewMode != RenderViewMode::ReflectionRadiance &&
+                   renderViewMode != RenderViewMode::ReflectionRadianceDirect &&
+                   renderViewMode != RenderViewMode::ReflectionRadianceIblDiffuse &&
+                   renderViewMode != RenderViewMode::ReflectionRadianceIblSpecular &&
+                   renderViewMode != RenderViewMode::ReflectionRadianceEmissive &&
                    !IsLightPassDebugView();
         }
         bool IsLightPassDebugView() const
@@ -505,12 +539,62 @@ private:
         {
             assert(renderViewMode == RenderViewMode::ReflectionRayHit ||
                    renderViewMode == RenderViewMode::ReflectionRayDistance ||
-                   renderViewMode == RenderViewMode::ReflectionRayNormal);
+                   renderViewMode == RenderViewMode::ReflectionRayNormal ||
+                   renderViewMode == RenderViewMode::ReflectionRayColor ||
+                   renderViewMode == RenderViewMode::ReflectionRayMaterial ||
+                   renderViewMode == RenderViewMode::ReflectionRayEmission ||
+                   renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
+                   renderViewMode == RenderViewMode::ReflectionContributionStrength ||
+                   renderViewMode == RenderViewMode::ReflectionRadiance ||
+                   renderViewMode == RenderViewMode::ReflectionRadianceDirect ||
+                   renderViewMode == RenderViewMode::ReflectionRadianceIblDiffuse ||
+                   renderViewMode == RenderViewMode::ReflectionRadianceIblSpecular ||
+                   renderViewMode == RenderViewMode::ReflectionRadianceEmissive);
             if (renderViewMode == RenderViewMode::ReflectionRayHit)
             {
                 return 0u;
             }
-            return renderViewMode == RenderViewMode::ReflectionRayDistance ? 1u : 2u;
+            if (renderViewMode == RenderViewMode::ReflectionRayDistance)
+            {
+                return 1u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRayNormal)
+            {
+                return 2u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRayColor)
+            {
+                return 3u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRayMaterial)
+            {
+                return 6u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRayEmission)
+            {
+                return 8u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRadiance)
+            {
+                return 7u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRadianceDirect)
+            {
+                return 9u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRadianceIblDiffuse)
+            {
+                return 10u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRadianceIblSpecular)
+            {
+                return 11u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionRadianceEmissive)
+            {
+                return 12u;
+            }
+            return renderViewMode == RenderViewMode::ReflectionRayDistanceFade ? 4u : 5u;
         }
     };
 
@@ -527,15 +611,23 @@ private:
     ComPtr<ID3D12Resource> m_renderTargets[kFrameCount];
     ComPtr<ID3D12Resource> m_depthStencil;
     ComPtr<ID3D12Resource> m_lightPassRenderTarget;
+    ComPtr<ID3D12Resource> m_reflectionRadiance;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
     ComPtr<ID3D12Resource> m_reflectionRayColor;
+    ComPtr<ID3D12Resource> m_reflectionRayMaterial;
+    ComPtr<ID3D12Resource> m_reflectionRayEmission;
     DescriptorHeapHandle m_reflectionRayHitSrv;
     DescriptorHeapHandle m_reflectionRayHitUav;
     DescriptorHeapHandle m_reflectionRayColorSrv;
     DescriptorHeapHandle m_reflectionRayColorUav;
+    DescriptorHeapHandle m_reflectionRayMaterialSrv;
+    DescriptorHeapHandle m_reflectionRayMaterialUav;
+    DescriptorHeapHandle m_reflectionRayEmissionSrv;
+    DescriptorHeapHandle m_reflectionRayEmissionUav;
     DescriptorHeapHandle m_depthStencilSrv;
     DescriptorHeapHandle m_lightPassColorSrv;
+    DescriptorHeapHandle m_reflectionRadianceSrv;
     StagedDescriptorRange m_shadowMaskRange;
 
     StagedDescriptorAllocator m_stageAllocator;
@@ -681,6 +773,7 @@ private:
     static constexpr const char* kBackBufferResourceName = "BackBuffer";
     static constexpr const char* kDepthStencilResourceName = "DepthStencil";
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";
+    static constexpr const char* kReflectionRadianceResourceName = "ReflectionRadiance";
     static constexpr const char* kGBufferResourceNames[Engine::GBuffer::kCount] = {
         "GBuffer.Albedo",
         "GBuffer.Normal",
@@ -691,6 +784,8 @@ private:
     static constexpr const char* kShadowMaskResourceName = "ShadowMask";
     static constexpr const char* kReflectionRayHitResourceName = "ReflectionRayHit";
     static constexpr const char* kReflectionRayColorResourceName = "ReflectionRayColor";
+    static constexpr const char* kReflectionRayMaterialResourceName = "ReflectionRayMaterial";
+    static constexpr const char* kReflectionRayEmissionResourceName = "ReflectionRayEmission";
 
     using TransientResourceState = Engine::TransientResourceState;
 
@@ -736,6 +831,7 @@ private:
         GraphicsPipelineShaderSet reflectionRayHitDebug;
         GraphicsPipelineShaderSet lighting;
         GraphicsPipelineShaderSet lightingDebugGradient;
+        GraphicsPipelineShaderSet reflectionEvaluate;
         GraphicsPipelineShaderSet toneMap;
         ShaderBytecode hybridReflection;
         ShaderBytecode proceduralEnv;
@@ -819,6 +915,7 @@ private:
     void CreateDepthStencil(UINT width, UINT height);
     void RegisterDepthStencil(UINT width, UINT height);
     void RegisterLightPassRenderTarget(UINT width, UINT height);
+    void RegisterReflectionRadiance(UINT width, UINT height);
     void CreateDepthStencilDescriptors();
     void CreateShadowMask(UINT width, UINT height);
     void CreateShadowMaskDescriptors();
@@ -826,10 +923,15 @@ private:
     void CreateReflectionRayHitDescriptors();
     void CreateReflectionRayColor(UINT width, UINT height);
     void CreateReflectionRayColorDescriptors();
+    void CreateReflectionRayMaterial(UINT width, UINT height);
+    void CreateReflectionRayMaterialDescriptors();
+    void CreateReflectionRayEmission(UINT width, UINT height);
+    void CreateReflectionRayEmissionDescriptors();
     D3D12_CPU_DESCRIPTOR_HANDLE GetBackBufferRtv() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetDepthDsv() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetGBufferRTV(UINT index) const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetLightPassRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionRadianceRTV() const;
     void RegisterPassBindingResolvers();
     void RegisterPassConstantsHandlers();
     void RegisterResourceResolvers();
@@ -853,6 +955,7 @@ private:
     RenderPass MakeRayQueryTlasDebugPass();
     RenderPass MakeForwardPass();
     RenderPass MakeLightingPass();
+    RenderPass MakeReflectionEvaluatePass();
     RenderPass MakeLightingDebugGradientPass();
     RenderPass MakeToneMapPass();
     RenderPass MakeDebugDumpPass();
@@ -874,6 +977,7 @@ private:
     void CreateCommittedTransientResource(TransientResource& resource);
     void BindCreatedTransientResource(const std::string& name, ID3D12Resource* resource);
     void CreateLightPassRenderTargetDescriptors();
+    void CreateReflectionRadianceDescriptors();
     void CreateDsvHeap();
 
     void CreateGBuffer();
@@ -911,6 +1015,7 @@ private:
     void ExecuteRayQueryTlasDebugPass(const RenderPass& pass);
     void ExecuteForwardPass(const RenderPass& pass);
     void ExecuteLightingPass(const RenderPass& pass);
+    void ExecuteReflectionEvaluatePass(const RenderPass& pass);
     void ExecuteLightingDebugGradientPass(const RenderPass& pass);
     void ExecuteToneMapPass(const RenderPass& pass);
     void ExecuteDebugDumpPass(const RenderPass& pass);

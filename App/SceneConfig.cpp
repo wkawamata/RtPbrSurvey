@@ -423,6 +423,25 @@ std::optional<SceneConfig> SceneConfigManager::FindEntry(
     return std::nullopt;
 }
 
+std::optional<SceneConfig> SceneConfigManager::FindEntryByIndex(
+    const std::unordered_map<std::string, SceneConfig>& configs,
+    const Engine::SampleScene& scene,
+    int sceneIndex) const
+{
+    return FindEntry(configs, SceneConfigKey(scene, sceneIndex));
+}
+
+std::string SceneConfigManager::SceneConfigKey(const Engine::SampleScene& scene, int /*sceneIndex*/) const
+{
+    const std::string name = scene.Name();
+    if (dynamic_cast<const Engine::GltfGridBenchmarkScene*>(&scene) != nullptr)
+    {
+        return "Grid/" + name;
+    }
+
+    return name;
+}
+
 SceneConfig SceneConfigManager::Merge(
     const SceneConfig& defaults,
     const std::optional<SceneConfig>& overrides)
@@ -752,12 +771,12 @@ void SceneConfigManager::LoadAndApplyForScene(
     ReadDefaultsFromDisk();
     ReadUserConfigFromDisk();
 
-    const std::string name = scene.Name();
+    const std::string name = SceneConfigKey(scene, sceneIndex);
     SceneConfig defaults = CaptureFromApp(app, engine, scene);
     defaults.sceneName = name;
 
-    auto defaultEntry = FindEntry(m_defaults, name);
-    auto userEntry = FindEntry(m_userOverrides, name);
+    auto defaultEntry = FindEntryByIndex(m_defaults, scene, sceneIndex);
+    auto userEntry = FindEntryByIndex(m_userOverrides, scene, sceneIndex);
 
     SceneConfig merged = Merge(
         defaultEntry.value_or(defaults),
@@ -774,7 +793,7 @@ void SceneConfigManager::SaveCurrentScene(
 {
     ReadUserConfigFromDisk();
 
-    const std::string name = scene.Name();
+    const std::string name = SceneConfigKey(scene, sceneIndex);
     m_userOverrides[name] = CaptureFromApp(app, engine, scene);
     m_userOverrides[name].sceneName = name;
 
@@ -788,6 +807,7 @@ void SceneConfigManager::SaveAsDefault(
     const Engine::SampleScene& scene)
 {
     const SceneConfig cfg = CaptureFromApp(app, engine, scene);
+    const std::string name = SceneConfigKey(scene, sceneIndex);
 
     // Read current defaults file
     std::ifstream inFile(m_defaultsPath);
@@ -804,7 +824,7 @@ void SceneConfigManager::SaveAsDefault(
     }
 
     // Update the entry for this scene
-    root["scenes"][scene.Name()] = SceneConfigToJson(cfg);
+    root["scenes"][name] = SceneConfigToJson(cfg);
 
     // Write back
     std::ofstream outFile(m_defaultsPath);
@@ -826,8 +846,7 @@ void SceneConfigManager::LoadDefaultsForScene(
 {
     ReadDefaultsFromDisk();
 
-    const std::string name = scene.Name();
-    auto defaultEntry = FindEntry(m_defaults, name);
+    auto defaultEntry = FindEntryByIndex(m_defaults, scene, sceneIndex);
     if (!defaultEntry.has_value())
     {
         return;
@@ -845,11 +864,11 @@ void SceneConfigManager::ResetCurrentScene(
     ReadUserConfigFromDisk();
     ReadDefaultsFromDisk();
 
-    const std::string name = scene.Name();
+    const std::string name = SceneConfigKey(scene, sceneIndex);
     m_userOverrides.erase(name);
     WriteUserConfigToDisk();
 
-    auto defaultEntry = FindEntry(m_defaults, name);
+    auto defaultEntry = FindEntryByIndex(m_defaults, scene, sceneIndex);
     if (!defaultEntry.has_value())
     {
         return;
@@ -893,6 +912,11 @@ ConfigSource SceneConfigManager::ActiveSource(const std::string& sceneName) cons
         return ConfigSource::DefaultFile;
     }
     return ConfigSource::CodeDefaults;
+}
+
+ConfigSource SceneConfigManager::ActiveSourceForScene(const Engine::SampleScene& scene, int sceneIndex) const
+{
+    return ActiveSource(SceneConfigKey(scene, sceneIndex));
 }
 
 } // namespace App

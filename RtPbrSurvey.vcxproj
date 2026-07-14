@@ -148,6 +148,7 @@
     <ClInclude Include="Renderer\HdrOutput.h" />
     <ClInclude Include="Renderer\HybridReflectionPass.h" />
     <ClInclude Include="Renderer\LightingPass.h" />
+    <ClInclude Include="Renderer\ReflectionEvaluatePass.h" />
     <ClInclude Include="Renderer\Material.h" />
     <ClInclude Include="Renderer\MaterialBuffer.h" />
     <ClInclude Include="Renderer\PipelineFactory.h" />
@@ -213,6 +214,7 @@
     <ClCompile Include="Renderer\HdrOutput.cpp" />
     <ClCompile Include="Renderer\HybridReflectionPass.cpp" />
     <ClCompile Include="Renderer\LightingPass.cpp" />
+    <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp" />
     <ClCompile Include="Renderer\MaterialBuffer.cpp" />
     <ClCompile Include="Renderer\PipelineFactory.cpp" />
     <ClCompile Include="Renderer\AccelerationStructureResources.cpp" />
@@ -266,6 +268,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\FullscreenTriangle.hlsli" />
     <None Include="Shaders\Material.hlsli" />
     <None Include="Shaders\InstanceData.hlsli" />
+    <None Include="Shaders\PbrLighting.hlsli" />
     <None Include="packages.config" />
     <None Include="vcpkg.json" />
   </ItemGroup>
@@ -357,6 +360,21 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shaders\shaders_LightPassDebugGradient.hlsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Identity)</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Identity)</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">dxc.exe -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_VSMain.cso" "%(FullPath)"
+dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_PSMain.cso" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dxc.exe -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_VSMain.cso" "%(FullPath)"
+dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_PSMain.cso" "%(FullPath)"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="Shaders\shaders_ReflectionEvaluate.hlsl">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
       <FileType>Document</FileType>

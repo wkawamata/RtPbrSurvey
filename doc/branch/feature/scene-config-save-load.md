@@ -402,7 +402,7 @@ No new engine getters/setters needed for v1. All saveable state is readable from
 
 - Material overrides: deferred to v2 (needs `GetMaterialParams()` readback on engine)
 - Whether to add `Ctrl+S` / `Ctrl+R` keyboard shortcuts in v1
-- glTF viewer and glTF grid benchmark scenes share the same name (e.g., "DamagedHelmet" appears twice in the scene list). In v1, both share the same config key. If separate configs are needed, the key can be disambiguated by checking whether the scene is within the grid-scene index range.
+- glTF viewer and glTF grid benchmark scenes share the same display name (e.g., "DamagedHelmet" appears twice in the scene list), but config keys are disambiguated by scene type. Viewer scenes keep the asset name key; grid benchmark scenes use `Grid/<asset name>`.
 - Default config includes camera positions for all non-stub scenes (loaded assets + demos + Cornell Box). Stub scenes (FlightHelmet, Suzanne, BoxTextured, CesiumMan) are omitted.
 
 ## Step 4: Camera + Scene Params (done)

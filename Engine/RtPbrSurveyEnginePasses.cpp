@@ -51,6 +51,11 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
             if (m_hybridReflectionSettings.enabled)
             {
                 AddPass(MakeHybridReflectionPass());
+                if (m_hybridReflectionSettings.contributionEnabled ||
+                    m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance)
+                {
+                    AddPass(MakeReflectionEvaluatePass());
+                }
             }
             if (m_specularDebugRayQueryRequested)
             {
@@ -74,7 +79,17 @@ void RtPbrSurveyEngine::AddDeferredSceneOutputPass()
     if (m_hybridReflectionSettings.enabled &&
         (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayHit ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayDistance ||
-         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayNormal))
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayNormal ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayColor ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayMaterial ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayEmission ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadianceDirect ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadianceIblDiffuse ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadianceIblSpecular ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadianceEmissive ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionContributionStrength))
     {
         AddPass(MakeReflectionRayHitDebugPass());
     }
@@ -200,7 +215,9 @@ auto RtPbrSurveyEngine::MakeHybridReflectionPass() -> RenderPass
                 {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE},
                 {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE}})
         .Writes({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
-                 {kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
+                 {kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kReflectionRayEmissionResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::HybridReflection, &RtPbrSurveyEngine::ExecuteHybridReflectionPass)
         .Build();
 }
@@ -260,9 +277,14 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
     if (m_rayTracingSupport.IsSupported())
     {
         reads.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        if (m_hybridReflectionSettings.enabled && m_hybridReflectionSettings.contributionEnabled)
+        {
+            reads.push_back({kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        }
         if (m_hybridReflectionSettings.enabled && m_hybridReflectionSettings.hitOverlayEnabled)
         {
             reads.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+            reads.push_back({kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
         }
     }
 
@@ -277,11 +299,48 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
         .Descriptor(RootSignatureLayout::CameraConstants, Desc::CameraCbv)
         .Descriptor(RootSignatureLayout::LightConstants, Desc::LightCbv)
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ShadowMaskSrv)
-        .Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
         .Rtv(RtvName::LightPass)
         .Operation(Op::Lighting, &RtPbrSurveyEngine::ExecuteLightingPass);
 
+    if (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
+        m_hybridReflectionSettings.contributionEnabled)
+    {
+        builder.Descriptor(RootSignatureLayout::ReflectionRadiance, Desc::ReflectionRadianceSrv);
+    }
+    if (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
+        m_hybridReflectionSettings.hitOverlayEnabled)
+    {
+        builder.Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
+            .Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv);
+    }
+
     return builder.Build();
+}
+
+auto RtPbrSurveyEngine::MakeReflectionEvaluatePass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"ReflectionEvaluatePass")
+        .Pipeline(Pipe::ReflectionEvaluate)
+        .Reads({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kReflectionRayEmissionResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kDepthStencilResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Writes({{kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
+        .Descriptor(RootSignatureLayout::EnvironmentMap, Desc::EnvironmentMapSrv)
+        .Descriptor(RootSignatureLayout::CameraConstants, Desc::CameraCbv)
+        .Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
+        .Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv)
+        .Descriptor(RootSignatureLayout::ReflectionRayMaterial, Desc::ReflectionRayMaterialSrv)
+        .Descriptor(RootSignatureLayout::ReflectionRayEmission, Desc::ReflectionRayEmissionSrv)
+        .Descriptor(RootSignatureLayout::LightConstants, Desc::LightCbv)
+        .Rtv(RtvName::ReflectionRadiance)
+        .Operation(Op::ReflectionEvaluate, &RtPbrSurveyEngine::ExecuteReflectionEvaluatePass)
+        .Build();
 }
 
 auto RtPbrSurveyEngine::MakeLightingDebugGradientPass() -> RenderPass
@@ -370,16 +429,42 @@ auto RtPbrSurveyEngine::MakeShadowMaskDebugPass() -> RenderPass
 
 auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
 {
-    return m_renderGraphRuntime.Authoring()
+    ResourceUsages reads = {{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                            {kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                            {kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                            {kReflectionRayEmissionResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                            {kGBufferResourceNames[Engine::GBuffer::Normal],
+                             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                            {kGBufferResourceNames[Engine::GBuffer::PBRParams],
+                             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                            {kDepthStencilResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
+    if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance)
+    {
+        reads.push_back({kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+    }
+
+    auto builder = m_renderGraphRuntime.Authoring()
         .CreatePass(L"ReflectionRayHitDebugPass")
         .Pipeline(Pipe::ReflectionRayHitDebug)
-        .Reads({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Reads(std::move(reads))
         .Writes({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ReflectionRayHitSrv)
+        .Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv)
+        .Descriptor(RootSignatureLayout::ReflectionRayMaterial, Desc::ReflectionRayMaterialSrv)
+        .Descriptor(RootSignatureLayout::ReflectionRayEmission, Desc::ReflectionRayEmissionSrv)
+        .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
+        .Descriptor(RootSignatureLayout::EnvironmentMap, Desc::EnvironmentMapSrv)
+        .Descriptor(RootSignatureLayout::CameraConstants, Desc::CameraCbv)
+        .Descriptor(RootSignatureLayout::LightConstants, Desc::LightCbv)
         .Rtv(RtvName::LightPass)
         .Operation(Op::ReflectionRayHitDebug, &RtPbrSurveyEngine::ExecuteReflectionRayHitDebugPass)
-        .Constants(RootSignatureLayout::GBufferDebugConstants, ConstName::ReflectionRayHitDebugTarget)
-        .Build();
+        .Constants(RootSignatureLayout::GBufferDebugConstants, ConstName::ReflectionRayHitDebugTarget);
+    if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance)
+    {
+        builder.Descriptor(RootSignatureLayout::ReflectionRadiance, Desc::ReflectionRadianceSrv);
+    }
+
+    return builder.Build();
 }
 
 auto RtPbrSurveyEngine::MakeDebugLinePass() -> RenderPass
