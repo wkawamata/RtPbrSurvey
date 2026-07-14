@@ -185,11 +185,12 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
 
         float3 hitViewDir = -reflectionDir;
         float directRoughness = max(hitSurface.roughness, 0.04);
-        float3 directRadiance =
+        PbrRadianceComponents hitRadiance;
+        hitRadiance.direct =
             ComputeDirectRadiance(
                 hitSurface.albedo, hitSurface.metallic, directRoughness, hitSurface.normal, hitViewDir);
         float3 diffuseIrradiance = g_diffuseIrradianceMap.Sample(g_sampler, hitSurface.normal).rgb;
-        float3 diffuseIbl = EvaluatePbrDiffuseIbl(
+        hitRadiance.diffuseIbl = EvaluatePbrDiffuseIbl(
                                 diffuseIrradiance, hitSurface.albedo, hitSurface.metallic,
                                 hitSurface.ambientOcclusion) *
                             iblIntensity *
@@ -201,26 +202,26 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         float2 hitBrdf = g_brdfLut.Sample(g_sampler, float2(hitNdotV, hitSurface.roughness)).rg;
         float3 hitEnvironmentSpecular =
             g_specularPrefilterMap.SampleLevel(g_sampler, hitSpecularDirection, specularMip).rgb;
-        float3 specularIbl =
+        hitRadiance.specularIbl =
             EvaluatePbrSpecularIbl(
                 hitEnvironmentSpecular, hitBrdf, hitF0, hitSurface.roughness, hitNdotV,
                 hitSurface.ambientOcclusion) *
             iblIntensity *
             specularIblEnabled;
-        float3 emissiveRadiance = hitSurface.emissive * emissiveEnabled;
+        hitRadiance.emissive = hitSurface.emissive;
 
-        float3 component = directRadiance;
+        float3 component = hitRadiance.direct;
         if (debugTarget == 10)
         {
-            component = diffuseIbl;
+            component = hitRadiance.diffuseIbl;
         }
         else if (debugTarget == 11)
         {
-            component = specularIbl;
+            component = hitRadiance.specularIbl;
         }
         else if (debugTarget == 12)
         {
-            component = emissiveRadiance;
+            component = hitRadiance.emissive * emissiveEnabled;
         }
 
         component *= debugTarget == 12 ? 1.0 : (1.0 - hitSurface.unlit);

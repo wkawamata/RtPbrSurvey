@@ -122,10 +122,11 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     PbrSurface hitSurface = MakeReflectionHitSurface(hitColor, hitMaterial, hitNormal, hitEmission);
     float3 hitViewDir = -reflectionDir;
     float directRoughness = max(hitSurface.roughness, 0.04);
-    float3 directRadiance =
+    PbrRadianceComponents hitRadiance;
+    hitRadiance.direct =
         ComputeDirectRadiance(hitSurface.albedo, hitSurface.metallic, directRoughness, hitSurface.normal, hitViewDir);
     float3 diffuseIrradiance = g_diffuseIrradianceMap.Sample(g_sampler, hitSurface.normal).rgb;
-    float3 diffuseIbl = EvaluatePbrDiffuseIbl(
+    hitRadiance.diffuseIbl = EvaluatePbrDiffuseIbl(
                             diffuseIrradiance, hitSurface.albedo, hitSurface.metallic, hitSurface.ambientOcclusion) *
                         iblIntensity *
                         diffuseIblEnabled;
@@ -135,14 +136,13 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float hitNdotV = saturate(dot(hitSurface.normal, -reflectionDir));
     float2 hitBrdf = g_brdfLut.Sample(g_sampler, float2(hitNdotV, hitSurface.roughness)).rg;
     float3 hitEnvironmentSpecular = g_specularPrefilterMap.SampleLevel(g_sampler, hitSpecularDirection, specularMip).rgb;
-    float3 specularIbl = EvaluatePbrSpecularIbl(
+    hitRadiance.specularIbl = EvaluatePbrSpecularIbl(
                              hitEnvironmentSpecular, hitBrdf, hitF0, hitSurface.roughness, hitNdotV,
                              hitSurface.ambientOcclusion) *
                          iblIntensity *
         specularIblEnabled;
-    float3 litHitColor = directRadiance + diffuseIbl + specularIbl + hitSurface.emissive * emissiveEnabled;
-    float3 shadedHitColor =
-        lerp(litHitColor, hitSurface.albedo + hitSurface.emissive * emissiveEnabled, hitSurface.unlit);
+    hitRadiance.emissive = hitSurface.emissive;
+    float3 shadedHitColor = EvaluatePbrSurfaceRadiance(hitSurface, hitRadiance, emissiveEnabled);
 
     float distanceFade = saturate(1.0 - reflectionHit.x / max(reflectionContributionMaxDistance, 0.001));
     float strength = reflectionHit.y * distanceFade * (1.0 - visibleRoughness) * reflectionContributionIntensity;

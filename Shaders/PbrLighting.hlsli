@@ -11,6 +11,14 @@ struct PbrSurface
     float unlit;
 };
 
+struct PbrRadianceComponents
+{
+    float3 direct;
+    float3 diffuseIbl;
+    float3 specularIbl;
+    float3 emissive;
+};
+
 PbrSurface MakePbrSurface(float3 albedo,
                           float3 normal,
                           float3 emissive,
@@ -28,6 +36,14 @@ PbrSurface MakePbrSurface(float3 albedo,
     surface.ambientOcclusion = saturate(ambientOcclusion);
     surface.unlit = saturate(unlit);
     return surface;
+}
+
+float3 EvaluatePbrSurfaceRadiance(PbrSurface surface, PbrRadianceComponents components, float emissiveEnabled)
+{
+    float3 litRadiance =
+        components.direct + components.diffuseIbl + components.specularIbl + components.emissive * emissiveEnabled;
+    float3 unlitRadiance = surface.albedo + surface.emissive * emissiveEnabled;
+    return lerp(litRadiance, unlitRadiance, surface.unlit);
 }
 
 float3 PbrF0(float3 albedo, float metallic)
