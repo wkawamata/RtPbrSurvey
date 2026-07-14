@@ -105,7 +105,10 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
 
     if (reflectionHit.y <= 0.0)
     {
-        float3 environmentRadiance = g_environmentMap.Sample(g_sampler, reflectionDir).rgb * iblIntensity * specularIblEnabled;
+        float missSpecularMip = visibleRoughness * SPECULAR_PREFILTER_MAX_MIP;
+        float3 environmentRadiance =
+            g_specularPrefilterMap.SampleLevel(g_sampler, reflectionDir, missSpecularMip).rgb * iblIntensity *
+            specularIblEnabled;
         float missStrength = (1.0 - visibleRoughness) * reflectionContributionIntensity;
         return float4(environmentRadiance * missStrength, 1.0);
     }

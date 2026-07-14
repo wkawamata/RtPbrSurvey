@@ -99,7 +99,7 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 ## Remaining Reflection Radiance Work
 
 - Decide whether the reflection hit path needs hit ambient occlusion or should keep `ambientOcclusion = 1.0` until a payload/source exists.
-- Decide whether miss fallback should use the same roughness-aware prefiltered environment path as hit specular IBL.
+- Refine miss fallback if needed; it currently samples the specular prefilter map using visible-surface roughness.
 - Keep raw hit payload, evaluated reflection radiance, and debug component views distinct for future DLSS RR and denoising work.
 - Consider screen-space resolved color reuse for visible hit points after the one-bounce hit-point shading path is stable.
 - Add temporal accumulation / denoise once reflection radiance is physically closer to the intended signal.
