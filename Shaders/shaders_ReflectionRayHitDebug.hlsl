@@ -85,20 +85,9 @@ float3 ReconstructWorldPosition(float2 uv, float depth)
 float3 ComputeDirectRadiance(float3 albedo, float metallic, float roughness, float3 normal, float3 viewDir)
 {
     float3 lightDir = normalize(lightDirection);
-    float3 halfDir = normalize(lightDir + viewDir);
-    float ndotl = saturate(dot(normal, lightDir));
-    float ndotv = saturate(dot(normal, viewDir));
-    float ndoth = saturate(dot(normal, halfDir));
-    float vdoth = saturate(dot(viewDir, halfDir));
-
-    float3 f0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
-    float3 fresnel = FresnelSchlick(vdoth, f0);
-    float distribution = DistributionGGX(ndoth, roughness);
-    float geometry = GeometrySmith(ndotv, ndotl, roughness);
-    float3 specularBrdf = distribution * geometry * fresnel / max(4.0 * ndotv * ndotl, 0.0001);
-    float3 diffuseBrdf = (1.0 - fresnel) * (1.0 - metallic) * albedo / PI;
-
-    return (diffuseBrdf + specularBrdf) * lightColor * diffuseIntensity * ndotl * directLightEnabled;
+    float3 radiance = lightColor * diffuseIntensity;
+    return EvaluatePbrDirectLighting(albedo, metallic, roughness, normal, viewDir, lightDir, radiance) *
+           directLightEnabled;
 }
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)

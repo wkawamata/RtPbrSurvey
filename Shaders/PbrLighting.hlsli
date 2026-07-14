@@ -35,3 +35,27 @@ float ComputeSpecularOcclusion(float ndotv, float ambientOcclusion, float roughn
 {
     return saturate(pow(ndotv + ambientOcclusion, exp2(-16.0 * roughness - 1.0)) - 1.0 + ambientOcclusion);
 }
+
+float3 EvaluatePbrDirectLighting(float3 albedo,
+                                 float metallic,
+                                 float roughness,
+                                 float3 normal,
+                                 float3 viewDir,
+                                 float3 lightDir,
+                                 float3 lightRadiance)
+{
+    float3 halfDir = normalize(lightDir + viewDir);
+    float ndotl = saturate(dot(normal, lightDir));
+    float ndotv = saturate(dot(normal, viewDir));
+    float ndoth = saturate(dot(normal, halfDir));
+    float vdoth = saturate(dot(viewDir, halfDir));
+
+    float3 f0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
+    float3 fresnel = FresnelSchlick(vdoth, f0);
+    float distribution = DistributionGGX(ndoth, roughness);
+    float geometry = GeometrySmith(ndotv, ndotl, roughness);
+    float3 specularBrdf = distribution * geometry * fresnel / max(4.0 * ndotv * ndotl, 0.0001);
+    float3 diffuseBrdf = (1.0 - fresnel) * (1.0 - metallic) * albedo / PBR_PI;
+
+    return (diffuseBrdf + specularBrdf) * lightRadiance * ndotl;
+}

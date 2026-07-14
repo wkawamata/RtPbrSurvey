@@ -195,26 +195,20 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 worldPos = ReconstructWorldPosition(input.uv, depth);
     float3 lightDir = normalize(lightDirection);
     float3 viewDir = normalize(cameraPosition - worldPos);
-    float3 halfDir = normalize(lightDir + viewDir);
     float ndotl = saturate(dot(normal, lightDir));
     float ndotv = saturate(dot(normal, viewDir));
-    float ndoth = saturate(dot(normal, halfDir));
-    float vdoth = saturate(dot(viewDir, halfDir));
 
     float receiveLighting = (material.flags & MaterialFlagUnlit) ? 0.0 : 1.0;
     float3 f0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
-    float3 fresnel = FresnelSchlick(vdoth, f0);
-    float distribution = DistributionGGX(ndoth, roughness);
-    float geometry = GeometrySmith(ndotv, ndotl, roughness);
-    float3 specularBrdf = distribution * geometry * fresnel / max(4.0 * ndotv * ndotl, 0.0001);
-    float3 diffuseBrdf = (1.0 - fresnel) * (1.0 - metallic) * albedo / PI;
     float3 radiance = lightColor * diffuseIntensity;
     float shadowMask = 1.0;
     if (rayTracingSupported)
     {
         shadowMask = SampleShadowMask(input.uv, input.position);
     }
-    float3 directLighting = (diffuseBrdf + specularBrdf) * radiance * ndotl * receiveLighting * shadowMask * directLightEnabled;
+    float3 directLighting =
+        EvaluatePbrDirectLighting(albedo, metallic, roughness, normal, viewDir, lightDir, radiance) * receiveLighting *
+        shadowMask * directLightEnabled;
     float3 irradiance = g_diffuseIrradianceMap.Sample(g_sampler, normal).rgb;
     float3 iblDiffuse = irradiance * albedo * (1.0 - metallic) * iblIntensity * occlusion * diffuseIblEnabled / PI;
     float3 reflectionDir = reflect(-viewDir, normal);
