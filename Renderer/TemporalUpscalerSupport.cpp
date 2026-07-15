@@ -14,6 +14,11 @@ float TemporalUpscalerSettings::ClampedRenderScale() const
     return std::clamp(renderScale, kMinRenderScale, kMaxRenderScale);
 }
 
+float TemporalUpscalerSettings::ClampedSharpness() const
+{
+    return std::clamp(sharpness, kMinSharpness, kMaxSharpness);
+}
+
 const char* TemporalUpscalerSupportInfo::BackendName() const
 {
     switch (backend)
