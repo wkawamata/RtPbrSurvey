@@ -2218,6 +2218,28 @@ void RtPbrSurveyEngine::CreateCommittedRenderTexture(const Engine::RenderTexture
     resource->SetName(debugName);
 }
 
+Engine::RenderTextureSpec RtPbrSurveyEngine::MakeColorRenderTextureSpec(
+    const char* name, Engine::RenderTextureSizeClass sizeClass) const
+{
+    Engine::RenderTextureSpec spec = {};
+    spec.name = name;
+    spec.sizeClass = sizeClass;
+    spec.format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    spec.flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+    spec.initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    spec.clearValue.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    spec.clearValue.Color[0] = 0.0f;
+    spec.clearValue.Color[1] = 0.0f;
+    spec.clearValue.Color[2] = 0.0f;
+    spec.clearValue.Color[3] = 1.0f;
+    spec.hasClearValue = true;
+    spec.createRtv = true;
+    spec.createSrv = true;
+    spec.srvFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    spec.persistent = true;
+    return spec;
+}
+
 Engine::RenderTextureSpec RtPbrSurveyEngine::MakeRenderSizeTextureSpec(const char* name,
                                                                        DXGI_FORMAT format,
                                                                        D3D12_RESOURCE_FLAGS flags,
@@ -2250,65 +2272,20 @@ void RtPbrSurveyEngine::RegisterDepthStencil()
 
 void RtPbrSurveyEngine::RegisterLightPassRenderTarget()
 {
-    Engine::RenderTextureSpec spec = {};
-    spec.name = kLightPassRenderTargetResourceName;
-    spec.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
-    spec.format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    spec.flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-    spec.initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    spec.clearValue.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    spec.clearValue.Color[0] = 0.0f;
-    spec.clearValue.Color[1] = 0.0f;
-    spec.clearValue.Color[2] = 0.0f;
-    spec.clearValue.Color[3] = 1.0f;
-    spec.hasClearValue = true;
-    spec.createRtv = true;
-    spec.createSrv = true;
-    spec.srvFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    spec.persistent = true;
-    RegisterRenderTexture(spec);
+    RegisterRenderTexture(
+        MakeColorRenderTextureSpec(kLightPassRenderTargetResourceName, Engine::RenderTextureSizeClass::RenderSize));
 }
 
 void RtPbrSurveyEngine::RegisterReflectionRadiance()
 {
-    Engine::RenderTextureSpec spec = {};
-    spec.name = kReflectionRadianceResourceName;
-    spec.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
-    spec.format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    spec.flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-    spec.initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    spec.clearValue.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    spec.clearValue.Color[0] = 0.0f;
-    spec.clearValue.Color[1] = 0.0f;
-    spec.clearValue.Color[2] = 0.0f;
-    spec.clearValue.Color[3] = 1.0f;
-    spec.hasClearValue = true;
-    spec.createRtv = true;
-    spec.createSrv = true;
-    spec.srvFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    spec.persistent = true;
-    RegisterRenderTexture(spec);
+    RegisterRenderTexture(
+        MakeColorRenderTextureSpec(kReflectionRadianceResourceName, Engine::RenderTextureSizeClass::RenderSize));
 }
 
 void RtPbrSurveyEngine::RegisterTemporalUpscalerSceneColor()
 {
-    Engine::RenderTextureSpec spec = {};
-    spec.name = kTemporalUpscalerSceneColorResourceName;
-    spec.sizeClass = Engine::RenderTextureSizeClass::OutputSize;
-    spec.format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    spec.flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-    spec.initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    spec.clearValue.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    spec.clearValue.Color[0] = 0.0f;
-    spec.clearValue.Color[1] = 0.0f;
-    spec.clearValue.Color[2] = 0.0f;
-    spec.clearValue.Color[3] = 1.0f;
-    spec.hasClearValue = true;
-    spec.createRtv = true;
-    spec.createSrv = true;
-    spec.srvFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    spec.persistent = true;
-    RegisterRenderTexture(spec);
+    RegisterRenderTexture(MakeColorRenderTextureSpec(kTemporalUpscalerSceneColorResourceName,
+                                                     Engine::RenderTextureSizeClass::OutputSize));
 }
 
 void RtPbrSurveyEngine::CreateDepthStencilDescriptors()

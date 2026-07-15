@@ -953,6 +953,8 @@ private:
     void CreateCommittedRenderTexture(const Engine::RenderTextureSpec& spec,
                                       ComPtr<ID3D12Resource>& resource,
                                       const wchar_t* debugName);
+    Engine::RenderTextureSpec MakeColorRenderTextureSpec(const char* name,
+                                                         Engine::RenderTextureSizeClass sizeClass) const;
     Engine::RenderTextureSpec MakeRenderSizeTextureSpec(const char* name,
                                                         DXGI_FORMAT format,
                                                         D3D12_RESOURCE_FLAGS flags,
