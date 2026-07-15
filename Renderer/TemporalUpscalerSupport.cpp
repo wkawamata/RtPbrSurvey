@@ -4,6 +4,8 @@
 
 #include <algorithm>
 
+#include "StreamlineAdapter.h"
+
 namespace Engine
 {
 
@@ -37,8 +39,7 @@ const char* TemporalUpscalerSupportInfo::StatusText() const
 
 TemporalUpscalerSupportInfo TemporalUpscalerSupportInfo::Create()
 {
-    TemporalUpscalerSupportInfo info;
-    return info;
+    return QueryStreamlineSupport();
 }
 
 } // namespace Engine
