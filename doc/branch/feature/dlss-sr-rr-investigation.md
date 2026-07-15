@@ -96,7 +96,10 @@ Current Work-2 status:
 - GBuffer, depth, LightPass, ShadowMask, reflection resources, compute dispatch sizes, and pixel pick use render size.
 - Swap chain, back buffer, ImGui, and ToneMap destination stay output sized.
 - `ToneMapPass` now asks the engine for its scene-color resource and descriptor, so the future upscaler output can be inserted without changing ToneMap authoring again.
-- The upscaler pass is not active yet; `HasTemporalUpscalerPassOutput()` remains false until an output resource and pass implementation exist.
+- `TemporalUpscaler.SceneColor` exists as an output-size transient render texture with RTV/SRV plumbing.
+- `TemporalUpscalerPass` exists as a disabled identity-copy stub for the scale 1.0 case.
+- The upscaler pass is not active yet; `HasTemporalUpscalerPassOutput()` remains false until the backend/support path is ready.
+- Color render texture binding for `LightPass.RenderTarget`, `ReflectionRadiance`, and `TemporalUpscaler.SceneColor` is table-driven, reducing one-off descriptor setup in `RtPbrSurveyEngine`.
 
 ## Future Temporal Upscaler Direction
 
