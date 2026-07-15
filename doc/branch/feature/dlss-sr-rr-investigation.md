@@ -149,6 +149,8 @@ NVIDIA Streamline headers and SDK-facing structs should not leak into broad rend
 
 - `QueryStreamlineSupport()` returns `TemporalUpscalerBackend::Streamline`.
 - `available` remains `false` until SDK policy, artifact location, and support-query implementation are decided.
+- `status` is `NotIntegrated`, which the Debug UI reports as `SDK not integrated`.
+- `EvaluateStreamline()` accepts SDK-neutral frame input/output resource pointers and dimensions but returns `NotIntegrated` without touching the command list.
 - No NVIDIA or Streamline headers are included.
 - No SDK types appear in `Engine`, `App`, `Scene`, RenderGraph public interfaces, or broad renderer headers.
 
@@ -175,6 +177,12 @@ The renderer-facing SR contract should stay backend-neutral, but it needs enough
 - Quality settings: backend, enabled flag, render scale or quality mode, sharpness/preset, auto exposure policy.
 
 The adapter should not activate the upscaler until the contract can provide all required SR inputs or can explicitly report which requirement is missing.
+
+Current Work-3 status:
+
+- The `StreamlineEvaluateInputs` stub has fields for command list, input scene color, depth, motion vectors, output scene color, settings, render/output dimensions, and history reset.
+- It is intentionally not connected to `TemporalUpscalerPass` yet.
+- The renderer still treats the backend as unavailable, so native rendering remains the active path.
 
 ## DLSS RR Input Contract
 
