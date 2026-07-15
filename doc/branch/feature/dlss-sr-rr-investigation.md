@@ -101,6 +101,32 @@ Current Work-2 status:
 - The upscaler pass is not active yet; `HasTemporalUpscalerPassOutput()` remains false until the backend/support path is ready.
 - Color render texture binding for `LightPass.RenderTarget`, `ReflectionRadiance`, and `TemporalUpscaler.SceneColor` is table-driven, reducing one-off descriptor setup in `RtPbrSurveyEngine`.
 - `RenderTextureSpec` carries basic RTV/SRV creation metadata, so view format ownership is no longer duplicated in the engine-side binding table.
+- Shared HDR color render texture specs are helper-built, keeping `LightPass.RenderTarget`, `ReflectionRadiance`, and `TemporalUpscaler.SceneColor` aligned.
+
+## Work-2 Renderer Plumbing Handoff
+
+Work-2's branch goal is to stop before backend SDK integration and leave a stable renderer-facing insertion point:
+
+- Render-resolution resources are separated from output-resolution presentation resources.
+- RenderGraph can express the native path and the future temporal-upscaler path.
+- `TemporalUpscaler.SceneColor` is the output-resolution handoff resource consumed by `ToneMapPass`.
+- `TemporalUpscalerPass` is present but disabled until Work-3 or a later branch provides a real backend/support condition.
+- SDK-specific concepts remain outside the broad engine, app, scene, and render graph headers.
+
+Work-3 should build on this by providing backend-side support and evaluation:
+
+- Add or extend a narrow `StreamlineAdapter` / backend adapter layer.
+- Keep NVIDIA and Streamline headers in that adapter layer only.
+- Translate renderer-owned inputs (`LightPass.RenderTarget`, depth, motion vectors, exposure/jitter constants, `TemporalUpscaler.SceneColor`) into backend calls.
+- Decide when `HasTemporalUpscalerPassOutput()` can become true, or provide a backend status that Work-2 can consume in a later handoff.
+
+Remaining renderer-side follow-ups after this branch:
+
+- Camera jitter and non-jittered matrix plumbing.
+- Motion-vector convention verification for the chosen backend.
+- Exposure resource or auto-exposure policy.
+- Optional runtime validation for identity `TemporalUpscalerPass` at render scale 1.0.
+- Broader descriptor/resource lifetime ownership cleanup beyond the current color render texture trial.
 
 ## Future Temporal Upscaler Direction
 
