@@ -930,16 +930,24 @@ private:
     void RegisterRenderTexture(const Engine::RenderTextureSpec& spec);
     UINT ResolveRenderTextureWidth(const Engine::RenderTextureSpec& spec) const;
     UINT ResolveRenderTextureHeight(const Engine::RenderTextureSpec& spec) const;
+    D3D12_RESOURCE_DESC MakeRenderTextureDesc(const Engine::RenderTextureSpec& spec) const;
+    void CreateCommittedRenderTexture(const Engine::RenderTextureSpec& spec,
+                                      ComPtr<ID3D12Resource>& resource,
+                                      const wchar_t* debugName);
+    Engine::RenderTextureSpec MakeRenderSizeTextureSpec(const char* name,
+                                                        DXGI_FORMAT format,
+                                                        D3D12_RESOURCE_FLAGS flags,
+                                                        D3D12_RESOURCE_STATES initialState) const;
     void CreateDepthStencilDescriptors();
-    void CreateShadowMask(UINT width, UINT height);
+    void CreateShadowMask();
     void CreateShadowMaskDescriptors();
-    void CreateReflectionRayHit(UINT width, UINT height);
+    void CreateReflectionRayHit();
     void CreateReflectionRayHitDescriptors();
-    void CreateReflectionRayColor(UINT width, UINT height);
+    void CreateReflectionRayColor();
     void CreateReflectionRayColorDescriptors();
-    void CreateReflectionRayMaterial(UINT width, UINT height);
+    void CreateReflectionRayMaterial();
     void CreateReflectionRayMaterialDescriptors();
-    void CreateReflectionRayEmission(UINT width, UINT height);
+    void CreateReflectionRayEmission();
     void CreateReflectionRayEmissionDescriptors();
     D3D12_CPU_DESCRIPTOR_HANDLE GetBackBufferRtv() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetDepthDsv() const;

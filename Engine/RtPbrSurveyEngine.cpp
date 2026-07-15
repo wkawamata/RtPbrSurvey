@@ -1148,11 +1148,11 @@ void RtPbrSurveyEngine::LoadAssets()
     CreateSpecularDebugRayQueryResources();
     CreatePipelineStates();
     CreateGBuffer();
-    CreateShadowMask(m_renderWidth, m_renderHeight);
-    CreateReflectionRayHit(m_renderWidth, m_renderHeight);
-    CreateReflectionRayColor(m_renderWidth, m_renderHeight);
-    CreateReflectionRayMaterial(m_renderWidth, m_renderHeight);
-    CreateReflectionRayEmission(m_renderWidth, m_renderHeight);
+    CreateShadowMask();
+    CreateReflectionRayHit();
+    CreateReflectionRayColor();
+    CreateReflectionRayMaterial();
+    CreateReflectionRayEmission();
     CreateInitialCommandList();
 
     // Close the initial command list so ReloadEnvironmentResources can reset it.
@@ -2108,17 +2108,7 @@ void RtPbrSurveyEngine::RegisterRenderTexture(const Engine::RenderTextureSpec& s
     r.state = TransientResourceState::Initialized;
     r.name = spec.name;
     r.persistent = spec.persistent;
-
-    r.desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    r.desc.Width = ResolveRenderTextureWidth(spec);
-    r.desc.Height = ResolveRenderTextureHeight(spec);
-    r.desc.DepthOrArraySize = 1;
-    r.desc.MipLevels = 1;
-    r.desc.Format = spec.format;
-    r.desc.SampleDesc.Count = 1;
-    r.desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    r.desc.Flags = spec.flags;
-
+    r.desc = MakeRenderTextureDesc(spec);
     r.clearValue = spec.clearValue;
     r.hasClearValue = spec.hasClearValue;
     r.initialState = spec.initialState;
@@ -2152,6 +2142,53 @@ UINT RtPbrSurveyEngine::ResolveRenderTextureHeight(const Engine::RenderTextureSp
         default:
             return spec.height;
     }
+}
+
+D3D12_RESOURCE_DESC RtPbrSurveyEngine::MakeRenderTextureDesc(const Engine::RenderTextureSpec& spec) const
+{
+    D3D12_RESOURCE_DESC desc = {};
+    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    desc.Width = ResolveRenderTextureWidth(spec);
+    desc.Height = ResolveRenderTextureHeight(spec);
+    desc.DepthOrArraySize = 1;
+    desc.MipLevels = 1;
+    desc.Format = spec.format;
+    desc.SampleDesc.Count = 1;
+    desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    desc.Flags = spec.flags;
+    return desc;
+}
+
+void RtPbrSurveyEngine::CreateCommittedRenderTexture(const Engine::RenderTextureSpec& spec,
+                                                     ComPtr<ID3D12Resource>& resource,
+                                                     const wchar_t* debugName)
+{
+    resource.Reset();
+
+    const D3D12_RESOURCE_DESC desc = MakeRenderTextureDesc(spec);
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateCommittedResource(
+        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+        D3D12_HEAP_FLAG_NONE,
+        &desc,
+        spec.initialState,
+        spec.hasClearValue ? &spec.clearValue : nullptr,
+        IID_PPV_ARGS(&resource)));
+
+    resource->SetName(debugName);
+}
+
+Engine::RenderTextureSpec RtPbrSurveyEngine::MakeRenderSizeTextureSpec(const char* name,
+                                                                       DXGI_FORMAT format,
+                                                                       D3D12_RESOURCE_FLAGS flags,
+                                                                       D3D12_RESOURCE_STATES initialState) const
+{
+    Engine::RenderTextureSpec spec = {};
+    spec.name = name;
+    spec.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
+    spec.format = format;
+    spec.flags = flags;
+    spec.initialState = initialState;
+    return spec;
 }
 
 void RtPbrSurveyEngine::RegisterDepthStencil()
@@ -2225,28 +2262,13 @@ void RtPbrSurveyEngine::CreateDepthStencilDescriptors()
     m_graphicsDevice.Device()->CreateShaderResourceView(m_depthStencil.Get(), &srvDesc, m_depthStencilSrv.cpu);
 }
 
-void RtPbrSurveyEngine::CreateShadowMask(UINT width, UINT height)
+void RtPbrSurveyEngine::CreateShadowMask()
 {
-    m_shadowMask.Reset();
-
-    D3D12_RESOURCE_DESC desc = {};
-    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    desc.Width = width;
-    desc.Height = height;
-    desc.DepthOrArraySize = 1;
-    desc.MipLevels = 1;
-    desc.Format = DXGI_FORMAT_R8_UNORM;
-    desc.SampleDesc.Count = 1;
-    desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-
-    ThrowIfFailed(m_graphicsDevice.Device()->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-                                                                     D3D12_HEAP_FLAG_NONE,
-                                                                     &desc,
-                                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                                                                     nullptr,
-                                                                     IID_PPV_ARGS(&m_shadowMask)));
-    m_shadowMask->SetName(L"ShadowMask");
+    const Engine::RenderTextureSpec spec = MakeRenderSizeTextureSpec(kShadowMaskResourceName,
+                                                                     DXGI_FORMAT_R8_UNORM,
+                                                                     D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+                                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    CreateCommittedRenderTexture(spec, m_shadowMask, L"ShadowMask");
 
     CreateShadowMaskDescriptors();
 }
@@ -2273,28 +2295,13 @@ void RtPbrSurveyEngine::CreateShadowMaskDescriptors()
                                                          m_stageAllocator.CpuHandle(m_shadowMaskRange.Start + 1));
 }
 
-void RtPbrSurveyEngine::CreateReflectionRayHit(UINT width, UINT height)
+void RtPbrSurveyEngine::CreateReflectionRayHit()
 {
-    m_reflectionRayHit.Reset();
-
-    D3D12_RESOURCE_DESC desc = {};
-    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    desc.Width = width;
-    desc.Height = height;
-    desc.DepthOrArraySize = 1;
-    desc.MipLevels = 1;
-    desc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    desc.SampleDesc.Count = 1;
-    desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-
-    ThrowIfFailed(m_graphicsDevice.Device()->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-                                                                     D3D12_HEAP_FLAG_NONE,
-                                                                     &desc,
-                                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                                                                     nullptr,
-                                                                     IID_PPV_ARGS(&m_reflectionRayHit)));
-    m_reflectionRayHit->SetName(L"ReflectionRayHit");
+    const Engine::RenderTextureSpec spec = MakeRenderSizeTextureSpec(kReflectionRayHitResourceName,
+                                                                     DXGI_FORMAT_R16G16B16A16_FLOAT,
+                                                                     D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+                                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    CreateCommittedRenderTexture(spec, m_reflectionRayHit, L"ReflectionRayHit");
 
     CreateReflectionRayHitDescriptors();
 }
@@ -2319,28 +2326,13 @@ void RtPbrSurveyEngine::CreateReflectionRayHitDescriptors()
         m_reflectionRayHit.Get(), nullptr, &uavDesc, m_reflectionRayHitUav.cpu);
 }
 
-void RtPbrSurveyEngine::CreateReflectionRayColor(UINT width, UINT height)
+void RtPbrSurveyEngine::CreateReflectionRayColor()
 {
-    m_reflectionRayColor.Reset();
-
-    D3D12_RESOURCE_DESC desc = {};
-    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    desc.Width = width;
-    desc.Height = height;
-    desc.DepthOrArraySize = 1;
-    desc.MipLevels = 1;
-    desc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    desc.SampleDesc.Count = 1;
-    desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-
-    ThrowIfFailed(m_graphicsDevice.Device()->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-                                                                     D3D12_HEAP_FLAG_NONE,
-                                                                     &desc,
-                                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                                                                     nullptr,
-                                                                     IID_PPV_ARGS(&m_reflectionRayColor)));
-    m_reflectionRayColor->SetName(L"ReflectionRayColor");
+    const Engine::RenderTextureSpec spec = MakeRenderSizeTextureSpec(kReflectionRayColorResourceName,
+                                                                     DXGI_FORMAT_R16G16B16A16_FLOAT,
+                                                                     D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+                                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    CreateCommittedRenderTexture(spec, m_reflectionRayColor, L"ReflectionRayColor");
 
     CreateReflectionRayColorDescriptors();
 }
@@ -2365,28 +2357,13 @@ void RtPbrSurveyEngine::CreateReflectionRayColorDescriptors()
         m_reflectionRayColor.Get(), nullptr, &uavDesc, m_reflectionRayColorUav.cpu);
 }
 
-void RtPbrSurveyEngine::CreateReflectionRayMaterial(UINT width, UINT height)
+void RtPbrSurveyEngine::CreateReflectionRayMaterial()
 {
-    m_reflectionRayMaterial.Reset();
-
-    D3D12_RESOURCE_DESC desc = {};
-    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    desc.Width = width;
-    desc.Height = height;
-    desc.DepthOrArraySize = 1;
-    desc.MipLevels = 1;
-    desc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    desc.SampleDesc.Count = 1;
-    desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-
-    ThrowIfFailed(m_graphicsDevice.Device()->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-                                                                     D3D12_HEAP_FLAG_NONE,
-                                                                     &desc,
-                                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                                                                     nullptr,
-                                                                     IID_PPV_ARGS(&m_reflectionRayMaterial)));
-    m_reflectionRayMaterial->SetName(L"ReflectionRayMaterial");
+    const Engine::RenderTextureSpec spec = MakeRenderSizeTextureSpec(kReflectionRayMaterialResourceName,
+                                                                     DXGI_FORMAT_R16G16B16A16_FLOAT,
+                                                                     D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+                                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    CreateCommittedRenderTexture(spec, m_reflectionRayMaterial, L"ReflectionRayMaterial");
 
     CreateReflectionRayMaterialDescriptors();
 }
@@ -2411,28 +2388,13 @@ void RtPbrSurveyEngine::CreateReflectionRayMaterialDescriptors()
         m_reflectionRayMaterial.Get(), nullptr, &uavDesc, m_reflectionRayMaterialUav.cpu);
 }
 
-void RtPbrSurveyEngine::CreateReflectionRayEmission(UINT width, UINT height)
+void RtPbrSurveyEngine::CreateReflectionRayEmission()
 {
-    m_reflectionRayEmission.Reset();
-
-    D3D12_RESOURCE_DESC desc = {};
-    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    desc.Width = width;
-    desc.Height = height;
-    desc.DepthOrArraySize = 1;
-    desc.MipLevels = 1;
-    desc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    desc.SampleDesc.Count = 1;
-    desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-
-    ThrowIfFailed(m_graphicsDevice.Device()->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-                                                                     D3D12_HEAP_FLAG_NONE,
-                                                                     &desc,
-                                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                                                                     nullptr,
-                                                                     IID_PPV_ARGS(&m_reflectionRayEmission)));
-    m_reflectionRayEmission->SetName(L"ReflectionRayEmission");
+    const Engine::RenderTextureSpec spec = MakeRenderSizeTextureSpec(kReflectionRayEmissionResourceName,
+                                                                     DXGI_FORMAT_R16G16B16A16_FLOAT,
+                                                                     D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+                                                                     D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    CreateCommittedRenderTexture(spec, m_reflectionRayEmission, L"ReflectionRayEmission");
 
     CreateReflectionRayEmissionDescriptors();
 }
@@ -2882,11 +2844,11 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     RegisterLightPassRenderTarget();
     RegisterReflectionRadiance();
     CreateGBuffer();
-    CreateShadowMask(m_renderWidth, m_renderHeight);
-    CreateReflectionRayHit(m_renderWidth, m_renderHeight);
-    CreateReflectionRayColor(m_renderWidth, m_renderHeight);
-    CreateReflectionRayMaterial(m_renderWidth, m_renderHeight);
-    CreateReflectionRayEmission(m_renderWidth, m_renderHeight);
+    CreateShadowMask();
+    CreateReflectionRayHit();
+    CreateReflectionRayColor();
+    CreateReflectionRayMaterial();
+    CreateReflectionRayEmission();
 
     // Camera
     UpdateCameraConstantBuffer();
