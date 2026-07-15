@@ -365,7 +365,7 @@ auto RtPbrSurveyEngine::MakeToneMapPass() -> RenderPass
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"ToneMapPass")
         .Pipeline(Pipe::ToneMap)
-        .Reads({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Reads({{GetToneMapSceneColorResourceName(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
         .Writes({{kBackBufferResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ToneMapSceneColorSrv)
         .Rtv(RtvName::BackBuffer)

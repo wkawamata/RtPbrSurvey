@@ -783,6 +783,7 @@ private:
     static constexpr const char* kBackBufferResourceName = "BackBuffer";
     static constexpr const char* kDepthStencilResourceName = "DepthStencil";
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";
+    static constexpr const char* kTemporalUpscalerSceneColorResourceName = "TemporalUpscaler.SceneColor";
     static constexpr const char* kReflectionRadianceResourceName = "ReflectionRadiance";
     static constexpr const char* kGBufferResourceNames[Engine::GBuffer::kCount] = {
         "GBuffer.Albedo",
@@ -958,6 +959,10 @@ private:
     void RegisterPassConstantsHandlers();
     void RegisterResourceResolvers();
     void UpdateRenderDimensions();
+    bool HasTemporalUpscalerPassOutput() const;
+    bool ShouldRunTemporalUpscaler() const;
+    const char* GetToneMapSceneColorResourceName() const;
+    D3D12_GPU_DESCRIPTOR_HANDLE ResolveToneMapSceneColorSrv() const;
 
     std::vector<UINT8> GenerateCheckerboardTextureData();
     std::vector<UINT8> GenerateSolidTextureData(UINT8 r, UINT8 g, UINT8 b, UINT8 a);

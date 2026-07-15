@@ -239,6 +239,37 @@ void RtPbrSurveyEngine::SetTemporalUpscalerSettings(const Engine::TemporalUpscal
     UpdateRenderDimensions();
 }
 
+bool RtPbrSurveyEngine::HasTemporalUpscalerPassOutput() const
+{
+    return false;
+}
+
+bool RtPbrSurveyEngine::ShouldRunTemporalUpscaler() const
+{
+    return HasTemporalUpscalerPassOutput() && m_temporalUpscalerSettings.enabled && m_temporalUpscalerSupport.IsAvailable();
+}
+
+const char* RtPbrSurveyEngine::GetToneMapSceneColorResourceName() const
+{
+    if (ShouldRunTemporalUpscaler())
+    {
+        return kTemporalUpscalerSceneColorResourceName;
+    }
+
+    return kLightPassRenderTargetResourceName;
+}
+
+D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveToneMapSceneColorSrv() const
+{
+    if (ShouldRunTemporalUpscaler())
+    {
+        assert(false && "Temporal upscaler output descriptor is not registered yet.");
+        return {};
+    }
+
+    return m_lightPassColorSrv.gpu;
+}
+
 void RtPbrSurveyEngine::SetHybridReflectionSettings(const HybridReflectionSettings& settings)
 {
     m_hybridReflectionSettings = settings;
@@ -2496,7 +2527,7 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
                                                        { return m_gbuffer.srvHandles[Engine::GBuffer::Albedo].gpu; });
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ToneMapSceneColorSrv),
-        [this]() { return m_lightPassColorSrv.gpu; });
+        [this]() { return ResolveToneMapSceneColorSrv(); });
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionRadianceSrv),
         [this]() { return m_reflectionRadianceSrv.gpu; });
