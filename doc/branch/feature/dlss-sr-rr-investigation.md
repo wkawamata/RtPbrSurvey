@@ -128,6 +128,15 @@ Remaining renderer-side follow-ups after this branch:
 - Optional runtime validation for identity `TemporalUpscalerPass` at render scale 1.0.
 - Broader descriptor/resource lifetime ownership cleanup beyond the current color render texture trial.
 
+## Work-2 Final Verification
+
+Final Work-2 checks before PR:
+
+- Debug x64 MSBuild succeeds.
+- The app was launched and basic runtime behavior was checked manually on 2026-07-16.
+- The branch still leaves `TemporalUpscalerPass` disabled by default, so the native rendering path remains the active path.
+- No NVIDIA, DLSS, or Streamline SDK headers are exposed through broad renderer/app/scene headers.
+
 ## Future Temporal Upscaler Direction
 
 Keep the first SR work DLSS-focused, but avoid baking DLSS-specific concepts into the renderer-facing architecture where a neutral temporal-upscaler surface would be enough. Future alternatives under consideration include FSR4 SR, Intel SR, and a simple in-repo TAAU path. The UI and settings model should expose a backend or mode choice once more than one implementation exists, while preserving a native/no-upscaler fallback.
