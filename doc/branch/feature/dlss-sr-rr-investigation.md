@@ -1,16 +1,33 @@
 # DLSS SR / RR Investigation
 
-Working checkout: `C:\work\RtPbrSurvey-working-3-dlss-sr`
+Working checkout: `C:\work\RtPbrSurvey-work-3`
 
 Branch: `codex/dlss-sr-integration`
 
-Base observed at creation: cloned from `C:\work\RtPbrSurvey-working-3`, starting from `codex/dlss-sr-rr-investigation`.
+Base observed at creation: cloned from the RtPbrSurvey worktree used for the DLSS investigation thread.
 
 ## Goal
 
 Evaluate how to introduce NVIDIA DLSS Super Resolution (SR) and DLSS Ray Reconstruction (RR) into RtPbrSurvey without disrupting the current DX12 renderer and render graph work.
 
 Also keep the temporal-upscaler design open enough to switch between other SR technologies over time. DLSS should be the first investigated backend, not the public shape of the renderer-facing abstraction. NVIDIA headers, SDK types, and binary loading details should stay localized to a narrow integration layer, with a future path toward moving external upscaler backends behind plugin DLL boundaries.
+
+## Worktree Split
+
+Current split between the active renderer/resource work and the DLSS investigation work:
+
+- Work-2 (`C:\work\RtPbrSurvey-work-2`, `codex/renderer-resource-plumbing`) owns renderer core plumbing:
+  - render-size/output-size separation
+  - render-sized resource specs and lifetime plumbing
+  - RenderGraph pass insertion boundary between `LightPass.RenderTarget` and `ToneMapPass`
+  - descriptor binding cleanup needed for render graph owned resources
+- Work-3 (`C:\work\RtPbrSurvey-work-3`, `codex/dlss-sr-integration`) owns backend/integration-edge work:
+  - temporal upscaler support/status shell
+  - future `StreamlineAdapter` or equivalent narrow integration layer
+  - SDK include/library/binary loading policy
+  - DLSS/Streamline-specific docs and support checks
+
+The Work-3 support shell was cherry-picked into Work-2 so renderer plumbing can depend on the neutral `TemporalUpscalerSupport` surface without taking Streamline headers.
 
 ## Current Renderer Fit
 
@@ -54,22 +71,32 @@ Sources checked:
 
 Add SR in small, reversible steps:
 
-1. Add a renderer-facing `DlssSupport` or `StreamlineSupport` helper that is compiled out or disabled when SDK headers/libs are absent.
-2. Add a `DlssSettings` model under App/Engine UI ownership: enabled flag, mode, sharpness/preset, auto exposure toggle, debug state.
-3. Add an intermediate full-resolution DLSS output resource, for example `Dlss.OutputColor`.
-4. Change the render graph path from:
+1. Keep the renderer-facing support layer neutral (`TemporalUpscalerSupport`) and compile-safe without SDK headers.
+2. Add a backend-specific adapter later, for example `StreamlineAdapter`, as the only place that includes Streamline headers.
+3. Add temporal upscaler settings under App/Engine UI ownership: enabled flag, backend/mode, render scale, sharpness/preset, auto exposure toggle, debug state.
+4. Add an intermediate output-resolution upscaler output resource, for example `TemporalUpscaler.SceneColor`.
+5. Change the render graph path from:
 
    `LightPass.RenderTarget -> ToneMapPass -> BackBuffer`
 
    to:
 
-   `LightPass.RenderTarget -> DlssSuperResolutionPass -> Dlss.OutputColor -> ToneMapPass -> BackBuffer`
+   `LightPass.RenderTarget -> TemporalUpscalerPass -> TemporalUpscaler.SceneColor -> ToneMapPass -> BackBuffer`
 
-5. Keep the native path as the default fallback:
+6. Keep the native path as the default fallback:
 
    `LightPass.RenderTarget -> ToneMapPass -> BackBuffer`
 
 Important implementation detail: DLSS SR generally expects render-resolution inputs and final-resolution output. RtPbrSurvey currently builds most resources at `m_width` / `m_height`, which are also the presentation size. A real SR implementation needs separate render size and output size plumbing before quality modes can be meaningful.
+
+Current Work-2 status:
+
+- `TemporalUpscalerSettings` exists with an enabled flag and render scale.
+- `m_renderWidth` / `m_renderHeight` are split from output `m_width` / `m_height`.
+- GBuffer, depth, LightPass, ShadowMask, reflection resources, compute dispatch sizes, and pixel pick use render size.
+- Swap chain, back buffer, ImGui, and ToneMap destination stay output sized.
+- `ToneMapPass` now asks the engine for its scene-color resource and descriptor, so the future upscaler output can be inserted without changing ToneMap authoring again.
+- The upscaler pass is not active yet; `HasTemporalUpscalerPassOutput()` remains false until an output resource and pass implementation exist.
 
 ## Future Temporal Upscaler Direction
 
@@ -127,15 +154,15 @@ The first option is currently safer because it follows the Hybrid Reflection pla
 - UI should expose support state and fallback reason, not just an enable checkbox.
 - RR input contract should be written down before SDK work: raw ray hit distance/mask/normal, `ReflectionRadiance`, visible depth/normal/roughness/motion vector, and resolved scene color before tone mapping.
 
-## First Implementation Candidate
+## First Implementation Status
 
-The safest first code step is not full DLSS. It is a compile-safe feature shell:
+The safest first code step was not full DLSS. It was a compile-safe feature shell:
 
-- `Renderer/DlssSupport.h/.cpp` or `Renderer/StreamlineSupport.h/.cpp`
+- `Renderer/TemporalUpscalerSupport.h/.cpp`
 - runtime support enum and status string
 - no SDK dependency by default
-- App/Debug UI section showing "DLSS SDK not integrated" or runtime status
-- render graph remains unchanged
+- App/Debug UI section showing "Temporal Upscaler: Unavailable (None, SDK not integrated)"
+- render graph remains native by default
 
 Then add SDK-backed code in a separate commit once the external dependency location is decided.
 
