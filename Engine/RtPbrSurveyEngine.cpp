@@ -2150,6 +2150,9 @@ void RtPbrSurveyEngine::RegisterRenderTexture(const Engine::RenderTextureSpec& s
     r.clearValue = spec.clearValue;
     r.hasClearValue = spec.hasClearValue;
     r.initialState = spec.initialState;
+    r.createRtv = spec.createRtv;
+    r.createSrv = spec.createSrv;
+    r.srvFormat = spec.srvFormat;
 
     m_resourceRegistry.RegisterTransientResource(std::move(r));
 }
@@ -2259,6 +2262,9 @@ void RtPbrSurveyEngine::RegisterLightPassRenderTarget()
     spec.clearValue.Color[2] = 0.0f;
     spec.clearValue.Color[3] = 1.0f;
     spec.hasClearValue = true;
+    spec.createRtv = true;
+    spec.createSrv = true;
+    spec.srvFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
     spec.persistent = true;
     RegisterRenderTexture(spec);
 }
@@ -2277,6 +2283,9 @@ void RtPbrSurveyEngine::RegisterReflectionRadiance()
     spec.clearValue.Color[2] = 0.0f;
     spec.clearValue.Color[3] = 1.0f;
     spec.hasClearValue = true;
+    spec.createRtv = true;
+    spec.createSrv = true;
+    spec.srvFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
     spec.persistent = true;
     RegisterRenderTexture(spec);
 }
@@ -2295,6 +2304,9 @@ void RtPbrSurveyEngine::RegisterTemporalUpscalerSceneColor()
     spec.clearValue.Color[2] = 0.0f;
     spec.clearValue.Color[3] = 1.0f;
     spec.hasClearValue = true;
+    spec.createRtv = true;
+    spec.createSrv = true;
+    spec.srvFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
     spec.persistent = true;
     RegisterRenderTexture(spec);
 }
@@ -3101,18 +3113,15 @@ bool RtPbrSurveyEngine::BindCreatedColorRenderTexture(const std::string& name, I
         {kLightPassRenderTargetResourceName,
          &RtPbrSurveyEngine::m_lightPassRenderTarget,
          kLightPassRTVIndex,
-         &RtPbrSurveyEngine::m_lightPassColorSrv,
-         DXGI_FORMAT_R16G16B16A16_FLOAT},
+         &RtPbrSurveyEngine::m_lightPassColorSrv},
         {kReflectionRadianceResourceName,
          &RtPbrSurveyEngine::m_reflectionRadiance,
          kReflectionRadianceRTVIndex,
-         &RtPbrSurveyEngine::m_reflectionRadianceSrv,
-         DXGI_FORMAT_R16G16B16A16_FLOAT},
+         &RtPbrSurveyEngine::m_reflectionRadianceSrv},
         {kTemporalUpscalerSceneColorResourceName,
          &RtPbrSurveyEngine::m_temporalUpscalerSceneColor,
          kTemporalUpscalerSceneColorRTVIndex,
-         &RtPbrSurveyEngine::m_temporalUpscalerSceneColorSrv,
-         DXGI_FORMAT_R16G16B16A16_FLOAT},
+         &RtPbrSurveyEngine::m_temporalUpscalerSceneColorSrv},
     };
 
     for (const ColorRenderTextureBinding& binding : bindings)
@@ -3123,23 +3132,41 @@ bool RtPbrSurveyEngine::BindCreatedColorRenderTexture(const std::string& name, I
         }
 
         (this->*binding.resource) = resource;
+        const auto transientResource = m_resourceRegistry.transientResources.find(name);
+        assert(transientResource != m_resourceRegistry.transientResources.end());
+        if (transientResource == m_resourceRegistry.transientResources.end())
+        {
+            return false;
+        }
+
         CreateColorRenderTextureDescriptors(
-            (this->*binding.resource).Get(), binding.rtvIndex, this->*binding.srv, binding.format);
+            transientResource->second, (this->*binding.resource).Get(), binding.rtvIndex, this->*binding.srv);
         return true;
     }
 
     return false;
 }
 
-void RtPbrSurveyEngine::CreateColorRenderTextureDescriptors(ID3D12Resource* resource,
+void RtPbrSurveyEngine::CreateColorRenderTextureDescriptors(const TransientResource& transientResource,
+                                                            ID3D12Resource* resource,
                                                             UINT rtvIndex,
-                                                            DescriptorHeapHandle srv,
-                                                            DXGI_FORMAT format)
+                                                            DescriptorHeapHandle srv)
 {
-    m_graphicsDevice.Device()->CreateRenderTargetView(resource, nullptr, GetRtv(rtvIndex));
+    if (transientResource.createRtv)
+    {
+        m_graphicsDevice.Device()->CreateRenderTargetView(resource, nullptr, GetRtv(rtvIndex));
+    }
+
+    if (!transientResource.createSrv)
+    {
+        return;
+    }
+
+    const DXGI_FORMAT srvFormat =
+        transientResource.srvFormat != DXGI_FORMAT_UNKNOWN ? transientResource.srvFormat : transientResource.desc.Format;
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = format;
+    srvDesc.Format = srvFormat;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MipLevels = 1;

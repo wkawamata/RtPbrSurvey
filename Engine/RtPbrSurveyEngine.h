@@ -815,6 +815,9 @@ private:
         D3D12_CLEAR_VALUE clearValue = {};
         bool hasClearValue = false;
         D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON;
+        bool createRtv = false;
+        bool createSrv = false;
+        DXGI_FORMAT srvFormat = DXGI_FORMAT_UNKNOWN;
 
         ComPtr<ID3D12Resource> resource;
 
@@ -830,7 +833,6 @@ private:
         ComPtr<ID3D12Resource> RtPbrSurveyEngine::*resource = nullptr;
         UINT rtvIndex = 0;
         DescriptorHeapHandle RtPbrSurveyEngine::*srv = nullptr;
-        DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
     };
 
     using ResourceRegistry = Engine::ResourceRegistry<TransientResource>;
@@ -1024,10 +1026,10 @@ private:
     void CreateCommittedTransientResource(TransientResource& resource);
     void BindCreatedTransientResource(const std::string& name, ID3D12Resource* resource);
     bool BindCreatedColorRenderTexture(const std::string& name, ID3D12Resource* resource);
-    void CreateColorRenderTextureDescriptors(ID3D12Resource* resource,
+    void CreateColorRenderTextureDescriptors(const TransientResource& transientResource,
+                                             ID3D12Resource* resource,
                                              UINT rtvIndex,
-                                             DescriptorHeapHandle srv,
-                                             DXGI_FORMAT format);
+                                             DescriptorHeapHandle srv);
     void CreateDsvHeap();
 
     void CreateGBuffer();

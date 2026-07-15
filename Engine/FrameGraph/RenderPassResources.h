@@ -82,6 +82,9 @@ struct RenderTextureSpec
     D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON;
     D3D12_CLEAR_VALUE clearValue = {};
     bool hasClearValue = false;
+    bool createRtv = false;
+    bool createSrv = false;
+    DXGI_FORMAT srvFormat = DXGI_FORMAT_UNKNOWN;
     bool persistent = false;
 };
 
