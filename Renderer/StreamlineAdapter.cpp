@@ -10,6 +10,7 @@ TemporalUpscalerSupportInfo QueryStreamlineSupport()
     TemporalUpscalerSupportInfo info;
     info.backend = TemporalUpscalerBackend::Streamline;
     info.available = false;
+    info.status = TemporalUpscalerSupportStatus::NotIntegrated;
     return info;
 }
 

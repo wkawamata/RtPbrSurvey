@@ -29,12 +29,21 @@ const char* TemporalUpscalerSupportInfo::BackendName() const
 
 const char* TemporalUpscalerSupportInfo::StatusText() const
 {
-    if (!available)
+    switch (status)
     {
-        return "SDK not integrated";
+        case TemporalUpscalerSupportStatus::NotIntegrated:
+            return "SDK not integrated";
+        case TemporalUpscalerSupportStatus::Available:
+            return "Available";
+        case TemporalUpscalerSupportStatus::UnsupportedAdapter:
+            return "Unsupported adapter";
+        case TemporalUpscalerSupportStatus::MissingRuntime:
+            return "Runtime missing";
+        case TemporalUpscalerSupportStatus::InitializationFailed:
+            return "Initialization failed";
+        default:
+            return "Unknown";
     }
-
-    return "Available";
 }
 
 TemporalUpscalerSupportInfo TemporalUpscalerSupportInfo::Create()

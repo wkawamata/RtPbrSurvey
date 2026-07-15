@@ -11,6 +11,15 @@ enum class TemporalUpscalerBackend
     Streamline,
 };
 
+enum class TemporalUpscalerSupportStatus
+{
+    NotIntegrated = 0,
+    Available,
+    UnsupportedAdapter,
+    MissingRuntime,
+    InitializationFailed,
+};
+
 struct TemporalUpscalerSettings
 {
     static constexpr float kMinRenderScale = 0.25f;
@@ -34,6 +43,7 @@ struct TemporalUpscalerSupportInfo
 
     bool available = false;
     TemporalUpscalerBackend backend = TemporalUpscalerBackend::None;
+    TemporalUpscalerSupportStatus status = TemporalUpscalerSupportStatus::NotIntegrated;
 
     static TemporalUpscalerSupportInfo Create();
 };
