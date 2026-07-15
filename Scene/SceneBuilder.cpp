@@ -121,8 +121,8 @@ void SceneBuilder::AddInstance(DirectX::FXMMATRIX world, uint32_t materialId)
 void SceneBuilder::AddInstance(DirectX::FXMMATRIX world, DirectX::CXMMATRIX prevWorld, uint32_t materialId)
 {
     InstanceData instance = {};
-    DirectX::XMStoreFloat4x4(&instance.world, world);
-    DirectX::XMStoreFloat4x4(&instance.prevWorld, prevWorld);
+    DirectX::XMStoreFloat4x4(&instance.world, DirectX::XMMatrixTranspose(world));
+    DirectX::XMStoreFloat4x4(&instance.prevWorld, DirectX::XMMatrixTranspose(prevWorld));
     instance.materialId = materialId;
     m_scene.instances.push_back(instance);
 }

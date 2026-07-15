@@ -40,6 +40,7 @@ renderer.SetUpdateHandler([&]() {
 
     sceneBuilder.Clear();
     // Fill sceneBuilder from simulation objects.
+    // AddInstance accepts ordinary DirectXMath world matrices.
     // Use AddInstance(world, prevWorld, materialId) for moving objects.
     renderer.SetScene(sceneBuilder.GetScene());
 });
