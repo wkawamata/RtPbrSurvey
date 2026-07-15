@@ -343,6 +343,7 @@ private:
             static constexpr const char* GBufferEmissive = "GBufferEmissive";
             static constexpr const char* LightPass = "LightPass";
             static constexpr const char* ReflectionRadiance = "ReflectionRadiance";
+            static constexpr const char* TemporalUpscalerSceneColor = "TemporalUpscalerSceneColor";
         };
 
         struct Dsv
@@ -410,6 +411,7 @@ private:
     {
         DepthStencilSrvSlot,
         LightPassColorSrvSlot,
+        TemporalUpscalerSceneColorSrvSlot,
 
         PersistentSrvSlotCount,
     };
@@ -420,8 +422,8 @@ private:
     static constexpr UINT kTlasDescriptorCount = 1;       // TLAS SRV
 
     // Descriptor allocation order is tracked by DescriptorHeapHandle.
-    // Current persistent descriptors: GBuffer SRVs, depth SRV, LightPass SRV, TLAS SRV, environment map SRVs,
-    // texture table, instance buffers, material buffer, constant buffer, light constant buffer.
+    // Current persistent descriptors: GBuffer SRVs, depth SRV, LightPass SRV, temporal upscaler output SRV,
+    // TLAS SRV, environment map SRVs, texture table, instance buffers, material buffer, constant buffers.
     // ShadowMask descriptors live in a StagedDescriptorAllocator whose GPU
     // copies are staged into a reserved range of the main shader-visible heap.
     static constexpr UINT kMainHeapDescriptorCount = kTextureDescriptorCapacity + kInstanceBufferCount +
@@ -497,7 +499,8 @@ private:
     static constexpr UINT kGBufferRTVBaseIndex = kSwapChainRTVCount;
     static constexpr UINT kLightPassRTVIndex = kGBufferRTVBaseIndex + Engine::GBuffer::kCount;
     static constexpr UINT kReflectionRadianceRTVIndex = kLightPassRTVIndex + 1;
-    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 2;
+    static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionRadianceRTVIndex + 1;
+    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 3;
 
     struct DebugViewSettings
     {
@@ -620,6 +623,7 @@ private:
     ComPtr<ID3D12Resource> m_depthStencil;
     ComPtr<ID3D12Resource> m_lightPassRenderTarget;
     ComPtr<ID3D12Resource> m_reflectionRadiance;
+    ComPtr<ID3D12Resource> m_temporalUpscalerSceneColor;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
     ComPtr<ID3D12Resource> m_reflectionRayColor;
@@ -635,6 +639,7 @@ private:
     DescriptorHeapHandle m_reflectionRayEmissionUav;
     DescriptorHeapHandle m_depthStencilSrv;
     DescriptorHeapHandle m_lightPassColorSrv;
+    DescriptorHeapHandle m_temporalUpscalerSceneColorSrv;
     DescriptorHeapHandle m_reflectionRadianceSrv;
     StagedDescriptorRange m_shadowMaskRange;
 
@@ -928,6 +933,7 @@ private:
     void RegisterDepthStencil();
     void RegisterLightPassRenderTarget();
     void RegisterReflectionRadiance();
+    void RegisterTemporalUpscalerSceneColor();
     void RegisterRenderTexture(const Engine::RenderTextureSpec& spec);
     UINT ResolveRenderTextureWidth(const Engine::RenderTextureSpec& spec) const;
     UINT ResolveRenderTextureHeight(const Engine::RenderTextureSpec& spec) const;
@@ -955,6 +961,7 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE GetGBufferRTV(UINT index) const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetLightPassRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionRadianceRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetTemporalUpscalerSceneColorRTV() const;
     void RegisterPassBindingResolvers();
     void RegisterPassConstantsHandlers();
     void RegisterResourceResolvers();
@@ -1006,6 +1013,7 @@ private:
     void BindCreatedTransientResource(const std::string& name, ID3D12Resource* resource);
     void CreateLightPassRenderTargetDescriptors();
     void CreateReflectionRadianceDescriptors();
+    void CreateTemporalUpscalerSceneColorDescriptors();
     void CreateDsvHeap();
 
     void CreateGBuffer();

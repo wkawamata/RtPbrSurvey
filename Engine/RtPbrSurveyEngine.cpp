@@ -184,6 +184,7 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
     m_resourceDefaultStates.push_back({kDepthStencilResourceName, D3D12_RESOURCE_STATE_DEPTH_WRITE});
     m_resourceDefaultStates.push_back({kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     m_resourceDefaultStates.push_back({kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
+    m_resourceDefaultStates.push_back({kTemporalUpscalerSceneColorResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     m_resourceDefaultStates.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
@@ -263,8 +264,7 @@ D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveToneMapSceneColorSrv() con
 {
     if (ShouldRunTemporalUpscaler())
     {
-        assert(false && "Temporal upscaler output descriptor is not registered yet.");
-        return {};
+        return m_temporalUpscalerSceneColorSrv.gpu;
     }
 
     return m_lightPassColorSrv.gpu;
@@ -585,6 +585,7 @@ void RtPbrSurveyEngine::LoadPipeline()
         RegisterDepthStencil();
         RegisterLightPassRenderTarget();
         RegisterReflectionRadiance();
+        RegisterTemporalUpscalerSceneColor();
     }
 
     // create command allocators.
@@ -2125,11 +2126,17 @@ void RtPbrSurveyEngine::CreateGBuffer()
     }
     assert(m_lightPassColorSrv.Index == m_depthStencilSrv.Index + 1);
 
+    if (m_temporalUpscalerSceneColorSrv.Index == UINT_MAX)
+    {
+        m_temporalUpscalerSceneColorSrv = m_descriptorHeapAllocator.AllocWithHandle();
+    }
+    assert(m_temporalUpscalerSceneColorSrv.Index == m_lightPassColorSrv.Index + 1);
+
     if (m_reflectionRadianceSrv.Index == UINT_MAX)
     {
         m_reflectionRadianceSrv = m_descriptorHeapAllocator.AllocWithHandle();
     }
-    assert(m_reflectionRadianceSrv.Index == m_lightPassColorSrv.Index + 1);
+    assert(m_reflectionRadianceSrv.Index == m_temporalUpscalerSceneColorSrv.Index + 1);
 }
 
 void RtPbrSurveyEngine::RegisterRenderTexture(const Engine::RenderTextureSpec& spec)
@@ -2261,6 +2268,24 @@ void RtPbrSurveyEngine::RegisterReflectionRadiance()
     Engine::RenderTextureSpec spec = {};
     spec.name = kReflectionRadianceResourceName;
     spec.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
+    spec.format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    spec.flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+    spec.initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    spec.clearValue.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    spec.clearValue.Color[0] = 0.0f;
+    spec.clearValue.Color[1] = 0.0f;
+    spec.clearValue.Color[2] = 0.0f;
+    spec.clearValue.Color[3] = 1.0f;
+    spec.hasClearValue = true;
+    spec.persistent = true;
+    RegisterRenderTexture(spec);
+}
+
+void RtPbrSurveyEngine::RegisterTemporalUpscalerSceneColor()
+{
+    Engine::RenderTextureSpec spec = {};
+    spec.name = kTemporalUpscalerSceneColorResourceName;
+    spec.sizeClass = Engine::RenderTextureSizeClass::OutputSize;
     spec.format = DXGI_FORMAT_R16G16B16A16_FLOAT;
     spec.flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
     spec.initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
@@ -2481,6 +2506,13 @@ D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionRadianceRTV() const
     return h;
 }
 
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetTemporalUpscalerSceneColorRTV() const
+{
+    CD3DX12_CPU_DESCRIPTOR_HANDLE h(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
+    h.Offset(kTemporalUpscalerSceneColorRTVIndex, m_rtvDescriptorSize);
+    return h;
+}
+
 void RtPbrSurveyEngine::RegisterPassBindingResolvers()
 {
     m_renderGraphRuntime.Bindings().Clear();
@@ -2503,6 +2535,9 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
                                                 [this]() { return GetLightPassRTV(); });
     m_renderGraphRuntime.Bindings().RegisterRtv(m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionRadiance),
                                                 [this]() { return GetReflectionRadianceRTV(); });
+    m_renderGraphRuntime.Bindings().RegisterRtv(
+        m_renderGraphRuntime.RegisterRtv(RtvName::TemporalUpscalerSceneColor),
+        [this]() { return GetTemporalUpscalerSceneColorRTV(); });
 
     m_renderGraphRuntime.Bindings().RegisterDsv(m_renderGraphRuntime.RegisterDsv(DsvName::Depth),
                                                 [this]() { return GetDepthDsv(); });
@@ -2621,6 +2656,8 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
                                                       [this]() { return m_lightPassRenderTarget.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kReflectionRadianceResourceName,
                                                       [this]() { return m_reflectionRadiance.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kTemporalUpscalerSceneColorResourceName,
+                                                      [this]() { return m_temporalUpscalerSceneColor.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kShadowMaskResourceName, [this]() { return m_shadowMask.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kReflectionRayHitResourceName,
                                                        [this]() { return m_reflectionRayHit.Get(); });
@@ -2863,6 +2900,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_depthStencil.Reset();
     m_lightPassRenderTarget.Reset();
     m_reflectionRadiance.Reset();
+    m_temporalUpscalerSceneColor.Reset();
     m_shadowMask.Reset();
     m_reflectionRayHit.Reset();
     m_reflectionRayColor.Reset();
@@ -2871,9 +2909,11 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_resourceRegistry.UnregisterTransientResource(kDepthStencilResourceName);
     m_resourceRegistry.UnregisterTransientResource(kLightPassRenderTargetResourceName);
     m_resourceRegistry.UnregisterTransientResource(kReflectionRadianceResourceName);
+    m_resourceRegistry.UnregisterTransientResource(kTemporalUpscalerSceneColorResourceName);
     RegisterDepthStencil();
     RegisterLightPassRenderTarget();
     RegisterReflectionRadiance();
+    RegisterTemporalUpscalerSceneColor();
     CreateGBuffer();
     CreateShadowMask();
     CreateReflectionRayHit();
@@ -3060,6 +3100,13 @@ void RtPbrSurveyEngine::BindCreatedTransientResource(const std::string& name, ID
         return;
     }
 
+    if (name == kTemporalUpscalerSceneColorResourceName)
+    {
+        m_temporalUpscalerSceneColor = resource;
+        CreateTemporalUpscalerSceneColorDescriptors();
+        return;
+    }
+
     assert(false && "Unsupported resource in BindCreatedTransientResource()");
 }
 
@@ -3087,6 +3134,20 @@ void RtPbrSurveyEngine::CreateReflectionRadianceDescriptors()
     srvDesc.Texture2D.MipLevels = 1;
     m_graphicsDevice.Device()->CreateShaderResourceView(
         m_reflectionRadiance.Get(), &srvDesc, m_reflectionRadianceSrv.cpu);
+}
+
+void RtPbrSurveyEngine::CreateTemporalUpscalerSceneColorDescriptors()
+{
+    m_graphicsDevice.Device()->CreateRenderTargetView(
+        m_temporalUpscalerSceneColor.Get(), nullptr, GetTemporalUpscalerSceneColorRTV());
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Texture2D.MipLevels = 1;
+    m_graphicsDevice.Device()->CreateShaderResourceView(
+        m_temporalUpscalerSceneColor.Get(), &srvDesc, m_temporalUpscalerSceneColorSrv.cpu);
 }
 
 void RtPbrSurveyEngine::ReleaseResourcesAfterPass(int passIndex)
@@ -3126,6 +3187,11 @@ void RtPbrSurveyEngine::CollectGarbageTransientResources()
         if (name == kReflectionRadianceResourceName)
         {
             m_reflectionRadiance.Reset();
+        }
+
+        if (name == kTemporalUpscalerSceneColorResourceName)
+        {
+            m_temporalUpscalerSceneColor.Reset();
         }
     }
 }
