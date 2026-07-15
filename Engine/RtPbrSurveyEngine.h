@@ -806,6 +806,7 @@ private:
         std::string name;
         D3D12_RESOURCE_DESC desc = {};
         D3D12_CLEAR_VALUE clearValue = {};
+        bool hasClearValue = false;
         D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON;
 
         ComPtr<ID3D12Resource> resource;
@@ -923,9 +924,12 @@ private:
     void UpdateCameraConstantBuffer();
     void CreateConstantBuffer(ConstantBufferResource& constantBuffer, const void* initialData, UINT sizeInBytes);
     void CreateDepthStencil(UINT width, UINT height);
-    void RegisterDepthStencil(UINT width, UINT height);
-    void RegisterLightPassRenderTarget(UINT width, UINT height);
-    void RegisterReflectionRadiance(UINT width, UINT height);
+    void RegisterDepthStencil();
+    void RegisterLightPassRenderTarget();
+    void RegisterReflectionRadiance();
+    void RegisterRenderTexture(const Engine::RenderTextureSpec& spec);
+    UINT ResolveRenderTextureWidth(const Engine::RenderTextureSpec& spec) const;
+    UINT ResolveRenderTextureHeight(const Engine::RenderTextureSpec& spec) const;
     void CreateDepthStencilDescriptors();
     void CreateShadowMask(UINT width, UINT height);
     void CreateShadowMaskDescriptors();

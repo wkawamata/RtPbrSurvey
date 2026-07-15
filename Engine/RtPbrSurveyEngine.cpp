@@ -551,9 +551,9 @@ void RtPbrSurveyEngine::LoadPipeline()
     // Create the depth stencil view.
     {
         CreateDsvHeap();
-        RegisterDepthStencil(m_renderWidth, m_renderHeight);
-        RegisterLightPassRenderTarget(m_renderWidth, m_renderHeight);
-        RegisterReflectionRadiance(m_renderWidth, m_renderHeight);
+        RegisterDepthStencil();
+        RegisterLightPassRenderTarget();
+        RegisterReflectionRadiance();
     }
 
     // create command allocators.
@@ -2101,89 +2101,109 @@ void RtPbrSurveyEngine::CreateGBuffer()
     assert(m_reflectionRadianceSrv.Index == m_lightPassColorSrv.Index + 1);
 }
 
-void RtPbrSurveyEngine::RegisterDepthStencil(UINT width, UINT height)
+void RtPbrSurveyEngine::RegisterRenderTexture(const Engine::RenderTextureSpec& spec)
 {
     TransientResource r;
 
     r.state = TransientResourceState::Initialized;
-    r.name = kDepthStencilResourceName;
-    r.persistent = true;
+    r.name = spec.name;
+    r.persistent = spec.persistent;
 
     r.desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    r.desc.Width = width;
-    r.desc.Height = height;
+    r.desc.Width = ResolveRenderTextureWidth(spec);
+    r.desc.Height = ResolveRenderTextureHeight(spec);
     r.desc.DepthOrArraySize = 1;
     r.desc.MipLevels = 1;
-    r.desc.Format = DXGI_FORMAT_R32_TYPELESS;
+    r.desc.Format = spec.format;
     r.desc.SampleDesc.Count = 1;
     r.desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    r.desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+    r.desc.Flags = spec.flags;
 
-    r.clearValue.Format = DXGI_FORMAT_D32_FLOAT;
-    r.clearValue.DepthStencil.Depth = 1.0f;
-    r.clearValue.DepthStencil.Stencil = 0;
-
-    r.initialState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+    r.clearValue = spec.clearValue;
+    r.hasClearValue = spec.hasClearValue;
+    r.initialState = spec.initialState;
 
     m_resourceRegistry.RegisterTransientResource(std::move(r));
 }
 
-void RtPbrSurveyEngine::RegisterLightPassRenderTarget(UINT width, UINT height)
+UINT RtPbrSurveyEngine::ResolveRenderTextureWidth(const Engine::RenderTextureSpec& spec) const
 {
-    TransientResource r;
-
-    r.state = TransientResourceState::Initialized;
-    r.name = kLightPassRenderTargetResourceName;
-    r.persistent = true;
-
-    r.desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    r.desc.Width = width;
-    r.desc.Height = height;
-    r.desc.DepthOrArraySize = 1;
-    r.desc.MipLevels = 1;
-    r.desc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    r.desc.SampleDesc.Count = 1;
-    r.desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    r.desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-
-    r.clearValue.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    r.clearValue.Color[0] = 0.0f;
-    r.clearValue.Color[1] = 0.0f;
-    r.clearValue.Color[2] = 0.0f;
-    r.clearValue.Color[3] = 1.0f;
-
-    r.initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
-
-    m_resourceRegistry.RegisterTransientResource(std::move(r));
+    switch (spec.sizeClass)
+    {
+        case Engine::RenderTextureSizeClass::RenderSize:
+            return m_renderWidth;
+        case Engine::RenderTextureSizeClass::OutputSize:
+            return m_width;
+        case Engine::RenderTextureSizeClass::Fixed:
+        default:
+            return spec.width;
+    }
 }
 
-void RtPbrSurveyEngine::RegisterReflectionRadiance(UINT width, UINT height)
+UINT RtPbrSurveyEngine::ResolveRenderTextureHeight(const Engine::RenderTextureSpec& spec) const
 {
-    TransientResource r;
+    switch (spec.sizeClass)
+    {
+        case Engine::RenderTextureSizeClass::RenderSize:
+            return m_renderHeight;
+        case Engine::RenderTextureSizeClass::OutputSize:
+            return m_height;
+        case Engine::RenderTextureSizeClass::Fixed:
+        default:
+            return spec.height;
+    }
+}
 
-    r.state = TransientResourceState::Initialized;
-    r.name = kReflectionRadianceResourceName;
-    r.persistent = true;
+void RtPbrSurveyEngine::RegisterDepthStencil()
+{
+    Engine::RenderTextureSpec spec = {};
+    spec.name = kDepthStencilResourceName;
+    spec.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
+    spec.format = DXGI_FORMAT_R32_TYPELESS;
+    spec.flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+    spec.initialState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+    spec.clearValue.Format = DXGI_FORMAT_D32_FLOAT;
+    spec.clearValue.DepthStencil.Depth = 1.0f;
+    spec.clearValue.DepthStencil.Stencil = 0;
+    spec.hasClearValue = true;
+    spec.persistent = true;
+    RegisterRenderTexture(spec);
+}
 
-    r.desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    r.desc.Width = width;
-    r.desc.Height = height;
-    r.desc.DepthOrArraySize = 1;
-    r.desc.MipLevels = 1;
-    r.desc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    r.desc.SampleDesc.Count = 1;
-    r.desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    r.desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+void RtPbrSurveyEngine::RegisterLightPassRenderTarget()
+{
+    Engine::RenderTextureSpec spec = {};
+    spec.name = kLightPassRenderTargetResourceName;
+    spec.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
+    spec.format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    spec.flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+    spec.initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    spec.clearValue.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    spec.clearValue.Color[0] = 0.0f;
+    spec.clearValue.Color[1] = 0.0f;
+    spec.clearValue.Color[2] = 0.0f;
+    spec.clearValue.Color[3] = 1.0f;
+    spec.hasClearValue = true;
+    spec.persistent = true;
+    RegisterRenderTexture(spec);
+}
 
-    r.clearValue.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    r.clearValue.Color[0] = 0.0f;
-    r.clearValue.Color[1] = 0.0f;
-    r.clearValue.Color[2] = 0.0f;
-    r.clearValue.Color[3] = 1.0f;
-
-    r.initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
-
-    m_resourceRegistry.RegisterTransientResource(std::move(r));
+void RtPbrSurveyEngine::RegisterReflectionRadiance()
+{
+    Engine::RenderTextureSpec spec = {};
+    spec.name = kReflectionRadianceResourceName;
+    spec.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
+    spec.format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    spec.flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+    spec.initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    spec.clearValue.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    spec.clearValue.Color[0] = 0.0f;
+    spec.clearValue.Color[1] = 0.0f;
+    spec.clearValue.Color[2] = 0.0f;
+    spec.clearValue.Color[3] = 1.0f;
+    spec.hasClearValue = true;
+    spec.persistent = true;
+    RegisterRenderTexture(spec);
 }
 
 void RtPbrSurveyEngine::CreateDepthStencilDescriptors()
@@ -2858,9 +2878,9 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_resourceRegistry.UnregisterTransientResource(kDepthStencilResourceName);
     m_resourceRegistry.UnregisterTransientResource(kLightPassRenderTargetResourceName);
     m_resourceRegistry.UnregisterTransientResource(kReflectionRadianceResourceName);
-    RegisterDepthStencil(m_renderWidth, m_renderHeight);
-    RegisterLightPassRenderTarget(m_renderWidth, m_renderHeight);
-    RegisterReflectionRadiance(m_renderWidth, m_renderHeight);
+    RegisterDepthStencil();
+    RegisterLightPassRenderTarget();
+    RegisterReflectionRadiance();
     CreateGBuffer();
     CreateShadowMask(m_renderWidth, m_renderHeight);
     CreateReflectionRayHit(m_renderWidth, m_renderHeight);
@@ -3020,7 +3040,7 @@ void RtPbrSurveyEngine::CreateCommittedTransientResource(TransientResource& reso
                                                                      D3D12_HEAP_FLAG_NONE,
                                                                      &resource.desc,
                                                                      resource.initialState,
-                                                                     &resource.clearValue,
+                                                                     resource.hasClearValue ? &resource.clearValue : nullptr,
                                                                      IID_PPV_ARGS(&resource.resource)));
 }
 
