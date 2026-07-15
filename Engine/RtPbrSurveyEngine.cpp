@@ -2482,6 +2482,13 @@ D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetBackBufferRtv() const
     return h;
 }
 
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetRtv(UINT rtvIndex) const
+{
+    CD3DX12_CPU_DESCRIPTOR_HANDLE h(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
+    h.Offset(rtvIndex, m_rtvDescriptorSize);
+    return h;
+}
+
 D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetDepthDsv() const
 {
     return m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
@@ -2494,23 +2501,17 @@ D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetGBufferRTV(UINT index) const
 
 D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetLightPassRTV() const
 {
-    CD3DX12_CPU_DESCRIPTOR_HANDLE h(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
-    h.Offset(kLightPassRTVIndex, m_rtvDescriptorSize);
-    return h;
+    return GetRtv(kLightPassRTVIndex);
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionRadianceRTV() const
 {
-    CD3DX12_CPU_DESCRIPTOR_HANDLE h(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
-    h.Offset(kReflectionRadianceRTVIndex, m_rtvDescriptorSize);
-    return h;
+    return GetRtv(kReflectionRadianceRTVIndex);
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetTemporalUpscalerSceneColorRTV() const
 {
-    CD3DX12_CPU_DESCRIPTOR_HANDLE h(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
-    h.Offset(kTemporalUpscalerSceneColorRTVIndex, m_rtvDescriptorSize);
-    return h;
+    return GetRtv(kTemporalUpscalerSceneColorRTVIndex);
 }
 
 void RtPbrSurveyEngine::RegisterPassBindingResolvers()
@@ -3086,68 +3087,63 @@ void RtPbrSurveyEngine::BindCreatedTransientResource(const std::string& name, ID
         return;
     }
 
-    if (name == kLightPassRenderTargetResourceName)
+    if (BindCreatedColorRenderTexture(name, resource))
     {
-        m_lightPassRenderTarget = resource;
-        CreateLightPassRenderTargetDescriptors();
-        return;
-    }
-
-    if (name == kReflectionRadianceResourceName)
-    {
-        m_reflectionRadiance = resource;
-        CreateReflectionRadianceDescriptors();
-        return;
-    }
-
-    if (name == kTemporalUpscalerSceneColorResourceName)
-    {
-        m_temporalUpscalerSceneColor = resource;
-        CreateTemporalUpscalerSceneColorDescriptors();
         return;
     }
 
     assert(false && "Unsupported resource in BindCreatedTransientResource()");
 }
 
-void RtPbrSurveyEngine::CreateLightPassRenderTargetDescriptors()
+bool RtPbrSurveyEngine::BindCreatedColorRenderTexture(const std::string& name, ID3D12Resource* resource)
 {
-    m_graphicsDevice.Device()->CreateRenderTargetView(m_lightPassRenderTarget.Get(), nullptr, GetLightPassRTV());
+    const ColorRenderTextureBinding bindings[] = {
+        {kLightPassRenderTargetResourceName,
+         &RtPbrSurveyEngine::m_lightPassRenderTarget,
+         kLightPassRTVIndex,
+         &RtPbrSurveyEngine::m_lightPassColorSrv,
+         DXGI_FORMAT_R16G16B16A16_FLOAT},
+        {kReflectionRadianceResourceName,
+         &RtPbrSurveyEngine::m_reflectionRadiance,
+         kReflectionRadianceRTVIndex,
+         &RtPbrSurveyEngine::m_reflectionRadianceSrv,
+         DXGI_FORMAT_R16G16B16A16_FLOAT},
+        {kTemporalUpscalerSceneColorResourceName,
+         &RtPbrSurveyEngine::m_temporalUpscalerSceneColor,
+         kTemporalUpscalerSceneColorRTVIndex,
+         &RtPbrSurveyEngine::m_temporalUpscalerSceneColorSrv,
+         DXGI_FORMAT_R16G16B16A16_FLOAT},
+    };
 
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.Texture2D.MipLevels = 1;
-    m_graphicsDevice.Device()->CreateShaderResourceView(
-        m_lightPassRenderTarget.Get(), &srvDesc, m_lightPassColorSrv.cpu);
+    for (const ColorRenderTextureBinding& binding : bindings)
+    {
+        if (name != binding.resourceName)
+        {
+            continue;
+        }
+
+        (this->*binding.resource) = resource;
+        CreateColorRenderTextureDescriptors(
+            (this->*binding.resource).Get(), binding.rtvIndex, this->*binding.srv, binding.format);
+        return true;
+    }
+
+    return false;
 }
 
-void RtPbrSurveyEngine::CreateReflectionRadianceDescriptors()
+void RtPbrSurveyEngine::CreateColorRenderTextureDescriptors(ID3D12Resource* resource,
+                                                            UINT rtvIndex,
+                                                            DescriptorHeapHandle srv,
+                                                            DXGI_FORMAT format)
 {
-    m_graphicsDevice.Device()->CreateRenderTargetView(m_reflectionRadiance.Get(), nullptr, GetReflectionRadianceRTV());
+    m_graphicsDevice.Device()->CreateRenderTargetView(resource, nullptr, GetRtv(rtvIndex));
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    srvDesc.Format = format;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MipLevels = 1;
-    m_graphicsDevice.Device()->CreateShaderResourceView(
-        m_reflectionRadiance.Get(), &srvDesc, m_reflectionRadianceSrv.cpu);
-}
-
-void RtPbrSurveyEngine::CreateTemporalUpscalerSceneColorDescriptors()
-{
-    m_graphicsDevice.Device()->CreateRenderTargetView(
-        m_temporalUpscalerSceneColor.Get(), nullptr, GetTemporalUpscalerSceneColorRTV());
-
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.Texture2D.MipLevels = 1;
-    m_graphicsDevice.Device()->CreateShaderResourceView(
-        m_temporalUpscalerSceneColor.Get(), &srvDesc, m_temporalUpscalerSceneColorSrv.cpu);
+    m_graphicsDevice.Device()->CreateShaderResourceView(resource, &srvDesc, srv.cpu);
 }
 
 void RtPbrSurveyEngine::ReleaseResourcesAfterPass(int passIndex)

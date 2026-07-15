@@ -824,6 +824,15 @@ private:
         bool retired = false;        // false : waiting for GPU fence
     };
 
+    struct ColorRenderTextureBinding
+    {
+        const char* resourceName = nullptr;
+        ComPtr<ID3D12Resource> RtPbrSurveyEngine::*resource = nullptr;
+        UINT rtvIndex = 0;
+        DescriptorHeapHandle RtPbrSurveyEngine::*srv = nullptr;
+        DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+    };
+
     using ResourceRegistry = Engine::ResourceRegistry<TransientResource>;
     using ResourceUsage = Engine::ResourceUsage;
     using ResourceUsages = Engine::ResourceUsages;
@@ -958,6 +967,7 @@ private:
     void CreateReflectionRayEmission();
     void CreateReflectionRayEmissionDescriptors();
     D3D12_CPU_DESCRIPTOR_HANDLE GetBackBufferRtv() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetRtv(UINT rtvIndex) const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetDepthDsv() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetGBufferRTV(UINT index) const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetLightPassRTV() const;
@@ -1013,9 +1023,11 @@ private:
     void CreateResourcesForPass(int passIndex);
     void CreateCommittedTransientResource(TransientResource& resource);
     void BindCreatedTransientResource(const std::string& name, ID3D12Resource* resource);
-    void CreateLightPassRenderTargetDescriptors();
-    void CreateReflectionRadianceDescriptors();
-    void CreateTemporalUpscalerSceneColorDescriptors();
+    bool BindCreatedColorRenderTexture(const std::string& name, ID3D12Resource* resource);
+    void CreateColorRenderTextureDescriptors(ID3D12Resource* resource,
+                                             UINT rtvIndex,
+                                             DescriptorHeapHandle srv,
+                                             DXGI_FORMAT format);
     void CreateDsvHeap();
 
     void CreateGBuffer();
