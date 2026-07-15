@@ -14,4 +14,14 @@ TemporalUpscalerSupportInfo QueryStreamlineSupport()
     return info;
 }
 
+StreamlineEvaluateResult EvaluateStreamline(const StreamlineEvaluateInputs& inputs)
+{
+    UNREFERENCED_PARAMETER(inputs);
+
+    StreamlineEvaluateResult result;
+    result.outputAvailable = false;
+    result.status = TemporalUpscalerSupportStatus::NotIntegrated;
+    return result;
+}
+
 } // namespace Engine
