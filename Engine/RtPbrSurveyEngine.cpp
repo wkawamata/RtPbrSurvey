@@ -3471,6 +3471,27 @@ void RtPbrSurveyEngine::ExecuteLightingDebugGradientPass(const RenderPass& pass)
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "LightPassDebugGradient Pass");
 }
 
+void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+
+    assert(m_lightPassRenderTarget != nullptr);
+    assert(m_temporalUpscalerSceneColor != nullptr);
+
+    const D3D12_RESOURCE_DESC sourceDesc = m_lightPassRenderTarget->GetDesc();
+    const D3D12_RESOURCE_DESC outputDesc = m_temporalUpscalerSceneColor->GetDesc();
+    const bool canCopy = sourceDesc.Width == outputDesc.Width && sourceDesc.Height == outputDesc.Height &&
+                         sourceDesc.Format == outputDesc.Format;
+    assert(canCopy && "Identity temporal upscaler stub requires matching source and output textures.");
+    if (!canCopy)
+    {
+        return;
+    }
+
+    m_commandList->CopyResource(m_temporalUpscalerSceneColor.Get(), m_lightPassRenderTarget.Get());
+    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "TemporalUpscaler Pass");
+}
+
 void RtPbrSurveyEngine::ExecuteToneMapPass(const RenderPass& pass)
 {
     Engine::RecordToneMapPass(m_commandList.Get());

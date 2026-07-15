@@ -363,6 +363,7 @@ private:
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
             static constexpr const char* ReflectionEvaluate = "ReflectionEvaluate";
             static constexpr const char* ToneMap = "ToneMap";
+            static constexpr const char* TemporalUpscaler = "TemporalUpscaler";
             static constexpr const char* DebugDump = "DebugDump";
             static constexpr const char* PixelPick = "PixelPick";
             static constexpr const char* GBufferDebug = "GBufferDebug";
@@ -992,6 +993,7 @@ private:
     RenderPass MakeLightingPass();
     RenderPass MakeReflectionEvaluatePass();
     RenderPass MakeLightingDebugGradientPass();
+    RenderPass MakeTemporalUpscalerPass();
     RenderPass MakeToneMapPass();
     RenderPass MakeDebugDumpPass();
     RenderPass MakePixelPickPass();
@@ -1053,6 +1055,7 @@ private:
     void ExecuteLightingPass(const RenderPass& pass);
     void ExecuteReflectionEvaluatePass(const RenderPass& pass);
     void ExecuteLightingDebugGradientPass(const RenderPass& pass);
+    void ExecuteTemporalUpscalerPass(const RenderPass& pass);
     void ExecuteToneMapPass(const RenderPass& pass);
     void ExecuteDebugDumpPass(const RenderPass& pass);
     void ExecutePixelPickPass(const RenderPass& pass);

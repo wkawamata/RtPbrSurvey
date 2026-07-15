@@ -25,6 +25,10 @@ void RtPbrSurveyEngine::BuildRenderPasses()
         AddPass(MakeDepthPrePass());
         AddSceneRenderPasses();
         AddPass(MakeDebugLinePass());
+        if (ShouldRunTemporalUpscaler())
+        {
+            AddPass(MakeTemporalUpscalerPass());
+        }
         AddPass(MakeToneMapPass());
 
         if (m_debugViewSettings.requestHdrDump)
@@ -371,6 +375,16 @@ auto RtPbrSurveyEngine::MakeToneMapPass() -> RenderPass
         .Rtv(RtvName::BackBuffer)
         .Operation(Op::ToneMap, &RtPbrSurveyEngine::ExecuteToneMapPass)
         .Constants(RootSignatureLayout::ToneMapConstants, ConstName::ToneMap)
+        .Build();
+}
+
+auto RtPbrSurveyEngine::MakeTemporalUpscalerPass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"TemporalUpscalerPass")
+        .Reads({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
+        .Writes({{kTemporalUpscalerSceneColorResourceName, D3D12_RESOURCE_STATE_COPY_DEST}})
+        .Operation(Op::TemporalUpscaler, &RtPbrSurveyEngine::ExecuteTemporalUpscalerPass)
         .Build();
 }
 
