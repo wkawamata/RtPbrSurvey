@@ -41,6 +41,7 @@
 #include "Renderer/SimpleDescriptorHeapAllocator.h"
 #include "Renderer/ShadowMaskDebugPass.h"
 #include "Renderer/DebugLinePass.h"
+#include "Renderer/TemporalUpscalerSupport.h"
 #include "Renderer/ToneMap.h"
 #include "Scene/Scene.h"
 #include "TextureSemantic.h"
@@ -230,6 +231,9 @@ public:
         bool rayTracingSupported;
         const wchar_t* rayTracingTierName;
         int rayTracingTierRaw;
+        bool temporalUpscalerAvailable;
+        const char* temporalUpscalerBackendName;
+        const char* temporalUpscalerStatusText;
         const std::vector<MyDx12Util::GpuWorkMeter::CheckPoint>& gpuCheckPoints;
     };
 
@@ -255,6 +259,8 @@ public:
     void SetLightingParams(const LightingParams& params);
     void SetShadowSettings(const ShadowSettings& settings);
     const ShadowSettings& GetShadowSettings() const { return m_shadowSettings; }
+    void SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings);
+    const Engine::TemporalUpscalerSettings& GetTemporalUpscalerSettings() const { return m_temporalUpscalerSettings; }
     void SetHybridReflectionSettings(const HybridReflectionSettings& settings);
     const HybridReflectionSettings& GetHybridReflectionSettings() const { return m_hybridReflectionSettings; }
     void SetMaterialParams(UINT materialIndex, const MaterialParams& params);
@@ -337,6 +343,7 @@ private:
             static constexpr const char* GBufferEmissive = "GBufferEmissive";
             static constexpr const char* LightPass = "LightPass";
             static constexpr const char* ReflectionRadiance = "ReflectionRadiance";
+            static constexpr const char* TemporalUpscalerSceneColor = "TemporalUpscalerSceneColor";
         };
 
         struct Dsv
@@ -356,6 +363,7 @@ private:
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
             static constexpr const char* ReflectionEvaluate = "ReflectionEvaluate";
             static constexpr const char* ToneMap = "ToneMap";
+            static constexpr const char* TemporalUpscaler = "TemporalUpscaler";
             static constexpr const char* DebugDump = "DebugDump";
             static constexpr const char* PixelPick = "PixelPick";
             static constexpr const char* GBufferDebug = "GBufferDebug";
@@ -404,6 +412,7 @@ private:
     {
         DepthStencilSrvSlot,
         LightPassColorSrvSlot,
+        TemporalUpscalerSceneColorSrvSlot,
 
         PersistentSrvSlotCount,
     };
@@ -414,8 +423,8 @@ private:
     static constexpr UINT kTlasDescriptorCount = 1;       // TLAS SRV
 
     // Descriptor allocation order is tracked by DescriptorHeapHandle.
-    // Current persistent descriptors: GBuffer SRVs, depth SRV, LightPass SRV, TLAS SRV, environment map SRVs,
-    // texture table, instance buffers, material buffer, constant buffer, light constant buffer.
+    // Current persistent descriptors: GBuffer SRVs, depth SRV, LightPass SRV, temporal upscaler output SRV,
+    // TLAS SRV, environment map SRVs, texture table, instance buffers, material buffer, constant buffers.
     // ShadowMask descriptors live in a StagedDescriptorAllocator whose GPU
     // copies are staged into a reserved range of the main shader-visible heap.
     static constexpr UINT kMainHeapDescriptorCount = kTextureDescriptorCapacity + kInstanceBufferCount +
@@ -491,7 +500,8 @@ private:
     static constexpr UINT kGBufferRTVBaseIndex = kSwapChainRTVCount;
     static constexpr UINT kLightPassRTVIndex = kGBufferRTVBaseIndex + Engine::GBuffer::kCount;
     static constexpr UINT kReflectionRadianceRTVIndex = kLightPassRTVIndex + 1;
-    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 2;
+    static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionRadianceRTVIndex + 1;
+    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 3;
 
     struct DebugViewSettings
     {
@@ -602,6 +612,8 @@ private:
     GraphicsDevice& m_graphicsDevice;
     UINT m_width = 0;
     UINT m_height = 0;
+    UINT m_renderWidth = 0;
+    UINT m_renderHeight = 0;
     float m_aspectRatio = 0.0f;
     std::wstring m_assetsPath;
     std::wstring m_shaderPath;
@@ -612,6 +624,7 @@ private:
     ComPtr<ID3D12Resource> m_depthStencil;
     ComPtr<ID3D12Resource> m_lightPassRenderTarget;
     ComPtr<ID3D12Resource> m_reflectionRadiance;
+    ComPtr<ID3D12Resource> m_temporalUpscalerSceneColor;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
     ComPtr<ID3D12Resource> m_reflectionRayColor;
@@ -627,6 +640,7 @@ private:
     DescriptorHeapHandle m_reflectionRayEmissionUav;
     DescriptorHeapHandle m_depthStencilSrv;
     DescriptorHeapHandle m_lightPassColorSrv;
+    DescriptorHeapHandle m_temporalUpscalerSceneColorSrv;
     DescriptorHeapHandle m_reflectionRadianceSrv;
     StagedDescriptorRange m_shadowMaskRange;
 
@@ -659,6 +673,8 @@ private:
     RenderingPath m_renderingPath = RenderingPath::Deferred;
     bool m_lightingPassDebugGradientEnabled = false;
     Engine::RayTracingSupportInfo m_rayTracingSupport;
+    Engine::TemporalUpscalerSupportInfo m_temporalUpscalerSupport;
+    Engine::TemporalUpscalerSettings m_temporalUpscalerSettings;
     Engine::ToneMapPass m_toneMapPass;
     Engine::DebugLinePass m_debugLinePass;
 
@@ -773,6 +789,7 @@ private:
     static constexpr const char* kBackBufferResourceName = "BackBuffer";
     static constexpr const char* kDepthStencilResourceName = "DepthStencil";
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";
+    static constexpr const char* kTemporalUpscalerSceneColorResourceName = "TemporalUpscaler.SceneColor";
     static constexpr const char* kReflectionRadianceResourceName = "ReflectionRadiance";
     static constexpr const char* kGBufferResourceNames[Engine::GBuffer::kCount] = {
         "GBuffer.Albedo",
@@ -796,7 +813,11 @@ private:
         std::string name;
         D3D12_RESOURCE_DESC desc = {};
         D3D12_CLEAR_VALUE clearValue = {};
+        bool hasClearValue = false;
         D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON;
+        bool createRtv = false;
+        bool createSrv = false;
+        DXGI_FORMAT srvFormat = DXGI_FORMAT_UNKNOWN;
 
         ComPtr<ID3D12Resource> resource;
 
@@ -804,6 +825,14 @@ private:
         UINT64 retireFenceValue = 0;
         bool pendingRelease = false; // false : waiting for settign retireFenceValue
         bool retired = false;        // false : waiting for GPU fence
+    };
+
+    struct ColorRenderTextureBinding
+    {
+        const char* resourceName = nullptr;
+        ComPtr<ID3D12Resource> RtPbrSurveyEngine::*resource = nullptr;
+        UINT rtvIndex = 0;
+        DescriptorHeapHandle RtPbrSurveyEngine::*srv = nullptr;
     };
 
     using ResourceRegistry = Engine::ResourceRegistry<TransientResource>;
@@ -913,28 +942,49 @@ private:
     void UpdateCameraConstantBuffer();
     void CreateConstantBuffer(ConstantBufferResource& constantBuffer, const void* initialData, UINT sizeInBytes);
     void CreateDepthStencil(UINT width, UINT height);
-    void RegisterDepthStencil(UINT width, UINT height);
-    void RegisterLightPassRenderTarget(UINT width, UINT height);
-    void RegisterReflectionRadiance(UINT width, UINT height);
+    void RegisterDepthStencil();
+    void RegisterLightPassRenderTarget();
+    void RegisterReflectionRadiance();
+    void RegisterTemporalUpscalerSceneColor();
+    void RegisterRenderTexture(const Engine::RenderTextureSpec& spec);
+    UINT ResolveRenderTextureWidth(const Engine::RenderTextureSpec& spec) const;
+    UINT ResolveRenderTextureHeight(const Engine::RenderTextureSpec& spec) const;
+    D3D12_RESOURCE_DESC MakeRenderTextureDesc(const Engine::RenderTextureSpec& spec) const;
+    void CreateCommittedRenderTexture(const Engine::RenderTextureSpec& spec,
+                                      ComPtr<ID3D12Resource>& resource,
+                                      const wchar_t* debugName);
+    Engine::RenderTextureSpec MakeColorRenderTextureSpec(const char* name,
+                                                         Engine::RenderTextureSizeClass sizeClass) const;
+    Engine::RenderTextureSpec MakeRenderSizeTextureSpec(const char* name,
+                                                        DXGI_FORMAT format,
+                                                        D3D12_RESOURCE_FLAGS flags,
+                                                        D3D12_RESOURCE_STATES initialState) const;
     void CreateDepthStencilDescriptors();
-    void CreateShadowMask(UINT width, UINT height);
+    void CreateShadowMask();
     void CreateShadowMaskDescriptors();
-    void CreateReflectionRayHit(UINT width, UINT height);
+    void CreateReflectionRayHit();
     void CreateReflectionRayHitDescriptors();
-    void CreateReflectionRayColor(UINT width, UINT height);
+    void CreateReflectionRayColor();
     void CreateReflectionRayColorDescriptors();
-    void CreateReflectionRayMaterial(UINT width, UINT height);
+    void CreateReflectionRayMaterial();
     void CreateReflectionRayMaterialDescriptors();
-    void CreateReflectionRayEmission(UINT width, UINT height);
+    void CreateReflectionRayEmission();
     void CreateReflectionRayEmissionDescriptors();
     D3D12_CPU_DESCRIPTOR_HANDLE GetBackBufferRtv() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetRtv(UINT rtvIndex) const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetDepthDsv() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetGBufferRTV(UINT index) const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetLightPassRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionRadianceRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetTemporalUpscalerSceneColorRTV() const;
     void RegisterPassBindingResolvers();
     void RegisterPassConstantsHandlers();
     void RegisterResourceResolvers();
+    void UpdateRenderDimensions();
+    bool HasTemporalUpscalerPassOutput() const;
+    bool ShouldRunTemporalUpscaler() const;
+    const char* GetToneMapSceneColorResourceName() const;
+    D3D12_GPU_DESCRIPTOR_HANDLE ResolveToneMapSceneColorSrv() const;
 
     std::vector<UINT8> GenerateCheckerboardTextureData();
     std::vector<UINT8> GenerateSolidTextureData(UINT8 r, UINT8 g, UINT8 b, UINT8 a);
@@ -957,6 +1007,7 @@ private:
     RenderPass MakeLightingPass();
     RenderPass MakeReflectionEvaluatePass();
     RenderPass MakeLightingDebugGradientPass();
+    RenderPass MakeTemporalUpscalerPass();
     RenderPass MakeToneMapPass();
     RenderPass MakeDebugDumpPass();
     RenderPass MakePixelPickPass();
@@ -976,8 +1027,11 @@ private:
     void CreateResourcesForPass(int passIndex);
     void CreateCommittedTransientResource(TransientResource& resource);
     void BindCreatedTransientResource(const std::string& name, ID3D12Resource* resource);
-    void CreateLightPassRenderTargetDescriptors();
-    void CreateReflectionRadianceDescriptors();
+    bool BindCreatedColorRenderTexture(const std::string& name, ID3D12Resource* resource);
+    void CreateColorRenderTextureDescriptors(const TransientResource& transientResource,
+                                             ID3D12Resource* resource,
+                                             UINT rtvIndex,
+                                             DescriptorHeapHandle srv);
     void CreateDsvHeap();
 
     void CreateGBuffer();
@@ -1017,6 +1071,7 @@ private:
     void ExecuteLightingPass(const RenderPass& pass);
     void ExecuteReflectionEvaluatePass(const RenderPass& pass);
     void ExecuteLightingDebugGradientPass(const RenderPass& pass);
+    void ExecuteTemporalUpscalerPass(const RenderPass& pass);
     void ExecuteToneMapPass(const RenderPass& pass);
     void ExecuteDebugDumpPass(const RenderPass& pass);
     void ExecutePixelPickPass(const RenderPass& pass);
