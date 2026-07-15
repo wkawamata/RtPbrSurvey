@@ -100,6 +100,7 @@ Current Work-2 status:
 - `TemporalUpscalerPass` exists as a disabled identity-copy stub for the scale 1.0 case.
 - The upscaler pass is not active yet; `HasTemporalUpscalerPassOutput()` remains false until the backend/support path is ready.
 - Color render texture binding for `LightPass.RenderTarget`, `ReflectionRadiance`, and `TemporalUpscaler.SceneColor` is table-driven, reducing one-off descriptor setup in `RtPbrSurveyEngine`.
+- `RenderTextureSpec` carries basic RTV/SRV creation metadata, so view format ownership is no longer duplicated in the engine-side binding table.
 
 ## Future Temporal Upscaler Direction
 
