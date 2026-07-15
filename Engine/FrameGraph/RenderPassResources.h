@@ -1,4 +1,4 @@
-﻿//*********************************************************
+//*********************************************************
 //
 // Copyright (c) Microsoft. All rights reserved.
 // This code is licensed under the MIT License (MIT).
@@ -62,6 +62,30 @@ enum class TransientResourceState
     Created,
     PendingRelease1,
     PendingRelease2
+};
+
+enum class RenderTextureSizeClass
+{
+    Fixed,
+    RenderSize,
+    OutputSize,
+};
+
+struct RenderTextureSpec
+{
+    std::string name;
+    RenderTextureSizeClass sizeClass = RenderTextureSizeClass::Fixed;
+    UINT width = 0;
+    UINT height = 0;
+    DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+    D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
+    D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON;
+    D3D12_CLEAR_VALUE clearValue = {};
+    bool hasClearValue = false;
+    bool createRtv = false;
+    bool createSrv = false;
+    DXGI_FORMAT srvFormat = DXGI_FORMAT_UNKNOWN;
+    bool persistent = false;
 };
 
 template <typename TransientResourceT> class ResourceRegistry
