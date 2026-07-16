@@ -73,6 +73,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/ShadowMaskDebugPass.cpp
     Renderer/SpecularDebugRayQueryPass.cpp
     Renderer/StagedDescriptorAllocator_Test.cpp
+    Renderer/StreamlineAdapter.cpp
     Renderer/TemporalUpscalerSupport.cpp
     Renderer/ToneMap.cpp
     Runtime/SceneRenderer.cpp
