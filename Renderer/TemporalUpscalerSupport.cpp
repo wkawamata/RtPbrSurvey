@@ -4,12 +4,19 @@
 
 #include <algorithm>
 
+#include "StreamlineAdapter.h"
+
 namespace Engine
 {
 
 float TemporalUpscalerSettings::ClampedRenderScale() const
 {
     return std::clamp(renderScale, kMinRenderScale, kMaxRenderScale);
+}
+
+float TemporalUpscalerSettings::ClampedSharpness() const
+{
+    return std::clamp(sharpness, kMinSharpness, kMaxSharpness);
 }
 
 const char* TemporalUpscalerSupportInfo::BackendName() const
@@ -27,18 +34,26 @@ const char* TemporalUpscalerSupportInfo::BackendName() const
 
 const char* TemporalUpscalerSupportInfo::StatusText() const
 {
-    if (!available)
+    switch (status)
     {
-        return "SDK not integrated";
+        case TemporalUpscalerSupportStatus::NotIntegrated:
+            return "SDK not integrated";
+        case TemporalUpscalerSupportStatus::Available:
+            return "Available";
+        case TemporalUpscalerSupportStatus::UnsupportedAdapter:
+            return "Unsupported adapter";
+        case TemporalUpscalerSupportStatus::MissingRuntime:
+            return "Runtime missing";
+        case TemporalUpscalerSupportStatus::InitializationFailed:
+            return "Initialization failed";
+        default:
+            return "Unknown";
     }
-
-    return "Available";
 }
 
 TemporalUpscalerSupportInfo TemporalUpscalerSupportInfo::Create()
 {
-    TemporalUpscalerSupportInfo info;
-    return info;
+    return QueryStreamlineSupport();
 }
 
 } // namespace Engine

@@ -180,6 +180,9 @@
     <ClInclude Include="Renderer\StagedDescriptorAllocator.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\StreamlineAdapter.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\TemporalUpscalerSupport.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -357,6 +360,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\SceneGeometryPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\StreamlineAdapter.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\TemporalUpscalerSupport.cpp">

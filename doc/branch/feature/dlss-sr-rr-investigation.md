@@ -143,6 +143,71 @@ Keep the first SR work DLSS-focused, but avoid baking DLSS-specific concepts int
 
 NVIDIA Streamline headers and SDK-facing structs should not leak into broad renderer, app, or scene headers. Prefer a small adapter layer that translates from RtPbrSurvey-owned temporal-upscaler inputs into the backend-specific calls. This keeps compile-time impact local, makes it easier to build without SDK artifacts, and leaves room for a later Plugin DLL boundary where each external upscaler owns its SDK includes, binary loading, support queries, and evaluation calls.
 
+## Streamline Adapter Boundary
+
+`Renderer/StreamlineAdapter.h/.cpp` is the intended narrow boundary for NVIDIA-specific integration. The current adapter is a compile-safe stub with no SDK dependency:
+
+- `QueryStreamlineSupport()` returns `TemporalUpscalerBackend::Streamline`.
+- `available` remains `false` until SDK policy, artifact location, and support-query implementation are decided.
+- `status` is `NotIntegrated`, which the Debug UI reports as `SDK not integrated`.
+- `EvaluateStreamline()` accepts SDK-neutral frame input/output resource pointers and dimensions but returns `NotIntegrated` without touching the command list.
+- No NVIDIA or Streamline headers are included.
+- No SDK types appear in `Engine`, `App`, `Scene`, RenderGraph public interfaces, or broad renderer headers.
+
+Future SDK-backed code should keep these rules:
+
+- `TemporalUpscalerSupport.h` stays renderer-owned and SDK-neutral.
+- `StreamlineAdapter.cpp` is the only translation unit that includes Streamline headers.
+- If a Streamline declaration must appear outside the implementation file, hide it behind an opaque private type or move the boundary to a plugin DLL.
+- SDK binary discovery, `slInit`, plugin loading, feature support queries, resource tagging, and feature evaluation all belong behind the adapter.
+- The adapter should translate from RtPbrSurvey-owned resource handles and frame constants into backend calls; it should not make the renderer graph speak Streamline.
+
+## DLSS SR Input Contract
+
+The renderer-facing SR contract should stay backend-neutral, but it needs enough data for DLSS SR:
+
+- Input scene color: `LightPass.RenderTarget`, render resolution, HDR linear color before tone mapping.
+- Output scene color: `TemporalUpscaler.SceneColor`, output resolution, HDR linear color before tone mapping.
+- Depth: render-resolution scene depth matching the GBuffer and input scene color.
+- Motion vectors: `GBuffer.MotionVector`, render resolution. The current convention is NDC delta and must be verified against Streamline's expected scale/sign before enabling DLSS.
+- Camera constants: current view/projection, previous view/projection, inverse view/projection, camera near/far if required by the backend.
+- Jitter constants: current jitter offset, previous jitter offset, reset/history-invalid flag. This is not yet fully plumbed.
+- Exposure: either Streamline auto exposure initially, or a renderer-owned exposure resource once the tone/exposure path has one.
+- Render/output dimensions: render width/height and output width/height, derived from `TemporalUpscalerSettings`.
+- Quality settings: backend, enabled flag, render scale or quality mode, sharpness/preset, auto exposure policy.
+
+The adapter should not activate the upscaler until the contract can provide all required SR inputs or can explicitly report which requirement is missing.
+
+Current Work-3 status:
+
+- The `StreamlineEvaluateInputs` stub has fields for command list, input scene color, depth, motion vectors, output scene color, settings, render/output dimensions, and history reset.
+- It is intentionally not connected to `TemporalUpscalerPass` yet.
+- The renderer still treats the backend as unavailable, so native rendering remains the active path.
+
+## DLSS RR Input Contract
+
+RR should remain second-phase work. Before SDK wiring, the renderer needs a stable reflection/ray signal contract:
+
+- Raw ray hit signal: hit distance, hit/miss flag, hit normal or encoded normal, and any mask needed for validity.
+- Noisy/evaluated reflection radiance: `ReflectionRadiance` is the current provisional buffer to follow.
+- Visible-surface data: depth, normals, roughness/metallic/material information, and motion vectors at render resolution.
+- Scene color context: the pre-tonemap lighting result or reflection contribution boundary chosen for RR.
+- History/reset state: camera cuts, scene changes, and render-size changes should invalidate RR history.
+- Debug views: existing hit/distance/normal overlays should remain available while RR inputs are validated.
+
+The current safer placement remains reconstructing `ReflectionRadiance` before `LightPass`, because final scene color composition stays owned by `LightPass`.
+
+## Future Plugin DLL Boundary
+
+If external upscalers move behind plugin DLLs, keep the host/plugin contract RtPbrSurvey-owned:
+
+- Host-owned inputs: D3D12 device, command queue or command list access policy, source/destination resources, descriptor handles or descriptor allocation callbacks, frame constants, dimensions, and settings.
+- Plugin-owned details: vendor SDK headers, SDK DLL loading, plugin DLL loading, support query implementation, backend-specific constants, resource tagging, and evaluation calls.
+- Host-visible results: support status, fallback reason, recommended render scale, whether history must reset, and whether the backend produced a valid output resource for `TemporalUpscaler.SceneColor`.
+- Versioning: use an explicit ABI/version field if the boundary becomes binary. Do not expose STL types, COM smart pointers, or vendor SDK structs across the DLL boundary.
+
+This keeps the renderer core compatible with multiple backends while allowing each external integration to carry its own licensing and redistribution policy.
+
 ## Proposed RR Shape
 
 Hybrid Reflection coordination result:
