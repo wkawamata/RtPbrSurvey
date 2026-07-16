@@ -5,18 +5,18 @@
 RayQuery shadow validation scenes already exist:
 
 - `Shadow Test: Ground + Cubes`
-- `Animated Shadow Grid`
-- `Contact Shadow Test`
-- `Occluder Wall Test`
+- `Shadow Test: Animated Shadow Grid`
+- `Shadow Test: Contact Shadow Test`
+- `Shadow Test: Occluder Wall Test`
 
 Do not add another dedicated shadow scene unless a new failure mode cannot be isolated with these scenes. Prefer improving UI presets, camera defaults, and this comparison checklist so the same scenes remain easy to compare across branches.
 
 ## Scene Usage
 
 - `Shadow Test: Ground + Cubes`: primary static comparison scene for shadow direction, bias, normal bias, peter-panning, light size, and soft-shadow stability.
-- `Animated Shadow Grid`: moving-object scene for TLAS rebuild timing, `prevWorld`/motion-vector sanity, animated occluders, and pause behavior.
-- `Contact Shadow Test`: close-contact scene for acne versus detached-contact tuning.
-- `Occluder Wall Test`: blocker/receiver separation scene for missed occluders, back-face culling mistakes, and long-ray behavior.
+- `Shadow Test: Animated Shadow Grid`: moving-object scene for TLAS rebuild timing, `prevWorld`/motion-vector sanity, animated occluders, and pause behavior.
+- `Shadow Test: Contact Shadow Test`: close-contact scene for acne versus detached-contact tuning.
+- `Shadow Test: Occluder Wall Test`: blocker/receiver separation scene for missed occluders, back-face culling mistakes, and long-ray behavior.
 
 Recommended debug view sequence:
 
@@ -40,8 +40,8 @@ After applying a preset, adjust individual sliders only for the specific questio
 - Bias / normal bias: compare acne on flat receivers against peter-panning around cube feet and sphere contact points.
 - Soft shadow: compare `Hard Ref` against `Soft Compare` in `ShadowMask` and `Lit`; the lit edge should soften without flipping direction or losing blockers.
 - Light size: increase `Light Angular Radius` and confirm penumbra width grows predictably while hard-shadow contact remains plausible.
-- Moving object: in `Animated Shadow Grid`, confirm animated cube rotation and bounce update the TLAS and ShadowMask each frame.
-- Pause behavior: press Space while viewing `Animated Shadow Grid`; cube orientation, TLAS debug, and ShadowMask should freeze without snapping.
+- Moving object: in `Shadow Test: Animated Shadow Grid`, confirm animated cube rotation and bounce update the TLAS and ShadowMask each frame.
+- Pause behavior: press Space while viewing `Shadow Test: Animated Shadow Grid`; cube orientation, TLAS debug, and ShadowMask should freeze without snapping.
 - Back-face culling: cube shadows should not lose faces when viewed from different light/camera angles.
 - Ray distance: use `Ray TMax` changes only to isolate far-blocker issues; do not use it as a substitute for fixing transforms or culling.
 

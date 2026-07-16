@@ -428,7 +428,26 @@ std::optional<SceneConfig> SceneConfigManager::FindEntryByIndex(
     const Engine::SampleScene& scene,
     int sceneIndex) const
 {
-    return FindEntry(configs, SceneConfigKey(scene, sceneIndex));
+    auto entry = FindEntry(configs, SceneConfigKey(scene, sceneIndex));
+    if (entry.has_value())
+    {
+        return entry;
+    }
+
+    if (dynamic_cast<const Engine::AnimatedShadowGridScene*>(&scene) != nullptr)
+    {
+        return FindEntry(configs, "Animated Shadow Grid");
+    }
+    if (dynamic_cast<const Engine::ContactShadowTestScene*>(&scene) != nullptr)
+    {
+        return FindEntry(configs, "Contact Shadow Test");
+    }
+    if (dynamic_cast<const Engine::OccluderWallTestScene*>(&scene) != nullptr)
+    {
+        return FindEntry(configs, "Occluder Wall Test");
+    }
+
+    return std::nullopt;
 }
 
 std::string SceneConfigManager::SceneConfigKey(const Engine::SampleScene& scene, int /*sceneIndex*/) const
@@ -922,7 +941,27 @@ ConfigSource SceneConfigManager::ActiveSource(const std::string& sceneName) cons
 
 ConfigSource SceneConfigManager::ActiveSourceForScene(const Engine::SampleScene& scene, int sceneIndex) const
 {
-    return ActiveSource(SceneConfigKey(scene, sceneIndex));
+    const std::string key = SceneConfigKey(scene, sceneIndex);
+    ConfigSource source = ActiveSource(key);
+    if (source != ConfigSource::CodeDefaults)
+    {
+        return source;
+    }
+
+    if (dynamic_cast<const Engine::AnimatedShadowGridScene*>(&scene) != nullptr)
+    {
+        return ActiveSource("Animated Shadow Grid");
+    }
+    if (dynamic_cast<const Engine::ContactShadowTestScene*>(&scene) != nullptr)
+    {
+        return ActiveSource("Contact Shadow Test");
+    }
+    if (dynamic_cast<const Engine::OccluderWallTestScene*>(&scene) != nullptr)
+    {
+        return ActiveSource("Occluder Wall Test");
+    }
+
+    return source;
 }
 
 } // namespace App

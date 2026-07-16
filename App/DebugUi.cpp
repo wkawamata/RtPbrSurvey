@@ -212,8 +212,23 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     Engine::SampleScene& loadedScene = app.LoadedScene();
     Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();
 
-    ImGui::Text("Hello ImGui");
-    ImGui::Text("Scene: %s", loadedScene.Name());
+    ImGui::TextDisabled("Current Scene");
+    const char* sceneName = loadedScene.Name();
+    const char* sceneNameBreak = strchr(sceneName, ':');
+    if (sceneNameBreak != nullptr && sceneNameBreak[1] == ' ')
+    {
+        ImGui::TextColored(ImVec4(0.65f, 0.78f, 0.95f, 1.0f), "%.*s",
+                           static_cast<int>(sceneNameBreak - sceneName),
+                           sceneName);
+        ImGui::Indent();
+        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneNameBreak + 2);
+        ImGui::Unindent();
+    }
+    else
+    {
+        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneName);
+    }
+    ImGui::Separator();
     ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
     ImGui::Text("FrameIndex: %d", context.frameIndex);
     ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
@@ -488,7 +503,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             ImGui::SameLine();
         }
         ImGui::NewLine();
-        ImGui::TextWrapped("Use Ground + Cubes for bias and light-size checks; Animated Shadow Grid for moving-object/TLAS rebuild checks.");
+        ImGui::TextWrapped(
+            "Use Shadow Test scenes for bias, light-size, contact, occluder, and moving-object/TLAS rebuild checks.");
 
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Normal Bias", &shadowSettings.normalBias, 0.0f, 0.1f, 0.001f, 0.01f);

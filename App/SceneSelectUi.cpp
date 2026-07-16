@@ -2,6 +2,8 @@
 #include "SceneSelectUi.h"
 #include "RtPbrSurveyApp.h"
 
+#include <cstring>
+
 #include <imgui.h>
 
 namespace App
@@ -19,12 +21,27 @@ void DrawSceneSelectUi(RtPbrSurveyApp& app)
     ImGui::Text("glTF Viewer");
     ImGui::Separator();
     ImGui::PushID("gltf-viewer");
-    for (int i = 0; i < app.m_gltfViewerCount; i++)
+    const bool viewerSelectionActive = app.m_selectedSceneIndex >= 0 && app.m_selectedSceneIndex < app.m_gltfViewerCount;
+    const char* viewerPreview =
+        viewerSelectionActive ? app.m_sampleScenes[static_cast<size_t>(app.m_selectedSceneIndex)]->Name() : "Select viewer asset";
+    if (ImGui::BeginCombo("Asset", viewerPreview))
     {
-        const bool available = app.m_sampleScenes[static_cast<size_t>(i)]->Available();
-        ImGui::BeginDisabled(!available);
-        ImGui::RadioButton(app.m_sampleScenes[static_cast<size_t>(i)]->Name(), &app.m_selectedSceneIndex, i);
-        ImGui::EndDisabled();
+        for (int i = 0; i < app.m_gltfViewerCount; i++)
+        {
+            const bool available = app.m_sampleScenes[static_cast<size_t>(i)]->Available();
+            const bool selected = app.m_selectedSceneIndex == i;
+            ImGui::BeginDisabled(!available);
+            if (ImGui::Selectable(app.m_sampleScenes[static_cast<size_t>(i)]->Name(), selected))
+            {
+                app.m_selectedSceneIndex = i;
+            }
+            ImGui::EndDisabled();
+            if (selected)
+            {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
     }
     ImGui::PopID();
 
@@ -32,21 +49,57 @@ void DrawSceneSelectUi(RtPbrSurveyApp& app)
     ImGui::Text("glTF Grid Benchmark");
     ImGui::Separator();
     ImGui::PushID("gltf-grid-benchmark");
-    for (int i = benchmarkStart; i < benchmarkStart + app.m_gltfSceneCount; i++)
+    const bool benchmarkSelectionActive =
+        app.m_selectedSceneIndex >= benchmarkStart && app.m_selectedSceneIndex < benchmarkStart + app.m_gltfSceneCount;
+    const char* benchmarkPreview = benchmarkSelectionActive
+        ? app.m_sampleScenes[static_cast<size_t>(app.m_selectedSceneIndex)]->Name()
+        : "Select benchmark asset";
+    if (ImGui::BeginCombo("Asset", benchmarkPreview))
     {
-        const bool available = app.m_sampleScenes[static_cast<size_t>(i)]->Available();
-        ImGui::BeginDisabled(!available);
-        ImGui::RadioButton(app.m_sampleScenes[static_cast<size_t>(i)]->Name(), &app.m_selectedSceneIndex, i);
-        ImGui::EndDisabled();
+        for (int i = benchmarkStart; i < benchmarkStart + app.m_gltfSceneCount; i++)
+        {
+            const bool available = app.m_sampleScenes[static_cast<size_t>(i)]->Available();
+            const bool selected = app.m_selectedSceneIndex == i;
+            ImGui::BeginDisabled(!available);
+            if (ImGui::Selectable(app.m_sampleScenes[static_cast<size_t>(i)]->Name(), selected))
+            {
+                app.m_selectedSceneIndex = i;
+            }
+            ImGui::EndDisabled();
+            if (selected)
+            {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
     }
     ImGui::PopID();
 
     ImGui::Dummy(ImVec2(0.0f, 4.0f));
     ImGui::Text("Demo Scenes");
     ImGui::Separator();
+    bool shadowTestHeaderShown = false;
+    static constexpr const char* kShadowTestPrefix = "Shadow Test: ";
+    static constexpr size_t kShadowTestPrefixLength = 13;
     for (int i = demoSceneStart; i < sceneCount; i++)
     {
-        ImGui::RadioButton(app.m_sampleScenes[static_cast<size_t>(i)]->Name(), &app.m_selectedSceneIndex, i);
+        const char* sceneName = app.m_sampleScenes[static_cast<size_t>(i)]->Name();
+        if (strncmp(sceneName, kShadowTestPrefix, kShadowTestPrefixLength) == 0)
+        {
+            if (!shadowTestHeaderShown)
+            {
+                ImGui::Dummy(ImVec2(0.0f, 2.0f));
+                ImGui::Text("Shadow Test");
+                shadowTestHeaderShown = true;
+            }
+            ImGui::Indent();
+            ImGui::RadioButton(sceneName + kShadowTestPrefixLength, &app.m_selectedSceneIndex, i);
+            ImGui::Unindent();
+        }
+        else
+        {
+            ImGui::RadioButton(sceneName, &app.m_selectedSceneIndex, i);
+        }
     }
 
     ImGui::Dummy(ImVec2(0.0f, 8.0f));

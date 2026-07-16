@@ -938,7 +938,7 @@ AnimatedShadowGridScene::AnimatedShadowGridScene(int maxInstanceCount)
 
 const char* AnimatedShadowGridScene::Name() const
 {
-    return "Animated Shadow Grid";
+    return "Shadow Test: Animated Shadow Grid";
 }
 
 void AnimatedShadowGridScene::Load()
@@ -999,9 +999,15 @@ void AnimatedShadowGridScene::InitInstances()
     m_scene.instances.resize(m_maxInstanceCount);
     m_animData.resize(m_maxInstanceCount);
 
+    const int cubeCount = m_maxInstanceCount - 1;
+    const int gridDim = static_cast<int>(std::ceil(std::sqrt(static_cast<float>(cubeCount))));
+    const float spacing = 1.5f;
+    const float offset = static_cast<float>(gridDim - 1) * spacing * 0.5f;
+    const float floorSize = static_cast<float>(gridDim - 1) * spacing + spacing * 2.0f;
+
     // Instance 0: static receiver floor, using the same unit cube mesh as the animated cubes.
     {
-        const XMMATRIX scaleMat = XMMatrixScaling(10.0f, 0.05f, 10.0f);
+        const XMMATRIX scaleMat = XMMatrixScaling(floorSize, 0.05f, floorSize);
         const XMMATRIX transMat = XMMatrixTranslation(0.0f, -0.025f, 0.0f);
         XMStoreFloat4x4(&m_scene.instances[0].world, XMMatrixTranspose(scaleMat * transMat));
         m_scene.instances[0].prevWorld = m_scene.instances[0].world;
@@ -1009,11 +1015,6 @@ void AnimatedShadowGridScene::InitInstances()
     }
 
     // Remaining instances: animated cubes
-    const int cubeCount = m_maxInstanceCount - 1;
-    const int gridDim = static_cast<int>(std::ceil(std::sqrt(static_cast<float>(cubeCount))));
-    const float spacing = 1.5f;
-    const float offset = static_cast<float>(gridDim - 1) * spacing * 0.5f;
-
     for (int i = 0; i < cubeCount; i++)
     {
         const int idx = i + 1;
@@ -1122,7 +1123,7 @@ ContactShadowTestScene::ContactShadowTestScene(int maxInstanceCount) : m_maxInst
 
 const char* ContactShadowTestScene::Name() const
 {
-    return "Contact Shadow Test";
+    return "Shadow Test: Contact Shadow Test";
 }
 
 void ContactShadowTestScene::Load()
@@ -1237,7 +1238,7 @@ OccluderWallTestScene::OccluderWallTestScene(int maxInstanceCount) : m_maxInstan
 
 const char* OccluderWallTestScene::Name() const
 {
-    return "Occluder Wall Test";
+    return "Shadow Test: Occluder Wall Test";
 }
 
 void OccluderWallTestScene::Load()
