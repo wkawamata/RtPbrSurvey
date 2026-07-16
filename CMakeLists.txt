@@ -25,6 +25,13 @@ set(RTPBRSURVEY_WINPIX_PACKAGE_DIR
 
 set(RTPBRSURVEY_D3D12_NATIVE_DIR "${RTPBRSURVEY_D3D12_PACKAGE_DIR}/build/native")
 set(RTPBRSURVEY_DXC_NATIVE_DIR "${RTPBRSURVEY_DXC_PACKAGE_DIR}/build/native")
+set(RTPBRSURVEY_SHADER_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
+
+set_property(GLOBAL PROPERTY RTPBRSURVEY_ROOT "${RTPBRSURVEY_ROOT}")
+set_property(GLOBAL PROPERTY RTPBRSURVEY_D3D12_NATIVE_DIR "${RTPBRSURVEY_D3D12_NATIVE_DIR}")
+set_property(GLOBAL PROPERTY RTPBRSURVEY_DXC_NATIVE_DIR "${RTPBRSURVEY_DXC_NATIVE_DIR}")
+set_property(GLOBAL PROPERTY RTPBRSURVEY_WINPIX_PACKAGE_DIR "${RTPBRSURVEY_WINPIX_PACKAGE_DIR}")
+set_property(GLOBAL PROPERTY RTPBRSURVEY_SHADER_OUTPUT_DIR "${RTPBRSURVEY_SHADER_OUTPUT_DIR}")
 
 if(NOT EXISTS "${RTPBRSURVEY_D3D12_NATIVE_DIR}/include/d3d12.h")
     message(FATAL_ERROR
@@ -73,6 +80,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/ShadowMaskDebugPass.cpp
     Renderer/SpecularDebugRayQueryPass.cpp
     Renderer/StagedDescriptorAllocator_Test.cpp
+    Renderer/StreamlineAdapter.cpp
     Renderer/TemporalUpscalerSupport.cpp
     Renderer/ToneMap.cpp
     Runtime/SceneRenderer.cpp
@@ -137,10 +145,10 @@ endif()
 
 function(rtpbrsurvey_add_shader output_var shader_file stage entry_point)
     get_filename_component(shader_name "${shader_file}" NAME_WE)
-    set(output_file "${CMAKE_CURRENT_BINARY_DIR}/shaders/${shader_name}_${entry_point}.cso")
+    set(output_file "${RTPBRSURVEY_SHADER_OUTPUT_DIR}/${shader_name}_${entry_point}.cso")
     add_custom_command(
         OUTPUT "${output_file}"
-        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/shaders"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${RTPBRSURVEY_SHADER_OUTPUT_DIR}"
         COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe"
             -nologo "-T${stage}" "-E${entry_point}" -Zi -Qembed_debug
             "-Fo${output_file}" "${RTPBRSURVEY_ROOT}/${shader_file}"
@@ -184,19 +192,25 @@ if(RTPBRSURVEY_BUILD_SHADERS)
 endif()
 
 function(rtpbrsurvey_copy_runtime_files target)
+    get_property(rtpbrsurvey_root GLOBAL PROPERTY RTPBRSURVEY_ROOT)
+    get_property(rtpbrsurvey_d3d12_native_dir GLOBAL PROPERTY RTPBRSURVEY_D3D12_NATIVE_DIR)
+    get_property(rtpbrsurvey_dxc_native_dir GLOBAL PROPERTY RTPBRSURVEY_DXC_NATIVE_DIR)
+    get_property(rtpbrsurvey_winpix_package_dir GLOBAL PROPERTY RTPBRSURVEY_WINPIX_PACKAGE_DIR)
+    get_property(rtpbrsurvey_shader_output_dir GLOBAL PROPERTY RTPBRSURVEY_SHADER_OUTPUT_DIR)
+
     add_custom_command(TARGET ${target} POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
-            "${RTPBRSURVEY_ROOT}/Assets"
+            "${rtpbrsurvey_root}/Assets"
             "$<TARGET_FILE_DIR:${target}>/Assets"
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
-            "${RTPBRSURVEY_D3D12_NATIVE_DIR}/bin/x64"
+            "${rtpbrsurvey_d3d12_native_dir}/bin/x64"
             "$<TARGET_FILE_DIR:${target}>/D3D12"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-            "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxcompiler.dll"
-            "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxil.dll"
+            "${rtpbrsurvey_dxc_native_dir}/bin/x64/dxcompiler.dll"
+            "${rtpbrsurvey_dxc_native_dir}/bin/x64/dxil.dll"
             "$<TARGET_FILE_DIR:${target}>"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-            "${RTPBRSURVEY_WINPIX_PACKAGE_DIR}/bin/x64/WinPixEventRuntime.dll"
+            "${rtpbrsurvey_winpix_package_dir}/bin/x64/WinPixEventRuntime.dll"
             "$<TARGET_FILE_DIR:${target}>"
         VERBATIM)
 
@@ -204,7 +218,7 @@ function(rtpbrsurvey_copy_runtime_files target)
         add_dependencies(${target} RtPbrSurvey.Shaders)
         add_custom_command(TARGET ${target} POST_BUILD
             COMMAND "${CMAKE_COMMAND}" -E copy_directory
-                "${CMAKE_CURRENT_BINARY_DIR}/shaders"
+                "${rtpbrsurvey_shader_output_dir}"
                 "$<TARGET_FILE_DIR:${target}>"
             VERBATIM)
     endif()

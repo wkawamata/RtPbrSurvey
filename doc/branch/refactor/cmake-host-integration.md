@@ -49,6 +49,9 @@ rtpbrsurvey_copy_runtime_files(TankSandbox)
 - `dxil.dll`
 - `WinPixEventRuntime.dll`
 
+The helper is intended to be called by a parent host project after `add_subdirectory(External/RtPbrSurvey)`.
+It uses RtPbrSurvey's own source, package, and shader output paths rather than the caller's current source or binary directory.
+
 ## Minimal Host Flow
 
 ```cpp
