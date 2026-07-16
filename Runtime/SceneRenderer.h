@@ -34,6 +34,7 @@ namespace RtPbrSurvey
         void RunFrame(const UiRenderHandler& uiRenderHandler);
 
         void SetScene(const Scene& scene);
+        // Rebuilds GPU resources for the scene and keeps a visible instance count clamped to the scene.
         void ReloadSceneResources(const Scene& scene);
         void CloseSceneResources();
 

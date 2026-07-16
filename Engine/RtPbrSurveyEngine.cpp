@@ -350,9 +350,17 @@ void RtPbrSurveyEngine::SetScene(const Scene& scene)
 
 void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
 {
+    const int previousDisplayInstanceCount = m_displayInstanceCount;
+    const int sceneInstanceCount = static_cast<int>((std::min)(
+        scene.instances.size(),
+        static_cast<size_t>(kMaxInstanceCount)));
+
     WaitForGpu();
     ReleaseSceneResources();
     SetScene(scene);
+    m_displayInstanceCount = previousDisplayInstanceCount > 0 ?
+        std::clamp(previousDisplayInstanceCount, 0, sceneInstanceCount) :
+        sceneInstanceCount;
 
     ThrowIfFailed(m_frameResources[m_currentFrameIndex].commandAllocator->Reset());
     ThrowIfFailed(m_commandList->Reset(m_frameResources[m_currentFrameIndex].commandAllocator.Get(),

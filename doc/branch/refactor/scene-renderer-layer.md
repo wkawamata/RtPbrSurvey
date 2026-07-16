@@ -40,6 +40,7 @@ renderer.SetUpdateHandler([&]() {
 
     sceneBuilder.Clear();
     // Fill sceneBuilder from simulation objects.
+    // AddInstance accepts ordinary DirectXMath world matrices.
     // Use AddInstance(world, prevWorld, materialId) for moving objects.
     renderer.SetScene(sceneBuilder.GetScene());
 });
@@ -49,7 +50,7 @@ renderer.RunFrame([&](ID3D12GraphicsCommandList* commandList) {
 });
 ```
 
-Call `ReloadSceneResources()` when the mesh, materials, textures, or instance capacity change. Per-frame transform-only updates should use `SetScene()` from the update handler after resources are loaded.
+Call `ReloadSceneResources()` when the mesh, materials, textures, or instance capacity change. Reload keeps the previous visible instance count clamped to the new scene; if the count was zero, the new scene's instance count becomes visible by default. Per-frame transform-only updates should use `SetScene()` from the update handler after resources are loaded.
 
 Use `SceneRenderer::SetToolUiHandler()` or draw host ImGui windows before `RunFrame()`'s UI render callback. Tank-specific panels can stay in Tank code; renderer debug UI can remain hidden by default and only be opened when needed.
 
