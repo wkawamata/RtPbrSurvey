@@ -8,3 +8,4 @@ d3d12_debug.log
 bin/
 obj/
 build/
+/third_party/streamline-sdk-*/
