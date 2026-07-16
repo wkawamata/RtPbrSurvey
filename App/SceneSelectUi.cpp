@@ -43,6 +43,12 @@ void DrawSceneSelectUi(RtPbrSurveyApp& app)
         }
         ImGui::EndCombo();
     }
+    ImGui::BeginDisabled(!viewerSelectionActive);
+    if (ImGui::Button("Load Scene"))
+    {
+        app.OpenSelectedScene();
+    }
+    ImGui::EndDisabled();
     ImGui::PopID();
 
     ImGui::Dummy(ImVec2(0.0f, 4.0f));
@@ -73,12 +79,20 @@ void DrawSceneSelectUi(RtPbrSurveyApp& app)
         }
         ImGui::EndCombo();
     }
+    ImGui::BeginDisabled(!benchmarkSelectionActive);
+    if (ImGui::Button("Load Scene"))
+    {
+        app.OpenSelectedScene();
+    }
+    ImGui::EndDisabled();
     ImGui::PopID();
 
     ImGui::Dummy(ImVec2(0.0f, 4.0f));
     ImGui::Text("Demo Scenes");
     ImGui::Separator();
-    bool shadowTestHeaderShown = false;
+    const bool demoSelectionActive = app.m_selectedSceneIndex >= demoSceneStart && app.m_selectedSceneIndex < sceneCount;
+    bool shadowTestStarted = false;
+    bool shadowTestOpen = false;
     static constexpr const char* kShadowTestPrefix = "Shadow Test: ";
     static constexpr size_t kShadowTestPrefixLength = 13;
     for (int i = demoSceneStart; i < sceneCount; i++)
@@ -86,27 +100,37 @@ void DrawSceneSelectUi(RtPbrSurveyApp& app)
         const char* sceneName = app.m_sampleScenes[static_cast<size_t>(i)]->Name();
         if (strncmp(sceneName, kShadowTestPrefix, kShadowTestPrefixLength) == 0)
         {
-            if (!shadowTestHeaderShown)
+            if (!shadowTestStarted)
             {
                 ImGui::Dummy(ImVec2(0.0f, 2.0f));
-                ImGui::Text("Shadow Test");
-                shadowTestHeaderShown = true;
+                shadowTestOpen = ImGui::TreeNodeEx("Shadow Test", ImGuiTreeNodeFlags_DefaultOpen);
+                shadowTestStarted = true;
             }
-            ImGui::Indent();
-            ImGui::RadioButton(sceneName + kShadowTestPrefixLength, &app.m_selectedSceneIndex, i);
-            ImGui::Unindent();
+            if (shadowTestOpen)
+            {
+                ImGui::RadioButton(sceneName + kShadowTestPrefixLength, &app.m_selectedSceneIndex, i);
+            }
         }
         else
         {
+            if (shadowTestOpen)
+            {
+                ImGui::TreePop();
+                shadowTestOpen = false;
+            }
             ImGui::RadioButton(sceneName, &app.m_selectedSceneIndex, i);
         }
     }
-
-    ImGui::Dummy(ImVec2(0.0f, 8.0f));
+    if (shadowTestOpen)
+    {
+        ImGui::TreePop();
+    }
+    ImGui::BeginDisabled(!demoSelectionActive);
     if (ImGui::Button("Load Scene"))
     {
         app.OpenSelectedScene();
     }
+    ImGui::EndDisabled();
 
     const bool hasLoadedScene = app.m_loadedSceneIndex >= 0;
     const bool selectedSceneIsLoaded = hasLoadedScene && app.m_selectedSceneIndex == app.m_loadedSceneIndex;
