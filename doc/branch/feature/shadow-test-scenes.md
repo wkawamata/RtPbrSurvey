@@ -2,7 +2,48 @@
 
 ## RayQuery Shadow Notes
 
-This branch adds validation scenes for RayQuery shadows: Ground + Cubes, Animated Shadow Grid, Contact Shadow Test, and Occluder Wall Test.
+RayQuery shadow validation scenes already exist:
+
+- `Shadow Test: Ground + Cubes`
+- `Animated Shadow Grid`
+- `Contact Shadow Test`
+- `Occluder Wall Test`
+
+Do not add another dedicated shadow scene unless a new failure mode cannot be isolated with these scenes. Prefer improving UI presets, camera defaults, and this comparison checklist so the same scenes remain easy to compare across branches.
+
+## Scene Usage
+
+- `Shadow Test: Ground + Cubes`: primary static comparison scene for shadow direction, bias, normal bias, peter-panning, light size, and soft-shadow stability.
+- `Animated Shadow Grid`: moving-object scene for TLAS rebuild timing, `prevWorld`/motion-vector sanity, animated occluders, and pause behavior.
+- `Contact Shadow Test`: close-contact scene for acne versus detached-contact tuning.
+- `Occluder Wall Test`: blocker/receiver separation scene for missed occluders, back-face culling mistakes, and long-ray behavior.
+
+Recommended debug view sequence:
+
+1. Use `ShadowMask` first to inspect the binary or softened mask without direct-light shading.
+2. Switch back to `Lit` and confirm the direct-light direction matches the mask direction.
+3. Use `TlasDebug` if the mask shape looks like the wrong object or a stale transform.
+
+## UI Presets
+
+The `RayQuery Shadow` debug UI provides comparison presets:
+
+- `Hard Ref`: one-sample hard shadow baseline. Use this before tuning soft-shadow settings.
+- `Low Bias`: lower normal bias to expose self-intersection acne and contact sensitivity.
+- `Soft Compare`: moderate soft shadow for day-to-day comparison.
+- `Wide Soft`: larger angular radius and sample count to stress light-size softening and noise.
+
+After applying a preset, adjust individual sliders only for the specific question being tested. Keep screenshots or notes paired with the active scene, render view, preset, and camera position.
+
+## Comparison Checklist
+
+- Bias / normal bias: compare acne on flat receivers against peter-panning around cube feet and sphere contact points.
+- Soft shadow: compare `Hard Ref` against `Soft Compare` in `ShadowMask` and `Lit`; the lit edge should soften without flipping direction or losing blockers.
+- Light size: increase `Light Angular Radius` and confirm penumbra width grows predictably while hard-shadow contact remains plausible.
+- Moving object: in `Animated Shadow Grid`, confirm animated cube rotation and bounce update the TLAS and ShadowMask each frame.
+- Pause behavior: press Space while viewing `Animated Shadow Grid`; cube orientation, TLAS debug, and ShadowMask should freeze without snapping.
+- Back-face culling: cube shadows should not lose faces when viewed from different light/camera angles.
+- Ray distance: use `Ray TMax` changes only to isolate far-blocker issues; do not use it as a substitute for fixing transforms or culling.
 
 ## Light Direction
 
@@ -37,15 +78,15 @@ The broken version tried to reconstruct the untransposed matrix before filling t
 
 ## Bias Tuning
 
-Do not tune `kNormalBias` first when the mask is structurally wrong.
+Do not tune normal bias first when the mask is structurally wrong.
 
 Bias is for self-intersection acne and peter-panning. If the mask looks like the wrong orientation or another object projection, check light direction, RayQuery culling flags, TLAS transform packing, and TLAS rebuild timing first.
 
 Current baseline:
 
-```hlsl
-static const float kNormalBias = 0.01;
-ray.TMin = 0.001;
+```text
+Normal Bias = 0.01
+Ray TMin = 0.001
 ```
 
 ## Animated Pause
