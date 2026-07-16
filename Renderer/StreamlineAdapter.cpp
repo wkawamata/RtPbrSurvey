@@ -5,6 +5,10 @@
 namespace Engine
 {
 
+#if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+// Streamline SDK includes and calls stay in this translation unit.
+#endif
+
 TemporalUpscalerSupportInfo QueryStreamlineSupport()
 {
     TemporalUpscalerSupportInfo info;
