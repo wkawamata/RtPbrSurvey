@@ -113,6 +113,7 @@ target_compile_definitions(RtPbrSurvey.SceneRenderer
 
 if(EXISTS "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/include/sl.h")
     target_compile_definitions(RtPbrSurvey.SceneRenderer PUBLIC RTPBRSURVEY_HAS_STREAMLINE_SDK)
+    target_include_directories(RtPbrSurvey.SceneRenderer PRIVATE "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/include")
 endif()
 
 target_include_directories(RtPbrSurvey.SceneRenderer
