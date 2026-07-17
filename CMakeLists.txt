@@ -11,6 +11,9 @@ set(RTPBRSURVEY_WINPIX_NUGET_VERSION "1.0.240308001" CACHE STRING "WinPixEventRu
 
 set(RTPBRSURVEY_ROOT "${CMAKE_CURRENT_LIST_DIR}")
 set(RTPBRSURVEY_PACKAGES_DIR "${RTPBRSURVEY_ROOT}/packages" CACHE PATH "RtPbrSurvey NuGet packages directory.")
+set(RTPBRSURVEY_STREAMLINE_SDK_DIR
+    "${RTPBRSURVEY_ROOT}/third_party/streamline-sdk-2.12.0"
+    CACHE PATH "Path to the local Streamline SDK root.")
 
 find_package(imgui CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
@@ -107,6 +110,10 @@ target_compile_definitions(RtPbrSurvey.SceneRenderer
         $<$<NOT:$<CONFIG:Debug>>:NDEBUG>
         WIN32
         _WINDOWS)
+
+if(EXISTS "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/include/sl.h")
+    target_compile_definitions(RtPbrSurvey.SceneRenderer PUBLIC RTPBRSURVEY_HAS_STREAMLINE_SDK)
+endif()
 
 target_include_directories(RtPbrSurvey.SceneRenderer
     PUBLIC

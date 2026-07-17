@@ -56,6 +56,11 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <RTPBRSURVEY_STREAMLINE_SDK_DIR Condition="'$(RTPBRSURVEY_STREAMLINE_SDK_DIR)'==''">$(ProjectDir)third_party\streamline-sdk-2.12.0</RTPBRSURVEY_STREAMLINE_SDK_DIR>
+    <RTPBRSURVEY_HAS_STREAMLINE_SDK Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='' and Exists('$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\include\sl.h')">true</RTPBRSURVEY_HAS_STREAMLINE_SDK>
+    <RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">RTPBRSURVEY_HAS_STREAMLINE_SDK;</RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
@@ -71,7 +76,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;$(RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS)%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
@@ -103,7 +108,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;$(RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS)%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
