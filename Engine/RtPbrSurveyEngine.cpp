@@ -237,8 +237,15 @@ void RtPbrSurveyEngine::SetShadowSettings(const ShadowSettings& settings)
 
 void RtPbrSurveyEngine::SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings)
 {
+    const bool historyResetRequired =
+        m_temporalUpscalerSettings.enabled != settings.enabled ||
+        m_temporalUpscalerSettings.backend != settings.backend ||
+        m_temporalUpscalerSettings.qualityMode != settings.qualityMode ||
+        m_temporalUpscalerSettings.ClampedRenderScale() != settings.ClampedRenderScale();
+
     m_temporalUpscalerSettings = settings;
     UpdateRenderDimensions();
+    m_temporalUpscalerHistoryReset = m_temporalUpscalerHistoryReset || historyResetRequired;
 }
 
 bool RtPbrSurveyEngine::HasTemporalUpscalerPassOutput() const
@@ -357,6 +364,7 @@ void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
         static_cast<size_t>(kMaxInstanceCount)));
 
     WaitForGpu();
+    m_temporalUpscalerHistoryReset = true;
     ReleaseSceneResources();
     SetScene(scene);
     m_displayInstanceCount = previousDisplayInstanceCount > 0 ?
@@ -2856,6 +2864,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_width = width;
     m_height = height;
     UpdateRenderDimensions();
+    m_temporalUpscalerHistoryReset = true;
 
     if (width == 0 || height == 0)
     {
@@ -3498,11 +3507,12 @@ void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
     inputs.renderHeight = m_renderHeight;
     inputs.outputWidth = m_width;
     inputs.outputHeight = m_height;
-    inputs.historyReset = false;
+    inputs.historyReset = m_temporalUpscalerHistoryReset;
 
     const Engine::StreamlineEvaluateResult result = Engine::EvaluateStreamline(inputs);
     if (result.outputAvailable)
     {
+        m_temporalUpscalerHistoryReset = false;
         m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "TemporalUpscaler Pass");
         return;
     }
