@@ -2,6 +2,11 @@
 
 #include "StreamlineAdapter.h"
 
+#if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+#include <sl.h>
+#include <sl_dlss.h>
+#endif
+
 namespace Engine
 {
 
@@ -26,8 +31,6 @@ StreamlineEvaluateResult MakeUnavailableEvaluateResult(TemporalUpscalerSupportSt
 }
 
 #if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
-// Streamline SDK includes and calls stay in this translation unit.
-
 TemporalUpscalerSupportInfo QueryStreamlineSupportWithSdk()
 {
     return MakeUnavailableSupportInfo(TemporalUpscalerSupportStatus::InitializationFailed);

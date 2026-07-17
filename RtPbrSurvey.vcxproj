@@ -60,6 +60,7 @@
     <RTPBRSURVEY_STREAMLINE_SDK_DIR Condition="'$(RTPBRSURVEY_STREAMLINE_SDK_DIR)'==''">$(ProjectDir)third_party\streamline-sdk-2.12.0</RTPBRSURVEY_STREAMLINE_SDK_DIR>
     <RTPBRSURVEY_HAS_STREAMLINE_SDK Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='' and Exists('$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\include\sl.h')">true</RTPBRSURVEY_HAS_STREAMLINE_SDK>
     <RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">RTPBRSURVEY_HAS_STREAMLINE_SDK;</RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS>
+    <RTPBRSURVEY_STREAMLINE_INCLUDE_DIRS Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\include;</RTPBRSURVEY_STREAMLINE_INCLUDE_DIRS>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -78,7 +79,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;$(RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS)%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(RTPBRSURVEY_STREAMLINE_INCLUDE_DIRS)%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <ConformanceMode>false</ConformanceMode>
@@ -110,7 +111,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;$(RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS)%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(RTPBRSURVEY_STREAMLINE_INCLUDE_DIRS)%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <ConformanceMode>false</ConformanceMode>
