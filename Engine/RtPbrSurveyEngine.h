@@ -675,6 +675,7 @@ private:
     Engine::RayTracingSupportInfo m_rayTracingSupport;
     Engine::TemporalUpscalerSupportInfo m_temporalUpscalerSupport;
     Engine::TemporalUpscalerSettings m_temporalUpscalerSettings;
+    bool m_temporalUpscalerHistoryReset = true;
     Engine::ToneMapPass m_toneMapPass;
     Engine::DebugLinePass m_debugLinePass;
 
