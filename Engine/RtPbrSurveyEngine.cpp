@@ -56,6 +56,7 @@
 #include "Renderer\RayQueryTlasDebugPass.h"
 #include "Renderer\ReflectionRayHitDebugPass.h"
 #include "Renderer\RayTracingSupport.h"
+#include "Renderer\StreamlineAdapter.h"
 #include "Renderer\TemporalUpscalerSupport.h"
 #include "FrameGraph/RenderPassExecution.h"
 #include "FrameGraph/RenderPassResources.h"
@@ -242,7 +243,7 @@ void RtPbrSurveyEngine::SetTemporalUpscalerSettings(const Engine::TemporalUpscal
 
 bool RtPbrSurveyEngine::HasTemporalUpscalerPassOutput() const
 {
-    return false;
+    return m_temporalUpscalerSceneColor != nullptr;
 }
 
 bool RtPbrSurveyEngine::ShouldRunTemporalUpscaler() const
@@ -3485,6 +3486,26 @@ void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
 
     assert(m_lightPassRenderTarget != nullptr);
     assert(m_temporalUpscalerSceneColor != nullptr);
+
+    Engine::StreamlineEvaluateInputs inputs = {};
+    inputs.commandList = m_commandList.Get();
+    inputs.inputSceneColor = m_lightPassRenderTarget.Get();
+    inputs.depth = m_depthStencil.Get();
+    inputs.motionVectors = m_gbuffer.resources[Engine::GBuffer::MotionVector].Get();
+    inputs.outputSceneColor = m_temporalUpscalerSceneColor.Get();
+    inputs.settings = m_temporalUpscalerSettings;
+    inputs.renderWidth = m_renderWidth;
+    inputs.renderHeight = m_renderHeight;
+    inputs.outputWidth = m_width;
+    inputs.outputHeight = m_height;
+    inputs.historyReset = false;
+
+    const Engine::StreamlineEvaluateResult result = Engine::EvaluateStreamline(inputs);
+    if (result.outputAvailable)
+    {
+        m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "TemporalUpscaler Pass");
+        return;
+    }
 
     const D3D12_RESOURCE_DESC sourceDesc = m_lightPassRenderTarget->GetDesc();
     const D3D12_RESOURCE_DESC outputDesc = m_temporalUpscalerSceneColor->GetDesc();
