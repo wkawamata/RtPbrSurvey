@@ -8,6 +8,11 @@
 namespace Engine
 {
 
+struct StreamlineAdapterInitDesc
+{
+    const wchar_t* applicationName = nullptr;
+};
+
 struct StreamlineEvaluateInputs
 {
     ID3D12GraphicsCommandList* commandList = nullptr;
@@ -29,6 +34,8 @@ struct StreamlineEvaluateResult
     TemporalUpscalerSupportStatus status = TemporalUpscalerSupportStatus::NotIntegrated;
 };
 
+TemporalUpscalerSupportInfo InitializeStreamlineAdapter(const StreamlineAdapterInitDesc& desc);
+void ShutdownStreamlineAdapter();
 TemporalUpscalerSupportInfo QueryStreamlineSupport();
 StreamlineEvaluateResult EvaluateStreamline(const StreamlineEvaluateInputs& inputs);
 
