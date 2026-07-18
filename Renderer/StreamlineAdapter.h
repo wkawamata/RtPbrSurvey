@@ -26,6 +26,7 @@ struct StreamlineEvaluateInputs
     std::uint32_t outputWidth = 0;
     std::uint32_t outputHeight = 0;
     bool historyReset = false;
+    TemporalUpscalerFrameConstants frameConstants;
 };
 
 struct StreamlineEvaluateResult

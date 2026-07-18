@@ -182,9 +182,11 @@ The adapter should not activate the upscaler until the contract can provide all 
 
 Current Work-3 status:
 
-- The `StreamlineEvaluateInputs` stub has fields for command list, input scene color, depth, motion vectors, output scene color, settings, render/output dimensions, and history reset.
-- It is intentionally not connected to `TemporalUpscalerPass` yet.
-- The renderer still treats the backend as unavailable, so native rendering remains the active path.
+- `TemporalUpscalerFrameConstants` carries SDK-neutral row-major camera matrices, camera basis and projection data from the renderer to the adapter.
+- `EvaluateStreamline()` obtains a frame token, submits per-frame constants, and tags scene color, depth, motion vectors, and output color with frame-based resource tagging.
+- The current motion-vector shader writes `curNdc - prevNdc`, so the adapter submits a motion-vector scale of `(1, 1)` and reports that camera motion is included.
+- Camera jitter remains `(0, 0)` until a stable renderer-owned jitter sequence is added.
+- `slEvaluateFeature()` is intentionally deferred to the next step. The adapter does not report a valid upscaled output yet, so native rendering remains the active path.
 
 ## DLSS RR Input Contract
 
@@ -254,7 +256,7 @@ The first option is currently safer because it follows the Hybrid Reflection pla
 - Licensing and redistribution policy for DLLs must be decided before committing SDK artifacts.
 - DLSS quality modes can now select render size, but no user-facing enable path or real Streamline evaluation is active yet.
 - Camera jitter is not yet visible in the current GBuffer path. DLSS-quality SR needs a stable jitter sequence and matching non-jittered matrices in Streamline constants.
-- Motion vector convention must be verified. Current shader writes NDC delta (`curNdc - prevNdc`) into `R16G16_FLOAT`; Streamline constants must match this range and sign.
+- Motion vector convention is now represented as NDC delta (`curNdc - prevNdc`) in `R16G16_FLOAT` with Streamline motion-vector scale `(1, 1)`; runtime image validation is still required once evaluation is enabled.
 - Exposure path needs a decision: use Streamline auto exposure initially, or add a 1x1 exposure texture from the tone-mapping/exposure settings.
 - Resource state ownership must account for Streamline managing tagged resources and command-list state changes.
 - UI should expose support state and fallback reason, not just an enable checkbox.

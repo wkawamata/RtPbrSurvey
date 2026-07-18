@@ -981,6 +981,7 @@ private:
     void RegisterPassBindingResolvers();
     void RegisterPassConstantsHandlers();
     void RegisterResourceResolvers();
+    Engine::TemporalUpscalerFrameConstants MakeStreamlineFrameConstants() const;
     void ResolveRenderDimensions(UINT outputWidth, UINT outputHeight, UINT& renderWidth, UINT& renderHeight) const;
     void UpdateRenderDimensions();
     bool HasTemporalUpscalerPassOutput() const;

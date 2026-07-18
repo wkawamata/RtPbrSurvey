@@ -187,6 +187,51 @@ void RtPbrSurveyEngine::UpdateRenderDimensions()
     m_aspectRatio = static_cast<float>(m_renderWidth) / static_cast<float>(m_renderHeight);
 }
 
+auto RtPbrSurveyEngine::MakeStreamlineFrameConstants() const -> Engine::TemporalUpscalerFrameConstants
+{
+    const XMMATRIX projection = XMMatrixPerspectiveFovLH(
+        XMConvertToRadians(m_scene.camera.fov), m_aspectRatio, m_scene.camera.nearZ, m_scene.camera.farZ);
+    const XMMATRIX currentViewProjection =
+        XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.viewProjection));
+    const XMMATRIX previousViewProjection =
+        XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.prevViewProjection));
+    const XMMATRIX clipToPreviousClip =
+        XMMatrixMultiply(XMMatrixInverse(nullptr, currentViewProjection), previousViewProjection);
+
+    Engine::TemporalUpscalerFrameConstants constants;
+    const auto storeMatrix = [](std::array<float, 16>& destination, FXMMATRIX matrix)
+    {
+        XMFLOAT4X4 value;
+        XMStoreFloat4x4(&value, matrix);
+        memcpy(destination.data(), &value, sizeof(value));
+    };
+    storeMatrix(constants.cameraViewToClip, projection);
+    storeMatrix(constants.clipToCameraView, XMMatrixInverse(nullptr, projection));
+    storeMatrix(constants.clipToPrevClip, clipToPreviousClip);
+    storeMatrix(constants.prevClipToClip, XMMatrixInverse(nullptr, clipToPreviousClip));
+
+    const XMVECTOR eye = XMLoadFloat3(&m_scene.camera.pos);
+    const XMVECTOR at = XMLoadFloat3(&m_scene.camera.gazePoint);
+    const XMVECTOR worldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+    const XMVECTOR forward = XMVector3Normalize(XMVectorSubtract(at, eye));
+    const XMVECTOR right = XMVector3Normalize(XMVector3Cross(worldUp, forward));
+    const XMVECTOR up = XMVector3Cross(forward, right);
+    XMFLOAT3 vector;
+    XMStoreFloat3(&vector, eye);
+    constants.cameraPosition = {vector.x, vector.y, vector.z};
+    XMStoreFloat3(&vector, up);
+    constants.cameraUp = {vector.x, vector.y, vector.z};
+    XMStoreFloat3(&vector, right);
+    constants.cameraRight = {vector.x, vector.y, vector.z};
+    XMStoreFloat3(&vector, forward);
+    constants.cameraForward = {vector.x, vector.y, vector.z};
+    constants.cameraNear = m_scene.camera.nearZ;
+    constants.cameraFar = m_scene.camera.farZ;
+    constants.cameraFovRadians = XMConvertToRadians(m_scene.camera.fov);
+    constants.cameraAspectRatio = m_aspectRatio;
+    return constants;
+}
+
 void RtPbrSurveyEngine::InitializeFrameResources()
 {
     m_rayTracingSupport = Engine::RayTracingSupportInfo::Create(m_graphicsDevice.Device());
@@ -3543,6 +3588,7 @@ void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
     inputs.outputWidth = m_width;
     inputs.outputHeight = m_height;
     inputs.historyReset = m_temporalUpscalerHistoryReset;
+    inputs.frameConstants = MakeStreamlineFrameConstants();
 
     const Engine::StreamlineEvaluateResult result = Engine::EvaluateStreamline(inputs);
     if (result.outputAvailable)

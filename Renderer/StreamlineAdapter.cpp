@@ -74,6 +74,17 @@ sl::DLSSMode ToStreamlineDlssMode(TemporalUpscalerQualityMode qualityMode)
     }
 }
 
+sl::float4x4 ToStreamlineMatrix(const std::array<float, 16>& values)
+{
+    sl::float4x4 matrix = {};
+    for (std::uint32_t row = 0; row < 4; ++row)
+    {
+        const std::uint32_t offset = row * 4;
+        matrix.setRow(row, {values[offset], values[offset + 1], values[offset + 2], values[offset + 3]});
+    }
+    return matrix;
+}
+
 TemporalUpscalerSupportStatus ToSupportStatus(sl::Result result)
 {
     switch (result)
@@ -133,6 +144,7 @@ TemporalUpscalerSupportStatus InitializeStreamlineAdapterWithSdk(const Streamlin
     sl::Preferences preferences = {};
     preferences.featuresToLoad = featuresToLoad;
     preferences.numFeaturesToLoad = _countof(featuresToLoad);
+    preferences.flags |= sl::PreferenceFlags::eUseFrameBasedResourceTagging;
     preferences.engine = sl::EngineType::eCustom;
     preferences.engineVersion = "1.0.0";
     preferences.renderAPI = sl::RenderAPI::eD3D12;
@@ -182,8 +194,87 @@ TemporalUpscalerSupportInfo QueryStreamlineSupportWithSdk()
 
 StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInputs& inputs)
 {
-    UNREFERENCED_PARAMETER(inputs);
-    return MakeUnavailableEvaluateResult(g_streamlineAdapterState.status);
+    if (!g_streamlineAdapterState.initialized ||
+        g_streamlineAdapterState.status != TemporalUpscalerSupportStatus::Available)
+    {
+        return MakeUnavailableEvaluateResult(g_streamlineAdapterState.status);
+    }
+
+    if (inputs.commandList == nullptr || inputs.inputSceneColor == nullptr || inputs.depth == nullptr ||
+        inputs.motionVectors == nullptr || inputs.outputSceneColor == nullptr || inputs.renderWidth == 0 ||
+        inputs.renderHeight == 0 || inputs.outputWidth == 0 || inputs.outputHeight == 0)
+    {
+        return MakeUnavailableEvaluateResult(TemporalUpscalerSupportStatus::InvalidIntegration);
+    }
+
+    sl::FrameToken* frameToken = nullptr;
+    const sl::Result frameTokenResult = slGetNewFrameToken(frameToken);
+    if (frameTokenResult != sl::Result::eOk || frameToken == nullptr)
+    {
+        return MakeUnavailableEvaluateResult(ToSupportStatus(frameTokenResult));
+    }
+
+    const sl::ViewportHandle viewport = 0;
+    const TemporalUpscalerFrameConstants& source = inputs.frameConstants;
+    sl::Constants constants = {};
+    constants.cameraViewToClip = ToStreamlineMatrix(source.cameraViewToClip);
+    constants.clipToCameraView = ToStreamlineMatrix(source.clipToCameraView);
+    constants.clipToPrevClip = ToStreamlineMatrix(source.clipToPrevClip);
+    constants.prevClipToClip = ToStreamlineMatrix(source.prevClipToClip);
+    constants.jitterOffset = {0.0f, 0.0f};
+    constants.mvecScale = {1.0f, 1.0f};
+    constants.cameraPinholeOffset = {0.0f, 0.0f};
+    constants.cameraPos = {source.cameraPosition[0], source.cameraPosition[1], source.cameraPosition[2]};
+    constants.cameraUp = {source.cameraUp[0], source.cameraUp[1], source.cameraUp[2]};
+    constants.cameraRight = {source.cameraRight[0], source.cameraRight[1], source.cameraRight[2]};
+    constants.cameraFwd = {source.cameraForward[0], source.cameraForward[1], source.cameraForward[2]};
+    constants.cameraNear = source.cameraNear;
+    constants.cameraFar = source.cameraFar;
+    constants.cameraFOV = source.cameraFovRadians;
+    constants.cameraAspectRatio = source.cameraAspectRatio;
+    constants.depthInverted = source.depthInverted ? sl::Boolean::eTrue : sl::Boolean::eFalse;
+    constants.cameraMotionIncluded = source.cameraMotionIncluded ? sl::Boolean::eTrue : sl::Boolean::eFalse;
+    constants.motionVectors3D = sl::Boolean::eFalse;
+    constants.reset = inputs.historyReset ? sl::Boolean::eTrue : sl::Boolean::eFalse;
+    constants.orthographicProjection = sl::Boolean::eFalse;
+    constants.motionVectorsDilated = sl::Boolean::eFalse;
+    constants.motionVectorsJittered = sl::Boolean::eFalse;
+
+    const sl::Result constantsResult = slSetConstants(constants, *frameToken, viewport);
+    if (constantsResult != sl::Result::eOk)
+    {
+        return MakeUnavailableEvaluateResult(ToSupportStatus(constantsResult));
+    }
+
+    sl::Extent renderExtent = {};
+    renderExtent.width = inputs.renderWidth;
+    renderExtent.height = inputs.renderHeight;
+    sl::Extent outputExtent = {};
+    outputExtent.width = inputs.outputWidth;
+    outputExtent.height = inputs.outputHeight;
+
+    sl::Resource inputColor(
+        sl::ResourceType::eTex2d, inputs.inputSceneColor, D3D12_RESOURCE_STATE_COPY_SOURCE);
+    sl::Resource depth(
+        sl::ResourceType::eTex2d, inputs.depth, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    sl::Resource motionVectors(
+        sl::ResourceType::eTex2d, inputs.motionVectors, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    sl::Resource outputColor(
+        sl::ResourceType::eTex2d, inputs.outputSceneColor, D3D12_RESOURCE_STATE_COPY_DEST);
+    const sl::ResourceTag tags[] = {
+        {&inputColor, sl::kBufferTypeScalingInputColor, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+        {&depth, sl::kBufferTypeDepth, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+        {&motionVectors, sl::kBufferTypeMotionVectors, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+        {&outputColor, sl::kBufferTypeScalingOutputColor, sl::ResourceLifecycle::eOnlyValidNow, &outputExtent},
+    };
+    const sl::Result tagResult =
+        slSetTagForFrame(*frameToken, viewport, tags, _countof(tags), inputs.commandList);
+    if (tagResult != sl::Result::eOk)
+    {
+        return MakeUnavailableEvaluateResult(ToSupportStatus(tagResult));
+    }
+
+    return MakeUnavailableEvaluateResult(TemporalUpscalerSupportStatus::Available);
 }
 
 StreamlineDlssOptimalSettingsResult QueryStreamlineDlssOptimalSettingsWithSdk(
