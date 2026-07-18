@@ -98,6 +98,8 @@ Current Work-2 status:
 - `ToneMapPass` now asks the engine for its scene-color resource and descriptor, so the future upscaler output can be inserted without changing ToneMap authoring again.
 - `TemporalUpscaler.SceneColor` exists as an output-size transient render texture with RTV/SRV plumbing.
 - `TemporalUpscalerPass` exists as a disabled identity-copy stub for the scale 1.0 case.
+- When Streamline DLSS SR is enabled and supported, `slDLSSGetOptimalSettings()` now selects `m_renderWidth` / `m_renderHeight` from the output size and quality mode.
+- Temporal-upscaler mode or scale changes are deferred through the existing pending-resize path so render-size resources are rebuilt before the new dimensions are used.
 - The upscaler pass is not active yet; `HasTemporalUpscalerPassOutput()` remains false until the backend/support path is ready.
 - Color render texture binding for `LightPass.RenderTarget`, `ReflectionRadiance`, and `TemporalUpscaler.SceneColor` is table-driven, reducing one-off descriptor setup in `RtPbrSurveyEngine`.
 - `RenderTextureSpec` carries basic RTV/SRV creation metadata, so view format ownership is no longer duplicated in the engine-side binding table.
@@ -250,7 +252,7 @@ The first option is currently safer because it follows the Hybrid Reflection pla
 
 - SDK acquisition policy: Streamline binary artifacts and DLSS plugin DLLs are not currently in this repo.
 - Licensing and redistribution policy for DLLs must be decided before committing SDK artifacts.
-- Current render size equals output size; SR needs render-size/output-size separation.
+- DLSS quality modes can now select render size, but no user-facing enable path or real Streamline evaluation is active yet.
 - Camera jitter is not yet visible in the current GBuffer path. DLSS-quality SR needs a stable jitter sequence and matching non-jittered matrices in Streamline constants.
 - Motion vector convention must be verified. Current shader writes NDC delta (`curNdc - prevNdc`) into `R16G16_FLOAT`; Streamline constants must match this range and sign.
 - Exposure path needs a decision: use Streamline auto exposure initially, or add a 1x1 exposure texture from the tone-mapping/exposure settings.

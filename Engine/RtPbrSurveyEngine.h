@@ -981,6 +981,7 @@ private:
     void RegisterPassBindingResolvers();
     void RegisterPassConstantsHandlers();
     void RegisterResourceResolvers();
+    void ResolveRenderDimensions(UINT outputWidth, UINT outputHeight, UINT& renderWidth, UINT& renderHeight) const;
     void UpdateRenderDimensions();
     bool HasTemporalUpscalerPassOutput() const;
     bool ShouldRunTemporalUpscaler() const;

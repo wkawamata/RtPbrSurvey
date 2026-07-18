@@ -134,6 +134,7 @@ void RtPbrSurveyEngine::Initialize(UINT width, UINT height)
 
     m_width = width;
     m_height = height;
+    m_temporalUpscalerSupport = Engine::QueryStreamlineSupport();
     UpdateRenderDimensions();
     m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(m_width), static_cast<float>(m_height));
     m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_width), static_cast<LONG>(m_height));
@@ -141,26 +142,54 @@ void RtPbrSurveyEngine::Initialize(UINT width, UINT height)
     InitializeFrameResources();
 }
 
+void RtPbrSurveyEngine::ResolveRenderDimensions(
+    UINT outputWidth, UINT outputHeight, UINT& renderWidth, UINT& renderHeight) const
+{
+    if (outputWidth == 0 || outputHeight == 0)
+    {
+        renderWidth = 0;
+        renderHeight = 0;
+        return;
+    }
+
+    if (m_temporalUpscalerSettings.enabled &&
+        m_temporalUpscalerSettings.backend == Engine::TemporalUpscalerBackend::Streamline &&
+        m_temporalUpscalerSupport.IsAvailable())
+    {
+        Engine::StreamlineDlssOptimalSettingsInputs inputs;
+        inputs.outputWidth = outputWidth;
+        inputs.outputHeight = outputHeight;
+        inputs.qualityMode = m_temporalUpscalerSettings.qualityMode;
+        const Engine::StreamlineDlssOptimalSettingsResult result =
+            Engine::QueryStreamlineDlssOptimalSettings(inputs);
+        if (result.available && result.recommendedRenderWidth > 0 && result.recommendedRenderHeight > 0)
+        {
+            renderWidth = result.recommendedRenderWidth;
+            renderHeight = result.recommendedRenderHeight;
+            return;
+        }
+    }
+
+    const float renderScale = m_temporalUpscalerSettings.ClampedRenderScale();
+    renderWidth = (std::max)(1u, static_cast<UINT>(static_cast<float>(outputWidth) * renderScale + 0.5f));
+    renderHeight = (std::max)(1u, static_cast<UINT>(static_cast<float>(outputHeight) * renderScale + 0.5f));
+}
+
 void RtPbrSurveyEngine::UpdateRenderDimensions()
 {
-    if (m_width == 0 || m_height == 0)
+    ResolveRenderDimensions(m_width, m_height, m_renderWidth, m_renderHeight);
+    if (m_renderWidth == 0 || m_renderHeight == 0)
     {
-        m_renderWidth = 0;
-        m_renderHeight = 0;
         m_aspectRatio = 1.0f;
         return;
     }
 
-    const float renderScale = m_temporalUpscalerSettings.ClampedRenderScale();
-    m_renderWidth = (std::max)(1u, static_cast<UINT>(static_cast<float>(m_width) * renderScale + 0.5f));
-    m_renderHeight = (std::max)(1u, static_cast<UINT>(static_cast<float>(m_height) * renderScale + 0.5f));
     m_aspectRatio = static_cast<float>(m_renderWidth) / static_cast<float>(m_renderHeight);
 }
 
 void RtPbrSurveyEngine::InitializeFrameResources()
 {
     m_rayTracingSupport = Engine::RayTracingSupportInfo::Create(m_graphicsDevice.Device());
-    m_temporalUpscalerSupport = Engine::QueryStreamlineSupport();
     wchar_t debugMessage[256] = {};
     swprintf_s(debugMessage,
                L"Ray tracing support: supported=%s tier=%s raw=%d\nTemporal upscaler support: available=%S backend=%S status=%S\n",
@@ -244,8 +273,13 @@ void RtPbrSurveyEngine::SetTemporalUpscalerSettings(const Engine::TemporalUpscal
         m_temporalUpscalerSettings.ClampedRenderScale() != settings.ClampedRenderScale();
 
     m_temporalUpscalerSettings = settings;
-    UpdateRenderDimensions();
     m_temporalUpscalerHistoryReset = m_temporalUpscalerHistoryReset || historyResetRequired;
+    if (historyResetRequired && m_width > 0 && m_height > 0)
+    {
+        const UINT resizeWidth = m_pendingResize ? m_pendingResizeWidth : m_width;
+        const UINT resizeHeight = m_pendingResize ? m_pendingResizeHeight : m_height;
+        RequestResize(resizeWidth, resizeHeight);
+    }
 }
 
 bool RtPbrSurveyEngine::HasTemporalUpscalerPassOutput() const
