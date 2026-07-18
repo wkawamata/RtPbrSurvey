@@ -43,6 +43,14 @@ StreamlineEvaluateResult MakeUnavailableEvaluateResult(TemporalUpscalerSupportSt
     return result;
 }
 
+StreamlineDlssOptimalSettingsResult MakeUnavailableOptimalSettingsResult(TemporalUpscalerSupportStatus status)
+{
+    StreamlineDlssOptimalSettingsResult result;
+    result.available = false;
+    result.status = status;
+    return result;
+}
+
 #if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
 TemporalUpscalerSupportStatus InitializeStreamlineAdapterWithSdk(const StreamlineAdapterInitDesc& desc)
 {
@@ -64,6 +72,13 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
     UNREFERENCED_PARAMETER(inputs);
     return MakeUnavailableEvaluateResult(g_streamlineAdapterState.status);
 }
+
+StreamlineDlssOptimalSettingsResult QueryStreamlineDlssOptimalSettingsWithSdk(
+    const StreamlineDlssOptimalSettingsInputs& inputs)
+{
+    UNREFERENCED_PARAMETER(inputs);
+    return MakeUnavailableOptimalSettingsResult(g_streamlineAdapterState.status);
+}
 #else
 TemporalUpscalerSupportStatus InitializeStreamlineAdapterWithoutSdk(const StreamlineAdapterInitDesc& desc)
 {
@@ -84,6 +99,13 @@ StreamlineEvaluateResult EvaluateStreamlineWithoutSdk(const StreamlineEvaluateIn
 {
     UNREFERENCED_PARAMETER(inputs);
     return MakeUnavailableEvaluateResult(g_streamlineAdapterState.status);
+}
+
+StreamlineDlssOptimalSettingsResult QueryStreamlineDlssOptimalSettingsWithoutSdk(
+    const StreamlineDlssOptimalSettingsInputs& inputs)
+{
+    UNREFERENCED_PARAMETER(inputs);
+    return MakeUnavailableOptimalSettingsResult(g_streamlineAdapterState.status);
 }
 #endif
 
@@ -116,6 +138,16 @@ TemporalUpscalerSupportInfo QueryStreamlineSupport()
     return QueryStreamlineSupportWithSdk();
 #else
     return QueryStreamlineSupportWithoutSdk();
+#endif
+}
+
+StreamlineDlssOptimalSettingsResult QueryStreamlineDlssOptimalSettings(
+    const StreamlineDlssOptimalSettingsInputs& inputs)
+{
+#if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+    return QueryStreamlineDlssOptimalSettingsWithSdk(inputs);
+#else
+    return QueryStreamlineDlssOptimalSettingsWithoutSdk(inputs);
 #endif
 }
 

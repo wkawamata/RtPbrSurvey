@@ -34,9 +34,30 @@ struct StreamlineEvaluateResult
     TemporalUpscalerSupportStatus status = TemporalUpscalerSupportStatus::NotIntegrated;
 };
 
+struct StreamlineDlssOptimalSettingsInputs
+{
+    std::uint32_t outputWidth = 0;
+    std::uint32_t outputHeight = 0;
+    TemporalUpscalerQualityMode qualityMode = TemporalUpscalerQualityMode::Native;
+};
+
+struct StreamlineDlssOptimalSettingsResult
+{
+    bool available = false;
+    TemporalUpscalerSupportStatus status = TemporalUpscalerSupportStatus::NotIntegrated;
+    std::uint32_t recommendedRenderWidth = 0;
+    std::uint32_t recommendedRenderHeight = 0;
+    std::uint32_t minRenderWidth = 0;
+    std::uint32_t minRenderHeight = 0;
+    std::uint32_t maxRenderWidth = 0;
+    std::uint32_t maxRenderHeight = 0;
+};
+
 TemporalUpscalerSupportInfo InitializeStreamlineAdapter(const StreamlineAdapterInitDesc& desc);
 void ShutdownStreamlineAdapter();
 TemporalUpscalerSupportInfo QueryStreamlineSupport();
+StreamlineDlssOptimalSettingsResult QueryStreamlineDlssOptimalSettings(
+    const StreamlineDlssOptimalSettingsInputs& inputs);
 StreamlineEvaluateResult EvaluateStreamline(const StreamlineEvaluateInputs& inputs);
 
 } // namespace Engine
