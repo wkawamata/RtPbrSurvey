@@ -296,16 +296,16 @@ static SceneConfig SceneConfigFromJson(const json& j)
     if (j.contains("shadow")) cfg.shadow = ShadowFromJson(j["shadow"]);
     if (j.contains("hybridReflection")) cfg.hybridReflection = HybridReflectionFromJson(j["hybridReflection"]);
     if (j.contains("specularDebugLines")) cfg.specularDebugLines = SpecularDebugLineFromJson(j["specularDebugLines"]);
-    cfg.meshScale = j.value("meshScale", 0.5f);
-    cfg.displayInstanceCount = j.value("displayInstanceCount", 1);
-    cfg.selectedMaterialIndex = j.value("selectedMaterialIndex", 0);
-    cfg.isPlaying = j.value("isPlaying", false);
-    cfg.renderingPath = j.value("renderingPath", 1);
-    cfg.renderViewMode = j.value("renderViewMode", 0);
-    cfg.lightingPassDebugGradient = j.value("lightingPassDebugGradient", false);
+    cfg.meshScale = j.value("meshScale", cfg.meshScale);
+    cfg.displayInstanceCount = j.value("displayInstanceCount", cfg.displayInstanceCount);
+    cfg.selectedMaterialIndex = j.value("selectedMaterialIndex", cfg.selectedMaterialIndex);
+    cfg.isPlaying = j.value("isPlaying", cfg.isPlaying);
+    cfg.renderingPath = j.value("renderingPath", cfg.renderingPath);
+    cfg.renderViewMode = j.value("renderViewMode", cfg.renderViewMode);
+    cfg.lightingPassDebugGradient = j.value("lightingPassDebugGradient", cfg.lightingPassDebugGradient);
     if (j.contains("backBufferClearColor")) cfg.backBufferClearColor = Array4FromJson(j["backBufferClearColor"]);
-    cfg.iblEnabled = j.value("iblEnabled", true);
-    cfg.environmentAutoUpdate = j.value("environmentAutoUpdate", true);
+    cfg.iblEnabled = j.value("iblEnabled", cfg.iblEnabled);
+    cfg.environmentAutoUpdate = j.value("environmentAutoUpdate", cfg.environmentAutoUpdate);
     return cfg;
 }
 
@@ -428,7 +428,26 @@ std::optional<SceneConfig> SceneConfigManager::FindEntryByIndex(
     const Engine::SampleScene& scene,
     int sceneIndex) const
 {
-    return FindEntry(configs, SceneConfigKey(scene, sceneIndex));
+    auto entry = FindEntry(configs, SceneConfigKey(scene, sceneIndex));
+    if (entry.has_value())
+    {
+        return entry;
+    }
+
+    if (dynamic_cast<const Engine::AnimatedShadowGridScene*>(&scene) != nullptr)
+    {
+        return FindEntry(configs, "Animated Shadow Grid");
+    }
+    if (dynamic_cast<const Engine::ContactShadowTestScene*>(&scene) != nullptr)
+    {
+        return FindEntry(configs, "Contact Shadow Test");
+    }
+    if (dynamic_cast<const Engine::OccluderWallTestScene*>(&scene) != nullptr)
+    {
+        return FindEntry(configs, "Occluder Wall Test");
+    }
+
+    return std::nullopt;
 }
 
 std::string SceneConfigManager::SceneConfigKey(const Engine::SampleScene& scene, int /*sceneIndex*/) const
@@ -646,7 +665,12 @@ void SceneConfigManager::ApplyToEngine(
     app.m_meshScale = cfg.meshScale;
     app.m_selectedMaterialIndex = cfg.selectedMaterialIndex;
     app.m_isPlaying = cfg.isPlaying;
-    app.LoadedScene().SetDisplayInstanceCount(cfg.displayInstanceCount);
+    int displayInstanceCount = cfg.displayInstanceCount;
+    if (dynamic_cast<Engine::AnimatedShadowGridScene*>(&app.LoadedScene()) != nullptr && displayInstanceCount <= 1)
+    {
+        displayInstanceCount = app.LoadedScene().MaxDisplayInstanceCount();
+    }
+    app.LoadedScene().SetDisplayInstanceCount(displayInstanceCount);
     app.m_displayInstanceCount = app.LoadedScene().DisplayInstanceCount();
     engine.SetDisplayInstanceCount(app.m_displayInstanceCount);
 
@@ -916,7 +940,27 @@ ConfigSource SceneConfigManager::ActiveSource(const std::string& sceneName) cons
 
 ConfigSource SceneConfigManager::ActiveSourceForScene(const Engine::SampleScene& scene, int sceneIndex) const
 {
-    return ActiveSource(SceneConfigKey(scene, sceneIndex));
+    const std::string key = SceneConfigKey(scene, sceneIndex);
+    ConfigSource source = ActiveSource(key);
+    if (source != ConfigSource::CodeDefaults)
+    {
+        return source;
+    }
+
+    if (dynamic_cast<const Engine::AnimatedShadowGridScene*>(&scene) != nullptr)
+    {
+        return ActiveSource("Animated Shadow Grid");
+    }
+    if (dynamic_cast<const Engine::ContactShadowTestScene*>(&scene) != nullptr)
+    {
+        return ActiveSource("Contact Shadow Test");
+    }
+    if (dynamic_cast<const Engine::OccluderWallTestScene*>(&scene) != nullptr)
+    {
+        return ActiveSource("Occluder Wall Test");
+    }
+
+    return source;
 }
 
 } // namespace App

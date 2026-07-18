@@ -17,6 +17,17 @@ struct CameraSpeedPreset
     float multiplier;
 };
 
+struct ShadowPreset
+{
+    const char* label;
+    float normalBias;
+    float rayTMin;
+    bool softShadowEnabled;
+    int sampleCount;
+    float lightAngularRadius;
+    float jitterStrength;
+};
+
 const char* EnvironmentSourceLabel(Engine::EnvironmentSource source)
 {
     switch (source)
@@ -202,8 +213,23 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     Engine::SampleScene& loadedScene = app.LoadedScene();
     Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();
 
-    ImGui::Text("Hello ImGui");
-    ImGui::Text("Scene: %s", loadedScene.Name());
+    ImGui::TextDisabled("Current Scene");
+    const char* sceneName = loadedScene.Name();
+    const char* sceneNameBreak = strchr(sceneName, ':');
+    if (sceneNameBreak != nullptr && sceneNameBreak[1] == ' ')
+    {
+        ImGui::TextColored(ImVec4(0.65f, 0.78f, 0.95f, 1.0f), "%.*s",
+                           static_cast<int>(sceneNameBreak - sceneName),
+                           sceneName);
+        ImGui::Indent();
+        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneNameBreak + 2);
+        ImGui::Unindent();
+    }
+    else
+    {
+        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneName);
+    }
+    ImGui::Separator();
     ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
     ImGui::Text("FrameIndex: %d", context.frameIndex);
     ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
@@ -452,6 +478,30 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         bool changed = false;
 
         changed |= ImGui::Checkbox("Shadow Enable", &shadowSettings.enabled);
+
+        static constexpr ShadowPreset shadowPresets[] = {
+            {"Hard Ref",    0.01f,  0.001f, false, 1, 0.0f,   0.0f},
+            {"Low Bias",    0.002f, 0.001f, false, 1, 0.0f,   0.0f},
+            {"Soft Compare", 0.01f,  0.001f, true,  8, 0.025f, 1.0f},
+            {"Wide Soft",   0.01f,  0.001f, true, 16, 0.075f, 2.0f},
+        };
+        for (const auto& preset : shadowPresets)
+        {
+            if (ImGui::SmallButton(preset.label))
+            {
+                shadowSettings.normalBias = preset.normalBias;
+                shadowSettings.rayTMin = preset.rayTMin;
+                shadowSettings.softShadowEnabled = preset.softShadowEnabled;
+                shadowSettings.sampleCount = preset.sampleCount;
+                shadowSettings.lightAngularRadius = preset.lightAngularRadius;
+                shadowSettings.jitterStrength = preset.jitterStrength;
+                changed = true;
+            }
+            ImGui::SameLine();
+        }
+        ImGui::NewLine();
+        ImGui::TextWrapped(
+            "Use Shadow Test scenes for bias, light-size, contact, occluder, and moving-object/TLAS rebuild checks.");
 
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Normal Bias", &shadowSettings.normalBias, 0.0f, 0.1f, 0.001f, 0.01f);
