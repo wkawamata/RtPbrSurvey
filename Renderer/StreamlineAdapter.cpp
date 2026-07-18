@@ -17,7 +17,7 @@ struct StreamlineAdapterState
 {
     TemporalUpscalerSupportStatus status =
 #if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
-        TemporalUpscalerSupportStatus::InitializationFailed;
+        TemporalUpscalerSupportStatus::DeviceNotSet;
 #else
         TemporalUpscalerSupportStatus::NotIntegrated;
 #endif
@@ -84,10 +84,37 @@ TemporalUpscalerSupportStatus ToSupportStatus(sl::Result result)
         case sl::Result::eErrorNoSupportedAdapterFound:
         case sl::Result::eErrorFeatureNotSupported:
             return TemporalUpscalerSupportStatus::UnsupportedAdapter;
+        case sl::Result::eErrorDriverOutOfDate:
+            return TemporalUpscalerSupportStatus::DriverOutOfDate;
+        case sl::Result::eErrorOSOutOfDate:
+            return TemporalUpscalerSupportStatus::OperatingSystemOutOfDate;
+        case sl::Result::eErrorOSDisabledHWS:
+            return TemporalUpscalerSupportStatus::HardwareSchedulingDisabled;
+        case sl::Result::eErrorDeviceNotCreated:
+        case sl::Result::eErrorNotInitialized:
+        case sl::Result::eErrorInitNotCalled:
+            return TemporalUpscalerSupportStatus::DeviceNotSet;
+        case sl::Result::eErrorIO:
         case sl::Result::eErrorNoPlugins:
+        case sl::Result::eErrorMissingProxy:
         case sl::Result::eErrorFeatureMissing:
         case sl::Result::eErrorFeatureFailedToLoad:
+        case sl::Result::eErrorFeatureMissingDependency:
             return TemporalUpscalerSupportStatus::MissingRuntime;
+        case sl::Result::eErrorMissingResourceState:
+        case sl::Result::eErrorInvalidIntegration:
+        case sl::Result::eErrorMissingInputParameter:
+        case sl::Result::eErrorInvalidParameter:
+        case sl::Result::eErrorMissingConstants:
+        case sl::Result::eErrorDuplicatedConstants:
+        case sl::Result::eErrorMissingOrInvalidAPI:
+        case sl::Result::eErrorCommonConstantsMissing:
+        case sl::Result::eErrorUnsupportedInterface:
+        case sl::Result::eErrorFeatureMissingHooks:
+        case sl::Result::eErrorFeatureWrongPriority:
+        case sl::Result::eErrorFeatureManagerInvalidState:
+        case sl::Result::eErrorInvalidState:
+            return TemporalUpscalerSupportStatus::InvalidIntegration;
         default:
             return TemporalUpscalerSupportStatus::InitializationFailed;
     }
@@ -117,14 +144,14 @@ TemporalUpscalerSupportStatus InitializeStreamlineAdapterWithSdk(const Streamlin
     }
 
     g_streamlineAdapterState.sdkInitialized = true;
-    return TemporalUpscalerSupportStatus::InitializationFailed;
+    return TemporalUpscalerSupportStatus::DeviceNotSet;
 }
 
 TemporalUpscalerSupportStatus SetStreamlineD3DDeviceWithSdk(ID3D12Device* device)
 {
     if (!g_streamlineAdapterState.sdkInitialized || device == nullptr)
     {
-        return TemporalUpscalerSupportStatus::InitializationFailed;
+        return TemporalUpscalerSupportStatus::DeviceNotSet;
     }
 
     const sl::Result setDeviceResult = slSetD3DDevice(device);

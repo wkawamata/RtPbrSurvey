@@ -46,6 +46,16 @@ const char* TemporalUpscalerSupportInfo::StatusText() const
             return "Runtime missing";
         case TemporalUpscalerSupportStatus::InitializationFailed:
             return "Initialization failed";
+        case TemporalUpscalerSupportStatus::DeviceNotSet:
+            return "D3D12 device not set";
+        case TemporalUpscalerSupportStatus::DriverOutOfDate:
+            return "Driver out of date";
+        case TemporalUpscalerSupportStatus::OperatingSystemOutOfDate:
+            return "Operating system out of date";
+        case TemporalUpscalerSupportStatus::HardwareSchedulingDisabled:
+            return "Hardware scheduling disabled";
+        case TemporalUpscalerSupportStatus::InvalidIntegration:
+            return "Invalid integration";
         default:
             return "Unknown";
     }

@@ -18,6 +18,11 @@ enum class TemporalUpscalerSupportStatus
     UnsupportedAdapter,
     MissingRuntime,
     InitializationFailed,
+    DeviceNotSet,
+    DriverOutOfDate,
+    OperatingSystemOutOfDate,
+    HardwareSchedulingDisabled,
+    InvalidIntegration,
 };
 
 enum class TemporalUpscalerQualityMode
