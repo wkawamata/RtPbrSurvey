@@ -56,6 +56,15 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <RTPBRSURVEY_STREAMLINE_SDK_DIR Condition="'$(RTPBRSURVEY_STREAMLINE_SDK_DIR)'==''">$(ProjectDir)third_party\streamline-sdk-2.12.0</RTPBRSURVEY_STREAMLINE_SDK_DIR>
+    <RTPBRSURVEY_HAS_STREAMLINE_SDK Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='' and Exists('$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\include\sl.h')">true</RTPBRSURVEY_HAS_STREAMLINE_SDK>
+    <RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">RTPBRSURVEY_HAS_STREAMLINE_SDK;</RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS>
+    <RTPBRSURVEY_STREAMLINE_INCLUDE_DIRS Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\include;</RTPBRSURVEY_STREAMLINE_INCLUDE_DIRS>
+    <RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\lib\x64;</RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS>
+    <RTPBRSURVEY_STREAMLINE_LIBRARIES Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">sl.interposer.lib;</RTPBRSURVEY_STREAMLINE_LIBRARIES>
+    <RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">sl.interposer.dll;</RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>bin\$(Platform)\$(Configuration)\</OutDir>
@@ -71,9 +80,9 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;$(RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS)%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(RTPBRSURVEY_STREAMLINE_INCLUDE_DIRS)%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <ConformanceMode>false</ConformanceMode>
@@ -81,8 +90,9 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
+      <AdditionalLibraryDirectories>$(RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS)%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;dxguid.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>d3d12.dll;$(RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS)%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
       <TreatOutputAsContent>true</TreatOutputAsContent>
@@ -103,9 +113,9 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;$(RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS)%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(RTPBRSURVEY_STREAMLINE_INCLUDE_DIRS)%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <ConformanceMode>false</ConformanceMode>
@@ -115,8 +125,9 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
+      <AdditionalLibraryDirectories>$(RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS)%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;dxguid.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>d3d12.dll;$(RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS)%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
       <TreatOutputAsContent>true</TreatOutputAsContent>
@@ -132,6 +143,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="CubeMesh.h" />
+    <ClInclude Include="Camera\DebugCameraController.h" />
     <ClInclude Include="GltfLoader.h" />
     <ClInclude Include="Engine\Rhi\Dx12\GraphicsDevice.h" />
     <ClInclude Include="ImGuiWidgets.h" />
@@ -168,10 +180,13 @@
     <ClInclude Include="Renderer\SceneGeometryPass.h" />
     <ClInclude Include="Renderer\SimpleDescriptorHeapAllocator.h" />
     <ClInclude Include="Renderer\StagedDescriptorAllocator.h" />
+    <ClInclude Include="Renderer\StreamlineAdapter.h" />
     <ClInclude Include="Renderer\TemporalUpscalerSupport.h" />
     <ClInclude Include="Renderer\ToneMap.h" />
     <ClInclude Include="Renderer\DebugLinePass.h" />
+    <ClInclude Include="Runtime\SceneRenderer.h" />
     <ClInclude Include="Scene\ProceduralSceneBuilder.h" />
+    <ClInclude Include="Scene\SceneBuilder.h" />
     <ClInclude Include="Scene\SceneFactory.h" />
     <ClInclude Include="Scene\Scene.h" />
     <ClInclude Include="Scene\SampleScene.h" />
@@ -198,6 +213,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CubeMesh.cpp" />
+    <ClCompile Include="Camera\DebugCameraController.cpp" />
     <ClCompile Include="GltfLoader.cpp" />
     <ClCompile Include="Engine\Rhi\Dx12\GraphicsDevice.cpp" />
     <ClCompile Include="Platform\CommandLineOptions.cpp" />
@@ -224,10 +240,13 @@
     <ClCompile Include="Renderer\RootSignatureFactory.cpp" />
     <ClCompile Include="Renderer\StagedDescriptorAllocator_Test.cpp" />
     <ClCompile Include="Renderer\SceneGeometryPass.cpp" />
+    <ClCompile Include="Renderer\StreamlineAdapter.cpp" />
     <ClCompile Include="Renderer\TemporalUpscalerSupport.cpp" />
     <ClCompile Include="Renderer\ToneMap.cpp" />
     <ClCompile Include="Renderer\DebugLinePass.cpp" />
+    <ClCompile Include="Runtime\SceneRenderer.cpp" />
     <ClCompile Include="Scene\ProceduralSceneBuilder.cpp" />
+    <ClCompile Include="Scene\SceneBuilder.cpp" />
     <ClCompile Include="Scene\SceneFactory.cpp" />
     <ClCompile Include="Scene\SampleScene.cpp" />
     <ClCompile Include="Ui\ImGuiSystem.cpp" />

@@ -485,16 +485,17 @@ SceneConfig SceneConfigManager::CaptureFromApp(
     const auto& camera = scene.GetScene().camera;
     cfg.camera.fov = camera.fov;
 
-    if (app.m_cameraMode == RtPbrSurveyApp::CameraMode::Arcball)
+    if (app.DebugCamera().GetMode() == RtPbrSurvey::DebugCameraController::Mode::Arcball)
     {
+        const XMFLOAT3 pivot = app.DebugCamera().ObjectViewerPivot();
         cfg.camera.mode = "arcball";
-        cfg.camera.yaw = app.m_objectViewerYaw;
-        cfg.camera.pitch = app.m_objectViewerPitch;
-        cfg.camera.distance = app.m_objectViewerDistance;
+        cfg.camera.yaw = app.DebugCamera().ObjectViewerYaw();
+        cfg.camera.pitch = app.DebugCamera().ObjectViewerPitch();
+        cfg.camera.distance = app.DebugCamera().ObjectViewerDistance();
         cfg.camera.pivot = {
-            app.m_objectViewerPivot.x,
-            app.m_objectViewerPivot.y,
-            app.m_objectViewerPivot.z,
+            pivot.x,
+            pivot.y,
+            pivot.z,
         };
     }
     else
@@ -505,7 +506,7 @@ SceneConfig SceneConfigManager::CaptureFromApp(
         cfg.camera.fov = camera.fov;
     }
 
-    cfg.camera.speedMultiplier = app.m_cameraSpeedMultiplier;
+    cfg.camera.speedMultiplier = app.DebugCamera().SpeedMultiplier();
     cfg.camera.nearZ = camera.nearZ;
     cfg.camera.farZ = camera.farZ;
 
@@ -631,23 +632,21 @@ void SceneConfigManager::ApplyToEngine(
     camera.fov = cfg.camera.fov;
     camera.nearZ = cfg.camera.nearZ;
     camera.farZ = cfg.camera.farZ;
-    app.m_cameraSpeedMultiplier = cfg.camera.speedMultiplier;
+    app.DebugCamera().SetSpeedMultiplier(cfg.camera.speedMultiplier);
 
     // Camera mode
     if (cfg.camera.mode == "arcball")
     {
-        app.m_cameraMode = RtPbrSurveyApp::CameraMode::Arcball;
-        app.m_objectViewerYaw = cfg.camera.yaw;
-        app.m_objectViewerPitch = cfg.camera.pitch;
-        app.m_objectViewerDistance = cfg.camera.distance;
-        app.m_objectViewerPivot.x = cfg.camera.pivot[0];
-        app.m_objectViewerPivot.y = cfg.camera.pivot[1];
-        app.m_objectViewerPivot.z = cfg.camera.pivot[2];
-        app.UpdateObjectViewerCamera();
+        app.DebugCamera().SetMode(RtPbrSurvey::DebugCameraController::Mode::Arcball);
+        app.DebugCamera().SetObjectViewerState(
+            cfg.camera.yaw,
+            cfg.camera.pitch,
+            cfg.camera.distance,
+            XMFLOAT3{cfg.camera.pivot[0], cfg.camera.pivot[1], cfg.camera.pivot[2]});
     }
     else
     {
-        app.m_cameraMode = RtPbrSurveyApp::CameraMode::FreeLook;
+        app.DebugCamera().SetMode(RtPbrSurvey::DebugCameraController::Mode::FreeLook);
         camera.pos.x = cfg.camera.position[0];
         camera.pos.y = cfg.camera.position[1];
         camera.pos.z = cfg.camera.position[2];

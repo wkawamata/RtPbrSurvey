@@ -56,6 +56,7 @@
 #include "Renderer\RayQueryTlasDebugPass.h"
 #include "Renderer\ReflectionRayHitDebugPass.h"
 #include "Renderer\RayTracingSupport.h"
+#include "Renderer\StreamlineAdapter.h"
 #include "Renderer\TemporalUpscalerSupport.h"
 #include "FrameGraph/RenderPassExecution.h"
 #include "FrameGraph/RenderPassResources.h"
@@ -159,7 +160,8 @@ void RtPbrSurveyEngine::UpdateRenderDimensions()
 void RtPbrSurveyEngine::InitializeFrameResources()
 {
     m_rayTracingSupport = Engine::RayTracingSupportInfo::Create(m_graphicsDevice.Device());
-    m_temporalUpscalerSupport = Engine::TemporalUpscalerSupportInfo::Create();
+    const Engine::StreamlineAdapterInitDesc streamlineInitDesc = {L"RtPbrSurvey"};
+    m_temporalUpscalerSupport = Engine::InitializeStreamlineAdapter(streamlineInitDesc);
     wchar_t debugMessage[256] = {};
     swprintf_s(debugMessage,
                L"Ray tracing support: supported=%s tier=%s raw=%d\nTemporal upscaler support: available=%S backend=%S status=%S\n",
@@ -236,13 +238,20 @@ void RtPbrSurveyEngine::SetShadowSettings(const ShadowSettings& settings)
 
 void RtPbrSurveyEngine::SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings)
 {
+    const bool historyResetRequired =
+        m_temporalUpscalerSettings.enabled != settings.enabled ||
+        m_temporalUpscalerSettings.backend != settings.backend ||
+        m_temporalUpscalerSettings.qualityMode != settings.qualityMode ||
+        m_temporalUpscalerSettings.ClampedRenderScale() != settings.ClampedRenderScale();
+
     m_temporalUpscalerSettings = settings;
     UpdateRenderDimensions();
+    m_temporalUpscalerHistoryReset = m_temporalUpscalerHistoryReset || historyResetRequired;
 }
 
 bool RtPbrSurveyEngine::HasTemporalUpscalerPassOutput() const
 {
-    return false;
+    return m_temporalUpscalerSceneColor != nullptr;
 }
 
 bool RtPbrSurveyEngine::ShouldRunTemporalUpscaler() const
@@ -350,9 +359,18 @@ void RtPbrSurveyEngine::SetScene(const Scene& scene)
 
 void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
 {
+    const int previousDisplayInstanceCount = m_displayInstanceCount;
+    const int sceneInstanceCount = static_cast<int>((std::min)(
+        scene.instances.size(),
+        static_cast<size_t>(kMaxInstanceCount)));
+
     WaitForGpu();
+    m_temporalUpscalerHistoryReset = true;
     ReleaseSceneResources();
     SetScene(scene);
+    m_displayInstanceCount = previousDisplayInstanceCount > 0 ?
+        std::clamp(previousDisplayInstanceCount, 0, sceneInstanceCount) :
+        sceneInstanceCount;
 
     ThrowIfFailed(m_frameResources[m_currentFrameIndex].commandAllocator->Reset());
     ThrowIfFailed(m_commandList->Reset(m_frameResources[m_currentFrameIndex].commandAllocator.Get(),
@@ -2847,6 +2865,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_width = width;
     m_height = height;
     UpdateRenderDimensions();
+    m_temporalUpscalerHistoryReset = true;
 
     if (width == 0 || height == 0)
     {
@@ -2923,6 +2942,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
 void RtPbrSurveyEngine::Shutdown()
 {
     DestroyFrameResources();
+    Engine::ShutdownStreamlineAdapter();
 }
 
 void RtPbrSurveyEngine::DestroyFrameResources()
@@ -3477,6 +3497,27 @@ void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
 
     assert(m_lightPassRenderTarget != nullptr);
     assert(m_temporalUpscalerSceneColor != nullptr);
+
+    Engine::StreamlineEvaluateInputs inputs = {};
+    inputs.commandList = m_commandList.Get();
+    inputs.inputSceneColor = m_lightPassRenderTarget.Get();
+    inputs.depth = m_depthStencil.Get();
+    inputs.motionVectors = m_gbuffer.resources[Engine::GBuffer::MotionVector].Get();
+    inputs.outputSceneColor = m_temporalUpscalerSceneColor.Get();
+    inputs.settings = m_temporalUpscalerSettings;
+    inputs.renderWidth = m_renderWidth;
+    inputs.renderHeight = m_renderHeight;
+    inputs.outputWidth = m_width;
+    inputs.outputHeight = m_height;
+    inputs.historyReset = m_temporalUpscalerHistoryReset;
+
+    const Engine::StreamlineEvaluateResult result = Engine::EvaluateStreamline(inputs);
+    if (result.outputAvailable)
+    {
+        m_temporalUpscalerHistoryReset = false;
+        m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "TemporalUpscaler Pass");
+        return;
+    }
 
     const D3D12_RESOURCE_DESC sourceDesc = m_lightPassRenderTarget->GetDesc();
     const D3D12_RESOURCE_DESC outputDesc = m_temporalUpscalerSceneColor->GetDesc();

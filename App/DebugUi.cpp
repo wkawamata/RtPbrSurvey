@@ -199,6 +199,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 {
     using RenderingPath = RtPbrSurveyEngine::RenderingPath;
     using RenderViewMode = RtPbrSurveyEngine::RenderViewMode;
+    using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
 
     if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneSelect)
     {
@@ -235,7 +236,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 context.rayTracingSupported ? "Supported" : "Not supported",
                 context.rayTracingTierName,
                 context.rayTracingTierRaw);
-    ImGui::Text("Temporal Upscaler: %s (%s, %s)",
+    ImGui::Text("Temporal Upscaler: %s (Backend: %s, Status: %s)",
                 context.temporalUpscalerAvailable ? "Available" : "Unavailable",
                 context.temporalUpscalerBackendName,
                 context.temporalUpscalerStatusText);
@@ -248,14 +249,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGuiWidgets::SliderFloatWithControls("FovH", &loadedScene.GetScene().camera.fov, 20.f, 150.f, 5.f, 60.f);
-        int cameraMode = static_cast<int>(app.m_cameraMode);
+        int cameraMode = static_cast<int>(app.DebugCamera().GetMode());
         if (ImGui::Combo("Mode", &cameraMode, "FreeLook\0Arcball\0"))
         {
-            app.m_cameraMode = static_cast<RtPbrSurveyApp::CameraMode>(cameraMode);
-            if (app.m_cameraMode == RtPbrSurveyApp::CameraMode::Arcball)
-            {
-                app.InitObjectViewerFromCamera();
-            }
+            app.DebugCamera().SetMode(static_cast<CameraMode>(cameraMode));
         }
 
         {
@@ -272,11 +269,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             };
             for (const auto& p : presets)
             {
-                const bool isActive = (app.m_cameraSpeedMultiplier == p.multiplier);
+                const bool isActive = (app.DebugCamera().SpeedMultiplier() == p.multiplier);
                 if (isActive)
                     ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
                 if (ImGui::SmallButton(p.label))
-                    app.m_cameraSpeedMultiplier = p.multiplier;
+                    app.DebugCamera().SetSpeedMultiplier(p.multiplier);
                 if (isActive)
                     ImGui::PopStyleColor();
                 ImGui::SameLine();
@@ -418,7 +415,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
         if (app.m_environmentReloadPending && app.m_environmentAutoUpdate && !ImGui::IsAnyItemActive())
         {
-            app.m_engine.ReloadEnvironmentResources(app.m_environmentSettings);
+            app.m_sceneRenderer.ReloadEnvironmentResources(app.m_environmentSettings);
             app.m_environmentReloadPending = false;
         }
     }
@@ -456,7 +453,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 params.metallicFactor = material.metallicFactor;
                 params.ambientOcclusionFactor = material.ambientOcclusionFactor;
                 params.emissiveScale = material.emissiveScale;
-                app.m_engine.SetMaterialParams(static_cast<UINT>(app.m_selectedMaterialIndex), params);
+                app.m_sceneRenderer.SetMaterialParams(static_cast<UINT>(app.m_selectedMaterialIndex), params);
             }
         }
     }
@@ -477,7 +474,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        auto shadowSettings = app.m_engine.GetShadowSettings();
+        auto shadowSettings = app.m_sceneRenderer.GetShadowSettings();
         bool changed = false;
 
         changed |= ImGui::Checkbox("Shadow Enable", &shadowSettings.enabled);
@@ -529,13 +526,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
         if (changed)
         {
-            app.m_engine.SetShadowSettings(shadowSettings);
+            app.m_sceneRenderer.SetShadowSettings(shadowSettings);
         }
     }
 
     if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        auto reflectionSettings = app.m_engine.GetHybridReflectionSettings();
+        auto reflectionSettings = app.m_sceneRenderer.GetHybridReflectionSettings();
         bool changed = false;
 
         changed |= ImGui::Checkbox("Enabled", &reflectionSettings.enabled);
@@ -595,7 +592,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
         if (changed)
         {
-            app.m_engine.SetHybridReflectionSettings(reflectionSettings);
+            app.m_sceneRenderer.SetHybridReflectionSettings(reflectionSettings);
         }
     }
 
@@ -641,7 +638,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton("Shadow Mask##RenderDebug", &renderViewMode, static_cast<int>(RenderViewMode::ShadowMask));
         ImGui::SameLine();
         ImGui::RadioButton("TLAS Debug##RenderDebug", &renderViewMode, static_cast<int>(RenderViewMode::TlasDebug));
-        const bool reflectionDebugEnabled = app.m_engine.GetHybridReflectionSettings().enabled;
+        const bool reflectionDebugEnabled = app.m_sceneRenderer.GetHybridReflectionSettings().enabled;
         ImGui::BeginDisabled(!reflectionDebugEnabled);
         ImGui::TextUnformatted("Reflection Debug:");
         ImGui::RadioButton("Hit##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayHit));
@@ -750,7 +747,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     if (ImGui::CollapsingHeader("Pixel Pick (Ctrl+Click)", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        const auto& pick = app.m_engine.GetPixelPickResult();
+        const auto& pick = app.m_sceneRenderer.GetPixelPickResult();
         if (pick.valid)
         {
             ImGui::Text("Screen / Depth / Material");
@@ -797,7 +794,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     if (ImGui::CollapsingHeader("Specular Debug Lines", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        auto debugLines = app.m_engine.GetSpecularDebugLineSettings();
+        auto debugLines = app.m_sceneRenderer.GetSpecularDebugLineSettings();
 
         ImGui::Checkbox("Enable Debug Lines", &debugLines.enabled);
         ImGui::SliderFloat("Line Length", &debugLines.lineLength, 0.1f, 5.0f, "%.1f");
@@ -819,7 +816,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::SameLine();
         ImGui::Text("Reflection");
 
-        app.m_engine.SetSpecularDebugLineSettings(debugLines);
+        app.m_sceneRenderer.SetSpecularDebugLineSettings(debugLines);
     }
 
     if (ImGui::CollapsingHeader("Scene Config"))
@@ -840,7 +837,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         if (ImGui::Button("Save Current"))
         {
             app.m_sceneConfig.SaveCurrentScene(
-                app.m_loadedSceneIndex, app, app.m_engine, app.LoadedScene());
+                app.m_loadedSceneIndex, app, app.m_sceneRenderer.EngineForDebugTools(), app.LoadedScene());
             statusMsg = "Saved.";
             statusFrames = 120;
         }
@@ -848,7 +845,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         if (ImGui::Button("Load Defaults"))
         {
             app.m_sceneConfig.LoadDefaultsForScene(
-                app.m_loadedSceneIndex, app, app.m_engine, app.LoadedScene());
+                app.m_loadedSceneIndex, app, app.m_sceneRenderer.EngineForDebugTools(), app.LoadedScene());
             statusMsg = "Loaded defaults.";
             statusFrames = 120;
         }
@@ -859,7 +856,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             if (ImGui::Button("Save as Default"))
             {
                 app.m_sceneConfig.SaveAsDefault(
-                    app.m_loadedSceneIndex, app, app.m_engine, app.LoadedScene());
+                    app.m_loadedSceneIndex, app, app.m_sceneRenderer.EngineForDebugTools(), app.LoadedScene());
                 statusMsg = "Saved as default.";
                 statusFrames = 120;
             }
@@ -881,7 +878,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 if (ImGui::Button("OK", ImVec2(120, 0)))
                 {
                     app.m_sceneConfig.ResetCurrentScene(
-                        app.m_loadedSceneIndex, app, app.m_engine, app.LoadedScene());
+                        app.m_loadedSceneIndex, app, app.m_sceneRenderer.EngineForDebugTools(), app.LoadedScene());
                     statusMsg = "Reset current scene.";
                     statusFrames = 120;
                     ImGui::CloseCurrentPopup();
@@ -900,7 +897,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 ImGui::Text("Reset all scene configurations to defaults?\n\nThis cannot be undone.\n\n");
                 if (ImGui::Button("OK", ImVec2(120, 0)))
                 {
-                    app.m_sceneConfig.ResetAllScenes(app, app.m_engine, app.LoadedScene());
+                    app.m_sceneConfig.ResetAllScenes(app, app.m_sceneRenderer.EngineForDebugTools(), app.LoadedScene());
                     statusMsg = "Reset all scenes.";
                     statusFrames = 120;
                     ImGui::CloseCurrentPopup();
@@ -955,14 +952,14 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     {
         lightingParams.iblIntensity = 0.0f;
     }
-    app.m_engine.SetLightingParams(lightingParams);
-    app.m_engine.SetRenderingPath(app.m_renderingPath);
-    app.m_engine.SetLightingPassDebugGradient(app.m_lightingPassDebugGradient);
-    app.m_engine.SetBackBufferClearColor(app.m_backBufferClearColor);
-    app.m_engine.SetDisplayInstanceCount(loadedScene.DisplayInstanceCount());
-    app.m_engine.SetToneMapParams(app.m_toneMapParams);
-    app.m_engine.SetRenderViewMode(app.m_renderViewMode);
-    app.m_engine.SetRequestHdrDump(app.m_requestHdrDump);
+    app.m_sceneRenderer.SetLightingParams(lightingParams);
+    app.m_sceneRenderer.SetRenderingPath(app.m_renderingPath);
+    app.m_sceneRenderer.SetLightingPassDebugGradient(app.m_lightingPassDebugGradient);
+    app.m_sceneRenderer.SetBackBufferClearColor(app.m_backBufferClearColor);
+    app.m_sceneRenderer.SetDisplayInstanceCount(loadedScene.DisplayInstanceCount());
+    app.m_sceneRenderer.SetToneMapParams(app.m_toneMapParams);
+    app.m_sceneRenderer.SetRenderViewMode(app.m_renderViewMode);
+    app.m_sceneRenderer.SetRequestHdrDump(app.m_requestHdrDump);
     app.m_requestHdrDump = false;
 }
 

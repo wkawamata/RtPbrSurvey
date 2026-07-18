@@ -382,7 +382,9 @@ auto RtPbrSurveyEngine::MakeTemporalUpscalerPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"TemporalUpscalerPass")
-        .Reads({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
+        .Reads({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
+                {kDepthStencilResourceName, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::MotionVector], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE}})
         .Writes({{kTemporalUpscalerSceneColorResourceName, D3D12_RESOURCE_STATE_COPY_DEST}})
         .Operation(Op::TemporalUpscaler, &RtPbrSurveyEngine::ExecuteTemporalUpscalerPass)
         .Build();

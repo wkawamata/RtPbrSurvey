@@ -28,6 +28,9 @@
     <Filter Include="Source Files\App">
       <UniqueIdentifier>{3a4b5c6d-7e8f-9a0b-1c2d-3e4f5a6b7c8d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Camera">
+      <UniqueIdentifier>{4b5c6d7e-8f9a-0b1c-2d3e-4f5a6b7c8d9e}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Engine\FrameGraph">
       <UniqueIdentifier>{5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b}</UniqueIdentifier>
     </Filter>
@@ -37,10 +40,16 @@
     <Filter Include="Source Files\Engine\Rhi\Dx12">
       <UniqueIdentifier>{7b8c9d0e-1f2a-3b4c-5d6e-7f8a9b0c1d2e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime">
+      <UniqueIdentifier>{8c9d0e1f-2a3b-4c5d-6e7f-8a9b0c1d2e3f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CubeMesh.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera\DebugCameraController.h">
+      <Filter>Source Files\Camera</Filter>
     </ClInclude>
     <ClInclude Include="Engine\RtPbrSurveyEngine.h">
       <Filter>Source Files\Engine</Filter>
@@ -171,6 +180,9 @@
     <ClInclude Include="Renderer\StagedDescriptorAllocator.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\StreamlineAdapter.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\TemporalUpscalerSupport.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -179,6 +191,9 @@
     </ClInclude>
     <ClInclude Include="Renderer\DebugLinePass.h">
       <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\SceneRenderer.h">
+      <Filter>Source Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Scene.h">
       <Filter>Source Files\Scene</Filter>
@@ -190,6 +205,9 @@
       <Filter>Source Files\Scene</Filter>
     </ClInclude>
     <ClInclude Include="Scene\ProceduralSceneBuilder.h">
+      <Filter>Source Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneBuilder.h">
       <Filter>Source Files\Scene</Filter>
     </ClInclude>
     <ClInclude Include="Ui\ImGuiSystem.h">
@@ -232,6 +250,9 @@
   <ItemGroup>
     <ClCompile Include="CubeMesh.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera\DebugCameraController.cpp">
+      <Filter>Source Files\Camera</Filter>
     </ClCompile>
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
@@ -341,6 +362,9 @@
     <ClCompile Include="Renderer\SceneGeometryPass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\StreamlineAdapter.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\TemporalUpscalerSupport.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
@@ -350,6 +374,9 @@
     <ClCompile Include="Renderer\DebugLinePass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Runtime\SceneRenderer.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\SampleScene.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
@@ -357,6 +384,9 @@
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
     <ClCompile Include="Scene\ProceduralSceneBuilder.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneBuilder.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
     <ClCompile Include="Ui\ImGuiSystem.cpp">

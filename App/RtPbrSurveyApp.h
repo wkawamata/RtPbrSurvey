@@ -14,10 +14,12 @@
 #include "App/DebugUi.h"
 #include "App/SceneConfig.h"
 #include "App/SceneSelectUi.h"
+#include "Camera/DebugCameraController.h"
 #include "../Engine/RtPbrSurveyEngine.h"
 #include "Platform/CommandLineOptions.h"
 #include "Platform/IApplication.h"
 #include "Platform/WindowInfo.h"
+#include "Runtime/SceneRenderer.h"
 #include "Scene/SampleScene.h"
 #include "Ui/ImGuiSystem.h"
 
@@ -65,12 +67,6 @@ private:
     friend void App::DrawSceneSelectUi(RtPbrSurveyApp& app);
     friend class App::SceneConfigManager;
 
-    enum class CameraMode
-    {
-        FreeLook,
-        Arcball,
-    };
-
     enum class AppMode
     {
         SceneSelect,
@@ -90,6 +86,8 @@ private:
     Engine::SampleScene& LoadedScene();
     const Engine::SampleScene& LoadedScene() const;
     void DrawDebugUi(const RtPbrSurveyEngine::UiFrameContext& context);
+    RtPbrSurvey::DebugCameraController& DebugCamera() { return m_debugCamera; }
+    const RtPbrSurvey::DebugCameraController& DebugCamera() const { return m_debugCamera; }
 
     static constexpr UINT kMaxInstanceCount = RtPbrSurveyEngine::kMaxInstanceCount;
     static constexpr float kMousePanSpeed = 0.01f;
@@ -121,6 +119,7 @@ private:
     RtPbrSurveyEngine::RenderingPath m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
     bool m_iblEnabled = true;
     bool m_lightingPassDebugGradient = false;
+    bool m_debugUiVisible = false;
     int m_selectedMaterialIndex = 0;
     std::array<float, 4> m_backBufferClearColor = {0.0f, 0.2f, 0.4f, 1.0f};
     RtPbrSurveyEngine::ToneMapParams m_toneMapParams;
@@ -131,25 +130,8 @@ private:
     float m_meshScale = 0.5f;
     bool m_isPlaying = false;
 
-    bool m_isDragging = false;
-    bool m_isMiddleDragging = false;
-    bool m_isRightDragging = false;
-    int m_lastMouseX = 0;
-    int m_lastMouseY = 0;
-    XMFLOAT3 m_lastArcballVector = {0.0f, 0.0f, 1.0f};
     XMFLOAT4 m_dragRotation = {0.0f, 0.0f, 0.0f, 1.0f};
-    XMFLOAT2 m_dragPan = {0.0f, 0.0f};
 
-    CameraMode m_cameraMode = CameraMode::Arcball;
-    float m_cameraSpeedMultiplier = 1.0f;
-    float m_objectViewerYaw = 0.0f;
-    float m_objectViewerPitch = 0.0f;
-    float m_objectViewerDistance = 5.0f;
-    XMFLOAT3 m_objectViewerPivot = {0.0f, 0.0f, 0.0f};
-
-    void InitObjectViewerFromCamera();
-    void SetObjectViewerOrbitFromOffset(DirectX::FXMVECTOR offset);
-    void UpdateObjectViewerCamera();
     bool IsGltfViewerSceneIndex(int index) const;
 
     std::chrono::steady_clock::time_point m_prevTime;
@@ -161,7 +143,8 @@ private:
     ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
     Engine::ImGuiSystem m_imguiSystem;
 
-    RtPbrSurveyEngine m_engine;
+    RtPbrSurvey::SceneRenderer m_sceneRenderer;
+    RtPbrSurvey::DebugCameraController m_debugCamera;
     App::SceneConfigManager m_sceneConfig;
 
     // Debug logging to file (-LogToFile / -LogFPS).

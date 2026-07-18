@@ -7,3 +7,5 @@ d3d12_debug.log
 *.vcxproj.user
 bin/
 obj/
+build/
+/third_party/streamline-sdk-*/
