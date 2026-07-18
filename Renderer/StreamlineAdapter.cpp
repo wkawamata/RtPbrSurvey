@@ -21,6 +21,7 @@ struct StreamlineAdapterState
 #else
         TemporalUpscalerSupportStatus::NotIntegrated;
 #endif
+    bool sdkInitialized = false;
     bool initialized = false;
 };
 
@@ -95,11 +96,56 @@ TemporalUpscalerSupportStatus ToSupportStatus(sl::Result result)
 TemporalUpscalerSupportStatus InitializeStreamlineAdapterWithSdk(const StreamlineAdapterInitDesc& desc)
 {
     UNREFERENCED_PARAMETER(desc);
+
+    if (g_streamlineAdapterState.sdkInitialized)
+    {
+        return g_streamlineAdapterState.status;
+    }
+
+    const sl::Feature featuresToLoad[] = {sl::kFeatureDLSS};
+    sl::Preferences preferences = {};
+    preferences.featuresToLoad = featuresToLoad;
+    preferences.numFeaturesToLoad = _countof(featuresToLoad);
+    preferences.engine = sl::EngineType::eCustom;
+    preferences.engineVersion = "1.0.0";
+    preferences.renderAPI = sl::RenderAPI::eD3D12;
+
+    const sl::Result initResult = slInit(preferences);
+    if (initResult != sl::Result::eOk)
+    {
+        return ToSupportStatus(initResult);
+    }
+
+    g_streamlineAdapterState.sdkInitialized = true;
     return TemporalUpscalerSupportStatus::InitializationFailed;
+}
+
+TemporalUpscalerSupportStatus SetStreamlineD3DDeviceWithSdk(ID3D12Device* device)
+{
+    if (!g_streamlineAdapterState.sdkInitialized || device == nullptr)
+    {
+        return TemporalUpscalerSupportStatus::InitializationFailed;
+    }
+
+    const sl::Result setDeviceResult = slSetD3DDevice(device);
+    if (setDeviceResult != sl::Result::eOk)
+    {
+        return ToSupportStatus(setDeviceResult);
+    }
+
+    LUID adapterLuid = device->GetAdapterLuid();
+    sl::AdapterInfo adapterInfo = {};
+    adapterInfo.deviceLUID = reinterpret_cast<std::uint8_t*>(&adapterLuid);
+    adapterInfo.deviceLUIDSizeInBytes = sizeof(adapterLuid);
+    return ToSupportStatus(slIsFeatureSupported(sl::kFeatureDLSS, adapterInfo));
 }
 
 void ShutdownStreamlineAdapterWithSdk()
 {
+    if (g_streamlineAdapterState.sdkInitialized)
+    {
+        slShutdown();
+    }
 }
 
 TemporalUpscalerSupportInfo QueryStreamlineSupportWithSdk()
@@ -154,6 +200,12 @@ TemporalUpscalerSupportStatus InitializeStreamlineAdapterWithoutSdk(const Stream
     return TemporalUpscalerSupportStatus::NotIntegrated;
 }
 
+TemporalUpscalerSupportStatus SetStreamlineD3DDeviceWithoutSdk(ID3D12Device* device)
+{
+    UNREFERENCED_PARAMETER(device);
+    return TemporalUpscalerSupportStatus::NotIntegrated;
+}
+
 void ShutdownStreamlineAdapterWithoutSdk()
 {
 }
@@ -185,6 +237,17 @@ TemporalUpscalerSupportInfo InitializeStreamlineAdapter(const StreamlineAdapterI
     g_streamlineAdapterState.status = InitializeStreamlineAdapterWithSdk(desc);
 #else
     g_streamlineAdapterState.status = InitializeStreamlineAdapterWithoutSdk(desc);
+#endif
+    g_streamlineAdapterState.initialized = g_streamlineAdapterState.status == TemporalUpscalerSupportStatus::Available;
+    return MakeSupportInfo(g_streamlineAdapterState.status);
+}
+
+TemporalUpscalerSupportInfo SetStreamlineD3DDevice(ID3D12Device* device)
+{
+#if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+    g_streamlineAdapterState.status = SetStreamlineD3DDeviceWithSdk(device);
+#else
+    g_streamlineAdapterState.status = SetStreamlineD3DDeviceWithoutSdk(device);
 #endif
     g_streamlineAdapterState.initialized = g_streamlineAdapterState.status == TemporalUpscalerSupportStatus::Available;
     return MakeSupportInfo(g_streamlineAdapterState.status);

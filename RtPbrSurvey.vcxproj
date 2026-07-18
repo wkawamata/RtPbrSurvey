@@ -64,6 +64,8 @@
     <RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\lib\x64;</RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS>
     <RTPBRSURVEY_STREAMLINE_LIBRARIES Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">sl.interposer.lib;</RTPBRSURVEY_STREAMLINE_LIBRARIES>
     <RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">sl.interposer.dll;</RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS>
+    <RTPBRSURVEY_PLATFORM_LIBRARIES Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'!='true'">d3d12.lib;dxgi.lib;</RTPBRSURVEY_PLATFORM_LIBRARIES>
+    <RTPBRSURVEY_PLATFORM_DELAY_LOAD_DLLS Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'!='true'">d3d12.dll;</RTPBRSURVEY_PLATFORM_DELAY_LOAD_DLLS>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -91,8 +93,8 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS)%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;dxguid.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>d3d12.dll;$(RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS)%(DelayLoadDLLs)</DelayLoadDLLs>
+      <AdditionalDependencies>$(RTPBRSURVEY_PLATFORM_LIBRARIES)d3dcompiler.lib;dxguid.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>$(RTPBRSURVEY_PLATFORM_DELAY_LOAD_DLLS)$(RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS)%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
       <TreatOutputAsContent>true</TreatOutputAsContent>
@@ -126,8 +128,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>$(RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS)%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;dxguid.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>d3d12.dll;$(RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS)%(DelayLoadDLLs)</DelayLoadDLLs>
+      <AdditionalDependencies>$(RTPBRSURVEY_PLATFORM_LIBRARIES)d3dcompiler.lib;dxguid.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>$(RTPBRSURVEY_PLATFORM_DELAY_LOAD_DLLS)$(RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS)%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
       <TreatOutputAsContent>true</TreatOutputAsContent>
@@ -486,6 +488,12 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
     </CustomBuild>
   </ItemGroup>
+  <ItemGroup Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">
+    <StreamlineRuntimeDll Include="$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\bin\x64\sl.interposer.dll" />
+    <StreamlineRuntimeDll Include="$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\bin\x64\sl.common.dll" />
+    <StreamlineRuntimeDll Include="$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\bin\x64\sl.dlss.dll" />
+    <StreamlineRuntimeDll Include="$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\bin\x64\nvngx_dlss.dll" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\Microsoft.Direct3D.D3D12.1.618.3\build\native\Microsoft.Direct3D.D3D12.targets" Condition="Exists('packages\Microsoft.Direct3D.D3D12.1.618.3\build\native\Microsoft.Direct3D.D3D12.targets')" />
@@ -501,5 +509,8 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <Error Condition="!Exists('packages\Microsoft.Direct3D.DXC.1.8.2505.32\build\native\Microsoft.Direct3D.DXC.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Direct3D.DXC.1.8.2505.32\build\native\Microsoft.Direct3D.DXC.props'))" />
     <Error Condition="!Exists('packages\Microsoft.Direct3D.DXC.1.8.2505.32\build\native\Microsoft.Direct3D.DXC.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Direct3D.DXC.1.8.2505.32\build\native\Microsoft.Direct3D.DXC.targets'))" />
     <Error Condition="!Exists('packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets'))" />
+  </Target>
+  <Target Name="CopyStreamlineRuntime" AfterTargets="Build" Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">
+    <Copy SourceFiles="@(StreamlineRuntimeDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
   </Target>
 </Project>

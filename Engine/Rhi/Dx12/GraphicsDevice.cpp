@@ -163,6 +163,11 @@ void GraphicsDevice::Initialize(const GraphicsDeviceDesc& desc)
         ThrowIfFailed(D3D12CreateDevice(hardwareAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device)));
     }
 
+    if (desc.deviceCreatedHandler)
+    {
+        desc.deviceCreatedHandler(m_device.Get());
+    }
+
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
     queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;

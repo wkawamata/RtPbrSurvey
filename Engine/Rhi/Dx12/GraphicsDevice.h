@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <functional>
 #include <wrl/client.h>
 
 using Microsoft::WRL::ComPtr;
@@ -23,6 +24,7 @@ struct GraphicsDeviceDesc
     UINT bufferCount = 0;
     DXGI_FORMAT swapChainFormat = DXGI_FORMAT_UNKNOWN;
     bool useWarpDevice = false;
+    std::function<void(ID3D12Device*)> deviceCreatedHandler;
 };
 
 struct GraphicsDevice

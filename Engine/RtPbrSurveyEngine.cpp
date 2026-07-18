@@ -160,8 +160,7 @@ void RtPbrSurveyEngine::UpdateRenderDimensions()
 void RtPbrSurveyEngine::InitializeFrameResources()
 {
     m_rayTracingSupport = Engine::RayTracingSupportInfo::Create(m_graphicsDevice.Device());
-    const Engine::StreamlineAdapterInitDesc streamlineInitDesc = {L"RtPbrSurvey"};
-    m_temporalUpscalerSupport = Engine::InitializeStreamlineAdapter(streamlineInitDesc);
+    m_temporalUpscalerSupport = Engine::QueryStreamlineSupport();
     wchar_t debugMessage[256] = {};
     swprintf_s(debugMessage,
                L"Ray tracing support: supported=%s tier=%s raw=%d\nTemporal upscaler support: available=%S backend=%S status=%S\n",

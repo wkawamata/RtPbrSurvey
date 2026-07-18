@@ -54,6 +54,7 @@ struct StreamlineDlssOptimalSettingsResult
 };
 
 TemporalUpscalerSupportInfo InitializeStreamlineAdapter(const StreamlineAdapterInitDesc& desc);
+TemporalUpscalerSupportInfo SetStreamlineD3DDevice(ID3D12Device* device);
 void ShutdownStreamlineAdapter();
 TemporalUpscalerSupportInfo QueryStreamlineSupport();
 StreamlineDlssOptimalSettingsResult QueryStreamlineDlssOptimalSettings(

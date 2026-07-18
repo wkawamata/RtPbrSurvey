@@ -111,14 +111,15 @@ target_compile_definitions(RtPbrSurvey.SceneRenderer
         WIN32
         _WINDOWS)
 
-if(EXISTS "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/include/sl.h")
+set(RTPBRSURVEY_HAS_STREAMLINE_SDK OFF)
+if(EXISTS "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/include/sl.h" AND
+   EXISTS "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/lib/x64/sl.interposer.lib")
+    set(RTPBRSURVEY_HAS_STREAMLINE_SDK ON)
     target_compile_definitions(RtPbrSurvey.SceneRenderer PUBLIC RTPBRSURVEY_HAS_STREAMLINE_SDK)
     target_include_directories(RtPbrSurvey.SceneRenderer PRIVATE "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/include")
-    if(EXISTS "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/lib/x64/sl.interposer.lib")
-        target_link_libraries(RtPbrSurvey.SceneRenderer PUBLIC "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/lib/x64/sl.interposer.lib")
-        if(MSVC)
-            target_link_options(RtPbrSurvey.SceneRenderer PUBLIC /DELAYLOAD:sl.interposer.dll)
-        endif()
+    target_link_libraries(RtPbrSurvey.SceneRenderer PUBLIC "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/lib/x64/sl.interposer.lib")
+    if(MSVC)
+        target_link_options(RtPbrSurvey.SceneRenderer PUBLIC /DELAYLOAD:sl.interposer.dll)
     endif()
 endif()
 
@@ -138,11 +139,13 @@ target_link_libraries(RtPbrSurvey.SceneRenderer
         PUBLIC
         imgui::imgui
         nlohmann_json::nlohmann_json
-        d3d12
-        dxgi
         d3dcompiler
         dxguid
         delayimp)
+
+if(NOT RTPBRSURVEY_HAS_STREAMLINE_SDK)
+    target_link_libraries(RtPbrSurvey.SceneRenderer PUBLIC d3d12 dxgi)
+endif()
 
 if(EXISTS "${RTPBRSURVEY_DXC_NATIVE_DIR}/lib/x64/dxcompiler.lib")
     target_link_libraries(RtPbrSurvey.SceneRenderer PUBLIC "${RTPBRSURVEY_DXC_NATIVE_DIR}/lib/x64/dxcompiler.lib")
@@ -152,9 +155,11 @@ if(EXISTS "${RTPBRSURVEY_WINPIX_PACKAGE_DIR}/bin/x64/WinPixEventRuntime.lib")
     target_link_libraries(RtPbrSurvey.SceneRenderer PUBLIC "${RTPBRSURVEY_WINPIX_PACKAGE_DIR}/bin/x64/WinPixEventRuntime.lib")
 endif()
 
-if(MSVC)
+if(MSVC AND NOT RTPBRSURVEY_HAS_STREAMLINE_SDK)
     target_compile_options(RtPbrSurvey.SceneRenderer PRIVATE /permissive)
     target_link_options(RtPbrSurvey.SceneRenderer PUBLIC /DELAYLOAD:d3d12.dll)
+elseif(MSVC)
+    target_compile_options(RtPbrSurvey.SceneRenderer PRIVATE /permissive)
 endif()
 
 function(rtpbrsurvey_add_shader output_var shader_file stage entry_point)
@@ -227,6 +232,17 @@ function(rtpbrsurvey_copy_runtime_files target)
             "${rtpbrsurvey_winpix_package_dir}/bin/x64/WinPixEventRuntime.dll"
             "$<TARGET_FILE_DIR:${target}>"
         VERBATIM)
+
+    if(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.interposer.dll"
+                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.common.dll"
+                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.dlss.dll"
+                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/nvngx_dlss.dll"
+                "$<TARGET_FILE_DIR:${target}>"
+            VERBATIM)
+    endif()
 
     if(TARGET RtPbrSurvey.Shaders)
         add_dependencies(${target} RtPbrSurvey.Shaders)
