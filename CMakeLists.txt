@@ -114,6 +114,12 @@ target_compile_definitions(RtPbrSurvey.SceneRenderer
 if(EXISTS "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/include/sl.h")
     target_compile_definitions(RtPbrSurvey.SceneRenderer PUBLIC RTPBRSURVEY_HAS_STREAMLINE_SDK)
     target_include_directories(RtPbrSurvey.SceneRenderer PRIVATE "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/include")
+    if(EXISTS "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/lib/x64/sl.interposer.lib")
+        target_link_libraries(RtPbrSurvey.SceneRenderer PUBLIC "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/lib/x64/sl.interposer.lib")
+        if(MSVC)
+            target_link_options(RtPbrSurvey.SceneRenderer PUBLIC /DELAYLOAD:sl.interposer.dll)
+        endif()
+    endif()
 endif()
 
 target_include_directories(RtPbrSurvey.SceneRenderer

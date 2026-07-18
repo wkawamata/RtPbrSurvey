@@ -61,6 +61,9 @@
     <RTPBRSURVEY_HAS_STREAMLINE_SDK Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='' and Exists('$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\include\sl.h')">true</RTPBRSURVEY_HAS_STREAMLINE_SDK>
     <RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">RTPBRSURVEY_HAS_STREAMLINE_SDK;</RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS>
     <RTPBRSURVEY_STREAMLINE_INCLUDE_DIRS Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\include;</RTPBRSURVEY_STREAMLINE_INCLUDE_DIRS>
+    <RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\lib\x64;</RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS>
+    <RTPBRSURVEY_STREAMLINE_LIBRARIES Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">sl.interposer.lib;</RTPBRSURVEY_STREAMLINE_LIBRARIES>
+    <RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">sl.interposer.dll;</RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -87,8 +90,9 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
+      <AdditionalLibraryDirectories>$(RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS)%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;dxguid.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>d3d12.dll;$(RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS)%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
       <TreatOutputAsContent>true</TreatOutputAsContent>
@@ -121,8 +125,9 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
+      <AdditionalLibraryDirectories>$(RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS)%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;dxguid.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>d3d12.dll;$(RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS)%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
       <TreatOutputAsContent>true</TreatOutputAsContent>
