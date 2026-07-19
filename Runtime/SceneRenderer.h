@@ -47,6 +47,8 @@ namespace RtPbrSurvey
         void SetLightingParams(const RtPbrSurveyEngine::LightingParams& params);
         void SetShadowSettings(const RtPbrSurveyEngine::ShadowSettings& settings);
         const RtPbrSurveyEngine::ShadowSettings& GetShadowSettings() const;
+        void SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings);
+        const Engine::TemporalUpscalerSettings& GetTemporalUpscalerSettings() const;
         void SetHybridReflectionSettings(const RtPbrSurveyEngine::HybridReflectionSettings& settings);
         const RtPbrSurveyEngine::HybridReflectionSettings& GetHybridReflectionSettings() const;
         void SetMaterialParams(UINT materialIndex, const RtPbrSurveyEngine::MaterialParams& params);

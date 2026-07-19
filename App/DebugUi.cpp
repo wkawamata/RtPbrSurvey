@@ -240,6 +240,25 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 context.temporalUpscalerAvailable ? "Available" : "Unavailable",
                 context.temporalUpscalerBackendName,
                 context.temporalUpscalerStatusText);
+    auto temporalUpscalerSettings = app.m_sceneRenderer.GetTemporalUpscalerSettings();
+    bool temporalUpscalerSettingsChanged = false;
+    ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
+    temporalUpscalerSettingsChanged |= ImGui::Checkbox("DLSS Enabled", &temporalUpscalerSettings.enabled);
+    int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
+    if (ImGui::Combo("DLSS Quality",
+                     &temporalUpscalerQualityMode,
+                     "Native (DLAA)\0Ultra Quality\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
+    {
+        temporalUpscalerSettings.qualityMode =
+            static_cast<Engine::TemporalUpscalerQualityMode>(temporalUpscalerQualityMode);
+        temporalUpscalerSettingsChanged = true;
+    }
+    ImGui::EndDisabled();
+    if (temporalUpscalerSettingsChanged)
+    {
+        temporalUpscalerSettings.backend = Engine::TemporalUpscalerBackend::Streamline;
+        app.m_sceneRenderer.SetTemporalUpscalerSettings(temporalUpscalerSettings);
+    }
     if (ImGui::Button("Close Scene"))
     {
         app.CloseRunningScene();

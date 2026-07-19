@@ -98,6 +98,16 @@ namespace RtPbrSurvey
         return m_engine.GetShadowSettings();
     }
 
+    void SceneRenderer::SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings)
+    {
+        m_engine.SetTemporalUpscalerSettings(settings);
+    }
+
+    const Engine::TemporalUpscalerSettings& SceneRenderer::GetTemporalUpscalerSettings() const
+    {
+        return m_engine.GetTemporalUpscalerSettings();
+    }
+
     void SceneRenderer::SetHybridReflectionSettings(const RtPbrSurveyEngine::HybridReflectionSettings& settings)
     {
         m_engine.SetHybridReflectionSettings(settings);
