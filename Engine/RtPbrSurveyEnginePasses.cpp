@@ -15,6 +15,7 @@
 
 void RtPbrSurveyEngine::BuildRenderPasses()
 {
+    m_temporalUpscalerOutputAvailable = false;
     m_renderGraphRuntime.Graph().Clear();
     m_renderGraphRuntime.Operations().Clear();
 
@@ -366,10 +367,17 @@ auto RtPbrSurveyEngine::MakeLightingDebugGradientPass() -> RenderPass
 
 auto RtPbrSurveyEngine::MakeToneMapPass() -> RenderPass
 {
+    Engine::ResourceUsages reads = {{kLightPassRenderTargetResourceName,
+                                     D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
+    if (ShouldRunTemporalUpscaler())
+    {
+        reads.push_back({kTemporalUpscalerSceneColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+    }
+
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"ToneMapPass")
         .Pipeline(Pipe::ToneMap)
-        .Reads({{GetToneMapSceneColorResourceName(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Reads(std::move(reads))
         .Writes({{kBackBufferResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ToneMapSceneColorSrv)
         .Rtv(RtvName::BackBuffer)

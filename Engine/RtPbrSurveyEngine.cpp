@@ -337,19 +337,9 @@ bool RtPbrSurveyEngine::ShouldRunTemporalUpscaler() const
     return HasTemporalUpscalerPassOutput() && m_temporalUpscalerSettings.enabled && m_temporalUpscalerSupport.IsAvailable();
 }
 
-const char* RtPbrSurveyEngine::GetToneMapSceneColorResourceName() const
-{
-    if (ShouldRunTemporalUpscaler())
-    {
-        return kTemporalUpscalerSceneColorResourceName;
-    }
-
-    return kLightPassRenderTargetResourceName;
-}
-
 D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveToneMapSceneColorSrv() const
 {
-    if (ShouldRunTemporalUpscaler())
+    if (m_temporalUpscalerOutputAvailable)
     {
         return m_temporalUpscalerSceneColorSrv.gpu;
     }
@@ -3591,6 +3581,7 @@ void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
     inputs.frameConstants = MakeStreamlineFrameConstants();
 
     const Engine::StreamlineEvaluateResult result = Engine::EvaluateStreamline(inputs);
+    m_temporalUpscalerOutputAvailable = result.outputAvailable;
     if (result.outputAvailable)
     {
         m_temporalUpscalerHistoryReset = false;
@@ -3598,17 +3589,6 @@ void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
         return;
     }
 
-    const D3D12_RESOURCE_DESC sourceDesc = m_lightPassRenderTarget->GetDesc();
-    const D3D12_RESOURCE_DESC outputDesc = m_temporalUpscalerSceneColor->GetDesc();
-    const bool canCopy = sourceDesc.Width == outputDesc.Width && sourceDesc.Height == outputDesc.Height &&
-                         sourceDesc.Format == outputDesc.Format;
-    assert(canCopy && "Identity temporal upscaler stub requires matching source and output textures.");
-    if (!canCopy)
-    {
-        return;
-    }
-
-    m_commandList->CopyResource(m_temporalUpscalerSceneColor.Get(), m_lightPassRenderTarget.Get());
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "TemporalUpscaler Pass");
 }
 

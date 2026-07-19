@@ -676,6 +676,7 @@ private:
     Engine::TemporalUpscalerSupportInfo m_temporalUpscalerSupport;
     Engine::TemporalUpscalerSettings m_temporalUpscalerSettings;
     bool m_temporalUpscalerHistoryReset = true;
+    bool m_temporalUpscalerOutputAvailable = false;
     Engine::ToneMapPass m_toneMapPass;
     Engine::DebugLinePass m_debugLinePass;
 
@@ -986,7 +987,6 @@ private:
     void UpdateRenderDimensions();
     bool HasTemporalUpscalerPassOutput() const;
     bool ShouldRunTemporalUpscaler() const;
-    const char* GetToneMapSceneColorResourceName() const;
     D3D12_GPU_DESCRIPTOR_HANDLE ResolveToneMapSceneColorSrv() const;
 
     std::vector<UINT8> GenerateCheckerboardTextureData();
