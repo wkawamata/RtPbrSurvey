@@ -128,14 +128,29 @@ namespace RtPbrSurvey
         m_engine.SetRenderingPath(renderingPath);
     }
 
+    RtPbrSurveyEngine::RenderingPath SceneRenderer::GetRenderingPath() const
+    {
+        return m_engine.GetRenderingPath();
+    }
+
     void SceneRenderer::SetLightingPassDebugGradient(bool enabled)
     {
         m_engine.SetLightingPassDebugGradient(enabled);
     }
 
+    bool SceneRenderer::GetLightingPassDebugGradient() const
+    {
+        return m_engine.GetLightingPassDebugGradient();
+    }
+
     void SceneRenderer::SetBackBufferClearColor(const std::array<float, 4>& color)
     {
         m_engine.SetBackBufferClearColor(color);
+    }
+
+    const std::array<float, 4>& SceneRenderer::GetBackBufferClearColor() const
+    {
+        return m_engine.GetBackBufferClearColor();
     }
 
     void SceneRenderer::SetDisplayInstanceCount(int count)
@@ -148,9 +163,19 @@ namespace RtPbrSurvey
         m_engine.SetToneMapParams(params);
     }
 
+    RtPbrSurveyEngine::ToneMapParams SceneRenderer::GetToneMapParams() const
+    {
+        return m_engine.GetToneMapParams();
+    }
+
     void SceneRenderer::SetRenderViewMode(RtPbrSurveyEngine::RenderViewMode mode)
     {
         m_engine.SetRenderViewMode(mode);
+    }
+
+    RtPbrSurveyEngine::RenderViewMode SceneRenderer::GetRenderViewMode() const
+    {
+        return m_engine.GetRenderViewMode();
     }
 
     void SceneRenderer::SetRequestHdrDump(bool request)

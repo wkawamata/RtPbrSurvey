@@ -86,6 +86,21 @@ renderer.RunFrame([&](ID3D12GraphicsCommandList* commandList) {
 
 `ReloadSceneResources()` keeps the visible instance count clamped to the new scene. If the count was zero, the new scene's instance count becomes visible by default.
 
+## Host Debug UI
+
+`RtPbrSurvey::SceneRendererDebugUi` is included in `RtPbrSurvey::SceneRenderer` and can be drawn from a host-owned ImGui frame without constructing `RtPbrSurveyApp`.
+
+```cpp
+#include "Runtime/SceneRendererDebugUi.h"
+
+bool rendererDebugOpen = true;
+
+// Inside the host ImGui frame:
+RtPbrSurvey::SceneRendererDebugUi::Draw(sceneRenderer, &rendererDebugOpen);
+```
+
+The host-consumable debug UI intentionally excludes app-owned workflows such as scene selection, debug camera presets, close scene, and scene config save/load. It exposes renderer-owned status and controls such as frame timing, ray tracing support, temporal upscaler status/settings, back-buffer clear color, tone mapping, shadow settings, hybrid reflection settings, and render view mode.
+
 ## DirectX Header Note
 
 RtPbrSurvey currently includes `include/d3dx12/d3dx12.h`, matching the Microsoft.Direct3D.D3D12 NuGet package layout. The CMake target adds both the NuGet native root and native include directory to its include paths. A future vcpkg `directx-headers` path may need a small forwarding include or a source include cleanup if that package is used without the NuGet package.

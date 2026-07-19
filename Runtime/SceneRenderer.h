@@ -53,11 +53,16 @@ namespace RtPbrSurvey
         const RtPbrSurveyEngine::HybridReflectionSettings& GetHybridReflectionSettings() const;
         void SetMaterialParams(UINT materialIndex, const RtPbrSurveyEngine::MaterialParams& params);
         void SetRenderingPath(RtPbrSurveyEngine::RenderingPath renderingPath);
+        RtPbrSurveyEngine::RenderingPath GetRenderingPath() const;
         void SetLightingPassDebugGradient(bool enabled);
+        bool GetLightingPassDebugGradient() const;
         void SetBackBufferClearColor(const std::array<float, 4>& color);
+        const std::array<float, 4>& GetBackBufferClearColor() const;
         void SetDisplayInstanceCount(int count);
         void SetToneMapParams(const RtPbrSurveyEngine::ToneMapParams& params);
+        RtPbrSurveyEngine::ToneMapParams GetToneMapParams() const;
         void SetRenderViewMode(RtPbrSurveyEngine::RenderViewMode mode);
+        RtPbrSurveyEngine::RenderViewMode GetRenderViewMode() const;
         void SetRequestHdrDump(bool request);
         void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
         void RequestPixelPick(int screenX, int screenY);
