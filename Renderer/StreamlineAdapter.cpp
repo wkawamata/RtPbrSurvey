@@ -44,6 +44,14 @@ StreamlineEvaluateResult MakeUnavailableEvaluateResult(TemporalUpscalerSupportSt
     return result;
 }
 
+StreamlineEvaluateResult MakeAvailableEvaluateResult()
+{
+    StreamlineEvaluateResult result;
+    result.outputAvailable = true;
+    result.status = TemporalUpscalerSupportStatus::Available;
+    return result;
+}
+
 StreamlineDlssOptimalSettingsResult MakeUnavailableOptimalSettingsResult(TemporalUpscalerSupportStatus status)
 {
     StreamlineDlssOptimalSettingsResult result;
@@ -215,6 +223,18 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
     }
 
     const sl::ViewportHandle viewport = 0;
+    sl::DLSSOptions options = {};
+    options.mode = ToStreamlineDlssMode(inputs.settings.qualityMode);
+    options.outputWidth = inputs.outputWidth;
+    options.outputHeight = inputs.outputHeight;
+    options.colorBuffersHDR = sl::Boolean::eTrue;
+    options.useAutoExposure = inputs.settings.autoExposure ? sl::Boolean::eTrue : sl::Boolean::eFalse;
+    const sl::Result optionsResult = slDLSSSetOptions(viewport, options);
+    if (optionsResult != sl::Result::eOk)
+    {
+        return MakeUnavailableEvaluateResult(ToSupportStatus(optionsResult));
+    }
+
     const TemporalUpscalerFrameConstants& source = inputs.frameConstants;
     sl::Constants constants = {};
     constants.cameraViewToClip = ToStreamlineMatrix(source.cameraViewToClip);
@@ -274,7 +294,15 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
         return MakeUnavailableEvaluateResult(ToSupportStatus(tagResult));
     }
 
-    return MakeUnavailableEvaluateResult(TemporalUpscalerSupportStatus::Available);
+    const sl::BaseStructure* evaluateInputs[] = {&viewport};
+    const sl::Result evaluateResult = slEvaluateFeature(
+        sl::kFeatureDLSS, *frameToken, evaluateInputs, _countof(evaluateInputs), inputs.commandList);
+    if (evaluateResult != sl::Result::eOk)
+    {
+        return MakeUnavailableEvaluateResult(ToSupportStatus(evaluateResult));
+    }
+
+    return MakeAvailableEvaluateResult();
 }
 
 StreamlineDlssOptimalSettingsResult QueryStreamlineDlssOptimalSettingsWithSdk(

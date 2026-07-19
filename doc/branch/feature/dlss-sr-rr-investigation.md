@@ -186,7 +186,8 @@ Current Work-3 status:
 - `EvaluateStreamline()` obtains a frame token, submits per-frame constants, and tags scene color, depth, motion vectors, and output color with frame-based resource tagging.
 - The current motion-vector shader writes `curNdc - prevNdc`, so the adapter submits a motion-vector scale of `(1, 1)` and reports that camera motion is included.
 - Camera jitter remains `(0, 0)` until a stable renderer-owned jitter sequence is added.
-- `slEvaluateFeature()` is intentionally deferred to the next step. The adapter does not report a valid upscaled output yet, so native rendering remains the active path.
+- `EvaluateStreamline()` sets DLSS options and calls `slEvaluateFeature()` with the same frame token and viewport used for constants and resource tags.
+- The adapter reports `outputAvailable=true` only after evaluation succeeds; the renderer then selects `TemporalUpscaler.SceneColor` for tone mapping.
 
 ## DLSS RR Input Contract
 
