@@ -155,7 +155,12 @@ TemporalUpscalerSupportStatus InitializeStreamlineAdapterWithSdk(const Streamlin
     preferences.flags |= sl::PreferenceFlags::eUseFrameBasedResourceTagging;
     preferences.engine = sl::EngineType::eCustom;
     preferences.engineVersion = "1.0.0";
+    preferences.projectId = "a0f57b54-1daf-4934-90ae-c4035c19df04";
     preferences.renderAPI = sl::RenderAPI::eD3D12;
+#if defined(_DEBUG)
+    preferences.logLevel = sl::LogLevel::eVerbose;
+    preferences.pathToLogsAndData = L".";
+#endif
 
     const sl::Result initResult = slInit(preferences);
     if (initResult != sl::Result::eOk)
