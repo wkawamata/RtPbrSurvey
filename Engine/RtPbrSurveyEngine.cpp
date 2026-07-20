@@ -334,7 +334,7 @@ bool RtPbrSurveyEngine::HasTemporalUpscalerPassOutput() const
 
 bool RtPbrSurveyEngine::ShouldRunTemporalUpscaler() const
 {
-    return HasTemporalUpscalerPassOutput() && m_temporalUpscalerSettings.enabled && m_temporalUpscalerSupport.IsAvailable();
+    return m_temporalUpscalerSettings.enabled && m_temporalUpscalerSupport.IsAvailable();
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveToneMapSceneColorSrv() const
@@ -2370,8 +2370,11 @@ void RtPbrSurveyEngine::RegisterReflectionRadiance()
 
 void RtPbrSurveyEngine::RegisterTemporalUpscalerSceneColor()
 {
-    RegisterRenderTexture(MakeColorRenderTextureSpec(kTemporalUpscalerSceneColorResourceName,
-                                                     Engine::RenderTextureSizeClass::OutputSize));
+    Engine::RenderTextureSpec spec =
+        MakeColorRenderTextureSpec(kTemporalUpscalerSceneColorResourceName,
+                                   Engine::RenderTextureSizeClass::OutputSize);
+    spec.flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+    RegisterRenderTexture(spec);
 }
 
 void RtPbrSurveyEngine::CreateDepthStencilDescriptors()
@@ -2439,8 +2442,14 @@ void RtPbrSurveyEngine::CreateReflectionRayHit()
 
 void RtPbrSurveyEngine::CreateReflectionRayHitDescriptors()
 {
-    m_reflectionRayHitSrv = m_descriptorHeapAllocator.AllocWithHandle();
-    m_reflectionRayHitUav = m_descriptorHeapAllocator.AllocWithHandle();
+    if (m_reflectionRayHitSrv.Index == UINT_MAX)
+    {
+        m_reflectionRayHitSrv = m_descriptorHeapAllocator.AllocWithHandle();
+    }
+    if (m_reflectionRayHitUav.Index == UINT_MAX)
+    {
+        m_reflectionRayHitUav = m_descriptorHeapAllocator.AllocWithHandle();
+    }
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -2470,8 +2479,14 @@ void RtPbrSurveyEngine::CreateReflectionRayColor()
 
 void RtPbrSurveyEngine::CreateReflectionRayColorDescriptors()
 {
-    m_reflectionRayColorSrv = m_descriptorHeapAllocator.AllocWithHandle();
-    m_reflectionRayColorUav = m_descriptorHeapAllocator.AllocWithHandle();
+    if (m_reflectionRayColorSrv.Index == UINT_MAX)
+    {
+        m_reflectionRayColorSrv = m_descriptorHeapAllocator.AllocWithHandle();
+    }
+    if (m_reflectionRayColorUav.Index == UINT_MAX)
+    {
+        m_reflectionRayColorUav = m_descriptorHeapAllocator.AllocWithHandle();
+    }
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -2501,8 +2516,14 @@ void RtPbrSurveyEngine::CreateReflectionRayMaterial()
 
 void RtPbrSurveyEngine::CreateReflectionRayMaterialDescriptors()
 {
-    m_reflectionRayMaterialSrv = m_descriptorHeapAllocator.AllocWithHandle();
-    m_reflectionRayMaterialUav = m_descriptorHeapAllocator.AllocWithHandle();
+    if (m_reflectionRayMaterialSrv.Index == UINT_MAX)
+    {
+        m_reflectionRayMaterialSrv = m_descriptorHeapAllocator.AllocWithHandle();
+    }
+    if (m_reflectionRayMaterialUav.Index == UINT_MAX)
+    {
+        m_reflectionRayMaterialUav = m_descriptorHeapAllocator.AllocWithHandle();
+    }
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -2532,8 +2553,14 @@ void RtPbrSurveyEngine::CreateReflectionRayEmission()
 
 void RtPbrSurveyEngine::CreateReflectionRayEmissionDescriptors()
 {
-    m_reflectionRayEmissionSrv = m_descriptorHeapAllocator.AllocWithHandle();
-    m_reflectionRayEmissionUav = m_descriptorHeapAllocator.AllocWithHandle();
+    if (m_reflectionRayEmissionSrv.Index == UINT_MAX)
+    {
+        m_reflectionRayEmissionSrv = m_descriptorHeapAllocator.AllocWithHandle();
+    }
+    if (m_reflectionRayEmissionUav.Index == UINT_MAX)
+    {
+        m_reflectionRayEmissionUav = m_descriptorHeapAllocator.AllocWithHandle();
+    }
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -3005,6 +3032,9 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_viewport = CD3DX12_VIEWPORT(
         0.0f, 0.0f, static_cast<FLOAT>(m_width), static_cast<FLOAT>(m_height), D3D12_MIN_DEPTH, D3D12_MAX_DEPTH);
     m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_width), static_cast<LONG>(m_height));
+    m_renderViewport = CD3DX12_VIEWPORT(
+        0.0f, 0.0f, static_cast<FLOAT>(m_renderWidth), static_cast<FLOAT>(m_renderHeight), D3D12_MIN_DEPTH, D3D12_MAX_DEPTH);
+    m_renderScissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_renderWidth), static_cast<LONG>(m_renderHeight));
 }
 
 void RtPbrSurveyEngine::Shutdown()
@@ -3356,8 +3386,8 @@ void RtPbrSurveyEngine::BeginFrame()
     ID3D12DescriptorHeap* ppHeaps[] = {m_heap.Get()};
     m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
-    m_commandList->RSSetViewports(1, &m_viewport);
-    m_commandList->RSSetScissorRects(1, &m_scissorRect);
+    m_commandList->RSSetViewports(1, &m_renderViewport);
+    m_commandList->RSSetScissorRects(1, &m_renderScissorRect);
 
     m_gpuWorkMeter.StartGpu(m_commandList.Get(), m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints);
 }
@@ -3581,6 +3611,20 @@ void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
     inputs.frameConstants = MakeStreamlineFrameConstants();
 
     const Engine::StreamlineEvaluateResult result = Engine::EvaluateStreamline(inputs);
+
+    // DLSS Programming Guide Section 7.0:
+    // "Host is responsible for restoring state on the command list used."
+    // Streamline may have modified descriptor heaps, root signature, or pipeline state.
+    ID3D12DescriptorHeap* heaps[] = {m_heap.Get()};
+    m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
+    m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+    m_commandList->SetPipelineState(GetPipelineState(PipelineId(Pipe::Forward)));
+
+    // Streamline manages resource states internally. After evaluation the output
+    // should be in the tagged state (COPY_DEST). Sync our tracked state so the
+    // render graph issues correct barriers for subsequent passes.
+    m_resourceRegistry.SetState(kTemporalUpscalerSceneColorResourceName, D3D12_RESOURCE_STATE_COPY_DEST);
+
     m_temporalUpscalerOutputAvailable = result.outputAvailable;
     if (result.outputAvailable)
     {
@@ -3594,6 +3638,8 @@ void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
 
 void RtPbrSurveyEngine::ExecuteToneMapPass(const RenderPass& pass)
 {
+    m_commandList->RSSetViewports(1, &m_viewport);
+    m_commandList->RSSetScissorRects(1, &m_scissorRect);
     Engine::RecordToneMapPass(m_commandList.Get());
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ToneMap Pass");
 }

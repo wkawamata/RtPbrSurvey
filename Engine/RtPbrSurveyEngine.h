@@ -619,6 +619,8 @@ private:
     std::wstring m_shaderPath;
     CD3DX12_VIEWPORT m_viewport;
     CD3DX12_RECT m_scissorRect;
+    CD3DX12_VIEWPORT m_renderViewport;
+    CD3DX12_RECT m_renderScissorRect;
     Engine::GBuffer m_gbuffer;
     ComPtr<ID3D12Resource> m_renderTargets[kFrameCount];
     ComPtr<ID3D12Resource> m_depthStencil;
