@@ -116,6 +116,7 @@ public:
         ReflectionRadianceIblDiffuse,
         ReflectionRadianceIblSpecular,
         ReflectionRadianceEmissive,
+        DlssInputColor,
     };
 
     enum class RenderingPath
@@ -512,6 +513,7 @@ private:
         bool IsGBufferDebugView() const
         {
             return renderViewMode != RenderViewMode::LightPass &&
+                   renderViewMode != RenderViewMode::DlssInputColor &&
                    renderViewMode != RenderViewMode::ReflectionRayHit &&
                    renderViewMode != RenderViewMode::ReflectionRayDistance &&
                    renderViewMode != RenderViewMode::ReflectionRayNormal &&

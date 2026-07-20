@@ -118,6 +118,8 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
             return "Reflection radiance specular IBL component approximated from hit material and environment prefilter.";
         case RenderViewMode::ReflectionRadianceEmissive:
             return "Reflection radiance emissive component from the hit emissive payload.";
+        case RenderViewMode::DlssInputColor:
+            return "DLSS scaling input color before temporal upscaling and tone mapping.";
         default:
             return nullptr;
     }
@@ -627,6 +629,15 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         int renderViewMode = static_cast<int>(app.m_renderViewMode);
         ImGui::BeginDisabled(!deferredRendering);
         ImGui::RadioButton("Lit##RenderDebug", &renderViewMode, static_cast<int>(RenderViewMode::LightPass));
+        ImGui::TextUnformatted("DLSS Input Debug:");
+        ImGui::RadioButton("Output##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::LightPass));
+        ImGui::SameLine();
+        ImGui::RadioButton("Scene Color##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::DlssInputColor));
+        ImGui::SameLine();
+        ImGui::RadioButton("Depth##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::Depth));
+        ImGui::SameLine();
+        ImGui::RadioButton(
+            "Motion Vectors##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferMotionVector));
         ImGui::RadioButton("Albedo##RenderDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferAlbedo));
         ImGui::SameLine();
         ImGui::RadioButton("Normal##RenderDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferNormal));

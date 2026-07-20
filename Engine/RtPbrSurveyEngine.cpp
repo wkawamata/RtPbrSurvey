@@ -332,7 +332,8 @@ void RtPbrSurveyEngine::SetTemporalUpscalerSettings(const Engine::TemporalUpscal
 
 bool RtPbrSurveyEngine::ShouldRunTemporalUpscaler() const
 {
-    return m_temporalUpscalerSettings.enabled && m_temporalUpscalerSupport.IsAvailable();
+    return m_debugViewSettings.renderViewMode == RenderViewMode::LightPass &&
+        m_temporalUpscalerSettings.enabled && m_temporalUpscalerSupport.IsAvailable();
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveToneMapSceneColorSrv() const
