@@ -138,6 +138,9 @@ void RtPbrSurveyEngine::Initialize(UINT width, UINT height)
     UpdateRenderDimensions();
     m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(m_width), static_cast<float>(m_height));
     m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_width), static_cast<LONG>(m_height));
+    m_renderViewport = CD3DX12_VIEWPORT(
+        0.0f, 0.0f, static_cast<float>(m_renderWidth), static_cast<float>(m_renderHeight), D3D12_MIN_DEPTH, D3D12_MAX_DEPTH);
+    m_renderScissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_renderWidth), static_cast<LONG>(m_renderHeight));
 
     InitializeFrameResources();
 }
@@ -325,11 +328,6 @@ void RtPbrSurveyEngine::SetTemporalUpscalerSettings(const Engine::TemporalUpscal
         const UINT resizeHeight = m_pendingResize ? m_pendingResizeHeight : m_height;
         RequestResize(resizeWidth, resizeHeight);
     }
-}
-
-bool RtPbrSurveyEngine::HasTemporalUpscalerPassOutput() const
-{
-    return m_temporalUpscalerSceneColor != nullptr;
 }
 
 bool RtPbrSurveyEngine::ShouldRunTemporalUpscaler() const

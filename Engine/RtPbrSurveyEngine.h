@@ -987,7 +987,6 @@ private:
     Engine::TemporalUpscalerFrameConstants MakeStreamlineFrameConstants() const;
     void ResolveRenderDimensions(UINT outputWidth, UINT outputHeight, UINT& renderWidth, UINT& renderHeight) const;
     void UpdateRenderDimensions();
-    bool HasTemporalUpscalerPassOutput() const;
     bool ShouldRunTemporalUpscaler() const;
     D3D12_GPU_DESCRIPTOR_HANDLE ResolveToneMapSceneColorSrv() const;
 
