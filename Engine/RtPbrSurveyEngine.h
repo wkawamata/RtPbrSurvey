@@ -267,6 +267,7 @@ public:
     float CpuFrameTimeMs() const { return m_cpuFrameTime; }
     void SetUpdateHandler(UpdateHandler handler);
     void SetLightingParams(const LightingParams& params);
+    const LightingParams& GetLightingParams() const { return m_lightingParams; }
     void SetShadowSettings(const ShadowSettings& settings);
     const ShadowSettings& GetShadowSettings() const { return m_shadowSettings; }
     void SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings);
@@ -275,11 +276,22 @@ public:
     const HybridReflectionSettings& GetHybridReflectionSettings() const { return m_hybridReflectionSettings; }
     void SetMaterialParams(UINT materialIndex, const MaterialParams& params);
     void SetRenderingPath(RenderingPath renderingPath);
+    RenderingPath GetRenderingPath() const { return m_renderingPath; }
     void SetLightingPassDebugGradient(bool enabled);
+    bool GetLightingPassDebugGradient() const { return m_lightingPassDebugGradientEnabled; }
     void SetBackBufferClearColor(const std::array<float, 4>& color);
+    const std::array<float, 4>& GetBackBufferClearColor() const { return m_backBufferClearColor; }
     void SetDisplayInstanceCount(int count);
     void SetToneMapParams(const ToneMapParams& params);
+    ToneMapParams GetToneMapParams() const
+    {
+        return {m_toneMapPass.settings.operatorIndex,
+                m_toneMapPass.settings.exposure,
+                m_toneMapPass.settings.paperWhiteNits,
+                m_toneMapPass.settings.maxDisplayNits};
+    }
     void SetRenderViewMode(RenderViewMode mode);
+    RenderViewMode GetRenderViewMode() const { return m_debugViewSettings.renderViewMode; }
     void SetRequestHdrDump(bool request);
     void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
     void RequestPixelPick(int screenX, int screenY);
