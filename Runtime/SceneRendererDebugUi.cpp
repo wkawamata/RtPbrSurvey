@@ -107,7 +107,14 @@ namespace
     {
         const RtPbrSurvey::SceneRenderer::UiFrameContext context = renderer.GetUiFrameContext();
         ImGui::Text("FrameIndex: %d", context.frameIndex);
-        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
+        if (context.cpuFrameTime > 0.0f)
+        {
+            ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
+        }
+        else
+        {
+            ImGui::TextUnformatted("CPU Frame: unavailable");
+        }
         ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
                     context.rayTracingSupported ? "Supported" : "Not supported",
                     context.rayTracingTierName,
