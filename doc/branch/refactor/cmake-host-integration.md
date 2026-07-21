@@ -86,6 +86,31 @@ renderer.RunFrame([&](ID3D12GraphicsCommandList* commandList) {
 
 `ReloadSceneResources()` keeps the visible instance count clamped to the new scene. If the count was zero, the new scene's instance count becomes visible by default.
 
+## Host Debug UI
+
+`RtPbrSurvey::SceneRendererDebugUi` is included in `RtPbrSurvey::SceneRenderer` and can be drawn from a host-owned ImGui frame without constructing `RtPbrSurveyApp`.
+
+```cpp
+#include "Runtime/SceneRendererDebugUi.h"
+
+bool rendererDebugOpen = true;
+
+// Inside the host ImGui frame:
+RtPbrSurvey::SceneRendererDebugUi::Draw(sceneRenderer, &rendererDebugOpen);
+```
+
+The host-consumable debug UI intentionally excludes app-owned workflows such as scene selection, debug camera presets, close scene, and scene config save/load. It exposes renderer-owned status and controls such as frame timing, ray tracing support, temporal upscaler status/settings, back-buffer clear color, tone mapping, shadow settings, hybrid reflection settings, and render view mode.
+
+### Follow-up: Share Renderer Debug UI Controls
+
+`Runtime/SceneRendererDebugUi.cpp` currently duplicates renderer-owned controls and labels from `App/DebugUi.cpp`. This was accepted as a scoped first step so external hosts could use the renderer debug UI without waiting for a broader application UI refactor.
+
+Follow-up work should extract the shared renderer control drawing code and use it from both `SceneRendererDebugUi` and the RtPbrSurvey application debug UI. The shared code should cover renderer-owned state such as temporal upscaling, clear color, tone mapping, RayQuery shadows, hybrid reflections, rendering path, and render view mode.
+
+Application-owned workflows must remain in `App/DebugUi.cpp`, including scene selection, debug camera controls, material editing tied to `SampleScene`, scene close actions, scene configuration save/load/reset, and other application lifecycle operations.
+
+This follow-up is complete when renderer control labels, available choices, enable/disable rules, and setting ranges have a single implementation used by both UI entry points. Changes such as replacing a group of radio buttons with a combo box should then apply consistently to the standalone application and external hosts.
+
 ## DirectX Header Note
 
 RtPbrSurvey currently includes `include/d3dx12/d3dx12.h`, matching the Microsoft.Direct3D.D3D12 NuGet package layout. The CMake target adds both the NuGet native root and native include directory to its include paths. A future vcpkg `directx-headers` path may need a small forwarding include or a source include cleanup if that package is used without the NuGet package.

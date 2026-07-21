@@ -195,6 +195,9 @@
     <ClInclude Include="Runtime\SceneRenderer.h">
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="Runtime\SceneRendererDebugUi.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Scene.h">
       <Filter>Source Files\Scene</Filter>
     </ClInclude>
@@ -375,6 +378,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Runtime\SceneRenderer.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="Runtime\SceneRendererDebugUi.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="Scene\SampleScene.cpp">

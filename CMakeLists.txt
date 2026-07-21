@@ -87,6 +87,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/TemporalUpscalerSupport.cpp
     Renderer/ToneMap.cpp
     Runtime/SceneRenderer.cpp
+    Runtime/SceneRendererDebugUi.cpp
     Scene/ProceduralSceneBuilder.cpp
     Scene/SceneBuilder.cpp
     Scene/SceneFactory.cpp
