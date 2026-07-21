@@ -319,6 +319,8 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_temporalUpscalerSupport.IsAvailable(),
             m_temporalUpscalerSupport.BackendName(),
             m_temporalUpscalerSupport.StatusText(),
+            Engine::QueryStreamlineDlssDiagnostics(
+                {m_width, m_height, m_temporalUpscalerSettings.qualityMode}),
             m_temporalJitterSampleIndex,
             m_temporalJitterHalton,
             m_jitterOffsetPixels,

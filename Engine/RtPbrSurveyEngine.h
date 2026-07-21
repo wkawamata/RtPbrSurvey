@@ -42,6 +42,7 @@
 #include "Renderer/ShadowMaskDebugPass.h"
 #include "Renderer/DebugLinePass.h"
 #include "Renderer/TemporalUpscalerSupport.h"
+#include "Renderer/StreamlineAdapter.h"
 #include "Renderer/ToneMap.h"
 #include "Scene/Scene.h"
 #include "TextureSemantic.h"
@@ -239,6 +240,7 @@ public:
         bool temporalUpscalerAvailable;
         const char* temporalUpscalerBackendName;
         const char* temporalUpscalerStatusText;
+        Engine::StreamlineDlssDiagnostics dlssDiagnostics;
         UINT temporalJitterSampleIndex;
         XMFLOAT2 temporalJitterHalton;
         XMFLOAT2 temporalJitterOffsetPixels;

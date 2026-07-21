@@ -158,8 +158,8 @@ TemporalUpscalerSupportStatus InitializeStreamlineAdapterWithSdk(const Streamlin
     preferences.projectId = "a0f57b54-1daf-4934-90ae-c4035c19df04";
     preferences.renderAPI = sl::RenderAPI::eD3D12;
 #if defined(_DEBUG)
-    preferences.logLevel = sl::LogLevel::eVerbose;
-    preferences.pathToLogsAndData = L".";
+    preferences.logLevel = sl::LogLevel::eDefault;
+    preferences.pathToLogsAndData = nullptr;
 #endif
 
     const sl::Result initResult = slInit(preferences);
@@ -340,6 +340,54 @@ QueryStreamlineDlssOptimalSettingsWithSdk(const StreamlineDlssOptimalSettingsInp
     result.maxRenderHeight = settings.renderHeightMax;
     return result;
 }
+
+StreamlineDlssDiagnostics QueryStreamlineDlssDiagnosticsWithSdk(const StreamlineDlssOptimalSettingsInputs& inputs)
+{
+    StreamlineDlssDiagnostics diagnostics;
+    diagnostics.sdkMajor = SL_VERSION_MAJOR;
+    diagnostics.sdkMinor = SL_VERSION_MINOR;
+    diagnostics.sdkPatch = SL_VERSION_PATCH;
+
+    if (!g_streamlineAdapterState.initialized ||
+        g_streamlineAdapterState.status != TemporalUpscalerSupportStatus::Available)
+    {
+        return diagnostics;
+    }
+
+    sl::FeatureVersion featureVersion = {};
+    if (slGetFeatureVersion(sl::kFeatureDLSS, featureVersion) == sl::Result::eOk)
+    {
+        diagnostics.featureVersionAvailable = true;
+        diagnostics.pluginMajor = featureVersion.versionSL.major;
+        diagnostics.pluginMinor = featureVersion.versionSL.minor;
+        diagnostics.pluginPatch = featureVersion.versionSL.build;
+        diagnostics.ngxMajor = featureVersion.versionNGX.major;
+        diagnostics.ngxMinor = featureVersion.versionNGX.minor;
+        diagnostics.ngxPatch = featureVersion.versionNGX.build;
+    }
+
+    const StreamlineDlssOptimalSettingsResult optimalSettings =
+        QueryStreamlineDlssOptimalSettingsWithSdk(inputs);
+    if (optimalSettings.available)
+    {
+        diagnostics.optimalSettingsAvailable = true;
+        diagnostics.optimalRenderWidth = optimalSettings.recommendedRenderWidth;
+        diagnostics.optimalRenderHeight = optimalSettings.recommendedRenderHeight;
+        diagnostics.minRenderWidth = optimalSettings.minRenderWidth;
+        diagnostics.minRenderHeight = optimalSettings.minRenderHeight;
+        diagnostics.maxRenderWidth = optimalSettings.maxRenderWidth;
+        diagnostics.maxRenderHeight = optimalSettings.maxRenderHeight;
+    }
+
+    sl::DLSSState state = {};
+    if (slDLSSGetState(sl::ViewportHandle(0), state) == sl::Result::eOk)
+    {
+        diagnostics.stateAvailable = true;
+        diagnostics.estimatedVramUsageInBytes = state.estimatedVRAMUsageInBytes;
+    }
+
+    return diagnostics;
+}
 #else
 TemporalUpscalerSupportStatus InitializeStreamlineAdapterWithoutSdk(const StreamlineAdapterInitDesc& desc)
 {
@@ -371,6 +419,13 @@ QueryStreamlineDlssOptimalSettingsWithoutSdk(const StreamlineDlssOptimalSettings
 {
     UNREFERENCED_PARAMETER(inputs);
     return MakeUnavailableOptimalSettingsResult(g_streamlineAdapterState.status);
+}
+
+StreamlineDlssDiagnostics QueryStreamlineDlssDiagnosticsWithoutSdk(
+    const StreamlineDlssOptimalSettingsInputs& inputs)
+{
+    UNREFERENCED_PARAMETER(inputs);
+    return {};
 }
 #endif
 
@@ -424,6 +479,15 @@ QueryStreamlineDlssOptimalSettings(const StreamlineDlssOptimalSettingsInputs& in
     return QueryStreamlineDlssOptimalSettingsWithSdk(inputs);
 #else
     return QueryStreamlineDlssOptimalSettingsWithoutSdk(inputs);
+#endif
+}
+
+StreamlineDlssDiagnostics QueryStreamlineDlssDiagnostics(const StreamlineDlssOptimalSettingsInputs& inputs)
+{
+#if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+    return QueryStreamlineDlssDiagnosticsWithSdk(inputs);
+#else
+    return QueryStreamlineDlssDiagnosticsWithoutSdk(inputs);
 #endif
 }
 

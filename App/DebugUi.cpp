@@ -755,6 +755,49 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                     context.temporalUpscalerBackendName,
                     context.temporalUpscalerStatusText);
 
+        const Engine::StreamlineDlssDiagnostics& diagnostics = context.dlssDiagnostics;
+        ImGui::Text("Streamline SDK: %u.%u.%u", diagnostics.sdkMajor, diagnostics.sdkMinor, diagnostics.sdkPatch);
+        if (diagnostics.featureVersionAvailable)
+        {
+            ImGui::Text("DLSS Plugin SL: %u.%u.%u",
+                        diagnostics.pluginMajor,
+                        diagnostics.pluginMinor,
+                        diagnostics.pluginPatch);
+            ImGui::Text("NGX Runtime: %u.%u.%u", diagnostics.ngxMajor, diagnostics.ngxMinor, diagnostics.ngxPatch);
+        }
+        else
+        {
+            ImGui::TextUnformatted("DLSS Plugin SL: Unavailable");
+            ImGui::TextUnformatted("NGX Runtime: Unavailable");
+        }
+        ImGui::TextUnformatted("Requested Preset: Default");
+        ImGui::TextUnformatted("Resolved Preset: Unavailable");
+        if (diagnostics.optimalSettingsAvailable)
+        {
+            ImGui::Text("Optimal Render Size: %u x %u",
+                        diagnostics.optimalRenderWidth,
+                        diagnostics.optimalRenderHeight);
+            ImGui::Text("Render Size Range: %u x %u - %u x %u",
+                        diagnostics.minRenderWidth,
+                        diagnostics.minRenderHeight,
+                        diagnostics.maxRenderWidth,
+                        diagnostics.maxRenderHeight);
+        }
+        else
+        {
+            ImGui::TextUnformatted("Optimal Render Size: Unavailable");
+        }
+        if (diagnostics.stateAvailable)
+        {
+            const double estimatedVramMiB =
+                static_cast<double>(diagnostics.estimatedVramUsageInBytes) / (1024.0 * 1024.0);
+            ImGui::Text("Estimated DLSS VRAM: %.1f MiB", estimatedVramMiB);
+        }
+        else
+        {
+            ImGui::TextUnformatted("Estimated DLSS VRAM: Unavailable until DLSS context creation");
+        }
+
         auto temporalUpscalerSettings = app.m_sceneRenderer.GetTemporalUpscalerSettings();
         bool temporalUpscalerSettingsChanged = false;
         ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
