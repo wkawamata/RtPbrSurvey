@@ -19,6 +19,12 @@ float TemporalUpscalerSettings::ClampedSharpness() const
     return std::clamp(sharpness, kMinSharpness, kMaxSharpness);
 }
 
+std::array<float, 2> TemporalUpscalerSettings::ClampedJitterScale() const
+{
+    return {std::clamp(jitterScale[0], kMinJitterScale, kMaxJitterScale),
+            std::clamp(jitterScale[1], kMinJitterScale, kMaxJitterScale)};
+}
+
 const char* TemporalUpscalerSupportInfo::BackendName() const
 {
     switch (backend)

@@ -9,10 +9,10 @@
 namespace Engine
 {
 
-auto ToneMapPass::MakeShaderConstants(const HdrOutputSettings& hdrOutputSettings) const
+auto ToneMapPass::MakeShaderConstants(const HdrOutputSettings& hdrOutputSettings, bool nearestSampling) const
     -> ToneMapSettings::ShaderConstants
 {
-    return settings.MakeShaderConstants(hdrOutputSettings.TransferFunction());
+    return settings.MakeShaderConstants(hdrOutputSettings.TransferFunction(), nearestSampling);
 }
 
 void RecordToneMapPass(ID3D12GraphicsCommandList* commandList)

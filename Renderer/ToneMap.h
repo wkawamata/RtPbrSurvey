@@ -22,6 +22,7 @@ struct ToneMapSettings
         float exposure;
         float paperWhiteNits;
         float maxDisplayNits;
+        UINT nearestSampling;
     };
 
     int operatorIndex = kDefaultToneMapOperator;
@@ -37,9 +38,14 @@ struct ToneMapSettings
         maxDisplayNits = (std::max)(maxDisplayNits, paperWhiteNits);
     }
 
-    ShaderConstants MakeShaderConstants(UINT transferFunction) const
+    ShaderConstants MakeShaderConstants(UINT transferFunction, bool nearestSampling) const
     {
-        return {static_cast<UINT>(operatorIndex), transferFunction, exposure, paperWhiteNits, maxDisplayNits};
+        return {static_cast<UINT>(operatorIndex),
+                transferFunction,
+                exposure,
+                paperWhiteNits,
+                maxDisplayNits,
+                nearestSampling ? 1u : 0u};
     }
 };
 
@@ -47,7 +53,8 @@ struct ToneMapPass
 {
     ToneMapSettings settings;
 
-    ToneMapSettings::ShaderConstants MakeShaderConstants(const HdrOutputSettings& hdrOutputSettings) const;
+    ToneMapSettings::ShaderConstants MakeShaderConstants(const HdrOutputSettings& hdrOutputSettings,
+                                                         bool nearestSampling) const;
 };
 
 void RecordToneMapPass(ID3D12GraphicsCommandList* commandList);

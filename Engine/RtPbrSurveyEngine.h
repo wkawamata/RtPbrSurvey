@@ -235,6 +235,9 @@ public:
         bool temporalUpscalerAvailable;
         const char* temporalUpscalerBackendName;
         const char* temporalUpscalerStatusText;
+        UINT temporalJitterSampleIndex;
+        XMFLOAT2 temporalJitterHalton;
+        XMFLOAT2 temporalJitterOffsetPixels;
         const std::vector<MyDx12Util::GpuWorkMeter::CheckPoint>& gpuCheckPoints;
     };
 
@@ -249,7 +252,7 @@ public:
     void RequestResize(UINT width, UINT height);
     void Initialize(UINT width, UINT height);
     void RenderFrame(const UiRenderHandler& uiRenderHandler);
-    void RunFrame(const UiRenderHandler& uiRenderHandler);
+    void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
     void Shutdown();
     void SetScene(const Scene& scene);
     void ReloadSceneResources(const Scene& scene);
@@ -446,6 +449,8 @@ private:
         XMFLOAT4X4 invViewProjection;
         XMFLOAT3 cameraPosition = {0.0f, 0.0f, 0.0f};
         float padding = 0.0f;
+        XMFLOAT2 motionVectorValueOffset = {};
+        XMFLOAT2 motionVectorJitterCancellationNdc = {};
     };
 
     struct alignas(256) LightingConstants
@@ -617,6 +622,13 @@ private:
     UINT m_renderWidth = 0;
     UINT m_renderHeight = 0;
     float m_aspectRatio = 0.0f;
+    UINT m_temporalFrameIndex = 0;
+    UINT m_temporalJitterSampleIndex = 0;
+    XMFLOAT2 m_temporalJitterHalton = {};
+    XMFLOAT2 m_jitterOffsetPixels = {};
+    XMFLOAT2 m_previousJitterOffsetPixels = {};
+    XMFLOAT4X4 m_jitterFreeViewProjection = {};
+    XMFLOAT4X4 m_jitterFreePrevViewProjection = {};
     std::wstring m_assetsPath;
     std::wstring m_shaderPath;
     CD3DX12_VIEWPORT m_viewport;
@@ -932,7 +944,7 @@ private:
     std::wstring GetShaderFullPath(LPCWSTR shaderName);
     void InitializeFrameResources();
     void InitResourceDefaultStates();
-    void UpdateFrame();
+    void UpdateFrame(bool advanceFrame = true);
     void DestroyFrameResources();
     void RegisterFullscreenPipeline(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& baseDesc,
                                     const FullscreenPipelineDefinition& definition);
@@ -989,6 +1001,7 @@ private:
     Engine::TemporalUpscalerFrameConstants MakeStreamlineFrameConstants() const;
     void ResolveRenderDimensions(UINT outputWidth, UINT outputHeight, UINT& renderWidth, UINT& renderHeight) const;
     void UpdateRenderDimensions();
+    bool IsTemporalJitterEnabled() const;
     bool ShouldRunTemporalUpscaler() const;
     D3D12_GPU_DESCRIPTOR_HANDLE ResolveToneMapSceneColorSrv() const;
 

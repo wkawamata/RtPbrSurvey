@@ -246,8 +246,8 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
     constants.clipToCameraView = ToStreamlineMatrix(source.clipToCameraView);
     constants.clipToPrevClip = ToStreamlineMatrix(source.clipToPrevClip);
     constants.prevClipToClip = ToStreamlineMatrix(source.prevClipToClip);
-    constants.jitterOffset = {0.0f, 0.0f};
-    constants.mvecScale = {1.0f, 1.0f};
+    constants.jitterOffset = {source.jitterOffset[0], source.jitterOffset[1]};
+    constants.mvecScale = {inputs.settings.motionVectorScale[0], inputs.settings.motionVectorScale[1]};
     constants.cameraPinholeOffset = {0.0f, 0.0f};
     constants.cameraPos = {source.cameraPosition[0], source.cameraPosition[1], source.cameraPosition[2]};
     constants.cameraUp = {source.cameraUp[0], source.cameraUp[1], source.cameraUp[2]};
@@ -278,30 +278,26 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
     outputExtent.width = inputs.outputWidth;
     outputExtent.height = inputs.outputHeight;
 
-    sl::Resource inputColor(
-        sl::ResourceType::eTex2d, inputs.inputSceneColor, D3D12_RESOURCE_STATE_COPY_SOURCE);
-    sl::Resource depth(
-        sl::ResourceType::eTex2d, inputs.depth, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    sl::Resource inputColor(sl::ResourceType::eTex2d, inputs.inputSceneColor, D3D12_RESOURCE_STATE_COPY_SOURCE);
+    sl::Resource depth(sl::ResourceType::eTex2d, inputs.depth, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
     sl::Resource motionVectors(
         sl::ResourceType::eTex2d, inputs.motionVectors, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-    sl::Resource outputColor(
-        sl::ResourceType::eTex2d, inputs.outputSceneColor, D3D12_RESOURCE_STATE_COPY_DEST);
+    sl::Resource outputColor(sl::ResourceType::eTex2d, inputs.outputSceneColor, D3D12_RESOURCE_STATE_COPY_DEST);
     const sl::ResourceTag tags[] = {
         {&inputColor, sl::kBufferTypeScalingInputColor, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
         {&depth, sl::kBufferTypeDepth, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
         {&motionVectors, sl::kBufferTypeMotionVectors, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
         {&outputColor, sl::kBufferTypeScalingOutputColor, sl::ResourceLifecycle::eOnlyValidNow, &outputExtent},
     };
-    const sl::Result tagResult =
-        slSetTagForFrame(*frameToken, viewport, tags, _countof(tags), inputs.commandList);
+    const sl::Result tagResult = slSetTagForFrame(*frameToken, viewport, tags, _countof(tags), inputs.commandList);
     if (tagResult != sl::Result::eOk)
     {
         return MakeUnavailableEvaluateResult(ToSupportStatus(tagResult));
     }
 
     const sl::BaseStructure* evaluateInputs[] = {&viewport};
-    const sl::Result evaluateResult = slEvaluateFeature(
-        sl::kFeatureDLSS, *frameToken, evaluateInputs, _countof(evaluateInputs), inputs.commandList);
+    const sl::Result evaluateResult =
+        slEvaluateFeature(sl::kFeatureDLSS, *frameToken, evaluateInputs, _countof(evaluateInputs), inputs.commandList);
     if (evaluateResult != sl::Result::eOk)
     {
         return MakeUnavailableEvaluateResult(ToSupportStatus(evaluateResult));
@@ -310,8 +306,8 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
     return MakeAvailableEvaluateResult();
 }
 
-StreamlineDlssOptimalSettingsResult QueryStreamlineDlssOptimalSettingsWithSdk(
-    const StreamlineDlssOptimalSettingsInputs& inputs)
+StreamlineDlssOptimalSettingsResult
+QueryStreamlineDlssOptimalSettingsWithSdk(const StreamlineDlssOptimalSettingsInputs& inputs)
 {
     if (!g_streamlineAdapterState.initialized ||
         g_streamlineAdapterState.status != TemporalUpscalerSupportStatus::Available)
@@ -357,9 +353,7 @@ TemporalUpscalerSupportStatus SetStreamlineD3DDeviceWithoutSdk(ID3D12Device* dev
     return TemporalUpscalerSupportStatus::NotIntegrated;
 }
 
-void ShutdownStreamlineAdapterWithoutSdk()
-{
-}
+void ShutdownStreamlineAdapterWithoutSdk() {}
 
 TemporalUpscalerSupportInfo QueryStreamlineSupportWithoutSdk()
 {
@@ -372,8 +366,8 @@ StreamlineEvaluateResult EvaluateStreamlineWithoutSdk(const StreamlineEvaluateIn
     return MakeUnavailableEvaluateResult(g_streamlineAdapterState.status);
 }
 
-StreamlineDlssOptimalSettingsResult QueryStreamlineDlssOptimalSettingsWithoutSdk(
-    const StreamlineDlssOptimalSettingsInputs& inputs)
+StreamlineDlssOptimalSettingsResult
+QueryStreamlineDlssOptimalSettingsWithoutSdk(const StreamlineDlssOptimalSettingsInputs& inputs)
 {
     UNREFERENCED_PARAMETER(inputs);
     return MakeUnavailableOptimalSettingsResult(g_streamlineAdapterState.status);
@@ -423,8 +417,8 @@ TemporalUpscalerSupportInfo QueryStreamlineSupport()
 #endif
 }
 
-StreamlineDlssOptimalSettingsResult QueryStreamlineDlssOptimalSettings(
-    const StreamlineDlssOptimalSettingsInputs& inputs)
+StreamlineDlssOptimalSettingsResult
+QueryStreamlineDlssOptimalSettings(const StreamlineDlssOptimalSettingsInputs& inputs)
 {
 #if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
     return QueryStreamlineDlssOptimalSettingsWithSdk(inputs);

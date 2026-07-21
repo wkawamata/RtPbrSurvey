@@ -255,6 +255,23 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             static_cast<Engine::TemporalUpscalerQualityMode>(temporalUpscalerQualityMode);
         temporalUpscalerSettingsChanged = true;
     }
+    temporalUpscalerSettingsChanged |= ImGui::SliderFloat2(
+        "Jitter Scale", temporalUpscalerSettings.jitterScale.data(), -2.0f, 2.0f, "%.2f");
+    temporalUpscalerSettingsChanged |= ImGui::SliderFloat2(
+        "Motion Vector Scale", temporalUpscalerSettings.motionVectorScale.data(), -2.0f, 2.0f, "%.3f");
+    temporalUpscalerSettingsChanged |= ImGui::SliderFloat2(
+        "Motion Vector Value Offset (NDC)",
+        temporalUpscalerSettings.motionVectorValueOffset.data(),
+        -0.02f,
+        0.02f,
+        "%.5f");
+    ImGui::Text("Jitter Sample: %u / 32", context.temporalJitterSampleIndex);
+    ImGui::Text("Halton (3,2): %.4f, %.4f",
+                context.temporalJitterHalton.x,
+                context.temporalJitterHalton.y);
+    ImGui::Text("Jitter Pixels: %.4f, %.4f",
+                context.temporalJitterOffsetPixels.x,
+                context.temporalJitterOffsetPixels.y);
     ImGui::EndDisabled();
     if (temporalUpscalerSettingsChanged)
     {

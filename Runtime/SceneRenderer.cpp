@@ -35,9 +35,9 @@ namespace RtPbrSurvey
         m_engine.RequestResize(width, height);
     }
 
-    void SceneRenderer::RunFrame(const UiRenderHandler& uiRenderHandler)
+    void SceneRenderer::RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame)
     {
-        m_engine.RunFrame(uiRenderHandler);
+        m_engine.RunFrame(uiRenderHandler, advanceFrame);
     }
 
     void SceneRenderer::SetScene(const Scene& scene)

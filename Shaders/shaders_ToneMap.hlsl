@@ -10,6 +10,7 @@ cbuffer ToneMapConstants : register(b3)
     float exposure;
     float paperWhiteNits;
     float maxDisplayNits;
+    uint nearestSampling;
 };
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
@@ -148,7 +149,19 @@ float3 ApplyTransferFunction(float3 nits)
 
 float4 PSMain(FullscreenVSOutput input) : SV_TARGET
 {
-    float4 hdr = g_hdrSceneColor.Sample(g_sampler, input.uv);
+    float4 hdr;
+    if (nearestSampling != 0)
+    {
+        uint width;
+        uint height;
+        g_hdrSceneColor.GetDimensions(width, height);
+        int2 pixel = min(int2(input.uv * float2(width, height)), int2(width - 1, height - 1));
+        hdr = g_hdrSceneColor.Load(int3(pixel, 0));
+    }
+    else
+    {
+        hdr = g_hdrSceneColor.Sample(g_sampler, input.uv);
+    }
     float3 mapped = ApplyToneMap(hdr.rgb);
 
     float3 nits = ToneMappedLinearToNits(mapped);

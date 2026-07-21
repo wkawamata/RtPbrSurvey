@@ -6,6 +6,10 @@ cbuffer ConstantBuffer : register(b0)
     float4x4 viewProj;
     float4x4 prevViewProj;
     float4x4 invViewProj;
+    float3 cameraPosition;
+    float cbPad;
+    float2 motionVectorValueOffset;
+    float2 motionVectorJitterCancellationNdc;
 };
 
 struct PSInput
@@ -109,7 +113,8 @@ GBufferOutput PSMain(PSInput input)
     
     float2 curNdc = input.currClipPos.xy / input.currClipPos.w;
     float2 prevNdc = input.prevClipPos.xy / input.prevClipPos.w;    
-    output.motionVector = curNdc - prevNdc;
+    output.motionVector =
+        prevNdc - curNdc + motionVectorJitterCancellationNdc + motionVectorValueOffset;
 
     float4 metallicRoughness = g_texture[mat.metallicRoughnessTexIndex].Sample(g_sampler, input.uv);
     float occlusion = g_texture[mat.occlusionTexIndex].Sample(g_sampler, input.uv).r;

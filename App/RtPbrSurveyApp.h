@@ -129,6 +129,8 @@ private:
     int m_displayInstanceCount = static_cast<int>(kMaxInstanceCount);
     float m_meshScale = 0.5f;
     bool m_isPlaying = false;
+    bool m_framePaused = false;
+    bool m_forwardStepRequested = false;
 
     XMFLOAT4 m_dragRotation = {0.0f, 0.0f, 0.0f, 1.0f};
 

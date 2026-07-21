@@ -85,6 +85,21 @@ extern "C"
 
 namespace
 {
+constexpr UINT kTemporalJitterSampleCount = 32;
+
+float Halton(UINT index, UINT base)
+{
+    float fraction = 1.0f;
+    float result = 0.0f;
+    while (index > 0)
+    {
+        fraction /= static_cast<float>(base);
+        result += fraction * static_cast<float>(index % base);
+        index /= base;
+    }
+    return result;
+}
+
 
 static_assert(sizeof(Engine::SceneVertex) == 52,
               "shaders_HybridReflection.hlsl reads SceneVertex normals through a byte-address buffer.");
@@ -190,14 +205,19 @@ void RtPbrSurveyEngine::UpdateRenderDimensions()
     m_aspectRatio = static_cast<float>(m_renderWidth) / static_cast<float>(m_renderHeight);
 }
 
+bool RtPbrSurveyEngine::IsTemporalJitterEnabled() const
+{
+    return m_temporalUpscalerSettings.enabled &&
+        m_temporalUpscalerSettings.backend == Engine::TemporalUpscalerBackend::Streamline &&
+        m_temporalUpscalerSupport.IsAvailable() && m_renderWidth > 0 && m_renderHeight > 0;
+}
+
 auto RtPbrSurveyEngine::MakeStreamlineFrameConstants() const -> Engine::TemporalUpscalerFrameConstants
 {
     const XMMATRIX projection = XMMatrixPerspectiveFovLH(
         XMConvertToRadians(m_scene.camera.fov), m_aspectRatio, m_scene.camera.nearZ, m_scene.camera.farZ);
-    const XMMATRIX currentViewProjection =
-        XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.viewProjection));
-    const XMMATRIX previousViewProjection =
-        XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.prevViewProjection));
+    const XMMATRIX currentViewProjection = XMLoadFloat4x4(&m_jitterFreeViewProjection);
+    const XMMATRIX previousViewProjection = XMLoadFloat4x4(&m_jitterFreePrevViewProjection);
     const XMMATRIX clipToPreviousClip =
         XMMatrixMultiply(XMMatrixInverse(nullptr, currentViewProjection), previousViewProjection);
 
@@ -228,6 +248,7 @@ auto RtPbrSurveyEngine::MakeStreamlineFrameConstants() const -> Engine::Temporal
     constants.cameraRight = {vector.x, vector.y, vector.z};
     XMStoreFloat3(&vector, forward);
     constants.cameraForward = {vector.x, vector.y, vector.z};
+    constants.jitterOffset = {m_jitterOffsetPixels.x, m_jitterOffsetPixels.y};
     constants.cameraNear = m_scene.camera.nearZ;
     constants.cameraFar = m_scene.camera.farZ;
     constants.cameraFovRadians = XMConvertToRadians(m_scene.camera.fov);
@@ -294,6 +315,9 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_temporalUpscalerSupport.IsAvailable(),
             m_temporalUpscalerSupport.BackendName(),
             m_temporalUpscalerSupport.StatusText(),
+            m_temporalJitterSampleIndex,
+            m_temporalJitterHalton,
+            m_jitterOffsetPixels,
             m_frameResources[m_previousFrameIndex].gpuWorkMeterCheckPoints};
 }
 
@@ -314,15 +338,23 @@ void RtPbrSurveyEngine::SetShadowSettings(const ShadowSettings& settings)
 
 void RtPbrSurveyEngine::SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings)
 {
-    const bool historyResetRequired =
+    const bool resizeRequired =
         m_temporalUpscalerSettings.enabled != settings.enabled ||
         m_temporalUpscalerSettings.backend != settings.backend ||
         m_temporalUpscalerSettings.qualityMode != settings.qualityMode ||
         m_temporalUpscalerSettings.ClampedRenderScale() != settings.ClampedRenderScale();
+    const bool historyResetRequired = resizeRequired ||
+        m_temporalUpscalerSettings.ClampedJitterScale() != settings.ClampedJitterScale() ||
+        m_temporalUpscalerSettings.motionVectorScale != settings.motionVectorScale ||
+        m_temporalUpscalerSettings.motionVectorValueOffset != settings.motionVectorValueOffset;
 
     m_temporalUpscalerSettings = settings;
     m_temporalUpscalerHistoryReset = m_temporalUpscalerHistoryReset || historyResetRequired;
-    if (historyResetRequired && m_width > 0 && m_height > 0)
+    if (historyResetRequired)
+    {
+        m_temporalFrameIndex = 0;
+    }
+    if (resizeRequired && m_width > 0 && m_height > 0)
     {
         const UINT resizeWidth = m_pendingResize ? m_pendingResizeWidth : m_width;
         const UINT resizeHeight = m_pendingResize ? m_pendingResizeHeight : m_height;
@@ -433,6 +465,7 @@ void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
 
     WaitForGpu();
     m_temporalUpscalerHistoryReset = true;
+    m_temporalFrameIndex = 0;
     ReleaseSceneResources();
     SetScene(scene);
     m_displayInstanceCount = previousDisplayInstanceCount > 0 ?
@@ -458,6 +491,7 @@ void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
 
     UpdateCameraConstantBuffer();
     m_constantBufferData.prevViewProjection = m_constantBufferData.viewProjection;
+    m_jitterFreePrevViewProjection = m_jitterFreeViewProjection;
     for (FrameResource& frameResource : m_frameResources)
     {
         memcpy(frameResource.cameraCB.mappedData, &m_constantBufferData, sizeof(m_constantBufferData));
@@ -594,11 +628,50 @@ void RtPbrSurveyEngine::UpdateCameraConstantBuffer()
     const XMMATRIX view = XMMatrixLookAtLH(eye, at, up);
     const XMMATRIX projection =
         XMMatrixPerspectiveFovLH(XMConvertToRadians(m_scene.camera.fov), m_aspectRatio, m_scene.camera.nearZ, m_scene.camera.farZ);
-    const XMMATRIX viewProjection = XMMatrixMultiply(view, projection);
+    const XMMATRIX jitterFreeViewProjection = XMMatrixMultiply(view, projection);
+    XMStoreFloat4x4(&m_jitterFreeViewProjection, jitterFreeViewProjection);
+
+    XMMATRIX jitteredProjection = projection;
+    if (IsTemporalJitterEnabled())
+    {
+        const UINT sampleIndex = (m_temporalFrameIndex % kTemporalJitterSampleCount) + 1;
+        m_temporalJitterSampleIndex = sampleIndex;
+        m_temporalJitterHalton.x = Halton(sampleIndex, 3) - 0.5f;
+        m_temporalJitterHalton.y = Halton(sampleIndex, 2) - 0.5f;
+        const std::array<float, 2> jitterScale = m_temporalUpscalerSettings.ClampedJitterScale();
+        m_jitterOffsetPixels.x = m_temporalJitterHalton.x * jitterScale[0];
+        m_jitterOffsetPixels.y = m_temporalJitterHalton.y * jitterScale[1];
+        const float jitterNdcX = 2.0f * m_jitterOffsetPixels.x / static_cast<float>(m_renderWidth);
+        const float jitterNdcY = -2.0f * m_jitterOffsetPixels.y / static_cast<float>(m_renderHeight);
+        jitteredProjection.r[2] =
+            XMVectorAdd(jitteredProjection.r[2], XMVectorSet(jitterNdcX, jitterNdcY, 0.0f, 0.0f));
+    }
+    else
+    {
+        m_temporalJitterSampleIndex = 0;
+        m_temporalJitterHalton = {};
+        m_jitterOffsetPixels = {};
+        m_temporalFrameIndex = 0;
+    }
+
+    if (m_temporalUpscalerHistoryReset && m_temporalFrameIndex == 0)
+    {
+        m_previousJitterOffsetPixels = m_jitterOffsetPixels;
+    }
+
+    const XMMATRIX viewProjection = XMMatrixMultiply(view, jitteredProjection);
     XMStoreFloat4x4(&m_constantBufferData.viewProjection, XMMatrixTranspose(viewProjection));
     XMStoreFloat4x4(&m_constantBufferData.invViewProjection,
                     XMMatrixTranspose(XMMatrixInverse(nullptr, viewProjection)));
     m_constantBufferData.cameraPosition = m_scene.camera.pos;
+    m_constantBufferData.motionVectorValueOffset = {
+        m_temporalUpscalerSettings.motionVectorValueOffset[0],
+        m_temporalUpscalerSettings.motionVectorValueOffset[1]};
+    m_constantBufferData.motionVectorJitterCancellationNdc = {
+        2.0f * (m_jitterOffsetPixels.x - m_previousJitterOffsetPixels.x) /
+            static_cast<float>((std::max)(m_renderWidth, 1u)),
+        -2.0f * (m_jitterOffsetPixels.y - m_previousJitterOffsetPixels.y) /
+            static_cast<float>((std::max)(m_renderHeight, 1u))};
 }
 
 // Load the rendering pipeline dependencies.
@@ -2038,6 +2111,7 @@ void RtPbrSurveyEngine::CreateFrameConstantBuffers()
 {
     UpdateCameraConstantBuffer();
     m_constantBufferData.prevViewProjection = m_constantBufferData.viewProjection;
+    m_jitterFreePrevViewProjection = m_jitterFreeViewProjection;
 
     // Create the per-frame constant buffers.
     for (UINT n = 0; n < kFrameCount; n++)
@@ -2720,8 +2794,9 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
         m_renderGraphRuntime.RegisterConstants(ConstName::ToneMap),
         [this](UINT rootParameterIndex)
         {
-            const auto constants = m_toneMapPass.MakeShaderConstants(m_hdrOutputPolicy.settings);
-            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 5, &constants, 0);
+            const bool nearestSampling = m_debugViewSettings.renderViewMode == RenderViewMode::DlssInputColor;
+            const auto constants = m_toneMapPass.MakeShaderConstants(m_hdrOutputPolicy.settings, nearestSampling);
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 6, &constants, 0);
         });
     m_renderGraphRuntime.Constants().Register(m_renderGraphRuntime.RegisterConstants(ConstName::GBufferDebugTarget),
                                               [this](UINT rootParameterIndex)
@@ -2819,11 +2894,11 @@ void RtPbrSurveyEngine::CreateDepthStencil(UINT width, UINT height)
 }
 
 // Update frame-based values.
-void RtPbrSurveyEngine::UpdateFrame()
+void RtPbrSurveyEngine::UpdateFrame(bool advanceFrame)
 {
     PIXBeginEvent(0, L"UpdateFrame");
 
-    if (m_updateHandler)
+    if (advanceFrame && m_updateHandler)
     {
         m_updateHandler();
     }
@@ -2843,8 +2918,17 @@ void RtPbrSurveyEngine::UpdateFrame()
         m_frameResources[m_currentFrameIndex].instanceBuffer->Unmap(0, nullptr);
     }
 
-    m_constantBufferData.prevViewProjection = m_constantBufferData.viewProjection;
-    UpdateCameraConstantBuffer();
+    if (advanceFrame)
+    {
+        m_constantBufferData.prevViewProjection = m_constantBufferData.viewProjection;
+        m_jitterFreePrevViewProjection = m_jitterFreeViewProjection;
+        m_previousJitterOffsetPixels = m_jitterOffsetPixels;
+        UpdateCameraConstantBuffer();
+        if (IsTemporalJitterEnabled())
+        {
+            ++m_temporalFrameIndex;
+        }
+    }
     memcpy(
         m_frameResources[m_currentFrameIndex].cameraCB.mappedData, &m_constantBufferData, sizeof(m_constantBufferData));
 
@@ -2936,7 +3020,7 @@ void RtPbrSurveyEngine::RequestResize(UINT width, UINT height)
     m_pendingResizeHeight = height;
 }
 
-void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler)
+void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame)
 {
     if (m_pendingResize)
     {
@@ -2947,7 +3031,7 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler)
     UpdateHdr10DisplayMode();
 
     m_workMeter.Start();
-    UpdateFrame();
+    UpdateFrame(advanceFrame);
     RenderFrame(uiRenderHandler);
     m_workMeter.End();
     m_cpuFrameTime = m_workMeter.GetCpuFrameTimeMs();
@@ -2960,6 +3044,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_height = height;
     UpdateRenderDimensions();
     m_temporalUpscalerHistoryReset = true;
+    m_temporalFrameIndex = 0;
 
     if (width == 0 || height == 0)
     {
@@ -3026,6 +3111,8 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
 
     // Camera
     UpdateCameraConstantBuffer();
+    m_constantBufferData.prevViewProjection = m_constantBufferData.viewProjection;
+    m_jitterFreePrevViewProjection = m_jitterFreeViewProjection;
 
     // Screen
     m_viewport = CD3DX12_VIEWPORT(

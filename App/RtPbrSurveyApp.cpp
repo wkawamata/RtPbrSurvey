@@ -213,7 +213,13 @@ void RtPbrSurveyApp::OnKeyDown(UINT8 key)
 
     if (m_appMode == AppMode::Running && key == VK_SPACE)
     {
-        m_isPlaying = !m_isPlaying;
+        m_framePaused = !m_framePaused;
+        m_forwardStepRequested = false;
+    }
+
+    if (m_appMode == AppMode::Running && m_framePaused && key == 'F')
+    {
+        m_forwardStepRequested = true;
     }
 
     if (m_appMode == AppMode::Running && key == VK_F1)
@@ -283,7 +289,10 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 void RtPbrSurveyApp::OnIdle()
 {
     UpdateUiFrame();
-    m_sceneRenderer.RunFrame([this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); });
+    const bool advanceFrame = !m_framePaused || m_forwardStepRequested;
+    m_forwardStepRequested = false;
+    m_sceneRenderer.RunFrame(
+        [this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); }, advanceFrame);
 
     // Poll D3D12 debug messages and FPS logging.
     if (m_logFile)
@@ -489,6 +498,8 @@ void RtPbrSurveyApp::OpenSelectedScene()
     m_displayInstanceCount = LoadedScene().DisplayInstanceCount();
     m_sceneRenderer.SetDisplayInstanceCount(m_displayInstanceCount);
     m_appMode = AppMode::Running;
+    m_framePaused = false;
+    m_forwardStepRequested = false;
     m_debugUiVisible = true;
 }
 
@@ -503,6 +514,8 @@ void RtPbrSurveyApp::CloseRunningScene()
 
     m_appMode = AppMode::SceneSelect;
     m_isPlaying = false;
+    m_framePaused = false;
+    m_forwardStepRequested = false;
     m_debugCamera.ResetInputState();
     if (m_loadedSceneIndex >= 0)
     {

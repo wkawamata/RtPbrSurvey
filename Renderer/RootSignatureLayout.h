@@ -69,7 +69,7 @@ static constexpr uint32_t kGBufferDebugConstantsCount = 3;
 
 static constexpr uint32_t kToneMapConstantsRegister = 3;
 static constexpr uint32_t kToneMapConstantsSpace = 0;
-static constexpr uint32_t kToneMapConstantsCount = 5;
+static constexpr uint32_t kToneMapConstantsCount = 6;
 
 // Static texture sampler.
 static constexpr uint32_t kStaticSamplerRegister = 0;

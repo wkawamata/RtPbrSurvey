@@ -77,7 +77,7 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     }
     if (g_debugTarget == 6)
     {
-        float value = g_depth.Sample(g_sampler, input.uv);
+        float value = g_depth.Load(int3(input.position.xy, 0));
         return float4(value, value, value, 1.0);
     }
 

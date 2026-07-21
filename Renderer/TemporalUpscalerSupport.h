@@ -42,16 +42,22 @@ struct TemporalUpscalerSettings
     static constexpr float kMaxRenderScale = 1.0f;
     static constexpr float kMinSharpness = 0.0f;
     static constexpr float kMaxSharpness = 1.0f;
+    static constexpr float kMinJitterScale = -2.0f;
+    static constexpr float kMaxJitterScale = 2.0f;
 
     bool enabled = false;
     TemporalUpscalerBackend backend = TemporalUpscalerBackend::Streamline;
     TemporalUpscalerQualityMode qualityMode = TemporalUpscalerQualityMode::Native;
     float renderScale = 1.0f;
     float sharpness = 0.0f;
+    std::array<float, 2> jitterScale = {1.0f, 1.0f};
+    std::array<float, 2> motionVectorScale = {1.0f, 1.0f};
+    std::array<float, 2> motionVectorValueOffset = {};
     bool autoExposure = true;
 
     float ClampedRenderScale() const;
     float ClampedSharpness() const;
+    std::array<float, 2> ClampedJitterScale() const;
 };
 
 struct TemporalUpscalerFrameConstants
@@ -64,6 +70,7 @@ struct TemporalUpscalerFrameConstants
     std::array<float, 3> cameraUp = {};
     std::array<float, 3> cameraRight = {};
     std::array<float, 3> cameraForward = {};
+    std::array<float, 2> jitterOffset = {};
     float cameraNear = 0.0f;
     float cameraFar = 0.0f;
     float cameraFovRadians = 0.0f;
