@@ -45,6 +45,7 @@ namespace RtPbrSurvey
         float CpuFrameTimeMs() const;
 
         void SetLightingParams(const RtPbrSurveyEngine::LightingParams& params);
+        const RtPbrSurveyEngine::LightingParams& GetLightingParams() const;
         void SetShadowSettings(const RtPbrSurveyEngine::ShadowSettings& settings);
         const RtPbrSurveyEngine::ShadowSettings& GetShadowSettings() const;
         void SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings);

@@ -88,6 +88,11 @@ namespace RtPbrSurvey
         m_engine.SetLightingParams(params);
     }
 
+    const RtPbrSurveyEngine::LightingParams& SceneRenderer::GetLightingParams() const
+    {
+        return m_engine.GetLightingParams();
+    }
+
     void SceneRenderer::SetShadowSettings(const RtPbrSurveyEngine::ShadowSettings& settings)
     {
         m_engine.SetShadowSettings(settings);

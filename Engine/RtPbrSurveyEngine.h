@@ -257,6 +257,7 @@ public:
     float CpuFrameTimeMs() const { return m_cpuFrameTime; }
     void SetUpdateHandler(UpdateHandler handler);
     void SetLightingParams(const LightingParams& params);
+    const LightingParams& GetLightingParams() const { return m_lightingParams; }
     void SetShadowSettings(const ShadowSettings& settings);
     const ShadowSettings& GetShadowSettings() const { return m_shadowSettings; }
     void SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings);

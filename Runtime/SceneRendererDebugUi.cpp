@@ -160,6 +160,27 @@ namespace
         }
     }
 
+    void DrawLightingControls(RtPbrSurvey::SceneRenderer& renderer)
+    {
+        auto lightingParams = renderer.GetLightingParams();
+        bool changed = false;
+
+        static constexpr float defaultDirection[] = {0.0f, 1.0f, -1.0f};
+        changed |= ImGuiWidgets::SliderFloat3WithControls(
+            "Light Direction", &lightingParams.lightDirection.x, -1.0f, 1.0f, 0.05f, defaultDirection);
+        changed |= ImGui::Checkbox("Direct Light", &lightingParams.directLightEnabled);
+        ImGui::BeginDisabled(!lightingParams.directLightEnabled);
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Direct Light Intensity", &lightingParams.diffuseIntensity, 0.0f, 4.0f, 0.1f, 1.0f);
+        changed |= ImGui::ColorEdit3("Light Color", &lightingParams.lightColor.x);
+        ImGui::EndDisabled();
+
+        if (changed)
+        {
+            renderer.SetLightingParams(lightingParams);
+        }
+    }
+
     void DrawToneMapControls(RtPbrSurvey::SceneRenderer& renderer)
     {
         RtPbrSurveyEngine::ToneMapParams toneMapParams = renderer.GetToneMapParams();
@@ -384,6 +405,11 @@ namespace RtPbrSurvey
         if (ImGui::CollapsingHeader("Back Buffer", ImGuiTreeNodeFlags_DefaultOpen))
         {
             DrawBackBufferControls(renderer);
+        }
+
+        if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            DrawLightingControls(renderer);
         }
 
         if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
