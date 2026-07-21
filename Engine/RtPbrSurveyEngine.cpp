@@ -178,6 +178,7 @@ void RtPbrSurveyEngine::ResolveRenderDimensions(
         inputs.outputWidth = outputWidth;
         inputs.outputHeight = outputHeight;
         inputs.qualityMode = m_temporalUpscalerSettings.qualityMode;
+        inputs.preset = m_temporalUpscalerSettings.preset;
         const Engine::StreamlineDlssOptimalSettingsResult result =
             Engine::QueryStreamlineDlssOptimalSettings(inputs);
         if (result.available && result.recommendedRenderWidth > 0 && result.recommendedRenderHeight > 0)
@@ -320,7 +321,10 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_temporalUpscalerSupport.BackendName(),
             m_temporalUpscalerSupport.StatusText(),
             Engine::QueryStreamlineDlssDiagnostics(
-                {m_width, m_height, m_temporalUpscalerSettings.qualityMode}),
+                {m_width,
+                 m_height,
+                 m_temporalUpscalerSettings.qualityMode,
+                 m_temporalUpscalerSettings.preset}),
             m_temporalJitterSampleIndex,
             m_temporalJitterHalton,
             m_jitterOffsetPixels,
@@ -350,6 +354,7 @@ void RtPbrSurveyEngine::SetTemporalUpscalerSettings(const Engine::TemporalUpscal
         m_temporalUpscalerSettings.qualityMode != settings.qualityMode ||
         m_temporalUpscalerSettings.ClampedRenderScale() != settings.ClampedRenderScale();
     const bool historyResetRequired = resizeRequired ||
+        m_temporalUpscalerSettings.preset != settings.preset ||
         m_temporalUpscalerSettings.ClampedJitterScale() != settings.ClampedJitterScale() ||
         m_temporalUpscalerSettings.motionVectorScale != settings.motionVectorScale ||
         m_temporalUpscalerSettings.motionVectorValueOffset != settings.motionVectorValueOffset;

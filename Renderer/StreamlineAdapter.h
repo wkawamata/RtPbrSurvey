@@ -40,6 +40,7 @@ struct StreamlineDlssOptimalSettingsInputs
     std::uint32_t outputWidth = 0;
     std::uint32_t outputHeight = 0;
     TemporalUpscalerQualityMode qualityMode = TemporalUpscalerQualityMode::Native;
+    TemporalUpscalerPreset preset = TemporalUpscalerPreset::Default;
 };
 
 struct StreamlineDlssOptimalSettingsResult

@@ -36,6 +36,17 @@ enum class TemporalUpscalerQualityMode
     UltraPerformance,
 };
 
+enum class TemporalUpscalerPreset
+{
+    Default = 0,
+    J,
+    K,
+    L,
+    M,
+};
+
+const char* TemporalUpscalerPresetName(TemporalUpscalerPreset preset);
+
 struct TemporalUpscalerSettings
 {
     static constexpr float kMinRenderScale = 0.25f;
@@ -48,6 +59,7 @@ struct TemporalUpscalerSettings
     bool enabled = false;
     TemporalUpscalerBackend backend = TemporalUpscalerBackend::Streamline;
     TemporalUpscalerQualityMode qualityMode = TemporalUpscalerQualityMode::Native;
+    TemporalUpscalerPreset preset = TemporalUpscalerPreset::Default;
     float renderScale = 1.0f;
     float sharpness = 0.0f;
     std::array<float, 2> jitterScale = {1.0f, 1.0f};

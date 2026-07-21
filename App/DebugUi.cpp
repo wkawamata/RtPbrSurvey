@@ -755,6 +755,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                     context.temporalUpscalerBackendName,
                     context.temporalUpscalerStatusText);
 
+        auto temporalUpscalerSettings = app.m_sceneRenderer.GetTemporalUpscalerSettings();
         const Engine::StreamlineDlssDiagnostics& diagnostics = context.dlssDiagnostics;
         ImGui::Text("Streamline SDK: %u.%u.%u", diagnostics.sdkMajor, diagnostics.sdkMinor, diagnostics.sdkPatch);
         if (diagnostics.featureVersionAvailable)
@@ -770,7 +771,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             ImGui::TextUnformatted("DLSS Plugin SL: Unavailable");
             ImGui::TextUnformatted("NGX Runtime: Unavailable");
         }
-        ImGui::TextUnformatted("Requested Preset: Default");
+        ImGui::Text("Requested Preset: %s", Engine::TemporalUpscalerPresetName(temporalUpscalerSettings.preset));
         ImGui::TextUnformatted("Resolved Preset: Unavailable");
         if (diagnostics.optimalSettingsAvailable)
         {
@@ -798,7 +799,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             ImGui::TextUnformatted("Estimated DLSS VRAM: Unavailable until DLSS context creation");
         }
 
-        auto temporalUpscalerSettings = app.m_sceneRenderer.GetTemporalUpscalerSettings();
         bool temporalUpscalerSettingsChanged = false;
         ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
         temporalUpscalerSettingsChanged |= ImGui::Checkbox("DLSS Enabled", &temporalUpscalerSettings.enabled);
@@ -809,6 +809,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         {
             temporalUpscalerSettings.qualityMode =
                 static_cast<Engine::TemporalUpscalerQualityMode>(temporalUpscalerQualityMode);
+            temporalUpscalerSettingsChanged = true;
+        }
+        int temporalUpscalerPreset = static_cast<int>(temporalUpscalerSettings.preset);
+        if (ImGui::Combo("DLSS Profile", &temporalUpscalerPreset, "Default\0J\0K\0L\0M\0"))
+        {
+            temporalUpscalerSettings.preset =
+                static_cast<Engine::TemporalUpscalerPreset>(temporalUpscalerPreset);
             temporalUpscalerSettingsChanged = true;
         }
         temporalUpscalerSettingsChanged |= ImGui::SliderFloat2(

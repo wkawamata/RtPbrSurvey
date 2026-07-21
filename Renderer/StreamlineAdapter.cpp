@@ -82,6 +82,52 @@ sl::DLSSMode ToStreamlineDlssMode(TemporalUpscalerQualityMode qualityMode)
     }
 }
 
+sl::DLSSPreset ToStreamlineDlssPreset(TemporalUpscalerPreset preset)
+{
+    switch (preset)
+    {
+        case TemporalUpscalerPreset::J:
+            return sl::DLSSPreset::ePresetJ;
+        case TemporalUpscalerPreset::K:
+            return sl::DLSSPreset::ePresetK;
+        case TemporalUpscalerPreset::L:
+            return sl::DLSSPreset::ePresetL;
+        case TemporalUpscalerPreset::M:
+            return sl::DLSSPreset::ePresetM;
+        case TemporalUpscalerPreset::Default:
+        default:
+            return sl::DLSSPreset::eDefault;
+    }
+}
+
+void SetStreamlineDlssPreset(sl::DLSSOptions& options,
+                             TemporalUpscalerQualityMode qualityMode,
+                             TemporalUpscalerPreset preset)
+{
+    const sl::DLSSPreset streamlinePreset = ToStreamlineDlssPreset(preset);
+    switch (qualityMode)
+    {
+        case TemporalUpscalerQualityMode::Native:
+            options.dlaaPreset = streamlinePreset;
+            break;
+        case TemporalUpscalerQualityMode::UltraQuality:
+            options.ultraQualityPreset = streamlinePreset;
+            break;
+        case TemporalUpscalerQualityMode::Quality:
+            options.qualityPreset = streamlinePreset;
+            break;
+        case TemporalUpscalerQualityMode::Balanced:
+            options.balancedPreset = streamlinePreset;
+            break;
+        case TemporalUpscalerQualityMode::Performance:
+            options.performancePreset = streamlinePreset;
+            break;
+        case TemporalUpscalerQualityMode::UltraPerformance:
+            options.ultraPerformancePreset = streamlinePreset;
+            break;
+    }
+}
+
 sl::float4x4 ToStreamlineMatrix(const std::array<float, 16>& values)
 {
     sl::float4x4 matrix = {};
@@ -234,6 +280,7 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
     options.outputHeight = inputs.outputHeight;
     options.colorBuffersHDR = sl::Boolean::eTrue;
     options.useAutoExposure = inputs.settings.autoExposure ? sl::Boolean::eTrue : sl::Boolean::eFalse;
+    SetStreamlineDlssPreset(options, inputs.settings.qualityMode, inputs.settings.preset);
     const sl::Result optionsResult = slDLSSSetOptions(viewport, options);
     if (optionsResult != sl::Result::eOk)
     {
@@ -321,6 +368,7 @@ QueryStreamlineDlssOptimalSettingsWithSdk(const StreamlineDlssOptimalSettingsInp
     options.outputHeight = inputs.outputHeight;
     options.colorBuffersHDR = sl::Boolean::eTrue;
     options.useAutoExposure = sl::Boolean::eTrue;
+    SetStreamlineDlssPreset(options, inputs.qualityMode, inputs.preset);
 
     sl::DLSSOptimalSettings settings = {};
     const sl::Result queryResult = slDLSSGetOptimalSettings(options, settings);

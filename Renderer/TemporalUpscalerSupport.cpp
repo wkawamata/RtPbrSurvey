@@ -9,6 +9,25 @@
 namespace Engine
 {
 
+const char* TemporalUpscalerPresetName(TemporalUpscalerPreset preset)
+{
+    switch (preset)
+    {
+        case TemporalUpscalerPreset::Default:
+            return "Default";
+        case TemporalUpscalerPreset::J:
+            return "J";
+        case TemporalUpscalerPreset::K:
+            return "K";
+        case TemporalUpscalerPreset::L:
+            return "L";
+        case TemporalUpscalerPreset::M:
+            return "M";
+        default:
+            return "Unknown";
+    }
+}
+
 float TemporalUpscalerSettings::ClampedRenderScale() const
 {
     return std::clamp(renderScale, kMinRenderScale, kMaxRenderScale);
