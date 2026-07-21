@@ -99,7 +99,7 @@ bool rendererDebugOpen = true;
 RtPbrSurvey::SceneRendererDebugUi::Draw(sceneRenderer, &rendererDebugOpen);
 ```
 
-The host-consumable debug UI intentionally excludes app-owned workflows such as scene selection, debug camera presets, close scene, and scene config save/load. It exposes renderer-owned status and controls such as frame timing, ray tracing support, temporal upscaler status/settings, back-buffer clear color, tone mapping, shadow settings, hybrid reflection settings, and render view mode.
+The host-consumable debug UI intentionally excludes app-owned workflows such as scene selection, debug camera presets, close scene, and scene config save/load. It exposes renderer-owned status and controls such as frame timing, ray tracing support, temporal upscaler status/settings, back-buffer clear color, direct-light direction/intensity/color, tone mapping, shadow settings, hybrid reflection settings, and render view mode.
 
 ### Follow-up: Share Renderer Debug UI Controls
 
