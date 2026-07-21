@@ -188,6 +188,7 @@
     <ClInclude Include="Renderer\DebugLinePass.h" />
     <ClInclude Include="Runtime\SceneRenderer.h" />
     <ClInclude Include="Runtime\SceneRendererDebugUi.h" />
+    <ClInclude Include="Runtime\SceneRendererSettings.h" />
     <ClInclude Include="Scene\ProceduralSceneBuilder.h" />
     <ClInclude Include="Scene\SceneBuilder.h" />
     <ClInclude Include="Scene\SceneFactory.h" />
@@ -249,6 +250,7 @@
     <ClCompile Include="Renderer\DebugLinePass.cpp" />
     <ClCompile Include="Runtime\SceneRenderer.cpp" />
     <ClCompile Include="Runtime\SceneRendererDebugUi.cpp" />
+    <ClCompile Include="Runtime\SceneRendererSettings.cpp" />
     <ClCompile Include="Scene\ProceduralSceneBuilder.cpp" />
     <ClCompile Include="Scene\SceneBuilder.cpp" />
     <ClCompile Include="Scene\SceneFactory.cpp" />

@@ -12,6 +12,7 @@
 #pragma once
 
 #include "Engine/RtPbrSurveyEngine.h"
+#include "Runtime/SceneRendererSettings.h"
 
 #include <functional>
 
@@ -43,6 +44,8 @@ namespace RtPbrSurvey
         void DrawToolUi();
         UiFrameContext GetUiFrameContext() const;
         float CpuFrameTimeMs() const;
+        SceneRendererSettings CaptureSettings() const;
+        void ApplySettings(const SceneRendererSettings& settings);
 
         void SetLightingParams(const RtPbrSurveyEngine::LightingParams& params);
         const RtPbrSurveyEngine::LightingParams& GetLightingParams() const;
@@ -78,4 +81,4 @@ namespace RtPbrSurvey
         RtPbrSurveyEngine m_engine;
         ToolUiHandler m_toolUiHandler;
     };
-}
+} // namespace RtPbrSurvey
