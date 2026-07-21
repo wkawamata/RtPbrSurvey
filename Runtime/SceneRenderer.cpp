@@ -15,8 +15,7 @@
 
 namespace RtPbrSurvey
 {
-    SceneRenderer::SceneRenderer(GraphicsDevice& graphicsDevice)
-        : m_engine(graphicsDevice)
+    SceneRenderer::SceneRenderer(GraphicsDevice& graphicsDevice) : m_engine(graphicsDevice)
     {
     }
 
@@ -81,6 +80,36 @@ namespace RtPbrSurvey
     float SceneRenderer::CpuFrameTimeMs() const
     {
         return m_engine.CpuFrameTimeMs();
+    }
+
+    SceneRendererSettings SceneRenderer::CaptureSettings() const
+    {
+        SceneRendererSettings settings;
+        settings.lighting = m_engine.GetLightingParams();
+        settings.shadow = m_engine.GetShadowSettings();
+        settings.temporalUpscaler = m_engine.GetTemporalUpscalerSettings();
+        settings.hybridReflection = m_engine.GetHybridReflectionSettings();
+        settings.toneMap = m_engine.GetToneMapParams();
+        settings.specularDebugLines = m_engine.GetSpecularDebugLineSettings();
+        settings.renderingPath = m_engine.GetRenderingPath();
+        settings.renderViewMode = m_engine.GetRenderViewMode();
+        settings.backBufferClearColor = m_engine.GetBackBufferClearColor();
+        settings.lightingPassDebugGradient = m_engine.GetLightingPassDebugGradient();
+        return settings;
+    }
+
+    void SceneRenderer::ApplySettings(const SceneRendererSettings& settings)
+    {
+        m_engine.SetLightingParams(settings.lighting);
+        m_engine.SetShadowSettings(settings.shadow);
+        m_engine.SetTemporalUpscalerSettings(settings.temporalUpscaler);
+        m_engine.SetHybridReflectionSettings(settings.hybridReflection);
+        m_engine.SetToneMapParams(settings.toneMap);
+        m_engine.SetSpecularDebugLineSettings(settings.specularDebugLines);
+        m_engine.SetRenderingPath(settings.renderingPath);
+        m_engine.SetRenderViewMode(settings.renderViewMode);
+        m_engine.SetBackBufferClearColor(settings.backBufferClearColor);
+        m_engine.SetLightingPassDebugGradient(settings.lightingPassDebugGradient);
     }
 
     void SceneRenderer::SetLightingParams(const RtPbrSurveyEngine::LightingParams& params)
@@ -222,4 +251,4 @@ namespace RtPbrSurvey
     {
         return m_engine;
     }
-}
+} // namespace RtPbrSurvey

@@ -4,6 +4,7 @@ project(RtPbrSurvey LANGUAGES CXX)
 
 option(RTPBRSURVEY_BUILD_APP "Build the standalone RtPbrSurvey executable." OFF)
 option(RTPBRSURVEY_BUILD_SHADERS "Build RtPbrSurvey runtime shaders." ON)
+option(RTPBRSURVEY_BUILD_TESTS "Build RtPbrSurvey runtime tests." OFF)
 
 set(RTPBRSURVEY_D3D12_NUGET_VERSION "1.618.3" CACHE STRING "Microsoft.Direct3D.D3D12 NuGet version.")
 set(RTPBRSURVEY_DXC_NUGET_VERSION "1.8.2505.32" CACHE STRING "Microsoft.Direct3D.DXC NuGet version.")
@@ -88,6 +89,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/ToneMap.cpp
     Runtime/SceneRenderer.cpp
     Runtime/SceneRendererDebugUi.cpp
+    Runtime/SceneRendererSettings.cpp
     Scene/ProceduralSceneBuilder.cpp
     Scene/SceneBuilder.cpp
     Scene/SceneFactory.cpp
@@ -267,4 +269,15 @@ if(RTPBRSURVEY_BUILD_APP)
         target_compile_options(RtPbrSurvey PRIVATE /permissive)
     endif()
     rtpbrsurvey_copy_runtime_files(RtPbrSurvey)
+endif()
+
+if(RTPBRSURVEY_BUILD_TESTS)
+    enable_testing()
+    add_executable(RtPbrSurvey.SceneRendererSettingsTests
+        Tests/SceneRendererSettingsTests.cpp)
+    target_link_libraries(RtPbrSurvey.SceneRendererSettingsTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.SceneRendererSettingsTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.SceneRendererSettings COMMAND RtPbrSurvey.SceneRendererSettingsTests)
 endif()

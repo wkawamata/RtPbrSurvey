@@ -101,6 +101,25 @@ RtPbrSurvey::SceneRendererDebugUi::Draw(sceneRenderer, &rendererDebugOpen);
 
 The host-consumable debug UI intentionally excludes app-owned workflows such as scene selection, debug camera presets, close scene, and scene config save/load. It exposes renderer-owned status and controls such as frame timing, ray tracing support, temporal upscaler status/settings, back-buffer clear color, direct-light direction/intensity/color, tone mapping, shadow settings, hybrid reflection settings, and render view mode.
 
+### Save and Restore Renderer Settings
+
+Renderer-owned Debug UI values can be captured and restored independently of `RtPbrSurveyApp`:
+
+```cpp
+RtPbrSurvey::SceneRendererSettings settings = sceneRenderer.CaptureSettings();
+const std::string json = RtPbrSurvey::SerializeSceneRendererSettings(settings);
+
+std::string error;
+if (RtPbrSurvey::DeserializeSceneRendererSettings(json, settings, &error))
+{
+    sceneRenderer.ApplySettings(settings);
+}
+```
+
+RtPbrSurvey owns the settings model, schema version, JSON conversion, and application of renderer state. The host owns file paths and file I/O so TankPhysicsSandbox and the standalone application can use their own profile and configuration policies.
+
+See [SceneRenderer Settings](scene-renderer-settings.md) for the ownership boundary, compatibility policy, and test strategy.
+
 ### Follow-up: Share Renderer Debug UI Controls
 
 `Runtime/SceneRendererDebugUi.cpp` currently duplicates renderer-owned controls and labels from `App/DebugUi.cpp`. This was accepted as a scoped first step so external hosts could use the renderer debug UI without waiting for a broader application UI refactor.
