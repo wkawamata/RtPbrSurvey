@@ -309,6 +309,10 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
 {
     return {static_cast<int>(m_currentFrameIndex),
             m_cpuFrameTime,
+            m_renderWidth,
+            m_renderHeight,
+            m_width,
+            m_height,
             m_rayTracingSupport.IsSupported(),
             m_rayTracingSupport.TierName(),
             static_cast<int>(m_rayTracingSupport.Tier()),

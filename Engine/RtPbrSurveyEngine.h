@@ -229,6 +229,10 @@ public:
     {
         int frameIndex;
         float cpuFrameTime;
+        UINT renderWidth;
+        UINT renderHeight;
+        UINT outputWidth;
+        UINT outputHeight;
         bool rayTracingSupported;
         const wchar_t* rayTracingTierName;
         int rayTracingTierRaw;

@@ -234,50 +234,12 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     ImGui::Separator();
     ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
     ImGui::Text("FrameIndex: %d", context.frameIndex);
+    ImGui::Text("Rendering Buffers (GBuffer): %u x %u", context.renderWidth, context.renderHeight);
+    ImGui::Text("Output Buffer: %u x %u", context.outputWidth, context.outputHeight);
     ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
                 context.rayTracingSupported ? "Supported" : "Not supported",
                 context.rayTracingTierName,
                 context.rayTracingTierRaw);
-    ImGui::Text("Temporal Upscaler: %s (Backend: %s, Status: %s)",
-                context.temporalUpscalerAvailable ? "Available" : "Unavailable",
-                context.temporalUpscalerBackendName,
-                context.temporalUpscalerStatusText);
-    auto temporalUpscalerSettings = app.m_sceneRenderer.GetTemporalUpscalerSettings();
-    bool temporalUpscalerSettingsChanged = false;
-    ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
-    temporalUpscalerSettingsChanged |= ImGui::Checkbox("DLSS Enabled", &temporalUpscalerSettings.enabled);
-    int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
-    if (ImGui::Combo("DLSS Quality",
-                     &temporalUpscalerQualityMode,
-                     "Native (DLAA)\0Ultra Quality\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
-    {
-        temporalUpscalerSettings.qualityMode =
-            static_cast<Engine::TemporalUpscalerQualityMode>(temporalUpscalerQualityMode);
-        temporalUpscalerSettingsChanged = true;
-    }
-    temporalUpscalerSettingsChanged |= ImGui::SliderFloat2(
-        "Jitter Scale", temporalUpscalerSettings.jitterScale.data(), -2.0f, 2.0f, "%.2f");
-    temporalUpscalerSettingsChanged |= ImGui::SliderFloat2(
-        "Motion Vector Scale", temporalUpscalerSettings.motionVectorScale.data(), -2.0f, 2.0f, "%.3f");
-    temporalUpscalerSettingsChanged |= ImGui::SliderFloat2(
-        "Motion Vector Value Offset (NDC)",
-        temporalUpscalerSettings.motionVectorValueOffset.data(),
-        -0.02f,
-        0.02f,
-        "%.5f");
-    ImGui::Text("Jitter Sample: %u / 32", context.temporalJitterSampleIndex);
-    ImGui::Text("Halton (3,2): %.4f, %.4f",
-                context.temporalJitterHalton.x,
-                context.temporalJitterHalton.y);
-    ImGui::Text("Jitter Pixels: %.4f, %.4f",
-                context.temporalJitterOffsetPixels.x,
-                context.temporalJitterOffsetPixels.y);
-    ImGui::EndDisabled();
-    if (temporalUpscalerSettingsChanged)
-    {
-        temporalUpscalerSettings.backend = Engine::TemporalUpscalerBackend::Streamline;
-        app.m_sceneRenderer.SetTemporalUpscalerSettings(temporalUpscalerSettings);
-    }
     if (ImGui::Button("Close Scene"))
     {
         app.CloseRunningScene();
@@ -568,10 +530,12 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
-    if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
+    const auto drawHybridReflectionUi = [&]()
     {
-        auto reflectionSettings = app.m_sceneRenderer.GetHybridReflectionSettings();
-        bool changed = false;
+        if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            auto reflectionSettings = app.m_sceneRenderer.GetHybridReflectionSettings();
+            bool changed = false;
 
         changed |= ImGui::Checkbox("Enabled", &reflectionSettings.enabled);
 
@@ -628,11 +592,12 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::EndDisabled();
         ImGui::EndDisabled();
 
-        if (changed)
-        {
-            app.m_sceneRenderer.SetHybridReflectionSettings(reflectionSettings);
+            if (changed)
+            {
+                app.m_sceneRenderer.SetHybridReflectionSettings(reflectionSettings);
+            }
         }
-    }
+    };
 
     if (ImGui::CollapsingHeader("Debug", ImGuiTreeNodeFlags_DefaultOpen))
     {
@@ -646,15 +611,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         int renderViewMode = static_cast<int>(app.m_renderViewMode);
         ImGui::BeginDisabled(!deferredRendering);
         ImGui::RadioButton("Lit##RenderDebug", &renderViewMode, static_cast<int>(RenderViewMode::LightPass));
-        ImGui::TextUnformatted("DLSS Input Debug:");
-        ImGui::RadioButton("Output##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::LightPass));
-        ImGui::SameLine();
-        ImGui::RadioButton("Scene Color##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::DlssInputColor));
-        ImGui::SameLine();
-        ImGui::RadioButton("Depth##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::Depth));
-        ImGui::SameLine();
-        ImGui::RadioButton(
-            "Motion Vectors##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferMotionVector));
         ImGui::RadioButton("Albedo##RenderDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferAlbedo));
         ImGui::SameLine();
         ImGui::RadioButton("Normal##RenderDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferNormal));
@@ -791,6 +747,69 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             RunStagedAllocatorTests(app.m_graphicsDevice.Device());
         }
     }
+
+    if (ImGui::CollapsingHeader("DLSS", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Text("Temporal Upscaler: %s (Backend: %s, Status: %s)",
+                    context.temporalUpscalerAvailable ? "Available" : "Unavailable",
+                    context.temporalUpscalerBackendName,
+                    context.temporalUpscalerStatusText);
+
+        auto temporalUpscalerSettings = app.m_sceneRenderer.GetTemporalUpscalerSettings();
+        bool temporalUpscalerSettingsChanged = false;
+        ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
+        temporalUpscalerSettingsChanged |= ImGui::Checkbox("DLSS Enabled", &temporalUpscalerSettings.enabled);
+        int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
+        if (ImGui::Combo("DLSS Quality",
+                         &temporalUpscalerQualityMode,
+                         "Native (DLAA)\0Ultra Quality\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
+        {
+            temporalUpscalerSettings.qualityMode =
+                static_cast<Engine::TemporalUpscalerQualityMode>(temporalUpscalerQualityMode);
+            temporalUpscalerSettingsChanged = true;
+        }
+        temporalUpscalerSettingsChanged |= ImGui::SliderFloat2(
+            "Jitter Scale", temporalUpscalerSettings.jitterScale.data(), -2.0f, 2.0f, "%.2f");
+        temporalUpscalerSettingsChanged |= ImGui::SliderFloat2(
+            "Motion Vector Scale", temporalUpscalerSettings.motionVectorScale.data(), -2.0f, 2.0f, "%.3f");
+        temporalUpscalerSettingsChanged |= ImGui::SliderFloat2(
+            "Motion Vector Value Offset (NDC)",
+            temporalUpscalerSettings.motionVectorValueOffset.data(),
+            -0.02f,
+            0.02f,
+            "%.5f");
+        ImGui::Text("Jitter Sample: %u / 32", context.temporalJitterSampleIndex);
+        ImGui::Text("Halton (3,2): %.4f, %.4f",
+                    context.temporalJitterHalton.x,
+                    context.temporalJitterHalton.y);
+        ImGui::Text("Jitter Pixels: %.4f, %.4f",
+                    context.temporalJitterOffsetPixels.x,
+                    context.temporalJitterOffsetPixels.y);
+        ImGui::EndDisabled();
+        if (temporalUpscalerSettingsChanged)
+        {
+            temporalUpscalerSettings.backend = Engine::TemporalUpscalerBackend::Streamline;
+            app.m_sceneRenderer.SetTemporalUpscalerSettings(temporalUpscalerSettings);
+        }
+
+        int renderViewMode = static_cast<int>(app.m_renderViewMode);
+        const bool deferredRendering = app.m_renderingPath == RenderingPath::Deferred;
+        ImGui::BeginDisabled(!deferredRendering);
+        ImGui::TextUnformatted("DLSS Input Debug:");
+        ImGui::RadioButton("Output##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::LightPass));
+        ImGui::SameLine();
+        ImGui::RadioButton(
+            "Scene Color##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::DlssInputColor));
+        ImGui::SameLine();
+        ImGui::RadioButton("Depth##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::Depth));
+        ImGui::SameLine();
+        ImGui::RadioButton(
+            "Motion Vectors##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferMotionVector));
+        ImGui::EndDisabled();
+        app.m_renderViewMode = static_cast<RenderViewMode>(renderViewMode);
+    }
+
+    drawHybridReflectionUi();
 
     if (ImGui::CollapsingHeader("Pixel Pick (Ctrl+Click)", ImGuiTreeNodeFlags_DefaultOpen))
     {
