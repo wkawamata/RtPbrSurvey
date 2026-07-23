@@ -2,7 +2,48 @@
 
 ## RayQuery Shadow メモ
 
-このブランチでは RayQuery shadow の検証用シーンを追加する。対象は Ground + Cubes、Animated Shadow Grid、Contact Shadow Test、Occluder Wall Test。
+RayQuery shadow の検証用シーンは既に存在する。
+
+- `Shadow Test: Ground + Cubes`
+- `Shadow Test: Animated Shadow Grid`
+- `Shadow Test: Contact Shadow Test`
+- `Shadow Test: Occluder Wall Test`
+
+新しい failure mode が既存シーンで切り分けられない場合を除き、専用 scene は追加しない。まずは UI preset、camera default、比較 checklist を整えて、同じ scene で branch 間比較しやすくする。
+
+## Scene Usage
+
+- `Shadow Test: Ground + Cubes`: shadow direction、bias、normal bias、peter-panning、light size、soft shadow の安定性を見る静的な基準 scene。
+- `Shadow Test: Animated Shadow Grid`: TLAS rebuild timing、`prevWorld` / motion vector、moving occluder、pause behavior を見る moving-object scene。
+- `Shadow Test: Contact Shadow Test`: contact 付近の acne と detached contact の tuning を見る scene。
+- `Shadow Test: Occluder Wall Test`: blocker / receiver の分離、missed occluder、back-face culling mistake、long ray behavior を見る scene。
+
+推奨 debug view sequence:
+
+1. まず `ShadowMask` で、direct-light shading を外した binary / softened mask を見る。
+2. `Lit` に戻し、direct light の方向と mask の方向が一致しているか見る。
+3. mask shape が別 object や stale transform に見える場合は `TlasDebug` を見る。
+
+## UI Presets
+
+`RayQuery Shadow` debug UI には比較用 preset がある。
+
+- `Hard Ref`: 1 sample の hard shadow baseline。soft shadow 調整の前に使う。
+- `Low Bias`: normal bias を下げ、self-intersection acne と contact sensitivity を露出させる。
+- `Soft Compare`: 通常比較用の moderate soft shadow。
+- `Wide Soft`: light size と sample count を大きくし、penumbra と noise を stress する。
+
+preset 適用後は、検証したい観点の slider だけを動かす。screenshot やメモには scene、render view、preset、camera position を一緒に残す。
+
+## Comparison Checklist
+
+- Bias / normal bias: flat receiver の acne と、cube foot / sphere contact の peter-panning を比較する。
+- Soft shadow: `Hard Ref` と `Soft Compare` を `ShadowMask` / `Lit` で比較し、edge が方向反転や blocker loss なしに soft になるか見る。
+- Light size: `Light Angular Radius` を上げ、penumbra width が予測どおり広がり、contact が不自然に浮かないか見る。
+- Moving object: `Shadow Test: Animated Shadow Grid` で animated cube の rotation / bounce が毎 frame TLAS と ShadowMask に反映されるか見る。
+- Pause behavior: `Shadow Test: Animated Shadow Grid` で Space pause し、cube orientation、TLAS debug、ShadowMask が snap せず止まるか見る。
+- Back-face culling: light / camera angle を変えても cube shadow face が欠けないか見る。
+- Ray distance: `Ray TMax` は far blocker 問題の切り分けにだけ使う。transform や culling 修正の代わりにしない。
 
 ## Light Direction
 
@@ -37,7 +78,7 @@ RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> q;
 
 ## Bias Tuning
 
-ShadowMask が構造的におかしい場合、最初に `kNormalBias` を調整しない。
+ShadowMask が構造的におかしい場合、最初に normal bias を調整しない。
 
 bias は self-intersection acne と peter-panning の調整用。mask の向きがおかしい、別オブジェクトが投影されたように見える、という場合は先に以下を見る。
 
@@ -48,9 +89,9 @@ bias は self-intersection acne と peter-panning の調整用。mask の向き�
 
 現在の基準値:
 
-```hlsl
-static const float kNormalBias = 0.01;
-ray.TMin = 0.001;
+```text
+Normal Bias = 0.01
+Ray TMin = 0.001
 ```
 
 ## Animated Pause
