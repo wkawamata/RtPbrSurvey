@@ -1,157 +1,156 @@
-# RenderGraph Node Dump Investigation
+# RenderGraph ノードダンプ調査
 
-## Purpose
+## 目的
 
-This branch defines the smallest useful first step toward RenderGraph diagnostics and visualization. The immediate goal is to make the current pass/resource relationships inspectable without changing RenderGraph execution, descriptor management, PathTracing, or temporal-upscaler integrations.
+この branch では、RenderGraph の診断と可視化に向けた、実用上最小の第一歩を定義する。当面の目的は、RenderGraph の実行、descriptor 管理、PathTracing、temporal upscaler 統合を変更せず、現在の pass/resource 関係を確認できるようにすることである。
 
-The current frame-graph model already exposes the data needed for a diagnostic view:
+現在の frame graph model には、診断表示に必要なデータがすでに存在する。
 
-- `Engine::RenderPassGraph` stores an ordered list of passes.
-- Each `Engine::RenderPass` exposes named read and write resource usages with `D3D12_RESOURCE_STATES`.
-- `AnalyzeResourceLifetimes()` derives first/last pass indices.
-- `RenderTextureSpec` and the transient-resource registry distinguish persistent resources from transient resources.
+- `Engine::RenderPassGraph` は順序付き pass list を保持する。
+- 各 `Engine::RenderPass` は、名前付きの read/write resource usage と `D3D12_RESOURCE_STATES` を公開する。
+- `AnalyzeResourceLifetimes()` は最初と最後の pass index を算出する。
+- `RenderTextureSpec` と transient resource registry により、persistent resource と transient resource を区別できる。
 
-This makes a library-free diagnostic representation practical as the first implementation. The interactive UI library decision is already made: the later viewer/editor will use `imgui-node-editor` / `ax::NodeEditor`.
+このため、最初の実装ではライブラリなしの診断表現が実現可能である。interactive UI library の選定は完了しており、将来の viewer/editor には `imgui-node-editor` / `ax::NodeEditor` を使用する。
 
-## Candidate Comparison
+## 候補比較
 
-| Candidate | License | Integration and dependencies | Maintenance signal (checked 2026-07-24) | Build impact | Fit for the first version |
+| 候補 | License | 統合方法と依存関係 | Maintenance 状況（2026-07-24 確認） | Build への影響 | 初期版との適合性 |
 |---|---|---|---|---|---|
-| [`imgui-node-editor` / `ax::NodeEditor`](https://github.com/thedmd/imgui-node-editor) | [MIT](https://github.com/thedmd/imgui-node-editor/blob/master/LICENSE) | Requires Dear ImGui and C++14. Upstream describes copy-pasting a group of root-level sources. A practical integration includes the editor implementation/API, canvas and math helpers, and its small JSON support, so it is materially more than a single translation unit. It renders through ImGui and therefore does not require a separate DX12 backend, but compatibility must be verified against the exact ImGui revision used by this repository. | Latest tagged release shown by GitHub is `v0.9.3` (2023-10-14). The repository has newer compatibility PR activity, including ImGui 1.9x fixes, but unreleased fixes indicate that pinning a known-good commit and testing upgrades would be important. | Add vendored sources and license notice, project compile/include entries, an editor context lifecycle, stable node/pin IDs, optional layout-state persistence, and warning/ImGui compatibility checks. | Selected for the future viewer/editor because its richer navigation, selection, grouping, extensible node/pin presentation, and persisted layout support match the intended path from diagnostics to editing. It is deliberately not required by the first dump implementation. |
-| [`imnodes`](https://github.com/Nelarius/imnodes) | [MIT](https://github.com/Nelarius/imnodes/blob/master/LICENSE.md) | Upstream describes it as dependency-free beyond Dear ImGui and distributes it as three files: `imnodes.cpp`, `imnodes.h`, and `imnodes_internal.h`. It owns no DX12 backend and uses the existing ImGui renderer. Application code owns graph state, IDs, and presentation. | Latest tagged release shown by GitHub is `0.5` (2022-03-09). The small API and source footprint reduce adoption cost, but the old release date raises compatibility/maintenance risk that must be tested against the repository's ImGui revision. | Add three vendored files and license notice, one compile entry, include access, context lifecycle, stable IDs, and compatibility tests. Lower integration cost than `imgui-node-editor`. | Not selected. Its smaller footprint is attractive, but choosing it for the first viewer would create a likely library migration when editing and richer navigation are added. |
-| No external library: ImGui table/text tree and DOT text export | Repository code only. Emitting DOT text does not link or vendor Graphviz. Graphviz itself is needed only as an optional external viewer if a developer wants rendered output. | Uses the current ImGui integration for an in-app view and/or writes plain DOT syntax. No new runtime, package, submodule, backend, or third-party source is required. A `.dot` file can be inspected as text even when Graphviz is not installed. | Maintained entirely with the RenderGraph data model. DOT is a stable documented graph language; the exporter only needs a small escaping routine and deterministic IDs/order. | A small diagnostic helper plus an optional Debug UI entry. No project-wide dependency configuration. Tests can validate exact text or semantic fragments. | Recommended first version. It validates the diagnostic schema and workflow before selecting a canvas library. |
+| [`imgui-node-editor` / `ax::NodeEditor`](https://github.com/thedmd/imgui-node-editor) | [MIT](https://github.com/thedmd/imgui-node-editor/blob/master/LICENSE) | Dear ImGui と C++14 が必要。upstream は root directory にある一連の source を project にコピーする方法を案内している。実用的な統合では editor implementation/API、canvas/math helper、小規模な JSON support が含まれ、単一 translation unit より導入範囲が広い。ImGui 経由で描画するため別の DX12 backend は不要だが、この repository が使用する ImGui revision との互換性確認が必要。 | GitHub 上の最新 tag release は `v0.9.3`（2023-10-14）。repository では ImGui 1.9x 対応を含む新しい compatibility PR が動いている一方、未 release の修正もあるため、既知の正常な commit への pin と upgrade test が重要。 | Vendored source と license 表示、project の compile/include entry、editor context lifecycle、安定した node/pin ID、任意の layout state 永続化、warning/ImGui compatibility check が必要。 | 将来の viewer/editor 用として選定する。充実した navigation、selection、grouping、拡張可能な node/pin 表示、layout 永続化が、診断から編集へ進む方針に合う。最初の read-only dump ではまだ導入しない。 |
+| [`imnodes`](https://github.com/Nelarius/imnodes) | [MIT](https://github.com/Nelarius/imnodes/blob/master/LICENSE.md) | Upstream は Dear ImGui 以外に依存しないとしており、`imnodes.cpp`、`imnodes.h`、`imnodes_internal.h` の 3 file で配布する。独自の DX12 backend は持たず、既存の ImGui renderer を使う。graph state、ID、表示内容は application 側が所有する。 | GitHub 上の最新 tag release は `0.5`（2022-03-09）。API と source の規模が小さく導入 cost は低いが、release が古いため、この repository の ImGui revision との compatibility/maintenance risk を検証する必要がある。 | 3 個の vendored file と license 表示、1 個の compile entry、include 設定、context lifecycle、安定 ID、compatibility test が必要。`imgui-node-editor` より統合 cost は低い。 | 不採用。小規模である点は魅力だが、最初の viewer に採用すると、編集機能と高度な navigation を追加する段階で library 移行が発生する可能性が高い。 |
+| 外部ライブラリなし：ImGui table/text tree と DOT text export | Repository 内の code のみ。DOT text の出力は Graphviz の link や vendor を必要としない。開発者が描画結果を必要とする場合のみ、任意の外部 viewer として Graphviz を使用する。 | 既存の ImGui 統合を in-app view に使用するか、plain DOT syntax を出力する。新しい runtime、package、submodule、backend、third-party source は不要。Graphviz が未 install でも `.dot` file を text として確認できる。 | RenderGraph data model とともに repository 内で保守する。DOT は安定した graph 記述言語であり、exporter に必要なのは小さな escape 処理と deterministic な ID/order のみ。 | 小規模な diagnostic helper と、任意の Debug UI entry を追加する。project 全体の dependency 設定は不要。test では完全一致または意味上重要な断片を検証できる。 | 初期版として推奨。canvas library を導入する前に、診断 schema と workflow を検証できる。 |
 
-## License and Repository-Ingestion Notes
+## License と repository への導入
 
-Both node-editor candidates use the MIT License and permit redistribution when the copyright and permission notice are retained. If either is adopted, its source must be pinned to a tag or commit, placed in a clearly named third-party directory, accompanied by its upstream license and provenance, and explicitly added to `RtPbrSurvey.vcxproj`. Vendoring, adding a submodule, or adding a download/package script requires explicit user approval and is not part of this investigation.
+両 node editor 候補は MIT License であり、copyright notice と permission notice を保持すれば再配布できる。いずれかを導入する場合は、source を tag または commit に pin し、明確に命名した third-party directory に配置し、upstream license と出典を添付し、`RtPbrSurvey.vcxproj` に明示的に追加する必要がある。vendor、submodule 追加、download/package script 追加は、明示的な承認を得てから実施する。
 
-The recommended DOT exporter only emits text conforming to the [DOT language](https://graphviz.org/doc/info/lang.html). It should not invoke, bundle, or link Graphviz. Developers may optionally use Graphviz's `dot` tool externally to render the file; that optional tool is separate from the application and its build.
+推奨する DOT exporter は、[DOT language](https://graphviz.org/doc/info/lang.html) に従う text を出力するだけとする。Graphviz の起動、同梱、link は行わない。開発者は必要に応じて、application や build とは独立した外部 tool として Graphviz の `dot` を使用できる。
 
-## Decision and Recommendation
+## 決定と推奨案
 
-Use `imgui-node-editor` for the eventual interactive viewer/editor, but start implementation without integrating the library. This avoids disposable UI work while allowing the first milestone to remain a small, testable dump.
+将来の interactive viewer/editor には `imgui-node-editor` を使用する。ただし、最初の実装では library をまだ統合しない。これにより、使い捨てになる UI 実装を避けながら、第一段階を小さく test 可能な dump として維持できる。
 
-First define one read-only diagnostic snapshot and two presentations over it:
+最初に、1 個の read-only diagnostic snapshot と、それを使用する複数の出力を定義する。
 
-1. A deterministic text dump suitable for logs, tests, and issue reports.
-2. A deterministic DOT export suitable for offline graph visualization.
-3. Optionally, a compact ImGui table/tree that displays the same snapshot without editing it.
+1. Log、test、issue report に使用できる deterministic な text dump。
+2. Offline graph visualization に使用できる deterministic な DOT export。
+3. 必要であれば、同じ snapshot を表示する小規模な ImGui table/tree。
 
-The snapshot should be independent of ImGui, `imgui-node-editor`, and DOT formatting. This separation avoids coupling graph semantics to a UI library and gives dump, read-only node view, and future editor a stable shared model.
+Snapshot は ImGui、`imgui-node-editor`、DOT formatting から独立させる。この分離により graph semantics と UI library の結合を避け、dump、read-only node view、将来の editor で共通の安定した model を使用できる。
 
-## Model Architecture
+## Model architecture
 
-Keep node information separate from the executable RenderGraph, but do not maintain it as an unrelated second source of truth.
+Node 情報は実行用 RenderGraph から分離して保持する。ただし、無関係な第二の source of truth として管理してはならない。
 
-Introduce a repository-owned intermediate model, tentatively named `RenderGraphDocument`, with three layers:
+Repository が所有する中間 model として、仮称 `RenderGraphDocument` を導入し、次の 3 layer に分ける。
 
-1. `RenderPassGraph` remains the authoritative runtime graph for execution.
-2. A builder projects the runtime graph and registries into `RenderGraphDocument`.
-3. Dump exporters and the `imgui-node-editor` adapter consume the document.
+1. `RenderPassGraph` は実行用 graph の authoritative data であり続ける。
+2. Builder が runtime graph と registry から `RenderGraphDocument` を生成する。
+3. Dump exporter と `imgui-node-editor` adapter が document を参照する。
 
-The document should use repository-owned IDs and types:
+Document では repository が所有する ID と型を使用する。
 
-- `DocumentNodeId`, `DocumentPinId`, and `DocumentLinkId` are stable logical IDs.
-- Pass nodes and resource nodes carry semantic data, not `ax::NodeEditor::NodeId`.
-- Pins describe direction, access, resource state, and connection policy.
-- Links describe pass/resource relationships and later editable connections.
-- View-only state such as position, zoom, selection, and collapsed groups lives in a separate `RenderGraphEditorViewState`.
+- `DocumentNodeId`、`DocumentPinId`、`DocumentLinkId` は安定した logical ID とする。
+- Pass node と resource node は semantic data を保持し、`ax::NodeEditor::NodeId` は保持しない。
+- Pin は方向、access、resource state、connection policy を表す。
+- Link は pass/resource 関係を表し、将来は編集可能な connection に対応する。
+- Position、zoom、selection、collapsed group などの表示専用 state は、別の `RenderGraphEditorViewState` に置く。
 
-The `imgui-node-editor` layer maps document IDs to `ax::NodeEditor` IDs. No `ax::NodeEditor` type should appear in RenderGraph runtime headers or the document model. This adapter boundary allows the library version or integration details to change without rewriting graph semantics, while the decision to use `imgui-node-editor` remains stable.
+`imgui-node-editor` layer が document ID を `ax::NodeEditor` ID に変換する。RenderGraph の runtime header や document model に `ax::NodeEditor` の型を露出させない。この adapter 境界により、`imgui-node-editor` を採用する方針を維持しながら、library version や統合方法を変更しても graph semantics を書き直さずに済む。
 
-### Read and edit flow
+### Read と edit の flow
 
-The first version is one-way:
+最初の version は一方向とする。
 
 `RenderPassGraph -> RenderGraphDocument -> text/DOT dump`
 
-The read-only node view later adds:
+その後、read-only node view を追加する。
 
 `RenderGraphDocument + RenderGraphEditorViewState -> imgui-node-editor`
 
-Editing should not mutate the runtime graph directly from UI callbacks. A future editor should emit explicit repository-owned commands such as add/remove pass, connect/disconnect resource, or update pass property. Commands are validated and applied to an authoring model, which then rebuilds and validates the executable `RenderPassGraph`. Failed validation leaves the last valid runtime graph intact.
+将来の編集機能では、UI callback から runtime graph を直接変更しない。Add/remove pass、connect/disconnect resource、pass property update などを表す、repository 所有の明示的な command を生成する。Command を検証して authoring model に適用し、そこから実行用 `RenderPassGraph` を再構築して検証する。検証に失敗した場合は、最後に正常だった runtime graph を維持する。
 
-This command boundary is important because the present `RenderPassGraph` is built procedurally and contains execution-facing objects. Treating its vectors as an editor database would couple UI gestures to runtime safety and make undo/redo, validation, serialization, and error reporting difficult.
+この command 境界は重要である。現在の `RenderPassGraph` は手続き的に構築され、実行用 object を含む。その vector を editor database として直接扱うと、UI 操作が runtime safety に結合し、undo/redo、validation、serialization、error report の実装が難しくなる。
 
 ### Ownership rule
 
-- Runtime semantics: `RenderPassGraph` and its registries.
-- Diagnostic/editor semantics: `RenderGraphDocument`.
-- Canvas state: `RenderGraphEditorViewState`.
-- Library-specific context, IDs, drawing, and callbacks: `ImguiNodeEditorRenderGraphView`.
-- Future mutations: repository-owned editor commands and authoring model, never direct library callbacks into runtime containers.
+- Runtime semantics：`RenderPassGraph` と各 registry。
+- Diagnostic/editor semantics：`RenderGraphDocument`。
+- Canvas state：`RenderGraphEditorViewState`。
+- Library 固有の context、ID、drawing、callback：`ImguiNodeEditorRenderGraphView`。
+- 将来の変更操作：repository 所有の editor command と authoring model。library callback から runtime container を直接変更しない。
 
-## First Implementation Scope
+## 最初の実装範囲
 
-The first code change should remain library-free and read-only.
+最初の code change は library-free、read-only の範囲に限定する。
 
 ### Diagnostic snapshot
 
-Capture the graph after `BuildRenderPasses()` and validation, using stable diagnostic records rather than exposing mutable runtime objects:
+`BuildRenderPasses()` と validation の後に graph を取得する。Mutable な runtime object を外部公開せず、安定した diagnostic record を生成する。
 
-- Pass: ordered index, display name, active/included status, pipeline key/name when resolvable, and operation key/name when resolvable.
-- Resource: name, first/last pass indices, transient or persistent classification when registered, and known initial/current state when available.
-- Edge: pass index, resource name, access type (`read` or `write`), and requested `D3D12_RESOURCE_STATES`.
+- Pass：ordered index、表示名、active/included status、解決可能な場合は pipeline key/name と operation key/name。
+- Resource：名前、first/last pass index、registry に存在する場合は transient/persistent classification、既知の場合は initial/current state。
+- Edge：pass index、resource name、access type（`read` または `write`）、要求する `D3D12_RESOURCE_STATES`。
 
-The current graph only contains passes selected during `BuildRenderPasses()`. Therefore, in the first version, `active` means present in the built graph. Showing disabled candidate passes would require a separate authoring registry and is outside this scope.
+現在の graph には、`BuildRenderPasses()` で選択された pass だけが含まれる。そのため、初期版の `active` は built graph に存在することを意味する。無効な候補 pass の表示には別の authoring registry が必要となるため、初期範囲には含めない。
 
 ### Text dump
 
-Emit a deterministic pass-ordered report. Each pass lists reads and writes; each resource line includes the requested state and, when known, lifetime and transient/persistent classification. Use symbolic state names where practical and retain a hexadecimal fallback for combined or unknown flags.
+Pass 順が deterministic な report を出力する。各 pass は read と write を列挙し、各 resource line には requested state と、判明している場合は lifetime と transient/persistent classification を含める。可能な場合は symbolic state name を使い、組み合わせや未知の flag には hexadecimal fallback を残す。
 
 ### DOT export
 
-Emit a directed bipartite graph:
+有向 bipartite graph を出力する。
 
-- Pass nodes use one shape/color.
-- Resource nodes use another shape/color.
-- `resource -> pass` represents a read.
-- `pass -> resource` represents a write.
-- Edge labels include access and requested state.
-- Resource labels include lifetime and transient/persistent classification when known.
+- Pass node と resource node は異なる shape/color を使用する。
+- `resource -> pass` は read を表す。
+- `pass -> resource` は write を表す。
+- Edge label に access と requested state を含める。
+- Resource label に、判明している場合は lifetime と transient/persistent classification を含める。
 
-The exporter must quote/escape identifiers and labels, use generated stable IDs rather than names as DOT IDs, and keep output deterministic for reviewable diffs.
+Exporter は identifier と label を quote/escape し、name を DOT ID として直接使わず、生成した安定 ID を使う。Review しやすい diff を得るため、出力順を deterministic にする。
 
 ### Debug UI entry
 
-If an in-app entry is added, keep it under the existing Debug UI as a small read-only window or collapsing section. It may show a filter and copy/export controls, but it must not allow graph mutation, pass reordering, resource editing, or node-link creation.
+In-app entry を追加する場合は、既存 Debug UI の小規模な read-only window または collapsing section とする。Filter と copy/export control は追加してよいが、graph mutation、pass reorder、resource edit、node-link creation は許可しない。
 
-### Explicitly deferred
+### 明示的に延期する項目
 
-- Interactive graph editing.
-- Automatic graph layout inside the application.
-- Persistent user-authored node positions.
-- RenderGraph scheduling or lifetime-policy changes.
-- Descriptor-heap changes.
-- Any PathTracing, Streamline, DLSS, reflection-contract, or shadow-validation work.
+- Interactive graph editing。
+- Application 内の自動 graph layout。
+- ユーザーが設定した node position の永続化。
+- RenderGraph scheduling または lifetime policy の変更。
+- Descriptor heap の変更。
+- PathTracing、Streamline、DLSS、reflection contract、shadow validation に関する作業。
 
-## Future Node-Editor Path
+## 将来の node editor 導入手順
 
-After the dump format has been used on real graphs:
+実際の graph に dump format を使用した後、次の順で進める。
 
-1. Implement and test `RenderGraphDocument` through deterministic text/DOT dumps.
-2. Record usability needs: graph size, filtering, grouping, selection synchronization, search, state-transition visibility, and layout persistence.
-3. Request explicit approval for the `imgui-node-editor` ingestion method.
-4. Pin a known-good upstream tag/commit, retain its MIT license, document provenance, and add focused compatibility/build tests.
-5. Add an `imgui-node-editor` adapter and read-only view over the existing document; do not fork the document schema for UI convenience.
-6. Add repository-owned edit commands, validation, undo/redo, and serialization before enabling mutation.
-7. Rebuild the executable graph from validated authoring data instead of editing the live runtime graph in place.
+1. Deterministic な text/DOT dump を通して `RenderGraphDocument` を実装し、test する。
+2. Graph size、filtering、grouping、selection synchronization、search、state transition 表示、layout persistence について、実際の usability requirement を記録する。
+3. `imgui-node-editor` の repository への導入方法について明示的な承認を得る。
+4. 既知の正常な upstream tag/commit に pin し、MIT license と出典を保持して、compatibility/build test を追加する。
+5. 既存 document に対する `imgui-node-editor` adapter と read-only view を追加する。UI の都合で document schema を分岐させない。
+6. Mutation を有効にする前に、repository 所有の edit command、validation、undo/redo、serialization を追加する。
+7. 実行中の runtime graph を直接編集せず、検証済み authoring data から executable graph を再構築する。
 
-## Build Integration Assessment
+## Build integration の評価
 
-The application already owns Dear ImGui initialization and its Win32/DX12 backend in `Ui/ImGuiSystem`. `imgui-node-editor` will sit above that existing ImGui context and should not add a graphics backend. It will still require lifecycle hooks for its own context and explicit `.vcxproj` source entries.
+Application は `Ui/ImGuiSystem` で Dear ImGui の初期化と Win32/DX12 backend をすでに所有している。`imgui-node-editor` は既存 ImGui context の上に配置し、別の graphics backend は追加しない。ただし、独自 context の lifecycle hook と、明示的な `.vcxproj` source entry が必要になる。
 
-The no-library option adds only repository-owned C++ files if implemented. The project currently lists sources explicitly in `RtPbrSurvey.vcxproj`, so any future helper implementation must be added there. A documentation-only investigation changes no compile inputs.
+Library-free 版を実装する場合は、repository 所有の C++ file だけを追加する。この project は `RtPbrSurvey.vcxproj` に source を明示的に列挙しているため、将来 helper implementation を追加する際は project file にも追加する必要がある。Documentation のみの調査では compile input は変化しない。
 
 ## Validation
 
-Build skipped: this step changes documentation only and introduces no source, project, dependency, or runtime change.
+Build は省略した。この変更は documentation のみであり、source、project、dependency、runtime の変更を含まない。
 
-## Sources
+## 参照先
 
-- `imgui-node-editor` repository, dependencies, distribution guidance, features, and release metadata: <https://github.com/thedmd/imgui-node-editor>
-- `imgui-node-editor` license: <https://github.com/thedmd/imgui-node-editor/blob/master/LICENSE>
-- `imnodes` repository, three-file distribution, API overview, and release metadata: <https://github.com/Nelarius/imnodes>
-- `imnodes` license: <https://github.com/Nelarius/imnodes/blob/master/LICENSE.md>
-- Graphviz DOT language specification: <https://graphviz.org/doc/info/lang.html>
-- Graphviz `dot` layout documentation: <https://graphviz.org/docs/layouts/dot/>
+- `imgui-node-editor` repository、dependency、distribution guidance、feature、release metadata：<https://github.com/thedmd/imgui-node-editor>
+- `imgui-node-editor` license：<https://github.com/thedmd/imgui-node-editor/blob/master/LICENSE>
+- `imnodes` repository、3 file distribution、API overview、release metadata：<https://github.com/Nelarius/imnodes>
+- `imnodes` license：<https://github.com/Nelarius/imnodes/blob/master/LICENSE.md>
+- Graphviz DOT language specification：<https://graphviz.org/doc/info/lang.html>
+- Graphviz `dot` layout documentation：<https://graphviz.org/docs/layouts/dot/>
