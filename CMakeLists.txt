@@ -280,4 +280,12 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.SceneRendererSettingsTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.SceneRendererSettings COMMAND RtPbrSurvey.SceneRendererSettingsTests)
+
+    add_executable(RtPbrSurvey.CameraProjectionTests
+        Tests/CameraProjectionTests.cpp)
+    target_link_libraries(RtPbrSurvey.CameraProjectionTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.CameraProjectionTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.CameraProjection COMMAND RtPbrSurvey.CameraProjectionTests)
 endif()

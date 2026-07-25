@@ -248,7 +248,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGuiWidgets::SliderFloatWithControls("FovH", &loadedScene.GetScene().camera.fov, 20.f, 150.f, 5.f, 60.f);
         int cameraMode = static_cast<int>(app.DebugCamera().GetMode());
         if (ImGui::Combo("Mode", &cameraMode, "FreeLook\0Arcball\0"))
         {
@@ -279,6 +278,23 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 ImGui::SameLine();
             }
             ImGui::NewLine();
+            const char* projectionLabels[] = {"Perspective", "Orthographic"};
+            int projection = loadedScene.GetScene().camera.projection == Engine::CameraProjection::Orthographic ? 1 : 0;
+            if (ImGui::Combo("Projection", &projection, projectionLabels, IM_ARRAYSIZE(projectionLabels)))
+            {
+                loadedScene.GetScene().camera.projection =
+                    projection == 1 ? Engine::CameraProjection::Orthographic : Engine::CameraProjection::Perspective;
+            }
+            if (loadedScene.GetScene().camera.projection == Engine::CameraProjection::Perspective)
+            {
+                ImGuiWidgets::SliderFloatWithControls(
+                    "FOV Y", &loadedScene.GetScene().camera.fov, 20.0f, 150.0f, 5.0f, 60.0f);
+            }
+            else
+            {
+                ImGuiWidgets::SliderFloatWithControls(
+                    "Ortho Height", &loadedScene.GetScene().camera.orthographicHeight, 0.1f, 1000.0f, 0.5f, 10.0f);
+            }
             ImGuiWidgets::SliderFloatWithControls("NearZ", &loadedScene.GetScene().camera.nearZ, 0.01f, 10.0f, 0.01f, 0.1f);
             ImGuiWidgets::SliderFloatWithControls("FarZ", &loadedScene.GetScene().camera.farZ, 10.0f, 100000.0f, 100.0f, 10000.0f);
         }
