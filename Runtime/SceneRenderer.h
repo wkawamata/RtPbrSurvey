@@ -71,6 +71,8 @@ namespace RtPbrSurvey
         void SetRenderViewMode(RtPbrSurveyEngine::RenderViewMode mode);
         RtPbrSurveyEngine::RenderViewMode GetRenderViewMode() const;
         void SetRequestHdrDump(bool request);
+        void RequestScreenshot(ScreenshotRequest request);
+        std::optional<ScreenshotResult> ConsumeScreenshotResult();
         void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
         void RequestPixelPick(int screenX, int screenY);
         const RtPbrSurveyEngine::PixelPickResult& GetPixelPickResult() const;

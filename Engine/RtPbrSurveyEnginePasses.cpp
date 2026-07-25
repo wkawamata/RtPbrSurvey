@@ -39,6 +39,10 @@ void RtPbrSurveyEngine::BuildRenderPasses()
     }
 
     AddPass(MakeImGuiPass());
+    if (!m_screenshotRequests.empty() && !m_pendingScreenshotCapture.has_value())
+    {
+        AddPass(MakeScreenshotPass());
+    }
 }
 
 void RtPbrSurveyEngine::AddSceneRenderPasses()
@@ -508,5 +512,14 @@ auto RtPbrSurveyEngine::MakeImGuiPass() -> RenderPass
         .Writes({{kBackBufferResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Rtv(RtvName::BackBuffer)
         .Operation(Op::ImGui, &RtPbrSurveyEngine::ExecuteImGuiPass)
+        .Build();
+}
+
+auto RtPbrSurveyEngine::MakeScreenshotPass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"Screenshot")
+        .Reads({{kBackBufferResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
+        .Operation(Op::Screenshot, &RtPbrSurveyEngine::ExecuteScreenshotPass)
         .Build();
 }

@@ -227,6 +227,16 @@ namespace RtPbrSurvey
         m_engine.SetRequestHdrDump(request);
     }
 
+    void SceneRenderer::RequestScreenshot(ScreenshotRequest request)
+    {
+        m_engine.RequestScreenshot(std::move(request));
+    }
+
+    std::optional<ScreenshotResult> SceneRenderer::ConsumeScreenshotResult()
+    {
+        return m_engine.ConsumeScreenshotResult();
+    }
+
     void SceneRenderer::ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings)
     {
         m_engine.ReloadEnvironmentResources(settings);

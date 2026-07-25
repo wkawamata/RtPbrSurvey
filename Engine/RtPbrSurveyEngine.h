@@ -38,6 +38,7 @@
 #include "FrameGraph/RenderPassResources.h"
 #include "Renderer/RootSignatureLayout.h"
 #include "Renderer/SceneGeometryPass.h"
+#include "Renderer/ScreenshotCapture.h"
 #include "Renderer/SimpleDescriptorHeapAllocator.h"
 #include "Renderer/ShadowMaskDebugPass.h"
 #include "Renderer/DebugLinePass.h"
@@ -45,12 +46,14 @@
 #include "Renderer/StreamlineAdapter.h"
 #include "Renderer/ToneMap.h"
 #include "Scene/Scene.h"
+#include "Shared/Screenshot.h"
 #include "TextureSemantic.h"
 #include "WorkMeter.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <climits>
+#include <deque>
 #include <functional>
 #include <initializer_list>
 #include <optional>
@@ -295,6 +298,8 @@ public:
     void SetRenderViewMode(RenderViewMode mode);
     RenderViewMode GetRenderViewMode() const { return m_debugViewSettings.renderViewMode; }
     void SetRequestHdrDump(bool request);
+    void RequestScreenshot(RtPbrSurvey::ScreenshotRequest request);
+    std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult();
     void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
     void RequestPixelPick(int screenX, int screenY);
     const PixelPickResult& GetPixelPickResult() const { return m_pixelPickResult; }
@@ -399,6 +404,7 @@ private:
             static constexpr const char* SpecularDebugRayQuery = "SpecularDebugRayQuery";
             static constexpr const char* RayQueryTlasDebug = "RayQueryTlasDebug";
             static constexpr const char* ImGui = "ImGui";
+            static constexpr const char* Screenshot = "Screenshot";
         };
 
         struct Constants
@@ -729,6 +735,15 @@ private:
     HdrOutputPolicy m_hdrOutputPolicy;
     DebugViewSettings m_debugViewSettings;
     Engine::DebugDumpCapture m_debugDumpCapture;
+    struct PendingScreenshotCapture
+    {
+        RtPbrSurvey::ScreenshotRequest request;
+        Engine::ScreenshotReadback readback;
+        UINT64 fenceValue = 0;
+    };
+    std::deque<RtPbrSurvey::ScreenshotRequest> m_screenshotRequests;
+    std::optional<PendingScreenshotCapture> m_pendingScreenshotCapture;
+    std::deque<RtPbrSurvey::ScreenshotResult> m_screenshotResults;
 
     // Pixel pick (Ctrl+Click to inspect reflection vector)
     bool m_pixelPickRequested = false;
@@ -1062,6 +1077,7 @@ private:
     RenderPass MakeShadowMaskDebugPass();
     RenderPass MakeDebugLinePass();
     RenderPass MakeImGuiPass();
+    RenderPass MakeScreenshotPass();
     void BuildRenderPasses();
     void AddSceneRenderPasses();
     void AddDeferredSceneOutputPass();
@@ -1126,6 +1142,7 @@ private:
     void ExecuteShadowMaskDebugPass(const RenderPass& pass);
     void ExecuteDebugLinePass(const RenderPass& pass);
     void ExecuteImGuiPass(const RenderPass& pass);
+    void ExecuteScreenshotPass(const RenderPass& pass);
     void RecordDebugDumpPass();
     void RecordPixelPickPass();
     void ReadbackPixelPick();
@@ -1134,6 +1151,7 @@ private:
     void CreatePixelPickReadback(ID3D12Resource* source, PixelPickReadback& readback) const;
     void CopyPixelPickSource(ID3D12Resource* source, const PixelPickReadback& readback, UINT x, UINT y);
     void RecordImGuiPass();
+    void ProcessCompletedScreenshot();
     void EndFrame();
     void PrintDebugDump();
 

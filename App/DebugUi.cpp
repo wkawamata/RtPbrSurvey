@@ -6,6 +6,10 @@
 
 #include <imgui.h>
 
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+
 void RunStagedAllocatorTests(ID3D12Device* device);
 
 namespace
@@ -125,6 +129,17 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
     }
 }
 
+std::filesystem::path MakeScreenshotPath()
+{
+    const std::time_t now = std::time(nullptr);
+    std::tm localTime = {};
+    localtime_s(&localTime, &now);
+
+    std::ostringstream filename;
+    filename << "RtPbrSurvey_" << std::put_time(&localTime, "%Y-%m-%d_%H%M%S") << ".png";
+    return std::filesystem::current_path() / "Screenshots" / filename.str();
+}
+
 void DrawRenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
 {
     const char* description = RenderViewDescription(mode);
@@ -203,6 +218,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     using RenderViewMode = RtPbrSurveyEngine::RenderViewMode;
     using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
 
+    if (const std::optional<RtPbrSurvey::ScreenshotResult> result = app.m_sceneRenderer.ConsumeScreenshotResult())
+    {
+        app.m_screenshotStatus = result->succeeded ?
+            "Saved: " + result->path.string() :
+            "Capture failed: " + result->error;
+    }
+
     if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneSelect)
     {
         App::DrawSceneSelectUi(app);
@@ -211,6 +233,20 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     ImGui::SetNextWindowSize(ImVec2(400, 140), ImGuiCond_FirstUseEver);
     ImGui::Begin("Debug");
+
+    if (ImGui::CollapsingHeader("Screenshot"))
+    {
+        if (ImGui::Button("Capture PNG"))
+        {
+            const std::filesystem::path path = MakeScreenshotPath();
+            app.m_sceneRenderer.RequestScreenshot({path});
+            app.m_screenshotStatus = "Capture requested: " + path.string();
+        }
+        if (!app.m_screenshotStatus.empty())
+        {
+            ImGui::TextWrapped("%s", app.m_screenshotStatus.c_str());
+        }
+    }
 
     Engine::SampleScene& loadedScene = app.LoadedScene();
     Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();

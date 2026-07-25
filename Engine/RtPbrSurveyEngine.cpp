@@ -554,6 +554,37 @@ void RtPbrSurveyEngine::SetRequestHdrDump(bool request)
     m_debugViewSettings.requestHdrDump = request;
 }
 
+void RtPbrSurveyEngine::RequestScreenshot(RtPbrSurvey::ScreenshotRequest request)
+{
+    try
+    {
+        if (request.path.empty())
+        {
+            m_screenshotResults.push_back({request.path, false, "Screenshot output path is empty."});
+            return;
+        }
+        request.path = std::filesystem::absolute(request.path);
+        m_screenshotRequests.push_back(std::move(request));
+    }
+    catch (const std::exception& exception)
+    {
+        m_screenshotResults.push_back({request.path, false, exception.what()});
+    }
+}
+
+std::optional<RtPbrSurvey::ScreenshotResult> RtPbrSurveyEngine::ConsumeScreenshotResult()
+{
+    ProcessCompletedScreenshot();
+    if (m_screenshotResults.empty())
+    {
+        return std::nullopt;
+    }
+
+    RtPbrSurvey::ScreenshotResult result = std::move(m_screenshotResults.front());
+    m_screenshotResults.pop_front();
+    return result;
+}
+
 void RtPbrSurveyEngine::RequestPixelPick(int screenX, int screenY)
 {
     m_pixelPickRequested = true;
@@ -2999,6 +3030,8 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
 {
     PIXBeginEvent(0, L"RenderFrame");
 
+    ProcessCompletedScreenshot();
+
     // Select the per-frame chunk within the main heap's reserved range and
     // stage descriptors from the CPU heap into that chunk.
     // SetFrameIndex must match the current frame so that GpuHandle() (called
@@ -3043,6 +3076,10 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     m_graphicsDevice.Present(1, 0);
 
     UINT64 submittedFenceValue = MoveToNextFrame();
+    if (m_pendingScreenshotCapture.has_value() && m_pendingScreenshotCapture->fenceValue == 0)
+    {
+        m_pendingScreenshotCapture->fenceValue = submittedFenceValue;
+    }
 
     // submittedFenceValue marks completion of the command list submitted for this frame.
     MarkPendingTransientResources(submittedFenceValue);
@@ -3168,6 +3205,19 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
 void RtPbrSurveyEngine::Shutdown()
 {
     DestroyFrameResources();
+    ProcessCompletedScreenshot();
+    if (m_pendingScreenshotCapture.has_value())
+    {
+        const RtPbrSurvey::ScreenshotRequest request = std::move(m_pendingScreenshotCapture->request);
+        m_pendingScreenshotCapture.reset();
+        m_screenshotResults.push_back({request.path, false, "Renderer shut down before screenshot submission."});
+    }
+    while (!m_screenshotRequests.empty())
+    {
+        RtPbrSurvey::ScreenshotRequest request = std::move(m_screenshotRequests.front());
+        m_screenshotRequests.pop_front();
+        m_screenshotResults.push_back({request.path, false, "Renderer shut down before screenshot capture."});
+    }
     Engine::ShutdownStreamlineAdapter();
 }
 
@@ -3835,6 +3885,38 @@ void RtPbrSurveyEngine::ExecuteImGuiPass(const RenderPass& pass)
     RecordImGuiPass();
 }
 
+void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+
+    assert(!m_screenshotRequests.empty());
+    assert(!m_pendingScreenshotCapture.has_value());
+    if (m_screenshotRequests.empty() || m_pendingScreenshotCapture.has_value())
+    {
+        return;
+    }
+
+    PendingScreenshotCapture capture;
+    capture.request = std::move(m_screenshotRequests.front());
+    m_screenshotRequests.pop_front();
+
+    try
+    {
+        Engine::RecordScreenshotCapture(m_commandList.Get(),
+                                        m_graphicsDevice.Device(),
+                                        m_renderTargets[m_currentFrameIndex].Get(),
+                                        m_hdrOutputPolicy.settings.hdr10Enabled,
+                                        m_toneMapPass.settings.paperWhiteNits,
+                                        capture.readback);
+        m_pendingScreenshotCapture = std::move(capture);
+        m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Screenshot");
+    }
+    catch (const std::exception& exception)
+    {
+        m_screenshotResults.push_back({capture.request.path, false, exception.what()});
+    }
+}
+
 void RtPbrSurveyEngine::RecordDebugDumpPass()
 {
     Engine::RecordDebugDumpCapture(m_commandList.Get(),
@@ -4198,6 +4280,33 @@ void RtPbrSurveyEngine::RecordImGuiPass()
         (*m_activeUiRenderHandler)(m_commandList.Get());
     }
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ImGUI");
+}
+
+void RtPbrSurveyEngine::ProcessCompletedScreenshot()
+{
+    if (!m_pendingScreenshotCapture.has_value() || m_pendingScreenshotCapture->fenceValue == 0 ||
+        m_graphicsDevice.CompletedFenceValue() < m_pendingScreenshotCapture->fenceValue)
+    {
+        return;
+    }
+
+    PendingScreenshotCapture capture = std::move(*m_pendingScreenshotCapture);
+    m_pendingScreenshotCapture.reset();
+
+    RtPbrSurvey::ScreenshotResult result;
+    result.path = capture.request.path;
+    result.width = capture.readback.width;
+    result.height = capture.readback.height;
+    try
+    {
+        result.succeeded = Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
+    }
+    catch (const std::exception& exception)
+    {
+        result.succeeded = false;
+        result.error = exception.what();
+    }
+    m_screenshotResults.push_back(std::move(result));
 }
 
 void RtPbrSurveyEngine::EndFrame()

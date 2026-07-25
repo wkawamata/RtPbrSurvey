@@ -81,6 +81,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/ReflectionRayHitDebugPass.cpp
     Renderer/RootSignatureFactory.cpp
     Renderer/SceneGeometryPass.cpp
+    Renderer/ScreenshotCapture.cpp
     Renderer/ShadowMaskDebugPass.cpp
     Renderer/SpecularDebugRayQueryPass.cpp
     Renderer/StagedDescriptorAllocator_Test.cpp
@@ -144,7 +145,8 @@ target_link_libraries(RtPbrSurvey.SceneRenderer
         nlohmann_json::nlohmann_json
         d3dcompiler
         dxguid
-        delayimp)
+        delayimp
+        windowscodecs)
 
 if(NOT RTPBRSURVEY_HAS_STREAMLINE_SDK)
     target_link_libraries(RtPbrSurvey.SceneRenderer PUBLIC d3d12 dxgi)
@@ -288,4 +290,12 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.CameraProjectionTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.CameraProjection COMMAND RtPbrSurvey.CameraProjectionTests)
+
+    add_executable(RtPbrSurvey.ScreenshotTests
+        Tests/ScreenshotTests.cpp)
+    target_link_libraries(RtPbrSurvey.ScreenshotTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.ScreenshotTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.Screenshot COMMAND RtPbrSurvey.ScreenshotTests)
 endif()
