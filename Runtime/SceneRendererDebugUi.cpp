@@ -347,7 +347,7 @@ namespace
         const bool deferredRendering = renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred;
         ImGui::BeginDisabled(!deferredRendering);
 
-        if (ImGui::BeginCombo("Render View", RenderViewLabel(renderViewMode)))
+        if (ImGui::BeginCombo("View Mode", RenderViewLabel(renderViewMode)))
         {
             for (const RenderViewItem& item : kRenderViewItems)
             {
