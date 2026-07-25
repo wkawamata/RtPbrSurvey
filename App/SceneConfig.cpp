@@ -41,7 +41,9 @@ static json CameraToJson(const SceneCameraConfig& c)
         j["position"] = ToJson(c.position);
         j["rotation"] = ToJson(c.rotation);
     }
+    j["projection"] = c.projection == Engine::CameraProjection::Orthographic ? "orthographic" : "perspective";
     j["fov"] = c.fov;
+    j["orthographicHeight"] = c.orthographicHeight;
     j["speedMultiplier"] = c.speedMultiplier;
     j["nearZ"] = c.nearZ;
     j["farZ"] = c.farZ;
@@ -52,7 +54,11 @@ static SceneCameraConfig CameraFromJson(const json& j)
 {
     SceneCameraConfig c;
     c.mode = j.value("mode", "freelook");
+    c.projection = j.value("projection", "perspective") == "orthographic"
+        ? Engine::CameraProjection::Orthographic
+        : Engine::CameraProjection::Perspective;
     c.fov = j.value("fov", 60.0f);
+    c.orthographicHeight = j.value("orthographicHeight", 10.0f);
     c.speedMultiplier = j.value("speedMultiplier", 1.0f);
     c.nearZ = j.value("nearZ", 0.1f);
     c.farZ = j.value("farZ", 10000.0f);
@@ -348,7 +354,9 @@ SceneConfig SceneConfigManager::CaptureFromApp(const RtPbrSurveyApp& app,
 {
     SceneConfig cfg;
     const auto& camera = scene.GetScene().camera;
+    cfg.camera.projection = camera.projection;
     cfg.camera.fov = camera.fov;
+    cfg.camera.orthographicHeight = camera.orthographicHeight;
 
     if (app.DebugCamera().GetMode() == RtPbrSurvey::DebugCameraController::Mode::Arcball)
     {
@@ -431,7 +439,9 @@ SceneConfig SceneConfigManager::CaptureFromApp(const RtPbrSurveyApp& app,
 void SceneConfigManager::ApplyToEngine(const SceneConfig& cfg, RtPbrSurveyApp& app, RtPbrSurveyEngine& engine)
 {
     auto& camera = app.LoadedScene().GetScene().camera;
+    camera.projection = cfg.camera.projection;
     camera.fov = cfg.camera.fov;
+    camera.orthographicHeight = cfg.camera.orthographicHeight;
     camera.nearZ = cfg.camera.nearZ;
     camera.farZ = cfg.camera.farZ;
     app.DebugCamera().SetSpeedMultiplier(cfg.camera.speedMultiplier);

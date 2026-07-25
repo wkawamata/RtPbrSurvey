@@ -19,6 +19,7 @@
 #include "MyDx12Utils.h"
 #include "Renderer/DebugDumpReport.h"
 #include "Renderer/RootSignatureFactory.h"
+#include "Scene/CameraProjection.h"
 // Forward declaration for the staged allocator smoke test.
 
 
@@ -215,8 +216,7 @@ bool RtPbrSurveyEngine::IsTemporalJitterEnabled() const
 
 auto RtPbrSurveyEngine::MakeStreamlineFrameConstants() const -> Engine::TemporalUpscalerFrameConstants
 {
-    const XMMATRIX projection = XMMatrixPerspectiveFovLH(
-        XMConvertToRadians(m_scene.camera.fov), m_aspectRatio, m_scene.camera.nearZ, m_scene.camera.farZ);
+    const XMMATRIX projection = Engine::CreateCameraProjectionMatrix(m_scene.camera, m_aspectRatio);
     const XMMATRIX currentViewProjection = XMLoadFloat4x4(&m_jitterFreeViewProjection);
     const XMMATRIX previousViewProjection = XMLoadFloat4x4(&m_jitterFreePrevViewProjection);
     const XMMATRIX clipToPreviousClip =
@@ -254,6 +254,7 @@ auto RtPbrSurveyEngine::MakeStreamlineFrameConstants() const -> Engine::Temporal
     constants.cameraFar = m_scene.camera.farZ;
     constants.cameraFovRadians = XMConvertToRadians(m_scene.camera.fov);
     constants.cameraAspectRatio = m_aspectRatio;
+    constants.orthographicProjection = m_scene.camera.projection == Engine::CameraProjection::Orthographic;
     return constants;
 }
 
@@ -467,6 +468,16 @@ void RtPbrSurveyEngine::SetScene(const Scene& scene)
     m_scene = scene;
 }
 
+void RtPbrSurveyEngine::SetCamera(const CameraState& camera)
+{
+    m_scene.camera = camera;
+}
+
+const RtPbrSurveyEngine::CameraState& RtPbrSurveyEngine::GetCamera() const
+{
+    return m_scene.camera;
+}
+
 void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
 {
     const int previousDisplayInstanceCount = m_displayInstanceCount;
@@ -631,14 +642,32 @@ void RtPbrSurveyEngine::ReloadEnvironmentResources(const Engine::ProceduralEnvir
 void RtPbrSurveyEngine::UpdateCameraConstantBuffer()
 {
     m_scene.camera.fov = std::clamp(m_scene.camera.fov, 0.1f, 179.0f);
+    m_scene.camera.orthographicHeight = std::clamp(m_scene.camera.orthographicHeight, 0.001f, 1000000.0f);
     m_scene.camera.nearZ = std::clamp(m_scene.camera.nearZ, 0.001f, 100000.0f);
     m_scene.camera.farZ = std::clamp(m_scene.camera.farZ, m_scene.camera.nearZ + 0.001f, 1000000.0f);
+    const bool projectionChanged =
+        !m_cameraProjectionStateInitialized || m_previousCameraProjection != m_scene.camera.projection ||
+        m_previousCameraFov != m_scene.camera.fov ||
+        m_previousCameraOrthographicHeight != m_scene.camera.orthographicHeight ||
+        m_previousCameraNearZ != m_scene.camera.nearZ || m_previousCameraFarZ != m_scene.camera.farZ ||
+        m_previousCameraAspectRatio != m_aspectRatio;
+    if (projectionChanged)
+    {
+        m_temporalUpscalerHistoryReset = true;
+        m_temporalFrameIndex = 0;
+        m_previousCameraProjection = m_scene.camera.projection;
+        m_previousCameraFov = m_scene.camera.fov;
+        m_previousCameraOrthographicHeight = m_scene.camera.orthographicHeight;
+        m_previousCameraNearZ = m_scene.camera.nearZ;
+        m_previousCameraFarZ = m_scene.camera.farZ;
+        m_previousCameraAspectRatio = m_aspectRatio;
+        m_cameraProjectionStateInitialized = true;
+    }
     const XMVECTOR eye = XMLoadFloat3(&m_scene.camera.pos);
     const XMVECTOR at = XMLoadFloat3(&m_scene.camera.gazePoint);
     const XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
     const XMMATRIX view = XMMatrixLookAtLH(eye, at, up);
-    const XMMATRIX projection =
-        XMMatrixPerspectiveFovLH(XMConvertToRadians(m_scene.camera.fov), m_aspectRatio, m_scene.camera.nearZ, m_scene.camera.farZ);
+    const XMMATRIX projection = Engine::CreateCameraProjectionMatrix(m_scene.camera, m_aspectRatio);
     const XMMATRIX jitterFreeViewProjection = XMMatrixMultiply(view, projection);
     XMStoreFloat4x4(&m_jitterFreeViewProjection, jitterFreeViewProjection);
 
@@ -654,8 +683,10 @@ void RtPbrSurveyEngine::UpdateCameraConstantBuffer()
         m_jitterOffsetPixels.y = m_temporalJitterHalton.y * jitterScale[1];
         const float jitterNdcX = 2.0f * m_jitterOffsetPixels.x / static_cast<float>(m_renderWidth);
         const float jitterNdcY = -2.0f * m_jitterOffsetPixels.y / static_cast<float>(m_renderHeight);
-        jitteredProjection.r[2] =
-            XMVectorAdd(jitteredProjection.r[2], XMVectorSet(jitterNdcX, jitterNdcY, 0.0f, 0.0f));
+        const size_t jitterRow =
+            m_scene.camera.projection == Engine::CameraProjection::Orthographic ? size_t{3} : size_t{2};
+        jitteredProjection.r[jitterRow] =
+            XMVectorAdd(jitteredProjection.r[jitterRow], XMVectorSet(jitterNdcX, jitterNdcY, 0.0f, 0.0f));
     }
     else
     {

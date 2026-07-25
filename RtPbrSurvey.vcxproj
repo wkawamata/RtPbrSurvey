@@ -193,6 +193,7 @@
     <ClInclude Include="Scene\SceneBuilder.h" />
     <ClInclude Include="Scene\SceneFactory.h" />
     <ClInclude Include="Scene\Scene.h" />
+    <ClInclude Include="Scene\CameraProjection.h" />
     <ClInclude Include="Scene\SampleScene.h" />
     <ClInclude Include="Ui\ImGuiSystem.h" />
     <ClInclude Include="App\DebugUi.h" />

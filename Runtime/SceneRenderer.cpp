@@ -44,6 +44,16 @@ namespace RtPbrSurvey
         m_engine.SetScene(scene);
     }
 
+    void SceneRenderer::SetCamera(const CameraState& camera)
+    {
+        m_engine.SetCamera(camera);
+    }
+
+    const SceneRenderer::CameraState& SceneRenderer::GetCamera() const
+    {
+        return m_engine.GetCamera();
+    }
+
     void SceneRenderer::ReloadSceneResources(const Scene& scene)
     {
         m_engine.ReloadSceneResources(scene);

@@ -261,6 +261,8 @@ public:
     void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
     void Shutdown();
     void SetScene(const Scene& scene);
+    void SetCamera(const CameraState& camera);
+    const CameraState& GetCamera() const;
     void ReloadSceneResources(const Scene& scene);
     void CloseSceneResources();
     UiFrameContext GetUiFrameContext() const;
@@ -710,6 +712,13 @@ private:
     Engine::TemporalUpscalerSupportInfo m_temporalUpscalerSupport;
     Engine::TemporalUpscalerSettings m_temporalUpscalerSettings;
     bool m_temporalUpscalerHistoryReset = true;
+    Engine::CameraProjection m_previousCameraProjection = Engine::CameraProjection::Perspective;
+    float m_previousCameraFov = 60.0f;
+    float m_previousCameraOrthographicHeight = 10.0f;
+    float m_previousCameraNearZ = 0.1f;
+    float m_previousCameraFarZ = 10000.0f;
+    float m_previousCameraAspectRatio = 1.0f;
+    bool m_cameraProjectionStateInitialized = false;
     bool m_temporalUpscalerOutputAvailable = false;
     Engine::ToneMapPass m_toneMapPass;
     Engine::DebugLinePass m_debugLinePass;

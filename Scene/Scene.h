@@ -8,12 +8,21 @@
 namespace Engine
 {
 
+enum class CameraProjection
+{
+    Perspective,
+    Orthographic,
+};
+
 struct CameraState
 {
     DirectX::XMFLOAT3 pos = {0.0f, 0.0f, -5.0f};
     DirectX::XMFLOAT3 rot = {0.0f, 0.0f, 0.0f};
     DirectX::XMFLOAT3 gazePoint = {0.0f, 0.0f, 0.0f};
+    CameraProjection projection = CameraProjection::Perspective;
+    // Vertical field of view in degrees. Kept as "fov" for source compatibility.
     float fov = 60.0f;
+    float orthographicHeight = 10.0f;
     float nearZ = 0.1f;
     float farZ = 10000.0f;
 };

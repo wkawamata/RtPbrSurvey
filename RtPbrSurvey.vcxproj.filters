@@ -204,6 +204,9 @@
     <ClInclude Include="Scene\Scene.h">
       <Filter>Source Files\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\CameraProjection.h">
+      <Filter>Source Files\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\SampleScene.h">
       <Filter>Source Files\Scene</Filter>
     </ClInclude>
