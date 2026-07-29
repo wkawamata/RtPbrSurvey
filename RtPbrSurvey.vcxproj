@@ -506,6 +506,9 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <StreamlineRuntimeDll Include="$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\bin\x64\sl.dlss.dll" />
     <StreamlineRuntimeDll Include="$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\bin\x64\nvngx_dlss.dll" />
   </ItemGroup>
+  <ItemGroup>
+    <RuntimeAsset Include="$(ProjectDir)Assets\**\*" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\Microsoft.Direct3D.D3D12.1.618.3\build\native\Microsoft.Direct3D.D3D12.targets" Condition="Exists('packages\Microsoft.Direct3D.D3D12.1.618.3\build\native\Microsoft.Direct3D.D3D12.targets')" />
@@ -524,5 +527,10 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
   </Target>
   <Target Name="CopyStreamlineRuntime" AfterTargets="Build" Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">
     <Copy SourceFiles="@(StreamlineRuntimeDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="CopyRuntimeAssets" AfterTargets="Build">
+    <Copy SourceFiles="@(RuntimeAsset)"
+          DestinationFiles="@(RuntimeAsset->'$(OutDir)Assets\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
   </Target>
 </Project>
