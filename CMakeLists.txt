@@ -331,4 +331,12 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.ScreenshotTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.Screenshot COMMAND RtPbrSurvey.ScreenshotTests)
+
+    add_executable(RtPbrSurvey.AssetPathTests
+        Tests/AssetPathTests.cpp)
+    target_link_libraries(RtPbrSurvey.AssetPathTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.AssetPathTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.AssetPath COMMAND RtPbrSurvey.AssetPathTests)
 endif()

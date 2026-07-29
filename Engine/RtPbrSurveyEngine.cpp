@@ -45,6 +45,7 @@
 #include <vector>
 #include "Shared/Error.h"
 #include "Platform/FileIO.h"
+#include "Platform/AssetPath.h"
 #include "Rhi/Dx12/GraphicsDevice.h"
 #include "Renderer\ClearPass.h"
 #include "Renderer\DebugDumpCapture.h"
@@ -141,7 +142,7 @@ RtPbrSurveyEngine::RtPbrSurveyEngine(GraphicsDevice& graphicsDevice)
     : m_graphicsDevice(graphicsDevice), m_width(0), m_height(0), m_renderWidth(0), m_renderHeight(0),
       m_aspectRatio(1.0f), m_previousFrameIndex(0), m_currentFrameIndex(0), m_rtvDescriptorSize(0)
 {
-    m_assetsPath = L"./Assets\\";
+    m_assetsPath = Platform::GetRuntimeAssetsPath();
     WCHAR shaderPath[512];
     GetAssetsPath(shaderPath, _countof(shaderPath));
     m_shaderPath = shaderPath;
