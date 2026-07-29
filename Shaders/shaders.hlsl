@@ -16,7 +16,8 @@ struct InstanceData
     float4x4 world;
     float4x4 prevWorld;
     uint materialId;
-    float padding[3]; //16 byte alignment
+    uint meshId;
+    float padding[2]; //16 byte alignment
 };
 
 cbuffer ConstantBuffer : register(b0)

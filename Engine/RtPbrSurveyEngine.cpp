@@ -108,6 +108,8 @@ static_assert(sizeof(Engine::SceneVertex) == 52,
               "shaders_HybridReflection.hlsl reads SceneVertex normals through a byte-address buffer.");
 static_assert(sizeof(Engine::InstanceData) == 144,
               "shaders_HybridReflection.hlsl reads InstanceData materialId through a byte-address buffer.");
+static_assert(offsetof(Engine::InstanceData, meshId) == 132,
+              "CPU and HLSL InstanceData meshId layouts must match.");
 static_assert(sizeof(Engine::Material) == 60, "Material.hlsli must match Engine::Material structured buffer layout.");
 static_assert(offsetof(Engine::Material, uvScale) == 44, "Material UV scale offset must match Material.hlsli.");
 static_assert(offsetof(Engine::Material, uvOffset) == 52, "Material UV offset must match Material.hlsli.");

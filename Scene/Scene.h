@@ -8,6 +8,14 @@
 namespace Engine
 {
 
+using SceneMeshId = uint32_t;
+
+enum class CylinderCapMode
+{
+    None,
+    Both,
+};
+
 enum class CameraProjection
 {
     Perspective,
@@ -33,6 +41,7 @@ struct alignas(16) InstanceData
     DirectX::XMFLOAT4X4 world;
     DirectX::XMFLOAT4X4 prevWorld;
     uint32_t materialId;
+    SceneMeshId meshId;
 };
 
 using SceneVertex = GltfVertex;
@@ -77,8 +86,17 @@ struct SceneMaterial
 
 struct SceneMesh
 {
+    struct Range
+    {
+        uint32_t firstVertex = 0;
+        uint32_t vertexCount = 0;
+        uint32_t firstIndex = 0;
+        uint32_t indexCount = 0;
+    };
+
     std::vector<SceneVertex> vertices;
     std::vector<uint32_t> indices;
+    std::vector<Range> ranges;
     std::vector<SceneMaterial> materials;
     int materialIndex = 0;
     std::vector<SceneTexture> textures;

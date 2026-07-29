@@ -4,6 +4,7 @@
 
 #include <DirectXMath.h>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 
@@ -22,6 +23,7 @@ public:
 
     void Clear();
     bool LoadGltfMesh(const std::string& path);
+    std::optional<SceneMeshId> AddGltfMesh(const std::string& path);
     void SetMesh(SceneMesh mesh);
 
     uint32_t AddMaterial(const SceneMaterial& material);
@@ -34,17 +36,33 @@ public:
                                  DirectX::XMFLOAT2 uvScale = {1.0f, 1.0f},
                                  DirectX::XMFLOAT2 uvOffset = {0.0f, 0.0f});
 
+    SceneMeshId AddCube(float size);
+    SceneMeshId AddSphere(float radius, int stackCount, int sliceCount);
+    SceneMeshId AddCylinder(float radius,
+                            float height,
+                            uint32_t radialSegments,
+                            CylinderCapMode capMode = CylinderCapMode::Both);
+
     // Accepts ordinary DirectXMath world matrices. SceneBuilder converts them to InstanceData storage layout.
     void AddInstance(DirectX::FXMMATRIX world, uint32_t materialId);
     void AddInstance(DirectX::FXMMATRIX world, DirectX::CXMMATRIX prevWorld, uint32_t materialId);
+    void AddInstance(SceneMeshId meshId, DirectX::FXMMATRIX world, uint32_t materialId);
+    void AddInstance(SceneMeshId meshId,
+                     DirectX::FXMMATRIX world,
+                     DirectX::CXMMATRIX prevWorld,
+                     uint32_t materialId);
     void SetCamera(const CameraState& camera);
 
     void AppendCube(float size, uint32_t materialId);
     void AppendSphere(float radius, int stackCount, int sliceCount, uint32_t materialId);
 
 private:
+    SceneMeshId AddMeshRange(const SceneMesh& mesh);
+    SceneMeshId EnsureDefaultMeshRange();
+
     Scene m_scene;
     SceneMesh m_mesh;
+    bool m_legacyCompositeActive = false;
 };
 
 } // namespace Engine
