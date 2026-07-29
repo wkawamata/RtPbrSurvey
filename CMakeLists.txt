@@ -308,6 +308,14 @@ if(RTPBRSURVEY_BUILD_TESTS)
     endif()
     add_test(NAME RtPbrSurvey.SceneBuilderTexture COMMAND RtPbrSurvey.SceneBuilderTextureTests)
 
+    add_executable(RtPbrSurvey.SceneBuilderMeshTests
+        Tests/SceneBuilderMeshTests.cpp)
+    target_link_libraries(RtPbrSurvey.SceneBuilderMeshTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.SceneBuilderMeshTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.SceneBuilderMesh COMMAND RtPbrSurvey.SceneBuilderMeshTests)
+
     add_executable(RtPbrSurvey.TextureMipChainTests
         Tests/TextureMipChainTests.cpp)
     target_link_libraries(RtPbrSurvey.TextureMipChainTests PRIVATE RtPbrSurvey::SceneRenderer)

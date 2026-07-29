@@ -1,5 +1,6 @@
 #include "Material.hlsli"
 #include "InstanceData.hlsli"
+#include "SceneDrawConstants.hlsli"
 
 cbuffer ConstantBuffer : register(b0)
 {
@@ -74,6 +75,7 @@ PSInput VSMain(float4 position : POSITION,
 {
     PSInput result;
 
+    instanceId += sceneInstanceOffset;
     InstanceData inst = g_instanceData[instanceId];
     float4x4 worldViewProj = mul(inst.world, viewProj);
     float3 worldNormal = normalize(mul(float4(normal, 0.0), inst.world).xyz);

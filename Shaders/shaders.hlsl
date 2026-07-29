@@ -10,13 +10,15 @@
 //*********************************************************
 
 #include "Material.hlsli"
+#include "SceneDrawConstants.hlsli"
 
 struct InstanceData
 {
     float4x4 world;
     float4x4 prevWorld;
     uint materialId;
-    float padding[3]; //16 byte alignment
+    uint meshId;
+    float padding[2]; //16 byte alignment
 };
 
 cbuffer ConstantBuffer : register(b0)
@@ -59,6 +61,7 @@ PSInput VSMain(float4 position : POSITION,
 {
     PSInput result;
 
+    instanceId += sceneInstanceOffset;
     InstanceData inst = g_instanceData[instanceId];    
 
     float4x4 worldViewProj = mul(inst.world, viewProj);

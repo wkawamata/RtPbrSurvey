@@ -44,6 +44,7 @@ void SceneBuilder::Clear()
     m_scene = {};
     m_mesh = {};
     m_scene.mesh = &m_mesh;
+    m_legacyCompositeActive = false;
 }
 
 bool SceneBuilder::LoadGltfMesh(const std::string& path)
@@ -54,6 +55,7 @@ bool SceneBuilder::LoadGltfMesh(const std::string& path)
         return false;
     }
 
+    m_mesh = {};
     m_mesh.vertices = std::move(gltfMesh.vertices);
     m_mesh.indices = std::move(gltfMesh.indices);
     m_mesh.materialIndex = gltfMesh.materialIndex;
@@ -86,14 +88,95 @@ bool SceneBuilder::LoadGltfMesh(const std::string& path)
         m_mesh.textures.push_back(std::move(texture));
     }
 
+    if (!m_mesh.vertices.empty())
+    {
+        m_mesh.ranges.push_back(
+            {0,
+             static_cast<uint32_t>(m_mesh.vertices.size()),
+             0,
+             static_cast<uint32_t>(m_mesh.indices.size())});
+    }
     m_scene.mesh = &m_mesh;
+    m_legacyCompositeActive = true;
     return true;
+}
+
+std::optional<SceneMeshId> SceneBuilder::AddGltfMesh(const std::string& path)
+{
+    GltfMeshData gltfMesh = {};
+    if (!::LoadGltfMesh(path, gltfMesh))
+    {
+        return std::nullopt;
+    }
+
+    const uint32_t textureBase = static_cast<uint32_t>(m_mesh.textures.size());
+    for (GltfTextureData& gltfTexture : gltfMesh.textures)
+    {
+        SceneTexture texture = {};
+        texture.width = gltfTexture.width;
+        texture.height = gltfTexture.height;
+        texture.component = gltfTexture.component;
+        texture.pixels = std::move(gltfTexture.pixels);
+        m_mesh.textures.push_back(std::move(texture));
+    }
+
+    const auto remapTextureIndex = [textureBase](int textureIndex)
+    {
+        return textureIndex >= 0 ? static_cast<int>(textureBase) + textureIndex : -1;
+    };
+    const uint32_t materialBase = static_cast<uint32_t>(m_mesh.materials.size());
+    for (const GltfMaterial& gltfMaterial : gltfMesh.materials)
+    {
+        SceneMaterial material = {};
+        material.albedoTexIndex = remapTextureIndex(gltfMaterial.albedoTexIndex);
+        material.metallicRoughnessTexIndex = remapTextureIndex(gltfMaterial.metallicRoughnessTexIndex);
+        material.emissiveTexIndex = remapTextureIndex(gltfMaterial.emissiveTexIndex);
+        material.occlusionTexIndex = remapTextureIndex(gltfMaterial.occlusionTexIndex);
+        material.normalTexIndex = remapTextureIndex(gltfMaterial.normalTexIndex);
+        material.roughnessFactor = gltfMaterial.roughnessFactor;
+        material.metallicFactor = gltfMaterial.metallicFactor;
+        material.occlusionStrength = gltfMaterial.occlusionStrength;
+        m_mesh.materials.push_back(material);
+    }
+
+    SceneMesh mesh = {};
+    mesh.vertices = std::move(gltfMesh.vertices);
+    mesh.indices = std::move(gltfMesh.indices);
+    for (SceneVertex& vertex : mesh.vertices)
+    {
+        if (vertex.materialId != kGltfVertexMaterialFromInstance)
+        {
+            vertex.materialId += materialBase;
+        }
+    }
+
+    SceneMesh::Range range = {};
+    range.firstVertex = static_cast<uint32_t>(m_mesh.vertices.size());
+    range.vertexCount = static_cast<uint32_t>(mesh.vertices.size());
+    range.firstIndex = static_cast<uint32_t>(m_mesh.indices.size());
+    range.indexCount = static_cast<uint32_t>(mesh.indices.size());
+    m_mesh.vertices.insert(m_mesh.vertices.end(), mesh.vertices.begin(), mesh.vertices.end());
+    for (uint32_t index : mesh.indices)
+    {
+        m_mesh.indices.push_back(range.firstVertex + index);
+    }
+    m_mesh.ranges.push_back(range);
+    return static_cast<SceneMeshId>(m_mesh.ranges.size() - 1);
 }
 
 void SceneBuilder::SetMesh(SceneMesh mesh)
 {
     m_mesh = std::move(mesh);
+    if (m_mesh.ranges.empty() && !m_mesh.vertices.empty())
+    {
+        m_mesh.ranges.push_back(
+            {0,
+             static_cast<uint32_t>(m_mesh.vertices.size()),
+             0,
+             static_cast<uint32_t>(m_mesh.indices.size())});
+    }
     m_scene.mesh = &m_mesh;
+    m_legacyCompositeActive = !m_mesh.ranges.empty();
 }
 
 uint32_t SceneBuilder::AddMaterial(const SceneMaterial& material)
@@ -168,17 +251,58 @@ uint32_t SceneBuilder::AddTexturedMaterial(uint32_t albedoTextureIndex,
     return AddMaterial(material);
 }
 
+SceneMeshId SceneBuilder::AddCube(float size)
+{
+    return AddMeshRange(Procedural::CreateCubeMesh(size));
+}
+
+SceneMeshId SceneBuilder::AddSphere(float radius, int stackCount, int sliceCount)
+{
+    return AddMeshRange(Procedural::CreateSphereMesh(radius, stackCount, sliceCount));
+}
+
+SceneMeshId SceneBuilder::AddCylinder(float radius,
+                                      float height,
+                                      uint32_t radialSegments,
+                                      CylinderCapMode capMode)
+{
+    return AddMeshRange(Procedural::CreateCylinderMesh(radius, height, radialSegments, capMode));
+}
+
 void SceneBuilder::AddInstance(DirectX::FXMMATRIX world, uint32_t materialId)
 {
-    AddInstance(world, world, materialId);
+    AddInstance(EnsureDefaultMeshRange(), world, world, materialId);
 }
 
 void SceneBuilder::AddInstance(DirectX::FXMMATRIX world, DirectX::CXMMATRIX prevWorld, uint32_t materialId)
 {
+    AddInstance(EnsureDefaultMeshRange(), world, prevWorld, materialId);
+}
+
+void SceneBuilder::AddInstance(SceneMeshId meshId, DirectX::FXMMATRIX world, uint32_t materialId)
+{
+    AddInstance(meshId, world, world, materialId);
+}
+
+void SceneBuilder::AddInstance(SceneMeshId meshId,
+                               DirectX::FXMMATRIX world,
+                               DirectX::CXMMATRIX prevWorld,
+                               uint32_t materialId)
+{
+    if (meshId >= m_mesh.ranges.size())
+    {
+        throw std::out_of_range("Scene mesh ID is outside the SceneBuilder mesh range list.");
+    }
+    if (materialId >= m_mesh.materials.size())
+    {
+        throw std::out_of_range("Material ID is outside the SceneBuilder material list.");
+    }
+
     InstanceData instance = {};
     DirectX::XMStoreFloat4x4(&instance.world, DirectX::XMMatrixTranspose(world));
     DirectX::XMStoreFloat4x4(&instance.prevWorld, DirectX::XMMatrixTranspose(prevWorld));
     instance.materialId = materialId;
+    instance.meshId = meshId;
     m_scene.instances.push_back(instance);
 }
 
@@ -189,12 +313,77 @@ void SceneBuilder::SetCamera(const CameraState& camera)
 
 void SceneBuilder::AppendCube(float size, uint32_t materialId)
 {
-    Procedural::AppendMesh(m_mesh, Procedural::CreateCubeMesh(size), materialId);
+    if (!m_legacyCompositeActive)
+    {
+        if (!m_mesh.ranges.empty())
+        {
+            throw std::logic_error("AppendCube cannot extend a scene after independent mesh ranges were added.");
+        }
+        m_mesh.ranges.push_back(
+            {static_cast<uint32_t>(m_mesh.vertices.size()), 0, static_cast<uint32_t>(m_mesh.indices.size()), 0});
+        m_legacyCompositeActive = true;
+    }
+    if (m_mesh.ranges.size() != 1)
+    {
+        throw std::logic_error("AppendCube can only extend the default composite mesh range.");
+    }
+
+    const SceneMesh::Range appended = Procedural::AppendMesh(m_mesh, Procedural::CreateCubeMesh(size), materialId);
+    m_mesh.ranges[0].vertexCount += appended.vertexCount;
+    m_mesh.ranges[0].indexCount += appended.indexCount;
 }
 
 void SceneBuilder::AppendSphere(float radius, int stackCount, int sliceCount, uint32_t materialId)
 {
-    Procedural::AppendMesh(m_mesh, Procedural::CreateSphereMesh(radius, stackCount, sliceCount), materialId);
+    if (!m_legacyCompositeActive)
+    {
+        if (!m_mesh.ranges.empty())
+        {
+            throw std::logic_error("AppendSphere cannot extend a scene after independent mesh ranges were added.");
+        }
+        m_mesh.ranges.push_back(
+            {static_cast<uint32_t>(m_mesh.vertices.size()), 0, static_cast<uint32_t>(m_mesh.indices.size()), 0});
+        m_legacyCompositeActive = true;
+    }
+    if (m_mesh.ranges.size() != 1)
+    {
+        throw std::logic_error("AppendSphere can only extend the default composite mesh range.");
+    }
+
+    const SceneMesh::Range appended =
+        Procedural::AppendMesh(m_mesh, Procedural::CreateSphereMesh(radius, stackCount, sliceCount), materialId);
+    m_mesh.ranges[0].vertexCount += appended.vertexCount;
+    m_mesh.ranges[0].indexCount += appended.indexCount;
+}
+
+SceneMeshId SceneBuilder::AddMeshRange(const SceneMesh& mesh)
+{
+    if (mesh.vertices.empty())
+    {
+        throw std::invalid_argument("Scene mesh must contain vertices.");
+    }
+    const SceneMesh::Range range =
+        Procedural::AppendMesh(m_mesh, mesh, kGltfVertexMaterialFromInstance);
+    m_mesh.ranges.push_back(range);
+    return static_cast<SceneMeshId>(m_mesh.ranges.size() - 1);
+}
+
+SceneMeshId SceneBuilder::EnsureDefaultMeshRange()
+{
+    if (m_mesh.ranges.empty())
+    {
+        if (m_mesh.vertices.empty())
+        {
+            throw std::logic_error("AddInstance requires at least one scene mesh.");
+        }
+        m_mesh.ranges.push_back(
+            {0,
+             static_cast<uint32_t>(m_mesh.vertices.size()),
+             0,
+             static_cast<uint32_t>(m_mesh.indices.size())});
+        m_legacyCompositeActive = true;
+    }
+    return 0;
 }
 
 } // namespace Engine

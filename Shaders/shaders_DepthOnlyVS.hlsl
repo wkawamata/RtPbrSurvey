@@ -1,4 +1,5 @@
 #include "InstanceData.hlsli"
+#include "SceneDrawConstants.hlsli"
 
 cbuffer ConstantBuffer : register(b0)
 {
@@ -24,7 +25,8 @@ VSOutput VSMain(VSInput input)
 {
     VSOutput o;
 
-    InstanceData inst = g_instanceData[input.instanceId];
+    const uint instanceId = input.instanceId + sceneInstanceOffset;
+    InstanceData inst = g_instanceData[instanceId];
     float4x4 worldViewProj = mul(inst.world, viewProj);
     o.position = mul(float4(input.position.xyz, 1.0), worldViewProj);
     

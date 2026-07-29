@@ -428,6 +428,7 @@ void RtPbrSurveyApp::CreateSampleScenes()
         std::make_unique<Engine::OccluderWallTestScene>(Engine::OccluderWallTestScene::kMaxInstanceCount));
 
     m_sampleScenes.push_back(Engine::SceneFactory::CreateCornellBox());
+    m_sampleScenes.push_back(Engine::SceneFactory::CreateHostPrimitiveMeshes());
 }
 
 void RtPbrSurveyApp::LoadSceneCpuData(int sceneIndex)

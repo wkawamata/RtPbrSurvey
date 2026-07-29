@@ -3,18 +3,26 @@
 #include "ResolvedRenderTargets.h"
 
 #include <d3d12.h>
+#include <span>
 
 namespace Engine
 {
+
+struct SceneGeometryInstanceDraw
+{
+    bool usesIndexedDraw = false;
+    UINT vertexCount = 0;
+    UINT indexCount = 0;
+    UINT firstVertex = 0;
+    UINT firstIndex = 0;
+    UINT instanceIndex = 0;
+};
 
 struct SceneGeometryDrawDesc
 {
     D3D12_VERTEX_BUFFER_VIEW vertexBufferView = {};
     D3D12_INDEX_BUFFER_VIEW indexBufferView = {};
-    bool usesIndexedDraw = false;
-    UINT vertexCountPerInstance = 0;
-    UINT indexCountPerInstance = 0;
-    UINT instanceCount = 0;
+    std::span<const SceneGeometryInstanceDraw> draws;
 };
 
 struct ForwardPassDesc

@@ -789,6 +789,10 @@ private:
 
     ComPtr<ID3D12Resource> m_indexBuffer;
     D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
+    ComPtr<ID3D12Resource> m_meshRangeBuffer;
+    std::vector<Engine::SceneMesh::Range> m_sceneMeshRanges;
+    std::vector<Engine::AccelerationStructureGeometry> m_accelerationStructureGeometries;
+    mutable std::vector<Engine::SceneGeometryInstanceDraw> m_sceneGeometryDraws;
 
     UINT m_sceneTextureCount = 0;
 

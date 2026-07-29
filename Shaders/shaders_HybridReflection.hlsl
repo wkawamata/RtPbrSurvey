@@ -12,6 +12,14 @@ ByteAddressBuffer g_sceneVertices : register(t4);
 ByteAddressBuffer g_sceneIndices : register(t5);
 ByteAddressBuffer g_instanceData : register(t6);
 StructuredBuffer<Material> g_materialData : register(t7);
+struct MeshRange
+{
+    uint firstVertex;
+    uint vertexCount;
+    uint firstIndex;
+    uint indexCount;
+};
+StructuredBuffer<MeshRange> g_meshRanges : register(t8);
 Texture2D g_texture[] : register(t0, space8);
 SamplerState g_sampler : register(s0);
 
@@ -44,6 +52,7 @@ static const uint kSceneVertexNormalOffset = 20;
 static const uint kSceneVertexMaterialIdOffset = 48;
 static const uint kInstanceDataStride = 144;
 static const uint kInstanceDataMaterialIdOffset = 128;
+static const uint kInstanceDataMeshIdOffset = 132;
 static const uint kMaterialFromInstance = 0xffffffff;
 
 struct HitMaterialSample
@@ -107,6 +116,11 @@ uint LoadInstanceMaterialId(uint instanceId)
     return g_instanceData.Load(instanceId * kInstanceDataStride + kInstanceDataMaterialIdOffset);
 }
 
+uint LoadInstanceMeshId(uint instanceId)
+{
+    return g_instanceData.Load(instanceId * kInstanceDataStride + kInstanceDataMeshIdOffset);
+}
+
 uint LoadSceneIndex(uint indexIndex)
 {
     if (indexIndex >= indexCount)
@@ -117,10 +131,15 @@ uint LoadSceneIndex(uint indexIndex)
     return g_sceneIndices.Load(indexIndex * 4);
 }
 
-void LoadPrimitiveVertexIndices(uint primitiveIndex, out uint index0, out uint index1, out uint index2)
+void LoadPrimitiveVertexIndices(uint primitiveIndex,
+                                uint instanceId,
+                                out uint index0,
+                                out uint index1,
+                                out uint index2)
 {
-    uint baseIndex = primitiveIndex * 3;
-    if (usesIndexedDraw != 0)
+    MeshRange range = g_meshRanges[LoadInstanceMeshId(instanceId)];
+    uint baseIndex = range.firstIndex + primitiveIndex * 3;
+    if (range.indexCount != 0)
     {
         index0 = LoadSceneIndex(baseIndex);
         index1 = LoadSceneIndex(baseIndex + 1);
@@ -128,9 +147,10 @@ void LoadPrimitiveVertexIndices(uint primitiveIndex, out uint index0, out uint i
     }
     else
     {
-        index0 = baseIndex;
-        index1 = baseIndex + 1;
-        index2 = baseIndex + 2;
+        uint baseVertex = range.firstVertex + primitiveIndex * 3;
+        index0 = baseVertex;
+        index1 = baseVertex + 1;
+        index2 = baseVertex + 2;
     }
 }
 
@@ -247,7 +267,7 @@ float3 LoadCommittedHitNormal(uint primitiveIndex, float2 barycentric, float3x4 
     uint index0;
     uint index1;
     uint index2;
-    LoadPrimitiveVertexIndices(primitiveIndex, index0, index1, index2);
+    LoadPrimitiveVertexIndices(primitiveIndex, instanceId, index0, index1, index2);
 
     float bary0 = 1.0 - barycentric.x - barycentric.y;
     float3 objectNormal = normalize(LoadSceneVertexNormal(index0) * bary0 +
@@ -361,7 +381,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         const uint primitiveIndex = query.CommittedPrimitiveIndex();
         const float2 barycentric = query.CommittedTriangleBarycentrics();
         const uint instanceId = query.CommittedInstanceID();
-        LoadPrimitiveVertexIndices(primitiveIndex, index0, index1, index2);
+        LoadPrimitiveVertexIndices(primitiveIndex, instanceId, index0, index1, index2);
 
         float3 hitNormal = LoadCommittedHitNormal(query.CommittedPrimitiveIndex(),
                                                   barycentric,
