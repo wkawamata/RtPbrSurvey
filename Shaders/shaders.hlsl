@@ -9,18 +9,7 @@
 //
 //*********************************************************
 
-struct Material
-{
-    uint albedoTexIndex;
-    uint metallicRoughnessTexIndex;
-    uint emissiveTexIndex;
-    uint occlusionTexIndex;
-    uint normalTexIndex;
-    float roughnessFactor;
-    float metallicFactor;
-    float occlusionStrength;
-    uint flags;
-};
+#include "Material.hlsli"
 
 struct InstanceData
 {
@@ -85,7 +74,8 @@ PSInput VSMain(float4 position : POSITION,
 float4 PSMain(PSInput input) : SV_TARGET
 {
     Material mat = g_materialData[input.materialId];
-    float4 albedo = g_texture[mat.albedoTexIndex].Sample(g_sampler, input.uv);
+    float2 materialUv = input.uv * mat.uvScale + mat.uvOffset;
+    float4 albedo = g_texture[mat.albedoTexIndex].Sample(g_sampler, materialUv);
     float3 normal = normalize(input.normal);
     float3 lightDir = normalize(-lightDirection);
     float ndotl = saturate(dot(normal, lightDir));

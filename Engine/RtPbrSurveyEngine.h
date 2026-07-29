@@ -1100,9 +1100,11 @@ private:
     void CreateGBuffer();
 
     DescriptorAllocation CreateTextureFromRGBA8(const UINT8* pixels,
-                                                UINT width,
-                                                UINT height,
-                                                ComPtr<ID3D12Resource>& texture,
+                                                 UINT width,
+                                                 UINT height,
+                                                 bool generateMipmaps,
+                                                 Engine::TextureColorSpace colorSpace,
+                                                 ComPtr<ID3D12Resource>& texture,
                                                 ComPtr<ID3D12Resource>& uploadHeap);
 
     void ReleaseResourcesAfterPass(int passIndex);

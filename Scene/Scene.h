@@ -37,11 +37,25 @@ struct alignas(16) InstanceData
 
 using SceneVertex = GltfVertex;
 
+enum class TextureColorSpace
+{
+    Linear,
+    Srgb,
+};
+
+struct SceneTextureOptions
+{
+    bool generateMipmaps = true;
+    TextureColorSpace colorSpace = TextureColorSpace::Srgb;
+};
+
 struct SceneTexture
 {
     int width = 0;
     int height = 0;
     int component = 0;
+    bool generateMipmaps = false;
+    TextureColorSpace colorSpace = TextureColorSpace::Srgb;
     std::vector<unsigned char> pixels;
 };
 
@@ -57,6 +71,8 @@ struct SceneMaterial
     float occlusionStrength = 1.0f;
     float ambientOcclusionFactor = 1.0f;
     float emissiveScale = 1.0f;
+    DirectX::XMFLOAT2 uvScale = {1.0f, 1.0f};
+    DirectX::XMFLOAT2 uvOffset = {0.0f, 0.0f};
 };
 
 struct SceneMesh

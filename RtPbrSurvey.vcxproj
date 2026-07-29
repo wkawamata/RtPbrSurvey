@@ -185,6 +185,7 @@
     <ClInclude Include="Renderer\StagedDescriptorAllocator.h" />
     <ClInclude Include="Renderer\StreamlineAdapter.h" />
     <ClInclude Include="Renderer\TemporalUpscalerSupport.h" />
+    <ClInclude Include="Renderer\TextureMipChain.h" />
     <ClInclude Include="Renderer\ToneMap.h" />
     <ClInclude Include="Renderer\DebugLinePass.h" />
     <ClInclude Include="Runtime\SceneRenderer.h" />
@@ -251,6 +252,7 @@
     <ClCompile Include="Renderer\ScreenshotCapture.cpp" />
     <ClCompile Include="Renderer\StreamlineAdapter.cpp" />
     <ClCompile Include="Renderer\TemporalUpscalerSupport.cpp" />
+    <ClCompile Include="Renderer\TextureMipChain.cpp" />
     <ClCompile Include="Renderer\ToneMap.cpp" />
     <ClCompile Include="Renderer\DebugLinePass.cpp" />
     <ClCompile Include="Runtime\SceneRenderer.cpp" />

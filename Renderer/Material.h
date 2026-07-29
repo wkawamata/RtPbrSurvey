@@ -22,6 +22,8 @@ struct Material
     float ambientOcclusionFactor;
     float emissiveScale;
     uint32_t flags;
+    float uvScale[2];
+    float uvOffset[2];
 };
 
 } // namespace Engine

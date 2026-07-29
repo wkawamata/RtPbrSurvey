@@ -19,6 +19,7 @@
 #include "MyDx12Utils.h"
 #include "Renderer/DebugDumpReport.h"
 #include "Renderer/RootSignatureFactory.h"
+#include "Renderer/TextureMipChain.h"
 #include "Scene/CameraProjection.h"
 #include "Scene/CameraView.h"
 // Forward declaration for the staged allocator smoke test.
@@ -107,7 +108,9 @@ static_assert(sizeof(Engine::SceneVertex) == 52,
               "shaders_HybridReflection.hlsl reads SceneVertex normals through a byte-address buffer.");
 static_assert(sizeof(Engine::InstanceData) == 144,
               "shaders_HybridReflection.hlsl reads InstanceData materialId through a byte-address buffer.");
-static_assert(sizeof(Engine::Material) == 44, "Material.hlsli must match Engine::Material structured buffer layout.");
+static_assert(sizeof(Engine::Material) == 60, "Material.hlsli must match Engine::Material structured buffer layout.");
+static_assert(offsetof(Engine::Material, uvScale) == 44, "Material UV scale offset must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, uvOffset) == 52, "Material UV offset must match Material.hlsli.");
 
 const wchar_t* EnvironmentSourceName(Engine::EnvironmentSource source)
 {
@@ -835,10 +838,20 @@ void RtPbrSurveyEngine::UpdateHdr10DisplayMode()
 }
 
 DescriptorAllocation RtPbrSurveyEngine::CreateTextureFromRGBA8(
-    const UINT8* pixels, UINT width, UINT height, ComPtr<ID3D12Resource>& texture, ComPtr<ID3D12Resource>& uploadHeap)
+    const UINT8* pixels,
+    UINT width,
+    UINT height,
+    bool generateMipmaps,
+    Engine::TextureColorSpace colorSpace,
+    ComPtr<ID3D12Resource>& texture,
+    ComPtr<ID3D12Resource>& uploadHeap)
 {
+    const std::span<const UINT8> basePixels(pixels, static_cast<size_t>(width) * height * kTexturePixelSize);
+    const std::vector<Engine::Rgba8MipLevel> mipLevels =
+        Engine::GenerateRgba8MipChain(basePixels, width, height, generateMipmaps, colorSpace);
+
     D3D12_RESOURCE_DESC textureDesc = {};
-    textureDesc.MipLevels = 1;
+    textureDesc.MipLevels = static_cast<UINT16>(mipLevels.size());
     textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     textureDesc.Width = width;
     textureDesc.Height = height;
@@ -856,7 +869,8 @@ DescriptorAllocation RtPbrSurveyEngine::CreateTextureFromRGBA8(
                                                                      nullptr,
                                                                      IID_PPV_ARGS(&texture)));
 
-    const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Get(), 0, 1);
+    const UINT subresourceCount = static_cast<UINT>(mipLevels.size());
+    const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Get(), 0, subresourceCount);
 
     // Create the GPU upload buffer.
     ThrowIfFailed(m_graphicsDevice.Device()->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
@@ -866,17 +880,23 @@ DescriptorAllocation RtPbrSurveyEngine::CreateTextureFromRGBA8(
                                                                      nullptr,
                                                                      IID_PPV_ARGS(&uploadHeap)));
 
-    D3D12_SUBRESOURCE_DATA textureData = {};
-    textureData.pData = pixels;
-    textureData.RowPitch = width * kTexturePixelSize;
-    textureData.SlicePitch = textureData.RowPitch * height;
+    std::vector<D3D12_SUBRESOURCE_DATA> textureData(subresourceCount);
+    for (UINT mipIndex = 0; mipIndex < subresourceCount; ++mipIndex)
+    {
+        const Engine::Rgba8MipLevel& mip = mipLevels[mipIndex];
+        textureData[mipIndex].pData = mip.pixels.data();
+        textureData[mipIndex].RowPitch = static_cast<LONG_PTR>(mip.width) * kTexturePixelSize;
+        textureData[mipIndex].SlicePitch = textureData[mipIndex].RowPitch * mip.height;
+    }
 
-    UpdateSubresources(m_commandList.Get(), texture.Get(), uploadHeap.Get(), 0, 0, 1, &textureData);
+    UpdateSubresources(
+        m_commandList.Get(), texture.Get(), uploadHeap.Get(), 0, 0, subresourceCount, textureData.data());
 
     m_commandList->ResourceBarrier(1,
                                    &CD3DX12_RESOURCE_BARRIER::Transition(texture.Get(),
                                                                          D3D12_RESOURCE_STATE_COPY_DEST,
-                                                                         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+                                                                         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
+                                                                             D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
     return AllocateTextureSRV(texture.Get());
 }
 
@@ -1530,12 +1550,12 @@ void RtPbrSurveyEngine::CreateHybridReflectionRootSignature()
 
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
     D3D12_STATIC_SAMPLER_DESC sampler = {};
-    sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    sampler.Filter = D3D12_FILTER_ANISOTROPIC;
     sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
     sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
     sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
     sampler.MipLODBias = 0;
-    sampler.MaxAnisotropy = 1;
+    sampler.MaxAnisotropy = 8;
     sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
     sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
     sampler.MinLOD = 0.0f;
@@ -1918,8 +1938,8 @@ void RtPbrSurveyEngine::CreateSceneTextureResources(std::vector<ComPtr<ID3D12Res
 
         DBG_PRINT("[%d] sceneTexture :width %d height %d\n", i, width, height);
 
-        DescriptorAllocation srv = CreateTextureFromRGBA8(pixels, width, height,
-                                                          m_texture[i], textureUploadHeap[i]);
+        DescriptorAllocation srv = CreateTextureFromRGBA8(pixels, width, height, tex.generateMipmaps, tex.colorSpace,
+                                                           m_texture[i], textureUploadHeap[i]);
         m_textureSrvs[i] = std::move(srv);
         if (i == 0)
         {
@@ -1945,8 +1965,9 @@ void RtPbrSurveyEngine::CreateSceneTextureResources(std::vector<ComPtr<ID3D12Res
         DBG_PRINT("[%d] fallback texture (%s) :width %d height %d\n",
                   idx, GetSemanticName(semantic), width, height);
 
-        DescriptorAllocation srv = CreateTextureFromRGBA8(pixels, width, height,
-                                                          m_texture[idx], textureUploadHeap[idx]);
+        DescriptorAllocation srv =
+            CreateTextureFromRGBA8(pixels, width, height, false, Engine::TextureColorSpace::Srgb,
+                                                           m_texture[idx], textureUploadHeap[idx]);
         m_textureSrvs[idx] = std::move(srv);
         m_texIndex[idx] = m_textureSrvs[idx].Handle().Index - m_textureTableStart.Index;
         DBG_PRINT("Texture %d SRV index: %d\n", idx, m_texIndex[idx]);
@@ -2007,6 +2028,10 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
         m.ambientOcclusionFactor = 1.0f;
         m.emissiveScale = 1.0f;
         m.flags = 0;
+        m.uvScale[0] = 1.0f;
+        m.uvScale[1] = 1.0f;
+        m.uvOffset[0] = 0.0f;
+        m.uvOffset[1] = 0.0f;
 
         if (m_sceneHasMaterials)
         {
@@ -2032,6 +2057,10 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
                 m.occlusionStrength = gltfMaterial.occlusionStrength;
                 m.ambientOcclusionFactor = gltfMaterial.ambientOcclusionFactor;
                 m.emissiveScale = gltfMaterial.emissiveTexIndex >= 0 ? gltfMaterial.emissiveScale : 0.0f;
+                m.uvScale[0] = gltfMaterial.uvScale.x;
+                m.uvScale[1] = gltfMaterial.uvScale.y;
+                m.uvOffset[0] = gltfMaterial.uvOffset.x;
+                m.uvOffset[1] = gltfMaterial.uvOffset.y;
             }
         }
 
@@ -2237,7 +2266,7 @@ DescriptorAllocation RtPbrSurveyEngine::AllocateTextureSRV(ID3D12Resource* textu
     srvDesc.Format = texture->GetDesc().Format;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.Texture2D.MipLevels = 1;
+    srvDesc.Texture2D.MipLevels = texture->GetDesc().MipLevels;
     m_graphicsDevice.Device()->CreateShaderResourceView(texture, &srvDesc, handle.Cpu());
 
     return handle;
