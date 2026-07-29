@@ -35,6 +35,24 @@ const Engine::CameraState& activeCamera = renderer.GetCamera();
 
 Scene geometry and GPU resources do not need to be reloaded after a camera change.
 
+## Matching 2D And 3D Framing
+
+`MatchPerspectiveToOrthographic()` returns the Perspective FOV Y in degrees that preserves an Orthographic camera's visible height at a chosen focus distance:
+
+```cpp
+const float focusDistance = 100.0f;
+camera.fov = Engine::MatchPerspectiveToOrthographic(camera.orthographicHeight, focusDistance);
+camera.projection = Engine::CameraProjection::Perspective;
+```
+
+The relationship is:
+
+```text
+fovY = 2 * atan(orthographicHeight / (2 * focusDistance))
+```
+
+For a smooth 2D-to-3D transition, keep `gazePoint`, `up`, and the focus plane fixed. Move the Perspective camera backward while reducing FOV with this helper. The focus plane keeps the same framing; objects at other depths gradually gain perspective parallax. At a sufficiently long focus distance, the Perspective result becomes visually indistinguishable from Orthographic and the projection mode can switch without a visible scale jump.
+
 ## Renderer Behavior
 
 `CreateCameraProjectionMatrix()` is the shared projection boundary used by the regular camera constant buffer and Streamline frame constants.
