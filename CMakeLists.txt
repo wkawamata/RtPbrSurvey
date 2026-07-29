@@ -87,6 +87,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/StagedDescriptorAllocator_Test.cpp
     Renderer/StreamlineAdapter.cpp
     Renderer/TemporalUpscalerSupport.cpp
+    Renderer/TextureMipChain.cpp
     Renderer/ToneMap.cpp
     Runtime/SceneRenderer.cpp
     Runtime/SceneRendererDebugUi.cpp
@@ -298,6 +299,22 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.CameraViewTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.CameraView COMMAND RtPbrSurvey.CameraViewTests)
+
+    add_executable(RtPbrSurvey.SceneBuilderTextureTests
+        Tests/SceneBuilderTextureTests.cpp)
+    target_link_libraries(RtPbrSurvey.SceneBuilderTextureTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.SceneBuilderTextureTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.SceneBuilderTexture COMMAND RtPbrSurvey.SceneBuilderTextureTests)
+
+    add_executable(RtPbrSurvey.TextureMipChainTests
+        Tests/TextureMipChainTests.cpp)
+    target_link_libraries(RtPbrSurvey.TextureMipChainTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.TextureMipChainTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.TextureMipChain COMMAND RtPbrSurvey.TextureMipChainTests)
 
     add_executable(RtPbrSurvey.ScreenshotTests
         Tests/ScreenshotTests.cpp)

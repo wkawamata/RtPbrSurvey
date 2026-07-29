@@ -7,6 +7,8 @@
 
 #include <DirectXMath.h>
 #include <DirectXMathMatrix.inl>
+#include <limits>
+#include <stdexcept>
 #include <utility>
 
 namespace Engine
@@ -110,6 +112,59 @@ uint32_t SceneBuilder::AddSolidColorMaterial(uint8_t r, uint8_t g, uint8_t b, ui
     material.occlusionTexIndex = textureIndex;
     material.emissiveTexIndex = textureIndex;
     material.normalTexIndex = -1;
+    return AddMaterial(material);
+}
+
+uint32_t SceneBuilder::AddTextureRGBA8(uint32_t width,
+                                       uint32_t height,
+                                       std::span<const uint8_t> rgba8Pixels,
+                                       SceneTextureOptions options)
+{
+    if (width == 0 || height == 0 || width > static_cast<uint32_t>((std::numeric_limits<int>::max)()) ||
+        height > static_cast<uint32_t>((std::numeric_limits<int>::max)()))
+    {
+        throw std::invalid_argument("RGBA8 texture dimensions must be positive signed 32-bit values.");
+    }
+
+    constexpr size_t componentCount = 4;
+    if (static_cast<size_t>(width) > (std::numeric_limits<size_t>::max)() / static_cast<size_t>(height) ||
+        static_cast<size_t>(width) * static_cast<size_t>(height) >
+            (std::numeric_limits<size_t>::max)() / componentCount)
+    {
+        throw std::invalid_argument("RGBA8 texture dimensions overflow the pixel buffer size.");
+    }
+    const size_t expectedSize = static_cast<size_t>(width) * static_cast<size_t>(height) * componentCount;
+    if (rgba8Pixels.size() != expectedSize)
+    {
+        throw std::invalid_argument("RGBA8 texture pixel count does not match width * height * 4.");
+    }
+
+    SceneTexture texture = {};
+    texture.width = static_cast<int>(width);
+    texture.height = static_cast<int>(height);
+    texture.component = static_cast<int>(componentCount);
+    texture.generateMipmaps = options.generateMipmaps;
+    texture.colorSpace = options.colorSpace;
+    texture.pixels.assign(rgba8Pixels.begin(), rgba8Pixels.end());
+    m_mesh.textures.push_back(std::move(texture));
+    return static_cast<uint32_t>(m_mesh.textures.size() - 1);
+}
+
+uint32_t SceneBuilder::AddTexturedMaterial(uint32_t albedoTextureIndex,
+                                           DirectX::XMFLOAT2 uvScale,
+                                           DirectX::XMFLOAT2 uvOffset)
+{
+    if (albedoTextureIndex >= m_mesh.textures.size())
+    {
+        throw std::out_of_range("Albedo texture index is outside the SceneBuilder texture list.");
+    }
+
+    SceneMaterial material = {};
+    material.albedoTexIndex = static_cast<int>(albedoTextureIndex);
+    material.metallicFactor = 0.0f;
+    material.roughnessFactor = 1.0f;
+    material.uvScale = uvScale;
+    material.uvOffset = uvOffset;
     return AddMaterial(material);
 }
 
