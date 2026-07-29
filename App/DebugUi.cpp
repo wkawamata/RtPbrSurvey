@@ -3,6 +3,7 @@
 #include "SceneSelectUi.h"
 #include "RtPbrSurveyApp.h"
 #include "../ImGuiWidgets.h"
+#include "../Runtime/SceneRendererDebugUi.h"
 
 #include <imgui.h>
 
@@ -357,18 +358,26 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGuiWidgets::SliderFloatWithControls("Direct Light Intensity", &app.m_lightingParams.diffuseIntensity, 0.0f, 4.0f,
                                                0.1f, 1.0f);
         ImGui::ColorEdit3("Light Color", &app.m_lightingParams.lightColor.x);
-        ImGui::Checkbox("IBL Enabled", &app.m_iblEnabled);
-        ImGui::BeginDisabled(!app.m_iblEnabled);
-        ImGuiWidgets::SliderFloatWithControls("IBL Intensity", &app.m_lightingParams.iblIntensity, 0.0f, 2.0f, 0.05f, 1.0f);
-        ImGui::Checkbox("Diffuse IBL", &app.m_lightingParams.diffuseIblEnabled);
-        ImGui::SameLine();
-        ImGui::Checkbox("Specular IBL", &app.m_lightingParams.specularIblEnabled);
-        ImGui::EndDisabled();
         ImGui::Checkbox("Direct Light", &app.m_lightingParams.directLightEnabled);
         ImGui::SameLine();
         ImGui::Checkbox("Emissive", &app.m_lightingParams.emissiveEnabled);
     }
-    if (ImGui::CollapsingHeader("Environment Map", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        RtPbrSurvey::EnvironmentMappingUiState environmentUi;
+        environmentUi.settings = app.m_environmentSettings;
+        environmentUi.lighting = app.m_lightingParams;
+        environmentUi.iblEnabled = app.m_iblEnabled;
+        environmentUi.autoUpdate = app.m_environmentAutoUpdate;
+        environmentUi.reloadPending = app.m_environmentReloadPending;
+        RtPbrSurvey::SceneRendererDebugUi::DrawEnvironmentMapping(app.m_sceneRenderer, environmentUi);
+        app.m_environmentSettings = environmentUi.settings;
+        app.m_lightingParams = environmentUi.lighting;
+        app.m_iblEnabled = environmentUi.iblEnabled;
+        app.m_environmentAutoUpdate = environmentUi.autoUpdate;
+        app.m_environmentReloadPending = environmentUi.reloadPending;
+    }
+    if (false && ImGui::CollapsingHeader("Legacy Environment Map", ImGuiTreeNodeFlags_DefaultOpen))
     {
         bool environmentApplyRequested = false;
         int environmentSource = static_cast<int>(app.m_environmentSettings.source);
