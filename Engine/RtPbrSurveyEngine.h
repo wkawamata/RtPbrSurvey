@@ -724,6 +724,7 @@ private:
     float m_previousCameraNearZ = 0.1f;
     float m_previousCameraFarZ = 10000.0f;
     float m_previousCameraAspectRatio = 1.0f;
+    DirectX::XMFLOAT3 m_previousCameraUp = {0.0f, 1.0f, 0.0f};
     bool m_cameraProjectionStateInitialized = false;
     bool m_temporalUpscalerOutputAvailable = false;
     Engine::ToneMapPass m_toneMapPass;

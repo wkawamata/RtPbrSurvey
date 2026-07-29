@@ -19,6 +19,7 @@ struct CameraState
     DirectX::XMFLOAT3 pos = {0.0f, 0.0f, -5.0f};
     DirectX::XMFLOAT3 rot = {0.0f, 0.0f, 0.0f};
     DirectX::XMFLOAT3 gazePoint = {0.0f, 0.0f, 0.0f};
+    DirectX::XMFLOAT3 up = {0.0f, 1.0f, 0.0f};
     CameraProjection projection = CameraProjection::Perspective;
     // Vertical field of view in degrees. Kept as "fov" for source compatibility.
     float fov = 60.0f;
