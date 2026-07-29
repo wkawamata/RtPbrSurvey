@@ -3,9 +3,20 @@
 #include "Scene.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace Engine
 {
+
+// Returns the perspective FOV Y in degrees that matches an orthographic
+// height at the specified focus distance.
+inline float MatchPerspectiveToOrthographic(float orthographicHeight, float focusDistance)
+{
+    const float height = std::clamp(orthographicHeight, 0.001f, 1000000.0f);
+    const float distance = std::clamp(focusDistance, 0.001f, 1000000.0f);
+    const float fovYRadians = 2.0f * std::atan(height / (2.0f * distance));
+    return std::clamp(DirectX::XMConvertToDegrees(fovYRadians), 0.1f, 179.0f);
+}
 
 inline DirectX::XMMATRIX CreateCameraProjectionMatrix(const CameraState& camera, float aspectRatio)
 {

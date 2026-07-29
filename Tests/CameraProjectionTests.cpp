@@ -46,11 +46,21 @@ bool TestOrthographicProjection()
         NearlyEqual(actual._33, expected._33) && NearlyEqual(actual._43, expected._43);
 }
 
+bool TestPerspectiveOrthographicMatch()
+{
+    constexpr float orthographicHeight = 10.0f;
+    constexpr float focusDistance = 100.0f;
+    const float fovYDegrees = Engine::MatchPerspectiveToOrthographic(orthographicHeight, focusDistance);
+    const float matchedHeight =
+        2.0f * focusDistance * std::tan(DirectX::XMConvertToRadians(fovYDegrees) * 0.5f);
+    return NearlyEqual(matchedHeight, orthographicHeight);
+}
+
 } // namespace
 
 int main()
 {
-    if (!TestPerspectiveProjection() || !TestOrthographicProjection())
+    if (!TestPerspectiveProjection() || !TestOrthographicProjection() || !TestPerspectiveOrthographicMatch())
     {
         std::cerr << "Camera projection tests failed.\n";
         return 1;
