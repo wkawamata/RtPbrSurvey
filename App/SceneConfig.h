@@ -30,6 +30,7 @@ struct SceneCameraConfig
     std::array<float, 3> rotation = {0.0f, 0.0f, 0.0f};
 
     // Common
+    std::array<float, 3> up = {0.0f, 1.0f, 0.0f};
     Engine::CameraProjection projection = Engine::CameraProjection::Perspective;
     float fov = 60.0f;
     float orthographicHeight = 10.0f;

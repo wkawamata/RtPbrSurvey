@@ -314,6 +314,9 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 ImGui::SameLine();
             }
             ImGui::NewLine();
+            static constexpr float defaultUp[] = {0.0f, 1.0f, 0.0f};
+            ImGuiWidgets::SliderFloat3WithControls(
+                "Up", &loadedScene.GetScene().camera.up.x, -1.0f, 1.0f, 0.05f, defaultUp);
             const char* projectionLabels[] = {"Perspective", "Orthographic"};
             int projection = loadedScene.GetScene().camera.projection == Engine::CameraProjection::Orthographic ? 1 : 0;
             if (ImGui::Combo("Projection", &projection, projectionLabels, IM_ARRAYSIZE(projectionLabels)))

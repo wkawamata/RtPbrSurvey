@@ -20,6 +20,7 @@
 #include "Renderer/DebugDumpReport.h"
 #include "Renderer/RootSignatureFactory.h"
 #include "Scene/CameraProjection.h"
+#include "Scene/CameraView.h"
 // Forward declaration for the staged allocator smoke test.
 
 
@@ -235,19 +236,15 @@ auto RtPbrSurveyEngine::MakeStreamlineFrameConstants() const -> Engine::Temporal
     storeMatrix(constants.prevClipToClip, XMMatrixInverse(nullptr, clipToPreviousClip));
 
     const XMVECTOR eye = XMLoadFloat3(&m_scene.camera.pos);
-    const XMVECTOR at = XMLoadFloat3(&m_scene.camera.gazePoint);
-    const XMVECTOR worldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-    const XMVECTOR forward = XMVector3Normalize(XMVectorSubtract(at, eye));
-    const XMVECTOR right = XMVector3Normalize(XMVector3Cross(worldUp, forward));
-    const XMVECTOR up = XMVector3Cross(forward, right);
+    const Engine::CameraBasis basis = Engine::ResolveCameraBasis(m_scene.camera);
     XMFLOAT3 vector;
     XMStoreFloat3(&vector, eye);
     constants.cameraPosition = {vector.x, vector.y, vector.z};
-    XMStoreFloat3(&vector, up);
+    XMStoreFloat3(&vector, basis.up);
     constants.cameraUp = {vector.x, vector.y, vector.z};
-    XMStoreFloat3(&vector, right);
+    XMStoreFloat3(&vector, basis.right);
     constants.cameraRight = {vector.x, vector.y, vector.z};
-    XMStoreFloat3(&vector, forward);
+    XMStoreFloat3(&vector, basis.forward);
     constants.cameraForward = {vector.x, vector.y, vector.z};
     constants.jitterOffset = {m_jitterOffsetPixels.x, m_jitterOffsetPixels.y};
     constants.cameraNear = m_scene.camera.nearZ;
@@ -676,13 +673,14 @@ void RtPbrSurveyEngine::UpdateCameraConstantBuffer()
     m_scene.camera.orthographicHeight = std::clamp(m_scene.camera.orthographicHeight, 0.001f, 1000000.0f);
     m_scene.camera.nearZ = std::clamp(m_scene.camera.nearZ, 0.001f, 100000.0f);
     m_scene.camera.farZ = std::clamp(m_scene.camera.farZ, m_scene.camera.nearZ + 0.001f, 1000000.0f);
-    const bool projectionChanged =
+    const bool cameraHistoryChanged =
         !m_cameraProjectionStateInitialized || m_previousCameraProjection != m_scene.camera.projection ||
         m_previousCameraFov != m_scene.camera.fov ||
         m_previousCameraOrthographicHeight != m_scene.camera.orthographicHeight ||
         m_previousCameraNearZ != m_scene.camera.nearZ || m_previousCameraFarZ != m_scene.camera.farZ ||
-        m_previousCameraAspectRatio != m_aspectRatio;
-    if (projectionChanged)
+        m_previousCameraAspectRatio != m_aspectRatio || m_previousCameraUp.x != m_scene.camera.up.x ||
+        m_previousCameraUp.y != m_scene.camera.up.y || m_previousCameraUp.z != m_scene.camera.up.z;
+    if (cameraHistoryChanged)
     {
         m_temporalUpscalerHistoryReset = true;
         m_temporalFrameIndex = 0;
@@ -692,12 +690,10 @@ void RtPbrSurveyEngine::UpdateCameraConstantBuffer()
         m_previousCameraNearZ = m_scene.camera.nearZ;
         m_previousCameraFarZ = m_scene.camera.farZ;
         m_previousCameraAspectRatio = m_aspectRatio;
+        m_previousCameraUp = m_scene.camera.up;
         m_cameraProjectionStateInitialized = true;
     }
-    const XMVECTOR eye = XMLoadFloat3(&m_scene.camera.pos);
-    const XMVECTOR at = XMLoadFloat3(&m_scene.camera.gazePoint);
-    const XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-    const XMMATRIX view = XMMatrixLookAtLH(eye, at, up);
+    const XMMATRIX view = Engine::CreateCameraViewMatrix(m_scene.camera);
     const XMMATRIX projection = Engine::CreateCameraProjectionMatrix(m_scene.camera, m_aspectRatio);
     const XMMATRIX jitterFreeViewProjection = XMMatrixMultiply(view, projection);
     XMStoreFloat4x4(&m_jitterFreeViewProjection, jitterFreeViewProjection);
