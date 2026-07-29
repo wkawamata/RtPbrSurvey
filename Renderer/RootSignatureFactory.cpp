@@ -179,6 +179,11 @@ void CreateRootParameters(const DescriptorRanges& ranges,
         1, &ranges.reflectionRayEmissionSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Reflection ray emission buffer
     rootParameters[RootSignatureLayout::ReflectionRadiance].InitAsDescriptorTable(
         1, &ranges.reflectionRadianceSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Reflection radiance buffer
+    rootParameters[RootSignatureLayout::SceneDrawConstants].InitAsConstants(
+        RootSignatureLayout::kSceneDrawConstantsCount,
+        RootSignatureLayout::kSceneDrawConstantsRegister,
+        RootSignatureLayout::kSceneDrawConstantsSpace,
+        D3D12_SHADER_VISIBILITY_VERTEX); // Per-draw scene instance offset
 }
 
 D3D12_STATIC_SAMPLER_DESC CreateStaticSampler()

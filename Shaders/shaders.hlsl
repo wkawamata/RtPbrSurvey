@@ -10,6 +10,7 @@
 //*********************************************************
 
 #include "Material.hlsli"
+#include "SceneDrawConstants.hlsli"
 
 struct InstanceData
 {
@@ -60,6 +61,7 @@ PSInput VSMain(float4 position : POSITION,
 {
     PSInput result;
 
+    instanceId += sceneInstanceOffset;
     InstanceData inst = g_instanceData[instanceId];    
 
     float4x4 worldViewProj = mul(inst.world, viewProj);

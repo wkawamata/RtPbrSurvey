@@ -110,6 +110,8 @@ static_assert(sizeof(Engine::InstanceData) == 144,
               "shaders_HybridReflection.hlsl reads InstanceData materialId through a byte-address buffer.");
 static_assert(offsetof(Engine::InstanceData, meshId) == 132,
               "CPU and HLSL InstanceData meshId layouts must match.");
+static_assert(sizeof(Engine::SceneMesh::Range) == 16,
+              "Hybrid reflection reads SceneMesh::Range as four uint values.");
 static_assert(sizeof(Engine::Material) == 60, "Material.hlsli must match Engine::Material structured buffer layout.");
 static_assert(offsetof(Engine::Material, uvScale) == 44, "Material UV scale offset must match Material.hlsli.");
 static_assert(offsetof(Engine::Material, uvOffset) == 52, "Material UV offset must match Material.hlsli.");
@@ -1525,7 +1527,7 @@ void RtPbrSurveyEngine::CreateHybridReflectionRootSignature()
                          D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE |
                              D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[15] = {};
+    CD3DX12_ROOT_PARAMETER1 rootParameters[16] = {};
     rootParameters[0].InitAsDescriptorTable(1, &uavRange);          // g_reflectionRayHit (u0)
     rootParameters[1].InitAsDescriptorTable(1, &colorUavRange);     // g_reflectionRayColor (u1)
     rootParameters[2].InitAsDescriptorTable(1, &materialUavRange);  // g_reflectionRayMaterial (u2)
@@ -1540,7 +1542,8 @@ void RtPbrSurveyEngine::CreateHybridReflectionRootSignature()
     rootParameters[11].InitAsShaderResourceView(6, 0);              // g_instanceData (t6)
     rootParameters[12].InitAsDescriptorTable(1, &materialSrvRange); // g_materialData (t7)
     rootParameters[13].InitAsDescriptorTable(1, &textureSrvRange);  // g_texture[] (t0, space8)
-    rootParameters[14].InitAsConstants(9, 1, 0);                    // ReflectionConstants (b1)
+    rootParameters[14].InitAsShaderResourceView(8, 0);              // g_meshRanges (t8)
+    rootParameters[15].InitAsConstants(9, 1, 0);                    // ReflectionConstants (b1)
 
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
     featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
@@ -1860,6 +1863,24 @@ void RtPbrSurveyEngine::CreateSceneGeometryBuffers()
     m_vertexCountPerInstance = static_cast<UINT>(mesh.vertices.size());
     m_usesIndexedDraw = m_indexCountPerInstance > 0;
     m_sceneHasMaterials = !mesh.materials.empty();
+    m_sceneMeshRanges = mesh.ranges;
+    if (m_sceneMeshRanges.empty())
+    {
+        m_sceneMeshRanges.push_back(
+            {0, static_cast<UINT>(mesh.vertices.size()), 0, static_cast<UINT>(mesh.indices.size())});
+    }
+    m_accelerationStructureGeometries.clear();
+    m_accelerationStructureGeometries.reserve(m_sceneMeshRanges.size());
+    for (const Engine::SceneMesh::Range& range : m_sceneMeshRanges)
+    {
+        if (range.firstVertex + range.vertexCount > mesh.vertices.size() ||
+            range.firstIndex + range.indexCount > mesh.indices.size())
+        {
+            throw std::out_of_range("Scene mesh range exceeds packed geometry buffers.");
+        }
+        m_accelerationStructureGeometries.push_back(
+            {range.firstVertex, range.vertexCount, range.firstIndex, range.indexCount});
+    }
     const UINT vertexBufferSize = static_cast<UINT>(sizeof(Engine::SceneVertex) * mesh.vertices.size());
 
     // Note: using upload heaps to transfer static data like vert buffers is not
@@ -1895,6 +1916,14 @@ void RtPbrSurveyEngine::CreateSceneGeometryBuffers()
         m_indexBufferView.Format = DXGI_FORMAT_R32_UINT;
         m_indexBufferView.SizeInBytes = indexBufferSize;
     }
+
+    const UINT meshRangeBufferSize =
+        static_cast<UINT>(sizeof(Engine::SceneMesh::Range) * m_sceneMeshRanges.size());
+    MyDx12Util::CreateUploadBuffer(m_graphicsDevice.Device(), meshRangeBufferSize, m_meshRangeBuffer);
+    UINT8* meshRangeData = nullptr;
+    ThrowIfFailed(m_meshRangeBuffer->Map(0, &readRange, reinterpret_cast<void**>(&meshRangeData)));
+    memcpy(meshRangeData, m_sceneMeshRanges.data(), meshRangeBufferSize);
+    m_meshRangeBuffer->Unmap(0, nullptr);
 }
 
 void RtPbrSurveyEngine::CreateSceneTextureResources(std::vector<ComPtr<ID3D12Resource>>& textureUploadHeap)
@@ -2129,8 +2158,7 @@ void RtPbrSurveyEngine::BuildAccelerationStructures()
         m_vertexBuffer.Get(),
         m_indexBuffer.Get(),
         m_vertexCountPerInstance,
-        m_indexCountPerInstance,
-        m_usesIndexedDraw,
+        m_accelerationStructureGeometries,
         m_scene.instances.data(),
         instanceCount,
         m_frameResources[m_currentFrameIndex].tlasInstanceBuffer.Get(),
@@ -2151,6 +2179,7 @@ void RtPbrSurveyEngine::RebuildAccelerationStructures()
     m_accelerationStructures.RebuildTlas(
         m_graphicsDevice.Device(),
         m_commandList.Get(),
+        m_accelerationStructureGeometries,
         m_scene.instances.data(),
         instanceCount,
         m_frameResources[m_currentFrameIndex].tlasInstanceBuffer.Get());
@@ -2163,8 +2192,12 @@ void RtPbrSurveyEngine::ReleaseSceneResources()
 
     m_vertexBuffer.Reset();
     m_indexBuffer.Reset();
+    m_meshRangeBuffer.Reset();
     m_vertexBufferView = {};
     m_indexBufferView = {};
+    m_sceneMeshRanges.clear();
+    m_accelerationStructureGeometries.clear();
+    m_sceneGeometryDraws.clear();
 
     m_vertexCountPerInstance = 0;
     m_indexCountPerInstance = 0;
@@ -3648,6 +3681,7 @@ void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     passDesc.instanceBufferSrv = m_frameResources[m_currentFrameIndex].instanceBuffer ?
         m_frameResources[m_currentFrameIndex].instanceBuffer->GetGPUVirtualAddress() :
         0;
+    passDesc.meshRangeBufferSrv = m_meshRangeBuffer ? m_meshRangeBuffer->GetGPUVirtualAddress() : 0;
     passDesc.usesIndexedDraw = m_usesIndexedDraw ? 1u : 0u;
     passDesc.vertexCount = m_vertexCountPerInstance;
     passDesc.indexCount = m_indexCountPerInstance;
@@ -4269,12 +4303,27 @@ void RtPbrSurveyEngine::PrintDebugDump()
 
 auto RtPbrSurveyEngine::MakeSceneGeometryDrawDesc() const -> Engine::SceneGeometryDrawDesc
 {
-    return {m_vertexBufferView,
-            m_indexBufferView,
-            m_usesIndexedDraw,
-            m_vertexCountPerInstance,
-            m_indexCountPerInstance,
-            GetVisibleCubeCount()};
+    m_sceneGeometryDraws.clear();
+    const UINT visibleInstanceCount =
+        (std::min)(GetVisibleCubeCount(), static_cast<UINT>(m_scene.instances.size()));
+    m_sceneGeometryDraws.reserve(visibleInstanceCount);
+    for (UINT instanceIndex = 0; instanceIndex < visibleInstanceCount; ++instanceIndex)
+    {
+        const Engine::SceneMeshId meshId = m_scene.instances[instanceIndex].meshId;
+        if (meshId >= m_sceneMeshRanges.size())
+        {
+            continue;
+        }
+        const Engine::SceneMesh::Range& range = m_sceneMeshRanges[meshId];
+        m_sceneGeometryDraws.push_back(
+            {range.indexCount > 0,
+             range.vertexCount,
+             range.indexCount,
+             range.firstVertex,
+             range.firstIndex,
+             instanceIndex});
+    }
+    return {m_vertexBufferView, m_indexBufferView, m_sceneGeometryDraws};
 }
 
 auto RtPbrSurveyEngine::ResolveRenderTargets(const PassRenderTargetBinding& renderTargets) const

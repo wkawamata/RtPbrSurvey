@@ -8,6 +8,7 @@
 #include <d3dx12_core.h>
 #include <d3dx12_resource_helpers.h>
 #include <pix3.h>
+#include <stdexcept>
 
 namespace Engine
 {
@@ -27,23 +28,25 @@ bool QueryDevice5(ID3D12Device* device, Microsoft::WRL::ComPtr<ID3D12Device5>& d
 D3D12_RAYTRACING_GEOMETRY_DESC CreateTriangleGeometryDesc(
     ID3D12Resource* vertexBuffer,
     ID3D12Resource* indexBuffer,
-    UINT vertexCount,
-    UINT indexCount,
-    bool usesIndexedDraw)
+    UINT totalVertexCount,
+    const AccelerationStructureGeometry& geometry)
 {
     D3D12_RAYTRACING_GEOMETRY_DESC geometryDesc = {};
     geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
     geometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
     geometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-    geometryDesc.Triangles.VertexCount = vertexCount;
-    geometryDesc.Triangles.VertexBuffer.StartAddress = vertexBuffer->GetGPUVirtualAddress();
+    geometryDesc.Triangles.VertexCount = geometry.indexCount > 0 ? totalVertexCount : geometry.vertexCount;
+    geometryDesc.Triangles.VertexBuffer.StartAddress =
+        vertexBuffer->GetGPUVirtualAddress() +
+        (geometry.indexCount > 0 ? 0 : static_cast<UINT64>(geometry.firstVertex) * sizeof(SceneVertex));
     geometryDesc.Triangles.VertexBuffer.StrideInBytes = sizeof(SceneVertex);
 
-    if (usesIndexedDraw && indexBuffer != nullptr && indexCount > 0)
+    if (indexBuffer != nullptr && geometry.indexCount > 0)
     {
         geometryDesc.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
-        geometryDesc.Triangles.IndexCount = indexCount;
-        geometryDesc.Triangles.IndexBuffer = indexBuffer->GetGPUVirtualAddress();
+        geometryDesc.Triangles.IndexCount = geometry.indexCount;
+        geometryDesc.Triangles.IndexBuffer =
+            indexBuffer->GetGPUVirtualAddress() + static_cast<UINT64>(geometry.firstIndex) * sizeof(uint32_t);
     }
     else
     {
@@ -107,12 +110,11 @@ void AddUavBarrier(ID3D12GraphicsCommandList* commandList, ID3D12Resource* resou
 
 void FillTlasInstanceDescs(
     D3D12_RAYTRACING_INSTANCE_DESC* outDescs,
-    ID3D12Resource* blas,
+    std::span<const AccelerationStructureResources::BlasResources> blases,
+    std::span<const AccelerationStructureGeometry> geometries,
     const InstanceData* instances,
     UINT instanceCount)
 {
-    const D3D12_GPU_VIRTUAL_ADDRESS blasAddress = blas->GetGPUVirtualAddress();
-
     for (UINT i = 0; i < instanceCount; ++i)
     {
         D3D12_RAYTRACING_INSTANCE_DESC& desc = outDescs[i];
@@ -122,7 +124,12 @@ void FillTlasInstanceDescs(
         desc.InstanceMask = 0xFF;
         desc.InstanceContributionToHitGroupIndex = 0;
         desc.Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
-        desc.AccelerationStructure = blasAddress;
+        const SceneMeshId meshId = instances[i].meshId;
+        if (meshId >= blases.size() || meshId >= geometries.size())
+        {
+            continue;
+        }
+        desc.AccelerationStructure = blases[meshId].result->GetGPUVirtualAddress();
 
         // InstanceData::world is stored as XMMatrixTranspose(M), matching the matrix used by shaders.
         // DXR instance transforms are 3x4 object-to-world matrices, so use the first 3 rows directly.
@@ -164,15 +171,23 @@ void AccelerationStructureResources::Build(
     ID3D12GraphicsCommandList* commandList,
     ID3D12Resource* vertexBuffer,
     ID3D12Resource* indexBuffer,
-    UINT vertexCountPerInstance,
-    UINT indexCountPerInstance,
-    bool usesIndexedDraw,
+    UINT totalVertexCount,
+    std::span<const AccelerationStructureGeometry> geometries,
     const InstanceData* instances,
     UINT instanceCount,
     ID3D12Resource* tlasInstanceBuffer,
     SimpleDescriptorHeapAllocator& descriptorHeapAllocator)
 {
     PIXBeginEvent(commandList, 0, L"BuildAccelerationStructures");
+
+    for (UINT i = 0; i < instanceCount; ++i)
+    {
+        if (instances[i].meshId >= geometries.size())
+        {
+            PIXEndEvent(commandList);
+            throw std::out_of_range("Scene instance mesh ID is outside the acceleration structure geometry list.");
+        }
+    }
 
     Microsoft::WRL::ComPtr<ID3D12Device5> device5;
     if (!QueryDevice5(device, device5))
@@ -181,7 +196,7 @@ void AccelerationStructureResources::Build(
         return;
     }
 
-    if (vertexBuffer == nullptr || instanceCount == 0 || vertexCountPerInstance == 0)
+    if (vertexBuffer == nullptr || instanceCount == 0 || totalVertexCount == 0 || geometries.empty())
     {
         PIXEndEvent(commandList);
         return;
@@ -190,44 +205,47 @@ void AccelerationStructureResources::Build(
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4> commandList4;
     ThrowIfFailed(commandList->QueryInterface(IID_PPV_ARGS(&commandList4)));
 
-    const D3D12_RAYTRACING_GEOMETRY_DESC geometryDesc = CreateTriangleGeometryDesc(
-        vertexBuffer,
-        indexBuffer,
-        vertexCountPerInstance,
-        indexCountPerInstance,
-        usesIndexedDraw);
-    const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS blasInputs = CreateBlasInputs(geometryDesc);
-    const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO blasPrebuildInfo =
-        GetPrebuildInfo(device5.Get(), blasInputs);
+    blases.clear();
+    blases.resize(geometries.size());
+    for (size_t geometryIndex = 0; geometryIndex < geometries.size(); ++geometryIndex)
+    {
+        const D3D12_RAYTRACING_GEOMETRY_DESC geometryDesc =
+            CreateTriangleGeometryDesc(vertexBuffer, indexBuffer, totalVertexCount, geometries[geometryIndex]);
+        const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS blasInputs = CreateBlasInputs(geometryDesc);
+        const D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO blasPrebuildInfo =
+            GetPrebuildInfo(device5.Get(), blasInputs);
 
-    blasScratch = CreateBufferResource(
-        device,
-        blasPrebuildInfo.ScratchDataSizeInBytes,
-        D3D12_HEAP_TYPE_DEFAULT,
-        D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-        D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
-        L"BLAS Scratch");
-    blas = CreateBufferResource(
-        device,
-        blasPrebuildInfo.ResultDataMaxSizeInBytes,
-        D3D12_HEAP_TYPE_DEFAULT,
-        D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
-        D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
-        L"BLAS");
+        BlasResources& blas = blases[geometryIndex];
+        blas.scratch = CreateBufferResource(
+            device,
+            blasPrebuildInfo.ScratchDataSizeInBytes,
+            D3D12_HEAP_TYPE_DEFAULT,
+            D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+            D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+            L"BLAS Scratch");
+        blas.result = CreateBufferResource(
+            device,
+            blasPrebuildInfo.ResultDataMaxSizeInBytes,
+            D3D12_HEAP_TYPE_DEFAULT,
+            D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
+            D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+            L"BLAS");
 
-    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC blasBuildDesc = {};
-    blasBuildDesc.Inputs = blasInputs;
-    blasBuildDesc.DestAccelerationStructureData = blas->GetGPUVirtualAddress();
-    blasBuildDesc.ScratchAccelerationStructureData = blasScratch->GetGPUVirtualAddress();
-    commandList4->BuildRaytracingAccelerationStructure(&blasBuildDesc, 0, nullptr);
-    AddUavBarrier(commandList, blas.Get());
+        D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC blasBuildDesc = {};
+        blasBuildDesc.Inputs = blasInputs;
+        blasBuildDesc.DestAccelerationStructureData = blas.result->GetGPUVirtualAddress();
+        blasBuildDesc.ScratchAccelerationStructureData = blas.scratch->GetGPUVirtualAddress();
+        commandList4->BuildRaytracingAccelerationStructure(&blasBuildDesc, 0, nullptr);
+        AddUavBarrier(commandList, blas.result.Get());
+    }
 
     UINT8* mappedData = nullptr;
     CD3DX12_RANGE readRange(0, 0);
     ThrowIfFailed(tlasInstanceBuffer->Map(0, &readRange, reinterpret_cast<void**>(&mappedData)));
     FillTlasInstanceDescs(
         reinterpret_cast<D3D12_RAYTRACING_INSTANCE_DESC*>(mappedData),
-        blas.Get(),
+        blases,
+        geometries,
         instances,
         instanceCount);
     tlasInstanceBuffer->Unmap(0, nullptr);
@@ -271,14 +289,22 @@ void AccelerationStructureResources::Build(
 void AccelerationStructureResources::RebuildTlas(
     ID3D12Device* device,
     ID3D12GraphicsCommandList* commandList,
+    std::span<const AccelerationStructureGeometry> geometries,
     const InstanceData* instances,
     UINT instanceCount,
     ID3D12Resource* tlasInstanceBuffer)
 {
-    if (blas == nullptr || tlas == nullptr || tlasScratch == nullptr || tlasInstanceBuffer == nullptr ||
+    if (blases.empty() || tlas == nullptr || tlasScratch == nullptr || tlasInstanceBuffer == nullptr ||
         instanceCount == 0)
     {
         return;
+    }
+    for (UINT i = 0; i < instanceCount; ++i)
+    {
+        if (instances[i].meshId >= geometries.size())
+        {
+            throw std::out_of_range("Scene instance mesh ID is outside the acceleration structure geometry list.");
+        }
     }
 
     Microsoft::WRL::ComPtr<ID3D12Device5> device5;
@@ -295,7 +321,8 @@ void AccelerationStructureResources::RebuildTlas(
     ThrowIfFailed(tlasInstanceBuffer->Map(0, &readRange, reinterpret_cast<void**>(&mappedData)));
     FillTlasInstanceDescs(
         reinterpret_cast<D3D12_RAYTRACING_INSTANCE_DESC*>(mappedData),
-        blas.Get(),
+        blases,
+        geometries,
         instances,
         instanceCount);
     tlasInstanceBuffer->Unmap(0, nullptr);
@@ -322,8 +349,7 @@ void AccelerationStructureResources::Release()
     tlasSrv.Reset();
     tlas.Reset();
     tlasScratch.Reset();
-    blas.Reset();
-    blasScratch.Reset();
+    blases.clear();
 }
 
 } // namespace Engine
