@@ -9,25 +9,16 @@
 //
 //*********************************************************
 
-struct Material
-{
-    uint albedoTexIndex;
-    uint metallicRoughnessTexIndex;
-    uint emissiveTexIndex;
-    uint occlusionTexIndex;
-    uint normalTexIndex;
-    float roughnessFactor;
-    float metallicFactor;
-    float occlusionStrength;
-    uint flags;
-};
+#include "Material.hlsli"
+#include "SceneDrawConstants.hlsli"
 
 struct InstanceData
 {
     float4x4 world;
     float4x4 prevWorld;
     uint materialId;
-    float padding[3]; //16 byte alignment
+    uint meshId;
+    float padding[2]; //16 byte alignment
 };
 
 cbuffer ConstantBuffer : register(b0)
@@ -70,6 +61,7 @@ PSInput VSMain(float4 position : POSITION,
 {
     PSInput result;
 
+    instanceId += sceneInstanceOffset;
     InstanceData inst = g_instanceData[instanceId];    
 
     float4x4 worldViewProj = mul(inst.world, viewProj);
@@ -85,7 +77,8 @@ PSInput VSMain(float4 position : POSITION,
 float4 PSMain(PSInput input) : SV_TARGET
 {
     Material mat = g_materialData[input.materialId];
-    float4 albedo = g_texture[mat.albedoTexIndex].Sample(g_sampler, input.uv);
+    float2 materialUv = input.uv * mat.uvScale + mat.uvOffset;
+    float4 albedo = g_texture[mat.albedoTexIndex].Sample(g_sampler, materialUv);
     float3 normal = normalize(input.normal);
     float3 lightDir = normalize(-lightDirection);
     float ndotl = saturate(dot(normal, lightDir));

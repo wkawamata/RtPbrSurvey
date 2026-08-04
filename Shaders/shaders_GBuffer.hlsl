@@ -1,5 +1,6 @@
 #include "Material.hlsli"
 #include "InstanceData.hlsli"
+#include "SceneDrawConstants.hlsli"
 
 cbuffer ConstantBuffer : register(b0)
 {
@@ -74,6 +75,7 @@ PSInput VSMain(float4 position : POSITION,
 {
     PSInput result;
 
+    instanceId += sceneInstanceOffset;
     InstanceData inst = g_instanceData[instanceId];
     float4x4 worldViewProj = mul(inst.world, viewProj);
     float3 worldNormal = normalize(mul(float4(normal, 0.0), inst.world).xyz);
@@ -96,16 +98,17 @@ PSInput VSMain(float4 position : POSITION,
 GBufferOutput PSMain(PSInput input)
 {
     Material mat = g_materialData[input.materialId];
+    float2 materialUv = input.uv * mat.uvScale + mat.uvOffset;
 
     GBufferOutput output;
-    float4 albedo = g_texture[mat.albedoTexIndex].Sample(g_sampler, input.uv);
+    float4 albedo = g_texture[mat.albedoTexIndex].Sample(g_sampler, materialUv);
     output.albedo = float4(SrgbToLinear(albedo.rgb), albedo.a);
 
     float3 baseNormal = normalize(input.normal); // We should use the interpolated normal from vertex shader as the base normal for normal mapping, otherwise the normal map will not work correctly on flat surfaces.
     float3 mappedNormal = baseNormal;
     if ((mat.flags & MaterialFlagHasNormalTexture) != 0)
     {
-        float3 normalTex = g_texture[mat.normalTexIndex].Sample(g_sampler, input.uv).xyz * 2.0 - 1.0;
+        float3 normalTex = g_texture[mat.normalTexIndex].Sample(g_sampler, materialUv).xyz * 2.0 - 1.0;
         mappedNormal = normalize(mul(normalTex, BuildTangentFrame(baseNormal, input.tangent)));
     }
     output.normal = float4(mappedNormal, 1.0);
@@ -116,9 +119,9 @@ GBufferOutput PSMain(PSInput input)
     output.motionVector =
         prevNdc - curNdc + motionVectorJitterCancellationNdc + motionVectorValueOffset;
 
-    float4 metallicRoughness = g_texture[mat.metallicRoughnessTexIndex].Sample(g_sampler, input.uv);
-    float occlusion = g_texture[mat.occlusionTexIndex].Sample(g_sampler, input.uv).r;
-    float3 emissive = SrgbToLinear(g_texture[mat.emissiveTexIndex].Sample(g_sampler, input.uv).rgb);
+    float4 metallicRoughness = g_texture[mat.metallicRoughnessTexIndex].Sample(g_sampler, materialUv);
+    float occlusion = g_texture[mat.occlusionTexIndex].Sample(g_sampler, materialUv).r;
+    float3 emissive = SrgbToLinear(g_texture[mat.emissiveTexIndex].Sample(g_sampler, materialUv).rgb);
 
     float metallic = saturate(metallicRoughness.b * mat.metallicFactor);
     float roughness = saturate(metallicRoughness.g * mat.roughnessFactor);

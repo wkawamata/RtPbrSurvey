@@ -3,8 +3,13 @@
 #include "SceneSelectUi.h"
 #include "RtPbrSurveyApp.h"
 #include "../ImGuiWidgets.h"
+#include "../Runtime/SceneRendererDebugUi.h"
 
 #include <imgui.h>
+
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 void RunStagedAllocatorTests(ID3D12Device* device);
 
@@ -125,6 +130,17 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
     }
 }
 
+std::filesystem::path MakeScreenshotPath()
+{
+    const std::time_t now = std::time(nullptr);
+    std::tm localTime = {};
+    localtime_s(&localTime, &now);
+
+    std::ostringstream filename;
+    filename << "RtPbrSurvey_" << std::put_time(&localTime, "%Y-%m-%d_%H%M%S") << ".png";
+    return std::filesystem::current_path() / "Screenshots" / filename.str();
+}
+
 void DrawRenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
 {
     const char* description = RenderViewDescription(mode);
@@ -203,6 +219,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     using RenderViewMode = RtPbrSurveyEngine::RenderViewMode;
     using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
 
+    if (const std::optional<RtPbrSurvey::ScreenshotResult> result = app.m_sceneRenderer.ConsumeScreenshotResult())
+    {
+        app.m_screenshotStatus = result->succeeded ?
+            "Saved: " + result->path.string() :
+            "Capture failed: " + result->error;
+    }
+
     if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneSelect)
     {
         App::DrawSceneSelectUi(app);
@@ -211,6 +234,20 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     ImGui::SetNextWindowSize(ImVec2(400, 140), ImGuiCond_FirstUseEver);
     ImGui::Begin("Debug");
+
+    if (ImGui::CollapsingHeader("Screenshot"))
+    {
+        if (ImGui::Button("Capture PNG"))
+        {
+            const std::filesystem::path path = MakeScreenshotPath();
+            app.m_sceneRenderer.RequestScreenshot({path});
+            app.m_screenshotStatus = "Capture requested: " + path.string();
+        }
+        if (!app.m_screenshotStatus.empty())
+        {
+            ImGui::TextWrapped("%s", app.m_screenshotStatus.c_str());
+        }
+    }
 
     Engine::SampleScene& loadedScene = app.LoadedScene();
     Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();
@@ -248,7 +285,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGuiWidgets::SliderFloatWithControls("FovH", &loadedScene.GetScene().camera.fov, 20.f, 150.f, 5.f, 60.f);
         int cameraMode = static_cast<int>(app.DebugCamera().GetMode());
         if (ImGui::Combo("Mode", &cameraMode, "FreeLook\0Arcball\0"))
         {
@@ -279,6 +315,26 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 ImGui::SameLine();
             }
             ImGui::NewLine();
+            static constexpr float defaultUp[] = {0.0f, 1.0f, 0.0f};
+            ImGuiWidgets::SliderFloat3WithControls(
+                "Up", &loadedScene.GetScene().camera.up.x, -1.0f, 1.0f, 0.05f, defaultUp);
+            const char* projectionLabels[] = {"Perspective", "Orthographic"};
+            int projection = loadedScene.GetScene().camera.projection == Engine::CameraProjection::Orthographic ? 1 : 0;
+            if (ImGui::Combo("Projection", &projection, projectionLabels, IM_ARRAYSIZE(projectionLabels)))
+            {
+                loadedScene.GetScene().camera.projection =
+                    projection == 1 ? Engine::CameraProjection::Orthographic : Engine::CameraProjection::Perspective;
+            }
+            if (loadedScene.GetScene().camera.projection == Engine::CameraProjection::Perspective)
+            {
+                ImGuiWidgets::SliderFloatWithControls(
+                    "FOV Y", &loadedScene.GetScene().camera.fov, 20.0f, 150.0f, 5.0f, 60.0f);
+            }
+            else
+            {
+                ImGuiWidgets::SliderFloatWithControls(
+                    "Ortho Height", &loadedScene.GetScene().camera.orthographicHeight, 0.1f, 1000.0f, 0.5f, 10.0f);
+            }
             ImGuiWidgets::SliderFloatWithControls("NearZ", &loadedScene.GetScene().camera.nearZ, 0.01f, 10.0f, 0.01f, 0.1f);
             ImGuiWidgets::SliderFloatWithControls("FarZ", &loadedScene.GetScene().camera.farZ, 10.0f, 100000.0f, 100.0f, 10000.0f);
         }
@@ -302,18 +358,26 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGuiWidgets::SliderFloatWithControls("Direct Light Intensity", &app.m_lightingParams.diffuseIntensity, 0.0f, 4.0f,
                                                0.1f, 1.0f);
         ImGui::ColorEdit3("Light Color", &app.m_lightingParams.lightColor.x);
-        ImGui::Checkbox("IBL Enabled", &app.m_iblEnabled);
-        ImGui::BeginDisabled(!app.m_iblEnabled);
-        ImGuiWidgets::SliderFloatWithControls("IBL Intensity", &app.m_lightingParams.iblIntensity, 0.0f, 2.0f, 0.05f, 1.0f);
-        ImGui::Checkbox("Diffuse IBL", &app.m_lightingParams.diffuseIblEnabled);
-        ImGui::SameLine();
-        ImGui::Checkbox("Specular IBL", &app.m_lightingParams.specularIblEnabled);
-        ImGui::EndDisabled();
         ImGui::Checkbox("Direct Light", &app.m_lightingParams.directLightEnabled);
         ImGui::SameLine();
         ImGui::Checkbox("Emissive", &app.m_lightingParams.emissiveEnabled);
     }
-    if (ImGui::CollapsingHeader("Environment Map", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        RtPbrSurvey::EnvironmentMappingUiState environmentUi;
+        environmentUi.settings = app.m_environmentSettings;
+        environmentUi.lighting = app.m_lightingParams;
+        environmentUi.iblEnabled = app.m_iblEnabled;
+        environmentUi.autoUpdate = app.m_environmentAutoUpdate;
+        environmentUi.reloadPending = app.m_environmentReloadPending;
+        RtPbrSurvey::SceneRendererDebugUi::DrawEnvironmentMapping(app.m_sceneRenderer, environmentUi);
+        app.m_environmentSettings = environmentUi.settings;
+        app.m_lightingParams = environmentUi.lighting;
+        app.m_iblEnabled = environmentUi.iblEnabled;
+        app.m_environmentAutoUpdate = environmentUi.autoUpdate;
+        app.m_environmentReloadPending = environmentUi.reloadPending;
+    }
+    if (false && ImGui::CollapsingHeader("Legacy Environment Map", ImGuiTreeNodeFlags_DefaultOpen))
     {
         bool environmentApplyRequested = false;
         int environmentSource = static_cast<int>(app.m_environmentSettings.source);

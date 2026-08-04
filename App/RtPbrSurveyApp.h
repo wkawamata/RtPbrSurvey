@@ -125,6 +125,7 @@ private:
     RtPbrSurveyEngine::ToneMapParams m_toneMapParams;
     RtPbrSurveyEngine::RenderViewMode m_renderViewMode = RtPbrSurveyEngine::RenderViewMode::LightPass;
     bool m_requestHdrDump = false;
+    std::string m_screenshotStatus;
 
     int m_displayInstanceCount = static_cast<int>(kMaxInstanceCount);
     float m_meshScale = 0.5f;

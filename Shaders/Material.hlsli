@@ -11,6 +11,8 @@ struct Material
     float ambientOcclusionFactor;
     float emissiveScale;
     uint flags;
+    float2 uvScale;
+    float2 uvOffset;
 };
 
 static const uint MaterialFlagUnlit = 1u << 0;

@@ -27,6 +27,7 @@ struct HybridReflectionPassDesc
     D3D12_GPU_VIRTUAL_ADDRESS vertexBufferSrv = 0;
     D3D12_GPU_VIRTUAL_ADDRESS indexBufferSrv = 0;
     D3D12_GPU_VIRTUAL_ADDRESS instanceBufferSrv = 0;
+    D3D12_GPU_VIRTUAL_ADDRESS meshRangeBufferSrv = 0;
     UINT usesIndexedDraw = 0;
     UINT vertexCount = 0;
     UINT indexCount = 0;

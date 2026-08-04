@@ -15,9 +15,22 @@
 
 namespace RtPbrSurvey
 {
+    struct EnvironmentMappingUiState
+    {
+        Engine::ProceduralEnvironmentSettings settings;
+        RtPbrSurveyEngine::LightingParams lighting;
+        bool iblEnabled = true;
+        bool autoUpdate = Engine::kUseGpuProceduralEnvMap;
+        bool reloadPending = false;
+    };
+
     class SceneRendererDebugUi
     {
     public:
-        static void Draw(SceneRenderer& renderer, bool* open = nullptr, const char* windowName = "RtPbrSurvey Debug");
+        static void Draw(SceneRenderer& renderer,
+                         bool* open = nullptr,
+                         const char* windowName = "RtPbrSurvey Debug",
+                         EnvironmentMappingUiState* environment = nullptr);
+        static void DrawEnvironmentMapping(SceneRenderer& renderer, EnvironmentMappingUiState& state);
     };
 }

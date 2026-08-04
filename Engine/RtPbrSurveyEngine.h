@@ -38,6 +38,7 @@
 #include "FrameGraph/RenderPassResources.h"
 #include "Renderer/RootSignatureLayout.h"
 #include "Renderer/SceneGeometryPass.h"
+#include "Renderer/ScreenshotCapture.h"
 #include "Renderer/SimpleDescriptorHeapAllocator.h"
 #include "Renderer/ShadowMaskDebugPass.h"
 #include "Renderer/DebugLinePass.h"
@@ -45,12 +46,14 @@
 #include "Renderer/StreamlineAdapter.h"
 #include "Renderer/ToneMap.h"
 #include "Scene/Scene.h"
+#include "Shared/Screenshot.h"
 #include "TextureSemantic.h"
 #include "WorkMeter.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <climits>
+#include <deque>
 #include <functional>
 #include <initializer_list>
 #include <optional>
@@ -261,6 +264,8 @@ public:
     void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
     void Shutdown();
     void SetScene(const Scene& scene);
+    void SetCamera(const CameraState& camera);
+    const CameraState& GetCamera() const;
     void ReloadSceneResources(const Scene& scene);
     void CloseSceneResources();
     UiFrameContext GetUiFrameContext() const;
@@ -293,6 +298,8 @@ public:
     void SetRenderViewMode(RenderViewMode mode);
     RenderViewMode GetRenderViewMode() const { return m_debugViewSettings.renderViewMode; }
     void SetRequestHdrDump(bool request);
+    void RequestScreenshot(RtPbrSurvey::ScreenshotRequest request);
+    std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult();
     void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
     void RequestPixelPick(int screenX, int screenY);
     const PixelPickResult& GetPixelPickResult() const { return m_pixelPickResult; }
@@ -397,6 +404,7 @@ private:
             static constexpr const char* SpecularDebugRayQuery = "SpecularDebugRayQuery";
             static constexpr const char* RayQueryTlasDebug = "RayQueryTlasDebug";
             static constexpr const char* ImGui = "ImGui";
+            static constexpr const char* Screenshot = "Screenshot";
         };
 
         struct Constants
@@ -710,6 +718,14 @@ private:
     Engine::TemporalUpscalerSupportInfo m_temporalUpscalerSupport;
     Engine::TemporalUpscalerSettings m_temporalUpscalerSettings;
     bool m_temporalUpscalerHistoryReset = true;
+    Engine::CameraProjection m_previousCameraProjection = Engine::CameraProjection::Perspective;
+    float m_previousCameraFov = 60.0f;
+    float m_previousCameraOrthographicHeight = 10.0f;
+    float m_previousCameraNearZ = 0.1f;
+    float m_previousCameraFarZ = 10000.0f;
+    float m_previousCameraAspectRatio = 1.0f;
+    DirectX::XMFLOAT3 m_previousCameraUp = {0.0f, 1.0f, 0.0f};
+    bool m_cameraProjectionStateInitialized = false;
     bool m_temporalUpscalerOutputAvailable = false;
     Engine::ToneMapPass m_toneMapPass;
     Engine::DebugLinePass m_debugLinePass;
@@ -720,6 +736,15 @@ private:
     HdrOutputPolicy m_hdrOutputPolicy;
     DebugViewSettings m_debugViewSettings;
     Engine::DebugDumpCapture m_debugDumpCapture;
+    struct PendingScreenshotCapture
+    {
+        RtPbrSurvey::ScreenshotRequest request;
+        Engine::ScreenshotReadback readback;
+        UINT64 fenceValue = 0;
+    };
+    std::deque<RtPbrSurvey::ScreenshotRequest> m_screenshotRequests;
+    std::optional<PendingScreenshotCapture> m_pendingScreenshotCapture;
+    std::deque<RtPbrSurvey::ScreenshotResult> m_screenshotResults;
 
     // Pixel pick (Ctrl+Click to inspect reflection vector)
     bool m_pixelPickRequested = false;
@@ -764,6 +789,10 @@ private:
 
     ComPtr<ID3D12Resource> m_indexBuffer;
     D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
+    ComPtr<ID3D12Resource> m_meshRangeBuffer;
+    std::vector<Engine::SceneMesh::Range> m_sceneMeshRanges;
+    std::vector<Engine::AccelerationStructureGeometry> m_accelerationStructureGeometries;
+    mutable std::vector<Engine::SceneGeometryInstanceDraw> m_sceneGeometryDraws;
 
     UINT m_sceneTextureCount = 0;
 
@@ -1053,6 +1082,7 @@ private:
     RenderPass MakeShadowMaskDebugPass();
     RenderPass MakeDebugLinePass();
     RenderPass MakeImGuiPass();
+    RenderPass MakeScreenshotPass();
     void BuildRenderPasses();
     void AddSceneRenderPasses();
     void AddDeferredSceneOutputPass();
@@ -1074,9 +1104,11 @@ private:
     void CreateGBuffer();
 
     DescriptorAllocation CreateTextureFromRGBA8(const UINT8* pixels,
-                                                UINT width,
-                                                UINT height,
-                                                ComPtr<ID3D12Resource>& texture,
+                                                 UINT width,
+                                                 UINT height,
+                                                 bool generateMipmaps,
+                                                 Engine::TextureColorSpace colorSpace,
+                                                 ComPtr<ID3D12Resource>& texture,
                                                 ComPtr<ID3D12Resource>& uploadHeap);
 
     void ReleaseResourcesAfterPass(int passIndex);
@@ -1117,6 +1149,7 @@ private:
     void ExecuteShadowMaskDebugPass(const RenderPass& pass);
     void ExecuteDebugLinePass(const RenderPass& pass);
     void ExecuteImGuiPass(const RenderPass& pass);
+    void ExecuteScreenshotPass(const RenderPass& pass);
     void RecordDebugDumpPass();
     void RecordPixelPickPass();
     void ReadbackPixelPick();
@@ -1125,6 +1158,7 @@ private:
     void CreatePixelPickReadback(ID3D12Resource* source, PixelPickReadback& readback) const;
     void CopyPixelPickSource(ID3D12Resource* source, const PixelPickReadback& readback, UINT x, UINT y);
     void RecordImGuiPass();
+    void ProcessCompletedScreenshot();
     void EndFrame();
     void PrintDebugDump();
 

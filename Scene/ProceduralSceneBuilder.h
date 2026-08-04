@@ -22,12 +22,19 @@ SceneMesh CreateCubeMesh(float size);
 
 SceneMesh CreateSphereMesh(float radius, int stackCount, int sliceCount);
 
+SceneMesh CreateCylinderMesh(float radius,
+                             float height,
+                             uint32_t radialSegments,
+                             CylinderCapMode capMode = CylinderCapMode::Both);
+
 int AddSolidColorTexture(SceneMesh& mesh, uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 
-void AppendMesh(SceneMesh& dest, const SceneMesh& src, uint32_t materialId);
+SceneMesh::Range AppendMesh(SceneMesh& dest, const SceneMesh& src, uint32_t materialId);
 
-void AppendTransformedMesh(SceneMesh& dest, const SceneMesh& src,
-                           DirectX::FXMMATRIX transform, uint32_t materialId);
+SceneMesh::Range AppendTransformedMesh(SceneMesh& dest,
+                                       const SceneMesh& src,
+                                       DirectX::FXMMATRIX transform,
+                                       uint32_t materialId);
 
 void AddQuad(SceneMesh& mesh,
              const DirectX::XMFLOAT3& center,

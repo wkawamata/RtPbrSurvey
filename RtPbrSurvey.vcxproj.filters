@@ -174,6 +174,9 @@
     <ClInclude Include="Renderer\SceneGeometryPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\ScreenshotCapture.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\SimpleDescriptorHeapAllocator.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -184,6 +187,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
     <ClInclude Include="Renderer\TemporalUpscalerSupport.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\TextureMipChain.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
     <ClInclude Include="Renderer\ToneMap.h">
@@ -202,6 +208,12 @@
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Scene.h">
+      <Filter>Source Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\CameraProjection.h">
+      <Filter>Source Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\CameraView.h">
       <Filter>Source Files\Scene</Filter>
     </ClInclude>
     <ClInclude Include="Scene\SampleScene.h">
@@ -247,6 +259,9 @@
       <Filter>Source Files\Shared</Filter>
     </ClInclude>
     <ClInclude Include="Shared\D3d12Helpers.h">
+      <Filter>Source Files\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="Shared\Screenshot.h">
       <Filter>Source Files\Shared</Filter>
     </ClInclude>
     <ClInclude Include="Shared\Error.h">
@@ -368,10 +383,16 @@
     <ClCompile Include="Renderer\SceneGeometryPass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\ScreenshotCapture.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\StreamlineAdapter.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\TemporalUpscalerSupport.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\TextureMipChain.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\ToneMap.cpp">
@@ -460,6 +481,9 @@
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="Shaders\InstanceData.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\SceneDrawConstants.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="Shaders\PbrLighting.hlsli">
