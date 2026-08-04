@@ -36,7 +36,7 @@ enum RootParameterIndex
     ReflectionRayColor,
     ReflectionRayMaterial,
     ReflectionRayEmission,
-    ReflectionRadiance,
+    ReflectionEvaluatedRadiance,
 
     SceneDrawConstants,
 
@@ -55,7 +55,7 @@ static constexpr uint32_t kEnvironmentMapSrvSpace = 5;
 static constexpr uint32_t kReflectionRayHitSrvSpace = 6;
 static constexpr uint32_t kReflectionRayColorSrvSpace = 7;
 static constexpr uint32_t kReflectionRayMaterialSrvSpace = 8;
-static constexpr uint32_t kReflectionRadianceSrvSpace = 9;
+static constexpr uint32_t kReflectionEvaluatedRadianceSrvSpace = 9;
 static constexpr uint32_t kReflectionRayEmissionSrvSpace = 10;
 
 // Per-frame and per-pass CBVs.

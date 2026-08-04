@@ -11,7 +11,7 @@ Texture2D<float2> g_brdfLut : register(t3, space5);
 Texture2D<float4> g_reflectionRayHit : register(t0, space4);
 Texture2D<float4> g_reflectionRayColor : register(t0, space7);
 Texture2D<float4> g_reflectionRayMaterial : register(t0, space8);
-Texture2D<float4> g_reflectionRadiance : register(t0, space9);
+Texture2D<float4> g_reflectionEvaluatedRadiance : register(t0, space9);
 Texture2D<float4> g_reflectionRayEmission : register(t0, space10);
 SamplerState g_sampler : register(s0);
 
@@ -144,7 +144,7 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
 
     if (debugTarget == 7)
     {
-        float3 radiance = g_reflectionRadiance.Sample(g_sampler, input.uv).rgb;
+        float3 radiance = g_reflectionEvaluatedRadiance.Sample(g_sampler, input.uv).rgb;
         return float4(radiance / (1.0 + radiance), 1.0);
     }
 
@@ -172,9 +172,6 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         float3 reflectionDir = reflect(-viewDir, visibleNormal);
         float3 hitNormal = DecodeNormalOctahedron(rayHit.zw);
         PbrSurface hitSurface = MakeReflectionHitSurface(rayColor, rayMaterial, hitNormal, rayEmission);
-        float distanceFade = saturate(1.0 - hitDistance / max(contributionMaxDistance, 0.001));
-        float strength = hitFlag * distanceFade * (1.0 - visibleRoughness) * contributionIntensity;
-
         float3 hitViewDir = -reflectionDir;
         float3 diffuseIrradiance = g_diffuseIrradianceMap.Sample(g_sampler, hitSurface.normal).rgb;
         float specularMip = hitSurface.roughness * SPECULAR_PREFILTER_MAX_MIP;
@@ -212,7 +209,6 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         }
 
         component *= debugTarget == 12 ? 1.0 : (1.0 - hitSurface.unlit);
-        component *= strength;
         return float4(component / (1.0 + component), 1.0);
     }
 

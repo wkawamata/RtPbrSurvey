@@ -61,7 +61,7 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
             {
                 AddPass(MakeHybridReflectionPass());
                 if (m_hybridReflectionSettings.contributionEnabled ||
-                    m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance)
+                    m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance)
                 {
                     AddPass(MakeReflectionEvaluatePass());
                 }
@@ -92,11 +92,11 @@ void RtPbrSurveyEngine::AddDeferredSceneOutputPass()
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayColor ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayMaterial ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayEmission ||
-         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance ||
-         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadianceDirect ||
-         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadianceIblDiffuse ||
-         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadianceIblSpecular ||
-         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadianceEmissive ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceEmissive ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionContributionStrength))
     {
@@ -288,11 +288,15 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
         reads.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
         if (m_hybridReflectionSettings.enabled && m_hybridReflectionSettings.contributionEnabled)
         {
-            reads.push_back({kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+            reads.push_back({kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        }
+        if (m_hybridReflectionSettings.enabled &&
+            (m_hybridReflectionSettings.contributionEnabled || m_hybridReflectionSettings.hitOverlayEnabled))
+        {
+            reads.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
         }
         if (m_hybridReflectionSettings.enabled && m_hybridReflectionSettings.hitOverlayEnabled)
         {
-            reads.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
             reads.push_back({kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
         }
     }
@@ -314,13 +318,17 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
     if (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
         m_hybridReflectionSettings.contributionEnabled)
     {
-        builder.Descriptor(RootSignatureLayout::ReflectionRadiance, Desc::ReflectionRadianceSrv);
+        builder.Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance, Desc::ReflectionEvaluatedRadianceSrv);
+    }
+    if (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
+        (m_hybridReflectionSettings.contributionEnabled || m_hybridReflectionSettings.hitOverlayEnabled))
+    {
+        builder.Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv);
     }
     if (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
         m_hybridReflectionSettings.hitOverlayEnabled)
     {
-        builder.Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
-            .Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv);
+        builder.Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv);
     }
 
     return builder.Build();
@@ -338,7 +346,7 @@ auto RtPbrSurveyEngine::MakeReflectionEvaluatePass() -> RenderPass
                 {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                 {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                 {kDepthStencilResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
-        .Writes({{kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Writes({{kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
         .Descriptor(RootSignatureLayout::EnvironmentMap, Desc::EnvironmentMapSrv)
         .Descriptor(RootSignatureLayout::CameraConstants, Desc::CameraCbv)
@@ -347,7 +355,7 @@ auto RtPbrSurveyEngine::MakeReflectionEvaluatePass() -> RenderPass
         .Descriptor(RootSignatureLayout::ReflectionRayMaterial, Desc::ReflectionRayMaterialSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayEmission, Desc::ReflectionRayEmissionSrv)
         .Descriptor(RootSignatureLayout::LightConstants, Desc::LightCbv)
-        .Rtv(RtvName::ReflectionRadiance)
+        .Rtv(RtvName::ReflectionEvaluatedRadiance)
         .Operation(Op::ReflectionEvaluate, &RtPbrSurveyEngine::ExecuteReflectionEvaluatePass)
         .Build();
 }
@@ -466,9 +474,9 @@ auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
                             {kGBufferResourceNames[Engine::GBuffer::PBRParams],
                              D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                             {kDepthStencilResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
-    if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance)
+    if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance)
     {
-        reads.push_back({kReflectionRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        reads.push_back({kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
     }
 
     auto builder = m_renderGraphRuntime.Authoring()
@@ -487,9 +495,9 @@ auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
         .Rtv(RtvName::LightPass)
         .Operation(Op::ReflectionRayHitDebug, &RtPbrSurveyEngine::ExecuteReflectionRayHitDebugPass)
         .Constants(RootSignatureLayout::GBufferDebugConstants, ConstName::ReflectionRayHitDebugTarget);
-    if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRadiance)
+    if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance)
     {
-        builder.Descriptor(RootSignatureLayout::ReflectionRadiance, Desc::ReflectionRadianceSrv);
+        builder.Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance, Desc::ReflectionEvaluatedRadianceSrv);
     }
 
     return builder.Build();

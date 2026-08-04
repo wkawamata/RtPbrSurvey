@@ -235,7 +235,7 @@ HitMaterialSample LoadCommittedHitMaterialSample(uint index0, uint index1, uint 
     return result;
 }
 
-float3 ComputeHitMaterialColor(HitMaterialSample hitMaterial)
+float3 GetHitAlbedoPayload(HitMaterialSample hitMaterial)
 {
     return hitMaterial.albedo;
 }
@@ -389,7 +389,8 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
                                                   instanceId);
         HitMaterialSample hitMaterial = LoadCommittedHitMaterialSample(index0, index1, index2, barycentric, instanceId);
         g_reflectionRayHit[pixel] = float4(query.CommittedRayT(), 1.0, EncodeNormalOctahedron(hitNormal));
-        g_reflectionRayColor[pixel] = float4(ComputeHitMaterialColor(hitMaterial), 1.0);
+        // ReflectionRayColor is a historical resource name. Keep its payload limited to linear hit albedo.
+        g_reflectionRayColor[pixel] = float4(GetHitAlbedoPayload(hitMaterial), 1.0);
         g_reflectionRayMaterial[pixel] = EncodeHitMaterialPayload(hitMaterial);
         g_reflectionRayEmission[pixel] = float4(hitMaterial.emissive, 1.0);
     }

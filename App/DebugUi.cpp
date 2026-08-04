@@ -110,18 +110,17 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
             return "TLAS ray query debug view for acceleration-structure hit inspection.";
         case RenderViewMode::ReflectionRayMaterial:
             return "ReflectionRayMaterial payload: R=metallic, G=roughness, B=unlit flag at the hit point.";
-        case RenderViewMode::ReflectionRadiance:
-            return "ReflectionRadiance is the reflection radiance buffer before LightPass.\n"
-                   "This view shows ReflectionEvaluatePass output, not the final reflected color.\n"
-                   "Current value includes hit albedo/emission shading with distance fade and visible-surface roughness.\n"
-                   "LightPass applies the visible-surface Fresnel term before adding it.";
-        case RenderViewMode::ReflectionRadianceDirect:
+        case RenderViewMode::ReflectionEvaluatedRadiance:
+            return "ReflectionEvaluatedRadiance is unweighted one-bounce radiance before temporal processing and LightPass.\n"
+                   "It excludes distance fade, visible-surface roughness weight, contribution intensity, and Fresnel.\n"
+                   "LightPass applies those weights before adding the final reflection contribution.";
+        case RenderViewMode::ReflectionEvaluatedRadianceDirect:
             return "Reflection radiance direct-light component recomputed from the hit payload.";
-        case RenderViewMode::ReflectionRadianceIblDiffuse:
+        case RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse:
             return "Reflection radiance diffuse IBL component recomputed from hit albedo and hit normal.";
-        case RenderViewMode::ReflectionRadianceIblSpecular:
+        case RenderViewMode::ReflectionEvaluatedRadianceIblSpecular:
             return "Reflection radiance specular IBL component approximated from hit material and environment prefilter.";
-        case RenderViewMode::ReflectionRadianceEmissive:
+        case RenderViewMode::ReflectionEvaluatedRadianceEmissive:
             return "Reflection radiance emissive component from the hit emissive payload.";
         case RenderViewMode::DlssInputColor:
             return "DLSS scaling input color before temporal upscaling and tone mapping.";
@@ -719,18 +718,18 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::SameLine();
         ImGui::RadioButton("Emission##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayEmission));
         ImGui::SameLine();
-        ImGui::RadioButton("Radiance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRadiance));
+        ImGui::RadioButton("Evaluated Radiance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionEvaluatedRadiance));
         ImGui::SameLine();
         ImGui::RadioButton("Fade##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayDistanceFade));
         ImGui::SameLine();
         ImGui::RadioButton("Strength##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionContributionStrength));
-        ImGui::RadioButton("Direct##ReflectionRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRadianceDirect));
+        ImGui::RadioButton("Direct##ReflectionEvaluatedRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionEvaluatedRadianceDirect));
         ImGui::SameLine();
-        ImGui::RadioButton("IBL Diffuse##ReflectionRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRadianceIblDiffuse));
+        ImGui::RadioButton("IBL Diffuse##ReflectionEvaluatedRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse));
         ImGui::SameLine();
-        ImGui::RadioButton("IBL Specular##ReflectionRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRadianceIblSpecular));
+        ImGui::RadioButton("IBL Specular##ReflectionEvaluatedRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionEvaluatedRadianceIblSpecular));
         ImGui::SameLine();
-        ImGui::RadioButton("Emissive##ReflectionRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRadianceEmissive));
+        ImGui::RadioButton("Emissive##ReflectionEvaluatedRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionEvaluatedRadianceEmissive));
         ImGui::EndDisabled();
         ImGui::EndDisabled();
         app.m_renderViewMode = static_cast<RenderViewMode>(renderViewMode);
@@ -742,11 +741,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionRayColor ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayMaterial ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayEmission ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadiance ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceDirect ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceIblDiffuse ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceIblSpecular ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceEmissive ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceEmissive ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
              app.m_renderViewMode == RenderViewMode::ReflectionContributionStrength))
         {
@@ -759,11 +758,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionRayColor ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayMaterial ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayEmission ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadiance ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceDirect ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceIblDiffuse ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceIblSpecular ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceEmissive ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceEmissive ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
              app.m_renderViewMode == RenderViewMode::ReflectionContributionStrength))
         {
