@@ -17,20 +17,41 @@ All resources below are render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` textu
 | `ReflectionRayMaterial` | `HybridReflectionPass` | `.x`: metallic; `.y`: roughness; `.z`: unlit flag; `.w`: reserved. | Material/debug payload | `ReflectionEvaluatePass` and material/component debug views. Roughness is a likely future confidence and filtering input. |
 | `ReflectionRayEmission` | `HybridReflectionPass` | `.rgb`: linear hit emissive after material emissive scale; `.a`: `1` for a committed hit and `0` otherwise. | Material/debug payload | `ReflectionEvaluatePass` and emission/component debug views. It remains separate from albedo and evaluated radiance. |
 | `ReflectionEvaluatedRadiance` | `ReflectionEvaluatePass` | `.rgb`: linear HDR one-bounce radiance; `.a`: `1`. On a hit it contains evaluated hit-surface direct light, diffuse/specular IBL, emissive, and unlit handling. On a miss or material-gated pixel it contains the roughness-filtered environment fallback. It excludes distance fade, visible-surface roughness weight, user contribution intensity, visible-surface Fresnel, and temporal/spatial filtering. | Evaluated, unweighted radiance | `LightPass` and the evaluated-radiance debug view. This is the current-frame input contract for future temporal accumulation/denoise. |
-| LightPass reflection contribution | `LightPass` | `ReflectionEvaluatedRadiance * distance weight * visible roughness weight * contribution intensity * visible-surface Fresnel`, additively composed with deferred lighting. Miss and material-gated pixels use distance weight `1`. It has no standalone resource. | Final contribution | Final lit scene. It is not a raw denoiser input. |
+| LightPass reflection contribution | `LightPass` | The selected unweighted reflection radiance multiplied by distance weight, visible roughness weight, contribution intensity, and visible-surface Fresnel, then additively composed with deferred lighting. The selected source is currently `ReflectionEvaluatedRadiance`; a future enabled temporal stage selects `ReflectionResolvedRadiance`. Miss and material-gated pixels use distance weight `1`. It has no standalone resource. | Final contribution | Final lit scene. It is not a raw denoiser input. |
 
-### Future Temporal Boundary
+### Reflection History Contract
 
-A future temporal accumulation or denoise pass should sit between `ReflectionEvaluatePass` and `LightPass`, consume `ReflectionEvaluatedRadiance` plus rejection data, and produce a separately named `ReflectionResolvedRadiance` with the same unweighted radiance semantics. Reusing `ReflectionRayColor` for that output would violate the payload contract. When temporal processing is disabled, `LightPass` consumes `ReflectionEvaluatedRadiance` directly.
+This section fixes the resource ownership and reset boundary for a future temporal reflection stage. It does not mean that temporal accumulation, reprojection, rejection, or denoising is implemented.
 
-Likely rejection and reset inputs are:
+The temporal stage sits between `ReflectionEvaluatePass` and `LightPass`. It consumes the current-frame `ReflectionEvaluatedRadiance` and, when valid, the previous `ReflectionResolvedRadiance`. It produces the current-frame `ReflectionResolvedRadiance`. When temporal reflection is disabled, `LightPass` consumes `ReflectionEvaluatedRadiance` directly.
 
-- current and previous depth or reconstructed position for disocclusion;
-- visible-surface normal and roughness;
-- motion vector for history reprojection;
-- reflection hit flag, hit distance, and hit normal for reflection-event consistency;
-- camera transform or an explicit camera-cut/reset signal;
-- render-size, scene, material, lighting, environment, and reflection-setting changes where history is no longer comparable.
+`ReflectionResolvedRadiance` has the following semantic contract:
+
+- `.rgb` is linear HDR, unweighted one-bounce radiance after temporal reflection processing;
+- `.a` is `1`; history length, confidence, and rejection state are not packed into this channel;
+- it preserves the hit and environment-fallback meaning of `ReflectionEvaluatedRadiance`;
+- it excludes distance fade, visible-surface roughness weight, user contribution intensity, visible-surface Fresnel, and final LightPass composition;
+- it is the only temporally resolved reflection input consumed by `LightPass`.
+
+The engine owns two persistent, render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` physical slots for `ReflectionResolvedRadiance`. Their logical roles are `historyRead` and `historyWrite`. A dedicated reflection-history index selects those roles; swap-chain `m_currentFrameIndex` and `m_previousFrameIndex` do not own or select reflection history. `ReflectionEvaluatedRadiance` is current-frame input and is never reused as a history slot.
+
+The roles are exchanged only after the temporal reflection pass successfully produces the current resolved result. Frames that do not run that pass do not advance reflection history. The engine, rather than an individual shader or `LightPass`, owns the history slots, role index, and validity state. Reflection history validity is independent of `m_temporalUpscalerHistoryReset`.
+
+A reset logically invalidates history. It does not require clearing both physical textures. On the first temporal reflection frame after reset, the pass must not sample old history; it produces `ReflectionResolvedRadiance` from the current `ReflectionEvaluatedRadiance`, then marks the result valid and makes it the next `historyRead` slot. A pending reset is cleared only after that output has been produced successfully. If temporal reflection is disabled, history remains invalid.
+
+Hard-reset events are:
+
+- initial history allocation or reallocation;
+- output-size or render-size changes;
+- scene reload, scene close, or rendering-path changes;
+- an explicit camera cut, teleport, or camera-preset change;
+- Hybrid Reflection or temporal reflection enable-state changes;
+- material, lighting, or environment changes;
+- Material Gate or another ray-selection setting change that changes the evaluated signal.
+
+Normal camera movement is not a hard reset; future reprojection handles it. Camera-cut detection is an explicit engine signal in this contract, not a matrix-difference heuristic. Post-resolve controls do not reset history: distance fade, maximum distance, visible-surface roughness weight, contribution intensity, hit overlay, exposure, tone mapping, and debug-view selection.
+
+Future rejection work may consume current and previous depth or reconstructed position, visible-surface normal and roughness, motion vectors, reflection hit flag, hit distance, and hit normal. Their thresholds, packing, auxiliary history resources, and algorithms are deliberately outside this history-ownership phase.
 
 PathTracing comparison should compare signals at a named boundary. `ReflectionEvaluatedRadiance` is the unweighted, pre-temporal and pre-visible-surface-composite boundary; the final LightPass contribution is weighted and embedded in the lit scene. A future reference signal should match one of those boundaries explicitly. DLSS Ray Reconstruction may motivate a different input contract later, but no Streamline or DLSS RR backend is wired here.
 
