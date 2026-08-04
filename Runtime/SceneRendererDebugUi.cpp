@@ -63,13 +63,13 @@ namespace
         {"Ray Albedo",     RtPbrSurveyEngine::RenderViewMode::ReflectionRayColor,              true,  true},
         {"Ray Material",   RtPbrSurveyEngine::RenderViewMode::ReflectionRayMaterial,           true,  true},
         {"Ray Emission",   RtPbrSurveyEngine::RenderViewMode::ReflectionRayEmission,           true,  true},
-        {"Radiance",       RtPbrSurveyEngine::RenderViewMode::ReflectionRadiance,              true,  true},
+        {"Evaluated Radiance", RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadiance,          true,  true},
         {"Ray Fade",       RtPbrSurveyEngine::RenderViewMode::ReflectionRayDistanceFade,       true,  true},
         {"Strength",       RtPbrSurveyEngine::RenderViewMode::ReflectionContributionStrength,  true,  true},
-        {"Direct",         RtPbrSurveyEngine::RenderViewMode::ReflectionRadianceDirect,        true,  true},
-        {"IBL Diffuse",    RtPbrSurveyEngine::RenderViewMode::ReflectionRadianceIblDiffuse,    true,  true},
-        {"IBL Specular",   RtPbrSurveyEngine::RenderViewMode::ReflectionRadianceIblSpecular,   true,  true},
-        {"Emissive Light", RtPbrSurveyEngine::RenderViewMode::ReflectionRadianceEmissive,      true,  true},
+        {"Direct",         RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadianceDirect,        true,  true},
+        {"IBL Diffuse",    RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse,    true,  true},
+        {"IBL Specular",   RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadianceIblSpecular,   true,  true},
+        {"Emissive Light", RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadianceEmissive,      true,  true},
     };
 
     const char* RenderViewLabel(RtPbrSurveyEngine::RenderViewMode mode)

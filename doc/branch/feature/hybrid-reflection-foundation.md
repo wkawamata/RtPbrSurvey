@@ -16,12 +16,12 @@ All resources below are render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` textu
 | `ReflectionRayColor` | `HybridReflectionPass` | `.rgb`: linear hit albedo; `.a`: `1` for a committed hit and `0` otherwise. Despite the historical name, this is neither emissive nor reflected color. | Material/debug payload | `ReflectionEvaluatePass`, albedo debug view, and the temporary hit-albedo overlay. A future denoiser should not treat it as radiance. |
 | `ReflectionRayMaterial` | `HybridReflectionPass` | `.x`: metallic; `.y`: roughness; `.z`: unlit flag; `.w`: reserved. | Material/debug payload | `ReflectionEvaluatePass` and material/component debug views. Roughness is a likely future confidence and filtering input. |
 | `ReflectionRayEmission` | `HybridReflectionPass` | `.rgb`: linear hit emissive after material emissive scale; `.a`: `1` for a committed hit and `0` otherwise. | Material/debug payload | `ReflectionEvaluatePass` and emission/component debug views. It remains separate from albedo and evaluated radiance. |
-| `ReflectionRadiance` | `ReflectionEvaluatePass` | `.rgb`: one-bounce reflection signal before `LightPass` visible-surface Fresnel and additive composition; `.a`: `1`. On a hit it contains evaluated hit-surface radiance multiplied by hit flag, distance fade, visible-surface roughness fade, and user contribution intensity. On a miss it contains the roughness-filtered environment fallback with the applicable strength. | Evaluated, pre-composite signal | `LightPass` and the radiance debug view. This is the natural current candidate for future temporal accumulation/denoise, provided its pre-exposed/weighted semantics remain explicit. |
-| LightPass reflection contribution | `LightPass` | `ReflectionRadiance * visible-surface Fresnel`, additively composed with deferred lighting. It has no standalone resource. | Final contribution | Final lit scene. It is not a raw denoiser input. |
+| `ReflectionEvaluatedRadiance` | `ReflectionEvaluatePass` | `.rgb`: linear HDR one-bounce radiance; `.a`: `1`. On a hit it contains evaluated hit-surface direct light, diffuse/specular IBL, emissive, and unlit handling. On a miss or material-gated pixel it contains the roughness-filtered environment fallback. It excludes distance fade, visible-surface roughness weight, user contribution intensity, visible-surface Fresnel, and temporal/spatial filtering. | Evaluated, unweighted radiance | `LightPass` and the evaluated-radiance debug view. This is the current-frame input contract for future temporal accumulation/denoise. |
+| LightPass reflection contribution | `LightPass` | `ReflectionEvaluatedRadiance * distance weight * visible roughness weight * contribution intensity * visible-surface Fresnel`, additively composed with deferred lighting. Miss and material-gated pixels use distance weight `1`. It has no standalone resource. | Final contribution | Final lit scene. It is not a raw denoiser input. |
 
 ### Future Temporal Boundary
 
-A future temporal accumulation or denoise pass should sit between `ReflectionEvaluatePass` and `LightPass`, consume the evaluated pre-composite signal plus rejection data, and produce a separately named resolved signal. Reusing `ReflectionRayColor` for that output would violate the payload contract.
+A future temporal accumulation or denoise pass should sit between `ReflectionEvaluatePass` and `LightPass`, consume `ReflectionEvaluatedRadiance` plus rejection data, and produce a separately named `ReflectionResolvedRadiance` with the same unweighted radiance semantics. Reusing `ReflectionRayColor` for that output would violate the payload contract. When temporal processing is disabled, `LightPass` consumes `ReflectionEvaluatedRadiance` directly.
 
 Likely rejection and reset inputs are:
 
@@ -32,7 +32,7 @@ Likely rejection and reset inputs are:
 - camera transform or an explicit camera-cut/reset signal;
 - render-size, scene, material, lighting, environment, and reflection-setting changes where history is no longer comparable.
 
-PathTracing comparison should compare signals at a named boundary. `ReflectionRadiance` is pre-visible-surface-Fresnel and already includes provisional strength weighting, while the final LightPass contribution is post-Fresnel and embedded in the lit scene. A future comparison must either reproduce those weights on the reference signal or introduce a more strictly defined unweighted radiance resource. DLSS Ray Reconstruction may motivate a different input contract later, but no Streamline or DLSS RR backend is wired here.
+PathTracing comparison should compare signals at a named boundary. `ReflectionEvaluatedRadiance` is the unweighted, pre-temporal and pre-visible-surface-composite boundary; the final LightPass contribution is weighted and embedded in the lit scene. A future reference signal should match one of those boundaries explicitly. DLSS Ray Reconstruction may motivate a different input contract later, but no Streamline or DLSS RR backend is wired here.
 
 ## Existing Pass Survey
 
@@ -113,13 +113,14 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 - `Environment` overlay mode tints hit pixels with the existing specular prefilter environment sample along the reflection direction. It validates the reflection-direction sampling path, not scene-surface reflection.
 - `Hit Normal` overlay mode decodes the hit normal stored in `ReflectionRayHit.zw` and tints hit pixels with normal color over the lit scene.
 - `Reflection Material Params` debug view visualizes `ReflectionRayMaterial` as `R = metallic`, `G = roughness`, `B = unlit flag`.
-- `Reflection Contribution` lets LightPass consume `ReflectionRadiance`; LightPass applies the visible-surface Fresnel term before adding it.
-- `ReflectionEvaluatePass` writes the pre-composite one-bounce signal into `ReflectionRadiance`, including direct light, diffuse IBL, specular IBL approximation, emissive, miss fallback, distance fade, visible-surface roughness fade, and contribution intensity. `LightPass` applies visible-surface Fresnel.
+- `Reflection Contribution` lets LightPass consume `ReflectionEvaluatedRadiance`; LightPass applies the visible-surface Fresnel term before adding it.
+- `ReflectionEvaluatePass` writes unweighted one-bounce radiance into `ReflectionEvaluatedRadiance`, including direct light, diffuse IBL, specular IBL approximation, emissive, and miss/material-gate environment fallback.
+- `LightPass` applies distance fade for hits, visible-surface roughness weight, contribution intensity, and visible-surface Fresnel before additive composition.
 - Reflection hit direct lighting now uses the shared PBR direct-light BRDF helper.
 - Reflection hit diffuse/specular IBL uses the shared PBR IBL helpers, including BRDF LUT based specular IBL.
 - Reflection hit shading is organized as `PbrSurface -> PbrRadianceComponents -> evaluated radiance` in shared HLSL helpers.
-- `Reflection Radiance` debug view visualizes the current `ReflectionRadiance` texture with simple tone mapping.
-- Reflection radiance component debug views visualize the direct, diffuse IBL, specular IBL, and emissive contributions recomputed from the hit payload.
+- `Evaluated Radiance` debug view visualizes the unweighted `ReflectionEvaluatedRadiance` texture with simple tone mapping.
+- Evaluated-radiance component debug views visualize unweighted direct, diffuse IBL, specular IBL, and emissive components recomputed from the hit payload.
 - `Reflection Contribution Max Distance` fades the provisional contribution by hit distance, reducing far-hit color bleeding while the reflection color is still approximate.
 - Material Gate is disabled by default: `maxRoughness = 1.0`, `minMetallic = 0.0`, preserving the initial "trace all visible pixels" behavior.
 - When `Material Gate` is enabled in the Debug UI, the pass uses `HybridReflectionSettings::maxRoughness` and `minMetallic`.
@@ -153,7 +154,7 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 - 1 SRV: material buffer for hit material parameter debug
 - 1 SRV table: scene texture table for hit albedo texture debug
 - 4 SRVs: ReflectionRayHit, ReflectionRayColor (albedo), ReflectionRayMaterial, and ReflectionRayEmission for reflection evaluation and debug paths
-- 1 SRV: ReflectionRadiance for LightPass contribution composition and radiance debug
+- 1 SRV: ReflectionEvaluatedRadiance for LightPass contribution composition and radiance debug
 
 ## Resource States
 

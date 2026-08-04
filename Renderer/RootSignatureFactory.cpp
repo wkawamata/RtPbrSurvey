@@ -22,7 +22,7 @@ struct DescriptorRanges
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRayColorSrv;
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRayMaterialSrv;
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRayEmissionSrv;
-    CD3DX12_DESCRIPTOR_RANGE1 reflectionRadianceSrv;
+    CD3DX12_DESCRIPTOR_RANGE1 reflectionEvaluatedRadianceSrv;
     CD3DX12_DESCRIPTOR_RANGE1 cameraCbv;
     CD3DX12_DESCRIPTOR_RANGE1 lightCbv;
 };
@@ -119,10 +119,10 @@ DescriptorRanges CreateDescriptorRanges(UINT textureSrvCount, UINT gbufferSrvCou
                                          D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
     // t0 : Reflection radiance buffer SRV, space 9
-    ranges.reflectionRadianceSrv.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+    ranges.reflectionEvaluatedRadianceSrv.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
                                       1,
                                       RootSignatureLayout::kBaseRegister,
-                                      RootSignatureLayout::kReflectionRadianceSrvSpace,
+                                      RootSignatureLayout::kReflectionEvaluatedRadianceSrvSpace,
                                       D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
     ranges.cameraCbv.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
@@ -177,8 +177,8 @@ void CreateRootParameters(const DescriptorRanges& ranges,
         1, &ranges.reflectionRayMaterialSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Reflection ray material buffer
     rootParameters[RootSignatureLayout::ReflectionRayEmission].InitAsDescriptorTable(
         1, &ranges.reflectionRayEmissionSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Reflection ray emission buffer
-    rootParameters[RootSignatureLayout::ReflectionRadiance].InitAsDescriptorTable(
-        1, &ranges.reflectionRadianceSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Reflection radiance buffer
+    rootParameters[RootSignatureLayout::ReflectionEvaluatedRadiance].InitAsDescriptorTable(
+        1, &ranges.reflectionEvaluatedRadianceSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Evaluated reflection radiance
     rootParameters[RootSignatureLayout::SceneDrawConstants].InitAsConstants(
         RootSignatureLayout::kSceneDrawConstantsCount,
         RootSignatureLayout::kSceneDrawConstantsRegister,
