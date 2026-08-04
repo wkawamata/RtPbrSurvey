@@ -6,54 +6,11 @@ Recommendation for the shape of a full-screen HybridReflectionPass using RayQuer
 
 Current implementation status: HybridReflectionPass is wired into the render graph and writes separate raw hit and material payloads. `ReflectionEvaluatePass` consumes those payloads and produces the pre-composite reflection signal. `LightPass` applies the visible-surface Fresnel term and adds the result to the lit scene.
 
-## Reflection Resource Contract
+## Reflection Contract Summary
 
-All resources below are render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` textures. The contract describes the current implementation; it does not imply that temporal accumulation, denoising, DLSS Ray Reconstruction, or PathTracing comparison is already integrated.
+The implementation was developed by separating raw RayQuery payloads, hit-surface radiance evaluation, and final visible-surface composition. The stable pass, resource, weighting, and future history contracts extracted from that work are maintained in [Hybrid Reflection Contracts](hybrid-reflection-contracts.md).
 
-| Resource | Producer | Meaning and channels | Classification | Current / future consumers |
-|----------|----------|----------------------|----------------|----------------------------|
-| `ReflectionRayHit` | `HybridReflectionPass` | `.x`: committed ray distance; `.y`: hit flag (`1` hit, `0` miss or gated pixel); `.zw`: oct-encoded world-space hit normal. A zero value is written for background, gated pixels, and misses. | Raw ray signal | `ReflectionEvaluatePass`, reflection debug views, and `LightPass` hit overlays. A future temporal stage may use hit flag, distance, and normal for rejection and confidence. |
-| `ReflectionRayColor` | `HybridReflectionPass` | `.rgb`: linear hit albedo; `.a`: `1` for a committed hit and `0` otherwise. Despite the historical name, this is neither emissive nor reflected color. | Material/debug payload | `ReflectionEvaluatePass`, albedo debug view, and the temporary hit-albedo overlay. A future denoiser should not treat it as radiance. |
-| `ReflectionRayMaterial` | `HybridReflectionPass` | `.x`: metallic; `.y`: roughness; `.z`: unlit flag; `.w`: reserved. | Material/debug payload | `ReflectionEvaluatePass` and material/component debug views. Roughness is a likely future confidence and filtering input. |
-| `ReflectionRayEmission` | `HybridReflectionPass` | `.rgb`: linear hit emissive after material emissive scale; `.a`: `1` for a committed hit and `0` otherwise. | Material/debug payload | `ReflectionEvaluatePass` and emission/component debug views. It remains separate from albedo and evaluated radiance. |
-| `ReflectionEvaluatedRadiance` | `ReflectionEvaluatePass` | `.rgb`: linear HDR one-bounce radiance; `.a`: `1`. On a hit it contains evaluated hit-surface direct light, diffuse/specular IBL, emissive, and unlit handling. On a miss or material-gated pixel it contains the roughness-filtered environment fallback. It excludes distance fade, visible-surface roughness weight, user contribution intensity, visible-surface Fresnel, and temporal/spatial filtering. | Evaluated, unweighted radiance | `LightPass` and the evaluated-radiance debug view. This is the current-frame input contract for future temporal accumulation/denoise. |
-| LightPass reflection contribution | `LightPass` | The selected unweighted reflection radiance multiplied by distance weight, visible roughness weight, contribution intensity, and visible-surface Fresnel, then additively composed with deferred lighting. The selected source is currently `ReflectionEvaluatedRadiance`; a future enabled temporal stage selects `ReflectionResolvedRadiance`. Miss and material-gated pixels use distance weight `1`. It has no standalone resource. | Final contribution | Final lit scene. It is not a raw denoiser input. |
-
-### Reflection History Contract
-
-This section fixes the resource ownership and reset boundary for a future temporal reflection stage. It does not mean that temporal accumulation, reprojection, rejection, or denoising is implemented.
-
-The temporal stage sits between `ReflectionEvaluatePass` and `LightPass`. It consumes the current-frame `ReflectionEvaluatedRadiance` and, when valid, the previous `ReflectionResolvedRadiance`. It produces the current-frame `ReflectionResolvedRadiance`. When temporal reflection is disabled, `LightPass` consumes `ReflectionEvaluatedRadiance` directly.
-
-`ReflectionResolvedRadiance` has the following semantic contract:
-
-- `.rgb` is linear HDR, unweighted one-bounce radiance after temporal reflection processing;
-- `.a` is `1`; history length, confidence, and rejection state are not packed into this channel;
-- it preserves the hit and environment-fallback meaning of `ReflectionEvaluatedRadiance`;
-- it excludes distance fade, visible-surface roughness weight, user contribution intensity, visible-surface Fresnel, and final LightPass composition;
-- it is the only temporally resolved reflection input consumed by `LightPass`.
-
-The engine owns two persistent, render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` physical slots for `ReflectionResolvedRadiance`. Their logical roles are `historyRead` and `historyWrite`. A dedicated reflection-history index selects those roles; swap-chain `m_currentFrameIndex` and `m_previousFrameIndex` do not own or select reflection history. `ReflectionEvaluatedRadiance` is current-frame input and is never reused as a history slot.
-
-The roles are exchanged only after the temporal reflection pass successfully produces the current resolved result. Frames that do not run that pass do not advance reflection history. The engine, rather than an individual shader or `LightPass`, owns the history slots, role index, and validity state. Reflection history validity is independent of `m_temporalUpscalerHistoryReset`.
-
-A reset logically invalidates history. It does not require clearing both physical textures. On the first temporal reflection frame after reset, the pass must not sample old history; it produces `ReflectionResolvedRadiance` from the current `ReflectionEvaluatedRadiance`, then marks the result valid and makes it the next `historyRead` slot. A pending reset is cleared only after that output has been produced successfully. If temporal reflection is disabled, history remains invalid.
-
-Hard-reset events are:
-
-- initial history allocation or reallocation;
-- output-size or render-size changes;
-- scene reload, scene close, or rendering-path changes;
-- an explicit camera cut, teleport, or camera-preset change;
-- Hybrid Reflection or temporal reflection enable-state changes;
-- material, lighting, or environment changes;
-- Material Gate or another ray-selection setting change that changes the evaluated signal.
-
-Normal camera movement is not a hard reset; future reprojection handles it. Camera-cut detection is an explicit engine signal in this contract, not a matrix-difference heuristic. Post-resolve controls do not reset history: distance fade, maximum distance, visible-surface roughness weight, contribution intensity, hit overlay, exposure, tone mapping, and debug-view selection.
-
-Future rejection work may consume current and previous depth or reconstructed position, visible-surface normal and roughness, motion vectors, reflection hit flag, hit distance, and hit normal. Their thresholds, packing, auxiliary history resources, and algorithms are deliberately outside this history-ownership phase.
-
-PathTracing comparison should compare signals at a named boundary. `ReflectionEvaluatedRadiance` is the unweighted, pre-temporal and pre-visible-surface-composite boundary; the final LightPass contribution is weighted and embedded in the lit scene. A future reference signal should match one of those boundaries explicitly. DLSS Ray Reconstruction may motivate a different input contract later, but no Streamline or DLSS RR backend is wired here.
+This foundation note retains implementation background and staged design decisions. It must not be used as a second normative definition of the reflection data contract.
 
 ## Existing Pass Survey
 
@@ -134,9 +91,6 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 - `Environment` overlay mode tints hit pixels with the existing specular prefilter environment sample along the reflection direction. It validates the reflection-direction sampling path, not scene-surface reflection.
 - `Hit Normal` overlay mode decodes the hit normal stored in `ReflectionRayHit.zw` and tints hit pixels with normal color over the lit scene.
 - `Reflection Material Params` debug view visualizes `ReflectionRayMaterial` as `R = metallic`, `G = roughness`, `B = unlit flag`.
-- `Reflection Contribution` lets LightPass consume `ReflectionEvaluatedRadiance`; LightPass applies the visible-surface Fresnel term before adding it.
-- `ReflectionEvaluatePass` writes unweighted one-bounce radiance into `ReflectionEvaluatedRadiance`, including direct light, diffuse IBL, specular IBL approximation, emissive, and miss/material-gate environment fallback.
-- `LightPass` applies distance fade for hits, visible-surface roughness weight, contribution intensity, and visible-surface Fresnel before additive composition.
 - Reflection hit direct lighting now uses the shared PBR direct-light BRDF helper.
 - Reflection hit diffuse/specular IBL uses the shared PBR IBL helpers, including BRDF LUT based specular IBL.
 - Reflection hit shading is organized as `PbrSurface -> PbrRadianceComponents -> evaluated radiance` in shared HLSL helpers.
