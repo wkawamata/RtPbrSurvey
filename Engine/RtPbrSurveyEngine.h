@@ -718,6 +718,14 @@ private:
     Engine::TemporalUpscalerSupportInfo m_temporalUpscalerSupport;
     Engine::TemporalUpscalerSettings m_temporalUpscalerSettings;
     bool m_temporalUpscalerHistoryReset = true;
+    struct ReflectionHistoryState
+    {
+        bool valid = false;
+        UINT readIndex = 0;
+    };
+    // Reflection history is independent of swap-chain frame indices and temporal upscaler history.
+    // readIndex advances only after a future temporal reflection pass successfully writes its output.
+    ReflectionHistoryState m_reflectionHistoryState;
     Engine::CameraProjection m_previousCameraProjection = Engine::CameraProjection::Perspective;
     float m_previousCameraFov = 60.0f;
     float m_previousCameraOrthographicHeight = 10.0f;
@@ -1005,6 +1013,7 @@ private:
                                       const DepthPrePassPipelineDefinition& definition);
     void UpdateHdr10DisplayMode();
     void UpdateCameraConstantBuffer();
+    void InvalidateReflectionHistory();
     void CreateConstantBuffer(ConstantBufferResource& constantBuffer, const void* initialData, UINT sizeInBytes);
     void CreateDepthStencil(UINT width, UINT height);
     void RegisterDepthStencil();

@@ -54,6 +54,8 @@ evaluated_or_resolved_radiance
 
 The engine owns two persistent, render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` physical slots for future `ReflectionResolvedRadiance` history. Their logical roles are `historyRead` and `historyWrite`.
 
+The CPU-side `ReflectionHistoryState` scaffold currently owns validity and the dedicated read index. The physical history textures and the pass that advances the index are not implemented yet.
+
 - A dedicated reflection-history index selects the roles.
 - Swap-chain `m_currentFrameIndex` and `m_previousFrameIndex` do not own or select reflection history.
 - `ReflectionEvaluatedRadiance` is current-frame input and is never reused as a history slot.

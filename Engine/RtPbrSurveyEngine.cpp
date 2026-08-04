@@ -344,7 +344,25 @@ void RtPbrSurveyEngine::SetUpdateHandler(UpdateHandler handler)
 
 void RtPbrSurveyEngine::SetLightingParams(const LightingParams& params)
 {
+    const bool reflectionHistoryChanged =
+        m_lightingParams.lightDirection.x != params.lightDirection.x ||
+        m_lightingParams.lightDirection.y != params.lightDirection.y ||
+        m_lightingParams.lightDirection.z != params.lightDirection.z ||
+        m_lightingParams.lightColor.x != params.lightColor.x ||
+        m_lightingParams.lightColor.y != params.lightColor.y ||
+        m_lightingParams.lightColor.z != params.lightColor.z ||
+        m_lightingParams.iblIntensity != params.iblIntensity ||
+        m_lightingParams.diffuseIntensity != params.diffuseIntensity ||
+        m_lightingParams.directLightEnabled != params.directLightEnabled ||
+        m_lightingParams.diffuseIblEnabled != params.diffuseIblEnabled ||
+        m_lightingParams.specularIblEnabled != params.specularIblEnabled ||
+        m_lightingParams.emissiveEnabled != params.emissiveEnabled;
+
     m_lightingParams = params;
+    if (reflectionHistoryChanged)
+    {
+        InvalidateReflectionHistory();
+    }
 }
 
 void RtPbrSurveyEngine::SetShadowSettings(const ShadowSettings& settings)
@@ -397,7 +415,19 @@ D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveToneMapSceneColorSrv() con
 
 void RtPbrSurveyEngine::SetHybridReflectionSettings(const HybridReflectionSettings& settings)
 {
+    const bool reflectionHistoryChanged =
+        m_hybridReflectionSettings.enabled != settings.enabled ||
+        m_hybridReflectionSettings.materialGateEnabled != settings.materialGateEnabled ||
+        m_hybridReflectionSettings.maxRoughness != settings.maxRoughness ||
+        m_hybridReflectionSettings.minMetallic != settings.minMetallic ||
+        m_hybridReflectionSettings.hitNormalSource != settings.hitNormalSource ||
+        m_hybridReflectionSettings.contributionEnabled != settings.contributionEnabled;
+
     m_hybridReflectionSettings = settings;
+    if (reflectionHistoryChanged)
+    {
+        InvalidateReflectionHistory();
+    }
 }
 
 void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialParams& params)
@@ -408,11 +438,19 @@ void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialPara
     }
 
     Engine::Material& material = m_materialData[materialIndex];
+    const bool reflectionHistoryChanged =
+        material.roughnessFactor != params.roughnessFactor ||
+        material.metallicFactor != params.metallicFactor ||
+        material.emissiveScale != params.emissiveScale;
     material.roughnessFactor = params.roughnessFactor;
     material.metallicFactor = params.metallicFactor;
     material.ambientOcclusionFactor = params.ambientOcclusionFactor;
     material.emissiveScale = params.emissiveScale;
     m_materialBuffer.Update(m_materialData);
+    if (reflectionHistoryChanged)
+    {
+        InvalidateReflectionHistory();
+    }
 }
 
 auto RtPbrSurveyEngine::MakeLightingConstants() const -> LightingConstants
@@ -455,6 +493,10 @@ auto RtPbrSurveyEngine::MakeLightingConstants() const -> LightingConstants
 
 void RtPbrSurveyEngine::SetRenderingPath(RenderingPath renderingPath)
 {
+    if (m_renderingPath != renderingPath)
+    {
+        InvalidateReflectionHistory();
+    }
     m_renderingPath = renderingPath;
 }
 
@@ -491,6 +533,7 @@ void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
         static_cast<size_t>(kMaxInstanceCount)));
 
     WaitForGpu();
+    InvalidateReflectionHistory();
     m_temporalUpscalerHistoryReset = true;
     m_temporalFrameIndex = 0;
     ReleaseSceneResources();
@@ -533,6 +576,7 @@ void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
 void RtPbrSurveyEngine::CloseSceneResources()
 {
     WaitForGpu();
+    InvalidateReflectionHistory();
     ReleaseSceneResources();
 }
 
@@ -613,6 +657,7 @@ void RtPbrSurveyEngine::ReloadEnvironmentResources(const Engine::ProceduralEnvir
     MyDx12Util::ScopedTimer _reloadTimer("ReloadEnvironmentResources total");
 
     m_environmentSettings = settings;
+    InvalidateReflectionHistory();
 
     WCHAR debugMessage[160] = {};
     swprintf_s(debugMessage, L"ReloadEnvironmentResources source=%s\n", EnvironmentSourceName(settings.source));
@@ -690,6 +735,7 @@ void RtPbrSurveyEngine::UpdateCameraConstantBuffer()
         m_previousCameraUp.y != m_scene.camera.up.y || m_previousCameraUp.z != m_scene.camera.up.z;
     if (cameraHistoryChanged)
     {
+        InvalidateReflectionHistory();
         m_temporalUpscalerHistoryReset = true;
         m_temporalFrameIndex = 0;
         m_previousCameraProjection = m_scene.camera.projection;
@@ -749,6 +795,11 @@ void RtPbrSurveyEngine::UpdateCameraConstantBuffer()
             static_cast<float>((std::max)(m_renderWidth, 1u)),
         -2.0f * (m_jitterOffsetPixels.y - m_previousJitterOffsetPixels.y) /
             static_cast<float>((std::max)(m_renderHeight, 1u))};
+}
+
+void RtPbrSurveyEngine::InvalidateReflectionHistory()
+{
+    m_reflectionHistoryState.valid = false;
 }
 
 // Load the rendering pipeline dependencies.
@@ -3183,6 +3234,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_width = width;
     m_height = height;
     UpdateRenderDimensions();
+    InvalidateReflectionHistory();
     m_temporalUpscalerHistoryReset = true;
     m_temporalFrameIndex = 0;
 
