@@ -16,6 +16,7 @@
 void RtPbrSurveyEngine::BuildRenderPasses()
 {
     m_temporalUpscalerOutputAvailable = false;
+    m_reflectionHistoryCommitPending = false;
     m_renderGraphRuntime.Graph().Clear();
     m_renderGraphRuntime.Operations().Clear();
 

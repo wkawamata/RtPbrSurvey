@@ -56,12 +56,12 @@ evaluated_or_resolved_radiance
 
 The engine owns two persistent, render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` physical slots for future `ReflectionResolvedRadiance` history. Their logical roles are `historyRead` and `historyWrite`.
 
-The CPU-side `ReflectionHistoryState` scaffold owns validity and the dedicated read index. The two persistent resource specifications, SRV/RTV slots, and role resolvers are registered. The registry creates the current GPU texture lazily when the identity temporal pass first declares its usage. History sampling, validity commit, and role advancement are not implemented yet.
+The CPU-side `ReflectionHistoryState` owns validity and the dedicated read index. The two persistent resource specifications, SRV/RTV slots, and role resolvers are registered. The registry creates each GPU texture lazily when it first becomes the current write target. After a frame containing `TemporalReflectionPass` is submitted to the direct queue, the engine promotes that output to valid history and exchanges the read/write roles. History sampling and temporal weighting are not implemented yet.
 
 - A dedicated reflection-history index selects the roles.
 - Swap-chain `m_currentFrameIndex` and `m_previousFrameIndex` do not own or select reflection history.
 - `ReflectionEvaluatedRadiance` is current-frame input and is never reused as a history slot.
-- The roles are exchanged only after `TemporalReflectionPass` successfully produces the current resolved result.
+- The roles are exchanged only after the command list containing `TemporalReflectionPass` is submitted to the direct queue.
 - A frame that does not run the temporal pass does not advance reflection history.
 - Reflection history validity is independent of `m_temporalUpscalerHistoryReset`.
 
@@ -80,7 +80,7 @@ Pass bindings may use semantic role names because their resolver callbacks are e
 - `ReflectionResolvedRadianceCurrentSrv` resolves to the SRV for `readIndex ^ 1`;
 - `ReflectionResolvedRadianceCurrentRtv` resolves to the RTV for `readIndex ^ 1`.
 
-The selected indices remain constant throughout one frame. The future temporal pass reads the physical history slot only when history is valid and writes the physical current slot. `LightPass` reads that same current slot. The role exchange occurs after successful temporal output production and cannot happen while the frame graph is being executed.
+The selected indices remain constant throughout one frame. The future temporal pass reads the physical history slot only when history is valid and writes the physical current slot. `LightPass` reads that same current slot. The role exchange occurs after direct-queue submission and cannot happen while the frame graph is being executed. The next frame is submitted to the same queue, so queue ordering makes the promoted output available without a CPU-side GPU completion wait.
 
 ### Descriptor and RTV Inventory
 

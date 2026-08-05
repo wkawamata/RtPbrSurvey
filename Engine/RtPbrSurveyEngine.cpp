@@ -807,6 +807,18 @@ void RtPbrSurveyEngine::InvalidateReflectionHistory()
     m_reflectionHistoryState.valid = false;
 }
 
+void RtPbrSurveyEngine::CommitReflectionHistoryFrame()
+{
+    if (!m_reflectionHistoryCommitPending)
+    {
+        return;
+    }
+
+    m_reflectionHistoryState.readIndex ^= 1u;
+    m_reflectionHistoryState.valid = true;
+    m_reflectionHistoryCommitPending = false;
+}
+
 // Load the rendering pipeline dependencies.
 void RtPbrSurveyEngine::LoadPipeline()
 {
@@ -3211,6 +3223,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     // Execute the command list.
     ID3D12CommandList* ppCommandLists[] = {m_commandList.Get()};
     m_graphicsDevice.ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+    CommitReflectionHistoryFrame();
 
     if (m_debugViewSettings.hdrDumpPending)
     {
@@ -3967,6 +3980,7 @@ void RtPbrSurveyEngine::ExecuteReflectionEvaluatePass(const RenderPass& pass)
 void RtPbrSurveyEngine::ExecuteTemporalReflectionPass(const RenderPass& pass)
 {
     Engine::RecordTemporalReflectionPass(m_commandList.Get());
+    m_reflectionHistoryCommitPending = true;
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Temporal Reflection Pass (Identity)");
 }
 

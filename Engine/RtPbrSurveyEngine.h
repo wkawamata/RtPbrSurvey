@@ -737,8 +737,9 @@ private:
         UINT readIndex = 0;
     };
     // Reflection history is independent of swap-chain frame indices and temporal upscaler history.
-    // readIndex advances only after a future temporal reflection pass successfully writes its output.
+    // readIndex advances only after a command list containing TemporalReflectionPass is submitted.
     ReflectionHistoryState m_reflectionHistoryState;
+    bool m_reflectionHistoryCommitPending = false;
     Engine::CameraProjection m_previousCameraProjection = Engine::CameraProjection::Perspective;
     float m_previousCameraFov = 60.0f;
     float m_previousCameraOrthographicHeight = 10.0f;
@@ -1032,6 +1033,7 @@ private:
     void UpdateHdr10DisplayMode();
     void UpdateCameraConstantBuffer();
     void InvalidateReflectionHistory();
+    void CommitReflectionHistoryFrame();
     void CreateConstantBuffer(ConstantBufferResource& constantBuffer, const void* initialData, UINT sizeInBytes);
     void CreateDepthStencil(UINT width, UINT height);
     void RegisterDepthStencil();

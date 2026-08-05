@@ -22,9 +22,17 @@ This log records implementation phases and validation results for the reflection
 - Commits: `4e57d9d`, `f413f60`, `ceb091b`.
 - Validation: Debug x64 build and HLSL compilation succeeded with zero errors. DamagedHelmet rendered through the identity-resolve path. The D3D12 Debug Layer reported zero errors and zero warnings.
 
+## 2026-08-06: History Commit and Role Exchange
+
+- Added a per-frame pending-commit flag set only when `TemporalReflectionPass` records its identity output.
+- Commit occurs after the containing command list is submitted to the direct queue, not while the frame graph is executing.
+- A committed output becomes valid history and its physical slot becomes the next `historyRead`; the opposite slot becomes the next write target.
+- Direct-queue ordering provides the GPU dependency between the submitted producer frame and the following consumer frame without a CPU wait.
+- History sampling and temporal weighting remain pending.
+- Validation: Debug x64 build succeeded with zero errors. An eight-second DamagedHelmet run exercised continuous role exchange with zero D3D12 Debug Layer errors and zero warnings.
+
 ## Next Phase
 
-- Define and implement the safe commit point for a successfully produced resolved frame.
-- Promote the first identity-resolved output to valid history.
-- Exchange read/write roles without changing bindings during execution of the current frame graph.
-- Do not add temporal weighting, reprojection, or rejection until the ping-pong lifecycle is verified.
+- Bind valid previous resolved radiance as a read-only history input.
+- Keep the shader output identical while verifying that both physical slots alternate safely.
+- Do not add temporal weighting, reprojection, or rejection until the history-read lifecycle is verified.
