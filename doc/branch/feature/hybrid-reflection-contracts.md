@@ -54,7 +54,7 @@ evaluated_or_resolved_radiance
 
 The engine owns two persistent, render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` physical slots for future `ReflectionResolvedRadiance` history. Their logical roles are `historyRead` and `historyWrite`.
 
-The CPU-side `ReflectionHistoryState` scaffold currently owns validity and the dedicated read index. The physical history textures and the pass that advances the index are not implemented yet.
+The CPU-side `ReflectionHistoryState` scaffold owns validity and the dedicated read index. The two persistent resource specifications, SRV/RTV slots, and role resolvers are registered. The registry creates their GPU textures lazily when a future temporal pass first declares a usage. The pass that writes the textures and advances the index is not implemented yet.
 
 - A dedicated reflection-history index selects the roles.
 - Swap-chain `m_currentFrameIndex` and `m_previousFrameIndex` do not own or select reflection history.
