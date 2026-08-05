@@ -23,6 +23,7 @@
 #include "Renderer/HybridReflectionPass.h"
 #include "Renderer/LightingPass.h"
 #include "Renderer/ReflectionEvaluatePass.h"
+#include "Renderer/TemporalReflectionPass.h"
 #include "Renderer/Material.h"
 #include "Renderer/MaterialBuffer.h"
 #include "Renderer/StagedDescriptorAllocator.h"
@@ -328,6 +329,7 @@ private:
             static constexpr const char* Lighting = "Lighting";
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
             static constexpr const char* ReflectionEvaluate = "ReflectionEvaluate";
+            static constexpr const char* TemporalReflection = "TemporalReflection";
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* GBufferDebug = "GBufferDebug";
             static constexpr const char* HybridReflection = "HybridReflection";
@@ -396,6 +398,7 @@ private:
             static constexpr const char* Lighting = "Lighting";
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
             static constexpr const char* ReflectionEvaluate = "ReflectionEvaluate";
+            static constexpr const char* TemporalReflection = "TemporalReflection";
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* TemporalUpscaler = "TemporalUpscaler";
             static constexpr const char* DebugDump = "DebugDump";
@@ -948,6 +951,7 @@ private:
         GraphicsPipelineShaderSet lighting;
         GraphicsPipelineShaderSet lightingDebugGradient;
         GraphicsPipelineShaderSet reflectionEvaluate;
+        GraphicsPipelineShaderSet temporalReflection;
         GraphicsPipelineShaderSet toneMap;
         ShaderBytecode hybridReflection;
         ShaderBytecode proceduralEnv;
@@ -1097,6 +1101,7 @@ private:
     RenderPass MakeForwardPass();
     RenderPass MakeLightingPass();
     RenderPass MakeReflectionEvaluatePass();
+    RenderPass MakeTemporalReflectionPass();
     RenderPass MakeLightingDebugGradientPass();
     RenderPass MakeTemporalUpscalerPass();
     RenderPass MakeToneMapPass();
@@ -1164,6 +1169,7 @@ private:
     void ExecuteForwardPass(const RenderPass& pass);
     void ExecuteLightingPass(const RenderPass& pass);
     void ExecuteReflectionEvaluatePass(const RenderPass& pass);
+    void ExecuteTemporalReflectionPass(const RenderPass& pass);
     void ExecuteLightingDebugGradientPass(const RenderPass& pass);
     void ExecuteTemporalUpscalerPass(const RenderPass& pass);
     void ExecuteToneMapPass(const RenderPass& pass);

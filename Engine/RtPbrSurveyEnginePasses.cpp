@@ -64,6 +64,10 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
                     m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance)
                 {
                     AddPass(MakeReflectionEvaluatePass());
+                    if (m_hybridReflectionSettings.contributionEnabled)
+                    {
+                        AddPass(MakeTemporalReflectionPass());
+                    }
                 }
             }
             if (m_specularDebugRayQueryRequested)
@@ -288,7 +292,9 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
         reads.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
         if (m_hybridReflectionSettings.enabled && m_hybridReflectionSettings.contributionEnabled)
         {
-            reads.push_back({kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+            const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
+            reads.push_back(
+                {kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
         }
         if (m_hybridReflectionSettings.enabled &&
             (m_hybridReflectionSettings.contributionEnabled || m_hybridReflectionSettings.hitOverlayEnabled))
@@ -318,7 +324,8 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
     if (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
         m_hybridReflectionSettings.contributionEnabled)
     {
-        builder.Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance, Desc::ReflectionEvaluatedRadianceSrv);
+        builder.Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance,
+                           Desc::ReflectionResolvedRadianceCurrentSrv);
     }
     if (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
         (m_hybridReflectionSettings.contributionEnabled || m_hybridReflectionSettings.hitOverlayEnabled))
@@ -357,6 +364,20 @@ auto RtPbrSurveyEngine::MakeReflectionEvaluatePass() -> RenderPass
         .Descriptor(RootSignatureLayout::LightConstants, Desc::LightCbv)
         .Rtv(RtvName::ReflectionEvaluatedRadiance)
         .Operation(Op::ReflectionEvaluate, &RtPbrSurveyEngine::ExecuteReflectionEvaluatePass)
+        .Build();
+}
+
+auto RtPbrSurveyEngine::MakeTemporalReflectionPass() -> RenderPass
+{
+    const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"TemporalReflectionPass (Identity)")
+        .Pipeline(Pipe::TemporalReflection)
+        .Reads({{kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Writes({{kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance, Desc::ReflectionEvaluatedRadianceSrv)
+        .Rtv(RtvName::ReflectionResolvedRadianceCurrent)
+        .Operation(Op::TemporalReflection, &RtPbrSurveyEngine::ExecuteTemporalReflectionPass)
         .Build();
 }
 

@@ -10,16 +10,16 @@ This document is the focused contract for Hybrid Reflection pass boundaries, res
 2. `ReflectionEvaluatePass` consumes those payloads and evaluates current-frame, unweighted one-bounce radiance before temporal processing and final visible-surface weighting.
 3. `LightPass` applies distance, visible-surface roughness, user intensity, and visible-surface Fresnel weights, then additively composites the result with deferred lighting.
 
-A future `TemporalReflectionPass` is inserted between `ReflectionEvaluatePass` and `LightPass`:
+`TemporalReflectionPass` is inserted between `ReflectionEvaluatePass` and `LightPass`:
 
 ```text
 HybridReflectionPass
     -> ReflectionEvaluatePass
-    -> [future TemporalReflectionPass]
+    -> TemporalReflectionPass
     -> LightPass
 ```
 
-When temporal reflection is disabled, `LightPass` consumes `ReflectionEvaluatedRadiance`. When it is enabled, `LightPass` consumes `ReflectionResolvedRadiance`.
+The current bootstrap implementation is an identity resolve: it copies `ReflectionEvaluatedRadiance` into the current `ReflectionResolvedRadiance` slot without reading history. `LightPass` consumes that resolved output when reflection contribution is enabled. A future temporal enable control may bypass the pass and select `ReflectionEvaluatedRadiance` directly.
 
 ## Data Contract
 
@@ -32,7 +32,7 @@ All currently implemented reflection resources are render-resolution `DXGI_FORMA
 | `ReflectionRayMaterial` | `HybridReflectionPass` | `.x`: metallic; `.y`: roughness; `.z`: unlit flag; `.w`: reserved. | Material/debug payload | `ReflectionEvaluatePass` and material debug views. |
 | `ReflectionRayEmission` | `HybridReflectionPass` | `.rgb`: linear hit emissive after material emissive scale; `.a`: committed-hit validity. | Material/debug payload | `ReflectionEvaluatePass` and emission debug views. |
 | `ReflectionEvaluatedRadiance` | `ReflectionEvaluatePass` | `.rgb`: current-frame linear HDR, unweighted one-bounce radiance; `.a`: `1`. Hits contain evaluated hit-surface lighting and emission. Miss and gated pixels contain the roughness-filtered environment fallback. | Pre-temporal evaluated radiance | Current `LightPass`, evaluated-radiance debug view, and future `TemporalReflectionPass`. |
-| `ReflectionResolvedRadiance` | Future `TemporalReflectionPass` | `.rgb`: temporally processed linear HDR, unweighted one-bounce radiance; `.a`: `1`. It preserves the evaluated hit and environment-fallback semantics. | Post-temporal resolved radiance | Future temporal-enabled `LightPass`. Not implemented yet. |
+| `ReflectionResolvedRadiance` | `TemporalReflectionPass` | `.rgb`: resolved linear HDR, unweighted one-bounce radiance; `.a`: `1`. It preserves the evaluated hit and environment-fallback semantics. The current identity implementation does not accumulate history. | Resolved-radiance boundary | `LightPass`. Future temporal processing remains inside this boundary. |
 
 The current code and this contract use `ReflectionEvaluatedRadiance`. The older `ReflectionRadiance` term refers to the same pre-temporal boundary in historical discussion and must not be interpreted as a separate resource.
 
@@ -54,7 +54,7 @@ evaluated_or_resolved_radiance
 
 The engine owns two persistent, render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` physical slots for future `ReflectionResolvedRadiance` history. Their logical roles are `historyRead` and `historyWrite`.
 
-The CPU-side `ReflectionHistoryState` scaffold owns validity and the dedicated read index. The two persistent resource specifications, SRV/RTV slots, and role resolvers are registered. The registry creates their GPU textures lazily when a future temporal pass first declares a usage. The pass that writes the textures and advances the index is not implemented yet.
+The CPU-side `ReflectionHistoryState` scaffold owns validity and the dedicated read index. The two persistent resource specifications, SRV/RTV slots, and role resolvers are registered. The registry creates the current GPU texture lazily when the identity temporal pass first declares its usage. History sampling, validity commit, and role advancement are not implemented yet.
 
 - A dedicated reflection-history index selects the roles.
 - Swap-chain `m_currentFrameIndex` and `m_previousFrameIndex` do not own or select reflection history.

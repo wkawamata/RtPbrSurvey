@@ -141,6 +141,9 @@
     <ClInclude Include="Renderer\ReflectionEvaluatePass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\TemporalReflectionPass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\ShadowMaskDebugPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -347,6 +350,9 @@
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\TemporalReflectionPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\MaterialBuffer.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
@@ -452,6 +458,9 @@
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_ReflectionEvaluate.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_TemporalReflection.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_RayQueryShadow.hlsl">

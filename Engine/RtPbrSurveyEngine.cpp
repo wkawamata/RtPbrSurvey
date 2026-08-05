@@ -53,6 +53,7 @@
 #include "Renderer\HybridReflectionPass.h"
 #include "Renderer\LightingPass.h"
 #include "Renderer\ReflectionEvaluatePass.h"
+#include "Renderer\TemporalReflectionPass.h"
 #include "Renderer\Material.h"
 #include "Renderer\PipelineFactory.h"
 #include "Renderer\RayQueryShadowPass.h"
@@ -1806,6 +1807,8 @@ auto RtPbrSurveyEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
                                      LoadShaderBytecode(L"shaders_LightPassDebugGradient_PSMain.cso")};
     shaders.reflectionEvaluate = {LoadShaderBytecode(L"shaders_ReflectionEvaluate_VSMain.cso"),
                                   LoadShaderBytecode(L"shaders_ReflectionEvaluate_PSMain.cso")};
+    shaders.temporalReflection = {LoadShaderBytecode(L"shaders_TemporalReflection_VSMain.cso"),
+                                  LoadShaderBytecode(L"shaders_TemporalReflection_PSMain.cso")};
     shaders.toneMap = {LoadShaderBytecode(L"shaders_ToneMap_VSMain.cso"),
                        LoadShaderBytecode(L"shaders_ToneMap_PSMain.cso")};
     shaders.hybridReflection = LoadShaderBytecode(L"shaders_HybridReflection_CSMain.cso");
@@ -1889,6 +1892,7 @@ void RtPbrSurveyEngine::RegisterPipelineStates(const PipelineShaderBytecode& sha
         {{Pipe::Lighting, shaders.lighting, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::LightingDebugGradient, shaders.lightingDebugGradient, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::ReflectionEvaluate, shaders.reflectionEvaluate, DXGI_FORMAT_R16G16B16A16_FLOAT},
+         {Pipe::TemporalReflection, shaders.temporalReflection, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::ToneMap, shaders.toneMap, m_backBufferFormat},
          {Pipe::GBufferDebug, shaders.gbufferDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::ReflectionRayHitDebug, shaders.reflectionRayHitDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
@@ -3958,6 +3962,12 @@ void RtPbrSurveyEngine::ExecuteReflectionEvaluatePass(const RenderPass& pass)
 {
     Engine::RecordReflectionEvaluatePass(m_commandList.Get());
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Reflection Evaluate Pass");
+}
+
+void RtPbrSurveyEngine::ExecuteTemporalReflectionPass(const RenderPass& pass)
+{
+    Engine::RecordTemporalReflectionPass(m_commandList.Get());
+    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Temporal Reflection Pass (Identity)");
 }
 
 void RtPbrSurveyEngine::ExecuteLightingDebugGradientPass(const RenderPass& pass)
