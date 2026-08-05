@@ -63,6 +63,33 @@ The CPU-side `ReflectionHistoryState` scaffold currently owns validity and the d
 - A frame that does not run the temporal pass does not advance reflection history.
 - Reflection history validity is independent of `m_temporalUpscalerHistoryReset`.
 
+### Resource and Binding Names
+
+The two physical RenderGraph resources have stable names:
+
+- `ReflectionResolvedRadiance.0`
+- `ReflectionResolvedRadiance.1`
+
+RenderGraph read/write usages always reference these physical names. At graph construction, `readIndex` selects the read name and `readIndex ^ 1` selects the write name. A logical RenderGraph resource name such as `ReflectionResolvedRadiance.HistoryRead` must not dynamically resolve to different physical textures because the current resource-state tracker stores state by resource name; changing the physical target behind one name would make tracked and actual D3D12 states diverge after a role exchange.
+
+Pass bindings may use semantic role names because their resolver callbacks are evaluated when commands are recorded:
+
+- `ReflectionResolvedRadianceHistorySrv` resolves to the SRV for `readIndex`;
+- `ReflectionResolvedRadianceCurrentSrv` resolves to the SRV for `readIndex ^ 1`;
+- `ReflectionResolvedRadianceCurrentRtv` resolves to the RTV for `readIndex ^ 1`.
+
+The selected indices remain constant throughout one frame. The future temporal pass reads the physical history slot only when history is valid and writes the physical current slot. `LightPass` reads that same current slot. The role exchange occurs after successful temporal output production and cannot happen while the frame graph is being executed.
+
+### Descriptor and RTV Inventory
+
+Each physical slot owns one persistent SRV and one persistent RTV. The history pair therefore adds exactly:
+
+- two shader-visible SRV descriptors;
+- two RTV descriptors;
+- no UAV descriptors in the initial full-screen render-target implementation.
+
+The descriptors are allocated once with the render-size resources and recreated in place when those resources are recreated. Separate descriptors are preferred over rewriting a shared descriptor during ping-pong because they keep bindings stable and avoid descriptor mutation while earlier submitted GPU work may still reference them.
+
 ## History Reset
 
 A reset logically invalidates reflection history; it does not require clearing both physical textures. On the first temporal reflection frame after reset, the pass must not sample old history. It produces the current `ReflectionResolvedRadiance` without history, then marks that result valid and makes it the next `historyRead` slot. A pending reset is cleared only after successful output production. History remains invalid while temporal reflection is disabled.
