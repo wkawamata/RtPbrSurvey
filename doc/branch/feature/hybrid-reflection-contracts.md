@@ -4,6 +4,8 @@
 
 This document is the focused contract for Hybrid Reflection pass boundaries, resources, final composition, and future temporal-history ownership. It describes current behavior and explicitly named future boundaries. It does not imply that temporal accumulation, denoising, DLSS Ray Reconstruction, Streamline integration, or PathTracing is implemented.
 
+Implementation progress and validation results are recorded in the [Hybrid Reflection History Work Log](hybrid-reflection-history-worklog.md).
+
 ## Pass Flow
 
 1. `HybridReflectionPass` performs RayQuery tracing and produces raw hit and material payloads.
