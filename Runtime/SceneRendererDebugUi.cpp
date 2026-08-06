@@ -361,7 +361,7 @@ namespace
             "Contribution Max Distance", &reflectionSettings.contributionMaxDistance, 0.1f, 100.0f, 0.5f, 20.0f);
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Temporal History Weight", &reflectionSettings.temporalHistoryWeight, 0.0f, 0.98f, 0.05f, 0.0f);
-        ImGui::TextWrapped("Experimental blend without motion reprojection. Higher values stabilize static noise but produce motion trails.");
+        ImGui::TextWrapped("Experimental blend without motion reprojection. The current deterministic signal mainly exposes motion trails; future stochastic input may gain stability.");
         ImGui::EndDisabled();
 
         changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);

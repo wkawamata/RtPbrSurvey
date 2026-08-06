@@ -77,6 +77,21 @@ For each row, record:
 
 The automated observation attempt could not complete after the known duplicate DamagedHelmet load assertion. Subsequent Debug exe launches left a live process with `MainWindowHandle=0`, so Computer Use had no targetable window. All test processes and generated logs were removed. No visual result is claimed from that run.
 
+### Completed Observation
+
+A later clean session loaded DamagedHelmet exactly once and exercised the `ReflectionResolvedRadiance` view with controlled horizontal camera orbits.
+
+| Tested weight | Observation |
+|---------------|-------------|
+| `0.0` | Resolved output followed camera motion as a single image with no visible history trail. It is the correct identity baseline. |
+| approximately `0.5` | Motion lag was visible but decayed quickly. No compensating static-noise benefit was visible because the current one-ray signal is deterministic in a static scene. |
+| approximately `0.91` | Camera motion produced clear multiple-image trails at the helmet silhouette and internal reflection features. Newly revealed background retained prior object radiance temporarily. |
+| `0.98` | Direction reversal left a strong old-pose image and long-lived contamination. Convergence after motion was visibly slow. |
+
+The observed failure is screen-space history reuse without correspondence. It affects both the object silhouette and valid pixels inside the object; disocclusion-only rejection therefore cannot solve it. Motion reprojection is required before any nonzero weight can become a default. Depth/normal rejection is then required for newly revealed regions and correspondence failures.
+
+The current deterministic signal provides no measured reason to enable accumulation by default. Keep `Temporal History Weight = 0` outside explicit experiments until stochastic reflection sampling or another varying signal creates a stability problem worth trading history for.
+
 ## Decision Gate After Observation
 
 - If `0.5` already produces objectionable trails, motion reprojection is required before any further history weighting work.
@@ -84,8 +99,10 @@ The automated observation attempt could not complete after the known duplicate D
 - Hit distance, hit flag, hit normal, and visible roughness should be added to rejection only when the recorded failures show that surface depth/normal alone cannot separate reflection-signal changes.
 - Spatial denoise and confidence/history-length buffers remain deferred until reprojection and minimum rejection are measured.
 
+Decision from this observation: the first gate failed at approximately `0.5`; proceed to a small reprojection/rejection contract phase, not to stronger weighting or denoise.
+
 ## Next Phase
 
-- Execute the matrix in a clean app session and fill in the observation fields.
-- Derive the minimum reprojection inputs and rejection order from the recorded failures.
+- Define the minimum reprojection inputs, coordinate convention, and rejection order from the recorded failures.
+- Keep implementation disabled by default and preserve weight zero while that contract is reviewed.
 - Revisit the overall phase size at this boundary, as previously requested; the plan remains intentionally unshrunk for now.

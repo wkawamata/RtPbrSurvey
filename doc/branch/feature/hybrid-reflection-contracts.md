@@ -27,7 +27,7 @@ On the first frame after invalidation, `TemporalReflectionPass` copies `Reflecti
 resolved_rgb = lerp(current_evaluated_rgb, previous_resolved_rgb, history_weight)
 ```
 
-`history_weight` is clamped to `[0, 0.98]`. This bootstrap intentionally has no reprojection or rejection. It exists to make static stabilization and motion trails directly observable, not as a production temporal solution.
+`history_weight` is clamped to `[0, 0.98]`. This bootstrap intentionally has no reprojection or rejection. The current one-ray signal is deterministic in a static scene, so measured static noise reduction is negligible; nonzero weighting currently serves primarily to expose motion trails. The control remains useful for future stochastic input experiments, but zero remains the safe default until reprojection and rejection exist.
 
 ## Data Contract
 
