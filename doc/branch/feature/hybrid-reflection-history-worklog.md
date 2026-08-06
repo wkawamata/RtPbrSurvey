@@ -101,8 +101,18 @@ The current deterministic signal provides no measured reason to enable accumulat
 
 Decision from this observation: the first gate failed at approximately `0.5`; proceed to a small reprojection/rejection contract phase, not to stronger weighting or denoise.
 
+## 2026-08-06: Reprojection/Rejection Contract Audit
+
+- Confirmed `GBuffer.MotionVector` stores `previousNdc - currentNdc` in `R16G16_FLOAT` and includes camera plus `prevWorld` object motion.
+- Identified two non-geometric additions in the stored value: jitter cancellation and the Temporal Upscaler debug value offset. Reflection must subtract both before UV conversion.
+- Fixed the NDC-to-UV mapping, including the inverted Y sign, and made bounds rejection the first sample-validity test.
+- Confirmed current depth/normal alone cannot validate a previous-frame sample. Previous visible depth and world-space normal require auxiliary history under the same reflection-history ownership.
+- Kept resolved-radiance alpha opaque and excluded confidence/history length from it.
+- Recorded the moving-object limitation: XY motion exists, but exact previous-depth prediction is unavailable from the current GBuffer contract.
+- No code, shader, resource, or descriptor changes were made; build was not rerun because this phase is documentation-only.
+
 ## Next Phase
 
-- Define the minimum reprojection inputs, coordinate convention, and rejection order from the recorded failures.
-- Keep implementation disabled by default and preserve weight zero while that contract is reviewed.
+- Implement only motion-vector reprojection and bounds rejection, with default weight remaining zero.
+- Validate camera orbit and object motion before adding auxiliary depth/normal history.
 - Revisit the overall phase size at this boundary, as previously requested; the plan remains intentionally unshrunk for now.

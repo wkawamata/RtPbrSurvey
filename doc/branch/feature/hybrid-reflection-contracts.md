@@ -120,6 +120,71 @@ Post-resolve controls do not reset history: distance fade, maximum distance, vis
 
 Future rejection may consume current and previous depth or reconstructed position, visible-surface normal and roughness, motion vectors, reflection hit flag, hit distance, and hit normal. Reprojection, rejection thresholds, auxiliary history resources, accumulation shaders, and debug views are outside this contract phase.
 
+## Reprojection and Rejection Contract
+
+This section fixes the next implementation boundary; it does not imply that reprojection or rejection is currently wired.
+
+### Motion Vector Convention
+
+`GBuffer.MotionVector` is a render-resolution `DXGI_FORMAT_R16G16_FLOAT` texture produced by `GBufferPass`. Its shader value is:
+
+```text
+stored_motion_ndc
+    = previous_ndc - current_ndc
+    + motion_vector_jitter_cancellation_ndc
+    + motion_vector_value_offset
+```
+
+`previous_ndc` includes both previous camera projection and `InstanceData.prevWorld`, so the source represents camera and object motion. The two added terms are Temporal Upscaler/debug policy, not geometric motion. Reflection reprojection must recover raw motion before converting NDC to texture UV:
+
+```text
+raw_motion_ndc
+    = stored_motion_ndc
+    - motion_vector_jitter_cancellation_ndc
+    - motion_vector_value_offset
+
+history_uv
+    = current_uv + float2(0.5 * raw_motion_ndc.x,
+                          -0.5 * raw_motion_ndc.y)
+```
+
+The Y sign differs because D3D NDC Y points up while texture UV Y points down. The first rejection is `historyValid && all(history_uv >= 0) && all(history_uv < 1)`. Out-of-bounds samples use current evaluated radiance with no history contribution.
+
+Nearest sampling is sufficient for initial validity tests. Radiance sampling may become bilinear later, but bilinear radiance must never imply that depth/normal validity was also bilinearly accepted.
+
+### Minimum Inputs and Auxiliary History
+
+The first reprojection experiment consumes:
+
+- current `ReflectionEvaluatedRadiance`;
+- previous `ReflectionResolvedRadiance`;
+- current `GBuffer.MotionVector`;
+- the camera constants containing motion-vector cancellation/offset terms;
+- current visible-surface depth and world-space normal;
+- previous visible-surface depth and world-space normal aligned with the previous resolved-radiance slot.
+
+Current depth and normal cannot validate a previous-frame sample by themselves. The auxiliary depth/normal history follows the same validity, invalidation, write index, post-submit role exchange, and resize lifecycle as `ReflectionResolvedRadiance`. It must not use swap-chain indices or Temporal Upscaler history ownership.
+
+Do not pack depth, normal, confidence, or history length into `ReflectionResolvedRadiance.a`; resolved radiance remains opaque linear HDR. The physical representation of auxiliary history may be selected in implementation, but its semantic fields remain distinct from radiance.
+
+### Rejection Order
+
+Apply rejection from cheapest and most general to more reflection-specific evidence:
+
+1. reflection history valid;
+2. reprojected UV inside the render extent;
+3. previous visible-surface depth consistent with the current surface projected into the previous frame;
+4. previous/current world-space visible normals consistent;
+5. only if measured failures remain, compare visible roughness and reflection-specific hit flag, hit distance, or hit normal.
+
+For static geometry, expected previous depth can be computed by reconstructing current world position and projecting it with the previous view-projection matrix. This test is approximate for moving geometry because the current GBuffer does not provide per-pixel previous world position or previous clip depth. The existing XY motion vector still reprojects moving objects, but depth rejection for those pixels may require a future previous-depth prediction signal. Do not silently treat current device depth as previous-view depth.
+
+Normal rejection compares decoded world-space normals. A threshold is a policy/debug setting, not part of the resource meaning. Roughness should initially modulate accumulation weight only after core correspondence is valid; it is not a substitute for depth/normal rejection.
+
+### First Implementation Slice
+
+The first slice should add motion-vector reprojection with bounds rejection while keeping the default history weight at zero. Depth/normal auxiliary history and rejection follow as a separate slice. A nonzero default is not allowed until both camera-motion correspondence and disocclusion behavior have been validated. Spatial denoise, adaptive history length, neighborhood clamping, and reflection-hit rejection remain later work.
+
 ## Comparison Boundary
 
 PathTracing comparison must name the signal boundary being compared. `ReflectionEvaluatedRadiance` is pre-temporal and pre-final-weighting. `ReflectionResolvedRadiance` is post-temporal but retains the same unweighted semantics. The final LightPass contribution is weighted and embedded in the lit scene, so it is a different comparison boundary.
