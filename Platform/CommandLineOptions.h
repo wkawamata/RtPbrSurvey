@@ -2,6 +2,7 @@
 
 #include <Windows.h>
 
+#include <filesystem>
 #include <string>
 
 namespace Platform
@@ -13,6 +14,9 @@ struct CommandLineOptions
     std::wstring logFilePath;
     UINT logFpsInterval = 0;
     bool autoSelectGltfDamagedHelmet = false;
+    std::filesystem::path capturePath;
+    UINT captureAfterFrames = 0;
+    bool exitAfterCapture = false;
 };
 
 CommandLineOptions ParseCommandLineOptions(_In_reads_(argc) WCHAR* argv[], int argc);

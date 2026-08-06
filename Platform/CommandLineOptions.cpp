@@ -49,6 +49,28 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.autoSelectGltfDamagedHelmet = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-CapturePath"))
+        {
+            if (i + 1 < argc)
+            {
+                options.capturePath = argv[++i];
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureAfterFrames"))
+        {
+            if (i + 1 < argc)
+            {
+                const int captureAfterFrames = _wtoi(argv[++i]);
+                if (captureAfterFrames >= 0)
+                {
+                    options.captureAfterFrames = static_cast<UINT>(captureAfterFrames);
+                }
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-ExitAfterCapture"))
+        {
+            options.exitAfterCapture = true;
+        }
     }
 
     return options;

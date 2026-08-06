@@ -154,4 +154,6 @@ private:
     ComPtr<ID3D12InfoQueue> m_d3d12InfoQueue;
     FILE* m_logFile = nullptr;
     UINT64 m_fpsLogFrameCounter = 0;
+    UINT64 m_automationFrameCounter = 0;
+    bool m_automationScreenshotRequested = false;
 };

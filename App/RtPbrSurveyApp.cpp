@@ -288,11 +288,36 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 
 void RtPbrSurveyApp::OnIdle()
 {
+    if (!m_commandLineOptions.capturePath.empty())
+    {
+        if (const std::optional<RtPbrSurvey::ScreenshotResult> result = m_sceneRenderer.ConsumeScreenshotResult())
+        {
+            m_screenshotStatus = result->succeeded ?
+                "Saved: " + result->path.string() :
+                "Capture failed: " + result->error;
+            if (m_commandLineOptions.exitAfterCapture)
+            {
+                DestroyWindow(Win32Application::GetHwnd());
+                return;
+            }
+        }
+    }
+
     UpdateUiFrame();
     const bool advanceFrame = !m_framePaused || m_forwardStepRequested;
     m_forwardStepRequested = false;
     m_sceneRenderer.RunFrame(
         [this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); }, advanceFrame);
+
+    if (!m_commandLineOptions.capturePath.empty() && !m_automationScreenshotRequested)
+    {
+        ++m_automationFrameCounter;
+        if (m_automationFrameCounter >= m_commandLineOptions.captureAfterFrames)
+        {
+            m_sceneRenderer.RequestScreenshot({m_commandLineOptions.capturePath});
+            m_automationScreenshotRequested = true;
+        }
+    }
 
     // Poll D3D12 debug messages and FPS logging.
     if (m_logFile)

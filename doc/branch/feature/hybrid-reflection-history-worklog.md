@@ -141,3 +141,10 @@ Decision from this observation: the first gate failed at approximately `0.5`; pr
 - Compare history weights `0.0` and approximately `0.9` with a static camera, then with controlled camera motion. The acceptance checks are reduced flicker, preserved mean luminance/color, and no unbounded conversion of noise into trails.
 - Treat this as a Temporal pass isolation test. A later physically meaningful test should use stochastic rough-reflection sampling with a bright compact emitter, but stochastic ray generation is not part of the current History contract phase.
 - User-facing visual review may use a small set of labeled screenshots and simple pass/fail questions for tracking, silhouette trails, direction-reversal persistence, screen-edge artifacts, and settling after motion.
+
+## Deterministic Screenshot Route
+
+- Reuse the existing asynchronous `SceneRenderer` screenshot readback instead of adding another capture implementation.
+- `-CapturePath <path>` requests one PNG after the configured warm-up count, `-CaptureAfterFrames <count>` selects that count, and `-ExitAfterCapture` closes the app only after the screenshot result is available.
+- The route captures a stable frame without requiring a targetable Computer Use window. It does not automate camera motion or alter reflection settings.
+- Validation: Debug x64 built with zero errors. A DamagedHelmet run with 30 warm-up frames produced `Screenshots/history_capture_smoke.png`, the PNG contained the rendered scene, and the process exited after the asynchronous capture completed.

@@ -41,6 +41,9 @@ Flags are parsed in `RtPbrSurveyApp::ParseCommandLineArgs()`.
 | `-LogToFile` | `-LogToFile d3d12_debug.log` | On startup, dump accumulated D3D12 Debug Layer messages via `ID3D12InfoQueue` to the specified file. Also append new messages as they arrive when polled each frame. |
 | `-LogFPS` | `-LogFPS 60` | Log CPU FPS to the same log file every N frames. Only active when `-LogToFile` is also specified. Value is `1000.0f / cpuFrameTimeMs`. |
 | `-AutoSelectGltfDamagedHelmet` | `-AutoSelectGltfDamagedHelmet` | On startup, automatically select the `glTF Viewer > DamagedHelmet` scene and switch to Running mode without user interaction. |
+| `-CapturePath` | `-CapturePath Screenshots\\validation.png` | Queue one PNG capture through the existing renderer screenshot path. |
+| `-CaptureAfterFrames` | `-CaptureAfterFrames 60` | Render this many warm-up frames before queuing the CLI screenshot. Used with `-CapturePath`. |
+| `-ExitAfterCapture` | `-ExitAfterCapture` | Close the application after the CLI screenshot succeeds or fails. Used with `-CapturePath`. |
 
 ## D3D12 Debug Layer Check
 
