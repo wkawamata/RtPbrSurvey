@@ -37,6 +37,9 @@ enum RootParameterIndex
     ReflectionRayMaterial,
     ReflectionRayEmission,
     ReflectionEvaluatedRadiance,
+    ReflectionResolvedRadianceHistory,
+
+    TemporalReflectionConstants,
 
     SceneDrawConstants,
 
@@ -57,6 +60,7 @@ static constexpr uint32_t kReflectionRayColorSrvSpace = 7;
 static constexpr uint32_t kReflectionRayMaterialSrvSpace = 8;
 static constexpr uint32_t kReflectionEvaluatedRadianceSrvSpace = 9;
 static constexpr uint32_t kReflectionRayEmissionSrvSpace = 10;
+static constexpr uint32_t kReflectionResolvedRadianceHistorySrvSpace = 11;
 
 // Per-frame and per-pass CBVs.
 static constexpr uint32_t kCameraCbvRegister = 0;
@@ -76,6 +80,10 @@ static constexpr uint32_t kToneMapConstantsCount = 6;
 static constexpr uint32_t kSceneDrawConstantsRegister = 4;
 static constexpr uint32_t kSceneDrawConstantsSpace = 0;
 static constexpr uint32_t kSceneDrawConstantsCount = 1;
+
+static constexpr uint32_t kTemporalReflectionConstantsRegister = 5;
+static constexpr uint32_t kTemporalReflectionConstantsSpace = 0;
+static constexpr uint32_t kTemporalReflectionConstantsCount = 1;
 
 // Static texture sampler.
 static constexpr uint32_t kStaticSamplerRegister = 0;

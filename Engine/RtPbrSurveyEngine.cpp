@@ -3061,6 +3061,13 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
                                                               m_hybridReflectionSettings.contributionIntensity};
             m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 3, &constants, 0);
         });
+    m_renderGraphRuntime.Constants().Register(
+        m_renderGraphRuntime.RegisterConstants(ConstName::TemporalReflection),
+        [this](UINT rootParameterIndex)
+        {
+            const UINT historyValid = m_reflectionHistoryState.valid ? 1u : 0u;
+            m_commandList->SetGraphicsRoot32BitConstant(rootParameterIndex, historyValid, 0);
+        });
 }
 
 void RtPbrSurveyEngine::RegisterResourceResolvers()

@@ -23,6 +23,7 @@ struct DescriptorRanges
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRayMaterialSrv;
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRayEmissionSrv;
     CD3DX12_DESCRIPTOR_RANGE1 reflectionEvaluatedRadianceSrv;
+    CD3DX12_DESCRIPTOR_RANGE1 reflectionResolvedRadianceHistorySrv;
     CD3DX12_DESCRIPTOR_RANGE1 cameraCbv;
     CD3DX12_DESCRIPTOR_RANGE1 lightCbv;
 };
@@ -120,10 +121,18 @@ DescriptorRanges CreateDescriptorRanges(UINT textureSrvCount, UINT gbufferSrvCou
 
     // t0 : Reflection radiance buffer SRV, space 9
     ranges.reflectionEvaluatedRadianceSrv.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
-                                      1,
-                                      RootSignatureLayout::kBaseRegister,
-                                      RootSignatureLayout::kReflectionEvaluatedRadianceSrvSpace,
-                                      D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+                                                1,
+                                                RootSignatureLayout::kBaseRegister,
+                                                RootSignatureLayout::kReflectionEvaluatedRadianceSrvSpace,
+                                                D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+
+    // t0 : Previous resolved reflection radiance SRV, space 11
+    ranges.reflectionResolvedRadianceHistorySrv.Init(
+        D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+        1,
+        RootSignatureLayout::kBaseRegister,
+        RootSignatureLayout::kReflectionResolvedRadianceHistorySrvSpace,
+        D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
     ranges.cameraCbv.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
                           1,
@@ -179,6 +188,15 @@ void CreateRootParameters(const DescriptorRanges& ranges,
         1, &ranges.reflectionRayEmissionSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Reflection ray emission buffer
     rootParameters[RootSignatureLayout::ReflectionEvaluatedRadiance].InitAsDescriptorTable(
         1, &ranges.reflectionEvaluatedRadianceSrv, D3D12_SHADER_VISIBILITY_PIXEL); // Evaluated reflection radiance
+    rootParameters[RootSignatureLayout::ReflectionResolvedRadianceHistory].InitAsDescriptorTable(
+        1,
+        &ranges.reflectionResolvedRadianceHistorySrv,
+        D3D12_SHADER_VISIBILITY_PIXEL); // Previous resolved reflection radiance
+    rootParameters[RootSignatureLayout::TemporalReflectionConstants].InitAsConstants(
+        RootSignatureLayout::kTemporalReflectionConstantsCount,
+        RootSignatureLayout::kTemporalReflectionConstantsRegister,
+        RootSignatureLayout::kTemporalReflectionConstantsSpace,
+        D3D12_SHADER_VISIBILITY_PIXEL); // Reflection history validity
     rootParameters[RootSignatureLayout::SceneDrawConstants].InitAsConstants(
         RootSignatureLayout::kSceneDrawConstantsCount,
         RootSignatureLayout::kSceneDrawConstantsRegister,

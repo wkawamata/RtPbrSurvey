@@ -21,7 +21,7 @@ HybridReflectionPass
     -> LightPass
 ```
 
-The current bootstrap implementation is an identity resolve: it copies `ReflectionEvaluatedRadiance` into the current `ReflectionResolvedRadiance` slot without reading history. `LightPass` consumes that resolved output when reflection contribution is enabled. A future temporal enable control may bypass the pass and select `ReflectionEvaluatedRadiance` directly.
+The current bootstrap implementation is an identity resolve. On the first frame after invalidation it copies `ReflectionEvaluatedRadiance` into the current `ReflectionResolvedRadiance` slot without binding history. Once history is valid, the pass declares the previous resolved slot as a read-only input and consumes its opaque alpha while preserving current-frame RGB. No temporal RGB weighting is implemented yet. `LightPass` consumes the resolved output when reflection contribution is enabled. A future temporal enable control may bypass the pass and select `ReflectionEvaluatedRadiance` directly.
 
 ## Data Contract
 
@@ -56,7 +56,7 @@ evaluated_or_resolved_radiance
 
 The engine owns two persistent, render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` physical slots for future `ReflectionResolvedRadiance` history. Their logical roles are `historyRead` and `historyWrite`.
 
-The CPU-side `ReflectionHistoryState` owns validity and the dedicated read index. The two persistent resource specifications, SRV/RTV slots, and role resolvers are registered. The registry creates each GPU texture lazily when it first becomes the current write target. After a frame containing `TemporalReflectionPass` is submitted to the direct queue, the engine promotes that output to valid history and exchanges the read/write roles. History sampling and temporal weighting are not implemented yet.
+The CPU-side `ReflectionHistoryState` owns validity and the dedicated read index. The two persistent resource specifications, SRV/RTV slots, and role resolvers are registered. The registry creates each GPU texture lazily when it first becomes the current write target. After a frame containing `TemporalReflectionPass` is submitted to the direct queue, the engine promotes that output to valid history and exchanges the read/write roles. Valid history is now bound and declared as a read-only RenderGraph dependency; temporal RGB weighting is not implemented yet.
 
 - A dedicated reflection-history index selects the roles.
 - Swap-chain `m_currentFrameIndex` and `m_previousFrameIndex` do not own or select reflection history.

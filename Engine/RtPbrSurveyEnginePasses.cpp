@@ -371,15 +371,29 @@ auto RtPbrSurveyEngine::MakeReflectionEvaluatePass() -> RenderPass
 auto RtPbrSurveyEngine::MakeTemporalReflectionPass() -> RenderPass
 {
     const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
-    return m_renderGraphRuntime.Authoring()
+    Engine::ResourceUsages reads = {
+        {kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
+    if (m_reflectionHistoryState.valid)
+    {
+        reads.push_back({kReflectionResolvedRadianceResourceNames[m_reflectionHistoryState.readIndex],
+                         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+    }
+
+    auto builder = m_renderGraphRuntime.Authoring()
         .CreatePass(L"TemporalReflectionPass (Identity)")
         .Pipeline(Pipe::TemporalReflection)
-        .Reads({{kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Reads(std::move(reads))
         .Writes({{kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance, Desc::ReflectionEvaluatedRadianceSrv)
         .Rtv(RtvName::ReflectionResolvedRadianceCurrent)
         .Operation(Op::TemporalReflection, &RtPbrSurveyEngine::ExecuteTemporalReflectionPass)
-        .Build();
+        .Constants(RootSignatureLayout::TemporalReflectionConstants, ConstName::TemporalReflection);
+    if (m_reflectionHistoryState.valid)
+    {
+        builder.Descriptor(RootSignatureLayout::ReflectionResolvedRadianceHistory,
+                           Desc::ReflectionResolvedRadianceHistorySrv);
+    }
+    return builder.Build();
 }
 
 auto RtPbrSurveyEngine::MakeLightingDebugGradientPass() -> RenderPass

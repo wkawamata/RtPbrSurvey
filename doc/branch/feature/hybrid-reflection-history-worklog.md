@@ -31,8 +31,16 @@ This log records implementation phases and validation results for the reflection
 - History sampling and temporal weighting remain pending.
 - Validation: Debug x64 build succeeded with zero errors. An eight-second DamagedHelmet run exercised continuous role exchange with zero D3D12 Debug Layer errors and zero warnings.
 
+## 2026-08-06: Read-Only History Wiring
+
+- Added a dedicated root-signature SRV slot for previous `ReflectionResolvedRadiance` and a one-DWORD history-valid constant.
+- The first frame after invalidation does not bind or declare a history read. Valid frames declare the selected physical history slot as a pixel-shader read and bind its semantic SRV.
+- The identity shader consumes history alpha, which is opaque by contract, while preserving current-frame RGB. No temporal RGB weighting was introduced.
+- The current and history physical slots remain distinct throughout graph execution; role exchange still occurs only after direct-queue submission.
+- Validation: Debug x64 build and HLSL compilation succeeded with zero errors. DXIL inspection confirmed the `space11` history `TextureLoad` and `b5` validity constant remain in the compiled pixel shader. An eight-second DamagedHelmet run exercised invalid-to-valid history and continuous ping-pong with zero D3D12 Debug Layer errors and zero warnings.
+
 ## Next Phase
 
-- Bind valid previous resolved radiance as a read-only history input.
-- Keep the shader output identical while verifying that both physical slots alternate safely.
-- Do not add temporal weighting, reprojection, or rejection until the history-read lifecycle is verified.
+- Define the smallest observable temporal weighting experiment and its debug control.
+- Keep reprojection, disocclusion rejection, and spatial denoise out until the un-reprojected blend behavior is measured in the agreed test scenes.
+- Revisit the overall phase size at this boundary, as previously requested; the plan remains intentionally unshrunk for now.
