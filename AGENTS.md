@@ -46,6 +46,8 @@ Flags are parsed in `RtPbrSurveyApp::ParseCommandLineArgs()`.
 | `-ExitAfterCapture` | `-ExitAfterCapture` | Close the application after the CLI screenshot succeeds or fails. Used with `-CapturePath`. |
 | `-CaptureReflectionResolvedRadiance` | `-CaptureReflectionResolvedRadiance` | Force Deferred rendering, Hybrid Reflection, and the resolved-radiance debug view for an automated capture. |
 | `-ReflectionTemporalWeight` | `-ReflectionTemporalWeight 0.9` | Override the experimental reflection history weight for an automated resolved-radiance capture. |
+| `-ReflectionOrbitDegrees` | `-ReflectionOrbitDegrees 20` | Apply a deterministic horizontal Arcball orbit ending on the automated capture frame. |
+| `-ReflectionOrbitFrames` | `-ReflectionOrbitFrames 30` | Spread the automated reflection orbit over this many rendered frames. |
 
 ## D3D12 Debug Layer Check
 

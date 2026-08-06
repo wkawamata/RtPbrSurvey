@@ -157,6 +157,7 @@ void RtPbrSurveyApp::OnInit()
                     std::clamp(m_commandLineOptions.reflectionTemporalWeight, 0.0f, 0.98f);
             }
             m_sceneRenderer.SetHybridReflectionSettings(reflectionSettings);
+            m_automationOrbitStartYaw = m_debugCamera.ObjectViewerYaw();
         }
     }
 }
@@ -172,6 +173,8 @@ void RtPbrSurveyApp::UpdateSampleState()
         m_sceneRenderer.SetDisplayInstanceCount(0);
         return;
     }
+
+    UpdateAutomatedCaptureCamera();
 
     if (GetForegroundWindow() == Win32Application::GetHwnd())
     {
@@ -321,20 +324,22 @@ void RtPbrSurveyApp::OnIdle()
         }
     }
 
+    if (!m_commandLineOptions.capturePath.empty() && !m_automationScreenshotRequested &&
+        m_automationFrameCounter >= m_commandLineOptions.captureAfterFrames)
+    {
+        m_sceneRenderer.RequestScreenshot({m_commandLineOptions.capturePath});
+        m_automationScreenshotRequested = true;
+    }
+
     UpdateUiFrame();
     const bool advanceFrame = !m_framePaused || m_forwardStepRequested;
     m_forwardStepRequested = false;
     m_sceneRenderer.RunFrame(
         [this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); }, advanceFrame);
 
-    if (!m_commandLineOptions.capturePath.empty() && !m_automationScreenshotRequested)
+    if (!m_commandLineOptions.capturePath.empty())
     {
         ++m_automationFrameCounter;
-        if (m_automationFrameCounter >= m_commandLineOptions.captureAfterFrames)
-        {
-            m_sceneRenderer.RequestScreenshot({m_commandLineOptions.capturePath});
-            m_automationScreenshotRequested = true;
-        }
     }
 
     // Poll D3D12 debug messages and FPS logging.
@@ -353,6 +358,34 @@ void RtPbrSurveyApp::OnIdle()
             }
         }
     }
+}
+
+void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
+{
+    if (m_commandLineOptions.capturePath.empty() ||
+        !m_commandLineOptions.captureReflectionResolvedRadiance ||
+        m_commandLineOptions.reflectionOrbitFrames == 0 ||
+        m_debugCamera.GetMode() != RtPbrSurvey::DebugCameraController::Mode::Arcball)
+    {
+        return;
+    }
+
+    const UINT64 captureFrame = m_commandLineOptions.captureAfterFrames;
+    const UINT64 orbitFrameCount =
+        (std::min)(static_cast<UINT64>(m_commandLineOptions.reflectionOrbitFrames), captureFrame + 1);
+    const UINT64 firstOrbitFrame = captureFrame + 1 - orbitFrameCount;
+    if (m_automationFrameCounter < firstOrbitFrame || m_automationFrameCounter > captureFrame)
+    {
+        return;
+    }
+
+    const UINT64 orbitFrame = m_automationFrameCounter - firstOrbitFrame + 1;
+    const float progress = static_cast<float>(orbitFrame) / static_cast<float>(orbitFrameCount);
+    const float yawOffset = DirectX::XMConvertToRadians(m_commandLineOptions.reflectionOrbitDegrees) * progress;
+    m_debugCamera.SetObjectViewerState(m_automationOrbitStartYaw + yawOffset,
+                                       m_debugCamera.ObjectViewerPitch(),
+                                       m_debugCamera.ObjectViewerDistance(),
+                                       m_debugCamera.ObjectViewerPivot());
 }
 
 void RtPbrSurveyApp::OnDestroy()

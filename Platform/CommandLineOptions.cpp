@@ -88,6 +88,29 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 }
             }
         }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionOrbitDegrees"))
+        {
+            if (i + 1 < argc)
+            {
+                WCHAR* end = nullptr;
+                const float degrees = wcstof(argv[++i], &end);
+                if (end != argv[i] && *end == L'\0')
+                {
+                    options.reflectionOrbitDegrees = degrees;
+                }
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionOrbitFrames"))
+        {
+            if (i + 1 < argc)
+            {
+                const int frames = _wtoi(argv[++i]);
+                if (frames > 0)
+                {
+                    options.reflectionOrbitFrames = static_cast<UINT>(frames);
+                }
+            }
+        }
     }
 
     return options;

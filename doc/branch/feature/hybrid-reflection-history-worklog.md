@@ -156,3 +156,11 @@ Decision from this observation: the first gate failed at approximately `0.5`; pr
 - Automated capture sessions do not save scene configuration on shutdown, so validation overrides cannot replace the user's persisted interactive settings.
 - These controls support static weight `0.0` versus nonzero A/B captures. Camera-motion automation remains outside this step.
 - Validation: Debug x64 built with zero errors. DamagedHelmet resolved-radiance captures after 60 warm-up frames at weights `0.0` and `0.9` produced byte-identical PNG files (matching SHA-256), confirming that the current static deterministic signal has no temporal variance to reduce. The logged run contained no D3D12 errors and two pre-existing buffer initial-state warnings.
+
+### Deterministic Camera-Orbit Capture
+
+- `-ReflectionOrbitDegrees <degrees>` and `-ReflectionOrbitFrames <frames>` apply a horizontal Arcball orbit whose final incremental step occurs on the captured frame.
+- The orbit is limited to the automated resolved-radiance capture path and reuses the camera controller's explicit object-viewer state API.
+- The screenshot request is queued before the captured `RunFrame`, after the requested number of completed warm-up frames. This preserves nonzero camera motion on the captured frame instead of photographing the first stationary frame after the orbit.
+- The requested orbit-frame count is clamped to the available warm-up-plus-capture interval. No general input recording or camera-animation system is introduced.
+- Validation: Debug x64 built with zero errors. A 20-degree horizontal orbit over 30 frames produced matched-pose captures at weights `0.0` and `0.9`. The nonzero-weight image visibly softened the silhouette and internal detail along the motion direction; final visual acceptance is reserved for the user-facing A/B pass/fail review. The logged run contained no D3D12 errors and only the two pre-existing buffer initial-state warnings.
