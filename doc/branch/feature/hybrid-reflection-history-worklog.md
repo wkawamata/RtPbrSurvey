@@ -111,8 +111,17 @@ Decision from this observation: the first gate failed at approximately `0.5`; pr
 - Recorded the moving-object limitation: XY motion exists, but exact previous-depth prediction is unavailable from the current GBuffer contract.
 - No code, shader, resource, or descriptor changes were made; build was not rerun because this phase is documentation-only.
 
+## 2026-08-06: Motion Reprojection and Bounds Rejection
+
+- Added `GBuffer.MotionVector` and Camera CBV as read-only `TemporalReflectionPass` inputs.
+- Recovered raw `previousNdc - currentNdc` by subtracting jitter cancellation and debug value offset.
+- Converted raw NDC displacement to previous-frame UV with the contract Y inversion.
+- Rejected out-of-bounds history and used nearest integer history sampling for the first correspondence experiment.
+- Kept the default history weight at zero and did not add depth/normal resources or rejection.
+- Validation: Debug x64 and HLSL compilation succeeded with zero errors. DXIL inspection confirmed motion-vector load, camera correction fields, and reprojected history load remain in the compiled shader. Automated visual orbit validation could not acquire a targetable app window in this session, so no visual improvement is claimed yet.
+
 ## Next Phase
 
-- Implement only motion-vector reprojection and bounds rejection, with default weight remaining zero.
-- Validate camera orbit and object motion before adding auxiliary depth/normal history.
+- Validate camera orbit and object motion at approximately `0.9` against the unreprojected observations.
+- If interior correspondence improves while silhouettes remain contaminated, add auxiliary depth/normal history as the next independent slice.
 - Revisit the overall phase size at this boundary, as previously requested; the plan remains intentionally unshrunk for now.

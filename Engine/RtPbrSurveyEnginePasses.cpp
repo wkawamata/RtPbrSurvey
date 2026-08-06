@@ -375,7 +375,8 @@ auto RtPbrSurveyEngine::MakeTemporalReflectionPass() -> RenderPass
 {
     const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
     Engine::ResourceUsages reads = {
-        {kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
+        {kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+        {kGBufferResourceNames[Engine::GBuffer::MotionVector], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
     if (m_reflectionHistoryState.valid)
     {
         reads.push_back({kReflectionResolvedRadianceResourceNames[m_reflectionHistoryState.readIndex],
@@ -388,6 +389,8 @@ auto RtPbrSurveyEngine::MakeTemporalReflectionPass() -> RenderPass
         .Reads(std::move(reads))
         .Writes({{kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance, Desc::ReflectionEvaluatedRadianceSrv)
+        .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
+        .Descriptor(RootSignatureLayout::CameraConstants, Desc::CameraCbv)
         .Rtv(RtvName::ReflectionResolvedRadianceCurrent)
         .Operation(Op::TemporalReflection, &RtPbrSurveyEngine::ExecuteTemporalReflectionPass)
         .Constants(RootSignatureLayout::TemporalReflectionConstants, ConstName::TemporalReflection);
