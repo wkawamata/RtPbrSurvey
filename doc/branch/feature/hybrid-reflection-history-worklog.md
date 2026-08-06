@@ -39,8 +39,17 @@ This log records implementation phases and validation results for the reflection
 - The current and history physical slots remain distinct throughout graph execution; role exchange still occurs only after direct-queue submission.
 - Validation: Debug x64 build and HLSL compilation succeeded with zero errors. DXIL inspection confirmed the `space11` history `TextureLoad` and `b5` validity constant remain in the compiled pixel shader. An eight-second DamagedHelmet run exercised invalid-to-valid history and continuous ping-pong with zero D3D12 Debug Layer errors and zero warnings.
 
+## 2026-08-06: Unreprojected Weighting Experiment
+
+- Added one persisted Debug UI control, `Temporal History Weight`, with a range of `[0, 0.98]` and a default of zero.
+- Valid history uses `lerp(currentEvaluated, previousResolved, historyWeight)`. A zero weight preserves identity behavior.
+- Changing the weight invalidates history so a new experiment does not inherit samples accumulated under the previous coefficient.
+- The UI explicitly labels the blend as lacking motion reprojection and warns that higher values trade static stability for motion trails.
+- Reprojection, rejection, confidence/history-length state, and spatial denoise remain absent.
+- Validation: Debug x64 build and HLSL compilation succeeded with zero errors. DXIL inspection confirmed the history RGB load and weight arithmetic remain in the compiled shader. An eight-second default-weight DamagedHelmet run exercised the path with zero D3D12 Debug Layer errors and zero warnings. Nonzero-weight visual comparison remains a manual test-scene task.
+
 ## Next Phase
 
-- Define the smallest observable temporal weighting experiment and its debug control.
-- Keep reprojection, disocclusion rejection, and spatial denoise out until the un-reprojected blend behavior is measured in the agreed test scenes.
+- Add the minimum observation support needed to compare evaluated and resolved radiance directly, then execute the static-noise and camera/object-motion scene checks at representative weights.
+- Use those observations to set requirements for reprojection and rejection before implementing either.
 - Revisit the overall phase size at this boundary, as previously requested; the plan remains intentionally unshrunk for now.

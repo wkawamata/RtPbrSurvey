@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document is the focused contract for Hybrid Reflection pass boundaries, resources, final composition, and future temporal-history ownership. It describes current behavior and explicitly named future boundaries. It does not imply that temporal accumulation, denoising, DLSS Ray Reconstruction, Streamline integration, or PathTracing is implemented.
+This document is the focused contract for Hybrid Reflection pass boundaries, resources, final composition, and temporal-history ownership. It describes current behavior and explicitly named future boundaries. A deliberately unreprojected history-blend experiment exists, but production temporal accumulation, denoising, DLSS Ray Reconstruction, Streamline integration, and PathTracing are not implemented.
 
 Implementation progress and validation results are recorded in the [Hybrid Reflection History Work Log](hybrid-reflection-history-worklog.md).
 
@@ -21,7 +21,13 @@ HybridReflectionPass
     -> LightPass
 ```
 
-The current bootstrap implementation is an identity resolve. On the first frame after invalidation it copies `ReflectionEvaluatedRadiance` into the current `ReflectionResolvedRadiance` slot without binding history. Once history is valid, the pass declares the previous resolved slot as a read-only input and consumes its opaque alpha while preserving current-frame RGB. No temporal RGB weighting is implemented yet. `LightPass` consumes the resolved output when reflection contribution is enabled. A future temporal enable control may bypass the pass and select `ReflectionEvaluatedRadiance` directly.
+On the first frame after invalidation, `TemporalReflectionPass` copies `ReflectionEvaluatedRadiance` into the current `ReflectionResolvedRadiance` slot without binding history. Once history is valid, it declares the previous resolved slot as a read-only input and applies the experimental blend below. The default history weight is zero, preserving identity behavior. `LightPass` consumes the resolved output when reflection contribution is enabled.
+
+```text
+resolved_rgb = lerp(current_evaluated_rgb, previous_resolved_rgb, history_weight)
+```
+
+`history_weight` is clamped to `[0, 0.98]`. This bootstrap intentionally has no reprojection or rejection. It exists to make static stabilization and motion trails directly observable, not as a production temporal solution.
 
 ## Data Contract
 
@@ -34,7 +40,7 @@ All currently implemented reflection resources are render-resolution `DXGI_FORMA
 | `ReflectionRayMaterial` | `HybridReflectionPass` | `.x`: metallic; `.y`: roughness; `.z`: unlit flag; `.w`: reserved. | Material/debug payload | `ReflectionEvaluatePass` and material debug views. |
 | `ReflectionRayEmission` | `HybridReflectionPass` | `.rgb`: linear hit emissive after material emissive scale; `.a`: committed-hit validity. | Material/debug payload | `ReflectionEvaluatePass` and emission debug views. |
 | `ReflectionEvaluatedRadiance` | `ReflectionEvaluatePass` | `.rgb`: current-frame linear HDR, unweighted one-bounce radiance; `.a`: `1`. Hits contain evaluated hit-surface lighting and emission. Miss and gated pixels contain the roughness-filtered environment fallback. | Pre-temporal evaluated radiance | Current `LightPass`, evaluated-radiance debug view, and future `TemporalReflectionPass`. |
-| `ReflectionResolvedRadiance` | `TemporalReflectionPass` | `.rgb`: resolved linear HDR, unweighted one-bounce radiance; `.a`: `1`. It preserves the evaluated hit and environment-fallback semantics. The current identity implementation does not accumulate history. | Resolved-radiance boundary | `LightPass`. Future temporal processing remains inside this boundary. |
+| `ReflectionResolvedRadiance` | `TemporalReflectionPass` | `.rgb`: resolved linear HDR, unweighted one-bounce radiance; `.a`: `1`. It preserves the evaluated hit and environment-fallback semantics. With valid history and nonzero experimental weight, RGB is an unreprojected exponential history blend. | Resolved-radiance boundary | `LightPass`. Future production temporal processing remains inside this boundary. |
 
 The current code and this contract use `ReflectionEvaluatedRadiance`. The older `ReflectionRadiance` term refers to the same pre-temporal boundary in historical discussion and must not be interpreted as a separate resource.
 
@@ -56,7 +62,7 @@ evaluated_or_resolved_radiance
 
 The engine owns two persistent, render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` physical slots for future `ReflectionResolvedRadiance` history. Their logical roles are `historyRead` and `historyWrite`.
 
-The CPU-side `ReflectionHistoryState` owns validity and the dedicated read index. The two persistent resource specifications, SRV/RTV slots, and role resolvers are registered. The registry creates each GPU texture lazily when it first becomes the current write target. After a frame containing `TemporalReflectionPass` is submitted to the direct queue, the engine promotes that output to valid history and exchanges the read/write roles. Valid history is now bound and declared as a read-only RenderGraph dependency; temporal RGB weighting is not implemented yet.
+The CPU-side `ReflectionHistoryState` owns validity and the dedicated read index. The two persistent resource specifications, SRV/RTV slots, and role resolvers are registered. The registry creates each GPU texture lazily when it first becomes the current write target. After a frame containing `TemporalReflectionPass` is submitted to the direct queue, the engine promotes that output to valid history and exchanges the read/write roles. Valid history is bound and declared as a read-only RenderGraph dependency. The current RGB weighting is the unreprojected experiment defined above.
 
 - A dedicated reflection-history index selects the roles.
 - Swap-chain `m_currentFrameIndex` and `m_previousFrameIndex` do not own or select reflection history.

@@ -426,7 +426,8 @@ void RtPbrSurveyEngine::SetHybridReflectionSettings(const HybridReflectionSettin
         m_hybridReflectionSettings.maxRoughness != settings.maxRoughness ||
         m_hybridReflectionSettings.minMetallic != settings.minMetallic ||
         m_hybridReflectionSettings.hitNormalSource != settings.hitNormalSource ||
-        m_hybridReflectionSettings.contributionEnabled != settings.contributionEnabled;
+        m_hybridReflectionSettings.contributionEnabled != settings.contributionEnabled ||
+        m_hybridReflectionSettings.temporalHistoryWeight != settings.temporalHistoryWeight;
 
     m_hybridReflectionSettings = settings;
     if (reflectionHistoryChanged)
@@ -3065,8 +3066,15 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
         m_renderGraphRuntime.RegisterConstants(ConstName::TemporalReflection),
         [this](UINT rootParameterIndex)
         {
-            const UINT historyValid = m_reflectionHistoryState.valid ? 1u : 0u;
-            m_commandList->SetGraphicsRoot32BitConstant(rootParameterIndex, historyValid, 0);
+            struct TemporalReflectionConstants
+            {
+                UINT historyValid;
+                float historyWeight;
+            };
+            const TemporalReflectionConstants constants = {
+                m_reflectionHistoryState.valid ? 1u : 0u,
+                std::clamp(m_hybridReflectionSettings.temporalHistoryWeight, 0.0f, 0.98f)};
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 2, &constants, 0);
         });
 }
 
@@ -3988,7 +3996,7 @@ void RtPbrSurveyEngine::ExecuteTemporalReflectionPass(const RenderPass& pass)
 {
     Engine::RecordTemporalReflectionPass(m_commandList.Get());
     m_reflectionHistoryCommitPending = true;
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Temporal Reflection Pass (Identity)");
+    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Temporal Reflection Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteLightingDebugGradientPass(const RenderPass& pass)

@@ -11,7 +11,7 @@ namespace Engine
 
 void RecordTemporalReflectionPass(ID3D12GraphicsCommandList* commandList)
 {
-    PIXBeginEvent(commandList, 0, L"TemporalReflectionPass (Identity)");
+    PIXBeginEvent(commandList, 0, L"TemporalReflectionPass");
 
     DrawFullscreenTriangle(commandList);
 

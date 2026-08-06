@@ -380,7 +380,7 @@ auto RtPbrSurveyEngine::MakeTemporalReflectionPass() -> RenderPass
     }
 
     auto builder = m_renderGraphRuntime.Authoring()
-        .CreatePass(L"TemporalReflectionPass (Identity)")
+        .CreatePass(L"TemporalReflectionPass")
         .Pipeline(Pipe::TemporalReflection)
         .Reads(std::move(reads))
         .Writes({{kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_RENDER_TARGET}})

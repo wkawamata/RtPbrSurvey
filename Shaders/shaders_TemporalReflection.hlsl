@@ -6,6 +6,7 @@ Texture2D<float4> g_reflectionResolvedRadianceHistory : register(t0, space11);
 cbuffer TemporalReflectionConstants : register(b5)
 {
     uint g_historyValid;
+    float g_historyWeight;
 };
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
@@ -20,9 +21,9 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     if (g_historyValid != 0)
     {
         const float4 history = g_reflectionResolvedRadianceHistory.Load(pixel);
-        // Identity phase: consume the valid history input without changing current-frame RGB.
-        // Both resources carry opaque linear HDR radiance, so alpha remains one by contract.
-        current.a = min(current.a, history.a);
+        // Deliberately unreprojected bootstrap blend. It exists to expose temporal stability
+        // and ghosting before motion reprojection and rejection are introduced.
+        current.rgb = lerp(current.rgb, history.rgb, g_historyWeight);
     }
     return current;
 }

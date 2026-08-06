@@ -219,6 +219,7 @@ public:
         bool contributionEnabled = false;
         float contributionIntensity = 0.25f;
         float contributionMaxDistance = 20.0f;
+        float temporalHistoryWeight = 0.0f;
     };
 
     struct SpecularDebugLineSettings
