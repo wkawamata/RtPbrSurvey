@@ -133,3 +133,11 @@ Decision from this observation: the first gate failed at approximately `0.5`; pr
 - Restore a reliable single-instance visual test session or add a separately reviewed deterministic capture route.
 - Run the approximately `0.9` camera-orbit comparison before authorizing auxiliary rejection resources.
 - Revisit the overall phase size now: progress is blocked by validation infrastructure rather than reflection-contract size.
+
+## Deferred Temporal Noise Validation
+
+- The current static reflection signal is deterministic, so it cannot demonstrate a temporal noise-reduction benefit by itself.
+- Add a small debug-only, default-off synthetic-noise experiment before judging accumulation quality. Apply deterministic per-pixel/per-frame, zero-mean luminance modulation to the current evaluated-radiance input; do not inject noise into resolved history.
+- Compare history weights `0.0` and approximately `0.9` with a static camera, then with controlled camera motion. The acceptance checks are reduced flicker, preserved mean luminance/color, and no unbounded conversion of noise into trails.
+- Treat this as a Temporal pass isolation test. A later physically meaningful test should use stochastic rough-reflection sampling with a bright compact emitter, but stochastic ray generation is not part of the current History contract phase.
+- User-facing visual review may use a small set of labeled screenshots and simple pass/fail questions for tracking, silhouette trails, direction-reversal persistence, screen-edge artifacts, and settling after motion.
