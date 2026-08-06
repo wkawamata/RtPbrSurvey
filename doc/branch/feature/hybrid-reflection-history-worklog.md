@@ -120,8 +120,16 @@ Decision from this observation: the first gate failed at approximately `0.5`; pr
 - Kept the default history weight at zero and did not add depth/normal resources or rejection.
 - Validation: Debug x64 and HLSL compilation succeeded with zero errors. DXIL inspection confirmed motion-vector load, camera correction fields, and reprojected history load remain in the compiled shader. Automated visual orbit validation could not acquire a targetable app window in this session, so no visual improvement is claimed yet.
 
+## 2026-08-07: Reprojection Visual Validation Retry
+
+- Started with a clean process audit and attempted a normal DamagedHelmet validation session through Computer Use.
+- One stale/reused session exposed the existing `SampleScene.cpp:55` duplicate-load assertion and was terminated without continuing.
+- After terminating every `RtPbrSurvey` process, a single normally launched process remained responsive but did not publish a targetable window to `list_windows()` after an additional eight-second wait.
+- No stale window handle or coordinate was reused. The process was terminated and no generated log or output was retained.
+- Reprojection visual quality remains unverified. Depth/normal history implementation must not start until the camera-orbit comparison can be completed or an equivalent deterministic capture path is available.
+
 ## Next Phase
 
-- Validate camera orbit and object motion at approximately `0.9` against the unreprojected observations.
-- If interior correspondence improves while silhouettes remain contaminated, add auxiliary depth/normal history as the next independent slice.
-- Revisit the overall phase size at this boundary, as previously requested; the plan remains intentionally unshrunk for now.
+- Restore a reliable single-instance visual test session or add a separately reviewed deterministic capture route.
+- Run the approximately `0.9` camera-orbit comparison before authorizing auxiliary rejection resources.
+- Revisit the overall phase size now: progress is blocked by validation infrastructure rather than reflection-contract size.
