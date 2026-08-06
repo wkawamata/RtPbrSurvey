@@ -64,6 +64,7 @@ namespace
         {"Ray Material",   RtPbrSurveyEngine::RenderViewMode::ReflectionRayMaterial,           true,  true},
         {"Ray Emission",   RtPbrSurveyEngine::RenderViewMode::ReflectionRayEmission,           true,  true},
         {"Evaluated Radiance", RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadiance,          true,  true},
+        {"Resolved Radiance",  RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance,           true,  true},
         {"Ray Fade",       RtPbrSurveyEngine::RenderViewMode::ReflectionRayDistanceFade,       true,  true},
         {"Strength",       RtPbrSurveyEngine::RenderViewMode::ReflectionContributionStrength,  true,  true},
         {"Direct",         RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadianceDirect,        true,  true},

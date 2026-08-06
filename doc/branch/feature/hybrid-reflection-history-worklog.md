@@ -48,8 +48,16 @@ This log records implementation phases and validation results for the reflection
 - Reprojection, rejection, confidence/history-length state, and spatial denoise remain absent.
 - Validation: Debug x64 build and HLSL compilation succeeded with zero errors. DXIL inspection confirmed the history RGB load and weight arithmetic remain in the compiled shader. An eight-second default-weight DamagedHelmet run exercised the path with zero D3D12 Debug Layer errors and zero warnings. Nonzero-weight visual comparison remains a manual test-scene task.
 
+## 2026-08-06: Evaluated/Resolved Observation View
+
+- Added a `ReflectionResolvedRadiance` render debug mode beside `ReflectionEvaluatedRadiance`.
+- Selecting the resolved view schedules Evaluate and Temporal passes even when final contribution is disabled.
+- The existing reflection debug shader samples the current resolved SRV through its radiance input; no comparison buffer or additional rendering pass was introduced.
+- RenderGraph tracking uses the current physical write-slot name, preserving the stable-name rule and queue-submit role exchange.
+- Validation: Debug x64 build succeeded with zero errors. Automated UI validation exposed the known duplicate DamagedHelmet load assertion when `Load Scene` was clicked after `-AutoSelectGltfDamagedHelmet`; the test process and generated log were removed. A clean nonzero-weight visual comparison remains pending.
+
 ## Next Phase
 
-- Add the minimum observation support needed to compare evaluated and resolved radiance directly, then execute the static-noise and camera/object-motion scene checks at representative weights.
-- Use those observations to set requirements for reprojection and rejection before implementing either.
+- Run the evaluated/resolved comparison at weights `0.0`, `0.5`, `0.9`, and `0.98` in a static reflective scene and during controlled camera movement.
+- Record stabilization, lag, trails, and disocclusion failures; use those observations to set requirements for reprojection and rejection before implementing either.
 - Revisit the overall phase size at this boundary, as previously requested; the plan remains intentionally unshrunk for now.

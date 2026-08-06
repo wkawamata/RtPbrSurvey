@@ -40,7 +40,7 @@ All currently implemented reflection resources are render-resolution `DXGI_FORMA
 | `ReflectionRayMaterial` | `HybridReflectionPass` | `.x`: metallic; `.y`: roughness; `.z`: unlit flag; `.w`: reserved. | Material/debug payload | `ReflectionEvaluatePass` and material debug views. |
 | `ReflectionRayEmission` | `HybridReflectionPass` | `.rgb`: linear hit emissive after material emissive scale; `.a`: committed-hit validity. | Material/debug payload | `ReflectionEvaluatePass` and emission debug views. |
 | `ReflectionEvaluatedRadiance` | `ReflectionEvaluatePass` | `.rgb`: current-frame linear HDR, unweighted one-bounce radiance; `.a`: `1`. Hits contain evaluated hit-surface lighting and emission. Miss and gated pixels contain the roughness-filtered environment fallback. | Pre-temporal evaluated radiance | Current `LightPass`, evaluated-radiance debug view, and future `TemporalReflectionPass`. |
-| `ReflectionResolvedRadiance` | `TemporalReflectionPass` | `.rgb`: resolved linear HDR, unweighted one-bounce radiance; `.a`: `1`. It preserves the evaluated hit and environment-fallback semantics. With valid history and nonzero experimental weight, RGB is an unreprojected exponential history blend. | Resolved-radiance boundary | `LightPass`. Future production temporal processing remains inside this boundary. |
+| `ReflectionResolvedRadiance` | `TemporalReflectionPass` | `.rgb`: resolved linear HDR, unweighted one-bounce radiance; `.a`: `1`. It preserves the evaluated hit and environment-fallback semantics. With valid history and nonzero experimental weight, RGB is an unreprojected exponential history blend. | Resolved-radiance boundary | `LightPass` and resolved-radiance debug view. Future production temporal processing remains inside this boundary. |
 
 The current code and this contract use `ReflectionEvaluatedRadiance`. The older `ReflectionRadiance` term refers to the same pre-temporal boundary in historical discussion and must not be interpreted as a separate resource.
 
@@ -85,6 +85,8 @@ Pass bindings may use semantic role names because their resolver callbacks are e
 - `ReflectionResolvedRadianceHistorySrv` resolves to the SRV for `readIndex`;
 - `ReflectionResolvedRadianceCurrentSrv` resolves to the SRV for `readIndex ^ 1`;
 - `ReflectionResolvedRadianceCurrentRtv` resolves to the RTV for `readIndex ^ 1`.
+
+The `ReflectionResolvedRadiance` debug view also reads the current physical slot selected by `readIndex ^ 1`. Selecting this view schedules `ReflectionEvaluatePass` and `TemporalReflectionPass` even when final reflection contribution is disabled, so evaluated and resolved signals can be inspected without LightPass weighting.
 
 The selected indices remain constant throughout one frame. The future temporal pass reads the physical history slot only when history is valid and writes the physical current slot. `LightPass` reads that same current slot. The role exchange occurs after direct-queue submission and cannot happen while the frame graph is being executed. The next frame is submitted to the same queue, so queue ordering makes the promoted output available without a CPU-side GPU completion wait.
 
