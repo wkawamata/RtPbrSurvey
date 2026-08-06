@@ -17,6 +17,9 @@ struct CommandLineOptions
     std::filesystem::path capturePath;
     UINT captureAfterFrames = 0;
     bool exitAfterCapture = false;
+    bool captureReflectionResolvedRadiance = false;
+    bool hasReflectionTemporalWeight = false;
+    float reflectionTemporalWeight = 0.0f;
 };
 
 CommandLineOptions ParseCommandLineOptions(_In_reads_(argc) WCHAR* argv[], int argc);

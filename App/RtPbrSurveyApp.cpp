@@ -140,6 +140,24 @@ void RtPbrSurveyApp::OnInit()
         m_selectedSceneIndex = kDefaultSceneIndex;
         OpenSelectedScene();
         m_debugUiVisible = false;
+
+        if (m_commandLineOptions.captureReflectionResolvedRadiance)
+        {
+            m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
+            m_renderViewMode = RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance;
+            m_sceneRenderer.SetRenderingPath(m_renderingPath);
+            m_sceneRenderer.SetRenderViewMode(m_renderViewMode);
+
+            RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
+                m_sceneRenderer.GetHybridReflectionSettings();
+            reflectionSettings.enabled = true;
+            if (m_commandLineOptions.hasReflectionTemporalWeight)
+            {
+                reflectionSettings.temporalHistoryWeight =
+                    std::clamp(m_commandLineOptions.reflectionTemporalWeight, 0.0f, 0.98f);
+            }
+            m_sceneRenderer.SetHybridReflectionSettings(reflectionSettings);
+        }
     }
 }
 
@@ -340,7 +358,7 @@ void RtPbrSurveyApp::OnIdle()
 void RtPbrSurveyApp::OnDestroy()
 {
     // Save current scene config before shutdown
-    if (m_loadedSceneIndex >= 0)
+    if (m_loadedSceneIndex >= 0 && m_commandLineOptions.capturePath.empty())
     {
         m_sceneConfig.SaveCurrentScene(
             m_loadedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());

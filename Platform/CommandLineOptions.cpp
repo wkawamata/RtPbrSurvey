@@ -71,6 +71,23 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.exitAfterCapture = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-CaptureReflectionResolvedRadiance"))
+        {
+            options.captureReflectionResolvedRadiance = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionTemporalWeight"))
+        {
+            if (i + 1 < argc)
+            {
+                WCHAR* end = nullptr;
+                const float weight = wcstof(argv[++i], &end);
+                if (end != argv[i] && *end == L'\0')
+                {
+                    options.hasReflectionTemporalWeight = true;
+                    options.reflectionTemporalWeight = weight;
+                }
+            }
+        }
     }
 
     return options;

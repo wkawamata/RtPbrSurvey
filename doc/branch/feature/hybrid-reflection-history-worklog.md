@@ -148,3 +148,11 @@ Decision from this observation: the first gate failed at approximately `0.5`; pr
 - `-CapturePath <path>` requests one PNG after the configured warm-up count, `-CaptureAfterFrames <count>` selects that count, and `-ExitAfterCapture` closes the app only after the screenshot result is available.
 - The route captures a stable frame without requiring a targetable Computer Use window. It does not automate camera motion or alter reflection settings.
 - Validation: Debug x64 built with zero errors. A DamagedHelmet run with 30 warm-up frames produced `Screenshots/history_capture_smoke.png`, the PNG contained the rendered scene, and the process exited after the asynchronous capture completed.
+
+### Static Resolved-Radiance A/B Controls
+
+- `-CaptureReflectionResolvedRadiance` applies Deferred rendering, enables Hybrid Reflection, and selects the resolved-radiance debug view after the saved scene configuration is loaded.
+- `-ReflectionTemporalWeight <weight>` supplies a capture-only history-weight override clamped to the supported `[0.0, 0.98]` range.
+- Automated capture sessions do not save scene configuration on shutdown, so validation overrides cannot replace the user's persisted interactive settings.
+- These controls support static weight `0.0` versus nonzero A/B captures. Camera-motion automation remains outside this step.
+- Validation: Debug x64 built with zero errors. DamagedHelmet resolved-radiance captures after 60 warm-up frames at weights `0.0` and `0.9` produced byte-identical PNG files (matching SHA-256), confirming that the current static deterministic signal has no temporal variance to reduce. The logged run contained no D3D12 errors and two pre-existing buffer initial-state warnings.
