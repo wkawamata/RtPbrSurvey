@@ -164,3 +164,13 @@ Decision from this observation: the first gate failed at approximately `0.5`; pr
 - The screenshot request is queued before the captured `RunFrame`, after the requested number of completed warm-up frames. This preserves nonzero camera motion on the captured frame instead of photographing the first stationary frame after the orbit.
 - The requested orbit-frame count is clamped to the available warm-up-plus-capture interval. No general input recording or camera-animation system is introduced.
 - Validation: Debug x64 built with zero errors. A 20-degree horizontal orbit over 30 frames produced matched-pose captures at weights `0.0` and `0.9`. The nonzero-weight image visibly softened the silhouette and internal detail along the motion direction; final visual acceptance is reserved for the user-facing A/B pass/fail review. The logged run contained no D3D12 errors and only the two pre-existing buffer initial-state warnings.
+
+#### User A/B Acceptance
+
+The user compared saved full-resolution captures A (`weight = 0.0`) and B (`weight = 0.9`) and marked all three checks as true:
+
+- B has a softer silhouette than A.
+- B retains motion history in internal detail as well as at the silhouette.
+- B's quality is not acceptable as the current high-weight result.
+
+Decision: motion reprojection and bounds rejection alone are insufficient at high history weight. Proceed to the minimum depth/normal history and rejection phase before considering stronger accumulation, synthetic-noise tuning, or spatial denoise.
