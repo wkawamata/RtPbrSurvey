@@ -56,8 +56,36 @@ This log records implementation phases and validation results for the reflection
 - RenderGraph tracking uses the current physical write-slot name, preserving the stable-name rule and queue-submit role exchange.
 - Validation: Debug x64 build succeeded with zero errors. Automated UI validation exposed the known duplicate DamagedHelmet load assertion when `Load Scene` was clicked after `-AutoSelectGltfDamagedHelmet`; the test process and generated log were removed. A clean nonzero-weight visual comparison remains pending.
 
+## 2026-08-06: Temporal Observation Protocol
+
+Use DamagedHelmet with Hybrid Reflection and Reflection Contribution enabled. Keep lighting, material, camera pose, render size, and contribution controls unchanged while changing only `Temporal History Weight`. For every weight, wait at least two seconds after the automatic history reset before judging the static result.
+
+| Weight | Static observation | Controlled camera observation | Purpose |
+|--------|--------------------|-------------------------------|---------|
+| `0.0` | Capture `Evaluated Radiance` and `Resolved Radiance`; they should match. | Slowly orbit horizontally, then stop. | Identity baseline and debug-view wiring check. |
+| `0.5` | Compare high-frequency highlights and noisy edges against the baseline. | Repeat the same orbit and stop. | Detect the first visible stability benefit and one-frame lag. |
+| `0.9` | Record highlight stability and convergence time after reset. | Repeat the orbit; inspect silhouette edges and newly revealed background. | Expose trails, lag, and disocclusion contamination. |
+| `0.98` | Record slow convergence and whether old highlights remain visible. | Repeat the orbit and reverse direction once. | Stress-test long persistence and direction-change trails. |
+
+For each row, record:
+
+- whether static variance visibly decreases in `Resolved Radiance` relative to `Evaluated Radiance`;
+- the approximate time for the resolved image to settle after reset or camera stop;
+- where trails occur: object silhouette, reflection feature, or background disocclusion;
+- whether contamination is local or spreads across smooth reflective regions;
+- whether returning to weight `0.0` immediately restores evaluated/resolved equivalence after reset.
+
+The automated observation attempt could not complete after the known duplicate DamagedHelmet load assertion. Subsequent Debug exe launches left a live process with `MainWindowHandle=0`, so Computer Use had no targetable window. All test processes and generated logs were removed. No visual result is claimed from that run.
+
+## Decision Gate After Observation
+
+- If `0.5` already produces objectionable trails, motion reprojection is required before any further history weighting work.
+- If reprojection aligns most pixels but newly revealed regions remain contaminated, depth/normal disocclusion rejection is the next minimum requirement.
+- Hit distance, hit flag, hit normal, and visible roughness should be added to rejection only when the recorded failures show that surface depth/normal alone cannot separate reflection-signal changes.
+- Spatial denoise and confidence/history-length buffers remain deferred until reprojection and minimum rejection are measured.
+
 ## Next Phase
 
-- Run the evaluated/resolved comparison at weights `0.0`, `0.5`, `0.9`, and `0.98` in a static reflective scene and during controlled camera movement.
-- Record stabilization, lag, trails, and disocclusion failures; use those observations to set requirements for reprojection and rejection before implementing either.
+- Execute the matrix in a clean app session and fill in the observation fields.
+- Derive the minimum reprojection inputs and rejection order from the recorded failures.
 - Revisit the overall phase size at this boundary, as previously requested; the plan remains intentionally unshrunk for now.
