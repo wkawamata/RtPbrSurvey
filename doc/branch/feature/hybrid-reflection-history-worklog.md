@@ -174,3 +174,14 @@ The user compared saved full-resolution captures A (`weight = 0.0`) and B (`weig
 - B's quality is not acceptable as the current high-weight result.
 
 Decision: motion reprojection and bounds rejection alone are insufficient at high history weight. Proceed to the minimum depth/normal history and rejection phase before considering stronger accumulation, synthetic-noise tuning, or spatial denoise.
+
+## 2026-08-07: Minimum Depth/Normal Rejection Implementation Audit
+
+- Confirmed current visible depth is exposed as `R32_FLOAT` from the typeless depth resource and current visible normal is an unencoded world-space vector in `R16G16B16A16_FLOAT`.
+- Selected two auxiliary ping-pong pairs: `ReflectionHistoryDepth` (`R32_FLOAT`) and `ReflectionHistoryNormal` (`R16G16B16A16_FLOAT`). They share the resolved-radiance validity, read index, invalidation, resize lifecycle, and post-submit role exchange.
+- Selected a three-target `TemporalReflectionPass` output: resolved radiance, current depth copy, and current world normal copy. This avoids a separate copy pass and guarantees that all history fields describe the same submitted frame.
+- Previous depth validity will compare stored previous device depth against the current world position reconstructed with `invViewProj` and projected by `prevViewProj`. Current device depth must not be compared directly with previous device depth under camera motion.
+- Previous normal validity will compare normalized world-space vectors at the nearest reprojected pixel. Depth and normal validity remain point decisions even if radiance filtering changes later.
+- Depth and normal thresholds are policy constants/settings, not resource semantics. The first implementation may use conservative fixed values, but tuning and user controls are separate from resource ownership.
+- Moving geometry remains approximate because the current contract provides XY motion but no exact previous-world-position or previous-clip-depth signal.
+- No hit distance, roughness, confidence, history length, synthetic noise, or spatial-denoise resource is authorized in this slice.
