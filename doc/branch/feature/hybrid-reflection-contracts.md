@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document is the focused contract for Hybrid Reflection pass boundaries, resources, final composition, and temporal-history ownership. It describes current behavior and explicitly named future boundaries. A motion-reprojected history-blend experiment exists, but depth/normal rejection, production temporal accumulation, denoising, DLSS Ray Reconstruction, Streamline integration, and PathTracing are not implemented.
+This document is the focused contract for Hybrid Reflection pass boundaries, resources, final composition, and temporal-history ownership. It describes current behavior and explicitly named future boundaries. A motion-reprojected history-blend experiment with minimum visible-depth/normal rejection exists, but production temporal accumulation, denoising, DLSS Ray Reconstruction, Streamline integration, and PathTracing are not implemented.
 
 Implementation progress and validation results are recorded in the [Hybrid Reflection History Work Log](hybrid-reflection-history-worklog.md).
 
@@ -27,11 +27,11 @@ On the first frame after invalidation, `TemporalReflectionPass` copies `Reflecti
 resolved_rgb = lerp(current_evaluated_rgb, previous_resolved_rgb, history_weight)
 ```
 
-`history_weight` is clamped to `[0, 0.98]`. Valid in-bounds history is sampled at the nearest pixel selected by the motion-vector convention below. This bootstrap has bounds rejection but no depth/normal rejection. The current one-ray signal is deterministic in a static scene, so measured static noise reduction is negligible. The control remains useful for correspondence and future stochastic-input experiments, but zero remains the safe default until rejection exists.
+`history_weight` is clamped to `[0, 0.98]`. Valid history is sampled at the nearest pixel selected by the motion-vector convention below only when bounds, previous-depth, and previous-normal tests pass. The current one-ray signal is deterministic in a static scene, so measured static noise reduction is negligible. The control remains useful for correspondence and future stochastic-input experiments, and zero remains the safe default while rejection quality is evaluated.
 
 ## Data Contract
 
-All currently implemented reflection resources are render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` textures.
+Reflection payload and radiance resources are render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` textures. Auxiliary history uses the formats listed below.
 
 | Resource | Producer | Meaning and channels | Classification | Consumer |
 |----------|----------|----------------------|----------------|----------|
@@ -41,6 +41,8 @@ All currently implemented reflection resources are render-resolution `DXGI_FORMA
 | `ReflectionRayEmission` | `HybridReflectionPass` | `.rgb`: linear hit emissive after material emissive scale; `.a`: committed-hit validity. | Material/debug payload | `ReflectionEvaluatePass` and emission debug views. |
 | `ReflectionEvaluatedRadiance` | `ReflectionEvaluatePass` | `.rgb`: current-frame linear HDR, unweighted one-bounce radiance; `.a`: `1`. Hits contain evaluated hit-surface lighting and emission. Miss and gated pixels contain the roughness-filtered environment fallback. | Pre-temporal evaluated radiance | Current `LightPass`, evaluated-radiance debug view, and future `TemporalReflectionPass`. |
 | `ReflectionResolvedRadiance` | `TemporalReflectionPass` | `.rgb`: resolved linear HDR, unweighted one-bounce radiance; `.a`: `1`. It preserves the evaluated hit and environment-fallback semantics. With valid in-bounds history and nonzero experimental weight, RGB is a nearest-sampled motion-reprojected exponential history blend. | Resolved-radiance boundary | `LightPass` and resolved-radiance debug view. Future production temporal processing remains inside this boundary. |
+| `ReflectionHistoryDepth` | `TemporalReflectionPass` | `R32_FLOAT` current visible-surface device depth copied into the matching history slot. | Rejection history | Next `TemporalReflectionPass`. |
+| `ReflectionHistoryNormal` | `TemporalReflectionPass` | `R16G16B16A16_FLOAT`; `.xyz` is normalized world-space visible-surface normal and `.w` is `1`. | Rejection history | Next `TemporalReflectionPass`. |
 
 The current code and this contract use `ReflectionEvaluatedRadiance`. The older `ReflectionRadiance` term refers to the same pre-temporal boundary in historical discussion and must not be interpreted as a separate resource.
 
@@ -60,7 +62,7 @@ evaluated_or_resolved_radiance
 
 ## History Ownership
 
-The engine owns two persistent, render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` physical slots for future `ReflectionResolvedRadiance` history. Their logical roles are `historyRead` and `historyWrite`.
+The engine owns two persistent render-resolution physical slots each for `ReflectionResolvedRadiance`, `ReflectionHistoryDepth`, and `ReflectionHistoryNormal`. Their shared logical roles are `historyRead` and `historyWrite`.
 
 The CPU-side `ReflectionHistoryState` owns validity and the dedicated read index. The two persistent resource specifications, SRV/RTV slots, and role resolvers are registered. The registry creates each GPU texture lazily when it first becomes the current write target. After a frame containing `TemporalReflectionPass` is submitted to the direct queue, the engine promotes that output to valid history and exchanges the read/write roles. Valid history is bound and declared as a read-only RenderGraph dependency. The current RGB weighting uses nearest motion-vector reprojection and bounds rejection.
 
@@ -77,6 +79,8 @@ The two physical RenderGraph resources have stable names:
 
 - `ReflectionResolvedRadiance.0`
 - `ReflectionResolvedRadiance.1`
+- `ReflectionHistoryDepth.0` / `.1`
+- `ReflectionHistoryNormal.0` / `.1`
 
 RenderGraph read/write usages always reference these physical names. At graph construction, `readIndex` selects the read name and `readIndex ^ 1` selects the write name. A logical RenderGraph resource name such as `ReflectionResolvedRadiance.HistoryRead` must not dynamically resolve to different physical textures because the current resource-state tracker stores state by resource name; changing the physical target behind one name would make tracked and actual D3D12 states diverge after a role exchange.
 
@@ -85,6 +89,7 @@ Pass bindings may use semantic role names because their resolver callbacks are e
 - `ReflectionResolvedRadianceHistorySrv` resolves to the SRV for `readIndex`;
 - `ReflectionResolvedRadianceCurrentSrv` resolves to the SRV for `readIndex ^ 1`;
 - `ReflectionResolvedRadianceCurrentRtv` resolves to the RTV for `readIndex ^ 1`.
+- auxiliary depth/normal history SRVs resolve to `readIndex`, and their current RTVs resolve to `readIndex ^ 1`.
 
 The `ReflectionResolvedRadiance` debug view also reads the current physical slot selected by `readIndex ^ 1`. Selecting this view schedules `ReflectionEvaluatePass` and `TemporalReflectionPass` even when final reflection contribution is disabled, so evaluated and resolved signals can be inspected without LightPass weighting.
 
@@ -92,10 +97,10 @@ The selected indices remain constant throughout one frame. The future temporal p
 
 ### Descriptor and RTV Inventory
 
-Each physical slot owns one persistent SRV and one persistent RTV. The history pair therefore adds exactly:
+Each physical slot owns one persistent SRV and one persistent RTV. The three history pairs therefore add exactly:
 
-- two shader-visible SRV descriptors;
-- two RTV descriptors;
+- six shader-visible SRV descriptors;
+- six RTV descriptors;
 - no UAV descriptors in the initial full-screen render-target implementation.
 
 The descriptors are allocated once with the render-size resources and recreated in place when those resources are recreated. Separate descriptors are preferred over rewriting a shared descriptor during ping-pong because they keep bindings stable and avoid descriptor mutation while earlier submitted GPU work may still reference them.
@@ -118,11 +123,11 @@ Normal camera movement is not a hard reset; future reprojection handles it. Came
 
 Post-resolve controls do not reset history: distance fade, maximum distance, visible-surface roughness weight, contribution intensity, hit overlay, exposure, tone mapping, and debug-view selection.
 
-Future rejection may consume current and previous depth or reconstructed position, visible-surface normal and roughness, motion vectors, reflection hit flag, hit distance, and hit normal. Reprojection, rejection thresholds, auxiliary history resources, accumulation shaders, and debug views are outside this contract phase.
+The implemented minimum rejection consumes current/previous depth, current/previous visible world normal, and motion vectors. Future rejection may additionally consume visible roughness, reflection hit flag, hit distance, and hit normal. Adaptive thresholds, confidence/history length, and dedicated rejection debug views remain outside this contract phase.
 
 ## Reprojection and Rejection Contract
 
-This section fixes the implementation boundary. Motion-vector reprojection and bounds rejection are wired; depth/normal and reflection-specific rejection are not.
+This section fixes the implementation boundary. Motion-vector reprojection plus bounds, depth, and normal rejection are wired; reflection-specific rejection is not.
 
 ### Motion Vector Convention
 
@@ -165,7 +170,7 @@ The first reprojection experiment consumes:
 
 Current depth and normal cannot validate a previous-frame sample by themselves. The auxiliary depth/normal history follows the same validity, invalidation, write index, post-submit role exchange, and resize lifecycle as `ReflectionResolvedRadiance`. It must not use swap-chain indices or Temporal Upscaler history ownership.
 
-Do not pack depth, normal, confidence, or history length into `ReflectionResolvedRadiance.a`; resolved radiance remains opaque linear HDR. The physical representation of auxiliary history may be selected in implementation, but its semantic fields remain distinct from radiance.
+Do not pack depth, normal, confidence, or history length into `ReflectionResolvedRadiance.a`; resolved radiance remains opaque linear HDR. The implemented auxiliary representation is `R32_FLOAT` depth and `R16G16B16A16_FLOAT` world normal; both remain semantically distinct from radiance.
 
 ### Rejection Order
 
@@ -179,11 +184,11 @@ Apply rejection from cheapest and most general to more reflection-specific evide
 
 For static geometry, expected previous depth can be computed by reconstructing current world position and projecting it with the previous view-projection matrix. This test is approximate for moving geometry because the current GBuffer does not provide per-pixel previous world position or previous clip depth. The existing XY motion vector still reprojects moving objects, but depth rejection for those pixels may require a future previous-depth prediction signal. Do not silently treat current device depth as previous-view depth.
 
-Normal rejection compares decoded world-space normals. A threshold is a policy/debug setting, not part of the resource meaning. Roughness should initially modulate accumulation weight only after core correspondence is valid; it is not a substitute for depth/normal rejection.
+Normal rejection compares normalized world-space normals. The first policy accepts an absolute previous-device-depth difference of at most `0.002` and a normal dot product of at least `0.9`. These thresholds are policy, not resource meaning. Roughness should initially modulate accumulation weight only after core correspondence is valid; it is not a substitute for depth/normal rejection.
 
 ### First Implementation Slice
 
-The first slice added motion-vector reprojection with bounds rejection while keeping the default history weight at zero. Depth/normal auxiliary history and rejection follow as a separate slice. A nonzero default is not allowed until both camera-motion correspondence and disocclusion behavior have been validated. Spatial denoise, adaptive history length, neighborhood clamping, and reflection-hit rejection remain later work.
+The first slice added motion-vector reprojection with bounds rejection while keeping the default history weight at zero. The second slice added depth/normal auxiliary history as MRT outputs and minimum rejection. A nonzero default is not allowed until the new camera-motion and disocclusion behavior has passed A/B validation. Spatial denoise, adaptive history length, neighborhood clamping, and reflection-hit rejection remain later work.
 
 ## Comparison Boundary
 

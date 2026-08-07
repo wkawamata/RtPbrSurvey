@@ -2,7 +2,11 @@
 
 Texture2D<float4> g_reflectionEvaluatedRadiance : register(t0, space9);
 Texture2D<float4> g_reflectionResolvedRadianceHistory : register(t0, space11);
+Texture2D<float> g_reflectionHistoryDepth : register(t0, space12);
+Texture2D<float4> g_reflectionHistoryNormal : register(t0, space13);
+Texture2D<float4> g_visibleNormal : register(t1, space3);
 Texture2D<float2> g_motionVector : register(t3, space3);
+Texture2D<float> g_visibleDepth : register(t6, space3);
 
 cbuffer CameraConstants : register(b0)
 {
@@ -26,10 +30,19 @@ FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
     return FullscreenTriangleVS(vertexId);
 }
 
-float4 PSMain(FullscreenVSOutput input) : SV_TARGET
+struct TemporalReflectionOutput
+{
+    float4 radiance : SV_Target0;
+    float depth : SV_Target1;
+    float4 normal : SV_Target2;
+};
+
+TemporalReflectionOutput PSMain(FullscreenVSOutput input)
 {
     const int3 pixel = int3(input.position.xy, 0);
     float4 current = g_reflectionEvaluatedRadiance.Load(pixel);
+    const float currentDepth = g_visibleDepth.Load(pixel);
+    const float3 currentNormal = normalize(g_visibleNormal.Load(pixel).xyz);
     if (g_historyValid != 0)
     {
         uint width;
@@ -44,9 +57,25 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         if (all(historyUv >= 0.0) && all(historyUv < 1.0))
         {
             const int2 historyPixel = int2(historyUv * float2(width, height));
-            const float4 history = g_reflectionResolvedRadianceHistory.Load(int3(historyPixel, 0));
-            current.rgb = lerp(current.rgb, history.rgb, g_historyWeight);
+            const float2 currentNdc = float2(currentUv.x * 2.0 - 1.0, 1.0 - currentUv.y * 2.0);
+            float4 currentWorld = mul(float4(currentNdc, currentDepth, 1.0), g_invViewProj);
+            currentWorld /= currentWorld.w;
+            const float4 previousClip = mul(currentWorld, g_prevViewProj);
+            const float expectedPreviousDepth = previousClip.z / previousClip.w;
+            const float previousDepth = g_reflectionHistoryDepth.Load(int3(historyPixel, 0));
+            const float3 previousNormal = normalize(g_reflectionHistoryNormal.Load(int3(historyPixel, 0)).xyz);
+            const bool depthValid = abs(previousDepth - expectedPreviousDepth) <= 0.002;
+            const bool normalValid = dot(currentNormal, previousNormal) >= 0.9;
+            if (depthValid && normalValid)
+            {
+                const float4 history = g_reflectionResolvedRadianceHistory.Load(int3(historyPixel, 0));
+                current.rgb = lerp(current.rgb, history.rgb, g_historyWeight);
+            }
         }
     }
-    return current;
+    TemporalReflectionOutput output;
+    output.radiance = current;
+    output.depth = currentDepth;
+    output.normal = float4(currentNormal, 1.0);
+    return output;
 }

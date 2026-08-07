@@ -185,3 +185,12 @@ Decision: motion reprojection and bounds rejection alone are insufficient at hig
 - Depth and normal thresholds are policy constants/settings, not resource semantics. The first implementation may use conservative fixed values, but tuning and user controls are separate from resource ownership.
 - Moving geometry remains approximate because the current contract provides XY motion but no exact previous-world-position or previous-clip-depth signal.
 - No hit distance, roughness, confidence, history length, synthetic noise, or spatial-denoise resource is authorized in this slice.
+
+## 2026-08-07: Minimum Depth/Normal Rejection Implementation
+
+- Added two persistent `R32_FLOAT` depth-history slots and two persistent `R16G16B16A16_FLOAT` world-normal-history slots under the existing reflection read index and validity state.
+- Extended `TemporalReflectionPass` to three MRT outputs so resolved radiance, current visible depth, and current visible normal are committed from the same frame and exchange roles together after submission.
+- Bound previous depth and normal only when reflection history is valid. The first frame after invalidation writes all three current signals without reading stale history.
+- Reconstructed the current world position from current device depth and `invViewProj`, projected it with `prevViewProj`, and accepted history when the previous-device-depth difference is at most `0.002` and the world-normal dot product is at least `0.9`.
+- Kept nearest validity sampling, default history weight zero, opaque resolved-radiance alpha, and the documented moving-geometry limitation.
+- Validation: Debug x64 and HLSL compilation succeeded with zero errors. The 20-degree/30-frame DamagedHelmet orbit at weight `0.9` completed, produced a PNG, and logged zero D3D12 errors plus the two pre-existing buffer initial-state warnings. The new image is visibly sharper than the previously rejected unrejected B image; final A/B acceptance remains pending.

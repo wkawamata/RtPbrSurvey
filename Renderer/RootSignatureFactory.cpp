@@ -24,6 +24,8 @@ struct DescriptorRanges
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRayEmissionSrv;
     CD3DX12_DESCRIPTOR_RANGE1 reflectionEvaluatedRadianceSrv;
     CD3DX12_DESCRIPTOR_RANGE1 reflectionResolvedRadianceHistorySrv;
+    CD3DX12_DESCRIPTOR_RANGE1 reflectionHistoryDepthSrv;
+    CD3DX12_DESCRIPTOR_RANGE1 reflectionHistoryNormalSrv;
     CD3DX12_DESCRIPTOR_RANGE1 cameraCbv;
     CD3DX12_DESCRIPTOR_RANGE1 lightCbv;
 };
@@ -133,6 +135,16 @@ DescriptorRanges CreateDescriptorRanges(UINT textureSrvCount, UINT gbufferSrvCou
         RootSignatureLayout::kBaseRegister,
         RootSignatureLayout::kReflectionResolvedRadianceHistorySrvSpace,
         D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+    ranges.reflectionHistoryDepthSrv.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+                                          1,
+                                          RootSignatureLayout::kBaseRegister,
+                                          RootSignatureLayout::kReflectionHistoryDepthSrvSpace,
+                                          D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+    ranges.reflectionHistoryNormalSrv.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+                                           1,
+                                           RootSignatureLayout::kBaseRegister,
+                                           RootSignatureLayout::kReflectionHistoryNormalSrvSpace,
+                                           D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
     ranges.cameraCbv.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
                           1,
@@ -192,6 +204,10 @@ void CreateRootParameters(const DescriptorRanges& ranges,
         1,
         &ranges.reflectionResolvedRadianceHistorySrv,
         D3D12_SHADER_VISIBILITY_PIXEL); // Previous resolved reflection radiance
+    rootParameters[RootSignatureLayout::ReflectionHistoryDepth].InitAsDescriptorTable(
+        1, &ranges.reflectionHistoryDepthSrv, D3D12_SHADER_VISIBILITY_PIXEL);
+    rootParameters[RootSignatureLayout::ReflectionHistoryNormal].InitAsDescriptorTable(
+        1, &ranges.reflectionHistoryNormalSrv, D3D12_SHADER_VISIBILITY_PIXEL);
     rootParameters[RootSignatureLayout::TemporalReflectionConstants].InitAsConstants(
         RootSignatureLayout::kTemporalReflectionConstantsCount,
         RootSignatureLayout::kTemporalReflectionConstantsRegister,

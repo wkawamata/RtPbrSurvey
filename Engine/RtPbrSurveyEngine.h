@@ -364,6 +364,8 @@ private:
                 "ReflectionResolvedRadianceHistorySrv";
             static constexpr const char* ReflectionResolvedRadianceCurrentSrv =
                 "ReflectionResolvedRadianceCurrentSrv";
+            static constexpr const char* ReflectionHistoryDepthSrv = "ReflectionHistoryDepthSrv";
+            static constexpr const char* ReflectionHistoryNormalSrv = "ReflectionHistoryNormalSrv";
             static constexpr const char* ReflectionRayHitUav = "ReflectionRayHitUav";
             static constexpr const char* TlasDebugUav = "TlasDebugUav";
             static constexpr const char* AccelerationStructureSrv = "AccelerationStructureSrv";
@@ -381,6 +383,8 @@ private:
             static constexpr const char* LightPass = "LightPass";
             static constexpr const char* ReflectionEvaluatedRadiance = "ReflectionEvaluatedRadiance";
             static constexpr const char* ReflectionResolvedRadianceCurrent = "ReflectionResolvedRadianceCurrent";
+            static constexpr const char* ReflectionHistoryDepthCurrent = "ReflectionHistoryDepthCurrent";
+            static constexpr const char* ReflectionHistoryNormalCurrent = "ReflectionHistoryNormalCurrent";
             static constexpr const char* TemporalUpscalerSceneColor = "TemporalUpscalerSceneColor";
         };
 
@@ -462,6 +466,7 @@ private:
         8; // Hit SRV/UAV + Color SRV/UAV + Material SRV/UAV + Emission SRV/UAV
     static constexpr UINT kReflectionEvaluatedRadianceDescriptorCount = 1; // ReflectionEvaluatedRadiance SRV
     static constexpr UINT kReflectionResolvedRadianceDescriptorCount = 2;  // One SRV per physical history slot
+    static constexpr UINT kReflectionAuxiliaryHistoryDescriptorCount = 4;  // Depth + normal, two slots each
     static constexpr UINT kTlasDescriptorCount = 1;       // TLAS SRV
 
     // Descriptor allocation order is tracked by DescriptorHeapHandle.
@@ -476,6 +481,7 @@ private:
                                                       kReflectionRayHitDescriptorCount +
                                                       kReflectionEvaluatedRadianceDescriptorCount +
                                                       kReflectionResolvedRadianceDescriptorCount +
+                                                      kReflectionAuxiliaryHistoryDescriptorCount +
                                                       kTlasDescriptorCount;
     static constexpr UINT kStagedDescriptorReservedCount = 64;
 
@@ -546,8 +552,10 @@ private:
     static constexpr UINT kLightPassRTVIndex = kGBufferRTVBaseIndex + Engine::GBuffer::kCount;
     static constexpr UINT kReflectionEvaluatedRadianceRTVIndex = kLightPassRTVIndex + 1;
     static constexpr UINT kReflectionResolvedRadianceRTVBaseIndex = kReflectionEvaluatedRadianceRTVIndex + 1;
-    static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionResolvedRadianceRTVBaseIndex + 2;
-    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 5;
+    static constexpr UINT kReflectionHistoryDepthRTVBaseIndex = kReflectionResolvedRadianceRTVBaseIndex + 2;
+    static constexpr UINT kReflectionHistoryNormalRTVBaseIndex = kReflectionHistoryDepthRTVBaseIndex + 2;
+    static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionHistoryNormalRTVBaseIndex + 2;
+    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 9;
 
     struct DebugViewSettings
     {
@@ -687,6 +695,8 @@ private:
     ComPtr<ID3D12Resource> m_lightPassRenderTarget;
     ComPtr<ID3D12Resource> m_reflectionEvaluatedRadiance;
     ComPtr<ID3D12Resource> m_reflectionResolvedRadiance[2];
+    ComPtr<ID3D12Resource> m_reflectionHistoryDepth[2];
+    ComPtr<ID3D12Resource> m_reflectionHistoryNormal[2];
     ComPtr<ID3D12Resource> m_temporalUpscalerSceneColor;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
@@ -706,6 +716,8 @@ private:
     DescriptorHeapHandle m_temporalUpscalerSceneColorSrv;
     DescriptorHeapHandle m_reflectionEvaluatedRadianceSrv;
     DescriptorHeapHandle m_reflectionResolvedRadianceSrv[2];
+    DescriptorHeapHandle m_reflectionHistoryDepthSrv[2];
+    DescriptorHeapHandle m_reflectionHistoryNormalSrv[2];
     StagedDescriptorRange m_shadowMaskRange;
 
     StagedDescriptorAllocator m_stageAllocator;
@@ -891,6 +903,10 @@ private:
         "ReflectionResolvedRadiance.0",
         "ReflectionResolvedRadiance.1",
     };
+    static constexpr const char* kReflectionHistoryDepthResourceNames[2] = {
+        "ReflectionHistoryDepth.0", "ReflectionHistoryDepth.1"};
+    static constexpr const char* kReflectionHistoryNormalResourceNames[2] = {
+        "ReflectionHistoryNormal.0", "ReflectionHistoryNormal.1"};
     static constexpr const char* kGBufferResourceNames[Engine::GBuffer::kCount] = {
         "GBuffer.Albedo",
         "GBuffer.Normal",
@@ -1049,6 +1065,7 @@ private:
     void RegisterLightPassRenderTarget();
     void RegisterReflectionEvaluatedRadiance();
     void RegisterReflectionResolvedRadiance();
+    void RegisterReflectionAuxiliaryHistory();
     void RegisterTemporalUpscalerSceneColor();
     void RegisterRenderTexture(const Engine::RenderTextureSpec& spec);
     UINT ResolveRenderTextureWidth(const Engine::RenderTextureSpec& spec) const;
@@ -1081,6 +1098,8 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE GetLightPassRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionEvaluatedRadianceRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionResolvedRadianceCurrentRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionHistoryDepthCurrentRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionHistoryNormalCurrentRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetTemporalUpscalerSceneColorRTV() const;
     void RegisterPassBindingResolvers();
     void RegisterPassConstantsHandlers();
