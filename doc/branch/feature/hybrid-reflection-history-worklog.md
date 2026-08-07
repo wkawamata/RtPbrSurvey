@@ -194,3 +194,13 @@ Decision: motion reprojection and bounds rejection alone are insufficient at hig
 - Reconstructed the current world position from current device depth and `invViewProj`, projected it with `prevViewProj`, and accepted history when the previous-device-depth difference is at most `0.002` and the world-normal dot product is at least `0.9`.
 - Kept nearest validity sampling, default history weight zero, opaque resolved-radiance alpha, and the documented moving-geometry limitation.
 - Validation: Debug x64 and HLSL compilation succeeded with zero errors. The 20-degree/30-frame DamagedHelmet orbit at weight `0.9` completed, produced a PNG, and logged zero D3D12 errors plus the two pre-existing buffer initial-state warnings. The new image is visibly sharper than the previously rejected unrejected B image; final A/B acceptance remains pending.
+
+### User A/B Acceptance After Rejection
+
+The user compared saved full-resolution captures A (`weight = 0.0`) and B (`weight = 0.9` with depth/normal rejection) and marked all three failure checks as false:
+
+- B is not clearly blurrier at the silhouette than A.
+- B does not show objectionable history trails in internal detail.
+- B's quality is not considered unacceptable at this stage.
+
+Decision: the minimum depth/normal rejection phase passes the controlled 20-degree/30-frame DamagedHelmet orbit test. Keep the default weight at zero until a varying/noisy input demonstrates an accumulation benefit. Do not add reflection-hit, roughness, confidence/history length, or spatial-denoise resources based on this test alone.
