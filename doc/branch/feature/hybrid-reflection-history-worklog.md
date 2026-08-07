@@ -214,3 +214,13 @@ Decision: the minimum depth/normal rejection phase passes the controlled 20-degr
 - The Debug UI text now describes motion reprojection and depth/normal rejection instead of the obsolete unreprojected experiment.
 - Default strength remains zero. Spatial denoise and physically stochastic ray generation remain outside this slice.
 - Validation: Debug x64 and HLSL compilation succeeded with zero errors. At noise strength `0.5`, static DamagedHelmet captures after 120 frames showed strong grain at history weight `0.0` and substantial smoothing at weight `0.9` while retaining the main surface detail. The Debug Layer log contained no errors or warnings. Final visual acceptance and the moving-noise tradeoff remain pending.
+
+### User Static-Noise A/B Acceptance
+
+The user compared saved full-resolution captures A (`weight = 0.0`) and B (`weight = 0.9`) at debug-noise strength `0.5` and accepted all three checks:
+
+- B is clearly less grainy than A.
+- B preserves the main surface detail and mean brightness.
+- The static comparison demonstrates a useful temporal-accumulation benefit.
+
+Decision: the synthetic-noise test validates the expected static smoothing benefit of the current history blend. This does not validate physically stochastic reflection input or the moving-noise tradeoff. Keep the default history weight and debug-noise strength at zero; evaluate temporal stability under controlled motion before considering production defaults or spatial denoise.
