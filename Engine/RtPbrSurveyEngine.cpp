@@ -435,7 +435,8 @@ void RtPbrSurveyEngine::SetHybridReflectionSettings(const HybridReflectionSettin
         m_hybridReflectionSettings.minMetallic != settings.minMetallic ||
         m_hybridReflectionSettings.hitNormalSource != settings.hitNormalSource ||
         m_hybridReflectionSettings.contributionEnabled != settings.contributionEnabled ||
-        m_hybridReflectionSettings.temporalHistoryWeight != settings.temporalHistoryWeight;
+        m_hybridReflectionSettings.temporalHistoryWeight != settings.temporalHistoryWeight ||
+        m_hybridReflectionSettings.temporalNoiseStrength != settings.temporalNoiseStrength;
 
     m_hybridReflectionSettings = settings;
     if (reflectionHistoryChanged)
@@ -814,6 +815,7 @@ void RtPbrSurveyEngine::UpdateCameraConstantBuffer()
 void RtPbrSurveyEngine::InvalidateReflectionHistory()
 {
     m_reflectionHistoryState.valid = false;
+    m_reflectionTemporalFrameIndex = 0;
 }
 
 void RtPbrSurveyEngine::CommitReflectionHistoryFrame()
@@ -825,6 +827,7 @@ void RtPbrSurveyEngine::CommitReflectionHistoryFrame()
 
     m_reflectionHistoryState.readIndex ^= 1u;
     m_reflectionHistoryState.valid = true;
+    ++m_reflectionTemporalFrameIndex;
     m_reflectionHistoryCommitPending = false;
 }
 
@@ -3145,11 +3148,15 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
             {
                 UINT historyValid;
                 float historyWeight;
+                UINT frameIndex;
+                float noiseStrength;
             };
             const TemporalReflectionConstants constants = {
                 m_reflectionHistoryState.valid ? 1u : 0u,
-                std::clamp(m_hybridReflectionSettings.temporalHistoryWeight, 0.0f, 0.98f)};
-            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 2, &constants, 0);
+                std::clamp(m_hybridReflectionSettings.temporalHistoryWeight, 0.0f, 0.98f),
+                m_reflectionTemporalFrameIndex,
+                std::clamp(m_hybridReflectionSettings.temporalNoiseStrength, 0.0f, 1.0f)};
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 4, &constants, 0);
         });
 }
 

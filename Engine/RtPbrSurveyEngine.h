@@ -221,6 +221,7 @@ public:
         float contributionIntensity = 0.25f;
         float contributionMaxDistance = 20.0f;
         float temporalHistoryWeight = 0.0f;
+        float temporalNoiseStrength = 0.0f;
     };
 
     struct SpecularDebugLineSettings
@@ -677,6 +678,7 @@ private:
     UINT m_renderHeight = 0;
     float m_aspectRatio = 0.0f;
     UINT m_temporalFrameIndex = 0;
+    UINT m_reflectionTemporalFrameIndex = 0;
     UINT m_temporalJitterSampleIndex = 0;
     XMFLOAT2 m_temporalJitterHalton = {};
     XMFLOAT2 m_jitterOffsetPixels = {};

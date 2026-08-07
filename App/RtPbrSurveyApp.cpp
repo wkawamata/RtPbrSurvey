@@ -156,6 +156,11 @@ void RtPbrSurveyApp::OnInit()
                 reflectionSettings.temporalHistoryWeight =
                     std::clamp(m_commandLineOptions.reflectionTemporalWeight, 0.0f, 0.98f);
             }
+            if (m_commandLineOptions.hasReflectionTemporalNoiseStrength)
+            {
+                reflectionSettings.temporalNoiseStrength =
+                    std::clamp(m_commandLineOptions.reflectionTemporalNoiseStrength, 0.0f, 1.0f);
+            }
             m_sceneRenderer.SetHybridReflectionSettings(reflectionSettings);
             m_automationOrbitStartYaw = m_debugCamera.ObjectViewerYaw();
         }

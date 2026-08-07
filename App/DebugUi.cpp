@@ -644,10 +644,12 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             "Contribution Intensity", &reflectionSettings.contributionIntensity, 0.0f, 2.0f, 0.05f, 0.25f);
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Contribution Max Distance", &reflectionSettings.contributionMaxDistance, 0.1f, 100.0f, 0.5f, 20.0f);
+        ImGui::EndDisabled();
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Temporal History Weight", &reflectionSettings.temporalHistoryWeight, 0.0f, 0.98f, 0.05f, 0.0f);
-        ImGui::TextWrapped("Experimental blend without motion reprojection. The current deterministic signal mainly exposes motion trails; future stochastic input may gain stability.");
-        ImGui::EndDisabled();
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Temporal Debug Noise", &reflectionSettings.temporalNoiseStrength, 0.0f, 1.0f, 0.05f, 0.0f);
+        ImGui::TextWrapped("Experimental motion-reprojected blend with depth/normal rejection. Debug noise is injected before history accumulation and is disabled at zero.");
 
         changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
         ImGui::TextWrapped("Limits which visible surfaces cast reflection rays by roughness and metallic.");

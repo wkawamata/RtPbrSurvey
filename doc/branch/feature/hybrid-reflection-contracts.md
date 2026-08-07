@@ -29,6 +29,8 @@ resolved_rgb = lerp(current_evaluated_rgb, previous_resolved_rgb, history_weight
 
 `history_weight` is clamped to `[0, 0.98]`. Valid history is sampled at the nearest pixel selected by the motion-vector convention below only when bounds, previous-depth, and previous-normal tests pass. The current one-ray signal is deterministic in a static scene, so measured static noise reduction is negligible. The control remains useful for correspondence and future stochastic-input experiments, and zero remains the safe default while rejection quality is evaluated.
 
+For isolation testing only, `Temporal Debug Noise` may apply a deterministic per-pixel/per-frame zero-mean luminance multiplier to current evaluated radiance immediately before accumulation. Strength zero disables it. This signal is not physical ray noise, does not alter `ReflectionEvaluatedRadiance`, and is never injected directly into previous history.
+
 ## Data Contract
 
 Reflection payload and radiance resources are render-resolution `DXGI_FORMAT_R16G16B16A16_FLOAT` textures. Auxiliary history uses the formats listed below.

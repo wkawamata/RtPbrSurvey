@@ -23,7 +23,19 @@ cbuffer TemporalReflectionConstants : register(b5)
 {
     uint g_historyValid;
     float g_historyWeight;
+    uint g_frameIndex;
+    float g_noiseStrength;
 };
+
+uint HashTemporalNoise(uint2 pixel, uint frameIndex)
+{
+    uint value = pixel.x * 0x8da6b343u ^ pixel.y * 0xd8163841u ^ frameIndex * 0xcb1ab31fu;
+    value ^= value >> 16;
+    value *= 0x7feb352du;
+    value ^= value >> 15;
+    value *= 0x846ca68bu;
+    return value ^ (value >> 16);
+}
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
 {
@@ -41,6 +53,8 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
 {
     const int3 pixel = int3(input.position.xy, 0);
     float4 current = g_reflectionEvaluatedRadiance.Load(pixel);
+    const float unitNoise = float(HashTemporalNoise(uint2(pixel.xy), g_frameIndex)) / 4294967295.0;
+    current.rgb *= 1.0 + (unitNoise * 2.0 - 1.0) * g_noiseStrength;
     const float currentDepth = g_visibleDepth.Load(pixel);
     const float3 currentNormal = normalize(g_visibleNormal.Load(pixel).xyz);
     if (g_historyValid != 0)

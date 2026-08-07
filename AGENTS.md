@@ -48,6 +48,7 @@ Flags are parsed in `RtPbrSurveyApp::ParseCommandLineArgs()`.
 | `-ReflectionTemporalWeight` | `-ReflectionTemporalWeight 0.9` | Override the experimental reflection history weight for an automated resolved-radiance capture. |
 | `-ReflectionOrbitDegrees` | `-ReflectionOrbitDegrees 20` | Apply a deterministic horizontal Arcball orbit ending on the automated capture frame. |
 | `-ReflectionOrbitFrames` | `-ReflectionOrbitFrames 30` | Spread the automated reflection orbit over this many rendered frames. |
+| `-ReflectionTemporalNoiseStrength` | `-ReflectionTemporalNoiseStrength 0.5` | Inject deterministic zero-mean luminance noise into the current resolved-radiance input for temporal validation. |
 
 ## D3D12 Debug Layer Check
 

@@ -22,6 +22,8 @@ struct CommandLineOptions
     float reflectionTemporalWeight = 0.0f;
     float reflectionOrbitDegrees = 0.0f;
     UINT reflectionOrbitFrames = 0;
+    bool hasReflectionTemporalNoiseStrength = false;
+    float reflectionTemporalNoiseStrength = 0.0f;
 };
 
 CommandLineOptions ParseCommandLineOptions(_In_reads_(argc) WCHAR* argv[], int argc);

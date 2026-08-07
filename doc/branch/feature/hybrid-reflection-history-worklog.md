@@ -204,3 +204,13 @@ The user compared saved full-resolution captures A (`weight = 0.0`) and B (`weig
 - B's quality is not considered unacceptable at this stage.
 
 Decision: the minimum depth/normal rejection phase passes the controlled 20-degree/30-frame DamagedHelmet orbit test. Keep the default weight at zero until a varying/noisy input demonstrates an accumulation benefit. Do not add reflection-hit, roughness, confidence/history length, or spatial-denoise resources based on this test alone.
+
+## 2026-08-07: Synthetic Temporal Noise Input
+
+- Added a default-zero `Temporal Debug Noise` strength to Hybrid Reflection settings and automated capture overrides.
+- `TemporalReflectionPass` derives a deterministic zero-mean luminance multiplier from pixel coordinates and a reflection-owned frame index, then applies it to current evaluated radiance before history blending.
+- Noise is never written directly into previous history; only the normal resolved output is promoted through the existing ownership path.
+- Changing noise strength invalidates history and restarts the reflection frame index. The counter advances only after a submitted Temporal pass is promoted to history.
+- The Debug UI text now describes motion reprojection and depth/normal rejection instead of the obsolete unreprojected experiment.
+- Default strength remains zero. Spatial denoise and physically stochastic ray generation remain outside this slice.
+- Validation: Debug x64 and HLSL compilation succeeded with zero errors. At noise strength `0.5`, static DamagedHelmet captures after 120 frames showed strong grain at history weight `0.0` and substantial smoothing at weight `0.9` while retaining the main surface detail. The Debug Layer log contained no errors or warnings. Final visual acceptance and the moving-noise tradeoff remain pending.
