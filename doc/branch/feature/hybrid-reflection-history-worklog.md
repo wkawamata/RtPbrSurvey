@@ -224,3 +224,11 @@ The user compared saved full-resolution captures A (`weight = 0.0`) and B (`weig
 - The static comparison demonstrates a useful temporal-accumulation benefit.
 
 Decision: the synthetic-noise test validates the expected static smoothing benefit of the current history blend. This does not validate physically stochastic reflection input or the moving-noise tradeoff. Keep the default history weight and debug-noise strength at zero; evaluate temporal stability under controlled motion before considering production defaults or spatial denoise.
+
+## 2026-08-09: Controlled-Orbit Synthetic-Noise A/B
+
+- Captured matched final poses after a 20-degree horizontal orbit over 30 frames with debug-noise strength `0.5`. A used history weight `0.0`; B used `0.9`.
+- Both Debug Layer logs contained no errors and only the two known buffer initial-state warnings.
+- The user accepted all three full-resolution still-image checks: B was clearly less grainy, showed no objectionable residual silhouette or internal-detail trail at the final pose, and had an acceptable smoothing/tracking balance for this comparison.
+
+Decision: the controlled-orbit endpoint comparison passes. This still-image acceptance covers residual error at the captured final pose; it does not directly validate flicker, trails visible only during motion, direction reversal, or settling over time. Keep production defaults at zero until a temporal sequence or equivalent multi-frame evidence covers those behaviors.
