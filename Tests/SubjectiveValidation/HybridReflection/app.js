@@ -17,6 +17,7 @@ const metadata = document.querySelector("#suite-metadata");
 const progress = document.querySelector("#progress");
 const exportButton = document.querySelector("#export-report");
 const errorPanel = document.querySelector("#suite-error");
+const reportStatus = document.querySelector("#report-status");
 
 let suite = null;
 
@@ -157,9 +158,9 @@ function caseResult(article)
     };
 }
 
-function exportReport()
+function buildReport()
 {
-    const report = {
+    return {
         reportVersion,
         suiteId: suite.id,
         suiteVersion: suite.version,
@@ -167,6 +168,10 @@ function exportReport()
         evaluatedAt: new Date().toISOString(),
         cases: [...caseList.querySelectorAll(".test-case")].map(caseResult)
     };
+}
+
+function downloadReport(report)
+{
     const blob = new Blob([`${JSON.stringify(report, null, 2)}\n`], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -174,6 +179,39 @@ function exportReport()
     link.download = `${suite.id}-report-${new Date().toISOString().replaceAll(":", "-")}.json`;
     link.click();
     URL.revokeObjectURL(url);
+}
+
+async function exportReport()
+{
+    const report = buildReport();
+    exportButton.disabled = true;
+    reportStatus.classList.remove("error");
+    reportStatus.textContent = "Saving report...";
+
+    try
+    {
+        const response = await fetch("api/report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(report)
+        });
+        if (!response.ok)
+        {
+            throw new Error(`Report request failed: ${response.status}`);
+        }
+        const result = await response.json();
+        reportStatus.textContent = `Saved ${result.path}`;
+    }
+    catch (error)
+    {
+        downloadReport(report);
+        reportStatus.classList.add("error");
+        reportStatus.textContent = `Server save failed; downloaded a local copy instead. ${error.message}`;
+    }
+    finally
+    {
+        exportButton.disabled = false;
+    }
 }
 
 async function loadSuite()

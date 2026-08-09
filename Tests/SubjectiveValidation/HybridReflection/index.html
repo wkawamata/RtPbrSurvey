@@ -15,12 +15,13 @@
         </div>
         <div class="header-actions">
             <span id="progress" class="progress">0 / 0 answered</span>
-            <button id="export-report" type="button" disabled>Export report.json</button>
+            <button id="export-report" type="button" disabled>Save report.json</button>
         </div>
     </header>
 
     <main>
         <section id="suite-error" class="error-panel" hidden></section>
+        <p id="report-status" class="report-status" role="status" aria-live="polite"></p>
         <section id="suite-metadata" class="metadata" aria-label="Capture metadata"></section>
         <section id="case-list" class="case-list" aria-live="polite"></section>
     </main>

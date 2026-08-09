@@ -12,7 +12,7 @@ This local harness presents repeatable A/B capture cases, records radio-button d
 
 The page loads `suite.json` by default. A different suite may be selected with `?suite=relative/path.json`. Because browsers restrict JSON loading from `file://` pages, serve this directory over local HTTP. The repeatable capture and launch command belongs to a later orchestration phase.
 
-Phase A does not add renderer capture behavior. Multi-frame capture within one continuous history timeline is the next phase.
+Phase A itself does not add renderer capture behavior. Continuous-timeline capture is defined by the Phase B contract below.
 
 ## Phase B Capture Plan
 
@@ -25,3 +25,11 @@ Each capture path must be relative to the plan directory, end in `.png`, avoid p
 The plan is loaded with `-ReflectionCapturePlan <path>` and `-ReflectionCaptureVariant <variant>`. A plan implies the resolved-radiance capture mode. It remains mutually exclusive with the legacy `-CapturePath`. `-ExitAfterCapture` exits only after every planned PNG has completed.
 
 Only one screenshot may be in flight. If the previous screenshot has not completed by the next requested frame, the plan fails instead of silently capturing a later frame. Capture frames should therefore have deliberate spacing.
+
+## Phase C Repeatable Run
+
+Run `Start-Validation.ps1` from PowerShell. By default it builds Debug x64, captures A and B sequentially, verifies every planned PNG, creates ignored `current-suite.json` metadata, starts a loopback-only server, and opens the evaluator. `-SkipBuild`, `-SkipCapture`, and `-NoBrowser` support focused reruns.
+
+The evaluator saves reports directly under ignored `reports/`. If the report endpoint is unavailable, it falls back to a browser JSON download. Run `Stop-Validation.ps1` when evaluation is complete. The stop script uses the server-specific token recorded under `reports/`; it does not terminate a process by an unverified PID.
+
+Recapturing replaces the six generated PNG files while stable suite, case, and criterion identifiers remain unchanged. Committed suite data stays reproducible; run-specific commit, UTC timestamp, plan hash, and working-tree state live only in `current-suite.json` and exported reports.

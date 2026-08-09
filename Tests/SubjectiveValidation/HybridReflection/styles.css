@@ -123,6 +123,17 @@ main {
     background: var(--panel);
 }
 
+.report-status {
+    min-height: 1.5em;
+    margin: 0 0 14px;
+    color: var(--accent);
+    font-weight: 650;
+}
+
+.report-status.error {
+    color: var(--danger);
+}
+
 .test-case {
     padding: 24px;
 }

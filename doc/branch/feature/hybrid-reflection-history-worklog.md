@@ -248,3 +248,12 @@ Decision: the controlled-orbit endpoint comparison passes. This still-image acce
 - Planned capture is mutually exclusive with legacy `-CapturePath`. Only one screenshot may be in flight; a busy capture at the next exact frame fails the plan rather than producing mislabeled delayed evidence.
 - HTML launch, paired A/B orchestration, capture metadata refresh, and report collection remain Phase C.
 - Validation: Debug x64 and HLSL compilation succeeded with zero errors. Separate A (`weight = 0.0`) and B (`weight = 0.9`) processes each produced all three planned PNG files from one continuous 195-frame timeline at noise strength `0.5`. Neither run logged a D3D12 error; each retained only the two known buffer initial-state warnings.
+
+## 2026-08-09: Subjective Validation Harness Phase C
+
+- Added one repeatable PowerShell entry point that optionally builds Debug x64, runs A/B capture variants sequentially, rejects missing/empty planned PNGs, and generates ignored run metadata without modifying the committed suite template.
+- Added a dependency-free Node loopback server for static assets and report collection. Reports are size-limited, receive unique filenames, and remain ignored local evidence.
+- The HTML evaluator saves through the local report endpoint and falls back to a browser JSON download if the endpoint is unavailable.
+- Server shutdown uses a per-run token rather than an unverified PID kill. Browser opening, build, and capture can each be suppressed for focused automation.
+- Validation: static assets, run metadata, a generated PNG, report POST/save, and token shutdown passed through the loopback server. Browser validation loaded all three A/B cases and nine criteria, advanced from `0 / 9` to `9 / 9` through radio selection, saved a report containing nine `pass` results, and logged no browser errors or warnings.
+- The normal runner entry point then completed Debug x64 build, both 195-frame capture variants, six non-empty PNG checks, metadata generation, server startup, and clean token shutdown. Both capture logs contained no errors.
