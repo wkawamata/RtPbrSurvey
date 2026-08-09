@@ -1,0 +1,37 @@
+# Hybrid Reflection Stochastic Sampling Work Log
+
+This log records design decisions, implementation slices, and validation results for stochastic Hybrid Reflection sampling. Normative resource and temporal semantics remain in [Hybrid Reflection Contracts](hybrid-reflection-contracts.md).
+
+## 2026-08-10: Phase Start and Current-Signal Audit
+
+- Started `features/hybrid-reflection-stochastic-sampling` from `main` at `87b6f56`.
+- Confirmed the current reflection ray direction is the deterministic perfect-mirror direction `reflect(viewDirection, normal)`.
+- Confirmed visible-surface roughness currently gates ray generation through `maxRoughness` but does not broaden the ray direction.
+- Confirmed hit-surface roughness remains a separate material payload in `ReflectionRayMaterial`; it must not drive the visible-surface sampling lobe.
+- Confirmed `HybridReflectionPass` has no frame/sample index or random seed input.
+- Fixed the initial implementation boundary: stochastic direction generation belongs in `HybridReflectionPass` before `RayQuery`; raw hit/material payload and evaluated/resolved radiance contracts remain unchanged.
+- Production defaults must preserve the current deterministic image until stochastic sampling and temporal behavior pass validation.
+- Temporal accumulation, spatial denoise, DLSS RR/Streamline integration, PathTracing, and broad RenderGraph changes remain outside this phase.
+- Validation gate: compare deterministic and stochastic inputs at history weights `0.0` and `0.9`, checking temporal noise reduction, mean brightness, detail retention, motion trails, reversal, and settling.
+- No renderer or shader behavior changed in this slice; build was not run.
+
+## Planned Small Slices
+
+1. Define the reflection-owned sample-index/reset contract and choose a minimal rough-specular sampling model.
+2. Add default-off CPU/shader controls without changing resource semantics.
+3. Implement stochastic visible-surface reflection directions and compile/build validation.
+4. Extend the existing repeatable A/B suite only where required to measure the real stochastic signal.
+5. Review whether the observed benefit justifies a nonzero production temporal default; do not enable it automatically.
+
+## 2026-08-10: Sampling Model and Ownership Decision
+
+- `ReflectionEvaluatePass` evaluates radiance arriving from the traced direction, while `LightPass` continues to own visible-surface distance, roughness, intensity, and Fresnel weighting.
+- The current final composition is a deliberate reflection approximation, not a Monte Carlo BRDF estimator with an explicit PDF and throughput term. Adding a randomized direction alone must therefore not be described as unbiased path tracing or physically complete GGX integration.
+- Use an isotropic GGX-derived rough-specular direction as the initial experimental model. The visible-surface roughness controls the sampling lobe; hit-surface roughness remains limited to hit-material radiance evaluation.
+- Preserve the exact perfect-mirror direction when stochastic sampling is disabled or visible roughness is effectively zero.
+- Reject sampled directions below the visible surface. The first implementation should choose a bounded deterministic fallback instead of tracing an invalid direction or introducing an unbounded resampling loop.
+- Seed each sample from pixel coordinates and a reflection-owned sample index. The sequence must be reproducible for capture automation and must not depend on swap-chain back-buffer indices.
+- A Hybrid Reflection signal execution advances the sampling index after submission. History invalidation also resets the sampling index so the first stochastic sample and temporal history restart together.
+- Raw payload, evaluated radiance, and resolved radiance resource layouts remain unchanged. No PDF or throughput field is added to the payload in this phase.
+- Expose stochastic sampling as a default-off experimental control. Changing its enable state or strength invalidates reflection history.
+- Treat mean-brightness preservation as a measured acceptance gate, not as a property guaranteed by the initial approximation.
