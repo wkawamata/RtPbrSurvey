@@ -266,3 +266,11 @@ Decision: the controlled-orbit endpoint comparison passes. This still-image acce
 - The saved Japanese report targets suite `hybrid-reflection-temporal-v1`, version `1`, and capture commit `fe255257fc4e11bec5dc79e1c229a571f1d6d6bb`. The user marked all nine criteria across mid-motion, direction reversal, and settling cases as `pass`, with no defect tags or notes.
 
 Decision: the defined three-case still-image suite passes formal subjective review at history weight `0.9` and synthetic-noise strength `0.5`. This acceptance covers the sampled frames from one continuous timeline; it does not claim observation of between-capture flicker or justify changing production defaults by itself.
+
+## 2026-08-10: Contract Phase Closeout
+
+- Audited the branch against the focused contract and validation harness after formal acceptance.
+- Updated current-state documentation to remove stale pre-Phase-C wording and to distinguish the passed sampled-frame rejection gate from unverified between-capture flicker and physically stochastic input.
+- Historical `pending` statements remain in earlier dated work-log entries because they accurately describe those implementation stages.
+
+Decision: close the Hybrid Reflection history-contract phase with temporal history weight and debug-noise strength still defaulting to zero. Additional rejection signals, spatial denoise, production temporal enablement, and denser temporal observation require separate evidence and a later scoped branch.

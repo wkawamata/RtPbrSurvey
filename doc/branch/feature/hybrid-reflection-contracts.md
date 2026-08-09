@@ -27,7 +27,7 @@ On the first frame after invalidation, `TemporalReflectionPass` copies `Reflecti
 resolved_rgb = lerp(current_evaluated_rgb, previous_resolved_rgb, history_weight)
 ```
 
-`history_weight` is clamped to `[0, 0.98]`. Valid history is sampled at the nearest pixel selected by the motion-vector convention below only when bounds, previous-depth, and previous-normal tests pass. The current one-ray signal is deterministic in a static scene, so measured static noise reduction is negligible. The control remains useful for correspondence and future stochastic-input experiments, and zero remains the safe default while rejection quality is evaluated.
+`history_weight` is clamped to `[0, 0.98]`. Valid history is sampled at the nearest pixel selected by the motion-vector convention below only when bounds, previous-depth, and previous-normal tests pass. The current one-ray signal is deterministic in a static scene, so measured static noise reduction is negligible. Synthetic-noise validation demonstrates the expected accumulation benefit, but zero remains the production default because the evidence is synthetic and sampled still frames do not directly cover between-capture flicker.
 
 For isolation testing only, `Temporal Debug Noise` may apply a deterministic per-pixel/per-frame zero-mean luminance multiplier to current evaluated radiance immediately before accumulation. Strength zero disables it. This signal is not physical ray noise, does not alter `ReflectionEvaluatedRadiance`, and is never injected directly into previous history.
 
@@ -190,7 +190,11 @@ Normal rejection compares normalized world-space normals. The first policy accep
 
 ### First Implementation Slice
 
-The first slice added motion-vector reprojection with bounds rejection while keeping the default history weight at zero. The second slice added depth/normal auxiliary history as MRT outputs and minimum rejection. A nonzero default is not allowed until the new camera-motion and disocclusion behavior has passed A/B validation. Spatial denoise, adaptive history length, neighborhood clamping, and reflection-hit rejection remain later work.
+The first slice added motion-vector reprojection with bounds rejection while keeping the default history weight at zero. The second slice added depth/normal auxiliary history as MRT outputs and minimum rejection. The continuous-timeline A/B suite passed formal subjective review at history weight `0.9` with synthetic-noise strength `0.5` for sampled mid-motion, direction-reversal, and settling frames. This satisfies the defined still-image rejection gate but does not authorize a nonzero production default. Spatial denoise, adaptive history length, neighborhood clamping, reflection-hit rejection, physically stochastic input validation, and between-capture flicker observation remain later work.
+
+### Contract Phase Closeout
+
+The resource, ownership, reset, reprojection, minimum rejection, debug-noise, and repeatable subjective-validation contracts are implemented and validated for this phase. Production temporal enablement and additional denoise/rejection resources require new measured evidence and belong to a later branch rather than extending this contract phase.
 
 ## Comparison Boundary
 

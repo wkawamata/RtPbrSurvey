@@ -10,7 +10,7 @@ This local harness presents repeatable A/B capture cases, records radio-button d
 - Optional defect tags and notes preserve observations that do not fit the fixed criteria.
 - Exported reports include the suite version, capture metadata, evaluation timestamp, and results keyed by stable case identifiers. `report.schema.json` defines the exported shape.
 
-The page loads `suite.json` by default. A different suite may be selected with `?suite=relative/path.json`. Because browsers restrict JSON loading from `file://` pages, serve this directory over local HTTP. The repeatable capture and launch command belongs to a later orchestration phase.
+The page loads `suite.json` by default. A different suite may be selected with `?suite=relative/path.json`. Because browsers restrict JSON loading from `file://` pages, use the repeatable Phase C runner below to capture, serve, and open the evaluation suite.
 
 Phase A itself does not add renderer capture behavior. Continuous-timeline capture is defined by the Phase B contract below.
 
