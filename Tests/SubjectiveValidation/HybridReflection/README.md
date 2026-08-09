@@ -33,3 +33,5 @@ Run `Start-Validation.ps1` from PowerShell. By default it builds Debug x64, capt
 The evaluator saves reports directly under ignored `reports/`. If the report endpoint is unavailable, it falls back to a browser JSON download. Run `Stop-Validation.ps1` when evaluation is complete. The stop script uses the server-specific token recorded under `reports/`; it does not terminate a process by an unverified PID.
 
 Recapturing replaces the six generated PNG files while stable suite, case, and criterion identifiers remain unchanged. Committed suite data stays reproducible; run-specific commit, UTC timestamp, plan hash, and working-tree state live only in `current-suite.json` and exported reports.
+
+The evaluator can switch between English and Japanese without recreating controls or losing current radio, defect, or note state. Exported reports record the active locale. DamagedHelmet captures are displayed at two-times scale around the image center so the reflection details occupy a useful review area; this is a presentation-only crop and does not alter captured pixels.

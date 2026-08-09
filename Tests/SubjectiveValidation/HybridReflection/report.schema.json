@@ -9,6 +9,7 @@
     "reportVersion": { "const": 1 },
     "suiteId": { "type": "string", "minLength": 1 },
     "suiteVersion": { "type": "integer", "minimum": 1 },
+    "locale": { "enum": ["en", "ja"] },
     "capture": { "type": "object" },
     "evaluatedAt": { "type": "string", "format": "date-time" },
     "cases": {

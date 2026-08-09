@@ -104,7 +104,7 @@ function Start-ValidationServer
     New-Item -ItemType Directory -Path $reportsDirectory -Force | Out-Null
     if (Test-Path -LiteralPath $serverStatePath)
     {
-        $existingState = Get-Content -LiteralPath $serverStatePath -Raw | ConvertFrom-Json
+        $existingState = Get-Content -LiteralPath $serverStatePath -Raw -Encoding UTF8 | ConvertFrom-Json
         $existingHealth = $null
         try
         {
@@ -187,8 +187,8 @@ if (!$SkipBuild)
     }
 }
 
-$plan = Get-Content -LiteralPath $planPath -Raw | ConvertFrom-Json
-$suite = Get-Content -LiteralPath $suiteTemplatePath -Raw | ConvertFrom-Json
+$plan = Get-Content -LiteralPath $planPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$suite = Get-Content -LiteralPath $suiteTemplatePath -Raw -Encoding UTF8 | ConvertFrom-Json
 Assert-SuitePlanContract -Suite $suite -Plan $plan
 if (!$SkipCapture)
 {

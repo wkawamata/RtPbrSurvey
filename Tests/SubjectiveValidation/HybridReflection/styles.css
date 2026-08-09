@@ -95,6 +95,12 @@ button:disabled {
     cursor: not-allowed;
 }
 
+.secondary-button {
+    border-color: var(--border);
+    background: var(--panel-raised);
+    color: #dce4ef;
+}
+
 main {
     padding: 22px 0 80px;
 }
@@ -206,6 +212,8 @@ figcaption strong {
     display: block;
     width: 100%;
     height: auto;
+    transform: scale(2);
+    transform-origin: center;
 }
 
 .image-frame img.missing {
@@ -213,7 +221,7 @@ figcaption strong {
 }
 
 .image-frame:has(img.missing)::after {
-    content: "Capture missing";
+    content: attr(data-missing-label);
     color: var(--danger);
     font-weight: 700;
 }

@@ -11,6 +11,53 @@
     "aHistoryWeight": 0.0,
     "bHistoryWeight": 0.9
   },
+  "locales": {
+    "ja": {
+      "title": "Hybrid Reflection 時間方向評価",
+      "description": "対応するA/B画像を比較し、時間方向のノイズ低減、追従性、履歴アーティファクトを評価します。",
+      "cases": {
+        "orbit-mid-motion": {
+          "title": "オービット: 移動中",
+          "description": "カメラ移動中のノイズ低減と履歴追従を比較します。",
+          "images": {
+            "a": { "label": "履歴重み 0.0" },
+            "b": { "label": "履歴重み 0.9" }
+          },
+          "criteria": {
+            "noise": "BはAより粒状ノイズが明確に少ない。",
+            "tracking": "Bに不快な輪郭または内部ディテールの残像がない。",
+            "balance": "Bの平滑化と追従性のバランスを許容できる。"
+          }
+        },
+        "orbit-reversal": {
+          "title": "オービット: 方向反転",
+          "description": "カメラが反転した後に、直前の移動方向の履歴が残らないか確認します。",
+          "images": {
+            "a": { "label": "履歴重み 0.0" },
+            "b": { "label": "履歴重み 0.9" }
+          },
+          "criteria": {
+            "noise": "BはAより粒状ノイズが明確に少ない。",
+            "reversal-trail": "Bに反転前の移動方向から残る不快な残像がない。",
+            "edges": "Bに不快なdisocclusionまたは画面端のアーティファクトがない。"
+          }
+        },
+        "orbit-settling": {
+          "title": "オービット: 停止後の収束",
+          "description": "移動停止直後の履歴残りと、安定したディテールへの復帰を確認します。",
+          "images": {
+            "a": { "label": "履歴重み 0.0" },
+            "b": { "label": "履歴重み 0.9" }
+          },
+          "criteria": {
+            "noise": "BはAより粒状ノイズが明確に少ない。",
+            "settling": "Bに停止後の不快な残像がない。",
+            "detail": "Bが安定した表面ディテールと平均輝度を維持している。"
+          }
+        }
+      }
+    }
+  },
   "cases": [
     {
       "id": "orbit-mid-motion",

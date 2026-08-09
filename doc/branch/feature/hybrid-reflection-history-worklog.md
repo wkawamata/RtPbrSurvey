@@ -257,3 +257,12 @@ Decision: the controlled-orbit endpoint comparison passes. This still-image acce
 - Server shutdown uses a per-run token rather than an unverified PID kill. Browser opening, build, and capture can each be suppressed for focused automation.
 - Validation: static assets, run metadata, a generated PNG, report POST/save, and token shutdown passed through the loopback server. Browser validation loaded all three A/B cases and nine criteria, advanced from `0 / 9` to `9 / 9` through radio selection, saved a report containing nine `pass` results, and logged no browser errors or warnings.
 - The normal runner entry point then completed Debug x64 build, both 195-frame capture variants, six non-empty PNG checks, metadata generation, server startup, and clean token shutdown. Both capture logs contained no errors.
+
+## 2026-08-10: Formal Subjective Suite Acceptance
+
+- Enlarged the DamagedHelmet A/B presentation to two-times scale around image center. Captured PNG data and temporal test settings remain unchanged.
+- Added in-place English/Japanese switching for suite text, criteria, choices, defect labels, notes, progress, metadata labels, and report status. Switching locale preserves current form state, and reports record the active locale.
+- Fixed run-suite generation to read committed JSON explicitly as UTF-8 under Windows PowerShell, preventing localized text corruption.
+- The saved Japanese report targets suite `hybrid-reflection-temporal-v1`, version `1`, and capture commit `fe255257fc4e11bec5dc79e1c229a571f1d6d6bb`. The user marked all nine criteria across mid-motion, direction reversal, and settling cases as `pass`, with no defect tags or notes.
+
+Decision: the defined three-case still-image suite passes formal subjective review at history weight `0.9` and synthetic-noise strength `0.5`. This acceptance covers the sampled frames from one continuous timeline; it does not claim observation of between-capture flicker or justify changing production defaults by itself.

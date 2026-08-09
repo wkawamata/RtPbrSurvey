@@ -9,7 +9,7 @@ if (!(Test-Path -LiteralPath $statePath))
     return
 }
 
-$state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+$state = Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
 $headers = @{ 'X-Shutdown-Token' = $state.token }
 try
 {

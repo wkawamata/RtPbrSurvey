@@ -9,11 +9,12 @@
 <body>
     <header class="page-header">
         <div>
-            <p class="eyebrow">RtPbrSurvey visual validation</p>
-            <h1>Hybrid Reflection</h1>
+            <p id="page-eyebrow" class="eyebrow">RtPbrSurvey visual validation</p>
+            <h1 id="page-title">Hybrid Reflection</h1>
             <p id="suite-description" class="description">Loading validation suite...</p>
         </div>
         <div class="header-actions">
+            <button id="toggle-language" class="secondary-button" type="button">日本語</button>
             <span id="progress" class="progress">0 / 0 answered</span>
             <button id="export-report" type="button" disabled>Save report.json</button>
         </div>
@@ -51,12 +52,12 @@
             <div class="criteria"></div>
 
             <fieldset class="defects">
-                <legend>Observed defects (optional)</legend>
+                <legend class="defects-title">Observed defects (optional)</legend>
                 <div class="defect-options"></div>
             </fieldset>
 
             <label class="notes-label">
-                Notes (optional)
+                <span class="notes-title">Notes (optional)</span>
                 <textarea class="notes" rows="3" placeholder="Record where and when the artifact is visible."></textarea>
             </label>
         </article>
