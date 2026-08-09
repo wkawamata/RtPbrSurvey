@@ -90,17 +90,6 @@ private:
     const RtPbrSurvey::DebugCameraController& DebugCamera() const { return m_debugCamera; }
 
     static constexpr UINT kMaxInstanceCount = RtPbrSurveyEngine::kMaxInstanceCount;
-    static constexpr float kMousePanSpeed = 0.01f;
-    static constexpr float kMouseCameraRotationSpeed = 0.005f;
-    static constexpr float kMouseWheelCameraSpeed = 0.25f;
-    static constexpr float kMouseWheelFovSpeed = 1.0f;
-    static constexpr float kCameraPitchLimit = 1.5f;
-    static constexpr float kObjectViewerDollySpeed = 0.5f;
-    static constexpr float kObjectViewerPanSpeed = 0.008f;
-    static constexpr float kObjectViewerPitchLimit = 1.4f;
-    static constexpr int kObjectViewerOrbitPitchDeadZonePixels = 3;
-    static constexpr float kCameraVerticalSpeed = 0.01f;
-    static constexpr float kCameraFovZoomSpeed = 2.0f;
     static constexpr UINT kImGuiDescriptorCount = 100;
 
     std::vector<std::unique_ptr<Engine::SampleScene>> m_sampleScenes;

@@ -10,6 +10,8 @@ namespace RtPbrSurvey
 class DebugCameraController
 {
 public:
+    static constexpr float kObjectViewerPitchLimit = 88.0f * DirectX::XM_PI / 180.0f;
+
     enum class Mode
     {
         FreeLook,
@@ -67,7 +69,6 @@ private:
     static constexpr int kObjectViewerOrbitPitchDeadZonePixels = 3;
     static constexpr float kObjectViewerDollySpeed = 0.5f;
     static constexpr float kObjectViewerPanSpeed = 0.008f;
-    static constexpr float kObjectViewerPitchLimit = 1.4f;
     static constexpr float kCameraMoveSpeed = 0.01f;
     static constexpr float kCameraVerticalSpeed = 0.01f;
     static constexpr float kCameraFovZoomSpeed = 2.0f;
