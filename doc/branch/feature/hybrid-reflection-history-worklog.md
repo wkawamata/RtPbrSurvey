@@ -239,3 +239,12 @@ Decision: the controlled-orbit endpoint comparison passes. This still-image acce
 - Added a dependency-free local HTML evaluator with per-criterion `pass`, `fail`, and `unable` radio choices, optional defect tags and notes, completion tracking, missing-capture handling, and JSON report download.
 - Seeded cases for mid-motion orbit, direction reversal, and settling after stop. The images remain intentionally absent until continuous-timeline multi-frame capture is implemented.
 - Generated captures and reports are ignored. Renderer capture behavior, orchestration, report aggregation, and production temporal policy remain outside Phase A.
+
+## 2026-08-09: Subjective Validation Harness Phase B
+
+- Added a versioned reflection capture-plan contract with relative-yaw camera keyframes and exact capture frames in one continuous process/history timeline.
+- Camera yaw is linearly interpolated between keyframes and held outside their range. The seeded timeline covers mid-motion, direction reversal, and settling after stop.
+- Planned paths are relative to the plan file, require exactly one `{variant}` token, reject parent traversal, and require `.png`. The CLI variant is restricted to a filename-safe token so A/B runs cannot overwrite one another silently.
+- Planned capture is mutually exclusive with legacy `-CapturePath`. Only one screenshot may be in flight; a busy capture at the next exact frame fails the plan rather than producing mislabeled delayed evidence.
+- HTML launch, paired A/B orchestration, capture metadata refresh, and report collection remain Phase C.
+- Validation: Debug x64 and HLSL compilation succeeded with zero errors. Separate A (`weight = 0.0`) and B (`weight = 0.9`) processes each produced all three planned PNG files from one continuous 195-frame timeline at noise strength `0.5`. Neither run logged a D3D12 error; each retained only the two known buffer initial-state warnings.

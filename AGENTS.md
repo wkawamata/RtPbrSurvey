@@ -49,6 +49,8 @@ Flags are parsed in `RtPbrSurveyApp::ParseCommandLineArgs()`.
 | `-ReflectionOrbitDegrees` | `-ReflectionOrbitDegrees 20` | Apply a deterministic horizontal Arcball orbit ending on the automated capture frame. |
 | `-ReflectionOrbitFrames` | `-ReflectionOrbitFrames 30` | Spread the automated reflection orbit over this many rendered frames. |
 | `-ReflectionTemporalNoiseStrength` | `-ReflectionTemporalNoiseStrength 0.5` | Inject deterministic zero-mean luminance noise into the current resolved-radiance input for temporal validation. |
+| `-ReflectionCapturePlan` | `-ReflectionCapturePlan Tests\\SubjectiveValidation\\HybridReflection\\capture-plan.json` | Load a versioned continuous-timeline Hybrid Reflection multi-capture plan. Implies the resolved-radiance capture mode and is mutually exclusive with `-CapturePath`. |
+| `-ReflectionCaptureVariant` | `-ReflectionCaptureVariant a` | Replace the required `{variant}` token in every planned capture path. Accepts letters, digits, `-`, and `_`. |
 
 ## D3D12 Debug Layer Check
 

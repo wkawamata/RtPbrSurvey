@@ -82,6 +82,8 @@ private:
     void InitializeImGui();
     void UpdateUiFrame();
     void UpdateAutomatedCaptureCamera();
+    bool HasAutomatedCapture() const;
+    void FailAutomatedCapture(const std::string& error);
     void FlushD3D12DebugMessages();
     void LogFpsToFile(float cpuFrameTimeMs);
     Engine::SampleScene& LoadedScene();
@@ -158,4 +160,9 @@ private:
     UINT64 m_automationFrameCounter = 0;
     bool m_automationScreenshotRequested = false;
     float m_automationOrbitStartYaw = 0.0f;
+    Platform::ReflectionCapturePlan m_reflectionCapturePlan;
+    size_t m_nextReflectionCaptureIndex = 0;
+    size_t m_completedReflectionCaptureCount = 0;
+    bool m_reflectionCaptureInFlight = false;
+    bool m_reflectionCapturePlanFailed = false;
 };
