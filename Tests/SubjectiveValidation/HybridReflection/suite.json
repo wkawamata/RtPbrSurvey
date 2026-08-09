@@ -1,0 +1,58 @@
+{
+  "id": "hybrid-reflection-temporal-v1",
+  "version": 1,
+  "title": "Hybrid Reflection Temporal Validation",
+  "description": "Compare matched captures to judge temporal noise reduction, tracking, and residual history artifacts.",
+  "capture": {
+    "commit": "replace-after-capture",
+    "scene": "DamagedHelmet",
+    "debugView": "ReflectionResolvedRadiance",
+    "noiseStrength": 0.5,
+    "aHistoryWeight": 0.0,
+    "bHistoryWeight": 0.9
+  },
+  "cases": [
+    {
+      "id": "orbit-mid-motion",
+      "title": "Orbit: mid motion",
+      "description": "Compare noise reduction and history tracking while the camera is moving.",
+      "images": {
+        "a": { "label": "weight 0.0", "path": "captures/orbit-mid-motion-a.png" },
+        "b": { "label": "weight 0.9", "path": "captures/orbit-mid-motion-b.png" }
+      },
+      "criteria": [
+        { "id": "noise", "prompt": "B is clearly less grainy than A." },
+        { "id": "tracking", "prompt": "B has no objectionable silhouette or internal-detail trail." },
+        { "id": "balance", "prompt": "B has an acceptable smoothing and tracking balance." }
+      ]
+    },
+    {
+      "id": "orbit-reversal",
+      "title": "Orbit: direction reversal",
+      "description": "Check whether history from the previous direction persists after the camera reverses.",
+      "images": {
+        "a": { "label": "weight 0.0", "path": "captures/orbit-reversal-a.png" },
+        "b": { "label": "weight 0.9", "path": "captures/orbit-reversal-b.png" }
+      },
+      "criteria": [
+        { "id": "noise", "prompt": "B is clearly less grainy than A." },
+        { "id": "reversal-trail", "prompt": "B has no objectionable trail from the previous motion direction." },
+        { "id": "edges", "prompt": "B has no objectionable disocclusion or screen-edge artifact." }
+      ]
+    },
+    {
+      "id": "orbit-settling",
+      "title": "Orbit: settling after stop",
+      "description": "Check residual history shortly after motion stops and whether stable detail returns.",
+      "images": {
+        "a": { "label": "weight 0.0", "path": "captures/orbit-settling-a.png" },
+        "b": { "label": "weight 0.9", "path": "captures/orbit-settling-b.png" }
+      },
+      "criteria": [
+        { "id": "noise", "prompt": "B is clearly less grainy than A." },
+        { "id": "settling", "prompt": "B has no objectionable residual trail after the stop." },
+        { "id": "detail", "prompt": "B preserves stable surface detail and mean brightness." }
+      ]
+    }
+  ]
+}

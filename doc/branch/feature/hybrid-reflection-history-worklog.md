@@ -232,3 +232,10 @@ Decision: the synthetic-noise test validates the expected static smoothing benef
 - The user accepted all three full-resolution still-image checks: B was clearly less grainy, showed no objectionable residual silhouette or internal-detail trail at the final pose, and had an acceptable smoothing/tracking balance for this comparison.
 
 Decision: the controlled-orbit endpoint comparison passes. This still-image acceptance covers residual error at the captured final pose; it does not directly validate flicker, trails visible only during motion, direction reversal, or settling over time. Keep production defaults at zero until a temporal sequence or equivalent multi-frame evidence covers those behaviors.
+
+## 2026-08-09: Subjective Validation Harness Phase A
+
+- Defined a versioned JSON suite with stable case and criterion identifiers, capture metadata, and replaceable relative A/B image paths.
+- Added a dependency-free local HTML evaluator with per-criterion `pass`, `fail`, and `unable` radio choices, optional defect tags and notes, completion tracking, missing-capture handling, and JSON report download.
+- Seeded cases for mid-motion orbit, direction reversal, and settling after stop. The images remain intentionally absent until continuous-timeline multi-frame capture is implemented.
+- Generated captures and reports are ignored. Renderer capture behavior, orchestration, report aggregation, and production temporal policy remain outside Phase A.
