@@ -78,3 +78,12 @@
 - 実ノイズ低減、追従と残像、disocclusion edge、平均輝度、安定detail、停止後収束を対象にした9つのcriterionを維持した。英語と同時に完全な日本語localizationを追加した。
 - 静的検証で3つのplan caseがsuite caseおよびA/B pathに正確に対応し、PowerShell runnerにparse errorがないことを確認した。
 - 最初の6画像captureは成功し、local evaluatorですべてのPNGが1920 x 1080として読み込まれた。report用の再captureより前にsuiteをcommitし、生成metadataがcleanなsource revisionを示せるようにする。
+
+### 正式な主観評価結果
+
+- commit `5092138`から6画像すべてを再captureし、`workingTreeDirty: false`を確認した。
+- capture条件はstochastic sampling有効、synthetic noise `0.0`、Aのhistory weight `0.0`、Bのhistory weight `0.9`である。
+- ユーザーはnoise、tracking、brightness、reversal trail、disocclusion/screen edge、settling、stable detailを含む9 criterionすべてを`pass`と判定した。
+- defect tagとnotesは記録されていない。保存reportのlocaleは英語だった。
+- 個別判定と、反復可能なHTML harness、stable suite、capture planを分離するため、生成reportはlocalのignored artifactとして維持する。
+- 判断: sampled-frameの実信号gateは合格した。ただしcapture間のflicker、長時間のestimator bias、live motion品質はまだ測定していないため、この結果だけではproduction history defaultを非ゼロにする根拠にはしない。

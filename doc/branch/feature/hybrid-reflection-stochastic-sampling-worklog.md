@@ -78,3 +78,12 @@ This log records design decisions, implementation slices, and validation results
 - Kept nine focused criteria covering real-noise reduction, tracking/trails, disocclusion edges, mean brightness, stable detail, and settling. Added complete Japanese localization alongside English.
 - Static validation confirmed all three plan cases map exactly to suite cases and A/B paths, and the PowerShell runner parses without errors.
 - An initial six-image capture completed successfully and all PNGs loaded at 1920 by 1080 in the local evaluator. The suite is committed before the report-bearing recapture so generated metadata can identify a clean source revision.
+
+### Formal Subjective Result
+
+- Recaptured all six images from commit `5092138` with `workingTreeDirty: false`.
+- Capture conditions were stochastic sampling enabled, synthetic noise `0.0`, A history weight `0.0`, and B history weight `0.9`.
+- The user marked all nine criteria as `pass`: noise, tracking, brightness, reversal trail, disocclusion/screen edges, settling, and stable detail.
+- No defect tags or notes were recorded. The saved report locale was English.
+- The generated report remains a local ignored artifact so the repeatable HTML harness, stable suite, and capture plan stay separate from individual judgments.
+- Decision: the sampled-frame real-signal gate passes. This result does not yet measure between-capture flicker, long-run estimator bias, or live motion quality, so it does not by itself authorize a nonzero production history default.
