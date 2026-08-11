@@ -153,6 +153,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.captureReflectionResolvedRadiance = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionStochasticSampling"))
+        {
+            options.reflectionStochasticSampling = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-ReflectionTemporalWeight"))
         {
             if (i + 1 < argc)

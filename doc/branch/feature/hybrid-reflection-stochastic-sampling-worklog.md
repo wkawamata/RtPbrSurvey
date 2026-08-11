@@ -61,3 +61,11 @@ This log records design decisions, implementation slices, and validation results
 - The first build exposed a misplaced RenderGraph constant key in the pipeline-key struct. Moved it to the constants-key struct before committing.
 - Validation: the corrected Debug x64 build and both HLSL compilations succeeded with zero errors. MSBuild retained the existing duplicate vcpkg import warning. An eight-second default-off DamagedHelmet run produced an empty D3D12 Debug Layer log; the generated log was removed.
 - Visual validation with stochastic sampling enabled remains pending.
+
+## 2026-08-11: Automated Stochastic Capture Control
+
+- Added `-ReflectionStochasticSampling` as a flag for resolved-radiance capture automation.
+- The flag sets the existing default-off Hybrid Reflection setting after DamagedHelmet auto-selection; it does not change interactive or production defaults.
+- Kept temporal history weight and synthetic noise as separate CLI controls so the next A/B run can enable the same real stochastic input in both variants and vary only history weight.
+- The first build attempt ran after another local task switched the shared workspace to its own branch. Path-limited stash/switch/pop restored only this task's three CLI edits to the intended branch without touching the other task's committed or untracked files.
+- Validation: Debug x64 build succeeded with zero errors. An eight-second DamagedHelmet resolved-radiance run with stochastic sampling enabled and history weight zero produced an empty D3D12 Debug Layer log; the generated log was removed.

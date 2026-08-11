@@ -61,3 +61,11 @@
 - 最初のbuildで、RenderGraph constant keyがpipeline-key structに置かれている誤りを検出した。commit前にconstants-key structへ移動した。
 - 検証: 修正後のDebug x64 buildと両HLSL compileはerror 0で成功した。MSBuildには既知のvcpkg重複import warningが残る。デフォルト無効状態でDamagedHelmetを8秒間実行し、D3D12 Debug Layer logが空であることを確認した。生成logは削除した。
 - stochastic sampling有効状態のvisual validationは未実施である。
+
+## 2026-08-11: Stochastic capture automation control
+
+- resolved-radiance capture automation用のflagとして`-ReflectionStochasticSampling`を追加した。
+- このflagはDamagedHelmetの自動選択後に、既存のデフォルト無効Hybrid Reflection設定を有効化する。interactive defaultおよびproduction defaultは変更しない。
+- temporal history weightとsynthetic noiseは独立したCLI controlとして維持する。次のA/B runでは両variantで同じ実stochastic入力を有効にし、history weightだけを変えられる。
+- 最初のbuild直前に、別のlocal taskが共有workspaceを自身のbranchへ切り替えていた。pathを3つのCLI編集に限定したstash/switch/popにより、別taskのcommit済みfileと未追跡fileには触れず、目的branchへ変更を復元した。
+- 検証: Debug x64 buildはerror 0で成功した。stochastic sampling有効、history weight zeroのresolved-radianceでDamagedHelmetを8秒間実行し、D3D12 Debug Layer logが空であることを確認した。生成logは削除した。
