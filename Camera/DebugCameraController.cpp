@@ -280,8 +280,10 @@ void DebugCameraController::OnMouseMove(int x, int y)
                 const XMVECTOR lookDir = XMVector3Normalize(XMVectorNegate(offset));
                 const XMVECTOR right =
                     XMVector3Normalize(XMVector3Cross(XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), lookDir));
-                const auto pitchRotation =
-                    XMMatrixRotationAxis(right, static_cast<float>(dy) * kMouseCameraRotationSpeed);
+                const float requestedPitchDelta = static_cast<float>(dy) * kMouseCameraRotationSpeed;
+                const float clampedPitch = std::clamp(
+                    m_objectViewerPitch + requestedPitchDelta, -kObjectViewerPitchLimit, kObjectViewerPitchLimit);
+                const auto pitchRotation = XMMatrixRotationAxis(right, clampedPitch - m_objectViewerPitch);
                 offset = XMVector3TransformNormal(offset, pitchRotation);
             }
             SetObjectViewerOrbitFromOffset(offset);

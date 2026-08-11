@@ -300,6 +300,14 @@ if(RTPBRSURVEY_BUILD_TESTS)
     endif()
     add_test(NAME RtPbrSurvey.CameraView COMMAND RtPbrSurvey.CameraViewTests)
 
+    add_executable(RtPbrSurvey.DebugCameraControllerTests
+        Tests/DebugCameraControllerTests.cpp)
+    target_link_libraries(RtPbrSurvey.DebugCameraControllerTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.DebugCameraControllerTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.DebugCameraController COMMAND RtPbrSurvey.DebugCameraControllerTests)
+
     add_executable(RtPbrSurvey.SceneBuilderTextureTests
         Tests/SceneBuilderTextureTests.cpp)
     target_link_libraries(RtPbrSurvey.SceneBuilderTextureTests PRIVATE RtPbrSurvey::SceneRenderer)
