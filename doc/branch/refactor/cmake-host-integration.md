@@ -102,6 +102,7 @@ by the host. `SceneRenderer::Shutdown()` shuts the backend down before the host 
 The Streamline SDK is not stored in the RtPbrSurvey repository. A shared absolute
 `RTPBRSURVEY_STREAMLINE_SDK_DIR` lets multiple worktrees and Tank use one SDK installation. If the SDK is absent,
 `RtPbrSurvey::SceneRenderer` keeps its SDK-free D3D12 path and reports the temporal upscaler as unavailable.
+The CMake cache variable uses the environment variable with the same name as its default when it is set.
 
 `SceneBuilder::AddInstance()` accepts ordinary DirectXMath world matrices and converts them to RtPbrSurvey's internal `InstanceData` storage layout.
 

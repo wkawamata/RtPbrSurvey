@@ -12,8 +12,13 @@ set(RTPBRSURVEY_WINPIX_NUGET_VERSION "1.0.240308001" CACHE STRING "WinPixEventRu
 
 set(RTPBRSURVEY_ROOT "${CMAKE_CURRENT_LIST_DIR}")
 set(RTPBRSURVEY_PACKAGES_DIR "${RTPBRSURVEY_ROOT}/packages" CACHE PATH "RtPbrSurvey NuGet packages directory.")
+set(rtpbrsurvey_streamline_sdk_default "${RTPBRSURVEY_ROOT}/third_party/streamline-sdk-2.12.0")
+if(DEFINED ENV{RTPBRSURVEY_STREAMLINE_SDK_DIR} AND
+   NOT "$ENV{RTPBRSURVEY_STREAMLINE_SDK_DIR}" STREQUAL "")
+    set(rtpbrsurvey_streamline_sdk_default "$ENV{RTPBRSURVEY_STREAMLINE_SDK_DIR}")
+endif()
 set(RTPBRSURVEY_STREAMLINE_SDK_DIR
-    "${RTPBRSURVEY_ROOT}/third_party/streamline-sdk-2.12.0"
+    "${rtpbrsurvey_streamline_sdk_default}"
     CACHE PATH "Path to the local Streamline SDK root.")
 
 find_package(imgui CONFIG REQUIRED)
