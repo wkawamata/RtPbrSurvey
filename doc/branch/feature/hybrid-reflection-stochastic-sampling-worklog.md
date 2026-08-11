@@ -1,5 +1,7 @@
 # Hybrid Reflection Stochastic Sampling Work Log
 
+Japanese version: [Hybrid Reflection Stochastic Sampling Work Log (Japanese)](hybrid-reflection-stochastic-sampling-worklog_j.md).
+
 This log records design decisions, implementation slices, and validation results for stochastic Hybrid Reflection sampling. Normative resource and temporal semantics remain in [Hybrid Reflection Contracts](hybrid-reflection-contracts.md).
 
 ## 2026-08-10: Phase Start and Current-Signal Audit
