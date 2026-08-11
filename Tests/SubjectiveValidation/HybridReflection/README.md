@@ -35,3 +35,9 @@ The evaluator saves reports directly under ignored `reports/`. If the report end
 Recapturing replaces the six generated PNG files while stable suite, case, and criterion identifiers remain unchanged. Committed suite data stays reproducible; run-specific commit, UTC timestamp, plan hash, and working-tree state live only in `current-suite.json` and exported reports.
 
 The evaluator can switch between English and Japanese without recreating controls or losing current radio, defect, or note state. Exported reports record the active locale. DamagedHelmet captures are displayed at two-times scale around the image center so the reflection details occupy a useful review area; this is a presentation-only crop and does not alter captured pixels.
+
+## Stochastic Sampling Suite
+
+Run `Start-Validation.ps1 -StochasticSampling` to use `capture-plan-stochastic.json` and `suite-stochastic.json`. Both A and B enable real stochastic rough-reflection sampling and disable synthetic temporal noise. A uses history weight `0.0`; B uses `0.9`.
+
+The stochastic plan writes `stochastic-*.png` files so it does not overwrite the earlier synthetic-noise contract captures. The evaluator retains the same English/Japanese workflow and JSON report format, but the stochastic suite uses distinct suite and case identifiers.

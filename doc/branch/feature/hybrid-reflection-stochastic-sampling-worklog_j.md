@@ -69,3 +69,12 @@
 - temporal history weightとsynthetic noiseは独立したCLI controlとして維持する。次のA/B runでは両variantで同じ実stochastic入力を有効にし、history weightだけを変えられる。
 - 最初のbuild直前に、別のlocal taskが共有workspaceを自身のbranchへ切り替えていた。pathを3つのCLI編集に限定したstash/switch/popにより、別taskのcommit済みfileと未追跡fileには触れず、目的branchへ変更を復元した。
 - 検証: Debug x64 buildはerror 0で成功した。stochastic sampling有効、history weight zeroのresolved-radianceでDamagedHelmetを8秒間実行し、D3D12 Debug Layer logが空であることを確認した。生成logは削除した。
+
+## 2026-08-11: 実信号用subjective suite
+
+- 元のsynthetic-noise modeを維持したまま、既存validation runnerへ`-StochasticSampling`を追加した。
+- 専用入力`suite-stochastic.json`と`capture-plan-stochastic.json`を追加した。planは同じwarm-up、移動中、方向反転、停止後収束のtimelineを維持しつつ、suite/case IDと`stochastic-*.png` pathを分離して、以前のcontract captureを上書きしない。
+- stochasticの両variantで実rough-reflection samplingを有効にし、synthetic noiseをzeroにする。Aはhistory weight `0.0`、Bは`0.9`を使用する。
+- 実ノイズ低減、追従と残像、disocclusion edge、平均輝度、安定detail、停止後収束を対象にした9つのcriterionを維持した。英語と同時に完全な日本語localizationを追加した。
+- 静的検証で3つのplan caseがsuite caseおよびA/B pathに正確に対応し、PowerShell runnerにparse errorがないことを確認した。
+- 最初の6画像captureは成功し、local evaluatorですべてのPNGが1920 x 1080として読み込まれた。report用の再captureより前にsuiteをcommitし、生成metadataがcleanなsource revisionを示せるようにする。

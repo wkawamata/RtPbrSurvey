@@ -69,3 +69,12 @@ This log records design decisions, implementation slices, and validation results
 - Kept temporal history weight and synthetic noise as separate CLI controls so the next A/B run can enable the same real stochastic input in both variants and vary only history weight.
 - The first build attempt ran after another local task switched the shared workspace to its own branch. Path-limited stash/switch/pop restored only this task's three CLI edits to the intended branch without touching the other task's committed or untracked files.
 - Validation: Debug x64 build succeeded with zero errors. An eight-second DamagedHelmet resolved-radiance run with stochastic sampling enabled and history weight zero produced an empty D3D12 Debug Layer log; the generated log was removed.
+
+## 2026-08-11: Real-Signal Subjective Suite
+
+- Added `-StochasticSampling` to the existing validation runner while preserving its original synthetic-noise mode.
+- Added dedicated `suite-stochastic.json` and `capture-plan-stochastic.json` inputs. The plan retains the same warm-up, mid-motion, reversal, and settling timeline but uses distinct suite/case identifiers and `stochastic-*.png` paths so prior contract captures are not overwritten.
+- Both stochastic variants enable real rough-reflection sampling and set synthetic noise to zero. A uses history weight `0.0`; B uses `0.9`.
+- Kept nine focused criteria covering real-noise reduction, tracking/trails, disocclusion edges, mean brightness, stable detail, and settling. Added complete Japanese localization alongside English.
+- Static validation confirmed all three plan cases map exactly to suite cases and A/B paths, and the PowerShell runner parses without errors.
+- An initial six-image capture completed successfully and all PNGs loaded at 1920 by 1080 in the local evaluator. The suite is committed before the report-bearing recapture so generated metadata can identify a clean source revision.
