@@ -39,6 +39,8 @@ cbuffer ReflectionConstants : register(b1)
     float rayTMax;
     float maxRoughness;
     float minMetallic;
+    uint stochasticSamplingEnabled;
+    uint samplingFrameIndex;
     uint usesIndexedDraw;
     uint vertexCount;
     uint indexCount;

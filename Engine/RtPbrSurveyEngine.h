@@ -220,6 +220,7 @@ public:
         bool contributionEnabled = false;
         float contributionIntensity = 0.25f;
         float contributionMaxDistance = 20.0f;
+        bool stochasticSamplingEnabled = false;
         float temporalHistoryWeight = 0.0f;
         float temporalNoiseStrength = 0.0f;
     };
@@ -763,6 +764,8 @@ private:
     // readIndex advances only after a command list containing TemporalReflectionPass is submitted.
     ReflectionHistoryState m_reflectionHistoryState;
     bool m_reflectionHistoryCommitPending = false;
+    UINT m_reflectionSamplingFrameIndex = 0;
+    bool m_reflectionSamplingCommitPending = false;
     Engine::CameraProjection m_previousCameraProjection = Engine::CameraProjection::Perspective;
     float m_previousCameraFov = 60.0f;
     float m_previousCameraOrthographicHeight = 10.0f;
@@ -1061,6 +1064,7 @@ private:
     void UpdateCameraConstantBuffer();
     void InvalidateReflectionHistory();
     void CommitReflectionHistoryFrame();
+    void CommitReflectionSamplingFrame();
     void CreateConstantBuffer(ConstantBufferResource& constantBuffer, const void* initialData, UINT sizeInBytes);
     void CreateDepthStencil(UINT width, UINT height);
     void RegisterDepthStencil();

@@ -35,3 +35,14 @@ This log records design decisions, implementation slices, and validation results
 - Raw payload, evaluated radiance, and resolved radiance resource layouts remain unchanged. No PDF or throughput field is added to the payload in this phase.
 - Expose stochastic sampling as a default-off experimental control. Changing its enable state or strength invalidates reflection history.
 - Treat mean-brightness preservation as a measured acceptance gate, not as a property guaranteed by the initial approximation.
+
+## 2026-08-11: Default-Off Control and Sample Index Wiring
+
+- Added a default-off `Stochastic Rough Sampling` Debug UI setting without changing the ray direction yet.
+- Added matching CPU pass and HLSL constants for the enable flag and reflection-owned sampling frame index.
+- Expanded the Hybrid Reflection root constants from 9 to 11 DWORDs with matching CPU/HLSL field order.
+- Added a sampling commit-pending flag. `HybridReflectionPass` records the pending advance, and the index advances only after the containing direct-queue command list is submitted.
+- Reset the sampling index together with reflection history. Changing the stochastic enable state invalidates both so an experiment begins from sample zero with empty history.
+- Kept sampling ownership independent of the swap-chain index and the Temporal Upscaler frame index.
+- No stochastic direction calculation is present in this slice, so enabling the control still preserves the deterministic perfect-mirror ray.
+- Validation: Debug x64 build and HLSL compilation succeeded with zero errors. MSBuild reported the existing duplicate vcpkg import warning; app-local deployment fell back from unavailable `pwsh.exe` to Windows PowerShell and completed.
