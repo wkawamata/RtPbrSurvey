@@ -87,3 +87,13 @@
 - defect tagとnotesは記録されていない。保存reportのlocaleは英語だった。
 - 個別判定と、反復可能なHTML harness、stable suite、capture planを分離するため、生成reportはlocalのignored artifactとして維持する。
 - 判断: sampled-frameの実信号gateは合格した。ただしcapture間のflicker、長時間のestimator bias、live motion品質はまだ測定していないため、この結果だけではproduction history defaultを非ゼロにする根拠にはしない。
+
+## 2026-08-11: Live motion A/B結果
+
+- commit済みの`capture-plan-stochastic-live.json` timelineを追加して実行した。初期静止、2回の方向反転を含む3つの低速orbit区間、初期yawへの復帰、最後のsettling holdで構成する。
+- Aはstochastic sampling、history weight `0.0`を使用した。ユーザーは静止中にも不安定な領域があり、移動中のedgeと内部reflectionが不安定で、方向反転後も不安定さが続き、停止後にも安定画像へ収束しないと観測した。
+- Bは同一timelineでhistory weight `0.9`を使用した。ユーザーはgrain/flickerが減少し、edgeと内部reflectionが全体として安定し、方向反転時の残像や遅れを感じず、古いreflectionの残留なしに停止後も問題なく安定したと観測した。
+- Bでは移動中のedgeに軽微なflickerが残った。平均輝度とdetailには明らかな不自然な損失がないと判定した。
+- 判断: history weight `0.9`は現在の1 sample stochastic入力に明確なlive安定化効果を持ち、軽微な移動edge問題を残しながらDamagedHelmet live-motion gateに合格した。
+- global production defaultはstochastic sampling無効、history weight `0.0`のまま維持する。将来の明示的なstochastic-temporal presetを支持する証拠にはなるが、1 scene、1つの非ゼロweight、現在の近似estimatorだけではglobal defaultを暗黙に変更するには不十分である。
+- Spatial denoiseとscene coverage拡大は別のfollow-upとし、残るedge flickerへの反応としてこのbranchへ追加しない。

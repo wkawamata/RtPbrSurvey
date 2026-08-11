@@ -87,3 +87,13 @@ This log records design decisions, implementation slices, and validation results
 - No defect tags or notes were recorded. The saved report locale was English.
 - The generated report remains a local ignored artifact so the repeatable HTML harness, stable suite, and capture plan stay separate from individual judgments.
 - Decision: the sampled-frame real-signal gate passes. This result does not yet measure between-capture flicker, long-run estimator bias, or live motion quality, so it does not by itself authorize a nonzero production history default.
+
+## 2026-08-11: Live Motion A/B Result
+
+- Added and ran the committed `capture-plan-stochastic-live.json` timeline: initial hold, three slow orbit segments with two direction changes, return to the initial yaw, and a final settling hold.
+- A used stochastic sampling with history weight `0.0`. The user observed unstable regions even while stationary, unstable edges and internal reflections during motion, continued instability after direction reversal, and no convergence to a stable image after stopping.
+- B used the identical timeline with history weight `0.9`. The user observed reduced grain/flicker, stable edges and internal reflections overall, no perceptible reversal trail or delay, and acceptable settling without an old-reflection remnant.
+- B retained minor edge flicker during motion. Mean brightness and detail were judged to have no apparent unnatural loss.
+- Decision: history weight `0.9` provides a clear live stability benefit for the current one-sample stochastic input and passes this DamagedHelmet live-motion gate with a minor residual moving-edge issue.
+- Keep the global production defaults at stochastic sampling disabled and history weight `0.0`. The evidence supports a future explicit stochastic-temporal preset, but one scene, one nonzero weight, and the current approximate estimator are not sufficient to silently change the global default.
+- Spatial denoise and broader scene coverage remain separate follow-up work; they are not added to this branch in response to the residual edge flicker.
