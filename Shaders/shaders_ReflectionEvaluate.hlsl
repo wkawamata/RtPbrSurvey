@@ -1,5 +1,6 @@
 #include "FullscreenTriangle.hlsli"
 #include "PbrLighting.hlsli"
+#include "ReflectionSampling.hlsli"
 
 Texture2D<float4> g_normal : register(t1, space3);
 Texture2D<float4> g_pbrParams : register(t4, space3);
@@ -53,6 +54,12 @@ cbuffer LightingConstants : register(b2)
     float reflectionContributionMaxDistance;
 };
 
+cbuffer ReflectionSamplingConstants : register(b6)
+{
+    uint stochasticSamplingEnabled;
+    uint samplingFrameIndex;
+};
+
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
 {
     return FullscreenTriangleVS(vertexId);
@@ -103,10 +110,16 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 worldPos = ReconstructWorldPosition(input.uv, depth);
     float3 viewDir = normalize(cameraPosition - worldPos);
     float3 reflectionDir = reflect(-viewDir, normal);
+    if (stochasticSamplingEnabled != 0)
+    {
+        reflectionDir = SampleRoughReflectionDirection(
+            uint2(input.position.xy), samplingFrameIndex, -viewDir, normal, visibleRoughness, reflectionDir);
+    }
 
     if (reflectionHit.y <= 0.0)
     {
-        float missSpecularMip = visibleRoughness * SPECULAR_PREFILTER_MAX_MIP;
+        float missSpecularMip = stochasticSamplingEnabled != 0 ? 0.0 :
+            visibleRoughness * SPECULAR_PREFILTER_MAX_MIP;
         float3 environmentRadiance =
             g_specularPrefilterMap.SampleLevel(g_sampler, reflectionDir, missSpecularMip).rgb * iblIntensity *
             specularIblEnabled;

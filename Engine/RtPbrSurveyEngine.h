@@ -429,6 +429,7 @@ private:
             static constexpr const char* GBufferDebugTarget = "GBufferDebugTarget";
             static constexpr const char* ReflectionRayHitDebugTarget = "ReflectionRayHitDebugTarget";
             static constexpr const char* TemporalReflection = "TemporalReflection";
+            static constexpr const char* ReflectionSampling = "ReflectionSampling";
         };
     };
 

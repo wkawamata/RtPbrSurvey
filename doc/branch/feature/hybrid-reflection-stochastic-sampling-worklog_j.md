@@ -48,3 +48,16 @@
 - sampling ownershipをswap-chain indexおよびTemporal Upscaler frame indexから独立させた。
 - この単位には確率的方向計算がまだないため、controlを有効にしても決定論的な完全鏡面レイを維持する。
 - 検証: Debug x64 buildとHLSL compileはerror 0で成功した。MSBuildは既知のvcpkg重複import warningを報告した。app-local deploymentは利用できない`pwsh.exe`からWindows PowerShellへfallbackして完了した。
+
+## 2026-08-11: Rough-specular方向の実装
+
+- `HybridReflectionPass`と`ReflectionEvaluatePass`の両方で使用する共通helper `ReflectionSampling.hlsli`を追加した。
+- pixel座標とreflection-owned sampling frame indexから、再現可能な等方GGX由来のhalf-vector sampleを1つ生成する。
+- camera-to-surface方向をsampled half vectorで反射する。roughnessが`0.001`以下、実験controlが無効、またはsample結果がsurfaceの裏側を向く場合は、正確な完全鏡面方向へfallbackする。
+- fallbackを1 sampleに限定し、再sampling loopは追加していない。
+- `ReflectionEvaluatePass`で同じsample方向を再現する。これによりpayload resourceを拡張せず、hit surfaceのview-dependent lightingとmiss environment lookupを`RayQuery`がtraceした方向に一致させた。
+- stochastic missではenvironment mip zeroを使用する。visible surfaceのlobe拡張は方向分布が担うためである。決定論的pathでは既存のroughness-prefiltered environment lookupを維持する。
+- stochastic enable flagと現在のsampling frame index用に、2 DWORDのpixel-shader root constantを追加した。新しいtexture、history、PDF、throughput resourceは追加していない。
+- 最初のbuildで、RenderGraph constant keyがpipeline-key structに置かれている誤りを検出した。commit前にconstants-key structへ移動した。
+- 検証: 修正後のDebug x64 buildと両HLSL compileはerror 0で成功した。MSBuildには既知のvcpkg重複import warningが残る。デフォルト無効状態でDamagedHelmetを8秒間実行し、D3D12 Debug Layer logが空であることを確認した。生成logは削除した。
+- stochastic sampling有効状態のvisual validationは未実施である。

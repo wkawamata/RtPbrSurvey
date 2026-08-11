@@ -48,3 +48,16 @@ This log records design decisions, implementation slices, and validation results
 - Kept sampling ownership independent of the swap-chain index and the Temporal Upscaler frame index.
 - No stochastic direction calculation is present in this slice, so enabling the control still preserves the deterministic perfect-mirror ray.
 - Validation: Debug x64 build and HLSL compilation succeeded with zero errors. MSBuild reported the existing duplicate vcpkg import warning; app-local deployment fell back from unavailable `pwsh.exe` to Windows PowerShell and completed.
+
+## 2026-08-11: Rough-Specular Direction Implementation
+
+- Added a shared `ReflectionSampling.hlsli` helper used by both `HybridReflectionPass` and `ReflectionEvaluatePass`.
+- Generated one reproducible isotropic GGX-derived half-vector sample from pixel coordinates and the reflection-owned sampling frame index.
+- Reflected the camera-to-surface direction around the sampled half vector. Roughness at or below `0.001`, a disabled experiment, or a below-surface result falls back to the exact mirror direction.
+- Kept the fallback bounded to one sample and did not add a resampling loop.
+- Reconstructed the identical sampled direction in `ReflectionEvaluatePass`. This keeps hit-surface view-dependent lighting and miss environment lookup consistent with the direction traced by `RayQuery` without expanding any payload resource.
+- Stochastic misses use environment mip zero because visible-surface lobe broadening is supplied by the direction distribution. The deterministic path retains the existing roughness-prefiltered environment lookup.
+- Added a two-DWORD pixel-shader root constant for the stochastic enable flag and current sampling frame index. No new texture, history, PDF, or throughput resource was introduced.
+- The first build exposed a misplaced RenderGraph constant key in the pipeline-key struct. Moved it to the constants-key struct before committing.
+- Validation: the corrected Debug x64 build and both HLSL compilations succeeded with zero errors. MSBuild retained the existing duplicate vcpkg import warning. An eight-second default-off DamagedHelmet run produced an empty D3D12 Debug Layer log; the generated log was removed.
+- Visual validation with stochastic sampling enabled remains pending.

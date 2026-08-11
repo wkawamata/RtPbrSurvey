@@ -3171,6 +3171,14 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
                 std::clamp(m_hybridReflectionSettings.temporalNoiseStrength, 0.0f, 1.0f)};
             m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 4, &constants, 0);
         });
+    m_renderGraphRuntime.Constants().Register(
+        m_renderGraphRuntime.RegisterConstants(ConstName::ReflectionSampling),
+        [this](UINT rootParameterIndex)
+        {
+            const UINT constants[2] = {m_hybridReflectionSettings.stochasticSamplingEnabled ? 1u : 0u,
+                                       m_reflectionSamplingFrameIndex};
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 2, constants, 0);
+        });
 }
 
 void RtPbrSurveyEngine::RegisterResourceResolvers()
