@@ -37,19 +37,27 @@ Scene geometry and GPU resources do not need to be reloaded after a camera chang
 
 ## Matching 2D And 3D Framing
 
-`MatchPerspectiveToOrthographic()` returns the Perspective FOV Y in degrees that preserves an Orthographic camera's visible height at a chosen focus distance:
+The public projection framing utilities convert in both directions:
 
 ```cpp
 const float focusDistance = 100.0f;
-camera.fov = Engine::MatchPerspectiveToOrthographic(camera.orthographicHeight, focusDistance);
+camera.fov = Engine::PerspectiveFovYFromOrthographicHeight(camera.orthographicHeight, focusDistance);
+camera.orthographicHeight = Engine::OrthographicHeightFromPerspectiveFovY(camera.fov, focusDistance);
 camera.projection = Engine::CameraProjection::Perspective;
 ```
 
-The relationship is:
+FOV Y is expressed in degrees. `orthographicHeight` and `focusDistance` must use the same world unit. The contract preserves vertical framing and therefore does not depend on aspect ratio.
+
+The relationships are:
 
 ```text
 fovY = 2 * atan(orthographicHeight / (2 * focusDistance))
+orthographicHeight = 2 * focusDistance * tan(fovY / 2)
 ```
+
+The strict utilities return quiet NaN when an input is non-finite or non-positive. FOV Y must also be strictly between 0 and 180 degrees. A result that cannot be represented as a positive finite `float` also returns quiet NaN.
+
+`MatchPerspectiveToOrthographic()` remains available for source and behavior compatibility. It preserves its original input clamps and its 0.1-to-179-degree output clamp; new host code should use the explicitly named strict utilities.
 
 For a smooth 2D-to-3D transition, keep `gazePoint`, `up`, and the focus plane fixed. Move the Perspective camera backward while reducing FOV with this helper. The focus plane keeps the same framing; objects at other depths gradually gain perspective parallax. At a sufficiently long focus distance, the Perspective result becomes visually indistinguishable from Orthographic and the projection mode can switch without a visible scale jump.
 

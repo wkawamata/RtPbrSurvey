@@ -86,6 +86,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/SpecularDebugRayQueryPass.cpp
     Renderer/StagedDescriptorAllocator_Test.cpp
     Renderer/StreamlineAdapter.cpp
+    Renderer/TemporalReflectionPass.cpp
     Renderer/TemporalUpscalerSupport.cpp
     Renderer/TextureMipChain.cpp
     Renderer/ToneMap.cpp
