@@ -56,6 +56,20 @@ rtpbrsurvey_copy_runtime_files(TankSandbox)
 
 The helper is intended to be called by a parent host project after `add_subdirectory(External/RtPbrSurvey)`.
 It uses RtPbrSurvey's own source, package, and shader output paths rather than the caller's current source or binary directory.
+When Streamline is enabled on MSVC, the helper also validates the final executable's PE dependencies after linking.
+The executable must import `sl.interposer.dll` and must not directly import `d3d12.dll`, `dxgi.dll`, or `d3d11.dll`.
+The helper also scans the renderer's `.cso` references and fails the build when any required runtime shader is absent
+from the host output directory. This keeps CMake shader generation synchronized with newly added renderer passes.
+
+## Streamline Host Link Contract
+
+When the Streamline SDK is available, `RtPbrSurvey::SceneRenderer` links `sl.interposer.lib` normally so the
+interposer is loaded before `WinMain`. It also propagates `/NODEFAULTLIB:d3d12.lib` and
+`/NODEFAULTLIB:dxgi.lib`. This is required because another static host dependency can otherwise reintroduce the
+platform import libraries even though RtPbrSurvey itself omitted them. Do not delay-load `sl.interposer.dll`.
+
+Without the Streamline SDK, `RtPbrSurvey::SceneRenderer` keeps the ordinary `d3d12` / `dxgi` link path and
+delay-loads `d3d12.dll` for the Agility SDK as before.
 
 ## Minimal Host Flow
 

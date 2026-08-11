@@ -130,7 +130,13 @@ if(EXISTS "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/include/sl.h" AND
     target_include_directories(RtPbrSurvey.SceneRenderer PRIVATE "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/include")
     target_link_libraries(RtPbrSurvey.SceneRenderer PUBLIC "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/lib/x64/sl.interposer.lib")
     if(MSVC)
-        target_link_options(RtPbrSurvey.SceneRenderer PUBLIC /DELAYLOAD:sl.interposer.dll)
+        # Streamline replaces the platform import libraries. Hosts may receive
+        # d3d12/dxgi transitively from another static dependency, so suppress
+        # those default libraries at the final executable link as well.
+        target_link_options(RtPbrSurvey.SceneRenderer
+            PUBLIC
+                /NODEFAULTLIB:d3d12.lib
+                /NODEFAULTLIB:dxgi.lib)
     endif()
 endif()
 set_property(GLOBAL PROPERTY RTPBRSURVEY_HAS_STREAMLINE_SDK "${RTPBRSURVEY_HAS_STREAMLINE_SDK}")
@@ -210,6 +216,8 @@ if(RTPBRSURVEY_BUILD_SHADERS)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_LightPassDebugGradient.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ReflectionEvaluate.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ReflectionEvaluate.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_TemporalReflection.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_TemporalReflection.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ToneMap.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ToneMap.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugLine.hlsl vs_6_0 VSMain)
@@ -258,6 +266,17 @@ function(rtpbrsurvey_copy_runtime_files target)
                 "${rtpbrsurvey_streamline_sdk_dir}/bin/x64/nvngx_dlss.dll"
                 "$<TARGET_FILE_DIR:${target}>"
             VERBATIM)
+
+        if(MSVC)
+            get_filename_component(rtpbrsurvey_msvc_tool_dir "${CMAKE_LINKER}" DIRECTORY)
+            set(rtpbrsurvey_dumpbin "${rtpbrsurvey_msvc_tool_dir}/dumpbin.exe")
+            add_custom_command(TARGET ${target} POST_BUILD
+                COMMAND "${CMAKE_COMMAND}"
+                    "-DRTPBRSURVEY_DUMPBIN=${rtpbrsurvey_dumpbin}"
+                    "-DRTPBRSURVEY_HOST_EXECUTABLE=$<TARGET_FILE:${target}>"
+                    -P "${rtpbrsurvey_root}/Tests/VerifyStreamlineHostImports.cmake"
+                VERBATIM)
+        endif()
     endif()
 
     if(TARGET RtPbrSurvey.Shaders)
@@ -266,6 +285,12 @@ function(rtpbrsurvey_copy_runtime_files target)
             COMMAND "${CMAKE_COMMAND}" -E copy_directory
                 "${rtpbrsurvey_shader_output_dir}"
                 "$<TARGET_FILE_DIR:${target}>"
+            VERBATIM)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND "${CMAKE_COMMAND}"
+                "-DRTPBRSURVEY_SHADER_SOURCE=${rtpbrsurvey_root}/Engine/RtPbrSurveyEngine.cpp"
+                "-DRTPBRSURVEY_RUNTIME_DIR=$<TARGET_FILE_DIR:${target}>"
+                -P "${rtpbrsurvey_root}/Tests/VerifyRuntimeShaders.cmake"
             VERBATIM)
     endif()
 endfunction()
