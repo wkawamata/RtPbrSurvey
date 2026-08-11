@@ -2,6 +2,8 @@
 
 #include "SceneGeometryPass.h"
 
+#include "RootSignatureLayout.h"
+
 #include <pix3.h>
 
 namespace Engine
@@ -9,7 +11,7 @@ namespace Engine
 
 void RecordSceneGeometryDraw(ID3D12GraphicsCommandList* commandList, const SceneGeometryDrawDesc& drawDesc)
 {
-    if (drawDesc.instanceCount == 0)
+    if (drawDesc.draws.empty())
     {
         return;
     }
@@ -17,14 +19,19 @@ void RecordSceneGeometryDraw(ID3D12GraphicsCommandList* commandList, const Scene
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList->IASetVertexBuffers(0, 1, &drawDesc.vertexBufferView);
 
-    if (drawDesc.usesIndexedDraw)
+    for (const SceneGeometryInstanceDraw& draw : drawDesc.draws)
     {
-        commandList->IASetIndexBuffer(&drawDesc.indexBufferView);
-        commandList->DrawIndexedInstanced(drawDesc.indexCountPerInstance, drawDesc.instanceCount, 0, 0, 0);
-    }
-    else
-    {
-        commandList->DrawInstanced(drawDesc.vertexCountPerInstance, drawDesc.instanceCount, 0, 0);
+        commandList->SetGraphicsRoot32BitConstant(
+            RootSignatureLayout::SceneDrawConstants, draw.instanceIndex, 0);
+        if (draw.usesIndexedDraw)
+        {
+            commandList->IASetIndexBuffer(&drawDesc.indexBufferView);
+            commandList->DrawIndexedInstanced(draw.indexCount, 1, draw.firstIndex, 0, 0);
+        }
+        else
+        {
+            commandList->DrawInstanced(draw.vertexCount, 1, draw.firstVertex, 0);
+        }
     }
 }
 

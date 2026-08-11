@@ -142,6 +142,24 @@ RtPbrSurvey owns the settings model, schema version, JSON conversion, and applic
 
 See [SceneRenderer Settings](scene-renderer-settings.md) for the ownership boundary, compatibility policy, and test strategy.
 
+### Capture a Screenshot
+
+The final back buffer, including host ImGui, can be captured asynchronously:
+
+```cpp
+sceneRenderer.RequestScreenshot({outputPath});
+
+if (std::optional<RtPbrSurvey::ScreenshotResult> result = sceneRenderer.ConsumeScreenshotResult())
+{
+    if (!result->succeeded)
+    {
+        // Report result->error to the host log or UI.
+    }
+}
+```
+
+The renderer owns GPU synchronization, swap-chain color conversion, and PNG encoding. The host owns capture controls and output naming. See [SceneRenderer Screenshot Capture](../feature/scene-renderer-screenshot.md).
+
 ### Follow-up: Share Renderer Debug UI Controls
 
 `Runtime/SceneRendererDebugUi.cpp` currently duplicates renderer-owned controls and labels from `App/DebugUi.cpp`. This was accepted as a scoped first step so external hosts could use the renderer debug UI without waiting for a broader application UI refactor.

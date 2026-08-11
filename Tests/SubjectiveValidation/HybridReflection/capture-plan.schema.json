@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rtpbrsurvey.local/schemas/hybrid-reflection-capture-plan-v1.json",
+  "title": "Hybrid Reflection Capture Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "cameraKeyframes", "captures"],
+  "properties": {
+    "version": { "const": 1 },
+    "cameraKeyframes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["frame", "yawDegrees"],
+        "properties": {
+          "frame": { "type": "integer", "minimum": 0 },
+          "yawDegrees": { "type": "number" }
+        }
+      }
+    },
+    "captures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["frame", "caseId", "path"],
+        "properties": {
+          "frame": { "type": "integer", "minimum": 0 },
+          "caseId": { "type": "string", "minLength": 1 },
+          "path": {
+            "type": "string",
+            "pattern": "^[^/\\\\].*\\{variant\\}.*\\.png$"
+          }
+        }
+      }
+    }
+  }
+}

@@ -87,6 +87,7 @@ struct TemporalUpscalerFrameConstants
     float cameraFar = 0.0f;
     float cameraFovRadians = 0.0f;
     float cameraAspectRatio = 1.0f;
+    bool orthographicProjection = false;
     bool depthInverted = false;
     bool cameraMotionIncluded = true;
 };

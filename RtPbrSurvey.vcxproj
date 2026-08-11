@@ -93,7 +93,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS)%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(RTPBRSURVEY_PLATFORM_LIBRARIES)d3dcompiler.lib;dxguid.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(RTPBRSURVEY_PLATFORM_LIBRARIES)d3dcompiler.lib;dxguid.lib;windowscodecs.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>$(RTPBRSURVEY_PLATFORM_DELAY_LOAD_DLLS)$(RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS)%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
@@ -128,7 +128,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>$(RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS)%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(RTPBRSURVEY_PLATFORM_LIBRARIES)d3dcompiler.lib;dxguid.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(RTPBRSURVEY_PLATFORM_LIBRARIES)d3dcompiler.lib;dxguid.lib;windowscodecs.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>$(RTPBRSURVEY_PLATFORM_DELAY_LOAD_DLLS)$(RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS)%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
@@ -162,6 +162,7 @@
     <ClInclude Include="Renderer\HybridReflectionPass.h" />
     <ClInclude Include="Renderer\LightingPass.h" />
     <ClInclude Include="Renderer\ReflectionEvaluatePass.h" />
+    <ClInclude Include="Renderer\TemporalReflectionPass.h" />
     <ClInclude Include="Renderer\Material.h" />
     <ClInclude Include="Renderer\MaterialBuffer.h" />
     <ClInclude Include="Renderer\PipelineFactory.h" />
@@ -180,10 +181,12 @@
     <ClInclude Include="Renderer\RootSignatureFactory.h" />
     <ClInclude Include="Renderer\RootSignatureLayout.h" />
     <ClInclude Include="Renderer\SceneGeometryPass.h" />
+    <ClInclude Include="Renderer\ScreenshotCapture.h" />
     <ClInclude Include="Renderer\SimpleDescriptorHeapAllocator.h" />
     <ClInclude Include="Renderer\StagedDescriptorAllocator.h" />
     <ClInclude Include="Renderer\StreamlineAdapter.h" />
     <ClInclude Include="Renderer\TemporalUpscalerSupport.h" />
+    <ClInclude Include="Renderer\TextureMipChain.h" />
     <ClInclude Include="Renderer\ToneMap.h" />
     <ClInclude Include="Renderer\DebugLinePass.h" />
     <ClInclude Include="Runtime\SceneRenderer.h" />
@@ -193,6 +196,8 @@
     <ClInclude Include="Scene\SceneBuilder.h" />
     <ClInclude Include="Scene\SceneFactory.h" />
     <ClInclude Include="Scene\Scene.h" />
+    <ClInclude Include="Scene\CameraProjection.h" />
+    <ClInclude Include="Scene\CameraView.h" />
     <ClInclude Include="Scene\SampleScene.h" />
     <ClInclude Include="Ui\ImGuiSystem.h" />
     <ClInclude Include="App\DebugUi.h" />
@@ -212,6 +217,7 @@
     <ClInclude Include="Shared\D3d12DebugName.h" />
     <ClInclude Include="Shared\D3d12Helpers.h" />
     <ClInclude Include="Shared\Error.h" />
+    <ClInclude Include="Shared\Screenshot.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="WorkMeter.h" />
   </ItemGroup>
@@ -232,6 +238,7 @@
     <ClCompile Include="Renderer\HybridReflectionPass.cpp" />
     <ClCompile Include="Renderer\LightingPass.cpp" />
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp" />
+    <ClCompile Include="Renderer\TemporalReflectionPass.cpp" />
     <ClCompile Include="Renderer\MaterialBuffer.cpp" />
     <ClCompile Include="Renderer\PipelineFactory.cpp" />
     <ClCompile Include="Renderer\AccelerationStructureResources.cpp" />
@@ -244,8 +251,10 @@
     <ClCompile Include="Renderer\RootSignatureFactory.cpp" />
     <ClCompile Include="Renderer\StagedDescriptorAllocator_Test.cpp" />
     <ClCompile Include="Renderer\SceneGeometryPass.cpp" />
+    <ClCompile Include="Renderer\ScreenshotCapture.cpp" />
     <ClCompile Include="Renderer\StreamlineAdapter.cpp" />
     <ClCompile Include="Renderer\TemporalUpscalerSupport.cpp" />
+    <ClCompile Include="Renderer\TextureMipChain.cpp" />
     <ClCompile Include="Renderer\ToneMap.cpp" />
     <ClCompile Include="Renderer\DebugLinePass.cpp" />
     <ClCompile Include="Runtime\SceneRenderer.cpp" />
@@ -289,6 +298,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\FullscreenTriangle.hlsli" />
     <None Include="Shaders\Material.hlsli" />
     <None Include="Shaders\InstanceData.hlsli" />
+    <None Include="Shaders\SceneDrawConstants.hlsli" />
     <None Include="Shaders\PbrLighting.hlsli" />
     <None Include="packages.config" />
     <None Include="vcpkg.json" />
@@ -410,6 +420,21 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
+    <CustomBuild Include="Shaders\shaders_TemporalReflection.hlsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Identity)</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Identity)</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">dxc.exe -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_VSMain.cso" "%(FullPath)"
+dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_PSMain.cso" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dxc.exe -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_VSMain.cso" "%(FullPath)"
+dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_PSMain.cso" "%(FullPath)"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
     <CustomBuild Include="Shaders\shaders_ToneMap.hlsl">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
@@ -498,6 +523,9 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <StreamlineRuntimeDll Include="$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\bin\x64\sl.dlss.dll" />
     <StreamlineRuntimeDll Include="$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\bin\x64\nvngx_dlss.dll" />
   </ItemGroup>
+  <ItemGroup>
+    <RuntimeAsset Include="$(ProjectDir)Assets\**\*" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\Microsoft.Direct3D.D3D12.1.618.3\build\native\Microsoft.Direct3D.D3D12.targets" Condition="Exists('packages\Microsoft.Direct3D.D3D12.1.618.3\build\native\Microsoft.Direct3D.D3D12.targets')" />
@@ -516,5 +544,10 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
   </Target>
   <Target Name="CopyStreamlineRuntime" AfterTargets="Build" Condition="'$(RTPBRSURVEY_HAS_STREAMLINE_SDK)'=='true'">
     <Copy SourceFiles="@(StreamlineRuntimeDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="CopyRuntimeAssets" AfterTargets="Build">
+    <Copy SourceFiles="@(RuntimeAsset)"
+          DestinationFiles="@(RuntimeAsset->'$(OutDir)Assets\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
   </Target>
 </Project>

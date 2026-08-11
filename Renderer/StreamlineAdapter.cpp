@@ -307,7 +307,7 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
     constants.cameraMotionIncluded = source.cameraMotionIncluded ? sl::Boolean::eTrue : sl::Boolean::eFalse;
     constants.motionVectors3D = sl::Boolean::eFalse;
     constants.reset = inputs.historyReset ? sl::Boolean::eTrue : sl::Boolean::eFalse;
-    constants.orthographicProjection = sl::Boolean::eFalse;
+    constants.orthographicProjection = source.orthographicProjection ? sl::Boolean::eTrue : sl::Boolean::eFalse;
     constants.motionVectorsDilated = sl::Boolean::eFalse;
     constants.motionVectorsJittered = sl::Boolean::eFalse;
 

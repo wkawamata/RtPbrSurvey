@@ -63,13 +63,14 @@ namespace
         {"Ray Albedo",     RtPbrSurveyEngine::RenderViewMode::ReflectionRayColor,              true,  true},
         {"Ray Material",   RtPbrSurveyEngine::RenderViewMode::ReflectionRayMaterial,           true,  true},
         {"Ray Emission",   RtPbrSurveyEngine::RenderViewMode::ReflectionRayEmission,           true,  true},
-        {"Radiance",       RtPbrSurveyEngine::RenderViewMode::ReflectionRadiance,              true,  true},
+        {"Evaluated Radiance", RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadiance,          true,  true},
+        {"Resolved Radiance",  RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance,           true,  true},
         {"Ray Fade",       RtPbrSurveyEngine::RenderViewMode::ReflectionRayDistanceFade,       true,  true},
         {"Strength",       RtPbrSurveyEngine::RenderViewMode::ReflectionContributionStrength,  true,  true},
-        {"Direct",         RtPbrSurveyEngine::RenderViewMode::ReflectionRadianceDirect,        true,  true},
-        {"IBL Diffuse",    RtPbrSurveyEngine::RenderViewMode::ReflectionRadianceIblDiffuse,    true,  true},
-        {"IBL Specular",   RtPbrSurveyEngine::RenderViewMode::ReflectionRadianceIblSpecular,   true,  true},
-        {"Emissive Light", RtPbrSurveyEngine::RenderViewMode::ReflectionRadianceEmissive,      true,  true},
+        {"Direct",         RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadianceDirect,        true,  true},
+        {"IBL Diffuse",    RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse,    true,  true},
+        {"IBL Specular",   RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadianceIblSpecular,   true,  true},
+        {"Emissive Light", RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadianceEmissive,      true,  true},
     };
 
     const char* RenderViewLabel(RtPbrSurveyEngine::RenderViewMode mode)
@@ -178,6 +179,56 @@ namespace
         if (changed)
         {
             renderer.SetLightingParams(lightingParams);
+        }
+    }
+
+    void ApplyEnvironmentPreset(Engine::ProceduralEnvironmentSettings& settings, Engine::EnvironmentSource source)
+    {
+        settings = {};
+        settings.source = source;
+        switch (source)
+        {
+            case Engine::EnvironmentSource::ProceduralStudio:
+                settings.skyColor = {0.50f, 0.52f, 0.54f};
+                settings.groundColor = {0.16f, 0.16f, 0.15f};
+                settings.lightColor = {1.0f, 0.98f, 0.92f};
+                settings.lightDirection = {0.25f, 0.85f, 0.35f};
+                settings.backgroundIntensity = 0.35f;
+                settings.lightIntensity = 4.0f;
+                settings.lightSize = 0.22f;
+                settings.fillIntensity = 0.08f;
+                break;
+            case Engine::EnvironmentSource::ProceduralSun:
+                settings.skyColor = {0.25f, 0.43f, 0.75f};
+                settings.groundColor = {0.09f, 0.075f, 0.055f};
+                settings.lightColor = {1.0f, 0.82f, 0.52f};
+                settings.lightDirection = {0.22f, 0.72f, 0.66f};
+                settings.backgroundIntensity = 0.20f;
+                settings.lightIntensity = 32.0f;
+                settings.lightSize = 0.035f;
+                settings.fillIntensity = 0.03f;
+                break;
+            case Engine::EnvironmentSource::ProceduralColorPanels:
+                settings.skyColor = {0.02f, 0.02f, 0.025f};
+                settings.groundColor = {0.015f, 0.015f, 0.015f};
+                settings.backgroundIntensity = 0.05f;
+                settings.lightIntensity = 0.0f;
+                settings.fillIntensity = 0.02f;
+                settings.colorPanelIntensity = 3.5f;
+                break;
+            case Engine::EnvironmentSource::ProceduralHorizon:
+                settings.skyColor = {0.34f, 0.50f, 0.86f};
+                settings.groundColor = {0.18f, 0.15f, 0.10f};
+                settings.lightColor = {1.0f, 0.86f, 0.62f};
+                settings.lightDirection = {0.1f, 0.08f, 0.99f};
+                settings.backgroundIntensity = 0.45f;
+                settings.lightIntensity = 5.0f;
+                settings.fillIntensity = 0.03f;
+                settings.horizonSharpness = 0.035f;
+                break;
+            case Engine::EnvironmentSource::AssetHdr:
+            default:
+                break;
         }
     }
 
@@ -309,6 +360,11 @@ namespace
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Contribution Max Distance", &reflectionSettings.contributionMaxDistance, 0.1f, 100.0f, 0.5f, 20.0f);
         ImGui::EndDisabled();
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Temporal History Weight", &reflectionSettings.temporalHistoryWeight, 0.0f, 0.98f, 0.05f, 0.0f);
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Temporal Debug Noise", &reflectionSettings.temporalNoiseStrength, 0.0f, 1.0f, 0.05f, 0.0f);
+        ImGui::TextWrapped("Experimental motion-reprojected blend with depth/normal rejection. Debug noise is injected before history accumulation and is disabled at zero.");
 
         changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
         ImGui::BeginDisabled(!reflectionSettings.enabled || !reflectionSettings.materialGateEnabled);
@@ -347,7 +403,7 @@ namespace
         const bool deferredRendering = renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred;
         ImGui::BeginDisabled(!deferredRendering);
 
-        if (ImGui::BeginCombo("Render View", RenderViewLabel(renderViewMode)))
+        if (ImGui::BeginCombo("View Mode", RenderViewLabel(renderViewMode)))
         {
             for (const RenderViewItem& item : kRenderViewItems)
             {
@@ -389,7 +445,106 @@ namespace
 
 namespace RtPbrSurvey
 {
-    void SceneRendererDebugUi::Draw(SceneRenderer& renderer, bool* open, const char* windowName)
+    void SceneRendererDebugUi::DrawEnvironmentMapping(SceneRenderer& renderer, EnvironmentMappingUiState& state)
+    {
+        bool environmentChanged = false;
+        bool lightingChanged = false;
+
+        lightingChanged |= ImGui::Checkbox("IBL Enabled", &state.iblEnabled);
+        ImGui::BeginDisabled(!state.iblEnabled);
+        lightingChanged |= ImGuiWidgets::SliderFloatWithControls(
+            "IBL Intensity", &state.lighting.iblIntensity, 0.0f, 2.0f, 0.05f, 0.1f);
+        lightingChanged |= ImGui::Checkbox("Diffuse IBL", &state.lighting.diffuseIblEnabled);
+        ImGui::SameLine();
+        lightingChanged |= ImGui::Checkbox("Specular IBL", &state.lighting.specularIblEnabled);
+        ImGui::EndDisabled();
+        lightingChanged |= ImGui::Checkbox("Show Skybox", &state.lighting.skyboxEnabled);
+        lightingChanged |= ImGui::Checkbox("Skybox Preview", &state.lighting.skyboxPreview);
+        ImGui::BeginDisabled(!state.lighting.skyboxPreview);
+        lightingChanged |= ImGuiWidgets::SliderFloatWithControls(
+            "Preview Exposure", &state.lighting.skyboxPreviewExposure, 0.0f, 2.0f, 0.05f, 1.0f);
+        ImGui::EndDisabled();
+
+        int source = static_cast<int>(state.settings.source);
+        if (ImGui::Combo("Environment Source",
+                         &source,
+                         "Asset HDR\0Procedural Studio\0Procedural Sun\0Procedural Color Panels\0Procedural Horizon\0"))
+        {
+            ApplyEnvironmentPreset(state.settings, static_cast<Engine::EnvironmentSource>(source));
+            environmentChanged = true;
+        }
+
+        if (state.settings.source == Engine::EnvironmentSource::AssetHdr)
+        {
+            ImGui::TextUnformatted("Assets/Environment/default_environment.hdr");
+        }
+        else
+        {
+            ImGui::Checkbox("Auto Update", &state.autoUpdate);
+            environmentChanged |= ImGui::ColorEdit3("Sky Color", &state.settings.skyColor.x);
+            environmentChanged |= ImGui::ColorEdit3("Ground Color", &state.settings.groundColor.x);
+            const bool colorPanels = state.settings.source == Engine::EnvironmentSource::ProceduralColorPanels;
+            if (!colorPanels)
+            {
+                environmentChanged |= ImGui::ColorEdit3("Environment Light Color", &state.settings.lightColor.x);
+                static constexpr float defaultDirection[] = {0.35f, 0.75f, 0.25f};
+                environmentChanged |= ImGuiWidgets::SliderFloat3WithControls(
+                    "Environment Light Direction",
+                    &state.settings.lightDirection.x,
+                    -1.0f,
+                    1.0f,
+                    0.05f,
+                    defaultDirection);
+            }
+            environmentChanged |= ImGuiWidgets::SliderFloatWithControls(
+                "Background", &state.settings.backgroundIntensity, 0.0f, 4.0f, 0.05f, 0.6f);
+            if (!colorPanels)
+            {
+                environmentChanged |= ImGuiWidgets::SliderFloatWithControls(
+                    "Environment Light Intensity", &state.settings.lightIntensity, 0.0f, 40.0f, 0.5f, 6.0f);
+                environmentChanged |= ImGuiWidgets::SliderFloatWithControls(
+                    "Environment Light Size", &state.settings.lightSize, 0.01f, 0.8f, 0.01f, 0.12f);
+            }
+            environmentChanged |= ImGuiWidgets::SliderFloatWithControls(
+                "Environment Fill", &state.settings.fillIntensity, 0.0f, 2.0f, 0.05f, 0.12f);
+            if (colorPanels)
+            {
+                environmentChanged |= ImGuiWidgets::SliderFloatWithControls(
+                    "Color Panel Intensity", &state.settings.colorPanelIntensity, 0.0f, 8.0f, 0.1f, 1.5f);
+            }
+            if (state.settings.source == Engine::EnvironmentSource::ProceduralHorizon)
+            {
+                environmentChanged |= ImGuiWidgets::SliderFloatWithControls(
+                    "Horizon Width", &state.settings.horizonSharpness, 0.01f, 0.5f, 0.01f, 0.08f);
+            }
+        }
+
+        if (lightingChanged)
+        {
+            RtPbrSurveyEngine::LightingParams applied = state.lighting;
+            if (!state.iblEnabled)
+            {
+                applied.iblIntensity = 0.0f;
+            }
+            renderer.SetLightingParams(applied);
+        }
+        state.reloadPending |= environmentChanged;
+        if (state.reloadPending && state.autoUpdate && !ImGui::IsAnyItemActive())
+        {
+            renderer.ReloadEnvironmentResources(state.settings);
+            state.reloadPending = false;
+        }
+        if (!state.autoUpdate && ImGui::Button("Apply Environment"))
+        {
+            renderer.ReloadEnvironmentResources(state.settings);
+            state.reloadPending = false;
+        }
+    }
+
+    void SceneRendererDebugUi::Draw(SceneRenderer& renderer,
+                                    bool* open,
+                                    const char* windowName,
+                                    EnvironmentMappingUiState* environment)
     {
         ImGui::SetNextWindowSize(ImVec2(420, 520), ImGuiCond_FirstUseEver);
         if (!ImGui::Begin(windowName, open))
@@ -410,6 +565,11 @@ namespace RtPbrSurvey
         if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
         {
             DrawLightingControls(renderer);
+        }
+
+        if (environment != nullptr && ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            DrawEnvironmentMapping(renderer, *environment);
         }
 
         if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))

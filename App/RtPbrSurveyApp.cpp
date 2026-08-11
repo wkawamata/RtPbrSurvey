@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <io.h>
 #include <share.h>
+#include <stdexcept>
 #include <sys/stat.h>
 #include "RtPbrSurveyApp.h"
 #include "../Platform/Win32Application.h"
@@ -34,6 +35,22 @@ RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
 _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], int argc)
 {
     m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
+    if (!m_commandLineOptions.reflectionCapturePlanPath.empty())
+    {
+        if (!m_commandLineOptions.capturePath.empty())
+        {
+            throw std::invalid_argument("-CapturePath and -ReflectionCapturePlan are mutually exclusive.");
+        }
+
+        std::string error;
+        if (!Platform::LoadReflectionCapturePlan(m_commandLineOptions.reflectionCapturePlanPath,
+                                                 m_commandLineOptions.reflectionCaptureVariant,
+                                                 m_reflectionCapturePlan,
+                                                 error))
+        {
+            throw std::invalid_argument(error);
+        }
+    }
     if (m_commandLineOptions.useWarpDevice)
     {
         m_windowInfo.title = m_windowInfo.title + L" (WARP)";
@@ -138,6 +155,30 @@ void RtPbrSurveyApp::OnInit()
         m_selectedSceneIndex = kDefaultSceneIndex;
         OpenSelectedScene();
         m_debugUiVisible = false;
+
+        if (m_commandLineOptions.captureReflectionResolvedRadiance)
+        {
+            m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
+            m_renderViewMode = RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance;
+            m_sceneRenderer.SetRenderingPath(m_renderingPath);
+            m_sceneRenderer.SetRenderViewMode(m_renderViewMode);
+
+            RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
+                m_sceneRenderer.GetHybridReflectionSettings();
+            reflectionSettings.enabled = true;
+            if (m_commandLineOptions.hasReflectionTemporalWeight)
+            {
+                reflectionSettings.temporalHistoryWeight =
+                    std::clamp(m_commandLineOptions.reflectionTemporalWeight, 0.0f, 0.98f);
+            }
+            if (m_commandLineOptions.hasReflectionTemporalNoiseStrength)
+            {
+                reflectionSettings.temporalNoiseStrength =
+                    std::clamp(m_commandLineOptions.reflectionTemporalNoiseStrength, 0.0f, 1.0f);
+            }
+            m_sceneRenderer.SetHybridReflectionSettings(reflectionSettings);
+            m_automationOrbitStartYaw = m_debugCamera.ObjectViewerYaw();
+        }
     }
 }
 
@@ -152,6 +193,8 @@ void RtPbrSurveyApp::UpdateSampleState()
         m_sceneRenderer.SetDisplayInstanceCount(0);
         return;
     }
+
+    UpdateAutomatedCaptureCamera();
 
     if (GetForegroundWindow() == Win32Application::GetHwnd())
     {
@@ -286,11 +329,85 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 
 void RtPbrSurveyApp::OnIdle()
 {
+    if (HasAutomatedCapture())
+    {
+        if (const std::optional<RtPbrSurvey::ScreenshotResult> result = m_sceneRenderer.ConsumeScreenshotResult())
+        {
+            m_screenshotStatus = result->succeeded ?
+                "Saved: " + result->path.string() :
+                "Capture failed: " + result->error;
+
+            if (!m_reflectionCapturePlan.captures.empty())
+            {
+                m_reflectionCaptureInFlight = false;
+                if (!result->succeeded)
+                {
+                    FailAutomatedCapture(result->error);
+                }
+                else
+                {
+                    ++m_completedReflectionCaptureCount;
+                }
+            }
+
+            const bool singleCaptureComplete = m_reflectionCapturePlan.captures.empty();
+            const bool capturePlanComplete =
+                !m_reflectionCapturePlan.captures.empty() &&
+                m_completedReflectionCaptureCount == m_reflectionCapturePlan.captures.size();
+            if (m_commandLineOptions.exitAfterCapture && (singleCaptureComplete || capturePlanComplete))
+            {
+                DestroyWindow(Win32Application::GetHwnd());
+                return;
+            }
+        }
+    }
+
+    if (!m_reflectionCapturePlan.captures.empty() && !m_reflectionCapturePlanFailed &&
+        m_nextReflectionCaptureIndex < m_reflectionCapturePlan.captures.size())
+    {
+        const Platform::ReflectionCaptureRequest& capture =
+            m_reflectionCapturePlan.captures[m_nextReflectionCaptureIndex];
+        if (m_automationFrameCounter > capture.frame)
+        {
+            FailAutomatedCapture("Missed requested capture frame for case " + capture.caseId + ".");
+        }
+        else if (m_automationFrameCounter == capture.frame)
+        {
+            if (m_reflectionCaptureInFlight)
+            {
+                FailAutomatedCapture("Previous screenshot is still in flight at case " + capture.caseId + ".");
+            }
+            else
+            {
+                m_sceneRenderer.RequestScreenshot({capture.path});
+                m_reflectionCaptureInFlight = true;
+                ++m_nextReflectionCaptureIndex;
+            }
+        }
+    }
+    else if (m_reflectionCapturePlan.captures.empty() && !m_commandLineOptions.capturePath.empty() &&
+             !m_automationScreenshotRequested &&
+             m_automationFrameCounter >= m_commandLineOptions.captureAfterFrames)
+    {
+        m_sceneRenderer.RequestScreenshot({m_commandLineOptions.capturePath});
+        m_automationScreenshotRequested = true;
+    }
+
+    if (m_reflectionCapturePlanFailed && m_commandLineOptions.exitAfterCapture)
+    {
+        return;
+    }
+
     UpdateUiFrame();
     const bool advanceFrame = !m_framePaused || m_forwardStepRequested;
     m_forwardStepRequested = false;
     m_sceneRenderer.RunFrame(
         [this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); }, advanceFrame);
+
+    if (HasAutomatedCapture())
+    {
+        ++m_automationFrameCounter;
+    }
 
     // Poll D3D12 debug messages and FPS logging.
     if (m_logFile)
@@ -310,10 +427,94 @@ void RtPbrSurveyApp::OnIdle()
     }
 }
 
+void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
+{
+    if (!m_commandLineOptions.captureReflectionResolvedRadiance ||
+        m_debugCamera.GetMode() != RtPbrSurvey::DebugCameraController::Mode::Arcball)
+    {
+        return;
+    }
+
+    if (!m_reflectionCapturePlan.cameraKeyframes.empty())
+    {
+        const std::vector<Platform::ReflectionCaptureCameraKeyframe>& keyframes =
+            m_reflectionCapturePlan.cameraKeyframes;
+        const auto upper = std::upper_bound(
+            keyframes.begin(), keyframes.end(), m_automationFrameCounter,
+            [](UINT64 frame, const Platform::ReflectionCaptureCameraKeyframe& keyframe)
+            {
+                return frame < keyframe.frame;
+            });
+
+        float yawDegrees = keyframes.back().yawDegrees;
+        if (upper != keyframes.begin() && upper != keyframes.end())
+        {
+            const Platform::ReflectionCaptureCameraKeyframe& next = *upper;
+            const Platform::ReflectionCaptureCameraKeyframe& previous = *(upper - 1);
+            const float progress = static_cast<float>(m_automationFrameCounter - previous.frame) /
+                                   static_cast<float>(next.frame - previous.frame);
+            yawDegrees = previous.yawDegrees + (next.yawDegrees - previous.yawDegrees) * progress;
+        }
+        else if (upper == keyframes.begin())
+        {
+            yawDegrees = keyframes.front().yawDegrees;
+        }
+
+        m_debugCamera.SetObjectViewerState(
+            m_automationOrbitStartYaw + DirectX::XMConvertToRadians(yawDegrees),
+            m_debugCamera.ObjectViewerPitch(),
+            m_debugCamera.ObjectViewerDistance(),
+            m_debugCamera.ObjectViewerPivot());
+        return;
+    }
+
+    if (m_commandLineOptions.capturePath.empty() || m_commandLineOptions.reflectionOrbitFrames == 0)
+    {
+        return;
+    }
+
+    const UINT64 captureFrame = m_commandLineOptions.captureAfterFrames;
+    const UINT64 orbitFrameCount =
+        (std::min)(static_cast<UINT64>(m_commandLineOptions.reflectionOrbitFrames), captureFrame + 1);
+    const UINT64 firstOrbitFrame = captureFrame + 1 - orbitFrameCount;
+    if (m_automationFrameCounter < firstOrbitFrame || m_automationFrameCounter > captureFrame)
+    {
+        return;
+    }
+
+    const UINT64 orbitFrame = m_automationFrameCounter - firstOrbitFrame + 1;
+    const float progress = static_cast<float>(orbitFrame) / static_cast<float>(orbitFrameCount);
+    const float yawOffset = DirectX::XMConvertToRadians(m_commandLineOptions.reflectionOrbitDegrees) * progress;
+    m_debugCamera.SetObjectViewerState(m_automationOrbitStartYaw + yawOffset,
+                                       m_debugCamera.ObjectViewerPitch(),
+                                       m_debugCamera.ObjectViewerDistance(),
+                                       m_debugCamera.ObjectViewerPivot());
+}
+
+bool RtPbrSurveyApp::HasAutomatedCapture() const
+{
+    return !m_commandLineOptions.capturePath.empty() || !m_reflectionCapturePlan.captures.empty();
+}
+
+void RtPbrSurveyApp::FailAutomatedCapture(const std::string& error)
+{
+    m_reflectionCapturePlanFailed = true;
+    m_screenshotStatus = "Capture failed: " + error;
+    if (m_logFile)
+    {
+        fprintf(m_logFile, "[ERROR] %s\n", m_screenshotStatus.c_str());
+        fflush(m_logFile);
+    }
+    if (m_commandLineOptions.exitAfterCapture)
+    {
+        DestroyWindow(Win32Application::GetHwnd());
+    }
+}
+
 void RtPbrSurveyApp::OnDestroy()
 {
     // Save current scene config before shutdown
-    if (m_loadedSceneIndex >= 0)
+    if (m_loadedSceneIndex >= 0 && !HasAutomatedCapture())
     {
         m_sceneConfig.SaveCurrentScene(
             m_loadedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
@@ -426,6 +627,7 @@ void RtPbrSurveyApp::CreateSampleScenes()
         std::make_unique<Engine::OccluderWallTestScene>(Engine::OccluderWallTestScene::kMaxInstanceCount));
 
     m_sampleScenes.push_back(Engine::SceneFactory::CreateCornellBox());
+    m_sampleScenes.push_back(Engine::SceneFactory::CreateHostPrimitiveMeshes());
 }
 
 void RtPbrSurveyApp::LoadSceneCpuData(int sceneIndex)

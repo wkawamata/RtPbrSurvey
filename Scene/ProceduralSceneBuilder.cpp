@@ -7,6 +7,7 @@
 #include <DirectXMathVector.inl>
 #include <cmath>
 #include <cstdint>
+#include <stdexcept>
 
 using DirectX::XMFLOAT2;
 using DirectX::XMFLOAT3;
@@ -173,6 +174,88 @@ SceneMesh CreateSphereMesh(float radius, int stackCount, int sliceCount)
     return mesh;
 }
 
+SceneMesh CreateCylinderMesh(float radius,
+                             float height,
+                             uint32_t radialSegments,
+                             CylinderCapMode capMode)
+{
+    if (radius <= 0.0f || height <= 0.0f)
+    {
+        throw std::invalid_argument("Cylinder radius and height must be positive.");
+    }
+    if (radialSegments < 3)
+    {
+        throw std::invalid_argument("Cylinder radial segment count must be at least 3.");
+    }
+
+    SceneMesh mesh = {};
+    const float halfHeight = height * 0.5f;
+    const float angleStep = 2.0f * kPI / static_cast<float>(radialSegments);
+
+    for (uint32_t segment = 0; segment < radialSegments; ++segment)
+    {
+        const float angle0 = static_cast<float>(segment) * angleStep;
+        const float angle1 = static_cast<float>(segment + 1) * angleStep;
+        const float middleAngle = (angle0 + angle1) * 0.5f;
+        const XMFLOAT3 normal = {std::cos(middleAngle), 0.0f, std::sin(middleAngle)};
+        const uint32_t baseVertex = static_cast<uint32_t>(mesh.vertices.size());
+        const float u0 = static_cast<float>(segment) / static_cast<float>(radialSegments);
+        const float u1 = static_cast<float>(segment + 1) / static_cast<float>(radialSegments);
+
+        mesh.vertices.push_back({{radius * std::cos(angle0), -halfHeight, radius * std::sin(angle0)},
+                                 {u0, 1.0f},
+                                 normal});
+        mesh.vertices.push_back({{radius * std::cos(angle1), -halfHeight, radius * std::sin(angle1)},
+                                 {u1, 1.0f},
+                                 normal});
+        mesh.vertices.push_back({{radius * std::cos(angle1), halfHeight, radius * std::sin(angle1)},
+                                 {u1, 0.0f},
+                                 normal});
+        mesh.vertices.push_back({{radius * std::cos(angle0), halfHeight, radius * std::sin(angle0)},
+                                 {u0, 0.0f},
+                                 normal});
+        mesh.indices.insert(mesh.indices.end(),
+                            {baseVertex, baseVertex + 2, baseVertex + 1,
+                             baseVertex, baseVertex + 3, baseVertex + 2});
+    }
+
+    if (capMode == CylinderCapMode::Both)
+    {
+        const auto appendCap = [&](float y, float normalY, bool reverseWinding)
+        {
+            const uint32_t centerVertex = static_cast<uint32_t>(mesh.vertices.size());
+            mesh.vertices.push_back({{0.0f, y, 0.0f}, {0.5f, 0.5f}, {0.0f, normalY, 0.0f}});
+            for (uint32_t segment = 0; segment <= radialSegments; ++segment)
+            {
+                const float angle = static_cast<float>(segment) * angleStep;
+                const float x = std::cos(angle);
+                const float z = std::sin(angle);
+                mesh.vertices.push_back(
+                    {{radius * x, y, radius * z}, {x * 0.5f + 0.5f, z * 0.5f + 0.5f}, {0.0f, normalY, 0.0f}});
+            }
+
+            for (uint32_t segment = 0; segment < radialSegments; ++segment)
+            {
+                const uint32_t current = centerVertex + 1 + segment;
+                const uint32_t next = current + 1;
+                if (reverseWinding)
+                {
+                    mesh.indices.insert(mesh.indices.end(), {centerVertex, next, current});
+                }
+                else
+                {
+                    mesh.indices.insert(mesh.indices.end(), {centerVertex, current, next});
+                }
+            }
+        };
+
+        appendCap(halfHeight, 1.0f, true);
+        appendCap(-halfHeight, -1.0f, false);
+    }
+
+    return mesh;
+}
+
 int AddSolidColorTexture(SceneMesh& mesh, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
     SceneTexture texture = {};
@@ -184,8 +267,13 @@ int AddSolidColorTexture(SceneMesh& mesh, uint8_t r, uint8_t g, uint8_t b, uint8
     return static_cast<int>(mesh.textures.size() - 1);
 }
 
-void AppendMesh(SceneMesh& dest, const SceneMesh& src, uint32_t materialId)
+SceneMesh::Range AppendMesh(SceneMesh& dest, const SceneMesh& src, uint32_t materialId)
 {
+    SceneMesh::Range range = {};
+    range.firstVertex = static_cast<uint32_t>(dest.vertices.size());
+    range.vertexCount = static_cast<uint32_t>(src.vertices.size());
+    range.firstIndex = static_cast<uint32_t>(dest.indices.size());
+    range.indexCount = static_cast<uint32_t>(src.indices.size());
     const uint32_t baseVertex = static_cast<uint32_t>(dest.vertices.size());
     dest.vertices.reserve(dest.vertices.size() + src.vertices.size());
     for (const auto& v : src.vertices)
@@ -198,11 +286,19 @@ void AppendMesh(SceneMesh& dest, const SceneMesh& src, uint32_t materialId)
     {
         dest.indices.push_back(baseVertex + idx);
     }
+    return range;
 }
 
-void AppendTransformedMesh(SceneMesh& dest, const SceneMesh& src,
-                           DirectX::FXMMATRIX transform, uint32_t materialId)
+SceneMesh::Range AppendTransformedMesh(SceneMesh& dest,
+                                       const SceneMesh& src,
+                                       DirectX::FXMMATRIX transform,
+                                       uint32_t materialId)
 {
+    SceneMesh::Range range = {};
+    range.firstVertex = static_cast<uint32_t>(dest.vertices.size());
+    range.vertexCount = static_cast<uint32_t>(src.vertices.size());
+    range.firstIndex = static_cast<uint32_t>(dest.indices.size());
+    range.indexCount = static_cast<uint32_t>(src.indices.size());
     const uint32_t baseVertex = static_cast<uint32_t>(dest.vertices.size());
     const size_t srcVertexCount = src.vertices.size();
     dest.vertices.reserve(dest.vertices.size() + srcVertexCount);
@@ -242,6 +338,7 @@ void AppendTransformedMesh(SceneMesh& dest, const SceneMesh& src,
     {
         dest.indices.push_back(baseVertex + idx);
     }
+    return range;
 }
 
 void AddQuad(SceneMesh& mesh,

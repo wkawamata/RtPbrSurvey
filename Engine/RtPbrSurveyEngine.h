@@ -23,6 +23,7 @@
 #include "Renderer/HybridReflectionPass.h"
 #include "Renderer/LightingPass.h"
 #include "Renderer/ReflectionEvaluatePass.h"
+#include "Renderer/TemporalReflectionPass.h"
 #include "Renderer/Material.h"
 #include "Renderer/MaterialBuffer.h"
 #include "Renderer/StagedDescriptorAllocator.h"
@@ -38,6 +39,7 @@
 #include "FrameGraph/RenderPassResources.h"
 #include "Renderer/RootSignatureLayout.h"
 #include "Renderer/SceneGeometryPass.h"
+#include "Renderer/ScreenshotCapture.h"
 #include "Renderer/SimpleDescriptorHeapAllocator.h"
 #include "Renderer/ShadowMaskDebugPass.h"
 #include "Renderer/DebugLinePass.h"
@@ -45,12 +47,14 @@
 #include "Renderer/StreamlineAdapter.h"
 #include "Renderer/ToneMap.h"
 #include "Scene/Scene.h"
+#include "Shared/Screenshot.h"
 #include "TextureSemantic.h"
 #include "WorkMeter.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <climits>
+#include <deque>
 #include <functional>
 #include <initializer_list>
 #include <optional>
@@ -112,11 +116,12 @@ public:
         TlasDebug,
         ReflectionRayMaterial,
         ReflectionRayEmission,
-        ReflectionRadiance,
-        ReflectionRadianceDirect,
-        ReflectionRadianceIblDiffuse,
-        ReflectionRadianceIblSpecular,
-        ReflectionRadianceEmissive,
+        ReflectionEvaluatedRadiance,
+        ReflectionResolvedRadiance,
+        ReflectionEvaluatedRadianceDirect,
+        ReflectionEvaluatedRadianceIblDiffuse,
+        ReflectionEvaluatedRadianceIblSpecular,
+        ReflectionEvaluatedRadianceEmissive,
         DlssInputColor,
     };
 
@@ -215,6 +220,8 @@ public:
         bool contributionEnabled = false;
         float contributionIntensity = 0.25f;
         float contributionMaxDistance = 20.0f;
+        float temporalHistoryWeight = 0.0f;
+        float temporalNoiseStrength = 0.0f;
     };
 
     struct SpecularDebugLineSettings
@@ -261,6 +268,8 @@ public:
     void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
     void Shutdown();
     void SetScene(const Scene& scene);
+    void SetCamera(const CameraState& camera);
+    const CameraState& GetCamera() const;
     void ReloadSceneResources(const Scene& scene);
     void CloseSceneResources();
     UiFrameContext GetUiFrameContext() const;
@@ -293,6 +302,8 @@ public:
     void SetRenderViewMode(RenderViewMode mode);
     RenderViewMode GetRenderViewMode() const { return m_debugViewSettings.renderViewMode; }
     void SetRequestHdrDump(bool request);
+    void RequestScreenshot(RtPbrSurvey::ScreenshotRequest request);
+    std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult();
     void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
     void RequestPixelPick(int screenX, int screenY);
     const PixelPickResult& GetPixelPickResult() const { return m_pixelPickResult; }
@@ -321,6 +332,7 @@ private:
             static constexpr const char* Lighting = "Lighting";
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
             static constexpr const char* ReflectionEvaluate = "ReflectionEvaluate";
+            static constexpr const char* TemporalReflection = "TemporalReflection";
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* GBufferDebug = "GBufferDebug";
             static constexpr const char* HybridReflection = "HybridReflection";
@@ -348,7 +360,13 @@ private:
             static constexpr const char* ReflectionRayColorSrv = "ReflectionRayColorSrv";
             static constexpr const char* ReflectionRayMaterialSrv = "ReflectionRayMaterialSrv";
             static constexpr const char* ReflectionRayEmissionSrv = "ReflectionRayEmissionSrv";
-            static constexpr const char* ReflectionRadianceSrv = "ReflectionRadianceSrv";
+            static constexpr const char* ReflectionEvaluatedRadianceSrv = "ReflectionEvaluatedRadianceSrv";
+            static constexpr const char* ReflectionResolvedRadianceHistorySrv =
+                "ReflectionResolvedRadianceHistorySrv";
+            static constexpr const char* ReflectionResolvedRadianceCurrentSrv =
+                "ReflectionResolvedRadianceCurrentSrv";
+            static constexpr const char* ReflectionHistoryDepthSrv = "ReflectionHistoryDepthSrv";
+            static constexpr const char* ReflectionHistoryNormalSrv = "ReflectionHistoryNormalSrv";
             static constexpr const char* ReflectionRayHitUav = "ReflectionRayHitUav";
             static constexpr const char* TlasDebugUav = "TlasDebugUav";
             static constexpr const char* AccelerationStructureSrv = "AccelerationStructureSrv";
@@ -364,7 +382,10 @@ private:
             static constexpr const char* GBufferPBRParams = "GBufferPBRParams";
             static constexpr const char* GBufferEmissive = "GBufferEmissive";
             static constexpr const char* LightPass = "LightPass";
-            static constexpr const char* ReflectionRadiance = "ReflectionRadiance";
+            static constexpr const char* ReflectionEvaluatedRadiance = "ReflectionEvaluatedRadiance";
+            static constexpr const char* ReflectionResolvedRadianceCurrent = "ReflectionResolvedRadianceCurrent";
+            static constexpr const char* ReflectionHistoryDepthCurrent = "ReflectionHistoryDepthCurrent";
+            static constexpr const char* ReflectionHistoryNormalCurrent = "ReflectionHistoryNormalCurrent";
             static constexpr const char* TemporalUpscalerSceneColor = "TemporalUpscalerSceneColor";
         };
 
@@ -384,6 +405,7 @@ private:
             static constexpr const char* Lighting = "Lighting";
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
             static constexpr const char* ReflectionEvaluate = "ReflectionEvaluate";
+            static constexpr const char* TemporalReflection = "TemporalReflection";
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* TemporalUpscaler = "TemporalUpscaler";
             static constexpr const char* DebugDump = "DebugDump";
@@ -397,6 +419,7 @@ private:
             static constexpr const char* SpecularDebugRayQuery = "SpecularDebugRayQuery";
             static constexpr const char* RayQueryTlasDebug = "RayQueryTlasDebug";
             static constexpr const char* ImGui = "ImGui";
+            static constexpr const char* Screenshot = "Screenshot";
         };
 
         struct Constants
@@ -404,6 +427,7 @@ private:
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* GBufferDebugTarget = "GBufferDebugTarget";
             static constexpr const char* ReflectionRayHitDebugTarget = "ReflectionRayHitDebugTarget";
+            static constexpr const char* TemporalReflection = "TemporalReflection";
         };
     };
 
@@ -441,7 +465,9 @@ private:
     static constexpr UINT kShadowMaskDescriptorCount = 2; // SRV + UAV (dynamically allocated)
     static constexpr UINT kReflectionRayHitDescriptorCount =
         8; // Hit SRV/UAV + Color SRV/UAV + Material SRV/UAV + Emission SRV/UAV
-    static constexpr UINT kReflectionRadianceDescriptorCount = 1; // ReflectionRadiance SRV
+    static constexpr UINT kReflectionEvaluatedRadianceDescriptorCount = 1; // ReflectionEvaluatedRadiance SRV
+    static constexpr UINT kReflectionResolvedRadianceDescriptorCount = 2;  // One SRV per physical history slot
+    static constexpr UINT kReflectionAuxiliaryHistoryDescriptorCount = 4;  // Depth + normal, two slots each
     static constexpr UINT kTlasDescriptorCount = 1;       // TLAS SRV
 
     // Descriptor allocation order is tracked by DescriptorHeapHandle.
@@ -454,7 +480,9 @@ private:
                                                       kConstantBufferCount + kLightConstantBufferCount +
                                                       Engine::GBuffer::kCount + PersistentSrvSlotCount +
                                                       kReflectionRayHitDescriptorCount +
-                                                      kReflectionRadianceDescriptorCount +
+                                                      kReflectionEvaluatedRadianceDescriptorCount +
+                                                      kReflectionResolvedRadianceDescriptorCount +
+                                                      kReflectionAuxiliaryHistoryDescriptorCount +
                                                       kTlasDescriptorCount;
     static constexpr UINT kStagedDescriptorReservedCount = 64;
 
@@ -523,9 +551,12 @@ private:
     static constexpr UINT kSwapChainRTVCount = kFrameCount;
     static constexpr UINT kGBufferRTVBaseIndex = kSwapChainRTVCount;
     static constexpr UINT kLightPassRTVIndex = kGBufferRTVBaseIndex + Engine::GBuffer::kCount;
-    static constexpr UINT kReflectionRadianceRTVIndex = kLightPassRTVIndex + 1;
-    static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionRadianceRTVIndex + 1;
-    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 3;
+    static constexpr UINT kReflectionEvaluatedRadianceRTVIndex = kLightPassRTVIndex + 1;
+    static constexpr UINT kReflectionResolvedRadianceRTVBaseIndex = kReflectionEvaluatedRadianceRTVIndex + 1;
+    static constexpr UINT kReflectionHistoryDepthRTVBaseIndex = kReflectionResolvedRadianceRTVBaseIndex + 2;
+    static constexpr UINT kReflectionHistoryNormalRTVBaseIndex = kReflectionHistoryDepthRTVBaseIndex + 2;
+    static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionHistoryNormalRTVBaseIndex + 2;
+    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 9;
 
     struct DebugViewSettings
     {
@@ -547,11 +578,12 @@ private:
                    renderViewMode != RenderViewMode::ReflectionContributionStrength &&
                    renderViewMode != RenderViewMode::ShadowMask &&
                    renderViewMode != RenderViewMode::TlasDebug &&
-                   renderViewMode != RenderViewMode::ReflectionRadiance &&
-                   renderViewMode != RenderViewMode::ReflectionRadianceDirect &&
-                   renderViewMode != RenderViewMode::ReflectionRadianceIblDiffuse &&
-                   renderViewMode != RenderViewMode::ReflectionRadianceIblSpecular &&
-                   renderViewMode != RenderViewMode::ReflectionRadianceEmissive &&
+                   renderViewMode != RenderViewMode::ReflectionEvaluatedRadiance &&
+                   renderViewMode != RenderViewMode::ReflectionResolvedRadiance &&
+                   renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceDirect &&
+                   renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse &&
+                   renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceIblSpecular &&
+                   renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceEmissive &&
                    !IsLightPassDebugView();
         }
         bool IsLightPassDebugView() const
@@ -580,11 +612,12 @@ private:
                    renderViewMode == RenderViewMode::ReflectionRayEmission ||
                    renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
                    renderViewMode == RenderViewMode::ReflectionContributionStrength ||
-                   renderViewMode == RenderViewMode::ReflectionRadiance ||
-                   renderViewMode == RenderViewMode::ReflectionRadianceDirect ||
-                   renderViewMode == RenderViewMode::ReflectionRadianceIblDiffuse ||
-                   renderViewMode == RenderViewMode::ReflectionRadianceIblSpecular ||
-                   renderViewMode == RenderViewMode::ReflectionRadianceEmissive);
+                   renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
+                   renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+                   renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
+                   renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
+                   renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
+                   renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceEmissive);
             if (renderViewMode == RenderViewMode::ReflectionRayHit)
             {
                 return 0u;
@@ -609,23 +642,27 @@ private:
             {
                 return 8u;
             }
-            if (renderViewMode == RenderViewMode::ReflectionRadiance)
+            if (renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance)
             {
                 return 7u;
             }
-            if (renderViewMode == RenderViewMode::ReflectionRadianceDirect)
+            if (renderViewMode == RenderViewMode::ReflectionResolvedRadiance)
+            {
+                return 7u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect)
             {
                 return 9u;
             }
-            if (renderViewMode == RenderViewMode::ReflectionRadianceIblDiffuse)
+            if (renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse)
             {
                 return 10u;
             }
-            if (renderViewMode == RenderViewMode::ReflectionRadianceIblSpecular)
+            if (renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular)
             {
                 return 11u;
             }
-            if (renderViewMode == RenderViewMode::ReflectionRadianceEmissive)
+            if (renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceEmissive)
             {
                 return 12u;
             }
@@ -641,6 +678,7 @@ private:
     UINT m_renderHeight = 0;
     float m_aspectRatio = 0.0f;
     UINT m_temporalFrameIndex = 0;
+    UINT m_reflectionTemporalFrameIndex = 0;
     UINT m_temporalJitterSampleIndex = 0;
     XMFLOAT2 m_temporalJitterHalton = {};
     XMFLOAT2 m_jitterOffsetPixels = {};
@@ -657,7 +695,10 @@ private:
     ComPtr<ID3D12Resource> m_renderTargets[kFrameCount];
     ComPtr<ID3D12Resource> m_depthStencil;
     ComPtr<ID3D12Resource> m_lightPassRenderTarget;
-    ComPtr<ID3D12Resource> m_reflectionRadiance;
+    ComPtr<ID3D12Resource> m_reflectionEvaluatedRadiance;
+    ComPtr<ID3D12Resource> m_reflectionResolvedRadiance[2];
+    ComPtr<ID3D12Resource> m_reflectionHistoryDepth[2];
+    ComPtr<ID3D12Resource> m_reflectionHistoryNormal[2];
     ComPtr<ID3D12Resource> m_temporalUpscalerSceneColor;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
@@ -675,7 +716,10 @@ private:
     DescriptorHeapHandle m_depthStencilSrv;
     DescriptorHeapHandle m_lightPassColorSrv;
     DescriptorHeapHandle m_temporalUpscalerSceneColorSrv;
-    DescriptorHeapHandle m_reflectionRadianceSrv;
+    DescriptorHeapHandle m_reflectionEvaluatedRadianceSrv;
+    DescriptorHeapHandle m_reflectionResolvedRadianceSrv[2];
+    DescriptorHeapHandle m_reflectionHistoryDepthSrv[2];
+    DescriptorHeapHandle m_reflectionHistoryNormalSrv[2];
     StagedDescriptorRange m_shadowMaskRange;
 
     StagedDescriptorAllocator m_stageAllocator;
@@ -710,6 +754,23 @@ private:
     Engine::TemporalUpscalerSupportInfo m_temporalUpscalerSupport;
     Engine::TemporalUpscalerSettings m_temporalUpscalerSettings;
     bool m_temporalUpscalerHistoryReset = true;
+    struct ReflectionHistoryState
+    {
+        bool valid = false;
+        UINT readIndex = 0;
+    };
+    // Reflection history is independent of swap-chain frame indices and temporal upscaler history.
+    // readIndex advances only after a command list containing TemporalReflectionPass is submitted.
+    ReflectionHistoryState m_reflectionHistoryState;
+    bool m_reflectionHistoryCommitPending = false;
+    Engine::CameraProjection m_previousCameraProjection = Engine::CameraProjection::Perspective;
+    float m_previousCameraFov = 60.0f;
+    float m_previousCameraOrthographicHeight = 10.0f;
+    float m_previousCameraNearZ = 0.1f;
+    float m_previousCameraFarZ = 10000.0f;
+    float m_previousCameraAspectRatio = 1.0f;
+    DirectX::XMFLOAT3 m_previousCameraUp = {0.0f, 1.0f, 0.0f};
+    bool m_cameraProjectionStateInitialized = false;
     bool m_temporalUpscalerOutputAvailable = false;
     Engine::ToneMapPass m_toneMapPass;
     Engine::DebugLinePass m_debugLinePass;
@@ -720,6 +781,15 @@ private:
     HdrOutputPolicy m_hdrOutputPolicy;
     DebugViewSettings m_debugViewSettings;
     Engine::DebugDumpCapture m_debugDumpCapture;
+    struct PendingScreenshotCapture
+    {
+        RtPbrSurvey::ScreenshotRequest request;
+        Engine::ScreenshotReadback readback;
+        UINT64 fenceValue = 0;
+    };
+    std::deque<RtPbrSurvey::ScreenshotRequest> m_screenshotRequests;
+    std::optional<PendingScreenshotCapture> m_pendingScreenshotCapture;
+    std::deque<RtPbrSurvey::ScreenshotResult> m_screenshotResults;
 
     // Pixel pick (Ctrl+Click to inspect reflection vector)
     bool m_pixelPickRequested = false;
@@ -764,6 +834,10 @@ private:
 
     ComPtr<ID3D12Resource> m_indexBuffer;
     D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
+    ComPtr<ID3D12Resource> m_meshRangeBuffer;
+    std::vector<Engine::SceneMesh::Range> m_sceneMeshRanges;
+    std::vector<Engine::AccelerationStructureGeometry> m_accelerationStructureGeometries;
+    mutable std::vector<Engine::SceneGeometryInstanceDraw> m_sceneGeometryDraws;
 
     UINT m_sceneTextureCount = 0;
 
@@ -826,7 +900,15 @@ private:
     static constexpr const char* kDepthStencilResourceName = "DepthStencil";
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";
     static constexpr const char* kTemporalUpscalerSceneColorResourceName = "TemporalUpscaler.SceneColor";
-    static constexpr const char* kReflectionRadianceResourceName = "ReflectionRadiance";
+    static constexpr const char* kReflectionEvaluatedRadianceResourceName = "ReflectionEvaluatedRadiance";
+    static constexpr const char* kReflectionResolvedRadianceResourceNames[2] = {
+        "ReflectionResolvedRadiance.0",
+        "ReflectionResolvedRadiance.1",
+    };
+    static constexpr const char* kReflectionHistoryDepthResourceNames[2] = {
+        "ReflectionHistoryDepth.0", "ReflectionHistoryDepth.1"};
+    static constexpr const char* kReflectionHistoryNormalResourceNames[2] = {
+        "ReflectionHistoryNormal.0", "ReflectionHistoryNormal.1"};
     static constexpr const char* kGBufferResourceNames[Engine::GBuffer::kCount] = {
         "GBuffer.Albedo",
         "GBuffer.Normal",
@@ -897,6 +979,7 @@ private:
         GraphicsPipelineShaderSet lighting;
         GraphicsPipelineShaderSet lightingDebugGradient;
         GraphicsPipelineShaderSet reflectionEvaluate;
+        GraphicsPipelineShaderSet temporalReflection;
         GraphicsPipelineShaderSet toneMap;
         ShaderBytecode hybridReflection;
         ShaderBytecode proceduralEnv;
@@ -976,11 +1059,15 @@ private:
                                       const DepthPrePassPipelineDefinition& definition);
     void UpdateHdr10DisplayMode();
     void UpdateCameraConstantBuffer();
+    void InvalidateReflectionHistory();
+    void CommitReflectionHistoryFrame();
     void CreateConstantBuffer(ConstantBufferResource& constantBuffer, const void* initialData, UINT sizeInBytes);
     void CreateDepthStencil(UINT width, UINT height);
     void RegisterDepthStencil();
     void RegisterLightPassRenderTarget();
-    void RegisterReflectionRadiance();
+    void RegisterReflectionEvaluatedRadiance();
+    void RegisterReflectionResolvedRadiance();
+    void RegisterReflectionAuxiliaryHistory();
     void RegisterTemporalUpscalerSceneColor();
     void RegisterRenderTexture(const Engine::RenderTextureSpec& spec);
     UINT ResolveRenderTextureWidth(const Engine::RenderTextureSpec& spec) const;
@@ -1011,7 +1098,10 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE GetDepthDsv() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetGBufferRTV(UINT index) const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetLightPassRTV() const;
-    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionRadianceRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionEvaluatedRadianceRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionResolvedRadianceCurrentRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionHistoryDepthCurrentRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionHistoryNormalCurrentRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetTemporalUpscalerSceneColorRTV() const;
     void RegisterPassBindingResolvers();
     void RegisterPassConstantsHandlers();
@@ -1043,6 +1133,7 @@ private:
     RenderPass MakeForwardPass();
     RenderPass MakeLightingPass();
     RenderPass MakeReflectionEvaluatePass();
+    RenderPass MakeTemporalReflectionPass();
     RenderPass MakeLightingDebugGradientPass();
     RenderPass MakeTemporalUpscalerPass();
     RenderPass MakeToneMapPass();
@@ -1053,6 +1144,7 @@ private:
     RenderPass MakeShadowMaskDebugPass();
     RenderPass MakeDebugLinePass();
     RenderPass MakeImGuiPass();
+    RenderPass MakeScreenshotPass();
     void BuildRenderPasses();
     void AddSceneRenderPasses();
     void AddDeferredSceneOutputPass();
@@ -1074,9 +1166,11 @@ private:
     void CreateGBuffer();
 
     DescriptorAllocation CreateTextureFromRGBA8(const UINT8* pixels,
-                                                UINT width,
-                                                UINT height,
-                                                ComPtr<ID3D12Resource>& texture,
+                                                 UINT width,
+                                                 UINT height,
+                                                 bool generateMipmaps,
+                                                 Engine::TextureColorSpace colorSpace,
+                                                 ComPtr<ID3D12Resource>& texture,
                                                 ComPtr<ID3D12Resource>& uploadHeap);
 
     void ReleaseResourcesAfterPass(int passIndex);
@@ -1107,6 +1201,7 @@ private:
     void ExecuteForwardPass(const RenderPass& pass);
     void ExecuteLightingPass(const RenderPass& pass);
     void ExecuteReflectionEvaluatePass(const RenderPass& pass);
+    void ExecuteTemporalReflectionPass(const RenderPass& pass);
     void ExecuteLightingDebugGradientPass(const RenderPass& pass);
     void ExecuteTemporalUpscalerPass(const RenderPass& pass);
     void ExecuteToneMapPass(const RenderPass& pass);
@@ -1117,6 +1212,7 @@ private:
     void ExecuteShadowMaskDebugPass(const RenderPass& pass);
     void ExecuteDebugLinePass(const RenderPass& pass);
     void ExecuteImGuiPass(const RenderPass& pass);
+    void ExecuteScreenshotPass(const RenderPass& pass);
     void RecordDebugDumpPass();
     void RecordPixelPickPass();
     void ReadbackPixelPick();
@@ -1125,6 +1221,7 @@ private:
     void CreatePixelPickReadback(ID3D12Resource* source, PixelPickReadback& readback) const;
     void CopyPixelPickSource(ID3D12Resource* source, const PixelPickReadback& readback, UINT x, UINT y);
     void RecordImGuiPass();
+    void ProcessCompletedScreenshot();
     void EndFrame();
     void PrintDebugDump();
 

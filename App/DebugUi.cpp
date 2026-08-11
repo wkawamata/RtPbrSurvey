@@ -3,8 +3,13 @@
 #include "SceneSelectUi.h"
 #include "RtPbrSurveyApp.h"
 #include "../ImGuiWidgets.h"
+#include "../Runtime/SceneRendererDebugUi.h"
 
 #include <imgui.h>
+
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 void RunStagedAllocatorTests(ID3D12Device* device);
 
@@ -105,24 +110,37 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
             return "TLAS ray query debug view for acceleration-structure hit inspection.";
         case RenderViewMode::ReflectionRayMaterial:
             return "ReflectionRayMaterial payload: R=metallic, G=roughness, B=unlit flag at the hit point.";
-        case RenderViewMode::ReflectionRadiance:
-            return "ReflectionRadiance is the reflection radiance buffer before LightPass.\n"
-                   "This view shows ReflectionEvaluatePass output, not the final reflected color.\n"
-                   "Current value includes hit albedo/emission shading with distance fade and visible-surface roughness.\n"
-                   "LightPass applies the visible-surface Fresnel term before adding it.";
-        case RenderViewMode::ReflectionRadianceDirect:
+        case RenderViewMode::ReflectionEvaluatedRadiance:
+            return "ReflectionEvaluatedRadiance is unweighted one-bounce radiance before temporal processing and LightPass.\n"
+                   "It excludes distance fade, visible-surface roughness weight, contribution intensity, and Fresnel.\n"
+                   "LightPass applies those weights before adding the final reflection contribution.";
+        case RenderViewMode::ReflectionResolvedRadiance:
+            return "ReflectionResolvedRadiance is unweighted radiance after the experimental temporal blend.\n"
+                   "Compare it with Evaluated Radiance to observe static stabilization and unreprojected motion trails.";
+        case RenderViewMode::ReflectionEvaluatedRadianceDirect:
             return "Reflection radiance direct-light component recomputed from the hit payload.";
-        case RenderViewMode::ReflectionRadianceIblDiffuse:
+        case RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse:
             return "Reflection radiance diffuse IBL component recomputed from hit albedo and hit normal.";
-        case RenderViewMode::ReflectionRadianceIblSpecular:
+        case RenderViewMode::ReflectionEvaluatedRadianceIblSpecular:
             return "Reflection radiance specular IBL component approximated from hit material and environment prefilter.";
-        case RenderViewMode::ReflectionRadianceEmissive:
+        case RenderViewMode::ReflectionEvaluatedRadianceEmissive:
             return "Reflection radiance emissive component from the hit emissive payload.";
         case RenderViewMode::DlssInputColor:
             return "DLSS scaling input color before temporal upscaling and tone mapping.";
         default:
             return nullptr;
     }
+}
+
+std::filesystem::path MakeScreenshotPath()
+{
+    const std::time_t now = std::time(nullptr);
+    std::tm localTime = {};
+    localtime_s(&localTime, &now);
+
+    std::ostringstream filename;
+    filename << "RtPbrSurvey_" << std::put_time(&localTime, "%Y-%m-%d_%H%M%S") << ".png";
+    return std::filesystem::current_path() / "Screenshots" / filename.str();
 }
 
 void DrawRenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
@@ -203,6 +221,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     using RenderViewMode = RtPbrSurveyEngine::RenderViewMode;
     using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
 
+    if (const std::optional<RtPbrSurvey::ScreenshotResult> result = app.m_sceneRenderer.ConsumeScreenshotResult())
+    {
+        app.m_screenshotStatus = result->succeeded ?
+            "Saved: " + result->path.string() :
+            "Capture failed: " + result->error;
+    }
+
     if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneSelect)
     {
         App::DrawSceneSelectUi(app);
@@ -211,6 +236,20 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     ImGui::SetNextWindowSize(ImVec2(400, 140), ImGuiCond_FirstUseEver);
     ImGui::Begin("Debug");
+
+    if (ImGui::CollapsingHeader("Screenshot"))
+    {
+        if (ImGui::Button("Capture PNG"))
+        {
+            const std::filesystem::path path = MakeScreenshotPath();
+            app.m_sceneRenderer.RequestScreenshot({path});
+            app.m_screenshotStatus = "Capture requested: " + path.string();
+        }
+        if (!app.m_screenshotStatus.empty())
+        {
+            ImGui::TextWrapped("%s", app.m_screenshotStatus.c_str());
+        }
+    }
 
     Engine::SampleScene& loadedScene = app.LoadedScene();
     Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();
@@ -248,7 +287,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGuiWidgets::SliderFloatWithControls("FovH", &loadedScene.GetScene().camera.fov, 20.f, 150.f, 5.f, 60.f);
         int cameraMode = static_cast<int>(app.DebugCamera().GetMode());
         if (ImGui::Combo("Mode", &cameraMode, "FreeLook\0Arcball\0"))
         {
@@ -279,6 +317,26 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 ImGui::SameLine();
             }
             ImGui::NewLine();
+            static constexpr float defaultUp[] = {0.0f, 1.0f, 0.0f};
+            ImGuiWidgets::SliderFloat3WithControls(
+                "Up", &loadedScene.GetScene().camera.up.x, -1.0f, 1.0f, 0.05f, defaultUp);
+            const char* projectionLabels[] = {"Perspective", "Orthographic"};
+            int projection = loadedScene.GetScene().camera.projection == Engine::CameraProjection::Orthographic ? 1 : 0;
+            if (ImGui::Combo("Projection", &projection, projectionLabels, IM_ARRAYSIZE(projectionLabels)))
+            {
+                loadedScene.GetScene().camera.projection =
+                    projection == 1 ? Engine::CameraProjection::Orthographic : Engine::CameraProjection::Perspective;
+            }
+            if (loadedScene.GetScene().camera.projection == Engine::CameraProjection::Perspective)
+            {
+                ImGuiWidgets::SliderFloatWithControls(
+                    "FOV Y", &loadedScene.GetScene().camera.fov, 20.0f, 150.0f, 5.0f, 60.0f);
+            }
+            else
+            {
+                ImGuiWidgets::SliderFloatWithControls(
+                    "Ortho Height", &loadedScene.GetScene().camera.orthographicHeight, 0.1f, 1000.0f, 0.5f, 10.0f);
+            }
             ImGuiWidgets::SliderFloatWithControls("NearZ", &loadedScene.GetScene().camera.nearZ, 0.01f, 10.0f, 0.01f, 0.1f);
             ImGuiWidgets::SliderFloatWithControls("FarZ", &loadedScene.GetScene().camera.farZ, 10.0f, 100000.0f, 100.0f, 10000.0f);
         }
@@ -302,18 +360,26 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGuiWidgets::SliderFloatWithControls("Direct Light Intensity", &app.m_lightingParams.diffuseIntensity, 0.0f, 4.0f,
                                                0.1f, 1.0f);
         ImGui::ColorEdit3("Light Color", &app.m_lightingParams.lightColor.x);
-        ImGui::Checkbox("IBL Enabled", &app.m_iblEnabled);
-        ImGui::BeginDisabled(!app.m_iblEnabled);
-        ImGuiWidgets::SliderFloatWithControls("IBL Intensity", &app.m_lightingParams.iblIntensity, 0.0f, 2.0f, 0.05f, 1.0f);
-        ImGui::Checkbox("Diffuse IBL", &app.m_lightingParams.diffuseIblEnabled);
-        ImGui::SameLine();
-        ImGui::Checkbox("Specular IBL", &app.m_lightingParams.specularIblEnabled);
-        ImGui::EndDisabled();
         ImGui::Checkbox("Direct Light", &app.m_lightingParams.directLightEnabled);
         ImGui::SameLine();
         ImGui::Checkbox("Emissive", &app.m_lightingParams.emissiveEnabled);
     }
-    if (ImGui::CollapsingHeader("Environment Map", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        RtPbrSurvey::EnvironmentMappingUiState environmentUi;
+        environmentUi.settings = app.m_environmentSettings;
+        environmentUi.lighting = app.m_lightingParams;
+        environmentUi.iblEnabled = app.m_iblEnabled;
+        environmentUi.autoUpdate = app.m_environmentAutoUpdate;
+        environmentUi.reloadPending = app.m_environmentReloadPending;
+        RtPbrSurvey::SceneRendererDebugUi::DrawEnvironmentMapping(app.m_sceneRenderer, environmentUi);
+        app.m_environmentSettings = environmentUi.settings;
+        app.m_lightingParams = environmentUi.lighting;
+        app.m_iblEnabled = environmentUi.iblEnabled;
+        app.m_environmentAutoUpdate = environmentUi.autoUpdate;
+        app.m_environmentReloadPending = environmentUi.reloadPending;
+    }
+    if (false && ImGui::CollapsingHeader("Legacy Environment Map", ImGuiTreeNodeFlags_DefaultOpen))
     {
         bool environmentApplyRequested = false;
         int environmentSource = static_cast<int>(app.m_environmentSettings.source);
@@ -579,6 +645,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Contribution Max Distance", &reflectionSettings.contributionMaxDistance, 0.1f, 100.0f, 0.5f, 20.0f);
         ImGui::EndDisabled();
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Temporal History Weight", &reflectionSettings.temporalHistoryWeight, 0.0f, 0.98f, 0.05f, 0.0f);
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Temporal Debug Noise", &reflectionSettings.temporalNoiseStrength, 0.0f, 1.0f, 0.05f, 0.0f);
+        ImGui::TextWrapped("Experimental motion-reprojected blend with depth/normal rejection. Debug noise is injected before history accumulation and is disabled at zero.");
 
         changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
         ImGui::TextWrapped("Limits which visible surfaces cast reflection rays by roughness and metallic.");
@@ -655,18 +726,20 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::SameLine();
         ImGui::RadioButton("Emission##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayEmission));
         ImGui::SameLine();
-        ImGui::RadioButton("Radiance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRadiance));
+        ImGui::RadioButton("Evaluated Radiance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionEvaluatedRadiance));
+        ImGui::SameLine();
+        ImGui::RadioButton("Resolved Radiance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionResolvedRadiance));
         ImGui::SameLine();
         ImGui::RadioButton("Fade##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayDistanceFade));
         ImGui::SameLine();
         ImGui::RadioButton("Strength##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionContributionStrength));
-        ImGui::RadioButton("Direct##ReflectionRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRadianceDirect));
+        ImGui::RadioButton("Direct##ReflectionEvaluatedRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionEvaluatedRadianceDirect));
         ImGui::SameLine();
-        ImGui::RadioButton("IBL Diffuse##ReflectionRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRadianceIblDiffuse));
+        ImGui::RadioButton("IBL Diffuse##ReflectionEvaluatedRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse));
         ImGui::SameLine();
-        ImGui::RadioButton("IBL Specular##ReflectionRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRadianceIblSpecular));
+        ImGui::RadioButton("IBL Specular##ReflectionEvaluatedRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionEvaluatedRadianceIblSpecular));
         ImGui::SameLine();
-        ImGui::RadioButton("Emissive##ReflectionRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRadianceEmissive));
+        ImGui::RadioButton("Emissive##ReflectionEvaluatedRadianceDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionEvaluatedRadianceEmissive));
         ImGui::EndDisabled();
         ImGui::EndDisabled();
         app.m_renderViewMode = static_cast<RenderViewMode>(renderViewMode);
@@ -678,11 +751,12 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionRayColor ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayMaterial ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayEmission ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadiance ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceDirect ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceIblDiffuse ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceIblSpecular ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceEmissive ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceEmissive ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
              app.m_renderViewMode == RenderViewMode::ReflectionContributionStrength))
         {
@@ -695,11 +769,12 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionRayColor ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayMaterial ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayEmission ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadiance ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceDirect ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceIblDiffuse ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceIblSpecular ||
-             app.m_renderViewMode == RenderViewMode::ReflectionRadianceEmissive ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
+             app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceEmissive ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
              app.m_renderViewMode == RenderViewMode::ReflectionContributionStrength))
         {

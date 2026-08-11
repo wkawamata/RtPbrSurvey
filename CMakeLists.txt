@@ -86,11 +86,14 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/ReflectionRayHitDebugPass.cpp
     Renderer/RootSignatureFactory.cpp
     Renderer/SceneGeometryPass.cpp
+    Renderer/ScreenshotCapture.cpp
     Renderer/ShadowMaskDebugPass.cpp
     Renderer/SpecularDebugRayQueryPass.cpp
     Renderer/StagedDescriptorAllocator_Test.cpp
     Renderer/StreamlineAdapter.cpp
+    Renderer/TemporalReflectionPass.cpp
     Renderer/TemporalUpscalerSupport.cpp
+    Renderer/TextureMipChain.cpp
     Renderer/ToneMap.cpp
     Runtime/SceneRenderer.cpp
     Runtime/SceneRendererDebugUi.cpp
@@ -151,7 +154,8 @@ target_link_libraries(RtPbrSurvey.SceneRenderer
         nlohmann_json::nlohmann_json
         d3dcompiler
         dxguid
-        delayimp)
+        delayimp
+        windowscodecs)
 
 if(NOT RTPBRSURVEY_HAS_STREAMLINE_SDK)
     target_link_libraries(RtPbrSurvey.SceneRenderer PUBLIC d3d12 dxgi)
@@ -289,4 +293,68 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.SceneRendererSettingsTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.SceneRendererSettings COMMAND RtPbrSurvey.SceneRendererSettingsTests)
+
+    add_executable(RtPbrSurvey.CameraProjectionTests
+        Tests/CameraProjectionTests.cpp)
+    target_link_libraries(RtPbrSurvey.CameraProjectionTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.CameraProjectionTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.CameraProjection COMMAND RtPbrSurvey.CameraProjectionTests)
+
+    add_executable(RtPbrSurvey.CameraViewTests
+        Tests/CameraViewTests.cpp)
+    target_link_libraries(RtPbrSurvey.CameraViewTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.CameraViewTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.CameraView COMMAND RtPbrSurvey.CameraViewTests)
+
+    add_executable(RtPbrSurvey.DebugCameraControllerTests
+        Tests/DebugCameraControllerTests.cpp)
+    target_link_libraries(RtPbrSurvey.DebugCameraControllerTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.DebugCameraControllerTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.DebugCameraController COMMAND RtPbrSurvey.DebugCameraControllerTests)
+
+    add_executable(RtPbrSurvey.SceneBuilderTextureTests
+        Tests/SceneBuilderTextureTests.cpp)
+    target_link_libraries(RtPbrSurvey.SceneBuilderTextureTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.SceneBuilderTextureTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.SceneBuilderTexture COMMAND RtPbrSurvey.SceneBuilderTextureTests)
+
+    add_executable(RtPbrSurvey.SceneBuilderMeshTests
+        Tests/SceneBuilderMeshTests.cpp)
+    target_link_libraries(RtPbrSurvey.SceneBuilderMeshTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.SceneBuilderMeshTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.SceneBuilderMesh COMMAND RtPbrSurvey.SceneBuilderMeshTests)
+
+    add_executable(RtPbrSurvey.TextureMipChainTests
+        Tests/TextureMipChainTests.cpp)
+    target_link_libraries(RtPbrSurvey.TextureMipChainTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.TextureMipChainTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.TextureMipChain COMMAND RtPbrSurvey.TextureMipChainTests)
+
+    add_executable(RtPbrSurvey.ScreenshotTests
+        Tests/ScreenshotTests.cpp)
+    target_link_libraries(RtPbrSurvey.ScreenshotTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.ScreenshotTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.Screenshot COMMAND RtPbrSurvey.ScreenshotTests)
+
+    add_executable(RtPbrSurvey.AssetPathTests
+        Tests/AssetPathTests.cpp)
+    target_link_libraries(RtPbrSurvey.AssetPathTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.AssetPathTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.AssetPath COMMAND RtPbrSurvey.AssetPathTests)
 endif()

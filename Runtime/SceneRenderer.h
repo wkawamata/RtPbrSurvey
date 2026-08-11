@@ -29,6 +29,7 @@ namespace RtPbrSurvey
     {
     public:
         using Scene = RtPbrSurveyEngine::Scene;
+        using CameraState = RtPbrSurveyEngine::CameraState;
         using UiFrameContext = RtPbrSurveyEngine::UiFrameContext;
         using UiRenderHandler = RtPbrSurveyEngine::UiRenderHandler;
         using ToolUiHandler = std::function<void()>;
@@ -45,6 +46,8 @@ namespace RtPbrSurvey
         void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
 
         void SetScene(const Scene& scene);
+        void SetCamera(const CameraState& camera);
+        const CameraState& GetCamera() const;
         // Rebuilds GPU resources for the scene and keeps a visible instance count clamped to the scene.
         void ReloadSceneResources(const Scene& scene);
         void CloseSceneResources();
@@ -78,6 +81,8 @@ namespace RtPbrSurvey
         void SetRenderViewMode(RtPbrSurveyEngine::RenderViewMode mode);
         RtPbrSurveyEngine::RenderViewMode GetRenderViewMode() const;
         void SetRequestHdrDump(bool request);
+        void RequestScreenshot(ScreenshotRequest request);
+        std::optional<ScreenshotResult> ConsumeScreenshotResult();
         void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
         void RequestPixelPick(int screenX, int screenY);
         const RtPbrSurveyEngine::PixelPickResult& GetPixelPickResult() const;
