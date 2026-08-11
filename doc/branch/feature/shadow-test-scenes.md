@@ -115,3 +115,17 @@ const float rotY = m_accumTime * rotSpeed + phase;
 - Animated cube rotation is reflected in the TLAS / ShadowMask.
 - Pressing Space to pause does not change cube orientation.
 - All shadow validation scenes look consistent.
+
+## Branch Completion
+
+This branch treats the existing four scenes as the stable RayQuery shadow validation suite. The scene selector groups them under `Shadow Test`, and the `RayQuery Shadow` panel provides reproducible hard, low-bias, and soft-shadow presets. No additional scene is required for the current bias, light-size, occluder, or moving-object coverage.
+
+Final validation requires a successful Debug x64 build and a manual launch through all four scenes. Record visual acceptance separately because shader compilation alone cannot establish shadow quality.
+
+Validation on 2026-08-11:
+
+- MSBuild Debug x64: passed.
+- CMake SDK-free Debug build: passed.
+- CTest: 9/9 passed.
+- Debug executable launch: remained active for six seconds; no D3D12 warning or error was recorded.
+- Visual comparison of all four scenes: remains a manual GPU-dependent acceptance step.

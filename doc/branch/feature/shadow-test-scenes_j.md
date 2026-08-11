@@ -120,3 +120,17 @@ const float rotY = m_accumTime * rotSpeed + phase;
 - Animated cube の回転が TLAS / ShadowMask に反映される。
 - Space で Pause しても Cube の姿勢が変化しない。
 - すべての shadow validation scene が一貫して見える。
+
+## Branch 完了条件
+
+既存の4シーンを RayQuery shadow の安定した検証 suite とする。scene selector では `Shadow Test` にまとめ、`RayQuery Shadow` panel では hard、low-bias、soft-shadow を再現可能な preset として提供する。現在対象としている bias、light size、occluder、moving object の検証には追加 scene を必要としない。
+
+最終確認は Debug x64 build の成功と、4シーンを順番に開く手動起動確認で行う。shader compile の成功だけでは shadow quality を判定できないため、目視確認結果は別途記録する。
+
+2026-08-11 の検証結果:
+
+- MSBuild Debug x64: 成功。
+- CMake SDK-free Debug build: 成功。
+- CTest: 9/9 成功。
+- Debug executable: 6秒間正常に起動を継続し、D3D12 warning / error は0件。
+- 4シーンの目視比較: GPU環境依存の手動 acceptance として残す。
