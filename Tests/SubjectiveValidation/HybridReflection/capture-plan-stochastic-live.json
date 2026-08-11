@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "cameraKeyframes": [
+    { "frame": 0, "yawDegrees": 0.0 },
+    { "frame": 120, "yawDegrees": 0.0 },
+    { "frame": 420, "yawDegrees": 20.0 },
+    { "frame": 720, "yawDegrees": -10.0 },
+    { "frame": 1020, "yawDegrees": 20.0 },
+    { "frame": 1320, "yawDegrees": 0.0 }
+  ],
+  "captures": [
+    {
+      "frame": 1380,
+      "caseId": "stochastic-live-observation",
+      "path": "captures/stochastic-live-{variant}.png"
+    }
+  ]
+}

@@ -41,3 +41,5 @@ The evaluator can switch between English and Japanese without recreating control
 Run `Start-Validation.ps1 -StochasticSampling` to use `capture-plan-stochastic.json` and `suite-stochastic.json`. Both A and B enable real stochastic rough-reflection sampling and disable synthetic temporal noise. A uses history weight `0.0`; B uses `0.9`.
 
 The stochastic plan writes `stochastic-*.png` files so it does not overwrite the earlier synthetic-noise contract captures. The evaluator retains the same English/Japanese workflow and JSON report format, but the stochastic suite uses distinct suite and case identifiers.
+
+For live observation, use `capture-plan-stochastic-live.json`. It holds the initial view for 120 frames, then performs three slow orbit segments including two direction changes, returns to the initial yaw, and captures one settling reference. Run A and B separately with the same plan and different history weights. Do not use this live plan as a replacement for the fixed nine-criterion HTML suite.
