@@ -41,6 +41,16 @@ Flags are parsed in `RtPbrSurveyApp::ParseCommandLineArgs()`.
 | `-LogToFile` | `-LogToFile d3d12_debug.log` | On startup, dump accumulated D3D12 Debug Layer messages via `ID3D12InfoQueue` to the specified file. Also append new messages as they arrive when polled each frame. |
 | `-LogFPS` | `-LogFPS 60` | Log CPU FPS to the same log file every N frames. Only active when `-LogToFile` is also specified. Value is `1000.0f / cpuFrameTimeMs`. |
 | `-AutoSelectGltfDamagedHelmet` | `-AutoSelectGltfDamagedHelmet` | On startup, automatically select the `glTF Viewer > DamagedHelmet` scene and switch to Running mode without user interaction. |
+| `-CapturePath` | `-CapturePath Screenshots\\validation.png` | Queue one PNG capture through the existing renderer screenshot path. |
+| `-CaptureAfterFrames` | `-CaptureAfterFrames 60` | Render this many warm-up frames before queuing the CLI screenshot. Used with `-CapturePath`. |
+| `-ExitAfterCapture` | `-ExitAfterCapture` | Close the application after the CLI screenshot succeeds or fails. Used with `-CapturePath`. |
+| `-CaptureReflectionResolvedRadiance` | `-CaptureReflectionResolvedRadiance` | Force Deferred rendering, Hybrid Reflection, and the resolved-radiance debug view for an automated capture. |
+| `-ReflectionTemporalWeight` | `-ReflectionTemporalWeight 0.9` | Override the experimental reflection history weight for an automated resolved-radiance capture. |
+| `-ReflectionOrbitDegrees` | `-ReflectionOrbitDegrees 20` | Apply a deterministic horizontal Arcball orbit ending on the automated capture frame. |
+| `-ReflectionOrbitFrames` | `-ReflectionOrbitFrames 30` | Spread the automated reflection orbit over this many rendered frames. |
+| `-ReflectionTemporalNoiseStrength` | `-ReflectionTemporalNoiseStrength 0.5` | Inject deterministic zero-mean luminance noise into the current resolved-radiance input for temporal validation. |
+| `-ReflectionCapturePlan` | `-ReflectionCapturePlan Tests\\SubjectiveValidation\\HybridReflection\\capture-plan.json` | Load a versioned continuous-timeline Hybrid Reflection multi-capture plan. Implies the resolved-radiance capture mode and is mutually exclusive with `-CapturePath`. |
+| `-ReflectionCaptureVariant` | `-ReflectionCaptureVariant a` | Replace the required `{variant}` token in every planned capture path. Accepts letters, digits, `-`, and `_`. |
 
 ## D3D12 Debug Layer Check
 

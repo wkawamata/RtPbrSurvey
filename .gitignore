@@ -9,3 +9,7 @@ bin/
 obj/
 build/
 /third_party/streamline-sdk-*/
+# Subjective validation artifacts
+Tests/SubjectiveValidation/HybridReflection/captures/
+Tests/SubjectiveValidation/HybridReflection/reports/
+Tests/SubjectiveValidation/HybridReflection/current-suite.json

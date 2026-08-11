@@ -16,7 +16,7 @@ SamplerState g_sampler : register(s0);
 Texture2D<float> g_shadowMask : register(t0, space4);
 Texture2D<float4> g_reflectionRayHit : register(t0, space6);
 Texture2D<float4> g_reflectionRayColor : register(t0, space7);
-Texture2D<float4> g_reflectionRadiance : register(t0, space9);
+Texture2D<float4> g_reflectionEvaluatedRadiance : register(t0, space9);
 StructuredBuffer<Material> g_materialData : register(t0, space2);
 
 static const float PI = 3.14159265;
@@ -240,8 +240,14 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 color = iblDiffuse + iblSpecular + directLighting + emissive * emissiveEnabled;
     if (reflectionContributionEnabled > 0.5)
     {
-        float3 reflectionRadiance = g_reflectionRadiance.Sample(g_sampler, input.uv).rgb;
-        color += reflectionRadiance * specularFresnel;
+        float4 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
+        float3 reflectionEvaluatedRadiance = g_reflectionEvaluatedRadiance.Sample(g_sampler, input.uv).rgb;
+        float distanceWeight = reflectionHit.y > 0.0 ?
+            saturate(1.0 - reflectionHit.x / max(reflectionContributionMaxDistance, 0.001)) :
+            1.0;
+        float contributionWeight =
+            distanceWeight * (1.0 - roughness) * reflectionContributionIntensity;
+        color += reflectionEvaluatedRadiance * contributionWeight * specularFresnel;
     }
     if (reflectionHitOverlayEnabled > 0.5)
     {

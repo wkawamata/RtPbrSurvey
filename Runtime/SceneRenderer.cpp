@@ -44,6 +44,16 @@ namespace RtPbrSurvey
         m_engine.SetScene(scene);
     }
 
+    void SceneRenderer::SetCamera(const CameraState& camera)
+    {
+        m_engine.SetCamera(camera);
+    }
+
+    const SceneRenderer::CameraState& SceneRenderer::GetCamera() const
+    {
+        return m_engine.GetCamera();
+    }
+
     void SceneRenderer::ReloadSceneResources(const Scene& scene)
     {
         m_engine.ReloadSceneResources(scene);
@@ -215,6 +225,16 @@ namespace RtPbrSurvey
     void SceneRenderer::SetRequestHdrDump(bool request)
     {
         m_engine.SetRequestHdrDump(request);
+    }
+
+    void SceneRenderer::RequestScreenshot(ScreenshotRequest request)
+    {
+        m_engine.RequestScreenshot(std::move(request));
+    }
+
+    std::optional<ScreenshotResult> SceneRenderer::ConsumeScreenshotResult()
+    {
+        return m_engine.ConsumeScreenshotResult();
     }
 
     void SceneRenderer::ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings)

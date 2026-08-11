@@ -93,7 +93,8 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     }
 
     float4 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
-    float3 hitColor = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
+    // ReflectionRayColor is a historical resource name. Its contract is linear hit albedo, not radiance.
+    float3 hitAlbedo = g_reflectionRayColor.Sample(g_sampler, input.uv).rgb;
     float4 hitMaterial = g_reflectionRayMaterial.Sample(g_sampler, input.uv);
     float3 hitEmission = g_reflectionRayEmission.Sample(g_sampler, input.uv).rgb;
 
@@ -109,12 +110,11 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         float3 environmentRadiance =
             g_specularPrefilterMap.SampleLevel(g_sampler, reflectionDir, missSpecularMip).rgb * iblIntensity *
             specularIblEnabled;
-        float missStrength = (1.0 - visibleRoughness) * reflectionContributionIntensity;
-        return float4(environmentRadiance * missStrength, 1.0);
+        return float4(environmentRadiance, 1.0);
     }
 
     float3 hitNormal = DecodeNormalOctahedron(reflectionHit.zw);
-    PbrSurface hitSurface = MakeReflectionHitSurface(hitColor, hitMaterial, hitNormal, hitEmission);
+    PbrSurface hitSurface = MakeReflectionHitSurface(hitAlbedo, hitMaterial, hitNormal, hitEmission);
     float3 hitViewDir = -reflectionDir;
     float3 diffuseIrradiance = g_diffuseIrradianceMap.Sample(g_sampler, hitSurface.normal).rgb;
     float specularMip = hitSurface.roughness * SPECULAR_PREFILTER_MAX_MIP;
@@ -135,9 +135,9 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
                                                                       directLightEnabled,
                                                                       iblIntensity * diffuseIblEnabled,
                                                                       iblIntensity * specularIblEnabled);
-    float3 shadedHitColor = EvaluatePbrSurfaceRadiance(hitSurface, hitRadiance, emissiveEnabled);
+    float3 evaluatedHitRadiance = EvaluatePbrSurfaceRadiance(hitSurface, hitRadiance, emissiveEnabled);
 
-    float distanceFade = saturate(1.0 - reflectionHit.x / max(reflectionContributionMaxDistance, 0.001));
-    float strength = reflectionHit.y * distanceFade * (1.0 - visibleRoughness) * reflectionContributionIntensity;
-    return float4(shadedHitColor * strength, 1.0);
+    // Keep this signal independent of visible-surface contribution weighting so temporal processing can
+    // accumulate a stable radiance contract. LightPass owns distance/roughness/intensity/Fresnel weighting.
+    return float4(evaluatedHitRadiance, 1.0);
 }

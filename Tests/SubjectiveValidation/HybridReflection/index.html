@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hybrid Reflection Subjective Validation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="page-header">
+        <div>
+            <p id="page-eyebrow" class="eyebrow">RtPbrSurvey visual validation</p>
+            <h1 id="page-title">Hybrid Reflection</h1>
+            <p id="suite-description" class="description">Loading validation suite...</p>
+        </div>
+        <div class="header-actions">
+            <button id="toggle-language" class="secondary-button" type="button">日本語</button>
+            <span id="progress" class="progress">0 / 0 answered</span>
+            <button id="export-report" type="button" disabled>Save report.json</button>
+        </div>
+    </header>
+
+    <main>
+        <section id="suite-error" class="error-panel" hidden></section>
+        <p id="report-status" class="report-status" role="status" aria-live="polite"></p>
+        <section id="suite-metadata" class="metadata" aria-label="Capture metadata"></section>
+        <section id="case-list" class="case-list" aria-live="polite"></section>
+    </main>
+
+    <template id="case-template">
+        <article class="test-case">
+            <div class="case-heading">
+                <div>
+                    <p class="case-id"></p>
+                    <h2 class="case-title"></h2>
+                    <p class="case-description"></p>
+                </div>
+                <span class="case-status">Incomplete</span>
+            </div>
+
+            <div class="comparison" aria-label="A and B image comparison">
+                <figure>
+                    <figcaption><strong>A</strong><span class="image-a-label"></span></figcaption>
+                    <div class="image-frame"><img class="image-a" alt=""></div>
+                </figure>
+                <figure>
+                    <figcaption><strong>B</strong><span class="image-b-label"></span></figcaption>
+                    <div class="image-frame"><img class="image-b" alt=""></div>
+                </figure>
+            </div>
+
+            <div class="criteria"></div>
+
+            <fieldset class="defects">
+                <legend class="defects-title">Observed defects (optional)</legend>
+                <div class="defect-options"></div>
+            </fieldset>
+
+            <label class="notes-label">
+                <span class="notes-title">Notes (optional)</span>
+                <textarea class="notes" rows="3" placeholder="Record where and when the artifact is visible."></textarea>
+            </label>
+        </article>
+    </template>
+
+    <script src="app.js" defer></script>
+</body>
+</html>

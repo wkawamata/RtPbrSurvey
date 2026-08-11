@@ -101,9 +101,9 @@ Current Work-2 status:
 - When Streamline DLSS SR is enabled and supported, `slDLSSGetOptimalSettings()` now selects `m_renderWidth` / `m_renderHeight` from the output size and quality mode.
 - Temporal-upscaler mode or scale changes are deferred through the existing pending-resize path so render-size resources are rebuilt before the new dimensions are used.
 - The upscaler pass is not active yet; `HasTemporalUpscalerPassOutput()` remains false until the backend/support path is ready.
-- Color render texture binding for `LightPass.RenderTarget`, `ReflectionRadiance`, and `TemporalUpscaler.SceneColor` is table-driven, reducing one-off descriptor setup in `RtPbrSurveyEngine`.
+- Color render texture binding for `LightPass.RenderTarget`, `ReflectionEvaluatedRadiance`, and `TemporalUpscaler.SceneColor` is table-driven, reducing one-off descriptor setup in `RtPbrSurveyEngine`.
 - `RenderTextureSpec` carries basic RTV/SRV creation metadata, so view format ownership is no longer duplicated in the engine-side binding table.
-- Shared HDR color render texture specs are helper-built, keeping `LightPass.RenderTarget`, `ReflectionRadiance`, and `TemporalUpscaler.SceneColor` aligned.
+- Shared HDR color render texture specs are helper-built, keeping `LightPass.RenderTarget`, `ReflectionEvaluatedRadiance`, and `TemporalUpscaler.SceneColor` aligned.
 
 ## Work-2 Renderer Plumbing Handoff
 
@@ -194,13 +194,13 @@ Current Work-3 status:
 RR should remain second-phase work. Before SDK wiring, the renderer needs a stable reflection/ray signal contract:
 
 - Raw ray hit signal: hit distance, hit/miss flag, hit normal or encoded normal, and any mask needed for validity.
-- Noisy/evaluated reflection radiance: `ReflectionRadiance` is the current provisional buffer to follow.
+- Current-frame evaluated reflection radiance: `ReflectionEvaluatedRadiance` is the unweighted, pre-temporal buffer to follow.
 - Visible-surface data: depth, normals, roughness/metallic/material information, and motion vectors at render resolution.
 - Scene color context: the pre-tonemap lighting result or reflection contribution boundary chosen for RR.
 - History/reset state: camera cuts, scene changes, and render-size changes should invalidate RR history.
 - Debug views: existing hit/distance/normal overlays should remain available while RR inputs are validated.
 
-The current safer placement remains reconstructing `ReflectionRadiance` before `LightPass`, because final scene color composition stays owned by `LightPass`.
+The current safer placement remains reconstructing `ReflectionEvaluatedRadiance` before `LightPass`, because final scene color composition stays owned by `LightPass`.
 
 ## Future Plugin DLL Boundary
 
@@ -227,10 +227,10 @@ Current resources to track:
 - `ReflectionRayColor`: debug/payload. Hit albedo.
 - `ReflectionRayMaterial`: debug/payload. Hit metallic, roughness, unlit flag.
 - `ReflectionRayEmission`: debug/payload. Hit emissive.
-- `ReflectionRadiance`: evaluated reflection radiance before `LightPass`, and before visible-surface Fresnel is applied.
+- `ReflectionEvaluatedRadiance`: unweighted current-frame radiance before temporal processing and `LightPass` contribution weighting.
 - `LightPass.RenderTarget`: final scene color after reflected contribution is composited.
 
-For DLSS RR investigation, treat `ReflectionRadiance` as the provisional resolved/evaluated reflection buffer to follow. This matches the Hybrid Reflection direction of building a more physical radiance buffer.
+For DLSS RR investigation, treat `ReflectionEvaluatedRadiance` as the evaluated input boundary, not as an already resolved signal. A future `ReflectionResolvedRadiance` would preserve the same unweighted semantics after temporal or reconstruction processing.
 
 Do not start RR by wiring Streamline first. Start by clarifying renderer contracts:
 
@@ -246,7 +246,7 @@ RR should probably remain behind a runtime support check and a separate UI toggl
 
 The core RR placement question is still open:
 
-- Replace or reconstruct `ReflectionRadiance` before `LightPass`.
+- Replace or reconstruct `ReflectionEvaluatedRadiance` before `LightPass`.
 - Or reconstruct a post-lighting reflection contribution after `LightPass`.
 
 The first option is currently safer because it follows the Hybrid Reflection plan and keeps final scene color composition owned by `LightPass`.
@@ -261,7 +261,7 @@ The first option is currently safer because it follows the Hybrid Reflection pla
 - Exposure path needs a decision: use Streamline auto exposure initially, or add a 1x1 exposure texture from the tone-mapping/exposure settings.
 - Resource state ownership must account for Streamline managing tagged resources and command-list state changes.
 - UI should expose support state and fallback reason, not just an enable checkbox.
-- RR input contract should be written down before SDK work: raw ray hit distance/mask/normal, `ReflectionRadiance`, visible depth/normal/roughness/motion vector, and resolved scene color before tone mapping.
+- RR input contract should be written down before SDK work: raw ray hit distance/mask/normal, `ReflectionEvaluatedRadiance`, visible depth/normal/roughness/motion vector, and resolved scene color before tone mapping.
 
 ## First Implementation Status
 

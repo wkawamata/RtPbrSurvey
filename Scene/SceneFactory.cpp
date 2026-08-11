@@ -2,6 +2,7 @@
 
 #include "SceneFactory.h"
 #include "ProceduralSceneBuilder.h"
+#include "SceneBuilder.h"
 #include "SampleScene.h"
 
 #include <DirectXMath.h>
@@ -160,11 +161,75 @@ private:
     SceneMesh m_mesh;
 };
 
+class HostPrimitiveMeshScene : public SampleScene
+{
+public:
+    const char* Name() const override
+    {
+        return "Host Primitive Meshes";
+    }
+
+    void Load() override
+    {
+        m_builder.Clear();
+        const uint32_t floorMaterial = m_builder.AddSolidColorMaterial(90, 100, 110, 255);
+        const uint32_t cubeMaterial = m_builder.AddSolidColorMaterial(70, 150, 220, 255);
+        const uint32_t cylinderMaterial = m_builder.AddSolidColorMaterial(220, 120, 55, 255);
+        const SceneMeshId cubeId = m_builder.AddCube(1.0f);
+        const SceneMeshId cylinderId =
+            m_builder.AddCylinder(0.5f, 1.0f, 16, CylinderCapMode::Both);
+
+        m_builder.AddInstance(
+            cubeId,
+            DirectX::XMMatrixScaling(8.0f, 0.1f, 8.0f) * DirectX::XMMatrixTranslation(0.0f, -0.8f, 0.0f),
+            floorMaterial);
+        m_builder.AddInstance(
+            cubeId,
+            DirectX::XMMatrixTranslation(-1.25f, -0.2f, 0.0f),
+            cubeMaterial);
+        m_builder.AddInstance(
+            cylinderId,
+            DirectX::XMMatrixScaling(0.7f, 1.2f, 0.4f) * DirectX::XMMatrixTranslation(1.25f, -0.2f, 0.0f),
+            cylinderMaterial);
+
+        Reset();
+    }
+
+    void Reset() override
+    {
+        Scene& scene = m_builder.GetScene();
+        scene.camera.pos = {0.0f, 2.0f, 6.0f};
+        scene.camera.gazePoint = {0.0f, -0.2f, 0.0f};
+        scene.camera.fov = 50.0f;
+    }
+
+    void Update(float, const SampleSceneUpdateContext&) override
+    {
+    }
+
+    Scene& GetScene() override { return m_builder.GetScene(); }
+    const Scene& GetScene() const override { return m_builder.GetScene(); }
+    SceneMesh& GetMesh() override { return m_builder.GetMesh(); }
+    const SceneMesh& GetMesh() const override { return m_builder.GetMesh(); }
+    int DisplayInstanceCount() const override { return static_cast<int>(m_builder.GetScene().instances.size()); }
+    int MaxDisplayInstanceCount() const override { return DisplayInstanceCount(); }
+    void SetDisplayInstanceCount(int) override {}
+    float DefaultMeshScale() const override { return 1.0f; }
+
+private:
+    SceneBuilder m_builder;
+};
+
 } // namespace
 
 std::unique_ptr<SampleScene> SceneFactory::CreateCornellBox()
 {
     return std::make_unique<CornellBoxScene>();
+}
+
+std::unique_ptr<SampleScene> SceneFactory::CreateHostPrimitiveMeshes()
+{
+    return std::make_unique<HostPrimitiveMeshScene>();
 }
 
 } // namespace Engine

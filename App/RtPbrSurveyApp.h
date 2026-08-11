@@ -81,6 +81,9 @@ private:
     void CloseRunningScene();
     void InitializeImGui();
     void UpdateUiFrame();
+    void UpdateAutomatedCaptureCamera();
+    bool HasAutomatedCapture() const;
+    void FailAutomatedCapture(const std::string& error);
     void FlushD3D12DebugMessages();
     void LogFpsToFile(float cpuFrameTimeMs);
     Engine::SampleScene& LoadedScene();
@@ -90,17 +93,6 @@ private:
     const RtPbrSurvey::DebugCameraController& DebugCamera() const { return m_debugCamera; }
 
     static constexpr UINT kMaxInstanceCount = RtPbrSurveyEngine::kMaxInstanceCount;
-    static constexpr float kMousePanSpeed = 0.01f;
-    static constexpr float kMouseCameraRotationSpeed = 0.005f;
-    static constexpr float kMouseWheelCameraSpeed = 0.25f;
-    static constexpr float kMouseWheelFovSpeed = 1.0f;
-    static constexpr float kCameraPitchLimit = 1.5f;
-    static constexpr float kObjectViewerDollySpeed = 0.5f;
-    static constexpr float kObjectViewerPanSpeed = 0.008f;
-    static constexpr float kObjectViewerPitchLimit = 1.4f;
-    static constexpr int kObjectViewerOrbitPitchDeadZonePixels = 3;
-    static constexpr float kCameraVerticalSpeed = 0.01f;
-    static constexpr float kCameraFovZoomSpeed = 2.0f;
     static constexpr UINT kImGuiDescriptorCount = 100;
 
     std::vector<std::unique_ptr<Engine::SampleScene>> m_sampleScenes;
@@ -125,6 +117,7 @@ private:
     RtPbrSurveyEngine::ToneMapParams m_toneMapParams;
     RtPbrSurveyEngine::RenderViewMode m_renderViewMode = RtPbrSurveyEngine::RenderViewMode::LightPass;
     bool m_requestHdrDump = false;
+    std::string m_screenshotStatus;
 
     int m_displayInstanceCount = static_cast<int>(kMaxInstanceCount);
     float m_meshScale = 0.5f;
@@ -153,4 +146,12 @@ private:
     ComPtr<ID3D12InfoQueue> m_d3d12InfoQueue;
     FILE* m_logFile = nullptr;
     UINT64 m_fpsLogFrameCounter = 0;
+    UINT64 m_automationFrameCounter = 0;
+    bool m_automationScreenshotRequested = false;
+    float m_automationOrbitStartYaw = 0.0f;
+    Platform::ReflectionCapturePlan m_reflectionCapturePlan;
+    size_t m_nextReflectionCaptureIndex = 0;
+    size_t m_completedReflectionCaptureCount = 0;
+    bool m_reflectionCaptureInFlight = false;
+    bool m_reflectionCapturePlanFailed = false;
 };
