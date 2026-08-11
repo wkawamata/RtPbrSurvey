@@ -11,6 +11,8 @@ namespace Engine
 struct StreamlineAdapterInitDesc
 {
     const wchar_t* applicationName = nullptr;
+    const char* projectId = nullptr;
+    const char* engineVersion = nullptr;
 };
 
 struct StreamlineEvaluateInputs

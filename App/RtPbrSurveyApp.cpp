@@ -20,7 +20,6 @@
 #include "RtPbrSurveyApp.h"
 #include "../Platform/Win32Application.h"
 #include "../Platform/AssetPath.h"
-#include "../Renderer/StreamlineAdapter.h"
 #include "../Scene/SceneFactory.h"
 #include "imgui.h"
 #include "ImGuiWidgets.h"
@@ -43,9 +42,6 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
 
 void RtPbrSurveyApp::OnInit()
 {
-    const Engine::StreamlineAdapterInitDesc streamlineInitDesc = {L"RtPbrSurvey"};
-    Engine::InitializeStreamlineAdapter(streamlineInitDesc);
-
     CreateSampleScenes();
 
     GraphicsDeviceDesc deviceDesc = {};
@@ -55,7 +51,9 @@ void RtPbrSurveyApp::OnInit()
     deviceDesc.bufferCount = RtPbrSurveyEngine::kSwapChainBufferCount;
     deviceDesc.swapChainFormat = RtPbrSurveyEngine::kSwapChainFormat;
     deviceDesc.useWarpDevice = m_commandLineOptions.useWarpDevice;
-    deviceDesc.deviceCreatedHandler = [](ID3D12Device* device) { Engine::SetStreamlineD3DDevice(device); };
+    RtPbrSurvey::SceneRendererHostDesc rendererHostDesc = {};
+    rendererHostDesc.applicationName = L"RtPbrSurvey";
+    RtPbrSurvey::SceneRenderer::ConfigureGraphicsDevice(deviceDesc, rendererHostDesc);
     m_graphicsDevice.Initialize(deviceDesc);
 
     // Open debug log file and query ID3D12InfoQueue for D3D12 message capture.

@@ -125,6 +125,8 @@ if(EXISTS "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/include/sl.h" AND
         target_link_options(RtPbrSurvey.SceneRenderer PUBLIC /DELAYLOAD:sl.interposer.dll)
     endif()
 endif()
+set_property(GLOBAL PROPERTY RTPBRSURVEY_HAS_STREAMLINE_SDK "${RTPBRSURVEY_HAS_STREAMLINE_SDK}")
+set_property(GLOBAL PROPERTY RTPBRSURVEY_STREAMLINE_SDK_DIR "${RTPBRSURVEY_STREAMLINE_SDK_DIR}")
 
 target_include_directories(RtPbrSurvey.SceneRenderer
     PUBLIC
@@ -219,6 +221,8 @@ function(rtpbrsurvey_copy_runtime_files target)
     get_property(rtpbrsurvey_dxc_native_dir GLOBAL PROPERTY RTPBRSURVEY_DXC_NATIVE_DIR)
     get_property(rtpbrsurvey_winpix_package_dir GLOBAL PROPERTY RTPBRSURVEY_WINPIX_PACKAGE_DIR)
     get_property(rtpbrsurvey_shader_output_dir GLOBAL PROPERTY RTPBRSURVEY_SHADER_OUTPUT_DIR)
+    get_property(rtpbrsurvey_has_streamline_sdk GLOBAL PROPERTY RTPBRSURVEY_HAS_STREAMLINE_SDK)
+    get_property(rtpbrsurvey_streamline_sdk_dir GLOBAL PROPERTY RTPBRSURVEY_STREAMLINE_SDK_DIR)
 
     add_custom_command(TARGET ${target} POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
@@ -236,13 +240,13 @@ function(rtpbrsurvey_copy_runtime_files target)
             "$<TARGET_FILE_DIR:${target}>"
         VERBATIM)
 
-    if(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+    if(rtpbrsurvey_has_streamline_sdk)
         add_custom_command(TARGET ${target} POST_BUILD
             COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.interposer.dll"
-                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.common.dll"
-                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.dlss.dll"
-                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/nvngx_dlss.dll"
+                "${rtpbrsurvey_streamline_sdk_dir}/bin/x64/sl.interposer.dll"
+                "${rtpbrsurvey_streamline_sdk_dir}/bin/x64/sl.common.dll"
+                "${rtpbrsurvey_streamline_sdk_dir}/bin/x64/sl.dlss.dll"
+                "${rtpbrsurvey_streamline_sdk_dir}/bin/x64/nvngx_dlss.dll"
                 "$<TARGET_FILE_DIR:${target}>"
             VERBATIM)
     endif()

@@ -13,8 +13,30 @@
 
 #include "Runtime/SceneRenderer.h"
 
+#include "Renderer/StreamlineAdapter.h"
+
 namespace RtPbrSurvey
 {
+    void SceneRenderer::ConfigureGraphicsDevice(GraphicsDeviceDesc& graphicsDeviceDesc,
+                                                const SceneRendererHostDesc& hostDesc)
+    {
+        const Engine::StreamlineAdapterInitDesc streamlineDesc = {
+            hostDesc.applicationName,
+            hostDesc.streamlineProjectId,
+            hostDesc.engineVersion,
+        };
+        Engine::InitializeStreamlineAdapter(streamlineDesc);
+
+        const auto previousDeviceCreatedHandler = graphicsDeviceDesc.deviceCreatedHandler;
+        graphicsDeviceDesc.deviceCreatedHandler = [previousDeviceCreatedHandler](ID3D12Device* device) {
+            Engine::SetStreamlineD3DDevice(device);
+            if (previousDeviceCreatedHandler)
+            {
+                previousDeviceCreatedHandler(device);
+            }
+        };
+    }
+
     SceneRenderer::SceneRenderer(GraphicsDevice& graphicsDevice) : m_engine(graphicsDevice)
     {
     }

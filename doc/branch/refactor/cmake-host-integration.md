@@ -29,6 +29,10 @@ Run `Restore-NuGet.ps1` in RtPbrSurvey if those package folders are missing.
 ## Host CMake Usage
 
 ```cmake
+set(RTPBRSURVEY_STREAMLINE_SDK_DIR
+    "C:/work/third_party/streamline-sdk-2.12.0"
+    CACHE PATH "Path to the shared Streamline SDK root")
+
 add_subdirectory(External/RtPbrSurvey)
 
 add_executable(TankSandbox WIN32
@@ -48,6 +52,7 @@ rtpbrsurvey_copy_runtime_files(TankSandbox)
 - `dxcompiler.dll`
 - `dxil.dll`
 - `WinPixEventRuntime.dll`
+- `sl.interposer.dll`, `sl.common.dll`, `sl.dlss.dll`, and `nvngx_dlss.dll` when the Streamline SDK is available
 
 The helper is intended to be called by a parent host project after `add_subdirectory(External/RtPbrSurvey)`.
 It uses RtPbrSurvey's own source, package, and shader output paths rather than the caller's current source or binary directory.
@@ -61,6 +66,14 @@ deviceDesc.swapChainWidth = width;
 deviceDesc.swapChainHeight = height;
 deviceDesc.bufferCount = RtPbrSurveyEngine::kSwapChainBufferCount;
 deviceDesc.swapChainFormat = RtPbrSurveyEngine::kSwapChainFormat;
+
+RtPbrSurvey::SceneRendererHostDesc rendererHostDesc = {};
+rendererHostDesc.applicationName = L"TankPhysicsSandbox";
+// Set this when Tank has its own NVIDIA project ID.
+rendererHostDesc.streamlineProjectId = nullptr;
+rendererHostDesc.engineVersion = "1.0.0";
+RtPbrSurvey::SceneRenderer::ConfigureGraphicsDevice(deviceDesc, rendererHostDesc);
+
 graphicsDevice.Initialize(deviceDesc);
 
 RtPbrSurvey::SceneRenderer renderer(graphicsDevice);
@@ -81,6 +94,14 @@ renderer.RunFrame([&](ID3D12GraphicsCommandList* commandList) {
     imguiSystem.Render(commandList);
 });
 ```
+
+`SceneRenderer::ConfigureGraphicsDevice()` must be called before `GraphicsDevice::Initialize()`. It initializes the
+optional temporal-upscaler backend and chains the D3D12-device callback without replacing a callback already supplied
+by the host. `SceneRenderer::Shutdown()` shuts the backend down before the host destroys `GraphicsDevice`.
+
+The Streamline SDK is not stored in the RtPbrSurvey repository. A shared absolute
+`RTPBRSURVEY_STREAMLINE_SDK_DIR` lets multiple worktrees and Tank use one SDK installation. If the SDK is absent,
+`RtPbrSurvey::SceneRenderer` keeps its SDK-free D3D12 path and reports the temporal upscaler as unavailable.
 
 `SceneBuilder::AddInstance()` accepts ordinary DirectXMath world matrices and converts them to RtPbrSurvey's internal `InstanceData` storage layout.
 
