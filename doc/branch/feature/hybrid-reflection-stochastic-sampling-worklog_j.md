@@ -97,3 +97,12 @@
 - 判断: history weight `0.9`は現在の1 sample stochastic入力に明確なlive安定化効果を持ち、軽微な移動edge問題を残しながらDamagedHelmet live-motion gateに合格した。
 - global production defaultはstochastic sampling無効、history weight `0.0`のまま維持する。将来の明示的なstochastic-temporal presetを支持する証拠にはなるが、1 scene、1つの非ゼロweight、現在の近似estimatorだけではglobal defaultを暗黙に変更するには不十分である。
 - Spatial denoiseとscene coverage拡大は別のfollow-upとし、残るedge flickerへの反応としてこのbranchへ追加しない。
+
+## 2026-08-11: Phase closeout
+
+- 規範的なHybrid Reflection contractへ、実装済みのdirection-sampling境界、sample-index ownership、決定論的fallback、Evaluateでの方向再現、条件付きmiss environment lookup、近似上の制約を反映した。
+- foundation noteはcurrent statusと歴史的なroot constant説明が古くなった箇所だけを更新した。詳細な規範semanticsはfocused contractに維持する。
+- raw payloadとevaluated/resolved radiance layoutが不変であり、PDF、throughput、denoise、confidence、追加history resourceを導入していないことを確認した。
+- 最終defaultはstochastic sampling無効、temporal history weight `0.0`、temporal debug noise `0.0`を維持する。
+- closeout時の検証は、成功したDebug x64 buildとHLSL compile、空のD3D12 Debug Layer run、clean commitから生成した6画像suiteの9 passおよびdefectなし、上記live A/B結果で構成する。
+- 残る移動edge flicker、scene/roughness coverage拡大、別のhistory weight、長時間mean bias測定、spatial denoiseは、このbranchの未完了作業ではなく明示的なfollow-up候補とする。

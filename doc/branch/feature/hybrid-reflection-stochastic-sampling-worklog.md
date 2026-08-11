@@ -97,3 +97,12 @@ This log records design decisions, implementation slices, and validation results
 - Decision: history weight `0.9` provides a clear live stability benefit for the current one-sample stochastic input and passes this DamagedHelmet live-motion gate with a minor residual moving-edge issue.
 - Keep the global production defaults at stochastic sampling disabled and history weight `0.0`. The evidence supports a future explicit stochastic-temporal preset, but one scene, one nonzero weight, and the current approximate estimator are not sufficient to silently change the global default.
 - Spatial denoise and broader scene coverage remain separate follow-up work; they are not added to this branch in response to the residual edge flicker.
+
+## 2026-08-11: Phase Closeout
+
+- Updated the normative Hybrid Reflection contract with the implemented direction-sampling boundary, sample-index ownership, deterministic fallback, Evaluate direction reproduction, conditional miss environment lookup, and approximation limitation.
+- Updated the foundation note only where its current-status and historical root-constant descriptions had become stale; detailed normative semantics remain in the focused contract.
+- Confirmed raw payload and evaluated/resolved radiance layouts remain unchanged, and no PDF, throughput, denoise, confidence, or additional history resource was introduced.
+- Final defaults remain stochastic sampling disabled, temporal history weight `0.0`, and temporal debug noise `0.0`.
+- Validation at closeout consists of the successful Debug x64 build and HLSL compilation, empty D3D12 Debug Layer runs, the clean-commit six-image suite with nine passes and no defects, and the live A/B result recorded above.
+- The residual moving-edge flicker, broader scene/roughness coverage, alternative history weights, long-run mean-bias measurement, and any spatial denoise are explicit follow-up candidates rather than unfinished work in this branch.

@@ -2,14 +2,14 @@
 
 ## Scope
 
-This document is the focused contract for Hybrid Reflection pass boundaries, resources, final composition, and temporal-history ownership. It describes current behavior and explicitly named future boundaries. A motion-reprojected history-blend experiment with minimum visible-depth/normal rejection exists, but production temporal accumulation, denoising, DLSS Ray Reconstruction, Streamline integration, and PathTracing are not implemented.
+This document is the focused contract for Hybrid Reflection pass boundaries, resources, final composition, stochastic direction sampling, and temporal-history ownership. It describes current behavior and explicitly named future boundaries. Default-off stochastic rough-reflection sampling and a motion-reprojected history-blend experiment with minimum visible-depth/normal rejection exist, but production temporal enablement, denoising, DLSS Ray Reconstruction, Streamline integration, and PathTracing are not implemented.
 
-Implementation progress and validation results are recorded in the [Hybrid Reflection History Work Log](hybrid-reflection-history-worklog.md).
+History implementation progress is recorded in the [Hybrid Reflection History Work Log](hybrid-reflection-history-worklog.md). Stochastic-sampling implementation and validation are recorded in the [Stochastic Sampling Work Log](hybrid-reflection-stochastic-sampling-worklog.md) and its [Japanese version](hybrid-reflection-stochastic-sampling-worklog_j.md).
 
 ## Pass Flow
 
-1. `HybridReflectionPass` performs RayQuery tracing and produces raw hit and material payloads.
-2. `ReflectionEvaluatePass` consumes those payloads and evaluates current-frame, unweighted one-bounce radiance before temporal processing and final visible-surface weighting.
+1. `HybridReflectionPass` selects a deterministic mirror direction or a default-off stochastic rough-specular direction, performs RayQuery tracing, and produces raw hit and material payloads.
+2. `ReflectionEvaluatePass` consumes those payloads, reconstructs the same selected ray direction, and evaluates current-frame, unweighted one-bounce radiance before temporal processing and final visible-surface weighting.
 3. `LightPass` applies distance, visible-surface roughness, user intensity, and visible-surface Fresnel weights, then additively composites the result with deferred lighting.
 
 `TemporalReflectionPass` is inserted between `ReflectionEvaluatePass` and `LightPass`:
@@ -27,7 +27,7 @@ On the first frame after invalidation, `TemporalReflectionPass` copies `Reflecti
 resolved_rgb = lerp(current_evaluated_rgb, previous_resolved_rgb, history_weight)
 ```
 
-`history_weight` is clamped to `[0, 0.98]`. Valid history is sampled at the nearest pixel selected by the motion-vector convention below only when bounds, previous-depth, and previous-normal tests pass. The current one-ray signal is deterministic in a static scene, so measured static noise reduction is negligible. Synthetic-noise validation demonstrates the expected accumulation benefit, but zero remains the production default because the evidence is synthetic and sampled still frames do not directly cover between-capture flicker.
+`history_weight` is clamped to `[0, 0.98]`. Valid history is sampled at the nearest pixel selected by the motion-vector convention below only when bounds, previous-depth, and previous-normal tests pass. With stochastic sampling disabled, the one-ray signal remains deterministic in a static scene. With it enabled, the sampled-frame and live-motion A/B gates showed a clear stability benefit at weight `0.9`, with minor moving-edge flicker remaining. The global defaults remain stochastic sampling disabled and history weight zero because validation currently covers one scene, one nonzero weight, and an approximate estimator.
 
 For isolation testing only, `Temporal Debug Noise` may apply a deterministic per-pixel/per-frame zero-mean luminance multiplier to current evaluated radiance immediately before accumulation. Strength zero disables it. This signal is not physical ray noise, does not alter `ReflectionEvaluatedRadiance`, and is never injected directly into previous history.
 
@@ -41,7 +41,7 @@ Reflection payload and radiance resources are render-resolution `DXGI_FORMAT_R16
 | `ReflectionRayColor` | `HybridReflectionPass` | `.rgb`: linear hit albedo; `.a`: committed-hit validity. It is not reflected radiance or final reflected color. | Material/debug payload | `ReflectionEvaluatePass` and albedo debug views. |
 | `ReflectionRayMaterial` | `HybridReflectionPass` | `.x`: metallic; `.y`: roughness; `.z`: unlit flag; `.w`: reserved. | Material/debug payload | `ReflectionEvaluatePass` and material debug views. |
 | `ReflectionRayEmission` | `HybridReflectionPass` | `.rgb`: linear hit emissive after material emissive scale; `.a`: committed-hit validity. | Material/debug payload | `ReflectionEvaluatePass` and emission debug views. |
-| `ReflectionEvaluatedRadiance` | `ReflectionEvaluatePass` | `.rgb`: current-frame linear HDR, unweighted one-bounce radiance; `.a`: `1`. Hits contain evaluated hit-surface lighting and emission. Miss and gated pixels contain the roughness-filtered environment fallback. | Pre-temporal evaluated radiance | Current `LightPass`, evaluated-radiance debug view, and future `TemporalReflectionPass`. |
+| `ReflectionEvaluatedRadiance` | `ReflectionEvaluatePass` | `.rgb`: current-frame linear HDR, unweighted one-bounce radiance; `.a`: `1`. Hits contain evaluated hit-surface lighting and emission. Deterministic misses use the roughness-prefiltered environment fallback; stochastic misses sample environment mip zero along the reproduced stochastic direction. | Pre-temporal evaluated radiance | Current `LightPass`, evaluated-radiance debug view, and `TemporalReflectionPass`. |
 | `ReflectionResolvedRadiance` | `TemporalReflectionPass` | `.rgb`: resolved linear HDR, unweighted one-bounce radiance; `.a`: `1`. It preserves the evaluated hit and environment-fallback semantics. With valid in-bounds history and nonzero experimental weight, RGB is a nearest-sampled motion-reprojected exponential history blend. | Resolved-radiance boundary | `LightPass` and resolved-radiance debug view. Future production temporal processing remains inside this boundary. |
 | `ReflectionHistoryDepth` | `TemporalReflectionPass` | `R32_FLOAT` current visible-surface device depth copied into the matching history slot. | Rejection history | Next `TemporalReflectionPass`. |
 | `ReflectionHistoryNormal` | `TemporalReflectionPass` | `R16G16B16A16_FLOAT`; `.xyz` is normalized world-space visible-surface normal and `.w` is `1`. | Rejection history | Next `TemporalReflectionPass`. |
@@ -61,6 +61,18 @@ evaluated_or_resolved_radiance
 ```
 
 `LightPass` additively composites this contribution with deferred lighting. Miss and material-gated pixels use a distance weight of `1`.
+
+## Direction Sampling Contract
+
+Stochastic sampling is a default-off experiment inside `HybridReflectionPass`. The visible-surface roughness from `GBuffer.PBRParams` controls an isotropic GGX-derived half-vector distribution before `RayQuery`. The roughness stored later in `ReflectionRayMaterial` belongs to the hit surface and must not control the visible-surface sampling lobe.
+
+Each direction sample is reproducibly derived from pixel coordinates and a reflection-owned sampling frame index. The index is independent of swap-chain and Temporal Upscaler frame indices. A frame that executes `HybridReflectionPass` advances the index only after its command list is submitted. Reflection-history invalidation resets the sampling index so signal and history restart together.
+
+`ReflectionEvaluatePass` reproduces the same direction from visible-surface inputs, pixel coordinates, enable state, and sampling index. This keeps miss environment lookup and hit-surface view-dependent evaluation consistent with the direction traced by `RayQuery` without adding a direction, PDF, or throughput field to any payload texture.
+
+Sampling disabled, visible roughness at or below `0.001`, or a sampled direction below the visible surface uses the exact mirror direction. The implementation takes one bounded sample and never enters an unbounded resampling loop.
+
+This is a rough-reflection approximation, not an unbiased Monte Carlo BRDF estimator. No explicit PDF division or path throughput term exists, and `LightPass` retains the existing visible-surface Fresnel and contribution weighting contract. Mean brightness and stability are validation gates rather than mathematically guaranteed properties of this estimator.
 
 ## History Ownership
 
@@ -118,6 +130,7 @@ Hard-reset events are:
 - scene reload, scene close, or rendering-path changes;
 - an explicit camera cut, teleport, or camera-preset change;
 - Hybrid Reflection or temporal reflection enable-state changes;
+- stochastic sampling enable-state changes;
 - material, lighting, or environment changes;
 - Material Gate or another ray-selection setting change that changes evaluated radiance.
 
@@ -190,11 +203,11 @@ Normal rejection compares normalized world-space normals. The first policy accep
 
 ### First Implementation Slice
 
-The first slice added motion-vector reprojection with bounds rejection while keeping the default history weight at zero. The second slice added depth/normal auxiliary history as MRT outputs and minimum rejection. The continuous-timeline A/B suite passed formal subjective review at history weight `0.9` with synthetic-noise strength `0.5` for sampled mid-motion, direction-reversal, and settling frames. This satisfies the defined still-image rejection gate but does not authorize a nonzero production default. Spatial denoise, adaptive history length, neighborhood clamping, reflection-hit rejection, physically stochastic input validation, and between-capture flicker observation remain later work.
+The first slice added motion-vector reprojection with bounds rejection while keeping the default history weight at zero. The second slice added depth/normal auxiliary history as MRT outputs and minimum rejection. The synthetic-noise suite passed its sampled-frame gate. A later real-signal suite enabled one-sample stochastic rough reflections with synthetic noise zero; all nine sampled-frame criteria passed at history weight `0.9`. A repeatable live timeline then showed a clear reduction in stationary and moving instability without perceptible reversal trails or settling failure, while minor moving-edge flicker remained. Spatial denoise, adaptive history length, neighborhood clamping, reflection-hit rejection, broader scene coverage, and long-run estimator-bias measurement remain later work.
 
 ### Contract Phase Closeout
 
-The resource, ownership, reset, reprojection, minimum rejection, debug-noise, and repeatable subjective-validation contracts are implemented and validated for this phase. Production temporal enablement and additional denoise/rejection resources require new measured evidence and belong to a later branch rather than extending this contract phase.
+The resource, direction-sampling, ownership, reset, reprojection, minimum rejection, debug-noise, and repeatable subjective-validation contracts are implemented and validated for this phase. Production defaults remain stochastic sampling disabled and history weight zero. A future explicit stochastic-temporal preset is supported by the measured evidence, but production enablement, additional denoise/rejection resources, and broader scene coverage belong to later work rather than extending this branch.
 
 ## Comparison Boundary
 

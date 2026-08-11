@@ -4,7 +4,7 @@
 
 Recommendation for the shape of a full-screen HybridReflectionPass using RayQuery inline raytracing to compute specular reflections from the GBuffer.
 
-Current implementation status: HybridReflectionPass is wired into the render graph and writes separate raw hit and material payloads. `ReflectionEvaluatePass` consumes those payloads and produces the pre-composite reflection signal. `LightPass` applies the visible-surface Fresnel term and adds the result to the lit scene.
+Current implementation status: HybridReflectionPass is wired into the render graph and writes separate raw hit and material payloads. A default-off experiment can trace a reproducible visible-roughness GGX-derived direction. `ReflectionEvaluatePass` reproduces that direction, consumes the payloads, and produces the pre-composite reflection signal. `TemporalReflectionPass` can resolve it through motion-reprojected history, and `LightPass` applies the visible-surface Fresnel term and adds the result to the lit scene.
 
 ## Reflection Contract Summary
 
@@ -40,7 +40,7 @@ This foundation note retains implementation background and staged design decisio
 
 ## Recommended Root Signature Shape
 
-Follow RayQueryShadowPass's descriptor-table approach (identical pattern):
+The table below records the initial descriptor-table recommendation. The implemented root signature later expanded to four payload UAVs, mesh-range input, and 11 reflection constants while preserving this overall pattern.
 
 | Param | Type          | Register | Content                          |
 |-------|---------------|----------|----------------------------------|
@@ -59,7 +59,7 @@ Follow RayQueryShadowPass's descriptor-table approach (identical pattern):
 | 12    | SRV table     | t0 s8    | Texture table                    |
 | 13    | 32-bit consts | b1       | Reflection constants (see below) |
 
-Constants (b1): normalBias, rayTMin, rayTMax, maxRoughness, minMetallic, usesIndexedDraw, vertexCount, indexCount, hitNormalSource.
+Current constants (b1): normalBias, rayTMin, rayTMax, maxRoughness, minMetallic, stochasticSamplingEnabled, samplingFrameIndex, usesIndexedDraw, vertexCount, indexCount, hitNormalSource.
 
 ## PSO Creation
 
@@ -104,10 +104,10 @@ The HybridReflectionPass can optionally gate traced pixels by GBuffer PBR params
 ## Remaining Reflection Radiance Work
 
 - Decide whether the reflection hit path needs hit ambient occlusion or should keep `ambientOcclusion = 1.0` until a payload/source exists.
-- Refine miss fallback if needed; it currently samples the specular prefilter map using visible-surface roughness.
+- Refine miss fallback if needed. The deterministic path samples the specular prefilter map using visible-surface roughness; the stochastic path samples mip zero along its reproduced stochastic direction.
 - Keep raw hit payload, evaluated reflection radiance, and debug component views distinct for future DLSS RR and denoising work.
 - Consider screen-space resolved color reuse for visible hit points after the one-bounce hit-point shading path is stable.
-- Add temporal accumulation / denoise once reflection radiance is physically closer to the intended signal.
+- Refine the experimental temporal accumulation and consider spatial denoise only after measured failures justify additional policy or resources.
 
 ## Shared PBR Shader Helpers
 
