@@ -57,6 +57,9 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
     current.rgb *= 1.0 + (unitNoise * 2.0 - 1.0) * g_noiseStrength;
     const float currentDepth = g_visibleDepth.Load(pixel);
     const float3 currentNormal = normalize(g_visibleNormal.Load(pixel).xyz);
+    // Alpha is diagnostic metadata only. RGB keeps the unweighted resolved-radiance contract.
+    // 0.0: no history, 0.25: outside history, 0.5: depth reject, 0.75: normal reject, 1.0: accepted.
+    current.a = 0.0;
     if (g_historyValid != 0)
     {
         uint width;
@@ -70,6 +73,7 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
         const float2 historyUv = currentUv + float2(0.5, -0.5) * rawMotionNdc;
         if (all(historyUv >= 0.0) && all(historyUv < 1.0))
         {
+            current.a = 0.5;
             const int2 historyPixel = int2(historyUv * float2(width, height));
             const float2 currentNdc = float2(currentUv.x * 2.0 - 1.0, 1.0 - currentUv.y * 2.0);
             float4 currentWorld = mul(float4(currentNdc, currentDepth, 1.0), g_invViewProj);
@@ -80,11 +84,20 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
             const float3 previousNormal = normalize(g_reflectionHistoryNormal.Load(int3(historyPixel, 0)).xyz);
             const bool depthValid = abs(previousDepth - expectedPreviousDepth) <= 0.002;
             const bool normalValid = dot(currentNormal, previousNormal) >= 0.9;
-            if (depthValid && normalValid)
+            if (depthValid)
             {
-                const float4 history = g_reflectionResolvedRadianceHistory.Load(int3(historyPixel, 0));
-                current.rgb = lerp(current.rgb, history.rgb, g_historyWeight);
+                current.a = 0.75;
+                if (normalValid)
+                {
+                    const float4 history = g_reflectionResolvedRadianceHistory.Load(int3(historyPixel, 0));
+                    current.rgb = lerp(current.rgb, history.rgb, g_historyWeight);
+                    current.a = 1.0;
+                }
             }
+        }
+        else
+        {
+            current.a = 0.25;
         }
     }
     TemporalReflectionOutput output;

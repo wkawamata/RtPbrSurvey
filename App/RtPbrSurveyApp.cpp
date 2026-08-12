@@ -161,7 +161,9 @@ void RtPbrSurveyApp::OnInit()
         if (m_commandLineOptions.captureReflectionResolvedRadiance)
         {
             m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
-            m_renderViewMode = RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance;
+            m_renderViewMode = m_commandLineOptions.captureReflectionTemporalValidity ?
+                RtPbrSurveyEngine::RenderViewMode::ReflectionTemporalValidity :
+                RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance;
             m_sceneRenderer.SetRenderingPath(m_renderingPath);
             m_sceneRenderer.SetRenderViewMode(m_renderViewMode);
 

@@ -56,3 +56,13 @@ Out of scope:
 - Captured the three stochastic-plan checkpoints with variant `edgezoom`; the helmet remained inside the frame at mid-motion, reversal, and settling.
 - Debug x64 build succeeded with zero errors. The automated run reported no D3D12 errors and retained two pre-existing committed-buffer initial-state warnings.
 - Generated PNG files and the runtime log remain local validation artifacts and are not committed.
+
+## 2026-08-12: Temporal Validity Classification
+
+- Added a `Temporal Validity` debug view without allocating another render target. `ReflectionResolvedRadiance.a` carries diagnostic metadata while RGB retains the unweighted resolved-radiance contract and unchanged blend behavior.
+- Classification colors are black for no history, blue for reprojection outside history, red for depth rejection, yellow for normal rejection, and green for accepted history.
+- Added `-CaptureReflectionTemporalValidity` so the existing capture-plan automation can reproduce the classification view.
+- At the enlarged DamagedHelmet mid-motion and reversal checkpoints, normal rejection concentrated on thin geometric and internal-feature edges. Depth rejection appeared only on limited silhouette/disocclusion pixels.
+- The settling checkpoint returned to history acceptance across the image. This argues against persistent invalid history and points to valid motion-time rejection exposing the noisy current sample as the leading cause for the observed edge flicker.
+- Do not loosen depth or normal thresholds from this evidence alone. The next comparison should preserve valid rejection and test whether rejected pixels can be stabilized without retaining disoccluded history.
+- Debug x64 build succeeded with zero errors. The automated run reported no D3D12 errors and the same two pre-existing committed-buffer initial-state warnings.

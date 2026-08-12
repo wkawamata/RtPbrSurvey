@@ -118,6 +118,7 @@ public:
         ReflectionRayEmission,
         ReflectionEvaluatedRadiance,
         ReflectionResolvedRadiance,
+        ReflectionTemporalValidity,
         ReflectionEvaluatedRadianceDirect,
         ReflectionEvaluatedRadianceIblDiffuse,
         ReflectionEvaluatedRadianceIblSpecular,
@@ -582,6 +583,7 @@ private:
                    renderViewMode != RenderViewMode::TlasDebug &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadiance &&
                    renderViewMode != RenderViewMode::ReflectionResolvedRadiance &&
+                   renderViewMode != RenderViewMode::ReflectionTemporalValidity &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceDirect &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceIblSpecular &&
@@ -616,6 +618,7 @@ private:
                    renderViewMode == RenderViewMode::ReflectionContributionStrength ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
                    renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+                   renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
@@ -651,6 +654,10 @@ private:
             if (renderViewMode == RenderViewMode::ReflectionResolvedRadiance)
             {
                 return 7u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionTemporalValidity)
+            {
+                return 13u;
             }
             if (renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect)
             {

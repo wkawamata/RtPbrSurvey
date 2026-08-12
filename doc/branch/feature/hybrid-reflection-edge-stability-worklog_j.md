@@ -10,6 +10,16 @@
 - Debug x64 build は error 0件で成功した。自動実行では D3D12 error はなく、既存の committed buffer initial-state warning 2件のみだった。
 - 生成した PNG と runtime log は local validation artifact とし、commit しない。
 
+## 2026-08-12: Temporal Validity 分類
+
+- 新しい render target を増やさず `Temporal Validity` debug view を追加した。`ReflectionResolvedRadiance.a` は診断 metadata を保持し、RGB は未加重 resolved-radiance contract と従来の blend 動作を維持する。
+- 分類色は黒=historyなし、青=history画面外、赤=depth reject、黄=normal reject、緑=history採用とした。
+- 既存 capture-plan automation で分類表示を再現できるよう `-CaptureReflectionTemporalValidity` を追加した。
+- 拡大した DamagedHelmet の移動中と方向反転 checkpoint では、normal reject が細い幾何 edge と内部形状の edge に集中した。depth reject は silhouette/disocclusion の一部だけに現れた。
+- 停止後 checkpoint では画像全体が history採用へ戻った。恒常的なhistory不正よりも、移動中の正当なrejectによってnoisyなcurrent sampleが露出することが、観測されたedge flickerの主因候補である。
+- この証拠だけでdepth/normal thresholdを緩めない。次の比較では正当なrejectを維持し、disoccluded historyを残さずreject画素を安定化できるかを調べる。
+- Debug x64 build はerror 0件で成功した。自動実行ではD3D12 errorはなく、同じ既存committed-buffer initial-state warning 2件のみだった。
+
 このログは、stochastic Hybrid Reflectionで残る移動edge flickerの診断、制御された検証、限定的な安定化作業を記録する。信号とhistoryの規範的semanticsは[Hybrid Reflection Contracts](hybrid-reflection-contracts.md)に維持する。
 
 ## 2026-08-12: フェーズ開始

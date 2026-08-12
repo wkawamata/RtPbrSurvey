@@ -39,6 +39,7 @@ struct CommandLineOptions
     UINT captureAfterFrames = 0;
     bool exitAfterCapture = false;
     bool captureReflectionResolvedRadiance = false;
+    bool captureReflectionTemporalValidity = false;
     bool reflectionStochasticSampling = false;
     float reflectionCameraDistanceScale = 1.0f;
     bool hasReflectionTemporalWeight = false;
