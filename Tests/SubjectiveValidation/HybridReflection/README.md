@@ -43,3 +43,5 @@ Run `Start-Validation.ps1 -StochasticSampling` to use `capture-plan-stochastic.j
 The stochastic plan writes `stochastic-*.png` files so it does not overwrite the earlier synthetic-noise contract captures. The evaluator retains the same English/Japanese workflow and JSON report format, but the stochastic suite uses distinct suite and case identifiers.
 
 For live observation, use `capture-plan-stochastic-live.json`. It holds the initial view for 120 frames, then performs three slow orbit segments including two direction changes, returns to the initial yaw, and captures one settling reference. Run A and B separately with the same plan and different history weights. Do not use this live plan as a replacement for the fixed nine-criterion HTML suite.
+
+`-ReflectionCameraDistanceScale <scale>` applies one stable multiplier to the initial Arcball distance for reflection capture automation. A value of `0.5` renders DamagedHelmet at approximately twice the linear image size and is intended for edge diagnosis. The value does not alter interactive or non-capture camera defaults.

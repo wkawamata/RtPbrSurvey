@@ -157,6 +157,18 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.reflectionStochasticSampling = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionCameraDistanceScale"))
+        {
+            if (i + 1 < argc)
+            {
+                WCHAR* end = nullptr;
+                const float scale = wcstof(argv[++i], &end);
+                if (end != argv[i] && *end == L'\0' && std::isfinite(scale) && scale > 0.0f)
+                {
+                    options.reflectionCameraDistanceScale = scale;
+                }
+            }
+        }
         else if (IsCommandLineArg(argv[i], L"-ReflectionTemporalWeight"))
         {
             if (i + 1 < argc)

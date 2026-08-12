@@ -2,6 +2,14 @@
 
 英語版: [Hybrid Reflection Edge Stability Work Log](hybrid-reflection-edge-stability-worklog.md)。
 
+## 2026-08-12: 診断用フレーミング
+
+- 撮影専用オプション `-ReflectionCameraDistanceScale` を追加した。初期 Arcball 距離へ一度だけ倍率を適用し、capture plan の timeline 全体で同じ距離を維持する。
+- DamagedHelmet の edge-stability 撮影では倍率 `0.5` を使う。interactive camera と通常撮影の default を変えず、従来のおよそ縦横2倍の見かけサイズにする。
+- variant `edgezoom` で stochastic plan の3地点を撮影し、移動中、方向反転、停止後のすべてでヘルメットが画面内に収まることを確認した。
+- Debug x64 build は error 0件で成功した。自動実行では D3D12 error はなく、既存の committed buffer initial-state warning 2件のみだった。
+- 生成した PNG と runtime log は local validation artifact とし、commit しない。
+
 このログは、stochastic Hybrid Reflectionで残る移動edge flickerの診断、制御された検証、限定的な安定化作業を記録する。信号とhistoryの規範的semanticsは[Hybrid Reflection Contracts](hybrid-reflection-contracts.md)に維持する。
 
 ## 2026-08-12: フェーズ開始

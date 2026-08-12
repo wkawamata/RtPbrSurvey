@@ -48,3 +48,11 @@ Out of scope:
 - If stochastic hit/miss transitions dominate, evaluate reflection-specific evidence before spatial filtering.
 - If no single cause dominates across cases, stop after diagnosis and split follow-up work rather than combining several speculative fixes.
 - At the end of the first measured phase, reassess plan size before adding another policy.
+
+## 2026-08-12: Diagnostic Framing
+
+- Added the capture-only `-ReflectionCameraDistanceScale` option. The scale is applied once to the initial Arcball distance and remains fixed across the capture-plan timeline.
+- Use scale `0.5` for the DamagedHelmet edge-stability captures. This produces approximately twice the prior linear image size without changing interactive or non-capture camera defaults.
+- Captured the three stochastic-plan checkpoints with variant `edgezoom`; the helmet remained inside the frame at mid-motion, reversal, and settling.
+- Debug x64 build succeeded with zero errors. The automated run reported no D3D12 errors and retained two pre-existing committed-buffer initial-state warnings.
+- Generated PNG files and the runtime log remain local validation artifacts and are not committed.

@@ -149,6 +149,7 @@ private:
     UINT64 m_automationFrameCounter = 0;
     bool m_automationScreenshotRequested = false;
     float m_automationOrbitStartYaw = 0.0f;
+    float m_automationOrbitDistance = 5.0f;
     Platform::ReflectionCapturePlan m_reflectionCapturePlan;
     size_t m_nextReflectionCaptureIndex = 0;
     size_t m_completedReflectionCaptureCount = 0;

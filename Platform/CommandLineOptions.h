@@ -40,6 +40,7 @@ struct CommandLineOptions
     bool exitAfterCapture = false;
     bool captureReflectionResolvedRadiance = false;
     bool reflectionStochasticSampling = false;
+    float reflectionCameraDistanceScale = 1.0f;
     bool hasReflectionTemporalWeight = false;
     float reflectionTemporalWeight = 0.0f;
     float reflectionOrbitDegrees = 0.0f;
