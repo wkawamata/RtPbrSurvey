@@ -4,14 +4,17 @@ param(
     [int]$Port = 8765,
     [switch]$SkipBuild,
     [switch]$SkipCapture,
-    [switch]$NoBrowser
+    [switch]$NoBrowser,
+    [switch]$StochasticSampling
 )
 
 $ErrorActionPreference = 'Stop'
 $validationRoot = $PSScriptRoot
 $repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $validationRoot '..\..\..')).Path
-$planPath = Join-Path $validationRoot 'capture-plan.json'
-$suiteTemplatePath = Join-Path $validationRoot 'suite.json'
+$planFileName = if ($StochasticSampling) { 'capture-plan-stochastic.json' } else { 'capture-plan.json' }
+$suiteFileName = if ($StochasticSampling) { 'suite-stochastic.json' } else { 'suite.json' }
+$planPath = Join-Path $validationRoot $planFileName
+$suiteTemplatePath = Join-Path $validationRoot $suiteFileName
 $currentSuitePath = Join-Path $validationRoot 'current-suite.json'
 $reportsDirectory = Join-Path $validationRoot 'reports'
 $serverStatePath = Join-Path $reportsDirectory 'server-state.json'
@@ -36,8 +39,12 @@ function Invoke-CaptureVariant
         '-ReflectionCapturePlan', $planPath,
         '-ReflectionCaptureVariant', $Variant,
         '-ReflectionTemporalWeight', $HistoryWeight.ToString([Globalization.CultureInfo]::InvariantCulture),
-        '-ReflectionTemporalNoiseStrength', '0.5'
+        '-ReflectionTemporalNoiseStrength', $(if ($StochasticSampling) { '0.0' } else { '0.5' })
     )
+    if ($StochasticSampling)
+    {
+        $arguments += '-ReflectionStochasticSampling'
+    }
     $process = Start-Process -FilePath $executablePath -ArgumentList $arguments -PassThru -WindowStyle Hidden
     Wait-Process -Id $process.Id -Timeout 180
     $process.Refresh()
@@ -199,7 +206,7 @@ Assert-CaptureOutputs -Plan $plan
 
 $suite.capture.commit = (& git rev-parse HEAD).Trim()
 $suite.capture | Add-Member -NotePropertyName 'capturedAtUtc' -NotePropertyValue ([DateTime]::UtcNow.ToString('o')) -Force
-$suite.capture | Add-Member -NotePropertyName 'capturePlan' -NotePropertyValue 'capture-plan.json' -Force
+$suite.capture | Add-Member -NotePropertyName 'capturePlan' -NotePropertyValue $planFileName -Force
 $suite.capture | Add-Member -NotePropertyName 'capturePlanSha256' `
     -NotePropertyValue ((Get-FileHash -LiteralPath $planPath -Algorithm SHA256).Hash.ToLowerInvariant()) -Force
 $suite.capture | Add-Member -NotePropertyName 'workingTreeDirty' `

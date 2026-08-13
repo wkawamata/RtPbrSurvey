@@ -166,6 +166,7 @@ void RtPbrSurveyApp::OnInit()
             RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
                 m_sceneRenderer.GetHybridReflectionSettings();
             reflectionSettings.enabled = true;
+            reflectionSettings.stochasticSamplingEnabled = m_commandLineOptions.reflectionStochasticSampling;
             if (m_commandLineOptions.hasReflectionTemporalWeight)
             {
                 reflectionSettings.temporalHistoryWeight =

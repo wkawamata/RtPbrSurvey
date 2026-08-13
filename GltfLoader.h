@@ -3,6 +3,7 @@
 
 #include <DirectXMath.h>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -50,3 +51,61 @@ struct GltfMeshData
 };
 
 bool LoadGltfMesh(const std::string& path, GltfMeshData& outMesh);
+
+namespace Engine
+{
+
+struct GltfSceneAssetLoadResult;
+class SceneBuilder;
+
+enum class GltfNodeMeshStatus
+{
+    Success,
+    InvalidAsset,
+    NodeNotFound,
+    DuplicateNodeName,
+    MeshConversionFailed,
+};
+
+class GltfSceneAsset
+{
+public:
+    GltfSceneAsset() = default;
+
+    bool IsValid() const;
+
+private:
+    struct Impl;
+    explicit GltfSceneAsset(std::shared_ptr<const Impl> impl);
+    GltfNodeMeshStatus ExtractNodeMesh(const std::string& nodeName, GltfMeshData& outMesh, std::string& message) const;
+
+    std::shared_ptr<const Impl> m_impl;
+
+    friend GltfSceneAssetLoadResult LoadGltfSceneAsset(const std::string& path);
+    friend std::vector<std::string> GetGltfMeshNodeNames(const GltfSceneAsset& asset);
+    friend class SceneBuilder;
+};
+
+enum class GltfSceneAssetLoadStatus
+{
+    Success,
+    FileLoadFailed,
+    NoMeshes,
+};
+
+struct GltfSceneAssetLoadResult
+{
+    GltfSceneAssetLoadStatus status = GltfSceneAssetLoadStatus::FileLoadFailed;
+    GltfSceneAsset asset;
+    std::string message;
+
+    explicit operator bool() const
+    {
+        return status == GltfSceneAssetLoadStatus::Success;
+    }
+};
+
+GltfSceneAssetLoadResult LoadGltfSceneAsset(const std::string& path);
+std::vector<std::string> GetGltfMeshNodeNames(const GltfSceneAsset& asset);
+
+} // namespace Engine

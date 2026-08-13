@@ -17,6 +17,7 @@ void RtPbrSurveyEngine::BuildRenderPasses()
 {
     m_temporalUpscalerOutputAvailable = false;
     m_reflectionHistoryCommitPending = false;
+    m_reflectionSamplingCommitPending = false;
     m_renderGraphRuntime.Graph().Clear();
     m_renderGraphRuntime.Operations().Clear();
 
@@ -366,6 +367,7 @@ auto RtPbrSurveyEngine::MakeReflectionEvaluatePass() -> RenderPass
         .Descriptor(RootSignatureLayout::ReflectionRayMaterial, Desc::ReflectionRayMaterialSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayEmission, Desc::ReflectionRayEmissionSrv)
         .Descriptor(RootSignatureLayout::LightConstants, Desc::LightCbv)
+        .Constants(RootSignatureLayout::ReflectionSamplingConstants, ConstName::ReflectionSampling)
         .Rtv(RtvName::ReflectionEvaluatedRadiance)
         .Operation(Op::ReflectionEvaluate, &RtPbrSurveyEngine::ExecuteReflectionEvaluatePass)
         .Build();

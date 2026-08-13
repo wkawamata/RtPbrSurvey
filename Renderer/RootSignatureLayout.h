@@ -43,6 +43,8 @@ enum RootParameterIndex
 
     TemporalReflectionConstants,
 
+    ReflectionSamplingConstants,
+
     SceneDrawConstants,
 
     Count
@@ -88,6 +90,10 @@ static constexpr uint32_t kSceneDrawConstantsCount = 1;
 static constexpr uint32_t kTemporalReflectionConstantsRegister = 5;
 static constexpr uint32_t kTemporalReflectionConstantsSpace = 0;
 static constexpr uint32_t kTemporalReflectionConstantsCount = 4;
+
+static constexpr uint32_t kReflectionSamplingConstantsRegister = 6;
+static constexpr uint32_t kReflectionSamplingConstantsSpace = 0;
+static constexpr uint32_t kReflectionSamplingConstantsCount = 2;
 
 // Static texture sampler.
 static constexpr uint32_t kStaticSamplerRegister = 0;

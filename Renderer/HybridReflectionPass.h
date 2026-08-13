@@ -24,6 +24,8 @@ struct HybridReflectionPassDesc
     float rayTMax = 10000.0f;
     float maxRoughness = 1.0f;
     float minMetallic = 0.0f;
+    UINT stochasticSamplingEnabled = 0;
+    UINT samplingFrameIndex = 0;
     D3D12_GPU_VIRTUAL_ADDRESS vertexBufferSrv = 0;
     D3D12_GPU_VIRTUAL_ADDRESS indexBufferSrv = 0;
     D3D12_GPU_VIRTUAL_ADDRESS instanceBufferSrv = 0;

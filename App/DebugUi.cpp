@@ -645,6 +645,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Contribution Max Distance", &reflectionSettings.contributionMaxDistance, 0.1f, 100.0f, 0.5f, 20.0f);
         ImGui::EndDisabled();
+        changed |= ImGui::Checkbox("Stochastic Rough Sampling", &reflectionSettings.stochasticSamplingEnabled);
+        ImGui::TextWrapped("Experimental default-off visible-surface rough reflection sampling.");
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Temporal History Weight", &reflectionSettings.temporalHistoryWeight, 0.0f, 0.98f, 0.05f, 0.0f);
         changed |= ImGuiWidgets::SliderFloatWithControls(

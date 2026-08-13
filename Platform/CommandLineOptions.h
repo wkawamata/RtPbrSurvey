@@ -39,6 +39,7 @@ struct CommandLineOptions
     UINT captureAfterFrames = 0;
     bool exitAfterCapture = false;
     bool captureReflectionResolvedRadiance = false;
+    bool reflectionStochasticSampling = false;
     bool hasReflectionTemporalWeight = false;
     float reflectionTemporalWeight = 0.0f;
     float reflectionOrbitDegrees = 0.0f;
