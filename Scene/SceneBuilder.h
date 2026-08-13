@@ -11,6 +11,18 @@
 namespace Engine
 {
 
+struct GltfNodeMeshAddResult
+{
+    GltfNodeMeshStatus status = GltfNodeMeshStatus::InvalidAsset;
+    std::optional<SceneMeshId> meshId;
+    std::string message;
+
+    explicit operator bool() const
+    {
+        return status == GltfNodeMeshStatus::Success;
+    }
+};
+
 class SceneBuilder
 {
 public:
@@ -24,6 +36,7 @@ public:
     void Clear();
     bool LoadGltfMesh(const std::string& path);
     std::optional<SceneMeshId> AddGltfMesh(const std::string& path);
+    GltfNodeMeshAddResult AddGltfNodeMesh(const GltfSceneAsset& asset, const std::string& nodeName);
     void SetMesh(SceneMesh mesh);
 
     uint32_t AddMaterial(const SceneMaterial& material);
@@ -57,6 +70,7 @@ public:
     void AppendSphere(float radius, int stackCount, int sliceCount, uint32_t materialId);
 
 private:
+    std::optional<SceneMeshId> AddGltfMeshData(GltfMeshData gltfMesh);
     SceneMeshId AddMeshRange(const SceneMesh& mesh);
     SceneMeshId EnsureDefaultMeshRange();
 

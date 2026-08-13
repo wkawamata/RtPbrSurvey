@@ -108,7 +108,30 @@ std::optional<SceneMeshId> SceneBuilder::AddGltfMesh(const std::string& path)
     {
         return std::nullopt;
     }
+    return AddGltfMeshData(std::move(gltfMesh));
+}
 
+GltfNodeMeshAddResult SceneBuilder::AddGltfNodeMesh(const GltfSceneAsset& asset, const std::string& nodeName)
+{
+    GltfNodeMeshAddResult result = {};
+    GltfMeshData gltfMesh = {};
+    result.status = asset.ExtractNodeMesh(nodeName, gltfMesh, result.message);
+    if (result.status != GltfNodeMeshStatus::Success)
+    {
+        return result;
+    }
+
+    result.meshId = AddGltfMeshData(std::move(gltfMesh));
+    if (!result.meshId)
+    {
+        result.status = GltfNodeMeshStatus::MeshConversionFailed;
+        result.message = "The extracted glTF node mesh could not be added to the scene.";
+    }
+    return result;
+}
+
+std::optional<SceneMeshId> SceneBuilder::AddGltfMeshData(GltfMeshData gltfMesh)
+{
     const uint32_t textureBase = static_cast<uint32_t>(m_mesh.textures.size());
     for (GltfTextureData& gltfTexture : gltfMesh.textures)
     {
