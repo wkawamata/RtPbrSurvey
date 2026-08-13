@@ -47,3 +47,7 @@ For live observation, use `capture-plan-stochastic-live.json`. It holds the init
 `-ReflectionCameraDistanceScale <scale>` applies one stable multiplier to the initial Arcball distance for reflection capture automation. A value of `0.5` renders DamagedHelmet at approximately twice the linear image size and is intended for edge diagnosis. The value does not alter interactive or non-capture camera defaults.
 
 `-CaptureReflectionTemporalValidity` selects the temporal-history classification view while retaining the existing resolved-radiance capture setup. The colors are black for no history, blue for reprojection outside the history image, red for depth rejection, yellow for normal rejection, and green for accepted history. The classification is stored only in resolved-radiance alpha; RGB radiance and blending semantics are unchanged.
+
+`-ReflectionRejectedPixelNeighborhood` enables a default-off diagnostic policy for A/B capture. Pixels rejected by the existing depth/normal history tests use a 3x3 current-frame radiance average restricted to neighbors with matching visible depth and normal. It does not relax history rejection and does not filter accepted-history pixels.
+
+Open `http://127.0.0.1:8765/?suite=suite-edge-stability.json` for the repeatable enlarged DamagedHelmet A/B review. A keeps the policy disabled and B enables it; both use stochastic sampling, history weight `0.9`, and camera distance scale `0.5`.

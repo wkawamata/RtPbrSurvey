@@ -20,6 +20,16 @@
 - この証拠だけでdepth/normal thresholdを緩めない。次の比較では正当なrejectを維持し、disoccluded historyを残さずreject画素を安定化できるかを調べる。
 - Debug x64 build はerror 0件で成功した。自動実行ではD3D12 errorはなく、同じ既存committed-buffer initial-state warning 2件のみだった。
 
+## 2026-08-13: Reject画素近傍補助の実験
+
+- depthまたはnormal history reject後の画素だけに、current-frame radianceの3x3平均を適用するdefault-off実験を追加した。
+- 近傍採用条件には既存のvisible-depth許容値`0.002`とvisible-normal dot閾値`0.9`を使う。history採用画素、history閾値、disocclusion判定は変更しない。
+- 実験設定を変更するとreflection historyをresetする。人工noiseも平均前に近傍sampleごとへ独立に注入する。
+- stochastic sampling有効、history weight `0.9`、拡大DamagedHelmetでA/B checkpointを撮影した。Aは実験無効、Bは実験有効である。
+- 静止画の予備確認ではBの移動frameで粒状性が減り、停止後のA/Bはほぼ同じだった。一方Bは移動中の細いhighlightもわずかに平滑化するため、自動合格とはせず主観評価を必要とする。
+- 安定性、detail維持、境界漏れ、disocclusion、停止後、輝度を確認する3case・9基準の`suite-edge-stability.json`を追加した。local evaluatorで英語・日本語表示を確認した。
+- Debug x64 buildはerror 0件で成功した。両方の自動実行でD3D12 errorはなく、同じ既存committed-buffer initial-state warning 2件のみだった。
+
 このログは、stochastic Hybrid Reflectionで残る移動edge flickerの診断、制御された検証、限定的な安定化作業を記録する。信号とhistoryの規範的semanticsは[Hybrid Reflection Contracts](hybrid-reflection-contracts.md)に維持する。
 
 ## 2026-08-12: フェーズ開始

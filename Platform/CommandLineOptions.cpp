@@ -162,6 +162,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.reflectionStochasticSampling = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionRejectedPixelNeighborhood"))
+        {
+            options.reflectionRejectedPixelNeighborhood = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-ReflectionCameraDistanceScale"))
         {
             if (i + 1 < argc)

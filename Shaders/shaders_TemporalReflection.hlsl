@@ -25,6 +25,7 @@ cbuffer TemporalReflectionConstants : register(b5)
     float g_historyWeight;
     uint g_frameIndex;
     float g_noiseStrength;
+    uint g_rejectedPixelNeighborhoodEnabled;
 };
 
 uint HashTemporalNoise(uint2 pixel, uint frameIndex)
@@ -35,6 +36,33 @@ uint HashTemporalNoise(uint2 pixel, uint frameIndex)
     value ^= value >> 15;
     value *= 0x846ca68bu;
     return value ^ (value >> 16);
+}
+
+float3 FilterRejectedCurrentRadiance(int2 pixel, float currentDepth, float3 currentNormal, uint width, uint height)
+{
+    float3 radianceSum = 0.0;
+    float weightSum = 0.0;
+    const int2 maxPixel = int2(width, height) - 1;
+    for (int y = -1; y <= 1; ++y)
+    {
+        for (int x = -1; x <= 1; ++x)
+        {
+            const int2 samplePixel = clamp(pixel + int2(x, y), int2(0, 0), maxPixel);
+            const float sampleDepth = g_visibleDepth.Load(int3(samplePixel, 0));
+            const float3 sampleNormal = normalize(g_visibleNormal.Load(int3(samplePixel, 0)).xyz);
+            if (abs(sampleDepth - currentDepth) <= 0.002 && dot(sampleNormal, currentNormal) >= 0.9)
+            {
+                const float weight = x == 0 && y == 0 ? 2.0 : 1.0;
+                float3 sampleRadiance = g_reflectionEvaluatedRadiance.Load(int3(samplePixel, 0)).rgb;
+                const float unitNoise =
+                    float(HashTemporalNoise(uint2(samplePixel), g_frameIndex)) / 4294967295.0;
+                sampleRadiance *= 1.0 + (unitNoise * 2.0 - 1.0) * g_noiseStrength;
+                radianceSum += sampleRadiance * weight;
+                weightSum += weight;
+            }
+        }
+    }
+    return weightSum > 0.0 ? radianceSum / weightSum : g_reflectionEvaluatedRadiance.Load(int3(pixel, 0)).rgb;
 }
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
@@ -57,6 +85,7 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
     current.rgb *= 1.0 + (unitNoise * 2.0 - 1.0) * g_noiseStrength;
     const float currentDepth = g_visibleDepth.Load(pixel);
     const float3 currentNormal = normalize(g_visibleNormal.Load(pixel).xyz);
+    bool historyRejected = false;
     // Alpha is diagnostic metadata only. RGB keeps the unweighted resolved-radiance contract.
     // 0.0: no history, 0.25: outside history, 0.5: depth reject, 0.75: normal reject, 1.0: accepted.
     current.a = 0.0;
@@ -84,6 +113,7 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
             const float3 previousNormal = normalize(g_reflectionHistoryNormal.Load(int3(historyPixel, 0)).xyz);
             const bool depthValid = abs(previousDepth - expectedPreviousDepth) <= 0.002;
             const bool normalValid = dot(currentNormal, previousNormal) >= 0.9;
+            historyRejected = !depthValid || !normalValid;
             if (depthValid)
             {
                 current.a = 0.75;
@@ -99,6 +129,13 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
         {
             current.a = 0.25;
         }
+    }
+    if (historyRejected && g_rejectedPixelNeighborhoodEnabled != 0)
+    {
+        uint width;
+        uint height;
+        g_reflectionEvaluatedRadiance.GetDimensions(width, height);
+        current.rgb = FilterRejectedCurrentRadiance(pixel.xy, currentDepth, currentNormal, width, height);
     }
     TemporalReflectionOutput output;
     output.radiance = current;

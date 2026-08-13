@@ -224,6 +224,7 @@ public:
         bool stochasticSamplingEnabled = false;
         float temporalHistoryWeight = 0.0f;
         float temporalNoiseStrength = 0.0f;
+        bool rejectedPixelNeighborhoodEnabled = false;
     };
 
     struct SpecularDebugLineSettings

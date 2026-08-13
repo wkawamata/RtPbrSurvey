@@ -41,6 +41,7 @@ struct CommandLineOptions
     bool captureReflectionResolvedRadiance = false;
     bool captureReflectionTemporalValidity = false;
     bool reflectionStochasticSampling = false;
+    bool reflectionRejectedPixelNeighborhood = false;
     float reflectionCameraDistanceScale = 1.0f;
     bool hasReflectionTemporalWeight = false;
     float reflectionTemporalWeight = 0.0f;

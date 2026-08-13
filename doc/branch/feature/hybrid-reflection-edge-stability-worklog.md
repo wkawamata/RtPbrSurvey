@@ -66,3 +66,13 @@ Out of scope:
 - The settling checkpoint returned to history acceptance across the image. This argues against persistent invalid history and points to valid motion-time rejection exposing the noisy current sample as the leading cause for the observed edge flicker.
 - Do not loosen depth or normal thresholds from this evidence alone. The next comparison should preserve valid rejection and test whether rejected pixels can be stabilized without retaining disoccluded history.
 - Debug x64 build succeeded with zero errors. The automated run reported no D3D12 errors and the same two pre-existing committed-buffer initial-state warnings.
+
+## 2026-08-13: Rejected-Pixel Neighborhood Experiment
+
+- Added a default-off experiment that applies a 3x3 current-frame radiance average only after depth or normal history rejection.
+- Neighbor eligibility uses the existing visible-depth tolerance `0.002` and visible-normal dot threshold `0.9`. Accepted-history pixels, history thresholds, and disocclusion decisions are unchanged.
+- Changing the experiment setting invalidates reflection history. Synthetic noise remains injected independently per neighborhood sample before averaging.
+- Captured enlarged DamagedHelmet A/B checkpoints with stochastic sampling enabled and history weight `0.9`: A disables the experiment and B enables it.
+- Preliminary still inspection shows less moving-frame grain in B and nearly identical A/B settling frames. B also slightly smooths fine moving-frame highlights, so adoption requires subjective review rather than an automatic pass.
+- Added `suite-edge-stability.json` with three cases and nine criteria covering stability, detail retention, boundary leakage, disocclusion, settling, and brightness. English and Japanese rendering were verified in the local evaluator.
+- Debug x64 build succeeded with zero errors. Both automated runs reported no D3D12 errors and the same two pre-existing committed-buffer initial-state warnings.

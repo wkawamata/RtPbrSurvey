@@ -95,6 +95,8 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
     hybridReflection["contributionMaxDistance"] = settings.hybridReflection.contributionMaxDistance;
     hybridReflection["temporalHistoryWeight"] = settings.hybridReflection.temporalHistoryWeight;
     hybridReflection["temporalNoiseStrength"] = settings.hybridReflection.temporalNoiseStrength;
+    hybridReflection["rejectedPixelNeighborhoodEnabled"] =
+        settings.hybridReflection.rejectedPixelNeighborhoodEnabled;
 
     json toneMap;
     toneMap["operatorIndex"] = settings.toneMap.operatorIndex;
@@ -214,6 +216,8 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
                 reflection.value("temporalHistoryWeight", parsed.hybridReflection.temporalHistoryWeight);
             parsed.hybridReflection.temporalNoiseStrength =
                 reflection.value("temporalNoiseStrength", parsed.hybridReflection.temporalNoiseStrength);
+            parsed.hybridReflection.rejectedPixelNeighborhoodEnabled = reflection.value(
+                "rejectedPixelNeighborhoodEnabled", parsed.hybridReflection.rejectedPixelNeighborhoodEnabled);
         }
 
         if (value.contains("toneMap"))

@@ -364,6 +364,8 @@ namespace
             "Temporal History Weight", &reflectionSettings.temporalHistoryWeight, 0.0f, 0.98f, 0.05f, 0.0f);
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Temporal Debug Noise", &reflectionSettings.temporalNoiseStrength, 0.0f, 1.0f, 0.05f, 0.0f);
+        changed |= ImGui::Checkbox("Rejected Pixel Neighborhood", &reflectionSettings.rejectedPixelNeighborhoodEnabled);
+        ImGui::TextWrapped("Experimental default-off 3x3 cross-bilateral current-frame fallback for depth/normal rejected pixels.");
         ImGui::TextWrapped("Experimental motion-reprojected blend with depth/normal rejection. Debug noise is injected before history accumulation and is disabled at zero.");
 
         changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
