@@ -1,0 +1,101 @@
+{
+  "asset": { "version": "2.0" },
+  "scene": 0,
+  "scenes": [
+    { "nodes": [0, 4, 6, 7] }
+  ],
+  "nodes": [
+    { "name": "Root", "translation": [10, 0, 0], "children": [1, 2] },
+    { "name": "PartA", "translation": [1, 0, 0], "mesh": 0 },
+    { "name": "Group", "translation": [0, 2, 0], "children": [3] },
+    { "name": "PartB", "translation": [0, 0, 3], "mesh": 1 },
+    { "name": "ParentPart", "mesh": 0, "children": [5] },
+    { "name": "ChildPart", "translation": [4, 0, 0], "mesh": 1 },
+    { "name": "Repeated", "mesh": 0 },
+    { "name": "Repeated", "mesh": 1 }
+  ],
+  "meshes": [
+    {
+      "primitives": [
+        {
+          "attributes": { "POSITION": 0, "NORMAL": 1, "TEXCOORD_0": 2 },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "primitives": [
+        {
+          "attributes": { "POSITION": 0, "NORMAL": 1, "TEXCOORD_0": 2 },
+          "indices": 3,
+          "material": 1
+        }
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "pbrMetallicRoughness": {
+        "baseColorTexture": { "index": 0 },
+        "metallicFactor": 0.25,
+        "roughnessFactor": 0.75
+      }
+    },
+    {
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [0.2, 0.4, 0.6, 1.0],
+        "metallicFactor": 0.5,
+        "roughnessFactor": 0.3
+      }
+    }
+  ],
+  "textures": [
+    { "source": 0 }
+  ],
+  "images": [
+    {
+      "uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l3gH6QAAAABJRU5ErkJggg=="
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 102,
+      "uri": "data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAABAAIA"
+    }
+  ],
+  "bufferViews": [
+    { "buffer": 0, "byteOffset": 0, "byteLength": 36 },
+    { "buffer": 0, "byteOffset": 36, "byteLength": 36 },
+    { "buffer": 0, "byteOffset": 72, "byteLength": 24 },
+    { "buffer": 0, "byteOffset": 96, "byteLength": 6 }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 3,
+      "type": "VEC3",
+      "max": [1, 1, 0],
+      "min": [0, 0, 0]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 3,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 3,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 3,
+      "type": "SCALAR"
+    }
+  ]
+}

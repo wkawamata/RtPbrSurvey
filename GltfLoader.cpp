@@ -52,8 +52,10 @@ static DirectX::XMMATRIX GetNodeLocalTransform(const tinygltf::Node& node)
 
     if (node.scale.size() == 3)
     {
-        scale = XMVectorSet(
-            static_cast<float>(node.scale[0]), static_cast<float>(node.scale[1]), static_cast<float>(node.scale[2]), 0.0f);
+        scale = XMVectorSet(static_cast<float>(node.scale[0]),
+                            static_cast<float>(node.scale[1]),
+                            static_cast<float>(node.scale[2]),
+                            0.0f);
     }
 
     if (node.rotation.size() == 4)
@@ -72,7 +74,8 @@ static DirectX::XMMATRIX GetNodeLocalTransform(const tinygltf::Node& node)
                                   0.0f);
     }
 
-    return XMMatrixScalingFromVector(scale) * XMMatrixRotationQuaternion(rotation) * XMMatrixTranslationFromVector(translation);
+    return XMMatrixScalingFromVector(scale) * XMMatrixRotationQuaternion(rotation) *
+           XMMatrixTranslationFromVector(translation);
 }
 
 static bool AppendPrimitive(const tinygltf::Model& model,
@@ -228,36 +231,91 @@ static bool AppendPrimitive(const tinygltf::Model& model,
     }
     else if (prim.material != firstMaterialIndex)
     {
-        DBG_PRINT("glTF primitive material differs from first material. Current mesh path uses one material per instance.\n");
+        DBG_PRINT(
+            "glTF primitive material differs from first material. Current mesh path uses one material per instance.\n");
     }
 
     return true;
 }
 
+static bool LoadGltfModel(const std::string& path, tinygltf::Model& model, std::string& message)
+{
+    tinygltf::TinyGLTF loader;
+    std::string warn;
+    std::string error;
+    const bool isGlb = path.size() >= 4 && path.substr(path.size() - 4) == ".glb";
+    const bool loaded = isGlb ? loader.LoadBinaryFromFile(&model, &error, &warn, path)
+                              : loader.LoadASCIIFromFile(&model, &error, &warn, path);
+
+    if (!warn.empty())
+    {
+        OutputDebugStringA(("glTF warning: " + warn + "\n").c_str());
+    }
+    if (!error.empty())
+    {
+        OutputDebugStringA(("glTF error: " + error + "\n").c_str());
+    }
+
+    message = !error.empty() ? error : warn;
+    return loaded;
+}
+
+static void CopyMaterialsAndTextures(const tinygltf::Model& model, GltfMeshData& outMesh)
+{
+    outMesh.materials.resize(model.materials.size());
+    for (size_t materialIndex = 0; materialIndex < model.materials.size(); materialIndex++)
+    {
+        const auto& material = model.materials[materialIndex];
+        const auto& pbr = material.pbrMetallicRoughness;
+        GltfMaterial& destination = outMesh.materials[materialIndex];
+        destination.albedoTexIndex = pbr.baseColorTexture.index;
+        destination.metallicRoughnessTexIndex = pbr.metallicRoughnessTexture.index;
+        destination.emissiveTexIndex = material.emissiveTexture.index;
+        destination.occlusionTexIndex = material.occlusionTexture.index;
+        destination.normalTexIndex = material.normalTexture.index;
+        destination.roughnessFactor = static_cast<float>(pbr.roughnessFactor);
+        destination.metallicFactor = static_cast<float>(pbr.metallicFactor);
+        destination.occlusionStrength = static_cast<float>(material.occlusionTexture.strength);
+        DBG_PRINT("model.materials[%zu].name = %s\n", materialIndex, material.name.c_str());
+        DBG_PRINT("baseColorTexture.index: %d\n", destination.albedoTexIndex);
+        DBG_PRINT("metallicRoughnessTexture.index: %d\n", destination.metallicRoughnessTexIndex);
+        DBG_PRINT("emissiveTexture.index: %d\n", destination.emissiveTexIndex);
+        DBG_PRINT("occlusionTexture.index: %d\n", destination.occlusionTexIndex);
+        DBG_PRINT("normalTexture.index: %d\n", destination.normalTexIndex);
+        for (int factorIndex = 0; factorIndex < 4; factorIndex++)
+        {
+            destination.baseColorFactor[factorIndex] = static_cast<float>(pbr.baseColorFactor[factorIndex]);
+            DBG_PRINT("baseColorFactor[%d]: %f\n", factorIndex, destination.baseColorFactor[factorIndex]);
+        }
+        DBG_PRINT("roughnessFactor: %f\n", destination.roughnessFactor);
+        DBG_PRINT("metallicFactor: %f\n", destination.metallicFactor);
+        DBG_PRINT("occlusionStrength: %f\n", destination.occlusionStrength);
+    }
+
+    outMesh.textures.reserve(model.textures.size());
+    for (const tinygltf::Texture& texture : model.textures)
+    {
+        if (texture.source < 0 || texture.source >= static_cast<int>(model.images.size()))
+        {
+            continue;
+        }
+
+        const tinygltf::Image& image = model.images[texture.source];
+        GltfTextureData destination = {};
+        DBG_PRINT("image.name = %s\n", image.name.c_str());
+        destination.width = image.width;
+        destination.height = image.height;
+        destination.component = image.component;
+        destination.pixels = image.image;
+        outMesh.textures.push_back(std::move(destination));
+    }
+}
+
 bool LoadGltfMesh(const std::string& path, GltfMeshData& outMesh)
 {
     tinygltf::Model model;
-    tinygltf::TinyGLTF loader;
-
-    std::string warn;
-    std::string err;
-
-    bool ok = false;
-
-    const bool isGlb = path.size() >= 4 && path.substr(path.size() - 4) == ".glb";
-
-    if (isGlb)
-        ok = loader.LoadBinaryFromFile(&model, &err, &warn, path);
-    else
-        ok = loader.LoadASCIIFromFile(&model, &err, &warn, path);
-
-    if (!warn.empty())
-        OutputDebugStringA(("glTF warning: " + warn + "\n").c_str());
-
-    if (!err.empty())
-        OutputDebugStringA(("glTF error: " + err + "\n").c_str());
-
-    if (!ok)
+    std::string message;
+    if (!LoadGltfModel(path, model, message))
         return false;
 
     if (model.meshes.empty())
@@ -265,7 +323,8 @@ bool LoadGltfMesh(const std::string& path, GltfMeshData& outMesh)
 
     int matIndex = -1;
     std::function<bool(int, DirectX::XMMATRIX)> appendNode;
-    appendNode = [&](int nodeIndex, DirectX::XMMATRIX parentTransform) {
+    appendNode = [&](int nodeIndex, DirectX::XMMATRIX parentTransform)
+    {
         if (nodeIndex < 0 || nodeIndex >= static_cast<int>(model.nodes.size()))
             return false;
 
@@ -319,56 +378,184 @@ bool LoadGltfMesh(const std::string& path, GltfMeshData& outMesh)
 
     DBG_PRINT("Material index: %d\n", matIndex);
 
-    if (!model.materials.empty())
+    CopyMaterialsAndTextures(model, outMesh);
+
+    return true;
+}
+
+struct Engine::GltfSceneAsset::Impl
+{
+    tinygltf::Model model;
+};
+
+static std::vector<int> GetGltfSceneRootNodes(const tinygltf::Model& model)
+{
+    const int sceneIndex = model.defaultScene >= 0 ? model.defaultScene : 0;
+    if (!model.scenes.empty() && sceneIndex >= 0 && sceneIndex < static_cast<int>(model.scenes.size()))
     {
-        outMesh.materials.resize(model.materials.size());
-        for (size_t materialIndex = 0; materialIndex < model.materials.size(); materialIndex++)
+        return model.scenes[sceneIndex].nodes;
+    }
+
+    std::vector<bool> isChild(model.nodes.size(), false);
+    for (const tinygltf::Node& node : model.nodes)
+    {
+        for (int childIndex : node.children)
         {
-            const auto& mat = model.materials[materialIndex];
-            const auto& pbr = mat.pbrMetallicRoughness;
-
-            auto& dst = outMesh.materials[materialIndex];
-
-            dst.albedoTexIndex = pbr.baseColorTexture.index;
-            dst.metallicRoughnessTexIndex = pbr.metallicRoughnessTexture.index;
-            dst.emissiveTexIndex = mat.emissiveTexture.index;
-            dst.occlusionTexIndex = mat.occlusionTexture.index;
-            dst.normalTexIndex = mat.normalTexture.index;
-            dst.roughnessFactor = static_cast<float>(pbr.roughnessFactor);
-            dst.metallicFactor = static_cast<float>(pbr.metallicFactor);
-            dst.occlusionStrength = static_cast<float>(mat.occlusionTexture.strength);
-
-            DBG_PRINT("model.materials[%zu].name = %s\n", materialIndex, mat.name.c_str());
-            DBG_PRINT("baseColorTexture.index: %d\n", dst.albedoTexIndex);
-            DBG_PRINT("metallicRoughnessTexture.index: %d\n", dst.metallicRoughnessTexIndex);
-            DBG_PRINT("emissiveTexture.index: %d\n", dst.emissiveTexIndex);
-            DBG_PRINT("occlusionTexture.index: %d\n", dst.occlusionTexIndex);
-            DBG_PRINT("normalTexture.index: %d\n", dst.normalTexIndex);
-
-            for (int i = 0; i < 4; ++i)
+            if (childIndex >= 0 && childIndex < static_cast<int>(isChild.size()))
             {
-                dst.baseColorFactor[i] = static_cast<float>(pbr.baseColorFactor[i]);
-                DBG_PRINT("baseColorFactor[%d]: %f\n", i, dst.baseColorFactor[i]);
+                isChild[childIndex] = true;
             }
-            DBG_PRINT("roughnessFactor: %f\n", dst.roughnessFactor);
-            DBG_PRINT("metallicFactor: %f\n", dst.metallicFactor);
-            DBG_PRINT("occlusionStrength: %f\n", dst.occlusionStrength);
         }
     }
 
-    for (const auto& tex : model.textures)
+    std::vector<int> roots;
+    for (size_t nodeIndex = 0; nodeIndex < model.nodes.size(); nodeIndex++)
     {
-        const tinygltf::Image& image = model.images[tex.source];
+        if (!isChild[nodeIndex])
+        {
+            roots.push_back(static_cast<int>(nodeIndex));
+        }
+    }
+    return roots;
+}
 
-        GltfTextureData dst;
-        DBG_PRINT("image.name = %s\n", image.name.c_str());
-        dst.width = image.width;
-        dst.height = image.height;
-        dst.component = image.component;
-        dst.pixels = image.image;
+Engine::GltfSceneAsset::GltfSceneAsset(std::shared_ptr<const Impl> impl) : m_impl(std::move(impl)) {}
 
-        outMesh.textures.push_back(std::move(dst));
+bool Engine::GltfSceneAsset::IsValid() const
+{
+    return m_impl != nullptr;
+}
+
+Engine::GltfSceneAssetLoadResult Engine::LoadGltfSceneAsset(const std::string& path)
+{
+    GltfSceneAssetLoadResult result = {};
+    auto impl = std::make_shared<GltfSceneAsset::Impl>();
+    if (!LoadGltfModel(path, impl->model, result.message))
+    {
+        result.status = GltfSceneAssetLoadStatus::FileLoadFailed;
+        return result;
+    }
+    if (impl->model.meshes.empty())
+    {
+        result.status = GltfSceneAssetLoadStatus::NoMeshes;
+        result.message = "The glTF asset contains no meshes.";
+        return result;
     }
 
-    return true;
+    result.status = GltfSceneAssetLoadStatus::Success;
+    result.asset = GltfSceneAsset(std::move(impl));
+    result.message.clear();
+    return result;
+}
+
+std::vector<std::string> Engine::GetGltfMeshNodeNames(const GltfSceneAsset& asset)
+{
+    std::vector<std::string> names;
+    if (!asset.m_impl)
+    {
+        return names;
+    }
+
+    const tinygltf::Model& model = asset.m_impl->model;
+    std::function<void(int)> appendNames;
+    appendNames = [&](int nodeIndex)
+    {
+        if (nodeIndex < 0 || nodeIndex >= static_cast<int>(model.nodes.size()))
+        {
+            return;
+        }
+
+        const tinygltf::Node& node = model.nodes[nodeIndex];
+        if (node.mesh >= 0 && !node.name.empty())
+        {
+            names.push_back(node.name);
+        }
+        for (int childIndex : node.children)
+        {
+            appendNames(childIndex);
+        }
+    };
+
+    for (int rootNodeIndex : GetGltfSceneRootNodes(model))
+    {
+        appendNames(rootNodeIndex);
+    }
+    return names;
+}
+
+Engine::GltfNodeMeshStatus
+Engine::GltfSceneAsset::ExtractNodeMesh(const std::string& nodeName, GltfMeshData& outMesh, std::string& message) const
+{
+    outMesh = {};
+    message.clear();
+    if (!m_impl)
+    {
+        message = "The glTF scene asset is invalid.";
+        return GltfNodeMeshStatus::InvalidAsset;
+    }
+
+    const tinygltf::Model& model = m_impl->model;
+    int matchCount = 0;
+    bool conversionSucceeded = true;
+    int firstMaterialIndex = -1;
+    std::function<void(int, DirectX::XMMATRIX)> findNode;
+    findNode = [&](int nodeIndex, DirectX::XMMATRIX parentTransform)
+    {
+        if (nodeIndex < 0 || nodeIndex >= static_cast<int>(model.nodes.size()))
+        {
+            conversionSucceeded = false;
+            return;
+        }
+
+        const tinygltf::Node& node = model.nodes[nodeIndex];
+        const DirectX::XMMATRIX nodeTransform = GetNodeLocalTransform(node) * parentTransform;
+        if (node.mesh >= 0 && node.name == nodeName)
+        {
+            matchCount++;
+            if (matchCount == 1 && node.mesh < static_cast<int>(model.meshes.size()))
+            {
+                const tinygltf::Mesh& mesh = model.meshes[node.mesh];
+                for (const tinygltf::Primitive& primitive : mesh.primitives)
+                {
+                    if (!AppendPrimitive(model, primitive, nodeTransform, outMesh, firstMaterialIndex))
+                    {
+                        conversionSucceeded = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        for (int childIndex : node.children)
+        {
+            findNode(childIndex, nodeTransform);
+        }
+    };
+
+    for (int rootNodeIndex : GetGltfSceneRootNodes(model))
+    {
+        findNode(rootNodeIndex, DirectX::XMMatrixIdentity());
+    }
+
+    if (matchCount == 0)
+    {
+        message = "No mesh node named '" + nodeName + "' exists in the default glTF scene.";
+        return GltfNodeMeshStatus::NodeNotFound;
+    }
+    if (matchCount > 1)
+    {
+        outMesh = {};
+        message = "More than one mesh node is named '" + nodeName + "' in the default glTF scene.";
+        return GltfNodeMeshStatus::DuplicateNodeName;
+    }
+    if (!conversionSucceeded || outMesh.vertices.empty() || outMesh.indices.empty())
+    {
+        outMesh = {};
+        message = "The mesh node named '" + nodeName + "' could not be converted.";
+        return GltfNodeMeshStatus::MeshConversionFailed;
+    }
+
+    outMesh.materialIndex = firstMaterialIndex;
+    CopyMaterialsAndTextures(model, outMesh);
+    return GltfNodeMeshStatus::Success;
 }
