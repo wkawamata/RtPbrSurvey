@@ -100,3 +100,16 @@ This log records diagnosis of persistent surface-wide stochastic variance in sel
 
 - Keep the experiment implemented and default-off. It passes the static-region objective and subjective gates, but this phase has not yet established motion/disocclusion behavior strongly enough to enable it by default.
 - Do not stack another estimator or widen the filter in this phase. The next gate is a matched motion/reversal A/B check using this one experiment.
+
+## 2026-08-15: Interactive Resolved-Radiance Review
+
+- The user reviewed `ReflectionResolvedRadiance` interactively in the executable, rather than relying only on the HTML still captures.
+- At history weight `0.9`, static noise was visibly reduced. Enabling `Surface Variance Filter` further reduced static noise on the reported noisy material regions.
+- Static viewing and motion reversal showed no objectionable problem in this review.
+- With a strong history weight, rotating the object exposed approximately one second of delayed reflection updating. The user identified this as a visible tradeoff between static noise reduction and dynamic response.
+
+### Updated Decision
+
+- Treat object-rotation latency as a separate dynamic-history-validity problem, not as evidence that the static surface filter failed. The filter operates on the current sample before temporal blending and does not itself retain prior frames.
+- Do not enable the filter or history setting globally based on static results alone. The next measurement should quantify object-rotation response and determine whether stale history remains accepted during object motion.
+- Avoid immediately lowering history weight or weakening all history. First distinguish the expected exponential response from missing or insufficient object-motion rejection.

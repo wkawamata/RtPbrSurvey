@@ -100,3 +100,16 @@
 
 - 実験実装は残し、default-offを維持する。静止領域の客観・主観gateには合格したが、このphaseではmotion/disocclusion挙動をdefault有効化に十分な強さで確認していない。
 - このphaseで別estimatorを積み重ねたりfilterを広げたりしない。次のgateは、この1実験だけを使った同一条件のmotion/reversal A/B確認とする。
+
+## 2026-08-15: Resolved Radianceのinteractive確認
+
+- HTMLの静止captureだけでなく、EXEの`ReflectionResolvedRadiance`をuserがinteractiveに確認した。
+- history weight `0.9`で静止noiseが低減した。`Surface Variance Filter`を有効にすると、指摘されたnoisy material領域の静止noiseがさらに低減した。
+- 今回の確認では、静止表示とmotion反転に問題は見られなかった。
+- 強いhistory weightでは、object回転時にreflection更新が約1秒遅れることを確認した。userはこれを静止noise低減とdynamic responseの目に見えるtradeoffとして指摘した。
+
+### 更新判断
+
+- object回転時の遅延は、静止surface filterの失敗ではなく、独立したdynamic history validity問題として扱う。filterはtemporal blend前のcurrent sampleだけを処理し、過去frameを保持しない。
+- 静止結果だけでfilterまたはhistory設定をglobal defaultへ昇格しない。次はobject回転responseを定量化し、object motion中に古いhistoryがacceptedのままか確認する。
+- 直ちにhistory weightを下げたりhistory全体を弱めたりしない。期待される指数応答と、object-motion rejection不足を先に分離する。
