@@ -85,6 +85,20 @@ Document では repository が所有する ID と型を使用する。
 
 最初の code change は library-free、read-only の範囲に限定する。
 
+### 実装状況
+
+初期実装として `Engine/FrameGraph/RenderGraphDocument.h/.cpp` を追加した。
+
+- `RenderGraphDocument` が pass/resource node、pin、link を repository-owned ID とともに保持する。
+- `BuildRenderGraphDocument()` が現在の ordered pass list から document を生成する。
+- Resource metadata map を介して transient/persistent classification を付加できる。
+- `DumpRenderGraphDocumentText()` が pass 順の deterministic text dump を生成する。
+- `DumpRenderGraphDocumentDot()` が read/write direction と resource state を含む deterministic DOT を生成する。
+- `FormatD3D12ResourceStates()` が symbolic state name と未知 flag の hexadecimal fallback を提供する。
+- `Tests/RenderGraphDocumentTests.cpp` が topology、ID uniqueness、deterministic output、state formatting を検証する。
+
+この段階では engine runtime や Debug UI への entry point は追加していない。次の段階では、resource registry から metadata を組み立て、構築済み runtime graph を document builder に渡す integration point を決める。
+
 ### Diagnostic snapshot
 
 `BuildRenderPasses()` と validation の後に graph を取得する。Mutable な runtime object を外部公開せず、安定した diagnostic record を生成する。
@@ -144,7 +158,9 @@ Library-free 版を実装する場合は、repository 所有の C++ file だけ�
 
 ## Validation
 
-Build は省略した。この変更は documentation のみであり、source、project、dependency、runtime の変更を含まない。
+- Debug x64 の `RtPbrSurvey.vcxproj` build：成功。既存 vcpkg target の duplicate import warning が 1 件、compile/link error は 0 件。
+- `RenderGraphDocumentTests` の単独 build と実行：成功、exit code 0。
+- 通常の CMake test configure：`tinygltf v3.0.0` の upstream download hash 不一致により停止。RenderGraph code の compile 前に dependency restore で失敗しているため、代わりに repository の既存 local dependency を使う一時 MSBuild project で同じ test source を compile/run した。一時 project と build output は `build/` 以下にあり、commit 対象外。
 
 ## 参照先
 

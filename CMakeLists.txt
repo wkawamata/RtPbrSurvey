@@ -56,6 +56,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     WorkMeter.cpp
     Camera/DebugCameraController.cpp
     Engine/Rhi/Dx12/GraphicsDevice.cpp
+    Engine/FrameGraph/RenderGraphDocument.cpp
     Engine/RtPbrSurveyEngine.cpp
     Engine/RtPbrSurveyEnginePasses.cpp
     Platform/CommandLineOptions.cpp
@@ -277,6 +278,14 @@ endif()
 
 if(RTPBRSURVEY_BUILD_TESTS)
     enable_testing()
+    add_executable(RtPbrSurvey.RenderGraphDocumentTests
+        Tests/RenderGraphDocumentTests.cpp)
+    target_link_libraries(RtPbrSurvey.RenderGraphDocumentTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.RenderGraphDocumentTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.RenderGraphDocument COMMAND RtPbrSurvey.RenderGraphDocumentTests)
+
     add_executable(RtPbrSurvey.SceneRendererSettingsTests
         Tests/SceneRendererSettingsTests.cpp)
     target_link_libraries(RtPbrSurvey.SceneRendererSettingsTests PRIVATE RtPbrSurvey::SceneRenderer)
