@@ -70,3 +70,18 @@
 - 現在のrejection thresholdとdefault-offの近傍policyは変更しない。
 - 今後のsamplingまたはfiltering実験では、確認済みの2 ROIを独立したacceptance metricとして使用する。
 - policy追加前の次の診断では、history weightまたは停止後経過frameに対する収束を比較する。これによりhistory長不足と、別のestimatorまたはspatial情報を必要とするvarianceを分離する。
+
+## 2026-08-14: History weightの収束比較
+
+- 同じ固定cameraの8-frame seriesをresolved history weight `0.0`、`0.5`、`0.98`で撮影し、既存の`0.9` seriesとevaluated-radiance referenceを再利用した。
+- `0.0`の8枚は、対応するevaluated-radiance PNGとすべてbyte単位で一致した。history weight zeroが表示結果を変えず、現在のevaluated sampleを選択することを確認した。
+- `Measure-HistoryWeightConvergence.ps1`を追加した。全series deviation、frame 195-225のearly window、frame 270-300のlate window、およびearlyからlateへのmean displayed-luminance driftを出力する。
+- `rearward_surface`の全series deviation: evaluated/`w0`は`0.04266`、`w50`は`0.02282`、`w90`は`0.00964`、`w98`は`0.01068`。late-window deviationは`w90`で`0.00663`、`w98`で`0.00267`となった。
+- `underside_pipes`の全series deviation: evaluated/`w0`は`0.03113`、`w50`は`0.01904`、`w90`は`0.00825`、`w98`は`0.00846`。late-window deviationは`w90`で`0.00602`、`w98`で`0.00221`となった。
+- `w98`はlate-window varianceが最小だが、earlyからlateへのluminance driftが大きい。`rearward_surface`で`-0.00829`、`underside_pipes`で`-0.00438`であり、`w90`の`-0.00192`、`-0.00062`より大きい。
+
+### 判断
+
+- default history weightを`0.98`へ上げない。late variance低下と引き換えに測定可能な遅いsettlingがあり、確認済み2領域の全series varianceも`0.9`よりわずかに悪い。
+- 現在のvalidation設定は`0.9`を維持する。今回測定した範囲で最も良いbalanceという意味であり、最終production policyの宣言ではない。
+- `0.9`のlate windowにもvarianceが残るため、historyをさらに延ばすだけより、後続の限定的なestimatorまたはspatial情報実験を支持する。

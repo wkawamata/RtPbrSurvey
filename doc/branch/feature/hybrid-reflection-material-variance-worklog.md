@@ -70,3 +70,18 @@ This log records diagnosis of persistent surface-wide stochastic variance in sel
 - Keep current rejection thresholds and default-off neighborhood policy unchanged.
 - Use the two confirmed ROIs as independent acceptance metrics for later sampling or filtering experiments.
 - Before adding a policy, the next diagnostic should compare convergence versus history weight or elapsed settled frames. This distinguishes insufficient history length from variance that requires a different estimator or spatial information.
+
+## 2026-08-14: History-Weight Convergence
+
+- Captured the same fixed-camera eight-frame series with resolved history weights `0.0`, `0.5`, and `0.98`; reused the existing `0.9` series and evaluated-radiance reference.
+- All eight `0.0` PNG files are byte-identical to their evaluated-radiance counterparts. This confirms that zero history weight selects the current evaluated sample without altering the displayed result.
+- Added `Measure-HistoryWeightConvergence.ps1`. It reports full-series deviation, early-window deviation at frames 195-225, late-window deviation at frames 270-300, and early-to-late mean displayed-luminance drift.
+- `rearward_surface` full-series deviation: evaluated/`w0` `0.04266`, `w50` `0.02282`, `w90` `0.00964`, `w98` `0.01068`. Late-window deviation reaches `0.00663` at `w90` and `0.00267` at `w98`.
+- `underside_pipes` full-series deviation: evaluated/`w0` `0.03113`, `w50` `0.01904`, `w90` `0.00825`, `w98` `0.00846`. Late-window deviation reaches `0.00602` at `w90` and `0.00221` at `w98`.
+- `w98` has the lowest late-window variance but larger early-to-late luminance drift: `-0.00829` for `rearward_surface` and `-0.00438` for `underside_pipes`, compared with `-0.00192` and `-0.00062` at `w90`.
+
+### Decision
+
+- Do not raise the default history weight to `0.98`. Its lower late variance is paired with measurable slow settling, and its full-series variance is slightly worse than `0.9` in both confirmed regions.
+- Retain `0.9` as the current validation setting. It is the best balance measured here, not a declaration that `0.9` is the final production policy.
+- The remaining late-window variance at `0.9` supports a later bounded estimator or spatial-information experiment more than simply extending history further.
