@@ -171,7 +171,8 @@ Library-free 版を実装する場合は、repository 所有の C++ file だけ�
 - Runtime/Debug UI integration 後の `RenderGraphDocumentTests` 再実行：成功、exit code 0。
 - Vendored `imgui-node-editor` と read-only node view を含む Debug x64 build：成功。既存 warning 1 件、compile/link error は 0 件。
 - Node view integration 後の `RenderGraphDocumentTests` 再実行：成功、exit code 0。
-- Visual runtime check：Computer Use の app approval timeout により未実施。
+- CLI runtime check：`-AutoSelectGltfDamagedHelmet -CaptureAfterFrames 30 -ExitAfterCapture` で正常終了し、exit code 0 と PNG capture の生成を確認した。Debug Layer log には buffer の initial state が無視される既存 warning が 2 件あり、`[ERROR]` は 0 件。
+- Node view の visual runtime check：アプリケーションの初期画面表示までは確認したが、Computer Use が対象 window を失ったため `Nodes` canvas 自体は未確認。
 - 通常の CMake test configure：`tinygltf v3.0.0` の upstream download hash 不一致により停止。RenderGraph code の compile 前に dependency restore で失敗しているため、代わりに repository の既存 local dependency を使う一時 MSBuild project で同じ test source を compile/run した。一時 project と build output は `build/` 以下にあり、commit 対象外。
 
 ## 参照先
