@@ -98,6 +98,8 @@ Ray TMin = 0.001
 
 Pause は現在の accumulated animation time を止めるだけにする。回転項に pause 用 speed を掛けてはいけない。
 
+`Space`はscene animationのplay/pauseを切り替える。renderer全体のframe pauseは`P`、renderer全体のpause中に`F`で1 frame進める。これらの操作は分離する。scene-animation toggleをframe pauseで置き換えると`m_isPlaying`がfalseのままになり、animated validation sceneを開始できない。
+
 問題のある形:
 
 ```cpp
@@ -134,3 +136,15 @@ const float rotY = m_accumTime * rotSpeed + phase;
 - CTest: 9/9 成功。
 - Debug executable: 6秒間正常に起動を継続し、D3D12 warning / error は0件。
 - 4シーンの目視比較: GPU環境依存の手動 acceptance として残す。
+
+最新`main`取り込み後の2026-08-15検証結果:
+
+- MSBuild Debug x64と対象HLSL custom build: 0 errorsで成功し、既知のvcpkg重複import warningだけ発生した。
+- 手動gateで回帰を検出した。後続のtemporal-input validation変更が`Space`を`m_isPlaying`からrenderer全体のframe pauseへ割り当て直していたため、`Animated Shadow Grid`を開始できなかった。このbranchで`Space`をscene-animation play/pauseへ戻し、renderer全体のframe pauseを`P`へ移した。pause中の1-frame stepは`F`のままである。
+- `Shadow Test: Ground + Cubes`: **PASS WITH LIMITATION**。ShadowMask、Lit、TlasDebugを確認した。shadow方向、coverage、soft edgeは確認可能だが、grayの床とCubeでhighlight側contrastが不足し、上面境界とacneの判定が弱い。
+- `Shadow Test: Animated Shadow Grid`: input修正後に**PASS**。animation開始/停止、Cube motion、shadow/TLAS追従、snapのないpause/resume、camera stabilityを確認した。
+- `Shadow Test: Contact Shadow Test`: **PASS**。contact continuity、detachment、acne、camera stabilityを確認した。
+- `Shadow Test: Occluder Wall Test`: **PASS**。blocker coverage、Lit/ShadowMask方向、wall/receiver配置、view-angle stabilityを確認した。
+- 手動確認時のDebug Layer logは0 errorsだった。同じ既知のcommitted-buffer initial-state warningが6件あり、新規warning typeはなかった。
+
+最終scope判断: Ground + Cubesのcontrast制限を明記したうえで、文書化したRayQuery shadow確認用suiteとして受け入れる。すべてのviewまたはmaterial配置が将来の全shadow-quality測定に最適だとは主張しない。

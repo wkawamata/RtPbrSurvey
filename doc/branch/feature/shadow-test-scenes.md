@@ -93,6 +93,8 @@ Ray TMin = 0.001
 
 Pausing should freeze the current accumulated animation time. Do not multiply the rotation term by a pause speed value.
 
+`Space` toggles scene animation play/pause. Renderer-wide frame pause uses `P`, and `F` advances one frame while renderer-wide pause is active. Keep these controls separate: replacing the scene-animation toggle with frame pause leaves `m_isPlaying` false and prevents animated validation scenes from starting.
+
 Broken pattern:
 
 ```cpp
@@ -129,3 +131,15 @@ Validation on 2026-08-11:
 - CTest: 9/9 passed.
 - Debug executable launch: remained active for six seconds; no D3D12 warning or error was recorded.
 - Visual comparison of all four scenes: remains a manual GPU-dependent acceptance step.
+
+Validation on 2026-08-15 after merging current `main`:
+
+- MSBuild Debug x64 and the affected HLSL custom builds: passed with 0 errors and the existing duplicate vcpkg import warning.
+- A regression was found in the manual gate: a later temporal-input validation change had reassigned `Space` from `m_isPlaying` to renderer-wide frame pause, so `Animated Shadow Grid` could not start. The branch restores `Space` as scene-animation play/pause and moves renderer-wide frame pause to `P`; `F` remains the paused single-frame step.
+- `Shadow Test: Ground + Cubes`: **PASS WITH LIMITATION**. ShadowMask, Lit, and TlasDebug were reviewed. Shadow direction, coverage, and soft edges were usable, but the gray floor and gray cubes have insufficient highlight-side contrast, weakening top-face and acne inspection.
+- `Shadow Test: Animated Shadow Grid`: **PASS** after the input fix. Animation start/stop, cube motion, shadow/TLAS tracking, pause/resume without snapping, and camera stability were accepted.
+- `Shadow Test: Contact Shadow Test`: **PASS**. Contact continuity, detachment, acne, and camera-stability checks were accepted.
+- `Shadow Test: Occluder Wall Test`: **PASS**. Blocker coverage, Lit/ShadowMask direction, wall/receiver placement, and view-angle stability were accepted.
+- The manual Debug Layer log contained 0 errors. It contained six occurrences of the same known committed-buffer initial-state warning and no new warning type.
+
+Final scope decision: the suite is accepted for the documented RayQuery shadow checks with the Ground + Cubes contrast limitation retained explicitly. This does not claim that every view or material arrangement is optimal for all future shadow-quality measurements.

@@ -264,6 +264,11 @@ void RtPbrSurveyApp::OnKeyDown(UINT8 key)
 
     if (m_appMode == AppMode::Running && key == VK_SPACE)
     {
+        m_isPlaying = !m_isPlaying;
+    }
+
+    if (m_appMode == AppMode::Running && key == 'P')
+    {
         m_framePaused = !m_framePaused;
         m_forwardStepRequested = false;
     }
