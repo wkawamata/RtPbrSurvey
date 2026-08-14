@@ -55,3 +55,18 @@
 
 - Debug x64 MSBuildは0 errorsで成功した。既知のvcpkg重複import warningのみ発生した。
 - 6種類の自動撮影はすべて成功した。
+
+## 2026-08-14: 固定ROIのtemporal variance
+
+- frame 195から300まで15 frame間隔で、evaluated radianceとresolved radianceを撮影した。cameraはframe 180以降固定し、stochastic samplingとtemporal history weight `0.9`は前回の診断撮影と同じである。
+- 8-frame seriesからdisplay-space luminanceのtemporal standard deviationを計算する `Measure-MaterialVariance.ps1` を追加した。これは再現可能なscreenshot症状指標であり、HDR resource自体の測定ではない。
+- 枠付き画像についてuser確認を行い、`rearward_surface`は頭頂部に隣接する後頭部寄りの指摘領域、`underside_pipes`は指摘された下面pipeを覆うことを確認した。
+- `rearward_surface`: mean temporal standard deviationはevaluatedの`0.02768`からresolvedの`0.00711`となり、`74.32%`減少した。resolved/evaluated比は`0.2568`である。
+- `underside_pipes`: mean temporal standard deviationはevaluatedの`0.03113`からresolvedの`0.00825`となり、`73.51%`減少した。resolved/evaluated比は`0.2649`である。
+- 近い減少率は、temporal accumulationが両領域で有効だが、evaluatedのdisplay-space temporal deviationのおよそ4分の1を残すという共通観察を支持する。ただしmaterialまたはsamplingの根本原因が同一である証明にはならない。
+
+### 判断
+
+- 現在のrejection thresholdとdefault-offの近傍policyは変更しない。
+- 今後のsamplingまたはfiltering実験では、確認済みの2 ROIを独立したacceptance metricとして使用する。
+- policy追加前の次の診断では、history weightまたは停止後経過frameに対する収束を比較する。これによりhistory長不足と、別のestimatorまたはspatial情報を必要とするvarianceを分離する。

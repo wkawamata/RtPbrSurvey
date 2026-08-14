@@ -50,6 +50,8 @@ For live observation, use `capture-plan-stochastic-live.json`. It holds the init
 
 `-ReflectionCaptureDebugView <name>` selects a diagnostic view while retaining the same Hybrid Reflection capture setup. Accepted names are `pbr-params`, `normal`, `hit-material`, `evaluated-radiance`, `resolved-radiance`, and `temporal-validity`. The PBR view maps metallic, roughness, and ambient occlusion to RGB. The option changes only the displayed capture resource; it does not change sampling, evaluation, or temporal policy.
 
+`capture-plan-material-variance-series.json` captures eight settled frames for either the evaluated- or resolved-radiance view. After capturing both variants, run `Measure-MaterialVariance.ps1` to reproduce the fixed-ROI display-space temporal-deviation report and annotated ROI image. The metric is intended for repeatable symptom comparison; it is not a measurement of the underlying HDR radiance buffers.
+
 `-ReflectionRejectedPixelNeighborhood` enables a default-off diagnostic policy for A/B capture. Pixels rejected by the existing depth/normal history tests use a 3x3 current-frame radiance average restricted to neighbors with matching visible depth and normal. It does not relax history rejection and does not filter accepted-history pixels.
 
 Open `http://127.0.0.1:8765/?suite=suite-edge-stability.json` for the repeatable enlarged DamagedHelmet A/B review. A keeps the policy disabled and B enables it; both use stochastic sampling, history weight `0.9`, and camera distance scale `0.5`.
