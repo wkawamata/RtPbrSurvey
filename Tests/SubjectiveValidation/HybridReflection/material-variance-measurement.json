@@ -21,25 +21,25 @@
                     {
                         "id":  "rearward_surface",
                         "rectangle":  {
-                                          "x":  840,
-                                          "y":  335,
-                                          "width":  115,
-                                          "height":  140
+                                          "x":  895,
+                                          "y":  278,
+                                          "width":  75,
+                                          "height":  85
                                       },
                         "evaluated":  {
-                                          "validPixelCount":  14927,
-                                          "meanDisplayedLuminance":  0.33186769616052975,
-                                          "meanTemporalStandardDeviation":  0.027676575331820271,
-                                          "p95TemporalStandardDeviation":  0.088926921935784373
+                                          "validPixelCount":  3389,
+                                          "meanDisplayedLuminance":  0.41305045030346155,
+                                          "meanTemporalStandardDeviation":  0.04265574691704023,
+                                          "p95TemporalStandardDeviation":  0.11969318867992747
                                       },
                         "resolved":  {
-                                         "validPixelCount":  14927,
-                                         "meanDisplayedLuminance":  0.33609652591632522,
-                                         "meanTemporalStandardDeviation":  0.0071071023232006821,
-                                         "p95TemporalStandardDeviation":  0.0184292183678042
+                                         "validPixelCount":  3389,
+                                         "meanDisplayedLuminance":  0.42304949455852042,
+                                         "meanTemporalStandardDeviation":  0.0096390117548321441,
+                                         "p95TemporalStandardDeviation":  0.024545953817053569
                                      },
-                        "resolvedToEvaluatedDeviationRatio":  0.25679124812199994,
-                        "temporalDeviationReductionPercent":  74.320875187800013
+                        "resolvedToEvaluatedDeviationRatio":  0.22597217143046969,
+                        "temporalDeviationReductionPercent":  77.402782856953039
                     },
                     {
                         "id":  "underside_pipes",

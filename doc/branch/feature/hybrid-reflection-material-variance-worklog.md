@@ -60,8 +60,8 @@ This log records diagnosis of persistent surface-wide stochastic variance in sel
 
 - Captured evaluated and resolved radiance at frames 195 through 300 in 15-frame intervals. The camera remains fixed after frame 180; stochastic sampling and temporal history weight `0.9` match the previous diagnostic capture.
 - Added `Measure-MaterialVariance.ps1` to calculate display-space luminance temporal standard deviation over the eight-frame series. This is a repeatable screenshot symptom metric, not an HDR resource measurement.
-- The user confirmed both annotated rectangles: `rearward_surface` covers the reported rearward area adjacent to the crown, and `underside_pipes` covers the reported lower pipes.
-- `rearward_surface`: mean temporal standard deviation changed from `0.02768` evaluated to `0.00711` resolved, a `74.32%` reduction. The resolved/evaluated ratio is `0.2568`.
+- The user confirmed both annotated rectangles. After the initial approximate confirmation, `rearward_surface` was reduced and moved right and upward to isolate the reported rearward area adjacent to the crown; `underside_pipes` continues to cover the reported lower pipes.
+- `rearward_surface`: mean temporal standard deviation changed from `0.04266` evaluated to `0.00964` resolved, a `77.40%` reduction. The resolved/evaluated ratio is `0.2260`.
 - `underside_pipes`: mean temporal standard deviation changed from `0.03113` evaluated to `0.00825` resolved, a `73.51%` reduction. The resolved/evaluated ratio is `0.2649`.
 - The close reduction ratios support one shared observation: temporal accumulation is effective in both regions but leaves roughly one quarter of the evaluated display-space temporal deviation. They do not prove that the underlying material or sampling cause is identical.
 

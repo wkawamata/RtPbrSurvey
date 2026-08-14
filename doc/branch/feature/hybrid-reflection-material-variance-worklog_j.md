@@ -60,8 +60,8 @@
 
 - frame 195から300まで15 frame間隔で、evaluated radianceとresolved radianceを撮影した。cameraはframe 180以降固定し、stochastic samplingとtemporal history weight `0.9`は前回の診断撮影と同じである。
 - 8-frame seriesからdisplay-space luminanceのtemporal standard deviationを計算する `Measure-MaterialVariance.ps1` を追加した。これは再現可能なscreenshot症状指標であり、HDR resource自体の測定ではない。
-- 枠付き画像についてuser確認を行い、`rearward_surface`は頭頂部に隣接する後頭部寄りの指摘領域、`underside_pipes`は指摘された下面pipeを覆うことを確認した。
-- `rearward_surface`: mean temporal standard deviationはevaluatedの`0.02768`からresolvedの`0.00711`となり、`74.32%`減少した。resolved/evaluated比は`0.2568`である。
+- 枠付き画像についてuser確認を行った。最初の概略確認後、`rearward_surface`は小さくして右上へ移動し、頭頂部に隣接する後頭部寄りの指摘領域だけへ絞った。`underside_pipes`は引き続き指摘された下面pipeを覆う。
+- `rearward_surface`: mean temporal standard deviationはevaluatedの`0.04266`からresolvedの`0.00964`となり、`77.40%`減少した。resolved/evaluated比は`0.2260`である。
 - `underside_pipes`: mean temporal standard deviationはevaluatedの`0.03113`からresolvedの`0.00825`となり、`73.51%`減少した。resolved/evaluated比は`0.2649`である。
 - 近い減少率は、temporal accumulationが両領域で有効だが、evaluatedのdisplay-space temporal deviationのおよそ4分の1を残すという共通観察を支持する。ただしmaterialまたはsamplingの根本原因が同一である証明にはならない。
 

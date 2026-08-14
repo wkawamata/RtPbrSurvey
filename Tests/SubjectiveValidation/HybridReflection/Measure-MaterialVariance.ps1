@@ -11,7 +11,7 @@ Add-Type -AssemblyName System.Drawing
 
 $frames = @(195, 210, 225, 240, 255, 270, 285, 300)
 $regions = @(
-    @{ id = "rearward_surface"; x = 840; y = 335; width = 115; height = 140 },
+    @{ id = "rearward_surface"; x = 895; y = 278; width = 75; height = 85 },
     @{ id = "underside_pipes"; x = 805; y = 585; width = 125; height = 135 }
 )
 
