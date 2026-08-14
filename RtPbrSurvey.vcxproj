@@ -194,6 +194,7 @@
     <ClInclude Include="Renderer\DebugLinePass.h" />
     <ClInclude Include="Runtime\SceneRenderer.h" />
     <ClInclude Include="Runtime\SceneRendererDebugUi.h" />
+    <ClInclude Include="Runtime\RenderGraphNodeEditorView.h" />
     <ClInclude Include="Runtime\SceneRendererSettings.h" />
     <ClInclude Include="Scene\ProceduralSceneBuilder.h" />
     <ClInclude Include="Scene\SceneBuilder.h" />
@@ -223,6 +224,12 @@
     <ClInclude Include="Shared\Screenshot.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="WorkMeter.h" />
+    <ClInclude Include="third_party\imgui-node-editor\crude_json.h" />
+    <ClInclude Include="third_party\imgui-node-editor\imgui_bezier_math.h" />
+    <ClInclude Include="third_party\imgui-node-editor\imgui_canvas.h" />
+    <ClInclude Include="third_party\imgui-node-editor\imgui_extra_math.h" />
+    <ClInclude Include="third_party\imgui-node-editor\imgui_node_editor.h" />
+    <ClInclude Include="third_party\imgui-node-editor\imgui_node_editor_internal.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CubeMesh.cpp" />
@@ -265,6 +272,7 @@
     <ClCompile Include="Renderer\DebugLinePass.cpp" />
     <ClCompile Include="Runtime\SceneRenderer.cpp" />
     <ClCompile Include="Runtime\SceneRendererDebugUi.cpp" />
+    <ClCompile Include="Runtime\RenderGraphNodeEditorView.cpp" />
     <ClCompile Include="Runtime\SceneRendererSettings.cpp" />
     <ClCompile Include="Scene\ProceduralSceneBuilder.cpp" />
     <ClCompile Include="Scene\SceneBuilder.cpp" />
@@ -285,6 +293,18 @@
     </ClCompile>
     <ClCompile Include="TiniGgltfImpl.cpp" />
     <ClCompile Include="WorkMeter.cpp" />
+    <ClCompile Include="third_party\imgui-node-editor\crude_json.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui-node-editor\imgui_canvas.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui-node-editor\imgui_node_editor.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="third_party\imgui-node-editor\imgui_node_editor_api.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shaders\shaders.hlsl">
@@ -309,6 +329,11 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\ReflectionSampling.hlsli" />
     <None Include="packages.config" />
     <None Include="vcpkg.json" />
+    <None Include="third_party\imgui-node-editor\imgui_bezier_math.inl" />
+    <None Include="third_party\imgui-node-editor\imgui_extra_math.inl" />
+    <None Include="third_party\imgui-node-editor\imgui_node_editor_internal.inl" />
+    <None Include="third_party\imgui-node-editor\LICENSE" />
+    <None Include="third_party\imgui-node-editor\README-RtPbrSurvey.md" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shaders\shaders_DepthOnlyVS.hlsl">

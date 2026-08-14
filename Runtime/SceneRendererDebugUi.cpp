@@ -14,6 +14,7 @@
 #include "Runtime/SceneRendererDebugUi.h"
 
 #include "ImGuiWidgets.h"
+#include "Runtime/RenderGraphNodeEditorView.h"
 
 #include <imgui.h>
 
@@ -571,6 +572,8 @@ namespace RtPbrSurvey
         ImGui::SameLine();
         ImGui::RadioButton("DOT", &dumpFormat, 1);
         ImGui::SameLine();
+        ImGui::RadioButton("Nodes", &dumpFormat, 2);
+        ImGui::SameLine();
         if (ImGui::Button("Copy Text"))
         {
             ImGui::SetClipboardText(textDump.c_str());
@@ -581,12 +584,20 @@ namespace RtPbrSurvey
             ImGui::SetClipboardText(dotDump.c_str());
         }
 
-        const std::string& visibleDump = dumpFormat == 0 ? textDump : dotDump;
-        if (ImGui::BeginChild("RenderGraphDump", ImVec2(0.0f, 240.0f), true, ImGuiWindowFlags_HorizontalScrollbar))
+        if (dumpFormat == 2)
         {
-            ImGui::TextUnformatted(visibleDump.c_str());
+            static RenderGraphNodeEditorView nodeEditorView;
+            nodeEditorView.Draw(document);
         }
-        ImGui::EndChild();
+        else
+        {
+            const std::string& visibleDump = dumpFormat == 0 ? textDump : dotDump;
+            if (ImGui::BeginChild("RenderGraphDump", ImVec2(0.0f, 240.0f), true, ImGuiWindowFlags_HorizontalScrollbar))
+            {
+                ImGui::TextUnformatted(visibleDump.c_str());
+            }
+            ImGui::EndChild();
+        }
     }
 
     void SceneRendererDebugUi::Draw(SceneRenderer& renderer,

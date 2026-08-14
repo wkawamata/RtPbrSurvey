@@ -17,19 +17,19 @@
 
 | 候補 | License | 統合方法と依存関係 | Maintenance 状況（2026-07-24 確認） | Build への影響 | 初期版との適合性 |
 |---|---|---|---|---|---|
-| [`imgui-node-editor` / `ax::NodeEditor`](https://github.com/thedmd/imgui-node-editor) | [MIT](https://github.com/thedmd/imgui-node-editor/blob/master/LICENSE) | Dear ImGui と C++14 が必要。upstream は root directory にある一連の source を project にコピーする方法を案内している。実用的な統合では editor implementation/API、canvas/math helper、小規模な JSON support が含まれ、単一 translation unit より導入範囲が広い。ImGui 経由で描画するため別の DX12 backend は不要だが、この repository が使用する ImGui revision との互換性確認が必要。 | GitHub 上の最新 tag release は `v0.9.3`（2023-10-14）。repository では ImGui 1.9x 対応を含む新しい compatibility PR が動いている一方、未 release の修正もあるため、既知の正常な commit への pin と upgrade test が重要。 | Vendored source と license 表示、project の compile/include entry、editor context lifecycle、安定した node/pin ID、任意の layout state 永続化、warning/ImGui compatibility check が必要。 | 将来の viewer/editor 用として選定する。充実した navigation、selection、grouping、拡張可能な node/pin 表示、layout 永続化が、診断から編集へ進む方針に合う。最初の read-only dump ではまだ導入しない。 |
+| [`imgui-node-editor` / `ax::NodeEditor`](https://github.com/thedmd/imgui-node-editor) | [MIT](https://github.com/thedmd/imgui-node-editor/blob/master/LICENSE) | Dear ImGui と C++14 が必要。upstream は root directory にある一連の source を project にコピーする方法を案内している。実用的な統合では editor implementation/API、canvas/math helper、小規模な JSON support が含まれ、単一 translation unit より導入範囲が広い。ImGui 経由で描画するため別の DX12 backend は不要。 | 最新 tag release `v0.9.3` は ImGui 1.92.8 より古い。`master` `021aa0e` に対する PR #339 の draw API argument order 修正と PR #335 の `ImVec2` operator guard を含む `55a7dbf` を pin した。 | Vendored source と license 表示、MSBuild/CMake compile entry、editor context lifecycle、安定した node/pin ID、warning/ImGui compatibility check を追加した。 | Viewer/editor 用として選定し、read-only node view まで導入済み。充実した navigation、selection、grouping、拡張可能な node/pin 表示が、診断から編集へ進む方針に合う。 |
 | [`imnodes`](https://github.com/Nelarius/imnodes) | [MIT](https://github.com/Nelarius/imnodes/blob/master/LICENSE.md) | Upstream は Dear ImGui 以外に依存しないとしており、`imnodes.cpp`、`imnodes.h`、`imnodes_internal.h` の 3 file で配布する。独自の DX12 backend は持たず、既存の ImGui renderer を使う。graph state、ID、表示内容は application 側が所有する。 | GitHub 上の最新 tag release は `0.5`（2022-03-09）。API と source の規模が小さく導入 cost は低いが、release が古いため、この repository の ImGui revision との compatibility/maintenance risk を検証する必要がある。 | 3 個の vendored file と license 表示、1 個の compile entry、include 設定、context lifecycle、安定 ID、compatibility test が必要。`imgui-node-editor` より統合 cost は低い。 | 不採用。小規模である点は魅力だが、最初の viewer に採用すると、編集機能と高度な navigation を追加する段階で library 移行が発生する可能性が高い。 |
 | 外部ライブラリなし：ImGui table/text tree と DOT text export | Repository 内の code のみ。DOT text の出力は Graphviz の link や vendor を必要としない。開発者が描画結果を必要とする場合のみ、任意の外部 viewer として Graphviz を使用する。 | 既存の ImGui 統合を in-app view に使用するか、plain DOT syntax を出力する。新しい runtime、package、submodule、backend、third-party source は不要。Graphviz が未 install でも `.dot` file を text として確認できる。 | RenderGraph data model とともに repository 内で保守する。DOT は安定した graph 記述言語であり、exporter に必要なのは小さな escape 処理と deterministic な ID/order のみ。 | 小規模な diagnostic helper と、任意の Debug UI entry を追加する。project 全体の dependency 設定は不要。test では完全一致または意味上重要な断片を検証できる。 | 初期版として推奨。canvas library を導入する前に、診断 schema と workflow を検証できる。 |
 
 ## License と repository への導入
 
-両 node editor 候補は MIT License であり、copyright notice と permission notice を保持すれば再配布できる。いずれかを導入する場合は、source を tag または commit に pin し、明確に命名した third-party directory に配置し、upstream license と出典を添付し、`RtPbrSurvey.vcxproj` に明示的に追加する必要がある。vendor、submodule 追加、download/package script 追加は、明示的な承認を得てから実施する。
+両 node editor 候補は MIT License であり、copyright notice と permission notice を保持すれば再配布できる。選定した `imgui-node-editor` は `third_party/imgui-node-editor` に vendor し、同 directory に upstream `LICENSE` と `README-RtPbrSurvey.md` の commit/provenance 情報を保持する。Submodule や download/package script は追加しない。
 
 推奨する DOT exporter は、[DOT language](https://graphviz.org/doc/info/lang.html) に従う text を出力するだけとする。Graphviz の起動、同梱、link は行わない。開発者は必要に応じて、application や build とは独立した外部 tool として Graphviz の `dot` を使用できる。
 
 ## 決定と推奨案
 
-将来の interactive viewer/editor には `imgui-node-editor` を使用する。ただし、最初の実装では library をまだ統合しない。これにより、使い捨てになる UI 実装を避けながら、第一段階を小さく test 可能な dump として維持できる。
+Interactive viewer/editor には `imgui-node-editor` を使用する。Library-free dump を先に完成させた後、同じ document model を使う read-only node view として library を統合した。
 
 最初に、1 個の read-only diagnostic snapshot と、それを使用する複数の出力を定義する。
 
@@ -105,7 +105,7 @@ Runtime integration として、次の read-only entry point を追加した。
 - `SceneRendererDebugUi::DrawRenderGraphDiagnostics()` が pass/resource/link count、text/DOT preview、clipboard copy を提供する。
 - Standalone app の Debug window と host-facing `SceneRendererDebugUi::Draw()` の両方で、同じ diagnostics UI を再利用する。
 
-UI は section を展開したときだけ snapshot と dump を生成する。Graph mutation、file write、node position、`imgui-node-editor` context はまだ追加していない。
+UI は section を展開したときだけ snapshot と dump を生成する。`Nodes` view を選択すると `RenderGraphNodeEditorView` が document ID を `ax::NodeEditor` ID に変換し、pass/resource node、read/write pin、link を描画する。初期 position は lifetime/pass index から一度だけ設定し、その後の user navigation と node movement は view state として editor context が保持する。Library の settings file は無効化しており、local JSON は生成しない。Graph mutation と file write はまだ追加していない。
 
 ### Diagnostic snapshot
 
@@ -152,11 +152,10 @@ In-app entry を追加する場合は、既存 Debug UI の小規模な read-onl
 
 1. Deterministic な text/DOT dump を通して `RenderGraphDocument` を実装し、test する。
 2. Graph size、filtering、grouping、selection synchronization、search、state transition 表示、layout persistence について、実際の usability requirement を記録する。
-3. `imgui-node-editor` の repository への導入方法について明示的な承認を得る。
-4. 既知の正常な upstream tag/commit に pin し、MIT license と出典を保持して、compatibility/build test を追加する。
-5. 既存 document に対する `imgui-node-editor` adapter と read-only view を追加する。UI の都合で document schema を分岐させない。
-6. Mutation を有効にする前に、repository 所有の edit command、validation、undo/redo、serialization を追加する。
-7. 実行中の runtime graph を直接編集せず、検証済み authoring data から executable graph を再構築する。
+3. [x] `imgui-node-editor` を ImGui 1.92.8 対応 commit に pin し、MIT license と出典を保持する。
+4. [x] 既存 document に対する adapter と read-only view を追加する。UI の都合で document schema を分岐させない。
+5. [ ] Mutation を有効にする前に、repository 所有の edit command、validation、undo/redo、serialization を追加する。
+6. [ ] 実行中の runtime graph を直接編集せず、検証済み authoring data から executable graph を再構築する。
 
 ## Build integration の評価
 
@@ -170,6 +169,9 @@ Library-free 版を実装する場合は、repository 所有の C++ file だけ�
 - `RenderGraphDocumentTests` の単独 build と実行：成功、exit code 0。
 - Runtime/Debug UI integration 後の Debug x64 build：成功。既存 warning 1 件、compile/link error は 0 件。
 - Runtime/Debug UI integration 後の `RenderGraphDocumentTests` 再実行：成功、exit code 0。
+- Vendored `imgui-node-editor` と read-only node view を含む Debug x64 build：成功。既存 warning 1 件、compile/link error は 0 件。
+- Node view integration 後の `RenderGraphDocumentTests` 再実行：成功、exit code 0。
+- Visual runtime check：Computer Use の app approval timeout により未実施。
 - 通常の CMake test configure：`tinygltf v3.0.0` の upstream download hash 不一致により停止。RenderGraph code の compile 前に dependency restore で失敗しているため、代わりに repository の既存 local dependency を使う一時 MSBuild project で同じ test source を compile/run した。一時 project と build output は `build/` 以下にあり、commit 対象外。
 
 ## 参照先
