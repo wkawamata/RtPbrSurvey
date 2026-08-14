@@ -153,9 +153,30 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.captureReflectionResolvedRadiance = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-CaptureReflectionTemporalValidity"))
+        {
+            options.captureReflectionResolvedRadiance = true;
+            options.captureReflectionTemporalValidity = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-ReflectionStochasticSampling"))
         {
             options.reflectionStochasticSampling = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionRejectedPixelNeighborhood"))
+        {
+            options.reflectionRejectedPixelNeighborhood = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionCameraDistanceScale"))
+        {
+            if (i + 1 < argc)
+            {
+                WCHAR* end = nullptr;
+                const float scale = wcstof(argv[++i], &end);
+                if (end != argv[i] && *end == L'\0' && std::isfinite(scale) && scale > 0.0f)
+                {
+                    options.reflectionCameraDistanceScale = scale;
+                }
+            }
         }
         else if (IsCommandLineArg(argv[i], L"-ReflectionTemporalWeight"))
         {

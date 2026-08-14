@@ -153,6 +153,28 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         return float4(rayEmission / (1.0 + rayEmission), 1.0);
     }
 
+    if (debugTarget == 13)
+    {
+        const float classification = g_reflectionEvaluatedRadiance.Sample(g_sampler, input.uv).a;
+        if (classification < 0.125)
+        {
+            return float4(0.0, 0.0, 0.0, 1.0); // No history.
+        }
+        if (classification < 0.375)
+        {
+            return float4(0.0, 0.25, 1.0, 1.0); // Reprojected outside history.
+        }
+        if (classification < 0.625)
+        {
+            return float4(1.0, 0.0, 0.0, 1.0); // Depth rejection.
+        }
+        if (classification < 0.875)
+        {
+            return float4(1.0, 0.8, 0.0, 1.0); // Normal rejection.
+        }
+        return float4(0.0, 0.8, 0.2, 1.0); // History accepted.
+    }
+
     if (debugTarget >= 9 && debugTarget <= 12)
     {
         if (hitFlag <= 0.0)

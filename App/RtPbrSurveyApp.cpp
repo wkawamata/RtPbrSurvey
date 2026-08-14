@@ -161,7 +161,9 @@ void RtPbrSurveyApp::OnInit()
         if (m_commandLineOptions.captureReflectionResolvedRadiance)
         {
             m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
-            m_renderViewMode = RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance;
+            m_renderViewMode = m_commandLineOptions.captureReflectionTemporalValidity ?
+                RtPbrSurveyEngine::RenderViewMode::ReflectionTemporalValidity :
+                RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance;
             m_sceneRenderer.SetRenderingPath(m_renderingPath);
             m_sceneRenderer.SetRenderViewMode(m_renderViewMode);
 
@@ -169,6 +171,8 @@ void RtPbrSurveyApp::OnInit()
                 m_sceneRenderer.GetHybridReflectionSettings();
             reflectionSettings.enabled = true;
             reflectionSettings.stochasticSamplingEnabled = m_commandLineOptions.reflectionStochasticSampling;
+            reflectionSettings.rejectedPixelNeighborhoodEnabled =
+                m_commandLineOptions.reflectionRejectedPixelNeighborhood;
             if (m_commandLineOptions.hasReflectionTemporalWeight)
             {
                 reflectionSettings.temporalHistoryWeight =
@@ -181,6 +185,9 @@ void RtPbrSurveyApp::OnInit()
             }
             m_sceneRenderer.SetHybridReflectionSettings(reflectionSettings);
             m_automationOrbitStartYaw = m_debugCamera.ObjectViewerYaw();
+            m_automationOrbitDistance = (std::max)(
+                0.1f,
+                m_debugCamera.ObjectViewerDistance() * m_commandLineOptions.reflectionCameraDistanceScale);
         }
     }
 }
@@ -466,7 +473,7 @@ void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
         m_debugCamera.SetObjectViewerState(
             m_automationOrbitStartYaw + DirectX::XMConvertToRadians(yawDegrees),
             m_debugCamera.ObjectViewerPitch(),
-            m_debugCamera.ObjectViewerDistance(),
+            m_automationOrbitDistance,
             m_debugCamera.ObjectViewerPivot());
         return;
     }
@@ -490,7 +497,7 @@ void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
     const float yawOffset = DirectX::XMConvertToRadians(m_commandLineOptions.reflectionOrbitDegrees) * progress;
     m_debugCamera.SetObjectViewerState(m_automationOrbitStartYaw + yawOffset,
                                        m_debugCamera.ObjectViewerPitch(),
-                                       m_debugCamera.ObjectViewerDistance(),
+                                       m_automationOrbitDistance,
                                        m_debugCamera.ObjectViewerPivot());
 }
 

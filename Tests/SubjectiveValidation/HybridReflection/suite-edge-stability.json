@@ -1,0 +1,106 @@
+{
+  "id": "hybrid-reflection-edge-stability-v1",
+  "version": 1,
+  "title": "Hybrid Reflection Rejected-Pixel Neighborhood Validation",
+  "description": "Compare matched enlarged DamagedHelmet captures with the rejected-pixel neighborhood policy disabled and enabled.",
+  "capture": {
+    "scene": "DamagedHelmet",
+    "debugView": "ReflectionResolvedRadiance",
+    "stochasticSampling": true,
+    "historyWeight": 0.9,
+    "cameraDistanceScale": 0.5,
+    "aRejectedPixelNeighborhood": false,
+    "bRejectedPixelNeighborhood": true
+  },
+  "locales": {
+    "ja": {
+      "title": "Hybrid Reflection reject画素近傍補助評価",
+      "description": "拡大したDamagedHelmetの対応画像で、reject画素近傍補助の無効・有効を比較します。",
+      "cases": {
+        "edge-mid-motion": {
+          "title": "移動中",
+          "description": "移動中のedge粒状性、細部、silhouetteを比較します。",
+          "images": {
+            "a": { "label": "A: 近傍補助なし" },
+            "b": { "label": "B: reject画素のみ3x3近傍補助" }
+          },
+          "criteria": {
+            "stability": "BはAよりedgeと内部reflectionの粒状な不安定さが少ない。",
+            "detail": "BはAの細いhighlightと表面detailを不自然に失っていない。",
+            "boundaries": "Bにsilhouette越しの色漏れやedgeの太りがない。"
+          }
+        },
+        "edge-reversal": {
+          "title": "方向反転",
+          "description": "方向反転時のedge安定性と境界保全を比較します。",
+          "images": {
+            "a": { "label": "A: 近傍補助なし" },
+            "b": { "label": "B: reject画素のみ3x3近傍補助" }
+          },
+          "criteria": {
+            "stability": "BはAより反転時のedgeと内部reflectionが安定している。",
+            "detail": "Bは細い形状やreflection detailを許容できる範囲で維持している。",
+            "disocclusion": "Bにdisocclusionの汚れ、残像、背景からの色漏れがない。"
+          }
+        },
+        "edge-settling": {
+          "title": "停止後",
+          "description": "history採用へ戻った後に補助の副作用が残らないことを確認します。",
+          "images": {
+            "a": { "label": "A: 近傍補助なし" },
+            "b": { "label": "B: reject画素のみ3x3近傍補助" }
+          },
+          "criteria": {
+            "match": "停止後のBはAと同等の安定した見え方へ戻っている。",
+            "detail": "Bに停止後のdetail損失や過剰な平滑化が残っていない。",
+            "brightness": "BはAと同等の平均輝度とreflection内容を維持している。"
+          }
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "edge-mid-motion",
+      "title": "Mid motion",
+      "description": "Compare moving-edge grain, fine detail, and silhouette preservation.",
+      "images": {
+        "a": { "label": "A: neighborhood disabled", "path": "captures/stochastic-orbit-mid-motion-edge-a.png" },
+        "b": { "label": "B: rejected pixels use 3x3 neighborhood", "path": "captures/stochastic-orbit-mid-motion-edge-b.png" }
+      },
+      "criteria": [
+        { "id": "stability", "prompt": "B has less grainy instability on edges and internal reflections than A." },
+        { "id": "detail", "prompt": "B does not unnaturally lose A's thin highlights or surface detail." },
+        { "id": "boundaries", "prompt": "B has no silhouette color leak or objectionable edge thickening." }
+      ]
+    },
+    {
+      "id": "edge-reversal",
+      "title": "Direction reversal",
+      "description": "Compare edge stability and boundary preservation during direction reversal.",
+      "images": {
+        "a": { "label": "A: neighborhood disabled", "path": "captures/stochastic-orbit-reversal-edge-a.png" },
+        "b": { "label": "B: rejected pixels use 3x3 neighborhood", "path": "captures/stochastic-orbit-reversal-edge-b.png" }
+      },
+      "criteria": [
+        { "id": "stability", "prompt": "B is more stable on edges and internal reflections during reversal." },
+        { "id": "detail", "prompt": "B preserves thin geometry and reflection detail acceptably." },
+        { "id": "disocclusion", "prompt": "B has no disocclusion contamination, trail, or background color leak." }
+      ]
+    },
+    {
+      "id": "edge-settling",
+      "title": "Settling after stop",
+      "description": "Confirm that no neighborhood side effect remains after history acceptance resumes.",
+      "images": {
+        "a": { "label": "A: neighborhood disabled", "path": "captures/stochastic-orbit-settling-edge-a.png" },
+        "b": { "label": "B: rejected pixels use 3x3 neighborhood", "path": "captures/stochastic-orbit-settling-edge-b.png" }
+      },
+      "criteria": [
+        { "id": "match", "prompt": "B returns to the same stable appearance as A after motion stops." },
+        { "id": "detail", "prompt": "B retains stable detail without persistent over-smoothing." },
+        { "id": "brightness", "prompt": "B preserves A's mean brightness and reflection content." }
+      ]
+    }
+  ]
+}
