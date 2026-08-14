@@ -76,3 +76,14 @@ Out of scope:
 - Preliminary still inspection shows less moving-frame grain in B and nearly identical A/B settling frames. B also slightly smooths fine moving-frame highlights, so adoption requires subjective review rather than an automatic pass.
 - Added `suite-edge-stability.json` with three cases and nine criteria covering stability, detail retention, boundary leakage, disocclusion, settling, and brightness. English and Japanese rendering were verified in the local evaluator.
 - Debug x64 build succeeded with zero errors. Both automated runs reported no D3D12 errors and the same two pre-existing committed-buffer initial-state warnings.
+
+## 2026-08-14: Mobile Subjective Report
+
+- Published the edge-stability evaluator and its six scoped A/B captures through GitHub Pages for mobile review. The report remains a downloaded user artifact and is not committed.
+- Received `hybrid-reflection-edge-stability-v1` report version 1, evaluated on 2026-08-14.
+- Mid-motion passed stability improvement, detail retention, and boundary preservation: 3/3.
+- Direction reversal passed stability improvement, detail retention, and disocclusion safety: 3/3.
+- Settling appearance, persistent detail, and brightness were all marked unable to judge: 0 pass, 0 fail, 3 unable.
+- No defect flags or notes were recorded.
+- Decision: retain the experiment as default-off. The report validates the intended motion-time benefit with no reported moving-boundary regression, but does not close the settling-side-effect gate.
+- Next action is a smaller settling-only review or live stop observation. Do not enlarge the policy or change global defaults before that gate is resolved.

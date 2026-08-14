@@ -30,6 +30,17 @@
 - 安定性、detail維持、境界漏れ、disocclusion、停止後、輝度を確認する3case・9基準の`suite-edge-stability.json`を追加した。local evaluatorで英語・日本語表示を確認した。
 - Debug x64 buildはerror 0件で成功した。両方の自動実行でD3D12 errorはなく、同じ既存committed-buffer initial-state warning 2件のみだった。
 
+## 2026-08-14: Mobile主観評価レポート
+
+- mobile評価用にedge-stability evaluatorと対象を限定した6枚のA/B画像をGitHub Pagesで公開した。reportはuser download artifactのままとしcommitしない。
+- 2026-08-14評価の`hybrid-reflection-edge-stability-v1` report version 1を受領した。
+- 移動中は安定性改善、detail維持、境界維持の3/3がpassだった。
+- 方向反転は安定性改善、detail維持、disocclusion安全性の3/3がpassだった。
+- 停止後の見え方、detail残存、輝度はすべてunable to judgeで、pass 0、fail 0、unable 3だった。
+- defect flagとnoteは記録されていない。
+- 判断: 実験はdefault-offを維持する。移動中の狙った改善と、移動境界で報告されたregressionがないことは確認できたが、停止後の副作用gateは未完了である。
+- 次は停止後だけの小さな再評価またはlive停止観察を行う。このgateを解決する前にpolicyを拡大したりglobal defaultを変更したりしない。
+
 このログは、stochastic Hybrid Reflectionで残る移動edge flickerの診断、制御された検証、限定的な安定化作業を記録する。信号とhistoryの規範的semanticsは[Hybrid Reflection Contracts](hybrid-reflection-contracts.md)に維持する。
 
 ## 2026-08-12: フェーズ開始
