@@ -53,6 +53,7 @@ struct CommandLineOptions
     ReflectionCaptureDebugView reflectionCaptureDebugView = ReflectionCaptureDebugView::ResolvedRadiance;
     bool reflectionStochasticSampling = false;
     bool reflectionRejectedPixelNeighborhood = false;
+    bool reflectionSurfaceVarianceFilter = false;
     float reflectionCameraDistanceScale = 1.0f;
     bool hasReflectionTemporalWeight = false;
     float reflectionTemporalWeight = 0.0f;

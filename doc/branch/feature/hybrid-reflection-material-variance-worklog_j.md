@@ -85,3 +85,18 @@
 - default history weightを`0.98`へ上げない。late variance低下と引き換えに測定可能な遅いsettlingがあり、確認済み2領域の全series varianceも`0.9`よりわずかに悪い。
 - 現在のvalidation設定は`0.9`を維持する。今回測定した範囲で最も良いbalanceという意味であり、最終production policyの宣言ではない。
 - `0.9`のlate windowにもvarianceが残るため、historyをさらに延ばすだけより、後続の限定的なestimatorまたはspatial情報実験を支持する。
+
+## 2026-08-15: Surface variance spatial実験
+
+- temporal blend前のcurrent-sample境界へ、default-offの実験を1つだけ追加した。`Surface Variance Filter`はevaluated radianceへ3x3 filterを適用し、visible depth、normal、roughness、metallicが近いneighborだけを採用する。ほぼ完全に滑らかなvisible surfaceはfilterを通さない。
+- この実験は未加重radiance contract、history weight、history rejection threshold、LightPass contribution weightingを変更しない。以前のreject画素近傍fallbackは別機能のままdefault-offを維持する。
+- 撮影専用CLI flag `-ReflectionSurfaceVarianceFilter`、UI control、settings保存、GBuffer PBRParamsのread dependencyを追加した。debug noiseは既存の決定論的規則で、採用された各neighborへ適用する。
+- Debug x64 MSBuildは0 errorsで成功し、既知のvcpkg重複import warningのみ発生した。filter有効の8-frame seriesもすべて撮影できた。
+- filter有効のD3D12 Debug Layer captureではerrorはなく、既存のcommitted buffer initial-state warningが2件だけ記録された。
+- history weight `0.9`でtemporal-only baselineと比較すると、mean temporal deviationは`rearward_surface`で`51.20%`、`underside_pipes`で`53.49%`追加減少した。mean displayed luminanceの変化はそれぞれ約`+0.00153`、`+0.00108`である。
+- 停止後前半・中盤・後半を比較する日英HTML suiteを追加した。user report `hybrid-reflection-material-variance-filter-v1-report-2026-08-14T21-39-51.610Z-a66a127d.json`は9項目すべて合格し、選択defectとnoteはなかった。
+
+### 判断
+
+- 実験実装は残し、default-offを維持する。静止領域の客観・主観gateには合格したが、このphaseではmotion/disocclusion挙動をdefault有効化に十分な強さで確認していない。
+- このphaseで別estimatorを積み重ねたりfilterを広げたりしない。次のgateは、この1実験だけを使った同一条件のmotion/reversal A/B確認とする。

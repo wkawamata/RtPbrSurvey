@@ -50,6 +50,8 @@ For live observation, use `capture-plan-stochastic-live.json`. It holds the init
 
 `-ReflectionCaptureDebugView <name>` selects a diagnostic view while retaining the same Hybrid Reflection capture setup. Accepted names are `pbr-params`, `normal`, `hit-material`, `evaluated-radiance`, `resolved-radiance`, and `temporal-validity`. The PBR view maps metallic, roughness, and ambient occlusion to RGB. The option changes only the displayed capture resource; it does not change sampling, evaluation, or temporal policy.
 
+`-ReflectionSurfaceVarianceFilter` enables the default-off 3x3 current-radiance experiment during automated capture. Samples are accepted only when visible depth, normal, roughness, and metallic are similar; near-perfectly smooth visible surfaces bypass the filter. This option does not change history rejection thresholds or history weight.
+
 `capture-plan-material-variance-series.json` captures eight settled frames for either the evaluated- or resolved-radiance view. After capturing both variants, run `Measure-MaterialVariance.ps1` to reproduce the fixed-ROI display-space temporal-deviation report and annotated ROI image. The metric is intended for repeatable symptom comparison; it is not a measurement of the underlying HDR radiance buffers.
 
 `Measure-HistoryWeightConvergence.ps1` compares the same series for evaluated radiance and resolved history weights `0.0`, `0.5`, `0.9`, and `0.98`. Capture variants must be named `w0`, `w50`, `resolved`, and `w98`. The report separates the full, early, and late settled windows so that lower variance can be considered alongside slow luminance settling.

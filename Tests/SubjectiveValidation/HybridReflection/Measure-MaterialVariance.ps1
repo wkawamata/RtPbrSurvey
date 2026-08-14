@@ -1,7 +1,8 @@
 param(
     [string]$CaptureDirectory = (Join-Path $PSScriptRoot "captures"),
     [string]$OutputPath = (Join-Path $PSScriptRoot "material-variance-measurement.json"),
-    [string]$AnnotatedOutputPath = (Join-Path $PSScriptRoot "captures\material-variance-rois.png")
+    [string]$AnnotatedOutputPath = (Join-Path $PSScriptRoot "captures\material-variance-rois.png"),
+    [string]$ResolvedVariant = "resolved"
 )
 
 Set-StrictMode -Version Latest
@@ -30,10 +31,11 @@ function Get-Percentile([double[]]$Values, [double]$Percentile)
 $images = @{}
 foreach ($variant in @("evaluated", "resolved"))
 {
+    $fileVariant = if ($variant -eq "resolved") { $ResolvedVariant } else { $variant }
     $variantImages = @()
     foreach ($frame in $frames)
     {
-        $path = Join-Path $CaptureDirectory "material-variance-series-$variant-f$frame.png"
+        $path = Join-Path $CaptureDirectory "material-variance-series-$fileVariant-f$frame.png"
         if (-not (Test-Path -LiteralPath $path))
         {
             throw "Missing capture: $path"
@@ -115,6 +117,7 @@ try
     $report = [ordered]@{
         version = 1
         measurement = "display-space luminance temporal standard deviation"
+        resolvedVariant = $ResolvedVariant
         frames = $frames
         nonBlackLuminanceThreshold = 0.01
         notes = @(

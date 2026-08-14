@@ -211,6 +211,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.reflectionRejectedPixelNeighborhood = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionSurfaceVarianceFilter"))
+        {
+            options.reflectionSurfaceVarianceFilter = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-ReflectionCameraDistanceScale"))
         {
             if (i + 1 < argc)

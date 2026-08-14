@@ -85,3 +85,18 @@ This log records diagnosis of persistent surface-wide stochastic variance in sel
 - Do not raise the default history weight to `0.98`. Its lower late variance is paired with measurable slow settling, and its full-series variance is slightly worse than `0.9` in both confirmed regions.
 - Retain `0.9` as the current validation setting. It is the best balance measured here, not a declaration that `0.9` is the final production policy.
 - The remaining late-window variance at `0.9` supports a later bounded estimator or spatial-information experiment more than simply extending history further.
+
+## 2026-08-15: Surface-Variance Spatial Experiment
+
+- Added one default-off experiment, `Surface Variance Filter`, at the current-sample boundary before temporal blending. It applies a 3x3 filter to evaluated radiance while accepting neighbors only when visible depth, normal, roughness, and metallic are similar. Near-perfectly smooth visible surfaces bypass the filter.
+- The experiment does not alter the unweighted radiance contract, history weight, history rejection thresholds, or LightPass contribution weighting. The earlier rejected-pixel neighborhood fallback remains separate and default-off.
+- Added capture-only CLI flag `-ReflectionSurfaceVarianceFilter`, UI controls, settings persistence, and the required GBuffer PBRParams read dependency. Debug noise is injected per accepted neighbor using the existing deterministic rule.
+- Debug x64 MSBuild succeeded with 0 errors and the existing duplicate vcpkg import warning. The eight-frame filtered capture series completed successfully.
+- A filter-enabled D3D12 Debug Layer capture logged no errors. It reported only the two pre-existing committed-buffer initial-state warnings.
+- At history weight `0.9`, mean temporal deviation relative to the temporal-only baseline decreased by `51.20%` in `rearward_surface` and `53.49%` in `underside_pipes`. Mean displayed luminance changed by approximately `+0.00153` and `+0.00108`, respectively.
+- Added a persistent bilingual HTML suite with early, middle, and late settled A/B cases. User report `hybrid-reflection-material-variance-filter-v1-report-2026-08-14T21-39-51.610Z-a66a127d.json` passed all 9 criteria with no selected defects and no notes.
+
+### Decision
+
+- Keep the experiment implemented and default-off. It passes the static-region objective and subjective gates, but this phase has not yet established motion/disocclusion behavior strongly enough to enable it by default.
+- Do not stack another estimator or widen the filter in this phase. The next gate is a matched motion/reversal A/B check using this one experiment.

@@ -198,6 +198,8 @@ void RtPbrSurveyApp::OnInit()
             reflectionSettings.stochasticSamplingEnabled = m_commandLineOptions.reflectionStochasticSampling;
             reflectionSettings.rejectedPixelNeighborhoodEnabled =
                 m_commandLineOptions.reflectionRejectedPixelNeighborhood;
+            reflectionSettings.surfaceVarianceFilterEnabled =
+                m_commandLineOptions.reflectionSurfaceVarianceFilter;
             if (m_commandLineOptions.hasReflectionTemporalWeight)
             {
                 reflectionSettings.temporalHistoryWeight =

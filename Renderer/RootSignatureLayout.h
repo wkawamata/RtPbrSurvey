@@ -89,7 +89,7 @@ static constexpr uint32_t kSceneDrawConstantsCount = 1;
 
 static constexpr uint32_t kTemporalReflectionConstantsRegister = 5;
 static constexpr uint32_t kTemporalReflectionConstantsSpace = 0;
-static constexpr uint32_t kTemporalReflectionConstantsCount = 5;
+static constexpr uint32_t kTemporalReflectionConstantsCount = 6;
 
 static constexpr uint32_t kReflectionSamplingConstantsRegister = 6;
 static constexpr uint32_t kReflectionSamplingConstantsSpace = 0;
