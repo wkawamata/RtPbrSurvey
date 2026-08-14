@@ -106,10 +106,18 @@
 - HTMLの静止captureだけでなく、EXEの`ReflectionResolvedRadiance`をuserがinteractiveに確認した。
 - history weight `0.9`で静止noiseが低減した。`Surface Variance Filter`を有効にすると、指摘されたnoisy material領域の静止noiseがさらに低減した。
 - 今回の確認では、静止表示とmotion反転に問題は見られなかった。
-- 強いhistory weightでは、object回転時にreflection更新が約1秒遅れることを確認した。userはこれを静止noise低減とdynamic responseの目に見えるtradeoffとして指摘した。
+- 強いhistory weightでは、reflection単体debug viewのobject回転時にreflection更新の遅れを感じるというuser観察があった。一方、Lit compositeでは遅れはかなり目立ちにくかった。以前記録した約1秒という値は感覚的な表現であり、測定値ではない。
 
 ### 更新判断
 
-- object回転時の遅延は、静止surface filterの失敗ではなく、独立したdynamic history validity問題として扱う。filterはtemporal blend前のcurrent sampleだけを処理し、過去frameを保持しない。
-- 静止結果だけでfilterまたはhistory設定をglobal defaultへ昇格しない。次はobject回転responseを定量化し、object motion中に古いhistoryがacceptedのままか確認する。
-- 直ちにhistory weightを下げたりhistory全体を弱めたりしない。期待される指数応答と、object-motion rejection不足を先に分離する。
+- object回転時の遅延は未定量の低～中優先度riskとして記録し、確認済み不具合または静止surface filterの失敗とは扱わない。filterはtemporal blend前のcurrent sampleだけを処理し、過去frameを保持しない。
+- 静止結果だけでfilterまたはhistory設定をglobal defaultへ昇格しない。後で必要になった場合、Evaluated Radiance、Resolved Radiance、Temporal Validity、Litを別々に測定する。
+- 直ちにhistory weightを下げたりhistory全体を弱めたりしない。将来の診断では、期待されるEMA応答、object-motion reprojection/depth validation、normal rejection、reflection hit変化、Lit compositeでの低い知覚寄与を分離する。
+
+## Review反映とbranch境界
+
+- 8-frameのtone-mapped PNG測定は予備的な症状診断である。HDR-domain variance、長期mean維持、estimator bias、energy conservation、physical referenceとの一致を証明しない。
+- 静止主観評価9/9 passは、確認画像で問題となる副作用が見つからなかったことを示す。filterがproduction-readyである証明ではない。
+- 現在の近似を64/256/1024 sample平均したものは、`sample reference`ではなく`High-SPP Current-Estimator Mean Baseline`と呼ぶ。このbaselineはvarianceと収束を測定できるが、物理的正しさを証明できない。
+- このbranchはmaterial variance診断と1つの限定的default-off実験として閉じる。別filterを追加せず、現在のdefaultを昇格しない。
+- 推奨する次branchは`features/hybrid-reflection-hdr-variance-diagnostics`とする。確認済みROIのpaired linear-HDR統計、hit/missとhit distance、temporal validity、current-estimator mean baselineを優先し、object-motion timelineは高優先度の静止測定後に必要なら行う。

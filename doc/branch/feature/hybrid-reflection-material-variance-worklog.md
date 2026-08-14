@@ -106,10 +106,18 @@ This log records diagnosis of persistent surface-wide stochastic variance in sel
 - The user reviewed `ReflectionResolvedRadiance` interactively in the executable, rather than relying only on the HTML still captures.
 - At history weight `0.9`, static noise was visibly reduced. Enabling `Surface Variance Filter` further reduced static noise on the reported noisy material regions.
 - Static viewing and motion reversal showed no objectionable problem in this review.
-- With a strong history weight, rotating the object exposed approximately one second of delayed reflection updating. The user identified this as a visible tradeoff between static noise reduction and dynamic response.
+- With a strong history weight, the user perceived delayed reflection updating during object rotation in the reflection-only debug view. The delay was much less noticeable in the Lit composite. The previously stated value of approximately one second was an impression, not a measurement.
 
 ### Updated Decision
 
-- Treat object-rotation latency as a separate dynamic-history-validity problem, not as evidence that the static surface filter failed. The filter operates on the current sample before temporal blending and does not itself retain prior frames.
-- Do not enable the filter or history setting globally based on static results alone. The next measurement should quantify object-rotation response and determine whether stale history remains accepted during object motion.
-- Avoid immediately lowering history weight or weakening all history. First distinguish the expected exponential response from missing or insufficient object-motion rejection.
+- Record object-rotation latency as an unquantified low-to-medium-priority risk, not a confirmed defect and not evidence that the static surface filter failed. The filter operates on the current sample before temporal blending and does not itself retain prior frames.
+- Do not enable the filter or history setting globally based on static results alone. If later required, measure object-rotation response separately in Evaluated Radiance, Resolved Radiance, Temporal Validity, and Lit views.
+- Avoid immediately lowering history weight or weakening all history. A future diagnosis must distinguish expected EMA response, object-motion reprojection/depth validation, normal rejection, reflection-hit changes, and the lower perceptual contribution in the Lit composite.
+
+## Review Disposition and Branch Boundary
+
+- The eight-frame tone-mapped PNG measurements are preliminary symptom diagnostics. They do not establish HDR-domain variance, long-run mean preservation, estimator bias, energy conservation, or agreement with a physical reference.
+- The 9/9 static subjective pass shows that no objectionable side effect was found in the reviewed images. It does not prove the filter is production-ready.
+- Use the term `High-SPP Current-Estimator Mean Baseline`, not `sample reference`, for a 64/256/1024-sample average of the current approximation. This baseline can measure variance and convergence but cannot establish physical correctness.
+- Close this branch as material-variance diagnosis plus one bounded default-off experiment. Do not add another filter or promote current defaults here.
+- The recommended next branch is `features/hybrid-reflection-hdr-variance-diagnostics`: paired linear-HDR statistics for the confirmed ROIs, hit/miss and hit-distance tracking, temporal validity, current-estimator mean baselines, and optional object-motion timelines after the higher-priority static measurements.
