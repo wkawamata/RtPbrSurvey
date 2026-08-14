@@ -50,6 +50,18 @@
 - 未完了のmobile停止後gate用として、新画像とsuiteを既存GitHub Pages evaluatorへ公開する。
 - この単位ではcode変更がないため、直前の成功済みDebug x64 buildを有効とし再実行しなかった。
 
+## 2026-08-14: 停止後gate結果
+
+- `hybrid-reflection-edge-settling-v1` report version 1を受領した。
+- 停止1 frame後は2基準ともunable to judgeだった。noteにはA/B双方で上面から背面materialにnoiseが残ると記録された。
+- 停止6 frames後はdetailとreflection内容の2基準がfailだった。
+- 停止15 frames後はA/B同等性と持続artifactの2基準がfailで、noteはframe 6と同じ観測を参照している。
+- 集計はpass 0、fail 4、unable 2だった。構造化されたdefect checkboxは選択されていないが、noteは両variantに共通する上面・背面materialの持続noiseを示している。
+- user補足: 観測されたnoiseは主にedge artifactではなく、特定materialの面全体を覆っている。このbranchが対象とするmoving-edge rejection問題とは分離し、material/surface全体のstochastic varianceとして分類する。
+- 判断: reject画素近傍補助実験をproductionまたはglobal-default policyとして採用しない。先の移動中6/6 passは局所的な効果の証拠として保持するが、停止後gateはfailし、共通の持続noiseも未解決である。
+- review可能性のため実装はこのbranchでdefault-offのまま保持する。このphaseではrejection thresholdを弱めたりfilterを拡大したりしない。
+- これで計画した最初のpolicy比較を完了する。追加作業はこのbranchへ別の推測的edge policyを重ねず、上面・背面surfaceのmaterial全体に広がるstochastic varianceを調べる独立scopeへ分割すべきである。
+
 このログは、stochastic Hybrid Reflectionで残る移動edge flickerの診断、制御された検証、限定的な安定化作業を記録する。信号とhistoryの規範的semanticsは[Hybrid Reflection Contracts](hybrid-reflection-contracts.md)に維持する。
 
 ## 2026-08-12: フェーズ開始

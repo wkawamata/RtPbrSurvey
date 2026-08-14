@@ -96,3 +96,15 @@ Out of scope:
 - Preliminary inspection shows visible noise reduction with slight fine-detail smoothing at frame 1, a much smaller difference by frame 6, and near-equivalent output by frame 15.
 - The new images and suite will be published through the existing GitHub Pages evaluator for the unresolved mobile settling gate.
 - No code changed in this slice, so the prior successful Debug x64 build remains applicable and was not repeated.
+
+## 2026-08-14: Settling Gate Result
+
+- Received `hybrid-reflection-edge-settling-v1` report version 1.
+- At 1 frame after stop, both criteria were unable to judge. The note states that both A and B retain noise from the top through the rear material.
+- At 6 frames after stop, detail and reflection-content criteria both failed.
+- At 15 frames after stop, A/B equivalence and persistent-artifact criteria both failed, with the note referring to the same observation as frame 6.
+- Aggregate result: 0 pass, 4 fail, 2 unable. No structured defect checkboxes were selected, but the notes identify persistent top/rear material noise affecting both variants.
+- User clarification: the observed noise is not primarily an edge artifact. It covers the full surface of particular materials. Classify it as material/surface-wide stochastic variance, separate from the moving-edge rejection problem targeted by this branch.
+- Decision: do not adopt the rejected-pixel neighborhood experiment as a production or global-default policy. Its earlier 6/6 motion-time passes are retained as evidence of a localized benefit, but the settling gate failed and the common persistent noise remains unresolved.
+- Keep the implementation default-off for reviewability in this branch. Do not respond by weakening rejection thresholds or broadening the filter in this phase.
+- This completes the planned first-policy comparison. Further work should be split into a separately scoped investigation of material-wide stochastic variance on the top/rear surfaces rather than stacking another speculative edge policy here.
