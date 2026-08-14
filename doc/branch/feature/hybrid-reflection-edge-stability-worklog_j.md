@@ -59,10 +59,11 @@
 - 集計はpass 0、fail 4、unable 2だった。構造化されたdefect checkboxは選択されていないが、noteは両variantに共通する上面・背面materialの持続noiseを示している。
 - user補足: 観測されたnoiseは主にedge artifactではなく、特定materialの面全体を覆っている。このbranchが対象とするmoving-edge rejection問題とは分離し、material/surface全体のstochastic varianceとして分類する。
 - 位置補足: 対象は滑らかな頭頂panelそのものではなく、それに隣接する後頭部寄りの面である。
+- 第二の対象領域は、ヘルメット下面に露出しているpipe表面である。
 - asset確認: DamagedHelmetのglTF materialは`Material_MR`の1つだけで、material index 0を使うprimitiveも1つである。したがって対象は別material IDではなく、同じmaterial内でmetallic/roughness textureやnormal mapの値によって区別される領域である。
 - 判断: reject画素近傍補助実験をproductionまたはglobal-default policyとして採用しない。先の移動中6/6 passは局所的な効果の証拠として保持するが、停止後gateはfailし、共通の持続noiseも未解決である。
 - review可能性のため実装はこのbranchでdefault-offのまま保持する。このphaseではrejection thresholdを弱めたりfilterを拡大したりしない。
-- これで計画した最初のpolicy比較を完了する。追加作業はこのbranchへ別の推測的edge policyを重ねず、頭頂panelに隣接する後頭部寄りtexture領域のstochastic varianceを調べる独立scopeへ分割すべきである。
+- これで計画した最初のpolicy比較を完了する。追加作業はこのbranchへ別の推測的edge policyを重ねず、頭頂panelに隣接する後頭部寄り領域と下面pipeに共通するtexture-region-wide stochastic varianceを調べる独立scopeへ分割すべきである。
 
 このログは、stochastic Hybrid Reflectionで残る移動edge flickerの診断、制御された検証、限定的な安定化作業を記録する。信号とhistoryの規範的semanticsは[Hybrid Reflection Contracts](hybrid-reflection-contracts.md)に維持する。
 
