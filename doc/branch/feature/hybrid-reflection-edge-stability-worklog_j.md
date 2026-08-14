@@ -41,6 +41,15 @@
 - 判断: 実験はdefault-offを維持する。移動中の狙った改善と、移動境界で報告されたregressionがないことは確認できたが、停止後の副作用gateは未完了である。
 - 次は停止後だけの小さな再評価またはlive停止観察を行う。このgateを解決する前にpolicyを拡大したりglobal defaultを変更したりしない。
 
+## 2026-08-14: 停止後gateの限定再評価
+
+- camera移動がframe 180で停止した後の1、6、15 framesを撮る、縮小した停止後専用capture planを追加した。
+- detail維持、reflection/輝度維持、収束、持続artifactだけを判定する3case・6基準の英日suiteを追加した。
+- 同じstochastic、history `0.9`、拡大camera条件で、Aはreject画素近傍補助無効、Bは有効として撮影した。
+- 予備確認ではframe 1でnoise低減とわずかな細部平滑化が見え、frame 6で差がかなり小さくなり、frame 15でほぼ同等になった。
+- 未完了のmobile停止後gate用として、新画像とsuiteを既存GitHub Pages evaluatorへ公開する。
+- この単位ではcode変更がないため、直前の成功済みDebug x64 buildを有効とし再実行しなかった。
+
 このログは、stochastic Hybrid Reflectionで残る移動edge flickerの診断、制御された検証、限定的な安定化作業を記録する。信号とhistoryの規範的semanticsは[Hybrid Reflection Contracts](hybrid-reflection-contracts.md)に維持する。
 
 ## 2026-08-12: フェーズ開始

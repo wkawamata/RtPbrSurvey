@@ -87,3 +87,12 @@ Out of scope:
 - No defect flags or notes were recorded.
 - Decision: retain the experiment as default-off. The report validates the intended motion-time benefit with no reported moving-boundary regression, but does not close the settling-side-effect gate.
 - Next action is a smaller settling-only review or live stop observation. Do not enlarge the policy or change global defaults before that gate is resolved.
+
+## 2026-08-14: Focused Settling Gate
+
+- Added a reduced settling-only capture plan at 1, 6, and 15 frames after camera motion stops at frame 180.
+- Added a three-case, six-criterion bilingual suite limited to detail retention, reflection/brightness preservation, convergence, and persistent artifacts.
+- Captured A with rejected-pixel neighborhood disabled and B enabled under the same stochastic, history `0.9`, and enlarged-camera conditions.
+- Preliminary inspection shows visible noise reduction with slight fine-detail smoothing at frame 1, a much smaller difference by frame 6, and near-equivalent output by frame 15.
+- The new images and suite will be published through the existing GitHub Pages evaluator for the unresolved mobile settling gate.
+- No code changed in this slice, so the prior successful Debug x64 build remains applicable and was not repeated.

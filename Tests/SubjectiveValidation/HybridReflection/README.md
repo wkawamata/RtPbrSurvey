@@ -51,3 +51,5 @@ For live observation, use `capture-plan-stochastic-live.json`. It holds the init
 `-ReflectionRejectedPixelNeighborhood` enables a default-off diagnostic policy for A/B capture. Pixels rejected by the existing depth/normal history tests use a 3x3 current-frame radiance average restricted to neighbors with matching visible depth and normal. It does not relax history rejection and does not filter accepted-history pixels.
 
 Open `http://127.0.0.1:8765/?suite=suite-edge-stability.json` for the repeatable enlarged DamagedHelmet A/B review. A keeps the policy disabled and B enables it; both use stochastic sampling, history weight `0.9`, and camera distance scale `0.5`.
+
+Use `capture-plan-edge-settling.json` and `suite-edge-settling.json` for the focused settling gate. They compare A/B at 1, 6, and 15 frames after camera motion stops at frame 180, with only two criteria per checkpoint.
