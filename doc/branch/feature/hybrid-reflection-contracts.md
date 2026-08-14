@@ -205,6 +205,14 @@ Normal rejection compares normalized world-space normals. The first policy accep
 
 The first slice added motion-vector reprojection with bounds rejection while keeping the default history weight at zero. The second slice added depth/normal auxiliary history as MRT outputs and minimum rejection. The synthetic-noise suite passed its sampled-frame gate. A later real-signal suite enabled one-sample stochastic rough reflections with synthetic noise zero; all nine sampled-frame criteria passed at history weight `0.9`. A repeatable live timeline then showed a clear reduction in stationary and moving instability without perceptible reversal trails or settling failure, while minor moving-edge flicker remained. Spatial denoise, adaptive history length, neighborhood clamping, reflection-hit rejection, broader scene coverage, and long-run estimator-bias measurement remain later work.
 
+### Bounded Surface-Filter Experiment
+
+`TemporalReflectionPass` contains a default-off 3x3 current-radiance experiment. When enabled, it filters `ReflectionEvaluatedRadiance` before history blending and accepts neighbors only when visible depth, visible normal, visible roughness, and visible metallic are sufficiently similar. Near-mirror visible surfaces bypass the experiment. When disabled, the shader does not enter the added filter path.
+
+This experiment does not change the meaning of `ReflectionEvaluatedRadiance` or `ReflectionResolvedRadiance`, history ownership, rejection thresholds, history weight, or final LightPass weighting. It is not a production denoiser contract and must not be enabled by default based on the current evidence.
+
+The default-off filter reduced static display-space variance in the evaluated test ROIs and passed the scoped subjective suite. This does not establish estimator correctness, production denoiser readiness, or generalization beyond the evaluated conditions.
+
 ### Contract Phase Closeout
 
 The resource, direction-sampling, ownership, reset, reprojection, minimum rejection, debug-noise, and repeatable subjective-validation contracts are implemented and validated for this phase. Production defaults remain stochastic sampling disabled and history weight zero. A future explicit stochastic-temporal preset is supported by the measured evidence, but production enablement, additional denoise/rejection resources, and broader scene coverage belong to later work rather than extending this branch.

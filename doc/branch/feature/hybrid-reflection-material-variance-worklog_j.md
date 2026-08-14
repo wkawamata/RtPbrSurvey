@@ -99,7 +99,7 @@
 ### 判断
 
 - 実験実装は残し、default-offを維持する。静止領域の客観・主観gateには合格したが、このphaseではmotion/disocclusion挙動をdefault有効化に十分な強さで確認していない。
-- このphaseで別estimatorを積み重ねたりfilterを広げたりしない。次のgateは、この1実験だけを使った同一条件のmotion/reversal A/B確認とする。
+- このphaseで別estimatorを積み重ねたりfilterを広げたりしない。次はpaired linear-HDR variance診断を優先し、詳細なobject-motion診断はestimator作業後にも実用的なLit-view問題が残る場合だけ行う。
 
 ## 2026-08-15: Resolved Radianceのinteractive確認
 
@@ -121,3 +121,29 @@
 - 現在の近似を64/256/1024 sample平均したものは、`sample reference`ではなく`High-SPP Current-Estimator Mean Baseline`と呼ぶ。このbaselineはvarianceと収束を測定できるが、物理的正しさを証明できない。
 - このbranchはmaterial variance診断と1つの限定的default-off実験として閉じる。別filterを追加せず、現在のdefaultを昇格しない。
 - 推奨する次branchは`features/hybrid-reflection-hdr-variance-diagnostics`とする。確認済みROIのpaired linear-HDR統計、hit/missとhit distance、temporal validity、current-estimator mean baselineを優先し、object-motion timelineは高優先度の静止測定後に必要なら行う。
+
+## 2026-08-15: Phase 0最終acceptance監査
+
+Phase名: **Material-region variance diagnosis and bounded surface-filter experiment**。再現領域はmaterial表示内のtexture regionであり、このphaseは別material IDが原因だとは主張しない。
+
+| 区分 | Gate | 証拠 |
+| --- | --- | --- |
+| PASS | Default-off policy | `HybridReflectionSettings::surfaceVarianceFilterEnabled`の初期値は`false`であり、capture automationは`-ReflectionSurfaceVarianceFilter`指定時だけ有効にする。 |
+| PASS | 無効時のcode path | `shaders_TemporalReflection.hlsl`は`g_surfaceVarianceFilterEnabled != 0`の場合だけ`FilterSurfaceVariance`へ入り、それ以外ではevaluated sampleを既存temporal pathへ直接渡す。 |
+| PASS | 既存default動作 | stochastic samplingは無効、temporal history weightは`0.0`、2つのspatial実験も無効のままである。 |
+| PASS | Debug x64とHLSL build | Debug x64の強制`Rebuild`が0 errorsで成功した。`shaders_TemporalReflection.hlsl`を含む全custom HLSL entryを再buildした。build warningは既知のvcpkg重複importだけだった。 |
+| PASS | D3D12 Debug Layer | 現在の同一条件filter-off/on automationはいずれも0 errorsだった。両方とも既知のcommitted-buffer initial-state warning 2件だけであり、filter有効化による新規warningはない。 |
+| PASS | 文書一致 | 英語版と日本語版worklogの判断は一致する。contractはfilterをproduction denoiserではなくdefault-offの限定実験として記載する。 |
+| PASS | 回転時の表現 | 遅れは未定量でreflection単体debug viewで見えやすい観察として記録し、Litではかなり目立ちにくいという反対観察も保持する。 |
+| PASS WITH LIMITATION | 限定主観suite | 保存reportはDamagedHelmet captureの静止9項目すべてに合格した。適用範囲は選択frame、ROI、view、settingだけである。 |
+| PASS WITH LIMITATION | 実行時同等性の証拠 | 現在のfilter-off captureは既知warning 2件、errorなしで完了した。文書化されたcamera-distance settingで過去のframingを再現できなかったため、filter追加前PNGとの厳密比較は証拠として採用しない。このgateではcode-level bypassをより強い確認結果とする。 |
+| NOT CLAIMED | Production readiness | production defaultまたはproduction denoiser policyは確立していない。 |
+| NOT CLAIMED | 物理的正しさ | estimator correctness、unbiasedness、energy conservation、physical referenceへの収束は確立していない。 |
+| NOT CLAIMED | 一般化 | 評価scene、ROI、sampled frame、settingを越えた一般化はしない。 |
+| NOT CLAIMED | 定量的motion latency | 1秒その他のsettling時間を主張しない。T50/T90/T95は未測定である。 |
+
+固定結論:
+
+> The default-off filter reduced static display-space variance in the evaluated test ROIs and passed the scoped subjective suite. This does not establish estimator correctness, production denoiser readiness, or generalization beyond the evaluated conditions.
+
+Phase 1 handoff: このdiagnostic branchを統合した後、`features/hybrid-reflection-hdr-variance-diagnostics`を作成する。64 framesを開発確認、256 framesを標準PR gate、1024 framesをmean drift、rare firefly、bias傾向の拡張監査だけに使用する。paired runではsample index、camera、animation、historyを同じ時点でresetし、filter以外の設定と測定frame範囲を一致させ、warm-upとmeasurementを分離する。

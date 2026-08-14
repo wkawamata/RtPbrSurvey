@@ -99,7 +99,7 @@ This log records diagnosis of persistent surface-wide stochastic variance in sel
 ### Decision
 
 - Keep the experiment implemented and default-off. It passes the static-region objective and subjective gates, but this phase has not yet established motion/disocclusion behavior strongly enough to enable it by default.
-- Do not stack another estimator or widen the filter in this phase. The next gate is a matched motion/reversal A/B check using this one experiment.
+- Do not stack another estimator or widen the filter in this phase. The next priority is paired linear-HDR variance diagnosis; detailed object-motion diagnosis is conditional on a practical Lit-view problem remaining after the estimator work.
 
 ## 2026-08-15: Interactive Resolved-Radiance Review
 
@@ -121,3 +121,29 @@ This log records diagnosis of persistent surface-wide stochastic variance in sel
 - Use the term `High-SPP Current-Estimator Mean Baseline`, not `sample reference`, for a 64/256/1024-sample average of the current approximation. This baseline can measure variance and convergence but cannot establish physical correctness.
 - Close this branch as material-variance diagnosis plus one bounded default-off experiment. Do not add another filter or promote current defaults here.
 - The recommended next branch is `features/hybrid-reflection-hdr-variance-diagnostics`: paired linear-HDR statistics for the confirmed ROIs, hit/miss and hit-distance tracking, temporal validity, current-estimator mean baselines, and optional object-motion timelines after the higher-priority static measurements.
+
+## 2026-08-15: Phase 0 Final Acceptance Audit
+
+Phase name: **Material-region variance diagnosis and bounded surface-filter experiment**. The reproduced areas are texture regions within the material presentation; this phase does not claim that a distinct material ID is the cause.
+
+| Classification | Gate | Evidence |
+| --- | --- | --- |
+| PASS | Default-off policy | `HybridReflectionSettings::surfaceVarianceFilterEnabled` initializes to `false`; capture automation enables it only with `-ReflectionSurfaceVarianceFilter`. |
+| PASS | Disabled code path | `shaders_TemporalReflection.hlsl` enters `FilterSurfaceVariance` only when `g_surfaceVarianceFilterEnabled != 0`; otherwise the evaluated sample proceeds directly to the existing temporal path. |
+| PASS | Existing default behavior | Stochastic sampling remains disabled, temporal history weight remains `0.0`, and both spatial experiments remain disabled by default. |
+| PASS | Debug x64 and HLSL build | A forced Debug x64 `Rebuild` succeeded with 0 errors. All custom HLSL entries, including `shaders_TemporalReflection.hlsl`, were rebuilt. The only build warning was the pre-existing duplicate vcpkg import warning. |
+| PASS | D3D12 Debug Layer | Current matched filter-off and filter-on automation logged 0 errors. Both logged the same two known committed-buffer initial-state warnings; no new warning was introduced by enabling the filter. |
+| PASS | Documentation consistency | English and Japanese worklogs carry the same decisions. The contract identifies the filter as a default-off bounded experiment, not a production denoiser. |
+| PASS | Rotation wording | The perceived delay is recorded as unquantified and more visible in the reflection-only debug view; the contrary observation that it is much less noticeable in Lit is retained. |
+| PASS WITH LIMITATION | Scoped subjective suite | The saved report passed 9/9 static criteria for the reviewed DamagedHelmet captures. This applies only to the selected frames, ROIs, view, and settings. |
+| PASS WITH LIMITATION | Runtime equivalence evidence | The current filter-off capture completed with the expected two known Debug Layer warnings and no errors. Exact comparison with the historical pre-filter PNG series was not accepted because the documented camera-distance setting did not reproduce the historical framing; code-level bypass is the stronger verified evidence for this gate. |
+| NOT CLAIMED | Production readiness | No production default or production denoiser policy is established. |
+| NOT CLAIMED | Physical correctness | The phase does not establish estimator correctness, unbiasedness, energy conservation, or convergence to a physical reference. |
+| NOT CLAIMED | Generalization | Results are not generalized beyond the evaluated scene, ROIs, sampled frames, and settings. |
+| NOT CLAIMED | Quantitative motion latency | No one-second delay or other settling duration is claimed; T50/T90/T95 were not measured. |
+
+Fixed conclusion:
+
+> The default-off filter reduced static display-space variance in the evaluated test ROIs and passed the scoped subjective suite. This does not establish estimator correctness, production denoiser readiness, or generalization beyond the evaluated conditions.
+
+Phase 1 handoff: create `features/hybrid-reflection-hdr-variance-diagnostics` after this diagnostic branch is integrated. Use 64 frames for development, 256 for the standard PR gate, and 1024 only for extended mean-drift, rare-firefly, or bias-trend auditing. Paired runs must reset the sample index, camera, animation, and history at the same points; keep all non-filter settings and measured frame ranges identical, and separate warm-up from measurement.
