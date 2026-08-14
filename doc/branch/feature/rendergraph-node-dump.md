@@ -97,7 +97,15 @@ Document では repository が所有する ID と型を使用する。
 - `FormatD3D12ResourceStates()` が symbolic state name と未知 flag の hexadecimal fallback を提供する。
 - `Tests/RenderGraphDocumentTests.cpp` が topology、ID uniqueness、deterministic output、state formatting を検証する。
 
-この段階では engine runtime や Debug UI への entry point は追加していない。次の段階では、resource registry から metadata を組み立て、構築済み runtime graph を document builder に渡す integration point を決める。
+Runtime integration として、次の read-only entry point を追加した。
+
+- `RtPbrSurveyEngine::CaptureRenderGraphDocument()` が構築済み runtime graph を snapshot 化する。
+- Engine が resource registry の `persistent` flag を document metadata の transient/persistent classification に変換する。
+- `SceneRenderer::CaptureRenderGraphDocument()` が同じ snapshot を host-facing API として公開する。
+- `SceneRendererDebugUi::DrawRenderGraphDiagnostics()` が pass/resource/link count、text/DOT preview、clipboard copy を提供する。
+- Standalone app の Debug window と host-facing `SceneRendererDebugUi::Draw()` の両方で、同じ diagnostics UI を再利用する。
+
+UI は section を展開したときだけ snapshot と dump を生成する。Graph mutation、file write、node position、`imgui-node-editor` context はまだ追加していない。
 
 ### Diagnostic snapshot
 
@@ -160,6 +168,8 @@ Library-free 版を実装する場合は、repository 所有の C++ file だけ�
 
 - Debug x64 の `RtPbrSurvey.vcxproj` build：成功。既存 vcpkg target の duplicate import warning が 1 件、compile/link error は 0 件。
 - `RenderGraphDocumentTests` の単独 build と実行：成功、exit code 0。
+- Runtime/Debug UI integration 後の Debug x64 build：成功。既存 warning 1 件、compile/link error は 0 件。
+- Runtime/Debug UI integration 後の `RenderGraphDocumentTests` 再実行：成功、exit code 0。
 - 通常の CMake test configure：`tinygltf v3.0.0` の upstream download hash 不一致により停止。RenderGraph code の compile 前に dependency restore で失敗しているため、代わりに repository の既存 local dependency を使う一時 MSBuild project で同じ test source を compile/run した。一時 project と build output は `build/` 以下にあり、commit 対象外。
 
 ## 参照先

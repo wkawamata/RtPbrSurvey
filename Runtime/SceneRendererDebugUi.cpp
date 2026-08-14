@@ -545,6 +545,50 @@ namespace RtPbrSurvey
         }
     }
 
+    void SceneRendererDebugUi::DrawRenderGraphDiagnostics(SceneRenderer& renderer)
+    {
+        const Engine::RenderGraphDocument document = renderer.CaptureRenderGraphDocument();
+        const std::string textDump = Engine::DumpRenderGraphDocumentText(document);
+        const std::string dotDump = Engine::DumpRenderGraphDocumentDot(document);
+        static int dumpFormat = 0;
+
+        size_t passCount = 0;
+        size_t resourceCount = 0;
+        for (const Engine::RenderGraphDocumentNode& node : document.nodes)
+        {
+            if (node.kind == Engine::RenderGraphNodeKind::Pass)
+            {
+                ++passCount;
+            }
+            else
+            {
+                ++resourceCount;
+            }
+        }
+
+        ImGui::Text("Passes: %zu  Resources: %zu  Links: %zu", passCount, resourceCount, document.links.size());
+        ImGui::RadioButton("Text", &dumpFormat, 0);
+        ImGui::SameLine();
+        ImGui::RadioButton("DOT", &dumpFormat, 1);
+        ImGui::SameLine();
+        if (ImGui::Button("Copy Text"))
+        {
+            ImGui::SetClipboardText(textDump.c_str());
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Copy DOT"))
+        {
+            ImGui::SetClipboardText(dotDump.c_str());
+        }
+
+        const std::string& visibleDump = dumpFormat == 0 ? textDump : dotDump;
+        if (ImGui::BeginChild("RenderGraphDump", ImVec2(0.0f, 240.0f), true, ImGuiWindowFlags_HorizontalScrollbar))
+        {
+            ImGui::TextUnformatted(visibleDump.c_str());
+        }
+        ImGui::EndChild();
+    }
+
     void SceneRendererDebugUi::Draw(SceneRenderer& renderer,
                                     bool* open,
                                     const char* windowName,
@@ -594,6 +638,11 @@ namespace RtPbrSurvey
         if (ImGui::CollapsingHeader("Render View", ImGuiTreeNodeFlags_DefaultOpen))
         {
             DrawRenderViewControls(renderer);
+        }
+
+        if (ImGui::CollapsingHeader("RenderGraph Diagnostics"))
+        {
+            DrawRenderGraphDiagnostics(renderer);
         }
 
         ImGui::End();

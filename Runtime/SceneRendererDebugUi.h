@@ -32,5 +32,6 @@ namespace RtPbrSurvey
                          const char* windowName = "RtPbrSurvey Debug",
                          EnvironmentMappingUiState* environment = nullptr);
         static void DrawEnvironmentMapping(SceneRenderer& renderer, EnvironmentMappingUiState& state);
+        static void DrawRenderGraphDiagnostics(SceneRenderer& renderer);
     };
 }

@@ -1180,6 +1180,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
+    if (ImGui::CollapsingHeader("RenderGraph Diagnostics"))
+    {
+        RtPbrSurvey::SceneRendererDebugUi::DrawRenderGraphDiagnostics(app.m_sceneRenderer);
+    }
+
     ImGui::End();
 
     RtPbrSurveyEngine::LightingParams lightingParams = app.m_lightingParams;
