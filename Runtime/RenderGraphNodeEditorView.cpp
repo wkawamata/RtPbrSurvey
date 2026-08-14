@@ -91,7 +91,7 @@ RenderGraphNodeEditorView::~RenderGraphNodeEditorView() = default;
 void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document)
 {
     NodeEditor::SetCurrentEditor(m_impl->context);
-    NodeEditor::Begin("RenderGraphNodeEditor");
+    NodeEditor::Begin("RenderGraphNodeEditor", ImVec2(0.0f, 420.0f));
 
     size_t resourceIndex = 0;
     for (const Engine::RenderGraphDocumentNode& node : document.nodes)
