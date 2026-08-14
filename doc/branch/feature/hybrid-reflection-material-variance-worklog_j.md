@@ -147,3 +147,11 @@ Phase名: **Material-region variance diagnosis and bounded surface-filter experi
 > The default-off filter reduced static display-space variance in the evaluated test ROIs and passed the scoped subjective suite. This does not establish estimator correctness, production denoiser readiness, or generalization beyond the evaluated conditions.
 
 Phase 1 handoff: このdiagnostic branchを統合した後、`features/hybrid-reflection-hdr-variance-diagnostics`を作成する。64 framesを開発確認、256 framesを標準PR gate、1024 framesをmean drift、rare firefly、bias傾向の拡張監査だけに使用する。paired runではsample index、camera、animation、historyを同じ時点でresetし、filter以外の設定と測定frame範囲を一致させ、warm-upとmeasurementを分離する。
+
+## 2026-08-15: PR #28後のmain統合確認
+
+- `origin/main`の`31cff26`を内容競合なしでこのbranchへmergeした。統合後の`App/RtPbrSurveyApp.cpp`はPhase 0のcapture/filter controlとPR #28のinput修正を両方維持する。`Space`はscene animation、`P`はrenderer全体のframe pauseを操作する。
+- stochastic samplingはdefault無効、temporal history weightは`0.0`、`surfaceVarianceFilterEnabled`は`false`のままである。temporal shaderもflagがzeroの場合に`FilterSurfaceVariance`を通らない。
+- Debug x64 MSBuildは0 errorsで成功した。`shaders_TemporalReflection.hlsl`も再compileに成功し、build warningは既知のvcpkg重複importだけだった。
+- 同一条件の短いfilter-off/on captureはいずれも完了した。両方のD3D12 Debug Layer logは0 errorsで、既知のcommitted-buffer initial-state warningが同じ2件だけ記録され、新規warning typeはなかった。
+- PR #28はshadow-validation文書とinput key ownershipの復元でありHybrid Reflection出力を変更しないため、主観suiteは繰り返していない。Phase 0のacceptance区分と限定事項に変更はない。

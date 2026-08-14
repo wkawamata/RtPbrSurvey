@@ -147,3 +147,11 @@ Fixed conclusion:
 > The default-off filter reduced static display-space variance in the evaluated test ROIs and passed the scoped subjective suite. This does not establish estimator correctness, production denoiser readiness, or generalization beyond the evaluated conditions.
 
 Phase 1 handoff: create `features/hybrid-reflection-hdr-variance-diagnostics` after this diagnostic branch is integrated. Use 64 frames for development, 256 for the standard PR gate, and 1024 only for extended mean-drift, rare-firefly, or bias-trend auditing. Paired runs must reset the sample index, camera, animation, and history at the same points; keep all non-filter settings and measured frame ranges identical, and separate warm-up from measurement.
+
+## 2026-08-15: Post-PR #28 Main Integration Check
+
+- Merged `origin/main` at `31cff26` into this branch without a content conflict. The combined `App/RtPbrSurveyApp.cpp` retains both the Phase 0 capture/filter controls and the PR #28 input fix: `Space` controls scene animation, while `P` controls renderer-wide frame pause.
+- Confirmed that stochastic sampling remains disabled by default, temporal history weight remains `0.0`, and `surfaceVarianceFilterEnabled` remains `false`. The temporal shader still bypasses `FilterSurfaceVariance` when the flag is zero.
+- Debug x64 MSBuild succeeded with 0 errors. `shaders_TemporalReflection.hlsl` was recompiled successfully; the only build warning was the known duplicate vcpkg import warning.
+- Short matched filter-off and filter-on capture runs both completed. Each D3D12 Debug Layer log contained 0 errors and the same two occurrences of the known committed-buffer initial-state warning, with no new warning type.
+- No subjective suite was repeated because PR #28 changed the shadow-validation documentation and restored input-key ownership without changing Hybrid Reflection output. The Phase 0 acceptance classifications and limitations remain unchanged.
