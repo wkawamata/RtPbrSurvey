@@ -35,3 +35,21 @@ The evaluator saves reports directly under ignored `reports/`. If the report end
 Recapturing replaces the six generated PNG files while stable suite, case, and criterion identifiers remain unchanged. Committed suite data stays reproducible; run-specific commit, UTC timestamp, plan hash, and working-tree state live only in `current-suite.json` and exported reports.
 
 The evaluator can switch between English and Japanese without recreating controls or losing current radio, defect, or note state. Exported reports record the active locale. DamagedHelmet captures are displayed at two-times scale around the image center so the reflection details occupy a useful review area; this is a presentation-only crop and does not alter captured pixels.
+
+## Stochastic Sampling Suite
+
+Run `Start-Validation.ps1 -StochasticSampling` to use `capture-plan-stochastic.json` and `suite-stochastic.json`. Both A and B enable real stochastic rough-reflection sampling and disable synthetic temporal noise. A uses history weight `0.0`; B uses `0.9`.
+
+The stochastic plan writes `stochastic-*.png` files so it does not overwrite the earlier synthetic-noise contract captures. The evaluator retains the same English/Japanese workflow and JSON report format, but the stochastic suite uses distinct suite and case identifiers.
+
+For live observation, use `capture-plan-stochastic-live.json`. It holds the initial view for 120 frames, then performs three slow orbit segments including two direction changes, returns to the initial yaw, and captures one settling reference. Run A and B separately with the same plan and different history weights. Do not use this live plan as a replacement for the fixed nine-criterion HTML suite.
+
+`-ReflectionCameraDistanceScale <scale>` applies one stable multiplier to the initial Arcball distance for reflection capture automation. A value of `0.5` renders DamagedHelmet at approximately twice the linear image size and is intended for edge diagnosis. The value does not alter interactive or non-capture camera defaults.
+
+`-CaptureReflectionTemporalValidity` selects the temporal-history classification view while retaining the existing resolved-radiance capture setup. The colors are black for no history, blue for reprojection outside the history image, red for depth rejection, yellow for normal rejection, and green for accepted history. The classification is stored only in resolved-radiance alpha; RGB radiance and blending semantics are unchanged.
+
+`-ReflectionRejectedPixelNeighborhood` enables a default-off diagnostic policy for A/B capture. Pixels rejected by the existing depth/normal history tests use a 3x3 current-frame radiance average restricted to neighbors with matching visible depth and normal. It does not relax history rejection and does not filter accepted-history pixels.
+
+Open `http://127.0.0.1:8765/?suite=suite-edge-stability.json` for the repeatable enlarged DamagedHelmet A/B review. A keeps the policy disabled and B enables it; both use stochastic sampling, history weight `0.9`, and camera distance scale `0.5`.
+
+Use `capture-plan-edge-settling.json` and `suite-edge-settling.json` for the focused settling gate. They compare A/B at 1, 6, and 15 frames after camera motion stops at frame 180, with only two criteria per checkpoint.

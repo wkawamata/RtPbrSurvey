@@ -117,6 +117,9 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
         case RenderViewMode::ReflectionResolvedRadiance:
             return "ReflectionResolvedRadiance is unweighted radiance after the experimental temporal blend.\n"
                    "Compare it with Evaluated Radiance to observe static stabilization and unreprojected motion trails.";
+        case RenderViewMode::ReflectionTemporalValidity:
+            return "Temporal history classification: black=no history, blue=outside history, red=depth reject, "
+                   "yellow=normal reject, green=accepted. RGB history remains unchanged.";
         case RenderViewMode::ReflectionEvaluatedRadianceDirect:
             return "Reflection radiance direct-light component recomputed from the hit payload.";
         case RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse:
@@ -645,10 +648,14 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Contribution Max Distance", &reflectionSettings.contributionMaxDistance, 0.1f, 100.0f, 0.5f, 20.0f);
         ImGui::EndDisabled();
+        changed |= ImGui::Checkbox("Stochastic Rough Sampling", &reflectionSettings.stochasticSamplingEnabled);
+        ImGui::TextWrapped("Experimental default-off visible-surface rough reflection sampling.");
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Temporal History Weight", &reflectionSettings.temporalHistoryWeight, 0.0f, 0.98f, 0.05f, 0.0f);
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Temporal Debug Noise", &reflectionSettings.temporalNoiseStrength, 0.0f, 1.0f, 0.05f, 0.0f);
+        changed |= ImGui::Checkbox("Rejected Pixel Neighborhood", &reflectionSettings.rejectedPixelNeighborhoodEnabled);
+        ImGui::TextWrapped("Experimental default-off 3x3 cross-bilateral current-frame fallback for depth/normal rejected pixels.");
         ImGui::TextWrapped("Experimental motion-reprojected blend with depth/normal rejection. Debug noise is injected before history accumulation and is disabled at zero.");
 
         changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
@@ -730,6 +737,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::SameLine();
         ImGui::RadioButton("Resolved Radiance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionResolvedRadiance));
         ImGui::SameLine();
+        ImGui::RadioButton("Temporal Validity##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionTemporalValidity));
+        ImGui::SameLine();
         ImGui::RadioButton("Fade##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayDistanceFade));
         ImGui::SameLine();
         ImGui::RadioButton("Strength##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionContributionStrength));
@@ -753,6 +762,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionRayEmission ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
              app.m_renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
@@ -771,6 +781,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionRayEmission ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
              app.m_renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||

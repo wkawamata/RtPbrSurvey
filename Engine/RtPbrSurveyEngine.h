@@ -118,6 +118,7 @@ public:
         ReflectionRayEmission,
         ReflectionEvaluatedRadiance,
         ReflectionResolvedRadiance,
+        ReflectionTemporalValidity,
         ReflectionEvaluatedRadianceDirect,
         ReflectionEvaluatedRadianceIblDiffuse,
         ReflectionEvaluatedRadianceIblSpecular,
@@ -220,8 +221,10 @@ public:
         bool contributionEnabled = false;
         float contributionIntensity = 0.25f;
         float contributionMaxDistance = 20.0f;
+        bool stochasticSamplingEnabled = false;
         float temporalHistoryWeight = 0.0f;
         float temporalNoiseStrength = 0.0f;
+        bool rejectedPixelNeighborhoodEnabled = false;
     };
 
     struct SpecularDebugLineSettings
@@ -428,6 +431,7 @@ private:
             static constexpr const char* GBufferDebugTarget = "GBufferDebugTarget";
             static constexpr const char* ReflectionRayHitDebugTarget = "ReflectionRayHitDebugTarget";
             static constexpr const char* TemporalReflection = "TemporalReflection";
+            static constexpr const char* ReflectionSampling = "ReflectionSampling";
         };
     };
 
@@ -580,6 +584,7 @@ private:
                    renderViewMode != RenderViewMode::TlasDebug &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadiance &&
                    renderViewMode != RenderViewMode::ReflectionResolvedRadiance &&
+                   renderViewMode != RenderViewMode::ReflectionTemporalValidity &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceDirect &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceIblSpecular &&
@@ -614,6 +619,7 @@ private:
                    renderViewMode == RenderViewMode::ReflectionContributionStrength ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
                    renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+                   renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
@@ -649,6 +655,10 @@ private:
             if (renderViewMode == RenderViewMode::ReflectionResolvedRadiance)
             {
                 return 7u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionTemporalValidity)
+            {
+                return 13u;
             }
             if (renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect)
             {
@@ -763,6 +773,8 @@ private:
     // readIndex advances only after a command list containing TemporalReflectionPass is submitted.
     ReflectionHistoryState m_reflectionHistoryState;
     bool m_reflectionHistoryCommitPending = false;
+    UINT m_reflectionSamplingFrameIndex = 0;
+    bool m_reflectionSamplingCommitPending = false;
     Engine::CameraProjection m_previousCameraProjection = Engine::CameraProjection::Perspective;
     float m_previousCameraFov = 60.0f;
     float m_previousCameraOrthographicHeight = 10.0f;
@@ -1061,6 +1073,7 @@ private:
     void UpdateCameraConstantBuffer();
     void InvalidateReflectionHistory();
     void CommitReflectionHistoryFrame();
+    void CommitReflectionSamplingFrame();
     void CreateConstantBuffer(ConstantBufferResource& constantBuffer, const void* initialData, UINT sizeInBytes);
     void CreateDepthStencil(UINT width, UINT height);
     void RegisterDepthStencil();

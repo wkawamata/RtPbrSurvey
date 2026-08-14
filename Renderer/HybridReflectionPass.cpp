@@ -16,6 +16,8 @@ struct HybridReflectionShaderConstants
     float rayTMax;
     float maxRoughness;
     float minMetallic;
+    UINT stochasticSamplingEnabled;
+    UINT samplingFrameIndex;
     UINT usesIndexedDraw;
     UINT vertexCount;
     UINT indexCount;
@@ -52,11 +54,13 @@ void RecordHybridReflectionPass(ID3D12GraphicsCommandList* commandList, const Hy
         desc.rayTMax,
         desc.maxRoughness,
         desc.minMetallic,
+        desc.stochasticSamplingEnabled,
+        desc.samplingFrameIndex,
         desc.usesIndexedDraw,
         desc.vertexCount,
         desc.indexCount,
         desc.hitNormalSource};
-    commandList->SetComputeRoot32BitConstants(15, 9, &constants, 0);
+    commandList->SetComputeRoot32BitConstants(15, 11, &constants, 0);
 
     constexpr UINT kThreadGroupSize = 8;
     const UINT dispatchX = (desc.width + kThreadGroupSize - 1) / kThreadGroupSize;

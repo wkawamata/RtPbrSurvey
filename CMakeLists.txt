@@ -325,6 +325,14 @@ if(RTPBRSURVEY_BUILD_TESTS)
     endif()
     add_test(NAME RtPbrSurvey.SceneBuilderMesh COMMAND RtPbrSurvey.SceneBuilderMeshTests)
 
+    add_executable(RtPbrSurvey.GltfNodeMeshTests
+        Tests/GltfNodeMeshTests.cpp)
+    target_link_libraries(RtPbrSurvey.GltfNodeMeshTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.GltfNodeMeshTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.GltfNodeMesh COMMAND RtPbrSurvey.GltfNodeMeshTests)
+
     add_executable(RtPbrSurvey.TextureMipChainTests
         Tests/TextureMipChainTests.cpp)
     target_link_libraries(RtPbrSurvey.TextureMipChainTests PRIVATE RtPbrSurvey::SceneRenderer)

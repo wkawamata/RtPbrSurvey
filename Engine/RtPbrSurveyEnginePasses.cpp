@@ -17,6 +17,7 @@ void RtPbrSurveyEngine::BuildRenderPasses()
 {
     m_temporalUpscalerOutputAvailable = false;
     m_reflectionHistoryCommitPending = false;
+    m_reflectionSamplingCommitPending = false;
     m_renderGraphRuntime.Graph().Clear();
     m_renderGraphRuntime.Operations().Clear();
 
@@ -63,11 +64,13 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
                 AddPass(MakeHybridReflectionPass());
                 if (m_hybridReflectionSettings.contributionEnabled ||
                     m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
-                    m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance)
+                    m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+                    m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity)
                 {
                     AddPass(MakeReflectionEvaluatePass());
                     if (m_hybridReflectionSettings.contributionEnabled ||
-                        m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance)
+                        m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+                        m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity)
                     {
                         AddPass(MakeTemporalReflectionPass());
                     }
@@ -101,6 +104,7 @@ void RtPbrSurveyEngine::AddDeferredSceneOutputPass()
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayEmission ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
@@ -366,6 +370,7 @@ auto RtPbrSurveyEngine::MakeReflectionEvaluatePass() -> RenderPass
         .Descriptor(RootSignatureLayout::ReflectionRayMaterial, Desc::ReflectionRayMaterialSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayEmission, Desc::ReflectionRayEmissionSrv)
         .Descriptor(RootSignatureLayout::LightConstants, Desc::LightCbv)
+        .Constants(RootSignatureLayout::ReflectionSamplingConstants, ConstName::ReflectionSampling)
         .Rtv(RtvName::ReflectionEvaluatedRadiance)
         .Operation(Op::ReflectionEvaluate, &RtPbrSurveyEngine::ExecuteReflectionEvaluatePass)
         .Build();
@@ -532,7 +537,8 @@ auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
     {
         reads.push_back({kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
     }
-    else if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance)
+    else if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+             m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity)
     {
         const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
         reads.push_back({kReflectionResolvedRadianceResourceNames[writeIndex],
@@ -559,7 +565,8 @@ auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
     {
         builder.Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance, Desc::ReflectionEvaluatedRadianceSrv);
     }
-    else if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance)
+    else if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+             m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity)
     {
         builder.Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance,
                            Desc::ReflectionResolvedRadianceCurrentSrv);

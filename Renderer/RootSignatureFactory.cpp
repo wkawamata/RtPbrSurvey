@@ -213,6 +213,11 @@ void CreateRootParameters(const DescriptorRanges& ranges,
         RootSignatureLayout::kTemporalReflectionConstantsRegister,
         RootSignatureLayout::kTemporalReflectionConstantsSpace,
         D3D12_SHADER_VISIBILITY_PIXEL); // Reflection history validity
+    rootParameters[RootSignatureLayout::ReflectionSamplingConstants].InitAsConstants(
+        RootSignatureLayout::kReflectionSamplingConstantsCount,
+        RootSignatureLayout::kReflectionSamplingConstantsRegister,
+        RootSignatureLayout::kReflectionSamplingConstantsSpace,
+        D3D12_SHADER_VISIBILITY_PIXEL); // Reflection sampling mode and frame index
     rootParameters[RootSignatureLayout::SceneDrawConstants].InitAsConstants(
         RootSignatureLayout::kSceneDrawConstantsCount,
         RootSignatureLayout::kSceneDrawConstantsRegister,

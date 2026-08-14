@@ -1,4 +1,5 @@
 #include "Material.hlsli"
+#include "ReflectionSampling.hlsli"
 
 RWTexture2D<float4> g_reflectionRayHit : register(u0);
 RWTexture2D<float4> g_reflectionRayColor : register(u1);
@@ -39,6 +40,8 @@ cbuffer ReflectionConstants : register(b1)
     float rayTMax;
     float maxRoughness;
     float minMetallic;
+    uint stochasticSamplingEnabled;
+    uint samplingFrameIndex;
     uint usesIndexedDraw;
     uint vertexCount;
     uint indexCount;
@@ -361,6 +364,11 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     float3 viewDirection = normalize(worldPosition - cameraPosition.xyz);
     float3 reflectionDirection = normalize(reflect(viewDirection, normal));
+    if (stochasticSamplingEnabled != 0)
+    {
+        reflectionDirection = SampleRoughReflectionDirection(
+            pixel, samplingFrameIndex, viewDirection, normal, saturate(roughness), reflectionDirection);
+    }
     float3 rayOrigin = worldPosition + normal * normalBias;
 
     RayDesc ray;

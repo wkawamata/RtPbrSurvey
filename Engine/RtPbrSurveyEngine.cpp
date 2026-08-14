@@ -435,8 +435,10 @@ void RtPbrSurveyEngine::SetHybridReflectionSettings(const HybridReflectionSettin
         m_hybridReflectionSettings.minMetallic != settings.minMetallic ||
         m_hybridReflectionSettings.hitNormalSource != settings.hitNormalSource ||
         m_hybridReflectionSettings.contributionEnabled != settings.contributionEnabled ||
+        m_hybridReflectionSettings.stochasticSamplingEnabled != settings.stochasticSamplingEnabled ||
         m_hybridReflectionSettings.temporalHistoryWeight != settings.temporalHistoryWeight ||
-        m_hybridReflectionSettings.temporalNoiseStrength != settings.temporalNoiseStrength;
+        m_hybridReflectionSettings.temporalNoiseStrength != settings.temporalNoiseStrength ||
+        m_hybridReflectionSettings.rejectedPixelNeighborhoodEnabled != settings.rejectedPixelNeighborhoodEnabled;
 
     m_hybridReflectionSettings = settings;
     if (reflectionHistoryChanged)
@@ -816,6 +818,7 @@ void RtPbrSurveyEngine::InvalidateReflectionHistory()
 {
     m_reflectionHistoryState.valid = false;
     m_reflectionTemporalFrameIndex = 0;
+    m_reflectionSamplingFrameIndex = 0;
 }
 
 void RtPbrSurveyEngine::CommitReflectionHistoryFrame()
@@ -829,6 +832,17 @@ void RtPbrSurveyEngine::CommitReflectionHistoryFrame()
     m_reflectionHistoryState.valid = true;
     ++m_reflectionTemporalFrameIndex;
     m_reflectionHistoryCommitPending = false;
+}
+
+void RtPbrSurveyEngine::CommitReflectionSamplingFrame()
+{
+    if (!m_reflectionSamplingCommitPending)
+    {
+        return;
+    }
+
+    ++m_reflectionSamplingFrameIndex;
+    m_reflectionSamplingCommitPending = false;
 }
 
 // Load the rendering pipeline dependencies.
@@ -1626,7 +1640,7 @@ void RtPbrSurveyEngine::CreateHybridReflectionRootSignature()
     rootParameters[12].InitAsDescriptorTable(1, &materialSrvRange); // g_materialData (t7)
     rootParameters[13].InitAsDescriptorTable(1, &textureSrvRange);  // g_texture[] (t0, space8)
     rootParameters[14].InitAsShaderResourceView(8, 0);              // g_meshRanges (t8)
-    rootParameters[15].InitAsConstants(9, 1, 0);                    // ReflectionConstants (b1)
+    rootParameters[15].InitAsConstants(11, 1, 0);                   // ReflectionConstants (b1)
 
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
     featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
@@ -3150,13 +3164,23 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
                 float historyWeight;
                 UINT frameIndex;
                 float noiseStrength;
+                UINT rejectedPixelNeighborhoodEnabled;
             };
             const TemporalReflectionConstants constants = {
                 m_reflectionHistoryState.valid ? 1u : 0u,
                 std::clamp(m_hybridReflectionSettings.temporalHistoryWeight, 0.0f, 0.98f),
                 m_reflectionTemporalFrameIndex,
-                std::clamp(m_hybridReflectionSettings.temporalNoiseStrength, 0.0f, 1.0f)};
-            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 4, &constants, 0);
+                std::clamp(m_hybridReflectionSettings.temporalNoiseStrength, 0.0f, 1.0f),
+                m_hybridReflectionSettings.rejectedPixelNeighborhoodEnabled ? 1u : 0u};
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 5, &constants, 0);
+        });
+    m_renderGraphRuntime.Constants().Register(
+        m_renderGraphRuntime.RegisterConstants(ConstName::ReflectionSampling),
+        [this](UINT rootParameterIndex)
+        {
+            const UINT constants[2] = {m_hybridReflectionSettings.stochasticSamplingEnabled ? 1u : 0u,
+                                       m_reflectionSamplingFrameIndex};
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 2, constants, 0);
         });
 }
 
@@ -3328,6 +3352,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     ID3D12CommandList* ppCommandLists[] = {m_commandList.Get()};
     m_graphicsDevice.ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
     CommitReflectionHistoryFrame();
+    CommitReflectionSamplingFrame();
 
     if (m_debugViewSettings.hdrDumpPending)
     {
@@ -4007,6 +4032,8 @@ void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     passDesc.vertexCount = m_vertexCountPerInstance;
     passDesc.indexCount = m_indexCountPerInstance;
     passDesc.hitNormalSource = static_cast<UINT>(m_hybridReflectionSettings.hitNormalSource);
+    passDesc.stochasticSamplingEnabled = m_hybridReflectionSettings.stochasticSamplingEnabled ? 1u : 0u;
+    passDesc.samplingFrameIndex = m_reflectionSamplingFrameIndex;
     if (m_hybridReflectionSettings.materialGateEnabled)
     {
         passDesc.maxRoughness = m_hybridReflectionSettings.maxRoughness;
@@ -4021,6 +4048,7 @@ void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     passDesc.height = m_renderHeight;
 
     Engine::RecordHybridReflectionPass(m_commandList.Get(), passDesc);
+    m_reflectionSamplingCommitPending = true;
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Hybrid Reflection Pass");
 }
 
