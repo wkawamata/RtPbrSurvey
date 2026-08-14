@@ -20,6 +20,34 @@ bool IsCommandLineArg(const WCHAR* arg, const WCHAR* expected)
     return _wcsicmp(arg, expected) == 0;
 }
 
+bool TryParseReflectionCaptureDebugView(const WCHAR* value, ReflectionCaptureDebugView& debugView)
+{
+    struct DebugViewName
+    {
+        const WCHAR* name;
+        ReflectionCaptureDebugView debugView;
+    };
+
+    static constexpr DebugViewName kDebugViewNames[] = {
+        {L"resolved-radiance", ReflectionCaptureDebugView::ResolvedRadiance},
+        {L"temporal-validity", ReflectionCaptureDebugView::TemporalValidity},
+        {L"pbr-params", ReflectionCaptureDebugView::GBufferPbrParams},
+        {L"normal", ReflectionCaptureDebugView::GBufferNormal},
+        {L"hit-material", ReflectionCaptureDebugView::ReflectionRayMaterial},
+        {L"evaluated-radiance", ReflectionCaptureDebugView::EvaluatedRadiance},
+    };
+
+    for (const DebugViewName& entry : kDebugViewNames)
+    {
+        if (_wcsicmp(value, entry.name) == 0)
+        {
+            debugView = entry.debugView;
+            return true;
+        }
+    }
+    return false;
+}
+
 bool IsValidCaptureVariant(const std::string& variant)
 {
     if (variant.empty())
@@ -152,11 +180,28 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         else if (IsCommandLineArg(argv[i], L"-CaptureReflectionResolvedRadiance"))
         {
             options.captureReflectionResolvedRadiance = true;
+            options.captureReflectionTemporalValidity = false;
+            options.reflectionCaptureDebugView = ReflectionCaptureDebugView::ResolvedRadiance;
         }
         else if (IsCommandLineArg(argv[i], L"-CaptureReflectionTemporalValidity"))
         {
             options.captureReflectionResolvedRadiance = true;
             options.captureReflectionTemporalValidity = true;
+            options.reflectionCaptureDebugView = ReflectionCaptureDebugView::TemporalValidity;
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionCaptureDebugView"))
+        {
+            if (i + 1 < argc)
+            {
+                ReflectionCaptureDebugView debugView;
+                if (TryParseReflectionCaptureDebugView(argv[++i], debugView))
+                {
+                    options.captureReflectionResolvedRadiance = true;
+                    options.captureReflectionTemporalValidity =
+                        debugView == ReflectionCaptureDebugView::TemporalValidity;
+                    options.reflectionCaptureDebugView = debugView;
+                }
+            }
         }
         else if (IsCommandLineArg(argv[i], L"-ReflectionStochasticSampling"))
         {

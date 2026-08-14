@@ -35,3 +35,23 @@
 - varianceがnormal-map周波数に対応する場合、radianceをfilterする前にdirection stabilityを確認する。
 - historyが継続して採用されてもnoiseが残る場合、rejection変更前に収束とsample varianceを測る。
 - 2領域で原因が共通しない場合、1つのfixへ押し込まず分割する。
+
+## 2026-08-14: 同一条件の診断撮影
+
+- 撮影専用の表示選択として `-ReflectionCaptureDebugView <name>` を追加した。既存の Hybrid Reflection automation を維持し、`pbr-params`、`normal`、`hit-material`、`evaluated-radiance`、`resolved-radiance`、`temporal-validity` を選択できる。
+- frame 195 の停止後画像を1枚撮る `capture-plan-material-variance.json` を追加した。6回すべてで同じcamera timeline、camera distance scale `0.5`、stochastic sampling有効、temporal history weight `0.9`を使用した。
+- PBR画像はvisible surfaceのmetallic、roughness、ambient occlusionをRGBへ格納する。normal画像はvisible GBuffer normalを示す。hit-material画像はray hit先のpayloadであり、visible surface materialとして解釈してはならない。
+- evaluated radianceには面全体のsample varianceが明確に見える。resolved radianceは明らかに滑らかであり、temporal accumulationが動作し、varianceを実質的に減らしていることを確認した。
+- 停止後frameのtemporal validityは全体でacceptedとなった。以前の全frameがacceptedだった証明ではないが、残留する静止noiseの唯一の原因を継続的なhistory rejectionとする見方には反する。
+- 後頭部寄り領域と下面pipeは、どちらもPBR textureとnormalの変化を含む。ただし、現画像だけでは両領域を単一material channelまたは単一policyへ帰属させる根拠は不十分である。
+
+### 現時点の判断
+
+- temporal sequenceで反証されるまでは、残留症状をaccepted stochastic inputの遅い収束として扱う。
+- rejection thresholdは緩和せず、reject画素近傍補助実験もglobalには有効化しない。
+- 次の測定単位では、固定ROIについてevaluated radianceとresolved radianceのframe間varianceを別々に定量化する。
+
+### 検証
+
+- Debug x64 MSBuildは0 errorsで成功した。既知のvcpkg重複import warningのみ発生した。
+- 6種類の自動撮影はすべて成功した。

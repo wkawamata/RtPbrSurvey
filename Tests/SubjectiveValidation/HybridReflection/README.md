@@ -48,6 +48,8 @@ For live observation, use `capture-plan-stochastic-live.json`. It holds the init
 
 `-CaptureReflectionTemporalValidity` selects the temporal-history classification view while retaining the existing resolved-radiance capture setup. The colors are black for no history, blue for reprojection outside the history image, red for depth rejection, yellow for normal rejection, and green for accepted history. The classification is stored only in resolved-radiance alpha; RGB radiance and blending semantics are unchanged.
 
+`-ReflectionCaptureDebugView <name>` selects a diagnostic view while retaining the same Hybrid Reflection capture setup. Accepted names are `pbr-params`, `normal`, `hit-material`, `evaluated-radiance`, `resolved-radiance`, and `temporal-validity`. The PBR view maps metallic, roughness, and ambient occlusion to RGB. The option changes only the displayed capture resource; it does not change sampling, evaluation, or temporal policy.
+
 `-ReflectionRejectedPixelNeighborhood` enables a default-off diagnostic policy for A/B capture. Pixels rejected by the existing depth/normal history tests use a 3x3 current-frame radiance average restricted to neighbors with matching visible depth and normal. It does not relax history rejection and does not filter accepted-history pixels.
 
 Open `http://127.0.0.1:8765/?suite=suite-edge-stability.json` for the repeatable enlarged DamagedHelmet A/B review. A keeps the policy disabled and B enables it; both use stochastic sampling, history weight `0.9`, and camera distance scale `0.5`.

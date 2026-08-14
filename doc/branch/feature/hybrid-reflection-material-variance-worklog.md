@@ -35,3 +35,23 @@ This log records diagnosis of persistent surface-wide stochastic variance in sel
 - If variance tracks normal-map frequency, verify direction stability before filtering radiance.
 - If history is consistently accepted but noise persists, measure convergence and sample variance before changing rejection.
 - If the two regions do not share a cause, split them rather than forcing one combined fix.
+
+## 2026-08-14: Matched Diagnostic Capture
+
+- Added `-ReflectionCaptureDebugView <name>` as a capture-only view selector. It preserves the existing Hybrid Reflection automation and supports `pbr-params`, `normal`, `hit-material`, `evaluated-radiance`, `resolved-radiance`, and `temporal-validity`.
+- Added `capture-plan-material-variance.json` with one settling capture at frame 195. All six runs used the same camera timeline, camera distance scale `0.5`, stochastic sampling enabled, and temporal history weight `0.9`.
+- The PBR capture encodes visible metallic, roughness, and ambient occlusion in RGB. The normal capture shows the visible GBuffer normal. The hit-material capture is the ray-hit payload, so it must not be interpreted as the visible-surface material.
+- Evaluated radiance contains obvious surface-wide sample variance. Resolved radiance is visibly smoother, confirming that temporal accumulation is active and materially reduces the variance.
+- Temporal validity is accepted across the settled frame. This does not prove every earlier frame was accepted, but it argues against persistent history rejection as the sole cause of the remaining static noise.
+- The rearward region and underside pipes both contain textured PBR and normal variation. The captures do not yet justify attributing both regions to one material channel or one shared policy.
+
+### Current Decision
+
+- Treat the remaining symptom as slow convergence of accepted stochastic input unless a temporal sequence shows otherwise.
+- Do not weaken rejection thresholds and do not enable the rejected-pixel neighborhood experiment globally.
+- The next measured slice should quantify frame-to-frame variance in fixed regions of interest, separately for evaluated and resolved radiance.
+
+### Validation
+
+- Debug x64 MSBuild succeeded with 0 errors and the existing duplicate vcpkg import warning.
+- Six automated captures completed successfully.
