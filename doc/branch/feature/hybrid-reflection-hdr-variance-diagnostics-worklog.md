@@ -68,3 +68,11 @@ For each fixed ROI and signal boundary, record:
 - Tone mapping and PNG conversion are deliberately outside this path.
 - This slice does not yet schedule RenderGraph captures or emit statistics; those remain the next Phase 1 integration boundary.
 - Debug x64 build, including HLSL custom build steps, succeeded. The build reported only the existing duplicate vcpkg import warning.
+
+### 2026-08-15: RenderGraph capture integration
+
+- Added an explicit one-frame engine request/result boundary for reflection HDR diagnostics.
+- Added a diagnostic RenderGraph pass after scene rendering. It transitions and copies evaluated radiance, the current resolved-radiance write slot, and ray-hit payload from the same submitted frame.
+- The request is rejected unless Deferred rendering and Hybrid Reflection contribution are active, preventing reads of signals that were not produced.
+- Readback remains synchronous and intentionally limited to offline diagnostics. Continuous capture scheduling and JSON aggregation remain the next boundary.
+- Debug x64 build succeeded with the existing duplicate vcpkg import warning only.

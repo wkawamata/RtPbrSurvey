@@ -21,6 +21,18 @@ void ReflectionHdrDiagnosticReadback::Reset()
     roi = {};
 }
 
+bool ReflectionHdrDiagnosticCapture::IsReady() const
+{
+    return evaluatedRadiance.IsValid() && resolvedRadiance.IsValid() && rayHit.IsValid();
+}
+
+void ReflectionHdrDiagnosticCapture::Reset()
+{
+    evaluatedRadiance.Reset();
+    resolvedRadiance.Reset();
+    rayHit.Reset();
+}
+
 void RecordReflectionHdrDiagnosticReadback(ID3D12GraphicsCommandList* commandList,
                                            ID3D12Device* device,
                                            ID3D12Resource* source,
@@ -99,6 +111,60 @@ ReflectionHdrDiagnosticSample ReadReflectionHdrDiagnosticSample(
             DirectX::PackedVector::XMConvertHalfToFloat(half[1]),
             DirectX::PackedVector::XMConvertHalfToFloat(half[2]),
             DirectX::PackedVector::XMConvertHalfToFloat(half[3])};
+}
+
+void RecordReflectionHdrDiagnosticCapture(ID3D12GraphicsCommandList* commandList,
+                                          ID3D12Device* device,
+                                          ID3D12Resource* evaluatedRadiance,
+                                          ID3D12Resource* resolvedRadiance,
+                                          ID3D12Resource* rayHit,
+                                          const ReflectionHdrDiagnosticRoi& roi,
+                                          ReflectionHdrDiagnosticCapture& capture)
+{
+    capture.Reset();
+    RecordReflectionHdrDiagnosticReadback(
+        commandList, device, evaluatedRadiance, roi, capture.evaluatedRadiance);
+    RecordReflectionHdrDiagnosticReadback(commandList, device, resolvedRadiance, roi, capture.resolvedRadiance);
+    RecordReflectionHdrDiagnosticReadback(commandList, device, rayHit, roi, capture.rayHit);
+}
+
+namespace
+{
+
+std::vector<ReflectionHdrDiagnosticSample> ReadSamples(ReflectionHdrDiagnosticReadback& readback)
+{
+    ReflectionHdrDiagnosticMappedReadback mapped = {};
+    MapReflectionHdrDiagnosticReadback(readback, mapped);
+    std::vector<ReflectionHdrDiagnosticSample> samples;
+    samples.reserve(static_cast<size_t>(mapped.roi.width) * mapped.roi.height);
+    for (UINT y = 0; y < mapped.roi.height; ++y)
+    {
+        for (UINT x = 0; x < mapped.roi.width; ++x)
+        {
+            samples.push_back(ReadReflectionHdrDiagnosticSample(mapped, x, y));
+        }
+    }
+    UnmapReflectionHdrDiagnosticReadback(readback);
+    return samples;
+}
+
+} // namespace
+
+ReflectionHdrDiagnosticFrame ReadReflectionHdrDiagnosticCapture(ReflectionHdrDiagnosticCapture& capture)
+{
+    assert(capture.IsReady());
+    const ReflectionHdrDiagnosticRoi roi = capture.evaluatedRadiance.roi;
+    assert(roi.x == capture.resolvedRadiance.roi.x && roi.y == capture.resolvedRadiance.roi.y);
+    assert(roi.width == capture.resolvedRadiance.roi.width && roi.height == capture.resolvedRadiance.roi.height);
+    assert(roi.x == capture.rayHit.roi.x && roi.y == capture.rayHit.roi.y);
+    assert(roi.width == capture.rayHit.roi.width && roi.height == capture.rayHit.roi.height);
+
+    ReflectionHdrDiagnosticFrame frame = {};
+    frame.roi = roi;
+    frame.evaluatedRadiance = ReadSamples(capture.evaluatedRadiance);
+    frame.resolvedRadiance = ReadSamples(capture.resolvedRadiance);
+    frame.rayHit = ReadSamples(capture.rayHit);
+    return frame;
 }
 
 } // namespace Engine

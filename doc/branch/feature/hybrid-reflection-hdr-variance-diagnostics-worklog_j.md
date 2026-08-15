@@ -68,3 +68,11 @@ estimator変更またはfilter昇格の前に、Hybrid Reflectionのvarianceと�
 - tone mappingとPNG変換は意図的にこの経路へ含めない。
 - このsliceではRenderGraph capture schedulingと統計出力はまだ接続しない。次のPhase 1 integration boundaryとする。
 - HLSL custom build stepを含むDebug x64 buildは成功した。既存のvcpkg重複import warningだけが報告された。
+
+### 2026-08-15: RenderGraph capture integration
+
+- reflection HDR診断用に、明示的な1-frame engine request/result境界を追加した。
+- scene rendering後にdiagnostic RenderGraph passを追加した。同じsubmit frameのevaluated radiance、現在のresolved-radiance write slot、ray-hit payloadをtransitionしてcopyする。
+- Deferred renderingとHybrid Reflection contributionが有効でない場合はrequestを拒否し、未生成signalのreadを防止する。
+- readbackはoffline診断用として意図的に同期方式を維持する。連続capture schedulingとJSON集計を次の境界とする。
+- Debug x64 buildは成功し、既存のvcpkg重複import warningだけが報告された。

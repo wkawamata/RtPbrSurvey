@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <d3d12.h>
+#include <vector>
 #include <wrl/client.h>
 
 namespace Engine
@@ -41,6 +42,24 @@ struct ReflectionHdrDiagnosticSample
     float a = 0.0f;
 };
 
+struct ReflectionHdrDiagnosticCapture
+{
+    ReflectionHdrDiagnosticReadback evaluatedRadiance;
+    ReflectionHdrDiagnosticReadback resolvedRadiance;
+    ReflectionHdrDiagnosticReadback rayHit;
+
+    bool IsReady() const;
+    void Reset();
+};
+
+struct ReflectionHdrDiagnosticFrame
+{
+    ReflectionHdrDiagnosticRoi roi;
+    std::vector<ReflectionHdrDiagnosticSample> evaluatedRadiance;
+    std::vector<ReflectionHdrDiagnosticSample> resolvedRadiance;
+    std::vector<ReflectionHdrDiagnosticSample> rayHit;
+};
+
 // Copies only the requested region. The source contract is R16G16B16A16_FLOAT;
 // this helper intentionally preserves linear HDR values and does not tone map.
 void RecordReflectionHdrDiagnosticReadback(ID3D12GraphicsCommandList* commandList,
@@ -55,5 +74,13 @@ ReflectionHdrDiagnosticSample ReadReflectionHdrDiagnosticSample(
     const ReflectionHdrDiagnosticMappedReadback& readback,
     UINT localX,
     UINT localY);
+void RecordReflectionHdrDiagnosticCapture(ID3D12GraphicsCommandList* commandList,
+                                          ID3D12Device* device,
+                                          ID3D12Resource* evaluatedRadiance,
+                                          ID3D12Resource* resolvedRadiance,
+                                          ID3D12Resource* rayHit,
+                                          const ReflectionHdrDiagnosticRoi& roi,
+                                          ReflectionHdrDiagnosticCapture& capture);
+ReflectionHdrDiagnosticFrame ReadReflectionHdrDiagnosticCapture(ReflectionHdrDiagnosticCapture& capture);
 
 } // namespace Engine

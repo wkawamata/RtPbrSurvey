@@ -33,6 +33,7 @@
 #include "Renderer/SpecularDebugRayQueryPass.h"
 #include "Renderer/RayQueryTlasDebugPass.h"
 #include "Renderer/ReflectionRayHitDebugPass.h"
+#include "Renderer/ReflectionHdrDiagnosticCapture.h"
 #include "Renderer/RayTracingSupport.h"
 #include "FrameGraph/RenderPassExecution.h"
 #include "FrameGraph/RenderPassGraph.h"
@@ -306,6 +307,8 @@ public:
     void SetRenderViewMode(RenderViewMode mode);
     RenderViewMode GetRenderViewMode() const { return m_debugViewSettings.renderViewMode; }
     void SetRequestHdrDump(bool request);
+    void RequestReflectionHdrDiagnosticCapture(const Engine::ReflectionHdrDiagnosticRoi& roi);
+    std::optional<Engine::ReflectionHdrDiagnosticFrame> ConsumeReflectionHdrDiagnosticFrame();
     void RequestScreenshot(RtPbrSurvey::ScreenshotRequest request);
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult();
     void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
@@ -413,6 +416,7 @@ private:
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* TemporalUpscaler = "TemporalUpscaler";
             static constexpr const char* DebugDump = "DebugDump";
+            static constexpr const char* ReflectionHdrDiagnostic = "ReflectionHdrDiagnostic";
             static constexpr const char* PixelPick = "PixelPick";
             static constexpr const char* GBufferDebug = "GBufferDebug";
             static constexpr const char* ShadowMaskDebug = "ShadowMaskDebug";
@@ -794,6 +798,11 @@ private:
     HdrOutputPolicy m_hdrOutputPolicy;
     DebugViewSettings m_debugViewSettings;
     Engine::DebugDumpCapture m_debugDumpCapture;
+    bool m_reflectionHdrDiagnosticRequested = false;
+    bool m_reflectionHdrDiagnosticPending = false;
+    Engine::ReflectionHdrDiagnosticRoi m_reflectionHdrDiagnosticRoi;
+    Engine::ReflectionHdrDiagnosticCapture m_reflectionHdrDiagnosticCapture;
+    std::optional<Engine::ReflectionHdrDiagnosticFrame> m_reflectionHdrDiagnosticFrame;
     struct PendingScreenshotCapture
     {
         RtPbrSurvey::ScreenshotRequest request;
@@ -1152,6 +1161,7 @@ private:
     RenderPass MakeTemporalUpscalerPass();
     RenderPass MakeToneMapPass();
     RenderPass MakeDebugDumpPass();
+    RenderPass MakeReflectionHdrDiagnosticPass();
     RenderPass MakePixelPickPass();
     RenderPass MakeGBufferDebugPass();
     RenderPass MakeReflectionRayHitDebugPass();
@@ -1220,6 +1230,7 @@ private:
     void ExecuteTemporalUpscalerPass(const RenderPass& pass);
     void ExecuteToneMapPass(const RenderPass& pass);
     void ExecuteDebugDumpPass(const RenderPass& pass);
+    void ExecuteReflectionHdrDiagnosticPass(const RenderPass& pass);
     void ExecutePixelPickPass(const RenderPass& pass);
     void ExecuteGBufferDebugPass(const RenderPass& pass);
     void ExecuteReflectionRayHitDebugPass(const RenderPass& pass);
@@ -1228,6 +1239,7 @@ private:
     void ExecuteImGuiPass(const RenderPass& pass);
     void ExecuteScreenshotPass(const RenderPass& pass);
     void RecordDebugDumpPass();
+    void RecordReflectionHdrDiagnosticPass();
     void RecordPixelPickPass();
     void ReadbackPixelPick();
     void ReadbackSpecularDebugRayQuery();
