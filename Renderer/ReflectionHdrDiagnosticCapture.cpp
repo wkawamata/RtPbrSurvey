@@ -31,6 +31,8 @@ void ReflectionHdrDiagnosticCapture::Reset()
     evaluatedRadiance.Reset();
     resolvedRadiance.Reset();
     rayHit.Reset();
+    samplingFrameIndex = 0;
+    temporalFrameIndex = 0;
 }
 
 void RecordReflectionHdrDiagnosticReadback(ID3D12GraphicsCommandList* commandList,
@@ -119,6 +121,8 @@ void RecordReflectionHdrDiagnosticCapture(ID3D12GraphicsCommandList* commandList
                                           ID3D12Resource* resolvedRadiance,
                                           ID3D12Resource* rayHit,
                                           const ReflectionHdrDiagnosticRoi& roi,
+                                          UINT samplingFrameIndex,
+                                          UINT temporalFrameIndex,
                                           ReflectionHdrDiagnosticCapture& capture)
 {
     capture.Reset();
@@ -126,6 +130,8 @@ void RecordReflectionHdrDiagnosticCapture(ID3D12GraphicsCommandList* commandList
         commandList, device, evaluatedRadiance, roi, capture.evaluatedRadiance);
     RecordReflectionHdrDiagnosticReadback(commandList, device, resolvedRadiance, roi, capture.resolvedRadiance);
     RecordReflectionHdrDiagnosticReadback(commandList, device, rayHit, roi, capture.rayHit);
+    capture.samplingFrameIndex = samplingFrameIndex;
+    capture.temporalFrameIndex = temporalFrameIndex;
 }
 
 namespace
@@ -161,6 +167,8 @@ ReflectionHdrDiagnosticFrame ReadReflectionHdrDiagnosticCapture(ReflectionHdrDia
 
     ReflectionHdrDiagnosticFrame frame = {};
     frame.roi = roi;
+    frame.samplingFrameIndex = capture.samplingFrameIndex;
+    frame.temporalFrameIndex = capture.temporalFrameIndex;
     frame.evaluatedRadiance = ReadSamples(capture.evaluatedRadiance);
     frame.resolvedRadiance = ReadSamples(capture.resolvedRadiance);
     frame.rayHit = ReadSamples(capture.rayHit);

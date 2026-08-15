@@ -4397,6 +4397,8 @@ void RtPbrSurveyEngine::RecordReflectionHdrDiagnosticPass()
                                                  m_reflectionResolvedRadiance[writeIndex].Get(),
                                                  m_reflectionRayHit.Get(),
                                                  m_reflectionHdrDiagnosticRoi,
+                                                 m_reflectionSamplingFrameIndex,
+                                                 m_reflectionTemporalFrameIndex,
                                                  m_reflectionHdrDiagnosticCapture);
     m_reflectionHdrDiagnosticRequested = false;
     m_reflectionHdrDiagnosticPending = true;

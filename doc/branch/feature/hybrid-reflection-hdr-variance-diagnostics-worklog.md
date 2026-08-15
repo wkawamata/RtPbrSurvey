@@ -95,3 +95,11 @@ For each fixed ROI and signal boundary, record:
 - A 64-frame `rearward_surface` run completed with finite statistics. In this run, evaluated variance was `8.16859365380723e-4` and resolved variance was `3.18587231219291e-5`.
 - The observed evaluated/resolved difference is evidence that the measurement distinguishes their temporal behavior. It is not yet a paired filter comparison, baseline convergence result, or physical-correctness claim.
 - Debug x64 build succeeded. The runtime captured zero D3D12 errors and the same two known warnings.
+
+### 2026-08-15: Paired filter comparison
+
+- Added sampling and temporal frame indices to each captured frame so paired scheduling can be verified from the reports.
+- Added a filter off/on orchestrator. Each variant starts a fresh process, uses the same fixed camera, warm-up, measurement window, stochastic settings, temporal weight, and ROI, and differs only in `surfaceVarianceFilterEnabled`.
+- The 64-frame `rearward_surface` development comparison matched sampling and temporal indices `32..95`. Evaluated mean luminance was identical between A and B.
+- In this scoped run, resolved temporal variance decreased by `77.5619%`, while the resolved measurement-window mean differed by `0.1826%`.
+- The result supports a development-level claim for this ROI and sequence only. It is not yet the 256-frame PR gate, a long-run mean-preservation claim, a second-ROI result, or a physical-reference comparison.

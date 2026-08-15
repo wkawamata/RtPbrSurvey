@@ -47,6 +47,8 @@ struct ReflectionHdrDiagnosticCapture
     ReflectionHdrDiagnosticReadback evaluatedRadiance;
     ReflectionHdrDiagnosticReadback resolvedRadiance;
     ReflectionHdrDiagnosticReadback rayHit;
+    UINT samplingFrameIndex = 0;
+    UINT temporalFrameIndex = 0;
 
     bool IsReady() const;
     void Reset();
@@ -55,6 +57,8 @@ struct ReflectionHdrDiagnosticCapture
 struct ReflectionHdrDiagnosticFrame
 {
     ReflectionHdrDiagnosticRoi roi;
+    UINT samplingFrameIndex = 0;
+    UINT temporalFrameIndex = 0;
     std::vector<ReflectionHdrDiagnosticSample> evaluatedRadiance;
     std::vector<ReflectionHdrDiagnosticSample> resolvedRadiance;
     std::vector<ReflectionHdrDiagnosticSample> rayHit;
@@ -80,6 +84,8 @@ void RecordReflectionHdrDiagnosticCapture(ID3D12GraphicsCommandList* commandList
                                           ID3D12Resource* resolvedRadiance,
                                           ID3D12Resource* rayHit,
                                           const ReflectionHdrDiagnosticRoi& roi,
+                                          UINT samplingFrameIndex,
+                                          UINT temporalFrameIndex,
                                           ReflectionHdrDiagnosticCapture& capture);
 ReflectionHdrDiagnosticFrame ReadReflectionHdrDiagnosticCapture(ReflectionHdrDiagnosticCapture& capture);
 

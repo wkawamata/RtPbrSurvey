@@ -626,6 +626,8 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         const double sampleCount = static_cast<double>(frame.rayHit.size());
         frameValues.push_back({
             {"index", frameIndex},
+            {"samplingFrameIndex", frame.samplingFrameIndex},
+            {"temporalFrameIndex", frame.temporalFrameIndex},
             {"evaluatedMeanLuminance", meanLuminance(frame.evaluatedRadiance)},
             {"resolvedMeanLuminance", meanLuminance(frame.resolvedRadiance)},
             {"hitRate", sampleCount > 0.0 ? static_cast<double>(hitCount) / sampleCount : 0.0},

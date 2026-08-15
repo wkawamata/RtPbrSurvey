@@ -95,3 +95,11 @@ estimator変更またはfilter昇格の前に、Hybrid Reflectionのvarianceと�
 - `rearward_surface`の64-frame runが有限な統計値で完走した。このrunではevaluated varianceが`8.16859365380723e-4`、resolved varianceが`3.18587231219291e-5`だった。
 - observed evaluated/resolved差は、測定経路が両者のtemporal behaviorを区別できる証拠である。paired filter比較、baseline収束結果、物理的正しさはまだ主張しない。
 - Debug x64 buildは成功した。runtimeのD3D12 errorは0件で、既知warning 2件だけを記録した。
+
+### 2026-08-15: Paired filter comparison
+
+- 各capture frameへsampling frame indexとtemporal frame indexを追加し、reportからpaired schedulingを検証可能にした。
+- filter off/on orchestratorを追加した。各variantは新規processから開始し、固定camera、warm-up、measurement window、stochastic設定、temporal weight、ROIを一致させ、`surfaceVarianceFilterEnabled`だけを変更する。
+- 64-frameの`rearward_surface`開発比較では、sampling indexとtemporal indexが`32..95`で一致した。Evaluated mean luminanceもA/Bで完全一致した。
+- この限定runではResolved temporal varianceが`77.5619%`低下し、Resolvedのmeasurement-window mean差は`0.1826%`だった。
+- この結果が支持するのは、このROIとsequenceに限定したdevelopment-level claimである。256-frame PR gate、長期mean preservation、第2 ROI、physical reference比較はまだ未実施である。
