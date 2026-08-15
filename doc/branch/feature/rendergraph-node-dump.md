@@ -105,7 +105,7 @@ Runtime integration として、次の read-only entry point を追加した。
 - `SceneRendererDebugUi::DrawRenderGraphDiagnostics()` が pass/resource/link count、text/DOT preview、clipboard copy を提供する。
 - Standalone app の Debug window と host-facing `SceneRendererDebugUi::Draw()` の両方で、同じ diagnostics UI を再利用する。
 
-UI は section を展開したときだけ snapshot と dump を生成する。`Nodes` view を選択すると `RenderGraphNodeEditorView` が document ID を `ax::NodeEditor` ID に変換し、pass/resource node、read/write pin、link を描画する。Scroll 可能な Debug UI の末尾でも canvas が潰れないよう、node editor view は 420 pixel の表示高を確保する。初期 position は lifetime/pass index から一度だけ設定し、その後の user navigation と node movement は view state として editor context が保持する。Library の settings file は無効化しており、local JSON は生成しない。Graph mutation と file write はまだ追加していない。
+UI は section を展開したときだけ snapshot と dump を生成する。`Nodes` view を選択すると `RenderGraphNodeEditorView` が document ID を `ax::NodeEditor` ID に変換し、pass/resource node、read/write pin、link を描画する。Scroll 可能な Debug UI の末尾でも canvas が潰れないよう、node editor view は 420 pixel の表示高を確保する。初期 position は lifetime/pass index から一度だけ設定し、新しい node を配置した frame では graph 全体へ自動で fit する。その後の user navigation と node movement は view state として editor context が保持され、`Fit Graph` button を押した場合だけ全体表示へ戻す。Library の settings file は無効化しており、local JSON は生成しない。Graph mutation と file write はまだ追加していない。
 
 ### Diagnostic snapshot
 
@@ -173,6 +173,7 @@ Library-free 版を実装する場合は、repository 所有の C++ file だけ�
 - Node view integration 後の `RenderGraphDocumentTests` 再実行：成功、exit code 0。
 - CLI runtime check：`-AutoSelectGltfDamagedHelmet -CaptureAfterFrames 30 -ExitAfterCapture` で正常終了し、exit code 0 と PNG capture の生成を確認した。Debug Layer log には buffer の initial state が無視される既存 warning が 2 件あり、`[ERROR]` は 0 件。
 - Node view の visual runtime check：DamagedHelmet の実行中 graph（11 passes、21 resources、51 links）で `Nodes` canvas、pass node、state 付き pin、link の描画を確認した。初回確認で canvas 高が不足したため 420 pixel の固定高を追加し、修正後に再確認した。
+- 最新 `origin/main` への rebase 後に `Fit Graph` と新規 node 配置時の自動 fit を追加し、Debug x64 build と `RenderGraphDocumentTests` は成功した。追加の visual check は Computer Use の app approval timeout により未実施。
 - 通常の CMake test configure：`tinygltf v3.0.0` の upstream download hash 不一致により停止。RenderGraph code の compile 前に dependency restore で失敗しているため、代わりに repository の既存 local dependency を使う一時 MSBuild project で同じ test source を compile/run した。一時 project と build output は `build/` 以下にあり、commit 対象外。
 
 ## 参照先

@@ -63,11 +63,11 @@ struct RenderGraphNodeEditorView::Impl
         NodeEditor::DestroyEditor(context);
     }
 
-    void PositionNode(const Engine::RenderGraphDocumentNode& node, size_t resourceIndex)
+    bool PositionNode(const Engine::RenderGraphDocumentNode& node, size_t resourceIndex)
     {
         if (!positionedNodes.insert(node.id.value).second)
         {
-            return;
+            return false;
         }
 
         ImVec2 position;
@@ -81,6 +81,7 @@ struct RenderGraphNodeEditorView::Impl
             position = ImVec2(320.0f * lifetimeCenter, 280.0f + 105.0f * static_cast<float>(resourceIndex));
         }
         NodeEditor::SetNodePosition(ToNodeId(node.id), position);
+        return true;
     }
 };
 
@@ -90,13 +91,18 @@ RenderGraphNodeEditorView::~RenderGraphNodeEditorView() = default;
 
 void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document)
 {
+    const bool fitRequested = ImGui::Button("Fit Graph");
+    ImGui::SameLine();
+    ImGui::TextDisabled("Read-only");
+
     NodeEditor::SetCurrentEditor(m_impl->context);
     NodeEditor::Begin("RenderGraphNodeEditor", ImVec2(0.0f, 420.0f));
 
     size_t resourceIndex = 0;
+    bool layoutChanged = false;
     for (const Engine::RenderGraphDocumentNode& node : document.nodes)
     {
-        m_impl->PositionNode(node, resourceIndex);
+        layoutChanged |= m_impl->PositionNode(node, resourceIndex);
         if (node.kind == Engine::RenderGraphNodeKind::Resource)
         {
             ++resourceIndex;
@@ -142,6 +148,10 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     }
 
     NodeEditor::End();
+    if (fitRequested || layoutChanged)
+    {
+        NodeEditor::NavigateToContent(0.0f);
+    }
     NodeEditor::SetCurrentEditor(nullptr);
 }
 } // namespace RtPbrSurvey
