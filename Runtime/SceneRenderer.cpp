@@ -227,6 +227,16 @@ namespace RtPbrSurvey
         m_engine.SetRequestHdrDump(request);
     }
 
+    void SceneRenderer::RequestReflectionHdrDiagnosticCapture(const Engine::ReflectionHdrDiagnosticRoi& roi)
+    {
+        m_engine.RequestReflectionHdrDiagnosticCapture(roi);
+    }
+
+    std::optional<Engine::ReflectionHdrDiagnosticFrame> SceneRenderer::ConsumeReflectionHdrDiagnosticFrame()
+    {
+        return m_engine.ConsumeReflectionHdrDiagnosticFrame();
+    }
+
     void SceneRenderer::RequestScreenshot(ScreenshotRequest request)
     {
         m_engine.RequestScreenshot(std::move(request));

@@ -76,3 +76,12 @@ estimator変更またはfilter昇格の前に、Hybrid Reflectionのvarianceと�
 - Deferred renderingとHybrid Reflection contributionが有効でない場合はrequestを拒否し、未生成signalのreadを防止する。
 - readbackはoffline診断用として意図的に同期方式を維持する。連続capture schedulingとJSON集計を次の境界とする。
 - Debug x64 buildは成功し、既存のvcpkg重複import warningだけが報告された。
+
+### 2026-08-15: 連続frame schedulingとJSON smoke
+
+- `-ReflectionHdrDiagnostics <report.json>`を追加し、warm-up、frame count、render-space ROIをoverride可能にした。
+- diagnostic modeはDamagedHelmet、Deferred rendering、Hybrid Reflection contributionを明示的に選択する。screenshot capture automationとは同時利用不可とした。
+- schemaにはlinear-HDR domain、referenceなし、render解像度、ROI、frameごとのevaluated/resolved mean luminance、hit率、temporal acceptance率、depth reject率、normal reject率を記録する。
+- 32 warm-up frames後、1920x1080の`rearward_surface`で64-frame runが完走し、reportに64 framesすべてが記録された。
+- 64-frame runのD3D12 errorは0件で、既知のcommitted-buffer initial-state warning 2件だけを記録した。
+- これはcollection continuityだけを検証する。temporal variance、distribution percentile、paired A/B比較、baseline RMSEはまだ主張しない。

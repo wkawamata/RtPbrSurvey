@@ -63,6 +63,13 @@ struct CommandLineOptions
     float reflectionTemporalNoiseStrength = 0.0f;
     std::filesystem::path reflectionCapturePlanPath;
     std::string reflectionCaptureVariant;
+    std::filesystem::path reflectionHdrDiagnosticsPath;
+    UINT reflectionHdrDiagnosticsWarmupFrames = 32;
+    UINT reflectionHdrDiagnosticsFrames = 64;
+    UINT reflectionHdrDiagnosticsRoiX = 895;
+    UINT reflectionHdrDiagnosticsRoiY = 278;
+    UINT reflectionHdrDiagnosticsRoiWidth = 75;
+    UINT reflectionHdrDiagnosticsRoiHeight = 85;
 };
 
 CommandLineOptions ParseCommandLineOptions(_In_reads_(argc) WCHAR* argv[], int argc);

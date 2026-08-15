@@ -76,3 +76,12 @@ For each fixed ROI and signal boundary, record:
 - The request is rejected unless Deferred rendering and Hybrid Reflection contribution are active, preventing reads of signals that were not produced.
 - Readback remains synchronous and intentionally limited to offline diagnostics. Continuous capture scheduling and JSON aggregation remain the next boundary.
 - Debug x64 build succeeded with the existing duplicate vcpkg import warning only.
+
+### 2026-08-15: Continuous frame scheduling and JSON smoke
+
+- Added `-ReflectionHdrDiagnostics <report.json>` with warm-up, frame-count, and render-space ROI overrides.
+- Diagnostic mode explicitly selects DamagedHelmet, Deferred rendering, and Hybrid Reflection contribution. It is mutually exclusive with screenshot capture automation.
+- The schema records the linear-HDR domain, absence of a reference, render resolution, ROI, and per-frame evaluated/resolved mean luminance, hit rate, temporal acceptance rate, depth-reject rate, and normal-reject rate.
+- A 64-frame run completed for `rearward_surface` at 1920x1080 after 32 warm-up frames. The report contained all 64 frames.
+- The 64-frame run captured zero D3D12 errors and the same two known committed-buffer initial-state warnings.
+- This validates collection continuity only. Temporal variance, distribution percentiles, paired A/B comparison, and baseline RMSE are not yet claimed.

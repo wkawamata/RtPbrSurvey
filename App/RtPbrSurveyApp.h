@@ -84,6 +84,8 @@ private:
     void UpdateAutomatedCaptureCamera();
     bool HasAutomatedCapture() const;
     void FailAutomatedCapture(const std::string& error);
+    void UpdateReflectionHdrDiagnostics();
+    void WriteReflectionHdrDiagnosticsReport();
     void FlushD3D12DebugMessages();
     void LogFpsToFile(float cpuFrameTimeMs);
     Engine::SampleScene& LoadedScene();
@@ -155,4 +157,7 @@ private:
     size_t m_completedReflectionCaptureCount = 0;
     bool m_reflectionCaptureInFlight = false;
     bool m_reflectionCapturePlanFailed = false;
+    bool m_reflectionHdrDiagnosticInFlight = false;
+    bool m_reflectionHdrDiagnosticsComplete = false;
+    std::vector<Engine::ReflectionHdrDiagnosticFrame> m_reflectionHdrDiagnosticFrames;
 };
