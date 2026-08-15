@@ -59,3 +59,12 @@ estimator変更またはfilter昇格の前に、Hybrid Reflectionのvarianceと�
 4. 同じ経路を256-frame標準gateへ昇格する。
 5. mean drift、rare firefly、bias傾向が未解決の場合だけ1024 framesを実行する。
 
+## 実装ログ
+
+### 2026-08-15: ROI HDR readback primitive
+
+- `DXGI_FORMAT_R16G16B16A16_FLOAT`のreflection signal専用readback helperを追加した。
+- helperは要求ROIを検証し、その範囲だけをcopyしてlinear-HDR RGBA sampleをdecode可能にする。
+- tone mappingとPNG変換は意図的にこの経路へ含めない。
+- このsliceではRenderGraph capture schedulingと統計出力はまだ接続しない。次のPhase 1 integration boundaryとする。
+- HLSL custom build stepを含むDebug x64 buildは成功した。既存のvcpkg重複import warningだけが報告された。

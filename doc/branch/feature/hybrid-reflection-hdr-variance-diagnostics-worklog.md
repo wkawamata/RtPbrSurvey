@@ -59,3 +59,12 @@ For each fixed ROI and signal boundary, record:
 4. Promote the same path to the 256-frame standard gate.
 5. Run 1024 frames only if mean drift, rare fireflies, or bias trend remains unresolved.
 
+## Implementation Log
+
+### 2026-08-15: ROI HDR readback primitive
+
+- Added a dedicated readback helper for `DXGI_FORMAT_R16G16B16A16_FLOAT` reflection signals.
+- The helper validates and copies only the requested ROI and exposes decoded linear-HDR RGBA samples.
+- Tone mapping and PNG conversion are deliberately outside this path.
+- This slice does not yet schedule RenderGraph captures or emit statistics; those remain the next Phase 1 integration boundary.
+- Debug x64 build, including HLSL custom build steps, succeeded. The build reported only the existing duplicate vcpkg import warning.
