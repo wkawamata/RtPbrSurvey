@@ -85,3 +85,13 @@ For each fixed ROI and signal boundary, record:
 - A 64-frame run completed for `rearward_surface` at 1920x1080 after 32 warm-up frames. The report contained all 64 frames.
 - The 64-frame run captured zero D3D12 errors and the same two known committed-buffer initial-state warnings.
 - This validates collection continuity only. Temporal variance, distribution percentiles, paired A/B comparison, and baseline RMSE are not yet claimed.
+
+### 2026-08-15: Pixel-temporal statistics
+
+- Added signal-independent statistics for evaluated and resolved radiance.
+- Temporal variance is the population variance around each pixel's own temporal mean, averaged over all ROI pixels. It does not confuse static spatial contrast with temporal noise.
+- Frame-difference mean, p95, and p99 are calculated from the distribution of absolute luminance differences for every ROI pixel across consecutive frames.
+- CV is emitted as `null` when the absolute temporal mean is at or below `1e-6`. Maximum luminance remains an auxiliary outlier indicator.
+- A 64-frame `rearward_surface` run completed with finite statistics. In this run, evaluated variance was `8.16859365380723e-4` and resolved variance was `3.18587231219291e-5`.
+- The observed evaluated/resolved difference is evidence that the measurement distinguishes their temporal behavior. It is not yet a paired filter comparison, baseline convergence result, or physical-correctness claim.
+- Debug x64 build succeeded. The runtime captured zero D3D12 errors and the same two known warnings.

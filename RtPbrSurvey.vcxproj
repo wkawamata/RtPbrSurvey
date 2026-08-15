@@ -154,6 +154,7 @@
     <ClInclude Include="Renderer\ClearPass.h" />
     <ClInclude Include="Renderer\DebugDumpCapture.h" />
     <ClInclude Include="Renderer\ReflectionHdrDiagnosticCapture.h" />
+    <ClInclude Include="Renderer\ReflectionHdrDiagnosticStatistics.h" />
     <ClInclude Include="Renderer\DebugDumpReport.h" />
     <ClInclude Include="Renderer\DeferredGpuReleaseQueue.h" />
     <ClInclude Include="Renderer\EnvironmentMap.h" />
@@ -232,6 +233,7 @@
     <ClCompile Include="Renderer\ClearPass.cpp" />
     <ClCompile Include="Renderer\DebugDumpCapture.cpp" />
     <ClCompile Include="Renderer\ReflectionHdrDiagnosticCapture.cpp" />
+    <ClCompile Include="Renderer\ReflectionHdrDiagnosticStatistics.cpp" />
     <ClCompile Include="Renderer\DebugDumpReport.cpp" />
     <ClCompile Include="Renderer\EnvironmentMap.cpp" />
     <ClCompile Include="Renderer\FullscreenTriangle.cpp" />

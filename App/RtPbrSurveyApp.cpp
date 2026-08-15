@@ -24,6 +24,7 @@
 #include "../Platform/Win32Application.h"
 #include "../Platform/AssetPath.h"
 #include "../Renderer/StreamlineAdapter.h"
+#include "../Renderer/ReflectionHdrDiagnosticStatistics.h"
 #include "../Scene/SceneFactory.h"
 #include "imgui.h"
 #include "ImGuiWidgets.h"
@@ -636,6 +637,28 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
 
     const Engine::ReflectionHdrDiagnosticRoi roi = m_reflectionHdrDiagnosticFrames.front().roi;
     const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    const auto statisticsToJson = [](const Engine::ReflectionHdrDiagnosticStatistics& statistics)
+    {
+        json value = {
+            {"temporalMeanLuminance", statistics.temporalMeanLuminance},
+            {"temporalVariance", statistics.temporalVariance},
+            {"temporalStandardDeviation", statistics.temporalStandardDeviation},
+            {"coefficientOfVariationMeanEpsilon", 1.0e-6},
+            {"frameAbsoluteDifferenceMean", statistics.frameAbsoluteDifferenceMean},
+            {"frameAbsoluteDifferenceP95", statistics.frameAbsoluteDifferenceP95},
+            {"frameAbsoluteDifferenceP99", statistics.frameAbsoluteDifferenceP99},
+            {"maximumLuminance", statistics.maximumLuminance},
+        };
+        value["coefficientOfVariation"] = statistics.coefficientOfVariationValid ?
+            json(statistics.coefficientOfVariation) : json(nullptr);
+        return value;
+    };
+    const Engine::ReflectionHdrDiagnosticStatistics evaluatedStatistics =
+        Engine::CalculateReflectionHdrDiagnosticStatistics(
+            m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::EvaluatedRadiance);
+    const Engine::ReflectionHdrDiagnosticStatistics resolvedStatistics =
+        Engine::CalculateReflectionHdrDiagnosticStatistics(
+            m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::ResolvedRadiance);
     const json report = {
         {"schemaVersion", 1},
         {"signalDomain", "linear-hdr"},
@@ -645,6 +668,9 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         {"coordinateSpace", "render-pixels"},
         {"renderSize", {{"width", context.renderWidth}, {"height", context.renderHeight}}},
         {"roi", {{"x", roi.x}, {"y", roi.y}, {"width", roi.width}, {"height", roi.height}}},
+        {"statistics",
+         {{"evaluatedRadiance", statisticsToJson(evaluatedStatistics)},
+          {"resolvedRadiance", statisticsToJson(resolvedStatistics)}}},
         {"frames", std::move(frameValues)},
     };
 

@@ -85,3 +85,13 @@ estimator変更またはfilter昇格の前に、Hybrid Reflectionのvarianceと�
 - 32 warm-up frames後、1920x1080の`rearward_surface`で64-frame runが完走し、reportに64 framesすべてが記録された。
 - 64-frame runのD3D12 errorは0件で、既知のcommitted-buffer initial-state warning 2件だけを記録した。
 - これはcollection continuityだけを検証する。temporal variance、distribution percentile、paired A/B比較、baseline RMSEはまだ主張しない。
+
+### 2026-08-15: Pixel-temporal statistics
+
+- evaluated radianceとresolved radianceへ共通適用する統計処理を追加した。
+- temporal varianceは、各pixel固有の時間平均に対するpopulation varianceを求め、ROI全pixelで平均する。静的な空間contrastをtemporal noiseと混同しない。
+- frame差分のmean、p95、p99は、連続frame間におけるROI全pixelのluminance絶対差分布から計算する。
+- temporal meanの絶対値が`1e-6`以下の場合、CVは`null`として出力する。最大luminanceは外れ値用の補助指標に留める。
+- `rearward_surface`の64-frame runが有限な統計値で完走した。このrunではevaluated varianceが`8.16859365380723e-4`、resolved varianceが`3.18587231219291e-5`だった。
+- observed evaluated/resolved差は、測定経路が両者のtemporal behaviorを区別できる証拠である。paired filter比較、baseline収束結果、物理的正しさはまだ主張しない。
+- Debug x64 buildは成功した。runtimeのD3D12 errorは0件で、既知warning 2件だけを記録した。
