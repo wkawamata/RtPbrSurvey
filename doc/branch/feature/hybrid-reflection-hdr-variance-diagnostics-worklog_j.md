@@ -103,3 +103,16 @@ estimator変更またはfilter昇格の前に、Hybrid Reflectionのvarianceと�
 - 64-frameの`rearward_surface`開発比較では、sampling indexとtemporal indexが`32..95`で一致した。Evaluated mean luminanceもA/Bで完全一致した。
 - この限定runではResolved temporal varianceが`77.5619%`低下し、Resolvedのmeasurement-window mean差は`0.1826%`だった。
 - この結果が支持するのは、このROIとsequenceに限定したdevelopment-level claimである。256-frame PR gate、長期mean preservation、第2 ROI、physical reference比較はまだ未実施である。
+
+### 2026-08-15: 2 ROIの256-frame標準gate
+
+- `underside_pipes`の64-frame開発gateはsample indexが一致し、Resolved varianceが`73.5387%`低下、measurement mean差は`0.1029%`だった。
+- 続いて両固定ROIが256-frame標準paired gateを完走した。sampling/temporal index sequenceは一致し、Evaluated mean差は0だった。
+
+| ROI | Resolved variance off | Resolved variance on | Reduction | Measurement-mean difference | Frame-difference p99 off/on |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `rearward_surface` | `3.8915666e-5` | `8.8329177e-6` | `77.3024%` | `0.1842%` | `0.0135398 / 0.0060411` |
+| `underside_pipes` | `4.2294466e-5` | `1.0476135e-5` | `75.2305%` | `0.1021%` | `0.0077752 / 0.0034011` |
+
+- この結果は、default-off surface filterが評価した2 ROIでlinear-HDR temporal varianceを低減し、256-frame measurement meanの変化を`0.2%`未満に抑えた、という限定的主張を支持する。
+- generalization、長時間mean bound、estimator correctness、physical referenceへの収束は確立しない。1024-frame監査は自動実施ではなく条件付きのままとする。

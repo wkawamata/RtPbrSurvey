@@ -103,3 +103,16 @@ For each fixed ROI and signal boundary, record:
 - The 64-frame `rearward_surface` development comparison matched sampling and temporal indices `32..95`. Evaluated mean luminance was identical between A and B.
 - In this scoped run, resolved temporal variance decreased by `77.5619%`, while the resolved measurement-window mean differed by `0.1826%`.
 - The result supports a development-level claim for this ROI and sequence only. It is not yet the 256-frame PR gate, a long-run mean-preservation claim, a second-ROI result, or a physical-reference comparison.
+
+### 2026-08-15: Two-ROI 256-frame standard gate
+
+- The `underside_pipes` 64-frame development gate matched sample indices and reduced resolved variance by `73.5387%`, with a `0.1029%` measurement-mean difference.
+- Both fixed ROIs then completed the 256-frame standard paired gate with matching sampling and temporal index sequences and zero evaluated-mean difference.
+
+| ROI | Resolved variance off | Resolved variance on | Reduction | Measurement-mean difference | Frame-difference p99 off/on |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `rearward_surface` | `3.8915666e-5` | `8.8329177e-6` | `77.3024%` | `0.1842%` | `0.0135398 / 0.0060411` |
+| `underside_pipes` | `4.2294466e-5` | `1.0476135e-5` | `75.2305%` | `0.1021%` | `0.0077752 / 0.0034011` |
+
+- These results support the scoped statement that the default-off surface filter reduces linear-HDR temporal variance for the two evaluated ROIs while changing the 256-frame measurement mean by less than `0.2%`.
+- They do not establish generalization, a long-duration mean bound, estimator correctness, or physical-reference convergence. The 1024-frame audit remains conditional rather than automatic.
