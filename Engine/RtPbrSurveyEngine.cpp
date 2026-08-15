@@ -438,7 +438,8 @@ void RtPbrSurveyEngine::SetHybridReflectionSettings(const HybridReflectionSettin
         m_hybridReflectionSettings.stochasticSamplingEnabled != settings.stochasticSamplingEnabled ||
         m_hybridReflectionSettings.temporalHistoryWeight != settings.temporalHistoryWeight ||
         m_hybridReflectionSettings.temporalNoiseStrength != settings.temporalNoiseStrength ||
-        m_hybridReflectionSettings.rejectedPixelNeighborhoodEnabled != settings.rejectedPixelNeighborhoodEnabled;
+        m_hybridReflectionSettings.rejectedPixelNeighborhoodEnabled != settings.rejectedPixelNeighborhoodEnabled ||
+        m_hybridReflectionSettings.surfaceVarianceFilterEnabled != settings.surfaceVarianceFilterEnabled;
 
     m_hybridReflectionSettings = settings;
     if (reflectionHistoryChanged)
@@ -3165,14 +3166,16 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
                 UINT frameIndex;
                 float noiseStrength;
                 UINT rejectedPixelNeighborhoodEnabled;
+                UINT surfaceVarianceFilterEnabled;
             };
             const TemporalReflectionConstants constants = {
                 m_reflectionHistoryState.valid ? 1u : 0u,
                 std::clamp(m_hybridReflectionSettings.temporalHistoryWeight, 0.0f, 0.98f),
                 m_reflectionTemporalFrameIndex,
                 std::clamp(m_hybridReflectionSettings.temporalNoiseStrength, 0.0f, 1.0f),
-                m_hybridReflectionSettings.rejectedPixelNeighborhoodEnabled ? 1u : 0u};
-            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 5, &constants, 0);
+                m_hybridReflectionSettings.rejectedPixelNeighborhoodEnabled ? 1u : 0u,
+                m_hybridReflectionSettings.surfaceVarianceFilterEnabled ? 1u : 0u};
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 6, &constants, 0);
         });
     m_renderGraphRuntime.Constants().Register(
         m_renderGraphRuntime.RegisterConstants(ConstName::ReflectionSampling),

@@ -366,6 +366,8 @@ namespace
             "Temporal Debug Noise", &reflectionSettings.temporalNoiseStrength, 0.0f, 1.0f, 0.05f, 0.0f);
         changed |= ImGui::Checkbox("Rejected Pixel Neighborhood", &reflectionSettings.rejectedPixelNeighborhoodEnabled);
         ImGui::TextWrapped("Experimental default-off 3x3 cross-bilateral current-frame fallback for depth/normal rejected pixels.");
+        changed |= ImGui::Checkbox("Surface Variance Filter", &reflectionSettings.surfaceVarianceFilterEnabled);
+        ImGui::TextWrapped("Experimental default-off 3x3 current-radiance filter gated by visible depth, normal, roughness, and metallic.");
         ImGui::TextWrapped("Experimental motion-reprojected blend with depth/normal rejection. Debug noise is injected before history accumulation and is disabled at zero.");
 
         changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);

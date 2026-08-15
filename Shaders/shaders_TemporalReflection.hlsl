@@ -6,6 +6,7 @@ Texture2D<float> g_reflectionHistoryDepth : register(t0, space12);
 Texture2D<float4> g_reflectionHistoryNormal : register(t0, space13);
 Texture2D<float4> g_visibleNormal : register(t1, space3);
 Texture2D<float2> g_motionVector : register(t3, space3);
+Texture2D<float4> g_visiblePbrParams : register(t4, space3);
 Texture2D<float> g_visibleDepth : register(t6, space3);
 
 cbuffer CameraConstants : register(b0)
@@ -26,6 +27,7 @@ cbuffer TemporalReflectionConstants : register(b5)
     uint g_frameIndex;
     float g_noiseStrength;
     uint g_rejectedPixelNeighborhoodEnabled;
+    uint g_surfaceVarianceFilterEnabled;
 };
 
 uint HashTemporalNoise(uint2 pixel, uint frameIndex)
@@ -65,6 +67,49 @@ float3 FilterRejectedCurrentRadiance(int2 pixel, float currentDepth, float3 curr
     return weightSum > 0.0 ? radianceSum / weightSum : g_reflectionEvaluatedRadiance.Load(int3(pixel, 0)).rgb;
 }
 
+float3 FilterSurfaceVariance(int2 pixel,
+                             float currentDepth,
+                             float3 currentNormal,
+                             float2 currentMaterial,
+                             uint width,
+                             uint height)
+{
+    if (currentMaterial.y <= 0.001)
+    {
+        return g_reflectionEvaluatedRadiance.Load(int3(pixel, 0)).rgb;
+    }
+
+    float3 radianceSum = 0.0;
+    float weightSum = 0.0;
+    const int2 maxPixel = int2(width, height) - 1;
+    for (int y = -1; y <= 1; ++y)
+    {
+        for (int x = -1; x <= 1; ++x)
+        {
+            const int2 samplePixel = clamp(pixel + int2(x, y), int2(0, 0), maxPixel);
+            const float sampleDepth = g_visibleDepth.Load(int3(samplePixel, 0));
+            const float3 sampleNormal = normalize(g_visibleNormal.Load(int3(samplePixel, 0)).xyz);
+            const float2 sampleMaterial = g_visiblePbrParams.Load(int3(samplePixel, 0)).rg;
+            const bool depthValid = abs(sampleDepth - currentDepth) <= 0.002;
+            const bool normalValid = dot(sampleNormal, currentNormal) >= 0.95;
+            const bool materialValid = abs(sampleMaterial.x - currentMaterial.x) <= 0.1 &&
+                                       abs(sampleMaterial.y - currentMaterial.y) <= 0.1;
+            if (depthValid && normalValid && materialValid)
+            {
+                const float weight = x == 0 && y == 0 ? 2.0 : 1.0;
+                float3 sampleRadiance = g_reflectionEvaluatedRadiance.Load(int3(samplePixel, 0)).rgb;
+                const float unitNoise =
+                    float(HashTemporalNoise(uint2(samplePixel), g_frameIndex)) / 4294967295.0;
+                sampleRadiance *= 1.0 + (unitNoise * 2.0 - 1.0) * g_noiseStrength;
+                radianceSum += sampleRadiance * weight;
+                weightSum += weight;
+            }
+        }
+    }
+    return weightSum > 0.0 ? radianceSum / weightSum :
+                             g_reflectionEvaluatedRadiance.Load(int3(pixel, 0)).rgb;
+}
+
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
 {
     return FullscreenTriangleVS(vertexId);
@@ -85,6 +130,14 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
     current.rgb *= 1.0 + (unitNoise * 2.0 - 1.0) * g_noiseStrength;
     const float currentDepth = g_visibleDepth.Load(pixel);
     const float3 currentNormal = normalize(g_visibleNormal.Load(pixel).xyz);
+    if (g_surfaceVarianceFilterEnabled != 0)
+    {
+        uint width;
+        uint height;
+        g_reflectionEvaluatedRadiance.GetDimensions(width, height);
+        const float2 currentMaterial = g_visiblePbrParams.Load(pixel).rg;
+        current.rgb = FilterSurfaceVariance(pixel.xy, currentDepth, currentNormal, currentMaterial, width, height);
+    }
     bool historyRejected = false;
     // Alpha is diagnostic metadata only. RGB keeps the unweighted resolved-radiance contract.
     // 0.0: no history, 0.25: outside history, 0.5: depth reject, 0.75: normal reject, 1.0: accepted.

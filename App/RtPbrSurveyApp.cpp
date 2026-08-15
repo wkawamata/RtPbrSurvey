@@ -28,6 +28,32 @@
 
 void RunStagedAllocatorTests(ID3D12Device* device);
 
+namespace
+{
+
+RtPbrSurveyEngine::RenderViewMode GetReflectionCaptureRenderViewMode(
+    Platform::ReflectionCaptureDebugView debugView)
+{
+    switch (debugView)
+    {
+        case Platform::ReflectionCaptureDebugView::TemporalValidity:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionTemporalValidity;
+        case Platform::ReflectionCaptureDebugView::GBufferPbrParams:
+            return RtPbrSurveyEngine::RenderViewMode::GBufferPBRParams;
+        case Platform::ReflectionCaptureDebugView::GBufferNormal:
+            return RtPbrSurveyEngine::RenderViewMode::GBufferNormal;
+        case Platform::ReflectionCaptureDebugView::ReflectionRayMaterial:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionRayMaterial;
+        case Platform::ReflectionCaptureDebugView::EvaluatedRadiance:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadiance;
+        case Platform::ReflectionCaptureDebugView::ResolvedRadiance:
+        default:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance;
+    }
+}
+
+} // namespace
+
 RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
     : m_windowInfo(Platform::CreateWindowInfo(width, height, name)), m_prevTime(std::chrono::steady_clock::now()), m_sceneRenderer(m_graphicsDevice)
 {
@@ -161,9 +187,8 @@ void RtPbrSurveyApp::OnInit()
         if (m_commandLineOptions.captureReflectionResolvedRadiance)
         {
             m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
-            m_renderViewMode = m_commandLineOptions.captureReflectionTemporalValidity ?
-                RtPbrSurveyEngine::RenderViewMode::ReflectionTemporalValidity :
-                RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance;
+            m_renderViewMode =
+                GetReflectionCaptureRenderViewMode(m_commandLineOptions.reflectionCaptureDebugView);
             m_sceneRenderer.SetRenderingPath(m_renderingPath);
             m_sceneRenderer.SetRenderViewMode(m_renderViewMode);
 
@@ -173,6 +198,8 @@ void RtPbrSurveyApp::OnInit()
             reflectionSettings.stochasticSamplingEnabled = m_commandLineOptions.reflectionStochasticSampling;
             reflectionSettings.rejectedPixelNeighborhoodEnabled =
                 m_commandLineOptions.reflectionRejectedPixelNeighborhood;
+            reflectionSettings.surfaceVarianceFilterEnabled =
+                m_commandLineOptions.reflectionSurfaceVarianceFilter;
             if (m_commandLineOptions.hasReflectionTemporalWeight)
             {
                 reflectionSettings.temporalHistoryWeight =

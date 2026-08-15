@@ -9,6 +9,16 @@
 namespace Platform
 {
 
+enum class ReflectionCaptureDebugView
+{
+    ResolvedRadiance,
+    TemporalValidity,
+    GBufferPbrParams,
+    GBufferNormal,
+    ReflectionRayMaterial,
+    EvaluatedRadiance,
+};
+
 struct ReflectionCaptureCameraKeyframe
 {
     UINT64 frame = 0;
@@ -40,8 +50,10 @@ struct CommandLineOptions
     bool exitAfterCapture = false;
     bool captureReflectionResolvedRadiance = false;
     bool captureReflectionTemporalValidity = false;
+    ReflectionCaptureDebugView reflectionCaptureDebugView = ReflectionCaptureDebugView::ResolvedRadiance;
     bool reflectionStochasticSampling = false;
     bool reflectionRejectedPixelNeighborhood = false;
+    bool reflectionSurfaceVarianceFilter = false;
     float reflectionCameraDistanceScale = 1.0f;
     bool hasReflectionTemporalWeight = false;
     float reflectionTemporalWeight = 0.0f;

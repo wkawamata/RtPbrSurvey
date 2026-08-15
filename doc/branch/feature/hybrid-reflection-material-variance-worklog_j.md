@@ -1,0 +1,157 @@
+# Hybrid Reflection Material Variance 作業ログ
+
+英語版: [Hybrid Reflection Material Variance Work Log](hybrid-reflection-material-variance-worklog.md)。
+
+このログはDamagedHelmetの特定texture領域に残る、面全体のstochastic variance診断を記録する。reflection signalとhistory semanticsは[Hybrid Reflection Contracts](hybrid-reflection-contracts.md)に維持する。
+
+## 2026-08-14: Phase開始
+
+- edge-stability phase完了後、`main`のmerge commit `a749d80`から`features/hybrid-reflection-material-variance`を開始した。
+- 再現領域は、滑らかな頭頂panelに隣接する後頭部寄りsurfaceと、下面に露出するpipeである。
+- DamagedHelmetは1つのprimitiveに1つのglTF material `Material_MR`を持つ。対象は別material IDではなくtextureで定義される領域として扱う。
+- 症状はedgeだけでなく面の一部全体を覆い、camera停止後も見える。
+- global defaultはstochastic sampling無効、temporal history weight `0.0`を維持する。reject画素近傍補助実験もdefault-offを維持する。
+
+## 初期診断scope
+
+1. visible roughness、metallic、normal、evaluated radiance、resolved radiance、temporal validityを同じviewで撮影する。
+2. 2つの再現領域がroughness、metallic、normal-map周波数、hit/miss挙動、高輝度environment samplingのどれを共有するか確認する。
+3. 持続するinput varianceとhistory rejectionを分離する。temporal validityがgreenでも、1 sample/frameの収束が遅ければvarianceは残り得る。
+4. sampling/filtering policyを変更する前に、観測専用instrumentationまたはcapture metadataを優先する。
+5. 1つの原因が支持された場合だけ、後続の測定単位でdefault-off policyを最大1つ試す。
+
+## 対象外
+
+- 広範なspatial denoise
+- depthまたはnormal rejection thresholdの緩和
+- DLSS Ray ReconstructionまたはStreamline integration
+- PathTracing
+- global default変更
+- 前回実験への別edge-stability policyの積み重ね
+
+## 判断gate
+
+- varianceが高roughnessまたはtexture roughnessに対応する場合、material identityではなくsampling varianceを調べる。
+- varianceがnormal-map周波数に対応する場合、radianceをfilterする前にdirection stabilityを確認する。
+- historyが継続して採用されてもnoiseが残る場合、rejection変更前に収束とsample varianceを測る。
+- 2領域で原因が共通しない場合、1つのfixへ押し込まず分割する。
+
+## 2026-08-14: 同一条件の診断撮影
+
+- 撮影専用の表示選択として `-ReflectionCaptureDebugView <name>` を追加した。既存の Hybrid Reflection automation を維持し、`pbr-params`、`normal`、`hit-material`、`evaluated-radiance`、`resolved-radiance`、`temporal-validity` を選択できる。
+- frame 195 の停止後画像を1枚撮る `capture-plan-material-variance.json` を追加した。6回すべてで同じcamera timeline、camera distance scale `0.5`、stochastic sampling有効、temporal history weight `0.9`を使用した。
+- PBR画像はvisible surfaceのmetallic、roughness、ambient occlusionをRGBへ格納する。normal画像はvisible GBuffer normalを示す。hit-material画像はray hit先のpayloadであり、visible surface materialとして解釈してはならない。
+- evaluated radianceには面全体のsample varianceが明確に見える。resolved radianceは明らかに滑らかであり、temporal accumulationが動作し、varianceを実質的に減らしていることを確認した。
+- 停止後frameのtemporal validityは全体でacceptedとなった。以前の全frameがacceptedだった証明ではないが、残留する静止noiseの唯一の原因を継続的なhistory rejectionとする見方には反する。
+- 後頭部寄り領域と下面pipeは、どちらもPBR textureとnormalの変化を含む。ただし、現画像だけでは両領域を単一material channelまたは単一policyへ帰属させる根拠は不十分である。
+
+### 現時点の判断
+
+- temporal sequenceで反証されるまでは、残留症状をaccepted stochastic inputの遅い収束として扱う。
+- rejection thresholdは緩和せず、reject画素近傍補助実験もglobalには有効化しない。
+- 次の測定単位では、固定ROIについてevaluated radianceとresolved radianceのframe間varianceを別々に定量化する。
+
+### 検証
+
+- Debug x64 MSBuildは0 errorsで成功した。既知のvcpkg重複import warningのみ発生した。
+- 6種類の自動撮影はすべて成功した。
+
+## 2026-08-14: 固定ROIのtemporal variance
+
+- frame 195から300まで15 frame間隔で、evaluated radianceとresolved radianceを撮影した。cameraはframe 180以降固定し、stochastic samplingとtemporal history weight `0.9`は前回の診断撮影と同じである。
+- 8-frame seriesからdisplay-space luminanceのtemporal standard deviationを計算する `Measure-MaterialVariance.ps1` を追加した。これは再現可能なscreenshot症状指標であり、HDR resource自体の測定ではない。
+- 枠付き画像についてuser確認を行った。最初の概略確認後、`rearward_surface`は小さくして右上へ移動し、頭頂部に隣接する後頭部寄りの指摘領域だけへ絞った。`underside_pipes`は引き続き指摘された下面pipeを覆う。
+- `rearward_surface`: mean temporal standard deviationはevaluatedの`0.04266`からresolvedの`0.00964`となり、`77.40%`減少した。resolved/evaluated比は`0.2260`である。
+- `underside_pipes`: mean temporal standard deviationはevaluatedの`0.03113`からresolvedの`0.00825`となり、`73.51%`減少した。resolved/evaluated比は`0.2649`である。
+- 近い減少率は、temporal accumulationが両領域で有効だが、evaluatedのdisplay-space temporal deviationのおよそ4分の1を残すという共通観察を支持する。ただしmaterialまたはsamplingの根本原因が同一である証明にはならない。
+
+### 判断
+
+- 現在のrejection thresholdとdefault-offの近傍policyは変更しない。
+- 今後のsamplingまたはfiltering実験では、確認済みの2 ROIを独立したacceptance metricとして使用する。
+- policy追加前の次の診断では、history weightまたは停止後経過frameに対する収束を比較する。これによりhistory長不足と、別のestimatorまたはspatial情報を必要とするvarianceを分離する。
+
+## 2026-08-14: History weightの収束比較
+
+- 同じ固定cameraの8-frame seriesをresolved history weight `0.0`、`0.5`、`0.98`で撮影し、既存の`0.9` seriesとevaluated-radiance referenceを再利用した。
+- `0.0`の8枚は、対応するevaluated-radiance PNGとすべてbyte単位で一致した。history weight zeroが表示結果を変えず、現在のevaluated sampleを選択することを確認した。
+- `Measure-HistoryWeightConvergence.ps1`を追加した。全series deviation、frame 195-225のearly window、frame 270-300のlate window、およびearlyからlateへのmean displayed-luminance driftを出力する。
+- `rearward_surface`の全series deviation: evaluated/`w0`は`0.04266`、`w50`は`0.02282`、`w90`は`0.00964`、`w98`は`0.01068`。late-window deviationは`w90`で`0.00663`、`w98`で`0.00267`となった。
+- `underside_pipes`の全series deviation: evaluated/`w0`は`0.03113`、`w50`は`0.01904`、`w90`は`0.00825`、`w98`は`0.00846`。late-window deviationは`w90`で`0.00602`、`w98`で`0.00221`となった。
+- `w98`はlate-window varianceが最小だが、earlyからlateへのluminance driftが大きい。`rearward_surface`で`-0.00829`、`underside_pipes`で`-0.00438`であり、`w90`の`-0.00192`、`-0.00062`より大きい。
+
+### 判断
+
+- default history weightを`0.98`へ上げない。late variance低下と引き換えに測定可能な遅いsettlingがあり、確認済み2領域の全series varianceも`0.9`よりわずかに悪い。
+- 現在のvalidation設定は`0.9`を維持する。今回測定した範囲で最も良いbalanceという意味であり、最終production policyの宣言ではない。
+- `0.9`のlate windowにもvarianceが残るため、historyをさらに延ばすだけより、後続の限定的なestimatorまたはspatial情報実験を支持する。
+
+## 2026-08-15: Surface variance spatial実験
+
+- temporal blend前のcurrent-sample境界へ、default-offの実験を1つだけ追加した。`Surface Variance Filter`はevaluated radianceへ3x3 filterを適用し、visible depth、normal、roughness、metallicが近いneighborだけを採用する。ほぼ完全に滑らかなvisible surfaceはfilterを通さない。
+- この実験は未加重radiance contract、history weight、history rejection threshold、LightPass contribution weightingを変更しない。以前のreject画素近傍fallbackは別機能のままdefault-offを維持する。
+- 撮影専用CLI flag `-ReflectionSurfaceVarianceFilter`、UI control、settings保存、GBuffer PBRParamsのread dependencyを追加した。debug noiseは既存の決定論的規則で、採用された各neighborへ適用する。
+- Debug x64 MSBuildは0 errorsで成功し、既知のvcpkg重複import warningのみ発生した。filter有効の8-frame seriesもすべて撮影できた。
+- filter有効のD3D12 Debug Layer captureではerrorはなく、既存のcommitted buffer initial-state warningが2件だけ記録された。
+- history weight `0.9`でtemporal-only baselineと比較すると、mean temporal deviationは`rearward_surface`で`51.20%`、`underside_pipes`で`53.49%`追加減少した。mean displayed luminanceの変化はそれぞれ約`+0.00153`、`+0.00108`である。
+- 停止後前半・中盤・後半を比較する日英HTML suiteを追加した。user report `hybrid-reflection-material-variance-filter-v1-report-2026-08-14T21-39-51.610Z-a66a127d.json`は9項目すべて合格し、選択defectとnoteはなかった。
+
+### 判断
+
+- 実験実装は残し、default-offを維持する。静止領域の客観・主観gateには合格したが、このphaseではmotion/disocclusion挙動をdefault有効化に十分な強さで確認していない。
+- このphaseで別estimatorを積み重ねたりfilterを広げたりしない。次はpaired linear-HDR variance診断を優先し、詳細なobject-motion診断はestimator作業後にも実用的なLit-view問題が残る場合だけ行う。
+
+## 2026-08-15: Resolved Radianceのinteractive確認
+
+- HTMLの静止captureだけでなく、EXEの`ReflectionResolvedRadiance`をuserがinteractiveに確認した。
+- history weight `0.9`で静止noiseが低減した。`Surface Variance Filter`を有効にすると、指摘されたnoisy material領域の静止noiseがさらに低減した。
+- 今回の確認では、静止表示とmotion反転に問題は見られなかった。
+- 強いhistory weightでは、reflection単体debug viewのobject回転時にreflection更新の遅れを感じるというuser観察があった。一方、Lit compositeでは遅れはかなり目立ちにくかった。以前記録した約1秒という値は感覚的な表現であり、測定値ではない。
+
+### 更新判断
+
+- object回転時の遅延は未定量の低～中優先度riskとして記録し、確認済み不具合または静止surface filterの失敗とは扱わない。filterはtemporal blend前のcurrent sampleだけを処理し、過去frameを保持しない。
+- 静止結果だけでfilterまたはhistory設定をglobal defaultへ昇格しない。後で必要になった場合、Evaluated Radiance、Resolved Radiance、Temporal Validity、Litを別々に測定する。
+- 直ちにhistory weightを下げたりhistory全体を弱めたりしない。将来の診断では、期待されるEMA応答、object-motion reprojection/depth validation、normal rejection、reflection hit変化、Lit compositeでの低い知覚寄与を分離する。
+
+## Review反映とbranch境界
+
+- 8-frameのtone-mapped PNG測定は予備的な症状診断である。HDR-domain variance、長期mean維持、estimator bias、energy conservation、physical referenceとの一致を証明しない。
+- 静止主観評価9/9 passは、確認画像で問題となる副作用が見つからなかったことを示す。filterがproduction-readyである証明ではない。
+- 現在の近似を64/256/1024 sample平均したものは、`sample reference`ではなく`High-SPP Current-Estimator Mean Baseline`と呼ぶ。このbaselineはvarianceと収束を測定できるが、物理的正しさを証明できない。
+- このbranchはmaterial variance診断と1つの限定的default-off実験として閉じる。別filterを追加せず、現在のdefaultを昇格しない。
+- 推奨する次branchは`features/hybrid-reflection-hdr-variance-diagnostics`とする。確認済みROIのpaired linear-HDR統計、hit/missとhit distance、temporal validity、current-estimator mean baselineを優先し、object-motion timelineは高優先度の静止測定後に必要なら行う。
+
+## 2026-08-15: Phase 0最終acceptance監査
+
+Phase名: **Material-region variance diagnosis and bounded surface-filter experiment**。再現領域はmaterial表示内のtexture regionであり、このphaseは別material IDが原因だとは主張しない。
+
+| 区分 | Gate | 証拠 |
+| --- | --- | --- |
+| PASS | Default-off policy | `HybridReflectionSettings::surfaceVarianceFilterEnabled`の初期値は`false`であり、capture automationは`-ReflectionSurfaceVarianceFilter`指定時だけ有効にする。 |
+| PASS | 無効時のcode path | `shaders_TemporalReflection.hlsl`は`g_surfaceVarianceFilterEnabled != 0`の場合だけ`FilterSurfaceVariance`へ入り、それ以外ではevaluated sampleを既存temporal pathへ直接渡す。 |
+| PASS | 既存default動作 | stochastic samplingは無効、temporal history weightは`0.0`、2つのspatial実験も無効のままである。 |
+| PASS | Debug x64とHLSL build | Debug x64の強制`Rebuild`が0 errorsで成功した。`shaders_TemporalReflection.hlsl`を含む全custom HLSL entryを再buildした。build warningは既知のvcpkg重複importだけだった。 |
+| PASS | D3D12 Debug Layer | 現在の同一条件filter-off/on automationはいずれも0 errorsだった。両方とも既知のcommitted-buffer initial-state warning 2件だけであり、filter有効化による新規warningはない。 |
+| PASS | 文書一致 | 英語版と日本語版worklogの判断は一致する。contractはfilterをproduction denoiserではなくdefault-offの限定実験として記載する。 |
+| PASS | 回転時の表現 | 遅れは未定量でreflection単体debug viewで見えやすい観察として記録し、Litではかなり目立ちにくいという反対観察も保持する。 |
+| PASS WITH LIMITATION | 限定主観suite | 保存reportはDamagedHelmet captureの静止9項目すべてに合格した。適用範囲は選択frame、ROI、view、settingだけである。 |
+| PASS WITH LIMITATION | 実行時同等性の証拠 | 現在のfilter-off captureは既知warning 2件、errorなしで完了した。文書化されたcamera-distance settingで過去のframingを再現できなかったため、filter追加前PNGとの厳密比較は証拠として採用しない。このgateではcode-level bypassをより強い確認結果とする。 |
+| NOT CLAIMED | Production readiness | production defaultまたはproduction denoiser policyは確立していない。 |
+| NOT CLAIMED | 物理的正しさ | estimator correctness、unbiasedness、energy conservation、physical referenceへの収束は確立していない。 |
+| NOT CLAIMED | 一般化 | 評価scene、ROI、sampled frame、settingを越えた一般化はしない。 |
+| NOT CLAIMED | 定量的motion latency | 1秒その他のsettling時間を主張しない。T50/T90/T95は未測定である。 |
+
+固定結論:
+
+> The default-off filter reduced static display-space variance in the evaluated test ROIs and passed the scoped subjective suite. This does not establish estimator correctness, production denoiser readiness, or generalization beyond the evaluated conditions.
+
+Phase 1 handoff: このdiagnostic branchを統合した後、`features/hybrid-reflection-hdr-variance-diagnostics`を作成する。64 framesを開発確認、256 framesを標準PR gate、1024 framesをmean drift、rare firefly、bias傾向の拡張監査だけに使用する。paired runではsample index、camera、animation、historyを同じ時点でresetし、filter以外の設定と測定frame範囲を一致させ、warm-upとmeasurementを分離する。
+
+## 2026-08-15: PR #28後のmain統合確認
+
+- `origin/main`の`31cff26`を内容競合なしでこのbranchへmergeした。統合後の`App/RtPbrSurveyApp.cpp`はPhase 0のcapture/filter controlとPR #28のinput修正を両方維持する。`Space`はscene animation、`P`はrenderer全体のframe pauseを操作する。
+- stochastic samplingはdefault無効、temporal history weightは`0.0`、`surfaceVarianceFilterEnabled`は`false`のままである。temporal shaderもflagがzeroの場合に`FilterSurfaceVariance`を通らない。
+- Debug x64 MSBuildは0 errorsで成功した。`shaders_TemporalReflection.hlsl`も再compileに成功し、build warningは既知のvcpkg重複importだけだった。
+- 同一条件の短いfilter-off/on captureはいずれも完了した。両方のD3D12 Debug Layer logは0 errorsで、既知のcommitted-buffer initial-state warningが同じ2件だけ記録され、新規warning typeはなかった。
+- PR #28はshadow-validation文書とinput key ownershipの復元でありHybrid Reflection出力を変更しないため、主観suiteは繰り返していない。Phase 0のacceptance区分と限定事項に変更はない。

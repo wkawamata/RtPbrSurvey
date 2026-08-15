@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "cameraKeyframes": [
+    { "frame": 0, "yawDegrees": 0.0 },
+    { "frame": 120, "yawDegrees": 0.0 },
+    { "frame": 150, "yawDegrees": 20.0 },
+    { "frame": 180, "yawDegrees": -10.0 }
+  ],
+  "captures": [
+    { "frame": 195, "caseId": "material-variance-series-195", "path": "captures/material-variance-series-{variant}-f195.png" },
+    { "frame": 210, "caseId": "material-variance-series-210", "path": "captures/material-variance-series-{variant}-f210.png" },
+    { "frame": 225, "caseId": "material-variance-series-225", "path": "captures/material-variance-series-{variant}-f225.png" },
+    { "frame": 240, "caseId": "material-variance-series-240", "path": "captures/material-variance-series-{variant}-f240.png" },
+    { "frame": 255, "caseId": "material-variance-series-255", "path": "captures/material-variance-series-{variant}-f255.png" },
+    { "frame": 270, "caseId": "material-variance-series-270", "path": "captures/material-variance-series-{variant}-f270.png" },
+    { "frame": 285, "caseId": "material-variance-series-285", "path": "captures/material-variance-series-{variant}-f285.png" },
+    { "frame": 300, "caseId": "material-variance-series-300", "path": "captures/material-variance-series-{variant}-f300.png" }
+  ]
+}
