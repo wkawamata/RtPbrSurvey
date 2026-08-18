@@ -217,7 +217,8 @@ float3 HitAlbedoToDebugNormal(uint index0, uint index1, uint index2, float2 bary
     uint materialId = LoadCommittedHitMaterialId(index0, index1, index2, barycentric, instanceId);
     Material material = g_materialData[materialId];
     float2 uv = LoadCommittedHitUv(index0, index1, index2, barycentric) * material.uvScale + material.uvOffset;
-    float3 color = SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb);
+    float3 baseColor = float3(material.baseColorFactor[0], material.baseColorFactor[1], material.baseColorFactor[2]);
+    float3 color = SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb) * baseColor;
     return normalize(color * 2.0 - 1.0);
 }
 
@@ -229,7 +230,8 @@ HitMaterialSample LoadCommittedHitMaterialSample(uint index0, uint index1, uint 
     float4 metallicRoughness = g_texture[material.metallicRoughnessTexIndex].SampleLevel(g_sampler, uv, 0);
 
     HitMaterialSample result;
-    result.albedo = SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb);
+    float3 baseColor = float3(material.baseColorFactor[0], material.baseColorFactor[1], material.baseColorFactor[2]);
+    result.albedo = SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb) * baseColor;
     result.emissive =
         SrgbToLinear(g_texture[material.emissiveTexIndex].SampleLevel(g_sampler, uv, 0).rgb) * material.emissiveScale;
     result.metallic = saturate(metallicRoughness.b * material.metallicFactor);

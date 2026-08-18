@@ -73,6 +73,10 @@ bool SceneBuilder::LoadGltfMesh(const std::string& path)
         material.roughnessFactor = gltfMaterial.roughnessFactor;
         material.metallicFactor = gltfMaterial.metallicFactor;
         material.occlusionStrength = gltfMaterial.occlusionStrength;
+        for (int factorIndex = 0; factorIndex < 4; factorIndex++)
+        {
+            material.baseColorFactor[factorIndex] = gltfMaterial.baseColorFactor[factorIndex];
+        }
         m_mesh.materials.push_back(material);
     }
 
@@ -159,6 +163,10 @@ std::optional<SceneMeshId> SceneBuilder::AddGltfMeshData(GltfMeshData gltfMesh)
         material.roughnessFactor = gltfMaterial.roughnessFactor;
         material.metallicFactor = gltfMaterial.metallicFactor;
         material.occlusionStrength = gltfMaterial.occlusionStrength;
+        for (int factorIndex = 0; factorIndex < 4; factorIndex++)
+        {
+            material.baseColorFactor[factorIndex] = gltfMaterial.baseColorFactor[factorIndex];
+        }
         m_mesh.materials.push_back(material);
     }
 

@@ -114,9 +114,10 @@ static_assert(offsetof(Engine::InstanceData, meshId) == 132,
               "CPU and HLSL InstanceData meshId layouts must match.");
 static_assert(sizeof(Engine::SceneMesh::Range) == 16,
               "Hybrid reflection reads SceneMesh::Range as four uint values.");
-static_assert(sizeof(Engine::Material) == 60, "Material.hlsli must match Engine::Material structured buffer layout.");
+static_assert(sizeof(Engine::Material) == 76, "Material.hlsli must match Engine::Material structured buffer layout.");
 static_assert(offsetof(Engine::Material, uvScale) == 44, "Material UV scale offset must match Material.hlsli.");
 static_assert(offsetof(Engine::Material, uvOffset) == 52, "Material UV offset must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, baseColorFactor) == 60, "Material base color factor offset must match Material.hlsli.");
 
 const wchar_t* EnvironmentSourceName(Engine::EnvironmentSource source)
 {
@@ -2166,6 +2167,10 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
         m.uvScale[1] = 1.0f;
         m.uvOffset[0] = 0.0f;
         m.uvOffset[1] = 0.0f;
+        m.baseColorFactor[0] = 1.0f;
+        m.baseColorFactor[1] = 1.0f;
+        m.baseColorFactor[2] = 1.0f;
+        m.baseColorFactor[3] = 1.0f;
 
         if (m_sceneHasMaterials)
         {
@@ -2195,6 +2200,10 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
                 m.uvScale[1] = gltfMaterial.uvScale.y;
                 m.uvOffset[0] = gltfMaterial.uvOffset.x;
                 m.uvOffset[1] = gltfMaterial.uvOffset.y;
+                for (int factorIndex = 0; factorIndex < 4; factorIndex++)
+                {
+                    m.baseColorFactor[factorIndex] = gltfMaterial.baseColorFactor[factorIndex];
+                }
             }
         }
 

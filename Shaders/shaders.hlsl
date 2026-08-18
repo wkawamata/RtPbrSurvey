@@ -78,7 +78,8 @@ float4 PSMain(PSInput input) : SV_TARGET
 {
     Material mat = g_materialData[input.materialId];
     float2 materialUv = input.uv * mat.uvScale + mat.uvOffset;
-    float4 albedo = g_texture[mat.albedoTexIndex].Sample(g_sampler, materialUv);
+    float4 baseColor = float4(mat.baseColorFactor[0], mat.baseColorFactor[1], mat.baseColorFactor[2], mat.baseColorFactor[3]);
+    float4 albedo = g_texture[mat.albedoTexIndex].Sample(g_sampler, materialUv) * baseColor;
     float3 normal = normalize(input.normal);
     float3 lightDir = normalize(-lightDirection);
     float ndotl = saturate(dot(normal, lightDir));

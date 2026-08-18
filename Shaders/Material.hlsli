@@ -13,6 +13,7 @@ struct Material
     uint flags;
     float2 uvScale;
     float2 uvOffset;
+    float baseColorFactor[4];
 };
 
 static const uint MaterialFlagUnlit = 1u << 0;

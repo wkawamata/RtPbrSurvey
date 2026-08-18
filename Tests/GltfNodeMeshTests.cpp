@@ -86,6 +86,19 @@ void TestIndependentNodeMeshesAndLifetime()
     Require(partBOrigin.materialId == 3, "The second node material should be remapped to its global material range.");
     Require(mesh.materials[0].albedoTexIndex == 0, "The first node texture should use the first global texture range.");
     Require(mesh.materials[2].albedoTexIndex == 1, "The second node texture should be globally remapped.");
+    const Engine::SceneMaterial& partAMaterial = mesh.materials[0];
+    Require(NearlyEqual(partAMaterial.baseColorFactor[0], 1.0f) &&
+                NearlyEqual(partAMaterial.baseColorFactor[1], 1.0f) &&
+                NearlyEqual(partAMaterial.baseColorFactor[2], 1.0f) &&
+                NearlyEqual(partAMaterial.baseColorFactor[3], 1.0f),
+            "A textured material should keep the default white base color factor.");
+    const Engine::SceneMaterial& partBMaterial = mesh.materials[3];
+    Require(partBMaterial.albedoTexIndex == -1 &&
+                NearlyEqual(partBMaterial.baseColorFactor[0], 0.2f) &&
+                NearlyEqual(partBMaterial.baseColorFactor[1], 0.4f) &&
+                NearlyEqual(partBMaterial.baseColorFactor[2], 0.6f) &&
+                NearlyEqual(partBMaterial.baseColorFactor[3], 1.0f),
+            "A color-only material should keep its authored base color factor.");
 }
 
 void TestExistingFlattenedMeshContract()
