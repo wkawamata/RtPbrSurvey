@@ -84,7 +84,16 @@ $pairedReport = [ordered]@{
     comparison = "surface-variance-filter-off-on"
     signalDomain = "linear-hdr"
     reference = "none"
-    currentEstimatorMeanBaseline = "not-generated"
+    currentEstimatorMeanBaseline = [ordered]@{
+        source = "arithmetic mean of per-frame ReflectionEvaluatedRadiance"
+        physicalReference = $false
+        sampleCount = $MeasurementFrames
+        filterOff = $off.currentEstimatorMeanBaseline
+        filterOn = $on.currentEstimatorMeanBaseline
+        meanAbsoluteDifference = [Math]::Abs(
+            [double]$on.currentEstimatorMeanBaseline.meanLuminance -
+            [double]$off.currentEstimatorMeanBaseline.meanLuminance)
+    }
     pairedConditions = [ordered]@{
         separateProcessReset = $true
         cameraAndAnimationFixed = $true
@@ -109,6 +118,13 @@ $pairedReport = [ordered]@{
         evaluatedMeanAbsoluteDifference = [Math]::Abs(
             [double]$on.statistics.evaluatedRadiance.temporalMeanLuminance -
             [double]$off.statistics.evaluatedRadiance.temporalMeanLuminance)
+        filterOffResolvedRmseToCurrentEstimatorMean = [double]$off.currentEstimatorMeanBaseline.resolvedRmse
+        filterOnResolvedRmseToCurrentEstimatorMean = [double]$on.currentEstimatorMeanBaseline.resolvedRmse
+        resolvedRmseChangePercent = if ([double]$off.currentEstimatorMeanBaseline.resolvedRmse -gt 0.0) {
+            100.0 * (
+                [double]$on.currentEstimatorMeanBaseline.resolvedRmse /
+                [double]$off.currentEstimatorMeanBaseline.resolvedRmse - 1.0)
+        } else { $null }
     }
     limitations = @(
         "The comparison is relative to the current approximate estimator, not a physical ground truth.",

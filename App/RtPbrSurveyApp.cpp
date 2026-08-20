@@ -661,6 +661,8 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     const Engine::ReflectionHdrDiagnosticStatistics resolvedStatistics =
         Engine::CalculateReflectionHdrDiagnosticStatistics(
             m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::ResolvedRadiance);
+    const Engine::ReflectionHdrDiagnosticBaselineComparison baselineComparison =
+        Engine::CompareReflectionHdrDiagnosticsToCurrentEstimatorMeanBaseline(m_reflectionHdrDiagnosticFrames);
     const json report = {
         {"schemaVersion", 1},
         {"signalDomain", "linear-hdr"},
@@ -673,6 +675,15 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         {"statistics",
          {{"evaluatedRadiance", statisticsToJson(evaluatedStatistics)},
           {"resolvedRadiance", statisticsToJson(resolvedStatistics)}}},
+        {"currentEstimatorMeanBaseline",
+         {{"name", "High-SPP Current-Estimator Mean Baseline"},
+          {"physicalReference", false},
+          {"sampleCount", m_reflectionHdrDiagnosticFrames.size()},
+          {"meanLuminance", baselineComparison.baselineMeanLuminance},
+          {"evaluatedRmse", baselineComparison.evaluatedRmse},
+          {"resolvedRmse", baselineComparison.resolvedRmse},
+          {"evaluatedRmseByFrame", baselineComparison.evaluatedRmseByFrame},
+          {"resolvedRmseByFrame", baselineComparison.resolvedRmseByFrame}}},
         {"frames", std::move(frameValues)},
     };
 

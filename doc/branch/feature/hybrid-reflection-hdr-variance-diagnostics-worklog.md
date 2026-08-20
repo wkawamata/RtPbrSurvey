@@ -116,3 +116,18 @@ For each fixed ROI and signal boundary, record:
 
 - These results support the scoped statement that the default-off surface filter reduces linear-HDR temporal variance for the two evaluated ROIs while changing the 256-frame measurement mean by less than `0.2%`.
 - They do not establish generalization, a long-duration mean bound, estimator correctness, or physical-reference convergence. The 1024-frame audit remains conditional rather than automatic.
+
+### 2026-08-15: Current-estimator mean baseline
+
+- Added the High-SPP Current-Estimator Mean Baseline as the per-pixel arithmetic mean of `ReflectionEvaluatedRadiance` over the measurement window.
+- The report records evaluated and resolved RMSE to that baseline, including per-frame RMSE series. The baseline is explicitly marked as non-physical and in-sample.
+- Paired A/B baselines matched exactly because the evaluated signal and sampling sequence matched.
+
+| ROI | Baseline samples | Evaluated RMSE | Resolved RMSE off | Resolved RMSE on | Filter-on RMSE change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `rearward_surface` | 256 | `0.0284464` | `0.0062587` | `0.0132367` | `+111.4950%` |
+| `underside_pipes` | 256 | `0.0285282` | `0.0065240` | `0.0068497` | `+4.9926%` |
+
+- The filter reduced temporal variance by more than `75%` while increasing per-pixel RMSE to the raw current-estimator mean in both ROIs. The large rearward increase is consistent with a spatial-detail or local-mean change that an ROI-wide mean metric hides.
+- This does not prove physical bias because the baseline is the current approximate estimator, not a physical reference. It does show that variance reduction and current-estimator signal preservation must remain separate gates.
+- Do not promote the bounded surface filter based on variance reduction alone.

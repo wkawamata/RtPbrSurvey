@@ -141,4 +141,67 @@ ReflectionHdrDiagnosticStatistics CalculateReflectionHdrDiagnosticStatistics(
     return statistics;
 }
 
+ReflectionHdrDiagnosticBaselineComparison CompareReflectionHdrDiagnosticsToCurrentEstimatorMeanBaseline(
+    const std::vector<ReflectionHdrDiagnosticFrame>& frames)
+{
+    if (frames.empty() || frames.front().evaluatedRadiance.empty())
+    {
+        throw std::invalid_argument("Current-estimator mean baseline requires evaluated radiance samples.");
+    }
+
+    const size_t pixelCount = frames.front().evaluatedRadiance.size();
+    std::vector<double> baseline(pixelCount, 0.0);
+    for (const ReflectionHdrDiagnosticFrame& frame : frames)
+    {
+        if (frame.evaluatedRadiance.size() != pixelCount || frame.resolvedRadiance.size() != pixelCount)
+        {
+            throw std::invalid_argument("Reflection HDR diagnostic frame dimensions do not match.");
+        }
+        for (size_t pixelIndex = 0; pixelIndex < pixelCount; ++pixelIndex)
+        {
+            baseline[pixelIndex] += Luminance(frame.evaluatedRadiance[pixelIndex]);
+        }
+    }
+
+    double baselineMean = 0.0;
+    for (double& baselineSample : baseline)
+    {
+        baselineSample /= static_cast<double>(frames.size());
+        baselineMean += baselineSample;
+    }
+    baselineMean /= static_cast<double>(pixelCount);
+
+    ReflectionHdrDiagnosticBaselineComparison comparison = {};
+    comparison.baselineMeanLuminance = baselineMean;
+    comparison.evaluatedRmseByFrame.reserve(frames.size());
+    comparison.resolvedRmseByFrame.reserve(frames.size());
+    double evaluatedSquaredError = 0.0;
+    double resolvedSquaredError = 0.0;
+    for (const ReflectionHdrDiagnosticFrame& frame : frames)
+    {
+        double evaluatedFrameSquaredError = 0.0;
+        double resolvedFrameSquaredError = 0.0;
+        for (size_t pixelIndex = 0; pixelIndex < pixelCount; ++pixelIndex)
+        {
+            const double evaluatedDifference =
+                Luminance(frame.evaluatedRadiance[pixelIndex]) - baseline[pixelIndex];
+            const double resolvedDifference =
+                Luminance(frame.resolvedRadiance[pixelIndex]) - baseline[pixelIndex];
+            evaluatedFrameSquaredError += evaluatedDifference * evaluatedDifference;
+            resolvedFrameSquaredError += resolvedDifference * resolvedDifference;
+        }
+        evaluatedSquaredError += evaluatedFrameSquaredError;
+        resolvedSquaredError += resolvedFrameSquaredError;
+        comparison.evaluatedRmseByFrame.push_back(
+            std::sqrt(evaluatedFrameSquaredError / static_cast<double>(pixelCount)));
+        comparison.resolvedRmseByFrame.push_back(
+            std::sqrt(resolvedFrameSquaredError / static_cast<double>(pixelCount)));
+    }
+
+    const double sampleCount = static_cast<double>(frames.size()) * static_cast<double>(pixelCount);
+    comparison.evaluatedRmse = std::sqrt(evaluatedSquaredError / sampleCount);
+    comparison.resolvedRmse = std::sqrt(resolvedSquaredError / sampleCount);
+    return comparison;
+}
+
 } // namespace Engine

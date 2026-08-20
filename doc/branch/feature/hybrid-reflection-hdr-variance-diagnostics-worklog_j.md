@@ -116,3 +116,18 @@ estimator変更またはfilter昇格の前に、Hybrid Reflectionのvarianceと�
 
 - この結果は、default-off surface filterが評価した2 ROIでlinear-HDR temporal varianceを低減し、256-frame measurement meanの変化を`0.2%`未満に抑えた、という限定的主張を支持する。
 - generalization、長時間mean bound、estimator correctness、physical referenceへの収束は確立しない。1024-frame監査は自動実施ではなく条件付きのままとする。
+
+### 2026-08-15: Current-estimator mean baseline
+
+- measurement window内の`ReflectionEvaluatedRadiance`をpixelごとに算術平均し、High-SPP Current-Estimator Mean Baselineとして追加した。
+- reportにはbaselineに対するEvaluated/Resolved RMSEとframeごとのRMSE列を記録する。baselineはnon-physicalかつin-sampleであることを明記した。
+- Evaluated signalとsampling sequenceが一致したため、paired A/Bのbaselineは完全一致した。
+
+| ROI | Baseline samples | Evaluated RMSE | Resolved RMSE off | Resolved RMSE on | Filter-on RMSE change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `rearward_surface` | 256 | `0.0284464` | `0.0062587` | `0.0132367` | `+111.4950%` |
+| `underside_pipes` | 256 | `0.0285282` | `0.0065240` | `0.0068497` | `+4.9926%` |
+
+- filterはtemporal varianceを`75%`以上低減した一方、両ROIでraw current-estimator meanへのpixel単位RMSEを増加させた。rearwardの大きな増加は、ROI全体meanでは隠れるspatial detailまたはlocal meanの変化と整合する。
+- baselineはphysical referenceではなく現在の近似estimatorなので、これは物理的biasを証明しない。ただしvariance低減とcurrent-estimator signal preservationを別gateとして維持すべきことは示している。
+- variance低減だけを根拠にbounded surface filterを昇格しない。
