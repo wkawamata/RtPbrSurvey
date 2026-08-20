@@ -93,6 +93,12 @@
     <ClInclude Include="Renderer\DebugDumpCapture.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\ReflectionHdrDiagnosticCapture.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\ReflectionHdrDiagnosticStatistics.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\DebugDumpReport.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -324,6 +330,12 @@
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\DebugDumpCapture.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\ReflectionHdrDiagnosticCapture.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\ReflectionHdrDiagnosticStatistics.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\DebugDumpReport.cpp">

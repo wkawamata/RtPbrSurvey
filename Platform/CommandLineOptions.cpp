@@ -292,6 +292,54 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 options.reflectionCaptureVariant = variantPath.string();
             }
         }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionHdrDiagnostics"))
+        {
+            if (i + 1 < argc)
+            {
+                options.reflectionHdrDiagnosticsPath = argv[++i];
+                options.autoSelectGltfDamagedHelmet = true;
+                options.captureReflectionResolvedRadiance = true;
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionHdrDiagnosticsWarmupFrames"))
+        {
+            if (i + 1 < argc)
+            {
+                const int frames = _wtoi(argv[++i]);
+                if (frames >= 0)
+                {
+                    options.reflectionHdrDiagnosticsWarmupFrames = static_cast<UINT>(frames);
+                }
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionHdrDiagnosticsFrames"))
+        {
+            if (i + 1 < argc)
+            {
+                const int frames = _wtoi(argv[++i]);
+                if (frames > 0)
+                {
+                    options.reflectionHdrDiagnosticsFrames = static_cast<UINT>(frames);
+                }
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionHdrDiagnosticsRoi"))
+        {
+            if (i + 4 < argc)
+            {
+                const int x = _wtoi(argv[++i]);
+                const int y = _wtoi(argv[++i]);
+                const int width = _wtoi(argv[++i]);
+                const int height = _wtoi(argv[++i]);
+                if (x >= 0 && y >= 0 && width > 0 && height > 0)
+                {
+                    options.reflectionHdrDiagnosticsRoiX = static_cast<UINT>(x);
+                    options.reflectionHdrDiagnosticsRoiY = static_cast<UINT>(y);
+                    options.reflectionHdrDiagnosticsRoiWidth = static_cast<UINT>(width);
+                    options.reflectionHdrDiagnosticsRoiHeight = static_cast<UINT>(height);
+                }
+            }
+        }
     }
 
     return options;

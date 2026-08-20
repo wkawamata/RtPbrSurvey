@@ -621,6 +621,29 @@ void RtPbrSurveyEngine::SetRequestHdrDump(bool request)
     m_debugViewSettings.requestHdrDump = request;
 }
 
+void RtPbrSurveyEngine::RequestReflectionHdrDiagnosticCapture(const Engine::ReflectionHdrDiagnosticRoi& roi)
+{
+    if (m_reflectionHdrDiagnosticRequested || m_reflectionHdrDiagnosticPending)
+    {
+        throw std::logic_error("A reflection HDR diagnostic capture is already pending.");
+    }
+    if (m_renderingPath != RenderingPath::Deferred || !m_rayTracingSupport.IsSupported() ||
+        !m_hybridReflectionSettings.enabled || !m_hybridReflectionSettings.contributionEnabled)
+    {
+        throw std::logic_error(
+            "Reflection HDR diagnostics require Deferred Hybrid Reflection contribution.");
+    }
+    m_reflectionHdrDiagnosticRoi = roi;
+    m_reflectionHdrDiagnosticRequested = true;
+}
+
+std::optional<Engine::ReflectionHdrDiagnosticFrame> RtPbrSurveyEngine::ConsumeReflectionHdrDiagnosticFrame()
+{
+    std::optional<Engine::ReflectionHdrDiagnosticFrame> frame = std::move(m_reflectionHdrDiagnosticFrame);
+    m_reflectionHdrDiagnosticFrame.reset();
+    return frame;
+}
+
 void RtPbrSurveyEngine::RequestScreenshot(RtPbrSurvey::ScreenshotRequest request)
 {
     try
@@ -3357,6 +3380,15 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     CommitReflectionHistoryFrame();
     CommitReflectionSamplingFrame();
 
+    if (m_reflectionHdrDiagnosticPending)
+    {
+        WaitForGpu();
+        m_reflectionHdrDiagnosticFrame =
+            Engine::ReadReflectionHdrDiagnosticCapture(m_reflectionHdrDiagnosticCapture);
+        m_reflectionHdrDiagnosticCapture.Reset();
+        m_reflectionHdrDiagnosticPending = false;
+    }
+
     if (m_debugViewSettings.hdrDumpPending)
     {
         WaitForGpu();
@@ -4252,6 +4284,12 @@ void RtPbrSurveyEngine::ExecuteDebugDumpPass(const RenderPass& pass)
     RecordDebugDumpPass();
 }
 
+void RtPbrSurveyEngine::ExecuteReflectionHdrDiagnosticPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+    RecordReflectionHdrDiagnosticPass();
+}
+
 void RtPbrSurveyEngine::ExecutePixelPickPass(const RenderPass& pass)
 {
     if (!m_pixelPickRequested)
@@ -4348,6 +4386,23 @@ void RtPbrSurveyEngine::RecordDebugDumpPass()
     m_debugViewSettings.hdrDumpPending = true;
 
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Debug Dump");
+}
+
+void RtPbrSurveyEngine::RecordReflectionHdrDiagnosticPass()
+{
+    const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
+    Engine::RecordReflectionHdrDiagnosticCapture(m_commandList.Get(),
+                                                 m_graphicsDevice.Device(),
+                                                 m_reflectionEvaluatedRadiance.Get(),
+                                                 m_reflectionResolvedRadiance[writeIndex].Get(),
+                                                 m_reflectionRayHit.Get(),
+                                                 m_reflectionHdrDiagnosticRoi,
+                                                 m_reflectionSamplingFrameIndex,
+                                                 m_reflectionTemporalFrameIndex,
+                                                 m_reflectionHdrDiagnosticCapture);
+    m_reflectionHdrDiagnosticRequested = false;
+    m_reflectionHdrDiagnosticPending = true;
+    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Reflection HDR Diagnostic");
 }
 
 void RtPbrSurveyEngine::RecordPixelPickPass()

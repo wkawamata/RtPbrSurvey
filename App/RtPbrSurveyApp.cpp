@@ -14,7 +14,9 @@
 #include <algorithm>
 #include <cmath>
 #include <fcntl.h>
+#include <fstream>
 #include <io.h>
+#include <nlohmann/json.hpp>
 #include <share.h>
 #include <stdexcept>
 #include <sys/stat.h>
@@ -22,6 +24,7 @@
 #include "../Platform/Win32Application.h"
 #include "../Platform/AssetPath.h"
 #include "../Renderer/StreamlineAdapter.h"
+#include "../Renderer/ReflectionHdrDiagnosticStatistics.h"
 #include "../Scene/SceneFactory.h"
 #include "imgui.h"
 #include "ImGuiWidgets.h"
@@ -62,6 +65,12 @@ RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
 _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], int argc)
 {
     m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
+    if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() &&
+        (!m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty()))
+    {
+        throw std::invalid_argument(
+            "-ReflectionHdrDiagnostics is mutually exclusive with screenshot capture automation.");
+    }
     if (!m_commandLineOptions.reflectionCapturePlanPath.empty())
     {
         if (!m_commandLineOptions.capturePath.empty())
@@ -195,6 +204,10 @@ void RtPbrSurveyApp::OnInit()
             RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
                 m_sceneRenderer.GetHybridReflectionSettings();
             reflectionSettings.enabled = true;
+            if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty())
+            {
+                reflectionSettings.contributionEnabled = true;
+            }
             reflectionSettings.stochasticSamplingEnabled = m_commandLineOptions.reflectionStochasticSampling;
             reflectionSettings.rejectedPixelNeighborhoodEnabled =
                 m_commandLineOptions.reflectionRejectedPixelNeighborhood;
@@ -371,6 +384,12 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 
 void RtPbrSurveyApp::OnIdle()
 {
+    UpdateReflectionHdrDiagnostics();
+    if (m_reflectionHdrDiagnosticsComplete)
+    {
+        return;
+    }
+
     if (HasAutomatedCapture())
     {
         if (const std::optional<RtPbrSurvey::ScreenshotResult> result = m_sceneRenderer.ConsumeScreenshotResult())
@@ -535,7 +554,151 @@ void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
 
 bool RtPbrSurveyApp::HasAutomatedCapture() const
 {
-    return !m_commandLineOptions.capturePath.empty() || !m_reflectionCapturePlan.captures.empty();
+    return !m_commandLineOptions.capturePath.empty() || !m_reflectionCapturePlan.captures.empty() ||
+           !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty();
+}
+
+void RtPbrSurveyApp::UpdateReflectionHdrDiagnostics()
+{
+    if (m_commandLineOptions.reflectionHdrDiagnosticsPath.empty())
+    {
+        return;
+    }
+
+    if (std::optional<Engine::ReflectionHdrDiagnosticFrame> frame =
+            m_sceneRenderer.ConsumeReflectionHdrDiagnosticFrame())
+    {
+        m_reflectionHdrDiagnosticFrames.push_back(std::move(*frame));
+        m_reflectionHdrDiagnosticInFlight = false;
+    }
+
+    if (m_reflectionHdrDiagnosticFrames.size() >= m_commandLineOptions.reflectionHdrDiagnosticsFrames)
+    {
+        WriteReflectionHdrDiagnosticsReport();
+        m_reflectionHdrDiagnosticsComplete = true;
+        DestroyWindow(Win32Application::GetHwnd());
+        return;
+    }
+
+    if (!m_reflectionHdrDiagnosticInFlight &&
+        m_automationFrameCounter >= m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames)
+    {
+        const Engine::ReflectionHdrDiagnosticRoi roi = {
+            m_commandLineOptions.reflectionHdrDiagnosticsRoiX,
+            m_commandLineOptions.reflectionHdrDiagnosticsRoiY,
+            m_commandLineOptions.reflectionHdrDiagnosticsRoiWidth,
+            m_commandLineOptions.reflectionHdrDiagnosticsRoiHeight};
+        m_sceneRenderer.RequestReflectionHdrDiagnosticCapture(roi);
+        m_reflectionHdrDiagnosticInFlight = true;
+    }
+}
+
+void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
+{
+    using json = nlohmann::json;
+
+    const auto meanLuminance = [](const std::vector<Engine::ReflectionHdrDiagnosticSample>& samples)
+    {
+        double sum = 0.0;
+        for (const Engine::ReflectionHdrDiagnosticSample& sample : samples)
+        {
+            sum += 0.2126 * sample.r + 0.7152 * sample.g + 0.0722 * sample.b;
+        }
+        return samples.empty() ? 0.0 : sum / static_cast<double>(samples.size());
+    };
+
+    json frameValues = json::array();
+    for (size_t frameIndex = 0; frameIndex < m_reflectionHdrDiagnosticFrames.size(); ++frameIndex)
+    {
+        const Engine::ReflectionHdrDiagnosticFrame& frame = m_reflectionHdrDiagnosticFrames[frameIndex];
+        size_t hitCount = 0;
+        size_t acceptedCount = 0;
+        size_t depthRejectCount = 0;
+        size_t normalRejectCount = 0;
+        for (size_t sampleIndex = 0; sampleIndex < frame.rayHit.size(); ++sampleIndex)
+        {
+            hitCount += frame.rayHit[sampleIndex].g >= 0.5f ? 1 : 0;
+            const float status = frame.resolvedRadiance[sampleIndex].a;
+            acceptedCount += status >= 0.875f ? 1 : 0;
+            depthRejectCount += status >= 0.375f && status < 0.625f ? 1 : 0;
+            normalRejectCount += status >= 0.625f && status < 0.875f ? 1 : 0;
+        }
+        const double sampleCount = static_cast<double>(frame.rayHit.size());
+        frameValues.push_back({
+            {"index", frameIndex},
+            {"samplingFrameIndex", frame.samplingFrameIndex},
+            {"temporalFrameIndex", frame.temporalFrameIndex},
+            {"evaluatedMeanLuminance", meanLuminance(frame.evaluatedRadiance)},
+            {"resolvedMeanLuminance", meanLuminance(frame.resolvedRadiance)},
+            {"hitRate", sampleCount > 0.0 ? static_cast<double>(hitCount) / sampleCount : 0.0},
+            {"temporalAcceptanceRate", sampleCount > 0.0 ? static_cast<double>(acceptedCount) / sampleCount : 0.0},
+            {"depthRejectRate", sampleCount > 0.0 ? static_cast<double>(depthRejectCount) / sampleCount : 0.0},
+            {"normalRejectRate", sampleCount > 0.0 ? static_cast<double>(normalRejectCount) / sampleCount : 0.0},
+        });
+    }
+
+    const Engine::ReflectionHdrDiagnosticRoi roi = m_reflectionHdrDiagnosticFrames.front().roi;
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    const auto statisticsToJson = [](const Engine::ReflectionHdrDiagnosticStatistics& statistics)
+    {
+        json value = {
+            {"temporalMeanLuminance", statistics.temporalMeanLuminance},
+            {"temporalVariance", statistics.temporalVariance},
+            {"temporalStandardDeviation", statistics.temporalStandardDeviation},
+            {"coefficientOfVariationMeanEpsilon", 1.0e-6},
+            {"frameAbsoluteDifferenceMean", statistics.frameAbsoluteDifferenceMean},
+            {"frameAbsoluteDifferenceP95", statistics.frameAbsoluteDifferenceP95},
+            {"frameAbsoluteDifferenceP99", statistics.frameAbsoluteDifferenceP99},
+            {"maximumLuminance", statistics.maximumLuminance},
+        };
+        value["coefficientOfVariation"] = statistics.coefficientOfVariationValid ?
+            json(statistics.coefficientOfVariation) : json(nullptr);
+        return value;
+    };
+    const Engine::ReflectionHdrDiagnosticStatistics evaluatedStatistics =
+        Engine::CalculateReflectionHdrDiagnosticStatistics(
+            m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::EvaluatedRadiance);
+    const Engine::ReflectionHdrDiagnosticStatistics resolvedStatistics =
+        Engine::CalculateReflectionHdrDiagnosticStatistics(
+            m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::ResolvedRadiance);
+    const Engine::ReflectionHdrDiagnosticBaselineComparison baselineComparison =
+        Engine::CompareReflectionHdrDiagnosticsToCurrentEstimatorMeanBaseline(m_reflectionHdrDiagnosticFrames);
+    const json report = {
+        {"schemaVersion", 1},
+        {"signalDomain", "linear-hdr"},
+        {"reference", "none"},
+        {"warmupFrames", m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames},
+        {"measurementFrames", m_reflectionHdrDiagnosticFrames.size()},
+        {"coordinateSpace", "render-pixels"},
+        {"renderSize", {{"width", context.renderWidth}, {"height", context.renderHeight}}},
+        {"roi", {{"x", roi.x}, {"y", roi.y}, {"width", roi.width}, {"height", roi.height}}},
+        {"statistics",
+         {{"evaluatedRadiance", statisticsToJson(evaluatedStatistics)},
+          {"resolvedRadiance", statisticsToJson(resolvedStatistics)}}},
+        {"currentEstimatorMeanBaseline",
+         {{"name", "High-SPP Current-Estimator Mean Baseline"},
+          {"physicalReference", false},
+          {"sampleCount", m_reflectionHdrDiagnosticFrames.size()},
+          {"meanLuminance", baselineComparison.baselineMeanLuminance},
+          {"evaluatedRmse", baselineComparison.evaluatedRmse},
+          {"resolvedRmse", baselineComparison.resolvedRmse},
+          {"evaluatedRmseByFrame", baselineComparison.evaluatedRmseByFrame},
+          {"resolvedRmseByFrame", baselineComparison.resolvedRmseByFrame}}},
+        {"frames", std::move(frameValues)},
+    };
+
+    const std::filesystem::path outputPath =
+        std::filesystem::absolute(m_commandLineOptions.reflectionHdrDiagnosticsPath);
+    if (!outputPath.parent_path().empty())
+    {
+        std::filesystem::create_directories(outputPath.parent_path());
+    }
+    std::ofstream output(outputPath);
+    if (!output)
+    {
+        throw std::runtime_error("Failed to open reflection HDR diagnostics report path.");
+    }
+    output << report.dump(2) << '\n';
 }
 
 void RtPbrSurveyApp::FailAutomatedCapture(const std::string& error)

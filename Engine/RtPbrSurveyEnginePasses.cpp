@@ -27,6 +27,10 @@ void RtPbrSurveyEngine::BuildRenderPasses()
     {
         AddPass(MakeDepthPrePass());
         AddSceneRenderPasses();
+        if (m_reflectionHdrDiagnosticRequested)
+        {
+            AddPass(MakeReflectionHdrDiagnosticPass());
+        }
         AddPass(MakeDebugLinePass());
         if (ShouldRunTemporalUpscaler())
         {
@@ -477,6 +481,18 @@ auto RtPbrSurveyEngine::MakeDebugDumpPass() -> RenderPass
         .Reads({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
                 {kBackBufferResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
         .Operation(Op::DebugDump, &RtPbrSurveyEngine::ExecuteDebugDumpPass)
+        .Build();
+}
+
+auto RtPbrSurveyEngine::MakeReflectionHdrDiagnosticPass() -> RenderPass
+{
+    const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"ReflectionHdrDiagnostic")
+        .Reads({{kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
+                {kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
+                {kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
+        .Operation(Op::ReflectionHdrDiagnostic, &RtPbrSurveyEngine::ExecuteReflectionHdrDiagnosticPass)
         .Build();
 }
 
