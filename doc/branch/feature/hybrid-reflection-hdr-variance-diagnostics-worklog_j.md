@@ -131,3 +131,11 @@ estimator変更またはfilter昇格の前に、Hybrid Reflectionのvarianceと�
 - filterはtemporal varianceを`75%`以上低減した一方、両ROIでraw current-estimator meanへのpixel単位RMSEを増加させた。rearwardの大きな増加は、ROI全体meanでは隠れるspatial detailまたはlocal meanの変化と整合する。
 - baselineはphysical referenceではなく現在の近似estimatorなので、これは物理的biasを証明しない。ただしvariance低減とcurrent-estimator signal preservationを別gateとして維持すべきことは示している。
 - variance低減だけを根拠にbounded surface filterを昇格しない。
+
+### 2026-08-21: 最終監査
+
+- 日本語を主文書とする[Phase 1最終レポート](hybrid-reflection-hdr-variance-diagnostics-report_j.md)へcontract、2 ROI結果、claim boundary、acceptance gate、Phase 2 handoffを集約した。
+- 最終Debug x64/HLSL buildは成功した。
+- 最終D3D12 smokeのerrorは0件で、既知のcommitted-buffer initial-state warning 2件だけを記録した。新規warningはない。
+- 日英worklogは同じ7実装phaseと対応する結果を持つ。
+- 1024-frame監査は条件付きのままとし、今回は実行しなかった。

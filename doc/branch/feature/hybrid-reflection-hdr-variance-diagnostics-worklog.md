@@ -131,3 +131,11 @@ For each fixed ROI and signal boundary, record:
 - The filter reduced temporal variance by more than `75%` while increasing per-pixel RMSE to the raw current-estimator mean in both ROIs. The large rearward increase is consistent with a spatial-detail or local-mean change that an ROI-wide mean metric hides.
 - This does not prove physical bias because the baseline is the current approximate estimator, not a physical reference. It does show that variance reduction and current-estimator signal preservation must remain separate gates.
 - Do not promote the bounded surface filter based on variance reduction alone.
+
+### 2026-08-21: Final audit
+
+- The Japanese-primary [Phase 1 final report](hybrid-reflection-hdr-variance-diagnostics-report_j.md) consolidates the contract, two-ROI results, claim boundary, acceptance gates, and Phase 2 handoff.
+- Final Debug x64/HLSL build succeeded.
+- Final D3D12 smoke captured zero errors and the same two known committed-buffer initial-state warnings; no new warning was observed.
+- The English and Japanese worklogs contain the same seven implementation phases and aligned results.
+- The 1024-frame audit remains conditional and was not run.
