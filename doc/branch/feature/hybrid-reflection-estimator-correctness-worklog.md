@@ -69,6 +69,18 @@ No production-default change should occur until this decision is made and Phase 
 
 The scene is a measurement instrument, not a visual showcase. Fixed 1920x1080 ROIs and proof that the emissive target produces the intended hit/miss coverage remain pending visual validation; coordinates must not be guessed from code alone.
 
+### 2026-08-23: Base scene visual validation
+
+User visual validation passed all five base-scene checks:
+
+- all twelve spheres are visible;
+- the roughness progression is distinguishable;
+- the metallic and dielectric rows are distinguishable;
+- the emissive target does not obstruct the sphere grid;
+- the floor and camera framing are acceptable.
+
+This closes the base composition/framing gate. ReflectionRayHit and Evaluated Radiance hit/miss coverage, followed by fixed 1920x1080 ROI selection, remain pending.
+
 ## Out of Scope
 
 - production temporal/spatial denoiser;

@@ -69,6 +69,18 @@ PDFまたはBRDF throughput補正を追加する前に、stochastic Hybrid Refle
 
 このsceneはvisual showcaseではなく測定器である。固定1920x1080 ROIと、emissive targetが意図したhit/miss coverageを生成することの証明はvisual validation待ちとする。codeだけから座標を推測しない。
 
+### 2026-08-23: Base scene visual validation
+
+ユーザーvisual validationでbase sceneの5項目すべてがPASSした。
+
+- sphere 12個がすべて表示される;
+- roughnessの段階変化を識別できる;
+- metallic/dielectricの上下差を識別できる;
+- emissive targetがsphere gridを遮らない;
+- floorとcamera framingに問題がない。
+
+これによりbase composition/framing gateを完了する。ReflectionRayHit/Evaluated Radianceのhit/miss coverage確認と、その後の固定1920x1080 ROI選定は未完了である。
+
 ## 対象外
 
 - production temporal/spatial denoiser;
