@@ -53,6 +53,22 @@ PDFまたはBRDF throughput補正を追加する前に、stochastic Hybrid Refle
 5. roughness条件ごとにdeterministic IBLとHigh-SPP Current-Estimator Mean Baselineを比較する。どちらもphysical ground truthとは呼ばない。
 6. estimator変更後にPhase 1 paired HDR診断を再実行する。
 
+## 制御評価scene
+
+### 2026-08-22: 初期scene実装
+
+- 外部assetへ依存しない`Hybrid Reflection Estimator Test`を追加した。
+- 同一sphere 12個を固定2-row gridへ配置した。
+- columnは左からvisible roughness `0.0`、`0.05`、`0.15`、`0.35`、`0.6`、`1.0`とする。
+- 上段はmetallic `1.0`、下段はdielectric metallic `0.0`とする。
+- sphere materialはすべて同じneutral albedo、normal mapなし、emissionなし、ambient occlusion 1.0とする。
+- roughなdark floorで安定したgeometry/depth contextを作る。
+- sphere gridを遮らずgeometry hitの高radiance候補を作るため、off-axisに細いemissive targetを置く。
+- camera position、gaze、FOV、near plane、far planeをscene codeで固定する。animationはない。
+- Debug x64/HLSL buildは成功し、既存のvcpkg重複import warningだけが報告された。
+
+このsceneはvisual showcaseではなく測定器である。固定1920x1080 ROIと、emissive targetが意図したhit/miss coverageを生成することの証明はvisual validation待ちとする。codeだけから座標を推測しない。
+
 ## 対象外
 
 - production temporal/spatial denoiser;

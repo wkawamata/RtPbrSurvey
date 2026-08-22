@@ -833,6 +833,7 @@ void RtPbrSurveyApp::CreateSampleScenes()
 
     m_sampleScenes.push_back(Engine::SceneFactory::CreateCornellBox());
     m_sampleScenes.push_back(Engine::SceneFactory::CreateHostPrimitiveMeshes());
+    m_sampleScenes.push_back(Engine::SceneFactory::CreateHybridReflectionEstimatorTest());
 }
 
 void RtPbrSurveyApp::LoadSceneCpuData(int sceneIndex)

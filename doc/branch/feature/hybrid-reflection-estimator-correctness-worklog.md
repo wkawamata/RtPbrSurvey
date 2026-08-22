@@ -53,6 +53,22 @@ No production-default change should occur until this decision is made and Phase 
 5. Compare roughness conditions against deterministic IBL and the High-SPP Current-Estimator Mean Baseline, without calling either a physical ground truth.
 6. Rerun Phase 1 paired HDR diagnostics after any estimator change.
 
+## Controlled Evaluation Scene
+
+### 2026-08-22: Initial scene implementation
+
+- Added `Hybrid Reflection Estimator Test` with no external asset dependency.
+- The scene contains twelve identical spheres in a fixed two-row grid.
+- Columns use visible roughness values `0.0`, `0.05`, `0.15`, `0.35`, `0.6`, and `1.0` from left to right.
+- The upper row is metallic `1.0`; the lower row is dielectric metallic `0.0`.
+- All sphere materials use the same neutral albedo, no normal map, no emission, and full ambient occlusion.
+- A rough dark floor provides a stable geometry and depth context.
+- A narrow off-axis emissive target provides a high-radiance geometry-hit candidate without covering the sphere grid.
+- Camera position, gaze, FOV, near plane, and far plane are fixed in scene code. Animation is absent.
+- Debug x64/HLSL build succeeded with the existing duplicate vcpkg import warning only.
+
+The scene is a measurement instrument, not a visual showcase. Fixed 1920x1080 ROIs and proof that the emissive target produces the intended hit/miss coverage remain pending visual validation; coordinates must not be guessed from code alone.
+
 ## Out of Scope
 
 - production temporal/spatial denoiser;

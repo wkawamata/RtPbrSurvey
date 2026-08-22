@@ -11,5 +11,6 @@ namespace Engine
     public:
         static std::unique_ptr<SampleScene> CreateCornellBox();
         static std::unique_ptr<SampleScene> CreateHostPrimitiveMeshes();
+        static std::unique_ptr<SampleScene> CreateHybridReflectionEstimatorTest();
     };
 }
