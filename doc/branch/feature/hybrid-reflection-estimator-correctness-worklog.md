@@ -119,6 +119,17 @@ This avoids dynamic resource semantics and avoids accumulating unweighted `L_i` 
 - This slice deliberately does not add `ReflectionSpecularEstimate` storage yet; resource/MRT wiring remains the next boundary.
 - A forced Debug x64 Rebuild recompiled all HLSL successfully with zero errors and the existing duplicate vcpkg import warning only.
 
+### 2026-08-23: ReflectionSpecularEstimate MRT storage
+
+- Extended `ReflectionEvaluatePass` from one render target to two `R16G16B16A16_FLOAT` MRT targets.
+- Target 0 remains `ReflectionEvaluatedRadiance` with its existing unweighted contract.
+- Target 1 is the independent current-frame `ReflectionSpecularEstimate` and calls the estimator math helper with visible albedo, metallic, roughness, normal, view direction, the matching direction sample, and evaluated incident radiance.
+- Added a render-size resource, persistent SRV descriptor, RTV descriptor, RenderGraph resource name, write dependency, binding resolver, resize/release handling, and PSO target format.
+- The resource is not consumed by temporal history or `LightPass` and is not yet exposed through debug UI or HDR readback.
+- Debug x64 Rebuild, including all HLSL, succeeded with the existing duplicate vcpkg import warning only.
+- Runtime automated capture exited successfully with zero D3D12 errors and three repetitions of the existing committed-buffer warning type.
+- Existing Evaluated Radiance was pixel-identical to the pre-MRT same-condition capture: zero differing pixels at 1920x1080.
+
 ## Planned Gates
 
 1. Write the estimator target and ownership decision.

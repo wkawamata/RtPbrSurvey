@@ -119,6 +119,17 @@ Phase 2では既存approximation pathを維持し、`ReflectionSpecularEstimate`
 - このsliceでは意図的に`ReflectionSpecularEstimate` storageを追加しない。resource/MRT wiringを次の境界とする。
 - Debug x64 Rebuildで全HLSLを強制再compileし、error 0件、既存のvcpkg重複import warningのみで成功した。
 
+### 2026-08-23: ReflectionSpecularEstimate MRT storage
+
+- `ReflectionEvaluatePass`を1 render targetから2つの`R16G16B16A16_FLOAT` MRT targetへ拡張した。
+- target 0は既存の未加重contractを持つ`ReflectionEvaluatedRadiance`のままとする。
+- target 1を独立current-frame `ReflectionSpecularEstimate`とし、visible albedo、metallic、roughness、normal、view direction、対応するdirection sample、evaluated incident radianceをestimator math helperへ渡す。
+- render-size resource、persistent SRV descriptor、RTV descriptor、RenderGraph resource name、write dependency、binding resolver、resize/release処理、PSO target formatを追加した。
+- resourceはtemporal historyまたは`LightPass`から消費せず、debug UIまたはHDR readbackにもまだ公開しない。
+- 全HLSLを含むDebug x64 Rebuildは既存のvcpkg重複import warningのみで成功した。
+- runtime自動captureは正常終了し、D3D12 error 0件、既存のcommitted-buffer warning type 3回だけを報告した。
+- 既存Evaluated RadianceはMRT導入前の同一条件captureとpixel単位で完全一致し、1920x1080で差分pixelは0だった。
+
 ## 計画gate
 
 1. estimator targetとownership判断を文書化する。

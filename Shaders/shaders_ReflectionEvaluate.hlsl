@@ -2,6 +2,7 @@
 #include "PbrLighting.hlsli"
 #include "ReflectionSampling.hlsli"
 
+Texture2D<float4> g_albedo : register(t0, space3);
 Texture2D<float4> g_normal : register(t1, space3);
 Texture2D<float4> g_pbrParams : register(t4, space3);
 Texture2D<float> g_depth : register(t6, space3);
@@ -91,12 +92,35 @@ PbrSurface MakeReflectionHitSurface(float3 albedo, float4 material, float3 norma
     return MakePbrSurface(albedo, normal, emissive, material.x, material.y, 1.0, material.z);
 }
 
-float4 PSMain(FullscreenVSOutput input) : SV_TARGET
+struct ReflectionEvaluateOutput
+{
+    float4 evaluatedRadiance : SV_TARGET0;
+    float4 specularEstimate : SV_TARGET1;
+};
+
+ReflectionEvaluateOutput MakeReflectionEvaluateOutput(float3 incidentRadiance,
+                                                      float3 normal,
+                                                      float3 viewDirection,
+                                                      float visibleRoughness,
+                                                      float3 visibleF0,
+                                                      RoughReflectionSample sample)
+{
+    ReflectionEvaluateOutput output;
+    output.evaluatedRadiance = float4(incidentRadiance, 1.0);
+    output.specularEstimate = float4(EvaluateRoughReflectionSpecularEstimate(
+        incidentRadiance, normal, viewDirection, visibleRoughness, visibleF0, sample), 1.0);
+    return output;
+}
+
+ReflectionEvaluateOutput PSMain(FullscreenVSOutput input)
 {
     float depth = g_depth.Load(int3(input.position.xy, 0));
     if (depth >= 1.0)
     {
-        return float4(0.0, 0.0, 0.0, 1.0);
+        ReflectionEvaluateOutput backgroundOutput;
+        backgroundOutput.evaluatedRadiance = float4(0.0, 0.0, 0.0, 1.0);
+        backgroundOutput.specularEstimate = float4(0.0, 0.0, 0.0, 1.0);
+        return backgroundOutput;
     }
 
     float4 reflectionHit = g_reflectionRayHit.Sample(g_sampler, input.uv);
@@ -106,15 +130,28 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 hitEmission = g_reflectionRayEmission.Sample(g_sampler, input.uv).rgb;
 
     float3 normal = normalize(g_normal.Sample(g_sampler, input.uv).rgb);
-    float visibleRoughness = saturate(g_pbrParams.Sample(g_sampler, input.uv).g);
+    float4 visiblePbrParams = g_pbrParams.Sample(g_sampler, input.uv);
+    float visibleMetallic = saturate(visiblePbrParams.r);
+    float visibleRoughness = saturate(visiblePbrParams.g);
+    float3 visibleAlbedo = g_albedo.Sample(g_sampler, input.uv).rgb;
+    float3 visibleF0 = PbrF0(visibleAlbedo, visibleMetallic);
     float3 worldPos = ReconstructWorldPosition(input.uv, depth);
     float3 viewDir = normalize(cameraPosition - worldPos);
-    float3 reflectionDir = reflect(-viewDir, normal);
+    float3 mirrorDirection = reflect(-viewDir, normal);
+    RoughReflectionSample reflectionSample;
     if (stochasticSamplingEnabled != 0)
     {
-        reflectionDir = SampleRoughReflectionDirection(
-            uint2(input.position.xy), samplingFrameIndex, -viewDir, normal, visibleRoughness, reflectionDir);
+        reflectionSample = SampleRoughReflection(
+            uint2(input.position.xy), samplingFrameIndex, -viewDir, normal, visibleRoughness, mirrorDirection);
     }
+    else
+    {
+        reflectionSample.direction = mirrorDirection;
+        reflectionSample.directionalPdf = 0.0;
+        reflectionSample.valid = 1u;
+        reflectionSample.deterministicMirror = 1u;
+    }
+    float3 reflectionDir = reflectionSample.valid != 0u ? reflectionSample.direction : mirrorDirection;
 
     if (reflectionHit.y <= 0.0)
     {
@@ -123,7 +160,8 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         float3 environmentRadiance =
             g_specularPrefilterMap.SampleLevel(g_sampler, reflectionDir, missSpecularMip).rgb * iblIntensity *
             specularIblEnabled;
-        return float4(environmentRadiance, 1.0);
+        return MakeReflectionEvaluateOutput(
+            environmentRadiance, normal, viewDir, visibleRoughness, visibleF0, reflectionSample);
     }
 
     float3 hitNormal = DecodeNormalOctahedron(reflectionHit.zw);
@@ -152,5 +190,6 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
 
     // Keep this signal independent of visible-surface contribution weighting so temporal processing can
     // accumulate a stable radiance contract. LightPass owns distance/roughness/intensity/Fresnel weighting.
-    return float4(evaluatedHitRadiance, 1.0);
+    return MakeReflectionEvaluateOutput(
+        evaluatedHitRadiance, normal, viewDir, visibleRoughness, visibleF0, reflectionSample);
 }

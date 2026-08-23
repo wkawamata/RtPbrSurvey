@@ -291,6 +291,7 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
     m_resourceDefaultStates.push_back({kDepthStencilResourceName, D3D12_RESOURCE_STATE_DEPTH_WRITE});
     m_resourceDefaultStates.push_back({kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     m_resourceDefaultStates.push_back({kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
+    m_resourceDefaultStates.push_back({kReflectionSpecularEstimateResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     for (const char* resourceName : kReflectionResolvedRadianceResourceNames)
     {
         m_resourceDefaultStates.push_back({resourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
@@ -938,6 +939,7 @@ void RtPbrSurveyEngine::LoadPipeline()
         RegisterDepthStencil();
         RegisterLightPassRenderTarget();
         RegisterReflectionEvaluatedRadiance();
+        RegisterReflectionSpecularEstimate();
         RegisterReflectionResolvedRadiance();
         RegisterReflectionAuxiliaryHistory();
         RegisterTemporalUpscalerSceneColor();
@@ -1954,7 +1956,11 @@ void RtPbrSurveyEngine::RegisterPipelineStates(const PipelineShaderBytecode& sha
         psoDesc,
         {{Pipe::Lighting, shaders.lighting, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::LightingDebugGradient, shaders.lightingDebugGradient, DXGI_FORMAT_R16G16B16A16_FLOAT},
-         {Pipe::ReflectionEvaluate, shaders.reflectionEvaluate, DXGI_FORMAT_R16G16B16A16_FLOAT},
+         {Pipe::ReflectionEvaluate,
+          shaders.reflectionEvaluate,
+          DXGI_FORMAT_R16G16B16A16_FLOAT,
+          {DXGI_FORMAT_R16G16B16A16_FLOAT},
+          1},
          {Pipe::TemporalReflection,
           shaders.temporalReflection,
           DXGI_FORMAT_R16G16B16A16_FLOAT,
@@ -2558,6 +2564,12 @@ void RtPbrSurveyEngine::CreateGBuffer()
     }
     assert(m_reflectionEvaluatedRadianceSrv.Index == m_temporalUpscalerSceneColorSrv.Index + 1);
 
+    if (m_reflectionSpecularEstimateSrv.Index == UINT_MAX)
+    {
+        m_reflectionSpecularEstimateSrv = m_descriptorHeapAllocator.AllocWithHandle();
+    }
+    assert(m_reflectionSpecularEstimateSrv.Index == m_reflectionEvaluatedRadianceSrv.Index + 1);
+
     for (UINT i = 0; i < _countof(m_reflectionResolvedRadianceSrv); ++i)
     {
         if (m_reflectionResolvedRadianceSrv[i].Index == UINT_MAX)
@@ -2565,7 +2577,7 @@ void RtPbrSurveyEngine::CreateGBuffer()
             m_reflectionResolvedRadianceSrv[i] = m_descriptorHeapAllocator.AllocWithHandle();
         }
         const UINT expectedIndex = i == 0 ?
-            m_reflectionEvaluatedRadianceSrv.Index + 1 :
+            m_reflectionSpecularEstimateSrv.Index + 1 :
             m_reflectionResolvedRadianceSrv[i - 1].Index + 1;
         assert(m_reflectionResolvedRadianceSrv[i].Index == expectedIndex);
     }
@@ -2734,6 +2746,12 @@ void RtPbrSurveyEngine::RegisterReflectionEvaluatedRadiance()
 {
     RegisterRenderTexture(
         MakeColorRenderTextureSpec(kReflectionEvaluatedRadianceResourceName, Engine::RenderTextureSizeClass::RenderSize));
+}
+
+void RtPbrSurveyEngine::RegisterReflectionSpecularEstimate()
+{
+    RegisterRenderTexture(
+        MakeColorRenderTextureSpec(kReflectionSpecularEstimateResourceName, Engine::RenderTextureSizeClass::RenderSize));
 }
 
 void RtPbrSurveyEngine::RegisterReflectionResolvedRadiance()
@@ -3005,6 +3023,11 @@ D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionEvaluatedRadianceRTV
     return GetRtv(kReflectionEvaluatedRadianceRTVIndex);
 }
 
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionSpecularEstimateRTV() const
+{
+    return GetRtv(kReflectionSpecularEstimateRTVIndex);
+}
+
 D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionResolvedRadianceCurrentRTV() const
 {
     const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
@@ -3048,6 +3071,8 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
                                                 [this]() { return GetLightPassRTV(); });
     m_renderGraphRuntime.Bindings().RegisterRtv(m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionEvaluatedRadiance),
                                                 [this]() { return GetReflectionEvaluatedRadianceRTV(); });
+    m_renderGraphRuntime.Bindings().RegisterRtv(m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionSpecularEstimate),
+                                                [this]() { return GetReflectionSpecularEstimateRTV(); });
     m_renderGraphRuntime.Bindings().RegisterRtv(
         m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionResolvedRadianceCurrent),
         [this]() { return GetReflectionResolvedRadianceCurrentRTV(); });
@@ -3088,6 +3113,9 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionEvaluatedRadianceSrv),
         [this]() { return m_reflectionEvaluatedRadianceSrv.gpu; });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionSpecularEstimateSrv),
+        [this]() { return m_reflectionSpecularEstimateSrv.gpu; });
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionResolvedRadianceHistorySrv),
         [this]() { return m_reflectionResolvedRadianceSrv[m_reflectionHistoryState.readIndex].gpu; });
@@ -3221,6 +3249,8 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
                                                       [this]() { return m_lightPassRenderTarget.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kReflectionEvaluatedRadianceResourceName,
                                                       [this]() { return m_reflectionEvaluatedRadiance.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kReflectionSpecularEstimateResourceName,
+                                                      [this]() { return m_reflectionSpecularEstimate.Get(); });
     for (UINT i = 0; i < _countof(kReflectionResolvedRadianceResourceNames); ++i)
     {
         m_renderGraphRuntime.Resources().RegisterResource(
@@ -3507,6 +3537,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_depthStencil.Reset();
     m_lightPassRenderTarget.Reset();
     m_reflectionEvaluatedRadiance.Reset();
+    m_reflectionSpecularEstimate.Reset();
     for (ComPtr<ID3D12Resource>& resource : m_reflectionResolvedRadiance)
     {
         resource.Reset();
@@ -3528,6 +3559,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_resourceRegistry.UnregisterTransientResource(kDepthStencilResourceName);
     m_resourceRegistry.UnregisterTransientResource(kLightPassRenderTargetResourceName);
     m_resourceRegistry.UnregisterTransientResource(kReflectionEvaluatedRadianceResourceName);
+    m_resourceRegistry.UnregisterTransientResource(kReflectionSpecularEstimateResourceName);
     for (const char* resourceName : kReflectionResolvedRadianceResourceNames)
     {
         m_resourceRegistry.UnregisterTransientResource(resourceName);
@@ -3544,6 +3576,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     RegisterDepthStencil();
     RegisterLightPassRenderTarget();
     RegisterReflectionEvaluatedRadiance();
+    RegisterReflectionSpecularEstimate();
     RegisterReflectionResolvedRadiance();
     RegisterReflectionAuxiliaryHistory();
     RegisterTemporalUpscalerSceneColor();
@@ -3813,6 +3846,10 @@ bool RtPbrSurveyEngine::BindCreatedColorRenderTexture(const std::string& name, I
          &RtPbrSurveyEngine::m_reflectionEvaluatedRadiance,
          kReflectionEvaluatedRadianceRTVIndex,
          &RtPbrSurveyEngine::m_reflectionEvaluatedRadianceSrv},
+        {kReflectionSpecularEstimateResourceName,
+         &RtPbrSurveyEngine::m_reflectionSpecularEstimate,
+         kReflectionSpecularEstimateRTVIndex,
+         &RtPbrSurveyEngine::m_reflectionSpecularEstimateSrv},
         {kTemporalUpscalerSceneColorResourceName,
          &RtPbrSurveyEngine::m_temporalUpscalerSceneColor,
          kTemporalUpscalerSceneColorRTVIndex,
@@ -3905,6 +3942,11 @@ void RtPbrSurveyEngine::CollectGarbageTransientResources()
         if (name == kReflectionEvaluatedRadianceResourceName)
         {
             m_reflectionEvaluatedRadiance.Reset();
+        }
+
+        if (name == kReflectionSpecularEstimateResourceName)
+        {
+            m_reflectionSpecularEstimate.Reset();
         }
 
         for (UINT i = 0; i < _countof(kReflectionResolvedRadianceResourceNames); ++i)
