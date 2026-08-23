@@ -617,6 +617,17 @@ void RtPbrSurveyApp::UpdateReflectionHdrDiagnostics()
             m_commandLineOptions.reflectionHdrDiagnosticsRoiY,
             m_commandLineOptions.reflectionHdrDiagnosticsRoiWidth,
             m_commandLineOptions.reflectionHdrDiagnosticsRoiHeight};
+        if (m_reflectionHdrDiagnosticFrames.empty())
+        {
+            const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+            const float renderCenterX = static_cast<float>(roi.x) + static_cast<float>(roi.width) * 0.5f;
+            const float renderCenterY = static_cast<float>(roi.y) + static_cast<float>(roi.height) * 0.5f;
+            const int screenX = static_cast<int>(renderCenterX * static_cast<float>(context.outputWidth) /
+                                                 static_cast<float>(context.renderWidth));
+            const int screenY = static_cast<int>(renderCenterY * static_cast<float>(context.outputHeight) /
+                                                 static_cast<float>(context.renderHeight));
+            m_sceneRenderer.RequestPixelPick(screenX, screenY);
+        }
         m_sceneRenderer.RequestReflectionHdrDiagnosticCapture(roi);
         m_reflectionHdrDiagnosticInFlight = true;
     }
@@ -671,6 +682,18 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
     const RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
         m_sceneRenderer.GetHybridReflectionSettings();
+    const RtPbrSurveyEngine::PixelPickResult& referenceSurface = m_sceneRenderer.GetPixelPickResult();
+    const float referenceNdotV = referenceSurface.valid ?
+        std::clamp(referenceSurface.normal.x * referenceSurface.viewDir.x +
+                       referenceSurface.normal.y * referenceSurface.viewDir.y +
+                       referenceSurface.normal.z * referenceSurface.viewDir.z,
+                   0.0f,
+                   1.0f) :
+        0.0f;
+    const XMFLOAT3 referenceF0 = {
+        0.04f + (referenceSurface.albedo.x - 0.04f) * referenceSurface.metallic,
+        0.04f + (referenceSurface.albedo.y - 0.04f) * referenceSurface.metallic,
+        0.04f + (referenceSurface.albedo.z - 0.04f) * referenceSurface.metallic};
     const auto statisticsToJson = [](const Engine::ReflectionHdrDiagnosticStatistics& statistics)
     {
         json value = {
@@ -699,7 +722,7 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     const Engine::ReflectionHdrDiagnosticBaselineComparison baselineComparison =
         Engine::CompareReflectionHdrDiagnosticsToCurrentEstimatorMeanBaseline(m_reflectionHdrDiagnosticFrames);
     const json report = {
-        {"schemaVersion", 2},
+        {"schemaVersion", 3},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
         {"specularEstimateIncidentRadiance",
@@ -710,6 +733,20 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         {"coordinateSpace", "render-pixels"},
         {"renderSize", {{"width", context.renderWidth}, {"height", context.renderHeight}}},
         {"roi", {{"x", roi.x}, {"y", roi.y}, {"width", roi.width}, {"height", roi.height}}},
+        {"referenceSurfaceSample",
+         {{"scope", "roi-center-pixel"},
+          {"valid", referenceSurface.valid},
+          {"screen", {{"x", referenceSurface.screenX}, {"y", referenceSurface.screenY}}},
+          {"depthNdc", referenceSurface.depthNdc},
+          {"normal", {referenceSurface.normal.x, referenceSurface.normal.y, referenceSurface.normal.z}},
+          {"viewDirection",
+           {referenceSurface.viewDir.x, referenceSurface.viewDir.y, referenceSurface.viewDir.z}},
+          {"ndotv", referenceNdotV},
+          {"albedo",
+           {referenceSurface.albedo.x, referenceSurface.albedo.y, referenceSurface.albedo.z}},
+          {"metallic", referenceSurface.metallic},
+          {"roughness", referenceSurface.roughness},
+          {"f0", {referenceF0.x, referenceF0.y, referenceF0.z}}}},
         {"statistics",
          {{"evaluatedRadiance", statisticsToJson(evaluatedStatistics)},
           {"specularEstimate", statisticsToJson(specularEstimateStatistics)},

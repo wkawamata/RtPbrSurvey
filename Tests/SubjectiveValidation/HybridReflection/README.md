@@ -52,6 +52,14 @@ For live observation, use `capture-plan-stochastic-live.json`. It holds the init
 
 `-ReflectionEstimatorConstantIncidentRadiance` is a default-off estimator diagnostic. It replaces only the incident-radiance input used by `ReflectionSpecularEstimate` with linear-HDR white `(1, 1, 1)`. RayQuery payloads, Evaluated/Resolved Radiance, Temporal Reflection, and LightPass remain scene-driven. HDR diagnostic reports identify the mode through `specularEstimateIncidentRadiance`.
 
+HDR diagnostic schema version 3 also records `referenceSurfaceSample` for the ROI center pixel. For a 1x1 constant-radiance report, compare the rendered estimator mean with an independent Cook-Torrance hemisphere integral:
+
+```powershell
+python Tests\HybridReflection\integrate_constant_radiance_reference.py <report.json>
+```
+
+The script uses deterministic uniform-hemisphere midpoint integration. It is independent of the GGX importance-sampling sequence used by the shader, while matching the documented BRDF model and GBuffer-quantized surface inputs from the report.
+
 `-ReflectionSurfaceVarianceFilter` enables the default-off 3x3 current-radiance experiment during automated capture. Samples are accepted only when visible depth, normal, roughness, and metallic are similar; near-perfectly smooth visible surfaces bypass the filter. This option does not change history rejection thresholds or history weight.
 
 `capture-plan-material-variance-series.json` captures eight settled frames for either the evaluated- or resolved-radiance view. After capturing both variants, run `Measure-MaterialVariance.ps1` to reproduce the fixed-ROI display-space temporal-deviation report and annotated ROI image. The metric is intended for repeatable symptom comparison; it is not a measurement of the underlying HDR radiance buffers.

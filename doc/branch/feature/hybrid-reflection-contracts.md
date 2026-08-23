@@ -114,6 +114,8 @@ This staged boundary prevents temporal accumulation of unweighted `L_i` followed
 
 For estimator-only reference diagnostics, the default-off `-ReflectionEstimatorConstantIncidentRadiance` mode replaces `L_i` in `ReflectionSpecularEstimate` with linear-HDR white `(1, 1, 1)`. It does not modify traced payloads, `ReflectionEvaluatedRadiance`, `ReflectionResolvedRadiance`, Temporal Reflection, or LightPass. This isolates BRDF/PDF throughput from scene-dependent hit/miss radiance; it is not a production lighting mode.
 
+HDR diagnostic schema version 3 records the ROI-center visible normal, view direction, `N dot V`, albedo, metallic, roughness, and derived F0 as `referenceSurfaceSample`. A 1x1 ROI may use this exact condition with the independent uniform-hemisphere integrator in `Tests/HybridReflection`. Wider ROI statistics must not be compared with the single center-pixel reference as if their surface conditions were identical.
+
 ## History Ownership
 
 The engine owns two persistent render-resolution physical slots each for `ReflectionResolvedRadiance`, `ReflectionHistoryDepth`, and `ReflectionHistoryNormal`. Their shared logical roles are `historyRead` and `historyWrite`.

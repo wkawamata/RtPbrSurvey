@@ -303,6 +303,19 @@ shaderの方向規約を含め、実装済みstochastic branchをend-to-endで�
 
 これは分離されたrendered estimator signalを確立するが、数値referenceはまだ確立しない。次は独立hemisphere積分と比較する前に、ROIが使用したvisible `N`、`V`、roughness、metallic、F0条件をreadbackまたは再構築する必要がある。
 
+### 2026-08-24: 独立constant-radiance reference
+
+- HDR measurement開始時に既存Pixel Pick readbackを1回再利用し、ROI中心のsurface conditionを記録した。新しいpersistent GBufferまたはreadback architectureは導入していない。
+- HDR reportをschema version 3へ進め、`referenceSurfaceSample`へnormal、view direction、`N dot V`、albedo、metallic、roughness、F0、depth、正確なpixel座標を追加した。
+- shaderのGGX importance-sampling sequenceを使用しないdeterministic uniform-hemisphere midpoint integrator `Tests/HybridReflection/integrate_constant_radiance_reference.py`を追加した。
+- 直接比較できるようpixel `(868, 420)`の1x1 ROIを使用した。記録条件はroughness `0.3490196`、metallic `1`、`N dot V = 0.960712`、achromatic F0 `0.4627451`だった。
+- 1024-frame GPU estimator meanは`0.4551221`、temporal standard deviationは`0.0591163`であり、meanの概算standard errorは`0.001847`である。
+- 独立referenceは256x1024 integration cellで`0.4541310`、512x2048で`0.4541030`、1024x4096で`0.4540960`へ収束した。
+- 最高解像度referenceに対するGPU meanの相対誤差は`+0.226%`（`+0.0010261`）であり、この1024-sample runの推定standard error 1個未満だった。
+- Debug x64 buildは成功した。runtimeは正常終了し、D3D12 errorは0件、既存warningの同じ3回反復だけを確認した。
+
+判定: constant white incident radianceにおける単一roughness `0.35`、metallic、near-normal-view pixelのestimator/reference一致は**PASS WITH LIMITATION**とする。grazing view、dielectric F0、他roughness、scene-dependent radiance、multiple bounceの正しさは確立しない。
+
 ## 対象外
 
 - production temporal/spatial denoiser;

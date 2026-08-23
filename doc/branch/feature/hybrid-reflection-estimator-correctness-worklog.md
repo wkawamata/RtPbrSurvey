@@ -303,6 +303,19 @@ The next bounded test unit is a default-off constant-incident-radiance diagnosti
 
 This establishes an isolated rendered estimator signal, not yet its numerical reference. The next step must read or reconstruct the visible `N`, `V`, roughness, metallic, and F0 conditions used by the ROI before comparing against an independent hemispherical integral.
 
+### 2026-08-24: Independent constant-radiance reference
+
+- Reused the existing Pixel Pick readback once at HDR measurement start to record the ROI-center surface condition. No new persistent GBuffer or readback architecture was introduced.
+- Advanced the HDR report to schema version 3 with `referenceSurfaceSample`: normal, view direction, `N dot V`, albedo, metallic, roughness, F0, depth, and exact pixel coordinates.
+- Added `Tests/HybridReflection/integrate_constant_radiance_reference.py`, a deterministic uniform-hemisphere midpoint integrator. It does not use the shader's GGX importance-sampling sequence.
+- Used a 1x1 ROI at pixel `(868, 420)` for direct comparability. The recorded condition was roughness `0.3490196`, metallic `1`, `N dot V = 0.960712`, and achromatic F0 `0.4627451`.
+- The 1024-frame GPU estimator mean was `0.4551221`, with temporal standard deviation `0.0591163`; the approximate standard error of the mean is `0.001847`.
+- The independent reference converged from `0.4541310` at 256x1024 integration cells, through `0.4541030` at 512x2048, to `0.4540960` at 1024x4096.
+- GPU mean relative error against the highest-resolution reference was `+0.226%` (`+0.0010261`), which is below one estimated standard error for this 1024-sample run.
+- Debug x64 build succeeded. The runtime exited normally with zero D3D12 errors and the same three existing warning repetitions.
+
+Outcome: **PASS WITH LIMITATION** for estimator/reference agreement at this single roughness `0.35`, metallic, near-normal-view pixel under constant white incident radiance. This does not establish correctness for grazing views, dielectric F0, other roughness values, scene-dependent radiance, or multiple bounces.
+
 ## Out of Scope
 
 - production temporal/spatial denoiser;
