@@ -112,6 +112,8 @@ After the current-frame estimate passes finite-value, mirror-limit, long-run mea
 
 This staged boundary prevents temporal accumulation of unweighted `L_i` followed by multiplication with an unrelated current-frame throughput. The BRDF/PDF throughput and its incident-radiance sample are correlated and must be combined before temporal averaging.
 
+For estimator-only reference diagnostics, the default-off `-ReflectionEstimatorConstantIncidentRadiance` mode replaces `L_i` in `ReflectionSpecularEstimate` with linear-HDR white `(1, 1, 1)`. It does not modify traced payloads, `ReflectionEvaluatedRadiance`, `ReflectionResolvedRadiance`, Temporal Reflection, or LightPass. This isolates BRDF/PDF throughput from scene-dependent hit/miss radiance; it is not a production lighting mode.
+
 ## History Ownership
 
 The engine owns two persistent render-resolution physical slots each for `ReflectionResolvedRadiance`, `ReflectionHistoryDepth`, and `ReflectionHistoryNormal`. Their shared logical roles are `historyRead` and `historyWrite`.

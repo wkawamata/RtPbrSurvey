@@ -236,6 +236,8 @@ void RtPbrSurveyApp::OnInit()
                 reflectionSettings.contributionEnabled = true;
             }
             reflectionSettings.stochasticSamplingEnabled = m_commandLineOptions.reflectionStochasticSampling;
+            reflectionSettings.estimatorConstantIncidentRadianceEnabled =
+                m_commandLineOptions.reflectionEstimatorConstantIncidentRadiance;
             reflectionSettings.rejectedPixelNeighborhoodEnabled =
                 m_commandLineOptions.reflectionRejectedPixelNeighborhood;
             reflectionSettings.surfaceVarianceFilterEnabled =
@@ -667,6 +669,8 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
 
     const Engine::ReflectionHdrDiagnosticRoi roi = m_reflectionHdrDiagnosticFrames.front().roi;
     const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    const RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
+        m_sceneRenderer.GetHybridReflectionSettings();
     const auto statisticsToJson = [](const Engine::ReflectionHdrDiagnosticStatistics& statistics)
     {
         json value = {
@@ -698,6 +702,8 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         {"schemaVersion", 2},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
+        {"specularEstimateIncidentRadiance",
+         reflectionSettings.estimatorConstantIncidentRadianceEnabled ? "constant-white-1" : "traced-scene"},
         {"scene", LoadedScene().Name()},
         {"warmupFrames", m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames},
         {"measurementFrames", m_reflectionHdrDiagnosticFrames.size()},

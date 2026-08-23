@@ -291,6 +291,18 @@ shaderの方向規約を含め、実装済みstochastic branchをend-to-endで�
 
 次の限定的なtest unitはdefault-off constant-incident-radiance diagnostic modeとする。sampled directionとestimator throughputを維持しつつ、`ReflectionSpecularEstimate`だけのhit/miss依存`L_i`を既知の定数へ置き換える。approximation resource、Temporal Reflection、LightPassは変更しない。その長期meanを同じCook-Torrance modelの独立した数値hemisphere積分と比較する。既存の未加重baselineやdeterministic prefiltered IBLをphysical ground truthとは呼ばない。
 
+### 2026-08-24: Constant incident-radiance診断境界
+
+- default-off CLI flag `-ReflectionEstimatorConstantIncidentRadiance`を追加した。
+- 有効時は`ReflectionSpecularEstimate`へ渡す`L_i`だけをlinear-HDR white `(1, 1, 1)`へ置き換える。
+- RayQuery directionとpayload、Evaluated/Resolved Radiance、Temporal Reflection、LightPassはscene-drivenのままで変更しない。
+- HDR report schemaは`specularEstimateIncidentRadiance`へ`constant-white-1`または`traced-scene`を記録する。
+- roughness `0.35`の64-frame smokeではSpecular Estimate mean `0.453781`、variance `0.00493284`、CV `0.154776`、maximum `0.998047`を得た。
+- Evaluated Radianceのmeanとvarianceは以前のtraced-scene runと完全一致した（`0.138601940882526`および`0.0365103469875409`）。diagnostic overrideがapproximation signalへ漏れていないことを確認した。
+- Debug x64/HLSL full rebuildは成功した。runtime exit codeとD3D12 errorは0件で、既存warningの同じ3回反復だけが残った。
+
+これは分離されたrendered estimator signalを確立するが、数値referenceはまだ確立しない。次は独立hemisphere積分と比較する前に、ROIが使用したvisible `N`、`V`、roughness、metallic、F0条件をreadbackまたは再構築する必要がある。
+
 ## 対象外
 
 - production temporal/spatial denoiser;

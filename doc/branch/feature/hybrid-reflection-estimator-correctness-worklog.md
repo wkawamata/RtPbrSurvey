@@ -291,6 +291,18 @@ No algebraic mismatch was found in this audit. This is not yet a physical-refere
 
 The next bounded test unit is a default-off constant-incident-radiance diagnostic mode. It will preserve the sampled direction and estimator throughput but replace hit/miss-dependent `L_i` with a known constant for `ReflectionSpecularEstimate` only. The approximation resources, Temporal Reflection, and LightPass must remain unchanged. Its long-run mean can then be compared with an independent numerical hemispherical integral of the same Cook-Torrance model; neither the existing unweighted baseline nor deterministic prefiltered IBL will be mislabeled as physical ground truth.
 
+### 2026-08-24: Constant incident-radiance diagnostic boundary
+
+- Added default-off CLI flag `-ReflectionEstimatorConstantIncidentRadiance`.
+- When enabled, only the `L_i` argument of `ReflectionSpecularEstimate` is replaced by linear-HDR white `(1, 1, 1)`.
+- RayQuery direction and payloads, Evaluated/Resolved Radiance, Temporal Reflection, and LightPass remain scene-driven and unchanged.
+- HDR report schema records `specularEstimateIncidentRadiance` as either `constant-white-1` or `traced-scene`.
+- A roughness `0.35` 64-frame smoke produced Specular Estimate mean `0.453781`, variance `0.00493284`, CV `0.154776`, and maximum `0.998047`.
+- Evaluated Radiance mean and variance matched the earlier traced-scene run exactly (`0.138601940882526` and `0.0365103469875409`), confirming that the diagnostic override did not leak into the approximation signal.
+- Full Debug x64/HLSL rebuild succeeded. Runtime exit code and D3D12 error count were zero; the same three existing warning repetitions remained.
+
+This establishes an isolated rendered estimator signal, not yet its numerical reference. The next step must read or reconstruct the visible `N`, `V`, roughness, metallic, and F0 conditions used by the ROI before comparing against an independent hemispherical integral.
+
 ## Out of Scope
 
 - production temporal/spatial denoiser;

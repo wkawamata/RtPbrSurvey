@@ -3232,9 +3232,11 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
         m_renderGraphRuntime.RegisterConstants(ConstName::ReflectionSampling),
         [this](UINT rootParameterIndex)
         {
-            const UINT constants[2] = {m_hybridReflectionSettings.stochasticSamplingEnabled ? 1u : 0u,
-                                       m_reflectionSamplingFrameIndex};
-            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 2, constants, 0);
+            const UINT constants[3] = {
+                m_hybridReflectionSettings.stochasticSamplingEnabled ? 1u : 0u,
+                m_reflectionSamplingFrameIndex,
+                m_hybridReflectionSettings.estimatorConstantIncidentRadianceEnabled ? 1u : 0u};
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 3, constants, 0);
         });
 }
 

@@ -59,6 +59,7 @@ cbuffer ReflectionSamplingConstants : register(b6)
 {
     uint stochasticSamplingEnabled;
     uint samplingFrameIndex;
+    uint estimatorConstantIncidentRadianceEnabled;
 };
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
@@ -107,8 +108,10 @@ ReflectionEvaluateOutput MakeReflectionEvaluateOutput(float3 incidentRadiance,
 {
     ReflectionEvaluateOutput output;
     output.evaluatedRadiance = float4(incidentRadiance, 1.0);
+    float3 estimatorIncidentRadiance = estimatorConstantIncidentRadianceEnabled != 0 ?
+        float3(1.0, 1.0, 1.0) : incidentRadiance;
     output.specularEstimate = float4(EvaluateRoughReflectionSpecularEstimate(
-        incidentRadiance, normal, viewDirection, visibleRoughness, visibleF0, sample), 1.0);
+        estimatorIncidentRadiance, normal, viewDirection, visibleRoughness, visibleF0, sample), 1.0);
     return output;
 }
 

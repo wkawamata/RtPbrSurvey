@@ -224,6 +224,7 @@ public:
         float contributionIntensity = 0.25f;
         float contributionMaxDistance = 20.0f;
         bool stochasticSamplingEnabled = false;
+        bool estimatorConstantIncidentRadianceEnabled = false;
         float temporalHistoryWeight = 0.0f;
         float temporalNoiseStrength = 0.0f;
         bool rejectedPixelNeighborhoodEnabled = false;
