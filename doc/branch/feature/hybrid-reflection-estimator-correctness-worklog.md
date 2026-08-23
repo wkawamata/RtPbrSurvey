@@ -82,6 +82,20 @@ For the explicit BRDF-integral path, the smallest auditable contract is:
 
 Returning zero for below-surface directions preserves the original sampling distribution and makes the zero-integrand domain explicit. Resampling only valid directions would instead create a conditional distribution and require its normalization. GGX VNDF remains a later comparison candidate, not an assumption in the first correctness implementation.
 
+## Estimator Signal Ownership Decision
+
+The selected Phase 2 design preserves the existing approximation path and adds a separate experimental current-frame signal named `ReflectionSpecularEstimate`.
+
+- `ReflectionEvaluatedRadiance` remains unweighted incident one-bounce radiance.
+- `ReflectionResolvedRadiance` remains temporal output with the same unweighted semantics.
+- `ReflectionSpecularEstimate` applies visible-surface Cook-Torrance BRDF, cosine, and directional-PDF compensation to the matching current-frame `L_i` sample.
+- It excludes user intensity, distance fade, final scene composition, exposure, and tone mapping.
+- The first slice is debug/diagnostic-only. It does not enter existing temporal history or `LightPass`.
+- A future `ReflectionResolvedSpecularEstimate` is gated on finite-value, mean, variance, firefly, and mirror-limit evidence.
+- If that resolved estimate later reaches `LightPass`, visible-surface Fresnel and roughness/BRDF weighting must not be applied again.
+
+This avoids dynamic resource semantics and avoids accumulating unweighted `L_i` before multiplying it by an unrelated current-frame throughput. The focused contract document was updated with the same boundary.
+
 ## Planned Gates
 
 1. Write the estimator target and ownership decision.

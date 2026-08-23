@@ -82,6 +82,20 @@ NDFをprojected-area measureでsampleするため、half-vector densityは次に
 
 below-surface directionをzeroで返すことで元のsampling distributionを維持し、zero-integrand domainを明示できる。有効directionだけをresampleするとconditional distributionになり、そのnormalizationが必要になる。GGX VNDFは後続の比較候補として残し、最初のcorrectness実装の前提にはしない。
 
+## Estimator signal ownership判断
+
+Phase 2では既存approximation pathを維持し、`ReflectionSpecularEstimate`という独立したexperimental current-frame signalを追加する設計を選択した。
+
+- `ReflectionEvaluatedRadiance`は未加重incident one-bounce radianceのままとする。
+- `ReflectionResolvedRadiance`は同じ未加重semanticsを持つtemporal outputのままとする。
+- `ReflectionSpecularEstimate`は、対応するcurrent-frame `L_i` sampleへvisible-surface Cook-Torrance BRDF、cosine、directional-PDF補正を適用する。
+- user intensity、distance fade、final scene composition、exposure、tone mappingを含まない。
+- 最初のsliceはdebug/diagnostic-onlyとし、既存temporal historyまたは`LightPass`へ接続しない。
+- 将来の`ReflectionResolvedSpecularEstimate`はfinite-value、mean、variance、firefly、mirror-limit evidenceをgateとする。
+- resolved estimateを将来`LightPass`へ接続する場合、visible-surface Fresnelおよびroughness/BRDF weightingを再適用しない。
+
+これによりresource semanticsをmodeによって動的に変えず、未加重`L_i`を蓄積した後に無関係なcurrent-frame throughputを乗算する誤りも避ける。focused contract文書にも同じ境界を反映した。
+
 ## 計画gate
 
 1. estimator targetとownership判断を文書化する。

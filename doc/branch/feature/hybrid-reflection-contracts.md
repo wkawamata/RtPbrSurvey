@@ -74,6 +74,43 @@ Sampling disabled, visible roughness at or below `0.001`, or a sampled direction
 
 This is a rough-reflection approximation, not an unbiased Monte Carlo BRDF estimator. No explicit PDF division or path throughput term exists, and `LightPass` retains the existing visible-surface Fresnel and contribution weighting contract. Mean brightness and stability are validation gates rather than mathematically guaranteed properties of this estimator.
 
+## Estimator-Correctness Extension Contract
+
+Phase 2 preserves the existing approximation resources and introduces a separate experimental signal boundary. A runtime mode must not silently change the meaning of `ReflectionEvaluatedRadiance` or `ReflectionResolvedRadiance`.
+
+The first implementation target is a current-frame resource with contract name `ReflectionSpecularEstimate`:
+
+```text
+ReflectionSpecularEstimate.rgb
+    = incident_radiance_Li
+    * visible_surface_specular_BRDF(N, V, L)
+    * max(N dot L, 0)
+    / directional_PDF(L)
+```
+
+Its contract is:
+
+- linear HDR outgoing specular-radiance estimate for one visible-surface sample;
+- Cook-Torrance visible-surface BRDF, including Fresnel, GGX distribution, and geometry terms;
+- directional PDF derived from the sampled half-vector distribution;
+- environment miss and geometry hit are two sources of the same `incident_radiance_Li` term;
+- excludes user contribution intensity, distance fade, scene composition, exposure, and tone mapping;
+- is not an unweighted radiance payload and must not be bound where `ReflectionEvaluatedRadiance` is expected;
+- is initially debug/diagnostic-only and is not consumed by temporal history or `LightPass`.
+
+The roughness mirror limit remains a named deterministic branch. In the stochastic branch, a sampled direction with `N dot L <= 0` contributes zero and does not trace a ray. It must not be remapped to the mirror direction. Valid GGX NDF samples use:
+
+```text
+p_H(H) = D_GGX(H) * max(N dot H, 0)
+p_L(L) = p_H(H) / (4 * abs(V dot H))
+```
+
+The current NDF sampler is not VNDF sampling. VNDF is a later comparison candidate.
+
+After the current-frame estimate passes finite-value, mirror-limit, long-run mean, variance, and firefly gates, a future `ReflectionResolvedSpecularEstimate` may own temporal accumulation of this weighted sample. At that point `LightPass` may consume the resolved estimate, but it must not reapply visible-surface Fresnel, GGX roughness/BRDF, or cosine weighting. Only explicitly non-estimator policy such as user intensity and any retained distance fade may remain in final composition.
+
+This staged boundary prevents temporal accumulation of unweighted `L_i` followed by multiplication with an unrelated current-frame throughput. The BRDF/PDF throughput and its incident-radiance sample are correlated and must be combined before temporal averaging.
+
 ## History Ownership
 
 The engine owns two persistent render-resolution physical slots each for `ReflectionResolvedRadiance`, `ReflectionHistoryDepth`, and `ReflectionHistoryNormal`. Their shared logical roles are `historyRead` and `historyWrite`.
