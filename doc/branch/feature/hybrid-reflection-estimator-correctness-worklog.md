@@ -96,6 +96,18 @@ The selected Phase 2 design preserves the existing approximation path and adds a
 
 This avoids dynamic resource semantics and avoids accumulating unweighted `L_i` before multiplying it by an unrelated current-frame throughput. The focused contract document was updated with the same boundary.
 
+### 2026-08-23: Sampling result helper
+
+- Added `RoughReflectionSample` with direction, directional PDF, validity, and deterministic-mirror classification.
+- The helper calculates the current GGX NDF half-vector density and converts it to reflection-direction density with the `1 / (4 * abs(V dot H))` Jacobian.
+- Roughness at or below `0.001` returns the named deterministic mirror branch with PDF zero; callers must not interpret it as a finite-PDF stochastic sample.
+- Below-surface or non-finite/zero-PDF stochastic samples return `valid = 0` while preserving the originally sampled direction for diagnostics.
+- The existing `SampleRoughReflectionDirection` wrapper retains mirror fallback for the current approximation path, so this slice intentionally does not change rendered output.
+- The future explicit estimator path will consume validity directly and return zero without tracing an invalid ray.
+- A forced Debug x64 Rebuild recompiled all HLSL successfully. The existing duplicate vcpkg import warning was the only build warning.
+- A same-condition Evaluated Radiance capture was compared with the pre-helper capture. PNG hashes differed, but direct RGBA comparison found only 2 differing pixels out of 1920x1080, with maximum channel difference 1 and p99 channel difference 0. This is treated as equivalent rendered output, not bit-exact identity.
+- The runtime capture reported zero D3D12 errors and three repetitions of the existing committed-buffer initial-state warning type.
+
 ## Planned Gates
 
 1. Write the estimator target and ownership decision.

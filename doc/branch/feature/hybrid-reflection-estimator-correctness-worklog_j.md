@@ -96,6 +96,18 @@ Phase 2では既存approximation pathを維持し、`ReflectionSpecularEstimate`
 
 これによりresource semanticsをmodeによって動的に変えず、未加重`L_i`を蓄積した後に無関係なcurrent-frame throughputを乗算する誤りも避ける。focused contract文書にも同じ境界を反映した。
 
+### 2026-08-23: Sampling result helper
+
+- direction、directional PDF、validity、deterministic-mirror分類を持つ`RoughReflectionSample`を追加した。
+- helperは現在のGGX NDF half-vector densityを計算し、`1 / (4 * abs(V dot H))` Jacobianでreflection-direction densityへ変換する。
+- roughness `0.001`以下はPDF 0の名前付きdeterministic mirror branchとして返す。有限PDFのstochastic sampleとして解釈しない。
+- below-surfaceまたはnon-finite/zero-PDF stochastic sampleは、診断用に元のsampled directionを保持しつつ`valid = 0`を返す。
+- 既存`SampleRoughReflectionDirection` wrapperは現在のapproximation path向けmirror fallbackを維持するため、このsliceでは意図的に描画結果を変更しない。
+- 将来の明示的estimator pathはvalidityを直接使用し、invalid rayをtraceせずzeroを返す。
+- Debug x64 Rebuildで全HLSLを強制再compileし、成功した。build warningは既存のvcpkg重複import warningだけである。
+- 同一条件のEvaluated Radiance captureをhelper導入前captureと比較した。PNG hashは異なったが、RGBA直接比較では1920x1080中の差は2 pixelsだけで、channel差の最大値は1、p99は0だった。bit-exact identityではないが、描画出力は同等と判定する。
+- runtime captureはD3D12 error 0件で、既存のcommitted-buffer initial-state warning type 3回だけを報告した。
+
 ## 計画gate
 
 1. estimator targetとownership判断を文書化する。
