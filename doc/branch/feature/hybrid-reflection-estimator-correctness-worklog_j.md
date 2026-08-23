@@ -224,6 +224,15 @@ HDR diagnosticsと同じauto-selected sceneおよびhidden-UI経路で、新し�
 
 結果は主観的な順序を再現した。roughness `0.0`はdeterministicで安定し、roughness `0.35`には測定可能なtemporal varianceがあり、roughness `1.0`ではvarianceとframe差分が大幅に増加する。これはdiagnostic smoke結果であり、estimator correctnessまたは収束を主張しない。全runで期待したscene名、64 frames、error 0件、既存のcommitted-buffer initial-state warning type 3回を確認した。hit/accept/depth-reject/normal-reject率は全reportに含まれる。
 
+### 2026-08-23: Specular estimate debug公開
+
+- 既存Evaluated Radiance経路を変更せず、`ReflectionSpecularEstimate`をbindするReflection Debugの`Specular Estimate` viewを追加した。
+- deterministicな自動screenshot用に`-ReflectionCaptureDebugView specular-estimate`を追加した。
+- このviewが適用するのは既存の表示用tone compressionだけであり、Temporal ReflectionまたはLightPassへ入力しない。
+- 制御estimator sceneの64-frame smoke captureは正常完了し、期待するroughnessおよびmetallic応答を確認した。
+- 全HLSL targetを含むDebug x64 full rebuildは成功した。runtime captureはexit code 0、D3D12 error 0件で、既存committed-buffer warningの3回反復だけが残った。
+- このsignalのlinear-HDR readbackと数値統計を次のdiagnostic stepとする。
+
 ## 対象外
 
 - production temporal/spatial denoiser;

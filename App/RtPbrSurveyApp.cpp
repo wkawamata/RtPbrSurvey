@@ -49,6 +49,8 @@ RtPbrSurveyEngine::RenderViewMode GetReflectionCaptureRenderViewMode(
             return RtPbrSurveyEngine::RenderViewMode::ReflectionRayMaterial;
         case Platform::ReflectionCaptureDebugView::EvaluatedRadiance:
             return RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadiance;
+        case Platform::ReflectionCaptureDebugView::SpecularEstimate:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionSpecularEstimate;
         case Platform::ReflectionCaptureDebugView::ResolvedRadiance:
         default:
             return RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance;

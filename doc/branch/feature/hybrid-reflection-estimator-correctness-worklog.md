@@ -224,6 +224,15 @@ Each ROI then completed an independent 32-frame warm-up plus 64-frame measuremen
 
 The result reproduces the subjective ordering: roughness `0.0` is deterministic and stable, roughness `0.35` has measurable temporal variance, and roughness `1.0` has much larger variance and frame differences. This is a diagnostic smoke result, not an estimator-correctness or convergence claim. All runs reported the expected scene name, 64 frames, error count zero, and three repetitions of the existing committed-buffer initial-state warning type. Hit/accept/depth-reject/normal-reject rates were present in every report.
 
+### 2026-08-23: Specular estimate debug exposure
+
+- Added a `Specular Estimate` Reflection Debug view which binds `ReflectionSpecularEstimate` without changing the existing Evaluated Radiance path.
+- Added `-ReflectionCaptureDebugView specular-estimate` for deterministic automated screenshots.
+- The view applies only the existing display tone compression; it does not feed Temporal Reflection or LightPass.
+- A 64-frame smoke capture of the controlled estimator scene completed successfully and showed the expected roughness and metallic response.
+- Full Debug x64 rebuild, including all HLSL targets, succeeded. Runtime capture exited with code zero, D3D12 error count was zero, and the three existing committed-buffer warning repetitions remained.
+- Linear-HDR readback and numerical statistics for this signal remain the next diagnostic step.
+
 ## Out of Scope
 
 - production temporal/spatial denoiser;

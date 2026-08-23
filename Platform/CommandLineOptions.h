@@ -17,6 +17,7 @@ enum class ReflectionCaptureDebugView
     GBufferNormal,
     ReflectionRayMaterial,
     EvaluatedRadiance,
+    SpecularEstimate,
 };
 
 struct ReflectionCaptureCameraKeyframe

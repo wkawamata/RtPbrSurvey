@@ -68,6 +68,7 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
                 AddPass(MakeHybridReflectionPass());
                 if (m_hybridReflectionSettings.contributionEnabled ||
                     m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
+                    m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularEstimate ||
                     m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
                     m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity)
                 {
@@ -107,6 +108,7 @@ void RtPbrSurveyEngine::AddDeferredSceneOutputPass()
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayMaterial ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayEmission ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularEstimate ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
@@ -555,6 +557,10 @@ auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
     {
         reads.push_back({kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
     }
+    else if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularEstimate)
+    {
+        reads.push_back({kReflectionSpecularEstimateResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+    }
     else if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
              m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity)
     {
@@ -582,6 +588,10 @@ auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
     if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance)
     {
         builder.Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance, Desc::ReflectionEvaluatedRadianceSrv);
+    }
+    else if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularEstimate)
+    {
+        builder.Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance, Desc::ReflectionSpecularEstimateSrv);
     }
     else if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
              m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity)

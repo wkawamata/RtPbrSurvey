@@ -118,6 +118,7 @@ public:
         ReflectionRayMaterial,
         ReflectionRayEmission,
         ReflectionEvaluatedRadiance,
+        ReflectionSpecularEstimate,
         ReflectionResolvedRadiance,
         ReflectionTemporalValidity,
         ReflectionEvaluatedRadianceDirect,
@@ -592,6 +593,7 @@ private:
                    renderViewMode != RenderViewMode::ShadowMask &&
                    renderViewMode != RenderViewMode::TlasDebug &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadiance &&
+                   renderViewMode != RenderViewMode::ReflectionSpecularEstimate &&
                    renderViewMode != RenderViewMode::ReflectionResolvedRadiance &&
                    renderViewMode != RenderViewMode::ReflectionTemporalValidity &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceDirect &&
@@ -627,6 +629,7 @@ private:
                    renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
                    renderViewMode == RenderViewMode::ReflectionContributionStrength ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
+                   renderViewMode == RenderViewMode::ReflectionSpecularEstimate ||
                    renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
                    renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
@@ -658,6 +661,10 @@ private:
                 return 8u;
             }
             if (renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance)
+            {
+                return 7u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionSpecularEstimate)
             {
                 return 7u;
             }

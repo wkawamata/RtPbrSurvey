@@ -48,7 +48,7 @@ For live observation, use `capture-plan-stochastic-live.json`. It holds the init
 
 `-CaptureReflectionTemporalValidity` selects the temporal-history classification view while retaining the existing resolved-radiance capture setup. The colors are black for no history, blue for reprojection outside the history image, red for depth rejection, yellow for normal rejection, and green for accepted history. The classification is stored only in resolved-radiance alpha; RGB radiance and blending semantics are unchanged.
 
-`-ReflectionCaptureDebugView <name>` selects a diagnostic view while retaining the same Hybrid Reflection capture setup. Accepted names are `pbr-params`, `normal`, `hit-material`, `evaluated-radiance`, `resolved-radiance`, and `temporal-validity`. The PBR view maps metallic, roughness, and ambient occlusion to RGB. The option changes only the displayed capture resource; it does not change sampling, evaluation, or temporal policy.
+`-ReflectionCaptureDebugView <name>` selects a diagnostic view while retaining the same Hybrid Reflection capture setup. Accepted names are `pbr-params`, `normal`, `hit-material`, `evaluated-radiance`, `specular-estimate`, `resolved-radiance`, and `temporal-validity`. The PBR view maps metallic, roughness, and ambient occlusion to RGB. The option changes only the displayed capture resource; it does not change sampling, evaluation, or temporal policy.
 
 `-ReflectionSurfaceVarianceFilter` enables the default-off 3x3 current-radiance experiment during automated capture. Samples are accepted only when visible depth, normal, roughness, and metallic are similar; near-perfectly smooth visible surfaces bypass the filter. This option does not change history rejection thresholds or history weight.
 
