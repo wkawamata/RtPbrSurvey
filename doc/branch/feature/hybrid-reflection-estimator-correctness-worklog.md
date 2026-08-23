@@ -271,6 +271,26 @@ The extended audit was limited to the two stochastic conditions that triggered i
 
 Outcome: **PASS WITH LIMITATION** for empirical long-window mean stability of the current estimator signal under these two fixed ROIs and this deterministic sequence. The roughness `1.0` 256-frame blocks still move by up to `1.74%` relative to the 1024-frame mean, and its temporal CV remains `6.60`; therefore the high 1-spp variance is not solved. No claim is made about unbiasedness, physical-reference agreement, scene generalization, or production readiness. Both runs exited normally with zero D3D12 errors and the same three existing warning repetitions.
 
+### 2026-08-24: Estimator algebra audit
+
+The implemented stochastic branch was checked end to end using the shader's direction conventions:
+
+| Item | Implemented relation | Audit |
+| --- | --- | --- |
+| sampled direction | `L = reflect(-V, H)` | consistent |
+| GGX NDF parameter | `alpha = roughness^2` | consistent in sampling, PDF, and BRDF |
+| half-vector density | `p_H(H) = D(H) * max(N dot H, 0)` | consistent |
+| directional density | `p_L(L) = p_H(H) / (4 * abs(V dot H))` | consistent |
+| BRDF | `D * G1(V) * G1(L) * F / (4 * NdotV * NdotL)` | consistent |
+| estimator throughput | `L_i * f_r * NdotL / p_L(L)` | consistent |
+| below-surface stochastic sample | zero contribution | consistent with the integration domain |
+| mirror limit | analytic Fresnel branch, no finite PDF | consistent delta boundary |
+| hit and miss | two sources of the same sampled `L_i` | consistent estimator ownership |
+
+No algebraic mismatch was found in this audit. This is not yet a physical-reference test: the controlled rendered scene changes incident radiance with sampled direction through geometry hits, environment misses, and secondary-surface lighting. That coupling prevents the current ROI reports from isolating BRDF/PDF bias.
+
+The next bounded test unit is a default-off constant-incident-radiance diagnostic mode. It will preserve the sampled direction and estimator throughput but replace hit/miss-dependent `L_i` with a known constant for `ReflectionSpecularEstimate` only. The approximation resources, Temporal Reflection, and LightPass must remain unchanged. Its long-run mean can then be compared with an independent numerical hemispherical integral of the same Cook-Torrance model; neither the existing unweighted baseline nor deterministic prefiltered IBL will be mislabeled as physical ground truth.
+
 ## Out of Scope
 
 - production temporal/spatial denoiser;

@@ -271,6 +271,26 @@ roughness `0.35`のmeanはこのwindowで1%以内に安定し、mirror-limit con
 
 判定: このdeterministic sequenceと2つの固定ROIにおけるcurrent estimator signalの経験的な長時間mean安定性は、**PASS WITH LIMITATION**とする。roughness `1.0`の256-frame blockは1024-frame meanに対して最大`1.74%`動き、temporal CVも`6.60`のままであるため、強い1 spp varianceは解消していない。unbiasedness、physical referenceとの一致、scene generalization、production readinessは主張しない。2 runとも正常終了し、D3D12 errorは0件、既存warningの同じ3回反復だけを確認した。
 
+### 2026-08-24: Estimator数式監査
+
+shaderの方向規約を含め、実装済みstochastic branchをend-to-endで確認した。
+
+| 項目 | 実装関係 | 監査 |
+| --- | --- | --- |
+| sampled direction | `L = reflect(-V, H)` | 整合 |
+| GGX NDF parameter | `alpha = roughness^2` | sampling、PDF、BRDFで整合 |
+| half-vector density | `p_H(H) = D(H) * max(N dot H, 0)` | 整合 |
+| directional density | `p_L(L) = p_H(H) / (4 * abs(V dot H))` | 整合 |
+| BRDF | `D * G1(V) * G1(L) * F / (4 * NdotV * NdotL)` | 整合 |
+| estimator throughput | `L_i * f_r * NdotL / p_L(L)` | 整合 |
+| below-surface stochastic sample | zero contribution | 積分領域と整合 |
+| mirror limit | analytic Fresnel branch、finite PDFなし | delta境界として整合 |
+| hitとmiss | 同じsampled `L_i`の2 source | estimator ownershipとして整合 |
+
+この監査では数式上の不一致を検出しなかった。ただし、これはphysical-reference testではない。制御rendered sceneのincident radianceは、geometry hit、environment miss、secondary-surface lightingを通じてsampled directionごとに変化する。この結合があるため、現在のROI reportだけではBRDF/PDF biasを分離できない。
+
+次の限定的なtest unitはdefault-off constant-incident-radiance diagnostic modeとする。sampled directionとestimator throughputを維持しつつ、`ReflectionSpecularEstimate`だけのhit/miss依存`L_i`を既知の定数へ置き換える。approximation resource、Temporal Reflection、LightPassは変更しない。その長期meanを同じCook-Torrance modelの独立した数値hemisphere積分と比較する。既存の未加重baselineやdeterministic prefiltered IBLをphysical ground truthとは呼ばない。
+
 ## 対象外
 
 - production temporal/spatial denoiser;
