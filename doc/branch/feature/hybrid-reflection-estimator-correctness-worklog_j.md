@@ -260,6 +260,17 @@ HDR diagnosticsと同じauto-selected sceneおよびhidden-UI経路で、新し�
 
 roughness `0.35`のmeanはこのwindowで1%以内に安定し、mirror-limit controlは完全に安定したままである。roughness `1.0`は64-frame block間で無視できないmean移動が残り、この条件の長期meanが安定したとは256 framesでは主張できない。またroughness `0.35`のmaximum増加は、meanが安定していても長いrunほどrare high-value sampleを観測することを示す。roadmapのconditional gateに従い、roughness `1.0`と`0.35`には1024-frame追加監査を行う根拠が生じた。deterministicなroughness `0.0` controlを1024 framesで繰り返す実益はない。全runは正常終了し、D3D12 errorは0件、既存warningの同じ3回反復だけを確認した。
 
+### 2026-08-24: 条件付き1024-frame監査
+
+追加監査はgateを発火させた2つのstochastic条件へ限定した。roughness `0.0`はanalytic mirror値をさらに768 frames繰り返さず、256-frame deterministic-control結果を採用した。
+
+| ROI | 256-frame mean | 1024-frame mean | Mean変化 | 連続する4つの256-frame mean | Block range / 1024 mean | Maximum 256 -> 1024 |
+| --- | ---: | ---: | ---: | --- | ---: | ---: |
+| roughness `1.0` | `0.0443692` | `0.0443573` | `-0.0268%` | `0.0443692`, `0.0439510`, `0.0447227`, `0.0443862` | `1.74%` | `5.26145` -> `5.29550` |
+| roughness `0.35` | `0.0624920` | `0.0624922` | `+0.0002%` | `0.0624920`, `0.0626205`, `0.0624548`, `0.0624013` | `0.35%` | `7.82340` -> `7.82340` |
+
+判定: このdeterministic sequenceと2つの固定ROIにおけるcurrent estimator signalの経験的な長時間mean安定性は、**PASS WITH LIMITATION**とする。roughness `1.0`の256-frame blockは1024-frame meanに対して最大`1.74%`動き、temporal CVも`6.60`のままであるため、強い1 spp varianceは解消していない。unbiasedness、physical referenceとの一致、scene generalization、production readinessは主張しない。2 runとも正常終了し、D3D12 errorは0件、既存warningの同じ3回反復だけを確認した。
+
 ## 対象外
 
 - production temporal/spatial denoiser;
