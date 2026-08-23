@@ -45,6 +45,7 @@ struct CommandLineOptions
     std::wstring logFilePath;
     UINT logFpsInterval = 0;
     bool autoSelectGltfDamagedHelmet = false;
+    bool autoSelectHybridReflectionEstimatorTest = false;
     std::filesystem::path capturePath;
     UINT captureAfterFrames = 0;
     bool exitAfterCapture = false;

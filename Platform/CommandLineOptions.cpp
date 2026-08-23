@@ -155,6 +155,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.autoSelectGltfDamagedHelmet = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-AutoSelectHybridReflectionEstimatorTest"))
+        {
+            options.autoSelectHybridReflectionEstimatorTest = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-CapturePath"))
         {
             if (i + 1 < argc)
@@ -297,7 +301,6 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             if (i + 1 < argc)
             {
                 options.reflectionHdrDiagnosticsPath = argv[++i];
-                options.autoSelectGltfDamagedHelmet = true;
                 options.captureReflectionResolvedRadiance = true;
             }
         }
@@ -340,6 +343,13 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 }
             }
         }
+    }
+
+    if (!options.reflectionHdrDiagnosticsPath.empty() &&
+        !options.autoSelectGltfDamagedHelmet &&
+        !options.autoSelectHybridReflectionEstimatorTest)
+    {
+        options.autoSelectGltfDamagedHelmet = true;
     }
 
     return options;

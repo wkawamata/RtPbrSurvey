@@ -81,6 +81,63 @@ PDFまたはBRDF throughput補正を追加する前に、stochastic Hybrid Refle
 
 これによりbase composition/framing gateを完了する。ReflectionRayHit/Evaluated Radianceのhit/miss coverage確認と、その後の固定1920x1080 ROI選定は未完了である。
 
+### 2026-08-23: ReflectionRayHit coverage validation
+
+ユーザーvisual validationでReflection Debug `Hit`の全項目がPASSした。
+
+- 明るいgeometry-hit領域が存在する;
+- 暗いenvironment-miss領域が存在する;
+- sphere間またはsphere内部でhit/miss差を識別できる。
+
+したがって、制御sceneはgeometry-hit sampleとenvironment-miss sampleの両方を提供する。Evaluated Radiance behaviorと固定ROI選定は未完了である。
+
+### 2026-08-23: Evaluated Radiance deterministic/stochastic比較
+
+`Stochastic Rough Sampling`無効時、ユーザーはroughnessが横方向に変化し、IBLの見え方が変わることを確認した。sphere、floor、emissive targetのgeometry reflectionは同程度にくっきりしていた。この未加重debug signalでは、metallic/dielectric rowの差を位置差から明確に分離できなかった。これは現在のcontractと整合する。visible-surface Fresnelとfinal contribution weightingは`LightPass`が所有し、deterministic geometry rayはmirror directionを使用するためである。
+
+`Stochastic Rough Sampling`有効時、1920x1080のEvaluated Radiance captureでroughness条件に沿ったdisplay-space grainの強い横方向変化を確認した。複数のsphereとfloorには高密度のstochastic sampleが現れ、rowの反対側は大幅に安定し、くっきりした状態を維持していた。このcaptureによりstochastic direction pathが動作し、見えるvarianceがroughness条件へ強く依存することを確認した。このcaptureだけからroughness値と画面左右の対応は推測しない。
+
+続いてユーザーがscreen-space orderingとtemporal behaviorを確認した。画面右端のsphereがroughness `0.0`であり、安定している。画面上で逆順に並ぶroughness条件のうち、左から3列目前後、scene値では概ねroughness `0.35`付近からtemporal noiseが気になり始め、よりroughな側でも確認できる。これは測定済みvariance境界ではなく主観的なthresholdである。
+
+残りのscope内観察は次のとおり記録した。
+
+- geometry reflectionの位置または形状がframe間で変化する: PASS;
+- Evaluated Radianceではmetallic/dielectric差が小さいままである: PASS;
+- NaN相当、全面白、固定黒の破綻は明確には見られない: ユーザーの「多分YES」に基づく暫定PASSであり、網羅的な数値監査ではない。
+
+収束とpersistent temporal artifactがないことはまだ確認していない。固定ROIには、安定したroughness `0.0` controlと、観察されたthreshold以上のnoisy conditionを少なくとも1つ含める。
+
+### 2026-08-23: Diagnostic scene selection contract
+
+- 既存linear-HDR diagnostic runnerから制御sceneを明示選択できるよう、`-AutoSelectHybridReflectionEstimatorTest`を追加した。
+- 明示的なscene selection flagがない場合、`-ReflectionHdrDiagnostics`は従来どおりDamagedHelmetをdefaultとし、Phase 1 workflowを維持する。
+- DamagedHelmetとEstimator Testのauto-selection flagは相互排他とする。
+- reportがscene前提を暗黙に混在させないよう、HDR diagnostic JSONへloaded scene名を記録する。
+- 固定ROI座標はvisual overlay確認待ちとし、automation contractへ推測座標を埋め込まない。
+- Debug x64/HLSL buildは成功し、既存のvcpkg重複import warningだけが報告された。
+
+### 2026-08-23: 固定ROI検証と64-frame smoke
+
+最初のoverlayは手動captureを使用しており、CLI automationとはcamera framingが異なっていた。最初のdiagnostic runで2 ROIが全ゼロsignalとなったため、この不一致を検出できた。これらの座標とreportをroughness結果として解釈せず、不採用とした。
+
+HDR diagnosticsと同じauto-selected sceneおよびhidden-UI経路で、新しい1920x1080 stochastic Evaluated Radiance captureを生成した。上段metallic rowのsphere surface内でsilhouetteを避け、3つの48x48 rectangleを配置した。ユーザーは3位置とroughness差をすべて確認した。
+
+| ID | Rectangle | 条件 |
+| --- | --- | --- |
+| `roughness_1_metal` | x `484`, y `396`, width `48`, height `48` | high-variance roughness `1.0` |
+| `roughness_035_metal` | x `844`, y `396`, width `48`, height `48` | 主観noise thresholdのroughness `0.35` |
+| `roughness_0_metal_control` | x `1392`, y `396`, width `48`, height `48` | 安定したmirror-limit control |
+
+各ROIを独立processで開始し、stochastic sampling有効、history weight `0.9`、32-frame warm-up後に64 framesを測定した。
+
+| ROI | Evaluated mean | Evaluated variance | Evaluated CV | Frame-difference p99 | Evaluated maximum | Resolved variance |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| roughness `1.0` | `0.245015` | `1.569857` | `5.113725` | `11.969035` | `12.061967` | `0.0630104` |
+| roughness `0.35` | `0.138602` | `0.0365103` | `1.378601` | `0.286579` | `12.077592` | `0.00142675` |
+| roughness `0.0` | `0.189160` | ほぼ`0` | ほぼ`0` | `0` | `0.664890` | ほぼ`0` |
+
+結果は主観的な順序を再現した。roughness `0.0`はdeterministicで安定し、roughness `0.35`には測定可能なtemporal varianceがあり、roughness `1.0`ではvarianceとframe差分が大幅に増加する。これはdiagnostic smoke結果であり、estimator correctnessまたは収束を主張しない。全runで期待したscene名、64 frames、error 0件、既存のcommitted-buffer initial-state warning type 3回を確認した。hit/accept/depth-reject/normal-reject率は全reportに含まれる。
+
 ## 対象外
 
 - production temporal/spatial denoiser;

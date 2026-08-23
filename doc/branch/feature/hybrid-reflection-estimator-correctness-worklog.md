@@ -81,6 +81,63 @@ User visual validation passed all five base-scene checks:
 
 This closes the base composition/framing gate. ReflectionRayHit and Evaluated Radiance hit/miss coverage, followed by fixed 1920x1080 ROI selection, remain pending.
 
+### 2026-08-23: ReflectionRayHit coverage validation
+
+User visual validation passed all Reflection Debug `Hit` checks:
+
+- bright geometry-hit regions are present;
+- dark environment-miss regions are present;
+- hit/miss differences are distinguishable between spheres or within a sphere.
+
+The controlled scene therefore provides both geometry-hit and environment-miss samples. Evaluated Radiance behavior and fixed ROI selection remain pending.
+
+### 2026-08-23: Evaluated Radiance deterministic/stochastic comparison
+
+With `Stochastic Rough Sampling` disabled, the user confirmed that roughness varies horizontally and changes the IBL appearance. Geometry reflections of the spheres, floor, and emissive target remained similarly sharp. The metallic/dielectric row difference in this unweighted debug signal was not clearly separable from positional differences. This is consistent with the current contract: visible-surface Fresnel and final contribution weighting are owned by `LightPass`, while the deterministic geometry ray uses the mirror direction.
+
+With `Stochastic Rough Sampling` enabled, a 1920x1080 Evaluated Radiance capture showed a strong horizontal change in display-space grain across the roughness conditions. Several spheres and the floor contained dense stochastic samples, while the opposite end of the sphere rows remained substantially more stable and sharp. The capture confirms that the stochastic direction path is active and that its visible variance depends strongly on the roughness condition. The exact screen-left/screen-right mapping to roughness values is not inferred from this capture alone.
+
+The user then identified the screen-space ordering and temporal behavior: the rightmost sphere is roughness `0.0` and remains stable. Temporal noise becomes noticeable at approximately the third sphere from the left, corresponding to roughly roughness `0.35` in the reversed screen-space ordering, and remains apparent toward the rougher end. This is a subjective threshold rather than a measured variance boundary.
+
+The remaining scoped observations were recorded as follows:
+
+- geometry-reflection position or shape changes from frame to frame: PASS;
+- the metallic/dielectric difference remains small in Evaluated Radiance: PASS;
+- no NaN-like, full-white, or fixed-black failure was apparent: provisional PASS based on the user's "probably yes" observation, not an exhaustive numerical audit.
+
+Convergence and absence of persistent temporal artifacts are not yet established. Fixed ROIs should include the stable roughness `0.0` control and at least one noisy condition at or above the observed roughness threshold.
+
+### 2026-08-23: Diagnostic scene selection contract
+
+- Added `-AutoSelectHybridReflectionEstimatorTest` so the existing linear-HDR diagnostic runner can select the controlled scene explicitly.
+- `-ReflectionHdrDiagnostics` still defaults to DamagedHelmet when neither explicit scene-selection flag is supplied, preserving the Phase 1 workflow.
+- DamagedHelmet and Estimator Test auto-selection flags are mutually exclusive.
+- The HDR diagnostic JSON now records the loaded scene name so reports cannot silently mix scene assumptions.
+- Fixed ROI coordinates remain pending a visual overlay check; the automation contract must not embed guessed coordinates.
+- Debug x64/HLSL build succeeded with the existing duplicate vcpkg import warning only.
+
+### 2026-08-23: Fixed ROI validation and 64-frame smoke
+
+The initial overlay used a manual capture whose camera framing differed from CLI automation. A first diagnostic run correctly exposed this mismatch because two ROIs returned an all-zero signal. Those coordinates and reports were rejected rather than interpreted as roughness results.
+
+A new 1920x1080 stochastic Evaluated Radiance capture was generated with the same auto-selected scene and hidden-UI path as HDR diagnostics. Three 48x48 upper-metallic-row rectangles were placed inside sphere surfaces and away from silhouettes. The user confirmed all three positions and roughness differences:
+
+| ID | Rectangle | Condition |
+| --- | --- | --- |
+| `roughness_1_metal` | x `484`, y `396`, width `48`, height `48` | high-variance roughness `1.0` |
+| `roughness_035_metal` | x `844`, y `396`, width `48`, height `48` | subjective noise-threshold roughness `0.35` |
+| `roughness_0_metal_control` | x `1392`, y `396`, width `48`, height `48` | stable mirror-limit control |
+
+Each ROI then completed an independent 32-frame warm-up plus 64-frame measurement with stochastic sampling enabled and history weight `0.9`.
+
+| ROI | Evaluated mean | Evaluated variance | Evaluated CV | Frame-difference p99 | Evaluated maximum | Resolved variance |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| roughness `1.0` | `0.245015` | `1.569857` | `5.113725` | `11.969035` | `12.061967` | `0.0630104` |
+| roughness `0.35` | `0.138602` | `0.0365103` | `1.378601` | `0.286579` | `12.077592` | `0.00142675` |
+| roughness `0.0` | `0.189160` | approximately `0` | approximately `0` | `0` | `0.664890` | approximately `0` |
+
+The result reproduces the subjective ordering: roughness `0.0` is deterministic and stable, roughness `0.35` has measurable temporal variance, and roughness `1.0` has much larger variance and frame differences. This is a diagnostic smoke result, not an estimator-correctness or convergence claim. All runs reported the expected scene name, 64 frames, error count zero, and three repetitions of the existing committed-buffer initial-state warning type. Hit/accept/depth-reject/normal-reject rates were present in every report.
+
 ## Out of Scope
 
 - production temporal/spatial denoiser;

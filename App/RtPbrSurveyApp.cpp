@@ -71,6 +71,12 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
         throw std::invalid_argument(
             "-ReflectionHdrDiagnostics is mutually exclusive with screenshot capture automation.");
     }
+    if (m_commandLineOptions.autoSelectGltfDamagedHelmet &&
+        m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
+    {
+        throw std::invalid_argument(
+            "-AutoSelectGltfDamagedHelmet and -AutoSelectHybridReflectionEstimatorTest are mutually exclusive.");
+    }
     if (!m_commandLineOptions.reflectionCapturePlanPath.empty())
     {
         if (!m_commandLineOptions.capturePath.empty())
@@ -187,9 +193,28 @@ void RtPbrSurveyApp::OnInit()
         m_sceneConfig.SetPaths(defaultsPathA, userConfigPath);
     }
 
-    if (m_commandLineOptions.autoSelectGltfDamagedHelmet)
+    if (m_commandLineOptions.autoSelectGltfDamagedHelmet ||
+        m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
     {
-        m_selectedSceneIndex = kDefaultSceneIndex;
+        if (m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
+        {
+            const auto scene = std::find_if(
+                m_sampleScenes.begin(),
+                m_sampleScenes.end(),
+                [](const std::unique_ptr<Engine::SampleScene>& candidate)
+                {
+                    return strcmp(candidate->Name(), "Hybrid Reflection Estimator Test") == 0;
+                });
+            if (scene == m_sampleScenes.end())
+            {
+                throw std::runtime_error("Hybrid Reflection Estimator Test scene is unavailable.");
+            }
+            m_selectedSceneIndex = static_cast<int>(std::distance(m_sampleScenes.begin(), scene));
+        }
+        else
+        {
+            m_selectedSceneIndex = kDefaultSceneIndex;
+        }
         OpenSelectedScene();
         m_debugUiVisible = false;
 
@@ -667,6 +692,7 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         {"schemaVersion", 1},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
+        {"scene", LoadedScene().Name()},
         {"warmupFrames", m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames},
         {"measurementFrames", m_reflectionHdrDiagnosticFrames.size()},
         {"coordinateSpace", "render-pixels"},
