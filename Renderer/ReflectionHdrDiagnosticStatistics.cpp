@@ -22,8 +22,16 @@ double Luminance(const ReflectionHdrDiagnosticSample& sample)
 const std::vector<ReflectionHdrDiagnosticSample>& SelectSamples(const ReflectionHdrDiagnosticFrame& frame,
                                                                 ReflectionHdrDiagnosticSignal signal)
 {
-    return signal == ReflectionHdrDiagnosticSignal::EvaluatedRadiance ? frame.evaluatedRadiance :
-                                                                        frame.resolvedRadiance;
+    switch (signal)
+    {
+        case ReflectionHdrDiagnosticSignal::EvaluatedRadiance:
+            return frame.evaluatedRadiance;
+        case ReflectionHdrDiagnosticSignal::SpecularEstimate:
+            return frame.specularEstimate;
+        case ReflectionHdrDiagnosticSignal::ResolvedRadiance:
+        default:
+            return frame.resolvedRadiance;
+    }
 }
 
 double Percentile(const std::vector<double>& sortedValues, double percentile)

@@ -233,6 +233,21 @@ HDR diagnosticsと同じauto-selected sceneおよびhidden-UI経路で、新し�
 - 全HLSL targetを含むDebug x64 full rebuildは成功した。runtime captureはexit code 0、D3D12 error 0件で、既存committed-buffer warningの3回反復だけが残った。
 - このsignalのlinear-HDR readbackと数値統計を次のdiagnostic stepとする。
 
+### 2026-08-23: Specular estimate linear-HDR診断
+
+- HDR diagnostic captureへ`ReflectionSpecularEstimate` readbackと独立したtemporal統計を追加した。
+- JSON report schemaをversion 2へ進め、frameごとの`specularEstimateMeanLuminance`と集計`statistics.specularEstimate`を追加した。
+- 既存Current-Estimator Mean Baselineは未加重Evaluated Radianceだけから定義する。Specular EstimateとのcontractをまたぐRMSEは報告しない。
+- 検証済みの上段metallic 48x48 ROI 3か所で、32-frame warm-upと64-frame measurementを再実行した。
+
+| ROI | Mean | Variance | CV | Frame-difference p99 | Maximum |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| roughness `1.0` | `0.0432188` | `0.0805466` | `6.56676` | `2.73469` | `5.26145` |
+| roughness `0.35` | `0.0627360` | `0.00662843` | `1.29774` | `0.138190` | `6.44923` |
+| roughness `0.0` | `0.0875360` | ほぼ`0` | ほぼ`0` | `0` | `0.307697` |
+
+実験estimator signalは期待したvariance順序を再現し、mirror-limit controlはdeterministicなままである。この64-frame結果が確認するのはobservabilityとfinite-value smoke gateまでであり、unbiasedness、物理的正しさ、収束は確立しない。Debug x64/HLSL full rebuildは成功した。3 runすべて正常終了し、D3D12 errorは0件、既存committed-buffer warningの同じ3回反復だけを確認した。
+
 ## 対象外
 
 - production temporal/spatial denoiser;

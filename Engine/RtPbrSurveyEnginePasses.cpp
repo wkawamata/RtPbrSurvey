@@ -493,6 +493,7 @@ auto RtPbrSurveyEngine::MakeReflectionHdrDiagnosticPass() -> RenderPass
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"ReflectionHdrDiagnostic")
         .Reads({{kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
+                {kReflectionSpecularEstimateResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
                 {kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
                 {kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
         .Operation(Op::ReflectionHdrDiagnostic, &RtPbrSurveyEngine::ExecuteReflectionHdrDiagnosticPass)

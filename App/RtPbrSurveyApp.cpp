@@ -656,6 +656,7 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
             {"samplingFrameIndex", frame.samplingFrameIndex},
             {"temporalFrameIndex", frame.temporalFrameIndex},
             {"evaluatedMeanLuminance", meanLuminance(frame.evaluatedRadiance)},
+            {"specularEstimateMeanLuminance", meanLuminance(frame.specularEstimate)},
             {"resolvedMeanLuminance", meanLuminance(frame.resolvedRadiance)},
             {"hitRate", sampleCount > 0.0 ? static_cast<double>(hitCount) / sampleCount : 0.0},
             {"temporalAcceptanceRate", sampleCount > 0.0 ? static_cast<double>(acceptedCount) / sampleCount : 0.0},
@@ -688,10 +689,13 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     const Engine::ReflectionHdrDiagnosticStatistics resolvedStatistics =
         Engine::CalculateReflectionHdrDiagnosticStatistics(
             m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::ResolvedRadiance);
+    const Engine::ReflectionHdrDiagnosticStatistics specularEstimateStatistics =
+        Engine::CalculateReflectionHdrDiagnosticStatistics(
+            m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::SpecularEstimate);
     const Engine::ReflectionHdrDiagnosticBaselineComparison baselineComparison =
         Engine::CompareReflectionHdrDiagnosticsToCurrentEstimatorMeanBaseline(m_reflectionHdrDiagnosticFrames);
     const json report = {
-        {"schemaVersion", 1},
+        {"schemaVersion", 2},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
         {"scene", LoadedScene().Name()},
@@ -702,6 +706,7 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         {"roi", {{"x", roi.x}, {"y", roi.y}, {"width", roi.width}, {"height", roi.height}}},
         {"statistics",
          {{"evaluatedRadiance", statisticsToJson(evaluatedStatistics)},
+          {"specularEstimate", statisticsToJson(specularEstimateStatistics)},
           {"resolvedRadiance", statisticsToJson(resolvedStatistics)}}},
         {"currentEstimatorMeanBaseline",
          {{"name", "High-SPP Current-Estimator Mean Baseline"},

@@ -233,6 +233,21 @@ The result reproduces the subjective ordering: roughness `0.0` is deterministic 
 - Full Debug x64 rebuild, including all HLSL targets, succeeded. Runtime capture exited with code zero, D3D12 error count was zero, and the three existing committed-buffer warning repetitions remained.
 - Linear-HDR readback and numerical statistics for this signal remain the next diagnostic step.
 
+### 2026-08-23: Specular estimate linear-HDR diagnostics
+
+- Extended the HDR diagnostic capture with `ReflectionSpecularEstimate` readback and independent temporal statistics.
+- Advanced the JSON report schema to version 2 and added per-frame `specularEstimateMeanLuminance` plus aggregate `statistics.specularEstimate`.
+- The existing Current-Estimator Mean Baseline remains defined from unweighted Evaluated Radiance only. No cross-contract RMSE is reported for Specular Estimate.
+- Repeated the controlled 32-frame warm-up plus 64-frame measurement for the three validated 48x48 metallic ROIs:
+
+| ROI | Mean | Variance | CV | Frame-difference p99 | Maximum |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| roughness `1.0` | `0.0432188` | `0.0805466` | `6.56676` | `2.73469` | `5.26145` |
+| roughness `0.35` | `0.0627360` | `0.00662843` | `1.29774` | `0.138190` | `6.44923` |
+| roughness `0.0` | `0.0875360` | approximately `0` | approximately `0` | `0` | `0.307697` |
+
+The experimental estimator signal reproduces the expected variance ordering, while the mirror-limit control remains deterministic. These 64-frame results establish observability and a finite-value smoke gate only; they do not establish unbiasedness, physical correctness, or convergence. Full Debug x64/HLSL rebuild succeeded. All three runs exited normally with zero D3D12 errors and the same three existing committed-buffer warning repetitions.
+
 ## Out of Scope
 
 - production temporal/spatial denoiser;

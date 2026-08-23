@@ -4436,6 +4436,7 @@ void RtPbrSurveyEngine::RecordReflectionHdrDiagnosticPass()
     Engine::RecordReflectionHdrDiagnosticCapture(m_commandList.Get(),
                                                  m_graphicsDevice.Device(),
                                                  m_reflectionEvaluatedRadiance.Get(),
+                                                 m_reflectionSpecularEstimate.Get(),
                                                  m_reflectionResolvedRadiance[writeIndex].Get(),
                                                  m_reflectionRayHit.Get(),
                                                  m_reflectionHdrDiagnosticRoi,
