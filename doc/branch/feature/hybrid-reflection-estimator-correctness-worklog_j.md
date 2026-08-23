@@ -248,6 +248,18 @@ HDR diagnosticsと同じauto-selected sceneおよびhidden-UI経路で、新し�
 
 実験estimator signalは期待したvariance順序を再現し、mirror-limit controlはdeterministicなままである。この64-frame結果が確認するのはobservabilityとfinite-value smoke gateまでであり、unbiasedness、物理的正しさ、収束は確立しない。Debug x64/HLSL full rebuildは成功した。3 runすべて正常終了し、D3D12 errorは0件、既存committed-buffer warningの同じ3回反復だけを確認した。
 
+### 2026-08-23: 256-frame estimator signal監査
+
+同じ3 processをresetし、同一の32-frame warm-up、ROI、scene、camera、stochastic設定で256-frame measurementを再実行した。sample sequenceをresetしたため、先頭64 measurementsは以前の64-frame reportを再現し、paired-prefix checkとして機能する。
+
+| ROI | 64-frame mean | 256-frame mean | Mean変化 | 先頭64から末尾64の変化 | 256-frame variance | 256-frame p99 difference | 256-frame maximum |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| roughness `1.0` | `0.0432188` | `0.0443692` | `+2.66%` | `+3.79%` | `0.0855786` | `2.82994` | `5.26145` |
+| roughness `0.35` | `0.0627360` | `0.0624920` | `-0.39%` | `-0.62%` | `0.00648346` | `0.136274` | `7.82340` |
+| roughness `0.0` | `0.0875360` | `0.0875360` | `0%` | `0%` | ほぼ`0` | `0` | `0.307697` |
+
+roughness `0.35`のmeanはこのwindowで1%以内に安定し、mirror-limit controlは完全に安定したままである。roughness `1.0`は64-frame block間で無視できないmean移動が残り、この条件の長期meanが安定したとは256 framesでは主張できない。またroughness `0.35`のmaximum増加は、meanが安定していても長いrunほどrare high-value sampleを観測することを示す。roadmapのconditional gateに従い、roughness `1.0`と`0.35`には1024-frame追加監査を行う根拠が生じた。deterministicなroughness `0.0` controlを1024 framesで繰り返す実益はない。全runは正常終了し、D3D12 errorは0件、既存warningの同じ3回反復だけを確認した。
+
 ## 対象外
 
 - production temporal/spatial denoiser;

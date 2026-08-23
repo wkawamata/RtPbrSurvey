@@ -248,6 +248,18 @@ The result reproduces the subjective ordering: roughness `0.0` is deterministic 
 
 The experimental estimator signal reproduces the expected variance ordering, while the mirror-limit control remains deterministic. These 64-frame results establish observability and a finite-value smoke gate only; they do not establish unbiasedness, physical correctness, or convergence. Full Debug x64/HLSL rebuild succeeded. All three runs exited normally with zero D3D12 errors and the same three existing committed-buffer warning repetitions.
 
+### 2026-08-23: 256-frame estimator signal audit
+
+The same three processes were reset and repeated with the identical 32-frame warm-up, ROI, scene, camera, stochastic setting, and 256-frame measurement window. Because the sampling sequence was reset, the first 64 measurements reproduce the earlier 64-frame reports and provide a paired-prefix check.
+
+| ROI | 64-frame mean | 256-frame mean | Mean change | First-64 to last-64 change | 256-frame variance | 256-frame p99 difference | 256-frame maximum |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| roughness `1.0` | `0.0432188` | `0.0443692` | `+2.66%` | `+3.79%` | `0.0855786` | `2.82994` | `5.26145` |
+| roughness `0.35` | `0.0627360` | `0.0624920` | `-0.39%` | `-0.62%` | `0.00648346` | `0.136274` | `7.82340` |
+| roughness `0.0` | `0.0875360` | `0.0875360` | `0%` | `0%` | approximately `0` | `0` | `0.307697` |
+
+The roughness `0.35` mean is stable within one percent over this window, and the mirror-limit control remains exactly stable. Roughness `1.0` still shows material mean movement between 64-frame blocks, so 256 frames are insufficient to claim a stable long-term mean for that condition. The increased roughness `0.35` maximum also confirms that longer runs expose rarer high-value samples even when the mean is stable. Per the roadmap's conditional gate, a 1024-frame audit is now justified for roughness `1.0` and `0.35`; repeating the deterministic roughness `0.0` control at 1024 frames is not useful. All runs exited normally with zero D3D12 errors and the same three existing warning repetitions.
+
 ## Out of Scope
 
 - production temporal/spatial denoiser;
