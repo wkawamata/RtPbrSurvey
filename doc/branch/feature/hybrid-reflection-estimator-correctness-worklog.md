@@ -108,6 +108,17 @@ This avoids dynamic resource semantics and avoids accumulating unweighted `L_i` 
 - A same-condition Evaluated Radiance capture was compared with the pre-helper capture. PNG hashes differed, but direct RGBA comparison found only 2 differing pixels out of 1920x1080, with maximum channel difference 1 and p99 channel difference 0. This is treated as equivalent rendered output, not bit-exact identity.
 - The runtime capture reported zero D3D12 errors and three repetitions of the existing committed-buffer initial-state warning type.
 
+### 2026-08-23: Estimator math helper
+
+- Added a side-effect-free `EvaluateRoughReflectionSpecularEstimate` helper without changing any pass output or resource binding.
+- The stochastic branch evaluates Cook-Torrance `D * G * F / (4 * NdotV * NdotL)`, multiplies by `L_i * NdotL`, and divides by the matching directional PDF.
+- `D` uses the same `alpha = roughness^2` GGX parameterization as direction sampling.
+- `G` uses an explicit isotropic GGX Smith `G1(V) * G1(L)` instead of the existing direct-light Schlick approximation, keeping estimator math auditable against the sampling model.
+- The deterministic mirror branch returns incident radiance times Schlick Fresnel and does not invent a finite PDF.
+- Invalid stochastic samples return zero.
+- This slice deliberately does not add `ReflectionSpecularEstimate` storage yet; resource/MRT wiring remains the next boundary.
+- A forced Debug x64 Rebuild recompiled all HLSL successfully with zero errors and the existing duplicate vcpkg import warning only.
+
 ## Planned Gates
 
 1. Write the estimator target and ownership decision.

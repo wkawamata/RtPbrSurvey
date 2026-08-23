@@ -9,6 +9,27 @@ struct RoughReflectionSample
     uint deterministicMirror;
 };
 
+float ReflectionFresnelSchlickScalar(float cosTheta, float f0)
+{
+    return f0 + (1.0 - f0) * pow(saturate(1.0 - cosTheta), 5.0);
+}
+
+float3 ReflectionFresnelSchlick(float cosTheta, float3 f0)
+{
+    return float3(ReflectionFresnelSchlickScalar(cosTheta, f0.x),
+                  ReflectionFresnelSchlickScalar(cosTheta, f0.y),
+                  ReflectionFresnelSchlickScalar(cosTheta, f0.z));
+}
+
+float ReflectionSmithG1Ggx(float ndotDirection, float alpha)
+{
+    float ndotDirectionSquared = ndotDirection * ndotDirection;
+    float alphaSquared = alpha * alpha;
+    float denominator = ndotDirection +
+        sqrt(max(alphaSquared + (1.0 - alphaSquared) * ndotDirectionSquared, 0.0));
+    return denominator > 0.0 ? (2.0 * ndotDirection) / denominator : 0.0;
+}
+
 uint HashReflectionSample(uint2 pixel, uint frameIndex, uint salt)
 {
     uint state = pixel.x * 1664525u + pixel.y * 1013904223u;
@@ -80,6 +101,38 @@ RoughReflectionSample SampleRoughReflection(uint2 pixel,
     result.valid = dot(sampledDirection, normal) > 0.0 && isfinite(directionalPdf) && directionalPdf > 0.0 ? 1u : 0u;
     result.deterministicMirror = 0u;
     return result;
+}
+
+float3 EvaluateRoughReflectionSpecularEstimate(float3 incidentRadiance,
+                                               float3 normal,
+                                               float3 viewDirection,
+                                               float roughness,
+                                               float3 f0,
+                                               RoughReflectionSample sample)
+{
+    float ndotv = saturate(dot(normal, viewDirection));
+    if (sample.deterministicMirror != 0u)
+    {
+        return incidentRadiance * ReflectionFresnelSchlick(ndotv, f0);
+    }
+    if (sample.valid == 0u || sample.directionalPdf <= 0.0)
+    {
+        return float3(0.0, 0.0, 0.0);
+    }
+
+    float3 halfVector = normalize(viewDirection + sample.direction);
+    float ndotl = saturate(dot(normal, sample.direction));
+    float ndoth = saturate(dot(normal, halfVector));
+    float vdoth = saturate(dot(viewDirection, halfVector));
+    float alpha = roughness * roughness;
+    float alphaSquared = alpha * alpha;
+    float distributionDenominator = ndoth * ndoth * (alphaSquared - 1.0) + 1.0;
+    float distribution = alphaSquared /
+        max(3.14159265359 * distributionDenominator * distributionDenominator, 0.000001);
+    float geometry = ReflectionSmithG1Ggx(ndotv, alpha) * ReflectionSmithG1Ggx(ndotl, alpha);
+    float3 fresnel = ReflectionFresnelSchlick(vdoth, f0);
+    float3 specularBrdf = distribution * geometry * fresnel / max(4.0 * ndotv * ndotl, 0.000001);
+    return incidentRadiance * specularBrdf * ndotl / sample.directionalPdf;
 }
 
 float3 SampleRoughReflectionDirection(uint2 pixel,

@@ -108,6 +108,17 @@ Phase 2では既存approximation pathを維持し、`ReflectionSpecularEstimate`
 - 同一条件のEvaluated Radiance captureをhelper導入前captureと比較した。PNG hashは異なったが、RGBA直接比較では1920x1080中の差は2 pixelsだけで、channel差の最大値は1、p99は0だった。bit-exact identityではないが、描画出力は同等と判定する。
 - runtime captureはD3D12 error 0件で、既存のcommitted-buffer initial-state warning type 3回だけを報告した。
 
+### 2026-08-23: Estimator math helper
+
+- pass outputまたはresource bindingを変更せず、副作用のない`EvaluateRoughReflectionSpecularEstimate` helperを追加した。
+- stochastic branchはCook-Torrance `D * G * F / (4 * NdotV * NdotL)`を評価し、`L_i * NdotL`を乗算して対応するdirectional PDFで除算する。
+- `D`はdirection samplingと同じ`alpha = roughness^2` GGX parameterizationを使用する。
+- `G`には既存direct-light用Schlick近似ではなく明示的なisotropic GGX Smith `G1(V) * G1(L)`を使い、sampling modelに対してestimator mathを監査可能にする。
+- deterministic mirror branchは有限PDFを仮定せず、incident radianceへSchlick Fresnelを乗算して返す。
+- invalid stochastic sampleはzeroを返す。
+- このsliceでは意図的に`ReflectionSpecularEstimate` storageを追加しない。resource/MRT wiringを次の境界とする。
+- Debug x64 Rebuildで全HLSLを強制再compileし、error 0件、既存のvcpkg重複import warningのみで成功した。
+
 ## 計画gate
 
 1. estimator targetとownership判断を文書化する。
