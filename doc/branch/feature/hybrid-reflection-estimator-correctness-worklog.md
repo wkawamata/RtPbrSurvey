@@ -44,6 +44,44 @@ Adding PDF compensation only inside `ReflectionEvaluatePass` would be unsafe bec
 
 No production-default change should occur until this decision is made and Phase 1 diagnostics are rerun.
 
+## GGX NDF PDF Derivation
+
+Use `N` for the visible-surface normal, `V` for the direction from the surface toward the camera, `L` for the sampled outgoing reflection direction, and `H = normalize(V + L)` for the half-vector. The shader receives `viewDirection = -V`, samples `H`, then evaluates `L = reflect(-V, H)`.
+
+The code sets `alpha = roughness^2`. Its inversion samples the isotropic GGX normal distribution
+
+`D(H) = alpha^2 / (pi * ((N dot H)^2 * (alpha^2 - 1) + 1)^2)`.
+
+Because an NDF is sampled with projected-area measure, the half-vector density is
+
+`p_H(H) = D(H) * max(N dot H, 0)`.
+
+For a valid reflected direction, the half-vector-to-direction Jacobian gives
+
+`p_L(L) = p_H(H) / (4 * abs(V dot H))`.
+
+This is the directional PDF that would accompany the current valid GGX NDF samples. It is not a VNDF PDF and does not include visibility term `G1(V)`.
+
+### Invalid and mirror branches
+
+- `roughness <= 0.001` is a separate deterministic mirror branch. It is a delta distribution and must not be represented as an ordinary finite directional PDF.
+- For `roughness > 0.001`, samples with `N dot L <= 0` are currently replaced by the mirror direction.
+- Therefore, the actual implemented distribution is a mixture: the continuous valid-direction density above plus all invalid-sample probability mass collapsed onto a mirror-direction delta.
+- The collapsed probability mass depends on `N`, `V`, and roughness and is not calculated by the shader.
+- Applying `f_r * L_i * (N dot L) / p_L(L)` while retaining this fallback would not define a correct estimator. The mirror delta and continuous branch require different probability accounting.
+
+### Recommended estimator contract
+
+For the explicit BRDF-integral path, the smallest auditable contract is:
+
+1. Keep roughness `0`/mirror-limit evaluation as a named deterministic branch.
+2. For the stochastic branch, return an invalid sample with zero contribution when `N dot L <= 0`; do not remap it to mirror and do not trace a ray.
+3. Carry or reconstruct `p_L(L)` and apply the visible-surface Cook-Torrance term as `f_r * L_i * max(N dot L, 0) / p_L(L)`.
+4. Treat environment miss and geometry hit as two sources of the same incident-radiance sample `L_i`; they must share sampling PDF and visible-surface throughput semantics.
+5. Move visible-surface Fresnel/BRDF ownership out of the later heuristic `LightPass` weighting for this explicit estimator path, or otherwise remove duplicate factors. Preserve the current path as a comparison mode until paired HDR diagnostics pass.
+
+Returning zero for below-surface directions preserves the original sampling distribution and makes the zero-integrand domain explicit. Resampling only valid directions would instead create a conditional distribution and require its normalization. GGX VNDF remains a later comparison candidate, not an assumption in the first correctness implementation.
+
 ## Planned Gates
 
 1. Write the estimator target and ownership decision.

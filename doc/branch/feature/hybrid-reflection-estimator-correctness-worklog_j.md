@@ -44,6 +44,44 @@ PDFまたはBRDF throughput補正を追加する前に、stochastic Hybrid Refle
 
 この判断とPhase 1診断の再実行が完了するまでproduction defaultを変更しない。
 
+## GGX NDF PDF導出
+
+`N`をvisible-surface normal、`V`をsurfaceからcameraへ向かう方向、`L`をsampleされたoutgoing reflection direction、`H = normalize(V + L)`をhalf-vectorとする。shaderは`viewDirection = -V`を受け取り、`H`をsampleした後、`L = reflect(-V, H)`を評価する。
+
+codeは`alpha = roughness^2`とする。逆変換は次のisotropic GGX normal distributionをsampleする。
+
+`D(H) = alpha^2 / (pi * ((N dot H)^2 * (alpha^2 - 1) + 1)^2)`
+
+NDFをprojected-area measureでsampleするため、half-vector densityは次になる。
+
+`p_H(H) = D(H) * max(N dot H, 0)`
+
+有効なreflection directionでは、half-vectorからdirectionへのJacobianにより次になる。
+
+`p_L(L) = p_H(H) / (4 * abs(V dot H))`
+
+これは現在の有効GGX NDF sampleに対応するdirectional PDFである。VNDF PDFではなく、visibility term `G1(V)`を含まない。
+
+### Invalid branchとmirror branch
+
+- `roughness <= 0.001`は独立したdeterministic mirror branchである。delta distributionであり、通常の有限directional PDFとして表現しない。
+- `roughness > 0.001`で`N dot L <= 0`となるsampleは、現在mirror directionへ置換される。
+- したがって実装上の分布は、上記のcontinuous valid-direction densityと、invalid sampleの全確率質量をmirror-direction deltaへ集約した混合分布である。
+- 集約される確率質量は`N`、`V`、roughnessに依存するが、shaderでは計算していない。
+- このfallbackを維持したまま`f_r * L_i * (N dot L) / p_L(L)`を適用しても、正しいestimatorにはならない。mirror deltaとcontinuous branchには別々のprobability accountingが必要である。
+
+### 推奨estimator contract
+
+明示的なBRDF-integral pathでは、監査可能な最小contractを次とする。
+
+1. roughness `0`/mirror-limit評価を名前付きdeterministic branchとして維持する。
+2. stochastic branchでは`N dot L <= 0`をinvalid sampleとしてzero contributionで返す。mirrorへremapせず、rayもtraceしない。
+3. `p_L(L)`を保持または再構築し、visible-surface Cook-Torrance termを`f_r * L_i * max(N dot L, 0) / p_L(L)`として適用する。
+4. environment missとgeometry hitを同じincident-radiance sample `L_i`の異なるsourceとして扱い、sampling PDFとvisible-surface throughput semanticsを共有する。
+5. この明示的estimator pathではvisible-surface Fresnel/BRDF ownershipを後段`LightPass`のheuristic weightingから移動するか、重複factorを除く。paired HDR diagnosticsを通過するまで現在pathをcomparison modeとして維持する。
+
+below-surface directionをzeroで返すことで元のsampling distributionを維持し、zero-integrand domainを明示できる。有効directionだけをresampleするとconditional distributionになり、そのnormalizationが必要になる。GGX VNDFは後続の比較候補として残し、最初のcorrectness実装の前提にはしない。
+
 ## 計画gate
 
 1. estimator targetとownership判断を文書化する。
