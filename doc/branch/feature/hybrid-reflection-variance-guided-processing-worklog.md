@@ -1,0 +1,48 @@
+# features/hybrid-reflection-variance-guided-processing
+
+## Objective
+
+Design and validate variance-guided processing for the weighted Hybrid Reflection estimator signal established in Phase 2. Begin with signal ownership, variance observability, and bounded policy experiments. Do not promote the existing 3x3 Surface Variance Filter or claim production-denoiser readiness from variance reduction alone.
+
+## Starting Point
+
+- Phase 2 is integrated into `main` as `105f6da` through PR #33.
+- `ReflectionSpecularEstimate` is the current-frame linear-HDR signal containing the correlated incident-radiance sample, Cook-Torrance BRDF, cosine, and directional-PDF throughput.
+- Existing Temporal Reflection accumulates the unweighted `ReflectionEvaluatedRadiance`; LightPass later applies visible-surface Fresnel and roughness policy. This path remains intact until a separate weighted-history transition is validated.
+- The default-off Surface Variance Filter is a fixed 3x3 pre-temporal filter over unweighted Evaluated Radiance. It has no measured variance estimate and must not be relabeled variance-guided.
+- The scoped Lit orbit showed slight temporal noise that the user considered likely acceptable. Dynamic temporal diagnosis therefore remains conditional rather than the first task.
+
+## Initial Contract Direction
+
+The variance-guided path should ultimately operate on the weighted estimator signal, not mix an unweighted radiance history with current-frame BRDF/PDF throughput. The intended future signal is `ReflectionResolvedSpecularEstimate`: a temporally resolved form of `ReflectionSpecularEstimate` that retains linear-HDR weighted-specular semantics.
+
+Variance metadata must remain distinct from radiance alpha. The first candidate contract is a separate temporal-moments history containing luminance first and second moments, with history validity and rejection following the same ownership/reset lifecycle as the resolved weighted estimate. A history-length or confidence signal may be added only if a measured adaptive policy needs it.
+
+No resource is committed by this initial note. Format, precision, and whether moments are computed before or after temporal clipping remain audit decisions.
+
+## First Work Unit
+
+1. Audit the exact producer/consumer transition from `ReflectionSpecularEstimate` to a future resolved weighted estimate and LightPass without double-applying Fresnel or roughness weighting.
+2. Define temporal moment update, rejection/reset behavior, and diagnostic debug meaning.
+3. Add observability before adaptive filtering: mirror control should report near-zero variance, and roughness `0.35`/`1.0` should reproduce the measured variance ordering.
+4. Only after those gates, compare one bounded adaptive policy against fixed temporal accumulation using paired 64/256-frame measurements.
+
+## Acceptance Boundaries
+
+### May claim
+
+- measured variance/confidence behavior for named signals, ROIs, frame windows, and deterministic sequences;
+- mean preservation and variance changes for a bounded default-off experiment;
+- whether an adaptive policy improves the evaluated Lit conditions.
+
+### Must not claim yet
+
+- production denoiser readiness or scene generalization;
+- physical correctness from a current-estimator mean baseline;
+- universal temporal stability, unbiasedness, Path Tracing equivalence, or DLSS Ray Reconstruction equivalence;
+- promotion of stochastic sampling, temporal history, or spatial filtering to production defaults.
+
+## Plan-Size Review
+
+The retained roadmap is not reduced, but implementation remains staged. This branch starts with weighted-signal and moments contracts plus diagnostics. A new spatial filter, large RenderGraph refactor, and dynamic object-motion redesign are not authorized by this first work unit and require evidence from the diagnostic gates.
+
