@@ -668,6 +668,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::TextWrapped("Experimental default-off 3x3 cross-bilateral current-frame fallback for depth/normal rejected pixels.");
         changed |= ImGui::Checkbox("Surface Variance Filter", &reflectionSettings.surfaceVarianceFilterEnabled);
         ImGui::TextWrapped("Experimental default-off 3x3 current-radiance filter gated by visible depth, normal, roughness, and metallic.");
+        changed |= ImGui::Checkbox("Variance-Guided Temporal", &reflectionSettings.varianceGuidedTemporalEnabled);
+        ImGui::TextWrapped("Experimental default-off weighted-estimator history adjustment. Higher prior relative variance increases history weight toward 0.98.");
         ImGui::TextWrapped("Experimental motion-reprojected blend with depth/normal rejection. Debug noise is injected before history accumulation and is disabled at zero.");
 
         changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);

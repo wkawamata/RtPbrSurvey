@@ -249,6 +249,8 @@ void RtPbrSurveyApp::OnInit()
                 m_commandLineOptions.reflectionRejectedPixelNeighborhood;
             reflectionSettings.surfaceVarianceFilterEnabled =
                 m_commandLineOptions.reflectionSurfaceVarianceFilter;
+            reflectionSettings.varianceGuidedTemporalEnabled =
+                m_commandLineOptions.reflectionVarianceGuidedTemporal;
             if (m_commandLineOptions.hasReflectionTemporalWeight)
             {
                 reflectionSettings.temporalHistoryWeight =
@@ -761,11 +763,13 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     const Engine::ReflectionHdrDiagnosticBaselineComparison baselineComparison =
         Engine::CompareReflectionHdrDiagnosticsToCurrentEstimatorMeanBaseline(m_reflectionHdrDiagnosticFrames);
     const json report = {
-        {"schemaVersion", 4},
+        {"schemaVersion", 5},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
         {"specularEstimateIncidentRadiance",
          reflectionSettings.estimatorConstantIncidentRadianceEnabled ? "constant-white-1" : "traced-scene"},
+        {"varianceGuidedTemporalEnabled", reflectionSettings.varianceGuidedTemporalEnabled},
+        {"temporalHistoryWeight", reflectionSettings.temporalHistoryWeight},
         {"scene", LoadedScene().Name()},
         {"warmupFrames", m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames},
         {"measurementFrames", m_reflectionHdrDiagnosticFrames.size()},

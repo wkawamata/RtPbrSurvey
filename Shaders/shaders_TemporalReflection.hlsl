@@ -31,6 +31,7 @@ cbuffer TemporalReflectionConstants : register(b5)
     float g_noiseStrength;
     uint g_rejectedPixelNeighborhoodEnabled;
     uint g_surfaceVarianceFilterEnabled;
+    uint g_varianceGuidedTemporalEnabled;
 };
 
 uint HashTemporalNoise(uint2 pixel, uint frameIndex)
@@ -188,10 +189,19 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
                         g_reflectionResolvedSpecularEstimateHistory.Load(int3(historyPixel, 0));
                     const float2 momentsHistory =
                         g_reflectionSpecularMomentsHistory.Load(int3(historyPixel, 0));
+                    float weightedHistoryWeight = g_historyWeight;
+                    if (g_varianceGuidedTemporalEnabled != 0)
+                    {
+                        const float historyVariance =
+                            max(momentsHistory.y - momentsHistory.x * momentsHistory.x, 0.0);
+                        const float relativeVariance =
+                            saturate(historyVariance / max(momentsHistory.y, 1e-6));
+                        weightedHistoryWeight = lerp(g_historyWeight, 0.98, relativeVariance);
+                    }
                     currentSpecularEstimate.rgb =
-                        lerp(currentSpecularEstimate.rgb, specularHistory.rgb, g_historyWeight);
+                        lerp(currentSpecularEstimate.rgb, specularHistory.rgb, weightedHistoryWeight);
                     currentSpecularMoments =
-                        lerp(currentSpecularMoments, momentsHistory, g_historyWeight);
+                        lerp(currentSpecularMoments, momentsHistory, weightedHistoryWeight);
                     current.a = 1.0;
                 }
             }

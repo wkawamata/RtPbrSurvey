@@ -101,3 +101,22 @@ Validation:
 observability gateはpassした。mirror controlは実質zeroを維持し、roughness `0.35`はnonzero variance、roughness `1.0`は最大のROI-average varianceを示した。Debug x64はerror 0件、既存vcpkg重複import warningのみで完了した。6つのruntime measurementはすべてD3D12 error 0件、同じ既知committed-buffer warning 3件で完了した。
 
 この結果が検証するのはdiagnostic orderingとdeterministic measurement contractだけである。production filtering policy、scene generalization、physical correctness、最適なvariance thresholdは確立していない。次の限定作業単位では、同じpaired 64／256-frame条件を使い、1つのdefault-off adaptive policyを固定temporal accumulationと比較してよい。
+
+## 2026-08-25: 限定variance-guided temporal実験
+
+weighted estimatorだけを対象とするdefault-off policyを1つ実装した。accepted historyでprior relative varianceを`saturate(max(M2 - M1^2, 0) / max(M2, 1e-6))`として計算し、weighted estimatorのeffective history weightを設定base weightから`0.98`へ補間する。resolved weighted estimateとmomentsはこのeffective weightを共有する。legacy未加重resolved radianceとLightPassは変更しない。policyは`Variance-Guided Temporal`および`-ReflectionVarianceGuidedTemporal`で有効化できる。
+
+paired A/Bはstochastic sampling、base weight `0.9`、32 warm-up frames、固定camera／scene／ROI、同一current sample sequenceを使用した。下表は固定weight Aに対するadaptive Bの変化である。
+
+| Roughness | Window | Mean変化 | Temporal variance変化 | Frame-difference p99変化 | 判定 |
+| ---: | ---: | ---: | ---: | ---: | --- |
+| `1.0` | 64 | `+11.82%` | `-75.40%` | `-70.66%` | Reject: 短時間mean shift |
+| `0.35` | 64 | `+2.13%` | `+25.99%` | `-16.99%` | Reject: variance増加 |
+| `0.0` | 64 | `0%` | `0%` | `0%` | Mirror control維持 |
+| `1.0` | 256 | `+7.10%` | `-74.33%` | `-73.60%` | Reject: mean shift |
+| `0.35` | 256 | `+3.27%` | `+78.92%` | `-18.07%` | Reject: variance増加とmean shift |
+| `0.0` | 256 | `0%` | `0%` | `0%` | Mirror control維持 |
+
+初期formulaは昇格しない。stronger historyがrough surfaceのframe differenceを低減できる一方、variance magnitudeだけではeffective history weightを選べず、convergence stateとweight stabilityも必要であることを示した。実装は限定diagnostic experimentとしてdefault-offのまま保持する。すべてのpaired runでcurrent sampleは一致し、D3D12 error 0件、processごとに既知committed-buffer warning 3件だった。
+
+次はeffective weighted history weightを表示または記録し、weighted historyをLightPassへ接続する前に限定confidence／clamping ruleを評価する。これはpolicy refinement gateであり、Hybrid Reflection roadmapの縮小ではない。

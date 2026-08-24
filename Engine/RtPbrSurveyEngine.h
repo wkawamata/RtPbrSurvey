@@ -231,6 +231,7 @@ public:
         float temporalNoiseStrength = 0.0f;
         bool rejectedPixelNeighborhoodEnabled = false;
         bool surfaceVarianceFilterEnabled = false;
+        bool varianceGuidedTemporalEnabled = false;
     };
 
     struct SpecularDebugLineSettings

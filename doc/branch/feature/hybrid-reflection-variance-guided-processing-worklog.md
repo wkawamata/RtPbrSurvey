@@ -101,3 +101,22 @@ Generated JSON, PNG, and log outputs remain untracked. This establishes diagnost
 The observability gate passes: the mirror control remains effectively zero, roughness `0.35` reports nonzero variance, and roughness `1.0` reports the highest ROI-average variance. Debug x64 completed with zero errors and the existing duplicate-vcpkg-import warning. All six runtime measurements completed with zero D3D12 errors and the same three known committed-buffer warnings.
 
 These results validate the diagnostic ordering and deterministic measurement contract only. They do not establish a production filtering policy, scene generalization, physical correctness, or an optimal variance threshold. The next bounded work unit may compare one default-off adaptive policy against fixed temporal accumulation using the same paired 64/256-frame conditions.
+
+## 2026-08-25: Bounded variance-guided temporal experiment
+
+Implemented one default-off weighted-estimator-only policy. For accepted history it computes prior relative variance as `saturate(max(M2 - M1^2, 0) / max(M2, 1e-6))` and interpolates the effective weighted-estimator history weight from the configured base weight toward `0.98`. The resolved weighted estimate and moments share this effective weight. Legacy unweighted resolved radiance and LightPass remain unchanged. The policy is exposed through `Variance-Guided Temporal` and `-ReflectionVarianceGuidedTemporal`.
+
+Paired A/B used stochastic sampling, base weight `0.9`, 32 warm-up frames, fixed camera/scene/ROI, and identical current sample sequences. Values below compare adaptive B with fixed-weight A.
+
+| Roughness | Window | Mean change | Temporal variance change | Frame-difference p99 change | Result |
+| ---: | ---: | ---: | ---: | ---: | --- |
+| `1.0` | 64 | `+11.82%` | `-75.40%` | `-70.66%` | Reject: short-window mean shift |
+| `0.35` | 64 | `+2.13%` | `+25.99%` | `-16.99%` | Reject: variance increase |
+| `0.0` | 64 | `0%` | `0%` | `0%` | Mirror control preserved |
+| `1.0` | 256 | `+7.10%` | `-74.33%` | `-73.60%` | Reject: mean shift |
+| `0.35` | 256 | `+3.27%` | `+78.92%` | `-18.07%` | Reject: variance increase and mean shift |
+| `0.0` | 256 | `0%` | `0%` | `0%` | Mirror control preserved |
+
+The initial formula is not promoted. It demonstrates that stronger history can reduce rough-surface frame differences, but variance magnitude alone is insufficient to select an effective history weight: convergence state and weight stability also matter. The implementation remains default-off as a bounded diagnostic experiment. All paired runs had identical current samples, zero D3D12 errors, and the existing three committed-buffer warnings per process.
+
+Next: expose or record the effective weighted history weight, then evaluate a bounded confidence/clamping rule before connecting weighted history to LightPass. This is a policy refinement gate, not a reduction of the Hybrid Reflection roadmap.
