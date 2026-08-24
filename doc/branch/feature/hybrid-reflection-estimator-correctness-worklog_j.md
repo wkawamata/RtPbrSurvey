@@ -362,7 +362,7 @@ Phase 2はdiagnostic estimator-correctness phaseとして完了する。維持�
 
 最終validation: Debug x64 full rebuildは全C++およびHLSL targetをerror 0件でcompileし、既存のvcpkg重複import build warningだけを報告した。rebuild後の64-frame constant-radiance runtime smokeはexit code 0、D3D12 error 0件で、既知warningの同じ3回反復だけを確認した。生成JSON、PNG、log出力はuntrackedのままでbranchへ含めない。
 
-終了後のpresentation artifact: `lit` capture-view selectorを追加し、120-frame warm-up後の連続20-degree orbitからLit画像15枚を撮影した。960x540、120 ms/frameのloop GIFへまとめた。capture時のD3D12 errorは0件だった。GIF、source PNG、一時capture planはlocal report artifactとし、commitしない。
+終了後のpresentation artifact: 120-frame warm-up後に20-degree連続orbitを行う`lit` capture-view selectorを追加した。監査では当初、capture automationがLit用のHybrid Reflection contributionを明示的に有効化していないことを確認した。ただしEstimator Test sceneの保存済み設定によって最初のcaptureでも有効だった。Lit選択時にcontributionを明示的に有効化して15枚を再captureした結果、全PNGと生成GIFは元artifactとbyte単位で一致した。したがって今回の変更はartifactを変えず、保存済みscene設定への依存だけを除去する。主観評価では、左側の上下段とも目立つ粒状noiseはなく、Lit上の時間方向も安定して見えた。captureはD3D12 error 0件、既知warning 3件で完了した。GIF、source PNG、一時capture planはlocal report artifactとし、commitしない。
 
 ## 対象外
 

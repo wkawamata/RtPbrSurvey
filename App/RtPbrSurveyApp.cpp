@@ -233,7 +233,8 @@ void RtPbrSurveyApp::OnInit()
             RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
                 m_sceneRenderer.GetHybridReflectionSettings();
             reflectionSettings.enabled = true;
-            if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty())
+            if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() ||
+                m_commandLineOptions.reflectionCaptureDebugView == Platform::ReflectionCaptureDebugView::Lit)
             {
                 reflectionSettings.contributionEnabled = true;
             }

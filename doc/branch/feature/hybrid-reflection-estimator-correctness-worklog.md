@@ -362,7 +362,7 @@ Phase 2 is complete as a diagnostic estimator-correctness phase. Per the retaine
 
 Final validation: Debug x64 full rebuild compiled all C++ and HLSL targets with zero errors and the existing duplicate-vcpkg-import build warning only. A post-rebuild 64-frame constant-radiance runtime smoke exited with code zero, reported zero D3D12 errors, and repeated the same three known warnings. Generated JSON, PNG, and log outputs remain untracked and are not part of the branch.
 
-Post-closure presentation artifact: added the `lit` capture-view selector and used a continuous 20-degree orbit to capture 15 Lit frames after a 120-frame warm-up. The frames were assembled into a 960x540 looping GIF at 120 ms per frame. Capture completed with zero D3D12 errors. The GIF, source PNGs, and temporary capture plan are local report artifacts and are not committed.
+Post-closure presentation artifact: added the `lit` capture-view selector for a continuous 20-degree orbit after a 120-frame warm-up. Audit initially found that capture automation did not explicitly enable the Hybrid Reflection contribution for Lit. The Estimator Test scene's persisted settings had nevertheless enabled it in the first capture: after making Lit selection explicitly enable the contribution, all 15 recaptured PNGs and the assembled GIF were byte-identical to the originals. The change therefore removes dependence on persisted scene settings without changing this artifact. Subjective review found no conspicuous grain on either left-side row and no apparent temporal instability in Lit. Capture completed with zero D3D12 errors and the same three known warnings. GIFs, source PNGs, and temporary capture plans remain local report artifacts and are not committed.
 
 ## Out of Scope
 
