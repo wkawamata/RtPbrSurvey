@@ -93,8 +93,14 @@ def main() -> None:
     measured_luminance = float(
         report["statistics"]["specularEstimate"]["temporalMeanLuminance"]
     )
+    measured_standard_deviation = float(
+        report["statistics"]["specularEstimate"]["temporalStandardDeviation"]
+    )
+    measurement_frames = int(report["measurementFrames"])
+    measured_standard_error = measured_standard_deviation / math.sqrt(float(measurement_frames))
+    absolute_error = measured_luminance - reference_luminance
     relative_error = (
-        (measured_luminance - reference_luminance) / reference_luminance
+        absolute_error / reference_luminance
         if abs(reference_luminance) > 1.0e-12
         else 0.0
     )
@@ -105,7 +111,14 @@ def main() -> None:
         "referenceRgb": reference_rgb,
         "referenceLuminance": reference_luminance,
         "measuredLuminance": measured_luminance,
+        "measurementFrames": measurement_frames,
+        "measuredStandardDeviation": measured_standard_deviation,
+        "measuredStandardError": measured_standard_error,
+        "absoluteError": absolute_error,
         "relativeError": relative_error,
+        "standardErrorUnits": absolute_error / measured_standard_error
+        if measured_standard_error > 0.0
+        else 0.0,
     }
     print(json.dumps(result, indent=2))
 

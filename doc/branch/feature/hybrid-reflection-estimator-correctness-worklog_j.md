@@ -316,6 +316,20 @@ shaderの方向規約を含め、実装済みstochastic branchをend-to-endで�
 
 判定: constant white incident radianceにおける単一roughness `0.35`、metallic、near-normal-view pixelのestimator/reference一致は**PASS WITH LIMITATION**とする。grazing view、dielectric F0、他roughness、scene-dependent radiance、multiple bounceの正しさは確立しない。
 
+### 2026-08-24: Constant-radiance条件の拡張
+
+追加する3つの1x1 pixelは本測定前にprobeし、screen位置から推測せずGBuffer条件を確認した。その後、各条件で1024 GPU samplesと512x2048-cell独立積分referenceを使用した。
+
+| 条件 | Roughness | Metallic | N dot V | GPU mean | Reference | 相対誤差 | Error / standard error |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| high roughness | `1.0` | `1` | `0.96506` | `0.151978` | `0.144556` | `+5.13%` | `1.39 SE` |
+| dielectric | `0.34902` | `0` | `0.98879` | `0.0394264` | `0.0392886` | `+0.35%` | `1.05 SE` |
+| よりgrazingなmetallic | `0.34902` | `1` | `0.67347` | `0.453482` | `0.452064` | `+0.31%` | `0.39 SE` |
+
+最初のnear-normal metallic点を含む4条件すべてが、推定standard error 2個以内で独立referenceと一致した。roughness `1.0`の相対差が大きいのは、single-pixel standard deviationが`0.1709`で、1024 samplesでもstandard errorが`0.00534`残るためである。5%のsystematic biasを示す証拠ではない。relative errorだけによる判断を防ぐため、積分器はmeasurement count、standard deviation、standard error、absolute error、standard-error単位のerrorを出力するようにした。3 runtime runはすべて正常終了し、D3D12 errorは0件、既存warningの同じ3回反復だけを確認した。
+
+判定: sampled constant-radiance condition setについて**PASS WITH LIMITATION**とする。残るestimator-correctness gapは、さらに極端なgrazing angle、追加roughness/F0組み合わせ、non-constant scene radianceである。この結果だけではestimatorをproduction composition pathへ昇格しない。
+
 ## 対象外
 
 - production temporal/spatial denoiser;

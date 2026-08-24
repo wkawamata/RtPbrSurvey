@@ -316,6 +316,20 @@ This establishes an isolated rendered estimator signal, not yet its numerical re
 
 Outcome: **PASS WITH LIMITATION** for estimator/reference agreement at this single roughness `0.35`, metallic, near-normal-view pixel under constant white incident radiance. This does not establish correctness for grazing views, dielectric F0, other roughness values, scene-dependent radiance, or multiple bounces.
 
+### 2026-08-24: Expanded constant-radiance conditions
+
+Three additional 1x1 pixels were probed before measurement so their GBuffer conditions were confirmed rather than inferred from screen position. Each then used 1024 GPU samples and a 512x2048-cell independent integration reference.
+
+| Condition | Roughness | Metallic | N dot V | GPU mean | Reference | Relative error | Error / standard error |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| high roughness | `1.0` | `1` | `0.96506` | `0.151978` | `0.144556` | `+5.13%` | `1.39 SE` |
+| dielectric | `0.34902` | `0` | `0.98879` | `0.0394264` | `0.0392886` | `+0.35%` | `1.05 SE` |
+| more grazing metallic | `0.34902` | `1` | `0.67347` | `0.453482` | `0.452064` | `+0.31%` | `0.39 SE` |
+
+All four tested conditions, including the original near-normal metallic point, agree with the independent reference within two estimated standard errors. The roughness `1.0` relative difference is larger because its single-pixel standard deviation is `0.1709` and 1024 samples still leave standard error `0.00534`; it is not evidence of a 5% systematic bias. The integrator now reports measurement count, standard deviation, standard error, absolute error, and error in standard-error units to prevent relative-error-only decisions. All three runtime runs exited normally with zero D3D12 errors and the same three existing warning repetitions.
+
+Outcome: **PASS WITH LIMITATION** for the sampled constant-radiance condition set. Remaining estimator-correctness gaps are more extreme grazing angles, additional roughness/F0 combinations, and non-constant scene radiance. The result still does not promote the estimator to the production composition path.
+
 ## Out of Scope
 
 - production temporal/spatial denoiser;
