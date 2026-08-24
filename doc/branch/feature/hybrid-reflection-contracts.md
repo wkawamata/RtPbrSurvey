@@ -42,6 +42,7 @@ Reflection payload and radiance resources are render-resolution `DXGI_FORMAT_R16
 | `ReflectionRayMaterial` | `HybridReflectionPass` | `.x`: metallic; `.y`: roughness; `.z`: unlit flag; `.w`: reserved. | Material/debug payload | `ReflectionEvaluatePass` and material debug views. |
 | `ReflectionRayEmission` | `HybridReflectionPass` | `.rgb`: linear hit emissive after material emissive scale; `.a`: committed-hit validity. | Material/debug payload | `ReflectionEvaluatePass` and emission debug views. |
 | `ReflectionEvaluatedRadiance` | `ReflectionEvaluatePass` | `.rgb`: current-frame linear HDR, unweighted one-bounce radiance; `.a`: `1`. Hits contain evaluated hit-surface lighting and emission. Deterministic misses use the roughness-prefiltered environment fallback; stochastic misses sample environment mip zero along the reproduced stochastic direction. | Pre-temporal evaluated radiance | Current `LightPass`, evaluated-radiance debug view, and `TemporalReflectionPass`. |
+| `ReflectionSpecularEstimate` | `ReflectionEvaluatePass` MRT target 1 | `.rgb`: current-frame linear HDR visible-surface specular estimate with BRDF, cosine, and directional-PDF throughput applied; `.a`: `1`. Invalid stochastic samples are zero. The mirror-limit branch uses analytic Fresnel without a finite PDF. | Experimental current-frame estimator signal | Available through the `Specular Estimate` debug view, capture selector, and linear-HDR diagnostic statistics. Not consumed by temporal history or `LightPass`. Its statistics are not compared with the unweighted Current-Estimator Mean Baseline. |
 | `ReflectionResolvedRadiance` | `TemporalReflectionPass` | `.rgb`: resolved linear HDR, unweighted one-bounce radiance; `.a`: `1`. It preserves the evaluated hit and environment-fallback semantics. With valid in-bounds history and nonzero experimental weight, RGB is a nearest-sampled motion-reprojected exponential history blend. | Resolved-radiance boundary | `LightPass` and resolved-radiance debug view. Future production temporal processing remains inside this boundary. |
 | `ReflectionHistoryDepth` | `TemporalReflectionPass` | `R32_FLOAT` current visible-surface device depth copied into the matching history slot. | Rejection history | Next `TemporalReflectionPass`. |
 | `ReflectionHistoryNormal` | `TemporalReflectionPass` | `R16G16B16A16_FLOAT`; `.xyz` is normalized world-space visible-surface normal and `.w` is `1`. | Rejection history | Next `TemporalReflectionPass`. |
@@ -73,6 +74,47 @@ Each direction sample is reproducibly derived from pixel coordinates and a refle
 Sampling disabled, visible roughness at or below `0.001`, or a sampled direction below the visible surface uses the exact mirror direction. The implementation takes one bounded sample and never enters an unbounded resampling loop.
 
 This is a rough-reflection approximation, not an unbiased Monte Carlo BRDF estimator. No explicit PDF division or path throughput term exists, and `LightPass` retains the existing visible-surface Fresnel and contribution weighting contract. Mean brightness and stability are validation gates rather than mathematically guaranteed properties of this estimator.
+
+## Estimator-Correctness Extension Contract
+
+Phase 2 preserves the existing approximation resources and introduces a separate experimental signal boundary. A runtime mode must not silently change the meaning of `ReflectionEvaluatedRadiance` or `ReflectionResolvedRadiance`.
+
+The first implementation target is a current-frame resource with contract name `ReflectionSpecularEstimate`:
+
+```text
+ReflectionSpecularEstimate.rgb
+    = incident_radiance_Li
+    * visible_surface_specular_BRDF(N, V, L)
+    * max(N dot L, 0)
+    / directional_PDF(L)
+```
+
+Its contract is:
+
+- linear HDR outgoing specular-radiance estimate for one visible-surface sample;
+- Cook-Torrance visible-surface BRDF, including Fresnel, GGX distribution, and geometry terms;
+- directional PDF derived from the sampled half-vector distribution;
+- environment miss and geometry hit are two sources of the same `incident_radiance_Li` term;
+- excludes user contribution intensity, distance fade, scene composition, exposure, and tone mapping;
+- is not an unweighted radiance payload and must not be bound where `ReflectionEvaluatedRadiance` is expected;
+- is initially debug/diagnostic-only and is not consumed by temporal history or `LightPass`.
+
+The roughness mirror limit remains a named deterministic branch. In the stochastic branch, a sampled direction with `N dot L <= 0` contributes zero and does not trace a ray. It must not be remapped to the mirror direction. Valid GGX NDF samples use:
+
+```text
+p_H(H) = D_GGX(H) * max(N dot H, 0)
+p_L(L) = p_H(H) / (4 * abs(V dot H))
+```
+
+The current NDF sampler is not VNDF sampling. VNDF is a later comparison candidate.
+
+After the current-frame estimate passes finite-value, mirror-limit, long-run mean, variance, and firefly gates, a future `ReflectionResolvedSpecularEstimate` may own temporal accumulation of this weighted sample. At that point `LightPass` may consume the resolved estimate, but it must not reapply visible-surface Fresnel, GGX roughness/BRDF, or cosine weighting. Only explicitly non-estimator policy such as user intensity and any retained distance fade may remain in final composition.
+
+This staged boundary prevents temporal accumulation of unweighted `L_i` followed by multiplication with an unrelated current-frame throughput. The BRDF/PDF throughput and its incident-radiance sample are correlated and must be combined before temporal averaging.
+
+For estimator-only reference diagnostics, the default-off `-ReflectionEstimatorConstantIncidentRadiance` mode replaces `L_i` in `ReflectionSpecularEstimate` with linear-HDR white `(1, 1, 1)`. It does not modify traced payloads, `ReflectionEvaluatedRadiance`, `ReflectionResolvedRadiance`, Temporal Reflection, or LightPass. This isolates BRDF/PDF throughput from scene-dependent hit/miss radiance; it is not a production lighting mode.
+
+HDR diagnostic schema version 3 records the ROI-center visible normal, view direction, `N dot V`, albedo, metallic, roughness, and derived F0 as `referenceSurfaceSample`. A 1x1 ROI may use this exact condition with the independent uniform-hemisphere integrator in `Tests/HybridReflection`. Wider ROI statistics must not be compared with the single center-pixel reference as if their surface conditions were identical.
 
 ## History Ownership
 

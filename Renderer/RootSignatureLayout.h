@@ -93,7 +93,7 @@ static constexpr uint32_t kTemporalReflectionConstantsCount = 6;
 
 static constexpr uint32_t kReflectionSamplingConstantsRegister = 6;
 static constexpr uint32_t kReflectionSamplingConstantsSpace = 0;
-static constexpr uint32_t kReflectionSamplingConstantsCount = 2;
+static constexpr uint32_t kReflectionSamplingConstantsCount = 3;
 
 // Static texture sampler.
 static constexpr uint32_t kStaticSamplerRegister = 0;

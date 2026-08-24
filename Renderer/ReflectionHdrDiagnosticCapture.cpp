@@ -23,12 +23,14 @@ void ReflectionHdrDiagnosticReadback::Reset()
 
 bool ReflectionHdrDiagnosticCapture::IsReady() const
 {
-    return evaluatedRadiance.IsValid() && resolvedRadiance.IsValid() && rayHit.IsValid();
+    return evaluatedRadiance.IsValid() && specularEstimate.IsValid() && resolvedRadiance.IsValid() &&
+           rayHit.IsValid();
 }
 
 void ReflectionHdrDiagnosticCapture::Reset()
 {
     evaluatedRadiance.Reset();
+    specularEstimate.Reset();
     resolvedRadiance.Reset();
     rayHit.Reset();
     samplingFrameIndex = 0;
@@ -118,6 +120,7 @@ ReflectionHdrDiagnosticSample ReadReflectionHdrDiagnosticSample(
 void RecordReflectionHdrDiagnosticCapture(ID3D12GraphicsCommandList* commandList,
                                           ID3D12Device* device,
                                           ID3D12Resource* evaluatedRadiance,
+                                          ID3D12Resource* specularEstimate,
                                           ID3D12Resource* resolvedRadiance,
                                           ID3D12Resource* rayHit,
                                           const ReflectionHdrDiagnosticRoi& roi,
@@ -128,6 +131,8 @@ void RecordReflectionHdrDiagnosticCapture(ID3D12GraphicsCommandList* commandList
     capture.Reset();
     RecordReflectionHdrDiagnosticReadback(
         commandList, device, evaluatedRadiance, roi, capture.evaluatedRadiance);
+    RecordReflectionHdrDiagnosticReadback(
+        commandList, device, specularEstimate, roi, capture.specularEstimate);
     RecordReflectionHdrDiagnosticReadback(commandList, device, resolvedRadiance, roi, capture.resolvedRadiance);
     RecordReflectionHdrDiagnosticReadback(commandList, device, rayHit, roi, capture.rayHit);
     capture.samplingFrameIndex = samplingFrameIndex;
@@ -160,6 +165,8 @@ ReflectionHdrDiagnosticFrame ReadReflectionHdrDiagnosticCapture(ReflectionHdrDia
 {
     assert(capture.IsReady());
     const ReflectionHdrDiagnosticRoi roi = capture.evaluatedRadiance.roi;
+    assert(roi.x == capture.specularEstimate.roi.x && roi.y == capture.specularEstimate.roi.y);
+    assert(roi.width == capture.specularEstimate.roi.width && roi.height == capture.specularEstimate.roi.height);
     assert(roi.x == capture.resolvedRadiance.roi.x && roi.y == capture.resolvedRadiance.roi.y);
     assert(roi.width == capture.resolvedRadiance.roi.width && roi.height == capture.resolvedRadiance.roi.height);
     assert(roi.x == capture.rayHit.roi.x && roi.y == capture.rayHit.roi.y);
@@ -170,6 +177,7 @@ ReflectionHdrDiagnosticFrame ReadReflectionHdrDiagnosticCapture(ReflectionHdrDia
     frame.samplingFrameIndex = capture.samplingFrameIndex;
     frame.temporalFrameIndex = capture.temporalFrameIndex;
     frame.evaluatedRadiance = ReadSamples(capture.evaluatedRadiance);
+    frame.specularEstimate = ReadSamples(capture.specularEstimate);
     frame.resolvedRadiance = ReadSamples(capture.resolvedRadiance);
     frame.rayHit = ReadSamples(capture.rayHit);
     return frame;

@@ -11,12 +11,14 @@ namespace Platform
 
 enum class ReflectionCaptureDebugView
 {
+    Lit,
     ResolvedRadiance,
     TemporalValidity,
     GBufferPbrParams,
     GBufferNormal,
     ReflectionRayMaterial,
     EvaluatedRadiance,
+    SpecularEstimate,
 };
 
 struct ReflectionCaptureCameraKeyframe
@@ -45,6 +47,7 @@ struct CommandLineOptions
     std::wstring logFilePath;
     UINT logFpsInterval = 0;
     bool autoSelectGltfDamagedHelmet = false;
+    bool autoSelectHybridReflectionEstimatorTest = false;
     std::filesystem::path capturePath;
     UINT captureAfterFrames = 0;
     bool exitAfterCapture = false;
@@ -52,6 +55,7 @@ struct CommandLineOptions
     bool captureReflectionTemporalValidity = false;
     ReflectionCaptureDebugView reflectionCaptureDebugView = ReflectionCaptureDebugView::ResolvedRadiance;
     bool reflectionStochasticSampling = false;
+    bool reflectionEstimatorConstantIncidentRadiance = false;
     bool reflectionRejectedPixelNeighborhood = false;
     bool reflectionSurfaceVarianceFilter = false;
     float reflectionCameraDistanceScale = 1.0f;

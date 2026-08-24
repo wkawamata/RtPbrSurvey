@@ -29,12 +29,14 @@ bool TryParseReflectionCaptureDebugView(const WCHAR* value, ReflectionCaptureDeb
     };
 
     static constexpr DebugViewName kDebugViewNames[] = {
+        {L"lit", ReflectionCaptureDebugView::Lit},
         {L"resolved-radiance", ReflectionCaptureDebugView::ResolvedRadiance},
         {L"temporal-validity", ReflectionCaptureDebugView::TemporalValidity},
         {L"pbr-params", ReflectionCaptureDebugView::GBufferPbrParams},
         {L"normal", ReflectionCaptureDebugView::GBufferNormal},
         {L"hit-material", ReflectionCaptureDebugView::ReflectionRayMaterial},
         {L"evaluated-radiance", ReflectionCaptureDebugView::EvaluatedRadiance},
+        {L"specular-estimate", ReflectionCaptureDebugView::SpecularEstimate},
     };
 
     for (const DebugViewName& entry : kDebugViewNames)
@@ -155,6 +157,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.autoSelectGltfDamagedHelmet = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-AutoSelectHybridReflectionEstimatorTest"))
+        {
+            options.autoSelectHybridReflectionEstimatorTest = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-CapturePath"))
         {
             if (i + 1 < argc)
@@ -206,6 +212,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         else if (IsCommandLineArg(argv[i], L"-ReflectionStochasticSampling"))
         {
             options.reflectionStochasticSampling = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionEstimatorConstantIncidentRadiance"))
+        {
+            options.reflectionEstimatorConstantIncidentRadiance = true;
         }
         else if (IsCommandLineArg(argv[i], L"-ReflectionRejectedPixelNeighborhood"))
         {
@@ -297,7 +307,6 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             if (i + 1 < argc)
             {
                 options.reflectionHdrDiagnosticsPath = argv[++i];
-                options.autoSelectGltfDamagedHelmet = true;
                 options.captureReflectionResolvedRadiance = true;
             }
         }
@@ -340,6 +349,13 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 }
             }
         }
+    }
+
+    if (!options.reflectionHdrDiagnosticsPath.empty() &&
+        !options.autoSelectGltfDamagedHelmet &&
+        !options.autoSelectHybridReflectionEstimatorTest)
+    {
+        options.autoSelectGltfDamagedHelmet = true;
     }
 
     return options;

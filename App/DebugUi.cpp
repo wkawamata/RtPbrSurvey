@@ -114,6 +114,10 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
             return "ReflectionEvaluatedRadiance is unweighted one-bounce radiance before temporal processing and LightPass.\n"
                    "It excludes distance fade, visible-surface roughness weight, contribution intensity, and Fresnel.\n"
                    "LightPass applies those weights before adding the final reflection contribution.";
+        case RenderViewMode::ReflectionSpecularEstimate:
+            return "ReflectionSpecularEstimate is the experimental current-frame Cook-Torrance estimate.\n"
+                   "It includes BRDF, cosine, and directional-PDF compensation, but excludes temporal processing, "
+                   "user intensity, distance fade, final composite, exposure, and tone mapping.";
         case RenderViewMode::ReflectionResolvedRadiance:
             return "ReflectionResolvedRadiance is unweighted radiance after the experimental temporal blend.\n"
                    "Compare it with Evaluated Radiance to observe static stabilization and unreprojected motion trails.";
@@ -737,6 +741,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::SameLine();
         ImGui::RadioButton("Evaluated Radiance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionEvaluatedRadiance));
         ImGui::SameLine();
+        ImGui::RadioButton("Specular Estimate##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionSpecularEstimate));
+        ImGui::SameLine();
         ImGui::RadioButton("Resolved Radiance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionResolvedRadiance));
         ImGui::SameLine();
         ImGui::RadioButton("Temporal Validity##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionTemporalValidity));
@@ -763,6 +769,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionRayMaterial ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayEmission ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionSpecularEstimate ||
              app.m_renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
              app.m_renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
@@ -782,6 +789,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionRayMaterial ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayEmission ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionSpecularEstimate ||
              app.m_renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
              app.m_renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||

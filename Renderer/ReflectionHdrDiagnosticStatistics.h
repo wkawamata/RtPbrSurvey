@@ -10,6 +10,7 @@ namespace Engine
 enum class ReflectionHdrDiagnosticSignal
 {
     EvaluatedRadiance,
+    SpecularEstimate,
     ResolvedRadiance,
 };
 

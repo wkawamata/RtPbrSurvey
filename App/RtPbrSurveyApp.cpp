@@ -39,6 +39,8 @@ RtPbrSurveyEngine::RenderViewMode GetReflectionCaptureRenderViewMode(
 {
     switch (debugView)
     {
+        case Platform::ReflectionCaptureDebugView::Lit:
+            return RtPbrSurveyEngine::RenderViewMode::LightPass;
         case Platform::ReflectionCaptureDebugView::TemporalValidity:
             return RtPbrSurveyEngine::RenderViewMode::ReflectionTemporalValidity;
         case Platform::ReflectionCaptureDebugView::GBufferPbrParams:
@@ -49,6 +51,8 @@ RtPbrSurveyEngine::RenderViewMode GetReflectionCaptureRenderViewMode(
             return RtPbrSurveyEngine::RenderViewMode::ReflectionRayMaterial;
         case Platform::ReflectionCaptureDebugView::EvaluatedRadiance:
             return RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadiance;
+        case Platform::ReflectionCaptureDebugView::SpecularEstimate:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionSpecularEstimate;
         case Platform::ReflectionCaptureDebugView::ResolvedRadiance:
         default:
             return RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance;
@@ -70,6 +74,12 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     {
         throw std::invalid_argument(
             "-ReflectionHdrDiagnostics is mutually exclusive with screenshot capture automation.");
+    }
+    if (m_commandLineOptions.autoSelectGltfDamagedHelmet &&
+        m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
+    {
+        throw std::invalid_argument(
+            "-AutoSelectGltfDamagedHelmet and -AutoSelectHybridReflectionEstimatorTest are mutually exclusive.");
     }
     if (!m_commandLineOptions.reflectionCapturePlanPath.empty())
     {
@@ -187,9 +197,28 @@ void RtPbrSurveyApp::OnInit()
         m_sceneConfig.SetPaths(defaultsPathA, userConfigPath);
     }
 
-    if (m_commandLineOptions.autoSelectGltfDamagedHelmet)
+    if (m_commandLineOptions.autoSelectGltfDamagedHelmet ||
+        m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
     {
-        m_selectedSceneIndex = kDefaultSceneIndex;
+        if (m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
+        {
+            const auto scene = std::find_if(
+                m_sampleScenes.begin(),
+                m_sampleScenes.end(),
+                [](const std::unique_ptr<Engine::SampleScene>& candidate)
+                {
+                    return strcmp(candidate->Name(), "Hybrid Reflection Estimator Test") == 0;
+                });
+            if (scene == m_sampleScenes.end())
+            {
+                throw std::runtime_error("Hybrid Reflection Estimator Test scene is unavailable.");
+            }
+            m_selectedSceneIndex = static_cast<int>(std::distance(m_sampleScenes.begin(), scene));
+        }
+        else
+        {
+            m_selectedSceneIndex = kDefaultSceneIndex;
+        }
         OpenSelectedScene();
         m_debugUiVisible = false;
 
@@ -204,11 +233,14 @@ void RtPbrSurveyApp::OnInit()
             RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
                 m_sceneRenderer.GetHybridReflectionSettings();
             reflectionSettings.enabled = true;
-            if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty())
+            if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() ||
+                m_commandLineOptions.reflectionCaptureDebugView == Platform::ReflectionCaptureDebugView::Lit)
             {
                 reflectionSettings.contributionEnabled = true;
             }
             reflectionSettings.stochasticSamplingEnabled = m_commandLineOptions.reflectionStochasticSampling;
+            reflectionSettings.estimatorConstantIncidentRadianceEnabled =
+                m_commandLineOptions.reflectionEstimatorConstantIncidentRadiance;
             reflectionSettings.rejectedPixelNeighborhoodEnabled =
                 m_commandLineOptions.reflectionRejectedPixelNeighborhood;
             reflectionSettings.surfaceVarianceFilterEnabled =
@@ -588,6 +620,17 @@ void RtPbrSurveyApp::UpdateReflectionHdrDiagnostics()
             m_commandLineOptions.reflectionHdrDiagnosticsRoiY,
             m_commandLineOptions.reflectionHdrDiagnosticsRoiWidth,
             m_commandLineOptions.reflectionHdrDiagnosticsRoiHeight};
+        if (m_reflectionHdrDiagnosticFrames.empty())
+        {
+            const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+            const float renderCenterX = static_cast<float>(roi.x) + static_cast<float>(roi.width) * 0.5f;
+            const float renderCenterY = static_cast<float>(roi.y) + static_cast<float>(roi.height) * 0.5f;
+            const int screenX = static_cast<int>(renderCenterX * static_cast<float>(context.outputWidth) /
+                                                 static_cast<float>(context.renderWidth));
+            const int screenY = static_cast<int>(renderCenterY * static_cast<float>(context.outputHeight) /
+                                                 static_cast<float>(context.renderHeight));
+            m_sceneRenderer.RequestPixelPick(screenX, screenY);
+        }
         m_sceneRenderer.RequestReflectionHdrDiagnosticCapture(roi);
         m_reflectionHdrDiagnosticInFlight = true;
     }
@@ -629,6 +672,7 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
             {"samplingFrameIndex", frame.samplingFrameIndex},
             {"temporalFrameIndex", frame.temporalFrameIndex},
             {"evaluatedMeanLuminance", meanLuminance(frame.evaluatedRadiance)},
+            {"specularEstimateMeanLuminance", meanLuminance(frame.specularEstimate)},
             {"resolvedMeanLuminance", meanLuminance(frame.resolvedRadiance)},
             {"hitRate", sampleCount > 0.0 ? static_cast<double>(hitCount) / sampleCount : 0.0},
             {"temporalAcceptanceRate", sampleCount > 0.0 ? static_cast<double>(acceptedCount) / sampleCount : 0.0},
@@ -639,6 +683,20 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
 
     const Engine::ReflectionHdrDiagnosticRoi roi = m_reflectionHdrDiagnosticFrames.front().roi;
     const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    const RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
+        m_sceneRenderer.GetHybridReflectionSettings();
+    const RtPbrSurveyEngine::PixelPickResult& referenceSurface = m_sceneRenderer.GetPixelPickResult();
+    const float referenceNdotV = referenceSurface.valid ?
+        std::clamp(referenceSurface.normal.x * referenceSurface.viewDir.x +
+                       referenceSurface.normal.y * referenceSurface.viewDir.y +
+                       referenceSurface.normal.z * referenceSurface.viewDir.z,
+                   0.0f,
+                   1.0f) :
+        0.0f;
+    const XMFLOAT3 referenceF0 = {
+        0.04f + (referenceSurface.albedo.x - 0.04f) * referenceSurface.metallic,
+        0.04f + (referenceSurface.albedo.y - 0.04f) * referenceSurface.metallic,
+        0.04f + (referenceSurface.albedo.z - 0.04f) * referenceSurface.metallic};
     const auto statisticsToJson = [](const Engine::ReflectionHdrDiagnosticStatistics& statistics)
     {
         json value = {
@@ -661,19 +719,40 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     const Engine::ReflectionHdrDiagnosticStatistics resolvedStatistics =
         Engine::CalculateReflectionHdrDiagnosticStatistics(
             m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::ResolvedRadiance);
+    const Engine::ReflectionHdrDiagnosticStatistics specularEstimateStatistics =
+        Engine::CalculateReflectionHdrDiagnosticStatistics(
+            m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::SpecularEstimate);
     const Engine::ReflectionHdrDiagnosticBaselineComparison baselineComparison =
         Engine::CompareReflectionHdrDiagnosticsToCurrentEstimatorMeanBaseline(m_reflectionHdrDiagnosticFrames);
     const json report = {
-        {"schemaVersion", 1},
+        {"schemaVersion", 3},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
+        {"specularEstimateIncidentRadiance",
+         reflectionSettings.estimatorConstantIncidentRadianceEnabled ? "constant-white-1" : "traced-scene"},
+        {"scene", LoadedScene().Name()},
         {"warmupFrames", m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames},
         {"measurementFrames", m_reflectionHdrDiagnosticFrames.size()},
         {"coordinateSpace", "render-pixels"},
         {"renderSize", {{"width", context.renderWidth}, {"height", context.renderHeight}}},
         {"roi", {{"x", roi.x}, {"y", roi.y}, {"width", roi.width}, {"height", roi.height}}},
+        {"referenceSurfaceSample",
+         {{"scope", "roi-center-pixel"},
+          {"valid", referenceSurface.valid},
+          {"screen", {{"x", referenceSurface.screenX}, {"y", referenceSurface.screenY}}},
+          {"depthNdc", referenceSurface.depthNdc},
+          {"normal", {referenceSurface.normal.x, referenceSurface.normal.y, referenceSurface.normal.z}},
+          {"viewDirection",
+           {referenceSurface.viewDir.x, referenceSurface.viewDir.y, referenceSurface.viewDir.z}},
+          {"ndotv", referenceNdotV},
+          {"albedo",
+           {referenceSurface.albedo.x, referenceSurface.albedo.y, referenceSurface.albedo.z}},
+          {"metallic", referenceSurface.metallic},
+          {"roughness", referenceSurface.roughness},
+          {"f0", {referenceF0.x, referenceF0.y, referenceF0.z}}}},
         {"statistics",
          {{"evaluatedRadiance", statisticsToJson(evaluatedStatistics)},
+          {"specularEstimate", statisticsToJson(specularEstimateStatistics)},
           {"resolvedRadiance", statisticsToJson(resolvedStatistics)}}},
         {"currentEstimatorMeanBaseline",
          {{"name", "High-SPP Current-Estimator Mean Baseline"},
@@ -833,6 +912,7 @@ void RtPbrSurveyApp::CreateSampleScenes()
 
     m_sampleScenes.push_back(Engine::SceneFactory::CreateCornellBox());
     m_sampleScenes.push_back(Engine::SceneFactory::CreateHostPrimitiveMeshes());
+    m_sampleScenes.push_back(Engine::SceneFactory::CreateHybridReflectionEstimatorTest());
 }
 
 void RtPbrSurveyApp::LoadSceneCpuData(int sceneIndex)
