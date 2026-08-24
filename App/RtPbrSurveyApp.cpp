@@ -39,6 +39,8 @@ RtPbrSurveyEngine::RenderViewMode GetReflectionCaptureRenderViewMode(
 {
     switch (debugView)
     {
+        case Platform::ReflectionCaptureDebugView::Lit:
+            return RtPbrSurveyEngine::RenderViewMode::LightPass;
         case Platform::ReflectionCaptureDebugView::TemporalValidity:
             return RtPbrSurveyEngine::RenderViewMode::ReflectionTemporalValidity;
         case Platform::ReflectionCaptureDebugView::GBufferPbrParams:

@@ -362,6 +362,8 @@ Phase 2 is complete as a diagnostic estimator-correctness phase. Per the retaine
 
 Final validation: Debug x64 full rebuild compiled all C++ and HLSL targets with zero errors and the existing duplicate-vcpkg-import build warning only. A post-rebuild 64-frame constant-radiance runtime smoke exited with code zero, reported zero D3D12 errors, and repeated the same three known warnings. Generated JSON, PNG, and log outputs remain untracked and are not part of the branch.
 
+Post-closure presentation artifact: added the `lit` capture-view selector and used a continuous 20-degree orbit to capture 15 Lit frames after a 120-frame warm-up. The frames were assembled into a 960x540 looping GIF at 120 ms per frame. Capture completed with zero D3D12 errors. The GIF, source PNGs, and temporary capture plan are local report artifacts and are not committed.
+
 ## Out of Scope
 
 - production temporal/spatial denoiser;

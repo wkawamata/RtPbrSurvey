@@ -362,6 +362,8 @@ Phase 2はdiagnostic estimator-correctness phaseとして完了する。維持�
 
 最終validation: Debug x64 full rebuildは全C++およびHLSL targetをerror 0件でcompileし、既存のvcpkg重複import build warningだけを報告した。rebuild後の64-frame constant-radiance runtime smokeはexit code 0、D3D12 error 0件で、既知warningの同じ3回反復だけを確認した。生成JSON、PNG、log出力はuntrackedのままでbranchへ含めない。
 
+終了後のpresentation artifact: `lit` capture-view selectorを追加し、120-frame warm-up後の連続20-degree orbitからLit画像15枚を撮影した。960x540、120 ms/frameのloop GIFへまとめた。capture時のD3D12 errorは0件だった。GIF、source PNG、一時capture planはlocal report artifactとし、commitしない。
+
 ## 対象外
 
 - production temporal/spatial denoiser;

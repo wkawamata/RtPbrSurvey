@@ -11,6 +11,7 @@ namespace Platform
 
 enum class ReflectionCaptureDebugView
 {
+    Lit,
     ResolvedRadiance,
     TemporalValidity,
     GBufferPbrParams,

@@ -29,6 +29,7 @@ bool TryParseReflectionCaptureDebugView(const WCHAR* value, ReflectionCaptureDeb
     };
 
     static constexpr DebugViewName kDebugViewNames[] = {
+        {L"lit", ReflectionCaptureDebugView::Lit},
         {L"resolved-radiance", ReflectionCaptureDebugView::ResolvedRadiance},
         {L"temporal-validity", ReflectionCaptureDebugView::TemporalValidity},
         {L"pbr-params", ReflectionCaptureDebugView::GBufferPbrParams},
