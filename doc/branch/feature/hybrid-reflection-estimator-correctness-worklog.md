@@ -330,6 +330,38 @@ All four tested conditions, including the original near-normal metallic point, a
 
 Outcome: **PASS WITH LIMITATION** for the sampled constant-radiance condition set. Remaining estimator-correctness gaps are more extreme grazing angles, additional roughness/F0 combinations, and non-constant scene radiance. The result still does not promote the estimator to the production composition path.
 
+## Phase 2 Closure
+
+### PASS
+
+- Current GGX NDF half-vector and directional PDFs are explicit and use consistent direction conventions.
+- The experimental signal applies matching Cook-Torrance BRDF, cosine, and PDF throughput before any future temporal processing.
+- Invalid stochastic samples contribute zero; the mirror limit remains a named analytic delta branch.
+- `ReflectionSpecularEstimate` is independently observable through debug view, automated capture, and linear-HDR statistics.
+- Constant-radiance reports record the exact center-pixel surface condition and can be checked with a repeatable independent hemisphere integrator.
+- Existing Evaluated Radiance output remained identical when the estimator-only constant-radiance override was enabled.
+- Production defaults remain stochastic sampling disabled, history weight zero, and estimator constant-radiance mode disabled.
+
+### PASS WITH LIMITATION
+
+- 1024-frame traced-scene means stabilized in the two audited noisy metallic ROIs, while high 1-spp variance remained.
+- Four constant-white conditions spanning roughness `0.35`/`1.0`, metallic/dielectric F0, and `N dot V` down to `0.673` agreed with the independent reference within two estimated standard errors.
+- D3D12 runtime checks completed with zero errors; three repetitions of the existing committed-buffer initial-state warning remained.
+
+### NOT CLAIMED
+
+- unbiasedness for all roughness, F0, and grazing-view combinations;
+- correctness under arbitrary scene-dependent incident radiance or multiple bounces;
+- variance reduction, firefly elimination, production denoiser readiness, or scene generalization;
+- production consumption of `ReflectionSpecularEstimate` by Temporal Reflection or LightPass;
+- Path Tracing or DLSS Ray Reconstruction equivalence.
+
+### Handoff gate
+
+Phase 2 is complete as a diagnostic estimator-correctness phase. Per the retained roadmap, the next decision is based on the final Lit view: perform focused dynamic temporal diagnosis only if object/camera motion artifacts are practically visible in Lit. Otherwise proceed to design variance-guided processing around the weighted estimator signal. The overall roadmap is retained, but the next phase implementation size should be reviewed at this boundary rather than assumed in advance.
+
+Final validation: Debug x64 full rebuild compiled all C++ and HLSL targets with zero errors and the existing duplicate-vcpkg-import build warning only. A post-rebuild 64-frame constant-radiance runtime smoke exited with code zero, reported zero D3D12 errors, and repeated the same three known warnings. Generated JSON, PNG, and log outputs remain untracked and are not part of the branch.
+
 ## Out of Scope
 
 - production temporal/spatial denoiser;

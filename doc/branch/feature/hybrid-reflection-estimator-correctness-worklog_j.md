@@ -330,6 +330,38 @@ shaderの方向規約を含め、実装済みstochastic branchをend-to-endで�
 
 判定: sampled constant-radiance condition setについて**PASS WITH LIMITATION**とする。残るestimator-correctness gapは、さらに極端なgrazing angle、追加roughness/F0組み合わせ、non-constant scene radianceである。この結果だけではestimatorをproduction composition pathへ昇格しない。
 
+## Phase 2終了判定
+
+### PASS
+
+- 現行GGX NDF half-vector PDFとdirectional PDFを明示し、方向規約が整合している。
+- 実験signalは将来のtemporal処理より前に、対応するCook-Torrance BRDF、cosine、PDF throughputを適用する。
+- invalid stochastic sampleはzero contributionとし、mirror limitは名前付きanalytic delta branchとして維持する。
+- `ReflectionSpecularEstimate`をdebug view、自動capture、linear-HDR統計から独立観測できる。
+- constant-radiance reportは中心pixelの正確なsurface conditionを記録し、再実行可能な独立hemisphere integratorで確認できる。
+- estimator専用constant-radiance overrideを有効にしても、既存Evaluated Radiance出力は一致した。
+- production defaultはstochastic sampling無効、history weight zero、estimator constant-radiance mode無効のままである。
+
+### PASS WITH LIMITATION
+
+- 監査した2つのnoisy metallic ROIでは1024-frame traced-scene meanが安定したが、強い1 spp varianceは残った。
+- roughness `0.35`/`1.0`、metallic/dielectric F0、`N dot V`最小`0.673`を含むconstant-white 4条件は、推定standard error 2個以内で独立referenceと一致した。
+- D3D12 runtime checkはerror 0件で完了した。既存committed-buffer initial-state warningの3回反復は残った。
+
+### NOT CLAIMED
+
+- 全roughness、F0、grazing-view組み合わせでのunbiasedness;
+- 任意のscene-dependent incident radianceまたはmultiple bounceでの正しさ;
+- variance低減、firefly除去、production denoiser readiness、scene generalization;
+- Temporal ReflectionまたはLightPassによる`ReflectionSpecularEstimate`のproduction消費;
+- Path TracingまたはDLSS Ray Reconstructionとの同等性。
+
+### Handoff gate
+
+Phase 2はdiagnostic estimator-correctness phaseとして完了する。維持しているroadmapに従い、次の判断は最終Lit viewを基準とする。object/camera motion artifactがLitで実用上見える場合だけfocused dynamic temporal診断を行い、見えない場合はweighted estimator signalを対象とするvariance-guided処理設計へ進む。roadmap全体は維持するが、次Phaseの実装規模は事前に固定せず、この区切りで見直す。
+
+最終validation: Debug x64 full rebuildは全C++およびHLSL targetをerror 0件でcompileし、既存のvcpkg重複import build warningだけを報告した。rebuild後の64-frame constant-radiance runtime smokeはexit code 0、D3D12 error 0件で、既知warningの同じ3回反復だけを確認した。生成JSON、PNG、log出力はuntrackedのままでbranchへ含めない。
+
 ## 対象外
 
 - production temporal/spatial denoiser;
