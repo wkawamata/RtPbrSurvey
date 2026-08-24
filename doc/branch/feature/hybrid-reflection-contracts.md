@@ -112,6 +112,30 @@ After the current-frame estimate passes finite-value, mirror-limit, long-run mea
 
 This staged boundary prevents temporal accumulation of unweighted `L_i` followed by multiplication with an unrelated current-frame throughput. The BRDF/PDF throughput and its incident-radiance sample are correlated and must be combined before temporal averaging.
 
+The weighted path must also avoid adding a second environment-specular solution on top of the existing deterministic Specular IBL. `ReflectionSpecularEstimate` includes the environment miss contribution, so a future LightPass transition should blend from the existing `iblSpecular` fallback to `ReflectionResolvedSpecularEstimate`, not add both:
+
+```text
+hybrid_blend = saturate(user_intensity * retained_distance_policy)
+final_specular = lerp(ibl_specular, resolved_specular_estimate, hybrid_blend)
+```
+
+This is a future default-off transition contract, not the current implementation. The current unweighted contribution path remains additive and retains its legacy distance, visible-roughness, intensity, and Fresnel weighting. The weighted transition must remove the legacy visible-roughness multiplier and Fresnel multiplier because the estimator already owns the visible-surface BRDF. Distance behavior is composition policy: for a geometry hit it may fade back to deterministic IBL with distance; for an environment miss it should not suppress the estimator merely because there is no finite hit distance.
+
+### Weighted Temporal Moments Candidate
+
+A future variance-guided path may pair `ReflectionResolvedSpecularEstimate` with a separate two-channel luminance-moments history. For a non-negative current weighted estimate `S`, define:
+
+```text
+Y = dot(S.rgb, float3(0.2126, 0.7152, 0.0722))
+M1_current = Y
+M2_current = Y * Y
+M1_resolved = lerp(M1_current, M1_history, accepted_history_weight)
+M2_resolved = lerp(M2_current, M2_history, accepted_history_weight)
+variance = max(M2_resolved - M1_resolved * M1_resolved, 0)
+```
+
+The moments must use the same reprojected sample, acceptance decision, reset event, history ownership, and accepted history weight as the resolved weighted estimate. On invalid, out-of-bounds, depth-rejected, or normal-rejected history, initialize both moments from the current sample; do not blend rejected moments. Variance metadata remains separate from radiance alpha. Moment format and precision remain implementation decisions until range measurements are available.
+
 For estimator-only reference diagnostics, the default-off `-ReflectionEstimatorConstantIncidentRadiance` mode replaces `L_i` in `ReflectionSpecularEstimate` with linear-HDR white `(1, 1, 1)`. It does not modify traced payloads, `ReflectionEvaluatedRadiance`, `ReflectionResolvedRadiance`, Temporal Reflection, or LightPass. This isolates BRDF/PDF throughput from scene-dependent hit/miss radiance; it is not a production lighting mode.
 
 HDR diagnostic schema version 3 records the ROI-center visible normal, view direction, `N dot V`, albedo, metallic, roughness, and derived F0 as `referenceSurfaceSample`. A 1x1 ROI may use this exact condition with the independent uniform-hemisphere integrator in `Tests/HybridReflection`. Wider ROI statistics must not be compared with the single center-pixel reference as if their surface conditions were identical.

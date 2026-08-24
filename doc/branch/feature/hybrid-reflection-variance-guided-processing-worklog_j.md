@@ -46,3 +46,12 @@ variance metadataはradiance alphaと分離する。最初の候補contractはlu
 
 維持しているroadmap自体は縮小しないが、実装は段階化する。このbranchはweighted-signal/moments contractとdiagnosticsから開始する。新しいspatial filter、大規模RenderGraph refactor、dynamic object-motion redesignはこの最初の作業単位では行わず、diagnostic gateの証拠を必要とする。
 
+## 2026-08-24: Producer/consumer transition監査
+
+- `ReflectionEvaluatePass`は未加重`ReflectionEvaluatedRadiance`とweighted `ReflectionSpecularEstimate`を同時生成する。weighted targetは同じincident sampleを使い、visible-surface Fresnel、GGX distribution/geometry、cosine、directional-PDF compensationを含む。
+- 現行`TemporalReflectionPass`は未加重Evaluated Radianceだけを読む。現行`LightPass`はそのresolved formにdistance fade、`(1 - visible roughness)`、user intensity、`FresnelSchlickRoughness`を適用し、既にdeterministic Specular IBLを含むcolorへ加算する。
+- weighted transitionではvisible-roughness multiplierとFresnel multiplierを再利用しない。またenvironment miss estimateをdeterministic Specular IBLへ重ねて加算しない。
+- 判断: future default-off weighted pathはdeterministic `iblSpecular`から`ReflectionResolvedSpecularEstimate`へblendする。user intensityと保持するhit-distance policyがblendを制御する。finite hit distanceはIBLへfade backしてよいが、environment missはfull estimator replacementの対象に残す。
+- 2-channel luminance momentsの候補contractを定義した。first/second momentはresolved estimateと同じreprojection、acceptance、history weight、reset、ping-pong ownershipに従う。rejectされたhistoryはcurrent sampleから初期化する。varianceは`max(M2 - M1 * M1, 0)`でありradiance alphaへ格納しない。
+
+この監査ではruntime pathまたはresourceを変更していない。次の作業単位はadaptive policy実装より前のmoments format/range測定とdiagnostic exposureである。

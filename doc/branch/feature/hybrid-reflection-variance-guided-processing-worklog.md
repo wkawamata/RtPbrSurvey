@@ -46,3 +46,12 @@ No resource is committed by this initial note. Format, precision, and whether mo
 
 The retained roadmap is not reduced, but implementation remains staged. This branch starts with weighted-signal and moments contracts plus diagnostics. A new spatial filter, large RenderGraph refactor, and dynamic object-motion redesign are not authorized by this first work unit and require evidence from the diagnostic gates.
 
+## 2026-08-24: Producer/consumer transition audit
+
+- `ReflectionEvaluatePass` produces unweighted `ReflectionEvaluatedRadiance` and weighted `ReflectionSpecularEstimate` together. The weighted target uses the same incident sample and includes visible-surface Fresnel, GGX distribution/geometry, cosine, and directional-PDF compensation.
+- Current `TemporalReflectionPass` reads only unweighted Evaluated Radiance. Current `LightPass` consumes its resolved form and applies distance fade, `(1 - visible roughness)`, user intensity, and `FresnelSchlickRoughness` before adding it to a color that already includes deterministic Specular IBL.
+- A weighted transition must not reuse the latter visible-roughness or Fresnel multipliers. It must also avoid adding the environment miss estimate on top of deterministic Specular IBL.
+- Decision: the future default-off weighted path will blend from deterministic `iblSpecular` to `ReflectionResolvedSpecularEstimate`. User intensity and retained hit-distance policy control that blend. A finite-hit distance may fade back to IBL; environment miss remains eligible for full estimator replacement.
+- Defined a candidate two-channel luminance moments contract. First and second moments share resolved-estimate reprojection, acceptance, history weight, reset, and ping-pong ownership. Rejected history initializes from the current sample. Variance is `max(M2 - M1 * M1, 0)` and is not packed into radiance alpha.
+
+No runtime path or resource was changed in this audit. The next work unit is moments format/range measurement and diagnostic exposure before adaptive policy implementation.
