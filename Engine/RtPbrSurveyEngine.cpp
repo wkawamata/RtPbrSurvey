@@ -4579,6 +4579,8 @@ void RtPbrSurveyEngine::RecordReflectionHdrDiagnosticPass()
                                                  m_reflectionEvaluatedRadiance.Get(),
                                                  m_reflectionSpecularEstimate.Get(),
                                                  m_reflectionResolvedRadiance[writeIndex].Get(),
+                                                 m_reflectionResolvedSpecularEstimate[writeIndex].Get(),
+                                                 m_reflectionSpecularMoments[writeIndex].Get(),
                                                  m_reflectionRayHit.Get(),
                                                  m_reflectionHdrDiagnosticRoi,
                                                  m_reflectionSamplingFrameIndex,

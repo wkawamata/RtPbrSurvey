@@ -85,3 +85,19 @@ Validation:
 - 120-frame warm-up後の`Specular Variance` captureはD3D12 error 0件で完了した。目視ではrough sphereに強いvarianceがあり、mirror側はほぼblackとなる期待したorderingを再現した。
 
 生成JSON、PNG、logはuntrackedのままとする。この結果はdiagnostic observabilityを確立するが、adaptive filterの有効性はまだ示さない。
+
+## 2026-08-25: Linear-HDR moments report／roughness gate
+
+- HDR diagnostic readbackとschemaをversion 3からversion 4へ拡張した。reportは、debug表示用mappingを保存linear値へ適用せず、`ReflectionResolvedSpecularEstimate`のtemporal statisticsと`ReflectionSpecularMoments`のsummaryを含む。
+- moments summaryはROI／frame window全体のmean `M1`、mean `M2`、mean `max(M2 - M1^2, 0)`、maximum estimated varianceを記録する。これはtemporal estimatorのmetadataであり、physical ground truthではない。
+- stochastic sampling有効、temporal weight `0.9`、固定camera／scene、48x48 metallic sphere ROI、32-frame warm-upの条件で、deterministicな64／256-frame測定を実施した。独立した64-frame processと256-frame processは、3 ROIすべてで先頭64-frameのresolved estimate／moments sampleが完全一致した。
+
+| Roughness | 64-frame mean estimated variance | 256-frame mean estimated variance | 256-frame resolved temporal variance | 256-frame resolved frame-difference p99 |
+| ---: | ---: | ---: | ---: | ---: |
+| `1.0` | `0.0781654` | `0.0814923` | `0.00418381` | `0.117602` |
+| `0.35` | `0.00605023` | `0.00611414` | `0.000318847` | `0.0111988` |
+| `0.0` | `1.00777e-10` | `1.00777e-10` | 約`0` | `0` |
+
+observability gateはpassした。mirror controlは実質zeroを維持し、roughness `0.35`はnonzero variance、roughness `1.0`は最大のROI-average varianceを示した。Debug x64はerror 0件、既存vcpkg重複import warningのみで完了した。6つのruntime measurementはすべてD3D12 error 0件、同じ既知committed-buffer warning 3件で完了した。
+
+この結果が検証するのはdiagnostic orderingとdeterministic measurement contractだけである。production filtering policy、scene generalization、physical correctness、最適なvariance thresholdは確立していない。次の限定作業単位では、同じpaired 64／256-frame条件を使い、1つのdefault-off adaptive policyを固定temporal accumulationと比較してよい。

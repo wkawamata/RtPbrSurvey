@@ -653,6 +653,27 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         }
         return samples.empty() ? 0.0 : sum / static_cast<double>(samples.size());
     };
+    const auto momentsSummary = [](const std::vector<Engine::ReflectionHdrDiagnosticSample>& samples)
+    {
+        double firstMomentSum = 0.0;
+        double secondMomentSum = 0.0;
+        double varianceSum = 0.0;
+        double maximumVariance = 0.0;
+        for (const Engine::ReflectionHdrDiagnosticSample& sample : samples)
+        {
+            const double variance = (std::max)(
+                static_cast<double>(sample.g) - static_cast<double>(sample.r) * sample.r, 0.0);
+            firstMomentSum += sample.r;
+            secondMomentSum += sample.g;
+            varianceSum += variance;
+            maximumVariance = (std::max)(maximumVariance, variance);
+        }
+        const double count = static_cast<double>(samples.size());
+        return json{{"meanFirstMoment", count > 0.0 ? firstMomentSum / count : 0.0},
+                    {"meanSecondMoment", count > 0.0 ? secondMomentSum / count : 0.0},
+                    {"meanEstimatedVariance", count > 0.0 ? varianceSum / count : 0.0},
+                    {"maximumEstimatedVariance", maximumVariance}};
+    };
 
     json frameValues = json::array();
     for (size_t frameIndex = 0; frameIndex < m_reflectionHdrDiagnosticFrames.size(); ++frameIndex)
@@ -677,7 +698,9 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
             {"temporalFrameIndex", frame.temporalFrameIndex},
             {"evaluatedMeanLuminance", meanLuminance(frame.evaluatedRadiance)},
             {"specularEstimateMeanLuminance", meanLuminance(frame.specularEstimate)},
+            {"resolvedSpecularEstimateMeanLuminance", meanLuminance(frame.resolvedSpecularEstimate)},
             {"resolvedMeanLuminance", meanLuminance(frame.resolvedRadiance)},
+            {"specularMoments", momentsSummary(frame.specularMoments)},
             {"hitRate", sampleCount > 0.0 ? static_cast<double>(hitCount) / sampleCount : 0.0},
             {"temporalAcceptanceRate", sampleCount > 0.0 ? static_cast<double>(acceptedCount) / sampleCount : 0.0},
             {"depthRejectRate", sampleCount > 0.0 ? static_cast<double>(depthRejectCount) / sampleCount : 0.0},
@@ -726,10 +749,19 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     const Engine::ReflectionHdrDiagnosticStatistics specularEstimateStatistics =
         Engine::CalculateReflectionHdrDiagnosticStatistics(
             m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::SpecularEstimate);
+    const Engine::ReflectionHdrDiagnosticStatistics resolvedSpecularEstimateStatistics =
+        Engine::CalculateReflectionHdrDiagnosticStatistics(
+            m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::ResolvedSpecularEstimate);
+    std::vector<Engine::ReflectionHdrDiagnosticSample> allSpecularMoments;
+    for (const Engine::ReflectionHdrDiagnosticFrame& frame : m_reflectionHdrDiagnosticFrames)
+    {
+        allSpecularMoments.insert(
+            allSpecularMoments.end(), frame.specularMoments.begin(), frame.specularMoments.end());
+    }
     const Engine::ReflectionHdrDiagnosticBaselineComparison baselineComparison =
         Engine::CompareReflectionHdrDiagnosticsToCurrentEstimatorMeanBaseline(m_reflectionHdrDiagnosticFrames);
     const json report = {
-        {"schemaVersion", 3},
+        {"schemaVersion", 4},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
         {"specularEstimateIncidentRadiance",
@@ -757,6 +789,8 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         {"statistics",
          {{"evaluatedRadiance", statisticsToJson(evaluatedStatistics)},
           {"specularEstimate", statisticsToJson(specularEstimateStatistics)},
+          {"resolvedSpecularEstimate", statisticsToJson(resolvedSpecularEstimateStatistics)},
+          {"specularMoments", momentsSummary(allSpecularMoments)},
           {"resolvedRadiance", statisticsToJson(resolvedStatistics)}}},
         {"currentEstimatorMeanBaseline",
          {{"name", "High-SPP Current-Estimator Mean Baseline"},
