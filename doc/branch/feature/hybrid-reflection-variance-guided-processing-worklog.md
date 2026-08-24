@@ -55,3 +55,17 @@ The retained roadmap is not reduced, but implementation remains staged. This bra
 - Defined a candidate two-channel luminance moments contract. First and second moments share resolved-estimate reprojection, acceptance, history weight, reset, and ping-pong ownership. Rejected history initializes from the current sample. Variance is `max(M2 - M1 * M1, 0)` and is not packed into radiance alpha.
 
 No runtime path or resource was changed in this audit. The next work unit is moments format/range measurement and diagnostic exposure before adaptive policy implementation.
+
+## 2026-08-25: Moments range and precision audit
+
+Existing controlled-scene weighted-estimator reports were inspected without rerunning the renderer:
+
+| Condition | Window | Maximum luminance | Maximum squared luminance |
+| --- | ---: | ---: | ---: |
+| roughness `0.0`, metallic | 256 frames | `0.307697` | `0.094677` |
+| roughness `0.35`, metallic | 1024 frames | `7.82340` | `61.2056` |
+| roughness `1.0`, metallic | 1024 frames | `5.29550` | `28.0423` |
+
+All measured values fit within FP16 range, but range is not the deciding constraint. Computing `M2 - M1^2` is cancellation-sensitive, and the deterministic roughness `0.0` mirror control should remain near zero. Initial diagnostic history will therefore use `R32G32_FLOAT` (`.x = M1`, `.y = M2`). FP16 remains a later memory/bandwidth optimization gated by a paired precision comparison.
+
+No code or shader changed in this work unit, so no build was required. Next: add the separate ping-pong moments resource and debug exposure without connecting the weighted result to LightPass.

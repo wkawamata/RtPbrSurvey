@@ -134,7 +134,9 @@ M2_resolved = lerp(M2_current, M2_history, accepted_history_weight)
 variance = max(M2_resolved - M1_resolved * M1_resolved, 0)
 ```
 
-The moments must use the same reprojected sample, acceptance decision, reset event, history ownership, and accepted history weight as the resolved weighted estimate. On invalid, out-of-bounds, depth-rejected, or normal-rejected history, initialize both moments from the current sample; do not blend rejected moments. Variance metadata remains separate from radiance alpha. Moment format and precision remain implementation decisions until range measurements are available.
+The moments must use the same reprojected sample, acceptance decision, reset event, history ownership, and accepted history weight as the resolved weighted estimate. On invalid, out-of-bounds, depth-rejected, or normal-rejected history, initialize both moments from the current sample; do not blend rejected moments. Variance metadata remains separate from radiance alpha.
+
+The initial diagnostic moments format is `R32G32_FLOAT`, with `.x = M1` and `.y = M2`. Existing controlled-scene reports measured maximum weighted-estimator luminance `7.82340` and maximum squared luminance `61.2056`, which fit in FP16 range. Range alone is not sufficient: variance subtracts two similar values, and the roughness `0.0` mirror control requires near-zero variance. FP32 is therefore retained for the first implementation so cancellation and quantization are not mistaken for estimator variance. An FP16 optimization requires an A/B precision audit after the diagnostic path is validated.
 
 For estimator-only reference diagnostics, the default-off `-ReflectionEstimatorConstantIncidentRadiance` mode replaces `L_i` in `ReflectionSpecularEstimate` with linear-HDR white `(1, 1, 1)`. It does not modify traced payloads, `ReflectionEvaluatedRadiance`, `ReflectionResolvedRadiance`, Temporal Reflection, or LightPass. This isolates BRDF/PDF throughput from scene-dependent hit/miss radiance; it is not a production lighting mode.
 

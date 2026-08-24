@@ -55,3 +55,17 @@ variance metadataはradiance alphaと分離する。最初の候補contractはlu
 - 2-channel luminance momentsの候補contractを定義した。first/second momentはresolved estimateと同じreprojection、acceptance、history weight、reset、ping-pong ownershipに従う。rejectされたhistoryはcurrent sampleから初期化する。varianceは`max(M2 - M1 * M1, 0)`でありradiance alphaへ格納しない。
 
 この監査ではruntime pathまたはresourceを変更していない。次の作業単位はadaptive policy実装より前のmoments format/range測定とdiagnostic exposureである。
+
+## 2026-08-25: Moments range／precision監査
+
+rendererを再実行せず、既存controlled-scene weighted-estimator reportを確認した。
+
+| 条件 | Window | Maximum luminance | Maximum squared luminance |
+| --- | ---: | ---: | ---: |
+| roughness `0.0`, metallic | 256 frames | `0.307697` | `0.094677` |
+| roughness `0.35`, metallic | 1024 frames | `7.82340` | `61.2056` |
+| roughness `1.0`, metallic | 1024 frames | `5.29550` | `28.0423` |
+
+測定値はすべてFP16 range内だが、rangeは決定条件ではない。`M2 - M1^2`は桁落ちに敏感であり、deterministic roughness `0.0` mirror controlはnear zeroを維持する必要がある。したがって初期diagnostic historyは`R32G32_FLOAT`（`.x = M1`、`.y = M2`）を使う。FP16はpaired precision比較をgateとする将来のmemory/bandwidth最適化として残す。
+
+この作業単位ではcode／shaderを変更していないためbuildは不要だった。次はweighted resultをLightPassへ接続せず、独立ping-pong moments resourceとdebug exposureを追加する。
