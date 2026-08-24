@@ -8,6 +8,9 @@ Texture2D<float4> g_visibleNormal : register(t1, space3);
 Texture2D<float2> g_motionVector : register(t3, space3);
 Texture2D<float4> g_visiblePbrParams : register(t4, space3);
 Texture2D<float> g_visibleDepth : register(t6, space3);
+Texture2D<float4> g_reflectionSpecularEstimate : register(t0, space16);
+Texture2D<float4> g_reflectionResolvedSpecularEstimateHistory : register(t0, space14);
+Texture2D<float2> g_reflectionSpecularMomentsHistory : register(t0, space15);
 
 cbuffer CameraConstants : register(b0)
 {
@@ -120,12 +123,19 @@ struct TemporalReflectionOutput
     float4 radiance : SV_Target0;
     float depth : SV_Target1;
     float4 normal : SV_Target2;
+    float4 resolvedSpecularEstimate : SV_Target3;
+    float2 specularMoments : SV_Target4;
 };
 
 TemporalReflectionOutput PSMain(FullscreenVSOutput input)
 {
     const int3 pixel = int3(input.position.xy, 0);
     float4 current = g_reflectionEvaluatedRadiance.Load(pixel);
+    float4 currentSpecularEstimate = g_reflectionSpecularEstimate.Load(pixel);
+    const float currentSpecularLuminance = dot(
+        max(currentSpecularEstimate.rgb, 0.0), float3(0.2126, 0.7152, 0.0722));
+    float2 currentSpecularMoments =
+        float2(currentSpecularLuminance, currentSpecularLuminance * currentSpecularLuminance);
     const float unitNoise = float(HashTemporalNoise(uint2(pixel.xy), g_frameIndex)) / 4294967295.0;
     current.rgb *= 1.0 + (unitNoise * 2.0 - 1.0) * g_noiseStrength;
     const float currentDepth = g_visibleDepth.Load(pixel);
@@ -174,6 +184,14 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
                 {
                     const float4 history = g_reflectionResolvedRadianceHistory.Load(int3(historyPixel, 0));
                     current.rgb = lerp(current.rgb, history.rgb, g_historyWeight);
+                    const float4 specularHistory =
+                        g_reflectionResolvedSpecularEstimateHistory.Load(int3(historyPixel, 0));
+                    const float2 momentsHistory =
+                        g_reflectionSpecularMomentsHistory.Load(int3(historyPixel, 0));
+                    currentSpecularEstimate.rgb =
+                        lerp(currentSpecularEstimate.rgb, specularHistory.rgb, g_historyWeight);
+                    currentSpecularMoments =
+                        lerp(currentSpecularMoments, momentsHistory, g_historyWeight);
                     current.a = 1.0;
                 }
             }
@@ -194,5 +212,7 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
     output.radiance = current;
     output.depth = currentDepth;
     output.normal = float4(currentNormal, 1.0);
+    output.resolvedSpecularEstimate = float4(currentSpecularEstimate.rgb, 1.0);
+    output.specularMoments = currentSpecularMoments;
     return output;
 }

@@ -37,6 +37,8 @@ bool TryParseReflectionCaptureDebugView(const WCHAR* value, ReflectionCaptureDeb
         {L"hit-material", ReflectionCaptureDebugView::ReflectionRayMaterial},
         {L"evaluated-radiance", ReflectionCaptureDebugView::EvaluatedRadiance},
         {L"specular-estimate", ReflectionCaptureDebugView::SpecularEstimate},
+        {L"resolved-specular-estimate", ReflectionCaptureDebugView::ResolvedSpecularEstimate},
+        {L"specular-variance", ReflectionCaptureDebugView::SpecularVariance},
     };
 
     for (const DebugViewName& entry : kDebugViewNames)

@@ -175,6 +175,20 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         return float4(0.0, 0.8, 0.2, 1.0); // History accepted.
     }
 
+    if (debugTarget == 14)
+    {
+        float3 resolvedEstimate = g_reflectionEvaluatedRadiance.Sample(g_sampler, input.uv).rgb;
+        return float4(resolvedEstimate / (1.0 + resolvedEstimate), 1.0);
+    }
+
+    if (debugTarget == 15)
+    {
+        float2 moments = g_reflectionEvaluatedRadiance.Sample(g_sampler, input.uv).rg;
+        float variance = max(moments.y - moments.x * moments.x, 0.0);
+        float mappedVariance = variance / (1.0 + variance);
+        return float4(mappedVariance.xxx, 1.0);
+    }
+
     if (debugTarget >= 9 && debugTarget <= 12)
     {
         if (hitFlag <= 0.0)

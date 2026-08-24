@@ -37,9 +37,12 @@ enum RootParameterIndex
     ReflectionRayMaterial,
     ReflectionRayEmission,
     ReflectionEvaluatedRadiance,
+    ReflectionSpecularEstimate,
     ReflectionResolvedRadianceHistory,
     ReflectionHistoryDepth,
     ReflectionHistoryNormal,
+    ReflectionResolvedSpecularEstimateHistory,
+    ReflectionSpecularMomentsHistory,
 
     TemporalReflectionConstants,
 
@@ -67,6 +70,9 @@ static constexpr uint32_t kReflectionRayEmissionSrvSpace = 10;
 static constexpr uint32_t kReflectionResolvedRadianceHistorySrvSpace = 11;
 static constexpr uint32_t kReflectionHistoryDepthSrvSpace = 12;
 static constexpr uint32_t kReflectionHistoryNormalSrvSpace = 13;
+static constexpr uint32_t kReflectionResolvedSpecularEstimateHistorySrvSpace = 14;
+static constexpr uint32_t kReflectionSpecularMomentsHistorySrvSpace = 15;
+static constexpr uint32_t kReflectionSpecularEstimateSrvSpace = 16;
 
 // Per-frame and per-pass CBVs.
 static constexpr uint32_t kCameraCbvRegister = 0;

@@ -69,3 +69,19 @@ Existing controlled-scene weighted-estimator reports were inspected without reru
 All measured values fit within FP16 range, but range is not the deciding constraint. Computing `M2 - M1^2` is cancellation-sensitive, and the deterministic roughness `0.0` mirror control should remain near zero. Initial diagnostic history will therefore use `R32G32_FLOAT` (`.x = M1`, `.y = M2`). FP16 remains a later memory/bandwidth optimization gated by a paired precision comparison.
 
 No code or shader changed in this work unit, so no build was required. Next: add the separate ping-pong moments resource and debug exposure without connecting the weighted result to LightPass.
+
+## 2026-08-25: Resolved weighted estimate and moments diagnostics
+
+- Extended `TemporalReflectionPass` with two diagnostic MRT outputs: ping-pong `ReflectionResolvedSpecularEstimate` in `R16G16B16A16_FLOAT` and ping-pong `ReflectionSpecularMoments` in `R32G32_FLOAT`.
+- Both outputs use the existing motion-vector reprojection, bounds check, depth/normal acceptance, history reset, accepted history weight, and history role exchange. Rejected history initializes the resolved estimate and moments from the current weighted sample.
+- Added `Resolved Specular` and `Specular Variance` UI debug views plus `resolved-specular-estimate` and `specular-variance` capture selectors.
+- The variance view computes `max(M2 - M1^2, 0)` and applies `v / (1 + v)` for display only. Stored moments remain linear and unmapped.
+- LightPass remains bound to the legacy unweighted `ReflectionResolvedRadiance`; no production composition or default changed.
+
+Validation:
+
+- Debug x64 rebuilt C++ and all affected HLSL with zero errors and the existing duplicate-vcpkg-import warning.
+- A 64-frame roughness `0.35` runtime smoke completed with zero D3D12 errors and the same three known committed-buffer warnings.
+- A 120-frame warm-up `Specular Variance` capture completed with zero D3D12 errors. Visual inspection reproduced the expected ordering: rough spheres show strong variance while the mirror end is nearly black.
+
+Generated JSON, PNG, and log outputs remain untracked. This establishes diagnostic observability, not an adaptive filter result.

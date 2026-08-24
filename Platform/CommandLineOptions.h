@@ -19,6 +19,8 @@ enum class ReflectionCaptureDebugView
     ReflectionRayMaterial,
     EvaluatedRadiance,
     SpecularEstimate,
+    ResolvedSpecularEstimate,
+    SpecularVariance,
 };
 
 struct ReflectionCaptureCameraKeyframe

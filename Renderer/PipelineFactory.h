@@ -53,7 +53,8 @@ struct FullscreenPipelineDefinition
     const char* name = nullptr;
     GraphicsPipelineShaderSet shaders;
     DXGI_FORMAT renderTargetFormat = DXGI_FORMAT_UNKNOWN;
-    DXGI_FORMAT additionalRenderTargetFormats[2] = {DXGI_FORMAT_UNKNOWN, DXGI_FORMAT_UNKNOWN};
+    DXGI_FORMAT additionalRenderTargetFormats[4] = {
+        DXGI_FORMAT_UNKNOWN, DXGI_FORMAT_UNKNOWN, DXGI_FORMAT_UNKNOWN, DXGI_FORMAT_UNKNOWN};
     UINT additionalRenderTargetCount = 0;
 };
 
