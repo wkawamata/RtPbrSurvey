@@ -159,5 +159,7 @@ private:
     bool m_reflectionCapturePlanFailed = false;
     bool m_reflectionHdrDiagnosticInFlight = false;
     bool m_reflectionHdrDiagnosticsComplete = false;
+    bool m_reflectionConfidenceStableEvidenceApplied = false;
+    bool m_reflectionHistoryDiagnosticResetApplied = false;
     std::vector<Engine::ReflectionHdrDiagnosticFrame> m_reflectionHdrDiagnosticFrames;
 };

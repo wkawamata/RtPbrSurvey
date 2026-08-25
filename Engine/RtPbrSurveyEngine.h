@@ -233,6 +233,8 @@ public:
         bool rejectedPixelNeighborhoodEnabled = false;
         bool surfaceVarianceFilterEnabled = false;
         bool varianceGuidedTemporalEnabled = false;
+        // Diagnostic-only evidence override. Changing it must preserve history for decay measurement.
+        bool confidenceForceStableEvidence = false;
     };
 
     struct SpecularDebugLineSettings
@@ -294,6 +296,7 @@ public:
     const Engine::TemporalUpscalerSettings& GetTemporalUpscalerSettings() const { return m_temporalUpscalerSettings; }
     void SetHybridReflectionSettings(const HybridReflectionSettings& settings);
     const HybridReflectionSettings& GetHybridReflectionSettings() const { return m_hybridReflectionSettings; }
+    void ResetHybridReflectionHistoryForDiagnostics();
     void SetMaterialParams(UINT materialIndex, const MaterialParams& params);
     void SetRenderingPath(RenderingPath renderingPath);
     RenderingPath GetRenderingPath() const { return m_renderingPath; }

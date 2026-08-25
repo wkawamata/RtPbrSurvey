@@ -33,6 +33,7 @@ cbuffer TemporalReflectionConstants : register(b5)
     uint g_rejectedPixelNeighborhoodEnabled;
     uint g_surfaceVarianceFilterEnabled;
     uint g_varianceGuidedTemporalEnabled;
+    uint g_confidenceForceStableEvidence;
 };
 
 uint HashTemporalNoise(uint2 pixel, uint frameIndex)
@@ -201,7 +202,9 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
                             max(momentsHistory.y - momentsHistory.x * momentsHistory.x, 0.0);
                         const float relativeVariance =
                             saturate(historyVariance / max(momentsHistory.y, 1e-6));
-                        const float varianceIndicator = relativeVariance >= 0.5 ? 1.0 : 0.0;
+                        const float varianceIndicator =
+                            g_confidenceForceStableEvidence != 0 ? 0.0 :
+                            (relativeVariance >= 0.5 ? 1.0 : 0.0);
                         currentSpecularConfidence = lerp(varianceIndicator, confidenceHistory, 0.9);
                         const float confidenceWeight = smoothstep(0.5, 0.9, currentSpecularConfidence);
                         weightedHistoryWeight =

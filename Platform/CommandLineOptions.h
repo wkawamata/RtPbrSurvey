@@ -77,6 +77,8 @@ struct CommandLineOptions
     UINT reflectionHdrDiagnosticsRoiY = 278;
     UINT reflectionHdrDiagnosticsRoiWidth = 75;
     UINT reflectionHdrDiagnosticsRoiHeight = 85;
+    UINT reflectionConfidenceForceStableAfterMeasurementFrames = 0;
+    UINT reflectionHistoryResetAfterMeasurementFrames = 0;
 };
 
 CommandLineOptions ParseCommandLineOptions(_In_reads_(argc) WCHAR* argv[], int argc);

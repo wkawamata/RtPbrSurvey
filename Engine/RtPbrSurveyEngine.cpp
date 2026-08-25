@@ -462,6 +462,11 @@ void RtPbrSurveyEngine::SetHybridReflectionSettings(const HybridReflectionSettin
     }
 }
 
+void RtPbrSurveyEngine::ResetHybridReflectionHistoryForDiagnostics()
+{
+    InvalidateReflectionHistory();
+}
+
 void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialParams& params)
 {
     if (materialIndex >= m_materialData.size())
@@ -3338,6 +3343,7 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
                 UINT rejectedPixelNeighborhoodEnabled;
                 UINT surfaceVarianceFilterEnabled;
                 UINT varianceGuidedTemporalEnabled;
+                UINT confidenceForceStableEvidence;
             };
             const TemporalReflectionConstants constants = {
                 m_reflectionHistoryState.valid ? 1u : 0u,
@@ -3346,8 +3352,9 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
                 std::clamp(m_hybridReflectionSettings.temporalNoiseStrength, 0.0f, 1.0f),
                 m_hybridReflectionSettings.rejectedPixelNeighborhoodEnabled ? 1u : 0u,
                 m_hybridReflectionSettings.surfaceVarianceFilterEnabled ? 1u : 0u,
-                m_hybridReflectionSettings.varianceGuidedTemporalEnabled ? 1u : 0u};
-            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 7, &constants, 0);
+                m_hybridReflectionSettings.varianceGuidedTemporalEnabled ? 1u : 0u,
+                m_hybridReflectionSettings.confidenceForceStableEvidence ? 1u : 0u};
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 8, &constants, 0);
         });
     m_renderGraphRuntime.Constants().Register(
         m_renderGraphRuntime.RegisterConstants(ConstName::ReflectionSampling),

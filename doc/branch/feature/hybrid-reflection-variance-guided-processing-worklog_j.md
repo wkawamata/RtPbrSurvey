@@ -239,3 +239,15 @@ fixed-weight／confidence-guided runは、同一sampling-frame sequence、32-fra
 診断applicationはcomplete reportを書いた後も自動終了しない。runnerはreport完成を待ち、自身が起動したprocessだけを停止するよう運用した。このautomation挙動はrendering結果と分離して記録する。
 
 次はexplicit confidence decay／reset transition gateを実行し、このpolicyをLit主観比較へ進められるか判断する。
+
+## 2026-08-26: Confidence decay／reset transition gate
+
+diagnostic-only measurement transitionを追加した。`-ReflectionConfidenceForceStableAfterMeasurementFrames N`は`N` capture frames後にconfidence variance indicatorをzeroへ固定し、radiance、sampling、history validity、acceptance pathは変更しない。`-ReflectionHistoryResetAfterMeasurementFrames N`は`N` capture frames後にreflection historyを明示invalidateする。schema version 10は両transition contractを記録する。どちらも通常描画のdefaultへ影響しない。
+
+decay gateはcontrolled roughness `1.0` metallic ROI、32 warm-up frames、96 measurement framesを使用した。stable evidenceはmeasurement frame 31の後に開始した。confidenceはframe 31の`0.993395`からframe 32の`0.893947`、frame 38の`0.473901`へ低下した。effective weightはtransitionから6 frames後のframe 38で正確にbase `0.9`へ戻り、temporal acceptanceは`1.0`を維持した。frame 95のconfidenceは`0.001147`である。これによりaccepted-history decayをreset／rejectionから分離して確認した。
+
+reset gateは同じcontrolled ROIを使用し、16 measurement frames後にresetした。confidenceはframe 15の`0.978657`からframe 16の`0`へ変化し、effective weightは`0.939883`から`0.9`へ戻り、reset frameのacceptanceはzeroになった。次frameはzero confidenceのaccepted historyを再開し、その後frame 47でconfidence `0.904974`まで再構築した。これによりreset ownershipを自然decayと独立に検証した。
+
+Debug x64と影響HLSLはerror 0件、既存vcpkg重複import warningのみでbuildできた。両runtime gateはD3D12 error 0件、既知committed-buffer warning 3件で完了した。診断executableはreport完成後、runnerが自身の起動processを停止する必要が引き続きあった。
+
+persistent-confidence lifecycle gateは完了した。次はbounded Lit主観比較を準備し、静止noise、motion response、測定済みweighted-estimator改善がfinal compositionで知覚できるかを確認する。

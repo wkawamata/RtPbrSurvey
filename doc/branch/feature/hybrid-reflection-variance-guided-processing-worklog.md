@@ -239,3 +239,15 @@ All eight processes completed with zero D3D12 errors and the existing two commit
 The diagnostic application writes its complete report but does not automatically exit afterward; the runner now waits for the report and stops only the process it launched. This automation behavior is recorded separately from the rendering result.
 
 Next: run an explicit confidence decay/reset transition gate before deciding whether this policy is ready for Lit subjective comparison.
+
+## 2026-08-26: Confidence decay and reset transition gates
+
+Added diagnostic-only measurement transitions. `-ReflectionConfidenceForceStableAfterMeasurementFrames N` forces the confidence variance indicator to zero after `N` captured frames without changing radiance, sampling, history validity, or the acceptance path. `-ReflectionHistoryResetAfterMeasurementFrames N` explicitly invalidates reflection history after `N` captured frames. Schema version 10 records both transition contracts. Neither option affects normal rendering defaults.
+
+The decay gate used the controlled roughness `1.0` metallic ROI, 32 warm-up frames, and 96 measured frames. Stable evidence began after measured frame 31. Confidence fell from `0.993395` at frame 31 to `0.893947` at frame 32 and `0.473901` at frame 38. Effective weight returned to the exact base `0.9` at frame 38, six frames after the transition, while temporal acceptance remained `1.0`. Confidence reached `0.001147` by frame 95. This isolates accepted-history decay from reset or rejection.
+
+The reset gate used the same controlled ROI and reset after 16 measured frames. Confidence changed from `0.978657` at frame 15 to `0` at frame 16; effective weight returned from `0.939883` to `0.9`, and acceptance was zero for the reset frame. The next frame resumed accepted history at zero confidence, followed by reconstruction to confidence `0.904974` at frame 47. This validates reset ownership independently of natural decay.
+
+Debug x64 and affected HLSL built with zero errors and the existing duplicate-vcpkg-import warning. Both runtime gates completed with zero D3D12 errors and the existing three committed-buffer warnings. The diagnostic executable still required the runner to stop its launched process after report completion.
+
+The persistent-confidence lifecycle gate is complete. Next: prepare a bounded Lit subjective comparison that checks static noise, motion response, and whether the measured weighted-estimator improvement is perceptible in final composition.

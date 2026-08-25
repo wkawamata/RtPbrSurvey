@@ -355,6 +355,29 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 }
             }
         }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionConfidenceForceStableAfterMeasurementFrames"))
+        {
+            if (i + 1 < argc)
+            {
+                const int frames = _wtoi(argv[++i]);
+                if (frames > 0)
+                {
+                    options.reflectionConfidenceForceStableAfterMeasurementFrames =
+                        static_cast<UINT>(frames);
+                }
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionHistoryResetAfterMeasurementFrames"))
+        {
+            if (i + 1 < argc)
+            {
+                const int frames = _wtoi(argv[++i]);
+                if (frames > 0)
+                {
+                    options.reflectionHistoryResetAfterMeasurementFrames = static_cast<UINT>(frames);
+                }
+            }
+        }
     }
 
     if (!options.reflectionHdrDiagnosticsPath.empty() &&

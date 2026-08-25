@@ -610,6 +610,26 @@ void RtPbrSurveyApp::UpdateReflectionHdrDiagnostics()
         m_reflectionHdrDiagnosticInFlight = false;
     }
 
+    const UINT stableEvidenceFrame =
+        m_commandLineOptions.reflectionConfidenceForceStableAfterMeasurementFrames;
+    if (!m_reflectionConfidenceStableEvidenceApplied && stableEvidenceFrame > 0 &&
+        m_reflectionHdrDiagnosticFrames.size() >= stableEvidenceFrame)
+    {
+        RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
+            m_sceneRenderer.GetHybridReflectionSettings();
+        reflectionSettings.confidenceForceStableEvidence = true;
+        m_sceneRenderer.SetHybridReflectionSettings(reflectionSettings);
+        m_reflectionConfidenceStableEvidenceApplied = true;
+    }
+
+    const UINT resetFrame = m_commandLineOptions.reflectionHistoryResetAfterMeasurementFrames;
+    if (!m_reflectionHistoryDiagnosticResetApplied && resetFrame > 0 &&
+        m_reflectionHdrDiagnosticFrames.size() >= resetFrame)
+    {
+        m_sceneRenderer.ResetHybridReflectionHistoryForDiagnostics();
+        m_reflectionHistoryDiagnosticResetApplied = true;
+    }
+
     if (m_reflectionHdrDiagnosticFrames.size() >= m_commandLineOptions.reflectionHdrDiagnosticsFrames)
     {
         WriteReflectionHdrDiagnosticsReport();
@@ -831,7 +851,7 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     const Engine::ReflectionHdrDiagnosticBaselineComparison baselineComparison =
         Engine::CompareReflectionHdrDiagnosticsToCurrentEstimatorMeanBaseline(m_reflectionHdrDiagnosticFrames);
     const json report = {
-        {"schemaVersion", 9},
+        {"schemaVersion", 10},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
         {"specularEstimateIncidentRadiance",
@@ -840,6 +860,15 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         {"temporalHistoryWeight", reflectionSettings.temporalHistoryWeight},
         {"varianceGuidedTemporalPolicy",
          "persistent-confidence-relative-variance-0.5-confidence-history-0.9-weight-0.94"},
+        {"confidenceEvidenceTransition",
+         {{"enabled", m_commandLineOptions.reflectionConfidenceForceStableAfterMeasurementFrames > 0},
+          {"forceStableAfterMeasurementFrames",
+           m_commandLineOptions.reflectionConfidenceForceStableAfterMeasurementFrames},
+          {"historyInvalidated", false}}},
+        {"historyResetTransition",
+         {{"enabled", m_commandLineOptions.reflectionHistoryResetAfterMeasurementFrames > 0},
+          {"resetAfterMeasurementFrames",
+           m_commandLineOptions.reflectionHistoryResetAfterMeasurementFrames}}},
         {"policyWeightDiagnostic",
          {{"scope", "applied-current-frame"},
           {"motionReprojectionApplied", true},
