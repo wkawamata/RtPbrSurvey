@@ -175,3 +175,13 @@ paired測定は同じbase weight `0.9`、32-frame warm-up、固定48x48 ROI、�
 controlled high-roughness policyは、texture付きROIの大部分が明示的roughness `0.75` gate未満であるため、既知production-asset noise regionへgeneralizeしない。このformulaでは64-frame development gateですでにtarget領域で実質inactiveと判明したため、256-frame標準runは実施しない。experimentはdefault-offのためproduction regressionではない。
 
 roughness thresholdを単純に下げて対応しない。threshold-only v2はroughness `0.35`で少数pixelの切替がvarianceを増加させることを既に示した。次のcontract stepは、policy activationを時間方向に安定化するpersistent confidence／history signalである。これは以前から予約していたconfidence extensionであり、controlled sceneとDamagedHelmetの測定結果により導入根拠が成立した。
+
+## 2026-08-26: Persistent confidence contract
+
+- 独立ping-pong `ReflectionSpecularConfidence` resourceを`R16_FLOAT`で採用する。confidenceはscalar metadataのままとし、radiance alphaまたは2-channel moments resourceへ格納しない。
+- confidenceはweighted estimatorのreprojection、depth／normal acceptance、reset、ownership、post-submit role exchangeを共有する。rejectまたはresetされたhistoryではconfidenceをzeroへ初期化する。
+- accepted historyではprior relative varianceをthreshold `0.5`でbinary indicatorへ変換し、固定`0.9` confidence-history weightを適用する。activationには継続的なevidenceが必要となり、evidence消失時も対称的に減衰する。
+- 更新後confidenceを`smoothstep(0.5, 0.9, confidence)`へ通し、設定base history weightと`max(base, 0.94)`の間を選択する。resolved weighted estimateとmomentsは同じeffective weightを共有する。legacy未加重resolved radianceは設定base weightを維持する。
+- candidateからroughness `0.75` gateを撤去する。persistent confidenceの目的は、v2で測定した瞬間的な少数pixel切替を防ぎながら、低roughness production-asset noiseを対象に含めることである。
+
+この作業単位ではsemanticsだけを固定する。次はresource、MRT output、debug／report observabilityを実装し、paired qualityを主張する前にconfidence rise／decayを検証する。

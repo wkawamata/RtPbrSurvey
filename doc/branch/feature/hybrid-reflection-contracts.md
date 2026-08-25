@@ -146,6 +146,29 @@ Controlled-scene generalization also covered roughness `1.0` dielectric and roug
 
 The same v3 formula did not pass the DamagedHelmet development gate. The established rearward and underside-pipe ROIs have center roughness near `0.133` and `0.216`; the high-roughness gate therefore selected only a small fraction of their texels and changed temporal variance by less than one percent. Lowering the roughness threshold without additional state is not justified because the earlier threshold-only experiment produced unstable sparse switching at roughness `0.35`. A persistent confidence/history signal is the next contract candidate for stabilizing activation; its format, update rule, and rejection/reset ownership must be fixed before implementation.
 
+### Persistent confidence candidate
+
+`ReflectionSpecularConfidence` is a separate `R16_FLOAT` ping-pong history. It is scalar metadata in `[0, 1]`, not radiance and not radiance alpha. It follows the same motion reprojection, depth/normal acceptance, reset event, read/write role, and post-submit exchange as `ReflectionResolvedSpecularEstimate` and `ReflectionSpecularMoments`.
+
+For accepted history, compute prior relative variance from the reprojected moments:
+
+```text
+relative_variance = saturate(max(M2 - M1^2, 0) / max(M2, 1e-6))
+indicator = relative_variance >= 0.5 ? 1 : 0
+confidence = lerp(indicator, previous_confidence, 0.9)
+```
+
+On first use, reset, out-of-bounds reprojection, depth rejection, or normal rejection, confidence initializes to `0`. A single high-variance frame therefore raises confidence only to approximately `0.1` and does not immediately change history weighting. Persistent evidence raises confidence; stable evidence decays it.
+
+The candidate effective weighted-estimator history weight is:
+
+```text
+high_weight = max(base_weight, 0.94)
+effective_weight = lerp(base_weight, high_weight, smoothstep(0.5, 0.9, confidence))
+```
+
+The updated confidence selects the effective weight used by both the resolved weighted estimate and moments. Legacy unweighted resolved radiance continues to use the configured base weight. The roughness `0.75` exclusion is removed from this candidate; confidence persistence, rather than material roughness, must suppress transient activation. The constants are bounded experimental values and require controlled plus DamagedHelmet paired validation before promotion.
+
 The implemented initial diagnostic moments format is `R32G32_FLOAT`, with `.x = M1` and `.y = M2`. Existing controlled-scene reports measured maximum weighted-estimator luminance `7.82340` and maximum squared luminance `61.2056`, which fit in FP16 range. Range alone is not sufficient: variance subtracts two similar values, and the roughness `0.0` mirror control requires near-zero variance. FP32 is therefore retained for the first implementation so cancellation and quantization are not mistaken for estimator variance. An FP16 optimization requires an A/B precision audit after the diagnostic path is validated.
 
 For estimator-only reference diagnostics, the default-off `-ReflectionEstimatorConstantIncidentRadiance` mode replaces `L_i` in `ReflectionSpecularEstimate` with linear-HDR white `(1, 1, 1)`. It does not modify traced payloads, `ReflectionEvaluatedRadiance`, `ReflectionResolvedRadiance`, Temporal Reflection, or LightPass. This isolates BRDF/PDF throughput from scene-dependent hit/miss radiance; it is not a production lighting mode.

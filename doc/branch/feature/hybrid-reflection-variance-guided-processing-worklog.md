@@ -175,3 +175,13 @@ The fixed/bounded v3 comparison ran for 64 frames after a 32-frame warm-up in th
 The controlled high-roughness policy does not generalize to the known production-asset noise regions because most of these textured ROIs are below the explicit roughness `0.75` gate. The 256-frame standard run is not performed for this formula: the development gate already shows that the policy is effectively inactive in the target regions. This is not a production regression because the experiment remains default-off.
 
 Do not respond by merely lowering the roughness threshold. The threshold-only v2 already showed that sparse per-pixel switching can increase variance at roughness `0.35`. The next contract step is a persistent confidence/history signal that can stabilize policy activation over time. This is the previously reserved confidence extension, now justified by measured controlled-scene and DamagedHelmet evidence.
+
+## 2026-08-26: Persistent confidence contract
+
+- Selected a separate ping-pong `ReflectionSpecularConfidence` resource in `R16_FLOAT`. Confidence remains scalar metadata and is not packed into radiance alpha or the two-channel moments resource.
+- Confidence shares weighted-estimator reprojection, depth/normal acceptance, reset, ownership, and post-submit role exchange. Rejected or reset history initializes confidence to zero.
+- Accepted history converts prior relative variance into a binary indicator at `0.5`, then applies a fixed `0.9` confidence-history weight. This requires persistent evidence before activation and provides symmetric decay when evidence disappears.
+- Updated confidence maps through `smoothstep(0.5, 0.9, confidence)` between the configured base history weight and `max(base, 0.94)`. The resolved weighted estimate and moments share that effective weight. Legacy unweighted resolved radiance keeps the configured base weight.
+- The roughness `0.75` gate is removed from this candidate. The purpose of persistent confidence is to admit lower-roughness production-asset noise while preventing the sparse instantaneous switching measured in v2.
+
+This work unit fixes semantics only. Next: implement the resource, MRT output, debug/report observability, then validate confidence rise/decay before paired quality claims.
