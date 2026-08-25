@@ -143,3 +143,22 @@ Paired v3 results with base weight `0.9`, 32 warm-up frames, fixed 48x48 metalli
 Debug x64 and affected HLSL completed with zero errors and the existing duplicate-vcpkg-import warning. All v3 runtime runs completed with zero D3D12 errors and the existing three committed-buffer warnings per process.
 
 Scoped claim: in the evaluated controlled high-roughness metallic ROI, the default-off v3 policy reduced linear-HDR temporal variance and frame-difference p99 while keeping the 256-frame mean change below 1%. It does not establish behavior for intermediate roughness above the gate, dielectric surfaces, textured production assets, motion, or Lit composition. Those conditions form the next generalization and composition gates.
+
+## 2026-08-25: Controlled material generalization gate
+
+The Estimator Test scene contains roughness values `0.0`, `0.05`, `0.15`, `0.35`, `0.6`, and `1.0` in metallic and dielectric rows. Because there is no exact `0.75` sphere, the gate used roughness `0.6` as the below-threshold control and roughness `1.0` dielectric as the cross-material active condition.
+
+Paired measurements used the same base weight `0.9`, 32-frame warm-up, fixed 48x48 ROIs, and identical current samples:
+
+| Condition | Window | Mean change | Temporal variance change | Frame-difference p99 change | Policy-weight mean | Result |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| roughness `1.0`, dielectric | 64 | `-0.135%` | `-49.56%` | `-39.94%` | `0.93994` | Pass |
+| roughness `0.6`, metallic | 64 | `0%` | `0%` | `0%` | `0.9` | Pass, below-gate control |
+| roughness `0.6`, dielectric | 64 | `0%` | `0%` | `0%` | `0.9` | Pass, below-gate control |
+| roughness `1.0`, dielectric | 256 | `-0.181%` | `-43.75%` | `-39.98%` | `0.93998` | Pass |
+| roughness `0.6`, metallic | 256 | `0%` | `0%` | `0%` | `0.9` | Pass, below-gate control |
+| roughness `0.6`, dielectric | 256 | `0%` | `0%` | `0%` | `0.9` | Pass, below-gate control |
+
+All processes completed with zero D3D12 errors and the existing three committed-buffer warnings each. This expands the scoped claim across metallic and dielectric high-roughness controls and confirms the explicit below-threshold behavior. It does not yet establish performance on textured production assets or motion.
+
+Next: run the same fixed/bounded comparison on the two known DamagedHelmet material-region ROIs, then use scoped subjective captures before any Lit composition change.

@@ -143,3 +143,22 @@ base weight `0.9`、32 warm-up frames、固定48x48 metallic ROI、同一current
 Debug x64と影響HLSLはerror 0件、既存vcpkg重複import warningのみで完了した。v3 runtime runはすべてD3D12 error 0件、processごとに既知committed-buffer warning 3件で完了した。
 
 限定主張: 評価したcontrolled high-roughness metallic ROIにおいて、default-off v3 policyはlinear-HDR temporal varianceとframe-difference p99を低減し、256-frame mean変化を1%未満に維持した。gate以上の中間roughness、dielectric surface、texture付きproduction asset、motion、Lit compositionの挙動は確立していない。これらを次のgeneralization／composition gateとする。
+
+## 2026-08-25: Controlled material generalization gate
+
+Estimator Test sceneはroughness `0.0`、`0.05`、`0.15`、`0.35`、`0.6`、`1.0`をmetallic／dielectric rowに持つ。正確な`0.75` sphereはないため、roughness `0.6`をthreshold直下control、roughness `1.0` dielectricをmaterial横断のactive条件として使用した。
+
+paired測定は同じbase weight `0.9`、32-frame warm-up、固定48x48 ROI、同一current sampleを使用した。
+
+| 条件 | Window | Mean変化 | Temporal variance変化 | Frame-difference p99変化 | Policy-weight mean | 判定 |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| roughness `1.0`, dielectric | 64 | `-0.135%` | `-49.56%` | `-39.94%` | `0.93994` | Pass |
+| roughness `0.6`, metallic | 64 | `0%` | `0%` | `0%` | `0.9` | Pass、below-gate control |
+| roughness `0.6`, dielectric | 64 | `0%` | `0%` | `0%` | `0.9` | Pass、below-gate control |
+| roughness `1.0`, dielectric | 256 | `-0.181%` | `-43.75%` | `-39.98%` | `0.93998` | Pass |
+| roughness `0.6`, metallic | 256 | `0%` | `0%` | `0%` | `0.9` | Pass、below-gate control |
+| roughness `0.6`, dielectric | 256 | `0%` | `0%` | `0%` | `0.9` | Pass、below-gate control |
+
+全processはD3D12 error 0件、各processで既知committed-buffer warning 3件により完了した。限定主張をmetallic／dielectric high-roughness controlへ拡張し、明示的なbelow-threshold挙動を確認した。texture付きproduction assetまたはmotion上の性能はまだ確立していない。
+
+次は既知のDamagedHelmet material-region ROI 2箇所で同じfixed／bounded比較を行い、Lit composition変更前に限定主観captureを実施する。
