@@ -120,3 +120,26 @@ paired A/Bはstochastic sampling、base weight `0.9`、32 warm-up frames、固�
 初期formulaは昇格しない。stronger historyがrough surfaceのframe differenceを低減できる一方、variance magnitudeだけではeffective history weightを選べず、convergence stateとweight stabilityも必要であることを示した。実装は限定diagnostic experimentとしてdefault-offのまま保持する。すべてのpaired runでcurrent sampleは一致し、D3D12 error 0件、processごとに既知committed-buffer warning 3件だった。
 
 次はeffective weighted history weightを表示または記録し、weighted historyをLightPassへ接続する前に限定confidence／clamping ruleを評価する。これはpolicy refinement gateであり、Hybrid Reflection roadmapの縮小ではない。
+
+## 2026-08-25: Effective-weight診断／bounded confidence policy
+
+- schema version 8のpolicy-weight診断を追加した。HDR captureはvisible PBR paramsもreadbackし、frameごとおよびaggregate reportへpolicy-selected weightのmean、standard deviation、minimum、p95、p99、maximumを記録する。
+- report値は保存momentsとvisible roughnessから、次のaccepted same-pixel history weightを予測する。motion reprojectionは再現しないため、解釈は固定camera ROI workflowへ限定する。
+- weight診断により不採用continuous formulaの原因を説明できた。roughness `1.0`はmean `0.9665`、p99 `0.9786`だった。roughness `0.35`はmean `0.9139`に留まる一方、p99 `0.9719`の局所outlierを含んだ。mirror roughness `0.0`はbase `0.9`を維持した。
+- thresholdだけのv2（`relative variance >= 0.5`で`0.94`を選択）はroughness `1.0`の効果を維持したが、roughness `0.35`の少数pixel切替により64-frame temporal varianceが`28.51%`増加した。
+- bounded v3はvisible roughness `>= 0.75`を追加する。2つのconfidence条件を両方満たす場合だけ`max(base_weight, 0.94)`を選び、それ以外はbase weightを維持する。
+
+base weight `0.9`、32 warm-up frames、固定48x48 metallic ROI、同一current sample sequenceによるpaired v3結果:
+
+| Roughness | Window | Mean変化 | Temporal variance変化 | Frame-difference p99変化 | Policy-weight mean | 判定 |
+| ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `1.0` | 64 | `-0.044%` | `-49.46%` | `-39.91%` | `0.93996` | Pass |
+| `0.35` | 64 | `0%` | `0%` | `0%` | `0.9` | Pass、unchanged control |
+| `0.0` | 64 | `0%` | `0%` | `0%` | `0.9` | Pass、mirror control |
+| `1.0` | 256 | `-0.323%` | `-43.90%` | `-39.88%` | `0.93997` | Pass |
+| `0.35` | 256 | `0%` | `0%` | `0%` | `0.9` | Pass、unchanged control |
+| `0.0` | 256 | `0%` | `0%` | `0%` | `0.9` | Pass、mirror control |
+
+Debug x64と影響HLSLはerror 0件、既存vcpkg重複import warningのみで完了した。v3 runtime runはすべてD3D12 error 0件、processごとに既知committed-buffer warning 3件で完了した。
+
+限定主張: 評価したcontrolled high-roughness metallic ROIにおいて、default-off v3 policyはlinear-HDR temporal varianceとframe-difference p99を低減し、256-frame mean変化を1%未満に維持した。gate以上の中間roughness、dielectric surface、texture付きproduction asset、motion、Lit compositionの挙動は確立していない。これらを次のgeneralization／composition gateとする。

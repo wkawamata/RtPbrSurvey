@@ -120,3 +120,26 @@ Paired A/B used stochastic sampling, base weight `0.9`, 32 warm-up frames, fixed
 The initial formula is not promoted. It demonstrates that stronger history can reduce rough-surface frame differences, but variance magnitude alone is insufficient to select an effective history weight: convergence state and weight stability also matter. The implementation remains default-off as a bounded diagnostic experiment. All paired runs had identical current samples, zero D3D12 errors, and the existing three committed-buffer warnings per process.
 
 Next: expose or record the effective weighted history weight, then evaluate a bounded confidence/clamping rule before connecting weighted history to LightPass. This is a policy refinement gate, not a reduction of the Hybrid Reflection roadmap.
+
+## 2026-08-25: Effective-weight diagnostics and bounded confidence policy
+
+- Added schema version 8 policy-weight diagnostics. The HDR capture now also reads visible PBR parameters, and each frame plus the aggregate report records mean, standard deviation, minimum, p95, p99, and maximum policy-selected weight.
+- The reported value predicts the next accepted same-pixel history weight from stored moments and visible roughness. It intentionally does not reproduce motion reprojection, so its interpretation is limited to the fixed-camera ROI workflow.
+- Weight diagnostics explained the rejected continuous formula: roughness `1.0` averaged `0.9665` with p99 `0.9786`, while roughness `0.35` averaged only `0.9139` but contained sparse p99 `0.9719` outliers. Mirror roughness `0.0` stayed at the `0.9` base.
+- A threshold-only v2 (`relative variance >= 0.5` selects `0.94`) preserved the roughness `1.0` benefit but sparse roughness `0.35` switching still increased 64-frame temporal variance by `28.51%`.
+- The bounded v3 policy adds visible roughness `>= 0.75`. Only when both confidence conditions pass does it select `max(base_weight, 0.94)`; otherwise it keeps the base weight.
+
+Paired v3 results with base weight `0.9`, 32 warm-up frames, fixed 48x48 metallic ROIs, and identical current sample sequences:
+
+| Roughness | Window | Mean change | Temporal variance change | Frame-difference p99 change | Policy-weight mean | Result |
+| ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `1.0` | 64 | `-0.044%` | `-49.46%` | `-39.91%` | `0.93996` | Pass |
+| `0.35` | 64 | `0%` | `0%` | `0%` | `0.9` | Pass, unchanged control |
+| `0.0` | 64 | `0%` | `0%` | `0%` | `0.9` | Pass, mirror control |
+| `1.0` | 256 | `-0.323%` | `-43.90%` | `-39.88%` | `0.93997` | Pass |
+| `0.35` | 256 | `0%` | `0%` | `0%` | `0.9` | Pass, unchanged control |
+| `0.0` | 256 | `0%` | `0%` | `0%` | `0.9` | Pass, mirror control |
+
+Debug x64 and affected HLSL completed with zero errors and the existing duplicate-vcpkg-import warning. All v3 runtime runs completed with zero D3D12 errors and the existing three committed-buffer warnings per process.
+
+Scoped claim: in the evaluated controlled high-roughness metallic ROI, the default-off v3 policy reduced linear-HDR temporal variance and frame-difference p99 while keeping the 256-frame mean change below 1%. It does not establish behavior for intermediate roughness above the gate, dielectric surfaces, textured production assets, motion, or Lit composition. Those conditions form the next generalization and composition gates.

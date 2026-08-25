@@ -196,7 +196,11 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
                             max(momentsHistory.y - momentsHistory.x * momentsHistory.x, 0.0);
                         const float relativeVariance =
                             saturate(historyVariance / max(momentsHistory.y, 1e-6));
-                        weightedHistoryWeight = lerp(g_historyWeight, 0.98, relativeVariance);
+                        const float visibleRoughness = g_visiblePbrParams.Load(pixel).g;
+                        if (visibleRoughness >= 0.75 && relativeVariance >= 0.5)
+                        {
+                            weightedHistoryWeight = max(g_historyWeight, 0.94);
+                        }
                     }
                     currentSpecularEstimate.rgb =
                         lerp(currentSpecularEstimate.rgb, specularHistory.rgb, weightedHistoryWeight);

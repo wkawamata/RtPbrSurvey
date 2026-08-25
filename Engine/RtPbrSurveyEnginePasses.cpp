@@ -517,6 +517,7 @@ auto RtPbrSurveyEngine::MakeReflectionHdrDiagnosticPass() -> RenderPass
                 {kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
                 {kReflectionResolvedSpecularEstimateResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
                 {kReflectionSpecularMomentsResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_COPY_SOURCE},
                 {kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
         .Operation(Op::ReflectionHdrDiagnostic, &RtPbrSurveyEngine::ExecuteReflectionHdrDiagnosticPass)
         .Build();
