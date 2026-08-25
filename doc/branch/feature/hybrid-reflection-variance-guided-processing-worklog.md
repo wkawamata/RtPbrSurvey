@@ -162,3 +162,16 @@ Paired measurements used the same base weight `0.9`, 32-frame warm-up, fixed 48x
 All processes completed with zero D3D12 errors and the existing three committed-buffer warnings each. This expands the scoped claim across metallic and dielectric high-roughness controls and confirms the explicit below-threshold behavior. It does not yet establish performance on textured production assets or motion.
 
 Next: run the same fixed/bounded comparison on the two known DamagedHelmet material-region ROIs, then use scoped subjective captures before any Lit composition change.
+
+## 2026-08-25: DamagedHelmet development gate
+
+The fixed/bounded v3 comparison ran for 64 frames after a 32-frame warm-up in the two established DamagedHelmet ROIs. Current sample sequences matched.
+
+| ROI | Center roughness / metallic | Mean change | Temporal variance change | Frame-difference p99 change | Policy-weight mean | Result |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `rearward_surface` | `0.133 / 0.953` | `-0.012%` | `-0.12%` | `-0.02%` | `0.90258` | Fail: negligible practical effect |
+| `underside_pipes` | `0.216 / 0.992` | `-0.037%` | `-0.33%` | `-0.55%` | `0.90339` | Fail: negligible practical effect |
+
+The controlled high-roughness policy does not generalize to the known production-asset noise regions because most of these textured ROIs are below the explicit roughness `0.75` gate. The 256-frame standard run is not performed for this formula: the development gate already shows that the policy is effectively inactive in the target regions. This is not a production regression because the experiment remains default-off.
+
+Do not respond by merely lowering the roughness threshold. The threshold-only v2 already showed that sparse per-pixel switching can increase variance at roughness `0.35`. The next contract step is a persistent confidence/history signal that can stabilize policy activation over time. This is the previously reserved confidence extension, now justified by measured controlled-scene and DamagedHelmet evidence.

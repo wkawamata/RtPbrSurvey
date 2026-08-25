@@ -162,3 +162,16 @@ paired測定は同じbase weight `0.9`、32-frame warm-up、固定48x48 ROI、�
 全processはD3D12 error 0件、各processで既知committed-buffer warning 3件により完了した。限定主張をmetallic／dielectric high-roughness controlへ拡張し、明示的なbelow-threshold挙動を確認した。texture付きproduction assetまたはmotion上の性能はまだ確立していない。
 
 次は既知のDamagedHelmet material-region ROI 2箇所で同じfixed／bounded比較を行い、Lit composition変更前に限定主観captureを実施する。
+
+## 2026-08-25: DamagedHelmet development gate
+
+確立済みDamagedHelmet 2 ROIで、32-frame warm-up後にfixed／bounded v3を64 frames比較した。current sample sequenceは一致した。
+
+| ROI | Center roughness / metallic | Mean変化 | Temporal variance変化 | Frame-difference p99変化 | Policy-weight mean | 判定 |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `rearward_surface` | `0.133 / 0.953` | `-0.012%` | `-0.12%` | `-0.02%` | `0.90258` | Fail: 実用効果がほぼない |
+| `underside_pipes` | `0.216 / 0.992` | `-0.037%` | `-0.33%` | `-0.55%` | `0.90339` | Fail: 実用効果がほぼない |
+
+controlled high-roughness policyは、texture付きROIの大部分が明示的roughness `0.75` gate未満であるため、既知production-asset noise regionへgeneralizeしない。このformulaでは64-frame development gateですでにtarget領域で実質inactiveと判明したため、256-frame標準runは実施しない。experimentはdefault-offのためproduction regressionではない。
+
+roughness thresholdを単純に下げて対応しない。threshold-only v2はroughness `0.35`で少数pixelの切替がvarianceを増加させることを既に示した。次のcontract stepは、policy activationを時間方向に安定化するpersistent confidence／history signalである。これは以前から予約していたconfidence extensionであり、controlled sceneとDamagedHelmetの測定結果により導入根拠が成立した。
