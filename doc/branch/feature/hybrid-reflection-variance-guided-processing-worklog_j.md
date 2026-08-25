@@ -251,3 +251,24 @@ reset gateは同じcontrolled ROIを使用し、16 measurement frames後にreset
 Debug x64と影響HLSLはerror 0件、既存vcpkg重複import warningのみでbuildできた。両runtime gateはD3D12 error 0件、既知committed-buffer warning 3件で完了した。診断executableはreport完成後、runnerが自身の起動processを停止する必要が引き続きあった。
 
 persistent-confidence lifecycle gateは完了した。次はbounded Lit主観比較を準備し、静止noise、motion response、測定済みweighted-estimator改善がfinal compositionで知覚できるかを確認する。
+
+## 2026-08-26: Lit composition gate修正
+
+最初のfixed／confidence Lit captureは、静止、移動中、方向反転、停止後の4 checkpointすべてでPNGがbyte-identicalだった。これは同等品質の主観証拠ではなく、その時点の接続では期待される結果である。persistent confidenceは`ReflectionResolvedSpecularEstimate`だけへ作用し、LightPassは固定weightのlegacy `ReflectionResolvedRadiance`を消費していた。
+
+そこでdefault-off policyを拡張し、`ReflectionResolvedRadiance`、`ReflectionResolvedSpecularEstimate`、`ReflectionSpecularMoments`へ同じeffective history weightを使用する。BRDF-weighted diagnostic estimatorをLightPassへ入力せず、Fresnelまたはfinal contribution weightingをLightPassから移動しない。既存未加重radiance境界のaccumulation rateだけをconfidenceで制御する。policy無効時はbase-weight pathを維持する。
+
+次はrebuild後、未加重resolved radianceについてcontrolled／DamagedHelmet数値回帰を再実行し、Lit suiteを再生成する。最初のbyte-identical captureは主観gate結果として採用しない。
+
+修正後の64-frame paired regressionはmatching sample sequenceで完了し、次の結果となった。
+
+| ROI | 未加重mean変化 | 未加重temporal variance変化 | 未加重frame-difference p99変化 | Control結果 |
+| --- | ---: | ---: | ---: | --- |
+| controlled roughness `1.0` | `+0.2702%` | `-49.52%` | `-39.69%` | strong activation |
+| controlled roughness `0.0` | `0%` | `0%` | `0%` | mirror control不変 |
+| DamagedHelmet `rearward_surface` | `+0.0020%` | `-6.76%` | `-4.21%` | bounded improvement |
+| DamagedHelmet `underside_pipes` | `+0.0233%` | `-27.31%` | `-10.24%` | bounded improvement |
+
+最終8 processはすべてD3D12 error 0件だった。controlled runは既知committed-buffer warning 3件、DamagedHelmet runは2件を維持した。最初のpipes B attemptでは、新規作成された0-byte reportをrunnerが完成と誤認してprocessを停止した。完成条件をvalid JSONかつ64 framesへ修正して正常に再実行した。これはautomation raceでありrendering failureではない。
+
+静止、移動中、方向反転、停止後を対象とする4-checkpointの拡大DamagedHelmet Lit capture planと日英suiteを追加した。composition修正後は4枚すべてのB captureが対応A captureと異なり、両capture runはD3D12 error 0件、既知warning 2件だった。これによりpolicyがLit compositionへ到達したことは確立するが、主観品質はまだ主張しない。

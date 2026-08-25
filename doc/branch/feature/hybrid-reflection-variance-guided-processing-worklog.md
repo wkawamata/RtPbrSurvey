@@ -251,3 +251,24 @@ The reset gate used the same controlled ROI and reset after 16 measured frames. 
 Debug x64 and affected HLSL built with zero errors and the existing duplicate-vcpkg-import warning. Both runtime gates completed with zero D3D12 errors and the existing three committed-buffer warnings. The diagnostic executable still required the runner to stop its launched process after report completion.
 
 The persistent-confidence lifecycle gate is complete. Next: prepare a bounded Lit subjective comparison that checks static noise, motion response, and whether the measured weighted-estimator improvement is perceptible in final composition.
+
+## 2026-08-26: Lit composition gate correction
+
+The first fixed/confidence Lit capture attempt produced byte-identical PNGs at all four matched checkpoints: static, mid motion, direction reversal, and settling. This is expected from the then-current wiring, not subjective evidence of equal quality. Persistent confidence affected only `ReflectionResolvedSpecularEstimate`, while LightPass consumed the fixed-weight legacy `ReflectionResolvedRadiance`.
+
+The default-off policy is therefore extended to use the same effective history weight for `ReflectionResolvedRadiance`, `ReflectionResolvedSpecularEstimate`, and `ReflectionSpecularMoments`. This does not feed the BRDF-weighted diagnostic estimator into LightPass and does not move Fresnel or final contribution weighting out of LightPass. It only lets confidence control the accumulation rate of the existing unweighted radiance boundary. With the policy disabled, the base-weight path remains unchanged.
+
+Next: rebuild, repeat controlled and DamagedHelmet numerical regression for unweighted resolved radiance, then regenerate the Lit suite. The byte-identical first captures are not accepted as a subjective gate result.
+
+The corrected 64-frame paired regression used matching sample sequences and passed:
+
+| ROI | Unweighted mean change | Unweighted temporal-variance change | Unweighted frame-difference p99 change | Control result |
+| --- | ---: | ---: | ---: | --- |
+| controlled roughness `1.0` | `+0.2702%` | `-49.52%` | `-39.69%` | strong activation |
+| controlled roughness `0.0` | `0%` | `0%` | `0%` | unchanged mirror control |
+| DamagedHelmet `rearward_surface` | `+0.0020%` | `-6.76%` | `-4.21%` | bounded improvement |
+| DamagedHelmet `underside_pipes` | `+0.0233%` | `-27.31%` | `-10.24%` | bounded improvement |
+
+All eight final processes reported zero D3D12 errors; controlled runs retained three known committed-buffer warnings and DamagedHelmet runs retained two. The first pipes B attempt was stopped after the runner mistook a newly created zero-byte report for completion. It was rerun successfully after completion detection required valid JSON with all 64 frames. This was an automation race, not a rendering failure.
+
+Added a four-checkpoint enlarged DamagedHelmet Lit capture plan and bilingual suite covering static appearance, mid motion, direction reversal, and settling. After the composition correction, all four B captures differ from their matched A captures, while both capture runs report zero D3D12 errors and two known warnings. This establishes that the policy now reaches Lit composition; subjective quality is not yet claimed.

@@ -71,3 +71,5 @@ The script uses deterministic uniform-hemisphere midpoint integration. It is ind
 Open `http://127.0.0.1:8765/?suite=suite-edge-stability.json` for the repeatable enlarged DamagedHelmet A/B review. A keeps the policy disabled and B enables it; both use stochastic sampling, history weight `0.9`, and camera distance scale `0.5`.
 
 Use `capture-plan-edge-settling.json` and `suite-edge-settling.json` for the focused settling gate. They compare A/B at 1, 6, and 15 frames after camera motion stops at frame 180, with only two criteria per checkpoint.
+
+Use `capture-plan-confidence-lit.json` and `suite-confidence-lit.json` for the persistent-confidence Lit gate. Both variants use stochastic sampling, history weight `0.9`, camera distance scale `0.5`, and the same continuous camera timeline. A keeps variance-guided temporal weighting disabled; B enables it. The four checkpoints cover static appearance, mid motion, direction reversal, and settling. A still capture is not sufficient evidence for temporal-noise improvement; mark that criterion unable and add a consecutive-frame sequence when necessary.

@@ -188,7 +188,6 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
                 if (normalValid)
                 {
                     const float4 history = g_reflectionResolvedRadianceHistory.Load(int3(historyPixel, 0));
-                    current.rgb = lerp(current.rgb, history.rgb, g_historyWeight);
                     const float4 specularHistory =
                         g_reflectionResolvedSpecularEstimateHistory.Load(int3(historyPixel, 0));
                     const float2 momentsHistory =
@@ -210,6 +209,7 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
                         weightedHistoryWeight =
                             lerp(g_historyWeight, max(g_historyWeight, 0.94), confidenceWeight);
                     }
+                    current.rgb = lerp(current.rgb, history.rgb, weightedHistoryWeight);
                     currentSpecularEstimate.rgb =
                         lerp(currentSpecularEstimate.rgb, specularHistory.rgb, weightedHistoryWeight);
                     currentSpecularMoments =
