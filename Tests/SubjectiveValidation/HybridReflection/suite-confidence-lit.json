@@ -4,6 +4,7 @@
   "title": "Hybrid Reflection Persistent Confidence Lit Validation",
   "description": "Compare matched enlarged DamagedHelmet Lit captures with fixed and persistent-confidence history weighting.",
   "capture": {
+    "commit": "",
     "scene": "DamagedHelmet",
     "debugView": "Lit",
     "stochasticSampling": true,
