@@ -222,3 +222,20 @@ fixed-weight／confidence-guided runは、同一sampling-frame sequence、32-fra
 全paired sample sequenceは一致した。6本の256-frame processはD3D12 error 0件、processごとに既知committed-buffer warning 3件で完了した。この結果はcontrolled sceneでの選択的persistent activationを支持する。confidence decay、DamagedHelmetでの有効性、Lit品質、estimator correctness、production readinessはまだ確立しない。roughness `0.35`のvariance増加はframe-difference改善で隠さず、制限として保持する。
 
 次はexplicit confidence decayを検証し、その後、確立済みDamagedHelmet ROIをproduction-asset development gateとして実行する。
+
+## 2026-08-26: DamagedHelmet persistent-confidence gate
+
+確立済みtextured-asset ROIで、sampling-frame sequenceが一致するfixed／confidence-guided process、32 warm-up frames、stochastic sampling、base weight `0.9`を使用した。
+
+| ROI | Frames | Mean変化 | Temporal variance変化 | Frame-difference p99変化 | Confidence mean | Effective-weight mean |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `rearward_surface` | `64` | `-0.0095%` | `-5.03%` | `-1.28%` | `0.06214` | `0.90189` |
+| `underside_pipes` | `64` | `-0.0130%` | `-20.60%` | `-3.20%` | `0.10536` | `0.90322` |
+| `rearward_surface` | `256` | `-0.0078%` | `-4.10%` | `-1.34%` | `0.06393` | `0.90199` |
+| `underside_pipes` | `256` | `-0.0207%` | `-17.78%` | `-3.35%` | `0.10948` | `0.90339` |
+
+8 processすべてD3D12 error 0件、processごとに既知committed-buffer warning 2件で完了した。persistent confidenceは撤去したroughness gateを越えて既知textured-asset noise region 2箇所へgeneralizeしたが、効果はboundedである。standard frame数でrearward ROIの改善は約4%であり、どちらのROIもcontrolled roughness `1.0`ほど強くactivateしない。これはweighted estimatorのlinear-HDR診断結果であり、Litの知覚品質またはproduction denoiser readinessを主張しない。
+
+診断applicationはcomplete reportを書いた後も自動終了しない。runnerはreport完成を待ち、自身が起動したprocessだけを停止するよう運用した。このautomation挙動はrendering結果と分離して記録する。
+
+次はexplicit confidence decay／reset transition gateを実行し、このpolicyをLit主観比較へ進められるか判断する。

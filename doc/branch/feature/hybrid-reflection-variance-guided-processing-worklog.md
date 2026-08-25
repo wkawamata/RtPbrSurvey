@@ -222,3 +222,20 @@ Fixed-weight and confidence-guided runs used identical sampling-frame sequences,
 All paired sample sequences matched. The six 256-frame processes completed with zero D3D12 errors and the existing three committed-buffer warnings per process. The result supports selective persistent activation in the controlled scene. It does not establish confidence decay, DamagedHelmet effectiveness, Lit quality, estimator correctness, or production readiness. The roughness `0.35` variance increase is retained as a limitation rather than hidden by the frame-difference improvement.
 
 Next: validate explicit confidence decay, then run the established DamagedHelmet ROIs as the production-asset development gate.
+
+## 2026-08-26: DamagedHelmet persistent-confidence gate
+
+The established textured-asset ROIs used paired fixed/confidence-guided processes with matching sampling-frame sequences, 32 warm-up frames, stochastic sampling, and base weight `0.9`.
+
+| ROI | Frames | Mean change | Temporal-variance change | Frame-difference p99 change | Confidence mean | Effective-weight mean |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `rearward_surface` | `64` | `-0.0095%` | `-5.03%` | `-1.28%` | `0.06214` | `0.90189` |
+| `underside_pipes` | `64` | `-0.0130%` | `-20.60%` | `-3.20%` | `0.10536` | `0.90322` |
+| `rearward_surface` | `256` | `-0.0078%` | `-4.10%` | `-1.34%` | `0.06393` | `0.90199` |
+| `underside_pipes` | `256` | `-0.0207%` | `-17.78%` | `-3.35%` | `0.10948` | `0.90339` |
+
+All eight processes completed with zero D3D12 errors and the existing two committed-buffer warnings per process. Persistent confidence therefore generalizes beyond the removed roughness gate to both known textured-asset noise regions, but only with a bounded effect: the rearward ROI improves by about four percent at the standard frame count, and neither ROI approaches the controlled roughness `1.0` activation level. This is a linear-HDR diagnostic result for the weighted estimator, not a claim about Lit perceptual quality or production denoiser readiness.
+
+The diagnostic application writes its complete report but does not automatically exit afterward; the runner now waits for the report and stops only the process it launched. This automation behavior is recorded separately from the rendering result.
+
+Next: run an explicit confidence decay/reset transition gate before deciding whether this policy is ready for Lit subjective comparison.
