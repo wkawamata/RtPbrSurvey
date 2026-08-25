@@ -205,3 +205,20 @@ The controlled 64-frame contract gate used a 32-frame warm-up, stochastic sampli
 Debug x64 and affected HLSL completed with zero errors and the existing duplicate-vcpkg-import warning. Runtime reports completed with zero D3D12 errors and the existing three committed-buffer warnings per process. This validates resource ownership and steady confidence separation, not yet paired image-quality improvement or confidence decay under changing input.
 
 Next: run fixed/confidence-guided paired 64-frame quality gates across controlled roughness conditions, followed by explicit confidence decay and DamagedHelmet development tests.
+
+## 2026-08-26: Persistent confidence paired quality gate
+
+Fixed-weight and confidence-guided runs used identical sampling-frame sequences, a 32-frame warm-up, base history weight `0.9`, stochastic sampling, and the same 48x48 metallic ROIs. The compared signal is `ReflectionResolvedSpecularEstimate`; legacy unweighted resolved radiance is intentionally unchanged.
+
+| Roughness | Frames | Mean change | Temporal-variance change | Frame-difference p99 change | Confidence mean | Effective-weight mean | Result |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `1.0` | `64` | `+0.0886%` | `-49.62%` | `-39.91%` | high | near `0.94` | Pass: targeted variance reduction |
+| `0.35` | `64` | `+0.2590%` | `-2.38%` | `-2.20%` | low | near `0.9` | Pass: bounded response |
+| `0.0` | `64` | `0%` | `0%` | not applicable | `0` | `0.9` | Pass: unchanged mirror control |
+| `1.0` | `256` | `-0.2873%` | `-43.95%` | `-39.87%` | `0.99170` | `0.93993` | Pass: standard-frame confirmation |
+| `0.35` | `256` | `+0.3373%` | `+2.10%` | `-2.45%` | `0.02141` | `0.90072` | Pass with limitation: small variance regression |
+| `0.0` | `256` | `0%` | `0%` | not applicable | `0` | `0.9` | Pass: unchanged mirror control |
+
+All paired sample sequences matched. The six 256-frame processes completed with zero D3D12 errors and the existing three committed-buffer warnings per process. The result supports selective persistent activation in the controlled scene. It does not establish confidence decay, DamagedHelmet effectiveness, Lit quality, estimator correctness, or production readiness. The roughness `0.35` variance increase is retained as a limitation rather than hidden by the frame-difference improvement.
+
+Next: validate explicit confidence decay, then run the established DamagedHelmet ROIs as the production-asset development gate.

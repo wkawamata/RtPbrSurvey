@@ -205,3 +205,20 @@ controlled 64-frame contract gateは32-frame warm-up、stochastic sampling、bas
 Debug x64と影響HLSLはerror 0件、既存vcpkg重複import warningのみで完了した。runtime reportはD3D12 error 0件、processごとに既知committed-buffer warning 3件で完了した。これはresource ownershipとsteady confidence separationを検証するが、paired image-quality改善または入力変化時のconfidence decayはまだ検証していない。
 
 次はcontrolled roughness条件でfixed／confidence-guided paired 64-frame quality gateを実施し、その後explicit confidence decayとDamagedHelmet development testへ進む。
+
+## 2026-08-26: Persistent confidence paired quality gate
+
+fixed-weight／confidence-guided runは、同一sampling-frame sequence、32-frame warm-up、base history weight `0.9`、stochastic sampling、同一48x48 metallic ROIを使用した。比較signalは`ReflectionResolvedSpecularEstimate`であり、legacy未加重resolved radianceは意図どおり変更しない。
+
+| Roughness | Frames | Mean変化 | Temporal variance変化 | Frame-difference p99変化 | Confidence mean | Effective-weight mean | 判定 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `1.0` | `64` | `+0.0886%` | `-49.62%` | `-39.91%` | high | `0.94`付近 | Pass: target varianceを低減 |
+| `0.35` | `64` | `+0.2590%` | `-2.38%` | `-2.20%` | low | `0.9`付近 | Pass: bounded response |
+| `0.0` | `64` | `0%` | `0%` | 対象外 | `0` | `0.9` | Pass: mirror control不変 |
+| `1.0` | `256` | `-0.2873%` | `-43.95%` | `-39.87%` | `0.99170` | `0.93993` | Pass: standard frame数で再確認 |
+| `0.35` | `256` | `+0.3373%` | `+2.10%` | `-2.45%` | `0.02141` | `0.90072` | Pass with limitation: 小幅variance悪化 |
+| `0.0` | `256` | `0%` | `0%` | 対象外 | `0` | `0.9` | Pass: mirror control不変 |
+
+全paired sample sequenceは一致した。6本の256-frame processはD3D12 error 0件、processごとに既知committed-buffer warning 3件で完了した。この結果はcontrolled sceneでの選択的persistent activationを支持する。confidence decay、DamagedHelmetでの有効性、Lit品質、estimator correctness、production readinessはまだ確立しない。roughness `0.35`のvariance増加はframe-difference改善で隠さず、制限として保持する。
+
+次はexplicit confidence decayを検証し、その後、確立済みDamagedHelmet ROIをproduction-asset development gateとして実行する。
