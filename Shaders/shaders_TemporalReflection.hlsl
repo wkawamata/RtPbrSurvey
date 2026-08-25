@@ -11,6 +11,7 @@ Texture2D<float> g_visibleDepth : register(t6, space3);
 Texture2D<float4> g_reflectionSpecularEstimate : register(t0, space16);
 Texture2D<float4> g_reflectionResolvedSpecularEstimateHistory : register(t0, space14);
 Texture2D<float2> g_reflectionSpecularMomentsHistory : register(t0, space15);
+Texture2D<float> g_reflectionSpecularConfidenceHistory : register(t0, space17);
 
 cbuffer CameraConstants : register(b0)
 {
@@ -126,6 +127,7 @@ struct TemporalReflectionOutput
     float4 normal : SV_Target2;
     float4 resolvedSpecularEstimate : SV_Target3;
     float2 specularMoments : SV_Target4;
+    float specularConfidence : SV_Target5;
 };
 
 TemporalReflectionOutput PSMain(FullscreenVSOutput input)
@@ -137,6 +139,7 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
         max(currentSpecularEstimate.rgb, 0.0), float3(0.2126, 0.7152, 0.0722));
     float2 currentSpecularMoments =
         float2(currentSpecularLuminance, currentSpecularLuminance * currentSpecularLuminance);
+    float currentSpecularConfidence = 0.0;
     const float unitNoise = float(HashTemporalNoise(uint2(pixel.xy), g_frameIndex)) / 4294967295.0;
     current.rgb *= 1.0 + (unitNoise * 2.0 - 1.0) * g_noiseStrength;
     const float currentDepth = g_visibleDepth.Load(pixel);
@@ -189,6 +192,8 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
                         g_reflectionResolvedSpecularEstimateHistory.Load(int3(historyPixel, 0));
                     const float2 momentsHistory =
                         g_reflectionSpecularMomentsHistory.Load(int3(historyPixel, 0));
+                    const float confidenceHistory =
+                        g_reflectionSpecularConfidenceHistory.Load(int3(historyPixel, 0));
                     float weightedHistoryWeight = g_historyWeight;
                     if (g_varianceGuidedTemporalEnabled != 0)
                     {
@@ -196,11 +201,11 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
                             max(momentsHistory.y - momentsHistory.x * momentsHistory.x, 0.0);
                         const float relativeVariance =
                             saturate(historyVariance / max(momentsHistory.y, 1e-6));
-                        const float visibleRoughness = g_visiblePbrParams.Load(pixel).g;
-                        if (visibleRoughness >= 0.75 && relativeVariance >= 0.5)
-                        {
-                            weightedHistoryWeight = max(g_historyWeight, 0.94);
-                        }
+                        const float varianceIndicator = relativeVariance >= 0.5 ? 1.0 : 0.0;
+                        currentSpecularConfidence = lerp(varianceIndicator, confidenceHistory, 0.9);
+                        const float confidenceWeight = smoothstep(0.5, 0.9, currentSpecularConfidence);
+                        weightedHistoryWeight =
+                            lerp(g_historyWeight, max(g_historyWeight, 0.94), confidenceWeight);
                     }
                     currentSpecularEstimate.rgb =
                         lerp(currentSpecularEstimate.rgb, specularHistory.rgb, weightedHistoryWeight);
@@ -228,5 +233,6 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
     output.normal = float4(currentNormal, 1.0);
     output.resolvedSpecularEstimate = float4(currentSpecularEstimate.rgb, 1.0);
     output.specularMoments = currentSpecularMoments;
+    output.specularConfidence = currentSpecularConfidence;
     return output;
 }

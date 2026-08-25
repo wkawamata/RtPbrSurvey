@@ -185,3 +185,23 @@ Do not respond by merely lowering the roughness threshold. The threshold-only v2
 - The roughness `0.75` gate is removed from this candidate. The purpose of persistent confidence is to admit lower-roughness production-asset noise while preventing the sparse instantaneous switching measured in v2.
 
 This work unit fixes semantics only. Next: implement the resource, MRT output, debug/report observability, then validate confidence rise/decay before paired quality claims.
+
+## 2026-08-26: Persistent confidence implementation and contract gate
+
+- Added ping-pong `ReflectionSpecularConfidence` as `R16_FLOAT`, including transient registration, RTV/SRV allocation, RenderGraph ownership, history binding, reset/release handling, and post-submit role exchange through the existing reflection history state.
+- Extended Temporal Reflection to six MRTs. The shader writes confidence target 5, reads reprojected confidence from space 17, removes the roughness gate, and applies the documented persistent-confidence update and smooth bounded weight.
+- Expanded the generic fullscreen pipeline definition from four to five additional render targets. No other fullscreen pass adds a target.
+- Added `Specular Confidence` UI debug view. White indicates sustained high-variance evidence; rejected/reset history is black.
+- Extended HDR readback for `R16_FLOAT` and schema version 9. Reports contain current motion-reprojected confidence and applied effective-weight distributions rather than the schema v8 static same-pixel prediction.
+
+The controlled 64-frame contract gate used a 32-frame warm-up, stochastic sampling, base weight `0.9`, and fixed 48x48 metallic ROIs:
+
+| Roughness | Confidence mean | Confidence p95 | Last-frame mean | Effective-weight mean | Result |
+| ---: | ---: | ---: | ---: | ---: | --- |
+| `1.0` | `0.9828` | `0.9956` | `0.9944` | `0.93984` | Pass: persistent activation |
+| `0.35` | `0.0133` | `0` | `0.0201` | `0.90043` | Pass: sparse spikes do not broadly activate |
+| `0.0` | `0` | `0` | `0` | `0.9` | Pass: mirror control |
+
+Debug x64 and affected HLSL completed with zero errors and the existing duplicate-vcpkg-import warning. Runtime reports completed with zero D3D12 errors and the existing three committed-buffer warnings per process. This validates resource ownership and steady confidence separation, not yet paired image-quality improvement or confidence decay under changing input.
+
+Next: run fixed/confidence-guided paired 64-frame quality gates across controlled roughness conditions, followed by explicit confidence decay and DamagedHelmet development tests.

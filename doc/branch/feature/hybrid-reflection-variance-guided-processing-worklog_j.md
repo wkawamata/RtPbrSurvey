@@ -185,3 +185,23 @@ roughness thresholdを単純に下げて対応しない。threshold-only v2はro
 - candidateからroughness `0.75` gateを撤去する。persistent confidenceの目的は、v2で測定した瞬間的な少数pixel切替を防ぎながら、低roughness production-asset noiseを対象に含めることである。
 
 この作業単位ではsemanticsだけを固定する。次はresource、MRT output、debug／report observabilityを実装し、paired qualityを主張する前にconfidence rise／decayを検証する。
+
+## 2026-08-26: Persistent confidence実装／contract gate
+
+- ping-pong `ReflectionSpecularConfidence`を`R16_FLOAT`で追加した。transient registration、RTV／SRV allocation、RenderGraph ownership、history binding、reset／release処理、既存reflection history stateによるpost-submit role exchangeを含む。
+- Temporal Reflectionを6 MRTへ拡張した。shaderはtarget 5へconfidenceを書き、space 17からreprojected confidenceを読み、roughness gateを撤去し、文書化したpersistent-confidence updateとsmooth bounded weightを適用する。
+- generic fullscreen pipeline definitionのadditional render targetを4から5へ拡張した。他のfullscreen passにはtargetを追加していない。
+- `Specular Confidence` UI debug viewを追加した。whiteは継続的high-variance evidence、blackはreject／reset historyを示す。
+- `R16_FLOAT` HDR readbackとschema version 9を追加した。reportはschema v8のstatic same-pixel予測ではなく、current motion-reprojected confidenceと適用effective-weight分布を含む。
+
+controlled 64-frame contract gateは32-frame warm-up、stochastic sampling、base weight `0.9`、固定48x48 metallic ROIを使用した。
+
+| Roughness | Confidence mean | Confidence p95 | Last-frame mean | Effective-weight mean | 判定 |
+| ---: | ---: | ---: | ---: | ---: | --- |
+| `1.0` | `0.9828` | `0.9956` | `0.9944` | `0.93984` | Pass: persistent activation |
+| `0.35` | `0.0133` | `0` | `0.0201` | `0.90043` | Pass: sparse spikeは広範囲をactivateしない |
+| `0.0` | `0` | `0` | `0` | `0.9` | Pass: mirror control |
+
+Debug x64と影響HLSLはerror 0件、既存vcpkg重複import warningのみで完了した。runtime reportはD3D12 error 0件、processごとに既知committed-buffer warning 3件で完了した。これはresource ownershipとsteady confidence separationを検証するが、paired image-quality改善または入力変化時のconfidence decayはまだ検証していない。
+
+次はcontrolled roughness条件でfixed／confidence-guided paired 64-frame quality gateを実施し、その後explicit confidence decayとDamagedHelmet development testへ進む。

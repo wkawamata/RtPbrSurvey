@@ -71,6 +71,7 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
                     m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularEstimate ||
                     m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate ||
                     m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularVariance ||
+                    m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
                     m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
                     m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity)
                 {
@@ -78,6 +79,7 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
                     if (m_hybridReflectionSettings.contributionEnabled ||
                         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate ||
                         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularVariance ||
+                        m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
                         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
                         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity)
                     {
@@ -115,6 +117,7 @@ void RtPbrSurveyEngine::AddDeferredSceneOutputPass()
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularEstimate ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularVariance ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
@@ -411,6 +414,8 @@ auto RtPbrSurveyEngine::MakeTemporalReflectionPass() -> RenderPass
                          D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
         reads.push_back({kReflectionSpecularMomentsResourceNames[m_reflectionHistoryState.readIndex],
                          D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        reads.push_back({kReflectionSpecularConfidenceResourceNames[m_reflectionHistoryState.readIndex],
+                         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
     }
 
     auto builder = m_renderGraphRuntime.Authoring()
@@ -421,7 +426,8 @@ auto RtPbrSurveyEngine::MakeTemporalReflectionPass() -> RenderPass
                  {kReflectionHistoryDepthResourceNames[writeIndex], D3D12_RESOURCE_STATE_RENDER_TARGET},
                  {kReflectionHistoryNormalResourceNames[writeIndex], D3D12_RESOURCE_STATE_RENDER_TARGET},
                  {kReflectionResolvedSpecularEstimateResourceNames[writeIndex], D3D12_RESOURCE_STATE_RENDER_TARGET},
-                 {kReflectionSpecularMomentsResourceNames[writeIndex], D3D12_RESOURCE_STATE_RENDER_TARGET}})
+                 {kReflectionSpecularMomentsResourceNames[writeIndex], D3D12_RESOURCE_STATE_RENDER_TARGET},
+                 {kReflectionSpecularConfidenceResourceNames[writeIndex], D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance, Desc::ReflectionEvaluatedRadianceSrv)
         .Descriptor(RootSignatureLayout::ReflectionSpecularEstimate, Desc::ReflectionSpecularEstimateSrv)
         .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
@@ -430,7 +436,8 @@ auto RtPbrSurveyEngine::MakeTemporalReflectionPass() -> RenderPass
                RtvName::ReflectionHistoryDepthCurrent,
                RtvName::ReflectionHistoryNormalCurrent,
                RtvName::ReflectionResolvedSpecularEstimateCurrent,
-               RtvName::ReflectionSpecularMomentsCurrent})
+               RtvName::ReflectionSpecularMomentsCurrent,
+               RtvName::ReflectionSpecularConfidenceCurrent})
         .Operation(Op::TemporalReflection, &RtPbrSurveyEngine::ExecuteTemporalReflectionPass)
         .Constants(RootSignatureLayout::TemporalReflectionConstants, ConstName::TemporalReflection);
     if (m_reflectionHistoryState.valid)
@@ -443,6 +450,8 @@ auto RtPbrSurveyEngine::MakeTemporalReflectionPass() -> RenderPass
                            Desc::ReflectionResolvedSpecularEstimateHistorySrv);
         builder.Descriptor(RootSignatureLayout::ReflectionSpecularMomentsHistory,
                            Desc::ReflectionSpecularMomentsHistorySrv);
+        builder.Descriptor(RootSignatureLayout::ReflectionSpecularConfidenceHistory,
+                           Desc::ReflectionSpecularConfidenceHistorySrv);
     }
     return builder.Build();
 }
@@ -517,6 +526,7 @@ auto RtPbrSurveyEngine::MakeReflectionHdrDiagnosticPass() -> RenderPass
                 {kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
                 {kReflectionResolvedSpecularEstimateResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
                 {kReflectionSpecularMomentsResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
+                {kReflectionSpecularConfidenceResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
                 {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_COPY_SOURCE},
                 {kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
         .Operation(Op::ReflectionHdrDiagnostic, &RtPbrSurveyEngine::ExecuteReflectionHdrDiagnosticPass)
@@ -604,6 +614,12 @@ auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
         reads.push_back({kReflectionSpecularMomentsResourceNames[writeIndex],
                          D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
     }
+    else if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularConfidence)
+    {
+        const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
+        reads.push_back({kReflectionSpecularConfidenceResourceNames[writeIndex],
+                         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+    }
 
     auto builder = m_renderGraphRuntime.Authoring()
         .CreatePass(L"ReflectionRayHitDebugPass")
@@ -644,6 +660,11 @@ auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
     {
         builder.Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance,
                            Desc::ReflectionSpecularMomentsCurrentSrv);
+    }
+    else if (m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularConfidence)
+    {
+        builder.Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance,
+                           Desc::ReflectionSpecularConfidenceCurrentSrv);
     }
 
     return builder.Build();

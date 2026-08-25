@@ -97,11 +97,12 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC CreateFullscreenPipelineDesc(const D3D12_GRAP
     desc.DepthStencilState.DepthEnable = FALSE;
     desc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
     desc.DSVFormat = DXGI_FORMAT_UNKNOWN;
-    DXGI_FORMAT formats[5] = {definition.renderTargetFormat,
+    DXGI_FORMAT formats[6] = {definition.renderTargetFormat,
                               definition.additionalRenderTargetFormats[0],
                               definition.additionalRenderTargetFormats[1],
                               definition.additionalRenderTargetFormats[2],
-                              definition.additionalRenderTargetFormats[3]};
+                              definition.additionalRenderTargetFormats[3],
+                              definition.additionalRenderTargetFormats[4]};
     SetRenderTargetFormats(desc, formats, 1 + definition.additionalRenderTargetCount);
     return desc;
 }

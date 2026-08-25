@@ -189,6 +189,12 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         return float4(mappedVariance.xxx, 1.0);
     }
 
+    if (debugTarget == 16)
+    {
+        float confidence = g_reflectionEvaluatedRadiance.Sample(g_sampler, input.uv).r;
+        return float4(confidence.xxx, 1.0);
+    }
+
     if (debugTarget >= 9 && debugTarget <= 12)
     {
         if (hitFlag <= 0.0)

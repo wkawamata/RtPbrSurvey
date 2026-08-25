@@ -681,57 +681,67 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
                     {"meanEstimatedVariance", count > 0.0 ? varianceSum / count : 0.0},
                     {"maximumEstimatedVariance", maximumVariance}};
     };
-    const auto policyWeightSummary = [&reflectionSettings](
-                                         const std::vector<Engine::ReflectionHdrDiagnosticSample>& moments,
-                                         const std::vector<Engine::ReflectionHdrDiagnosticSample>& pbrParams)
+    const auto scalarSummary = [](const std::vector<double>& values)
     {
-        std::vector<double> weights;
-        assert(moments.size() == pbrParams.size());
-        weights.reserve(moments.size());
+        std::vector<double> sortedValues = values;
         double sum = 0.0;
-        for (size_t sampleIndex = 0; sampleIndex < moments.size(); ++sampleIndex)
+        for (const double value : sortedValues)
         {
-            const Engine::ReflectionHdrDiagnosticSample& sample = moments[sampleIndex];
-            double weight = reflectionSettings.temporalHistoryWeight;
-            if (reflectionSettings.varianceGuidedTemporalEnabled)
-            {
-                const double firstMoment = sample.r;
-                const double secondMoment = sample.g;
-                const double variance = (std::max)(secondMoment - firstMoment * firstMoment, 0.0);
-                const double relativeVariance = std::clamp(variance / (std::max)(secondMoment, 1.0e-6), 0.0, 1.0);
-                if (pbrParams[sampleIndex].g >= 0.75f && relativeVariance >= 0.5)
-                {
-                    weight = (std::max)(weight, 0.94);
-                }
-            }
-            weights.push_back(weight);
-            sum += weight;
+            sum += value;
         }
-        std::sort(weights.begin(), weights.end());
-        const double count = static_cast<double>(weights.size());
+        std::sort(sortedValues.begin(), sortedValues.end());
+        const double count = static_cast<double>(sortedValues.size());
         const double mean = count > 0.0 ? sum / count : 0.0;
         double variance = 0.0;
-        for (const double weight : weights)
+        for (const double value : sortedValues)
         {
-            const double difference = weight - mean;
+            const double difference = value - mean;
             variance += difference * difference;
         }
         variance = count > 0.0 ? variance / count : 0.0;
-        const auto percentile = [&weights](double fraction)
+        const auto percentile = [&sortedValues](double fraction)
         {
-            if (weights.empty())
+            if (sortedValues.empty())
             {
                 return 0.0;
             }
-            const size_t index = static_cast<size_t>(fraction * static_cast<double>(weights.size() - 1));
-            return weights[index];
+            const size_t index = static_cast<size_t>(fraction * static_cast<double>(sortedValues.size() - 1));
+            return sortedValues[index];
         };
         return json{{"mean", mean},
                     {"standardDeviation", std::sqrt(variance)},
-                    {"minimum", weights.empty() ? 0.0 : weights.front()},
+                    {"minimum", sortedValues.empty() ? 0.0 : sortedValues.front()},
                     {"p95", percentile(0.95)},
                     {"p99", percentile(0.99)},
-                    {"maximum", weights.empty() ? 0.0 : weights.back()}};
+                    {"maximum", sortedValues.empty() ? 0.0 : sortedValues.back()}};
+    };
+    const auto confidenceValues = [](const std::vector<Engine::ReflectionHdrDiagnosticSample>& samples)
+    {
+        std::vector<double> values;
+        values.reserve(samples.size());
+        for (const Engine::ReflectionHdrDiagnosticSample& sample : samples)
+        {
+            values.push_back(sample.r);
+        }
+        return values;
+    };
+    const auto policyWeightValues = [&reflectionSettings](
+                                        const std::vector<Engine::ReflectionHdrDiagnosticSample>& confidenceSamples)
+    {
+        std::vector<double> weights;
+        weights.reserve(confidenceSamples.size());
+        for (const Engine::ReflectionHdrDiagnosticSample& sample : confidenceSamples)
+        {
+            double weight = reflectionSettings.temporalHistoryWeight;
+            if (reflectionSettings.varianceGuidedTemporalEnabled)
+            {
+                double confidenceWeight = std::clamp((static_cast<double>(sample.r) - 0.5) / 0.4, 0.0, 1.0);
+                confidenceWeight = confidenceWeight * confidenceWeight * (3.0 - 2.0 * confidenceWeight);
+                weight += ((std::max)(weight, 0.94) - weight) * confidenceWeight;
+            }
+            weights.push_back(weight);
+        }
+        return weights;
     };
 
     json frameValues = json::array();
@@ -760,8 +770,8 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
             {"resolvedSpecularEstimateMeanLuminance", meanLuminance(frame.resolvedSpecularEstimate)},
             {"resolvedMeanLuminance", meanLuminance(frame.resolvedRadiance)},
             {"specularMoments", momentsSummary(frame.specularMoments)},
-            {"nextAcceptedHistoryPolicyWeight",
-             policyWeightSummary(frame.specularMoments, frame.visiblePbrParams)},
+            {"specularConfidence", scalarSummary(confidenceValues(frame.specularConfidence))},
+            {"appliedHistoryPolicyWeight", scalarSummary(policyWeightValues(frame.specularConfidence))},
             {"hitRate", sampleCount > 0.0 ? static_cast<double>(hitCount) / sampleCount : 0.0},
             {"temporalAcceptanceRate", sampleCount > 0.0 ? static_cast<double>(acceptedCount) / sampleCount : 0.0},
             {"depthRejectRate", sampleCount > 0.0 ? static_cast<double>(depthRejectCount) / sampleCount : 0.0},
@@ -810,18 +820,18 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         Engine::CalculateReflectionHdrDiagnosticStatistics(
             m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::ResolvedSpecularEstimate);
     std::vector<Engine::ReflectionHdrDiagnosticSample> allSpecularMoments;
-    std::vector<Engine::ReflectionHdrDiagnosticSample> allVisiblePbrParams;
+    std::vector<Engine::ReflectionHdrDiagnosticSample> allSpecularConfidence;
     for (const Engine::ReflectionHdrDiagnosticFrame& frame : m_reflectionHdrDiagnosticFrames)
     {
         allSpecularMoments.insert(
             allSpecularMoments.end(), frame.specularMoments.begin(), frame.specularMoments.end());
-        allVisiblePbrParams.insert(
-            allVisiblePbrParams.end(), frame.visiblePbrParams.begin(), frame.visiblePbrParams.end());
+        allSpecularConfidence.insert(
+            allSpecularConfidence.end(), frame.specularConfidence.begin(), frame.specularConfidence.end());
     }
     const Engine::ReflectionHdrDiagnosticBaselineComparison baselineComparison =
         Engine::CompareReflectionHdrDiagnosticsToCurrentEstimatorMeanBaseline(m_reflectionHdrDiagnosticFrames);
     const json report = {
-        {"schemaVersion", 8},
+        {"schemaVersion", 9},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
         {"specularEstimateIncidentRadiance",
@@ -829,11 +839,12 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         {"varianceGuidedTemporalEnabled", reflectionSettings.varianceGuidedTemporalEnabled},
         {"temporalHistoryWeight", reflectionSettings.temporalHistoryWeight},
         {"varianceGuidedTemporalPolicy",
-         "roughness-0.75-relative-variance-0.5-fixed-weight-0.94"},
+         "persistent-confidence-relative-variance-0.5-confidence-history-0.9-weight-0.94"},
         {"policyWeightDiagnostic",
-         {{"scope", "next-accepted-history-at-same-pixel"},
-          {"motionReprojectionApplied", false},
-          {"aggregate", policyWeightSummary(allSpecularMoments, allVisiblePbrParams)}}},
+         {{"scope", "applied-current-frame"},
+          {"motionReprojectionApplied", true},
+          {"confidence", scalarSummary(confidenceValues(allSpecularConfidence))},
+          {"effectiveWeight", scalarSummary(policyWeightValues(allSpecularConfidence))}}},
         {"scene", LoadedScene().Name()},
         {"warmupFrames", m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames},
         {"measurementFrames", m_reflectionHdrDiagnosticFrames.size()},

@@ -51,6 +51,7 @@ struct ReflectionHdrDiagnosticCapture
     ReflectionHdrDiagnosticReadback resolvedRadiance;
     ReflectionHdrDiagnosticReadback resolvedSpecularEstimate;
     ReflectionHdrDiagnosticReadback specularMoments;
+    ReflectionHdrDiagnosticReadback specularConfidence;
     ReflectionHdrDiagnosticReadback visiblePbrParams;
     ReflectionHdrDiagnosticReadback rayHit;
     UINT samplingFrameIndex = 0;
@@ -70,6 +71,7 @@ struct ReflectionHdrDiagnosticFrame
     std::vector<ReflectionHdrDiagnosticSample> resolvedRadiance;
     std::vector<ReflectionHdrDiagnosticSample> resolvedSpecularEstimate;
     std::vector<ReflectionHdrDiagnosticSample> specularMoments;
+    std::vector<ReflectionHdrDiagnosticSample> specularConfidence;
     std::vector<ReflectionHdrDiagnosticSample> visiblePbrParams;
     std::vector<ReflectionHdrDiagnosticSample> rayHit;
 };
@@ -95,6 +97,7 @@ void RecordReflectionHdrDiagnosticCapture(ID3D12GraphicsCommandList* commandList
                                           ID3D12Resource* resolvedRadiance,
                                           ID3D12Resource* resolvedSpecularEstimate,
                                           ID3D12Resource* specularMoments,
+                                          ID3D12Resource* specularConfidence,
                                           ID3D12Resource* visiblePbrParams,
                                           ID3D12Resource* rayHit,
                                           const ReflectionHdrDiagnosticRoi& roi,
