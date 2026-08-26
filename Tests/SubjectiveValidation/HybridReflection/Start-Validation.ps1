@@ -52,18 +52,43 @@ function Invoke-CaptureVariant
     }
     if ($PersistentConfidenceLit)
     {
-        $arguments += @('-ReflectionCaptureDebugView', 'lit', '-ReflectionCameraDistanceScale', '0.5')
+        $arguments += @('-ReflectionCaptureDebugView', 'lit', '-ReflectionCameraDistanceScale', '0.6')
         if ($Variant -eq 'b')
         {
             $arguments += '-ReflectionVarianceGuidedTemporal'
         }
     }
+    $captureStartUtc = [DateTime]::UtcNow
     $process = Start-Process -FilePath $executablePath -ArgumentList $arguments -PassThru -WindowStyle Hidden
-    Wait-Process -Id $process.Id -Timeout 180
-    $process.Refresh()
-    if ($process.ExitCode -ne 0)
+    $deadline = [DateTime]::UtcNow.AddSeconds(180)
+    $captureComplete = $false
+    while ([DateTime]::UtcNow -lt $deadline)
     {
-        throw "Capture variant '$Variant' exited with code $($process.ExitCode)."
+        $captureComplete = $true
+        foreach ($capture in $plan.captures)
+        {
+            $relativePath = $capture.path.Replace('{variant}', $Variant)
+            $outputPath = Join-Path $validationRoot $relativePath
+            $item = Get-Item -LiteralPath $outputPath -ErrorAction SilentlyContinue
+            if ($null -eq $item -or $item.Length -le 0 -or $item.LastWriteTimeUtc -lt $captureStartUtc)
+            {
+                $captureComplete = $false
+                break
+            }
+        }
+        if ($captureComplete)
+        {
+            break
+        }
+        Start-Sleep -Milliseconds 250
+    }
+    if (!$process.HasExited)
+    {
+        Stop-Process -Id $process.Id
+    }
+    if (!$captureComplete)
+    {
+        throw "Capture variant '$Variant' did not produce every planned output within 180 seconds."
     }
     if (Test-Path -LiteralPath $logPath)
     {

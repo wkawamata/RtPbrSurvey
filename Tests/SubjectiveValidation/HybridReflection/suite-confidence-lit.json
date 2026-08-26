@@ -9,7 +9,7 @@
     "debugView": "Lit",
     "stochasticSampling": true,
     "historyWeight": 0.9,
-    "cameraDistanceScale": 0.5,
+    "cameraDistanceScale": 0.6,
     "aVarianceGuidedTemporal": false,
     "bVarianceGuidedTemporal": true
   },
@@ -20,13 +20,13 @@
       "cases": {
         "confidence-lit-static": {
           "title": "静止状態",
-          "description": "既知noise regionと画像全体を確認します。still画像だけで時間noiseを判断できない場合は判定不能とし、連続frame評価へ進みます。",
+          "description": "頭頂部の滑らかな面に隣接する後頭部寄りの面と、下面pipeを確認します。still画像だけで時間noiseを判断できない場合は判定不能とし、連続frame評価へ進みます。",
           "images": {
             "a": { "label": "A: 固定weight 0.9" },
             "b": { "label": "B: persistent confidence" }
           },
           "criteria": {
-            "stability": "Bの既知noise regionはAと同等以上に安定して見える。",
+            "stability": "Bの後頭部寄りの面と下面pipeは、Aと同等以上に安定して見える。",
             "preservation": "Bは平均輝度、reflection内容、表面detailを不自然に失っていない。"
           }
         },
@@ -73,13 +73,13 @@
     {
       "id": "confidence-lit-static",
       "title": "Static",
-      "description": "Inspect the known noise regions and the full image. Mark unable if a still image cannot establish temporal stability.",
+      "description": "Inspect the rearward surface next to the smooth crown panel and the underside pipes. Mark unable if a still image cannot establish temporal stability.",
       "images": {
         "a": { "label": "A: fixed weight 0.9", "path": "captures/confidence-lit-static-a.png" },
         "b": { "label": "B: persistent confidence", "path": "captures/confidence-lit-static-b.png" }
       },
       "criteria": [
-        { "id": "stability", "prompt": "B appears at least as stable as A in the known noise regions." },
+        { "id": "stability", "prompt": "B appears at least as stable as A on the rearward surface and underside pipes." },
         { "id": "preservation", "prompt": "B preserves mean brightness, reflection content, and surface detail." }
       ]
     },

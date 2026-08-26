@@ -272,3 +272,7 @@ persistent-confidence lifecycle gateは完了した。次はbounded Lit主観比
 最終8 processはすべてD3D12 error 0件だった。controlled runは既知committed-buffer warning 3件、DamagedHelmet runは2件を維持した。最初のpipes B attemptでは、新規作成された0-byte reportをrunnerが完成と誤認してprocessを停止した。完成条件をvalid JSONかつ64 framesへ修正して正常に再実行した。これはautomation raceでありrendering failureではない。
 
 静止、移動中、方向反転、停止後を対象とする4-checkpointの拡大DamagedHelmet Lit capture planと日英suiteを追加した。composition修正後は4枚すべてのB captureが対応A captureと異なり、両capture runはD3D12 error 0件、既知warning 2件だった。これによりpolicyがLit compositionへ到達したことは確立するが、主観品質はまだ主張しない。
+
+user reviewにより、最初のcamera-distance scale `0.5`では下面pipeは見えるが、確立済みrearward-surface regionが画像上端付近で欠けることが判明した。Lit suiteはscale `0.6`、元のlinear sizeのおよそ1.67倍へ変更した。再撮影frameではsmooth crown panel、それに隣接するrearward surface、下面pipeを同時に確認できる。static criterionも曖昧な「既知noise region」ではなく両領域を明記した。
+
+validation runnerはcapture planを書いた後にprocessが終了することを前提としない。variantごとに全planned outputがnon-emptyかつvariant開始後のwrite timeを持つまで待ち、自身が起動したprocessだけを停止する。これにより古いcapture fileを完成と誤認せず、観測されたpost-capture process timeoutへ対応した。
