@@ -276,3 +276,11 @@ persistent-confidence lifecycle gateは完了した。次はbounded Lit主観比
 user reviewにより、最初のcamera-distance scale `0.5`では下面pipeは見えるが、確立済みrearward-surface regionが画像上端付近で欠けることが判明した。Lit suiteはscale `0.6`、元のlinear sizeのおよそ1.67倍へ変更した。再撮影frameではsmooth crown panel、それに隣接するrearward surface、下面pipeを同時に確認できる。static criterionも曖昧な「既知noise region」ではなく両領域を明記した。
 
 validation runnerはcapture planを書いた後にprocessが終了することを前提としない。variantごとに全planned outputがnon-emptyかつvariant開始後のwrite timeを持つまで待ち、自身が起動したprocessだけを停止する。これにより古いcapture fileを完成と誤認せず、観測されたpost-capture process timeoutへ対応した。
+
+## 2026-08-27: Lit全画面表示の修正
+
+user reviewにより、必要な拡大はrender cameraではなくHTML上の表示に対するものだと明確になった。camera zoomではhelmet頭頂部付近の確立済みrearward-surface regionが画角外へ移動するため、confidence Lit suiteの`cameraDistanceScale`を`1.0`へ戻し、1920x1080のrender frame全体を維持する。
+
+suite固有の`full-frame-large`表示modeを追加した。このmodeだけは従来の2倍image transformを解除し、A／Bを縦方向に並べ、各full imageを利用可能なpage幅で表示する。他のvalidation suiteの表示は変更しない。修正したcamera framingでA／B 8 captureをすべて再生成した。
+
+browser確認では`full-frame-large` class、1920x1080のnatural image、image transformなし、single-column comparisonを確認した。現在のdesktop viewportでは各画像がおよそ1614x908で表示される。主観確認用pageは日本語表示へ戻した。この修正ではC++／HLSLを変更していないため、直前に成功したDebug／HLSL build結果を引き続き適用する。

@@ -276,3 +276,11 @@ Added a four-checkpoint enlarged DamagedHelmet Lit capture plan and bilingual su
 User review found that the initial `0.5` camera-distance scale kept the underside pipes visible but clipped the established rearward-surface region near the top of the image. The Lit suite now uses scale `0.6`, approximately 1.67x the original linear size. The recaptured frame keeps the smooth crown panel, its adjacent rearward surface, and the underside pipes visible together. The static criterion now names both regions instead of relying on the ambiguous phrase "known noise regions."
 
 The validation runner also no longer assumes that the capture process exits after writing its plan. For each variant it waits until every planned output is non-empty and has a write time after that variant started, then stops only the process it launched. This resolves the observed post-capture process timeout without treating older capture files as completion.
+
+## 2026-08-27: Full-frame Lit presentation correction
+
+User review clarified that the required enlargement applies to the HTML presentation, not to the render camera. Camera zoom moved the established rearward-surface region near the helmet crown outside the frame, so the confidence Lit suite now restores `cameraDistanceScale` to `1.0` and preserves the complete 1920x1080 render frame.
+
+The suite declares the scoped `full-frame-large` display mode. In this mode only, the HTML removes the legacy 2x image transform, stacks A and B vertically, and uses the available page width for each full image. Other validation suites retain their existing presentation. All eight A/B captures were regenerated with the corrected camera framing.
+
+Browser verification confirmed the `full-frame-large` class, a 1920x1080 natural image, no image transform, and a single-column comparison rendered at approximately 1614x908 in the current desktop viewport. The page was returned to Japanese display for subjective review. No C++ or HLSL changed in this correction, so the previously successful Debug/HLSL build remains applicable.

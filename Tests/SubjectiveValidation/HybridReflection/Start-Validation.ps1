@@ -52,7 +52,7 @@ function Invoke-CaptureVariant
     }
     if ($PersistentConfidenceLit)
     {
-        $arguments += @('-ReflectionCaptureDebugView', 'lit', '-ReflectionCameraDistanceScale', '0.6')
+        $arguments += @('-ReflectionCaptureDebugView', 'lit', '-ReflectionCameraDistanceScale', '1.0')
         if ($Variant -eq 'b')
         {
             $arguments += '-ReflectionVarianceGuidedTemporal'
