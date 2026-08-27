@@ -178,6 +178,7 @@ Library-free 版を実装する場合は、repository 所有の C++ file だけ�
 - 最新 `origin/main` への rebase 後に `Fit Graph` と新規 node 配置時の自動 fit を追加し、Debug x64 build と `RenderGraphDocumentTests` は成功した。
 - 独立 `RenderGraph` window 追加後の Debug x64 build：成功。既存 warning 1 件、compile/link error は 0 件。
 - 独立 window の visual runtime check：DamagedHelmet の実行中 graph（11 passes、22 resources、55 links）で、初期 `Nodes` 表示、通常サイズ、main viewport 内の最大化、最大化前サイズへの復元を確認した。
+- Node title の区切り線を content 幅に合わせた custom line に変更し、各 node の外へはみ出さないことを DamagedHelmet の実行画面で確認した。変更後の Debug x64 build は成功した。
 - 通常の CMake test configure：`tinygltf v3.0.0` の upstream download hash 不一致により停止。RenderGraph code の compile 前に dependency restore で失敗しているため、代わりに repository の既存 local dependency を使う一時 MSBuild project で同じ test source を compile/run した。一時 project と build output は `build/` 以下にあり、commit 対象外。
 
 ## 参照先

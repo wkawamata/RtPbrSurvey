@@ -109,9 +109,34 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
             ++resourceIndex;
         }
 
+        float contentWidth = ImGui::CalcTextSize(node.name.c_str()).x;
+        for (const Engine::RenderGraphDocumentPin& pin : document.pins)
+        {
+            if (pin.nodeId != node.id)
+            {
+                continue;
+            }
+
+            const bool input = pin.direction == Engine::RenderGraphPinDirection::Input;
+            const std::string state = Engine::FormatD3D12ResourceStates(pin.state);
+            const std::string label = input ? "-> " + std::string(AccessLabel(pin.access)) + ": " + state
+                                            : std::string(AccessLabel(pin.access)) + ": " + state + " ->";
+            contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(label.c_str()).x);
+        }
+        if (node.kind == Engine::RenderGraphNodeKind::Resource)
+        {
+            const std::string lifetime =
+                "Lifetime [" + std::to_string(node.firstPass) + ", " + std::to_string(node.lastPass) + "]";
+            contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(lifetime.c_str()).x);
+        }
+
         NodeEditor::BeginNode(ToNodeId(node.id));
         ImGui::TextUnformatted(node.name.c_str());
-        ImGui::Separator();
+        const ImVec2 separatorStart = ImGui::GetCursorScreenPos();
+        ImGui::GetWindowDrawList()->AddLine(separatorStart,
+                                            ImVec2(separatorStart.x + contentWidth, separatorStart.y),
+                                            ImGui::GetColorU32(ImGuiCol_Separator));
+        ImGui::Dummy(ImVec2(contentWidth, 1.0f));
 
         for (const Engine::RenderGraphDocumentPin& pin : document.pins)
         {
