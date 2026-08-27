@@ -103,9 +103,9 @@ Runtime integration として、次の read-only entry point を追加した。
 - Engine が resource registry の `persistent` flag を document metadata の transient/persistent classification に変換する。
 - `SceneRenderer::CaptureRenderGraphDocument()` が同じ snapshot を host-facing API として公開する。
 - `SceneRendererDebugUi::DrawRenderGraphDiagnostics()` が pass/resource/link count、text/DOT preview、clipboard copy を提供する。
-- Standalone app の Debug window と host-facing `SceneRendererDebugUi::Draw()` の両方で、同じ diagnostics UI を再利用する。
+- Standalone app の Debug window と host-facing `SceneRendererDebugUi::Draw()` の両方から、独立した `RenderGraph` ImGui window を開く。
 
-UI は section を展開したときだけ snapshot と dump を生成する。`Nodes` view を選択すると `RenderGraphNodeEditorView` が document ID を `ax::NodeEditor` ID に変換し、pass/resource node、read/write pin、link を描画する。Scroll 可能な Debug UI の末尾でも canvas が潰れないよう、node editor view は 420 pixel の表示高を確保する。初期 position は lifetime/pass index から一度だけ設定し、新しい node を配置した frame では graph 全体へ自動で fit する。その後の user navigation と node movement は view state として editor context が保持され、`Fit Graph` button を押した場合だけ全体表示へ戻す。Library の settings file は無効化しており、local JSON は生成しない。Graph mutation と file write はまだ追加していない。
+UI は独立 window を開いている間だけ snapshot と dump を生成する。初期表示は `Nodes` とし、`RenderGraphNodeEditorView` が document ID を `ax::NodeEditor` ID に変換して pass/resource node、read/write pin、link を描画する。Canvas は window の残り領域を使用し、最小高 240 pixel を確保する。初期 position は lifetime/pass index から一度だけ設定し、新しい node を配置した frame では graph 全体へ自動で fit する。その後の user navigation と node movement は view state として editor context が保持され、`Fit Graph` button を押した場合だけ全体表示へ戻す。Library の settings file は無効化しており、local JSON は生成しない。Graph mutation と file write はまだ追加していない。
 
 ### Diagnostic snapshot
 
@@ -135,7 +135,9 @@ Exporter は identifier と label を quote/escape し、name を DOT ID とし�
 
 ### Debug UI entry
 
-In-app entry を追加する場合は、既存 Debug UI の小規模な read-only window または collapsing section とする。Filter と copy/export control は追加してよいが、graph mutation、pass reorder、resource edit、node-link creation は許可しない。
+既存 Debug UI の末尾に `Open RenderGraph Window` button を配置し、診断表示は独立した `RenderGraph` ImGui window に分離する。通常時の初期サイズは 900 x 600 pixel とする。`Maximize` は main viewport の work area 全体へ window を広げ、最大化中は移動と resize を無効にする。`Restore` は最大化前の位置とサイズへ戻す。Window の close button でも閉じられ、再度 Debug UI から開ける。
+
+この最大化は OS の別 window を生成するものではなく、RtPbrSurvey の main window 内で ImGui window を最大化する。Text/DOT/Nodes、copy、fit は read-only のままとし、graph mutation、pass reorder、resource edit、node-link creationは許可しない。
 
 ### 明示的に延期する項目
 
@@ -173,7 +175,9 @@ Library-free 版を実装する場合は、repository 所有の C++ file だけ�
 - Node view integration 後の `RenderGraphDocumentTests` 再実行：成功、exit code 0。
 - CLI runtime check：`-AutoSelectGltfDamagedHelmet -CaptureAfterFrames 30 -ExitAfterCapture` で正常終了し、exit code 0 と PNG capture の生成を確認した。Debug Layer log には buffer の initial state が無視される既存 warning が 2 件あり、`[ERROR]` は 0 件。
 - Node view の visual runtime check：DamagedHelmet の実行中 graph（11 passes、21 resources、51 links）で `Nodes` canvas、pass node、state 付き pin、link の描画を確認した。初回確認で canvas 高が不足したため 420 pixel の固定高を追加し、修正後に再確認した。
-- 最新 `origin/main` への rebase 後に `Fit Graph` と新規 node 配置時の自動 fit を追加し、Debug x64 build と `RenderGraphDocumentTests` は成功した。追加の visual check は Computer Use の app approval timeout により未実施。
+- 最新 `origin/main` への rebase 後に `Fit Graph` と新規 node 配置時の自動 fit を追加し、Debug x64 build と `RenderGraphDocumentTests` は成功した。
+- 独立 `RenderGraph` window 追加後の Debug x64 build：成功。既存 warning 1 件、compile/link error は 0 件。
+- 独立 window の visual runtime check：DamagedHelmet の実行中 graph（11 passes、22 resources、55 links）で、初期 `Nodes` 表示、通常サイズ、main viewport 内の最大化、最大化前サイズへの復元を確認した。
 - 通常の CMake test configure：`tinygltf v3.0.0` の upstream download hash 不一致により停止。RenderGraph code の compile 前に dependency restore で失敗しているため、代わりに repository の既存 local dependency を使う一時 MSBuild project で同じ test source を compile/run した。一時 project と build output は `build/` 以下にあり、commit 対象外。
 
 ## 参照先

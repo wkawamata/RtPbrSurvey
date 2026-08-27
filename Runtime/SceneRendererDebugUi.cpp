@@ -551,7 +551,7 @@ namespace RtPbrSurvey
         const Engine::RenderGraphDocument document = renderer.CaptureRenderGraphDocument();
         const std::string textDump = Engine::DumpRenderGraphDocumentText(document);
         const std::string dotDump = Engine::DumpRenderGraphDocumentDot(document);
-        static int dumpFormat = 0;
+        static int dumpFormat = 2;
 
         size_t passCount = 0;
         size_t resourceCount = 0;
@@ -592,7 +592,7 @@ namespace RtPbrSurvey
         else
         {
             const std::string& visibleDump = dumpFormat == 0 ? textDump : dotDump;
-            if (ImGui::BeginChild("RenderGraphDump", ImVec2(0.0f, 240.0f), true, ImGuiWindowFlags_HorizontalScrollbar))
+            if (ImGui::BeginChild("RenderGraphDump", ImVec2(0.0f, 0.0f), true, ImGuiWindowFlags_HorizontalScrollbar))
             {
                 ImGui::TextUnformatted(visibleDump.c_str());
             }
@@ -600,62 +600,117 @@ namespace RtPbrSurvey
         }
     }
 
+    void SceneRendererDebugUi::DrawRenderGraphWindow(SceneRenderer& renderer, bool* open)
+    {
+        if (open == nullptr || !*open)
+        {
+            return;
+        }
+
+        static bool maximized = false;
+        static bool restorePending = false;
+        static ImVec2 restorePosition(80.0f, 80.0f);
+        static ImVec2 restoreSize(900.0f, 600.0f);
+
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        if (maximized)
+        {
+            ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
+            ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
+        }
+        else if (restorePending)
+        {
+            ImGui::SetNextWindowPos(restorePosition, ImGuiCond_Always);
+            ImGui::SetNextWindowSize(restoreSize, ImGuiCond_Always);
+            restorePending = false;
+        }
+        else
+        {
+            ImGui::SetNextWindowSize(ImVec2(900.0f, 600.0f), ImGuiCond_FirstUseEver);
+        }
+
+        const ImGuiWindowFlags flags = maximized ? ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize : 0;
+        if (ImGui::Begin("RenderGraph", open, flags))
+        {
+            if (ImGui::Button(maximized ? "Restore" : "Maximize"))
+            {
+                if (maximized)
+                {
+                    maximized = false;
+                    restorePending = true;
+                }
+                else
+                {
+                    restorePosition = ImGui::GetWindowPos();
+                    restoreSize = ImGui::GetWindowSize();
+                    maximized = true;
+                }
+            }
+            ImGui::SameLine();
+            ImGui::TextDisabled("Read-only diagnostics");
+            ImGui::Separator();
+            DrawRenderGraphDiagnostics(renderer);
+        }
+        ImGui::End();
+    }
+
     void SceneRendererDebugUi::Draw(SceneRenderer& renderer,
                                     bool* open,
                                     const char* windowName,
                                     EnvironmentMappingUiState* environment)
     {
+        static bool renderGraphWindowOpen = false;
         ImGui::SetNextWindowSize(ImVec2(420, 520), ImGuiCond_FirstUseEver);
-        if (!ImGui::Begin(windowName, open))
+        const bool debugWindowVisible = ImGui::Begin(windowName, open);
+        if (debugWindowVisible)
         {
-            ImGui::End();
-            return;
-        }
+            DrawFrameSummary(renderer);
+            DrawTemporalUpscalerControls(renderer);
+            ImGui::Separator();
 
-        DrawFrameSummary(renderer);
-        DrawTemporalUpscalerControls(renderer);
-        ImGui::Separator();
+            if (ImGui::CollapsingHeader("Back Buffer", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawBackBufferControls(renderer);
+            }
 
-        if (ImGui::CollapsingHeader("Back Buffer", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawBackBufferControls(renderer);
-        }
+            if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawLightingControls(renderer);
+            }
 
-        if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawLightingControls(renderer);
-        }
+            if (environment != nullptr &&
+                ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawEnvironmentMapping(renderer, *environment);
+            }
 
-        if (environment != nullptr && ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawEnvironmentMapping(renderer, *environment);
-        }
+            if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawToneMapControls(renderer);
+            }
 
-        if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawToneMapControls(renderer);
-        }
+            if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawShadowControls(renderer);
+            }
 
-        if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawShadowControls(renderer);
-        }
+            if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawHybridReflectionControls(renderer);
+            }
 
-        if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawHybridReflectionControls(renderer);
-        }
+            if (ImGui::CollapsingHeader("Render View", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawRenderViewControls(renderer);
+            }
 
-        if (ImGui::CollapsingHeader("Render View", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawRenderViewControls(renderer);
-        }
-
-        if (ImGui::CollapsingHeader("RenderGraph Diagnostics"))
-        {
-            DrawRenderGraphDiagnostics(renderer);
+            if (ImGui::Button("Open RenderGraph Window"))
+            {
+                renderGraphWindowOpen = true;
+            }
         }
 
         ImGui::End();
+        DrawRenderGraphWindow(renderer, &renderGraphWindowOpen);
     }
 }

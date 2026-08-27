@@ -96,7 +96,8 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     ImGui::TextDisabled("Read-only");
 
     NodeEditor::SetCurrentEditor(m_impl->context);
-    NodeEditor::Begin("RenderGraphNodeEditor", ImVec2(0.0f, 420.0f));
+    const float canvasHeight = (std::max)(ImGui::GetContentRegionAvail().y, 240.0f);
+    NodeEditor::Begin("RenderGraphNodeEditor", ImVec2(0.0f, canvasHeight));
 
     size_t resourceIndex = 0;
     bool layoutChanged = false;
