@@ -93,6 +93,36 @@ bool TestDeterministicDump()
     return passed;
 }
 
+bool TestPingPongNodeIdentity()
+{
+    const std::vector<Engine::RenderPass> evenPasses = {
+        {.name = L"TemporalReflectionPass",
+         .reads = {{"ReflectionHistoryDepth.0", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}},
+         .writes = {{"ReflectionHistoryDepth.1", D3D12_RESOURCE_STATE_RENDER_TARGET}}},
+    };
+    const std::vector<Engine::RenderPass> oddPasses = {
+        {.name = L"TemporalReflectionPass",
+         .reads = {{"ReflectionHistoryDepth.1", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}},
+         .writes = {{"ReflectionHistoryDepth.0", D3D12_RESOURCE_STATE_RENDER_TARGET}}},
+    };
+
+    const Engine::RenderGraphDocument even = Engine::BuildRenderGraphDocument(evenPasses);
+    const Engine::RenderGraphDocument odd = Engine::BuildRenderGraphDocument(oddPasses);
+    bool passed = true;
+    passed &= Check(even.nodes.size() == odd.nodes.size(), "ping-pong frames keep the same node count");
+    for (size_t nodeIndex = 0; nodeIndex < even.nodes.size() && nodeIndex < odd.nodes.size(); ++nodeIndex)
+    {
+        passed &= Check(even.nodes[nodeIndex].name == odd.nodes[nodeIndex].name,
+                        "ping-pong nodes keep deterministic name order");
+        passed &=
+            Check(even.nodes[nodeIndex].id == odd.nodes[nodeIndex].id, "ping-pong nodes keep stable document IDs");
+    }
+    passed &= Check(even.links.size() == odd.links.size(), "ping-pong frames keep the same link count");
+    passed &= Check(even.links.front().id != odd.links.front().id,
+                    "ping-pong read/write role changes are represented by dynamic links");
+    return passed;
+}
+
 bool TestStateFormatting()
 {
     bool passed = true;
@@ -113,6 +143,7 @@ int main()
     bool passed = true;
     passed &= TestDocumentTopology();
     passed &= TestDeterministicDump();
+    passed &= TestPingPongNodeIdentity();
     passed &= TestStateFormatting();
     return passed ? 0 : 1;
 }

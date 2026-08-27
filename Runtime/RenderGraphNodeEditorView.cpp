@@ -17,6 +17,7 @@
 
 #include <imgui.h>
 
+#include <unordered_map>
 #include <unordered_set>
 
 namespace RtPbrSurvey
@@ -68,9 +69,9 @@ ImVec4 NodeBackgroundColor(const Engine::RenderGraphDocumentNode& node)
     switch (node.resourceKind)
     {
         case Engine::RenderGraphResourceKind::Texture:
-            return ImVec4(0.24f, 0.12f, 0.07f, 0.96f);
+            return ImVec4(0.30f, 0.16f, 0.04f, 0.96f);
         case Engine::RenderGraphResourceKind::Buffer:
-            return ImVec4(0.24f, 0.18f, 0.06f, 0.96f);
+            return ImVec4(0.30f, 0.07f, 0.06f, 0.96f);
         default:
             return ImVec4(0.22f, 0.10f, 0.10f, 0.96f);
     }
@@ -81,6 +82,7 @@ struct RenderGraphNodeEditorView::Impl
 {
     NodeEditor::EditorContext* context = nullptr;
     std::unordered_set<uint64_t> positionedNodes;
+    std::unordered_map<uint64_t, float> stableContentWidths;
 
     Impl()
     {
@@ -161,6 +163,9 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                 "Lifetime [" + std::to_string(node.firstPass) + ", " + std::to_string(node.lastPass) + "]";
             contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(lifetime.c_str()).x);
         }
+        float& stableContentWidth = m_impl->stableContentWidths[node.id.value];
+        stableContentWidth = (std::max)(stableContentWidth, contentWidth);
+        contentWidth = stableContentWidth;
 
         NodeEditor::PushStyleColor(NodeEditor::StyleColor_NodeBg, NodeBackgroundColor(node));
         NodeEditor::BeginNode(ToNodeId(node.id));
