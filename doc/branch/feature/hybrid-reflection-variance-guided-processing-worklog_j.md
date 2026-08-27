@@ -284,3 +284,11 @@ user reviewにより、必要な拡大はrender cameraではなくHTML上の表�
 suite固有の`full-frame-large`表示modeを追加した。このmodeだけは従来の2倍image transformを解除し、A／Bを縦方向に並べ、各full imageを利用可能なpage幅で表示する。他のvalidation suiteの表示は変更しない。修正したcamera framingでA／B 8 captureをすべて再生成した。
 
 browser確認では`full-frame-large` class、1920x1080のnatural image、image transformなし、single-column comparisonを確認した。現在のdesktop viewportでは各画像がおよそ1614x908で表示される。主観確認用pageは日本語表示へ戻した。この修正ではC++／HLSLを変更していないため、直前に成功したDebug／HLSL build結果を引き続き適用する。
+
+## 2026-08-28: 実行中estimator scene主観gate
+
+既知DamagedHelmet領域はfull-frame表示で暗く小さく、時間品質を静止画から判断しにくいため、静止画reviewをprimary temporal-quality gateから外した。Debug executableを起動し、controlled `Hybrid Reflection Estimator Test` sceneで直接観察した。Aはstochastic rough sampling、temporal weight `0.9`、variance-guided temporal無効、Bはvariance-guided temporalだけを有効にした。surface variance filterとrejected-pixel neighborhood processingは無効を維持した。
+
+静止rough sphereの粒状noiseと輝度／detail保持について、userは明確なA／B差を識別できなかった。この2 criterionは改善または同等性の証拠にせず、判定不能として記録する。camera移動中に追加のreflection遅れ／残像は見られず、方向反転時にedge／reflection破綻は見られず、motion停止後は安定して収束した。この3 dynamic-safety criterionは観察したcontrolled sceneに対してpassとする。
+
+結論: bounded persistent-confidence policyは今回のlive Lit testで動的regressionを示さなかったが、静止時の知覚的benefitは確立しなかった。linear-HDR variance低減の数値証拠は維持するが、このlive結果によってvisible Lit-quality improvementを主張しない。

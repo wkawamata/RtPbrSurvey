@@ -284,3 +284,11 @@ User review clarified that the required enlargement applies to the HTML presenta
 The suite declares the scoped `full-frame-large` display mode. In this mode only, the HTML removes the legacy 2x image transform, stacks A and B vertically, and uses the available page width for each full image. Other validation suites retain their existing presentation. All eight A/B captures were regenerated with the corrected camera framing.
 
 Browser verification confirmed the `full-frame-large` class, a 1920x1080 natural image, no image transform, and a single-column comparison rendered at approximately 1614x908 in the current desktop viewport. The page was returned to Japanese display for subjective review. No C++ or HLSL changed in this correction, so the previously successful Debug/HLSL build remains applicable.
+
+## 2026-08-28: Live estimator-scene subjective gate
+
+Still-image review was retired as the primary temporal-quality gate because the known DamagedHelmet regions were dark, small in full-frame presentation, and difficult to judge temporally. The Debug executable was launched interactively with the controlled `Hybrid Reflection Estimator Test` scene. A used stochastic rough sampling, temporal weight `0.9`, and variance-guided temporal disabled; B changed only variance-guided temporal to enabled. Surface variance filtering and rejected-pixel neighborhood processing remained disabled.
+
+The user could not identify a clear A/B difference in static rough-sphere grain or in brightness/detail preservation. These two criteria are recorded as unable to judge, not as evidence of improvement or equivalence. No added reflection lag or trail was observed during camera motion, no edge or reflection breakage was observed during direction reversal, and the result stabilized after motion stopped. These three dynamic-safety criteria pass for the observed controlled scene.
+
+Conclusion: the bounded persistent-confidence policy produced no observed dynamic regression in this live Lit test, but its static perceptual benefit was not established. Numerical linear-HDR variance reduction remains valid evidence; this live result does not upgrade it to a visible Lit-quality improvement claim.
