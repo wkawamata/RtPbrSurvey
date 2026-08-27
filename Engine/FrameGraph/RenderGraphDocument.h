@@ -56,6 +56,13 @@ enum class RenderGraphResourceLifetimeKind
     Persistent,
 };
 
+enum class RenderGraphResourceKind
+{
+    Unknown,
+    Texture,
+    Buffer,
+};
+
 struct RenderGraphDocumentNode
 {
     RenderGraphDocumentId id;
@@ -65,6 +72,7 @@ struct RenderGraphDocumentNode
     int firstPass = -1;
     int lastPass = -1;
     RenderGraphResourceLifetimeKind lifetimeKind = RenderGraphResourceLifetimeKind::Unknown;
+    RenderGraphResourceKind resourceKind = RenderGraphResourceKind::Unknown;
 };
 
 struct RenderGraphDocumentPin
@@ -90,6 +98,7 @@ struct RenderGraphDocumentLink
 struct RenderGraphResourceMetadata
 {
     RenderGraphResourceLifetimeKind lifetimeKind = RenderGraphResourceLifetimeKind::Unknown;
+    RenderGraphResourceKind resourceKind = RenderGraphResourceKind::Unknown;
 };
 
 using RenderGraphResourceMetadataMap = std::unordered_map<std::string, RenderGraphResourceMetadata>;

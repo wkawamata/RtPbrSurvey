@@ -44,6 +44,37 @@ const char* AccessLabel(Engine::RenderGraphResourceAccess access)
 {
     return access == Engine::RenderGraphResourceAccess::Read ? "Read" : "Write";
 }
+
+const char* ResourceKindLabel(Engine::RenderGraphResourceKind kind)
+{
+    switch (kind)
+    {
+        case Engine::RenderGraphResourceKind::Texture:
+            return "Texture";
+        case Engine::RenderGraphResourceKind::Buffer:
+            return "Buffer";
+        default:
+            return "Resource";
+    }
+}
+
+ImVec4 NodeBackgroundColor(const Engine::RenderGraphDocumentNode& node)
+{
+    if (node.kind == Engine::RenderGraphNodeKind::Pass)
+    {
+        return ImVec4(0.08f, 0.15f, 0.23f, 0.96f);
+    }
+
+    switch (node.resourceKind)
+    {
+        case Engine::RenderGraphResourceKind::Texture:
+            return ImVec4(0.24f, 0.12f, 0.07f, 0.96f);
+        case Engine::RenderGraphResourceKind::Buffer:
+            return ImVec4(0.24f, 0.18f, 0.06f, 0.96f);
+        default:
+            return ImVec4(0.22f, 0.10f, 0.10f, 0.96f);
+    }
+}
 } // namespace
 
 struct RenderGraphNodeEditorView::Impl
@@ -125,13 +156,19 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         }
         if (node.kind == Engine::RenderGraphNodeKind::Resource)
         {
+            contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(ResourceKindLabel(node.resourceKind)).x);
             const std::string lifetime =
                 "Lifetime [" + std::to_string(node.firstPass) + ", " + std::to_string(node.lastPass) + "]";
             contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(lifetime.c_str()).x);
         }
 
+        NodeEditor::PushStyleColor(NodeEditor::StyleColor_NodeBg, NodeBackgroundColor(node));
         NodeEditor::BeginNode(ToNodeId(node.id));
         ImGui::TextUnformatted(node.name.c_str());
+        if (node.kind == Engine::RenderGraphNodeKind::Resource)
+        {
+            ImGui::TextDisabled("%s", ResourceKindLabel(node.resourceKind));
+        }
         const ImVec2 separatorStart = ImGui::GetCursorScreenPos();
         ImGui::GetWindowDrawList()->AddLine(separatorStart,
                                             ImVec2(separatorStart.x + contentWidth, separatorStart.y),
@@ -164,6 +201,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
             ImGui::TextDisabled("Lifetime [%d, %d]", node.firstPass, node.lastPass);
         }
         NodeEditor::EndNode();
+        NodeEditor::PopStyleColor();
     }
 
     for (const Engine::RenderGraphDocumentLink& link : document.links)

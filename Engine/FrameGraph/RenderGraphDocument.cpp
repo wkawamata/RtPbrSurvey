@@ -106,6 +106,19 @@ const char* LifetimeKindName(RenderGraphResourceLifetimeKind kind)
     }
 }
 
+const char* ResourceKindName(RenderGraphResourceKind kind)
+{
+    switch (kind)
+    {
+        case RenderGraphResourceKind::Texture:
+            return "texture";
+        case RenderGraphResourceKind::Buffer:
+            return "buffer";
+        default:
+            return "unknown";
+    }
+}
+
 const RenderGraphDocumentNode* FindNode(const RenderGraphDocument& document, RenderGraphDocumentId id)
 {
     const auto node = std::find_if(document.nodes.begin(),
@@ -171,6 +184,8 @@ RenderGraphDocument BuildRenderGraphDocument(const std::vector<RenderPass>& rend
         const RenderGraphResourceLifetimeKind lifetimeKind = metadata != resourceMetadata.end()
                                                                  ? metadata->second.lifetimeKind
                                                                  : RenderGraphResourceLifetimeKind::Unknown;
+        const RenderGraphResourceKind resourceKind =
+            metadata != resourceMetadata.end() ? metadata->second.resourceKind : RenderGraphResourceKind::Unknown;
         resourceNodeIndices[name] = document.nodes.size();
         document.nodes.push_back({MakeDocumentId("resource", name),
                                   RenderGraphNodeKind::Resource,
@@ -178,7 +193,8 @@ RenderGraphDocument BuildRenderGraphDocument(const std::vector<RenderPass>& rend
                                   -1,
                                   lifetime.firstPass,
                                   lifetime.lastPass,
-                                  lifetimeKind});
+                                  lifetimeKind,
+                                  resourceKind});
     }
 
     std::unordered_map<std::string, size_t> passNameOccurrences;
@@ -308,7 +324,8 @@ std::string DumpRenderGraphDocumentText(const RenderGraphDocument& document)
             }
             stream << "  " << (link.access == RenderGraphResourceAccess::Read ? "Read " : "Write ") << resource->name
                    << " state=" << FormatD3D12ResourceStates(link.state) << " lifetime=[" << resource->firstPass << ','
-                   << resource->lastPass << "] kind=" << LifetimeKindName(resource->lifetimeKind) << '\n';
+                   << resource->lastPass << "] kind=" << LifetimeKindName(resource->lifetimeKind)
+                   << " type=" << ResourceKindName(resource->resourceKind) << '\n';
         }
     }
     return stream.str();
@@ -325,7 +342,8 @@ std::string DumpRenderGraphDocumentDot(const RenderGraphDocument& document)
                << ", label=\"" << EscapeDot(node.name);
         if (node.kind == RenderGraphNodeKind::Resource)
         {
-            stream << "\\nlifetime=[" << node.firstPass << ',' << node.lastPass << "]\\n"
+            stream << "\\ntype=" << ResourceKindName(node.resourceKind) << "\\nlifetime=[" << node.firstPass << ','
+                   << node.lastPass << "]\\n"
                    << LifetimeKindName(node.lifetimeKind);
         }
         stream << "\"];\n";

@@ -107,6 +107,8 @@ Runtime integration として、次の read-only entry point を追加した。
 
 UI は独立 window を開いている間だけ snapshot と dump を生成する。初期表示は `Nodes` とし、`RenderGraphNodeEditorView` が document ID を `ax::NodeEditor` ID に変換して pass/resource node、read/write pin、link を描画する。Canvas は window の残り領域を使用し、最小高 240 pixel を確保する。初期 position は lifetime/pass index から一度だけ設定し、新しい node を配置した frame では graph 全体へ自動で fit する。その後の user navigation と node movement は view state として editor context が保持され、`Fit Graph` button を押した場合だけ全体表示へ戻す。Library の settings file は無効化しており、local JSON は生成しない。Graph mutation と file write はまだ追加していない。
 
+Node の背景色は役割ごとに控えめに分ける。Pass は寒色の青、Resource は暖色とし、Texture は赤橙、Buffer は黄橙、種別不明の Resource は赤茶を使用する。色だけに依存せず、Resource node の title 下にも `Texture`、`Buffer`、または `Resource` label を表示する。Resource 種別は名前から推測せず、diagnostic metadata に `RenderGraphResourceKind` を保持し、runtime resource の `D3D12_RESOURCE_DESC::Dimension` から設定する。
+
 ### Diagnostic snapshot
 
 `BuildRenderPasses()` と validation の後に graph を取得する。Mutable な runtime object を外部公開せず、安定した diagnostic record を生成する。
@@ -179,6 +181,7 @@ Library-free 版を実装する場合は、repository 所有の C++ file だけ�
 - 独立 `RenderGraph` window 追加後の Debug x64 build：成功。既存 warning 1 件、compile/link error は 0 件。
 - 独立 window の visual runtime check：DamagedHelmet の実行中 graph（11 passes、22 resources、55 links）で、初期 `Nodes` 表示、通常サイズ、main viewport 内の最大化、最大化前サイズへの復元を確認した。
 - Node title の区切り線を content 幅に合わせた custom line に変更し、各 node の外へはみ出さないことを DamagedHelmet の実行画面で確認した。変更後の Debug x64 build は成功した。
+- Pass/Resource の分類色と Texture/Buffer の diagnostic 種別を追加した。Debug x64 build と更新後の `RenderGraphDocumentTests` は成功し、実行画面で Pass の青系背景を確認した。
 - 通常の CMake test configure：`tinygltf v3.0.0` の upstream download hash 不一致により停止。RenderGraph code の compile 前に dependency restore で失敗しているため、代わりに repository の既存 local dependency を使う一時 MSBuild project で同じ test source を compile/run した。一時 project と build output は `build/` 以下にあり、commit 対象外。
 
 ## 参照先

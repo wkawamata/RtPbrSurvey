@@ -2,6 +2,7 @@
 
 #include "Engine/FrameGraph/RenderGraphDocument.h"
 
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <unordered_set>
@@ -28,8 +29,8 @@ Engine::RenderGraphDocument MakeDocument()
          .writes = {{"SceneColor", D3D12_RESOURCE_STATE_RENDER_TARGET}}},
     };
     const Engine::RenderGraphResourceMetadataMap metadata = {
-        {"Albedo", {Engine::RenderGraphResourceLifetimeKind::Transient}},
-        {"SceneColor", {Engine::RenderGraphResourceLifetimeKind::Persistent}},
+        {"Albedo", {Engine::RenderGraphResourceLifetimeKind::Transient, Engine::RenderGraphResourceKind::Texture}},
+        {"SceneColor", {Engine::RenderGraphResourceLifetimeKind::Persistent, Engine::RenderGraphResourceKind::Buffer}},
     };
     return Engine::BuildRenderGraphDocument(passes, metadata);
 }
@@ -41,6 +42,19 @@ bool TestDocumentTopology()
     passed &= Check(document.nodes.size() == 5, "document contains two pass and three resource nodes");
     passed &= Check(document.pins.size() == 8, "each usage creates two pins");
     passed &= Check(document.links.size() == 4, "each usage creates one link");
+
+    const auto albedo = std::find_if(document.nodes.begin(),
+                                     document.nodes.end(),
+                                     [](const Engine::RenderGraphDocumentNode& node) { return node.name == "Albedo"; });
+    const auto sceneColor =
+        std::find_if(document.nodes.begin(),
+                     document.nodes.end(),
+                     [](const Engine::RenderGraphDocumentNode& node) { return node.name == "SceneColor"; });
+    passed &= Check(albedo != document.nodes.end() && albedo->resourceKind == Engine::RenderGraphResourceKind::Texture,
+                    "texture resource kind is preserved");
+    passed &=
+        Check(sceneColor != document.nodes.end() && sceneColor->resourceKind == Engine::RenderGraphResourceKind::Buffer,
+              "buffer resource kind is preserved");
 
     std::unordered_set<uint64_t> ids;
     for (const Engine::RenderGraphDocumentNode& node : document.nodes)
