@@ -111,6 +111,8 @@ Node の背景色は役割ごとに分ける。Pass は寒色の青、Resource �
 
 Reflection history の `.0` / `.1` は統合せず、完全な resource 名をidentityとして別nodeのまま保持する。Ping-pongによりread/write対象とpin/linkはframeごとに交換されるが、resource名でsortされたnode順、node ID、初期座標は安定している。表示文字列の長さが `PIXEL_SHADER_RESOURCE` と `RENDER_TARGET` の間で変化してもnode幅が往復しないよう、viewer contextはnodeごとの最大到達content幅を保持する。
 
+Resource node側のpinはdynamic usage pinを直接表示せず、nodeごとに固定した`Read` output pinと`Write` input pinへ集約する。両方の行を常に描画し、接続数だけを更新する。Pass node側はusageごとのpinとstate表示を維持するため診断情報は失わない。これによりping-pongでresourceの役割が交換されても、Resource nodeのpin方向、行数、左右余白、Box寸法は変化しない。
+
 ### Diagnostic snapshot
 
 `BuildRenderPasses()` と validation の後に graph を取得する。Mutable な runtime object を外部公開せず、安定した diagnostic record を生成する。
@@ -186,6 +188,7 @@ Library-free 版を実装する場合は、repository 所有の C++ file だけ�
 - Pass/Resource の分類色と Texture/Buffer の diagnostic 種別を追加した。Debug x64 build と更新後の `RenderGraphDocumentTests` は成功し、実行画面で Pass の青系背景を確認した。
 - Reflection history ping-pongを模したtestで、偶数／奇数frame間のnode名順とnode IDが同一であり、read/write roleを表すlink IDだけが変化することを確認した。Nodeごとの最大content幅を保持する修正を含むDebug x64 buildと最終linkは成功した。
 - Textureをオレンジ、Bufferを赤へ調整した。DamagedHelmetの実行画面でPassの青、Textureのオレンジ、未分類Resourceの赤茶が判別できることを確認した。現在のgraphにはBuffer nodeがないため、Bufferの赤はdiagnostic testと描画設定で確認した。
+- Resource nodeを固定`Read`/`Write` pin layoutへ変更した。Debug x64 buildは成功し、DamagedHelmetの実行画面で全Resource nodeが常に2行を保持し、linkが固定pinへ集約されることを確認した。
 - 通常の CMake test configure：`tinygltf v3.0.0` の upstream download hash 不一致により停止。RenderGraph code の compile 前に dependency restore で失敗しているため、代わりに repository の既存 local dependency を使う一時 MSBuild project で同じ test source を compile/run した。一時 project と build output は `build/` 以下にあり、commit 対象外。
 
 ## 参照先

@@ -83,6 +83,13 @@ struct RenderGraphNodeEditorView::Impl
     NodeEditor::EditorContext* context = nullptr;
     std::unordered_set<uint64_t> positionedNodes;
     std::unordered_map<uint64_t, float> stableContentWidths;
+    struct ResourcePinIds
+    {
+        NodeEditor::PinId read;
+        NodeEditor::PinId write;
+    };
+    std::unordered_map<uint64_t, ResourcePinIds> resourcePinIds;
+    uintptr_t nextSyntheticPinId = UINTPTR_MAX;
 
     Impl()
     {
@@ -116,6 +123,17 @@ struct RenderGraphNodeEditorView::Impl
         NodeEditor::SetNodePosition(ToNodeId(node.id), position);
         return true;
     }
+
+    NodeEditor::PinId ResourcePinId(Engine::RenderGraphDocumentId nodeId, Engine::RenderGraphResourceAccess access)
+    {
+        auto [entry, inserted] = resourcePinIds.try_emplace(nodeId.value);
+        if (inserted)
+        {
+            entry->second.read = NodeEditor::PinId(nextSyntheticPinId--);
+            entry->second.write = NodeEditor::PinId(nextSyntheticPinId--);
+        }
+        return access == Engine::RenderGraphResourceAccess::Read ? entry->second.read : entry->second.write;
+    }
 };
 
 RenderGraphNodeEditorView::RenderGraphNodeEditorView() : m_impl(std::make_unique<Impl>()) {}
@@ -143,11 +161,22 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         }
 
         float contentWidth = ImGui::CalcTextSize(node.name.c_str()).x;
+        size_t readPinCount = 0;
+        size_t writePinCount = 0;
         for (const Engine::RenderGraphDocumentPin& pin : document.pins)
         {
             if (pin.nodeId != node.id)
             {
                 continue;
+            }
+
+            if (pin.access == Engine::RenderGraphResourceAccess::Read)
+            {
+                ++readPinCount;
+            }
+            else
+            {
+                ++writePinCount;
             }
 
             const bool input = pin.direction == Engine::RenderGraphPinDirection::Input;
@@ -159,6 +188,8 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         if (node.kind == Engine::RenderGraphNodeKind::Resource)
         {
             contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(ResourceKindLabel(node.resourceKind)).x);
+            contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize("Read  (000) ->").x);
+            contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize("-> Write (000)").x);
             const std::string lifetime =
                 "Lifetime [" + std::to_string(node.firstPass) + ", " + std::to_string(node.lastPass) + "]";
             contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(lifetime.c_str()).x);
@@ -180,25 +211,39 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                                             ImGui::GetColorU32(ImGuiCol_Separator));
         ImGui::Dummy(ImVec2(contentWidth, 1.0f));
 
-        for (const Engine::RenderGraphDocumentPin& pin : document.pins)
+        if (node.kind == Engine::RenderGraphNodeKind::Resource)
         {
-            if (pin.nodeId != node.id)
-            {
-                continue;
-            }
-
-            const bool input = pin.direction == Engine::RenderGraphPinDirection::Input;
-            NodeEditor::BeginPin(ToPinId(pin.id), input ? NodeEditor::PinKind::Input : NodeEditor::PinKind::Output);
-            const std::string state = Engine::FormatD3D12ResourceStates(pin.state);
-            if (input)
-            {
-                ImGui::Text("-> %s: %s", AccessLabel(pin.access), state.c_str());
-            }
-            else
-            {
-                ImGui::Text("%s: %s ->", AccessLabel(pin.access), state.c_str());
-            }
+            NodeEditor::BeginPin(m_impl->ResourcePinId(node.id, Engine::RenderGraphResourceAccess::Read),
+                                 NodeEditor::PinKind::Output);
+            ImGui::Text("Read  (%zu) ->", readPinCount);
             NodeEditor::EndPin();
+            NodeEditor::BeginPin(m_impl->ResourcePinId(node.id, Engine::RenderGraphResourceAccess::Write),
+                                 NodeEditor::PinKind::Input);
+            ImGui::Text("-> Write (%zu)", writePinCount);
+            NodeEditor::EndPin();
+        }
+        else
+        {
+            for (const Engine::RenderGraphDocumentPin& pin : document.pins)
+            {
+                if (pin.nodeId != node.id)
+                {
+                    continue;
+                }
+
+                const bool input = pin.direction == Engine::RenderGraphPinDirection::Input;
+                NodeEditor::BeginPin(ToPinId(pin.id), input ? NodeEditor::PinKind::Input : NodeEditor::PinKind::Output);
+                const std::string state = Engine::FormatD3D12ResourceStates(pin.state);
+                if (input)
+                {
+                    ImGui::Text("-> %s: %s", AccessLabel(pin.access), state.c_str());
+                }
+                else
+                {
+                    ImGui::Text("%s: %s ->", AccessLabel(pin.access), state.c_str());
+                }
+                NodeEditor::EndPin();
+            }
         }
 
         if (node.kind == Engine::RenderGraphNodeKind::Resource)
@@ -213,7 +258,12 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     {
         const ImVec4 color = link.access == Engine::RenderGraphResourceAccess::Read ? ImVec4(0.35f, 0.70f, 1.0f, 1.0f)
                                                                                     : ImVec4(1.0f, 0.65f, 0.25f, 1.0f);
-        NodeEditor::Link(ToLinkId(link.id), ToPinId(link.fromPinId), ToPinId(link.toPinId), color, 2.0f);
+        const NodeEditor::PinId resourcePinId = m_impl->ResourcePinId(link.resourceNodeId, link.access);
+        const NodeEditor::PinId fromPinId =
+            link.access == Engine::RenderGraphResourceAccess::Read ? resourcePinId : ToPinId(link.fromPinId);
+        const NodeEditor::PinId toPinId =
+            link.access == Engine::RenderGraphResourceAccess::Read ? ToPinId(link.toPinId) : resourcePinId;
+        NodeEditor::Link(ToLinkId(link.id), fromPinId, toPinId, color, 2.0f);
     }
 
     NodeEditor::End();
