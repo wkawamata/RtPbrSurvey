@@ -216,6 +216,25 @@ figcaption strong {
     transform-origin: center;
 }
 
+body.full-frame-large .page-header,
+body.full-frame-large main {
+    width: min(1900px, calc(100% - 24px));
+}
+
+body.full-frame-large .comparison {
+    grid-template-columns: 1fr;
+    gap: 24px;
+}
+
+body.full-frame-large .image-frame {
+    min-height: 0;
+    overflow: visible;
+}
+
+body.full-frame-large .image-frame img {
+    transform: none;
+}
+
 .image-frame img.missing {
     display: none;
 }

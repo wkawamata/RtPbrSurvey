@@ -119,6 +119,9 @@ public:
         ReflectionRayEmission,
         ReflectionEvaluatedRadiance,
         ReflectionSpecularEstimate,
+        ReflectionResolvedSpecularEstimate,
+        ReflectionSpecularVariance,
+        ReflectionSpecularConfidence,
         ReflectionResolvedRadiance,
         ReflectionTemporalValidity,
         ReflectionEvaluatedRadianceDirect,
@@ -229,6 +232,9 @@ public:
         float temporalNoiseStrength = 0.0f;
         bool rejectedPixelNeighborhoodEnabled = false;
         bool surfaceVarianceFilterEnabled = false;
+        bool varianceGuidedTemporalEnabled = false;
+        // Diagnostic-only evidence override. Changing it must preserve history for decay measurement.
+        bool confidenceForceStableEvidence = false;
     };
 
     struct SpecularDebugLineSettings
@@ -290,6 +296,7 @@ public:
     const Engine::TemporalUpscalerSettings& GetTemporalUpscalerSettings() const { return m_temporalUpscalerSettings; }
     void SetHybridReflectionSettings(const HybridReflectionSettings& settings);
     const HybridReflectionSettings& GetHybridReflectionSettings() const { return m_hybridReflectionSettings; }
+    void ResetHybridReflectionHistoryForDiagnostics();
     void SetMaterialParams(UINT materialIndex, const MaterialParams& params);
     void SetRenderingPath(RenderingPath renderingPath);
     RenderingPath GetRenderingPath() const { return m_renderingPath; }
@@ -377,6 +384,18 @@ private:
                 "ReflectionResolvedRadianceCurrentSrv";
             static constexpr const char* ReflectionHistoryDepthSrv = "ReflectionHistoryDepthSrv";
             static constexpr const char* ReflectionHistoryNormalSrv = "ReflectionHistoryNormalSrv";
+            static constexpr const char* ReflectionResolvedSpecularEstimateHistorySrv =
+                "ReflectionResolvedSpecularEstimateHistorySrv";
+            static constexpr const char* ReflectionResolvedSpecularEstimateCurrentSrv =
+                "ReflectionResolvedSpecularEstimateCurrentSrv";
+            static constexpr const char* ReflectionSpecularMomentsHistorySrv =
+                "ReflectionSpecularMomentsHistorySrv";
+            static constexpr const char* ReflectionSpecularMomentsCurrentSrv =
+                "ReflectionSpecularMomentsCurrentSrv";
+            static constexpr const char* ReflectionSpecularConfidenceHistorySrv =
+                "ReflectionSpecularConfidenceHistorySrv";
+            static constexpr const char* ReflectionSpecularConfidenceCurrentSrv =
+                "ReflectionSpecularConfidenceCurrentSrv";
             static constexpr const char* ReflectionRayHitUav = "ReflectionRayHitUav";
             static constexpr const char* TlasDebugUav = "TlasDebugUav";
             static constexpr const char* AccelerationStructureSrv = "AccelerationStructureSrv";
@@ -397,6 +416,11 @@ private:
             static constexpr const char* ReflectionResolvedRadianceCurrent = "ReflectionResolvedRadianceCurrent";
             static constexpr const char* ReflectionHistoryDepthCurrent = "ReflectionHistoryDepthCurrent";
             static constexpr const char* ReflectionHistoryNormalCurrent = "ReflectionHistoryNormalCurrent";
+            static constexpr const char* ReflectionResolvedSpecularEstimateCurrent =
+                "ReflectionResolvedSpecularEstimateCurrent";
+            static constexpr const char* ReflectionSpecularMomentsCurrent = "ReflectionSpecularMomentsCurrent";
+            static constexpr const char* ReflectionSpecularConfidenceCurrent =
+                "ReflectionSpecularConfidenceCurrent";
             static constexpr const char* TemporalUpscalerSceneColor = "TemporalUpscalerSceneColor";
         };
 
@@ -482,6 +506,7 @@ private:
         2; // ReflectionEvaluatedRadiance + ReflectionSpecularEstimate SRVs
     static constexpr UINT kReflectionResolvedRadianceDescriptorCount = 2;  // One SRV per physical history slot
     static constexpr UINT kReflectionAuxiliaryHistoryDescriptorCount = 4;  // Depth + normal, two slots each
+    static constexpr UINT kReflectionEstimatorHistoryDescriptorCount = 4;  // Resolved estimate + moments, two slots each
     static constexpr UINT kTlasDescriptorCount = 1;       // TLAS SRV
 
     // Descriptor allocation order is tracked by DescriptorHeapHandle.
@@ -497,6 +522,7 @@ private:
                                                       kReflectionEvaluatedRadianceDescriptorCount +
                                                       kReflectionResolvedRadianceDescriptorCount +
                                                       kReflectionAuxiliaryHistoryDescriptorCount +
+                                                      kReflectionEstimatorHistoryDescriptorCount +
                                                       kTlasDescriptorCount;
     static constexpr UINT kStagedDescriptorReservedCount = 64;
 
@@ -570,8 +596,12 @@ private:
     static constexpr UINT kReflectionResolvedRadianceRTVBaseIndex = kReflectionSpecularEstimateRTVIndex + 1;
     static constexpr UINT kReflectionHistoryDepthRTVBaseIndex = kReflectionResolvedRadianceRTVBaseIndex + 2;
     static constexpr UINT kReflectionHistoryNormalRTVBaseIndex = kReflectionHistoryDepthRTVBaseIndex + 2;
-    static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionHistoryNormalRTVBaseIndex + 2;
-    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 10;
+    static constexpr UINT kReflectionResolvedSpecularEstimateRTVBaseIndex = kReflectionHistoryNormalRTVBaseIndex + 2;
+    static constexpr UINT kReflectionSpecularMomentsRTVBaseIndex =
+        kReflectionResolvedSpecularEstimateRTVBaseIndex + 2;
+    static constexpr UINT kReflectionSpecularConfidenceRTVBaseIndex = kReflectionSpecularMomentsRTVBaseIndex + 2;
+    static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionSpecularConfidenceRTVBaseIndex + 2;
+    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 16;
 
     struct DebugViewSettings
     {
@@ -595,6 +625,9 @@ private:
                    renderViewMode != RenderViewMode::TlasDebug &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadiance &&
                    renderViewMode != RenderViewMode::ReflectionSpecularEstimate &&
+                   renderViewMode != RenderViewMode::ReflectionResolvedSpecularEstimate &&
+                   renderViewMode != RenderViewMode::ReflectionSpecularVariance &&
+                   renderViewMode != RenderViewMode::ReflectionSpecularConfidence &&
                    renderViewMode != RenderViewMode::ReflectionResolvedRadiance &&
                    renderViewMode != RenderViewMode::ReflectionTemporalValidity &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceDirect &&
@@ -631,6 +664,9 @@ private:
                    renderViewMode == RenderViewMode::ReflectionContributionStrength ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
                    renderViewMode == RenderViewMode::ReflectionSpecularEstimate ||
+                   renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate ||
+                   renderViewMode == RenderViewMode::ReflectionSpecularVariance ||
+                   renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
                    renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
                    renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
@@ -668,6 +704,18 @@ private:
             if (renderViewMode == RenderViewMode::ReflectionSpecularEstimate)
             {
                 return 7u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate)
+            {
+                return 14u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionSpecularVariance)
+            {
+                return 15u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionSpecularConfidence)
+            {
+                return 16u;
             }
             if (renderViewMode == RenderViewMode::ReflectionResolvedRadiance)
             {
@@ -727,6 +775,9 @@ private:
     ComPtr<ID3D12Resource> m_reflectionResolvedRadiance[2];
     ComPtr<ID3D12Resource> m_reflectionHistoryDepth[2];
     ComPtr<ID3D12Resource> m_reflectionHistoryNormal[2];
+    ComPtr<ID3D12Resource> m_reflectionResolvedSpecularEstimate[2];
+    ComPtr<ID3D12Resource> m_reflectionSpecularMoments[2];
+    ComPtr<ID3D12Resource> m_reflectionSpecularConfidence[2];
     ComPtr<ID3D12Resource> m_temporalUpscalerSceneColor;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
@@ -749,6 +800,9 @@ private:
     DescriptorHeapHandle m_reflectionResolvedRadianceSrv[2];
     DescriptorHeapHandle m_reflectionHistoryDepthSrv[2];
     DescriptorHeapHandle m_reflectionHistoryNormalSrv[2];
+    DescriptorHeapHandle m_reflectionResolvedSpecularEstimateSrv[2];
+    DescriptorHeapHandle m_reflectionSpecularMomentsSrv[2];
+    DescriptorHeapHandle m_reflectionSpecularConfidenceSrv[2];
     StagedDescriptorRange m_shadowMaskRange;
 
     StagedDescriptorAllocator m_stageAllocator;
@@ -946,6 +1000,12 @@ private:
         "ReflectionHistoryDepth.0", "ReflectionHistoryDepth.1"};
     static constexpr const char* kReflectionHistoryNormalResourceNames[2] = {
         "ReflectionHistoryNormal.0", "ReflectionHistoryNormal.1"};
+    static constexpr const char* kReflectionResolvedSpecularEstimateResourceNames[2] = {
+        "ReflectionResolvedSpecularEstimate.0", "ReflectionResolvedSpecularEstimate.1"};
+    static constexpr const char* kReflectionSpecularMomentsResourceNames[2] = {
+        "ReflectionSpecularMoments.0", "ReflectionSpecularMoments.1"};
+    static constexpr const char* kReflectionSpecularConfidenceResourceNames[2] = {
+        "ReflectionSpecularConfidence.0", "ReflectionSpecularConfidence.1"};
     static constexpr const char* kGBufferResourceNames[Engine::GBuffer::kCount] = {
         "GBuffer.Albedo",
         "GBuffer.Normal",
@@ -1107,6 +1167,7 @@ private:
     void RegisterReflectionSpecularEstimate();
     void RegisterReflectionResolvedRadiance();
     void RegisterReflectionAuxiliaryHistory();
+    void RegisterReflectionEstimatorHistory();
     void RegisterTemporalUpscalerSceneColor();
     void RegisterRenderTexture(const Engine::RenderTextureSpec& spec);
     UINT ResolveRenderTextureWidth(const Engine::RenderTextureSpec& spec) const;
@@ -1142,6 +1203,9 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionResolvedRadianceCurrentRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionHistoryDepthCurrentRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionHistoryNormalCurrentRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionResolvedSpecularEstimateCurrentRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionSpecularMomentsCurrentRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionSpecularConfidenceCurrentRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetTemporalUpscalerSceneColorRTV() const;
     void RegisterPassBindingResolvers();
     void RegisterPassConstantsHandlers();

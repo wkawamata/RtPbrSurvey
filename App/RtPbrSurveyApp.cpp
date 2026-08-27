@@ -53,6 +53,10 @@ RtPbrSurveyEngine::RenderViewMode GetReflectionCaptureRenderViewMode(
             return RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadiance;
         case Platform::ReflectionCaptureDebugView::SpecularEstimate:
             return RtPbrSurveyEngine::RenderViewMode::ReflectionSpecularEstimate;
+        case Platform::ReflectionCaptureDebugView::ResolvedSpecularEstimate:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedSpecularEstimate;
+        case Platform::ReflectionCaptureDebugView::SpecularVariance:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionSpecularVariance;
         case Platform::ReflectionCaptureDebugView::ResolvedRadiance:
         default:
             return RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance;
@@ -245,6 +249,8 @@ void RtPbrSurveyApp::OnInit()
                 m_commandLineOptions.reflectionRejectedPixelNeighborhood;
             reflectionSettings.surfaceVarianceFilterEnabled =
                 m_commandLineOptions.reflectionSurfaceVarianceFilter;
+            reflectionSettings.varianceGuidedTemporalEnabled =
+                m_commandLineOptions.reflectionVarianceGuidedTemporal;
             if (m_commandLineOptions.hasReflectionTemporalWeight)
             {
                 reflectionSettings.temporalHistoryWeight =
@@ -604,6 +610,26 @@ void RtPbrSurveyApp::UpdateReflectionHdrDiagnostics()
         m_reflectionHdrDiagnosticInFlight = false;
     }
 
+    const UINT stableEvidenceFrame =
+        m_commandLineOptions.reflectionConfidenceForceStableAfterMeasurementFrames;
+    if (!m_reflectionConfidenceStableEvidenceApplied && stableEvidenceFrame > 0 &&
+        m_reflectionHdrDiagnosticFrames.size() >= stableEvidenceFrame)
+    {
+        RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
+            m_sceneRenderer.GetHybridReflectionSettings();
+        reflectionSettings.confidenceForceStableEvidence = true;
+        m_sceneRenderer.SetHybridReflectionSettings(reflectionSettings);
+        m_reflectionConfidenceStableEvidenceApplied = true;
+    }
+
+    const UINT resetFrame = m_commandLineOptions.reflectionHistoryResetAfterMeasurementFrames;
+    if (!m_reflectionHistoryDiagnosticResetApplied && resetFrame > 0 &&
+        m_reflectionHdrDiagnosticFrames.size() >= resetFrame)
+    {
+        m_sceneRenderer.ResetHybridReflectionHistoryForDiagnostics();
+        m_reflectionHistoryDiagnosticResetApplied = true;
+    }
+
     if (m_reflectionHdrDiagnosticFrames.size() >= m_commandLineOptions.reflectionHdrDiagnosticsFrames)
     {
         WriteReflectionHdrDiagnosticsReport();
@@ -640,6 +666,11 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
 {
     using json = nlohmann::json;
 
+    const Engine::ReflectionHdrDiagnosticRoi roi = m_reflectionHdrDiagnosticFrames.front().roi;
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    const RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
+        m_sceneRenderer.GetHybridReflectionSettings();
+
     const auto meanLuminance = [](const std::vector<Engine::ReflectionHdrDiagnosticSample>& samples)
     {
         double sum = 0.0;
@@ -648,6 +679,89 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
             sum += 0.2126 * sample.r + 0.7152 * sample.g + 0.0722 * sample.b;
         }
         return samples.empty() ? 0.0 : sum / static_cast<double>(samples.size());
+    };
+    const auto momentsSummary = [](const std::vector<Engine::ReflectionHdrDiagnosticSample>& samples)
+    {
+        double firstMomentSum = 0.0;
+        double secondMomentSum = 0.0;
+        double varianceSum = 0.0;
+        double maximumVariance = 0.0;
+        for (const Engine::ReflectionHdrDiagnosticSample& sample : samples)
+        {
+            const double variance = (std::max)(
+                static_cast<double>(sample.g) - static_cast<double>(sample.r) * sample.r, 0.0);
+            firstMomentSum += sample.r;
+            secondMomentSum += sample.g;
+            varianceSum += variance;
+            maximumVariance = (std::max)(maximumVariance, variance);
+        }
+        const double count = static_cast<double>(samples.size());
+        return json{{"meanFirstMoment", count > 0.0 ? firstMomentSum / count : 0.0},
+                    {"meanSecondMoment", count > 0.0 ? secondMomentSum / count : 0.0},
+                    {"meanEstimatedVariance", count > 0.0 ? varianceSum / count : 0.0},
+                    {"maximumEstimatedVariance", maximumVariance}};
+    };
+    const auto scalarSummary = [](const std::vector<double>& values)
+    {
+        std::vector<double> sortedValues = values;
+        double sum = 0.0;
+        for (const double value : sortedValues)
+        {
+            sum += value;
+        }
+        std::sort(sortedValues.begin(), sortedValues.end());
+        const double count = static_cast<double>(sortedValues.size());
+        const double mean = count > 0.0 ? sum / count : 0.0;
+        double variance = 0.0;
+        for (const double value : sortedValues)
+        {
+            const double difference = value - mean;
+            variance += difference * difference;
+        }
+        variance = count > 0.0 ? variance / count : 0.0;
+        const auto percentile = [&sortedValues](double fraction)
+        {
+            if (sortedValues.empty())
+            {
+                return 0.0;
+            }
+            const size_t index = static_cast<size_t>(fraction * static_cast<double>(sortedValues.size() - 1));
+            return sortedValues[index];
+        };
+        return json{{"mean", mean},
+                    {"standardDeviation", std::sqrt(variance)},
+                    {"minimum", sortedValues.empty() ? 0.0 : sortedValues.front()},
+                    {"p95", percentile(0.95)},
+                    {"p99", percentile(0.99)},
+                    {"maximum", sortedValues.empty() ? 0.0 : sortedValues.back()}};
+    };
+    const auto confidenceValues = [](const std::vector<Engine::ReflectionHdrDiagnosticSample>& samples)
+    {
+        std::vector<double> values;
+        values.reserve(samples.size());
+        for (const Engine::ReflectionHdrDiagnosticSample& sample : samples)
+        {
+            values.push_back(sample.r);
+        }
+        return values;
+    };
+    const auto policyWeightValues = [&reflectionSettings](
+                                        const std::vector<Engine::ReflectionHdrDiagnosticSample>& confidenceSamples)
+    {
+        std::vector<double> weights;
+        weights.reserve(confidenceSamples.size());
+        for (const Engine::ReflectionHdrDiagnosticSample& sample : confidenceSamples)
+        {
+            double weight = reflectionSettings.temporalHistoryWeight;
+            if (reflectionSettings.varianceGuidedTemporalEnabled)
+            {
+                double confidenceWeight = std::clamp((static_cast<double>(sample.r) - 0.5) / 0.4, 0.0, 1.0);
+                confidenceWeight = confidenceWeight * confidenceWeight * (3.0 - 2.0 * confidenceWeight);
+                weight += ((std::max)(weight, 0.94) - weight) * confidenceWeight;
+            }
+            weights.push_back(weight);
+        }
+        return weights;
     };
 
     json frameValues = json::array();
@@ -673,7 +787,11 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
             {"temporalFrameIndex", frame.temporalFrameIndex},
             {"evaluatedMeanLuminance", meanLuminance(frame.evaluatedRadiance)},
             {"specularEstimateMeanLuminance", meanLuminance(frame.specularEstimate)},
+            {"resolvedSpecularEstimateMeanLuminance", meanLuminance(frame.resolvedSpecularEstimate)},
             {"resolvedMeanLuminance", meanLuminance(frame.resolvedRadiance)},
+            {"specularMoments", momentsSummary(frame.specularMoments)},
+            {"specularConfidence", scalarSummary(confidenceValues(frame.specularConfidence))},
+            {"appliedHistoryPolicyWeight", scalarSummary(policyWeightValues(frame.specularConfidence))},
             {"hitRate", sampleCount > 0.0 ? static_cast<double>(hitCount) / sampleCount : 0.0},
             {"temporalAcceptanceRate", sampleCount > 0.0 ? static_cast<double>(acceptedCount) / sampleCount : 0.0},
             {"depthRejectRate", sampleCount > 0.0 ? static_cast<double>(depthRejectCount) / sampleCount : 0.0},
@@ -681,10 +799,6 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         });
     }
 
-    const Engine::ReflectionHdrDiagnosticRoi roi = m_reflectionHdrDiagnosticFrames.front().roi;
-    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
-    const RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
-        m_sceneRenderer.GetHybridReflectionSettings();
     const RtPbrSurveyEngine::PixelPickResult& referenceSurface = m_sceneRenderer.GetPixelPickResult();
     const float referenceNdotV = referenceSurface.valid ?
         std::clamp(referenceSurface.normal.x * referenceSurface.viewDir.x +
@@ -722,14 +836,44 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     const Engine::ReflectionHdrDiagnosticStatistics specularEstimateStatistics =
         Engine::CalculateReflectionHdrDiagnosticStatistics(
             m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::SpecularEstimate);
+    const Engine::ReflectionHdrDiagnosticStatistics resolvedSpecularEstimateStatistics =
+        Engine::CalculateReflectionHdrDiagnosticStatistics(
+            m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::ResolvedSpecularEstimate);
+    std::vector<Engine::ReflectionHdrDiagnosticSample> allSpecularMoments;
+    std::vector<Engine::ReflectionHdrDiagnosticSample> allSpecularConfidence;
+    for (const Engine::ReflectionHdrDiagnosticFrame& frame : m_reflectionHdrDiagnosticFrames)
+    {
+        allSpecularMoments.insert(
+            allSpecularMoments.end(), frame.specularMoments.begin(), frame.specularMoments.end());
+        allSpecularConfidence.insert(
+            allSpecularConfidence.end(), frame.specularConfidence.begin(), frame.specularConfidence.end());
+    }
     const Engine::ReflectionHdrDiagnosticBaselineComparison baselineComparison =
         Engine::CompareReflectionHdrDiagnosticsToCurrentEstimatorMeanBaseline(m_reflectionHdrDiagnosticFrames);
     const json report = {
-        {"schemaVersion", 3},
+        {"schemaVersion", 10},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
         {"specularEstimateIncidentRadiance",
          reflectionSettings.estimatorConstantIncidentRadianceEnabled ? "constant-white-1" : "traced-scene"},
+        {"varianceGuidedTemporalEnabled", reflectionSettings.varianceGuidedTemporalEnabled},
+        {"temporalHistoryWeight", reflectionSettings.temporalHistoryWeight},
+        {"varianceGuidedTemporalPolicy",
+         "persistent-confidence-relative-variance-0.5-confidence-history-0.9-weight-0.94"},
+        {"confidenceEvidenceTransition",
+         {{"enabled", m_commandLineOptions.reflectionConfidenceForceStableAfterMeasurementFrames > 0},
+          {"forceStableAfterMeasurementFrames",
+           m_commandLineOptions.reflectionConfidenceForceStableAfterMeasurementFrames},
+          {"historyInvalidated", false}}},
+        {"historyResetTransition",
+         {{"enabled", m_commandLineOptions.reflectionHistoryResetAfterMeasurementFrames > 0},
+          {"resetAfterMeasurementFrames",
+           m_commandLineOptions.reflectionHistoryResetAfterMeasurementFrames}}},
+        {"policyWeightDiagnostic",
+         {{"scope", "applied-current-frame"},
+          {"motionReprojectionApplied", true},
+          {"confidence", scalarSummary(confidenceValues(allSpecularConfidence))},
+          {"effectiveWeight", scalarSummary(policyWeightValues(allSpecularConfidence))}}},
         {"scene", LoadedScene().Name()},
         {"warmupFrames", m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames},
         {"measurementFrames", m_reflectionHdrDiagnosticFrames.size()},
@@ -753,6 +897,8 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         {"statistics",
          {{"evaluatedRadiance", statisticsToJson(evaluatedStatistics)},
           {"specularEstimate", statisticsToJson(specularEstimateStatistics)},
+          {"resolvedSpecularEstimate", statisticsToJson(resolvedSpecularEstimateStatistics)},
+          {"specularMoments", momentsSummary(allSpecularMoments)},
           {"resolvedRadiance", statisticsToJson(resolvedStatistics)}}},
         {"currentEstimatorMeanBaseline",
          {{"name", "High-SPP Current-Estimator Mean Baseline"},

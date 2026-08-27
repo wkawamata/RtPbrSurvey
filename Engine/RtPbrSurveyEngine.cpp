@@ -304,6 +304,18 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
     {
         m_resourceDefaultStates.push_back({resourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     }
+    for (const char* resourceName : kReflectionResolvedSpecularEstimateResourceNames)
+    {
+        m_resourceDefaultStates.push_back({resourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
+    }
+    for (const char* resourceName : kReflectionSpecularMomentsResourceNames)
+    {
+        m_resourceDefaultStates.push_back({resourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
+    }
+    for (const char* resourceName : kReflectionSpecularConfidenceResourceNames)
+    {
+        m_resourceDefaultStates.push_back({resourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
+    }
     m_resourceDefaultStates.push_back({kTemporalUpscalerSceneColorResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     m_resourceDefaultStates.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
@@ -440,13 +452,19 @@ void RtPbrSurveyEngine::SetHybridReflectionSettings(const HybridReflectionSettin
         m_hybridReflectionSettings.temporalHistoryWeight != settings.temporalHistoryWeight ||
         m_hybridReflectionSettings.temporalNoiseStrength != settings.temporalNoiseStrength ||
         m_hybridReflectionSettings.rejectedPixelNeighborhoodEnabled != settings.rejectedPixelNeighborhoodEnabled ||
-        m_hybridReflectionSettings.surfaceVarianceFilterEnabled != settings.surfaceVarianceFilterEnabled;
+        m_hybridReflectionSettings.surfaceVarianceFilterEnabled != settings.surfaceVarianceFilterEnabled ||
+        m_hybridReflectionSettings.varianceGuidedTemporalEnabled != settings.varianceGuidedTemporalEnabled;
 
     m_hybridReflectionSettings = settings;
     if (reflectionHistoryChanged)
     {
         InvalidateReflectionHistory();
     }
+}
+
+void RtPbrSurveyEngine::ResetHybridReflectionHistoryForDiagnostics()
+{
+    InvalidateReflectionHistory();
 }
 
 void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialParams& params)
@@ -942,6 +960,7 @@ void RtPbrSurveyEngine::LoadPipeline()
         RegisterReflectionSpecularEstimate();
         RegisterReflectionResolvedRadiance();
         RegisterReflectionAuxiliaryHistory();
+        RegisterReflectionEstimatorHistory();
         RegisterTemporalUpscalerSceneColor();
     }
 
@@ -1964,8 +1983,12 @@ void RtPbrSurveyEngine::RegisterPipelineStates(const PipelineShaderBytecode& sha
          {Pipe::TemporalReflection,
           shaders.temporalReflection,
           DXGI_FORMAT_R16G16B16A16_FLOAT,
-          {DXGI_FORMAT_R32_FLOAT, DXGI_FORMAT_R16G16B16A16_FLOAT},
-          2},
+          {DXGI_FORMAT_R32_FLOAT,
+           DXGI_FORMAT_R16G16B16A16_FLOAT,
+           DXGI_FORMAT_R16G16B16A16_FLOAT,
+           DXGI_FORMAT_R32G32_FLOAT,
+           DXGI_FORMAT_R16_FLOAT},
+          5},
          {Pipe::ToneMap, shaders.toneMap, m_backBufferFormat},
          {Pipe::GBufferDebug, shaders.gbufferDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::ReflectionRayHitDebug, shaders.reflectionRayHitDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
@@ -2603,6 +2626,39 @@ void RtPbrSurveyEngine::CreateGBuffer()
             m_reflectionHistoryNormalSrv[i - 1].Index + 1;
         assert(m_reflectionHistoryNormalSrv[i].Index == expectedNormalIndex);
     }
+    for (UINT i = 0; i < 2; ++i)
+    {
+        if (m_reflectionResolvedSpecularEstimateSrv[i].Index == UINT_MAX)
+        {
+            m_reflectionResolvedSpecularEstimateSrv[i] = m_descriptorHeapAllocator.AllocWithHandle();
+        }
+        const UINT expectedIndex = i == 0 ?
+            m_reflectionHistoryNormalSrv[1].Index + 1 :
+            m_reflectionResolvedSpecularEstimateSrv[i - 1].Index + 1;
+        assert(m_reflectionResolvedSpecularEstimateSrv[i].Index == expectedIndex);
+    }
+    for (UINT i = 0; i < 2; ++i)
+    {
+        if (m_reflectionSpecularMomentsSrv[i].Index == UINT_MAX)
+        {
+            m_reflectionSpecularMomentsSrv[i] = m_descriptorHeapAllocator.AllocWithHandle();
+        }
+        const UINT expectedIndex = i == 0 ?
+            m_reflectionResolvedSpecularEstimateSrv[1].Index + 1 :
+            m_reflectionSpecularMomentsSrv[i - 1].Index + 1;
+        assert(m_reflectionSpecularMomentsSrv[i].Index == expectedIndex);
+    }
+    for (UINT i = 0; i < 2; ++i)
+    {
+        if (m_reflectionSpecularConfidenceSrv[i].Index == UINT_MAX)
+        {
+            m_reflectionSpecularConfidenceSrv[i] = m_descriptorHeapAllocator.AllocWithHandle();
+        }
+        const UINT expectedIndex = i == 0 ?
+            m_reflectionSpecularMomentsSrv[1].Index + 1 :
+            m_reflectionSpecularConfidenceSrv[i - 1].Index + 1;
+        assert(m_reflectionSpecularConfidenceSrv[i].Index == expectedIndex);
+    }
 }
 
 void RtPbrSurveyEngine::RegisterRenderTexture(const Engine::RenderTextureSpec& spec)
@@ -2777,6 +2833,32 @@ void RtPbrSurveyEngine::RegisterReflectionAuxiliaryHistory()
     for (const char* resourceName : kReflectionHistoryNormalResourceNames)
     {
         RegisterRenderTexture(MakeColorRenderTextureSpec(resourceName, Engine::RenderTextureSizeClass::RenderSize));
+    }
+}
+
+void RtPbrSurveyEngine::RegisterReflectionEstimatorHistory()
+{
+    for (const char* resourceName : kReflectionResolvedSpecularEstimateResourceNames)
+    {
+        RegisterRenderTexture(MakeColorRenderTextureSpec(resourceName, Engine::RenderTextureSizeClass::RenderSize));
+    }
+    for (const char* resourceName : kReflectionSpecularMomentsResourceNames)
+    {
+        Engine::RenderTextureSpec spec =
+            MakeColorRenderTextureSpec(resourceName, Engine::RenderTextureSizeClass::RenderSize);
+        spec.format = DXGI_FORMAT_R32G32_FLOAT;
+        spec.clearValue.Format = DXGI_FORMAT_R32G32_FLOAT;
+        spec.srvFormat = DXGI_FORMAT_R32G32_FLOAT;
+        RegisterRenderTexture(spec);
+    }
+    for (const char* resourceName : kReflectionSpecularConfidenceResourceNames)
+    {
+        Engine::RenderTextureSpec spec =
+            MakeColorRenderTextureSpec(resourceName, Engine::RenderTextureSizeClass::RenderSize);
+        spec.format = DXGI_FORMAT_R16_FLOAT;
+        spec.clearValue.Format = DXGI_FORMAT_R16_FLOAT;
+        spec.srvFormat = DXGI_FORMAT_R16_FLOAT;
+        RegisterRenderTexture(spec);
     }
 }
 
@@ -3044,6 +3126,21 @@ D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionHistoryNormalCurrent
     return GetRtv(kReflectionHistoryNormalRTVBaseIndex + (m_reflectionHistoryState.readIndex ^ 1u));
 }
 
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionResolvedSpecularEstimateCurrentRTV() const
+{
+    return GetRtv(kReflectionResolvedSpecularEstimateRTVBaseIndex + (m_reflectionHistoryState.readIndex ^ 1u));
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionSpecularMomentsCurrentRTV() const
+{
+    return GetRtv(kReflectionSpecularMomentsRTVBaseIndex + (m_reflectionHistoryState.readIndex ^ 1u));
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionSpecularConfidenceCurrentRTV() const
+{
+    return GetRtv(kReflectionSpecularConfidenceRTVBaseIndex + (m_reflectionHistoryState.readIndex ^ 1u));
+}
+
 D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetTemporalUpscalerSceneColorRTV() const
 {
     return GetRtv(kTemporalUpscalerSceneColorRTVIndex);
@@ -3082,6 +3179,15 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
     m_renderGraphRuntime.Bindings().RegisterRtv(
         m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionHistoryNormalCurrent),
         [this]() { return GetReflectionHistoryNormalCurrentRTV(); });
+    m_renderGraphRuntime.Bindings().RegisterRtv(
+        m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionResolvedSpecularEstimateCurrent),
+        [this]() { return GetReflectionResolvedSpecularEstimateCurrentRTV(); });
+    m_renderGraphRuntime.Bindings().RegisterRtv(
+        m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionSpecularMomentsCurrent),
+        [this]() { return GetReflectionSpecularMomentsCurrentRTV(); });
+    m_renderGraphRuntime.Bindings().RegisterRtv(
+        m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionSpecularConfidenceCurrent),
+        [this]() { return GetReflectionSpecularConfidenceCurrentRTV(); });
     m_renderGraphRuntime.Bindings().RegisterRtv(
         m_renderGraphRuntime.RegisterRtv(RtvName::TemporalUpscalerSceneColor),
         [this]() { return GetTemporalUpscalerSceneColorRTV(); });
@@ -3128,6 +3234,24 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionHistoryNormalSrv),
         [this]() { return m_reflectionHistoryNormalSrv[m_reflectionHistoryState.readIndex].gpu; });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionResolvedSpecularEstimateHistorySrv),
+        [this]() { return m_reflectionResolvedSpecularEstimateSrv[m_reflectionHistoryState.readIndex].gpu; });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionResolvedSpecularEstimateCurrentSrv),
+        [this]() { return m_reflectionResolvedSpecularEstimateSrv[m_reflectionHistoryState.readIndex ^ 1u].gpu; });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionSpecularMomentsHistorySrv),
+        [this]() { return m_reflectionSpecularMomentsSrv[m_reflectionHistoryState.readIndex].gpu; });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionSpecularMomentsCurrentSrv),
+        [this]() { return m_reflectionSpecularMomentsSrv[m_reflectionHistoryState.readIndex ^ 1u].gpu; });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionSpecularConfidenceHistorySrv),
+        [this]() { return m_reflectionSpecularConfidenceSrv[m_reflectionHistoryState.readIndex].gpu; });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionSpecularConfidenceCurrentSrv),
+        [this]() { return m_reflectionSpecularConfidenceSrv[m_reflectionHistoryState.readIndex ^ 1u].gpu; });
     m_renderGraphRuntime.Bindings().RegisterDescriptor(m_renderGraphRuntime.RegisterDescriptor(Desc::ShadowMaskSrv),
                                                        [this]()
                                                        { return m_stageAllocator.GpuHandle(m_shadowMaskRange.Start); });
@@ -3218,6 +3342,8 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
                 float noiseStrength;
                 UINT rejectedPixelNeighborhoodEnabled;
                 UINT surfaceVarianceFilterEnabled;
+                UINT varianceGuidedTemporalEnabled;
+                UINT confidenceForceStableEvidence;
             };
             const TemporalReflectionConstants constants = {
                 m_reflectionHistoryState.valid ? 1u : 0u,
@@ -3225,8 +3351,10 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
                 m_reflectionTemporalFrameIndex,
                 std::clamp(m_hybridReflectionSettings.temporalNoiseStrength, 0.0f, 1.0f),
                 m_hybridReflectionSettings.rejectedPixelNeighborhoodEnabled ? 1u : 0u,
-                m_hybridReflectionSettings.surfaceVarianceFilterEnabled ? 1u : 0u};
-            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 6, &constants, 0);
+                m_hybridReflectionSettings.surfaceVarianceFilterEnabled ? 1u : 0u,
+                m_hybridReflectionSettings.varianceGuidedTemporalEnabled ? 1u : 0u,
+                m_hybridReflectionSettings.confidenceForceStableEvidence ? 1u : 0u};
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 8, &constants, 0);
         });
     m_renderGraphRuntime.Constants().Register(
         m_renderGraphRuntime.RegisterConstants(ConstName::ReflectionSampling),
@@ -3265,6 +3393,14 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
             kReflectionHistoryDepthResourceNames[i], [this, i]() { return m_reflectionHistoryDepth[i].Get(); });
         m_renderGraphRuntime.Resources().RegisterResource(
             kReflectionHistoryNormalResourceNames[i], [this, i]() { return m_reflectionHistoryNormal[i].Get(); });
+        m_renderGraphRuntime.Resources().RegisterResource(
+            kReflectionResolvedSpecularEstimateResourceNames[i],
+            [this, i]() { return m_reflectionResolvedSpecularEstimate[i].Get(); });
+        m_renderGraphRuntime.Resources().RegisterResource(
+            kReflectionSpecularMomentsResourceNames[i], [this, i]() { return m_reflectionSpecularMoments[i].Get(); });
+        m_renderGraphRuntime.Resources().RegisterResource(
+            kReflectionSpecularConfidenceResourceNames[i],
+            [this, i]() { return m_reflectionSpecularConfidence[i].Get(); });
     }
     m_renderGraphRuntime.Resources().RegisterResource(kTemporalUpscalerSceneColorResourceName,
                                                       [this]() { return m_temporalUpscalerSceneColor.Get(); });
@@ -3552,6 +3688,18 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     {
         resource.Reset();
     }
+    for (ComPtr<ID3D12Resource>& resource : m_reflectionResolvedSpecularEstimate)
+    {
+        resource.Reset();
+    }
+    for (ComPtr<ID3D12Resource>& resource : m_reflectionSpecularMoments)
+    {
+        resource.Reset();
+    }
+    for (ComPtr<ID3D12Resource>& resource : m_reflectionSpecularConfidence)
+    {
+        resource.Reset();
+    }
     m_temporalUpscalerSceneColor.Reset();
     m_shadowMask.Reset();
     m_reflectionRayHit.Reset();
@@ -3574,6 +3722,18 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     {
         m_resourceRegistry.UnregisterTransientResource(resourceName);
     }
+    for (const char* resourceName : kReflectionResolvedSpecularEstimateResourceNames)
+    {
+        m_resourceRegistry.UnregisterTransientResource(resourceName);
+    }
+    for (const char* resourceName : kReflectionSpecularMomentsResourceNames)
+    {
+        m_resourceRegistry.UnregisterTransientResource(resourceName);
+    }
+    for (const char* resourceName : kReflectionSpecularConfidenceResourceNames)
+    {
+        m_resourceRegistry.UnregisterTransientResource(resourceName);
+    }
     m_resourceRegistry.UnregisterTransientResource(kTemporalUpscalerSceneColorResourceName);
     RegisterDepthStencil();
     RegisterLightPassRenderTarget();
@@ -3581,6 +3741,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     RegisterReflectionSpecularEstimate();
     RegisterReflectionResolvedRadiance();
     RegisterReflectionAuxiliaryHistory();
+    RegisterReflectionEstimatorHistory();
     RegisterTemporalUpscalerSceneColor();
     CreateGBuffer();
     CreateShadowMask();
@@ -3837,6 +3998,51 @@ bool RtPbrSurveyEngine::BindCreatedColorRenderTexture(const std::string& name, I
                                                 m_reflectionHistoryNormalSrv[i]);
             return true;
         }
+        if (name == kReflectionResolvedSpecularEstimateResourceNames[i])
+        {
+            m_reflectionResolvedSpecularEstimate[i] = resource;
+            const auto transientResource = m_resourceRegistry.transientResources.find(name);
+            assert(transientResource != m_resourceRegistry.transientResources.end());
+            if (transientResource == m_resourceRegistry.transientResources.end())
+            {
+                return false;
+            }
+            CreateColorRenderTextureDescriptors(transientResource->second,
+                                                resource,
+                                                kReflectionResolvedSpecularEstimateRTVBaseIndex + i,
+                                                m_reflectionResolvedSpecularEstimateSrv[i]);
+            return true;
+        }
+        if (name == kReflectionSpecularMomentsResourceNames[i])
+        {
+            m_reflectionSpecularMoments[i] = resource;
+            const auto transientResource = m_resourceRegistry.transientResources.find(name);
+            assert(transientResource != m_resourceRegistry.transientResources.end());
+            if (transientResource == m_resourceRegistry.transientResources.end())
+            {
+                return false;
+            }
+            CreateColorRenderTextureDescriptors(transientResource->second,
+                                                resource,
+                                                kReflectionSpecularMomentsRTVBaseIndex + i,
+                                                m_reflectionSpecularMomentsSrv[i]);
+            return true;
+        }
+        if (name == kReflectionSpecularConfidenceResourceNames[i])
+        {
+            m_reflectionSpecularConfidence[i] = resource;
+            const auto transientResource = m_resourceRegistry.transientResources.find(name);
+            assert(transientResource != m_resourceRegistry.transientResources.end());
+            if (transientResource == m_resourceRegistry.transientResources.end())
+            {
+                return false;
+            }
+            CreateColorRenderTextureDescriptors(transientResource->second,
+                                                resource,
+                                                kReflectionSpecularConfidenceRTVBaseIndex + i,
+                                                m_reflectionSpecularConfidenceSrv[i]);
+            return true;
+        }
     }
 
     const ColorRenderTextureBinding bindings[] = {
@@ -3967,6 +4173,18 @@ void RtPbrSurveyEngine::CollectGarbageTransientResources()
             if (name == kReflectionHistoryNormalResourceNames[i])
             {
                 m_reflectionHistoryNormal[i].Reset();
+            }
+            if (name == kReflectionResolvedSpecularEstimateResourceNames[i])
+            {
+                m_reflectionResolvedSpecularEstimate[i].Reset();
+            }
+            if (name == kReflectionSpecularMomentsResourceNames[i])
+            {
+                m_reflectionSpecularMoments[i].Reset();
+            }
+            if (name == kReflectionSpecularConfidenceResourceNames[i])
+            {
+                m_reflectionSpecularConfidence[i].Reset();
             }
         }
 
@@ -4440,6 +4658,10 @@ void RtPbrSurveyEngine::RecordReflectionHdrDiagnosticPass()
                                                  m_reflectionEvaluatedRadiance.Get(),
                                                  m_reflectionSpecularEstimate.Get(),
                                                  m_reflectionResolvedRadiance[writeIndex].Get(),
+                                                 m_reflectionResolvedSpecularEstimate[writeIndex].Get(),
+                                                 m_reflectionSpecularMoments[writeIndex].Get(),
+                                                 m_reflectionSpecularConfidence[writeIndex].Get(),
+                                                 m_gbuffer.resources[Engine::GBuffer::PBRParams].Get(),
                                                  m_reflectionRayHit.Get(),
                                                  m_reflectionHdrDiagnosticRoi,
                                                  m_reflectionSamplingFrameIndex,

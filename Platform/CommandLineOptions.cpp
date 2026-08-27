@@ -37,6 +37,8 @@ bool TryParseReflectionCaptureDebugView(const WCHAR* value, ReflectionCaptureDeb
         {L"hit-material", ReflectionCaptureDebugView::ReflectionRayMaterial},
         {L"evaluated-radiance", ReflectionCaptureDebugView::EvaluatedRadiance},
         {L"specular-estimate", ReflectionCaptureDebugView::SpecularEstimate},
+        {L"resolved-specular-estimate", ReflectionCaptureDebugView::ResolvedSpecularEstimate},
+        {L"specular-variance", ReflectionCaptureDebugView::SpecularVariance},
     };
 
     for (const DebugViewName& entry : kDebugViewNames)
@@ -225,6 +227,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.reflectionSurfaceVarianceFilter = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionVarianceGuidedTemporal"))
+        {
+            options.reflectionVarianceGuidedTemporal = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-ReflectionCameraDistanceScale"))
         {
             if (i + 1 < argc)
@@ -346,6 +352,29 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                     options.reflectionHdrDiagnosticsRoiY = static_cast<UINT>(y);
                     options.reflectionHdrDiagnosticsRoiWidth = static_cast<UINT>(width);
                     options.reflectionHdrDiagnosticsRoiHeight = static_cast<UINT>(height);
+                }
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionConfidenceForceStableAfterMeasurementFrames"))
+        {
+            if (i + 1 < argc)
+            {
+                const int frames = _wtoi(argv[++i]);
+                if (frames > 0)
+                {
+                    options.reflectionConfidenceForceStableAfterMeasurementFrames =
+                        static_cast<UINT>(frames);
+                }
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionHistoryResetAfterMeasurementFrames"))
+        {
+            if (i + 1 < argc)
+            {
+                const int frames = _wtoi(argv[++i]);
+                if (frames > 0)
+                {
+                    options.reflectionHistoryResetAfterMeasurementFrames = static_cast<UINT>(frames);
                 }
             }
         }

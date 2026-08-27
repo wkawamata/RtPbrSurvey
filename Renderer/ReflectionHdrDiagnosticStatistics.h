@@ -11,6 +11,7 @@ enum class ReflectionHdrDiagnosticSignal
 {
     EvaluatedRadiance,
     SpecularEstimate,
+    ResolvedSpecularEstimate,
     ResolvedRadiance,
 };
 

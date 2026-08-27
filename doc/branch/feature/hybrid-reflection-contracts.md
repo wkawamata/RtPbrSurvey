@@ -43,6 +43,9 @@ Reflection payload and radiance resources are render-resolution `DXGI_FORMAT_R16
 | `ReflectionRayEmission` | `HybridReflectionPass` | `.rgb`: linear hit emissive after material emissive scale; `.a`: committed-hit validity. | Material/debug payload | `ReflectionEvaluatePass` and emission debug views. |
 | `ReflectionEvaluatedRadiance` | `ReflectionEvaluatePass` | `.rgb`: current-frame linear HDR, unweighted one-bounce radiance; `.a`: `1`. Hits contain evaluated hit-surface lighting and emission. Deterministic misses use the roughness-prefiltered environment fallback; stochastic misses sample environment mip zero along the reproduced stochastic direction. | Pre-temporal evaluated radiance | Current `LightPass`, evaluated-radiance debug view, and `TemporalReflectionPass`. |
 | `ReflectionSpecularEstimate` | `ReflectionEvaluatePass` MRT target 1 | `.rgb`: current-frame linear HDR visible-surface specular estimate with BRDF, cosine, and directional-PDF throughput applied; `.a`: `1`. Invalid stochastic samples are zero. The mirror-limit branch uses analytic Fresnel without a finite PDF. | Experimental current-frame estimator signal | Available through the `Specular Estimate` debug view, capture selector, and linear-HDR diagnostic statistics. Not consumed by temporal history or `LightPass`. Its statistics are not compared with the unweighted Current-Estimator Mean Baseline. |
+| `ReflectionResolvedSpecularEstimate` | `TemporalReflectionPass` MRT target 3, ping-pong pair | `.rgb`: motion-reprojected temporal resolve of `ReflectionSpecularEstimate`; `.a`: `1`. It uses the same acceptance decision as `ReflectionResolvedRadiance`. Its history weight equals the base weight unless the default-off variance-guided temporal experiment is enabled. | Experimental resolved weighted estimator | `Resolved Specular` debug view only. It is not consumed by `LightPass`. |
+| `ReflectionSpecularMoments` | `TemporalReflectionPass` MRT target 4, ping-pong pair | `R32G32_FLOAT`; `.x`: resolved luminance first moment; `.y`: resolved luminance second moment. Rejected history initializes both from the current weighted sample. Accepted history uses the same effective weight as the resolved weighted estimate. | Experimental variance metadata | `Specular Variance` debug view and bounded variance-guided policy experiments. It is not radiance and is not packed into radiance alpha. |
+| `ReflectionSpecularConfidence` | `TemporalReflectionPass` MRT target 5, ping-pong pair | `R16_FLOAT`; scalar persistent confidence in `[0, 1]`. Rejected/reset history writes `0`; accepted history updates from reprojected confidence and prior moments. | Experimental policy metadata | `Specular Confidence` debug view, schema v9 HDR diagnostics, and default-off confidence-guided history weighting. It is not radiance. |
 | `ReflectionResolvedRadiance` | `TemporalReflectionPass` | `.rgb`: resolved linear HDR, unweighted one-bounce radiance; `.a`: `1`. It preserves the evaluated hit and environment-fallback semantics. With valid in-bounds history and nonzero experimental weight, RGB is a nearest-sampled motion-reprojected exponential history blend. | Resolved-radiance boundary | `LightPass` and resolved-radiance debug view. Future production temporal processing remains inside this boundary. |
 | `ReflectionHistoryDepth` | `TemporalReflectionPass` | `R32_FLOAT` current visible-surface device depth copied into the matching history slot. | Rejection history | Next `TemporalReflectionPass`. |
 | `ReflectionHistoryNormal` | `TemporalReflectionPass` | `R16G16B16A16_FLOAT`; `.xyz` is normalized world-space visible-surface normal and `.w` is `1`. | Rejection history | Next `TemporalReflectionPass`. |
@@ -112,9 +115,72 @@ After the current-frame estimate passes finite-value, mirror-limit, long-run mea
 
 This staged boundary prevents temporal accumulation of unweighted `L_i` followed by multiplication with an unrelated current-frame throughput. The BRDF/PDF throughput and its incident-radiance sample are correlated and must be combined before temporal averaging.
 
+The weighted path must also avoid adding a second environment-specular solution on top of the existing deterministic Specular IBL. `ReflectionSpecularEstimate` includes the environment miss contribution, so a future LightPass transition should blend from the existing `iblSpecular` fallback to `ReflectionResolvedSpecularEstimate`, not add both:
+
+```text
+hybrid_blend = saturate(user_intensity * retained_distance_policy)
+final_specular = lerp(ibl_specular, resolved_specular_estimate, hybrid_blend)
+```
+
+This is a future default-off transition contract, not the current implementation. The current unweighted contribution path remains additive and retains its legacy distance, visible-roughness, intensity, and Fresnel weighting. The weighted transition must remove the legacy visible-roughness multiplier and Fresnel multiplier because the estimator already owns the visible-surface BRDF. Distance behavior is composition policy: for a geometry hit it may fade back to deterministic IBL with distance; for an environment miss it should not suppress the estimator merely because there is no finite hit distance.
+
+### Weighted Temporal Moments Candidate
+
+A future variance-guided path may pair `ReflectionResolvedSpecularEstimate` with a separate two-channel luminance-moments history. For a non-negative current weighted estimate `S`, define:
+
+```text
+Y = dot(S.rgb, float3(0.2126, 0.7152, 0.0722))
+M1_current = Y
+M2_current = Y * Y
+M1_resolved = lerp(M1_current, M1_history, accepted_history_weight)
+M2_resolved = lerp(M2_current, M2_history, accepted_history_weight)
+variance = max(M2_resolved - M1_resolved * M1_resolved, 0)
+```
+
+The moments must use the same reprojected sample, acceptance decision, reset event, history ownership, and accepted effective history weight as the resolved weighted estimate. On invalid, out-of-bounds, depth-rejected, or normal-rejected history, initialize both moments from the current sample; do not blend rejected moments. Variance metadata remains separate from radiance alpha.
+
+The first default-off variance-guided temporal experiment derived prior relative variance as `saturate(max(M2 - M1^2, 0) / max(M2, 1e-6))` and continuously moved the weighted-estimator history weight toward `0.98`. Paired controlled-scene measurements rejected that formula: it changed the roughness `1.0` mean and increased roughness `0.35` temporal variance.
+
+The current bounded experiment requires visible roughness `>= 0.75` and prior relative variance `>= 0.5`, then selects `max(base_weight, 0.94)`; otherwise it retains the configured base weight. It does not alter legacy unweighted resolved radiance. In the controlled metallic-sphere ROIs with base weight `0.9`, this preserved roughness `0.35` and `0.0` bit-for-bit at report precision while reducing roughness `1.0` temporal variance and frame-difference p99. This remains a default-off scoped policy, not a production default or a general scene guarantee.
+
+Controlled-scene generalization also covered roughness `1.0` dielectric and roughness `0.6` metallic/dielectric ROIs. The high-roughness dielectric condition reproduced the variance and frame-difference reduction with less than one-percent 256-frame mean change. Both roughness `0.6` controls remained identical to fixed accumulation at report precision. This establishes the explicit roughness/material gate behavior in the controlled scene only; textured assets, motion, and Lit composition remain separate gates.
+
+The same v3 formula did not pass the DamagedHelmet development gate. The established rearward and underside-pipe ROIs have center roughness near `0.133` and `0.216`; the high-roughness gate therefore selected only a small fraction of their texels and changed temporal variance by less than one percent. Lowering the roughness threshold without additional state is not justified because the earlier threshold-only experiment produced unstable sparse switching at roughness `0.35`. A persistent confidence/history signal is the next contract candidate for stabilizing activation; its format, update rule, and rejection/reset ownership must be fixed before implementation.
+
+### Persistent confidence candidate
+
+`ReflectionSpecularConfidence` is a separate `R16_FLOAT` ping-pong history. It is scalar metadata in `[0, 1]`, not radiance and not radiance alpha. It follows the same motion reprojection, depth/normal acceptance, reset event, read/write role, and post-submit exchange as `ReflectionResolvedSpecularEstimate` and `ReflectionSpecularMoments`.
+
+For accepted history, compute prior relative variance from the reprojected moments:
+
+```text
+relative_variance = saturate(max(M2 - M1^2, 0) / max(M2, 1e-6))
+indicator = relative_variance >= 0.5 ? 1 : 0
+confidence = lerp(indicator, previous_confidence, 0.9)
+```
+
+On first use, reset, out-of-bounds reprojection, depth rejection, or normal rejection, confidence initializes to `0`. A single high-variance frame therefore raises confidence only to approximately `0.1` and does not immediately change history weighting. Persistent evidence raises confidence; stable evidence decays it.
+
+The candidate effective weighted-estimator history weight is:
+
+```text
+high_weight = max(base_weight, 0.94)
+effective_weight = lerp(base_weight, high_weight, smoothstep(0.5, 0.9, confidence))
+```
+
+The updated confidence selects the effective weight used by the resolved unweighted radiance, resolved weighted estimate, and moments when the default-off policy is enabled. This changes accumulation rate, not signal meaning: `ReflectionResolvedRadiance` remains unweighted one-bounce radiance and LightPass remains the sole owner of distance, visible roughness, intensity, and Fresnel composition. With the policy disabled, all histories use the configured base weight. The roughness `0.75` exclusion is removed from this candidate; confidence persistence, rather than material roughness, must suppress transient activation. The constants are bounded experimental values and require controlled plus DamagedHelmet paired validation before promotion.
+
+Controlled paired validation confirms the intended steady-state separation. At 256 frames, roughness `1.0` reached mean confidence `0.99170` and mean effective weight `0.93993`, reducing resolved weighted-estimate temporal variance by `43.95%` with a `-0.2873%` mean change. Roughness `0.35` remained near the base weight (`0.90072`) but showed a small `2.10%` temporal-variance increase, while roughness `0.0` remained exactly unchanged. This is controlled-scene evidence only. Confidence decay, textured-asset effectiveness, Lit quality, and production suitability remain separate gates.
+
+The textured-asset gate subsequently showed bounded generalization in the two established DamagedHelmet ROIs. At 256 frames, resolved weighted-estimate temporal variance changed by `-4.10%` in `rearward_surface` and `-17.78%` in `underside_pipes`, with absolute mean changes below `0.021%`. Mean confidence remained low (`0.06393` and `0.10948`), so this is selective weak activation rather than broad high-weight accumulation. Explicit decay/reset behavior and Lit perception remain required gates.
+
+Diagnostic transition gates validate the remaining lifecycle behavior. With accepted history kept valid and the variance indicator forced to zero, confidence decayed from `0.993395` to below `0.5` in six measured frames; the effective weight returned to base `0.9` on that frame. An explicit reflection-history reset changed confidence from `0.978657` to `0` and acceptance to zero on the reset frame, after which confidence rebuilt from new history. These transitions are schema version 10 diagnostic controls, remain disabled by default, and do not change production signal semantics. Lit perception remains a separate gate.
+
+The implemented initial diagnostic moments format is `R32G32_FLOAT`, with `.x = M1` and `.y = M2`. Existing controlled-scene reports measured maximum weighted-estimator luminance `7.82340` and maximum squared luminance `61.2056`, which fit in FP16 range. Range alone is not sufficient: variance subtracts two similar values, and the roughness `0.0` mirror control requires near-zero variance. FP32 is therefore retained for the first implementation so cancellation and quantization are not mistaken for estimator variance. An FP16 optimization requires an A/B precision audit after the diagnostic path is validated.
+
 For estimator-only reference diagnostics, the default-off `-ReflectionEstimatorConstantIncidentRadiance` mode replaces `L_i` in `ReflectionSpecularEstimate` with linear-HDR white `(1, 1, 1)`. It does not modify traced payloads, `ReflectionEvaluatedRadiance`, `ReflectionResolvedRadiance`, Temporal Reflection, or LightPass. This isolates BRDF/PDF throughput from scene-dependent hit/miss radiance; it is not a production lighting mode.
 
-HDR diagnostic schema version 3 records the ROI-center visible normal, view direction, `N dot V`, albedo, metallic, roughness, and derived F0 as `referenceSurfaceSample`. A 1x1 ROI may use this exact condition with the independent uniform-hemisphere integrator in `Tests/HybridReflection`. Wider ROI statistics must not be compared with the single center-pixel reference as if their surface conditions were identical.
+HDR diagnostic schema version 9 retains the ROI-center `referenceSurfaceSample`, weighted estimate, moments, and visible PBR inputs. It additionally reads the motion-reprojected confidence output and records per-frame plus aggregate confidence/effective-weight distributions. Unlike the schema v8 same-pixel prediction, schema v9 reports the current shader output after history acceptance/rejection and confidence update. The report also exposes regular linear-HDR temporal statistics for the resolved weighted estimate and moments summaries. These signals describe the current temporal estimator history; they are neither a physical ground truth nor the variance of a long-run independent reference integration. A 1x1 ROI may use the exact center-surface condition with the independent uniform-hemisphere integrator in `Tests/HybridReflection`. Wider ROI statistics must not be compared with the single center-pixel reference as if their surface conditions were identical.
 
 ## History Ownership
 

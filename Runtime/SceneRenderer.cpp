@@ -162,6 +162,11 @@ namespace RtPbrSurvey
         return m_engine.GetHybridReflectionSettings();
     }
 
+    void SceneRenderer::ResetHybridReflectionHistoryForDiagnostics()
+    {
+        m_engine.ResetHybridReflectionHistoryForDiagnostics();
+    }
+
     void SceneRenderer::SetMaterialParams(UINT materialIndex, const RtPbrSurveyEngine::MaterialParams& params)
     {
         m_engine.SetMaterialParams(materialIndex, params);

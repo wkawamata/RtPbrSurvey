@@ -37,9 +37,13 @@ enum RootParameterIndex
     ReflectionRayMaterial,
     ReflectionRayEmission,
     ReflectionEvaluatedRadiance,
+    ReflectionSpecularEstimate,
     ReflectionResolvedRadianceHistory,
     ReflectionHistoryDepth,
     ReflectionHistoryNormal,
+    ReflectionResolvedSpecularEstimateHistory,
+    ReflectionSpecularMomentsHistory,
+    ReflectionSpecularConfidenceHistory,
 
     TemporalReflectionConstants,
 
@@ -67,6 +71,10 @@ static constexpr uint32_t kReflectionRayEmissionSrvSpace = 10;
 static constexpr uint32_t kReflectionResolvedRadianceHistorySrvSpace = 11;
 static constexpr uint32_t kReflectionHistoryDepthSrvSpace = 12;
 static constexpr uint32_t kReflectionHistoryNormalSrvSpace = 13;
+static constexpr uint32_t kReflectionResolvedSpecularEstimateHistorySrvSpace = 14;
+static constexpr uint32_t kReflectionSpecularMomentsHistorySrvSpace = 15;
+static constexpr uint32_t kReflectionSpecularEstimateSrvSpace = 16;
+static constexpr uint32_t kReflectionSpecularConfidenceHistorySrvSpace = 17;
 
 // Per-frame and per-pass CBVs.
 static constexpr uint32_t kCameraCbvRegister = 0;
@@ -89,7 +97,7 @@ static constexpr uint32_t kSceneDrawConstantsCount = 1;
 
 static constexpr uint32_t kTemporalReflectionConstantsRegister = 5;
 static constexpr uint32_t kTemporalReflectionConstantsSpace = 0;
-static constexpr uint32_t kTemporalReflectionConstantsCount = 6;
+static constexpr uint32_t kTemporalReflectionConstantsCount = 8;
 
 static constexpr uint32_t kReflectionSamplingConstantsRegister = 6;
 static constexpr uint32_t kReflectionSamplingConstantsSpace = 0;

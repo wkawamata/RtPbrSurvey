@@ -19,6 +19,8 @@ enum class ReflectionCaptureDebugView
     ReflectionRayMaterial,
     EvaluatedRadiance,
     SpecularEstimate,
+    ResolvedSpecularEstimate,
+    SpecularVariance,
 };
 
 struct ReflectionCaptureCameraKeyframe
@@ -58,6 +60,7 @@ struct CommandLineOptions
     bool reflectionEstimatorConstantIncidentRadiance = false;
     bool reflectionRejectedPixelNeighborhood = false;
     bool reflectionSurfaceVarianceFilter = false;
+    bool reflectionVarianceGuidedTemporal = false;
     float reflectionCameraDistanceScale = 1.0f;
     bool hasReflectionTemporalWeight = false;
     float reflectionTemporalWeight = 0.0f;
@@ -74,6 +77,8 @@ struct CommandLineOptions
     UINT reflectionHdrDiagnosticsRoiY = 278;
     UINT reflectionHdrDiagnosticsRoiWidth = 75;
     UINT reflectionHdrDiagnosticsRoiHeight = 85;
+    UINT reflectionConfidenceForceStableAfterMeasurementFrames = 0;
+    UINT reflectionHistoryResetAfterMeasurementFrames = 0;
 };
 
 CommandLineOptions ParseCommandLineOptions(_In_reads_(argc) WCHAR* argv[], int argc);

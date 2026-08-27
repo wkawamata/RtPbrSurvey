@@ -1,0 +1,127 @@
+{
+  "id": "hybrid-reflection-persistent-confidence-lit-v1",
+  "version": 1,
+  "title": "Hybrid Reflection Persistent Confidence Lit Validation",
+  "description": "Compare matched enlarged DamagedHelmet Lit captures with fixed and persistent-confidence history weighting.",
+  "capture": {
+    "commit": "",
+    "scene": "DamagedHelmet",
+    "debugView": "Lit",
+    "stochasticSampling": true,
+    "historyWeight": 0.9,
+    "cameraDistanceScale": 1.0,
+    "displayMode": "full-frame-large",
+    "aVarianceGuidedTemporal": false,
+    "bVarianceGuidedTemporal": true
+  },
+  "locales": {
+    "ja": {
+      "title": "Hybrid Reflection persistent confidence Lit評価",
+      "description": "拡大したDamagedHelmetの同一timelineで、固定history weightとpersistent-confidence weightをLit表示で比較します。",
+      "cases": {
+        "confidence-lit-static": {
+          "title": "静止状態",
+          "description": "頭頂部の滑らかな面に隣接する後頭部寄りの面と、下面pipeを確認します。still画像だけで時間noiseを判断できない場合は判定不能とし、連続frame評価へ進みます。",
+          "images": {
+            "a": { "label": "A: 固定weight 0.9" },
+            "b": { "label": "B: persistent confidence" }
+          },
+          "criteria": {
+            "stability": "Bの後頭部寄りの面と下面pipeは、Aと同等以上に安定して見える。",
+            "preservation": "Bは平均輝度、reflection内容、表面detailを不自然に失っていない。"
+          }
+        },
+        "confidence-lit-mid-motion": {
+          "title": "移動中",
+          "description": "camera orbit中のreflection追従とedgeを比較します。",
+          "images": {
+            "a": { "label": "A: 固定weight 0.9" },
+            "b": { "label": "B: persistent confidence" }
+          },
+          "criteria": {
+            "response": "BにAより目立つreflectionの遅れや残像がない。",
+            "edges": "Bのsilhouette、内部edge、細いreflectionがAより不安定になっていない。"
+          }
+        },
+        "confidence-lit-reversal": {
+          "title": "方向反転",
+          "description": "方向反転時の追従とdisocclusionを比較します。",
+          "images": {
+            "a": { "label": "A: 固定weight 0.9" },
+            "b": { "label": "B: persistent confidence" }
+          },
+          "criteria": {
+            "response": "BにAより目立つ反転時の追従遅れや古いreflectionがない。",
+            "boundaries": "Bにdisocclusion汚れ、silhouette越しの漏れ、edgeの破綻がない。"
+          }
+        },
+        "confidence-lit-settling": {
+          "title": "停止後",
+          "description": "motion停止後の収束と最終的な見え方を比較します。",
+          "images": {
+            "a": { "label": "A: 固定weight 0.9" },
+            "b": { "label": "B: persistent confidence" }
+          },
+          "criteria": {
+            "settling": "Bは停止後に安定し、古いreflectionや遅れが残っていない。",
+            "preservation": "BはAと同等の輝度、reflection内容、detailへ収束している。"
+          }
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "confidence-lit-static",
+      "title": "Static",
+      "description": "Inspect the rearward surface next to the smooth crown panel and the underside pipes. Mark unable if a still image cannot establish temporal stability.",
+      "images": {
+        "a": { "label": "A: fixed weight 0.9", "path": "captures/confidence-lit-static-a.png" },
+        "b": { "label": "B: persistent confidence", "path": "captures/confidence-lit-static-b.png" }
+      },
+      "criteria": [
+        { "id": "stability", "prompt": "B appears at least as stable as A on the rearward surface and underside pipes." },
+        { "id": "preservation", "prompt": "B preserves mean brightness, reflection content, and surface detail." }
+      ]
+    },
+    {
+      "id": "confidence-lit-mid-motion",
+      "title": "Mid motion",
+      "description": "Compare reflection response and edges during the camera orbit.",
+      "images": {
+        "a": { "label": "A: fixed weight 0.9", "path": "captures/confidence-lit-mid-motion-a.png" },
+        "b": { "label": "B: persistent confidence", "path": "captures/confidence-lit-mid-motion-b.png" }
+      },
+      "criteria": [
+        { "id": "response", "prompt": "B has no more visible reflection lag or trailing than A." },
+        { "id": "edges", "prompt": "B does not make silhouettes, internal edges, or thin reflections less stable than A." }
+      ]
+    },
+    {
+      "id": "confidence-lit-reversal",
+      "title": "Direction reversal",
+      "description": "Compare response and disocclusion during direction reversal.",
+      "images": {
+        "a": { "label": "A: fixed weight 0.9", "path": "captures/confidence-lit-reversal-a.png" },
+        "b": { "label": "B: persistent confidence", "path": "captures/confidence-lit-reversal-b.png" }
+      },
+      "criteria": [
+        { "id": "response", "prompt": "B has no additional reversal lag or stale reflection relative to A." },
+        { "id": "boundaries", "prompt": "B has no disocclusion contamination, silhouette leak, or broken edge." }
+      ]
+    },
+    {
+      "id": "confidence-lit-settling",
+      "title": "Settling after stop",
+      "description": "Compare convergence and final appearance after motion stops.",
+      "images": {
+        "a": { "label": "A: fixed weight 0.9", "path": "captures/confidence-lit-settling-a.png" },
+        "b": { "label": "B: persistent confidence", "path": "captures/confidence-lit-settling-b.png" }
+      },
+      "criteria": [
+        { "id": "settling", "prompt": "B settles without stale reflection or persistent lag." },
+        { "id": "preservation", "prompt": "B converges to brightness, reflection content, and detail comparable with A." }
+      ]
+    }
+  ]
+}

@@ -178,6 +178,7 @@ function renderCase(testCase)
 function renderSuite(loadedSuite)
 {
     suite = loadedSuite;
+    document.body.classList.toggle("full-frame-large", suite.capture?.displayMode === "full-frame-large");
     metadata.innerHTML = "";
     Object.entries(suite.capture).forEach(([key, value]) =>
     {

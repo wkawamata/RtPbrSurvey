@@ -20,6 +20,7 @@ struct ReflectionHdrDiagnosticReadback
 {
     Microsoft::WRL::ComPtr<ID3D12Resource> resource;
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+    DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
     ReflectionHdrDiagnosticRoi roi;
 
     bool IsValid() const;
@@ -31,6 +32,7 @@ struct ReflectionHdrDiagnosticMappedReadback
     const UINT8* data = nullptr;
     UINT64 offset = 0;
     UINT rowPitch = 0;
+    DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
     ReflectionHdrDiagnosticRoi roi;
 };
 
@@ -47,6 +49,10 @@ struct ReflectionHdrDiagnosticCapture
     ReflectionHdrDiagnosticReadback evaluatedRadiance;
     ReflectionHdrDiagnosticReadback specularEstimate;
     ReflectionHdrDiagnosticReadback resolvedRadiance;
+    ReflectionHdrDiagnosticReadback resolvedSpecularEstimate;
+    ReflectionHdrDiagnosticReadback specularMoments;
+    ReflectionHdrDiagnosticReadback specularConfidence;
+    ReflectionHdrDiagnosticReadback visiblePbrParams;
     ReflectionHdrDiagnosticReadback rayHit;
     UINT samplingFrameIndex = 0;
     UINT temporalFrameIndex = 0;
@@ -63,6 +69,10 @@ struct ReflectionHdrDiagnosticFrame
     std::vector<ReflectionHdrDiagnosticSample> evaluatedRadiance;
     std::vector<ReflectionHdrDiagnosticSample> specularEstimate;
     std::vector<ReflectionHdrDiagnosticSample> resolvedRadiance;
+    std::vector<ReflectionHdrDiagnosticSample> resolvedSpecularEstimate;
+    std::vector<ReflectionHdrDiagnosticSample> specularMoments;
+    std::vector<ReflectionHdrDiagnosticSample> specularConfidence;
+    std::vector<ReflectionHdrDiagnosticSample> visiblePbrParams;
     std::vector<ReflectionHdrDiagnosticSample> rayHit;
 };
 
@@ -85,6 +95,10 @@ void RecordReflectionHdrDiagnosticCapture(ID3D12GraphicsCommandList* commandList
                                           ID3D12Resource* evaluatedRadiance,
                                           ID3D12Resource* specularEstimate,
                                           ID3D12Resource* resolvedRadiance,
+                                          ID3D12Resource* resolvedSpecularEstimate,
+                                          ID3D12Resource* specularMoments,
+                                          ID3D12Resource* specularConfidence,
+                                          ID3D12Resource* visiblePbrParams,
                                           ID3D12Resource* rayHit,
                                           const ReflectionHdrDiagnosticRoi& roi,
                                           UINT samplingFrameIndex,

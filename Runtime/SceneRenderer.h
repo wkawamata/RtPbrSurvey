@@ -58,6 +58,7 @@ namespace RtPbrSurvey
         const Engine::TemporalUpscalerSettings& GetTemporalUpscalerSettings() const;
         void SetHybridReflectionSettings(const RtPbrSurveyEngine::HybridReflectionSettings& settings);
         const RtPbrSurveyEngine::HybridReflectionSettings& GetHybridReflectionSettings() const;
+        void ResetHybridReflectionHistoryForDiagnostics();
         void SetMaterialParams(UINT materialIndex, const RtPbrSurveyEngine::MaterialParams& params);
         void SetRenderingPath(RtPbrSurveyEngine::RenderingPath renderingPath);
         RtPbrSurveyEngine::RenderingPath GetRenderingPath() const;
