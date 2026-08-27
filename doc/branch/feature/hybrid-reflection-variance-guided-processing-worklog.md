@@ -292,3 +292,17 @@ Still-image review was retired as the primary temporal-quality gate because the 
 The user could not identify a clear A/B difference in static rough-sphere grain or in brightness/detail preservation. These two criteria are recorded as unable to judge, not as evidence of improvement or equivalence. No added reflection lag or trail was observed during camera motion, no edge or reflection breakage was observed during direction reversal, and the result stabilized after motion stopped. These three dynamic-safety criteria pass for the observed controlled scene.
 
 Conclusion: the bounded persistent-confidence policy produced no observed dynamic regression in this live Lit test, but its static perceptual benefit was not established. Numerical linear-HDR variance reduction remains valid evidence; this live result does not upgrade it to a visible Lit-quality improvement claim.
+
+The user subsequently noted a possible slight reduction in noise brightness, while still judging the overall visual difference as small. This is recorded as a weak improvement tendency consistent with the numerical variance result, not as a subjective pass.
+
+## 2026-08-28: Final branch audit
+
+- PASS: `varianceGuidedTemporalEnabled` remains `false` by default, and the UI continues to label the policy experimental and default-off.
+- PASS: Debug x64, including affected HLSL, rebuilt with zero errors. The only build warning was the existing duplicate vcpkg MSBuild import warning.
+- PASS: prior controlled and DamagedHelmet paired runs established bounded linear-HDR variance reduction with small mean changes, matching sample sequences, and zero D3D12 errors.
+- PASS: confidence decay and explicit history reset ownership were measured independently.
+- PASS WITH LIMITATION: the live controlled-scene Lit gate found no motion, reversal, or settling regression under the observed conditions.
+- PASS WITH LIMITATION: static Lit improvement remains a weak tendency; the user found little visible difference.
+- NOT CLAIMED: production denoiser readiness, physical correctness, unbiased estimation, broad-scene generalization, or a clearly perceptible Lit improvement.
+
+The branch is ready to be reviewed as a default-off persistent-confidence diagnostic and bounded temporal-policy experiment. Promotion to a production default is not recommended from the available evidence.

@@ -292,3 +292,17 @@ browser確認では`full-frame-large` class、1920x1080のnatural image、image 
 静止rough sphereの粒状noiseと輝度／detail保持について、userは明確なA／B差を識別できなかった。この2 criterionは改善または同等性の証拠にせず、判定不能として記録する。camera移動中に追加のreflection遅れ／残像は見られず、方向反転時にedge／reflection破綻は見られず、motion停止後は安定して収束した。この3 dynamic-safety criterionは観察したcontrolled sceneに対してpassとする。
 
 結論: bounded persistent-confidence policyは今回のlive Lit testで動的regressionを示さなかったが、静止時の知覚的benefitは確立しなかった。linear-HDR variance低減の数値証拠は維持するが、このlive結果によってvisible Lit-quality improvementを主張しない。
+
+その後userから、noise輝度がわずかに低下した可能性はあるが、全体の見た目に大差はないとの補足があった。これは数値variance結果と整合する弱い改善傾向として記録し、主観passとはしない。
+
+## 2026-08-28: Branch最終監査
+
+- PASS: `varianceGuidedTemporalEnabled`はdefault `false`を維持し、UIもexperimental default-off policyと明記している。
+- PASS: 影響HLSLを含むDebug x64 buildはerror 0件で成功した。build warningは既存vcpkg MSBuild重複import warning 1件のみだった。
+- PASS: 既存controlled／DamagedHelmet paired runはmatching sample sequence、small mean change、bounded linear-HDR variance低減、D3D12 error 0件を確認済みである。
+- PASS: confidence decayとexplicit history reset ownershipを独立に測定済みである。
+- PASS WITH LIMITATION: live controlled-scene Lit gateは観察条件内でmotion、reversal、settling regressionを示さなかった。
+- PASS WITH LIMITATION: static Lit改善は弱い傾向に留まり、userは見た目の大差を認めなかった。
+- NOT CLAIMED: production denoiser readiness、物理的正しさ、unbiased estimation、広範なscene generalization、明確に知覚可能なLit改善。
+
+このbranchはdefault-off persistent-confidence診断およびbounded temporal-policy実験としてreview可能な状態である。現在の証拠からproduction defaultへの昇格は推奨しない。
