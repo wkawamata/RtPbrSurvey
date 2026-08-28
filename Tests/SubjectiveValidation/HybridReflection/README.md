@@ -72,4 +72,16 @@ Open `http://127.0.0.1:8765/?suite=suite-edge-stability.json` for the repeatable
 
 Use `capture-plan-edge-settling.json` and `suite-edge-settling.json` for the focused settling gate. They compare A/B at 1, 6, and 15 frames after camera motion stops at frame 180, with only two criteria per checkpoint.
 
+## Dynamic Temporal HDR Report
+
+HDR diagnostic schema 12 reuses `-ReflectionOrbitDegrees` and `-ReflectionOrbitFrames` as a deterministic camera timeline after warm-up: forward orbit, reverse to the initial yaw, then stop. Each frame records the automation frame, motion phase, yaw offset, motion-vector magnitude, hit distance, and separate temporal status rates. The report computes T50, T90, and T95 from resolved-radiance ROI mean luminance when the stop response has a meaningful amplitude.
+
+Validate a generated report without GPU access:
+
+```powershell
+.\Tests\HybridReflection\Test-DynamicTemporalReport.ps1 -ReportPath <report.json>
+```
+
+The validator independently checks schema and timeline consistency, contiguous automation frames, exhaustive temporal-status rates, moving/stationary motion-vector behavior, and recomputed settling values. It does not judge Lit perceptual quality or establish an object-motion result.
+
 Use `capture-plan-confidence-lit.json` and `suite-confidence-lit.json` for the persistent-confidence Lit gate. Both variants use stochastic sampling, history weight `0.9`, camera distance scale `1.0`, and the same continuous camera timeline. The capture preserves the complete render frame so the rearward-surface region near the top edge is not cropped. The suite selects the scoped `full-frame-large` display mode: HTML removes the legacy centered 2x crop and stacks A/B at the full available page width. Other suites retain their existing presentation. A keeps variance-guided temporal weighting disabled; B enables it. The four checkpoints cover static appearance, mid motion, direction reversal, and settling. A still capture is not sufficient evidence for temporal-noise improvement; mark that criterion unable and add a consecutive-frame sequence when necessary.

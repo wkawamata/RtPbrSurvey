@@ -103,3 +103,11 @@ A pure fixed EMA at weight 0.9 retains 10% of old history after approximately 22
 All four processes exited normally. D3D12 Debug Layer produced zero errors and only the three previously known buffer initial-state warnings per process.
 
 Next: perform the live Lit perceptual gate for the same forward/reverse/stop behavior. Only if Lit exposes a practical artifact should object-motion or hit-identity diagnostics be promoted ahead of the planned follow-up.
+
+## 2026-08-29: Non-visual report validator
+
+The Lit perceptual gate was deferred while the user was away. Non-visual work continued with a dependency-free PowerShell validator for schema 12 dynamic reports. It independently checks timeline phase order, contiguous automation frames, temporal-status rate exhaustiveness, nonzero moving motion, zero stationary motion, and recomputed settling validity/T50/T90/T95.
+
+The first validation correctly rejected the earlier 30-degree artifacts: they contained the new timeline fields but reported schema 11 because those GPU runs used the executable built immediately before the source schema number advanced to 12. The current source was rebuilt, all three ROI reports were regenerated, and the validator passed each report with no failures. The regenerated T values exactly match the recorded table: `6/11/13`, `6/19/20`, and `6/15/17`.
+
+This check improves artifact/version integrity but does not replace the deferred Lit gate. Next: keep the perceptual gate pending and continue final code/report audit work that does not require the user to be at the workstation.

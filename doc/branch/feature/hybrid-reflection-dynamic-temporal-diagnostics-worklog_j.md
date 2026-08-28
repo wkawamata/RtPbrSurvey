@@ -103,3 +103,11 @@ weight 0.9の純粋なfixed EMAは、旧historyが10%残るまで約22 frames、
 全4 processは正常終了した。D3D12 Debug Layerはerror 0件で、各processに既知のbuffer initial-state warning 3件だけがあった。
 
 次は同じforward／reverse／stop behaviorをlive Lit perceptual gateで確認する。Litで実用的artifactが見つかった場合にのみ、object-motion／hit-identity diagnosticsを予定より前へ昇格する。
+
+## 2026-08-29: Non-visual report validator
+
+ユーザー外出中のためLit perceptual gateを保留した。非主観作業として、schema 12 dynamic report用の追加dependency不要なPowerShell validatorを追加した。timeline phase順序、automation frame連続性、temporal-status rateの網羅性、moving motionのnonzero、stationary motionのzero、settling validity／T50／T90／T95の独立再計算を確認する。
+
+最初のvalidationは、以前の30度artifactを正しくrejectした。これらは新しいtimeline fieldを含む一方、sourceのschema番号を12へ進める直前にbuildしたexecutableでGPU runしたためschema 11を報告していた。current sourceを再buildし、3 ROI reportをすべて再生成した結果、validatorは全reportをfailureなしでpassした。再生成後のT値は記録済みtableの`6/11/13`、`6/19/20`、`6/15/17`と完全に一致した。
+
+このcheckはartifact／version integrityを強化するが、保留中のLit gateを置き換えない。次はperceptual gateをpendingのまま維持し、ユーザーがworkstationにいなくても進められるfinal code／report auditを続ける。
