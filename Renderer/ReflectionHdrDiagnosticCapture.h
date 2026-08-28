@@ -65,6 +65,7 @@ struct ReflectionHdrDiagnosticCapture
 struct ReflectionHdrDiagnosticFrame
 {
     ReflectionHdrDiagnosticRoi roi;
+    UINT64 automationFrameIndex = 0;
     UINT samplingFrameIndex = 0;
     UINT temporalFrameIndex = 0;
     std::vector<ReflectionHdrDiagnosticSample> evaluatedRadiance;

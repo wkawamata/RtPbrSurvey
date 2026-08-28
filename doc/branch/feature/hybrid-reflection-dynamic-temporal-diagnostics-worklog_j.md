@@ -63,3 +63,25 @@ Validation:
 - D3D12 Debug Layer: error 0件。bufferのinitial UAV stateを無視する既存warningが3件あり、新規diagnostic copy warningは観察されなかった。
 
 このcheckpointではdynamic motion／settlingはまだ測定していない。次はdeterministic camera-motion timelineを追加し、既存のper-frame linear-HDR meanからsettling metricを計算する。
+
+## 2026-08-28: Deterministic camera timeline／settling contract
+
+HDR diagnosticsで`-ReflectionOrbitDegrees`と`-ReflectionOrbitFrames`を再利用し、warm-up後に次のdeterministic measurement timelineを定義した。
+
+1. 設定frame数だけ正方向へorbitする。
+2. 同じframe数で反転し、初期yawへ戻る。
+3. 残りのmeasurement中は静止する。
+
+automation pathはarcball state変更後にcameraを明示更新する。hidden／non-foreground automation runではこの処理が必要であり、既存screenshot／keyframe automation pathも同時に修正する。各diagnostic frameへautomation-frame index、phase、yaw offsetを記録する。report schema 12へtimeline／settling contractを追加した。
+
+settlingはresolved-radiance ROI mean luminanceから測定する。終端8 stationary sampleの平均をsettled valueとする。T50／T90／T95は、停止直後のinitial errorに対する残差がそれぞれ50%、10%、5%以下の状態を3 sample連続で満たす最初のoffsetである。initial errorがsettled meanの1%または`1e-6`以下の場合は、正規化できる意味のある応答振幅がないためmetricをinvalidとする。
+
+GPU validationはcontrolled estimator scene、10度forward／reverse orbit、history weight 0.9、stochastic sampling、32x32 ROIで実施した。
+
+- 短いsmoke runの移動frameでは、約0.0024～0.0028 NDCのnonzero mean motionを記録した。
+- reverse frameでは約0.9～1.4%のdepth rejectionが発生し、このROIではmaterial normal rejectionは発生しなかった。
+- stationary frameではmotion 0、history acceptance 1.0へ戻った。
+- 32-sample settling runのinitial stop errorは`3.4e-5`で、minimum meaningful threshold `7.9e-4`を下回った。このため架空のlatency値を出さず、settlingは正しくinvalidと判定された。
+- Debug x64／HLSL buildはerror 0件で成功した。D3D12 Debug Layerに新規error／warningはなかった。
+
+次はより強いmotion条件と空間的に異なるcontrolled-scene ROIを測定し、measurable dynamic responseの有無を確認してからLit perceptual gateへ進む。

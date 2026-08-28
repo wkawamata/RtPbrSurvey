@@ -63,3 +63,25 @@ Validation:
 - D3D12 Debug Layer: 0 errors. Three pre-existing warnings reported ignored initial UAV state for buffers; no new diagnostic-copy warning was observed.
 
 This checkpoint does not yet measure dynamic motion or settling. Next: add a deterministic camera-motion timeline and calculate settling metrics from the existing per-frame linear-HDR means.
+
+## 2026-08-28: Deterministic camera timeline and settling contract
+
+HDR diagnostics now reuse `-ReflectionOrbitDegrees` and `-ReflectionOrbitFrames` to define a deterministic measurement timeline after warm-up:
+
+1. orbit forward for the configured frame count;
+2. reverse for the same frame count and return to the initial yaw;
+3. remain stationary for the rest of the measurement.
+
+The automation path explicitly updates the arcball camera after changing its state. This is required for hidden, non-foreground automation runs and also corrects the existing screenshot/keyframe automation path. Each diagnostic frame records its automation-frame index, phase, and yaw offset. Report schema 12 adds the timeline and settling contract.
+
+Settling is measured from the resolved-radiance ROI mean luminance. The settled value is the mean of the final eight stationary samples. T50, T90, and T95 are the first offsets after stop at which the remaining absolute error stays below 50%, 10%, and 5% of the initial stop error for three consecutive samples. The metric is marked invalid when the initial error is no greater than 1% of the settled mean or `1e-6`, because no meaningful response amplitude exists to normalize.
+
+GPU validation used the controlled estimator scene, a 10-degree forward/reverse orbit, history weight 0.9, stochastic sampling, and a 32x32 ROI:
+
+- moving frames reported nonzero mean motion of approximately 0.0024 to 0.0028 NDC in the shorter smoke run;
+- reverse frames produced approximately 0.9% to 1.4% depth rejection and no material normal rejection in that ROI;
+- stationary frames returned to zero motion and 1.0 history acceptance;
+- the 32-sample settling run had only `3.4e-5` initial stop error versus a `7.9e-4` minimum meaningful threshold, so settling was correctly reported as invalid rather than inventing a latency value;
+- Debug x64/HLSL build passed with 0 errors; D3D12 Debug Layer showed no new errors or warnings.
+
+Next: run stronger and spatially varied controlled-scene cases, then determine whether a measurable dynamic response exists before applying the Lit perceptual gate.
