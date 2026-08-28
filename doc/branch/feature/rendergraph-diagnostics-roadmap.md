@@ -1,4 +1,4 @@
-# RenderGraph diagnostics follow-up roadmap
+# RenderGraph診断機能ロードマップ
 
 ## 目的
 
@@ -10,11 +10,11 @@
 
 ### RG-01 選択ノード詳細パネル
 
-- [ ] Node selectionを取得する。
-- [ ] Pass詳細として実行順、Read/Write、stateを表示する。
-- [ ] Resource詳細として種別、lifetime、transient/persistent、使用Passを表示する。
-- [ ] Node内へ情報を追加しすぎず、独立したdetail paneに表示する。
-- [ ] 選択解除とgraph更新後の無効selectionを安全に処理する。
+- [x] Node selectionを取得する。
+- [x] Pass詳細として実行順、Read/Write、stateを表示する。
+- [x] Resource詳細として種別、lifetime、transient/persistent、使用Passを表示する。
+- [x] Node内へ情報を追加しすぎず、独立したdetail paneに表示する。
+- [x] 選択解除とgraph更新後の無効selectionを安全に処理する。
 
 完了条件:
 
@@ -154,4 +154,5 @@
 - [x] 独立window、最大化/復元、Fit Graph
 - [x] Pass/Resource/Texture/Bufferの分類表示
 - [x] Ping-pong時のnode位置、寸法、Resource pin layout安定化
-- [ ] 次のtask: RG-01 選択ノード詳細パネル
+- [*] RG-01 選択ノード詳細パネル: 実装とDebug x64 build完了、実画面確認待ち
+- [ ] 次のtask: RG-02 検索と表示フィルター

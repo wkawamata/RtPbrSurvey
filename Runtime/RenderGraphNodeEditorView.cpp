@@ -17,6 +17,7 @@
 
 #include <imgui.h>
 
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -59,6 +60,95 @@ const char* ResourceKindLabel(Engine::RenderGraphResourceKind kind)
     }
 }
 
+const char* LifetimeKindLabel(Engine::RenderGraphResourceLifetimeKind kind)
+{
+    switch (kind)
+    {
+        case Engine::RenderGraphResourceLifetimeKind::Transient:
+            return "Transient";
+        case Engine::RenderGraphResourceLifetimeKind::Persistent:
+            return "Persistent";
+        default:
+            return "Unknown";
+    }
+}
+
+const Engine::RenderGraphDocumentNode* FindNode(const Engine::RenderGraphDocument& document,
+                                                Engine::RenderGraphDocumentId id)
+{
+    for (const Engine::RenderGraphDocumentNode& node : document.nodes)
+    {
+        if (node.id == id)
+        {
+            return &node;
+        }
+    }
+    return nullptr;
+}
+
+void DrawDetailPanel(const Engine::RenderGraphDocument& document,
+                     const std::optional<Engine::RenderGraphDocumentId>& selectedNodeId)
+{
+    ImGui::TextUnformatted("Node Details");
+    ImGui::Separator();
+
+    const Engine::RenderGraphDocumentNode* node =
+        selectedNodeId.has_value() ? FindNode(document, *selectedNodeId) : nullptr;
+    if (node == nullptr)
+    {
+        ImGui::TextDisabled("Select a Pass or Resource node.");
+        return;
+    }
+
+    ImGui::TextWrapped("%s", node->name.c_str());
+    if (node->kind == Engine::RenderGraphNodeKind::Pass)
+    {
+        ImGui::Text("Type: Pass");
+        ImGui::Text("Execution order: %d", node->passIndex);
+    }
+    else
+    {
+        ImGui::Text("Type: %s", ResourceKindLabel(node->resourceKind));
+        ImGui::Text("Lifetime: %s", LifetimeKindLabel(node->lifetimeKind));
+        ImGui::Text("Pass range: [%d, %d]", node->firstPass, node->lastPass);
+    }
+
+    ImGui::Spacing();
+    ImGui::TextUnformatted(node->kind == Engine::RenderGraphNodeKind::Pass ? "Resources" : "Pass usages");
+    if (ImGui::BeginTable("RenderGraphNodeDetailsTable",
+                          3,
+                          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+    {
+        ImGui::TableSetupColumn(node->kind == Engine::RenderGraphNodeKind::Pass ? "Resource" : "Pass");
+        ImGui::TableSetupColumn("Access");
+        ImGui::TableSetupColumn("State");
+        ImGui::TableHeadersRow();
+
+        for (const Engine::RenderGraphDocumentLink& link : document.links)
+        {
+            const bool matches = node->kind == Engine::RenderGraphNodeKind::Pass ? link.passNodeId == node->id
+                                                                                 : link.resourceNodeId == node->id;
+            if (!matches)
+            {
+                continue;
+            }
+
+            const Engine::RenderGraphDocumentId relatedId =
+                node->kind == Engine::RenderGraphNodeKind::Pass ? link.resourceNodeId : link.passNodeId;
+            const Engine::RenderGraphDocumentNode* relatedNode = FindNode(document, relatedId);
+            const std::string state = Engine::FormatD3D12ResourceStates(link.state);
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(relatedNode != nullptr ? relatedNode->name.c_str() : "<missing>");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(AccessLabel(link.access));
+            ImGui::TableSetColumnIndex(2);
+            ImGui::TextWrapped("%s", state.c_str());
+        }
+        ImGui::EndTable();
+    }
+}
+
 ImVec4 NodeBackgroundColor(const Engine::RenderGraphDocumentNode& node)
 {
     if (node.kind == Engine::RenderGraphNodeKind::Pass)
@@ -89,6 +179,7 @@ struct RenderGraphNodeEditorView::Impl
         NodeEditor::PinId write;
     };
     std::unordered_map<uint64_t, ResourcePinIds> resourcePinIds;
+    std::optional<Engine::RenderGraphDocumentId> selectedNodeId;
     uintptr_t nextSyntheticPinId = UINTPTR_MAX;
 
     Impl()
@@ -146,9 +237,19 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     ImGui::SameLine();
     ImGui::TextDisabled("Read-only");
 
+    if (m_impl->selectedNodeId.has_value() && FindNode(document, *m_impl->selectedNodeId) == nullptr)
+    {
+        m_impl->selectedNodeId.reset();
+    }
+
+    constexpr float detailWidth = 360.0f;
+    const ImVec2 contentSize = ImGui::GetContentRegionAvail();
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const float canvasWidth = (std::max)(contentSize.x - detailWidth - spacing, 240.0f);
+    ImGui::BeginChild("RenderGraphCanvasPane", ImVec2(canvasWidth, contentSize.y), false);
+
     NodeEditor::SetCurrentEditor(m_impl->context);
-    const float canvasHeight = (std::max)(ImGui::GetContentRegionAvail().y, 240.0f);
-    NodeEditor::Begin("RenderGraphNodeEditor", ImVec2(0.0f, canvasHeight));
+    NodeEditor::Begin("RenderGraphNodeEditor", ImVec2(0.0f, 0.0f));
 
     size_t resourceIndex = 0;
     bool layoutChanged = false;
@@ -267,10 +368,36 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     }
 
     NodeEditor::End();
+    if (NodeEditor::HasSelectionChanged())
+    {
+        NodeEditor::NodeId selectedNode;
+        if (NodeEditor::GetSelectedNodes(&selectedNode, 1) == 1)
+        {
+            m_impl->selectedNodeId.reset();
+            for (const Engine::RenderGraphDocumentNode& node : document.nodes)
+            {
+                if (ToNodeId(node.id) == selectedNode)
+                {
+                    m_impl->selectedNodeId = node.id;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            m_impl->selectedNodeId.reset();
+        }
+    }
     if (fitRequested || layoutChanged)
     {
         NodeEditor::NavigateToContent(0.0f);
     }
     NodeEditor::SetCurrentEditor(nullptr);
+    ImGui::EndChild();
+
+    ImGui::SameLine();
+    ImGui::BeginChild("RenderGraphDetailPane", ImVec2(0.0f, contentSize.y), true);
+    DrawDetailPanel(document, m_impl->selectedNodeId);
+    ImGui::EndChild();
 }
 } // namespace RtPbrSurvey
