@@ -49,11 +49,11 @@
 
 ### RG-04 State transition診断
 
-- [ ] Resourceごとの要求state列をpass順に構築する。
-- [ ] state transitionが必要なedgeを強調する。
-- [ ] UAV barrier候補を識別する。
-- [ ] redundant transitionとstate不一致の検出方針を決める。
-- [ ] 警告にはpass、resource、before/after stateを表示する。
+- [x] Resourceごとの要求state列をpass順に構築する。
+- [x] state transitionが必要なedgeを紫で強調する。
+- [x] UAV barrier候補を黄色で識別する。
+- [x] 現snapshotでは要求stateのみを診断し、redundant transitionと実barrierのstate不一致はruntime barrier event取得後に判定する方針とする。
+- [x] 診断一覧にpass、resource、before/after stateを表示する。
 
 完了条件:
 
@@ -157,4 +157,5 @@
 - [x] RG-01 選択ノード詳細パネル
 - [x] RG-02 検索と表示フィルター
 - [x] RG-03 Resource lifetime timeline
-- [ ] 次のtask: RG-04 State transition診断
+- [x] RG-04 State transition診断
+- [ ] 次のtask: RG-05 GPU timing表示

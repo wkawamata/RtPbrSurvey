@@ -136,6 +136,40 @@ bool TestStateFormatting()
                     "combined states are formatted symbolically");
     return passed;
 }
+
+bool TestStateDiagnostics()
+{
+    const std::vector<Engine::RenderPass> passes = {
+        {.name = L"WriteColor", .writes = {{"Color", D3D12_RESOURCE_STATE_RENDER_TARGET}}},
+        {.name = L"ReadColor", .reads = {{"Color", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}},
+        {.name = L"WriteUav", .writes = {{"Counters", D3D12_RESOURCE_STATE_UNORDERED_ACCESS}}},
+        {.name = L"ReadUav", .reads = {{"Counters", D3D12_RESOURCE_STATE_UNORDERED_ACCESS}}},
+        {.name = L"ReadStable", .reads = {{"Stable", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}},
+        {.name = L"ReadStableAgain", .reads = {{"Stable", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}},
+    };
+    const Engine::RenderGraphDocument document = Engine::BuildRenderGraphDocument(passes);
+    const std::vector<Engine::RenderGraphStateDiagnostic> diagnostics =
+        Engine::BuildRenderGraphStateDiagnostics(document);
+
+    bool passed = true;
+    passed &= Check(diagnostics.size() == 2, "state diagnostics contain transition and UAV candidate only");
+    const auto transition =
+        std::find_if(diagnostics.begin(),
+                     diagnostics.end(),
+                     [](const auto& diagnostic)
+                     { return diagnostic.kind == Engine::RenderGraphStateDiagnosticKind::RequiredTransition; });
+    const auto uav =
+        std::find_if(diagnostics.begin(),
+                     diagnostics.end(),
+                     [](const auto& diagnostic)
+                     { return diagnostic.kind == Engine::RenderGraphStateDiagnosticKind::UavBarrierCandidate; });
+    passed &= Check(transition != diagnostics.end(), "changed state is a required transition");
+    passed &= Check(transition != diagnostics.end() && transition->beforeState == D3D12_RESOURCE_STATE_RENDER_TARGET &&
+                        transition->afterState == D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+                    "required transition preserves before and after states");
+    passed &= Check(uav != diagnostics.end(), "consecutive UAV usage after write is a UAV barrier candidate");
+    return passed;
+}
 } // namespace
 
 int main()
@@ -145,5 +179,6 @@ int main()
     passed &= TestDeterministicDump();
     passed &= TestPingPongNodeIdentity();
     passed &= TestStateFormatting();
+    passed &= TestStateDiagnostics();
     return passed ? 0 : 1;
 }

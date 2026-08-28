@@ -200,6 +200,45 @@ DrawLifetimeTimeline(const Engine::RenderGraphDocument& document,
     return clickedNodeId;
 }
 
+void DrawStateDiagnostics(const Engine::RenderGraphDocument& document,
+                          const std::vector<Engine::RenderGraphStateDiagnostic>& diagnostics)
+{
+    ImGui::SeparatorText("State Diagnostics");
+    ImGui::TextDisabled("%zu required barriers", diagnostics.size());
+    if (ImGui::BeginTable("RenderGraphStateDiagnosticsTable",
+                          3,
+                          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY,
+                          ImVec2(0.0f, 220.0f)))
+    {
+        ImGui::TableSetupColumn("Resource");
+        ImGui::TableSetupColumn("Pass");
+        ImGui::TableSetupColumn("Transition");
+        ImGui::TableHeadersRow();
+        for (const Engine::RenderGraphStateDiagnostic& diagnostic : diagnostics)
+        {
+            const Engine::RenderGraphDocumentNode* resource = FindNode(document, diagnostic.resourceNodeId);
+            const Engine::RenderGraphDocumentNode* pass = FindNode(document, diagnostic.afterPassNodeId);
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(resource != nullptr ? resource->name.c_str() : "<missing>");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(pass != nullptr ? pass->name.c_str() : "<missing>");
+            ImGui::TableSetColumnIndex(2);
+            if (diagnostic.kind == Engine::RenderGraphStateDiagnosticKind::UavBarrierCandidate)
+            {
+                ImGui::TextUnformatted("UAV barrier");
+            }
+            else
+            {
+                const std::string before = Engine::FormatD3D12ResourceStates(diagnostic.beforeState);
+                const std::string after = Engine::FormatD3D12ResourceStates(diagnostic.afterState);
+                ImGui::TextWrapped("%s -> %s", before.c_str(), after.c_str());
+            }
+        }
+        ImGui::EndTable();
+    }
+}
+
 void DrawDetailPanel(const Engine::RenderGraphDocument& document,
                      const std::optional<Engine::RenderGraphDocumentId>& selectedNodeId)
 {
@@ -402,6 +441,8 @@ RenderGraphNodeEditorView::~RenderGraphNodeEditorView() = default;
 
 void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document)
 {
+    const std::vector<Engine::RenderGraphStateDiagnostic> stateDiagnostics =
+        Engine::BuildRenderGraphStateDiagnostics(document);
     const bool fitRequested = ImGui::Button("Fit Graph");
     ImGui::SameLine();
     ImGui::TextDisabled("Read-only");
@@ -560,6 +601,16 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                                     m_impl->MatchesFilters(document, *resourceNode);
         ImVec4 color = link.access == Engine::RenderGraphResourceAccess::Read ? ImVec4(0.35f, 0.70f, 1.0f, 1.0f)
                                                                               : ImVec4(1.0f, 0.65f, 0.25f, 1.0f);
+        for (const Engine::RenderGraphStateDiagnostic& diagnostic : stateDiagnostics)
+        {
+            if (diagnostic.resourceNodeId == link.resourceNodeId && diagnostic.afterPassNodeId == link.passNodeId)
+            {
+                color = diagnostic.kind == Engine::RenderGraphStateDiagnosticKind::UavBarrierCandidate
+                            ? ImVec4(1.0f, 0.90f, 0.20f, 1.0f)
+                            : ImVec4(0.95f, 0.30f, 0.95f, 1.0f);
+                break;
+            }
+        }
         color.w = matchesFilters ? 1.0f : 0.10f;
         const NodeEditor::PinId resourcePinId = m_impl->ResourcePinId(link.resourceNodeId, link.access);
         const NodeEditor::PinId fromPinId =
@@ -616,6 +667,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     DrawDetailPanel(document, m_impl->selectedNodeId);
     const std::optional<Engine::RenderGraphDocumentId> timelineSelection =
         DrawLifetimeTimeline(document, m_impl->selectedNodeId);
+    DrawStateDiagnostics(document, stateDiagnostics);
     ImGui::EndChild();
 
     if (timelineSelection.has_value())

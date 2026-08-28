@@ -301,6 +301,88 @@ std::string FormatD3D12ResourceStates(D3D12_RESOURCE_STATES states)
     return stream.str();
 }
 
+std::vector<RenderGraphStateDiagnostic> BuildRenderGraphStateDiagnostics(const RenderGraphDocument& document)
+{
+    std::unordered_map<RenderGraphDocumentId, int> passIndices;
+    for (const RenderGraphDocumentNode& node : document.nodes)
+    {
+        if (node.kind == RenderGraphNodeKind::Pass)
+        {
+            passIndices[node.id] = node.passIndex;
+        }
+    }
+
+    std::vector<const RenderGraphDocumentLink*> usages;
+    usages.reserve(document.links.size());
+    for (const RenderGraphDocumentLink& link : document.links)
+    {
+        usages.push_back(&link);
+    }
+    std::sort(usages.begin(),
+              usages.end(),
+              [&passIndices](const auto* lhs, const auto* rhs)
+              {
+                  if (lhs->resourceNodeId != rhs->resourceNodeId)
+                  {
+                      return lhs->resourceNodeId.value < rhs->resourceNodeId.value;
+                  }
+                  const int lhsPassIndex = passIndices.at(lhs->passNodeId);
+                  const int rhsPassIndex = passIndices.at(rhs->passNodeId);
+                  if (lhsPassIndex != rhsPassIndex)
+                  {
+                      return lhsPassIndex < rhsPassIndex;
+                  }
+                  if (lhs->access != rhs->access)
+                  {
+                      return lhs->access < rhs->access;
+                  }
+                  return lhs->id.value < rhs->id.value;
+              });
+
+    std::vector<RenderGraphStateDiagnostic> diagnostics;
+    const RenderGraphDocumentLink* previous = nullptr;
+    for (const RenderGraphDocumentLink* usage : usages)
+    {
+        if (previous == nullptr || previous->resourceNodeId != usage->resourceNodeId)
+        {
+            previous = usage;
+            continue;
+        }
+
+        if (previous->state != usage->state)
+        {
+            diagnostics.push_back({RenderGraphStateDiagnosticKind::RequiredTransition,
+                                   usage->resourceNodeId,
+                                   previous->passNodeId,
+                                   usage->passNodeId,
+                                   previous->state,
+                                   usage->state});
+        }
+        else if (usage->state == D3D12_RESOURCE_STATE_UNORDERED_ACCESS &&
+                 (previous->access == RenderGraphResourceAccess::Write ||
+                  usage->access == RenderGraphResourceAccess::Write))
+        {
+            diagnostics.push_back({RenderGraphStateDiagnosticKind::UavBarrierCandidate,
+                                   usage->resourceNodeId,
+                                   previous->passNodeId,
+                                   usage->passNodeId,
+                                   previous->state,
+                                   usage->state});
+        }
+        previous = usage;
+    }
+    std::sort(diagnostics.begin(),
+              diagnostics.end(),
+              [&passIndices](const auto& lhs, const auto& rhs)
+              {
+                  const int lhsPassIndex = passIndices.at(lhs.afterPassNodeId);
+                  const int rhsPassIndex = passIndices.at(rhs.afterPassNodeId);
+                  return lhsPassIndex != rhsPassIndex ? lhsPassIndex < rhsPassIndex
+                                                      : lhs.resourceNodeId.value < rhs.resourceNodeId.value;
+              });
+    return diagnostics;
+}
+
 std::string DumpRenderGraphDocumentText(const RenderGraphDocument& document)
 {
     std::ostringstream stream;

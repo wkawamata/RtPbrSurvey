@@ -110,12 +110,29 @@ struct RenderGraphDocument
     std::vector<RenderGraphDocumentLink> links;
 };
 
+enum class RenderGraphStateDiagnosticKind
+{
+    RequiredTransition,
+    UavBarrierCandidate,
+};
+
+struct RenderGraphStateDiagnostic
+{
+    RenderGraphStateDiagnosticKind kind = RenderGraphStateDiagnosticKind::RequiredTransition;
+    RenderGraphDocumentId resourceNodeId;
+    RenderGraphDocumentId beforePassNodeId;
+    RenderGraphDocumentId afterPassNodeId;
+    D3D12_RESOURCE_STATES beforeState = D3D12_RESOURCE_STATE_COMMON;
+    D3D12_RESOURCE_STATES afterState = D3D12_RESOURCE_STATE_COMMON;
+};
+
 RenderGraphDocument BuildRenderGraphDocument(const std::vector<RenderPass>& renderPasses,
                                              const RenderGraphResourceMetadataMap& resourceMetadata = {});
 
 std::string DumpRenderGraphDocumentText(const RenderGraphDocument& document);
 std::string DumpRenderGraphDocumentDot(const RenderGraphDocument& document);
 std::string FormatD3D12ResourceStates(D3D12_RESOURCE_STATES states);
+std::vector<RenderGraphStateDiagnostic> BuildRenderGraphStateDiagnostics(const RenderGraphDocument& document);
 
 } // namespace Engine
 
