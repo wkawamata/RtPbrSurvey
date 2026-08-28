@@ -2,7 +2,7 @@
 
 ## 1. 状態
 
-Status: **PASS WITH LIMITATION / Lit主観評価保留**
+Status: **PASS WITH LIMITATION / 非主観diagnostics完了**
 
 このPhaseは、Hybrid Reflectionのcamera motion、方向反転、停止後のtemporal behaviorをlinear-HDR domainで説明可能にする診断Phaseである。object回転時の主観的な追従遅れを確認済み不具合とは仮定せず、先にcontrolled camera motionを数値化した。
 
@@ -70,6 +70,8 @@ schema番号更新前binaryで生成したartifactを実際にrejectし、schema
 - DamagedHelmetまたは他sceneへの一般化;
 - production denoiser readiness。
 
-## 6. 残gate
+## 6. 後続評価branchへのhandoff
 
-ユーザーがworkstationへ戻った後、controlled sceneのlive Lit表示で移動、方向反転、停止後追従を確認する。このgateがPASSならcamera-motion診断を閉じる。実用的artifactが見つかった場合だけ、object-motion／hit-identity診断を次の優先作業へ昇格する。
+このdiagnostic branchは、実装、自動測定、artifact validation、build／Debug Layer監査を完了して閉じる。live Lit表示による移動、方向反転、停止後追従の主観評価は、後から独立した評価branchで実施する。
+
+後続評価branchで実用的artifactが見つかった場合だけ、object-motion／hit-identity診断を新しい実装作業へ昇格する。したがって、これらは本branchの未完了項目ではない。本branchの数値結果をproduction readinessまたは知覚的品質の証明へ拡張しない。

@@ -111,3 +111,9 @@ The Lit perceptual gate was deferred while the user was away. Non-visual work co
 The first validation correctly rejected the earlier 30-degree artifacts: they contained the new timeline fields but reported schema 11 because those GPU runs used the executable built immediately before the source schema number advanced to 12. The current source was rebuilt, all three ROI reports were regenerated, and the validator passed each report with no failures. The regenerated T values exactly match the recorded table: `6/11/13`, `6/19/20`, and `6/15/17`.
 
 This check improves artifact/version integrity but does not replace the deferred Lit gate. Next: keep the perceptual gate pending and continue final code/report audit work that does not require the user to be at the workstation.
+
+## 2026-08-29: Branch closure decision
+
+The user decided to close this diagnostic branch before subjective evaluation and perform the live Lit gate later on a separate evaluation branch. The branch acceptance is therefore limited to non-perceptual diagnostics: implementation, deterministic GPU measurements, independent report validation, build, and Debug Layer audit.
+
+The deferred Lit gate is a handoff, not unfinished scope. Object-motion and hit-identity diagnostics remain conditional follow-up work and are not required to close this branch. The final report retains explicit limits against perceptual-quality, scene-generalization, and production-readiness claims.

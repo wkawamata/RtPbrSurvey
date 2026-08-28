@@ -2,7 +2,7 @@
 
 ## Status
 
-Status: **PASS WITH LIMITATION / Lit perceptual gate pending**
+Status: **PASS WITH LIMITATION / non-perceptual diagnostics complete**
 
 This phase makes controlled camera-motion, reversal, rejection, and post-stop settling behavior explainable in the linear-HDR diagnostic domain. It does not treat the earlier subjective object-rotation delay as a confirmed defect.
 
@@ -20,4 +20,4 @@ All cases returned to zero motion and full history acceptance after stop. The me
 
 All regenerated schema 12 reports passed the independent validator. Debug x64/HLSL build completed with zero errors. D3D12 Debug Layer reported zero errors and only the three known buffer initial-state warnings per run.
 
-This result does not establish object-motion validity, reflection-hit identity validation, Lit perceptual acceptability, scene generalization, or production denoiser readiness. The remaining gate is a live Lit review after the user returns to the workstation. Object-motion/hit-identity work is promoted only if that review exposes a practical artifact.
+This result does not establish object-motion validity, reflection-hit identity validation, Lit perceptual acceptability, scene generalization, or production denoiser readiness. This diagnostic branch closes with implementation, automated measurements, artifact validation, build, and Debug Layer audit complete. A live Lit review is transferred to a later, independent evaluation branch. Object-motion/hit-identity work is promoted into a new implementation unit only if that review exposes a practical artifact; it is not unfinished scope in this branch.

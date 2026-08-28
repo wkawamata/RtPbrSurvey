@@ -111,3 +111,9 @@ weight 0.9の純粋なfixed EMAは、旧historyが10%残るまで約22 frames、
 最初のvalidationは、以前の30度artifactを正しくrejectした。これらは新しいtimeline fieldを含む一方、sourceのschema番号を12へ進める直前にbuildしたexecutableでGPU runしたためschema 11を報告していた。current sourceを再buildし、3 ROI reportをすべて再生成した結果、validatorは全reportをfailureなしでpassした。再生成後のT値は記録済みtableの`6/11/13`、`6/19/20`、`6/15/17`と完全に一致した。
 
 このcheckはartifact／version integrityを強化するが、保留中のLit gateを置き換えない。次はperceptual gateをpendingのまま維持し、ユーザーがworkstationにいなくても進められるfinal code／report auditを続ける。
+
+## 2026-08-29: Branch closure decision
+
+ユーザーは主観評価より先にこのdiagnostic branchを閉じ、live Lit gateを後から独立した評価branchで行うと決定した。このためbranch acceptanceを、実装、deterministic GPU measurement、独立report validation、build、Debug Layer auditからなる非主観diagnosticsへ限定する。
+
+延期したLit gateはhandoffであり、未完了scopeではない。object-motion／hit-identity diagnosticsは条件付きfollow-upのままで、このbranchを閉じる要件には含めない。最終reportは知覚的品質、scene generalization、production readinessを主張しない制限を維持する。
