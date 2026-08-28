@@ -85,3 +85,21 @@ GPU validationはcontrolled estimator scene、10度forward／reverse orbit、his
 - Debug x64／HLSL buildはerror 0件で成功した。D3D12 Debug Layerに新規error／warningはなかった。
 
 次はより強いmotion条件と空間的に異なるcontrolled-scene ROIを測定し、measurable dynamic responseの有無を確認してからLit perceptual gateへ進む。
+
+## 2026-08-29: 30度controlled-scene dynamic measurement
+
+visual validation済みのmetallic row 48x48 ROI 3か所を、より強い30度orbit、forward 12 frames、reverse 12 frames、history weight 0.9、stochastic sampling、32 warm-up framesで測定した。roughness 1.0／0.0は48 measurement samplesを使用した。roughness 0.35は、予備48-sample windowでT95を3 sample連続確認できなかったため64 samplesへ延長した。延長runは先頭48 resolved-mean samplesを完全に再現した。
+
+| ROI | Moving motion mean (NDC) | Moving acceptance mean | Moving depth reject mean | Moving normal reject mean | Stationary acceptance | T50 | T90 | T95 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| roughness 1.0 metal | 0.003949 | 0.9572 | 0.0424 | 0.0004 | 1.0000 | 6 | 11 | 13 |
+| roughness 0.35 metal | 0.013917 | 0.9407 | 0.0590 | 0.0003 | 1.0000 | 6 | 19 | 20 |
+| roughness 0.0 metal | 0.014832 | 0.9494 | 0.0439 | 0.0067 | 1.0000 | 6 | 15 | 17 |
+
+motion magnitude差は主としてscreen position／projected motion差であり、roughnessだけへ帰属してはならない。これらのROIではoutside-history rejectionは発生しなかった。全3 caseで停止後にmotion 0、history acceptance 1.0へ戻った。settling responseは測定可能で、T90は11～19 frames、T95は13～20 framesだった。
+
+weight 0.9の純粋なfixed EMAは、旧historyが10%残るまで約22 frames、5%まで約29 framesを要する。今回のROIがそれより速くsettleしたのは、測定signalが途切れないscalar EMAだけではなく、reprojection／rejectionと空間的に変化する内容を含むためである。このcontrolled 30度camera orbitでは、過度に長いhistory tailを示す数値結果は得られなかった。これはcamera-motion resultでありobject-motion conclusionではない。また、これだけでLit outputの知覚的許容性を確立しない。
+
+全4 processは正常終了した。D3D12 Debug Layerはerror 0件で、各processに既知のbuffer initial-state warning 3件だけがあった。
+
+次は同じforward／reverse／stop behaviorをlive Lit perceptual gateで確認する。Litで実用的artifactが見つかった場合にのみ、object-motion／hit-identity diagnosticsを予定より前へ昇格する。

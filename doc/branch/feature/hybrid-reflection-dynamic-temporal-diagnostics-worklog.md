@@ -85,3 +85,21 @@ GPU validation used the controlled estimator scene, a 10-degree forward/reverse 
 - Debug x64/HLSL build passed with 0 errors; D3D12 Debug Layer showed no new errors or warnings.
 
 Next: run stronger and spatially varied controlled-scene cases, then determine whether a measurable dynamic response exists before applying the Lit perceptual gate.
+
+## 2026-08-29: 30-degree controlled-scene dynamic measurements
+
+The three visually validated 48x48 metallic-row ROIs were measured with a stronger 30-degree orbit, 12 forward frames, 12 reverse frames, history weight 0.9, stochastic sampling, and 32 warm-up frames. Roughness 1.0 and 0.0 used 48 measurement samples. Roughness 0.35 was extended to 64 samples because its preliminary 48-sample window did not provide three consecutive T95 samples. The extended run reproduced the first 48 resolved-mean samples exactly.
+
+| ROI | Mean moving motion (NDC) | Mean moving acceptance | Mean moving depth reject | Mean moving normal reject | Stationary acceptance | T50 | T90 | T95 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| roughness 1.0 metal | 0.003949 | 0.9572 | 0.0424 | 0.0004 | 1.0000 | 6 | 11 | 13 |
+| roughness 0.35 metal | 0.013917 | 0.9407 | 0.0590 | 0.0003 | 1.0000 | 6 | 19 | 20 |
+| roughness 0.0 metal | 0.014832 | 0.9494 | 0.0439 | 0.0067 | 1.0000 | 6 | 15 | 17 |
+
+The motion-magnitude differences are primarily screen-position and projected-motion differences; they must not be attributed to roughness alone. No outside-history rejection occurred in these ROIs. All three cases returned to zero motion and full history acceptance after stop. Their settling response was measurable, with T90 between 11 and 19 frames and T95 between 13 and 20 frames.
+
+A pure fixed EMA at weight 0.9 retains 10% of old history after approximately 22 frames and 5% after approximately 29 frames. These ROI results settle faster because the measured signal includes reprojection/rejection and spatially changing content, not only an uninterrupted scalar EMA. Under this controlled 30-degree camera orbit, the data does not show an excessive long-duration history tail. This is a camera-motion result, not an object-motion conclusion, and it does not by itself establish perceptual acceptability in Lit output.
+
+All four processes exited normally. D3D12 Debug Layer produced zero errors and only the three previously known buffer initial-state warnings per process.
+
+Next: perform the live Lit perceptual gate for the same forward/reverse/stop behavior. Only if Lit exposes a practical artifact should object-motion or hit-identity diagnostics be promoted ahead of the planned follow-up.
