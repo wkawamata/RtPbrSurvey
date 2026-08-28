@@ -17,6 +17,9 @@
 
 #include <imgui.h>
 
+#include <algorithm>
+#include <array>
+#include <cctype>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
@@ -84,6 +87,26 @@ const Engine::RenderGraphDocumentNode* FindNode(const Engine::RenderGraphDocumen
         }
     }
     return nullptr;
+}
+
+bool ContainsCaseInsensitive(const std::string& value, const char* query)
+{
+    if (query[0] == '\0')
+    {
+        return true;
+    }
+
+    std::string lowerValue = value;
+    std::string lowerQuery = query;
+    std::transform(lowerValue.begin(),
+                   lowerValue.end(),
+                   lowerValue.begin(),
+                   [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+    std::transform(lowerQuery.begin(),
+                   lowerQuery.end(),
+                   lowerQuery.begin(),
+                   [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+    return lowerValue.find(lowerQuery) != std::string::npos;
 }
 
 void DrawDetailPanel(const Engine::RenderGraphDocument& document,
@@ -180,6 +203,15 @@ struct RenderGraphNodeEditorView::Impl
     };
     std::unordered_map<uint64_t, ResourcePinIds> resourcePinIds;
     std::optional<Engine::RenderGraphDocumentId> selectedNodeId;
+    std::array<char, 128> searchText = {};
+    bool showPasses = true;
+    bool showTextures = true;
+    bool showBuffers = true;
+    bool showUnknownResources = true;
+    bool showTransient = true;
+    bool showPersistent = true;
+    bool showUnknownLifetime = true;
+    bool connectedOnly = false;
     uintptr_t nextSyntheticPinId = UINTPTR_MAX;
 
     Impl()
@@ -225,6 +257,52 @@ struct RenderGraphNodeEditorView::Impl
         }
         return access == Engine::RenderGraphResourceAccess::Read ? entry->second.read : entry->second.write;
     }
+
+    bool MatchesFilters(const Engine::RenderGraphDocument& document, const Engine::RenderGraphDocumentNode& node) const
+    {
+        if (!ContainsCaseInsensitive(node.name, searchText.data()))
+        {
+            return false;
+        }
+
+        if (node.kind == Engine::RenderGraphNodeKind::Pass)
+        {
+            if (!showPasses)
+            {
+                return false;
+            }
+        }
+        else
+        {
+            const bool kindMatches =
+                (node.resourceKind == Engine::RenderGraphResourceKind::Texture && showTextures) ||
+                (node.resourceKind == Engine::RenderGraphResourceKind::Buffer && showBuffers) ||
+                (node.resourceKind == Engine::RenderGraphResourceKind::Unknown && showUnknownResources);
+            const bool lifetimeMatches =
+                (node.lifetimeKind == Engine::RenderGraphResourceLifetimeKind::Transient && showTransient) ||
+                (node.lifetimeKind == Engine::RenderGraphResourceLifetimeKind::Persistent && showPersistent) ||
+                (node.lifetimeKind == Engine::RenderGraphResourceLifetimeKind::Unknown && showUnknownLifetime);
+            if (!kindMatches || !lifetimeMatches)
+            {
+                return false;
+            }
+        }
+
+        if (!connectedOnly || !selectedNodeId.has_value() || node.id == *selectedNodeId)
+        {
+            return true;
+        }
+
+        for (const Engine::RenderGraphDocumentLink& link : document.links)
+        {
+            if ((link.passNodeId == *selectedNodeId && link.resourceNodeId == node.id) ||
+                (link.resourceNodeId == *selectedNodeId && link.passNodeId == node.id))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 RenderGraphNodeEditorView::RenderGraphNodeEditorView() : m_impl(std::make_unique<Impl>()) {}
@@ -236,6 +314,28 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     const bool fitRequested = ImGui::Button("Fit Graph");
     ImGui::SameLine();
     ImGui::TextDisabled("Read-only");
+
+    ImGui::SetNextItemWidth(240.0f);
+    ImGui::InputTextWithHint(
+        "##RenderGraphSearch", "Search Pass or Resource", m_impl->searchText.data(), m_impl->searchText.size());
+    ImGui::SameLine();
+    const bool focusRequested = ImGui::Button("Focus First Match");
+    ImGui::SameLine();
+    ImGui::Checkbox("Connected to selection", &m_impl->connectedOnly);
+
+    ImGui::Checkbox("Pass", &m_impl->showPasses);
+    ImGui::SameLine();
+    ImGui::Checkbox("Texture", &m_impl->showTextures);
+    ImGui::SameLine();
+    ImGui::Checkbox("Buffer", &m_impl->showBuffers);
+    ImGui::SameLine();
+    ImGui::Checkbox("Unknown Resource", &m_impl->showUnknownResources);
+    ImGui::SameLine();
+    ImGui::Checkbox("Transient", &m_impl->showTransient);
+    ImGui::SameLine();
+    ImGui::Checkbox("Persistent", &m_impl->showPersistent);
+    ImGui::SameLine();
+    ImGui::Checkbox("Unknown Lifetime", &m_impl->showUnknownLifetime);
 
     if (m_impl->selectedNodeId.has_value() && FindNode(document, *m_impl->selectedNodeId) == nullptr)
     {
@@ -255,6 +355,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     bool layoutChanged = false;
     for (const Engine::RenderGraphDocumentNode& node : document.nodes)
     {
+        const bool matchesFilters = m_impl->MatchesFilters(document, node);
         layoutChanged |= m_impl->PositionNode(node, resourceIndex);
         if (node.kind == Engine::RenderGraphNodeKind::Resource)
         {
@@ -299,7 +400,10 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         stableContentWidth = (std::max)(stableContentWidth, contentWidth);
         contentWidth = stableContentWidth;
 
-        NodeEditor::PushStyleColor(NodeEditor::StyleColor_NodeBg, NodeBackgroundColor(node));
+        ImVec4 backgroundColor = NodeBackgroundColor(node);
+        backgroundColor.w *= matchesFilters ? 1.0f : 0.18f;
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, matchesFilters ? 1.0f : 0.28f);
+        NodeEditor::PushStyleColor(NodeEditor::StyleColor_NodeBg, backgroundColor);
         NodeEditor::BeginNode(ToNodeId(node.id));
         ImGui::TextUnformatted(node.name.c_str());
         if (node.kind == Engine::RenderGraphNodeKind::Resource)
@@ -353,12 +457,19 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         }
         NodeEditor::EndNode();
         NodeEditor::PopStyleColor();
+        ImGui::PopStyleVar();
     }
 
     for (const Engine::RenderGraphDocumentLink& link : document.links)
     {
-        const ImVec4 color = link.access == Engine::RenderGraphResourceAccess::Read ? ImVec4(0.35f, 0.70f, 1.0f, 1.0f)
-                                                                                    : ImVec4(1.0f, 0.65f, 0.25f, 1.0f);
+        const Engine::RenderGraphDocumentNode* passNode = FindNode(document, link.passNodeId);
+        const Engine::RenderGraphDocumentNode* resourceNode = FindNode(document, link.resourceNodeId);
+        const bool matchesFilters = passNode != nullptr && resourceNode != nullptr &&
+                                    m_impl->MatchesFilters(document, *passNode) &&
+                                    m_impl->MatchesFilters(document, *resourceNode);
+        ImVec4 color = link.access == Engine::RenderGraphResourceAccess::Read ? ImVec4(0.35f, 0.70f, 1.0f, 1.0f)
+                                                                              : ImVec4(1.0f, 0.65f, 0.25f, 1.0f);
+        color.w = matchesFilters ? 1.0f : 0.10f;
         const NodeEditor::PinId resourcePinId = m_impl->ResourcePinId(link.resourceNodeId, link.access);
         const NodeEditor::PinId fromPinId =
             link.access == Engine::RenderGraphResourceAccess::Read ? resourcePinId : ToPinId(link.fromPinId);
@@ -368,6 +479,20 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     }
 
     NodeEditor::End();
+    if (focusRequested)
+    {
+        for (const Engine::RenderGraphDocumentNode& node : document.nodes)
+        {
+            if (m_impl->MatchesFilters(document, node))
+            {
+                NodeEditor::ClearSelection();
+                NodeEditor::SelectNode(ToNodeId(node.id));
+                NodeEditor::NavigateToSelection(true, 0.25f);
+                m_impl->selectedNodeId = node.id;
+                break;
+            }
+        }
+    }
     if (NodeEditor::HasSelectionChanged())
     {
         NodeEditor::NodeId selectedNode;

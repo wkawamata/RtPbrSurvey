@@ -24,11 +24,11 @@
 
 ### RG-02 検索と表示フィルター
 
-- [ ] Pass名とResource名の部分一致検索を追加する。
-- [ ] Pass、Texture、Buffer、Unknown Resourceの表示filterを追加する。
-- [ ] transient/persistent filterを追加する。
-- [ ] 選択ノードと直接接続されたnodeだけを強調または表示するmodeを追加する。
-- [ ] 非該当nodeを非表示にするmodeと薄く表示するmodeの扱いを決める。
+- [x] Pass名とResource名の大文字小文字を区別しない部分一致検索を追加する。
+- [x] Pass、Texture、Buffer、Unknown Resourceの表示filterを追加する。
+- [x] transient/persistent/unknown lifetime filterを追加する。
+- [x] 選択ノードと直接接続されたnodeだけを強調するmodeを追加する。
+- [x] Link endpointとlayoutを維持するため、非該当nodeは非表示にせず薄く表示する。
 
 完了条件:
 
@@ -154,5 +154,6 @@
 - [x] 独立window、最大化/復元、Fit Graph
 - [x] Pass/Resource/Texture/Bufferの分類表示
 - [x] Ping-pong時のnode位置、寸法、Resource pin layout安定化
-- [*] RG-01 選択ノード詳細パネル: 実装とDebug x64 build完了、実画面確認待ち
-- [ ] 次のtask: RG-02 検索と表示フィルター
+- [x] RG-01 選択ノード詳細パネル
+- [x] RG-02 検索と表示フィルター
+- [ ] 次のtask: RG-03 Resource lifetime timeline
