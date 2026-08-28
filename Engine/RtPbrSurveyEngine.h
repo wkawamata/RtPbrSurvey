@@ -36,6 +36,7 @@
 #include "Renderer/ReflectionHdrDiagnosticCapture.h"
 #include "Renderer/RayTracingSupport.h"
 #include "FrameGraph/RenderPassExecution.h"
+#include "FrameGraph/RenderGraphDocument.h"
 #include "FrameGraph/RenderPassGraph.h"
 #include "FrameGraph/RenderPassResources.h"
 #include "Renderer/RootSignatureLayout.h"
@@ -287,6 +288,7 @@ public:
     void CloseSceneResources();
     UiFrameContext GetUiFrameContext() const;
     float CpuFrameTimeMs() const { return m_cpuFrameTime; }
+    Engine::RenderGraphDocument CaptureRenderGraphDocument() const;
     void SetUpdateHandler(UpdateHandler handler);
     void SetLightingParams(const LightingParams& params);
     const LightingParams& GetLightingParams() const { return m_lightingParams; }

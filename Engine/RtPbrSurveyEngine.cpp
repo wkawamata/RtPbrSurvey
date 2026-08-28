@@ -5027,6 +5027,23 @@ auto RtPbrSurveyEngine::ResolveRenderTargets(const PassRenderTargetBinding& rend
     return resolvedRenderTargets;
 }
 
+Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() const
+{
+    Engine::RenderGraphResourceMetadataMap metadata;
+    metadata.reserve(m_resourceRegistry.transientResources.size());
+    for (const auto& [name, resource] : m_resourceRegistry.transientResources)
+    {
+        metadata[name] = {resource.persistent ? Engine::RenderGraphResourceLifetimeKind::Persistent
+                                             : Engine::RenderGraphResourceLifetimeKind::Transient,
+                          resource.desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER
+                              ? Engine::RenderGraphResourceKind::Buffer
+                              : Engine::RenderGraphResourceKind::Texture};
+    }
+    metadata[kBackBufferResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
+                                         Engine::RenderGraphResourceKind::Texture};
+    return Engine::BuildRenderGraphDocument(m_renderGraphRuntime.Graph().Passes(), metadata);
+}
+
 void RtPbrSurveyEngine::RecordImGuiPass()
 {
     if (m_activeUiRenderHandler != nullptr && *m_activeUiRenderHandler)

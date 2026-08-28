@@ -56,6 +56,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     WorkMeter.cpp
     Camera/DebugCameraController.cpp
     Engine/Rhi/Dx12/GraphicsDevice.cpp
+    Engine/FrameGraph/RenderGraphDocument.cpp
     Engine/RtPbrSurveyEngine.cpp
     Engine/RtPbrSurveyEnginePasses.cpp
     Platform/CommandLineOptions.cpp
@@ -92,6 +93,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/ToneMap.cpp
     Runtime/SceneRenderer.cpp
     Runtime/SceneRendererDebugUi.cpp
+    Runtime/RenderGraphNodeEditorView.cpp
     Runtime/SceneRendererSettings.cpp
     Scene/ProceduralSceneBuilder.cpp
     Scene/SceneBuilder.cpp
@@ -99,7 +101,18 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Scene/SampleScene.cpp
     Ui/ImGuiSystem.cpp
     stdafx.cpp
+    third_party/imgui-node-editor/crude_json.cpp
+    third_party/imgui-node-editor/imgui_canvas.cpp
+    third_party/imgui-node-editor/imgui_node_editor.cpp
+    third_party/imgui-node-editor/imgui_node_editor_api.cpp
 )
+
+set_source_files_properties(
+    third_party/imgui-node-editor/crude_json.cpp
+    third_party/imgui-node-editor/imgui_canvas.cpp
+    third_party/imgui-node-editor/imgui_node_editor.cpp
+    third_party/imgui-node-editor/imgui_node_editor_api.cpp
+    PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 
 add_library(RtPbrSurvey.SceneRenderer STATIC ${RTPBRSURVEY_RENDERER_SOURCES})
 add_library(RtPbrSurvey::SceneRenderer ALIAS RtPbrSurvey.SceneRenderer)
@@ -277,6 +290,14 @@ endif()
 
 if(RTPBRSURVEY_BUILD_TESTS)
     enable_testing()
+    add_executable(RtPbrSurvey.RenderGraphDocumentTests
+        Tests/RenderGraphDocumentTests.cpp)
+    target_link_libraries(RtPbrSurvey.RenderGraphDocumentTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.RenderGraphDocumentTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.RenderGraphDocument COMMAND RtPbrSurvey.RenderGraphDocumentTests)
+
     add_executable(RtPbrSurvey.SceneRendererSettingsTests
         Tests/SceneRendererSettingsTests.cpp)
     target_link_libraries(RtPbrSurvey.SceneRendererSettingsTests PRIVATE RtPbrSurvey::SceneRenderer)

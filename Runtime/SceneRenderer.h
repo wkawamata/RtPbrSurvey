@@ -47,6 +47,7 @@ namespace RtPbrSurvey
         void DrawToolUi();
         UiFrameContext GetUiFrameContext() const;
         float CpuFrameTimeMs() const;
+        Engine::RenderGraphDocument CaptureRenderGraphDocument() const;
         SceneRendererSettings CaptureSettings() const;
         void ApplySettings(const SceneRendererSettings& settings);
 

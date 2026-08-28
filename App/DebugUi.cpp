@@ -236,6 +236,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     using RenderingPath = RtPbrSurveyEngine::RenderingPath;
     using RenderViewMode = RtPbrSurveyEngine::RenderViewMode;
     using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
+    static bool renderGraphWindowOpen = false;
 
     if (const std::optional<RtPbrSurvey::ScreenshotResult> result = app.m_sceneRenderer.ConsumeScreenshotResult())
     {
@@ -1180,7 +1181,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
+    if (ImGui::Button("Open RenderGraph Window"))
+    {
+        renderGraphWindowOpen = true;
+    }
+
     ImGui::End();
+    RtPbrSurvey::SceneRendererDebugUi::DrawRenderGraphWindow(app.m_sceneRenderer, &renderGraphWindowOpen);
 
     RtPbrSurveyEngine::LightingParams lightingParams = app.m_lightingParams;
     if (!app.m_iblEnabled)

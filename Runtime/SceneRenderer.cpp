@@ -92,6 +92,11 @@ namespace RtPbrSurvey
         return m_engine.CpuFrameTimeMs();
     }
 
+    Engine::RenderGraphDocument SceneRenderer::CaptureRenderGraphDocument() const
+    {
+        return m_engine.CaptureRenderGraphDocument();
+    }
+
     SceneRendererSettings SceneRenderer::CaptureSettings() const
     {
         SceneRendererSettings settings;
