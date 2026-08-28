@@ -37,10 +37,10 @@
 
 ### RG-03 Resource lifetime timeline
 
-- [ ] Pass indexを横軸としたResource lifetime barを追加する。
-- [ ] first/last passとtransient/persistentを表示する。
-- [ ] `.0`/`.1`など関連Resourceを隣接表示できるsortingを追加する。
-- [ ] 選択中Resourceとtimelineのselectionを同期する。
+- [x] Pass indexを横軸としたResource lifetime barを追加する。
+- [x] first/last passとtransient/persistentを表示する。
+- [x] 数値suffixを除いた論理名でsortingし、`.0`/`.1`など関連Resourceを隣接表示する。
+- [x] 選択中Resourceとtimelineのselectionを同期する。
 
 完了条件:
 
@@ -156,4 +156,5 @@
 - [x] Ping-pong時のnode位置、寸法、Resource pin layout安定化
 - [x] RG-01 選択ノード詳細パネル
 - [x] RG-02 検索と表示フィルター
-- [ ] 次のtask: RG-03 Resource lifetime timeline
+- [x] RG-03 Resource lifetime timeline
+- [ ] 次のtask: RG-04 State transition診断

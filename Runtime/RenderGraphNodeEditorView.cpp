@@ -109,6 +109,97 @@ bool ContainsCaseInsensitive(const std::string& value, const char* query)
     return lowerValue.find(lowerQuery) != std::string::npos;
 }
 
+std::string LogicalResourceName(const std::string& name)
+{
+    const size_t separator = name.find_last_of('.');
+    if (separator == std::string::npos || separator + 1 >= name.size())
+    {
+        return name;
+    }
+
+    const bool numericSuffix = std::all_of(
+        name.begin() + separator + 1, name.end(), [](unsigned char character) { return std::isdigit(character) != 0; });
+    return numericSuffix ? name.substr(0, separator) : name;
+}
+
+std::optional<Engine::RenderGraphDocumentId>
+DrawLifetimeTimeline(const Engine::RenderGraphDocument& document,
+                     const std::optional<Engine::RenderGraphDocumentId>& selectedNodeId)
+{
+    std::vector<const Engine::RenderGraphDocumentNode*> resources;
+    int lastPass = 0;
+    for (const Engine::RenderGraphDocumentNode& node : document.nodes)
+    {
+        if (node.kind == Engine::RenderGraphNodeKind::Resource)
+        {
+            resources.push_back(&node);
+            lastPass = (std::max)(lastPass, node.lastPass);
+        }
+    }
+    std::sort(resources.begin(),
+              resources.end(),
+              [](const auto* lhs, const auto* rhs)
+              {
+                  const std::string lhsLogicalName = LogicalResourceName(lhs->name);
+                  const std::string rhsLogicalName = LogicalResourceName(rhs->name);
+                  return lhsLogicalName != rhsLogicalName ? lhsLogicalName < rhsLogicalName : lhs->name < rhs->name;
+              });
+
+    ImGui::SeparatorText("Resource Lifetime Timeline");
+    ImGui::TextDisabled("Pass 0 to %d", lastPass);
+    std::optional<Engine::RenderGraphDocumentId> clickedNodeId;
+    if (ImGui::BeginTable("RenderGraphLifetimeTable",
+                          2,
+                          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY,
+                          ImVec2(0.0f, 260.0f)))
+    {
+        ImGui::TableSetupColumn("Resource", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+        ImGui::TableSetupColumn("Lifetime", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableHeadersRow();
+
+        for (const Engine::RenderGraphDocumentNode* resource : resources)
+        {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::PushID(reinterpret_cast<void*>(static_cast<uintptr_t>(resource->id.value)));
+            const bool selected = selectedNodeId.has_value() && *selectedNodeId == resource->id;
+            if (ImGui::Selectable(resource->name.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns))
+            {
+                clickedNodeId = resource->id;
+            }
+            ImGui::PopID();
+
+            ImGui::TableSetColumnIndex(1);
+            const ImVec2 timelineStart = ImGui::GetCursorScreenPos();
+            const float timelineWidth = ImGui::GetContentRegionAvail().x;
+            const float rowHeight = ImGui::GetTextLineHeight();
+            const float passCount = static_cast<float>((std::max)(lastPass + 1, 1));
+            const float start = static_cast<float>((std::max)(resource->firstPass, 0)) / passCount;
+            const float end = static_cast<float>((std::max)(resource->lastPass + 1, 1)) / passCount;
+            const ImU32 color =
+                ImGui::GetColorU32(resource->lifetimeKind == Engine::RenderGraphResourceLifetimeKind::Transient
+                                       ? ImVec4(0.95f, 0.45f, 0.12f, 0.90f)
+                                       : ImVec4(0.80f, 0.18f, 0.12f, 0.90f));
+            ImGui::GetWindowDrawList()->AddRectFilled(
+                ImVec2(timelineStart.x + timelineWidth * start, timelineStart.y + 2.0f),
+                ImVec2(timelineStart.x + timelineWidth * end, timelineStart.y + rowHeight - 2.0f),
+                color,
+                3.0f);
+            ImGui::Dummy(ImVec2(timelineWidth, rowHeight));
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("%s: [%d, %d] %s",
+                                  resource->name.c_str(),
+                                  resource->firstPass,
+                                  resource->lastPass,
+                                  LifetimeKindLabel(resource->lifetimeKind));
+            }
+        }
+        ImGui::EndTable();
+    }
+    return clickedNodeId;
+}
+
 void DrawDetailPanel(const Engine::RenderGraphDocument& document,
                      const std::optional<Engine::RenderGraphDocumentId>& selectedNodeId)
 {
@@ -523,6 +614,18 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     ImGui::SameLine();
     ImGui::BeginChild("RenderGraphDetailPane", ImVec2(0.0f, contentSize.y), true);
     DrawDetailPanel(document, m_impl->selectedNodeId);
+    const std::optional<Engine::RenderGraphDocumentId> timelineSelection =
+        DrawLifetimeTimeline(document, m_impl->selectedNodeId);
     ImGui::EndChild();
+
+    if (timelineSelection.has_value())
+    {
+        m_impl->selectedNodeId = timelineSelection;
+        NodeEditor::SetCurrentEditor(m_impl->context);
+        NodeEditor::ClearSelection();
+        NodeEditor::SelectNode(ToNodeId(*timelineSelection));
+        NodeEditor::NavigateToSelection(false, 0.25f);
+        NodeEditor::SetCurrentEditor(nullptr);
+    }
 }
 } // namespace RtPbrSurvey
