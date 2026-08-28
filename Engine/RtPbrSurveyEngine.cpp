@@ -4663,6 +4663,7 @@ void RtPbrSurveyEngine::RecordReflectionHdrDiagnosticPass()
                                                  m_reflectionSpecularConfidence[writeIndex].Get(),
                                                  m_gbuffer.resources[Engine::GBuffer::PBRParams].Get(),
                                                  m_reflectionRayHit.Get(),
+                                                 m_gbuffer.resources[Engine::GBuffer::MotionVector].Get(),
                                                  m_reflectionHdrDiagnosticRoi,
                                                  m_reflectionSamplingFrameIndex,
                                                  m_reflectionTemporalFrameIndex,

@@ -228,6 +228,13 @@ void RtPbrSurveyApp::OnInit()
 
         if (m_commandLineOptions.captureReflectionResolvedRadiance)
         {
+            if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() &&
+                m_commandLineOptions.reflectionOrbitFrames > 0 &&
+                m_debugCamera.GetMode() != RtPbrSurvey::DebugCameraController::Mode::Arcball)
+            {
+                m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::Arcball);
+                m_debugCamera.InitObjectViewerFromCamera();
+            }
             m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
             m_renderViewMode =
                 GetReflectionCaptureRenderViewMode(m_commandLineOptions.reflectionCaptureDebugView);
@@ -564,6 +571,39 @@ void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
             m_debugCamera.ObjectViewerPitch(),
             m_automationOrbitDistance,
             m_debugCamera.ObjectViewerPivot());
+        m_debugCamera.UpdateObjectViewerCamera();
+        return;
+    }
+
+    if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() &&
+        m_commandLineOptions.reflectionOrbitFrames > 0)
+    {
+        const UINT64 warmupFrames = m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames;
+        if (m_automationFrameCounter < warmupFrames)
+        {
+            return;
+        }
+
+        const UINT64 motionFrames = m_commandLineOptions.reflectionOrbitFrames;
+        const UINT64 diagnosticFrame = m_automationFrameCounter - warmupFrames;
+        float progress = 0.0f;
+        if (diagnosticFrame < motionFrames)
+        {
+            progress = static_cast<float>(diagnosticFrame + 1) / static_cast<float>(motionFrames);
+        }
+        else if (diagnosticFrame < motionFrames * 2)
+        {
+            progress = 1.0f -
+                       static_cast<float>(diagnosticFrame - motionFrames + 1) / static_cast<float>(motionFrames);
+        }
+
+        const float yawOffset =
+            DirectX::XMConvertToRadians(m_commandLineOptions.reflectionOrbitDegrees) * progress;
+        m_debugCamera.SetObjectViewerState(m_automationOrbitStartYaw + yawOffset,
+                                           m_debugCamera.ObjectViewerPitch(),
+                                           m_automationOrbitDistance,
+                                           m_debugCamera.ObjectViewerPivot());
+        m_debugCamera.UpdateObjectViewerCamera();
         return;
     }
 
@@ -588,6 +628,7 @@ void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
                                        m_debugCamera.ObjectViewerPitch(),
                                        m_automationOrbitDistance,
                                        m_debugCamera.ObjectViewerPivot());
+    m_debugCamera.UpdateObjectViewerCamera();
 }
 
 bool RtPbrSurveyApp::HasAutomatedCapture() const
@@ -606,6 +647,7 @@ void RtPbrSurveyApp::UpdateReflectionHdrDiagnostics()
     if (std::optional<Engine::ReflectionHdrDiagnosticFrame> frame =
             m_sceneRenderer.ConsumeReflectionHdrDiagnosticFrame())
     {
+        frame->automationFrameIndex = m_reflectionHdrDiagnosticCaptureAutomationFrame;
         m_reflectionHdrDiagnosticFrames.push_back(std::move(*frame));
         m_reflectionHdrDiagnosticInFlight = false;
     }
@@ -658,6 +700,7 @@ void RtPbrSurveyApp::UpdateReflectionHdrDiagnostics()
             m_sceneRenderer.RequestPixelPick(screenX, screenY);
         }
         m_sceneRenderer.RequestReflectionHdrDiagnosticCapture(roi);
+        m_reflectionHdrDiagnosticCaptureAutomationFrame = m_automationFrameCounter;
         m_reflectionHdrDiagnosticInFlight = true;
     }
 }
@@ -768,21 +811,57 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     for (size_t frameIndex = 0; frameIndex < m_reflectionHdrDiagnosticFrames.size(); ++frameIndex)
     {
         const Engine::ReflectionHdrDiagnosticFrame& frame = m_reflectionHdrDiagnosticFrames[frameIndex];
+        const UINT64 warmupFrames = m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames;
+        const UINT64 motionFrames = m_commandLineOptions.reflectionOrbitFrames;
+        const UINT64 diagnosticFrame = frame.automationFrameIndex >= warmupFrames ?
+            frame.automationFrameIndex - warmupFrames : 0;
+        const char* cameraMotionPhase = "stationary";
+        float cameraYawOffsetDegrees = 0.0f;
+        if (motionFrames > 0 && diagnosticFrame < motionFrames)
+        {
+            cameraMotionPhase = "forward";
+            cameraYawOffsetDegrees = m_commandLineOptions.reflectionOrbitDegrees *
+                                     static_cast<float>(diagnosticFrame + 1) / static_cast<float>(motionFrames);
+        }
+        else if (motionFrames > 0 && diagnosticFrame < motionFrames * 2)
+        {
+            cameraMotionPhase = "reverse";
+            cameraYawOffsetDegrees = m_commandLineOptions.reflectionOrbitDegrees *
+                                     (1.0f - static_cast<float>(diagnosticFrame - motionFrames + 1) /
+                                                   static_cast<float>(motionFrames));
+        }
         size_t hitCount = 0;
         size_t acceptedCount = 0;
+        size_t noHistoryCount = 0;
+        size_t outsideHistoryCount = 0;
         size_t depthRejectCount = 0;
         size_t normalRejectCount = 0;
+        double hitDistanceSum = 0.0;
+        double motionMagnitudeSum = 0.0;
+        double maximumMotionMagnitude = 0.0;
         for (size_t sampleIndex = 0; sampleIndex < frame.rayHit.size(); ++sampleIndex)
         {
-            hitCount += frame.rayHit[sampleIndex].g >= 0.5f ? 1 : 0;
+            const bool rayHit = frame.rayHit[sampleIndex].g >= 0.5f;
+            hitCount += rayHit ? 1 : 0;
+            hitDistanceSum += rayHit ? frame.rayHit[sampleIndex].r : 0.0;
             const float status = frame.resolvedRadiance[sampleIndex].a;
             acceptedCount += status >= 0.875f ? 1 : 0;
+            noHistoryCount += status < 0.125f ? 1 : 0;
+            outsideHistoryCount += status >= 0.125f && status < 0.375f ? 1 : 0;
             depthRejectCount += status >= 0.375f && status < 0.625f ? 1 : 0;
             normalRejectCount += status >= 0.625f && status < 0.875f ? 1 : 0;
+            const double motionX = frame.motionVector[sampleIndex].r;
+            const double motionY = frame.motionVector[sampleIndex].g;
+            const double motionMagnitude = std::sqrt(motionX * motionX + motionY * motionY);
+            motionMagnitudeSum += motionMagnitude;
+            maximumMotionMagnitude = (std::max)(maximumMotionMagnitude, motionMagnitude);
         }
         const double sampleCount = static_cast<double>(frame.rayHit.size());
         frameValues.push_back({
             {"index", frameIndex},
+            {"automationFrameIndex", frame.automationFrameIndex},
+            {"cameraMotionPhase", cameraMotionPhase},
+            {"cameraYawOffsetDegrees", cameraYawOffsetDegrees},
             {"samplingFrameIndex", frame.samplingFrameIndex},
             {"temporalFrameIndex", frame.temporalFrameIndex},
             {"evaluatedMeanLuminance", meanLuminance(frame.evaluatedRadiance)},
@@ -793,7 +872,12 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
             {"specularConfidence", scalarSummary(confidenceValues(frame.specularConfidence))},
             {"appliedHistoryPolicyWeight", scalarSummary(policyWeightValues(frame.specularConfidence))},
             {"hitRate", sampleCount > 0.0 ? static_cast<double>(hitCount) / sampleCount : 0.0},
+            {"meanHitDistance", hitCount > 0 ? hitDistanceSum / static_cast<double>(hitCount) : 0.0},
+            {"meanMotionVectorMagnitudeNdc", sampleCount > 0.0 ? motionMagnitudeSum / sampleCount : 0.0},
+            {"maximumMotionVectorMagnitudeNdc", maximumMotionMagnitude},
             {"temporalAcceptanceRate", sampleCount > 0.0 ? static_cast<double>(acceptedCount) / sampleCount : 0.0},
+            {"noHistoryRate", sampleCount > 0.0 ? static_cast<double>(noHistoryCount) / sampleCount : 0.0},
+            {"outsideHistoryRate", sampleCount > 0.0 ? static_cast<double>(outsideHistoryCount) / sampleCount : 0.0},
             {"depthRejectRate", sampleCount > 0.0 ? static_cast<double>(depthRejectCount) / sampleCount : 0.0},
             {"normalRejectRate", sampleCount > 0.0 ? static_cast<double>(normalRejectCount) / sampleCount : 0.0},
         });
@@ -850,8 +934,83 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     }
     const Engine::ReflectionHdrDiagnosticBaselineComparison baselineComparison =
         Engine::CompareReflectionHdrDiagnosticsToCurrentEstimatorMeanBaseline(m_reflectionHdrDiagnosticFrames);
+    json settlingDiagnostic = {
+        {"enabled", false},
+        {"signal", "resolved-radiance-roi-mean-luminance"},
+        {"settledValueWindow", "last-8-stationary-samples"},
+        {"requiredConsecutiveSamples", 3},
+        {"valid", false},
+        {"t50Frames", nullptr},
+        {"t90Frames", nullptr},
+        {"t95Frames", nullptr},
+    };
+    const UINT64 stopAutomationFrame = m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames +
+                                       static_cast<UINT64>(m_commandLineOptions.reflectionOrbitFrames) * 2;
+    std::vector<const Engine::ReflectionHdrDiagnosticFrame*> stationaryFrames;
+    if (m_commandLineOptions.reflectionOrbitFrames > 0)
+    {
+        for (const Engine::ReflectionHdrDiagnosticFrame& frame : m_reflectionHdrDiagnosticFrames)
+        {
+            if (frame.automationFrameIndex >= stopAutomationFrame)
+            {
+                stationaryFrames.push_back(&frame);
+            }
+        }
+    }
+    if (!stationaryFrames.empty())
+    {
+        constexpr size_t kSettledWindowSamples = 8;
+        constexpr size_t kRequiredConsecutiveSamples = 3;
+        const size_t settledWindowStart = stationaryFrames.size() > kSettledWindowSamples ?
+            stationaryFrames.size() - kSettledWindowSamples : 0;
+        double settledMean = 0.0;
+        for (size_t index = settledWindowStart; index < stationaryFrames.size(); ++index)
+        {
+            settledMean += meanLuminance(stationaryFrames[index]->resolvedRadiance);
+        }
+        settledMean /= static_cast<double>(stationaryFrames.size() - settledWindowStart);
+        const double initialMean = meanLuminance(stationaryFrames.front()->resolvedRadiance);
+        const double initialError = std::abs(initialMean - settledMean);
+        const double minimumMeaningfulError = (std::max)(std::abs(settledMean) * 0.01, 1.0e-6);
+        const auto findSettlingFrame = [&](double remainingErrorFraction) -> json
+        {
+            const double threshold = initialError * remainingErrorFraction;
+            for (size_t index = 0; index + kRequiredConsecutiveSamples <= stationaryFrames.size(); ++index)
+            {
+                bool withinThreshold = true;
+                for (size_t consecutive = 0; consecutive < kRequiredConsecutiveSamples; ++consecutive)
+                {
+                    const double value = meanLuminance(stationaryFrames[index + consecutive]->resolvedRadiance);
+                    withinThreshold &= std::abs(value - settledMean) <= threshold;
+                }
+                if (withinThreshold)
+                {
+                    return stationaryFrames[index]->automationFrameIndex - stopAutomationFrame;
+                }
+            }
+            return nullptr;
+        };
+        const bool settlingValid = initialError > minimumMeaningfulError &&
+                                   stationaryFrames.size() >= kRequiredConsecutiveSamples;
+        settlingDiagnostic = {
+            {"enabled", true},
+            {"signal", "resolved-radiance-roi-mean-luminance"},
+            {"settledValueWindow", "last-8-stationary-samples"},
+            {"requiredConsecutiveSamples", kRequiredConsecutiveSamples},
+            {"stationarySampleCount", stationaryFrames.size()},
+            {"stopAutomationFrame", stopAutomationFrame},
+            {"settledMeanLuminance", settledMean},
+            {"initialStationaryMeanLuminance", initialMean},
+            {"initialAbsoluteError", initialError},
+            {"minimumMeaningfulError", minimumMeaningfulError},
+            {"valid", settlingValid},
+            {"t50Frames", settlingValid ? findSettlingFrame(0.5) : json(nullptr)},
+            {"t90Frames", settlingValid ? findSettlingFrame(0.1) : json(nullptr)},
+            {"t95Frames", settlingValid ? findSettlingFrame(0.05) : json(nullptr)},
+        };
+    }
     const json report = {
-        {"schemaVersion", 10},
+        {"schemaVersion", 12},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
         {"specularEstimateIncidentRadiance",
@@ -877,7 +1036,26 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         {"scene", LoadedScene().Name()},
         {"warmupFrames", m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames},
         {"measurementFrames", m_reflectionHdrDiagnosticFrames.size()},
+        {"cameraMotionTimeline",
+         {{"enabled", m_commandLineOptions.reflectionOrbitFrames > 0},
+          {"type", "arcball-forward-reverse-stop"},
+          {"orbitDegrees", m_commandLineOptions.reflectionOrbitDegrees},
+          {"framesPerDirection", m_commandLineOptions.reflectionOrbitFrames},
+          {"stopBeginsAtMeasurementFrame", m_commandLineOptions.reflectionOrbitFrames * 2}}},
+        {"settlingDiagnostic", std::move(settlingDiagnostic)},
         {"coordinateSpace", "render-pixels"},
+        {"motionVectorDiagnostic",
+         {{"storedCoordinateSpace", "ndc"},
+          {"reportedMagnitude", "length-of-stored-motion-vector"},
+          {"jitterAndConfiguredOffsetRemovalApplied", false}}},
+        {"temporalStatusDiagnostic",
+         {{"source", "ReflectionResolvedRadiance.alpha"},
+          {"values",
+           {{"noHistory", 0.0},
+            {"outsideHistory", 0.25},
+            {"depthReject", 0.5},
+            {"normalReject", 0.75},
+            {"accepted", 1.0}}}}},
         {"renderSize", {{"width", context.renderWidth}, {"height", context.renderHeight}}},
         {"roi", {{"x", roi.x}, {"y", roi.y}, {"width", roi.width}, {"height", roi.height}}},
         {"referenceSurfaceSample",

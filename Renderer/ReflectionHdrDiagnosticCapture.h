@@ -54,6 +54,7 @@ struct ReflectionHdrDiagnosticCapture
     ReflectionHdrDiagnosticReadback specularConfidence;
     ReflectionHdrDiagnosticReadback visiblePbrParams;
     ReflectionHdrDiagnosticReadback rayHit;
+    ReflectionHdrDiagnosticReadback motionVector;
     UINT samplingFrameIndex = 0;
     UINT temporalFrameIndex = 0;
 
@@ -64,6 +65,7 @@ struct ReflectionHdrDiagnosticCapture
 struct ReflectionHdrDiagnosticFrame
 {
     ReflectionHdrDiagnosticRoi roi;
+    UINT64 automationFrameIndex = 0;
     UINT samplingFrameIndex = 0;
     UINT temporalFrameIndex = 0;
     std::vector<ReflectionHdrDiagnosticSample> evaluatedRadiance;
@@ -74,10 +76,11 @@ struct ReflectionHdrDiagnosticFrame
     std::vector<ReflectionHdrDiagnosticSample> specularConfidence;
     std::vector<ReflectionHdrDiagnosticSample> visiblePbrParams;
     std::vector<ReflectionHdrDiagnosticSample> rayHit;
+    std::vector<ReflectionHdrDiagnosticSample> motionVector;
 };
 
-// Copies only the requested region. The source contract is R16G16B16A16_FLOAT;
-// this helper intentionally preserves linear HDR values and does not tone map.
+// Copies only the requested region. Supported formats cover the linear-HDR signals,
+// scalar diagnostics, material payload, and two-channel motion-vector payload.
 void RecordReflectionHdrDiagnosticReadback(ID3D12GraphicsCommandList* commandList,
                                            ID3D12Device* device,
                                            ID3D12Resource* source,
@@ -100,6 +103,7 @@ void RecordReflectionHdrDiagnosticCapture(ID3D12GraphicsCommandList* commandList
                                           ID3D12Resource* specularConfidence,
                                           ID3D12Resource* visiblePbrParams,
                                           ID3D12Resource* rayHit,
+                                          ID3D12Resource* motionVector,
                                           const ReflectionHdrDiagnosticRoi& roi,
                                           UINT samplingFrameIndex,
                                           UINT temporalFrameIndex,

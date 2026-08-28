@@ -158,6 +158,7 @@ private:
     bool m_reflectionCaptureInFlight = false;
     bool m_reflectionCapturePlanFailed = false;
     bool m_reflectionHdrDiagnosticInFlight = false;
+    UINT64 m_reflectionHdrDiagnosticCaptureAutomationFrame = 0;
     bool m_reflectionHdrDiagnosticsComplete = false;
     bool m_reflectionConfidenceStableEvidenceApplied = false;
     bool m_reflectionHistoryDiagnosticResetApplied = false;
