@@ -42,3 +42,24 @@ Base: `a3f052c` (`Add RenderGraph diagnostic node viewer (#35)`)
 - NOT CLAIMED: production denoiser readiness、確認済みobject-motion bug、physical ground truth、default history weight変更の必要性。
 
 次は既存motion-vector、temporal-validation、HDR diagnostic pathを監査し、最小report schema拡張を特定する。
+
+## 2026-08-28: Diagnostic schema v11 baseline
+
+監査により、既存resolved-radiance alpha channelはno history、outside-history reprojection、depth rejection、normal rejection、accepted historyをすでに区別していることを確認した。従来のHDR reportが公開していたのはacceptance、depth rejection、normal rejection rateのみだった。`ReflectionRayHit.r`にはhit distanceがすでに格納されているため、新規ray payloadは不要である。
+
+このため、最小report拡張を次に限定した。
+
+- 既存temporal status metadataから`noHistoryRate`と`outsideHistoryRate`を分離して出力する。
+- 既存ray-hit payloadからhit pixel限定の`meanHitDistance`を出力する。
+- 既存`GBuffer.MotionVector`のROIをreadbackし、stored NDC vector magnitudeのmean／maximumを出力する。
+- report上のmotion値はtemporal jitter／configured offset除去前のstored valueであることを明記する。
+- rendering／temporal policyのdefaultを変更せず、HDR diagnostic report schemaを10から11へ更新する。
+
+Validation:
+
+- Debug x64／HLSL build: PASS。error 0件。既存のvcpkg duplicate import warningは継続する。
+- controlled sceneの8-frame GPU smoke test: PASS。schema 11と全追加fieldが出力された。
+- stationary control: warm-up後のmotion magnitudeは0、temporal acceptance rateは1.0、全rejection rateは0で、期待どおりだった。
+- D3D12 Debug Layer: error 0件。bufferのinitial UAV stateを無視する既存warningが3件あり、新規diagnostic copy warningは観察されなかった。
+
+このcheckpointではdynamic motion／settlingはまだ測定していない。次はdeterministic camera-motion timelineを追加し、既存のper-frame linear-HDR meanからsettling metricを計算する。

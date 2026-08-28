@@ -770,15 +770,29 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         const Engine::ReflectionHdrDiagnosticFrame& frame = m_reflectionHdrDiagnosticFrames[frameIndex];
         size_t hitCount = 0;
         size_t acceptedCount = 0;
+        size_t noHistoryCount = 0;
+        size_t outsideHistoryCount = 0;
         size_t depthRejectCount = 0;
         size_t normalRejectCount = 0;
+        double hitDistanceSum = 0.0;
+        double motionMagnitudeSum = 0.0;
+        double maximumMotionMagnitude = 0.0;
         for (size_t sampleIndex = 0; sampleIndex < frame.rayHit.size(); ++sampleIndex)
         {
-            hitCount += frame.rayHit[sampleIndex].g >= 0.5f ? 1 : 0;
+            const bool rayHit = frame.rayHit[sampleIndex].g >= 0.5f;
+            hitCount += rayHit ? 1 : 0;
+            hitDistanceSum += rayHit ? frame.rayHit[sampleIndex].r : 0.0;
             const float status = frame.resolvedRadiance[sampleIndex].a;
             acceptedCount += status >= 0.875f ? 1 : 0;
+            noHistoryCount += status < 0.125f ? 1 : 0;
+            outsideHistoryCount += status >= 0.125f && status < 0.375f ? 1 : 0;
             depthRejectCount += status >= 0.375f && status < 0.625f ? 1 : 0;
             normalRejectCount += status >= 0.625f && status < 0.875f ? 1 : 0;
+            const double motionX = frame.motionVector[sampleIndex].r;
+            const double motionY = frame.motionVector[sampleIndex].g;
+            const double motionMagnitude = std::sqrt(motionX * motionX + motionY * motionY);
+            motionMagnitudeSum += motionMagnitude;
+            maximumMotionMagnitude = (std::max)(maximumMotionMagnitude, motionMagnitude);
         }
         const double sampleCount = static_cast<double>(frame.rayHit.size());
         frameValues.push_back({
@@ -793,7 +807,12 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
             {"specularConfidence", scalarSummary(confidenceValues(frame.specularConfidence))},
             {"appliedHistoryPolicyWeight", scalarSummary(policyWeightValues(frame.specularConfidence))},
             {"hitRate", sampleCount > 0.0 ? static_cast<double>(hitCount) / sampleCount : 0.0},
+            {"meanHitDistance", hitCount > 0 ? hitDistanceSum / static_cast<double>(hitCount) : 0.0},
+            {"meanMotionVectorMagnitudeNdc", sampleCount > 0.0 ? motionMagnitudeSum / sampleCount : 0.0},
+            {"maximumMotionVectorMagnitudeNdc", maximumMotionMagnitude},
             {"temporalAcceptanceRate", sampleCount > 0.0 ? static_cast<double>(acceptedCount) / sampleCount : 0.0},
+            {"noHistoryRate", sampleCount > 0.0 ? static_cast<double>(noHistoryCount) / sampleCount : 0.0},
+            {"outsideHistoryRate", sampleCount > 0.0 ? static_cast<double>(outsideHistoryCount) / sampleCount : 0.0},
             {"depthRejectRate", sampleCount > 0.0 ? static_cast<double>(depthRejectCount) / sampleCount : 0.0},
             {"normalRejectRate", sampleCount > 0.0 ? static_cast<double>(normalRejectCount) / sampleCount : 0.0},
         });
@@ -851,7 +870,7 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     const Engine::ReflectionHdrDiagnosticBaselineComparison baselineComparison =
         Engine::CompareReflectionHdrDiagnosticsToCurrentEstimatorMeanBaseline(m_reflectionHdrDiagnosticFrames);
     const json report = {
-        {"schemaVersion", 10},
+        {"schemaVersion", 11},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
         {"specularEstimateIncidentRadiance",
@@ -878,6 +897,18 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         {"warmupFrames", m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames},
         {"measurementFrames", m_reflectionHdrDiagnosticFrames.size()},
         {"coordinateSpace", "render-pixels"},
+        {"motionVectorDiagnostic",
+         {{"storedCoordinateSpace", "ndc"},
+          {"reportedMagnitude", "length-of-stored-motion-vector"},
+          {"jitterAndConfiguredOffsetRemovalApplied", false}}},
+        {"temporalStatusDiagnostic",
+         {{"source", "ReflectionResolvedRadiance.alpha"},
+          {"values",
+           {{"noHistory", 0.0},
+            {"outsideHistory", 0.25},
+            {"depthReject", 0.5},
+            {"normalReject", 0.75},
+            {"accepted", 1.0}}}}},
         {"renderSize", {{"width", context.renderWidth}, {"height", context.renderHeight}}},
         {"roi", {{"x", roi.x}, {"y", roi.y}, {"width", roi.width}, {"height", roi.height}}},
         {"referenceSurfaceSample",

@@ -528,7 +528,8 @@ auto RtPbrSurveyEngine::MakeReflectionHdrDiagnosticPass() -> RenderPass
                 {kReflectionSpecularMomentsResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
                 {kReflectionSpecularConfidenceResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
                 {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_COPY_SOURCE},
-                {kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
+                {kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::MotionVector], D3D12_RESOURCE_STATE_COPY_SOURCE}})
         .Operation(Op::ReflectionHdrDiagnostic, &RtPbrSurveyEngine::ExecuteReflectionHdrDiagnosticPass)
         .Build();
 }
