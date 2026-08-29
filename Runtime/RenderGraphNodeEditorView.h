@@ -14,9 +14,23 @@
 #include "Engine/FrameGraph/RenderGraphDocument.h"
 
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace RtPbrSurvey
 {
+struct RenderGraphGpuTimingSample
+{
+    int passIndex = -1;
+    float durationMs = 0.0f;
+};
+
+struct RenderGraphGpuTimingSnapshot
+{
+    std::vector<RenderGraphGpuTimingSample> samples;
+    float totalGpuTimeMs = 0.0f;
+};
+
 class RenderGraphNodeEditorView
 {
 public:
@@ -26,7 +40,7 @@ public:
     RenderGraphNodeEditorView(const RenderGraphNodeEditorView&) = delete;
     RenderGraphNodeEditorView& operator=(const RenderGraphNodeEditorView&) = delete;
 
-    void Draw(const Engine::RenderGraphDocument& document);
+    void Draw(const Engine::RenderGraphDocument& document, const RenderGraphGpuTimingSnapshot* timing = nullptr);
 
 private:
     struct Impl;

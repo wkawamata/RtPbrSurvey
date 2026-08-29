@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <deque>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
@@ -239,8 +240,48 @@ void DrawStateDiagnostics(const Engine::RenderGraphDocument& document,
     }
 }
 
+struct PassTimingHistory
+{
+    static constexpr size_t kCapacity = 120;
+    std::deque<float> values;
+
+    void Add(float value)
+    {
+        values.push_back(value);
+        if (values.size() > kCapacity)
+        {
+            values.pop_front();
+        }
+    }
+
+    float Value(int mode) const
+    {
+        if (values.empty())
+        {
+            return 0.0f;
+        }
+        if (mode == 0)
+        {
+            return values.back();
+        }
+        if (mode == 2)
+        {
+            return *std::max_element(values.begin(), values.end());
+        }
+        float sum = 0.0f;
+        for (const float value : values)
+        {
+            sum += value;
+        }
+        return sum / static_cast<float>(values.size());
+    }
+};
+
 void DrawDetailPanel(const Engine::RenderGraphDocument& document,
-                     const std::optional<Engine::RenderGraphDocumentId>& selectedNodeId)
+                     const std::optional<Engine::RenderGraphDocumentId>& selectedNodeId,
+                     const std::unordered_map<int, PassTimingHistory>& passTimings,
+                     const PassTimingHistory& totalTiming,
+                     int timingMode)
 {
     ImGui::TextUnformatted("Node Details");
     ImGui::Separator();
@@ -258,6 +299,18 @@ void DrawDetailPanel(const Engine::RenderGraphDocument& document,
     {
         ImGui::Text("Type: Pass");
         ImGui::Text("Execution order: %d", node->passIndex);
+        const auto timing = passTimings.find(node->passIndex);
+        if (timing != passTimings.end() && !timing->second.values.empty())
+        {
+            const float durationMs = timing->second.Value(timingMode);
+            const float totalMs = totalTiming.Value(timingMode);
+            const float percentage = totalMs > 0.0f ? durationMs * 100.0f / totalMs : 0.0f;
+            ImGui::Text("GPU: %.3f ms (%.1f%%)", durationMs, percentage);
+        }
+        else
+        {
+            ImGui::TextDisabled("GPU: N/A");
+        }
     }
     else
     {
@@ -342,6 +395,9 @@ struct RenderGraphNodeEditorView::Impl
     bool showPersistent = true;
     bool showUnknownLifetime = true;
     bool connectedOnly = false;
+    std::unordered_map<int, PassTimingHistory> passTimings;
+    PassTimingHistory totalTiming;
+    int timingMode = 1;
     uintptr_t nextSyntheticPinId = UINTPTR_MAX;
 
     Impl()
@@ -433,19 +489,38 @@ struct RenderGraphNodeEditorView::Impl
         }
         return false;
     }
+
+    void UpdateTimings(const RenderGraphGpuTimingSnapshot* timing)
+    {
+        if (timing == nullptr || timing->samples.empty())
+        {
+            return;
+        }
+        for (const RenderGraphGpuTimingSample& sample : timing->samples)
+        {
+            passTimings[sample.passIndex].Add(sample.durationMs);
+        }
+        totalTiming.Add(timing->totalGpuTimeMs);
+    }
 };
 
 RenderGraphNodeEditorView::RenderGraphNodeEditorView() : m_impl(std::make_unique<Impl>()) {}
 
 RenderGraphNodeEditorView::~RenderGraphNodeEditorView() = default;
 
-void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document)
+void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document,
+                                     const RenderGraphGpuTimingSnapshot* timing)
 {
+    m_impl->UpdateTimings(timing);
     const std::vector<Engine::RenderGraphStateDiagnostic> stateDiagnostics =
         Engine::BuildRenderGraphStateDiagnostics(document);
     const bool fitRequested = ImGui::Button("Fit Graph");
     ImGui::SameLine();
     ImGui::TextDisabled("Read-only");
+    ImGui::SameLine();
+    constexpr const char* timingModes[] = {"GPU Current", "GPU Average (120)", "GPU Max (120)"};
+    ImGui::SetNextItemWidth(150.0f);
+    ImGui::Combo("##RenderGraphTimingMode", &m_impl->timingMode, timingModes, _countof(timingModes));
 
     ImGui::SetNextItemWidth(240.0f);
     ImGui::InputTextWithHint(
@@ -528,6 +603,10 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                 "Lifetime [" + std::to_string(node.firstPass) + ", " + std::to_string(node.lastPass) + "]";
             contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(lifetime.c_str()).x);
         }
+        else
+        {
+            contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize("GPU 0000.000 ms").x);
+        }
         float& stableContentWidth = m_impl->stableContentWidths[node.id.value];
         stableContentWidth = (std::max)(stableContentWidth, contentWidth);
         contentWidth = stableContentWidth;
@@ -586,6 +665,18 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         if (node.kind == Engine::RenderGraphNodeKind::Resource)
         {
             ImGui::TextDisabled("Lifetime [%d, %d]", node.firstPass, node.lastPass);
+        }
+        else
+        {
+            const auto timingValue = m_impl->passTimings.find(node.passIndex);
+            if (timingValue != m_impl->passTimings.end() && !timingValue->second.values.empty())
+            {
+                ImGui::TextDisabled("GPU %8.3f ms", timingValue->second.Value(m_impl->timingMode));
+            }
+            else
+            {
+                ImGui::TextDisabled("GPU N/A");
+            }
         }
         NodeEditor::EndNode();
         NodeEditor::PopStyleColor();
@@ -664,7 +755,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
 
     ImGui::SameLine();
     ImGui::BeginChild("RenderGraphDetailPane", ImVec2(0.0f, contentSize.y), true);
-    DrawDetailPanel(document, m_impl->selectedNodeId);
+    DrawDetailPanel(document, m_impl->selectedNodeId, m_impl->passTimings, m_impl->totalTiming, m_impl->timingMode);
     const std::optional<Engine::RenderGraphDocumentId> timelineSelection =
         DrawLifetimeTimeline(document, m_impl->selectedNodeId);
     DrawStateDiagnostics(document, stateDiagnostics);

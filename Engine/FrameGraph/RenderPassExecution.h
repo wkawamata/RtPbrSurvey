@@ -1,4 +1,4 @@
-﻿//*********************************************************
+//*********************************************************
 //
 // Copyright (c) Microsoft. All rights reserved.
 // This code is licensed under the MIT License (MIT).
@@ -430,6 +430,7 @@ struct RenderPassExecutionContext
     std::function<void(int)> createResourcesForPass;
     std::function<void(const RenderPass&)> executeOperation;
     std::function<void(int)> releaseResourcesAfterPass;
+    std::function<void(int, const RenderPass&)> recordPassEnd;
 };
 
 inline void ExecuteRenderPassGraph(const RenderPassGraph& graph, const RenderPassExecutionContext& context)
@@ -464,6 +465,10 @@ inline void ExecuteRenderPassGraph(const RenderPassGraph& graph, const RenderPas
         if (context.executeOperation)
         {
             context.executeOperation(pass);
+        }
+        if (context.recordPassEnd)
+        {
+            context.recordPassEnd(passIndex, pass);
         }
         if (context.releaseResourcesAfterPass)
         {

@@ -59,9 +59,10 @@ public:
     class CheckPoint
     {
     public:
-        CheckPoint(const std::string& name) : name(name), timeStamp(0.f) {}
+        CheckPoint(const std::string& name, int passIndex = -1) : name(name), timeStamp(0.f), passIndex(passIndex) {}
         std::string name;
         float timeStamp;
+        int passIndex;
     };
 
     void Init(ID3D12Device* device, UINT maxQueryCount)
@@ -94,7 +95,7 @@ public:
         m_queryIndex++;
     }
 
-    void SetCheckPoint(ID3D12GraphicsCommandList* commandList, const std::string& name)
+    void SetCheckPoint(ID3D12GraphicsCommandList* commandList, const std::string& name, int passIndex = -1)
     {
         if (m_queryIndex >= m_maxQueryCount)
         {
@@ -102,7 +103,7 @@ public:
             assert(false && "Exceeded maximum query count");
             return;
         }
-        query(commandList, m_queryIndex, name);
+        query(commandList, m_queryIndex, name, passIndex);
         m_queryIndex++;
     }
 
@@ -115,7 +116,7 @@ public:
             assert(false && "Exceeded maximum query count");
             return;
         }
-        query(commandList, m_queryIndex, std::string("EndGpu"));
+        query(commandList, m_queryIndex, std::string("EndGpu"), -1);
         m_queryIndex++;
         // resolve query data to readback buffer
         commandList->ResolveQueryData(
@@ -149,10 +150,10 @@ private:
     int m_queryIndex = 0;
     int m_maxQueryCount = 0;
 
-    void query(ID3D12GraphicsCommandList* commandList, UINT queryIndex, const std::string& name)
+    void query(ID3D12GraphicsCommandList* commandList, UINT queryIndex, const std::string& name, int passIndex = -1)
     {
         commandList->EndQuery(m_queryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, queryIndex);
-        m_pCheckPoints->emplace_back(CheckPoint(name));
+        m_pCheckPoints->emplace_back(CheckPoint(name, passIndex));
     }
 };
 

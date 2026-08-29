@@ -152,6 +152,28 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
     }
 }
 
+RtPbrSurvey::RenderGraphGpuTimingSnapshot
+BuildRenderGraphGpuTimingSnapshot(const std::vector<MyDx12Util::GpuWorkMeter::CheckPoint>& checkPoints)
+{
+    RtPbrSurvey::RenderGraphGpuTimingSnapshot snapshot;
+    if (checkPoints.size() < 2)
+    {
+        return snapshot;
+    }
+
+    snapshot.totalGpuTimeMs = checkPoints.back().timeStamp;
+    for (size_t checkPointIndex = 1; checkPointIndex + 1 < checkPoints.size(); ++checkPointIndex)
+    {
+        const auto& checkPoint = checkPoints[checkPointIndex];
+        const float durationMs = checkPoint.timeStamp - checkPoints[checkPointIndex - 1].timeStamp;
+        if (checkPoint.passIndex >= 0)
+        {
+            snapshot.samples.push_back({checkPoint.passIndex, durationMs});
+        }
+    }
+    return snapshot;
+}
+
 std::filesystem::path MakeScreenshotPath()
 {
     const std::time_t now = std::time(nullptr);
@@ -1202,7 +1224,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
 
     ImGui::End();
-    RtPbrSurvey::SceneRendererDebugUi::DrawRenderGraphWindow(app.m_sceneRenderer, &renderGraphWindowOpen);
+    const RtPbrSurvey::RenderGraphGpuTimingSnapshot renderGraphTiming =
+        BuildRenderGraphGpuTimingSnapshot(context.gpuCheckPoints);
+    RtPbrSurvey::SceneRendererDebugUi::DrawRenderGraphWindow(
+        app.m_sceneRenderer, &renderGraphWindowOpen, &renderGraphTiming);
 
     RtPbrSurveyEngine::LightingParams lightingParams = app.m_lightingParams;
     if (!app.m_iblEnabled)

@@ -62,11 +62,17 @@
 
 ### RG-05 GPU timing表示
 
-- [ ] 既存GPU Work Meterからpass timing snapshotを取得する境界を設計する。
-- [ ] Pass nodeとdetail paneへGPU時間を表示する。
-- [ ] current、移動平均、最大値を切り替えられるようにする。
-- [ ] frame全体に占める割合を表示する。
-- [ ] timing未取得時を明確に表示する。
+- [x] RenderGraph実行ループでpassIndex付きcheckpointを記録し、既存GPU Work Meterからsnapshotを取得する。
+- [x] Pass nodeとdetail paneへGPU時間を表示する。
+- [x] current、120 frame移動平均、120 frame最大値を切り替えられるようにする。
+- [x] frame全体に占める割合を表示する。
+- [x] timing未取得時を`GPU N/A`と明確に表示する。
+
+設計上の注意:
+
+- checkpoint名ではなくpassIndexで対応付け、同名Passや表示名差の影響を避ける。
+- 計測表示のために新しいGPU waitを追加しない。
+- 既存GpuWorkMeterのquery heap/readbackは単一bufferであるため、frame resource単位のreadbackへ分離する改善は別taskとする。
 
 完了条件:
 
@@ -158,4 +164,5 @@
 - [x] RG-02 検索と表示フィルター
 - [x] RG-03 Resource lifetime timeline
 - [x] RG-04 State transition診断
-- [ ] 次のtask: RG-05 GPU timing表示
+- [x] RG-05 GPU timing表示
+- [ ] 次のtask: RG-06 Ping-pong Resourceの論理グループ表示

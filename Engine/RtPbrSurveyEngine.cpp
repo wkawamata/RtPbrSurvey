@@ -92,6 +92,23 @@ namespace
 {
 constexpr UINT kTemporalJitterSampleCount = 32;
 
+std::string WideToUtf8(const wchar_t* value)
+{
+    if (value == nullptr)
+    {
+        return {};
+    }
+    const int length = WideCharToMultiByte(CP_UTF8, 0, value, -1, nullptr, 0, nullptr, nullptr);
+    if (length <= 1)
+    {
+        return {};
+    }
+    std::string result(static_cast<size_t>(length), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, value, -1, result.data(), length, nullptr, nullptr);
+    result.pop_back();
+    return result;
+}
+
 float Halton(UINT index, UINT base)
 {
     float fraction = 1.0f;
@@ -3918,7 +3935,12 @@ void RtPbrSurveyEngine::ExecutePasses()
                                     &resourceTransitions,
                                     [this](int passIndex) { CreateResourcesForPass(passIndex); },
                                     [this](const RenderPass& pass) { ExecutePassOperation(pass); },
-                                    [this](int passIndex) { ReleaseResourcesAfterPass(passIndex); }});
+                                    [this](int passIndex) { ReleaseResourcesAfterPass(passIndex); },
+                                    [this](int passIndex, const RenderPass& pass)
+                                    {
+                                        m_gpuWorkMeter.SetCheckPoint(
+                                            m_commandList.Get(), WideToUtf8(pass.name), passIndex);
+                                    }});
 }
 
 void RtPbrSurveyEngine::ExecutePassOperation(const RenderPass& pass)
@@ -4322,13 +4344,11 @@ void RtPbrSurveyEngine::BeginFrame()
 void RtPbrSurveyEngine::ExecuteClearPass(const RenderPass& pass)
 {
     Engine::RecordClearPass(m_commandList.Get(), ResolveRenderTargets(pass.renderTargets));
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Clear");
 }
 
 void RtPbrSurveyEngine::ExecuteDepthPrePass(const RenderPass& pass)
 {
     Engine::RecordDepthPrePass(m_commandList.Get(), MakeSceneGeometryDrawDesc());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Depth Prepass");
 }
 
 void RtPbrSurveyEngine::ExecuteGBufferPass(const RenderPass& pass)
@@ -4341,7 +4361,6 @@ void RtPbrSurveyEngine::ExecuteGBufferPass(const RenderPass& pass)
     passDesc.geometryDraw = MakeSceneGeometryDrawDesc();
 
     Engine::RecordGBufferPass(m_commandList.Get(), passDesc);
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "GBuffer Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
@@ -4392,7 +4411,6 @@ void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
 
     Engine::RecordHybridReflectionPass(m_commandList.Get(), passDesc);
     m_reflectionSamplingCommitPending = true;
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Hybrid Reflection Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteRayQueryShadowPass(const RenderPass& pass)
@@ -4420,7 +4438,6 @@ void RtPbrSurveyEngine::ExecuteRayQueryShadowPass(const RenderPass& pass)
     passDesc.height = m_renderHeight;
 
     Engine::RecordRayQueryShadowPass(m_commandList.Get(), passDesc);
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "RayQuery Shadow Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteSpecularDebugRayQueryPass(const RenderPass& pass)
@@ -4469,7 +4486,6 @@ void RtPbrSurveyEngine::ExecuteSpecularDebugRayQueryPass(const RenderPass& pass)
 
     m_specularDebugRayQueryPending = true;
     m_specularDebugRayQueryRequested = false;
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Specular Debug RayQuery Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteRayQueryTlasDebugPass(const RenderPass& pass)
@@ -4489,7 +4505,6 @@ void RtPbrSurveyEngine::ExecuteRayQueryTlasDebugPass(const RenderPass& pass)
     passDesc.height = m_renderHeight;
 
     Engine::RecordRayQueryTlasDebugPass(m_commandList.Get(), passDesc);
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "RayQuery TlasDebug Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteForwardPass(const RenderPass& pass)
@@ -4499,26 +4514,22 @@ void RtPbrSurveyEngine::ExecuteForwardPass(const RenderPass& pass)
     passDesc.geometryDraw = MakeSceneGeometryDrawDesc();
 
     Engine::RecordForwardPass(m_commandList.Get(), passDesc);
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Main Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteLightingPass(const RenderPass& pass)
 {
     Engine::RecordLightingPass(m_commandList.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Lighting Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteReflectionEvaluatePass(const RenderPass& pass)
 {
     Engine::RecordReflectionEvaluatePass(m_commandList.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Reflection Evaluate Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteTemporalReflectionPass(const RenderPass& pass)
 {
     Engine::RecordTemporalReflectionPass(m_commandList.Get());
     m_reflectionHistoryCommitPending = true;
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Temporal Reflection Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteEdgeAwareSpatialReflectionPass(const RenderPass& pass)
@@ -4531,7 +4542,6 @@ void RtPbrSurveyEngine::ExecuteEdgeAwareSpatialReflectionPass(const RenderPass& 
 void RtPbrSurveyEngine::ExecuteLightingDebugGradientPass(const RenderPass& pass)
 {
     Engine::RecordLightingDebugGradientPass(m_commandList.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "LightPassDebugGradient Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
@@ -4574,11 +4584,9 @@ void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
     if (result.outputAvailable)
     {
         m_temporalUpscalerHistoryReset = false;
-        m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "TemporalUpscaler Pass");
         return;
     }
 
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "TemporalUpscaler Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteToneMapPass(const RenderPass& pass)
@@ -4586,7 +4594,6 @@ void RtPbrSurveyEngine::ExecuteToneMapPass(const RenderPass& pass)
     m_commandList->RSSetViewports(1, &m_viewport);
     m_commandList->RSSetScissorRects(1, &m_scissorRect);
     Engine::RecordToneMapPass(m_commandList.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ToneMap Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteDebugDumpPass(const RenderPass& pass)
@@ -4618,7 +4625,6 @@ void RtPbrSurveyEngine::ExecutePixelPickPass(const RenderPass& pass)
 void RtPbrSurveyEngine::ExecuteGBufferDebugPass(const RenderPass& pass)
 {
     Engine::RecordGBufferDebugPass(m_commandList.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "GBuffer Debug Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteReflectionRayHitDebugPass(const RenderPass& pass)
@@ -4626,7 +4632,6 @@ void RtPbrSurveyEngine::ExecuteReflectionRayHitDebugPass(const RenderPass& pass)
     UNREFERENCED_PARAMETER(pass);
 
     Engine::RecordReflectionRayHitDebugPass(m_commandList.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ReflectionRayHit Debug Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteShadowMaskDebugPass(const RenderPass& pass)
@@ -4634,7 +4639,6 @@ void RtPbrSurveyEngine::ExecuteShadowMaskDebugPass(const RenderPass& pass)
     UNREFERENCED_PARAMETER(pass);
 
     Engine::RecordShadowMaskDebugPass(m_commandList.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ShadowMask Debug Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteDebugLinePass(const RenderPass& pass)
@@ -4650,7 +4654,6 @@ void RtPbrSurveyEngine::ExecuteDebugLinePass(const RenderPass& pass)
     m_debugLinePass.RecordDraw(m_commandList.Get(),
                                 m_frameResources[m_currentFrameIndex].cameraCB.buffer->GetGPUVirtualAddress());
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "DebugLine Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteImGuiPass(const RenderPass& pass)
@@ -4682,7 +4685,6 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                                         m_toneMapPass.settings.paperWhiteNits,
                                         capture.readback);
         m_pendingScreenshotCapture = std::move(capture);
-        m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Screenshot");
     }
     catch (const std::exception& exception)
     {
@@ -4700,7 +4702,6 @@ void RtPbrSurveyEngine::RecordDebugDumpPass()
 
     m_debugViewSettings.hdrDumpPending = true;
 
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Debug Dump");
 }
 
 void RtPbrSurveyEngine::RecordReflectionHdrDiagnosticPass()
@@ -4726,7 +4727,6 @@ void RtPbrSurveyEngine::RecordReflectionHdrDiagnosticPass()
                                                  m_reflectionHdrDiagnosticCapture);
     m_reflectionHdrDiagnosticRequested = false;
     m_reflectionHdrDiagnosticPending = true;
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Reflection HDR Diagnostic");
 }
 
 void RtPbrSurveyEngine::RecordPixelPickPass()
@@ -4766,7 +4766,6 @@ void RtPbrSurveyEngine::RecordPixelPickPass()
     m_pixelPickPending = true;
     m_pixelPickRequested = false;
 
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "PixelPick");
     PIXEndEvent(m_commandList.Get());
 }
 
@@ -5110,7 +5109,6 @@ void RtPbrSurveyEngine::RecordImGuiPass()
 
         (*m_activeUiRenderHandler)(m_commandList.Get());
     }
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ImGUI");
 }
 
 void RtPbrSurveyEngine::ProcessCompletedScreenshot()
