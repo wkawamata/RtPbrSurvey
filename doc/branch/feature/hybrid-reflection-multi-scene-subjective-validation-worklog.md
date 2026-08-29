@@ -34,3 +34,26 @@ Validation:
 - D3D12 Debug Layer: zero errors and two known committed-buffer initial-state warnings.
 
 This establishes that DamagedHelmet loads outside the repository working directory. Subjective A/B evaluation remains incomplete and will resume when the user returns.
+
+## 2026-08-29: DamagedHelmet live Lit evaluation
+
+After the asset-path fix, the user reloaded DamagedHelmet and evaluated it from a manually adjusted and saved camera. The framing simultaneously exposed the rearward surface adjacent to the smooth crown panel, the bright underside pipe, and the black curved hoses.
+
+Both variants used Lit view, Hybrid Reflection contribution, stochastic rough sampling, history weight `0.9`, surface variance filter disabled, and rejected-pixel neighborhood disabled. A disabled variance-guided temporal; B enabled it.
+
+User observations:
+
+- stationary noise: no perceptible noise in either A or B;
+- motion lag/ghosting: absent in both;
+- direction reversal: no reflection breakdown;
+- post-motion stop: stable in both;
+- brightness/detail: no perceptible change.
+
+Decision: A and B were perceptually equivalent under this DamagedHelmet live Lit condition. No dynamic or composition regression was observed in B, but no stationary-noise benefit was established either. This result is not subjective evidence of variance reduction, production readiness, or general image-quality improvement.
+
+## Overall decision
+
+- Controlled Estimator: weak stationary-noise improvement tendency, with no dynamic regression or brightness/detail loss.
+- DamagedHelmet: A/B equivalent; neither benefit nor regression was perceptible.
+- Keep the policy default-off.
+- The result is consistent with the #38 objective multi-scene gate, while showing that measured numerical improvement is not necessarily perceptible in Lit composition.

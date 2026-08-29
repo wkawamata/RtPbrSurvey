@@ -34,3 +34,26 @@ glTF loaderに限定したpath resolverを追加した。absolute pathまたはc
 - D3D12 Debug Layer: error 0、既知のcommitted-buffer initial-state warning 2件。
 
 この検証により、repository外working directoryからDamagedHelmetをloadできることを確認した。主観A/B評価は未完了のまま保持し、ユーザー帰宅後に再開する。
+
+## 2026-08-29: DamagedHelmet live Lit評価
+
+asset path修正後の実アプリでDamagedHelmetを再読み込みし、ユーザーが調整・保存したcameraから評価した。滑らかな頭頂部パネルに隣接する後頭部寄りの面と、下面の明るいpipe／黒い曲管を同時に確認できるframingを使用した。
+
+A/B共通条件はLit、Hybrid Reflection contribution ON、stochastic rough sampling ON、history weight `0.9`、surface variance filter OFF、rejected-pixel neighborhood OFF。Aはvariance-guided temporal OFF、BはONとした。
+
+ユーザー評価:
+
+- 静止noise: A/Bとも知覚可能なnoiseなし。
+- 移動中の遅れ／残像: A/Bともなし。
+- 方向反転: reflectionの破綻なし。
+- 停止後: A/Bとも安定。
+- 輝度／detail: 知覚可能な変化なし。
+
+判定: 今回のDamagedHelmet live Lit条件ではA/Bは知覚的に同等だった。Bの動的またはcomposition regressionは観察されなかったが、静止noise benefitも確認できなかった。この結果をvariance低減、production readiness、または一般的な画質改善の主観証拠とはしない。
+
+## 総合判定
+
+- Controlled Estimator: 静止noiseに弱い改善傾向。動的regression、輝度／detail損失なし。
+- DamagedHelmet: A/B同等。benefitとregressionのどちらも知覚できない。
+- default-off policyは維持する。
+- #38客観multi-scene gateは主観結果と矛盾しないが、数値改善がLit上で常に知覚可能とは限らない。
