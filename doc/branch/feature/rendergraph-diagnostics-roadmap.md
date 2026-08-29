@@ -176,3 +176,19 @@
 - [x] RG-09 Layoutとnavigation改善
 - [x] RG-10 Authoring/Edit基盤
 - [x] RenderGraph診断機能ロードマップ初期版完了
+
+## 後回しにする統合画面確認
+
+- [ ] RG-01: Pass/Resource選択とdetail paneの内容を確認する。
+- [ ] RG-02: 検索、種別filter、lifetime filter、接続node強調を確認する。
+- [ ] RG-03: Resource lifetime timeline、`.0`/`.1`隣接表示、selection同期を確認する。
+- [ ] RG-04: state transitionとUAV barrier候補のedge色・一覧を確認する。
+- [ ] RG-05: GPU current/120 frame平均/最大、frame比率、`GPU N/A`表示を確認する。
+- [ ] RG-06: Ping-pong Resourceのphysical indexとHistory Read/Current Write交換を確認する。
+- [ ] RG-07: baseline設定・解除、added/removed/changed件数と色分けを確認する。
+- [ ] RG-08: Validation一覧、severity表示、該当nodeへのfocusを確認する。
+- [ ] RG-09: Focus Selected、Reset Layout、Texture/Buffer/Unknown laneを確認する。
+- [ ] RenderGraph windowの通常サイズ、最大化、復元でUI崩れがないことを確認する。
+- [ ] 同一topologyでnode位置・Box寸法が安定し、ping-pong時はlink/roleだけが切り替わることを確認する。
+- [ ] Debug x64でD3D12 Debug Layer errorが発生しないことを確認する。
+- [ ] 自動captureまたは手動screenshotを保存し、主要表示の確認記録を残す。
