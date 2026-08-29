@@ -200,6 +200,85 @@ RenderGraphDocumentDiff DiffRenderGraphDocuments(const RenderGraphDocument& base
                                                  const RenderGraphDocument& current);
 std::vector<RenderGraphValidationMessage> ValidateRenderGraphDocument(const RenderGraphDocument& document);
 
+struct RenderGraphAuthoringResource
+{
+    RenderGraphDocumentId id;
+    std::string name;
+    RenderGraphResourceLifetimeKind lifetimeKind = RenderGraphResourceLifetimeKind::Transient;
+    RenderGraphResourceKind resourceKind = RenderGraphResourceKind::Texture;
+};
+
+struct RenderGraphAuthoringPass
+{
+    RenderGraphDocumentId id;
+    std::string name;
+};
+
+struct RenderGraphAuthoringConnection
+{
+    RenderGraphDocumentId id;
+    RenderGraphDocumentId passId;
+    RenderGraphDocumentId resourceId;
+    RenderGraphResourceAccess access = RenderGraphResourceAccess::Read;
+    D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON;
+};
+
+struct RenderGraphAuthoringDocument
+{
+    static constexpr uint32_t kSchemaVersion = 1;
+    uint32_t schemaVersion = kSchemaVersion;
+    std::vector<RenderGraphAuthoringPass> passes;
+    std::vector<RenderGraphAuthoringResource> resources;
+    std::vector<RenderGraphAuthoringConnection> connections;
+};
+
+enum class RenderGraphEditCommandKind
+{
+    AddPass,
+    RemovePass,
+    AddResource,
+    RemoveResource,
+    ConnectResource,
+    DisconnectResource,
+    MovePass,
+};
+
+struct RenderGraphEditCommand
+{
+    RenderGraphEditCommandKind kind = RenderGraphEditCommandKind::AddPass;
+    RenderGraphDocumentId targetId;
+    int index = -1;
+    RenderGraphAuthoringPass pass;
+    RenderGraphAuthoringResource resource;
+    RenderGraphAuthoringConnection connection;
+};
+
+std::vector<RenderGraphValidationMessage>
+ValidateRenderGraphAuthoringDocument(const RenderGraphAuthoringDocument& document);
+std::string SerializeRenderGraphAuthoringDocument(const RenderGraphAuthoringDocument& document);
+bool DeserializeRenderGraphAuthoringDocument(const std::string& json,
+                                             RenderGraphAuthoringDocument& document,
+                                             std::string& error);
+RenderGraphDocument BuildRenderGraphAuthoringPreview(const RenderGraphAuthoringDocument& document);
+
+class RenderGraphEditHistory
+{
+public:
+    explicit RenderGraphEditHistory(RenderGraphAuthoringDocument document = {});
+
+    const RenderGraphAuthoringDocument& Document() const;
+    bool Apply(const RenderGraphEditCommand& command, std::string& error);
+    bool CanUndo() const;
+    bool CanRedo() const;
+    bool Undo();
+    bool Redo();
+
+private:
+    RenderGraphAuthoringDocument m_document;
+    std::vector<RenderGraphAuthoringDocument> m_undo;
+    std::vector<RenderGraphAuthoringDocument> m_redo;
+};
+
 } // namespace Engine
 
 namespace std

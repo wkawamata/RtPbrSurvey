@@ -131,11 +131,16 @@
 
 ### RG-10 Authoring/Edit基盤
 
-- [ ] Runtime snapshotとauthoring modelを明確に分離する。
-- [ ] Edit command、validation、undo/redoを設計する。
-- [ ] Pass追加/削除、Resource接続、順序変更の最小commandを定義する。
-- [ ] Serializationとversioningを設計する。
-- [ ] 検証済みauthoring dataからruntime graphを再構築する。
+- [x] Runtime snapshotと独立した`RenderGraphAuthoringDocument`を定義する。
+- [x] Candidate validation後だけ適用するEdit commandとundo/redo historyを実装する。
+- [x] Pass/Resource追加・削除、接続・切断、Pass順序変更commandを定義する。
+- [x] schema version付きcanonical JSON serializationを実装する。
+- [x] 検証済みauthoring dataから適用前preview `RenderGraphDocument`を再構築する。
+
+初期基盤の境界:
+
+- Viewerは引き続きread-onlyで、実行中runtime graphへのmutation APIを持たない。
+- Pipeline、descriptor、operation bindingを含む実runtime適用は、preview validationと明示的なapply transactionを設計した後に追加する。
 
 完了条件:
 
@@ -169,4 +174,5 @@
 - [x] RG-07 Snapshot保存と比較
 - [x] RG-08 Validationと警告一覧
 - [x] RG-09 Layoutとnavigation改善
-- [ ] 次のtask: RG-10 Authoring/Edit基盤
+- [x] RG-10 Authoring/Edit基盤
+- [x] RenderGraph診断機能ロードマップ初期版完了

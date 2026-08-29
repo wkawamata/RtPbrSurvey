@@ -885,4 +885,312 @@ std::vector<RenderGraphValidationMessage> ValidateRenderGraphDocument(const Rend
     return messages;
 }
 
+std::vector<RenderGraphValidationMessage>
+ValidateRenderGraphAuthoringDocument(const RenderGraphAuthoringDocument& document)
+{
+    std::vector<RenderGraphValidationMessage> messages;
+    std::unordered_set<RenderGraphDocumentId> ids;
+    std::unordered_set<std::string> passNames;
+    std::unordered_set<std::string> resourceNames;
+    std::unordered_set<RenderGraphDocumentId> passIds;
+    std::unordered_set<RenderGraphDocumentId> resourceIds;
+    for (const RenderGraphAuthoringPass& pass : document.passes)
+    {
+        if (pass.id.value == 0 || !ids.insert(pass.id).second)
+        {
+            messages.push_back({RenderGraphValidationSeverity::Error, "InvalidPassId", "Pass ID is invalid or duplicate.", pass.id});
+        }
+        if (pass.name.empty() || !passNames.insert(pass.name).second)
+        {
+            messages.push_back({RenderGraphValidationSeverity::Error, "InvalidPassName", "Pass name is empty or duplicate.", pass.id});
+        }
+        passIds.insert(pass.id);
+    }
+    for (const RenderGraphAuthoringResource& resource : document.resources)
+    {
+        if (resource.id.value == 0 || !ids.insert(resource.id).second)
+        {
+            messages.push_back({RenderGraphValidationSeverity::Error,
+                                "InvalidResourceId",
+                                "Resource ID is invalid or duplicate.",
+                                resource.id});
+        }
+        if (resource.name.empty() || !resourceNames.insert(resource.name).second)
+        {
+            messages.push_back({RenderGraphValidationSeverity::Error,
+                                "InvalidResourceName",
+                                "Resource name is empty or duplicate.",
+                                resource.id});
+        }
+        resourceIds.insert(resource.id);
+    }
+    for (const RenderGraphAuthoringConnection& connection : document.connections)
+    {
+        if (connection.id.value == 0 || !ids.insert(connection.id).second)
+        {
+            messages.push_back({RenderGraphValidationSeverity::Error,
+                                "InvalidConnectionId",
+                                "Connection ID is invalid or duplicate.",
+                                connection.resourceId,
+                                connection.passId});
+        }
+        if (!passIds.contains(connection.passId) || !resourceIds.contains(connection.resourceId))
+        {
+            messages.push_back({RenderGraphValidationSeverity::Error,
+                                "DanglingConnection",
+                                "Connection references a missing Pass or Resource.",
+                                connection.resourceId,
+                                connection.passId});
+        }
+    }
+    return messages;
+}
+
+std::string SerializeRenderGraphAuthoringDocument(const RenderGraphAuthoringDocument& document)
+{
+    Json root;
+    root["schemaVersion"] = document.schemaVersion;
+    Json passes = Json::array();
+    for (const RenderGraphAuthoringPass& pass : document.passes)
+    {
+        passes.push_back({{"id", IdToHex(pass.id)}, {"name", pass.name}});
+    }
+    Json resources = Json::array();
+    for (const RenderGraphAuthoringResource* resource : SortedById(document.resources))
+    {
+        resources.push_back({{"id", IdToHex(resource->id)},
+                             {"name", resource->name},
+                             {"lifetimeKind", static_cast<int>(resource->lifetimeKind)},
+                             {"resourceKind", static_cast<int>(resource->resourceKind)}});
+    }
+    Json connections = Json::array();
+    for (const RenderGraphAuthoringConnection* connection : SortedById(document.connections))
+    {
+        connections.push_back({{"id", IdToHex(connection->id)},
+                               {"passId", IdToHex(connection->passId)},
+                               {"resourceId", IdToHex(connection->resourceId)},
+                               {"access", static_cast<int>(connection->access)},
+                               {"state", static_cast<uint32_t>(connection->state)}});
+    }
+    root["passes"] = passes;
+    root["resources"] = resources;
+    root["connections"] = connections;
+    return root.dump(2) + '\n';
+}
+
+bool DeserializeRenderGraphAuthoringDocument(const std::string& json,
+                                             RenderGraphAuthoringDocument& document,
+                                             std::string& error)
+{
+    try
+    {
+        const Json root = Json::parse(json);
+        if (root.at("schemaVersion").get<uint32_t>() != RenderGraphAuthoringDocument::kSchemaVersion)
+        {
+            error = "Unsupported RenderGraph authoring schema version.";
+            return false;
+        }
+        RenderGraphAuthoringDocument result;
+        for (const Json& value : root.at("passes"))
+        {
+            RenderGraphAuthoringPass pass;
+            if (!HexToId(value.at("id"), pass.id))
+            {
+                throw std::runtime_error("Invalid authoring Pass ID.");
+            }
+            pass.name = value.at("name").get<std::string>();
+            result.passes.push_back(std::move(pass));
+        }
+        for (const Json& value : root.at("resources"))
+        {
+            RenderGraphAuthoringResource resource;
+            if (!HexToId(value.at("id"), resource.id))
+            {
+                throw std::runtime_error("Invalid authoring Resource ID.");
+            }
+            resource.name = value.at("name").get<std::string>();
+            resource.lifetimeKind = static_cast<RenderGraphResourceLifetimeKind>(value.at("lifetimeKind").get<int>());
+            resource.resourceKind = static_cast<RenderGraphResourceKind>(value.at("resourceKind").get<int>());
+            result.resources.push_back(std::move(resource));
+        }
+        for (const Json& value : root.at("connections"))
+        {
+            RenderGraphAuthoringConnection connection;
+            if (!HexToId(value.at("id"), connection.id) || !HexToId(value.at("passId"), connection.passId) ||
+                !HexToId(value.at("resourceId"), connection.resourceId))
+            {
+                throw std::runtime_error("Invalid authoring Connection ID.");
+            }
+            connection.access = static_cast<RenderGraphResourceAccess>(value.at("access").get<int>());
+            connection.state = static_cast<D3D12_RESOURCE_STATES>(value.at("state").get<uint32_t>());
+            result.connections.push_back(connection);
+        }
+        const std::vector<RenderGraphValidationMessage> validation = ValidateRenderGraphAuthoringDocument(result);
+        if (!validation.empty())
+        {
+            error = validation.front().message;
+            return false;
+        }
+        document = std::move(result);
+        error.clear();
+        return true;
+    }
+    catch (const std::exception& exception)
+    {
+        error = exception.what();
+        return false;
+    }
+}
+
+RenderGraphDocument BuildRenderGraphAuthoringPreview(const RenderGraphAuthoringDocument& document)
+{
+    if (!ValidateRenderGraphAuthoringDocument(document).empty())
+    {
+        return {};
+    }
+    std::vector<std::wstring> passNames;
+    passNames.reserve(document.passes.size());
+    for (const RenderGraphAuthoringPass& pass : document.passes)
+    {
+        passNames.emplace_back(pass.name.begin(), pass.name.end());
+    }
+    std::vector<RenderPass> passes(document.passes.size());
+    std::unordered_map<RenderGraphDocumentId, size_t> passIndices;
+    std::unordered_map<RenderGraphDocumentId, std::string> resourceNames;
+    RenderGraphResourceMetadataMap metadata;
+    for (size_t index = 0; index < document.passes.size(); ++index)
+    {
+        passes[index].name = passNames[index].c_str();
+        passIndices[document.passes[index].id] = index;
+    }
+    for (const RenderGraphAuthoringResource& resource : document.resources)
+    {
+        resourceNames[resource.id] = resource.name;
+        metadata[resource.name] = {resource.lifetimeKind, resource.resourceKind};
+    }
+    for (const RenderGraphAuthoringConnection& connection : document.connections)
+    {
+        ResourceUsage usage = {resourceNames.at(connection.resourceId), connection.state};
+        RenderPass& pass = passes[passIndices.at(connection.passId)];
+        if (connection.access == RenderGraphResourceAccess::Read)
+        {
+            pass.reads.push_back(std::move(usage));
+        }
+        else
+        {
+            pass.writes.push_back(std::move(usage));
+        }
+    }
+    return BuildRenderGraphDocument(passes, metadata);
+}
+
+RenderGraphEditHistory::RenderGraphEditHistory(RenderGraphAuthoringDocument document) : m_document(std::move(document))
+{
+}
+
+const RenderGraphAuthoringDocument& RenderGraphEditHistory::Document() const
+{
+    return m_document;
+}
+
+bool RenderGraphEditHistory::Apply(const RenderGraphEditCommand& command, std::string& error)
+{
+    RenderGraphAuthoringDocument candidate = m_document;
+    switch (command.kind)
+    {
+        case RenderGraphEditCommandKind::AddPass:
+        {
+            const size_t index = command.index < 0
+                                     ? candidate.passes.size()
+                                     : (std::min)(static_cast<size_t>(command.index), candidate.passes.size());
+            candidate.passes.insert(candidate.passes.begin() + index, command.pass);
+            break;
+        }
+        case RenderGraphEditCommandKind::RemovePass:
+            std::erase_if(candidate.passes, [&command](const auto& pass) { return pass.id == command.targetId; });
+            std::erase_if(candidate.connections,
+                          [&command](const auto& connection) { return connection.passId == command.targetId; });
+            break;
+        case RenderGraphEditCommandKind::AddResource:
+            candidate.resources.push_back(command.resource);
+            break;
+        case RenderGraphEditCommandKind::RemoveResource:
+            std::erase_if(candidate.resources,
+                          [&command](const auto& resource) { return resource.id == command.targetId; });
+            std::erase_if(candidate.connections,
+                          [&command](const auto& connection) { return connection.resourceId == command.targetId; });
+            break;
+        case RenderGraphEditCommandKind::ConnectResource:
+            candidate.connections.push_back(command.connection);
+            break;
+        case RenderGraphEditCommandKind::DisconnectResource:
+            std::erase_if(candidate.connections,
+                          [&command](const auto& connection) { return connection.id == command.targetId; });
+            break;
+        case RenderGraphEditCommandKind::MovePass:
+        {
+            const auto pass = std::find_if(candidate.passes.begin(), candidate.passes.end(), [&command](const auto& value) {
+                return value.id == command.targetId;
+            });
+            if (pass == candidate.passes.end())
+            {
+                error = "MovePass target does not exist.";
+                return false;
+            }
+            RenderGraphAuthoringPass moved = *pass;
+            candidate.passes.erase(pass);
+            const size_t index = command.index < 0
+                                     ? 0
+                                     : (std::min)(static_cast<size_t>(command.index), candidate.passes.size());
+            candidate.passes.insert(candidate.passes.begin() + index, std::move(moved));
+            break;
+        }
+    }
+    const std::vector<RenderGraphValidationMessage> validation = ValidateRenderGraphAuthoringDocument(candidate);
+    if (!validation.empty())
+    {
+        error = validation.front().message;
+        return false;
+    }
+    m_undo.push_back(m_document);
+    m_document = std::move(candidate);
+    m_redo.clear();
+    error.clear();
+    return true;
+}
+
+bool RenderGraphEditHistory::CanUndo() const
+{
+    return !m_undo.empty();
+}
+
+bool RenderGraphEditHistory::CanRedo() const
+{
+    return !m_redo.empty();
+}
+
+bool RenderGraphEditHistory::Undo()
+{
+    if (m_undo.empty())
+    {
+        return false;
+    }
+    m_redo.push_back(m_document);
+    m_document = std::move(m_undo.back());
+    m_undo.pop_back();
+    return true;
+}
+
+bool RenderGraphEditHistory::Redo()
+{
+    if (m_redo.empty())
+    {
+        return false;
+    }
+    m_undo.push_back(m_document);
+    m_document = std::move(m_redo.back());
+    m_redo.pop_back();
+    return true;
+}
+
 } // namespace Engine

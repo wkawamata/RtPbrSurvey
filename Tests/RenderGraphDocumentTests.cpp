@@ -298,6 +298,65 @@ bool TestDocumentValidation()
                     "validation detects duplicate names");
     return passed;
 }
+
+bool TestAuthoringModelCommands()
+{
+    Engine::RenderGraphEditHistory history;
+    std::string error;
+    const Engine::RenderGraphAuthoringPass firstPass = {{101}, "First"};
+    const Engine::RenderGraphAuthoringPass secondPass = {{102}, "Second"};
+    const Engine::RenderGraphAuthoringResource resource = {
+        {201}, "Color", Engine::RenderGraphResourceLifetimeKind::Transient, Engine::RenderGraphResourceKind::Texture};
+
+    bool passed = true;
+    passed &= Check(history.Apply({.kind = Engine::RenderGraphEditCommandKind::AddPass, .pass = firstPass}, error),
+                    "authoring command adds first pass");
+    passed &= Check(history.Apply({.kind = Engine::RenderGraphEditCommandKind::AddPass, .pass = secondPass}, error),
+                    "authoring command adds second pass");
+    passed &= Check(history.Apply({.kind = Engine::RenderGraphEditCommandKind::AddResource, .resource = resource}, error),
+                    "authoring command adds resource");
+    const Engine::RenderGraphAuthoringConnection write = {
+        {301}, firstPass.id, resource.id, Engine::RenderGraphResourceAccess::Write, D3D12_RESOURCE_STATE_RENDER_TARGET};
+    const Engine::RenderGraphAuthoringConnection read = {{302},
+                                                          secondPass.id,
+                                                          resource.id,
+                                                          Engine::RenderGraphResourceAccess::Read,
+                                                          D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE};
+    passed &= Check(history.Apply({.kind = Engine::RenderGraphEditCommandKind::ConnectResource, .connection = write}, error),
+                    "authoring command connects write");
+    passed &= Check(history.Apply({.kind = Engine::RenderGraphEditCommandKind::ConnectResource, .connection = read}, error),
+                    "authoring command connects read");
+    passed &= Check(history.Apply({.kind = Engine::RenderGraphEditCommandKind::MovePass,
+                                   .targetId = secondPass.id,
+                                   .index = 0},
+                                  error),
+                    "authoring command moves pass");
+    passed &= Check(history.Document().passes.front().id == secondPass.id, "pass move changes authoring order");
+    passed &= Check(history.Undo() && history.Document().passes.front().id == firstPass.id,
+                    "authoring undo restores previous order");
+    passed &= Check(history.Redo() && history.Document().passes.front().id == secondPass.id,
+                    "authoring redo restores moved order");
+
+    const std::string serialized = Engine::SerializeRenderGraphAuthoringDocument(history.Document());
+    Engine::RenderGraphAuthoringDocument restored;
+    passed &= Check(Engine::DeserializeRenderGraphAuthoringDocument(serialized, restored, error),
+                    "authoring document round-trips through versioned JSON");
+    passed &= Check(Engine::SerializeRenderGraphAuthoringDocument(restored) == serialized,
+                    "authoring serialization is deterministic");
+    const Engine::RenderGraphDocument preview = Engine::BuildRenderGraphAuthoringPreview(restored);
+    passed &= Check(preview.links.size() == 2 && preview.nodes.size() == 3,
+                    "validated authoring document rebuilds a preview graph");
+
+    const Engine::RenderGraphAuthoringConnection dangling = {
+        {303}, {999}, resource.id, Engine::RenderGraphResourceAccess::Read, D3D12_RESOURCE_STATE_COMMON};
+    passed &= Check(!history.Apply({.kind = Engine::RenderGraphEditCommandKind::ConnectResource,
+                                    .connection = dangling},
+                                   error),
+                    "invalid authoring command is rejected before apply");
+    passed &= Check(history.Document().connections.size() == 2,
+                    "rejected authoring command does not mutate the current model");
+    return passed;
+}
 } // namespace
 
 int main()
@@ -310,5 +369,6 @@ int main()
     passed &= TestStateDiagnostics();
     passed &= TestSnapshotSerializationAndDiff();
     passed &= TestDocumentValidation();
+    passed &= TestAuthoringModelCommands();
     return passed ? 0 : 1;
 }
