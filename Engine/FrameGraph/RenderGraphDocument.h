@@ -169,6 +169,22 @@ struct RenderGraphDocumentDiff
     bool HasChanges() const;
 };
 
+enum class RenderGraphValidationSeverity
+{
+    Info,
+    Warning,
+    Error,
+};
+
+struct RenderGraphValidationMessage
+{
+    RenderGraphValidationSeverity severity = RenderGraphValidationSeverity::Warning;
+    std::string code;
+    std::string message;
+    RenderGraphDocumentId nodeId;
+    RenderGraphDocumentId passNodeId;
+};
+
 RenderGraphDocument BuildRenderGraphDocument(const std::vector<RenderPass>& renderPasses,
                                              const RenderGraphResourceMetadataMap& resourceMetadata = {});
 
@@ -182,6 +198,7 @@ bool DeserializeRenderGraphSnapshot(const std::string& json,
                                     std::string& error);
 RenderGraphDocumentDiff DiffRenderGraphDocuments(const RenderGraphDocument& baseline,
                                                  const RenderGraphDocument& current);
+std::vector<RenderGraphValidationMessage> ValidateRenderGraphDocument(const RenderGraphDocument& document);
 
 } // namespace Engine
 

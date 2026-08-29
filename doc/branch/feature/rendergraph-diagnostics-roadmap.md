@@ -105,11 +105,11 @@
 
 ### RG-08 Validationと警告一覧
 
-- [ ] Read前にWriteされていないResourceを検出する。
-- [ ] Write後に一度もReadされないResourceを検出する。
-- [ ] lifetime外accessと重複ID/nameを検出する。
-- [ ] state不一致をRG-04の結果から集約する。
-- [ ] Warning一覧から該当nodeへfocusできるようにする。
+- [x] transient ResourceのRead前Write不足を検出する。
+- [x] transient Resourceの最終Write後にReadされない状態を検出する。
+- [x] lifetime外access、dangling reference、重複ID/nameを検出する。
+- [x] state診断はRG-04一覧へ集約し、実barrierとの不一致判定はbarrier event取得後に追加する。
+- [x] Warning一覧から該当nodeへfocusできるようにする。
 
 完了条件:
 
@@ -167,4 +167,5 @@
 - [x] RG-05 GPU timing表示
 - [x] RG-06 Ping-pong Resourceの論理グループ表示
 - [x] RG-07 Snapshot保存と比較
-- [ ] 次のtask: RG-08 Validationと警告一覧
+- [x] RG-08 Validationと警告一覧
+- [ ] 次のtask: RG-09 Layoutとnavigation改善

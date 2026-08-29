@@ -252,6 +252,52 @@ bool TestSnapshotSerializationAndDiff()
                     "unsupported snapshot schema is rejected");
     return passed;
 }
+
+bool TestDocumentValidation()
+{
+    const std::vector<Engine::RenderPass> passes = {
+        {.name = L"ReadTransient", .reads = {{"ReadOnly", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}},
+        {.name = L"WriteTransient", .writes = {{"WriteOnly", D3D12_RESOURCE_STATE_RENDER_TARGET}}},
+        {.name = L"ReadPersistent", .reads = {{"External", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}},
+    };
+    const Engine::RenderGraphResourceMetadataMap metadata = {
+        {"ReadOnly", {Engine::RenderGraphResourceLifetimeKind::Transient, Engine::RenderGraphResourceKind::Texture}},
+        {"WriteOnly", {Engine::RenderGraphResourceLifetimeKind::Transient, Engine::RenderGraphResourceKind::Texture}},
+        {"External", {Engine::RenderGraphResourceLifetimeKind::Persistent, Engine::RenderGraphResourceKind::Texture}},
+    };
+    Engine::RenderGraphDocument document = Engine::BuildRenderGraphDocument(passes, metadata);
+    std::vector<Engine::RenderGraphValidationMessage> messages = Engine::ValidateRenderGraphDocument(document);
+    const auto hasCode = [&messages](const char* code) {
+        return std::any_of(messages.begin(), messages.end(), [code](const auto& message) {
+            return message.code == code;
+        });
+    };
+
+    bool passed = true;
+    passed &= Check(hasCode("ReadBeforeWrite"), "validation detects transient read before write");
+    passed &= Check(hasCode("WriteNeverRead"), "validation detects final write without a read");
+    passed &= Check(std::none_of(messages.begin(), messages.end(), [](const auto& message) {
+                        return message.message.find("External") != std::string::npos;
+                    }),
+                    "persistent external read does not produce a false positive");
+
+    document.nodes.front().lastPass = -1;
+    document.nodes.push_back(document.nodes.front());
+    messages = Engine::ValidateRenderGraphDocument(document);
+    passed &= Check(std::any_of(messages.begin(), messages.end(), [](const auto& message) {
+                        return message.code == "LifetimeAccess";
+                    }),
+                    "validation detects access outside lifetime");
+    passed &= Check(std::any_of(messages.begin(), messages.end(), [](const auto& message) {
+                        return message.code == "DuplicateId";
+                    }),
+                    "validation detects duplicate IDs");
+    passed &= Check(std::any_of(messages.begin(), messages.end(), [](const auto& message) {
+                        return message.code == "DuplicateName";
+                    }),
+                    "validation detects duplicate names");
+    return passed;
+}
 } // namespace
 
 int main()
@@ -263,5 +309,6 @@ int main()
     passed &= TestStateFormatting();
     passed &= TestStateDiagnostics();
     passed &= TestSnapshotSerializationAndDiff();
+    passed &= TestDocumentValidation();
     return passed ? 0 : 1;
 }

@@ -746,4 +746,143 @@ RenderGraphDocumentDiff DiffRenderGraphDocuments(const RenderGraphDocument& base
     return diff;
 }
 
+std::vector<RenderGraphValidationMessage> ValidateRenderGraphDocument(const RenderGraphDocument& document)
+{
+    std::vector<RenderGraphValidationMessage> messages;
+    std::unordered_set<RenderGraphDocumentId> allIds;
+    std::unordered_set<std::string> names;
+    std::unordered_map<RenderGraphDocumentId, const RenderGraphDocumentNode*> nodes;
+    std::unordered_map<RenderGraphDocumentId, int> passIndices;
+    for (const RenderGraphDocumentNode& node : document.nodes)
+    {
+        if (!allIds.insert(node.id).second)
+        {
+            messages.push_back({RenderGraphValidationSeverity::Error, "DuplicateId", "Duplicate document ID.", node.id});
+        }
+        const std::string nameKey = std::to_string(static_cast<int>(node.kind)) + ":" + node.name;
+        if (!names.insert(nameKey).second)
+        {
+            messages.push_back(
+                {RenderGraphValidationSeverity::Error, "DuplicateName", "Duplicate node name: " + node.name, node.id});
+        }
+        nodes[node.id] = &node;
+        if (node.kind == RenderGraphNodeKind::Pass)
+        {
+            passIndices[node.id] = node.passIndex;
+        }
+    }
+    std::unordered_set<RenderGraphDocumentId> pinIds;
+    for (const RenderGraphDocumentPin& pin : document.pins)
+    {
+        if (!allIds.insert(pin.id).second || !pinIds.insert(pin.id).second)
+        {
+            messages.push_back({RenderGraphValidationSeverity::Error, "DuplicateId", "Duplicate pin ID.", pin.nodeId});
+        }
+        if (!nodes.contains(pin.nodeId))
+        {
+            messages.push_back(
+                {RenderGraphValidationSeverity::Error, "DanglingPin", "Pin references a missing node.", pin.nodeId});
+        }
+    }
+    for (const RenderGraphDocumentLink& link : document.links)
+    {
+        if (!allIds.insert(link.id).second)
+        {
+            messages.push_back(
+                {RenderGraphValidationSeverity::Error, "DuplicateId", "Duplicate link ID.", link.resourceNodeId});
+        }
+        if (!pinIds.contains(link.fromPinId) || !pinIds.contains(link.toPinId) ||
+            !nodes.contains(link.passNodeId) || !nodes.contains(link.resourceNodeId))
+        {
+            messages.push_back({RenderGraphValidationSeverity::Error,
+                                "DanglingLink",
+                                "Link contains a missing node or pin reference.",
+                                link.resourceNodeId,
+                                link.passNodeId});
+        }
+    }
+
+    for (const RenderGraphDocumentNode& resource : document.nodes)
+    {
+        if (resource.kind != RenderGraphNodeKind::Resource)
+        {
+            continue;
+        }
+        std::vector<const RenderGraphDocumentLink*> usages;
+        for (const RenderGraphDocumentLink& link : document.links)
+        {
+            if (link.resourceNodeId == resource.id && passIndices.contains(link.passNodeId))
+            {
+                usages.push_back(&link);
+            }
+        }
+        std::sort(usages.begin(), usages.end(), [&passIndices](const auto* lhs, const auto* rhs) {
+            const int lhsIndex = passIndices.at(lhs->passNodeId);
+            const int rhsIndex = passIndices.at(rhs->passNodeId);
+            return lhsIndex != rhsIndex ? lhsIndex < rhsIndex : lhs->id.value < rhs->id.value;
+        });
+
+        bool written = false;
+        int lastWritePass = -1;
+        bool readAfterLastWrite = false;
+        for (const RenderGraphDocumentLink* usage : usages)
+        {
+            const int passIndex = passIndices.at(usage->passNodeId);
+            if (passIndex < resource.firstPass || passIndex > resource.lastPass)
+            {
+                messages.push_back({RenderGraphValidationSeverity::Error,
+                                    "LifetimeAccess",
+                                    "Resource access is outside its declared lifetime: " + resource.name,
+                                    resource.id,
+                                    usage->passNodeId});
+            }
+            if (usage->access == RenderGraphResourceAccess::Write)
+            {
+                written = true;
+                lastWritePass = passIndex;
+                readAfterLastWrite = false;
+            }
+            else
+            {
+                if (!written && resource.lifetimeKind == RenderGraphResourceLifetimeKind::Transient)
+                {
+                    messages.push_back({RenderGraphValidationSeverity::Warning,
+                                        "ReadBeforeWrite",
+                                        "Transient resource is read before its first write: " + resource.name,
+                                        resource.id,
+                                        usage->passNodeId});
+                }
+                if (lastWritePass >= 0 && passIndex >= lastWritePass)
+                {
+                    readAfterLastWrite = true;
+                }
+            }
+        }
+        if (written && !readAfterLastWrite && resource.lifetimeKind == RenderGraphResourceLifetimeKind::Transient)
+        {
+            messages.push_back({RenderGraphValidationSeverity::Info,
+                                "WriteNeverRead",
+                                "Transient resource is not read after its final write: " + resource.name,
+                                resource.id});
+        }
+    }
+
+    std::sort(messages.begin(), messages.end(), [](const auto& lhs, const auto& rhs) {
+        if (lhs.severity != rhs.severity)
+        {
+            return lhs.severity > rhs.severity;
+        }
+        if (lhs.code != rhs.code)
+        {
+            return lhs.code < rhs.code;
+        }
+        if (lhs.nodeId != rhs.nodeId)
+        {
+            return lhs.nodeId.value < rhs.nodeId.value;
+        }
+        return lhs.passNodeId.value < rhs.passNodeId.value;
+    });
+    return messages;
+}
+
 } // namespace Engine

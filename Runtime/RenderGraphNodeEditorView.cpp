@@ -258,6 +258,57 @@ void DrawStateDiagnostics(const Engine::RenderGraphDocument& document,
     }
 }
 
+std::optional<Engine::RenderGraphDocumentId>
+DrawValidationMessages(const std::vector<Engine::RenderGraphValidationMessage>& messages)
+{
+    ImGui::SeparatorText("Validation");
+    if (messages.empty())
+    {
+        ImGui::TextDisabled("No validation messages.");
+        return std::nullopt;
+    }
+
+    std::optional<Engine::RenderGraphDocumentId> focusNodeId;
+    if (ImGui::BeginTable("RenderGraphValidationTable",
+                          3,
+                          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY,
+                          ImVec2(0.0f, 220.0f)))
+    {
+        ImGui::TableSetupColumn("Severity", ImGuiTableColumnFlags_WidthFixed, 55.0f);
+        ImGui::TableSetupColumn("Code", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+        ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableHeadersRow();
+        for (const Engine::RenderGraphValidationMessage& message : messages)
+        {
+            const char* severity = message.severity == Engine::RenderGraphValidationSeverity::Error
+                                       ? "Error"
+                                       : message.severity == Engine::RenderGraphValidationSeverity::Warning ? "Warning"
+                                                                                                             : "Info";
+            const ImVec4 color = message.severity == Engine::RenderGraphValidationSeverity::Error
+                                     ? ImVec4(1.0f, 0.30f, 0.25f, 1.0f)
+                                     : message.severity == Engine::RenderGraphValidationSeverity::Warning
+                                           ? ImVec4(1.0f, 0.75f, 0.20f, 1.0f)
+                                           : ImVec4(0.45f, 0.75f, 1.0f, 1.0f);
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextColored(color, "%s", severity);
+            ImGui::TableSetColumnIndex(1);
+            ImGui::PushID(reinterpret_cast<void*>(static_cast<uintptr_t>(message.nodeId.value)));
+            ImGui::PushID(reinterpret_cast<void*>(static_cast<uintptr_t>(message.passNodeId.value)));
+            if (ImGui::Selectable(message.code.c_str(), false, ImGuiSelectableFlags_SpanAllColumns))
+            {
+                focusNodeId = message.nodeId;
+            }
+            ImGui::PopID();
+            ImGui::PopID();
+            ImGui::TableSetColumnIndex(2);
+            ImGui::TextWrapped("%s", message.message.c_str());
+        }
+        ImGui::EndTable();
+    }
+    return focusNodeId;
+}
+
 struct PassTimingHistory
 {
     static constexpr size_t kCapacity = 120;
@@ -539,6 +590,8 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     m_impl->UpdateTimings(timing);
     const std::vector<Engine::RenderGraphStateDiagnostic> stateDiagnostics =
         Engine::BuildRenderGraphStateDiagnostics(document);
+    const std::vector<Engine::RenderGraphValidationMessage> validationMessages =
+        Engine::ValidateRenderGraphDocument(document);
     const bool fitRequested = ImGui::Button("Fit Graph");
     ImGui::SameLine();
     ImGui::TextDisabled("Read-only");
@@ -849,14 +902,18 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     const std::optional<Engine::RenderGraphDocumentId> timelineSelection =
         DrawLifetimeTimeline(document, m_impl->selectedNodeId);
     DrawStateDiagnostics(document, stateDiagnostics);
+    const std::optional<Engine::RenderGraphDocumentId> validationSelection =
+        DrawValidationMessages(validationMessages);
     ImGui::EndChild();
 
-    if (timelineSelection.has_value())
+    const std::optional<Engine::RenderGraphDocumentId> requestedSelection =
+        validationSelection.has_value() ? validationSelection : timelineSelection;
+    if (requestedSelection.has_value())
     {
-        m_impl->selectedNodeId = timelineSelection;
+        m_impl->selectedNodeId = requestedSelection;
         NodeEditor::SetCurrentEditor(m_impl->context);
         NodeEditor::ClearSelection();
-        NodeEditor::SelectNode(ToNodeId(*timelineSelection));
+        NodeEditor::SelectNode(ToNodeId(*requestedSelection));
         NodeEditor::NavigateToSelection(false, 0.25f);
         NodeEditor::SetCurrentEditor(nullptr);
     }
