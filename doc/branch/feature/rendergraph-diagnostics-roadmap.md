@@ -118,11 +118,11 @@
 
 ### RG-09 Layoutとnavigation改善
 
-- [ ] Passを実行順のlaneへ固定する。
-- [ ] Resourceを関連Pass付近へ配置し、link交差を減らす。
-- [ ] Texture/Buffer laneを検討する。
-- [ ] Mini-map、selected node focus、zoom別detailsを検討する。
-- [ ] User移動済みnodeと自動layoutの優先関係を定義する。
+- [x] Passを実行順のlaneへ固定する。
+- [x] Resourceをlifetime中央のPass付近へ配置し、論理グループ順でlink交差を抑える。
+- [x] Texture、Buffer、Unknown Resourceごとに間隔を空けた決定的laneを追加する。
+- [x] selected node focusを追加する。現libraryにmini-map APIがなく、zoom別detailsはBox安定性を優先して保留する。
+- [x] 初回自動layout後はUser移動を優先し、明示的な`Reset Layout`時だけ再配置する。
 
 完了条件:
 
@@ -168,4 +168,5 @@
 - [x] RG-06 Ping-pong Resourceの論理グループ表示
 - [x] RG-07 Snapshot保存と比較
 - [x] RG-08 Validationと警告一覧
-- [ ] 次のtask: RG-09 Layoutとnavigation改善
+- [x] RG-09 Layoutとnavigation改善
+- [ ] 次のtask: RG-10 Authoring/Edit基盤

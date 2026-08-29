@@ -594,6 +594,16 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         Engine::ValidateRenderGraphDocument(document);
     const bool fitRequested = ImGui::Button("Fit Graph");
     ImGui::SameLine();
+    ImGui::BeginDisabled(!m_impl->selectedNodeId.has_value());
+    const bool focusSelectedRequested = ImGui::Button("Focus Selected");
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    const bool resetLayoutRequested = ImGui::Button("Reset Layout");
+    if (resetLayoutRequested)
+    {
+        m_impl->positionedNodes.clear();
+    }
+    ImGui::SameLine();
     ImGui::TextDisabled("Read-only");
     ImGui::SameLine();
     constexpr const char* timingModes[] = {"GPU Current", "GPU Average (120)", "GPU Max (120)"};
@@ -666,16 +676,64 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     NodeEditor::SetCurrentEditor(m_impl->context);
     NodeEditor::Begin("RenderGraphNodeEditor", ImVec2(0.0f, 0.0f));
 
-    size_t resourceIndex = 0;
+    std::vector<const Engine::RenderGraphDocumentNode*> layoutResources;
+    for (const Engine::RenderGraphDocumentNode& node : document.nodes)
+    {
+        if (node.kind == Engine::RenderGraphNodeKind::Resource)
+        {
+            layoutResources.push_back(&node);
+        }
+    }
+    const auto resourceKindRank = [](Engine::RenderGraphResourceKind kind) {
+        switch (kind)
+        {
+            case Engine::RenderGraphResourceKind::Texture:
+                return 0;
+            case Engine::RenderGraphResourceKind::Buffer:
+                return 1;
+            default:
+                return 2;
+        }
+    };
+    std::sort(layoutResources.begin(), layoutResources.end(), [&resourceKindRank](const auto* lhs, const auto* rhs) {
+        const int lhsKind = resourceKindRank(lhs->resourceKind);
+        const int rhsKind = resourceKindRank(rhs->resourceKind);
+        if (lhsKind != rhsKind)
+        {
+            return lhsKind < rhsKind;
+        }
+        const std::string lhsLogicalName = LogicalResourceName(lhs->name);
+        const std::string rhsLogicalName = LogicalResourceName(rhs->name);
+        if (lhsLogicalName != rhsLogicalName)
+        {
+            return lhsLogicalName < rhsLogicalName;
+        }
+        if (lhs->physicalIndex != rhs->physicalIndex)
+        {
+            return lhs->physicalIndex < rhs->physicalIndex;
+        }
+        return lhs->name < rhs->name;
+    });
+    std::unordered_map<Engine::RenderGraphDocumentId, size_t> layoutRows;
+    size_t layoutRow = 0;
+    int previousKind = -1;
+    for (const Engine::RenderGraphDocumentNode* resource : layoutResources)
+    {
+        const int kind = resourceKindRank(resource->resourceKind);
+        if (previousKind >= 0 && kind != previousKind)
+        {
+            layoutRow += 1;
+        }
+        layoutRows[resource->id] = layoutRow++;
+        previousKind = kind;
+    }
+
     bool layoutChanged = false;
     for (const Engine::RenderGraphDocumentNode& node : document.nodes)
     {
         const bool matchesFilters = m_impl->MatchesFilters(document, node);
-        layoutChanged |= m_impl->PositionNode(node, resourceIndex);
-        if (node.kind == Engine::RenderGraphNodeKind::Resource)
-        {
-            ++resourceIndex;
-        }
+        const size_t resourceRow = node.kind == Engine::RenderGraphNodeKind::Resource ? layoutRows.at(node.id) : 0;
+        layoutChanged |= m_impl->PositionNode(node, resourceRow);
 
         float contentWidth = ImGui::CalcTextSize(node.name.c_str()).x;
         size_t readPinCount = 0;
@@ -892,6 +950,10 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     if (fitRequested || layoutChanged)
     {
         NodeEditor::NavigateToContent(0.0f);
+    }
+    else if (focusSelectedRequested)
+    {
+        NodeEditor::NavigateToSelection(true, 0.25f);
     }
     NodeEditor::SetCurrentEditor(nullptr);
     ImGui::EndChild();
