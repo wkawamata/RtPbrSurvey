@@ -211,5 +211,5 @@
 - [ ] RG-09: Focus Selected、Reset Layout、Texture/Buffer/Unknown laneを確認する。
 - [ ] RenderGraph windowの通常サイズ、最大化、復元でUI崩れがないことを確認する。
 - [ ] 同一topologyでnode位置・Box寸法が安定し、ping-pong時はlink/roleだけが切り替わることを確認する。
-- [ ] Debug x64でD3D12 Debug Layer errorが発生しないことを確認する。
+- [x] Debug x64を10秒間自動実行し、D3D12 Debug Layer logが空であることを確認する。
 - [ ] 自動captureまたは手動screenshotを保存し、主要表示の確認記録を残す。
