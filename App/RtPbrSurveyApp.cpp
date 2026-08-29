@@ -224,6 +224,14 @@ void RtPbrSurveyApp::OnInit()
             m_selectedSceneIndex = kDefaultSceneIndex;
         }
         OpenSelectedScene();
+
+        // HDR diagnostics must not inherit interactive user camera overrides. The
+        // manifest ROIs and camera motion are defined against versioned scene defaults.
+        if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty())
+        {
+            m_sceneConfig.LoadDefaultsForScene(
+                m_selectedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
+        }
         m_debugUiVisible = false;
 
         if (m_commandLineOptions.captureReflectionResolvedRadiance)
