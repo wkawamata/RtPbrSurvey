@@ -65,95 +65,119 @@ public:
         int passIndex;
     };
 
-    void Init(ID3D12Device* device, UINT maxQueryCount)
+    void Init(ID3D12Device* device, UINT maxQueryCount, UINT frameCount)
     {
         m_maxQueryCount = maxQueryCount;
-        D3D12_QUERY_HEAP_DESC queryHeapDesc = {};
-        queryHeapDesc.Count = maxQueryCount;
-        queryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
-        ThrowIfFailed(device->CreateQueryHeap(&queryHeapDesc, IID_PPV_ARGS(&m_queryHeap)));
-        ThrowIfFailed(device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK),
-                                                      D3D12_HEAP_FLAG_NONE,
-                                                      &CD3DX12_RESOURCE_DESC::Buffer(sizeof(UINT64) * maxQueryCount),
-                                                      D3D12_RESOURCE_STATE_COPY_DEST,
-                                                      nullptr,
-                                                      IID_PPV_ARGS(&m_queryReadback)));
+        m_frames.resize(frameCount);
+        for (FrameQueries& frame : m_frames)
+        {
+            D3D12_QUERY_HEAP_DESC queryHeapDesc = {};
+            queryHeapDesc.Count = maxQueryCount;
+            queryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
+            ThrowIfFailed(device->CreateQueryHeap(&queryHeapDesc, IID_PPV_ARGS(&frame.queryHeap)));
+            ThrowIfFailed(device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK),
+                                                          D3D12_HEAP_FLAG_NONE,
+                                                          &CD3DX12_RESOURCE_DESC::Buffer(sizeof(UINT64) * maxQueryCount),
+                                                          D3D12_RESOURCE_STATE_COPY_DEST,
+                                                          nullptr,
+                                                          IID_PPV_ARGS(&frame.queryReadback)));
+        }
     }
 
     void Term()
     {
-        m_queryHeap.Reset();
-        m_queryReadback.Reset();
+        m_frames.clear();
     }
 
-    void StartGpu(ID3D12GraphicsCommandList* commandList, std::vector<CheckPoint>& checkPoints)
+    void StartGpu(ID3D12GraphicsCommandList* commandList, UINT frameIndex, std::vector<CheckPoint>& checkPoints)
     {
-        m_queryIndex = 0;
-        m_pCheckPoints = &checkPoints;
-        m_pCheckPoints->clear();
-        query(commandList, m_queryIndex, std::string("StartGpu"));
-        m_queryIndex++;
+        assert(frameIndex < m_frames.size());
+        m_activeFrameIndex = frameIndex;
+        FrameQueries& frame = m_frames[frameIndex];
+        frame.queryIndex = 0;
+        frame.checkPoints = &checkPoints;
+        frame.checkPoints->clear();
+        query(commandList, frame, frame.queryIndex, std::string("StartGpu"));
+        frame.queryIndex++;
     }
 
     void SetCheckPoint(ID3D12GraphicsCommandList* commandList, const std::string& name, int passIndex = -1)
     {
-        if (m_queryIndex >= m_maxQueryCount)
+        FrameQueries& frame = m_frames[m_activeFrameIndex];
+        if (frame.queryIndex >= m_maxQueryCount)
         {
             // Handle error: too many queries
             assert(false && "Exceeded maximum query count");
             return;
         }
-        query(commandList, m_queryIndex, name, passIndex);
-        m_queryIndex++;
+        query(commandList, frame, frame.queryIndex, name, passIndex);
+        frame.queryIndex++;
     }
 
     void EndGpu(ID3D12GraphicsCommandList* commandList)
     {
 
-        if (m_queryIndex >= m_maxQueryCount)
+        FrameQueries& frame = m_frames[m_activeFrameIndex];
+        if (frame.queryIndex >= m_maxQueryCount)
         {
             // Handle error: too many queries
             assert(false && "Exceeded maximum query count");
             return;
         }
-        query(commandList, m_queryIndex, std::string("EndGpu"), -1);
-        m_queryIndex++;
+        query(commandList, frame, frame.queryIndex, std::string("EndGpu"), -1);
+        frame.queryIndex++;
         // resolve query data to readback buffer
         commandList->ResolveQueryData(
-            m_queryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0, m_queryIndex, m_queryReadback.Get(), 0);
+            frame.queryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0, frame.queryIndex, frame.queryReadback.Get(), 0);
     }
 
-    void ReadbackData(ID3D12CommandQueue* commandQueue)
+    bool ReadbackData(ID3D12CommandQueue* commandQueue, UINT frameIndex)
     {
+        assert(frameIndex < m_frames.size());
+        FrameQueries& frame = m_frames[frameIndex];
+        if (frame.queryIndex == 0 || frame.checkPoints == nullptr)
+        {
+            return false;
+        }
         UINT64* queryData = nullptr;
-        D3D12_RANGE readRange = {0, sizeof(UINT64) * m_queryIndex};
-        ThrowIfFailed(m_queryReadback->Map(0, &readRange, reinterpret_cast<void**>(&queryData)));
+        D3D12_RANGE readRange = {0, sizeof(UINT64) * frame.queryIndex};
+        ThrowIfFailed(frame.queryReadback->Map(0, &readRange, reinterpret_cast<void**>(&queryData)));
 
         UINT64 freq = 0;
         commandQueue->GetTimestampFrequency(&freq);
 
-        for (int i = 0; i < m_queryIndex; i++)
+        for (int i = 0; i < frame.queryIndex; i++)
         {
-            m_pCheckPoints->at(i).timeStamp = ((queryData[i] - queryData[0]) / static_cast<float>(freq)) * 1000.0f;
+            frame.checkPoints->at(i).timeStamp = ((queryData[i] - queryData[0]) / static_cast<float>(freq)) * 1000.0f;
             // DBG_PRINT("Gpu CheckPoint: %s, Time: %f ms\n", m_pCheckPoints->at(i).name.c_str(),
             // m_pCheckPoints->at(i).timeStamp);
         }
 
-        m_queryReadback->Unmap(0, nullptr);
+        frame.queryReadback->Unmap(0, nullptr);
+        return true;
     }
 
 private:
-    ComPtr<ID3D12QueryHeap> m_queryHeap;
-    ComPtr<ID3D12Resource> m_queryReadback;
+    struct FrameQueries
+    {
+        ComPtr<ID3D12QueryHeap> queryHeap;
+        ComPtr<ID3D12Resource> queryReadback;
+        std::vector<CheckPoint>* checkPoints = nullptr;
+        int queryIndex = 0;
+    };
 
-    std::vector<CheckPoint>* m_pCheckPoints = nullptr;
-    int m_queryIndex = 0;
+    std::vector<FrameQueries> m_frames;
+    UINT m_activeFrameIndex = 0;
     int m_maxQueryCount = 0;
 
-    void query(ID3D12GraphicsCommandList* commandList, UINT queryIndex, const std::string& name, int passIndex = -1)
+    void query(ID3D12GraphicsCommandList* commandList,
+               FrameQueries& frame,
+               UINT queryIndex,
+               const std::string& name,
+               int passIndex = -1)
     {
-        commandList->EndQuery(m_queryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, queryIndex);
-        m_pCheckPoints->emplace_back(CheckPoint(name, passIndex));
+        commandList->EndQuery(frame.queryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, queryIndex);
+        frame.checkPoints->emplace_back(CheckPoint(name, passIndex));
     }
 };
 

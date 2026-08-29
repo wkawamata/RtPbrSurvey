@@ -378,7 +378,7 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_temporalJitterSampleIndex,
             m_temporalJitterHalton,
             m_jitterOffsetPixels,
-            m_frameResources[m_previousFrameIndex].gpuWorkMeterCheckPoints};
+            m_completedGpuWorkMeterCheckPoints};
 }
 
 void RtPbrSurveyEngine::SetUpdateHandler(UpdateHandler handler)
@@ -991,7 +991,8 @@ void RtPbrSurveyEngine::LoadPipeline()
 
     //
     m_gpuWorkMeter.Init(m_graphicsDevice.Device(),
-                        kGpuWorkMeterQueryCount); // Initialize GPU work meter with a maximum of 100 timestamp queries.
+                        kGpuWorkMeterQueryCount,
+                        kFrameCount); // Initialize GPU work meter with a maximum of 100 timestamp queries per frame.
 
 }
 
@@ -3645,7 +3646,10 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     CollectGarbageTransientResources();
     CollectDeferredGpuReleases();
 
-    m_gpuWorkMeter.ReadbackData(m_graphicsDevice.CommandQueue());
+    if (m_gpuWorkMeter.ReadbackData(m_graphicsDevice.CommandQueue(), m_currentFrameIndex))
+    {
+        m_completedGpuWorkMeterCheckPoints = m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints;
+    }
 
     PIXEndEvent();
 }
@@ -4338,7 +4342,8 @@ void RtPbrSurveyEngine::BeginFrame()
     m_commandList->RSSetViewports(1, &m_renderViewport);
     m_commandList->RSSetScissorRects(1, &m_renderScissorRect);
 
-    m_gpuWorkMeter.StartGpu(m_commandList.Get(), m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints);
+    m_gpuWorkMeter.StartGpu(
+        m_commandList.Get(), m_currentFrameIndex, m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints);
 }
 
 void RtPbrSurveyEngine::ExecuteClearPass(const RenderPass& pass)

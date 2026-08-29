@@ -176,6 +176,17 @@
 - [x] RG-09 Layoutとnavigation改善
 - [x] RG-10 Authoring/Edit基盤
 - [x] RenderGraph診断機能ロードマップ初期版完了
+- [x] GPU timestamp query/readbackをframe resource単位へ分離
+
+## Follow-up: GPU timing readback安全化
+
+- [x] 各frame slotが専用のquery heap、readback buffer、query indexを所有する。
+- [x] `MoveToNextFrame`で既存fenceの完了が保証されたframe slotだけを読み戻す。
+- [x] UI表示用checkpointを記録中のframe resourceから独立した完了済みsnapshotへコピーする。
+- [x] timing取得のための追加GPU waitを導入しない。
+- [x] Debug x64 buildでコンパイルとリンクを確認する。
+
+この変更により、直前にsubmitした未完了queryをCPUからMapする可能性をなくす。UIには最新submit frameではなく、最後にfence完了を確認できたframeのtimingを表示する。
 
 ## 後回しにする統合画面確認
 
@@ -184,6 +195,7 @@
 - [ ] RG-03: Resource lifetime timeline、`.0`/`.1`隣接表示、selection同期を確認する。
 - [ ] RG-04: state transitionとUAV barrier候補のedge色・一覧を確認する。
 - [ ] RG-05: GPU current/120 frame平均/最大、frame比率、`GPU N/A`表示を確認する。
+- [ ] GPU timingがframe slot再利用後も連続更新され、値が不自然に欠落・破損しないことを確認する。
 - [ ] RG-06: Ping-pong Resourceのphysical indexとHistory Read/Current Write交換を確認する。
 - [ ] RG-07: baseline設定・解除、added/removed/changed件数と色分けを確認する。
 - [ ] RG-08: Validation一覧、severity表示、該当nodeへのfocusを確認する。

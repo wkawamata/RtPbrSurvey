@@ -1002,6 +1002,7 @@ private:
 
     // GPU work meter
     MyDx12Util::GpuWorkMeter m_gpuWorkMeter;
+    std::vector<MyDx12Util::GpuWorkMeter::CheckPoint> m_completedGpuWorkMeterCheckPoints;
     const UiRenderHandler* m_activeUiRenderHandler = nullptr;
     UpdateHandler m_updateHandler;
     static constexpr const char* kBackBufferResourceName = "BackBuffer";
