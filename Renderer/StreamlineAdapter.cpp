@@ -67,8 +67,6 @@ sl::DLSSMode ToStreamlineDlssMode(TemporalUpscalerQualityMode qualityMode)
     {
         case TemporalUpscalerQualityMode::Native:
             return sl::DLSSMode::eDLAA;
-        case TemporalUpscalerQualityMode::UltraQuality:
-            return sl::DLSSMode::eUltraQuality;
         case TemporalUpscalerQualityMode::Quality:
             return sl::DLSSMode::eMaxQuality;
         case TemporalUpscalerQualityMode::Balanced:
@@ -109,9 +107,6 @@ void SetStreamlineDlssPreset(sl::DLSSOptions& options,
     {
         case TemporalUpscalerQualityMode::Native:
             options.dlaaPreset = streamlinePreset;
-            break;
-        case TemporalUpscalerQualityMode::UltraQuality:
-            options.ultraQualityPreset = streamlinePreset;
             break;
         case TemporalUpscalerQualityMode::Quality:
             options.qualityPreset = streamlinePreset;
