@@ -77,6 +77,19 @@ const char* LifetimeKindLabel(Engine::RenderGraphResourceLifetimeKind kind)
     }
 }
 
+const char* PingPongRoleLabel(Engine::RenderGraphPingPongRole role)
+{
+    switch (role)
+    {
+        case Engine::RenderGraphPingPongRole::HistoryRead:
+            return "History Read";
+        case Engine::RenderGraphPingPongRole::CurrentWrite:
+            return "Current Write";
+        default:
+            return "None";
+    }
+}
+
 const Engine::RenderGraphDocumentNode* FindNode(const Engine::RenderGraphDocument& document,
                                                 Engine::RenderGraphDocumentId id)
 {
@@ -317,6 +330,12 @@ void DrawDetailPanel(const Engine::RenderGraphDocument& document,
         ImGui::Text("Type: %s", ResourceKindLabel(node->resourceKind));
         ImGui::Text("Lifetime: %s", LifetimeKindLabel(node->lifetimeKind));
         ImGui::Text("Pass range: [%d, %d]", node->firstPass, node->lastPass);
+        if (!node->logicalGroupName.empty())
+        {
+            ImGui::TextWrapped("Logical group: %s", node->logicalGroupName.c_str());
+            ImGui::Text("Physical index: %d", node->physicalIndex);
+            ImGui::Text("Current role: %s", PingPongRoleLabel(node->pingPongRole));
+        }
     }
 
     ImGui::Spacing();
@@ -602,6 +621,11 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
             const std::string lifetime =
                 "Lifetime [" + std::to_string(node.firstPass) + ", " + std::to_string(node.lastPass) + "]";
             contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(lifetime.c_str()).x);
+            if (!node.logicalGroupName.empty())
+            {
+                contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize("[0] Current Write").x);
+                contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(node.logicalGroupName.c_str()).x);
+            }
         }
         else
         {
@@ -620,6 +644,14 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         if (node.kind == Engine::RenderGraphNodeKind::Resource)
         {
             ImGui::TextDisabled("%s", ResourceKindLabel(node.resourceKind));
+            if (!node.logicalGroupName.empty())
+            {
+                const ImVec4 roleColor = node.pingPongRole == Engine::RenderGraphPingPongRole::HistoryRead
+                                             ? ImVec4(0.30f, 0.85f, 0.90f, 1.0f)
+                                             : ImVec4(1.0f, 0.78f, 0.20f, 1.0f);
+                ImGui::TextColored(
+                    roleColor, "[%d] %s", node.physicalIndex, PingPongRoleLabel(node.pingPongRole));
+            }
         }
         const ImVec2 separatorStart = ImGui::GetCursorScreenPos();
         ImGui::GetWindowDrawList()->AddLine(separatorStart,

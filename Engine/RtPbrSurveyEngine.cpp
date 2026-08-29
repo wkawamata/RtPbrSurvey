@@ -5097,6 +5097,27 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
     }
     metadata[kBackBufferResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
                                          Engine::RenderGraphResourceKind::Texture};
+
+    const auto registerPingPongGroup = [&metadata, this](const char* const (&resourceNames)[2],
+                                                         const char* logicalGroupName)
+    {
+        for (int physicalIndex = 0; physicalIndex < 2; ++physicalIndex)
+        {
+            Engine::RenderGraphResourceMetadata& resourceMetadata = metadata[resourceNames[physicalIndex]];
+            resourceMetadata.logicalGroupName = logicalGroupName;
+            resourceMetadata.physicalIndex = physicalIndex;
+            resourceMetadata.pingPongRole =
+                physicalIndex == static_cast<int>(m_reflectionHistoryState.readIndex)
+                    ? Engine::RenderGraphPingPongRole::HistoryRead
+                    : Engine::RenderGraphPingPongRole::CurrentWrite;
+        }
+    };
+    registerPingPongGroup(kReflectionResolvedRadianceResourceNames, "ReflectionResolvedRadiance");
+    registerPingPongGroup(kReflectionHistoryDepthResourceNames, "ReflectionHistoryDepth");
+    registerPingPongGroup(kReflectionHistoryNormalResourceNames, "ReflectionHistoryNormal");
+    registerPingPongGroup(kReflectionResolvedSpecularEstimateResourceNames, "ReflectionResolvedSpecularEstimate");
+    registerPingPongGroup(kReflectionSpecularMomentsResourceNames, "ReflectionSpecularMoments");
+    registerPingPongGroup(kReflectionSpecularConfidenceResourceNames, "ReflectionSpecularConfidence");
     return Engine::BuildRenderGraphDocument(m_renderGraphRuntime.Graph().Passes(), metadata);
 }
 

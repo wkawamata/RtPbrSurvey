@@ -186,6 +186,11 @@ RenderGraphDocument BuildRenderGraphDocument(const std::vector<RenderPass>& rend
                                                                  : RenderGraphResourceLifetimeKind::Unknown;
         const RenderGraphResourceKind resourceKind =
             metadata != resourceMetadata.end() ? metadata->second.resourceKind : RenderGraphResourceKind::Unknown;
+        const std::string logicalGroupName =
+            metadata != resourceMetadata.end() ? metadata->second.logicalGroupName : std::string{};
+        const int physicalIndex = metadata != resourceMetadata.end() ? metadata->second.physicalIndex : -1;
+        const RenderGraphPingPongRole pingPongRole =
+            metadata != resourceMetadata.end() ? metadata->second.pingPongRole : RenderGraphPingPongRole::None;
         resourceNodeIndices[name] = document.nodes.size();
         document.nodes.push_back({MakeDocumentId("resource", name),
                                   RenderGraphNodeKind::Resource,
@@ -194,7 +199,12 @@ RenderGraphDocument BuildRenderGraphDocument(const std::vector<RenderPass>& rend
                                   lifetime.firstPass,
                                   lifetime.lastPass,
                                   lifetimeKind,
-                                  resourceKind});
+                                  resourceKind,
+                                  logicalGroupName.empty() ? RenderGraphDocumentId{}
+                                                           : MakeDocumentId("resource-group", logicalGroupName),
+                                  logicalGroupName,
+                                  physicalIndex,
+                                  pingPongRole});
     }
 
     std::unordered_map<std::string, size_t> passNameOccurrences;

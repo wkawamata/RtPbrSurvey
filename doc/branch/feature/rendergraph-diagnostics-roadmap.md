@@ -81,10 +81,10 @@
 
 ### RG-06 Ping-pong Resourceの論理グループ表示
 
-- [ ] `.0`/`.1`を別nodeとして維持する。
-- [ ] 論理名とphysical indexを表すgroup metadataを追加する。
-- [ ] History ReadとCurrent Writeを強調する。
-- [ ] Groupの折り畳み表示を検討する。
+- [x] `.0`/`.1`を別nodeとして維持する。
+- [x] stable group ID、論理名、physical indexを表すgroup metadataを追加する。
+- [x] History ReadとCurrent Writeを固定幅の色付きrole表示で強調する。
+- [x] Groupの折り畳みはselection/filter/layoutへの影響が大きいためRG-09以降へ保留する。
 
 完了条件:
 
@@ -165,4 +165,5 @@
 - [x] RG-03 Resource lifetime timeline
 - [x] RG-04 State transition診断
 - [x] RG-05 GPU timing表示
-- [ ] 次のtask: RG-06 Ping-pong Resourceの論理グループ表示
+- [x] RG-06 Ping-pong Resourceの論理グループ表示
+- [ ] 次のtask: RG-07 Snapshot保存と比較

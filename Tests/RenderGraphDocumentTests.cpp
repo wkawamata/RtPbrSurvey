@@ -106,8 +106,36 @@ bool TestPingPongNodeIdentity()
          .writes = {{"ReflectionHistoryDepth.0", D3D12_RESOURCE_STATE_RENDER_TARGET}}},
     };
 
-    const Engine::RenderGraphDocument even = Engine::BuildRenderGraphDocument(evenPasses);
-    const Engine::RenderGraphDocument odd = Engine::BuildRenderGraphDocument(oddPasses);
+    const Engine::RenderGraphResourceMetadataMap evenMetadata = {
+        {"ReflectionHistoryDepth.0",
+         {Engine::RenderGraphResourceLifetimeKind::Persistent,
+          Engine::RenderGraphResourceKind::Texture,
+          "ReflectionHistoryDepth",
+          0,
+          Engine::RenderGraphPingPongRole::HistoryRead}},
+        {"ReflectionHistoryDepth.1",
+         {Engine::RenderGraphResourceLifetimeKind::Persistent,
+          Engine::RenderGraphResourceKind::Texture,
+          "ReflectionHistoryDepth",
+          1,
+          Engine::RenderGraphPingPongRole::CurrentWrite}},
+    };
+    const Engine::RenderGraphResourceMetadataMap oddMetadata = {
+        {"ReflectionHistoryDepth.0",
+         {Engine::RenderGraphResourceLifetimeKind::Persistent,
+          Engine::RenderGraphResourceKind::Texture,
+          "ReflectionHistoryDepth",
+          0,
+          Engine::RenderGraphPingPongRole::CurrentWrite}},
+        {"ReflectionHistoryDepth.1",
+         {Engine::RenderGraphResourceLifetimeKind::Persistent,
+          Engine::RenderGraphResourceKind::Texture,
+          "ReflectionHistoryDepth",
+          1,
+          Engine::RenderGraphPingPongRole::HistoryRead}},
+    };
+    const Engine::RenderGraphDocument even = Engine::BuildRenderGraphDocument(evenPasses, evenMetadata);
+    const Engine::RenderGraphDocument odd = Engine::BuildRenderGraphDocument(oddPasses, oddMetadata);
     bool passed = true;
     passed &= Check(even.nodes.size() == odd.nodes.size(), "ping-pong frames keep the same node count");
     for (size_t nodeIndex = 0; nodeIndex < even.nodes.size() && nodeIndex < odd.nodes.size(); ++nodeIndex)
@@ -116,6 +144,17 @@ bool TestPingPongNodeIdentity()
                         "ping-pong nodes keep deterministic name order");
         passed &=
             Check(even.nodes[nodeIndex].id == odd.nodes[nodeIndex].id, "ping-pong nodes keep stable document IDs");
+        if (even.nodes[nodeIndex].kind == Engine::RenderGraphNodeKind::Resource)
+        {
+            passed &= Check(even.nodes[nodeIndex].logicalGroupId == odd.nodes[nodeIndex].logicalGroupId,
+                            "ping-pong resources keep a stable logical group ID");
+            passed &= Check(even.nodes[nodeIndex].logicalGroupName == "ReflectionHistoryDepth",
+                            "ping-pong resources preserve the logical group name");
+            passed &= Check(even.nodes[nodeIndex].physicalIndex == odd.nodes[nodeIndex].physicalIndex,
+                            "ping-pong resources keep their physical index");
+            passed &= Check(even.nodes[nodeIndex].pingPongRole != odd.nodes[nodeIndex].pingPongRole,
+                            "ping-pong resources exchange only their current role");
+        }
     }
     passed &= Check(even.links.size() == odd.links.size(), "ping-pong frames keep the same link count");
     passed &= Check(even.links.front().id != odd.links.front().id,

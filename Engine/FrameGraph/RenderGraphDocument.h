@@ -63,6 +63,13 @@ enum class RenderGraphResourceKind
     Buffer,
 };
 
+enum class RenderGraphPingPongRole
+{
+    None,
+    HistoryRead,
+    CurrentWrite,
+};
+
 struct RenderGraphDocumentNode
 {
     RenderGraphDocumentId id;
@@ -73,6 +80,10 @@ struct RenderGraphDocumentNode
     int lastPass = -1;
     RenderGraphResourceLifetimeKind lifetimeKind = RenderGraphResourceLifetimeKind::Unknown;
     RenderGraphResourceKind resourceKind = RenderGraphResourceKind::Unknown;
+    RenderGraphDocumentId logicalGroupId;
+    std::string logicalGroupName;
+    int physicalIndex = -1;
+    RenderGraphPingPongRole pingPongRole = RenderGraphPingPongRole::None;
 };
 
 struct RenderGraphDocumentPin
@@ -99,6 +110,9 @@ struct RenderGraphResourceMetadata
 {
     RenderGraphResourceLifetimeKind lifetimeKind = RenderGraphResourceLifetimeKind::Unknown;
     RenderGraphResourceKind resourceKind = RenderGraphResourceKind::Unknown;
+    std::string logicalGroupName;
+    int physicalIndex = -1;
+    RenderGraphPingPongRole pingPongRole = RenderGraphPingPongRole::None;
 };
 
 using RenderGraphResourceMetadataMap = std::unordered_map<std::string, RenderGraphResourceMetadata>;
