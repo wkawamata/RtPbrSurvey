@@ -6,6 +6,8 @@ This document is the focused contract for Hybrid Reflection pass boundaries, res
 
 History implementation progress is recorded in the [Hybrid Reflection History Work Log](hybrid-reflection-history-worklog.md). Stochastic-sampling implementation and validation are recorded in the [Stochastic Sampling Work Log](hybrid-reflection-stochastic-sampling-worklog.md) and its [Japanese version](hybrid-reflection-stochastic-sampling-worklog_j.md).
 
+The focused input/output, history, reset, variance/confidence, and future spatial-pass boundaries are defined in [Hybrid Reflection Denoiser Contracts](hybrid-reflection-denoiser-contracts.md). This document remains authoritative for reflection signal meanings and current pass behavior; the denoiser contract defines how later processing may consume those signals without changing them.
+
 ## Pass Flow
 
 1. `HybridReflectionPass` selects a deterministic mirror direction or a default-off stochastic rough-specular direction, performs RayQuery tracing, and produces raw hit and material payloads.
@@ -46,13 +48,13 @@ Reflection payload and radiance resources are render-resolution `DXGI_FORMAT_R16
 | `ReflectionResolvedSpecularEstimate` | `TemporalReflectionPass` MRT target 3, ping-pong pair | `.rgb`: motion-reprojected temporal resolve of `ReflectionSpecularEstimate`; `.a`: `1`. It uses the same acceptance decision as `ReflectionResolvedRadiance`. Its history weight equals the base weight unless the default-off variance-guided temporal experiment is enabled. | Experimental resolved weighted estimator | `Resolved Specular` debug view only. It is not consumed by `LightPass`. |
 | `ReflectionSpecularMoments` | `TemporalReflectionPass` MRT target 4, ping-pong pair | `R32G32_FLOAT`; `.x`: resolved luminance first moment; `.y`: resolved luminance second moment. Rejected history initializes both from the current weighted sample. Accepted history uses the same effective weight as the resolved weighted estimate. | Experimental variance metadata | `Specular Variance` debug view and bounded variance-guided policy experiments. It is not radiance and is not packed into radiance alpha. |
 | `ReflectionSpecularConfidence` | `TemporalReflectionPass` MRT target 5, ping-pong pair | `R16_FLOAT`; scalar persistent confidence in `[0, 1]`. Rejected/reset history writes `0`; accepted history updates from reprojected confidence and prior moments. | Experimental policy metadata | `Specular Confidence` debug view, schema v9 HDR diagnostics, and default-off confidence-guided history weighting. It is not radiance. |
-| `ReflectionResolvedRadiance` | `TemporalReflectionPass` | `.rgb`: resolved linear HDR, unweighted one-bounce radiance; `.a`: `1`. It preserves the evaluated hit and environment-fallback semantics. With valid in-bounds history and nonzero experimental weight, RGB is a nearest-sampled motion-reprojected exponential history blend. | Resolved-radiance boundary | `LightPass` and resolved-radiance debug view. Future production temporal processing remains inside this boundary. |
+| `ReflectionResolvedRadiance` | `TemporalReflectionPass` | `.rgb`: resolved linear HDR, unweighted one-bounce radiance. `.a`: temporal-validity diagnostic code (`0`: no history, `0.25`: out of bounds, `0.5`: depth reject, `0.75`: normal reject, `1`: accepted). It preserves the evaluated hit and environment-fallback semantics. With valid in-bounds history and nonzero experimental weight, RGB is a nearest-sampled motion-reprojected exponential history blend. | Resolved-radiance boundary | `LightPass` and resolved-radiance/temporal-validity debug views. Future production temporal processing remains inside this boundary. |
 | `ReflectionHistoryDepth` | `TemporalReflectionPass` | `R32_FLOAT` current visible-surface device depth copied into the matching history slot. | Rejection history | Next `TemporalReflectionPass`. |
 | `ReflectionHistoryNormal` | `TemporalReflectionPass` | `R16G16B16A16_FLOAT`; `.xyz` is normalized world-space visible-surface normal and `.w` is `1`. | Rejection history | Next `TemporalReflectionPass`. |
 
 The current code and this contract use `ReflectionEvaluatedRadiance`. The older `ReflectionRadiance` term refers to the same pre-temporal boundary in historical discussion and must not be interpreted as a separate resource.
 
-Neither evaluated nor resolved radiance contains distance fade, visible-surface roughness weight, contribution intensity, visible-surface Fresnel, or final scene composition. History length, confidence, and rejection state are not packed into their alpha channel.
+Neither evaluated nor resolved radiance RGB contains distance fade, visible-surface roughness weight, contribution intensity, visible-surface Fresnel, or final scene composition. History length and confidence are not packed into alpha. `ReflectionResolvedRadiance.a` is reserved for the current temporal-validity diagnostic code and must not be interpreted as radiance, confidence, or a continuous blend weight.
 
 The final contribution is:
 
@@ -293,7 +295,7 @@ The first reprojection experiment consumes:
 
 Current depth and normal cannot validate a previous-frame sample by themselves. The auxiliary depth/normal history follows the same validity, invalidation, write index, post-submit role exchange, and resize lifecycle as `ReflectionResolvedRadiance`. It must not use swap-chain indices or Temporal Upscaler history ownership.
 
-Do not pack depth, normal, confidence, or history length into `ReflectionResolvedRadiance.a`; resolved radiance remains opaque linear HDR. The implemented auxiliary representation is `R32_FLOAT` depth and `R16G16B16A16_FLOAT` world normal; both remain semantically distinct from radiance.
+Do not pack depth, normal, confidence, or history length into `ReflectionResolvedRadiance.a`; its implemented alpha is reserved for the temporal-validity diagnostic code. Resolved RGB remains linear HDR. The implemented auxiliary representation is `R32_FLOAT` depth and `R16G16B16A16_FLOAT` world normal; both remain semantically distinct from radiance.
 
 ### Rejection Order
 
