@@ -4283,7 +4283,17 @@ Engine::ResourceTransitionContext RtPbrSurveyEngine::MakeResourceTransitionConte
             [this](const std::string& name) { return GetResourceState(name); },
             [this](const std::string& name, D3D12_RESOURCE_STATES state) { SetResourceState(name, state); },
             [](const ResourceUsage& usage)
-            { DBG_PRINT("Resource %s is null. Skip transition.\n", usage.name.c_str()); }};
+            { DBG_PRINT("Resource %s is null. Skip transition.\n", usage.name.c_str()); },
+            [this](int passIndex,
+                   const ResourceUsage& usage,
+                   D3D12_RESOURCE_STATES beforeState,
+                   D3D12_RESOURCE_STATES afterState)
+            {
+                if (passIndex >= 0)
+                {
+                    m_renderGraphBarrierEvents.push_back({passIndex, usage.name, beforeState, afterState});
+                }
+            }};
 }
 
 void RtPbrSurveyEngine::TransitionPassResources(const RenderPass& pass)
@@ -4319,6 +4329,7 @@ void RtPbrSurveyEngine::SetResourceState(const std::string& name, D3D12_RESOURCE
 
 void RtPbrSurveyEngine::BeginFrame()
 {
+    m_renderGraphBarrierEvents.clear();
 
     // Command list allocators can only be reset when the associated
     // command lists have finished execution on the GPU; apps should use
@@ -5124,6 +5135,11 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
     registerPingPongGroup(kReflectionSpecularMomentsResourceNames, "ReflectionSpecularMoments");
     registerPingPongGroup(kReflectionSpecularConfidenceResourceNames, "ReflectionSpecularConfidence");
     return Engine::BuildRenderGraphDocument(m_renderGraphRuntime.Graph().Passes(), metadata);
+}
+
+const std::vector<Engine::RenderGraphBarrierEvent>& RtPbrSurveyEngine::GetRenderGraphBarrierEvents() const
+{
+    return m_renderGraphBarrierEvents;
 }
 
 void RtPbrSurveyEngine::RecordImGuiPass()
