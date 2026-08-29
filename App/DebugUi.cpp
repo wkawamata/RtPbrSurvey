@@ -670,8 +670,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             "Temporal Debug Noise", &reflectionSettings.temporalNoiseStrength, 0.0f, 1.0f, 0.05f, 0.0f);
         changed |= ImGui::Checkbox("Rejected Pixel Neighborhood", &reflectionSettings.rejectedPixelNeighborhoodEnabled);
         ImGui::TextWrapped("Experimental default-off 3x3 cross-bilateral current-frame fallback for depth/normal rejected pixels.");
-        changed |= ImGui::Checkbox("Surface Variance Filter", &reflectionSettings.surfaceVarianceFilterEnabled);
-        ImGui::TextWrapped("Experimental default-off 3x3 current-radiance filter gated by visible depth, normal, roughness, and metallic.");
+        changed |= ImGui::Checkbox("Edge-Aware Spatial Filter", &reflectionSettings.surfaceVarianceFilterEnabled);
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Default-off stateless 3x3 filter after temporal resolve.\n"
+                              "Uses visible depth/normal/roughness and reflection hit distance/normal gates.");
+        }
+        ImGui::TextWrapped("Experimental default-off post-temporal filter. It does not feed reflection history.");
         changed |= ImGui::Checkbox("Variance-Guided Temporal", &reflectionSettings.varianceGuidedTemporalEnabled);
         ImGui::TextWrapped("Experimental default-off weighted-estimator history adjustment. Roughness >= 0.75 and prior relative variance >= 0.5 select a bounded 0.94 history weight.");
         ImGui::TextWrapped("Experimental motion-reprojected blend with depth/normal rejection. Debug noise is injected before history accumulation and is disabled at zero.");

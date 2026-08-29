@@ -84,6 +84,11 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
                         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity)
                     {
                         AddPass(MakeTemporalReflectionPass());
+                        if (m_hybridReflectionSettings.surfaceVarianceFilterEnabled &&
+                            m_hybridReflectionSettings.contributionEnabled)
+                        {
+                            AddPass(MakeEdgeAwareSpatialReflectionPass());
+                        }
                     }
                 }
             }
@@ -315,9 +320,17 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
         reads.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
         if (m_hybridReflectionSettings.enabled && m_hybridReflectionSettings.contributionEnabled)
         {
-            const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
-            reads.push_back(
-                {kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+            if (m_hybridReflectionSettings.surfaceVarianceFilterEnabled)
+            {
+                reads.push_back(
+                    {kReflectionDenoisedRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+            }
+            else
+            {
+                const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
+                reads.push_back({kReflectionResolvedRadianceResourceNames[writeIndex],
+                                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+            }
         }
         if (m_hybridReflectionSettings.enabled &&
             (m_hybridReflectionSettings.contributionEnabled || m_hybridReflectionSettings.hitOverlayEnabled))
@@ -348,7 +361,9 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
         m_hybridReflectionSettings.contributionEnabled)
     {
         builder.Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance,
-                           Desc::ReflectionResolvedRadianceCurrentSrv);
+                           m_hybridReflectionSettings.surfaceVarianceFilterEnabled ?
+                               Desc::ReflectionDenoisedRadianceSrv :
+                               Desc::ReflectionResolvedRadianceCurrentSrv);
     }
     if (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
         (m_hybridReflectionSettings.contributionEnabled || m_hybridReflectionSettings.hitOverlayEnabled))
@@ -456,6 +471,29 @@ auto RtPbrSurveyEngine::MakeTemporalReflectionPass() -> RenderPass
     return builder.Build();
 }
 
+auto RtPbrSurveyEngine::MakeEdgeAwareSpatialReflectionPass() -> RenderPass
+{
+    const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"EdgeAwareSpatialReflectionPass")
+        .Pipeline(Pipe::EdgeAwareSpatialReflection)
+        .Reads({{kReflectionResolvedRadianceResourceNames[writeIndex],
+                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kDepthStencilResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Writes({{kReflectionDenoisedRadianceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance,
+                    Desc::ReflectionResolvedRadianceCurrentSrv)
+        .Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
+        .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
+        .Rtv(RtvName::ReflectionDenoisedRadiance)
+        .Operation(Op::EdgeAwareSpatialReflection,
+                   &RtPbrSurveyEngine::ExecuteEdgeAwareSpatialReflectionPass)
+        .Build();
+}
+
 auto RtPbrSurveyEngine::MakeLightingDebugGradientPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
@@ -519,17 +557,23 @@ auto RtPbrSurveyEngine::MakeDebugDumpPass() -> RenderPass
 auto RtPbrSurveyEngine::MakeReflectionHdrDiagnosticPass() -> RenderPass
 {
     const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
+    ResourceUsages reads = {{kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
+                            {kReflectionSpecularEstimateResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
+                            {kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
+                            {kReflectionResolvedSpecularEstimateResourceNames[writeIndex],
+                             D3D12_RESOURCE_STATE_COPY_SOURCE},
+                            {kReflectionSpecularMomentsResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
+                            {kReflectionSpecularConfidenceResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
+                            {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_COPY_SOURCE},
+                            {kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
+                            {kGBufferResourceNames[Engine::GBuffer::MotionVector], D3D12_RESOURCE_STATE_COPY_SOURCE}};
+    if (m_hybridReflectionSettings.surfaceVarianceFilterEnabled)
+    {
+        reads.push_back({kReflectionDenoisedRadianceResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE});
+    }
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"ReflectionHdrDiagnostic")
-        .Reads({{kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
-                {kReflectionSpecularEstimateResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
-                {kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
-                {kReflectionResolvedSpecularEstimateResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
-                {kReflectionSpecularMomentsResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
-                {kReflectionSpecularConfidenceResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_SOURCE},
-                {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_COPY_SOURCE},
-                {kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
-                {kGBufferResourceNames[Engine::GBuffer::MotionVector], D3D12_RESOURCE_STATE_COPY_SOURCE}})
+        .Reads(std::move(reads))
         .Operation(Op::ReflectionHdrDiagnostic, &RtPbrSurveyEngine::ExecuteReflectionHdrDiagnosticPass)
         .Build();
 }

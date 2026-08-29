@@ -25,6 +25,7 @@ void ReflectionHdrDiagnosticReadback::Reset()
 bool ReflectionHdrDiagnosticCapture::IsReady() const
 {
     return evaluatedRadiance.IsValid() && specularEstimate.IsValid() && resolvedRadiance.IsValid() &&
+           denoisedRadiance.IsValid() &&
            resolvedSpecularEstimate.IsValid() && specularMoments.IsValid() && visiblePbrParams.IsValid() &&
            specularConfidence.IsValid() && rayHit.IsValid() && motionVector.IsValid();
 }
@@ -34,6 +35,7 @@ void ReflectionHdrDiagnosticCapture::Reset()
     evaluatedRadiance.Reset();
     specularEstimate.Reset();
     resolvedRadiance.Reset();
+    denoisedRadiance.Reset();
     resolvedSpecularEstimate.Reset();
     specularMoments.Reset();
     specularConfidence.Reset();
@@ -164,6 +166,7 @@ void RecordReflectionHdrDiagnosticCapture(ID3D12GraphicsCommandList* commandList
                                           ID3D12Resource* evaluatedRadiance,
                                           ID3D12Resource* specularEstimate,
                                           ID3D12Resource* resolvedRadiance,
+                                          ID3D12Resource* denoisedRadiance,
                                           ID3D12Resource* resolvedSpecularEstimate,
                                           ID3D12Resource* specularMoments,
                                           ID3D12Resource* specularConfidence,
@@ -181,6 +184,7 @@ void RecordReflectionHdrDiagnosticCapture(ID3D12GraphicsCommandList* commandList
     RecordReflectionHdrDiagnosticReadback(
         commandList, device, specularEstimate, roi, capture.specularEstimate);
     RecordReflectionHdrDiagnosticReadback(commandList, device, resolvedRadiance, roi, capture.resolvedRadiance);
+    RecordReflectionHdrDiagnosticReadback(commandList, device, denoisedRadiance, roi, capture.denoisedRadiance);
     RecordReflectionHdrDiagnosticReadback(
         commandList, device, resolvedSpecularEstimate, roi, capture.resolvedSpecularEstimate);
     RecordReflectionHdrDiagnosticReadback(commandList, device, specularMoments, roi, capture.specularMoments);
@@ -223,6 +227,8 @@ ReflectionHdrDiagnosticFrame ReadReflectionHdrDiagnosticCapture(ReflectionHdrDia
     assert(roi.width == capture.specularEstimate.roi.width && roi.height == capture.specularEstimate.roi.height);
     assert(roi.x == capture.resolvedRadiance.roi.x && roi.y == capture.resolvedRadiance.roi.y);
     assert(roi.width == capture.resolvedRadiance.roi.width && roi.height == capture.resolvedRadiance.roi.height);
+    assert(roi.x == capture.denoisedRadiance.roi.x && roi.y == capture.denoisedRadiance.roi.y);
+    assert(roi.width == capture.denoisedRadiance.roi.width && roi.height == capture.denoisedRadiance.roi.height);
     assert(roi.x == capture.rayHit.roi.x && roi.y == capture.rayHit.roi.y);
     assert(roi.width == capture.rayHit.roi.width && roi.height == capture.rayHit.roi.height);
     assert(roi.x == capture.resolvedSpecularEstimate.roi.x && roi.y == capture.resolvedSpecularEstimate.roi.y);
@@ -244,6 +250,7 @@ ReflectionHdrDiagnosticFrame ReadReflectionHdrDiagnosticCapture(ReflectionHdrDia
     frame.evaluatedRadiance = ReadSamples(capture.evaluatedRadiance);
     frame.specularEstimate = ReadSamples(capture.specularEstimate);
     frame.resolvedRadiance = ReadSamples(capture.resolvedRadiance);
+    frame.denoisedRadiance = ReadSamples(capture.denoisedRadiance);
     frame.resolvedSpecularEstimate = ReadSamples(capture.resolvedSpecularEstimate);
     frame.specularMoments = ReadSamples(capture.specularMoments);
     frame.specularConfidence = ReadSamples(capture.specularConfidence);

@@ -30,6 +30,8 @@ const std::vector<ReflectionHdrDiagnosticSample>& SelectSamples(const Reflection
             return frame.specularEstimate;
         case ReflectionHdrDiagnosticSignal::ResolvedSpecularEstimate:
             return frame.resolvedSpecularEstimate;
+        case ReflectionHdrDiagnosticSignal::DenoisedRadiance:
+            return frame.denoisedRadiance;
         case ReflectionHdrDiagnosticSignal::ResolvedRadiance:
         default:
             return frame.resolvedRadiance;

@@ -291,6 +291,7 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
     m_resourceDefaultStates.push_back({kDepthStencilResourceName, D3D12_RESOURCE_STATE_DEPTH_WRITE});
     m_resourceDefaultStates.push_back({kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     m_resourceDefaultStates.push_back({kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
+    m_resourceDefaultStates.push_back({kReflectionDenoisedRadianceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     m_resourceDefaultStates.push_back({kReflectionSpecularEstimateResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     for (const char* resourceName : kReflectionResolvedRadianceResourceNames)
     {
@@ -452,7 +453,6 @@ void RtPbrSurveyEngine::SetHybridReflectionSettings(const HybridReflectionSettin
         m_hybridReflectionSettings.temporalHistoryWeight != settings.temporalHistoryWeight ||
         m_hybridReflectionSettings.temporalNoiseStrength != settings.temporalNoiseStrength ||
         m_hybridReflectionSettings.rejectedPixelNeighborhoodEnabled != settings.rejectedPixelNeighborhoodEnabled ||
-        m_hybridReflectionSettings.surfaceVarianceFilterEnabled != settings.surfaceVarianceFilterEnabled ||
         m_hybridReflectionSettings.varianceGuidedTemporalEnabled != settings.varianceGuidedTemporalEnabled;
 
     m_hybridReflectionSettings = settings;
@@ -961,6 +961,7 @@ void RtPbrSurveyEngine::LoadPipeline()
         RegisterReflectionResolvedRadiance();
         RegisterReflectionAuxiliaryHistory();
         RegisterReflectionEstimatorHistory();
+        RegisterReflectionDenoisedRadiance();
         RegisterTemporalUpscalerSceneColor();
     }
 
@@ -1893,6 +1894,9 @@ auto RtPbrSurveyEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
                                   LoadShaderBytecode(L"shaders_ReflectionEvaluate_PSMain.cso")};
     shaders.temporalReflection = {LoadShaderBytecode(L"shaders_TemporalReflection_VSMain.cso"),
                                   LoadShaderBytecode(L"shaders_TemporalReflection_PSMain.cso")};
+    shaders.edgeAwareSpatialReflection = {
+        LoadShaderBytecode(L"shaders_EdgeAwareSpatialReflection_VSMain.cso"),
+        LoadShaderBytecode(L"shaders_EdgeAwareSpatialReflection_PSMain.cso")};
     shaders.toneMap = {LoadShaderBytecode(L"shaders_ToneMap_VSMain.cso"),
                        LoadShaderBytecode(L"shaders_ToneMap_PSMain.cso")};
     shaders.hybridReflection = LoadShaderBytecode(L"shaders_HybridReflection_CSMain.cso");
@@ -1989,6 +1993,9 @@ void RtPbrSurveyEngine::RegisterPipelineStates(const PipelineShaderBytecode& sha
            DXGI_FORMAT_R32G32_FLOAT,
            DXGI_FORMAT_R16_FLOAT},
           5},
+         {Pipe::EdgeAwareSpatialReflection,
+          shaders.edgeAwareSpatialReflection,
+          DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::ToneMap, shaders.toneMap, m_backBufferFormat},
          {Pipe::GBufferDebug, shaders.gbufferDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::ReflectionRayHitDebug, shaders.reflectionRayHitDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
@@ -2593,6 +2600,12 @@ void RtPbrSurveyEngine::CreateGBuffer()
     }
     assert(m_reflectionSpecularEstimateSrv.Index == m_reflectionEvaluatedRadianceSrv.Index + 1);
 
+    if (m_reflectionDenoisedRadianceSrv.Index == UINT_MAX)
+    {
+        m_reflectionDenoisedRadianceSrv = m_descriptorHeapAllocator.AllocWithHandle();
+    }
+    assert(m_reflectionDenoisedRadianceSrv.Index == m_reflectionSpecularEstimateSrv.Index + 1);
+
     for (UINT i = 0; i < _countof(m_reflectionResolvedRadianceSrv); ++i)
     {
         if (m_reflectionResolvedRadianceSrv[i].Index == UINT_MAX)
@@ -2600,7 +2613,7 @@ void RtPbrSurveyEngine::CreateGBuffer()
             m_reflectionResolvedRadianceSrv[i] = m_descriptorHeapAllocator.AllocWithHandle();
         }
         const UINT expectedIndex = i == 0 ?
-            m_reflectionSpecularEstimateSrv.Index + 1 :
+            m_reflectionDenoisedRadianceSrv.Index + 1 :
             m_reflectionResolvedRadianceSrv[i - 1].Index + 1;
         assert(m_reflectionResolvedRadianceSrv[i].Index == expectedIndex);
     }
@@ -2816,6 +2829,12 @@ void RtPbrSurveyEngine::RegisterReflectionResolvedRadiance()
     {
         RegisterRenderTexture(MakeColorRenderTextureSpec(resourceName, Engine::RenderTextureSizeClass::RenderSize));
     }
+}
+
+void RtPbrSurveyEngine::RegisterReflectionDenoisedRadiance()
+{
+    RegisterRenderTexture(
+        MakeColorRenderTextureSpec(kReflectionDenoisedRadianceResourceName, Engine::RenderTextureSizeClass::RenderSize));
 }
 
 void RtPbrSurveyEngine::RegisterReflectionAuxiliaryHistory()
@@ -3141,6 +3160,11 @@ D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionSpecularConfidenceCu
     return GetRtv(kReflectionSpecularConfidenceRTVBaseIndex + (m_reflectionHistoryState.readIndex ^ 1u));
 }
 
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionDenoisedRadianceRTV() const
+{
+    return GetRtv(kReflectionDenoisedRadianceRTVIndex);
+}
+
 D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetTemporalUpscalerSceneColorRTV() const
 {
     return GetRtv(kTemporalUpscalerSceneColorRTVIndex);
@@ -3189,6 +3213,9 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
         m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionSpecularConfidenceCurrent),
         [this]() { return GetReflectionSpecularConfidenceCurrentRTV(); });
     m_renderGraphRuntime.Bindings().RegisterRtv(
+        m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionDenoisedRadiance),
+        [this]() { return GetReflectionDenoisedRadianceRTV(); });
+    m_renderGraphRuntime.Bindings().RegisterRtv(
         m_renderGraphRuntime.RegisterRtv(RtvName::TemporalUpscalerSceneColor),
         [this]() { return GetTemporalUpscalerSceneColorRTV(); });
 
@@ -3228,6 +3255,9 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionResolvedRadianceCurrentSrv),
         [this]() { return m_reflectionResolvedRadianceSrv[m_reflectionHistoryState.readIndex ^ 1u].gpu; });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionDenoisedRadianceSrv),
+        [this]() { return m_reflectionDenoisedRadianceSrv.gpu; });
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionHistoryDepthSrv),
         [this]() { return m_reflectionHistoryDepthSrv[m_reflectionHistoryState.readIndex].gpu; });
@@ -3381,6 +3411,8 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
                                                       [this]() { return m_reflectionEvaluatedRadiance.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kReflectionSpecularEstimateResourceName,
                                                       [this]() { return m_reflectionSpecularEstimate.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kReflectionDenoisedRadianceResourceName,
+                                                      [this]() { return m_reflectionDenoisedRadiance.Get(); });
     for (UINT i = 0; i < _countof(kReflectionResolvedRadianceResourceNames); ++i)
     {
         m_renderGraphRuntime.Resources().RegisterResource(
@@ -3676,6 +3708,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_lightPassRenderTarget.Reset();
     m_reflectionEvaluatedRadiance.Reset();
     m_reflectionSpecularEstimate.Reset();
+    m_reflectionDenoisedRadiance.Reset();
     for (ComPtr<ID3D12Resource>& resource : m_reflectionResolvedRadiance)
     {
         resource.Reset();
@@ -3710,6 +3743,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_resourceRegistry.UnregisterTransientResource(kLightPassRenderTargetResourceName);
     m_resourceRegistry.UnregisterTransientResource(kReflectionEvaluatedRadianceResourceName);
     m_resourceRegistry.UnregisterTransientResource(kReflectionSpecularEstimateResourceName);
+    m_resourceRegistry.UnregisterTransientResource(kReflectionDenoisedRadianceResourceName);
     for (const char* resourceName : kReflectionResolvedRadianceResourceNames)
     {
         m_resourceRegistry.UnregisterTransientResource(resourceName);
@@ -3742,6 +3776,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     RegisterReflectionResolvedRadiance();
     RegisterReflectionAuxiliaryHistory();
     RegisterReflectionEstimatorHistory();
+    RegisterReflectionDenoisedRadiance();
     RegisterTemporalUpscalerSceneColor();
     CreateGBuffer();
     CreateShadowMask();
@@ -4058,6 +4093,10 @@ bool RtPbrSurveyEngine::BindCreatedColorRenderTexture(const std::string& name, I
          &RtPbrSurveyEngine::m_reflectionSpecularEstimate,
          kReflectionSpecularEstimateRTVIndex,
          &RtPbrSurveyEngine::m_reflectionSpecularEstimateSrv},
+        {kReflectionDenoisedRadianceResourceName,
+         &RtPbrSurveyEngine::m_reflectionDenoisedRadiance,
+         kReflectionDenoisedRadianceRTVIndex,
+         &RtPbrSurveyEngine::m_reflectionDenoisedRadianceSrv},
         {kTemporalUpscalerSceneColorResourceName,
          &RtPbrSurveyEngine::m_temporalUpscalerSceneColor,
          kTemporalUpscalerSceneColorRTVIndex,
@@ -4155,6 +4194,11 @@ void RtPbrSurveyEngine::CollectGarbageTransientResources()
         if (name == kReflectionSpecularEstimateResourceName)
         {
             m_reflectionSpecularEstimate.Reset();
+        }
+
+        if (name == kReflectionDenoisedRadianceResourceName)
+        {
+            m_reflectionDenoisedRadiance.Reset();
         }
 
         for (UINT i = 0; i < _countof(kReflectionResolvedRadianceResourceNames); ++i)
@@ -4475,6 +4519,13 @@ void RtPbrSurveyEngine::ExecuteTemporalReflectionPass(const RenderPass& pass)
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Temporal Reflection Pass");
 }
 
+void RtPbrSurveyEngine::ExecuteEdgeAwareSpatialReflectionPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+    Engine::RecordEdgeAwareSpatialReflectionPass(m_commandList.Get());
+    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Edge-Aware Spatial Reflection Pass");
+}
+
 void RtPbrSurveyEngine::ExecuteLightingDebugGradientPass(const RenderPass& pass)
 {
     Engine::RecordLightingDebugGradientPass(m_commandList.Get());
@@ -4658,6 +4709,9 @@ void RtPbrSurveyEngine::RecordReflectionHdrDiagnosticPass()
                                                  m_reflectionEvaluatedRadiance.Get(),
                                                  m_reflectionSpecularEstimate.Get(),
                                                  m_reflectionResolvedRadiance[writeIndex].Get(),
+                                                 m_hybridReflectionSettings.surfaceVarianceFilterEnabled ?
+                                                     m_reflectionDenoisedRadiance.Get() :
+                                                     m_reflectionResolvedRadiance[writeIndex].Get(),
                                                  m_reflectionResolvedSpecularEstimate[writeIndex].Get(),
                                                  m_reflectionSpecularMoments[writeIndex].Get(),
                                                  m_reflectionSpecularConfidence[writeIndex].Get(),
