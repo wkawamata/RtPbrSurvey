@@ -759,13 +759,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton("Evaluated Radiance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionEvaluatedRadiance));
         ImGui::SameLine();
         ImGui::RadioButton("Specular Estimate##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionSpecularEstimate));
-        ImGui::SameLine();
         ImGui::RadioButton("Resolved Specular##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionResolvedSpecularEstimate));
         ImGui::SameLine();
         ImGui::RadioButton("Specular Variance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionSpecularVariance));
         ImGui::SameLine();
         ImGui::RadioButton("Specular Confidence##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionSpecularConfidence));
-        ImGui::SameLine();
         ImGui::RadioButton("Resolved Radiance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionResolvedRadiance));
         ImGui::SameLine();
         ImGui::RadioButton("Temporal Validity##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionTemporalValidity));

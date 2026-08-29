@@ -25,4 +25,12 @@
 - The off/on `ReflectionResolvedRadiance` control variance was identical at report precision. This confirms that the new spatial pass does not feed or perturb temporal history in the measured static case.
 - This is a development-level, current-estimator-relative gate. It does not establish physical correctness, production denoiser readiness, motion quality, or cross-scene generalization. A 256-frame PR gate and live subjective evaluation remain future work.
 
-Status: done
+## 2026-08-30: DamagedHelmet grazing-angle emissive-reflection observation
+
+- A narrow yellow emissive reflection was identified on the helmet side adjacent to an emissive material when viewed at a grazing angle. The directly visible emissive source and its reflected image were distinguished by their surfaces and viewing geometry.
+- With Stochastic Rough Sampling enabled and Temporal History Weight `0.0`, temporal grain was clearly visible in the Lit reflection.
+- Raising Temporal History Weight to `0.9` removed the subjectively visible temporal noise while preserving the emissive reflection.
+- This establishes a reproducible Lit observation point on DamagedHelmet. Weight `0.0` is suitable for isolating the spatial filter, while weight `0.9` is suitable for checking whether the spatial pass adds useful quality or only removes detail after temporal stabilization.
+- Motion response, filter-off/on detail preservation, and cross-scene generalization are not yet claimed.
+
+Status: in progress

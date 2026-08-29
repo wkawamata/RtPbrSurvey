@@ -25,4 +25,12 @@
 - off／onの `ReflectionResolvedRadiance` 対照varianceはreport精度で同一だった。測定した静止条件では、新spatial passがtemporal historyへfeedbackせず影響も与えないことを確認した。
 - これはcurrent estimatorに対する開発level gateである。物理的正しさ、production denoiser readiness、motion品質、scene横断generalizationは主張しない。256-frame PR gateとlive主観評価は今後の作業として残す。
 
-Status: done
+## 2026-08-30: DamagedHelmetのgrazing-angle Emissive Reflection観察
+
+- Emissive material付近のヘルメット側面を浅い角度から見たとき、細い黄色のEmissive reflectionを確認した。直接見えているEmissive sourceと反射像は、表示面とviewing geometryから区別した。
+- Stochastic Rough Sampling有効、Temporal History Weight `0.0`では、Lit reflection上に時間方向の粒状noiseが明確に見えた。
+- Temporal History Weightを`0.9`へ上げると、Emissive reflectionを維持したまま主観的に見えるtemporal noiseが消えた。
+- これによりDamagedHelmet上に再現可能なLit観察点が成立した。Weight `0.0`はspatial filter単体効果の分離、Weight `0.9`はtemporal安定化後にspatial passが有用な改善を加えるかdetailを失うだけかの確認に使用できる。
+- motion応答、filter off／onのdetail保持、scene横断generalizationはまだ主張しない。
+
+Status: in progress
