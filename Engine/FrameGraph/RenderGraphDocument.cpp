@@ -396,6 +396,140 @@ std::vector<RenderGraphStateDiagnostic> BuildRenderGraphStateDiagnostics(const R
     return diagnostics;
 }
 
+std::vector<RenderGraphBarrierDiagnostic>
+CompareRenderGraphBarrierEvents(const RenderGraphDocument& document,
+                                const std::vector<RenderGraphBarrierEvent>& barrierEvents)
+{
+    std::unordered_map<RenderGraphDocumentId, const RenderGraphDocumentNode*> nodes;
+    for (const RenderGraphDocumentNode& node : document.nodes)
+    {
+        nodes[node.id] = &node;
+    }
+
+    std::vector<RenderGraphBarrierEvent> actualEvents = barrierEvents;
+    std::sort(actualEvents.begin(),
+              actualEvents.end(),
+              [](const auto& lhs, const auto& rhs)
+              {
+                  if (lhs.passIndex != rhs.passIndex)
+                  {
+                      return lhs.passIndex < rhs.passIndex;
+                  }
+                  if (lhs.resourceName != rhs.resourceName)
+                  {
+                      return lhs.resourceName < rhs.resourceName;
+                  }
+                  if (lhs.beforeState != rhs.beforeState)
+                  {
+                      return lhs.beforeState < rhs.beforeState;
+                  }
+                  return lhs.afterState < rhs.afterState;
+              });
+    std::vector<bool> consumed(actualEvents.size(), false);
+    std::vector<RenderGraphBarrierDiagnostic> result;
+
+    for (const RenderGraphStateDiagnostic& expected : BuildRenderGraphStateDiagnostics(document))
+    {
+        if (expected.kind != RenderGraphStateDiagnosticKind::RequiredTransition)
+        {
+            continue;
+        }
+        const RenderGraphDocumentNode* resource = nodes.at(expected.resourceNodeId);
+        const RenderGraphDocumentNode* pass = nodes.at(expected.afterPassNodeId);
+        const auto actual = std::find_if(actualEvents.begin(),
+                                         actualEvents.end(),
+                                         [resource, pass](const RenderGraphBarrierEvent& event)
+                                         {
+                                             return event.passIndex == pass->passIndex &&
+                                                 event.resourceName == resource->name;
+                                         });
+        if (actual == actualEvents.end())
+        {
+            result.push_back({RenderGraphBarrierDiagnosticKind::Missing,
+                              expected.resourceNodeId,
+                              expected.afterPassNodeId,
+                              expected.beforeState,
+                              expected.afterState});
+            continue;
+        }
+
+        const size_t actualIndex = static_cast<size_t>(std::distance(actualEvents.begin(), actual));
+        consumed[actualIndex] = true;
+        if (actual->beforeState != expected.beforeState || actual->afterState != expected.afterState)
+        {
+            result.push_back({RenderGraphBarrierDiagnosticKind::StateMismatch,
+                              expected.resourceNodeId,
+                              expected.afterPassNodeId,
+                              expected.beforeState,
+                              expected.afterState,
+                              actual->beforeState,
+                              actual->afterState});
+        }
+    }
+
+    for (size_t eventIndex = 0; eventIndex < actualEvents.size(); ++eventIndex)
+    {
+        if (consumed[eventIndex])
+        {
+            continue;
+        }
+        const RenderGraphBarrierEvent& event = actualEvents[eventIndex];
+        const auto resource = std::find_if(document.nodes.begin(),
+                                           document.nodes.end(),
+                                           [&event](const RenderGraphDocumentNode& node)
+                                           {
+                                               return node.kind == RenderGraphNodeKind::Resource &&
+                                                   node.name == event.resourceName;
+                                           });
+        const auto pass = std::find_if(document.nodes.begin(),
+                                       document.nodes.end(),
+                                       [&event](const RenderGraphDocumentNode& node)
+                                       {
+                                           return node.kind == RenderGraphNodeKind::Pass &&
+                                               node.passIndex == event.passIndex;
+                                       });
+        if (resource == document.nodes.end() || pass == document.nodes.end())
+        {
+            continue;
+        }
+        const bool hasPriorUsage = std::any_of(document.links.begin(),
+                                               document.links.end(),
+                                               [&nodes, &resource, &event](const RenderGraphDocumentLink& link)
+                                               {
+                                                   return link.resourceNodeId == resource->id &&
+                                                       nodes.at(link.passNodeId)->passIndex < event.passIndex;
+                                               });
+        if (hasPriorUsage)
+        {
+            result.push_back({RenderGraphBarrierDiagnosticKind::Unexpected,
+                              resource->id,
+                              pass->id,
+                              D3D12_RESOURCE_STATE_COMMON,
+                              D3D12_RESOURCE_STATE_COMMON,
+                              event.beforeState,
+                              event.afterState});
+        }
+    }
+
+    std::sort(result.begin(),
+              result.end(),
+              [&nodes](const auto& lhs, const auto& rhs)
+              {
+                  const int lhsPassIndex = nodes.at(lhs.passNodeId)->passIndex;
+                  const int rhsPassIndex = nodes.at(rhs.passNodeId)->passIndex;
+                  if (lhsPassIndex != rhsPassIndex)
+                  {
+                      return lhsPassIndex < rhsPassIndex;
+                  }
+                  if (lhs.resourceNodeId != rhs.resourceNodeId)
+                  {
+                      return lhs.resourceNodeId.value < rhs.resourceNodeId.value;
+                  }
+                  return lhs.kind < rhs.kind;
+              });
+    return result;
+}
+
 std::string DumpRenderGraphDocumentText(const RenderGraphDocument& document)
 {
     std::ostringstream stream;

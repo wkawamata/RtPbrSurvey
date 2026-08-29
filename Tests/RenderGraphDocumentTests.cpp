@@ -210,6 +210,47 @@ bool TestStateDiagnostics()
     return passed;
 }
 
+bool TestBarrierEventDiagnostics()
+{
+    const std::vector<Engine::RenderPass> passes = {
+        {.name = L"WriteColor", .writes = {{"Color", D3D12_RESOURCE_STATE_RENDER_TARGET}}},
+        {.name = L"ReadColor", .reads = {{"Color", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}},
+        {.name = L"ReadStable", .reads = {{"Stable", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}},
+        {.name = L"ReadStableAgain", .reads = {{"Stable", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}},
+    };
+    const Engine::RenderGraphDocument document = Engine::BuildRenderGraphDocument(passes);
+    bool passed = true;
+
+    const std::vector<Engine::RenderGraphBarrierEvent> matching = {
+        {1, "Color", D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
+    passed &= Check(Engine::CompareRenderGraphBarrierEvents(document, matching).empty(),
+                    "matching runtime barrier produces no diagnostic");
+
+    const std::vector<Engine::RenderGraphBarrierDiagnostic> missing =
+        Engine::CompareRenderGraphBarrierEvents(document, {});
+    passed &= Check(missing.size() == 1 && missing[0].kind == Engine::RenderGraphBarrierDiagnosticKind::Missing,
+                    "missing runtime barrier is diagnosed");
+
+    const std::vector<Engine::RenderGraphBarrierEvent> mismatched = {
+        {1, "Color", D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
+    const std::vector<Engine::RenderGraphBarrierDiagnostic> mismatch =
+        Engine::CompareRenderGraphBarrierEvents(document, mismatched);
+    passed &= Check(mismatch.size() == 1 &&
+                        mismatch[0].kind == Engine::RenderGraphBarrierDiagnosticKind::StateMismatch,
+                    "runtime barrier state mismatch is diagnosed");
+
+    const std::vector<Engine::RenderGraphBarrierEvent> unexpected = {
+        matching[0],
+        {3, "Stable", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_SOURCE},
+    };
+    const std::vector<Engine::RenderGraphBarrierDiagnostic> unexpectedResult =
+        Engine::CompareRenderGraphBarrierEvents(document, unexpected);
+    passed &= Check(unexpectedResult.size() == 1 &&
+                        unexpectedResult[0].kind == Engine::RenderGraphBarrierDiagnosticKind::Unexpected,
+                    "redundant runtime barrier is diagnosed as unexpected");
+    return passed;
+}
+
 bool TestSnapshotSerializationAndDiff()
 {
     Engine::RenderGraphSnapshot snapshot;
@@ -367,6 +408,7 @@ int main()
     passed &= TestPingPongNodeIdentity();
     passed &= TestStateFormatting();
     passed &= TestStateDiagnostics();
+    passed &= TestBarrierEventDiagnostics();
     passed &= TestSnapshotSerializationAndDiff();
     passed &= TestDocumentValidation();
     passed &= TestAuthoringModelCommands();

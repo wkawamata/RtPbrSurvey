@@ -249,14 +249,6 @@ struct ResourceTransitionContext
         onTransition;
 };
 
-struct RenderGraphBarrierEvent
-{
-    int passIndex = -1;
-    std::string resourceName;
-    D3D12_RESOURCE_STATES beforeState = D3D12_RESOURCE_STATE_COMMON;
-    D3D12_RESOURCE_STATES afterState = D3D12_RESOURCE_STATE_COMMON;
-};
-
 class ResourceResolverRegistry
 {
 public:

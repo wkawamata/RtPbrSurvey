@@ -141,6 +141,24 @@ struct RenderGraphStateDiagnostic
     D3D12_RESOURCE_STATES afterState = D3D12_RESOURCE_STATE_COMMON;
 };
 
+enum class RenderGraphBarrierDiagnosticKind
+{
+    Missing,
+    Unexpected,
+    StateMismatch,
+};
+
+struct RenderGraphBarrierDiagnostic
+{
+    RenderGraphBarrierDiagnosticKind kind = RenderGraphBarrierDiagnosticKind::Missing;
+    RenderGraphDocumentId resourceNodeId;
+    RenderGraphDocumentId passNodeId;
+    D3D12_RESOURCE_STATES expectedBeforeState = D3D12_RESOURCE_STATE_COMMON;
+    D3D12_RESOURCE_STATES expectedAfterState = D3D12_RESOURCE_STATE_COMMON;
+    D3D12_RESOURCE_STATES actualBeforeState = D3D12_RESOURCE_STATE_COMMON;
+    D3D12_RESOURCE_STATES actualAfterState = D3D12_RESOURCE_STATE_COMMON;
+};
+
 struct RenderGraphSnapshotMetadata
 {
     std::string label;
@@ -192,6 +210,9 @@ std::string DumpRenderGraphDocumentText(const RenderGraphDocument& document);
 std::string DumpRenderGraphDocumentDot(const RenderGraphDocument& document);
 std::string FormatD3D12ResourceStates(D3D12_RESOURCE_STATES states);
 std::vector<RenderGraphStateDiagnostic> BuildRenderGraphStateDiagnostics(const RenderGraphDocument& document);
+std::vector<RenderGraphBarrierDiagnostic>
+CompareRenderGraphBarrierEvents(const RenderGraphDocument& document,
+                                const std::vector<RenderGraphBarrierEvent>& barrierEvents);
 std::string SerializeRenderGraphSnapshot(const RenderGraphSnapshot& snapshot);
 bool DeserializeRenderGraphSnapshot(const std::string& json,
                                     RenderGraphSnapshot& snapshot,

@@ -191,8 +191,8 @@
 ## Follow-up: 実Resource Barrier診断
 
 - [x] graph実行時に発行したtransitionをpass index、resource名、before/after state付きで記録する。
-- [ ] 記録したbarrier eventと`RenderGraphDocument`の要求transitionをdeterministicに照合する。
-- [ ] missing、unexpected、state mismatchをunit testで検証する。
+- [x] 記録したbarrier eventと`RenderGraphDocument`の要求transitionをdeterministicに照合する。
+- [x] missing、unexpected、state mismatchをunit testで検証する。
 - [ ] 照合結果を既存State Diagnostics一覧へ統合する。
 - [ ] 実barrierの一致・不一致表示を統合画面確認リストへ追加する。
 
