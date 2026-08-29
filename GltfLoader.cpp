@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <functional>
 #include <tiny_gltf.h>
 
@@ -238,14 +239,35 @@ static bool AppendPrimitive(const tinygltf::Model& model,
     return true;
 }
 
+static std::string ResolveGltfPath(const std::string& path)
+{
+    const std::filesystem::path requestedPath(path);
+    if (requestedPath.is_absolute() || std::filesystem::exists(requestedPath))
+    {
+        return requestedPath.string();
+    }
+
+    WCHAR executablePath[MAX_PATH] = {};
+    const DWORD pathLength = GetModuleFileNameW(nullptr, executablePath, _countof(executablePath));
+    if (pathLength == 0 || pathLength >= _countof(executablePath))
+    {
+        return path;
+    }
+
+    const std::filesystem::path runtimePath =
+        std::filesystem::path(executablePath).parent_path() / requestedPath;
+    return std::filesystem::exists(runtimePath) ? runtimePath.string() : path;
+}
+
 static bool LoadGltfModel(const std::string& path, tinygltf::Model& model, std::string& message)
 {
     tinygltf::TinyGLTF loader;
     std::string warn;
     std::string error;
-    const bool isGlb = path.size() >= 4 && path.substr(path.size() - 4) == ".glb";
-    const bool loaded = isGlb ? loader.LoadBinaryFromFile(&model, &error, &warn, path)
-                              : loader.LoadASCIIFromFile(&model, &error, &warn, path);
+    const std::string resolvedPath = ResolveGltfPath(path);
+    const bool isGlb = resolvedPath.size() >= 4 && resolvedPath.substr(resolvedPath.size() - 4) == ".glb";
+    const bool loaded = isGlb ? loader.LoadBinaryFromFile(&model, &error, &warn, resolvedPath)
+                              : loader.LoadASCIIFromFile(&model, &error, &warn, resolvedPath);
 
     if (!warn.empty())
     {
