@@ -196,20 +196,33 @@
 - [x] 照合結果を既存State Diagnostics一覧へ統合する。
 - [x] 実barrierの一致・不一致表示を統合画面確認リストへ追加する。
 
-## 後回しにする統合画面確認
+## 統合画面確認
 
-- [ ] RG-01: Pass/Resource選択とdetail paneの内容を確認する。
+- [x] RG-01: Pass/Resource選択とdetail paneの内容を確認する。
 - [ ] RG-02: 検索、種別filter、lifetime filter、接続node強調を確認する。
-- [ ] RG-03: Resource lifetime timeline、`.0`/`.1`隣接表示、selection同期を確認する。
-- [ ] RG-04: state transitionとUAV barrier候補のedge色・一覧を確認する。
+- [x] RG-03: Resource lifetime timeline、`.0`/`.1`隣接表示、selection同期を確認する。
+- [x] RG-04: state transitionとUAV barrier候補のedge色・一覧を確認する。
 - [ ] State Diagnosticsで実barrierのMissing、Unexpected、State mismatch表示を確認する。
 - [ ] RG-05: GPU current/120 frame平均/最大、frame比率、`GPU N/A`表示を確認する。
 - [ ] GPU timingがframe slot再利用後も連続更新され、値が不自然に欠落・破損しないことを確認する。
-- [ ] RG-06: Ping-pong Resourceのphysical indexとHistory Read/Current Write交換を確認する。
-- [ ] RG-07: baseline設定・解除、added/removed/changed件数と色分けを確認する。
+- [x] RG-06: Ping-pong Resourceのphysical indexとHistory Read/Current Write交換を確認する。
+- [x] RG-07: baseline設定・解除、added/removed/changed件数と色分けを確認する。
 - [ ] RG-08: Validation一覧、severity表示、該当nodeへのfocusを確認する。
-- [ ] RG-09: Focus Selected、Reset Layout、Texture/Buffer/Unknown laneを確認する。
-- [ ] RenderGraph windowの通常サイズ、最大化、復元でUI崩れがないことを確認する。
-- [ ] 同一topologyでnode位置・Box寸法が安定し、ping-pong時はlink/roleだけが切り替わることを確認する。
+- [x] RG-09: Focus Selected、Reset Layout、Texture/Buffer/Unknown laneを確認する。
+- [x] RenderGraph windowの通常サイズ、最大化、復元でUI崩れがないことを確認する。
+- [x] 同一topologyでnode位置・Box寸法が安定し、ping-pong時はlink/roleだけが切り替わることを確認する。
 - [x] Debug x64を10秒間自動実行し、D3D12 Debug Layer logが空であることを確認する。
 - [ ] 自動captureまたは手動screenshotを保存し、主要表示の確認記録を残す。
+
+### 2026-08-29 主観評価メモ
+
+- 検索欄で`ReflectionHistoryDepth`を絞り込み、該当Resourceの強調を確認した。種別・lifetime・接続nodeの全組み合わせは未確認のためRG-02全体は継続する。
+- `ReflectionHistoryDepth.0`のdetail paneにTexture、Persistent、pass range、logical group、physical index、current role、pass usageが表示された。
+- 同じnode位置とBox寸法のまま`Current Write`と`History Read`が交換し、baseline比較ではnode変更とlink交換が表示された。
+- GPU Average値は各Pass nodeに表示された。Current、Max、N/A、連続更新の全モード確認は継続する。
+- Validationは`No validation messages.`だったため、warning発生時のseverityとfocus動作は未確認。
+
+確認中に見つかった問題候補:
+
+- 通常のScene SelectからDamagedHelmetを`Load Scene`すると`Scene/SampleScene.cpp:555`の`assert(loaded)`が発生した。`-AutoSelectGltfDamagedHelmet`では正常に起動した。
+- State DiagnosticsはDamagedHelmet実行時に`19 required barriers / 2 runtime mismatches`を表示する。2件の種類と対象Resourceを切り分ける必要がある。
