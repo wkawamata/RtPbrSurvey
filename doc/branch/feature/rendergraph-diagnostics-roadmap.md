@@ -93,10 +93,10 @@
 
 ### RG-07 Snapshot保存と比較
 
-- [ ] `RenderGraphDocument` snapshotのserialization形式を決める。
-- [ ] 2 snapshot間のnode、link、state、lifetime差分を計算する。
-- [ ] added、removed、changedをviewerで色分けする。
-- [ ] Forward/Deferredや機能ON/OFF比較を想定したmetadataを定義する。
+- [x] schema version付きcanonical JSONをsnapshot serialization形式とする。
+- [x] 2 snapshot間のnode、link、state、lifetime差分をstable IDで計算する。
+- [x] addedを緑、changedを琥珀、removedを赤系の件数表示としてviewerへ反映する。
+- [x] label、renderer mode、source commit、feature flagsのmetadataを定義する。
 
 完了条件:
 
@@ -166,4 +166,5 @@
 - [x] RG-04 State transition診断
 - [x] RG-05 GPU timing表示
 - [x] RG-06 Ping-pong Resourceの論理グループ表示
-- [ ] 次のtask: RG-07 Snapshot保存と比較
+- [x] RG-07 Snapshot保存と比較
+- [ ] 次のtask: RG-08 Validationと警告一覧

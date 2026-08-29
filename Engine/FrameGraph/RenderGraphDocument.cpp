@@ -21,6 +21,9 @@
 #include <sstream>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
+
+#include <nlohmann/json.hpp>
 
 namespace Engine
 {
@@ -452,6 +455,295 @@ std::string DumpRenderGraphDocumentDot(const RenderGraphDocument& document)
     }
     stream << "}\n";
     return stream.str();
+}
+
+namespace
+{
+using Json = nlohmann::ordered_json;
+
+std::string IdToHex(RenderGraphDocumentId id)
+{
+    std::ostringstream stream;
+    stream << std::hex << std::setw(16) << std::setfill('0') << id.value;
+    return stream.str();
+}
+
+bool HexToId(const Json& value, RenderGraphDocumentId& id)
+{
+    if (!value.is_string())
+    {
+        return false;
+    }
+    std::istringstream stream(value.get<std::string>());
+    stream >> std::hex >> id.value;
+    return !stream.fail() && stream.eof() && id.value != 0;
+}
+
+template <typename ValueT> std::vector<const ValueT*> SortedById(const std::vector<ValueT>& values)
+{
+    std::vector<const ValueT*> sorted;
+    sorted.reserve(values.size());
+    for (const ValueT& value : values)
+    {
+        sorted.push_back(&value);
+    }
+    std::sort(sorted.begin(), sorted.end(), [](const ValueT* lhs, const ValueT* rhs) {
+        return lhs->id.value < rhs->id.value;
+    });
+    return sorted;
+}
+
+bool NodesEqual(const RenderGraphDocumentNode& lhs, const RenderGraphDocumentNode& rhs)
+{
+    return lhs.kind == rhs.kind && lhs.name == rhs.name && lhs.passIndex == rhs.passIndex &&
+           lhs.firstPass == rhs.firstPass && lhs.lastPass == rhs.lastPass && lhs.lifetimeKind == rhs.lifetimeKind &&
+           lhs.resourceKind == rhs.resourceKind && lhs.logicalGroupId == rhs.logicalGroupId &&
+           lhs.logicalGroupName == rhs.logicalGroupName && lhs.physicalIndex == rhs.physicalIndex &&
+           lhs.pingPongRole == rhs.pingPongRole;
+}
+
+bool LinksEqual(const RenderGraphDocumentLink& lhs, const RenderGraphDocumentLink& rhs)
+{
+    return lhs.fromPinId == rhs.fromPinId && lhs.toPinId == rhs.toPinId && lhs.passNodeId == rhs.passNodeId &&
+           lhs.resourceNodeId == rhs.resourceNodeId && lhs.access == rhs.access && lhs.state == rhs.state;
+}
+} // namespace
+
+bool RenderGraphDocumentDiff::HasChanges() const
+{
+    return !addedNodes.empty() || !removedNodes.empty() || !changedNodes.empty() || !addedLinks.empty() ||
+           !removedLinks.empty() || !changedLinks.empty();
+}
+
+std::string SerializeRenderGraphSnapshot(const RenderGraphSnapshot& snapshot)
+{
+    Json root;
+    root["schemaVersion"] = snapshot.schemaVersion;
+    root["metadata"] = {{"label", snapshot.metadata.label},
+                        {"rendererMode", snapshot.metadata.rendererMode},
+                        {"sourceCommit", snapshot.metadata.sourceCommit},
+                        {"features", snapshot.metadata.features}};
+    Json nodes = Json::array();
+    for (const RenderGraphDocumentNode* node : SortedById(snapshot.document.nodes))
+    {
+        nodes.push_back({{"id", IdToHex(node->id)},
+                         {"kind", static_cast<int>(node->kind)},
+                         {"name", node->name},
+                         {"passIndex", node->passIndex},
+                         {"firstPass", node->firstPass},
+                         {"lastPass", node->lastPass},
+                         {"lifetimeKind", static_cast<int>(node->lifetimeKind)},
+                         {"resourceKind", static_cast<int>(node->resourceKind)},
+                         {"logicalGroupId", IdToHex(node->logicalGroupId)},
+                         {"logicalGroupName", node->logicalGroupName},
+                         {"physicalIndex", node->physicalIndex},
+                         {"pingPongRole", static_cast<int>(node->pingPongRole)}});
+    }
+    Json pins = Json::array();
+    for (const RenderGraphDocumentPin* pin : SortedById(snapshot.document.pins))
+    {
+        pins.push_back({{"id", IdToHex(pin->id)},
+                        {"nodeId", IdToHex(pin->nodeId)},
+                        {"direction", static_cast<int>(pin->direction)},
+                        {"access", static_cast<int>(pin->access)},
+                        {"state", static_cast<uint32_t>(pin->state)}});
+    }
+    Json links = Json::array();
+    for (const RenderGraphDocumentLink* link : SortedById(snapshot.document.links))
+    {
+        links.push_back({{"id", IdToHex(link->id)},
+                         {"fromPinId", IdToHex(link->fromPinId)},
+                         {"toPinId", IdToHex(link->toPinId)},
+                         {"passNodeId", IdToHex(link->passNodeId)},
+                         {"resourceNodeId", IdToHex(link->resourceNodeId)},
+                         {"access", static_cast<int>(link->access)},
+                         {"state", static_cast<uint32_t>(link->state)}});
+    }
+    root["document"] = {{"nodes", nodes}, {"pins", pins}, {"links", links}};
+    return root.dump(2) + '\n';
+}
+
+bool DeserializeRenderGraphSnapshot(const std::string& json,
+                                    RenderGraphSnapshot& snapshot,
+                                    std::string& error)
+{
+    try
+    {
+        const Json root = Json::parse(json);
+        if (root.at("schemaVersion").get<uint32_t>() != RenderGraphSnapshot::kSchemaVersion)
+        {
+            error = "Unsupported RenderGraph snapshot schema version.";
+            return false;
+        }
+        RenderGraphSnapshot result;
+        const Json& metadata = root.at("metadata");
+        result.metadata.label = metadata.value("label", "");
+        result.metadata.rendererMode = metadata.value("rendererMode", "");
+        result.metadata.sourceCommit = metadata.value("sourceCommit", "");
+        result.metadata.features = metadata.value("features", std::map<std::string, bool>{});
+        const Json& document = root.at("document");
+        for (const Json& value : document.at("nodes"))
+        {
+            RenderGraphDocumentNode node;
+            if (!HexToId(value.at("id"), node.id))
+            {
+                throw std::runtime_error("Invalid node ID.");
+            }
+            node.kind = static_cast<RenderGraphNodeKind>(value.at("kind").get<int>());
+            node.name = value.at("name").get<std::string>();
+            node.passIndex = value.at("passIndex").get<int>();
+            node.firstPass = value.at("firstPass").get<int>();
+            node.lastPass = value.at("lastPass").get<int>();
+            node.lifetimeKind = static_cast<RenderGraphResourceLifetimeKind>(value.at("lifetimeKind").get<int>());
+            node.resourceKind = static_cast<RenderGraphResourceKind>(value.at("resourceKind").get<int>());
+            const std::string groupId = value.value("logicalGroupId", "0000000000000000");
+            if (groupId != "0000000000000000" && !HexToId(groupId, node.logicalGroupId))
+            {
+                throw std::runtime_error("Invalid logical group ID.");
+            }
+            node.logicalGroupName = value.value("logicalGroupName", "");
+            node.physicalIndex = value.value("physicalIndex", -1);
+            node.pingPongRole = static_cast<RenderGraphPingPongRole>(value.value("pingPongRole", 0));
+            result.document.nodes.push_back(std::move(node));
+        }
+        for (const Json& value : document.at("pins"))
+        {
+            RenderGraphDocumentPin pin;
+            if (!HexToId(value.at("id"), pin.id) || !HexToId(value.at("nodeId"), pin.nodeId))
+            {
+                throw std::runtime_error("Invalid pin ID.");
+            }
+            pin.direction = static_cast<RenderGraphPinDirection>(value.at("direction").get<int>());
+            pin.access = static_cast<RenderGraphResourceAccess>(value.at("access").get<int>());
+            pin.state = static_cast<D3D12_RESOURCE_STATES>(value.at("state").get<uint32_t>());
+            result.document.pins.push_back(pin);
+        }
+        for (const Json& value : document.at("links"))
+        {
+            RenderGraphDocumentLink link;
+            if (!HexToId(value.at("id"), link.id) || !HexToId(value.at("fromPinId"), link.fromPinId) ||
+                !HexToId(value.at("toPinId"), link.toPinId) || !HexToId(value.at("passNodeId"), link.passNodeId) ||
+                !HexToId(value.at("resourceNodeId"), link.resourceNodeId))
+            {
+                throw std::runtime_error("Invalid link ID.");
+            }
+            link.access = static_cast<RenderGraphResourceAccess>(value.at("access").get<int>());
+            link.state = static_cast<D3D12_RESOURCE_STATES>(value.at("state").get<uint32_t>());
+            result.document.links.push_back(link);
+        }
+
+        std::unordered_set<RenderGraphDocumentId> nodeIds;
+        std::unordered_set<RenderGraphDocumentId> pinIds;
+        for (const RenderGraphDocumentNode& node : result.document.nodes)
+        {
+            if (!nodeIds.insert(node.id).second)
+            {
+                throw std::runtime_error("Duplicate node ID.");
+            }
+        }
+        for (const RenderGraphDocumentPin& pin : result.document.pins)
+        {
+            if (!pinIds.insert(pin.id).second || !nodeIds.contains(pin.nodeId))
+            {
+                throw std::runtime_error("Duplicate or dangling pin ID.");
+            }
+        }
+        std::unordered_set<RenderGraphDocumentId> linkIds;
+        for (const RenderGraphDocumentLink& link : result.document.links)
+        {
+            if (!linkIds.insert(link.id).second || !pinIds.contains(link.fromPinId) || !pinIds.contains(link.toPinId) ||
+                !nodeIds.contains(link.passNodeId) || !nodeIds.contains(link.resourceNodeId))
+            {
+                throw std::runtime_error("Duplicate or dangling link reference.");
+            }
+        }
+        snapshot = std::move(result);
+        error.clear();
+        return true;
+    }
+    catch (const std::exception& exception)
+    {
+        error = exception.what();
+        return false;
+    }
+}
+
+RenderGraphDocumentDiff DiffRenderGraphDocuments(const RenderGraphDocument& baseline,
+                                                 const RenderGraphDocument& current)
+{
+    RenderGraphDocumentDiff diff;
+    std::unordered_map<RenderGraphDocumentId, const RenderGraphDocumentNode*> baselineNodes;
+    std::unordered_map<RenderGraphDocumentId, const RenderGraphDocumentNode*> currentNodes;
+    for (const RenderGraphDocumentNode& node : baseline.nodes)
+    {
+        baselineNodes[node.id] = &node;
+    }
+    for (const RenderGraphDocumentNode& node : current.nodes)
+    {
+        currentNodes[node.id] = &node;
+    }
+    for (const auto& [id, node] : currentNodes)
+    {
+        const auto baselineNode = baselineNodes.find(id);
+        if (baselineNode == baselineNodes.end())
+        {
+            diff.addedNodes.push_back(id);
+        }
+        else if (!NodesEqual(*baselineNode->second, *node))
+        {
+            diff.changedNodes.push_back(id);
+        }
+    }
+    for (const auto& [id, node] : baselineNodes)
+    {
+        if (!currentNodes.contains(id))
+        {
+            diff.removedNodes.push_back(id);
+        }
+    }
+
+    std::unordered_map<RenderGraphDocumentId, const RenderGraphDocumentLink*> baselineLinks;
+    std::unordered_map<RenderGraphDocumentId, const RenderGraphDocumentLink*> currentLinks;
+    for (const RenderGraphDocumentLink& link : baseline.links)
+    {
+        baselineLinks[link.id] = &link;
+    }
+    for (const RenderGraphDocumentLink& link : current.links)
+    {
+        currentLinks[link.id] = &link;
+    }
+    for (const auto& [id, link] : currentLinks)
+    {
+        const auto baselineLink = baselineLinks.find(id);
+        if (baselineLink == baselineLinks.end())
+        {
+            diff.addedLinks.push_back(id);
+        }
+        else if (!LinksEqual(*baselineLink->second, *link))
+        {
+            diff.changedLinks.push_back(id);
+        }
+    }
+    for (const auto& [id, link] : baselineLinks)
+    {
+        if (!currentLinks.contains(id))
+        {
+            diff.removedLinks.push_back(id);
+        }
+    }
+
+    const auto sortIds = [](auto& ids) {
+        std::sort(ids.begin(), ids.end(), [](RenderGraphDocumentId lhs, RenderGraphDocumentId rhs) {
+            return lhs.value < rhs.value;
+        });
+    };
+    sortIds(diff.addedNodes);
+    sortIds(diff.removedNodes);
+    sortIds(diff.changedNodes);
+    sortIds(diff.addedLinks);
+    sortIds(diff.removedLinks);
+    sortIds(diff.changedLinks);
+    return diff;
 }
 
 } // namespace Engine

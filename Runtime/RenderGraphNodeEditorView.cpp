@@ -103,6 +103,11 @@ const Engine::RenderGraphDocumentNode* FindNode(const Engine::RenderGraphDocumen
     return nullptr;
 }
 
+bool ContainsId(const std::vector<Engine::RenderGraphDocumentId>& ids, Engine::RenderGraphDocumentId id)
+{
+    return std::find(ids.begin(), ids.end(), id) != ids.end();
+}
+
 bool ContainsCaseInsensitive(const std::string& value, const char* query)
 {
     if (query[0] == '\0')
@@ -417,6 +422,7 @@ struct RenderGraphNodeEditorView::Impl
     std::unordered_map<int, PassTimingHistory> passTimings;
     PassTimingHistory totalTiming;
     int timingMode = 1;
+    std::optional<Engine::RenderGraphDocument> baselineDocument;
     uintptr_t nextSyntheticPinId = UINTPTR_MAX;
 
     Impl()
@@ -540,6 +546,36 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     constexpr const char* timingModes[] = {"GPU Current", "GPU Average (120)", "GPU Max (120)"};
     ImGui::SetNextItemWidth(150.0f);
     ImGui::Combo("##RenderGraphTimingMode", &m_impl->timingMode, timingModes, _countof(timingModes));
+    ImGui::SameLine();
+    if (ImGui::Button("Set Baseline"))
+    {
+        m_impl->baselineDocument = document;
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!m_impl->baselineDocument.has_value());
+    if (ImGui::Button("Clear Baseline"))
+    {
+        m_impl->baselineDocument.reset();
+    }
+    ImGui::EndDisabled();
+
+    const std::optional<Engine::RenderGraphDocumentDiff> snapshotDiff =
+        m_impl->baselineDocument.has_value()
+            ? std::optional<Engine::RenderGraphDocumentDiff>(
+                  Engine::DiffRenderGraphDocuments(*m_impl->baselineDocument, document))
+            : std::nullopt;
+    if (snapshotDiff.has_value())
+    {
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.75f, 0.75f, 0.75f, 1.0f),
+                           "Nodes +%zu -%zu ~%zu  Links +%zu -%zu ~%zu",
+                           snapshotDiff->addedNodes.size(),
+                           snapshotDiff->removedNodes.size(),
+                           snapshotDiff->changedNodes.size(),
+                           snapshotDiff->addedLinks.size(),
+                           snapshotDiff->removedLinks.size(),
+                           snapshotDiff->changedLinks.size());
+    }
 
     ImGui::SetNextItemWidth(240.0f);
     ImGui::InputTextWithHint(
@@ -636,6 +672,14 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         contentWidth = stableContentWidth;
 
         ImVec4 backgroundColor = NodeBackgroundColor(node);
+        if (snapshotDiff.has_value() && ContainsId(snapshotDiff->addedNodes, node.id))
+        {
+            backgroundColor = ImVec4(0.08f, 0.32f, 0.14f, 0.96f);
+        }
+        else if (snapshotDiff.has_value() && ContainsId(snapshotDiff->changedNodes, node.id))
+        {
+            backgroundColor = ImVec4(0.38f, 0.25f, 0.05f, 0.96f);
+        }
         backgroundColor.w *= matchesFilters ? 1.0f : 0.18f;
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, matchesFilters ? 1.0f : 0.28f);
         NodeEditor::PushStyleColor(NodeEditor::StyleColor_NodeBg, backgroundColor);
@@ -724,14 +768,28 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                                     m_impl->MatchesFilters(document, *resourceNode);
         ImVec4 color = link.access == Engine::RenderGraphResourceAccess::Read ? ImVec4(0.35f, 0.70f, 1.0f, 1.0f)
                                                                               : ImVec4(1.0f, 0.65f, 0.25f, 1.0f);
-        for (const Engine::RenderGraphStateDiagnostic& diagnostic : stateDiagnostics)
+        bool snapshotColor = false;
+        if (snapshotDiff.has_value() && ContainsId(snapshotDiff->addedLinks, link.id))
         {
-            if (diagnostic.resourceNodeId == link.resourceNodeId && diagnostic.afterPassNodeId == link.passNodeId)
+            color = ImVec4(0.25f, 1.0f, 0.40f, 1.0f);
+            snapshotColor = true;
+        }
+        else if (snapshotDiff.has_value() && ContainsId(snapshotDiff->changedLinks, link.id))
+        {
+            color = ImVec4(1.0f, 0.75f, 0.20f, 1.0f);
+            snapshotColor = true;
+        }
+        if (!snapshotColor)
+        {
+            for (const Engine::RenderGraphStateDiagnostic& diagnostic : stateDiagnostics)
             {
-                color = diagnostic.kind == Engine::RenderGraphStateDiagnosticKind::UavBarrierCandidate
-                            ? ImVec4(1.0f, 0.90f, 0.20f, 1.0f)
-                            : ImVec4(0.95f, 0.30f, 0.95f, 1.0f);
-                break;
+                if (diagnostic.resourceNodeId == link.resourceNodeId && diagnostic.afterPassNodeId == link.passNodeId)
+                {
+                    color = diagnostic.kind == Engine::RenderGraphStateDiagnosticKind::UavBarrierCandidate
+                                ? ImVec4(1.0f, 0.90f, 0.20f, 1.0f)
+                                : ImVec4(0.95f, 0.30f, 0.95f, 1.0f);
+                    break;
+                }
             }
         }
         color.w = matchesFilters ? 1.0f : 0.10f;

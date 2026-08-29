@@ -14,6 +14,7 @@
 #include "RenderPassGraph.h"
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -140,6 +141,34 @@ struct RenderGraphStateDiagnostic
     D3D12_RESOURCE_STATES afterState = D3D12_RESOURCE_STATE_COMMON;
 };
 
+struct RenderGraphSnapshotMetadata
+{
+    std::string label;
+    std::string rendererMode;
+    std::string sourceCommit;
+    std::map<std::string, bool> features;
+};
+
+struct RenderGraphSnapshot
+{
+    static constexpr uint32_t kSchemaVersion = 1;
+    uint32_t schemaVersion = kSchemaVersion;
+    RenderGraphSnapshotMetadata metadata;
+    RenderGraphDocument document;
+};
+
+struct RenderGraphDocumentDiff
+{
+    std::vector<RenderGraphDocumentId> addedNodes;
+    std::vector<RenderGraphDocumentId> removedNodes;
+    std::vector<RenderGraphDocumentId> changedNodes;
+    std::vector<RenderGraphDocumentId> addedLinks;
+    std::vector<RenderGraphDocumentId> removedLinks;
+    std::vector<RenderGraphDocumentId> changedLinks;
+
+    bool HasChanges() const;
+};
+
 RenderGraphDocument BuildRenderGraphDocument(const std::vector<RenderPass>& renderPasses,
                                              const RenderGraphResourceMetadataMap& resourceMetadata = {});
 
@@ -147,6 +176,12 @@ std::string DumpRenderGraphDocumentText(const RenderGraphDocument& document);
 std::string DumpRenderGraphDocumentDot(const RenderGraphDocument& document);
 std::string FormatD3D12ResourceStates(D3D12_RESOURCE_STATES states);
 std::vector<RenderGraphStateDiagnostic> BuildRenderGraphStateDiagnostics(const RenderGraphDocument& document);
+std::string SerializeRenderGraphSnapshot(const RenderGraphSnapshot& snapshot);
+bool DeserializeRenderGraphSnapshot(const std::string& json,
+                                    RenderGraphSnapshot& snapshot,
+                                    std::string& error);
+RenderGraphDocumentDiff DiffRenderGraphDocuments(const RenderGraphDocument& baseline,
+                                                 const RenderGraphDocument& current);
 
 } // namespace Engine
 

@@ -209,6 +209,49 @@ bool TestStateDiagnostics()
     passed &= Check(uav != diagnostics.end(), "consecutive UAV usage after write is a UAV barrier candidate");
     return passed;
 }
+
+bool TestSnapshotSerializationAndDiff()
+{
+    Engine::RenderGraphSnapshot snapshot;
+    snapshot.metadata.label = "baseline";
+    snapshot.metadata.rendererMode = "deferred";
+    snapshot.metadata.features["hybridReflection"] = true;
+    snapshot.document = MakeDocument();
+
+    const std::string serialized = Engine::SerializeRenderGraphSnapshot(snapshot);
+    Engine::RenderGraphSnapshot restored;
+    std::string error;
+    bool passed = true;
+    passed &= Check(Engine::DeserializeRenderGraphSnapshot(serialized, restored, error),
+                    "snapshot round-trip deserializes");
+    passed &= Check(Engine::SerializeRenderGraphSnapshot(restored) == serialized,
+                    "snapshot round-trip is byte-identical");
+
+    Engine::RenderGraphSnapshot shuffled = snapshot;
+    std::reverse(shuffled.document.nodes.begin(), shuffled.document.nodes.end());
+    std::reverse(shuffled.document.pins.begin(), shuffled.document.pins.end());
+    std::reverse(shuffled.document.links.begin(), shuffled.document.links.end());
+    passed &= Check(Engine::SerializeRenderGraphSnapshot(shuffled) == serialized,
+                    "snapshot serialization is independent of input order");
+    passed &= Check(!Engine::DiffRenderGraphDocuments(snapshot.document, restored.document).HasChanges(),
+                    "identical snapshot diff is empty");
+
+    Engine::RenderGraphDocument changed = snapshot.document;
+    changed.nodes.front().firstPass += 1;
+    changed.links.front().state = D3D12_RESOURCE_STATE_COPY_SOURCE;
+    changed.nodes.push_back({{0x123456789abcdef0ull}, Engine::RenderGraphNodeKind::Resource, "Added"});
+    changed.links.pop_back();
+    const Engine::RenderGraphDocumentDiff diff = Engine::DiffRenderGraphDocuments(snapshot.document, changed);
+    passed &= Check(diff.addedNodes.size() == 1, "snapshot diff detects added node");
+    passed &= Check(diff.changedNodes.size() == 1, "snapshot diff detects changed node");
+    passed &= Check(diff.changedLinks.size() == 1, "snapshot diff detects changed link");
+    passed &= Check(diff.removedLinks.size() == 1, "snapshot diff detects removed link");
+
+    Engine::RenderGraphSnapshot invalid;
+    passed &= Check(!Engine::DeserializeRenderGraphSnapshot("{\"schemaVersion\":2}", invalid, error),
+                    "unsupported snapshot schema is rejected");
+    return passed;
+}
 } // namespace
 
 int main()
@@ -219,5 +262,6 @@ int main()
     passed &= TestPingPongNodeIdentity();
     passed &= TestStateFormatting();
     passed &= TestStateDiagnostics();
+    passed &= TestSnapshotSerializationAndDiff();
     return passed ? 0 : 1;
 }
