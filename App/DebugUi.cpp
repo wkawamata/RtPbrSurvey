@@ -925,7 +925,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
         if (ImGui::Combo("DLSS Quality",
                          &temporalUpscalerQualityMode,
-                         "Native (DLAA)\0Ultra Quality\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
+                         "Native (DLAA)\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
         {
             temporalUpscalerSettings.qualityMode =
                 static_cast<Engine::TemporalUpscalerQualityMode>(temporalUpscalerQualityMode);
