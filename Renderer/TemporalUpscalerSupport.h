@@ -29,7 +29,6 @@ enum class TemporalUpscalerSupportStatus
 enum class TemporalUpscalerQualityMode
 {
     Native = 0,
-    UltraQuality,
     Quality,
     Balanced,
     Performance,
