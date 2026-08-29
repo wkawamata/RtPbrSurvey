@@ -220,18 +220,25 @@ DrawLifetimeTimeline(const Engine::RenderGraphDocument& document,
 }
 
 void DrawStateDiagnostics(const Engine::RenderGraphDocument& document,
-                          const std::vector<Engine::RenderGraphStateDiagnostic>& diagnostics)
+                          const std::vector<Engine::RenderGraphStateDiagnostic>& diagnostics,
+                          const std::vector<Engine::RenderGraphBarrierDiagnostic>* barrierDiagnostics)
 {
     ImGui::SeparatorText("State Diagnostics");
     ImGui::TextDisabled("%zu required barriers", diagnostics.size());
+    if (barrierDiagnostics != nullptr)
+    {
+        ImGui::SameLine();
+        ImGui::TextDisabled("%zu runtime mismatches", barrierDiagnostics->size());
+    }
     if (ImGui::BeginTable("RenderGraphStateDiagnosticsTable",
-                          3,
+                          4,
                           ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY,
                           ImVec2(0.0f, 220.0f)))
     {
         ImGui::TableSetupColumn("Resource");
         ImGui::TableSetupColumn("Pass");
         ImGui::TableSetupColumn("Transition");
+        ImGui::TableSetupColumn("Status");
         ImGui::TableHeadersRow();
         for (const Engine::RenderGraphStateDiagnostic& diagnostic : diagnostics)
         {
@@ -252,6 +259,54 @@ void DrawStateDiagnostics(const Engine::RenderGraphDocument& document,
                 const std::string before = Engine::FormatD3D12ResourceStates(diagnostic.beforeState);
                 const std::string after = Engine::FormatD3D12ResourceStates(diagnostic.afterState);
                 ImGui::TextWrapped("%s -> %s", before.c_str(), after.c_str());
+            }
+            ImGui::TableSetColumnIndex(3);
+            ImGui::TextDisabled("Required");
+        }
+        if (barrierDiagnostics != nullptr)
+        {
+            for (const Engine::RenderGraphBarrierDiagnostic& diagnostic : *barrierDiagnostics)
+            {
+                const Engine::RenderGraphDocumentNode* resource = FindNode(document, diagnostic.resourceNodeId);
+                const Engine::RenderGraphDocumentNode* pass = FindNode(document, diagnostic.passNodeId);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextUnformatted(resource != nullptr ? resource->name.c_str() : "<missing>");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(pass != nullptr ? pass->name.c_str() : "<missing>");
+                ImGui::TableSetColumnIndex(2);
+                if (diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::StateMismatch)
+                {
+                    const std::string expectedBefore =
+                        Engine::FormatD3D12ResourceStates(diagnostic.expectedBeforeState);
+                    const std::string expectedAfter =
+                        Engine::FormatD3D12ResourceStates(diagnostic.expectedAfterState);
+                    const std::string actualBefore = Engine::FormatD3D12ResourceStates(diagnostic.actualBeforeState);
+                    const std::string actualAfter = Engine::FormatD3D12ResourceStates(diagnostic.actualAfterState);
+                    ImGui::TextWrapped("Expected %s -> %s, actual %s -> %s",
+                                       expectedBefore.c_str(),
+                                       expectedAfter.c_str(),
+                                       actualBefore.c_str(),
+                                       actualAfter.c_str());
+                }
+                else if (diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Missing)
+                {
+                    const std::string before = Engine::FormatD3D12ResourceStates(diagnostic.expectedBeforeState);
+                    const std::string after = Engine::FormatD3D12ResourceStates(diagnostic.expectedAfterState);
+                    ImGui::TextWrapped("%s -> %s", before.c_str(), after.c_str());
+                }
+                else
+                {
+                    const std::string before = Engine::FormatD3D12ResourceStates(diagnostic.actualBeforeState);
+                    const std::string after = Engine::FormatD3D12ResourceStates(diagnostic.actualAfterState);
+                    ImGui::TextWrapped("%s -> %s", before.c_str(), after.c_str());
+                }
+                ImGui::TableSetColumnIndex(3);
+                const char* status = diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Missing
+                    ? "Missing"
+                    : diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Unexpected ? "Unexpected"
+                                                                                              : "State mismatch";
+                ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.30f, 1.0f), "%s", status);
             }
         }
         ImGui::EndTable();
@@ -585,7 +640,8 @@ RenderGraphNodeEditorView::RenderGraphNodeEditorView() : m_impl(std::make_unique
 RenderGraphNodeEditorView::~RenderGraphNodeEditorView() = default;
 
 void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document,
-                                     const RenderGraphGpuTimingSnapshot* timing)
+                                     const RenderGraphGpuTimingSnapshot* timing,
+                                     const std::vector<Engine::RenderGraphBarrierDiagnostic>* barrierDiagnostics)
 {
     m_impl->UpdateTimings(timing);
     const std::vector<Engine::RenderGraphStateDiagnostic> stateDiagnostics =
@@ -963,7 +1019,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     DrawDetailPanel(document, m_impl->selectedNodeId, m_impl->passTimings, m_impl->totalTiming, m_impl->timingMode);
     const std::optional<Engine::RenderGraphDocumentId> timelineSelection =
         DrawLifetimeTimeline(document, m_impl->selectedNodeId);
-    DrawStateDiagnostics(document, stateDiagnostics);
+    DrawStateDiagnostics(document, stateDiagnostics, barrierDiagnostics);
     const std::optional<Engine::RenderGraphDocumentId> validationSelection =
         DrawValidationMessages(validationMessages);
     ImGui::EndChild();

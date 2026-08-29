@@ -588,7 +588,12 @@ namespace RtPbrSurvey
         if (dumpFormat == 2)
         {
             static RenderGraphNodeEditorView nodeEditorView;
-            nodeEditorView.Draw(document, timing);
+            const std::vector<Engine::RenderGraphBarrierDiagnostic> barrierDiagnostics =
+                renderer.HasRenderGraphBarrierEvents()
+                ? Engine::CompareRenderGraphBarrierEvents(document, renderer.GetRenderGraphBarrierEvents())
+                : std::vector<Engine::RenderGraphBarrierDiagnostic>{};
+            nodeEditorView.Draw(
+                document, timing, renderer.HasRenderGraphBarrierEvents() ? &barrierDiagnostics : nullptr);
         }
         else
         {

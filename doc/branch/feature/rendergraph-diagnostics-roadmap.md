@@ -193,8 +193,8 @@
 - [x] graph実行時に発行したtransitionをpass index、resource名、before/after state付きで記録する。
 - [x] 記録したbarrier eventと`RenderGraphDocument`の要求transitionをdeterministicに照合する。
 - [x] missing、unexpected、state mismatchをunit testで検証する。
-- [ ] 照合結果を既存State Diagnostics一覧へ統合する。
-- [ ] 実barrierの一致・不一致表示を統合画面確認リストへ追加する。
+- [x] 照合結果を既存State Diagnostics一覧へ統合する。
+- [x] 実barrierの一致・不一致表示を統合画面確認リストへ追加する。
 
 ## 後回しにする統合画面確認
 
@@ -202,6 +202,7 @@
 - [ ] RG-02: 検索、種別filter、lifetime filter、接続node強調を確認する。
 - [ ] RG-03: Resource lifetime timeline、`.0`/`.1`隣接表示、selection同期を確認する。
 - [ ] RG-04: state transitionとUAV barrier候補のedge色・一覧を確認する。
+- [ ] State Diagnosticsで実barrierのMissing、Unexpected、State mismatch表示を確認する。
 - [ ] RG-05: GPU current/120 frame平均/最大、frame比率、`GPU N/A`表示を確認する。
 - [ ] GPU timingがframe slot再利用後も連続更新され、値が不自然に欠落・破損しないことを確認する。
 - [ ] RG-06: Ping-pong Resourceのphysical indexとHistory Read/Current Write交換を確認する。

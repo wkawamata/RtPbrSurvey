@@ -40,7 +40,9 @@ public:
     RenderGraphNodeEditorView(const RenderGraphNodeEditorView&) = delete;
     RenderGraphNodeEditorView& operator=(const RenderGraphNodeEditorView&) = delete;
 
-    void Draw(const Engine::RenderGraphDocument& document, const RenderGraphGpuTimingSnapshot* timing = nullptr);
+    void Draw(const Engine::RenderGraphDocument& document,
+              const RenderGraphGpuTimingSnapshot* timing = nullptr,
+              const std::vector<Engine::RenderGraphBarrierDiagnostic>* barrierDiagnostics = nullptr);
 
 private:
     struct Impl;

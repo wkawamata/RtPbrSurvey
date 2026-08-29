@@ -3945,6 +3945,7 @@ void RtPbrSurveyEngine::ExecutePasses()
                                         m_gpuWorkMeter.SetCheckPoint(
                                             m_commandList.Get(), WideToUtf8(pass.name), passIndex);
                                     }});
+    m_hasRenderGraphBarrierEvents = true;
 }
 
 void RtPbrSurveyEngine::ExecutePassOperation(const RenderPass& pass)
@@ -4329,7 +4330,13 @@ void RtPbrSurveyEngine::SetResourceState(const std::string& name, D3D12_RESOURCE
 
 void RtPbrSurveyEngine::BeginFrame()
 {
+    if (m_hasRenderGraphBarrierEvents)
+    {
+        m_completedRenderGraphBarrierEvents = m_renderGraphBarrierEvents;
+        m_hasCompletedRenderGraphBarrierEvents = true;
+    }
     m_renderGraphBarrierEvents.clear();
+    m_hasRenderGraphBarrierEvents = false;
 
     // Command list allocators can only be reset when the associated
     // command lists have finished execution on the GPU; apps should use
@@ -5139,7 +5146,12 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
 
 const std::vector<Engine::RenderGraphBarrierEvent>& RtPbrSurveyEngine::GetRenderGraphBarrierEvents() const
 {
-    return m_renderGraphBarrierEvents;
+    return m_completedRenderGraphBarrierEvents;
+}
+
+bool RtPbrSurveyEngine::HasRenderGraphBarrierEvents() const
+{
+    return m_hasCompletedRenderGraphBarrierEvents;
 }
 
 void RtPbrSurveyEngine::RecordImGuiPass()
