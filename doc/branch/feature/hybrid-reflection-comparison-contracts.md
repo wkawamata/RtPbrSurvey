@@ -65,7 +65,7 @@ SDR/HDR10 screenshots support subjective review; they do not establish linear-ra
 
 ## Capture and Report Metadata
 
-A comparison report records at least commit, scene, mode, signal boundary, resolutions, camera, exposure, frame range, warm-up, sample sequence, history reset, temporal/spatial/upscaler settings, ROI, and metric domain. An A/B label must never be the only source of configuration meaning.
+A comparison artifact set records at least source revision, scene, mode, signal boundary, resolutions, camera, exposure, frame range, warm-up, sample sequence, history reset, temporal/spatial/upscaler settings, ROI, and metric domain. The application report need not own source-control discovery when the execution harness emits a revision-bearing validation manifest. An A/B label must never be the only source of configuration meaning.
 
 ## Claim Boundary
 

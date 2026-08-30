@@ -65,7 +65,7 @@ SDR／HDR10 screenshotは主観評価用であり、linear radianceのmean、var
 
 ## Capture／report metadata
 
-comparison reportは最低限、commit、scene、mode、signal boundary、resolution、camera、exposure、frame range、warm-up、sample sequence、history reset、temporal／spatial／upscaler設定、ROI、metric domainを保存する。A/B labelだけで設定を推測させない。
+comparison artifact setは最低限、source revision、scene、mode、signal boundary、resolution、camera、exposure、frame range、warm-up、sample sequence、history reset、temporal／spatial／upscaler設定、ROI、metric domainを保存する。アプリreportがSCM情報を所有せず、実行harnessがrevision付きvalidation manifestを作る構成でもよい。A/B labelだけで設定を推測させない。
 
 ## Claim boundary
 

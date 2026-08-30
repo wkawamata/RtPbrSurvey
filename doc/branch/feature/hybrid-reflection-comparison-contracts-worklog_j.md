@@ -11,5 +11,7 @@
 - HDR diagnostic reportをschema v15へ更新し、比較用signal boundary、rendering path、output size、camera snapshot、tone map／exposure、stochastic state、hit-normal sourceを追加した。既存統計とradiance semanticsは変更していない。
 - Estimator Testの2 warm-up／2 measurement frame smokeでschema v15を確認した。exit code 0、1920x1080 render／output、perspective camera、exposure `1.0`、D3D12 error 0件だった。
 - Debug x64 buildは0 errorで成功した。既知のvcpkg task重複import warning 1件のみだった。
+- `Test-ComparisonMetadataReport.ps1`を追加した。schema v15の必須比較fieldを検証し、source revisionをアプリへ埋め込まずharness-owned validation manifestへ記録する。
+- validatorはschema v15 smoke reportでPASSし、`evaluatedRadiance` boundaryを意図的に壊したfixtureをexit code 1でrejectした。manifestへsource revision、scene、domain、render／output size、exposureを記録することも確認した。
 
 Status: in progress
