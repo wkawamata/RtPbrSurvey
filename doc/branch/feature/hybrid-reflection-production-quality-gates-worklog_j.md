@@ -18,6 +18,10 @@
 - controlled roughness `0.0`はmirror bypassを再現した（固定filter比variance `-85.91%`）。roughness `0.35`／`1.0`はvarianceが`6.74%`／`10.70%`増加し、frame-difference p95は`16.61%`／`24.05%`低下した。
 - DamagedHelmet後頭部寄り面はreport精度で同一を維持した。下面pipeはmean差`0.426%`、variance `+21.44%`、frame-difference mean／p99 `-15.78%`／`-15.99%`だった。
 - 256-frame標準根拠はbounded mean維持を確認する一方、generalなminimum varianceまたは知覚品質改善の主張を棄却する。標準根拠ですでにdiagnostic維持となるため、昇格目的の1024-frame拡張は実施しない。
+- 追加glTF asset候補を監査した。BoomBoxはmetallic-roughnessとemissive textureの両方を持ち、Sponzaより固定framingへ収めやすいため選択した。
+- 汎用`-AutoSelectGltfAsset <name>`と`-UseSceneDefaults` automationを追加した。既存のDamagedHelmet／Estimator Test専用flagとは相互排他を維持する。
+- screenshot automationを要求せず、auto-selected live sceneへArcball framingを適用できるよう`-ReflectionCameraDistanceScale`を拡張した。
+- BoomBoxのdefault distanceは品質reviewには広すぎた。version管理defaultsとdistance scale `0.25`により、1920x1080でobject全体を保つreview可能なframingを生成した。64-frame captureは正常終了し、D3D12 error 0件、既知buffer initial-state warning 2件だった。
 
 Status: in progress
 

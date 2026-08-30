@@ -159,9 +159,20 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.autoSelectGltfDamagedHelmet = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-AutoSelectGltfAsset"))
+        {
+            if (i + 1 < argc)
+            {
+                options.autoSelectGltfAssetName = argv[++i];
+            }
+        }
         else if (IsCommandLineArg(argv[i], L"-AutoSelectHybridReflectionEstimatorTest"))
         {
             options.autoSelectHybridReflectionEstimatorTest = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-UseSceneDefaults"))
+        {
+            options.useSceneDefaults = true;
         }
         else if (IsCommandLineArg(argv[i], L"-CapturePath"))
         {
@@ -386,6 +397,7 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
 
     if (!options.reflectionHdrDiagnosticsPath.empty() &&
         !options.autoSelectGltfDamagedHelmet &&
+        options.autoSelectGltfAssetName.empty() &&
         !options.autoSelectHybridReflectionEstimatorTest)
     {
         options.autoSelectGltfDamagedHelmet = true;

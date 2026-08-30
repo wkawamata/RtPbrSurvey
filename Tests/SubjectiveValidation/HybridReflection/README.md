@@ -28,6 +28,8 @@ The plan is loaded with `-ReflectionCapturePlan <path>` and `-ReflectionCaptureV
 
 `Invoke-ProductionQualityGates.ps1` loads versioned named ROIs from `production-quality-gate-profiles.json` and runs the fixed-filter versus bounded-policy comparison without manually copying coordinates. Its PASS result covers paired sequence identity, unchanged resolved-radiance control variance, and a declared mean-preservation threshold. Variance and frame-difference changes remain observations requiring quality interpretation; they are not converted into a production-readiness claim.
 
+For additional glTF scene checks, `-AutoSelectGltfAsset <name>` selects an available glTF viewer asset by exact name. Add `-UseSceneDefaults` to ignore interactive user overrides and start from the versioned scene configuration. `-ReflectionCameraDistanceScale` may then apply a deterministic Arcball distance multiplier even when no screenshot automation is requested. The production-quality BoomBox framing uses `-AutoSelectGltfAsset BoomBox -UseSceneDefaults -ReflectionCameraDistanceScale 0.25`.
+
 Only one screenshot may be in flight. If the previous screenshot has not completed by the next requested frame, the plan fails instead of silently capturing a later frame. Capture frames should therefore have deliberate spacing.
 
 ## Phase C Repeatable Run

@@ -39,6 +39,8 @@ Variance-guided temporal remains a separate default-off diagnostic and is not si
 
 The additional glTF asset must be chosen for visible Hybrid Reflection coverage, not merely because it loads successfully. If no suitable reflection is visible, the result is `UNABLE`, not `PASS`.
 
+BoomBox is the selected additional asset because it combines metallic-roughness and emissive textures in a compact object. Its reproducible framing starts from versioned scene defaults and applies Arcball camera distance scale `0.25`. This selection establishes a review condition only; it does not count as a quality PASS until the declared Lit checks are completed.
+
 ## Acceptance Gates
 
 | Gate | PASS | PASS WITH LIMITATION / failure condition |

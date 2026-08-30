@@ -39,6 +39,8 @@ Variance-guided temporalは独立したdefault-off診断であり、spatial poli
 
 追加glTF assetは、単にloadできるsceneではなく、Hybrid Reflectionを視認できるsceneを選ぶ。適切なreflectionを視認できない場合は`PASS`ではなく`UNABLE`とする。
 
+追加assetにはBoomBoxを選択する。compactなobjectにmetallic-roughness textureとemissive textureを併せ持つためである。再現可能なframingはversion管理scene defaultsを読み、Arcball camera distance scale `0.25`を適用する。この選定はreview条件を固定するだけであり、宣言したLit check完了までは品質PASSとしない。
+
 ## Acceptance gate
 
 | Gate | PASS | PASS WITH LIMITATION／failure条件 |

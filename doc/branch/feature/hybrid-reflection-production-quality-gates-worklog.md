@@ -18,6 +18,10 @@
 - Controlled roughness `0.0` reproduced mirror bypass (`-85.91%` variance relative to the fixed filter). Roughness `0.35` and `1.0` increased variance by `6.74%` and `10.70%` while reducing frame-difference p95 by `16.61%` and `24.05%`.
 - The DamagedHelmet rearward surface remained bit-equivalent at report precision. The underside pipes changed mean by `0.426%`, increased variance by `21.44%`, and reduced frame-difference mean/p99 by `15.78%`/`15.99%`.
 - The 256-frame standard evidence confirms bounded mean preservation but rejects a general minimum-variance or perceptible-quality-improvement claim. No 1024-frame extension is indicated for promotion because the policy already remains diagnostic on standard evidence.
+- Audited the available additional glTF assets. BoomBox was selected because it contains both metallic-roughness and emissive textures and is more compact for fixed framing than Sponza.
+- Added generic `-AutoSelectGltfAsset <name>` and `-UseSceneDefaults` automation. The existing dedicated DamagedHelmet and Estimator Test flags remain mutually exclusive with the generic selector.
+- Extended `-ReflectionCameraDistanceScale` so Arcball framing can be applied to an auto-selected live scene without requiring screenshot automation.
+- The BoomBox default distance was too wide for quality review. Versioned defaults with distance scale `0.25` produced a full-object 1920x1080 framing suitable for review. The 64-frame capture exited successfully with zero D3D12 errors and the two known buffer initial-state warnings.
 
 Status: in progress
 
