@@ -265,6 +265,28 @@ auto RtPbrSurveyEngine::MakeStreamlineFrameConstants() const -> Engine::Temporal
     return constants;
 }
 
+auto RtPbrSurveyEngine::MakeRayReconstructionFrameConstants() const -> Engine::RayReconstructionFrameConstants
+{
+    Engine::RayReconstructionFrameConstants constants;
+    constants.temporal = MakeStreamlineFrameConstants();
+    constants.motionVectorScale = m_temporalUpscalerSettings.motionVectorScale;
+    constants.motionVectorValueOffset = m_temporalUpscalerSettings.motionVectorValueOffset;
+    constants.preExposure = 1.0f;
+    constants.exposureScale = m_toneMapPass.settings.exposure;
+
+    const XMMATRIX worldToCameraView = Engine::CreateCameraViewMatrix(m_scene.camera);
+    const XMMATRIX cameraViewToWorld = XMMatrixInverse(nullptr, worldToCameraView);
+    const auto storeMatrix = [](std::array<float, 16>& destination, FXMMATRIX matrix)
+    {
+        XMFLOAT4X4 value;
+        XMStoreFloat4x4(&value, matrix);
+        memcpy(destination.data(), &value, sizeof(value));
+    };
+    storeMatrix(constants.worldToCameraView, worldToCameraView);
+    storeMatrix(constants.cameraViewToWorld, cameraViewToWorld);
+    return constants;
+}
+
 void RtPbrSurveyEngine::InitializeFrameResources()
 {
     m_rayTracingSupport = Engine::RayTracingSupportInfo::Create(m_graphicsDevice.Device());
@@ -4544,7 +4566,29 @@ void RtPbrSurveyEngine::ExecuteDlssRayReconstructionPass(const RenderPass& pass)
     UNREFERENCED_PARAMETER(pass);
 
     const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
-    m_commandList->CopyResource(m_reflectionResolvedRadiance[writeIndex].Get(), m_reflectionEvaluatedRadiance.Get());
+    Engine::RayReconstructionEvaluateInputs inputs = {};
+    inputs.commandList = m_commandList.Get();
+    inputs.reflectionEvaluatedRadiance = m_reflectionEvaluatedRadiance.Get();
+    inputs.reflectionResolvedRadiance = m_reflectionResolvedRadiance[writeIndex].Get();
+    inputs.depth = m_depthStencil.Get();
+    inputs.motionVectors = m_gbuffer.resources[Engine::GBuffer::MotionVector].Get();
+    inputs.normal = m_gbuffer.resources[Engine::GBuffer::Normal].Get();
+    inputs.roughness = m_gbuffer.resources[Engine::GBuffer::PBRParams].Get();
+    inputs.qualityMode = m_temporalUpscalerSettings.qualityMode;
+    inputs.preset = m_temporalUpscalerSettings.preset;
+    inputs.renderWidth = m_renderWidth;
+    inputs.renderHeight = m_renderHeight;
+    inputs.historyReset = !m_reflectionHistoryState.valid;
+    inputs.historyValid = m_reflectionHistoryState.valid;
+    inputs.enableNativeEvaluation = false;
+    inputs.frameConstants = MakeRayReconstructionFrameConstants();
+
+    const Engine::RayReconstructionEvaluateResult result =
+        Engine::EvaluateStreamlineRayReconstruction(inputs);
+    if (!result.outputAvailable)
+    {
+        m_commandList->CopyResource(m_reflectionResolvedRadiance[writeIndex].Get(), m_reflectionEvaluatedRadiance.Get());
+    }
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "DLSS Ray Reconstruction Pass");
 }
 

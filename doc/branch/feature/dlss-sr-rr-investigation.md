@@ -346,6 +346,50 @@ Current shell output:
 
 This keeps the LightPass contract stable while making the RR insertion point visible in RenderGraph captures. Phase 2 implementation should replace the copy fallback with SDK evaluation and should decide whether auxiliary reflection/specular histories remain temporal-only diagnostics or receive RR-owned equivalents.
 
+## Work-2 RR Streamline 2.12.0 API Notes
+
+Header check against `C:\work\third_party\streamline-sdk-2.12.0\include`:
+
+- Feature id: `sl::kFeatureDLSS_RR` in `sl_core_types.h`.
+- RR API header: `sl_dlss_d.h`.
+- RR option type: `sl::DLSSDOptions`.
+- RR option call: `slDLSSDSetOptions(viewport, options)`.
+- RR state call: `slDLSSDGetState(viewport, state)`.
+- RR evaluate call: `slEvaluateFeature(sl::kFeatureDLSS_RR, frameToken, evaluateInputs, count, commandList)`.
+- Common constants still use `sl::Constants`, `slSetConstants(constants, frameToken, viewport)`, and frame-based resource tagging.
+- Required matrices must be row-major and non-jittered. `DLSSDOptions` additionally requires `worldToCameraView` and `cameraViewToWorld`.
+- Normal/roughness mode can be `DLSSDNormalRoughnessMode::eUnpacked` or `ePacked`. Current scaffold uses `eUnpacked`.
+
+Relevant Streamline buffer tags:
+
+| Streamline tag | Current candidate | Status |
+|---|---|---|
+| `kBufferTypeSpecularHitNoisy` | `ReflectionEvaluatedRadiance` | Candidate. Current content is unweighted one-bounce radiance, not raw path-traced specular radiance plus hit distance. Runtime validation is required. |
+| `kBufferTypeSpecularHitDenoised` | `ReflectionResolvedRadiance.{writeIndex}` | Candidate output. Format is `R16G16B16A16_FLOAT`; direct write viability must be validated when native evaluate is enabled. |
+| `kBufferTypeDepth` | `DepthStencil` SRV | Available as hardware depth. SDK also exposes `kBufferTypeLinearDepth`; current scaffold uses hardware depth with camera constants. |
+| `kBufferTypeMotionVectors` | `GBuffer.MotionVector` | Available. Current convention is `prevNdc - curNdc + jitterCancellation + valueOffset`; adapter exposes scale/offset, but native RR sign/scale still needs image validation. |
+| `kBufferTypeNormals` | `GBuffer.Normal` | Available. Current normal is world space xyz in `R16G16B16A16_FLOAT`; `DLSSDOptions` receives world/view matrices so the space is explicit. |
+| `kBufferTypeRoughness` | `GBuffer.PBRParams` | Not exact. Current resource packs metallic/roughness/AO in RGB. Streamline tag expects roughness. A dedicated roughness texture or packed normal+roughness path is likely needed before real evaluate. |
+| `kBufferTypeNormalRoughness` | none | Possible alternative if roughness is moved into normal alpha or a dedicated packed texture. |
+| `kBufferTypeSpecularHitDistance` / `kBufferTypeSpecularRayDirectionHitDistance` | `ReflectionRayHit` / reflection direction debug data | Optional tags exist, but current resources are not exposed as a clean RR input contract yet. |
+| `kBufferTypeReflectionMotionVectors` | none | Optional. No reflection-specific motion vector resource exists yet. |
+| `kBufferTypeReflectedAlbedo` | `ReflectionRayColor` | Optional. Available as hit albedo payload. Not wired into the native evaluate scaffold yet. |
+| `kBufferTypeDisocclusionMask` | none | Not available. Existing temporal pass derives rejection from depth/normal history internally. |
+| `kBufferTypeExposure` | none | Not available. Current scaffold uses `DLSSDOptions::preExposure=1.0` and `exposureScale=toneMap.exposure`. |
+
+Scaffold order in `StreamlineAdapter.cpp`:
+
+1. Check RR support state from `slIsFeatureSupported(sl::kFeatureDLSS_RR, adapterInfo)`.
+2. Validate SDK-neutral `RayReconstructionEvaluateInputs`.
+3. Return unavailable while `enableNativeEvaluation` is false. This keeps Phase 2 disabled-by-default even when the SDK and adapter support RR.
+4. Future native path obtains `slGetNewFrameToken()`.
+5. Set `sl::DLSSDOptions` through `slDLSSDSetOptions()`.
+6. Set common `sl::Constants` through `slSetConstants()`.
+7. Tag candidate resources with `slSetTagForFrame()`.
+8. Run `slEvaluateFeature(sl::kFeatureDLSS_RR, ...)`.
+
+Native RR evaluate remains disabled because the roughness tag is not exact, exposure is not a texture, and `ReflectionEvaluatedRadiance` still needs validation against Streamline's noisy specular-hit expectation.
+
 Unmet RR inputs / decisions:
 
 - Confirm Streamline RR SDK feature availability and exact buffer tags against the SDK used by the machine. This worktree currently builds without vendored Streamline SDK artifacts.

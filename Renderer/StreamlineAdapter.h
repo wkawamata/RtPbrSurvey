@@ -36,6 +36,42 @@ struct StreamlineEvaluateResult
     TemporalUpscalerSupportStatus status = TemporalUpscalerSupportStatus::NotIntegrated;
 };
 
+struct RayReconstructionFrameConstants
+{
+    TemporalUpscalerFrameConstants temporal;
+    std::array<float, 16> worldToCameraView = {};
+    std::array<float, 16> cameraViewToWorld = {};
+    std::array<float, 2> motionVectorScale = {1.0f, 1.0f};
+    std::array<float, 2> motionVectorValueOffset = {};
+    float preExposure = 1.0f;
+    float exposureScale = 1.0f;
+};
+
+struct RayReconstructionEvaluateInputs
+{
+    ID3D12GraphicsCommandList* commandList = nullptr;
+    ID3D12Resource* reflectionEvaluatedRadiance = nullptr;
+    ID3D12Resource* reflectionResolvedRadiance = nullptr;
+    ID3D12Resource* depth = nullptr;
+    ID3D12Resource* motionVectors = nullptr;
+    ID3D12Resource* normal = nullptr;
+    ID3D12Resource* roughness = nullptr;
+    TemporalUpscalerQualityMode qualityMode = TemporalUpscalerQualityMode::Native;
+    TemporalUpscalerPreset preset = TemporalUpscalerPreset::Default;
+    std::uint32_t renderWidth = 0;
+    std::uint32_t renderHeight = 0;
+    bool historyReset = false;
+    bool historyValid = false;
+    bool enableNativeEvaluation = false;
+    RayReconstructionFrameConstants frameConstants;
+};
+
+struct RayReconstructionEvaluateResult
+{
+    bool outputAvailable = false;
+    RayReconstructionSupportStatus status = RayReconstructionSupportStatus::NotIntegrated;
+};
+
 struct StreamlineDlssOptimalSettingsInputs
 {
     std::uint32_t outputWidth = 0;
@@ -88,6 +124,8 @@ StreamlineDlssOptimalSettingsResult QueryStreamlineDlssOptimalSettings(
     const StreamlineDlssOptimalSettingsInputs& inputs);
 StreamlineDlssDiagnostics QueryStreamlineDlssDiagnostics(const StreamlineDlssOptimalSettingsInputs& inputs);
 RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnostics();
+RayReconstructionEvaluateResult EvaluateStreamlineRayReconstruction(
+    const RayReconstructionEvaluateInputs& inputs);
 StreamlineEvaluateResult EvaluateStreamline(const StreamlineEvaluateInputs& inputs);
 
 } // namespace Engine

@@ -5,6 +5,7 @@
 #if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
 #include <sl.h>
 #include <sl_dlss.h>
+#include <sl_dlss_d.h>
 #endif
 
 namespace Engine
@@ -64,6 +65,23 @@ StreamlineEvaluateResult MakeAvailableEvaluateResult()
     StreamlineEvaluateResult result;
     result.outputAvailable = true;
     result.status = TemporalUpscalerSupportStatus::Available;
+    return result;
+}
+
+RayReconstructionEvaluateResult MakeUnavailableRayReconstructionEvaluateResult(
+    RayReconstructionSupportStatus status)
+{
+    RayReconstructionEvaluateResult result;
+    result.outputAvailable = false;
+    result.status = status;
+    return result;
+}
+
+RayReconstructionEvaluateResult MakeAvailableRayReconstructionEvaluateResult()
+{
+    RayReconstructionEvaluateResult result;
+    result.outputAvailable = true;
+    result.status = RayReconstructionSupportStatus::Available;
     return result;
 }
 
@@ -159,11 +177,54 @@ sl::DLSSPreset ToStreamlineDlssPreset(TemporalUpscalerPreset preset)
     }
 }
 
+sl::DLSSDPreset ToStreamlineDlssdPreset(TemporalUpscalerPreset preset)
+{
+    switch (preset)
+    {
+        case TemporalUpscalerPreset::J:
+            return sl::DLSSDPreset::ePresetJ;
+        case TemporalUpscalerPreset::K:
+            return sl::DLSSDPreset::ePresetK;
+        case TemporalUpscalerPreset::L:
+            return sl::DLSSDPreset::ePresetL;
+        case TemporalUpscalerPreset::M:
+            return sl::DLSSDPreset::ePresetM;
+        case TemporalUpscalerPreset::Default:
+        default:
+            return sl::DLSSDPreset::eDefault;
+    }
+}
+
 void SetStreamlineDlssPreset(sl::DLSSOptions& options,
                              TemporalUpscalerQualityMode qualityMode,
                              TemporalUpscalerPreset preset)
 {
     const sl::DLSSPreset streamlinePreset = ToStreamlineDlssPreset(preset);
+    switch (qualityMode)
+    {
+        case TemporalUpscalerQualityMode::Native:
+            options.dlaaPreset = streamlinePreset;
+            break;
+        case TemporalUpscalerQualityMode::Quality:
+            options.qualityPreset = streamlinePreset;
+            break;
+        case TemporalUpscalerQualityMode::Balanced:
+            options.balancedPreset = streamlinePreset;
+            break;
+        case TemporalUpscalerQualityMode::Performance:
+            options.performancePreset = streamlinePreset;
+            break;
+        case TemporalUpscalerQualityMode::UltraPerformance:
+            options.ultraPerformancePreset = streamlinePreset;
+            break;
+    }
+}
+
+void SetStreamlineDlssdPreset(sl::DLSSDOptions& options,
+                              TemporalUpscalerQualityMode qualityMode,
+                              TemporalUpscalerPreset preset)
+{
+    const sl::DLSSDPreset streamlinePreset = ToStreamlineDlssdPreset(preset);
     switch (qualityMode)
     {
         case TemporalUpscalerQualityMode::Native:
@@ -193,6 +254,36 @@ sl::float4x4 ToStreamlineMatrix(const std::array<float, 16>& values)
         matrix.setRow(row, {values[offset], values[offset + 1], values[offset + 2], values[offset + 3]});
     }
     return matrix;
+}
+
+sl::Constants ToStreamlineConstants(const TemporalUpscalerFrameConstants& source,
+                                    const TemporalUpscalerSettings& settings,
+                                    bool historyReset)
+{
+    sl::Constants constants = {};
+    constants.cameraViewToClip = ToStreamlineMatrix(source.cameraViewToClip);
+    constants.clipToCameraView = ToStreamlineMatrix(source.clipToCameraView);
+    constants.clipToPrevClip = ToStreamlineMatrix(source.clipToPrevClip);
+    constants.prevClipToClip = ToStreamlineMatrix(source.prevClipToClip);
+    constants.jitterOffset = {source.jitterOffset[0], source.jitterOffset[1]};
+    constants.mvecScale = {settings.motionVectorScale[0], settings.motionVectorScale[1]};
+    constants.cameraPinholeOffset = {0.0f, 0.0f};
+    constants.cameraPos = {source.cameraPosition[0], source.cameraPosition[1], source.cameraPosition[2]};
+    constants.cameraUp = {source.cameraUp[0], source.cameraUp[1], source.cameraUp[2]};
+    constants.cameraRight = {source.cameraRight[0], source.cameraRight[1], source.cameraRight[2]};
+    constants.cameraFwd = {source.cameraForward[0], source.cameraForward[1], source.cameraForward[2]};
+    constants.cameraNear = source.cameraNear;
+    constants.cameraFar = source.cameraFar;
+    constants.cameraFOV = source.cameraFovRadians;
+    constants.cameraAspectRatio = source.cameraAspectRatio;
+    constants.depthInverted = source.depthInverted ? sl::Boolean::eTrue : sl::Boolean::eFalse;
+    constants.cameraMotionIncluded = source.cameraMotionIncluded ? sl::Boolean::eTrue : sl::Boolean::eFalse;
+    constants.motionVectors3D = sl::Boolean::eFalse;
+    constants.reset = historyReset ? sl::Boolean::eTrue : sl::Boolean::eFalse;
+    constants.orthographicProjection = source.orthographicProjection ? sl::Boolean::eTrue : sl::Boolean::eFalse;
+    constants.motionVectorsDilated = sl::Boolean::eFalse;
+    constants.motionVectorsJittered = sl::Boolean::eFalse;
+    return constants;
 }
 
 TemporalUpscalerSupportStatus ToSupportStatus(sl::Result result)
@@ -350,30 +441,7 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
         return MakeUnavailableEvaluateResult(ToSupportStatus(optionsResult));
     }
 
-    const TemporalUpscalerFrameConstants& source = inputs.frameConstants;
-    sl::Constants constants = {};
-    constants.cameraViewToClip = ToStreamlineMatrix(source.cameraViewToClip);
-    constants.clipToCameraView = ToStreamlineMatrix(source.clipToCameraView);
-    constants.clipToPrevClip = ToStreamlineMatrix(source.clipToPrevClip);
-    constants.prevClipToClip = ToStreamlineMatrix(source.prevClipToClip);
-    constants.jitterOffset = {source.jitterOffset[0], source.jitterOffset[1]};
-    constants.mvecScale = {inputs.settings.motionVectorScale[0], inputs.settings.motionVectorScale[1]};
-    constants.cameraPinholeOffset = {0.0f, 0.0f};
-    constants.cameraPos = {source.cameraPosition[0], source.cameraPosition[1], source.cameraPosition[2]};
-    constants.cameraUp = {source.cameraUp[0], source.cameraUp[1], source.cameraUp[2]};
-    constants.cameraRight = {source.cameraRight[0], source.cameraRight[1], source.cameraRight[2]};
-    constants.cameraFwd = {source.cameraForward[0], source.cameraForward[1], source.cameraForward[2]};
-    constants.cameraNear = source.cameraNear;
-    constants.cameraFar = source.cameraFar;
-    constants.cameraFOV = source.cameraFovRadians;
-    constants.cameraAspectRatio = source.cameraAspectRatio;
-    constants.depthInverted = source.depthInverted ? sl::Boolean::eTrue : sl::Boolean::eFalse;
-    constants.cameraMotionIncluded = source.cameraMotionIncluded ? sl::Boolean::eTrue : sl::Boolean::eFalse;
-    constants.motionVectors3D = sl::Boolean::eFalse;
-    constants.reset = inputs.historyReset ? sl::Boolean::eTrue : sl::Boolean::eFalse;
-    constants.orthographicProjection = source.orthographicProjection ? sl::Boolean::eTrue : sl::Boolean::eFalse;
-    constants.motionVectorsDilated = sl::Boolean::eFalse;
-    constants.motionVectorsJittered = sl::Boolean::eFalse;
+    sl::Constants constants = ToStreamlineConstants(inputs.frameConstants, inputs.settings, inputs.historyReset);
 
     const sl::Result constantsResult = slSetConstants(constants, *frameToken, viewport);
     if (constantsResult != sl::Result::eOk)
@@ -414,6 +482,101 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
     }
 
     return MakeAvailableEvaluateResult();
+}
+
+RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
+    const RayReconstructionEvaluateInputs& inputs)
+{
+    if (!g_streamlineAdapterState.initialized ||
+        g_streamlineAdapterState.rayReconstructionStatus != RayReconstructionSupportStatus::Available)
+    {
+        return MakeUnavailableRayReconstructionEvaluateResult(g_streamlineAdapterState.rayReconstructionStatus);
+    }
+
+    if (inputs.commandList == nullptr || inputs.reflectionEvaluatedRadiance == nullptr ||
+        inputs.reflectionResolvedRadiance == nullptr || inputs.depth == nullptr || inputs.motionVectors == nullptr ||
+        inputs.normal == nullptr || inputs.roughness == nullptr || inputs.renderWidth == 0 || inputs.renderHeight == 0)
+    {
+        return MakeUnavailableRayReconstructionEvaluateResult(RayReconstructionSupportStatus::InvalidIntegration);
+    }
+
+    if (!inputs.enableNativeEvaluation)
+    {
+        return MakeUnavailableRayReconstructionEvaluateResult(RayReconstructionSupportStatus::InvalidIntegration);
+    }
+
+    sl::FrameToken* frameToken = nullptr;
+    const sl::Result frameTokenResult = slGetNewFrameToken(frameToken);
+    if (frameTokenResult != sl::Result::eOk || frameToken == nullptr)
+    {
+        return MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(frameTokenResult));
+    }
+
+    const sl::ViewportHandle viewport = 0;
+    sl::DLSSDOptions options = {};
+    options.mode = ToStreamlineDlssMode(inputs.qualityMode);
+    options.outputWidth = inputs.renderWidth;
+    options.outputHeight = inputs.renderHeight;
+    options.colorBuffersHDR = sl::Boolean::eTrue;
+    options.normalRoughnessMode = sl::DLSSDNormalRoughnessMode::eUnpacked;
+    options.worldToCameraView = ToStreamlineMatrix(inputs.frameConstants.worldToCameraView);
+    options.cameraViewToWorld = ToStreamlineMatrix(inputs.frameConstants.cameraViewToWorld);
+    options.preExposure = inputs.frameConstants.preExposure;
+    options.exposureScale = inputs.frameConstants.exposureScale;
+    SetStreamlineDlssdPreset(options, inputs.qualityMode, inputs.preset);
+    const sl::Result optionsResult = slDLSSDSetOptions(viewport, options);
+    if (optionsResult != sl::Result::eOk)
+    {
+        return MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(optionsResult));
+    }
+
+    TemporalUpscalerSettings constantsSettings;
+    constantsSettings.motionVectorScale = inputs.frameConstants.motionVectorScale;
+    constantsSettings.motionVectorValueOffset = inputs.frameConstants.motionVectorValueOffset;
+    sl::Constants constants =
+        ToStreamlineConstants(inputs.frameConstants.temporal, constantsSettings, inputs.historyReset);
+    const sl::Result constantsResult = slSetConstants(constants, *frameToken, viewport);
+    if (constantsResult != sl::Result::eOk)
+    {
+        return MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(constantsResult));
+    }
+
+    sl::Extent renderExtent = {};
+    renderExtent.width = inputs.renderWidth;
+    renderExtent.height = inputs.renderHeight;
+
+    sl::Resource noisySpecular(
+        sl::ResourceType::eTex2d, inputs.reflectionEvaluatedRadiance, D3D12_RESOURCE_STATE_COPY_SOURCE);
+    sl::Resource denoisedSpecular(
+        sl::ResourceType::eTex2d, inputs.reflectionResolvedRadiance, D3D12_RESOURCE_STATE_COPY_DEST);
+    sl::Resource depth(sl::ResourceType::eTex2d, inputs.depth, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    sl::Resource motionVectors(
+        sl::ResourceType::eTex2d, inputs.motionVectors, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    sl::Resource normal(sl::ResourceType::eTex2d, inputs.normal, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    sl::Resource roughness(sl::ResourceType::eTex2d, inputs.roughness, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    const sl::ResourceTag tags[] = {
+        {&noisySpecular, sl::kBufferTypeSpecularHitNoisy, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+        {&denoisedSpecular, sl::kBufferTypeSpecularHitDenoised, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+        {&depth, sl::kBufferTypeDepth, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+        {&motionVectors, sl::kBufferTypeMotionVectors, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+        {&normal, sl::kBufferTypeNormals, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+        {&roughness, sl::kBufferTypeRoughness, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+    };
+    const sl::Result tagResult = slSetTagForFrame(*frameToken, viewport, tags, _countof(tags), inputs.commandList);
+    if (tagResult != sl::Result::eOk)
+    {
+        return MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(tagResult));
+    }
+
+    const sl::BaseStructure* evaluateInputs[] = {&viewport};
+    const sl::Result evaluateResult =
+        slEvaluateFeature(sl::kFeatureDLSS_RR, *frameToken, evaluateInputs, _countof(evaluateInputs), inputs.commandList);
+    if (evaluateResult != sl::Result::eOk)
+    {
+        return MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(evaluateResult));
+    }
+
+    return MakeAvailableRayReconstructionEvaluateResult();
 }
 
 StreamlineDlssOptimalSettingsResult
@@ -579,6 +742,13 @@ RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnosticsWithoutS
     diagnostics.status = g_streamlineAdapterState.rayReconstructionStatus;
     return diagnostics;
 }
+
+RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithoutSdk(
+    const RayReconstructionEvaluateInputs& inputs)
+{
+    UNREFERENCED_PARAMETER(inputs);
+    return MakeUnavailableRayReconstructionEvaluateResult(g_streamlineAdapterState.rayReconstructionStatus);
+}
 #endif
 
 } // namespace
@@ -658,6 +828,16 @@ RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnostics()
     return QueryStreamlineRayReconstructionDiagnosticsWithSdk();
 #else
     return QueryStreamlineRayReconstructionDiagnosticsWithoutSdk();
+#endif
+}
+
+RayReconstructionEvaluateResult EvaluateStreamlineRayReconstruction(
+    const RayReconstructionEvaluateInputs& inputs)
+{
+#if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+    return EvaluateStreamlineRayReconstructionWithSdk(inputs);
+#else
+    return EvaluateStreamlineRayReconstructionWithoutSdk(inputs);
 #endif
 }
 

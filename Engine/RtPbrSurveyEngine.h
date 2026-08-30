@@ -1235,6 +1235,7 @@ private:
     void RegisterPassConstantsHandlers();
     void RegisterResourceResolvers();
     Engine::TemporalUpscalerFrameConstants MakeStreamlineFrameConstants() const;
+    Engine::RayReconstructionFrameConstants MakeRayReconstructionFrameConstants() const;
     void ResolveRenderDimensions(UINT outputWidth, UINT outputHeight, UINT& renderWidth, UINT& renderHeight) const;
     void UpdateRenderDimensions();
     bool IsTemporalJitterEnabled() const;
