@@ -329,10 +329,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         return;
     }
     ImGui::SameLine(0.0f, 12.0f);
-    if (ImGui::Button("Open RenderGraph Window"))
-    {
-        renderGraphWindowOpen = true;
-    }
+    ImGui::Checkbox("Open RenderGraph Window", &renderGraphWindowOpen);
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
     {
         int cameraMode = static_cast<int>(app.DebugCamera().GetMode());

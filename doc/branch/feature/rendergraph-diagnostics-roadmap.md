@@ -236,5 +236,5 @@
 
 ## 後続タスク
 
-- [x] `Open RenderGraph Window`を`Close Scene`ボタンの右側へ、少し余白を空けて配置する。
+- [x] `Open RenderGraph Window`チェックボックスを`Close Scene`ボタンの右側へ少し余白を空けて配置し、表示・非表示を切り替えられるようにする。
 - [x] RenderGraphノードの手動配置を`%APPDATA%\\RtPbrSurvey\\rendergraph_node_editor.json`へ自動保存し、次回起動時に復元する。
