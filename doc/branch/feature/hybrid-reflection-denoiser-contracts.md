@@ -10,11 +10,11 @@ This document fixes the signal, metadata, ownership, reset, and pass-boundary co
 HybridReflectionPass
     -> ReflectionEvaluatePass
     -> TemporalReflectionPass
-    -> future EdgeAwareSpatialReflectionPass
+    -> default-off EdgeAwareSpatialReflectionPass
     -> LightPass
 ```
 
-The current implementation has no dedicated spatial-pass output. `LightPass` consumes `ReflectionResolvedRadiance`. When a spatial pass is introduced, its contract output is `ReflectionDenoisedRadiance`; until then, `ReflectionResolvedRadiance` remains the resolved boundary.
+The implementation has a dedicated default-off spatial-pass output. `LightPass` consumes `ReflectionResolvedRadiance` while the filter is disabled and `ReflectionDenoisedRadiance` while it is enabled. `ReflectionResolvedRadiance` remains the temporal-history boundary in both cases.
 
 All three radiance boundaries are linear HDR and retain unweighted one-bounce-radiance semantics:
 
@@ -22,7 +22,7 @@ All three radiance boundaries are linear HDR and retain unweighted one-bounce-ra
 |----------|---------|---------------------------------|--------------------------------|---------------------------------|
 | `ReflectionEvaluatedRadiance` | Current-frame evaluated signal | No | No | Excluded |
 | `ReflectionResolvedRadiance` | Temporally resolved RGB signal; alpha is the temporal-validity diagnostic code | Yes | No | Excluded |
-| future `ReflectionDenoisedRadiance` | Spatially processed resolved signal | Yes, inherited from input | Yes | Excluded |
+| `ReflectionDenoisedRadiance` | Spatially processed resolved signal | Yes, inherited from input | Yes | Excluded |
 
 `LightPass` remains the sole owner of the legacy distance, visible roughness, intensity, and visible-surface Fresnel weighting. A denoiser must not bake those terms into any unweighted radiance boundary.
 
@@ -50,7 +50,7 @@ All outputs use the same history-valid decision, reprojection coordinate, reset 
 
 ## Future Spatial Input and Output Contract
 
-A future `EdgeAwareSpatialReflectionPass` should consume the current resolved generation and current-frame correspondence features. Its minimum candidate input set is:
+The default-off `EdgeAwareSpatialReflectionPass` consumes the current resolved generation and current-frame correspondence features. Its input set is:
 
 | Input | Purpose | Contract restriction |
 |-------|---------|----------------------|
@@ -63,15 +63,15 @@ A future `EdgeAwareSpatialReflectionPass` should consume the current resolved ge
 | variance/moments | Estimate local signal instability | Metadata is not radiance |
 | confidence | Modulate filter strength conservatively | Confidence is evidence persistence, not correctness probability |
 
-The output contract name is `ReflectionDenoisedRadiance`. Its RGB preserves the linear-HDR unweighted signal. Its alpha is reserved and must not silently copy or redefine the input temporal-validity code; validity remains separate diagnostic metadata unless the implementation explicitly documents an output-alpha policy. The output must use a distinct resource rather than overwrite temporal history in place. This preserves A/B observability, avoids read/write hazards, and prevents spatial output from silently becoming next-frame temporal history.
+The output is `ReflectionDenoisedRadiance`. Its RGB preserves the linear-HDR unweighted signal. Its implemented alpha is `1` and does not copy or redefine the input temporal-validity code. The output uses a distinct resource rather than overwriting temporal history in place. This preserves A/B observability, avoids read/write hazards, and prevents spatial output from silently becoming next-frame temporal history.
 
-Initially, temporal history continues to own `ReflectionResolvedRadiance`, not `ReflectionDenoisedRadiance`. Feeding spatial output back into temporal history is a separate policy change requiring stability, bias, and reset validation.
+Temporal history owns `ReflectionResolvedRadiance`, not `ReflectionDenoisedRadiance`. Feeding spatial output back into temporal history remains a separate policy change requiring stability, bias, and reset validation.
 
 ## History Ownership
 
 Reflection history is owned by the reflection pipeline, not by swap-chain indices, the Temporal Upscaler, DLSS, or a future spatial pass. One logical history state selects a read generation and the opposite write generation. Role exchange occurs only after successful submission of every output in the generation.
 
-The spatial pass is stateless in its first implementation. If a later spatial algorithm introduces persistent state, that state must have an explicit owner and invalidation contract; it must not reuse temporal ping-pong slots implicitly.
+The spatial pass is stateless. Its enable-state change does not reset reflection history. If a later spatial algorithm introduces persistent state, that state must have an explicit owner and invalidation contract; it must not reuse temporal ping-pong slots implicitly.
 
 ## Reset and Rejection
 

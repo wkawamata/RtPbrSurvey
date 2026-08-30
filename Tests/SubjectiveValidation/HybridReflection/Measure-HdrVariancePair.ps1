@@ -8,7 +8,10 @@ param(
     [int]$RoiY = 278,
     [int]$RoiWidth = 75,
     [int]$RoiHeight = 85,
-    [double]$TemporalWeight = 0.9
+    [double]$TemporalWeight = 0.9,
+    [ValidateSet("damaged-helmet", "estimator-test")]
+    [string]$Scene = "damaged-helmet",
+    [double]$CameraDistanceScale = 1.0
 )
 
 Set-StrictMode -Version Latest
@@ -32,11 +35,21 @@ function Invoke-Diagnostic([string]$ReportPath, [bool]$FilterEnabled)
     {
         Remove-Item -LiteralPath $ReportPath -Force
     }
+    $sceneFlag = if ($Scene -eq "estimator-test")
+    {
+        "-AutoSelectHybridReflectionEstimatorTest"
+    }
+    else
+    {
+        "-AutoSelectGltfDamagedHelmet"
+    }
     $arguments = @(
+        $sceneFlag,
         "-ReflectionHdrDiagnostics", "`"$ReportPath`"",
         "-ReflectionHdrDiagnosticsWarmupFrames", $WarmupFrames,
         "-ReflectionHdrDiagnosticsFrames", $MeasurementFrames,
         "-ReflectionHdrDiagnosticsRoi", $RoiX, $RoiY, $RoiWidth, $RoiHeight,
+        "-ReflectionCameraDistanceScale", $CameraDistanceScale,
         "-ReflectionStochasticSampling",
         "-ReflectionTemporalWeight", $TemporalWeight
     )
@@ -73,11 +86,13 @@ $sampleSequenceMatches =
 
 $offResolved = $off.statistics.resolvedRadiance
 $onResolved = $on.statistics.resolvedRadiance
-$offMean = [double]$offResolved.temporalMeanLuminance
-$onMean = [double]$onResolved.temporalMeanLuminance
+$offDenoised = $off.statistics.denoisedRadiance
+$onDenoised = $on.statistics.denoisedRadiance
+$offMean = [double]$offDenoised.temporalMeanLuminance
+$onMean = [double]$onDenoised.temporalMeanLuminance
 $meanDenominator = [Math]::Max([Math]::Abs($offMean), 1.0e-6)
-$offVariance = [double]$offResolved.temporalVariance
-$onVariance = [double]$onResolved.temporalVariance
+$offVariance = [double]$offDenoised.temporalVariance
+$onVariance = [double]$onDenoised.temporalVariance
 
 $pairedReport = [ordered]@{
     schemaVersion = 1
@@ -97,6 +112,8 @@ $pairedReport = [ordered]@{
     pairedConditions = [ordered]@{
         separateProcessReset = $true
         cameraAndAnimationFixed = $true
+        scene = $Scene
+        cameraDistanceScale = $CameraDistanceScale
         warmupFrames = $WarmupFrames
         measurementFrames = $MeasurementFrames
         sampleAndTemporalIndexSequencesMatch = $sampleSequenceMatches
@@ -108,23 +125,45 @@ $pairedReport = [ordered]@{
     filterOffReport = [System.IO.Path]::GetFileName($offPath)
     filterOnReport = [System.IO.Path]::GetFileName($onPath)
     result = [ordered]@{
-        filterOffResolved = $offResolved
-        filterOnResolved = $onResolved
-        resolvedVarianceReductionPercent = if ($offVariance -gt 0.0) {
+        filterOffResolvedControl = $offResolved
+        filterOnResolvedControl = $onResolved
+        filterOffDenoised = $offDenoised
+        filterOnDenoised = $onDenoised
+        denoisedVarianceReductionPercent = if ($offVariance -gt 0.0)
+        {
             100.0 * (1.0 - $onVariance / $offVariance)
-        } else { $null }
-        resolvedMeasurementMeanAbsoluteDifference = [Math]::Abs($onMean - $offMean)
-        resolvedMeasurementMeanRelativeDifference = [Math]::Abs($onMean - $offMean) / $meanDenominator
+        }
+        else
+        {
+            $null
+        }
+        denoisedMeasurementMeanAbsoluteDifference = [Math]::Abs($onMean - $offMean)
+        denoisedMeasurementMeanRelativeDifference = [Math]::Abs($onMean - $offMean) / $meanDenominator
+        resolvedControlVarianceRelativeDifference = if ([double]$offResolved.temporalVariance -gt 0.0)
+        {
+            [Math]::Abs(
+                [double]$onResolved.temporalVariance - [double]$offResolved.temporalVariance) /
+                [double]$offResolved.temporalVariance
+        }
+        else
+        {
+            $null
+        }
         evaluatedMeanAbsoluteDifference = [Math]::Abs(
             [double]$on.statistics.evaluatedRadiance.temporalMeanLuminance -
             [double]$off.statistics.evaluatedRadiance.temporalMeanLuminance)
         filterOffResolvedRmseToCurrentEstimatorMean = [double]$off.currentEstimatorMeanBaseline.resolvedRmse
         filterOnResolvedRmseToCurrentEstimatorMean = [double]$on.currentEstimatorMeanBaseline.resolvedRmse
-        resolvedRmseChangePercent = if ([double]$off.currentEstimatorMeanBaseline.resolvedRmse -gt 0.0) {
+        resolvedRmseChangePercent = if ([double]$off.currentEstimatorMeanBaseline.resolvedRmse -gt 0.0)
+        {
             100.0 * (
                 [double]$on.currentEstimatorMeanBaseline.resolvedRmse /
                 [double]$off.currentEstimatorMeanBaseline.resolvedRmse - 1.0)
-        } else { $null }
+        }
+        else
+        {
+            $null
+        }
     }
     limitations = @(
         "The comparison is relative to the current approximate estimator, not a physical ground truth.",
@@ -138,8 +177,8 @@ $json = $pairedReport | ConvertTo-Json -Depth 12
 
 [PSCustomObject]@{
     sampleSequenceMatches = $sampleSequenceMatches
-    varianceReductionPercent = $pairedReport.result.resolvedVarianceReductionPercent
-    meanRelativeDifference = $pairedReport.result.resolvedMeasurementMeanRelativeDifference
+    varianceReductionPercent = $pairedReport.result.denoisedVarianceReductionPercent
+    meanRelativeDifference = $pairedReport.result.denoisedMeasurementMeanRelativeDifference
     report = $output
 } | Format-List
 

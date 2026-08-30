@@ -15,6 +15,7 @@ using DirectX::XMFLOAT3;
 using DirectX::XMStoreFloat4x4;
 using DirectX::XMMATRIX;
 using DirectX::XMMatrixIdentity;
+using DirectX::XMMatrixRotationRollPitchYaw;
 using DirectX::XMMatrixScaling;
 using DirectX::XMMatrixTranslation;
 using DirectX::XMMatrixTranspose;
@@ -325,6 +326,141 @@ private:
     SceneBuilder m_builder;
 };
 
+class HybridReflectionSpatialFilterTestScene : public SampleScene
+{
+public:
+    const char* Name() const override
+    {
+        return "Hybrid Reflection Spatial Filter Test";
+    }
+
+    void Load() override
+    {
+        m_builder.Clear();
+
+        SceneMesh& mesh = m_builder.GetMesh();
+        const int white = Procedural::AddSolidColorTexture(mesh, 255, 255, 255, 255);
+        const int black = Procedural::AddSolidColorTexture(mesh, 0, 0, 0, 255);
+        const int floorAlbedo = Procedural::AddSolidColorTexture(mesh, 38, 43, 50, 255);
+        const int red = Procedural::AddSolidColorTexture(mesh, 205, 45, 38, 255);
+        const int green = Procedural::AddSolidColorTexture(mesh, 45, 190, 85, 255);
+        const int blue = Procedural::AddSolidColorTexture(mesh, 45, 90, 215, 255);
+        const int gold = Procedural::AddSolidColorTexture(mesh, 220, 150, 35, 255);
+        const int cyan = Procedural::AddSolidColorTexture(mesh, 40, 230, 255, 255);
+        const int yellow = Procedural::AddSolidColorTexture(mesh, 255, 225, 40, 255);
+
+        const SceneMeshId cube = m_builder.AddCube(1.0f);
+        const SceneMeshId sphere = m_builder.AddSphere(0.68f, 32, 64);
+
+        const uint32_t floorMaterial =
+            m_builder.AddMaterial(MakeMaterial(floorAlbedo, white, black, white, 0.8f, 0.0f, 0.0f));
+        m_builder.AddInstance(cube,
+                              XMMatrixScaling(10.0f, 0.12f, 6.0f) *
+                                  XMMatrixTranslation(0.0f, -1.12f, 0.0f),
+                              floorMaterial);
+
+        struct MaterialPair
+        {
+            int cubeAlbedo;
+            float cubeRoughness;
+            float cubeMetallic;
+            int sphereAlbedo;
+            float sphereRoughness;
+            float sphereMetallic;
+            float yaw;
+            float roll;
+        };
+        const MaterialPair pairs[] = {
+            {red, 0.35f, 1.0f, blue, 0.35f, 0.0f, -0.18f, 0.0f},
+            {white, 0.15f, 1.0f, gold, 0.55f, 1.0f, 0.12f, 0.08f},
+            {blue, 0.35f, 0.0f, red, 0.35f, 1.0f, -0.25f, -0.10f},
+            {white, 0.02f, 1.0f, green, 0.35f, 1.0f, 0.28f, 0.16f},
+        };
+        constexpr float pairSpacing = 2.25f;
+        constexpr float firstPairX = -0.5f * pairSpacing * static_cast<float>(_countof(pairs) - 1);
+        for (UINT index = 0; index < _countof(pairs); ++index)
+        {
+            const MaterialPair& pair = pairs[index];
+            const uint32_t cubeMaterial = m_builder.AddMaterial(
+                MakeMaterial(pair.cubeAlbedo, white, black, white, pair.cubeRoughness, pair.cubeMetallic, 0.0f));
+            const uint32_t sphereMaterial = m_builder.AddMaterial(MakeMaterial(
+                pair.sphereAlbedo, white, black, white, pair.sphereRoughness, pair.sphereMetallic, 0.0f));
+            const float x = firstPairX + static_cast<float>(index) * pairSpacing;
+            const XMMATRIX rotation = XMMatrixRotationRollPitchYaw(0.0f, pair.yaw, pair.roll);
+            m_builder.AddInstance(cube,
+                                  XMMatrixScaling(1.65f, 1.05f, 1.35f) * rotation *
+                                      XMMatrixTranslation(x, -0.55f, 0.0f),
+                                  cubeMaterial);
+            m_builder.AddInstance(sphere,
+                                  XMMatrixTranslation(x + 0.28f, 0.10f, 0.04f),
+                                  sphereMaterial);
+        }
+
+        const uint32_t yellowEmitter =
+            m_builder.AddMaterial(MakeMaterial(yellow, white, yellow, white, 1.0f, 0.0f, 12.0f));
+        const uint32_t cyanEmitter =
+            m_builder.AddMaterial(MakeMaterial(cyan, white, cyan, white, 1.0f, 0.0f, 12.0f));
+        m_builder.AddInstance(cube,
+                              XMMatrixScaling(0.25f, 3.2f, 0.35f) *
+                                  XMMatrixTranslation(-4.8f, 0.55f, 1.3f),
+                              yellowEmitter);
+        m_builder.AddInstance(cube,
+                              XMMatrixScaling(0.25f, 3.2f, 0.35f) *
+                                  XMMatrixTranslation(4.8f, 0.55f, 1.3f),
+                              cyanEmitter);
+
+        Reset();
+    }
+
+    void Reset() override
+    {
+        Scene& scene = m_builder.GetScene();
+        scene.camera.pos = {0.0f, 0.55f, 10.5f};
+        scene.camera.gazePoint = {0.0f, -0.25f, 0.0f};
+        scene.camera.fov = 50.0f;
+        scene.camera.nearZ = 0.1f;
+        scene.camera.farZ = 100.0f;
+    }
+
+    void Update(float, const SampleSceneUpdateContext&) override
+    {
+    }
+
+    Scene& GetScene() override { return m_builder.GetScene(); }
+    const Scene& GetScene() const override { return m_builder.GetScene(); }
+    SceneMesh& GetMesh() override { return m_builder.GetMesh(); }
+    const SceneMesh& GetMesh() const override { return m_builder.GetMesh(); }
+    int DisplayInstanceCount() const override { return static_cast<int>(m_builder.GetScene().instances.size()); }
+    int MaxDisplayInstanceCount() const override { return DisplayInstanceCount(); }
+    void SetDisplayInstanceCount(int) override {}
+    float DefaultMeshScale() const override { return 1.0f; }
+
+private:
+    static SceneMaterial MakeMaterial(int albedoTexture,
+                                      int metallicRoughnessTexture,
+                                      int emissiveTexture,
+                                      int occlusionTexture,
+                                      float roughness,
+                                      float metallic,
+                                      float emissiveScale)
+    {
+        SceneMaterial material = {};
+        material.albedoTexIndex = albedoTexture;
+        material.metallicRoughnessTexIndex = metallicRoughnessTexture;
+        material.emissiveTexIndex = emissiveTexture;
+        material.occlusionTexIndex = occlusionTexture;
+        material.normalTexIndex = -1;
+        material.roughnessFactor = roughness;
+        material.metallicFactor = metallic;
+        material.occlusionStrength = 1.0f;
+        material.ambientOcclusionFactor = 1.0f;
+        material.emissiveScale = emissiveScale;
+        return material;
+    }
+
+    SceneBuilder m_builder;
+};
+
 } // namespace
 
 std::unique_ptr<SampleScene> SceneFactory::CreateCornellBox()
@@ -340,6 +476,11 @@ std::unique_ptr<SampleScene> SceneFactory::CreateHostPrimitiveMeshes()
 std::unique_ptr<SampleScene> SceneFactory::CreateHybridReflectionEstimatorTest()
 {
     return std::make_unique<HybridReflectionEstimatorTestScene>();
+}
+
+std::unique_ptr<SampleScene> SceneFactory::CreateHybridReflectionSpatialFilterTest()
+{
+    return std::make_unique<HybridReflectionSpatialFilterTestScene>();
 }
 
 } // namespace Engine

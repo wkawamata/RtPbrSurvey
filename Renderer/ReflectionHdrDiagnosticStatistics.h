@@ -13,6 +13,7 @@ enum class ReflectionHdrDiagnosticSignal
     SpecularEstimate,
     ResolvedSpecularEstimate,
     ResolvedRadiance,
+    DenoisedRadiance,
 };
 
 struct ReflectionHdrDiagnosticStatistics

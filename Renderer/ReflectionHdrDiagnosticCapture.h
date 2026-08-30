@@ -49,6 +49,7 @@ struct ReflectionHdrDiagnosticCapture
     ReflectionHdrDiagnosticReadback evaluatedRadiance;
     ReflectionHdrDiagnosticReadback specularEstimate;
     ReflectionHdrDiagnosticReadback resolvedRadiance;
+    ReflectionHdrDiagnosticReadback denoisedRadiance;
     ReflectionHdrDiagnosticReadback resolvedSpecularEstimate;
     ReflectionHdrDiagnosticReadback specularMoments;
     ReflectionHdrDiagnosticReadback specularConfidence;
@@ -71,6 +72,7 @@ struct ReflectionHdrDiagnosticFrame
     std::vector<ReflectionHdrDiagnosticSample> evaluatedRadiance;
     std::vector<ReflectionHdrDiagnosticSample> specularEstimate;
     std::vector<ReflectionHdrDiagnosticSample> resolvedRadiance;
+    std::vector<ReflectionHdrDiagnosticSample> denoisedRadiance;
     std::vector<ReflectionHdrDiagnosticSample> resolvedSpecularEstimate;
     std::vector<ReflectionHdrDiagnosticSample> specularMoments;
     std::vector<ReflectionHdrDiagnosticSample> specularConfidence;
@@ -98,6 +100,7 @@ void RecordReflectionHdrDiagnosticCapture(ID3D12GraphicsCommandList* commandList
                                           ID3D12Resource* evaluatedRadiance,
                                           ID3D12Resource* specularEstimate,
                                           ID3D12Resource* resolvedRadiance,
+                                          ID3D12Resource* denoisedRadiance,
                                           ID3D12Resource* resolvedSpecularEstimate,
                                           ID3D12Resource* specularMoments,
                                           ID3D12Resource* specularConfidence,

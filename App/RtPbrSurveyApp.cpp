@@ -876,6 +876,7 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
             {"specularEstimateMeanLuminance", meanLuminance(frame.specularEstimate)},
             {"resolvedSpecularEstimateMeanLuminance", meanLuminance(frame.resolvedSpecularEstimate)},
             {"resolvedMeanLuminance", meanLuminance(frame.resolvedRadiance)},
+            {"denoisedMeanLuminance", meanLuminance(frame.denoisedRadiance)},
             {"specularMoments", momentsSummary(frame.specularMoments)},
             {"specularConfidence", scalarSummary(confidenceValues(frame.specularConfidence))},
             {"appliedHistoryPolicyWeight", scalarSummary(policyWeightValues(frame.specularConfidence))},
@@ -925,6 +926,9 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     const Engine::ReflectionHdrDiagnosticStatistics resolvedStatistics =
         Engine::CalculateReflectionHdrDiagnosticStatistics(
             m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::ResolvedRadiance);
+    const Engine::ReflectionHdrDiagnosticStatistics denoisedStatistics =
+        Engine::CalculateReflectionHdrDiagnosticStatistics(
+            m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::DenoisedRadiance);
     const Engine::ReflectionHdrDiagnosticStatistics specularEstimateStatistics =
         Engine::CalculateReflectionHdrDiagnosticStatistics(
             m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::SpecularEstimate);
@@ -1018,12 +1022,16 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         };
     }
     const json report = {
-        {"schemaVersion", 12},
+        {"schemaVersion", 13},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
         {"specularEstimateIncidentRadiance",
          reflectionSettings.estimatorConstantIncidentRadianceEnabled ? "constant-white-1" : "traced-scene"},
         {"varianceGuidedTemporalEnabled", reflectionSettings.varianceGuidedTemporalEnabled},
+        {"edgeAwareSpatialFilterEnabled", reflectionSettings.surfaceVarianceFilterEnabled},
+        {"denoisedRadianceSource",
+         reflectionSettings.surfaceVarianceFilterEnabled ? "ReflectionDenoisedRadiance" :
+                                                           "ReflectionResolvedRadiance identity fallback"},
         {"temporalHistoryWeight", reflectionSettings.temporalHistoryWeight},
         {"varianceGuidedTemporalPolicy",
          "persistent-confidence-relative-variance-0.5-confidence-history-0.9-weight-0.94"},
@@ -1085,7 +1093,8 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
           {"specularEstimate", statisticsToJson(specularEstimateStatistics)},
           {"resolvedSpecularEstimate", statisticsToJson(resolvedSpecularEstimateStatistics)},
           {"specularMoments", momentsSummary(allSpecularMoments)},
-          {"resolvedRadiance", statisticsToJson(resolvedStatistics)}}},
+          {"resolvedRadiance", statisticsToJson(resolvedStatistics)},
+          {"denoisedRadiance", statisticsToJson(denoisedStatistics)}}},
         {"currentEstimatorMeanBaseline",
          {{"name", "High-SPP Current-Estimator Mean Baseline"},
           {"physicalReference", false},
@@ -1245,6 +1254,7 @@ void RtPbrSurveyApp::CreateSampleScenes()
     m_sampleScenes.push_back(Engine::SceneFactory::CreateCornellBox());
     m_sampleScenes.push_back(Engine::SceneFactory::CreateHostPrimitiveMeshes());
     m_sampleScenes.push_back(Engine::SceneFactory::CreateHybridReflectionEstimatorTest());
+    m_sampleScenes.push_back(Engine::SceneFactory::CreateHybridReflectionSpatialFilterTest());
 }
 
 void RtPbrSurveyApp::LoadSceneCpuData(int sceneIndex)

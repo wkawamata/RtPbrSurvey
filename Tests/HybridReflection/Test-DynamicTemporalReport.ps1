@@ -42,9 +42,9 @@ function Find-SettlingFrame(
 
 $report = Get-Content -LiteralPath $ReportPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $failures = [System.Collections.Generic.List[string]]::new()
-if ($report.schemaVersion -ne 12)
+if ($report.schemaVersion -ne 13)
 {
-    $failures.Add("schemaVersion must be 12")
+    $failures.Add("schemaVersion must be 13")
 }
 
 $frames = @($report.frames)

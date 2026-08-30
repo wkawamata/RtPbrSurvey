@@ -24,6 +24,7 @@
 #include "Renderer/LightingPass.h"
 #include "Renderer/ReflectionEvaluatePass.h"
 #include "Renderer/TemporalReflectionPass.h"
+#include "Renderer/EdgeAwareSpatialReflectionPass.h"
 #include "Renderer/Material.h"
 #include "Renderer/MaterialBuffer.h"
 #include "Renderer/StagedDescriptorAllocator.h"
@@ -351,6 +352,7 @@ private:
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
             static constexpr const char* ReflectionEvaluate = "ReflectionEvaluate";
             static constexpr const char* TemporalReflection = "TemporalReflection";
+            static constexpr const char* EdgeAwareSpatialReflection = "EdgeAwareSpatialReflection";
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* GBufferDebug = "GBufferDebug";
             static constexpr const char* HybridReflection = "HybridReflection";
@@ -384,6 +386,7 @@ private:
                 "ReflectionResolvedRadianceHistorySrv";
             static constexpr const char* ReflectionResolvedRadianceCurrentSrv =
                 "ReflectionResolvedRadianceCurrentSrv";
+            static constexpr const char* ReflectionDenoisedRadianceSrv = "ReflectionDenoisedRadianceSrv";
             static constexpr const char* ReflectionHistoryDepthSrv = "ReflectionHistoryDepthSrv";
             static constexpr const char* ReflectionHistoryNormalSrv = "ReflectionHistoryNormalSrv";
             static constexpr const char* ReflectionResolvedSpecularEstimateHistorySrv =
@@ -423,6 +426,7 @@ private:
             static constexpr const char* ReflectionSpecularMomentsCurrent = "ReflectionSpecularMomentsCurrent";
             static constexpr const char* ReflectionSpecularConfidenceCurrent =
                 "ReflectionSpecularConfidenceCurrent";
+            static constexpr const char* ReflectionDenoisedRadiance = "ReflectionDenoisedRadiance";
             static constexpr const char* TemporalUpscalerSceneColor = "TemporalUpscalerSceneColor";
         };
 
@@ -443,6 +447,7 @@ private:
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
             static constexpr const char* ReflectionEvaluate = "ReflectionEvaluate";
             static constexpr const char* TemporalReflection = "TemporalReflection";
+            static constexpr const char* EdgeAwareSpatialReflection = "EdgeAwareSpatialReflection";
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* TemporalUpscaler = "TemporalUpscaler";
             static constexpr const char* DebugDump = "DebugDump";
@@ -505,7 +510,7 @@ private:
     static constexpr UINT kReflectionRayHitDescriptorCount =
         8; // Hit SRV/UAV + Color SRV/UAV + Material SRV/UAV + Emission SRV/UAV
     static constexpr UINT kReflectionEvaluatedRadianceDescriptorCount =
-        2; // ReflectionEvaluatedRadiance + ReflectionSpecularEstimate SRVs
+        3; // Evaluated radiance + specular estimate + denoised radiance SRVs
     static constexpr UINT kReflectionResolvedRadianceDescriptorCount = 2;  // One SRV per physical history slot
     static constexpr UINT kReflectionAuxiliaryHistoryDescriptorCount = 4;  // Depth + normal, two slots each
     static constexpr UINT kReflectionEstimatorHistoryDescriptorCount = 4;  // Resolved estimate + moments, two slots each
@@ -602,8 +607,9 @@ private:
     static constexpr UINT kReflectionSpecularMomentsRTVBaseIndex =
         kReflectionResolvedSpecularEstimateRTVBaseIndex + 2;
     static constexpr UINT kReflectionSpecularConfidenceRTVBaseIndex = kReflectionSpecularMomentsRTVBaseIndex + 2;
-    static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionSpecularConfidenceRTVBaseIndex + 2;
-    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 16;
+    static constexpr UINT kReflectionDenoisedRadianceRTVIndex = kReflectionSpecularConfidenceRTVBaseIndex + 2;
+    static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionDenoisedRadianceRTVIndex + 1;
+    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 17;
 
     struct DebugViewSettings
     {
@@ -780,6 +786,7 @@ private:
     ComPtr<ID3D12Resource> m_reflectionResolvedSpecularEstimate[2];
     ComPtr<ID3D12Resource> m_reflectionSpecularMoments[2];
     ComPtr<ID3D12Resource> m_reflectionSpecularConfidence[2];
+    ComPtr<ID3D12Resource> m_reflectionDenoisedRadiance;
     ComPtr<ID3D12Resource> m_temporalUpscalerSceneColor;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
@@ -805,6 +812,7 @@ private:
     DescriptorHeapHandle m_reflectionResolvedSpecularEstimateSrv[2];
     DescriptorHeapHandle m_reflectionSpecularMomentsSrv[2];
     DescriptorHeapHandle m_reflectionSpecularConfidenceSrv[2];
+    DescriptorHeapHandle m_reflectionDenoisedRadianceSrv;
     StagedDescriptorRange m_shadowMaskRange;
 
     StagedDescriptorAllocator m_stageAllocator;
@@ -993,6 +1001,7 @@ private:
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";
     static constexpr const char* kTemporalUpscalerSceneColorResourceName = "TemporalUpscaler.SceneColor";
     static constexpr const char* kReflectionEvaluatedRadianceResourceName = "ReflectionEvaluatedRadiance";
+    static constexpr const char* kReflectionDenoisedRadianceResourceName = "ReflectionDenoisedRadiance";
     static constexpr const char* kReflectionSpecularEstimateResourceName = "ReflectionSpecularEstimate";
     static constexpr const char* kReflectionResolvedRadianceResourceNames[2] = {
         "ReflectionResolvedRadiance.0",
@@ -1079,6 +1088,7 @@ private:
         GraphicsPipelineShaderSet lightingDebugGradient;
         GraphicsPipelineShaderSet reflectionEvaluate;
         GraphicsPipelineShaderSet temporalReflection;
+        GraphicsPipelineShaderSet edgeAwareSpatialReflection;
         GraphicsPipelineShaderSet toneMap;
         ShaderBytecode hybridReflection;
         ShaderBytecode proceduralEnv;
@@ -1170,6 +1180,7 @@ private:
     void RegisterReflectionResolvedRadiance();
     void RegisterReflectionAuxiliaryHistory();
     void RegisterReflectionEstimatorHistory();
+    void RegisterReflectionDenoisedRadiance();
     void RegisterTemporalUpscalerSceneColor();
     void RegisterRenderTexture(const Engine::RenderTextureSpec& spec);
     UINT ResolveRenderTextureWidth(const Engine::RenderTextureSpec& spec) const;
@@ -1208,6 +1219,7 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionResolvedSpecularEstimateCurrentRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionSpecularMomentsCurrentRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionSpecularConfidenceCurrentRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionDenoisedRadianceRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetTemporalUpscalerSceneColorRTV() const;
     void RegisterPassBindingResolvers();
     void RegisterPassConstantsHandlers();
@@ -1240,6 +1252,7 @@ private:
     RenderPass MakeLightingPass();
     RenderPass MakeReflectionEvaluatePass();
     RenderPass MakeTemporalReflectionPass();
+    RenderPass MakeEdgeAwareSpatialReflectionPass();
     RenderPass MakeLightingDebugGradientPass();
     RenderPass MakeTemporalUpscalerPass();
     RenderPass MakeToneMapPass();
@@ -1309,6 +1322,7 @@ private:
     void ExecuteLightingPass(const RenderPass& pass);
     void ExecuteReflectionEvaluatePass(const RenderPass& pass);
     void ExecuteTemporalReflectionPass(const RenderPass& pass);
+    void ExecuteEdgeAwareSpatialReflectionPass(const RenderPass& pass);
     void ExecuteLightingDebugGradientPass(const RenderPass& pass);
     void ExecuteTemporalUpscalerPass(const RenderPass& pass);
     void ExecuteToneMapPass(const RenderPass& pass);
