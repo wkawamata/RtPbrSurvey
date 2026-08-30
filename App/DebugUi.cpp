@@ -328,6 +328,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::End();
         return;
     }
+    ImGui::SameLine(0.0f, 12.0f);
+    if (ImGui::Button("Open RenderGraph Window"))
+    {
+        renderGraphWindowOpen = true;
+    }
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
     {
         int cameraMode = static_cast<int>(app.DebugCamera().GetMode());
@@ -1216,11 +1221,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 }
             }
         }
-    }
-
-    if (ImGui::Button("Open RenderGraph Window"))
-    {
-        renderGraphWindowOpen = true;
     }
 
     ImGui::End();

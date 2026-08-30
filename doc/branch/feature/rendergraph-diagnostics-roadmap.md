@@ -233,3 +233,8 @@
 
 - 通常のScene SelectからDamagedHelmetを`Load Scene`した際の`assert(loaded)`は、glTF相対pathがprocessのcurrent directoryに依存していたことが原因だった。exe directory基準で解決するよう修正し、exe直接起動からの`Load Scene`で正常表示を確認した。
 - State Diagnosticsの`2 runtime mismatches`は、前フレームのbarrier eventを現在フレームのping-pong graphと比較した誤検出だった。同じフレームでcaptureしたdocumentとeventを保持して照合するよう修正し、DamagedHelmetで`19 required barriers / 0 runtime mismatches`を確認した。
+
+## 後続タスク
+
+- [x] `Open RenderGraph Window`を`Close Scene`ボタンの右側へ、少し余白を空けて配置する。
+- [x] RenderGraphノードの手動配置を`%APPDATA%\\RtPbrSurvey\\rendergraph_node_editor.json`へ自動保存し、次回起動時に復元する。

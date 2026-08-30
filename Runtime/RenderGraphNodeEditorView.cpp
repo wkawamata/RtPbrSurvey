@@ -21,6 +21,8 @@
 #include <array>
 #include <cctype>
 #include <deque>
+#include <fstream>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
@@ -31,6 +33,56 @@ namespace NodeEditor = ax::NodeEditor;
 
 namespace
 {
+std::string NodeEditorSettingsPath()
+{
+    char appDataPath[MAX_PATH];
+    const DWORD appDataLength = GetEnvironmentVariableA("APPDATA", appDataPath, MAX_PATH);
+    if (appDataLength == 0 || appDataLength >= MAX_PATH)
+    {
+        return {};
+    }
+
+    std::string settingsDirectory = std::string(appDataPath) + "\\RtPbrSurvey";
+    CreateDirectoryA(settingsDirectory.c_str(), nullptr);
+    return settingsDirectory + "\\rendergraph_node_editor.json";
+}
+
+std::unordered_set<uint64_t> LoadSavedNodeIds(const std::string& settingsPath)
+{
+    std::unordered_set<uint64_t> result;
+    if (settingsPath.empty())
+    {
+        return result;
+    }
+
+    std::ifstream stream(settingsPath);
+    if (!stream)
+    {
+        return result;
+    }
+
+    const nlohmann::json settings = nlohmann::json::parse(stream, nullptr, false);
+    if (settings.is_discarded() || !settings.contains("nodes") || !settings["nodes"].is_object())
+    {
+        return result;
+    }
+
+    for (const auto& [key, value] : settings["nodes"].items())
+    {
+        constexpr std::string_view prefix = "node:";
+        const std::string_view keyView(key);
+        const std::string_view idText = keyView.compare(0, prefix.size(), prefix) == 0 ? keyView.substr(prefix.size())
+                                                                                       : keyView;
+        char* end = nullptr;
+        const uint64_t id = std::strtoull(idText.data(), &end, 10);
+        if (end != idText.data() && *end == '\0')
+        {
+            result.insert(id);
+        }
+    }
+    return result;
+}
+
 NodeEditor::NodeId ToNodeId(Engine::RenderGraphDocumentId id)
 {
     return NodeEditor::NodeId(static_cast<uintptr_t>(id.value));
@@ -533,8 +585,10 @@ ImVec4 NodeBackgroundColor(const Engine::RenderGraphDocumentNode& node)
 
 struct RenderGraphNodeEditorView::Impl
 {
+    std::string settingsPath;
     NodeEditor::EditorContext* context = nullptr;
     std::unordered_set<uint64_t> positionedNodes;
+    std::unordered_set<uint64_t> savedNodeIds;
     std::unordered_map<uint64_t, float> stableContentWidths;
     struct ResourcePinIds
     {
@@ -558,10 +612,10 @@ struct RenderGraphNodeEditorView::Impl
     std::optional<Engine::RenderGraphDocument> baselineDocument;
     uintptr_t nextSyntheticPinId = UINTPTR_MAX;
 
-    Impl()
+    Impl() : settingsPath(NodeEditorSettingsPath()), savedNodeIds(LoadSavedNodeIds(settingsPath))
     {
         NodeEditor::Config config;
-        config.SettingsFile = nullptr;
+        config.SettingsFile = settingsPath.empty() ? nullptr : settingsPath.c_str();
         context = NodeEditor::CreateEditor(&config);
     }
 
@@ -573,6 +627,10 @@ struct RenderGraphNodeEditorView::Impl
     bool PositionNode(const Engine::RenderGraphDocumentNode& node, size_t resourceIndex)
     {
         if (!positionedNodes.insert(node.id.value).second)
+        {
+            return false;
+        }
+        if (savedNodeIds.contains(node.id.value))
         {
             return false;
         }
@@ -685,6 +743,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     if (resetLayoutRequested)
     {
         m_impl->positionedNodes.clear();
+        m_impl->savedNodeIds.clear();
     }
     ImGui::SameLine();
     ImGui::TextDisabled("Read-only");
@@ -1043,7 +1102,10 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
 
     ImGui::SameLine();
     ImGui::BeginChild("RenderGraphDetailPane", ImVec2(0.0f, contentSize.y), true);
+    constexpr float nodeDetailsHeight = 260.0f;
+    ImGui::BeginChild("RenderGraphNodeDetailsPane", ImVec2(0.0f, nodeDetailsHeight), false);
     DrawDetailPanel(document, m_impl->selectedNodeId, m_impl->passTimings, m_impl->totalTiming, m_impl->timingMode);
+    ImGui::EndChild();
     const std::optional<Engine::RenderGraphDocumentId> timelineSelection =
         DrawLifetimeTimeline(document, m_impl->selectedNodeId);
     DrawStateDiagnostics(document, stateDiagnostics, barrierDiagnostics);
