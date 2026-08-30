@@ -5,6 +5,21 @@ Texture2D<float4> g_reflectionRayHit : register(t0, space6);
 Texture2D<float4> g_visibleNormal : register(t1, space3);
 Texture2D<float4> g_visiblePbrParams : register(t4, space3);
 Texture2D<float> g_visibleDepth : register(t6, space3);
+Texture2D<float2> g_reflectionSpecularMoments : register(t0, space15);
+Texture2D<float> g_reflectionSpecularConfidence : register(t0, space17);
+
+cbuffer TemporalReflectionConstants : register(b5)
+{
+    uint g_historyValid;
+    float g_historyWeight;
+    uint g_frameIndex;
+    float g_noiseStrength;
+    uint g_rejectedPixelNeighborhoodEnabled;
+    uint g_surfaceVarianceFilterEnabled;
+    uint g_varianceGuidedTemporalEnabled;
+    uint g_confidenceForceStableEvidence;
+    uint g_spatiotemporalSpatialPolicyEnabled;
+};
 
 float2 DecodeOctahedral(float2 encoded)
 {
@@ -85,5 +100,18 @@ float4 PSMain(FullscreenVSOutput input) : SV_Target
     }
 
     const float3 filtered = weightSum > 0.0 ? radianceSum / weightSum : centerRadiance.rgb;
-    return float4(filtered, 1.0);
+    float spatialStrength = 1.0;
+    if (g_spatiotemporalSpatialPolicyEnabled != 0)
+    {
+        const float2 moments = g_reflectionSpecularMoments.Load(int3(pixel, 0));
+        const float variance = max(moments.y - moments.x * moments.x, 0.0);
+        const float relativeStandardDeviation = sqrt(variance) / max(abs(moments.x), 0.01);
+        const float confidence = saturate(g_reflectionSpecularConfidence.Load(int3(pixel, 0)));
+        const float confidenceWeight = smoothstep(0.5, 0.9, confidence);
+        const float varianceWeight = smoothstep(0.15, 0.5, relativeStandardDeviation);
+        const float roughnessWeight = smoothstep(0.05, 0.35, centerRoughness);
+        spatialStrength = min(confidenceWeight * varianceWeight * roughnessWeight, 0.75);
+    }
+
+    return float4(lerp(centerRadiance.rgb, filtered, spatialStrength), 1.0);
 }

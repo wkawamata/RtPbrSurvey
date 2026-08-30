@@ -93,6 +93,8 @@ The implemented per-pixel acceptance evidence is bounds, previous depth, and pre
 
 `ReflectionSpecularConfidence` stores persistent high-variance evidence in `[0, 1]`. It is not a probability that history is correct, not a history-valid flag, and not a material classification. Reset or rejection writes zero. Accepted history may raise or decay it according to the documented experimental policy.
 
+Confidence metadata is updated on accepted history independently of whether `Variance-Guided Temporal` consumes it. That toggle controls only the temporal history-weight adjustment. This separation allows the post-temporal spatial policy and debug views to observe the same evidence without silently enabling a different temporal blend.
+
 A spatial filter may use moments or confidence to reduce strength in stable regions or increase support in persistently noisy regions, but it must preserve the following:
 
 - invalid history cannot be made valid by high confidence;
@@ -117,9 +119,32 @@ Required evidence is:
 
 Passing these gates supports only the scoped filter and evaluated conditions. Production default, physical correctness, PathTracing agreement, and DLSS RR compatibility remain separate claims.
 
+The `Spatial Policy Inputs` debug view exposes the current policy evidence without adding another persistent resource. Its channels are:
+
+| Channel | Meaning |
+|---------|---------|
+| R | persistent high-variance confidence in `[0, 1]` |
+| G | mapped temporal variance, `variance / (1 + variance)` |
+| B | fraction of the eight non-center 3x3 neighbors accepted by the implemented depth, visible-normal, roughness, hit/miss, hit-distance, and hit-normal gates |
+
+This view does not assert that filtering was applied. A bright red channel is sustained variance evidence, not history validity or correctness probability. A bright blue channel means neighborhood support is geometrically/materially compatible under the current thresholds; it does not prove that mixing those samples is unbiased. The view recomputes the same fixed neighborhood gates used by the current spatial pass so later policy decisions can be inspected before they change radiance.
+
+The default-off `Spatiotemporal Spatial Policy` is a bounded strength policy layered over the existing default-off spatial pass. With the spatial filter enabled and the policy disabled, the fixed-filter comparison path is preserved. With both enabled, the spatial blend strength is:
+
+```text
+relative_standard_deviation = sqrt(max(M2 - M1^2, 0)) / max(abs(M1), 0.01)
+strength = min(
+    smoothstep(0.5, 0.9, confidence)
+  * smoothstep(0.15, 0.5, relative_standard_deviation)
+  * smoothstep(0.05, 0.35, visible_roughness),
+    0.75)
+```
+
+This is policy rather than resource meaning. It intentionally bypasses or weakens spatial processing for low-confidence, low-relative-variance, and near-mirror regions, and it never exceeds a 75% blend toward the accepted-neighborhood result. Existing neighborhood rejection is evaluated before this strength; confidence cannot admit a rejected neighbor. Toggling the policy does not reset temporal history because it remains stateless and post-temporal.
+
 ## Out of Scope
 
-- implementing the edge-aware spatial pass;
+- promoting the implemented edge-aware spatial pass to a production default;
 - feeding spatial output back into temporal history;
 - production-default selection;
 - adaptive sampling or multi-bounce transport;

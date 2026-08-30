@@ -124,6 +124,7 @@ public:
         ReflectionResolvedSpecularEstimate,
         ReflectionSpecularVariance,
         ReflectionSpecularConfidence,
+        ReflectionSpatialPolicyInputs,
         ReflectionResolvedRadiance,
         ReflectionTemporalValidity,
         ReflectionEvaluatedRadianceDirect,
@@ -234,6 +235,7 @@ public:
         float temporalNoiseStrength = 0.0f;
         bool rejectedPixelNeighborhoodEnabled = false;
         bool surfaceVarianceFilterEnabled = false;
+        bool spatiotemporalSpatialPolicyEnabled = false;
         bool varianceGuidedTemporalEnabled = false;
         // Diagnostic-only evidence override. Changing it must preserve history for decay measurement.
         bool confidenceForceStableEvidence = false;
@@ -636,6 +638,7 @@ private:
                    renderViewMode != RenderViewMode::ReflectionResolvedSpecularEstimate &&
                    renderViewMode != RenderViewMode::ReflectionSpecularVariance &&
                    renderViewMode != RenderViewMode::ReflectionSpecularConfidence &&
+                   renderViewMode != RenderViewMode::ReflectionSpatialPolicyInputs &&
                    renderViewMode != RenderViewMode::ReflectionResolvedRadiance &&
                    renderViewMode != RenderViewMode::ReflectionTemporalValidity &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceDirect &&
@@ -675,6 +678,7 @@ private:
                    renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate ||
                    renderViewMode == RenderViewMode::ReflectionSpecularVariance ||
                    renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
+                   renderViewMode == RenderViewMode::ReflectionSpatialPolicyInputs ||
                    renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
                    renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
@@ -724,6 +728,10 @@ private:
             if (renderViewMode == RenderViewMode::ReflectionSpecularConfidence)
             {
                 return 16u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionSpatialPolicyInputs)
+            {
+                return 17u;
             }
             if (renderViewMode == RenderViewMode::ReflectionResolvedRadiance)
             {

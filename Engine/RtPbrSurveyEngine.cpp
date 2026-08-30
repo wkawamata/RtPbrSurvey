@@ -3374,6 +3374,7 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
                 UINT surfaceVarianceFilterEnabled;
                 UINT varianceGuidedTemporalEnabled;
                 UINT confidenceForceStableEvidence;
+                UINT spatiotemporalSpatialPolicyEnabled;
             };
             const TemporalReflectionConstants constants = {
                 m_reflectionHistoryState.valid ? 1u : 0u,
@@ -3383,8 +3384,9 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
                 m_hybridReflectionSettings.rejectedPixelNeighborhoodEnabled ? 1u : 0u,
                 m_hybridReflectionSettings.surfaceVarianceFilterEnabled ? 1u : 0u,
                 m_hybridReflectionSettings.varianceGuidedTemporalEnabled ? 1u : 0u,
-                m_hybridReflectionSettings.confidenceForceStableEvidence ? 1u : 0u};
-            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 8, &constants, 0);
+                m_hybridReflectionSettings.confidenceForceStableEvidence ? 1u : 0u,
+                m_hybridReflectionSettings.spatiotemporalSpatialPolicyEnabled ? 1u : 0u};
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 9, &constants, 0);
         });
     m_renderGraphRuntime.Constants().Register(
         m_renderGraphRuntime.RegisterConstants(ConstName::ReflectionSampling),

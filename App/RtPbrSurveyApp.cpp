@@ -264,6 +264,8 @@ void RtPbrSurveyApp::OnInit()
                 m_commandLineOptions.reflectionRejectedPixelNeighborhood;
             reflectionSettings.surfaceVarianceFilterEnabled =
                 m_commandLineOptions.reflectionSurfaceVarianceFilter;
+            reflectionSettings.spatiotemporalSpatialPolicyEnabled =
+                m_commandLineOptions.reflectionSpatiotemporalSpatialPolicy;
             reflectionSettings.varianceGuidedTemporalEnabled =
                 m_commandLineOptions.reflectionVarianceGuidedTemporal;
             if (m_commandLineOptions.hasReflectionTemporalWeight)
@@ -1022,13 +1024,14 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         };
     }
     const json report = {
-        {"schemaVersion", 13},
+        {"schemaVersion", 14},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
         {"specularEstimateIncidentRadiance",
          reflectionSettings.estimatorConstantIncidentRadianceEnabled ? "constant-white-1" : "traced-scene"},
         {"varianceGuidedTemporalEnabled", reflectionSettings.varianceGuidedTemporalEnabled},
         {"edgeAwareSpatialFilterEnabled", reflectionSettings.surfaceVarianceFilterEnabled},
+        {"spatiotemporalSpatialPolicyEnabled", reflectionSettings.spatiotemporalSpatialPolicyEnabled},
         {"denoisedRadianceSource",
          reflectionSettings.surfaceVarianceFilterEnabled ? "ReflectionDenoisedRadiance" :
                                                            "ReflectionResolvedRadiance identity fallback"},
