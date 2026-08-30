@@ -770,6 +770,7 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
     const RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
         m_sceneRenderer.GetHybridReflectionSettings();
+    const RtPbrSurveyEngine::CameraState& camera = m_sceneRenderer.GetCamera();
 
     const auto meanLuminance = [](const std::vector<Engine::ReflectionHdrDiagnosticSample>& samples)
     {
@@ -1071,11 +1072,47 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         };
     }
     const json report = {
-        {"schemaVersion", 14},
+        {"schemaVersion", 15},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
+        {"comparisonMetadata",
+         {{"renderingPath", m_renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred ? "deferred" : "forward"},
+          {"signalBoundaries",
+           {{"evaluatedRadiance", "current-reflection-unweighted-linear-hdr"},
+            {"resolvedRadiance", "resolved-reflection-unweighted-linear-hdr"},
+            {"denoisedRadiance", "spatial-reflection-unweighted-linear-hdr"}}},
+          {"reflectionSettings",
+           {{"enabled", reflectionSettings.enabled},
+            {"materialGateEnabled", reflectionSettings.materialGateEnabled},
+            {"maximumRoughness", reflectionSettings.maxRoughness},
+            {"minimumMetallic", reflectionSettings.minMetallic},
+            {"contributionEnabled", reflectionSettings.contributionEnabled},
+            {"contributionIntensity", reflectionSettings.contributionIntensity},
+            {"contributionMaximumDistance", reflectionSettings.contributionMaxDistance}}},
+          {"outputSize", {{"width", context.outputWidth}, {"height", context.outputHeight}}},
+          {"camera",
+           {{"position", {camera.pos.x, camera.pos.y, camera.pos.z}},
+            {"rotation", {camera.rot.x, camera.rot.y, camera.rot.z}},
+            {"gazePoint", {camera.gazePoint.x, camera.gazePoint.y, camera.gazePoint.z}},
+            {"up", {camera.up.x, camera.up.y, camera.up.z}},
+            {"projection", camera.projection == Engine::CameraProjection::Perspective ? "perspective" : "orthographic"},
+            {"fovYDegrees", camera.fov},
+            {"orthographicHeight", camera.orthographicHeight},
+            {"nearZ", camera.nearZ},
+            {"farZ", camera.farZ}}},
+          {"presentation",
+           {{"toneMapOperator",
+             m_toneMapParams.operatorIndex == 0 ? "none" :
+             m_toneMapParams.operatorIndex == 1 ? "reinhard" : "aces"},
+            {"toneMapOperatorIndex", m_toneMapParams.operatorIndex},
+            {"exposure", m_toneMapParams.exposure},
+            {"paperWhiteNits", m_toneMapParams.paperWhiteNits},
+            {"maxDisplayNits", m_toneMapParams.maxDisplayNits}}}}},
         {"specularEstimateIncidentRadiance",
          reflectionSettings.estimatorConstantIncidentRadianceEnabled ? "constant-white-1" : "traced-scene"},
+        {"stochasticSamplingEnabled", reflectionSettings.stochasticSamplingEnabled},
+        {"hitNormalSource",
+         reflectionSettings.hitNormalSource == 0 ? "gbuffer-world-normal" : "attribute-geometric-normal"},
         {"varianceGuidedTemporalEnabled", reflectionSettings.varianceGuidedTemporalEnabled},
         {"edgeAwareSpatialFilterEnabled", reflectionSettings.surfaceVarianceFilterEnabled},
         {"spatiotemporalSpatialPolicyEnabled", reflectionSettings.spatiotemporalSpatialPolicyEnabled},
