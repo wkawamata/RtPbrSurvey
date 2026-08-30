@@ -77,3 +77,13 @@ version管理されたROI sourceは`Tests/SubjectiveValidation/HybridReflection/
 
 追加assetのBoomBoxでは、再現可能なfull-object framingを用いてlive Lit A/B評価を完了した。固定spatialとbounded spatiotemporal spatial policyの間に見た目の差はまったく知覚できなかった。これは宣言条件内のnon-regressionを限定的に支持するが、知覚品質改善は支持しない。定量結果と主観結果を合わせてもproduction昇格条件を満たさないため、bounded policyはdefault-off diagnosticを維持する。
 
+## Phase最終判定
+
+| 区分 | 結果 |
+|---|---|
+| PASS | default値維持、paired sequence、resolved control、mean bound、Debug x64 build、BoomBox自動起動／framing、D3D12新規errorなし |
+| PASS WITH LIMITATION | 宣言ROIでの定量結果、DamagedHelmet／controlled scene／BoomBoxの限定主観non-regression |
+| NOT CLAIMED | 知覚可能なgeneral品質改善、performance合格、physical correctness、全sceneへのgeneralization、production readiness |
+
+production昇格gateは満たしていない。performance未測定を含む未主張項目を推測で補わず、このPhaseは再現可能なgateと診断分類を確定した状態で完了とする。
+

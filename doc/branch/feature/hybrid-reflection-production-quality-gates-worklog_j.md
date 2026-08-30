@@ -24,6 +24,8 @@
 - BoomBoxのdefault distanceは品質reviewには広すぎた。version管理defaultsとdistance scale `0.25`により、1920x1080でobject全体を保つreview可能なframingを生成した。64-frame captureは正常終了し、D3D12 error 0件、既知buffer initial-state warning 2件だった。
 - BoomBoxのlive Lit A/B主観評価を実施した。固定spatialに対してbounded spatiotemporal spatial policyをONにしても、見た目の差はまったく知覚できなかった。この結果はnon-regressionの限定根拠だが、改善の根拠ではない。
 - BoomBoxでも知覚可能な改善を確立できず、256-frame定量結果もmixed behaviorを示しているため、bounded policyはproduction候補へ昇格せずdefault-off diagnosticを維持する。
+- 最終Debug x64 buildは0 errorで成功した。vcpkg task重複import warning 1件は既知である。BoomBox HDR smokeはexit code 0、D3D12 error 0件、既知buffer initial-state warning 2件で完了した。
+- performanceは未測定であり`NOT CLAIMED`とする。これはproduction昇格を阻止するが、default-off diagnosticとしてPhaseを閉じることは阻止しない。
 
-Status: in progress
+Status: done
 
