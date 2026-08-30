@@ -323,6 +323,29 @@ History, reset, and ownership:
 - DLSS RR and the existing temporal reflection pass must be mutually exclusive once RR evaluation is implemented. Phase 1 records the policy but leaves the existing temporal reflection path active.
 - The future boundary is `ReflectionEvaluatedRadiance -> ReflectionResolvedRadiance -> LightPass composition`. `LightPass` should continue applying visible-surface Fresnel, roughness/contribution weighting, distance fade, and user intensity.
 
+## Work-2 DLSS RR Phase 2 Boundary Shell
+
+The first Phase 2 code step makes the future producer boundary explicit without changing the default renderer path:
+
+- Default: `ReflectionEvaluatePass -> TemporalReflectionPass -> ReflectionResolvedRadiance -> LightPass`
+- RR path when explicitly enabled and supported: `ReflectionEvaluatePass -> DlssRayReconstructionPass -> ReflectionResolvedRadiance -> LightPass`
+
+The two resolved-radiance producers are mutually exclusive in `AddSceneRenderPasses()`. `DlssRayReconstructionPass` currently records the intended resource boundary and uses a copy fallback from `ReflectionEvaluatedRadiance` to the current `ReflectionResolvedRadiance` ping-pong target. It does not call Streamline RR yet.
+
+Current shell inputs:
+
+- `ReflectionEvaluatedRadiance` as `COPY_SOURCE`
+- `DepthStencil` as shader-readable depth
+- `GBuffer.Normal`
+- `GBuffer.MotionVector`
+- `GBuffer.PBRParams`
+
+Current shell output:
+
+- `ReflectionResolvedRadiance.{writeIndex}` as `COPY_DEST`
+
+This keeps the LightPass contract stable while making the RR insertion point visible in RenderGraph captures. Phase 2 implementation should replace the copy fallback with SDK evaluation and should decide whether auxiliary reflection/specular histories remain temporal-only diagnostics or receive RR-owned equivalents.
+
 Unmet RR inputs / decisions:
 
 - Confirm Streamline RR SDK feature availability and exact buffer tags against the SDK used by the machine. This worktree currently builds without vendored Streamline SDK artifacts.

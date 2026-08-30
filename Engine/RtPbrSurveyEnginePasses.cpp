@@ -83,7 +83,14 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
                         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
                         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity)
                     {
-                        AddPass(MakeTemporalReflectionPass());
+                        if (ShouldRunRayReconstruction())
+                        {
+                            AddPass(MakeDlssRayReconstructionPass());
+                        }
+                        else
+                        {
+                            AddPass(MakeTemporalReflectionPass());
+                        }
                         if (m_hybridReflectionSettings.surfaceVarianceFilterEnabled &&
                             m_hybridReflectionSettings.contributionEnabled)
                         {
@@ -469,6 +476,21 @@ auto RtPbrSurveyEngine::MakeTemporalReflectionPass() -> RenderPass
                            Desc::ReflectionSpecularConfidenceHistorySrv);
     }
     return builder.Build();
+}
+
+auto RtPbrSurveyEngine::MakeDlssRayReconstructionPass() -> RenderPass
+{
+    const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"DlssRayReconstructionPass")
+        .Reads({{kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
+                {kDepthStencilResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::MotionVector], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Writes({{kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_DEST}})
+        .Operation(Op::DlssRayReconstruction, &RtPbrSurveyEngine::ExecuteDlssRayReconstructionPass)
+        .Build();
 }
 
 auto RtPbrSurveyEngine::MakeEdgeAwareSpatialReflectionPass() -> RenderPass

@@ -454,6 +454,7 @@ private:
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
             static constexpr const char* ReflectionEvaluate = "ReflectionEvaluate";
             static constexpr const char* TemporalReflection = "TemporalReflection";
+            static constexpr const char* DlssRayReconstruction = "DlssRayReconstruction";
             static constexpr const char* EdgeAwareSpatialReflection = "EdgeAwareSpatialReflection";
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* TemporalUpscaler = "TemporalUpscaler";
@@ -1238,6 +1239,7 @@ private:
     void UpdateRenderDimensions();
     bool IsTemporalJitterEnabled() const;
     bool ShouldRunTemporalUpscaler() const;
+    bool ShouldRunRayReconstruction() const;
     D3D12_GPU_DESCRIPTOR_HANDLE ResolveToneMapSceneColorSrv() const;
 
     std::vector<UINT8> GenerateCheckerboardTextureData();
@@ -1261,6 +1263,7 @@ private:
     RenderPass MakeLightingPass();
     RenderPass MakeReflectionEvaluatePass();
     RenderPass MakeTemporalReflectionPass();
+    RenderPass MakeDlssRayReconstructionPass();
     RenderPass MakeEdgeAwareSpatialReflectionPass();
     RenderPass MakeLightingDebugGradientPass();
     RenderPass MakeTemporalUpscalerPass();
@@ -1331,6 +1334,7 @@ private:
     void ExecuteLightingPass(const RenderPass& pass);
     void ExecuteReflectionEvaluatePass(const RenderPass& pass);
     void ExecuteTemporalReflectionPass(const RenderPass& pass);
+    void ExecuteDlssRayReconstructionPass(const RenderPass& pass);
     void ExecuteEdgeAwareSpatialReflectionPass(const RenderPass& pass);
     void ExecuteLightingDebugGradientPass(const RenderPass& pass);
     void ExecuteTemporalUpscalerPass(const RenderPass& pass);

@@ -443,6 +443,13 @@ bool RtPbrSurveyEngine::ShouldRunTemporalUpscaler() const
         m_temporalUpscalerSettings.enabled && m_temporalUpscalerSupport.IsAvailable();
 }
 
+bool RtPbrSurveyEngine::ShouldRunRayReconstruction() const
+{
+    return m_rayReconstructionSettings.enabled &&
+        m_rayReconstructionSettings.backend == Engine::RayReconstructionBackend::Streamline &&
+        m_rayReconstructionSupport.IsAvailable();
+}
+
 D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveToneMapSceneColorSrv() const
 {
     if (m_temporalUpscalerOutputAvailable)
@@ -4530,6 +4537,15 @@ void RtPbrSurveyEngine::ExecuteTemporalReflectionPass(const RenderPass& pass)
     Engine::RecordTemporalReflectionPass(m_commandList.Get());
     m_reflectionHistoryCommitPending = true;
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Temporal Reflection Pass");
+}
+
+void RtPbrSurveyEngine::ExecuteDlssRayReconstructionPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+
+    const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
+    m_commandList->CopyResource(m_reflectionResolvedRadiance[writeIndex].Get(), m_reflectionEvaluatedRadiance.Get());
+    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "DLSS Ray Reconstruction Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteEdgeAwareSpatialReflectionPass(const RenderPass& pass)
