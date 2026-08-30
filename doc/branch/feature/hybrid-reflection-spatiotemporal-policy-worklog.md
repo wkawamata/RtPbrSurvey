@@ -21,5 +21,9 @@
 - The 256-frame standard gate reproduced the direction: sample/temporal indices matched, temporal variance was 6.74% higher, frame-difference mean/p95/p99 were 14.50%/16.61%/10.31% lower, and the ROI mean difference was 0.026%.
 - These results support a bounded-tail policy interpretation, not a minimum-variance claim. They cover one controlled 48x48 ROI and do not establish multi-scene generalization or physical correctness.
 - Updated the paired report to schema version 2 with explicit variant labels and a signed B-relative-to-A variance-change field. Legacy filter-off/on fields remain for compatibility.
+- Extended the 64-frame controlled gate across the known metallic roughness 0.0, 0.35, and 1.0 ROIs. Every pair matched sampling and temporal-frame indices, and every resolved-radiance control was identical.
+- At roughness 0.0, the bounded policy bypassed to the resolved control with zero confidence. The fixed filter increased temporal variance by approximately 8.4x in the ROI, while the policy reduced variance by 88.08% relative to that fixed path. The ROI mean difference was 0.013%, and frame-difference p95 was unchanged.
+- At roughness 1.0, the policy had 7.62% higher temporal variance than the fixed filter but reduced frame-difference mean/p95/p99 by 19.43%/24.04%/0.47%. The ROI mean difference was 0.018%.
+- Together with the roughness 0.35 result, the controlled gate supports the intended behavior: bypass stable mirror evidence, and bound spatial mixing in rough high-confidence regions while preserving the long-run mean. Subjective Lit quality and additional scene coverage remain pending.
 
 Status: in progress

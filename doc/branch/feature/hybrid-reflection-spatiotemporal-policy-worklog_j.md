@@ -21,5 +21,9 @@
 - 256-frame標準gateでも方向を再現した。sample/temporal indexは一致し、temporal varianceは6.74%高く、frame difference mean/p95/p99は14.50%/16.61%/10.31%低く、ROI mean差は0.026%だった。
 - この結果はbounded-tail policyとして解釈できるが、最小varianceは主張しない。対象はcontrolled 48x48 ROI 1件であり、multi-scene generalizationまたは物理的正しさは確立しない。
 - paired reportをschema version 2へ更新し、明示的なvariant labelとBのA比signed variance changeを追加した。互換性のため既存filter-off/on fieldは維持する。
+- 既知のmetallic roughness 0.0、0.35、1.0 ROIへ64-frame controlled gateを拡張した。全pairでsampling/temporal frame indexが一致し、resolved-radiance controlも完全一致した。
+- roughness 0.0ではconfidenceが0で、bounded policyはresolved controlへbypassした。固定filterはROIのtemporal varianceを約8.4倍へ増加させ、policyはその固定経路比でvarianceを88.08%低減した。ROI mean差は0.013%、frame difference p95は同一だった。
+- roughness 1.0ではpolicyのtemporal varianceは固定filterより7.62%高いが、frame difference mean/p95/p99を19.43%/24.04%/0.47%低減した。ROI mean差は0.018%だった。
+- roughness 0.35の結果と合わせ、stable mirror evidenceではbypassし、roughかつhigh-confidenceな領域では長期meanを維持しながらspatial mixingを制限する意図をcontrolled gateが支持した。Lit主観品質と追加scene coverageは未確認である。
 
 Status: in progress
