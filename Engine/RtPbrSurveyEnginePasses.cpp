@@ -85,6 +85,7 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
                     {
                         if (ShouldRunRayReconstruction())
                         {
+                            AddPass(MakeRayReconstructionRoughnessPass());
                             AddPass(MakeDlssRayReconstructionPass());
                         }
                         else
@@ -414,6 +415,19 @@ auto RtPbrSurveyEngine::MakeReflectionEvaluatePass() -> RenderPass
         .Build();
 }
 
+auto RtPbrSurveyEngine::MakeRayReconstructionRoughnessPass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"RayReconstructionRoughnessPass")
+        .Pipeline(Pipe::RayReconstructionRoughness)
+        .Reads({{kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Writes({{kReflectionRoughnessResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
+        .Rtv(RtvName::ReflectionRoughness)
+        .Operation(Op::RayReconstructionRoughness, &RtPbrSurveyEngine::ExecuteRayReconstructionRoughnessPass)
+        .Build();
+}
+
 auto RtPbrSurveyEngine::MakeTemporalReflectionPass() -> RenderPass
 {
     const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
@@ -487,7 +501,7 @@ auto RtPbrSurveyEngine::MakeDlssRayReconstructionPass() -> RenderPass
                 {kDepthStencilResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                 {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                 {kGBufferResourceNames[Engine::GBuffer::MotionVector], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
-                {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+                {kReflectionRoughnessResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
         .Writes({{kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_DEST}})
         .Operation(Op::DlssRayReconstruction, &RtPbrSurveyEngine::ExecuteDlssRayReconstructionPass)
         .Build();

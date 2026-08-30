@@ -299,6 +299,7 @@ Current reflection/resource mapping:
 | Hit emissive payload | `ReflectionRayEmission` | shader-owned UAV payload | render | linear HDR | Emissive input to reflected hit shading. |
 | Evaluated reflection input | `ReflectionEvaluatedRadiance` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Unweighted one-bounce radiance before temporal processing and `LightPass` contribution weights. Best current RR input candidate. |
 | Current-frame specular estimate | `ReflectionSpecularEstimate` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR diagnostic | Weighted Cook-Torrance estimate used for temporal variance/confidence diagnostics. |
+| RR roughness input | `ReflectionRoughness` | `DXGI_FORMAT_R8_UNORM` | render | linear scalar [0,1] | RR-only prepare target. Extracted from `GBuffer.PBRParams.g` so Streamline receives roughness in the standalone texture R channel. |
 | Resolved reflection output | `ReflectionResolvedRadiance.0/1` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Ping-pong output currently owned by `TemporalReflectionPass`. Future RR output should preserve this unweighted radiance contract. |
 | Optional spatially filtered output | `ReflectionDenoisedRadiance` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Edge-aware post-temporal variant consumed by `LightPass` only when surface variance filtering is enabled. |
 | Final scene color before SR | `LightPass.RenderTarget` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Includes lighting and enabled reflection contribution, before tone mapping and DLSS SR. |
@@ -338,7 +339,7 @@ Current shell inputs:
 - `DepthStencil` as shader-readable depth
 - `GBuffer.Normal`
 - `GBuffer.MotionVector`
-- `GBuffer.PBRParams`
+- `ReflectionRoughness`, generated from `GBuffer.PBRParams.g`
 
 Current shell output:
 
@@ -369,7 +370,7 @@ Relevant Streamline buffer tags:
 | `kBufferTypeDepth` | `DepthStencil` SRV | Available as hardware depth. SDK also exposes `kBufferTypeLinearDepth`; current scaffold uses hardware depth with camera constants. |
 | `kBufferTypeMotionVectors` | `GBuffer.MotionVector` | Available. Current convention is `prevNdc - curNdc + jitterCancellation + valueOffset`; adapter exposes scale/offset, but native RR sign/scale still needs image validation. |
 | `kBufferTypeNormals` | `GBuffer.Normal` | Available. Current normal is world space xyz in `R16G16B16A16_FLOAT`; `DLSSDOptions` receives world/view matrices so the space is explicit. |
-| `kBufferTypeRoughness` | `GBuffer.PBRParams` | Not exact. Current resource packs metallic/roughness/AO in RGB. Streamline tag expects roughness. A dedicated roughness texture or packed normal+roughness path is likely needed before real evaluate. |
+| `kBufferTypeRoughness` | `ReflectionRoughness` | Available as a standalone `R8_UNORM` render-size texture. Values are copied from `GBuffer.PBRParams.g` into the texture R channel. |
 | `kBufferTypeNormalRoughness` | none | Possible alternative if roughness is moved into normal alpha or a dedicated packed texture. |
 | `kBufferTypeSpecularHitDistance` / `kBufferTypeSpecularRayDirectionHitDistance` | `ReflectionRayHit` / reflection direction debug data | Optional tags exist, but current resources are not exposed as a clean RR input contract yet. |
 | `kBufferTypeReflectionMotionVectors` | none | Optional. No reflection-specific motion vector resource exists yet. |
@@ -388,7 +389,20 @@ Scaffold order in `StreamlineAdapter.cpp`:
 7. Tag candidate resources with `slSetTagForFrame()`.
 8. Run `slEvaluateFeature(sl::kFeatureDLSS_RR, ...)`.
 
-Native RR evaluate remains disabled because the roughness tag is not exact, exposure is not a texture, and `ReflectionEvaluatedRadiance` still needs validation against Streamline's noisy specular-hit expectation.
+Native RR evaluate remains disabled because exposure is not a texture, optional specular hit data is not wired, and `ReflectionEvaluatedRadiance` still needs validation against Streamline's noisy specular-hit expectation.
+
+## Work-2 RR Roughness Prepare Pass
+
+`RayReconstructionRoughnessPass` is emitted only on the RR path, immediately before `DlssRayReconstructionPass`.
+
+- Input: `GBuffer.PBRParams` as pixel-shader SRV.
+- Output: `ReflectionRoughness` as render target.
+- Format: `DXGI_FORMAT_R8_UNORM`.
+- Resolution: render size.
+- Value: `saturate(GBuffer.PBRParams.g)`, stored in R channel.
+- Purpose: satisfy Streamline's standalone `kBufferTypeRoughness` expectation without changing the existing GBuffer MRT layout.
+
+When RR is disabled or unsupported, this pass is not added to the frame graph and the existing temporal reflection path is unchanged.
 
 Unmet RR inputs / decisions:
 
