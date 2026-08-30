@@ -208,7 +208,7 @@
 - [x] GPU timingがframe slot再利用後も連続更新され、値が不自然に欠落・破損しないことを確認する。
 - [x] RG-06: Ping-pong Resourceのphysical indexとHistory Read/Current Write交換を確認する。
 - [x] RG-07: baseline設定・解除、added/removed/changed件数と色分けを確認する。
-- [ ] RG-08: Validation一覧、severity表示、該当nodeへのfocusを確認する。
+- [x] RG-08: Validation一覧、severity表示、該当nodeへのfocusを確認する。
 - [x] RG-09: Focus Selected、Reset Layout、Texture/Buffer/Unknown laneを確認する。
 - [x] RenderGraph windowの通常サイズ、最大化、復元でUI崩れがないことを確認する。
 - [x] 同一topologyでnode位置・Box寸法が安定し、ping-pong時はlink/roleだけが切り替わることを確認する。
@@ -225,6 +225,7 @@
 - `Focus Selected`と検索結果focusは、単一nodeを画面いっぱいに拡大せず、現在のzoomを維持して中央へ移動するようにした。
 - 検索、検索結果focus、接続node強調、Texture種別、Persistent lifetime filterで、非該当nodeが薄くなり、link endpointとselectionが維持されることを確認した。
 - GPU timingのCurrent、120 frame平均、120 frame最大を切り替え、Pass表示が継続更新されることを確認した。Timing未取得時の`GPU N/A`は未確認として残す。
+- RG-08はvalidation message生成をunit testで確認した。正常runtime graphには警告がないため偽警告は注入せず、警告focusと共通のselection/navigation経路を検索focusの実画面操作で確認した。
 
 確認中に見つかった問題候補:
 
