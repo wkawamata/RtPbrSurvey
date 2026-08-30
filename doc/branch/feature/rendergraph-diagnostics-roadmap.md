@@ -213,7 +213,7 @@
 - [x] RenderGraph windowの通常サイズ、最大化、復元でUI崩れがないことを確認する。
 - [x] 同一topologyでnode位置・Box寸法が安定し、ping-pong時はlink/roleだけが切り替わることを確認する。
 - [x] Debug x64を10秒間自動実行し、D3D12 Debug Layer logが空であることを確認する。
-- [ ] 自動captureまたは手動screenshotを保存し、主要表示の確認記録を残す。
+- [x] 自動captureまたは手動screenshotを保存し、主要表示の確認記録を残す。
 
 ### 2026-08-29 主観評価メモ
 
@@ -226,6 +226,7 @@
 - 検索、検索結果focus、接続node強調、Texture種別、Persistent lifetime filterで、非該当nodeが薄くなり、link endpointとselectionが維持されることを確認した。
 - GPU timingのCurrent、120 frame平均、120 frame最大を切り替え、Pass表示が継続更新されることを確認した。Timing未取得時の`GPU N/A`は未確認として残す。
 - RG-08はvalidation message生成をunit testで確認した。正常runtime graphには警告がないため偽警告は注入せず、警告focusと共通のselection/navigation経路を検索focusの実画面操作で確認した。
+- 最大化したRenderGraphを含む手動screenshotを`C:\Users\wkawa\OneDrive\画像\Screenshots\RtPbrSurvey-RenderGraph-2026-08-30.png`へ保存した。検証用生成物のためrepositoryには追加しない。
 
 確認中に見つかった問題候補:
 
