@@ -28,5 +28,7 @@
 - Ran the policy-enabled 64-frame runtime audit on the Estimator Test scene. The process exited with code zero, reported zero D3D12 errors, and repeated only the three known buffer initial-state warnings for this controlled scene.
 - Final code audit confirmed that the policy remains default-off, changing its toggle does not reset temporal history, and `ReflectionDenoisedRadiance` never feeds the temporal generation.
 - Loaded `Hybrid Reflection Spatial Filter Test` in the live application for a later Lit A/B review. Subjective evaluation is intentionally deferred; implementation, automated measurement, build, and runtime gates are complete.
+- Completed the deferred live Lit A/B review on `Hybrid Reflection Spatial Filter Test` with stochastic sampling enabled, history weight `0.9`, the edge-aware spatial pass enabled, and variance-guided temporal disabled. The reviewer could not perceive a difference between the fixed-filter A variant and the bounded-policy B variant.
+- Classify the subjective result as PASS WITH LIMITATION: no visible regression, brightness loss, blur, leakage, lag, or instability was identified, but no subjective improvement was established. The measurable claim remains limited to the paired HDR statistics.
 
-Status: in progress
+Status: done

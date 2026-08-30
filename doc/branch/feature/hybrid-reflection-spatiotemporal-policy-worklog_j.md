@@ -28,5 +28,7 @@
 - Estimator Test sceneでpolicy-enabled 64-frame runtime auditを実行した。processはexit code 0、D3D12 error 0件で、controlled sceneの既知buffer initial-state warning 3件だけを再現した。
 - 最終code auditでpolicyがdefault-offであること、toggle変更がtemporal historyをresetしないこと、`ReflectionDenoisedRadiance`がtemporal generationへ帰還しないことを確認した。
 - 後日のLit A/B確認用に実アプリで`Hybrid Reflection Spatial Filter Test`をロードした。主観評価は意図的に保留し、実装、自動測定、build、runtime gateは完了した。
+- 保留していた`Hybrid Reflection Spatial Filter Test`のlive Lit A/B評価を完了した。stochastic sampling ON、history weight `0.9`、edge-aware spatial pass ON、variance-guided temporal OFFとし、固定filterのAとbounded policyのBを比較したが、評価者は差を知覚できなかった。
+- 主観結果はPASS WITH LIMITATIONとする。目視できるregression、輝度低下、blur、色漏れ、遅延、不安定化は確認されなかったが、主観的な改善も確立していない。測定可能な主張はpaired HDR統計に限定する。
 
-Status: in progress
+Status: done
