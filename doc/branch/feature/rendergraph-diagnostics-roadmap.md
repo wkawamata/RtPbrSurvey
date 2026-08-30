@@ -221,6 +221,7 @@
 - 同じnode位置とBox寸法のまま`Current Write`と`History Read`が交換し、baseline比較ではnode変更とlink交換が表示された。
 - GPU Average値は各Pass nodeに表示された。Current、Max、N/A、連続更新の全モード確認は継続する。
 - Validationは`No validation messages.`だったため、warning発生時のseverityとfocus動作は未確認。
+- `Focus Selected`と検索結果focusは、単一nodeを画面いっぱいに拡大せず、現在のzoomを維持して中央へ移動するようにした。
 
 確認中に見つかった問題候補:
 

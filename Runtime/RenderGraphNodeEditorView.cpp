@@ -1004,7 +1004,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
             {
                 NodeEditor::ClearSelection();
                 NodeEditor::SelectNode(ToNodeId(node.id));
-                NodeEditor::NavigateToSelection(true, 0.25f);
+                NodeEditor::NavigateToSelection(false, 0.25f);
                 m_impl->selectedNodeId = node.id;
                 break;
             }
@@ -1036,7 +1036,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     }
     else if (focusSelectedRequested)
     {
-        NodeEditor::NavigateToSelection(true, 0.25f);
+        NodeEditor::NavigateToSelection(false, 0.25f);
     }
     NodeEditor::SetCurrentEditor(nullptr);
     ImGui::EndChild();
