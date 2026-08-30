@@ -71,5 +71,5 @@ version管理されたROI sourceは`Tests/SubjectiveValidation/HybridReflection/
 
 このPhaseで主張可能なのは、現在のdefaultが安全に維持されること、診断が再現可能であること、宣言した品質gateに対して各実験profileを合否分類できることまでである。物理的正しさ、unbiased estimator、Path Tracing一致、DLSS Ray Reconstruction readiness、全sceneへのgeneralizationは主張しない。
 
-名前付き全profileの64-frame開発runは、scheduling、resolved control、meanの全invariantに合格した。ただし一貫した品質改善は確立しなかった。DamagedHelmet後頭部寄り面profileは無変化で、下面pipe profileはmean差を`0.5%`以内に維持したが、frame-difference p99が`16.24%`低下する一方でtemporal varianceは`18.57%`増加した。このmixed resultによりbounded policyはdiagnostic区分を維持する。
+名前付き全profileの64-frame開発runは、scheduling、resolved control、meanの全invariantに合格した。ただし一貫した品質改善は確立しなかった。256-frame標準runも同じ結論を再現した。DamagedHelmet後頭部寄り面profileは無変化を維持し、下面pipe profileはmean差を`0.5%`以内（`0.426%`）に維持したが、frame-difference p99が`15.99%`低下する一方でtemporal varianceは`21.44%`増加した。controlled roughness `0.35`／`1.0`でもframe-difference tail低減とtemporal variance増加が併存した。このmixed resultによりbounded policyはdiagnostic区分を維持する。
 

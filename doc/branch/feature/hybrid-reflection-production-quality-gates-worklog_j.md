@@ -14,6 +14,10 @@
 - 名前付き5 profileすべてを64-frame開発levelで実行した。全profileでsample／temporal sequence一致、resolved control維持、事前宣言したmean差`0.5%`以内を確認した。
 - controlled roughness `0.0`、`0.35`、`1.0`は既知観測を再現した。DamagedHelmet後頭部寄り面は無変化だった。下面pipeはmean差`0.448%`、temporal variance `+18.57%`、frame-difference mean／p99 `-15.70%`／`-16.24%`だった。
 - invariant PASSはproduction品質PASSではない。variance／tailのmixed behavior、後頭部profileでのinactive、以前のLit A/B差なしという結果から、bounded policyはdefault-off diagnosticを維持する。
+- 名前付き5 profileすべての256-frame標準gateを完了した。全profileでsequence、resolved control、meanのinvariantに再度合格した。
+- controlled roughness `0.0`はmirror bypassを再現した（固定filter比variance `-85.91%`）。roughness `0.35`／`1.0`はvarianceが`6.74%`／`10.70%`増加し、frame-difference p95は`16.61%`／`24.05%`低下した。
+- DamagedHelmet後頭部寄り面はreport精度で同一を維持した。下面pipeはmean差`0.426%`、variance `+21.44%`、frame-difference mean／p99 `-15.78%`／`-15.99%`だった。
+- 256-frame標準根拠はbounded mean維持を確認する一方、generalなminimum varianceまたは知覚品質改善の主張を棄却する。標準根拠ですでにdiagnostic維持となるため、昇格目的の1024-frame拡張は実施しない。
 
 Status: in progress
 

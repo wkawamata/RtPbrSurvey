@@ -14,6 +14,10 @@
 - Ran all five named profiles at the 64-frame development level. Every profile matched sample/temporal sequences, preserved the resolved control, and stayed within the predeclared `0.5%` mean bound.
 - Controlled roughness `0.0`, `0.35`, and `1.0` reproduced their established observations. The DamagedHelmet rearward surface was unchanged. The underside pipes changed mean by `0.448%`, increased temporal variance by `18.57%`, and reduced frame-difference mean/p99 by `15.70%`/`16.24%`.
 - The invariant PASS is not a production-quality PASS. Mixed variance/tail behavior, an inactive rearward profile, and the prior no-visible-difference Lit result keep the bounded policy default-off and diagnostic.
+- Completed the 256-frame standard gate for all five named profiles. Every profile again passed sequence, resolved-control, and mean invariants.
+- Controlled roughness `0.0` reproduced mirror bypass (`-85.91%` variance relative to the fixed filter). Roughness `0.35` and `1.0` increased variance by `6.74%` and `10.70%` while reducing frame-difference p95 by `16.61%` and `24.05%`.
+- The DamagedHelmet rearward surface remained bit-equivalent at report precision. The underside pipes changed mean by `0.426%`, increased variance by `21.44%`, and reduced frame-difference mean/p99 by `15.78%`/`15.99%`.
+- The 256-frame standard evidence confirms bounded mean preservation but rejects a general minimum-variance or perceptible-quality-improvement claim. No 1024-frame extension is indicated for promotion because the policy already remains diagnostic on standard evidence.
 
 Status: in progress
 
