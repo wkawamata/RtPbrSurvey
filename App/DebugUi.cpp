@@ -280,20 +280,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     ImGui::SetNextWindowSize(ImVec2(400, 140), ImGuiCond_FirstUseEver);
     ImGui::Begin("Debug");
 
-    if (ImGui::CollapsingHeader("Screenshot"))
-    {
-        if (ImGui::Button("Capture PNG"))
-        {
-            const std::filesystem::path path = MakeScreenshotPath();
-            app.m_sceneRenderer.RequestScreenshot({path});
-            app.m_screenshotStatus = "Capture requested: " + path.string();
-        }
-        if (!app.m_screenshotStatus.empty())
-        {
-            ImGui::TextWrapped("%s", app.m_screenshotStatus.c_str());
-        }
-    }
-
     Engine::SampleScene& loadedScene = app.LoadedScene();
     Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();
 
@@ -330,6 +316,45 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
     ImGui::SameLine(0.0f, 12.0f);
     ImGui::Checkbox("Open RenderGraph Window", &renderGraphWindowOpen);
+
+    if (ImGui::CollapsingHeader("Screenshot"))
+    {
+        if (ImGui::Button("Capture PNG"))
+        {
+            const std::filesystem::path path = MakeScreenshotPath();
+            app.m_sceneRenderer.RequestScreenshot({path});
+            app.m_screenshotStatus = "Capture requested: " + path.string();
+        }
+        if (!app.m_screenshotStatus.empty())
+        {
+            ImGui::TextWrapped("%s", app.m_screenshotStatus.c_str());
+        }
+    }
+
+    if (ImGui::CollapsingHeader("WorkMeter"))
+    {
+        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
+
+        const auto& gpuCheckPoints = context.gpuCheckPoints;
+        const size_t gpuCheckPointCount = gpuCheckPoints.size();
+        if (gpuCheckPointCount >= 2)
+        {
+            for (int i = 1; i < static_cast<int>(gpuCheckPointCount); i++)
+            {
+                const auto& checkPoint = gpuCheckPoints[i];
+                if (i < static_cast<int>(gpuCheckPointCount) - 1)
+                {
+                    const float timeFromPrevious = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
+                    ImGui::Text("GPU[%d] %s: %f ms", i, checkPoint.name.c_str(), timeFromPrevious);
+                }
+                else
+                {
+                    ImGui::Text("GPU[%d] Total: %f ms", i, checkPoint.timeStamp);
+                }
+            }
+        }
+    }
+
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
     {
         int cameraMode = static_cast<int>(app.DebugCamera().GetMode());
@@ -1193,30 +1218,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         {
             --statusFrames;
             ImGui::Text(">> %s", statusMsg);
-        }
-    }
-
-    if (ImGui::CollapsingHeader("WorkMeter"))
-    {
-        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
-
-        const auto& gpuCheckPoints = context.gpuCheckPoints;
-        const size_t gpuCheckPointCount = gpuCheckPoints.size();
-        if (gpuCheckPointCount >= 2)
-        {
-            for (int i = 1; i < static_cast<int>(gpuCheckPointCount); i++)
-            {
-                const auto& checkPoint = gpuCheckPoints[i];
-                if (i < static_cast<int>(gpuCheckPointCount) - 1)
-                {
-                    const float timeFromPrevious = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
-                    ImGui::Text("GPU[%d] %s: %f ms", i, checkPoint.name.c_str(), timeFromPrevious);
-                }
-                else
-                {
-                    ImGui::Text("GPU[%d] Total: %f ms", i, checkPoint.timeStamp);
-                }
-            }
         }
     }
 
