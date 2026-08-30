@@ -199,12 +199,13 @@
 ## 統合画面確認
 
 - [x] RG-01: Pass/Resource選択とdetail paneの内容を確認する。
-- [ ] RG-02: 検索、種別filter、lifetime filter、接続node強調を確認する。
+- [x] RG-02: 検索、種別filter、lifetime filter、接続node強調を確認する。
 - [x] RG-03: Resource lifetime timeline、`.0`/`.1`隣接表示、selection同期を確認する。
 - [x] RG-04: state transitionとUAV barrier候補のedge色・一覧を確認する。
 - [x] State Diagnosticsで実barrierのMissing、Unexpected、State mismatch表示を確認する。
-- [ ] RG-05: GPU current/120 frame平均/最大、frame比率、`GPU N/A`表示を確認する。
-- [ ] GPU timingがframe slot再利用後も連続更新され、値が不自然に欠落・破損しないことを確認する。
+- [x] RG-05: GPU current/120 frame平均/最大とframe比率を確認する。
+- [ ] Timing未取得時の`GPU N/A`表示を確認する。
+- [x] GPU timingがframe slot再利用後も連続更新され、値が不自然に欠落・破損しないことを確認する。
 - [x] RG-06: Ping-pong Resourceのphysical indexとHistory Read/Current Write交換を確認する。
 - [x] RG-07: baseline設定・解除、added/removed/changed件数と色分けを確認する。
 - [ ] RG-08: Validation一覧、severity表示、該当nodeへのfocusを確認する。
@@ -219,9 +220,11 @@
 - 検索欄で`ReflectionHistoryDepth`を絞り込み、該当Resourceの強調を確認した。種別・lifetime・接続nodeの全組み合わせは未確認のためRG-02全体は継続する。
 - `ReflectionHistoryDepth.0`のdetail paneにTexture、Persistent、pass range、logical group、physical index、current role、pass usageが表示された。
 - 同じnode位置とBox寸法のまま`Current Write`と`History Read`が交換し、baseline比較ではnode変更とlink交換が表示された。
-- GPU Average値は各Pass nodeに表示された。Current、Max、N/A、連続更新の全モード確認は継続する。
+- GPU Average値は各Pass nodeに表示され、Current、Maxと連続更新も確認した。`GPU N/A`表示のみ継続する。
 - Validationは`No validation messages.`だったため、warning発生時のseverityとfocus動作は未確認。
 - `Focus Selected`と検索結果focusは、単一nodeを画面いっぱいに拡大せず、現在のzoomを維持して中央へ移動するようにした。
+- 検索、検索結果focus、接続node強調、Texture種別、Persistent lifetime filterで、非該当nodeが薄くなり、link endpointとselectionが維持されることを確認した。
+- GPU timingのCurrent、120 frame平均、120 frame最大を切り替え、Pass表示が継続更新されることを確認した。Timing未取得時の`GPU N/A`は未確認として残す。
 
 確認中に見つかった問題候補:
 
