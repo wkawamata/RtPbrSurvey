@@ -33,4 +33,38 @@
 - This establishes a reproducible Lit observation point on DamagedHelmet. Weight `0.0` is suitable for isolating the spatial filter, while weight `0.9` is suitable for checking whether the spatial pass adds useful quality or only removes detail after temporal stabilization.
 - Motion response, filter-off/on detail preservation, and cross-scene generalization are not yet claimed.
 
-Status: in progress
+## 2026-08-30: DamagedHelmet Lit A/B/C/D subjective gate
+
+- The camera was held at the identified grazing-angle view of the narrow yellow emissive reflection. Stochastic Rough Sampling and Hybrid Reflection contribution remained enabled throughout.
+- A (`weight 0.0`, spatial off) established clearly visible temporal grain.
+- B (`weight 0.0`, spatial on) looked identical to A. No noise reduction, darkening, blur, or yellow leakage was subjectively distinguishable.
+- C (`weight 0.9`, spatial off) visibly reduced the grain relative to A, preserved the emissive reflection, and showed no objectionable lag or ghosting.
+- D (`weight 0.9`, spatial on) looked identical to C. No additional improvement or regression was subjectively distinguishable.
+- This scoped Lit gate supports the temporal history policy but does not demonstrate perceptual value for the spatial filter on DamagedHelmet. The filter remains default-off. Its controlled linear-HDR variance reduction is retained as diagnostic evidence only.
+
+## 2026-08-30: Dedicated spatial-filter diagnostic scene
+
+- Added `Hybrid Reflection Spatial Filter Test` as a procedural scene dedicated to separating surface-interior smoothing from boundary preservation.
+- Four cube-and-sphere pairs are partially embedded into a dark floor. Cube/floor intersections provide straight edges at several projected angles; spheres partially embedded into cubes provide curved material and geometry boundaries.
+- The pairs cover same-roughness metallic/dielectric and albedo changes, a roughness discontinuity, and a near-mirror receiver beside a rough metallic receiver. The same-roughness cases deliberately expose that the current filter does not gate visible metallic, albedo, or material identity.
+- Alternating cube rotations create horizontal, vertical, and diagonal projected edges. Large yellow and cyan emissive targets provide high-contrast reflected signals and make cross-boundary leakage easier to identify.
+- The intended isolated comparison is Stochastic Rough Sampling enabled, Temporal History Weight `0.0`, and spatial filter off/on. Weight `0.9` remains a second-stage temporal-plus-spatial interaction check.
+- Scene framing, material readability, stochastic-noise visibility, and filter-off/on behavior still require runtime validation.
+
+## 2026-08-30: Spatial-effect interpretation from the diagnostic scene
+
+- The visible filter effect was identified primarily inside a single material surface: temporally changing bright emissive-reflection samples were spatially softened, reducing their granular appearance.
+- Material and geometry boundaries are therefore not the source of the desired effect. They are safety gates used to verify that the spatial average does not leak radiance across unrelated surfaces.
+- The pass remains spatial and stateless; it does not remove temporal noise by accumulating time. It reduces the per-frame contrast and particle-like appearance of samples whose positions or intensities vary over time.
+- Future evaluation should distinguish the primary same-surface grain-reduction observation from secondary straight/curved edge-preservation checks.
+
+## 2026-08-30: Dedicated-scene subjective result
+
+- With Stochastic Rough Sampling enabled, Temporal History Weight `0.0`, and the spatial filter disabled, granular temporal noise was clearly visible.
+- Enabling the filter slightly softened individual particle edges but did not reduce the overall granular impression. A perceptually meaningful denoise improvement is therefore not claimed.
+- Average emissive-reflection brightness remained acceptable.
+- No color leakage was observed across cube/floor straight edges, sphere/cube curved edges, or metallic/dielectric boundaries.
+- The result supports the implemented edge-rejection safety behavior under the evaluated conditions, while showing that the fixed 3x3 kernel is too limited to materially suppress the observed particle field. The pass remains default-off and diagnostic-only.
+- The scene also made Stochastic Reflection behavior substantially easier to inspect than DamagedHelmet because multiple large emissive targets produced visible high-contrast reflected samples. It is a stress/diagnostic scene, not a representative production scene.
+
+Status: done
