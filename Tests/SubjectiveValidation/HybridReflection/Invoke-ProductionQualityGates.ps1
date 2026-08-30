@@ -14,7 +14,7 @@ $ErrorActionPreference = "Stop"
 
 $profilesDocument = Get-Content -LiteralPath $ProfilesPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $selectedProfiles = @($profilesDocument.profiles)
-if (@($ProfileId).Count -gt 0)
+if ($null -ne $ProfileId -and $ProfileId.Count -gt 0)
 {
     $requested = @($ProfileId | Sort-Object -Unique)
     $selectedProfiles = @($selectedProfiles | Where-Object { $requested -contains $_.id })

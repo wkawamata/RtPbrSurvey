@@ -71,3 +71,5 @@ The versioned ROI source is `Tests/SubjectiveValidation/HybridReflection/product
 
 This phase may establish that current defaults remain safe, diagnostics are reproducible, and specific experimental profiles pass or fail declared quality gates. It does not establish physical correctness, unbiased estimation, Path Tracing agreement, DLSS Ray Reconstruction readiness, or universal scene generalization.
 
+The complete named-profile 64-frame development run passed all scheduling, resolved-control, and mean invariants. It did not establish consistent quality improvement. The DamagedHelmet rearward-surface profile was unchanged, while the underside-pipe profile kept mean difference within the `0.5%` bound but increased temporal variance by `18.57%` as frame-difference p99 decreased by `16.24%`. This mixed result keeps the bounded policy in the diagnostic class.
+
