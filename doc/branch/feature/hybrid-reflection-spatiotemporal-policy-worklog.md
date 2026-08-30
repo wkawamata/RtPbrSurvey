@@ -25,5 +25,8 @@
 - At roughness 0.0, the bounded policy bypassed to the resolved control with zero confidence. The fixed filter increased temporal variance by approximately 8.4x in the ROI, while the policy reduced variance by 88.08% relative to that fixed path. The ROI mean difference was 0.013%, and frame-difference p95 was unchanged.
 - At roughness 1.0, the policy had 7.62% higher temporal variance than the fixed filter but reduced frame-difference mean/p95/p99 by 19.43%/24.04%/0.47%. The ROI mean difference was 0.018%.
 - Together with the roughness 0.35 result, the controlled gate supports the intended behavior: bypass stable mirror evidence, and bound spatial mixing in rough high-confidence regions while preserving the long-run mean. Subjective Lit quality and additional scene coverage remain pending.
+- Ran the policy-enabled 64-frame runtime audit on the Estimator Test scene. The process exited with code zero, reported zero D3D12 errors, and repeated only the three known buffer initial-state warnings for this controlled scene.
+- Final code audit confirmed that the policy remains default-off, changing its toggle does not reset temporal history, and `ReflectionDenoisedRadiance` never feeds the temporal generation.
+- Loaded `Hybrid Reflection Spatial Filter Test` in the live application for a later Lit A/B review. Subjective evaluation is intentionally deferred; implementation, automated measurement, build, and runtime gates are complete.
 
 Status: in progress

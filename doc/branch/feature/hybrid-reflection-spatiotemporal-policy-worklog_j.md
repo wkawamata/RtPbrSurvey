@@ -25,5 +25,8 @@
 - roughness 0.0ではconfidenceが0で、bounded policyはresolved controlへbypassした。固定filterはROIのtemporal varianceを約8.4倍へ増加させ、policyはその固定経路比でvarianceを88.08%低減した。ROI mean差は0.013%、frame difference p95は同一だった。
 - roughness 1.0ではpolicyのtemporal varianceは固定filterより7.62%高いが、frame difference mean/p95/p99を19.43%/24.04%/0.47%低減した。ROI mean差は0.018%だった。
 - roughness 0.35の結果と合わせ、stable mirror evidenceではbypassし、roughかつhigh-confidenceな領域では長期meanを維持しながらspatial mixingを制限する意図をcontrolled gateが支持した。Lit主観品質と追加scene coverageは未確認である。
+- Estimator Test sceneでpolicy-enabled 64-frame runtime auditを実行した。processはexit code 0、D3D12 error 0件で、controlled sceneの既知buffer initial-state warning 3件だけを再現した。
+- 最終code auditでpolicyがdefault-offであること、toggle変更がtemporal historyをresetしないこと、`ReflectionDenoisedRadiance`がtemporal generationへ帰還しないことを確認した。
+- 後日のLit A/B確認用に実アプリで`Hybrid Reflection Spatial Filter Test`をロードした。主観評価は意図的に保留し、実装、自動測定、build、runtime gateは完了した。
 
 Status: in progress
