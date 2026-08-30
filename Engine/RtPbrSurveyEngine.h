@@ -293,6 +293,7 @@ public:
     float CpuFrameTimeMs() const { return m_cpuFrameTime; }
     Engine::RenderGraphDocument CaptureRenderGraphDocument() const;
     const std::vector<Engine::RenderGraphBarrierEvent>& GetRenderGraphBarrierEvents() const;
+    std::vector<Engine::RenderGraphBarrierDiagnostic> GetRenderGraphBarrierDiagnostics() const;
     bool HasRenderGraphBarrierEvents() const;
     void SetUpdateHandler(UpdateHandler handler);
     void SetLightingParams(const LightingParams& params);
@@ -1007,6 +1008,8 @@ private:
     std::vector<MyDx12Util::GpuWorkMeter::CheckPoint> m_completedGpuWorkMeterCheckPoints;
     std::vector<Engine::RenderGraphBarrierEvent> m_renderGraphBarrierEvents;
     std::vector<Engine::RenderGraphBarrierEvent> m_completedRenderGraphBarrierEvents;
+    Engine::RenderGraphDocument m_renderGraphBarrierDocument;
+    Engine::RenderGraphDocument m_completedRenderGraphBarrierDocument;
     bool m_hasRenderGraphBarrierEvents = false;
     bool m_hasCompletedRenderGraphBarrierEvents = false;
     const UiRenderHandler* m_activeUiRenderHandler = nullptr;

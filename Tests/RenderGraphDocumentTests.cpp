@@ -248,6 +248,36 @@ bool TestBarrierEventDiagnostics()
     passed &= Check(unexpectedResult.size() == 1 &&
                         unexpectedResult[0].kind == Engine::RenderGraphBarrierDiagnosticKind::Unexpected,
                     "redundant runtime barrier is diagnosed as unexpected");
+
+    const std::vector<Engine::RenderPass> evenPingPongPasses = {
+        {.name = L"KeepAlternatePhysicalResource",
+         .reads = {{"ReflectionResolvedRadiance.1", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}},
+        {.name = L"HybridReflectionPass",
+         .writes = {{"ReflectionResolvedRadiance.0", D3D12_RESOURCE_STATE_UNORDERED_ACCESS}}},
+        {.name = L"LightPass",
+         .reads = {{"ReflectionResolvedRadiance.0", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}},
+    };
+    const std::vector<Engine::RenderPass> oddPingPongPasses = {
+        {.name = L"KeepAlternatePhysicalResource",
+         .reads = {{"ReflectionResolvedRadiance.0", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}},
+        {.name = L"HybridReflectionPass",
+         .writes = {{"ReflectionResolvedRadiance.1", D3D12_RESOURCE_STATE_UNORDERED_ACCESS}}},
+        {.name = L"LightPass",
+         .reads = {{"ReflectionResolvedRadiance.1", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}},
+    };
+    const Engine::RenderGraphDocument evenPingPongDocument =
+        Engine::BuildRenderGraphDocument(evenPingPongPasses);
+    const Engine::RenderGraphDocument oddPingPongDocument = Engine::BuildRenderGraphDocument(oddPingPongPasses);
+    const std::vector<Engine::RenderGraphBarrierEvent> evenPingPongEvents = {
+        {2,
+         "ReflectionResolvedRadiance.0",
+         D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+    };
+    passed &= Check(Engine::CompareRenderGraphBarrierEvents(evenPingPongDocument, evenPingPongEvents).empty(),
+                    "ping-pong barriers match the document captured from the same frame");
+    passed &= Check(Engine::CompareRenderGraphBarrierEvents(oddPingPongDocument, evenPingPongEvents).size() == 2,
+                    "cross-frame ping-pong comparison demonstrates missing and unexpected false positives");
     return passed;
 }
 

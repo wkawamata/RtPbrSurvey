@@ -3930,6 +3930,7 @@ ID3D12PipelineState* RtPbrSurveyEngine::GetPipelineState(PipelineKey pipeline) c
 
 void RtPbrSurveyEngine::ExecutePasses()
 {
+    m_renderGraphBarrierDocument = CaptureRenderGraphDocument();
     Engine::ResourceTransitionContext resourceTransitions = MakeResourceTransitionContext();
     Engine::ExecuteRenderPassGraph(m_renderGraphRuntime.Graph(),
                                    {m_commandList.Get(),
@@ -4333,6 +4334,7 @@ void RtPbrSurveyEngine::BeginFrame()
     if (m_hasRenderGraphBarrierEvents)
     {
         m_completedRenderGraphBarrierEvents = m_renderGraphBarrierEvents;
+        m_completedRenderGraphBarrierDocument = m_renderGraphBarrierDocument;
         m_hasCompletedRenderGraphBarrierEvents = true;
     }
     m_renderGraphBarrierEvents.clear();
@@ -5147,6 +5149,16 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
 const std::vector<Engine::RenderGraphBarrierEvent>& RtPbrSurveyEngine::GetRenderGraphBarrierEvents() const
 {
     return m_completedRenderGraphBarrierEvents;
+}
+
+std::vector<Engine::RenderGraphBarrierDiagnostic> RtPbrSurveyEngine::GetRenderGraphBarrierDiagnostics() const
+{
+    if (!m_hasCompletedRenderGraphBarrierEvents)
+    {
+        return {};
+    }
+    return Engine::CompareRenderGraphBarrierEvents(
+        m_completedRenderGraphBarrierDocument, m_completedRenderGraphBarrierEvents);
 }
 
 bool RtPbrSurveyEngine::HasRenderGraphBarrierEvents() const

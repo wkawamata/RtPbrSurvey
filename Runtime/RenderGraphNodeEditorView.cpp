@@ -229,6 +229,33 @@ void DrawStateDiagnostics(const Engine::RenderGraphDocument& document,
     {
         ImGui::SameLine();
         ImGui::TextDisabled("%zu runtime mismatches", barrierDiagnostics->size());
+        for (const Engine::RenderGraphBarrierDiagnostic& diagnostic : *barrierDiagnostics)
+        {
+            const Engine::RenderGraphDocumentNode* resource = FindNode(document, diagnostic.resourceNodeId);
+            const Engine::RenderGraphDocumentNode* pass = FindNode(document, diagnostic.passNodeId);
+            const char* status = diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Missing
+                ? "Missing"
+                : diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Unexpected ? "Unexpected"
+                                                                                          : "State mismatch";
+            ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.30f, 1.0f),
+                               "%s: %s @ %s",
+                               status,
+                               resource != nullptr ? resource->name.c_str() : "<missing>",
+                               pass != nullptr ? pass->name.c_str() : "<missing>");
+            if (diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::StateMismatch)
+            {
+                const std::string expectedBefore =
+                    Engine::FormatD3D12ResourceStates(diagnostic.expectedBeforeState);
+                const std::string expectedAfter = Engine::FormatD3D12ResourceStates(diagnostic.expectedAfterState);
+                const std::string actualBefore = Engine::FormatD3D12ResourceStates(diagnostic.actualBeforeState);
+                const std::string actualAfter = Engine::FormatD3D12ResourceStates(diagnostic.actualAfterState);
+                ImGui::TextWrapped("  Expected %s -> %s, actual %s -> %s",
+                                   expectedBefore.c_str(),
+                                   expectedAfter.c_str(),
+                                   actualBefore.c_str(),
+                                   actualAfter.c_str());
+            }
+        }
     }
     if (ImGui::BeginTable("RenderGraphStateDiagnosticsTable",
                           4,

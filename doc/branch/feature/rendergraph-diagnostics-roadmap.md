@@ -202,7 +202,7 @@
 - [ ] RG-02: 検索、種別filter、lifetime filter、接続node強調を確認する。
 - [x] RG-03: Resource lifetime timeline、`.0`/`.1`隣接表示、selection同期を確認する。
 - [x] RG-04: state transitionとUAV barrier候補のedge色・一覧を確認する。
-- [ ] State Diagnosticsで実barrierのMissing、Unexpected、State mismatch表示を確認する。
+- [x] State Diagnosticsで実barrierのMissing、Unexpected、State mismatch表示を確認する。
 - [ ] RG-05: GPU current/120 frame平均/最大、frame比率、`GPU N/A`表示を確認する。
 - [ ] GPU timingがframe slot再利用後も連続更新され、値が不自然に欠落・破損しないことを確認する。
 - [x] RG-06: Ping-pong Resourceのphysical indexとHistory Read/Current Write交換を確認する。
@@ -225,4 +225,4 @@
 確認中に見つかった問題候補:
 
 - 通常のScene SelectからDamagedHelmetを`Load Scene`すると`Scene/SampleScene.cpp:555`の`assert(loaded)`が発生した。`-AutoSelectGltfDamagedHelmet`では正常に起動した。
-- State DiagnosticsはDamagedHelmet実行時に`19 required barriers / 2 runtime mismatches`を表示する。2件の種類と対象Resourceを切り分ける必要がある。
+- State Diagnosticsの`2 runtime mismatches`は、前フレームのbarrier eventを現在フレームのping-pong graphと比較した誤検出だった。同じフレームでcaptureしたdocumentとeventを保持して照合するよう修正し、DamagedHelmetで`19 required barriers / 0 runtime mismatches`を確認した。
