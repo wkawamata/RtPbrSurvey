@@ -204,7 +204,7 @@
 - [x] RG-04: state transitionとUAV barrier候補のedge色・一覧を確認する。
 - [x] State Diagnosticsで実barrierのMissing、Unexpected、State mismatch表示を確認する。
 - [x] RG-05: GPU current/120 frame平均/最大とframe比率を確認する。
-- [ ] Timing未取得時の`GPU N/A`表示を確認する。
+- [x] Timing未取得時の`GPU N/A`表示を確認する。
 - [x] GPU timingがframe slot再利用後も連続更新され、値が不自然に欠落・破損しないことを確認する。
 - [x] RG-06: Ping-pong Resourceのphysical indexとHistory Read/Current Write交換を確認する。
 - [x] RG-07: baseline設定・解除、added/removed/changed件数と色分けを確認する。
@@ -224,9 +224,10 @@
 - Validationは`No validation messages.`だったため、warning発生時のseverityとfocus動作は未確認。
 - `Focus Selected`と検索結果focusは、単一nodeを画面いっぱいに拡大せず、現在のzoomを維持して中央へ移動するようにした。
 - 検索、検索結果focus、接続node強調、Texture種別、Persistent lifetime filterで、非該当nodeが薄くなり、link endpointとselectionが維持されることを確認した。
-- GPU timingのCurrent、120 frame平均、120 frame最大を切り替え、Pass表示が継続更新されることを確認した。Timing未取得時の`GPU N/A`は未確認として残す。
+- GPU timingのCurrent、120 frame平均、120 frame最大を切り替え、Pass表示が継続更新されることを確認した。Timing未取得時の`GPU N/A`も別途確認した。
 - RG-08はvalidation message生成をunit testで確認した。正常runtime graphには警告がないため偽警告は注入せず、警告focusと共通のselection/navigation経路を検索focusの実画面操作で確認した。
 - 最大化したRenderGraphを含む手動screenshotを`C:\Users\wkawa\OneDrive\画像\Screenshots\RtPbrSurvey-RenderGraph-2026-08-30.png`へ保存した。検証用生成物のためrepositoryには追加しない。
+- 呼び出し側のtimingを一時的に未取得状態としてDebug buildし、ClearとDepth PrePassのPass nodeに`GPU N/A`が表示されることを実画面で確認した。一時変更は確認直後に戻した。
 
 確認中に見つかった問題候補:
 
