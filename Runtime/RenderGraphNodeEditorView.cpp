@@ -739,7 +739,11 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     const bool focusSelectedRequested = ImGui::Button("Focus Selected");
     ImGui::EndDisabled();
     ImGui::SameLine();
-    const bool resetLayoutRequested = ImGui::Button("Reset Layout");
+    const bool resetLayoutRequested = ImGui::Button("Reset Saved Layout");
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("Discard saved node positions and restore the automatic layout.");
+    }
     if (resetLayoutRequested)
     {
         m_impl->positionedNodes.clear();

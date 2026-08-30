@@ -122,7 +122,7 @@
 - [x] Resourceをlifetime中央のPass付近へ配置し、論理グループ順でlink交差を抑える。
 - [x] Texture、Buffer、Unknown Resourceごとに間隔を空けた決定的laneを追加する。
 - [x] selected node focusを追加する。現libraryにmini-map APIがなく、zoom別detailsはBox安定性を優先して保留する。
-- [x] 初回自動layout後はUser移動を優先し、明示的な`Reset Layout`時だけ再配置する。
+- [x] 初回自動layout後はUser移動を優先し、明示的な`Reset Saved Layout`時だけ保存座標を破棄して再配置する。
 
 完了条件:
 
@@ -209,7 +209,7 @@
 - [x] RG-06: Ping-pong Resourceのphysical indexとHistory Read/Current Write交換を確認する。
 - [x] RG-07: baseline設定・解除、added/removed/changed件数と色分けを確認する。
 - [x] RG-08: Validation一覧、severity表示、該当nodeへのfocusを確認する。
-- [x] RG-09: Focus Selected、Reset Layout、Texture/Buffer/Unknown laneを確認する。
+- [x] RG-09: Focus Selected、Reset Saved Layout、Texture/Buffer/Unknown laneを確認する。
 - [x] RenderGraph windowの通常サイズ、最大化、復元でUI崩れがないことを確認する。
 - [x] 同一topologyでnode位置・Box寸法が安定し、ping-pong時はlink/roleだけが切り替わることを確認する。
 - [x] Debug x64を10秒間自動実行し、D3D12 Debug Layer logが空であることを確認する。
