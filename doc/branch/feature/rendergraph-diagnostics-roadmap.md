@@ -225,5 +225,5 @@
 
 確認中に見つかった問題候補:
 
-- 通常のScene SelectからDamagedHelmetを`Load Scene`すると`Scene/SampleScene.cpp:555`の`assert(loaded)`が発生した。`-AutoSelectGltfDamagedHelmet`では正常に起動した。
+- 通常のScene SelectからDamagedHelmetを`Load Scene`した際の`assert(loaded)`は、glTF相対pathがprocessのcurrent directoryに依存していたことが原因だった。exe directory基準で解決するよう修正し、exe直接起動からの`Load Scene`で正常表示を確認した。
 - State Diagnosticsの`2 runtime mismatches`は、前フレームのbarrier eventを現在フレームのping-pong graphと比較した誤検出だった。同じフレームでcaptureしたdocumentとeventを保持して照合するよう修正し、DamagedHelmetで`19 required barriers / 0 runtime mismatches`を確認した。
