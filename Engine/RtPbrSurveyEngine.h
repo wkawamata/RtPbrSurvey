@@ -124,6 +124,7 @@ public:
         ReflectionResolvedSpecularEstimate,
         ReflectionSpecularVariance,
         ReflectionSpecularConfidence,
+        ReflectionSpatialPolicyInputs,
         ReflectionResolvedRadiance,
         ReflectionTemporalValidity,
         ReflectionEvaluatedRadianceDirect,
@@ -636,6 +637,7 @@ private:
                    renderViewMode != RenderViewMode::ReflectionResolvedSpecularEstimate &&
                    renderViewMode != RenderViewMode::ReflectionSpecularVariance &&
                    renderViewMode != RenderViewMode::ReflectionSpecularConfidence &&
+                   renderViewMode != RenderViewMode::ReflectionSpatialPolicyInputs &&
                    renderViewMode != RenderViewMode::ReflectionResolvedRadiance &&
                    renderViewMode != RenderViewMode::ReflectionTemporalValidity &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceDirect &&
@@ -675,6 +677,7 @@ private:
                    renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate ||
                    renderViewMode == RenderViewMode::ReflectionSpecularVariance ||
                    renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
+                   renderViewMode == RenderViewMode::ReflectionSpatialPolicyInputs ||
                    renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
                    renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
@@ -724,6 +727,10 @@ private:
             if (renderViewMode == RenderViewMode::ReflectionSpecularConfidence)
             {
                 return 16u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionSpatialPolicyInputs)
+            {
+                return 17u;
             }
             if (renderViewMode == RenderViewMode::ReflectionResolvedRadiance)
             {

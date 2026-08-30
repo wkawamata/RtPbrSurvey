@@ -127,6 +127,10 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
         case RenderViewMode::ReflectionSpecularConfidence:
             return "ReflectionSpecularConfidence visualizes persistent variance confidence.\n"
                    "White indicates sustained high-variance evidence; rejected or reset history is black.";
+        case RenderViewMode::ReflectionSpatialPolicyInputs:
+            return "Spatial policy inputs: R=persistent variance confidence, G=mapped temporal variance, "
+                   "B=edge-safe non-center neighbor fraction.\n"
+                   "This diagnostic does not mean that spatial filtering was applied.";
         case RenderViewMode::ReflectionResolvedRadiance:
             return "ReflectionResolvedRadiance is unweighted radiance after the experimental temporal blend.\n"
                    "Compare it with Evaluated Radiance to observe static stabilization and unreprojected motion trails.";
@@ -764,6 +768,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton("Specular Variance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionSpecularVariance));
         ImGui::SameLine();
         ImGui::RadioButton("Specular Confidence##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionSpecularConfidence));
+        ImGui::RadioButton("Spatial Policy Inputs##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionSpatialPolicyInputs));
         ImGui::RadioButton("Resolved Radiance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionResolvedRadiance));
         ImGui::SameLine();
         ImGui::RadioButton("Temporal Validity##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionTemporalValidity));
@@ -794,6 +799,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate ||
              app.m_renderViewMode == RenderViewMode::ReflectionSpecularVariance ||
              app.m_renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
+             app.m_renderViewMode == RenderViewMode::ReflectionSpatialPolicyInputs ||
              app.m_renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
              app.m_renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
@@ -817,6 +823,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate ||
              app.m_renderViewMode == RenderViewMode::ReflectionSpecularVariance ||
              app.m_renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
+             app.m_renderViewMode == RenderViewMode::ReflectionSpatialPolicyInputs ||
              app.m_renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
              app.m_renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||

@@ -324,6 +324,8 @@ This experiment does not change the meaning of `ReflectionEvaluatedRadiance` or 
 
 The default-off filter reduced static display-space variance in the evaluated test ROIs and passed the scoped subjective suite. This does not establish estimator correctness, production denoiser readiness, or generalization beyond the evaluated conditions.
 
+The later `Spatial Policy Inputs` debug view reads the current moments, confidence, visible-surface features, and reflection-hit payload directly. It displays R=confidence, G=mapped temporal variance, and B=edge-safe non-center neighbor fraction. It is diagnostic-only: it neither changes radiance nor means that the spatial pass was applied. Confidence remains persistent variance evidence rather than history-valid or correctness probability.
+
 ### Contract Phase Closeout
 
 The resource, direction-sampling, ownership, reset, reprojection, minimum rejection, debug-noise, and repeatable subjective-validation contracts are implemented and validated for this phase. Production defaults remain stochastic sampling disabled and history weight zero. A future explicit stochastic-temporal preset is supported by the measured evidence, but production enablement, additional denoise/rejection resources, and broader scene coverage belong to later work rather than extending this branch.

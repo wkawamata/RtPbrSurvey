@@ -117,9 +117,19 @@ Required evidence is:
 
 Passing these gates supports only the scoped filter and evaluated conditions. Production default, physical correctness, PathTracing agreement, and DLSS RR compatibility remain separate claims.
 
+The `Spatial Policy Inputs` debug view exposes the current policy evidence without adding another persistent resource. Its channels are:
+
+| Channel | Meaning |
+|---------|---------|
+| R | persistent high-variance confidence in `[0, 1]` |
+| G | mapped temporal variance, `variance / (1 + variance)` |
+| B | fraction of the eight non-center 3x3 neighbors accepted by the implemented depth, visible-normal, roughness, hit/miss, hit-distance, and hit-normal gates |
+
+This view does not assert that filtering was applied. A bright red channel is sustained variance evidence, not history validity or correctness probability. A bright blue channel means neighborhood support is geometrically/materially compatible under the current thresholds; it does not prove that mixing those samples is unbiased. The view recomputes the same fixed neighborhood gates used by the current spatial pass so later policy decisions can be inspected before they change radiance.
+
 ## Out of Scope
 
-- implementing the edge-aware spatial pass;
+- promoting the implemented edge-aware spatial pass to a production default;
 - feeding spatial output back into temporal history;
 - production-default selection;
 - adaptive sampling or multi-bounce transport;
