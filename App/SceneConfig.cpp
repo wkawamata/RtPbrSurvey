@@ -131,6 +131,7 @@ static json SceneConfigToJson(const SceneConfig& cfg)
     j["toneMap"] = renderer.at("toneMap");
     j["shadow"] = renderer.at("shadow");
     j["temporalUpscaler"] = renderer.at("temporalUpscaler");
+    j["rayReconstruction"] = renderer.at("rayReconstruction");
     j["hybridReflection"] = renderer.at("hybridReflection");
     j["specularDebugLines"] = renderer.at("specularDebugLines");
     j["meshScale"] = cfg.meshScale;
@@ -158,6 +159,7 @@ static SceneConfig SceneConfigFromJson(const json& j)
         "lighting",
         "shadow",
         "temporalUpscaler",
+        "rayReconstruction",
         "hybridReflection",
         "toneMap",
         "specularDebugLines",

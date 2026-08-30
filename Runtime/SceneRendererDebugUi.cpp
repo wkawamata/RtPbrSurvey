@@ -125,13 +125,19 @@ namespace
                     context.temporalUpscalerAvailable ? "Available" : "Unavailable",
                     context.temporalUpscalerBackendName,
                     context.temporalUpscalerStatusText);
+        ImGui::Text("DLSS Ray Reconstruction: %s (Backend: %s, Status: %s)",
+                    context.rayReconstructionAvailable ? "Available" : "Unavailable",
+                    context.rayReconstructionBackendName,
+                    context.rayReconstructionStatusText);
     }
 
     void DrawTemporalUpscalerControls(RtPbrSurvey::SceneRenderer& renderer)
     {
         const RtPbrSurvey::SceneRenderer::UiFrameContext context = renderer.GetUiFrameContext();
         auto temporalUpscalerSettings = renderer.GetTemporalUpscalerSettings();
+        auto rayReconstructionSettings = renderer.GetRayReconstructionSettings();
         bool changed = false;
+        bool rayReconstructionChanged = false;
 
         ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
         changed |= ImGui::Checkbox("DLSS Enabled", &temporalUpscalerSettings.enabled);
@@ -146,10 +152,42 @@ namespace
         }
         ImGui::EndDisabled();
 
+        const Engine::RayReconstructionDiagnostics& rayReconstructionDiagnostics =
+            context.rayReconstructionDiagnostics;
+        ImGui::Separator();
+        ImGui::Text("DLSS Ray Reconstruction: %s (Status: %s)",
+                    context.rayReconstructionAvailable ? "Available" : "Unavailable",
+                    rayReconstructionDiagnostics.StatusText());
+        if (rayReconstructionDiagnostics.featureVersionAvailable)
+        {
+            ImGui::Text("RR Plugin SL: %u.%u.%u",
+                        rayReconstructionDiagnostics.pluginMajor,
+                        rayReconstructionDiagnostics.pluginMinor,
+                        rayReconstructionDiagnostics.pluginPatch);
+            ImGui::Text("RR NGX Runtime: %u.%u.%u",
+                        rayReconstructionDiagnostics.ngxMajor,
+                        rayReconstructionDiagnostics.ngxMinor,
+                        rayReconstructionDiagnostics.ngxPatch);
+        }
+        else
+        {
+            ImGui::TextUnformatted("RR Plugin SL: Unavailable");
+            ImGui::TextUnformatted("RR NGX Runtime: Unavailable");
+        }
+        ImGui::BeginDisabled(true);
+        rayReconstructionChanged |= ImGui::Checkbox("RR Enabled (Phase 1 only)", &rayReconstructionSettings.enabled);
+        ImGui::EndDisabled();
+        ImGui::TextWrapped("RR evaluation is not wired yet. Temporal reflection remains the owner of resolved reflection output.");
+
         if (changed)
         {
             temporalUpscalerSettings.backend = Engine::TemporalUpscalerBackend::Streamline;
             renderer.SetTemporalUpscalerSettings(temporalUpscalerSettings);
+        }
+        if (rayReconstructionChanged)
+        {
+            rayReconstructionSettings.backend = Engine::RayReconstructionBackend::Streamline;
+            renderer.SetRayReconstructionSettings(rayReconstructionSettings);
         }
     }
 

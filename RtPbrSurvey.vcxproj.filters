@@ -195,6 +195,9 @@
     <ClInclude Include="Renderer\StreamlineAdapter.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\RayReconstructionSupport.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\TemporalUpscalerSupport.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -390,6 +393,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\RayTracingSupport.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\RayReconstructionSupport.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\RootSignatureFactory.cpp">

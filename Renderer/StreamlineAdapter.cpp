@@ -21,6 +21,12 @@ struct StreamlineAdapterState
 #else
         TemporalUpscalerSupportStatus::NotIntegrated;
 #endif
+    RayReconstructionSupportStatus rayReconstructionStatus =
+#if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+        RayReconstructionSupportStatus::DeviceNotSet;
+#else
+        RayReconstructionSupportStatus::NotIntegrated;
+#endif
     bool sdkInitialized = false;
     bool initialized = false;
 };
@@ -32,6 +38,15 @@ TemporalUpscalerSupportInfo MakeSupportInfo(TemporalUpscalerSupportStatus status
     TemporalUpscalerSupportInfo info;
     info.backend = TemporalUpscalerBackend::Streamline;
     info.available = status == TemporalUpscalerSupportStatus::Available;
+    info.status = status;
+    return info;
+}
+
+RayReconstructionSupportInfo MakeRayReconstructionSupportInfo(RayReconstructionSupportStatus status)
+{
+    RayReconstructionSupportInfo info;
+    info.backend = RayReconstructionBackend::Streamline;
+    info.available = status == RayReconstructionSupportStatus::Available;
     info.status = status;
     return info;
 }
@@ -61,6 +76,52 @@ StreamlineDlssOptimalSettingsResult MakeUnavailableOptimalSettingsResult(Tempora
 }
 
 #if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+RayReconstructionSupportStatus ToRayReconstructionSupportStatus(sl::Result result)
+{
+    switch (result)
+    {
+        case sl::Result::eOk:
+            return RayReconstructionSupportStatus::Available;
+        case sl::Result::eErrorAdapterNotSupported:
+        case sl::Result::eErrorNoSupportedAdapterFound:
+        case sl::Result::eErrorFeatureNotSupported:
+            return RayReconstructionSupportStatus::UnsupportedAdapter;
+        case sl::Result::eErrorDriverOutOfDate:
+            return RayReconstructionSupportStatus::DriverOutOfDate;
+        case sl::Result::eErrorOSOutOfDate:
+            return RayReconstructionSupportStatus::OperatingSystemOutOfDate;
+        case sl::Result::eErrorOSDisabledHWS:
+            return RayReconstructionSupportStatus::HardwareSchedulingDisabled;
+        case sl::Result::eErrorDeviceNotCreated:
+        case sl::Result::eErrorNotInitialized:
+        case sl::Result::eErrorInitNotCalled:
+            return RayReconstructionSupportStatus::DeviceNotSet;
+        case sl::Result::eErrorIO:
+        case sl::Result::eErrorNoPlugins:
+        case sl::Result::eErrorMissingProxy:
+        case sl::Result::eErrorFeatureMissing:
+        case sl::Result::eErrorFeatureFailedToLoad:
+        case sl::Result::eErrorFeatureMissingDependency:
+            return RayReconstructionSupportStatus::MissingRuntime;
+        case sl::Result::eErrorMissingResourceState:
+        case sl::Result::eErrorInvalidIntegration:
+        case sl::Result::eErrorMissingInputParameter:
+        case sl::Result::eErrorInvalidParameter:
+        case sl::Result::eErrorMissingConstants:
+        case sl::Result::eErrorDuplicatedConstants:
+        case sl::Result::eErrorMissingOrInvalidAPI:
+        case sl::Result::eErrorCommonConstantsMissing:
+        case sl::Result::eErrorUnsupportedInterface:
+        case sl::Result::eErrorFeatureMissingHooks:
+        case sl::Result::eErrorFeatureWrongPriority:
+        case sl::Result::eErrorFeatureManagerInvalidState:
+        case sl::Result::eErrorInvalidState:
+            return RayReconstructionSupportStatus::InvalidIntegration;
+        default:
+            return RayReconstructionSupportStatus::InitializationFailed;
+    }
+}
+
 sl::DLSSMode ToStreamlineDlssMode(TemporalUpscalerQualityMode qualityMode)
 {
     switch (qualityMode)
@@ -189,7 +250,7 @@ TemporalUpscalerSupportStatus InitializeStreamlineAdapterWithSdk(const Streamlin
         return g_streamlineAdapterState.status;
     }
 
-    const sl::Feature featuresToLoad[] = {sl::kFeatureDLSS};
+    const sl::Feature featuresToLoad[] = {sl::kFeatureDLSS, sl::kFeatureDLSS_RR};
     sl::Preferences preferences = {};
     preferences.featuresToLoad = featuresToLoad;
     preferences.numFeaturesToLoad = _countof(featuresToLoad);
@@ -230,6 +291,8 @@ TemporalUpscalerSupportStatus SetStreamlineD3DDeviceWithSdk(ID3D12Device* device
     sl::AdapterInfo adapterInfo = {};
     adapterInfo.deviceLUID = reinterpret_cast<std::uint8_t*>(&adapterLuid);
     adapterInfo.deviceLUIDSizeInBytes = sizeof(adapterLuid);
+    g_streamlineAdapterState.rayReconstructionStatus =
+        ToRayReconstructionSupportStatus(slIsFeatureSupported(sl::kFeatureDLSS_RR, adapterInfo));
     return ToSupportStatus(slIsFeatureSupported(sl::kFeatureDLSS, adapterInfo));
 }
 
@@ -244,6 +307,11 @@ void ShutdownStreamlineAdapterWithSdk()
 TemporalUpscalerSupportInfo QueryStreamlineSupportWithSdk()
 {
     return MakeSupportInfo(g_streamlineAdapterState.status);
+}
+
+RayReconstructionSupportInfo QueryStreamlineRayReconstructionSupportWithSdk()
+{
+    return MakeRayReconstructionSupportInfo(g_streamlineAdapterState.rayReconstructionStatus);
 }
 
 StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInputs& inputs)
@@ -431,6 +499,35 @@ StreamlineDlssDiagnostics QueryStreamlineDlssDiagnosticsWithSdk(const Streamline
 
     return diagnostics;
 }
+
+RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnosticsWithSdk()
+{
+    RayReconstructionDiagnostics diagnostics;
+    diagnostics.status = g_streamlineAdapterState.rayReconstructionStatus;
+    diagnostics.sdkMajor = SL_VERSION_MAJOR;
+    diagnostics.sdkMinor = SL_VERSION_MINOR;
+    diagnostics.sdkPatch = SL_VERSION_PATCH;
+
+    if (!g_streamlineAdapterState.initialized ||
+        g_streamlineAdapterState.rayReconstructionStatus != RayReconstructionSupportStatus::Available)
+    {
+        return diagnostics;
+    }
+
+    sl::FeatureVersion featureVersion = {};
+    if (slGetFeatureVersion(sl::kFeatureDLSS_RR, featureVersion) == sl::Result::eOk)
+    {
+        diagnostics.featureVersionAvailable = true;
+        diagnostics.pluginMajor = featureVersion.versionSL.major;
+        diagnostics.pluginMinor = featureVersion.versionSL.minor;
+        diagnostics.pluginPatch = featureVersion.versionSL.build;
+        diagnostics.ngxMajor = featureVersion.versionNGX.major;
+        diagnostics.ngxMinor = featureVersion.versionNGX.minor;
+        diagnostics.ngxPatch = featureVersion.versionNGX.build;
+    }
+
+    return diagnostics;
+}
 #else
 TemporalUpscalerSupportStatus InitializeStreamlineAdapterWithoutSdk(const StreamlineAdapterInitDesc& desc)
 {
@@ -451,6 +548,11 @@ TemporalUpscalerSupportInfo QueryStreamlineSupportWithoutSdk()
     return MakeSupportInfo(g_streamlineAdapterState.status);
 }
 
+RayReconstructionSupportInfo QueryStreamlineRayReconstructionSupportWithoutSdk()
+{
+    return MakeRayReconstructionSupportInfo(g_streamlineAdapterState.rayReconstructionStatus);
+}
+
 StreamlineEvaluateResult EvaluateStreamlineWithoutSdk(const StreamlineEvaluateInputs& inputs)
 {
     UNREFERENCED_PARAMETER(inputs);
@@ -469,6 +571,13 @@ StreamlineDlssDiagnostics QueryStreamlineDlssDiagnosticsWithoutSdk(
 {
     UNREFERENCED_PARAMETER(inputs);
     return {};
+}
+
+RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnosticsWithoutSdk()
+{
+    RayReconstructionDiagnostics diagnostics;
+    diagnostics.status = g_streamlineAdapterState.rayReconstructionStatus;
+    return diagnostics;
 }
 #endif
 
@@ -515,6 +624,15 @@ TemporalUpscalerSupportInfo QueryStreamlineSupport()
 #endif
 }
 
+RayReconstructionSupportInfo QueryStreamlineRayReconstructionSupport()
+{
+#if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+    return QueryStreamlineRayReconstructionSupportWithSdk();
+#else
+    return QueryStreamlineRayReconstructionSupportWithoutSdk();
+#endif
+}
+
 StreamlineDlssOptimalSettingsResult
 QueryStreamlineDlssOptimalSettings(const StreamlineDlssOptimalSettingsInputs& inputs)
 {
@@ -531,6 +649,15 @@ StreamlineDlssDiagnostics QueryStreamlineDlssDiagnostics(const StreamlineDlssOpt
     return QueryStreamlineDlssDiagnosticsWithSdk(inputs);
 #else
     return QueryStreamlineDlssDiagnosticsWithoutSdk(inputs);
+#endif
+}
+
+RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnostics()
+{
+#if defined(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+    return QueryStreamlineRayReconstructionDiagnosticsWithSdk();
+#else
+    return QueryStreamlineRayReconstructionDiagnosticsWithoutSdk();
 #endif
 }
 

@@ -161,6 +161,7 @@ void RtPbrSurveyEngine::Initialize(UINT width, UINT height)
     m_width = width;
     m_height = height;
     m_temporalUpscalerSupport = Engine::QueryStreamlineSupport();
+    m_rayReconstructionSupport = Engine::QueryStreamlineRayReconstructionSupport();
     UpdateRenderDimensions();
     m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(m_width), static_cast<float>(m_height));
     m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_width), static_cast<LONG>(m_height));
@@ -269,13 +270,16 @@ void RtPbrSurveyEngine::InitializeFrameResources()
     m_rayTracingSupport = Engine::RayTracingSupportInfo::Create(m_graphicsDevice.Device());
     wchar_t debugMessage[256] = {};
     swprintf_s(debugMessage,
-               L"Ray tracing support: supported=%s tier=%s raw=%d\nTemporal upscaler support: available=%S backend=%S status=%S\n",
+               L"Ray tracing support: supported=%s tier=%s raw=%d\nTemporal upscaler support: available=%S backend=%S status=%S\nRay reconstruction support: available=%S backend=%S status=%S\n",
                m_rayTracingSupport.IsSupported() ? L"true" : L"false",
                m_rayTracingSupport.TierName(),
                static_cast<int>(m_rayTracingSupport.Tier()),
                m_temporalUpscalerSupport.IsAvailable() ? "true" : "false",
                m_temporalUpscalerSupport.BackendName(),
-               m_temporalUpscalerSupport.StatusText());
+               m_temporalUpscalerSupport.StatusText(),
+               m_rayReconstructionSupport.IsAvailable() ? "true" : "false",
+               m_rayReconstructionSupport.BackendName(),
+               m_rayReconstructionSupport.StatusText());
     OutputDebugStringW(debugMessage);
 
     m_prevTime = std::chrono::steady_clock::now();
@@ -358,6 +362,10 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
                  m_height,
                  m_temporalUpscalerSettings.qualityMode,
                  m_temporalUpscalerSettings.preset}),
+            m_rayReconstructionSupport.IsAvailable(),
+            m_rayReconstructionSupport.BackendName(),
+            m_rayReconstructionSupport.StatusText(),
+            Engine::QueryStreamlineRayReconstructionDiagnostics(),
             m_temporalJitterSampleIndex,
             m_temporalJitterHalton,
             m_jitterOffsetPixels,
@@ -422,6 +430,11 @@ void RtPbrSurveyEngine::SetTemporalUpscalerSettings(const Engine::TemporalUpscal
         const UINT resizeHeight = m_pendingResize ? m_pendingResizeHeight : m_height;
         RequestResize(resizeWidth, resizeHeight);
     }
+}
+
+void RtPbrSurveyEngine::SetRayReconstructionSettings(const Engine::RayReconstructionSettings& settings)
+{
+    m_rayReconstructionSettings = settings;
 }
 
 bool RtPbrSurveyEngine::ShouldRunTemporalUpscaler() const

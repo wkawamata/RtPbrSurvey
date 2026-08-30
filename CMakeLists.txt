@@ -77,6 +77,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/PipelineFactory.cpp
     Renderer/RayQueryShadowPass.cpp
     Renderer/RayQueryTlasDebugPass.cpp
+    Renderer/RayReconstructionSupport.cpp
     Renderer/RayTracingSupport.cpp
     Renderer/ReflectionEvaluatePass.cpp
     Renderer/ReflectionRayHitDebugPass.cpp

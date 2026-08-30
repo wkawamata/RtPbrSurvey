@@ -46,6 +46,7 @@
 #include "Renderer/SimpleDescriptorHeapAllocator.h"
 #include "Renderer/ShadowMaskDebugPass.h"
 #include "Renderer/DebugLinePass.h"
+#include "Renderer/RayReconstructionSupport.h"
 #include "Renderer/TemporalUpscalerSupport.h"
 #include "Renderer/StreamlineAdapter.h"
 #include "Renderer/ToneMap.h"
@@ -263,6 +264,10 @@ public:
         const char* temporalUpscalerBackendName;
         const char* temporalUpscalerStatusText;
         Engine::StreamlineDlssDiagnostics dlssDiagnostics;
+        bool rayReconstructionAvailable;
+        const char* rayReconstructionBackendName;
+        const char* rayReconstructionStatusText;
+        Engine::RayReconstructionDiagnostics rayReconstructionDiagnostics;
         UINT temporalJitterSampleIndex;
         XMFLOAT2 temporalJitterHalton;
         XMFLOAT2 temporalJitterOffsetPixels;
@@ -297,6 +302,8 @@ public:
     const ShadowSettings& GetShadowSettings() const { return m_shadowSettings; }
     void SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings);
     const Engine::TemporalUpscalerSettings& GetTemporalUpscalerSettings() const { return m_temporalUpscalerSettings; }
+    void SetRayReconstructionSettings(const Engine::RayReconstructionSettings& settings);
+    const Engine::RayReconstructionSettings& GetRayReconstructionSettings() const { return m_rayReconstructionSettings; }
     void SetHybridReflectionSettings(const HybridReflectionSettings& settings);
     const HybridReflectionSettings& GetHybridReflectionSettings() const { return m_hybridReflectionSettings; }
     void ResetHybridReflectionHistoryForDiagnostics();
@@ -846,6 +853,8 @@ private:
     Engine::RayTracingSupportInfo m_rayTracingSupport;
     Engine::TemporalUpscalerSupportInfo m_temporalUpscalerSupport;
     Engine::TemporalUpscalerSettings m_temporalUpscalerSettings;
+    Engine::RayReconstructionSupportInfo m_rayReconstructionSupport;
+    Engine::RayReconstructionSettings m_rayReconstructionSettings;
     bool m_temporalUpscalerHistoryReset = true;
     struct ReflectionHistoryState
     {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "RayReconstructionSupport.h"
 #include "TemporalUpscalerSupport.h"
 
 #include <cstdint>
@@ -82,9 +83,11 @@ TemporalUpscalerSupportInfo InitializeStreamlineAdapter(const StreamlineAdapterI
 TemporalUpscalerSupportInfo SetStreamlineD3DDevice(ID3D12Device* device);
 void ShutdownStreamlineAdapter();
 TemporalUpscalerSupportInfo QueryStreamlineSupport();
+RayReconstructionSupportInfo QueryStreamlineRayReconstructionSupport();
 StreamlineDlssOptimalSettingsResult QueryStreamlineDlssOptimalSettings(
     const StreamlineDlssOptimalSettingsInputs& inputs);
 StreamlineDlssDiagnostics QueryStreamlineDlssDiagnostics(const StreamlineDlssOptimalSettingsInputs& inputs);
+RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnostics();
 StreamlineEvaluateResult EvaluateStreamline(const StreamlineEvaluateInputs& inputs);
 
 } // namespace Engine

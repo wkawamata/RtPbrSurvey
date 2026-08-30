@@ -280,3 +280,54 @@ Then add SDK-backed code in a separate commit once the external dependency locat
 Proceed with SR first. The renderer already has color, depth, and motion-vector inputs, and the insertion point before tone mapping is clear.
 
 Treat RR as a second phase after the hybrid reflection outputs are renamed or split into raw/debug/resolved semantics. RR will be easier to validate once reflection signal ownership is explicit.
+
+## Work-2 DLSS RR Phase 1 Snapshot
+
+Base and branch:
+
+- Branch: `codex/dlss-ray-reconstruction`
+- Base: `origin/main` at `5be2290d79b152a7966f99ad7e02d1f863435d22`
+- Scope: SDK-neutral support/query surface, read-only diagnostics, and renderer contract documentation. No RR evaluation is enabled in Phase 1.
+
+Current reflection/resource mapping:
+
+| Role | Current resource | Format | Resolution | Color/space | Notes |
+|---|---|---:|---:|---|---|
+| Raw ray hit signal | `ReflectionRayHit` | shader-owned UAV payload | render | world/linear payload | Carries hit flag, distance, and encoded hit normal for debug/evaluation. Exact packing remains `HybridReflectionPass` owned. |
+| Hit albedo payload | `ReflectionRayColor` | shader-owned UAV payload | render | linear albedo | Debug/payload input to `ReflectionEvaluatePass`; not reflected radiance. |
+| Hit material payload | `ReflectionRayMaterial` | shader-owned UAV payload | render | scalar material params | Carries hit metallic, roughness, and unlit/debug flag. |
+| Hit emissive payload | `ReflectionRayEmission` | shader-owned UAV payload | render | linear HDR | Emissive input to reflected hit shading. |
+| Evaluated reflection input | `ReflectionEvaluatedRadiance` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Unweighted one-bounce radiance before temporal processing and `LightPass` contribution weights. Best current RR input candidate. |
+| Current-frame specular estimate | `ReflectionSpecularEstimate` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR diagnostic | Weighted Cook-Torrance estimate used for temporal variance/confidence diagnostics. |
+| Resolved reflection output | `ReflectionResolvedRadiance.0/1` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Ping-pong output currently owned by `TemporalReflectionPass`. Future RR output should preserve this unweighted radiance contract. |
+| Optional spatially filtered output | `ReflectionDenoisedRadiance` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Edge-aware post-temporal variant consumed by `LightPass` only when surface variance filtering is enabled. |
+| Final scene color before SR | `LightPass.RenderTarget` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Includes lighting and enabled reflection contribution, before tone mapping and DLSS SR. |
+| DLSS SR output | `TemporalUpscaler.SceneColor` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | output | linear HDR | Output-size pre-tonemap scene color. Not an RR resource. |
+
+Current visible-surface inputs relevant to RR:
+
+| Input | Current resource | Format | Resolution | Representation |
+|---|---|---:|---:|---|
+| Albedo | `GBuffer.Albedo` | `DXGI_FORMAT_R8G8B8A8_UNORM` | render | Linearized material base color. |
+| Normal | `GBuffer.Normal` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | World-space normal, stored as xyz. |
+| Material id | `GBuffer.Material` | `DXGI_FORMAT_R32_UINT` | render | Material index. |
+| Motion vector | `GBuffer.MotionVector` | `DXGI_FORMAT_R16G16_FLOAT` | render | `prevNdc - curNdc + jitterCancellation + valueOffset`; temporal reflection removes the configured offsets before reprojection. |
+| PBR params | `GBuffer.PBRParams` | `DXGI_FORMAT_R8G8B8A8_UNORM` | render | R=metallic, G=roughness, B=ambient occlusion. |
+| Emissive | `GBuffer.Emissive` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | Linear HDR emissive. |
+| Depth | `DepthStencil` | `DXGI_FORMAT_R32_TYPELESS`, SRV `DXGI_FORMAT_R32_FLOAT`, DSV `DXGI_FORMAT_D32_FLOAT` | render | Hardware depth, cleared to 1.0. Current projection is not inverted. |
+
+History, reset, and ownership:
+
+- `TemporalReflectionPass` owns `ReflectionResolvedRadiance.*`, history depth, history normal, specular estimate history, moments, and confidence today.
+- `InvalidateReflectionHistory()` resets the reflection history for lighting/material/reflection setting changes, scene changes, resize, and diagnostic reset paths.
+- DLSS RR and the existing temporal reflection pass must be mutually exclusive once RR evaluation is implemented. Phase 1 records the policy but leaves the existing temporal reflection path active.
+- The future boundary is `ReflectionEvaluatedRadiance -> ReflectionResolvedRadiance -> LightPass composition`. `LightPass` should continue applying visible-surface Fresnel, roughness/contribution weighting, distance fade, and user intensity.
+
+Unmet RR inputs / decisions:
+
+- Confirm Streamline RR SDK feature availability and exact buffer tags against the SDK used by the machine. This worktree currently builds without vendored Streamline SDK artifacts.
+- Decide whether RR consumes only reflection radiance or also needs auxiliary raw ray data (`ReflectionRayHit`, hit distance, normal, roughness/material payloads).
+- Decide whether RR output replaces `TemporalReflectionPass` directly or sits behind a new `ReflectionResolvedRadiance` producer selected by settings.
+- Define exposure handling for RR. Current SR path uses Streamline auto exposure; there is no renderer-owned exposure texture yet.
+- Validate motion vector sign/scale with the RR SDK. Current renderer convention is explicit, but vendor contract matching still needs runtime validation.
+- Add D3D12 Debug Layer runtime validation only when RR evaluation is wired; Phase 1 has no RR resource tagging/evaluate call.
