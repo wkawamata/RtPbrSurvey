@@ -235,6 +235,7 @@ public:
         float temporalNoiseStrength = 0.0f;
         bool rejectedPixelNeighborhoodEnabled = false;
         bool surfaceVarianceFilterEnabled = false;
+        bool spatiotemporalSpatialPolicyEnabled = false;
         bool varianceGuidedTemporalEnabled = false;
         // Diagnostic-only evidence override. Changing it must preserve history for decay measurement.
         bool confidenceForceStableEvidence = false;

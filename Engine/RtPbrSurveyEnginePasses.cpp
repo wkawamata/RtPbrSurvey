@@ -485,15 +485,24 @@ auto RtPbrSurveyEngine::MakeEdgeAwareSpatialReflectionPass() -> RenderPass
                 {kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                 {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                 {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
-                {kDepthStencilResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+                {kDepthStencilResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kReflectionSpecularMomentsResourceNames[writeIndex],
+                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kReflectionSpecularConfidenceResourceNames[writeIndex],
+                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
         .Writes({{kReflectionDenoisedRadianceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance,
                     Desc::ReflectionResolvedRadianceCurrentSrv)
         .Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
         .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
+        .Descriptor(RootSignatureLayout::ReflectionSpecularMomentsHistory,
+                    Desc::ReflectionSpecularMomentsCurrentSrv)
+        .Descriptor(RootSignatureLayout::ReflectionSpecularConfidenceHistory,
+                    Desc::ReflectionSpecularConfidenceCurrentSrv)
         .Rtv(RtvName::ReflectionDenoisedRadiance)
         .Operation(Op::EdgeAwareSpatialReflection,
                    &RtPbrSurveyEngine::ExecuteEdgeAwareSpatialReflectionPass)
+        .Constants(RootSignatureLayout::TemporalReflectionConstants, ConstName::TemporalReflection)
         .Build();
 }
 

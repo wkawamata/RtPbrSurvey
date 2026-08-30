@@ -127,6 +127,19 @@ The `Spatial Policy Inputs` debug view exposes the current policy evidence witho
 
 This view does not assert that filtering was applied. A bright red channel is sustained variance evidence, not history validity or correctness probability. A bright blue channel means neighborhood support is geometrically/materially compatible under the current thresholds; it does not prove that mixing those samples is unbiased. The view recomputes the same fixed neighborhood gates used by the current spatial pass so later policy decisions can be inspected before they change radiance.
 
+The default-off `Spatiotemporal Spatial Policy` is a bounded strength policy layered over the existing default-off spatial pass. With the spatial filter enabled and the policy disabled, the fixed-filter comparison path is preserved. With both enabled, the spatial blend strength is:
+
+```text
+relative_standard_deviation = sqrt(max(M2 - M1^2, 0)) / max(abs(M1), 0.01)
+strength = min(
+    smoothstep(0.5, 0.9, confidence)
+  * smoothstep(0.15, 0.5, relative_standard_deviation)
+  * smoothstep(0.05, 0.35, visible_roughness),
+    0.75)
+```
+
+This is policy rather than resource meaning. It intentionally bypasses or weakens spatial processing for low-confidence, low-relative-variance, and near-mirror regions, and it never exceeds a 75% blend toward the accepted-neighborhood result. Existing neighborhood rejection is evaluated before this strength; confidence cannot admit a rejected neighbor. Toggling the policy does not reset temporal history because it remains stateless and post-temporal.
+
 ## Out of Scope
 
 - promoting the implemented edge-aware spatial pass to a production default;

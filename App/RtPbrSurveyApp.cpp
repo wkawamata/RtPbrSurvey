@@ -1022,13 +1022,14 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         };
     }
     const json report = {
-        {"schemaVersion", 13},
+        {"schemaVersion", 14},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
         {"specularEstimateIncidentRadiance",
          reflectionSettings.estimatorConstantIncidentRadianceEnabled ? "constant-white-1" : "traced-scene"},
         {"varianceGuidedTemporalEnabled", reflectionSettings.varianceGuidedTemporalEnabled},
         {"edgeAwareSpatialFilterEnabled", reflectionSettings.surfaceVarianceFilterEnabled},
+        {"spatiotemporalSpatialPolicyEnabled", reflectionSettings.spatiotemporalSpatialPolicyEnabled},
         {"denoisedRadianceSource",
          reflectionSettings.surfaceVarianceFilterEnabled ? "ReflectionDenoisedRadiance" :
                                                            "ReflectionResolvedRadiance identity fallback"},

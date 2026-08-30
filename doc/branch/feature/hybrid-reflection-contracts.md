@@ -326,6 +326,8 @@ The default-off filter reduced static display-space variance in the evaluated te
 
 The later `Spatial Policy Inputs` debug view reads the current moments, confidence, visible-surface features, and reflection-hit payload directly. It displays R=confidence, G=mapped temporal variance, and B=edge-safe non-center neighbor fraction. It is diagnostic-only: it neither changes radiance nor means that the spatial pass was applied. Confidence remains persistent variance evidence rather than history-valid or correctness probability.
 
+The default-off spatiotemporal spatial policy may bound the blend between `ReflectionResolvedRadiance` and the accepted-neighborhood result using current moments, persistent variance confidence, and visible roughness. This changes only spatial policy: `ReflectionDenoisedRadiance` remains stateless, unweighted linear HDR and never becomes temporal history. The fixed-filter path remains available when the spatial filter is enabled but the policy is disabled.
+
 ### Contract Phase Closeout
 
 The resource, direction-sampling, ownership, reset, reprojection, minimum rejection, debug-noise, and repeatable subjective-validation contracts are implemented and validated for this phase. Production defaults remain stochastic sampling disabled and history weight zero. A future explicit stochastic-temporal preset is supported by the measured evidence, but production enablement, additional denoise/rejection resources, and broader scene coverage belong to later work rather than extending this branch.

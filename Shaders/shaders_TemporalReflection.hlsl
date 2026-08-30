@@ -34,6 +34,7 @@ cbuffer TemporalReflectionConstants : register(b5)
     uint g_surfaceVarianceFilterEnabled;
     uint g_varianceGuidedTemporalEnabled;
     uint g_confidenceForceStableEvidence;
+    uint g_spatiotemporalSpatialPolicyEnabled;
 };
 
 uint HashTemporalNoise(uint2 pixel, uint frameIndex)

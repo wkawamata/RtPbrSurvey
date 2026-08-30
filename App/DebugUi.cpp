@@ -681,6 +681,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                               "Uses visible depth/normal/roughness and reflection hit distance/normal gates.");
         }
         ImGui::TextWrapped("Experimental default-off post-temporal filter. It does not feed reflection history.");
+        ImGui::BeginDisabled(!reflectionSettings.surfaceVarianceFilterEnabled);
+        changed |= ImGui::Checkbox("Spatiotemporal Spatial Policy", &reflectionSettings.spatiotemporalSpatialPolicyEnabled);
+        ImGui::TextWrapped("Default-off bounded strength policy using temporal variance confidence and moments. "
+                           "Disabled preserves the fixed spatial-filter comparison path.");
+        ImGui::EndDisabled();
         changed |= ImGui::Checkbox("Variance-Guided Temporal", &reflectionSettings.varianceGuidedTemporalEnabled);
         ImGui::TextWrapped("Experimental default-off weighted-estimator history adjustment. Roughness >= 0.75 and prior relative variance >= 0.5 select a bounded 0.94 history weight.");
         ImGui::TextWrapped("Experimental motion-reprojected blend with depth/normal rejection. Debug noise is injected before history accumulation and is disabled at zero.");
