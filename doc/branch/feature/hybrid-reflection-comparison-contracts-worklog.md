@@ -13,5 +13,8 @@
 - Debug x64 built with zero errors and only the known duplicate-vcpkg-task import warning.
 - Added `Test-ComparisonMetadataReport.ps1` to validate required schema v15 comparison fields and record the source revision in a harness-owned validation manifest instead of embedding source-control discovery in the application.
 - The validator passed the schema v15 smoke report and rejected an intentionally corrupted `evaluatedRadiance` boundary with exit code 1. The generated manifest records source revision, scene, domain, render/output sizes, and exposure.
+- Added named tone-map operator and hit-normal source values plus material-gate and reflection-contribution settings to the final metadata.
+- The final Debug x64 build passed with zero errors and the known vcpkg warning. The final GPU smoke exited zero, the valid report passed, a corrupted tone-map fixture was rejected with exit 1, and D3D12 reported zero errors.
+- Fixed the currently comparable Raster/Hybrid scope and the PT/RR `NOT CLAIMED` boundary without adding a PathTracing pass, RR backend, or production-default change.
 
-Status: in progress
+Status: done

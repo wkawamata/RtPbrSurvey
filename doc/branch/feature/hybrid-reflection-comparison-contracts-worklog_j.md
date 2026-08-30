@@ -13,5 +13,8 @@
 - Debug x64 buildは0 errorで成功した。既知のvcpkg task重複import warning 1件のみだった。
 - `Test-ComparisonMetadataReport.ps1`を追加した。schema v15の必須比較fieldを検証し、source revisionをアプリへ埋め込まずharness-owned validation manifestへ記録する。
 - validatorはschema v15 smoke reportでPASSし、`evaluatedRadiance` boundaryを意図的に壊したfixtureをexit code 1でrejectした。manifestへsource revision、scene、domain、render／output size、exposureを記録することも確認した。
+- 最終metadataへ名称付きtone-map operator、名称付きhit-normal source、material gate／reflection contribution設定を追加した。
+- 最終Debug x64 buildは0 error、既知vcpkg warning 1件で成功した。最終GPU smokeはapp exit 0、validator exit 0、破損tone-map fixture reject exit 1、D3D12 error 0件だった。
+- Raster／Hybridの現在比較可能範囲と、PT／RRの`NOT CLAIMED`境界を固定した。PathTracing pass、RR backend、production defaultは変更していない。
 
-Status: in progress
+Status: done

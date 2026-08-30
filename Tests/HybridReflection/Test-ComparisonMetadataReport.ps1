@@ -53,13 +53,17 @@ if ($null -ne $metadata)
         "denoisedRadiance comparison boundary is invalid"
     Add-FailureIf ($metadata.camera.projection -notin @("perspective", "orthographic")) "camera projection is invalid"
     Add-FailureIf ($null -eq $metadata.presentation.exposure) "presentation exposure is required"
-    Add-FailureIf ($null -eq $metadata.presentation.toneMapOperator) "tone-map operator is required"
+    Add-FailureIf ($metadata.presentation.toneMapOperator -notin @("none", "reinhard", "aces")) "tone-map operator is invalid"
+    Add-FailureIf ($null -eq $metadata.reflectionSettings.enabled) "reflection enabled state is required"
+    Add-FailureIf ($null -eq $metadata.reflectionSettings.contributionEnabled) "reflection contribution state is required"
 }
 
 Add-FailureIf ([string]::IsNullOrWhiteSpace($report.scene)) "scene is required"
 Add-FailureIf ([int]$report.measurementFrames -le 0) "measurementFrames must be positive"
 Add-FailureIf ($null -eq $report.stochasticSamplingEnabled) "stochasticSamplingEnabled is required"
-Add-FailureIf ($null -eq $report.hitNormalSource) "hitNormalSource is required"
+Add-FailureIf (
+    $report.hitNormalSource -notin @("gbuffer-world-normal", "attribute-geometric-normal")) `
+    "hitNormalSource is invalid"
 
 $manifest = [ordered]@{
     schemaVersion = 1
