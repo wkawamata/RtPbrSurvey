@@ -55,6 +55,8 @@ The additional glTF asset must be chosen for visible Hybrid Reflection coverage,
 
 Numerical thresholds are recorded with each report rather than inferred after seeing the result. The 256-frame run is the standard quantitative gate; 64 frames is a development check, and 1024 frames is an additional drift/firefly audit when indicated.
 
+The versioned ROI source is `Tests/SubjectiveValidation/HybridReflection/production-quality-gate-profiles.json`. Production-gate runs must select a profile by name through `Invoke-ProductionQualityGates.ps1`; manually copied coordinates are development probes and are not accepted as gate evidence. The runner treats paired sequence identity, unchanged resolved-radiance control variance, and the declared mean bound as invariants. It reports variance and frame-difference changes as observations rather than converting them into an automatic quality claim.
+
 ## Current Classification
 
 | Feature | Current class | Evidence-based reason |

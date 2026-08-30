@@ -55,6 +55,8 @@ Variance-guided temporalは独立したdefault-off診断であり、spatial poli
 
 数値thresholdは結果を見てから推測せず、各reportで事前に記録する。256 framesを標準定量gate、64 framesを開発check、1024 framesを必要時のdrift／firefly追加監査とする。
 
+version管理されたROI sourceは`Tests/SubjectiveValidation/HybridReflection/production-quality-gate-profiles.json`とする。production gate runは`Invoke-ProductionQualityGates.ps1`からprofile名で選択し、手作業で転記した座標は開発probeとして扱い、gate根拠には採用しない。runnerはpaired sequence一致、resolved-radiance control variance不変、宣言mean boundをinvariantとして判定する。varianceとframe-difference変化は自動的な品質主張に変換せず、観測値としてreportする。
+
 ## 現在の分類
 
 | 機能 | 現在の区分 | 根拠 |
