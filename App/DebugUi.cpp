@@ -286,6 +286,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     ImGui::TextDisabled("Current Scene");
     const char* sceneName = loadedScene.Name();
     const char* sceneNameBreak = strchr(sceneName, ':');
+    bool closeSceneRequested = false;
     if (sceneNameBreak != nullptr && sceneNameBreak[1] == ' ')
     {
         ImGui::TextColored(ImVec4(0.65f, 0.78f, 0.95f, 1.0f), "%.*s",
@@ -293,11 +294,21 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                            sceneName);
         ImGui::Indent();
         ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneNameBreak + 2);
+        ImGui::SameLine(0.0f, 12.0f);
+        closeSceneRequested = ImGui::Button("Close Scene");
         ImGui::Unindent();
     }
     else
     {
         ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneName);
+        ImGui::SameLine(0.0f, 12.0f);
+        closeSceneRequested = ImGui::Button("Close Scene");
+    }
+    if (closeSceneRequested)
+    {
+        app.CloseRunningScene();
+        ImGui::End();
+        return;
     }
     ImGui::Separator();
     ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
@@ -308,13 +319,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 context.rayTracingSupported ? "Supported" : "Not supported",
                 context.rayTracingTierName,
                 context.rayTracingTierRaw);
-    if (ImGui::Button("Close Scene"))
-    {
-        app.CloseRunningScene();
-        ImGui::End();
-        return;
-    }
-    ImGui::SameLine(0.0f, 12.0f);
     ImGui::Checkbox("Open RenderGraph Window", &renderGraphWindowOpen);
 
     if (ImGui::CollapsingHeader("Screenshot"))
