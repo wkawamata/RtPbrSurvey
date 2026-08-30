@@ -14,5 +14,12 @@
 - HDR diagnostic report schema version 14へpolicy stateを追加した。
 - policy変更後にDebug x64を再buildし、C++と影響する全HLSLが成功した。warningは既知のvcpkg duplicate-importのみだった。
 - default-off DamagedHelmet runtime smokeはexit code 0でcaptureに成功し、D3D12 errorは0件だった。既知のbuffer initial-state warning 2件だけが再現し、unknown warningはなかった。
+- 再現可能なautomation用に`-ReflectionSpatiotemporalSpatialPolicy`を追加した。このflagはspatial passを暗黙に有効化しないため、paired runでは`-ReflectionSurfaceVarianceFilter`を同一に保ち、policy flagだけを変えられる。
+- 最初の64-frame paired runではpolicyが完全bypassした。confidence更新が別consumerである`Variance-Guided Temporal` toggle内に誤って閉じていたためconfidenceが0のままだった。一方momentsはvarianceを報告しており、ROIのvarianceが0ではなくevidence production欠落が原因と確認した。
+- confidence生成とtemporal weight消費を分離した。accepted historyでは全modeでconfidence metadataを更新し、`Variance-Guided Temporal`はそのevidenceをtemporal history weightへ使うかだけを制御する。同toggleがOFFならtemporal RGBは変わらない。
+- 分離後にEstimator scene ROIのpaired測定を再実行した。64-frameではsample/temporal indexが一致し、固定filter比でbounded policyのtemporal varianceは3.92%高い一方、frame difference p95は16.96%、p99は10.03%低く、ROI mean差は0.041%だった。
+- 256-frame標準gateでも方向を再現した。sample/temporal indexは一致し、temporal varianceは6.74%高く、frame difference mean/p95/p99は14.50%/16.61%/10.31%低く、ROI mean差は0.026%だった。
+- この結果はbounded-tail policyとして解釈できるが、最小varianceは主張しない。対象はcontrolled 48x48 ROI 1件であり、multi-scene generalizationまたは物理的正しさは確立しない。
+- paired reportをschema version 2へ更新し、明示的なvariant labelとBのA比signed variance changeを追加した。互換性のため既存filter-off/on fieldは維持する。
 
 Status: in progress

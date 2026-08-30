@@ -14,5 +14,12 @@
 - Added the policy state to HDR diagnostic report schema version 14.
 - Rebuilt Debug x64 after the policy change; C++ and all affected HLSL compiled successfully with only the existing vcpkg duplicate-import warning.
 - The default-off DamagedHelmet runtime smoke exited with code zero, captured successfully, and reported zero D3D12 errors. It repeated the two known buffer initial-state warnings and introduced no unknown warning.
+- Added `-ReflectionSpatiotemporalSpatialPolicy` for reproducible automation. It does not implicitly enable the spatial pass, so paired runs can keep `-ReflectionSurfaceVarianceFilter` identical and vary only the policy flag.
+- The first 64-frame paired run showed exact policy bypass: confidence remained zero because its update was incorrectly nested under the separate `Variance-Guided Temporal` consumer toggle. Moments still reported variance, confirming that missing evidence production rather than a zero-variance ROI caused the bypass.
+- Separated confidence production from temporal-weight consumption. Accepted history now updates confidence metadata in all modes; `Variance-Guided Temporal` still exclusively controls whether that evidence changes the temporal history weight. With that toggle off, temporal RGB remains unchanged.
+- Repeated the paired estimator-scene ROI after the separation. The 64-frame run matched sample/temporal indices; compared with the fixed filter, the bounded policy had 3.92% higher temporal variance, 16.96% lower frame-difference p95, 10.03% lower p99, and a 0.041% ROI mean difference.
+- The 256-frame standard gate reproduced the direction: sample/temporal indices matched, temporal variance was 6.74% higher, frame-difference mean/p95/p99 were 14.50%/16.61%/10.31% lower, and the ROI mean difference was 0.026%.
+- These results support a bounded-tail policy interpretation, not a minimum-variance claim. They cover one controlled 48x48 ROI and do not establish multi-scene generalization or physical correctness.
+- Updated the paired report to schema version 2 with explicit variant labels and a signed B-relative-to-A variance-change field. Legacy filter-off/on fields remain for compatibility.
 
 Status: in progress

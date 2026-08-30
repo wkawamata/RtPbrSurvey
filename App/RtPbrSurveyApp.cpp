@@ -264,6 +264,8 @@ void RtPbrSurveyApp::OnInit()
                 m_commandLineOptions.reflectionRejectedPixelNeighborhood;
             reflectionSettings.surfaceVarianceFilterEnabled =
                 m_commandLineOptions.reflectionSurfaceVarianceFilter;
+            reflectionSettings.spatiotemporalSpatialPolicyEnabled =
+                m_commandLineOptions.reflectionSpatiotemporalSpatialPolicy;
             reflectionSettings.varianceGuidedTemporalEnabled =
                 m_commandLineOptions.reflectionVarianceGuidedTemporal;
             if (m_commandLineOptions.hasReflectionTemporalWeight)

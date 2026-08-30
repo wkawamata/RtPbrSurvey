@@ -144,17 +144,17 @@ TemporalReflectionOutput PSMain(FullscreenVSOutput input)
                         g_reflectionSpecularMomentsHistory.Load(int3(historyPixel, 0));
                     const float confidenceHistory =
                         g_reflectionSpecularConfidenceHistory.Load(int3(historyPixel, 0));
+                    const float historyVariance =
+                        max(momentsHistory.y - momentsHistory.x * momentsHistory.x, 0.0);
+                    const float relativeVariance =
+                        saturate(historyVariance / max(momentsHistory.y, 1e-6));
+                    const float varianceIndicator =
+                        g_confidenceForceStableEvidence != 0 ? 0.0 :
+                        (relativeVariance >= 0.5 ? 1.0 : 0.0);
+                    currentSpecularConfidence = lerp(varianceIndicator, confidenceHistory, 0.9);
                     float weightedHistoryWeight = g_historyWeight;
                     if (g_varianceGuidedTemporalEnabled != 0)
                     {
-                        const float historyVariance =
-                            max(momentsHistory.y - momentsHistory.x * momentsHistory.x, 0.0);
-                        const float relativeVariance =
-                            saturate(historyVariance / max(momentsHistory.y, 1e-6));
-                        const float varianceIndicator =
-                            g_confidenceForceStableEvidence != 0 ? 0.0 :
-                            (relativeVariance >= 0.5 ? 1.0 : 0.0);
-                        currentSpecularConfidence = lerp(varianceIndicator, confidenceHistory, 0.9);
                         const float confidenceWeight = smoothstep(0.5, 0.9, currentSpecularConfidence);
                         weightedHistoryWeight =
                             lerp(g_historyWeight, max(g_historyWeight, 0.94), confidenceWeight);

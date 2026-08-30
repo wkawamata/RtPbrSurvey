@@ -93,6 +93,8 @@ The implemented per-pixel acceptance evidence is bounds, previous depth, and pre
 
 `ReflectionSpecularConfidence` stores persistent high-variance evidence in `[0, 1]`. It is not a probability that history is correct, not a history-valid flag, and not a material classification. Reset or rejection writes zero. Accepted history may raise or decay it according to the documented experimental policy.
 
+Confidence metadata is updated on accepted history independently of whether `Variance-Guided Temporal` consumes it. That toggle controls only the temporal history-weight adjustment. This separation allows the post-temporal spatial policy and debug views to observe the same evidence without silently enabling a different temporal blend.
+
 A spatial filter may use moments or confidence to reduce strength in stable regions or increase support in persistently noisy regions, but it must preserve the following:
 
 - invalid history cannot be made valid by high confidence;

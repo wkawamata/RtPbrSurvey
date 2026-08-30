@@ -60,6 +60,7 @@ struct CommandLineOptions
     bool reflectionEstimatorConstantIncidentRadiance = false;
     bool reflectionRejectedPixelNeighborhood = false;
     bool reflectionSurfaceVarianceFilter = false;
+    bool reflectionSpatiotemporalSpatialPolicy = false;
     bool reflectionVarianceGuidedTemporal = false;
     float reflectionCameraDistanceScale = 1.0f;
     bool hasReflectionTemporalWeight = false;

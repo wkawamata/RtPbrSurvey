@@ -24,6 +24,8 @@ Each capture path must be relative to the plan directory, end in `.png`, avoid p
 
 The plan is loaded with `-ReflectionCapturePlan <path>` and `-ReflectionCaptureVariant <variant>`. A plan implies the resolved-radiance capture mode. It remains mutually exclusive with the legacy `-CapturePath`. `-ExitAfterCapture` exits only after every planned PNG has completed.
 
+`Measure-HdrVariancePair.ps1 -CompareSpatiotemporalPolicy` keeps the edge-aware spatial pass enabled in both runs and varies only `-ReflectionSpatiotemporalSpatialPolicy`. Without the switch, the script preserves its original filter-off/filter-on comparison.
+
 Only one screenshot may be in flight. If the previous screenshot has not completed by the next requested frame, the plan fails instead of silently capturing a later frame. Capture frames should therefore have deliberate spacing.
 
 ## Phase C Repeatable Run
