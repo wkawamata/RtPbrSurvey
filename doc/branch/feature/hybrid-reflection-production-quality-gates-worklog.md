@@ -22,6 +22,8 @@
 - Added generic `-AutoSelectGltfAsset <name>` and `-UseSceneDefaults` automation. The existing dedicated DamagedHelmet and Estimator Test flags remain mutually exclusive with the generic selector.
 - Extended `-ReflectionCameraDistanceScale` so Arcball framing can be applied to an auto-selected live scene without requiring screenshot automation.
 - The BoomBox default distance was too wide for quality review. Versioned defaults with distance scale `0.25` produced a full-object 1920x1080 framing suitable for review. The 64-frame capture exited successfully with zero D3D12 errors and the two known buffer initial-state warnings.
+- Completed the live Lit A/B review on BoomBox. Enabling the bounded spatiotemporal spatial policy over the fixed-spatial profile produced no perceptible visual difference. This is scoped non-regression evidence, not evidence of improvement.
+- Because BoomBox also failed to establish a perceptible benefit and the 256-frame measurements show mixed behavior, the bounded policy is not promoted to a production candidate and remains a default-off diagnostic.
 
 Status: in progress
 

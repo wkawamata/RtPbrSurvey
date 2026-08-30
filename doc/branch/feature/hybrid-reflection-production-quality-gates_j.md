@@ -75,3 +75,5 @@ version管理されたROI sourceは`Tests/SubjectiveValidation/HybridReflection/
 
 名前付き全profileの64-frame開発runは、scheduling、resolved control、meanの全invariantに合格した。ただし一貫した品質改善は確立しなかった。256-frame標準runも同じ結論を再現した。DamagedHelmet後頭部寄り面profileは無変化を維持し、下面pipe profileはmean差を`0.5%`以内（`0.426%`）に維持したが、frame-difference p99が`15.99%`低下する一方でtemporal varianceは`21.44%`増加した。controlled roughness `0.35`／`1.0`でもframe-difference tail低減とtemporal variance増加が併存した。このmixed resultによりbounded policyはdiagnostic区分を維持する。
 
+追加assetのBoomBoxでは、再現可能なfull-object framingを用いてlive Lit A/B評価を完了した。固定spatialとbounded spatiotemporal spatial policyの間に見た目の差はまったく知覚できなかった。これは宣言条件内のnon-regressionを限定的に支持するが、知覚品質改善は支持しない。定量結果と主観結果を合わせてもproduction昇格条件を満たさないため、bounded policyはdefault-off diagnosticを維持する。
+

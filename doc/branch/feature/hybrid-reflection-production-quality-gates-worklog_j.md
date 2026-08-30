@@ -22,6 +22,8 @@
 - 汎用`-AutoSelectGltfAsset <name>`と`-UseSceneDefaults` automationを追加した。既存のDamagedHelmet／Estimator Test専用flagとは相互排他を維持する。
 - screenshot automationを要求せず、auto-selected live sceneへArcball framingを適用できるよう`-ReflectionCameraDistanceScale`を拡張した。
 - BoomBoxのdefault distanceは品質reviewには広すぎた。version管理defaultsとdistance scale `0.25`により、1920x1080でobject全体を保つreview可能なframingを生成した。64-frame captureは正常終了し、D3D12 error 0件、既知buffer initial-state warning 2件だった。
+- BoomBoxのlive Lit A/B主観評価を実施した。固定spatialに対してbounded spatiotemporal spatial policyをONにしても、見た目の差はまったく知覚できなかった。この結果はnon-regressionの限定根拠だが、改善の根拠ではない。
+- BoomBoxでも知覚可能な改善を確立できず、256-frame定量結果もmixed behaviorを示しているため、bounded policyはproduction候補へ昇格せずdefault-off diagnosticを維持する。
 
 Status: in progress
 
