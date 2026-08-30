@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "Runtime/RenderGraphNodeEditorView.h"
 #include "Runtime/SceneRenderer.h"
 
 namespace RtPbrSurvey
@@ -32,7 +33,10 @@ namespace RtPbrSurvey
                          const char* windowName = "RtPbrSurvey Debug",
                          EnvironmentMappingUiState* environment = nullptr);
         static void DrawEnvironmentMapping(SceneRenderer& renderer, EnvironmentMappingUiState& state);
-        static void DrawRenderGraphDiagnostics(SceneRenderer& renderer);
-        static void DrawRenderGraphWindow(SceneRenderer& renderer, bool* open);
+        static void DrawRenderGraphDiagnostics(SceneRenderer& renderer,
+                                               const RenderGraphGpuTimingSnapshot* timing = nullptr);
+        static void DrawRenderGraphWindow(SceneRenderer& renderer,
+                                          bool* open,
+                                          const RenderGraphGpuTimingSnapshot* timing = nullptr);
     };
 }

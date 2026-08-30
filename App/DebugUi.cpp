@@ -152,6 +152,28 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
     }
 }
 
+RtPbrSurvey::RenderGraphGpuTimingSnapshot
+BuildRenderGraphGpuTimingSnapshot(const std::vector<MyDx12Util::GpuWorkMeter::CheckPoint>& checkPoints)
+{
+    RtPbrSurvey::RenderGraphGpuTimingSnapshot snapshot;
+    if (checkPoints.size() < 2)
+    {
+        return snapshot;
+    }
+
+    snapshot.totalGpuTimeMs = checkPoints.back().timeStamp;
+    for (size_t checkPointIndex = 1; checkPointIndex + 1 < checkPoints.size(); ++checkPointIndex)
+    {
+        const auto& checkPoint = checkPoints[checkPointIndex];
+        const float durationMs = checkPoint.timeStamp - checkPoints[checkPointIndex - 1].timeStamp;
+        if (checkPoint.passIndex >= 0)
+        {
+            snapshot.samples.push_back({checkPoint.passIndex, durationMs});
+        }
+    }
+    return snapshot;
+}
+
 std::filesystem::path MakeScreenshotPath()
 {
     const std::time_t now = std::time(nullptr);
@@ -258,6 +280,47 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     ImGui::SetNextWindowSize(ImVec2(400, 140), ImGuiCond_FirstUseEver);
     ImGui::Begin("Debug");
 
+    Engine::SampleScene& loadedScene = app.LoadedScene();
+    Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();
+
+    ImGui::TextDisabled("Current Scene");
+    const char* sceneName = loadedScene.Name();
+    const char* sceneNameBreak = strchr(sceneName, ':');
+    bool closeSceneRequested = false;
+    if (sceneNameBreak != nullptr && sceneNameBreak[1] == ' ')
+    {
+        ImGui::TextColored(ImVec4(0.65f, 0.78f, 0.95f, 1.0f), "%.*s",
+                           static_cast<int>(sceneNameBreak - sceneName),
+                           sceneName);
+        ImGui::Indent();
+        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneNameBreak + 2);
+        ImGui::SameLine(0.0f, 12.0f);
+        closeSceneRequested = ImGui::Button("Close Scene");
+        ImGui::Unindent();
+    }
+    else
+    {
+        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneName);
+        ImGui::SameLine(0.0f, 12.0f);
+        closeSceneRequested = ImGui::Button("Close Scene");
+    }
+    if (closeSceneRequested)
+    {
+        app.CloseRunningScene();
+        ImGui::End();
+        return;
+    }
+    ImGui::Separator();
+    ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
+    ImGui::Text("FrameIndex: %d", context.frameIndex);
+    ImGui::Text("Rendering Buffers (GBuffer): %u x %u", context.renderWidth, context.renderHeight);
+    ImGui::Text("Output Buffer: %u x %u", context.outputWidth, context.outputHeight);
+    ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
+                context.rayTracingSupported ? "Supported" : "Not supported",
+                context.rayTracingTierName,
+                context.rayTracingTierRaw);
+    ImGui::Checkbox("Open RenderGraph Window", &renderGraphWindowOpen);
+
     if (ImGui::CollapsingHeader("Screenshot"))
     {
         if (ImGui::Button("Capture PNG"))
@@ -272,40 +335,30 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
-    Engine::SampleScene& loadedScene = app.LoadedScene();
-    Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();
+    if (ImGui::CollapsingHeader("WorkMeter"))
+    {
+        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
 
-    ImGui::TextDisabled("Current Scene");
-    const char* sceneName = loadedScene.Name();
-    const char* sceneNameBreak = strchr(sceneName, ':');
-    if (sceneNameBreak != nullptr && sceneNameBreak[1] == ' ')
-    {
-        ImGui::TextColored(ImVec4(0.65f, 0.78f, 0.95f, 1.0f), "%.*s",
-                           static_cast<int>(sceneNameBreak - sceneName),
-                           sceneName);
-        ImGui::Indent();
-        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneNameBreak + 2);
-        ImGui::Unindent();
+        const auto& gpuCheckPoints = context.gpuCheckPoints;
+        const size_t gpuCheckPointCount = gpuCheckPoints.size();
+        if (gpuCheckPointCount >= 2)
+        {
+            for (int i = 1; i < static_cast<int>(gpuCheckPointCount); i++)
+            {
+                const auto& checkPoint = gpuCheckPoints[i];
+                if (i < static_cast<int>(gpuCheckPointCount) - 1)
+                {
+                    const float timeFromPrevious = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
+                    ImGui::Text("GPU[%d] %s: %f ms", i, checkPoint.name.c_str(), timeFromPrevious);
+                }
+                else
+                {
+                    ImGui::Text("GPU[%d] Total: %f ms", i, checkPoint.timeStamp);
+                }
+            }
+        }
     }
-    else
-    {
-        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneName);
-    }
-    ImGui::Separator();
-    ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
-    ImGui::Text("FrameIndex: %d", context.frameIndex);
-    ImGui::Text("Rendering Buffers (GBuffer): %u x %u", context.renderWidth, context.renderHeight);
-    ImGui::Text("Output Buffer: %u x %u", context.outputWidth, context.outputHeight);
-    ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
-                context.rayTracingSupported ? "Supported" : "Not supported",
-                context.rayTracingTierName,
-                context.rayTracingTierRaw);
-    if (ImGui::Button("Close Scene"))
-    {
-        app.CloseRunningScene();
-        ImGui::End();
-        return;
-    }
+
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
     {
         int cameraMode = static_cast<int>(app.DebugCamera().GetMode());
@@ -1172,37 +1225,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
-    if (ImGui::CollapsingHeader("WorkMeter"))
-    {
-        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
-
-        const auto& gpuCheckPoints = context.gpuCheckPoints;
-        const size_t gpuCheckPointCount = gpuCheckPoints.size();
-        if (gpuCheckPointCount >= 2)
-        {
-            for (int i = 1; i < static_cast<int>(gpuCheckPointCount); i++)
-            {
-                const auto& checkPoint = gpuCheckPoints[i];
-                if (i < static_cast<int>(gpuCheckPointCount) - 1)
-                {
-                    const float timeFromPrevious = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
-                    ImGui::Text("GPU[%d] %s: %f ms", i, checkPoint.name.c_str(), timeFromPrevious);
-                }
-                else
-                {
-                    ImGui::Text("GPU[%d] Total: %f ms", i, checkPoint.timeStamp);
-                }
-            }
-        }
-    }
-
-    if (ImGui::Button("Open RenderGraph Window"))
-    {
-        renderGraphWindowOpen = true;
-    }
-
     ImGui::End();
-    RtPbrSurvey::SceneRendererDebugUi::DrawRenderGraphWindow(app.m_sceneRenderer, &renderGraphWindowOpen);
+    const RtPbrSurvey::RenderGraphGpuTimingSnapshot renderGraphTiming =
+        BuildRenderGraphGpuTimingSnapshot(context.gpuCheckPoints);
+    RtPbrSurvey::SceneRendererDebugUi::DrawRenderGraphWindow(
+        app.m_sceneRenderer, &renderGraphWindowOpen, &renderGraphTiming);
 
     RtPbrSurveyEngine::LightingParams lightingParams = app.m_lightingParams;
     if (!app.m_iblEnabled)
