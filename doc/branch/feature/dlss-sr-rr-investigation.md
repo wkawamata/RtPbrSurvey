@@ -390,7 +390,7 @@ Expected CLI validation commands:
 .\bin\x64\Debug\RtPbrSurvey.exe -AutoSelectGltfDamagedHelmet -EnableDlssRayReconstruction -EnableExperimentalNativeRayReconstruction -CaptureReflectionResolvedRadiance -CapturePath Screenshots\rr_native.png -CaptureAfterFrames 60 -ExitAfterCapture -LogToFile rr_native.log
 ```
 
-`-LogToFile` writes `[RR]` state-change lines containing support status, input readiness, last evaluate status, and whether the current result came from native output or copy fallback.
+`-LogToFile` writes `[RR]` state-change lines containing support status, raw Streamline support-query result, input readiness, last evaluate status, raw last Streamline/evaluate result, and whether the current result came from native output or copy fallback.
 
 RTX 2080 validation on this branch:
 
@@ -399,6 +399,7 @@ RTX 2080 validation on this branch:
 - `-EnableDlssRayReconstruction` with native evaluate off exited with code 0 and produced a 1920x1080 capture.
 - `-EnableDlssRayReconstruction -EnableExperimentalNativeRayReconstruction` also exited with code 0 and produced a 1920x1080 capture.
 - Both runs reported `support=unavailable status=Unsupported adapter`, so `DlssRayReconstructionPass` and `slEvaluateFeature(sl::kFeatureDLSS_RR, ...)` were not reached on this RTX 2080 setup.
+- After raw Streamline result logging was added, the support query result on this RTX 2080 setup was `Result::eErrorFeatureNotSupported`.
 - Both captures were non-black by sampled pixel check. The two captures matched the same unsupported-adapter fallback behavior.
 - D3D12 debug output contained no `ERROR`; it did contain two existing `CreateCommittedResource` warnings about buffer initial state `UNORDERED_ACCESS` being treated as `COMMON`.
 

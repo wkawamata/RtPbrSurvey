@@ -976,6 +976,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::Text("DLSS Ray Reconstruction: %s (Status: %s)",
                     context.rayReconstructionAvailable ? "Available" : "Unavailable",
                     rayReconstructionDiagnostics.StatusText());
+        ImGui::Text("RR Support Query: %s", rayReconstructionDiagnostics.supportQueryResultName);
         if (rayReconstructionDiagnostics.featureVersionAvailable)
         {
             ImGui::Text("RR Plugin SL: %u.%u.%u",
@@ -1003,6 +1004,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             ImGui::Text("RR Last Evaluate: %s (%s)",
                         rayReconstructionDiagnostics.lastEvaluateOutputAvailable ? "Native Output" : "Copy Fallback",
                         rayReconstructionDiagnostics.LastEvaluateStatusText());
+            ImGui::Text("RR Last Result: %s", rayReconstructionDiagnostics.lastEvaluateResultName);
         }
         bool rayReconstructionSettingsChanged = false;
         ImGui::BeginDisabled(!context.rayReconstructionAvailable);

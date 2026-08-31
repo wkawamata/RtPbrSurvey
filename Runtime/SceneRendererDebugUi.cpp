@@ -158,6 +158,7 @@ namespace
         ImGui::Text("DLSS Ray Reconstruction: %s (Status: %s)",
                     context.rayReconstructionAvailable ? "Available" : "Unavailable",
                     rayReconstructionDiagnostics.StatusText());
+        ImGui::Text("RR Support Query: %s", rayReconstructionDiagnostics.supportQueryResultName);
         if (rayReconstructionDiagnostics.featureVersionAvailable)
         {
             ImGui::Text("RR Plugin SL: %u.%u.%u",
@@ -185,6 +186,7 @@ namespace
             ImGui::Text("RR Last Evaluate: %s (%s)",
                         rayReconstructionDiagnostics.lastEvaluateOutputAvailable ? "Native Output" : "Copy Fallback",
                         rayReconstructionDiagnostics.LastEvaluateStatusText());
+            ImGui::Text("RR Last Result: %s", rayReconstructionDiagnostics.lastEvaluateResultName);
         }
         ImGui::BeginDisabled(!context.rayReconstructionAvailable);
         rayReconstructionChanged |= ImGui::Checkbox("RR Enabled", &rayReconstructionSettings.enabled);

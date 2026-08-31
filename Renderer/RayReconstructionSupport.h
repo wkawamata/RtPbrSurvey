@@ -94,9 +94,11 @@ struct RayReconstructionDiagnostics
     bool inputReadinessAvailable = false;
     bool inputReady = false;
     RayReconstructionReadinessReason inputReadinessReason = RayReconstructionReadinessReason::NativeEvaluationDisabled;
+    const char* supportQueryResultName = "Unavailable";
     bool lastEvaluateAvailable = false;
     bool lastEvaluateOutputAvailable = false;
     RayReconstructionSupportStatus lastEvaluateStatus = RayReconstructionSupportStatus::NotIntegrated;
+    const char* lastEvaluateResultName = "Unavailable";
 
     const char* StatusText() const;
     const char* InputReadinessText() const;

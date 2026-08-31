@@ -6,6 +6,7 @@
 #include <sl.h>
 #include <sl_dlss.h>
 #include <sl_dlss_d.h>
+#include <sl_helpers.h>
 #endif
 
 namespace Engine
@@ -34,10 +35,12 @@ struct StreamlineAdapterState
     bool lastRayReconstructionInputReady = false;
     RayReconstructionReadinessReason lastRayReconstructionInputReadinessReason =
         RayReconstructionReadinessReason::NativeEvaluationDisabled;
+    const char* lastRayReconstructionSupportQueryResultName = "Unavailable";
     bool lastRayReconstructionEvaluateAvailable = false;
     bool lastRayReconstructionEvaluateOutputAvailable = false;
     RayReconstructionSupportStatus lastRayReconstructionEvaluateStatus =
         RayReconstructionSupportStatus::NotIntegrated;
+    const char* lastRayReconstructionEvaluateResultName = "Unavailable";
 };
 
 StreamlineAdapterState g_streamlineAdapterState;
@@ -98,11 +101,13 @@ RayReconstructionEvaluateResult MakeAvailableRayReconstructionEvaluateResult()
 }
 
 RayReconstructionEvaluateResult StoreRayReconstructionEvaluateResult(
-    const RayReconstructionEvaluateResult& result)
+    const RayReconstructionEvaluateResult& result,
+    const char* rawResultName)
 {
     g_streamlineAdapterState.lastRayReconstructionEvaluateAvailable = true;
     g_streamlineAdapterState.lastRayReconstructionEvaluateOutputAvailable = result.outputAvailable;
     g_streamlineAdapterState.lastRayReconstructionEvaluateStatus = result.status;
+    g_streamlineAdapterState.lastRayReconstructionEvaluateResultName = rawResultName;
     return result;
 }
 
@@ -607,8 +612,12 @@ TemporalUpscalerSupportStatus SetStreamlineD3DDeviceWithSdk(ID3D12Device* device
     sl::AdapterInfo adapterInfo = {};
     adapterInfo.deviceLUID = reinterpret_cast<std::uint8_t*>(&adapterLuid);
     adapterInfo.deviceLUIDSizeInBytes = sizeof(adapterLuid);
+    const sl::Result rayReconstructionSupportResult =
+        slIsFeatureSupported(sl::kFeatureDLSS_RR, adapterInfo);
+    g_streamlineAdapterState.lastRayReconstructionSupportQueryResultName =
+        sl::getResultAsStr(rayReconstructionSupportResult);
     g_streamlineAdapterState.rayReconstructionStatus =
-        ToRayReconstructionSupportStatus(slIsFeatureSupported(sl::kFeatureDLSS_RR, adapterInfo));
+        ToRayReconstructionSupportStatus(rayReconstructionSupportResult);
     return ToSupportStatus(slIsFeatureSupported(sl::kFeatureDLSS, adapterInfo));
 }
 
@@ -719,19 +728,22 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
         g_streamlineAdapterState.rayReconstructionStatus != RayReconstructionSupportStatus::Available)
     {
         return StoreRayReconstructionEvaluateResult(
-            MakeUnavailableRayReconstructionEvaluateResult(g_streamlineAdapterState.rayReconstructionStatus));
+            MakeUnavailableRayReconstructionEvaluateResult(g_streamlineAdapterState.rayReconstructionStatus),
+            g_streamlineAdapterState.lastRayReconstructionSupportQueryResultName);
     }
 
     if (!readiness.ready)
     {
         return StoreRayReconstructionEvaluateResult(
-            MakeUnavailableRayReconstructionEvaluateResult(RayReconstructionSupportStatus::InvalidIntegration));
+            MakeUnavailableRayReconstructionEvaluateResult(RayReconstructionSupportStatus::InvalidIntegration),
+            "InputReadinessNotReady");
     }
 
     if (!inputs.enableNativeEvaluation)
     {
         return StoreRayReconstructionEvaluateResult(
-            MakeUnavailableRayReconstructionEvaluateResult(RayReconstructionSupportStatus::InvalidIntegration));
+            MakeUnavailableRayReconstructionEvaluateResult(RayReconstructionSupportStatus::InvalidIntegration),
+            "NativeEvaluationDisabled");
     }
 
     sl::FrameToken* frameToken = nullptr;
@@ -739,7 +751,8 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     if (frameTokenResult != sl::Result::eOk || frameToken == nullptr)
     {
         return StoreRayReconstructionEvaluateResult(
-            MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(frameTokenResult)));
+            MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(frameTokenResult)),
+            sl::getResultAsStr(frameTokenResult));
     }
 
     const sl::ViewportHandle viewport = 0;
@@ -758,7 +771,8 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     if (optionsResult != sl::Result::eOk)
     {
         return StoreRayReconstructionEvaluateResult(
-            MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(optionsResult)));
+            MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(optionsResult)),
+            sl::getResultAsStr(optionsResult));
     }
 
     TemporalUpscalerSettings constantsSettings;
@@ -770,7 +784,8 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     if (constantsResult != sl::Result::eOk)
     {
         return StoreRayReconstructionEvaluateResult(
-            MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(constantsResult)));
+            MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(constantsResult)),
+            sl::getResultAsStr(constantsResult));
     }
 
     sl::Extent renderExtent = {};
@@ -806,7 +821,8 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     if (tagResult != sl::Result::eOk)
     {
         return StoreRayReconstructionEvaluateResult(
-            MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(tagResult)));
+            MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(tagResult)),
+            sl::getResultAsStr(tagResult));
     }
 
     const sl::BaseStructure* evaluateInputs[] = {&viewport};
@@ -815,10 +831,12 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     if (evaluateResult != sl::Result::eOk)
     {
         return StoreRayReconstructionEvaluateResult(
-            MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(evaluateResult)));
+            MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(evaluateResult)),
+            sl::getResultAsStr(evaluateResult));
     }
 
-    return StoreRayReconstructionEvaluateResult(MakeAvailableRayReconstructionEvaluateResult());
+    return StoreRayReconstructionEvaluateResult(
+        MakeAvailableRayReconstructionEvaluateResult(), sl::getResultAsStr(evaluateResult));
 }
 
 StreamlineDlssOptimalSettingsResult
@@ -912,9 +930,11 @@ RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnosticsWithSdk(
     diagnostics.inputReadinessAvailable = g_streamlineAdapterState.lastRayReconstructionInputReadinessAvailable;
     diagnostics.inputReady = g_streamlineAdapterState.lastRayReconstructionInputReady;
     diagnostics.inputReadinessReason = g_streamlineAdapterState.lastRayReconstructionInputReadinessReason;
+    diagnostics.supportQueryResultName = g_streamlineAdapterState.lastRayReconstructionSupportQueryResultName;
     diagnostics.lastEvaluateAvailable = g_streamlineAdapterState.lastRayReconstructionEvaluateAvailable;
     diagnostics.lastEvaluateOutputAvailable = g_streamlineAdapterState.lastRayReconstructionEvaluateOutputAvailable;
     diagnostics.lastEvaluateStatus = g_streamlineAdapterState.lastRayReconstructionEvaluateStatus;
+    diagnostics.lastEvaluateResultName = g_streamlineAdapterState.lastRayReconstructionEvaluateResultName;
     diagnostics.sdkMajor = SL_VERSION_MAJOR;
     diagnostics.sdkMinor = SL_VERSION_MINOR;
     diagnostics.sdkPatch = SL_VERSION_PATCH;
@@ -991,9 +1011,11 @@ RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnosticsWithoutS
     diagnostics.inputReadinessAvailable = g_streamlineAdapterState.lastRayReconstructionInputReadinessAvailable;
     diagnostics.inputReady = g_streamlineAdapterState.lastRayReconstructionInputReady;
     diagnostics.inputReadinessReason = g_streamlineAdapterState.lastRayReconstructionInputReadinessReason;
+    diagnostics.supportQueryResultName = g_streamlineAdapterState.lastRayReconstructionSupportQueryResultName;
     diagnostics.lastEvaluateAvailable = g_streamlineAdapterState.lastRayReconstructionEvaluateAvailable;
     diagnostics.lastEvaluateOutputAvailable = g_streamlineAdapterState.lastRayReconstructionEvaluateOutputAvailable;
     diagnostics.lastEvaluateStatus = g_streamlineAdapterState.lastRayReconstructionEvaluateStatus;
+    diagnostics.lastEvaluateResultName = g_streamlineAdapterState.lastRayReconstructionEvaluateResultName;
     return diagnostics;
 }
 
@@ -1002,7 +1024,8 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithoutSdk(
 {
     StoreRayReconstructionInputReadiness(ValidateRayReconstructionEvaluateInputs(inputs));
     return StoreRayReconstructionEvaluateResult(
-        MakeUnavailableRayReconstructionEvaluateResult(g_streamlineAdapterState.rayReconstructionStatus));
+        MakeUnavailableRayReconstructionEvaluateResult(g_streamlineAdapterState.rayReconstructionStatus),
+        "SDKDisabled");
 }
 #endif
 

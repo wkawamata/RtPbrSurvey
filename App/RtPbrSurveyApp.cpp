@@ -675,12 +675,14 @@ void RtPbrSurveyApp::LogRayReconstructionDiagnostics()
     const bool changed =
         m_lastLoggedRayReconstructionAvailable != context.rayReconstructionAvailable ||
         m_lastLoggedRayReconstructionStatus != diagnostics.status ||
+        m_lastLoggedRayReconstructionSupportQueryResultName != diagnostics.supportQueryResultName ||
         m_lastLoggedRayReconstructionInputReadinessAvailable != diagnostics.inputReadinessAvailable ||
         m_lastLoggedRayReconstructionInputReady != diagnostics.inputReady ||
         m_lastLoggedRayReconstructionReadinessReason != diagnostics.inputReadinessReason ||
         m_lastLoggedRayReconstructionEvaluateAvailable != diagnostics.lastEvaluateAvailable ||
         m_lastLoggedRayReconstructionEvaluateOutputAvailable != diagnostics.lastEvaluateOutputAvailable ||
-        m_lastLoggedRayReconstructionEvaluateStatus != diagnostics.lastEvaluateStatus;
+        m_lastLoggedRayReconstructionEvaluateStatus != diagnostics.lastEvaluateStatus ||
+        m_lastLoggedRayReconstructionEvaluateResultName != diagnostics.lastEvaluateResultName;
     if (!changed)
     {
         return;
@@ -693,25 +695,29 @@ void RtPbrSurveyApp::LogRayReconstructionDiagnostics()
     }
 
     fprintf(m_logFile,
-            "[RR] support=%s status=%s inputReadiness=%s inputReason=%s lastEvaluate=%s "
-            "lastEvaluateStatus=%s lastEvaluateOutput=%s\n",
+            "[RR] support=%s status=%s supportQueryResult=%s inputReadiness=%s inputReason=%s "
+            "lastEvaluate=%s lastEvaluateStatus=%s lastEvaluateResult=%s lastEvaluateOutput=%s\n",
             context.rayReconstructionAvailable ? "available" : "unavailable",
             diagnostics.StatusText(),
+            diagnostics.supportQueryResultName,
             diagnostics.inputReadinessAvailable ? (diagnostics.inputReady ? "ready" : "not-ready") : "unavailable",
             diagnostics.InputReadinessText(),
             diagnostics.lastEvaluateAvailable ? "available" : "unavailable",
             diagnostics.LastEvaluateStatusText(),
+            diagnostics.lastEvaluateResultName,
             lastEvaluateOutput);
     fflush(m_logFile);
 
     m_lastLoggedRayReconstructionAvailable = context.rayReconstructionAvailable;
     m_lastLoggedRayReconstructionStatus = diagnostics.status;
+    m_lastLoggedRayReconstructionSupportQueryResultName = diagnostics.supportQueryResultName;
     m_lastLoggedRayReconstructionInputReadinessAvailable = diagnostics.inputReadinessAvailable;
     m_lastLoggedRayReconstructionInputReady = diagnostics.inputReady;
     m_lastLoggedRayReconstructionReadinessReason = diagnostics.inputReadinessReason;
     m_lastLoggedRayReconstructionEvaluateAvailable = diagnostics.lastEvaluateAvailable;
     m_lastLoggedRayReconstructionEvaluateOutputAvailable = diagnostics.lastEvaluateOutputAvailable;
     m_lastLoggedRayReconstructionEvaluateStatus = diagnostics.lastEvaluateStatus;
+    m_lastLoggedRayReconstructionEvaluateResultName = diagnostics.lastEvaluateResultName;
 }
 
 void RtPbrSurveyApp::UpdateReflectionHdrDiagnostics()

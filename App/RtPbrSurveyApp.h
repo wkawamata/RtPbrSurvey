@@ -175,5 +175,7 @@ private:
         Engine::RayReconstructionReadinessReason::NativeEvaluationDisabled;
     Engine::RayReconstructionSupportStatus m_lastLoggedRayReconstructionEvaluateStatus =
         Engine::RayReconstructionSupportStatus::NotIntegrated;
+    const char* m_lastLoggedRayReconstructionSupportQueryResultName = "Unavailable";
+    const char* m_lastLoggedRayReconstructionEvaluateResultName = "Unavailable";
     std::vector<Engine::ReflectionHdrDiagnosticFrame> m_reflectionHdrDiagnosticFrames;
 };
