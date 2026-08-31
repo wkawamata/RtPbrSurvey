@@ -362,6 +362,12 @@ The guarded native path is now present but remains opt-in:
 3. Enable `RR Enabled`.
 4. Enable `Experimental Native Evaluate`.
 
+Automation flags:
+
+- `-EnableDlssRayReconstruction` enables the RR render-graph path and keeps native evaluate disabled.
+- `-EnableExperimentalNativeRayReconstruction` enables the guarded native evaluate path and implies RR enabled. Validation commands should pass both flags so the requested state is clear in command history.
+- CLI RR flags are runtime-only settings overrides. They do not write scene config.
+
 If `Experimental Native Evaluate` is off, if readiness is not `Ready`, or if any Streamline call fails, `DlssRayReconstructionPass` copies `ReflectionEvaluatedRadiance` into the current `ReflectionResolvedRadiance` target for that frame. The UI reports the last result as either `Native Output` or `Copy Fallback`.
 
 The native branch calls Streamline only after support is available, RR is enabled, native evaluation is explicitly enabled, and the SDK-neutral input readiness check passes. Success from `slEvaluateFeature(sl::kFeatureDLSS_RR, ...)` is the only condition that marks `ReflectionResolvedRadiance` as produced by native RR.
@@ -376,6 +382,15 @@ Expected debug-layer check:
 .\bin\x64\Debug\RtPbrSurvey.exe -AutoSelectGltfDamagedHelmet -LogToFile d3d12_debug.log -LogFPS 120
 Select-String -LiteralPath d3d12_debug.log -Pattern "\[ERROR\]|\[WARNING\]|D3D12"
 ```
+
+Expected CLI validation commands:
+
+```powershell
+.\bin\x64\Debug\RtPbrSurvey.exe -AutoSelectGltfDamagedHelmet -EnableDlssRayReconstruction -CaptureReflectionResolvedRadiance -CapturePath Screenshots\rr_copy_fallback.png -CaptureAfterFrames 60 -ExitAfterCapture -LogToFile rr_copy_fallback.log
+.\bin\x64\Debug\RtPbrSurvey.exe -AutoSelectGltfDamagedHelmet -EnableDlssRayReconstruction -EnableExperimentalNativeRayReconstruction -CaptureReflectionResolvedRadiance -CapturePath Screenshots\rr_native.png -CaptureAfterFrames 60 -ExitAfterCapture -LogToFile rr_native.log
+```
+
+`-LogToFile` writes `[RR]` state-change lines containing support status, input readiness, last evaluate status, and whether the current result came from native output or copy fallback.
 
 The default toggle-off path should not emit D3D12 errors. Native evaluate still needs image validation for motion-vector sign/scale, normal-space interpretation, and whether `ReflectionEvaluatedRadiance` is acceptable as Streamline's noisy specular input.
 

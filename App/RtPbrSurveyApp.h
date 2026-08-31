@@ -86,6 +86,8 @@ private:
     void FailAutomatedCapture(const std::string& error);
     void UpdateReflectionHdrDiagnostics();
     void WriteReflectionHdrDiagnosticsReport();
+    void ApplyRayReconstructionCommandLineOverrides();
+    void LogRayReconstructionDiagnostics();
     void FlushD3D12DebugMessages();
     void LogFpsToFile(float cpuFrameTimeMs);
     Engine::SampleScene& LoadedScene();
@@ -162,5 +164,16 @@ private:
     bool m_reflectionHdrDiagnosticsComplete = false;
     bool m_reflectionConfidenceStableEvidenceApplied = false;
     bool m_reflectionHistoryDiagnosticResetApplied = false;
+    bool m_lastLoggedRayReconstructionAvailable = false;
+    bool m_lastLoggedRayReconstructionInputReadinessAvailable = false;
+    bool m_lastLoggedRayReconstructionInputReady = false;
+    bool m_lastLoggedRayReconstructionEvaluateAvailable = false;
+    bool m_lastLoggedRayReconstructionEvaluateOutputAvailable = false;
+    Engine::RayReconstructionSupportStatus m_lastLoggedRayReconstructionStatus =
+        Engine::RayReconstructionSupportStatus::NotIntegrated;
+    Engine::RayReconstructionReadinessReason m_lastLoggedRayReconstructionReadinessReason =
+        Engine::RayReconstructionReadinessReason::NativeEvaluationDisabled;
+    Engine::RayReconstructionSupportStatus m_lastLoggedRayReconstructionEvaluateStatus =
+        Engine::RayReconstructionSupportStatus::NotIntegrated;
     std::vector<Engine::ReflectionHdrDiagnosticFrame> m_reflectionHdrDiagnosticFrames;
 };
