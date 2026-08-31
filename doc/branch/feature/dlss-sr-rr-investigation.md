@@ -392,6 +392,16 @@ Expected CLI validation commands:
 
 `-LogToFile` writes `[RR]` state-change lines containing support status, input readiness, last evaluate status, and whether the current result came from native output or copy fallback.
 
+RTX 2080 validation on this branch:
+
+- Base commit before CLI validation: `af646fe Add guarded native ray reconstruction evaluate path`.
+- CLI validation commit: `5dc35ef Add ray reconstruction CLI validation flags`.
+- `-EnableDlssRayReconstruction` with native evaluate off exited with code 0 and produced a 1920x1080 capture.
+- `-EnableDlssRayReconstruction -EnableExperimentalNativeRayReconstruction` also exited with code 0 and produced a 1920x1080 capture.
+- Both runs reported `support=unavailable status=Unsupported adapter`, so `DlssRayReconstructionPass` and `slEvaluateFeature(sl::kFeatureDLSS_RR, ...)` were not reached on this RTX 2080 setup.
+- Both captures were non-black by sampled pixel check. The two captures matched the same unsupported-adapter fallback behavior.
+- D3D12 debug output contained no `ERROR`; it did contain two existing `CreateCommittedResource` warnings about buffer initial state `UNORDERED_ACCESS` being treated as `COMMON`.
+
 The default toggle-off path should not emit D3D12 errors. Native evaluate still needs image validation for motion-vector sign/scale, normal-space interpretation, and whether `ReflectionEvaluatedRadiance` is acceptable as Streamline's noisy specular input.
 
 ## Work-2 RR Streamline 2.12.0 API Notes
