@@ -78,6 +78,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/RayQueryShadowPass.cpp
     Renderer/RayQueryTlasDebugPass.cpp
     Renderer/RayReconstructionRoughnessPass.cpp
+    Renderer/RayReconstructionSpecularAlbedoPass.cpp
     Renderer/RayReconstructionSpecularHitDistancePass.cpp
     Renderer/RayReconstructionSupport.cpp
     Renderer/RayTracingSupport.cpp
@@ -221,6 +222,8 @@ if(RTPBRSURVEY_BUILD_SHADERS)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ReflectionEvaluate.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionRoughness.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionRoughness.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionSpecularAlbedo.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionSpecularAlbedo.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionSpecularHitDistance.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionSpecularHitDistance.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ToneMap.hlsl vs_6_0 VSMain)

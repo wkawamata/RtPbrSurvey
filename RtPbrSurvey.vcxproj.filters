@@ -198,6 +198,9 @@
     <ClInclude Include="Renderer\RayReconstructionRoughnessPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\RayReconstructionSpecularAlbedoPass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\RayReconstructionSpecularHitDistancePass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -404,6 +407,9 @@
     <ClCompile Include="Renderer\RayReconstructionRoughnessPass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\RayReconstructionSpecularAlbedoPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\RayReconstructionSpecularHitDistancePass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
@@ -491,6 +497,9 @@
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_RayReconstructionRoughness.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_RayReconstructionSpecularAlbedo.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_RayReconstructionSpecularHitDistance.hlsl">

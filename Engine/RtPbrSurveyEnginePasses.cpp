@@ -86,6 +86,7 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
                         if (ShouldRunRayReconstruction())
                         {
                             AddPass(MakeRayReconstructionRoughnessPass());
+                            AddPass(MakeRayReconstructionSpecularAlbedoPass());
                             AddPass(MakeRayReconstructionSpecularHitDistancePass());
                             AddPass(MakeDlssRayReconstructionPass());
                         }
@@ -429,6 +430,21 @@ auto RtPbrSurveyEngine::MakeRayReconstructionRoughnessPass() -> RenderPass
         .Build();
 }
 
+auto RtPbrSurveyEngine::MakeRayReconstructionSpecularAlbedoPass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"RayReconstructionSpecularAlbedoPass")
+        .Pipeline(Pipe::RayReconstructionSpecularAlbedo)
+        .Reads({{kGBufferResourceNames[Engine::GBuffer::Albedo], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Writes({{kReflectionSpecularAlbedoResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
+        .Rtv(RtvName::ReflectionSpecularAlbedo)
+        .Operation(Op::RayReconstructionSpecularAlbedo,
+                   &RtPbrSurveyEngine::ExecuteRayReconstructionSpecularAlbedoPass)
+        .Build();
+}
+
 auto RtPbrSurveyEngine::MakeRayReconstructionSpecularHitDistancePass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
@@ -517,6 +533,7 @@ auto RtPbrSurveyEngine::MakeDlssRayReconstructionPass() -> RenderPass
                 {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                 {kGBufferResourceNames[Engine::GBuffer::MotionVector], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                 {kReflectionRoughnessResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kReflectionSpecularAlbedoResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                 {kReflectionSpecularHitDistanceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
         .Writes({{kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_DEST}})
         .Operation(Op::DlssRayReconstruction, &RtPbrSurveyEngine::ExecuteDlssRayReconstructionPass)

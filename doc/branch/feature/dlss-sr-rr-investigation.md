@@ -300,6 +300,7 @@ Current reflection/resource mapping:
 | Evaluated reflection input | `ReflectionEvaluatedRadiance` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Unweighted one-bounce radiance before temporal processing and `LightPass` contribution weights. Best current RR input candidate. |
 | Current-frame specular estimate | `ReflectionSpecularEstimate` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR diagnostic | Weighted Cook-Torrance estimate used for temporal variance/confidence diagnostics. |
 | RR roughness input | `ReflectionRoughness` | `DXGI_FORMAT_R8_UNORM` | render | linear scalar [0,1] | RR-only prepare target. Extracted from `GBuffer.PBRParams.g` so Streamline receives roughness in the standalone texture R channel. |
+| RR specular albedo input | `ReflectionSpecularAlbedo` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear RGB reflectance | RR-only prepare target. Derived from visible-surface base color and metallic with the shared PBR F0 equation. |
 | RR specular hit distance input | `ReflectionSpecularHitDistance` | `DXGI_FORMAT_R16_FLOAT` | render | world-space scalar distance | RR-only prepare target. Extracted from `ReflectionRayHit.x` when `ReflectionRayHit.y > 0`; miss/gated pixels are encoded as `0.0`. |
 | Resolved reflection output | `ReflectionResolvedRadiance.0/1` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Ping-pong output currently owned by `TemporalReflectionPass`. Future RR output should preserve this unweighted radiance contract. |
 | Optional spatially filtered output | `ReflectionDenoisedRadiance` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Edge-aware post-temporal variant consumed by `LightPass` only when surface variance filtering is enabled. |
@@ -340,7 +341,7 @@ Current shell inputs:
 - `ReflectionEvaluatedRadiance` as `ScalingInputColor` candidate
 - `DepthStencil` as shader-readable depth
 - `GBuffer.Albedo`
-- No specular-albedo candidate is wired yet.
+- `ReflectionSpecularAlbedo`, generated from `GBuffer.Albedo` and `GBuffer.PBRParams.r`
 - `GBuffer.Normal`
 - `GBuffer.MotionVector`
 - `ReflectionRoughness`, generated from `GBuffer.PBRParams.g`
@@ -373,7 +374,7 @@ Relevant Streamline buffer tags:
 | `kBufferTypeScalingInputColor` | Required | `ReflectionEvaluatedRadiance` | Candidate. DLSS-RR guide calls this the noisy ray-traced input color. Current content is unweighted one-bounce reflection radiance and still needs runtime image validation. |
 | `kBufferTypeScalingOutputColor` | Required | `ReflectionResolvedRadiance.{writeIndex}` | Candidate output. This is the current native scaffold output tag. |
 | `kBufferTypeAlbedo` | Required | `GBuffer.Albedo` | Candidate. Format is `R8G8B8A8_UNORM`, linearized material base color by renderer convention. |
-| `kBufferTypeSpecularAlbedo` | Required | none | Missing. Needs a dedicated visible-surface specular reflectance texture or a derived prepare pass. |
+| `kBufferTypeSpecularAlbedo` | Required | `ReflectionSpecularAlbedo` | Available as a standalone `R16G16B16A16_FLOAT` render-size texture. It stores visible-surface `PbrF0(albedo, metallic)` in linear RGB. Alpha is `1.0` and not used by the contract. |
 | `kBufferTypeSpecularHitNoisy` | Not part of the DLSS-RR minimum path | none | Present in Streamline core buffer ids but not required by the DLSS-RR 2.12.0 guide or plugin source path checked for this branch. |
 | `kBufferTypeSpecularHitDenoised` | Not part of the DLSS-RR minimum path | none | Present in Streamline core buffer ids but not used as the current native scaffold output tag. `ScalingOutputColor` carries the RR output. |
 | `kBufferTypeDepth` or `kBufferTypeLinearDepth` | Required | `DepthStencil` SRV | Available as hardware depth. Current scaffold uses hardware depth with camera constants. |
@@ -399,7 +400,7 @@ Scaffold order in `StreamlineAdapter.cpp`:
 7. Tag candidate resources with `slSetTagForFrame()`.
 8. Run `slEvaluateFeature(sl::kFeatureDLSS_RR, ...)`.
 
-Current minimum-input readiness is false. The first expected preflight failure is `MissingSpecularAlbedo`. Native RR evaluate remains disabled because the minimum legal tag set is incomplete and `ReflectionEvaluatedRadiance` still needs validation against Streamline's noisy input-color expectation.
+Current minimum-input readiness is expected to be true once the RR path runs and all prepare resources have been produced. Native RR evaluate remains disabled because `enableNativeEvaluation` is still false and `ReflectionEvaluatedRadiance` still needs runtime validation against Streamline's noisy input-color expectation.
 
 Exposure is not considered a minimum-readiness blocker for this branch: Streamline 2.12.0 plugin source queries `kBufferTypeExposure` as optional, and DLSS-RR options expose `preExposure` and `exposureScale`.
 
@@ -413,6 +414,22 @@ Exposure is not considered a minimum-readiness blocker for this branch: Streamli
 - Resolution: render size.
 - Value: `saturate(GBuffer.PBRParams.g)`, stored in R channel.
 - Purpose: satisfy Streamline's standalone `kBufferTypeRoughness` expectation without changing the existing GBuffer MRT layout.
+
+When RR is disabled or unsupported, this pass is not added to the frame graph and the existing temporal reflection path is unchanged.
+
+## Work-2 RR Specular Albedo Prepare Pass
+
+`RayReconstructionSpecularAlbedoPass` is emitted only on the RR path, immediately before `DlssRayReconstructionPass`.
+
+- Inputs: `GBuffer.Albedo` and `GBuffer.PBRParams` as pixel-shader SRVs.
+- Output: `ReflectionSpecularAlbedo` as render target.
+- Format: `DXGI_FORMAT_R16G16B16A16_FLOAT`.
+- Resolution: render size.
+- Value: `PbrF0(saturate(GBuffer.Albedo.rgb), saturate(GBuffer.PBRParams.r))`.
+- Formula: `lerp(float3(0.04, 0.04, 0.04), albedo, metallic)`, shared through `PbrLighting.hlsli`.
+- Color space: linear RGB. `GBuffer.Albedo` is written by `shaders_GBuffer.hlsl` after `SrgbToLinear()` on sampled base color.
+- Alpha: `1.0`; Streamline's specular albedo contract uses RGB.
+- Format reason: `R16G16B16A16_FLOAT` keeps the small dielectric F0 range and metallic base-color F0 without relying on normalized 8-bit precision. The input remains linear, not sRGB.
 
 When RR is disabled or unsupported, this pass is not added to the frame graph and the existing temporal reflection path is unchanged.
 

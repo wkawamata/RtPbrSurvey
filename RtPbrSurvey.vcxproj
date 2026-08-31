@@ -175,6 +175,7 @@
     <ClInclude Include="Renderer\RayQueryTlasDebugPass.h" />
     <ClInclude Include="Renderer\ReflectionRayHitDebugPass.h" />
     <ClInclude Include="Renderer\RayReconstructionRoughnessPass.h" />
+    <ClInclude Include="Renderer\RayReconstructionSpecularAlbedoPass.h" />
     <ClInclude Include="Renderer\RayReconstructionSpecularHitDistancePass.h" />
     <ClInclude Include="Renderer\RayReconstructionSupport.h" />
     <ClInclude Include="Renderer\RayTracingSupport.h" />
@@ -265,6 +266,7 @@
     <ClCompile Include="Renderer\RayQueryTlasDebugPass.cpp" />
     <ClCompile Include="Renderer\ReflectionRayHitDebugPass.cpp" />
     <ClCompile Include="Renderer\RayReconstructionRoughnessPass.cpp" />
+    <ClCompile Include="Renderer\RayReconstructionSpecularAlbedoPass.cpp" />
     <ClCompile Include="Renderer\RayReconstructionSpecularHitDistancePass.cpp" />
     <ClCompile Include="Renderer\RayReconstructionSupport.cpp" />
     <ClCompile Include="Renderer\RayTracingSupport.cpp" />
@@ -476,6 +478,19 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shaders\shaders_RayReconstructionRoughness.hlsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Identity)</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Identity)</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">dxc.exe -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_VSMain.cso" "%(FullPath)"
+dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_PSMain.cso" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dxc.exe -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_VSMain.cso" "%(FullPath)"
+dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_PSMain.cso" "%(FullPath)"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_RayReconstructionSpecularAlbedo.hlsl">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
