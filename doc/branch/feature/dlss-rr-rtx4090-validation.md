@@ -11,6 +11,8 @@
 ## 注意
 
 - `Screenshots/`、`rr_*.log`、`bin/`、`obj/`、`.vs/`、生成物は commit しないでください。
+- 4090 側の結果は `doc/branch/feature/dlss-rr-rtx4090-validation-result.md` に記入してください。
+- PNG やログ本体は commit せず、必要なログ行と画像所見だけを結果 Markdown に転記してください。
 - `-EnableExperimentalNativeRayReconstruction` は `-EnableDlssRayReconstruction` を暗黙に含みますが、検証コマンドでは状態を明確にするため両方指定します。
 - CLI flags は実行時 settings override です。scene config は書き換えません。
 - 4090 実機結果を確認するまでは PR 作成、main merge、history rewrite、rebase、reset は行わないでください。
@@ -147,14 +149,29 @@ foreach ($path in $paths) {
 
 ## Report Template
 
-4090 実機テスト後、この形式で結果を返してください。
+4090 実機テスト後、この形式で `doc/branch/feature/dlss-rr-rtx4090-validation-result.md` を作成してください。
+GPU 名、driver version、tested commit、build result、Copy Fallback 結果、Native RR 結果、raw Streamline results、D3D12 errors、capture 所見を記録します。
+PNG や `rr_*.log` 本体は commit せず、必要なログ行と画像所見だけを Markdown へ転記してください。
+4090 側では結果 Markdown だけを commit します。
+
+推奨 commit message:
+
+```text
+Record RTX 4090 ray reconstruction validation
+```
+
+結果ファイル:
+
+```text
+doc/branch/feature/dlss-rr-rtx4090-validation-result.md
+```
 
 ```text
 GPU:
 Driver version:
 OS:
 Branch:
-Commit:
+Tested commit:
 
 DLL check:
 - sl.interposer.dll:
