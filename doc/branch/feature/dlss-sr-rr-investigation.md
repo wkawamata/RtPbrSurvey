@@ -353,6 +353,32 @@ Current shell output:
 
 This keeps the LightPass contract stable while making the RR insertion point visible in RenderGraph captures. Phase 2 implementation should replace the copy fallback with SDK evaluation and should decide whether auxiliary reflection/specular histories remain temporal-only diagnostics or receive RR-owned equivalents.
 
+## Work-2 Guarded Native RR Evaluate
+
+The guarded native path is now present but remains opt-in:
+
+1. Enable Hybrid Reflection and use the deferred path.
+2. Confirm `DLSS Ray Reconstruction` reports `Available`.
+3. Enable `RR Enabled`.
+4. Enable `Experimental Native Evaluate`.
+
+If `Experimental Native Evaluate` is off, if readiness is not `Ready`, or if any Streamline call fails, `DlssRayReconstructionPass` copies `ReflectionEvaluatedRadiance` into the current `ReflectionResolvedRadiance` target for that frame. The UI reports the last result as either `Native Output` or `Copy Fallback`.
+
+The native branch calls Streamline only after support is available, RR is enabled, native evaluation is explicitly enabled, and the SDK-neutral input readiness check passes. Success from `slEvaluateFeature(sl::kFeatureDLSS_RR, ...)` is the only condition that marks `ReflectionResolvedRadiance` as produced by native RR.
+
+`ReflectionResolvedRadiance.0/1` remains `DXGI_FORMAT_R16G16B16A16_FLOAT` at render resolution. It now allows UAV creation so the resource is compatible with a native RR output path, while the current fallback transition remains `COPY_DEST`.
+
+RTX 2080 remains a supported test target for failure behavior: `slIsFeatureSupported(sl::kFeatureDLSS_RR, ...)` may report unavailable or unsupported depending on driver/runtime support. In that case the RR UI controls stay disabled and the normal temporal reflection path remains the owner of `ReflectionResolvedRadiance`.
+
+Expected debug-layer check:
+
+```powershell
+.\bin\x64\Debug\RtPbrSurvey.exe -AutoSelectGltfDamagedHelmet -LogToFile d3d12_debug.log -LogFPS 120
+Select-String -LiteralPath d3d12_debug.log -Pattern "\[ERROR\]|\[WARNING\]|D3D12"
+```
+
+The default toggle-off path should not emit D3D12 errors. Native evaluate still needs image validation for motion-vector sign/scale, normal-space interpretation, and whether `ReflectionEvaluatedRadiance` is acceptable as Streamline's noisy specular input.
+
 ## Work-2 RR Streamline 2.12.0 API Notes
 
 Header check against `C:\work\third_party\streamline-sdk-2.12.0\include`:

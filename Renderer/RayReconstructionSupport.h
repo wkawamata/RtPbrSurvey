@@ -57,6 +57,7 @@ enum class RayReconstructionReadinessReason
 struct RayReconstructionSettings
 {
     bool enabled = false;
+    bool experimentalNativeEvaluationEnabled = false;
     RayReconstructionBackend backend = RayReconstructionBackend::Streamline;
 };
 
@@ -93,9 +94,13 @@ struct RayReconstructionDiagnostics
     bool inputReadinessAvailable = false;
     bool inputReady = false;
     RayReconstructionReadinessReason inputReadinessReason = RayReconstructionReadinessReason::NativeEvaluationDisabled;
+    bool lastEvaluateAvailable = false;
+    bool lastEvaluateOutputAvailable = false;
+    RayReconstructionSupportStatus lastEvaluateStatus = RayReconstructionSupportStatus::NotIntegrated;
 
     const char* StatusText() const;
     const char* InputReadinessText() const;
+    const char* LastEvaluateStatusText() const;
 };
 
 const char* ToString(RayReconstructionReadinessReason reason);

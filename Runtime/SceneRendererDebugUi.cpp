@@ -180,10 +180,22 @@ namespace
                         rayReconstructionDiagnostics.inputReady ? "Ready" : "Not Ready",
                         rayReconstructionDiagnostics.InputReadinessText());
         }
-        ImGui::BeginDisabled(true);
-        rayReconstructionChanged |= ImGui::Checkbox("RR Enabled (Phase 1 only)", &rayReconstructionSettings.enabled);
+        if (rayReconstructionDiagnostics.lastEvaluateAvailable)
+        {
+            ImGui::Text("RR Last Evaluate: %s (%s)",
+                        rayReconstructionDiagnostics.lastEvaluateOutputAvailable ? "Native Output" : "Copy Fallback",
+                        rayReconstructionDiagnostics.LastEvaluateStatusText());
+        }
+        ImGui::BeginDisabled(!context.rayReconstructionAvailable);
+        rayReconstructionChanged |= ImGui::Checkbox("RR Enabled", &rayReconstructionSettings.enabled);
         ImGui::EndDisabled();
-        ImGui::TextWrapped("RR evaluation is not wired yet. Temporal reflection remains the owner of resolved reflection output.");
+        ImGui::BeginDisabled(!context.rayReconstructionAvailable || !rayReconstructionSettings.enabled);
+        rayReconstructionChanged |= ImGui::Checkbox("Experimental Native Evaluate",
+                                                    &rayReconstructionSettings.experimentalNativeEvaluationEnabled);
+        ImGui::EndDisabled();
+        ImGui::TextWrapped(
+            "Native RR is experimental and opt-in. If readiness or SDK evaluation fails, the pass copies "
+            "ReflectionEvaluatedRadiance into ReflectionResolvedRadiance for the same frame.");
 
         if (changed)
         {

@@ -998,10 +998,28 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                         rayReconstructionDiagnostics.inputReady ? "Ready" : "Not Ready",
                         rayReconstructionDiagnostics.InputReadinessText());
         }
-        ImGui::BeginDisabled(true);
-        ImGui::Checkbox("RR Enabled (Phase 1 only)", &rayReconstructionSettings.enabled);
+        if (rayReconstructionDiagnostics.lastEvaluateAvailable)
+        {
+            ImGui::Text("RR Last Evaluate: %s (%s)",
+                        rayReconstructionDiagnostics.lastEvaluateOutputAvailable ? "Native Output" : "Copy Fallback",
+                        rayReconstructionDiagnostics.LastEvaluateStatusText());
+        }
+        bool rayReconstructionSettingsChanged = false;
+        ImGui::BeginDisabled(!context.rayReconstructionAvailable);
+        rayReconstructionSettingsChanged |= ImGui::Checkbox("RR Enabled", &rayReconstructionSettings.enabled);
         ImGui::EndDisabled();
-        ImGui::TextWrapped("RR evaluation is not wired yet. Temporal reflection remains the owner of resolved reflection output.");
+        ImGui::BeginDisabled(!context.rayReconstructionAvailable || !rayReconstructionSettings.enabled);
+        rayReconstructionSettingsChanged |= ImGui::Checkbox(
+            "Experimental Native Evaluate", &rayReconstructionSettings.experimentalNativeEvaluationEnabled);
+        ImGui::EndDisabled();
+        ImGui::TextWrapped(
+            "Native RR is experimental and opt-in. If readiness or SDK evaluation fails, the pass copies "
+            "ReflectionEvaluatedRadiance into ReflectionResolvedRadiance for the same frame.");
+        if (rayReconstructionSettingsChanged)
+        {
+            rayReconstructionSettings.backend = Engine::RayReconstructionBackend::Streamline;
+            app.m_sceneRenderer.SetRayReconstructionSettings(rayReconstructionSettings);
+        }
 
         int renderViewMode = static_cast<int>(app.m_renderViewMode);
         const bool deferredRendering = app.m_renderingPath == RenderingPath::Deferred;

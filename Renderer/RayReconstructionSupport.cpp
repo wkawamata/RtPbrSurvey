@@ -66,6 +66,13 @@ const char* RayReconstructionDiagnostics::InputReadinessText() const
     return ToString(inputReadinessReason);
 }
 
+const char* RayReconstructionDiagnostics::LastEvaluateStatusText() const
+{
+    RayReconstructionSupportInfo info;
+    info.status = lastEvaluateStatus;
+    return info.StatusText();
+}
+
 const char* ToString(RayReconstructionReadinessReason reason)
 {
     switch (reason)

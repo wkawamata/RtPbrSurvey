@@ -83,6 +83,8 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
 
     json rayReconstruction;
     rayReconstruction["enabled"] = settings.rayReconstruction.enabled;
+    rayReconstruction["experimentalNativeEvaluationEnabled"] =
+        settings.rayReconstruction.experimentalNativeEvaluationEnabled;
     rayReconstruction["backend"] = static_cast<int>(settings.rayReconstruction.backend);
 
     json hybridReflection;
@@ -200,6 +202,9 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
             const json& rayReconstruction = value.at("rayReconstruction");
             parsed.rayReconstruction.enabled =
                 rayReconstruction.value("enabled", parsed.rayReconstruction.enabled);
+            parsed.rayReconstruction.experimentalNativeEvaluationEnabled =
+                rayReconstruction.value("experimentalNativeEvaluationEnabled",
+                                        parsed.rayReconstruction.experimentalNativeEvaluationEnabled);
             parsed.rayReconstruction.backend =
                 EnumValue(rayReconstruction, "backend", parsed.rayReconstruction.backend);
         }

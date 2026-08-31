@@ -461,6 +461,12 @@ void RtPbrSurveyEngine::SetTemporalUpscalerSettings(const Engine::TemporalUpscal
 
 void RtPbrSurveyEngine::SetRayReconstructionSettings(const Engine::RayReconstructionSettings& settings)
 {
+    if (m_rayReconstructionSettings.enabled != settings.enabled ||
+        m_rayReconstructionSettings.experimentalNativeEvaluationEnabled !=
+            settings.experimentalNativeEvaluationEnabled)
+    {
+        InvalidateReflectionHistory();
+    }
     m_rayReconstructionSettings = settings;
 }
 
@@ -2953,7 +2959,10 @@ void RtPbrSurveyEngine::RegisterReflectionResolvedRadiance()
 {
     for (const char* resourceName : kReflectionResolvedRadianceResourceNames)
     {
-        RegisterRenderTexture(MakeColorRenderTextureSpec(resourceName, Engine::RenderTextureSizeClass::RenderSize));
+        Engine::RenderTextureSpec spec =
+            MakeColorRenderTextureSpec(resourceName, Engine::RenderTextureSizeClass::RenderSize);
+        spec.flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+        RegisterRenderTexture(spec);
     }
 }
 
@@ -4750,7 +4759,7 @@ void RtPbrSurveyEngine::ExecuteDlssRayReconstructionPass(const RenderPass& pass)
     inputs.renderHeight = m_renderHeight;
     inputs.historyReset = !m_reflectionHistoryState.valid;
     inputs.historyValid = m_reflectionHistoryState.valid;
-    inputs.enableNativeEvaluation = false;
+    inputs.enableNativeEvaluation = m_rayReconstructionSettings.experimentalNativeEvaluationEnabled;
     inputs.frameConstants = MakeRayReconstructionFrameConstants();
 
     const Engine::RayReconstructionEvaluateResult result =
