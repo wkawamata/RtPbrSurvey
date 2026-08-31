@@ -61,4 +61,68 @@ const char* RayReconstructionDiagnostics::StatusText() const
     return info.StatusText();
 }
 
+const char* RayReconstructionDiagnostics::InputReadinessText() const
+{
+    return ToString(inputReadinessReason);
+}
+
+const char* ToString(RayReconstructionReadinessReason reason)
+{
+    switch (reason)
+    {
+        case RayReconstructionReadinessReason::Ready:
+            return "Ready";
+        case RayReconstructionReadinessReason::NativeEvaluationDisabled:
+            return "Native evaluation disabled";
+        case RayReconstructionReadinessReason::MissingCommandList:
+            return "Missing command list";
+        case RayReconstructionReadinessReason::MissingReflectionEvaluatedRadiance:
+            return "Missing reflection evaluated radiance";
+        case RayReconstructionReadinessReason::MissingReflectionResolvedRadiance:
+            return "Missing reflection resolved radiance";
+        case RayReconstructionReadinessReason::MissingScalingInputColor:
+            return "Missing scaling input color";
+        case RayReconstructionReadinessReason::MissingDepth:
+            return "Missing depth";
+        case RayReconstructionReadinessReason::MissingMotionVectors:
+            return "Missing motion vectors";
+        case RayReconstructionReadinessReason::MissingNormal:
+            return "Missing normal";
+        case RayReconstructionReadinessReason::MissingRoughness:
+            return "Missing roughness";
+        case RayReconstructionReadinessReason::MissingAlbedo:
+            return "Missing albedo";
+        case RayReconstructionReadinessReason::MissingSpecularAlbedo:
+            return "Missing specular albedo";
+        case RayReconstructionReadinessReason::MissingSpecularHitDistance:
+            return "Missing specular hit distance";
+        case RayReconstructionReadinessReason::InvalidRenderSize:
+            return "Invalid render size";
+        case RayReconstructionReadinessReason::InvalidScalingInputColorFormat:
+            return "Invalid scaling input color format";
+        case RayReconstructionReadinessReason::InvalidReflectionEvaluatedRadianceFormat:
+            return "Invalid reflection evaluated radiance format";
+        case RayReconstructionReadinessReason::InvalidReflectionResolvedRadianceFormat:
+            return "Invalid reflection resolved radiance format";
+        case RayReconstructionReadinessReason::InvalidDepthFormat:
+            return "Invalid depth format";
+        case RayReconstructionReadinessReason::InvalidMotionVectorFormat:
+            return "Invalid motion vector format";
+        case RayReconstructionReadinessReason::InvalidNormalFormat:
+            return "Invalid normal format";
+        case RayReconstructionReadinessReason::InvalidRoughnessFormat:
+            return "Invalid roughness format";
+        case RayReconstructionReadinessReason::InvalidAlbedoFormat:
+            return "Invalid albedo format";
+        case RayReconstructionReadinessReason::InvalidSpecularAlbedoFormat:
+            return "Invalid specular albedo format";
+        case RayReconstructionReadinessReason::InvalidSpecularHitDistanceFormat:
+            return "Invalid specular hit distance format";
+        case RayReconstructionReadinessReason::MissingCameraConstants:
+            return "Missing camera constants";
+        default:
+            return "Unknown";
+    }
+}
+
 } // namespace Engine

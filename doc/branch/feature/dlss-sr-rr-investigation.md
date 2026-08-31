@@ -337,7 +337,10 @@ The two resolved-radiance producers are mutually exclusive in `AddSceneRenderPas
 Current shell inputs:
 
 - `ReflectionEvaluatedRadiance` as `COPY_SOURCE`
+- `ReflectionEvaluatedRadiance` as `ScalingInputColor` candidate
 - `DepthStencil` as shader-readable depth
+- `GBuffer.Albedo`
+- No specular-albedo candidate is wired yet.
 - `GBuffer.Normal`
 - `GBuffer.MotionVector`
 - `ReflectionRoughness`, generated from `GBuffer.PBRParams.g`
@@ -365,34 +368,40 @@ Header check against `C:\work\third_party\streamline-sdk-2.12.0\include`:
 
 Relevant Streamline buffer tags:
 
-| Streamline tag | Current candidate | Status |
-|---|---|---|
-| `kBufferTypeSpecularHitNoisy` | `ReflectionEvaluatedRadiance` | Candidate. Current content is unweighted one-bounce radiance, not raw path-traced specular radiance plus hit distance. Runtime validation is required. |
-| `kBufferTypeSpecularHitDenoised` | `ReflectionResolvedRadiance.{writeIndex}` | Candidate output. Format is `R16G16B16A16_FLOAT`; direct write viability must be validated when native evaluate is enabled. |
-| `kBufferTypeDepth` | `DepthStencil` SRV | Available as hardware depth. SDK also exposes `kBufferTypeLinearDepth`; current scaffold uses hardware depth with camera constants. |
-| `kBufferTypeMotionVectors` | `GBuffer.MotionVector` | Available. Current convention is `prevNdc - curNdc + jitterCancellation + valueOffset`; adapter exposes scale/offset, but native RR sign/scale still needs image validation. |
-| `kBufferTypeNormals` | `GBuffer.Normal` | Available. Current normal is world space xyz in `R16G16B16A16_FLOAT`; `DLSSDOptions` receives world/view matrices so the space is explicit. |
-| `kBufferTypeRoughness` | `ReflectionRoughness` | Available as a standalone `R8_UNORM` render-size texture. Values are copied from `GBuffer.PBRParams.g` into the texture R channel. |
-| `kBufferTypeNormalRoughness` | none | Possible alternative if roughness is moved into normal alpha or a dedicated packed texture. |
-| `kBufferTypeSpecularHitDistance` | `ReflectionSpecularHitDistance` | Optional. Available as a standalone `R16_FLOAT` render-size texture. Values are world-space hit distance from the primary reflection ray origin to hit point; miss/gated pixels are `0.0`. Streamline guide says this is needed when specular motion vectors are not provided. |
-| `kBufferTypeSpecularRayDirectionHitDistance` | none | Optional alternative packed direction+distance input. Not wired. |
-| `kBufferTypeReflectionMotionVectors` | none | Optional. No reflection-specific motion vector resource exists yet. |
-| `kBufferTypeReflectedAlbedo` | `ReflectionRayColor` | Optional. Available as hit albedo payload. Not wired into the native evaluate scaffold yet. |
-| `kBufferTypeDisocclusionMask` | none | Not available. Existing temporal pass derives rejection from depth/normal history internally. |
-| `kBufferTypeExposure` | none | Not available. Current scaffold uses `DLSSDOptions::preExposure=1.0` and `exposureScale=toneMap.exposure`. |
+| Streamline tag | Classification | Current candidate | Status |
+|---|---|---|---|
+| `kBufferTypeScalingInputColor` | Required | `ReflectionEvaluatedRadiance` | Candidate. DLSS-RR guide calls this the noisy ray-traced input color. Current content is unweighted one-bounce reflection radiance and still needs runtime image validation. |
+| `kBufferTypeScalingOutputColor` | Required | `ReflectionResolvedRadiance.{writeIndex}` | Candidate output. This is the current native scaffold output tag. |
+| `kBufferTypeAlbedo` | Required | `GBuffer.Albedo` | Candidate. Format is `R8G8B8A8_UNORM`, linearized material base color by renderer convention. |
+| `kBufferTypeSpecularAlbedo` | Required | none | Missing. Needs a dedicated visible-surface specular reflectance texture or a derived prepare pass. |
+| `kBufferTypeSpecularHitNoisy` | Not part of the DLSS-RR minimum path | none | Present in Streamline core buffer ids but not required by the DLSS-RR 2.12.0 guide or plugin source path checked for this branch. |
+| `kBufferTypeSpecularHitDenoised` | Not part of the DLSS-RR minimum path | none | Present in Streamline core buffer ids but not used as the current native scaffold output tag. `ScalingOutputColor` carries the RR output. |
+| `kBufferTypeDepth` or `kBufferTypeLinearDepth` | Required | `DepthStencil` SRV | Available as hardware depth. Current scaffold uses hardware depth with camera constants. |
+| `kBufferTypeMotionVectors` | Required | `GBuffer.MotionVector` | Available. Current convention is `prevNdc - curNdc + jitterCancellation + valueOffset`; adapter exposes scale/offset, but native RR sign/scale still needs image validation. |
+| `kBufferTypeNormals` or `kBufferTypeNormalRoughness` | Required by selected normal/roughness mode | `GBuffer.Normal` | Available. Current scaffold selects unpacked mode. Current normal is world space xyz in `R16G16B16A16_FLOAT`; `DLSSDOptions` receives world/view matrices so the space is explicit. |
+| `kBufferTypeRoughness` | Required by selected normal/roughness mode | `ReflectionRoughness` | Available as a standalone `R8_UNORM` render-size texture. Values are copied from `GBuffer.PBRParams.g` into the texture R channel. |
+| `kBufferTypeSpecularHitDistance` | Recommended when specular motion vectors are absent | `ReflectionSpecularHitDistance` | Available as a standalone `R16_FLOAT` render-size texture. Values are world-space hit distance from the primary reflection ray origin to hit point; miss/gated pixels are `0.0`. |
+| `kBufferTypeSpecularMotionVectors` | Recommended alternative | none | Optional in plugin source. DLSS-RR guide says the app can provide specular motion vectors directly or provide specular hit distance with matrices. |
+| `kBufferTypeSpecularRayDirectionHitDistance` | Optional alternative | none | Optional packed direction+distance input. Not wired. |
+| `kBufferTypeReflectionMotionVectors` | Optional | none | Optional. No reflection-specific motion vector resource exists yet. |
+| `kBufferTypeReflectedAlbedo` | Optional | `ReflectionRayColor` | Available as hit albedo payload. Not wired into the native evaluate scaffold yet. |
+| `kBufferTypeDisocclusionMask` | Optional | none | Optional in plugin source. Existing temporal pass derives rejection from depth/normal history internally. |
+| `kBufferTypeExposure` | Optional | none | Optional in plugin source. Current scaffold uses `DLSSDOptions::preExposure=1.0` and `exposureScale=toneMap.exposure`; no renderer-owned exposure texture is required for minimum legality. |
 
 Scaffold order in `StreamlineAdapter.cpp`:
 
 1. Check RR support state from `slIsFeatureSupported(sl::kFeatureDLSS_RR, adapterInfo)`.
-2. Validate SDK-neutral `RayReconstructionEvaluateInputs`.
-3. Return unavailable while `enableNativeEvaluation` is false. This keeps Phase 2 disabled-by-default even when the SDK and adapter support RR.
+2. Validate SDK-neutral `RayReconstructionEvaluateInputs` and store the last readiness reason in `RayReconstructionDiagnostics`.
+3. Return unavailable without calling the SDK while inputs are not ready or while `enableNativeEvaluation` is false. This keeps Phase 2 disabled-by-default even when the SDK and adapter support RR.
 4. Future native path obtains `slGetNewFrameToken()`.
 5. Set `sl::DLSSDOptions` through `slDLSSDSetOptions()`.
 6. Set common `sl::Constants` through `slSetConstants()`.
 7. Tag candidate resources with `slSetTagForFrame()`.
 8. Run `slEvaluateFeature(sl::kFeatureDLSS_RR, ...)`.
 
-Native RR evaluate remains disabled because exposure is not a texture, reflection-specific motion vectors/ray directions are not wired, and `ReflectionEvaluatedRadiance` still needs validation against Streamline's noisy specular-hit expectation.
+Current minimum-input readiness is false. The first expected preflight failure is `MissingSpecularAlbedo`. Native RR evaluate remains disabled because the minimum legal tag set is incomplete and `ReflectionEvaluatedRadiance` still needs validation against Streamline's noisy input-color expectation.
+
+Exposure is not considered a minimum-readiness blocker for this branch: Streamline 2.12.0 plugin source queries `kBufferTypeExposure` as optional, and DLSS-RR options expose `preExposure` and `exposureScale`.
 
 ## Work-2 RR Roughness Prepare Pass
 

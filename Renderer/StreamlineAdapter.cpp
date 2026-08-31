@@ -30,6 +30,10 @@ struct StreamlineAdapterState
 #endif
     bool sdkInitialized = false;
     bool initialized = false;
+    bool lastRayReconstructionInputReadinessAvailable = false;
+    bool lastRayReconstructionInputReady = false;
+    RayReconstructionReadinessReason lastRayReconstructionInputReadinessReason =
+        RayReconstructionReadinessReason::NativeEvaluationDisabled;
 };
 
 StreamlineAdapterState g_streamlineAdapterState;
@@ -74,6 +78,8 @@ RayReconstructionEvaluateResult MakeUnavailableRayReconstructionEvaluateResult(
     RayReconstructionEvaluateResult result;
     result.outputAvailable = false;
     result.status = status;
+    result.inputReady = g_streamlineAdapterState.lastRayReconstructionInputReady;
+    result.inputReadinessReason = g_streamlineAdapterState.lastRayReconstructionInputReadinessReason;
     return result;
 }
 
@@ -82,7 +88,213 @@ RayReconstructionEvaluateResult MakeAvailableRayReconstructionEvaluateResult()
     RayReconstructionEvaluateResult result;
     result.outputAvailable = true;
     result.status = RayReconstructionSupportStatus::Available;
+    result.inputReady = true;
+    result.inputReadinessReason = RayReconstructionReadinessReason::Ready;
     return result;
+}
+
+struct RayReconstructionInputReadiness
+{
+    bool ready = false;
+    RayReconstructionReadinessReason reason = RayReconstructionReadinessReason::NativeEvaluationDisabled;
+};
+
+bool IsFormat(ID3D12Resource* resource, DXGI_FORMAT expectedFormat)
+{
+    return resource != nullptr && resource->GetDesc().Format == expectedFormat;
+}
+
+bool IsAnyFormat(ID3D12Resource* resource, std::initializer_list<DXGI_FORMAT> expectedFormats)
+{
+    if (resource == nullptr)
+    {
+        return false;
+    }
+
+    const DXGI_FORMAT actualFormat = resource->GetDesc().Format;
+    for (DXGI_FORMAT expectedFormat : expectedFormats)
+    {
+        if (actualFormat == expectedFormat)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool HasRenderSize(ID3D12Resource* resource, std::uint32_t width, std::uint32_t height)
+{
+    if (resource == nullptr)
+    {
+        return false;
+    }
+
+    const D3D12_RESOURCE_DESC desc = resource->GetDesc();
+    return desc.Width == width && desc.Height == height;
+}
+
+bool HasAnyMatrixValue(const std::array<float, 16>& values)
+{
+    for (float value : values)
+    {
+        if (value != 0.0f)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+RayReconstructionInputReadiness ValidateRayReconstructionEvaluateInputs(
+    const RayReconstructionEvaluateInputs& inputs)
+{
+    if (inputs.commandList == nullptr)
+    {
+        return {false, RayReconstructionReadinessReason::MissingCommandList};
+    }
+    if (inputs.renderWidth == 0 || inputs.renderHeight == 0)
+    {
+        return {false, RayReconstructionReadinessReason::InvalidRenderSize};
+    }
+    if (inputs.reflectionEvaluatedRadiance == nullptr)
+    {
+        return {false, RayReconstructionReadinessReason::MissingReflectionEvaluatedRadiance};
+    }
+    if (inputs.reflectionResolvedRadiance == nullptr)
+    {
+        return {false, RayReconstructionReadinessReason::MissingReflectionResolvedRadiance};
+    }
+    if (inputs.scalingInputColor == nullptr)
+    {
+        return {false, RayReconstructionReadinessReason::MissingScalingInputColor};
+    }
+    if (inputs.depth == nullptr)
+    {
+        return {false, RayReconstructionReadinessReason::MissingDepth};
+    }
+    if (inputs.motionVectors == nullptr)
+    {
+        return {false, RayReconstructionReadinessReason::MissingMotionVectors};
+    }
+    if (inputs.normal == nullptr)
+    {
+        return {false, RayReconstructionReadinessReason::MissingNormal};
+    }
+    if (inputs.roughness == nullptr)
+    {
+        return {false, RayReconstructionReadinessReason::MissingRoughness};
+    }
+    if (inputs.albedo == nullptr)
+    {
+        return {false, RayReconstructionReadinessReason::MissingAlbedo};
+    }
+    if (inputs.specularAlbedo == nullptr)
+    {
+        return {false, RayReconstructionReadinessReason::MissingSpecularAlbedo};
+    }
+    if (inputs.specularHitDistance == nullptr)
+    {
+        return {false, RayReconstructionReadinessReason::MissingSpecularHitDistance};
+    }
+    if (!IsFormat(inputs.reflectionEvaluatedRadiance, DXGI_FORMAT_R16G16B16A16_FLOAT))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidReflectionEvaluatedRadianceFormat};
+    }
+    if (!HasRenderSize(inputs.reflectionEvaluatedRadiance, inputs.renderWidth, inputs.renderHeight))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidRenderSize};
+    }
+    if (!IsFormat(inputs.reflectionResolvedRadiance, DXGI_FORMAT_R16G16B16A16_FLOAT))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidReflectionResolvedRadianceFormat};
+    }
+    if (!HasRenderSize(inputs.reflectionResolvedRadiance, inputs.renderWidth, inputs.renderHeight))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidRenderSize};
+    }
+    if (!IsAnyFormat(inputs.scalingInputColor,
+                     {DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_R32G32B32A32_FLOAT}))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidScalingInputColorFormat};
+    }
+    if (!HasRenderSize(inputs.scalingInputColor, inputs.renderWidth, inputs.renderHeight))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidRenderSize};
+    }
+    if (!IsAnyFormat(inputs.depth, {DXGI_FORMAT_R32_TYPELESS, DXGI_FORMAT_R32_FLOAT, DXGI_FORMAT_D32_FLOAT}))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidDepthFormat};
+    }
+    if (!HasRenderSize(inputs.depth, inputs.renderWidth, inputs.renderHeight))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidRenderSize};
+    }
+    if (!IsAnyFormat(inputs.motionVectors, {DXGI_FORMAT_R16G16_FLOAT, DXGI_FORMAT_R32G32_FLOAT}))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidMotionVectorFormat};
+    }
+    if (!HasRenderSize(inputs.motionVectors, inputs.renderWidth, inputs.renderHeight))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidRenderSize};
+    }
+    if (!IsAnyFormat(inputs.normal, {DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_R32G32B32A32_FLOAT}))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidNormalFormat};
+    }
+    if (!HasRenderSize(inputs.normal, inputs.renderWidth, inputs.renderHeight))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidRenderSize};
+    }
+    if (!IsAnyFormat(inputs.roughness, {DXGI_FORMAT_R16_FLOAT, DXGI_FORMAT_R32_FLOAT, DXGI_FORMAT_R8_UNORM}))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidRoughnessFormat};
+    }
+    if (!HasRenderSize(inputs.roughness, inputs.renderWidth, inputs.renderHeight))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidRenderSize};
+    }
+    if (!IsAnyFormat(inputs.albedo, {DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R16G16B16A16_FLOAT}))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidAlbedoFormat};
+    }
+    if (!HasRenderSize(inputs.albedo, inputs.renderWidth, inputs.renderHeight))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidRenderSize};
+    }
+    if (!IsAnyFormat(inputs.specularAlbedo, {DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R16G16B16A16_FLOAT}))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidSpecularAlbedoFormat};
+    }
+    if (!HasRenderSize(inputs.specularAlbedo, inputs.renderWidth, inputs.renderHeight))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidRenderSize};
+    }
+    if (!IsAnyFormat(inputs.specularHitDistance, {DXGI_FORMAT_R16_FLOAT, DXGI_FORMAT_R32_FLOAT}))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidSpecularHitDistanceFormat};
+    }
+    if (!HasRenderSize(inputs.specularHitDistance, inputs.renderWidth, inputs.renderHeight))
+    {
+        return {false, RayReconstructionReadinessReason::InvalidRenderSize};
+    }
+    if (!HasAnyMatrixValue(inputs.frameConstants.temporal.cameraViewToClip) ||
+        !HasAnyMatrixValue(inputs.frameConstants.temporal.clipToCameraView) ||
+        !HasAnyMatrixValue(inputs.frameConstants.temporal.clipToPrevClip) ||
+        !HasAnyMatrixValue(inputs.frameConstants.temporal.prevClipToClip) ||
+        !HasAnyMatrixValue(inputs.frameConstants.worldToCameraView) ||
+        !HasAnyMatrixValue(inputs.frameConstants.cameraViewToWorld))
+    {
+        return {false, RayReconstructionReadinessReason::MissingCameraConstants};
+    }
+
+    return {true, RayReconstructionReadinessReason::Ready};
+}
+
+void StoreRayReconstructionInputReadiness(const RayReconstructionInputReadiness& readiness)
+{
+    g_streamlineAdapterState.lastRayReconstructionInputReadinessAvailable = true;
+    g_streamlineAdapterState.lastRayReconstructionInputReady = readiness.ready;
+    g_streamlineAdapterState.lastRayReconstructionInputReadinessReason = readiness.reason;
 }
 
 StreamlineDlssOptimalSettingsResult MakeUnavailableOptimalSettingsResult(TemporalUpscalerSupportStatus status)
@@ -487,16 +699,16 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
 RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     const RayReconstructionEvaluateInputs& inputs)
 {
+    const RayReconstructionInputReadiness readiness = ValidateRayReconstructionEvaluateInputs(inputs);
+    StoreRayReconstructionInputReadiness(readiness);
+
     if (!g_streamlineAdapterState.initialized ||
         g_streamlineAdapterState.rayReconstructionStatus != RayReconstructionSupportStatus::Available)
     {
         return MakeUnavailableRayReconstructionEvaluateResult(g_streamlineAdapterState.rayReconstructionStatus);
     }
 
-    if (inputs.commandList == nullptr || inputs.reflectionEvaluatedRadiance == nullptr ||
-        inputs.reflectionResolvedRadiance == nullptr || inputs.depth == nullptr || inputs.motionVectors == nullptr ||
-        inputs.normal == nullptr || inputs.roughness == nullptr || inputs.specularHitDistance == nullptr ||
-        inputs.renderWidth == 0 || inputs.renderHeight == 0)
+    if (!readiness.ready)
     {
         return MakeUnavailableRayReconstructionEvaluateResult(RayReconstructionSupportStatus::InvalidIntegration);
     }
@@ -546,22 +758,27 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     renderExtent.width = inputs.renderWidth;
     renderExtent.height = inputs.renderHeight;
 
-    sl::Resource noisySpecular(
-        sl::ResourceType::eTex2d, inputs.reflectionEvaluatedRadiance, D3D12_RESOURCE_STATE_COPY_SOURCE);
     sl::Resource denoisedSpecular(
         sl::ResourceType::eTex2d, inputs.reflectionResolvedRadiance, D3D12_RESOURCE_STATE_COPY_DEST);
+    sl::Resource scalingInputColor(
+        sl::ResourceType::eTex2d, inputs.scalingInputColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     sl::Resource depth(sl::ResourceType::eTex2d, inputs.depth, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     sl::Resource motionVectors(
         sl::ResourceType::eTex2d, inputs.motionVectors, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    sl::Resource albedo(sl::ResourceType::eTex2d, inputs.albedo, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    sl::Resource specularAlbedo(
+        sl::ResourceType::eTex2d, inputs.specularAlbedo, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     sl::Resource normal(sl::ResourceType::eTex2d, inputs.normal, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     sl::Resource roughness(sl::ResourceType::eTex2d, inputs.roughness, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     sl::Resource specularHitDistance(
         sl::ResourceType::eTex2d, inputs.specularHitDistance, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     const sl::ResourceTag tags[] = {
-        {&noisySpecular, sl::kBufferTypeSpecularHitNoisy, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
-        {&denoisedSpecular, sl::kBufferTypeSpecularHitDenoised, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+        {&scalingInputColor, sl::kBufferTypeScalingInputColor, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+        {&denoisedSpecular, sl::kBufferTypeScalingOutputColor, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
         {&depth, sl::kBufferTypeDepth, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
         {&motionVectors, sl::kBufferTypeMotionVectors, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+        {&albedo, sl::kBufferTypeAlbedo, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+        {&specularAlbedo, sl::kBufferTypeSpecularAlbedo, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
         {&normal, sl::kBufferTypeNormals, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
         {&roughness, sl::kBufferTypeRoughness, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
         {&specularHitDistance, sl::kBufferTypeSpecularHitDistance, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
@@ -671,6 +888,9 @@ RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnosticsWithSdk(
 {
     RayReconstructionDiagnostics diagnostics;
     diagnostics.status = g_streamlineAdapterState.rayReconstructionStatus;
+    diagnostics.inputReadinessAvailable = g_streamlineAdapterState.lastRayReconstructionInputReadinessAvailable;
+    diagnostics.inputReady = g_streamlineAdapterState.lastRayReconstructionInputReady;
+    diagnostics.inputReadinessReason = g_streamlineAdapterState.lastRayReconstructionInputReadinessReason;
     diagnostics.sdkMajor = SL_VERSION_MAJOR;
     diagnostics.sdkMinor = SL_VERSION_MINOR;
     diagnostics.sdkPatch = SL_VERSION_PATCH;
@@ -744,13 +964,16 @@ RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnosticsWithoutS
 {
     RayReconstructionDiagnostics diagnostics;
     diagnostics.status = g_streamlineAdapterState.rayReconstructionStatus;
+    diagnostics.inputReadinessAvailable = g_streamlineAdapterState.lastRayReconstructionInputReadinessAvailable;
+    diagnostics.inputReady = g_streamlineAdapterState.lastRayReconstructionInputReady;
+    diagnostics.inputReadinessReason = g_streamlineAdapterState.lastRayReconstructionInputReadinessReason;
     return diagnostics;
 }
 
 RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithoutSdk(
     const RayReconstructionEvaluateInputs& inputs)
 {
-    UNREFERENCED_PARAMETER(inputs);
+    StoreRayReconstructionInputReadiness(ValidateRayReconstructionEvaluateInputs(inputs));
     return MakeUnavailableRayReconstructionEvaluateResult(g_streamlineAdapterState.rayReconstructionStatus);
 }
 #endif

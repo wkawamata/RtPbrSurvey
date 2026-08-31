@@ -174,6 +174,12 @@ namespace
             ImGui::TextUnformatted("RR Plugin SL: Unavailable");
             ImGui::TextUnformatted("RR NGX Runtime: Unavailable");
         }
+        if (rayReconstructionDiagnostics.inputReadinessAvailable)
+        {
+            ImGui::Text("RR Input Readiness: %s (%s)",
+                        rayReconstructionDiagnostics.inputReady ? "Ready" : "Not Ready",
+                        rayReconstructionDiagnostics.InputReadinessText());
+        }
         ImGui::BeginDisabled(true);
         rayReconstructionChanged |= ImGui::Checkbox("RR Enabled (Phase 1 only)", &rayReconstructionSettings.enabled);
         ImGui::EndDisabled();

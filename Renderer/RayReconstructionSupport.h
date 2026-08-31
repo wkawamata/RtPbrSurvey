@@ -25,6 +25,35 @@ enum class RayReconstructionSupportStatus
     InvalidIntegration,
 };
 
+enum class RayReconstructionReadinessReason
+{
+    Ready = 0,
+    NativeEvaluationDisabled,
+    MissingCommandList,
+    MissingReflectionEvaluatedRadiance,
+    MissingReflectionResolvedRadiance,
+    MissingScalingInputColor,
+    MissingDepth,
+    MissingMotionVectors,
+    MissingNormal,
+    MissingRoughness,
+    MissingAlbedo,
+    MissingSpecularAlbedo,
+    MissingSpecularHitDistance,
+    InvalidRenderSize,
+    InvalidScalingInputColorFormat,
+    InvalidReflectionEvaluatedRadianceFormat,
+    InvalidReflectionResolvedRadianceFormat,
+    InvalidDepthFormat,
+    InvalidMotionVectorFormat,
+    InvalidNormalFormat,
+    InvalidRoughnessFormat,
+    InvalidAlbedoFormat,
+    InvalidSpecularAlbedoFormat,
+    InvalidSpecularHitDistanceFormat,
+    MissingCameraConstants,
+};
+
 struct RayReconstructionSettings
 {
     bool enabled = false;
@@ -61,8 +90,14 @@ struct RayReconstructionDiagnostics
     std::uint32_t ngxMajor = 0;
     std::uint32_t ngxMinor = 0;
     std::uint32_t ngxPatch = 0;
+    bool inputReadinessAvailable = false;
+    bool inputReady = false;
+    RayReconstructionReadinessReason inputReadinessReason = RayReconstructionReadinessReason::NativeEvaluationDisabled;
 
     const char* StatusText() const;
+    const char* InputReadinessText() const;
 };
+
+const char* ToString(RayReconstructionReadinessReason reason);
 
 } // namespace Engine

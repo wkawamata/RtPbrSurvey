@@ -4687,12 +4687,14 @@ void RtPbrSurveyEngine::ExecuteDlssRayReconstructionPass(const RenderPass& pass)
     const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
     Engine::RayReconstructionEvaluateInputs inputs = {};
     inputs.commandList = m_commandList.Get();
+    inputs.scalingInputColor = m_reflectionEvaluatedRadiance.Get();
     inputs.reflectionEvaluatedRadiance = m_reflectionEvaluatedRadiance.Get();
     inputs.reflectionResolvedRadiance = m_reflectionResolvedRadiance[writeIndex].Get();
     inputs.depth = m_depthStencil.Get();
     inputs.motionVectors = m_gbuffer.resources[Engine::GBuffer::MotionVector].Get();
     inputs.normal = m_gbuffer.resources[Engine::GBuffer::Normal].Get();
     inputs.roughness = m_reflectionRoughness.Get();
+    inputs.albedo = m_gbuffer.resources[Engine::GBuffer::Albedo].Get();
     inputs.specularHitDistance = m_reflectionSpecularHitDistance.Get();
     inputs.qualityMode = m_temporalUpscalerSettings.qualityMode;
     inputs.preset = m_temporalUpscalerSettings.preset;

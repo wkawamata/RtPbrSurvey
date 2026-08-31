@@ -50,12 +50,15 @@ struct RayReconstructionFrameConstants
 struct RayReconstructionEvaluateInputs
 {
     ID3D12GraphicsCommandList* commandList = nullptr;
+    ID3D12Resource* scalingInputColor = nullptr;
     ID3D12Resource* reflectionEvaluatedRadiance = nullptr;
     ID3D12Resource* reflectionResolvedRadiance = nullptr;
     ID3D12Resource* depth = nullptr;
     ID3D12Resource* motionVectors = nullptr;
     ID3D12Resource* normal = nullptr;
     ID3D12Resource* roughness = nullptr;
+    ID3D12Resource* albedo = nullptr;
+    ID3D12Resource* specularAlbedo = nullptr;
     ID3D12Resource* specularHitDistance = nullptr;
     TemporalUpscalerQualityMode qualityMode = TemporalUpscalerQualityMode::Native;
     TemporalUpscalerPreset preset = TemporalUpscalerPreset::Default;
@@ -71,6 +74,9 @@ struct RayReconstructionEvaluateResult
 {
     bool outputAvailable = false;
     RayReconstructionSupportStatus status = RayReconstructionSupportStatus::NotIntegrated;
+    bool inputReady = false;
+    RayReconstructionReadinessReason inputReadinessReason =
+        RayReconstructionReadinessReason::NativeEvaluationDisabled;
 };
 
 struct StreamlineDlssOptimalSettingsInputs
