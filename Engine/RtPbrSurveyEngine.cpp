@@ -62,6 +62,7 @@
 #include "Renderer\ReflectionRayHitDebugPass.h"
 #include "Renderer\RayTracingSupport.h"
 #include "Renderer\RayReconstructionRoughnessPass.h"
+#include "Renderer\RayReconstructionSpecularHitDistancePass.h"
 #include "Renderer\StreamlineAdapter.h"
 #include "Renderer\TemporalUpscalerSupport.h"
 #include "FrameGraph/RenderPassExecution.h"
@@ -321,6 +322,7 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
     m_resourceDefaultStates.push_back({kReflectionDenoisedRadianceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     m_resourceDefaultStates.push_back({kReflectionSpecularEstimateResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     m_resourceDefaultStates.push_back({kReflectionRoughnessResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
+    m_resourceDefaultStates.push_back({kReflectionSpecularHitDistanceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     for (const char* resourceName : kReflectionResolvedRadianceResourceNames)
     {
         m_resourceDefaultStates.push_back({resourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
@@ -1003,6 +1005,7 @@ void RtPbrSurveyEngine::LoadPipeline()
         RegisterReflectionEvaluatedRadiance();
         RegisterReflectionSpecularEstimate();
         RegisterReflectionRoughness();
+        RegisterReflectionSpecularHitDistance();
         RegisterReflectionResolvedRadiance();
         RegisterReflectionAuxiliaryHistory();
         RegisterReflectionEstimatorHistory();
@@ -1940,6 +1943,9 @@ auto RtPbrSurveyEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
     shaders.rayReconstructionRoughness = {
         LoadShaderBytecode(L"shaders_RayReconstructionRoughness_VSMain.cso"),
         LoadShaderBytecode(L"shaders_RayReconstructionRoughness_PSMain.cso")};
+    shaders.rayReconstructionSpecularHitDistance = {
+        LoadShaderBytecode(L"shaders_RayReconstructionSpecularHitDistance_VSMain.cso"),
+        LoadShaderBytecode(L"shaders_RayReconstructionSpecularHitDistance_PSMain.cso")};
     shaders.temporalReflection = {LoadShaderBytecode(L"shaders_TemporalReflection_VSMain.cso"),
                                   LoadShaderBytecode(L"shaders_TemporalReflection_PSMain.cso")};
     shaders.edgeAwareSpatialReflection = {
@@ -2033,6 +2039,9 @@ void RtPbrSurveyEngine::RegisterPipelineStates(const PipelineShaderBytecode& sha
           {DXGI_FORMAT_R16G16B16A16_FLOAT},
           1},
          {Pipe::RayReconstructionRoughness, shaders.rayReconstructionRoughness, DXGI_FORMAT_R8_UNORM},
+         {Pipe::RayReconstructionSpecularHitDistance,
+          shaders.rayReconstructionSpecularHitDistance,
+          DXGI_FORMAT_R16_FLOAT},
          {Pipe::TemporalReflection,
           shaders.temporalReflection,
           DXGI_FORMAT_R16G16B16A16_FLOAT,
@@ -2655,11 +2664,17 @@ void RtPbrSurveyEngine::CreateGBuffer()
     }
     assert(m_reflectionRoughnessSrv.Index == m_reflectionSpecularEstimateSrv.Index + 1);
 
+    if (m_reflectionSpecularHitDistanceSrv.Index == UINT_MAX)
+    {
+        m_reflectionSpecularHitDistanceSrv = m_descriptorHeapAllocator.AllocWithHandle();
+    }
+    assert(m_reflectionSpecularHitDistanceSrv.Index == m_reflectionRoughnessSrv.Index + 1);
+
     if (m_reflectionDenoisedRadianceSrv.Index == UINT_MAX)
     {
         m_reflectionDenoisedRadianceSrv = m_descriptorHeapAllocator.AllocWithHandle();
     }
-    assert(m_reflectionDenoisedRadianceSrv.Index == m_reflectionRoughnessSrv.Index + 1);
+    assert(m_reflectionDenoisedRadianceSrv.Index == m_reflectionSpecularHitDistanceSrv.Index + 1);
 
     for (UINT i = 0; i < _countof(m_reflectionResolvedRadianceSrv); ++i)
     {
@@ -2892,6 +2907,24 @@ void RtPbrSurveyEngine::RegisterReflectionRoughness()
     spec.createRtv = true;
     spec.createSrv = true;
     spec.srvFormat = DXGI_FORMAT_R8_UNORM;
+    spec.persistent = true;
+    RegisterRenderTexture(spec);
+}
+
+void RtPbrSurveyEngine::RegisterReflectionSpecularHitDistance()
+{
+    Engine::RenderTextureSpec spec = {};
+    spec.name = kReflectionSpecularHitDistanceResourceName;
+    spec.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
+    spec.format = DXGI_FORMAT_R16_FLOAT;
+    spec.flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+    spec.initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    spec.clearValue.Format = DXGI_FORMAT_R16_FLOAT;
+    spec.clearValue.Color[0] = 0.0f;
+    spec.hasClearValue = true;
+    spec.createRtv = true;
+    spec.createSrv = true;
+    spec.srvFormat = DXGI_FORMAT_R16_FLOAT;
     spec.persistent = true;
     RegisterRenderTexture(spec);
 }
@@ -3207,6 +3240,11 @@ D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionRoughnessRTV() const
     return GetRtv(kReflectionRoughnessRTVIndex);
 }
 
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionSpecularHitDistanceRTV() const
+{
+    return GetRtv(kReflectionSpecularHitDistanceRTVIndex);
+}
+
 D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetReflectionResolvedRadianceCurrentRTV() const
 {
     const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
@@ -3275,6 +3313,9 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
     m_renderGraphRuntime.Bindings().RegisterRtv(m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionRoughness),
                                                 [this]() { return GetReflectionRoughnessRTV(); });
     m_renderGraphRuntime.Bindings().RegisterRtv(
+        m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionSpecularHitDistance),
+        [this]() { return GetReflectionSpecularHitDistanceRTV(); });
+    m_renderGraphRuntime.Bindings().RegisterRtv(
         m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionResolvedRadianceCurrent),
         [this]() { return GetReflectionResolvedRadianceCurrentRTV(); });
     m_renderGraphRuntime.Bindings().RegisterRtv(
@@ -3332,6 +3373,9 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionRoughnessSrv),
         [this]() { return m_reflectionRoughnessSrv.gpu; });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionSpecularHitDistanceSrv),
+        [this]() { return m_reflectionSpecularHitDistanceSrv.gpu; });
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionResolvedRadianceHistorySrv),
         [this]() { return m_reflectionResolvedRadianceSrv[m_reflectionHistoryState.readIndex].gpu; });
@@ -3496,6 +3540,8 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
                                                       [this]() { return m_reflectionSpecularEstimate.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kReflectionRoughnessResourceName,
                                                       [this]() { return m_reflectionRoughness.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kReflectionSpecularHitDistanceResourceName,
+                                                      [this]() { return m_reflectionSpecularHitDistance.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kReflectionDenoisedRadianceResourceName,
                                                       [this]() { return m_reflectionDenoisedRadiance.Get(); });
     for (UINT i = 0; i < _countof(kReflectionResolvedRadianceResourceNames); ++i)
@@ -3794,6 +3840,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_reflectionEvaluatedRadiance.Reset();
     m_reflectionSpecularEstimate.Reset();
     m_reflectionRoughness.Reset();
+    m_reflectionSpecularHitDistance.Reset();
     m_reflectionDenoisedRadiance.Reset();
     for (ComPtr<ID3D12Resource>& resource : m_reflectionResolvedRadiance)
     {
@@ -3830,6 +3877,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_resourceRegistry.UnregisterTransientResource(kReflectionEvaluatedRadianceResourceName);
     m_resourceRegistry.UnregisterTransientResource(kReflectionSpecularEstimateResourceName);
     m_resourceRegistry.UnregisterTransientResource(kReflectionRoughnessResourceName);
+    m_resourceRegistry.UnregisterTransientResource(kReflectionSpecularHitDistanceResourceName);
     m_resourceRegistry.UnregisterTransientResource(kReflectionDenoisedRadianceResourceName);
     for (const char* resourceName : kReflectionResolvedRadianceResourceNames)
     {
@@ -3861,6 +3909,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     RegisterReflectionEvaluatedRadiance();
     RegisterReflectionSpecularEstimate();
     RegisterReflectionRoughness();
+    RegisterReflectionSpecularHitDistance();
     RegisterReflectionResolvedRadiance();
     RegisterReflectionAuxiliaryHistory();
     RegisterReflectionEstimatorHistory();
@@ -4185,6 +4234,10 @@ bool RtPbrSurveyEngine::BindCreatedColorRenderTexture(const std::string& name, I
          &RtPbrSurveyEngine::m_reflectionRoughness,
          kReflectionRoughnessRTVIndex,
          &RtPbrSurveyEngine::m_reflectionRoughnessSrv},
+        {kReflectionSpecularHitDistanceResourceName,
+         &RtPbrSurveyEngine::m_reflectionSpecularHitDistance,
+         kReflectionSpecularHitDistanceRTVIndex,
+         &RtPbrSurveyEngine::m_reflectionSpecularHitDistanceSrv},
         {kReflectionDenoisedRadianceResourceName,
          &RtPbrSurveyEngine::m_reflectionDenoisedRadiance,
          kReflectionDenoisedRadianceRTVIndex,
@@ -4612,6 +4665,14 @@ void RtPbrSurveyEngine::ExecuteRayReconstructionRoughnessPass(const RenderPass& 
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Ray Reconstruction Roughness Pass");
 }
 
+void RtPbrSurveyEngine::ExecuteRayReconstructionSpecularHitDistancePass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+
+    Engine::RecordRayReconstructionSpecularHitDistancePass(m_commandList.Get());
+    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Ray Reconstruction Specular Hit Distance Pass");
+}
+
 void RtPbrSurveyEngine::ExecuteTemporalReflectionPass(const RenderPass& pass)
 {
     Engine::RecordTemporalReflectionPass(m_commandList.Get());
@@ -4632,6 +4693,7 @@ void RtPbrSurveyEngine::ExecuteDlssRayReconstructionPass(const RenderPass& pass)
     inputs.motionVectors = m_gbuffer.resources[Engine::GBuffer::MotionVector].Get();
     inputs.normal = m_gbuffer.resources[Engine::GBuffer::Normal].Get();
     inputs.roughness = m_reflectionRoughness.Get();
+    inputs.specularHitDistance = m_reflectionSpecularHitDistance.Get();
     inputs.qualityMode = m_temporalUpscalerSettings.qualityMode;
     inputs.preset = m_temporalUpscalerSettings.preset;
     inputs.renderWidth = m_renderWidth;

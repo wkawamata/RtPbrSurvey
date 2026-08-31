@@ -495,7 +495,8 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
 
     if (inputs.commandList == nullptr || inputs.reflectionEvaluatedRadiance == nullptr ||
         inputs.reflectionResolvedRadiance == nullptr || inputs.depth == nullptr || inputs.motionVectors == nullptr ||
-        inputs.normal == nullptr || inputs.roughness == nullptr || inputs.renderWidth == 0 || inputs.renderHeight == 0)
+        inputs.normal == nullptr || inputs.roughness == nullptr || inputs.specularHitDistance == nullptr ||
+        inputs.renderWidth == 0 || inputs.renderHeight == 0)
     {
         return MakeUnavailableRayReconstructionEvaluateResult(RayReconstructionSupportStatus::InvalidIntegration);
     }
@@ -554,6 +555,8 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
         sl::ResourceType::eTex2d, inputs.motionVectors, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     sl::Resource normal(sl::ResourceType::eTex2d, inputs.normal, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     sl::Resource roughness(sl::ResourceType::eTex2d, inputs.roughness, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    sl::Resource specularHitDistance(
+        sl::ResourceType::eTex2d, inputs.specularHitDistance, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     const sl::ResourceTag tags[] = {
         {&noisySpecular, sl::kBufferTypeSpecularHitNoisy, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
         {&denoisedSpecular, sl::kBufferTypeSpecularHitDenoised, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
@@ -561,6 +564,7 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
         {&motionVectors, sl::kBufferTypeMotionVectors, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
         {&normal, sl::kBufferTypeNormals, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
         {&roughness, sl::kBufferTypeRoughness, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+        {&specularHitDistance, sl::kBufferTypeSpecularHitDistance, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
     };
     const sl::Result tagResult = slSetTagForFrame(*frameToken, viewport, tags, _countof(tags), inputs.commandList);
     if (tagResult != sl::Result::eOk)

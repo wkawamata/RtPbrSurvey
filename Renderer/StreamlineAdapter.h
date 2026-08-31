@@ -56,6 +56,7 @@ struct RayReconstructionEvaluateInputs
     ID3D12Resource* motionVectors = nullptr;
     ID3D12Resource* normal = nullptr;
     ID3D12Resource* roughness = nullptr;
+    ID3D12Resource* specularHitDistance = nullptr;
     TemporalUpscalerQualityMode qualityMode = TemporalUpscalerQualityMode::Native;
     TemporalUpscalerPreset preset = TemporalUpscalerPreset::Default;
     std::uint32_t renderWidth = 0;

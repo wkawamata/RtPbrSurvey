@@ -300,6 +300,7 @@ Current reflection/resource mapping:
 | Evaluated reflection input | `ReflectionEvaluatedRadiance` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Unweighted one-bounce radiance before temporal processing and `LightPass` contribution weights. Best current RR input candidate. |
 | Current-frame specular estimate | `ReflectionSpecularEstimate` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR diagnostic | Weighted Cook-Torrance estimate used for temporal variance/confidence diagnostics. |
 | RR roughness input | `ReflectionRoughness` | `DXGI_FORMAT_R8_UNORM` | render | linear scalar [0,1] | RR-only prepare target. Extracted from `GBuffer.PBRParams.g` so Streamline receives roughness in the standalone texture R channel. |
+| RR specular hit distance input | `ReflectionSpecularHitDistance` | `DXGI_FORMAT_R16_FLOAT` | render | world-space scalar distance | RR-only prepare target. Extracted from `ReflectionRayHit.x` when `ReflectionRayHit.y > 0`; miss/gated pixels are encoded as `0.0`. |
 | Resolved reflection output | `ReflectionResolvedRadiance.0/1` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Ping-pong output currently owned by `TemporalReflectionPass`. Future RR output should preserve this unweighted radiance contract. |
 | Optional spatially filtered output | `ReflectionDenoisedRadiance` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Edge-aware post-temporal variant consumed by `LightPass` only when surface variance filtering is enabled. |
 | Final scene color before SR | `LightPass.RenderTarget` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Includes lighting and enabled reflection contribution, before tone mapping and DLSS SR. |
@@ -340,6 +341,7 @@ Current shell inputs:
 - `GBuffer.Normal`
 - `GBuffer.MotionVector`
 - `ReflectionRoughness`, generated from `GBuffer.PBRParams.g`
+- `ReflectionSpecularHitDistance`, generated from `ReflectionRayHit.x/y`
 
 Current shell output:
 
@@ -372,7 +374,8 @@ Relevant Streamline buffer tags:
 | `kBufferTypeNormals` | `GBuffer.Normal` | Available. Current normal is world space xyz in `R16G16B16A16_FLOAT`; `DLSSDOptions` receives world/view matrices so the space is explicit. |
 | `kBufferTypeRoughness` | `ReflectionRoughness` | Available as a standalone `R8_UNORM` render-size texture. Values are copied from `GBuffer.PBRParams.g` into the texture R channel. |
 | `kBufferTypeNormalRoughness` | none | Possible alternative if roughness is moved into normal alpha or a dedicated packed texture. |
-| `kBufferTypeSpecularHitDistance` / `kBufferTypeSpecularRayDirectionHitDistance` | `ReflectionRayHit` / reflection direction debug data | Optional tags exist, but current resources are not exposed as a clean RR input contract yet. |
+| `kBufferTypeSpecularHitDistance` | `ReflectionSpecularHitDistance` | Optional. Available as a standalone `R16_FLOAT` render-size texture. Values are world-space hit distance from the primary reflection ray origin to hit point; miss/gated pixels are `0.0`. Streamline guide says this is needed when specular motion vectors are not provided. |
+| `kBufferTypeSpecularRayDirectionHitDistance` | none | Optional alternative packed direction+distance input. Not wired. |
 | `kBufferTypeReflectionMotionVectors` | none | Optional. No reflection-specific motion vector resource exists yet. |
 | `kBufferTypeReflectedAlbedo` | `ReflectionRayColor` | Optional. Available as hit albedo payload. Not wired into the native evaluate scaffold yet. |
 | `kBufferTypeDisocclusionMask` | none | Not available. Existing temporal pass derives rejection from depth/normal history internally. |
@@ -389,7 +392,7 @@ Scaffold order in `StreamlineAdapter.cpp`:
 7. Tag candidate resources with `slSetTagForFrame()`.
 8. Run `slEvaluateFeature(sl::kFeatureDLSS_RR, ...)`.
 
-Native RR evaluate remains disabled because exposure is not a texture, optional specular hit data is not wired, and `ReflectionEvaluatedRadiance` still needs validation against Streamline's noisy specular-hit expectation.
+Native RR evaluate remains disabled because exposure is not a texture, reflection-specific motion vectors/ray directions are not wired, and `ReflectionEvaluatedRadiance` still needs validation against Streamline's noisy specular-hit expectation.
 
 ## Work-2 RR Roughness Prepare Pass
 
@@ -404,10 +407,24 @@ Native RR evaluate remains disabled because exposure is not a texture, optional 
 
 When RR is disabled or unsupported, this pass is not added to the frame graph and the existing temporal reflection path is unchanged.
 
+## Work-2 RR Specular Hit Distance Prepare Pass
+
+`RayReconstructionSpecularHitDistancePass` is emitted only on the RR path, immediately before `DlssRayReconstructionPass`.
+
+- Input: `ReflectionRayHit` as pixel-shader SRV.
+- Output: `ReflectionSpecularHitDistance` as render target.
+- Format: `DXGI_FORMAT_R16_FLOAT`.
+- Resolution: render size.
+- Value: `max(ReflectionRayHit.x, 0.0)` when `ReflectionRayHit.y > 0.0`, otherwise `0.0`.
+- Distance unit: world-space ray distance from primary-surface reflection ray origin to committed hit point. This matches `RayQuery::CommittedRayT()` because hybrid reflection rays are traced in world space.
+- Miss/invalid encoding: `0.0`, matching the current `ReflectionRayHit` miss/gated-pixel convention. Streamline 2.12.0 docs do not define a separate sentinel.
+- SDK status: `kBufferTypeSpecularHitDistance` is optional in `sl_core_types.h` and the DLSS-RR plugin queries it as optional. The DLSS-RR guide says it is needed when specular motion vectors are not provided.
+
+When RR is disabled or unsupported, this pass is not added to the frame graph and the existing temporal reflection path is unchanged.
+
 Unmet RR inputs / decisions:
 
-- Confirm Streamline RR SDK feature availability and exact buffer tags against the SDK used by the machine. This worktree currently builds without vendored Streamline SDK artifacts.
-- Decide whether RR consumes only reflection radiance or also needs auxiliary raw ray data (`ReflectionRayHit`, hit distance, normal, roughness/material payloads).
+- Decide whether RR consumes only reflection radiance or also needs additional auxiliary raw ray data (`ReflectionRayHit`, hit normal, material payloads, ray directions, or reflection-specific motion vectors).
 - Decide whether RR output replaces `TemporalReflectionPass` directly or sits behind a new `ReflectionResolvedRadiance` producer selected by settings.
 - Define exposure handling for RR. Current SR path uses Streamline auto exposure; there is no renderer-owned exposure texture yet.
 - Validate motion vector sign/scale with the RR SDK. Current renderer convention is explicit, but vendor contract matching still needs runtime validation.
