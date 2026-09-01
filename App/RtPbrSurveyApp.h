@@ -78,6 +78,7 @@ private:
     void CreateSampleScenes();
     void LoadSceneCpuData(int sceneIndex);
     void OpenSelectedScene();
+    void ApplyDlssSrCommandLineOptions();
     void CloseRunningScene();
     void InitializeImGui();
     void UpdateUiFrame();

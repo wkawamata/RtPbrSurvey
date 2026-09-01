@@ -36,11 +36,15 @@ TemporalUpscalerSupportInfo MakeSupportInfo(TemporalUpscalerSupportStatus status
     return info;
 }
 
-StreamlineEvaluateResult MakeUnavailableEvaluateResult(TemporalUpscalerSupportStatus status)
+StreamlineEvaluateResult MakeUnavailableEvaluateResult(TemporalUpscalerSupportStatus status,
+                                                        const char* failureStage,
+                                                        std::int32_t nativeResult = 0)
 {
     StreamlineEvaluateResult result;
     result.outputAvailable = false;
     result.status = status;
+    result.failureStage = failureStage;
+    result.nativeResult = nativeResult;
     return result;
 }
 
@@ -251,21 +255,22 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
     if (!g_streamlineAdapterState.initialized ||
         g_streamlineAdapterState.status != TemporalUpscalerSupportStatus::Available)
     {
-        return MakeUnavailableEvaluateResult(g_streamlineAdapterState.status);
+        return MakeUnavailableEvaluateResult(g_streamlineAdapterState.status, "availability");
     }
 
     if (inputs.commandList == nullptr || inputs.inputSceneColor == nullptr || inputs.depth == nullptr ||
         inputs.motionVectors == nullptr || inputs.outputSceneColor == nullptr || inputs.renderWidth == 0 ||
         inputs.renderHeight == 0 || inputs.outputWidth == 0 || inputs.outputHeight == 0)
     {
-        return MakeUnavailableEvaluateResult(TemporalUpscalerSupportStatus::InvalidIntegration);
+        return MakeUnavailableEvaluateResult(TemporalUpscalerSupportStatus::InvalidIntegration, "input-validation");
     }
 
     sl::FrameToken* frameToken = nullptr;
     const sl::Result frameTokenResult = slGetNewFrameToken(frameToken);
     if (frameTokenResult != sl::Result::eOk || frameToken == nullptr)
     {
-        return MakeUnavailableEvaluateResult(ToSupportStatus(frameTokenResult));
+        return MakeUnavailableEvaluateResult(
+            ToSupportStatus(frameTokenResult), "frame-token", static_cast<std::int32_t>(frameTokenResult));
     }
 
     const sl::ViewportHandle viewport = 0;
@@ -279,7 +284,8 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
     const sl::Result optionsResult = slDLSSSetOptions(viewport, options);
     if (optionsResult != sl::Result::eOk)
     {
-        return MakeUnavailableEvaluateResult(ToSupportStatus(optionsResult));
+        return MakeUnavailableEvaluateResult(
+            ToSupportStatus(optionsResult), "set-options", static_cast<std::int32_t>(optionsResult));
     }
 
     const TemporalUpscalerFrameConstants& source = inputs.frameConstants;
@@ -310,7 +316,8 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
     const sl::Result constantsResult = slSetConstants(constants, *frameToken, viewport);
     if (constantsResult != sl::Result::eOk)
     {
-        return MakeUnavailableEvaluateResult(ToSupportStatus(constantsResult));
+        return MakeUnavailableEvaluateResult(
+            ToSupportStatus(constantsResult), "set-constants", static_cast<std::int32_t>(constantsResult));
     }
 
     sl::Extent renderExtent = {};
@@ -334,7 +341,8 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
     const sl::Result tagResult = slSetTagForFrame(*frameToken, viewport, tags, _countof(tags), inputs.commandList);
     if (tagResult != sl::Result::eOk)
     {
-        return MakeUnavailableEvaluateResult(ToSupportStatus(tagResult));
+        return MakeUnavailableEvaluateResult(
+            ToSupportStatus(tagResult), "set-tags", static_cast<std::int32_t>(tagResult));
     }
 
     const sl::BaseStructure* evaluateInputs[] = {&viewport};
@@ -342,7 +350,8 @@ StreamlineEvaluateResult EvaluateStreamlineWithSdk(const StreamlineEvaluateInput
         slEvaluateFeature(sl::kFeatureDLSS, *frameToken, evaluateInputs, _countof(evaluateInputs), inputs.commandList);
     if (evaluateResult != sl::Result::eOk)
     {
-        return MakeUnavailableEvaluateResult(ToSupportStatus(evaluateResult));
+        return MakeUnavailableEvaluateResult(
+            ToSupportStatus(evaluateResult), "evaluate", static_cast<std::int32_t>(evaluateResult));
     }
 
     return MakeAvailableEvaluateResult();
@@ -454,7 +463,7 @@ TemporalUpscalerSupportInfo QueryStreamlineSupportWithoutSdk()
 StreamlineEvaluateResult EvaluateStreamlineWithoutSdk(const StreamlineEvaluateInputs& inputs)
 {
     UNREFERENCED_PARAMETER(inputs);
-    return MakeUnavailableEvaluateResult(g_streamlineAdapterState.status);
+    return MakeUnavailableEvaluateResult(g_streamlineAdapterState.status, "availability");
 }
 
 StreamlineDlssOptimalSettingsResult
