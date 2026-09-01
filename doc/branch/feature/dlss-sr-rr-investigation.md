@@ -280,3 +280,230 @@ Then add SDK-backed code in a separate commit once the external dependency locat
 Proceed with SR first. The renderer already has color, depth, and motion-vector inputs, and the insertion point before tone mapping is clear.
 
 Treat RR as a second phase after the hybrid reflection outputs are renamed or split into raw/debug/resolved semantics. RR will be easier to validate once reflection signal ownership is explicit.
+
+## Work-2 DLSS RR Phase 1 Snapshot
+
+Base and branch:
+
+- Branch: `codex/dlss-ray-reconstruction`
+- Base: `origin/main` at `5be2290d79b152a7966f99ad7e02d1f863435d22`
+- Scope: SDK-neutral support/query surface, read-only diagnostics, and renderer contract documentation. No RR evaluation is enabled in Phase 1.
+
+Current reflection/resource mapping:
+
+| Role | Current resource | Format | Resolution | Color/space | Notes |
+|---|---|---:|---:|---|---|
+| Raw ray hit signal | `ReflectionRayHit` | shader-owned UAV payload | render | world/linear payload | Carries hit flag, distance, and encoded hit normal for debug/evaluation. Exact packing remains `HybridReflectionPass` owned. |
+| Hit albedo payload | `ReflectionRayColor` | shader-owned UAV payload | render | linear albedo | Debug/payload input to `ReflectionEvaluatePass`; not reflected radiance. |
+| Hit material payload | `ReflectionRayMaterial` | shader-owned UAV payload | render | scalar material params | Carries hit metallic, roughness, and unlit/debug flag. |
+| Hit emissive payload | `ReflectionRayEmission` | shader-owned UAV payload | render | linear HDR | Emissive input to reflected hit shading. |
+| Evaluated reflection input | `ReflectionEvaluatedRadiance` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Unweighted one-bounce radiance before temporal processing and `LightPass` contribution weights. Best current RR input candidate. |
+| Current-frame specular estimate | `ReflectionSpecularEstimate` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR diagnostic | Weighted Cook-Torrance estimate used for temporal variance/confidence diagnostics. |
+| RR roughness input | `ReflectionRoughness` | `DXGI_FORMAT_R8_UNORM` | render | linear scalar [0,1] | RR-only prepare target. Extracted from `GBuffer.PBRParams.g` so Streamline receives roughness in the standalone texture R channel. |
+| RR specular albedo input | `ReflectionSpecularAlbedo` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear RGB reflectance | RR-only prepare target. Derived from visible-surface base color and metallic with the shared PBR F0 equation. |
+| RR specular hit distance input | `ReflectionSpecularHitDistance` | `DXGI_FORMAT_R16_FLOAT` | render | world-space scalar distance | RR-only prepare target. Extracted from `ReflectionRayHit.x` when `ReflectionRayHit.y > 0`; miss/gated pixels are encoded as `0.0`. |
+| Resolved reflection output | `ReflectionResolvedRadiance.0/1` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Ping-pong output currently owned by `TemporalReflectionPass`. Future RR output should preserve this unweighted radiance contract. |
+| Optional spatially filtered output | `ReflectionDenoisedRadiance` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Edge-aware post-temporal variant consumed by `LightPass` only when surface variance filtering is enabled. |
+| Final scene color before SR | `LightPass.RenderTarget` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | linear HDR | Includes lighting and enabled reflection contribution, before tone mapping and DLSS SR. |
+| DLSS SR output | `TemporalUpscaler.SceneColor` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | output | linear HDR | Output-size pre-tonemap scene color. Not an RR resource. |
+
+Current visible-surface inputs relevant to RR:
+
+| Input | Current resource | Format | Resolution | Representation |
+|---|---|---:|---:|---|
+| Albedo | `GBuffer.Albedo` | `DXGI_FORMAT_R8G8B8A8_UNORM` | render | Linearized material base color. |
+| Normal | `GBuffer.Normal` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | World-space normal, stored as xyz. |
+| Material id | `GBuffer.Material` | `DXGI_FORMAT_R32_UINT` | render | Material index. |
+| Motion vector | `GBuffer.MotionVector` | `DXGI_FORMAT_R16G16_FLOAT` | render | `prevNdc - curNdc + jitterCancellation + valueOffset`; temporal reflection removes the configured offsets before reprojection. |
+| PBR params | `GBuffer.PBRParams` | `DXGI_FORMAT_R8G8B8A8_UNORM` | render | R=metallic, G=roughness, B=ambient occlusion. |
+| Emissive | `GBuffer.Emissive` | `DXGI_FORMAT_R16G16B16A16_FLOAT` | render | Linear HDR emissive. |
+| Depth | `DepthStencil` | `DXGI_FORMAT_R32_TYPELESS`, SRV `DXGI_FORMAT_R32_FLOAT`, DSV `DXGI_FORMAT_D32_FLOAT` | render | Hardware depth, cleared to 1.0. Current projection is not inverted. |
+
+History, reset, and ownership:
+
+- `TemporalReflectionPass` owns `ReflectionResolvedRadiance.*`, history depth, history normal, specular estimate history, moments, and confidence today.
+- `InvalidateReflectionHistory()` resets the reflection history for lighting/material/reflection setting changes, scene changes, resize, and diagnostic reset paths.
+- DLSS RR and the existing temporal reflection pass must be mutually exclusive once RR evaluation is implemented. Phase 1 records the policy but leaves the existing temporal reflection path active.
+- The future boundary is `ReflectionEvaluatedRadiance -> ReflectionResolvedRadiance -> LightPass composition`. `LightPass` should continue applying visible-surface Fresnel, roughness/contribution weighting, distance fade, and user intensity.
+
+## Work-2 DLSS RR Phase 2 Boundary Shell
+
+The first Phase 2 code step makes the future producer boundary explicit without changing the default renderer path:
+
+- Default: `ReflectionEvaluatePass -> TemporalReflectionPass -> ReflectionResolvedRadiance -> LightPass`
+- RR path when explicitly enabled and supported: `ReflectionEvaluatePass -> DlssRayReconstructionPass -> ReflectionResolvedRadiance -> LightPass`
+
+The two resolved-radiance producers are mutually exclusive in `AddSceneRenderPasses()`. `DlssRayReconstructionPass` currently records the intended resource boundary and uses a copy fallback from `ReflectionEvaluatedRadiance` to the current `ReflectionResolvedRadiance` ping-pong target. It does not call Streamline RR yet.
+
+Current shell inputs:
+
+- `ReflectionEvaluatedRadiance` as `COPY_SOURCE`
+- `ReflectionEvaluatedRadiance` as `ScalingInputColor` candidate
+- `DepthStencil` as shader-readable depth
+- `GBuffer.Albedo`
+- `ReflectionSpecularAlbedo`, generated from `GBuffer.Albedo` and `GBuffer.PBRParams.r`
+- `GBuffer.Normal`
+- `GBuffer.MotionVector`
+- `ReflectionRoughness`, generated from `GBuffer.PBRParams.g`
+- `ReflectionSpecularHitDistance`, generated from `ReflectionRayHit.x/y`
+
+Current shell output:
+
+- `ReflectionResolvedRadiance.{writeIndex}` as `COPY_DEST`
+
+This keeps the LightPass contract stable while making the RR insertion point visible in RenderGraph captures. Phase 2 implementation should replace the copy fallback with SDK evaluation and should decide whether auxiliary reflection/specular histories remain temporal-only diagnostics or receive RR-owned equivalents.
+
+## Work-2 Guarded Native RR Evaluate
+
+The guarded native path is now present but remains opt-in:
+
+1. Enable Hybrid Reflection and use the deferred path.
+2. Confirm `DLSS Ray Reconstruction` reports `Available`.
+3. Enable `RR Enabled`.
+4. Enable `Experimental Native Evaluate`.
+
+Automation flags:
+
+- `-EnableDlssRayReconstruction` enables the RR render-graph path and keeps native evaluate disabled.
+- `-EnableExperimentalNativeRayReconstruction` enables the guarded native evaluate path and implies RR enabled. Validation commands should pass both flags so the requested state is clear in command history.
+- CLI RR flags are runtime-only settings overrides. They do not write scene config.
+
+If `Experimental Native Evaluate` is off, if readiness is not `Ready`, or if any Streamline call fails, `DlssRayReconstructionPass` copies `ReflectionEvaluatedRadiance` into the current `ReflectionResolvedRadiance` target for that frame. The UI reports the last result as either `Native Output` or `Copy Fallback`.
+
+The native branch calls Streamline only after support is available, RR is enabled, native evaluation is explicitly enabled, and the SDK-neutral input readiness check passes. Success from `slEvaluateFeature(sl::kFeatureDLSS_RR, ...)` is the only condition that marks `ReflectionResolvedRadiance` as produced by native RR.
+
+`ReflectionResolvedRadiance.0/1` remains `DXGI_FORMAT_R16G16B16A16_FLOAT` at render resolution. It now allows UAV creation so the resource is compatible with a native RR output path, while the current fallback transition remains `COPY_DEST`.
+
+RTX 2080 remains a supported test target for failure behavior: `slIsFeatureSupported(sl::kFeatureDLSS_RR, ...)` may report unavailable or unsupported depending on driver/runtime support. In that case the RR UI controls stay disabled and the normal temporal reflection path remains the owner of `ReflectionResolvedRadiance`.
+
+Expected debug-layer check:
+
+```powershell
+.\bin\x64\Debug\RtPbrSurvey.exe -AutoSelectGltfDamagedHelmet -LogToFile d3d12_debug.log -LogFPS 120
+Select-String -LiteralPath d3d12_debug.log -Pattern "\[ERROR\]|\[WARNING\]|D3D12"
+```
+
+Expected CLI validation commands:
+
+```powershell
+.\bin\x64\Debug\RtPbrSurvey.exe -AutoSelectGltfDamagedHelmet -EnableDlssRayReconstruction -CaptureReflectionResolvedRadiance -CapturePath Screenshots\rr_copy_fallback.png -CaptureAfterFrames 60 -ExitAfterCapture -LogToFile rr_copy_fallback.log
+.\bin\x64\Debug\RtPbrSurvey.exe -AutoSelectGltfDamagedHelmet -EnableDlssRayReconstruction -EnableExperimentalNativeRayReconstruction -CaptureReflectionResolvedRadiance -CapturePath Screenshots\rr_native.png -CaptureAfterFrames 60 -ExitAfterCapture -LogToFile rr_native.log
+```
+
+`-LogToFile` writes `[RR]` state-change lines containing support status, raw Streamline support-query result, input readiness, last evaluate status, raw last Streamline/evaluate result, and whether the current result came from native output or copy fallback.
+
+RTX 2080 validation on this branch:
+
+- Base commit before CLI validation: `af646fe Add guarded native ray reconstruction evaluate path`.
+- CLI validation commit: `5dc35ef Add ray reconstruction CLI validation flags`.
+- `-EnableDlssRayReconstruction` with native evaluate off exited with code 0 and produced a 1920x1080 capture.
+- `-EnableDlssRayReconstruction -EnableExperimentalNativeRayReconstruction` also exited with code 0 and produced a 1920x1080 capture.
+- Both runs reported `support=unavailable status=Unsupported adapter`, so `DlssRayReconstructionPass` and `slEvaluateFeature(sl::kFeatureDLSS_RR, ...)` were not reached on this RTX 2080 setup.
+- After raw Streamline result logging was added, the support query result on this RTX 2080 setup was `Result::eErrorFeatureNotSupported`.
+- Both captures were non-black by sampled pixel check. The two captures matched the same unsupported-adapter fallback behavior.
+- D3D12 debug output contained no `ERROR`; it did contain two existing `CreateCommittedResource` warnings about buffer initial state `UNORDERED_ACCESS` being treated as `COMMON`.
+
+The default toggle-off path should not emit D3D12 errors. Native evaluate still needs image validation for motion-vector sign/scale, normal-space interpretation, and whether `ReflectionEvaluatedRadiance` is acceptable as Streamline's noisy specular input.
+
+## Work-2 RR Streamline 2.12.0 API Notes
+
+Header check against `C:\work\third_party\streamline-sdk-2.12.0\include`:
+
+- Feature id: `sl::kFeatureDLSS_RR` in `sl_core_types.h`.
+- RR API header: `sl_dlss_d.h`.
+- RR option type: `sl::DLSSDOptions`.
+- RR option call: `slDLSSDSetOptions(viewport, options)`.
+- RR state call: `slDLSSDGetState(viewport, state)`.
+- RR evaluate call: `slEvaluateFeature(sl::kFeatureDLSS_RR, frameToken, evaluateInputs, count, commandList)`.
+- Common constants still use `sl::Constants`, `slSetConstants(constants, frameToken, viewport)`, and frame-based resource tagging.
+- Required matrices must be row-major and non-jittered. `DLSSDOptions` additionally requires `worldToCameraView` and `cameraViewToWorld`.
+- Normal/roughness mode can be `DLSSDNormalRoughnessMode::eUnpacked` or `ePacked`. Current scaffold uses `eUnpacked`.
+
+Relevant Streamline buffer tags:
+
+| Streamline tag | Classification | Current candidate | Status |
+|---|---|---|---|
+| `kBufferTypeScalingInputColor` | Required | `ReflectionEvaluatedRadiance` | Candidate. DLSS-RR guide calls this the noisy ray-traced input color. Current content is unweighted one-bounce reflection radiance and still needs runtime image validation. |
+| `kBufferTypeScalingOutputColor` | Required | `ReflectionResolvedRadiance.{writeIndex}` | Candidate output. This is the current native scaffold output tag. |
+| `kBufferTypeAlbedo` | Required | `GBuffer.Albedo` | Candidate. Format is `R8G8B8A8_UNORM`, linearized material base color by renderer convention. |
+| `kBufferTypeSpecularAlbedo` | Required | `ReflectionSpecularAlbedo` | Available as a standalone `R16G16B16A16_FLOAT` render-size texture. It stores visible-surface `PbrF0(albedo, metallic)` in linear RGB. Alpha is `1.0` and not used by the contract. |
+| `kBufferTypeSpecularHitNoisy` | Not part of the DLSS-RR minimum path | none | Present in Streamline core buffer ids but not required by the DLSS-RR 2.12.0 guide or plugin source path checked for this branch. |
+| `kBufferTypeSpecularHitDenoised` | Not part of the DLSS-RR minimum path | none | Present in Streamline core buffer ids but not used as the current native scaffold output tag. `ScalingOutputColor` carries the RR output. |
+| `kBufferTypeDepth` or `kBufferTypeLinearDepth` | Required | `DepthStencil` SRV | Available as hardware depth. Current scaffold uses hardware depth with camera constants. |
+| `kBufferTypeMotionVectors` | Required | `GBuffer.MotionVector` | Available. Current convention is `prevNdc - curNdc + jitterCancellation + valueOffset`; adapter exposes scale/offset, but native RR sign/scale still needs image validation. |
+| `kBufferTypeNormals` or `kBufferTypeNormalRoughness` | Required by selected normal/roughness mode | `GBuffer.Normal` | Available. Current scaffold selects unpacked mode. Current normal is world space xyz in `R16G16B16A16_FLOAT`; `DLSSDOptions` receives world/view matrices so the space is explicit. |
+| `kBufferTypeRoughness` | Required by selected normal/roughness mode | `ReflectionRoughness` | Available as a standalone `R8_UNORM` render-size texture. Values are copied from `GBuffer.PBRParams.g` into the texture R channel. |
+| `kBufferTypeSpecularHitDistance` | Recommended when specular motion vectors are absent | `ReflectionSpecularHitDistance` | Available as a standalone `R16_FLOAT` render-size texture. Values are world-space hit distance from the primary reflection ray origin to hit point; miss/gated pixels are `0.0`. |
+| `kBufferTypeSpecularMotionVectors` | Recommended alternative | none | Optional in plugin source. DLSS-RR guide says the app can provide specular motion vectors directly or provide specular hit distance with matrices. |
+| `kBufferTypeSpecularRayDirectionHitDistance` | Optional alternative | none | Optional packed direction+distance input. Not wired. |
+| `kBufferTypeReflectionMotionVectors` | Optional | none | Optional. No reflection-specific motion vector resource exists yet. |
+| `kBufferTypeReflectedAlbedo` | Optional | `ReflectionRayColor` | Available as hit albedo payload. Not wired into the native evaluate scaffold yet. |
+| `kBufferTypeDisocclusionMask` | Optional | none | Optional in plugin source. Existing temporal pass derives rejection from depth/normal history internally. |
+| `kBufferTypeExposure` | Optional | none | Optional in plugin source. Current scaffold uses `DLSSDOptions::preExposure=1.0` and `exposureScale=toneMap.exposure`; no renderer-owned exposure texture is required for minimum legality. |
+
+Scaffold order in `StreamlineAdapter.cpp`:
+
+1. Check RR support state from `slIsFeatureSupported(sl::kFeatureDLSS_RR, adapterInfo)`.
+2. Validate SDK-neutral `RayReconstructionEvaluateInputs` and store the last readiness reason in `RayReconstructionDiagnostics`.
+3. Return unavailable without calling the SDK while inputs are not ready or while `enableNativeEvaluation` is false. This keeps Phase 2 disabled-by-default even when the SDK and adapter support RR.
+4. Future native path obtains `slGetNewFrameToken()`.
+5. Set `sl::DLSSDOptions` through `slDLSSDSetOptions()`.
+6. Set common `sl::Constants` through `slSetConstants()`.
+7. Tag candidate resources with `slSetTagForFrame()`.
+8. Run `slEvaluateFeature(sl::kFeatureDLSS_RR, ...)`.
+
+Current minimum-input readiness is expected to be true once the RR path runs and all prepare resources have been produced. Native RR evaluate remains disabled because `enableNativeEvaluation` is still false and `ReflectionEvaluatedRadiance` still needs runtime validation against Streamline's noisy input-color expectation.
+
+Exposure is not considered a minimum-readiness blocker for this branch: Streamline 2.12.0 plugin source queries `kBufferTypeExposure` as optional, and DLSS-RR options expose `preExposure` and `exposureScale`.
+
+## Work-2 RR Roughness Prepare Pass
+
+`RayReconstructionRoughnessPass` is emitted only on the RR path, immediately before `DlssRayReconstructionPass`.
+
+- Input: `GBuffer.PBRParams` as pixel-shader SRV.
+- Output: `ReflectionRoughness` as render target.
+- Format: `DXGI_FORMAT_R8_UNORM`.
+- Resolution: render size.
+- Value: `saturate(GBuffer.PBRParams.g)`, stored in R channel.
+- Purpose: satisfy Streamline's standalone `kBufferTypeRoughness` expectation without changing the existing GBuffer MRT layout.
+
+When RR is disabled or unsupported, this pass is not added to the frame graph and the existing temporal reflection path is unchanged.
+
+## Work-2 RR Specular Albedo Prepare Pass
+
+`RayReconstructionSpecularAlbedoPass` is emitted only on the RR path, immediately before `DlssRayReconstructionPass`.
+
+- Inputs: `GBuffer.Albedo` and `GBuffer.PBRParams` as pixel-shader SRVs.
+- Output: `ReflectionSpecularAlbedo` as render target.
+- Format: `DXGI_FORMAT_R16G16B16A16_FLOAT`.
+- Resolution: render size.
+- Value: `PbrF0(saturate(GBuffer.Albedo.rgb), saturate(GBuffer.PBRParams.r))`.
+- Formula: `lerp(float3(0.04, 0.04, 0.04), albedo, metallic)`, shared through `PbrLighting.hlsli`.
+- Color space: linear RGB. `GBuffer.Albedo` is written by `shaders_GBuffer.hlsl` after `SrgbToLinear()` on sampled base color.
+- Alpha: `1.0`; Streamline's specular albedo contract uses RGB.
+- Format reason: `R16G16B16A16_FLOAT` keeps the small dielectric F0 range and metallic base-color F0 without relying on normalized 8-bit precision. The input remains linear, not sRGB.
+
+When RR is disabled or unsupported, this pass is not added to the frame graph and the existing temporal reflection path is unchanged.
+
+## Work-2 RR Specular Hit Distance Prepare Pass
+
+`RayReconstructionSpecularHitDistancePass` is emitted only on the RR path, immediately before `DlssRayReconstructionPass`.
+
+- Input: `ReflectionRayHit` as pixel-shader SRV.
+- Output: `ReflectionSpecularHitDistance` as render target.
+- Format: `DXGI_FORMAT_R16_FLOAT`.
+- Resolution: render size.
+- Value: `max(ReflectionRayHit.x, 0.0)` when `ReflectionRayHit.y > 0.0`, otherwise `0.0`.
+- Distance unit: world-space ray distance from primary-surface reflection ray origin to committed hit point. This matches `RayQuery::CommittedRayT()` because hybrid reflection rays are traced in world space.
+- Miss/invalid encoding: `0.0`, matching the current `ReflectionRayHit` miss/gated-pixel convention. Streamline 2.12.0 docs do not define a separate sentinel.
+- SDK status: `kBufferTypeSpecularHitDistance` is optional in `sl_core_types.h` and the DLSS-RR plugin queries it as optional. The DLSS-RR guide says it is needed when specular motion vectors are not provided.
+
+When RR is disabled or unsupported, this pass is not added to the frame graph and the existing temporal reflection path is unchanged.
+
+Unmet RR inputs / decisions:
+
+- Decide whether RR consumes only reflection radiance or also needs additional auxiliary raw ray data (`ReflectionRayHit`, hit normal, material payloads, ray directions, or reflection-specific motion vectors).
+- Decide whether RR output replaces `TemporalReflectionPass` directly or sits behind a new `ReflectionResolvedRadiance` producer selected by settings.
+- Define exposure handling for RR. Current SR path uses Streamline auto exposure; there is no renderer-owned exposure texture yet.
+- Validate motion vector sign/scale with the RR SDK. Current renderer convention is explicit, but vendor contract matching still needs runtime validation.
+- Add D3D12 Debug Layer runtime validation only when RR evaluation is wired; Phase 1 has no RR resource tagging/evaluate call.

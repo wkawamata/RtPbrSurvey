@@ -77,6 +77,10 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/PipelineFactory.cpp
     Renderer/RayQueryShadowPass.cpp
     Renderer/RayQueryTlasDebugPass.cpp
+    Renderer/RayReconstructionRoughnessPass.cpp
+    Renderer/RayReconstructionSpecularAlbedoPass.cpp
+    Renderer/RayReconstructionSpecularHitDistancePass.cpp
+    Renderer/RayReconstructionSupport.cpp
     Renderer/RayTracingSupport.cpp
     Renderer/ReflectionEvaluatePass.cpp
     Renderer/ReflectionRayHitDebugPass.cpp
@@ -216,6 +220,12 @@ if(RTPBRSURVEY_BUILD_SHADERS)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_LightPassDebugGradient.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ReflectionEvaluate.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ReflectionEvaluate.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionRoughness.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionRoughness.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionSpecularAlbedo.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionSpecularAlbedo.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionSpecularHitDistance.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionSpecularHitDistance.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ToneMap.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ToneMap.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugLine.hlsl vs_6_0 VSMain)
@@ -259,7 +269,9 @@ function(rtpbrsurvey_copy_runtime_files target)
                 "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.interposer.dll"
                 "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.common.dll"
                 "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.dlss.dll"
+                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.dlss_d.dll"
                 "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/nvngx_dlss.dll"
+                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/nvngx_dlssd.dll"
                 "$<TARGET_FILE_DIR:${target}>"
             VERBATIM)
     endif()

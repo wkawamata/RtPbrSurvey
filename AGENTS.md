@@ -46,6 +46,8 @@ Flags are parsed in `RtPbrSurveyApp::ParseCommandLineArgs()`.
 | `-CapturePath` | `-CapturePath Screenshots\\validation.png` | Queue one PNG capture through the existing renderer screenshot path. |
 | `-CaptureAfterFrames` | `-CaptureAfterFrames 60` | Render this many warm-up frames before queuing the CLI screenshot. Used with `-CapturePath`. |
 | `-ExitAfterCapture` | `-ExitAfterCapture` | Close the application after the CLI screenshot succeeds or fails. Used with `-CapturePath`. |
+| `-EnableDlssRayReconstruction` | `-EnableDlssRayReconstruction` | Enable the experimental DLSS Ray Reconstruction render-graph path for automation. Native RR evaluate still requires the separate native flag. |
+| `-EnableExperimentalNativeRayReconstruction` | `-EnableExperimentalNativeRayReconstruction` | Opt into the guarded native DLSS Ray Reconstruction evaluate call. Implies `-EnableDlssRayReconstruction`; specify both flags in validation commands for clarity. |
 | `-CaptureReflectionResolvedRadiance` | `-CaptureReflectionResolvedRadiance` | Force Deferred rendering, Hybrid Reflection, and the resolved-radiance debug view for an automated capture. |
 | `-ReflectionTemporalWeight` | `-ReflectionTemporalWeight 0.9` | Override the experimental reflection history weight for an automated resolved-radiance capture. |
 | `-ReflectionOrbitDegrees` | `-ReflectionOrbitDegrees 20` | Apply a deterministic horizontal Arcball orbit ending on the automated capture frame. |

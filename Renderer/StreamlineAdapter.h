@@ -1,5 +1,6 @@
 #pragma once
 
+#include "RayReconstructionSupport.h"
 #include "TemporalUpscalerSupport.h"
 
 #include <cstdint>
@@ -35,6 +36,49 @@ struct StreamlineEvaluateResult
     TemporalUpscalerSupportStatus status = TemporalUpscalerSupportStatus::NotIntegrated;
     const char* failureStage = nullptr;
     std::int32_t nativeResult = 0;
+};
+
+struct RayReconstructionFrameConstants
+{
+    TemporalUpscalerFrameConstants temporal;
+    std::array<float, 16> worldToCameraView = {};
+    std::array<float, 16> cameraViewToWorld = {};
+    std::array<float, 2> motionVectorScale = {1.0f, 1.0f};
+    std::array<float, 2> motionVectorValueOffset = {};
+    float preExposure = 1.0f;
+    float exposureScale = 1.0f;
+};
+
+struct RayReconstructionEvaluateInputs
+{
+    ID3D12GraphicsCommandList* commandList = nullptr;
+    ID3D12Resource* scalingInputColor = nullptr;
+    ID3D12Resource* reflectionEvaluatedRadiance = nullptr;
+    ID3D12Resource* reflectionResolvedRadiance = nullptr;
+    ID3D12Resource* depth = nullptr;
+    ID3D12Resource* motionVectors = nullptr;
+    ID3D12Resource* normal = nullptr;
+    ID3D12Resource* roughness = nullptr;
+    ID3D12Resource* albedo = nullptr;
+    ID3D12Resource* specularAlbedo = nullptr;
+    ID3D12Resource* specularHitDistance = nullptr;
+    TemporalUpscalerQualityMode qualityMode = TemporalUpscalerQualityMode::Native;
+    TemporalUpscalerPreset preset = TemporalUpscalerPreset::Default;
+    std::uint32_t renderWidth = 0;
+    std::uint32_t renderHeight = 0;
+    bool historyReset = false;
+    bool historyValid = false;
+    bool enableNativeEvaluation = false;
+    RayReconstructionFrameConstants frameConstants;
+};
+
+struct RayReconstructionEvaluateResult
+{
+    bool outputAvailable = false;
+    RayReconstructionSupportStatus status = RayReconstructionSupportStatus::NotIntegrated;
+    bool inputReady = false;
+    RayReconstructionReadinessReason inputReadinessReason =
+        RayReconstructionReadinessReason::NativeEvaluationDisabled;
 };
 
 struct StreamlineDlssOptimalSettingsInputs
@@ -84,9 +128,13 @@ TemporalUpscalerSupportInfo InitializeStreamlineAdapter(const StreamlineAdapterI
 TemporalUpscalerSupportInfo SetStreamlineD3DDevice(ID3D12Device* device);
 void ShutdownStreamlineAdapter();
 TemporalUpscalerSupportInfo QueryStreamlineSupport();
+RayReconstructionSupportInfo QueryStreamlineRayReconstructionSupport();
 StreamlineDlssOptimalSettingsResult QueryStreamlineDlssOptimalSettings(
     const StreamlineDlssOptimalSettingsInputs& inputs);
 StreamlineDlssDiagnostics QueryStreamlineDlssDiagnostics(const StreamlineDlssOptimalSettingsInputs& inputs);
+RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnostics();
+RayReconstructionEvaluateResult EvaluateStreamlineRayReconstruction(
+    const RayReconstructionEvaluateInputs& inputs);
 StreamlineEvaluateResult EvaluateStreamline(const StreamlineEvaluateInputs& inputs);
 
 } // namespace Engine

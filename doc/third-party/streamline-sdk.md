@@ -68,7 +68,9 @@ runtime files beside `RtPbrSurvey.exe`:
 - `sl.interposer.dll`
 - `sl.common.dll`
 - `sl.dlss.dll`
+- `sl.dlss_d.dll`
 - `nvngx_dlss.dll`
+- `nvngx_dlssd.dll`
 
 To use an SDK in another location, set the project property explicitly:
 
@@ -126,7 +128,9 @@ Get-Item .\bin\x64\Debug\RtPbrSurvey.exe, `
   .\bin\x64\Debug\sl.interposer.dll, `
   .\bin\x64\Debug\sl.common.dll, `
   .\bin\x64\Debug\sl.dlss.dll, `
-  .\bin\x64\Debug\nvngx_dlss.dll
+  .\bin\x64\Debug\sl.dlss_d.dll, `
+  .\bin\x64\Debug\nvngx_dlss.dll, `
+  .\bin\x64\Debug\nvngx_dlssd.dll
 ```
 
 Run the normal D3D12 Debug Layer check from `AGENTS.md`. In the UI, verify at
@@ -134,8 +138,10 @@ least DLAA and one non-native quality mode. Check camera motion, disocclusion,
 fine geometry, and the transition between modes for temporal instability or
 stale resource state errors.
 
-If the UI reports `Runtime missing`, confirm that the four DLLs above are next
-to the executable. Other status messages distinguish unsupported adapters,
+If the UI reports `Runtime missing`, confirm that the six DLLs above are next
+to the executable. Missing `sl.dlss_d.dll` or `nvngx_dlssd.dll` can also make
+the Ray Reconstruction support query return `eErrorFeatureNotSupported` on
+otherwise supported hardware. Other status messages distinguish unsupported adapters,
 out-of-date drivers or operating systems, disabled hardware scheduling, and
 invalid integration state.
 
@@ -162,8 +168,8 @@ redistribution terms for the exact SDK version and plugin DLLs being used.
 
 ## Current Limits
 
-- This is DLSS Super Resolution only. DLSS Ray Reconstruction and Frame
-  Generation are not enabled.
+- DLSS Super Resolution is enabled. DLSS Ray Reconstruction remains an
+  experimental opt-in path. Frame Generation is not enabled.
 - Runtime image-quality validation still requires supported NVIDIA hardware.
 - SDK redistribution terms must be reviewed before shipping the runtime DLLs
   outside a local development build.

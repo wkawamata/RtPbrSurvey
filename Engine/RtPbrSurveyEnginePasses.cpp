@@ -85,7 +85,17 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
                         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
                         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity)
                     {
-                        AddPass(MakeTemporalReflectionPass());
+                        if (ShouldRunRayReconstruction())
+                        {
+                            AddPass(MakeRayReconstructionRoughnessPass());
+                            AddPass(MakeRayReconstructionSpecularAlbedoPass());
+                            AddPass(MakeRayReconstructionSpecularHitDistancePass());
+                            AddPass(MakeDlssRayReconstructionPass());
+                        }
+                        else
+                        {
+                            AddPass(MakeTemporalReflectionPass());
+                        }
                         if (m_hybridReflectionSettings.surfaceVarianceFilterEnabled &&
                             m_hybridReflectionSettings.contributionEnabled)
                         {
@@ -410,6 +420,48 @@ auto RtPbrSurveyEngine::MakeReflectionEvaluatePass() -> RenderPass
         .Build();
 }
 
+auto RtPbrSurveyEngine::MakeRayReconstructionRoughnessPass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"RayReconstructionRoughnessPass")
+        .Pipeline(Pipe::RayReconstructionRoughness)
+        .Reads({{kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Writes({{kReflectionRoughnessResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
+        .Rtv(RtvName::ReflectionRoughness)
+        .Operation(Op::RayReconstructionRoughness, &RtPbrSurveyEngine::ExecuteRayReconstructionRoughnessPass)
+        .Build();
+}
+
+auto RtPbrSurveyEngine::MakeRayReconstructionSpecularAlbedoPass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"RayReconstructionSpecularAlbedoPass")
+        .Pipeline(Pipe::RayReconstructionSpecularAlbedo)
+        .Reads({{kGBufferResourceNames[Engine::GBuffer::Albedo], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Writes({{kReflectionSpecularAlbedoResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::GBufferSrvBase, Desc::GBufferAlbedoSrv)
+        .Rtv(RtvName::ReflectionSpecularAlbedo)
+        .Operation(Op::RayReconstructionSpecularAlbedo,
+                   &RtPbrSurveyEngine::ExecuteRayReconstructionSpecularAlbedoPass)
+        .Build();
+}
+
+auto RtPbrSurveyEngine::MakeRayReconstructionSpecularHitDistancePass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"RayReconstructionSpecularHitDistancePass")
+        .Pipeline(Pipe::RayReconstructionSpecularHitDistance)
+        .Reads({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Writes({{kReflectionSpecularHitDistanceResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv)
+        .Rtv(RtvName::ReflectionSpecularHitDistance)
+        .Operation(Op::RayReconstructionSpecularHitDistance,
+                   &RtPbrSurveyEngine::ExecuteRayReconstructionSpecularHitDistancePass)
+        .Build();
+}
+
 auto RtPbrSurveyEngine::MakeTemporalReflectionPass() -> RenderPass
 {
     const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
@@ -472,6 +524,23 @@ auto RtPbrSurveyEngine::MakeTemporalReflectionPass() -> RenderPass
                            Desc::ReflectionSpecularConfidenceHistorySrv);
     }
     return builder.Build();
+}
+
+auto RtPbrSurveyEngine::MakeDlssRayReconstructionPass() -> RenderPass
+{
+    const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"DlssRayReconstructionPass")
+        .Reads({{kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
+                {kDepthStencilResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::MotionVector], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kReflectionRoughnessResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kReflectionSpecularAlbedoResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
+                {kReflectionSpecularHitDistanceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Writes({{kReflectionResolvedRadianceResourceNames[writeIndex], D3D12_RESOURCE_STATE_COPY_DEST}})
+        .Operation(Op::DlssRayReconstruction, &RtPbrSurveyEngine::ExecuteDlssRayReconstructionPass)
+        .Build();
 }
 
 auto RtPbrSurveyEngine::MakeEdgeAwareSpatialReflectionPass() -> RenderPass

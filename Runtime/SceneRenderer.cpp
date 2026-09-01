@@ -118,6 +118,7 @@ namespace RtPbrSurvey
         settings.lighting = m_engine.GetLightingParams();
         settings.shadow = m_engine.GetShadowSettings();
         settings.temporalUpscaler = m_engine.GetTemporalUpscalerSettings();
+        settings.rayReconstruction = m_engine.GetRayReconstructionSettings();
         settings.hybridReflection = m_engine.GetHybridReflectionSettings();
         settings.toneMap = m_engine.GetToneMapParams();
         settings.specularDebugLines = m_engine.GetSpecularDebugLineSettings();
@@ -133,6 +134,7 @@ namespace RtPbrSurvey
         m_engine.SetLightingParams(settings.lighting);
         m_engine.SetShadowSettings(settings.shadow);
         m_engine.SetTemporalUpscalerSettings(settings.temporalUpscaler);
+        m_engine.SetRayReconstructionSettings(settings.rayReconstruction);
         m_engine.SetHybridReflectionSettings(settings.hybridReflection);
         m_engine.SetToneMapParams(settings.toneMap);
         m_engine.SetSpecularDebugLineSettings(settings.specularDebugLines);
@@ -170,6 +172,16 @@ namespace RtPbrSurvey
     const Engine::TemporalUpscalerSettings& SceneRenderer::GetTemporalUpscalerSettings() const
     {
         return m_engine.GetTemporalUpscalerSettings();
+    }
+
+    void SceneRenderer::SetRayReconstructionSettings(const Engine::RayReconstructionSettings& settings)
+    {
+        m_engine.SetRayReconstructionSettings(settings);
+    }
+
+    const Engine::RayReconstructionSettings& SceneRenderer::GetRayReconstructionSettings() const
+    {
+        return m_engine.GetRayReconstructionSettings();
     }
 
     void SceneRenderer::SetHybridReflectionSettings(const RtPbrSurveyEngine::HybridReflectionSettings& settings)

@@ -66,6 +66,8 @@ struct CommandLineOptions
     std::filesystem::path capturePath;
     UINT captureAfterFrames = 0;
     bool exitAfterCapture = false;
+    bool enableDlssRayReconstruction = false;
+    bool enableExperimentalNativeRayReconstruction = false;
     bool captureReflectionResolvedRadiance = false;
     bool captureReflectionTemporalValidity = false;
     ReflectionCaptureDebugView reflectionCaptureDebugView = ReflectionCaptureDebugView::ResolvedRadiance;

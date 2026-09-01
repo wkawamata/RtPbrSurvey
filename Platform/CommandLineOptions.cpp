@@ -237,6 +237,15 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.exitAfterCapture = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-EnableDlssRayReconstruction"))
+        {
+            options.enableDlssRayReconstruction = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-EnableExperimentalNativeRayReconstruction"))
+        {
+            options.enableDlssRayReconstruction = true;
+            options.enableExperimentalNativeRayReconstruction = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-CaptureReflectionResolvedRadiance"))
         {
             options.captureReflectionResolvedRadiance = true;

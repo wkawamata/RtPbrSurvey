@@ -125,13 +125,19 @@ namespace
                     context.temporalUpscalerAvailable ? "Available" : "Unavailable",
                     context.temporalUpscalerBackendName,
                     context.temporalUpscalerStatusText);
+        ImGui::Text("DLSS Ray Reconstruction: %s (Backend: %s, Status: %s)",
+                    context.rayReconstructionAvailable ? "Available" : "Unavailable",
+                    context.rayReconstructionBackendName,
+                    context.rayReconstructionStatusText);
     }
 
     void DrawTemporalUpscalerControls(RtPbrSurvey::SceneRenderer& renderer)
     {
         const RtPbrSurvey::SceneRenderer::UiFrameContext context = renderer.GetUiFrameContext();
         auto temporalUpscalerSettings = renderer.GetTemporalUpscalerSettings();
+        auto rayReconstructionSettings = renderer.GetRayReconstructionSettings();
         bool changed = false;
+        bool rayReconstructionChanged = false;
 
         ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
         changed |= ImGui::Checkbox("DLSS Enabled", &temporalUpscalerSettings.enabled);
@@ -146,10 +152,62 @@ namespace
         }
         ImGui::EndDisabled();
 
+        const Engine::RayReconstructionDiagnostics& rayReconstructionDiagnostics =
+            context.rayReconstructionDiagnostics;
+        ImGui::Separator();
+        ImGui::Text("DLSS Ray Reconstruction: %s (Status: %s)",
+                    context.rayReconstructionAvailable ? "Available" : "Unavailable",
+                    rayReconstructionDiagnostics.StatusText());
+        ImGui::Text("RR Support Query: %s", rayReconstructionDiagnostics.supportQueryResultName);
+        if (rayReconstructionDiagnostics.featureVersionAvailable)
+        {
+            ImGui::Text("RR Plugin SL: %u.%u.%u",
+                        rayReconstructionDiagnostics.pluginMajor,
+                        rayReconstructionDiagnostics.pluginMinor,
+                        rayReconstructionDiagnostics.pluginPatch);
+            ImGui::Text("RR NGX Runtime: %u.%u.%u",
+                        rayReconstructionDiagnostics.ngxMajor,
+                        rayReconstructionDiagnostics.ngxMinor,
+                        rayReconstructionDiagnostics.ngxPatch);
+        }
+        else
+        {
+            ImGui::TextUnformatted("RR Plugin SL: Unavailable");
+            ImGui::TextUnformatted("RR NGX Runtime: Unavailable");
+        }
+        if (rayReconstructionDiagnostics.inputReadinessAvailable)
+        {
+            ImGui::Text("RR Input Readiness: %s (%s)",
+                        rayReconstructionDiagnostics.inputReady ? "Ready" : "Not Ready",
+                        rayReconstructionDiagnostics.InputReadinessText());
+        }
+        if (rayReconstructionDiagnostics.lastEvaluateAvailable)
+        {
+            ImGui::Text("RR Last Evaluate: %s (%s)",
+                        rayReconstructionDiagnostics.lastEvaluateOutputAvailable ? "Native Output" : "Copy Fallback",
+                        rayReconstructionDiagnostics.LastEvaluateStatusText());
+            ImGui::Text("RR Last Result: %s", rayReconstructionDiagnostics.lastEvaluateResultName);
+        }
+        ImGui::BeginDisabled(!context.rayReconstructionAvailable);
+        rayReconstructionChanged |= ImGui::Checkbox("RR Enabled", &rayReconstructionSettings.enabled);
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(!context.rayReconstructionAvailable || !rayReconstructionSettings.enabled);
+        rayReconstructionChanged |= ImGui::Checkbox("Experimental Native Evaluate",
+                                                    &rayReconstructionSettings.experimentalNativeEvaluationEnabled);
+        ImGui::EndDisabled();
+        ImGui::TextWrapped(
+            "Native RR is experimental and opt-in. If readiness or SDK evaluation fails, the pass copies "
+            "ReflectionEvaluatedRadiance into ReflectionResolvedRadiance for the same frame.");
+
         if (changed)
         {
             temporalUpscalerSettings.backend = Engine::TemporalUpscalerBackend::Streamline;
             renderer.SetTemporalUpscalerSettings(temporalUpscalerSettings);
+        }
+        if (rayReconstructionChanged)
+        {
+            rayReconstructionSettings.backend = Engine::RayReconstructionBackend::Streamline;
+            renderer.SetRayReconstructionSettings(rayReconstructionSettings);
         }
     }
 

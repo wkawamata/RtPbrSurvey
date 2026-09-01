@@ -81,6 +81,12 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
     temporalUpscaler["sharpness"] = settings.temporalUpscaler.sharpness;
     temporalUpscaler["autoExposure"] = settings.temporalUpscaler.autoExposure;
 
+    json rayReconstruction;
+    rayReconstruction["enabled"] = settings.rayReconstruction.enabled;
+    rayReconstruction["experimentalNativeEvaluationEnabled"] =
+        settings.rayReconstruction.experimentalNativeEvaluationEnabled;
+    rayReconstruction["backend"] = static_cast<int>(settings.rayReconstruction.backend);
+
     json hybridReflection;
     hybridReflection["enabled"] = settings.hybridReflection.enabled;
     hybridReflection["materialGateEnabled"] = settings.hybridReflection.materialGateEnabled;
@@ -117,6 +123,7 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
     result["lighting"] = std::move(lighting);
     result["shadow"] = std::move(shadow);
     result["temporalUpscaler"] = std::move(temporalUpscaler);
+    result["rayReconstruction"] = std::move(rayReconstruction);
     result["hybridReflection"] = std::move(hybridReflection);
     result["toneMap"] = std::move(toneMap);
     result["specularDebugLines"] = std::move(specularDebugLines);
@@ -188,6 +195,18 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
             parsed.temporalUpscaler.renderScale = temporal.value("renderScale", parsed.temporalUpscaler.renderScale);
             parsed.temporalUpscaler.sharpness = temporal.value("sharpness", parsed.temporalUpscaler.sharpness);
             parsed.temporalUpscaler.autoExposure = temporal.value("autoExposure", parsed.temporalUpscaler.autoExposure);
+        }
+
+        if (value.contains("rayReconstruction"))
+        {
+            const json& rayReconstruction = value.at("rayReconstruction");
+            parsed.rayReconstruction.enabled =
+                rayReconstruction.value("enabled", parsed.rayReconstruction.enabled);
+            parsed.rayReconstruction.experimentalNativeEvaluationEnabled =
+                rayReconstruction.value("experimentalNativeEvaluationEnabled",
+                                        parsed.rayReconstruction.experimentalNativeEvaluationEnabled);
+            parsed.rayReconstruction.backend =
+                EnumValue(rayReconstruction, "backend", parsed.rayReconstruction.backend);
         }
 
         if (value.contains("hybridReflection"))

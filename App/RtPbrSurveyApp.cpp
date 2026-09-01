@@ -284,6 +284,7 @@ void RtPbrSurveyApp::OnInit()
         {
             m_sceneConfig.LoadDefaultsForScene(
                 m_selectedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
+            ApplyRayReconstructionCommandLineOverrides();
             ApplyDlssSrCommandLineOptions();
         }
 
@@ -601,6 +602,7 @@ void RtPbrSurveyApp::OnIdle()
     m_forwardStepRequested = false;
     m_sceneRenderer.RunFrame(
         [this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); }, advanceFrame);
+    LogRayReconstructionDiagnostics();
 
     if (HasAutomatedCapture())
     {
@@ -727,6 +729,79 @@ bool RtPbrSurveyApp::HasAutomatedCapture() const
 {
     return !m_commandLineOptions.capturePath.empty() || !m_reflectionCapturePlan.captures.empty() ||
            !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty();
+}
+
+void RtPbrSurveyApp::ApplyRayReconstructionCommandLineOverrides()
+{
+    if (!m_commandLineOptions.enableDlssRayReconstruction &&
+        !m_commandLineOptions.enableExperimentalNativeRayReconstruction)
+    {
+        return;
+    }
+
+    Engine::RayReconstructionSettings settings = m_sceneRenderer.GetRayReconstructionSettings();
+    settings.enabled = true;
+    settings.experimentalNativeEvaluationEnabled =
+        m_commandLineOptions.enableExperimentalNativeRayReconstruction;
+    settings.backend = Engine::RayReconstructionBackend::Streamline;
+    m_sceneRenderer.SetRayReconstructionSettings(settings);
+}
+
+void RtPbrSurveyApp::LogRayReconstructionDiagnostics()
+{
+    if (m_logFile == nullptr)
+    {
+        return;
+    }
+
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    const Engine::RayReconstructionDiagnostics& diagnostics = context.rayReconstructionDiagnostics;
+    const bool changed =
+        m_lastLoggedRayReconstructionAvailable != context.rayReconstructionAvailable ||
+        m_lastLoggedRayReconstructionStatus != diagnostics.status ||
+        m_lastLoggedRayReconstructionSupportQueryResultName != diagnostics.supportQueryResultName ||
+        m_lastLoggedRayReconstructionInputReadinessAvailable != diagnostics.inputReadinessAvailable ||
+        m_lastLoggedRayReconstructionInputReady != diagnostics.inputReady ||
+        m_lastLoggedRayReconstructionReadinessReason != diagnostics.inputReadinessReason ||
+        m_lastLoggedRayReconstructionEvaluateAvailable != diagnostics.lastEvaluateAvailable ||
+        m_lastLoggedRayReconstructionEvaluateOutputAvailable != diagnostics.lastEvaluateOutputAvailable ||
+        m_lastLoggedRayReconstructionEvaluateStatus != diagnostics.lastEvaluateStatus ||
+        m_lastLoggedRayReconstructionEvaluateResultName != diagnostics.lastEvaluateResultName;
+    if (!changed)
+    {
+        return;
+    }
+
+    const char* lastEvaluateOutput = "unavailable";
+    if (diagnostics.lastEvaluateAvailable)
+    {
+        lastEvaluateOutput = diagnostics.lastEvaluateOutputAvailable ? "native-output" : "fallback";
+    }
+
+    fprintf(m_logFile,
+            "[RR] support=%s status=%s supportQueryResult=%s inputReadiness=%s inputReason=%s "
+            "lastEvaluate=%s lastEvaluateStatus=%s lastEvaluateResult=%s lastEvaluateOutput=%s\n",
+            context.rayReconstructionAvailable ? "available" : "unavailable",
+            diagnostics.StatusText(),
+            diagnostics.supportQueryResultName,
+            diagnostics.inputReadinessAvailable ? (diagnostics.inputReady ? "ready" : "not-ready") : "unavailable",
+            diagnostics.InputReadinessText(),
+            diagnostics.lastEvaluateAvailable ? "available" : "unavailable",
+            diagnostics.LastEvaluateStatusText(),
+            diagnostics.lastEvaluateResultName,
+            lastEvaluateOutput);
+    fflush(m_logFile);
+
+    m_lastLoggedRayReconstructionAvailable = context.rayReconstructionAvailable;
+    m_lastLoggedRayReconstructionStatus = diagnostics.status;
+    m_lastLoggedRayReconstructionSupportQueryResultName = diagnostics.supportQueryResultName;
+    m_lastLoggedRayReconstructionInputReadinessAvailable = diagnostics.inputReadinessAvailable;
+    m_lastLoggedRayReconstructionInputReady = diagnostics.inputReady;
+    m_lastLoggedRayReconstructionReadinessReason = diagnostics.inputReadinessReason;
+    m_lastLoggedRayReconstructionEvaluateAvailable = diagnostics.lastEvaluateAvailable;
+    m_lastLoggedRayReconstructionEvaluateOutputAvailable = diagnostics.lastEvaluateOutputAvailable;
+    m_lastLoggedRayReconstructionEvaluateStatus = diagnostics.lastEvaluateStatus;
+    m_lastLoggedRayReconstructionEvaluateResultName = diagnostics.lastEvaluateResultName;
 }
 
 void RtPbrSurveyApp::UpdateReflectionHdrDiagnostics()
@@ -1446,9 +1521,8 @@ void RtPbrSurveyApp::OpenSelectedScene()
 
     m_displayInstanceCount = LoadedScene().DisplayInstanceCount();
     m_sceneRenderer.SetDisplayInstanceCount(m_displayInstanceCount);
-
+    ApplyRayReconstructionCommandLineOverrides();
     ApplyDlssSrCommandLineOptions();
-
     m_appMode = AppMode::Running;
     m_framePaused = false;
     m_forwardStepRequested = false;

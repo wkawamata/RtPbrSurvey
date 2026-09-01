@@ -195,6 +195,18 @@
     <ClInclude Include="Renderer\StreamlineAdapter.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\RayReconstructionRoughnessPass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\RayReconstructionSpecularAlbedoPass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\RayReconstructionSpecularHitDistancePass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\RayReconstructionSupport.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\TemporalUpscalerSupport.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -392,6 +404,18 @@
     <ClCompile Include="Renderer\RayTracingSupport.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\RayReconstructionRoughnessPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\RayReconstructionSpecularAlbedoPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\RayReconstructionSpecularHitDistancePass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\RayReconstructionSupport.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\RootSignatureFactory.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
@@ -470,6 +494,15 @@
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_ReflectionEvaluate.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_RayReconstructionRoughness.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_RayReconstructionSpecularAlbedo.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_RayReconstructionSpecularHitDistance.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_TemporalReflection.hlsl">

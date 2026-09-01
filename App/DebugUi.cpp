@@ -942,8 +942,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                     context.temporalUpscalerAvailable ? "Available" : "Unavailable",
                     context.temporalUpscalerBackendName,
                     context.temporalUpscalerStatusText);
+        ImGui::Text("DLSS Ray Reconstruction: %s (Backend: %s, Status: %s)",
+                    context.rayReconstructionAvailable ? "Available" : "Unavailable",
+                    context.rayReconstructionBackendName,
+                    context.rayReconstructionStatusText);
 
         auto temporalUpscalerSettings = app.m_sceneRenderer.GetTemporalUpscalerSettings();
+        auto rayReconstructionSettings = app.m_sceneRenderer.GetRayReconstructionSettings();
         const Engine::StreamlineDlssDiagnostics& diagnostics = context.dlssDiagnostics;
         ImGui::Text("Streamline SDK: %u.%u.%u", diagnostics.sdkMajor, diagnostics.sdkMinor, diagnostics.sdkPatch);
         if (diagnostics.featureVersionAvailable)
@@ -1028,6 +1033,59 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         {
             temporalUpscalerSettings.backend = Engine::TemporalUpscalerBackend::Streamline;
             app.m_sceneRenderer.SetTemporalUpscalerSettings(temporalUpscalerSettings);
+        }
+
+        const Engine::RayReconstructionDiagnostics& rayReconstructionDiagnostics =
+            context.rayReconstructionDiagnostics;
+        ImGui::Separator();
+        ImGui::Text("DLSS Ray Reconstruction: %s (Status: %s)",
+                    context.rayReconstructionAvailable ? "Available" : "Unavailable",
+                    rayReconstructionDiagnostics.StatusText());
+        ImGui::Text("RR Support Query: %s", rayReconstructionDiagnostics.supportQueryResultName);
+        if (rayReconstructionDiagnostics.featureVersionAvailable)
+        {
+            ImGui::Text("RR Plugin SL: %u.%u.%u",
+                        rayReconstructionDiagnostics.pluginMajor,
+                        rayReconstructionDiagnostics.pluginMinor,
+                        rayReconstructionDiagnostics.pluginPatch);
+            ImGui::Text("RR NGX Runtime: %u.%u.%u",
+                        rayReconstructionDiagnostics.ngxMajor,
+                        rayReconstructionDiagnostics.ngxMinor,
+                        rayReconstructionDiagnostics.ngxPatch);
+        }
+        else
+        {
+            ImGui::TextUnformatted("RR Plugin SL: Unavailable");
+            ImGui::TextUnformatted("RR NGX Runtime: Unavailable");
+        }
+        if (rayReconstructionDiagnostics.inputReadinessAvailable)
+        {
+            ImGui::Text("RR Input Readiness: %s (%s)",
+                        rayReconstructionDiagnostics.inputReady ? "Ready" : "Not Ready",
+                        rayReconstructionDiagnostics.InputReadinessText());
+        }
+        if (rayReconstructionDiagnostics.lastEvaluateAvailable)
+        {
+            ImGui::Text("RR Last Evaluate: %s (%s)",
+                        rayReconstructionDiagnostics.lastEvaluateOutputAvailable ? "Native Output" : "Copy Fallback",
+                        rayReconstructionDiagnostics.LastEvaluateStatusText());
+            ImGui::Text("RR Last Result: %s", rayReconstructionDiagnostics.lastEvaluateResultName);
+        }
+        bool rayReconstructionSettingsChanged = false;
+        ImGui::BeginDisabled(!context.rayReconstructionAvailable);
+        rayReconstructionSettingsChanged |= ImGui::Checkbox("RR Enabled", &rayReconstructionSettings.enabled);
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(!context.rayReconstructionAvailable || !rayReconstructionSettings.enabled);
+        rayReconstructionSettingsChanged |= ImGui::Checkbox(
+            "Experimental Native Evaluate", &rayReconstructionSettings.experimentalNativeEvaluationEnabled);
+        ImGui::EndDisabled();
+        ImGui::TextWrapped(
+            "Native RR is experimental and opt-in. If readiness or SDK evaluation fails, the pass copies "
+            "ReflectionEvaluatedRadiance into ReflectionResolvedRadiance for the same frame.");
+        if (rayReconstructionSettingsChanged)
+        {
+            rayReconstructionSettings.backend = Engine::RayReconstructionBackend::Streamline;
+            app.m_sceneRenderer.SetRayReconstructionSettings(rayReconstructionSettings);
         }
 
         int renderViewMode = static_cast<int>(app.m_renderViewMode);
