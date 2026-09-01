@@ -17,3 +17,4 @@ Tests/SubjectiveValidation/HybridReflection/current-suite.json
 Tests/HybridReflection/results/
 # DLSS Ray Reconstruction validation artifacts
 Tests/DlssRayReconstruction/captures-temporal/
+Tests/DlssRayReconstruction/captures-input-contract/
