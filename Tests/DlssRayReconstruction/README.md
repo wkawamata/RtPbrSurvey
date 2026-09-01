@@ -43,3 +43,17 @@ compares fallback against native RR at each frame and measures each variant's
 remaining change relative to the final settling capture. Existing artifacts
 can be reanalyzed with `-AnalyzeOnly`. Generated files are placed in
 `Tests/DlssRayReconstruction/captures-temporal` and must not be committed.
+
+## Input Contract Captures
+
+Capture the RR noisy input color, normal, motion-vector, and depth debug views
+with:
+
+```powershell
+.\Tests\DlssRayReconstruction\Invoke-InputContractCapture.ps1
+```
+
+The report checks capture dimensions, non-black coverage, unique hashes, RR
+support diagnostics, and D3D12 errors. These displayed views detect missing or
+obviously corrupt inputs; they do not prove raw-value sign, scale, or coordinate
+space correctness. Existing artifacts can be reanalyzed with `-AnalyzeOnly`.

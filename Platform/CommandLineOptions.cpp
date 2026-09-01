@@ -62,6 +62,8 @@ bool TryParseReflectionCaptureDebugView(const WCHAR* value, ReflectionCaptureDeb
         {L"temporal-validity", ReflectionCaptureDebugView::TemporalValidity},
         {L"pbr-params", ReflectionCaptureDebugView::GBufferPbrParams},
         {L"normal", ReflectionCaptureDebugView::GBufferNormal},
+        {L"motion-vector", ReflectionCaptureDebugView::GBufferMotionVector},
+        {L"depth", ReflectionCaptureDebugView::Depth},
         {L"hit-material", ReflectionCaptureDebugView::ReflectionRayMaterial},
         {L"evaluated-radiance", ReflectionCaptureDebugView::EvaluatedRadiance},
         {L"specular-estimate", ReflectionCaptureDebugView::SpecularEstimate},

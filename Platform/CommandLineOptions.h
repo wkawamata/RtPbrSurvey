@@ -16,6 +16,8 @@ enum class ReflectionCaptureDebugView
     TemporalValidity,
     GBufferPbrParams,
     GBufferNormal,
+    GBufferMotionVector,
+    Depth,
     ReflectionRayMaterial,
     EvaluatedRadiance,
     SpecularEstimate,

@@ -47,6 +47,10 @@ RtPbrSurveyEngine::RenderViewMode GetReflectionCaptureRenderViewMode(
             return RtPbrSurveyEngine::RenderViewMode::GBufferPBRParams;
         case Platform::ReflectionCaptureDebugView::GBufferNormal:
             return RtPbrSurveyEngine::RenderViewMode::GBufferNormal;
+        case Platform::ReflectionCaptureDebugView::GBufferMotionVector:
+            return RtPbrSurveyEngine::RenderViewMode::GBufferMotionVector;
+        case Platform::ReflectionCaptureDebugView::Depth:
+            return RtPbrSurveyEngine::RenderViewMode::Depth;
         case Platform::ReflectionCaptureDebugView::ReflectionRayMaterial:
             return RtPbrSurveyEngine::RenderViewMode::ReflectionRayMaterial;
         case Platform::ReflectionCaptureDebugView::EvaluatedRadiance:
