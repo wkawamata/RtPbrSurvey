@@ -619,7 +619,9 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <StreamlineRuntimeDll Include="$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\bin\x64\sl.interposer.dll" />
     <StreamlineRuntimeDll Include="$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\bin\x64\sl.common.dll" />
     <StreamlineRuntimeDll Include="$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\bin\x64\sl.dlss.dll" />
+    <StreamlineRuntimeDll Include="$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\bin\x64\sl.dlss_d.dll" />
     <StreamlineRuntimeDll Include="$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\bin\x64\nvngx_dlss.dll" />
+    <StreamlineRuntimeDll Include="$(RTPBRSURVEY_STREAMLINE_SDK_DIR)\bin\x64\nvngx_dlssd.dll" />
   </ItemGroup>
   <ItemGroup>
     <RuntimeAsset Include="$(ProjectDir)Assets\**\*" />

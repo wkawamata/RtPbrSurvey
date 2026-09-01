@@ -269,7 +269,9 @@ function(rtpbrsurvey_copy_runtime_files target)
                 "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.interposer.dll"
                 "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.common.dll"
                 "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.dlss.dll"
+                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.dlss_d.dll"
                 "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/nvngx_dlss.dll"
+                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/nvngx_dlssd.dll"
                 "$<TARGET_FILE_DIR:${target}>"
             VERBATIM)
     endif()
