@@ -63,6 +63,25 @@ RtPbrSurveyEngine::RenderViewMode GetReflectionCaptureRenderViewMode(
     }
 }
 
+Engine::TemporalUpscalerQualityMode GetDlssSrQualityMode(Platform::DlssSrQualityMode qualityMode)
+{
+    switch (qualityMode)
+    {
+        case Platform::DlssSrQualityMode::Dlaa:
+            return Engine::TemporalUpscalerQualityMode::Native;
+        case Platform::DlssSrQualityMode::Quality:
+            return Engine::TemporalUpscalerQualityMode::Quality;
+        case Platform::DlssSrQualityMode::Balanced:
+            return Engine::TemporalUpscalerQualityMode::Balanced;
+        case Platform::DlssSrQualityMode::Performance:
+            return Engine::TemporalUpscalerQualityMode::Performance;
+        case Platform::DlssSrQualityMode::UltraPerformance:
+            return Engine::TemporalUpscalerQualityMode::UltraPerformance;
+        default:
+            return Engine::TemporalUpscalerQualityMode::Quality;
+    }
+}
+
 } // namespace
 
 RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
@@ -266,6 +285,7 @@ void RtPbrSurveyApp::OnInit()
             m_sceneConfig.LoadDefaultsForScene(
                 m_selectedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
             ApplyRayReconstructionCommandLineOverrides();
+            ApplyDlssSrCommandLineOptions();
         }
 
         if (m_debugCamera.GetMode() == RtPbrSurvey::DebugCameraController::Mode::Arcball &&
@@ -553,6 +573,21 @@ void RtPbrSurveyApp::OnIdle()
              !m_automationScreenshotRequested &&
              m_automationFrameCounter >= m_commandLineOptions.captureAfterFrames)
     {
+        const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+        if (m_commandLineOptions.enableDlssSr && !context.temporalUpscalerOutputAvailable)
+        {
+            const Engine::StreamlineEvaluateResult& result = context.temporalUpscalerLastEvaluateResult;
+            const Engine::TemporalUpscalerSettings& settings = m_sceneRenderer.GetTemporalUpscalerSettings();
+            const RtPbrSurveyEngine& engine = m_sceneRenderer.EngineForDebugTools();
+            const std::string failureStage = result.failureStage != nullptr ? result.failureStage : "not-scheduled";
+            FailAutomatedCapture(
+                "DLSS SR did not produce an output frame (stage=" + failureStage +
+                ", result=" + std::to_string(result.nativeResult) +
+                ", enabled=" + (settings.enabled ? "true" : "false") +
+                ", view=" + std::to_string(static_cast<int>(engine.GetRenderViewMode())) +
+                ", path=" + std::to_string(static_cast<int>(engine.GetRenderingPath())) + ").");
+            return;
+        }
         m_sceneRenderer.RequestScreenshot({m_commandLineOptions.capturePath});
         m_automationScreenshotRequested = true;
     }
@@ -1487,10 +1522,37 @@ void RtPbrSurveyApp::OpenSelectedScene()
     m_displayInstanceCount = LoadedScene().DisplayInstanceCount();
     m_sceneRenderer.SetDisplayInstanceCount(m_displayInstanceCount);
     ApplyRayReconstructionCommandLineOverrides();
+    ApplyDlssSrCommandLineOptions();
     m_appMode = AppMode::Running;
     m_framePaused = false;
     m_forwardStepRequested = false;
     m_debugUiVisible = true;
+}
+
+void RtPbrSurveyApp::ApplyDlssSrCommandLineOptions()
+{
+    if (!m_commandLineOptions.enableDlssSr)
+    {
+        return;
+    }
+
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    if (!context.temporalUpscalerAvailable)
+    {
+        throw std::runtime_error(
+            std::string("DLSS SR is unavailable: ") + context.temporalUpscalerStatusText);
+    }
+
+    m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
+    m_renderViewMode = RtPbrSurveyEngine::RenderViewMode::LightPass;
+    m_sceneRenderer.SetRenderingPath(m_renderingPath);
+    m_sceneRenderer.SetRenderViewMode(m_renderViewMode);
+
+    Engine::TemporalUpscalerSettings settings = m_sceneRenderer.GetTemporalUpscalerSettings();
+    settings.enabled = true;
+    settings.backend = Engine::TemporalUpscalerBackend::Streamline;
+    settings.qualityMode = GetDlssSrQualityMode(m_commandLineOptions.dlssSrQualityMode);
+    m_sceneRenderer.SetTemporalUpscalerSettings(settings);
 }
 
 void RtPbrSurveyApp::CloseRunningScene()

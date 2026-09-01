@@ -38,3 +38,14 @@ If vcpkg is not globally integrated, pass the root explicitly:
 ```powershell
 msbuild RtPbrSurvey.sln /p:Configuration=Debug /p:Platform=x64 /p:VcpkgRoot=C:\dev\vcpkg\
 ```
+
+## Optional NVIDIA DLSS Super Resolution
+
+DLSS SR is integrated through NVIDIA Streamline and remains optional. Extract
+the supported SDK into `third_party\streamline-sdk-2.12.0`, then use the normal
+build command. The build detects the SDK, enables the Streamline adapter, and
+copies the required runtime DLLs beside the executable.
+
+See [doc/third-party/streamline-sdk.md](doc/third-party/streamline-sdk.md) for
+the official download, expected archive hash, alternate SDK path properties,
+runtime use, and validation procedure.

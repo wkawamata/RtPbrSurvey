@@ -8,6 +8,7 @@
 #include <cwchar>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <stdexcept>
 #include <unordered_set>
 
 namespace Platform
@@ -18,6 +19,33 @@ namespace
 bool IsCommandLineArg(const WCHAR* arg, const WCHAR* expected)
 {
     return _wcsicmp(arg, expected) == 0;
+}
+
+bool TryParseDlssSrQualityMode(const WCHAR* value, DlssSrQualityMode& qualityMode)
+{
+    struct QualityModeName
+    {
+        const WCHAR* name;
+        DlssSrQualityMode qualityMode;
+    };
+
+    static constexpr QualityModeName kQualityModeNames[] = {
+        {L"dlaa", DlssSrQualityMode::Dlaa},
+        {L"quality", DlssSrQualityMode::Quality},
+        {L"balanced", DlssSrQualityMode::Balanced},
+        {L"performance", DlssSrQualityMode::Performance},
+        {L"ultra-performance", DlssSrQualityMode::UltraPerformance},
+    };
+
+    for (const QualityModeName& entry : kQualityModeNames)
+    {
+        if (_wcsicmp(value, entry.name) == 0)
+        {
+            qualityMode = entry.qualityMode;
+            return true;
+        }
+    }
+    return false;
 }
 
 bool TryParseReflectionCaptureDebugView(const WCHAR* value, ReflectionCaptureDebugView& debugView)
@@ -173,6 +201,19 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         else if (IsCommandLineArg(argv[i], L"-UseSceneDefaults"))
         {
             options.useSceneDefaults = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-EnableDlssSr"))
+        {
+            options.enableDlssSr = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-DlssQuality"))
+        {
+            if (i + 1 >= argc || !TryParseDlssSrQualityMode(argv[++i], options.dlssSrQualityMode))
+            {
+                throw std::invalid_argument(
+                    "-DlssQuality expects dlaa, quality, balanced, performance, or ultra-performance.");
+            }
+            options.enableDlssSr = true;
         }
         else if (IsCommandLineArg(argv[i], L"-CapturePath"))
         {

@@ -34,6 +34,8 @@ struct StreamlineEvaluateResult
 {
     bool outputAvailable = false;
     TemporalUpscalerSupportStatus status = TemporalUpscalerSupportStatus::NotIntegrated;
+    const char* failureStage = nullptr;
+    std::int32_t nativeResult = 0;
 };
 
 struct RayReconstructionFrameConstants
