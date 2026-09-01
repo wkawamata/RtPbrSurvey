@@ -28,3 +28,18 @@ luminance, and non-black ratios. Artifacts are written under
 
 This establishes deterministic execution and a visible output difference. It
 does not establish physical correctness or production image quality.
+
+## Temporal A/B
+
+Run the motion, direction-reversal, and settling comparison with:
+
+```powershell
+.\Tests\DlssRayReconstruction\Invoke-TemporalAb.ps1
+```
+
+The temporal plan captures both variants while the camera moves forward,
+reverses direction, and remains stopped for 1, 6, and 15 frames. The report
+compares fallback against native RR at each frame and measures each variant's
+remaining change relative to the final settling capture. Existing artifacts
+can be reanalyzed with `-AnalyzeOnly`. Generated files are placed in
+`Tests/DlssRayReconstruction/captures-temporal` and must not be committed.

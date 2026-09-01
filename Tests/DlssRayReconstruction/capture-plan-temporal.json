@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "cameraKeyframes": [
+    { "frame": 0, "yawDegrees": 0.0 },
+    { "frame": 60, "yawDegrees": 0.0 },
+    { "frame": 90, "yawDegrees": 20.0 },
+    { "frame": 120, "yawDegrees": -10.0 },
+    { "frame": 150, "yawDegrees": -10.0 }
+  ],
+  "captures": [
+    {
+      "frame": 75,
+      "caseId": "moving-forward",
+      "path": "captures-temporal/moving-forward-{variant}.png"
+    },
+    {
+      "frame": 105,
+      "caseId": "moving-reverse",
+      "path": "captures-temporal/moving-reverse-{variant}.png"
+    },
+    {
+      "frame": 121,
+      "caseId": "settle-1",
+      "path": "captures-temporal/settle-1-{variant}.png"
+    },
+    {
+      "frame": 126,
+      "caseId": "settle-6",
+      "path": "captures-temporal/settle-6-{variant}.png"
+    },
+    {
+      "frame": 135,
+      "caseId": "settle-15",
+      "path": "captures-temporal/settle-15-{variant}.png"
+    }
+  ]
+}
