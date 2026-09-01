@@ -49,7 +49,9 @@ struct CommandLineOptions
     std::wstring logFilePath;
     UINT logFpsInterval = 0;
     bool autoSelectGltfDamagedHelmet = false;
+    std::wstring autoSelectGltfAssetName;
     bool autoSelectHybridReflectionEstimatorTest = false;
+    bool useSceneDefaults = false;
     std::filesystem::path capturePath;
     UINT captureAfterFrames = 0;
     bool exitAfterCapture = false;
@@ -62,6 +64,7 @@ struct CommandLineOptions
     bool reflectionEstimatorConstantIncidentRadiance = false;
     bool reflectionRejectedPixelNeighborhood = false;
     bool reflectionSurfaceVarianceFilter = false;
+    bool reflectionSpatiotemporalSpatialPolicy = false;
     bool reflectionVarianceGuidedTemporal = false;
     float reflectionCameraDistanceScale = 1.0f;
     bool hasReflectionTemporalWeight = false;

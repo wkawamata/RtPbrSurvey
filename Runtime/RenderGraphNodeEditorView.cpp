@@ -17,6 +17,13 @@
 
 #include <imgui.h>
 
+#include <algorithm>
+#include <array>
+#include <cctype>
+#include <deque>
+#include <fstream>
+#include <nlohmann/json.hpp>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -26,6 +33,56 @@ namespace NodeEditor = ax::NodeEditor;
 
 namespace
 {
+std::string NodeEditorSettingsPath()
+{
+    char appDataPath[MAX_PATH];
+    const DWORD appDataLength = GetEnvironmentVariableA("APPDATA", appDataPath, MAX_PATH);
+    if (appDataLength == 0 || appDataLength >= MAX_PATH)
+    {
+        return {};
+    }
+
+    std::string settingsDirectory = std::string(appDataPath) + "\\RtPbrSurvey";
+    CreateDirectoryA(settingsDirectory.c_str(), nullptr);
+    return settingsDirectory + "\\rendergraph_node_editor.json";
+}
+
+std::unordered_set<uint64_t> LoadSavedNodeIds(const std::string& settingsPath)
+{
+    std::unordered_set<uint64_t> result;
+    if (settingsPath.empty())
+    {
+        return result;
+    }
+
+    std::ifstream stream(settingsPath);
+    if (!stream)
+    {
+        return result;
+    }
+
+    const nlohmann::json settings = nlohmann::json::parse(stream, nullptr, false);
+    if (settings.is_discarded() || !settings.contains("nodes") || !settings["nodes"].is_object())
+    {
+        return result;
+    }
+
+    for (const auto& [key, value] : settings["nodes"].items())
+    {
+        constexpr std::string_view prefix = "node:";
+        const std::string_view keyView(key);
+        const std::string_view idText = keyView.compare(0, prefix.size(), prefix) == 0 ? keyView.substr(prefix.size())
+                                                                                       : keyView;
+        char* end = nullptr;
+        const uint64_t id = std::strtoull(idText.data(), &end, 10);
+        if (end != idText.data() && *end == '\0')
+        {
+            result.insert(id);
+        }
+    }
+    return result;
+}
+
 NodeEditor::NodeId ToNodeId(Engine::RenderGraphDocumentId id)
 {
     return NodeEditor::NodeId(static_cast<uintptr_t>(id.value));
@@ -59,6 +116,454 @@ const char* ResourceKindLabel(Engine::RenderGraphResourceKind kind)
     }
 }
 
+const char* LifetimeKindLabel(Engine::RenderGraphResourceLifetimeKind kind)
+{
+    switch (kind)
+    {
+        case Engine::RenderGraphResourceLifetimeKind::Transient:
+            return "Transient";
+        case Engine::RenderGraphResourceLifetimeKind::Persistent:
+            return "Persistent";
+        default:
+            return "Unknown";
+    }
+}
+
+const char* PingPongRoleLabel(Engine::RenderGraphPingPongRole role)
+{
+    switch (role)
+    {
+        case Engine::RenderGraphPingPongRole::HistoryRead:
+            return "History Read";
+        case Engine::RenderGraphPingPongRole::CurrentWrite:
+            return "Current Write";
+        default:
+            return "None";
+    }
+}
+
+const Engine::RenderGraphDocumentNode* FindNode(const Engine::RenderGraphDocument& document,
+                                                Engine::RenderGraphDocumentId id)
+{
+    for (const Engine::RenderGraphDocumentNode& node : document.nodes)
+    {
+        if (node.id == id)
+        {
+            return &node;
+        }
+    }
+    return nullptr;
+}
+
+bool ContainsId(const std::vector<Engine::RenderGraphDocumentId>& ids, Engine::RenderGraphDocumentId id)
+{
+    return std::find(ids.begin(), ids.end(), id) != ids.end();
+}
+
+bool ContainsCaseInsensitive(const std::string& value, const char* query)
+{
+    if (query[0] == '\0')
+    {
+        return true;
+    }
+
+    std::string lowerValue = value;
+    std::string lowerQuery = query;
+    std::transform(lowerValue.begin(),
+                   lowerValue.end(),
+                   lowerValue.begin(),
+                   [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+    std::transform(lowerQuery.begin(),
+                   lowerQuery.end(),
+                   lowerQuery.begin(),
+                   [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+    return lowerValue.find(lowerQuery) != std::string::npos;
+}
+
+std::string LogicalResourceName(const std::string& name)
+{
+    const size_t separator = name.find_last_of('.');
+    if (separator == std::string::npos || separator + 1 >= name.size())
+    {
+        return name;
+    }
+
+    const bool numericSuffix = std::all_of(
+        name.begin() + separator + 1, name.end(), [](unsigned char character) { return std::isdigit(character) != 0; });
+    return numericSuffix ? name.substr(0, separator) : name;
+}
+
+std::optional<Engine::RenderGraphDocumentId>
+DrawLifetimeTimeline(const Engine::RenderGraphDocument& document,
+                     const std::optional<Engine::RenderGraphDocumentId>& selectedNodeId)
+{
+    std::vector<const Engine::RenderGraphDocumentNode*> resources;
+    int lastPass = 0;
+    for (const Engine::RenderGraphDocumentNode& node : document.nodes)
+    {
+        if (node.kind == Engine::RenderGraphNodeKind::Resource)
+        {
+            resources.push_back(&node);
+            lastPass = (std::max)(lastPass, node.lastPass);
+        }
+    }
+    std::sort(resources.begin(),
+              resources.end(),
+              [](const auto* lhs, const auto* rhs)
+              {
+                  const std::string lhsLogicalName = LogicalResourceName(lhs->name);
+                  const std::string rhsLogicalName = LogicalResourceName(rhs->name);
+                  return lhsLogicalName != rhsLogicalName ? lhsLogicalName < rhsLogicalName : lhs->name < rhs->name;
+              });
+
+    ImGui::SeparatorText("Resource Lifetime Timeline");
+    ImGui::TextDisabled("Pass 0 to %d", lastPass);
+    std::optional<Engine::RenderGraphDocumentId> clickedNodeId;
+    if (ImGui::BeginTable("RenderGraphLifetimeTable",
+                          2,
+                          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY,
+                          ImVec2(0.0f, 260.0f)))
+    {
+        ImGui::TableSetupColumn("Resource", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+        ImGui::TableSetupColumn("Lifetime", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableHeadersRow();
+
+        for (const Engine::RenderGraphDocumentNode* resource : resources)
+        {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::PushID(reinterpret_cast<void*>(static_cast<uintptr_t>(resource->id.value)));
+            const bool selected = selectedNodeId.has_value() && *selectedNodeId == resource->id;
+            if (ImGui::Selectable(resource->name.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns))
+            {
+                clickedNodeId = resource->id;
+            }
+            ImGui::PopID();
+
+            ImGui::TableSetColumnIndex(1);
+            const ImVec2 timelineStart = ImGui::GetCursorScreenPos();
+            const float timelineWidth = ImGui::GetContentRegionAvail().x;
+            const float rowHeight = ImGui::GetTextLineHeight();
+            const float passCount = static_cast<float>((std::max)(lastPass + 1, 1));
+            const float start = static_cast<float>((std::max)(resource->firstPass, 0)) / passCount;
+            const float end = static_cast<float>((std::max)(resource->lastPass + 1, 1)) / passCount;
+            const ImU32 color =
+                ImGui::GetColorU32(resource->lifetimeKind == Engine::RenderGraphResourceLifetimeKind::Transient
+                                       ? ImVec4(0.95f, 0.45f, 0.12f, 0.90f)
+                                       : ImVec4(0.80f, 0.18f, 0.12f, 0.90f));
+            ImGui::GetWindowDrawList()->AddRectFilled(
+                ImVec2(timelineStart.x + timelineWidth * start, timelineStart.y + 2.0f),
+                ImVec2(timelineStart.x + timelineWidth * end, timelineStart.y + rowHeight - 2.0f),
+                color,
+                3.0f);
+            ImGui::Dummy(ImVec2(timelineWidth, rowHeight));
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("%s: [%d, %d] %s",
+                                  resource->name.c_str(),
+                                  resource->firstPass,
+                                  resource->lastPass,
+                                  LifetimeKindLabel(resource->lifetimeKind));
+            }
+        }
+        ImGui::EndTable();
+    }
+    return clickedNodeId;
+}
+
+void DrawStateDiagnostics(const Engine::RenderGraphDocument& document,
+                          const std::vector<Engine::RenderGraphStateDiagnostic>& diagnostics,
+                          const std::vector<Engine::RenderGraphBarrierDiagnostic>* barrierDiagnostics)
+{
+    ImGui::SeparatorText("State Diagnostics");
+    ImGui::TextDisabled("%zu required barriers", diagnostics.size());
+    if (barrierDiagnostics != nullptr)
+    {
+        ImGui::SameLine();
+        ImGui::TextDisabled("%zu runtime mismatches", barrierDiagnostics->size());
+        for (const Engine::RenderGraphBarrierDiagnostic& diagnostic : *barrierDiagnostics)
+        {
+            const Engine::RenderGraphDocumentNode* resource = FindNode(document, diagnostic.resourceNodeId);
+            const Engine::RenderGraphDocumentNode* pass = FindNode(document, diagnostic.passNodeId);
+            const char* status = diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Missing
+                ? "Missing"
+                : diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Unexpected ? "Unexpected"
+                                                                                          : "State mismatch";
+            ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.30f, 1.0f),
+                               "%s: %s @ %s",
+                               status,
+                               resource != nullptr ? resource->name.c_str() : "<missing>",
+                               pass != nullptr ? pass->name.c_str() : "<missing>");
+            if (diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::StateMismatch)
+            {
+                const std::string expectedBefore =
+                    Engine::FormatD3D12ResourceStates(diagnostic.expectedBeforeState);
+                const std::string expectedAfter = Engine::FormatD3D12ResourceStates(diagnostic.expectedAfterState);
+                const std::string actualBefore = Engine::FormatD3D12ResourceStates(diagnostic.actualBeforeState);
+                const std::string actualAfter = Engine::FormatD3D12ResourceStates(diagnostic.actualAfterState);
+                ImGui::TextWrapped("  Expected %s -> %s, actual %s -> %s",
+                                   expectedBefore.c_str(),
+                                   expectedAfter.c_str(),
+                                   actualBefore.c_str(),
+                                   actualAfter.c_str());
+            }
+        }
+    }
+    if (ImGui::BeginTable("RenderGraphStateDiagnosticsTable",
+                          4,
+                          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY,
+                          ImVec2(0.0f, 220.0f)))
+    {
+        ImGui::TableSetupColumn("Resource");
+        ImGui::TableSetupColumn("Pass");
+        ImGui::TableSetupColumn("Transition");
+        ImGui::TableSetupColumn("Status");
+        ImGui::TableHeadersRow();
+        for (const Engine::RenderGraphStateDiagnostic& diagnostic : diagnostics)
+        {
+            const Engine::RenderGraphDocumentNode* resource = FindNode(document, diagnostic.resourceNodeId);
+            const Engine::RenderGraphDocumentNode* pass = FindNode(document, diagnostic.afterPassNodeId);
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(resource != nullptr ? resource->name.c_str() : "<missing>");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(pass != nullptr ? pass->name.c_str() : "<missing>");
+            ImGui::TableSetColumnIndex(2);
+            if (diagnostic.kind == Engine::RenderGraphStateDiagnosticKind::UavBarrierCandidate)
+            {
+                ImGui::TextUnformatted("UAV barrier");
+            }
+            else
+            {
+                const std::string before = Engine::FormatD3D12ResourceStates(diagnostic.beforeState);
+                const std::string after = Engine::FormatD3D12ResourceStates(diagnostic.afterState);
+                ImGui::TextWrapped("%s -> %s", before.c_str(), after.c_str());
+            }
+            ImGui::TableSetColumnIndex(3);
+            ImGui::TextDisabled("Required");
+        }
+        if (barrierDiagnostics != nullptr)
+        {
+            for (const Engine::RenderGraphBarrierDiagnostic& diagnostic : *barrierDiagnostics)
+            {
+                const Engine::RenderGraphDocumentNode* resource = FindNode(document, diagnostic.resourceNodeId);
+                const Engine::RenderGraphDocumentNode* pass = FindNode(document, diagnostic.passNodeId);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextUnformatted(resource != nullptr ? resource->name.c_str() : "<missing>");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(pass != nullptr ? pass->name.c_str() : "<missing>");
+                ImGui::TableSetColumnIndex(2);
+                if (diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::StateMismatch)
+                {
+                    const std::string expectedBefore =
+                        Engine::FormatD3D12ResourceStates(diagnostic.expectedBeforeState);
+                    const std::string expectedAfter =
+                        Engine::FormatD3D12ResourceStates(diagnostic.expectedAfterState);
+                    const std::string actualBefore = Engine::FormatD3D12ResourceStates(diagnostic.actualBeforeState);
+                    const std::string actualAfter = Engine::FormatD3D12ResourceStates(diagnostic.actualAfterState);
+                    ImGui::TextWrapped("Expected %s -> %s, actual %s -> %s",
+                                       expectedBefore.c_str(),
+                                       expectedAfter.c_str(),
+                                       actualBefore.c_str(),
+                                       actualAfter.c_str());
+                }
+                else if (diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Missing)
+                {
+                    const std::string before = Engine::FormatD3D12ResourceStates(diagnostic.expectedBeforeState);
+                    const std::string after = Engine::FormatD3D12ResourceStates(diagnostic.expectedAfterState);
+                    ImGui::TextWrapped("%s -> %s", before.c_str(), after.c_str());
+                }
+                else
+                {
+                    const std::string before = Engine::FormatD3D12ResourceStates(diagnostic.actualBeforeState);
+                    const std::string after = Engine::FormatD3D12ResourceStates(diagnostic.actualAfterState);
+                    ImGui::TextWrapped("%s -> %s", before.c_str(), after.c_str());
+                }
+                ImGui::TableSetColumnIndex(3);
+                const char* status = diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Missing
+                    ? "Missing"
+                    : diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Unexpected ? "Unexpected"
+                                                                                              : "State mismatch";
+                ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.30f, 1.0f), "%s", status);
+            }
+        }
+        ImGui::EndTable();
+    }
+}
+
+std::optional<Engine::RenderGraphDocumentId>
+DrawValidationMessages(const std::vector<Engine::RenderGraphValidationMessage>& messages)
+{
+    ImGui::SeparatorText("Validation");
+    if (messages.empty())
+    {
+        ImGui::TextDisabled("No validation messages.");
+        return std::nullopt;
+    }
+
+    std::optional<Engine::RenderGraphDocumentId> focusNodeId;
+    if (ImGui::BeginTable("RenderGraphValidationTable",
+                          3,
+                          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY,
+                          ImVec2(0.0f, 220.0f)))
+    {
+        ImGui::TableSetupColumn("Severity", ImGuiTableColumnFlags_WidthFixed, 55.0f);
+        ImGui::TableSetupColumn("Code", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+        ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableHeadersRow();
+        for (const Engine::RenderGraphValidationMessage& message : messages)
+        {
+            const char* severity = message.severity == Engine::RenderGraphValidationSeverity::Error
+                                       ? "Error"
+                                       : message.severity == Engine::RenderGraphValidationSeverity::Warning ? "Warning"
+                                                                                                             : "Info";
+            const ImVec4 color = message.severity == Engine::RenderGraphValidationSeverity::Error
+                                     ? ImVec4(1.0f, 0.30f, 0.25f, 1.0f)
+                                     : message.severity == Engine::RenderGraphValidationSeverity::Warning
+                                           ? ImVec4(1.0f, 0.75f, 0.20f, 1.0f)
+                                           : ImVec4(0.45f, 0.75f, 1.0f, 1.0f);
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextColored(color, "%s", severity);
+            ImGui::TableSetColumnIndex(1);
+            ImGui::PushID(reinterpret_cast<void*>(static_cast<uintptr_t>(message.nodeId.value)));
+            ImGui::PushID(reinterpret_cast<void*>(static_cast<uintptr_t>(message.passNodeId.value)));
+            if (ImGui::Selectable(message.code.c_str(), false, ImGuiSelectableFlags_SpanAllColumns))
+            {
+                focusNodeId = message.nodeId;
+            }
+            ImGui::PopID();
+            ImGui::PopID();
+            ImGui::TableSetColumnIndex(2);
+            ImGui::TextWrapped("%s", message.message.c_str());
+        }
+        ImGui::EndTable();
+    }
+    return focusNodeId;
+}
+
+struct PassTimingHistory
+{
+    static constexpr size_t kCapacity = 120;
+    std::deque<float> values;
+
+    void Add(float value)
+    {
+        values.push_back(value);
+        if (values.size() > kCapacity)
+        {
+            values.pop_front();
+        }
+    }
+
+    float Value(int mode) const
+    {
+        if (values.empty())
+        {
+            return 0.0f;
+        }
+        if (mode == 0)
+        {
+            return values.back();
+        }
+        if (mode == 2)
+        {
+            return *std::max_element(values.begin(), values.end());
+        }
+        float sum = 0.0f;
+        for (const float value : values)
+        {
+            sum += value;
+        }
+        return sum / static_cast<float>(values.size());
+    }
+};
+
+void DrawDetailPanel(const Engine::RenderGraphDocument& document,
+                     const std::optional<Engine::RenderGraphDocumentId>& selectedNodeId,
+                     const std::unordered_map<int, PassTimingHistory>& passTimings,
+                     const PassTimingHistory& totalTiming,
+                     int timingMode)
+{
+    ImGui::TextUnformatted("Node Details");
+    ImGui::Separator();
+
+    const Engine::RenderGraphDocumentNode* node =
+        selectedNodeId.has_value() ? FindNode(document, *selectedNodeId) : nullptr;
+    if (node == nullptr)
+    {
+        ImGui::TextDisabled("Select a Pass or Resource node.");
+        return;
+    }
+
+    ImGui::TextWrapped("%s", node->name.c_str());
+    if (node->kind == Engine::RenderGraphNodeKind::Pass)
+    {
+        ImGui::Text("Type: Pass");
+        ImGui::Text("Execution order: %d", node->passIndex);
+        const auto timing = passTimings.find(node->passIndex);
+        if (timing != passTimings.end() && !timing->second.values.empty())
+        {
+            const float durationMs = timing->second.Value(timingMode);
+            const float totalMs = totalTiming.Value(timingMode);
+            const float percentage = totalMs > 0.0f ? durationMs * 100.0f / totalMs : 0.0f;
+            ImGui::Text("GPU: %.3f ms (%.1f%%)", durationMs, percentage);
+        }
+        else
+        {
+            ImGui::TextDisabled("GPU: N/A");
+        }
+    }
+    else
+    {
+        ImGui::Text("Type: %s", ResourceKindLabel(node->resourceKind));
+        ImGui::Text("Lifetime: %s", LifetimeKindLabel(node->lifetimeKind));
+        ImGui::Text("Pass range: [%d, %d]", node->firstPass, node->lastPass);
+        if (!node->logicalGroupName.empty())
+        {
+            ImGui::TextWrapped("Logical group: %s", node->logicalGroupName.c_str());
+            ImGui::Text("Physical index: %d", node->physicalIndex);
+            ImGui::Text("Current role: %s", PingPongRoleLabel(node->pingPongRole));
+        }
+    }
+
+    ImGui::Spacing();
+    ImGui::TextUnformatted(node->kind == Engine::RenderGraphNodeKind::Pass ? "Resources" : "Pass usages");
+    if (ImGui::BeginTable("RenderGraphNodeDetailsTable",
+                          3,
+                          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+    {
+        ImGui::TableSetupColumn(node->kind == Engine::RenderGraphNodeKind::Pass ? "Resource" : "Pass");
+        ImGui::TableSetupColumn("Access");
+        ImGui::TableSetupColumn("State");
+        ImGui::TableHeadersRow();
+
+        for (const Engine::RenderGraphDocumentLink& link : document.links)
+        {
+            const bool matches = node->kind == Engine::RenderGraphNodeKind::Pass ? link.passNodeId == node->id
+                                                                                 : link.resourceNodeId == node->id;
+            if (!matches)
+            {
+                continue;
+            }
+
+            const Engine::RenderGraphDocumentId relatedId =
+                node->kind == Engine::RenderGraphNodeKind::Pass ? link.resourceNodeId : link.passNodeId;
+            const Engine::RenderGraphDocumentNode* relatedNode = FindNode(document, relatedId);
+            const std::string state = Engine::FormatD3D12ResourceStates(link.state);
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(relatedNode != nullptr ? relatedNode->name.c_str() : "<missing>");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(AccessLabel(link.access));
+            ImGui::TableSetColumnIndex(2);
+            ImGui::TextWrapped("%s", state.c_str());
+        }
+        ImGui::EndTable();
+    }
+}
+
 ImVec4 NodeBackgroundColor(const Engine::RenderGraphDocumentNode& node)
 {
     if (node.kind == Engine::RenderGraphNodeKind::Pass)
@@ -80,8 +585,10 @@ ImVec4 NodeBackgroundColor(const Engine::RenderGraphDocumentNode& node)
 
 struct RenderGraphNodeEditorView::Impl
 {
+    std::string settingsPath;
     NodeEditor::EditorContext* context = nullptr;
     std::unordered_set<uint64_t> positionedNodes;
+    std::unordered_set<uint64_t> savedNodeIds;
     std::unordered_map<uint64_t, float> stableContentWidths;
     struct ResourcePinIds
     {
@@ -89,12 +596,26 @@ struct RenderGraphNodeEditorView::Impl
         NodeEditor::PinId write;
     };
     std::unordered_map<uint64_t, ResourcePinIds> resourcePinIds;
+    std::optional<Engine::RenderGraphDocumentId> selectedNodeId;
+    std::array<char, 128> searchText = {};
+    bool showPasses = true;
+    bool showTextures = true;
+    bool showBuffers = true;
+    bool showUnknownResources = true;
+    bool showTransient = true;
+    bool showPersistent = true;
+    bool showUnknownLifetime = true;
+    bool connectedOnly = false;
+    std::unordered_map<int, PassTimingHistory> passTimings;
+    PassTimingHistory totalTiming;
+    int timingMode = 1;
+    std::optional<Engine::RenderGraphDocument> baselineDocument;
     uintptr_t nextSyntheticPinId = UINTPTR_MAX;
 
-    Impl()
+    Impl() : settingsPath(NodeEditorSettingsPath()), savedNodeIds(LoadSavedNodeIds(settingsPath))
     {
         NodeEditor::Config config;
-        config.SettingsFile = nullptr;
+        config.SettingsFile = settingsPath.empty() ? nullptr : settingsPath.c_str();
         context = NodeEditor::CreateEditor(&config);
     }
 
@@ -106,6 +627,10 @@ struct RenderGraphNodeEditorView::Impl
     bool PositionNode(const Engine::RenderGraphDocumentNode& node, size_t resourceIndex)
     {
         if (!positionedNodes.insert(node.id.value).second)
+        {
+            return false;
+        }
+        if (savedNodeIds.contains(node.id.value))
         {
             return false;
         }
@@ -134,31 +659,227 @@ struct RenderGraphNodeEditorView::Impl
         }
         return access == Engine::RenderGraphResourceAccess::Read ? entry->second.read : entry->second.write;
     }
+
+    bool MatchesFilters(const Engine::RenderGraphDocument& document, const Engine::RenderGraphDocumentNode& node) const
+    {
+        if (!ContainsCaseInsensitive(node.name, searchText.data()))
+        {
+            return false;
+        }
+
+        if (node.kind == Engine::RenderGraphNodeKind::Pass)
+        {
+            if (!showPasses)
+            {
+                return false;
+            }
+        }
+        else
+        {
+            const bool kindMatches =
+                (node.resourceKind == Engine::RenderGraphResourceKind::Texture && showTextures) ||
+                (node.resourceKind == Engine::RenderGraphResourceKind::Buffer && showBuffers) ||
+                (node.resourceKind == Engine::RenderGraphResourceKind::Unknown && showUnknownResources);
+            const bool lifetimeMatches =
+                (node.lifetimeKind == Engine::RenderGraphResourceLifetimeKind::Transient && showTransient) ||
+                (node.lifetimeKind == Engine::RenderGraphResourceLifetimeKind::Persistent && showPersistent) ||
+                (node.lifetimeKind == Engine::RenderGraphResourceLifetimeKind::Unknown && showUnknownLifetime);
+            if (!kindMatches || !lifetimeMatches)
+            {
+                return false;
+            }
+        }
+
+        if (!connectedOnly || !selectedNodeId.has_value() || node.id == *selectedNodeId)
+        {
+            return true;
+        }
+
+        for (const Engine::RenderGraphDocumentLink& link : document.links)
+        {
+            if ((link.passNodeId == *selectedNodeId && link.resourceNodeId == node.id) ||
+                (link.resourceNodeId == *selectedNodeId && link.passNodeId == node.id))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void UpdateTimings(const RenderGraphGpuTimingSnapshot* timing)
+    {
+        if (timing == nullptr || timing->samples.empty())
+        {
+            return;
+        }
+        for (const RenderGraphGpuTimingSample& sample : timing->samples)
+        {
+            passTimings[sample.passIndex].Add(sample.durationMs);
+        }
+        totalTiming.Add(timing->totalGpuTimeMs);
+    }
 };
 
 RenderGraphNodeEditorView::RenderGraphNodeEditorView() : m_impl(std::make_unique<Impl>()) {}
 
 RenderGraphNodeEditorView::~RenderGraphNodeEditorView() = default;
 
-void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document)
+void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document,
+                                     const RenderGraphGpuTimingSnapshot* timing,
+                                     const std::vector<Engine::RenderGraphBarrierDiagnostic>* barrierDiagnostics)
 {
+    m_impl->UpdateTimings(timing);
+    const std::vector<Engine::RenderGraphStateDiagnostic> stateDiagnostics =
+        Engine::BuildRenderGraphStateDiagnostics(document);
+    const std::vector<Engine::RenderGraphValidationMessage> validationMessages =
+        Engine::ValidateRenderGraphDocument(document);
     const bool fitRequested = ImGui::Button("Fit Graph");
     ImGui::SameLine();
+    ImGui::BeginDisabled(!m_impl->selectedNodeId.has_value());
+    const bool focusSelectedRequested = ImGui::Button("Focus Selected");
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    const bool resetLayoutRequested = ImGui::Button("Reset Saved Layout");
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("Discard saved node positions and restore the automatic layout.");
+    }
+    if (resetLayoutRequested)
+    {
+        m_impl->positionedNodes.clear();
+        m_impl->savedNodeIds.clear();
+    }
+    ImGui::SameLine();
     ImGui::TextDisabled("Read-only");
+    ImGui::SameLine();
+    constexpr const char* timingModes[] = {"GPU Current", "GPU Average (120)", "GPU Max (120)"};
+    ImGui::SetNextItemWidth(150.0f);
+    ImGui::Combo("##RenderGraphTimingMode", &m_impl->timingMode, timingModes, _countof(timingModes));
+    ImGui::SameLine();
+    if (ImGui::Button("Set Baseline"))
+    {
+        m_impl->baselineDocument = document;
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!m_impl->baselineDocument.has_value());
+    if (ImGui::Button("Clear Baseline"))
+    {
+        m_impl->baselineDocument.reset();
+    }
+    ImGui::EndDisabled();
+
+    const std::optional<Engine::RenderGraphDocumentDiff> snapshotDiff =
+        m_impl->baselineDocument.has_value()
+            ? std::optional<Engine::RenderGraphDocumentDiff>(
+                  Engine::DiffRenderGraphDocuments(*m_impl->baselineDocument, document))
+            : std::nullopt;
+    if (snapshotDiff.has_value())
+    {
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.75f, 0.75f, 0.75f, 1.0f),
+                           "Nodes +%zu -%zu ~%zu  Links +%zu -%zu ~%zu",
+                           snapshotDiff->addedNodes.size(),
+                           snapshotDiff->removedNodes.size(),
+                           snapshotDiff->changedNodes.size(),
+                           snapshotDiff->addedLinks.size(),
+                           snapshotDiff->removedLinks.size(),
+                           snapshotDiff->changedLinks.size());
+    }
+
+    ImGui::SetNextItemWidth(240.0f);
+    ImGui::InputTextWithHint(
+        "##RenderGraphSearch", "Search Pass or Resource", m_impl->searchText.data(), m_impl->searchText.size());
+    ImGui::SameLine();
+    const bool focusRequested = ImGui::Button("Focus First Match");
+    ImGui::SameLine();
+    ImGui::Checkbox("Connected to selection", &m_impl->connectedOnly);
+
+    ImGui::Checkbox("Pass", &m_impl->showPasses);
+    ImGui::SameLine();
+    ImGui::Checkbox("Texture", &m_impl->showTextures);
+    ImGui::SameLine();
+    ImGui::Checkbox("Buffer", &m_impl->showBuffers);
+    ImGui::SameLine();
+    ImGui::Checkbox("Unknown Resource", &m_impl->showUnknownResources);
+    ImGui::SameLine();
+    ImGui::Checkbox("Transient", &m_impl->showTransient);
+    ImGui::SameLine();
+    ImGui::Checkbox("Persistent", &m_impl->showPersistent);
+    ImGui::SameLine();
+    ImGui::Checkbox("Unknown Lifetime", &m_impl->showUnknownLifetime);
+
+    if (m_impl->selectedNodeId.has_value() && FindNode(document, *m_impl->selectedNodeId) == nullptr)
+    {
+        m_impl->selectedNodeId.reset();
+    }
+
+    constexpr float detailWidth = 360.0f;
+    const ImVec2 contentSize = ImGui::GetContentRegionAvail();
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const float canvasWidth = (std::max)(contentSize.x - detailWidth - spacing, 240.0f);
+    ImGui::BeginChild("RenderGraphCanvasPane", ImVec2(canvasWidth, contentSize.y), false);
 
     NodeEditor::SetCurrentEditor(m_impl->context);
-    const float canvasHeight = (std::max)(ImGui::GetContentRegionAvail().y, 240.0f);
-    NodeEditor::Begin("RenderGraphNodeEditor", ImVec2(0.0f, canvasHeight));
+    NodeEditor::Begin("RenderGraphNodeEditor", ImVec2(0.0f, 0.0f));
 
-    size_t resourceIndex = 0;
+    std::vector<const Engine::RenderGraphDocumentNode*> layoutResources;
+    for (const Engine::RenderGraphDocumentNode& node : document.nodes)
+    {
+        if (node.kind == Engine::RenderGraphNodeKind::Resource)
+        {
+            layoutResources.push_back(&node);
+        }
+    }
+    const auto resourceKindRank = [](Engine::RenderGraphResourceKind kind) {
+        switch (kind)
+        {
+            case Engine::RenderGraphResourceKind::Texture:
+                return 0;
+            case Engine::RenderGraphResourceKind::Buffer:
+                return 1;
+            default:
+                return 2;
+        }
+    };
+    std::sort(layoutResources.begin(), layoutResources.end(), [&resourceKindRank](const auto* lhs, const auto* rhs) {
+        const int lhsKind = resourceKindRank(lhs->resourceKind);
+        const int rhsKind = resourceKindRank(rhs->resourceKind);
+        if (lhsKind != rhsKind)
+        {
+            return lhsKind < rhsKind;
+        }
+        const std::string lhsLogicalName = LogicalResourceName(lhs->name);
+        const std::string rhsLogicalName = LogicalResourceName(rhs->name);
+        if (lhsLogicalName != rhsLogicalName)
+        {
+            return lhsLogicalName < rhsLogicalName;
+        }
+        if (lhs->physicalIndex != rhs->physicalIndex)
+        {
+            return lhs->physicalIndex < rhs->physicalIndex;
+        }
+        return lhs->name < rhs->name;
+    });
+    std::unordered_map<Engine::RenderGraphDocumentId, size_t> layoutRows;
+    size_t layoutRow = 0;
+    int previousKind = -1;
+    for (const Engine::RenderGraphDocumentNode* resource : layoutResources)
+    {
+        const int kind = resourceKindRank(resource->resourceKind);
+        if (previousKind >= 0 && kind != previousKind)
+        {
+            layoutRow += 1;
+        }
+        layoutRows[resource->id] = layoutRow++;
+        previousKind = kind;
+    }
+
     bool layoutChanged = false;
     for (const Engine::RenderGraphDocumentNode& node : document.nodes)
     {
-        layoutChanged |= m_impl->PositionNode(node, resourceIndex);
-        if (node.kind == Engine::RenderGraphNodeKind::Resource)
-        {
-            ++resourceIndex;
-        }
+        const bool matchesFilters = m_impl->MatchesFilters(document, node);
+        const size_t resourceRow = node.kind == Engine::RenderGraphNodeKind::Resource ? layoutRows.at(node.id) : 0;
+        layoutChanged |= m_impl->PositionNode(node, resourceRow);
 
         float contentWidth = ImGui::CalcTextSize(node.name.c_str()).x;
         size_t readPinCount = 0;
@@ -193,17 +914,45 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
             const std::string lifetime =
                 "Lifetime [" + std::to_string(node.firstPass) + ", " + std::to_string(node.lastPass) + "]";
             contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(lifetime.c_str()).x);
+            if (!node.logicalGroupName.empty())
+            {
+                contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize("[0] Current Write").x);
+                contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(node.logicalGroupName.c_str()).x);
+            }
+        }
+        else
+        {
+            contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize("GPU 0000.000 ms").x);
         }
         float& stableContentWidth = m_impl->stableContentWidths[node.id.value];
         stableContentWidth = (std::max)(stableContentWidth, contentWidth);
         contentWidth = stableContentWidth;
 
-        NodeEditor::PushStyleColor(NodeEditor::StyleColor_NodeBg, NodeBackgroundColor(node));
+        ImVec4 backgroundColor = NodeBackgroundColor(node);
+        if (snapshotDiff.has_value() && ContainsId(snapshotDiff->addedNodes, node.id))
+        {
+            backgroundColor = ImVec4(0.08f, 0.32f, 0.14f, 0.96f);
+        }
+        else if (snapshotDiff.has_value() && ContainsId(snapshotDiff->changedNodes, node.id))
+        {
+            backgroundColor = ImVec4(0.38f, 0.25f, 0.05f, 0.96f);
+        }
+        backgroundColor.w *= matchesFilters ? 1.0f : 0.18f;
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, matchesFilters ? 1.0f : 0.28f);
+        NodeEditor::PushStyleColor(NodeEditor::StyleColor_NodeBg, backgroundColor);
         NodeEditor::BeginNode(ToNodeId(node.id));
         ImGui::TextUnformatted(node.name.c_str());
         if (node.kind == Engine::RenderGraphNodeKind::Resource)
         {
             ImGui::TextDisabled("%s", ResourceKindLabel(node.resourceKind));
+            if (!node.logicalGroupName.empty())
+            {
+                const ImVec4 roleColor = node.pingPongRole == Engine::RenderGraphPingPongRole::HistoryRead
+                                             ? ImVec4(0.30f, 0.85f, 0.90f, 1.0f)
+                                             : ImVec4(1.0f, 0.78f, 0.20f, 1.0f);
+                ImGui::TextColored(
+                    roleColor, "[%d] %s", node.physicalIndex, PingPongRoleLabel(node.pingPongRole));
+            }
         }
         const ImVec2 separatorStart = ImGui::GetCursorScreenPos();
         ImGui::GetWindowDrawList()->AddLine(separatorStart,
@@ -250,14 +999,57 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         {
             ImGui::TextDisabled("Lifetime [%d, %d]", node.firstPass, node.lastPass);
         }
+        else
+        {
+            const auto timingValue = m_impl->passTimings.find(node.passIndex);
+            if (timingValue != m_impl->passTimings.end() && !timingValue->second.values.empty())
+            {
+                ImGui::TextDisabled("GPU %8.3f ms", timingValue->second.Value(m_impl->timingMode));
+            }
+            else
+            {
+                ImGui::TextDisabled("GPU N/A");
+            }
+        }
         NodeEditor::EndNode();
         NodeEditor::PopStyleColor();
+        ImGui::PopStyleVar();
     }
 
     for (const Engine::RenderGraphDocumentLink& link : document.links)
     {
-        const ImVec4 color = link.access == Engine::RenderGraphResourceAccess::Read ? ImVec4(0.35f, 0.70f, 1.0f, 1.0f)
-                                                                                    : ImVec4(1.0f, 0.65f, 0.25f, 1.0f);
+        const Engine::RenderGraphDocumentNode* passNode = FindNode(document, link.passNodeId);
+        const Engine::RenderGraphDocumentNode* resourceNode = FindNode(document, link.resourceNodeId);
+        const bool matchesFilters = passNode != nullptr && resourceNode != nullptr &&
+                                    m_impl->MatchesFilters(document, *passNode) &&
+                                    m_impl->MatchesFilters(document, *resourceNode);
+        ImVec4 color = link.access == Engine::RenderGraphResourceAccess::Read ? ImVec4(0.35f, 0.70f, 1.0f, 1.0f)
+                                                                              : ImVec4(1.0f, 0.65f, 0.25f, 1.0f);
+        bool snapshotColor = false;
+        if (snapshotDiff.has_value() && ContainsId(snapshotDiff->addedLinks, link.id))
+        {
+            color = ImVec4(0.25f, 1.0f, 0.40f, 1.0f);
+            snapshotColor = true;
+        }
+        else if (snapshotDiff.has_value() && ContainsId(snapshotDiff->changedLinks, link.id))
+        {
+            color = ImVec4(1.0f, 0.75f, 0.20f, 1.0f);
+            snapshotColor = true;
+        }
+        if (!snapshotColor)
+        {
+            for (const Engine::RenderGraphStateDiagnostic& diagnostic : stateDiagnostics)
+            {
+                if (diagnostic.resourceNodeId == link.resourceNodeId && diagnostic.afterPassNodeId == link.passNodeId)
+                {
+                    color = diagnostic.kind == Engine::RenderGraphStateDiagnosticKind::UavBarrierCandidate
+                                ? ImVec4(1.0f, 0.90f, 0.20f, 1.0f)
+                                : ImVec4(0.95f, 0.30f, 0.95f, 1.0f);
+                    break;
+                }
+            }
+        }
+        color.w = matchesFilters ? 1.0f : 0.10f;
         const NodeEditor::PinId resourcePinId = m_impl->ResourcePinId(link.resourceNodeId, link.access);
         const NodeEditor::PinId fromPinId =
             link.access == Engine::RenderGraphResourceAccess::Read ? resourcePinId : ToPinId(link.fromPinId);
@@ -267,10 +1059,74 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     }
 
     NodeEditor::End();
+    if (focusRequested)
+    {
+        for (const Engine::RenderGraphDocumentNode& node : document.nodes)
+        {
+            if (m_impl->MatchesFilters(document, node))
+            {
+                NodeEditor::ClearSelection();
+                NodeEditor::SelectNode(ToNodeId(node.id));
+                NodeEditor::NavigateToSelection(false, 0.25f);
+                m_impl->selectedNodeId = node.id;
+                break;
+            }
+        }
+    }
+    if (NodeEditor::HasSelectionChanged())
+    {
+        NodeEditor::NodeId selectedNode;
+        if (NodeEditor::GetSelectedNodes(&selectedNode, 1) == 1)
+        {
+            m_impl->selectedNodeId.reset();
+            for (const Engine::RenderGraphDocumentNode& node : document.nodes)
+            {
+                if (ToNodeId(node.id) == selectedNode)
+                {
+                    m_impl->selectedNodeId = node.id;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            m_impl->selectedNodeId.reset();
+        }
+    }
     if (fitRequested || layoutChanged)
     {
         NodeEditor::NavigateToContent(0.0f);
     }
+    else if (focusSelectedRequested)
+    {
+        NodeEditor::NavigateToSelection(false, 0.25f);
+    }
     NodeEditor::SetCurrentEditor(nullptr);
+    ImGui::EndChild();
+
+    ImGui::SameLine();
+    ImGui::BeginChild("RenderGraphDetailPane", ImVec2(0.0f, contentSize.y), true);
+    constexpr float nodeDetailsHeight = 260.0f;
+    ImGui::BeginChild("RenderGraphNodeDetailsPane", ImVec2(0.0f, nodeDetailsHeight), false);
+    DrawDetailPanel(document, m_impl->selectedNodeId, m_impl->passTimings, m_impl->totalTiming, m_impl->timingMode);
+    ImGui::EndChild();
+    const std::optional<Engine::RenderGraphDocumentId> timelineSelection =
+        DrawLifetimeTimeline(document, m_impl->selectedNodeId);
+    DrawStateDiagnostics(document, stateDiagnostics, barrierDiagnostics);
+    const std::optional<Engine::RenderGraphDocumentId> validationSelection =
+        DrawValidationMessages(validationMessages);
+    ImGui::EndChild();
+
+    const std::optional<Engine::RenderGraphDocumentId> requestedSelection =
+        validationSelection.has_value() ? validationSelection : timelineSelection;
+    if (requestedSelection.has_value())
+    {
+        m_impl->selectedNodeId = requestedSelection;
+        NodeEditor::SetCurrentEditor(m_impl->context);
+        NodeEditor::ClearSelection();
+        NodeEditor::SelectNode(ToNodeId(*requestedSelection));
+        NodeEditor::NavigateToSelection(false, 0.25f);
+        NodeEditor::SetCurrentEditor(nullptr);
+    }
 }
 } // namespace RtPbrSurvey

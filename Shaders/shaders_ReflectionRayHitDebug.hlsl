@@ -13,6 +13,8 @@ Texture2D<float4> g_reflectionRayColor : register(t0, space7);
 Texture2D<float4> g_reflectionRayMaterial : register(t0, space8);
 Texture2D<float4> g_reflectionEvaluatedRadiance : register(t0, space9);
 Texture2D<float4> g_reflectionRayEmission : register(t0, space10);
+Texture2D<float2> g_reflectionSpecularMoments : register(t0, space15);
+Texture2D<float> g_reflectionSpecularConfidence : register(t0, space17);
 SamplerState g_sampler : register(s0);
 
 static const float PI = 3.14159265;
@@ -193,6 +195,59 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     {
         float confidence = g_reflectionEvaluatedRadiance.Sample(g_sampler, input.uv).r;
         return float4(confidence.xxx, 1.0);
+    }
+
+    if (debugTarget == 17)
+    {
+        const int2 pixel = int2(input.position.xy);
+        uint width;
+        uint height;
+        g_reflectionSpecularMoments.GetDimensions(width, height);
+        const int2 maxPixel = int2(width, height) - 1;
+        const float2 moments = g_reflectionSpecularMoments.Load(int3(pixel, 0));
+        const float variance = max(moments.y - moments.x * moments.x, 0.0);
+        const float mappedVariance = variance / (1.0 + variance);
+        const float confidence = saturate(g_reflectionSpecularConfidence.Load(int3(pixel, 0)));
+        const float centerDepth = g_depth.Load(int3(pixel, 0));
+        const float3 centerNormal = normalize(g_normal.Load(int3(pixel, 0)).xyz);
+        const float centerRoughness = g_pbrParams.Load(int3(pixel, 0)).y;
+        const float4 centerHit = g_reflectionRayHit.Load(int3(pixel, 0));
+        const bool centerHitValid = centerHit.y >= 0.5;
+        float acceptedNeighborCount = 0.0;
+
+        for (int y = -1; y <= 1; ++y)
+        {
+            for (int x = -1; x <= 1; ++x)
+            {
+                if (x == 0 && y == 0)
+                {
+                    continue;
+                }
+
+                const int2 samplePixel = clamp(pixel + int2(x, y), int2(0, 0), maxPixel);
+                const float sampleDepth = g_depth.Load(int3(samplePixel, 0));
+                const float3 sampleNormal = normalize(g_normal.Load(int3(samplePixel, 0)).xyz);
+                const float sampleRoughness = g_pbrParams.Load(int3(samplePixel, 0)).y;
+                const float4 sampleHit = g_reflectionRayHit.Load(int3(samplePixel, 0));
+                const bool sampleHitValid = sampleHit.y >= 0.5;
+                const bool depthValid = abs(sampleDepth - centerDepth) <= 0.002;
+                const bool normalValid = dot(sampleNormal, centerNormal) >= 0.95;
+                const bool roughnessValid = abs(sampleRoughness - centerRoughness) <= 0.1;
+                bool reflectionValid = sampleHitValid == centerHitValid;
+                if (reflectionValid && centerHitValid)
+                {
+                    const float distanceThreshold = max(0.05, centerHit.x * 0.1);
+                    const bool distanceValid = abs(sampleHit.x - centerHit.x) <= distanceThreshold;
+                    const float3 centerHitNormal = DecodeNormalOctahedron(centerHit.zw);
+                    const float3 sampleHitNormal = DecodeNormalOctahedron(sampleHit.zw);
+                    reflectionValid = distanceValid && dot(sampleHitNormal, centerHitNormal) >= 0.8;
+                }
+
+                acceptedNeighborCount += depthValid && normalValid && roughnessValid && reflectionValid ? 1.0 : 0.0;
+            }
+        }
+
+        return float4(confidence, mappedVariance, acceptedNeighborCount / 8.0, 1.0);
     }
 
     if (debugTarget >= 9 && debugTarget <= 12)

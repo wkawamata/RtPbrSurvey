@@ -79,11 +79,15 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
         throw std::invalid_argument(
             "-ReflectionHdrDiagnostics is mutually exclusive with screenshot capture automation.");
     }
-    if (m_commandLineOptions.autoSelectGltfDamagedHelmet &&
-        m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
+    const UINT autoSelectModeCount =
+        static_cast<UINT>(m_commandLineOptions.autoSelectGltfDamagedHelmet) +
+        static_cast<UINT>(!m_commandLineOptions.autoSelectGltfAssetName.empty()) +
+        static_cast<UINT>(m_commandLineOptions.autoSelectHybridReflectionEstimatorTest);
+    if (autoSelectModeCount > 1)
     {
         throw std::invalid_argument(
-            "-AutoSelectGltfDamagedHelmet and -AutoSelectHybridReflectionEstimatorTest are mutually exclusive.");
+            "-AutoSelectGltfDamagedHelmet, -AutoSelectGltfAsset, and "
+            "-AutoSelectHybridReflectionEstimatorTest are mutually exclusive.");
     }
     if (!m_commandLineOptions.reflectionCapturePlanPath.empty())
     {
@@ -202,6 +206,7 @@ void RtPbrSurveyApp::OnInit()
     }
 
     if (m_commandLineOptions.autoSelectGltfDamagedHelmet ||
+        !m_commandLineOptions.autoSelectGltfAssetName.empty() ||
         m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
     {
         if (m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
@@ -219,6 +224,34 @@ void RtPbrSurveyApp::OnInit()
             }
             m_selectedSceneIndex = static_cast<int>(std::distance(m_sampleScenes.begin(), scene));
         }
+        else if (!m_commandLineOptions.autoSelectGltfAssetName.empty())
+        {
+            const auto scene = std::find_if(
+                m_sampleScenes.begin(),
+                m_sampleScenes.end(),
+                [this](const std::unique_ptr<Engine::SampleScene>& candidate)
+                {
+                    const char* candidateName = candidate->Name();
+                    const int requiredLength = MultiByteToWideChar(
+                        CP_UTF8, 0, candidateName, -1, nullptr, 0);
+                    if (requiredLength <= 1)
+                    {
+                        return false;
+                    }
+                    std::wstring wideCandidateName(static_cast<size_t>(requiredLength), L'\0');
+                    MultiByteToWideChar(
+                        CP_UTF8, 0, candidateName, -1, wideCandidateName.data(), requiredLength);
+                    return _wcsicmp(
+                               wideCandidateName.c_str(),
+                               m_commandLineOptions.autoSelectGltfAssetName.c_str()) == 0;
+                });
+            if (scene == m_sampleScenes.end() ||
+                !IsGltfViewerSceneIndex(static_cast<int>(std::distance(m_sampleScenes.begin(), scene))))
+            {
+                throw std::runtime_error("Requested glTF viewer asset is unavailable.");
+            }
+            m_selectedSceneIndex = static_cast<int>(std::distance(m_sampleScenes.begin(), scene));
+        }
         else
         {
             m_selectedSceneIndex = kDefaultSceneIndex;
@@ -227,11 +260,25 @@ void RtPbrSurveyApp::OnInit()
 
         // HDR diagnostics must not inherit interactive user camera overrides. The
         // manifest ROIs and camera motion are defined against versioned scene defaults.
-        if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty())
+        if (m_commandLineOptions.useSceneDefaults ||
+            !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty())
         {
             m_sceneConfig.LoadDefaultsForScene(
                 m_selectedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
             ApplyRayReconstructionCommandLineOverrides();
+        }
+
+        if (m_debugCamera.GetMode() == RtPbrSurvey::DebugCameraController::Mode::Arcball &&
+            m_commandLineOptions.reflectionCameraDistanceScale != 1.0f)
+        {
+            m_debugCamera.SetObjectViewerState(
+                m_debugCamera.ObjectViewerYaw(),
+                m_debugCamera.ObjectViewerPitch(),
+                (std::max)(0.1f,
+                           m_debugCamera.ObjectViewerDistance() *
+                               m_commandLineOptions.reflectionCameraDistanceScale),
+                m_debugCamera.ObjectViewerPivot());
+            m_debugCamera.UpdateObjectViewerCamera();
         }
         m_debugUiVisible = false;
 
@@ -265,6 +312,8 @@ void RtPbrSurveyApp::OnInit()
                 m_commandLineOptions.reflectionRejectedPixelNeighborhood;
             reflectionSettings.surfaceVarianceFilterEnabled =
                 m_commandLineOptions.reflectionSurfaceVarianceFilter;
+            reflectionSettings.spatiotemporalSpatialPolicyEnabled =
+                m_commandLineOptions.reflectionSpatiotemporalSpatialPolicy;
             reflectionSettings.varianceGuidedTemporalEnabled =
                 m_commandLineOptions.reflectionVarianceGuidedTemporal;
             if (m_commandLineOptions.hasReflectionTemporalWeight)
@@ -796,6 +845,7 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
     const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
     const RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
         m_sceneRenderer.GetHybridReflectionSettings();
+    const RtPbrSurveyEngine::CameraState& camera = m_sceneRenderer.GetCamera();
 
     const auto meanLuminance = [](const std::vector<Engine::ReflectionHdrDiagnosticSample>& samples)
     {
@@ -1097,13 +1147,50 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         };
     }
     const json report = {
-        {"schemaVersion", 13},
+        {"schemaVersion", 15},
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
+        {"comparisonMetadata",
+         {{"renderingPath", m_renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred ? "deferred" : "forward"},
+          {"signalBoundaries",
+           {{"evaluatedRadiance", "current-reflection-unweighted-linear-hdr"},
+            {"resolvedRadiance", "resolved-reflection-unweighted-linear-hdr"},
+            {"denoisedRadiance", "spatial-reflection-unweighted-linear-hdr"}}},
+          {"reflectionSettings",
+           {{"enabled", reflectionSettings.enabled},
+            {"materialGateEnabled", reflectionSettings.materialGateEnabled},
+            {"maximumRoughness", reflectionSettings.maxRoughness},
+            {"minimumMetallic", reflectionSettings.minMetallic},
+            {"contributionEnabled", reflectionSettings.contributionEnabled},
+            {"contributionIntensity", reflectionSettings.contributionIntensity},
+            {"contributionMaximumDistance", reflectionSettings.contributionMaxDistance}}},
+          {"outputSize", {{"width", context.outputWidth}, {"height", context.outputHeight}}},
+          {"camera",
+           {{"position", {camera.pos.x, camera.pos.y, camera.pos.z}},
+            {"rotation", {camera.rot.x, camera.rot.y, camera.rot.z}},
+            {"gazePoint", {camera.gazePoint.x, camera.gazePoint.y, camera.gazePoint.z}},
+            {"up", {camera.up.x, camera.up.y, camera.up.z}},
+            {"projection", camera.projection == Engine::CameraProjection::Perspective ? "perspective" : "orthographic"},
+            {"fovYDegrees", camera.fov},
+            {"orthographicHeight", camera.orthographicHeight},
+            {"nearZ", camera.nearZ},
+            {"farZ", camera.farZ}}},
+          {"presentation",
+           {{"toneMapOperator",
+             m_toneMapParams.operatorIndex == 0 ? "none" :
+             m_toneMapParams.operatorIndex == 1 ? "reinhard" : "aces"},
+            {"toneMapOperatorIndex", m_toneMapParams.operatorIndex},
+            {"exposure", m_toneMapParams.exposure},
+            {"paperWhiteNits", m_toneMapParams.paperWhiteNits},
+            {"maxDisplayNits", m_toneMapParams.maxDisplayNits}}}}},
         {"specularEstimateIncidentRadiance",
          reflectionSettings.estimatorConstantIncidentRadianceEnabled ? "constant-white-1" : "traced-scene"},
+        {"stochasticSamplingEnabled", reflectionSettings.stochasticSamplingEnabled},
+        {"hitNormalSource",
+         reflectionSettings.hitNormalSource == 0 ? "gbuffer-world-normal" : "attribute-geometric-normal"},
         {"varianceGuidedTemporalEnabled", reflectionSettings.varianceGuidedTemporalEnabled},
         {"edgeAwareSpatialFilterEnabled", reflectionSettings.surfaceVarianceFilterEnabled},
+        {"spatiotemporalSpatialPolicyEnabled", reflectionSettings.spatiotemporalSpatialPolicyEnabled},
         {"denoisedRadianceSource",
          reflectionSettings.surfaceVarianceFilterEnabled ? "ReflectionDenoisedRadiance" :
                                                            "ReflectionResolvedRadiance identity fallback"},

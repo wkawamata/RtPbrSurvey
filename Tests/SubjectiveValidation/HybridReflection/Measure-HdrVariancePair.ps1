@@ -11,7 +11,8 @@ param(
     [double]$TemporalWeight = 0.9,
     [ValidateSet("damaged-helmet", "estimator-test")]
     [string]$Scene = "damaged-helmet",
-    [double]$CameraDistanceScale = 1.0
+    [double]$CameraDistanceScale = 1.0,
+    [switch]$CompareSpatiotemporalPolicy
 )
 
 Set-StrictMode -Version Latest
@@ -29,7 +30,7 @@ $outputStem = [System.IO.Path]::GetFileNameWithoutExtension($output)
 $offPath = Join-Path $outputDirectory "$outputStem-off.json"
 $onPath = Join-Path $outputDirectory "$outputStem-on.json"
 
-function Invoke-Diagnostic([string]$ReportPath, [bool]$FilterEnabled)
+function Invoke-Diagnostic([string]$ReportPath, [bool]$FilterEnabled, [bool]$PolicyEnabled)
 {
     if (Test-Path -LiteralPath $ReportPath)
     {
@@ -57,6 +58,10 @@ function Invoke-Diagnostic([string]$ReportPath, [bool]$FilterEnabled)
     {
         $arguments += "-ReflectionSurfaceVarianceFilter"
     }
+    if ($PolicyEnabled)
+    {
+        $arguments += "-ReflectionSpatiotemporalSpatialPolicy"
+    }
 
     $process = Start-Process -FilePath $executable -ArgumentList $arguments -PassThru -Wait
     if ($process.ExitCode -ne 0)
@@ -70,8 +75,8 @@ function Invoke-Diagnostic([string]$ReportPath, [bool]$FilterEnabled)
     return Get-Content -LiteralPath $ReportPath -Raw -Encoding UTF8 | ConvertFrom-Json
 }
 
-$off = Invoke-Diagnostic $offPath $false
-$on = Invoke-Diagnostic $onPath $true
+$off = Invoke-Diagnostic $offPath $CompareSpatiotemporalPolicy.IsPresent $false
+$on = Invoke-Diagnostic $onPath $true $CompareSpatiotemporalPolicy.IsPresent
 
 $offSampling = @($off.frames | ForEach-Object { $_.samplingFrameIndex })
 $onSampling = @($on.frames | ForEach-Object { $_.samplingFrameIndex })
@@ -95,8 +100,15 @@ $offVariance = [double]$offDenoised.temporalVariance
 $onVariance = [double]$onDenoised.temporalVariance
 
 $pairedReport = [ordered]@{
-    schemaVersion = 1
-    comparison = "surface-variance-filter-off-on"
+    schemaVersion = 2
+    comparison = if ($CompareSpatiotemporalPolicy)
+    {
+        "fixed-spatial-filter-vs-bounded-spatiotemporal-policy"
+    }
+    else
+    {
+        "surface-variance-filter-off-on"
+    }
     signalDomain = "linear-hdr"
     reference = "none"
     currentEstimatorMeanBaseline = [ordered]@{
@@ -119,7 +131,16 @@ $pairedReport = [ordered]@{
         sampleAndTemporalIndexSequencesMatch = $sampleSequenceMatches
         temporalWeight = $TemporalWeight
         stochasticSamplingEnabled = $true
-        onlyIntentionalDifference = "surfaceVarianceFilterEnabled"
+        onlyIntentionalDifference = if ($CompareSpatiotemporalPolicy)
+        {
+            "spatiotemporalSpatialPolicyEnabled"
+        }
+        else
+        {
+            "surfaceVarianceFilterEnabled"
+        }
+        variantA = if ($CompareSpatiotemporalPolicy) { "fixed-spatial-filter" } else { "filter-off" }
+        variantB = if ($CompareSpatiotemporalPolicy) { "bounded-spatiotemporal-policy" } else { "filter-on" }
     }
     roi = $off.roi
     filterOffReport = [System.IO.Path]::GetFileName($offPath)
@@ -132,6 +153,14 @@ $pairedReport = [ordered]@{
         denoisedVarianceReductionPercent = if ($offVariance -gt 0.0)
         {
             100.0 * (1.0 - $onVariance / $offVariance)
+        }
+        else
+        {
+            $null
+        }
+        denoisedVarianceChangeBRelativeToAPercent = if ($offVariance -gt 0.0)
+        {
+            100.0 * ($onVariance / $offVariance - 1.0)
         }
         else
         {
@@ -177,7 +206,7 @@ $json = $pairedReport | ConvertTo-Json -Depth 12
 
 [PSCustomObject]@{
     sampleSequenceMatches = $sampleSequenceMatches
-    varianceReductionPercent = $pairedReport.result.denoisedVarianceReductionPercent
+    varianceChangeBRelativeToAPercent = $pairedReport.result.denoisedVarianceChangeBRelativeToAPercent
     meanRelativeDifference = $pairedReport.result.denoisedMeasurementMeanRelativeDifference
     report = $output
 } | Format-List

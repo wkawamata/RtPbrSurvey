@@ -604,7 +604,8 @@ namespace RtPbrSurvey
         }
     }
 
-    void SceneRendererDebugUi::DrawRenderGraphDiagnostics(SceneRenderer& renderer)
+    void SceneRendererDebugUi::DrawRenderGraphDiagnostics(SceneRenderer& renderer,
+                                                          const RenderGraphGpuTimingSnapshot* timing)
     {
         const Engine::RenderGraphDocument document = renderer.CaptureRenderGraphDocument();
         const std::string textDump = Engine::DumpRenderGraphDocumentText(document);
@@ -645,7 +646,10 @@ namespace RtPbrSurvey
         if (dumpFormat == 2)
         {
             static RenderGraphNodeEditorView nodeEditorView;
-            nodeEditorView.Draw(document);
+            const std::vector<Engine::RenderGraphBarrierDiagnostic> barrierDiagnostics =
+                renderer.GetRenderGraphBarrierDiagnostics();
+            nodeEditorView.Draw(
+                document, timing, renderer.HasRenderGraphBarrierEvents() ? &barrierDiagnostics : nullptr);
         }
         else
         {
@@ -658,7 +662,9 @@ namespace RtPbrSurvey
         }
     }
 
-    void SceneRendererDebugUi::DrawRenderGraphWindow(SceneRenderer& renderer, bool* open)
+    void SceneRendererDebugUi::DrawRenderGraphWindow(SceneRenderer& renderer,
+                                                     bool* open,
+                                                     const RenderGraphGpuTimingSnapshot* timing)
     {
         if (open == nullptr || !*open)
         {
@@ -707,7 +713,7 @@ namespace RtPbrSurvey
             ImGui::SameLine();
             ImGui::TextDisabled("Read-only diagnostics");
             ImGui::Separator();
-            DrawRenderGraphDiagnostics(renderer);
+            DrawRenderGraphDiagnostics(renderer, timing);
         }
         ImGui::End();
     }

@@ -127,6 +127,10 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
         case RenderViewMode::ReflectionSpecularConfidence:
             return "ReflectionSpecularConfidence visualizes persistent variance confidence.\n"
                    "White indicates sustained high-variance evidence; rejected or reset history is black.";
+        case RenderViewMode::ReflectionSpatialPolicyInputs:
+            return "Spatial policy inputs: R=persistent variance confidence, G=mapped temporal variance, "
+                   "B=edge-safe non-center neighbor fraction.\n"
+                   "This diagnostic does not mean that spatial filtering was applied.";
         case RenderViewMode::ReflectionResolvedRadiance:
             return "ReflectionResolvedRadiance is unweighted radiance after the experimental temporal blend.\n"
                    "Compare it with Evaluated Radiance to observe static stabilization and unreprojected motion trails.";
@@ -146,6 +150,28 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
         default:
             return nullptr;
     }
+}
+
+RtPbrSurvey::RenderGraphGpuTimingSnapshot
+BuildRenderGraphGpuTimingSnapshot(const std::vector<MyDx12Util::GpuWorkMeter::CheckPoint>& checkPoints)
+{
+    RtPbrSurvey::RenderGraphGpuTimingSnapshot snapshot;
+    if (checkPoints.size() < 2)
+    {
+        return snapshot;
+    }
+
+    snapshot.totalGpuTimeMs = checkPoints.back().timeStamp;
+    for (size_t checkPointIndex = 1; checkPointIndex + 1 < checkPoints.size(); ++checkPointIndex)
+    {
+        const auto& checkPoint = checkPoints[checkPointIndex];
+        const float durationMs = checkPoint.timeStamp - checkPoints[checkPointIndex - 1].timeStamp;
+        if (checkPoint.passIndex >= 0)
+        {
+            snapshot.samples.push_back({checkPoint.passIndex, durationMs});
+        }
+    }
+    return snapshot;
 }
 
 std::filesystem::path MakeScreenshotPath()
@@ -254,6 +280,47 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     ImGui::SetNextWindowSize(ImVec2(400, 140), ImGuiCond_FirstUseEver);
     ImGui::Begin("Debug");
 
+    Engine::SampleScene& loadedScene = app.LoadedScene();
+    Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();
+
+    ImGui::TextDisabled("Current Scene");
+    const char* sceneName = loadedScene.Name();
+    const char* sceneNameBreak = strchr(sceneName, ':');
+    bool closeSceneRequested = false;
+    if (sceneNameBreak != nullptr && sceneNameBreak[1] == ' ')
+    {
+        ImGui::TextColored(ImVec4(0.65f, 0.78f, 0.95f, 1.0f), "%.*s",
+                           static_cast<int>(sceneNameBreak - sceneName),
+                           sceneName);
+        ImGui::Indent();
+        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneNameBreak + 2);
+        ImGui::SameLine(0.0f, 12.0f);
+        closeSceneRequested = ImGui::Button("Close Scene");
+        ImGui::Unindent();
+    }
+    else
+    {
+        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneName);
+        ImGui::SameLine(0.0f, 12.0f);
+        closeSceneRequested = ImGui::Button("Close Scene");
+    }
+    if (closeSceneRequested)
+    {
+        app.CloseRunningScene();
+        ImGui::End();
+        return;
+    }
+    ImGui::Separator();
+    ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
+    ImGui::Text("FrameIndex: %d", context.frameIndex);
+    ImGui::Text("Rendering Buffers (GBuffer): %u x %u", context.renderWidth, context.renderHeight);
+    ImGui::Text("Output Buffer: %u x %u", context.outputWidth, context.outputHeight);
+    ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
+                context.rayTracingSupported ? "Supported" : "Not supported",
+                context.rayTracingTierName,
+                context.rayTracingTierRaw);
+    ImGui::Checkbox("Open RenderGraph Window", &renderGraphWindowOpen);
+
     if (ImGui::CollapsingHeader("Screenshot"))
     {
         if (ImGui::Button("Capture PNG"))
@@ -268,40 +335,30 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
-    Engine::SampleScene& loadedScene = app.LoadedScene();
-    Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();
+    if (ImGui::CollapsingHeader("WorkMeter"))
+    {
+        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
 
-    ImGui::TextDisabled("Current Scene");
-    const char* sceneName = loadedScene.Name();
-    const char* sceneNameBreak = strchr(sceneName, ':');
-    if (sceneNameBreak != nullptr && sceneNameBreak[1] == ' ')
-    {
-        ImGui::TextColored(ImVec4(0.65f, 0.78f, 0.95f, 1.0f), "%.*s",
-                           static_cast<int>(sceneNameBreak - sceneName),
-                           sceneName);
-        ImGui::Indent();
-        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneNameBreak + 2);
-        ImGui::Unindent();
+        const auto& gpuCheckPoints = context.gpuCheckPoints;
+        const size_t gpuCheckPointCount = gpuCheckPoints.size();
+        if (gpuCheckPointCount >= 2)
+        {
+            for (int i = 1; i < static_cast<int>(gpuCheckPointCount); i++)
+            {
+                const auto& checkPoint = gpuCheckPoints[i];
+                if (i < static_cast<int>(gpuCheckPointCount) - 1)
+                {
+                    const float timeFromPrevious = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
+                    ImGui::Text("GPU[%d] %s: %f ms", i, checkPoint.name.c_str(), timeFromPrevious);
+                }
+                else
+                {
+                    ImGui::Text("GPU[%d] Total: %f ms", i, checkPoint.timeStamp);
+                }
+            }
+        }
     }
-    else
-    {
-        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneName);
-    }
-    ImGui::Separator();
-    ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
-    ImGui::Text("FrameIndex: %d", context.frameIndex);
-    ImGui::Text("Rendering Buffers (GBuffer): %u x %u", context.renderWidth, context.renderHeight);
-    ImGui::Text("Output Buffer: %u x %u", context.outputWidth, context.outputHeight);
-    ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
-                context.rayTracingSupported ? "Supported" : "Not supported",
-                context.rayTracingTierName,
-                context.rayTracingTierRaw);
-    if (ImGui::Button("Close Scene"))
-    {
-        app.CloseRunningScene();
-        ImGui::End();
-        return;
-    }
+
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
     {
         int cameraMode = static_cast<int>(app.DebugCamera().GetMode());
@@ -677,6 +734,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                               "Uses visible depth/normal/roughness and reflection hit distance/normal gates.");
         }
         ImGui::TextWrapped("Experimental default-off post-temporal filter. It does not feed reflection history.");
+        ImGui::BeginDisabled(!reflectionSettings.surfaceVarianceFilterEnabled);
+        changed |= ImGui::Checkbox("Spatiotemporal Spatial Policy", &reflectionSettings.spatiotemporalSpatialPolicyEnabled);
+        ImGui::TextWrapped("Default-off bounded strength policy using temporal variance confidence and moments. "
+                           "Disabled preserves the fixed spatial-filter comparison path.");
+        ImGui::EndDisabled();
         changed |= ImGui::Checkbox("Variance-Guided Temporal", &reflectionSettings.varianceGuidedTemporalEnabled);
         ImGui::TextWrapped("Experimental default-off weighted-estimator history adjustment. Roughness >= 0.75 and prior relative variance >= 0.5 select a bounded 0.94 history weight.");
         ImGui::TextWrapped("Experimental motion-reprojected blend with depth/normal rejection. Debug noise is injected before history accumulation and is disabled at zero.");
@@ -764,6 +826,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton("Specular Variance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionSpecularVariance));
         ImGui::SameLine();
         ImGui::RadioButton("Specular Confidence##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionSpecularConfidence));
+        ImGui::RadioButton("Spatial Policy Inputs##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionSpatialPolicyInputs));
         ImGui::RadioButton("Resolved Radiance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionResolvedRadiance));
         ImGui::SameLine();
         ImGui::RadioButton("Temporal Validity##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionTemporalValidity));
@@ -794,6 +857,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate ||
              app.m_renderViewMode == RenderViewMode::ReflectionSpecularVariance ||
              app.m_renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
+             app.m_renderViewMode == RenderViewMode::ReflectionSpatialPolicyInputs ||
              app.m_renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
              app.m_renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
@@ -817,6 +881,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate ||
              app.m_renderViewMode == RenderViewMode::ReflectionSpecularVariance ||
              app.m_renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
+             app.m_renderViewMode == RenderViewMode::ReflectionSpatialPolicyInputs ||
              app.m_renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
              app.m_renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
@@ -1218,37 +1283,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
-    if (ImGui::CollapsingHeader("WorkMeter"))
-    {
-        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
-
-        const auto& gpuCheckPoints = context.gpuCheckPoints;
-        const size_t gpuCheckPointCount = gpuCheckPoints.size();
-        if (gpuCheckPointCount >= 2)
-        {
-            for (int i = 1; i < static_cast<int>(gpuCheckPointCount); i++)
-            {
-                const auto& checkPoint = gpuCheckPoints[i];
-                if (i < static_cast<int>(gpuCheckPointCount) - 1)
-                {
-                    const float timeFromPrevious = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
-                    ImGui::Text("GPU[%d] %s: %f ms", i, checkPoint.name.c_str(), timeFromPrevious);
-                }
-                else
-                {
-                    ImGui::Text("GPU[%d] Total: %f ms", i, checkPoint.timeStamp);
-                }
-            }
-        }
-    }
-
-    if (ImGui::Button("Open RenderGraph Window"))
-    {
-        renderGraphWindowOpen = true;
-    }
-
     ImGui::End();
-    RtPbrSurvey::SceneRendererDebugUi::DrawRenderGraphWindow(app.m_sceneRenderer, &renderGraphWindowOpen);
+    const RtPbrSurvey::RenderGraphGpuTimingSnapshot renderGraphTiming =
+        BuildRenderGraphGpuTimingSnapshot(context.gpuCheckPoints);
+    RtPbrSurvey::SceneRendererDebugUi::DrawRenderGraphWindow(
+        app.m_sceneRenderer, &renderGraphWindowOpen, &renderGraphTiming);
 
     RtPbrSurveyEngine::LightingParams lightingParams = app.m_lightingParams;
     if (!app.m_iblEnabled)

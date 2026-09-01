@@ -24,6 +24,14 @@ Each capture path must be relative to the plan directory, end in `.png`, avoid p
 
 The plan is loaded with `-ReflectionCapturePlan <path>` and `-ReflectionCaptureVariant <variant>`. A plan implies the resolved-radiance capture mode. It remains mutually exclusive with the legacy `-CapturePath`. `-ExitAfterCapture` exits only after every planned PNG has completed.
 
+`Measure-HdrVariancePair.ps1 -CompareSpatiotemporalPolicy` keeps the edge-aware spatial pass enabled in both runs and varies only `-ReflectionSpatiotemporalSpatialPolicy`. Without the switch, the script preserves its original filter-off/filter-on comparison.
+
+`Invoke-ProductionQualityGates.ps1` loads versioned named ROIs from `production-quality-gate-profiles.json` and runs the fixed-filter versus bounded-policy comparison without manually copying coordinates. Its PASS result covers paired sequence identity, unchanged resolved-radiance control variance, and a declared mean-preservation threshold. Variance and frame-difference changes remain observations requiring quality interpretation; they are not converted into a production-readiness claim.
+
+Run `Tests\HybridReflection\Test-ComparisonMetadataReport.ps1 -ReportPath <report.json> -OutputPath <manifest.json>` for schema v15 comparison reports. It validates explicit linear-HDR signal boundaries, rendering path, render/output sizes, camera, exposure/tone-map state, reflection settings, stochastic state, and hit-normal source. The harness records the current source revision in the validation manifest; the application does not discover Git state at runtime.
+
+For additional glTF scene checks, `-AutoSelectGltfAsset <name>` selects an available glTF viewer asset by exact name. Add `-UseSceneDefaults` to ignore interactive user overrides and start from the versioned scene configuration. `-ReflectionCameraDistanceScale` may then apply a deterministic Arcball distance multiplier even when no screenshot automation is requested. The production-quality BoomBox framing uses `-AutoSelectGltfAsset BoomBox -UseSceneDefaults -ReflectionCameraDistanceScale 0.25`.
+
 Only one screenshot may be in flight. If the previous screenshot has not completed by the next requested frame, the plan fails instead of silently capturing a later frame. Capture frames should therefore have deliberate spacing.
 
 ## Phase C Repeatable Run

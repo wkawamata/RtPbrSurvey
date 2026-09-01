@@ -94,6 +94,23 @@ namespace
 {
 constexpr UINT kTemporalJitterSampleCount = 32;
 
+std::string WideToUtf8(const wchar_t* value)
+{
+    if (value == nullptr)
+    {
+        return {};
+    }
+    const int length = WideCharToMultiByte(CP_UTF8, 0, value, -1, nullptr, 0, nullptr, nullptr);
+    if (length <= 1)
+    {
+        return {};
+    }
+    std::string result(static_cast<size_t>(length), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, value, -1, result.data(), length, nullptr, nullptr);
+    result.pop_back();
+    return result;
+}
+
 float Halton(UINT index, UINT base)
 {
     float fraction = 1.0f;
@@ -396,7 +413,7 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_temporalJitterSampleIndex,
             m_temporalJitterHalton,
             m_jitterOffsetPixels,
-            m_frameResources[m_previousFrameIndex].gpuWorkMeterCheckPoints};
+            m_completedGpuWorkMeterCheckPoints};
 }
 
 void RtPbrSurveyEngine::SetUpdateHandler(UpdateHandler handler)
@@ -1030,7 +1047,8 @@ void RtPbrSurveyEngine::LoadPipeline()
 
     //
     m_gpuWorkMeter.Init(m_graphicsDevice.Device(),
-                        kGpuWorkMeterQueryCount); // Initialize GPU work meter with a maximum of 100 timestamp queries.
+                        kGpuWorkMeterQueryCount,
+                        kFrameCount); // Initialize GPU work meter with a maximum of 100 timestamp queries per frame.
 
 }
 
@@ -3540,6 +3558,7 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
                 UINT surfaceVarianceFilterEnabled;
                 UINT varianceGuidedTemporalEnabled;
                 UINT confidenceForceStableEvidence;
+                UINT spatiotemporalSpatialPolicyEnabled;
             };
             const TemporalReflectionConstants constants = {
                 m_reflectionHistoryState.valid ? 1u : 0u,
@@ -3549,8 +3568,9 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
                 m_hybridReflectionSettings.rejectedPixelNeighborhoodEnabled ? 1u : 0u,
                 m_hybridReflectionSettings.surfaceVarianceFilterEnabled ? 1u : 0u,
                 m_hybridReflectionSettings.varianceGuidedTemporalEnabled ? 1u : 0u,
-                m_hybridReflectionSettings.confidenceForceStableEvidence ? 1u : 0u};
-            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 8, &constants, 0);
+                m_hybridReflectionSettings.confidenceForceStableEvidence ? 1u : 0u,
+                m_hybridReflectionSettings.spatiotemporalSpatialPolicyEnabled ? 1u : 0u};
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 9, &constants, 0);
         });
     m_renderGraphRuntime.Constants().Register(
         m_renderGraphRuntime.RegisterConstants(ConstName::ReflectionSampling),
@@ -3798,7 +3818,10 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     CollectGarbageTransientResources();
     CollectDeferredGpuReleases();
 
-    m_gpuWorkMeter.ReadbackData(m_graphicsDevice.CommandQueue());
+    if (m_gpuWorkMeter.ReadbackData(m_graphicsDevice.CommandQueue(), m_currentFrameIndex))
+    {
+        m_completedGpuWorkMeterCheckPoints = m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints;
+    }
 
     PIXEndEvent();
 }
@@ -4088,6 +4111,7 @@ ID3D12PipelineState* RtPbrSurveyEngine::GetPipelineState(PipelineKey pipeline) c
 
 void RtPbrSurveyEngine::ExecutePasses()
 {
+    m_renderGraphBarrierDocument = CaptureRenderGraphDocument();
     Engine::ResourceTransitionContext resourceTransitions = MakeResourceTransitionContext();
     Engine::ExecuteRenderPassGraph(m_renderGraphRuntime.Graph(),
                                    {m_commandList.Get(),
@@ -4097,7 +4121,13 @@ void RtPbrSurveyEngine::ExecutePasses()
                                     &resourceTransitions,
                                     [this](int passIndex) { CreateResourcesForPass(passIndex); },
                                     [this](const RenderPass& pass) { ExecutePassOperation(pass); },
-                                    [this](int passIndex) { ReleaseResourcesAfterPass(passIndex); }});
+                                    [this](int passIndex) { ReleaseResourcesAfterPass(passIndex); },
+                                    [this](int passIndex, const RenderPass& pass)
+                                    {
+                                        m_gpuWorkMeter.SetCheckPoint(
+                                            m_commandList.Get(), WideToUtf8(pass.name), passIndex);
+                                    }});
+    m_hasRenderGraphBarrierEvents = true;
 }
 
 void RtPbrSurveyEngine::ExecutePassOperation(const RenderPass& pass)
@@ -4448,7 +4478,17 @@ Engine::ResourceTransitionContext RtPbrSurveyEngine::MakeResourceTransitionConte
             [this](const std::string& name) { return GetResourceState(name); },
             [this](const std::string& name, D3D12_RESOURCE_STATES state) { SetResourceState(name, state); },
             [](const ResourceUsage& usage)
-            { DBG_PRINT("Resource %s is null. Skip transition.\n", usage.name.c_str()); }};
+            { DBG_PRINT("Resource %s is null. Skip transition.\n", usage.name.c_str()); },
+            [this](int passIndex,
+                   const ResourceUsage& usage,
+                   D3D12_RESOURCE_STATES beforeState,
+                   D3D12_RESOURCE_STATES afterState)
+            {
+                if (passIndex >= 0)
+                {
+                    m_renderGraphBarrierEvents.push_back({passIndex, usage.name, beforeState, afterState});
+                }
+            }};
 }
 
 void RtPbrSurveyEngine::TransitionPassResources(const RenderPass& pass)
@@ -4484,6 +4524,14 @@ void RtPbrSurveyEngine::SetResourceState(const std::string& name, D3D12_RESOURCE
 
 void RtPbrSurveyEngine::BeginFrame()
 {
+    if (m_hasRenderGraphBarrierEvents)
+    {
+        m_completedRenderGraphBarrierEvents = m_renderGraphBarrierEvents;
+        m_completedRenderGraphBarrierDocument = m_renderGraphBarrierDocument;
+        m_hasCompletedRenderGraphBarrierEvents = true;
+    }
+    m_renderGraphBarrierEvents.clear();
+    m_hasRenderGraphBarrierEvents = false;
 
     // Command list allocators can only be reset when the associated
     // command lists have finished execution on the GPU; apps should use
@@ -4507,19 +4555,18 @@ void RtPbrSurveyEngine::BeginFrame()
     m_commandList->RSSetViewports(1, &m_renderViewport);
     m_commandList->RSSetScissorRects(1, &m_renderScissorRect);
 
-    m_gpuWorkMeter.StartGpu(m_commandList.Get(), m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints);
+    m_gpuWorkMeter.StartGpu(
+        m_commandList.Get(), m_currentFrameIndex, m_frameResources[m_currentFrameIndex].gpuWorkMeterCheckPoints);
 }
 
 void RtPbrSurveyEngine::ExecuteClearPass(const RenderPass& pass)
 {
     Engine::RecordClearPass(m_commandList.Get(), ResolveRenderTargets(pass.renderTargets));
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Clear");
 }
 
 void RtPbrSurveyEngine::ExecuteDepthPrePass(const RenderPass& pass)
 {
     Engine::RecordDepthPrePass(m_commandList.Get(), MakeSceneGeometryDrawDesc());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Depth Prepass");
 }
 
 void RtPbrSurveyEngine::ExecuteGBufferPass(const RenderPass& pass)
@@ -4532,7 +4579,6 @@ void RtPbrSurveyEngine::ExecuteGBufferPass(const RenderPass& pass)
     passDesc.geometryDraw = MakeSceneGeometryDrawDesc();
 
     Engine::RecordGBufferPass(m_commandList.Get(), passDesc);
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "GBuffer Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
@@ -4583,7 +4629,6 @@ void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
 
     Engine::RecordHybridReflectionPass(m_commandList.Get(), passDesc);
     m_reflectionSamplingCommitPending = true;
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Hybrid Reflection Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteRayQueryShadowPass(const RenderPass& pass)
@@ -4611,7 +4656,6 @@ void RtPbrSurveyEngine::ExecuteRayQueryShadowPass(const RenderPass& pass)
     passDesc.height = m_renderHeight;
 
     Engine::RecordRayQueryShadowPass(m_commandList.Get(), passDesc);
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "RayQuery Shadow Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteSpecularDebugRayQueryPass(const RenderPass& pass)
@@ -4660,7 +4704,6 @@ void RtPbrSurveyEngine::ExecuteSpecularDebugRayQueryPass(const RenderPass& pass)
 
     m_specularDebugRayQueryPending = true;
     m_specularDebugRayQueryRequested = false;
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Specular Debug RayQuery Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteRayQueryTlasDebugPass(const RenderPass& pass)
@@ -4680,7 +4723,6 @@ void RtPbrSurveyEngine::ExecuteRayQueryTlasDebugPass(const RenderPass& pass)
     passDesc.height = m_renderHeight;
 
     Engine::RecordRayQueryTlasDebugPass(m_commandList.Get(), passDesc);
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "RayQuery TlasDebug Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteForwardPass(const RenderPass& pass)
@@ -4690,19 +4732,16 @@ void RtPbrSurveyEngine::ExecuteForwardPass(const RenderPass& pass)
     passDesc.geometryDraw = MakeSceneGeometryDrawDesc();
 
     Engine::RecordForwardPass(m_commandList.Get(), passDesc);
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Main Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteLightingPass(const RenderPass& pass)
 {
     Engine::RecordLightingPass(m_commandList.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Lighting Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteReflectionEvaluatePass(const RenderPass& pass)
 {
     Engine::RecordReflectionEvaluatePass(m_commandList.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Reflection Evaluate Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteRayReconstructionRoughnessPass(const RenderPass& pass)
@@ -4733,7 +4772,6 @@ void RtPbrSurveyEngine::ExecuteTemporalReflectionPass(const RenderPass& pass)
 {
     Engine::RecordTemporalReflectionPass(m_commandList.Get());
     m_reflectionHistoryCommitPending = true;
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Temporal Reflection Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteDlssRayReconstructionPass(const RenderPass& pass)
@@ -4781,7 +4819,6 @@ void RtPbrSurveyEngine::ExecuteEdgeAwareSpatialReflectionPass(const RenderPass& 
 void RtPbrSurveyEngine::ExecuteLightingDebugGradientPass(const RenderPass& pass)
 {
     Engine::RecordLightingDebugGradientPass(m_commandList.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "LightPassDebugGradient Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
@@ -4824,11 +4861,9 @@ void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
     if (result.outputAvailable)
     {
         m_temporalUpscalerHistoryReset = false;
-        m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "TemporalUpscaler Pass");
         return;
     }
 
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "TemporalUpscaler Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteToneMapPass(const RenderPass& pass)
@@ -4836,7 +4871,6 @@ void RtPbrSurveyEngine::ExecuteToneMapPass(const RenderPass& pass)
     m_commandList->RSSetViewports(1, &m_viewport);
     m_commandList->RSSetScissorRects(1, &m_scissorRect);
     Engine::RecordToneMapPass(m_commandList.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ToneMap Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteDebugDumpPass(const RenderPass& pass)
@@ -4868,7 +4902,6 @@ void RtPbrSurveyEngine::ExecutePixelPickPass(const RenderPass& pass)
 void RtPbrSurveyEngine::ExecuteGBufferDebugPass(const RenderPass& pass)
 {
     Engine::RecordGBufferDebugPass(m_commandList.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "GBuffer Debug Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteReflectionRayHitDebugPass(const RenderPass& pass)
@@ -4876,7 +4909,6 @@ void RtPbrSurveyEngine::ExecuteReflectionRayHitDebugPass(const RenderPass& pass)
     UNREFERENCED_PARAMETER(pass);
 
     Engine::RecordReflectionRayHitDebugPass(m_commandList.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ReflectionRayHit Debug Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteShadowMaskDebugPass(const RenderPass& pass)
@@ -4884,7 +4916,6 @@ void RtPbrSurveyEngine::ExecuteShadowMaskDebugPass(const RenderPass& pass)
     UNREFERENCED_PARAMETER(pass);
 
     Engine::RecordShadowMaskDebugPass(m_commandList.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ShadowMask Debug Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteDebugLinePass(const RenderPass& pass)
@@ -4900,7 +4931,6 @@ void RtPbrSurveyEngine::ExecuteDebugLinePass(const RenderPass& pass)
     m_debugLinePass.RecordDraw(m_commandList.Get(),
                                 m_frameResources[m_currentFrameIndex].cameraCB.buffer->GetGPUVirtualAddress());
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "DebugLine Pass");
 }
 
 void RtPbrSurveyEngine::ExecuteImGuiPass(const RenderPass& pass)
@@ -4932,7 +4962,6 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                                         m_toneMapPass.settings.paperWhiteNits,
                                         capture.readback);
         m_pendingScreenshotCapture = std::move(capture);
-        m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Screenshot");
     }
     catch (const std::exception& exception)
     {
@@ -4950,7 +4979,6 @@ void RtPbrSurveyEngine::RecordDebugDumpPass()
 
     m_debugViewSettings.hdrDumpPending = true;
 
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Debug Dump");
 }
 
 void RtPbrSurveyEngine::RecordReflectionHdrDiagnosticPass()
@@ -4976,7 +5004,6 @@ void RtPbrSurveyEngine::RecordReflectionHdrDiagnosticPass()
                                                  m_reflectionHdrDiagnosticCapture);
     m_reflectionHdrDiagnosticRequested = false;
     m_reflectionHdrDiagnosticPending = true;
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Reflection HDR Diagnostic");
 }
 
 void RtPbrSurveyEngine::RecordPixelPickPass()
@@ -5016,7 +5043,6 @@ void RtPbrSurveyEngine::RecordPixelPickPass()
     m_pixelPickPending = true;
     m_pixelPickRequested = false;
 
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "PixelPick");
     PIXEndEvent(m_commandList.Get());
 }
 
@@ -5348,7 +5374,48 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
     }
     metadata[kBackBufferResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
                                          Engine::RenderGraphResourceKind::Texture};
+
+    const auto registerPingPongGroup = [&metadata, this](const char* const (&resourceNames)[2],
+                                                         const char* logicalGroupName)
+    {
+        for (int physicalIndex = 0; physicalIndex < 2; ++physicalIndex)
+        {
+            Engine::RenderGraphResourceMetadata& resourceMetadata = metadata[resourceNames[physicalIndex]];
+            resourceMetadata.logicalGroupName = logicalGroupName;
+            resourceMetadata.physicalIndex = physicalIndex;
+            resourceMetadata.pingPongRole =
+                physicalIndex == static_cast<int>(m_reflectionHistoryState.readIndex)
+                    ? Engine::RenderGraphPingPongRole::HistoryRead
+                    : Engine::RenderGraphPingPongRole::CurrentWrite;
+        }
+    };
+    registerPingPongGroup(kReflectionResolvedRadianceResourceNames, "ReflectionResolvedRadiance");
+    registerPingPongGroup(kReflectionHistoryDepthResourceNames, "ReflectionHistoryDepth");
+    registerPingPongGroup(kReflectionHistoryNormalResourceNames, "ReflectionHistoryNormal");
+    registerPingPongGroup(kReflectionResolvedSpecularEstimateResourceNames, "ReflectionResolvedSpecularEstimate");
+    registerPingPongGroup(kReflectionSpecularMomentsResourceNames, "ReflectionSpecularMoments");
+    registerPingPongGroup(kReflectionSpecularConfidenceResourceNames, "ReflectionSpecularConfidence");
     return Engine::BuildRenderGraphDocument(m_renderGraphRuntime.Graph().Passes(), metadata);
+}
+
+const std::vector<Engine::RenderGraphBarrierEvent>& RtPbrSurveyEngine::GetRenderGraphBarrierEvents() const
+{
+    return m_completedRenderGraphBarrierEvents;
+}
+
+std::vector<Engine::RenderGraphBarrierDiagnostic> RtPbrSurveyEngine::GetRenderGraphBarrierDiagnostics() const
+{
+    if (!m_hasCompletedRenderGraphBarrierEvents)
+    {
+        return {};
+    }
+    return Engine::CompareRenderGraphBarrierEvents(
+        m_completedRenderGraphBarrierDocument, m_completedRenderGraphBarrierEvents);
+}
+
+bool RtPbrSurveyEngine::HasRenderGraphBarrierEvents() const
+{
+    return m_hasCompletedRenderGraphBarrierEvents;
 }
 
 void RtPbrSurveyEngine::RecordImGuiPass()
@@ -5360,7 +5427,6 @@ void RtPbrSurveyEngine::RecordImGuiPass()
 
         (*m_activeUiRenderHandler)(m_commandList.Get());
     }
-    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "ImGUI");
 }
 
 void RtPbrSurveyEngine::ProcessCompletedScreenshot()

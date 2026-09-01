@@ -3,6 +3,7 @@
 #include "SampleScene.h"
 
 #include "../GltfLoader.h"
+#include "../Platform/AssetPath.h"
 
 #include <algorithm>
 #include <cassert>
@@ -13,6 +14,7 @@
 #include <Windows.h>
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
 #include <utility>
 #include <vector>
 #include "Scene.h"
@@ -46,6 +48,19 @@ static constexpr int kSphereRows = 7;
 static constexpr int kSphereColumns = 7;
 static constexpr int kSphereStackCount = 16;
 static constexpr int kSphereSliceCount = 32;
+
+std::string ResolveGltfAssetPath(const char* assetPath)
+{
+    assert(assetPath != nullptr);
+
+    const std::filesystem::path path(assetPath);
+    if (path.is_absolute())
+    {
+        return path.string();
+    }
+
+    return (std::filesystem::path(Platform::GetApplicationDirectoryPath()) / path).string();
+}
 
 SceneMesh ConvertToSceneMesh(const GltfMeshData& mesh)
 {
@@ -335,7 +350,7 @@ void GltfGridBenchmarkScene::Load()
     if (m_assetDesc.path != nullptr)
     {
         GltfMeshData gltfMesh;
-        const bool loaded = LoadGltfMesh(m_assetDesc.path, gltfMesh);
+        const bool loaded = LoadGltfMesh(ResolveGltfAssetPath(m_assetDesc.path), gltfMesh);
         assert(loaded);
         if (loaded)
         {
@@ -551,7 +566,7 @@ void GltfObjectViewerScene::Load()
     if (m_assetDesc.path != nullptr)
     {
         GltfMeshData gltfMesh;
-        const bool loaded = LoadGltfMesh(m_assetDesc.path, gltfMesh);
+        const bool loaded = LoadGltfMesh(ResolveGltfAssetPath(m_assetDesc.path), gltfMesh);
         assert(loaded);
         if (loaded)
         {
