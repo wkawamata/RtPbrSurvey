@@ -4804,9 +4804,26 @@ void RtPbrSurveyEngine::ExecuteDlssRayReconstructionPass(const RenderPass& pass)
 
     const Engine::RayReconstructionEvaluateResult result =
         Engine::EvaluateStreamlineRayReconstruction(inputs);
+
+    // Streamline may change descriptor heaps, root signatures, and pipeline state.
+    ID3D12DescriptorHeap* heaps[] = {m_heap.Get()};
+    m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
+    m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+    m_commandList->SetPipelineState(GetPipelineState(PipelineId(Pipe::Forward)));
+
     if (!result.outputAvailable)
     {
+        const CD3DX12_RESOURCE_BARRIER toCopySource = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_reflectionEvaluatedRadiance.Get(),
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+            D3D12_RESOURCE_STATE_COPY_SOURCE);
+        m_commandList->ResourceBarrier(1, &toCopySource);
         m_commandList->CopyResource(m_reflectionResolvedRadiance[writeIndex].Get(), m_reflectionEvaluatedRadiance.Get());
+        const CD3DX12_RESOURCE_BARRIER restoreShaderResource = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_reflectionEvaluatedRadiance.Get(),
+            D3D12_RESOURCE_STATE_COPY_SOURCE,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+        m_commandList->ResourceBarrier(1, &restoreShaderResource);
     }
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "DLSS Ray Reconstruction Pass");
 }

@@ -531,7 +531,7 @@ auto RtPbrSurveyEngine::MakeDlssRayReconstructionPass() -> RenderPass
     const UINT writeIndex = m_reflectionHistoryState.readIndex ^ 1u;
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"DlssRayReconstructionPass")
-        .Reads({{kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE},
+        .Reads({{kReflectionEvaluatedRadianceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                 {kDepthStencilResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                 {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
                 {kGBufferResourceNames[Engine::GBuffer::MotionVector], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE},
