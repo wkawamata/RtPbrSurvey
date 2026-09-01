@@ -370,6 +370,8 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_temporalUpscalerSupport.IsAvailable(),
             m_temporalUpscalerSupport.BackendName(),
             m_temporalUpscalerSupport.StatusText(),
+            m_temporalUpscalerOutputAvailable,
+            m_temporalUpscalerLastEvaluateResult,
             Engine::QueryStreamlineDlssDiagnostics(
                 {m_width,
                  m_height,
@@ -4591,6 +4593,7 @@ void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
     inputs.frameConstants = MakeStreamlineFrameConstants();
 
     const Engine::StreamlineEvaluateResult result = Engine::EvaluateStreamline(inputs);
+    m_temporalUpscalerLastEvaluateResult = result;
 
     // DLSS Programming Guide Section 7.0:
     // "Host is responsible for restoring state on the command list used."
@@ -5235,12 +5238,18 @@ void RtPbrSurveyEngine::WaitForGpu()
 
 void RtPbrSurveyEngine::FlushGpu()
 {
-    for (UINT n = 0; n < kFrameCount; n++)
+    UINT64 fenceValue = m_graphicsDevice.CompletedFenceValue() + 1;
+    for (const FrameResource& frameResource : m_frameResources)
     {
-        const UINT64 fenceValue = ++m_frameResources[n].fenceValue;
+        fenceValue = (std::max)(fenceValue, frameResource.fenceValue);
+    }
 
-        m_graphicsDevice.SignalFence(fenceValue);
-        m_graphicsDevice.WaitForFenceValue(fenceValue);
+    m_graphicsDevice.SignalFence(fenceValue);
+    m_graphicsDevice.WaitForFenceValue(fenceValue);
+
+    for (FrameResource& frameResource : m_frameResources)
+    {
+        frameResource.fenceValue = fenceValue + 1;
     }
 }
 

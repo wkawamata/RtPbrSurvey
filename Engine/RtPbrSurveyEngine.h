@@ -264,6 +264,8 @@ public:
         bool temporalUpscalerAvailable;
         const char* temporalUpscalerBackendName;
         const char* temporalUpscalerStatusText;
+        bool temporalUpscalerOutputAvailable;
+        Engine::StreamlineEvaluateResult temporalUpscalerLastEvaluateResult;
         Engine::StreamlineDlssDiagnostics dlssDiagnostics;
         UINT temporalJitterSampleIndex;
         XMFLOAT2 temporalJitterHalton;
@@ -878,6 +880,7 @@ private:
     DirectX::XMFLOAT3 m_previousCameraUp = {0.0f, 1.0f, 0.0f};
     bool m_cameraProjectionStateInitialized = false;
     bool m_temporalUpscalerOutputAvailable = false;
+    Engine::StreamlineEvaluateResult m_temporalUpscalerLastEvaluateResult;
     Engine::ToneMapPass m_toneMapPass;
     Engine::DebugLinePass m_debugLinePass;
 

@@ -23,6 +23,15 @@ enum class ReflectionCaptureDebugView
     SpecularVariance,
 };
 
+enum class DlssSrQualityMode
+{
+    Dlaa,
+    Quality,
+    Balanced,
+    Performance,
+    UltraPerformance,
+};
+
 struct ReflectionCaptureCameraKeyframe
 {
     UINT64 frame = 0;
@@ -52,6 +61,8 @@ struct CommandLineOptions
     std::wstring autoSelectGltfAssetName;
     bool autoSelectHybridReflectionEstimatorTest = false;
     bool useSceneDefaults = false;
+    bool enableDlssSr = false;
+    DlssSrQualityMode dlssSrQualityMode = DlssSrQualityMode::Quality;
     std::filesystem::path capturePath;
     UINT captureAfterFrames = 0;
     bool exitAfterCapture = false;
