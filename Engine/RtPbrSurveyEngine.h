@@ -135,6 +135,9 @@ public:
         ReflectionEvaluatedRadianceIblDiffuse,
         ReflectionEvaluatedRadianceIblSpecular,
         ReflectionEvaluatedRadianceEmissive,
+        RayReconstructionSpecularAlbedo,
+        RayReconstructionRoughness,
+        RayReconstructionSpecularHitDistance,
         DlssInputColor,
     };
 
@@ -678,6 +681,9 @@ private:
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceIblSpecular &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceEmissive &&
+                   renderViewMode != RenderViewMode::RayReconstructionSpecularAlbedo &&
+                   renderViewMode != RenderViewMode::RayReconstructionRoughness &&
+                   renderViewMode != RenderViewMode::RayReconstructionSpecularHitDistance &&
                    !IsLightPassDebugView();
         }
         bool IsLightPassDebugView() const
@@ -717,7 +723,10 @@ private:
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
-                   renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceEmissive);
+                   renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceEmissive ||
+                   renderViewMode == RenderViewMode::RayReconstructionSpecularAlbedo ||
+                   renderViewMode == RenderViewMode::RayReconstructionRoughness ||
+                   renderViewMode == RenderViewMode::RayReconstructionSpecularHitDistance);
             if (renderViewMode == RenderViewMode::ReflectionRayHit)
             {
                 return 0u;
@@ -789,6 +798,18 @@ private:
             if (renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceEmissive)
             {
                 return 12u;
+            }
+            if (renderViewMode == RenderViewMode::RayReconstructionSpecularAlbedo)
+            {
+                return 18u;
+            }
+            if (renderViewMode == RenderViewMode::RayReconstructionRoughness)
+            {
+                return 19u;
+            }
+            if (renderViewMode == RenderViewMode::RayReconstructionSpecularHitDistance)
+            {
+                return 20u;
             }
             return renderViewMode == RenderViewMode::ReflectionRayDistanceFade ? 4u : 5u;
         }

@@ -74,7 +74,10 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
                     m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
                     m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpatialPolicyInputs ||
                     m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
-                    m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity)
+                    m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
+                    m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionSpecularAlbedo ||
+                    m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionRoughness ||
+                    m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionSpecularHitDistance)
                 {
                     AddPass(MakeReflectionEvaluatePass());
                     if (m_hybridReflectionSettings.contributionEnabled ||
@@ -83,7 +86,10 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
                         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
                         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionSpatialPolicyInputs ||
                         m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
-                        m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity)
+                        m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
+                        m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionSpecularAlbedo ||
+                        m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionRoughness ||
+                        m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionSpecularHitDistance)
                     {
                         if (ShouldRunRayReconstruction())
                         {
@@ -142,6 +148,9 @@ void RtPbrSurveyEngine::AddDeferredSceneOutputPass()
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceEmissive ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionSpecularAlbedo ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionRoughness ||
+         m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionSpecularHitDistance ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionContributionStrength))
     {
@@ -754,6 +763,18 @@ auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
         reads.push_back({kReflectionSpecularConfidenceResourceNames[writeIndex],
                          D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
     }
+    else if (m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionSpecularAlbedo)
+    {
+        reads.push_back({kReflectionSpecularAlbedoResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+    }
+    else if (m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionRoughness)
+    {
+        reads.push_back({kReflectionRoughnessResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+    }
+    else if (m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionSpecularHitDistance)
+    {
+        reads.push_back({kReflectionSpecularHitDistanceResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+    }
 
     auto builder = m_renderGraphRuntime.Authoring()
         .CreatePass(L"ReflectionRayHitDebugPass")
@@ -806,6 +827,19 @@ auto RtPbrSurveyEngine::MakeReflectionRayHitDebugPass() -> RenderPass
                            Desc::ReflectionSpecularMomentsCurrentSrv);
         builder.Descriptor(RootSignatureLayout::ReflectionSpecularConfidenceHistory,
                            Desc::ReflectionSpecularConfidenceCurrentSrv);
+    }
+    else if (m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionSpecularAlbedo)
+    {
+        builder.Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance, Desc::ReflectionSpecularAlbedoSrv);
+    }
+    else if (m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionRoughness)
+    {
+        builder.Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance, Desc::ReflectionRoughnessSrv);
+    }
+    else if (m_debugViewSettings.renderViewMode == RenderViewMode::RayReconstructionSpecularHitDistance)
+    {
+        builder.Descriptor(RootSignatureLayout::ReflectionEvaluatedRadiance,
+                           Desc::ReflectionSpecularHitDistanceSrv);
     }
 
     return builder.Build();

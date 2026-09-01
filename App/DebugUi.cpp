@@ -145,6 +145,12 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
             return "Reflection radiance specular IBL component approximated from hit material and environment prefilter.";
         case RenderViewMode::ReflectionEvaluatedRadianceEmissive:
             return "Reflection radiance emissive component from the hit emissive payload.";
+        case RenderViewMode::RayReconstructionSpecularAlbedo:
+            return "DLSS RR specular albedo input generated from visible-surface albedo and metallic.";
+        case RenderViewMode::RayReconstructionRoughness:
+            return "DLSS RR visible-surface roughness input.";
+        case RenderViewMode::RayReconstructionSpecularHitDistance:
+            return "DLSS RR specular hit distance input, mapped as distance / (1 + distance).";
         case RenderViewMode::DlssInputColor:
             return "DLSS scaling input color before temporal upscaling and tone mapping.";
         default:
@@ -1101,6 +1107,30 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::SameLine();
         ImGui::RadioButton(
             "Motion Vectors##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferMotionVector));
+        ImGui::SameLine();
+        ImGui::RadioButton("Normal##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferNormal));
+        ImGui::SameLine();
+        ImGui::RadioButton("Albedo##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferAlbedo));
+        ImGui::TextUnformatted("RR Input Buffers:");
+        const bool rayReconstructionInputDebugAvailable =
+            context.rayReconstructionAvailable && rayReconstructionSettings.enabled;
+        ImGui::BeginDisabled(!rayReconstructionInputDebugAvailable);
+        ImGui::RadioButton("Noisy Radiance##DlssInputDebug",
+                           &renderViewMode,
+                           static_cast<int>(RenderViewMode::ReflectionEvaluatedRadiance));
+        ImGui::SameLine();
+        ImGui::RadioButton("Specular Albedo##DlssInputDebug",
+                           &renderViewMode,
+                           static_cast<int>(RenderViewMode::RayReconstructionSpecularAlbedo));
+        ImGui::SameLine();
+        ImGui::RadioButton("Roughness##DlssInputDebug",
+                           &renderViewMode,
+                           static_cast<int>(RenderViewMode::RayReconstructionRoughness));
+        ImGui::SameLine();
+        ImGui::RadioButton("Specular Hit Distance##DlssInputDebug",
+                           &renderViewMode,
+                           static_cast<int>(RenderViewMode::RayReconstructionSpecularHitDistance));
+        ImGui::EndDisabled();
         ImGui::EndDisabled();
         app.m_renderViewMode = static_cast<RenderViewMode>(renderViewMode);
     }

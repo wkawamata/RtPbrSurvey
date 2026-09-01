@@ -13,7 +13,11 @@ Add-Type -AssemblyName System.Drawing
 
 $views = @(
     [pscustomobject]@{ name = "evaluated-radiance"; contract = "RR noisy input color" },
+    [pscustomobject]@{ name = "albedo"; contract = "RR albedo input" },
+    [pscustomobject]@{ name = "specular-albedo"; contract = "RR specular-albedo input" },
     [pscustomobject]@{ name = "normal"; contract = "RR normal input" },
+    [pscustomobject]@{ name = "roughness"; contract = "RR roughness input" },
+    [pscustomobject]@{ name = "specular-hit-distance"; contract = "RR specular-hit-distance input" },
     [pscustomobject]@{ name = "motion-vector"; contract = "RR motion-vector input" },
     [pscustomobject]@{ name = "depth"; contract = "RR depth input" })
 

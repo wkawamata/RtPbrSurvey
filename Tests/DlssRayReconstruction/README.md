@@ -57,3 +57,9 @@ The report checks capture dimensions, non-black coverage, unique hashes, RR
 support diagnostics, and D3D12 errors. These displayed views detect missing or
 obviously corrupt inputs; they do not prove raw-value sign, scale, or coordinate
 space correctness. Existing artifacts can be reanalyzed with `-AnalyzeOnly`.
+
+The DLSS debug menu exposes every RR texture input used by the current
+integration: noisy evaluated radiance, depth, motion vectors, albedo, specular
+albedo, normal, roughness, and specular hit distance. Specular hit distance is
+display-mapped as `distance / (1 + distance)`; the underlying Streamline input
+remains linear distance.

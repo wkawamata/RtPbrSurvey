@@ -250,6 +250,25 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         return float4(confidence, mappedVariance, acceptedNeighborCount / 8.0, 1.0);
     }
 
+    if (debugTarget == 18)
+    {
+        float3 specularAlbedo = g_reflectionEvaluatedRadiance.Load(int3(input.position.xy, 0)).rgb;
+        return float4(specularAlbedo, 1.0);
+    }
+
+    if (debugTarget == 19)
+    {
+        float roughness = saturate(g_reflectionEvaluatedRadiance.Load(int3(input.position.xy, 0)).r);
+        return float4(roughness.xxx, 1.0);
+    }
+
+    if (debugTarget == 20)
+    {
+        float hitDistance = max(g_reflectionEvaluatedRadiance.Load(int3(input.position.xy, 0)).r, 0.0);
+        float mappedDistance = hitDistance / (1.0 + hitDistance);
+        return float4(mappedDistance.xxx, 1.0);
+    }
+
     if (debugTarget >= 9 && debugTarget <= 12)
     {
         if (hitFlag <= 0.0)

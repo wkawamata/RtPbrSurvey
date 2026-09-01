@@ -43,6 +43,8 @@ RtPbrSurveyEngine::RenderViewMode GetReflectionCaptureRenderViewMode(
             return RtPbrSurveyEngine::RenderViewMode::LightPass;
         case Platform::ReflectionCaptureDebugView::TemporalValidity:
             return RtPbrSurveyEngine::RenderViewMode::ReflectionTemporalValidity;
+        case Platform::ReflectionCaptureDebugView::GBufferAlbedo:
+            return RtPbrSurveyEngine::RenderViewMode::GBufferAlbedo;
         case Platform::ReflectionCaptureDebugView::GBufferPbrParams:
             return RtPbrSurveyEngine::RenderViewMode::GBufferPBRParams;
         case Platform::ReflectionCaptureDebugView::GBufferNormal:
@@ -51,6 +53,12 @@ RtPbrSurveyEngine::RenderViewMode GetReflectionCaptureRenderViewMode(
             return RtPbrSurveyEngine::RenderViewMode::GBufferMotionVector;
         case Platform::ReflectionCaptureDebugView::Depth:
             return RtPbrSurveyEngine::RenderViewMode::Depth;
+        case Platform::ReflectionCaptureDebugView::RayReconstructionSpecularAlbedo:
+            return RtPbrSurveyEngine::RenderViewMode::RayReconstructionSpecularAlbedo;
+        case Platform::ReflectionCaptureDebugView::RayReconstructionRoughness:
+            return RtPbrSurveyEngine::RenderViewMode::RayReconstructionRoughness;
+        case Platform::ReflectionCaptureDebugView::RayReconstructionSpecularHitDistance:
+            return RtPbrSurveyEngine::RenderViewMode::RayReconstructionSpecularHitDistance;
         case Platform::ReflectionCaptureDebugView::ReflectionRayMaterial:
             return RtPbrSurveyEngine::RenderViewMode::ReflectionRayMaterial;
         case Platform::ReflectionCaptureDebugView::EvaluatedRadiance:
