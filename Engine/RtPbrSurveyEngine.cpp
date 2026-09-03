@@ -784,6 +784,36 @@ void RtPbrSurveyEngine::SetSpecularDebugLineSettings(const SpecularDebugLineSett
     UpdateDebugLines();
 }
 
+RtPbrSurvey::DebugLineHandle RtPbrSurveyEngine::AddDebugLine(const RtPbrSurvey::DebugLineDesc& desc)
+{
+    const RtPbrSurvey::DebugLineHandle handle = m_debugLineRegistry.Add(desc);
+    UpdateDebugLines();
+    return handle;
+}
+
+bool RtPbrSurveyEngine::UpdateDebugLine(RtPbrSurvey::DebugLineHandle handle,
+                                        const RtPbrSurvey::DebugLineDesc& desc)
+{
+    const bool updated = m_debugLineRegistry.Update(handle, desc);
+    if (updated)
+    {
+        UpdateDebugLines();
+    }
+    return updated;
+}
+
+void RtPbrSurveyEngine::RemoveDebugLine(RtPbrSurvey::DebugLineHandle handle)
+{
+    m_debugLineRegistry.Remove(handle);
+    UpdateDebugLines();
+}
+
+void RtPbrSurveyEngine::ClearDebugLines()
+{
+    m_debugLineRegistry.Clear();
+    UpdateDebugLines();
+}
+
 void RtPbrSurveyEngine::ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings)
 {
     MyDx12Util::ScopedTimer _reloadTimer("ReloadEnvironmentResources total");
@@ -2467,7 +2497,7 @@ void RtPbrSurveyEngine::ReleaseSceneResources()
     m_pixelPickResult = {};
     m_specularDebugRayQueryRequested = false;
     m_specularDebugRayQueryPending = false;
-    m_debugLineVertices.clear();
+    m_debugLineVertices = {};
     ResetPixelPickReadbacks();
 
     m_materialBuffer.Reset();
@@ -4942,12 +4972,13 @@ void RtPbrSurveyEngine::ExecuteDebugLinePass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 
-    if (m_debugLineVertices.empty())
+    UpdateDebugLines();
+    if (m_debugLineVertices.depthTested.empty() && m_debugLineVertices.overlay.empty())
     {
         return;
     }
 
-    m_debugLinePass.UpdateLines(m_debugLineVertices, m_commandList.Get());
+    m_debugLinePass.UpdateLines(m_debugLineVertices.depthTested, m_debugLineVertices.overlay, m_commandList.Get());
     m_debugLinePass.RecordDraw(m_commandList.Get(),
                                 m_frameResources[m_currentFrameIndex].cameraCB.buffer->GetGPUVirtualAddress());
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
@@ -5257,7 +5288,7 @@ void RtPbrSurveyEngine::ReadbackSpecularDebugRayQuery()
 
 void RtPbrSurveyEngine::UpdateDebugLines()
 {
-    m_debugLineVertices.clear();
+    m_debugLineVertices = m_debugLineRegistry.AssembleVertices();
 
     if (!m_pixelPickResult.valid)
     {
@@ -5279,8 +5310,8 @@ void RtPbrSurveyEngine::UpdateDebugLines()
         XMFLOAT3 end = {origin.x + dir.x * lineLength,
                         origin.y + dir.y * lineLength,
                         origin.z + dir.z * lineLength};
-        m_debugLineVertices.push_back({origin, {1.0f, 1.0f, 0.0f, 1.0f}});
-        m_debugLineVertices.push_back({end,   {1.0f, 1.0f, 0.0f, 1.0f}});
+        m_debugLineVertices.overlay.push_back({origin, {1.0f, 1.0f, 0.0f, 1.0f}});
+        m_debugLineVertices.overlay.push_back({end,   {1.0f, 1.0f, 0.0f, 1.0f}});
     }
 
     // Picked normal: blue
@@ -5290,8 +5321,8 @@ void RtPbrSurveyEngine::UpdateDebugLines()
         XMFLOAT3 end = {origin.x + dir.x * lineLength,
                         origin.y + dir.y * lineLength,
                         origin.z + dir.z * lineLength};
-        m_debugLineVertices.push_back({origin, {0.0f, 0.0f, 1.0f, 1.0f}});
-        m_debugLineVertices.push_back({end,   {0.0f, 0.0f, 1.0f, 1.0f}});
+        m_debugLineVertices.overlay.push_back({origin, {0.0f, 0.0f, 1.0f, 1.0f}});
+        m_debugLineVertices.overlay.push_back({end,   {0.0f, 0.0f, 1.0f, 1.0f}});
     }
 
     // Reflection ray: magenta on hit, gray on miss.
@@ -5305,8 +5336,8 @@ void RtPbrSurveyEngine::UpdateDebugLines()
             end = m_pixelPickResult.reflectionHitWorldPos;
             color = {1.0f, 0.0f, 1.0f, 1.0f};
         }
-        m_debugLineVertices.push_back({origin, color});
-        m_debugLineVertices.push_back({end,   color});
+        m_debugLineVertices.overlay.push_back({origin, color});
+        m_debugLineVertices.overlay.push_back({end,   color});
     }
 }
 
