@@ -216,6 +216,9 @@
     <ClInclude Include="Renderer\ToneMap.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\DebugTexturePreviewPass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\DebugLinePass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -446,6 +449,9 @@
     <ClCompile Include="Renderer\ToneMap.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\DebugTexturePreviewPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\DebugLinePass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
@@ -534,6 +540,9 @@
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_ToneMap.hlsl">
       <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_DebugTexturePreview.hlsl">
+      <Filter>Shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_DebugLine.hlsl">
       <Filter>Assets\Shaders</Filter>
