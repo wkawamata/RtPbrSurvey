@@ -212,6 +212,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.enableDlssSr = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-EnableDebugTexturePreview"))
+        {
+            options.enableDebugTexturePreview = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-DlssQuality"))
         {
             if (i + 1 >= argc || !TryParseDlssSrQualityMode(argv[++i], options.dlssSrQualityMode))

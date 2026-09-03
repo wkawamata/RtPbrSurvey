@@ -340,6 +340,9 @@ public:
     }
     void SetRenderViewMode(RenderViewMode mode);
     RenderViewMode GetRenderViewMode() const { return m_debugViewSettings.renderViewMode; }
+    void SetDebugTexturePreviewEnabled(bool enabled) { m_debugTexturePreviewEnabled = enabled; }
+    bool IsDebugTexturePreviewEnabled() const { return m_debugTexturePreviewEnabled; }
+    ID3D12Resource* GetDebugTexturePreviewResource() const { return m_debugTexturePreview.Get(); }
     void SetRequestHdrDump(bool request);
     void RequestReflectionHdrDiagnosticCapture(const Engine::ReflectionHdrDiagnosticRoi& roi);
     std::optional<Engine::ReflectionHdrDiagnosticFrame> ConsumeReflectionHdrDiagnosticFrame();
@@ -504,6 +507,7 @@ private:
             static constexpr const char* RayQueryTlasDebug = "RayQueryTlasDebug";
             static constexpr const char* ImGui = "ImGui";
             static constexpr const char* Screenshot = "Screenshot";
+            static constexpr const char* DebugTexturePreview = "DebugTexturePreview";
         };
 
         struct Constants
@@ -859,6 +863,7 @@ private:
     ComPtr<ID3D12Resource> m_reflectionSpecularConfidence[2];
     ComPtr<ID3D12Resource> m_reflectionDenoisedRadiance;
     ComPtr<ID3D12Resource> m_temporalUpscalerSceneColor;
+    ComPtr<ID3D12Resource> m_debugTexturePreview;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
     ComPtr<ID3D12Resource> m_reflectionRayColor;
@@ -875,6 +880,8 @@ private:
     DescriptorHeapHandle m_depthStencilSrv;
     DescriptorHeapHandle m_lightPassColorSrv;
     DescriptorHeapHandle m_temporalUpscalerSceneColorSrv;
+    DescriptorHeapHandle m_debugTexturePreviewSrv;
+    bool m_debugTexturePreviewEnabled = false;
     DescriptorHeapHandle m_reflectionEvaluatedRadianceSrv;
     DescriptorHeapHandle m_reflectionSpecularEstimateSrv;
     DescriptorHeapHandle m_reflectionRoughnessSrv;
@@ -1085,6 +1092,7 @@ private:
     static constexpr const char* kDepthStencilResourceName = "DepthStencil";
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";
     static constexpr const char* kTemporalUpscalerSceneColorResourceName = "TemporalUpscaler.SceneColor";
+    static constexpr const char* kDebugTexturePreviewResourceName = "DebugTexturePreview.Output";
     static constexpr const char* kReflectionEvaluatedRadianceResourceName = "ReflectionEvaluatedRadiance";
     static constexpr const char* kReflectionDenoisedRadianceResourceName = "ReflectionDenoisedRadiance";
     static constexpr const char* kReflectionSpecularEstimateResourceName = "ReflectionSpecularEstimate";
@@ -1276,6 +1284,7 @@ private:
     void RegisterReflectionEstimatorHistory();
     void RegisterReflectionDenoisedRadiance();
     void RegisterTemporalUpscalerSceneColor();
+    void RegisterDebugTexturePreview();
     void RegisterRenderTexture(const Engine::RenderTextureSpec& spec);
     UINT ResolveRenderTextureWidth(const Engine::RenderTextureSpec& spec) const;
     UINT ResolveRenderTextureHeight(const Engine::RenderTextureSpec& spec) const;
@@ -1358,6 +1367,7 @@ private:
     RenderPass MakeEdgeAwareSpatialReflectionPass();
     RenderPass MakeLightingDebugGradientPass();
     RenderPass MakeTemporalUpscalerPass();
+    RenderPass MakeDebugTexturePreviewPass();
     RenderPass MakeToneMapPass();
     RenderPass MakeDebugDumpPass();
     RenderPass MakeReflectionHdrDiagnosticPass();
@@ -1432,6 +1442,7 @@ private:
     void ExecuteEdgeAwareSpatialReflectionPass(const RenderPass& pass);
     void ExecuteLightingDebugGradientPass(const RenderPass& pass);
     void ExecuteTemporalUpscalerPass(const RenderPass& pass);
+    void ExecuteDebugTexturePreviewPass(const RenderPass& pass);
     void ExecuteToneMapPass(const RenderPass& pass);
     void ExecuteDebugDumpPass(const RenderPass& pass);
     void ExecuteReflectionHdrDiagnosticPass(const RenderPass& pass);

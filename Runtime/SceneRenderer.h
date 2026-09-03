@@ -78,6 +78,9 @@ namespace RtPbrSurvey
         RtPbrSurveyEngine::ToneMapParams GetToneMapParams() const;
         void SetRenderViewMode(RtPbrSurveyEngine::RenderViewMode mode);
         RtPbrSurveyEngine::RenderViewMode GetRenderViewMode() const;
+        void SetDebugTexturePreviewEnabled(bool enabled);
+        bool IsDebugTexturePreviewEnabled() const;
+        ID3D12Resource* GetDebugTexturePreviewResource() const;
         void SetRequestHdrDump(bool request);
         void RequestReflectionHdrDiagnosticCapture(const Engine::ReflectionHdrDiagnosticRoi& roi);
         std::optional<Engine::ReflectionHdrDiagnosticFrame> ConsumeReflectionHdrDiagnosticFrame();
