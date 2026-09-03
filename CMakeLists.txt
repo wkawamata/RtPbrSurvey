@@ -226,6 +226,10 @@ if(RTPBRSURVEY_BUILD_SHADERS)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_LightPassDebugGradient.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ReflectionEvaluate.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ReflectionEvaluate.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_TemporalReflection.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_TemporalReflection.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_EdgeAwareSpatialReflection.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_EdgeAwareSpatialReflection.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionRoughness.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionRoughness.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionSpecularAlbedo.hlsl vs_6_0 VSMain)
@@ -310,6 +314,11 @@ endif()
 
 if(RTPBRSURVEY_BUILD_TESTS)
     enable_testing()
+
+    add_test(NAME RtPbrSurvey.RuntimeShaderManifest
+        COMMAND "${CMAKE_COMMAND}"
+            "-DRTPBRSURVEY_ROOT=${RTPBRSURVEY_ROOT}"
+            -P "${RTPBRSURVEY_ROOT}/Tests/VerifyRuntimeShaders.cmake")
     add_executable(RtPbrSurvey.DebugTextureInspectorTests
         Tests/DebugTextureInspectorTests.cpp)
     target_link_libraries(RtPbrSurvey.DebugTextureInspectorTests PRIVATE RtPbrSurvey::SceneRenderer)
