@@ -199,6 +199,7 @@
     <ClInclude Include="Renderer\DebugLinePass.h" />
     <ClInclude Include="Runtime\DebugLine.h" />
     <ClInclude Include="Runtime\SceneRenderer.h" />
+    <ClInclude Include="Runtime\DebugTextureInspector.h" />
     <ClInclude Include="Runtime\SceneRendererDebugUi.h" />
     <ClInclude Include="Runtime\RenderGraphNodeEditorView.h" />
     <ClInclude Include="Runtime\SceneRendererSettings.h" />
@@ -283,6 +284,7 @@
     <ClCompile Include="Renderer\DebugLinePass.cpp" />
     <ClCompile Include="Runtime\DebugLine.cpp" />
     <ClCompile Include="Runtime\SceneRenderer.cpp" />
+    <ClCompile Include="Runtime\DebugTextureInspector.cpp" />
     <ClCompile Include="Runtime\SceneRendererDebugUi.cpp" />
     <ClCompile Include="Runtime\RenderGraphNodeEditorView.cpp" />
     <ClCompile Include="Runtime\SceneRendererSettings.cpp" />

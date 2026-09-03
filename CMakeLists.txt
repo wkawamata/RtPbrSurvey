@@ -99,6 +99,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/TextureMipChain.cpp
     Renderer/ToneMap.cpp
     Runtime/SceneRenderer.cpp
+    Runtime/DebugTextureInspector.cpp
     Runtime/DebugLine.cpp
     Runtime/SceneRendererDebugUi.cpp
     Runtime/RenderGraphNodeEditorView.cpp
@@ -306,6 +307,14 @@ endif()
 
 if(RTPBRSURVEY_BUILD_TESTS)
     enable_testing()
+    add_executable(RtPbrSurvey.DebugTextureInspectorTests
+        Tests/DebugTextureInspectorTests.cpp)
+    target_link_libraries(RtPbrSurvey.DebugTextureInspectorTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.DebugTextureInspectorTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.DebugTextureInspector COMMAND RtPbrSurvey.DebugTextureInspectorTests)
+
     add_executable(RtPbrSurvey.RenderGraphDocumentTests
         Tests/RenderGraphDocumentTests.cpp)
     target_link_libraries(RtPbrSurvey.RenderGraphDocumentTests PRIVATE RtPbrSurvey::SceneRenderer)
