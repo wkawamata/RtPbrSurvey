@@ -67,6 +67,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/DebugDumpCapture.cpp
     Renderer/DebugDumpReport.cpp
     Renderer/DebugLinePass.cpp
+    Renderer/EdgeAwareSpatialReflectionPass.cpp
     Renderer/EnvironmentMap.cpp
     Renderer/FullscreenTriangle.cpp
     Renderer/GBuffer.cpp
@@ -83,6 +84,8 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/RayReconstructionSupport.cpp
     Renderer/RayTracingSupport.cpp
     Renderer/ReflectionEvaluatePass.cpp
+    Renderer/ReflectionHdrDiagnosticCapture.cpp
+    Renderer/ReflectionHdrDiagnosticStatistics.cpp
     Renderer/ReflectionRayHitDebugPass.cpp
     Renderer/RootSignatureFactory.cpp
     Renderer/SceneGeometryPass.cpp
@@ -96,6 +99,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/TextureMipChain.cpp
     Renderer/ToneMap.cpp
     Runtime/SceneRenderer.cpp
+    Runtime/DebugLine.cpp
     Runtime/SceneRendererDebugUi.cpp
     Runtime/RenderGraphNodeEditorView.cpp
     Runtime/SceneRendererSettings.cpp
@@ -317,6 +321,19 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.SceneRendererSettingsTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.SceneRendererSettings COMMAND RtPbrSurvey.SceneRendererSettingsTests)
+
+    add_executable(RtPbrSurvey.DebugLineTests
+        Tests/DebugLineTests.cpp)
+    target_link_libraries(RtPbrSurvey.DebugLineTests PRIVATE RtPbrSurvey::SceneRenderer)
+    add_test(NAME RtPbrSurvey.DebugLine COMMAND RtPbrSurvey.DebugLineTests)
+
+    add_executable(RtPbrSurvey.DebugLineHostCompileProbe
+        Tests/DebugLineHostCompileProbe.cpp)
+    target_link_libraries(RtPbrSurvey.DebugLineHostCompileProbe PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.DebugLineHostCompileProbe PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.DebugLineHostCompileProbe COMMAND RtPbrSurvey.DebugLineHostCompileProbe)
 
     add_executable(RtPbrSurvey.CameraProjectionTests
         Tests/CameraProjectionTests.cpp)

@@ -309,6 +309,26 @@ namespace RtPbrSurvey
         return m_engine.GetSpecularDebugLineSettings();
     }
 
+    DebugLineHandle SceneRenderer::AddDebugLine(const DebugLineDesc& desc)
+    {
+        return m_engine.AddDebugLine(desc);
+    }
+
+    bool SceneRenderer::UpdateDebugLine(DebugLineHandle handle, const DebugLineDesc& desc)
+    {
+        return m_engine.UpdateDebugLine(handle, desc);
+    }
+
+    void SceneRenderer::RemoveDebugLine(DebugLineHandle handle)
+    {
+        m_engine.RemoveDebugLine(handle);
+    }
+
+    void SceneRenderer::ClearDebugLines()
+    {
+        m_engine.ClearDebugLines();
+    }
+
     RtPbrSurveyEngine& SceneRenderer::EngineForDebugTools()
     {
         return m_engine;

@@ -12,6 +12,7 @@
 #pragma once
 
 #include "Engine/RtPbrSurveyEngine.h"
+#include "Runtime/DebugLine.h"
 #include "Runtime/SceneRendererSettings.h"
 
 #include <functional>
@@ -87,6 +88,10 @@ namespace RtPbrSurvey
         const RtPbrSurveyEngine::PixelPickResult& GetPixelPickResult() const;
         void SetSpecularDebugLineSettings(const RtPbrSurveyEngine::SpecularDebugLineSettings& settings);
         const RtPbrSurveyEngine::SpecularDebugLineSettings& GetSpecularDebugLineSettings() const;
+        DebugLineHandle AddDebugLine(const DebugLineDesc& desc);
+        bool UpdateDebugLine(DebugLineHandle handle, const DebugLineDesc& desc);
+        void RemoveDebugLine(DebugLineHandle handle);
+        void ClearDebugLines();
 
         RtPbrSurveyEngine& EngineForDebugTools();
         const RtPbrSurveyEngine& EngineForDebugTools() const;

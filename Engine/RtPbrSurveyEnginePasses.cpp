@@ -815,8 +815,10 @@ auto RtPbrSurveyEngine::MakeDebugLinePass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"DebugLinePass")
+        .Reads({{kDepthStencilResourceName, D3D12_RESOURCE_STATE_DEPTH_READ}})
         .Writes({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Rtv(RtvName::LightPass)
+        .Dsv(DsvName::Depth)
         .Operation(Op::DebugLine, &RtPbrSurveyEngine::ExecuteDebugLinePass)
         .Build();
 }
