@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Runtime/DebugLine.h"
+
 #include <d3d12.h>
 #include <d3dx12_core.h>
 #include <wrl/client.h>
@@ -9,13 +11,8 @@
 namespace Engine
 {
 
-struct DebugLineVertex
-{
-    DirectX::XMFLOAT3 position;
-    DirectX::XMFLOAT4 color;
-};
-
-static constexpr UINT kMaxDebugLines = 1024;
+using DebugLineVertex = RtPbrSurvey::DebugLineVertex;
+static constexpr UINT kMaxDebugLines = RtPbrSurvey::kMaxHostDebugLines + 3;
 static constexpr UINT kMaxDebugVertices = kMaxDebugLines * 2;
 
 class DebugLinePass
@@ -33,7 +30,8 @@ public:
         D3D12_SHADER_BYTECODE ps);
 
     void UpdateLines(
-        const std::vector<DebugLineVertex>& vertices,
+        const std::vector<DebugLineVertex>& depthTested,
+        const std::vector<DebugLineVertex>& overlay,
         ID3D12GraphicsCommandList* commandList);
 
     void RecordDraw(
@@ -44,14 +42,16 @@ public:
 
 private:
     void CreateRootSignature(ID3D12Device* device);
-    void CreatePipelineState(ID3D12Device* device, D3D12_SHADER_BYTECODE vs, D3D12_SHADER_BYTECODE ps);
+    void CreatePipelineStates(ID3D12Device* device, D3D12_SHADER_BYTECODE vs, D3D12_SHADER_BYTECODE ps);
     void CreateVertexBuffer(ID3D12Device* device);
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
-    Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pipelineState;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> m_depthTestedPipelineState;
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> m_overlayPipelineState;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_vertexBuffer;
     D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView = {};
-    UINT m_vertexCount = 0;
+    UINT m_depthTestedVertexCount = 0;
+    UINT m_overlayVertexCount = 0;
 };
 
 } // namespace Engine

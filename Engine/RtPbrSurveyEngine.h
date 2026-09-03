@@ -10,6 +10,7 @@
 //*********************************************************
 
 #pragma once
+#include <include/d3dx12/d3dx12.h>
 #include <wrl/client.h>
 #include "Rhi/Dx12/GraphicsDevice.h"
 #include "MyDx12Utils.h"
@@ -49,6 +50,7 @@
 #include "Renderer/SimpleDescriptorHeapAllocator.h"
 #include "Renderer/ShadowMaskDebugPass.h"
 #include "Renderer/DebugLinePass.h"
+#include "Runtime/DebugLine.h"
 #include "Renderer/RayReconstructionSupport.h"
 #include "Renderer/TemporalUpscalerSupport.h"
 #include "Renderer/StreamlineAdapter.h"
@@ -348,6 +350,10 @@ public:
     const PixelPickResult& GetPixelPickResult() const { return m_pixelPickResult; }
     void SetSpecularDebugLineSettings(const SpecularDebugLineSettings& settings);
     const SpecularDebugLineSettings& GetSpecularDebugLineSettings() const { return m_specularDebugLineSettings; }
+    RtPbrSurvey::DebugLineHandle AddDebugLine(const RtPbrSurvey::DebugLineDesc& desc);
+    bool UpdateDebugLine(RtPbrSurvey::DebugLineHandle handle, const RtPbrSurvey::DebugLineDesc& desc);
+    void RemoveDebugLine(RtPbrSurvey::DebugLineHandle handle);
+    void ClearDebugLines();
 
 private:
     static constexpr UINT kFrameCount = kSwapChainBufferCount;
@@ -983,7 +989,8 @@ private:
     ComPtr<ID3D12Resource> m_specularDebugRayQueryReadback;
 
     // Debug line data derived from the picked pixel.
-    std::vector<Engine::DebugLineVertex> m_debugLineVertices;
+    RtPbrSurvey::DebugLineRegistry m_debugLineRegistry;
+    RtPbrSurvey::DebugLineVertexGroups m_debugLineVertices;
     void UpdateDebugLines();
 
     std::array<float, 4> m_backBufferClearColor = {0.0f, 0.2f, 0.4f, 1.0f};

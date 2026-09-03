@@ -25,7 +25,7 @@ void DebugLinePass::Create(
     D3D12_SHADER_BYTECODE ps)
 {
     CreateRootSignature(device);
-    CreatePipelineState(device, vs, ps);
+    CreatePipelineStates(device, vs, ps);
     CreateVertexBuffer(device);
 }
 
@@ -48,7 +48,7 @@ void DebugLinePass::CreateRootSignature(ID3D12Device* device)
         0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
 }
 
-void DebugLinePass::CreatePipelineState(ID3D12Device* device, D3D12_SHADER_BYTECODE vs, D3D12_SHADER_BYTECODE ps)
+void DebugLinePass::CreatePipelineStates(ID3D12Device* device, D3D12_SHADER_BYTECODE vs, D3D12_SHADER_BYTECODE ps)
 {
     D3D12_INPUT_ELEMENT_DESC inputElementDescs[] = {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
@@ -67,8 +67,10 @@ void DebugLinePass::CreatePipelineState(ID3D12Device* device, D3D12_SHADER_BYTEC
     psoDesc.SampleDesc.Count = 1;
     psoDesc.SampleMask = UINT_MAX;
 
-    // Depth test off: lines are always visible on top of the scene.
-    psoDesc.DepthStencilState.DepthEnable = FALSE;
+    psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+    psoDesc.DepthStencilState.DepthEnable = TRUE;
+    psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+    psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
     psoDesc.DepthStencilState.StencilEnable = FALSE;
 
     // Default rasterizer: solid fill, back-face cull.
@@ -79,7 +81,9 @@ void DebugLinePass::CreatePipelineState(ID3D12Device* device, D3D12_SHADER_BYTEC
     // Default blend: overwrite.
     psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 
-    ThrowIfFailed(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pipelineState)));
+    ThrowIfFailed(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_depthTestedPipelineState)));
+    psoDesc.DepthStencilState.DepthEnable = FALSE;
+    ThrowIfFailed(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_overlayPipelineState)));
 }
 
 void DebugLinePass::CreateVertexBuffer(ID3D12Device* device)
@@ -93,11 +97,15 @@ void DebugLinePass::CreateVertexBuffer(ID3D12Device* device)
 }
 
 void DebugLinePass::UpdateLines(
-    const std::vector<DebugLineVertex>& vertices,
+    const std::vector<DebugLineVertex>& depthTested,
+    const std::vector<DebugLineVertex>& overlay,
     ID3D12GraphicsCommandList* commandList)
 {
-    const UINT count = static_cast<UINT>((std::min)(vertices.size(), static_cast<size_t>(kMaxDebugVertices)));
-    m_vertexCount = count;
+    m_depthTestedVertexCount =
+        static_cast<UINT>((std::min)(depthTested.size(), static_cast<size_t>(kMaxDebugVertices)));
+    m_overlayVertexCount = static_cast<UINT>(
+        (std::min)(overlay.size(), static_cast<size_t>(kMaxDebugVertices - m_depthTestedVertexCount)));
+    const UINT count = m_depthTestedVertexCount + m_overlayVertexCount;
 
     if (count == 0)
     {
@@ -108,7 +116,16 @@ void DebugLinePass::UpdateLines(
     void* mappedData = nullptr;
     CD3DX12_RANGE readRange(0, 0);
     ThrowIfFailed(m_vertexBuffer->Map(0, &readRange, &mappedData));
-    memcpy(mappedData, vertices.data(), sizeof(DebugLineVertex) * count);
+    if (m_depthTestedVertexCount > 0)
+    {
+        memcpy(mappedData, depthTested.data(), sizeof(DebugLineVertex) * m_depthTestedVertexCount);
+    }
+    if (m_overlayVertexCount > 0)
+    {
+        memcpy(static_cast<uint8_t*>(mappedData) + sizeof(DebugLineVertex) * m_depthTestedVertexCount,
+               overlay.data(),
+               sizeof(DebugLineVertex) * m_overlayVertexCount);
+    }
     m_vertexBuffer->Unmap(0, nullptr);
 
     // Issue a barrier if the buffer was previously used as a vertex buffer.
@@ -123,17 +140,25 @@ void DebugLinePass::RecordDraw(
     ID3D12GraphicsCommandList* commandList,
     D3D12_GPU_VIRTUAL_ADDRESS viewProjCbv) const
 {
-    if (m_vertexCount == 0)
+    if (m_depthTestedVertexCount == 0 && m_overlayVertexCount == 0)
     {
         return;
     }
 
     commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-    commandList->SetPipelineState(m_pipelineState.Get());
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
     commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
     commandList->SetGraphicsRootConstantBufferView(0, viewProjCbv);
-    commandList->DrawInstanced(m_vertexCount, 1, 0, 0);
+    if (m_depthTestedVertexCount > 0)
+    {
+        commandList->SetPipelineState(m_depthTestedPipelineState.Get());
+        commandList->DrawInstanced(m_depthTestedVertexCount, 1, 0, 0);
+    }
+    if (m_overlayVertexCount > 0)
+    {
+        commandList->SetPipelineState(m_overlayPipelineState.Get());
+        commandList->DrawInstanced(m_overlayVertexCount, 1, m_depthTestedVertexCount, 0);
+    }
 }
 
 } // namespace Engine

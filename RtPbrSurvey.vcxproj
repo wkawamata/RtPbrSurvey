@@ -197,6 +197,7 @@
     <ClInclude Include="Renderer\TextureMipChain.h" />
     <ClInclude Include="Renderer\ToneMap.h" />
     <ClInclude Include="Renderer\DebugLinePass.h" />
+    <ClInclude Include="Runtime\DebugLine.h" />
     <ClInclude Include="Runtime\SceneRenderer.h" />
     <ClInclude Include="Runtime\DebugTextureInspector.h" />
     <ClInclude Include="Runtime\SceneRendererDebugUi.h" />
@@ -281,6 +282,7 @@
     <ClCompile Include="Renderer\TextureMipChain.cpp" />
     <ClCompile Include="Renderer\ToneMap.cpp" />
     <ClCompile Include="Renderer\DebugLinePass.cpp" />
+    <ClCompile Include="Runtime\DebugLine.cpp" />
     <ClCompile Include="Runtime\SceneRenderer.cpp" />
     <ClCompile Include="Runtime\DebugTextureInspector.cpp" />
     <ClCompile Include="Runtime\SceneRendererDebugUi.cpp" />
