@@ -712,6 +712,11 @@ namespace RtPbrSurvey
             }
             ImGui::SameLine();
             ImGui::TextDisabled("Read-only diagnostics");
+            bool previewLightPass = renderer.IsDebugTexturePreviewEnabled();
+            if (ImGui::Checkbox("Preview LightPass", &previewLightPass))
+            {
+                renderer.SetDebugTexturePreviewEnabled(previewLightPass);
+            }
             ImGui::Separator();
             DrawRenderGraphDiagnostics(renderer, timing);
         }

@@ -37,6 +37,10 @@ void RtPbrSurveyEngine::BuildRenderPasses()
             AddPass(MakeTemporalUpscalerPass());
         }
         AddPass(MakeToneMapPass());
+        if (m_debugTexturePreviewEnabled)
+        {
+            AddPass(MakeDebugTexturePreviewPass());
+        }
 
         if (m_debugViewSettings.requestHdrDump)
         {
@@ -631,6 +635,16 @@ auto RtPbrSurveyEngine::MakeTemporalUpscalerPass() -> RenderPass
                 {kGBufferResourceNames[Engine::GBuffer::MotionVector], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE}})
         .Writes({{kTemporalUpscalerSceneColorResourceName, D3D12_RESOURCE_STATE_COPY_DEST}})
         .Operation(Op::TemporalUpscaler, &RtPbrSurveyEngine::ExecuteTemporalUpscalerPass)
+        .Build();
+}
+
+auto RtPbrSurveyEngine::MakeDebugTexturePreviewPass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"DebugTexturePreviewPass")
+        .Reads({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
+        .Writes({{kDebugTexturePreviewResourceName, D3D12_RESOURCE_STATE_COPY_DEST}})
+        .Operation(Op::DebugTexturePreview, &RtPbrSurveyEngine::ExecuteDebugTexturePreviewPass)
         .Build();
 }
 

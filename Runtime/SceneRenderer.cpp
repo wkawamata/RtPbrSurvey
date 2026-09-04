@@ -259,6 +259,21 @@ namespace RtPbrSurvey
         return m_engine.GetRenderViewMode();
     }
 
+    void SceneRenderer::SetDebugTexturePreviewEnabled(bool enabled)
+    {
+        m_engine.SetDebugTexturePreviewEnabled(enabled);
+    }
+
+    bool SceneRenderer::IsDebugTexturePreviewEnabled() const
+    {
+        return m_engine.IsDebugTexturePreviewEnabled();
+    }
+
+    ID3D12Resource* SceneRenderer::GetDebugTexturePreviewResource() const
+    {
+        return m_engine.GetDebugTexturePreviewResource();
+    }
+
     void SceneRenderer::SetRequestHdrDump(bool request)
     {
         m_engine.SetRequestHdrDump(request);

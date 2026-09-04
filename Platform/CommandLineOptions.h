@@ -68,6 +68,7 @@ struct CommandLineOptions
     bool autoSelectHybridReflectionEstimatorTest = false;
     bool useSceneDefaults = false;
     bool enableDlssSr = false;
+    bool enableDebugTexturePreview = false;
     DlssSrQualityMode dlssSrQualityMode = DlssSrQualityMode::Quality;
     std::filesystem::path capturePath;
     UINT captureAfterFrames = 0;
