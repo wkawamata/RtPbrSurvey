@@ -21,6 +21,7 @@ void ImGuiSystem::Initialize(HWND hwnd,
                              DXGI_FORMAT rtvFormat)
 {
     m_srvHeap = srvHeap;
+    m_device = device.Device();
     m_descriptorHeapAllocator.Init(device.Device(), m_srvHeap);
     g_allocator = &m_descriptorHeapAllocator;
 
@@ -94,6 +95,39 @@ void ImGuiSystem::SetDisplaySize(UINT width, UINT height)
     io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
 }
 
+uint64_t ImGuiSystem::UpdateTexture(ID3D12Resource* resource, DXGI_FORMAT format)
+{
+    if (!m_initialized || resource == nullptr)
+    {
+        ClearTexture();
+        return 0;
+    }
+
+    if (!m_textureDescriptor.IsValid())
+    {
+        m_textureDescriptor = m_descriptorHeapAllocator.Allocate();
+    }
+    if (m_textureResource != resource || m_textureFormat != format)
+    {
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.Format = format;
+        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srvDesc.Texture2D.MipLevels = 1;
+        m_device->CreateShaderResourceView(resource, &srvDesc, m_textureDescriptor.Cpu());
+        m_textureResource = resource;
+        m_textureFormat = format;
+    }
+    return m_textureDescriptor.Gpu().ptr;
+}
+
+void ImGuiSystem::ClearTexture()
+{
+    m_textureDescriptor.Reset();
+    m_textureResource = nullptr;
+    m_textureFormat = DXGI_FORMAT_UNKNOWN;
+}
+
 void ImGuiSystem::Shutdown()
 {
     if (!m_initialized)
@@ -101,11 +135,13 @@ void ImGuiSystem::Shutdown()
         return;
     }
 
+    ClearTexture();
     ImGui_ImplDX12_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
     m_initialized = false;
     m_srvHeap = nullptr;
+    m_device = nullptr;
     if (g_allocator == &m_descriptorHeapAllocator)
     {
         g_allocator = nullptr;

@@ -366,7 +366,7 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
         m_resourceDefaultStates.push_back({resourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     }
     m_resourceDefaultStates.push_back({kTemporalUpscalerSceneColorResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
-    m_resourceDefaultStates.push_back({kDebugTexturePreviewResourceName, D3D12_RESOURCE_STATE_COPY_DEST});
+    m_resourceDefaultStates.push_back({kDebugTexturePreviewResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
     m_resourceDefaultStates.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
@@ -3087,7 +3087,7 @@ void RtPbrSurveyEngine::RegisterDebugTexturePreview()
     spec.name = kDebugTexturePreviewResourceName;
     spec.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
     spec.format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    spec.initialState = D3D12_RESOURCE_STATE_COPY_DEST;
+    spec.initialState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
     spec.createSrv = true;
     spec.srvFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
     spec.persistent = true;
@@ -4950,6 +4950,10 @@ void RtPbrSurveyEngine::ExecuteDebugTexturePreviewPass(const RenderPass& pass)
     assert(m_lightPassRenderTarget != nullptr);
     assert(m_debugTexturePreview != nullptr);
     m_commandList->CopyResource(m_debugTexturePreview.Get(), m_lightPassRenderTarget.Get());
+    const CD3DX12_RESOURCE_BARRIER toShaderResource = CD3DX12_RESOURCE_BARRIER::Transition(
+        m_debugTexturePreview.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    m_commandList->ResourceBarrier(1, &toShaderResource);
+    m_resourceRegistry.SetState(kDebugTexturePreviewResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 }
 
 void RtPbrSurveyEngine::ExecuteToneMapPass(const RenderPass& pass)

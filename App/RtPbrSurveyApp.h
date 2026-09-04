@@ -20,6 +20,7 @@
 #include "Platform/IApplication.h"
 #include "Platform/WindowInfo.h"
 #include "Runtime/SceneRenderer.h"
+#include "Runtime/DebugTextureInspector.h"
 #include "Scene/SampleScene.h"
 #include "Ui/ImGuiSystem.h"
 
@@ -142,6 +143,8 @@ private:
     GraphicsDevice m_graphicsDevice;
     ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
     Engine::ImGuiSystem m_imguiSystem;
+    RtPbrSurvey::DebugTextureInspectorManager m_debugTextureInspectors;
+    uint64_t m_debugTexturePreviewId = 0;
 
     RtPbrSurvey::SceneRenderer m_sceneRenderer;
     RtPbrSurvey::DebugCameraController m_debugCamera;
