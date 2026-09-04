@@ -1319,6 +1319,38 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     RtPbrSurvey::SceneRendererDebugUi::DrawRenderGraphWindow(
         app.m_sceneRenderer, &renderGraphWindowOpen, &renderGraphTiming);
 
+    for (RtPbrSurvey::DebugTextureInspector& inspector : app.m_debugTextureInspectors.Inspectors())
+    {
+        std::string windowTitle = "Debug Texture: " + inspector.displayName + "###DebugTexture" +
+            std::to_string(inspector.id);
+        bool open = inspector.open;
+        ImGui::SetNextWindowSize(ImVec2(520.0f, 360.0f), ImGuiCond_FirstUseEver);
+        if (ImGui::Begin(windowTitle.c_str(), &open))
+        {
+            ImGui::TextUnformatted(inspector.resourceName.c_str());
+            if (app.m_debugTexturePreviewId != 0)
+            {
+                ID3D12Resource* resource = app.m_sceneRenderer.GetDebugTexturePreviewResource();
+                const D3D12_RESOURCE_DESC desc = resource->GetDesc();
+                const float availableWidth = ImGui::GetContentRegionAvail().x;
+                const float aspect = desc.Height > 0 ? static_cast<float>(desc.Width) / desc.Height : 1.0f;
+                ImGui::Image(ImTextureRef(app.m_debugTexturePreviewId),
+                             ImVec2(availableWidth, availableWidth / aspect));
+            }
+            else
+            {
+                ImGui::TextDisabled("Waiting for preview texture...");
+            }
+        }
+        ImGui::End();
+        if (!open)
+        {
+            app.m_debugTextureInspectors.Close(inspector.id);
+            app.m_sceneRenderer.SetDebugTexturePreviewEnabled(false);
+        }
+    }
+    app.m_debugTextureInspectors.RemoveClosed();
+
     RtPbrSurveyEngine::LightingParams lightingParams = app.m_lightingParams;
     if (!app.m_iblEnabled)
     {

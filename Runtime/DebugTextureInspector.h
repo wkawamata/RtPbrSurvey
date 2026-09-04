@@ -57,6 +57,7 @@ public:
 
     DebugTextureInspector* Find(uint64_t id);
     const DebugTextureInspector* Find(uint64_t id) const;
+    std::vector<DebugTextureInspector>& Inspectors() { return m_inspectors; }
     const std::vector<DebugTextureInspector>& Inspectors() const { return m_inspectors; }
 
 private:

@@ -1614,6 +1614,27 @@ void RtPbrSurveyApp::InitializeImGui()
 
 void RtPbrSurveyApp::UpdateUiFrame()
 {
+    if (m_sceneRenderer.IsDebugTexturePreviewEnabled())
+    {
+        m_debugTexturePreviewId = m_imguiSystem.UpdateTexture(
+            m_sceneRenderer.GetDebugTexturePreviewResource(), DXGI_FORMAT_R16G16B16A16_FLOAT);
+        if (m_debugTextureInspectors.Inspectors().empty())
+        {
+            m_debugTextureInspectors.OpenPreview("LightPass.RenderTarget",
+                                                 "LightPass",
+                                                 RtPbrSurvey::DebugTextureSemantic::Color);
+        }
+    }
+    else
+    {
+        m_imguiSystem.ClearTexture();
+        m_debugTexturePreviewId = 0;
+        for (const RtPbrSurvey::DebugTextureInspector& inspector : m_debugTextureInspectors.Inspectors())
+        {
+            m_debugTextureInspectors.Close(inspector.id);
+        }
+        m_debugTextureInspectors.RemoveClosed();
+    }
     m_imguiSystem.BeginFrame();
     if (m_appMode == AppMode::SceneSelect || m_debugUiVisible)
     {
