@@ -513,6 +513,47 @@ D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveToneMapSceneColorSrv() con
     return m_lightPassColorSrv.gpu;
 }
 
+D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveDebugTexturePreviewSourceSrv() const
+{
+    if (m_debugTexturePreviewSource == kLightPassRenderTargetResourceName)
+    {
+        return m_lightPassColorSrv.gpu;
+    }
+    if (m_debugTexturePreviewSource == kDepthStencilResourceName)
+    {
+        return m_depthStencilSrv.gpu;
+    }
+    if (m_debugTexturePreviewSource == kTemporalUpscalerSceneColorResourceName &&
+        m_temporalUpscalerSceneColorSrv.Index != UINT_MAX)
+    {
+        return m_temporalUpscalerSceneColorSrv.gpu;
+    }
+    if (m_debugTexturePreviewSource == kReflectionEvaluatedRadianceResourceName)
+    {
+        return m_reflectionEvaluatedRadianceSrv.gpu;
+    }
+    if (m_debugTexturePreviewSource == kReflectionSpecularAlbedoResourceName)
+    {
+        return m_reflectionSpecularAlbedoSrv.gpu;
+    }
+    if (m_debugTexturePreviewSource == kReflectionRoughnessResourceName)
+    {
+        return m_reflectionRoughnessSrv.gpu;
+    }
+    if (m_debugTexturePreviewSource == kReflectionSpecularHitDistanceResourceName)
+    {
+        return m_reflectionSpecularHitDistanceSrv.gpu;
+    }
+    for (UINT i = 0; i < Engine::GBuffer::kCount; ++i)
+    {
+        if (m_debugTexturePreviewSource == kGBufferResourceNames[i])
+        {
+            return m_gbuffer.srvHandles[i].gpu;
+        }
+    }
+    return m_lightPassColorSrv.gpu;
+}
+
 void RtPbrSurveyEngine::SetHybridReflectionSettings(const HybridReflectionSettings& settings)
 {
     const bool reflectionHistoryChanged =
@@ -706,6 +747,41 @@ void RtPbrSurveyEngine::SetToneMapParams(const ToneMapParams& params)
 void RtPbrSurveyEngine::SetRenderViewMode(RenderViewMode mode)
 {
     m_debugViewSettings.renderViewMode = mode;
+}
+
+void RtPbrSurveyEngine::SetDebugTexturePreviewSettings(const Engine::DebugTexturePreviewSettings& settings)
+{
+    m_debugTexturePreviewSettings = settings;
+}
+
+void RtPbrSurveyEngine::SetDebugTexturePreviewSemantic(Engine::DebugTexturePreviewSemantic semantic)
+{
+    m_debugTexturePreviewSettings.semantic = semantic;
+}
+
+void RtPbrSurveyEngine::SetDebugTexturePreviewChannel(Engine::DebugTexturePreviewChannel channel)
+{
+    m_debugTexturePreviewSettings.channel = channel;
+}
+
+void RtPbrSurveyEngine::SetDebugTexturePreviewExposure(float exposure)
+{
+    m_debugTexturePreviewSettings.exposure = exposure;
+}
+
+void RtPbrSurveyEngine::SetDebugTexturePreviewScale(float scale)
+{
+    m_debugTexturePreviewSettings.scale = scale;
+}
+
+void RtPbrSurveyEngine::SetDebugTexturePreviewOffset(float offset)
+{
+    m_debugTexturePreviewSettings.offset = offset;
+}
+
+void RtPbrSurveyEngine::SetDebugTexturePreviewNearestSampling(bool nearestSampling)
+{
+    m_debugTexturePreviewSettings.nearestSampling = nearestSampling;
 }
 
 void RtPbrSurveyEngine::SetRequestHdrDump(bool request)
@@ -2016,6 +2092,8 @@ auto RtPbrSurveyEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
         LoadShaderBytecode(L"shaders_EdgeAwareSpatialReflection_PSMain.cso")};
     shaders.toneMap = {LoadShaderBytecode(L"shaders_ToneMap_VSMain.cso"),
                        LoadShaderBytecode(L"shaders_ToneMap_PSMain.cso")};
+    shaders.debugTexturePreview = {LoadShaderBytecode(L"shaders_DebugTexturePreview_VSMain.cso"),
+                                   LoadShaderBytecode(L"shaders_DebugTexturePreview_PSMain.cso")};
     shaders.hybridReflection = LoadShaderBytecode(L"shaders_HybridReflection_CSMain.cso");
     shaders.proceduralEnv = LoadShaderBytecode(L"shaders_ProceduralEnvMap_CSMain.cso");
     shaders.rayQueryShadow = LoadShaderBytecode(L"shaders_RayQueryShadow_CSMain.cso");
@@ -2123,7 +2201,8 @@ void RtPbrSurveyEngine::RegisterPipelineStates(const PipelineShaderBytecode& sha
          {Pipe::ToneMap, shaders.toneMap, m_backBufferFormat},
          {Pipe::GBufferDebug, shaders.gbufferDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::ReflectionRayHitDebug, shaders.reflectionRayHitDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
-         {Pipe::ShadowMaskDebug, shaders.shadowMaskDebug, DXGI_FORMAT_R16G16B16A16_FLOAT}});
+         {Pipe::ShadowMaskDebug, shaders.shadowMaskDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
+         {Pipe::DebugTexturePreview, shaders.debugTexturePreview, DXGI_FORMAT_R16G16B16A16_FLOAT}});
 
     //
     // Depth PrePass PSO
@@ -3088,6 +3167,8 @@ void RtPbrSurveyEngine::RegisterDebugTexturePreview()
     spec.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
     spec.format = DXGI_FORMAT_R16G16B16A16_FLOAT;
     spec.initialState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    spec.flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+    spec.createRtv = true;
     spec.createSrv = true;
     spec.srvFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
     spec.persistent = true;
@@ -3389,6 +3470,11 @@ D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetTemporalUpscalerSceneColorRTV(
     return GetRtv(kTemporalUpscalerSceneColorRTVIndex);
 }
 
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetDebugTexturePreviewRTV() const
+{
+    return GetRtv(kDebugTexturePreviewRTVIndex);
+}
+
 void RtPbrSurveyEngine::RegisterPassBindingResolvers()
 {
     m_renderGraphRuntime.Bindings().Clear();
@@ -3444,6 +3530,8 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
     m_renderGraphRuntime.Bindings().RegisterRtv(
         m_renderGraphRuntime.RegisterRtv(RtvName::TemporalUpscalerSceneColor),
         [this]() { return GetTemporalUpscalerSceneColorRTV(); });
+    m_renderGraphRuntime.Bindings().RegisterRtv(m_renderGraphRuntime.RegisterRtv(RtvName::DebugTexturePreview),
+                                                [this]() { return GetDebugTexturePreviewRTV(); });
 
     m_renderGraphRuntime.Bindings().RegisterDsv(m_renderGraphRuntime.RegisterDsv(DsvName::Depth),
                                                 [this]() { return GetDepthDsv(); });
@@ -3469,6 +3557,9 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ToneMapSceneColorSrv),
         [this]() { return ResolveToneMapSceneColorSrv(); });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::DebugTexturePreviewSourceSrv),
+        [this]() { return ResolveDebugTexturePreviewSourceSrv(); });
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionEvaluatedRadianceSrv),
         [this]() { return m_reflectionEvaluatedRadianceSrv.gpu; });
@@ -3632,6 +3723,14 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
                 m_reflectionSamplingFrameIndex,
                 m_hybridReflectionSettings.estimatorConstantIncidentRadianceEnabled ? 1u : 0u};
             m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 3, constants, 0);
+        });
+    m_renderGraphRuntime.Constants().Register(
+        m_renderGraphRuntime.RegisterConstants(ConstName::DebugTexturePreview),
+        [this](UINT rootParameterIndex)
+        {
+            const Engine::DebugTexturePreviewSettings::ShaderConstants constants =
+                m_debugTexturePreviewSettings.MakeShaderConstants();
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 6, &constants, 0);
         });
 }
 
@@ -4382,7 +4481,7 @@ bool RtPbrSurveyEngine::BindCreatedColorRenderTexture(const std::string& name, I
          &RtPbrSurveyEngine::m_temporalUpscalerSceneColorSrv},
         {kDebugTexturePreviewResourceName,
          &RtPbrSurveyEngine::m_debugTexturePreview,
-         0,
+         kDebugTexturePreviewRTVIndex,
          &RtPbrSurveyEngine::m_debugTexturePreviewSrv},
     };
 
@@ -4947,12 +5046,13 @@ void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
 void RtPbrSurveyEngine::ExecuteDebugTexturePreviewPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
-    assert(m_lightPassRenderTarget != nullptr);
-    assert(m_debugTexturePreview != nullptr);
-    m_commandList->CopyResource(m_debugTexturePreview.Get(), m_lightPassRenderTarget.Get());
-    const CD3DX12_RESOURCE_BARRIER toShaderResource = CD3DX12_RESOURCE_BARRIER::Transition(
-        m_debugTexturePreview.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-    m_commandList->ResourceBarrier(1, &toShaderResource);
+    if (m_debugTexturePreview == nullptr)
+    {
+        return;
+    }
+    m_commandList->RSSetViewports(1, &m_renderViewport);
+    m_commandList->RSSetScissorRects(1, &m_renderScissorRect);
+    Engine::RecordDebugTexturePreviewPass(m_commandList.Get());
     m_resourceRegistry.SetState(kDebugTexturePreviewResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 }
 

@@ -1096,21 +1096,70 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
         int renderViewMode = static_cast<int>(app.m_renderViewMode);
         const bool deferredRendering = app.m_renderingPath == RenderingPath::Deferred;
+        const auto openPreview = [&app](const char* resourceName,
+                                        const char* displayName,
+                                        RtPbrSurvey::DebugTextureSemantic semantic)
+        {
+            for (const RtPbrSurvey::DebugTextureInspector& inspector : app.m_debugTextureInspectors.Inspectors())
+            {
+                app.m_debugTextureInspectors.Close(inspector.id);
+            }
+            app.m_debugTextureInspectors.RemoveClosed();
+            app.m_debugTextureInspectors.OpenPreview(resourceName, displayName, semantic);
+            app.m_sceneRenderer.SetDebugTexturePreviewEnabled(true);
+            app.m_sceneRenderer.SetDebugTexturePreviewSource(resourceName);
+        };
         ImGui::BeginDisabled(!deferredRendering);
         ImGui::TextUnformatted("DLSS Input Debug:");
         ImGui::RadioButton("Output##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::LightPass));
         ImGui::SameLine();
+        if (ImGui::SmallButton("Open Preview##DlssOutput"))
+        {
+            openPreview("LightPass.RenderTarget",
+                        "LightPass",
+                        RtPbrSurvey::DebugTextureSemantic::Color);
+        }
+        ImGui::SameLine();
         ImGui::RadioButton(
             "Scene Color##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::DlssInputColor));
         ImGui::SameLine();
+        if (ImGui::SmallButton("Open Preview##DlssSceneColor"))
+        {
+            openPreview("TemporalUpscaler.SceneColor",
+                        "TemporalUpscaler SceneColor",
+                        RtPbrSurvey::DebugTextureSemantic::Color);
+        }
+        ImGui::SameLine();
         ImGui::RadioButton("Depth##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::Depth));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Open Preview##DlssDepth"))
+        {
+            openPreview("DepthStencil", "Depth", RtPbrSurvey::DebugTextureSemantic::Depth);
+        }
         ImGui::SameLine();
         ImGui::RadioButton(
             "Motion Vectors##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferMotionVector));
         ImGui::SameLine();
+        if (ImGui::SmallButton("Open Preview##DlssMotion"))
+        {
+            openPreview("GBuffer.MotionVector",
+                        "Motion Vectors",
+                        RtPbrSurvey::DebugTextureSemantic::MotionVector);
+        }
+        ImGui::SameLine();
         ImGui::RadioButton("Normal##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferNormal));
         ImGui::SameLine();
+        if (ImGui::SmallButton("Open Preview##DlssNormal"))
+        {
+            openPreview("GBuffer.Normal", "Normal", RtPbrSurvey::DebugTextureSemantic::Normal);
+        }
+        ImGui::SameLine();
         ImGui::RadioButton("Albedo##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferAlbedo));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Open Preview##DlssAlbedo"))
+        {
+            openPreview("GBuffer.Albedo", "Albedo", RtPbrSurvey::DebugTextureSemantic::Color);
+        }
         ImGui::TextUnformatted("RR Input Buffers:");
         const bool rayReconstructionInputDebugAvailable =
             context.rayReconstructionAvailable && rayReconstructionSettings.enabled;
@@ -1119,17 +1168,43 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                            &renderViewMode,
                            static_cast<int>(RenderViewMode::ReflectionEvaluatedRadiance));
         ImGui::SameLine();
+        if (ImGui::SmallButton("Open Preview##RrNoisyRadiance"))
+        {
+            openPreview("ReflectionEvaluatedRadiance",
+                        "Noisy Radiance",
+                        RtPbrSurvey::DebugTextureSemantic::Color);
+        }
+        ImGui::SameLine();
         ImGui::RadioButton("Specular Albedo##DlssInputDebug",
                            &renderViewMode,
                            static_cast<int>(RenderViewMode::RayReconstructionSpecularAlbedo));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Open Preview##RrSpecularAlbedo"))
+        {
+            openPreview("ReflectionSpecularAlbedo",
+                        "RR Specular Albedo",
+                        RtPbrSurvey::DebugTextureSemantic::Color);
+        }
         ImGui::SameLine();
         ImGui::RadioButton("Roughness##DlssInputDebug",
                            &renderViewMode,
                            static_cast<int>(RenderViewMode::RayReconstructionRoughness));
         ImGui::SameLine();
+        if (ImGui::SmallButton("Open Preview##RrRoughness"))
+        {
+            openPreview("ReflectionRoughness", "RR Roughness", RtPbrSurvey::DebugTextureSemantic::Scalar);
+        }
+        ImGui::SameLine();
         ImGui::RadioButton("Specular Hit Distance##DlssInputDebug",
                            &renderViewMode,
                            static_cast<int>(RenderViewMode::RayReconstructionSpecularHitDistance));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Open Preview##RrSpecularHitDistance"))
+        {
+            openPreview("ReflectionSpecularHitDistance",
+                        "RR Specular Hit Distance",
+                        RtPbrSurvey::DebugTextureSemantic::Scalar);
+        }
         ImGui::EndDisabled();
         ImGui::EndDisabled();
         app.m_renderViewMode = static_cast<RenderViewMode>(renderViewMode);

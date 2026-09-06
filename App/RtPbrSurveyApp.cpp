@@ -1623,7 +1623,9 @@ void RtPbrSurveyApp::UpdateUiFrame()
             m_debugTextureInspectors.OpenPreview("LightPass.RenderTarget",
                                                  "LightPass",
                                                  RtPbrSurvey::DebugTextureSemantic::Color);
+            m_sceneRenderer.SetDebugTexturePreviewSource("LightPass.RenderTarget");
         }
+        SyncDebugTextureInspectorToEngine();
     }
     else
     {
@@ -1642,6 +1644,27 @@ void RtPbrSurveyApp::UpdateUiFrame()
     }
     m_sceneRenderer.DrawToolUi();
     m_imguiSystem.EndFrame();
+}
+
+void RtPbrSurveyApp::SyncDebugTextureInspectorToEngine()
+{
+    std::vector<RtPbrSurvey::DebugTextureInspector>& inspectors = m_debugTextureInspectors.Inspectors();
+    if (inspectors.empty())
+    {
+        return;
+    }
+    const RtPbrSurvey::DebugTextureInspector& inspector = inspectors.front();
+    m_sceneRenderer.SetDebugTexturePreviewSource(inspector.resourceName);
+    m_sceneRenderer.SetDebugTexturePreviewSemantic(
+        static_cast<Engine::DebugTexturePreviewSemantic>(static_cast<UINT>(inspector.semantic)));
+    m_sceneRenderer.SetDebugTexturePreviewChannel(
+        static_cast<Engine::DebugTexturePreviewChannel>(static_cast<UINT>(inspector.channel)));
+    m_sceneRenderer.SetDebugTexturePreviewNearestSampling(inspector.filter == RtPbrSurvey::DebugTextureFilter::Nearest);
+    Engine::DebugTexturePreviewSettings settings = m_sceneRenderer.GetDebugTexturePreviewSettings();
+    settings.exposure = inspector.exposure;
+    settings.scale = inspector.scale;
+    settings.offset = inspector.offset;
+    m_sceneRenderer.SetDebugTexturePreviewSettings(settings);
 }
 
 Engine::SampleScene& RtPbrSurveyApp::LoadedScene()

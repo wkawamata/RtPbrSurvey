@@ -19,6 +19,7 @@
 #include "Renderer/DebugDumpCapture.h"
 #include "Renderer/DeferredGpuReleaseQueue.h"
 #include "Renderer/EnvironmentMap.h"
+#include "Renderer/DebugTexturePreviewPass.h"
 #include "Renderer/GBuffer.h"
 #include "Renderer/HdrOutput.h"
 #include "Renderer/HybridReflectionPass.h"
@@ -343,6 +344,19 @@ public:
     void SetDebugTexturePreviewEnabled(bool enabled) { m_debugTexturePreviewEnabled = enabled; }
     bool IsDebugTexturePreviewEnabled() const { return m_debugTexturePreviewEnabled; }
     ID3D12Resource* GetDebugTexturePreviewResource() const { return m_debugTexturePreview.Get(); }
+    void SetDebugTexturePreviewSource(const std::string& source) { m_debugTexturePreviewSource = source; }
+    const std::string& GetDebugTexturePreviewSource() const { return m_debugTexturePreviewSource; }
+    void SetDebugTexturePreviewSettings(const Engine::DebugTexturePreviewSettings& settings);
+    const Engine::DebugTexturePreviewSettings& GetDebugTexturePreviewSettings() const
+    {
+        return m_debugTexturePreviewSettings;
+    }
+    void SetDebugTexturePreviewSemantic(Engine::DebugTexturePreviewSemantic semantic);
+    void SetDebugTexturePreviewChannel(Engine::DebugTexturePreviewChannel channel);
+    void SetDebugTexturePreviewExposure(float exposure);
+    void SetDebugTexturePreviewScale(float scale);
+    void SetDebugTexturePreviewOffset(float offset);
+    void SetDebugTexturePreviewNearestSampling(bool nearestSampling);
     void SetRequestHdrDump(bool request);
     void RequestReflectionHdrDiagnosticCapture(const Engine::ReflectionHdrDiagnosticRoi& roi);
     std::optional<Engine::ReflectionHdrDiagnosticFrame> ConsumeReflectionHdrDiagnosticFrame();
@@ -395,6 +409,7 @@ private:
             static constexpr const char* RayQueryTlasDebug = "RayQueryTlasDebug";
             static constexpr const char* ShadowMaskDebug = "ShadowMaskDebug";
             static constexpr const char* DebugLine = "DebugLine";
+            static constexpr const char* DebugTexturePreview = "DebugTexturePreview";
         };
 
         struct Descriptor
@@ -440,6 +455,7 @@ private:
             static constexpr const char* ReflectionRayHitUav = "ReflectionRayHitUav";
             static constexpr const char* TlasDebugUav = "TlasDebugUav";
             static constexpr const char* AccelerationStructureSrv = "AccelerationStructureSrv";
+            static constexpr const char* DebugTexturePreviewSourceSrv = "DebugTexturePreviewSourceSrv";
         };
 
         struct Rtv
@@ -467,6 +483,7 @@ private:
                 "ReflectionSpecularConfidenceCurrent";
             static constexpr const char* ReflectionDenoisedRadiance = "ReflectionDenoisedRadiance";
             static constexpr const char* TemporalUpscalerSceneColor = "TemporalUpscalerSceneColor";
+            static constexpr const char* DebugTexturePreview = "DebugTexturePreview";
         };
 
         struct Dsv
@@ -517,6 +534,7 @@ private:
             static constexpr const char* ReflectionRayHitDebugTarget = "ReflectionRayHitDebugTarget";
             static constexpr const char* TemporalReflection = "TemporalReflection";
             static constexpr const char* ReflectionSampling = "ReflectionSampling";
+            static constexpr const char* DebugTexturePreview = "DebugTexturePreview";
         };
     };
 
@@ -657,7 +675,8 @@ private:
     static constexpr UINT kReflectionSpecularConfidenceRTVBaseIndex = kReflectionSpecularMomentsRTVBaseIndex + 2;
     static constexpr UINT kReflectionDenoisedRadianceRTVIndex = kReflectionSpecularConfidenceRTVBaseIndex + 2;
     static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionDenoisedRadianceRTVIndex + 1;
-    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 20;
+    static constexpr UINT kDebugTexturePreviewRTVIndex = kTemporalUpscalerSceneColorRTVIndex + 1;
+    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 21;
 
     struct DebugViewSettings
     {
@@ -882,6 +901,8 @@ private:
     DescriptorHeapHandle m_temporalUpscalerSceneColorSrv;
     DescriptorHeapHandle m_debugTexturePreviewSrv;
     bool m_debugTexturePreviewEnabled = false;
+    std::string m_debugTexturePreviewSource = kLightPassRenderTargetResourceName;
+    Engine::DebugTexturePreviewSettings m_debugTexturePreviewSettings;
     DescriptorHeapHandle m_reflectionEvaluatedRadianceSrv;
     DescriptorHeapHandle m_reflectionSpecularEstimateSrv;
     DescriptorHeapHandle m_reflectionRoughnessSrv;
@@ -1189,6 +1210,7 @@ private:
         GraphicsPipelineShaderSet temporalReflection;
         GraphicsPipelineShaderSet edgeAwareSpatialReflection;
         GraphicsPipelineShaderSet toneMap;
+        GraphicsPipelineShaderSet debugTexturePreview;
         ShaderBytecode hybridReflection;
         ShaderBytecode proceduralEnv;
         ShaderBytecode rayQueryShadow;
@@ -1327,6 +1349,8 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionSpecularConfidenceCurrentRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionDenoisedRadianceRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetTemporalUpscalerSceneColorRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetDebugTexturePreviewRTV() const;
+    D3D12_GPU_DESCRIPTOR_HANDLE ResolveDebugTexturePreviewSourceSrv() const;
     void RegisterPassBindingResolvers();
     void RegisterPassConstantsHandlers();
     void RegisterResourceResolvers();

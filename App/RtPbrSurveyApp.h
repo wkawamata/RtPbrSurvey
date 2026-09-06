@@ -83,6 +83,7 @@ private:
     void CloseRunningScene();
     void InitializeImGui();
     void UpdateUiFrame();
+    void SyncDebugTextureInspectorToEngine();
     void UpdateAutomatedCaptureCamera();
     bool HasAutomatedCapture() const;
     void FailAutomatedCapture(const std::string& error);
