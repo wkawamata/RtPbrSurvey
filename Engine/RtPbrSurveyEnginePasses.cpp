@@ -640,11 +640,16 @@ auto RtPbrSurveyEngine::MakeTemporalUpscalerPass() -> RenderPass
 
 auto RtPbrSurveyEngine::MakeDebugTexturePreviewPass() -> RenderPass
 {
+    Engine::ResourceUsages reads = {{m_debugTexturePreviewSource, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"DebugTexturePreviewPass")
-        .Reads({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
-        .Writes({{kDebugTexturePreviewResourceName, D3D12_RESOURCE_STATE_COPY_DEST}})
+        .Pipeline(Pipe::DebugTexturePreview)
+        .Reads(std::move(reads))
+        .Writes({{kDebugTexturePreviewResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::DebugTexturePreviewSourceSrv)
+        .Rtv(RtvName::DebugTexturePreview)
         .Operation(Op::DebugTexturePreview, &RtPbrSurveyEngine::ExecuteDebugTexturePreviewPass)
+        .Constants(RootSignatureLayout::ToneMapConstants, ConstName::DebugTexturePreview)
         .Build();
 }
 

@@ -274,6 +274,41 @@ namespace RtPbrSurvey
         return m_engine.GetDebugTexturePreviewResource();
     }
 
+    void SceneRenderer::SetDebugTexturePreviewSource(const std::string& source)
+    {
+        m_engine.SetDebugTexturePreviewSource(source);
+    }
+
+    const std::string& SceneRenderer::GetDebugTexturePreviewSource() const
+    {
+        return m_engine.GetDebugTexturePreviewSource();
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewSettings(const Engine::DebugTexturePreviewSettings& settings)
+    {
+        m_engine.SetDebugTexturePreviewSettings(settings);
+    }
+
+    const Engine::DebugTexturePreviewSettings& SceneRenderer::GetDebugTexturePreviewSettings() const
+    {
+        return m_engine.GetDebugTexturePreviewSettings();
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewSemantic(Engine::DebugTexturePreviewSemantic semantic)
+    {
+        m_engine.SetDebugTexturePreviewSemantic(semantic);
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewChannel(Engine::DebugTexturePreviewChannel channel)
+    {
+        m_engine.SetDebugTexturePreviewChannel(channel);
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewNearestSampling(bool nearestSampling)
+    {
+        m_engine.SetDebugTexturePreviewNearestSampling(nearestSampling);
+    }
+
     void SceneRenderer::SetRequestHdrDump(bool request)
     {
         m_engine.SetRequestHdrDump(request);
