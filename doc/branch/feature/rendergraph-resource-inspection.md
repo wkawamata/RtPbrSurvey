@@ -27,14 +27,14 @@ The current implementation provides:
 - one `DebugTexturePreviewPass` that converts a selected Texture into displayable RGBA16F;
 - one ImGui texture descriptor and one effective GPU preview slot;
 - multiple-inspector data structures, although the UI currently closes the previous inspector when another preview is opened;
-- DLSS/RR Debug UI radio buttons and `Open Preview` buttons;
+- DLSS/RR Debug UI radio buttons and `Preview` buttons;
 - a transitional `Preview LightPass` checkbox in the RenderGraph window.
 
 `Preview LightPass` is not the final interaction. It should be replaced by resource-driven preview state.
 
 ## Existing RR Input Visualization
 
-The following RR-related Texture resources already have full-screen debug views or standalone `Open Preview` entry points:
+The following RR-related Texture resources already have full-screen debug views or standalone `Preview` entry points:
 
 | Meaning | Resource | Current standalone preview |
 |---|---|---|
@@ -130,7 +130,7 @@ Single-click selects a node and updates the existing details pane. Selection alo
 
 ### Double-click
 
-- Inspectable Texture resource: open or focus its quick Preview window.
+- Inspectable Texture resource: open or focus its Preview window.
 - Inspectable Buffer resource: open or focus its Buffer Inspector when a compatible view is registered.
 - Pass node: retain the current selection/focus behavior; do not guess an output resource.
 - Unsupported resource: keep the node selected and show the unsupported reason in the details pane.
@@ -139,7 +139,7 @@ Single-click selects a node and updates the existing details pane. Selection alo
 
 Texture and Buffer resource nodes expose:
 
-- `Open Preview`
+- `Preview`
 - `Pin Preview`
 - `Copy Resource Name`
 - `Close Preview` when that resource is open
@@ -152,10 +152,12 @@ Unsupported actions are disabled and display a concise reason. Pass nodes may la
 Remove the transitional `Preview LightPass` checkbox. Replace it with:
 
 - active preview count;
-- selected/quick-preview resource name;
+- selected Preview resource name;
 - `Close All` when at least one preview is open.
 
-The DLSS/RR Debug UI radio buttons remain available for full-screen inspection. Its `Open Preview` actions use the same preview manager as RenderGraph node actions.
+The DLSS/RR Debug UI radio buttons remain available for full-screen inspection. Its buttons use the concise label `Preview` and use the same preview manager as RenderGraph node actions.
+
+The RR input radio buttons use a fixed three-items-per-row layout. The next item starts on a new row after every third item. Item width is stable so support/status changes do not reflow the grid.
 
 ## Multiple Preview Windows
 
@@ -174,14 +176,18 @@ struct DebugTexturePreviewSlot
 Required behavior:
 
 - Opening an already-visible resource focuses its existing window.
-- `Open Preview` uses the quick unpinned slot when possible.
-- `Pin Preview` promotes the quick slot or creates an independent slot.
-- Pinned windows remain visible when another quick preview is opened.
+- `Preview` opens a new independent window when the selected resource is not already visible; it does not replace another resource's window.
+- `Pin Preview` creates or preserves an independent slot through the same manager. It is retained for RenderGraph context-menu workflows.
+- Existing Preview windows remain visible when another resource is opened.
 - Each window has independent semantic, channel, filter, exposure, scale, and offset controls.
 - Each slot has its own RenderGraph preview pass, output Texture, RTV/SRV bindings, and ImGui descriptor.
 - Closing a slot retires GPU resources and descriptors only after relevant GPU work completes.
 - Closing the final slot removes all preview passes.
 - The first implementation supports at most four live GPU preview slots and reports the limit in the UI.
+- The first Preview window uses the current default Preview position and size.
+- Additional windows use a small deterministic cascade offset so their title bars remain reachable.
+- After first use, each Preview window behaves as a normal movable/resizable ImGui window. User-selected position and size are restored by stable window identity.
+- Automatic default positioning uses `ImGuiCond_FirstUseEver` or equivalent behavior and must not overwrite a user-moved window every frame.
 
 Every Preview window must display its own output. Multiple windows must never alias one shared output unless they intentionally reference the same preview slot.
 
@@ -270,8 +276,10 @@ The details pane reports whether the selected resource is inspectable and why an
 ### RI-03 Multiple Texture Preview Slots
 
 - Add independent GPU outputs and ImGui descriptors.
-- Implement quick-preview reuse, pinning, close, and close-all.
+- Implement independent open/focus, pinning, close, and close-all behavior.
 - Add per-window display controls.
+- Preserve user-selected window positions and sizes; cascade only windows without saved placement.
+- Lay out RR input radio buttons as three items per row and label the action button `Preview`.
 - Validate resize, DLSS enable/disable, and RR enable/disable while windows are open.
 
 ### RI-04 Switchable Node Presentation
@@ -300,8 +308,11 @@ The details pane reports whether the selected resource is inspectable and why an
 - Compact mode remains visually and behaviorally compatible.
 - UE-style mode keeps all input anchors on the left and output anchors on the right.
 - Mouse-wheel zoom supports fine adjustment without level snapping.
-- Double-click and context-menu Open Preview produce the same result.
-- At least four pinned Texture previews can remain visible with distinct content.
+- Double-click and context-menu `Preview` produce the same result.
+- At least four Texture previews can remain visible simultaneously with distinct content.
+- Opening a different RR input with `Preview` leaves existing Preview windows visible.
+- The first window keeps the current default placement, while user-moved windows retain their positions and sizes.
+- RR input radio buttons wrap after every third item and the action button reads `Preview`.
 - RR noisy radiance, specular albedo, roughness, hit distance, depth, motion vectors, normal, and albedo can be opened from RenderGraph resource nodes.
 - RR native/fallback resolved output can be displayed beside its inputs.
 - Node thumbnails never move pins when their content updates.
