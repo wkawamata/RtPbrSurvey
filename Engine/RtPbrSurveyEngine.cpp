@@ -5053,7 +5053,6 @@ void RtPbrSurveyEngine::ExecuteDebugTexturePreviewPass(const RenderPass& pass)
     m_commandList->RSSetViewports(1, &m_renderViewport);
     m_commandList->RSSetScissorRects(1, &m_renderScissorRect);
     Engine::RecordDebugTexturePreviewPass(m_commandList.Get());
-    m_resourceRegistry.SetState(kDebugTexturePreviewResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 }
 
 void RtPbrSurveyEngine::ExecuteToneMapPass(const RenderPass& pass)

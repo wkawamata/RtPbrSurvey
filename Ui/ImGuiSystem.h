@@ -27,7 +27,7 @@ public:
 private:
     SimpleDescriptorHeapAllocator m_descriptorHeapAllocator;
     DescriptorAllocation m_textureDescriptor;
-    ID3D12Resource* m_textureResource = nullptr;
+    ComPtr<ID3D12Resource> m_textureResource;
     DXGI_FORMAT m_textureFormat = DXGI_FORMAT_UNKNOWN;
     ID3D12Device* m_device = nullptr;
     ID3D12DescriptorHeap* m_srvHeap = nullptr;

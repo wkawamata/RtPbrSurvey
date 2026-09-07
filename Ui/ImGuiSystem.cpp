@@ -107,7 +107,7 @@ uint64_t ImGuiSystem::UpdateTexture(ID3D12Resource* resource, DXGI_FORMAT format
     {
         m_textureDescriptor = m_descriptorHeapAllocator.Allocate();
     }
-    if (m_textureResource != resource || m_textureFormat != format)
+    if (m_textureResource.Get() != resource || m_textureFormat != format)
     {
         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
         srvDesc.Format = format;
@@ -124,7 +124,7 @@ uint64_t ImGuiSystem::UpdateTexture(ID3D12Resource* resource, DXGI_FORMAT format
 void ImGuiSystem::ClearTexture()
 {
     m_textureDescriptor.Reset();
-    m_textureResource = nullptr;
+    m_textureResource.Reset();
     m_textureFormat = DXGI_FORMAT_UNKNOWN;
 }
 

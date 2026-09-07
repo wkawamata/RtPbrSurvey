@@ -878,12 +878,16 @@ auto RtPbrSurveyEngine::MakeDebugLinePass() -> RenderPass
 
 auto RtPbrSurveyEngine::MakeImGuiPass() -> RenderPass
 {
-    return m_renderGraphRuntime.Authoring()
+    auto builder = m_renderGraphRuntime.Authoring()
         .CreatePass(L"ImGui")
         .Writes({{kBackBufferResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Rtv(RtvName::BackBuffer)
-        .Operation(Op::ImGui, &RtPbrSurveyEngine::ExecuteImGuiPass)
-        .Build();
+        .Operation(Op::ImGui, &RtPbrSurveyEngine::ExecuteImGuiPass);
+    if (m_debugTexturePreviewEnabled)
+    {
+        builder.Reads({{kDebugTexturePreviewResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}});
+    }
+    return builder.Build();
 }
 
 auto RtPbrSurveyEngine::MakeScreenshotPass() -> RenderPass
