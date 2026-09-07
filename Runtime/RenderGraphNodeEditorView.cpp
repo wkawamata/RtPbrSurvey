@@ -616,6 +616,8 @@ struct RenderGraphNodeEditorView::Impl
     {
         NodeEditor::Config config;
         config.SettingsFile = settingsPath.empty() ? nullptr : settingsPath.c_str();
+        config.EnableSmoothZoom = true;
+        config.SmoothZoomPower = 1.05f;
         context = NodeEditor::CreateEditor(&config);
     }
 

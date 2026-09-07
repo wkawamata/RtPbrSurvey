@@ -6,6 +6,8 @@ Recommendation for the shape of a full-screen HybridReflectionPass using RayQuer
 
 Current implementation status: HybridReflectionPass is wired into the render graph and writes separate raw hit and material payloads. A default-off experiment can trace a reproducible visible-roughness GGX-derived direction. `ReflectionEvaluatePass` reproduces that direction, consumes the payloads, and produces the pre-composite reflection signal. `TemporalReflectionPass` can resolve it through motion-reprojected history, and `LightPass` applies the visible-surface Fresnel term and adds the result to the lit scene.
 
+The Simple/Detail Debug UI presentation is specified separately in [Hybrid Reflection Debug UI Modes](hybrid-reflection-debug-ui-modes.md).
+
 ## Reflection Contract Summary
 
 The implementation was developed by separating raw RayQuery payloads, hit-surface radiance evaluation, and final visible-surface composition. The stable pass, resource, weighting, and future history contracts extracted from that work are maintained in [Hybrid Reflection Contracts](hybrid-reflection-contracts.md).

@@ -2,6 +2,8 @@
 
 #include "ImGuiSystem.h"
 
+#include "Ui/DebugUiPreferences.h"
+
 #include "imgui.h"
 #include "imgui_impl_dx12.h"
 #include "imgui_impl_win32.h"
@@ -27,6 +29,7 @@ void ImGuiSystem::Initialize(HWND hwnd,
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    RtPbrSurvey::RegisterDebugUiPreferencesSettingsHandler();
     ImGui::StyleColorsDark();
 
     ImGui_ImplWin32_Init(hwnd);
@@ -107,7 +110,7 @@ uint64_t ImGuiSystem::UpdateTexture(ID3D12Resource* resource, DXGI_FORMAT format
     {
         m_textureDescriptor = m_descriptorHeapAllocator.Allocate();
     }
-    if (m_textureResource != resource || m_textureFormat != format)
+    if (m_textureResource.Get() != resource || m_textureFormat != format)
     {
         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
         srvDesc.Format = format;
@@ -124,7 +127,7 @@ uint64_t ImGuiSystem::UpdateTexture(ID3D12Resource* resource, DXGI_FORMAT format
 void ImGuiSystem::ClearTexture()
 {
     m_textureDescriptor.Reset();
-    m_textureResource = nullptr;
+    m_textureResource.Reset();
     m_textureFormat = DXGI_FORMAT_UNKNOWN;
 }
 

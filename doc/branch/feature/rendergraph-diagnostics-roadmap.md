@@ -238,3 +238,4 @@
 
 - [x] `Open RenderGraph Window`チェックボックスを`Close Scene`ボタンの右側へ少し余白を空けて配置し、表示・非表示を切り替えられるようにする。
 - [x] RenderGraphノードの手動配置を`%APPDATA%\\RtPbrSurvey\\rendergraph_node_editor.json`へ自動保存し、次回起動時に復元する。
+- [ ] Resource inspection、複数Preview、UE-style pin layout、node thumbnailは`rendergraph-resource-inspection.md`のRI-01以降で扱う。
