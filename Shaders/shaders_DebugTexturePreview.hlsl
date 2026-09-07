@@ -1,4 +1,5 @@
 #include "FullscreenTriangle.hlsli"
+#include "DepthVisualization.hlsli"
 
 Texture2D<float4> g_source : register(t0, space4);
 SamplerState g_sampler : register(s0);
@@ -11,6 +12,14 @@ cbuffer DebugTexturePreviewConstants : register(b3)
     float scale;
     float offset;
     uint nearestSampling;
+    uint depthMode;
+    float depthDisplayNear;
+    float depthDisplayFar;
+    float depthGamma;
+    uint depthInvert;
+    float cameraNear;
+    float cameraFar;
+    uint orthographicProjection;
 };
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
@@ -38,6 +47,19 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     if (semantic == 1)
     {
         value.rgb = value.rgb * 0.5 + 0.5;
+    }
+    else if (semantic == 2)
+    {
+        const float depth = VisualizeDeviceDepth(value.r,
+                                                 depthMode,
+                                                 depthDisplayNear,
+                                                 depthDisplayFar,
+                                                 depthGamma,
+                                                 depthInvert,
+                                                 cameraNear,
+                                                 cameraFar,
+                                                 orthographicProjection);
+        value = float4(depth, depth, depth, depth);
     }
     else if (semantic == 3)
     {

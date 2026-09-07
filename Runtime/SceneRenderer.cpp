@@ -259,6 +259,21 @@ namespace RtPbrSurvey
         return m_engine.GetRenderViewMode();
     }
 
+    void SceneRenderer::SetDepthVisualizationSettings(const Engine::DepthVisualizationSettings& settings)
+    {
+        m_engine.SetDepthVisualizationSettings(settings);
+    }
+
+    const Engine::DepthVisualizationSettings& SceneRenderer::GetDepthVisualizationSettings() const
+    {
+        return m_engine.GetDepthVisualizationSettings();
+    }
+
+    Engine::DepthVisualizationSettings SceneRenderer::GetDefaultDepthVisualizationSettings() const
+    {
+        return m_engine.GetDefaultDepthVisualizationSettings();
+    }
+
     void SceneRenderer::SetDebugTexturePreviewEnabled(bool enabled)
     {
         m_engine.SetDebugTexturePreviewEnabled(enabled);

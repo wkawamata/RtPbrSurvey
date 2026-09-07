@@ -57,15 +57,15 @@ This part improves immediate RR and GBuffer diagnosis before adding node thumbna
 
 ### 3.1 Depth Mapping
 
-- [ ] Add projection-aware Perspective and Orthographic device-depth linearization.
-- [ ] Add Raw Device, Linear View, and Log View modes.
-- [ ] Add Display Near/Far, Gamma, Invert, and Reset controls.
-- [ ] Make Log View the useful default for large camera ranges.
+- [x] Add projection-aware Perspective and Orthographic device-depth linearization.
+- [x] Add Raw Device, Linear View, and Log View modes.
+- [x] Add Display Near/Far, Gamma, Invert, and Reset controls.
+- [x] Make Log View the useful default for large camera ranges.
 
 ### 3.2 Path Integration
 
-- [ ] Apply the same mapping to full-screen Depth views and Preview windows.
-- [ ] Keep nearest-neighbor sampling for Depth, Motion Vector, and DLSS input diagnostics.
+- [x] Apply the same mapping to full-screen Depth views and Preview windows.
+- [x] Keep nearest-neighbor sampling for Depth, Motion Vector, and DLSS input diagnostics.
 - [ ] Validate clear depth, camera range changes, resize, SR render size, and RR Depth input.
 
 ## Part 4: RenderGraph Resource Interaction and Node Presentation

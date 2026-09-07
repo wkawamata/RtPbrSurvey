@@ -20,6 +20,7 @@
 #include "Renderer/DeferredGpuReleaseQueue.h"
 #include "Renderer/EnvironmentMap.h"
 #include "Renderer/DebugTexturePreviewPass.h"
+#include "Renderer/DepthVisualization.h"
 #include "Renderer/GBuffer.h"
 #include "Renderer/HdrOutput.h"
 #include "Renderer/HybridReflectionPass.h"
@@ -343,6 +344,12 @@ public:
     }
     void SetRenderViewMode(RenderViewMode mode);
     RenderViewMode GetRenderViewMode() const { return m_debugViewSettings.renderViewMode; }
+    void SetDepthVisualizationSettings(const Engine::DepthVisualizationSettings& settings);
+    const Engine::DepthVisualizationSettings& GetDepthVisualizationSettings() const
+    {
+        return m_depthVisualizationSettings;
+    }
+    Engine::DepthVisualizationSettings GetDefaultDepthVisualizationSettings() const;
     void SetDebugTexturePreviewEnabled(bool enabled);
     bool IsDebugTexturePreviewEnabled() const;
     ID3D12Resource* GetDebugTexturePreviewResource(UINT previewIndex = 0) const;
@@ -993,6 +1000,7 @@ private:
     DXGI_FORMAT m_backBufferFormat = kBackBufferFormat;
     HdrOutputPolicy m_hdrOutputPolicy;
     DebugViewSettings m_debugViewSettings;
+    Engine::DepthVisualizationSettings m_depthVisualizationSettings;
     Engine::DebugDumpCapture m_debugDumpCapture;
     bool m_reflectionHdrDiagnosticRequested = false;
     bool m_reflectionHdrDiagnosticPending = false;

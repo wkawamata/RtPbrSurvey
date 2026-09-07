@@ -672,6 +672,7 @@ void RtPbrSurveyEngine::SetBackBufferClearColor(const std::array<float, 4>& colo
 void RtPbrSurveyEngine::SetScene(const Scene& scene)
 {
     m_scene = scene;
+    m_depthVisualizationSettings.Reset(m_scene.camera.nearZ, m_scene.camera.farZ);
 }
 
 void RtPbrSurveyEngine::SetCamera(const CameraState& camera)
@@ -755,6 +756,16 @@ void RtPbrSurveyEngine::SetToneMapParams(const ToneMapParams& params)
 void RtPbrSurveyEngine::SetRenderViewMode(RenderViewMode mode)
 {
     m_debugViewSettings.renderViewMode = mode;
+}
+
+void RtPbrSurveyEngine::SetDepthVisualizationSettings(const Engine::DepthVisualizationSettings& settings)
+{
+    m_depthVisualizationSettings = settings;
+}
+
+Engine::DepthVisualizationSettings RtPbrSurveyEngine::GetDefaultDepthVisualizationSettings() const
+{
+    return Engine::DepthVisualizationSettings::CreateDefault(m_scene.camera.nearZ, m_scene.camera.farZ);
 }
 
 void RtPbrSurveyEngine::SetDebugTexturePreviewSettings(const Engine::DebugTexturePreviewSettings& settings)
@@ -3760,9 +3771,21 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
     m_renderGraphRuntime.Constants().Register(m_renderGraphRuntime.RegisterConstants(ConstName::GBufferDebugTarget),
                                               [this](UINT rootParameterIndex)
                                               {
-                                                  const UINT debugTarget = m_debugViewSettings.GetGBufferDebugTarget();
+                                                  struct GBufferDebugConstants
+                                                  {
+                                                      UINT debugTarget;
+                                                      Engine::DepthVisualizationShaderConstants depthVisualization;
+                                                  };
+                                                  static_assert(sizeof(GBufferDebugConstants) == 9 * sizeof(UINT));
+                                                  const GBufferDebugConstants constants = {
+                                                      m_debugViewSettings.GetGBufferDebugTarget(),
+                                                      m_depthVisualizationSettings.MakeShaderConstants(
+                                                          m_scene.camera.nearZ,
+                                                          m_scene.camera.farZ,
+                                                          m_scene.camera.projection ==
+                                                              Engine::CameraProjection::Orthographic)};
                                                   m_commandList->SetGraphicsRoot32BitConstants(
-                                                      rootParameterIndex, 1, &debugTarget, 0);
+                                                      rootParameterIndex, 9, &constants, 0);
                                               });
     m_renderGraphRuntime.Constants().Register(
         m_renderGraphRuntime.RegisterConstants(ConstName::ReflectionRayHitDebugTarget),
@@ -3824,8 +3847,11 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
             [this, i](UINT rootParameterIndex)
             {
                 const Engine::DebugTexturePreviewSettings::ShaderConstants constants =
-                    m_debugTexturePreviewSettings[i].MakeShaderConstants();
-                m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 6, &constants, 0);
+                    m_debugTexturePreviewSettings[i].MakeShaderConstants(
+                        m_scene.camera.nearZ,
+                        m_scene.camera.farZ,
+                        m_scene.camera.projection == Engine::CameraProjection::Orthographic);
+                m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 14, &constants, 0);
             });
     }
 }

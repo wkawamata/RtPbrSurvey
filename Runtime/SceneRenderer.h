@@ -78,6 +78,9 @@ namespace RtPbrSurvey
         RtPbrSurveyEngine::ToneMapParams GetToneMapParams() const;
         void SetRenderViewMode(RtPbrSurveyEngine::RenderViewMode mode);
         RtPbrSurveyEngine::RenderViewMode GetRenderViewMode() const;
+        void SetDepthVisualizationSettings(const Engine::DepthVisualizationSettings& settings);
+        const Engine::DepthVisualizationSettings& GetDepthVisualizationSettings() const;
+        Engine::DepthVisualizationSettings GetDefaultDepthVisualizationSettings() const;
         void SetDebugTexturePreviewEnabled(bool enabled);
         bool IsDebugTexturePreviewEnabled() const;
         ID3D12Resource* GetDebugTexturePreviewResource(UINT previewIndex = 0) const;

@@ -159,6 +159,32 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
     }
 }
 
+bool DrawDepthVisualizationControls(Engine::DepthVisualizationSettings& settings,
+                                    const Engine::DepthVisualizationSettings& defaults,
+                                    const char* id)
+{
+    bool changed = false;
+    ImGui::PushID(id);
+    int mode = static_cast<int>(settings.mode);
+    if (ImGui::Combo("Depth Mapping", &mode, "Raw Device\0Linear View\0Log View\0"))
+    {
+        settings.mode = static_cast<Engine::DepthVisualizationMode>(mode);
+        changed = true;
+    }
+    changed |= ImGui::DragFloat("Display Near", &settings.displayNear, 0.01f, 0.0001f, 1000000.0f, "%.4f");
+    changed |= ImGui::DragFloat("Display Far", &settings.displayFar, 0.1f, 0.0002f, 1000000.0f, "%.3f");
+    changed |= ImGui::DragFloat("Gamma", &settings.gamma, 0.01f, 0.05f, 8.0f, "%.2f");
+    changed |= ImGui::Checkbox("Invert", &settings.invert);
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Reset"))
+    {
+        settings = defaults;
+        changed = true;
+    }
+    ImGui::PopID();
+    return changed;
+}
+
 RtPbrSurvey::RenderGraphGpuTimingSnapshot
 BuildRenderGraphGpuTimingSnapshot(const std::vector<MyDx12Util::GpuWorkMeter::CheckPoint>& checkPoints)
 {
@@ -922,6 +948,17 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             app.m_renderViewMode = RenderViewMode::LightPass;
         }
         DrawRenderViewDescription(app.m_renderViewMode);
+        if (app.m_renderViewMode == RenderViewMode::Depth)
+        {
+            Engine::DepthVisualizationSettings depthSettings =
+                app.m_sceneRenderer.GetDepthVisualizationSettings();
+            if (DrawDepthVisualizationControls(depthSettings,
+                                               app.m_sceneRenderer.GetDefaultDepthVisualizationSettings(),
+                                               "FullScreenDepth"))
+            {
+                app.m_sceneRenderer.SetDepthVisualizationSettings(depthSettings);
+            }
+        }
         const bool iblDebugView = app.m_renderViewMode == RenderViewMode::IblEnvironment ||
             app.m_renderViewMode == RenderViewMode::IblDiffuseIrradiance ||
             app.m_renderViewMode == RenderViewMode::IblSpecularPrefilter;
@@ -1201,6 +1238,12 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 app.m_debugTextureInspectors.OpenPreview(resourceName, displayName, semantic);
             if (inspector != nullptr)
             {
+                if (semantic == RtPbrSurvey::DebugTextureSemantic::Depth &&
+                    !inspector->depthVisualizationInitialized)
+                {
+                    inspector->depthVisualization = app.m_sceneRenderer.GetDefaultDepthVisualizationSettings();
+                    inspector->depthVisualizationInitialized = true;
+                }
                 app.m_sceneRenderer.SetDebugTexturePreviewEnabled(true);
                 if (app.m_debugTextureInspectors.Inspectors().size() == 1)
                 {
@@ -1586,6 +1629,18 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                              -100.0f,
                              100.0f,
                              "%.3f");
+
+            if (inspector.semantic == RtPbrSurvey::DebugTextureSemantic::Depth)
+            {
+                if (!inspector.depthVisualizationInitialized)
+                {
+                    inspector.depthVisualization = app.m_sceneRenderer.GetDefaultDepthVisualizationSettings();
+                    inspector.depthVisualizationInitialized = true;
+                }
+                DrawDepthVisualizationControls(inspector.depthVisualization,
+                                               app.m_sceneRenderer.GetDefaultDepthVisualizationSettings(),
+                                               ("PreviewDepth" + std::to_string(inspector.id)).c_str());
+            }
 
             const uint64_t previewId = inspector.slotIndex < app.m_debugTexturePreviewIds.size() ?
                 app.m_debugTexturePreviewIds[inspector.slotIndex] :

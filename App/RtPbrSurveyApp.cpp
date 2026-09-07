@@ -1680,6 +1680,7 @@ void RtPbrSurveyApp::SyncDebugTextureInspectorToEngine()
         settings.exposure = inspector.exposure;
         settings.scale = inspector.scale;
         settings.offset = inspector.offset;
+        settings.depthVisualization = inspector.depthVisualization;
         m_sceneRenderer.ConfigureDebugTexturePreview(inspector.slotIndex, inspector.resourceName, settings);
         activeSlotMask |= 1u << inspector.slotIndex;
     }

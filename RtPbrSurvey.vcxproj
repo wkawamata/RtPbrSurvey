@@ -198,6 +198,7 @@
     <ClInclude Include="Renderer\ToneMap.h" />
     <ClInclude Include="Renderer\DebugLinePass.h" />
     <ClInclude Include="Renderer\DebugTexturePreviewPass.h" />
+    <ClInclude Include="Renderer\DepthVisualization.h" />
     <ClInclude Include="Runtime\DebugLine.h" />
     <ClInclude Include="Runtime\SceneRenderer.h" />
     <ClInclude Include="Runtime\DebugTextureInspector.h" />
@@ -340,6 +341,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\FullscreenTriangle.hlsli" />
+    <None Include="Shaders\DepthVisualization.hlsli" />
     <None Include="Shaders\Material.hlsli" />
     <None Include="Shaders\InstanceData.hlsli" />
     <None Include="Shaders\SceneDrawConstants.hlsli" />

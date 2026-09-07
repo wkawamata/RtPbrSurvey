@@ -219,6 +219,9 @@
     <ClInclude Include="Renderer\DebugTexturePreviewPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\DepthVisualization.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\DebugLinePass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -550,6 +553,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\FullscreenTriangle.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\DepthVisualization.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="Shaders\Material.hlsli">

@@ -106,6 +106,30 @@ namespace
         return false;
     }
 
+    bool DrawDepthVisualizationControls(Engine::DepthVisualizationSettings& settings,
+                                        const Engine::DepthVisualizationSettings& defaults)
+    {
+        bool changed = false;
+        int mode = static_cast<int>(settings.mode);
+        if (ImGui::Combo("Depth Mapping", &mode, "Raw Device\0Linear View\0Log View\0"))
+        {
+            settings.mode = static_cast<Engine::DepthVisualizationMode>(mode);
+            changed = true;
+        }
+        changed |=
+            ImGui::DragFloat("Display Near", &settings.displayNear, 0.01f, 0.0001f, 1000000.0f, "%.4f");
+        changed |= ImGui::DragFloat("Display Far", &settings.displayFar, 0.1f, 0.0002f, 1000000.0f, "%.3f");
+        changed |= ImGui::DragFloat("Gamma", &settings.gamma, 0.01f, 0.05f, 8.0f, "%.2f");
+        changed |= ImGui::Checkbox("Invert", &settings.invert);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Reset"))
+        {
+            settings = defaults;
+            changed = true;
+        }
+        return changed;
+    }
+
     void DrawFrameSummary(RtPbrSurvey::SceneRenderer& renderer)
     {
         const RtPbrSurvey::SceneRenderer::UiFrameContext context = renderer.GetUiFrameContext();
@@ -564,6 +588,15 @@ namespace
         }
 
         ImGui::EndDisabled();
+
+        if (deferredRendering && renderViewMode == RtPbrSurveyEngine::RenderViewMode::Depth)
+        {
+            Engine::DepthVisualizationSettings depthSettings = renderer.GetDepthVisualizationSettings();
+            if (DrawDepthVisualizationControls(depthSettings, renderer.GetDefaultDepthVisualizationSettings()))
+            {
+                renderer.SetDepthVisualizationSettings(depthSettings);
+            }
+        }
 
         const bool lightPassView = deferredRendering && renderViewMode == RtPbrSurveyEngine::RenderViewMode::LightPass;
         bool lightingPassDebugGradient = renderer.GetLightingPassDebugGradient();

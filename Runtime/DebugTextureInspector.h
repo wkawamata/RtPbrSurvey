@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Renderer/DepthVisualization.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -43,6 +45,8 @@ struct DebugTextureInspector
     float exposure = 0.0f;
     float scale = 1.0f;
     float offset = 0.0f;
+    Engine::DepthVisualizationSettings depthVisualization;
+    bool depthVisualizationInitialized = false;
     bool pinned = false;
     bool open = true;
     bool focusRequested = true;

@@ -2,7 +2,9 @@
 
 #include "Runtime/DebugTextureInspector.h"
 
+#include <cmath>
 #include <iostream>
+#include <limits>
 
 namespace
 {
@@ -103,13 +105,46 @@ bool TestClosedSlotIsReusedWithoutMovingLiveInspectors()
            Check(replacement->slotIndex == 0, "lowest closed slot is reused") &&
            Check(manager.Find(secondId)->slotIndex == secondSlot, "live inspector keeps its GPU slot");
 }
+
+bool TestDepthVisualizationDefaultsFollowCameraRange()
+{
+    const Engine::DepthVisualizationSettings longRange =
+        Engine::DepthVisualizationSettings::CreateDefault(0.25f, 1000.0f);
+    const Engine::DepthVisualizationSettings shortRange =
+        Engine::DepthVisualizationSettings::CreateDefault(0.5f, 25.0f);
+
+    return Check(longRange.mode == Engine::DepthVisualizationMode::LogView, "depth defaults to Log View") &&
+           Check(longRange.displayNear == 0.25f, "depth default near follows the camera") &&
+           Check(longRange.displayFar == 100.0f, "large camera range receives a bounded display far") &&
+           Check(shortRange.displayFar == 25.0f, "short camera range keeps the camera far plane");
+}
+
+bool TestDepthVisualizationConstantsSanitizeInvalidValues()
+{
+    Engine::DepthVisualizationSettings settings;
+    settings.displayNear = std::numeric_limits<float>::quiet_NaN();
+    settings.displayFar = -1.0f;
+    settings.gamma = 0.0f;
+    const Engine::DepthVisualizationShaderConstants constants =
+        settings.MakeShaderConstants(0.0f, std::numeric_limits<float>::infinity(), true);
+
+    return Check(std::isfinite(constants.displayNear) && constants.displayNear > 0.0f,
+                 "invalid display near is sanitized") &&
+           Check(constants.displayFar > constants.displayNear, "display far remains greater than display near") &&
+           Check(constants.gamma == 1.0f, "invalid gamma falls back to one") &&
+           Check(constants.cameraNear == 0.1f && constants.cameraFar == 100.0f,
+                 "invalid camera range uses stable defaults") &&
+           Check(constants.orthographicProjection == 1u, "projection kind reaches shader constants");
+}
 } // namespace
 
 int main()
 {
     const bool passed = TestOpenPreviewReusesMatchingInspector() && TestPinnedPreviewsRemainIndependent() &&
                         TestDifferentPreviewsRemainIndependent() && TestPreviewLimit() && TestCloseAndRemove() &&
-                        TestClosedSlotIsReusedWithoutMovingLiveInspectors();
+                        TestClosedSlotIsReusedWithoutMovingLiveInspectors() &&
+                        TestDepthVisualizationDefaultsFollowCameraRange() &&
+                        TestDepthVisualizationConstantsSanitizeInvalidValues();
     if (passed)
     {
         std::cout << "DebugTextureInspector tests passed.\n";
