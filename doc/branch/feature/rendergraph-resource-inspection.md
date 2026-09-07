@@ -15,6 +15,7 @@ This document extends the completed read-only RenderGraph diagnostics roadmap. I
 - Support multiple independent Debug Texture windows.
 - Show fixed-size Texture and Buffer thumbnails without moving node pins.
 - Show a small user-configurable index-color marker independently from the node background.
+- Make close and distant geometry readable in every Depth visualization.
 - Preserve RenderGraph resource-state and lifetime ownership.
 - Reuse the same inspection path for DLSS SR and DLSS Ray Reconstruction inputs.
 
@@ -230,6 +231,51 @@ The details pane reports whether the selected resource is inspectable and why an
 - Use nearest-neighbor sampling by default.
 - Use a stable placeholder when the resource is unavailable or unsupported.
 
+## Depth Visualization
+
+Raw hardware depth is not a useful default diagnostic image for a perspective camera with a large far plane because most visible values cluster near `1.0` and appear white. Every view registered with `DebugTextureSemantic::Depth` uses the same depth-visualization transform.
+
+This includes:
+
+- the full-screen `Depth` render view;
+- DLSS/RR Depth input Preview windows;
+- RenderGraph Depth resource Preview windows;
+- Depth node thumbnails;
+- future history-depth inspectors.
+
+### Conversion
+
+1. Sample Depth with nearest-neighbor filtering.
+2. Use current camera projection data to convert device depth to positive view-space distance.
+3. Normalize it through the selected display range.
+4. Apply optional inversion and gamma.
+5. Produce grayscale display color before generic output transfer handling.
+
+Perspective and orthographic projections must both be supported. The shader must use camera/projection constants and must not assume a fixed near/far plane. Clear depth remains visually identifiable and must not produce NaN or infinity.
+
+### Controls
+
+Each full Preview window exposes:
+
+- `Depth Mode`: `Raw Device`, `Linear View`, or `Log View`;
+- `Display Near` in view-space units;
+- `Display Far` in view-space units;
+- `Gamma`;
+- `Invert`;
+- `Reset Depth Tone`.
+
+`Display Near` is always positive and less than `Display Far`. Controls use drag/slider behavior suitable for both sub-unit and large scene ranges. Existing generic exposure, scale, and offset controls remain available as advanced post-adjustments but are not the primary Depth mapping.
+
+Default behavior:
+
+- `Log View` is the default Depth mode so nearby geometry remains distinguishable with a large camera far plane.
+- `Display Near` starts from the active camera near plane.
+- `Display Far` starts from a bounded diagnostic distance derived from the camera range rather than blindly using a very large far plane.
+- Near maps to black and Far/clear depth maps to white unless `Invert` is enabled.
+- `Gamma` defaults to `1.0`.
+
+Depth tone settings are independent per Preview window. The full-screen Depth render view owns one shared setting. Thumbnails use the registered resource default and do not add inline sliders to node geometry.
+
 ### Buffer
 
 - Structured Buffer: compact element/count summary.
@@ -303,6 +349,14 @@ The details pane reports whether the selected resource is inspectable and why an
 - Add explicitly registered histogram/heatmap modes.
 - Avoid generic interpretation when stride or schema is unavailable.
 
+### RI-07 Common Depth Visualization
+
+- Add projection-aware device-depth linearization shared by full-screen and Preview paths.
+- Add Raw Device, Linear View, and Log View modes.
+- Add display Near/Far, Gamma, Invert, and Reset controls.
+- Apply the common mapping to Depth thumbnails without changing node dimensions.
+- Validate perspective, orthographic, clear-depth, resized, DLSS render-size, and RR input cases.
+
 ## Acceptance Criteria
 
 - Compact mode remains visually and behaviorally compatible.
@@ -313,6 +367,9 @@ The details pane reports whether the selected resource is inspectable and why an
 - Opening a different RR input with `Preview` leaves existing Preview windows visible.
 - The first window keeps the current default placement, while user-moved windows retain their positions and sizes.
 - RR input radio buttons wrap after every third item and the action button reads `Preview`.
+- Full-screen, RR input, RenderGraph Preview, and thumbnail Depth views use the same projection-aware mapping.
+- Default Log View Depth visibly separates nearby geometry instead of producing a nearly solid white image.
+- Depth display Near/Far, Gamma, and Invert can be adjusted without changing the source resource.
 - RR noisy radiance, specular albedo, roughness, hit distance, depth, motion vectors, normal, and albedo can be opened from RenderGraph resource nodes.
 - RR native/fallback resolved output can be displayed beside its inputs.
 - Node thumbnails never move pins when their content updates.
