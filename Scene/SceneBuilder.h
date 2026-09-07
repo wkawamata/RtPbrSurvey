@@ -37,6 +37,8 @@ public:
     bool LoadGltfMesh(const std::string& path);
     std::optional<SceneMeshId> AddGltfMesh(const std::string& path);
     GltfNodeMeshAddResult AddGltfNodeMesh(const GltfSceneAsset& asset, const std::string& nodeName);
+    // Uses the glTF node index so unnamed and repeated-name nodes remain addressable.
+    GltfNodeMeshAddResult AddGltfNodeMesh(const GltfSceneAsset& asset, uint32_t nodeIndex);
     void SetMesh(SceneMesh mesh);
 
     uint32_t AddMaterial(const SceneMaterial& material);

@@ -78,6 +78,7 @@ private:
     struct Impl;
     explicit GltfSceneAsset(std::shared_ptr<const Impl> impl);
     GltfNodeMeshStatus ExtractNodeMesh(const std::string& nodeName, GltfMeshData& outMesh, std::string& message) const;
+    GltfNodeMeshStatus ExtractNodeMesh(uint32_t nodeIndex, GltfMeshData& outMesh, std::string& message) const;
 
     std::shared_ptr<const Impl> m_impl;
 

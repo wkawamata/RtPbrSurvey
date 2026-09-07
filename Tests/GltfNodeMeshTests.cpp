@@ -48,6 +48,14 @@ void TestNodeEnumerationAndFailures()
             "Duplicate node names should fail explicitly.");
     Require(builder.GetMesh().ranges.empty(), "Failed node lookup must not mutate the SceneBuilder.");
 
+    const Engine::GltfNodeMeshAddResult repeatedByIndex = builder.AddGltfNodeMesh(loadResult.asset, 6);
+    Require(static_cast<bool>(repeatedByIndex), "A mesh node should be addable by its glTF node index.");
+    Require(repeatedByIndex.meshId.has_value(), "An indexed node mesh should return a mesh ID.");
+
+    const Engine::GltfNodeMeshAddResult missingByIndex = builder.AddGltfNodeMesh(loadResult.asset, 99);
+    Require(missingByIndex.status == Engine::GltfNodeMeshStatus::NodeNotFound,
+            "An invalid glTF node index should fail explicitly.");
+
     const Engine::GltfSceneAsset invalidAsset;
     const Engine::GltfNodeMeshAddResult invalid = builder.AddGltfNodeMesh(invalidAsset, "PartA");
     Require(invalid.status == Engine::GltfNodeMeshStatus::InvalidAsset, "An invalid CPU asset should fail explicitly.");
