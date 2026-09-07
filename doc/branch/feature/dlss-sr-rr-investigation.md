@@ -10,6 +10,8 @@ Base observed at creation: cloned from the RtPbrSurvey worktree used for the DLS
 
 Evaluate how to introduce NVIDIA DLSS Super Resolution (SR) and DLSS Ray Reconstruction (RR) into RtPbrSurvey without disrupting the current DX12 renderer and render graph work.
 
+Debug UI presentation modes, compact controls, and version-display requirements are specified in `dlss-debug-ui-modes.md`. RenderGraph DLSS node labels, index colors, and resource inspection are specified in `rendergraph-resource-inspection.md`.
+
 Also keep the temporal-upscaler design open enough to switch between other SR technologies over time. DLSS should be the first investigated backend, not the public shape of the renderer-facing abstraction. NVIDIA headers, SDK types, and binary loading details should stay localized to a narrow integration layer, with a future path toward moving external upscaler backends behind plugin DLL boundaries.
 
 ## Worktree Split

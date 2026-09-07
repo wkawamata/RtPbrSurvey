@@ -14,6 +14,7 @@ This document extends the completed read-only RenderGraph diagnostics roadmap. I
 - Open inspectable Texture resources from RenderGraph selection, double-click, and context menus.
 - Support multiple independent Debug Texture windows.
 - Show fixed-size Texture and Buffer thumbnails without moving node pins.
+- Show a small user-configurable index-color marker independently from the node background.
 - Preserve RenderGraph resource-state and lifetime ownership.
 - Reuse the same inspection path for DLSS SR and DLSS Ray Reconstruction inputs.
 
@@ -84,6 +85,43 @@ Changing presentation mode must not change the `RenderGraphDocument`, resource i
 - Existing minimum and maximum zoom limits remain in effect.
 - `Fit Graph` and `Focus Selected` continue to work.
 
+### Index Color
+
+Every pass and resource node has an index-color marker that is independent from the node background color:
+
+- The marker is a fixed-size square in the title row. The initial target is `10 x 10` pixels.
+- The default color for ordinary nodes is neutral gray (`#808080`).
+- `DLSS SR` and `DLSS Ray Reconstruction` pass nodes use NVIDIA green (`#76B900`) as their technology default.
+- The marker does not replace the node title, resource type, validation icon, or selection state. Color must not be the only indication of node meaning.
+- The context menu provides `Index Color`, a color editor, and `Reset Index Color`.
+- A user override is stored by stable node identity and remains valid in both Compact and UE-style presentation modes.
+- Reset restores the node's semantic default: NVIDIA green for DLSS nodes and gray for ordinary nodes.
+- Index-color changes are local diagnostic preferences. They must not mutate `RenderGraphDocument`, pass execution, resource identity, or graph snapshots.
+
+### Node Presentation Metadata
+
+Node identity and display presentation remain separate. Runtime pass names continue to provide stable IDs, while an optional renderer-owned presentation descriptor supplies display-only metadata:
+
+```cpp
+struct RenderGraphNodePresentation
+{
+    std::string stableNodeId;
+    std::string displayName;
+    std::string technologyName;
+    std::string versionText;
+    uint32_t defaultIndexColor;
+};
+```
+
+DLSS pass presentation is:
+
+| Stable pass identity | Display name | Technology | Default index color | Version rows |
+|---|---|---|---|---|
+| `TemporalUpscalerPass` | `DLSS SR` | `NVIDIA DLSS` | `#76B900` | Streamline plugin and NGX versions when available |
+| `DlssRayReconstructionPass` | `DLSS Ray Reconstruction` | `NVIDIA DLSS` | `#76B900` | Streamline plugin and NGX versions when available |
+
+The explicit `DLSS` label must remain visible at normal zoom. Versions may collapse into the details pane or tooltip at low zoom. Version values reuse the existing Streamline diagnostics query; the graph must not issue a second SDK query per frame. If a version is unavailable, display `Version unavailable` rather than inventing a value.
+
 ## Resource Interaction
 
 ### Selection
@@ -105,6 +143,7 @@ Texture and Buffer resource nodes expose:
 - `Pin Preview`
 - `Copy Resource Name`
 - `Close Preview` when that resource is open
+- `Index Color` and `Reset Index Color`
 
 Unsupported actions are disabled and display a concise reason. Pass nodes may later expose a list of output resources, but that is outside the first implementation slice.
 
@@ -241,6 +280,8 @@ The details pane reports whether the selected resource is inspectable and why an
 - Add UE-style left/right pin placement.
 - Persist positions per style.
 - Verify ping-pong role changes do not move pins or resize nodes.
+- Add the fixed index-color square and persist user overrides by stable node identity.
+- Add renderer-owned DLSS display metadata without renaming runtime passes.
 
 ### RI-05 Texture Thumbnails
 
@@ -264,6 +305,10 @@ The details pane reports whether the selected resource is inspectable and why an
 - RR noisy radiance, specular albedo, roughness, hit distance, depth, motion vectors, normal, and albedo can be opened from RenderGraph resource nodes.
 - RR native/fallback resolved output can be displayed beside its inputs.
 - Node thumbnails never move pins when their content updates.
+- Every node shows a fixed index-color marker without changing its background color.
+- Ordinary nodes default to gray; DLSS SR/RR nodes default to NVIDIA green and are explicitly labeled `DLSS`.
+- User index-color overrides survive presentation-mode changes and reset to the correct semantic default.
+- DLSS node details show the available Streamline plugin and NGX versions without adding per-frame SDK queries.
 - Unsupported Buffer nodes explain why visualization is unavailable.
 - Enabling/disabling DLSS or resizing with previews open does not abort.
 - Debug x64 build succeeds.
