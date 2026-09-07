@@ -22,7 +22,7 @@ This part changes UI presentation while reusing existing renderer settings and t
 ### 1.2 Existing Preview UI Cleanup
 
 - [x] Rename visible `Open Preview` buttons to `Preview`.
-- [x] Wrap RR input choices after three radio/button items.
+- [x] Wrap DLSS and RR input choices after three radio/button items in each group.
 - [x] Persist Simple/Detail mode choices as local UI preferences.
 - [ ] Perform visual QA for narrow and normal Debug window widths.
 

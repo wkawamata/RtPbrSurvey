@@ -67,7 +67,7 @@ Detail mode retains the current sections and controls, including:
 - jitter X/Y scale and current jitter/index values;
 - motion-vector scale and offset controls;
 - experimental/native and fallback diagnostics;
-- RR input-buffer selection in a fixed three-items-per-row radio grid and `Preview` actions.
+- DLSS and RR input-buffer selection in separate fixed three-items-per-row radio grids and `Preview` actions.
 
 Detail controls edit the same settings shown in Simple mode. No duplicated shadow settings are allowed.
 

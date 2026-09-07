@@ -1200,7 +1200,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         {
             openPreview("DepthStencil", "Depth", RtPbrSurvey::DebugTextureSemantic::Depth);
         }
-        ImGui::SameLine();
         ImGui::RadioButton(
             "Motion Vectors##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferMotionVector));
         ImGui::SameLine();

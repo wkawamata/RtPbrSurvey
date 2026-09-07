@@ -158,7 +158,7 @@ Remove the transitional `Preview LightPass` checkbox. Replace it with:
 
 The DLSS/RR Debug UI radio buttons remain available for full-screen inspection. Its buttons use the concise label `Preview` and use the same preview manager as RenderGraph node actions.
 
-The RR input radio buttons use a fixed three-items-per-row layout. The next item starts on a new row after every third item. Item width is stable so support/status changes do not reflow the grid.
+The DLSS input and RR input radio-button groups each use a fixed three-items-per-row layout. The next item starts on a new row after every third item. Item width is stable so support/status changes do not reflow the grid.
 
 ## Multiple Preview Windows
 
@@ -325,7 +325,7 @@ Depth tone settings are independent per Preview window. The full-screen Depth re
 - Implement independent open/focus, pinning, close, and close-all behavior.
 - Add per-window display controls.
 - Preserve user-selected window positions and sizes; cascade only windows without saved placement.
-- Lay out RR input radio buttons as three items per row and label the action button `Preview`.
+- Lay out DLSS and RR input radio buttons as three items per row and label the action button `Preview`.
 - Validate resize, DLSS enable/disable, and RR enable/disable while windows are open.
 
 ### RI-04 Switchable Node Presentation
@@ -366,7 +366,7 @@ Depth tone settings are independent per Preview window. The full-screen Depth re
 - At least four Texture previews can remain visible simultaneously with distinct content.
 - Opening a different RR input with `Preview` leaves existing Preview windows visible.
 - The first window keeps the current default placement, while user-moved windows retain their positions and sizes.
-- RR input radio buttons wrap after every third item and the action button reads `Preview`.
+- DLSS and RR input radio buttons wrap after every third item and the action button reads `Preview`.
 - Full-screen, RR input, RenderGraph Preview, and thumbnail Depth views use the same projection-aware mapping.
 - Default Log View Depth visibly separates nearby geometry instead of producing a nearly solid white image.
 - Depth display Near/Far, Gamma, and Invert can be adjusted without changing the source resource.
