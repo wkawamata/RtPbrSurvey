@@ -5,7 +5,8 @@ namespace RtPbrSurvey
 
 struct DebugUiPreferences
 {
-    bool dlssDetailed = true;
+    bool dlssSrDetailed = true;
+    bool dlssRrDetailed = true;
     bool hybridReflectionDetailed = false;
 };
 

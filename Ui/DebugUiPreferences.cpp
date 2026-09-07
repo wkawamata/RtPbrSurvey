@@ -26,7 +26,16 @@ void ReadLine(ImGuiContext*, ImGuiSettingsHandler*, void* entry, const char* lin
     int value = 0;
     if (sscanf_s(line, "DlssDetailed=%d", &value) == 1)
     {
-        preferences.dlssDetailed = value != 0;
+        preferences.dlssSrDetailed = value != 0;
+        preferences.dlssRrDetailed = value != 0;
+    }
+    else if (sscanf_s(line, "DlssSrDetailed=%d", &value) == 1)
+    {
+        preferences.dlssSrDetailed = value != 0;
+    }
+    else if (sscanf_s(line, "DlssRrDetailed=%d", &value) == 1)
+    {
+        preferences.dlssRrDetailed = value != 0;
     }
     else if (sscanf_s(line, "HybridReflectionDetailed=%d", &value) == 1)
     {
@@ -37,7 +46,8 @@ void ReadLine(ImGuiContext*, ImGuiSettingsHandler*, void* entry, const char* lin
 void WriteAll(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* output)
 {
     output->appendf("[%s][DebugUi]\n", handler->TypeName);
-    output->appendf("DlssDetailed=%d\n", g_preferences.dlssDetailed ? 1 : 0);
+    output->appendf("DlssSrDetailed=%d\n", g_preferences.dlssSrDetailed ? 1 : 0);
+    output->appendf("DlssRrDetailed=%d\n", g_preferences.dlssRrDetailed ? 1 : 0);
     output->appendf("HybridReflectionDetailed=%d\n\n", g_preferences.hybridReflectionDetailed ? 1 : 0);
 }
 } // namespace

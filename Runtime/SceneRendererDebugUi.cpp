@@ -141,26 +141,55 @@ namespace
         bool rayReconstructionChanged = false;
 
         RtPbrSurvey::DebugUiPreferences& preferences = RtPbrSurvey::GetDebugUiPreferences();
-        if (ImGuiWidgets::SimpleDetailMode("DlssDebugMode", &preferences.dlssDetailed))
+        ImGui::TextUnformatted("DLSS SR");
+        if (ImGuiWidgets::SimpleDetailMode("DlssSrDebugMode", &preferences.dlssSrDetailed))
         {
             RtPbrSurvey::MarkDebugUiPreferencesDirty();
         }
 
-        if (!preferences.dlssDetailed)
+        if (preferences.dlssSrDetailed)
         {
-            ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
-            changed |= ImGui::Checkbox("DLSS##Simple", &temporalUpscalerSettings.enabled);
-            int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
-            if (ImGui::Combo("DLSS SR Mode##Simple",
-                             &temporalUpscalerQualityMode,
-                             "Native (DLAA)\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
+            const Engine::StreamlineDlssDiagnostics& diagnostics = context.dlssDiagnostics;
+            ImGui::Text("Streamline SDK: %u.%u.%u", diagnostics.sdkMajor, diagnostics.sdkMinor, diagnostics.sdkPatch);
+            if (diagnostics.featureVersionAvailable)
             {
-                temporalUpscalerSettings.qualityMode =
-                    static_cast<Engine::TemporalUpscalerQualityMode>(temporalUpscalerQualityMode);
-                changed = true;
+                ImGui::Text("DLSS Plugin SL: %u.%u.%u",
+                            diagnostics.pluginMajor,
+                            diagnostics.pluginMinor,
+                            diagnostics.pluginPatch);
+                ImGui::Text(
+                    "NGX Runtime: %u.%u.%u", diagnostics.ngxMajor, diagnostics.ngxMinor, diagnostics.ngxPatch);
             }
-            ImGui::EndDisabled();
+            else
+            {
+                ImGui::TextUnformatted("DLSS Plugin SL: Unavailable");
+                ImGui::TextUnformatted("NGX Runtime: Unavailable");
+            }
+        }
 
+        ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
+        changed |= ImGui::Checkbox(preferences.dlssSrDetailed ? "DLSS Enabled" : "DLSS##Simple",
+                                   &temporalUpscalerSettings.enabled);
+        int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
+        if (ImGui::Combo(preferences.dlssSrDetailed ? "DLSS Quality" : "DLSS SR Mode##Simple",
+                         &temporalUpscalerQualityMode,
+                         "Native (DLAA)\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
+        {
+            temporalUpscalerSettings.qualityMode =
+                static_cast<Engine::TemporalUpscalerQualityMode>(temporalUpscalerQualityMode);
+            changed = true;
+        }
+        ImGui::EndDisabled();
+
+        ImGui::Separator();
+        ImGui::TextUnformatted("DLSS RR");
+        if (ImGuiWidgets::SimpleDetailMode("DlssRrDebugMode", &preferences.dlssRrDetailed))
+        {
+            RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        }
+
+        if (!preferences.dlssRrDetailed)
+        {
             bool nativeRayReconstructionEnabled =
                 rayReconstructionSettings.enabled && rayReconstructionSettings.experimentalNativeEvaluationEnabled;
             ImGui::BeginDisabled(!context.rayReconstructionAvailable);
@@ -174,66 +203,52 @@ namespace
         }
         else
         {
-
-        ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
-        changed |= ImGui::Checkbox("DLSS Enabled", &temporalUpscalerSettings.enabled);
-        int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
-        if (ImGui::Combo("DLSS Quality",
-                         &temporalUpscalerQualityMode,
-                         "Native (DLAA)\0Ultra Quality\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
-        {
-            temporalUpscalerSettings.qualityMode =
-                static_cast<Engine::TemporalUpscalerQualityMode>(temporalUpscalerQualityMode);
-            changed = true;
-        }
-        ImGui::EndDisabled();
-
-        const Engine::RayReconstructionDiagnostics& rayReconstructionDiagnostics =
-            context.rayReconstructionDiagnostics;
-        ImGui::Separator();
-        ImGui::Text("DLSS Ray Reconstruction: %s (Status: %s)",
-                    context.rayReconstructionAvailable ? "Available" : "Unavailable",
-                    rayReconstructionDiagnostics.StatusText());
-        ImGui::Text("RR Support Query: %s", rayReconstructionDiagnostics.supportQueryResultName);
-        if (rayReconstructionDiagnostics.featureVersionAvailable)
-        {
-            ImGui::Text("RR Plugin SL: %u.%u.%u",
-                        rayReconstructionDiagnostics.pluginMajor,
-                        rayReconstructionDiagnostics.pluginMinor,
-                        rayReconstructionDiagnostics.pluginPatch);
-            ImGui::Text("RR NGX Runtime: %u.%u.%u",
-                        rayReconstructionDiagnostics.ngxMajor,
-                        rayReconstructionDiagnostics.ngxMinor,
-                        rayReconstructionDiagnostics.ngxPatch);
-        }
-        else
-        {
-            ImGui::TextUnformatted("RR Plugin SL: Unavailable");
-            ImGui::TextUnformatted("RR NGX Runtime: Unavailable");
-        }
-        if (rayReconstructionDiagnostics.inputReadinessAvailable)
-        {
-            ImGui::Text("RR Input Readiness: %s (%s)",
-                        rayReconstructionDiagnostics.inputReady ? "Ready" : "Not Ready",
-                        rayReconstructionDiagnostics.InputReadinessText());
-        }
-        if (rayReconstructionDiagnostics.lastEvaluateAvailable)
-        {
-            ImGui::Text("RR Last Evaluate: %s (%s)",
-                        rayReconstructionDiagnostics.lastEvaluateOutputAvailable ? "Native Output" : "Copy Fallback",
-                        rayReconstructionDiagnostics.LastEvaluateStatusText());
-            ImGui::Text("RR Last Result: %s", rayReconstructionDiagnostics.lastEvaluateResultName);
-        }
-        ImGui::BeginDisabled(!context.rayReconstructionAvailable);
-        rayReconstructionChanged |= ImGui::Checkbox("RR Enabled", &rayReconstructionSettings.enabled);
-        ImGui::EndDisabled();
-        ImGui::BeginDisabled(!context.rayReconstructionAvailable || !rayReconstructionSettings.enabled);
-        rayReconstructionChanged |= ImGui::Checkbox("Experimental Native Evaluate",
-                                                    &rayReconstructionSettings.experimentalNativeEvaluationEnabled);
-        ImGui::EndDisabled();
-        ImGui::TextWrapped(
-            "Native RR is experimental and opt-in. If readiness or SDK evaluation fails, the pass copies "
-            "ReflectionEvaluatedRadiance into ReflectionResolvedRadiance for the same frame.");
+            const Engine::RayReconstructionDiagnostics& rayReconstructionDiagnostics =
+                context.rayReconstructionDiagnostics;
+            ImGui::Text("DLSS Ray Reconstruction: %s (Status: %s)",
+                        context.rayReconstructionAvailable ? "Available" : "Unavailable",
+                        rayReconstructionDiagnostics.StatusText());
+            ImGui::Text("RR Support Query: %s", rayReconstructionDiagnostics.supportQueryResultName);
+            if (rayReconstructionDiagnostics.featureVersionAvailable)
+            {
+                ImGui::Text("RR Plugin SL: %u.%u.%u",
+                            rayReconstructionDiagnostics.pluginMajor,
+                            rayReconstructionDiagnostics.pluginMinor,
+                            rayReconstructionDiagnostics.pluginPatch);
+                ImGui::Text("RR NGX Runtime: %u.%u.%u",
+                            rayReconstructionDiagnostics.ngxMajor,
+                            rayReconstructionDiagnostics.ngxMinor,
+                            rayReconstructionDiagnostics.ngxPatch);
+            }
+            else
+            {
+                ImGui::TextUnformatted("RR Plugin SL: Unavailable");
+                ImGui::TextUnformatted("RR NGX Runtime: Unavailable");
+            }
+            if (rayReconstructionDiagnostics.inputReadinessAvailable)
+            {
+                ImGui::Text("RR Input Readiness: %s (%s)",
+                            rayReconstructionDiagnostics.inputReady ? "Ready" : "Not Ready",
+                            rayReconstructionDiagnostics.InputReadinessText());
+            }
+            if (rayReconstructionDiagnostics.lastEvaluateAvailable)
+            {
+                ImGui::Text(
+                    "RR Last Evaluate: %s (%s)",
+                    rayReconstructionDiagnostics.lastEvaluateOutputAvailable ? "Native Output" : "Copy Fallback",
+                    rayReconstructionDiagnostics.LastEvaluateStatusText());
+                ImGui::Text("RR Last Result: %s", rayReconstructionDiagnostics.lastEvaluateResultName);
+            }
+            ImGui::BeginDisabled(!context.rayReconstructionAvailable);
+            rayReconstructionChanged |= ImGui::Checkbox("RR Enabled", &rayReconstructionSettings.enabled);
+            ImGui::EndDisabled();
+            ImGui::BeginDisabled(!context.rayReconstructionAvailable || !rayReconstructionSettings.enabled);
+            rayReconstructionChanged |= ImGui::Checkbox(
+                "Experimental Native Evaluate", &rayReconstructionSettings.experimentalNativeEvaluationEnabled);
+            ImGui::EndDisabled();
+            ImGui::TextWrapped(
+                "Native RR is experimental and opt-in. If readiness or SDK evaluation fails, the pass copies "
+                "ReflectionEvaluatedRadiance into ReflectionResolvedRadiance for the same frame.");
         }
 
         if (changed)

@@ -13,7 +13,7 @@ This part changes UI presentation while reusing existing renderer settings and t
 ### 1.1 Simple and Detail Views
 
 - [x] Add a reusable `Simple | Detail` segmented control.
-- [x] Add DLSS Simple mode with two status rows, DLSS enable, SR mode, and native RR enable.
+- [x] Add independent DLSS SR and RR Simple/Detail modes with two shared status rows.
 - [x] Preserve the current DLSS controls in Detail mode.
 - [x] Add Hybrid Reflection Simple mode with exactly the three requested checkboxes.
 - [x] Make Hybrid Reflection Simple the initial default and preserve the current Detail controls.
@@ -23,8 +23,9 @@ This part changes UI presentation while reusing existing renderer settings and t
 
 - [x] Rename visible `Open Preview` buttons to `Preview`.
 - [x] Wrap DLSS and RR input choices after three radio/button items in each group.
-- [x] Persist Simple/Detail mode choices as local UI preferences.
+- [x] Persist DLSS SR, DLSS RR, and Hybrid Reflection mode choices as independent local UI preferences.
 - [ ] Perform visual QA for narrow and normal Debug window widths.
+- [x] Keep `DLSS Input Debug` independently expandable from the SR/RR display modes.
 
 ## Part 2: Multiple Preview Foundation
 

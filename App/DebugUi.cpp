@@ -976,12 +976,14 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
         auto temporalUpscalerSettings = app.m_sceneRenderer.GetTemporalUpscalerSettings();
         auto rayReconstructionSettings = app.m_sceneRenderer.GetRayReconstructionSettings();
-        if (ImGuiWidgets::SimpleDetailMode("DlssDebugMode", &debugUiPreferences.dlssDetailed))
+        ImGui::Separator();
+        ImGui::TextUnformatted("DLSS SR");
+        if (ImGuiWidgets::SimpleDetailMode("DlssSrDebugMode", &debugUiPreferences.dlssSrDetailed))
         {
             RtPbrSurvey::MarkDebugUiPreferencesDirty();
         }
 
-        if (!debugUiPreferences.dlssDetailed)
+        if (!debugUiPreferences.dlssSrDetailed)
         {
             bool temporalUpscalerSettingsChanged = false;
             ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
@@ -1003,19 +1005,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 app.m_sceneRenderer.SetTemporalUpscalerSettings(temporalUpscalerSettings);
             }
 
-            bool nativeRayReconstructionEnabled =
-                rayReconstructionSettings.enabled && rayReconstructionSettings.experimentalNativeEvaluationEnabled;
-            ImGui::BeginDisabled(!context.rayReconstructionAvailable);
-            const bool rayReconstructionSettingsChanged =
-                ImGui::Checkbox("DLSS RR##Simple", &nativeRayReconstructionEnabled);
-            ImGui::EndDisabled();
-            if (rayReconstructionSettingsChanged)
-            {
-                rayReconstructionSettings.enabled = nativeRayReconstructionEnabled;
-                rayReconstructionSettings.experimentalNativeEvaluationEnabled = nativeRayReconstructionEnabled;
-                rayReconstructionSettings.backend = Engine::RayReconstructionBackend::Streamline;
-                app.m_sceneRenderer.SetRayReconstructionSettings(rayReconstructionSettings);
-            }
         }
         else
         {
@@ -1105,6 +1094,34 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             app.m_sceneRenderer.SetTemporalUpscalerSettings(temporalUpscalerSettings);
         }
 
+        }
+
+        ImGui::Separator();
+        ImGui::TextUnformatted("DLSS RR");
+        if (ImGuiWidgets::SimpleDetailMode("DlssRrDebugMode", &debugUiPreferences.dlssRrDetailed))
+        {
+            RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        }
+
+        if (!debugUiPreferences.dlssRrDetailed)
+        {
+            bool nativeRayReconstructionEnabled =
+                rayReconstructionSettings.enabled && rayReconstructionSettings.experimentalNativeEvaluationEnabled;
+            ImGui::BeginDisabled(!context.rayReconstructionAvailable);
+            const bool rayReconstructionSettingsChanged =
+                ImGui::Checkbox("DLSS RR##Simple", &nativeRayReconstructionEnabled);
+            ImGui::EndDisabled();
+            if (rayReconstructionSettingsChanged)
+            {
+                rayReconstructionSettings.enabled = nativeRayReconstructionEnabled;
+                rayReconstructionSettings.experimentalNativeEvaluationEnabled = nativeRayReconstructionEnabled;
+                rayReconstructionSettings.backend = Engine::RayReconstructionBackend::Streamline;
+                app.m_sceneRenderer.SetRayReconstructionSettings(rayReconstructionSettings);
+            }
+        }
+        else
+        {
+
         const Engine::RayReconstructionDiagnostics& rayReconstructionDiagnostics =
             context.rayReconstructionDiagnostics;
         ImGui::Separator();
@@ -1158,6 +1175,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             app.m_sceneRenderer.SetRayReconstructionSettings(rayReconstructionSettings);
         }
 
+        }
+
+        if (ImGui::CollapsingHeader("DLSS Input Debug"))
+        {
         int renderViewMode = static_cast<int>(app.m_renderViewMode);
         const bool deferredRendering = app.m_renderingPath == RenderingPath::Deferred;
         const auto openPreview = [&app](const char* resourceName,
@@ -1174,7 +1195,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             app.m_sceneRenderer.SetDebugTexturePreviewSource(resourceName);
         };
         ImGui::BeginDisabled(!deferredRendering);
-        ImGui::TextUnformatted("DLSS Input Debug:");
+        ImGui::TextUnformatted("Shared / SR Buffers:");
         ImGui::RadioButton("Output##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::LightPass));
         ImGui::SameLine();
         if (ImGui::SmallButton("Preview##DlssOutput"))
@@ -1223,7 +1244,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         {
             openPreview("GBuffer.Albedo", "Albedo", RtPbrSurvey::DebugTextureSemantic::Color);
         }
-        ImGui::TextUnformatted("RR Input Buffers:");
+        ImGui::TextUnformatted("RR Additional Buffers:");
         const bool rayReconstructionInputDebugAvailable =
             context.rayReconstructionAvailable && rayReconstructionSettings.enabled;
         ImGui::BeginDisabled(!rayReconstructionInputDebugAvailable);
