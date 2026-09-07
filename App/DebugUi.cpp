@@ -271,6 +271,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     using RenderViewMode = RtPbrSurveyEngine::RenderViewMode;
     using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
     static bool renderGraphWindowOpen = false;
+    static bool arrangeDebugTexturePreviewsRequested = false;
 
     if (const std::optional<RtPbrSurvey::ScreenshotResult> result = app.m_sceneRenderer.ConsumeScreenshotResult())
     {
@@ -1181,18 +1182,31 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         {
         int renderViewMode = static_cast<int>(app.m_renderViewMode);
         const bool deferredRendering = app.m_renderingPath == RenderingPath::Deferred;
+        ImGui::TextDisabled("Preview windows: %zu / %zu",
+                            app.m_debugTextureInspectors.Inspectors().size(),
+                            RtPbrSurvey::DebugTextureInspectorManager::kMaxInspectorCount);
+        if (!app.m_debugTextureInspectors.Inspectors().empty())
+        {
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Arrange##DebugTexturePreviews"))
+            {
+                arrangeDebugTexturePreviewsRequested = true;
+            }
+        }
         const auto openPreview = [&app](const char* resourceName,
                                         const char* displayName,
                                         RtPbrSurvey::DebugTextureSemantic semantic)
         {
-            for (const RtPbrSurvey::DebugTextureInspector& inspector : app.m_debugTextureInspectors.Inspectors())
+            RtPbrSurvey::DebugTextureInspector* inspector =
+                app.m_debugTextureInspectors.OpenPreview(resourceName, displayName, semantic);
+            if (inspector != nullptr)
             {
-                app.m_debugTextureInspectors.Close(inspector.id);
+                app.m_sceneRenderer.SetDebugTexturePreviewEnabled(true);
+                if (app.m_debugTextureInspectors.Inspectors().size() == 1)
+                {
+                    app.m_sceneRenderer.SetDebugTexturePreviewSource(resourceName);
+                }
             }
-            app.m_debugTextureInspectors.RemoveClosed();
-            app.m_debugTextureInspectors.OpenPreview(resourceName, displayName, semantic);
-            app.m_sceneRenderer.SetDebugTexturePreviewEnabled(true);
-            app.m_sceneRenderer.SetDebugTexturePreviewSource(resourceName);
         };
         ImGui::BeginDisabled(!deferredRendering);
         ImGui::TextUnformatted("Shared / SR Buffers:");
@@ -1478,23 +1492,113 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     RtPbrSurvey::SceneRendererDebugUi::DrawRenderGraphWindow(
         app.m_sceneRenderer, &renderGraphWindowOpen, &renderGraphTiming);
 
-    for (RtPbrSurvey::DebugTextureInspector& inspector : app.m_debugTextureInspectors.Inspectors())
+    bool closeAllDebugTexturePreviews = false;
+    std::vector<RtPbrSurvey::DebugTextureInspector>& inspectors = app.m_debugTextureInspectors.Inspectors();
+    const ImGuiViewport* mainViewport = ImGui::GetMainViewport();
+    const ImVec2 previewWindowSize(520.0f, 360.0f);
+    constexpr float previewWindowMargin = 12.0f;
+    constexpr float previewWindowGap = 12.0f;
+    const float rightColumnX = (std::max)(mainViewport->WorkPos.x + previewWindowMargin,
+                                          mainViewport->WorkPos.x + mainViewport->WorkSize.x -
+                                              previewWindowSize.x - previewWindowMargin);
+    const float leftColumnX = (std::max)(mainViewport->WorkPos.x + previewWindowMargin,
+                                         rightColumnX - previewWindowSize.x - previewWindowGap);
+    const float lastRowY = (std::max)(mainViewport->WorkPos.y + previewWindowMargin,
+                                      mainViewport->WorkPos.y + mainViewport->WorkSize.y -
+                                          previewWindowSize.y - previewWindowMargin);
+    for (size_t inspectorIndex = 0; inspectorIndex < inspectors.size(); ++inspectorIndex)
     {
+        RtPbrSurvey::DebugTextureInspector& inspector = inspectors[inspectorIndex];
         std::string windowTitle = "Debug Texture: " + inspector.displayName + "###DebugTexture" +
-            std::to_string(inspector.id);
+            inspector.resourceName;
         bool open = inspector.open;
-        ImGui::SetNextWindowSize(ImVec2(520.0f, 360.0f), ImGuiCond_FirstUseEver);
+        const size_t rowIndex = inspectorIndex / 2;
+        const bool rightColumn = inspectorIndex % 2 == 0;
+        const float windowX = rightColumn ? rightColumnX : leftColumnX;
+        const float requestedWindowY = mainViewport->WorkPos.y + previewWindowMargin +
+            static_cast<float>(rowIndex) * (previewWindowSize.y + previewWindowGap);
+        const float windowY = (std::min)(requestedWindowY, lastRowY);
+        const ImGuiCond placementCondition =
+            arrangeDebugTexturePreviewsRequested ? ImGuiCond_Always : ImGuiCond_FirstUseEver;
+        ImGui::SetNextWindowSize(previewWindowSize, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2(windowX, windowY), placementCondition);
+        if (inspector.focusRequested)
+        {
+            ImGui::SetNextWindowFocus();
+            inspector.focusRequested = false;
+        }
         if (ImGui::Begin(windowTitle.c_str(), &open))
         {
             ImGui::TextUnformatted(inspector.resourceName.c_str());
-            if (app.m_debugTexturePreviewId != 0)
+            ImGui::SameLine();
+            if (ImGui::SmallButton(("Close All##DebugTexture" + std::to_string(inspector.id)).c_str()))
             {
-                ID3D12Resource* resource = app.m_sceneRenderer.GetDebugTexturePreviewResource();
+                closeAllDebugTexturePreviews = true;
+            }
+
+            int semantic = static_cast<int>(inspector.semantic);
+            ImGui::SetNextItemWidth(110.0f);
+            if (ImGui::Combo(("Semantic##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                             &semantic,
+                             "Color\0Normal\0Depth\0Motion Vector\0Scalar\0"))
+            {
+                inspector.semantic = static_cast<RtPbrSurvey::DebugTextureSemantic>(semantic);
+            }
+            ImGui::SameLine();
+            int channel = static_cast<int>(inspector.channel);
+            ImGui::SetNextItemWidth(85.0f);
+            if (ImGui::Combo(("Channel##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                             &channel,
+                             "RGBA\0R\0G\0B\0A\0"))
+            {
+                inspector.channel = static_cast<RtPbrSurvey::DebugTextureChannel>(channel);
+            }
+            ImGui::SameLine();
+            int filter = static_cast<int>(inspector.filter);
+            ImGui::SetNextItemWidth(85.0f);
+            if (ImGui::Combo(("Filter##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                             &filter,
+                             "Nearest\0Linear\0"))
+            {
+                inspector.filter = static_cast<RtPbrSurvey::DebugTextureFilter>(filter);
+            }
+
+            ImGui::SetNextItemWidth(110.0f);
+            ImGui::DragFloat(("Exposure##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                             &inspector.exposure,
+                             0.05f,
+                             -16.0f,
+                             16.0f,
+                             "%.2f");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(110.0f);
+            ImGui::DragFloat(("Scale##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                             &inspector.scale,
+                             0.01f,
+                             -100.0f,
+                             100.0f,
+                             "%.3f");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(110.0f);
+            ImGui::DragFloat(("Offset##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                             &inspector.offset,
+                             0.01f,
+                             -100.0f,
+                             100.0f,
+                             "%.3f");
+
+            const uint64_t previewId = inspector.slotIndex < app.m_debugTexturePreviewIds.size() ?
+                app.m_debugTexturePreviewIds[inspector.slotIndex] :
+                0;
+            ID3D12Resource* resource = inspector.slotIndex < RtPbrSurveyEngine::kMaxDebugTexturePreviewCount ?
+                app.m_sceneRenderer.GetDebugTexturePreviewResource(inspector.slotIndex) :
+                nullptr;
+            if (previewId != 0 && resource != nullptr)
+            {
                 const D3D12_RESOURCE_DESC desc = resource->GetDesc();
                 const float availableWidth = ImGui::GetContentRegionAvail().x;
                 const float aspect = desc.Height > 0 ? static_cast<float>(desc.Width) / desc.Height : 1.0f;
-                ImGui::Image(ImTextureRef(app.m_debugTexturePreviewId),
-                             ImVec2(availableWidth, availableWidth / aspect));
+                ImGui::Image(ImTextureRef(previewId), ImVec2(availableWidth, availableWidth / aspect));
             }
             else
             {
@@ -1505,10 +1609,18 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         if (!open)
         {
             app.m_debugTextureInspectors.Close(inspector.id);
-            app.m_sceneRenderer.SetDebugTexturePreviewEnabled(false);
         }
     }
+    if (closeAllDebugTexturePreviews)
+    {
+        app.m_debugTextureInspectors.CloseAll();
+    }
+    arrangeDebugTexturePreviewsRequested = false;
     app.m_debugTextureInspectors.RemoveClosed();
+    if (app.m_debugTextureInspectors.Inspectors().empty())
+    {
+        app.m_sceneRenderer.SetDebugTexturePreviewEnabled(false);
+    }
 
     RtPbrSurveyEngine::LightingParams lightingParams = app.m_lightingParams;
     if (!app.m_iblEnabled)

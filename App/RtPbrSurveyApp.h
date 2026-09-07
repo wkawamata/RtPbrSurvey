@@ -145,7 +145,7 @@ private:
     ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
     Engine::ImGuiSystem m_imguiSystem;
     RtPbrSurvey::DebugTextureInspectorManager m_debugTextureInspectors;
-    uint64_t m_debugTexturePreviewId = 0;
+    std::array<uint64_t, RtPbrSurveyEngine::kMaxDebugTexturePreviewCount> m_debugTexturePreviewIds = {};
 
     RtPbrSurvey::SceneRenderer m_sceneRenderer;
     RtPbrSurvey::DebugCameraController m_debugCamera;

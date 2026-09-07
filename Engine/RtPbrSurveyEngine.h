@@ -98,6 +98,8 @@ namespace RootSignatureLayout = Engine::RootSignatureLayout;
 class RtPbrSurveyEngine
 {
 public:
+    static constexpr UINT kMaxDebugTexturePreviewCount = 4;
+
     enum class RenderViewMode
     {
         LightPass = 0,
@@ -341,16 +343,22 @@ public:
     }
     void SetRenderViewMode(RenderViewMode mode);
     RenderViewMode GetRenderViewMode() const { return m_debugViewSettings.renderViewMode; }
-    void SetDebugTexturePreviewEnabled(bool enabled) { m_debugTexturePreviewEnabled = enabled; }
-    bool IsDebugTexturePreviewEnabled() const { return m_debugTexturePreviewEnabled; }
-    ID3D12Resource* GetDebugTexturePreviewResource() const { return m_debugTexturePreview.Get(); }
-    void SetDebugTexturePreviewSource(const std::string& source) { m_debugTexturePreviewSource = source; }
-    const std::string& GetDebugTexturePreviewSource() const { return m_debugTexturePreviewSource; }
+    void SetDebugTexturePreviewEnabled(bool enabled);
+    bool IsDebugTexturePreviewEnabled() const;
+    ID3D12Resource* GetDebugTexturePreviewResource(UINT previewIndex = 0) const;
+    void SetDebugTexturePreviewSource(const std::string& source);
+    const std::string& GetDebugTexturePreviewSource() const { return m_debugTexturePreviewSources[0]; }
     void SetDebugTexturePreviewSettings(const Engine::DebugTexturePreviewSettings& settings);
     const Engine::DebugTexturePreviewSettings& GetDebugTexturePreviewSettings() const
     {
-        return m_debugTexturePreviewSettings;
+        return m_debugTexturePreviewSettings[0];
     }
+    void SetDebugTexturePreviewCount(UINT previewCount);
+    void SetDebugTexturePreviewActiveSlots(UINT activeSlotMask);
+    UINT GetDebugTexturePreviewCount() const;
+    void ConfigureDebugTexturePreview(UINT previewIndex,
+                                      const std::string& source,
+                                      const Engine::DebugTexturePreviewSettings& settings);
     void SetDebugTexturePreviewSemantic(Engine::DebugTexturePreviewSemantic semantic);
     void SetDebugTexturePreviewChannel(Engine::DebugTexturePreviewChannel channel);
     void SetDebugTexturePreviewExposure(float exposure);
@@ -675,8 +683,8 @@ private:
     static constexpr UINT kReflectionSpecularConfidenceRTVBaseIndex = kReflectionSpecularMomentsRTVBaseIndex + 2;
     static constexpr UINT kReflectionDenoisedRadianceRTVIndex = kReflectionSpecularConfidenceRTVBaseIndex + 2;
     static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionDenoisedRadianceRTVIndex + 1;
-    static constexpr UINT kDebugTexturePreviewRTVIndex = kTemporalUpscalerSceneColorRTVIndex + 1;
-    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 21;
+    static constexpr UINT kDebugTexturePreviewRTVBaseIndex = kTemporalUpscalerSceneColorRTVIndex + 1;
+    static constexpr UINT kRTVDescriptorCount = kDebugTexturePreviewRTVBaseIndex + kMaxDebugTexturePreviewCount;
 
     struct DebugViewSettings
     {
@@ -882,7 +890,7 @@ private:
     ComPtr<ID3D12Resource> m_reflectionSpecularConfidence[2];
     ComPtr<ID3D12Resource> m_reflectionDenoisedRadiance;
     ComPtr<ID3D12Resource> m_temporalUpscalerSceneColor;
-    ComPtr<ID3D12Resource> m_debugTexturePreview;
+    std::array<ComPtr<ID3D12Resource>, kMaxDebugTexturePreviewCount> m_debugTexturePreviews;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
     ComPtr<ID3D12Resource> m_reflectionRayColor;
@@ -899,10 +907,15 @@ private:
     DescriptorHeapHandle m_depthStencilSrv;
     DescriptorHeapHandle m_lightPassColorSrv;
     DescriptorHeapHandle m_temporalUpscalerSceneColorSrv;
-    DescriptorHeapHandle m_debugTexturePreviewSrv;
-    bool m_debugTexturePreviewEnabled = false;
-    std::string m_debugTexturePreviewSource = kLightPassRenderTargetResourceName;
-    Engine::DebugTexturePreviewSettings m_debugTexturePreviewSettings;
+    std::array<DescriptorHeapHandle, kMaxDebugTexturePreviewCount> m_debugTexturePreviewSrvs;
+    UINT m_debugTexturePreviewActiveSlotMask = 0;
+    std::array<std::string, kMaxDebugTexturePreviewCount> m_debugTexturePreviewSources = {
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+    };
+    std::array<Engine::DebugTexturePreviewSettings, kMaxDebugTexturePreviewCount> m_debugTexturePreviewSettings;
     DescriptorHeapHandle m_reflectionEvaluatedRadianceSrv;
     DescriptorHeapHandle m_reflectionSpecularEstimateSrv;
     DescriptorHeapHandle m_reflectionRoughnessSrv;
@@ -1113,7 +1126,36 @@ private:
     static constexpr const char* kDepthStencilResourceName = "DepthStencil";
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";
     static constexpr const char* kTemporalUpscalerSceneColorResourceName = "TemporalUpscaler.SceneColor";
-    static constexpr const char* kDebugTexturePreviewResourceName = "DebugTexturePreview.Output";
+    static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTexturePreviewCount] = {
+        "DebugTexturePreview.Output.0",
+        "DebugTexturePreview.Output.1",
+        "DebugTexturePreview.Output.2",
+        "DebugTexturePreview.Output.3",
+    };
+    static constexpr const wchar_t* kDebugTexturePreviewPassNames[kMaxDebugTexturePreviewCount] = {
+        L"DebugTexturePreviewPass.0",
+        L"DebugTexturePreviewPass.1",
+        L"DebugTexturePreviewPass.2",
+        L"DebugTexturePreviewPass.3",
+    };
+    static constexpr const char* kDebugTexturePreviewDescriptorNames[kMaxDebugTexturePreviewCount] = {
+        "DebugTexturePreviewSourceSrv.0",
+        "DebugTexturePreviewSourceSrv.1",
+        "DebugTexturePreviewSourceSrv.2",
+        "DebugTexturePreviewSourceSrv.3",
+    };
+    static constexpr const char* kDebugTexturePreviewRtvNames[kMaxDebugTexturePreviewCount] = {
+        "DebugTexturePreview.0",
+        "DebugTexturePreview.1",
+        "DebugTexturePreview.2",
+        "DebugTexturePreview.3",
+    };
+    static constexpr const char* kDebugTexturePreviewConstantsNames[kMaxDebugTexturePreviewCount] = {
+        "DebugTexturePreview.0",
+        "DebugTexturePreview.1",
+        "DebugTexturePreview.2",
+        "DebugTexturePreview.3",
+    };
     static constexpr const char* kReflectionEvaluatedRadianceResourceName = "ReflectionEvaluatedRadiance";
     static constexpr const char* kReflectionDenoisedRadianceResourceName = "ReflectionDenoisedRadiance";
     static constexpr const char* kReflectionSpecularEstimateResourceName = "ReflectionSpecularEstimate";
@@ -1349,8 +1391,8 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionSpecularConfidenceCurrentRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionDenoisedRadianceRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetTemporalUpscalerSceneColorRTV() const;
-    D3D12_CPU_DESCRIPTOR_HANDLE GetDebugTexturePreviewRTV() const;
-    D3D12_GPU_DESCRIPTOR_HANDLE ResolveDebugTexturePreviewSourceSrv() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetDebugTexturePreviewRTV(UINT previewIndex) const;
+    D3D12_GPU_DESCRIPTOR_HANDLE ResolveDebugTexturePreviewSourceSrv(UINT previewIndex) const;
     void RegisterPassBindingResolvers();
     void RegisterPassConstantsHandlers();
     void RegisterResourceResolvers();
@@ -1391,7 +1433,7 @@ private:
     RenderPass MakeEdgeAwareSpatialReflectionPass();
     RenderPass MakeLightingDebugGradientPass();
     RenderPass MakeTemporalUpscalerPass();
-    RenderPass MakeDebugTexturePreviewPass();
+    RenderPass MakeDebugTexturePreviewPass(UINT previewIndex);
     RenderPass MakeToneMapPass();
     RenderPass MakeDebugDumpPass();
     RenderPass MakeReflectionHdrDiagnosticPass();

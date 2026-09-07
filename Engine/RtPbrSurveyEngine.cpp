@@ -366,7 +366,10 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
         m_resourceDefaultStates.push_back({resourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     }
     m_resourceDefaultStates.push_back({kTemporalUpscalerSceneColorResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
-    m_resourceDefaultStates.push_back({kDebugTexturePreviewResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+    for (const char* resourceName : kDebugTexturePreviewResourceNames)
+    {
+        m_resourceDefaultStates.push_back({resourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+    }
     m_resourceDefaultStates.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
@@ -513,40 +516,45 @@ D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveToneMapSceneColorSrv() con
     return m_lightPassColorSrv.gpu;
 }
 
-D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveDebugTexturePreviewSourceSrv() const
+D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveDebugTexturePreviewSourceSrv(UINT previewIndex) const
 {
-    if (m_debugTexturePreviewSource == kLightPassRenderTargetResourceName)
+    if (previewIndex >= kMaxDebugTexturePreviewCount)
     {
         return m_lightPassColorSrv.gpu;
     }
-    if (m_debugTexturePreviewSource == kDepthStencilResourceName)
+
+    const std::string& source = m_debugTexturePreviewSources[previewIndex];
+    if (source == kLightPassRenderTargetResourceName)
+    {
+        return m_lightPassColorSrv.gpu;
+    }
+    if (source == kDepthStencilResourceName)
     {
         return m_depthStencilSrv.gpu;
     }
-    if (m_debugTexturePreviewSource == kTemporalUpscalerSceneColorResourceName &&
-        m_temporalUpscalerSceneColorSrv.Index != UINT_MAX)
+    if (source == kTemporalUpscalerSceneColorResourceName && m_temporalUpscalerSceneColorSrv.Index != UINT_MAX)
     {
         return m_temporalUpscalerSceneColorSrv.gpu;
     }
-    if (m_debugTexturePreviewSource == kReflectionEvaluatedRadianceResourceName)
+    if (source == kReflectionEvaluatedRadianceResourceName)
     {
         return m_reflectionEvaluatedRadianceSrv.gpu;
     }
-    if (m_debugTexturePreviewSource == kReflectionSpecularAlbedoResourceName)
+    if (source == kReflectionSpecularAlbedoResourceName)
     {
         return m_reflectionSpecularAlbedoSrv.gpu;
     }
-    if (m_debugTexturePreviewSource == kReflectionRoughnessResourceName)
+    if (source == kReflectionRoughnessResourceName)
     {
         return m_reflectionRoughnessSrv.gpu;
     }
-    if (m_debugTexturePreviewSource == kReflectionSpecularHitDistanceResourceName)
+    if (source == kReflectionSpecularHitDistanceResourceName)
     {
         return m_reflectionSpecularHitDistanceSrv.gpu;
     }
     for (UINT i = 0; i < Engine::GBuffer::kCount; ++i)
     {
-        if (m_debugTexturePreviewSource == kGBufferResourceNames[i])
+        if (source == kGBufferResourceNames[i])
         {
             return m_gbuffer.srvHandles[i].gpu;
         }
@@ -751,37 +759,109 @@ void RtPbrSurveyEngine::SetRenderViewMode(RenderViewMode mode)
 
 void RtPbrSurveyEngine::SetDebugTexturePreviewSettings(const Engine::DebugTexturePreviewSettings& settings)
 {
-    m_debugTexturePreviewSettings = settings;
+    m_debugTexturePreviewSettings[0] = settings;
 }
 
 void RtPbrSurveyEngine::SetDebugTexturePreviewSemantic(Engine::DebugTexturePreviewSemantic semantic)
 {
-    m_debugTexturePreviewSettings.semantic = semantic;
+    m_debugTexturePreviewSettings[0].semantic = semantic;
 }
 
 void RtPbrSurveyEngine::SetDebugTexturePreviewChannel(Engine::DebugTexturePreviewChannel channel)
 {
-    m_debugTexturePreviewSettings.channel = channel;
+    m_debugTexturePreviewSettings[0].channel = channel;
 }
 
 void RtPbrSurveyEngine::SetDebugTexturePreviewExposure(float exposure)
 {
-    m_debugTexturePreviewSettings.exposure = exposure;
+    m_debugTexturePreviewSettings[0].exposure = exposure;
 }
 
 void RtPbrSurveyEngine::SetDebugTexturePreviewScale(float scale)
 {
-    m_debugTexturePreviewSettings.scale = scale;
+    m_debugTexturePreviewSettings[0].scale = scale;
 }
 
 void RtPbrSurveyEngine::SetDebugTexturePreviewOffset(float offset)
 {
-    m_debugTexturePreviewSettings.offset = offset;
+    m_debugTexturePreviewSettings[0].offset = offset;
 }
 
 void RtPbrSurveyEngine::SetDebugTexturePreviewNearestSampling(bool nearestSampling)
 {
-    m_debugTexturePreviewSettings.nearestSampling = nearestSampling;
+    m_debugTexturePreviewSettings[0].nearestSampling = nearestSampling;
+}
+
+void RtPbrSurveyEngine::SetDebugTexturePreviewEnabled(bool enabled)
+{
+    SetDebugTexturePreviewActiveSlots(enabled ? m_debugTexturePreviewActiveSlotMask | 1u : 0u);
+}
+
+bool RtPbrSurveyEngine::IsDebugTexturePreviewEnabled() const
+{
+    return m_debugTexturePreviewActiveSlotMask != 0;
+}
+
+ID3D12Resource* RtPbrSurveyEngine::GetDebugTexturePreviewResource(UINT previewIndex) const
+{
+    return previewIndex < m_debugTexturePreviews.size() ? m_debugTexturePreviews[previewIndex].Get() : nullptr;
+}
+
+void RtPbrSurveyEngine::SetDebugTexturePreviewSource(const std::string& source)
+{
+    m_debugTexturePreviewSources[0] = source;
+}
+
+void RtPbrSurveyEngine::SetDebugTexturePreviewCount(UINT previewCount)
+{
+    const UINT clampedCount = (std::min)(previewCount, kMaxDebugTexturePreviewCount);
+    const UINT activeSlotMask = clampedCount == 0 ? 0u : (1u << clampedCount) - 1u;
+    SetDebugTexturePreviewActiveSlots(activeSlotMask);
+}
+
+void RtPbrSurveyEngine::SetDebugTexturePreviewActiveSlots(UINT activeSlotMask)
+{
+    const UINT validSlotMask = (1u << kMaxDebugTexturePreviewCount) - 1u;
+    const UINT newSlotMask = activeSlotMask & validSlotMask;
+    const UINT removedSlotMask = m_debugTexturePreviewActiveSlotMask & ~newSlotMask;
+    for (UINT i = 0; i < kMaxDebugTexturePreviewCount; ++i)
+    {
+        if ((removedSlotMask & (1u << i)) == 0)
+        {
+            continue;
+        }
+
+        const auto transientResource =
+            m_resourceRegistry.transientResources.find(kDebugTexturePreviewResourceNames[i]);
+        if (transientResource != m_resourceRegistry.transientResources.end() &&
+            transientResource->second.state == TransientResourceState::Created)
+        {
+            transientResource->second.state = TransientResourceState::PendingRelease1;
+        }
+    }
+    m_debugTexturePreviewActiveSlotMask = newSlotMask;
+}
+
+UINT RtPbrSurveyEngine::GetDebugTexturePreviewCount() const
+{
+    UINT count = 0;
+    for (UINT i = 0; i < kMaxDebugTexturePreviewCount; ++i)
+    {
+        count += (m_debugTexturePreviewActiveSlotMask & (1u << i)) != 0 ? 1u : 0u;
+    }
+    return count;
+}
+
+void RtPbrSurveyEngine::ConfigureDebugTexturePreview(
+    UINT previewIndex, const std::string& source, const Engine::DebugTexturePreviewSettings& settings)
+{
+    if (previewIndex >= kMaxDebugTexturePreviewCount)
+    {
+        return;
+    }
+
+    m_debugTexturePreviewSources[previewIndex] = source;
+    m_debugTexturePreviewSettings[previewIndex] = settings;
 }
 
 void RtPbrSurveyEngine::SetRequestHdrDump(bool request)
@@ -2893,9 +2973,12 @@ void RtPbrSurveyEngine::CreateGBuffer()
             m_reflectionSpecularConfidenceSrv[i - 1].Index + 1;
         assert(m_reflectionSpecularConfidenceSrv[i].Index == expectedIndex);
     }
-    if (m_debugTexturePreviewSrv.Index == UINT_MAX)
+    for (DescriptorHeapHandle& srv : m_debugTexturePreviewSrvs)
     {
-        m_debugTexturePreviewSrv = m_descriptorHeapAllocator.AllocWithHandle();
+        if (srv.Index == UINT_MAX)
+        {
+            srv = m_descriptorHeapAllocator.AllocWithHandle();
+        }
     }
 }
 
@@ -3162,17 +3245,20 @@ void RtPbrSurveyEngine::RegisterTemporalUpscalerSceneColor()
 
 void RtPbrSurveyEngine::RegisterDebugTexturePreview()
 {
-    Engine::RenderTextureSpec spec = {};
-    spec.name = kDebugTexturePreviewResourceName;
-    spec.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
-    spec.format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    spec.initialState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-    spec.flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-    spec.createRtv = true;
-    spec.createSrv = true;
-    spec.srvFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    spec.persistent = true;
-    RegisterRenderTexture(spec);
+    for (const char* resourceName : kDebugTexturePreviewResourceNames)
+    {
+        Engine::RenderTextureSpec spec = {};
+        spec.name = resourceName;
+        spec.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
+        spec.format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+        spec.initialState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+        spec.flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+        spec.createRtv = true;
+        spec.createSrv = true;
+        spec.srvFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
+        spec.persistent = true;
+        RegisterRenderTexture(spec);
+    }
 }
 
 void RtPbrSurveyEngine::CreateDepthStencilDescriptors()
@@ -3470,9 +3556,9 @@ D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetTemporalUpscalerSceneColorRTV(
     return GetRtv(kTemporalUpscalerSceneColorRTVIndex);
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetDebugTexturePreviewRTV() const
+D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetDebugTexturePreviewRTV(UINT previewIndex) const
 {
-    return GetRtv(kDebugTexturePreviewRTVIndex);
+    return GetRtv(kDebugTexturePreviewRTVBaseIndex + previewIndex);
 }
 
 void RtPbrSurveyEngine::RegisterPassBindingResolvers()
@@ -3530,8 +3616,12 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
     m_renderGraphRuntime.Bindings().RegisterRtv(
         m_renderGraphRuntime.RegisterRtv(RtvName::TemporalUpscalerSceneColor),
         [this]() { return GetTemporalUpscalerSceneColorRTV(); });
-    m_renderGraphRuntime.Bindings().RegisterRtv(m_renderGraphRuntime.RegisterRtv(RtvName::DebugTexturePreview),
-                                                [this]() { return GetDebugTexturePreviewRTV(); });
+    for (UINT i = 0; i < kMaxDebugTexturePreviewCount; ++i)
+    {
+        m_renderGraphRuntime.Bindings().RegisterRtv(
+            m_renderGraphRuntime.RegisterRtv(kDebugTexturePreviewRtvNames[i]),
+            [this, i]() { return GetDebugTexturePreviewRTV(i); });
+    }
 
     m_renderGraphRuntime.Bindings().RegisterDsv(m_renderGraphRuntime.RegisterDsv(DsvName::Depth),
                                                 [this]() { return GetDepthDsv(); });
@@ -3557,9 +3647,12 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ToneMapSceneColorSrv),
         [this]() { return ResolveToneMapSceneColorSrv(); });
-    m_renderGraphRuntime.Bindings().RegisterDescriptor(
-        m_renderGraphRuntime.RegisterDescriptor(Desc::DebugTexturePreviewSourceSrv),
-        [this]() { return ResolveDebugTexturePreviewSourceSrv(); });
+    for (UINT i = 0; i < kMaxDebugTexturePreviewCount; ++i)
+    {
+        m_renderGraphRuntime.Bindings().RegisterDescriptor(
+            m_renderGraphRuntime.RegisterDescriptor(kDebugTexturePreviewDescriptorNames[i]),
+            [this, i]() { return ResolveDebugTexturePreviewSourceSrv(i); });
+    }
     m_renderGraphRuntime.Bindings().RegisterDescriptor(
         m_renderGraphRuntime.RegisterDescriptor(Desc::ReflectionEvaluatedRadianceSrv),
         [this]() { return m_reflectionEvaluatedRadianceSrv.gpu; });
@@ -3724,14 +3817,17 @@ void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
                 m_hybridReflectionSettings.estimatorConstantIncidentRadianceEnabled ? 1u : 0u};
             m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 3, constants, 0);
         });
-    m_renderGraphRuntime.Constants().Register(
-        m_renderGraphRuntime.RegisterConstants(ConstName::DebugTexturePreview),
-        [this](UINT rootParameterIndex)
-        {
-            const Engine::DebugTexturePreviewSettings::ShaderConstants constants =
-                m_debugTexturePreviewSettings.MakeShaderConstants();
-            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 6, &constants, 0);
-        });
+    for (UINT i = 0; i < kMaxDebugTexturePreviewCount; ++i)
+    {
+        m_renderGraphRuntime.Constants().Register(
+            m_renderGraphRuntime.RegisterConstants(kDebugTexturePreviewConstantsNames[i]),
+            [this, i](UINT rootParameterIndex)
+            {
+                const Engine::DebugTexturePreviewSettings::ShaderConstants constants =
+                    m_debugTexturePreviewSettings[i].MakeShaderConstants();
+                m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 6, &constants, 0);
+            });
+    }
 }
 
 void RtPbrSurveyEngine::RegisterResourceResolvers()
@@ -3778,8 +3874,11 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
     }
     m_renderGraphRuntime.Resources().RegisterResource(kTemporalUpscalerSceneColorResourceName,
                                                       [this]() { return m_temporalUpscalerSceneColor.Get(); });
-    m_renderGraphRuntime.Resources().RegisterResource(kDebugTexturePreviewResourceName,
-                                                       [this]() { return m_debugTexturePreview.Get(); });
+    for (UINT i = 0; i < kMaxDebugTexturePreviewCount; ++i)
+    {
+        m_renderGraphRuntime.Resources().RegisterResource(kDebugTexturePreviewResourceNames[i],
+                                                          [this, i]() { return m_debugTexturePreviews[i].Get(); });
+    }
     m_renderGraphRuntime.Resources().RegisterResource(kShadowMaskResourceName, [this]() { return m_shadowMask.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kReflectionRayHitResourceName,
                                                        [this]() { return m_reflectionRayHit.Get(); });
@@ -4084,7 +4183,10 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
         resource.Reset();
     }
     m_temporalUpscalerSceneColor.Reset();
-    m_debugTexturePreview.Reset();
+    for (ComPtr<ID3D12Resource>& resource : m_debugTexturePreviews)
+    {
+        resource.Reset();
+    }
     m_shadowMask.Reset();
     m_reflectionRayHit.Reset();
     m_reflectionRayColor.Reset();
@@ -4123,7 +4225,10 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
         m_resourceRegistry.UnregisterTransientResource(resourceName);
     }
     m_resourceRegistry.UnregisterTransientResource(kTemporalUpscalerSceneColorResourceName);
-    m_resourceRegistry.UnregisterTransientResource(kDebugTexturePreviewResourceName);
+    for (const char* resourceName : kDebugTexturePreviewResourceNames)
+    {
+        m_resourceRegistry.UnregisterTransientResource(resourceName);
+    }
     RegisterDepthStencil();
     RegisterLightPassRenderTarget();
     RegisterReflectionEvaluatedRadiance();
@@ -4479,11 +4584,29 @@ bool RtPbrSurveyEngine::BindCreatedColorRenderTexture(const std::string& name, I
          &RtPbrSurveyEngine::m_temporalUpscalerSceneColor,
          kTemporalUpscalerSceneColorRTVIndex,
          &RtPbrSurveyEngine::m_temporalUpscalerSceneColorSrv},
-        {kDebugTexturePreviewResourceName,
-         &RtPbrSurveyEngine::m_debugTexturePreview,
-         kDebugTexturePreviewRTVIndex,
-         &RtPbrSurveyEngine::m_debugTexturePreviewSrv},
     };
+
+    for (UINT i = 0; i < kMaxDebugTexturePreviewCount; ++i)
+    {
+        if (name != kDebugTexturePreviewResourceNames[i])
+        {
+            continue;
+        }
+
+        m_debugTexturePreviews[i] = resource;
+        const auto transientResource = m_resourceRegistry.transientResources.find(name);
+        assert(transientResource != m_resourceRegistry.transientResources.end());
+        if (transientResource == m_resourceRegistry.transientResources.end())
+        {
+            return false;
+        }
+
+        CreateColorRenderTextureDescriptors(transientResource->second,
+                                            resource,
+                                            kDebugTexturePreviewRTVBaseIndex + i,
+                                            m_debugTexturePreviewSrvs[i]);
+        return true;
+    }
 
     for (const ColorRenderTextureBinding& binding : bindings)
     {
@@ -4617,6 +4740,13 @@ void RtPbrSurveyEngine::CollectGarbageTransientResources()
         if (name == kTemporalUpscalerSceneColorResourceName)
         {
             m_temporalUpscalerSceneColor.Reset();
+        }
+        for (UINT i = 0; i < kMaxDebugTexturePreviewCount; ++i)
+        {
+            if (name == kDebugTexturePreviewResourceNames[i])
+            {
+                m_debugTexturePreviews[i].Reset();
+            }
         }
     }
 }
@@ -5046,10 +5176,6 @@ void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
 void RtPbrSurveyEngine::ExecuteDebugTexturePreviewPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
-    if (m_debugTexturePreview == nullptr)
-    {
-        return;
-    }
     m_commandList->RSSetViewports(1, &m_renderViewport);
     m_commandList->RSSetScissorRects(1, &m_renderScissorRect);
     Engine::RecordDebugTexturePreviewPass(m_commandList.Get());

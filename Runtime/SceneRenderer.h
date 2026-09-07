@@ -80,7 +80,7 @@ namespace RtPbrSurvey
         RtPbrSurveyEngine::RenderViewMode GetRenderViewMode() const;
         void SetDebugTexturePreviewEnabled(bool enabled);
         bool IsDebugTexturePreviewEnabled() const;
-        ID3D12Resource* GetDebugTexturePreviewResource() const;
+        ID3D12Resource* GetDebugTexturePreviewResource(UINT previewIndex = 0) const;
         void SetDebugTexturePreviewSource(const std::string& source);
         const std::string& GetDebugTexturePreviewSource() const;
         void SetDebugTexturePreviewSettings(const Engine::DebugTexturePreviewSettings& settings);
@@ -88,6 +88,11 @@ namespace RtPbrSurvey
         void SetDebugTexturePreviewSemantic(Engine::DebugTexturePreviewSemantic semantic);
         void SetDebugTexturePreviewChannel(Engine::DebugTexturePreviewChannel channel);
         void SetDebugTexturePreviewNearestSampling(bool nearestSampling);
+        void SetDebugTexturePreviewCount(UINT previewCount);
+        void SetDebugTexturePreviewActiveSlots(UINT activeSlotMask);
+        void ConfigureDebugTexturePreview(UINT previewIndex,
+                                          const std::string& source,
+                                          const Engine::DebugTexturePreviewSettings& settings);
         void SetRequestHdrDump(bool request);
         void RequestReflectionHdrDiagnosticCapture(const Engine::ReflectionHdrDiagnosticRoi& roi);
         std::optional<Engine::ReflectionHdrDiagnosticFrame> ConsumeReflectionHdrDiagnosticFrame();

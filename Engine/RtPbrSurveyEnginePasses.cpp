@@ -37,9 +37,12 @@ void RtPbrSurveyEngine::BuildRenderPasses()
             AddPass(MakeTemporalUpscalerPass());
         }
         AddPass(MakeToneMapPass());
-        if (m_debugTexturePreviewEnabled)
+        for (UINT i = 0; i < kMaxDebugTexturePreviewCount; ++i)
         {
-            AddPass(MakeDebugTexturePreviewPass());
+            if ((m_debugTexturePreviewActiveSlotMask & (1u << i)) != 0)
+            {
+                AddPass(MakeDebugTexturePreviewPass(i));
+            }
         }
 
         if (m_debugViewSettings.requestHdrDump)
@@ -638,18 +641,19 @@ auto RtPbrSurveyEngine::MakeTemporalUpscalerPass() -> RenderPass
         .Build();
 }
 
-auto RtPbrSurveyEngine::MakeDebugTexturePreviewPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeDebugTexturePreviewPass(UINT previewIndex) -> RenderPass
 {
-    Engine::ResourceUsages reads = {{m_debugTexturePreviewSource, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
+    Engine::ResourceUsages reads = {
+        {m_debugTexturePreviewSources[previewIndex], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
     return m_renderGraphRuntime.Authoring()
-        .CreatePass(L"DebugTexturePreviewPass")
+        .CreatePass(kDebugTexturePreviewPassNames[previewIndex])
         .Pipeline(Pipe::DebugTexturePreview)
         .Reads(std::move(reads))
-        .Writes({{kDebugTexturePreviewResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
-        .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::DebugTexturePreviewSourceSrv)
-        .Rtv(RtvName::DebugTexturePreview)
+        .Writes({{kDebugTexturePreviewResourceNames[previewIndex], D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::ToneMapSceneColor, kDebugTexturePreviewDescriptorNames[previewIndex])
+        .Rtv(kDebugTexturePreviewRtvNames[previewIndex])
         .Operation(Op::DebugTexturePreview, &RtPbrSurveyEngine::ExecuteDebugTexturePreviewPass)
-        .Constants(RootSignatureLayout::ToneMapConstants, ConstName::DebugTexturePreview)
+        .Constants(RootSignatureLayout::ToneMapConstants, kDebugTexturePreviewConstantsNames[previewIndex])
         .Build();
 }
 
@@ -878,15 +882,21 @@ auto RtPbrSurveyEngine::MakeDebugLinePass() -> RenderPass
 
 auto RtPbrSurveyEngine::MakeImGuiPass() -> RenderPass
 {
+    ResourceUsages reads;
+    for (UINT i = 0; i < kMaxDebugTexturePreviewCount; ++i)
+    {
+        if ((m_debugTexturePreviewActiveSlotMask & (1u << i)) != 0)
+        {
+            reads.push_back({kDebugTexturePreviewResourceNames[i], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        }
+    }
+
     auto builder = m_renderGraphRuntime.Authoring()
         .CreatePass(L"ImGui")
+        .Reads(std::move(reads))
         .Writes({{kBackBufferResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Rtv(RtvName::BackBuffer)
         .Operation(Op::ImGui, &RtPbrSurveyEngine::ExecuteImGuiPass);
-    if (m_debugTexturePreviewEnabled)
-    {
-        builder.Reads({{kDebugTexturePreviewResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}});
-    }
     return builder.Build();
 }
 

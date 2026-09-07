@@ -269,9 +269,9 @@ namespace RtPbrSurvey
         return m_engine.IsDebugTexturePreviewEnabled();
     }
 
-    ID3D12Resource* SceneRenderer::GetDebugTexturePreviewResource() const
+    ID3D12Resource* SceneRenderer::GetDebugTexturePreviewResource(UINT previewIndex) const
     {
-        return m_engine.GetDebugTexturePreviewResource();
+        return m_engine.GetDebugTexturePreviewResource(previewIndex);
     }
 
     void SceneRenderer::SetDebugTexturePreviewSource(const std::string& source)
@@ -307,6 +307,22 @@ namespace RtPbrSurvey
     void SceneRenderer::SetDebugTexturePreviewNearestSampling(bool nearestSampling)
     {
         m_engine.SetDebugTexturePreviewNearestSampling(nearestSampling);
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewCount(UINT previewCount)
+    {
+        m_engine.SetDebugTexturePreviewCount(previewCount);
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewActiveSlots(UINT activeSlotMask)
+    {
+        m_engine.SetDebugTexturePreviewActiveSlots(activeSlotMask);
+    }
+
+    void SceneRenderer::ConfigureDebugTexturePreview(
+        UINT previewIndex, const std::string& source, const Engine::DebugTexturePreviewSettings& settings)
+    {
+        m_engine.ConfigureDebugTexturePreview(previewIndex, source, settings);
     }
 
     void SceneRenderer::SetRequestHdrDump(bool request)

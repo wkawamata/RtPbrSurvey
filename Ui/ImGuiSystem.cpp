@@ -98,37 +98,52 @@ void ImGuiSystem::SetDisplaySize(UINT width, UINT height)
     io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
 }
 
-uint64_t ImGuiSystem::UpdateTexture(ID3D12Resource* resource, DXGI_FORMAT format)
+uint64_t ImGuiSystem::UpdateTexture(UINT textureIndex, ID3D12Resource* resource, DXGI_FORMAT format)
 {
-    if (!m_initialized || resource == nullptr)
+    if (!m_initialized || textureIndex >= m_textureBindings.size() || resource == nullptr)
     {
-        ClearTexture();
+        ClearTexture(textureIndex);
         return 0;
     }
 
-    if (!m_textureDescriptor.IsValid())
+    TextureBinding& binding = m_textureBindings[textureIndex];
+    if (!binding.descriptor.IsValid())
     {
-        m_textureDescriptor = m_descriptorHeapAllocator.Allocate();
+        binding.descriptor = m_descriptorHeapAllocator.Allocate();
     }
-    if (m_textureResource.Get() != resource || m_textureFormat != format)
+    if (binding.resource.Get() != resource || binding.format != format)
     {
         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
         srvDesc.Format = format;
         srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
         srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         srvDesc.Texture2D.MipLevels = 1;
-        m_device->CreateShaderResourceView(resource, &srvDesc, m_textureDescriptor.Cpu());
-        m_textureResource = resource;
-        m_textureFormat = format;
+        m_device->CreateShaderResourceView(resource, &srvDesc, binding.descriptor.Cpu());
+        binding.resource = resource;
+        binding.format = format;
     }
-    return m_textureDescriptor.Gpu().ptr;
+    return binding.descriptor.Gpu().ptr;
 }
 
-void ImGuiSystem::ClearTexture()
+void ImGuiSystem::ClearTexture(UINT textureIndex)
 {
-    m_textureDescriptor.Reset();
-    m_textureResource.Reset();
-    m_textureFormat = DXGI_FORMAT_UNKNOWN;
+    if (textureIndex >= m_textureBindings.size())
+    {
+        return;
+    }
+
+    TextureBinding& binding = m_textureBindings[textureIndex];
+    binding.descriptor.Reset();
+    binding.resource.Reset();
+    binding.format = DXGI_FORMAT_UNKNOWN;
+}
+
+void ImGuiSystem::ClearTextures()
+{
+    for (UINT i = 0; i < m_textureBindings.size(); ++i)
+    {
+        ClearTexture(i);
+    }
 }
 
 void ImGuiSystem::Shutdown()
@@ -138,7 +153,7 @@ void ImGuiSystem::Shutdown()
         return;
     }
 
-    ClearTexture();
+    ClearTextures();
     ImGui_ImplDX12_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();

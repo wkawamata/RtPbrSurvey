@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -33,6 +34,7 @@ enum class DebugTextureFilter
 struct DebugTextureInspector
 {
     uint64_t id = 0;
+    uint32_t slotIndex = 0;
     std::string resourceName;
     std::string displayName;
     DebugTextureSemantic semantic = DebugTextureSemantic::Color;
@@ -43,16 +45,20 @@ struct DebugTextureInspector
     float offset = 0.0f;
     bool pinned = false;
     bool open = true;
+    bool focusRequested = true;
 };
 
 class DebugTextureInspectorManager
 {
 public:
-    DebugTextureInspector& OpenPreview(
+    static constexpr size_t kMaxInspectorCount = 4;
+
+    DebugTextureInspector* OpenPreview(
         std::string resourceName, std::string displayName, DebugTextureSemantic semantic);
-    DebugTextureInspector& PinPreview(
+    DebugTextureInspector* PinPreview(
         std::string resourceName, std::string displayName, DebugTextureSemantic semantic);
     bool Close(uint64_t id);
+    void CloseAll();
     void RemoveClosed();
 
     DebugTextureInspector* Find(uint64_t id);
@@ -61,7 +67,9 @@ public:
     const std::vector<DebugTextureInspector>& Inspectors() const { return m_inspectors; }
 
 private:
-    DebugTextureInspector& Create(
+    DebugTextureInspector* Open(
+        std::string resourceName, std::string displayName, DebugTextureSemantic semantic, bool pinned);
+    DebugTextureInspector* Create(
         std::string resourceName, std::string displayName, DebugTextureSemantic semantic, bool pinned);
 
     std::vector<DebugTextureInspector> m_inspectors;

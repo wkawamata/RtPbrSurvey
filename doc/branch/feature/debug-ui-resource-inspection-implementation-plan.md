@@ -33,23 +33,23 @@ This part replaces the single effective Preview output with bounded independent 
 
 ### 2.1 Inspector Manager
 
-- [ ] Focus an existing window when the same resource is requested.
-- [ ] Open a new slot when a different resource is requested.
-- [ ] Support close, close-all, and a maximum of four live slots.
-- [ ] Preserve independent semantic, filter, channel, exposure, scale, and offset settings.
+- [x] Focus an existing window when the same resource is requested.
+- [x] Open a new slot when a different resource is requested.
+- [x] Support close, close-all, and a maximum of four live slots.
+- [x] Preserve independent semantic, filter, channel, exposure, scale, and offset settings.
 
 ### 2.2 GPU Resources
 
-- [ ] Give every live slot an independent output Texture, RTV, SRV, and RenderGraph pass.
-- [ ] Keep source and output resource transitions owned by RenderGraph.
-- [ ] Retire slot resources and descriptors after relevant GPU work completes.
+- [x] Give every live slot an independent output Texture, RTV, SRV, and RenderGraph pass.
+- [x] Keep source and output resource transitions owned by RenderGraph.
+- [x] Retire closed slot resources through the existing GPU fence path and reuse bounded descriptor slots.
 - [ ] Validate resize and DLSS/RR enable changes with multiple windows open.
 
 ### 2.3 Window Placement
 
-- [ ] Keep the current position for the first new Preview window.
-- [ ] Cascade additional unsaved windows by a small deterministic offset.
-- [ ] Restore user-selected positions and sizes by stable window identity.
+- [x] Keep the current position for the first new Preview window.
+- [x] Arrange unsaved windows from the upper-right in reverse-N order and provide a manual Arrange action.
+- [x] Restore user-selected positions and sizes by stable window identity.
 
 ## Part 3: Common Depth Visualization
 
