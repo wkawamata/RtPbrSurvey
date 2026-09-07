@@ -683,6 +683,20 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             auto reflectionSettings = app.m_sceneRenderer.GetHybridReflectionSettings();
             bool changed = false;
 
+            ImGuiWidgets::SimpleDetailMode("HybridReflectionMode", &app.m_hybridReflectionDebugUiDetailed);
+
+            if (!app.m_hybridReflectionDebugUiDetailed)
+            {
+                changed |= ImGui::Checkbox("Hybrid Reflection Enabled", &reflectionSettings.enabled);
+                ImGui::BeginDisabled(!reflectionSettings.enabled);
+                changed |= ImGui::Checkbox("Reflection Contribution", &reflectionSettings.contributionEnabled);
+                changed |=
+                    ImGui::Checkbox("Stochastic Rough Sampling", &reflectionSettings.stochasticSamplingEnabled);
+                ImGui::EndDisabled();
+            }
+            else
+            {
+
         changed |= ImGui::Checkbox("Enabled", &reflectionSettings.enabled);
 
         ImGui::BeginDisabled(!reflectionSettings.enabled);
@@ -760,6 +774,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             "Min Metallic", &reflectionSettings.minMetallic, 0.0f, 1.0f, 0.05f, 0.0f);
         ImGui::EndDisabled();
         ImGui::EndDisabled();
+            }
 
             if (changed)
             {
@@ -955,6 +970,46 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
         auto temporalUpscalerSettings = app.m_sceneRenderer.GetTemporalUpscalerSettings();
         auto rayReconstructionSettings = app.m_sceneRenderer.GetRayReconstructionSettings();
+        ImGuiWidgets::SimpleDetailMode("DlssDebugMode", &app.m_dlssDebugUiDetailed);
+
+        if (!app.m_dlssDebugUiDetailed)
+        {
+            bool temporalUpscalerSettingsChanged = false;
+            ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
+            temporalUpscalerSettingsChanged |=
+                ImGui::Checkbox("DLSS##Simple", &temporalUpscalerSettings.enabled);
+            int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
+            if (ImGui::Combo("DLSS SR Mode##Simple",
+                             &temporalUpscalerQualityMode,
+                             "Native (DLAA)\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
+            {
+                temporalUpscalerSettings.qualityMode =
+                    static_cast<Engine::TemporalUpscalerQualityMode>(temporalUpscalerQualityMode);
+                temporalUpscalerSettingsChanged = true;
+            }
+            ImGui::EndDisabled();
+            if (temporalUpscalerSettingsChanged)
+            {
+                temporalUpscalerSettings.backend = Engine::TemporalUpscalerBackend::Streamline;
+                app.m_sceneRenderer.SetTemporalUpscalerSettings(temporalUpscalerSettings);
+            }
+
+            bool nativeRayReconstructionEnabled =
+                rayReconstructionSettings.enabled && rayReconstructionSettings.experimentalNativeEvaluationEnabled;
+            ImGui::BeginDisabled(!context.rayReconstructionAvailable);
+            const bool rayReconstructionSettingsChanged =
+                ImGui::Checkbox("DLSS RR##Simple", &nativeRayReconstructionEnabled);
+            ImGui::EndDisabled();
+            if (rayReconstructionSettingsChanged)
+            {
+                rayReconstructionSettings.enabled = nativeRayReconstructionEnabled;
+                rayReconstructionSettings.experimentalNativeEvaluationEnabled = nativeRayReconstructionEnabled;
+                rayReconstructionSettings.backend = Engine::RayReconstructionBackend::Streamline;
+                app.m_sceneRenderer.SetRayReconstructionSettings(rayReconstructionSettings);
+            }
+        }
+        else
+        {
         const Engine::StreamlineDlssDiagnostics& diagnostics = context.dlssDiagnostics;
         ImGui::Text("Streamline SDK: %u.%u.%u", diagnostics.sdkMajor, diagnostics.sdkMinor, diagnostics.sdkPatch);
         if (diagnostics.featureVersionAvailable)
@@ -1113,7 +1168,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::TextUnformatted("DLSS Input Debug:");
         ImGui::RadioButton("Output##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::LightPass));
         ImGui::SameLine();
-        if (ImGui::SmallButton("Open Preview##DlssOutput"))
+        if (ImGui::SmallButton("Preview##DlssOutput"))
         {
             openPreview("LightPass.RenderTarget",
                         "LightPass",
@@ -1123,7 +1178,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton(
             "Scene Color##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::DlssInputColor));
         ImGui::SameLine();
-        if (ImGui::SmallButton("Open Preview##DlssSceneColor"))
+        if (ImGui::SmallButton("Preview##DlssSceneColor"))
         {
             openPreview("TemporalUpscaler.SceneColor",
                         "TemporalUpscaler SceneColor",
@@ -1132,7 +1187,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::SameLine();
         ImGui::RadioButton("Depth##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::Depth));
         ImGui::SameLine();
-        if (ImGui::SmallButton("Open Preview##DlssDepth"))
+        if (ImGui::SmallButton("Preview##DlssDepth"))
         {
             openPreview("DepthStencil", "Depth", RtPbrSurvey::DebugTextureSemantic::Depth);
         }
@@ -1140,7 +1195,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton(
             "Motion Vectors##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferMotionVector));
         ImGui::SameLine();
-        if (ImGui::SmallButton("Open Preview##DlssMotion"))
+        if (ImGui::SmallButton("Preview##DlssMotion"))
         {
             openPreview("GBuffer.MotionVector",
                         "Motion Vectors",
@@ -1149,14 +1204,14 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::SameLine();
         ImGui::RadioButton("Normal##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferNormal));
         ImGui::SameLine();
-        if (ImGui::SmallButton("Open Preview##DlssNormal"))
+        if (ImGui::SmallButton("Preview##DlssNormal"))
         {
             openPreview("GBuffer.Normal", "Normal", RtPbrSurvey::DebugTextureSemantic::Normal);
         }
         ImGui::SameLine();
         ImGui::RadioButton("Albedo##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferAlbedo));
         ImGui::SameLine();
-        if (ImGui::SmallButton("Open Preview##DlssAlbedo"))
+        if (ImGui::SmallButton("Preview##DlssAlbedo"))
         {
             openPreview("GBuffer.Albedo", "Albedo", RtPbrSurvey::DebugTextureSemantic::Color);
         }
@@ -1168,7 +1223,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                            &renderViewMode,
                            static_cast<int>(RenderViewMode::ReflectionEvaluatedRadiance));
         ImGui::SameLine();
-        if (ImGui::SmallButton("Open Preview##RrNoisyRadiance"))
+        if (ImGui::SmallButton("Preview##RrNoisyRadiance"))
         {
             openPreview("ReflectionEvaluatedRadiance",
                         "Noisy Radiance",
@@ -1179,7 +1234,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                            &renderViewMode,
                            static_cast<int>(RenderViewMode::RayReconstructionSpecularAlbedo));
         ImGui::SameLine();
-        if (ImGui::SmallButton("Open Preview##RrSpecularAlbedo"))
+        if (ImGui::SmallButton("Preview##RrSpecularAlbedo"))
         {
             openPreview("ReflectionSpecularAlbedo",
                         "RR Specular Albedo",
@@ -1190,16 +1245,15 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                            &renderViewMode,
                            static_cast<int>(RenderViewMode::RayReconstructionRoughness));
         ImGui::SameLine();
-        if (ImGui::SmallButton("Open Preview##RrRoughness"))
+        if (ImGui::SmallButton("Preview##RrRoughness"))
         {
             openPreview("ReflectionRoughness", "RR Roughness", RtPbrSurvey::DebugTextureSemantic::Scalar);
         }
-        ImGui::SameLine();
         ImGui::RadioButton("Specular Hit Distance##DlssInputDebug",
                            &renderViewMode,
                            static_cast<int>(RenderViewMode::RayReconstructionSpecularHitDistance));
         ImGui::SameLine();
-        if (ImGui::SmallButton("Open Preview##RrSpecularHitDistance"))
+        if (ImGui::SmallButton("Preview##RrSpecularHitDistance"))
         {
             openPreview("ReflectionSpecularHitDistance",
                         "RR Specular Hit Distance",
@@ -1208,6 +1262,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::EndDisabled();
         ImGui::EndDisabled();
         app.m_renderViewMode = static_cast<RenderViewMode>(renderViewMode);
+        }
     }
 
     drawHybridReflectionUi();

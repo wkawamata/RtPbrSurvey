@@ -139,6 +139,38 @@ namespace
         bool changed = false;
         bool rayReconstructionChanged = false;
 
+        static bool detailed = true;
+        ImGuiWidgets::SimpleDetailMode("DlssDebugMode", &detailed);
+
+        if (!detailed)
+        {
+            ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
+            changed |= ImGui::Checkbox("DLSS##Simple", &temporalUpscalerSettings.enabled);
+            int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
+            if (ImGui::Combo("DLSS SR Mode##Simple",
+                             &temporalUpscalerQualityMode,
+                             "Native (DLAA)\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
+            {
+                temporalUpscalerSettings.qualityMode =
+                    static_cast<Engine::TemporalUpscalerQualityMode>(temporalUpscalerQualityMode);
+                changed = true;
+            }
+            ImGui::EndDisabled();
+
+            bool nativeRayReconstructionEnabled =
+                rayReconstructionSettings.enabled && rayReconstructionSettings.experimentalNativeEvaluationEnabled;
+            ImGui::BeginDisabled(!context.rayReconstructionAvailable);
+            if (ImGui::Checkbox("DLSS RR##Simple", &nativeRayReconstructionEnabled))
+            {
+                rayReconstructionSettings.enabled = nativeRayReconstructionEnabled;
+                rayReconstructionSettings.experimentalNativeEvaluationEnabled = nativeRayReconstructionEnabled;
+                rayReconstructionChanged = true;
+            }
+            ImGui::EndDisabled();
+        }
+        else
+        {
+
         ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
         changed |= ImGui::Checkbox("DLSS Enabled", &temporalUpscalerSettings.enabled);
         int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
@@ -198,6 +230,7 @@ namespace
         ImGui::TextWrapped(
             "Native RR is experimental and opt-in. If readiness or SDK evaluation fails, the pass copies "
             "ReflectionEvaluatedRadiance into ReflectionResolvedRadiance for the same frame.");
+        }
 
         if (changed)
         {
@@ -379,6 +412,20 @@ namespace
         auto reflectionSettings = renderer.GetHybridReflectionSettings();
         bool changed = false;
 
+        static bool detailed = false;
+        ImGuiWidgets::SimpleDetailMode("HybridReflectionMode", &detailed);
+
+        if (!detailed)
+        {
+            changed |= ImGui::Checkbox("Hybrid Reflection Enabled", &reflectionSettings.enabled);
+            ImGui::BeginDisabled(!reflectionSettings.enabled);
+            changed |= ImGui::Checkbox("Reflection Contribution", &reflectionSettings.contributionEnabled);
+            changed |= ImGui::Checkbox("Stochastic Rough Sampling", &reflectionSettings.stochasticSamplingEnabled);
+            ImGui::EndDisabled();
+        }
+        else
+        {
+
         changed |= ImGui::Checkbox("Enabled", &reflectionSettings.enabled);
 
         ImGui::BeginDisabled(!reflectionSettings.enabled);
@@ -437,6 +484,7 @@ namespace
             "Min Metallic", &reflectionSettings.minMetallic, 0.0f, 1.0f, 0.05f, 0.0f);
         ImGui::EndDisabled();
         ImGui::EndDisabled();
+        }
 
         if (changed)
         {

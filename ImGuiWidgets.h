@@ -13,6 +13,41 @@ inline float CalcButtonWidth(const char* text)
     return ImGui::CalcTextSize(text).x + ImGui::GetStyle().FramePadding.x * 2.0f;
 }
 
+inline bool SimpleDetailMode(const char* id, bool* detailed)
+{
+    const char* labels[] = {"Simple", "Detail"};
+    const float width = (std::max)(80.0f, (std::max)(CalcButtonWidth(labels[0]), CalcButtonWidth(labels[1])));
+    bool changed = false;
+
+    ImGui::PushID(id);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, ImGui::GetStyle().ItemSpacing.y));
+    for (int index = 0; index < 2; ++index)
+    {
+        const bool selected = *detailed == (index == 1);
+        if (selected)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+        }
+        if (ImGui::Button(labels[index], ImVec2(width, 0.0f)) && !selected)
+        {
+            *detailed = index == 1;
+            changed = true;
+        }
+        if (selected)
+        {
+            ImGui::PopStyleColor(2);
+        }
+        if (index == 0)
+        {
+            ImGui::SameLine();
+        }
+    }
+    ImGui::PopStyleVar();
+    ImGui::PopID();
+    return changed;
+}
+
 inline float BeginSliderControl(const char* label, float totalButtonsWidth)
 {
     const ImGuiStyle& s = ImGui::GetStyle();
