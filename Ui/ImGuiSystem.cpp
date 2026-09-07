@@ -2,6 +2,8 @@
 
 #include "ImGuiSystem.h"
 
+#include "Ui/DebugUiPreferences.h"
+
 #include "imgui.h"
 #include "imgui_impl_dx12.h"
 #include "imgui_impl_win32.h"
@@ -27,6 +29,7 @@ void ImGuiSystem::Initialize(HWND hwnd,
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    RtPbrSurvey::RegisterDebugUiPreferencesSettingsHandler();
     ImGui::StyleColorsDark();
 
     ImGui_ImplWin32_Init(hwnd);

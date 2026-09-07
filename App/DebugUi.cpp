@@ -4,6 +4,7 @@
 #include "RtPbrSurveyApp.h"
 #include "../ImGuiWidgets.h"
 #include "../Runtime/SceneRendererDebugUi.h"
+#include "../Ui/DebugUiPreferences.h"
 
 #include <imgui.h>
 
@@ -265,6 +266,7 @@ namespace App
 
 void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& context)
 {
+    RtPbrSurvey::DebugUiPreferences& debugUiPreferences = RtPbrSurvey::GetDebugUiPreferences();
     using RenderingPath = RtPbrSurveyEngine::RenderingPath;
     using RenderViewMode = RtPbrSurveyEngine::RenderViewMode;
     using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
@@ -683,9 +685,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             auto reflectionSettings = app.m_sceneRenderer.GetHybridReflectionSettings();
             bool changed = false;
 
-            ImGuiWidgets::SimpleDetailMode("HybridReflectionMode", &app.m_hybridReflectionDebugUiDetailed);
+            if (ImGuiWidgets::SimpleDetailMode(
+                    "HybridReflectionMode", &debugUiPreferences.hybridReflectionDetailed))
+            {
+                RtPbrSurvey::MarkDebugUiPreferencesDirty();
+            }
 
-            if (!app.m_hybridReflectionDebugUiDetailed)
+            if (!debugUiPreferences.hybridReflectionDetailed)
             {
                 changed |= ImGui::Checkbox("Hybrid Reflection Enabled", &reflectionSettings.enabled);
                 ImGui::BeginDisabled(!reflectionSettings.enabled);
@@ -970,9 +976,12 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
         auto temporalUpscalerSettings = app.m_sceneRenderer.GetTemporalUpscalerSettings();
         auto rayReconstructionSettings = app.m_sceneRenderer.GetRayReconstructionSettings();
-        ImGuiWidgets::SimpleDetailMode("DlssDebugMode", &app.m_dlssDebugUiDetailed);
+        if (ImGuiWidgets::SimpleDetailMode("DlssDebugMode", &debugUiPreferences.dlssDetailed))
+        {
+            RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        }
 
-        if (!app.m_dlssDebugUiDetailed)
+        if (!debugUiPreferences.dlssDetailed)
         {
             bool temporalUpscalerSettingsChanged = false;
             ImGui::BeginDisabled(!context.temporalUpscalerAvailable);

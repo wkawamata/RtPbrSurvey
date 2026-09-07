@@ -109,6 +109,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Scene/SceneBuilder.cpp
     Scene/SceneFactory.cpp
     Scene/SampleScene.cpp
+    Ui/DebugUiPreferences.cpp
     Ui/ImGuiSystem.cpp
     stdafx.cpp
     third_party/imgui-node-editor/crude_json.cpp

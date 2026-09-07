@@ -23,7 +23,7 @@ This part changes UI presentation while reusing existing renderer settings and t
 
 - [x] Rename visible `Open Preview` buttons to `Preview`.
 - [x] Wrap RR input choices after three radio/button items.
-- [ ] Persist Simple/Detail mode choices as local UI preferences.
+- [x] Persist Simple/Detail mode choices as local UI preferences.
 - [ ] Perform visual QA for narrow and normal Debug window widths.
 
 ## Part 2: Multiple Preview Foundation

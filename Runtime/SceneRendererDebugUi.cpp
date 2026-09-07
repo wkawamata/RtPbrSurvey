@@ -15,6 +15,7 @@
 
 #include "ImGuiWidgets.h"
 #include "Runtime/RenderGraphNodeEditorView.h"
+#include "Ui/DebugUiPreferences.h"
 
 #include <imgui.h>
 
@@ -139,10 +140,13 @@ namespace
         bool changed = false;
         bool rayReconstructionChanged = false;
 
-        static bool detailed = true;
-        ImGuiWidgets::SimpleDetailMode("DlssDebugMode", &detailed);
+        RtPbrSurvey::DebugUiPreferences& preferences = RtPbrSurvey::GetDebugUiPreferences();
+        if (ImGuiWidgets::SimpleDetailMode("DlssDebugMode", &preferences.dlssDetailed))
+        {
+            RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        }
 
-        if (!detailed)
+        if (!preferences.dlssDetailed)
         {
             ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
             changed |= ImGui::Checkbox("DLSS##Simple", &temporalUpscalerSettings.enabled);
@@ -412,10 +416,13 @@ namespace
         auto reflectionSettings = renderer.GetHybridReflectionSettings();
         bool changed = false;
 
-        static bool detailed = false;
-        ImGuiWidgets::SimpleDetailMode("HybridReflectionMode", &detailed);
+        RtPbrSurvey::DebugUiPreferences& preferences = RtPbrSurvey::GetDebugUiPreferences();
+        if (ImGuiWidgets::SimpleDetailMode("HybridReflectionMode", &preferences.hybridReflectionDetailed))
+        {
+            RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        }
 
-        if (!detailed)
+        if (!preferences.hybridReflectionDetailed)
         {
             changed |= ImGui::Checkbox("Hybrid Reflection Enabled", &reflectionSettings.enabled);
             ImGui::BeginDisabled(!reflectionSettings.enabled);

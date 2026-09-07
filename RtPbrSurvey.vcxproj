@@ -211,6 +211,7 @@
     <ClInclude Include="Scene\CameraProjection.h" />
     <ClInclude Include="Scene\CameraView.h" />
     <ClInclude Include="Scene\SampleScene.h" />
+    <ClInclude Include="Ui\DebugUiPreferences.h" />
     <ClInclude Include="Ui\ImGuiSystem.h" />
     <ClInclude Include="App\DebugUi.h" />
     <ClInclude Include="App\SceneSelectUi.h" />
@@ -294,6 +295,7 @@
     <ClCompile Include="Scene\SceneBuilder.cpp" />
     <ClCompile Include="Scene\SceneFactory.cpp" />
     <ClCompile Include="Scene\SampleScene.cpp" />
+    <ClCompile Include="Ui\DebugUiPreferences.cpp" />
     <ClCompile Include="Ui\ImGuiSystem.cpp" />
     <ClCompile Include="Platform\Win32Application.cpp" />
     <ClCompile Include="Engine\RtPbrSurveyEngine.cpp" />

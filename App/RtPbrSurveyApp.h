@@ -119,8 +119,6 @@ private:
     bool m_iblEnabled = true;
     bool m_lightingPassDebugGradient = false;
     bool m_debugUiVisible = false;
-    bool m_dlssDebugUiDetailed = true;
-    bool m_hybridReflectionDebugUiDetailed = false;
     int m_selectedMaterialIndex = 0;
     std::array<float, 4> m_backBufferClearColor = {0.0f, 0.2f, 0.4f, 1.0f};
     RtPbrSurveyEngine::ToneMapParams m_toneMapParams;
