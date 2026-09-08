@@ -170,6 +170,7 @@ RtPbrSurveyEngine::RtPbrSurveyEngine(GraphicsDevice& graphicsDevice)
     RegisterPassBindingResolvers();
     RegisterPassConstantsHandlers();
     RegisterResourceResolvers();
+    RegisterDebugResourceViews();
 }
 
 void RtPbrSurveyEngine::Initialize(UINT width, UINT height)
@@ -552,6 +553,13 @@ D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveDebugTexturePreviewSourceS
     {
         return m_reflectionSpecularHitDistanceSrv.gpu;
     }
+    for (UINT i = 0; i < 2; ++i)
+    {
+        if (source == kReflectionResolvedRadianceResourceNames[i])
+        {
+            return m_reflectionResolvedRadianceSrv[i].gpu;
+        }
+    }
     for (UINT i = 0; i < Engine::GBuffer::kCount; ++i)
     {
         if (source == kGBufferResourceNames[i])
@@ -560,6 +568,55 @@ D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveDebugTexturePreviewSourceS
         }
     }
     return m_lightPassColorSrv.gpu;
+}
+
+void RtPbrSurveyEngine::RegisterDebugResourceViews()
+{
+    const auto registerTexture = [this](const char* name,
+                                        Engine::DebugTexturePreviewSemantic semantic,
+                                        DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN)
+    {
+        m_debugResourceViewRegistry.Register(
+            {name, Engine::DebugResourceViewKind::Texture, semantic, format});
+    };
+
+    registerTexture(kLightPassRenderTargetResourceName, Engine::DebugTexturePreviewSemantic::Color);
+    registerTexture(kDepthStencilResourceName, Engine::DebugTexturePreviewSemantic::Depth, DXGI_FORMAT_R32_FLOAT);
+    registerTexture(kTemporalUpscalerSceneColorResourceName, Engine::DebugTexturePreviewSemantic::Color);
+    registerTexture(kReflectionEvaluatedRadianceResourceName, Engine::DebugTexturePreviewSemantic::Color);
+    registerTexture(kReflectionSpecularAlbedoResourceName, Engine::DebugTexturePreviewSemantic::Color);
+    registerTexture(kReflectionRoughnessResourceName, Engine::DebugTexturePreviewSemantic::Scalar);
+    registerTexture(kReflectionSpecularHitDistanceResourceName, Engine::DebugTexturePreviewSemantic::Scalar);
+    for (UINT i = 0; i < 2; ++i)
+    {
+        registerTexture(kReflectionResolvedRadianceResourceNames[i], Engine::DebugTexturePreviewSemantic::Color);
+    }
+
+    registerTexture(kGBufferResourceNames[Engine::GBuffer::Albedo],
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    m_gbuffer.formats[Engine::GBuffer::Albedo]);
+    registerTexture(kGBufferResourceNames[Engine::GBuffer::Normal],
+                    Engine::DebugTexturePreviewSemantic::Normal,
+                    m_gbuffer.formats[Engine::GBuffer::Normal]);
+    m_debugResourceViewRegistry.RegisterUnsupported(
+        kGBufferResourceNames[Engine::GBuffer::Material],
+        "Unsigned integer Material texture preview is not registered.");
+    registerTexture(kGBufferResourceNames[Engine::GBuffer::MotionVector],
+                    Engine::DebugTexturePreviewSemantic::MotionVector,
+                    m_gbuffer.formats[Engine::GBuffer::MotionVector]);
+    registerTexture(kGBufferResourceNames[Engine::GBuffer::PBRParams],
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    m_gbuffer.formats[Engine::GBuffer::PBRParams]);
+    registerTexture(kGBufferResourceNames[Engine::GBuffer::Emissive],
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    m_gbuffer.formats[Engine::GBuffer::Emissive]);
+    m_debugResourceViewRegistry.RegisterUnsupported(
+        kBackBufferResourceName, "BackBuffer does not expose a registered Preview SRV.");
+    for (const char* name : kDebugTexturePreviewResourceNames)
+    {
+        m_debugResourceViewRegistry.RegisterUnsupported(
+            name, "Preview output resources cannot be opened as Preview inputs.");
+    }
 }
 
 void RtPbrSurveyEngine::SetHybridReflectionSettings(const HybridReflectionSettings& settings)

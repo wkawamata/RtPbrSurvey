@@ -20,6 +20,7 @@
 #include "Renderer/DeferredGpuReleaseQueue.h"
 #include "Renderer/EnvironmentMap.h"
 #include "Renderer/DebugTexturePreviewPass.h"
+#include "Renderer/DebugResourceViewRegistry.h"
 #include "Renderer/DepthVisualization.h"
 #include "Renderer/GBuffer.h"
 #include "Renderer/HdrOutput.h"
@@ -311,6 +312,10 @@ public:
     UiFrameContext GetUiFrameContext() const;
     float CpuFrameTimeMs() const { return m_cpuFrameTime; }
     Engine::RenderGraphDocument CaptureRenderGraphDocument() const;
+    const Engine::DebugResourceViewRegistry& GetDebugResourceViewRegistry() const
+    {
+        return m_debugResourceViewRegistry;
+    }
     const std::vector<Engine::RenderGraphBarrierEvent>& GetRenderGraphBarrierEvents() const;
     std::vector<Engine::RenderGraphBarrierDiagnostic> GetRenderGraphBarrierDiagnostics() const;
     bool HasRenderGraphBarrierEvents() const;
@@ -923,6 +928,7 @@ private:
         kLightPassRenderTargetResourceName,
     };
     std::array<Engine::DebugTexturePreviewSettings, kMaxDebugTexturePreviewCount> m_debugTexturePreviewSettings;
+    Engine::DebugResourceViewRegistry m_debugResourceViewRegistry;
     DescriptorHeapHandle m_reflectionEvaluatedRadianceSrv;
     DescriptorHeapHandle m_reflectionSpecularEstimateSrv;
     DescriptorHeapHandle m_reflectionRoughnessSrv;
@@ -1402,6 +1408,7 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE GetDebugTexturePreviewRTV(UINT previewIndex) const;
     D3D12_GPU_DESCRIPTOR_HANDLE ResolveDebugTexturePreviewSourceSrv(UINT previewIndex) const;
     void RegisterPassBindingResolvers();
+    void RegisterDebugResourceViews();
     void RegisterPassConstantsHandlers();
     void RegisterResourceResolvers();
     Engine::TemporalUpscalerFrameConstants MakeStreamlineFrameConstants() const;

@@ -67,6 +67,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/DebugDumpCapture.cpp
     Renderer/DebugDumpReport.cpp
     Renderer/DebugLinePass.cpp
+    Renderer/DebugResourceViewRegistry.cpp
     Renderer/DebugTexturePreviewPass.cpp
     Renderer/EdgeAwareSpatialReflectionPass.cpp
     Renderer/EnvironmentMap.cpp

@@ -198,6 +198,7 @@
     <ClInclude Include="Renderer\ToneMap.h" />
     <ClInclude Include="Renderer\DebugLinePass.h" />
     <ClInclude Include="Renderer\DebugTexturePreviewPass.h" />
+    <ClInclude Include="Renderer\DebugResourceViewRegistry.h" />
     <ClInclude Include="Renderer\DepthVisualization.h" />
     <ClInclude Include="Runtime\DebugLine.h" />
     <ClInclude Include="Runtime\SceneRenderer.h" />
@@ -286,6 +287,7 @@
     <ClCompile Include="Renderer\ToneMap.cpp" />
     <ClCompile Include="Renderer\DebugLinePass.cpp" />
     <ClCompile Include="Renderer\DebugTexturePreviewPass.cpp" />
+    <ClCompile Include="Renderer\DebugResourceViewRegistry.cpp" />
     <ClCompile Include="Runtime\DebugLine.cpp" />
     <ClCompile Include="Runtime\SceneRenderer.cpp" />
     <ClCompile Include="Runtime\DebugTextureInspector.cpp" />

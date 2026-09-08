@@ -159,6 +159,25 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
     }
 }
 
+RtPbrSurvey::DebugTextureSemantic ToDebugTextureSemantic(Engine::DebugTexturePreviewSemantic semantic)
+{
+    switch (semantic)
+    {
+        case Engine::DebugTexturePreviewSemantic::Color:
+            return RtPbrSurvey::DebugTextureSemantic::Color;
+        case Engine::DebugTexturePreviewSemantic::Normal:
+            return RtPbrSurvey::DebugTextureSemantic::Normal;
+        case Engine::DebugTexturePreviewSemantic::Depth:
+            return RtPbrSurvey::DebugTextureSemantic::Depth;
+        case Engine::DebugTexturePreviewSemantic::MotionVector:
+            return RtPbrSurvey::DebugTextureSemantic::MotionVector;
+        case Engine::DebugTexturePreviewSemantic::Scalar:
+            return RtPbrSurvey::DebugTextureSemantic::Scalar;
+        default:
+            return RtPbrSurvey::DebugTextureSemantic::Color;
+    }
+}
+
 bool DrawDepthVisualizationControls(Engine::DepthVisualizationSettings& settings,
                                     const Engine::DepthVisualizationSettings& defaults,
                                     const char* id)
@@ -1532,8 +1551,58 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     ImGui::End();
     const RtPbrSurvey::RenderGraphGpuTimingSnapshot renderGraphTiming =
         BuildRenderGraphGpuTimingSnapshot(context.gpuCheckPoints);
+    RtPbrSurvey::RenderGraphResourceActions renderGraphResourceActions;
+    renderGraphResourceActions.activePreviewCount = static_cast<size_t>(std::count_if(
+        app.m_debugTextureInspectors.Inspectors().begin(),
+        app.m_debugTextureInspectors.Inspectors().end(),
+        [](const RtPbrSurvey::DebugTextureInspector& inspector) { return inspector.open; }));
+    renderGraphResourceActions.maxPreviewCount = RtPbrSurvey::DebugTextureInspectorManager::kMaxInspectorCount;
+    renderGraphResourceActions.openPreview =
+        [&app](const Engine::DebugResourceViewDescriptor& descriptor, bool pinned)
+    {
+        if (descriptor.viewKind != Engine::DebugResourceViewKind::Texture)
+        {
+            return false;
+        }
+        const RtPbrSurvey::DebugTextureSemantic semantic = ToDebugTextureSemantic(descriptor.semantic);
+        RtPbrSurvey::DebugTextureInspector* inspector = pinned
+            ? app.m_debugTextureInspectors.PinPreview(descriptor.resourceName, descriptor.resourceName, semantic)
+            : app.m_debugTextureInspectors.OpenPreview(descriptor.resourceName, descriptor.resourceName, semantic);
+        if (inspector == nullptr)
+        {
+            return false;
+        }
+        if (semantic == RtPbrSurvey::DebugTextureSemantic::Depth &&
+            !inspector->depthVisualizationInitialized)
+        {
+            inspector->depthVisualization = app.m_sceneRenderer.GetDefaultDepthVisualizationSettings();
+            inspector->depthVisualizationInitialized = true;
+        }
+        app.m_sceneRenderer.SetDebugTexturePreviewEnabled(true);
+        return true;
+    };
+    renderGraphResourceActions.isPreviewOpen = [&app](const std::string& resourceName)
+    {
+        const auto& inspectors = app.m_debugTextureInspectors.Inspectors();
+        return std::any_of(inspectors.begin(),
+                           inspectors.end(),
+                           [&resourceName](const auto& inspector)
+                           { return inspector.open && inspector.resourceName == resourceName; });
+    };
+    renderGraphResourceActions.closePreview = [&app](const std::string& resourceName)
+    {
+        for (const RtPbrSurvey::DebugTextureInspector& inspector : app.m_debugTextureInspectors.Inspectors())
+        {
+            if (inspector.open && inspector.resourceName == resourceName)
+            {
+                app.m_debugTextureInspectors.Close(inspector.id);
+                break;
+            }
+        }
+    };
+    renderGraphResourceActions.closeAllPreviews = [&app]() { app.m_debugTextureInspectors.CloseAll(); };
     RtPbrSurvey::SceneRendererDebugUi::DrawRenderGraphWindow(
-        app.m_sceneRenderer, &renderGraphWindowOpen, &renderGraphTiming);
+        app.m_sceneRenderer, &renderGraphWindowOpen, &renderGraphTiming, &renderGraphResourceActions);
 
     bool closeAllDebugTexturePreviews = false;
     std::vector<RtPbrSurvey::DebugTextureInspector>& inspectors = app.m_debugTextureInspectors.Inspectors();

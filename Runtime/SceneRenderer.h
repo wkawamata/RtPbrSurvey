@@ -49,6 +49,7 @@ namespace RtPbrSurvey
         UiFrameContext GetUiFrameContext() const;
         float CpuFrameTimeMs() const;
         Engine::RenderGraphDocument CaptureRenderGraphDocument() const;
+        const Engine::DebugResourceViewRegistry& GetDebugResourceViewRegistry() const;
         const std::vector<Engine::RenderGraphBarrierEvent>& GetRenderGraphBarrierEvents() const;
         std::vector<Engine::RenderGraphBarrierDiagnostic> GetRenderGraphBarrierDiagnostics() const;
         bool HasRenderGraphBarrierEvents() const;

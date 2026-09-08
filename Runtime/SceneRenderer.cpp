@@ -97,6 +97,11 @@ namespace RtPbrSurvey
         return m_engine.CaptureRenderGraphDocument();
     }
 
+    const Engine::DebugResourceViewRegistry& SceneRenderer::GetDebugResourceViewRegistry() const
+    {
+        return m_engine.GetDebugResourceViewRegistry();
+    }
+
     const std::vector<Engine::RenderGraphBarrierEvent>& SceneRenderer::GetRenderGraphBarrierEvents() const
     {
         return m_engine.GetRenderGraphBarrierEvents();

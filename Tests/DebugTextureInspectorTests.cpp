@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "Runtime/DebugTextureInspector.h"
+#include "Renderer/DebugResourceViewRegistry.h"
 
 #include <cmath>
 #include <iostream>
@@ -136,6 +137,27 @@ bool TestDepthVisualizationConstantsSanitizeInvalidValues()
                  "invalid camera range uses stable defaults") &&
            Check(constants.orthographicProjection == 1u, "projection kind reaches shader constants");
 }
+
+bool TestDebugResourceViewRegistryReportsSupportAndReasons()
+{
+    Engine::DebugResourceViewRegistry registry;
+    registry.Register({"DepthStencil",
+                       Engine::DebugResourceViewKind::Texture,
+                       Engine::DebugTexturePreviewSemantic::Depth,
+                       DXGI_FORMAT_R32_FLOAT});
+    registry.RegisterUnsupported("BackBuffer", "No Preview SRV.");
+
+    const Engine::DebugResourceInspection depth = registry.Inspect("DepthStencil");
+    const Engine::DebugResourceInspection backBuffer = registry.Inspect("BackBuffer");
+    const Engine::DebugResourceInspection unknown = registry.Inspect("Unknown.Buffer");
+    return Check(depth.IsInspectable(), "registered texture is inspectable") &&
+           Check(depth.descriptor->semantic == Engine::DebugTexturePreviewSemantic::Depth,
+                 "registered texture keeps its semantic") &&
+           Check(!backBuffer.IsInspectable() && backBuffer.unsupportedReason == "No Preview SRV.",
+                 "registered unsupported reason is reported") &&
+           Check(!unknown.IsInspectable() && !unknown.unsupportedReason.empty(),
+                 "unregistered resources receive a fallback reason");
+}
 } // namespace
 
 int main()
@@ -144,7 +166,8 @@ int main()
                         TestDifferentPreviewsRemainIndependent() && TestPreviewLimit() && TestCloseAndRemove() &&
                         TestClosedSlotIsReusedWithoutMovingLiveInspectors() &&
                         TestDepthVisualizationDefaultsFollowCameraRange() &&
-                        TestDepthVisualizationConstantsSanitizeInvalidValues();
+                        TestDepthVisualizationConstantsSanitizeInvalidValues() &&
+                        TestDebugResourceViewRegistryReportsSupportAndReasons();
     if (passed)
     {
         std::cout << "DebugTextureInspector tests passed.\n";

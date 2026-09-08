@@ -219,6 +219,9 @@
     <ClInclude Include="Renderer\DebugTexturePreviewPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\DebugResourceViewRegistry.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\DepthVisualization.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -453,6 +456,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\DebugTexturePreviewPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\DebugResourceViewRegistry.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\DebugLinePass.cpp">

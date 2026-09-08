@@ -74,25 +74,31 @@ This part connects renderer-owned inspection metadata to the read-only graph.
 
 ### 4.1 Resource Actions
 
-- [ ] Add the inspectable resource registry and unsupported reasons.
-- [ ] Open/focus Texture and registered Buffer inspectors on double-click.
-- [ ] Add Preview, Pin Preview, Copy Resource Name, Close Preview, and Index Color context actions.
-- [ ] Replace `Preview LightPass` with selected resource and active Preview count status.
+- [x] Add the inspectable resource registry and unsupported reasons.
+- [x] Open/focus Texture inspectors on double-click; keep registered Buffer dispatch isolated for Part 5.
+- [x] Add Preview, Pin Preview, Copy Resource Name, Close Preview, and Index Color context actions.
+- [x] Replace `Preview LightPass` with selected resource and active Preview count status.
 
 ### 4.2 Node Layout
 
-- [ ] Preserve Compact mode.
-- [ ] Add UE-style stable input pins on the left and output pins on the right.
-- [ ] Persist positions independently for each layout.
+- [x] Preserve Compact mode.
+- [x] Add UE-style stable input pins on the left and output pins on the right.
+- [x] Persist positions independently for each layout.
 
 ### 4.3 Node Identity and Technology Metadata
 
-- [ ] Add the separate small index-color square with gray as the ordinary default.
-- [ ] Persist user color overrides and support Reset.
-- [ ] Label the stable `TemporalUpscalerPass` identity as `DLSS SR`.
-- [ ] Label the stable `DlssRayReconstructionPass` identity as `DLSS Ray Reconstruction`.
-- [ ] Use NVIDIA green as the DLSS node index-color default.
-- [ ] Reuse cached Streamline plugin and NGX versions in node details.
+- [x] Add the separate small index-color square with gray as the ordinary default.
+- [x] Persist user color overrides and support Reset.
+- [x] Label the stable `TemporalUpscalerPass` identity as `DLSS SR`.
+- [x] Label the stable `DlssRayReconstructionPass` identity as `DLSS Ray Reconstruction`.
+- [x] Use NVIDIA green as the DLSS node index-color default.
+- [x] Reuse existing Streamline plugin and NGX diagnostics in node details.
+
+### 4.4 Validation
+
+- [x] Pass Debug x64 compilation, inspector tests, and an automated startup/capture smoke test.
+- [ ] Visually validate Compact/UE-style switching, stable pin placement, double-click, context actions, and color persistence.
+- [ ] Visually validate DLSS SR/RR labels and version metadata with the corresponding nodes enabled.
 
 ## Part 5: Rich Diagnostics
 

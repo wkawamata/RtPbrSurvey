@@ -47,6 +47,82 @@ std::string NodeEditorSettingsPath()
     return settingsDirectory + "\\rendergraph_node_editor.json";
 }
 
+std::string NodeEditorUeSettingsPath()
+{
+    std::string path = NodeEditorSettingsPath();
+    const size_t extension = path.rfind(".json");
+    if (extension != std::string::npos)
+    {
+        path.insert(extension, "_ue");
+    }
+    return path;
+}
+
+std::string NodeEditorMetadataPath()
+{
+    std::string path = NodeEditorSettingsPath();
+    const size_t fileName = path.find_last_of("\\/");
+    if (fileName == std::string::npos)
+    {
+        return {};
+    }
+    return path.substr(0, fileName + 1) + "rendergraph_node_metadata.json";
+}
+
+using IndexColorMap = std::unordered_map<uint64_t, ImVec4>;
+
+IndexColorMap LoadIndexColors(const std::string& path)
+{
+    IndexColorMap colors;
+    std::ifstream stream(path);
+    if (!stream)
+    {
+        return colors;
+    }
+    const nlohmann::json settings = nlohmann::json::parse(stream, nullptr, false);
+    if (settings.is_discarded() || !settings.contains("indexColors") || !settings["indexColors"].is_object())
+    {
+        return colors;
+    }
+    for (const auto& [key, value] : settings["indexColors"].items())
+    {
+        if (!value.is_array() || value.size() != 4 ||
+            !std::all_of(value.begin(), value.end(), [](const auto& component) { return component.is_number(); }))
+        {
+            continue;
+        }
+        char* end = nullptr;
+        const uint64_t id = std::strtoull(key.c_str(), &end, 10);
+        if (end != key.c_str() && *end == '\0')
+        {
+            colors[id] = ImVec4(value[0].get<float>(),
+                                value[1].get<float>(),
+                                value[2].get<float>(),
+                                value[3].get<float>());
+        }
+    }
+    return colors;
+}
+
+void SaveIndexColors(const std::string& path, const IndexColorMap& colors)
+{
+    if (path.empty())
+    {
+        return;
+    }
+    nlohmann::json settings;
+    nlohmann::json& values = settings["indexColors"];
+    for (const auto& [id, color] : colors)
+    {
+        values[std::to_string(id)] = {color.x, color.y, color.z, color.w};
+    }
+    std::ofstream stream(path, std::ios::trunc);
+    if (stream)
+    {
+        stream << settings.dump(2);
+    }
+}
+
 std::unordered_set<uint64_t> LoadSavedNodeIds(const std::string& settingsPath)
 {
     std::unordered_set<uint64_t> result;
@@ -153,6 +229,153 @@ const Engine::RenderGraphDocumentNode* FindNode(const Engine::RenderGraphDocumen
         }
     }
     return nullptr;
+}
+
+const Engine::RenderGraphDocumentNode* FindNode(const Engine::RenderGraphDocument& document, NodeEditor::NodeId id)
+{
+    for (const Engine::RenderGraphDocumentNode& node : document.nodes)
+    {
+        if (ToNodeId(node.id) == id)
+        {
+            return &node;
+        }
+    }
+    return nullptr;
+}
+
+bool IsDlssSrNode(const Engine::RenderGraphDocumentNode& node)
+{
+    return node.kind == Engine::RenderGraphNodeKind::Pass && node.name == "TemporalUpscalerPass";
+}
+
+bool IsDlssRayReconstructionNode(const Engine::RenderGraphDocumentNode& node)
+{
+    return node.kind == Engine::RenderGraphNodeKind::Pass && node.name == "DlssRayReconstructionPass";
+}
+
+const char* NodeDisplayName(const Engine::RenderGraphDocumentNode& node)
+{
+    if (IsDlssSrNode(node))
+    {
+        return "DLSS SR";
+    }
+    if (IsDlssRayReconstructionNode(node))
+    {
+        return "DLSS Ray Reconstruction";
+    }
+    return node.name.c_str();
+}
+
+ImVec4 DefaultIndexColor(const Engine::RenderGraphDocumentNode& node)
+{
+    return IsDlssSrNode(node) || IsDlssRayReconstructionNode(node)
+        ? ImVec4(118.0f / 255.0f, 185.0f / 255.0f, 0.0f, 1.0f)
+        : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+}
+
+const char* RelatedResourceName(const Engine::RenderGraphDocument& document,
+                                const Engine::RenderGraphDocumentPin& pin)
+{
+    for (const Engine::RenderGraphDocumentLink& link : document.links)
+    {
+        if (link.fromPinId == pin.id || link.toPinId == pin.id)
+        {
+            const Engine::RenderGraphDocumentNode* resource = FindNode(document, link.resourceNodeId);
+            return resource != nullptr ? resource->name.c_str() : "<missing>";
+        }
+    }
+    return "<unconnected>";
+}
+
+std::string ShortResourceName(const char* name)
+{
+    constexpr size_t maxLength = 27;
+    const std::string value(name);
+    return value.size() <= maxLength ? value : value.substr(0, maxLength - 3) + "...";
+}
+
+Engine::DebugResourceInspection InspectResource(const Engine::RenderGraphDocumentNode& node,
+                                                const Engine::DebugResourceViewRegistry* registry)
+{
+    if (node.kind != Engine::RenderGraphNodeKind::Resource)
+    {
+        return {nullptr, "Pass nodes do not select an implicit output resource."};
+    }
+    if (registry == nullptr)
+    {
+        return {nullptr, "Resource inspection registry is unavailable."};
+    }
+    return registry->Inspect(node.name);
+}
+
+bool CanOpenPreview(const Engine::DebugResourceInspection& inspection,
+                    const RenderGraphResourceActions* resourceActions)
+{
+    return inspection.IsInspectable() &&
+           inspection.descriptor->viewKind == Engine::DebugResourceViewKind::Texture &&
+           resourceActions != nullptr &&
+           static_cast<bool>(resourceActions->openPreview);
+}
+
+bool HasPreviewCapacity(const RenderGraphResourceActions* resourceActions, const std::string& resourceName)
+{
+    if (resourceActions == nullptr)
+    {
+        return false;
+    }
+    const bool alreadyOpen = resourceActions->isPreviewOpen && resourceActions->isPreviewOpen(resourceName);
+    return alreadyOpen || resourceActions->activePreviewCount < resourceActions->maxPreviewCount;
+}
+
+void DrawResourceActions(const Engine::RenderGraphDocumentNode& node,
+                         const Engine::DebugResourceViewRegistry* registry,
+                         const RenderGraphResourceActions* resourceActions)
+{
+    const Engine::DebugResourceInspection inspection = InspectResource(node, registry);
+    const bool canOpen = CanOpenPreview(inspection, resourceActions) &&
+                         HasPreviewCapacity(resourceActions, node.name);
+    const bool previewOpen = resourceActions != nullptr && resourceActions->isPreviewOpen &&
+                             resourceActions->isPreviewOpen(node.name);
+
+    ImGui::BeginDisabled(!canOpen);
+    if (ImGui::Button("Preview"))
+    {
+        resourceActions->openPreview(*inspection.descriptor, false);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Pin Preview"))
+    {
+        resourceActions->openPreview(*inspection.descriptor, true);
+    }
+    ImGui::EndDisabled();
+    if (previewOpen && resourceActions->closePreview)
+    {
+        ImGui::SameLine();
+        if (ImGui::Button("Close Preview"))
+        {
+            resourceActions->closePreview(node.name);
+        }
+    }
+    if (!inspection.IsInspectable())
+    {
+        ImGui::TextDisabled("Inspector: %s", inspection.unsupportedReason.c_str());
+    }
+    else if (resourceActions == nullptr || !resourceActions->openPreview)
+    {
+        ImGui::TextDisabled("Inspector: Preview manager is unavailable in this host UI.");
+    }
+    else if (inspection.descriptor->viewKind != Engine::DebugResourceViewKind::Texture)
+    {
+        ImGui::TextDisabled("Inspector: Compatible Buffer Inspector is not available yet.");
+    }
+    else if (!HasPreviewCapacity(resourceActions, node.name))
+    {
+        ImGui::TextDisabled("Inspector: Preview limit reached.");
+    }
+    else
+    {
+        ImGui::TextDisabled("Inspector: Texture Preview available");
+    }
 }
 
 bool ContainsId(const std::vector<Engine::RenderGraphDocumentId>& ids, Engine::RenderGraphDocumentId id)
@@ -484,7 +707,10 @@ void DrawDetailPanel(const Engine::RenderGraphDocument& document,
                      const std::optional<Engine::RenderGraphDocumentId>& selectedNodeId,
                      const std::unordered_map<int, PassTimingHistory>& passTimings,
                      const PassTimingHistory& totalTiming,
-                     int timingMode)
+                     int timingMode,
+                     const Engine::DebugResourceViewRegistry* resourceViewRegistry,
+                     const RenderGraphResourceActions* resourceActions,
+                     const RenderGraphTechnologyMetadata* technologyMetadata)
 {
     ImGui::TextUnformatted("Node Details");
     ImGui::Separator();
@@ -497,10 +723,23 @@ void DrawDetailPanel(const Engine::RenderGraphDocument& document,
         return;
     }
 
-    ImGui::TextWrapped("%s", node->name.c_str());
+    ImGui::TextWrapped("%s", NodeDisplayName(*node));
     if (node->kind == Engine::RenderGraphNodeKind::Pass)
     {
         ImGui::Text("Type: Pass");
+        if (IsDlssSrNode(*node) || IsDlssRayReconstructionNode(*node))
+        {
+            ImGui::Text("Stable identity: %s", node->name.c_str());
+            ImGui::TextUnformatted("Technology: NVIDIA DLSS");
+            const std::string* version = nullptr;
+            if (technologyMetadata != nullptr)
+            {
+                version = IsDlssSrNode(*node) ? &technologyMetadata->dlssSrVersionText
+                                              : &technologyMetadata->dlssRayReconstructionVersionText;
+            }
+            ImGui::TextWrapped("Version: %s", version != nullptr && !version->empty() ? version->c_str()
+                                                                                       : "Version unavailable");
+        }
         ImGui::Text("Execution order: %d", node->passIndex);
         const auto timing = passTimings.find(node->passIndex);
         if (timing != passTimings.end() && !timing->second.values.empty())
@@ -526,6 +765,7 @@ void DrawDetailPanel(const Engine::RenderGraphDocument& document,
             ImGui::Text("Physical index: %d", node->physicalIndex);
             ImGui::Text("Current role: %s", PingPongRoleLabel(node->pingPongRole));
         }
+        DrawResourceActions(*node, resourceViewRegistry, resourceActions);
     }
 
     ImGui::Spacing();
@@ -585,11 +825,14 @@ ImVec4 NodeBackgroundColor(const Engine::RenderGraphDocumentNode& node)
 
 struct RenderGraphNodeEditorView::Impl
 {
-    std::string settingsPath;
-    NodeEditor::EditorContext* context = nullptr;
-    std::unordered_set<uint64_t> positionedNodes;
-    std::unordered_set<uint64_t> savedNodeIds;
-    std::unordered_map<uint64_t, float> stableContentWidths;
+    std::array<std::string, 2> settingsPaths;
+    std::array<NodeEditor::EditorContext*, 2> contexts = {};
+    std::array<std::unordered_set<uint64_t>, 2> positionedNodes;
+    std::array<std::unordered_set<uint64_t>, 2> savedNodeIds;
+    std::array<std::unordered_map<uint64_t, float>, 2> stableContentWidths;
+    std::string metadataPath;
+    IndexColorMap indexColors;
+    int layoutMode = 0;
     struct ResourcePinIds
     {
         NodeEditor::PinId read;
@@ -612,27 +855,44 @@ struct RenderGraphNodeEditorView::Impl
     std::optional<Engine::RenderGraphDocument> baselineDocument;
     uintptr_t nextSyntheticPinId = UINTPTR_MAX;
 
-    Impl() : settingsPath(NodeEditorSettingsPath()), savedNodeIds(LoadSavedNodeIds(settingsPath))
+    Impl()
+        : settingsPaths{NodeEditorSettingsPath(), NodeEditorUeSettingsPath()},
+          metadataPath(NodeEditorMetadataPath()), indexColors(LoadIndexColors(metadataPath))
     {
-        NodeEditor::Config config;
-        config.SettingsFile = settingsPath.empty() ? nullptr : settingsPath.c_str();
-        config.EnableSmoothZoom = true;
-        config.SmoothZoomPower = 1.05f;
-        context = NodeEditor::CreateEditor(&config);
+        for (size_t i = 0; i < contexts.size(); ++i)
+        {
+            savedNodeIds[i] = LoadSavedNodeIds(settingsPaths[i]);
+            NodeEditor::Config config;
+            config.SettingsFile = settingsPaths[i].empty() ? nullptr : settingsPaths[i].c_str();
+            config.EnableSmoothZoom = true;
+            config.SmoothZoomPower = 1.05f;
+            contexts[i] = NodeEditor::CreateEditor(&config);
+        }
     }
 
     ~Impl()
     {
-        NodeEditor::DestroyEditor(context);
+        for (NodeEditor::EditorContext* context : contexts)
+        {
+            NodeEditor::DestroyEditor(context);
+        }
+    }
+
+    NodeEditor::EditorContext* Context() const { return contexts[layoutMode]; }
+
+    ImVec4 IndexColor(const Engine::RenderGraphDocumentNode& node) const
+    {
+        const auto color = indexColors.find(node.id.value);
+        return color != indexColors.end() ? color->second : DefaultIndexColor(node);
     }
 
     bool PositionNode(const Engine::RenderGraphDocumentNode& node, size_t resourceIndex)
     {
-        if (!positionedNodes.insert(node.id.value).second)
+        if (!positionedNodes[layoutMode].insert(node.id.value).second)
         {
             return false;
         }
-        if (savedNodeIds.contains(node.id.value))
+        if (savedNodeIds[layoutMode].contains(node.id.value))
         {
             return false;
         }
@@ -640,12 +900,15 @@ struct RenderGraphNodeEditorView::Impl
         ImVec2 position;
         if (node.kind == Engine::RenderGraphNodeKind::Pass)
         {
-            position = ImVec2(320.0f * static_cast<float>(node.passIndex), 40.0f);
+            const float spacing = layoutMode == 0 ? 320.0f : 430.0f;
+            position = ImVec2(spacing * static_cast<float>(node.passIndex), 40.0f);
         }
         else
         {
             const float lifetimeCenter = 0.5f * static_cast<float>(node.firstPass + node.lastPass);
-            position = ImVec2(320.0f * lifetimeCenter, 280.0f + 105.0f * static_cast<float>(resourceIndex));
+            const float spacing = layoutMode == 0 ? 320.0f : 430.0f;
+            const float rowSpacing = layoutMode == 0 ? 105.0f : 130.0f;
+            position = ImVec2(spacing * lifetimeCenter, 280.0f + rowSpacing * static_cast<float>(resourceIndex));
         }
         NodeEditor::SetNodePosition(ToNodeId(node.id), position);
         return true;
@@ -728,13 +991,21 @@ RenderGraphNodeEditorView::~RenderGraphNodeEditorView() = default;
 
 void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document,
                                      const RenderGraphGpuTimingSnapshot* timing,
-                                     const std::vector<Engine::RenderGraphBarrierDiagnostic>* barrierDiagnostics)
+                                     const std::vector<Engine::RenderGraphBarrierDiagnostic>* barrierDiagnostics,
+                                     const Engine::DebugResourceViewRegistry* resourceViewRegistry,
+                                     const RenderGraphResourceActions* resourceActions,
+                                     const RenderGraphTechnologyMetadata* technologyMetadata)
 {
     m_impl->UpdateTimings(timing);
     const std::vector<Engine::RenderGraphStateDiagnostic> stateDiagnostics =
         Engine::BuildRenderGraphStateDiagnostics(document);
     const std::vector<Engine::RenderGraphValidationMessage> validationMessages =
         Engine::ValidateRenderGraphDocument(document);
+    const int previousLayoutMode = m_impl->layoutMode;
+    ImGui::RadioButton("Compact", &m_impl->layoutMode, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton("UE-style", &m_impl->layoutMode, 1);
+    ImGui::SameLine();
     const bool fitRequested = ImGui::Button("Fit Graph");
     ImGui::SameLine();
     ImGui::BeginDisabled(!m_impl->selectedNodeId.has_value());
@@ -748,8 +1019,8 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     }
     if (resetLayoutRequested)
     {
-        m_impl->positionedNodes.clear();
-        m_impl->savedNodeIds.clear();
+        m_impl->positionedNodes[m_impl->layoutMode].clear();
+        m_impl->savedNodeIds[m_impl->layoutMode].clear();
     }
     ImGui::SameLine();
     ImGui::TextDisabled("Read-only");
@@ -809,6 +1080,29 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     ImGui::Checkbox("Persistent", &m_impl->showPersistent);
     ImGui::SameLine();
     ImGui::Checkbox("Unknown Lifetime", &m_impl->showUnknownLifetime);
+    if (resourceActions != nullptr)
+    {
+        ImGui::SameLine();
+        ImGui::TextDisabled("Previews: %zu / %zu",
+                            resourceActions->activePreviewCount,
+                            resourceActions->maxPreviewCount);
+        ImGui::SameLine();
+        ImGui::BeginDisabled(resourceActions->activePreviewCount == 0 || !resourceActions->closeAllPreviews);
+        if (ImGui::SmallButton("Close All Previews"))
+        {
+            resourceActions->closeAllPreviews();
+        }
+        ImGui::EndDisabled();
+    }
+    if (m_impl->selectedNodeId.has_value())
+    {
+        const Engine::RenderGraphDocumentNode* selectedNode = FindNode(document, *m_impl->selectedNodeId);
+        if (selectedNode != nullptr && selectedNode->kind == Engine::RenderGraphNodeKind::Resource)
+        {
+            ImGui::SameLine();
+            ImGui::TextDisabled("Selected: %s", selectedNode->name.c_str());
+        }
+    }
 
     if (m_impl->selectedNodeId.has_value() && FindNode(document, *m_impl->selectedNodeId) == nullptr)
     {
@@ -821,7 +1115,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     const float canvasWidth = (std::max)(contentSize.x - detailWidth - spacing, 240.0f);
     ImGui::BeginChild("RenderGraphCanvasPane", ImVec2(canvasWidth, contentSize.y), false);
 
-    NodeEditor::SetCurrentEditor(m_impl->context);
+    NodeEditor::SetCurrentEditor(m_impl->Context());
     NodeEditor::Begin("RenderGraphNodeEditor", ImVec2(0.0f, 0.0f));
 
     std::vector<const Engine::RenderGraphDocumentNode*> layoutResources;
@@ -883,7 +1177,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         const size_t resourceRow = node.kind == Engine::RenderGraphNodeKind::Resource ? layoutRows.at(node.id) : 0;
         layoutChanged |= m_impl->PositionNode(node, resourceRow);
 
-        float contentWidth = ImGui::CalcTextSize(node.name.c_str()).x;
+        float contentWidth = ImGui::CalcTextSize(NodeDisplayName(node)).x + 18.0f;
         size_t readPinCount = 0;
         size_t writePinCount = 0;
         for (const Engine::RenderGraphDocumentPin& pin : document.pins)
@@ -926,7 +1220,11 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         {
             contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize("GPU 0000.000 ms").x);
         }
-        float& stableContentWidth = m_impl->stableContentWidths[node.id.value];
+        float& stableContentWidth = m_impl->stableContentWidths[m_impl->layoutMode][node.id.value];
+        if (m_impl->layoutMode == 1)
+        {
+            contentWidth = (std::max)(contentWidth, 360.0f);
+        }
         stableContentWidth = (std::max)(stableContentWidth, contentWidth);
         contentWidth = stableContentWidth;
 
@@ -943,7 +1241,13 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, matchesFilters ? 1.0f : 0.28f);
         NodeEditor::PushStyleColor(NodeEditor::StyleColor_NodeBg, backgroundColor);
         NodeEditor::BeginNode(ToNodeId(node.id));
-        ImGui::TextUnformatted(node.name.c_str());
+        const ImVec2 indexColorStart = ImGui::GetCursorScreenPos();
+        ImGui::Dummy(ImVec2(10.0f, 10.0f));
+        ImGui::GetWindowDrawList()->AddRectFilled(indexColorStart,
+                                                  ImVec2(indexColorStart.x + 10.0f, indexColorStart.y + 10.0f),
+                                                  ImGui::GetColorU32(m_impl->IndexColor(node)));
+        ImGui::SameLine();
+        ImGui::TextUnformatted(NodeDisplayName(node));
         if (node.kind == Engine::RenderGraphNodeKind::Resource)
         {
             ImGui::TextDisabled("%s", ResourceKindLabel(node.resourceKind));
@@ -962,7 +1266,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                                             ImGui::GetColorU32(ImGuiCol_Separator));
         ImGui::Dummy(ImVec2(contentWidth, 1.0f));
 
-        if (node.kind == Engine::RenderGraphNodeKind::Resource)
+        if (m_impl->layoutMode == 0 && node.kind == Engine::RenderGraphNodeKind::Resource)
         {
             NodeEditor::BeginPin(m_impl->ResourcePinId(node.id, Engine::RenderGraphResourceAccess::Read),
                                  NodeEditor::PinKind::Output);
@@ -973,7 +1277,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
             ImGui::Text("-> Write (%zu)", writePinCount);
             NodeEditor::EndPin();
         }
-        else
+        else if (m_impl->layoutMode == 0)
         {
             for (const Engine::RenderGraphDocumentPin& pin : document.pins)
             {
@@ -994,6 +1298,68 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                     ImGui::Text("%s: %s ->", AccessLabel(pin.access), state.c_str());
                 }
                 NodeEditor::EndPin();
+            }
+        }
+        else if (node.kind == Engine::RenderGraphNodeKind::Resource)
+        {
+            const float rowStart = ImGui::GetCursorPosX();
+            NodeEditor::BeginPin(m_impl->ResourcePinId(node.id, Engine::RenderGraphResourceAccess::Write),
+                                 NodeEditor::PinKind::Input);
+            ImGui::Text("-> Write (%zu)", writePinCount);
+            NodeEditor::EndPin();
+            const std::string readLabel = "Read (" + std::to_string(readPinCount) + ") ->";
+            const float readLabelWidth = ImGui::CalcTextSize(readLabel.c_str()).x;
+            ImGui::SameLine(rowStart + contentWidth - readLabelWidth);
+            NodeEditor::BeginPin(m_impl->ResourcePinId(node.id, Engine::RenderGraphResourceAccess::Read),
+                                 NodeEditor::PinKind::Output);
+            ImGui::TextUnformatted(readLabel.c_str());
+            NodeEditor::EndPin();
+        }
+        else
+        {
+            std::vector<const Engine::RenderGraphDocumentPin*> inputPins;
+            std::vector<const Engine::RenderGraphDocumentPin*> outputPins;
+            for (const Engine::RenderGraphDocumentPin& pin : document.pins)
+            {
+                if (pin.nodeId != node.id)
+                {
+                    continue;
+                }
+                (pin.direction == Engine::RenderGraphPinDirection::Input ? inputPins : outputPins).push_back(&pin);
+            }
+            const auto stablePinOrder = [&document](const auto* lhs, const auto* rhs)
+            {
+                const std::string_view lhsName = RelatedResourceName(document, *lhs);
+                const std::string_view rhsName = RelatedResourceName(document, *rhs);
+                return lhsName != rhsName ? lhsName < rhsName : lhs->id.value < rhs->id.value;
+            };
+            std::sort(inputPins.begin(), inputPins.end(), stablePinOrder);
+            std::sort(outputPins.begin(), outputPins.end(), stablePinOrder);
+            const size_t rowCount = (std::max)(inputPins.size(), outputPins.size());
+            for (size_t row = 0; row < rowCount; ++row)
+            {
+                const float rowStart = ImGui::GetCursorPosX();
+                if (row < inputPins.size())
+                {
+                    const std::string label = "-> " + ShortResourceName(RelatedResourceName(document, *inputPins[row]));
+                    NodeEditor::BeginPin(ToPinId(inputPins[row]->id), NodeEditor::PinKind::Input);
+                    ImGui::TextUnformatted(label.c_str());
+                    NodeEditor::EndPin();
+                }
+                else
+                {
+                    ImGui::Dummy(ImVec2(1.0f, ImGui::GetTextLineHeight()));
+                }
+                if (row < outputPins.size())
+                {
+                    const std::string label =
+                        ShortResourceName(RelatedResourceName(document, *outputPins[row])) + " ->";
+                    const float labelWidth = ImGui::CalcTextSize(label.c_str()).x;
+                    ImGui::SameLine(rowStart + contentWidth - labelWidth);
+                    NodeEditor::BeginPin(ToPinId(outputPins[row]->id), NodeEditor::PinKind::Output);
+                    ImGui::TextUnformatted(label.c_str());
+                    NodeEditor::EndPin();
+                }
             }
         }
 
@@ -1060,6 +1426,100 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         NodeEditor::Link(ToLinkId(link.id), fromPinId, toPinId, color, 2.0f);
     }
 
+    const NodeEditor::NodeId doubleClickedNodeId = NodeEditor::GetDoubleClickedNode();
+
+    if (doubleClickedNodeId)
+    {
+        const Engine::RenderGraphDocumentNode* doubleClickedNode = FindNode(document, doubleClickedNodeId);
+        if (doubleClickedNode != nullptr)
+        {
+            m_impl->selectedNodeId = doubleClickedNode->id;
+            const Engine::DebugResourceInspection inspection =
+                InspectResource(*doubleClickedNode, resourceViewRegistry);
+            if (CanOpenPreview(inspection, resourceActions) &&
+                HasPreviewCapacity(resourceActions, doubleClickedNode->name))
+            {
+                resourceActions->openPreview(*inspection.descriptor, false);
+            }
+        }
+    }
+
+    NodeEditor::Suspend();
+    NodeEditor::NodeId contextNodeId;
+    if (NodeEditor::ShowNodeContextMenu(&contextNodeId))
+    {
+        m_impl->selectedNodeId = FindNode(document, contextNodeId) != nullptr
+            ? std::optional<Engine::RenderGraphDocumentId>(FindNode(document, contextNodeId)->id)
+            : std::nullopt;
+        ImGui::OpenPopup("RenderGraphNodeContextMenu");
+    }
+    if (ImGui::BeginPopup("RenderGraphNodeContextMenu"))
+    {
+        const Engine::RenderGraphDocumentNode* contextNode =
+            m_impl->selectedNodeId.has_value() ? FindNode(document, *m_impl->selectedNodeId) : nullptr;
+        if (contextNode != nullptr)
+        {
+            ImGui::TextUnformatted(NodeDisplayName(*contextNode));
+            ImGui::Separator();
+            if (contextNode->kind == Engine::RenderGraphNodeKind::Resource)
+            {
+                const Engine::DebugResourceInspection inspection =
+                    InspectResource(*contextNode, resourceViewRegistry);
+                const bool canOpen = CanOpenPreview(inspection, resourceActions) &&
+                                     HasPreviewCapacity(resourceActions, contextNode->name);
+                const bool previewOpen = resourceActions != nullptr && resourceActions->isPreviewOpen &&
+                                         resourceActions->isPreviewOpen(contextNode->name);
+                ImGui::BeginDisabled(!canOpen);
+                if (ImGui::MenuItem("Preview"))
+                {
+                    resourceActions->openPreview(*inspection.descriptor, false);
+                }
+                if (ImGui::MenuItem("Pin Preview"))
+                {
+                    resourceActions->openPreview(*inspection.descriptor, true);
+                }
+                ImGui::EndDisabled();
+                ImGui::BeginDisabled(!previewOpen || resourceActions == nullptr || !resourceActions->closePreview);
+                if (ImGui::MenuItem("Close Preview"))
+                {
+                    resourceActions->closePreview(contextNode->name);
+                }
+                ImGui::EndDisabled();
+                if (ImGui::MenuItem("Copy Resource Name"))
+                {
+                    ImGui::SetClipboardText(contextNode->name.c_str());
+                }
+                if (!inspection.IsInspectable())
+                {
+                    ImGui::TextDisabled("%s", inspection.unsupportedReason.c_str());
+                }
+            }
+            else if (ImGui::MenuItem("Copy Node Name"))
+            {
+                ImGui::SetClipboardText(contextNode->name.c_str());
+            }
+
+            ImGui::Separator();
+            ImVec4 indexColor = m_impl->IndexColor(*contextNode);
+            if (ImGui::ColorEdit4("Index Color",
+                                  &indexColor.x,
+                                  ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreviewHalf))
+            {
+                m_impl->indexColors[contextNode->id.value] = indexColor;
+            }
+            if (ImGui::IsItemDeactivatedAfterEdit())
+            {
+                SaveIndexColors(m_impl->metadataPath, m_impl->indexColors);
+            }
+            if (ImGui::MenuItem("Reset Index Color"))
+            {
+                m_impl->indexColors.erase(contextNode->id.value);
+                SaveIndexColors(m_impl->metadataPath, m_impl->indexColors);
+            }
+        }
+        ImGui::EndPopup();
+    }
+    NodeEditor::Resume();
     NodeEditor::End();
     if (focusRequested)
     {
@@ -1095,7 +1555,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
             m_impl->selectedNodeId.reset();
         }
     }
-    if (fitRequested || layoutChanged)
+    if (fitRequested || layoutChanged || previousLayoutMode != m_impl->layoutMode)
     {
         NodeEditor::NavigateToContent(0.0f);
     }
@@ -1110,7 +1570,14 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     ImGui::BeginChild("RenderGraphDetailPane", ImVec2(0.0f, contentSize.y), true);
     constexpr float nodeDetailsHeight = 260.0f;
     ImGui::BeginChild("RenderGraphNodeDetailsPane", ImVec2(0.0f, nodeDetailsHeight), false);
-    DrawDetailPanel(document, m_impl->selectedNodeId, m_impl->passTimings, m_impl->totalTiming, m_impl->timingMode);
+    DrawDetailPanel(document,
+                    m_impl->selectedNodeId,
+                    m_impl->passTimings,
+                    m_impl->totalTiming,
+                    m_impl->timingMode,
+                    resourceViewRegistry,
+                    resourceActions,
+                    technologyMetadata);
     ImGui::EndChild();
     const std::optional<Engine::RenderGraphDocumentId> timelineSelection =
         DrawLifetimeTimeline(document, m_impl->selectedNodeId);
@@ -1124,7 +1591,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     if (requestedSelection.has_value())
     {
         m_impl->selectedNodeId = requestedSelection;
-        NodeEditor::SetCurrentEditor(m_impl->context);
+        NodeEditor::SetCurrentEditor(m_impl->Context());
         NodeEditor::ClearSelection();
         NodeEditor::SelectNode(ToNodeId(*requestedSelection));
         NodeEditor::NavigateToSelection(false, 0.25f);

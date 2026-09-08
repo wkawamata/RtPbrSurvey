@@ -708,9 +708,32 @@ namespace RtPbrSurvey
     }
 
     void SceneRendererDebugUi::DrawRenderGraphDiagnostics(SceneRenderer& renderer,
-                                                          const RenderGraphGpuTimingSnapshot* timing)
+                                                          const RenderGraphGpuTimingSnapshot* timing,
+                                                          const RenderGraphResourceActions* resourceActions)
     {
         const Engine::RenderGraphDocument document = renderer.CaptureRenderGraphDocument();
+        const SceneRenderer::UiFrameContext uiContext = renderer.GetUiFrameContext();
+        RenderGraphTechnologyMetadata technologyMetadata;
+        if (uiContext.dlssDiagnostics.featureVersionAvailable)
+        {
+            technologyMetadata.dlssSrVersionText =
+                "Streamline " + std::to_string(uiContext.dlssDiagnostics.pluginMajor) + "." +
+                std::to_string(uiContext.dlssDiagnostics.pluginMinor) + "." +
+                std::to_string(uiContext.dlssDiagnostics.pluginPatch) + ", NGX " +
+                std::to_string(uiContext.dlssDiagnostics.ngxMajor) + "." +
+                std::to_string(uiContext.dlssDiagnostics.ngxMinor) + "." +
+                std::to_string(uiContext.dlssDiagnostics.ngxPatch);
+        }
+        if (uiContext.rayReconstructionDiagnostics.featureVersionAvailable)
+        {
+            technologyMetadata.dlssRayReconstructionVersionText =
+                "Streamline " + std::to_string(uiContext.rayReconstructionDiagnostics.pluginMajor) + "." +
+                std::to_string(uiContext.rayReconstructionDiagnostics.pluginMinor) + "." +
+                std::to_string(uiContext.rayReconstructionDiagnostics.pluginPatch) + ", NGX " +
+                std::to_string(uiContext.rayReconstructionDiagnostics.ngxMajor) + "." +
+                std::to_string(uiContext.rayReconstructionDiagnostics.ngxMinor) + "." +
+                std::to_string(uiContext.rayReconstructionDiagnostics.ngxPatch);
+        }
         const std::string textDump = Engine::DumpRenderGraphDocumentText(document);
         const std::string dotDump = Engine::DumpRenderGraphDocumentDot(document);
         static int dumpFormat = 2;
@@ -751,8 +774,12 @@ namespace RtPbrSurvey
             static RenderGraphNodeEditorView nodeEditorView;
             const std::vector<Engine::RenderGraphBarrierDiagnostic> barrierDiagnostics =
                 renderer.GetRenderGraphBarrierDiagnostics();
-            nodeEditorView.Draw(
-                document, timing, renderer.HasRenderGraphBarrierEvents() ? &barrierDiagnostics : nullptr);
+            nodeEditorView.Draw(document,
+                                timing,
+                                renderer.HasRenderGraphBarrierEvents() ? &barrierDiagnostics : nullptr,
+                                &renderer.GetDebugResourceViewRegistry(),
+                                resourceActions,
+                                &technologyMetadata);
         }
         else
         {
@@ -767,7 +794,8 @@ namespace RtPbrSurvey
 
     void SceneRendererDebugUi::DrawRenderGraphWindow(SceneRenderer& renderer,
                                                      bool* open,
-                                                     const RenderGraphGpuTimingSnapshot* timing)
+                                                     const RenderGraphGpuTimingSnapshot* timing,
+                                                     const RenderGraphResourceActions* resourceActions)
     {
         if (open == nullptr || !*open)
         {
@@ -815,13 +843,8 @@ namespace RtPbrSurvey
             }
             ImGui::SameLine();
             ImGui::TextDisabled("Read-only diagnostics");
-            bool previewLightPass = renderer.IsDebugTexturePreviewEnabled();
-            if (ImGui::Checkbox("Preview LightPass", &previewLightPass))
-            {
-                renderer.SetDebugTexturePreviewEnabled(previewLightPass);
-            }
             ImGui::Separator();
-            DrawRenderGraphDiagnostics(renderer, timing);
+            DrawRenderGraphDiagnostics(renderer, timing, resourceActions);
         }
         ImGui::End();
     }
