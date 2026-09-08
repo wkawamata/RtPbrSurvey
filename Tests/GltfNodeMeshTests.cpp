@@ -35,7 +35,7 @@ void TestNodeEnumerationAndFailures()
     Require(static_cast<bool>(loadResult), "The multi-node glTF fixture should load.");
 
     const std::vector<std::string> names = Engine::GetGltfMeshNodeNames(loadResult.asset);
-    Require(names.size() == 6, "Only reachable named mesh nodes should be enumerated.");
+    Require(names.size() == 7, "Only reachable named mesh nodes should be enumerated.");
     Require(names[0] == "PartA" && names[1] == "PartB", "Mesh node names should preserve scene traversal order.");
 
     Engine::SceneBuilder builder;
@@ -59,6 +59,24 @@ void TestNodeEnumerationAndFailures()
     const Engine::GltfSceneAsset invalidAsset;
     const Engine::GltfNodeMeshAddResult invalid = builder.AddGltfNodeMesh(invalidAsset, "PartA");
     Require(invalid.status == Engine::GltfNodeMeshStatus::InvalidAsset, "An invalid CPU asset should fail explicitly.");
+}
+
+void TestGltfRotationAndHandednessConversion()
+{
+    const Engine::GltfSceneAssetLoadResult loadResult = Engine::LoadGltfSceneAsset(FixturePath().string());
+    Require(static_cast<bool>(loadResult), "The multi-node glTF fixture should load.");
+
+    Engine::SceneBuilder builder;
+    const Engine::GltfNodeMeshAddResult rotated = builder.AddGltfNodeMesh(loadResult.asset, 8);
+    Require(static_cast<bool>(rotated), "The rotated mesh node should be addable by index.");
+
+    const Engine::SceneMesh::Range& range = builder.GetMesh().ranges.front();
+    const Engine::SceneVertex& origin = builder.GetMesh().vertices[range.firstVertex];
+    const Engine::SceneVertex& xVertex = builder.GetMesh().vertices[range.firstVertex + 1];
+    Require(NearlyEqual(origin.position.x, 0.0f) && NearlyEqual(origin.position.z, -2.0f),
+            "glTF translation should be converted from RH to the engine LH convention.");
+    Require(NearlyEqual(xVertex.position.x, 0.0f) && NearlyEqual(xVertex.position.z, -1.0f),
+            "glTF quaternion rotation should be applied before the handedness conversion.");
 }
 
 void TestIndependentNodeMeshesAndLifetime()
@@ -102,7 +120,7 @@ void TestExistingFlattenedMeshContract()
     const std::optional<Engine::SceneMeshId> meshId = builder.AddGltfMesh(FixturePath().string());
     Require(meshId.has_value(), "The existing AddGltfMesh(path) API should remain usable.");
     Require(builder.GetMesh().ranges.size() == 1, "The existing API should still produce one flattened mesh range.");
-    Require(builder.GetMesh().vertices.size() == 18,
+    Require(builder.GetMesh().vertices.size() == 21,
             "The existing API should still flatten every default-scene mesh node.");
 }
 
@@ -128,6 +146,7 @@ int main(int argc, char* argv[])
 
         TestNodeEnumerationAndFailures();
         TestIndependentNodeMeshesAndLifetime();
+        TestGltfRotationAndHandednessConversion();
         TestExistingFlattenedMeshContract();
     }
     catch (const std::exception& error)
