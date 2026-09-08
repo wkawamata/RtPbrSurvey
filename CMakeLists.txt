@@ -102,6 +102,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/ToneMap.cpp
     Runtime/SceneRenderer.cpp
     Runtime/DebugTextureInspector.cpp
+    Runtime/DebugTextureThumbnailScheduler.cpp
     Runtime/DebugLine.cpp
     Runtime/SceneRendererDebugUi.cpp
     Runtime/RenderGraphNodeEditorView.cpp

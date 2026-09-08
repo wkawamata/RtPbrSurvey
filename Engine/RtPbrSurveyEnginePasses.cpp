@@ -37,9 +37,9 @@ void RtPbrSurveyEngine::BuildRenderPasses()
             AddPass(MakeTemporalUpscalerPass());
         }
         AddPass(MakeToneMapPass());
-        for (UINT i = 0; i < kMaxDebugTexturePreviewCount; ++i)
+        for (UINT i = 0; i < kMaxDebugTextureOutputCount; ++i)
         {
-            if ((m_debugTexturePreviewActiveSlotMask & (1u << i)) != 0)
+            if ((m_debugTexturePreviewUpdateSlotMask & (1u << i)) != 0)
             {
                 AddPass(MakeDebugTexturePreviewPass(i));
             }
@@ -883,7 +883,7 @@ auto RtPbrSurveyEngine::MakeDebugLinePass() -> RenderPass
 auto RtPbrSurveyEngine::MakeImGuiPass() -> RenderPass
 {
     ResourceUsages reads;
-    for (UINT i = 0; i < kMaxDebugTexturePreviewCount; ++i)
+    for (UINT i = 0; i < kMaxDebugTextureOutputCount; ++i)
     {
         if ((m_debugTexturePreviewActiveSlotMask & (1u << i)) != 0)
         {

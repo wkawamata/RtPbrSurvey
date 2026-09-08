@@ -237,6 +237,9 @@
     <ClInclude Include="Runtime\DebugTextureInspector.h">
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="Runtime\DebugTextureThumbnailScheduler.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="Runtime\SceneRendererDebugUi.h">
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
@@ -471,6 +474,9 @@
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="Runtime\DebugTextureInspector.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="Runtime\DebugTextureThumbnailScheduler.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="Runtime\SceneRendererDebugUi.cpp">

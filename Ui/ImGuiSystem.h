@@ -12,7 +12,7 @@ namespace Engine
 class ImGuiSystem
 {
 public:
-    static constexpr UINT kMaxTextureCount = 4;
+    static constexpr UINT kMaxTextureCount = 8;
 
     void Initialize(HWND hwnd,
                     GraphicsDevice& device,

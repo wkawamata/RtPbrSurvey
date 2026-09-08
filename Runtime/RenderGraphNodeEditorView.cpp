@@ -380,6 +380,8 @@ void DrawResourceActions(const Engine::RenderGraphDocumentNode& node,
 
 void DrawResourceThumbnail(const Engine::RenderGraphDocumentNode& node,
                            float contentWidth,
+                           bool selected,
+                           bool matchesFilters,
                            const Engine::DebugResourceViewRegistry* registry,
                            const RenderGraphResourceActions* resourceActions)
 {
@@ -414,6 +416,7 @@ void DrawResourceThumbnail(const Engine::RenderGraphDocumentNode& node,
         imageStart,
         ImVec2(imageStart.x + thumbnailSize.x, imageStart.y + thumbnailSize.y),
         ImGui::GetColorU32(ImGuiCol_Border));
+    const bool thumbnailVisible = ImGui::IsItemVisible();
     if (ImGui::IsItemHovered())
     {
         ImGui::BeginTooltip();
@@ -423,6 +426,15 @@ void DrawResourceThumbnail(const Engine::RenderGraphDocumentNode& node,
             ImGui::TextDisabled("%s", inspection.unsupportedReason.c_str());
         }
         ImGui::EndTooltip();
+    }
+    const bool previewOpen = resourceActions != nullptr && resourceActions->isPreviewOpen &&
+                             resourceActions->isPreviewOpen(node.name);
+    if (inspection.IsInspectable() &&
+        inspection.descriptor->viewKind == Engine::DebugResourceViewKind::Texture &&
+        resourceActions != nullptr && resourceActions->requestThumbnail && !previewOpen &&
+        (selected || (matchesFilters && thumbnailVisible)))
+    {
+        resourceActions->requestThumbnail(*inspection.descriptor, selected);
     }
     ImGui::PopID();
     ImGui::SetCursorPosX(rowStart);
@@ -1311,7 +1323,9 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
             }
             if (m_impl->layoutMode == 1)
             {
-                DrawResourceThumbnail(node, contentWidth, resourceViewRegistry, resourceActions);
+                const bool selected = m_impl->selectedNodeId.has_value() && *m_impl->selectedNodeId == node.id;
+                DrawResourceThumbnail(
+                    node, contentWidth, selected, matchesFilters, resourceViewRegistry, resourceActions);
             }
         }
         const ImVec2 separatorStart = ImGui::GetCursorScreenPos();

@@ -339,6 +339,11 @@ namespace RtPbrSurvey
         m_engine.SetDebugTexturePreviewActiveSlots(activeSlotMask);
     }
 
+    void SceneRenderer::SetDebugTexturePreviewUpdateSlots(UINT updateSlotMask)
+    {
+        m_engine.SetDebugTexturePreviewUpdateSlots(updateSlotMask);
+    }
+
     void SceneRenderer::ConfigureDebugTexturePreview(
         UINT previewIndex, const std::string& source, const Engine::DebugTexturePreviewSettings& settings)
     {

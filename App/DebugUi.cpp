@@ -1596,12 +1596,24 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                                             inspectors.end(),
                                             [&resourceName](const auto& candidate)
                                             { return candidate.open && candidate.resourceName == resourceName; });
-        if (inspector == inspectors.end() || inspector->slotIndex >= app.m_debugTexturePreviewIds.size())
+        if (inspector != inspectors.end() && inspector->slotIndex < app.m_debugTexturePreviewIds.size())
+        {
+            return app.m_debugTexturePreviewIds[inspector->slotIndex];
+        }
+        const std::optional<size_t> thumbnailSlot =
+            app.m_debugTextureThumbnailScheduler.FindReadySlot(resourceName);
+        if (!thumbnailSlot.has_value())
         {
             return uint64_t{0};
         }
-        return app.m_debugTexturePreviewIds[inspector->slotIndex];
+        const size_t outputIndex = RtPbrSurveyEngine::kMaxDebugTexturePreviewCount + *thumbnailSlot;
+        return outputIndex < app.m_debugTexturePreviewIds.size()
+            ? app.m_debugTexturePreviewIds[outputIndex]
+            : uint64_t{0};
     };
+    renderGraphResourceActions.requestThumbnail =
+        [&app](const Engine::DebugResourceViewDescriptor& descriptor, bool selected)
+    { app.m_debugTextureThumbnailScheduler.Request(descriptor, selected); };
     renderGraphResourceActions.closePreview = [&app](const std::string& resourceName)
     {
         for (const RtPbrSurvey::DebugTextureInspector& inspector : app.m_debugTextureInspectors.Inspectors())
@@ -1754,10 +1766,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
     arrangeDebugTexturePreviewsRequested = false;
     app.m_debugTextureInspectors.RemoveClosed();
-    if (app.m_debugTextureInspectors.Inspectors().empty())
-    {
-        app.m_sceneRenderer.SetDebugTexturePreviewEnabled(false);
-    }
 
     RtPbrSurveyEngine::LightingParams lightingParams = app.m_lightingParams;
     if (!app.m_iblEnabled)

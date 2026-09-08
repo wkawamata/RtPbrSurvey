@@ -94,6 +94,7 @@ namespace RtPbrSurvey
         void SetDebugTexturePreviewNearestSampling(bool nearestSampling);
         void SetDebugTexturePreviewCount(UINT previewCount);
         void SetDebugTexturePreviewActiveSlots(UINT activeSlotMask);
+        void SetDebugTexturePreviewUpdateSlots(UINT updateSlotMask);
         void ConfigureDebugTexturePreview(UINT previewIndex,
                                           const std::string& source,
                                           const Engine::DebugTexturePreviewSettings& settings);

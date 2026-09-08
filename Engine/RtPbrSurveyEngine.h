@@ -101,6 +101,11 @@ class RtPbrSurveyEngine
 {
 public:
     static constexpr UINT kMaxDebugTexturePreviewCount = 4;
+    static constexpr UINT kMaxDebugTextureThumbnailCount = 4;
+    static constexpr UINT kMaxDebugTextureOutputCount =
+        kMaxDebugTexturePreviewCount + kMaxDebugTextureThumbnailCount;
+    static constexpr UINT kDebugTextureThumbnailWidth = 96;
+    static constexpr UINT kDebugTextureThumbnailHeight = 54;
 
     enum class RenderViewMode
     {
@@ -367,6 +372,7 @@ public:
     }
     void SetDebugTexturePreviewCount(UINT previewCount);
     void SetDebugTexturePreviewActiveSlots(UINT activeSlotMask);
+    void SetDebugTexturePreviewUpdateSlots(UINT updateSlotMask);
     UINT GetDebugTexturePreviewCount() const;
     void ConfigureDebugTexturePreview(UINT previewIndex,
                                       const std::string& source,
@@ -696,7 +702,7 @@ private:
     static constexpr UINT kReflectionDenoisedRadianceRTVIndex = kReflectionSpecularConfidenceRTVBaseIndex + 2;
     static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionDenoisedRadianceRTVIndex + 1;
     static constexpr UINT kDebugTexturePreviewRTVBaseIndex = kTemporalUpscalerSceneColorRTVIndex + 1;
-    static constexpr UINT kRTVDescriptorCount = kDebugTexturePreviewRTVBaseIndex + kMaxDebugTexturePreviewCount;
+    static constexpr UINT kRTVDescriptorCount = kDebugTexturePreviewRTVBaseIndex + kMaxDebugTextureOutputCount;
 
     struct DebugViewSettings
     {
@@ -902,7 +908,7 @@ private:
     ComPtr<ID3D12Resource> m_reflectionSpecularConfidence[2];
     ComPtr<ID3D12Resource> m_reflectionDenoisedRadiance;
     ComPtr<ID3D12Resource> m_temporalUpscalerSceneColor;
-    std::array<ComPtr<ID3D12Resource>, kMaxDebugTexturePreviewCount> m_debugTexturePreviews;
+    std::array<ComPtr<ID3D12Resource>, kMaxDebugTextureOutputCount> m_debugTexturePreviews;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
     ComPtr<ID3D12Resource> m_reflectionRayColor;
@@ -919,15 +925,20 @@ private:
     DescriptorHeapHandle m_depthStencilSrv;
     DescriptorHeapHandle m_lightPassColorSrv;
     DescriptorHeapHandle m_temporalUpscalerSceneColorSrv;
-    std::array<DescriptorHeapHandle, kMaxDebugTexturePreviewCount> m_debugTexturePreviewSrvs;
+    std::array<DescriptorHeapHandle, kMaxDebugTextureOutputCount> m_debugTexturePreviewSrvs;
     UINT m_debugTexturePreviewActiveSlotMask = 0;
-    std::array<std::string, kMaxDebugTexturePreviewCount> m_debugTexturePreviewSources = {
+    UINT m_debugTexturePreviewUpdateSlotMask = 0;
+    std::array<std::string, kMaxDebugTextureOutputCount> m_debugTexturePreviewSources = {
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
         kLightPassRenderTargetResourceName,
         kLightPassRenderTargetResourceName,
         kLightPassRenderTargetResourceName,
         kLightPassRenderTargetResourceName,
     };
-    std::array<Engine::DebugTexturePreviewSettings, kMaxDebugTexturePreviewCount> m_debugTexturePreviewSettings;
+    std::array<Engine::DebugTexturePreviewSettings, kMaxDebugTextureOutputCount> m_debugTexturePreviewSettings;
     Engine::DebugResourceViewRegistry m_debugResourceViewRegistry;
     DescriptorHeapHandle m_reflectionEvaluatedRadianceSrv;
     DescriptorHeapHandle m_reflectionSpecularEstimateSrv;
@@ -1140,35 +1151,55 @@ private:
     static constexpr const char* kDepthStencilResourceName = "DepthStencil";
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";
     static constexpr const char* kTemporalUpscalerSceneColorResourceName = "TemporalUpscaler.SceneColor";
-    static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTexturePreviewCount] = {
+    static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
         "DebugTexturePreview.Output.0",
         "DebugTexturePreview.Output.1",
         "DebugTexturePreview.Output.2",
         "DebugTexturePreview.Output.3",
+        "DebugTextureThumbnail.Output.0",
+        "DebugTextureThumbnail.Output.1",
+        "DebugTextureThumbnail.Output.2",
+        "DebugTextureThumbnail.Output.3",
     };
-    static constexpr const wchar_t* kDebugTexturePreviewPassNames[kMaxDebugTexturePreviewCount] = {
+    static constexpr const wchar_t* kDebugTexturePreviewPassNames[kMaxDebugTextureOutputCount] = {
         L"DebugTexturePreviewPass.0",
         L"DebugTexturePreviewPass.1",
         L"DebugTexturePreviewPass.2",
         L"DebugTexturePreviewPass.3",
+        L"DebugTextureThumbnailPass.0",
+        L"DebugTextureThumbnailPass.1",
+        L"DebugTextureThumbnailPass.2",
+        L"DebugTextureThumbnailPass.3",
     };
-    static constexpr const char* kDebugTexturePreviewDescriptorNames[kMaxDebugTexturePreviewCount] = {
+    static constexpr const char* kDebugTexturePreviewDescriptorNames[kMaxDebugTextureOutputCount] = {
         "DebugTexturePreviewSourceSrv.0",
         "DebugTexturePreviewSourceSrv.1",
         "DebugTexturePreviewSourceSrv.2",
         "DebugTexturePreviewSourceSrv.3",
+        "DebugTextureThumbnailSourceSrv.0",
+        "DebugTextureThumbnailSourceSrv.1",
+        "DebugTextureThumbnailSourceSrv.2",
+        "DebugTextureThumbnailSourceSrv.3",
     };
-    static constexpr const char* kDebugTexturePreviewRtvNames[kMaxDebugTexturePreviewCount] = {
+    static constexpr const char* kDebugTexturePreviewRtvNames[kMaxDebugTextureOutputCount] = {
         "DebugTexturePreview.0",
         "DebugTexturePreview.1",
         "DebugTexturePreview.2",
         "DebugTexturePreview.3",
+        "DebugTextureThumbnail.0",
+        "DebugTextureThumbnail.1",
+        "DebugTextureThumbnail.2",
+        "DebugTextureThumbnail.3",
     };
-    static constexpr const char* kDebugTexturePreviewConstantsNames[kMaxDebugTexturePreviewCount] = {
+    static constexpr const char* kDebugTexturePreviewConstantsNames[kMaxDebugTextureOutputCount] = {
         "DebugTexturePreview.0",
         "DebugTexturePreview.1",
         "DebugTexturePreview.2",
         "DebugTexturePreview.3",
+        "DebugTextureThumbnail.0",
+        "DebugTextureThumbnail.1",
+        "DebugTextureThumbnail.2",
+        "DebugTextureThumbnail.3",
     };
     static constexpr const char* kReflectionEvaluatedRadianceResourceName = "ReflectionEvaluatedRadiance";
     static constexpr const char* kReflectionDenoisedRadianceResourceName = "ReflectionDenoisedRadiance";

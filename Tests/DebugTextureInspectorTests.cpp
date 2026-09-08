@@ -1,8 +1,10 @@
 #include "stdafx.h"
 
 #include "Runtime/DebugTextureInspector.h"
+#include "Runtime/DebugTextureThumbnailScheduler.h"
 #include "Renderer/DebugResourceViewRegistry.h"
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -158,6 +160,74 @@ bool TestDebugResourceViewRegistryReportsSupportAndReasons()
            Check(!unknown.IsInspectable() && !unknown.unsupportedReason.empty(),
                  "unregistered resources receive a fallback reason");
 }
+
+Engine::DebugResourceViewDescriptor MakeThumbnailDescriptor(const char* resourceName)
+{
+    return {resourceName,
+            Engine::DebugResourceViewKind::Texture,
+            Engine::DebugTexturePreviewSemantic::Color,
+            DXGI_FORMAT_R16G16B16A16_FLOAT};
+}
+
+bool TestThumbnailSchedulerPrioritizesSelectionAndBoundsSlots()
+{
+    RtPbrSurvey::DebugTextureThumbnailScheduler scheduler;
+    scheduler.Request(MakeThumbnailDescriptor("Selected"), true);
+    scheduler.Request(MakeThumbnailDescriptor("Visible.0"), false);
+    scheduler.Request(MakeThumbnailDescriptor("Visible.1"), false);
+    scheduler.Request(MakeThumbnailDescriptor("Visible.2"), false);
+    scheduler.Request(MakeThumbnailDescriptor("Visible.3"), false);
+    const auto firstPlan = scheduler.BuildFramePlan(1);
+    const size_t activeCount = static_cast<size_t>(std::count_if(
+        firstPlan.begin(), firstPlan.end(), [](const auto& slot) { return slot.active; }));
+    const auto selected = std::find_if(firstPlan.begin(),
+                                       firstPlan.end(),
+                                       [](const auto& slot) { return slot.resourceName == "Selected"; });
+
+    scheduler.Request(MakeThumbnailDescriptor("Selected"), true);
+    scheduler.Request(MakeThumbnailDescriptor("Visible.0"), false);
+    const auto secondPlan = scheduler.BuildFramePlan(2);
+    const auto selectedSecond = std::find_if(secondPlan.begin(),
+                                             secondPlan.end(),
+                                             [](const auto& slot) { return slot.resourceName == "Selected"; });
+    return Check(activeCount == RtPbrSurvey::DebugTextureThumbnailScheduler::kSlotCount,
+                 "thumbnail slots remain bounded") &&
+           Check(selected != firstPlan.end() && selected->update, "selected thumbnail receives a slot") &&
+           Check(!scheduler.FindReadySlot("Visible.1").has_value(), "unrequested thumbnail is retired") &&
+           Check(selectedSecond != secondPlan.end() && selectedSecond->update,
+                 "selected thumbnail updates every frame") &&
+           Check(scheduler.FindReadySlot("Selected").has_value(), "updated thumbnail becomes ready next frame");
+}
+
+bool TestThumbnailSchedulerThrottlesAndRotatesVisibleResources()
+{
+    RtPbrSurvey::DebugTextureThumbnailScheduler scheduler;
+    for (int i = 0; i < 5; ++i)
+    {
+        scheduler.Request(MakeThumbnailDescriptor(("Visible." + std::to_string(i)).c_str()), false);
+    }
+    const auto firstPlan = scheduler.BuildFramePlan(1);
+    for (int i = 0; i < 5; ++i)
+    {
+        scheduler.Request(MakeThumbnailDescriptor(("Visible." + std::to_string(i)).c_str()), false);
+    }
+    const auto throttledPlan = scheduler.BuildFramePlan(2);
+    for (int i = 0; i < 5; ++i)
+    {
+        scheduler.Request(MakeThumbnailDescriptor(("Visible." + std::to_string(i)).c_str()), false);
+    }
+    const auto rotatedPlan = scheduler.BuildFramePlan(8);
+    const bool firstUpdated = std::all_of(
+        firstPlan.begin(), firstPlan.end(), [](const auto& slot) { return slot.active && slot.update; });
+    const bool secondSkipped = std::none_of(
+        throttledPlan.begin(), throttledPlan.end(), [](const auto& slot) { return slot.update; });
+    const bool rotatedToFifth = std::any_of(rotatedPlan.begin(),
+                                           rotatedPlan.end(),
+                                           [](const auto& slot) { return slot.resourceName == "Visible.4"; });
+    return Check(firstUpdated, "new visible thumbnail slots update immediately") &&
+           Check(secondSkipped, "visible thumbnails are throttled between refreshes") &&
+           Check(rotatedToFifth, "visible resources rotate through the bounded pool");
+}
 } // namespace
 
 int main()
@@ -167,7 +237,9 @@ int main()
                         TestClosedSlotIsReusedWithoutMovingLiveInspectors() &&
                         TestDepthVisualizationDefaultsFollowCameraRange() &&
                         TestDepthVisualizationConstantsSanitizeInvalidValues() &&
-                        TestDebugResourceViewRegistryReportsSupportAndReasons();
+                        TestDebugResourceViewRegistryReportsSupportAndReasons() &&
+                        TestThumbnailSchedulerPrioritizesSelectionAndBoundsSlots() &&
+                        TestThumbnailSchedulerThrottlesAndRotatesVisibleResources();
     if (passed)
     {
         std::cout << "DebugTextureInspector tests passed.\n";
