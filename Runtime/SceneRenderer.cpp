@@ -350,6 +350,14 @@ namespace RtPbrSurvey
         m_engine.ConfigureDebugTexturePreview(previewIndex, source, settings);
     }
 
+    void SceneRenderer::ConfigureDebugBufferPreview(
+        UINT previewIndex,
+        const Engine::DebugResourceViewDescriptor& descriptor,
+        const Engine::DebugTexturePreviewSettings& settings)
+    {
+        m_engine.ConfigureDebugBufferPreview(previewIndex, descriptor, settings);
+    }
+
     void SceneRenderer::SetRequestHdrDump(bool request)
     {
         m_engine.SetRequestHdrDump(request);

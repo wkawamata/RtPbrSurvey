@@ -565,6 +565,9 @@
     <CustomBuild Include="Shaders\shaders_DebugTexturePreview.hlsl">
       <Filter>Shaders</Filter>
     </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_DebugBufferPreview.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
     <CustomBuild Include="Shaders\shaders_DebugLine.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>

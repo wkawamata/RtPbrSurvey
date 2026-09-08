@@ -377,6 +377,9 @@ public:
     void ConfigureDebugTexturePreview(UINT previewIndex,
                                       const std::string& source,
                                       const Engine::DebugTexturePreviewSettings& settings);
+    void ConfigureDebugBufferPreview(UINT previewIndex,
+                                     const Engine::DebugResourceViewDescriptor& descriptor,
+                                     const Engine::DebugTexturePreviewSettings& settings);
     void SetDebugTexturePreviewSemantic(Engine::DebugTexturePreviewSemantic semantic);
     void SetDebugTexturePreviewChannel(Engine::DebugTexturePreviewChannel channel);
     void SetDebugTexturePreviewExposure(float exposure);
@@ -436,6 +439,7 @@ private:
             static constexpr const char* ShadowMaskDebug = "ShadowMaskDebug";
             static constexpr const char* DebugLine = "DebugLine";
             static constexpr const char* DebugTexturePreview = "DebugTexturePreview";
+            static constexpr const char* DebugBufferPreview = "DebugBufferPreview";
         };
 
         struct Descriptor
@@ -443,6 +447,7 @@ private:
             static constexpr const char* TextureTable = "TextureTable";
             static constexpr const char* InstanceBufferSrv = "InstanceBufferSrv";
             static constexpr const char* MaterialBufferSrv = "MaterialBufferSrv";
+            static constexpr const char* MaterialBufferRawSrv = "MaterialBufferRawSrv";
             static constexpr const char* EnvironmentMapSrv = "EnvironmentMapSrv";
             static constexpr const char* CameraCbv = "CameraCbv";
             static constexpr const char* LightCbv = "LightCbv";
@@ -575,7 +580,7 @@ private:
     static constexpr DXGI_FORMAT kBackBufferFormat = kSwapChainFormat;
 
     static constexpr UINT kInstanceBufferCount = kFrameCount;
-    static constexpr UINT kMaterialBufferCount = 1;
+    static constexpr UINT kMaterialBufferCount = 2;
     // Procedural environment reloads keep the previous descriptor table alive until its fence retires.
     // Each table is env / diffuse irradiance / specular prefilter / BRDF LUT, plus m_brdfLut owns one SRV.
     static constexpr UINT kEnvironmentDescriptorTableSize = 4;
@@ -938,6 +943,8 @@ private:
         kLightPassRenderTargetResourceName,
         kLightPassRenderTargetResourceName,
     };
+    std::array<bool, kMaxDebugTextureOutputCount> m_debugTexturePreviewBufferSources = {};
+    std::array<std::string, kMaxDebugTextureOutputCount> m_debugTexturePreviewSourceDescriptorNames;
     std::array<Engine::DebugTexturePreviewSettings, kMaxDebugTextureOutputCount> m_debugTexturePreviewSettings;
     Engine::DebugResourceViewRegistry m_debugResourceViewRegistry;
     DescriptorHeapHandle m_reflectionEvaluatedRadianceSrv;
@@ -1233,6 +1240,7 @@ private:
     static constexpr const char* kReflectionRayColorResourceName = "ReflectionRayColor";
     static constexpr const char* kReflectionRayMaterialResourceName = "ReflectionRayMaterial";
     static constexpr const char* kReflectionRayEmissionResourceName = "ReflectionRayEmission";
+    static constexpr const char* kMaterialBufferResourceName = "MaterialBuffer";
 
     using TransientResourceState = Engine::TransientResourceState;
 
@@ -1298,6 +1306,7 @@ private:
         GraphicsPipelineShaderSet edgeAwareSpatialReflection;
         GraphicsPipelineShaderSet toneMap;
         GraphicsPipelineShaderSet debugTexturePreview;
+        GraphicsPipelineShaderSet debugBufferPreview;
         ShaderBytecode hybridReflection;
         ShaderBytecode proceduralEnv;
         ShaderBytecode rayQueryShadow;

@@ -49,6 +49,7 @@ struct DebugResourceViewDescriptor
     uint32_t elementCount = 0;
     uint32_t elementStride = 0;
     DebugBufferImageLayout imageLayout;
+    std::string sourceDescriptorName;
 };
 
 struct DebugResourceInspection

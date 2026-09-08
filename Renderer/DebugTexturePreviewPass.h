@@ -24,6 +24,12 @@ enum class DebugTexturePreviewChannel : UINT
     A,
 };
 
+enum class DebugBufferVisualizationMode : UINT
+{
+    Image,
+    Heatmap,
+};
+
 struct DebugTexturePreviewSettings
 {
     struct ShaderConstants
@@ -35,6 +41,14 @@ struct DebugTexturePreviewSettings
         float offset;
         UINT nearestSampling;
         DepthVisualizationShaderConstants depthVisualization;
+        UINT bufferVisualizationMode;
+        UINT bufferWidth;
+        UINT bufferHeight;
+        UINT bufferRowStrideElements;
+        UINT bufferElementStride;
+        UINT bufferComponentOffsetBytes;
+        UINT bufferComponentCount;
+        UINT bufferComponentType;
     };
 
     DebugTexturePreviewSemantic semantic = DebugTexturePreviewSemantic::Color;
@@ -44,11 +58,19 @@ struct DebugTexturePreviewSettings
     float offset = 0.0f;
     bool nearestSampling = true;
     DepthVisualizationSettings depthVisualization;
+    DebugBufferVisualizationMode bufferVisualizationMode = DebugBufferVisualizationMode::Image;
+    UINT bufferWidth = 0;
+    UINT bufferHeight = 0;
+    UINT bufferRowStrideElements = 0;
+    UINT bufferElementStride = 0;
+    UINT bufferComponentOffsetBytes = 0;
+    UINT bufferComponentCount = 0;
+    UINT bufferComponentType = 0;
 
     ShaderConstants MakeShaderConstants(float cameraNear, float cameraFar, bool orthographicProjection) const;
 };
 
-static_assert(sizeof(DebugTexturePreviewSettings::ShaderConstants) == 14 * sizeof(UINT));
+static_assert(sizeof(DebugTexturePreviewSettings::ShaderConstants) == 22 * sizeof(UINT));
 
 void RecordDebugTexturePreviewPass(ID3D12GraphicsCommandList* commandList);
 } // namespace Engine

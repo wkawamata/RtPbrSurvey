@@ -217,6 +217,28 @@ bool TestBufferInspectorRejectsOutOfRangeImageLayout()
            Check(!model.imageLayoutRegistered, "2D layout beyond the Buffer is rejected");
 }
 
+bool TestBufferPreviewConstantsPreserveImageLayout()
+{
+    Engine::DebugTexturePreviewSettings settings;
+    settings.bufferVisualizationMode = Engine::DebugBufferVisualizationMode::Heatmap;
+    settings.bufferWidth = 16;
+    settings.bufferHeight = 8;
+    settings.bufferRowStrideElements = 20;
+    settings.bufferElementStride = 32;
+    settings.bufferComponentOffsetBytes = 12;
+    settings.bufferComponentCount = 2;
+    settings.bufferComponentType = static_cast<UINT>(Engine::DebugBufferComponentType::Float32);
+    const Engine::DebugTexturePreviewSettings::ShaderConstants constants =
+        settings.MakeShaderConstants(0.1f, 100.0f, false);
+    return Check(constants.bufferVisualizationMode == 1, "Heatmap mode reaches shader constants") &&
+           Check(constants.bufferWidth == 16 && constants.bufferHeight == 8,
+                 "Buffer image dimensions reach shader constants") &&
+           Check(constants.bufferRowStrideElements == 20 && constants.bufferElementStride == 32,
+                 "Buffer strides reach shader constants") &&
+           Check(constants.bufferComponentOffsetBytes == 12 && constants.bufferComponentCount == 2,
+                 "Buffer component layout reaches shader constants");
+}
+
 Engine::DebugResourceViewDescriptor MakeThumbnailDescriptor(const char* resourceName)
 {
     return {resourceName,
@@ -281,6 +303,26 @@ bool TestThumbnailSchedulerThrottlesAndRotatesVisibleResources()
            Check(secondSkipped, "visible thumbnails are throttled between refreshes") &&
            Check(rotatedToFifth, "visible resources rotate through the bounded pool");
 }
+
+bool TestThumbnailSchedulerAcceptsRegisteredBufferImages()
+{
+    Engine::DebugResourceViewDescriptor descriptor;
+    descriptor.resourceName = "Image.Buffer";
+    descriptor.viewKind = Engine::DebugResourceViewKind::StructuredBuffer;
+    descriptor.elementCount = 16;
+    descriptor.elementStride = 16;
+    descriptor.imageLayout = {4, 4, 4, 0, 4, Engine::DebugBufferComponentType::Float32};
+    descriptor.sourceDescriptorName = "ImageBufferRawSrv";
+
+    RtPbrSurvey::DebugTextureThumbnailScheduler scheduler;
+    scheduler.Request(descriptor, true);
+    const auto plan = scheduler.BuildFramePlan(1);
+    const auto slot = std::find_if(plan.begin(), plan.end(), [](const auto& candidate)
+                                   { return candidate.resourceName == "Image.Buffer"; });
+    return Check(slot != plan.end(), "registered Buffer image receives a thumbnail slot") &&
+           Check(slot->viewKind == Engine::DebugResourceViewKind::StructuredBuffer,
+                 "Buffer thumbnail preserves its source view kind");
+}
 } // namespace
 
 int main()
@@ -292,8 +334,10 @@ int main()
         TestDepthVisualizationConstantsSanitizeInvalidValues() &&
         TestDebugResourceViewRegistryReportsSupportAndReasons() && TestBufferInspectorDoesNotGuessUnknownSchema() &&
         TestBufferInspectorValidatesRegisteredImageLayout() && TestBufferInspectorRejectsOutOfRangeImageLayout() &&
+        TestBufferPreviewConstantsPreserveImageLayout() &&
         TestThumbnailSchedulerPrioritizesSelectionAndBoundsSlots() &&
-        TestThumbnailSchedulerThrottlesAndRotatesVisibleResources();
+        TestThumbnailSchedulerThrottlesAndRotatesVisibleResources() &&
+        TestThumbnailSchedulerAcceptsRegisteredBufferImages();
     if (passed)
     {
         std::cout << "DebugTextureInspector tests passed.\n";

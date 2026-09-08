@@ -17,7 +17,15 @@ auto DebugTexturePreviewSettings::MakeShaderConstants(
             scale,
             offset,
             nearestSampling ? 1u : 0u,
-            depthVisualization.MakeShaderConstants(cameraNear, cameraFar, orthographicProjection)};
+            depthVisualization.MakeShaderConstants(cameraNear, cameraFar, orthographicProjection),
+            static_cast<UINT>(bufferVisualizationMode),
+            bufferWidth,
+            bufferHeight,
+            bufferRowStrideElements,
+            bufferElementStride,
+            bufferComponentOffsetBytes,
+            bufferComponentCount,
+            bufferComponentType};
 }
 
 void RecordDebugTexturePreviewPass(ID3D12GraphicsCommandList* commandList)

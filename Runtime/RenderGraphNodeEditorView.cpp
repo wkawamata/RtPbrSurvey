@@ -310,8 +310,17 @@ Engine::DebugResourceInspection InspectResource(const Engine::RenderGraphDocumen
 bool CanOpenPreview(const Engine::DebugResourceInspection& inspection,
                     const RenderGraphResourceActions* resourceActions)
 {
-    return inspection.IsInspectable() && inspection.descriptor->viewKind == Engine::DebugResourceViewKind::Texture &&
-           resourceActions != nullptr && static_cast<bool>(resourceActions->openPreview);
+    if (!inspection.IsInspectable() || resourceActions == nullptr || !resourceActions->openPreview)
+    {
+        return false;
+    }
+    if (inspection.descriptor->viewKind == Engine::DebugResourceViewKind::Texture)
+    {
+        return true;
+    }
+    return inspection.descriptor->imageLayout.IsValid(inspection.descriptor->elementCount,
+                                                       inspection.descriptor->elementStride) &&
+           !inspection.descriptor->sourceDescriptorName.empty();
 }
 
 bool HasPreviewCapacity(const RenderGraphResourceActions* resourceActions, const std::string& resourceName)
@@ -333,6 +342,15 @@ bool DrawResourceActions(const Engine::RenderGraphDocumentNode& node,
     {
         const bool inspectRequested = ImGui::Button("Inspect Buffer");
         const DebugBufferInspectorModel model = BuildDebugBufferInspectorModel(node, registry);
+        const bool canOpenImage = CanOpenPreview(inspection, resourceActions) &&
+                                  HasPreviewCapacity(resourceActions, node.name);
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!canOpenImage);
+        if (ImGui::Button("Image Preview"))
+        {
+            resourceActions->openPreview(*inspection.descriptor, false);
+        }
+        ImGui::EndDisabled();
         ImGui::TextDisabled("Inspector: %s",
                             model.schemaRegistered ? DebugResourceViewKindLabel(model.viewKind) : "Metadata only");
         ImGui::TextWrapped("%s", model.schemaStatus.c_str());
@@ -435,8 +453,7 @@ void DrawResourceThumbnail(const Engine::RenderGraphDocumentNode& node,
     }
     const bool previewOpen =
         resourceActions != nullptr && resourceActions->isPreviewOpen && resourceActions->isPreviewOpen(node.name);
-    if (inspection.IsInspectable() && inspection.descriptor->viewKind == Engine::DebugResourceViewKind::Texture &&
-        resourceActions != nullptr && resourceActions->requestThumbnail && !previewOpen &&
+    if (CanOpenPreview(inspection, resourceActions) && resourceActions->requestThumbnail && !previewOpen &&
         (selected || (matchesFilters && thumbnailVisible)))
     {
         resourceActions->requestThumbnail(*inspection.descriptor, selected);
@@ -877,6 +894,7 @@ DrawDetailPanel(const Engine::RenderGraphDocument& document,
 void DrawBufferInspectorWindow(const Engine::RenderGraphDocument& document,
                                Engine::RenderGraphDocumentId nodeId,
                                const Engine::DebugResourceViewRegistry* registry,
+                               const RenderGraphResourceActions* resourceActions,
                                bool requestFocus,
                                bool& open)
 {
@@ -925,7 +943,19 @@ void DrawBufferInspectorWindow(const Engine::RenderGraphDocument& document,
                     DebugBufferComponentTypeLabel(model.imageLayout.componentType),
                     model.imageLayout.componentCount,
                     model.imageLayout.componentOffsetBytes);
-        ImGui::TextDisabled("Image/Heatmap conversion is registered but its GPU conversion pass is not active yet.");
+        const Engine::DebugResourceInspection inspection = InspectResource(*node, registry);
+        const bool canOpenImage = CanOpenPreview(inspection, resourceActions) &&
+                                  HasPreviewCapacity(resourceActions, node->name);
+        ImGui::BeginDisabled(!canOpenImage);
+        if (ImGui::Button("Image Preview"))
+        {
+            resourceActions->openPreview(*inspection.descriptor, false);
+        }
+        ImGui::EndDisabled();
+        if (!canOpenImage)
+        {
+            ImGui::TextDisabled("Image Preview is unavailable or the Preview limit has been reached.");
+        }
     }
     else
     {
@@ -1793,6 +1823,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         DrawBufferInspectorWindow(document,
                                   *m_impl->bufferInspectorNodeId,
                                   resourceViewRegistry,
+                                  resourceActions,
                                   m_impl->bufferInspectorFocusRequested,
                                   m_impl->bufferInspectorOpen);
         m_impl->bufferInspectorFocusRequested = false;

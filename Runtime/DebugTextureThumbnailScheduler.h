@@ -16,6 +16,7 @@ struct DebugTextureThumbnailSlotPlan
     bool update = false;
     std::string resourceName;
     Engine::DebugTexturePreviewSemantic semantic = Engine::DebugTexturePreviewSemantic::Color;
+    Engine::DebugResourceViewKind viewKind = Engine::DebugResourceViewKind::Texture;
 };
 
 class DebugTextureThumbnailScheduler
@@ -34,6 +35,7 @@ private:
     {
         std::string resourceName;
         Engine::DebugTexturePreviewSemantic semantic = Engine::DebugTexturePreviewSemantic::Color;
+        Engine::DebugResourceViewKind viewKind = Engine::DebugResourceViewKind::Texture;
         bool selected = false;
     };
 
@@ -42,6 +44,7 @@ private:
         bool active = false;
         std::string resourceName;
         Engine::DebugTexturePreviewSemantic semantic = Engine::DebugTexturePreviewSemantic::Color;
+        Engine::DebugResourceViewKind viewKind = Engine::DebugResourceViewKind::Texture;
         uint64_t lastUpdateFrame = 0;
         uint64_t readyFrame = UINT64_MAX;
     };

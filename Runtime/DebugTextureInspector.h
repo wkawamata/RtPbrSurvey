@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Renderer/DepthVisualization.h"
+#include "Renderer/DebugResourceViewRegistry.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -46,6 +46,9 @@ struct DebugTextureInspector
     float scale = 1.0f;
     float offset = 0.0f;
     Engine::DepthVisualizationSettings depthVisualization;
+    Engine::DebugResourceViewKind sourceViewKind = Engine::DebugResourceViewKind::Texture;
+    Engine::DebugBufferImageLayout bufferImageLayout;
+    Engine::DebugBufferVisualizationMode bufferVisualizationMode = Engine::DebugBufferVisualizationMode::Image;
     bool depthVisualizationInitialized = false;
     bool pinned = false;
     bool open = true;

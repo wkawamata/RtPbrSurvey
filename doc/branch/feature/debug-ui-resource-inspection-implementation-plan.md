@@ -117,7 +117,9 @@ This part depends on bounded Preview slots, resource metadata, and the common De
 
 - [x] Show metadata and pass usages for unknown/raw Buffers without guessing a schema.
 - [x] Define an explicit 2D element-layout contract for image-like Buffer data.
-- [ ] Add a dedicated Buffer-to-image GPU conversion path with Image and Heatmap modes.
+- [x] Add a dedicated Buffer-to-image GPU conversion path with Image and Heatmap modes.
+- [x] Register `MaterialBuffer` as a 16 x 16 reference view for roughness, metallic, occlusion, and AO.
+- [ ] Visually validate `MaterialBuffer` Image/Heatmap Preview and Buffer-node thumbnails.
 - [ ] Add registered structured summaries, counters, histograms, and heatmaps.
 
 ### 5.3 Information Overlay

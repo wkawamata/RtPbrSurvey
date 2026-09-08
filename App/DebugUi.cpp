@@ -1560,7 +1560,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     renderGraphResourceActions.openPreview =
         [&app](const Engine::DebugResourceViewDescriptor& descriptor, bool pinned)
     {
-        if (descriptor.viewKind != Engine::DebugResourceViewKind::Texture)
+        const bool bufferSource = descriptor.viewKind != Engine::DebugResourceViewKind::Texture;
+        if (bufferSource &&
+            (!descriptor.imageLayout.IsValid(descriptor.elementCount, descriptor.elementStride) ||
+             descriptor.sourceDescriptorName.empty()))
         {
             return false;
         }
@@ -1572,6 +1575,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         {
             return false;
         }
+        inspector->sourceViewKind = descriptor.viewKind;
+        inspector->bufferImageLayout = descriptor.imageLayout;
         if (semantic == RtPbrSurvey::DebugTextureSemantic::Depth &&
             !inspector->depthVisualizationInitialized)
         {
@@ -1646,8 +1651,9 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     for (size_t inspectorIndex = 0; inspectorIndex < inspectors.size(); ++inspectorIndex)
     {
         RtPbrSurvey::DebugTextureInspector& inspector = inspectors[inspectorIndex];
-        std::string windowTitle = "Debug Texture: " + inspector.displayName + "###DebugTexture" +
-            inspector.resourceName;
+        const bool bufferSource = inspector.sourceViewKind != Engine::DebugResourceViewKind::Texture;
+        std::string windowTitle = std::string(bufferSource ? "Debug Buffer: " : "Debug Texture: ") +
+            inspector.displayName + "###DebugTexture" + inspector.resourceName;
         bool open = inspector.open;
         const size_t rowIndex = inspectorIndex / 2;
         const bool rightColumn = inspectorIndex % 2 == 0;
@@ -1673,13 +1679,28 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 closeAllDebugTexturePreviews = true;
             }
 
-            int semantic = static_cast<int>(inspector.semantic);
-            ImGui::SetNextItemWidth(110.0f);
-            if (ImGui::Combo(("Semantic##DebugTexture" + std::to_string(inspector.id)).c_str(),
-                             &semantic,
-                             "Color\0Normal\0Depth\0Motion Vector\0Scalar\0"))
+            if (bufferSource)
             {
-                inspector.semantic = static_cast<RtPbrSurvey::DebugTextureSemantic>(semantic);
+                int visualizationMode = static_cast<int>(inspector.bufferVisualizationMode);
+                ImGui::SetNextItemWidth(110.0f);
+                if (ImGui::Combo(("Mode##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                                 &visualizationMode,
+                                 "Image\0Heatmap\0"))
+                {
+                    inspector.bufferVisualizationMode =
+                        static_cast<Engine::DebugBufferVisualizationMode>(visualizationMode);
+                }
+            }
+            else
+            {
+                int semantic = static_cast<int>(inspector.semantic);
+                ImGui::SetNextItemWidth(110.0f);
+                if (ImGui::Combo(("Semantic##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                                 &semantic,
+                                 "Color\0Normal\0Depth\0Motion Vector\0Scalar\0"))
+                {
+                    inspector.semantic = static_cast<RtPbrSurvey::DebugTextureSemantic>(semantic);
+                }
             }
             ImGui::SameLine();
             int channel = static_cast<int>(inspector.channel);
@@ -1746,7 +1767,9 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             {
                 const D3D12_RESOURCE_DESC desc = resource->GetDesc();
                 const float availableWidth = ImGui::GetContentRegionAvail().x;
-                const float aspect = desc.Height > 0 ? static_cast<float>(desc.Width) / desc.Height : 1.0f;
+                const float aspect = bufferSource && inspector.bufferImageLayout.height > 0
+                    ? static_cast<float>(inspector.bufferImageLayout.width) / inspector.bufferImageLayout.height
+                    : (desc.Height > 0 ? static_cast<float>(desc.Width) / desc.Height : 1.0f);
                 ImGui::Image(ImTextureRef(previewId), ImVec2(availableWidth, availableWidth / aspect));
             }
             else

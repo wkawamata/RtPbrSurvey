@@ -89,7 +89,7 @@ static constexpr uint32_t kGBufferDebugConstantsCount = 9;
 
 static constexpr uint32_t kToneMapConstantsRegister = 3;
 static constexpr uint32_t kToneMapConstantsSpace = 0;
-static constexpr uint32_t kToneMapConstantsCount = 14;
+static constexpr uint32_t kToneMapConstantsCount = 22;
 
 static constexpr uint32_t kSceneDrawConstantsRegister = 4;
 static constexpr uint32_t kSceneDrawConstantsSpace = 0;

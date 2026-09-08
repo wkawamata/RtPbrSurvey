@@ -69,6 +69,7 @@ struct CommandLineOptions
     bool useSceneDefaults = false;
     bool enableDlssSr = false;
     bool enableDebugTexturePreview = false;
+    std::string debugPreviewResourceName;
     DlssSrQualityMode dlssSrQualityMode = DlssSrQualityMode::Quality;
     std::filesystem::path capturePath;
     UINT captureAfterFrames = 0;

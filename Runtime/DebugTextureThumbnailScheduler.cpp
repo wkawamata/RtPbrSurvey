@@ -8,7 +8,9 @@ namespace RtPbrSurvey
 {
 void DebugTextureThumbnailScheduler::Request(const Engine::DebugResourceViewDescriptor& descriptor, bool selected)
 {
-    if (descriptor.viewKind != Engine::DebugResourceViewKind::Texture)
+    if (descriptor.viewKind != Engine::DebugResourceViewKind::Texture &&
+        (!descriptor.imageLayout.IsValid(descriptor.elementCount, descriptor.elementStride) ||
+         descriptor.sourceDescriptorName.empty()))
     {
         return;
     }
@@ -21,9 +23,10 @@ void DebugTextureThumbnailScheduler::Request(const Engine::DebugResourceViewDesc
     {
         existing->selected = existing->selected || selected;
         existing->semantic = descriptor.semantic;
+        existing->viewKind = descriptor.viewKind;
         return;
     }
-    m_pendingRequests.push_back({descriptor.resourceName, descriptor.semantic, selected});
+    m_pendingRequests.push_back({descriptor.resourceName, descriptor.semantic, descriptor.viewKind, selected});
 }
 
 std::array<DebugTextureThumbnailSlotPlan, DebugTextureThumbnailScheduler::kSlotCount>
@@ -161,7 +164,8 @@ DebugTextureThumbnailScheduler::BuildFramePlan(uint64_t frameIndex)
         slot.active = true;
         slot.resourceName = request.resourceName;
         slot.semantic = request.semantic;
-        plan[slotIndex] = {true, update, slot.resourceName, slot.semantic};
+        slot.viewKind = request.viewKind;
+        plan[slotIndex] = {true, update, slot.resourceName, slot.semantic, slot.viewKind};
     }
     return plan;
 }

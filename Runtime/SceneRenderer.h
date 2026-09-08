@@ -98,6 +98,9 @@ namespace RtPbrSurvey
         void ConfigureDebugTexturePreview(UINT previewIndex,
                                           const std::string& source,
                                           const Engine::DebugTexturePreviewSettings& settings);
+        void ConfigureDebugBufferPreview(UINT previewIndex,
+                                         const Engine::DebugResourceViewDescriptor& descriptor,
+                                         const Engine::DebugTexturePreviewSettings& settings);
         void SetRequestHdrDump(bool request);
         void RequestReflectionHdrDiagnosticCapture(const Engine::ReflectionHdrDiagnosticRoi& roi);
         std::optional<Engine::ReflectionHdrDiagnosticFrame> ConsumeReflectionHdrDiagnosticFrame();
