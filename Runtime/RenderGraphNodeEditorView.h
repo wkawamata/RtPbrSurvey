@@ -14,6 +14,7 @@
 #include "Engine/FrameGraph/RenderGraphDocument.h"
 #include "Renderer/DebugResourceViewRegistry.h"
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
@@ -37,6 +38,7 @@ struct RenderGraphResourceActions
 {
     std::function<bool(const Engine::DebugResourceViewDescriptor&, bool)> openPreview;
     std::function<bool(const std::string&)> isPreviewOpen;
+    std::function<uint64_t(const std::string&)> thumbnailTextureId;
     std::function<void(const std::string&)> closePreview;
     std::function<void()> closeAllPreviews;
     size_t activePreviewCount = 0;

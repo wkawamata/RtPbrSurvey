@@ -378,6 +378,56 @@ void DrawResourceActions(const Engine::RenderGraphDocumentNode& node,
     }
 }
 
+void DrawResourceThumbnail(const Engine::RenderGraphDocumentNode& node,
+                           float contentWidth,
+                           const Engine::DebugResourceViewRegistry* registry,
+                           const RenderGraphResourceActions* resourceActions)
+{
+    const ImVec2 thumbnailSize(96.0f, 54.0f);
+    const Engine::DebugResourceInspection inspection = InspectResource(node, registry);
+    const uint64_t textureId = resourceActions != nullptr && resourceActions->thumbnailTextureId
+        ? resourceActions->thumbnailTextureId(node.name)
+        : 0;
+    const float rowStart = ImGui::GetCursorPosX();
+    ImGui::SetCursorPosX(rowStart + 0.5f * (contentWidth - thumbnailSize.x));
+    ImGui::PushID(node.name.c_str());
+    const ImVec2 imageStart = ImGui::GetCursorScreenPos();
+    if (textureId != 0)
+    {
+        ImGui::Image(ImTextureRef(textureId), thumbnailSize);
+    }
+    else
+    {
+        ImGui::InvisibleButton("Thumbnail", thumbnailSize);
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        drawList->AddRectFilled(imageStart,
+                                ImVec2(imageStart.x + thumbnailSize.x, imageStart.y + thumbnailSize.y),
+                                ImGui::GetColorU32(ImVec4(0.08f, 0.08f, 0.08f, 1.0f)));
+        const char* placeholder = inspection.IsInspectable() ? "No preview" : "Unavailable";
+        const ImVec2 textSize = ImGui::CalcTextSize(placeholder);
+        drawList->AddText(ImVec2(imageStart.x + 0.5f * (thumbnailSize.x - textSize.x),
+                                 imageStart.y + 0.5f * (thumbnailSize.y - textSize.y)),
+                          ImGui::GetColorU32(ImGuiCol_TextDisabled),
+                          placeholder);
+    }
+    ImGui::GetWindowDrawList()->AddRect(
+        imageStart,
+        ImVec2(imageStart.x + thumbnailSize.x, imageStart.y + thumbnailSize.y),
+        ImGui::GetColorU32(ImGuiCol_Border));
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::BeginTooltip();
+        ImGui::TextUnformatted(node.name.c_str());
+        if (!inspection.IsInspectable())
+        {
+            ImGui::TextDisabled("%s", inspection.unsupportedReason.c_str());
+        }
+        ImGui::EndTooltip();
+    }
+    ImGui::PopID();
+    ImGui::SetCursorPosX(rowStart);
+}
+
 bool ContainsId(const std::vector<Engine::RenderGraphDocumentId>& ids, Engine::RenderGraphDocumentId id)
 {
     return std::find(ids.begin(), ids.end(), id) != ids.end();
@@ -1258,6 +1308,10 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                                              : ImVec4(1.0f, 0.78f, 0.20f, 1.0f);
                 ImGui::TextColored(
                     roleColor, "[%d] %s", node.physicalIndex, PingPongRoleLabel(node.pingPongRole));
+            }
+            if (m_impl->layoutMode == 1)
+            {
+                DrawResourceThumbnail(node, contentWidth, resourceViewRegistry, resourceActions);
             }
         }
         const ImVec2 separatorStart = ImGui::GetCursorScreenPos();

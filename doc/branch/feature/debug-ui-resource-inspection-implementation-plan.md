@@ -106,9 +106,10 @@ This part depends on bounded Preview slots, resource metadata, and the common De
 
 ### 5.1 Node Thumbnails
 
-- [ ] Add fixed-size Texture thumbnails without changing node geometry or pin positions.
-- [ ] Update selected/open resources every frame and throttle other visible thumbnails.
-- [ ] Apply semantic conversion and the common Depth mapping.
+- [x] Add fixed-size Texture thumbnail regions without changing node geometry or pin positions.
+- [x] Reuse live Preview slot output for open-resource thumbnails every frame.
+- [ ] Add a bounded hidden thumbnail pool for selected and visible unopened resources, with throttled updates.
+- [x] Apply semantic conversion and the common Depth mapping through the existing Preview output.
 
 ### 5.2 Buffer Inspector
 

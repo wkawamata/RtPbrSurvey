@@ -1589,6 +1589,19 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                            [&resourceName](const auto& inspector)
                            { return inspector.open && inspector.resourceName == resourceName; });
     };
+    renderGraphResourceActions.thumbnailTextureId = [&app](const std::string& resourceName)
+    {
+        const auto& inspectors = app.m_debugTextureInspectors.Inspectors();
+        const auto inspector = std::find_if(inspectors.begin(),
+                                            inspectors.end(),
+                                            [&resourceName](const auto& candidate)
+                                            { return candidate.open && candidate.resourceName == resourceName; });
+        if (inspector == inspectors.end() || inspector->slotIndex >= app.m_debugTexturePreviewIds.size())
+        {
+            return uint64_t{0};
+        }
+        return app.m_debugTexturePreviewIds[inspector->slotIndex];
+    };
     renderGraphResourceActions.closePreview = [&app](const std::string& resourceName)
     {
         for (const RtPbrSurvey::DebugTextureInspector& inspector : app.m_debugTextureInspectors.Inspectors())
