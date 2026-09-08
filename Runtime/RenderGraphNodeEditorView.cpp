@@ -13,6 +13,8 @@
 
 #include "Runtime/RenderGraphNodeEditorView.h"
 
+#include "Runtime/DebugBufferInspector.h"
+
 #include "third_party/imgui-node-editor/imgui_node_editor.h"
 
 #include <imgui.h>
@@ -95,10 +97,8 @@ IndexColorMap LoadIndexColors(const std::string& path)
         const uint64_t id = std::strtoull(key.c_str(), &end, 10);
         if (end != key.c_str() && *end == '\0')
         {
-            colors[id] = ImVec4(value[0].get<float>(),
-                                value[1].get<float>(),
-                                value[2].get<float>(),
-                                value[3].get<float>());
+            colors[id] =
+                ImVec4(value[0].get<float>(), value[1].get<float>(), value[2].get<float>(), value[3].get<float>());
         }
     }
     return colors;
@@ -147,8 +147,8 @@ std::unordered_set<uint64_t> LoadSavedNodeIds(const std::string& settingsPath)
     {
         constexpr std::string_view prefix = "node:";
         const std::string_view keyView(key);
-        const std::string_view idText = keyView.compare(0, prefix.size(), prefix) == 0 ? keyView.substr(prefix.size())
-                                                                                       : keyView;
+        const std::string_view idText =
+            keyView.compare(0, prefix.size(), prefix) == 0 ? keyView.substr(prefix.size()) : keyView;
         char* end = nullptr;
         const uint64_t id = std::strtoull(idText.data(), &end, 10);
         if (end != idText.data() && *end == '\0')
@@ -269,12 +269,11 @@ const char* NodeDisplayName(const Engine::RenderGraphDocumentNode& node)
 ImVec4 DefaultIndexColor(const Engine::RenderGraphDocumentNode& node)
 {
     return IsDlssSrNode(node) || IsDlssRayReconstructionNode(node)
-        ? ImVec4(118.0f / 255.0f, 185.0f / 255.0f, 0.0f, 1.0f)
-        : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+               ? ImVec4(118.0f / 255.0f, 185.0f / 255.0f, 0.0f, 1.0f)
+               : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
 }
 
-const char* RelatedResourceName(const Engine::RenderGraphDocument& document,
-                                const Engine::RenderGraphDocumentPin& pin)
+const char* RelatedResourceName(const Engine::RenderGraphDocument& document, const Engine::RenderGraphDocumentPin& pin)
 {
     for (const Engine::RenderGraphDocumentLink& link : document.links)
     {
@@ -311,10 +310,8 @@ Engine::DebugResourceInspection InspectResource(const Engine::RenderGraphDocumen
 bool CanOpenPreview(const Engine::DebugResourceInspection& inspection,
                     const RenderGraphResourceActions* resourceActions)
 {
-    return inspection.IsInspectable() &&
-           inspection.descriptor->viewKind == Engine::DebugResourceViewKind::Texture &&
-           resourceActions != nullptr &&
-           static_cast<bool>(resourceActions->openPreview);
+    return inspection.IsInspectable() && inspection.descriptor->viewKind == Engine::DebugResourceViewKind::Texture &&
+           resourceActions != nullptr && static_cast<bool>(resourceActions->openPreview);
 }
 
 bool HasPreviewCapacity(const RenderGraphResourceActions* resourceActions, const std::string& resourceName)
@@ -327,15 +324,24 @@ bool HasPreviewCapacity(const RenderGraphResourceActions* resourceActions, const
     return alreadyOpen || resourceActions->activePreviewCount < resourceActions->maxPreviewCount;
 }
 
-void DrawResourceActions(const Engine::RenderGraphDocumentNode& node,
+bool DrawResourceActions(const Engine::RenderGraphDocumentNode& node,
                          const Engine::DebugResourceViewRegistry* registry,
                          const RenderGraphResourceActions* resourceActions)
 {
     const Engine::DebugResourceInspection inspection = InspectResource(node, registry);
-    const bool canOpen = CanOpenPreview(inspection, resourceActions) &&
-                         HasPreviewCapacity(resourceActions, node.name);
-    const bool previewOpen = resourceActions != nullptr && resourceActions->isPreviewOpen &&
-                             resourceActions->isPreviewOpen(node.name);
+    if (node.resourceKind == Engine::RenderGraphResourceKind::Buffer)
+    {
+        const bool inspectRequested = ImGui::Button("Inspect Buffer");
+        const DebugBufferInspectorModel model = BuildDebugBufferInspectorModel(node, registry);
+        ImGui::TextDisabled("Inspector: %s",
+                            model.schemaRegistered ? DebugResourceViewKindLabel(model.viewKind) : "Metadata only");
+        ImGui::TextWrapped("%s", model.schemaStatus.c_str());
+        return inspectRequested;
+    }
+
+    const bool canOpen = CanOpenPreview(inspection, resourceActions) && HasPreviewCapacity(resourceActions, node.name);
+    const bool previewOpen =
+        resourceActions != nullptr && resourceActions->isPreviewOpen && resourceActions->isPreviewOpen(node.name);
 
     ImGui::BeginDisabled(!canOpen);
     if (ImGui::Button("Preview"))
@@ -376,6 +382,7 @@ void DrawResourceActions(const Engine::RenderGraphDocumentNode& node,
     {
         ImGui::TextDisabled("Inspector: Texture Preview available");
     }
+    return false;
 }
 
 void DrawResourceThumbnail(const Engine::RenderGraphDocumentNode& node,
@@ -388,8 +395,8 @@ void DrawResourceThumbnail(const Engine::RenderGraphDocumentNode& node,
     const ImVec2 thumbnailSize(96.0f, 54.0f);
     const Engine::DebugResourceInspection inspection = InspectResource(node, registry);
     const uint64_t textureId = resourceActions != nullptr && resourceActions->thumbnailTextureId
-        ? resourceActions->thumbnailTextureId(node.name)
-        : 0;
+                                   ? resourceActions->thumbnailTextureId(node.name)
+                                   : 0;
     const float rowStart = ImGui::GetCursorPosX();
     ImGui::SetCursorPosX(rowStart + 0.5f * (contentWidth - thumbnailSize.x));
     ImGui::PushID(node.name.c_str());
@@ -412,10 +419,9 @@ void DrawResourceThumbnail(const Engine::RenderGraphDocumentNode& node,
                           ImGui::GetColorU32(ImGuiCol_TextDisabled),
                           placeholder);
     }
-    ImGui::GetWindowDrawList()->AddRect(
-        imageStart,
-        ImVec2(imageStart.x + thumbnailSize.x, imageStart.y + thumbnailSize.y),
-        ImGui::GetColorU32(ImGuiCol_Border));
+    ImGui::GetWindowDrawList()->AddRect(imageStart,
+                                        ImVec2(imageStart.x + thumbnailSize.x, imageStart.y + thumbnailSize.y),
+                                        ImGui::GetColorU32(ImGuiCol_Border));
     const bool thumbnailVisible = ImGui::IsItemVisible();
     if (ImGui::IsItemHovered())
     {
@@ -427,10 +433,9 @@ void DrawResourceThumbnail(const Engine::RenderGraphDocumentNode& node,
         }
         ImGui::EndTooltip();
     }
-    const bool previewOpen = resourceActions != nullptr && resourceActions->isPreviewOpen &&
-                             resourceActions->isPreviewOpen(node.name);
-    if (inspection.IsInspectable() &&
-        inspection.descriptor->viewKind == Engine::DebugResourceViewKind::Texture &&
+    const bool previewOpen =
+        resourceActions != nullptr && resourceActions->isPreviewOpen && resourceActions->isPreviewOpen(node.name);
+    if (inspection.IsInspectable() && inspection.descriptor->viewKind == Engine::DebugResourceViewKind::Texture &&
         resourceActions != nullptr && resourceActions->requestThumbnail && !previewOpen &&
         (selected || (matchesFilters && thumbnailVisible)))
     {
@@ -570,10 +575,10 @@ void DrawStateDiagnostics(const Engine::RenderGraphDocument& document,
         {
             const Engine::RenderGraphDocumentNode* resource = FindNode(document, diagnostic.resourceNodeId);
             const Engine::RenderGraphDocumentNode* pass = FindNode(document, diagnostic.passNodeId);
-            const char* status = diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Missing
-                ? "Missing"
-                : diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Unexpected ? "Unexpected"
-                                                                                          : "State mismatch";
+            const char* status = diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Missing ? "Missing"
+                                 : diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Unexpected
+                                     ? "Unexpected"
+                                     : "State mismatch";
             ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.30f, 1.0f),
                                "%s: %s @ %s",
                                status,
@@ -581,8 +586,7 @@ void DrawStateDiagnostics(const Engine::RenderGraphDocument& document,
                                pass != nullptr ? pass->name.c_str() : "<missing>");
             if (diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::StateMismatch)
             {
-                const std::string expectedBefore =
-                    Engine::FormatD3D12ResourceStates(diagnostic.expectedBeforeState);
+                const std::string expectedBefore = Engine::FormatD3D12ResourceStates(diagnostic.expectedBeforeState);
                 const std::string expectedAfter = Engine::FormatD3D12ResourceStates(diagnostic.expectedAfterState);
                 const std::string actualBefore = Engine::FormatD3D12ResourceStates(diagnostic.actualBeforeState);
                 const std::string actualAfter = Engine::FormatD3D12ResourceStates(diagnostic.actualAfterState);
@@ -643,8 +647,7 @@ void DrawStateDiagnostics(const Engine::RenderGraphDocument& document,
                 {
                     const std::string expectedBefore =
                         Engine::FormatD3D12ResourceStates(diagnostic.expectedBeforeState);
-                    const std::string expectedAfter =
-                        Engine::FormatD3D12ResourceStates(diagnostic.expectedAfterState);
+                    const std::string expectedAfter = Engine::FormatD3D12ResourceStates(diagnostic.expectedAfterState);
                     const std::string actualBefore = Engine::FormatD3D12ResourceStates(diagnostic.actualBeforeState);
                     const std::string actualAfter = Engine::FormatD3D12ResourceStates(diagnostic.actualAfterState);
                     ImGui::TextWrapped("Expected %s -> %s, actual %s -> %s",
@@ -666,10 +669,10 @@ void DrawStateDiagnostics(const Engine::RenderGraphDocument& document,
                     ImGui::TextWrapped("%s -> %s", before.c_str(), after.c_str());
                 }
                 ImGui::TableSetColumnIndex(3);
-                const char* status = diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Missing
-                    ? "Missing"
-                    : diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Unexpected ? "Unexpected"
-                                                                                              : "State mismatch";
+                const char* status = diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Missing ? "Missing"
+                                     : diagnostic.kind == Engine::RenderGraphBarrierDiagnosticKind::Unexpected
+                                         ? "Unexpected"
+                                         : "State mismatch";
                 ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.30f, 1.0f), "%s", status);
             }
         }
@@ -699,15 +702,13 @@ DrawValidationMessages(const std::vector<Engine::RenderGraphValidationMessage>& 
         ImGui::TableHeadersRow();
         for (const Engine::RenderGraphValidationMessage& message : messages)
         {
-            const char* severity = message.severity == Engine::RenderGraphValidationSeverity::Error
-                                       ? "Error"
-                                       : message.severity == Engine::RenderGraphValidationSeverity::Warning ? "Warning"
-                                                                                                             : "Info";
-            const ImVec4 color = message.severity == Engine::RenderGraphValidationSeverity::Error
-                                     ? ImVec4(1.0f, 0.30f, 0.25f, 1.0f)
-                                     : message.severity == Engine::RenderGraphValidationSeverity::Warning
-                                           ? ImVec4(1.0f, 0.75f, 0.20f, 1.0f)
-                                           : ImVec4(0.45f, 0.75f, 1.0f, 1.0f);
+            const char* severity = message.severity == Engine::RenderGraphValidationSeverity::Error     ? "Error"
+                                   : message.severity == Engine::RenderGraphValidationSeverity::Warning ? "Warning"
+                                                                                                        : "Info";
+            const ImVec4 color =
+                message.severity == Engine::RenderGraphValidationSeverity::Error     ? ImVec4(1.0f, 0.30f, 0.25f, 1.0f)
+                : message.severity == Engine::RenderGraphValidationSeverity::Warning ? ImVec4(1.0f, 0.75f, 0.20f, 1.0f)
+                                                                                     : ImVec4(0.45f, 0.75f, 1.0f, 1.0f);
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             ImGui::TextColored(color, "%s", severity);
@@ -765,14 +766,15 @@ struct PassTimingHistory
     }
 };
 
-void DrawDetailPanel(const Engine::RenderGraphDocument& document,
-                     const std::optional<Engine::RenderGraphDocumentId>& selectedNodeId,
-                     const std::unordered_map<int, PassTimingHistory>& passTimings,
-                     const PassTimingHistory& totalTiming,
-                     int timingMode,
-                     const Engine::DebugResourceViewRegistry* resourceViewRegistry,
-                     const RenderGraphResourceActions* resourceActions,
-                     const RenderGraphTechnologyMetadata* technologyMetadata)
+std::optional<Engine::RenderGraphDocumentId>
+DrawDetailPanel(const Engine::RenderGraphDocument& document,
+                const std::optional<Engine::RenderGraphDocumentId>& selectedNodeId,
+                const std::unordered_map<int, PassTimingHistory>& passTimings,
+                const PassTimingHistory& totalTiming,
+                int timingMode,
+                const Engine::DebugResourceViewRegistry* resourceViewRegistry,
+                const RenderGraphResourceActions* resourceActions,
+                const RenderGraphTechnologyMetadata* technologyMetadata)
 {
     ImGui::TextUnformatted("Node Details");
     ImGui::Separator();
@@ -782,8 +784,10 @@ void DrawDetailPanel(const Engine::RenderGraphDocument& document,
     if (node == nullptr)
     {
         ImGui::TextDisabled("Select a Pass or Resource node.");
-        return;
+        return std::nullopt;
     }
+
+    std::optional<Engine::RenderGraphDocumentId> bufferInspectorRequest;
 
     ImGui::TextWrapped("%s", NodeDisplayName(*node));
     if (node->kind == Engine::RenderGraphNodeKind::Pass)
@@ -799,8 +803,8 @@ void DrawDetailPanel(const Engine::RenderGraphDocument& document,
                 version = IsDlssSrNode(*node) ? &technologyMetadata->dlssSrVersionText
                                               : &technologyMetadata->dlssRayReconstructionVersionText;
             }
-            ImGui::TextWrapped("Version: %s", version != nullptr && !version->empty() ? version->c_str()
-                                                                                       : "Version unavailable");
+            ImGui::TextWrapped("Version: %s",
+                               version != nullptr && !version->empty() ? version->c_str() : "Version unavailable");
         }
         ImGui::Text("Execution order: %d", node->passIndex);
         const auto timing = passTimings.find(node->passIndex);
@@ -827,7 +831,10 @@ void DrawDetailPanel(const Engine::RenderGraphDocument& document,
             ImGui::Text("Physical index: %d", node->physicalIndex);
             ImGui::Text("Current role: %s", PingPongRoleLabel(node->pingPongRole));
         }
-        DrawResourceActions(*node, resourceViewRegistry, resourceActions);
+        if (DrawResourceActions(*node, resourceViewRegistry, resourceActions))
+        {
+            bufferInspectorRequest = node->id;
+        }
     }
 
     ImGui::Spacing();
@@ -864,6 +871,96 @@ void DrawDetailPanel(const Engine::RenderGraphDocument& document,
         }
         ImGui::EndTable();
     }
+    return bufferInspectorRequest;
+}
+
+void DrawBufferInspectorWindow(const Engine::RenderGraphDocument& document,
+                               Engine::RenderGraphDocumentId nodeId,
+                               const Engine::DebugResourceViewRegistry* registry,
+                               bool requestFocus,
+                               bool& open)
+{
+    const Engine::RenderGraphDocumentNode* node = FindNode(document, nodeId);
+    if (node == nullptr || node->resourceKind != Engine::RenderGraphResourceKind::Buffer)
+    {
+        open = false;
+        return;
+    }
+
+    if (requestFocus)
+    {
+        ImGui::SetNextWindowFocus();
+    }
+    ImGui::SetNextWindowSize(ImVec2(460.0f, 420.0f), ImGuiCond_FirstUseEver);
+    const std::string title = "Buffer Inspector: " + node->name + "###RenderGraphBufferInspector";
+    if (!ImGui::Begin(title.c_str(), &open))
+    {
+        ImGui::End();
+        return;
+    }
+
+    const DebugBufferInspectorModel model = BuildDebugBufferInspectorModel(*node, registry);
+    ImGui::TextWrapped("%s", model.resourceName.c_str());
+    ImGui::Separator();
+    ImGui::Text("Lifetime: %s", LifetimeKindLabel(node->lifetimeKind));
+    ImGui::Text("Pass range: [%d, %d]", node->firstPass, node->lastPass);
+    ImGui::Text("Schema: %s", model.schemaRegistered ? DebugResourceViewKindLabel(model.viewKind) : "Unregistered");
+    ImGui::Text("DXGI format: %u", static_cast<unsigned int>(model.format));
+    ImGui::Text("Elements: %u", model.elementCount);
+    ImGui::Text("Stride: %u bytes", model.elementStride);
+    ImGui::Text("Estimated size: %llu bytes", static_cast<unsigned long long>(model.estimatedByteSize));
+    ImGui::TextWrapped("%s", model.schemaStatus.c_str());
+
+    ImGui::Spacing();
+    ImGui::TextUnformatted("Visualization");
+    ImGui::Separator();
+    ImGui::TextDisabled("Metadata");
+    if (model.imageLayoutRegistered)
+    {
+        const uint32_t rowStride =
+            model.imageLayout.rowStrideElements != 0 ? model.imageLayout.rowStrideElements : model.imageLayout.width;
+        ImGui::Text("Image layout: %u x %u", model.imageLayout.width, model.imageLayout.height);
+        ImGui::Text("Row stride: %u elements", rowStride);
+        ImGui::Text("Component: %s x%u at byte %u",
+                    DebugBufferComponentTypeLabel(model.imageLayout.componentType),
+                    model.imageLayout.componentCount,
+                    model.imageLayout.componentOffsetBytes);
+        ImGui::TextDisabled("Image/Heatmap conversion is registered but its GPU conversion pass is not active yet.");
+    }
+    else
+    {
+        ImGui::TextDisabled("Image/Heatmap requires a registered 2D element layout.");
+    }
+
+    ImGui::Spacing();
+    ImGui::TextUnformatted("Pass usages");
+    if (ImGui::BeginTable("BufferInspectorUsages",
+                          3,
+                          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+    {
+        ImGui::TableSetupColumn("Pass");
+        ImGui::TableSetupColumn("Access");
+        ImGui::TableSetupColumn("State");
+        ImGui::TableHeadersRow();
+        for (const Engine::RenderGraphDocumentLink& link : document.links)
+        {
+            if (link.resourceNodeId != node->id)
+            {
+                continue;
+            }
+            const Engine::RenderGraphDocumentNode* pass = FindNode(document, link.passNodeId);
+            const std::string state = Engine::FormatD3D12ResourceStates(link.state);
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(pass != nullptr ? pass->name.c_str() : "<missing>");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(AccessLabel(link.access));
+            ImGui::TableSetColumnIndex(2);
+            ImGui::TextWrapped("%s", state.c_str());
+        }
+        ImGui::EndTable();
+    }
+    ImGui::End();
 }
 
 ImVec4 NodeBackgroundColor(const Engine::RenderGraphDocumentNode& node)
@@ -902,6 +999,9 @@ struct RenderGraphNodeEditorView::Impl
     };
     std::unordered_map<uint64_t, ResourcePinIds> resourcePinIds;
     std::optional<Engine::RenderGraphDocumentId> selectedNodeId;
+    std::optional<Engine::RenderGraphDocumentId> bufferInspectorNodeId;
+    bool bufferInspectorOpen = false;
+    bool bufferInspectorFocusRequested = false;
     std::array<char, 128> searchText = {};
     bool showPasses = true;
     bool showTextures = true;
@@ -918,8 +1018,8 @@ struct RenderGraphNodeEditorView::Impl
     uintptr_t nextSyntheticPinId = UINTPTR_MAX;
 
     Impl()
-        : settingsPaths{NodeEditorSettingsPath(), NodeEditorUeSettingsPath()},
-          metadataPath(NodeEditorMetadataPath()), indexColors(LoadIndexColors(metadataPath))
+        : settingsPaths{NodeEditorSettingsPath(), NodeEditorUeSettingsPath()}, metadataPath(NodeEditorMetadataPath()),
+          indexColors(LoadIndexColors(metadataPath))
     {
         for (size_t i = 0; i < contexts.size(); ++i)
         {
@@ -940,7 +1040,10 @@ struct RenderGraphNodeEditorView::Impl
         }
     }
 
-    NodeEditor::EditorContext* Context() const { return contexts[layoutMode]; }
+    NodeEditor::EditorContext* Context() const
+    {
+        return contexts[layoutMode];
+    }
 
     ImVec4 IndexColor(const Engine::RenderGraphDocumentNode& node) const
     {
@@ -1145,9 +1248,8 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     if (resourceActions != nullptr)
     {
         ImGui::SameLine();
-        ImGui::TextDisabled("Previews: %zu / %zu",
-                            resourceActions->activePreviewCount,
-                            resourceActions->maxPreviewCount);
+        ImGui::TextDisabled(
+            "Previews: %zu / %zu", resourceActions->activePreviewCount, resourceActions->maxPreviewCount);
         ImGui::SameLine();
         ImGui::BeginDisabled(resourceActions->activePreviewCount == 0 || !resourceActions->closeAllPreviews);
         if (ImGui::SmallButton("Close All Previews"))
@@ -1188,7 +1290,8 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
             layoutResources.push_back(&node);
         }
     }
-    const auto resourceKindRank = [](Engine::RenderGraphResourceKind kind) {
+    const auto resourceKindRank = [](Engine::RenderGraphResourceKind kind)
+    {
         switch (kind)
         {
             case Engine::RenderGraphResourceKind::Texture:
@@ -1199,25 +1302,28 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                 return 2;
         }
     };
-    std::sort(layoutResources.begin(), layoutResources.end(), [&resourceKindRank](const auto* lhs, const auto* rhs) {
-        const int lhsKind = resourceKindRank(lhs->resourceKind);
-        const int rhsKind = resourceKindRank(rhs->resourceKind);
-        if (lhsKind != rhsKind)
-        {
-            return lhsKind < rhsKind;
-        }
-        const std::string lhsLogicalName = LogicalResourceName(lhs->name);
-        const std::string rhsLogicalName = LogicalResourceName(rhs->name);
-        if (lhsLogicalName != rhsLogicalName)
-        {
-            return lhsLogicalName < rhsLogicalName;
-        }
-        if (lhs->physicalIndex != rhs->physicalIndex)
-        {
-            return lhs->physicalIndex < rhs->physicalIndex;
-        }
-        return lhs->name < rhs->name;
-    });
+    std::sort(layoutResources.begin(),
+              layoutResources.end(),
+              [&resourceKindRank](const auto* lhs, const auto* rhs)
+              {
+                  const int lhsKind = resourceKindRank(lhs->resourceKind);
+                  const int rhsKind = resourceKindRank(rhs->resourceKind);
+                  if (lhsKind != rhsKind)
+                  {
+                      return lhsKind < rhsKind;
+                  }
+                  const std::string lhsLogicalName = LogicalResourceName(lhs->name);
+                  const std::string rhsLogicalName = LogicalResourceName(rhs->name);
+                  if (lhsLogicalName != rhsLogicalName)
+                  {
+                      return lhsLogicalName < rhsLogicalName;
+                  }
+                  if (lhs->physicalIndex != rhs->physicalIndex)
+                  {
+                      return lhs->physicalIndex < rhs->physicalIndex;
+                  }
+                  return lhs->name < rhs->name;
+              });
     std::unordered_map<Engine::RenderGraphDocumentId, size_t> layoutRows;
     size_t layoutRow = 0;
     int previousKind = -1;
@@ -1318,8 +1424,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                 const ImVec4 roleColor = node.pingPongRole == Engine::RenderGraphPingPongRole::HistoryRead
                                              ? ImVec4(0.30f, 0.85f, 0.90f, 1.0f)
                                              : ImVec4(1.0f, 0.78f, 0.20f, 1.0f);
-                ImGui::TextColored(
-                    roleColor, "[%d] %s", node.physicalIndex, PingPongRoleLabel(node.pingPongRole));
+                ImGui::TextColored(roleColor, "[%d] %s", node.physicalIndex, PingPongRoleLabel(node.pingPongRole));
             }
             if (m_impl->layoutMode == 1)
             {
@@ -1502,6 +1607,13 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         if (doubleClickedNode != nullptr)
         {
             m_impl->selectedNodeId = doubleClickedNode->id;
+            if (doubleClickedNode->kind == Engine::RenderGraphNodeKind::Resource &&
+                doubleClickedNode->resourceKind == Engine::RenderGraphResourceKind::Buffer)
+            {
+                m_impl->bufferInspectorNodeId = doubleClickedNode->id;
+                m_impl->bufferInspectorOpen = true;
+                m_impl->bufferInspectorFocusRequested = true;
+            }
             const Engine::DebugResourceInspection inspection =
                 InspectResource(*doubleClickedNode, resourceViewRegistry);
             if (CanOpenPreview(inspection, resourceActions) &&
@@ -1516,9 +1628,10 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     NodeEditor::NodeId contextNodeId;
     if (NodeEditor::ShowNodeContextMenu(&contextNodeId))
     {
-        m_impl->selectedNodeId = FindNode(document, contextNodeId) != nullptr
-            ? std::optional<Engine::RenderGraphDocumentId>(FindNode(document, contextNodeId)->id)
-            : std::nullopt;
+        m_impl->selectedNodeId =
+            FindNode(document, contextNodeId) != nullptr
+                ? std::optional<Engine::RenderGraphDocumentId>(FindNode(document, contextNodeId)->id)
+                : std::nullopt;
         ImGui::OpenPopup("RenderGraphNodeContextMenu");
     }
     if (ImGui::BeginPopup("RenderGraphNodeContextMenu"))
@@ -1531,8 +1644,14 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
             ImGui::Separator();
             if (contextNode->kind == Engine::RenderGraphNodeKind::Resource)
             {
-                const Engine::DebugResourceInspection inspection =
-                    InspectResource(*contextNode, resourceViewRegistry);
+                const Engine::DebugResourceInspection inspection = InspectResource(*contextNode, resourceViewRegistry);
+                if (contextNode->resourceKind == Engine::RenderGraphResourceKind::Buffer &&
+                    ImGui::MenuItem("Inspect Buffer"))
+                {
+                    m_impl->bufferInspectorNodeId = contextNode->id;
+                    m_impl->bufferInspectorOpen = true;
+                    m_impl->bufferInspectorFocusRequested = true;
+                }
                 const bool canOpen = CanOpenPreview(inspection, resourceActions) &&
                                      HasPreviewCapacity(resourceActions, contextNode->name);
                 const bool previewOpen = resourceActions != nullptr && resourceActions->isPreviewOpen &&
@@ -1569,9 +1688,8 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
 
             ImGui::Separator();
             ImVec4 indexColor = m_impl->IndexColor(*contextNode);
-            if (ImGui::ColorEdit4("Index Color",
-                                  &indexColor.x,
-                                  ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreviewHalf))
+            if (ImGui::ColorEdit4(
+                    "Index Color", &indexColor.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaPreviewHalf))
             {
                 m_impl->indexColors[contextNode->id.value] = indexColor;
             }
@@ -1638,20 +1756,19 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     ImGui::BeginChild("RenderGraphDetailPane", ImVec2(0.0f, contentSize.y), true);
     constexpr float nodeDetailsHeight = 260.0f;
     ImGui::BeginChild("RenderGraphNodeDetailsPane", ImVec2(0.0f, nodeDetailsHeight), false);
-    DrawDetailPanel(document,
-                    m_impl->selectedNodeId,
-                    m_impl->passTimings,
-                    m_impl->totalTiming,
-                    m_impl->timingMode,
-                    resourceViewRegistry,
-                    resourceActions,
-                    technologyMetadata);
+    const std::optional<Engine::RenderGraphDocumentId> bufferInspectorRequest = DrawDetailPanel(document,
+                                                                                                m_impl->selectedNodeId,
+                                                                                                m_impl->passTimings,
+                                                                                                m_impl->totalTiming,
+                                                                                                m_impl->timingMode,
+                                                                                                resourceViewRegistry,
+                                                                                                resourceActions,
+                                                                                                technologyMetadata);
     ImGui::EndChild();
     const std::optional<Engine::RenderGraphDocumentId> timelineSelection =
         DrawLifetimeTimeline(document, m_impl->selectedNodeId);
     DrawStateDiagnostics(document, stateDiagnostics, barrierDiagnostics);
-    const std::optional<Engine::RenderGraphDocumentId> validationSelection =
-        DrawValidationMessages(validationMessages);
+    const std::optional<Engine::RenderGraphDocumentId> validationSelection = DrawValidationMessages(validationMessages);
     ImGui::EndChild();
 
     const std::optional<Engine::RenderGraphDocumentId> requestedSelection =
@@ -1664,6 +1781,21 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         NodeEditor::SelectNode(ToNodeId(*requestedSelection));
         NodeEditor::NavigateToSelection(false, 0.25f);
         NodeEditor::SetCurrentEditor(nullptr);
+    }
+    if (bufferInspectorRequest.has_value())
+    {
+        m_impl->bufferInspectorNodeId = bufferInspectorRequest;
+        m_impl->bufferInspectorOpen = true;
+        m_impl->bufferInspectorFocusRequested = true;
+    }
+    if (m_impl->bufferInspectorOpen && m_impl->bufferInspectorNodeId.has_value())
+    {
+        DrawBufferInspectorWindow(document,
+                                  *m_impl->bufferInspectorNodeId,
+                                  resourceViewRegistry,
+                                  m_impl->bufferInspectorFocusRequested,
+                                  m_impl->bufferInspectorOpen);
+        m_impl->bufferInspectorFocusRequested = false;
     }
 }
 } // namespace RtPbrSurvey

@@ -20,6 +20,26 @@ enum class DebugResourceViewKind
     Counter,
 };
 
+enum class DebugBufferComponentType
+{
+    Unknown,
+    Float32,
+    Uint32,
+    Sint32,
+};
+
+struct DebugBufferImageLayout
+{
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint32_t rowStrideElements = 0;
+    uint32_t componentOffsetBytes = 0;
+    uint32_t componentCount = 0;
+    DebugBufferComponentType componentType = DebugBufferComponentType::Unknown;
+
+    bool IsValid(uint32_t elementCount, uint32_t elementStride) const;
+};
+
 struct DebugResourceViewDescriptor
 {
     std::string resourceName;
@@ -28,6 +48,7 @@ struct DebugResourceViewDescriptor
     DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
     uint32_t elementCount = 0;
     uint32_t elementStride = 0;
+    DebugBufferImageLayout imageLayout;
 };
 
 struct DebugResourceInspection
@@ -35,7 +56,10 @@ struct DebugResourceInspection
     const DebugResourceViewDescriptor* descriptor = nullptr;
     std::string unsupportedReason;
 
-    bool IsInspectable() const { return descriptor != nullptr; }
+    bool IsInspectable() const
+    {
+        return descriptor != nullptr;
+    }
 };
 
 class DebugResourceViewRegistry

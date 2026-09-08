@@ -6,6 +6,21 @@
 
 namespace Engine
 {
+bool DebugBufferImageLayout::IsValid(uint32_t elementCount, uint32_t elementStride) const
+{
+    if (width == 0 || height == 0 || elementCount == 0 || elementStride == 0 || componentCount == 0 ||
+        componentCount > 4 || componentType == DebugBufferComponentType::Unknown)
+    {
+        return false;
+    }
+
+    const uint64_t rowStride = rowStrideElements != 0 ? rowStrideElements : width;
+    const uint64_t requiredElementCount = (static_cast<uint64_t>(height) - 1) * rowStride + width;
+    const uint64_t requiredComponentBytes =
+        static_cast<uint64_t>(componentOffsetBytes) + static_cast<uint64_t>(componentCount) * sizeof(uint32_t);
+    return rowStride >= width && requiredElementCount <= elementCount && requiredComponentBytes <= elementStride;
+}
+
 void DebugResourceViewRegistry::Register(DebugResourceViewDescriptor descriptor)
 {
     m_unsupportedReasons.erase(descriptor.resourceName);

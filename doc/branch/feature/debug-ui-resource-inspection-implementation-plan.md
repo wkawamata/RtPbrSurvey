@@ -115,7 +115,9 @@ This part depends on bounded Preview slots, resource metadata, and the common De
 
 ### 5.2 Buffer Inspector
 
-- [ ] Show metadata for unknown/raw Buffers without guessing a schema.
+- [x] Show metadata and pass usages for unknown/raw Buffers without guessing a schema.
+- [x] Define an explicit 2D element-layout contract for image-like Buffer data.
+- [ ] Add a dedicated Buffer-to-image GPU conversion path with Image and Heatmap modes.
 - [ ] Add registered structured summaries, counters, histograms, and heatmaps.
 
 ### 5.3 Information Overlay

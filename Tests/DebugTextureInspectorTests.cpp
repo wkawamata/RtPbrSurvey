@@ -1,5 +1,6 @@
 #include "stdafx.h"
 
+#include "Runtime/DebugBufferInspector.h"
 #include "Runtime/DebugTextureInspector.h"
 #include "Runtime/DebugTextureThumbnailScheduler.h"
 #include "Renderer/DebugResourceViewRegistry.h"
@@ -65,8 +66,8 @@ bool TestPreviewLimit()
     RtPbrSurvey::DebugTextureInspectorManager manager;
     for (size_t i = 0; i < RtPbrSurvey::DebugTextureInspectorManager::kMaxInspectorCount; ++i)
     {
-        if (manager.OpenPreview("Resource." + std::to_string(i), "Resource", RtPbrSurvey::DebugTextureSemantic::Color) ==
-            nullptr)
+        if (manager.OpenPreview(
+                "Resource." + std::to_string(i), "Resource", RtPbrSurvey::DebugTextureSemantic::Color) == nullptr)
         {
             return Check(false, "preview opens below the limit");
         }
@@ -161,6 +162,61 @@ bool TestDebugResourceViewRegistryReportsSupportAndReasons()
                  "unregistered resources receive a fallback reason");
 }
 
+Engine::RenderGraphDocumentNode MakeBufferNode(const char* resourceName)
+{
+    Engine::RenderGraphDocumentNode node;
+    node.kind = Engine::RenderGraphNodeKind::Resource;
+    node.resourceKind = Engine::RenderGraphResourceKind::Buffer;
+    node.name = resourceName;
+    return node;
+}
+
+bool TestBufferInspectorDoesNotGuessUnknownSchema()
+{
+    Engine::DebugResourceViewRegistry registry;
+    const RtPbrSurvey::DebugBufferInspectorModel model =
+        RtPbrSurvey::BuildDebugBufferInspectorModel(MakeBufferNode("Unknown.Buffer"), &registry);
+    return Check(model.isBuffer, "RenderGraph Buffer is accepted by the metadata inspector") &&
+           Check(!model.schemaRegistered, "unknown Buffer schema is not guessed") &&
+           Check(!model.imageLayoutRegistered, "unknown Buffer is not treated as an image") &&
+           Check(model.estimatedByteSize == 0, "unknown Buffer size is not invented");
+}
+
+bool TestBufferInspectorValidatesRegisteredImageLayout()
+{
+    Engine::DebugResourceViewRegistry registry;
+    Engine::DebugResourceViewDescriptor descriptor;
+    descriptor.resourceName = "Denoiser.Tiles";
+    descriptor.viewKind = Engine::DebugResourceViewKind::StructuredBuffer;
+    descriptor.elementCount = 128 * 72;
+    descriptor.elementStride = 16;
+    descriptor.imageLayout = {128, 72, 128, 0, 4, Engine::DebugBufferComponentType::Float32};
+    registry.Register(descriptor);
+
+    const RtPbrSurvey::DebugBufferInspectorModel model =
+        RtPbrSurvey::BuildDebugBufferInspectorModel(MakeBufferNode("Denoiser.Tiles"), &registry);
+    return Check(model.schemaRegistered, "registered Buffer schema is reported") &&
+           Check(model.imageLayoutRegistered, "valid 2D Buffer layout enables image conversion") &&
+           Check(model.estimatedByteSize == 128ull * 72ull * 16ull, "registered Buffer byte size is calculated");
+}
+
+bool TestBufferInspectorRejectsOutOfRangeImageLayout()
+{
+    Engine::DebugResourceViewRegistry registry;
+    Engine::DebugResourceViewDescriptor descriptor;
+    descriptor.resourceName = "Short.Buffer";
+    descriptor.viewKind = Engine::DebugResourceViewKind::RawBuffer;
+    descriptor.elementCount = 16;
+    descriptor.elementStride = 4;
+    descriptor.imageLayout = {8, 8, 8, 0, 1, Engine::DebugBufferComponentType::Float32};
+    registry.Register(descriptor);
+
+    const RtPbrSurvey::DebugBufferInspectorModel model =
+        RtPbrSurvey::BuildDebugBufferInspectorModel(MakeBufferNode("Short.Buffer"), &registry);
+    return Check(model.schemaRegistered, "raw Buffer metadata remains inspectable") &&
+           Check(!model.imageLayoutRegistered, "2D layout beyond the Buffer is rejected");
+}
+
 Engine::DebugResourceViewDescriptor MakeThumbnailDescriptor(const char* resourceName)
 {
     return {resourceName,
@@ -178,18 +234,16 @@ bool TestThumbnailSchedulerPrioritizesSelectionAndBoundsSlots()
     scheduler.Request(MakeThumbnailDescriptor("Visible.2"), false);
     scheduler.Request(MakeThumbnailDescriptor("Visible.3"), false);
     const auto firstPlan = scheduler.BuildFramePlan(1);
-    const size_t activeCount = static_cast<size_t>(std::count_if(
-        firstPlan.begin(), firstPlan.end(), [](const auto& slot) { return slot.active; }));
-    const auto selected = std::find_if(firstPlan.begin(),
-                                       firstPlan.end(),
-                                       [](const auto& slot) { return slot.resourceName == "Selected"; });
+    const size_t activeCount = static_cast<size_t>(
+        std::count_if(firstPlan.begin(), firstPlan.end(), [](const auto& slot) { return slot.active; }));
+    const auto selected = std::find_if(
+        firstPlan.begin(), firstPlan.end(), [](const auto& slot) { return slot.resourceName == "Selected"; });
 
     scheduler.Request(MakeThumbnailDescriptor("Selected"), true);
     scheduler.Request(MakeThumbnailDescriptor("Visible.0"), false);
     const auto secondPlan = scheduler.BuildFramePlan(2);
-    const auto selectedSecond = std::find_if(secondPlan.begin(),
-                                             secondPlan.end(),
-                                             [](const auto& slot) { return slot.resourceName == "Selected"; });
+    const auto selectedSecond = std::find_if(
+        secondPlan.begin(), secondPlan.end(), [](const auto& slot) { return slot.resourceName == "Selected"; });
     return Check(activeCount == RtPbrSurvey::DebugTextureThumbnailScheduler::kSlotCount,
                  "thumbnail slots remain bounded") &&
            Check(selected != firstPlan.end() && selected->update, "selected thumbnail receives a slot") &&
@@ -217,13 +271,12 @@ bool TestThumbnailSchedulerThrottlesAndRotatesVisibleResources()
         scheduler.Request(MakeThumbnailDescriptor(("Visible." + std::to_string(i)).c_str()), false);
     }
     const auto rotatedPlan = scheduler.BuildFramePlan(8);
-    const bool firstUpdated = std::all_of(
-        firstPlan.begin(), firstPlan.end(), [](const auto& slot) { return slot.active && slot.update; });
-    const bool secondSkipped = std::none_of(
-        throttledPlan.begin(), throttledPlan.end(), [](const auto& slot) { return slot.update; });
-    const bool rotatedToFifth = std::any_of(rotatedPlan.begin(),
-                                           rotatedPlan.end(),
-                                           [](const auto& slot) { return slot.resourceName == "Visible.4"; });
+    const bool firstUpdated =
+        std::all_of(firstPlan.begin(), firstPlan.end(), [](const auto& slot) { return slot.active && slot.update; });
+    const bool secondSkipped =
+        std::none_of(throttledPlan.begin(), throttledPlan.end(), [](const auto& slot) { return slot.update; });
+    const bool rotatedToFifth = std::any_of(
+        rotatedPlan.begin(), rotatedPlan.end(), [](const auto& slot) { return slot.resourceName == "Visible.4"; });
     return Check(firstUpdated, "new visible thumbnail slots update immediately") &&
            Check(secondSkipped, "visible thumbnails are throttled between refreshes") &&
            Check(rotatedToFifth, "visible resources rotate through the bounded pool");
@@ -232,14 +285,15 @@ bool TestThumbnailSchedulerThrottlesAndRotatesVisibleResources()
 
 int main()
 {
-    const bool passed = TestOpenPreviewReusesMatchingInspector() && TestPinnedPreviewsRemainIndependent() &&
-                        TestDifferentPreviewsRemainIndependent() && TestPreviewLimit() && TestCloseAndRemove() &&
-                        TestClosedSlotIsReusedWithoutMovingLiveInspectors() &&
-                        TestDepthVisualizationDefaultsFollowCameraRange() &&
-                        TestDepthVisualizationConstantsSanitizeInvalidValues() &&
-                        TestDebugResourceViewRegistryReportsSupportAndReasons() &&
-                        TestThumbnailSchedulerPrioritizesSelectionAndBoundsSlots() &&
-                        TestThumbnailSchedulerThrottlesAndRotatesVisibleResources();
+    const bool passed =
+        TestOpenPreviewReusesMatchingInspector() && TestPinnedPreviewsRemainIndependent() &&
+        TestDifferentPreviewsRemainIndependent() && TestPreviewLimit() && TestCloseAndRemove() &&
+        TestClosedSlotIsReusedWithoutMovingLiveInspectors() && TestDepthVisualizationDefaultsFollowCameraRange() &&
+        TestDepthVisualizationConstantsSanitizeInvalidValues() &&
+        TestDebugResourceViewRegistryReportsSupportAndReasons() && TestBufferInspectorDoesNotGuessUnknownSchema() &&
+        TestBufferInspectorValidatesRegisteredImageLayout() && TestBufferInspectorRejectsOutOfRangeImageLayout() &&
+        TestThumbnailSchedulerPrioritizesSelectionAndBoundsSlots() &&
+        TestThumbnailSchedulerThrottlesAndRotatesVisibleResources();
     if (passed)
     {
         std::cout << "DebugTextureInspector tests passed.\n";
