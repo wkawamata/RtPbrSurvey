@@ -124,9 +124,10 @@ This part depends on bounded Preview slots, resource metadata, and the common De
 
 ### 5.3 Information Overlay
 
-- [ ] Add an optional lower-left Information window independent from the Debug window.
-- [ ] Show the currently selected diagnostic resource and concise renderer/DLSS state.
-- [ ] Allow normal ImGui movement and placement persistence.
+- [x] Add an optional lower-left Information window independent from the Debug window.
+- [x] Show the active Preview resource and concise renderer/DLSS state.
+- [x] Allow normal ImGui movement and placement persistence.
+- [ ] Visually validate default placement, focus tracking, close/reopen persistence, and overlap behavior.
 
 ## Validation Policy
 
