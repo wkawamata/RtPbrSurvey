@@ -1,4 +1,4 @@
-# NVIDIA DLSS Super Resolution Setup
+# NVIDIA DLSS Super Resolution / Ray Reconstruction Setup
 
 RtPbrSurvey integrates NVIDIA DLSS Super Resolution through Streamline. The
 integration is optional: the project continues to build and use the native
@@ -10,8 +10,9 @@ documentation.
 
 ## Scope
 
-The current integration targets DLSS Super Resolution. DLSS Ray Reconstruction
-is a later investigation after the reflection signal contract is stable.
+The integration provides DLSS Super Resolution and an experimental, opt-in
+DLSS Ray Reconstruction path. Native RR evaluation requires a separate flag;
+enabling the RR path alone exercises the fallback.
 
 DLSS-G / Frame Generation is out of scope. Do not add DLSS-G plugin DLLs, build
 flags, UI, or documentation as part of the current SR/RR path.
@@ -118,6 +119,31 @@ For a repeatable Quality-mode run without UI interaction:
 
 Accepted quality names are `dlaa`, `quality`, `balanced`, `performance`, and
 `ultra-performance`. `-DlssQuality` implies `-EnableDlssSr`.
+
+## Ray Reconstruction Runtime Use
+
+For an explicit native RR validation run:
+
+```powershell
+.\bin\x64\Debug\RtPbrSurvey.exe `
+  -AutoSelectGltfDamagedHelmet `
+  -EnableDlssRayReconstruction `
+  -EnableExperimentalNativeRayReconstruction `
+  -CaptureReflectionResolvedRadiance `
+  -CapturePath bin\x64\Debug\rr-native.png `
+  -CaptureAfterFrames 60 `
+  -ExitAfterCapture `
+  -LogToFile bin\x64\Debug\rr-native.log
+```
+
+Check the `[RR]` diagnostic for `lastEvaluateOutput=native-output` and
+`lastEvaluateResult=Result::eOk`. A successful capture alone does not establish
+that native RR ran: unsupported configurations use the fallback. Omit
+`-EnableExperimentalNativeRayReconstruction` to validate that fallback.
+
+See [the RR validation scripts](../../Tests/DlssRayReconstruction/README.md)
+for deterministic A/B, temporal, and input-contract checks. RR remains
+experimental; these checks do not establish production image quality.
 
 ## Verification
 
