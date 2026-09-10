@@ -29,6 +29,8 @@
 #include "imgui.h"
 #include "ImGuiWidgets.h"
 
+#include <nlohmann/json.hpp>
+
 void RunStagedAllocatorTests(ID3D12Device* device);
 
 namespace
@@ -236,6 +238,24 @@ void RtPbrSurveyApp::OnInit()
         }
 
         m_sceneConfig.SetPaths(defaultsPathA, userConfigPath);
+        std::string evaluationStatePath = userConfigPath;
+        const size_t separator = evaluationStatePath.find_last_of("\\/");
+        if (separator != std::string::npos)
+        {
+            evaluationStatePath.resize(separator + 1);
+        }
+        else
+        {
+            evaluationStatePath.clear();
+        }
+        evaluationStatePath += "evaluation_states.json";
+        m_evaluationStates.SetPath(evaluationStatePath);
+        std::string evaluationLoadError;
+        if (!m_evaluationStates.Load(&evaluationLoadError))
+        {
+            m_evaluationStatus = "Load failed: " + evaluationLoadError;
+            DBG_PRINT("Evaluation state load failed: %s\n", evaluationLoadError.c_str());
+        }
     }
 
     if (m_commandLineOptions.autoSelectGltfDamagedHelmet ||
@@ -1564,6 +1584,82 @@ void RtPbrSurveyApp::OpenSelectedScene()
     m_framePaused = false;
     m_forwardStepRequested = false;
     m_debugUiVisible = true;
+}
+
+bool RtPbrSurveyApp::CaptureEvaluationState(RtPbrSurvey::EvaluationState& state, std::string* error)
+{
+    if (m_loadedSceneIndex < 0 || m_loadedScene == nullptr)
+    {
+        if (error != nullptr)
+        {
+            *error = "No scene is loaded.";
+        }
+        return false;
+    }
+
+    try
+    {
+        state.sceneIndex = m_loadedSceneIndex;
+        state.sceneName = LoadedScene().Name();
+        state.sceneConfig = nlohmann::json::parse(m_sceneConfig.CaptureCurrentSceneJson(
+            *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene()));
+        state.roi = m_evaluationRoi;
+        state.roi.Sanitize();
+        if (error != nullptr)
+        {
+            error->clear();
+        }
+        return true;
+    }
+    catch (const std::exception& exception)
+    {
+        if (error != nullptr)
+        {
+            *error = exception.what();
+        }
+        return false;
+    }
+}
+
+bool RtPbrSurveyApp::RestoreEvaluationState(const RtPbrSurvey::EvaluationState& state, std::string* error)
+{
+    int sceneIndex = -1;
+    if (state.sceneIndex >= 0 && state.sceneIndex < static_cast<int>(m_sampleScenes.size()) &&
+        state.sceneName == m_sampleScenes[static_cast<size_t>(state.sceneIndex)]->Name())
+    {
+        sceneIndex = state.sceneIndex;
+    }
+    else
+    {
+        const auto scene = std::find_if(m_sampleScenes.begin(),
+                                        m_sampleScenes.end(),
+                                        [&state](const std::unique_ptr<Engine::SampleScene>& candidate)
+                                        { return state.sceneName == candidate->Name(); });
+        if (scene != m_sampleScenes.end())
+        {
+            sceneIndex = static_cast<int>(std::distance(m_sampleScenes.begin(), scene));
+        }
+    }
+
+    if (sceneIndex < 0)
+    {
+        if (error != nullptr)
+        {
+            *error = "The saved scene is unavailable: " + state.sceneName;
+        }
+        return false;
+    }
+
+    m_selectedSceneIndex = sceneIndex;
+    OpenSelectedScene();
+    if (!m_sceneConfig.ApplyCurrentSceneJson(
+            state.sceneConfig.dump(), *this, m_sceneRenderer.EngineForDebugTools(), error))
+    {
+        return false;
+    }
+    m_evaluationRoi = state.roi;
+    m_evaluationRoi.Sanitize();
+    return true;
 }
 
 void RtPbrSurveyApp::ApplyDlssSrCommandLineOptions()

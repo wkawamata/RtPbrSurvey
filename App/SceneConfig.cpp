@@ -354,7 +354,7 @@ SceneConfig SceneConfigManager::Merge(const SceneConfig& defaults, const std::op
 
 SceneConfig SceneConfigManager::CaptureFromApp(const RtPbrSurveyApp& app,
                                                const RtPbrSurveyEngine& engine,
-                                               const Engine::SampleScene& scene)
+                                               const Engine::SampleScene& scene) const
 {
     SceneConfig cfg;
     const auto& camera = scene.GetScene().camera;
@@ -705,6 +705,39 @@ ConfigSource SceneConfigManager::ActiveSourceForScene(const Engine::SampleScene&
     }
 
     return source;
+}
+
+std::string SceneConfigManager::CaptureCurrentSceneJson(const RtPbrSurveyApp& app,
+                                                        const RtPbrSurveyEngine& engine,
+                                                        const Engine::SampleScene& scene) const
+{
+    return SceneConfigToJson(CaptureFromApp(app, engine, scene))
+        .dump(2, ' ', false, json::error_handler_t::replace);
+}
+
+bool SceneConfigManager::ApplyCurrentSceneJson(std::string_view jsonText,
+                                               RtPbrSurveyApp& app,
+                                               RtPbrSurveyEngine& engine,
+                                               std::string* error)
+{
+    try
+    {
+        const SceneConfig config = SceneConfigFromJson(json::parse(jsonText));
+        ApplyToEngine(config, app, engine);
+        if (error != nullptr)
+        {
+            error->clear();
+        }
+        return true;
+    }
+    catch (const std::exception& exception)
+    {
+        if (error != nullptr)
+        {
+            *error = exception.what();
+        }
+        return false;
+    }
 }
 
 } // namespace App

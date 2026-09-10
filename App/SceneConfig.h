@@ -6,6 +6,7 @@
 #include <array>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 class RtPbrSurveyApp;
@@ -128,6 +129,14 @@ public:
 
     const std::string& UserConfigPath() const { return m_userConfigPath; }
 
+    std::string CaptureCurrentSceneJson(const RtPbrSurveyApp& app,
+                                        const RtPbrSurveyEngine& engine,
+                                        const Engine::SampleScene& scene) const;
+    bool ApplyCurrentSceneJson(std::string_view jsonText,
+                               RtPbrSurveyApp& app,
+                               RtPbrSurveyEngine& engine,
+                               std::string* error = nullptr);
+
 private:
     std::string m_defaultsPath;
     std::string m_userConfigPath;
@@ -141,7 +150,7 @@ private:
 
     SceneConfig CaptureFromApp(const RtPbrSurveyApp& app,
                                const RtPbrSurveyEngine& engine,
-                               const Engine::SampleScene& scene);
+                               const Engine::SampleScene& scene) const;
 
     void ApplyToEngine(const SceneConfig& cfg,
                        RtPbrSurveyApp& app,

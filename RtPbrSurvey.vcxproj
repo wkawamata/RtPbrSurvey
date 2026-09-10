@@ -205,6 +205,7 @@
     <ClInclude Include="Runtime\DebugBufferInspector.h" />
     <ClInclude Include="Runtime\DebugTextureInspector.h" />
     <ClInclude Include="Runtime\DebugTextureThumbnailScheduler.h" />
+    <ClInclude Include="Runtime\EvaluationState.h" />
     <ClInclude Include="Runtime\SceneRendererDebugUi.h" />
     <ClInclude Include="Runtime\RenderGraphNodeEditorView.h" />
     <ClInclude Include="Runtime\SceneRendererSettings.h" />
@@ -295,6 +296,7 @@
     <ClCompile Include="Runtime\DebugBufferInspector.cpp" />
     <ClCompile Include="Runtime\DebugTextureInspector.cpp" />
     <ClCompile Include="Runtime\DebugTextureThumbnailScheduler.cpp" />
+    <ClCompile Include="Runtime\EvaluationState.cpp" />
     <ClCompile Include="Runtime\SceneRendererDebugUi.cpp" />
     <ClCompile Include="Runtime\RenderGraphNodeEditorView.cpp" />
     <ClCompile Include="Runtime\SceneRendererSettings.cpp" />

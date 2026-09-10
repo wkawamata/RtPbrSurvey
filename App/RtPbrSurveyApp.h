@@ -22,6 +22,7 @@
 #include "Runtime/SceneRenderer.h"
 #include "Runtime/DebugTextureInspector.h"
 #include "Runtime/DebugTextureThumbnailScheduler.h"
+#include "Runtime/EvaluationState.h"
 #include "Scene/SampleScene.h"
 #include "Ui/ImGuiSystem.h"
 
@@ -94,6 +95,8 @@ private:
     void LogRayReconstructionDiagnostics();
     void FlushD3D12DebugMessages();
     void LogFpsToFile(float cpuFrameTimeMs);
+    bool CaptureEvaluationState(RtPbrSurvey::EvaluationState& state, std::string* error = nullptr);
+    bool RestoreEvaluationState(const RtPbrSurvey::EvaluationState& state, std::string* error = nullptr);
     Engine::SampleScene& LoadedScene();
     const Engine::SampleScene& LoadedScene() const;
     void DrawDebugUi(const RtPbrSurveyEngine::UiFrameContext& context);
@@ -153,6 +156,10 @@ private:
     RtPbrSurvey::SceneRenderer m_sceneRenderer;
     RtPbrSurvey::DebugCameraController m_debugCamera;
     App::SceneConfigManager m_sceneConfig;
+    RtPbrSurvey::EvaluationStateStore m_evaluationStates;
+    RtPbrSurvey::EvaluationRoi m_evaluationRoi;
+    int m_selectedEvaluationStateIndex = -1;
+    std::string m_evaluationStatus;
 
     // Debug logging to file (-LogToFile / -LogFPS).
     ComPtr<ID3D12InfoQueue> m_d3d12InfoQueue;
