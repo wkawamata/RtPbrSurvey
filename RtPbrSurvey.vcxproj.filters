@@ -258,6 +258,9 @@
     <ClInclude Include="Scene\CameraView.h">
       <Filter>Source Files\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\SceneDocument.h">
+      <Filter>Source Files\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\SampleScene.h">
       <Filter>Source Files\Scene</Filter>
     </ClInclude>

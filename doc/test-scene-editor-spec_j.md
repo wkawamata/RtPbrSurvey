@@ -186,7 +186,7 @@ Assets / Materials                                 Camera / Environment
 Renderer: <preset path>   Save Preset | Save Preset As | Reload Preset
 ```
 
-初版は既存ImGuiと描画画面を使い、数値入力で編集する。選択対象のbounds・座標軸・グリッドはエディタ表示専用とし、保存シーンや自動キャプチャに含めない。Hierarchy以外の3D選択やギズモ用ライブラリ導入は後続。
+初版は既存のDear ImGui 1.92.8と描画画面を使い、数値入力で編集する。`vcpkg.json` で指定済みの `imgui` の `dx12-binding` と `win32-binding` を再利用し、新しいUIライブラリやImGuiの更新は追加しない。CMake構成ではローカルvcpkgの `<repo>/vcpkg_installed/x64-windows/x64-windows` を `CMAKE_PREFIX_PATH` に渡し、同ディレクトリ配下の `share/imgui/imgui-config.cmake` から既存パッケージを検出する。選択対象のbounds・座標軸・グリッドはエディタ表示専用とし、保存シーンや自動キャプチャに含めない。Hierarchy以外の3D選択やギズモ用ライブラリ導入は後続。
 
 Undo / Redoは追加・削除・複製・親変更・Transform・Material・カメラ反映・Preset編集を対象とする。数値ドラッグは開始から終了まで1操作。保存地点を履歴に記録してdirtyを判定する。上限100操作を初期値とし、GPU資源は履歴に保持しない。
 
