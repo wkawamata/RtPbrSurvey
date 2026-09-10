@@ -19,6 +19,13 @@
 
 namespace RtPbrSurvey
 {
+    struct SceneRendererHostDesc
+    {
+        const wchar_t* applicationName = L"RtPbrSurveyHost";
+        const char* streamlineProjectId = nullptr;
+        const char* engineVersion = "1.0.0";
+    };
+
     class SceneRenderer
     {
     public:
@@ -28,6 +35,9 @@ namespace RtPbrSurvey
         using UiRenderHandler = RtPbrSurveyEngine::UiRenderHandler;
         using ToolUiHandler = std::function<void()>;
         using UpdateHandler = RtPbrSurveyEngine::UpdateHandler;
+
+        static void ConfigureGraphicsDevice(GraphicsDeviceDesc& graphicsDeviceDesc,
+                                            const SceneRendererHostDesc& hostDesc = {});
 
         explicit SceneRenderer(GraphicsDevice& graphicsDevice);
 

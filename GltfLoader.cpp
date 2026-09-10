@@ -581,3 +581,77 @@ Engine::GltfSceneAsset::ExtractNodeMesh(const std::string& nodeName, GltfMeshDat
     CopyMaterialsAndTextures(model, outMesh);
     return GltfNodeMeshStatus::Success;
 }
+
+Engine::GltfNodeMeshStatus
+Engine::GltfSceneAsset::ExtractNodeMesh(uint32_t requestedNodeIndex, GltfMeshData& outMesh, std::string& message) const
+{
+    outMesh = {};
+    message.clear();
+    if (!m_impl)
+    {
+        message = "The glTF scene asset is invalid.";
+        return GltfNodeMeshStatus::InvalidAsset;
+    }
+
+    const tinygltf::Model& model = m_impl->model;
+    if (requestedNodeIndex >= model.nodes.size())
+    {
+        message = "The glTF node index is outside the asset.";
+        return GltfNodeMeshStatus::NodeNotFound;
+    }
+
+    bool found = false;
+    bool conversionSucceeded = true;
+    int firstMaterialIndex = -1;
+    std::function<void(int, DirectX::XMMATRIX)> findNode;
+    findNode = [&](int nodeIndex, DirectX::XMMATRIX parentTransform)
+    {
+        if (nodeIndex < 0 || nodeIndex >= static_cast<int>(model.nodes.size()))
+        {
+            conversionSucceeded = false;
+            return;
+        }
+        const tinygltf::Node& node = model.nodes[nodeIndex];
+        const DirectX::XMMATRIX nodeTransform = GetNodeLocalTransform(node) * parentTransform;
+        if (static_cast<uint32_t>(nodeIndex) == requestedNodeIndex)
+        {
+            found = true;
+            if (node.mesh < 0 || node.mesh >= static_cast<int>(model.meshes.size()))
+            {
+                conversionSucceeded = false;
+                return;
+            }
+            for (const tinygltf::Primitive& primitive : model.meshes[node.mesh].primitives)
+            {
+                if (!AppendPrimitive(model, primitive, nodeTransform, outMesh, firstMaterialIndex))
+                {
+                    conversionSucceeded = false;
+                    break;
+                }
+            }
+            return;
+        }
+        for (int childIndex : node.children)
+        {
+            findNode(childIndex, nodeTransform);
+        }
+    };
+    for (int rootNodeIndex : GetGltfSceneRootNodes(model))
+    {
+        findNode(rootNodeIndex, DirectX::XMMatrixIdentity());
+    }
+    if (!found)
+    {
+        message = "The glTF node is not reachable from the default scene.";
+        return GltfNodeMeshStatus::NodeNotFound;
+    }
+    if (!conversionSucceeded || outMesh.vertices.empty() || outMesh.indices.empty())
+    {
+        outMesh = {};
+        message = "The glTF node mesh could not be converted.";
+        return GltfNodeMeshStatus::MeshConversionFailed;
+    }
+    outMesh.materialIndex = firstMaterialIndex;
+    CopyMaterialsAndTextures(model, outMesh);
+    return GltfNodeMeshStatus::Success;
+}

@@ -568,8 +568,6 @@ TemporalUpscalerSupportStatus ToSupportStatus(sl::Result result)
 
 TemporalUpscalerSupportStatus InitializeStreamlineAdapterWithSdk(const StreamlineAdapterInitDesc& desc)
 {
-    UNREFERENCED_PARAMETER(desc);
-
     if (g_streamlineAdapterState.sdkInitialized)
     {
         return g_streamlineAdapterState.status;
@@ -581,8 +579,9 @@ TemporalUpscalerSupportStatus InitializeStreamlineAdapterWithSdk(const Streamlin
     preferences.numFeaturesToLoad = _countof(featuresToLoad);
     preferences.flags |= sl::PreferenceFlags::eUseFrameBasedResourceTagging;
     preferences.engine = sl::EngineType::eCustom;
-    preferences.engineVersion = "1.0.0";
-    preferences.projectId = "a0f57b54-1daf-4934-90ae-c4035c19df04";
+    preferences.engineVersion = desc.engineVersion != nullptr ? desc.engineVersion : "1.0.0";
+    preferences.projectId =
+        desc.projectId != nullptr ? desc.projectId : "a0f57b54-1daf-4934-90ae-c4035c19df04";
     preferences.renderAPI = sl::RenderAPI::eD3D12;
 #if defined(_DEBUG)
     preferences.logLevel = sl::LogLevel::eDefault;
