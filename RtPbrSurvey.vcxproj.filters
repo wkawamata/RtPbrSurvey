@@ -66,6 +66,9 @@
     <ClInclude Include="App\DebugUi.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>
+    <ClInclude Include="App\EvaluationCaseUi.h">
+      <Filter>Source Files\App</Filter>
+    </ClInclude>
     <ClInclude Include="App\SceneSelectUi.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>
@@ -327,6 +330,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="App\DebugUi.cpp">
+      <Filter>Source Files\App</Filter>
+    </ClCompile>
+    <ClCompile Include="App\EvaluationCaseUi.cpp">
       <Filter>Source Files\App</Filter>
     </ClCompile>
     <ClCompile Include="App\SceneSelectUi.cpp">

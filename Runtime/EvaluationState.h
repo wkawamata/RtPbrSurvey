@@ -40,6 +40,7 @@ struct EvaluationState
 {
     uint64_t id = 0;
     std::string name;
+    std::string comment;
     int sceneIndex = -1;
     std::string sceneName;
     nlohmann::json sceneConfig = nlohmann::json::object();

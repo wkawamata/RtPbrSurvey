@@ -143,6 +143,7 @@ private:
 
     std::unordered_map<std::string, SceneConfig> m_defaults;
     std::unordered_map<std::string, SceneConfig> m_userOverrides;
+    std::unordered_map<std::string, SceneConfig> m_codeDefaults;
 
     void ReadDefaultsFromDisk();
     void ReadUserConfigFromDisk();
@@ -151,6 +152,10 @@ private:
     SceneConfig CaptureFromApp(const RtPbrSurveyApp& app,
                                const RtPbrSurveyEngine& engine,
                                const Engine::SampleScene& scene) const;
+    SceneConfig CaptureCodeDefaults(const RtPbrSurveyApp& app,
+                                    const RtPbrSurveyEngine& engine,
+                                    const Engine::SampleScene& scene,
+                                    const std::string& sceneName) const;
 
     void ApplyToEngine(const SceneConfig& cfg,
                        RtPbrSurveyApp& app,

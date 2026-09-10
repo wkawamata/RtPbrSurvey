@@ -437,6 +437,22 @@ SceneConfig SceneConfigManager::CaptureFromApp(const RtPbrSurveyApp& app,
     return cfg;
 }
 
+SceneConfig SceneConfigManager::CaptureCodeDefaults(const RtPbrSurveyApp& app,
+                                                     const RtPbrSurveyEngine& engine,
+                                                     const Engine::SampleScene& scene,
+                                                     const std::string& sceneName) const
+{
+    const SceneConfig loadedSceneState = CaptureFromApp(app, engine, scene);
+    SceneConfig defaults;
+    defaults.sceneName = sceneName;
+    defaults.camera = loadedSceneState.camera;
+    defaults.meshScale = loadedSceneState.meshScale;
+    defaults.displayInstanceCount = loadedSceneState.displayInstanceCount;
+    defaults.selectedMaterialIndex = loadedSceneState.selectedMaterialIndex;
+    defaults.isPlaying = loadedSceneState.isPlaying;
+    return defaults;
+}
+
 // ---------------------------------------------------------------------------
 // Apply: write SceneConfig into app/engine state
 // ---------------------------------------------------------------------------
@@ -545,13 +561,16 @@ void SceneConfigManager::LoadAndApplyForScene(int sceneIndex,
     ReadUserConfigFromDisk();
 
     const std::string name = SceneConfigKey(scene, sceneIndex);
-    SceneConfig defaults = CaptureFromApp(app, engine, scene);
-    defaults.sceneName = name;
+    auto codeDefaults = m_codeDefaults.find(name);
+    if (codeDefaults == m_codeDefaults.end())
+    {
+        codeDefaults = m_codeDefaults.emplace(name, CaptureCodeDefaults(app, engine, scene, name)).first;
+    }
 
     auto defaultEntry = FindEntryByIndex(m_defaults, scene, sceneIndex);
     auto userEntry = FindEntryByIndex(m_userOverrides, scene, sceneIndex);
 
-    SceneConfig merged = Merge(defaultEntry.value_or(defaults), userEntry);
+    SceneConfig merged = Merge(defaultEntry.value_or(codeDefaults->second), userEntry);
 
     ApplyToEngine(merged, app, engine);
 }
@@ -617,12 +636,17 @@ void SceneConfigManager::LoadDefaultsForScene(int sceneIndex,
     ReadDefaultsFromDisk();
 
     auto defaultEntry = FindEntryByIndex(m_defaults, scene, sceneIndex);
-    if (!defaultEntry.has_value())
+    if (defaultEntry.has_value())
     {
+        ApplyToEngine(defaultEntry.value(), app, engine);
         return;
     }
 
-    ApplyToEngine(defaultEntry.value(), app, engine);
+    const auto codeDefaults = m_codeDefaults.find(SceneConfigKey(scene, sceneIndex));
+    if (codeDefaults != m_codeDefaults.end())
+    {
+        ApplyToEngine(codeDefaults->second, app, engine);
+    }
 }
 
 void SceneConfigManager::ResetCurrentScene(int sceneIndex,
@@ -638,12 +662,17 @@ void SceneConfigManager::ResetCurrentScene(int sceneIndex,
     WriteUserConfigToDisk();
 
     auto defaultEntry = FindEntryByIndex(m_defaults, scene, sceneIndex);
-    if (!defaultEntry.has_value())
+    if (defaultEntry.has_value())
     {
+        ApplyToEngine(defaultEntry.value(), app, engine);
         return;
     }
 
-    ApplyToEngine(defaultEntry.value(), app, engine);
+    const auto codeDefaults = m_codeDefaults.find(name);
+    if (codeDefaults != m_codeDefaults.end())
+    {
+        ApplyToEngine(codeDefaults->second, app, engine);
+    }
 }
 
 void SceneConfigManager::ResetAllScenes(RtPbrSurveyApp& app,

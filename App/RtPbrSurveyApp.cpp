@@ -1369,13 +1369,6 @@ void RtPbrSurveyApp::FailAutomatedCapture(const std::string& error)
 
 void RtPbrSurveyApp::OnDestroy()
 {
-    // Save current scene config before shutdown
-    if (m_loadedSceneIndex >= 0 && !HasAutomatedCapture())
-    {
-        m_sceneConfig.SaveCurrentScene(
-            m_loadedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
-    }
-
     if (m_logFile)
     {
         FlushD3D12DebugMessages();
@@ -1530,15 +1523,8 @@ void RtPbrSurveyApp::LoadSceneCpuData(int sceneIndex)
 
 void RtPbrSurveyApp::OpenSelectedScene()
 {
-    // Save outgoing scene config before switching
-    if (m_loadedSceneIndex >= 0 && m_selectedSceneIndex != m_loadedSceneIndex)
-    {
-        m_sceneConfig.SaveCurrentScene(
-            m_loadedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(),
-            *m_sampleScenes[static_cast<size_t>(m_loadedSceneIndex)]);
-    }
-
-    if (m_selectedSceneIndex != m_loadedSceneIndex)
+    m_evaluationRoi = {};
+    if (m_selectedSceneIndex != m_loadedSceneIndex || !m_sceneResourcesLoaded)
     {
         LoadSceneCpuData(m_selectedSceneIndex);
     }
@@ -1690,13 +1676,6 @@ void RtPbrSurveyApp::ApplyDlssSrCommandLineOptions()
 
 void RtPbrSurveyApp::CloseRunningScene()
 {
-    // Save current scene config before closing
-    if (m_loadedSceneIndex >= 0)
-    {
-        m_sceneConfig.SaveCurrentScene(
-            m_loadedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
-    }
-
     m_appMode = AppMode::SceneSelect;
     m_isPlaying = false;
     m_framePaused = false;

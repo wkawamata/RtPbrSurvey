@@ -22,6 +22,7 @@ bool TestRoundTripPreservesJapaneseAndTypedJudgments()
     RtPbrSurvey::EvaluationState state;
     state.id = 7;
     state.name = "DLSS RR 評価";
+    state.comment = "金属面の時間安定性を確認";
     state.sceneIndex = 3;
     state.sceneName = "DamagedHelmet";
     state.sceneConfig = {{"camera", {{"mode", "arcball"}}}, {"renderingPath", 1}};
@@ -44,6 +45,7 @@ bool TestRoundTripPreservesJapaneseAndTypedJudgments()
         Check(RtPbrSurvey::DeserializeEvaluationStates(serialized, restored, &error), "evaluation states deserialize");
     passed &= Check(error.empty(), "successful deserialize clears error");
     passed &= Check(restored.size() == 1 && restored[0].name == state.name, "state identity round-trips");
+    passed &= Check(restored[0].comment == state.comment, "Japanese comment round-trips");
     passed &= Check(restored[0].sceneConfig == state.sceneConfig, "captured scene config round-trips");
     passed &=
         Check(restored[0].testItems.size() == 2 && restored[0].testItems[0].score == 4, "score result round-trips");
@@ -68,6 +70,17 @@ bool TestInvalidDocumentIsNonDestructive()
     return Check(!RtPbrSurvey::DeserializeEvaluationStates("{invalid", states, &error), "invalid JSON is rejected") &&
            Check(!error.empty(), "invalid JSON reports an error") &&
            Check(states.size() == 1 && states[0].id == 9, "invalid JSON does not replace existing states");
+}
+
+bool TestLegacyStateWithoutCommentLoadsAsEmpty()
+{
+    const std::string document =
+        R"({"schemaVersion":1,"states":[{"id":1,"name":"Legacy","scene":{"index":0,"name":"Scene","config":{}},"roi":{},"testItems":[]}]})";
+    std::vector<RtPbrSurvey::EvaluationState> states;
+    std::string error;
+    return Check(RtPbrSurvey::DeserializeEvaluationStates(document, states, &error),
+                 "legacy evaluation state deserializes") &&
+           Check(states.size() == 1 && states[0].comment.empty(), "missing comment defaults to empty");
 }
 
 bool TestStoreSavesAndLoadsEvaluationStates()
@@ -104,7 +117,8 @@ bool TestStoreSavesAndLoadsEvaluationStates()
 int main()
 {
     const bool passed = TestRoundTripPreservesJapaneseAndTypedJudgments() && TestRoiIsClampedToNormalizedViewport() &&
-                        TestInvalidDocumentIsNonDestructive() && TestStoreSavesAndLoadsEvaluationStates();
+                        TestInvalidDocumentIsNonDestructive() && TestLegacyStateWithoutCommentLoadsAsEmpty() &&
+                        TestStoreSavesAndLoadsEvaluationStates();
     if (passed)
     {
         std::cout << "EvaluationState tests passed.\n";

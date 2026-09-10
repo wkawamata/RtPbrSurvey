@@ -12,6 +12,7 @@
 #pragma once
 
 #include "App/DebugUi.h"
+#include "App/EvaluationCaseUi.h"
 #include "App/SceneConfig.h"
 #include "App/SceneSelectUi.h"
 #include "Camera/DebugCameraController.h"
@@ -67,6 +68,7 @@ public:
 
 private:
     friend void App::DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& context);
+    friend void App::DrawEvaluationCasesWindow(RtPbrSurveyApp& app, App::EvaluationCaseScope scope);
     friend void App::DrawSceneSelectUi(RtPbrSurveyApp& app);
     friend class App::SceneConfigManager;
 
@@ -159,6 +161,7 @@ private:
     RtPbrSurvey::EvaluationStateStore m_evaluationStates;
     RtPbrSurvey::EvaluationRoi m_evaluationRoi;
     int m_selectedEvaluationStateIndex = -1;
+    uint64_t m_evaluationDeleteCandidateId = 0;
     std::string m_evaluationStatus;
 
     // Debug logging to file (-LogToFile / -LogFPS).

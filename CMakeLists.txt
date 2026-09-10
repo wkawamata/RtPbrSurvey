@@ -309,6 +309,7 @@ if(RTPBRSURVEY_BUILD_APP)
     add_executable(RtPbrSurvey WIN32
         Main.cpp
         App/DebugUi.cpp
+        App/EvaluationCaseUi.cpp
         App/RtPbrSurveyApp.cpp
         App/SceneConfig.cpp
         App/SceneSelectUi.cpp)

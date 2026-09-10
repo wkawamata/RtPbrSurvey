@@ -219,6 +219,7 @@
     <ClInclude Include="Ui\DebugUiPreferences.h" />
     <ClInclude Include="Ui\ImGuiSystem.h" />
     <ClInclude Include="App\DebugUi.h" />
+    <ClInclude Include="App\EvaluationCaseUi.h" />
     <ClInclude Include="App\SceneSelectUi.h" />
     <ClInclude Include="App\RtPbrSurveyApp.h" />
     <ClInclude Include="App\SceneConfig.h" />
@@ -311,6 +312,7 @@
     <ClCompile Include="Engine\RtPbrSurveyEnginePasses.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="App\DebugUi.cpp" />
+    <ClCompile Include="App\EvaluationCaseUi.cpp" />
     <ClCompile Include="App\SceneSelectUi.cpp" />
     <ClCompile Include="App\RtPbrSurveyApp.cpp" />
     <ClCompile Include="App\SceneConfig.cpp" />

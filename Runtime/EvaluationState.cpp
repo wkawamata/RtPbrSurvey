@@ -94,6 +94,7 @@ json StateToJson(const EvaluationState& state)
     return {
         {"id", state.id},
         {"name", state.name},
+        {"comment", state.comment},
         {"scene", {{"index", state.sceneIndex}, {"name", state.sceneName}, {"config", state.sceneConfig}}},
         {"roi", RoiToJson(state.roi)},
         {"testItems", std::move(testItems)},
@@ -105,6 +106,7 @@ EvaluationState StateFromJson(const json& value)
     EvaluationState state;
     state.id = value.value("id", uint64_t{0});
     state.name = value.value("name", std::string{});
+    state.comment = value.value("comment", std::string{});
     if (value.contains("scene") && value.at("scene").is_object())
     {
         const json& scene = value.at("scene");

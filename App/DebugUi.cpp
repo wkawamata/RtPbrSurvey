@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "DebugUi.h"
+#include "EvaluationCaseUi.h"
 #include "SceneSelectUi.h"
 #include "RtPbrSurveyApp.h"
 #include "../ImGuiWidgets.h"
@@ -392,6 +393,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneSelect)
     {
         App::DrawSceneSelectUi(app);
+        App::DrawEvaluationCasesWindow(app, App::EvaluationCaseScope::AllScenes);
         return;
     }
 
@@ -1514,183 +1516,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         app.m_sceneRenderer.SetSpecularDebugLineSettings(debugLines);
     }
 
-    if (ImGui::CollapsingHeader("Evaluation State"))
-    {
-        std::vector<RtPbrSurvey::EvaluationState>& states = app.m_evaluationStates.States();
-        ImGui::Text("Path: %s", app.m_evaluationStates.Path().c_str());
-
-        if (ImGui::Button("New Snapshot"))
-        {
-            RtPbrSurvey::EvaluationState state;
-            state.id = app.m_evaluationStates.NextStateId();
-            state.name = "Evaluation " + std::to_string(state.id);
-            std::string error;
-            if (app.CaptureEvaluationState(state, &error))
-            {
-                states.push_back(std::move(state));
-                app.m_selectedEvaluationStateIndex = static_cast<int>(states.size()) - 1;
-                if (app.m_evaluationStates.Save(&error))
-                {
-                    app.m_evaluationStatus = "Snapshot created.";
-                }
-                else
-                {
-                    app.m_evaluationStatus = "Save failed: " + error;
-                }
-            }
-            else
-            {
-                app.m_evaluationStatus = "Capture failed: " + error;
-            }
-        }
-
-        if (states.empty())
-        {
-            ImGui::TextDisabled("No evaluation snapshots.");
-        }
-        else
-        {
-            app.m_selectedEvaluationStateIndex = std::clamp(
-                app.m_selectedEvaluationStateIndex, 0, static_cast<int>(states.size()) - 1);
-            const char* selectedName = states[static_cast<size_t>(app.m_selectedEvaluationStateIndex)].name.c_str();
-            if (ImGui::BeginCombo("Snapshot", selectedName))
-            {
-                for (size_t i = 0; i < states.size(); ++i)
-                {
-                    const bool selected = static_cast<int>(i) == app.m_selectedEvaluationStateIndex;
-                    if (ImGui::Selectable(states[i].name.c_str(), selected))
-                    {
-                        app.m_selectedEvaluationStateIndex = static_cast<int>(i);
-                    }
-                    if (selected)
-                    {
-                        ImGui::SetItemDefaultFocus();
-                    }
-                }
-                ImGui::EndCombo();
-            }
-
-            RtPbrSurvey::EvaluationState& state =
-                states[static_cast<size_t>(app.m_selectedEvaluationStateIndex)];
-            app.m_evaluationRoi = state.roi;
-            ImGui::InputText("Name", &state.name);
-            ImGui::Text("Scene: %s", state.sceneName.c_str());
-
-            if (ImGui::Button("Save State"))
-            {
-                std::string error;
-                if (app.CaptureEvaluationState(state, &error) && app.m_evaluationStates.Save(&error))
-                {
-                    app.m_evaluationStatus = "Scene, renderer, camera, and ROI saved.";
-                }
-                else
-                {
-                    app.m_evaluationStatus = "Save failed: " + error;
-                }
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Restore"))
-            {
-                std::string error;
-                if (app.RestoreEvaluationState(state, &error))
-                {
-                    app.m_evaluationStatus = "Snapshot restored.";
-                }
-                else
-                {
-                    app.m_evaluationStatus = "Restore failed: " + error;
-                }
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Save Results"))
-            {
-                std::string error;
-                app.m_evaluationStatus = app.m_evaluationStates.Save(&error) ? "Evaluation results saved."
-                                                                            : "Save failed: " + error;
-            }
-            ImGui::SameLine();
-            const bool deleteRequested = ImGui::Button("Delete");
-
-            ImGui::SeparatorText("ROI");
-            ImGui::Checkbox("Enabled##EvaluationRoi", &state.roi.enabled);
-            float roiOrigin[] = {state.roi.x, state.roi.y};
-            float roiSize[] = {state.roi.width, state.roi.height};
-            bool roiChanged = ImGui::DragFloat2("Origin", roiOrigin, 0.005f, 0.0f, 1.0f, "%.3f");
-            roiChanged |= ImGui::DragFloat2("Size", roiSize, 0.005f, 0.0f, 1.0f, "%.3f");
-            if (roiChanged)
-            {
-                state.roi.x = roiOrigin[0];
-                state.roi.y = roiOrigin[1];
-                state.roi.width = roiSize[0];
-                state.roi.height = roiSize[1];
-                state.roi.Sanitize();
-            }
-            app.m_evaluationRoi = state.roi;
-
-            ImGui::SeparatorText("Test Items");
-            if (ImGui::Button("Add Test Item"))
-            {
-                RtPbrSurvey::EvaluationTestItem item;
-                item.id = app.m_evaluationStates.NextTestItemId(state);
-                item.prompt = "Check item";
-                state.testItems.push_back(std::move(item));
-            }
-
-            std::optional<size_t> removeItemIndex;
-            for (size_t i = 0; i < state.testItems.size(); ++i)
-            {
-                RtPbrSurvey::EvaluationTestItem& item = state.testItems[i];
-                ImGui::PushID(static_cast<int>(item.id));
-                ImGui::SetNextItemWidth(-1.0f);
-                ImGui::InputText("Check", &item.prompt);
-                int judgmentKind = static_cast<int>(item.judgmentKind);
-                ImGui::SetNextItemWidth(130.0f);
-                if (ImGui::Combo("Judgment", &judgmentKind, "Score 1-5\0True / False\0"))
-                {
-                    item.judgmentKind = static_cast<RtPbrSurvey::EvaluationJudgmentKind>(judgmentKind);
-                }
-                ImGui::SameLine();
-                if (item.judgmentKind == RtPbrSurvey::EvaluationJudgmentKind::Score1To5)
-                {
-                    ImGui::SetNextItemWidth(150.0f);
-                    ImGui::SliderInt("Result", &item.score, 1, 5);
-                }
-                else
-                {
-                    ImGui::Checkbox("Result", &item.booleanValue);
-                    ImGui::SameLine();
-                    ImGui::TextUnformatted(item.booleanValue ? "true" : "false");
-                }
-                ImGui::SameLine();
-                if (ImGui::SmallButton("Remove"))
-                {
-                    removeItemIndex = i;
-                }
-                ImGui::Separator();
-                ImGui::PopID();
-            }
-            if (removeItemIndex.has_value())
-            {
-                state.testItems.erase(state.testItems.begin() + static_cast<ptrdiff_t>(*removeItemIndex));
-            }
-
-            if (deleteRequested)
-            {
-                states.erase(states.begin() + app.m_selectedEvaluationStateIndex);
-                app.m_selectedEvaluationStateIndex = states.empty()
-                    ? -1
-                    : (std::min)(app.m_selectedEvaluationStateIndex, static_cast<int>(states.size()) - 1);
-                std::string error;
-                app.m_evaluationStatus = app.m_evaluationStates.Save(&error) ? "Snapshot deleted."
-                                                                            : "Delete save failed: " + error;
-            }
-        }
-        if (!app.m_evaluationStatus.empty())
-        {
-            ImGui::TextWrapped("%s", app.m_evaluationStatus.c_str());
-        }
-    }
-
     if (ImGui::CollapsingHeader("Scene Config"))
     {
         // Status message (auto-clears after ~2 seconds)
@@ -1794,6 +1619,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
 
     ImGui::End();
+    App::DrawEvaluationCasesWindow(app, App::EvaluationCaseScope::CurrentScene);
     if (app.m_evaluationRoi.enabled)
     {
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
