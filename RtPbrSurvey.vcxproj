@@ -198,9 +198,13 @@
     <ClInclude Include="Renderer\ToneMap.h" />
     <ClInclude Include="Renderer\DebugLinePass.h" />
     <ClInclude Include="Renderer\DebugTexturePreviewPass.h" />
+    <ClInclude Include="Renderer\DebugResourceViewRegistry.h" />
+    <ClInclude Include="Renderer\DepthVisualization.h" />
     <ClInclude Include="Runtime\DebugLine.h" />
     <ClInclude Include="Runtime\SceneRenderer.h" />
+    <ClInclude Include="Runtime\DebugBufferInspector.h" />
     <ClInclude Include="Runtime\DebugTextureInspector.h" />
+    <ClInclude Include="Runtime\DebugTextureThumbnailScheduler.h" />
     <ClInclude Include="Runtime\SceneRendererDebugUi.h" />
     <ClInclude Include="Runtime\RenderGraphNodeEditorView.h" />
     <ClInclude Include="Runtime\SceneRendererSettings.h" />
@@ -285,9 +289,12 @@
     <ClCompile Include="Renderer\ToneMap.cpp" />
     <ClCompile Include="Renderer\DebugLinePass.cpp" />
     <ClCompile Include="Renderer\DebugTexturePreviewPass.cpp" />
+    <ClCompile Include="Renderer\DebugResourceViewRegistry.cpp" />
     <ClCompile Include="Runtime\DebugLine.cpp" />
     <ClCompile Include="Runtime\SceneRenderer.cpp" />
+    <ClCompile Include="Runtime\DebugBufferInspector.cpp" />
     <ClCompile Include="Runtime\DebugTextureInspector.cpp" />
+    <ClCompile Include="Runtime\DebugTextureThumbnailScheduler.cpp" />
     <ClCompile Include="Runtime\SceneRendererDebugUi.cpp" />
     <ClCompile Include="Runtime\RenderGraphNodeEditorView.cpp" />
     <ClCompile Include="Runtime\SceneRendererSettings.cpp" />
@@ -340,6 +347,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\FullscreenTriangle.hlsli" />
+    <None Include="Shaders\DepthVisualization.hlsli" />
     <None Include="Shaders\Material.hlsli" />
     <None Include="Shaders\InstanceData.hlsli" />
     <None Include="Shaders\SceneDrawConstants.hlsli" />
@@ -555,6 +563,19 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_DebugTexturePreview.hlsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Identity)</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Identity)</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">dxc.exe -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_VSMain.cso" "%(FullPath)"
+dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_PSMain.cso" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dxc.exe -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_VSMain.cso" "%(FullPath)"
+dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_PSMain.cso" "%(FullPath)"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_DebugBufferPreview.hlsl">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
       <FileType>Document</FileType>

@@ -26,6 +26,15 @@ void MaterialBuffer::Create(ID3D12Device* device,
     m_srv = descriptorHeapAllocator.Allocate();
     device->CreateShaderResourceView(m_buffer.Get(), &srvDesc, m_srv.Cpu());
 
+    D3D12_SHADER_RESOURCE_VIEW_DESC rawSrvDesc = {};
+    rawSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+    rawSrvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+    rawSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    rawSrvDesc.Buffer.NumElements = materialBufferSize / sizeof(uint32_t);
+    rawSrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+    m_rawSrv = descriptorHeapAllocator.Allocate();
+    device->CreateShaderResourceView(m_buffer.Get(), &rawSrvDesc, m_rawSrv.Cpu());
+
     Update(materials);
 }
 
@@ -45,6 +54,7 @@ void MaterialBuffer::Reset()
 {
     m_buffer.Reset();
     m_srv.Reset();
+    m_rawSrv.Reset();
 }
 
 } // namespace Engine

@@ -67,6 +67,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/DebugDumpCapture.cpp
     Renderer/DebugDumpReport.cpp
     Renderer/DebugLinePass.cpp
+    Renderer/DebugResourceViewRegistry.cpp
     Renderer/DebugTexturePreviewPass.cpp
     Renderer/EdgeAwareSpatialReflectionPass.cpp
     Renderer/EnvironmentMap.cpp
@@ -100,7 +101,9 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/TextureMipChain.cpp
     Renderer/ToneMap.cpp
     Runtime/SceneRenderer.cpp
+    Runtime/DebugBufferInspector.cpp
     Runtime/DebugTextureInspector.cpp
+    Runtime/DebugTextureThumbnailScheduler.cpp
     Runtime/DebugLine.cpp
     Runtime/SceneRendererDebugUi.cpp
     Runtime/RenderGraphNodeEditorView.cpp
@@ -243,6 +246,8 @@ if(RTPBRSURVEY_BUILD_SHADERS)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugLine.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugTexturePreview.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugTexturePreview.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugBufferPreview.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugBufferPreview.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ProceduralEnvMap.hlsl cs_6_0 CSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayQueryShadow.hlsl cs_6_5 CSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_HybridReflection.hlsl cs_6_5 CSMain)

@@ -12,7 +12,10 @@
 #pragma once
 
 #include "Engine/FrameGraph/RenderGraphDocument.h"
+#include "Renderer/DebugResourceViewRegistry.h"
 
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -31,6 +34,25 @@ struct RenderGraphGpuTimingSnapshot
     float totalGpuTimeMs = 0.0f;
 };
 
+struct RenderGraphResourceActions
+{
+    std::function<bool(const Engine::DebugResourceViewDescriptor&, bool)> openPreview;
+    std::function<bool(const std::string&)> isPreviewOpen;
+    std::function<uint64_t(const std::string&)> thumbnailTextureId;
+    std::function<void(const Engine::DebugResourceViewDescriptor&, bool)> requestThumbnail;
+    std::function<void(const std::string&)> closePreview;
+    std::function<void()> closeAllPreviews;
+    size_t activePreviewCount = 0;
+    size_t pinnedPreviewCount = 0;
+    size_t maxPreviewCount = 0;
+};
+
+struct RenderGraphTechnologyMetadata
+{
+    std::string dlssSrVersionText;
+    std::string dlssRayReconstructionVersionText;
+};
+
 class RenderGraphNodeEditorView
 {
 public:
@@ -42,7 +64,10 @@ public:
 
     void Draw(const Engine::RenderGraphDocument& document,
               const RenderGraphGpuTimingSnapshot* timing = nullptr,
-              const std::vector<Engine::RenderGraphBarrierDiagnostic>* barrierDiagnostics = nullptr);
+              const std::vector<Engine::RenderGraphBarrierDiagnostic>* barrierDiagnostics = nullptr,
+              const Engine::DebugResourceViewRegistry* resourceViewRegistry = nullptr,
+              const RenderGraphResourceActions* resourceActions = nullptr,
+              const RenderGraphTechnologyMetadata* technologyMetadata = nullptr);
 
 private:
     struct Impl;

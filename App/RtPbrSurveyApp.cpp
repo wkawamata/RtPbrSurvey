@@ -34,6 +34,8 @@ void RunStagedAllocatorTests(ID3D12Device* device);
 namespace
 {
 
+static_assert(Engine::ImGuiSystem::kMaxTextureCount >= RtPbrSurveyEngine::kMaxDebugTextureOutputCount);
+
 RtPbrSurveyEngine::RenderViewMode GetReflectionCaptureRenderViewMode(
     Platform::ReflectionCaptureDebugView debugView)
 {
@@ -1536,6 +1538,28 @@ void RtPbrSurveyApp::OpenSelectedScene()
     ApplyRayReconstructionCommandLineOverrides();
     ApplyDlssSrCommandLineOptions();
     m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
+    if (!m_commandLineOptions.debugPreviewResourceName.empty())
+    {
+        const Engine::DebugResourceInspection inspection =
+            m_sceneRenderer.GetDebugResourceViewRegistry().Inspect(m_commandLineOptions.debugPreviewResourceName);
+        if (!inspection.IsInspectable())
+        {
+            throw std::runtime_error("Debug Preview resource is unavailable: " +
+                                     m_commandLineOptions.debugPreviewResourceName);
+        }
+        const Engine::DebugResourceViewDescriptor& descriptor = *inspection.descriptor;
+        RtPbrSurvey::DebugTextureInspector* inspector =
+            m_debugTextureInspectors.OpenPreview(descriptor.resourceName,
+                                                 descriptor.resourceName,
+                                                 static_cast<RtPbrSurvey::DebugTextureSemantic>(
+                                                     static_cast<UINT>(descriptor.semantic)));
+        if (inspector == nullptr)
+        {
+            throw std::runtime_error("Debug Preview slot is unavailable.");
+        }
+        inspector->sourceViewKind = descriptor.viewKind;
+        inspector->bufferImageLayout = descriptor.imageLayout;
+    }
     m_appMode = AppMode::Running;
     m_framePaused = false;
     m_forwardStepRequested = false;
@@ -1614,27 +1638,91 @@ void RtPbrSurveyApp::InitializeImGui()
 
 void RtPbrSurveyApp::UpdateUiFrame()
 {
-    if (m_sceneRenderer.IsDebugTexturePreviewEnabled())
+    const auto thumbnailPlan =
+        m_debugTextureThumbnailScheduler.BuildFramePlan(m_debugTextureThumbnailFrameIndex++);
+    const bool hasThumbnail = std::any_of(thumbnailPlan.begin(),
+                                          thumbnailPlan.end(),
+                                          [](const auto& slot) { return slot.active; });
+    bool hasOpenInspector = std::any_of(m_debugTextureInspectors.Inspectors().begin(),
+                                        m_debugTextureInspectors.Inspectors().end(),
+                                        [](const auto& inspector) { return inspector.open; });
+    if (m_sceneRenderer.IsDebugTexturePreviewEnabled() && !hasOpenInspector && !hasThumbnail &&
+        m_commandLineOptions.enableDebugTexturePreview)
     {
-        m_debugTexturePreviewId = m_imguiSystem.UpdateTexture(
-            m_sceneRenderer.GetDebugTexturePreviewResource(), DXGI_FORMAT_R16G16B16A16_FLOAT);
-        if (m_debugTextureInspectors.Inspectors().empty())
+        m_debugTextureInspectors.OpenPreview("LightPass.RenderTarget",
+                                             "LightPass",
+                                             RtPbrSurvey::DebugTextureSemantic::Color);
+        hasOpenInspector = true;
+    }
+
+    if (hasOpenInspector || hasThumbnail)
+    {
+        UINT activeSlotMask = SyncDebugTextureInspectorToEngine();
+        UINT updateSlotMask = activeSlotMask;
+        for (size_t i = 0; i < thumbnailPlan.size(); ++i)
         {
-            m_debugTextureInspectors.OpenPreview("LightPass.RenderTarget",
-                                                 "LightPass",
-                                                 RtPbrSurvey::DebugTextureSemantic::Color);
-            m_sceneRenderer.SetDebugTexturePreviewSource("LightPass.RenderTarget");
+            if (!thumbnailPlan[i].active)
+            {
+                continue;
+            }
+            const UINT outputIndex = RtPbrSurveyEngine::kMaxDebugTexturePreviewCount + static_cast<UINT>(i);
+            Engine::DebugTexturePreviewSettings settings;
+            settings.semantic = thumbnailPlan[i].semantic;
+            settings.nearestSampling = true;
+            settings.depthVisualization = m_sceneRenderer.GetDefaultDepthVisualizationSettings();
+            if (thumbnailPlan[i].viewKind == Engine::DebugResourceViewKind::Texture)
+            {
+                m_sceneRenderer.ConfigureDebugTexturePreview(
+                    outputIndex, thumbnailPlan[i].resourceName, settings);
+            }
+            else
+            {
+                const Engine::DebugResourceInspection inspection =
+                    m_sceneRenderer.GetDebugResourceViewRegistry().Inspect(thumbnailPlan[i].resourceName);
+                if (!inspection.IsInspectable())
+                {
+                    continue;
+                }
+                const Engine::DebugBufferImageLayout& layout = inspection.descriptor->imageLayout;
+                settings.bufferWidth = layout.width;
+                settings.bufferHeight = layout.height;
+                settings.bufferRowStrideElements = layout.rowStrideElements;
+                settings.bufferElementStride = inspection.descriptor->elementStride;
+                settings.bufferComponentOffsetBytes = layout.componentOffsetBytes;
+                settings.bufferComponentCount = layout.componentCount;
+                settings.bufferComponentType = static_cast<UINT>(layout.componentType);
+                m_sceneRenderer.ConfigureDebugBufferPreview(outputIndex, *inspection.descriptor, settings);
+            }
+            activeSlotMask |= 1u << outputIndex;
+            if (thumbnailPlan[i].update)
+            {
+                updateSlotMask |= 1u << outputIndex;
+            }
         }
-        SyncDebugTextureInspectorToEngine();
+        m_sceneRenderer.SetDebugTexturePreviewActiveSlots(activeSlotMask);
+        m_sceneRenderer.SetDebugTexturePreviewUpdateSlots(updateSlotMask);
+
+        for (UINT i = 0; i < RtPbrSurveyEngine::kMaxDebugTextureOutputCount; ++i)
+        {
+            if ((activeSlotMask & (1u << i)) != 0)
+            {
+                m_debugTexturePreviewIds[i] = m_imguiSystem.UpdateTexture(
+                    i, m_sceneRenderer.GetDebugTexturePreviewResource(i), DXGI_FORMAT_R16G16B16A16_FLOAT);
+            }
+            else
+            {
+                m_imguiSystem.ClearTexture(i);
+                m_debugTexturePreviewIds[i] = 0;
+            }
+        }
     }
     else
     {
-        m_imguiSystem.ClearTexture();
-        m_debugTexturePreviewId = 0;
-        for (const RtPbrSurvey::DebugTextureInspector& inspector : m_debugTextureInspectors.Inspectors())
-        {
-            m_debugTextureInspectors.Close(inspector.id);
-        }
+        m_sceneRenderer.SetDebugTexturePreviewActiveSlots(0);
+        m_sceneRenderer.SetDebugTexturePreviewUpdateSlots(0);
+        m_imguiSystem.ClearTextures();
+        m_debugTexturePreviewIds.fill(0);
+        m_debugTextureInspectors.CloseAll();
         m_debugTextureInspectors.RemoveClosed();
     }
     m_imguiSystem.BeginFrame();
@@ -1646,25 +1734,51 @@ void RtPbrSurveyApp::UpdateUiFrame()
     m_imguiSystem.EndFrame();
 }
 
-void RtPbrSurveyApp::SyncDebugTextureInspectorToEngine()
+UINT RtPbrSurveyApp::SyncDebugTextureInspectorToEngine()
 {
     std::vector<RtPbrSurvey::DebugTextureInspector>& inspectors = m_debugTextureInspectors.Inspectors();
-    if (inspectors.empty())
+    UINT activeSlotMask = 0;
+    for (const RtPbrSurvey::DebugTextureInspector& inspector : inspectors)
     {
-        return;
+        if (inspector.slotIndex >= RtPbrSurveyEngine::kMaxDebugTexturePreviewCount)
+        {
+            continue;
+        }
+
+        Engine::DebugTexturePreviewSettings settings;
+        settings.semantic = static_cast<Engine::DebugTexturePreviewSemantic>(static_cast<UINT>(inspector.semantic));
+        settings.channel = static_cast<Engine::DebugTexturePreviewChannel>(static_cast<UINT>(inspector.channel));
+        settings.nearestSampling = inspector.filter == RtPbrSurvey::DebugTextureFilter::Nearest;
+        settings.exposure = inspector.exposure;
+        settings.scale = inspector.scale;
+        settings.offset = inspector.offset;
+        settings.depthVisualization = inspector.depthVisualization;
+        if (inspector.sourceViewKind == Engine::DebugResourceViewKind::Texture)
+        {
+            m_sceneRenderer.ConfigureDebugTexturePreview(inspector.slotIndex, inspector.resourceName, settings);
+        }
+        else
+        {
+            settings.bufferVisualizationMode = inspector.bufferVisualizationMode;
+            settings.bufferWidth = inspector.bufferImageLayout.width;
+            settings.bufferHeight = inspector.bufferImageLayout.height;
+            settings.bufferRowStrideElements = inspector.bufferImageLayout.rowStrideElements;
+            settings.bufferElementStride = 0;
+            settings.bufferComponentOffsetBytes = inspector.bufferImageLayout.componentOffsetBytes;
+            settings.bufferComponentCount = inspector.bufferImageLayout.componentCount;
+            settings.bufferComponentType = static_cast<UINT>(inspector.bufferImageLayout.componentType);
+            const Engine::DebugResourceInspection inspection =
+                m_sceneRenderer.GetDebugResourceViewRegistry().Inspect(inspector.resourceName);
+            if (!inspection.IsInspectable())
+            {
+                continue;
+            }
+            settings.bufferElementStride = inspection.descriptor->elementStride;
+            m_sceneRenderer.ConfigureDebugBufferPreview(inspector.slotIndex, *inspection.descriptor, settings);
+        }
+        activeSlotMask |= 1u << inspector.slotIndex;
     }
-    const RtPbrSurvey::DebugTextureInspector& inspector = inspectors.front();
-    m_sceneRenderer.SetDebugTexturePreviewSource(inspector.resourceName);
-    m_sceneRenderer.SetDebugTexturePreviewSemantic(
-        static_cast<Engine::DebugTexturePreviewSemantic>(static_cast<UINT>(inspector.semantic)));
-    m_sceneRenderer.SetDebugTexturePreviewChannel(
-        static_cast<Engine::DebugTexturePreviewChannel>(static_cast<UINT>(inspector.channel)));
-    m_sceneRenderer.SetDebugTexturePreviewNearestSampling(inspector.filter == RtPbrSurvey::DebugTextureFilter::Nearest);
-    Engine::DebugTexturePreviewSettings settings = m_sceneRenderer.GetDebugTexturePreviewSettings();
-    settings.exposure = inspector.exposure;
-    settings.scale = inspector.scale;
-    settings.offset = inspector.offset;
-    m_sceneRenderer.SetDebugTexturePreviewSettings(settings);
+    return activeSlotMask;
 }
 
 Engine::SampleScene& RtPbrSurveyApp::LoadedScene()

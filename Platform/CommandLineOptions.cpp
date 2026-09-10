@@ -21,6 +21,21 @@ bool IsCommandLineArg(const WCHAR* arg, const WCHAR* expected)
     return _wcsicmp(arg, expected) == 0;
 }
 
+bool TryParseDebugResourceName(const WCHAR* value, std::string& resourceName)
+{
+    resourceName.clear();
+    for (const WCHAR* character = value; *character != L'\0'; ++character)
+    {
+        if (*character < 0x20 || *character > 0x7e)
+        {
+            resourceName.clear();
+            return false;
+        }
+        resourceName.push_back(static_cast<char>(*character));
+    }
+    return !resourceName.empty();
+}
+
 bool TryParseDlssSrQualityMode(const WCHAR* value, DlssSrQualityMode& qualityMode)
 {
     struct QualityModeName
@@ -214,6 +229,14 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         }
         else if (IsCommandLineArg(argv[i], L"-EnableDebugTexturePreview"))
         {
+            options.enableDebugTexturePreview = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-DebugPreviewResource"))
+        {
+            if (i + 1 >= argc || !TryParseDebugResourceName(argv[++i], options.debugPreviewResourceName))
+            {
+                throw std::invalid_argument("-DebugPreviewResource expects a non-empty ASCII resource name.");
+            }
             options.enableDebugTexturePreview = true;
         }
         else if (IsCommandLineArg(argv[i], L"-DlssQuality"))

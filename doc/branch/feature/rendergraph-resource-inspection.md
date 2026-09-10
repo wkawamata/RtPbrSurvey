@@ -24,10 +24,10 @@ This document extends the completed read-only RenderGraph diagnostics roadmap. I
 The current implementation provides:
 
 - a read-only RenderGraph node editor with selection, search, filtering, details, lifetime, timing, validation, and barrier diagnostics;
-- one persistent `DebugTexturePreview.Output` texture;
-- one `DebugTexturePreviewPass` that converts a selected Texture into displayable RGBA16F;
-- one ImGui texture descriptor and one effective GPU preview slot;
-- multiple-inspector data structures, although the UI currently closes the previous inspector when another preview is opened;
+- up to four `DebugTexturePreview.Output.N` textures;
+- one independent `DebugTexturePreviewPass.N` conversion pass per live Inspector;
+- one ImGui texture descriptor and stable GPU slot per live Inspector;
+- open/focus, close, close-all, independent display settings, and bounded slot reuse;
 - DLSS/RR Debug UI radio buttons and `Preview` buttons;
 - a transitional `Preview LightPass` checkbox in the RenderGraph window.
 
@@ -50,7 +50,6 @@ The following RR-related Texture resources already have full-screen debug views 
 
 Current limitations:
 
-- only one resource can be displayed in the standalone preview at a time;
 - the preview cannot be opened from a RenderGraph resource node;
 - `ReflectionResolvedRadiance` is available through existing render-view diagnostics but is not registered as a standalone Inspector source;
 - `ReflectionRayHit`, ray color, material, and emission resources are diagnostics, not part of the current minimum native RR input contract;
@@ -186,7 +185,9 @@ Required behavior:
 - Closing the final slot removes all preview passes.
 - The first implementation supports at most four live GPU preview slots and reports the limit in the UI.
 - The first Preview window uses the current default Preview position and size.
-- Additional windows use a small deterministic cascade offset so their title bars remain reachable.
+- Unsaved windows use a two-column reverse-N order from the upper-right: upper-right, upper-left, lower-right,
+  then lower-left.
+- `Arrange` reapplies this layout to all live Preview windows on request.
 - After first use, each Preview window behaves as a normal movable/resizable ImGui window. User-selected position and size are restored by stable window identity.
 - Automatic default positioning uses `ImGuiCond_FirstUseEver` or equivalent behavior and must not overwrite a user-moved window every frame.
 

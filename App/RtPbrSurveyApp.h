@@ -21,6 +21,7 @@
 #include "Platform/WindowInfo.h"
 #include "Runtime/SceneRenderer.h"
 #include "Runtime/DebugTextureInspector.h"
+#include "Runtime/DebugTextureThumbnailScheduler.h"
 #include "Scene/SampleScene.h"
 #include "Ui/ImGuiSystem.h"
 
@@ -83,7 +84,7 @@ private:
     void CloseRunningScene();
     void InitializeImGui();
     void UpdateUiFrame();
-    void SyncDebugTextureInspectorToEngine();
+    UINT SyncDebugTextureInspectorToEngine();
     void UpdateAutomatedCaptureCamera();
     bool HasAutomatedCapture() const;
     void FailAutomatedCapture(const std::string& error);
@@ -145,7 +146,9 @@ private:
     ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
     Engine::ImGuiSystem m_imguiSystem;
     RtPbrSurvey::DebugTextureInspectorManager m_debugTextureInspectors;
-    uint64_t m_debugTexturePreviewId = 0;
+    RtPbrSurvey::DebugTextureThumbnailScheduler m_debugTextureThumbnailScheduler;
+    std::array<uint64_t, RtPbrSurveyEngine::kMaxDebugTextureOutputCount> m_debugTexturePreviewIds = {};
+    uint64_t m_debugTextureThumbnailFrameIndex = 0;
 
     RtPbrSurvey::SceneRenderer m_sceneRenderer;
     RtPbrSurvey::DebugCameraController m_debugCamera;

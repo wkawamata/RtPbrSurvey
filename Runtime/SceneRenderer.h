@@ -49,6 +49,7 @@ namespace RtPbrSurvey
         UiFrameContext GetUiFrameContext() const;
         float CpuFrameTimeMs() const;
         Engine::RenderGraphDocument CaptureRenderGraphDocument() const;
+        const Engine::DebugResourceViewRegistry& GetDebugResourceViewRegistry() const;
         const std::vector<Engine::RenderGraphBarrierEvent>& GetRenderGraphBarrierEvents() const;
         std::vector<Engine::RenderGraphBarrierDiagnostic> GetRenderGraphBarrierDiagnostics() const;
         bool HasRenderGraphBarrierEvents() const;
@@ -78,9 +79,12 @@ namespace RtPbrSurvey
         RtPbrSurveyEngine::ToneMapParams GetToneMapParams() const;
         void SetRenderViewMode(RtPbrSurveyEngine::RenderViewMode mode);
         RtPbrSurveyEngine::RenderViewMode GetRenderViewMode() const;
+        void SetDepthVisualizationSettings(const Engine::DepthVisualizationSettings& settings);
+        const Engine::DepthVisualizationSettings& GetDepthVisualizationSettings() const;
+        Engine::DepthVisualizationSettings GetDefaultDepthVisualizationSettings() const;
         void SetDebugTexturePreviewEnabled(bool enabled);
         bool IsDebugTexturePreviewEnabled() const;
-        ID3D12Resource* GetDebugTexturePreviewResource() const;
+        ID3D12Resource* GetDebugTexturePreviewResource(UINT previewIndex = 0) const;
         void SetDebugTexturePreviewSource(const std::string& source);
         const std::string& GetDebugTexturePreviewSource() const;
         void SetDebugTexturePreviewSettings(const Engine::DebugTexturePreviewSettings& settings);
@@ -88,6 +92,15 @@ namespace RtPbrSurvey
         void SetDebugTexturePreviewSemantic(Engine::DebugTexturePreviewSemantic semantic);
         void SetDebugTexturePreviewChannel(Engine::DebugTexturePreviewChannel channel);
         void SetDebugTexturePreviewNearestSampling(bool nearestSampling);
+        void SetDebugTexturePreviewCount(UINT previewCount);
+        void SetDebugTexturePreviewActiveSlots(UINT activeSlotMask);
+        void SetDebugTexturePreviewUpdateSlots(UINT updateSlotMask);
+        void ConfigureDebugTexturePreview(UINT previewIndex,
+                                          const std::string& source,
+                                          const Engine::DebugTexturePreviewSettings& settings);
+        void ConfigureDebugBufferPreview(UINT previewIndex,
+                                         const Engine::DebugResourceViewDescriptor& descriptor,
+                                         const Engine::DebugTexturePreviewSettings& settings);
         void SetRequestHdrDump(bool request);
         void RequestReflectionHdrDiagnosticCapture(const Engine::ReflectionHdrDiagnosticRoi& roi);
         std::optional<Engine::ReflectionHdrDiagnosticFrame> ConsumeReflectionHdrDiagnosticFrame();

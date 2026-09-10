@@ -219,6 +219,12 @@
     <ClInclude Include="Renderer\DebugTexturePreviewPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\DebugResourceViewRegistry.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\DepthVisualization.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\DebugLinePass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -229,6 +235,12 @@
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="Runtime\DebugTextureInspector.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\DebugTextureThumbnailScheduler.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\DebugBufferInspector.h">
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="Runtime\SceneRendererDebugUi.h">
@@ -452,6 +464,9 @@
     <ClCompile Include="Renderer\DebugTexturePreviewPass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\DebugResourceViewRegistry.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\DebugLinePass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
@@ -462,6 +477,12 @@
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="Runtime\DebugTextureInspector.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="Runtime\DebugTextureThumbnailScheduler.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="Runtime\DebugBufferInspector.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="Runtime\SceneRendererDebugUi.cpp">
@@ -544,12 +565,18 @@
     <CustomBuild Include="Shaders\shaders_DebugTexturePreview.hlsl">
       <Filter>Shaders</Filter>
     </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_DebugBufferPreview.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
     <CustomBuild Include="Shaders\shaders_DebugLine.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\FullscreenTriangle.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\DepthVisualization.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="Shaders\Material.hlsli">

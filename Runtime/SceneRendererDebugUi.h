@@ -34,9 +34,11 @@ namespace RtPbrSurvey
                          EnvironmentMappingUiState* environment = nullptr);
         static void DrawEnvironmentMapping(SceneRenderer& renderer, EnvironmentMappingUiState& state);
         static void DrawRenderGraphDiagnostics(SceneRenderer& renderer,
-                                               const RenderGraphGpuTimingSnapshot* timing = nullptr);
+                                               const RenderGraphGpuTimingSnapshot* timing = nullptr,
+                                               const RenderGraphResourceActions* resourceActions = nullptr);
         static void DrawRenderGraphWindow(SceneRenderer& renderer,
                                           bool* open,
-                                          const RenderGraphGpuTimingSnapshot* timing = nullptr);
+                                          const RenderGraphGpuTimingSnapshot* timing = nullptr,
+                                          const RenderGraphResourceActions* resourceActions = nullptr);
     };
 }

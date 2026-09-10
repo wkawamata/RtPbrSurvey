@@ -37,9 +37,12 @@ void RtPbrSurveyEngine::BuildRenderPasses()
             AddPass(MakeTemporalUpscalerPass());
         }
         AddPass(MakeToneMapPass());
-        if (m_debugTexturePreviewEnabled)
+        for (UINT i = 0; i < kMaxDebugTextureOutputCount; ++i)
         {
-            AddPass(MakeDebugTexturePreviewPass());
+            if ((m_debugTexturePreviewUpdateSlotMask & (1u << i)) != 0)
+            {
+                AddPass(MakeDebugTexturePreviewPass(i));
+            }
         }
 
         if (m_debugViewSettings.requestHdrDump)
@@ -252,7 +255,8 @@ auto RtPbrSurveyEngine::MakeGBufferPass() -> RenderPass
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"GBufferPass")
         .Pipeline(Pipe::GBuffer)
-        .Reads({{kDepthStencilResourceName, D3D12_RESOURCE_STATE_DEPTH_WRITE}})
+        .Reads({{kDepthStencilResourceName, D3D12_RESOURCE_STATE_DEPTH_WRITE},
+                {kMaterialBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ}})
         .Writes({{kGBufferResourceNames[Engine::GBuffer::Albedo], D3D12_RESOURCE_STATE_RENDER_TARGET},
                  {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_RENDER_TARGET},
                  {kGBufferResourceNames[Engine::GBuffer::Material], D3D12_RESOURCE_STATE_RENDER_TARGET},
@@ -294,7 +298,8 @@ auto RtPbrSurveyEngine::MakeForwardPass() -> RenderPass
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"ForwardPass")
         .Pipeline(Pipe::Forward)
-        .Reads({{kDepthStencilResourceName, D3D12_RESOURCE_STATE_DEPTH_WRITE}})
+        .Reads({{kDepthStencilResourceName, D3D12_RESOURCE_STATE_DEPTH_WRITE},
+                {kMaterialBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ}})
         .Writes({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::TextureTable, Desc::TextureTable)
         .Descriptor(RootSignatureLayout::InstanceSrv, Desc::InstanceBufferSrv)
@@ -341,6 +346,7 @@ auto RtPbrSurveyEngine::MakeRayQueryTlasDebugPass() -> RenderPass
 auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
 {
     ResourceUsages reads = MakeGBufferReadUsages();
+    reads.push_back({kMaterialBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
     if (m_rayTracingSupport.IsSupported())
     {
         reads.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
@@ -638,18 +644,24 @@ auto RtPbrSurveyEngine::MakeTemporalUpscalerPass() -> RenderPass
         .Build();
 }
 
-auto RtPbrSurveyEngine::MakeDebugTexturePreviewPass() -> RenderPass
+auto RtPbrSurveyEngine::MakeDebugTexturePreviewPass(UINT previewIndex) -> RenderPass
 {
-    Engine::ResourceUsages reads = {{m_debugTexturePreviewSource, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
+    const bool bufferSource = m_debugTexturePreviewBufferSources[previewIndex];
+    Engine::ResourceUsages reads = {{m_debugTexturePreviewSources[previewIndex],
+                                     bufferSource ? D3D12_RESOURCE_STATE_GENERIC_READ
+                                                  : D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
+    const char* descriptorName = bufferSource
+        ? m_debugTexturePreviewSourceDescriptorNames[previewIndex].c_str()
+        : kDebugTexturePreviewDescriptorNames[previewIndex];
     return m_renderGraphRuntime.Authoring()
-        .CreatePass(L"DebugTexturePreviewPass")
-        .Pipeline(Pipe::DebugTexturePreview)
+        .CreatePass(kDebugTexturePreviewPassNames[previewIndex])
+        .Pipeline(bufferSource ? Pipe::DebugBufferPreview : Pipe::DebugTexturePreview)
         .Reads(std::move(reads))
-        .Writes({{kDebugTexturePreviewResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
-        .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::DebugTexturePreviewSourceSrv)
-        .Rtv(RtvName::DebugTexturePreview)
+        .Writes({{kDebugTexturePreviewResourceNames[previewIndex], D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::ToneMapSceneColor, descriptorName)
+        .Rtv(kDebugTexturePreviewRtvNames[previewIndex])
         .Operation(Op::DebugTexturePreview, &RtPbrSurveyEngine::ExecuteDebugTexturePreviewPass)
-        .Constants(RootSignatureLayout::ToneMapConstants, ConstName::DebugTexturePreview)
+        .Constants(RootSignatureLayout::ToneMapConstants, kDebugTexturePreviewConstantsNames[previewIndex])
         .Build();
 }
 
@@ -878,15 +890,21 @@ auto RtPbrSurveyEngine::MakeDebugLinePass() -> RenderPass
 
 auto RtPbrSurveyEngine::MakeImGuiPass() -> RenderPass
 {
+    ResourceUsages reads;
+    for (UINT i = 0; i < kMaxDebugTextureOutputCount; ++i)
+    {
+        if ((m_debugTexturePreviewActiveSlotMask & (1u << i)) != 0)
+        {
+            reads.push_back({kDebugTexturePreviewResourceNames[i], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        }
+    }
+
     auto builder = m_renderGraphRuntime.Authoring()
         .CreatePass(L"ImGui")
+        .Reads(std::move(reads))
         .Writes({{kBackBufferResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Rtv(RtvName::BackBuffer)
         .Operation(Op::ImGui, &RtPbrSurveyEngine::ExecuteImGuiPass);
-    if (m_debugTexturePreviewEnabled)
-    {
-        builder.Reads({{kDebugTexturePreviewResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}});
-    }
     return builder.Build();
 }
 

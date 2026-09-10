@@ -20,6 +20,8 @@
 #include "Renderer/DeferredGpuReleaseQueue.h"
 #include "Renderer/EnvironmentMap.h"
 #include "Renderer/DebugTexturePreviewPass.h"
+#include "Renderer/DebugResourceViewRegistry.h"
+#include "Renderer/DepthVisualization.h"
 #include "Renderer/GBuffer.h"
 #include "Renderer/HdrOutput.h"
 #include "Renderer/HybridReflectionPass.h"
@@ -98,6 +100,13 @@ namespace RootSignatureLayout = Engine::RootSignatureLayout;
 class RtPbrSurveyEngine
 {
 public:
+    static constexpr UINT kMaxDebugTexturePreviewCount = 8;
+    static constexpr UINT kMaxDebugTextureThumbnailCount = 4;
+    static constexpr UINT kMaxDebugTextureOutputCount =
+        kMaxDebugTexturePreviewCount + kMaxDebugTextureThumbnailCount;
+    static constexpr UINT kDebugTextureThumbnailWidth = 96;
+    static constexpr UINT kDebugTextureThumbnailHeight = 54;
+
     enum class RenderViewMode
     {
         LightPass = 0,
@@ -308,6 +317,10 @@ public:
     UiFrameContext GetUiFrameContext() const;
     float CpuFrameTimeMs() const { return m_cpuFrameTime; }
     Engine::RenderGraphDocument CaptureRenderGraphDocument() const;
+    const Engine::DebugResourceViewRegistry& GetDebugResourceViewRegistry() const
+    {
+        return m_debugResourceViewRegistry;
+    }
     const std::vector<Engine::RenderGraphBarrierEvent>& GetRenderGraphBarrierEvents() const;
     std::vector<Engine::RenderGraphBarrierDiagnostic> GetRenderGraphBarrierDiagnostics() const;
     bool HasRenderGraphBarrierEvents() const;
@@ -341,16 +354,32 @@ public:
     }
     void SetRenderViewMode(RenderViewMode mode);
     RenderViewMode GetRenderViewMode() const { return m_debugViewSettings.renderViewMode; }
-    void SetDebugTexturePreviewEnabled(bool enabled) { m_debugTexturePreviewEnabled = enabled; }
-    bool IsDebugTexturePreviewEnabled() const { return m_debugTexturePreviewEnabled; }
-    ID3D12Resource* GetDebugTexturePreviewResource() const { return m_debugTexturePreview.Get(); }
-    void SetDebugTexturePreviewSource(const std::string& source) { m_debugTexturePreviewSource = source; }
-    const std::string& GetDebugTexturePreviewSource() const { return m_debugTexturePreviewSource; }
+    void SetDepthVisualizationSettings(const Engine::DepthVisualizationSettings& settings);
+    const Engine::DepthVisualizationSettings& GetDepthVisualizationSettings() const
+    {
+        return m_depthVisualizationSettings;
+    }
+    Engine::DepthVisualizationSettings GetDefaultDepthVisualizationSettings() const;
+    void SetDebugTexturePreviewEnabled(bool enabled);
+    bool IsDebugTexturePreviewEnabled() const;
+    ID3D12Resource* GetDebugTexturePreviewResource(UINT previewIndex = 0) const;
+    void SetDebugTexturePreviewSource(const std::string& source);
+    const std::string& GetDebugTexturePreviewSource() const { return m_debugTexturePreviewSources[0]; }
     void SetDebugTexturePreviewSettings(const Engine::DebugTexturePreviewSettings& settings);
     const Engine::DebugTexturePreviewSettings& GetDebugTexturePreviewSettings() const
     {
-        return m_debugTexturePreviewSettings;
+        return m_debugTexturePreviewSettings[0];
     }
+    void SetDebugTexturePreviewCount(UINT previewCount);
+    void SetDebugTexturePreviewActiveSlots(UINT activeSlotMask);
+    void SetDebugTexturePreviewUpdateSlots(UINT updateSlotMask);
+    UINT GetDebugTexturePreviewCount() const;
+    void ConfigureDebugTexturePreview(UINT previewIndex,
+                                      const std::string& source,
+                                      const Engine::DebugTexturePreviewSettings& settings);
+    void ConfigureDebugBufferPreview(UINT previewIndex,
+                                     const Engine::DebugResourceViewDescriptor& descriptor,
+                                     const Engine::DebugTexturePreviewSettings& settings);
     void SetDebugTexturePreviewSemantic(Engine::DebugTexturePreviewSemantic semantic);
     void SetDebugTexturePreviewChannel(Engine::DebugTexturePreviewChannel channel);
     void SetDebugTexturePreviewExposure(float exposure);
@@ -410,6 +439,7 @@ private:
             static constexpr const char* ShadowMaskDebug = "ShadowMaskDebug";
             static constexpr const char* DebugLine = "DebugLine";
             static constexpr const char* DebugTexturePreview = "DebugTexturePreview";
+            static constexpr const char* DebugBufferPreview = "DebugBufferPreview";
         };
 
         struct Descriptor
@@ -417,6 +447,7 @@ private:
             static constexpr const char* TextureTable = "TextureTable";
             static constexpr const char* InstanceBufferSrv = "InstanceBufferSrv";
             static constexpr const char* MaterialBufferSrv = "MaterialBufferSrv";
+            static constexpr const char* MaterialBufferRawSrv = "MaterialBufferRawSrv";
             static constexpr const char* EnvironmentMapSrv = "EnvironmentMapSrv";
             static constexpr const char* CameraCbv = "CameraCbv";
             static constexpr const char* LightCbv = "LightCbv";
@@ -549,7 +580,7 @@ private:
     static constexpr DXGI_FORMAT kBackBufferFormat = kSwapChainFormat;
 
     static constexpr UINT kInstanceBufferCount = kFrameCount;
-    static constexpr UINT kMaterialBufferCount = 1;
+    static constexpr UINT kMaterialBufferCount = 2;
     // Procedural environment reloads keep the previous descriptor table alive until its fence retires.
     // Each table is env / diffuse irradiance / specular prefilter / BRDF LUT, plus m_brdfLut owns one SRV.
     static constexpr UINT kEnvironmentDescriptorTableSize = 4;
@@ -675,8 +706,8 @@ private:
     static constexpr UINT kReflectionSpecularConfidenceRTVBaseIndex = kReflectionSpecularMomentsRTVBaseIndex + 2;
     static constexpr UINT kReflectionDenoisedRadianceRTVIndex = kReflectionSpecularConfidenceRTVBaseIndex + 2;
     static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionDenoisedRadianceRTVIndex + 1;
-    static constexpr UINT kDebugTexturePreviewRTVIndex = kTemporalUpscalerSceneColorRTVIndex + 1;
-    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 21;
+    static constexpr UINT kDebugTexturePreviewRTVBaseIndex = kTemporalUpscalerSceneColorRTVIndex + 1;
+    static constexpr UINT kRTVDescriptorCount = kDebugTexturePreviewRTVBaseIndex + kMaxDebugTextureOutputCount;
 
     struct DebugViewSettings
     {
@@ -882,7 +913,7 @@ private:
     ComPtr<ID3D12Resource> m_reflectionSpecularConfidence[2];
     ComPtr<ID3D12Resource> m_reflectionDenoisedRadiance;
     ComPtr<ID3D12Resource> m_temporalUpscalerSceneColor;
-    ComPtr<ID3D12Resource> m_debugTexturePreview;
+    std::array<ComPtr<ID3D12Resource>, kMaxDebugTextureOutputCount> m_debugTexturePreviews;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
     ComPtr<ID3D12Resource> m_reflectionRayColor;
@@ -899,10 +930,27 @@ private:
     DescriptorHeapHandle m_depthStencilSrv;
     DescriptorHeapHandle m_lightPassColorSrv;
     DescriptorHeapHandle m_temporalUpscalerSceneColorSrv;
-    DescriptorHeapHandle m_debugTexturePreviewSrv;
-    bool m_debugTexturePreviewEnabled = false;
-    std::string m_debugTexturePreviewSource = kLightPassRenderTargetResourceName;
-    Engine::DebugTexturePreviewSettings m_debugTexturePreviewSettings;
+    std::array<DescriptorHeapHandle, kMaxDebugTextureOutputCount> m_debugTexturePreviewSrvs;
+    UINT m_debugTexturePreviewActiveSlotMask = 0;
+    UINT m_debugTexturePreviewUpdateSlotMask = 0;
+    std::array<std::string, kMaxDebugTextureOutputCount> m_debugTexturePreviewSources = {
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+    };
+    std::array<bool, kMaxDebugTextureOutputCount> m_debugTexturePreviewBufferSources = {};
+    std::array<std::string, kMaxDebugTextureOutputCount> m_debugTexturePreviewSourceDescriptorNames;
+    std::array<Engine::DebugTexturePreviewSettings, kMaxDebugTextureOutputCount> m_debugTexturePreviewSettings;
+    Engine::DebugResourceViewRegistry m_debugResourceViewRegistry;
     DescriptorHeapHandle m_reflectionEvaluatedRadianceSrv;
     DescriptorHeapHandle m_reflectionSpecularEstimateSrv;
     DescriptorHeapHandle m_reflectionRoughnessSrv;
@@ -980,6 +1028,7 @@ private:
     DXGI_FORMAT m_backBufferFormat = kBackBufferFormat;
     HdrOutputPolicy m_hdrOutputPolicy;
     DebugViewSettings m_debugViewSettings;
+    Engine::DepthVisualizationSettings m_depthVisualizationSettings;
     Engine::DebugDumpCapture m_debugDumpCapture;
     bool m_reflectionHdrDiagnosticRequested = false;
     bool m_reflectionHdrDiagnosticPending = false;
@@ -1113,7 +1162,76 @@ private:
     static constexpr const char* kDepthStencilResourceName = "DepthStencil";
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";
     static constexpr const char* kTemporalUpscalerSceneColorResourceName = "TemporalUpscaler.SceneColor";
-    static constexpr const char* kDebugTexturePreviewResourceName = "DebugTexturePreview.Output";
+    static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
+        "DebugTexturePreview.Output.0",
+        "DebugTexturePreview.Output.1",
+        "DebugTexturePreview.Output.2",
+        "DebugTexturePreview.Output.3",
+        "DebugTexturePreview.Output.4",
+        "DebugTexturePreview.Output.5",
+        "DebugTexturePreview.Output.6",
+        "DebugTexturePreview.Output.7",
+        "DebugTextureThumbnail.Output.0",
+        "DebugTextureThumbnail.Output.1",
+        "DebugTextureThumbnail.Output.2",
+        "DebugTextureThumbnail.Output.3",
+    };
+    static constexpr const wchar_t* kDebugTexturePreviewPassNames[kMaxDebugTextureOutputCount] = {
+        L"DebugTexturePreviewPass.0",
+        L"DebugTexturePreviewPass.1",
+        L"DebugTexturePreviewPass.2",
+        L"DebugTexturePreviewPass.3",
+        L"DebugTexturePreviewPass.4",
+        L"DebugTexturePreviewPass.5",
+        L"DebugTexturePreviewPass.6",
+        L"DebugTexturePreviewPass.7",
+        L"DebugTextureThumbnailPass.0",
+        L"DebugTextureThumbnailPass.1",
+        L"DebugTextureThumbnailPass.2",
+        L"DebugTextureThumbnailPass.3",
+    };
+    static constexpr const char* kDebugTexturePreviewDescriptorNames[kMaxDebugTextureOutputCount] = {
+        "DebugTexturePreviewSourceSrv.0",
+        "DebugTexturePreviewSourceSrv.1",
+        "DebugTexturePreviewSourceSrv.2",
+        "DebugTexturePreviewSourceSrv.3",
+        "DebugTexturePreviewSourceSrv.4",
+        "DebugTexturePreviewSourceSrv.5",
+        "DebugTexturePreviewSourceSrv.6",
+        "DebugTexturePreviewSourceSrv.7",
+        "DebugTextureThumbnailSourceSrv.0",
+        "DebugTextureThumbnailSourceSrv.1",
+        "DebugTextureThumbnailSourceSrv.2",
+        "DebugTextureThumbnailSourceSrv.3",
+    };
+    static constexpr const char* kDebugTexturePreviewRtvNames[kMaxDebugTextureOutputCount] = {
+        "DebugTexturePreview.0",
+        "DebugTexturePreview.1",
+        "DebugTexturePreview.2",
+        "DebugTexturePreview.3",
+        "DebugTexturePreview.4",
+        "DebugTexturePreview.5",
+        "DebugTexturePreview.6",
+        "DebugTexturePreview.7",
+        "DebugTextureThumbnail.0",
+        "DebugTextureThumbnail.1",
+        "DebugTextureThumbnail.2",
+        "DebugTextureThumbnail.3",
+    };
+    static constexpr const char* kDebugTexturePreviewConstantsNames[kMaxDebugTextureOutputCount] = {
+        "DebugTexturePreview.0",
+        "DebugTexturePreview.1",
+        "DebugTexturePreview.2",
+        "DebugTexturePreview.3",
+        "DebugTexturePreview.4",
+        "DebugTexturePreview.5",
+        "DebugTexturePreview.6",
+        "DebugTexturePreview.7",
+        "DebugTextureThumbnail.0",
+        "DebugTextureThumbnail.1",
+        "DebugTextureThumbnail.2",
+        "DebugTextureThumbnail.3",
+    };
     static constexpr const char* kReflectionEvaluatedRadianceResourceName = "ReflectionEvaluatedRadiance";
     static constexpr const char* kReflectionDenoisedRadianceResourceName = "ReflectionDenoisedRadiance";
     static constexpr const char* kReflectionSpecularEstimateResourceName = "ReflectionSpecularEstimate";
@@ -1146,6 +1264,7 @@ private:
     static constexpr const char* kReflectionRayColorResourceName = "ReflectionRayColor";
     static constexpr const char* kReflectionRayMaterialResourceName = "ReflectionRayMaterial";
     static constexpr const char* kReflectionRayEmissionResourceName = "ReflectionRayEmission";
+    static constexpr const char* kMaterialBufferResourceName = "MaterialBuffer";
 
     using TransientResourceState = Engine::TransientResourceState;
 
@@ -1211,6 +1330,7 @@ private:
         GraphicsPipelineShaderSet edgeAwareSpatialReflection;
         GraphicsPipelineShaderSet toneMap;
         GraphicsPipelineShaderSet debugTexturePreview;
+        GraphicsPipelineShaderSet debugBufferPreview;
         ShaderBytecode hybridReflection;
         ShaderBytecode proceduralEnv;
         ShaderBytecode rayQueryShadow;
@@ -1349,9 +1469,10 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionSpecularConfidenceCurrentRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionDenoisedRadianceRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetTemporalUpscalerSceneColorRTV() const;
-    D3D12_CPU_DESCRIPTOR_HANDLE GetDebugTexturePreviewRTV() const;
-    D3D12_GPU_DESCRIPTOR_HANDLE ResolveDebugTexturePreviewSourceSrv() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetDebugTexturePreviewRTV(UINT previewIndex) const;
+    D3D12_GPU_DESCRIPTOR_HANDLE ResolveDebugTexturePreviewSourceSrv(UINT previewIndex) const;
     void RegisterPassBindingResolvers();
+    void RegisterDebugResourceViews();
     void RegisterPassConstantsHandlers();
     void RegisterResourceResolvers();
     Engine::TemporalUpscalerFrameConstants MakeStreamlineFrameConstants() const;
@@ -1391,7 +1512,7 @@ private:
     RenderPass MakeEdgeAwareSpatialReflectionPass();
     RenderPass MakeLightingDebugGradientPass();
     RenderPass MakeTemporalUpscalerPass();
-    RenderPass MakeDebugTexturePreviewPass();
+    RenderPass MakeDebugTexturePreviewPass(UINT previewIndex);
     RenderPass MakeToneMapPass();
     RenderPass MakeDebugDumpPass();
     RenderPass MakeReflectionHdrDiagnosticPass();
