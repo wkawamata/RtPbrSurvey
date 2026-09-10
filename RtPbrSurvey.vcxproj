@@ -214,6 +214,7 @@
     <ClInclude Include="Scene\Scene.h" />
     <ClInclude Include="Scene\CameraProjection.h" />
     <ClInclude Include="Scene\CameraView.h" />
+    <ClInclude Include="Scene\SceneDocument.h" />
     <ClInclude Include="Scene\SampleScene.h" />
     <ClInclude Include="Ui\DebugUiPreferences.h" />
     <ClInclude Include="Ui\ImGuiSystem.h" />
