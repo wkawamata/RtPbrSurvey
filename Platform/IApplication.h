@@ -17,6 +17,7 @@ struct IApplication
     // Lifecycle.
     virtual void OnInit() = 0;
     virtual void OnDestroy() = 0;
+    virtual bool OnCloseRequested() { return true; }
 
     // Per-frame callback. The host calls this each iteration of the message loop.
     virtual void OnIdle() {}

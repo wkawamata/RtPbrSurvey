@@ -29,6 +29,10 @@ Run `Restore-NuGet.ps1` in RtPbrSurvey if those package folders are missing.
 ## Host CMake Usage
 
 ```cmake
+set(RTPBRSURVEY_STREAMLINE_SDK_DIR
+    "C:/work/third_party/streamline-sdk-2.12.0"
+    CACHE PATH "Path to the shared Streamline SDK root")
+
 add_subdirectory(External/RtPbrSurvey)
 
 add_executable(TankSandbox WIN32
@@ -48,9 +52,24 @@ rtpbrsurvey_copy_runtime_files(TankSandbox)
 - `dxcompiler.dll`
 - `dxil.dll`
 - `WinPixEventRuntime.dll`
+- `sl.interposer.dll`, `sl.common.dll`, `sl.dlss.dll`, and `nvngx_dlss.dll` when the Streamline SDK is available
 
 The helper is intended to be called by a parent host project after `add_subdirectory(External/RtPbrSurvey)`.
 It uses RtPbrSurvey's own source, package, and shader output paths rather than the caller's current source or binary directory.
+When Streamline is enabled on MSVC, the helper also validates the final executable's PE dependencies after linking.
+The executable must import `sl.interposer.dll` and must not directly import `d3d12.dll`, `dxgi.dll`, or `d3d11.dll`.
+The helper also scans the renderer's `.cso` references and fails the build when any required runtime shader is absent
+from the host output directory. This keeps CMake shader generation synchronized with newly added renderer passes.
+
+## Streamline Host Link Contract
+
+When the Streamline SDK is available, `RtPbrSurvey::SceneRenderer` links `sl.interposer.lib` normally so the
+interposer is loaded before `WinMain`. It also propagates `/NODEFAULTLIB:d3d12.lib` and
+`/NODEFAULTLIB:dxgi.lib`. This is required because another static host dependency can otherwise reintroduce the
+platform import libraries even though RtPbrSurvey itself omitted them. Do not delay-load `sl.interposer.dll`.
+
+Without the Streamline SDK, `RtPbrSurvey::SceneRenderer` keeps the ordinary `d3d12` / `dxgi` link path and
+delay-loads `d3d12.dll` for the Agility SDK as before.
 
 ## Minimal Host Flow
 
@@ -61,6 +80,14 @@ deviceDesc.swapChainWidth = width;
 deviceDesc.swapChainHeight = height;
 deviceDesc.bufferCount = RtPbrSurveyEngine::kSwapChainBufferCount;
 deviceDesc.swapChainFormat = RtPbrSurveyEngine::kSwapChainFormat;
+
+RtPbrSurvey::SceneRendererHostDesc rendererHostDesc = {};
+rendererHostDesc.applicationName = L"TankPhysicsSandbox";
+// Set this when Tank has its own NVIDIA project ID.
+rendererHostDesc.streamlineProjectId = nullptr;
+rendererHostDesc.engineVersion = "1.0.0";
+RtPbrSurvey::SceneRenderer::ConfigureGraphicsDevice(deviceDesc, rendererHostDesc);
+
 graphicsDevice.Initialize(deviceDesc);
 
 RtPbrSurvey::SceneRenderer renderer(graphicsDevice);
@@ -81,6 +108,15 @@ renderer.RunFrame([&](ID3D12GraphicsCommandList* commandList) {
     imguiSystem.Render(commandList);
 });
 ```
+
+`SceneRenderer::ConfigureGraphicsDevice()` must be called before `GraphicsDevice::Initialize()`. It initializes the
+optional temporal-upscaler backend and chains the D3D12-device callback without replacing a callback already supplied
+by the host. `SceneRenderer::Shutdown()` shuts the backend down before the host destroys `GraphicsDevice`.
+
+The Streamline SDK is not stored in the RtPbrSurvey repository. A shared absolute
+`RTPBRSURVEY_STREAMLINE_SDK_DIR` lets multiple worktrees and Tank use one SDK installation. If the SDK is absent,
+`RtPbrSurvey::SceneRenderer` keeps its SDK-free D3D12 path and reports the temporal upscaler as unavailable.
+The CMake cache variable uses the environment variable with the same name as its default when it is set.
 
 `SceneBuilder::AddInstance()` accepts ordinary DirectXMath world matrices and converts them to RtPbrSurvey's internal `InstanceData` storage layout.
 

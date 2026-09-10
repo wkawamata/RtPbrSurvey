@@ -210,6 +210,13 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
             }
             return 0;
 
+        case WM_CLOSE:
+            if (!pApp || pApp->OnCloseRequested())
+            {
+                DestroyWindow(hWnd);
+            }
+            return 0;
+
         case WM_DESTROY:
             PostQuitMessage(0);
             return 0;
