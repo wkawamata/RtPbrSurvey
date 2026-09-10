@@ -1,0 +1,141 @@
+# features/hybrid-reflection-hdr-variance-diagnostics
+
+## 目的
+
+estimator変更またはfilter昇格の前に、Hybrid Reflectionのvarianceと収束をlinear-HDR signal domainで測定する。このphaseでは既存のdefault-off Surface Variance Filterを、同じ現在の近似estimatorに対してpaired条件で比較する。
+
+このphaseで主張できるのは、policyが現在のestimatorに対してvarianceを下げ、測定した許容範囲内で長期meanを維持することだけである。物理的正しさ、unbiasedness、energy conservation、production denoiser readiness、physical referenceへの収束は確立しない。
+
+## 測定レベル
+
+| Frames | 用途 |
+| ---: | --- |
+| 64 | 開発中の高速gate |
+| 256 | 標準PR評価 |
+| 1024 | mean drift、rare firefly、bias傾向の任意拡張監査 |
+
+1024-frame levelはすべての変更で必須にしない。256-frame結果または観測した外れ値が追加costを正当化する場合だけ実行する。
+
+## 必須metric
+
+固定ROIとsignal boundaryごとに以下を記録する。
+
+- linear-HDR luminanceのtemporal mean;
+- temporal varianceとstandard deviation;
+- coefficient of variation `sigma / mean`。near-zero mean時のpolicyを明記する;
+- frame間luminance絶対差のmean、p95、p99;
+- High-SPP Current-Estimator Mean Baselineに対するRMSE;
+- filter on/offの長期mean差;
+- ray hit率;
+- temporal acceptance率;
+- depth reject率;
+- normal reject率;
+- 最大luminance。単独quality metricではなくfirefly用の補助指標とする。
+
+## Paired comparison contract
+
+- A/Bを同じsample indexへresetする。
+- camera、animation状態、history reset frameを固定する。
+- 検証対象filter以外の全settingを一致させる。
+- A/Bで同じframe範囲を測定する。
+- warm-up frameとmeasurement frameを分離する。
+- version付きの置換を明示記録しない限り、確認済み1920x1080 DamagedHelmet ROIを維持する。
+  - `rearward_surface`: x `895`, y `278`, width `75`, height `85`;
+  - `underside_pipes`: x `805`, y `585`, width `125`, height `135`。
+
+## 初期実装監査
+
+- `ReflectionEvaluatedRadiance`と`ReflectionResolvedRadiance`はrender-sizeのpersistent `DXGI_FORMAT_R16G16B16A16_FLOAT` textureである。既存PNG captureは表示出力を変換するため、linear-HDR測定経路ではない。
+- 既存`DebugDumpCapture`にはfull-texture copy/readbackとhalf-float decodeの実例があるが、LightPass/back-buffer検証専用である。Phase 1は既存dump contractを変更せず、そのcopy/readback patternを再利用する。
+- `ReflectionRayHit`は`R16G16B16A16_FLOAT`である。`.x`はcommitted hit distance、`.y`はhit flag、`.zw`はoctahedral hit normalである。新規signal bufferなしでhit率とhit-distance統計を取得できる。
+- `ReflectionResolvedRadiance.a`は現在diagnostic temporal statusを持つ。`0.0`はhistoryなし、`0.25`はout of bounds、`0.5`はdepth reject、`0.75`はnormal reject、`1.0`はacceptedである。Phase 1は既存diagnostic metadataを利用できるが、RGB radiance semanticsを変更せず、alphaをproduction confidence contractとして扱わない。
+- 最初の実装sliceはevaluated radiance、resolved radiance、ray hit、temporal statusの固定ROI texelだけをcaptureする。新しいfull-frame variance textureまたはdenoise passを追加しない。
+
+## 計画gate
+
+1. version付き64-frame linear-HDR ROI captureとJSON resultを1つ実装する。
+2. paired sample/history resetとA/Bの同一frame windowを証明する。
+3. 必須metricとHigh-SPP Current-Estimator Mean Baseline terminologyを追加する。
+4. 同じ経路を256-frame標準gateへ昇格する。
+5. mean drift、rare firefly、bias傾向が未解決の場合だけ1024 framesを実行する。
+
+## 実装ログ
+
+### 2026-08-15: ROI HDR readback primitive
+
+- `DXGI_FORMAT_R16G16B16A16_FLOAT`のreflection signal専用readback helperを追加した。
+- helperは要求ROIを検証し、その範囲だけをcopyしてlinear-HDR RGBA sampleをdecode可能にする。
+- tone mappingとPNG変換は意図的にこの経路へ含めない。
+- このsliceではRenderGraph capture schedulingと統計出力はまだ接続しない。次のPhase 1 integration boundaryとする。
+- HLSL custom build stepを含むDebug x64 buildは成功した。既存のvcpkg重複import warningだけが報告された。
+
+### 2026-08-15: RenderGraph capture integration
+
+- reflection HDR診断用に、明示的な1-frame engine request/result境界を追加した。
+- scene rendering後にdiagnostic RenderGraph passを追加した。同じsubmit frameのevaluated radiance、現在のresolved-radiance write slot、ray-hit payloadをtransitionしてcopyする。
+- Deferred renderingとHybrid Reflection contributionが有効でない場合はrequestを拒否し、未生成signalのreadを防止する。
+- readbackはoffline診断用として意図的に同期方式を維持する。連続capture schedulingとJSON集計を次の境界とする。
+- Debug x64 buildは成功し、既存のvcpkg重複import warningだけが報告された。
+
+### 2026-08-15: 連続frame schedulingとJSON smoke
+
+- `-ReflectionHdrDiagnostics <report.json>`を追加し、warm-up、frame count、render-space ROIをoverride可能にした。
+- diagnostic modeはDamagedHelmet、Deferred rendering、Hybrid Reflection contributionを明示的に選択する。screenshot capture automationとは同時利用不可とした。
+- schemaにはlinear-HDR domain、referenceなし、render解像度、ROI、frameごとのevaluated/resolved mean luminance、hit率、temporal acceptance率、depth reject率、normal reject率を記録する。
+- 32 warm-up frames後、1920x1080の`rearward_surface`で64-frame runが完走し、reportに64 framesすべてが記録された。
+- 64-frame runのD3D12 errorは0件で、既知のcommitted-buffer initial-state warning 2件だけを記録した。
+- これはcollection continuityだけを検証する。temporal variance、distribution percentile、paired A/B比較、baseline RMSEはまだ主張しない。
+
+### 2026-08-15: Pixel-temporal statistics
+
+- evaluated radianceとresolved radianceへ共通適用する統計処理を追加した。
+- temporal varianceは、各pixel固有の時間平均に対するpopulation varianceを求め、ROI全pixelで平均する。静的な空間contrastをtemporal noiseと混同しない。
+- frame差分のmean、p95、p99は、連続frame間におけるROI全pixelのluminance絶対差分布から計算する。
+- temporal meanの絶対値が`1e-6`以下の場合、CVは`null`として出力する。最大luminanceは外れ値用の補助指標に留める。
+- `rearward_surface`の64-frame runが有限な統計値で完走した。このrunではevaluated varianceが`8.16859365380723e-4`、resolved varianceが`3.18587231219291e-5`だった。
+- observed evaluated/resolved差は、測定経路が両者のtemporal behaviorを区別できる証拠である。paired filter比較、baseline収束結果、物理的正しさはまだ主張しない。
+- Debug x64 buildは成功した。runtimeのD3D12 errorは0件で、既知warning 2件だけを記録した。
+
+### 2026-08-15: Paired filter comparison
+
+- 各capture frameへsampling frame indexとtemporal frame indexを追加し、reportからpaired schedulingを検証可能にした。
+- filter off/on orchestratorを追加した。各variantは新規processから開始し、固定camera、warm-up、measurement window、stochastic設定、temporal weight、ROIを一致させ、`surfaceVarianceFilterEnabled`だけを変更する。
+- 64-frameの`rearward_surface`開発比較では、sampling indexとtemporal indexが`32..95`で一致した。Evaluated mean luminanceもA/Bで完全一致した。
+- この限定runではResolved temporal varianceが`77.5619%`低下し、Resolvedのmeasurement-window mean差は`0.1826%`だった。
+- この結果が支持するのは、このROIとsequenceに限定したdevelopment-level claimである。256-frame PR gate、長期mean preservation、第2 ROI、physical reference比較はまだ未実施である。
+
+### 2026-08-15: 2 ROIの256-frame標準gate
+
+- `underside_pipes`の64-frame開発gateはsample indexが一致し、Resolved varianceが`73.5387%`低下、measurement mean差は`0.1029%`だった。
+- 続いて両固定ROIが256-frame標準paired gateを完走した。sampling/temporal index sequenceは一致し、Evaluated mean差は0だった。
+
+| ROI | Resolved variance off | Resolved variance on | Reduction | Measurement-mean difference | Frame-difference p99 off/on |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `rearward_surface` | `3.8915666e-5` | `8.8329177e-6` | `77.3024%` | `0.1842%` | `0.0135398 / 0.0060411` |
+| `underside_pipes` | `4.2294466e-5` | `1.0476135e-5` | `75.2305%` | `0.1021%` | `0.0077752 / 0.0034011` |
+
+- この結果は、default-off surface filterが評価した2 ROIでlinear-HDR temporal varianceを低減し、256-frame measurement meanの変化を`0.2%`未満に抑えた、という限定的主張を支持する。
+- generalization、長時間mean bound、estimator correctness、physical referenceへの収束は確立しない。1024-frame監査は自動実施ではなく条件付きのままとする。
+
+### 2026-08-15: Current-estimator mean baseline
+
+- measurement window内の`ReflectionEvaluatedRadiance`をpixelごとに算術平均し、High-SPP Current-Estimator Mean Baselineとして追加した。
+- reportにはbaselineに対するEvaluated/Resolved RMSEとframeごとのRMSE列を記録する。baselineはnon-physicalかつin-sampleであることを明記した。
+- Evaluated signalとsampling sequenceが一致したため、paired A/Bのbaselineは完全一致した。
+
+| ROI | Baseline samples | Evaluated RMSE | Resolved RMSE off | Resolved RMSE on | Filter-on RMSE change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `rearward_surface` | 256 | `0.0284464` | `0.0062587` | `0.0132367` | `+111.4950%` |
+| `underside_pipes` | 256 | `0.0285282` | `0.0065240` | `0.0068497` | `+4.9926%` |
+
+- filterはtemporal varianceを`75%`以上低減した一方、両ROIでraw current-estimator meanへのpixel単位RMSEを増加させた。rearwardの大きな増加は、ROI全体meanでは隠れるspatial detailまたはlocal meanの変化と整合する。
+- baselineはphysical referenceではなく現在の近似estimatorなので、これは物理的biasを証明しない。ただしvariance低減とcurrent-estimator signal preservationを別gateとして維持すべきことは示している。
+- variance低減だけを根拠にbounded surface filterを昇格しない。
+
+### 2026-08-21: 最終監査
+
+- 日本語を主文書とする[Phase 1最終レポート](hybrid-reflection-hdr-variance-diagnostics-report_j.md)へcontract、2 ROI結果、claim boundary、acceptance gate、Phase 2 handoffを集約した。
+- 最終Debug x64/HLSL buildは成功した。
+- 最終D3D12 smokeのerrorは0件で、既知のcommitted-buffer initial-state warning 2件だけを記録した。新規warningはない。
+- 日英worklogは同じ7実装phaseと対応する結果を持つ。
+- 1024-frame監査は条件付きのままとし、今回は実行しなかった。

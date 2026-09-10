@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "cameraKeyframes": [
+    { "frame": 0, "yawDegrees": 0.0 },
+    { "frame": 120, "yawDegrees": 0.0 },
+    { "frame": 150, "yawDegrees": 20.0 },
+    { "frame": 180, "yawDegrees": -10.0 }
+  ],
+  "captures": [
+    {
+      "frame": 120,
+      "caseId": "confidence-lit-static",
+      "path": "captures/confidence-lit-static-{variant}.png"
+    },
+    {
+      "frame": 135,
+      "caseId": "confidence-lit-mid-motion",
+      "path": "captures/confidence-lit-mid-motion-{variant}.png"
+    },
+    {
+      "frame": 165,
+      "caseId": "confidence-lit-reversal",
+      "path": "captures/confidence-lit-reversal-{variant}.png"
+    },
+    {
+      "frame": 195,
+      "caseId": "confidence-lit-settling",
+      "path": "captures/confidence-lit-settling-{variant}.png"
+    }
+  ]
+}

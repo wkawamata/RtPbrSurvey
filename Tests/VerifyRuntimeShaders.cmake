@@ -1,26 +1,43 @@
-if(NOT DEFINED RTPBRSURVEY_SHADER_SOURCE OR NOT EXISTS "${RTPBRSURVEY_SHADER_SOURCE}")
-    message(FATAL_ERROR "The renderer shader source list could not be read: ${RTPBRSURVEY_SHADER_SOURCE}")
+cmake_minimum_required(VERSION 3.21)
+
+if(NOT DEFINED RTPBRSURVEY_ROOT)
+    message(FATAL_ERROR "RTPBRSURVEY_ROOT is required")
 endif()
 
-if(NOT DEFINED RTPBRSURVEY_RUNTIME_DIR OR NOT IS_DIRECTORY "${RTPBRSURVEY_RUNTIME_DIR}")
-    message(FATAL_ERROR "The host runtime directory does not exist: ${RTPBRSURVEY_RUNTIME_DIR}")
-endif()
+file(READ "${RTPBRSURVEY_ROOT}/Engine/RtPbrSurveyEngine.cpp" engine_source)
+string(REGEX MATCHALL "LoadShaderBytecode\\(L\"[^\"]+\\.cso\"\\)" runtime_calls "${engine_source}")
 
-file(READ "${RTPBRSURVEY_SHADER_SOURCE}" shader_source)
-string(REGEX MATCHALL "[A-Za-z0-9_]+\\.cso" required_shaders "${shader_source}")
-list(REMOVE_DUPLICATES required_shaders)
+set(runtime_shader_names)
+foreach(runtime_call IN LISTS runtime_calls)
+    string(REGEX REPLACE ".*L\"([^\"]+)\".*" "\\1" shader_name "${runtime_call}")
+    list(APPEND runtime_shader_names "${shader_name}")
+endforeach()
+list(REMOVE_DUPLICATES runtime_shader_names)
 
-if(NOT required_shaders)
-    message(FATAL_ERROR "No runtime shader references were found in ${RTPBRSURVEY_SHADER_SOURCE}")
-endif()
+file(READ "${RTPBRSURVEY_ROOT}/CMakeLists.txt" cmake_source)
+string(REGEX MATCHALL
+    "rtpbrsurvey_add_shader\\(RTPBRSURVEY_SHADER_OUTPUTS[ \t]+Shaders/[^ \t\r\n]+[ \t]+[^ \t\r\n]+[ \t]+[^ \t\r\n\\)]+\\)"
+    shader_rules "${cmake_source}")
 
-foreach(shader IN LISTS required_shaders)
-    if(NOT EXISTS "${RTPBRSURVEY_RUNTIME_DIR}/${shader}")
-        message(FATAL_ERROR
-            "Required runtime shader is missing: ${RTPBRSURVEY_RUNTIME_DIR}/${shader}. "
-            "Add its HLSL entry point to RTPBRSURVEY_SHADER_OUTPUTS.")
+set(generated_shader_names)
+foreach(shader_rule IN LISTS shader_rules)
+    string(REGEX REPLACE
+        ".*Shaders/([^/ \t\r\n]+)\\.hlsl[ \t]+[^ \t\r\n]+[ \t]+([^ \t\r\n\\)]+)\\).*"
+        "\\1_\\2.cso" shader_name "${shader_rule}")
+    list(APPEND generated_shader_names "${shader_name}")
+endforeach()
+
+set(missing_shader_names)
+foreach(shader_name IN LISTS runtime_shader_names)
+    if(NOT shader_name IN_LIST generated_shader_names)
+        list(APPEND missing_shader_names "${shader_name}")
     endif()
 endforeach()
 
-list(LENGTH required_shaders required_shader_count)
-message(STATUS "Validated ${required_shader_count} runtime shaders in ${RTPBRSURVEY_RUNTIME_DIR}")
+if(missing_shader_names)
+    list(JOIN missing_shader_names ", " missing_shader_text)
+    message(FATAL_ERROR "Runtime shaders missing from RTPBRSURVEY_SHADER_OUTPUTS: ${missing_shader_text}")
+endif()
+
+list(LENGTH runtime_shader_names runtime_shader_count)
+message(STATUS "Verified ${runtime_shader_count} runtime shader references")

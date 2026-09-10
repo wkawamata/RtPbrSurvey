@@ -93,6 +93,12 @@
     <ClInclude Include="Renderer\DebugDumpCapture.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\ReflectionHdrDiagnosticCapture.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\ReflectionHdrDiagnosticStatistics.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\DebugDumpReport.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -189,6 +195,18 @@
     <ClInclude Include="Renderer\StreamlineAdapter.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\RayReconstructionRoughnessPass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\RayReconstructionSpecularAlbedoPass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\RayReconstructionSpecularHitDistancePass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\RayReconstructionSupport.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\TemporalUpscalerSupport.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -198,10 +216,31 @@
     <ClInclude Include="Renderer\ToneMap.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\DebugTexturePreviewPass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\DebugResourceViewRegistry.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\DepthVisualization.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\DebugLinePass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Runtime\DebugLine.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="Runtime\SceneRenderer.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\DebugTextureInspector.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\DebugTextureThumbnailScheduler.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\DebugBufferInspector.h">
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="Runtime\SceneRendererDebugUi.h">
@@ -326,6 +365,12 @@
     <ClCompile Include="Renderer\DebugDumpCapture.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\ReflectionHdrDiagnosticCapture.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\ReflectionHdrDiagnosticStatistics.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\DebugDumpReport.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
@@ -380,6 +425,18 @@
     <ClCompile Include="Renderer\RayTracingSupport.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\RayReconstructionRoughnessPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\RayReconstructionSpecularAlbedoPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\RayReconstructionSpecularHitDistancePass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\RayReconstructionSupport.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\RootSignatureFactory.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
@@ -404,10 +461,28 @@
     <ClCompile Include="Renderer\ToneMap.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\DebugTexturePreviewPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\DebugResourceViewRegistry.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\DebugLinePass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Runtime\DebugLine.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
     <ClCompile Include="Runtime\SceneRenderer.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="Runtime\DebugTextureInspector.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="Runtime\DebugTextureThumbnailScheduler.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="Runtime\DebugBufferInspector.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="Runtime\SceneRendererDebugUi.cpp">
@@ -460,6 +535,15 @@
     <CustomBuild Include="Shaders\shaders_ReflectionEvaluate.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_RayReconstructionRoughness.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_RayReconstructionSpecularAlbedo.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_RayReconstructionSpecularHitDistance.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
     <CustomBuild Include="Shaders\shaders_TemporalReflection.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
@@ -478,12 +562,21 @@
     <CustomBuild Include="Shaders\shaders_ToneMap.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_DebugTexturePreview.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_DebugBufferPreview.hlsl">
+      <Filter>Shaders</Filter>
+    </CustomBuild>
     <CustomBuild Include="Shaders\shaders_DebugLine.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\FullscreenTriangle.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\DepthVisualization.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="Shaders\Material.hlsli">

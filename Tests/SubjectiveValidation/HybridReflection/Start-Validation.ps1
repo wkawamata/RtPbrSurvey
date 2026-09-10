@@ -5,14 +5,19 @@ param(
     [switch]$SkipBuild,
     [switch]$SkipCapture,
     [switch]$NoBrowser,
-    [switch]$StochasticSampling
+    [switch]$StochasticSampling,
+    [switch]$PersistentConfidenceLit
 )
 
 $ErrorActionPreference = 'Stop'
 $validationRoot = $PSScriptRoot
 $repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $validationRoot '..\..\..')).Path
-$planFileName = if ($StochasticSampling) { 'capture-plan-stochastic.json' } else { 'capture-plan.json' }
-$suiteFileName = if ($StochasticSampling) { 'suite-stochastic.json' } else { 'suite.json' }
+if ($StochasticSampling -and $PersistentConfidenceLit)
+{
+    throw '-StochasticSampling and -PersistentConfidenceLit are mutually exclusive.'
+}
+$planFileName = if ($PersistentConfidenceLit) { 'capture-plan-confidence-lit.json' } elseif ($StochasticSampling) { 'capture-plan-stochastic.json' } else { 'capture-plan.json' }
+$suiteFileName = if ($PersistentConfidenceLit) { 'suite-confidence-lit.json' } elseif ($StochasticSampling) { 'suite-stochastic.json' } else { 'suite.json' }
 $planPath = Join-Path $validationRoot $planFileName
 $suiteTemplatePath = Join-Path $validationRoot $suiteFileName
 $currentSuitePath = Join-Path $validationRoot 'current-suite.json'
@@ -39,18 +44,51 @@ function Invoke-CaptureVariant
         '-ReflectionCapturePlan', $planPath,
         '-ReflectionCaptureVariant', $Variant,
         '-ReflectionTemporalWeight', $HistoryWeight.ToString([Globalization.CultureInfo]::InvariantCulture),
-        '-ReflectionTemporalNoiseStrength', $(if ($StochasticSampling) { '0.0' } else { '0.5' })
+        '-ReflectionTemporalNoiseStrength', $(if ($StochasticSampling -or $PersistentConfidenceLit) { '0.0' } else { '0.5' })
     )
-    if ($StochasticSampling)
+    if ($StochasticSampling -or $PersistentConfidenceLit)
     {
         $arguments += '-ReflectionStochasticSampling'
     }
-    $process = Start-Process -FilePath $executablePath -ArgumentList $arguments -PassThru -WindowStyle Hidden
-    Wait-Process -Id $process.Id -Timeout 180
-    $process.Refresh()
-    if ($process.ExitCode -ne 0)
+    if ($PersistentConfidenceLit)
     {
-        throw "Capture variant '$Variant' exited with code $($process.ExitCode)."
+        $arguments += @('-ReflectionCaptureDebugView', 'lit', '-ReflectionCameraDistanceScale', '1.0')
+        if ($Variant -eq 'b')
+        {
+            $arguments += '-ReflectionVarianceGuidedTemporal'
+        }
+    }
+    $captureStartUtc = [DateTime]::UtcNow
+    $process = Start-Process -FilePath $executablePath -ArgumentList $arguments -PassThru -WindowStyle Hidden
+    $deadline = [DateTime]::UtcNow.AddSeconds(180)
+    $captureComplete = $false
+    while ([DateTime]::UtcNow -lt $deadline)
+    {
+        $captureComplete = $true
+        foreach ($capture in $plan.captures)
+        {
+            $relativePath = $capture.path.Replace('{variant}', $Variant)
+            $outputPath = Join-Path $validationRoot $relativePath
+            $item = Get-Item -LiteralPath $outputPath -ErrorAction SilentlyContinue
+            if ($null -eq $item -or $item.Length -le 0 -or $item.LastWriteTimeUtc -lt $captureStartUtc)
+            {
+                $captureComplete = $false
+                break
+            }
+        }
+        if ($captureComplete)
+        {
+            break
+        }
+        Start-Sleep -Milliseconds 250
+    }
+    if (!$process.HasExited)
+    {
+        Stop-Process -Id $process.Id
+    }
+    if (!$captureComplete)
+    {
+        throw "Capture variant '$Variant' did not produce every planned output within 180 seconds."
     }
     if (Test-Path -LiteralPath $logPath)
     {
@@ -132,17 +170,21 @@ function Start-ValidationServer
         Remove-Item -LiteralPath $serverStatePath -Force
     }
 
+    $unexpectedHealth = $null
     try
     {
         $unexpectedHealth = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/api/health" -TimeoutSec 1
+    }
+    catch
+    {
+    }
+    if ($null -ne $unexpectedHealth)
+    {
         if ($unexpectedHealth.application -eq 'hybrid-reflection-subjective-validation')
         {
             throw "Validation server is already running on port $Port without managed state."
         }
         throw "Port $Port is already in use."
-    }
-    catch [System.Net.WebException]
-    {
     }
 
     $token = [Guid]::NewGuid().ToString('N')
@@ -199,7 +241,7 @@ $suite = Get-Content -LiteralPath $suiteTemplatePath -Raw -Encoding UTF8 | Conve
 Assert-SuitePlanContract -Suite $suite -Plan $plan
 if (!$SkipCapture)
 {
-    Invoke-CaptureVariant -Variant 'a' -HistoryWeight 0.0
+    Invoke-CaptureVariant -Variant 'a' -HistoryWeight $(if ($PersistentConfidenceLit) { 0.9 } else { 0.0 })
     Invoke-CaptureVariant -Variant 'b' -HistoryWeight 0.9
 }
 Assert-CaptureOutputs -Plan $plan

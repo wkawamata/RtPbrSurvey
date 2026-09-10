@@ -24,9 +24,20 @@ public:
         return m_srv.Handle();
     }
 
+    DescriptorHeapHandle RawSrv() const
+    {
+        return m_rawSrv.Handle();
+    }
+
+    ID3D12Resource* Resource() const
+    {
+        return m_buffer.Get();
+    }
+
 private:
     Microsoft::WRL::ComPtr<ID3D12Resource> m_buffer;
     DescriptorAllocation m_srv;
+    DescriptorAllocation m_rawSrv;
 };
 
 } // namespace Engine

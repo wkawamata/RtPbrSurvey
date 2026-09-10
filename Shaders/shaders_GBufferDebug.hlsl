@@ -1,4 +1,5 @@
 #include "FullscreenTriangle.hlsli"
+#include "DepthVisualization.hlsli"
 
 Texture2D<float4> g_albedo : register(t0, space3);
 Texture2D<float4> g_normal : register(t1, space3);
@@ -12,6 +13,14 @@ SamplerState g_sampler : register(s0);
 cbuffer GBufferDebugConstants : register(b1)
 {
     uint g_debugTarget;
+    uint g_depthMode;
+    float g_depthDisplayNear;
+    float g_depthDisplayFar;
+    float g_depthGamma;
+    uint g_depthInvert;
+    float g_cameraNear;
+    float g_cameraFar;
+    uint g_orthographicProjection;
 };
 
 float3 HsvToRgb(float3 hsv)
@@ -77,7 +86,15 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     }
     if (g_debugTarget == 6)
     {
-        float value = g_depth.Load(int3(input.position.xy, 0));
+        float value = VisualizeDeviceDepth(g_depth.Load(int3(input.position.xy, 0)),
+                                           g_depthMode,
+                                           g_depthDisplayNear,
+                                           g_depthDisplayFar,
+                                           g_depthGamma,
+                                           g_depthInvert,
+                                           g_cameraNear,
+                                           g_cameraFar,
+                                           g_orthographicProjection);
         return float4(value, value, value, 1.0);
     }
 

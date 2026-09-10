@@ -24,6 +24,14 @@ Each capture path must be relative to the plan directory, end in `.png`, avoid p
 
 The plan is loaded with `-ReflectionCapturePlan <path>` and `-ReflectionCaptureVariant <variant>`. A plan implies the resolved-radiance capture mode. It remains mutually exclusive with the legacy `-CapturePath`. `-ExitAfterCapture` exits only after every planned PNG has completed.
 
+`Measure-HdrVariancePair.ps1 -CompareSpatiotemporalPolicy` keeps the edge-aware spatial pass enabled in both runs and varies only `-ReflectionSpatiotemporalSpatialPolicy`. Without the switch, the script preserves its original filter-off/filter-on comparison.
+
+`Invoke-ProductionQualityGates.ps1` loads versioned named ROIs from `production-quality-gate-profiles.json` and runs the fixed-filter versus bounded-policy comparison without manually copying coordinates. Its PASS result covers paired sequence identity, unchanged resolved-radiance control variance, and a declared mean-preservation threshold. Variance and frame-difference changes remain observations requiring quality interpretation; they are not converted into a production-readiness claim.
+
+Run `Tests\HybridReflection\Test-ComparisonMetadataReport.ps1 -ReportPath <report.json> -OutputPath <manifest.json>` for schema v15 comparison reports. It validates explicit linear-HDR signal boundaries, rendering path, render/output sizes, camera, exposure/tone-map state, reflection settings, stochastic state, and hit-normal source. The harness records the current source revision in the validation manifest; the application does not discover Git state at runtime.
+
+For additional glTF scene checks, `-AutoSelectGltfAsset <name>` selects an available glTF viewer asset by exact name. Add `-UseSceneDefaults` to ignore interactive user overrides and start from the versioned scene configuration. `-ReflectionCameraDistanceScale` may then apply a deterministic Arcball distance multiplier even when no screenshot automation is requested. The production-quality BoomBox framing uses `-AutoSelectGltfAsset BoomBox -UseSceneDefaults -ReflectionCameraDistanceScale 0.25`.
+
 Only one screenshot may be in flight. If the previous screenshot has not completed by the next requested frame, the plan fails instead of silently capturing a later frame. Capture frames should therefore have deliberate spacing.
 
 ## Phase C Repeatable Run
@@ -43,3 +51,45 @@ Run `Start-Validation.ps1 -StochasticSampling` to use `capture-plan-stochastic.j
 The stochastic plan writes `stochastic-*.png` files so it does not overwrite the earlier synthetic-noise contract captures. The evaluator retains the same English/Japanese workflow and JSON report format, but the stochastic suite uses distinct suite and case identifiers.
 
 For live observation, use `capture-plan-stochastic-live.json`. It holds the initial view for 120 frames, then performs three slow orbit segments including two direction changes, returns to the initial yaw, and captures one settling reference. Run A and B separately with the same plan and different history weights. Do not use this live plan as a replacement for the fixed nine-criterion HTML suite.
+
+`-ReflectionCameraDistanceScale <scale>` applies one stable multiplier to the initial Arcball distance for reflection capture automation. A value of `0.5` renders DamagedHelmet at approximately twice the linear image size and is intended for edge diagnosis. The value does not alter interactive or non-capture camera defaults.
+
+`-CaptureReflectionTemporalValidity` selects the temporal-history classification view while retaining the existing resolved-radiance capture setup. The colors are black for no history, blue for reprojection outside the history image, red for depth rejection, yellow for normal rejection, and green for accepted history. The classification is stored only in resolved-radiance alpha; RGB radiance and blending semantics are unchanged.
+
+`-ReflectionCaptureDebugView <name>` selects a diagnostic view while retaining the same Hybrid Reflection capture setup. Accepted names are `lit`, `pbr-params`, `normal`, `hit-material`, `evaluated-radiance`, `specular-estimate`, `resolved-radiance`, and `temporal-validity`. The PBR view maps metallic, roughness, and ambient occlusion to RGB. The option changes only the displayed capture resource; it does not change sampling, evaluation, or temporal policy.
+
+`-ReflectionEstimatorConstantIncidentRadiance` is a default-off estimator diagnostic. It replaces only the incident-radiance input used by `ReflectionSpecularEstimate` with linear-HDR white `(1, 1, 1)`. RayQuery payloads, Evaluated/Resolved Radiance, Temporal Reflection, and LightPass remain scene-driven. HDR diagnostic reports identify the mode through `specularEstimateIncidentRadiance`.
+
+HDR diagnostic schema version 3 also records `referenceSurfaceSample` for the ROI center pixel. For a 1x1 constant-radiance report, compare the rendered estimator mean with an independent Cook-Torrance hemisphere integral:
+
+```powershell
+python Tests\HybridReflection\integrate_constant_radiance_reference.py <report.json>
+```
+
+The script uses deterministic uniform-hemisphere midpoint integration. It is independent of the GGX importance-sampling sequence used by the shader, while matching the documented BRDF model and GBuffer-quantized surface inputs from the report.
+
+`-ReflectionSurfaceVarianceFilter` enables the default-off 3x3 current-radiance experiment during automated capture. Samples are accepted only when visible depth, normal, roughness, and metallic are similar; near-perfectly smooth visible surfaces bypass the filter. This option does not change history rejection thresholds or history weight.
+
+`capture-plan-material-variance-series.json` captures eight settled frames for either the evaluated- or resolved-radiance view. After capturing both variants, run `Measure-MaterialVariance.ps1` to reproduce the fixed-ROI display-space temporal-deviation report and annotated ROI image. The metric is intended for repeatable symptom comparison; it is not a measurement of the underlying HDR radiance buffers.
+
+`Measure-HistoryWeightConvergence.ps1` compares the same series for evaluated radiance and resolved history weights `0.0`, `0.5`, `0.9`, and `0.98`. Capture variants must be named `w0`, `w50`, `resolved`, and `w98`. The report separates the full, early, and late settled windows so that lower variance can be considered alongside slow luminance settling.
+
+`-ReflectionRejectedPixelNeighborhood` enables a default-off diagnostic policy for A/B capture. Pixels rejected by the existing depth/normal history tests use a 3x3 current-frame radiance average restricted to neighbors with matching visible depth and normal. It does not relax history rejection and does not filter accepted-history pixels.
+
+Open `http://127.0.0.1:8765/?suite=suite-edge-stability.json` for the repeatable enlarged DamagedHelmet A/B review. A keeps the policy disabled and B enables it; both use stochastic sampling, history weight `0.9`, and camera distance scale `0.5`.
+
+Use `capture-plan-edge-settling.json` and `suite-edge-settling.json` for the focused settling gate. They compare A/B at 1, 6, and 15 frames after camera motion stops at frame 180, with only two criteria per checkpoint.
+
+## Dynamic Temporal HDR Report
+
+HDR diagnostic schema 12 reuses `-ReflectionOrbitDegrees` and `-ReflectionOrbitFrames` as a deterministic camera timeline after warm-up: forward orbit, reverse to the initial yaw, then stop. Each frame records the automation frame, motion phase, yaw offset, motion-vector magnitude, hit distance, and separate temporal status rates. The report computes T50, T90, and T95 from resolved-radiance ROI mean luminance when the stop response has a meaningful amplitude.
+
+Validate a generated report without GPU access:
+
+```powershell
+.\Tests\HybridReflection\Test-DynamicTemporalReport.ps1 -ReportPath <report.json>
+```
+
+The validator independently checks schema and timeline consistency, contiguous automation frames, exhaustive temporal-status rates, moving/stationary motion-vector behavior, and recomputed settling values. It does not judge Lit perceptual quality or establish an object-motion result.
+
+Use `capture-plan-confidence-lit.json` and `suite-confidence-lit.json` for the persistent-confidence Lit gate. Both variants use stochastic sampling, history weight `0.9`, camera distance scale `1.0`, and the same continuous camera timeline. The capture preserves the complete render frame so the rearward-surface region near the top edge is not cropped. The suite selects the scoped `full-frame-large` display mode: HTML removes the legacy centered 2x crop and stacks A/B at the full available page width. Other suites retain their existing presentation. A keeps variance-guided temporal weighting disabled; B enables it. The four checkpoints cover static appearance, mid motion, direction reversal, and settling. A still capture is not sufficient evidence for temporal-noise improvement; mark that criterion unable and add a consecutive-frame sequence when necessary.

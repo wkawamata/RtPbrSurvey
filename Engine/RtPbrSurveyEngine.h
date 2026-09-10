@@ -10,6 +10,7 @@
 //*********************************************************
 
 #pragma once
+#include <include/d3dx12/d3dx12.h>
 #include <wrl/client.h>
 #include "Rhi/Dx12/GraphicsDevice.h"
 #include "MyDx12Utils.h"
@@ -18,12 +19,16 @@
 #include "Renderer/DebugDumpCapture.h"
 #include "Renderer/DeferredGpuReleaseQueue.h"
 #include "Renderer/EnvironmentMap.h"
+#include "Renderer/DebugTexturePreviewPass.h"
+#include "Renderer/DebugResourceViewRegistry.h"
+#include "Renderer/DepthVisualization.h"
 #include "Renderer/GBuffer.h"
 #include "Renderer/HdrOutput.h"
 #include "Renderer/HybridReflectionPass.h"
 #include "Renderer/LightingPass.h"
 #include "Renderer/ReflectionEvaluatePass.h"
 #include "Renderer/TemporalReflectionPass.h"
+#include "Renderer/EdgeAwareSpatialReflectionPass.h"
 #include "Renderer/Material.h"
 #include "Renderer/MaterialBuffer.h"
 #include "Renderer/StagedDescriptorAllocator.h"
@@ -33,8 +38,13 @@
 #include "Renderer/SpecularDebugRayQueryPass.h"
 #include "Renderer/RayQueryTlasDebugPass.h"
 #include "Renderer/ReflectionRayHitDebugPass.h"
+#include "Renderer/ReflectionHdrDiagnosticCapture.h"
 #include "Renderer/RayTracingSupport.h"
+#include "Renderer/RayReconstructionRoughnessPass.h"
+#include "Renderer/RayReconstructionSpecularAlbedoPass.h"
+#include "Renderer/RayReconstructionSpecularHitDistancePass.h"
 #include "FrameGraph/RenderPassExecution.h"
+#include "FrameGraph/RenderGraphDocument.h"
 #include "FrameGraph/RenderPassGraph.h"
 #include "FrameGraph/RenderPassResources.h"
 #include "Renderer/RootSignatureLayout.h"
@@ -43,6 +53,8 @@
 #include "Renderer/SimpleDescriptorHeapAllocator.h"
 #include "Renderer/ShadowMaskDebugPass.h"
 #include "Renderer/DebugLinePass.h"
+#include "Runtime/DebugLine.h"
+#include "Renderer/RayReconstructionSupport.h"
 #include "Renderer/TemporalUpscalerSupport.h"
 #include "Renderer/StreamlineAdapter.h"
 #include "Renderer/ToneMap.h"
@@ -88,6 +100,13 @@ namespace RootSignatureLayout = Engine::RootSignatureLayout;
 class RtPbrSurveyEngine
 {
 public:
+    static constexpr UINT kMaxDebugTexturePreviewCount = 8;
+    static constexpr UINT kMaxDebugTextureThumbnailCount = 4;
+    static constexpr UINT kMaxDebugTextureOutputCount =
+        kMaxDebugTexturePreviewCount + kMaxDebugTextureThumbnailCount;
+    static constexpr UINT kDebugTextureThumbnailWidth = 96;
+    static constexpr UINT kDebugTextureThumbnailHeight = 54;
+
     enum class RenderViewMode
     {
         LightPass = 0,
@@ -117,11 +136,20 @@ public:
         ReflectionRayMaterial,
         ReflectionRayEmission,
         ReflectionEvaluatedRadiance,
+        ReflectionSpecularEstimate,
+        ReflectionResolvedSpecularEstimate,
+        ReflectionSpecularVariance,
+        ReflectionSpecularConfidence,
+        ReflectionSpatialPolicyInputs,
         ReflectionResolvedRadiance,
+        ReflectionTemporalValidity,
         ReflectionEvaluatedRadianceDirect,
         ReflectionEvaluatedRadianceIblDiffuse,
         ReflectionEvaluatedRadianceIblSpecular,
         ReflectionEvaluatedRadianceEmissive,
+        RayReconstructionSpecularAlbedo,
+        RayReconstructionRoughness,
+        RayReconstructionSpecularHitDistance,
         DlssInputColor,
     };
 
@@ -221,8 +249,15 @@ public:
         float contributionIntensity = 0.25f;
         float contributionMaxDistance = 20.0f;
         bool stochasticSamplingEnabled = false;
+        bool estimatorConstantIncidentRadianceEnabled = false;
         float temporalHistoryWeight = 0.0f;
         float temporalNoiseStrength = 0.0f;
+        bool rejectedPixelNeighborhoodEnabled = false;
+        bool surfaceVarianceFilterEnabled = false;
+        bool spatiotemporalSpatialPolicyEnabled = false;
+        bool varianceGuidedTemporalEnabled = false;
+        // Diagnostic-only evidence override. Changing it must preserve history for decay measurement.
+        bool confidenceForceStableEvidence = false;
     };
 
     struct SpecularDebugLineSettings
@@ -248,7 +283,13 @@ public:
         bool temporalUpscalerAvailable;
         const char* temporalUpscalerBackendName;
         const char* temporalUpscalerStatusText;
+        bool temporalUpscalerOutputAvailable;
+        Engine::StreamlineEvaluateResult temporalUpscalerLastEvaluateResult;
         Engine::StreamlineDlssDiagnostics dlssDiagnostics;
+        bool rayReconstructionAvailable;
+        const char* rayReconstructionBackendName;
+        const char* rayReconstructionStatusText;
+        Engine::RayReconstructionDiagnostics rayReconstructionDiagnostics;
         UINT temporalJitterSampleIndex;
         XMFLOAT2 temporalJitterHalton;
         XMFLOAT2 temporalJitterOffsetPixels;
@@ -275,6 +316,14 @@ public:
     void CloseSceneResources();
     UiFrameContext GetUiFrameContext() const;
     float CpuFrameTimeMs() const { return m_cpuFrameTime; }
+    Engine::RenderGraphDocument CaptureRenderGraphDocument() const;
+    const Engine::DebugResourceViewRegistry& GetDebugResourceViewRegistry() const
+    {
+        return m_debugResourceViewRegistry;
+    }
+    const std::vector<Engine::RenderGraphBarrierEvent>& GetRenderGraphBarrierEvents() const;
+    std::vector<Engine::RenderGraphBarrierDiagnostic> GetRenderGraphBarrierDiagnostics() const;
+    bool HasRenderGraphBarrierEvents() const;
     void SetUpdateHandler(UpdateHandler handler);
     void SetLightingParams(const LightingParams& params);
     const LightingParams& GetLightingParams() const { return m_lightingParams; }
@@ -282,8 +331,11 @@ public:
     const ShadowSettings& GetShadowSettings() const { return m_shadowSettings; }
     void SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings);
     const Engine::TemporalUpscalerSettings& GetTemporalUpscalerSettings() const { return m_temporalUpscalerSettings; }
+    void SetRayReconstructionSettings(const Engine::RayReconstructionSettings& settings);
+    const Engine::RayReconstructionSettings& GetRayReconstructionSettings() const { return m_rayReconstructionSettings; }
     void SetHybridReflectionSettings(const HybridReflectionSettings& settings);
     const HybridReflectionSettings& GetHybridReflectionSettings() const { return m_hybridReflectionSettings; }
+    void ResetHybridReflectionHistoryForDiagnostics();
     void SetMaterialParams(UINT materialIndex, const MaterialParams& params);
     void SetRenderingPath(RenderingPath renderingPath);
     RenderingPath GetRenderingPath() const { return m_renderingPath; }
@@ -302,7 +354,41 @@ public:
     }
     void SetRenderViewMode(RenderViewMode mode);
     RenderViewMode GetRenderViewMode() const { return m_debugViewSettings.renderViewMode; }
+    void SetDepthVisualizationSettings(const Engine::DepthVisualizationSettings& settings);
+    const Engine::DepthVisualizationSettings& GetDepthVisualizationSettings() const
+    {
+        return m_depthVisualizationSettings;
+    }
+    Engine::DepthVisualizationSettings GetDefaultDepthVisualizationSettings() const;
+    void SetDebugTexturePreviewEnabled(bool enabled);
+    bool IsDebugTexturePreviewEnabled() const;
+    ID3D12Resource* GetDebugTexturePreviewResource(UINT previewIndex = 0) const;
+    void SetDebugTexturePreviewSource(const std::string& source);
+    const std::string& GetDebugTexturePreviewSource() const { return m_debugTexturePreviewSources[0]; }
+    void SetDebugTexturePreviewSettings(const Engine::DebugTexturePreviewSettings& settings);
+    const Engine::DebugTexturePreviewSettings& GetDebugTexturePreviewSettings() const
+    {
+        return m_debugTexturePreviewSettings[0];
+    }
+    void SetDebugTexturePreviewCount(UINT previewCount);
+    void SetDebugTexturePreviewActiveSlots(UINT activeSlotMask);
+    void SetDebugTexturePreviewUpdateSlots(UINT updateSlotMask);
+    UINT GetDebugTexturePreviewCount() const;
+    void ConfigureDebugTexturePreview(UINT previewIndex,
+                                      const std::string& source,
+                                      const Engine::DebugTexturePreviewSettings& settings);
+    void ConfigureDebugBufferPreview(UINT previewIndex,
+                                     const Engine::DebugResourceViewDescriptor& descriptor,
+                                     const Engine::DebugTexturePreviewSettings& settings);
+    void SetDebugTexturePreviewSemantic(Engine::DebugTexturePreviewSemantic semantic);
+    void SetDebugTexturePreviewChannel(Engine::DebugTexturePreviewChannel channel);
+    void SetDebugTexturePreviewExposure(float exposure);
+    void SetDebugTexturePreviewScale(float scale);
+    void SetDebugTexturePreviewOffset(float offset);
+    void SetDebugTexturePreviewNearestSampling(bool nearestSampling);
     void SetRequestHdrDump(bool request);
+    void RequestReflectionHdrDiagnosticCapture(const Engine::ReflectionHdrDiagnosticRoi& roi);
+    std::optional<Engine::ReflectionHdrDiagnosticFrame> ConsumeReflectionHdrDiagnosticFrame();
     void RequestScreenshot(RtPbrSurvey::ScreenshotRequest request);
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult();
     void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
@@ -310,6 +396,10 @@ public:
     const PixelPickResult& GetPixelPickResult() const { return m_pixelPickResult; }
     void SetSpecularDebugLineSettings(const SpecularDebugLineSettings& settings);
     const SpecularDebugLineSettings& GetSpecularDebugLineSettings() const { return m_specularDebugLineSettings; }
+    RtPbrSurvey::DebugLineHandle AddDebugLine(const RtPbrSurvey::DebugLineDesc& desc);
+    bool UpdateDebugLine(RtPbrSurvey::DebugLineHandle handle, const RtPbrSurvey::DebugLineDesc& desc);
+    void RemoveDebugLine(RtPbrSurvey::DebugLineHandle handle);
+    void ClearDebugLines();
 
 private:
     static constexpr UINT kFrameCount = kSwapChainBufferCount;
@@ -333,7 +423,12 @@ private:
             static constexpr const char* Lighting = "Lighting";
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
             static constexpr const char* ReflectionEvaluate = "ReflectionEvaluate";
+            static constexpr const char* RayReconstructionRoughness = "RayReconstructionRoughness";
+            static constexpr const char* RayReconstructionSpecularAlbedo = "RayReconstructionSpecularAlbedo";
+            static constexpr const char* RayReconstructionSpecularHitDistance =
+                "RayReconstructionSpecularHitDistance";
             static constexpr const char* TemporalReflection = "TemporalReflection";
+            static constexpr const char* EdgeAwareSpatialReflection = "EdgeAwareSpatialReflection";
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* GBufferDebug = "GBufferDebug";
             static constexpr const char* HybridReflection = "HybridReflection";
@@ -343,6 +438,8 @@ private:
             static constexpr const char* RayQueryTlasDebug = "RayQueryTlasDebug";
             static constexpr const char* ShadowMaskDebug = "ShadowMaskDebug";
             static constexpr const char* DebugLine = "DebugLine";
+            static constexpr const char* DebugTexturePreview = "DebugTexturePreview";
+            static constexpr const char* DebugBufferPreview = "DebugBufferPreview";
         };
 
         struct Descriptor
@@ -350,6 +447,7 @@ private:
             static constexpr const char* TextureTable = "TextureTable";
             static constexpr const char* InstanceBufferSrv = "InstanceBufferSrv";
             static constexpr const char* MaterialBufferSrv = "MaterialBufferSrv";
+            static constexpr const char* MaterialBufferRawSrv = "MaterialBufferRawSrv";
             static constexpr const char* EnvironmentMapSrv = "EnvironmentMapSrv";
             static constexpr const char* CameraCbv = "CameraCbv";
             static constexpr const char* LightCbv = "LightCbv";
@@ -362,15 +460,33 @@ private:
             static constexpr const char* ReflectionRayMaterialSrv = "ReflectionRayMaterialSrv";
             static constexpr const char* ReflectionRayEmissionSrv = "ReflectionRayEmissionSrv";
             static constexpr const char* ReflectionEvaluatedRadianceSrv = "ReflectionEvaluatedRadianceSrv";
+            static constexpr const char* ReflectionSpecularEstimateSrv = "ReflectionSpecularEstimateSrv";
+            static constexpr const char* ReflectionRoughnessSrv = "ReflectionRoughnessSrv";
+            static constexpr const char* ReflectionSpecularAlbedoSrv = "ReflectionSpecularAlbedoSrv";
+            static constexpr const char* ReflectionSpecularHitDistanceSrv = "ReflectionSpecularHitDistanceSrv";
             static constexpr const char* ReflectionResolvedRadianceHistorySrv =
                 "ReflectionResolvedRadianceHistorySrv";
             static constexpr const char* ReflectionResolvedRadianceCurrentSrv =
                 "ReflectionResolvedRadianceCurrentSrv";
+            static constexpr const char* ReflectionDenoisedRadianceSrv = "ReflectionDenoisedRadianceSrv";
             static constexpr const char* ReflectionHistoryDepthSrv = "ReflectionHistoryDepthSrv";
             static constexpr const char* ReflectionHistoryNormalSrv = "ReflectionHistoryNormalSrv";
+            static constexpr const char* ReflectionResolvedSpecularEstimateHistorySrv =
+                "ReflectionResolvedSpecularEstimateHistorySrv";
+            static constexpr const char* ReflectionResolvedSpecularEstimateCurrentSrv =
+                "ReflectionResolvedSpecularEstimateCurrentSrv";
+            static constexpr const char* ReflectionSpecularMomentsHistorySrv =
+                "ReflectionSpecularMomentsHistorySrv";
+            static constexpr const char* ReflectionSpecularMomentsCurrentSrv =
+                "ReflectionSpecularMomentsCurrentSrv";
+            static constexpr const char* ReflectionSpecularConfidenceHistorySrv =
+                "ReflectionSpecularConfidenceHistorySrv";
+            static constexpr const char* ReflectionSpecularConfidenceCurrentSrv =
+                "ReflectionSpecularConfidenceCurrentSrv";
             static constexpr const char* ReflectionRayHitUav = "ReflectionRayHitUav";
             static constexpr const char* TlasDebugUav = "TlasDebugUav";
             static constexpr const char* AccelerationStructureSrv = "AccelerationStructureSrv";
+            static constexpr const char* DebugTexturePreviewSourceSrv = "DebugTexturePreviewSourceSrv";
         };
 
         struct Rtv
@@ -384,10 +500,21 @@ private:
             static constexpr const char* GBufferEmissive = "GBufferEmissive";
             static constexpr const char* LightPass = "LightPass";
             static constexpr const char* ReflectionEvaluatedRadiance = "ReflectionEvaluatedRadiance";
+            static constexpr const char* ReflectionSpecularEstimate = "ReflectionSpecularEstimate";
+            static constexpr const char* ReflectionRoughness = "ReflectionRoughness";
+            static constexpr const char* ReflectionSpecularAlbedo = "ReflectionSpecularAlbedo";
+            static constexpr const char* ReflectionSpecularHitDistance = "ReflectionSpecularHitDistance";
             static constexpr const char* ReflectionResolvedRadianceCurrent = "ReflectionResolvedRadianceCurrent";
             static constexpr const char* ReflectionHistoryDepthCurrent = "ReflectionHistoryDepthCurrent";
             static constexpr const char* ReflectionHistoryNormalCurrent = "ReflectionHistoryNormalCurrent";
+            static constexpr const char* ReflectionResolvedSpecularEstimateCurrent =
+                "ReflectionResolvedSpecularEstimateCurrent";
+            static constexpr const char* ReflectionSpecularMomentsCurrent = "ReflectionSpecularMomentsCurrent";
+            static constexpr const char* ReflectionSpecularConfidenceCurrent =
+                "ReflectionSpecularConfidenceCurrent";
+            static constexpr const char* ReflectionDenoisedRadiance = "ReflectionDenoisedRadiance";
             static constexpr const char* TemporalUpscalerSceneColor = "TemporalUpscalerSceneColor";
+            static constexpr const char* DebugTexturePreview = "DebugTexturePreview";
         };
 
         struct Dsv
@@ -406,10 +533,17 @@ private:
             static constexpr const char* Lighting = "Lighting";
             static constexpr const char* LightingDebugGradient = "LightingDebugGradient";
             static constexpr const char* ReflectionEvaluate = "ReflectionEvaluate";
+            static constexpr const char* RayReconstructionRoughness = "RayReconstructionRoughness";
+            static constexpr const char* RayReconstructionSpecularAlbedo = "RayReconstructionSpecularAlbedo";
+            static constexpr const char* RayReconstructionSpecularHitDistance =
+                "RayReconstructionSpecularHitDistance";
             static constexpr const char* TemporalReflection = "TemporalReflection";
+            static constexpr const char* DlssRayReconstruction = "DlssRayReconstruction";
+            static constexpr const char* EdgeAwareSpatialReflection = "EdgeAwareSpatialReflection";
             static constexpr const char* ToneMap = "ToneMap";
             static constexpr const char* TemporalUpscaler = "TemporalUpscaler";
             static constexpr const char* DebugDump = "DebugDump";
+            static constexpr const char* ReflectionHdrDiagnostic = "ReflectionHdrDiagnostic";
             static constexpr const char* PixelPick = "PixelPick";
             static constexpr const char* GBufferDebug = "GBufferDebug";
             static constexpr const char* ShadowMaskDebug = "ShadowMaskDebug";
@@ -421,6 +555,7 @@ private:
             static constexpr const char* RayQueryTlasDebug = "RayQueryTlasDebug";
             static constexpr const char* ImGui = "ImGui";
             static constexpr const char* Screenshot = "Screenshot";
+            static constexpr const char* DebugTexturePreview = "DebugTexturePreview";
         };
 
         struct Constants
@@ -430,6 +565,7 @@ private:
             static constexpr const char* ReflectionRayHitDebugTarget = "ReflectionRayHitDebugTarget";
             static constexpr const char* TemporalReflection = "TemporalReflection";
             static constexpr const char* ReflectionSampling = "ReflectionSampling";
+            static constexpr const char* DebugTexturePreview = "DebugTexturePreview";
         };
     };
 
@@ -444,7 +580,7 @@ private:
     static constexpr DXGI_FORMAT kBackBufferFormat = kSwapChainFormat;
 
     static constexpr UINT kInstanceBufferCount = kFrameCount;
-    static constexpr UINT kMaterialBufferCount = 1;
+    static constexpr UINT kMaterialBufferCount = 2;
     // Procedural environment reloads keep the previous descriptor table alive until its fence retires.
     // Each table is env / diffuse irradiance / specular prefilter / BRDF LUT, plus m_brdfLut owns one SRV.
     static constexpr UINT kEnvironmentDescriptorTableSize = 4;
@@ -467,9 +603,11 @@ private:
     static constexpr UINT kShadowMaskDescriptorCount = 2; // SRV + UAV (dynamically allocated)
     static constexpr UINT kReflectionRayHitDescriptorCount =
         8; // Hit SRV/UAV + Color SRV/UAV + Material SRV/UAV + Emission SRV/UAV
-    static constexpr UINT kReflectionEvaluatedRadianceDescriptorCount = 1; // ReflectionEvaluatedRadiance SRV
+    static constexpr UINT kReflectionEvaluatedRadianceDescriptorCount =
+        6; // Evaluated radiance + specular estimate + roughness + specular albedo + hit distance + denoised SRVs
     static constexpr UINT kReflectionResolvedRadianceDescriptorCount = 2;  // One SRV per physical history slot
     static constexpr UINT kReflectionAuxiliaryHistoryDescriptorCount = 4;  // Depth + normal, two slots each
+    static constexpr UINT kReflectionEstimatorHistoryDescriptorCount = 4;  // Resolved estimate + moments, two slots each
     static constexpr UINT kTlasDescriptorCount = 1;       // TLAS SRV
 
     // Descriptor allocation order is tracked by DescriptorHeapHandle.
@@ -485,6 +623,7 @@ private:
                                                       kReflectionEvaluatedRadianceDescriptorCount +
                                                       kReflectionResolvedRadianceDescriptorCount +
                                                       kReflectionAuxiliaryHistoryDescriptorCount +
+                                                      kReflectionEstimatorHistoryDescriptorCount +
                                                       kTlasDescriptorCount;
     static constexpr UINT kStagedDescriptorReservedCount = 64;
 
@@ -554,11 +693,21 @@ private:
     static constexpr UINT kGBufferRTVBaseIndex = kSwapChainRTVCount;
     static constexpr UINT kLightPassRTVIndex = kGBufferRTVBaseIndex + Engine::GBuffer::kCount;
     static constexpr UINT kReflectionEvaluatedRadianceRTVIndex = kLightPassRTVIndex + 1;
-    static constexpr UINT kReflectionResolvedRadianceRTVBaseIndex = kReflectionEvaluatedRadianceRTVIndex + 1;
+    static constexpr UINT kReflectionSpecularEstimateRTVIndex = kReflectionEvaluatedRadianceRTVIndex + 1;
+    static constexpr UINT kReflectionRoughnessRTVIndex = kReflectionSpecularEstimateRTVIndex + 1;
+    static constexpr UINT kReflectionSpecularAlbedoRTVIndex = kReflectionRoughnessRTVIndex + 1;
+    static constexpr UINT kReflectionSpecularHitDistanceRTVIndex = kReflectionSpecularAlbedoRTVIndex + 1;
+    static constexpr UINT kReflectionResolvedRadianceRTVBaseIndex = kReflectionSpecularHitDistanceRTVIndex + 1;
     static constexpr UINT kReflectionHistoryDepthRTVBaseIndex = kReflectionResolvedRadianceRTVBaseIndex + 2;
     static constexpr UINT kReflectionHistoryNormalRTVBaseIndex = kReflectionHistoryDepthRTVBaseIndex + 2;
-    static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionHistoryNormalRTVBaseIndex + 2;
-    static constexpr UINT kRTVDescriptorCount = kFrameCount + Engine::GBuffer::kCount + 9;
+    static constexpr UINT kReflectionResolvedSpecularEstimateRTVBaseIndex = kReflectionHistoryNormalRTVBaseIndex + 2;
+    static constexpr UINT kReflectionSpecularMomentsRTVBaseIndex =
+        kReflectionResolvedSpecularEstimateRTVBaseIndex + 2;
+    static constexpr UINT kReflectionSpecularConfidenceRTVBaseIndex = kReflectionSpecularMomentsRTVBaseIndex + 2;
+    static constexpr UINT kReflectionDenoisedRadianceRTVIndex = kReflectionSpecularConfidenceRTVBaseIndex + 2;
+    static constexpr UINT kTemporalUpscalerSceneColorRTVIndex = kReflectionDenoisedRadianceRTVIndex + 1;
+    static constexpr UINT kDebugTexturePreviewRTVBaseIndex = kTemporalUpscalerSceneColorRTVIndex + 1;
+    static constexpr UINT kRTVDescriptorCount = kDebugTexturePreviewRTVBaseIndex + kMaxDebugTextureOutputCount;
 
     struct DebugViewSettings
     {
@@ -581,11 +730,20 @@ private:
                    renderViewMode != RenderViewMode::ShadowMask &&
                    renderViewMode != RenderViewMode::TlasDebug &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadiance &&
+                   renderViewMode != RenderViewMode::ReflectionSpecularEstimate &&
+                   renderViewMode != RenderViewMode::ReflectionResolvedSpecularEstimate &&
+                   renderViewMode != RenderViewMode::ReflectionSpecularVariance &&
+                   renderViewMode != RenderViewMode::ReflectionSpecularConfidence &&
+                   renderViewMode != RenderViewMode::ReflectionSpatialPolicyInputs &&
                    renderViewMode != RenderViewMode::ReflectionResolvedRadiance &&
+                   renderViewMode != RenderViewMode::ReflectionTemporalValidity &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceDirect &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceIblSpecular &&
                    renderViewMode != RenderViewMode::ReflectionEvaluatedRadianceEmissive &&
+                   renderViewMode != RenderViewMode::RayReconstructionSpecularAlbedo &&
+                   renderViewMode != RenderViewMode::RayReconstructionRoughness &&
+                   renderViewMode != RenderViewMode::RayReconstructionSpecularHitDistance &&
                    !IsLightPassDebugView();
         }
         bool IsLightPassDebugView() const
@@ -615,11 +773,20 @@ private:
                    renderViewMode == RenderViewMode::ReflectionRayDistanceFade ||
                    renderViewMode == RenderViewMode::ReflectionContributionStrength ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
+                   renderViewMode == RenderViewMode::ReflectionSpecularEstimate ||
+                   renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate ||
+                   renderViewMode == RenderViewMode::ReflectionSpecularVariance ||
+                   renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
+                   renderViewMode == RenderViewMode::ReflectionSpatialPolicyInputs ||
                    renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+                   renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
                    renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
-                   renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceEmissive);
+                   renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceEmissive ||
+                   renderViewMode == RenderViewMode::RayReconstructionSpecularAlbedo ||
+                   renderViewMode == RenderViewMode::RayReconstructionRoughness ||
+                   renderViewMode == RenderViewMode::RayReconstructionSpecularHitDistance);
             if (renderViewMode == RenderViewMode::ReflectionRayHit)
             {
                 return 0u;
@@ -648,9 +815,33 @@ private:
             {
                 return 7u;
             }
+            if (renderViewMode == RenderViewMode::ReflectionSpecularEstimate)
+            {
+                return 7u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate)
+            {
+                return 14u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionSpecularVariance)
+            {
+                return 15u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionSpecularConfidence)
+            {
+                return 16u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionSpatialPolicyInputs)
+            {
+                return 17u;
+            }
             if (renderViewMode == RenderViewMode::ReflectionResolvedRadiance)
             {
                 return 7u;
+            }
+            if (renderViewMode == RenderViewMode::ReflectionTemporalValidity)
+            {
+                return 13u;
             }
             if (renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect)
             {
@@ -667,6 +858,18 @@ private:
             if (renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceEmissive)
             {
                 return 12u;
+            }
+            if (renderViewMode == RenderViewMode::RayReconstructionSpecularAlbedo)
+            {
+                return 18u;
+            }
+            if (renderViewMode == RenderViewMode::RayReconstructionRoughness)
+            {
+                return 19u;
+            }
+            if (renderViewMode == RenderViewMode::RayReconstructionSpecularHitDistance)
+            {
+                return 20u;
             }
             return renderViewMode == RenderViewMode::ReflectionRayDistanceFade ? 4u : 5u;
         }
@@ -698,10 +901,19 @@ private:
     ComPtr<ID3D12Resource> m_depthStencil;
     ComPtr<ID3D12Resource> m_lightPassRenderTarget;
     ComPtr<ID3D12Resource> m_reflectionEvaluatedRadiance;
+    ComPtr<ID3D12Resource> m_reflectionSpecularEstimate;
+    ComPtr<ID3D12Resource> m_reflectionRoughness;
+    ComPtr<ID3D12Resource> m_reflectionSpecularAlbedo;
+    ComPtr<ID3D12Resource> m_reflectionSpecularHitDistance;
     ComPtr<ID3D12Resource> m_reflectionResolvedRadiance[2];
     ComPtr<ID3D12Resource> m_reflectionHistoryDepth[2];
     ComPtr<ID3D12Resource> m_reflectionHistoryNormal[2];
+    ComPtr<ID3D12Resource> m_reflectionResolvedSpecularEstimate[2];
+    ComPtr<ID3D12Resource> m_reflectionSpecularMoments[2];
+    ComPtr<ID3D12Resource> m_reflectionSpecularConfidence[2];
+    ComPtr<ID3D12Resource> m_reflectionDenoisedRadiance;
     ComPtr<ID3D12Resource> m_temporalUpscalerSceneColor;
+    std::array<ComPtr<ID3D12Resource>, kMaxDebugTextureOutputCount> m_debugTexturePreviews;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
     ComPtr<ID3D12Resource> m_reflectionRayColor;
@@ -718,10 +930,39 @@ private:
     DescriptorHeapHandle m_depthStencilSrv;
     DescriptorHeapHandle m_lightPassColorSrv;
     DescriptorHeapHandle m_temporalUpscalerSceneColorSrv;
+    std::array<DescriptorHeapHandle, kMaxDebugTextureOutputCount> m_debugTexturePreviewSrvs;
+    UINT m_debugTexturePreviewActiveSlotMask = 0;
+    UINT m_debugTexturePreviewUpdateSlotMask = 0;
+    std::array<std::string, kMaxDebugTextureOutputCount> m_debugTexturePreviewSources = {
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+    };
+    std::array<bool, kMaxDebugTextureOutputCount> m_debugTexturePreviewBufferSources = {};
+    std::array<std::string, kMaxDebugTextureOutputCount> m_debugTexturePreviewSourceDescriptorNames;
+    std::array<Engine::DebugTexturePreviewSettings, kMaxDebugTextureOutputCount> m_debugTexturePreviewSettings;
+    Engine::DebugResourceViewRegistry m_debugResourceViewRegistry;
     DescriptorHeapHandle m_reflectionEvaluatedRadianceSrv;
+    DescriptorHeapHandle m_reflectionSpecularEstimateSrv;
+    DescriptorHeapHandle m_reflectionRoughnessSrv;
+    DescriptorHeapHandle m_reflectionSpecularAlbedoSrv;
+    DescriptorHeapHandle m_reflectionSpecularHitDistanceSrv;
     DescriptorHeapHandle m_reflectionResolvedRadianceSrv[2];
     DescriptorHeapHandle m_reflectionHistoryDepthSrv[2];
     DescriptorHeapHandle m_reflectionHistoryNormalSrv[2];
+    DescriptorHeapHandle m_reflectionResolvedSpecularEstimateSrv[2];
+    DescriptorHeapHandle m_reflectionSpecularMomentsSrv[2];
+    DescriptorHeapHandle m_reflectionSpecularConfidenceSrv[2];
+    DescriptorHeapHandle m_reflectionDenoisedRadianceSrv;
     StagedDescriptorRange m_shadowMaskRange;
 
     StagedDescriptorAllocator m_stageAllocator;
@@ -755,6 +996,8 @@ private:
     Engine::RayTracingSupportInfo m_rayTracingSupport;
     Engine::TemporalUpscalerSupportInfo m_temporalUpscalerSupport;
     Engine::TemporalUpscalerSettings m_temporalUpscalerSettings;
+    Engine::RayReconstructionSupportInfo m_rayReconstructionSupport;
+    Engine::RayReconstructionSettings m_rayReconstructionSettings;
     bool m_temporalUpscalerHistoryReset = true;
     struct ReflectionHistoryState
     {
@@ -776,6 +1019,7 @@ private:
     DirectX::XMFLOAT3 m_previousCameraUp = {0.0f, 1.0f, 0.0f};
     bool m_cameraProjectionStateInitialized = false;
     bool m_temporalUpscalerOutputAvailable = false;
+    Engine::StreamlineEvaluateResult m_temporalUpscalerLastEvaluateResult;
     Engine::ToneMapPass m_toneMapPass;
     Engine::DebugLinePass m_debugLinePass;
 
@@ -784,7 +1028,13 @@ private:
     DXGI_FORMAT m_backBufferFormat = kBackBufferFormat;
     HdrOutputPolicy m_hdrOutputPolicy;
     DebugViewSettings m_debugViewSettings;
+    Engine::DepthVisualizationSettings m_depthVisualizationSettings;
     Engine::DebugDumpCapture m_debugDumpCapture;
+    bool m_reflectionHdrDiagnosticRequested = false;
+    bool m_reflectionHdrDiagnosticPending = false;
+    Engine::ReflectionHdrDiagnosticRoi m_reflectionHdrDiagnosticRoi;
+    Engine::ReflectionHdrDiagnosticCapture m_reflectionHdrDiagnosticCapture;
+    std::optional<Engine::ReflectionHdrDiagnosticFrame> m_reflectionHdrDiagnosticFrame;
     struct PendingScreenshotCapture
     {
         RtPbrSurvey::ScreenshotRequest request;
@@ -816,7 +1066,8 @@ private:
     ComPtr<ID3D12Resource> m_specularDebugRayQueryReadback;
 
     // Debug line data derived from the picked pixel.
-    std::vector<Engine::DebugLineVertex> m_debugLineVertices;
+    RtPbrSurvey::DebugLineRegistry m_debugLineRegistry;
+    RtPbrSurvey::DebugLineVertexGroups m_debugLineVertices;
     void UpdateDebugLines();
 
     std::array<float, 4> m_backBufferClearColor = {0.0f, 0.2f, 0.4f, 1.0f};
@@ -898,13 +1149,95 @@ private:
 
     // GPU work meter
     MyDx12Util::GpuWorkMeter m_gpuWorkMeter;
+    std::vector<MyDx12Util::GpuWorkMeter::CheckPoint> m_completedGpuWorkMeterCheckPoints;
+    std::vector<Engine::RenderGraphBarrierEvent> m_renderGraphBarrierEvents;
+    std::vector<Engine::RenderGraphBarrierEvent> m_completedRenderGraphBarrierEvents;
+    Engine::RenderGraphDocument m_renderGraphBarrierDocument;
+    Engine::RenderGraphDocument m_completedRenderGraphBarrierDocument;
+    bool m_hasRenderGraphBarrierEvents = false;
+    bool m_hasCompletedRenderGraphBarrierEvents = false;
     const UiRenderHandler* m_activeUiRenderHandler = nullptr;
     UpdateHandler m_updateHandler;
     static constexpr const char* kBackBufferResourceName = "BackBuffer";
     static constexpr const char* kDepthStencilResourceName = "DepthStencil";
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";
     static constexpr const char* kTemporalUpscalerSceneColorResourceName = "TemporalUpscaler.SceneColor";
+    static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
+        "DebugTexturePreview.Output.0",
+        "DebugTexturePreview.Output.1",
+        "DebugTexturePreview.Output.2",
+        "DebugTexturePreview.Output.3",
+        "DebugTexturePreview.Output.4",
+        "DebugTexturePreview.Output.5",
+        "DebugTexturePreview.Output.6",
+        "DebugTexturePreview.Output.7",
+        "DebugTextureThumbnail.Output.0",
+        "DebugTextureThumbnail.Output.1",
+        "DebugTextureThumbnail.Output.2",
+        "DebugTextureThumbnail.Output.3",
+    };
+    static constexpr const wchar_t* kDebugTexturePreviewPassNames[kMaxDebugTextureOutputCount] = {
+        L"DebugTexturePreviewPass.0",
+        L"DebugTexturePreviewPass.1",
+        L"DebugTexturePreviewPass.2",
+        L"DebugTexturePreviewPass.3",
+        L"DebugTexturePreviewPass.4",
+        L"DebugTexturePreviewPass.5",
+        L"DebugTexturePreviewPass.6",
+        L"DebugTexturePreviewPass.7",
+        L"DebugTextureThumbnailPass.0",
+        L"DebugTextureThumbnailPass.1",
+        L"DebugTextureThumbnailPass.2",
+        L"DebugTextureThumbnailPass.3",
+    };
+    static constexpr const char* kDebugTexturePreviewDescriptorNames[kMaxDebugTextureOutputCount] = {
+        "DebugTexturePreviewSourceSrv.0",
+        "DebugTexturePreviewSourceSrv.1",
+        "DebugTexturePreviewSourceSrv.2",
+        "DebugTexturePreviewSourceSrv.3",
+        "DebugTexturePreviewSourceSrv.4",
+        "DebugTexturePreviewSourceSrv.5",
+        "DebugTexturePreviewSourceSrv.6",
+        "DebugTexturePreviewSourceSrv.7",
+        "DebugTextureThumbnailSourceSrv.0",
+        "DebugTextureThumbnailSourceSrv.1",
+        "DebugTextureThumbnailSourceSrv.2",
+        "DebugTextureThumbnailSourceSrv.3",
+    };
+    static constexpr const char* kDebugTexturePreviewRtvNames[kMaxDebugTextureOutputCount] = {
+        "DebugTexturePreview.0",
+        "DebugTexturePreview.1",
+        "DebugTexturePreview.2",
+        "DebugTexturePreview.3",
+        "DebugTexturePreview.4",
+        "DebugTexturePreview.5",
+        "DebugTexturePreview.6",
+        "DebugTexturePreview.7",
+        "DebugTextureThumbnail.0",
+        "DebugTextureThumbnail.1",
+        "DebugTextureThumbnail.2",
+        "DebugTextureThumbnail.3",
+    };
+    static constexpr const char* kDebugTexturePreviewConstantsNames[kMaxDebugTextureOutputCount] = {
+        "DebugTexturePreview.0",
+        "DebugTexturePreview.1",
+        "DebugTexturePreview.2",
+        "DebugTexturePreview.3",
+        "DebugTexturePreview.4",
+        "DebugTexturePreview.5",
+        "DebugTexturePreview.6",
+        "DebugTexturePreview.7",
+        "DebugTextureThumbnail.0",
+        "DebugTextureThumbnail.1",
+        "DebugTextureThumbnail.2",
+        "DebugTextureThumbnail.3",
+    };
     static constexpr const char* kReflectionEvaluatedRadianceResourceName = "ReflectionEvaluatedRadiance";
+    static constexpr const char* kReflectionDenoisedRadianceResourceName = "ReflectionDenoisedRadiance";
+    static constexpr const char* kReflectionSpecularEstimateResourceName = "ReflectionSpecularEstimate";
+    static constexpr const char* kReflectionRoughnessResourceName = "ReflectionRoughness";
+    static constexpr const char* kReflectionSpecularAlbedoResourceName = "ReflectionSpecularAlbedo";
+    static constexpr const char* kReflectionSpecularHitDistanceResourceName = "ReflectionSpecularHitDistance";
     static constexpr const char* kReflectionResolvedRadianceResourceNames[2] = {
         "ReflectionResolvedRadiance.0",
         "ReflectionResolvedRadiance.1",
@@ -913,6 +1246,12 @@ private:
         "ReflectionHistoryDepth.0", "ReflectionHistoryDepth.1"};
     static constexpr const char* kReflectionHistoryNormalResourceNames[2] = {
         "ReflectionHistoryNormal.0", "ReflectionHistoryNormal.1"};
+    static constexpr const char* kReflectionResolvedSpecularEstimateResourceNames[2] = {
+        "ReflectionResolvedSpecularEstimate.0", "ReflectionResolvedSpecularEstimate.1"};
+    static constexpr const char* kReflectionSpecularMomentsResourceNames[2] = {
+        "ReflectionSpecularMoments.0", "ReflectionSpecularMoments.1"};
+    static constexpr const char* kReflectionSpecularConfidenceResourceNames[2] = {
+        "ReflectionSpecularConfidence.0", "ReflectionSpecularConfidence.1"};
     static constexpr const char* kGBufferResourceNames[Engine::GBuffer::kCount] = {
         "GBuffer.Albedo",
         "GBuffer.Normal",
@@ -925,6 +1264,7 @@ private:
     static constexpr const char* kReflectionRayColorResourceName = "ReflectionRayColor";
     static constexpr const char* kReflectionRayMaterialResourceName = "ReflectionRayMaterial";
     static constexpr const char* kReflectionRayEmissionResourceName = "ReflectionRayEmission";
+    static constexpr const char* kMaterialBufferResourceName = "MaterialBuffer";
 
     using TransientResourceState = Engine::TransientResourceState;
 
@@ -983,8 +1323,14 @@ private:
         GraphicsPipelineShaderSet lighting;
         GraphicsPipelineShaderSet lightingDebugGradient;
         GraphicsPipelineShaderSet reflectionEvaluate;
+        GraphicsPipelineShaderSet rayReconstructionRoughness;
+        GraphicsPipelineShaderSet rayReconstructionSpecularAlbedo;
+        GraphicsPipelineShaderSet rayReconstructionSpecularHitDistance;
         GraphicsPipelineShaderSet temporalReflection;
+        GraphicsPipelineShaderSet edgeAwareSpatialReflection;
         GraphicsPipelineShaderSet toneMap;
+        GraphicsPipelineShaderSet debugTexturePreview;
+        GraphicsPipelineShaderSet debugBufferPreview;
         ShaderBytecode hybridReflection;
         ShaderBytecode proceduralEnv;
         ShaderBytecode rayQueryShadow;
@@ -1071,9 +1417,16 @@ private:
     void RegisterDepthStencil();
     void RegisterLightPassRenderTarget();
     void RegisterReflectionEvaluatedRadiance();
+    void RegisterReflectionSpecularEstimate();
+    void RegisterReflectionRoughness();
+    void RegisterReflectionSpecularAlbedo();
+    void RegisterReflectionSpecularHitDistance();
     void RegisterReflectionResolvedRadiance();
     void RegisterReflectionAuxiliaryHistory();
+    void RegisterReflectionEstimatorHistory();
+    void RegisterReflectionDenoisedRadiance();
     void RegisterTemporalUpscalerSceneColor();
+    void RegisterDebugTexturePreview();
     void RegisterRenderTexture(const Engine::RenderTextureSpec& spec);
     UINT ResolveRenderTextureWidth(const Engine::RenderTextureSpec& spec) const;
     UINT ResolveRenderTextureHeight(const Engine::RenderTextureSpec& spec) const;
@@ -1104,18 +1457,31 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE GetGBufferRTV(UINT index) const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetLightPassRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionEvaluatedRadianceRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionSpecularEstimateRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionRoughnessRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionSpecularAlbedoRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionSpecularHitDistanceRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionResolvedRadianceCurrentRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionHistoryDepthCurrentRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionHistoryNormalCurrentRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionResolvedSpecularEstimateCurrentRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionSpecularMomentsCurrentRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionSpecularConfidenceCurrentRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetReflectionDenoisedRadianceRTV() const;
     D3D12_CPU_DESCRIPTOR_HANDLE GetTemporalUpscalerSceneColorRTV() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetDebugTexturePreviewRTV(UINT previewIndex) const;
+    D3D12_GPU_DESCRIPTOR_HANDLE ResolveDebugTexturePreviewSourceSrv(UINT previewIndex) const;
     void RegisterPassBindingResolvers();
+    void RegisterDebugResourceViews();
     void RegisterPassConstantsHandlers();
     void RegisterResourceResolvers();
     Engine::TemporalUpscalerFrameConstants MakeStreamlineFrameConstants() const;
+    Engine::RayReconstructionFrameConstants MakeRayReconstructionFrameConstants() const;
     void ResolveRenderDimensions(UINT outputWidth, UINT outputHeight, UINT& renderWidth, UINT& renderHeight) const;
     void UpdateRenderDimensions();
     bool IsTemporalJitterEnabled() const;
     bool ShouldRunTemporalUpscaler() const;
+    bool ShouldRunRayReconstruction() const;
     D3D12_GPU_DESCRIPTOR_HANDLE ResolveToneMapSceneColorSrv() const;
 
     std::vector<UINT8> GenerateCheckerboardTextureData();
@@ -1138,11 +1504,18 @@ private:
     RenderPass MakeForwardPass();
     RenderPass MakeLightingPass();
     RenderPass MakeReflectionEvaluatePass();
+    RenderPass MakeRayReconstructionRoughnessPass();
+    RenderPass MakeRayReconstructionSpecularAlbedoPass();
+    RenderPass MakeRayReconstructionSpecularHitDistancePass();
     RenderPass MakeTemporalReflectionPass();
+    RenderPass MakeDlssRayReconstructionPass();
+    RenderPass MakeEdgeAwareSpatialReflectionPass();
     RenderPass MakeLightingDebugGradientPass();
     RenderPass MakeTemporalUpscalerPass();
+    RenderPass MakeDebugTexturePreviewPass(UINT previewIndex);
     RenderPass MakeToneMapPass();
     RenderPass MakeDebugDumpPass();
+    RenderPass MakeReflectionHdrDiagnosticPass();
     RenderPass MakePixelPickPass();
     RenderPass MakeGBufferDebugPass();
     RenderPass MakeReflectionRayHitDebugPass();
@@ -1206,11 +1579,18 @@ private:
     void ExecuteForwardPass(const RenderPass& pass);
     void ExecuteLightingPass(const RenderPass& pass);
     void ExecuteReflectionEvaluatePass(const RenderPass& pass);
+    void ExecuteRayReconstructionRoughnessPass(const RenderPass& pass);
+    void ExecuteRayReconstructionSpecularAlbedoPass(const RenderPass& pass);
+    void ExecuteRayReconstructionSpecularHitDistancePass(const RenderPass& pass);
     void ExecuteTemporalReflectionPass(const RenderPass& pass);
+    void ExecuteDlssRayReconstructionPass(const RenderPass& pass);
+    void ExecuteEdgeAwareSpatialReflectionPass(const RenderPass& pass);
     void ExecuteLightingDebugGradientPass(const RenderPass& pass);
     void ExecuteTemporalUpscalerPass(const RenderPass& pass);
+    void ExecuteDebugTexturePreviewPass(const RenderPass& pass);
     void ExecuteToneMapPass(const RenderPass& pass);
     void ExecuteDebugDumpPass(const RenderPass& pass);
+    void ExecuteReflectionHdrDiagnosticPass(const RenderPass& pass);
     void ExecutePixelPickPass(const RenderPass& pass);
     void ExecuteGBufferDebugPass(const RenderPass& pass);
     void ExecuteReflectionRayHitDebugPass(const RenderPass& pass);
@@ -1219,6 +1599,7 @@ private:
     void ExecuteImGuiPass(const RenderPass& pass);
     void ExecuteScreenshotPass(const RenderPass& pass);
     void RecordDebugDumpPass();
+    void RecordReflectionHdrDiagnosticPass();
     void RecordPixelPickPass();
     void ReadbackPixelPick();
     void ReadbackSpecularDebugRayQuery();

@@ -12,13 +12,8 @@ set(RTPBRSURVEY_WINPIX_NUGET_VERSION "1.0.240308001" CACHE STRING "WinPixEventRu
 
 set(RTPBRSURVEY_ROOT "${CMAKE_CURRENT_LIST_DIR}")
 set(RTPBRSURVEY_PACKAGES_DIR "${RTPBRSURVEY_ROOT}/packages" CACHE PATH "RtPbrSurvey NuGet packages directory.")
-set(rtpbrsurvey_streamline_sdk_default "${RTPBRSURVEY_ROOT}/third_party/streamline-sdk-2.12.0")
-if(DEFINED ENV{RTPBRSURVEY_STREAMLINE_SDK_DIR} AND
-   NOT "$ENV{RTPBRSURVEY_STREAMLINE_SDK_DIR}" STREQUAL "")
-    set(rtpbrsurvey_streamline_sdk_default "$ENV{RTPBRSURVEY_STREAMLINE_SDK_DIR}")
-endif()
 set(RTPBRSURVEY_STREAMLINE_SDK_DIR
-    "${rtpbrsurvey_streamline_sdk_default}"
+    "${RTPBRSURVEY_ROOT}/third_party/streamline-sdk-2.12.0"
     CACHE PATH "Path to the local Streamline SDK root.")
 
 find_package(imgui CONFIG REQUIRED)
@@ -61,6 +56,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     WorkMeter.cpp
     Camera/DebugCameraController.cpp
     Engine/Rhi/Dx12/GraphicsDevice.cpp
+    Engine/FrameGraph/RenderGraphDocument.cpp
     Engine/RtPbrSurveyEngine.cpp
     Engine/RtPbrSurveyEnginePasses.cpp
     Platform/CommandLineOptions.cpp
@@ -71,6 +67,9 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/DebugDumpCapture.cpp
     Renderer/DebugDumpReport.cpp
     Renderer/DebugLinePass.cpp
+    Renderer/DebugResourceViewRegistry.cpp
+    Renderer/DebugTexturePreviewPass.cpp
+    Renderer/EdgeAwareSpatialReflectionPass.cpp
     Renderer/EnvironmentMap.cpp
     Renderer/FullscreenTriangle.cpp
     Renderer/GBuffer.cpp
@@ -81,8 +80,14 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/PipelineFactory.cpp
     Renderer/RayQueryShadowPass.cpp
     Renderer/RayQueryTlasDebugPass.cpp
+    Renderer/RayReconstructionRoughnessPass.cpp
+    Renderer/RayReconstructionSpecularAlbedoPass.cpp
+    Renderer/RayReconstructionSpecularHitDistancePass.cpp
+    Renderer/RayReconstructionSupport.cpp
     Renderer/RayTracingSupport.cpp
     Renderer/ReflectionEvaluatePass.cpp
+    Renderer/ReflectionHdrDiagnosticCapture.cpp
+    Renderer/ReflectionHdrDiagnosticStatistics.cpp
     Renderer/ReflectionRayHitDebugPass.cpp
     Renderer/RootSignatureFactory.cpp
     Renderer/SceneGeometryPass.cpp
@@ -96,15 +101,32 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/TextureMipChain.cpp
     Renderer/ToneMap.cpp
     Runtime/SceneRenderer.cpp
+    Runtime/DebugBufferInspector.cpp
+    Runtime/DebugTextureInspector.cpp
+    Runtime/DebugTextureThumbnailScheduler.cpp
+    Runtime/DebugLine.cpp
     Runtime/SceneRendererDebugUi.cpp
+    Runtime/RenderGraphNodeEditorView.cpp
     Runtime/SceneRendererSettings.cpp
     Scene/ProceduralSceneBuilder.cpp
     Scene/SceneBuilder.cpp
     Scene/SceneFactory.cpp
     Scene/SampleScene.cpp
+    Ui/DebugUiPreferences.cpp
     Ui/ImGuiSystem.cpp
     stdafx.cpp
+    third_party/imgui-node-editor/crude_json.cpp
+    third_party/imgui-node-editor/imgui_canvas.cpp
+    third_party/imgui-node-editor/imgui_node_editor.cpp
+    third_party/imgui-node-editor/imgui_node_editor_api.cpp
 )
+
+set_source_files_properties(
+    third_party/imgui-node-editor/crude_json.cpp
+    third_party/imgui-node-editor/imgui_canvas.cpp
+    third_party/imgui-node-editor/imgui_node_editor.cpp
+    third_party/imgui-node-editor/imgui_node_editor_api.cpp
+    PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 
 add_library(RtPbrSurvey.SceneRenderer STATIC ${RTPBRSURVEY_RENDERER_SOURCES})
 add_library(RtPbrSurvey::SceneRenderer ALIAS RtPbrSurvey.SceneRenderer)
@@ -130,17 +152,9 @@ if(EXISTS "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/include/sl.h" AND
     target_include_directories(RtPbrSurvey.SceneRenderer PRIVATE "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/include")
     target_link_libraries(RtPbrSurvey.SceneRenderer PUBLIC "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/lib/x64/sl.interposer.lib")
     if(MSVC)
-        # Streamline replaces the platform import libraries. Hosts may receive
-        # d3d12/dxgi transitively from another static dependency, so suppress
-        # those default libraries at the final executable link as well.
-        target_link_options(RtPbrSurvey.SceneRenderer
-            PUBLIC
-                /NODEFAULTLIB:d3d12.lib
-                /NODEFAULTLIB:dxgi.lib)
+        target_link_options(RtPbrSurvey.SceneRenderer PUBLIC /DELAYLOAD:sl.interposer.dll)
     endif()
 endif()
-set_property(GLOBAL PROPERTY RTPBRSURVEY_HAS_STREAMLINE_SDK "${RTPBRSURVEY_HAS_STREAMLINE_SDK}")
-set_property(GLOBAL PROPERTY RTPBRSURVEY_STREAMLINE_SDK_DIR "${RTPBRSURVEY_STREAMLINE_SDK_DIR}")
 
 target_include_directories(RtPbrSurvey.SceneRenderer
     PUBLIC
@@ -218,10 +232,22 @@ if(RTPBRSURVEY_BUILD_SHADERS)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ReflectionEvaluate.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_TemporalReflection.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_TemporalReflection.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_EdgeAwareSpatialReflection.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_EdgeAwareSpatialReflection.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionRoughness.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionRoughness.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionSpecularAlbedo.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionSpecularAlbedo.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionSpecularHitDistance.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayReconstructionSpecularHitDistance.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ToneMap.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ToneMap.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugLine.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugLine.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugTexturePreview.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugTexturePreview.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugBufferPreview.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugBufferPreview.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ProceduralEnvMap.hlsl cs_6_0 CSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayQueryShadow.hlsl cs_6_5 CSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_HybridReflection.hlsl cs_6_5 CSMain)
@@ -238,8 +264,6 @@ function(rtpbrsurvey_copy_runtime_files target)
     get_property(rtpbrsurvey_dxc_native_dir GLOBAL PROPERTY RTPBRSURVEY_DXC_NATIVE_DIR)
     get_property(rtpbrsurvey_winpix_package_dir GLOBAL PROPERTY RTPBRSURVEY_WINPIX_PACKAGE_DIR)
     get_property(rtpbrsurvey_shader_output_dir GLOBAL PROPERTY RTPBRSURVEY_SHADER_OUTPUT_DIR)
-    get_property(rtpbrsurvey_has_streamline_sdk GLOBAL PROPERTY RTPBRSURVEY_HAS_STREAMLINE_SDK)
-    get_property(rtpbrsurvey_streamline_sdk_dir GLOBAL PROPERTY RTPBRSURVEY_STREAMLINE_SDK_DIR)
 
     add_custom_command(TARGET ${target} POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
@@ -257,26 +281,17 @@ function(rtpbrsurvey_copy_runtime_files target)
             "$<TARGET_FILE_DIR:${target}>"
         VERBATIM)
 
-    if(rtpbrsurvey_has_streamline_sdk)
+    if(RTPBRSURVEY_HAS_STREAMLINE_SDK)
         add_custom_command(TARGET ${target} POST_BUILD
             COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-                "${rtpbrsurvey_streamline_sdk_dir}/bin/x64/sl.interposer.dll"
-                "${rtpbrsurvey_streamline_sdk_dir}/bin/x64/sl.common.dll"
-                "${rtpbrsurvey_streamline_sdk_dir}/bin/x64/sl.dlss.dll"
-                "${rtpbrsurvey_streamline_sdk_dir}/bin/x64/nvngx_dlss.dll"
+                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.interposer.dll"
+                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.common.dll"
+                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.dlss.dll"
+                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/sl.dlss_d.dll"
+                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/nvngx_dlss.dll"
+                "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/nvngx_dlssd.dll"
                 "$<TARGET_FILE_DIR:${target}>"
             VERBATIM)
-
-        if(MSVC)
-            get_filename_component(rtpbrsurvey_msvc_tool_dir "${CMAKE_LINKER}" DIRECTORY)
-            set(rtpbrsurvey_dumpbin "${rtpbrsurvey_msvc_tool_dir}/dumpbin.exe")
-            add_custom_command(TARGET ${target} POST_BUILD
-                COMMAND "${CMAKE_COMMAND}"
-                    "-DRTPBRSURVEY_DUMPBIN=${rtpbrsurvey_dumpbin}"
-                    "-DRTPBRSURVEY_HOST_EXECUTABLE=$<TARGET_FILE:${target}>"
-                    -P "${rtpbrsurvey_root}/Tests/VerifyStreamlineHostImports.cmake"
-                VERBATIM)
-        endif()
     endif()
 
     if(TARGET RtPbrSurvey.Shaders)
@@ -285,12 +300,6 @@ function(rtpbrsurvey_copy_runtime_files target)
             COMMAND "${CMAKE_COMMAND}" -E copy_directory
                 "${rtpbrsurvey_shader_output_dir}"
                 "$<TARGET_FILE_DIR:${target}>"
-            VERBATIM)
-        add_custom_command(TARGET ${target} POST_BUILD
-            COMMAND "${CMAKE_COMMAND}"
-                "-DRTPBRSURVEY_SHADER_SOURCE=${rtpbrsurvey_root}/Engine/RtPbrSurveyEngine.cpp"
-                "-DRTPBRSURVEY_RUNTIME_DIR=$<TARGET_FILE_DIR:${target}>"
-                -P "${rtpbrsurvey_root}/Tests/VerifyRuntimeShaders.cmake"
             VERBATIM)
     endif()
 endfunction()
@@ -311,6 +320,27 @@ endif()
 
 if(RTPBRSURVEY_BUILD_TESTS)
     enable_testing()
+
+    add_test(NAME RtPbrSurvey.RuntimeShaderManifest
+        COMMAND "${CMAKE_COMMAND}"
+            "-DRTPBRSURVEY_ROOT=${RTPBRSURVEY_ROOT}"
+            -P "${RTPBRSURVEY_ROOT}/Tests/VerifyRuntimeShaders.cmake")
+    add_executable(RtPbrSurvey.DebugTextureInspectorTests
+        Tests/DebugTextureInspectorTests.cpp)
+    target_link_libraries(RtPbrSurvey.DebugTextureInspectorTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.DebugTextureInspectorTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.DebugTextureInspector COMMAND RtPbrSurvey.DebugTextureInspectorTests)
+
+    add_executable(RtPbrSurvey.RenderGraphDocumentTests
+        Tests/RenderGraphDocumentTests.cpp)
+    target_link_libraries(RtPbrSurvey.RenderGraphDocumentTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.RenderGraphDocumentTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.RenderGraphDocument COMMAND RtPbrSurvey.RenderGraphDocumentTests)
+
     add_executable(RtPbrSurvey.SceneRendererSettingsTests
         Tests/SceneRendererSettingsTests.cpp)
     target_link_libraries(RtPbrSurvey.SceneRendererSettingsTests PRIVATE RtPbrSurvey::SceneRenderer)
@@ -318,6 +348,19 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.SceneRendererSettingsTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.SceneRendererSettings COMMAND RtPbrSurvey.SceneRendererSettingsTests)
+
+    add_executable(RtPbrSurvey.DebugLineTests
+        Tests/DebugLineTests.cpp)
+    target_link_libraries(RtPbrSurvey.DebugLineTests PRIVATE RtPbrSurvey::SceneRenderer)
+    add_test(NAME RtPbrSurvey.DebugLine COMMAND RtPbrSurvey.DebugLineTests)
+
+    add_executable(RtPbrSurvey.DebugLineHostCompileProbe
+        Tests/DebugLineHostCompileProbe.cpp)
+    target_link_libraries(RtPbrSurvey.DebugLineHostCompileProbe PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.DebugLineHostCompileProbe PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.DebugLineHostCompileProbe COMMAND RtPbrSurvey.DebugLineHostCompileProbe)
 
     add_executable(RtPbrSurvey.CameraProjectionTests
         Tests/CameraProjectionTests.cpp)

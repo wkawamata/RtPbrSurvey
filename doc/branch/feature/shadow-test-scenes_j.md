@@ -2,7 +2,48 @@
 
 ## RayQuery Shadow メモ
 
-このブランチでは RayQuery shadow の検証用シーンを追加する。対象は Ground + Cubes、Animated Shadow Grid、Contact Shadow Test、Occluder Wall Test。
+RayQuery shadow の検証用シーンは既に存在する。
+
+- `Shadow Test: Ground + Cubes`
+- `Shadow Test: Animated Shadow Grid`
+- `Shadow Test: Contact Shadow Test`
+- `Shadow Test: Occluder Wall Test`
+
+新しい failure mode が既存シーンで切り分けられない場合を除き、専用 scene は追加しない。まずは UI preset、camera default、比較 checklist を整えて、同じ scene で branch 間比較しやすくする。
+
+## Scene Usage
+
+- `Shadow Test: Ground + Cubes`: shadow direction、bias、normal bias、peter-panning、light size、soft shadow の安定性を見る静的な基準 scene。
+- `Shadow Test: Animated Shadow Grid`: TLAS rebuild timing、`prevWorld` / motion vector、moving occluder、pause behavior を見る moving-object scene。
+- `Shadow Test: Contact Shadow Test`: contact 付近の acne と detached contact の tuning を見る scene。
+- `Shadow Test: Occluder Wall Test`: blocker / receiver の分離、missed occluder、back-face culling mistake、long ray behavior を見る scene。
+
+推奨 debug view sequence:
+
+1. まず `ShadowMask` で、direct-light shading を外した binary / softened mask を見る。
+2. `Lit` に戻し、direct light の方向と mask の方向が一致しているか見る。
+3. mask shape が別 object や stale transform に見える場合は `TlasDebug` を見る。
+
+## UI Presets
+
+`RayQuery Shadow` debug UI には比較用 preset がある。
+
+- `Hard Ref`: 1 sample の hard shadow baseline。soft shadow 調整の前に使う。
+- `Low Bias`: normal bias を下げ、self-intersection acne と contact sensitivity を露出させる。
+- `Soft Compare`: 通常比較用の moderate soft shadow。
+- `Wide Soft`: light size と sample count を大きくし、penumbra と noise を stress する。
+
+preset 適用後は、検証したい観点の slider だけを動かす。screenshot やメモには scene、render view、preset、camera position を一緒に残す。
+
+## Comparison Checklist
+
+- Bias / normal bias: flat receiver の acne と、cube foot / sphere contact の peter-panning を比較する。
+- Soft shadow: `Hard Ref` と `Soft Compare` を `ShadowMask` / `Lit` で比較し、edge が方向反転や blocker loss なしに soft になるか見る。
+- Light size: `Light Angular Radius` を上げ、penumbra width が予測どおり広がり、contact が不自然に浮かないか見る。
+- Moving object: `Shadow Test: Animated Shadow Grid` で animated cube の rotation / bounce が毎 frame TLAS と ShadowMask に反映されるか見る。
+- Pause behavior: `Shadow Test: Animated Shadow Grid` で Space pause し、cube orientation、TLAS debug、ShadowMask が snap せず止まるか見る。
+- Back-face culling: light / camera angle を変えても cube shadow face が欠けないか見る。
+- Ray distance: `Ray TMax` は far blocker 問題の切り分けにだけ使う。transform や culling 修正の代わりにしない。
 
 ## Light Direction
 
@@ -37,7 +78,7 @@ RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> q;
 
 ## Bias Tuning
 
-ShadowMask が構造的におかしい場合、最初に `kNormalBias` を調整しない。
+ShadowMask が構造的におかしい場合、最初に normal bias を調整しない。
 
 bias は self-intersection acne と peter-panning の調整用。mask の向きがおかしい、別オブジェクトが投影されたように見える、という場合は先に以下を見る。
 
@@ -48,14 +89,16 @@ bias は self-intersection acne と peter-panning の調整用。mask の向き�
 
 現在の基準値:
 
-```hlsl
-static const float kNormalBias = 0.01;
-ray.TMin = 0.001;
+```text
+Normal Bias = 0.01
+Ray TMin = 0.001
 ```
 
 ## Animated Pause
 
 Pause は現在の accumulated animation time を止めるだけにする。回転項に pause 用 speed を掛けてはいけない。
+
+`Space`はscene animationのplay/pauseを切り替える。renderer全体のframe pauseは`P`、renderer全体のpause中に`F`で1 frame進める。これらの操作は分離する。scene-animation toggleをframe pauseで置き換えると`m_isPlaying`がfalseのままになり、animated validation sceneを開始できない。
 
 問題のある形:
 
@@ -79,3 +122,29 @@ const float rotY = m_accumTime * rotSpeed + phase;
 - Animated cube の回転が TLAS / ShadowMask に反映される。
 - Space で Pause しても Cube の姿勢が変化しない。
 - すべての shadow validation scene が一貫して見える。
+
+## Branch 完了条件
+
+既存の4シーンを RayQuery shadow の安定した検証 suite とする。scene selector では `Shadow Test` にまとめ、`RayQuery Shadow` panel では hard、low-bias、soft-shadow を再現可能な preset として提供する。現在対象としている bias、light size、occluder、moving object の検証には追加 scene を必要としない。
+
+最終確認は Debug x64 build の成功と、4シーンを順番に開く手動起動確認で行う。shader compile の成功だけでは shadow quality を判定できないため、目視確認結果は別途記録する。
+
+2026-08-11 の検証結果:
+
+- MSBuild Debug x64: 成功。
+- CMake SDK-free Debug build: 成功。
+- CTest: 9/9 成功。
+- Debug executable: 6秒間正常に起動を継続し、D3D12 warning / error は0件。
+- 4シーンの目視比較: GPU環境依存の手動 acceptance として残す。
+
+最新`main`取り込み後の2026-08-15検証結果:
+
+- MSBuild Debug x64と対象HLSL custom build: 0 errorsで成功し、既知のvcpkg重複import warningだけ発生した。
+- 手動gateで回帰を検出した。後続のtemporal-input validation変更が`Space`を`m_isPlaying`からrenderer全体のframe pauseへ割り当て直していたため、`Animated Shadow Grid`を開始できなかった。このbranchで`Space`をscene-animation play/pauseへ戻し、renderer全体のframe pauseを`P`へ移した。pause中の1-frame stepは`F`のままである。
+- `Shadow Test: Ground + Cubes`: **PASS WITH LIMITATION**。ShadowMask、Lit、TlasDebugを確認した。shadow方向、coverage、soft edgeは確認可能だが、grayの床とCubeでhighlight側contrastが不足し、上面境界とacneの判定が弱い。
+- `Shadow Test: Animated Shadow Grid`: input修正後に**PASS**。animation開始/停止、Cube motion、shadow/TLAS追従、snapのないpause/resume、camera stabilityを確認した。
+- `Shadow Test: Contact Shadow Test`: **PASS**。contact continuity、detachment、acne、camera stabilityを確認した。
+- `Shadow Test: Occluder Wall Test`: **PASS**。blocker coverage、Lit/ShadowMask方向、wall/receiver配置、view-angle stabilityを確認した。
+- 手動確認時のDebug Layer logは0 errorsだった。同じ既知のcommitted-buffer initial-state warningが6件あり、新規warning typeはなかった。
+
+最終scope判断: Ground + Cubesのcontrast制限を明記したうえで、文書化したRayQuery shadow確認用suiteとして受け入れる。すべてのviewまたはmaterial配置が将来の全shadow-quality測定に最適だとは主張しない。

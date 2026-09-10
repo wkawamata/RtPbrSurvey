@@ -1,4 +1,4 @@
-﻿//*********************************************************
+//*********************************************************
 //
 // Copyright (c) Microsoft. All rights reserved.
 // This code is licensed under the MIT License (MIT).
@@ -242,6 +242,11 @@ struct ResourceTransitionContext
     std::function<D3D12_RESOURCE_STATES(const std::string& name)> getResourceState;
     std::function<void(const std::string& name, D3D12_RESOURCE_STATES state)> setResourceState;
     std::function<void(const ResourceUsage& usage)> onMissingResource;
+    std::function<void(int passIndex,
+                       const ResourceUsage& usage,
+                       D3D12_RESOURCE_STATES beforeState,
+                       D3D12_RESOURCE_STATES afterState)>
+        onTransition;
 };
 
 class ResourceResolverRegistry
@@ -385,7 +390,7 @@ private:
     RenderPassAuthoringContext<OperationHandlerT> m_authoring;
 };
 
-inline void TransitionResource(const ResourceTransitionContext& context, const ResourceUsage& usage)
+inline void TransitionResource(const ResourceTransitionContext& context, const ResourceUsage& usage, int passIndex = -1)
 {
     assert(context.commandList != nullptr);
     assert(context.resolveResource);
@@ -411,12 +416,19 @@ inline void TransitionResource(const ResourceTransitionContext& context, const R
 
     context.commandList->ResourceBarrier(
         1, &CD3DX12_RESOURCE_BARRIER::Transition(resource, currentState, usage.state));
+    if (context.onTransition)
+    {
+        context.onTransition(passIndex, usage, currentState, usage.state);
+    }
     context.setResourceState(usage.name, usage.state);
 }
 
-inline void TransitionPassResources(const ResourceTransitionContext& context, const RenderPass& pass)
+inline void TransitionPassResources(const ResourceTransitionContext& context,
+                                    const RenderPass& pass,
+                                    int passIndex = -1)
 {
-    pass.ForEachResourceUsage([&context](const ResourceUsage& usage) { TransitionResource(context, usage); });
+    pass.ForEachResourceUsage(
+        [&context, passIndex](const ResourceUsage& usage) { TransitionResource(context, usage, passIndex); });
 }
 
 struct RenderPassExecutionContext
@@ -430,6 +442,7 @@ struct RenderPassExecutionContext
     std::function<void(int)> createResourcesForPass;
     std::function<void(const RenderPass&)> executeOperation;
     std::function<void(int)> releaseResourcesAfterPass;
+    std::function<void(int, const RenderPass&)> recordPassEnd;
 };
 
 inline void ExecuteRenderPassGraph(const RenderPassGraph& graph, const RenderPassExecutionContext& context)
@@ -450,7 +463,7 @@ inline void ExecuteRenderPassGraph(const RenderPassGraph& graph, const RenderPas
         const RenderPass& pass = graph[passIndex];
         if (context.resourceTransitions)
         {
-            TransitionPassResources(*context.resourceTransitions, pass);
+            TransitionPassResources(*context.resourceTransitions, pass, passIndex);
         }
 
         context.bindingResolvers->BindRenderTargets(context.commandList, pass);
@@ -464,6 +477,10 @@ inline void ExecuteRenderPassGraph(const RenderPassGraph& graph, const RenderPas
         if (context.executeOperation)
         {
             context.executeOperation(pass);
+        }
+        if (context.recordPassEnd)
+        {
+            context.recordPassEnd(passIndex, pass);
         }
         if (context.releaseResourcesAfterPass)
         {

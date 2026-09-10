@@ -20,6 +20,8 @@
 #include "Platform/IApplication.h"
 #include "Platform/WindowInfo.h"
 #include "Runtime/SceneRenderer.h"
+#include "Runtime/DebugTextureInspector.h"
+#include "Runtime/DebugTextureThumbnailScheduler.h"
 #include "Scene/SampleScene.h"
 #include "Ui/ImGuiSystem.h"
 
@@ -78,12 +80,18 @@ private:
     void CreateSampleScenes();
     void LoadSceneCpuData(int sceneIndex);
     void OpenSelectedScene();
+    void ApplyDlssSrCommandLineOptions();
     void CloseRunningScene();
     void InitializeImGui();
     void UpdateUiFrame();
+    UINT SyncDebugTextureInspectorToEngine();
     void UpdateAutomatedCaptureCamera();
     bool HasAutomatedCapture() const;
     void FailAutomatedCapture(const std::string& error);
+    void UpdateReflectionHdrDiagnostics();
+    void WriteReflectionHdrDiagnosticsReport();
+    void ApplyRayReconstructionCommandLineOverrides();
+    void LogRayReconstructionDiagnostics();
     void FlushD3D12DebugMessages();
     void LogFpsToFile(float cpuFrameTimeMs);
     Engine::SampleScene& LoadedScene();
@@ -137,6 +145,10 @@ private:
     GraphicsDevice m_graphicsDevice;
     ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
     Engine::ImGuiSystem m_imguiSystem;
+    RtPbrSurvey::DebugTextureInspectorManager m_debugTextureInspectors;
+    RtPbrSurvey::DebugTextureThumbnailScheduler m_debugTextureThumbnailScheduler;
+    std::array<uint64_t, RtPbrSurveyEngine::kMaxDebugTextureOutputCount> m_debugTexturePreviewIds = {};
+    uint64_t m_debugTextureThumbnailFrameIndex = 0;
 
     RtPbrSurvey::SceneRenderer m_sceneRenderer;
     RtPbrSurvey::DebugCameraController m_debugCamera;
@@ -149,9 +161,29 @@ private:
     UINT64 m_automationFrameCounter = 0;
     bool m_automationScreenshotRequested = false;
     float m_automationOrbitStartYaw = 0.0f;
+    float m_automationOrbitDistance = 5.0f;
     Platform::ReflectionCapturePlan m_reflectionCapturePlan;
     size_t m_nextReflectionCaptureIndex = 0;
     size_t m_completedReflectionCaptureCount = 0;
     bool m_reflectionCaptureInFlight = false;
     bool m_reflectionCapturePlanFailed = false;
+    bool m_reflectionHdrDiagnosticInFlight = false;
+    UINT64 m_reflectionHdrDiagnosticCaptureAutomationFrame = 0;
+    bool m_reflectionHdrDiagnosticsComplete = false;
+    bool m_reflectionConfidenceStableEvidenceApplied = false;
+    bool m_reflectionHistoryDiagnosticResetApplied = false;
+    bool m_lastLoggedRayReconstructionAvailable = false;
+    bool m_lastLoggedRayReconstructionInputReadinessAvailable = false;
+    bool m_lastLoggedRayReconstructionInputReady = false;
+    bool m_lastLoggedRayReconstructionEvaluateAvailable = false;
+    bool m_lastLoggedRayReconstructionEvaluateOutputAvailable = false;
+    Engine::RayReconstructionSupportStatus m_lastLoggedRayReconstructionStatus =
+        Engine::RayReconstructionSupportStatus::NotIntegrated;
+    Engine::RayReconstructionReadinessReason m_lastLoggedRayReconstructionReadinessReason =
+        Engine::RayReconstructionReadinessReason::NativeEvaluationDisabled;
+    Engine::RayReconstructionSupportStatus m_lastLoggedRayReconstructionEvaluateStatus =
+        Engine::RayReconstructionSupportStatus::NotIntegrated;
+    const char* m_lastLoggedRayReconstructionSupportQueryResultName = "Unavailable";
+    const char* m_lastLoggedRayReconstructionEvaluateResultName = "Unavailable";
+    std::vector<Engine::ReflectionHdrDiagnosticFrame> m_reflectionHdrDiagnosticFrames;
 };

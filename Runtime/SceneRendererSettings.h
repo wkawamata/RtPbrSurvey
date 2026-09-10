@@ -17,6 +17,7 @@ struct SceneRendererSettings
     RtPbrSurveyEngine::LightingParams lighting;
     RtPbrSurveyEngine::ShadowSettings shadow;
     Engine::TemporalUpscalerSettings temporalUpscaler;
+    Engine::RayReconstructionSettings rayReconstruction;
     RtPbrSurveyEngine::HybridReflectionSettings hybridReflection;
     RtPbrSurveyEngine::ToneMapParams toneMap;
     RtPbrSurveyEngine::SpecularDebugLineSettings specularDebugLines;

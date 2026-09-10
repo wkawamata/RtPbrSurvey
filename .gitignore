@@ -13,3 +13,8 @@ build/
 Tests/SubjectiveValidation/HybridReflection/captures/
 Tests/SubjectiveValidation/HybridReflection/reports/
 Tests/SubjectiveValidation/HybridReflection/current-suite.json
+# Non-subjective Hybrid Reflection gate artifacts
+Tests/HybridReflection/results/
+# DLSS Ray Reconstruction validation artifacts
+Tests/DlssRayReconstruction/captures-temporal/
+Tests/DlssRayReconstruction/captures-input-contract/

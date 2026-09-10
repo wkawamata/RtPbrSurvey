@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "name": "hybrid-reflection-multi-scene-quality-gates",
+  "signalDomain": "linear-hdr",
+  "physicalReference": false,
+  "perceptualQualityClaimed": false,
+  "common": {
+    "warmupFrames": 32,
+    "stochasticSampling": true,
+    "temporalHistoryWeight": 0.9,
+    "minimumStationaryAcceptance": 0.99,
+    "maximumMovingOutsideHistoryRate": 0.1,
+    "maximumKnownDebugWarnings": 3
+  },
+  "cases": [
+    {
+      "id": "estimator-r1-metal-dynamic",
+      "scene": "estimator-test",
+      "roi": { "x": 484, "y": 396, "width": 48, "height": 48 },
+      "measurementFrames": 48,
+      "cameraDistanceScale": 1.0,
+      "orbitDegrees": 30.0,
+      "orbitFramesPerDirection": 12,
+      "requireSettlingMetric": true,
+      "maximumT95Frames": 30
+    },
+    {
+      "id": "estimator-r035-metal-dynamic",
+      "scene": "estimator-test",
+      "roi": { "x": 844, "y": 396, "width": 48, "height": 48 },
+      "measurementFrames": 64,
+      "cameraDistanceScale": 1.0,
+      "orbitDegrees": 30.0,
+      "orbitFramesPerDirection": 12,
+      "requireSettlingMetric": true,
+      "maximumT95Frames": 30
+    },
+    {
+      "id": "estimator-r0-metal-dynamic",
+      "scene": "estimator-test",
+      "roi": { "x": 1392, "y": 396, "width": 48, "height": 48 },
+      "measurementFrames": 48,
+      "cameraDistanceScale": 1.0,
+      "orbitDegrees": 30.0,
+      "orbitFramesPerDirection": 12,
+      "requireSettlingMetric": true,
+      "maximumT95Frames": 30
+    },
+    {
+      "id": "damaged-helmet-underside-pipes-dynamic",
+      "scene": "damaged-helmet",
+      "roi": { "x": 805, "y": 585, "width": 125, "height": 135 },
+      "measurementFrames": 64,
+      "cameraDistanceScale": 0.5,
+      "orbitDegrees": 12.0,
+      "orbitFramesPerDirection": 12,
+      "requireSettlingMetric": false,
+      "maximumT95Frames": 40
+    }
+  ]
+}

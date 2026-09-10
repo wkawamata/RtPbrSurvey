@@ -4,9 +4,11 @@
 #include "RtPbrSurveyApp.h"
 #include "../ImGuiWidgets.h"
 #include "../Runtime/SceneRendererDebugUi.h"
+#include "../Ui/DebugUiPreferences.h"
 
 #include <imgui.h>
 
+#include <cmath>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
@@ -114,9 +116,29 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
             return "ReflectionEvaluatedRadiance is unweighted one-bounce radiance before temporal processing and LightPass.\n"
                    "It excludes distance fade, visible-surface roughness weight, contribution intensity, and Fresnel.\n"
                    "LightPass applies those weights before adding the final reflection contribution.";
+        case RenderViewMode::ReflectionSpecularEstimate:
+            return "ReflectionSpecularEstimate is the experimental current-frame Cook-Torrance estimate.\n"
+                   "It includes BRDF, cosine, and directional-PDF compensation, but excludes temporal processing, "
+                   "user intensity, distance fade, final composite, exposure, and tone mapping.";
+        case RenderViewMode::ReflectionResolvedSpecularEstimate:
+            return "ReflectionResolvedSpecularEstimate is the weighted Cook-Torrance estimate after temporal resolve.\n"
+                   "It is diagnostic-only and is not consumed by LightPass.";
+        case RenderViewMode::ReflectionSpecularVariance:
+            return "ReflectionSpecularVariance visualizes max(M2 - M1^2, 0) from the weighted estimator moments.\n"
+                   "White indicates higher variance after temporal resolve; this is diagnostic-only.";
+        case RenderViewMode::ReflectionSpecularConfidence:
+            return "ReflectionSpecularConfidence visualizes persistent variance confidence.\n"
+                   "White indicates sustained high-variance evidence; rejected or reset history is black.";
+        case RenderViewMode::ReflectionSpatialPolicyInputs:
+            return "Spatial policy inputs: R=persistent variance confidence, G=mapped temporal variance, "
+                   "B=edge-safe non-center neighbor fraction.\n"
+                   "This diagnostic does not mean that spatial filtering was applied.";
         case RenderViewMode::ReflectionResolvedRadiance:
             return "ReflectionResolvedRadiance is unweighted radiance after the experimental temporal blend.\n"
                    "Compare it with Evaluated Radiance to observe static stabilization and unreprojected motion trails.";
+        case RenderViewMode::ReflectionTemporalValidity:
+            return "Temporal history classification: black=no history, blue=outside history, red=depth reject, "
+                   "yellow=normal reject, green=accepted. RGB history remains unchanged.";
         case RenderViewMode::ReflectionEvaluatedRadianceDirect:
             return "Reflection radiance direct-light component recomputed from the hit payload.";
         case RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse:
@@ -125,11 +147,84 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
             return "Reflection radiance specular IBL component approximated from hit material and environment prefilter.";
         case RenderViewMode::ReflectionEvaluatedRadianceEmissive:
             return "Reflection radiance emissive component from the hit emissive payload.";
+        case RenderViewMode::RayReconstructionSpecularAlbedo:
+            return "DLSS RR specular albedo input generated from visible-surface albedo and metallic.";
+        case RenderViewMode::RayReconstructionRoughness:
+            return "DLSS RR visible-surface roughness input.";
+        case RenderViewMode::RayReconstructionSpecularHitDistance:
+            return "DLSS RR specular hit distance input, mapped as distance / (1 + distance).";
         case RenderViewMode::DlssInputColor:
             return "DLSS scaling input color before temporal upscaling and tone mapping.";
         default:
             return nullptr;
     }
+}
+
+RtPbrSurvey::DebugTextureSemantic ToDebugTextureSemantic(Engine::DebugTexturePreviewSemantic semantic)
+{
+    switch (semantic)
+    {
+        case Engine::DebugTexturePreviewSemantic::Color:
+            return RtPbrSurvey::DebugTextureSemantic::Color;
+        case Engine::DebugTexturePreviewSemantic::Normal:
+            return RtPbrSurvey::DebugTextureSemantic::Normal;
+        case Engine::DebugTexturePreviewSemantic::Depth:
+            return RtPbrSurvey::DebugTextureSemantic::Depth;
+        case Engine::DebugTexturePreviewSemantic::MotionVector:
+            return RtPbrSurvey::DebugTextureSemantic::MotionVector;
+        case Engine::DebugTexturePreviewSemantic::Scalar:
+            return RtPbrSurvey::DebugTextureSemantic::Scalar;
+        default:
+            return RtPbrSurvey::DebugTextureSemantic::Color;
+    }
+}
+
+bool DrawDepthVisualizationControls(Engine::DepthVisualizationSettings& settings,
+                                    const Engine::DepthVisualizationSettings& defaults,
+                                    const char* id)
+{
+    bool changed = false;
+    ImGui::PushID(id);
+    int mode = static_cast<int>(settings.mode);
+    if (ImGui::Combo("Depth Mapping", &mode, "Raw Device\0Linear View\0Log View\0"))
+    {
+        settings.mode = static_cast<Engine::DepthVisualizationMode>(mode);
+        changed = true;
+    }
+    changed |= ImGui::DragFloat("Display Near", &settings.displayNear, 0.01f, 0.0001f, 1000000.0f, "%.4f");
+    changed |= ImGui::DragFloat("Display Far", &settings.displayFar, 0.1f, 0.0002f, 1000000.0f, "%.3f");
+    changed |= ImGui::DragFloat("Gamma", &settings.gamma, 0.01f, 0.05f, 8.0f, "%.2f");
+    changed |= ImGui::Checkbox("Invert", &settings.invert);
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Reset"))
+    {
+        settings = defaults;
+        changed = true;
+    }
+    ImGui::PopID();
+    return changed;
+}
+
+RtPbrSurvey::RenderGraphGpuTimingSnapshot
+BuildRenderGraphGpuTimingSnapshot(const std::vector<MyDx12Util::GpuWorkMeter::CheckPoint>& checkPoints)
+{
+    RtPbrSurvey::RenderGraphGpuTimingSnapshot snapshot;
+    if (checkPoints.size() < 2)
+    {
+        return snapshot;
+    }
+
+    snapshot.totalGpuTimeMs = checkPoints.back().timeStamp;
+    for (size_t checkPointIndex = 1; checkPointIndex + 1 < checkPoints.size(); ++checkPointIndex)
+    {
+        const auto& checkPoint = checkPoints[checkPointIndex];
+        const float durationMs = checkPoint.timeStamp - checkPoints[checkPointIndex - 1].timeStamp;
+        if (checkPoint.passIndex >= 0)
+        {
+            snapshot.samples.push_back({checkPoint.passIndex, durationMs});
+        }
+    }
+    return snapshot;
 }
 
 std::filesystem::path MakeScreenshotPath()
@@ -210,6 +305,67 @@ void ApplyEnvironmentPreset(Engine::ProceduralEnvironmentSettings& settings, Eng
     }
 }
 
+void DrawInformationWindow(bool& visible,
+                           const RtPbrSurveyEngine::UiFrameContext& context,
+                           const RtPbrSurvey::DebugTextureInspector* activeInspector,
+                           size_t openPreviewCount,
+                           const Engine::TemporalUpscalerSettings& temporalUpscalerSettings,
+                           const Engine::RayReconstructionSettings& rayReconstructionSettings)
+{
+    if (!visible)
+    {
+        return;
+    }
+
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    constexpr float margin = 12.0f;
+    ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + margin,
+                                  viewport->WorkPos.y + viewport->WorkSize.y - margin),
+                            ImGuiCond_FirstUseEver,
+                            ImVec2(0.0f, 1.0f));
+    ImGui::SetNextWindowSize(ImVec2(350.0f, 0.0f), ImGuiCond_FirstUseEver);
+    bool open = visible;
+    if (ImGui::Begin("Information", &open, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::TextDisabled("Diagnostic Resource");
+        if (activeInspector != nullptr)
+        {
+            ImGui::TextWrapped("%s", activeInspector->resourceName.c_str());
+            ImGui::TextDisabled("%s | %zu Preview%s open",
+                                activeInspector->sourceViewKind == Engine::DebugResourceViewKind::Texture ?
+                                    "Texture" :
+                                    "Buffer",
+                                openPreviewCount,
+                                openPreviewCount == 1 ? "" : "s");
+        }
+        else
+        {
+            ImGui::TextUnformatted("None");
+        }
+
+        ImGui::Separator();
+        ImGui::Text("Render: %u x %u -> %u x %u",
+                    context.renderWidth,
+                    context.renderHeight,
+                    context.outputWidth,
+                    context.outputHeight);
+        ImGui::Text("DLSS SR: %s | %s",
+                    temporalUpscalerSettings.enabled ? "On" : "Off",
+                    context.temporalUpscalerStatusText);
+        const char* rayReconstructionMode = !rayReconstructionSettings.enabled ?
+            "Off" :
+            (rayReconstructionSettings.experimentalNativeEvaluationEnabled ? "Native" : "Fallback");
+        ImGui::Text("DLSS RR: %s | %s", rayReconstructionMode, context.rayReconstructionStatusText);
+    }
+    ImGui::End();
+
+    if (open != visible)
+    {
+        visible = open;
+        RtPbrSurvey::MarkDebugUiPreferencesDirty();
+    }
+}
+
 } // namespace
 
 namespace App
@@ -217,9 +373,13 @@ namespace App
 
 void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& context)
 {
+    RtPbrSurvey::DebugUiPreferences& debugUiPreferences = RtPbrSurvey::GetDebugUiPreferences();
     using RenderingPath = RtPbrSurveyEngine::RenderingPath;
     using RenderViewMode = RtPbrSurveyEngine::RenderViewMode;
     using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
+    static bool renderGraphWindowOpen = false;
+    static bool arrangeDebugTexturePreviewsRequested = false;
+    static uint64_t activeDiagnosticInspectorId = 0;
 
     if (const std::optional<RtPbrSurvey::ScreenshotResult> result = app.m_sceneRenderer.ConsumeScreenshotResult())
     {
@@ -237,6 +397,51 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     ImGui::SetNextWindowSize(ImVec2(400, 140), ImGuiCond_FirstUseEver);
     ImGui::Begin("Debug");
 
+    Engine::SampleScene& loadedScene = app.LoadedScene();
+    Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();
+
+    ImGui::TextDisabled("Current Scene");
+    const char* sceneName = loadedScene.Name();
+    const char* sceneNameBreak = strchr(sceneName, ':');
+    bool closeSceneRequested = false;
+    if (sceneNameBreak != nullptr && sceneNameBreak[1] == ' ')
+    {
+        ImGui::TextColored(ImVec4(0.65f, 0.78f, 0.95f, 1.0f), "%.*s",
+                           static_cast<int>(sceneNameBreak - sceneName),
+                           sceneName);
+        ImGui::Indent();
+        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneNameBreak + 2);
+        ImGui::SameLine(0.0f, 12.0f);
+        closeSceneRequested = ImGui::Button("Close Scene");
+        ImGui::Unindent();
+    }
+    else
+    {
+        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneName);
+        ImGui::SameLine(0.0f, 12.0f);
+        closeSceneRequested = ImGui::Button("Close Scene");
+    }
+    if (closeSceneRequested)
+    {
+        app.CloseRunningScene();
+        ImGui::End();
+        return;
+    }
+    ImGui::Separator();
+    ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
+    ImGui::Text("FrameIndex: %d", context.frameIndex);
+    ImGui::Text("Rendering Buffers (GBuffer): %u x %u", context.renderWidth, context.renderHeight);
+    ImGui::Text("Output Buffer: %u x %u", context.outputWidth, context.outputHeight);
+    ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
+                context.rayTracingSupported ? "Supported" : "Not supported",
+                context.rayTracingTierName,
+                context.rayTracingTierRaw);
+    ImGui::Checkbox("Open RenderGraph Window", &renderGraphWindowOpen);
+    if (ImGui::Checkbox("Open Information Window", &debugUiPreferences.informationWindowVisible))
+    {
+        RtPbrSurvey::MarkDebugUiPreferencesDirty();
+    }
+
     if (ImGui::CollapsingHeader("Screenshot"))
     {
         if (ImGui::Button("Capture PNG"))
@@ -251,40 +456,30 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
-    Engine::SampleScene& loadedScene = app.LoadedScene();
-    Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();
+    if (ImGui::CollapsingHeader("WorkMeter"))
+    {
+        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
 
-    ImGui::TextDisabled("Current Scene");
-    const char* sceneName = loadedScene.Name();
-    const char* sceneNameBreak = strchr(sceneName, ':');
-    if (sceneNameBreak != nullptr && sceneNameBreak[1] == ' ')
-    {
-        ImGui::TextColored(ImVec4(0.65f, 0.78f, 0.95f, 1.0f), "%.*s",
-                           static_cast<int>(sceneNameBreak - sceneName),
-                           sceneName);
-        ImGui::Indent();
-        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneNameBreak + 2);
-        ImGui::Unindent();
+        const auto& gpuCheckPoints = context.gpuCheckPoints;
+        const size_t gpuCheckPointCount = gpuCheckPoints.size();
+        if (gpuCheckPointCount >= 2)
+        {
+            for (int i = 1; i < static_cast<int>(gpuCheckPointCount); i++)
+            {
+                const auto& checkPoint = gpuCheckPoints[i];
+                if (i < static_cast<int>(gpuCheckPointCount) - 1)
+                {
+                    const float timeFromPrevious = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
+                    ImGui::Text("GPU[%d] %s: %f ms", i, checkPoint.name.c_str(), timeFromPrevious);
+                }
+                else
+                {
+                    ImGui::Text("GPU[%d] Total: %f ms", i, checkPoint.timeStamp);
+                }
+            }
+        }
     }
-    else
-    {
-        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneName);
-    }
-    ImGui::Separator();
-    ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
-    ImGui::Text("FrameIndex: %d", context.frameIndex);
-    ImGui::Text("Rendering Buffers (GBuffer): %u x %u", context.renderWidth, context.renderHeight);
-    ImGui::Text("Output Buffer: %u x %u", context.outputWidth, context.outputHeight);
-    ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
-                context.rayTracingSupported ? "Supported" : "Not supported",
-                context.rayTracingTierName,
-                context.rayTracingTierRaw);
-    if (ImGui::Button("Close Scene"))
-    {
-        app.CloseRunningScene();
-        ImGui::End();
-        return;
-    }
+
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
     {
         int cameraMode = static_cast<int>(app.DebugCamera().GetMode());
@@ -603,6 +798,24 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             auto reflectionSettings = app.m_sceneRenderer.GetHybridReflectionSettings();
             bool changed = false;
 
+            if (ImGuiWidgets::SimpleDetailMode(
+                    "HybridReflectionMode", &debugUiPreferences.hybridReflectionDetailed))
+            {
+                RtPbrSurvey::MarkDebugUiPreferencesDirty();
+            }
+
+            if (!debugUiPreferences.hybridReflectionDetailed)
+            {
+                changed |= ImGui::Checkbox("Hybrid Reflection Enabled", &reflectionSettings.enabled);
+                ImGui::BeginDisabled(!reflectionSettings.enabled);
+                changed |= ImGui::Checkbox("Reflection Contribution", &reflectionSettings.contributionEnabled);
+                changed |=
+                    ImGui::Checkbox("Stochastic Rough Sampling", &reflectionSettings.stochasticSamplingEnabled);
+                ImGui::EndDisabled();
+            }
+            else
+            {
+
         changed |= ImGui::Checkbox("Enabled", &reflectionSettings.enabled);
 
         ImGui::BeginDisabled(!reflectionSettings.enabled);
@@ -651,6 +864,22 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             "Temporal History Weight", &reflectionSettings.temporalHistoryWeight, 0.0f, 0.98f, 0.05f, 0.0f);
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Temporal Debug Noise", &reflectionSettings.temporalNoiseStrength, 0.0f, 1.0f, 0.05f, 0.0f);
+        changed |= ImGui::Checkbox("Rejected Pixel Neighborhood", &reflectionSettings.rejectedPixelNeighborhoodEnabled);
+        ImGui::TextWrapped("Experimental default-off 3x3 cross-bilateral current-frame fallback for depth/normal rejected pixels.");
+        changed |= ImGui::Checkbox("Edge-Aware Spatial Filter", &reflectionSettings.surfaceVarianceFilterEnabled);
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Default-off stateless 3x3 filter after temporal resolve.\n"
+                              "Uses visible depth/normal/roughness and reflection hit distance/normal gates.");
+        }
+        ImGui::TextWrapped("Experimental default-off post-temporal filter. It does not feed reflection history.");
+        ImGui::BeginDisabled(!reflectionSettings.surfaceVarianceFilterEnabled);
+        changed |= ImGui::Checkbox("Spatiotemporal Spatial Policy", &reflectionSettings.spatiotemporalSpatialPolicyEnabled);
+        ImGui::TextWrapped("Default-off bounded strength policy using temporal variance confidence and moments. "
+                           "Disabled preserves the fixed spatial-filter comparison path.");
+        ImGui::EndDisabled();
+        changed |= ImGui::Checkbox("Variance-Guided Temporal", &reflectionSettings.varianceGuidedTemporalEnabled);
+        ImGui::TextWrapped("Experimental default-off weighted-estimator history adjustment. Roughness >= 0.75 and prior relative variance >= 0.5 select a bounded 0.94 history weight.");
         ImGui::TextWrapped("Experimental motion-reprojected blend with depth/normal rejection. Debug noise is injected before history accumulation and is disabled at zero.");
 
         changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
@@ -664,6 +893,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             "Min Metallic", &reflectionSettings.minMetallic, 0.0f, 1.0f, 0.05f, 0.0f);
         ImGui::EndDisabled();
         ImGui::EndDisabled();
+            }
 
             if (changed)
             {
@@ -730,7 +960,16 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::SameLine();
         ImGui::RadioButton("Evaluated Radiance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionEvaluatedRadiance));
         ImGui::SameLine();
+        ImGui::RadioButton("Specular Estimate##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionSpecularEstimate));
+        ImGui::RadioButton("Resolved Specular##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionResolvedSpecularEstimate));
+        ImGui::SameLine();
+        ImGui::RadioButton("Specular Variance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionSpecularVariance));
+        ImGui::SameLine();
+        ImGui::RadioButton("Specular Confidence##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionSpecularConfidence));
+        ImGui::RadioButton("Spatial Policy Inputs##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionSpatialPolicyInputs));
         ImGui::RadioButton("Resolved Radiance##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionResolvedRadiance));
+        ImGui::SameLine();
+        ImGui::RadioButton("Temporal Validity##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionTemporalValidity));
         ImGui::SameLine();
         ImGui::RadioButton("Fade##ReflectionDebug", &renderViewMode, static_cast<int>(RenderViewMode::ReflectionRayDistanceFade));
         ImGui::SameLine();
@@ -754,7 +993,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionRayMaterial ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayEmission ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionSpecularEstimate ||
+             app.m_renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate ||
+             app.m_renderViewMode == RenderViewMode::ReflectionSpecularVariance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
+             app.m_renderViewMode == RenderViewMode::ReflectionSpatialPolicyInputs ||
              app.m_renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
@@ -772,7 +1017,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
              app.m_renderViewMode == RenderViewMode::ReflectionRayMaterial ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayEmission ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadiance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionSpecularEstimate ||
+             app.m_renderViewMode == RenderViewMode::ReflectionResolvedSpecularEstimate ||
+             app.m_renderViewMode == RenderViewMode::ReflectionSpecularVariance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionSpecularConfidence ||
+             app.m_renderViewMode == RenderViewMode::ReflectionSpatialPolicyInputs ||
              app.m_renderViewMode == RenderViewMode::ReflectionResolvedRadiance ||
+             app.m_renderViewMode == RenderViewMode::ReflectionTemporalValidity ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceDirect ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblDiffuse ||
              app.m_renderViewMode == RenderViewMode::ReflectionEvaluatedRadianceIblSpecular ||
@@ -783,6 +1034,17 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             app.m_renderViewMode = RenderViewMode::LightPass;
         }
         DrawRenderViewDescription(app.m_renderViewMode);
+        if (app.m_renderViewMode == RenderViewMode::Depth)
+        {
+            Engine::DepthVisualizationSettings depthSettings =
+                app.m_sceneRenderer.GetDepthVisualizationSettings();
+            if (DrawDepthVisualizationControls(depthSettings,
+                                               app.m_sceneRenderer.GetDefaultDepthVisualizationSettings(),
+                                               "FullScreenDepth"))
+            {
+                app.m_sceneRenderer.SetDepthVisualizationSettings(depthSettings);
+            }
+        }
         const bool iblDebugView = app.m_renderViewMode == RenderViewMode::IblEnvironment ||
             app.m_renderViewMode == RenderViewMode::IblDiffuseIrradiance ||
             app.m_renderViewMode == RenderViewMode::IblSpecularPrefilter;
@@ -831,8 +1093,45 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                     context.temporalUpscalerAvailable ? "Available" : "Unavailable",
                     context.temporalUpscalerBackendName,
                     context.temporalUpscalerStatusText);
+        ImGui::Text("DLSS Ray Reconstruction: %s (Backend: %s, Status: %s)",
+                    context.rayReconstructionAvailable ? "Available" : "Unavailable",
+                    context.rayReconstructionBackendName,
+                    context.rayReconstructionStatusText);
 
         auto temporalUpscalerSettings = app.m_sceneRenderer.GetTemporalUpscalerSettings();
+        auto rayReconstructionSettings = app.m_sceneRenderer.GetRayReconstructionSettings();
+        ImGui::Separator();
+        ImGui::TextUnformatted("DLSS SR");
+        if (ImGuiWidgets::SimpleDetailMode("DlssSrDebugMode", &debugUiPreferences.dlssSrDetailed))
+        {
+            RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        }
+
+        if (!debugUiPreferences.dlssSrDetailed)
+        {
+            bool temporalUpscalerSettingsChanged = false;
+            ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
+            temporalUpscalerSettingsChanged |=
+                ImGui::Checkbox("DLSS##Simple", &temporalUpscalerSettings.enabled);
+            int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
+            if (ImGui::Combo("DLSS SR Mode##Simple",
+                             &temporalUpscalerQualityMode,
+                             "Native (DLAA)\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
+            {
+                temporalUpscalerSettings.qualityMode =
+                    static_cast<Engine::TemporalUpscalerQualityMode>(temporalUpscalerQualityMode);
+                temporalUpscalerSettingsChanged = true;
+            }
+            ImGui::EndDisabled();
+            if (temporalUpscalerSettingsChanged)
+            {
+                temporalUpscalerSettings.backend = Engine::TemporalUpscalerBackend::Streamline;
+                app.m_sceneRenderer.SetTemporalUpscalerSettings(temporalUpscalerSettings);
+            }
+
+        }
+        else
+        {
         const Engine::StreamlineDlssDiagnostics& diagnostics = context.dlssDiagnostics;
         ImGui::Text("Streamline SDK: %u.%u.%u", diagnostics.sdkMajor, diagnostics.sdkMinor, diagnostics.sdkPatch);
         if (diagnostics.featureVersionAvailable)
@@ -882,7 +1181,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
         if (ImGui::Combo("DLSS Quality",
                          &temporalUpscalerQualityMode,
-                         "Native (DLAA)\0Ultra Quality\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
+                         "Native (DLAA)\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
         {
             temporalUpscalerSettings.qualityMode =
                 static_cast<Engine::TemporalUpscalerQualityMode>(temporalUpscalerQualityMode);
@@ -919,21 +1218,223 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             app.m_sceneRenderer.SetTemporalUpscalerSettings(temporalUpscalerSettings);
         }
 
+        }
+
+        ImGui::Separator();
+        ImGui::TextUnformatted("DLSS RR");
+        if (ImGuiWidgets::SimpleDetailMode("DlssRrDebugMode", &debugUiPreferences.dlssRrDetailed))
+        {
+            RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        }
+
+        if (!debugUiPreferences.dlssRrDetailed)
+        {
+            bool nativeRayReconstructionEnabled =
+                rayReconstructionSettings.enabled && rayReconstructionSettings.experimentalNativeEvaluationEnabled;
+            ImGui::BeginDisabled(!context.rayReconstructionAvailable);
+            const bool rayReconstructionSettingsChanged =
+                ImGui::Checkbox("DLSS RR##Simple", &nativeRayReconstructionEnabled);
+            ImGui::EndDisabled();
+            if (rayReconstructionSettingsChanged)
+            {
+                rayReconstructionSettings.enabled = nativeRayReconstructionEnabled;
+                rayReconstructionSettings.experimentalNativeEvaluationEnabled = nativeRayReconstructionEnabled;
+                rayReconstructionSettings.backend = Engine::RayReconstructionBackend::Streamline;
+                app.m_sceneRenderer.SetRayReconstructionSettings(rayReconstructionSettings);
+            }
+        }
+        else
+        {
+
+        const Engine::RayReconstructionDiagnostics& rayReconstructionDiagnostics =
+            context.rayReconstructionDiagnostics;
+        ImGui::Separator();
+        ImGui::Text("DLSS Ray Reconstruction: %s (Status: %s)",
+                    context.rayReconstructionAvailable ? "Available" : "Unavailable",
+                    rayReconstructionDiagnostics.StatusText());
+        ImGui::Text("RR Support Query: %s", rayReconstructionDiagnostics.supportQueryResultName);
+        if (rayReconstructionDiagnostics.featureVersionAvailable)
+        {
+            ImGui::Text("RR Plugin SL: %u.%u.%u",
+                        rayReconstructionDiagnostics.pluginMajor,
+                        rayReconstructionDiagnostics.pluginMinor,
+                        rayReconstructionDiagnostics.pluginPatch);
+            ImGui::Text("RR NGX Runtime: %u.%u.%u",
+                        rayReconstructionDiagnostics.ngxMajor,
+                        rayReconstructionDiagnostics.ngxMinor,
+                        rayReconstructionDiagnostics.ngxPatch);
+        }
+        else
+        {
+            ImGui::TextUnformatted("RR Plugin SL: Unavailable");
+            ImGui::TextUnformatted("RR NGX Runtime: Unavailable");
+        }
+        if (rayReconstructionDiagnostics.inputReadinessAvailable)
+        {
+            ImGui::Text("RR Input Readiness: %s (%s)",
+                        rayReconstructionDiagnostics.inputReady ? "Ready" : "Not Ready",
+                        rayReconstructionDiagnostics.InputReadinessText());
+        }
+        if (rayReconstructionDiagnostics.lastEvaluateAvailable)
+        {
+            ImGui::Text("RR Last Evaluate: %s (%s)",
+                        rayReconstructionDiagnostics.lastEvaluateOutputAvailable ? "Native Output" : "Copy Fallback",
+                        rayReconstructionDiagnostics.LastEvaluateStatusText());
+            ImGui::Text("RR Last Result: %s", rayReconstructionDiagnostics.lastEvaluateResultName);
+        }
+        bool rayReconstructionSettingsChanged = false;
+        ImGui::BeginDisabled(!context.rayReconstructionAvailable);
+        rayReconstructionSettingsChanged |= ImGui::Checkbox("RR Enabled", &rayReconstructionSettings.enabled);
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(!context.rayReconstructionAvailable || !rayReconstructionSettings.enabled);
+        rayReconstructionSettingsChanged |= ImGui::Checkbox(
+            "Experimental Native Evaluate", &rayReconstructionSettings.experimentalNativeEvaluationEnabled);
+        ImGui::EndDisabled();
+        ImGui::TextWrapped(
+            "Native RR is experimental and opt-in. If readiness or SDK evaluation fails, the pass copies "
+            "ReflectionEvaluatedRadiance into ReflectionResolvedRadiance for the same frame.");
+        if (rayReconstructionSettingsChanged)
+        {
+            rayReconstructionSettings.backend = Engine::RayReconstructionBackend::Streamline;
+            app.m_sceneRenderer.SetRayReconstructionSettings(rayReconstructionSettings);
+        }
+
+        }
+
+        if (ImGui::CollapsingHeader("DLSS Input Debug"))
+        {
         int renderViewMode = static_cast<int>(app.m_renderViewMode);
         const bool deferredRendering = app.m_renderingPath == RenderingPath::Deferred;
+        ImGui::TextDisabled("Preview windows: %zu / %zu",
+                            app.m_debugTextureInspectors.Inspectors().size(),
+                            RtPbrSurvey::DebugTextureInspectorManager::kMaxInspectorCount);
+        if (!app.m_debugTextureInspectors.Inspectors().empty())
+        {
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Arrange##DebugTexturePreviews"))
+            {
+                arrangeDebugTexturePreviewsRequested = true;
+            }
+        }
+        const auto openPreview = [&app](const char* resourceName,
+                                        const char* displayName,
+                                        RtPbrSurvey::DebugTextureSemantic semantic)
+        {
+            RtPbrSurvey::DebugTextureInspector* inspector =
+                app.m_debugTextureInspectors.OpenPreview(resourceName, displayName, semantic);
+            if (inspector != nullptr)
+            {
+                if (semantic == RtPbrSurvey::DebugTextureSemantic::Depth &&
+                    !inspector->depthVisualizationInitialized)
+                {
+                    inspector->depthVisualization = app.m_sceneRenderer.GetDefaultDepthVisualizationSettings();
+                    inspector->depthVisualizationInitialized = true;
+                }
+                app.m_sceneRenderer.SetDebugTexturePreviewEnabled(true);
+                if (app.m_debugTextureInspectors.Inspectors().size() == 1)
+                {
+                    app.m_sceneRenderer.SetDebugTexturePreviewSource(resourceName);
+                }
+            }
+        };
         ImGui::BeginDisabled(!deferredRendering);
-        ImGui::TextUnformatted("DLSS Input Debug:");
+        ImGui::TextUnformatted("Shared / SR Buffers:");
         ImGui::RadioButton("Output##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::LightPass));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Preview##DlssOutput"))
+        {
+            openPreview("LightPass.RenderTarget",
+                        "LightPass",
+                        RtPbrSurvey::DebugTextureSemantic::Color);
+        }
         ImGui::SameLine();
         ImGui::RadioButton(
             "Scene Color##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::DlssInputColor));
         ImGui::SameLine();
+        if (ImGui::SmallButton("Preview##DlssSceneColor"))
+        {
+            openPreview("TemporalUpscaler.SceneColor",
+                        "TemporalUpscaler SceneColor",
+                        RtPbrSurvey::DebugTextureSemantic::Color);
+        }
+        ImGui::SameLine();
         ImGui::RadioButton("Depth##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::Depth));
         ImGui::SameLine();
+        if (ImGui::SmallButton("Preview##DlssDepth"))
+        {
+            openPreview("DepthStencil", "Depth", RtPbrSurvey::DebugTextureSemantic::Depth);
+        }
         ImGui::RadioButton(
             "Motion Vectors##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferMotionVector));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Preview##DlssMotion"))
+        {
+            openPreview("GBuffer.MotionVector",
+                        "Motion Vectors",
+                        RtPbrSurvey::DebugTextureSemantic::MotionVector);
+        }
+        ImGui::SameLine();
+        ImGui::RadioButton("Normal##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferNormal));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Preview##DlssNormal"))
+        {
+            openPreview("GBuffer.Normal", "Normal", RtPbrSurvey::DebugTextureSemantic::Normal);
+        }
+        ImGui::SameLine();
+        ImGui::RadioButton("Albedo##DlssInputDebug", &renderViewMode, static_cast<int>(RenderViewMode::GBufferAlbedo));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Preview##DlssAlbedo"))
+        {
+            openPreview("GBuffer.Albedo", "Albedo", RtPbrSurvey::DebugTextureSemantic::Color);
+        }
+        ImGui::TextUnformatted("RR Additional Buffers:");
+        const bool rayReconstructionInputDebugAvailable =
+            context.rayReconstructionAvailable && rayReconstructionSettings.enabled;
+        ImGui::BeginDisabled(!rayReconstructionInputDebugAvailable);
+        ImGui::RadioButton("Noisy Radiance##DlssInputDebug",
+                           &renderViewMode,
+                           static_cast<int>(RenderViewMode::ReflectionEvaluatedRadiance));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Preview##RrNoisyRadiance"))
+        {
+            openPreview("ReflectionEvaluatedRadiance",
+                        "Noisy Radiance",
+                        RtPbrSurvey::DebugTextureSemantic::Color);
+        }
+        ImGui::SameLine();
+        ImGui::RadioButton("Specular Albedo##DlssInputDebug",
+                           &renderViewMode,
+                           static_cast<int>(RenderViewMode::RayReconstructionSpecularAlbedo));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Preview##RrSpecularAlbedo"))
+        {
+            openPreview("ReflectionSpecularAlbedo",
+                        "RR Specular Albedo",
+                        RtPbrSurvey::DebugTextureSemantic::Color);
+        }
+        ImGui::SameLine();
+        ImGui::RadioButton("Roughness##DlssInputDebug",
+                           &renderViewMode,
+                           static_cast<int>(RenderViewMode::RayReconstructionRoughness));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Preview##RrRoughness"))
+        {
+            openPreview("ReflectionRoughness", "RR Roughness", RtPbrSurvey::DebugTextureSemantic::Scalar);
+        }
+        ImGui::RadioButton("Specular Hit Distance##DlssInputDebug",
+                           &renderViewMode,
+                           static_cast<int>(RenderViewMode::RayReconstructionSpecularHitDistance));
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Preview##RrSpecularHitDistance"))
+        {
+            openPreview("ReflectionSpecularHitDistance",
+                        "RR Specular Hit Distance",
+                        RtPbrSurvey::DebugTextureSemantic::Scalar);
+        }
+        ImGui::EndDisabled();
         ImGui::EndDisabled();
         app.m_renderViewMode = static_cast<RenderViewMode>(renderViewMode);
+        }
     }
 
     drawHybridReflectionUi();
@@ -1114,31 +1615,287 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
-    if (ImGui::CollapsingHeader("WorkMeter"))
+    ImGui::End();
+    const RtPbrSurvey::RenderGraphGpuTimingSnapshot renderGraphTiming =
+        BuildRenderGraphGpuTimingSnapshot(context.gpuCheckPoints);
+    RtPbrSurvey::RenderGraphResourceActions renderGraphResourceActions;
+    renderGraphResourceActions.activePreviewCount = static_cast<size_t>(std::count_if(
+        app.m_debugTextureInspectors.Inspectors().begin(),
+        app.m_debugTextureInspectors.Inspectors().end(),
+        [](const RtPbrSurvey::DebugTextureInspector& inspector) { return inspector.open; }));
+    renderGraphResourceActions.pinnedPreviewCount = static_cast<size_t>(std::count_if(
+        app.m_debugTextureInspectors.Inspectors().begin(),
+        app.m_debugTextureInspectors.Inspectors().end(),
+        [](const RtPbrSurvey::DebugTextureInspector& inspector) { return inspector.open && inspector.pinned; }));
+    renderGraphResourceActions.maxPreviewCount = RtPbrSurvey::DebugTextureInspectorManager::kMaxInspectorCount;
+    renderGraphResourceActions.openPreview =
+        [&app](const Engine::DebugResourceViewDescriptor& descriptor, bool pinned)
     {
-        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
-
-        const auto& gpuCheckPoints = context.gpuCheckPoints;
-        const size_t gpuCheckPointCount = gpuCheckPoints.size();
-        if (gpuCheckPointCount >= 2)
+        const bool bufferSource = descriptor.viewKind != Engine::DebugResourceViewKind::Texture;
+        if (bufferSource &&
+            (!descriptor.imageLayout.IsValid(descriptor.elementCount, descriptor.elementStride) ||
+             descriptor.sourceDescriptorName.empty()))
         {
-            for (int i = 1; i < static_cast<int>(gpuCheckPointCount); i++)
+            return false;
+        }
+        const RtPbrSurvey::DebugTextureSemantic semantic = ToDebugTextureSemantic(descriptor.semantic);
+        RtPbrSurvey::DebugTextureInspector* inspector = pinned
+            ? app.m_debugTextureInspectors.PinPreview(descriptor.resourceName, descriptor.resourceName, semantic)
+            : app.m_debugTextureInspectors.OpenPreview(descriptor.resourceName, descriptor.resourceName, semantic);
+        if (inspector == nullptr)
+        {
+            return false;
+        }
+        inspector->sourceViewKind = descriptor.viewKind;
+        inspector->bufferImageLayout = descriptor.imageLayout;
+        if (semantic == RtPbrSurvey::DebugTextureSemantic::Depth &&
+            !inspector->depthVisualizationInitialized)
+        {
+            inspector->depthVisualization = app.m_sceneRenderer.GetDefaultDepthVisualizationSettings();
+            inspector->depthVisualizationInitialized = true;
+        }
+        app.m_sceneRenderer.SetDebugTexturePreviewEnabled(true);
+        return true;
+    };
+    renderGraphResourceActions.isPreviewOpen = [&app](const std::string& resourceName)
+    {
+        const auto& inspectors = app.m_debugTextureInspectors.Inspectors();
+        return std::any_of(inspectors.begin(),
+                           inspectors.end(),
+                           [&resourceName](const auto& inspector)
+                           { return inspector.open && inspector.resourceName == resourceName; });
+    };
+    renderGraphResourceActions.thumbnailTextureId = [&app](const std::string& resourceName)
+    {
+        const auto& inspectors = app.m_debugTextureInspectors.Inspectors();
+        const auto inspector = std::find_if(inspectors.begin(),
+                                            inspectors.end(),
+                                            [&resourceName](const auto& candidate)
+                                            { return candidate.open && candidate.resourceName == resourceName; });
+        if (inspector != inspectors.end() && inspector->slotIndex < app.m_debugTexturePreviewIds.size())
+        {
+            return app.m_debugTexturePreviewIds[inspector->slotIndex];
+        }
+        const std::optional<size_t> thumbnailSlot =
+            app.m_debugTextureThumbnailScheduler.FindReadySlot(resourceName);
+        if (!thumbnailSlot.has_value())
+        {
+            return uint64_t{0};
+        }
+        const size_t outputIndex = RtPbrSurveyEngine::kMaxDebugTexturePreviewCount + *thumbnailSlot;
+        return outputIndex < app.m_debugTexturePreviewIds.size()
+            ? app.m_debugTexturePreviewIds[outputIndex]
+            : uint64_t{0};
+    };
+    renderGraphResourceActions.requestThumbnail =
+        [&app](const Engine::DebugResourceViewDescriptor& descriptor, bool selected)
+    { app.m_debugTextureThumbnailScheduler.Request(descriptor, selected); };
+    renderGraphResourceActions.closePreview = [&app](const std::string& resourceName)
+    {
+        for (const RtPbrSurvey::DebugTextureInspector& inspector : app.m_debugTextureInspectors.Inspectors())
+        {
+            if (inspector.open && inspector.resourceName == resourceName)
             {
-                const auto& checkPoint = gpuCheckPoints[i];
-                if (i < static_cast<int>(gpuCheckPointCount) - 1)
-                {
-                    const float timeFromPrevious = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
-                    ImGui::Text("GPU[%d] %s: %f ms", i, checkPoint.name.c_str(), timeFromPrevious);
-                }
-                else
-                {
-                    ImGui::Text("GPU[%d] Total: %f ms", i, checkPoint.timeStamp);
-                }
+                app.m_debugTextureInspectors.Close(inspector.id);
+                break;
             }
         }
-    }
+    };
+    renderGraphResourceActions.closeAllPreviews = [&app]() { app.m_debugTextureInspectors.CloseAll(); };
+    RtPbrSurvey::SceneRendererDebugUi::DrawRenderGraphWindow(
+        app.m_sceneRenderer, &renderGraphWindowOpen, &renderGraphTiming, &renderGraphResourceActions);
 
-    ImGui::End();
+    bool closeAllDebugTexturePreviews = false;
+    std::vector<RtPbrSurvey::DebugTextureInspector>& inspectors = app.m_debugTextureInspectors.Inspectors();
+    const ImGuiViewport* mainViewport = ImGui::GetMainViewport();
+    const ImVec2 previewWindowSize(520.0f, 360.0f);
+    constexpr float previewWindowMargin = 12.0f;
+    constexpr float previewWindowGap = 12.0f;
+    const float rightColumnX = (std::max)(mainViewport->WorkPos.x + previewWindowMargin,
+                                          mainViewport->WorkPos.x + mainViewport->WorkSize.x -
+                                              previewWindowSize.x - previewWindowMargin);
+    const float leftColumnX = (std::max)(mainViewport->WorkPos.x + previewWindowMargin,
+                                         rightColumnX - previewWindowSize.x - previewWindowGap);
+    const float lastRowY = (std::max)(mainViewport->WorkPos.y + previewWindowMargin,
+                                      mainViewport->WorkPos.y + mainViewport->WorkSize.y -
+                                          previewWindowSize.y - previewWindowMargin);
+    for (size_t inspectorIndex = 0; inspectorIndex < inspectors.size(); ++inspectorIndex)
+    {
+        RtPbrSurvey::DebugTextureInspector& inspector = inspectors[inspectorIndex];
+        const bool bufferSource = inspector.sourceViewKind != Engine::DebugResourceViewKind::Texture;
+        std::string windowTitle = std::string(bufferSource ? "Debug Buffer: " : "Debug Texture: ") +
+            inspector.displayName + "###DebugTexture" + inspector.resourceName;
+        bool open = inspector.open;
+        const size_t rowIndex = inspectorIndex / 2;
+        const bool rightColumn = inspectorIndex % 2 == 0;
+        const float windowX = rightColumn ? rightColumnX : leftColumnX;
+        const float requestedWindowY = mainViewport->WorkPos.y + previewWindowMargin +
+            static_cast<float>(rowIndex) * (previewWindowSize.y + previewWindowGap);
+        const float windowY = (std::min)(requestedWindowY, lastRowY);
+        const ImGuiCond placementCondition =
+            arrangeDebugTexturePreviewsRequested ? ImGuiCond_Always : ImGuiCond_FirstUseEver;
+        ImGui::SetNextWindowSize(previewWindowSize, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2(windowX, windowY), placementCondition);
+        if (inspector.focusRequested)
+        {
+            ImGui::SetNextWindowFocus();
+            inspector.focusRequested = false;
+        }
+        if (ImGui::Begin(windowTitle.c_str(), &open))
+        {
+            if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+            {
+                activeDiagnosticInspectorId = inspector.id;
+            }
+            ImGui::TextUnformatted(inspector.resourceName.c_str());
+            ImGui::SameLine();
+            ImGui::Checkbox(("Pinned##DebugTexture" + std::to_string(inspector.id)).c_str(), &inspector.pinned);
+            ImGui::SameLine();
+            if (ImGui::SmallButton(("Close All##DebugTexture" + std::to_string(inspector.id)).c_str()))
+            {
+                closeAllDebugTexturePreviews = true;
+            }
+
+            if (bufferSource)
+            {
+                int visualizationMode = static_cast<int>(inspector.bufferVisualizationMode);
+                ImGui::SetNextItemWidth(110.0f);
+                if (ImGui::Combo(("Mode##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                                 &visualizationMode,
+                                 "Image\0Heatmap\0"))
+                {
+                    inspector.bufferVisualizationMode =
+                        static_cast<Engine::DebugBufferVisualizationMode>(visualizationMode);
+                }
+            }
+            else
+            {
+                int semantic = static_cast<int>(inspector.semantic);
+                ImGui::SetNextItemWidth(110.0f);
+                if (ImGui::Combo(("Semantic##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                                 &semantic,
+                                 "Color\0Normal\0Depth\0Motion Vector\0Scalar\0"))
+                {
+                    inspector.semantic = static_cast<RtPbrSurvey::DebugTextureSemantic>(semantic);
+                }
+            }
+            ImGui::SameLine();
+            int channel = static_cast<int>(inspector.channel);
+            ImGui::SetNextItemWidth(85.0f);
+            if (ImGui::Combo(("Channel##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                             &channel,
+                             "RGBA\0R\0G\0B\0A\0"))
+            {
+                inspector.channel = static_cast<RtPbrSurvey::DebugTextureChannel>(channel);
+            }
+            ImGui::SameLine();
+            int filter = static_cast<int>(inspector.filter);
+            ImGui::SetNextItemWidth(85.0f);
+            if (ImGui::Combo(("Filter##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                             &filter,
+                             "Nearest\0Linear\0"))
+            {
+                inspector.filter = static_cast<RtPbrSurvey::DebugTextureFilter>(filter);
+            }
+
+            ImGui::SetNextItemWidth(110.0f);
+            ImGui::DragFloat(("Exposure##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                             &inspector.exposure,
+                             0.05f,
+                             -16.0f,
+                             16.0f,
+                             "%.2f");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(110.0f);
+            ImGui::DragFloat(("Scale##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                             &inspector.scale,
+                             0.01f,
+                             -100.0f,
+                             100.0f,
+                             "%.3f");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(110.0f);
+            ImGui::DragFloat(("Offset##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                             &inspector.offset,
+                             0.01f,
+                             -100.0f,
+                             100.0f,
+                             "%.3f");
+
+            if (inspector.semantic == RtPbrSurvey::DebugTextureSemantic::Depth)
+            {
+                if (!inspector.depthVisualizationInitialized)
+                {
+                    inspector.depthVisualization = app.m_sceneRenderer.GetDefaultDepthVisualizationSettings();
+                    inspector.depthVisualizationInitialized = true;
+                }
+                DrawDepthVisualizationControls(inspector.depthVisualization,
+                                               app.m_sceneRenderer.GetDefaultDepthVisualizationSettings(),
+                                               ("PreviewDepth" + std::to_string(inspector.id)).c_str());
+            }
+
+            const uint64_t previewId = inspector.slotIndex < app.m_debugTexturePreviewIds.size() ?
+                app.m_debugTexturePreviewIds[inspector.slotIndex] :
+                0;
+            ID3D12Resource* resource = inspector.slotIndex < RtPbrSurveyEngine::kMaxDebugTexturePreviewCount ?
+                app.m_sceneRenderer.GetDebugTexturePreviewResource(inspector.slotIndex) :
+                nullptr;
+            if (previewId != 0 && resource != nullptr)
+            {
+                const D3D12_RESOURCE_DESC desc = resource->GetDesc();
+                const ImVec2 available = ImGui::GetContentRegionAvail();
+                const float aspect = bufferSource && inspector.bufferImageLayout.height > 0
+                    ? static_cast<float>(inspector.bufferImageLayout.width) / inspector.bufferImageLayout.height
+                    : (desc.Height > 0 ? static_cast<float>(desc.Width) / desc.Height : 1.0f);
+                float imageWidth = (std::min)(available.x, available.y * aspect);
+                float imageHeight = imageWidth / aspect;
+                if (bufferSource && inspector.bufferImageLayout.width > 0 && inspector.bufferImageLayout.height > 0)
+                {
+                    const float cellWidth = std::floor(imageWidth / inspector.bufferImageLayout.width);
+                    const float cellHeight = std::floor(imageHeight / inspector.bufferImageLayout.height);
+                    const float cellSize = (std::max)(1.0f, (std::min)(cellWidth, cellHeight));
+                    imageWidth = cellSize * inspector.bufferImageLayout.width;
+                    imageHeight = cellSize * inspector.bufferImageLayout.height;
+                }
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 0.5f * (available.x - imageWidth));
+                ImGui::Image(ImTextureRef(previewId), ImVec2(imageWidth, imageHeight));
+            }
+            else
+            {
+                ImGui::TextDisabled("Waiting for preview texture...");
+            }
+        }
+        ImGui::End();
+        if (!open)
+        {
+            app.m_debugTextureInspectors.Close(inspector.id);
+        }
+    }
+    if (closeAllDebugTexturePreviews)
+    {
+        app.m_debugTextureInspectors.CloseAll();
+    }
+    arrangeDebugTexturePreviewsRequested = false;
+    app.m_debugTextureInspectors.RemoveClosed();
+
+    const auto activeInspector = std::find_if(
+        inspectors.begin(),
+        inspectors.end(),
+        [](const RtPbrSurvey::DebugTextureInspector& inspector)
+        { return inspector.open && inspector.id == activeDiagnosticInspectorId; });
+    if (activeInspector == inspectors.end() && !inspectors.empty())
+    {
+        activeDiagnosticInspectorId = inspectors.front().id;
+    }
+    const RtPbrSurvey::DebugTextureInspector* informationInspector = inspectors.empty() ?
+        nullptr :
+        (activeInspector != inspectors.end() ? &*activeInspector : &inspectors.front());
+    DrawInformationWindow(debugUiPreferences.informationWindowVisible,
+                          context,
+                          informationInspector,
+                          inspectors.size(),
+                          app.m_sceneRenderer.GetTemporalUpscalerSettings(),
+                          app.m_sceneRenderer.GetRayReconstructionSettings());
 
     RtPbrSurveyEngine::LightingParams lightingParams = app.m_lightingParams;
     if (!app.m_iblEnabled)

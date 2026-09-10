@@ -1,0 +1,20 @@
+# Hybrid Reflection Comparison Contracts 作業ログ
+
+## 2026-08-31
+
+- PR #43のsquash commit `18b642b`を含む最新`main`から`features/hybrid-reflection-comparison-contracts`を開始した。
+- 既存Reflection resource contract、denoiser contract、production quality gate、DLSS SR／RR調査文書、debug view、LightPass／ToneMap境界を監査した。
+- 比較境界をcurrent reflection、resolved reflection、spatial reflection、Final Lit、presentationの5段階に分離した。
+- Raster／Hybridは実装済み、PT／RRは未実装としてmode matrixを固定した。
+- camera、scene、resolution、exposure、timeline、sample sequence、history reset、temporal／spatial／upscaler設定のpaired条件を固定した。
+- Current-Estimator Mean Baselineをphysical GTと呼ばず、PT high-SPPも条件一致なしにground truthと呼ばない規則を明記した。
+- HDR diagnostic reportをschema v15へ更新し、比較用signal boundary、rendering path、output size、camera snapshot、tone map／exposure、stochastic state、hit-normal sourceを追加した。既存統計とradiance semanticsは変更していない。
+- Estimator Testの2 warm-up／2 measurement frame smokeでschema v15を確認した。exit code 0、1920x1080 render／output、perspective camera、exposure `1.0`、D3D12 error 0件だった。
+- Debug x64 buildは0 errorで成功した。既知のvcpkg task重複import warning 1件のみだった。
+- `Test-ComparisonMetadataReport.ps1`を追加した。schema v15の必須比較fieldを検証し、source revisionをアプリへ埋め込まずharness-owned validation manifestへ記録する。
+- validatorはschema v15 smoke reportでPASSし、`evaluatedRadiance` boundaryを意図的に壊したfixtureをexit code 1でrejectした。manifestへsource revision、scene、domain、render／output size、exposureを記録することも確認した。
+- 最終metadataへ名称付きtone-map operator、名称付きhit-normal source、material gate／reflection contribution設定を追加した。
+- 最終Debug x64 buildは0 error、既知vcpkg warning 1件で成功した。最終GPU smokeはapp exit 0、validator exit 0、破損tone-map fixture reject exit 1、D3D12 error 0件だった。
+- Raster／Hybridの現在比較可能範囲と、PT／RRの`NOT CLAIMED`境界を固定した。PathTracing pass、RR backend、production defaultは変更していない。
+
+Status: done

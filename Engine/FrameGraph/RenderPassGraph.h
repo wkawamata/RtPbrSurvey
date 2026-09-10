@@ -1,4 +1,4 @@
-﻿//*********************************************************
+//*********************************************************
 //
 // Copyright (c) Microsoft. All rights reserved.
 // This code is licensed under the MIT License (MIT).
@@ -31,6 +31,14 @@ struct ResourceUsage
 {
     std::string name;
     D3D12_RESOURCE_STATES state;
+};
+
+struct RenderGraphBarrierEvent
+{
+    int passIndex = -1;
+    std::string resourceName;
+    D3D12_RESOURCE_STATES beforeState = D3D12_RESOURCE_STATE_COMMON;
+    D3D12_RESOURCE_STATES afterState = D3D12_RESOURCE_STATE_COMMON;
 };
 
 using ResourceUsages = std::vector<ResourceUsage>;

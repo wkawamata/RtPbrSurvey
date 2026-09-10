@@ -1,0 +1,106 @@
+{
+  "id": "hybrid-reflection-material-variance-filter-v1",
+  "version": 1,
+  "title": "Hybrid Reflection Surface Variance Filter",
+  "description": "Compare the default-off current-radiance spatial experiment against the temporal-only baseline in the confirmed DamagedHelmet regions.",
+  "capture": {
+    "scene": "DamagedHelmet",
+    "debugView": "ReflectionResolvedRadiance",
+    "stochasticSampling": true,
+    "historyWeight": 0.9,
+    "cameraDistanceScale": 0.5,
+    "aSurfaceVarianceFilter": false,
+    "bSurfaceVarianceFilter": true
+  },
+  "locales": {
+    "ja": {
+      "title": "Hybrid Reflection 表面variance filter評価",
+      "description": "確認済みのDamagedHelmet領域について、temporalのみの基準画像とdefault-offのcurrent-radiance spatial実験を比較します。",
+      "cases": {
+        "surface-filter-early": {
+          "title": "停止後前半",
+          "description": "停止後の早い段階で、noise低減とdetail維持を比較します。",
+          "images": {
+            "a": { "label": "A: temporalのみ" },
+            "b": { "label": "B: surface variance filter有効" }
+          },
+          "criteria": {
+            "noise": "Bでは後頭部側surfaceと下面pipeの粒状noiseが減っている。",
+            "detail": "Bはsurface texture、細いpipe、panel境界のdetailを不自然に失っていない。",
+            "content": "BはAと同等のreflection内容と平均輝度を維持している。"
+          }
+        },
+        "surface-filter-middle": {
+          "title": "停止後中盤",
+          "description": "temporalが進んだ後もfilterの効果と副作用が残るか確認します。",
+          "images": {
+            "a": { "label": "A: temporalのみ" },
+            "b": { "label": "B: surface variance filter有効" }
+          },
+          "criteria": {
+            "noise": "Bでは対象2領域の残留noiseがAより少ない。",
+            "detail": "Bに持続的なblur、edgeの太り、surface detailの消失がない。",
+            "content": "Bにreflectionの欠落や不自然な輝度差がない。"
+          }
+        },
+        "surface-filter-late": {
+          "title": "停止後後半",
+          "description": "十分なtemporal収束後の最終detailと残留noiseを比較します。",
+          "images": {
+            "a": { "label": "A: temporalのみ" },
+            "b": { "label": "B: surface variance filter有効" }
+          },
+          "criteria": {
+            "noise": "Bでは後半にも対象領域のnoise低減が確認できる。",
+            "detail": "BはAの細部とmaterial境界を実質的に維持している。",
+            "artifacts": "Bにhalo、境界越しのbleeding、過度な平滑化がない。"
+          }
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "surface-filter-early",
+      "title": "Early settled frame",
+      "description": "Compare noise reduction and detail retention early after the camera stop.",
+      "images": {
+        "a": { "label": "A: temporal only", "path": "captures/material-variance-series-resolved-f195.png" },
+        "b": { "label": "B: surface variance filter", "path": "captures/material-variance-series-spatial-f195.png" }
+      },
+      "criteria": [
+        { "id": "noise", "prompt": "B reduces grain in the rearward surface and underside pipes." },
+        { "id": "detail", "prompt": "B preserves surface texture, thin pipes, and panel-boundary detail." },
+        { "id": "content", "prompt": "B preserves A's reflection content and mean brightness." }
+      ]
+    },
+    {
+      "id": "surface-filter-middle",
+      "title": "Middle settled frame",
+      "description": "Check whether the filter benefit and side effects persist after more temporal accumulation.",
+      "images": {
+        "a": { "label": "A: temporal only", "path": "captures/material-variance-series-resolved-f240.png" },
+        "b": { "label": "B: surface variance filter", "path": "captures/material-variance-series-spatial-f240.png" }
+      },
+      "criteria": [
+        { "id": "noise", "prompt": "B retains lower residual noise in both confirmed regions." },
+        { "id": "detail", "prompt": "B has no persistent blur, edge thickening, or lost surface detail." },
+        { "id": "content", "prompt": "B has no missing reflection content or unnatural brightness shift." }
+      ]
+    },
+    {
+      "id": "surface-filter-late",
+      "title": "Late settled frame",
+      "description": "Compare final detail and residual noise after substantial temporal settling.",
+      "images": {
+        "a": { "label": "A: temporal only", "path": "captures/material-variance-series-resolved-f300.png" },
+        "b": { "label": "B: surface variance filter", "path": "captures/material-variance-series-spatial-f300.png" }
+      },
+      "criteria": [
+        { "id": "noise", "prompt": "B still shows a useful noise reduction in the target regions." },
+        { "id": "detail", "prompt": "B effectively preserves A's fine detail and material boundaries." },
+        { "id": "artifacts", "prompt": "B has no halo, cross-boundary bleeding, or excessive smoothing." }
+      ]
+    }
+  ]
+}

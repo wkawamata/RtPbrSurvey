@@ -8,6 +8,7 @@
 #include <cwchar>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <stdexcept>
 #include <unordered_set>
 
 namespace Platform
@@ -18,6 +19,86 @@ namespace
 bool IsCommandLineArg(const WCHAR* arg, const WCHAR* expected)
 {
     return _wcsicmp(arg, expected) == 0;
+}
+
+bool TryParseDebugResourceName(const WCHAR* value, std::string& resourceName)
+{
+    resourceName.clear();
+    for (const WCHAR* character = value; *character != L'\0'; ++character)
+    {
+        if (*character < 0x20 || *character > 0x7e)
+        {
+            resourceName.clear();
+            return false;
+        }
+        resourceName.push_back(static_cast<char>(*character));
+    }
+    return !resourceName.empty();
+}
+
+bool TryParseDlssSrQualityMode(const WCHAR* value, DlssSrQualityMode& qualityMode)
+{
+    struct QualityModeName
+    {
+        const WCHAR* name;
+        DlssSrQualityMode qualityMode;
+    };
+
+    static constexpr QualityModeName kQualityModeNames[] = {
+        {L"dlaa", DlssSrQualityMode::Dlaa},
+        {L"quality", DlssSrQualityMode::Quality},
+        {L"balanced", DlssSrQualityMode::Balanced},
+        {L"performance", DlssSrQualityMode::Performance},
+        {L"ultra-performance", DlssSrQualityMode::UltraPerformance},
+    };
+
+    for (const QualityModeName& entry : kQualityModeNames)
+    {
+        if (_wcsicmp(value, entry.name) == 0)
+        {
+            qualityMode = entry.qualityMode;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool TryParseReflectionCaptureDebugView(const WCHAR* value, ReflectionCaptureDebugView& debugView)
+{
+    struct DebugViewName
+    {
+        const WCHAR* name;
+        ReflectionCaptureDebugView debugView;
+    };
+
+    static constexpr DebugViewName kDebugViewNames[] = {
+        {L"lit", ReflectionCaptureDebugView::Lit},
+        {L"resolved-radiance", ReflectionCaptureDebugView::ResolvedRadiance},
+        {L"temporal-validity", ReflectionCaptureDebugView::TemporalValidity},
+        {L"albedo", ReflectionCaptureDebugView::GBufferAlbedo},
+        {L"pbr-params", ReflectionCaptureDebugView::GBufferPbrParams},
+        {L"normal", ReflectionCaptureDebugView::GBufferNormal},
+        {L"motion-vector", ReflectionCaptureDebugView::GBufferMotionVector},
+        {L"depth", ReflectionCaptureDebugView::Depth},
+        {L"specular-albedo", ReflectionCaptureDebugView::RayReconstructionSpecularAlbedo},
+        {L"roughness", ReflectionCaptureDebugView::RayReconstructionRoughness},
+        {L"specular-hit-distance", ReflectionCaptureDebugView::RayReconstructionSpecularHitDistance},
+        {L"hit-material", ReflectionCaptureDebugView::ReflectionRayMaterial},
+        {L"evaluated-radiance", ReflectionCaptureDebugView::EvaluatedRadiance},
+        {L"specular-estimate", ReflectionCaptureDebugView::SpecularEstimate},
+        {L"resolved-specular-estimate", ReflectionCaptureDebugView::ResolvedSpecularEstimate},
+        {L"specular-variance", ReflectionCaptureDebugView::SpecularVariance},
+    };
+
+    for (const DebugViewName& entry : kDebugViewNames)
+    {
+        if (_wcsicmp(value, entry.name) == 0)
+        {
+            debugView = entry.debugView;
+            return true;
+        }
+    }
+    return false;
 }
 
 bool IsValidCaptureVariant(const std::string& variant)
@@ -127,6 +208,46 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.autoSelectGltfDamagedHelmet = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-AutoSelectGltfAsset"))
+        {
+            if (i + 1 < argc)
+            {
+                options.autoSelectGltfAssetName = argv[++i];
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-AutoSelectHybridReflectionEstimatorTest"))
+        {
+            options.autoSelectHybridReflectionEstimatorTest = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-UseSceneDefaults"))
+        {
+            options.useSceneDefaults = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-EnableDlssSr"))
+        {
+            options.enableDlssSr = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-EnableDebugTexturePreview"))
+        {
+            options.enableDebugTexturePreview = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-DebugPreviewResource"))
+        {
+            if (i + 1 >= argc || !TryParseDebugResourceName(argv[++i], options.debugPreviewResourceName))
+            {
+                throw std::invalid_argument("-DebugPreviewResource expects a non-empty ASCII resource name.");
+            }
+            options.enableDebugTexturePreview = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-DlssQuality"))
+        {
+            if (i + 1 >= argc || !TryParseDlssSrQualityMode(argv[++i], options.dlssSrQualityMode))
+            {
+                throw std::invalid_argument(
+                    "-DlssQuality expects dlaa, quality, balanced, performance, or ultra-performance.");
+            }
+            options.enableDlssSr = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-CapturePath"))
         {
             if (i + 1 < argc)
@@ -149,13 +270,76 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.exitAfterCapture = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-EnableDlssRayReconstruction"))
+        {
+            options.enableDlssRayReconstruction = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-EnableExperimentalNativeRayReconstruction"))
+        {
+            options.enableDlssRayReconstruction = true;
+            options.enableExperimentalNativeRayReconstruction = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-CaptureReflectionResolvedRadiance"))
         {
             options.captureReflectionResolvedRadiance = true;
+            options.captureReflectionTemporalValidity = false;
+            options.reflectionCaptureDebugView = ReflectionCaptureDebugView::ResolvedRadiance;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureReflectionTemporalValidity"))
+        {
+            options.captureReflectionResolvedRadiance = true;
+            options.captureReflectionTemporalValidity = true;
+            options.reflectionCaptureDebugView = ReflectionCaptureDebugView::TemporalValidity;
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionCaptureDebugView"))
+        {
+            if (i + 1 < argc)
+            {
+                ReflectionCaptureDebugView debugView;
+                if (TryParseReflectionCaptureDebugView(argv[++i], debugView))
+                {
+                    options.captureReflectionResolvedRadiance = true;
+                    options.captureReflectionTemporalValidity =
+                        debugView == ReflectionCaptureDebugView::TemporalValidity;
+                    options.reflectionCaptureDebugView = debugView;
+                }
+            }
         }
         else if (IsCommandLineArg(argv[i], L"-ReflectionStochasticSampling"))
         {
             options.reflectionStochasticSampling = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionEstimatorConstantIncidentRadiance"))
+        {
+            options.reflectionEstimatorConstantIncidentRadiance = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionRejectedPixelNeighborhood"))
+        {
+            options.reflectionRejectedPixelNeighborhood = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionSurfaceVarianceFilter"))
+        {
+            options.reflectionSurfaceVarianceFilter = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionSpatiotemporalSpatialPolicy"))
+        {
+            options.reflectionSpatiotemporalSpatialPolicy = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionVarianceGuidedTemporal"))
+        {
+            options.reflectionVarianceGuidedTemporal = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionCameraDistanceScale"))
+        {
+            if (i + 1 < argc)
+            {
+                WCHAR* end = nullptr;
+                const float scale = wcstof(argv[++i], &end);
+                if (end != argv[i] && *end == L'\0' && std::isfinite(scale) && scale > 0.0f)
+                {
+                    options.reflectionCameraDistanceScale = scale;
+                }
+            }
         }
         else if (IsCommandLineArg(argv[i], L"-ReflectionTemporalWeight"))
         {
@@ -222,6 +406,84 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 options.reflectionCaptureVariant = variantPath.string();
             }
         }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionHdrDiagnostics"))
+        {
+            if (i + 1 < argc)
+            {
+                options.reflectionHdrDiagnosticsPath = argv[++i];
+                options.captureReflectionResolvedRadiance = true;
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionHdrDiagnosticsWarmupFrames"))
+        {
+            if (i + 1 < argc)
+            {
+                const int frames = _wtoi(argv[++i]);
+                if (frames >= 0)
+                {
+                    options.reflectionHdrDiagnosticsWarmupFrames = static_cast<UINT>(frames);
+                }
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionHdrDiagnosticsFrames"))
+        {
+            if (i + 1 < argc)
+            {
+                const int frames = _wtoi(argv[++i]);
+                if (frames > 0)
+                {
+                    options.reflectionHdrDiagnosticsFrames = static_cast<UINT>(frames);
+                }
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionHdrDiagnosticsRoi"))
+        {
+            if (i + 4 < argc)
+            {
+                const int x = _wtoi(argv[++i]);
+                const int y = _wtoi(argv[++i]);
+                const int width = _wtoi(argv[++i]);
+                const int height = _wtoi(argv[++i]);
+                if (x >= 0 && y >= 0 && width > 0 && height > 0)
+                {
+                    options.reflectionHdrDiagnosticsRoiX = static_cast<UINT>(x);
+                    options.reflectionHdrDiagnosticsRoiY = static_cast<UINT>(y);
+                    options.reflectionHdrDiagnosticsRoiWidth = static_cast<UINT>(width);
+                    options.reflectionHdrDiagnosticsRoiHeight = static_cast<UINT>(height);
+                }
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionConfidenceForceStableAfterMeasurementFrames"))
+        {
+            if (i + 1 < argc)
+            {
+                const int frames = _wtoi(argv[++i]);
+                if (frames > 0)
+                {
+                    options.reflectionConfidenceForceStableAfterMeasurementFrames =
+                        static_cast<UINT>(frames);
+                }
+            }
+        }
+        else if (IsCommandLineArg(argv[i], L"-ReflectionHistoryResetAfterMeasurementFrames"))
+        {
+            if (i + 1 < argc)
+            {
+                const int frames = _wtoi(argv[++i]);
+                if (frames > 0)
+                {
+                    options.reflectionHistoryResetAfterMeasurementFrames = static_cast<UINT>(frames);
+                }
+            }
+        }
+    }
+
+    if (!options.reflectionHdrDiagnosticsPath.empty() &&
+        !options.autoSelectGltfDamagedHelmet &&
+        options.autoSelectGltfAssetName.empty() &&
+        !options.autoSelectHybridReflectionEstimatorTest)
+    {
+        options.autoSelectGltfDamagedHelmet = true;
     }
 
     return options;

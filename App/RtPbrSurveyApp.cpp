@@ -14,18 +14,89 @@
 #include <algorithm>
 #include <cmath>
 #include <fcntl.h>
+#include <fstream>
 #include <io.h>
+#include <nlohmann/json.hpp>
 #include <share.h>
 #include <stdexcept>
 #include <sys/stat.h>
 #include "RtPbrSurveyApp.h"
 #include "../Platform/Win32Application.h"
 #include "../Platform/AssetPath.h"
+#include "../Renderer/StreamlineAdapter.h"
+#include "../Renderer/ReflectionHdrDiagnosticStatistics.h"
 #include "../Scene/SceneFactory.h"
 #include "imgui.h"
 #include "ImGuiWidgets.h"
 
 void RunStagedAllocatorTests(ID3D12Device* device);
+
+namespace
+{
+
+static_assert(Engine::ImGuiSystem::kMaxTextureCount >= RtPbrSurveyEngine::kMaxDebugTextureOutputCount);
+
+RtPbrSurveyEngine::RenderViewMode GetReflectionCaptureRenderViewMode(
+    Platform::ReflectionCaptureDebugView debugView)
+{
+    switch (debugView)
+    {
+        case Platform::ReflectionCaptureDebugView::Lit:
+            return RtPbrSurveyEngine::RenderViewMode::LightPass;
+        case Platform::ReflectionCaptureDebugView::TemporalValidity:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionTemporalValidity;
+        case Platform::ReflectionCaptureDebugView::GBufferAlbedo:
+            return RtPbrSurveyEngine::RenderViewMode::GBufferAlbedo;
+        case Platform::ReflectionCaptureDebugView::GBufferPbrParams:
+            return RtPbrSurveyEngine::RenderViewMode::GBufferPBRParams;
+        case Platform::ReflectionCaptureDebugView::GBufferNormal:
+            return RtPbrSurveyEngine::RenderViewMode::GBufferNormal;
+        case Platform::ReflectionCaptureDebugView::GBufferMotionVector:
+            return RtPbrSurveyEngine::RenderViewMode::GBufferMotionVector;
+        case Platform::ReflectionCaptureDebugView::Depth:
+            return RtPbrSurveyEngine::RenderViewMode::Depth;
+        case Platform::ReflectionCaptureDebugView::RayReconstructionSpecularAlbedo:
+            return RtPbrSurveyEngine::RenderViewMode::RayReconstructionSpecularAlbedo;
+        case Platform::ReflectionCaptureDebugView::RayReconstructionRoughness:
+            return RtPbrSurveyEngine::RenderViewMode::RayReconstructionRoughness;
+        case Platform::ReflectionCaptureDebugView::RayReconstructionSpecularHitDistance:
+            return RtPbrSurveyEngine::RenderViewMode::RayReconstructionSpecularHitDistance;
+        case Platform::ReflectionCaptureDebugView::ReflectionRayMaterial:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionRayMaterial;
+        case Platform::ReflectionCaptureDebugView::EvaluatedRadiance:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionEvaluatedRadiance;
+        case Platform::ReflectionCaptureDebugView::SpecularEstimate:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionSpecularEstimate;
+        case Platform::ReflectionCaptureDebugView::ResolvedSpecularEstimate:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedSpecularEstimate;
+        case Platform::ReflectionCaptureDebugView::SpecularVariance:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionSpecularVariance;
+        case Platform::ReflectionCaptureDebugView::ResolvedRadiance:
+        default:
+            return RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance;
+    }
+}
+
+Engine::TemporalUpscalerQualityMode GetDlssSrQualityMode(Platform::DlssSrQualityMode qualityMode)
+{
+    switch (qualityMode)
+    {
+        case Platform::DlssSrQualityMode::Dlaa:
+            return Engine::TemporalUpscalerQualityMode::Native;
+        case Platform::DlssSrQualityMode::Quality:
+            return Engine::TemporalUpscalerQualityMode::Quality;
+        case Platform::DlssSrQualityMode::Balanced:
+            return Engine::TemporalUpscalerQualityMode::Balanced;
+        case Platform::DlssSrQualityMode::Performance:
+            return Engine::TemporalUpscalerQualityMode::Performance;
+        case Platform::DlssSrQualityMode::UltraPerformance:
+            return Engine::TemporalUpscalerQualityMode::UltraPerformance;
+        default:
+            return Engine::TemporalUpscalerQualityMode::Quality;
+    }
+}
+
+} // namespace
 
 RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
     : m_windowInfo(Platform::CreateWindowInfo(width, height, name)), m_prevTime(std::chrono::steady_clock::now()), m_sceneRenderer(m_graphicsDevice)
@@ -35,6 +106,22 @@ RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
 _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], int argc)
 {
     m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
+    if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() &&
+        (!m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty()))
+    {
+        throw std::invalid_argument(
+            "-ReflectionHdrDiagnostics is mutually exclusive with screenshot capture automation.");
+    }
+    const UINT autoSelectModeCount =
+        static_cast<UINT>(m_commandLineOptions.autoSelectGltfDamagedHelmet) +
+        static_cast<UINT>(!m_commandLineOptions.autoSelectGltfAssetName.empty()) +
+        static_cast<UINT>(m_commandLineOptions.autoSelectHybridReflectionEstimatorTest);
+    if (autoSelectModeCount > 1)
+    {
+        throw std::invalid_argument(
+            "-AutoSelectGltfDamagedHelmet, -AutoSelectGltfAsset, and "
+            "-AutoSelectHybridReflectionEstimatorTest are mutually exclusive.");
+    }
     if (!m_commandLineOptions.reflectionCapturePlanPath.empty())
     {
         if (!m_commandLineOptions.capturePath.empty())
@@ -59,6 +146,9 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
 
 void RtPbrSurveyApp::OnInit()
 {
+    const Engine::StreamlineAdapterInitDesc streamlineInitDesc = {L"RtPbrSurvey"};
+    Engine::InitializeStreamlineAdapter(streamlineInitDesc);
+
     CreateSampleScenes();
 
     GraphicsDeviceDesc deviceDesc = {};
@@ -68,9 +158,7 @@ void RtPbrSurveyApp::OnInit()
     deviceDesc.bufferCount = RtPbrSurveyEngine::kSwapChainBufferCount;
     deviceDesc.swapChainFormat = RtPbrSurveyEngine::kSwapChainFormat;
     deviceDesc.useWarpDevice = m_commandLineOptions.useWarpDevice;
-    RtPbrSurvey::SceneRendererHostDesc rendererHostDesc = {};
-    rendererHostDesc.applicationName = L"RtPbrSurvey";
-    RtPbrSurvey::SceneRenderer::ConfigureGraphicsDevice(deviceDesc, rendererHostDesc);
+    deviceDesc.deviceCreatedHandler = [](ID3D12Device* device) { Engine::SetStreamlineD3DDevice(device); };
     m_graphicsDevice.Initialize(deviceDesc);
 
     // Open debug log file and query ID3D12InfoQueue for D3D12 message capture.
@@ -150,23 +238,118 @@ void RtPbrSurveyApp::OnInit()
         m_sceneConfig.SetPaths(defaultsPathA, userConfigPath);
     }
 
-    if (m_commandLineOptions.autoSelectGltfDamagedHelmet)
+    if (m_commandLineOptions.autoSelectGltfDamagedHelmet ||
+        !m_commandLineOptions.autoSelectGltfAssetName.empty() ||
+        m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
     {
-        m_selectedSceneIndex = kDefaultSceneIndex;
+        if (m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
+        {
+            const auto scene = std::find_if(
+                m_sampleScenes.begin(),
+                m_sampleScenes.end(),
+                [](const std::unique_ptr<Engine::SampleScene>& candidate)
+                {
+                    return strcmp(candidate->Name(), "Hybrid Reflection Estimator Test") == 0;
+                });
+            if (scene == m_sampleScenes.end())
+            {
+                throw std::runtime_error("Hybrid Reflection Estimator Test scene is unavailable.");
+            }
+            m_selectedSceneIndex = static_cast<int>(std::distance(m_sampleScenes.begin(), scene));
+        }
+        else if (!m_commandLineOptions.autoSelectGltfAssetName.empty())
+        {
+            const auto scene = std::find_if(
+                m_sampleScenes.begin(),
+                m_sampleScenes.end(),
+                [this](const std::unique_ptr<Engine::SampleScene>& candidate)
+                {
+                    const char* candidateName = candidate->Name();
+                    const int requiredLength = MultiByteToWideChar(
+                        CP_UTF8, 0, candidateName, -1, nullptr, 0);
+                    if (requiredLength <= 1)
+                    {
+                        return false;
+                    }
+                    std::wstring wideCandidateName(static_cast<size_t>(requiredLength), L'\0');
+                    MultiByteToWideChar(
+                        CP_UTF8, 0, candidateName, -1, wideCandidateName.data(), requiredLength);
+                    return _wcsicmp(
+                               wideCandidateName.c_str(),
+                               m_commandLineOptions.autoSelectGltfAssetName.c_str()) == 0;
+                });
+            if (scene == m_sampleScenes.end() ||
+                !IsGltfViewerSceneIndex(static_cast<int>(std::distance(m_sampleScenes.begin(), scene))))
+            {
+                throw std::runtime_error("Requested glTF viewer asset is unavailable.");
+            }
+            m_selectedSceneIndex = static_cast<int>(std::distance(m_sampleScenes.begin(), scene));
+        }
+        else
+        {
+            m_selectedSceneIndex = kDefaultSceneIndex;
+        }
         OpenSelectedScene();
+
+        // HDR diagnostics must not inherit interactive user camera overrides. The
+        // manifest ROIs and camera motion are defined against versioned scene defaults.
+        if (m_commandLineOptions.useSceneDefaults ||
+            !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty())
+        {
+            m_sceneConfig.LoadDefaultsForScene(
+                m_selectedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
+            ApplyRayReconstructionCommandLineOverrides();
+            ApplyDlssSrCommandLineOptions();
+        }
+
+        if (m_debugCamera.GetMode() == RtPbrSurvey::DebugCameraController::Mode::Arcball &&
+            m_commandLineOptions.reflectionCameraDistanceScale != 1.0f)
+        {
+            m_debugCamera.SetObjectViewerState(
+                m_debugCamera.ObjectViewerYaw(),
+                m_debugCamera.ObjectViewerPitch(),
+                (std::max)(0.1f,
+                           m_debugCamera.ObjectViewerDistance() *
+                               m_commandLineOptions.reflectionCameraDistanceScale),
+                m_debugCamera.ObjectViewerPivot());
+            m_debugCamera.UpdateObjectViewerCamera();
+        }
         m_debugUiVisible = false;
 
         if (m_commandLineOptions.captureReflectionResolvedRadiance)
         {
+            if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() &&
+                m_commandLineOptions.reflectionOrbitFrames > 0 &&
+                m_debugCamera.GetMode() != RtPbrSurvey::DebugCameraController::Mode::Arcball)
+            {
+                m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::Arcball);
+                m_debugCamera.InitObjectViewerFromCamera();
+            }
             m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
-            m_renderViewMode = RtPbrSurveyEngine::RenderViewMode::ReflectionResolvedRadiance;
+            m_renderViewMode =
+                GetReflectionCaptureRenderViewMode(m_commandLineOptions.reflectionCaptureDebugView);
             m_sceneRenderer.SetRenderingPath(m_renderingPath);
             m_sceneRenderer.SetRenderViewMode(m_renderViewMode);
 
             RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
                 m_sceneRenderer.GetHybridReflectionSettings();
             reflectionSettings.enabled = true;
+            if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() ||
+                m_commandLineOptions.reflectionCaptureDebugView == Platform::ReflectionCaptureDebugView::Lit)
+            {
+                reflectionSettings.contributionEnabled = true;
+            }
             reflectionSettings.stochasticSamplingEnabled = m_commandLineOptions.reflectionStochasticSampling;
+            reflectionSettings.estimatorConstantIncidentRadianceEnabled =
+                m_commandLineOptions.reflectionEstimatorConstantIncidentRadiance;
+            reflectionSettings.rejectedPixelNeighborhoodEnabled =
+                m_commandLineOptions.reflectionRejectedPixelNeighborhood;
+            reflectionSettings.surfaceVarianceFilterEnabled =
+                m_commandLineOptions.reflectionSurfaceVarianceFilter;
+            reflectionSettings.spatiotemporalSpatialPolicyEnabled =
+                m_commandLineOptions.reflectionSpatiotemporalSpatialPolicy;
+            reflectionSettings.varianceGuidedTemporalEnabled =
+                m_commandLineOptions.reflectionVarianceGuidedTemporal;
             if (m_commandLineOptions.hasReflectionTemporalWeight)
             {
                 reflectionSettings.temporalHistoryWeight =
@@ -179,6 +362,9 @@ void RtPbrSurveyApp::OnInit()
             }
             m_sceneRenderer.SetHybridReflectionSettings(reflectionSettings);
             m_automationOrbitStartYaw = m_debugCamera.ObjectViewerYaw();
+            m_automationOrbitDistance = (std::max)(
+                0.1f,
+                m_debugCamera.ObjectViewerDistance() * m_commandLineOptions.reflectionCameraDistanceScale);
         }
     }
 }
@@ -255,6 +441,11 @@ void RtPbrSurveyApp::OnKeyDown(UINT8 key)
 
     if (m_appMode == AppMode::Running && key == VK_SPACE)
     {
+        m_isPlaying = !m_isPlaying;
+    }
+
+    if (m_appMode == AppMode::Running && key == 'P')
+    {
         m_framePaused = !m_framePaused;
         m_forwardStepRequested = false;
     }
@@ -330,6 +521,12 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 
 void RtPbrSurveyApp::OnIdle()
 {
+    UpdateReflectionHdrDiagnostics();
+    if (m_reflectionHdrDiagnosticsComplete)
+    {
+        return;
+    }
+
     if (HasAutomatedCapture())
     {
         if (const std::optional<RtPbrSurvey::ScreenshotResult> result = m_sceneRenderer.ConsumeScreenshotResult())
@@ -390,6 +587,21 @@ void RtPbrSurveyApp::OnIdle()
              !m_automationScreenshotRequested &&
              m_automationFrameCounter >= m_commandLineOptions.captureAfterFrames)
     {
+        const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+        if (m_commandLineOptions.enableDlssSr && !context.temporalUpscalerOutputAvailable)
+        {
+            const Engine::StreamlineEvaluateResult& result = context.temporalUpscalerLastEvaluateResult;
+            const Engine::TemporalUpscalerSettings& settings = m_sceneRenderer.GetTemporalUpscalerSettings();
+            const RtPbrSurveyEngine& engine = m_sceneRenderer.EngineForDebugTools();
+            const std::string failureStage = result.failureStage != nullptr ? result.failureStage : "not-scheduled";
+            FailAutomatedCapture(
+                "DLSS SR did not produce an output frame (stage=" + failureStage +
+                ", result=" + std::to_string(result.nativeResult) +
+                ", enabled=" + (settings.enabled ? "true" : "false") +
+                ", view=" + std::to_string(static_cast<int>(engine.GetRenderViewMode())) +
+                ", path=" + std::to_string(static_cast<int>(engine.GetRenderingPath())) + ").");
+            return;
+        }
         m_sceneRenderer.RequestScreenshot({m_commandLineOptions.capturePath});
         m_automationScreenshotRequested = true;
     }
@@ -404,6 +616,7 @@ void RtPbrSurveyApp::OnIdle()
     m_forwardStepRequested = false;
     m_sceneRenderer.RunFrame(
         [this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); }, advanceFrame);
+    LogRayReconstructionDiagnostics();
 
     if (HasAutomatedCapture())
     {
@@ -464,8 +677,41 @@ void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
         m_debugCamera.SetObjectViewerState(
             m_automationOrbitStartYaw + DirectX::XMConvertToRadians(yawDegrees),
             m_debugCamera.ObjectViewerPitch(),
-            m_debugCamera.ObjectViewerDistance(),
+            m_automationOrbitDistance,
             m_debugCamera.ObjectViewerPivot());
+        m_debugCamera.UpdateObjectViewerCamera();
+        return;
+    }
+
+    if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() &&
+        m_commandLineOptions.reflectionOrbitFrames > 0)
+    {
+        const UINT64 warmupFrames = m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames;
+        if (m_automationFrameCounter < warmupFrames)
+        {
+            return;
+        }
+
+        const UINT64 motionFrames = m_commandLineOptions.reflectionOrbitFrames;
+        const UINT64 diagnosticFrame = m_automationFrameCounter - warmupFrames;
+        float progress = 0.0f;
+        if (diagnosticFrame < motionFrames)
+        {
+            progress = static_cast<float>(diagnosticFrame + 1) / static_cast<float>(motionFrames);
+        }
+        else if (diagnosticFrame < motionFrames * 2)
+        {
+            progress = 1.0f -
+                       static_cast<float>(diagnosticFrame - motionFrames + 1) / static_cast<float>(motionFrames);
+        }
+
+        const float yawOffset =
+            DirectX::XMConvertToRadians(m_commandLineOptions.reflectionOrbitDegrees) * progress;
+        m_debugCamera.SetObjectViewerState(m_automationOrbitStartYaw + yawOffset,
+                                           m_debugCamera.ObjectViewerPitch(),
+                                           m_automationOrbitDistance,
+                                           m_debugCamera.ObjectViewerPivot());
+        m_debugCamera.UpdateObjectViewerCamera();
         return;
     }
 
@@ -488,13 +734,602 @@ void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
     const float yawOffset = DirectX::XMConvertToRadians(m_commandLineOptions.reflectionOrbitDegrees) * progress;
     m_debugCamera.SetObjectViewerState(m_automationOrbitStartYaw + yawOffset,
                                        m_debugCamera.ObjectViewerPitch(),
-                                       m_debugCamera.ObjectViewerDistance(),
+                                       m_automationOrbitDistance,
                                        m_debugCamera.ObjectViewerPivot());
+    m_debugCamera.UpdateObjectViewerCamera();
 }
 
 bool RtPbrSurveyApp::HasAutomatedCapture() const
 {
-    return !m_commandLineOptions.capturePath.empty() || !m_reflectionCapturePlan.captures.empty();
+    return !m_commandLineOptions.capturePath.empty() || !m_reflectionCapturePlan.captures.empty() ||
+           !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty();
+}
+
+void RtPbrSurveyApp::ApplyRayReconstructionCommandLineOverrides()
+{
+    if (!m_commandLineOptions.enableDlssRayReconstruction &&
+        !m_commandLineOptions.enableExperimentalNativeRayReconstruction)
+    {
+        return;
+    }
+
+    Engine::RayReconstructionSettings settings = m_sceneRenderer.GetRayReconstructionSettings();
+    settings.enabled = true;
+    settings.experimentalNativeEvaluationEnabled =
+        m_commandLineOptions.enableExperimentalNativeRayReconstruction;
+    settings.backend = Engine::RayReconstructionBackend::Streamline;
+    m_sceneRenderer.SetRayReconstructionSettings(settings);
+}
+
+void RtPbrSurveyApp::LogRayReconstructionDiagnostics()
+{
+    if (m_logFile == nullptr)
+    {
+        return;
+    }
+
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    const Engine::RayReconstructionDiagnostics& diagnostics = context.rayReconstructionDiagnostics;
+    const bool changed =
+        m_lastLoggedRayReconstructionAvailable != context.rayReconstructionAvailable ||
+        m_lastLoggedRayReconstructionStatus != diagnostics.status ||
+        m_lastLoggedRayReconstructionSupportQueryResultName != diagnostics.supportQueryResultName ||
+        m_lastLoggedRayReconstructionInputReadinessAvailable != diagnostics.inputReadinessAvailable ||
+        m_lastLoggedRayReconstructionInputReady != diagnostics.inputReady ||
+        m_lastLoggedRayReconstructionReadinessReason != diagnostics.inputReadinessReason ||
+        m_lastLoggedRayReconstructionEvaluateAvailable != diagnostics.lastEvaluateAvailable ||
+        m_lastLoggedRayReconstructionEvaluateOutputAvailable != diagnostics.lastEvaluateOutputAvailable ||
+        m_lastLoggedRayReconstructionEvaluateStatus != diagnostics.lastEvaluateStatus ||
+        m_lastLoggedRayReconstructionEvaluateResultName != diagnostics.lastEvaluateResultName;
+    if (!changed)
+    {
+        return;
+    }
+
+    const char* lastEvaluateOutput = "unavailable";
+    if (diagnostics.lastEvaluateAvailable)
+    {
+        lastEvaluateOutput = diagnostics.lastEvaluateOutputAvailable ? "native-output" : "fallback";
+    }
+
+    fprintf(m_logFile,
+            "[RR] support=%s status=%s supportQueryResult=%s inputReadiness=%s inputReason=%s "
+            "lastEvaluate=%s lastEvaluateStatus=%s lastEvaluateResult=%s lastEvaluateOutput=%s\n",
+            context.rayReconstructionAvailable ? "available" : "unavailable",
+            diagnostics.StatusText(),
+            diagnostics.supportQueryResultName,
+            diagnostics.inputReadinessAvailable ? (diagnostics.inputReady ? "ready" : "not-ready") : "unavailable",
+            diagnostics.InputReadinessText(),
+            diagnostics.lastEvaluateAvailable ? "available" : "unavailable",
+            diagnostics.LastEvaluateStatusText(),
+            diagnostics.lastEvaluateResultName,
+            lastEvaluateOutput);
+    fflush(m_logFile);
+
+    m_lastLoggedRayReconstructionAvailable = context.rayReconstructionAvailable;
+    m_lastLoggedRayReconstructionStatus = diagnostics.status;
+    m_lastLoggedRayReconstructionSupportQueryResultName = diagnostics.supportQueryResultName;
+    m_lastLoggedRayReconstructionInputReadinessAvailable = diagnostics.inputReadinessAvailable;
+    m_lastLoggedRayReconstructionInputReady = diagnostics.inputReady;
+    m_lastLoggedRayReconstructionReadinessReason = diagnostics.inputReadinessReason;
+    m_lastLoggedRayReconstructionEvaluateAvailable = diagnostics.lastEvaluateAvailable;
+    m_lastLoggedRayReconstructionEvaluateOutputAvailable = diagnostics.lastEvaluateOutputAvailable;
+    m_lastLoggedRayReconstructionEvaluateStatus = diagnostics.lastEvaluateStatus;
+    m_lastLoggedRayReconstructionEvaluateResultName = diagnostics.lastEvaluateResultName;
+}
+
+void RtPbrSurveyApp::UpdateReflectionHdrDiagnostics()
+{
+    if (m_commandLineOptions.reflectionHdrDiagnosticsPath.empty())
+    {
+        return;
+    }
+
+    if (std::optional<Engine::ReflectionHdrDiagnosticFrame> frame =
+            m_sceneRenderer.ConsumeReflectionHdrDiagnosticFrame())
+    {
+        frame->automationFrameIndex = m_reflectionHdrDiagnosticCaptureAutomationFrame;
+        m_reflectionHdrDiagnosticFrames.push_back(std::move(*frame));
+        m_reflectionHdrDiagnosticInFlight = false;
+    }
+
+    const UINT stableEvidenceFrame =
+        m_commandLineOptions.reflectionConfidenceForceStableAfterMeasurementFrames;
+    if (!m_reflectionConfidenceStableEvidenceApplied && stableEvidenceFrame > 0 &&
+        m_reflectionHdrDiagnosticFrames.size() >= stableEvidenceFrame)
+    {
+        RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
+            m_sceneRenderer.GetHybridReflectionSettings();
+        reflectionSettings.confidenceForceStableEvidence = true;
+        m_sceneRenderer.SetHybridReflectionSettings(reflectionSettings);
+        m_reflectionConfidenceStableEvidenceApplied = true;
+    }
+
+    const UINT resetFrame = m_commandLineOptions.reflectionHistoryResetAfterMeasurementFrames;
+    if (!m_reflectionHistoryDiagnosticResetApplied && resetFrame > 0 &&
+        m_reflectionHdrDiagnosticFrames.size() >= resetFrame)
+    {
+        m_sceneRenderer.ResetHybridReflectionHistoryForDiagnostics();
+        m_reflectionHistoryDiagnosticResetApplied = true;
+    }
+
+    if (m_reflectionHdrDiagnosticFrames.size() >= m_commandLineOptions.reflectionHdrDiagnosticsFrames)
+    {
+        WriteReflectionHdrDiagnosticsReport();
+        m_reflectionHdrDiagnosticsComplete = true;
+        DestroyWindow(Win32Application::GetHwnd());
+        return;
+    }
+
+    if (!m_reflectionHdrDiagnosticInFlight &&
+        m_automationFrameCounter >= m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames)
+    {
+        const Engine::ReflectionHdrDiagnosticRoi roi = {
+            m_commandLineOptions.reflectionHdrDiagnosticsRoiX,
+            m_commandLineOptions.reflectionHdrDiagnosticsRoiY,
+            m_commandLineOptions.reflectionHdrDiagnosticsRoiWidth,
+            m_commandLineOptions.reflectionHdrDiagnosticsRoiHeight};
+        if (m_reflectionHdrDiagnosticFrames.empty())
+        {
+            const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+            const float renderCenterX = static_cast<float>(roi.x) + static_cast<float>(roi.width) * 0.5f;
+            const float renderCenterY = static_cast<float>(roi.y) + static_cast<float>(roi.height) * 0.5f;
+            const int screenX = static_cast<int>(renderCenterX * static_cast<float>(context.outputWidth) /
+                                                 static_cast<float>(context.renderWidth));
+            const int screenY = static_cast<int>(renderCenterY * static_cast<float>(context.outputHeight) /
+                                                 static_cast<float>(context.renderHeight));
+            m_sceneRenderer.RequestPixelPick(screenX, screenY);
+        }
+        m_sceneRenderer.RequestReflectionHdrDiagnosticCapture(roi);
+        m_reflectionHdrDiagnosticCaptureAutomationFrame = m_automationFrameCounter;
+        m_reflectionHdrDiagnosticInFlight = true;
+    }
+}
+
+void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
+{
+    using json = nlohmann::json;
+
+    const Engine::ReflectionHdrDiagnosticRoi roi = m_reflectionHdrDiagnosticFrames.front().roi;
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    const RtPbrSurveyEngine::HybridReflectionSettings reflectionSettings =
+        m_sceneRenderer.GetHybridReflectionSettings();
+    const RtPbrSurveyEngine::CameraState& camera = m_sceneRenderer.GetCamera();
+
+    const auto meanLuminance = [](const std::vector<Engine::ReflectionHdrDiagnosticSample>& samples)
+    {
+        double sum = 0.0;
+        for (const Engine::ReflectionHdrDiagnosticSample& sample : samples)
+        {
+            sum += 0.2126 * sample.r + 0.7152 * sample.g + 0.0722 * sample.b;
+        }
+        return samples.empty() ? 0.0 : sum / static_cast<double>(samples.size());
+    };
+    const auto momentsSummary = [](const std::vector<Engine::ReflectionHdrDiagnosticSample>& samples)
+    {
+        double firstMomentSum = 0.0;
+        double secondMomentSum = 0.0;
+        double varianceSum = 0.0;
+        double maximumVariance = 0.0;
+        for (const Engine::ReflectionHdrDiagnosticSample& sample : samples)
+        {
+            const double variance = (std::max)(
+                static_cast<double>(sample.g) - static_cast<double>(sample.r) * sample.r, 0.0);
+            firstMomentSum += sample.r;
+            secondMomentSum += sample.g;
+            varianceSum += variance;
+            maximumVariance = (std::max)(maximumVariance, variance);
+        }
+        const double count = static_cast<double>(samples.size());
+        return json{{"meanFirstMoment", count > 0.0 ? firstMomentSum / count : 0.0},
+                    {"meanSecondMoment", count > 0.0 ? secondMomentSum / count : 0.0},
+                    {"meanEstimatedVariance", count > 0.0 ? varianceSum / count : 0.0},
+                    {"maximumEstimatedVariance", maximumVariance}};
+    };
+    const auto scalarSummary = [](const std::vector<double>& values)
+    {
+        std::vector<double> sortedValues = values;
+        double sum = 0.0;
+        for (const double value : sortedValues)
+        {
+            sum += value;
+        }
+        std::sort(sortedValues.begin(), sortedValues.end());
+        const double count = static_cast<double>(sortedValues.size());
+        const double mean = count > 0.0 ? sum / count : 0.0;
+        double variance = 0.0;
+        for (const double value : sortedValues)
+        {
+            const double difference = value - mean;
+            variance += difference * difference;
+        }
+        variance = count > 0.0 ? variance / count : 0.0;
+        const auto percentile = [&sortedValues](double fraction)
+        {
+            if (sortedValues.empty())
+            {
+                return 0.0;
+            }
+            const size_t index = static_cast<size_t>(fraction * static_cast<double>(sortedValues.size() - 1));
+            return sortedValues[index];
+        };
+        return json{{"mean", mean},
+                    {"standardDeviation", std::sqrt(variance)},
+                    {"minimum", sortedValues.empty() ? 0.0 : sortedValues.front()},
+                    {"p95", percentile(0.95)},
+                    {"p99", percentile(0.99)},
+                    {"maximum", sortedValues.empty() ? 0.0 : sortedValues.back()}};
+    };
+    const auto confidenceValues = [](const std::vector<Engine::ReflectionHdrDiagnosticSample>& samples)
+    {
+        std::vector<double> values;
+        values.reserve(samples.size());
+        for (const Engine::ReflectionHdrDiagnosticSample& sample : samples)
+        {
+            values.push_back(sample.r);
+        }
+        return values;
+    };
+    const auto policyWeightValues = [&reflectionSettings](
+                                        const std::vector<Engine::ReflectionHdrDiagnosticSample>& confidenceSamples)
+    {
+        std::vector<double> weights;
+        weights.reserve(confidenceSamples.size());
+        for (const Engine::ReflectionHdrDiagnosticSample& sample : confidenceSamples)
+        {
+            double weight = reflectionSettings.temporalHistoryWeight;
+            if (reflectionSettings.varianceGuidedTemporalEnabled)
+            {
+                double confidenceWeight = std::clamp((static_cast<double>(sample.r) - 0.5) / 0.4, 0.0, 1.0);
+                confidenceWeight = confidenceWeight * confidenceWeight * (3.0 - 2.0 * confidenceWeight);
+                weight += ((std::max)(weight, 0.94) - weight) * confidenceWeight;
+            }
+            weights.push_back(weight);
+        }
+        return weights;
+    };
+
+    json frameValues = json::array();
+    for (size_t frameIndex = 0; frameIndex < m_reflectionHdrDiagnosticFrames.size(); ++frameIndex)
+    {
+        const Engine::ReflectionHdrDiagnosticFrame& frame = m_reflectionHdrDiagnosticFrames[frameIndex];
+        const UINT64 warmupFrames = m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames;
+        const UINT64 motionFrames = m_commandLineOptions.reflectionOrbitFrames;
+        const UINT64 diagnosticFrame = frame.automationFrameIndex >= warmupFrames ?
+            frame.automationFrameIndex - warmupFrames : 0;
+        const char* cameraMotionPhase = "stationary";
+        float cameraYawOffsetDegrees = 0.0f;
+        if (motionFrames > 0 && diagnosticFrame < motionFrames)
+        {
+            cameraMotionPhase = "forward";
+            cameraYawOffsetDegrees = m_commandLineOptions.reflectionOrbitDegrees *
+                                     static_cast<float>(diagnosticFrame + 1) / static_cast<float>(motionFrames);
+        }
+        else if (motionFrames > 0 && diagnosticFrame < motionFrames * 2)
+        {
+            cameraMotionPhase = "reverse";
+            cameraYawOffsetDegrees = m_commandLineOptions.reflectionOrbitDegrees *
+                                     (1.0f - static_cast<float>(diagnosticFrame - motionFrames + 1) /
+                                                   static_cast<float>(motionFrames));
+        }
+        size_t hitCount = 0;
+        size_t acceptedCount = 0;
+        size_t noHistoryCount = 0;
+        size_t outsideHistoryCount = 0;
+        size_t depthRejectCount = 0;
+        size_t normalRejectCount = 0;
+        double hitDistanceSum = 0.0;
+        double motionMagnitudeSum = 0.0;
+        double maximumMotionMagnitude = 0.0;
+        for (size_t sampleIndex = 0; sampleIndex < frame.rayHit.size(); ++sampleIndex)
+        {
+            const bool rayHit = frame.rayHit[sampleIndex].g >= 0.5f;
+            hitCount += rayHit ? 1 : 0;
+            hitDistanceSum += rayHit ? frame.rayHit[sampleIndex].r : 0.0;
+            const float status = frame.resolvedRadiance[sampleIndex].a;
+            acceptedCount += status >= 0.875f ? 1 : 0;
+            noHistoryCount += status < 0.125f ? 1 : 0;
+            outsideHistoryCount += status >= 0.125f && status < 0.375f ? 1 : 0;
+            depthRejectCount += status >= 0.375f && status < 0.625f ? 1 : 0;
+            normalRejectCount += status >= 0.625f && status < 0.875f ? 1 : 0;
+            const double motionX = frame.motionVector[sampleIndex].r;
+            const double motionY = frame.motionVector[sampleIndex].g;
+            const double motionMagnitude = std::sqrt(motionX * motionX + motionY * motionY);
+            motionMagnitudeSum += motionMagnitude;
+            maximumMotionMagnitude = (std::max)(maximumMotionMagnitude, motionMagnitude);
+        }
+        const double sampleCount = static_cast<double>(frame.rayHit.size());
+        frameValues.push_back({
+            {"index", frameIndex},
+            {"automationFrameIndex", frame.automationFrameIndex},
+            {"cameraMotionPhase", cameraMotionPhase},
+            {"cameraYawOffsetDegrees", cameraYawOffsetDegrees},
+            {"samplingFrameIndex", frame.samplingFrameIndex},
+            {"temporalFrameIndex", frame.temporalFrameIndex},
+            {"evaluatedMeanLuminance", meanLuminance(frame.evaluatedRadiance)},
+            {"specularEstimateMeanLuminance", meanLuminance(frame.specularEstimate)},
+            {"resolvedSpecularEstimateMeanLuminance", meanLuminance(frame.resolvedSpecularEstimate)},
+            {"resolvedMeanLuminance", meanLuminance(frame.resolvedRadiance)},
+            {"denoisedMeanLuminance", meanLuminance(frame.denoisedRadiance)},
+            {"specularMoments", momentsSummary(frame.specularMoments)},
+            {"specularConfidence", scalarSummary(confidenceValues(frame.specularConfidence))},
+            {"appliedHistoryPolicyWeight", scalarSummary(policyWeightValues(frame.specularConfidence))},
+            {"hitRate", sampleCount > 0.0 ? static_cast<double>(hitCount) / sampleCount : 0.0},
+            {"meanHitDistance", hitCount > 0 ? hitDistanceSum / static_cast<double>(hitCount) : 0.0},
+            {"meanMotionVectorMagnitudeNdc", sampleCount > 0.0 ? motionMagnitudeSum / sampleCount : 0.0},
+            {"maximumMotionVectorMagnitudeNdc", maximumMotionMagnitude},
+            {"temporalAcceptanceRate", sampleCount > 0.0 ? static_cast<double>(acceptedCount) / sampleCount : 0.0},
+            {"noHistoryRate", sampleCount > 0.0 ? static_cast<double>(noHistoryCount) / sampleCount : 0.0},
+            {"outsideHistoryRate", sampleCount > 0.0 ? static_cast<double>(outsideHistoryCount) / sampleCount : 0.0},
+            {"depthRejectRate", sampleCount > 0.0 ? static_cast<double>(depthRejectCount) / sampleCount : 0.0},
+            {"normalRejectRate", sampleCount > 0.0 ? static_cast<double>(normalRejectCount) / sampleCount : 0.0},
+        });
+    }
+
+    const RtPbrSurveyEngine::PixelPickResult& referenceSurface = m_sceneRenderer.GetPixelPickResult();
+    const float referenceNdotV = referenceSurface.valid ?
+        std::clamp(referenceSurface.normal.x * referenceSurface.viewDir.x +
+                       referenceSurface.normal.y * referenceSurface.viewDir.y +
+                       referenceSurface.normal.z * referenceSurface.viewDir.z,
+                   0.0f,
+                   1.0f) :
+        0.0f;
+    const XMFLOAT3 referenceF0 = {
+        0.04f + (referenceSurface.albedo.x - 0.04f) * referenceSurface.metallic,
+        0.04f + (referenceSurface.albedo.y - 0.04f) * referenceSurface.metallic,
+        0.04f + (referenceSurface.albedo.z - 0.04f) * referenceSurface.metallic};
+    const auto statisticsToJson = [](const Engine::ReflectionHdrDiagnosticStatistics& statistics)
+    {
+        json value = {
+            {"temporalMeanLuminance", statistics.temporalMeanLuminance},
+            {"temporalVariance", statistics.temporalVariance},
+            {"temporalStandardDeviation", statistics.temporalStandardDeviation},
+            {"coefficientOfVariationMeanEpsilon", 1.0e-6},
+            {"frameAbsoluteDifferenceMean", statistics.frameAbsoluteDifferenceMean},
+            {"frameAbsoluteDifferenceP95", statistics.frameAbsoluteDifferenceP95},
+            {"frameAbsoluteDifferenceP99", statistics.frameAbsoluteDifferenceP99},
+            {"maximumLuminance", statistics.maximumLuminance},
+        };
+        value["coefficientOfVariation"] = statistics.coefficientOfVariationValid ?
+            json(statistics.coefficientOfVariation) : json(nullptr);
+        return value;
+    };
+    const Engine::ReflectionHdrDiagnosticStatistics evaluatedStatistics =
+        Engine::CalculateReflectionHdrDiagnosticStatistics(
+            m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::EvaluatedRadiance);
+    const Engine::ReflectionHdrDiagnosticStatistics resolvedStatistics =
+        Engine::CalculateReflectionHdrDiagnosticStatistics(
+            m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::ResolvedRadiance);
+    const Engine::ReflectionHdrDiagnosticStatistics denoisedStatistics =
+        Engine::CalculateReflectionHdrDiagnosticStatistics(
+            m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::DenoisedRadiance);
+    const Engine::ReflectionHdrDiagnosticStatistics specularEstimateStatistics =
+        Engine::CalculateReflectionHdrDiagnosticStatistics(
+            m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::SpecularEstimate);
+    const Engine::ReflectionHdrDiagnosticStatistics resolvedSpecularEstimateStatistics =
+        Engine::CalculateReflectionHdrDiagnosticStatistics(
+            m_reflectionHdrDiagnosticFrames, Engine::ReflectionHdrDiagnosticSignal::ResolvedSpecularEstimate);
+    std::vector<Engine::ReflectionHdrDiagnosticSample> allSpecularMoments;
+    std::vector<Engine::ReflectionHdrDiagnosticSample> allSpecularConfidence;
+    for (const Engine::ReflectionHdrDiagnosticFrame& frame : m_reflectionHdrDiagnosticFrames)
+    {
+        allSpecularMoments.insert(
+            allSpecularMoments.end(), frame.specularMoments.begin(), frame.specularMoments.end());
+        allSpecularConfidence.insert(
+            allSpecularConfidence.end(), frame.specularConfidence.begin(), frame.specularConfidence.end());
+    }
+    const Engine::ReflectionHdrDiagnosticBaselineComparison baselineComparison =
+        Engine::CompareReflectionHdrDiagnosticsToCurrentEstimatorMeanBaseline(m_reflectionHdrDiagnosticFrames);
+    json settlingDiagnostic = {
+        {"enabled", false},
+        {"signal", "resolved-radiance-roi-mean-luminance"},
+        {"settledValueWindow", "last-8-stationary-samples"},
+        {"requiredConsecutiveSamples", 3},
+        {"valid", false},
+        {"t50Frames", nullptr},
+        {"t90Frames", nullptr},
+        {"t95Frames", nullptr},
+    };
+    const UINT64 stopAutomationFrame = m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames +
+                                       static_cast<UINT64>(m_commandLineOptions.reflectionOrbitFrames) * 2;
+    std::vector<const Engine::ReflectionHdrDiagnosticFrame*> stationaryFrames;
+    if (m_commandLineOptions.reflectionOrbitFrames > 0)
+    {
+        for (const Engine::ReflectionHdrDiagnosticFrame& frame : m_reflectionHdrDiagnosticFrames)
+        {
+            if (frame.automationFrameIndex >= stopAutomationFrame)
+            {
+                stationaryFrames.push_back(&frame);
+            }
+        }
+    }
+    if (!stationaryFrames.empty())
+    {
+        constexpr size_t kSettledWindowSamples = 8;
+        constexpr size_t kRequiredConsecutiveSamples = 3;
+        const size_t settledWindowStart = stationaryFrames.size() > kSettledWindowSamples ?
+            stationaryFrames.size() - kSettledWindowSamples : 0;
+        double settledMean = 0.0;
+        for (size_t index = settledWindowStart; index < stationaryFrames.size(); ++index)
+        {
+            settledMean += meanLuminance(stationaryFrames[index]->resolvedRadiance);
+        }
+        settledMean /= static_cast<double>(stationaryFrames.size() - settledWindowStart);
+        const double initialMean = meanLuminance(stationaryFrames.front()->resolvedRadiance);
+        const double initialError = std::abs(initialMean - settledMean);
+        const double minimumMeaningfulError = (std::max)(std::abs(settledMean) * 0.01, 1.0e-6);
+        const auto findSettlingFrame = [&](double remainingErrorFraction) -> json
+        {
+            const double threshold = initialError * remainingErrorFraction;
+            for (size_t index = 0; index + kRequiredConsecutiveSamples <= stationaryFrames.size(); ++index)
+            {
+                bool withinThreshold = true;
+                for (size_t consecutive = 0; consecutive < kRequiredConsecutiveSamples; ++consecutive)
+                {
+                    const double value = meanLuminance(stationaryFrames[index + consecutive]->resolvedRadiance);
+                    withinThreshold &= std::abs(value - settledMean) <= threshold;
+                }
+                if (withinThreshold)
+                {
+                    return stationaryFrames[index]->automationFrameIndex - stopAutomationFrame;
+                }
+            }
+            return nullptr;
+        };
+        const bool settlingValid = initialError > minimumMeaningfulError &&
+                                   stationaryFrames.size() >= kRequiredConsecutiveSamples;
+        settlingDiagnostic = {
+            {"enabled", true},
+            {"signal", "resolved-radiance-roi-mean-luminance"},
+            {"settledValueWindow", "last-8-stationary-samples"},
+            {"requiredConsecutiveSamples", kRequiredConsecutiveSamples},
+            {"stationarySampleCount", stationaryFrames.size()},
+            {"stopAutomationFrame", stopAutomationFrame},
+            {"settledMeanLuminance", settledMean},
+            {"initialStationaryMeanLuminance", initialMean},
+            {"initialAbsoluteError", initialError},
+            {"minimumMeaningfulError", minimumMeaningfulError},
+            {"valid", settlingValid},
+            {"t50Frames", settlingValid ? findSettlingFrame(0.5) : json(nullptr)},
+            {"t90Frames", settlingValid ? findSettlingFrame(0.1) : json(nullptr)},
+            {"t95Frames", settlingValid ? findSettlingFrame(0.05) : json(nullptr)},
+        };
+    }
+    const json report = {
+        {"schemaVersion", 15},
+        {"signalDomain", "linear-hdr"},
+        {"reference", "none"},
+        {"comparisonMetadata",
+         {{"renderingPath", m_renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred ? "deferred" : "forward"},
+          {"signalBoundaries",
+           {{"evaluatedRadiance", "current-reflection-unweighted-linear-hdr"},
+            {"resolvedRadiance", "resolved-reflection-unweighted-linear-hdr"},
+            {"denoisedRadiance", "spatial-reflection-unweighted-linear-hdr"}}},
+          {"reflectionSettings",
+           {{"enabled", reflectionSettings.enabled},
+            {"materialGateEnabled", reflectionSettings.materialGateEnabled},
+            {"maximumRoughness", reflectionSettings.maxRoughness},
+            {"minimumMetallic", reflectionSettings.minMetallic},
+            {"contributionEnabled", reflectionSettings.contributionEnabled},
+            {"contributionIntensity", reflectionSettings.contributionIntensity},
+            {"contributionMaximumDistance", reflectionSettings.contributionMaxDistance}}},
+          {"outputSize", {{"width", context.outputWidth}, {"height", context.outputHeight}}},
+          {"camera",
+           {{"position", {camera.pos.x, camera.pos.y, camera.pos.z}},
+            {"rotation", {camera.rot.x, camera.rot.y, camera.rot.z}},
+            {"gazePoint", {camera.gazePoint.x, camera.gazePoint.y, camera.gazePoint.z}},
+            {"up", {camera.up.x, camera.up.y, camera.up.z}},
+            {"projection", camera.projection == Engine::CameraProjection::Perspective ? "perspective" : "orthographic"},
+            {"fovYDegrees", camera.fov},
+            {"orthographicHeight", camera.orthographicHeight},
+            {"nearZ", camera.nearZ},
+            {"farZ", camera.farZ}}},
+          {"presentation",
+           {{"toneMapOperator",
+             m_toneMapParams.operatorIndex == 0 ? "none" :
+             m_toneMapParams.operatorIndex == 1 ? "reinhard" : "aces"},
+            {"toneMapOperatorIndex", m_toneMapParams.operatorIndex},
+            {"exposure", m_toneMapParams.exposure},
+            {"paperWhiteNits", m_toneMapParams.paperWhiteNits},
+            {"maxDisplayNits", m_toneMapParams.maxDisplayNits}}}}},
+        {"specularEstimateIncidentRadiance",
+         reflectionSettings.estimatorConstantIncidentRadianceEnabled ? "constant-white-1" : "traced-scene"},
+        {"stochasticSamplingEnabled", reflectionSettings.stochasticSamplingEnabled},
+        {"hitNormalSource",
+         reflectionSettings.hitNormalSource == 0 ? "gbuffer-world-normal" : "attribute-geometric-normal"},
+        {"varianceGuidedTemporalEnabled", reflectionSettings.varianceGuidedTemporalEnabled},
+        {"edgeAwareSpatialFilterEnabled", reflectionSettings.surfaceVarianceFilterEnabled},
+        {"spatiotemporalSpatialPolicyEnabled", reflectionSettings.spatiotemporalSpatialPolicyEnabled},
+        {"denoisedRadianceSource",
+         reflectionSettings.surfaceVarianceFilterEnabled ? "ReflectionDenoisedRadiance" :
+                                                           "ReflectionResolvedRadiance identity fallback"},
+        {"temporalHistoryWeight", reflectionSettings.temporalHistoryWeight},
+        {"varianceGuidedTemporalPolicy",
+         "persistent-confidence-relative-variance-0.5-confidence-history-0.9-weight-0.94"},
+        {"confidenceEvidenceTransition",
+         {{"enabled", m_commandLineOptions.reflectionConfidenceForceStableAfterMeasurementFrames > 0},
+          {"forceStableAfterMeasurementFrames",
+           m_commandLineOptions.reflectionConfidenceForceStableAfterMeasurementFrames},
+          {"historyInvalidated", false}}},
+        {"historyResetTransition",
+         {{"enabled", m_commandLineOptions.reflectionHistoryResetAfterMeasurementFrames > 0},
+          {"resetAfterMeasurementFrames",
+           m_commandLineOptions.reflectionHistoryResetAfterMeasurementFrames}}},
+        {"policyWeightDiagnostic",
+         {{"scope", "applied-current-frame"},
+          {"motionReprojectionApplied", true},
+          {"confidence", scalarSummary(confidenceValues(allSpecularConfidence))},
+          {"effectiveWeight", scalarSummary(policyWeightValues(allSpecularConfidence))}}},
+        {"scene", LoadedScene().Name()},
+        {"warmupFrames", m_commandLineOptions.reflectionHdrDiagnosticsWarmupFrames},
+        {"measurementFrames", m_reflectionHdrDiagnosticFrames.size()},
+        {"cameraMotionTimeline",
+         {{"enabled", m_commandLineOptions.reflectionOrbitFrames > 0},
+          {"type", "arcball-forward-reverse-stop"},
+          {"orbitDegrees", m_commandLineOptions.reflectionOrbitDegrees},
+          {"framesPerDirection", m_commandLineOptions.reflectionOrbitFrames},
+          {"stopBeginsAtMeasurementFrame", m_commandLineOptions.reflectionOrbitFrames * 2}}},
+        {"settlingDiagnostic", std::move(settlingDiagnostic)},
+        {"coordinateSpace", "render-pixels"},
+        {"motionVectorDiagnostic",
+         {{"storedCoordinateSpace", "ndc"},
+          {"reportedMagnitude", "length-of-stored-motion-vector"},
+          {"jitterAndConfiguredOffsetRemovalApplied", false}}},
+        {"temporalStatusDiagnostic",
+         {{"source", "ReflectionResolvedRadiance.alpha"},
+          {"values",
+           {{"noHistory", 0.0},
+            {"outsideHistory", 0.25},
+            {"depthReject", 0.5},
+            {"normalReject", 0.75},
+            {"accepted", 1.0}}}}},
+        {"renderSize", {{"width", context.renderWidth}, {"height", context.renderHeight}}},
+        {"roi", {{"x", roi.x}, {"y", roi.y}, {"width", roi.width}, {"height", roi.height}}},
+        {"referenceSurfaceSample",
+         {{"scope", "roi-center-pixel"},
+          {"valid", referenceSurface.valid},
+          {"screen", {{"x", referenceSurface.screenX}, {"y", referenceSurface.screenY}}},
+          {"depthNdc", referenceSurface.depthNdc},
+          {"normal", {referenceSurface.normal.x, referenceSurface.normal.y, referenceSurface.normal.z}},
+          {"viewDirection",
+           {referenceSurface.viewDir.x, referenceSurface.viewDir.y, referenceSurface.viewDir.z}},
+          {"ndotv", referenceNdotV},
+          {"albedo",
+           {referenceSurface.albedo.x, referenceSurface.albedo.y, referenceSurface.albedo.z}},
+          {"metallic", referenceSurface.metallic},
+          {"roughness", referenceSurface.roughness},
+          {"f0", {referenceF0.x, referenceF0.y, referenceF0.z}}}},
+        {"statistics",
+         {{"evaluatedRadiance", statisticsToJson(evaluatedStatistics)},
+          {"specularEstimate", statisticsToJson(specularEstimateStatistics)},
+          {"resolvedSpecularEstimate", statisticsToJson(resolvedSpecularEstimateStatistics)},
+          {"specularMoments", momentsSummary(allSpecularMoments)},
+          {"resolvedRadiance", statisticsToJson(resolvedStatistics)},
+          {"denoisedRadiance", statisticsToJson(denoisedStatistics)}}},
+        {"currentEstimatorMeanBaseline",
+         {{"name", "High-SPP Current-Estimator Mean Baseline"},
+          {"physicalReference", false},
+          {"sampleCount", m_reflectionHdrDiagnosticFrames.size()},
+          {"meanLuminance", baselineComparison.baselineMeanLuminance},
+          {"evaluatedRmse", baselineComparison.evaluatedRmse},
+          {"resolvedRmse", baselineComparison.resolvedRmse},
+          {"evaluatedRmseByFrame", baselineComparison.evaluatedRmseByFrame},
+          {"resolvedRmseByFrame", baselineComparison.resolvedRmseByFrame}}},
+        {"frames", std::move(frameValues)},
+    };
+
+    const std::filesystem::path outputPath =
+        std::filesystem::absolute(m_commandLineOptions.reflectionHdrDiagnosticsPath);
+    if (!outputPath.parent_path().empty())
+    {
+        std::filesystem::create_directories(outputPath.parent_path());
+    }
+    std::ofstream output(outputPath);
+    if (!output)
+    {
+        throw std::runtime_error("Failed to open reflection HDR diagnostics report path.");
+    }
+    output << report.dump(2) << '\n';
 }
 
 void RtPbrSurveyApp::FailAutomatedCapture(const std::string& error)
@@ -629,6 +1464,8 @@ void RtPbrSurveyApp::CreateSampleScenes()
 
     m_sampleScenes.push_back(Engine::SceneFactory::CreateCornellBox());
     m_sampleScenes.push_back(Engine::SceneFactory::CreateHostPrimitiveMeshes());
+    m_sampleScenes.push_back(Engine::SceneFactory::CreateHybridReflectionEstimatorTest());
+    m_sampleScenes.push_back(Engine::SceneFactory::CreateHybridReflectionSpatialFilterTest());
 }
 
 void RtPbrSurveyApp::LoadSceneCpuData(int sceneIndex)
@@ -698,10 +1535,61 @@ void RtPbrSurveyApp::OpenSelectedScene()
 
     m_displayInstanceCount = LoadedScene().DisplayInstanceCount();
     m_sceneRenderer.SetDisplayInstanceCount(m_displayInstanceCount);
+    ApplyRayReconstructionCommandLineOverrides();
+    ApplyDlssSrCommandLineOptions();
+    m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
+    if (!m_commandLineOptions.debugPreviewResourceName.empty())
+    {
+        const Engine::DebugResourceInspection inspection =
+            m_sceneRenderer.GetDebugResourceViewRegistry().Inspect(m_commandLineOptions.debugPreviewResourceName);
+        if (!inspection.IsInspectable())
+        {
+            throw std::runtime_error("Debug Preview resource is unavailable: " +
+                                     m_commandLineOptions.debugPreviewResourceName);
+        }
+        const Engine::DebugResourceViewDescriptor& descriptor = *inspection.descriptor;
+        RtPbrSurvey::DebugTextureInspector* inspector =
+            m_debugTextureInspectors.OpenPreview(descriptor.resourceName,
+                                                 descriptor.resourceName,
+                                                 static_cast<RtPbrSurvey::DebugTextureSemantic>(
+                                                     static_cast<UINT>(descriptor.semantic)));
+        if (inspector == nullptr)
+        {
+            throw std::runtime_error("Debug Preview slot is unavailable.");
+        }
+        inspector->sourceViewKind = descriptor.viewKind;
+        inspector->bufferImageLayout = descriptor.imageLayout;
+    }
     m_appMode = AppMode::Running;
     m_framePaused = false;
     m_forwardStepRequested = false;
     m_debugUiVisible = true;
+}
+
+void RtPbrSurveyApp::ApplyDlssSrCommandLineOptions()
+{
+    if (!m_commandLineOptions.enableDlssSr)
+    {
+        return;
+    }
+
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    if (!context.temporalUpscalerAvailable)
+    {
+        throw std::runtime_error(
+            std::string("DLSS SR is unavailable: ") + context.temporalUpscalerStatusText);
+    }
+
+    m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
+    m_renderViewMode = RtPbrSurveyEngine::RenderViewMode::LightPass;
+    m_sceneRenderer.SetRenderingPath(m_renderingPath);
+    m_sceneRenderer.SetRenderViewMode(m_renderViewMode);
+
+    Engine::TemporalUpscalerSettings settings = m_sceneRenderer.GetTemporalUpscalerSettings();
+    settings.enabled = true;
+    settings.backend = Engine::TemporalUpscalerBackend::Streamline;
+    settings.qualityMode = GetDlssSrQualityMode(m_commandLineOptions.dlssSrQualityMode);
+    m_sceneRenderer.SetTemporalUpscalerSettings(settings);
 }
 
 void RtPbrSurveyApp::CloseRunningScene()
@@ -750,6 +1638,93 @@ void RtPbrSurveyApp::InitializeImGui()
 
 void RtPbrSurveyApp::UpdateUiFrame()
 {
+    const auto thumbnailPlan =
+        m_debugTextureThumbnailScheduler.BuildFramePlan(m_debugTextureThumbnailFrameIndex++);
+    const bool hasThumbnail = std::any_of(thumbnailPlan.begin(),
+                                          thumbnailPlan.end(),
+                                          [](const auto& slot) { return slot.active; });
+    bool hasOpenInspector = std::any_of(m_debugTextureInspectors.Inspectors().begin(),
+                                        m_debugTextureInspectors.Inspectors().end(),
+                                        [](const auto& inspector) { return inspector.open; });
+    if (m_sceneRenderer.IsDebugTexturePreviewEnabled() && !hasOpenInspector && !hasThumbnail &&
+        m_commandLineOptions.enableDebugTexturePreview)
+    {
+        m_debugTextureInspectors.OpenPreview("LightPass.RenderTarget",
+                                             "LightPass",
+                                             RtPbrSurvey::DebugTextureSemantic::Color);
+        hasOpenInspector = true;
+    }
+
+    if (hasOpenInspector || hasThumbnail)
+    {
+        UINT activeSlotMask = SyncDebugTextureInspectorToEngine();
+        UINT updateSlotMask = activeSlotMask;
+        for (size_t i = 0; i < thumbnailPlan.size(); ++i)
+        {
+            if (!thumbnailPlan[i].active)
+            {
+                continue;
+            }
+            const UINT outputIndex = RtPbrSurveyEngine::kMaxDebugTexturePreviewCount + static_cast<UINT>(i);
+            Engine::DebugTexturePreviewSettings settings;
+            settings.semantic = thumbnailPlan[i].semantic;
+            settings.nearestSampling = true;
+            settings.depthVisualization = m_sceneRenderer.GetDefaultDepthVisualizationSettings();
+            if (thumbnailPlan[i].viewKind == Engine::DebugResourceViewKind::Texture)
+            {
+                m_sceneRenderer.ConfigureDebugTexturePreview(
+                    outputIndex, thumbnailPlan[i].resourceName, settings);
+            }
+            else
+            {
+                const Engine::DebugResourceInspection inspection =
+                    m_sceneRenderer.GetDebugResourceViewRegistry().Inspect(thumbnailPlan[i].resourceName);
+                if (!inspection.IsInspectable())
+                {
+                    continue;
+                }
+                const Engine::DebugBufferImageLayout& layout = inspection.descriptor->imageLayout;
+                settings.bufferWidth = layout.width;
+                settings.bufferHeight = layout.height;
+                settings.bufferRowStrideElements = layout.rowStrideElements;
+                settings.bufferElementStride = inspection.descriptor->elementStride;
+                settings.bufferComponentOffsetBytes = layout.componentOffsetBytes;
+                settings.bufferComponentCount = layout.componentCount;
+                settings.bufferComponentType = static_cast<UINT>(layout.componentType);
+                m_sceneRenderer.ConfigureDebugBufferPreview(outputIndex, *inspection.descriptor, settings);
+            }
+            activeSlotMask |= 1u << outputIndex;
+            if (thumbnailPlan[i].update)
+            {
+                updateSlotMask |= 1u << outputIndex;
+            }
+        }
+        m_sceneRenderer.SetDebugTexturePreviewActiveSlots(activeSlotMask);
+        m_sceneRenderer.SetDebugTexturePreviewUpdateSlots(updateSlotMask);
+
+        for (UINT i = 0; i < RtPbrSurveyEngine::kMaxDebugTextureOutputCount; ++i)
+        {
+            if ((activeSlotMask & (1u << i)) != 0)
+            {
+                m_debugTexturePreviewIds[i] = m_imguiSystem.UpdateTexture(
+                    i, m_sceneRenderer.GetDebugTexturePreviewResource(i), DXGI_FORMAT_R16G16B16A16_FLOAT);
+            }
+            else
+            {
+                m_imguiSystem.ClearTexture(i);
+                m_debugTexturePreviewIds[i] = 0;
+            }
+        }
+    }
+    else
+    {
+        m_sceneRenderer.SetDebugTexturePreviewActiveSlots(0);
+        m_sceneRenderer.SetDebugTexturePreviewUpdateSlots(0);
+        m_imguiSystem.ClearTextures();
+        m_debugTexturePreviewIds.fill(0);
+        m_debugTextureInspectors.CloseAll();
+        m_debugTextureInspectors.RemoveClosed();
+    }
     m_imguiSystem.BeginFrame();
     if (m_appMode == AppMode::SceneSelect || m_debugUiVisible)
     {
@@ -757,6 +1732,53 @@ void RtPbrSurveyApp::UpdateUiFrame()
     }
     m_sceneRenderer.DrawToolUi();
     m_imguiSystem.EndFrame();
+}
+
+UINT RtPbrSurveyApp::SyncDebugTextureInspectorToEngine()
+{
+    std::vector<RtPbrSurvey::DebugTextureInspector>& inspectors = m_debugTextureInspectors.Inspectors();
+    UINT activeSlotMask = 0;
+    for (const RtPbrSurvey::DebugTextureInspector& inspector : inspectors)
+    {
+        if (inspector.slotIndex >= RtPbrSurveyEngine::kMaxDebugTexturePreviewCount)
+        {
+            continue;
+        }
+
+        Engine::DebugTexturePreviewSettings settings;
+        settings.semantic = static_cast<Engine::DebugTexturePreviewSemantic>(static_cast<UINT>(inspector.semantic));
+        settings.channel = static_cast<Engine::DebugTexturePreviewChannel>(static_cast<UINT>(inspector.channel));
+        settings.nearestSampling = inspector.filter == RtPbrSurvey::DebugTextureFilter::Nearest;
+        settings.exposure = inspector.exposure;
+        settings.scale = inspector.scale;
+        settings.offset = inspector.offset;
+        settings.depthVisualization = inspector.depthVisualization;
+        if (inspector.sourceViewKind == Engine::DebugResourceViewKind::Texture)
+        {
+            m_sceneRenderer.ConfigureDebugTexturePreview(inspector.slotIndex, inspector.resourceName, settings);
+        }
+        else
+        {
+            settings.bufferVisualizationMode = inspector.bufferVisualizationMode;
+            settings.bufferWidth = inspector.bufferImageLayout.width;
+            settings.bufferHeight = inspector.bufferImageLayout.height;
+            settings.bufferRowStrideElements = inspector.bufferImageLayout.rowStrideElements;
+            settings.bufferElementStride = 0;
+            settings.bufferComponentOffsetBytes = inspector.bufferImageLayout.componentOffsetBytes;
+            settings.bufferComponentCount = inspector.bufferImageLayout.componentCount;
+            settings.bufferComponentType = static_cast<UINT>(inspector.bufferImageLayout.componentType);
+            const Engine::DebugResourceInspection inspection =
+                m_sceneRenderer.GetDebugResourceViewRegistry().Inspect(inspector.resourceName);
+            if (!inspection.IsInspectable())
+            {
+                continue;
+            }
+            settings.bufferElementStride = inspection.descriptor->elementStride;
+            m_sceneRenderer.ConfigureDebugBufferPreview(inspector.slotIndex, *inspection.descriptor, settings);
+        }
+        activeSlotMask |= 1u << inspector.slotIndex;
+    }
+    return activeSlotMask;
 }
 
 Engine::SampleScene& RtPbrSurveyApp::LoadedScene()

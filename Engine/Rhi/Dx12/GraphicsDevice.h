@@ -11,6 +11,9 @@
 
 #pragma once
 
+#include <d3d12.h>
+#include <dxgi1_6.h>
+#include <windows.h>
 #include <functional>
 #include <wrl/client.h>
 

@@ -1,0 +1,69 @@
+{
+    "version":  1,
+    "measurement":  "display-space luminance temporal standard deviation",
+    "resolvedVariant":  "spatial",
+    "frames":  [
+                   195,
+                   210,
+                   225,
+                   240,
+                   255,
+                   270,
+                   285,
+                   300
+               ],
+    "nonBlackLuminanceThreshold":  0.01,
+    "notes":  [
+                  "Rectangles are fixed for the 1920x1080 DamagedHelmet capture at camera distance scale 0.5.",
+                  "The metric uses screenshot RGB after display mapping; it is a repeatable symptom metric, not HDR radiance variance.",
+                  "Evaluated and resolved masks are computed independently from non-black pixels within each rectangle."
+              ],
+    "regions":  [
+                    {
+                        "id":  "rearward_surface",
+                        "rectangle":  {
+                                          "x":  895,
+                                          "y":  278,
+                                          "width":  75,
+                                          "height":  85
+                                      },
+                        "evaluated":  {
+                                          "validPixelCount":  3389,
+                                          "meanDisplayedLuminance":  0.41305045030346155,
+                                          "meanTemporalStandardDeviation":  0.04265574691704023,
+                                          "p95TemporalStandardDeviation":  0.11969318867992747
+                                      },
+                        "resolved":  {
+                                         "validPixelCount":  3389,
+                                         "meanDisplayedLuminance":  0.42457670300105904,
+                                         "meanTemporalStandardDeviation":  0.0047034456770572242,
+                                         "p95TemporalStandardDeviation":  0.011717721473895503
+                                     },
+                        "resolvedToEvaluatedDeviationRatio":  0.11026522841587565,
+                        "temporalDeviationReductionPercent":  88.973477158412436
+                    },
+                    {
+                        "id":  "underside_pipes",
+                        "rectangle":  {
+                                          "x":  805,
+                                          "y":  585,
+                                          "width":  125,
+                                          "height":  135
+                                      },
+                        "evaluated":  {
+                                          "validPixelCount":  10943,
+                                          "meanDisplayedLuminance":  0.26701052069278824,
+                                          "meanTemporalStandardDeviation":  0.031128078253213051,
+                                          "p95TemporalStandardDeviation":  0.080814445911861169
+                                      },
+                        "resolved":  {
+                                         "validPixelCount":  10943,
+                                         "meanDisplayedLuminance":  0.27315789675735047,
+                                         "meanTemporalStandardDeviation":  0.0038346594568048832,
+                                         "p95TemporalStandardDeviation":  0.00895728037587447
+                                     },
+                        "resolvedToEvaluatedDeviationRatio":  0.12318972683156462,
+                        "temporalDeviationReductionPercent":  87.68102731684354
+                    }
+                ]
+}

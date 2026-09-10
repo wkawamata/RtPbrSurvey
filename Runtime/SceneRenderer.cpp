@@ -114,12 +114,38 @@ namespace RtPbrSurvey
         return m_engine.CpuFrameTimeMs();
     }
 
+    Engine::RenderGraphDocument SceneRenderer::CaptureRenderGraphDocument() const
+    {
+        return m_engine.CaptureRenderGraphDocument();
+    }
+
+    const Engine::DebugResourceViewRegistry& SceneRenderer::GetDebugResourceViewRegistry() const
+    {
+        return m_engine.GetDebugResourceViewRegistry();
+    }
+
+    const std::vector<Engine::RenderGraphBarrierEvent>& SceneRenderer::GetRenderGraphBarrierEvents() const
+    {
+        return m_engine.GetRenderGraphBarrierEvents();
+    }
+
+    std::vector<Engine::RenderGraphBarrierDiagnostic> SceneRenderer::GetRenderGraphBarrierDiagnostics() const
+    {
+        return m_engine.GetRenderGraphBarrierDiagnostics();
+    }
+
+    bool SceneRenderer::HasRenderGraphBarrierEvents() const
+    {
+        return m_engine.HasRenderGraphBarrierEvents();
+    }
+
     SceneRendererSettings SceneRenderer::CaptureSettings() const
     {
         SceneRendererSettings settings;
         settings.lighting = m_engine.GetLightingParams();
         settings.shadow = m_engine.GetShadowSettings();
         settings.temporalUpscaler = m_engine.GetTemporalUpscalerSettings();
+        settings.rayReconstruction = m_engine.GetRayReconstructionSettings();
         settings.hybridReflection = m_engine.GetHybridReflectionSettings();
         settings.toneMap = m_engine.GetToneMapParams();
         settings.specularDebugLines = m_engine.GetSpecularDebugLineSettings();
@@ -135,6 +161,7 @@ namespace RtPbrSurvey
         m_engine.SetLightingParams(settings.lighting);
         m_engine.SetShadowSettings(settings.shadow);
         m_engine.SetTemporalUpscalerSettings(settings.temporalUpscaler);
+        m_engine.SetRayReconstructionSettings(settings.rayReconstruction);
         m_engine.SetHybridReflectionSettings(settings.hybridReflection);
         m_engine.SetToneMapParams(settings.toneMap);
         m_engine.SetSpecularDebugLineSettings(settings.specularDebugLines);
@@ -174,6 +201,16 @@ namespace RtPbrSurvey
         return m_engine.GetTemporalUpscalerSettings();
     }
 
+    void SceneRenderer::SetRayReconstructionSettings(const Engine::RayReconstructionSettings& settings)
+    {
+        m_engine.SetRayReconstructionSettings(settings);
+    }
+
+    const Engine::RayReconstructionSettings& SceneRenderer::GetRayReconstructionSettings() const
+    {
+        return m_engine.GetRayReconstructionSettings();
+    }
+
     void SceneRenderer::SetHybridReflectionSettings(const RtPbrSurveyEngine::HybridReflectionSettings& settings)
     {
         m_engine.SetHybridReflectionSettings(settings);
@@ -182,6 +219,11 @@ namespace RtPbrSurvey
     const RtPbrSurveyEngine::HybridReflectionSettings& SceneRenderer::GetHybridReflectionSettings() const
     {
         return m_engine.GetHybridReflectionSettings();
+    }
+
+    void SceneRenderer::ResetHybridReflectionHistoryForDiagnostics()
+    {
+        m_engine.ResetHybridReflectionHistoryForDiagnostics();
     }
 
     void SceneRenderer::SetMaterialParams(UINT materialIndex, const RtPbrSurveyEngine::MaterialParams& params)
@@ -244,9 +286,113 @@ namespace RtPbrSurvey
         return m_engine.GetRenderViewMode();
     }
 
+    void SceneRenderer::SetDepthVisualizationSettings(const Engine::DepthVisualizationSettings& settings)
+    {
+        m_engine.SetDepthVisualizationSettings(settings);
+    }
+
+    const Engine::DepthVisualizationSettings& SceneRenderer::GetDepthVisualizationSettings() const
+    {
+        return m_engine.GetDepthVisualizationSettings();
+    }
+
+    Engine::DepthVisualizationSettings SceneRenderer::GetDefaultDepthVisualizationSettings() const
+    {
+        return m_engine.GetDefaultDepthVisualizationSettings();
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewEnabled(bool enabled)
+    {
+        m_engine.SetDebugTexturePreviewEnabled(enabled);
+    }
+
+    bool SceneRenderer::IsDebugTexturePreviewEnabled() const
+    {
+        return m_engine.IsDebugTexturePreviewEnabled();
+    }
+
+    ID3D12Resource* SceneRenderer::GetDebugTexturePreviewResource(UINT previewIndex) const
+    {
+        return m_engine.GetDebugTexturePreviewResource(previewIndex);
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewSource(const std::string& source)
+    {
+        m_engine.SetDebugTexturePreviewSource(source);
+    }
+
+    const std::string& SceneRenderer::GetDebugTexturePreviewSource() const
+    {
+        return m_engine.GetDebugTexturePreviewSource();
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewSettings(const Engine::DebugTexturePreviewSettings& settings)
+    {
+        m_engine.SetDebugTexturePreviewSettings(settings);
+    }
+
+    const Engine::DebugTexturePreviewSettings& SceneRenderer::GetDebugTexturePreviewSettings() const
+    {
+        return m_engine.GetDebugTexturePreviewSettings();
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewSemantic(Engine::DebugTexturePreviewSemantic semantic)
+    {
+        m_engine.SetDebugTexturePreviewSemantic(semantic);
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewChannel(Engine::DebugTexturePreviewChannel channel)
+    {
+        m_engine.SetDebugTexturePreviewChannel(channel);
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewNearestSampling(bool nearestSampling)
+    {
+        m_engine.SetDebugTexturePreviewNearestSampling(nearestSampling);
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewCount(UINT previewCount)
+    {
+        m_engine.SetDebugTexturePreviewCount(previewCount);
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewActiveSlots(UINT activeSlotMask)
+    {
+        m_engine.SetDebugTexturePreviewActiveSlots(activeSlotMask);
+    }
+
+    void SceneRenderer::SetDebugTexturePreviewUpdateSlots(UINT updateSlotMask)
+    {
+        m_engine.SetDebugTexturePreviewUpdateSlots(updateSlotMask);
+    }
+
+    void SceneRenderer::ConfigureDebugTexturePreview(
+        UINT previewIndex, const std::string& source, const Engine::DebugTexturePreviewSettings& settings)
+    {
+        m_engine.ConfigureDebugTexturePreview(previewIndex, source, settings);
+    }
+
+    void SceneRenderer::ConfigureDebugBufferPreview(
+        UINT previewIndex,
+        const Engine::DebugResourceViewDescriptor& descriptor,
+        const Engine::DebugTexturePreviewSettings& settings)
+    {
+        m_engine.ConfigureDebugBufferPreview(previewIndex, descriptor, settings);
+    }
+
     void SceneRenderer::SetRequestHdrDump(bool request)
     {
         m_engine.SetRequestHdrDump(request);
+    }
+
+    void SceneRenderer::RequestReflectionHdrDiagnosticCapture(const Engine::ReflectionHdrDiagnosticRoi& roi)
+    {
+        m_engine.RequestReflectionHdrDiagnosticCapture(roi);
+    }
+
+    std::optional<Engine::ReflectionHdrDiagnosticFrame> SceneRenderer::ConsumeReflectionHdrDiagnosticFrame()
+    {
+        return m_engine.ConsumeReflectionHdrDiagnosticFrame();
     }
 
     void SceneRenderer::RequestScreenshot(ScreenshotRequest request)
@@ -282,6 +428,26 @@ namespace RtPbrSurvey
     const RtPbrSurveyEngine::SpecularDebugLineSettings& SceneRenderer::GetSpecularDebugLineSettings() const
     {
         return m_engine.GetSpecularDebugLineSettings();
+    }
+
+    DebugLineHandle SceneRenderer::AddDebugLine(const DebugLineDesc& desc)
+    {
+        return m_engine.AddDebugLine(desc);
+    }
+
+    bool SceneRenderer::UpdateDebugLine(DebugLineHandle handle, const DebugLineDesc& desc)
+    {
+        return m_engine.UpdateDebugLine(handle, desc);
+    }
+
+    void SceneRenderer::RemoveDebugLine(DebugLineHandle handle)
+    {
+        m_engine.RemoveDebugLine(handle);
+    }
+
+    void SceneRenderer::ClearDebugLines()
+    {
+        m_engine.ClearDebugLines();
     }
 
     RtPbrSurveyEngine& SceneRenderer::EngineForDebugTools()

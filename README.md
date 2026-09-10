@@ -29,6 +29,7 @@ incomplete.
 - DXR RayQuery soft shadows (1-16 samples, configurable bias/radius/jitter)
 - DXR RayQuery hybrid reflections (material gating, hit overlays, debug modes)
 - Tone mapping (None/Reinhard/ACES) and HDR10 output with ST.2084 PQ
+- Optional NVIDIA DLSS Super Resolution through Streamline 2.12.0
 - 22 debug visualization modes (GBuffer, light pass, IBL, ray tracing, reflection debug)
 - Pixel Pick inspector (Ctrl+Click) with specular debug line visualization
 - WorkMeter CPU/GPU per-pass profiling
@@ -111,3 +112,4 @@ license notes, and acknowledgements.
 - [PROJECT_VISION.md](doc/PROJECT_VISION.md) - Long-term project goal and benchmark direction
 - [RenderPassAuthoring.md](Renderer/RenderPassAuthoring.md) - Guide for adding/modifying render passes
 - [PUBLIC_RELEASE_CHECKLIST.md](doc/PUBLIC_RELEASE_CHECKLIST.md) - Public release readiness checklist
+- [streamline-sdk.md](doc/third-party/streamline-sdk.md) - Optional NVIDIA DLSS SR setup and validation

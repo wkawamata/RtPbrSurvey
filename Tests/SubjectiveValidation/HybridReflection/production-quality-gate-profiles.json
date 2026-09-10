@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "description": "Versioned linear-HDR ROIs and invariant thresholds for Hybrid Reflection production-quality diagnostics.",
+  "thresholds": {
+    "maximumMeanRelativeDifference": 0.005,
+    "maximumResolvedControlVarianceRelativeDifference": 1e-9
+  },
+  "profiles": [
+    {
+      "id": "estimator-metal-r0",
+      "scene": "estimator-test",
+      "description": "Controlled metallic mirror-limit sphere.",
+      "roi": { "x": 1392, "y": 396, "width": 48, "height": 48 }
+    },
+    {
+      "id": "estimator-metal-r035",
+      "scene": "estimator-test",
+      "description": "Controlled metallic intermediate-roughness sphere.",
+      "roi": { "x": 844, "y": 396, "width": 48, "height": 48 }
+    },
+    {
+      "id": "estimator-metal-r1",
+      "scene": "estimator-test",
+      "description": "Controlled metallic maximum-roughness sphere.",
+      "roi": { "x": 484, "y": 396, "width": 48, "height": 48 }
+    },
+    {
+      "id": "damaged-helmet-rearward-surface",
+      "scene": "damaged-helmet",
+      "description": "Established rearward upper-surface noise region at 1920x1080 and camera distance scale 0.5.",
+      "cameraDistanceScale": 0.5,
+      "roi": { "x": 895, "y": 278, "width": 75, "height": 85 }
+    },
+    {
+      "id": "damaged-helmet-underside-pipes",
+      "scene": "damaged-helmet",
+      "description": "Established underside-pipe noise region at 1920x1080 and camera distance scale 0.5.",
+      "cameraDistanceScale": 0.5,
+      "roi": { "x": 805, "y": 585, "width": 125, "height": 135 }
+    }
+  ]
+}

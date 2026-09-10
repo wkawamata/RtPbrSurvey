@@ -14,6 +14,8 @@
 #include "Runtime/SceneRendererDebugUi.h"
 
 #include "ImGuiWidgets.h"
+#include "Runtime/RenderGraphNodeEditorView.h"
+#include "Ui/DebugUiPreferences.h"
 
 #include <imgui.h>
 
@@ -104,6 +106,30 @@ namespace
         return false;
     }
 
+    bool DrawDepthVisualizationControls(Engine::DepthVisualizationSettings& settings,
+                                        const Engine::DepthVisualizationSettings& defaults)
+    {
+        bool changed = false;
+        int mode = static_cast<int>(settings.mode);
+        if (ImGui::Combo("Depth Mapping", &mode, "Raw Device\0Linear View\0Log View\0"))
+        {
+            settings.mode = static_cast<Engine::DepthVisualizationMode>(mode);
+            changed = true;
+        }
+        changed |=
+            ImGui::DragFloat("Display Near", &settings.displayNear, 0.01f, 0.0001f, 1000000.0f, "%.4f");
+        changed |= ImGui::DragFloat("Display Far", &settings.displayFar, 0.1f, 0.0002f, 1000000.0f, "%.3f");
+        changed |= ImGui::DragFloat("Gamma", &settings.gamma, 0.01f, 0.05f, 8.0f, "%.2f");
+        changed |= ImGui::Checkbox("Invert", &settings.invert);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Reset"))
+        {
+            settings = defaults;
+            changed = true;
+        }
+        return changed;
+    }
+
     void DrawFrameSummary(RtPbrSurvey::SceneRenderer& renderer)
     {
         const RtPbrSurvey::SceneRenderer::UiFrameContext context = renderer.GetUiFrameContext();
@@ -124,20 +150,54 @@ namespace
                     context.temporalUpscalerAvailable ? "Available" : "Unavailable",
                     context.temporalUpscalerBackendName,
                     context.temporalUpscalerStatusText);
+        ImGui::Text("DLSS Ray Reconstruction: %s (Backend: %s, Status: %s)",
+                    context.rayReconstructionAvailable ? "Available" : "Unavailable",
+                    context.rayReconstructionBackendName,
+                    context.rayReconstructionStatusText);
     }
 
     void DrawTemporalUpscalerControls(RtPbrSurvey::SceneRenderer& renderer)
     {
         const RtPbrSurvey::SceneRenderer::UiFrameContext context = renderer.GetUiFrameContext();
         auto temporalUpscalerSettings = renderer.GetTemporalUpscalerSettings();
+        auto rayReconstructionSettings = renderer.GetRayReconstructionSettings();
         bool changed = false;
+        bool rayReconstructionChanged = false;
+
+        RtPbrSurvey::DebugUiPreferences& preferences = RtPbrSurvey::GetDebugUiPreferences();
+        ImGui::TextUnformatted("DLSS SR");
+        if (ImGuiWidgets::SimpleDetailMode("DlssSrDebugMode", &preferences.dlssSrDetailed))
+        {
+            RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        }
+
+        if (preferences.dlssSrDetailed)
+        {
+            const Engine::StreamlineDlssDiagnostics& diagnostics = context.dlssDiagnostics;
+            ImGui::Text("Streamline SDK: %u.%u.%u", diagnostics.sdkMajor, diagnostics.sdkMinor, diagnostics.sdkPatch);
+            if (diagnostics.featureVersionAvailable)
+            {
+                ImGui::Text("DLSS Plugin SL: %u.%u.%u",
+                            diagnostics.pluginMajor,
+                            diagnostics.pluginMinor,
+                            diagnostics.pluginPatch);
+                ImGui::Text(
+                    "NGX Runtime: %u.%u.%u", diagnostics.ngxMajor, diagnostics.ngxMinor, diagnostics.ngxPatch);
+            }
+            else
+            {
+                ImGui::TextUnformatted("DLSS Plugin SL: Unavailable");
+                ImGui::TextUnformatted("NGX Runtime: Unavailable");
+            }
+        }
 
         ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
-        changed |= ImGui::Checkbox("DLSS Enabled", &temporalUpscalerSettings.enabled);
+        changed |= ImGui::Checkbox(preferences.dlssSrDetailed ? "DLSS Enabled" : "DLSS##Simple",
+                                   &temporalUpscalerSettings.enabled);
         int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
-        if (ImGui::Combo("DLSS Quality",
+        if (ImGui::Combo(preferences.dlssSrDetailed ? "DLSS Quality" : "DLSS SR Mode##Simple",
                          &temporalUpscalerQualityMode,
-                         "Native (DLAA)\0Ultra Quality\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
+                         "Native (DLAA)\0Quality\0Balanced\0Performance\0Ultra Performance\0"))
         {
             temporalUpscalerSettings.qualityMode =
                 static_cast<Engine::TemporalUpscalerQualityMode>(temporalUpscalerQualityMode);
@@ -145,10 +205,85 @@ namespace
         }
         ImGui::EndDisabled();
 
+        ImGui::Separator();
+        ImGui::TextUnformatted("DLSS RR");
+        if (ImGuiWidgets::SimpleDetailMode("DlssRrDebugMode", &preferences.dlssRrDetailed))
+        {
+            RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        }
+
+        if (!preferences.dlssRrDetailed)
+        {
+            bool nativeRayReconstructionEnabled =
+                rayReconstructionSettings.enabled && rayReconstructionSettings.experimentalNativeEvaluationEnabled;
+            ImGui::BeginDisabled(!context.rayReconstructionAvailable);
+            if (ImGui::Checkbox("DLSS RR##Simple", &nativeRayReconstructionEnabled))
+            {
+                rayReconstructionSettings.enabled = nativeRayReconstructionEnabled;
+                rayReconstructionSettings.experimentalNativeEvaluationEnabled = nativeRayReconstructionEnabled;
+                rayReconstructionChanged = true;
+            }
+            ImGui::EndDisabled();
+        }
+        else
+        {
+            const Engine::RayReconstructionDiagnostics& rayReconstructionDiagnostics =
+                context.rayReconstructionDiagnostics;
+            ImGui::Text("DLSS Ray Reconstruction: %s (Status: %s)",
+                        context.rayReconstructionAvailable ? "Available" : "Unavailable",
+                        rayReconstructionDiagnostics.StatusText());
+            ImGui::Text("RR Support Query: %s", rayReconstructionDiagnostics.supportQueryResultName);
+            if (rayReconstructionDiagnostics.featureVersionAvailable)
+            {
+                ImGui::Text("RR Plugin SL: %u.%u.%u",
+                            rayReconstructionDiagnostics.pluginMajor,
+                            rayReconstructionDiagnostics.pluginMinor,
+                            rayReconstructionDiagnostics.pluginPatch);
+                ImGui::Text("RR NGX Runtime: %u.%u.%u",
+                            rayReconstructionDiagnostics.ngxMajor,
+                            rayReconstructionDiagnostics.ngxMinor,
+                            rayReconstructionDiagnostics.ngxPatch);
+            }
+            else
+            {
+                ImGui::TextUnformatted("RR Plugin SL: Unavailable");
+                ImGui::TextUnformatted("RR NGX Runtime: Unavailable");
+            }
+            if (rayReconstructionDiagnostics.inputReadinessAvailable)
+            {
+                ImGui::Text("RR Input Readiness: %s (%s)",
+                            rayReconstructionDiagnostics.inputReady ? "Ready" : "Not Ready",
+                            rayReconstructionDiagnostics.InputReadinessText());
+            }
+            if (rayReconstructionDiagnostics.lastEvaluateAvailable)
+            {
+                ImGui::Text(
+                    "RR Last Evaluate: %s (%s)",
+                    rayReconstructionDiagnostics.lastEvaluateOutputAvailable ? "Native Output" : "Copy Fallback",
+                    rayReconstructionDiagnostics.LastEvaluateStatusText());
+                ImGui::Text("RR Last Result: %s", rayReconstructionDiagnostics.lastEvaluateResultName);
+            }
+            ImGui::BeginDisabled(!context.rayReconstructionAvailable);
+            rayReconstructionChanged |= ImGui::Checkbox("RR Enabled", &rayReconstructionSettings.enabled);
+            ImGui::EndDisabled();
+            ImGui::BeginDisabled(!context.rayReconstructionAvailable || !rayReconstructionSettings.enabled);
+            rayReconstructionChanged |= ImGui::Checkbox(
+                "Experimental Native Evaluate", &rayReconstructionSettings.experimentalNativeEvaluationEnabled);
+            ImGui::EndDisabled();
+            ImGui::TextWrapped(
+                "Native RR is experimental and opt-in. If readiness or SDK evaluation fails, the pass copies "
+                "ReflectionEvaluatedRadiance into ReflectionResolvedRadiance for the same frame.");
+        }
+
         if (changed)
         {
             temporalUpscalerSettings.backend = Engine::TemporalUpscalerBackend::Streamline;
             renderer.SetTemporalUpscalerSettings(temporalUpscalerSettings);
+        }
+        if (rayReconstructionChanged)
+        {
+            rayReconstructionSettings.backend = Engine::RayReconstructionBackend::Streamline;
+            renderer.SetRayReconstructionSettings(rayReconstructionSettings);
         }
     }
 
@@ -320,6 +455,23 @@ namespace
         auto reflectionSettings = renderer.GetHybridReflectionSettings();
         bool changed = false;
 
+        RtPbrSurvey::DebugUiPreferences& preferences = RtPbrSurvey::GetDebugUiPreferences();
+        if (ImGuiWidgets::SimpleDetailMode("HybridReflectionMode", &preferences.hybridReflectionDetailed))
+        {
+            RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        }
+
+        if (!preferences.hybridReflectionDetailed)
+        {
+            changed |= ImGui::Checkbox("Hybrid Reflection Enabled", &reflectionSettings.enabled);
+            ImGui::BeginDisabled(!reflectionSettings.enabled);
+            changed |= ImGui::Checkbox("Reflection Contribution", &reflectionSettings.contributionEnabled);
+            changed |= ImGui::Checkbox("Stochastic Rough Sampling", &reflectionSettings.stochasticSamplingEnabled);
+            ImGui::EndDisabled();
+        }
+        else
+        {
+
         changed |= ImGui::Checkbox("Enabled", &reflectionSettings.enabled);
 
         ImGui::BeginDisabled(!reflectionSettings.enabled);
@@ -364,6 +516,10 @@ namespace
             "Temporal History Weight", &reflectionSettings.temporalHistoryWeight, 0.0f, 0.98f, 0.05f, 0.0f);
         changed |= ImGuiWidgets::SliderFloatWithControls(
             "Temporal Debug Noise", &reflectionSettings.temporalNoiseStrength, 0.0f, 1.0f, 0.05f, 0.0f);
+        changed |= ImGui::Checkbox("Rejected Pixel Neighborhood", &reflectionSettings.rejectedPixelNeighborhoodEnabled);
+        ImGui::TextWrapped("Experimental default-off 3x3 cross-bilateral current-frame fallback for depth/normal rejected pixels.");
+        changed |= ImGui::Checkbox("Surface Variance Filter", &reflectionSettings.surfaceVarianceFilterEnabled);
+        ImGui::TextWrapped("Experimental default-off 3x3 current-radiance filter gated by visible depth, normal, roughness, and metallic.");
         ImGui::TextWrapped("Experimental motion-reprojected blend with depth/normal rejection. Debug noise is injected before history accumulation and is disabled at zero.");
 
         changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
@@ -374,6 +530,7 @@ namespace
             "Min Metallic", &reflectionSettings.minMetallic, 0.0f, 1.0f, 0.05f, 0.0f);
         ImGui::EndDisabled();
         ImGui::EndDisabled();
+        }
 
         if (changed)
         {
@@ -431,6 +588,15 @@ namespace
         }
 
         ImGui::EndDisabled();
+
+        if (deferredRendering && renderViewMode == RtPbrSurveyEngine::RenderViewMode::Depth)
+        {
+            Engine::DepthVisualizationSettings depthSettings = renderer.GetDepthVisualizationSettings();
+            if (DrawDepthVisualizationControls(depthSettings, renderer.GetDefaultDepthVisualizationSettings()))
+            {
+                renderer.SetDepthVisualizationSettings(depthSettings);
+            }
+        }
 
         const bool lightPassView = deferredRendering && renderViewMode == RtPbrSurveyEngine::RenderViewMode::LightPass;
         bool lightingPassDebugGradient = renderer.GetLightingPassDebugGradient();
@@ -541,57 +707,205 @@ namespace RtPbrSurvey
         }
     }
 
+    void SceneRendererDebugUi::DrawRenderGraphDiagnostics(SceneRenderer& renderer,
+                                                          const RenderGraphGpuTimingSnapshot* timing,
+                                                          const RenderGraphResourceActions* resourceActions)
+    {
+        const Engine::RenderGraphDocument document = renderer.CaptureRenderGraphDocument();
+        const SceneRenderer::UiFrameContext uiContext = renderer.GetUiFrameContext();
+        RenderGraphTechnologyMetadata technologyMetadata;
+        if (uiContext.dlssDiagnostics.featureVersionAvailable)
+        {
+            technologyMetadata.dlssSrVersionText =
+                "Streamline " + std::to_string(uiContext.dlssDiagnostics.pluginMajor) + "." +
+                std::to_string(uiContext.dlssDiagnostics.pluginMinor) + "." +
+                std::to_string(uiContext.dlssDiagnostics.pluginPatch) + ", NGX " +
+                std::to_string(uiContext.dlssDiagnostics.ngxMajor) + "." +
+                std::to_string(uiContext.dlssDiagnostics.ngxMinor) + "." +
+                std::to_string(uiContext.dlssDiagnostics.ngxPatch);
+        }
+        if (uiContext.rayReconstructionDiagnostics.featureVersionAvailable)
+        {
+            technologyMetadata.dlssRayReconstructionVersionText =
+                "Streamline " + std::to_string(uiContext.rayReconstructionDiagnostics.pluginMajor) + "." +
+                std::to_string(uiContext.rayReconstructionDiagnostics.pluginMinor) + "." +
+                std::to_string(uiContext.rayReconstructionDiagnostics.pluginPatch) + ", NGX " +
+                std::to_string(uiContext.rayReconstructionDiagnostics.ngxMajor) + "." +
+                std::to_string(uiContext.rayReconstructionDiagnostics.ngxMinor) + "." +
+                std::to_string(uiContext.rayReconstructionDiagnostics.ngxPatch);
+        }
+        const std::string textDump = Engine::DumpRenderGraphDocumentText(document);
+        const std::string dotDump = Engine::DumpRenderGraphDocumentDot(document);
+        static int dumpFormat = 2;
+
+        size_t passCount = 0;
+        size_t resourceCount = 0;
+        for (const Engine::RenderGraphDocumentNode& node : document.nodes)
+        {
+            if (node.kind == Engine::RenderGraphNodeKind::Pass)
+            {
+                ++passCount;
+            }
+            else
+            {
+                ++resourceCount;
+            }
+        }
+
+        ImGui::Text("Passes: %zu  Resources: %zu  Links: %zu", passCount, resourceCount, document.links.size());
+        ImGui::RadioButton("Text", &dumpFormat, 0);
+        ImGui::SameLine();
+        ImGui::RadioButton("DOT", &dumpFormat, 1);
+        ImGui::SameLine();
+        ImGui::RadioButton("Nodes", &dumpFormat, 2);
+        ImGui::SameLine();
+        if (ImGui::Button("Copy Text"))
+        {
+            ImGui::SetClipboardText(textDump.c_str());
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Copy DOT"))
+        {
+            ImGui::SetClipboardText(dotDump.c_str());
+        }
+
+        if (dumpFormat == 2)
+        {
+            static RenderGraphNodeEditorView nodeEditorView;
+            const std::vector<Engine::RenderGraphBarrierDiagnostic> barrierDiagnostics =
+                renderer.GetRenderGraphBarrierDiagnostics();
+            nodeEditorView.Draw(document,
+                                timing,
+                                renderer.HasRenderGraphBarrierEvents() ? &barrierDiagnostics : nullptr,
+                                &renderer.GetDebugResourceViewRegistry(),
+                                resourceActions,
+                                &technologyMetadata);
+        }
+        else
+        {
+            const std::string& visibleDump = dumpFormat == 0 ? textDump : dotDump;
+            if (ImGui::BeginChild("RenderGraphDump", ImVec2(0.0f, 0.0f), true, ImGuiWindowFlags_HorizontalScrollbar))
+            {
+                ImGui::TextUnformatted(visibleDump.c_str());
+            }
+            ImGui::EndChild();
+        }
+    }
+
+    void SceneRendererDebugUi::DrawRenderGraphWindow(SceneRenderer& renderer,
+                                                     bool* open,
+                                                     const RenderGraphGpuTimingSnapshot* timing,
+                                                     const RenderGraphResourceActions* resourceActions)
+    {
+        if (open == nullptr || !*open)
+        {
+            return;
+        }
+
+        static bool maximized = false;
+        static bool restorePending = false;
+        static ImVec2 restorePosition(80.0f, 80.0f);
+        static ImVec2 restoreSize(900.0f, 600.0f);
+
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        if (maximized)
+        {
+            ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
+            ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
+        }
+        else if (restorePending)
+        {
+            ImGui::SetNextWindowPos(restorePosition, ImGuiCond_Always);
+            ImGui::SetNextWindowSize(restoreSize, ImGuiCond_Always);
+            restorePending = false;
+        }
+        else
+        {
+            ImGui::SetNextWindowSize(ImVec2(900.0f, 600.0f), ImGuiCond_FirstUseEver);
+        }
+
+        const ImGuiWindowFlags flags = maximized ? ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize : 0;
+        if (ImGui::Begin("RenderGraph", open, flags))
+        {
+            if (ImGui::Button(maximized ? "Restore" : "Maximize"))
+            {
+                if (maximized)
+                {
+                    maximized = false;
+                    restorePending = true;
+                }
+                else
+                {
+                    restorePosition = ImGui::GetWindowPos();
+                    restoreSize = ImGui::GetWindowSize();
+                    maximized = true;
+                }
+            }
+            ImGui::SameLine();
+            ImGui::TextDisabled("Read-only diagnostics");
+            ImGui::Separator();
+            DrawRenderGraphDiagnostics(renderer, timing, resourceActions);
+        }
+        ImGui::End();
+    }
+
     void SceneRendererDebugUi::Draw(SceneRenderer& renderer,
                                     bool* open,
                                     const char* windowName,
                                     EnvironmentMappingUiState* environment)
     {
+        static bool renderGraphWindowOpen = false;
         ImGui::SetNextWindowSize(ImVec2(420, 520), ImGuiCond_FirstUseEver);
-        if (!ImGui::Begin(windowName, open))
+        const bool debugWindowVisible = ImGui::Begin(windowName, open);
+        if (debugWindowVisible)
         {
-            ImGui::End();
-            return;
-        }
+            DrawFrameSummary(renderer);
+            DrawTemporalUpscalerControls(renderer);
+            ImGui::Separator();
 
-        DrawFrameSummary(renderer);
-        DrawTemporalUpscalerControls(renderer);
-        ImGui::Separator();
+            if (ImGui::CollapsingHeader("Back Buffer", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawBackBufferControls(renderer);
+            }
 
-        if (ImGui::CollapsingHeader("Back Buffer", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawBackBufferControls(renderer);
-        }
+            if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawLightingControls(renderer);
+            }
 
-        if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawLightingControls(renderer);
-        }
+            if (environment != nullptr &&
+                ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawEnvironmentMapping(renderer, *environment);
+            }
 
-        if (environment != nullptr && ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawEnvironmentMapping(renderer, *environment);
-        }
+            if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawToneMapControls(renderer);
+            }
 
-        if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawToneMapControls(renderer);
-        }
+            if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawShadowControls(renderer);
+            }
 
-        if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawShadowControls(renderer);
-        }
+            if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawHybridReflectionControls(renderer);
+            }
 
-        if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawHybridReflectionControls(renderer);
-        }
+            if (ImGui::CollapsingHeader("Render View", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawRenderViewControls(renderer);
+            }
 
-        if (ImGui::CollapsingHeader("Render View", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawRenderViewControls(renderer);
+            if (ImGui::Button("Open RenderGraph Window"))
+            {
+                renderGraphWindowOpen = true;
+            }
         }
 
         ImGui::End();
+        DrawRenderGraphWindow(renderer, &renderGraphWindowOpen);
     }
 }

@@ -12,6 +12,7 @@
 #pragma once
 
 #include "Engine/RtPbrSurveyEngine.h"
+#include "Runtime/DebugLine.h"
 #include "Runtime/SceneRendererSettings.h"
 
 #include <functional>
@@ -57,6 +58,11 @@ namespace RtPbrSurvey
         void DrawToolUi();
         UiFrameContext GetUiFrameContext() const;
         float CpuFrameTimeMs() const;
+        Engine::RenderGraphDocument CaptureRenderGraphDocument() const;
+        const Engine::DebugResourceViewRegistry& GetDebugResourceViewRegistry() const;
+        const std::vector<Engine::RenderGraphBarrierEvent>& GetRenderGraphBarrierEvents() const;
+        std::vector<Engine::RenderGraphBarrierDiagnostic> GetRenderGraphBarrierDiagnostics() const;
+        bool HasRenderGraphBarrierEvents() const;
         SceneRendererSettings CaptureSettings() const;
         void ApplySettings(const SceneRendererSettings& settings);
 
@@ -66,8 +72,11 @@ namespace RtPbrSurvey
         const RtPbrSurveyEngine::ShadowSettings& GetShadowSettings() const;
         void SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings);
         const Engine::TemporalUpscalerSettings& GetTemporalUpscalerSettings() const;
+        void SetRayReconstructionSettings(const Engine::RayReconstructionSettings& settings);
+        const Engine::RayReconstructionSettings& GetRayReconstructionSettings() const;
         void SetHybridReflectionSettings(const RtPbrSurveyEngine::HybridReflectionSettings& settings);
         const RtPbrSurveyEngine::HybridReflectionSettings& GetHybridReflectionSettings() const;
+        void ResetHybridReflectionHistoryForDiagnostics();
         void SetMaterialParams(UINT materialIndex, const RtPbrSurveyEngine::MaterialParams& params);
         void SetRenderingPath(RtPbrSurveyEngine::RenderingPath renderingPath);
         RtPbrSurveyEngine::RenderingPath GetRenderingPath() const;
@@ -80,7 +89,31 @@ namespace RtPbrSurvey
         RtPbrSurveyEngine::ToneMapParams GetToneMapParams() const;
         void SetRenderViewMode(RtPbrSurveyEngine::RenderViewMode mode);
         RtPbrSurveyEngine::RenderViewMode GetRenderViewMode() const;
+        void SetDepthVisualizationSettings(const Engine::DepthVisualizationSettings& settings);
+        const Engine::DepthVisualizationSettings& GetDepthVisualizationSettings() const;
+        Engine::DepthVisualizationSettings GetDefaultDepthVisualizationSettings() const;
+        void SetDebugTexturePreviewEnabled(bool enabled);
+        bool IsDebugTexturePreviewEnabled() const;
+        ID3D12Resource* GetDebugTexturePreviewResource(UINT previewIndex = 0) const;
+        void SetDebugTexturePreviewSource(const std::string& source);
+        const std::string& GetDebugTexturePreviewSource() const;
+        void SetDebugTexturePreviewSettings(const Engine::DebugTexturePreviewSettings& settings);
+        const Engine::DebugTexturePreviewSettings& GetDebugTexturePreviewSettings() const;
+        void SetDebugTexturePreviewSemantic(Engine::DebugTexturePreviewSemantic semantic);
+        void SetDebugTexturePreviewChannel(Engine::DebugTexturePreviewChannel channel);
+        void SetDebugTexturePreviewNearestSampling(bool nearestSampling);
+        void SetDebugTexturePreviewCount(UINT previewCount);
+        void SetDebugTexturePreviewActiveSlots(UINT activeSlotMask);
+        void SetDebugTexturePreviewUpdateSlots(UINT updateSlotMask);
+        void ConfigureDebugTexturePreview(UINT previewIndex,
+                                          const std::string& source,
+                                          const Engine::DebugTexturePreviewSettings& settings);
+        void ConfigureDebugBufferPreview(UINT previewIndex,
+                                         const Engine::DebugResourceViewDescriptor& descriptor,
+                                         const Engine::DebugTexturePreviewSettings& settings);
         void SetRequestHdrDump(bool request);
+        void RequestReflectionHdrDiagnosticCapture(const Engine::ReflectionHdrDiagnosticRoi& roi);
+        std::optional<Engine::ReflectionHdrDiagnosticFrame> ConsumeReflectionHdrDiagnosticFrame();
         void RequestScreenshot(ScreenshotRequest request);
         std::optional<ScreenshotResult> ConsumeScreenshotResult();
         void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
@@ -88,6 +121,10 @@ namespace RtPbrSurvey
         const RtPbrSurveyEngine::PixelPickResult& GetPixelPickResult() const;
         void SetSpecularDebugLineSettings(const RtPbrSurveyEngine::SpecularDebugLineSettings& settings);
         const RtPbrSurveyEngine::SpecularDebugLineSettings& GetSpecularDebugLineSettings() const;
+        DebugLineHandle AddDebugLine(const DebugLineDesc& desc);
+        bool UpdateDebugLine(DebugLineHandle handle, const DebugLineDesc& desc);
+        void RemoveDebugLine(DebugLineHandle handle);
+        void ClearDebugLines();
 
         RtPbrSurveyEngine& EngineForDebugTools();
         const RtPbrSurveyEngine& EngineForDebugTools() const;

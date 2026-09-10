@@ -1,0 +1,266 @@
+{
+    "version":  1,
+    "measurement":  "history-weight display-space temporal convergence",
+    "frames":  [
+                   195,
+                   210,
+                   225,
+                   240,
+                   255,
+                   270,
+                   285,
+                   300
+               ],
+    "windows":  {
+                    "early":  [
+                                  195,
+                                  210,
+                                  225
+                              ],
+                    "late":  [
+                                 270,
+                                 285,
+                                 300
+                             ]
+                },
+    "notes":  [
+                  "The camera stops at frame 180; all measured frames use the same fixed view.",
+                  "The metric uses screenshot RGB after display mapping and is not HDR radiance variance.",
+                  "Early and late temporal deviations measure stability, while luminance drift helps expose slow settling.",
+                  "The evaluated variant has no history weight and is included as the unaccumulated reference."
+              ],
+    "regions":  [
+                    {
+                        "id":  "rearward_surface",
+                        "rectangle":  {
+                                          "x":  895,
+                                          "y":  278,
+                                          "width":  75,
+                                          "height":  85
+                                      },
+                        "variants":  [
+                                         {
+                                             "id":  "evaluated",
+                                             "historyWeight":  null,
+                                             "full":  {
+                                                          "validPixelCount":  3389,
+                                                          "meanDisplayedLuminance":  0.41305045030346155,
+                                                          "meanTemporalStandardDeviation":  0.04265574691704023
+                                                      },
+                                             "early":  {
+                                                           "validPixelCount":  3389,
+                                                           "meanDisplayedLuminance":  0.41323224287728444,
+                                                           "meanTemporalStandardDeviation":  0.032204832376360328
+                                                       },
+                                             "late":  {
+                                                          "validPixelCount":  3389,
+                                                          "meanDisplayedLuminance":  0.41378931468013536,
+                                                          "meanTemporalStandardDeviation":  0.033137488384561015
+                                                      },
+                                             "lateToEarlyDeviationRatio":  1.0289601261481893,
+                                             "lateMinusEarlyMeanDisplayedLuminance":  0.000557071802850917
+                                         },
+                                         {
+                                             "id":  "w0",
+                                             "historyWeight":  0,
+                                             "full":  {
+                                                          "validPixelCount":  3389,
+                                                          "meanDisplayedLuminance":  0.41305045030346155,
+                                                          "meanTemporalStandardDeviation":  0.04265574691704023
+                                                      },
+                                             "early":  {
+                                                           "validPixelCount":  3389,
+                                                           "meanDisplayedLuminance":  0.41323224287728444,
+                                                           "meanTemporalStandardDeviation":  0.032204832376360328
+                                                       },
+                                             "late":  {
+                                                          "validPixelCount":  3389,
+                                                          "meanDisplayedLuminance":  0.41378931468013536,
+                                                          "meanTemporalStandardDeviation":  0.033137488384561015
+                                                      },
+                                             "lateToEarlyDeviationRatio":  1.0289601261481893,
+                                             "lateMinusEarlyMeanDisplayedLuminance":  0.000557071802850917
+                                         },
+                                         {
+                                             "id":  "w50",
+                                             "historyWeight":  0.5,
+                                             "full":  {
+                                                          "validPixelCount":  3389,
+                                                          "meanDisplayedLuminance":  0.420186186855976,
+                                                          "meanTemporalStandardDeviation":  0.022822139068263022
+                                                      },
+                                             "early":  {
+                                                           "validPixelCount":  3389,
+                                                           "meanDisplayedLuminance":  0.42051826451206115,
+                                                           "meanTemporalStandardDeviation":  0.017750947169596864
+                                                       },
+                                             "late":  {
+                                                          "validPixelCount":  3389,
+                                                          "meanDisplayedLuminance":  0.42021638981942772,
+                                                          "meanTemporalStandardDeviation":  0.018495111280906862
+                                                      },
+                                             "lateToEarlyDeviationRatio":  1.0419225016107632,
+                                             "lateMinusEarlyMeanDisplayedLuminance":  -0.00030187469263343036
+                                         },
+                                         {
+                                             "id":  "w90",
+                                             "historyWeight":  0.9,
+                                             "full":  {
+                                                          "validPixelCount":  3389,
+                                                          "meanDisplayedLuminance":  0.42304949455852042,
+                                                          "meanTemporalStandardDeviation":  0.0096390117548321441
+                                                      },
+                                             "early":  {
+                                                           "validPixelCount":  3389,
+                                                           "meanDisplayedLuminance":  0.42427740598668851,
+                                                           "meanTemporalStandardDeviation":  0.0079921057531382022
+                                                       },
+                                             "late":  {
+                                                          "validPixelCount":  3389,
+                                                          "meanDisplayedLuminance":  0.42235280447892759,
+                                                          "meanTemporalStandardDeviation":  0.0066325934457844944
+                                                      },
+                                             "lateToEarlyDeviationRatio":  0.82989310335140676,
+                                             "lateMinusEarlyMeanDisplayedLuminance":  -0.0019246015077609147
+                                         },
+                                         {
+                                             "id":  "w98",
+                                             "historyWeight":  0.98,
+                                             "full":  {
+                                                          "validPixelCount":  3389,
+                                                          "meanDisplayedLuminance":  0.42747810543338005,
+                                                          "meanTemporalStandardDeviation":  0.010676342878202525
+                                                      },
+                                             "early":  {
+                                                           "validPixelCount":  3389,
+                                                           "meanDisplayedLuminance":  0.43190866829824182,
+                                                           "meanTemporalStandardDeviation":  0.0066998843346532866
+                                                       },
+                                             "late":  {
+                                                          "validPixelCount":  3389,
+                                                          "meanDisplayedLuminance":  0.423614442650867,
+                                                          "meanTemporalStandardDeviation":  0.0026738225890608688
+                                                      },
+                                             "lateToEarlyDeviationRatio":  0.39908488796310493,
+                                             "lateMinusEarlyMeanDisplayedLuminance":  -0.0082942256473748088
+                                         }
+                                     ]
+                    },
+                    {
+                        "id":  "underside_pipes",
+                        "rectangle":  {
+                                          "x":  805,
+                                          "y":  585,
+                                          "width":  125,
+                                          "height":  135
+                                      },
+                        "variants":  [
+                                         {
+                                             "id":  "evaluated",
+                                             "historyWeight":  null,
+                                             "full":  {
+                                                          "validPixelCount":  10943,
+                                                          "meanDisplayedLuminance":  0.26701052069278824,
+                                                          "meanTemporalStandardDeviation":  0.031128078253213051
+                                                      },
+                                             "early":  {
+                                                           "validPixelCount":  10943,
+                                                           "meanDisplayedLuminance":  0.26680340817749015,
+                                                           "meanTemporalStandardDeviation":  0.023688323446787805
+                                                       },
+                                             "late":  {
+                                                          "validPixelCount":  10943,
+                                                          "meanDisplayedLuminance":  0.26683757340323722,
+                                                          "meanTemporalStandardDeviation":  0.02341956960165786
+                                                      },
+                                             "lateToEarlyDeviationRatio":  0.98865458563440933,
+                                             "lateMinusEarlyMeanDisplayedLuminance":  3.41652257470626E-05
+                                         },
+                                         {
+                                             "id":  "w0",
+                                             "historyWeight":  0,
+                                             "full":  {
+                                                          "validPixelCount":  10943,
+                                                          "meanDisplayedLuminance":  0.26701052069278824,
+                                                          "meanTemporalStandardDeviation":  0.031128078253213051
+                                                      },
+                                             "early":  {
+                                                           "validPixelCount":  10943,
+                                                           "meanDisplayedLuminance":  0.26680340817749015,
+                                                           "meanTemporalStandardDeviation":  0.023688323446787805
+                                                       },
+                                             "late":  {
+                                                          "validPixelCount":  10943,
+                                                          "meanDisplayedLuminance":  0.26683757340323722,
+                                                          "meanTemporalStandardDeviation":  0.02341956960165786
+                                                      },
+                                             "lateToEarlyDeviationRatio":  0.98865458563440933,
+                                             "lateMinusEarlyMeanDisplayedLuminance":  3.41652257470626E-05
+                                         },
+                                         {
+                                             "id":  "w50",
+                                             "historyWeight":  0.5,
+                                             "full":  {
+                                                          "validPixelCount":  10943,
+                                                          "meanDisplayedLuminance":  0.27053088973522171,
+                                                          "meanTemporalStandardDeviation":  0.019038423738430288
+                                                      },
+                                             "early":  {
+                                                           "validPixelCount":  10943,
+                                                           "meanDisplayedLuminance":  0.27032680882935373,
+                                                           "meanTemporalStandardDeviation":  0.014775925311104257
+                                                       },
+                                             "late":  {
+                                                          "validPixelCount":  10943,
+                                                          "meanDisplayedLuminance":  0.27040719292304305,
+                                                          "meanTemporalStandardDeviation":  0.014815455884809621
+                                                      },
+                                             "lateToEarlyDeviationRatio":  1.0026753365947008,
+                                             "lateMinusEarlyMeanDisplayedLuminance":  8.0384093689322977E-05
+                                         },
+                                         {
+                                             "id":  "w90",
+                                             "historyWeight":  0.9,
+                                             "full":  {
+                                                          "validPixelCount":  10943,
+                                                          "meanDisplayedLuminance":  0.27207346335646709,
+                                                          "meanTemporalStandardDeviation":  0.0082453070531924837
+                                                      },
+                                             "early":  {
+                                                           "validPixelCount":  10943,
+                                                           "meanDisplayedLuminance":  0.272409711141334,
+                                                           "meanTemporalStandardDeviation":  0.0064849847213347116
+                                                       },
+                                             "late":  {
+                                                          "validPixelCount":  10943,
+                                                          "meanDisplayedLuminance":  0.27178610991358165,
+                                                          "meanTemporalStandardDeviation":  0.00601797434350467
+                                                      },
+                                             "lateToEarlyDeviationRatio":  0.927985893892141,
+                                             "lateMinusEarlyMeanDisplayedLuminance":  -0.00062360122775234617
+                                         },
+                                         {
+                                             "id":  "w98",
+                                             "historyWeight":  0.98,
+                                             "full":  {
+                                                          "validPixelCount":  10943,
+                                                          "meanDisplayedLuminance":  0.27425990946849366,
+                                                          "meanTemporalStandardDeviation":  0.0084644954637147721
+                                                      },
+                                             "early":  {
+                                                           "validPixelCount":  10943,
+                                                           "meanDisplayedLuminance":  0.27656706883380927,
+                                                           "meanTemporalStandardDeviation":  0.0052807429474718351
+                                                       },
+                                             "late":  {
+                                                          "validPixelCount":  10943,
+                                                          "meanDisplayedLuminance":  0.27218868076348079,
+                                                          "meanTemporalStandardDeviation":  0.0022058242169746061
+                                                      },
+                                             "lateToEarlyDeviationRatio":  0.41771096205897473,
+                                             "lateMinusEarlyMeanDisplayedLuminance":  -0.0043783880703284761
+                                         }
+                                     ]
+                    }
+                ]
+}

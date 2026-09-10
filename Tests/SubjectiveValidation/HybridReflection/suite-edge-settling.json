@@ -1,0 +1,101 @@
+{
+  "id": "hybrid-reflection-edge-settling-v1",
+  "version": 1,
+  "title": "Hybrid Reflection Settling Gate",
+  "description": "Focused review of rejected-pixel neighborhood side effects immediately after camera motion stops.",
+  "capture": {
+    "scene": "DamagedHelmet",
+    "debugView": "ReflectionResolvedRadiance",
+    "stochasticSampling": true,
+    "historyWeight": 0.9,
+    "cameraDistanceScale": 0.5,
+    "stopFrame": 180,
+    "aRejectedPixelNeighborhood": false,
+    "bRejectedPixelNeighborhood": true
+  },
+  "locales": {
+    "ja": {
+      "title": "Hybrid Reflection 停止後gate",
+      "description": "camera停止直後のreject画素近傍補助の副作用だけを確認します。",
+      "cases": {
+        "edge-settling-frame-1": {
+          "title": "停止1 frame後",
+          "description": "停止直後に残る平滑化とreflection内容を比較します。",
+          "images": {
+            "a": { "label": "A: 近傍補助なし" },
+            "b": { "label": "B: reject画素のみ3x3近傍補助" }
+          },
+          "criteria": {
+            "detail": "Bに不自然なdetail損失やedgeの太りがない。",
+            "content": "BはAと同等のreflection内容と平均輝度を維持している。"
+          }
+        },
+        "edge-settling-frame-6": {
+          "title": "停止6 frames後",
+          "description": "短い収束期間後に副作用が残るかを比較します。",
+          "images": {
+            "a": { "label": "A: 近傍補助なし" },
+            "b": { "label": "B: reject画素のみ3x3近傍補助" }
+          },
+          "criteria": {
+            "detail": "BはAと同等の安定したsurface detailへ戻っている。",
+            "content": "Bに残留するblur、輝度差、reflection欠落がない。"
+          }
+        },
+        "edge-settling-frame-15": {
+          "title": "停止15 frames後",
+          "description": "十分な収束後にA/Bが同等へ戻ることを確認します。",
+          "images": {
+            "a": { "label": "A: 近傍補助なし" },
+            "b": { "label": "B: reject画素のみ3x3近傍補助" }
+          },
+          "criteria": {
+            "match": "BはAと実質的に同等の停止後画像へ収束している。",
+            "artifacts": "Bに持続的なblur、trail、境界artifactがない。"
+          }
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "edge-settling-frame-1",
+      "title": "1 frame after stop",
+      "description": "Compare residual smoothing and reflection content immediately after the stop.",
+      "images": {
+        "a": { "label": "A: neighborhood disabled", "path": "captures/edge-settling-frame-1-a.png" },
+        "b": { "label": "B: rejected pixels use 3x3 neighborhood", "path": "captures/edge-settling-frame-1-b.png" }
+      },
+      "criteria": [
+        { "id": "detail", "prompt": "B has no unnatural detail loss or edge thickening." },
+        { "id": "content", "prompt": "B preserves A's reflection content and mean brightness." }
+      ]
+    },
+    {
+      "id": "edge-settling-frame-6",
+      "title": "6 frames after stop",
+      "description": "Check whether any side effect remains after a short convergence interval.",
+      "images": {
+        "a": { "label": "A: neighborhood disabled", "path": "captures/edge-settling-frame-6-a.png" },
+        "b": { "label": "B: rejected pixels use 3x3 neighborhood", "path": "captures/edge-settling-frame-6-b.png" }
+      },
+      "criteria": [
+        { "id": "detail", "prompt": "B returns to the same stable surface detail as A." },
+        { "id": "content", "prompt": "B has no residual blur, brightness difference, or missing reflection content." }
+      ]
+    },
+    {
+      "id": "edge-settling-frame-15",
+      "title": "15 frames after stop",
+      "description": "Confirm equivalent A/B output after sufficient convergence.",
+      "images": {
+        "a": { "label": "A: neighborhood disabled", "path": "captures/edge-settling-frame-15-a.png" },
+        "b": { "label": "B: rejected pixels use 3x3 neighborhood", "path": "captures/edge-settling-frame-15-b.png" }
+      },
+      "criteria": [
+        { "id": "match", "prompt": "B converges to an effectively equivalent stopped image as A." },
+        { "id": "artifacts", "prompt": "B has no persistent blur, trail, or boundary artifact." }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "cameraKeyframes": [
+    { "frame": 0, "yawDegrees": 0.0 },
+    { "frame": 120, "yawDegrees": 0.0 },
+    { "frame": 150, "yawDegrees": 20.0 },
+    { "frame": 180, "yawDegrees": -10.0 }
+  ],
+  "captures": [
+    {
+      "frame": 195,
+      "caseId": "material-variance-static",
+      "path": "captures/material-variance-{variant}.png"
+    }
+  ]
+}
