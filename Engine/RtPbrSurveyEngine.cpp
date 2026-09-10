@@ -39,6 +39,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <cwchar>
 #include <initializer_list>
 #include <string>
 #include <utility>
@@ -5877,7 +5878,39 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
     registerPingPongGroup(kReflectionResolvedSpecularEstimateResourceNames, "ReflectionResolvedSpecularEstimate");
     registerPingPongGroup(kReflectionSpecularMomentsResourceNames, "ReflectionSpecularMoments");
     registerPingPongGroup(kReflectionSpecularConfidenceResourceNames, "ReflectionSpecularConfidence");
-    return Engine::BuildRenderGraphDocument(m_renderGraphRuntime.Graph().Passes(), metadata);
+
+    const auto isThumbnailPass = [](const wchar_t* passName)
+    {
+        return std::any_of(kDebugTexturePreviewPassNames + kMaxDebugTexturePreviewCount,
+                           kDebugTexturePreviewPassNames + kMaxDebugTextureOutputCount,
+                           [passName](const wchar_t* thumbnailPassName)
+                           { return std::wcscmp(passName, thumbnailPassName) == 0; });
+    };
+    const auto isThumbnailResource = [](const std::string& resourceName)
+    {
+        return std::any_of(kDebugTexturePreviewResourceNames + kMaxDebugTexturePreviewCount,
+                           kDebugTexturePreviewResourceNames + kMaxDebugTextureOutputCount,
+                           [&resourceName](const char* thumbnailResourceName)
+                           { return resourceName == thumbnailResourceName; });
+    };
+
+    std::vector<RenderPass> displayPasses;
+    displayPasses.reserve(m_renderGraphRuntime.Graph().Passes().size());
+    for (const RenderPass& pass : m_renderGraphRuntime.Graph().Passes())
+    {
+        if (isThumbnailPass(pass.name))
+        {
+            continue;
+        }
+        displayPasses.push_back(pass);
+        std::erase_if(displayPasses.back().reads,
+                      [&isThumbnailResource](const ResourceUsage& usage)
+                      { return isThumbnailResource(usage.name); });
+        std::erase_if(displayPasses.back().writes,
+                      [&isThumbnailResource](const ResourceUsage& usage)
+                      { return isThumbnailResource(usage.name); });
+    }
+    return Engine::BuildRenderGraphDocument(displayPasses, metadata);
 }
 
 const std::vector<Engine::RenderGraphBarrierEvent>& RtPbrSurveyEngine::GetRenderGraphBarrierEvents() const

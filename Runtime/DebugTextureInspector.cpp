@@ -3,6 +3,7 @@
 #include "Runtime/DebugTextureInspector.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <utility>
 
 namespace RtPbrSurvey
@@ -78,7 +79,24 @@ DebugTextureInspector* DebugTextureInspectorManager::Open(
         m_inspectors.begin(), m_inspectors.end(), [](const auto& inspector) { return inspector.open; }));
     if (openInspectorCount >= kMaxInspectorCount)
     {
-        return nullptr;
+        const auto oldestUnpinned = std::find_if(m_inspectors.begin(),
+                                                 m_inspectors.end(),
+                                                 [](const auto& inspector)
+                                                 { return inspector.open && !inspector.pinned; });
+        if (oldestUnpinned == m_inspectors.end())
+        {
+            const std::string message = "[ERROR] Debug texture preview '" + resourceName +
+                "' could not be opened because all " + std::to_string(kMaxInspectorCount) +
+                " preview slots are pinned.\n";
+            std::fputs(message.c_str(), stderr);
+            OutputDebugStringA(message.c_str());
+            return nullptr;
+        }
+
+        const uint32_t slotIndex = oldestUnpinned->slotIndex;
+        m_inspectors.erase(oldestUnpinned);
+        return CreateInSlot(
+            std::move(resourceName), std::move(displayName), semantic, pinned, slotIndex);
     }
 
     return Create(std::move(resourceName), std::move(displayName), semantic, pinned);
@@ -106,6 +124,15 @@ DebugTextureInspector* DebugTextureInspectorManager::Create(
         return nullptr;
     }
 
+    return CreateInSlot(std::move(resourceName), std::move(displayName), semantic, pinned, slotIndex);
+}
+
+DebugTextureInspector* DebugTextureInspectorManager::CreateInSlot(std::string resourceName,
+                                                                   std::string displayName,
+                                                                   DebugTextureSemantic semantic,
+                                                                   bool pinned,
+                                                                   uint32_t slotIndex)
+{
     DebugTextureInspector inspector;
     inspector.id = m_nextId++;
     inspector.slotIndex = slotIndex;

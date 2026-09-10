@@ -323,16 +323,6 @@ bool CanOpenPreview(const Engine::DebugResourceInspection& inspection,
            !inspection.descriptor->sourceDescriptorName.empty();
 }
 
-bool HasPreviewCapacity(const RenderGraphResourceActions* resourceActions, const std::string& resourceName)
-{
-    if (resourceActions == nullptr)
-    {
-        return false;
-    }
-    const bool alreadyOpen = resourceActions->isPreviewOpen && resourceActions->isPreviewOpen(resourceName);
-    return alreadyOpen || resourceActions->activePreviewCount < resourceActions->maxPreviewCount;
-}
-
 bool DrawResourceActions(const Engine::RenderGraphDocumentNode& node,
                          const Engine::DebugResourceViewRegistry* registry,
                          const RenderGraphResourceActions* resourceActions)
@@ -342,8 +332,7 @@ bool DrawResourceActions(const Engine::RenderGraphDocumentNode& node,
     {
         const bool inspectRequested = ImGui::Button("Inspect Buffer");
         const DebugBufferInspectorModel model = BuildDebugBufferInspectorModel(node, registry);
-        const bool canOpenImage = CanOpenPreview(inspection, resourceActions) &&
-                                  HasPreviewCapacity(resourceActions, node.name);
+        const bool canOpenImage = CanOpenPreview(inspection, resourceActions);
         ImGui::SameLine();
         ImGui::BeginDisabled(!canOpenImage);
         if (ImGui::Button("Image Preview"))
@@ -357,7 +346,7 @@ bool DrawResourceActions(const Engine::RenderGraphDocumentNode& node,
         return inspectRequested;
     }
 
-    const bool canOpen = CanOpenPreview(inspection, resourceActions) && HasPreviewCapacity(resourceActions, node.name);
+    const bool canOpen = CanOpenPreview(inspection, resourceActions);
     const bool previewOpen =
         resourceActions != nullptr && resourceActions->isPreviewOpen && resourceActions->isPreviewOpen(node.name);
 
@@ -392,10 +381,6 @@ bool DrawResourceActions(const Engine::RenderGraphDocumentNode& node,
     {
         ImGui::TextDisabled("Inspector: Compatible Buffer Inspector is not available yet.");
     }
-    else if (!HasPreviewCapacity(resourceActions, node.name))
-    {
-        ImGui::TextDisabled("Inspector: Preview limit reached.");
-    }
     else
     {
         ImGui::TextDisabled("Inspector: Texture Preview available");
@@ -410,13 +395,16 @@ void DrawResourceThumbnail(const Engine::RenderGraphDocumentNode& node,
                            const Engine::DebugResourceViewRegistry* registry,
                            const RenderGraphResourceActions* resourceActions)
 {
-    const ImVec2 thumbnailSize(96.0f, 54.0f);
     const Engine::DebugResourceInspection inspection = InspectResource(node, registry);
+    const bool squareBufferImage = inspection.IsInspectable() &&
+                                   inspection.descriptor->viewKind != Engine::DebugResourceViewKind::Texture &&
+                                   inspection.descriptor->imageLayout.width == inspection.descriptor->imageLayout.height;
+    const ImVec2 thumbnailSize = squareBufferImage ? ImVec2(54.0f, 54.0f) : ImVec2(96.0f, 54.0f);
     const uint64_t textureId = resourceActions != nullptr && resourceActions->thumbnailTextureId
                                    ? resourceActions->thumbnailTextureId(node.name)
                                    : 0;
-    const float rowStart = ImGui::GetCursorPosX();
-    ImGui::SetCursorPosX(rowStart + 0.5f * (contentWidth - thumbnailSize.x));
+    const ImVec2 rowStart = ImGui::GetCursorScreenPos();
+    ImGui::SetCursorScreenPos(ImVec2(rowStart.x + 0.5f * (contentWidth - thumbnailSize.x), rowStart.y));
     ImGui::PushID(node.name.c_str());
     const ImVec2 imageStart = ImGui::GetCursorScreenPos();
     if (textureId != 0)
@@ -459,7 +447,7 @@ void DrawResourceThumbnail(const Engine::RenderGraphDocumentNode& node,
         resourceActions->requestThumbnail(*inspection.descriptor, selected);
     }
     ImGui::PopID();
-    ImGui::SetCursorPosX(rowStart);
+    ImGui::SetCursorScreenPos(ImVec2(rowStart.x, ImGui::GetCursorScreenPos().y));
 }
 
 bool ContainsId(const std::vector<Engine::RenderGraphDocumentId>& ids, Engine::RenderGraphDocumentId id)
@@ -783,6 +771,176 @@ struct PassTimingHistory
     }
 };
 
+struct RelatedResourceInfo
+{
+    const Engine::RenderGraphDocumentLink* link = nullptr;
+    const Engine::RenderGraphDocumentNode* resource = nullptr;
+    std::vector<const Engine::RenderGraphDocumentNode*> adjacentPasses;
+};
+
+std::vector<RelatedResourceInfo> CollectRelatedResources(
+    const Engine::RenderGraphDocument& document,
+    Engine::RenderGraphDocumentId passNodeId)
+{
+    std::vector<RelatedResourceInfo> resources;
+    for (const Engine::RenderGraphDocumentLink& link : document.links)
+    {
+        if (link.passNodeId != passNodeId)
+        {
+            continue;
+        }
+
+        RelatedResourceInfo info;
+        info.link = &link;
+        info.resource = FindNode(document, link.resourceNodeId);
+        if (info.resource == nullptr)
+        {
+            continue;
+        }
+        for (const Engine::RenderGraphDocumentLink& adjacentLink : document.links)
+        {
+            if (adjacentLink.resourceNodeId != link.resourceNodeId || adjacentLink.passNodeId == passNodeId)
+            {
+                continue;
+            }
+            const Engine::RenderGraphDocumentNode* adjacentPass = FindNode(document, adjacentLink.passNodeId);
+            if (adjacentPass != nullptr &&
+                std::find(info.adjacentPasses.begin(), info.adjacentPasses.end(), adjacentPass) ==
+                    info.adjacentPasses.end())
+            {
+                info.adjacentPasses.push_back(adjacentPass);
+            }
+        }
+        resources.push_back(std::move(info));
+    }
+    return resources;
+}
+
+bool IsPreviewOpen(const RenderGraphResourceActions* resourceActions, const std::string& resourceName)
+{
+    return resourceActions != nullptr && resourceActions->isPreviewOpen &&
+        resourceActions->isPreviewOpen(resourceName);
+}
+
+bool CanOpenRelatedPreview(const RelatedResourceInfo& info,
+                           const Engine::DebugResourceViewRegistry* registry,
+                           const RenderGraphResourceActions* resourceActions)
+{
+    if (info.resource == nullptr)
+    {
+        return false;
+    }
+    const Engine::DebugResourceInspection inspection = InspectResource(*info.resource, registry);
+    return CanOpenPreview(inspection, resourceActions);
+}
+
+void OpenRelatedPreviews(const std::vector<RelatedResourceInfo>& resources,
+                         const Engine::DebugResourceViewRegistry* registry,
+                         const RenderGraphResourceActions* resourceActions)
+{
+    if (resourceActions == nullptr || !resourceActions->openPreview)
+    {
+        return;
+    }
+
+    for (const RelatedResourceInfo& info : resources)
+    {
+        if (info.resource == nullptr || IsPreviewOpen(resourceActions, info.resource->name))
+        {
+            continue;
+        }
+        const Engine::DebugResourceInspection inspection = InspectResource(*info.resource, registry);
+        if (!CanOpenPreview(inspection, resourceActions))
+        {
+            continue;
+        }
+        if (!resourceActions->openPreview(*inspection.descriptor, false))
+        {
+            break;
+        }
+    }
+}
+
+void DrawRelatedResourceTable(const char* label,
+                              Engine::RenderGraphResourceAccess access,
+                              const std::vector<RelatedResourceInfo>& resources,
+                              const Engine::DebugResourceViewRegistry* registry,
+                              const RenderGraphResourceActions* resourceActions)
+{
+    const size_t resourceCount = static_cast<size_t>(
+        std::count_if(resources.begin(), resources.end(), [access](const RelatedResourceInfo& info)
+                      { return info.link != nullptr && info.link->access == access; }));
+    ImGui::Text("%s (%zu)", label, resourceCount);
+    if (resourceCount == 0)
+    {
+        ImGui::TextDisabled("None");
+        return;
+    }
+
+    const std::string tableId = std::string("RenderGraphRelated") + label;
+    if (!ImGui::BeginTable(tableId.c_str(),
+                           5,
+                           ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+    {
+        return;
+    }
+    ImGui::TableSetupColumn("Resource", ImGuiTableColumnFlags_WidthStretch, 2.2f);
+    ImGui::TableSetupColumn("Kind", ImGuiTableColumnFlags_WidthFixed, 58.0f);
+    ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthStretch, 1.4f);
+    ImGui::TableSetupColumn(access == Engine::RenderGraphResourceAccess::Read ? "Producer / User" : "Consumer",
+                            ImGuiTableColumnFlags_WidthStretch,
+                            1.5f);
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 64.0f);
+    ImGui::TableHeadersRow();
+
+    for (const RelatedResourceInfo& info : resources)
+    {
+        if (info.link == nullptr || info.resource == nullptr || info.link->access != access)
+        {
+            continue;
+        }
+
+        ImGui::PushID(info.resource->name.c_str());
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextWrapped("%s", info.resource->name.c_str());
+        ImGui::TableSetColumnIndex(1);
+        ImGui::TextUnformatted(ResourceKindLabel(info.resource->resourceKind));
+        ImGui::TableSetColumnIndex(2);
+        const std::string state = Engine::FormatD3D12ResourceStates(info.link->state);
+        ImGui::TextWrapped("%s", state.c_str());
+        ImGui::TableSetColumnIndex(3);
+        if (info.adjacentPasses.empty())
+        {
+            ImGui::TextDisabled("None");
+        }
+        else
+        {
+            std::string adjacentPassNames;
+            for (const Engine::RenderGraphDocumentNode* adjacentPass : info.adjacentPasses)
+            {
+                if (!adjacentPassNames.empty())
+                {
+                    adjacentPassNames += ", ";
+                }
+                adjacentPassNames += NodeDisplayName(*adjacentPass);
+            }
+            ImGui::TextWrapped("%s", adjacentPassNames.c_str());
+        }
+        ImGui::TableSetColumnIndex(4);
+        const bool canOpen = CanOpenRelatedPreview(info, registry, resourceActions);
+        ImGui::BeginDisabled(!canOpen);
+        if (ImGui::SmallButton("Preview"))
+        {
+            const Engine::DebugResourceInspection inspection = InspectResource(*info.resource, registry);
+            resourceActions->openPreview(*inspection.descriptor, false);
+        }
+        ImGui::EndDisabled();
+        ImGui::PopID();
+    }
+    ImGui::EndTable();
+}
+
 std::optional<Engine::RenderGraphDocumentId>
 DrawDetailPanel(const Engine::RenderGraphDocument& document,
                 const std::optional<Engine::RenderGraphDocumentId>& selectedNodeId,
@@ -791,7 +949,9 @@ DrawDetailPanel(const Engine::RenderGraphDocument& document,
                 int timingMode,
                 const Engine::DebugResourceViewRegistry* resourceViewRegistry,
                 const RenderGraphResourceActions* resourceActions,
-                const RenderGraphTechnologyMetadata* technologyMetadata)
+                const RenderGraphTechnologyMetadata* technologyMetadata,
+                bool* isolateRelated,
+                bool* fitGraphRequested)
 {
     ImGui::TextUnformatted("Node Details");
     ImGui::Separator();
@@ -805,6 +965,9 @@ DrawDetailPanel(const Engine::RenderGraphDocument& document,
     }
 
     std::optional<Engine::RenderGraphDocumentId> bufferInspectorRequest;
+    const std::vector<RelatedResourceInfo> relatedResources =
+        node->kind == Engine::RenderGraphNodeKind::Pass ? CollectRelatedResources(document, node->id)
+                                                       : std::vector<RelatedResourceInfo>{};
 
     ImGui::TextWrapped("%s", NodeDisplayName(*node));
     if (node->kind == Engine::RenderGraphNodeKind::Pass)
@@ -836,6 +999,43 @@ DrawDetailPanel(const Engine::RenderGraphDocument& document,
         {
             ImGui::TextDisabled("GPU: N/A");
         }
+
+        if (isolateRelated != nullptr)
+        {
+            if (ImGui::Checkbox("Isolate Related", isolateRelated) && fitGraphRequested != nullptr)
+            {
+                *fitGraphRequested = true;
+            }
+        }
+        ImGui::SameLine();
+        const bool canOpenAll = resourceActions != nullptr && resourceActions->openPreview &&
+            std::any_of(relatedResources.begin(),
+                        relatedResources.end(),
+                        [resourceViewRegistry, resourceActions](const RelatedResourceInfo& info)
+                        {
+                            return info.resource != nullptr &&
+                                !IsPreviewOpen(resourceActions, info.resource->name) &&
+                                CanOpenRelatedPreview(info, resourceViewRegistry, resourceActions);
+                        });
+        ImGui::BeginDisabled(!canOpenAll);
+        if (ImGui::Button("Preview All"))
+        {
+            OpenRelatedPreviews(relatedResources, resourceViewRegistry, resourceActions);
+        }
+        ImGui::EndDisabled();
+
+        ImGui::Spacing();
+        DrawRelatedResourceTable("Inputs",
+                                 Engine::RenderGraphResourceAccess::Read,
+                                 relatedResources,
+                                 resourceViewRegistry,
+                                 resourceActions);
+        ImGui::Spacing();
+        DrawRelatedResourceTable("Outputs",
+                                 Engine::RenderGraphResourceAccess::Write,
+                                 relatedResources,
+                                 resourceViewRegistry,
+                                 resourceActions);
     }
     else
     {
@@ -854,39 +1054,38 @@ DrawDetailPanel(const Engine::RenderGraphDocument& document,
         }
     }
 
-    ImGui::Spacing();
-    ImGui::TextUnformatted(node->kind == Engine::RenderGraphNodeKind::Pass ? "Resources" : "Pass usages");
-    if (ImGui::BeginTable("RenderGraphNodeDetailsTable",
-                          3,
-                          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+    if (node->kind != Engine::RenderGraphNodeKind::Pass)
     {
-        ImGui::TableSetupColumn(node->kind == Engine::RenderGraphNodeKind::Pass ? "Resource" : "Pass");
-        ImGui::TableSetupColumn("Access");
-        ImGui::TableSetupColumn("State");
-        ImGui::TableHeadersRow();
-
-        for (const Engine::RenderGraphDocumentLink& link : document.links)
+        ImGui::Spacing();
+        ImGui::TextUnformatted("Pass usages");
+        if (ImGui::BeginTable("RenderGraphNodeDetailsTable",
+                              3,
+                              ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
         {
-            const bool matches = node->kind == Engine::RenderGraphNodeKind::Pass ? link.passNodeId == node->id
-                                                                                 : link.resourceNodeId == node->id;
-            if (!matches)
-            {
-                continue;
-            }
+            ImGui::TableSetupColumn("Pass");
+            ImGui::TableSetupColumn("Access");
+            ImGui::TableSetupColumn("State");
+            ImGui::TableHeadersRow();
 
-            const Engine::RenderGraphDocumentId relatedId =
-                node->kind == Engine::RenderGraphNodeKind::Pass ? link.resourceNodeId : link.passNodeId;
-            const Engine::RenderGraphDocumentNode* relatedNode = FindNode(document, relatedId);
-            const std::string state = Engine::FormatD3D12ResourceStates(link.state);
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted(relatedNode != nullptr ? relatedNode->name.c_str() : "<missing>");
-            ImGui::TableSetColumnIndex(1);
-            ImGui::TextUnformatted(AccessLabel(link.access));
-            ImGui::TableSetColumnIndex(2);
-            ImGui::TextWrapped("%s", state.c_str());
+            for (const Engine::RenderGraphDocumentLink& link : document.links)
+            {
+                if (link.resourceNodeId != node->id)
+                {
+                    continue;
+                }
+
+                const Engine::RenderGraphDocumentNode* relatedNode = FindNode(document, link.passNodeId);
+                const std::string state = Engine::FormatD3D12ResourceStates(link.state);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextUnformatted(relatedNode != nullptr ? relatedNode->name.c_str() : "<missing>");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(AccessLabel(link.access));
+                ImGui::TableSetColumnIndex(2);
+                ImGui::TextWrapped("%s", state.c_str());
+            }
+            ImGui::EndTable();
         }
-        ImGui::EndTable();
     }
     return bufferInspectorRequest;
 }
@@ -944,8 +1143,7 @@ void DrawBufferInspectorWindow(const Engine::RenderGraphDocument& document,
                     model.imageLayout.componentCount,
                     model.imageLayout.componentOffsetBytes);
         const Engine::DebugResourceInspection inspection = InspectResource(*node, registry);
-        const bool canOpenImage = CanOpenPreview(inspection, resourceActions) &&
-                                  HasPreviewCapacity(resourceActions, node->name);
+        const bool canOpenImage = CanOpenPreview(inspection, resourceActions);
         ImGui::BeginDisabled(!canOpenImage);
         if (ImGui::Button("Image Preview"))
         {
@@ -954,7 +1152,7 @@ void DrawBufferInspectorWindow(const Engine::RenderGraphDocument& document,
         ImGui::EndDisabled();
         if (!canOpenImage)
         {
-            ImGui::TextDisabled("Image Preview is unavailable or the Preview limit has been reached.");
+            ImGui::TextDisabled("Image Preview is unavailable for this Buffer.");
         }
     }
     else
@@ -1041,6 +1239,7 @@ struct RenderGraphNodeEditorView::Impl
     bool showPersistent = true;
     bool showUnknownLifetime = true;
     bool connectedOnly = false;
+    bool fitGraphRequested = false;
     std::unordered_map<int, PassTimingHistory> passTimings;
     PassTimingHistory totalTiming;
     int timingMode = 1;
@@ -1081,7 +1280,9 @@ struct RenderGraphNodeEditorView::Impl
         return color != indexColors.end() ? color->second : DefaultIndexColor(node);
     }
 
-    bool PositionNode(const Engine::RenderGraphDocumentNode& node, size_t resourceIndex)
+    bool PositionNode(const Engine::RenderGraphDocument& document,
+                      const Engine::RenderGraphDocumentNode& node,
+                      size_t resourceIndex)
     {
         if (!positionedNodes[layoutMode].insert(node.id.value).second)
         {
@@ -1097,6 +1298,33 @@ struct RenderGraphNodeEditorView::Impl
         {
             const float spacing = layoutMode == 0 ? 320.0f : 430.0f;
             position = ImVec2(spacing * static_cast<float>(node.passIndex), 40.0f);
+            const float rowSpacing = layoutMode == 0 ? 240.0f : 340.0f;
+            bool overlapsExistingPass = false;
+            do
+            {
+                overlapsExistingPass = false;
+                for (const Engine::RenderGraphDocumentNode& existingNode : document.nodes)
+                {
+                    if (existingNode.id == node.id || existingNode.kind != Engine::RenderGraphNodeKind::Pass ||
+                        (!positionedNodes[layoutMode].contains(existingNode.id.value) &&
+                         !savedNodeIds[layoutMode].contains(existingNode.id.value)))
+                    {
+                        continue;
+                    }
+
+                    const ImVec2 existingPosition = NodeEditor::GetNodePosition(ToNodeId(existingNode.id));
+                    const bool overlapsX = position.x > existingPosition.x - spacing * 0.75f &&
+                        position.x < existingPosition.x + spacing * 0.75f;
+                    const bool overlapsY = position.y > existingPosition.y - rowSpacing * 0.75f &&
+                        position.y < existingPosition.y + rowSpacing * 0.75f;
+                    if (overlapsX && overlapsY)
+                    {
+                        overlapsExistingPass = true;
+                        position.y += rowSpacing;
+                        break;
+                    }
+                }
+            } while (overlapsExistingPass);
         }
         else
         {
@@ -1155,6 +1383,41 @@ struct RenderGraphNodeEditorView::Impl
             return true;
         }
 
+        const Engine::RenderGraphDocumentNode* selectedNode = FindNode(document, *selectedNodeId);
+        if (selectedNode == nullptr)
+        {
+            return true;
+        }
+
+        if (selectedNode->kind == Engine::RenderGraphNodeKind::Pass)
+        {
+            std::vector<Engine::RenderGraphDocumentId> relatedResourceIds;
+            for (const Engine::RenderGraphDocumentLink& link : document.links)
+            {
+                if (link.passNodeId == selectedNode->id)
+                {
+                    relatedResourceIds.push_back(link.resourceNodeId);
+                }
+            }
+            if (node.kind == Engine::RenderGraphNodeKind::Resource &&
+                std::find(relatedResourceIds.begin(), relatedResourceIds.end(), node.id) != relatedResourceIds.end())
+            {
+                return true;
+            }
+            if (node.kind == Engine::RenderGraphNodeKind::Pass)
+            {
+                return std::any_of(document.links.begin(),
+                                   document.links.end(),
+                                   [&node, &relatedResourceIds](const Engine::RenderGraphDocumentLink& link)
+                                   {
+                                       return link.passNodeId == node.id &&
+                                           std::find(relatedResourceIds.begin(), relatedResourceIds.end(),
+                                                     link.resourceNodeId) != relatedResourceIds.end();
+                                   });
+            }
+            return false;
+        }
+
         for (const Engine::RenderGraphDocumentLink& link : document.links)
         {
             if ((link.passNodeId == *selectedNodeId && link.resourceNodeId == node.id) ||
@@ -1196,6 +1459,8 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         Engine::BuildRenderGraphStateDiagnostics(document);
     const std::vector<Engine::RenderGraphValidationMessage> validationMessages =
         Engine::ValidateRenderGraphDocument(document);
+    const bool deferredFitRequested = m_impl->fitGraphRequested;
+    m_impl->fitGraphRequested = false;
     const int previousLayoutMode = m_impl->layoutMode;
     ImGui::RadioButton("Compact", &m_impl->layoutMode, 0);
     ImGui::SameLine();
@@ -1260,7 +1525,9 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     ImGui::SameLine();
     const bool focusRequested = ImGui::Button("Focus First Match");
     ImGui::SameLine();
-    ImGui::Checkbox("Connected to selection", &m_impl->connectedOnly);
+    ImGui::BeginDisabled(!m_impl->selectedNodeId.has_value());
+    const bool isolateRelatedChanged = ImGui::Checkbox("Isolate Related", &m_impl->connectedOnly);
+    ImGui::EndDisabled();
 
     ImGui::Checkbox("Pass", &m_impl->showPasses);
     ImGui::SameLine();
@@ -1278,8 +1545,10 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     if (resourceActions != nullptr)
     {
         ImGui::SameLine();
-        ImGui::TextDisabled(
-            "Previews: %zu / %zu", resourceActions->activePreviewCount, resourceActions->maxPreviewCount);
+        ImGui::TextDisabled("Previews: %zu / %zu (Pinned: %zu)",
+                            resourceActions->activePreviewCount,
+                            resourceActions->maxPreviewCount,
+                            resourceActions->pinnedPreviewCount);
         ImGui::SameLine();
         ImGui::BeginDisabled(resourceActions->activePreviewCount == 0 || !resourceActions->closeAllPreviews);
         if (ImGui::SmallButton("Close All Previews"))
@@ -1372,12 +1641,21 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
     for (const Engine::RenderGraphDocumentNode& node : document.nodes)
     {
         const bool matchesFilters = m_impl->MatchesFilters(document, node);
+        if (m_impl->connectedOnly && !matchesFilters)
+        {
+            continue;
+        }
         const size_t resourceRow = node.kind == Engine::RenderGraphNodeKind::Resource ? layoutRows.at(node.id) : 0;
-        layoutChanged |= m_impl->PositionNode(node, resourceRow);
+        layoutChanged |= m_impl->PositionNode(document, node, resourceRow);
 
-        float contentWidth = ImGui::CalcTextSize(NodeDisplayName(node)).x + 18.0f;
+        constexpr float uePinColumnGap = 16.0f;
+        constexpr float ueThumbnailWidth = 96.0f;
+        const float titleLeadingWidth = 10.0f + ImGui::GetStyle().ItemSpacing.x;
+        float contentWidth = titleLeadingWidth + ImGui::CalcTextSize(NodeDisplayName(node)).x;
         size_t readPinCount = 0;
         size_t writePinCount = 0;
+        std::vector<const Engine::RenderGraphDocumentPin*> inputPins;
+        std::vector<const Engine::RenderGraphDocumentPin*> outputPins;
         for (const Engine::RenderGraphDocumentPin& pin : document.pins)
         {
             if (pin.nodeId != node.id)
@@ -1394,13 +1672,20 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                 ++writePinCount;
             }
 
-            const bool input = pin.direction == Engine::RenderGraphPinDirection::Input;
-            const std::string state = Engine::FormatD3D12ResourceStates(pin.state);
-            const std::string label = input ? "-> " + std::string(AccessLabel(pin.access)) + ": " + state
-                                            : std::string(AccessLabel(pin.access)) + ": " + state + " ->";
-            contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(label.c_str()).x);
+            if (m_impl->layoutMode == 0)
+            {
+                const bool input = pin.direction == Engine::RenderGraphPinDirection::Input;
+                const std::string state = Engine::FormatD3D12ResourceStates(pin.state);
+                const std::string label = input ? "-> " + std::string(AccessLabel(pin.access)) + ": " + state
+                                                : std::string(AccessLabel(pin.access)) + ": " + state + " ->";
+                contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(label.c_str()).x);
+            }
+            else if (node.kind == Engine::RenderGraphNodeKind::Pass)
+            {
+                (pin.direction == Engine::RenderGraphPinDirection::Input ? inputPins : outputPins).push_back(&pin);
+            }
         }
-        if (node.kind == Engine::RenderGraphNodeKind::Resource)
+        if (m_impl->layoutMode == 0 && node.kind == Engine::RenderGraphNodeKind::Resource)
         {
             contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(ResourceKindLabel(node.resourceKind)).x);
             contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize("Read  (000) ->").x);
@@ -1414,17 +1699,64 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                 contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(node.logicalGroupName.c_str()).x);
             }
         }
-        else
+        else if (m_impl->layoutMode == 0)
         {
             contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize("GPU 0000.000 ms").x);
         }
-        float& stableContentWidth = m_impl->stableContentWidths[m_impl->layoutMode][node.id.value];
         if (m_impl->layoutMode == 1)
         {
-            contentWidth = (std::max)(contentWidth, 360.0f);
+            if (node.kind == Engine::RenderGraphNodeKind::Resource)
+            {
+                const std::string writeLabel = "-> Write (" + std::to_string(writePinCount) + ")";
+                const std::string readLabel = "Read (" + std::to_string(readPinCount) + ") ->";
+                contentWidth = (std::max)(contentWidth,
+                                          ImGui::CalcTextSize(writeLabel.c_str()).x + uePinColumnGap +
+                                              ImGui::CalcTextSize(readLabel.c_str()).x);
+                contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(ResourceKindLabel(node.resourceKind)).x);
+                const std::string lifetime =
+                    "Lifetime [" + std::to_string(node.firstPass) + ", " + std::to_string(node.lastPass) + "]";
+                contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(lifetime.c_str()).x);
+                if (!node.logicalGroupName.empty())
+                {
+                    const std::string role = "[" + std::to_string(node.physicalIndex) + "] " +
+                        PingPongRoleLabel(node.pingPongRole);
+                    contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize(role.c_str()).x);
+                }
+                contentWidth = (std::max)(contentWidth, ueThumbnailWidth);
+            }
+            else
+            {
+                const auto stablePinOrder = [&document](const auto* lhs, const auto* rhs)
+                {
+                    const std::string_view lhsName = RelatedResourceName(document, *lhs);
+                    const std::string_view rhsName = RelatedResourceName(document, *rhs);
+                    return lhsName != rhsName ? lhsName < rhsName : lhs->id.value < rhs->id.value;
+                };
+                std::sort(inputPins.begin(), inputPins.end(), stablePinOrder);
+                std::sort(outputPins.begin(), outputPins.end(), stablePinOrder);
+                const size_t rowCount = (std::max)(inputPins.size(), outputPins.size());
+                for (size_t row = 0; row < rowCount; ++row)
+                {
+                    const std::string inputLabel = row < inputPins.size()
+                        ? "-> " + ShortResourceName(RelatedResourceName(document, *inputPins[row]))
+                        : std::string{};
+                    const std::string outputLabel = row < outputPins.size()
+                        ? ShortResourceName(RelatedResourceName(document, *outputPins[row])) + " ->"
+                        : std::string{};
+                    const float columnGap = !inputLabel.empty() && !outputLabel.empty() ? uePinColumnGap : 0.0f;
+                    const float rowWidth = ImGui::CalcTextSize(inputLabel.c_str()).x + columnGap +
+                        ImGui::CalcTextSize(outputLabel.c_str()).x;
+                    contentWidth = (std::max)(contentWidth, rowWidth);
+                }
+                contentWidth = (std::max)(contentWidth, ImGui::CalcTextSize("GPU 0000.000 ms").x);
+            }
         }
-        stableContentWidth = (std::max)(stableContentWidth, contentWidth);
-        contentWidth = stableContentWidth;
+        else
+        {
+            float& stableContentWidth = m_impl->stableContentWidths[m_impl->layoutMode][node.id.value];
+            stableContentWidth = (std::max)(stableContentWidth, contentWidth);
+            contentWidth = stableContentWidth;
+        }
 
         ImVec4 backgroundColor = NodeBackgroundColor(node);
         if (snapshotDiff.has_value() && ContainsId(snapshotDiff->addedNodes, node.id))
@@ -1438,6 +1770,10 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         backgroundColor.w *= matchesFilters ? 1.0f : 0.18f;
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, matchesFilters ? 1.0f : 0.28f);
         NodeEditor::PushStyleColor(NodeEditor::StyleColor_NodeBg, backgroundColor);
+        if (m_impl->layoutMode == 1)
+        {
+            NodeEditor::PushStyleVar(NodeEditor::StyleVar_NodePadding, ImVec4(4.0f, 4.0f, 4.0f, 4.0f));
+        }
         NodeEditor::BeginNode(ToNodeId(node.id));
         const ImVec2 indexColorStart = ImGui::GetCursorScreenPos();
         ImGui::Dummy(ImVec2(10.0f, 10.0f));
@@ -1445,7 +1781,16 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                                                   ImVec2(indexColorStart.x + 10.0f, indexColorStart.y + 10.0f),
                                                   ImGui::GetColorU32(m_impl->IndexColor(node)));
         ImGui::SameLine();
-        ImGui::TextUnformatted(NodeDisplayName(node));
+        if (m_impl->layoutMode == 1)
+        {
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + contentWidth - 18.0f);
+            ImGui::TextWrapped("%s", NodeDisplayName(node));
+            ImGui::PopTextWrapPos();
+        }
+        else
+        {
+            ImGui::TextUnformatted(NodeDisplayName(node));
+        }
         if (node.kind == Engine::RenderGraphNodeKind::Resource)
         {
             ImGui::TextDisabled("%s", ResourceKindLabel(node.resourceKind));
@@ -1456,12 +1801,9 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                                              : ImVec4(1.0f, 0.78f, 0.20f, 1.0f);
                 ImGui::TextColored(roleColor, "[%d] %s", node.physicalIndex, PingPongRoleLabel(node.pingPongRole));
             }
-            if (m_impl->layoutMode == 1)
-            {
-                const bool selected = m_impl->selectedNodeId.has_value() && *m_impl->selectedNodeId == node.id;
-                DrawResourceThumbnail(
-                    node, contentWidth, selected, matchesFilters, resourceViewRegistry, resourceActions);
-            }
+            const bool selected = m_impl->selectedNodeId.has_value() && *m_impl->selectedNodeId == node.id;
+            DrawResourceThumbnail(
+                node, contentWidth, selected, matchesFilters, resourceViewRegistry, resourceActions);
         }
         const ImVec2 separatorStart = ImGui::GetCursorScreenPos();
         ImGui::GetWindowDrawList()->AddLine(separatorStart,
@@ -1505,14 +1847,15 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         }
         else if (node.kind == Engine::RenderGraphNodeKind::Resource)
         {
-            const float rowStart = ImGui::GetCursorPosX();
+            const ImVec2 rowStart = ImGui::GetCursorScreenPos();
             NodeEditor::BeginPin(m_impl->ResourcePinId(node.id, Engine::RenderGraphResourceAccess::Write),
                                  NodeEditor::PinKind::Input);
             ImGui::Text("-> Write (%zu)", writePinCount);
             NodeEditor::EndPin();
             const std::string readLabel = "Read (" + std::to_string(readPinCount) + ") ->";
             const float readLabelWidth = ImGui::CalcTextSize(readLabel.c_str()).x;
-            ImGui::SameLine(rowStart + contentWidth - readLabelWidth);
+            ImGui::SameLine();
+            ImGui::SetCursorScreenPos(ImVec2(rowStart.x + contentWidth - readLabelWidth, rowStart.y));
             NodeEditor::BeginPin(m_impl->ResourcePinId(node.id, Engine::RenderGraphResourceAccess::Read),
                                  NodeEditor::PinKind::Output);
             ImGui::TextUnformatted(readLabel.c_str());
@@ -1520,28 +1863,10 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         }
         else
         {
-            std::vector<const Engine::RenderGraphDocumentPin*> inputPins;
-            std::vector<const Engine::RenderGraphDocumentPin*> outputPins;
-            for (const Engine::RenderGraphDocumentPin& pin : document.pins)
-            {
-                if (pin.nodeId != node.id)
-                {
-                    continue;
-                }
-                (pin.direction == Engine::RenderGraphPinDirection::Input ? inputPins : outputPins).push_back(&pin);
-            }
-            const auto stablePinOrder = [&document](const auto* lhs, const auto* rhs)
-            {
-                const std::string_view lhsName = RelatedResourceName(document, *lhs);
-                const std::string_view rhsName = RelatedResourceName(document, *rhs);
-                return lhsName != rhsName ? lhsName < rhsName : lhs->id.value < rhs->id.value;
-            };
-            std::sort(inputPins.begin(), inputPins.end(), stablePinOrder);
-            std::sort(outputPins.begin(), outputPins.end(), stablePinOrder);
             const size_t rowCount = (std::max)(inputPins.size(), outputPins.size());
             for (size_t row = 0; row < rowCount; ++row)
             {
-                const float rowStart = ImGui::GetCursorPosX();
+                const ImVec2 rowStart = ImGui::GetCursorScreenPos();
                 if (row < inputPins.size())
                 {
                     const std::string label = "-> " + ShortResourceName(RelatedResourceName(document, *inputPins[row]));
@@ -1558,7 +1883,8 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                     const std::string label =
                         ShortResourceName(RelatedResourceName(document, *outputPins[row])) + " ->";
                     const float labelWidth = ImGui::CalcTextSize(label.c_str()).x;
-                    ImGui::SameLine(rowStart + contentWidth - labelWidth);
+                    ImGui::SameLine();
+                    ImGui::SetCursorScreenPos(ImVec2(rowStart.x + contentWidth - labelWidth, rowStart.y));
                     NodeEditor::BeginPin(ToPinId(outputPins[row]->id), NodeEditor::PinKind::Output);
                     ImGui::TextUnformatted(label.c_str());
                     NodeEditor::EndPin();
@@ -1583,6 +1909,10 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
             }
         }
         NodeEditor::EndNode();
+        if (m_impl->layoutMode == 1)
+        {
+            NodeEditor::PopStyleVar();
+        }
         NodeEditor::PopStyleColor();
         ImGui::PopStyleVar();
     }
@@ -1594,6 +1924,10 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
         const bool matchesFilters = passNode != nullptr && resourceNode != nullptr &&
                                     m_impl->MatchesFilters(document, *passNode) &&
                                     m_impl->MatchesFilters(document, *resourceNode);
+        if (m_impl->connectedOnly && !matchesFilters)
+        {
+            continue;
+        }
         ImVec4 color = link.access == Engine::RenderGraphResourceAccess::Read ? ImVec4(0.35f, 0.70f, 1.0f, 1.0f)
                                                                               : ImVec4(1.0f, 0.65f, 0.25f, 1.0f);
         bool snapshotColor = false;
@@ -1646,8 +1980,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
             }
             const Engine::DebugResourceInspection inspection =
                 InspectResource(*doubleClickedNode, resourceViewRegistry);
-            if (CanOpenPreview(inspection, resourceActions) &&
-                HasPreviewCapacity(resourceActions, doubleClickedNode->name))
+            if (CanOpenPreview(inspection, resourceActions))
             {
                 resourceActions->openPreview(*inspection.descriptor, false);
             }
@@ -1682,8 +2015,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                     m_impl->bufferInspectorOpen = true;
                     m_impl->bufferInspectorFocusRequested = true;
                 }
-                const bool canOpen = CanOpenPreview(inspection, resourceActions) &&
-                                     HasPreviewCapacity(resourceActions, contextNode->name);
+                const bool canOpen = CanOpenPreview(inspection, resourceActions);
                 const bool previewOpen = resourceActions != nullptr && resourceActions->isPreviewOpen &&
                                          resourceActions->isPreviewOpen(contextNode->name);
                 ImGui::BeginDisabled(!canOpen);
@@ -1771,7 +2103,8 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
             m_impl->selectedNodeId.reset();
         }
     }
-    if (fitRequested || layoutChanged || previousLayoutMode != m_impl->layoutMode)
+    if (fitRequested || deferredFitRequested || isolateRelatedChanged || layoutChanged ||
+        previousLayoutMode != m_impl->layoutMode)
     {
         NodeEditor::NavigateToContent(0.0f);
     }
@@ -1784,7 +2117,7 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
 
     ImGui::SameLine();
     ImGui::BeginChild("RenderGraphDetailPane", ImVec2(0.0f, contentSize.y), true);
-    constexpr float nodeDetailsHeight = 260.0f;
+    constexpr float nodeDetailsHeight = 420.0f;
     ImGui::BeginChild("RenderGraphNodeDetailsPane", ImVec2(0.0f, nodeDetailsHeight), false);
     const std::optional<Engine::RenderGraphDocumentId> bufferInspectorRequest = DrawDetailPanel(document,
                                                                                                 m_impl->selectedNodeId,
@@ -1793,7 +2126,9 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
                                                                                                 m_impl->timingMode,
                                                                                                 resourceViewRegistry,
                                                                                                 resourceActions,
-                                                                                                technologyMetadata);
+                                                                                                technologyMetadata,
+                                                                                                &m_impl->connectedOnly,
+                                                                                                &m_impl->fitGraphRequested);
     ImGui::EndChild();
     const std::optional<Engine::RenderGraphDocumentId> timelineSelection =
         DrawLifetimeTimeline(document, m_impl->selectedNodeId);

@@ -83,16 +83,31 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
 
     if (bufferVisualizationMode == 1)
     {
-        const uint heatmapComponent = channel > 0 ? min(channel - 1, 3) : 0;
-        const float heatmapValue = value[heatmapComponent] * exp2(exposure) * scale + offset;
+        float heatmapValue = 0.0;
+        if (channel > 0)
+        {
+            heatmapValue = value[min(channel - 1, 3)];
+        }
+        else
+        {
+            [unroll]
+            for (uint component = 0; component < 4; ++component)
+            {
+                heatmapValue += component < bufferComponentCount ? value[component] : 0.0;
+            }
+            heatmapValue /= max(bufferComponentCount, 1);
+        }
+        heatmapValue = heatmapValue * exp2(exposure) * scale + offset;
         return float4(Heatmap(heatmapValue), 1.0);
     }
-    value.rgb *= exp2(exposure);
-    value = value * scale + offset;
-    if (bufferVisualizationMode == 0 && channel > 0)
+    if (channel > 0)
     {
         const uint component = min(channel - 1, 3);
-        value = value[component].xxxx;
+        const float selectedValue = value[component] * exp2(exposure) * scale + offset;
+        return float4(selectedValue, selectedValue, selectedValue, 1.0);
     }
+
+    value.rgb *= exp2(exposure);
+    value = value * scale + offset;
     return value;
 }

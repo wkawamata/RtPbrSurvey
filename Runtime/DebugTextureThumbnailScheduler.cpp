@@ -34,95 +34,86 @@ DebugTextureThumbnailScheduler::BuildFramePlan(uint64_t frameIndex)
 {
     m_currentFrame = frameIndex;
     std::array<DebugTextureThumbnailSlotPlan, kSlotCount> plan;
-    if (m_pendingRequests.empty())
-    {
-        m_slots = {};
-        return plan;
-    }
-
     std::vector<RequestState> requests = std::move(m_pendingRequests);
     m_pendingRequests.clear();
     const auto selected = std::find_if(
         requests.begin(), requests.end(), [](const RequestState& request) { return request.selected; });
-    std::vector<const RequestState*> desired;
+    std::vector<RequestState> desired;
+    desired.reserve(kSlotCount);
     if (selected != requests.end())
     {
-        desired.push_back(&*selected);
+        desired.push_back(*selected);
     }
 
-    std::vector<const RequestState*> visible;
+    const auto isDesired = [&desired](const std::string& resourceName)
+    {
+        return std::any_of(desired.begin(), desired.end(), [&resourceName](const RequestState& request)
+                           { return request.resourceName == resourceName; });
+    };
+    const auto findRequest = [&requests](const std::string& resourceName)
+    {
+        return std::find_if(requests.begin(), requests.end(), [&resourceName](const RequestState& request)
+                            { return request.resourceName == resourceName; });
+    };
+
+    for (const SlotState& slot : m_slots)
+    {
+        if (!slot.active || desired.size() >= kSlotCount || isDesired(slot.resourceName))
+        {
+            continue;
+        }
+        const auto request = findRequest(slot.resourceName);
+        if (request != requests.end())
+        {
+            desired.push_back(*request);
+        }
+    }
+
     for (const RequestState& request : requests)
     {
-        if (!request.selected)
+        if (desired.size() >= kSlotCount)
         {
-            visible.push_back(&request);
+            break;
+        }
+        if (!isDesired(request.resourceName))
+        {
+            desired.push_back(request);
         }
     }
 
-    const size_t availableVisibleSlots = kSlotCount - desired.size();
-    const bool hasEmptySlot = std::any_of(
-        m_slots.begin(), m_slots.end(), [](const SlotState& slot) { return !slot.active; });
-    const bool rotateVisible = hasEmptySlot || frameIndex % kUnselectedRefreshInterval == 0;
-    if (!rotateVisible)
+    for (const SlotState& slot : m_slots)
     {
-        for (const SlotState& slot : m_slots)
+        if (!slot.active || desired.size() >= kSlotCount || isDesired(slot.resourceName) ||
+            frameIndex - slot.lastRequestFrame > kRequestGraceFrames)
         {
-            const auto request = std::find_if(visible.begin(),
-                                              visible.end(),
-                                              [&slot](const RequestState* candidate)
-                                              { return candidate->resourceName == slot.resourceName; });
-            if (request != visible.end() && desired.size() < kSlotCount)
-            {
-                desired.push_back(*request);
-            }
+            continue;
         }
-    }
-
-    if (!visible.empty())
-    {
-        size_t visited = 0;
-        while (desired.size() < kSlotCount && visited < visible.size())
-        {
-            const RequestState* request = visible[(m_roundRobinCursor + visited) % visible.size()];
-            const bool alreadyDesired = std::any_of(desired.begin(),
-                                                    desired.end(),
-                                                    [request](const RequestState* candidate)
-                                                    { return candidate->resourceName == request->resourceName; });
-            if (!alreadyDesired)
-            {
-                desired.push_back(request);
-            }
-            ++visited;
-        }
-        if (rotateVisible && availableVisibleSlots > 0)
-        {
-            m_roundRobinCursor = (m_roundRobinCursor + availableVisibleSlots) % visible.size();
-        }
+        desired.push_back({slot.resourceName, slot.semantic, slot.viewKind, false});
     }
 
     std::array<bool, kSlotCount> assigned = {};
     std::vector<std::pair<const RequestState*, size_t>> assignments;
     assignments.reserve(desired.size());
-    for (const RequestState* request : desired)
+    for (const RequestState& request : desired)
     {
         const auto existing = std::find_if(m_slots.begin(),
                                            m_slots.end(),
-                                           [request](const SlotState& slot)
-                                           { return slot.active && slot.resourceName == request->resourceName; });
+                                           [&request](const SlotState& slot)
+                                           { return slot.active && slot.resourceName == request.resourceName; });
         if (existing == m_slots.end())
         {
             continue;
         }
         const size_t slotIndex = static_cast<size_t>(std::distance(m_slots.begin(), existing));
         assigned[slotIndex] = true;
-        assignments.push_back({request, slotIndex});
+        assignments.push_back({&request, slotIndex});
     }
-    for (const RequestState* request : desired)
+    for (const RequestState& request : desired)
     {
         const bool alreadyAssigned = std::any_of(assignments.begin(),
                                                  assignments.end(),
-                                                 [request](const auto& assignment)
-                                                 { return assignment.first == request; });
+                                                 [&request](const auto& assignment)
+                                                 { return assignment.first == &request; });
         if (alreadyAssigned)
         {
             continue;
@@ -134,7 +125,7 @@ DebugTextureThumbnailScheduler::BuildFramePlan(uint64_t frameIndex)
         }
         const size_t slotIndex = static_cast<size_t>(std::distance(assigned.begin(), freeSlot));
         assigned[slotIndex] = true;
-        assignments.push_back({request, slotIndex});
+        assignments.push_back({&request, slotIndex});
     }
 
     for (size_t slotIndex = 0; slotIndex < kSlotCount; ++slotIndex)
@@ -151,8 +142,11 @@ DebugTextureThumbnailScheduler::BuildFramePlan(uint64_t frameIndex)
         const RequestState& request = *assignment->first;
         SlotState& slot = m_slots[slotIndex];
         const bool changed = !slot.active || slot.resourceName != request.resourceName;
-        const bool update = changed || request.selected ||
-            frameIndex - slot.lastUpdateFrame >= kUnselectedRefreshInterval;
+        const auto currentRequest = findRequest(request.resourceName);
+        const bool requested = currentRequest != requests.end();
+        const bool selectedRequest = requested && currentRequest->selected;
+        const bool update = requested &&
+            (changed || selectedRequest || frameIndex - slot.lastUpdateFrame >= kUnselectedRefreshInterval);
         if (changed)
         {
             slot.readyFrame = frameIndex + 1;
@@ -165,6 +159,10 @@ DebugTextureThumbnailScheduler::BuildFramePlan(uint64_t frameIndex)
         slot.resourceName = request.resourceName;
         slot.semantic = request.semantic;
         slot.viewKind = request.viewKind;
+        if (requested)
+        {
+            slot.lastRequestFrame = frameIndex;
+        }
         plan[slotIndex] = {true, update, slot.resourceName, slot.semantic, slot.viewKind};
     }
     return plan;
@@ -187,7 +185,6 @@ void DebugTextureThumbnailScheduler::Reset()
 {
     m_pendingRequests.clear();
     m_slots = {};
-    m_roundRobinCursor = 0;
     m_currentFrame = 0;
 }
 } // namespace RtPbrSurvey

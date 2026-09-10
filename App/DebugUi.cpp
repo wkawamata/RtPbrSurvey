@@ -8,6 +8,7 @@
 
 #include <imgui.h>
 
+#include <cmath>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
@@ -1622,6 +1623,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         app.m_debugTextureInspectors.Inspectors().begin(),
         app.m_debugTextureInspectors.Inspectors().end(),
         [](const RtPbrSurvey::DebugTextureInspector& inspector) { return inspector.open; }));
+    renderGraphResourceActions.pinnedPreviewCount = static_cast<size_t>(std::count_if(
+        app.m_debugTextureInspectors.Inspectors().begin(),
+        app.m_debugTextureInspectors.Inspectors().end(),
+        [](const RtPbrSurvey::DebugTextureInspector& inspector) { return inspector.open && inspector.pinned; }));
     renderGraphResourceActions.maxPreviewCount = RtPbrSurvey::DebugTextureInspectorManager::kMaxInspectorCount;
     renderGraphResourceActions.openPreview =
         [&app](const Engine::DebugResourceViewDescriptor& descriptor, bool pinned)
@@ -1744,6 +1749,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             }
             ImGui::TextUnformatted(inspector.resourceName.c_str());
             ImGui::SameLine();
+            ImGui::Checkbox(("Pinned##DebugTexture" + std::to_string(inspector.id)).c_str(), &inspector.pinned);
+            ImGui::SameLine();
             if (ImGui::SmallButton(("Close All##DebugTexture" + std::to_string(inspector.id)).c_str()))
             {
                 closeAllDebugTexturePreviews = true;
@@ -1836,11 +1843,22 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             if (previewId != 0 && resource != nullptr)
             {
                 const D3D12_RESOURCE_DESC desc = resource->GetDesc();
-                const float availableWidth = ImGui::GetContentRegionAvail().x;
+                const ImVec2 available = ImGui::GetContentRegionAvail();
                 const float aspect = bufferSource && inspector.bufferImageLayout.height > 0
                     ? static_cast<float>(inspector.bufferImageLayout.width) / inspector.bufferImageLayout.height
                     : (desc.Height > 0 ? static_cast<float>(desc.Width) / desc.Height : 1.0f);
-                ImGui::Image(ImTextureRef(previewId), ImVec2(availableWidth, availableWidth / aspect));
+                float imageWidth = (std::min)(available.x, available.y * aspect);
+                float imageHeight = imageWidth / aspect;
+                if (bufferSource && inspector.bufferImageLayout.width > 0 && inspector.bufferImageLayout.height > 0)
+                {
+                    const float cellWidth = std::floor(imageWidth / inspector.bufferImageLayout.width);
+                    const float cellHeight = std::floor(imageHeight / inspector.bufferImageLayout.height);
+                    const float cellSize = (std::max)(1.0f, (std::min)(cellWidth, cellHeight));
+                    imageWidth = cellSize * inspector.bufferImageLayout.width;
+                    imageHeight = cellSize * inspector.bufferImageLayout.height;
+                }
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 0.5f * (available.x - imageWidth));
+                ImGui::Image(ImTextureRef(previewId), ImVec2(imageWidth, imageHeight));
             }
             else
             {

@@ -58,7 +58,7 @@ struct DebugTextureInspector
 class DebugTextureInspectorManager
 {
 public:
-    static constexpr size_t kMaxInspectorCount = 4;
+    static constexpr size_t kMaxInspectorCount = 8;
 
     DebugTextureInspector* OpenPreview(
         std::string resourceName, std::string displayName, DebugTextureSemantic semantic);
@@ -78,6 +78,11 @@ private:
         std::string resourceName, std::string displayName, DebugTextureSemantic semantic, bool pinned);
     DebugTextureInspector* Create(
         std::string resourceName, std::string displayName, DebugTextureSemantic semantic, bool pinned);
+    DebugTextureInspector* CreateInSlot(std::string resourceName,
+                                        std::string displayName,
+                                        DebugTextureSemantic semantic,
+                                        bool pinned,
+                                        uint32_t slotIndex);
 
     std::vector<DebugTextureInspector> m_inspectors;
     uint64_t m_nextId = 1;

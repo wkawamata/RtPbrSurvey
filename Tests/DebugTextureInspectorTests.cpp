@@ -61,9 +61,11 @@ bool TestDifferentPreviewsRemainIndependent()
            Check(manager.Find(firstId)->resourceName == "GBuffer.Albedo", "first preview remains unchanged");
 }
 
-bool TestPreviewLimit()
+bool TestPreviewLimitUsesFifoReplacement()
 {
     RtPbrSurvey::DebugTextureInspectorManager manager;
+    bool passed = Check(RtPbrSurvey::DebugTextureInspectorManager::kMaxInspectorCount == 8,
+                        "preview limit is increased to eight");
     for (size_t i = 0; i < RtPbrSurvey::DebugTextureInspectorManager::kMaxInspectorCount; ++i)
     {
         if (manager.OpenPreview(
@@ -73,9 +75,53 @@ bool TestPreviewLimit()
         }
     }
 
+    const uint64_t oldestId = manager.Inspectors().front().id;
+    const uint32_t oldestSlot = manager.Inspectors().front().slotIndex;
+    const auto* replacement =
+        manager.OpenPreview("Resource.overflow", "Overflow", RtPbrSurvey::DebugTextureSemantic::Color);
+    passed &= Check(replacement != nullptr, "preview beyond the limit replaces the FIFO entry");
+    passed &= Check(manager.Inspectors().size() == RtPbrSurvey::DebugTextureInspectorManager::kMaxInspectorCount,
+                    "FIFO replacement keeps the preview count bounded");
+    passed &= Check(manager.Find(oldestId) == nullptr, "oldest unpinned preview is removed");
+    passed &= Check(replacement != nullptr && replacement->slotIndex == oldestSlot,
+                    "FIFO replacement reuses the evicted GPU slot");
+    return passed;
+}
+
+bool TestFifoReplacementSkipsPinnedPreviews()
+{
+    RtPbrSurvey::DebugTextureInspectorManager manager;
+    const auto* pinned = manager.PinPreview("Resource.pinned", "Pinned", RtPbrSurvey::DebugTextureSemantic::Color);
+    const uint64_t pinnedId = pinned != nullptr ? pinned->id : 0;
+    for (size_t i = 1; i < RtPbrSurvey::DebugTextureInspectorManager::kMaxInspectorCount; ++i)
+    {
+        manager.OpenPreview(
+            "Resource." + std::to_string(i), "Resource", RtPbrSurvey::DebugTextureSemantic::Color);
+    }
+
+    const auto* replacement =
+        manager.OpenPreview("Resource.overflow", "Overflow", RtPbrSurvey::DebugTextureSemantic::Color);
+    return Check(replacement != nullptr, "FIFO replacement opens with a pinned preview present") &&
+           Check(manager.Find(pinnedId) != nullptr, "pinned preview is not evicted") &&
+           Check(std::none_of(manager.Inspectors().begin(),
+                              manager.Inspectors().end(),
+                              [](const auto& inspector) { return inspector.resourceName == "Resource.1"; }),
+                 "oldest unpinned preview is evicted first");
+}
+
+bool TestAllPinnedPreviewsRejectReplacement()
+{
+    RtPbrSurvey::DebugTextureInspectorManager manager;
+    for (size_t i = 0; i < RtPbrSurvey::DebugTextureInspectorManager::kMaxInspectorCount; ++i)
+    {
+        manager.PinPreview("Resource." + std::to_string(i), "Pinned", RtPbrSurvey::DebugTextureSemantic::Color);
+    }
+
     return Check(manager.OpenPreview("Resource.overflow", "Overflow", RtPbrSurvey::DebugTextureSemantic::Color) ==
                      nullptr,
-                 "preview beyond the limit is rejected");
+                 "all pinned previews reject FIFO replacement") &&
+           Check(manager.Inspectors().size() == RtPbrSurvey::DebugTextureInspectorManager::kMaxInspectorCount,
+                 "rejected replacement leaves pinned previews unchanged");
 }
 
 bool TestCloseAndRemove()
@@ -221,6 +267,7 @@ bool TestBufferPreviewConstantsPreserveImageLayout()
 {
     Engine::DebugTexturePreviewSettings settings;
     settings.bufferVisualizationMode = Engine::DebugBufferVisualizationMode::Heatmap;
+    settings.channel = Engine::DebugTexturePreviewChannel::G;
     settings.bufferWidth = 16;
     settings.bufferHeight = 8;
     settings.bufferRowStrideElements = 20;
@@ -231,6 +278,7 @@ bool TestBufferPreviewConstantsPreserveImageLayout()
     const Engine::DebugTexturePreviewSettings::ShaderConstants constants =
         settings.MakeShaderConstants(0.1f, 100.0f, false);
     return Check(constants.bufferVisualizationMode == 1, "Heatmap mode reaches shader constants") &&
+           Check(constants.channel == 2, "Buffer channel reaches shader constants") &&
            Check(constants.bufferWidth == 16 && constants.bufferHeight == 8,
                  "Buffer image dimensions reach shader constants") &&
            Check(constants.bufferRowStrideElements == 20 && constants.bufferElementStride == 32,
@@ -266,16 +314,21 @@ bool TestThumbnailSchedulerPrioritizesSelectionAndBoundsSlots()
     const auto secondPlan = scheduler.BuildFramePlan(2);
     const auto selectedSecond = std::find_if(
         secondPlan.begin(), secondPlan.end(), [](const auto& slot) { return slot.resourceName == "Selected"; });
+    const bool selectedReady = scheduler.FindReadySlot("Selected").has_value();
+    const bool graceRetained = scheduler.FindReadySlot("Visible.1").has_value();
+    scheduler.BuildFramePlan(5);
     return Check(activeCount == RtPbrSurvey::DebugTextureThumbnailScheduler::kSlotCount,
                  "thumbnail slots remain bounded") &&
            Check(selected != firstPlan.end() && selected->update, "selected thumbnail receives a slot") &&
-           Check(!scheduler.FindReadySlot("Visible.1").has_value(), "unrequested thumbnail is retired") &&
            Check(selectedSecond != secondPlan.end() && selectedSecond->update,
                  "selected thumbnail updates every frame") &&
-           Check(scheduler.FindReadySlot("Selected").has_value(), "updated thumbnail becomes ready next frame");
+           Check(selectedReady, "updated thumbnail becomes ready next frame") &&
+           Check(graceRetained, "brief visibility gaps retain thumbnail slots") &&
+           Check(!scheduler.FindReadySlot("Visible.1").has_value(),
+                 "unrequested thumbnail retires after the visibility grace period");
 }
 
-bool TestThumbnailSchedulerThrottlesAndRotatesVisibleResources()
+bool TestThumbnailSchedulerKeepsVisibleResourcesStable()
 {
     RtPbrSurvey::DebugTextureThumbnailScheduler scheduler;
     for (int i = 0; i < 5; ++i)
@@ -292,16 +345,28 @@ bool TestThumbnailSchedulerThrottlesAndRotatesVisibleResources()
     {
         scheduler.Request(MakeThumbnailDescriptor(("Visible." + std::to_string(i)).c_str()), false);
     }
-    const auto rotatedPlan = scheduler.BuildFramePlan(8);
+    const auto refreshedPlan = scheduler.BuildFramePlan(9);
     const bool firstUpdated =
         std::all_of(firstPlan.begin(), firstPlan.end(), [](const auto& slot) { return slot.active && slot.update; });
     const bool secondSkipped =
         std::none_of(throttledPlan.begin(), throttledPlan.end(), [](const auto& slot) { return slot.update; });
-    const bool rotatedToFifth = std::any_of(
-        rotatedPlan.begin(), rotatedPlan.end(), [](const auto& slot) { return slot.resourceName == "Visible.4"; });
+    const bool assignmentsStable = std::equal(firstPlan.begin(),
+                                              firstPlan.end(),
+                                              refreshedPlan.begin(),
+                                              [](const auto& first, const auto& refreshed)
+                                              { return first.resourceName == refreshed.resourceName; });
+    const bool refreshed =
+        std::all_of(refreshedPlan.begin(), refreshedPlan.end(), [](const auto& slot) { return slot.update; });
+
+    scheduler.Request(MakeThumbnailDescriptor("Visible.4"), false);
+    const auto replacementPlan = scheduler.BuildFramePlan(10);
+    const bool replacementAdded = std::any_of(replacementPlan.begin(), replacementPlan.end(), [](const auto& slot)
+                                              { return slot.resourceName == "Visible.4" && slot.update; });
     return Check(firstUpdated, "new visible thumbnail slots update immediately") &&
            Check(secondSkipped, "visible thumbnails are throttled between refreshes") &&
-           Check(rotatedToFifth, "visible resources rotate through the bounded pool");
+           Check(assignmentsStable, "visible resources keep stable thumbnail slots") &&
+           Check(refreshed, "stable thumbnails refresh without rotating resources") &&
+           Check(replacementAdded, "newly visible resource replaces an unrequested thumbnail");
 }
 
 bool TestThumbnailSchedulerAcceptsRegisteredBufferImages()
@@ -329,14 +394,15 @@ int main()
 {
     const bool passed =
         TestOpenPreviewReusesMatchingInspector() && TestPinnedPreviewsRemainIndependent() &&
-        TestDifferentPreviewsRemainIndependent() && TestPreviewLimit() && TestCloseAndRemove() &&
+        TestDifferentPreviewsRemainIndependent() && TestPreviewLimitUsesFifoReplacement() &&
+        TestFifoReplacementSkipsPinnedPreviews() && TestAllPinnedPreviewsRejectReplacement() && TestCloseAndRemove() &&
         TestClosedSlotIsReusedWithoutMovingLiveInspectors() && TestDepthVisualizationDefaultsFollowCameraRange() &&
         TestDepthVisualizationConstantsSanitizeInvalidValues() &&
         TestDebugResourceViewRegistryReportsSupportAndReasons() && TestBufferInspectorDoesNotGuessUnknownSchema() &&
         TestBufferInspectorValidatesRegisteredImageLayout() && TestBufferInspectorRejectsOutOfRangeImageLayout() &&
         TestBufferPreviewConstantsPreserveImageLayout() &&
         TestThumbnailSchedulerPrioritizesSelectionAndBoundsSlots() &&
-        TestThumbnailSchedulerThrottlesAndRotatesVisibleResources() &&
+        TestThumbnailSchedulerKeepsVisibleResourcesStable() &&
         TestThumbnailSchedulerAcceptsRegisteredBufferImages();
     if (passed)
     {

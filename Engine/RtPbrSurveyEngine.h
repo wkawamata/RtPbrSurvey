@@ -100,7 +100,7 @@ namespace RootSignatureLayout = Engine::RootSignatureLayout;
 class RtPbrSurveyEngine
 {
 public:
-    static constexpr UINT kMaxDebugTexturePreviewCount = 4;
+    static constexpr UINT kMaxDebugTexturePreviewCount = 8;
     static constexpr UINT kMaxDebugTextureThumbnailCount = 4;
     static constexpr UINT kMaxDebugTextureOutputCount =
         kMaxDebugTexturePreviewCount + kMaxDebugTextureThumbnailCount;
@@ -942,6 +942,10 @@ private:
         kLightPassRenderTargetResourceName,
         kLightPassRenderTargetResourceName,
         kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
+        kLightPassRenderTargetResourceName,
     };
     std::array<bool, kMaxDebugTextureOutputCount> m_debugTexturePreviewBufferSources = {};
     std::array<std::string, kMaxDebugTextureOutputCount> m_debugTexturePreviewSourceDescriptorNames;
@@ -1163,6 +1167,10 @@ private:
         "DebugTexturePreview.Output.1",
         "DebugTexturePreview.Output.2",
         "DebugTexturePreview.Output.3",
+        "DebugTexturePreview.Output.4",
+        "DebugTexturePreview.Output.5",
+        "DebugTexturePreview.Output.6",
+        "DebugTexturePreview.Output.7",
         "DebugTextureThumbnail.Output.0",
         "DebugTextureThumbnail.Output.1",
         "DebugTextureThumbnail.Output.2",
@@ -1173,6 +1181,10 @@ private:
         L"DebugTexturePreviewPass.1",
         L"DebugTexturePreviewPass.2",
         L"DebugTexturePreviewPass.3",
+        L"DebugTexturePreviewPass.4",
+        L"DebugTexturePreviewPass.5",
+        L"DebugTexturePreviewPass.6",
+        L"DebugTexturePreviewPass.7",
         L"DebugTextureThumbnailPass.0",
         L"DebugTextureThumbnailPass.1",
         L"DebugTextureThumbnailPass.2",
@@ -1183,6 +1195,10 @@ private:
         "DebugTexturePreviewSourceSrv.1",
         "DebugTexturePreviewSourceSrv.2",
         "DebugTexturePreviewSourceSrv.3",
+        "DebugTexturePreviewSourceSrv.4",
+        "DebugTexturePreviewSourceSrv.5",
+        "DebugTexturePreviewSourceSrv.6",
+        "DebugTexturePreviewSourceSrv.7",
         "DebugTextureThumbnailSourceSrv.0",
         "DebugTextureThumbnailSourceSrv.1",
         "DebugTextureThumbnailSourceSrv.2",
@@ -1193,6 +1209,10 @@ private:
         "DebugTexturePreview.1",
         "DebugTexturePreview.2",
         "DebugTexturePreview.3",
+        "DebugTexturePreview.4",
+        "DebugTexturePreview.5",
+        "DebugTexturePreview.6",
+        "DebugTexturePreview.7",
         "DebugTextureThumbnail.0",
         "DebugTextureThumbnail.1",
         "DebugTextureThumbnail.2",
@@ -1203,6 +1223,10 @@ private:
         "DebugTexturePreview.1",
         "DebugTexturePreview.2",
         "DebugTexturePreview.3",
+        "DebugTexturePreview.4",
+        "DebugTexturePreview.5",
+        "DebugTexturePreview.6",
+        "DebugTexturePreview.7",
         "DebugTextureThumbnail.0",
         "DebugTextureThumbnail.1",
         "DebugTextureThumbnail.2",

@@ -43,6 +43,7 @@ struct RenderGraphResourceActions
     std::function<void(const std::string&)> closePreview;
     std::function<void()> closeAllPreviews;
     size_t activePreviewCount = 0;
+    size_t pinnedPreviewCount = 0;
     size_t maxPreviewCount = 0;
 };
 
