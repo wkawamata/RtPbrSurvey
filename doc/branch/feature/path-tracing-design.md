@@ -405,10 +405,24 @@ DLSS RR は specular/diffuse input contract を持つため、単一 radiance ou
 完了条件: RenderGraph に PathTracing pass/resources が現れ、clear color を PathTracing.SceneColor 経由で
 tone map できる。
 
-### Commit 3: primary rays and hit reconstruction
+### Commit 3A: behavior-preserving Hybrid shader extraction
+
+- behavior-preserving `SceneRayQuery.hlsli` extraction from Hybrid Reflection
+- Hybrid Reflection migration and regression validation
+
+完了条件: Hybrid Reflection の resource registers、payload、debug view、出力画像が抽出前から変わらない。
+
+### Commit 3B: CPU scene binding commonization
+
+- CPU-side `RayQuerySceneBindings` and engine binding factory
+- Hybrid Reflection pass descriptor migration
+- visible RenderGraph metadata for shared scene-RayQuery inputs where supported
+
+完了条件: Hybrid Reflection の実行結果を維持したまま、次の RayQuery consumer が scene bindings を再利用できる。
+
+### Commit 3C: primary rays and hit reconstruction
 
 - `shaders_PathTracing.hlsl`
-- `SceneRayQuery.hlsli` 抽出
 - primary ray、closest hit、miss
 - normal/albedo/emissive diagnostic output
 - shader build entries for MSBuild and CMake
@@ -639,3 +653,179 @@ the backend implementation. The native renderer must continue to build and run w
 At every milestone, Native accumulated output remains available as the correctness reference. A faster method is not
 accepted solely because it is smoother; energy, bias, temporal stability, disocclusion, and material response are
 evaluated separately.
+
+## 16. Hybrid Reflection reuse and commonization
+
+Path Tracing should reuse the current Hybrid Reflection scene contract, but it must not turn Hybrid Reflection and Path
+Tracing into one configurable mega-pass. Commonize data access and math; keep pass scheduling, inputs, outputs, and
+estimator state separate.
+
+### 16.1 Reuse without modification
+
+The following existing facilities are already suitable for both paths.
+
+- `RayTracingSupportInfo` and the DXR support query
+- `AccelerationStructureResources` BLAS/TLAS build and per-frame TLAS rebuild
+- packed scene vertex/index buffers and `SceneMesh::Range`
+- per-frame `InstanceData`
+- `MaterialBuffer` and bindless scene texture table
+- camera constant buffer and inverse view-projection convention
+- `RenderTextureSpec`, RenderGraph authoring, Debug Texture registry, and preview windows
+- lighting, tone-map, SceneRendererSettings, SceneConfig, and Evaluation Case ownership
+
+These objects remain renderer-owned. Path Tracing receives narrow bindings and does not take ownership of scene or
+acceleration-structure lifetime.
+
+### 16.2 CPU binding contract
+
+`ExecuteHybridReflectionPass()` currently assembles TLAS, geometry addresses, material/texture descriptors, mesh-range
+address, indexed-draw state, and element counts directly. Path Tracing would duplicate the same assembly.
+
+Introduce a renderer-level value type such as:
+
+```cpp
+struct RayQuerySceneBindings
+{
+    D3D12_GPU_DESCRIPTOR_HANDLE tlasSrv = {};
+    D3D12_GPU_VIRTUAL_ADDRESS vertexBufferSrv = 0;
+    D3D12_GPU_VIRTUAL_ADDRESS indexBufferSrv = 0;
+    D3D12_GPU_VIRTUAL_ADDRESS instanceBufferSrv = 0;
+    D3D12_GPU_VIRTUAL_ADDRESS meshRangeBufferSrv = 0;
+    D3D12_GPU_DESCRIPTOR_HANDLE materialBufferSrv = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE textureTableSrv = {};
+    UINT vertexCount = 0;
+    UINT indexCount = 0;
+    UINT usesIndexedDraw = 0;
+};
+```
+
+`RtPbrSurveyEngine::MakeRayQuerySceneBindings()` builds it for the current frame. Both `HybridReflectionPassDesc` and
+`PathTracingPassDesc` contain this value. The struct contains renderer feature-neutral D3D12 binding data only; it
+contains no Hybrid, Path Tracing, DLSS, UI, or Scene object.
+
+Do not immediately add a generic command-list binder. The two passes have different output and input root parameters.
+If a third full-scene RayQuery consumer appears, introduce a small `BindRayQueryScene()` helper with explicit root-index
+mapping at that time.
+
+### 16.3 Stable HLSL register contract
+
+Use the existing Hybrid Reflection scene registers as the shared shader contract.
+
+| Binding | Register |
+|---|---|
+| TLAS | `t0` |
+| scene vertices | `t4` |
+| scene indices | `t5` |
+| instance data | `t6` |
+| material data | `t7` |
+| mesh ranges | `t8` |
+| bindless scene textures | `t0, space8` |
+| scene texture sampler | `s0` |
+
+PathTracing can choose different root-parameter indices while exposing the same shader registers. Avoid preprocessor
+macros that dynamically rewrite registers; they make shader captures and root-signature validation harder to compare.
+
+### 16.4 HLSL extraction boundaries
+
+Extract the existing code in behavior-preserving steps.
+
+#### `SceneRayQuery.hlsli`
+
+Owns:
+
+- `MeshRange` and packed CPU/GPU layout constants
+- vertex position, UV, normal, tangent, and material-ID loads
+- index and mesh-range resolution
+- instance material/mesh resolution
+- primitive vertex-index reconstruction
+- barycentric UV/normal/tangent interpolation
+- object-to-world position and normal transformation
+- a neutral `SceneRayQueryHit` structure built from a committed triangle hit
+
+The include initially preserves the current 52-byte `SceneVertex`, 144-byte `InstanceData`, and 16-byte mesh-range
+layout. Existing CPU `static_assert` checks remain and are moved next to the common binding setup if practical.
+
+#### `RayTracingMaterial.hlsli`
+
+Owns:
+
+- material-ID selection and instance fallback
+- UV scale/offset application
+- base color, metallic, roughness, emissive, normal-texture metadata
+- a neutral `RayTracingMaterialSample`
+
+Hybrid-specific payload packing (`ReflectionRayColor`, `ReflectionRayMaterial`, octahedral payload layout) remains in
+`shaders_HybridReflection.hlsl`. Path throughput and BSDF state remain in `shaders_PathTracing.hlsl`.
+
+#### `ColorSpace.hlsli`
+
+`SrgbToLinear()` is currently duplicated in GBuffer and Hybrid Reflection. Move it only after a focused shader compile
+and image regression check. Color-space helpers are common; texture semantic decisions remain at their call sites.
+
+#### Sampling includes
+
+`ReflectionSampling.hlsli` already contains Schlick Fresnel, Smith GGX, tangent-frame construction, a rough-reflection
+sampler, and estimator math. Split only the mathematically general pieces after the baseline extraction:
+
+- `SamplingCommon.hlsli`: constants, tangent frame, RNG interface
+- `PbrSampling.hlsli`: Fresnel, GGX distribution/geometry, BRDF evaluation and PDF
+- `ReflectionSampling.hlsli`: Hybrid-specific pixel/frame sampling wrapper and fallback behavior
+
+The current `HashReflectionSample(pixel, frameIndex, salt)` is retained for Hybrid behavior. Path Tracing uses a
+stateful per-path RNG keyed by pixel, global sample index, bounce, and seed. Redirecting Hybrid to the new RNG in the
+same commit is prohibited.
+
+### 16.5 Code that must remain Hybrid-specific
+
+- GBuffer depth/normal/PBR inputs and material gate
+- one reflected ray starting from the rasterized primary surface
+- `hitNormalSource` diagnostic modes
+- `ReflectionRayHit/Color/Material/Emission` output encodings
+- stochastic-reflection frame index and history commit
+- reflection evaluate, temporal/spatial filter, and RR pass scheduling
+- Hybrid contribution/composite settings
+
+Path Tracing independently owns primary-ray generation, bounce loop, path RNG, throughput, emission accumulation,
+Russian roulette, progressive history, and denoiser signal separation.
+
+### 16.6 Known behavior to preserve or fix separately
+
+The extraction commit is behavior-preserving, including existing limitations. Do not combine these corrections with
+file movement.
+
+- Hybrid's material ID is selected from the dominant barycentric vertex, with instance material as fallback.
+- Hybrid currently samples albedo, metallic-roughness, and emissive but does not apply its normal texture to the hit
+  normal.
+- normal transformation uses the existing object-to-world 3x3 path; non-uniform-scale inverse-transpose correctness
+  must be investigated separately.
+- texture samples use explicit mip 0 because ray differentials are not available.
+- the current triangle-only opaque query calls `Proceed()` once and has no any-hit/alpha-test behavior.
+- Hybrid payload encoding and zero-on-miss behavior are observable debug contracts.
+
+After extraction, each limitation receives its own issue/commit and Native/Hybrid A/B evidence. Path Tracing must not
+silently implement a different material convention unless the difference is documented and selectable for comparison.
+
+### 16.7 RenderGraph resource visibility
+
+Hybrid Reflection's RenderGraph declaration currently lists depth, normal, and PBR textures, but TLAS, geometry,
+instance, material, mesh-range, and texture-table dependencies are bound outside those visible reads. Commonization
+should introduce stable logical resource names for these scene inputs and register them for both Hybrid and Path
+Tracing where the current RenderGraph resource model supports them.
+
+This graph metadata is not allowed to change resource ownership or descriptor-heap architecture. Its purpose is
+dependency visibility, related-node filtering, and debugging. Add it as a separate commit after the CPU binding value
+type is established.
+
+### 16.8 Safe extraction sequence
+
+1. Add shader compile tests or build checks that cover Hybrid Reflection.
+2. Extract `SceneRayQuery.hlsli` with no output or register changes.
+3. Extract `RayTracingMaterial.hlsli` with no material or color-space changes.
+4. Run Debug x64 and the existing Hybrid Reflection visual/CLI checks.
+5. Add `RayQuerySceneBindings` and migrate only Hybrid Reflection.
+6. Verify RenderGraph, DLSS RR inputs, and Hybrid debug previews are unchanged.
+7. Add PathTracingPass as the second consumer.
+8. Generalize BRDF math only after both consumers have independent tests.
+
+The extraction may be one review branch but should use at least two commits: shader extraction first, CPU binding
+commonization second. This makes a Hybrid regression bisectable before Path Tracing code is introduced.
