@@ -67,6 +67,7 @@ struct CommandLineOptions
     std::wstring autoSelectGltfAssetName;
     bool autoSelectHybridReflectionEstimatorTest = false;
     bool useSceneDefaults = false;
+    bool enablePathTracing = false;
     bool enableDlssSr = false;
     bool enableDebugTexturePreview = false;
     std::string debugPreviewResourceName;

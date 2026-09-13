@@ -38,6 +38,7 @@ bool TestRoundTrip()
     source.pathTracing.environmentEnabled = false;
     source.pathTracing.emissiveEnabled = false;
     source.pathTracing.russianRouletteEnabled = true;
+    source.pathTracing.debugOutput = RtPbrSurveyEngine::PathTracingDebugOutput::WorldNormal;
     source.toneMap.exposure = 1.7f;
     source.specularDebugLines.lineLength = 3.5f;
     source.renderingPath = RtPbrSurveyEngine::RenderingPath::PathTracing;
@@ -79,7 +80,8 @@ bool TestRoundTrip()
                         restored.pathTracing.directLightingEnabled == source.pathTracing.directLightingEnabled &&
                         restored.pathTracing.environmentEnabled == source.pathTracing.environmentEnabled &&
                         restored.pathTracing.emissiveEnabled == source.pathTracing.emissiveEnabled &&
-                        restored.pathTracing.russianRouletteEnabled == source.pathTracing.russianRouletteEnabled,
+                        restored.pathTracing.russianRouletteEnabled == source.pathTracing.russianRouletteEnabled &&
+                        restored.pathTracing.debugOutput == source.pathTracing.debugOutput,
                     "path tracing settings round-trip");
     passed &= Check(restored.toneMap.exposure == source.toneMap.exposure, "tone mapping settings round-trip");
     passed &= Check(restored.specularDebugLines.lineLength == source.specularDebugLines.lineLength,

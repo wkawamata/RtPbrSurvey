@@ -116,6 +116,7 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
     pathTracing["environmentEnabled"] = settings.pathTracing.environmentEnabled;
     pathTracing["emissiveEnabled"] = settings.pathTracing.emissiveEnabled;
     pathTracing["russianRouletteEnabled"] = settings.pathTracing.russianRouletteEnabled;
+    pathTracing["debugOutput"] = static_cast<int>(settings.pathTracing.debugOutput);
 
     json toneMap;
     toneMap["operatorIndex"] = settings.toneMap.operatorIndex;
@@ -272,6 +273,13 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
                 pathTracing.value("emissiveEnabled", parsed.pathTracing.emissiveEnabled);
             parsed.pathTracing.russianRouletteEnabled =
                 pathTracing.value("russianRouletteEnabled", parsed.pathTracing.russianRouletteEnabled);
+            const int debugOutput = pathTracing.value("debugOutput", static_cast<int>(parsed.pathTracing.debugOutput));
+            if (debugOutput >= static_cast<int>(RtPbrSurveyEngine::PathTracingDebugOutput::Albedo) &&
+                debugOutput <= static_cast<int>(RtPbrSurveyEngine::PathTracingDebugOutput::Emissive))
+            {
+                parsed.pathTracing.debugOutput =
+                    static_cast<RtPbrSurveyEngine::PathTracingDebugOutput>(debugOutput);
+            }
         }
 
         if (value.contains("toneMap"))

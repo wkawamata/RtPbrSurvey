@@ -137,6 +137,13 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
             "-AutoSelectGltfDamagedHelmet, -AutoSelectGltfAsset, and "
             "-AutoSelectHybridReflectionEstimatorTest are mutually exclusive.");
     }
+    if (m_commandLineOptions.enablePathTracing &&
+        (m_commandLineOptions.enableDlssSr || m_commandLineOptions.enableDlssRayReconstruction ||
+         m_commandLineOptions.captureReflectionResolvedRadiance))
+    {
+        throw std::invalid_argument(
+            "-EnablePathTracing is mutually exclusive with DLSS SR and reflection capture automation.");
+    }
     if (!m_commandLineOptions.reflectionCapturePlanPath.empty())
     {
         if (!m_commandLineOptions.capturePath.empty())
@@ -333,6 +340,7 @@ void RtPbrSurveyApp::OnInit()
                 m_selectedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
             ApplyRayReconstructionCommandLineOverrides();
             ApplyDlssSrCommandLineOptions();
+            ApplyPathTracingCommandLineOptions();
         }
 
         if (m_debugCamera.GetMode() == RtPbrSurvey::DebugCameraController::Mode::Arcball &&
@@ -1556,6 +1564,7 @@ void RtPbrSurveyApp::OpenSelectedScene()
     m_sceneRenderer.SetDisplayInstanceCount(m_displayInstanceCount);
     ApplyRayReconstructionCommandLineOverrides();
     ApplyDlssSrCommandLineOptions();
+    ApplyPathTracingCommandLineOptions();
     m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
     if (!m_commandLineOptions.debugPreviewResourceName.empty())
     {
@@ -1685,6 +1694,23 @@ void RtPbrSurveyApp::ApplyDlssSrCommandLineOptions()
     settings.backend = Engine::TemporalUpscalerBackend::Streamline;
     settings.qualityMode = GetDlssSrQualityMode(m_commandLineOptions.dlssSrQualityMode);
     m_sceneRenderer.SetTemporalUpscalerSettings(settings);
+}
+
+void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
+{
+    if (!m_commandLineOptions.enablePathTracing)
+    {
+        return;
+    }
+
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    if (!context.pathTracingExecutionAvailable)
+    {
+        throw std::runtime_error(std::string("Path Tracing is unavailable: ") + context.pathTracingStatusText);
+    }
+
+    m_renderingPath = RtPbrSurveyEngine::RenderingPath::PathTracing;
+    m_sceneRenderer.SetRenderingPath(m_renderingPath);
 }
 
 void RtPbrSurveyApp::CloseRunningScene()

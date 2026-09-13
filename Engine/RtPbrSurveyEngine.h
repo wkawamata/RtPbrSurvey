@@ -262,6 +262,13 @@ public:
         bool confidenceForceStableEvidence = false;
     };
 
+    enum class PathTracingDebugOutput
+    {
+        Albedo = 0,
+        WorldNormal,
+        Emissive,
+    };
+
     struct PathTracingSettings
     {
         bool accumulate = true;
@@ -272,6 +279,7 @@ public:
         bool environmentEnabled = true;
         bool emissiveEnabled = true;
         bool russianRouletteEnabled = false;
+        PathTracingDebugOutput debugOutput = PathTracingDebugOutput::Albedo;
     };
 
     enum class PathTracingResetReason
@@ -972,8 +980,10 @@ private:
     DescriptorHeapHandle m_temporalUpscalerSceneColorSrv;
     DescriptorHeapHandle m_pathTracingAccumulationSrv;
     DescriptorHeapHandle m_pathTracingAccumulationUav;
+    D3D12_CPU_DESCRIPTOR_HANDLE m_pathTracingAccumulationClearUav = {};
     DescriptorHeapHandle m_pathTracingSceneColorSrv;
     DescriptorHeapHandle m_pathTracingSceneColorUav;
+    D3D12_CPU_DESCRIPTOR_HANDLE m_pathTracingSceneColorClearUav = {};
     std::array<DescriptorHeapHandle, kMaxDebugTextureOutputCount> m_debugTexturePreviewSrvs;
     UINT m_debugTexturePreviewActiveSlotMask = 0;
     UINT m_debugTexturePreviewUpdateSlotMask = 0;
@@ -1016,6 +1026,7 @@ private:
     ComPtr<ID3D12RootSignature> m_rootSignature;
     ComPtr<ID3D12RootSignature> m_proceduralEnvRootSignature;
     ComPtr<ID3D12RootSignature> m_hybridReflectionRootSignature;
+    ComPtr<ID3D12RootSignature> m_pathTracingRootSignature;
     ComPtr<ID3D12RootSignature> m_rayQueryShadowRootSignature;
     ComPtr<ID3D12RootSignature> m_specularDebugRayQueryRootSignature;
     ComPtr<ID3D12RootSignature> m_rayQueryTlasDebugRootSignature;
@@ -1023,6 +1034,7 @@ private:
 
     ComPtr<ID3D12PipelineState> m_proceduralEnvPipeline;
     ComPtr<ID3D12PipelineState> m_hybridReflectionPipeline;
+    ComPtr<ID3D12PipelineState> m_pathTracingPipeline;
     ComPtr<ID3D12PipelineState> m_rayQueryShadowPipeline;
     ComPtr<ID3D12PipelineState> m_specularDebugRayQueryPipeline;
     ComPtr<ID3D12PipelineState> m_rayQueryTlasDebugPipeline;
@@ -1032,6 +1044,7 @@ private:
 
     ComPtr<ID3D12DescriptorHeap> m_heap;                     // CBV/SRV/UAV heap
     SimpleDescriptorHeapAllocator m_descriptorHeapAllocator; // Allocator for CBV/SRV/UAV heap
+    ComPtr<ID3D12DescriptorHeap> m_pathTracingClearUavHeap;
     ComPtr<ID3D12DescriptorHeap> m_proceduralEnvUavHeap;
     ComPtr<ID3D12Resource> m_proceduralEnvSettingsBuffer;
 
@@ -1388,6 +1401,7 @@ private:
         GraphicsPipelineShaderSet debugTexturePreview;
         GraphicsPipelineShaderSet debugBufferPreview;
         ShaderBytecode hybridReflection;
+        ShaderBytecode pathTracing;
         ShaderBytecode proceduralEnv;
         ShaderBytecode rayQueryShadow;
         ShaderBytecode specularDebugRayQuery;
@@ -1399,6 +1413,7 @@ private:
     void CreateRootSignature();
     void CreateProceduralEnvRootSignature();
     void CreateHybridReflectionRootSignature();
+    void CreatePathTracingRootSignature();
     void CreateRayQueryShadowRootSignature();
     void CreateSpecularDebugRayQueryRootSignature();
     void CreateRayQueryTlasDebugRootSignature();
@@ -1601,7 +1616,8 @@ private:
     void CreatePathTracingTextureDescriptors(const TransientResource& transientResource,
                                              ID3D12Resource* resource,
                                              DescriptorHeapHandle srv,
-                                             DescriptorHeapHandle uav);
+                                             DescriptorHeapHandle uav,
+                                             D3D12_CPU_DESCRIPTOR_HANDLE clearUav);
     void CreateDsvHeap();
 
     void CreateGBuffer();

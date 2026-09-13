@@ -577,6 +577,9 @@
     <CustomBuild Include="Shaders\shaders_HybridReflection.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_PathTracing.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
     <CustomBuild Include="Shaders\shaders_RayQueryTlasDebug.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>

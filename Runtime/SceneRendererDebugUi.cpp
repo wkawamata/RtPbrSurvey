@@ -567,11 +567,23 @@ namespace
             ImGui::Text("Render Resolution: %u x %u", context.renderWidth, context.renderHeight);
             ImGui::Text("Accumulated Samples: %llu",
                         static_cast<unsigned long long>(context.pathTracingRuntimeState.accumulatedSampleCount));
-            ImGui::TextDisabled("PathTracing.SceneColor displays a placeholder until the shader is implemented.");
+            ImGui::TextDisabled("Primary-hit diagnostics are active; progressive accumulation is not implemented.");
             ImGui::TextDisabled("DLSS SR and RR settings are retained but inactive in this mode.");
 
             RtPbrSurveyEngine::PathTracingSettings pathTracingSettings = renderer.GetPathTracingSettings();
             bool settingsChanged = false;
+            static constexpr const char* kPathTracingDebugOutputs[] = {
+                "Albedo + Emissive", "World Normal", "Emissive"};
+            int debugOutput = static_cast<int>(pathTracingSettings.debugOutput);
+            if (ImGui::Combo("Primary Hit Output",
+                             &debugOutput,
+                             kPathTracingDebugOutputs,
+                             _countof(kPathTracingDebugOutputs)))
+            {
+                pathTracingSettings.debugOutput =
+                    static_cast<RtPbrSurveyEngine::PathTracingDebugOutput>(debugOutput);
+                settingsChanged = true;
+            }
             settingsChanged |= ImGui::Checkbox("Accumulate", &pathTracingSettings.accumulate);
             int samplesPerFrame = static_cast<int>(pathTracingSettings.samplesPerFrame);
             if (ImGui::SliderInt("Samples / Frame", &samplesPerFrame, 1, 16))

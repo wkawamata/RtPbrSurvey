@@ -422,9 +422,9 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_rayTracingSupport.TierName(),
             static_cast<int>(m_rayTracingSupport.Tier()),
             m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1,
-            false,
+            m_pathTracingPipeline != nullptr,
             m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1 ?
-                "RenderGraph placeholder; shader not implemented" :
+                "Primary-hit diagnostic baseline" :
                 "Requires DXR 1.1",
             m_pathTracingRuntimeState,
             m_temporalUpscalerSupport.IsAvailable(),
@@ -527,7 +527,8 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
         m_pathTracingSettings.directLightingEnabled != settings.directLightingEnabled ||
         m_pathTracingSettings.environmentEnabled != settings.environmentEnabled ||
         m_pathTracingSettings.emissiveEnabled != settings.emissiveEnabled ||
-        m_pathTracingSettings.russianRouletteEnabled != settings.russianRouletteEnabled;
+        m_pathTracingSettings.russianRouletteEnabled != settings.russianRouletteEnabled ||
+        m_pathTracingSettings.debugOutput != settings.debugOutput;
 
     m_pathTracingSettings = settings;
     m_pathTracingSettings.samplesPerFrame = (std::clamp)(m_pathTracingSettings.samplesPerFrame, 1u, 16u);
@@ -1366,6 +1367,17 @@ void RtPbrSurveyEngine::LoadPipeline()
         heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
         ThrowIfFailed(m_graphicsDevice.Device()->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&m_heap)));
 
+        D3D12_DESCRIPTOR_HEAP_DESC pathTracingClearUavHeapDesc = {};
+        pathTracingClearUavHeapDesc.NumDescriptors = 2;
+        pathTracingClearUavHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        pathTracingClearUavHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+        ThrowIfFailed(m_graphicsDevice.Device()->CreateDescriptorHeap(
+            &pathTracingClearUavHeapDesc, IID_PPV_ARGS(&m_pathTracingClearUavHeap)));
+        m_pathTracingAccumulationClearUav = m_pathTracingClearUavHeap->GetCPUDescriptorHandleForHeapStart();
+        m_pathTracingSceneColorClearUav = m_pathTracingAccumulationClearUav;
+        m_pathTracingSceneColorClearUav.ptr += m_graphicsDevice.Device()->GetDescriptorHandleIncrementSize(
+            D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
         // Create a descriptor allocator limited to the regular (non-staged) region.
         m_descriptorHeapAllocator.Init(m_graphicsDevice.Device(), m_heap.Get(), kMainHeapDescriptorCount);
 
@@ -2012,6 +2024,7 @@ void RtPbrSurveyEngine::LoadAssets()
     CreateRootSignature();
     CreateProceduralEnvRootSignature();
     CreateHybridReflectionRootSignature();
+    CreatePathTracingRootSignature();
     CreateRayQueryShadowRootSignature();
     CreateSpecularDebugRayQueryRootSignature();
     CreateRayQueryTlasDebugRootSignature();
@@ -2175,6 +2188,68 @@ void RtPbrSurveyEngine::CreateHybridReflectionRootSignature()
         signature->GetBufferPointer(),
         signature->GetBufferSize(),
         IID_PPV_ARGS(&m_hybridReflectionRootSignature)));
+}
+
+void RtPbrSurveyEngine::CreatePathTracingRootSignature()
+{
+    static constexpr UINT kPathTracingTextureSrvSpace = 8;
+
+    CD3DX12_DESCRIPTOR_RANGE1 sceneColorUavRange = {};
+    sceneColorUavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
+    CD3DX12_DESCRIPTOR_RANGE1 tlasSrvRange = {};
+    tlasSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
+    CD3DX12_DESCRIPTOR_RANGE1 cameraCbvRange = {};
+    cameraCbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0);
+    CD3DX12_DESCRIPTOR_RANGE1 materialSrvRange = {};
+    materialSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 4, 0);
+    CD3DX12_DESCRIPTOR_RANGE1 textureSrvRange = {};
+    textureSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+                         kTextureDescriptorCapacity,
+                         0,
+                         kPathTracingTextureSrvSpace,
+                         D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE |
+                             D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+
+    CD3DX12_ROOT_PARAMETER1 rootParameters[10] = {};
+    rootParameters[0].InitAsDescriptorTable(1, &sceneColorUavRange);
+    rootParameters[1].InitAsDescriptorTable(1, &tlasSrvRange);
+    rootParameters[2].InitAsDescriptorTable(1, &cameraCbvRange);
+    rootParameters[3].InitAsShaderResourceView(1, 0);
+    rootParameters[4].InitAsShaderResourceView(2, 0);
+    rootParameters[5].InitAsShaderResourceView(3, 0);
+    rootParameters[6].InitAsDescriptorTable(1, &materialSrvRange);
+    rootParameters[7].InitAsDescriptorTable(1, &textureSrvRange);
+    rootParameters[8].InitAsShaderResourceView(5, 0);
+    rootParameters[9].InitAsConstants(12, 1, 0);
+
+    D3D12_STATIC_SAMPLER_DESC sampler = {};
+    sampler.Filter = D3D12_FILTER_ANISOTROPIC;
+    sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    sampler.MaxAnisotropy = 8;
+    sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+    sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+    sampler.MaxLOD = D3D12_FLOAT32_MAX;
+    sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+    D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
+    featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
+    if (FAILED(m_graphicsDevice.Device()->CheckFeatureSupport(
+            D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData))))
+    {
+        featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
+    }
+
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
+    rootSignatureDesc.Init_1_1(
+        _countof(rootParameters), rootParameters, 1, &sampler, D3D12_ROOT_SIGNATURE_FLAG_NONE);
+    ComPtr<ID3DBlob> signature;
+    ComPtr<ID3DBlob> error;
+    ThrowIfFailed(D3DX12SerializeVersionedRootSignature(
+        &rootSignatureDesc, featureData.HighestVersion, &signature, &error));
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateRootSignature(
+        0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_pathTracingRootSignature)));
 }
 
 void RtPbrSurveyEngine::CreateRayQueryShadowRootSignature()
@@ -2365,6 +2440,7 @@ auto RtPbrSurveyEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
     shaders.debugBufferPreview = {LoadShaderBytecode(L"shaders_DebugBufferPreview_VSMain.cso"),
                                   LoadShaderBytecode(L"shaders_DebugBufferPreview_PSMain.cso")};
     shaders.hybridReflection = LoadShaderBytecode(L"shaders_HybridReflection_CSMain.cso");
+    shaders.pathTracing = LoadShaderBytecode(L"shaders_PathTracing_CSMain.cso");
     shaders.proceduralEnv = LoadShaderBytecode(L"shaders_ProceduralEnvMap_CSMain.cso");
     shaders.rayQueryShadow = LoadShaderBytecode(L"shaders_RayQueryShadow_CSMain.cso");
     shaders.specularDebugRayQuery = LoadShaderBytecode(L"shaders_SpecularDebugRayQuery_CSMain.cso");
@@ -2389,6 +2465,15 @@ void RtPbrSurveyEngine::CreatePipelineStates()
     ThrowIfFailed(m_graphicsDevice.Device()->CreateComputePipelineState(
         &hybridReflectionDesc,
         IID_PPV_ARGS(&m_hybridReflectionPipeline)));
+
+    if (m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1)
+    {
+        D3D12_COMPUTE_PIPELINE_STATE_DESC pathTracingDesc = {};
+        pathTracingDesc.pRootSignature = m_pathTracingRootSignature.Get();
+        pathTracingDesc.CS = CD3DX12_SHADER_BYTECODE(shaders.pathTracing.data, shaders.pathTracing.size);
+        ThrowIfFailed(m_graphicsDevice.Device()->CreateComputePipelineState(
+            &pathTracingDesc, IID_PPV_ARGS(&m_pathTracingPipeline)));
+    }
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC rayQueryShadowDesc = {};
     rayQueryShadowDesc.pRootSignature = m_rayQueryShadowRootSignature.Get();
@@ -4747,7 +4832,8 @@ bool RtPbrSurveyEngine::BindCreatedColorRenderTexture(const std::string& name, I
             CreatePathTracingTextureDescriptors(transientResource->second,
                                                 resource,
                                                 m_pathTracingAccumulationSrv,
-                                                m_pathTracingAccumulationUav);
+                                                m_pathTracingAccumulationUav,
+                                                m_pathTracingAccumulationClearUav);
         }
         else
         {
@@ -4755,7 +4841,8 @@ bool RtPbrSurveyEngine::BindCreatedColorRenderTexture(const std::string& name, I
             CreatePathTracingTextureDescriptors(transientResource->second,
                                                 resource,
                                                 m_pathTracingSceneColorSrv,
-                                                m_pathTracingSceneColorUav);
+                                                m_pathTracingSceneColorUav,
+                                                m_pathTracingSceneColorClearUav);
         }
         return true;
     }
@@ -4970,7 +5057,8 @@ void RtPbrSurveyEngine::CreateColorRenderTextureDescriptors(const TransientResou
 void RtPbrSurveyEngine::CreatePathTracingTextureDescriptors(const TransientResource& transientResource,
                                                             ID3D12Resource* resource,
                                                             DescriptorHeapHandle srv,
-                                                            DescriptorHeapHandle uav)
+                                                            DescriptorHeapHandle uav,
+                                                            D3D12_CPU_DESCRIPTOR_HANDLE clearUav)
 {
     assert(transientResource.createSrv);
     assert(transientResource.createUav);
@@ -4990,6 +5078,7 @@ void RtPbrSurveyEngine::CreatePathTracingTextureDescriptors(const TransientResou
         transientResource.uavFormat : transientResource.desc.Format;
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
     m_graphicsDevice.Device()->CreateUnorderedAccessView(resource, nullptr, &uavDesc, uav.cpu);
+    m_graphicsDevice.Device()->CreateUnorderedAccessView(resource, nullptr, &uavDesc, clearUav);
 }
 
 void RtPbrSurveyEngine::ReleaseResourcesAfterPass(int passIndex)
@@ -5203,7 +5292,7 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
     Engine::RecordPathTracingUavClear(
         m_commandList.Get(),
         {m_pathTracingAccumulation.Get(),
-         m_pathTracingAccumulationUav.cpu,
+         m_pathTracingAccumulationClearUav,
          m_pathTracingAccumulationUav.gpu,
          clearColor},
         L"Path Tracing History Clear");
@@ -5215,13 +5304,32 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
 void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
-    Engine::RecordPathTracingUavClear(
-        m_commandList.Get(),
-        {m_pathTracingSceneColor.Get(),
-         m_pathTracingSceneColorUav.cpu,
-         m_pathTracingSceneColorUav.gpu,
-         m_backBufferClearColor.data()},
-        L"Path Tracing Placeholder");
+    if (m_pathTracingPipeline == nullptr)
+    {
+        Engine::RecordPathTracingUavClear(
+            m_commandList.Get(),
+            {m_pathTracingSceneColor.Get(),
+             m_pathTracingSceneColorClearUav,
+             m_pathTracingSceneColorUav.gpu,
+             m_backBufferClearColor.data()},
+            L"Path Tracing Unsupported Fallback");
+        return;
+    }
+
+    Engine::PathTracingPassDesc passDesc = {};
+    passDesc.rootSignature = m_pathTracingRootSignature.Get();
+    passDesc.pipelineState = m_pathTracingPipeline.Get();
+    passDesc.sceneColorUav = m_pathTracingSceneColorUav.gpu;
+    passDesc.scene = MakeRayQuerySceneBindings();
+    passDesc.missColor = {m_backBufferClearColor[0], m_backBufferClearColor[1], m_backBufferClearColor[2]};
+    passDesc.rayTMin = m_shadowSettings.rayTMin;
+    passDesc.rayTMax = m_shadowSettings.rayTMax;
+    passDesc.debugOutput = static_cast<UINT>(m_pathTracingSettings.debugOutput);
+    passDesc.environmentEnabled = m_pathTracingSettings.environmentEnabled ? 1u : 0u;
+    passDesc.emissiveEnabled = m_pathTracingSettings.emissiveEnabled ? 1u : 0u;
+    passDesc.width = m_renderWidth;
+    passDesc.height = m_renderHeight;
+    Engine::RecordPathTracingPass(m_commandList.Get(), passDesc);
     m_pathTracingRuntimeState.historyValid = m_pathTracingSettings.accumulate;
 }
 

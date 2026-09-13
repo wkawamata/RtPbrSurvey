@@ -84,6 +84,7 @@ private:
     void LoadSceneCpuData(int sceneIndex);
     void OpenSelectedScene();
     void ApplyDlssSrCommandLineOptions();
+    void ApplyPathTracingCommandLineOptions();
     void CloseRunningScene();
     void InitializeImGui();
     void UpdateUiFrame();
