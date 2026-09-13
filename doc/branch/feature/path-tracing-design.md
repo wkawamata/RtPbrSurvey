@@ -495,6 +495,147 @@ These risks should be measured after the primary-hit baseline works. They are no
 
 ## 14. Recommended immediate next task
 
-Start with Commit 1 only. It establishes the persisted rendering-path contract and device-status UI without creating GPU
-resources. Review that enum serialization, Evaluation Case restoration, and Path Tracing/DLSS mutual exclusion are
-correct before implementing the RenderGraph boundary.
+Start with the reference audit in Section 15, then implement Commit 1 only. Commit 1 establishes the persisted
+rendering-path contract and device-status UI without creating GPU resources. Review that enum serialization,
+Evaluation Case restoration, and Path Tracing/DLSS mutual exclusion are correct before implementing the RenderGraph
+boundary.
+
+## 15. Reference implementation ladder
+
+The reference projects are not copied as a single architecture. Each project is assigned a question and a boundary so
+that RtPbrSurvey can adopt the useful algorithm without inheriting unrelated framework or SDK structure.
+
+### 15.1 Phase 0: reference audit
+
+Before Commit 1, record a short source map in this document or a separate review note. For each reference, identify the
+exact shader and host files that answer the listed questions. Do not import source code during this audit.
+
+| Reference | Questions | RtPbrSurvey output |
+|---|---|---|
+| MJP DXRPathTracer | primary-ray generation, path state/payload, throughput, emission, BRDF/PDF, termination, accumulation reset | minimal path-state and accumulation contract |
+| ZetaRay | NEE, light sampling, ReSTIR DI, ReSTIR GI/PT, temporal/spatial reuse, motion/reprojection, render-graph decomposition | real-time pass/resource plan |
+| Real-Time-Path-Tracer | diffuse/specular/shadow signal separation and NRD guide buffers | denoiser auxiliary-buffer contract |
+| RoyalTracer-DX | ReSTIR PT, DLSS RR integration, NRC data flow, DX12/CUDA synchronization | optional neural-cache/backend boundary |
+
+Primary references:
+
+- MJP DXRPathTracer: <https://github.com/TheRealMJP/DXRPathTracer>
+- ZetaRay: <https://github.com/alipbcs/ZetaRay>
+- Real-Time-Path-Tracer: <https://github.com/edoardo911/Real-Time-Path-Tracer>
+- RoyalTracer-DX: <https://github.com/ML200/RoyalTracer-DX>
+- RTXDI ReSTIR GI integration: <https://github.com/NVIDIA-RTX/RTXDI/blob/main/Doc/RestirGI.md>
+- RTXDI ReSTIR PT integration: <https://github.com/NVIDIA-RTX/RTXDI/blob/main/Doc/RestirPT.md>
+- NVIDIA NRD: <https://github.com/NVIDIA-RTX/NRD>
+
+### 15.2 MJP as the minimal path-tracing reference
+
+MJP DXRPathTracer is a full DXR implementation. It uses ray-generation/hit/miss shaders and recursive tracing for later
+path segments. RtPbrSurvey's first implementation remains an iterative Inline RayQuery compute shader.
+
+Map the concepts as follows.
+
+| MJP concept | RtPbrSurvey implementation |
+|---|---|
+| RayGen | one `CSMain` invocation per pixel |
+| DXR payload | local `PathState` in the compute loop |
+| recursive `TraceRay` | iterative bounce loop with `RayQuery` |
+| closest-hit shading | committed-hit reconstruction helper |
+| payload radiance/throughput | `PathState.radiance` / `PathState.throughput` |
+| miss shader | environment evaluation function |
+| progressive output | `PathTracing.Accumulation` and global sample count |
+
+The audit must extract equations, coordinate conventions, PDF handling, and reset behavior, not copy root-signature,
+shader-table, framework, or bindless-heap structure. MJP reports one progressive ray per pixel per frame and resets on
+camera or setting changes, which matches RtPbrSurvey's initial convergence model.
+
+### 15.3 ZetaRay as the real-time reference
+
+Do not start ReSTIR until the baseline estimator can produce deterministic reference captures. The real-time sequence is:
+
+1. NEE with a simple directional/environment light sampler.
+2. Stable primary-surface auxiliary buffers and motion-vector convention.
+3. ReSTIR DI for direct-light candidates.
+4. Temporal reuse, then spatial reuse, each with separate A/B toggles.
+5. Evaluate ReSTIR GI and ReSTIR PT as alternatives; do not assume both are required.
+
+ZetaRay is useful because it contains ReSTIR DI, unidirectional PT, ReSTIR GI/PT, glTF material handling, temporal
+techniques, and a RenderGraph. Its application/framework code is not a dependency and should not be transplanted.
+
+RTXDI's ReSTIR GI documentation requires an existing forward path tracer and secondary-surface position/orientation,
+sampling PDF, and radiance. ReSTIR PT additionally records path context for temporal/spatial shift mapping. Therefore
+the baseline `PathState` and surface sample structures must preserve explicit PDFs and hit data even before reservoirs
+are implemented.
+
+### 15.4 Denoiser-ready auxiliary buffers
+
+Auxiliary outputs are designed after primary-hit correctness and implemented before ReSTIR integration. This avoids
+retrofitting ambiguous coordinate/roughness/hit-distance conventions after temporal reuse exists.
+
+Candidate resources:
+
+| Resource | Initial purpose |
+|---|---|
+| `PathTracing.ViewZ` | primary linear view depth |
+| `PathTracing.NormalRoughness` | world/view normal plus roughness with documented encoding |
+| `PathTracing.MotionVectors` | current-to-previous reprojection using the existing engine convention |
+| `PathTracing.DiffuseRadianceHitT` | noisy diffuse signal and normalized hit distance |
+| `PathTracing.SpecularRadianceHitT` | noisy specular signal and normalized hit distance |
+| `PathTracing.Albedo` | primary diffuse/specular demodulation input where required |
+
+These resources are optional in the minimal accumulated reference path. They become required only when NRD or DLSS RR
+is selected. Every resource must be available in RenderGraph and Debug Texture Preview before a denoiser is connected.
+
+NRD packing helpers and required encodings should be used when NRD integration starts. Do not invent a superficially
+similar packing format and translate it later.
+
+### 15.5 NRD and DLSS RR are separate experiments
+
+Real-Time-Path-Tracer is the reference for explicit noisy-signal separation and NRD integration. RoyalTracer-DX is the
+reference for a newer real-time pipeline that includes DLSS RR. RtPbrSurvey should keep these as separate selectable
+denoiser backends and preserve Native accumulation as the control path.
+
+Each backend requires:
+
+- a support/readiness report
+- an exact input-resource table
+- a deterministic Native versus backend A/B capture
+- independently visible input/output buffers
+- explicit history-reset propagation
+- no backend SDK types in broad Engine, App, Scene, or RenderGraph public interfaces
+
+### 15.6 NRC and DX12/CUDA boundary
+
+NRC/radiance-cache work starts only after the native PT, direct-light sampling, temporal reprojection, and denoiser
+signals are validated. CUDA is not added to the core PathTracingPass.
+
+Use a narrow optional backend contract such as:
+
+```cpp
+struct RadianceCacheEvaluateInputs;
+struct RadianceCacheSupportInfo;
+
+class IRadianceCacheBackend
+{
+public:
+    virtual ~IRadianceCacheBackend() = default;
+    virtual RadianceCacheSupportInfo QuerySupport() const = 0;
+    virtual bool Evaluate(const RadianceCacheEvaluateInputs& inputs) = 0;
+};
+```
+
+The implementation may later live behind a plugin DLL. Shared resources cross the boundary through neutral D3D12
+resource/fence handles and versioned POD descriptions. CUDA headers, tiny-cuda-nn types, streams, and events remain in
+the backend implementation. The native renderer must continue to build and run without CUDA.
+
+### 15.7 Revised milestone order
+
+1. Minimal deterministic native PT based on the MJP concept audit.
+2. NEE, separated path state/PDFs, and denoiser-ready auxiliary buffers.
+3. ReSTIR DI with independent temporal and spatial reuse controls.
+4. NRD and DLSS RR as separate denoiser experiments against Native A/B.
+5. ReSTIR GI versus ReSTIR PT investigation and one selected implementation.
+6. NRC/radiance cache behind an optional DX12/CUDA backend.
+
+At every milestone, Native accumulated output remains available as the correctness reference. A faster method is not
+accepted solely because it is smoother; energy, bias, temporal stability, disocclusion, and material response are
+evaluated separately.
