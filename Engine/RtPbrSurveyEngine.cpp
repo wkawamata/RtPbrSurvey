@@ -375,6 +375,8 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
         m_resourceDefaultStates.push_back({resourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     }
     m_resourceDefaultStates.push_back({kTemporalUpscalerSceneColorResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
+    m_resourceDefaultStates.push_back({kPathTracingAccumulationResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
+    m_resourceDefaultStates.push_back({kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
     for (const char* resourceName : kDebugTexturePreviewResourceNames)
     {
         m_resourceDefaultStates.push_back({resourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
@@ -415,7 +417,7 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1,
             false,
             m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1 ?
-                "GPU pass not implemented" :
+                "RenderGraph placeholder; shader not implemented" :
                 "Requires DXR 1.1",
             m_pathTracingRuntimeState,
             m_temporalUpscalerSupport.IsAvailable(),
@@ -513,7 +515,6 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
 {
     const bool changed =
         m_pathTracingSettings.accumulate != settings.accumulate ||
-        m_pathTracingSettings.samplesPerFrame != settings.samplesPerFrame ||
         m_pathTracingSettings.maxBounces != settings.maxBounces ||
         m_pathTracingSettings.randomSeed != settings.randomSeed ||
         m_pathTracingSettings.directLightingEnabled != settings.directLightingEnabled ||
@@ -546,6 +547,11 @@ bool RtPbrSurveyEngine::ShouldRunRayReconstruction() const
 
 D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveToneMapSceneColorSrv() const
 {
+    if (m_renderingPath == RenderingPath::PathTracing && m_pathTracingSceneColorSrv.IsValid())
+    {
+        return m_pathTracingSceneColorSrv.gpu;
+    }
+
     if (m_temporalUpscalerOutputAvailable)
     {
         return m_temporalUpscalerSceneColorSrv.gpu;
@@ -578,6 +584,14 @@ D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveDebugTexturePreviewSourceS
     if (source == kTemporalUpscalerSceneColorResourceName && m_temporalUpscalerSceneColorSrv.Index != UINT_MAX)
     {
         return m_temporalUpscalerSceneColorSrv.gpu;
+    }
+    if (source == kPathTracingAccumulationResourceName && m_pathTracingAccumulationSrv.IsValid())
+    {
+        return m_pathTracingAccumulationSrv.gpu;
+    }
+    if (source == kPathTracingSceneColorResourceName && m_pathTracingSceneColorSrv.IsValid())
+    {
+        return m_pathTracingSceneColorSrv.gpu;
     }
     if (source == kReflectionEvaluatedRadianceResourceName)
     {
@@ -625,6 +639,12 @@ void RtPbrSurveyEngine::RegisterDebugResourceViews()
     registerTexture(kLightPassRenderTargetResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kDepthStencilResourceName, Engine::DebugTexturePreviewSemantic::Depth, DXGI_FORMAT_R32_FLOAT);
     registerTexture(kTemporalUpscalerSceneColorResourceName, Engine::DebugTexturePreviewSemantic::Color);
+    registerTexture(kPathTracingAccumulationResourceName,
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingSceneColorResourceName,
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    DXGI_FORMAT_R16G16B16A16_FLOAT);
     registerTexture(kReflectionEvaluatedRadianceResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionSpecularAlbedoResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionRoughnessResourceName, Engine::DebugTexturePreviewSemantic::Scalar);
@@ -1385,6 +1405,7 @@ void RtPbrSurveyEngine::LoadPipeline()
         RegisterReflectionEstimatorHistory();
         RegisterReflectionDenoisedRadiance();
         RegisterTemporalUpscalerSceneColor();
+        RegisterPathTracingResources();
         RegisterDebugTexturePreview();
     }
 
@@ -3136,6 +3157,13 @@ void RtPbrSurveyEngine::CreateGBuffer()
             m_reflectionSpecularConfidenceSrv[i - 1].Index + 1;
         assert(m_reflectionSpecularConfidenceSrv[i].Index == expectedIndex);
     }
+    if (m_pathTracingAccumulationSrv.Index == UINT_MAX)
+    {
+        m_pathTracingAccumulationSrv = m_descriptorHeapAllocator.AllocWithHandle();
+        m_pathTracingAccumulationUav = m_descriptorHeapAllocator.AllocWithHandle();
+        m_pathTracingSceneColorSrv = m_descriptorHeapAllocator.AllocWithHandle();
+        m_pathTracingSceneColorUav = m_descriptorHeapAllocator.AllocWithHandle();
+    }
     for (DescriptorHeapHandle& srv : m_debugTexturePreviewSrvs)
     {
         if (srv.Index == UINT_MAX)
@@ -3159,6 +3187,8 @@ void RtPbrSurveyEngine::RegisterRenderTexture(const Engine::RenderTextureSpec& s
     r.createRtv = spec.createRtv;
     r.createSrv = spec.createSrv;
     r.srvFormat = spec.srvFormat;
+    r.createUav = spec.createUav;
+    r.uavFormat = spec.uavFormat;
 
     m_resourceRegistry.RegisterTransientResource(std::move(r));
 }
@@ -3404,6 +3434,35 @@ void RtPbrSurveyEngine::RegisterTemporalUpscalerSceneColor()
                                    Engine::RenderTextureSizeClass::OutputSize);
     spec.flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
     RegisterRenderTexture(spec);
+}
+
+void RtPbrSurveyEngine::RegisterPathTracingResources()
+{
+    Engine::RenderTextureSpec accumulation = {};
+    accumulation.name = kPathTracingAccumulationResourceName;
+    accumulation.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
+    accumulation.format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+    accumulation.flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+    accumulation.initialState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    accumulation.createSrv = true;
+    accumulation.srvFormat = accumulation.format;
+    accumulation.createUav = true;
+    accumulation.uavFormat = accumulation.format;
+    accumulation.persistent = true;
+    RegisterRenderTexture(accumulation);
+
+    Engine::RenderTextureSpec sceneColor = {};
+    sceneColor.name = kPathTracingSceneColorResourceName;
+    sceneColor.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
+    sceneColor.format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    sceneColor.flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+    sceneColor.initialState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    sceneColor.createSrv = true;
+    sceneColor.srvFormat = sceneColor.format;
+    sceneColor.createUav = true;
+    sceneColor.uavFormat = sceneColor.format;
+    sceneColor.persistent = true;
+    RegisterRenderTexture(sceneColor);
 }
 
 void RtPbrSurveyEngine::RegisterDebugTexturePreview()
@@ -4066,6 +4125,10 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
     }
     m_renderGraphRuntime.Resources().RegisterResource(kTemporalUpscalerSceneColorResourceName,
                                                       [this]() { return m_temporalUpscalerSceneColor.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kPathTracingAccumulationResourceName,
+                                                      [this]() { return m_pathTracingAccumulation.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kPathTracingSceneColorResourceName,
+                                                      [this]() { return m_pathTracingSceneColor.Get(); });
     for (UINT i = 0; i < kMaxDebugTextureOutputCount; ++i)
     {
         m_renderGraphRuntime.Resources().RegisterResource(kDebugTexturePreviewResourceNames[i],
@@ -4375,6 +4438,9 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
         resource.Reset();
     }
     m_temporalUpscalerSceneColor.Reset();
+    m_pathTracingAccumulation.Reset();
+    m_pathTracingSceneColor.Reset();
+    m_pathTracingRuntimeState = {};
     for (ComPtr<ID3D12Resource>& resource : m_debugTexturePreviews)
     {
         resource.Reset();
@@ -4417,6 +4483,8 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
         m_resourceRegistry.UnregisterTransientResource(resourceName);
     }
     m_resourceRegistry.UnregisterTransientResource(kTemporalUpscalerSceneColorResourceName);
+    m_resourceRegistry.UnregisterTransientResource(kPathTracingAccumulationResourceName);
+    m_resourceRegistry.UnregisterTransientResource(kPathTracingSceneColorResourceName);
     for (const char* resourceName : kDebugTexturePreviewResourceNames)
     {
         m_resourceRegistry.UnregisterTransientResource(resourceName);
@@ -4433,6 +4501,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     RegisterReflectionEstimatorHistory();
     RegisterReflectionDenoisedRadiance();
     RegisterTemporalUpscalerSceneColor();
+    RegisterPathTracingResources();
     RegisterDebugTexturePreview();
     CreateGBuffer();
     CreateShadowMask();
@@ -4642,6 +4711,34 @@ void RtPbrSurveyEngine::BindCreatedTransientResource(const std::string& name, ID
 
 bool RtPbrSurveyEngine::BindCreatedColorRenderTexture(const std::string& name, ID3D12Resource* resource)
 {
+    if (name == kPathTracingAccumulationResourceName || name == kPathTracingSceneColorResourceName)
+    {
+        const auto transientResource = m_resourceRegistry.transientResources.find(name);
+        assert(transientResource != m_resourceRegistry.transientResources.end());
+        if (transientResource == m_resourceRegistry.transientResources.end())
+        {
+            return false;
+        }
+
+        if (name == kPathTracingAccumulationResourceName)
+        {
+            m_pathTracingAccumulation = resource;
+            CreatePathTracingTextureDescriptors(transientResource->second,
+                                                resource,
+                                                m_pathTracingAccumulationSrv,
+                                                m_pathTracingAccumulationUav);
+        }
+        else
+        {
+            m_pathTracingSceneColor = resource;
+            CreatePathTracingTextureDescriptors(transientResource->second,
+                                                resource,
+                                                m_pathTracingSceneColorSrv,
+                                                m_pathTracingSceneColorUav);
+        }
+        return true;
+    }
+
     for (UINT i = 0; i < _countof(kReflectionResolvedRadianceResourceNames); ++i)
     {
         if (name != kReflectionResolvedRadianceResourceNames[i])
@@ -4849,6 +4946,31 @@ void RtPbrSurveyEngine::CreateColorRenderTextureDescriptors(const TransientResou
     m_graphicsDevice.Device()->CreateShaderResourceView(resource, &srvDesc, srv.cpu);
 }
 
+void RtPbrSurveyEngine::CreatePathTracingTextureDescriptors(const TransientResource& transientResource,
+                                                            ID3D12Resource* resource,
+                                                            DescriptorHeapHandle srv,
+                                                            DescriptorHeapHandle uav)
+{
+    assert(transientResource.createSrv);
+    assert(transientResource.createUav);
+    assert(srv.IsValid());
+    assert(uav.IsValid());
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = transientResource.srvFormat != DXGI_FORMAT_UNKNOWN ?
+        transientResource.srvFormat : transientResource.desc.Format;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Texture2D.MipLevels = 1;
+    m_graphicsDevice.Device()->CreateShaderResourceView(resource, &srvDesc, srv.cpu);
+
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    uavDesc.Format = transientResource.uavFormat != DXGI_FORMAT_UNKNOWN ?
+        transientResource.uavFormat : transientResource.desc.Format;
+    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+    m_graphicsDevice.Device()->CreateUnorderedAccessView(resource, nullptr, &uavDesc, uav.cpu);
+}
+
 void RtPbrSurveyEngine::ReleaseResourcesAfterPass(int passIndex)
 {
     m_resourceRegistry.MarkEndOfLifeResources(passIndex, kBackBufferResourceName);
@@ -4932,6 +5054,14 @@ void RtPbrSurveyEngine::CollectGarbageTransientResources()
         if (name == kTemporalUpscalerSceneColorResourceName)
         {
             m_temporalUpscalerSceneColor.Reset();
+        }
+        if (name == kPathTracingAccumulationResourceName)
+        {
+            m_pathTracingAccumulation.Reset();
+        }
+        if (name == kPathTracingSceneColorResourceName)
+        {
+            m_pathTracingSceneColor.Reset();
         }
         for (UINT i = 0; i < kMaxDebugTextureOutputCount; ++i)
         {
@@ -5043,6 +5173,35 @@ void RtPbrSurveyEngine::BeginFrame()
 void RtPbrSurveyEngine::ExecuteClearPass(const RenderPass& pass)
 {
     Engine::RecordClearPass(m_commandList.Get(), ResolveRenderTargets(pass.renderTargets));
+}
+
+void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+    static constexpr float clearColor[4] = {};
+    Engine::RecordPathTracingUavClear(
+        m_commandList.Get(),
+        {m_pathTracingAccumulation.Get(),
+         m_pathTracingAccumulationUav.cpu,
+         m_pathTracingAccumulationUav.gpu,
+         clearColor},
+        L"Path Tracing History Clear");
+    m_pathTracingRuntimeState.accumulatedSampleCount = 0;
+    m_pathTracingRuntimeState.frameSampleIndex = 0;
+    m_pathTracingRuntimeState.historyValid = false;
+}
+
+void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+    Engine::RecordPathTracingUavClear(
+        m_commandList.Get(),
+        {m_pathTracingSceneColor.Get(),
+         m_pathTracingSceneColorUav.cpu,
+         m_pathTracingSceneColorUav.gpu,
+         m_backBufferClearColor.data()},
+        L"Path Tracing Placeholder");
+    m_pathTracingRuntimeState.historyValid = m_pathTracingSettings.accumulate;
 }
 
 void RtPbrSurveyEngine::ExecuteDepthPrePass(const RenderPass& pass)

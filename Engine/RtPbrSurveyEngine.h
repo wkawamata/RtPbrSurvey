@@ -31,6 +31,7 @@
 #include "Renderer/EdgeAwareSpatialReflectionPass.h"
 #include "Renderer/Material.h"
 #include "Renderer/MaterialBuffer.h"
+#include "Renderer/PathTracingPass.h"
 #include "Renderer/StagedDescriptorAllocator.h"
 #include "Renderer/PipelineFactory.h"
 #include "Renderer/AccelerationStructureResources.h"
@@ -560,6 +561,8 @@ private:
         struct Operation
         {
             static constexpr const char* Clear = "Clear";
+            static constexpr const char* PathTracingHistoryClear = "PathTracingHistoryClear";
+            static constexpr const char* PathTracing = "PathTracing";
             static constexpr const char* DepthPrePass = "DepthPrePass";
             static constexpr const char* GBuffer = "GBuffer";
             static constexpr const char* Forward = "Forward";
@@ -641,6 +644,7 @@ private:
     static constexpr UINT kReflectionResolvedRadianceDescriptorCount = 2;  // One SRV per physical history slot
     static constexpr UINT kReflectionAuxiliaryHistoryDescriptorCount = 4;  // Depth + normal, two slots each
     static constexpr UINT kReflectionEstimatorHistoryDescriptorCount = 4;  // Resolved estimate + moments, two slots each
+    static constexpr UINT kPathTracingDescriptorCount = 4;  // Accumulation and scene color, SRV + UAV each
     static constexpr UINT kTlasDescriptorCount = 1;       // TLAS SRV
 
     // Descriptor allocation order is tracked by DescriptorHeapHandle.
@@ -657,6 +661,7 @@ private:
                                                       kReflectionResolvedRadianceDescriptorCount +
                                                       kReflectionAuxiliaryHistoryDescriptorCount +
                                                       kReflectionEstimatorHistoryDescriptorCount +
+                                                      kPathTracingDescriptorCount +
                                                       kTlasDescriptorCount;
     static constexpr UINT kStagedDescriptorReservedCount = 64;
 
@@ -946,6 +951,8 @@ private:
     ComPtr<ID3D12Resource> m_reflectionSpecularConfidence[2];
     ComPtr<ID3D12Resource> m_reflectionDenoisedRadiance;
     ComPtr<ID3D12Resource> m_temporalUpscalerSceneColor;
+    ComPtr<ID3D12Resource> m_pathTracingAccumulation;
+    ComPtr<ID3D12Resource> m_pathTracingSceneColor;
     std::array<ComPtr<ID3D12Resource>, kMaxDebugTextureOutputCount> m_debugTexturePreviews;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
@@ -963,6 +970,10 @@ private:
     DescriptorHeapHandle m_depthStencilSrv;
     DescriptorHeapHandle m_lightPassColorSrv;
     DescriptorHeapHandle m_temporalUpscalerSceneColorSrv;
+    DescriptorHeapHandle m_pathTracingAccumulationSrv;
+    DescriptorHeapHandle m_pathTracingAccumulationUav;
+    DescriptorHeapHandle m_pathTracingSceneColorSrv;
+    DescriptorHeapHandle m_pathTracingSceneColorUav;
     std::array<DescriptorHeapHandle, kMaxDebugTextureOutputCount> m_debugTexturePreviewSrvs;
     UINT m_debugTexturePreviewActiveSlotMask = 0;
     UINT m_debugTexturePreviewUpdateSlotMask = 0;
@@ -1197,6 +1208,8 @@ private:
     static constexpr const char* kDepthStencilResourceName = "DepthStencil";
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";
     static constexpr const char* kTemporalUpscalerSceneColorResourceName = "TemporalUpscaler.SceneColor";
+    static constexpr const char* kPathTracingAccumulationResourceName = "PathTracing.Accumulation";
+    static constexpr const char* kPathTracingSceneColorResourceName = "PathTracing.SceneColor";
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
         "DebugTexturePreview.Output.0",
         "DebugTexturePreview.Output.1",
@@ -1315,6 +1328,8 @@ private:
         bool createRtv = false;
         bool createSrv = false;
         DXGI_FORMAT srvFormat = DXGI_FORMAT_UNKNOWN;
+        bool createUav = false;
+        DXGI_FORMAT uavFormat = DXGI_FORMAT_UNKNOWN;
 
         ComPtr<ID3D12Resource> resource;
 
@@ -1461,6 +1476,7 @@ private:
     void RegisterReflectionEstimatorHistory();
     void RegisterReflectionDenoisedRadiance();
     void RegisterTemporalUpscalerSceneColor();
+    void RegisterPathTracingResources();
     void RegisterDebugTexturePreview();
     void RegisterRenderTexture(const Engine::RenderTextureSpec& spec);
     UINT ResolveRenderTextureWidth(const Engine::RenderTextureSpec& spec) const;
@@ -1530,6 +1546,8 @@ private:
     PipelineKey PipelineId(const std::string& name);
     DescriptorKey DescriptorId(const std::string& name);
     RenderPass MakeClearPass();
+    RenderPass MakePathTracingHistoryClearPass();
+    RenderPass MakePathTracingPass();
     RenderPass MakeDepthPrePass();
     RenderPass MakeGBufferPass();
     RenderPass MakeHybridReflectionPass();
@@ -1574,6 +1592,10 @@ private:
                                              ID3D12Resource* resource,
                                              UINT rtvIndex,
                                              DescriptorHeapHandle srv);
+    void CreatePathTracingTextureDescriptors(const TransientResource& transientResource,
+                                             ID3D12Resource* resource,
+                                             DescriptorHeapHandle srv,
+                                             DescriptorHeapHandle uav);
     void CreateDsvHeap();
 
     void CreateGBuffer();
@@ -1605,6 +1627,8 @@ private:
 
     void BeginFrame();
     void ExecuteClearPass(const RenderPass& pass);
+    void ExecutePathTracingHistoryClearPass(const RenderPass& pass);
+    void ExecutePathTracingPass(const RenderPass& pass);
     void ExecuteDepthPrePass(const RenderPass& pass);
     void ExecuteGBufferPass(const RenderPass& pass);
     void ExecuteHybridReflectionPass(const RenderPass& pass);

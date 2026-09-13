@@ -168,6 +168,7 @@
     <ClInclude Include="Renderer\EdgeAwareSpatialReflectionPass.h" />
     <ClInclude Include="Renderer\Material.h" />
     <ClInclude Include="Renderer\MaterialBuffer.h" />
+    <ClInclude Include="Renderer\PathTracingPass.h" />
     <ClInclude Include="Renderer\PipelineFactory.h" />
     <ClInclude Include="Renderer\AccelerationStructureResources.h" />
     <ClInclude Include="Renderer\RayQueryShadowPass.h" />
@@ -266,6 +267,7 @@
     <ClCompile Include="Renderer\HdrOutput.cpp" />
     <ClCompile Include="Renderer\HybridReflectionPass.cpp" />
     <ClCompile Include="Renderer\LightingPass.cpp" />
+    <ClCompile Include="Renderer\PathTracingPass.cpp" />
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp" />
     <ClCompile Include="Renderer\TemporalReflectionPass.cpp" />
     <ClCompile Include="Renderer\EdgeAwareSpatialReflectionPass.cpp" />

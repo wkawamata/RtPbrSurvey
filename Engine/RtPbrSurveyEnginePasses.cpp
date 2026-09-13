@@ -25,16 +25,27 @@ void RtPbrSurveyEngine::BuildRenderPasses()
 
     if (m_sceneResourcesAvailable)
     {
-        AddPass(MakeDepthPrePass());
-        AddSceneRenderPasses();
-        if (m_reflectionHdrDiagnosticRequested)
+        if (m_renderingPath == RenderingPath::PathTracing)
         {
-            AddPass(MakeReflectionHdrDiagnosticPass());
+            if (!m_pathTracingRuntimeState.historyValid || !m_pathTracingSettings.accumulate)
+            {
+                AddPass(MakePathTracingHistoryClearPass());
+            }
+            AddPass(MakePathTracingPass());
         }
-        AddPass(MakeDebugLinePass());
-        if (ShouldRunTemporalUpscaler())
+        else
         {
-            AddPass(MakeTemporalUpscalerPass());
+            AddPass(MakeDepthPrePass());
+            AddSceneRenderPasses();
+            if (m_reflectionHdrDiagnosticRequested)
+            {
+                AddPass(MakeReflectionHdrDiagnosticPass());
+            }
+            AddPass(MakeDebugLinePass());
+            if (ShouldRunTemporalUpscaler())
+            {
+                AddPass(MakeTemporalUpscalerPass());
+            }
         }
         AddPass(MakeToneMapPass());
         for (UINT i = 0; i < kMaxDebugTextureOutputCount; ++i)
@@ -45,7 +56,7 @@ void RtPbrSurveyEngine::BuildRenderPasses()
             }
         }
 
-        if (m_debugViewSettings.requestHdrDump)
+        if (m_renderingPath != RenderingPath::PathTracing && m_debugViewSettings.requestHdrDump)
         {
             AddPass(MakeDebugDumpPass());
         }
@@ -226,6 +237,17 @@ DescriptorKey RtPbrSurveyEngine::DescriptorId(const std::string& name)
 
 auto RtPbrSurveyEngine::MakeClearPass() -> RenderPass
 {
+    if (m_renderingPath == RenderingPath::PathTracing)
+    {
+        return m_renderGraphRuntime.Authoring()
+            .CreatePass(L"Clear")
+            .Writes({{kBackBufferResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+            .Rtv(RtvName::BackBuffer)
+            .ClearColor(m_backBufferClearColor)
+            .Operation(Op::Clear, &RtPbrSurveyEngine::ExecuteClearPass)
+            .Build();
+    }
+
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"Clear")
         .Writes({{kBackBufferResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET},
@@ -234,6 +256,25 @@ auto RtPbrSurveyEngine::MakeClearPass() -> RenderPass
         .Dsv(DsvName::Depth)
         .ClearColor(m_backBufferClearColor)
         .Operation(Op::Clear, &RtPbrSurveyEngine::ExecuteClearPass)
+        .Build();
+}
+
+auto RtPbrSurveyEngine::MakePathTracingHistoryClearPass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"PathTracingHistoryClearPass")
+        .Writes({{kPathTracingAccumulationResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
+        .Operation(Op::PathTracingHistoryClear, &RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass)
+        .Build();
+}
+
+auto RtPbrSurveyEngine::MakePathTracingPass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"PathTracingPass")
+        .Writes({{kPathTracingAccumulationResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
+        .Operation(Op::PathTracing, &RtPbrSurveyEngine::ExecutePathTracingPass)
         .Build();
 }
 
@@ -613,11 +654,18 @@ auto RtPbrSurveyEngine::MakeLightingDebugGradientPass() -> RenderPass
 
 auto RtPbrSurveyEngine::MakeToneMapPass() -> RenderPass
 {
-    Engine::ResourceUsages reads = {{kLightPassRenderTargetResourceName,
-                                     D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}};
-    if (ShouldRunTemporalUpscaler())
+    Engine::ResourceUsages reads;
+    if (m_renderingPath == RenderingPath::PathTracing)
     {
-        reads.push_back({kTemporalUpscalerSceneColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        reads.push_back({kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+    }
+    else
+    {
+        reads.push_back({kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        if (ShouldRunTemporalUpscaler())
+        {
+            reads.push_back({kTemporalUpscalerSceneColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        }
     }
 
     return m_renderGraphRuntime.Authoring()

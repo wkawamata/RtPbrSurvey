@@ -132,6 +132,9 @@
     <ClInclude Include="Renderer\MaterialBuffer.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\PathTracingPass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\PipelineFactory.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -402,6 +405,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\LightingPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingPass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp">

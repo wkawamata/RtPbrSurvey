@@ -564,7 +564,10 @@ namespace
         {
             ImGui::Text("Path Tracing Support: %s", context.pathTracingSupported ? "Available" : "Unavailable");
             ImGui::Text("Runtime Status: %s", context.pathTracingStatusText);
-            ImGui::TextDisabled("Deferred fallback is displayed until the Path Tracing GPU pass is implemented.");
+            ImGui::Text("Render Resolution: %u x %u", context.renderWidth, context.renderHeight);
+            ImGui::Text("Accumulated Samples: %llu",
+                        static_cast<unsigned long long>(context.pathTracingRuntimeState.accumulatedSampleCount));
+            ImGui::TextDisabled("PathTracing.SceneColor displays a placeholder until the shader is implemented.");
             ImGui::TextDisabled("DLSS SR and RR settings are retained but inactive in this mode.");
 
             RtPbrSurveyEngine::PathTracingSettings pathTracingSettings = renderer.GetPathTracingSettings();
