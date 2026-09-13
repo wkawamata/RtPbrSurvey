@@ -380,6 +380,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     using RenderViewMode = RtPbrSurveyEngine::RenderViewMode;
     using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
     static bool renderGraphWindowOpen = false;
+    static bool evaluationCasesWindowOpen = true;
     static bool arrangeDebugTexturePreviewsRequested = false;
     static uint64_t activeDiagnosticInspectorId = 0;
 
@@ -439,10 +440,14 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 context.rayTracingSupported ? "Supported" : "Not supported",
                 context.rayTracingTierName,
                 context.rayTracingTierRaw);
-    ImGui::Checkbox("Open RenderGraph Window", &renderGraphWindowOpen);
-    if (ImGui::Checkbox("Open Information Window", &debugUiPreferences.informationWindowVisible))
+    if (ImGui::CollapsingHeader("SubWindow"))
     {
-        RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        ImGui::Checkbox("Open RenderGraph Window", &renderGraphWindowOpen);
+        ImGui::Checkbox("Open Evaluation Cases Window", &evaluationCasesWindowOpen);
+        if (ImGui::Checkbox("Open Information Window", &debugUiPreferences.informationWindowVisible))
+        {
+            RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        }
     }
 
     if (ImGui::CollapsingHeader("Screenshot"))
@@ -1619,7 +1624,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
 
     ImGui::End();
-    App::DrawEvaluationCasesWindow(app, App::EvaluationCaseScope::CurrentScene);
+    if (evaluationCasesWindowOpen)
+    {
+        App::DrawEvaluationCasesWindow(app, App::EvaluationCaseScope::CurrentScene);
+    }
     if (app.m_evaluationRoi.enabled)
     {
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
