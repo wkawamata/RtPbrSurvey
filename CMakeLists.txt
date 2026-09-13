@@ -104,6 +104,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Runtime/DebugBufferInspector.cpp
     Runtime/DebugTextureInspector.cpp
     Runtime/DebugTextureThumbnailScheduler.cpp
+    Runtime/EvaluationState.cpp
     Runtime/DebugLine.cpp
     Runtime/SceneRendererDebugUi.cpp
     Runtime/RenderGraphNodeEditorView.cpp
@@ -308,6 +309,7 @@ if(RTPBRSURVEY_BUILD_APP)
     add_executable(RtPbrSurvey WIN32
         Main.cpp
         App/DebugUi.cpp
+        App/EvaluationCaseUi.cpp
         App/RtPbrSurveyApp.cpp
         App/SceneConfig.cpp
         App/SceneSelectUi.cpp)
@@ -348,6 +350,14 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.SceneRendererSettingsTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.SceneRendererSettings COMMAND RtPbrSurvey.SceneRendererSettingsTests)
+
+    add_executable(RtPbrSurvey.EvaluationStateTests
+        Tests/EvaluationStateTests.cpp)
+    target_link_libraries(RtPbrSurvey.EvaluationStateTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.EvaluationStateTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.EvaluationState COMMAND RtPbrSurvey.EvaluationStateTests)
 
     add_executable(RtPbrSurvey.DebugLineTests
         Tests/DebugLineTests.cpp)

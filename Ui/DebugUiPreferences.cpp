@@ -45,6 +45,10 @@ void ReadLine(ImGuiContext*, ImGuiSettingsHandler*, void* entry, const char* lin
     {
         preferences.informationWindowVisible = value != 0;
     }
+    else if (sscanf_s(line, "EvaluationCommentsVisible=%d", &value) == 1)
+    {
+        preferences.evaluationCommentsVisible = value != 0;
+    }
 }
 
 void WriteAll(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* output)
@@ -53,7 +57,8 @@ void WriteAll(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* out
     output->appendf("DlssSrDetailed=%d\n", g_preferences.dlssSrDetailed ? 1 : 0);
     output->appendf("DlssRrDetailed=%d\n", g_preferences.dlssRrDetailed ? 1 : 0);
     output->appendf("HybridReflectionDetailed=%d\n", g_preferences.hybridReflectionDetailed ? 1 : 0);
-    output->appendf("InformationWindowVisible=%d\n\n", g_preferences.informationWindowVisible ? 1 : 0);
+    output->appendf("InformationWindowVisible=%d\n", g_preferences.informationWindowVisible ? 1 : 0);
+    output->appendf("EvaluationCommentsVisible=%d\n\n", g_preferences.evaluationCommentsVisible ? 1 : 0);
 }
 } // namespace
 

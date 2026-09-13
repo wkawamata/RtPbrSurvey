@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "DebugUi.h"
+#include "EvaluationCaseUi.h"
 #include "SceneSelectUi.h"
 #include "RtPbrSurveyApp.h"
 #include "../ImGuiWidgets.h"
@@ -7,6 +8,7 @@
 #include "../Ui/DebugUiPreferences.h"
 
 #include <imgui.h>
+#include <imgui_stdlib.h>
 
 #include <cmath>
 #include <ctime>
@@ -391,6 +393,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneSelect)
     {
         App::DrawSceneSelectUi(app);
+        App::DrawEvaluationCasesWindow(app, App::EvaluationCaseScope::AllScenes);
         return;
     }
 
@@ -1616,6 +1619,17 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
 
     ImGui::End();
+    App::DrawEvaluationCasesWindow(app, App::EvaluationCaseScope::CurrentScene);
+    if (app.m_evaluationRoi.enabled)
+    {
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        const ImVec2 roiMin(viewport->Pos.x + viewport->Size.x * app.m_evaluationRoi.x,
+                            viewport->Pos.y + viewport->Size.y * app.m_evaluationRoi.y);
+        const ImVec2 roiMax(roiMin.x + viewport->Size.x * app.m_evaluationRoi.width,
+                            roiMin.y + viewport->Size.y * app.m_evaluationRoi.height);
+        ImGui::GetForegroundDrawList()->AddRect(
+            roiMin, roiMax, ImGui::GetColorU32(ImVec4(1.0f, 0.85f, 0.15f, 1.0f)), 0.0f, 0, 2.0f);
+    }
     const RtPbrSurvey::RenderGraphGpuTimingSnapshot renderGraphTiming =
         BuildRenderGraphGpuTimingSnapshot(context.gpuCheckPoints);
     RtPbrSurvey::RenderGraphResourceActions renderGraphResourceActions;

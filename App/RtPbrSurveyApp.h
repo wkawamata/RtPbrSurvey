@@ -12,6 +12,7 @@
 #pragma once
 
 #include "App/DebugUi.h"
+#include "App/EvaluationCaseUi.h"
 #include "App/SceneConfig.h"
 #include "App/SceneSelectUi.h"
 #include "Camera/DebugCameraController.h"
@@ -22,6 +23,7 @@
 #include "Runtime/SceneRenderer.h"
 #include "Runtime/DebugTextureInspector.h"
 #include "Runtime/DebugTextureThumbnailScheduler.h"
+#include "Runtime/EvaluationState.h"
 #include "Scene/SampleScene.h"
 #include "Ui/ImGuiSystem.h"
 
@@ -66,6 +68,7 @@ public:
 
 private:
     friend void App::DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& context);
+    friend void App::DrawEvaluationCasesWindow(RtPbrSurveyApp& app, App::EvaluationCaseScope scope);
     friend void App::DrawSceneSelectUi(RtPbrSurveyApp& app);
     friend class App::SceneConfigManager;
 
@@ -94,6 +97,8 @@ private:
     void LogRayReconstructionDiagnostics();
     void FlushD3D12DebugMessages();
     void LogFpsToFile(float cpuFrameTimeMs);
+    bool CaptureEvaluationState(RtPbrSurvey::EvaluationState& state, std::string* error = nullptr);
+    bool RestoreEvaluationState(const RtPbrSurvey::EvaluationState& state, std::string* error = nullptr);
     Engine::SampleScene& LoadedScene();
     const Engine::SampleScene& LoadedScene() const;
     void DrawDebugUi(const RtPbrSurveyEngine::UiFrameContext& context);
@@ -153,6 +158,11 @@ private:
     RtPbrSurvey::SceneRenderer m_sceneRenderer;
     RtPbrSurvey::DebugCameraController m_debugCamera;
     App::SceneConfigManager m_sceneConfig;
+    RtPbrSurvey::EvaluationStateStore m_evaluationStates;
+    RtPbrSurvey::EvaluationRoi m_evaluationRoi;
+    int m_selectedEvaluationStateIndex = -1;
+    uint64_t m_evaluationDeleteCandidateId = 0;
+    std::string m_evaluationStatus;
 
     // Debug logging to file (-LogToFile / -LogFPS).
     ComPtr<ID3D12InfoQueue> m_d3d12InfoQueue;
