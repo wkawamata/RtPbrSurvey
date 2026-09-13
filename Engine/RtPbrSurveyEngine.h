@@ -157,6 +157,7 @@ public:
     {
         Forward = 0,
         Deferred,
+        PathTracing,
     };
 
     struct LightingParams
@@ -260,6 +261,31 @@ public:
         bool confidenceForceStableEvidence = false;
     };
 
+    struct PathTracingSettings
+    {
+        bool accumulate = true;
+        UINT samplesPerFrame = 1;
+        UINT maxBounces = 2;
+        UINT randomSeed = 1;
+        bool directLightingEnabled = true;
+        bool environmentEnabled = true;
+        bool emissiveEnabled = true;
+        bool russianRouletteEnabled = false;
+    };
+
+    enum class PathTracingResetReason
+    {
+        Initial = 0,
+    };
+
+    struct PathTracingRuntimeState
+    {
+        uint64_t accumulatedSampleCount = 0;
+        UINT frameSampleIndex = 0;
+        bool historyValid = false;
+        PathTracingResetReason lastResetReason = PathTracingResetReason::Initial;
+    };
+
     struct SpecularDebugLineSettings
     {
         bool enabled = true;
@@ -280,6 +306,10 @@ public:
         bool rayTracingSupported;
         const wchar_t* rayTracingTierName;
         int rayTracingTierRaw;
+        bool pathTracingSupported;
+        bool pathTracingExecutionAvailable;
+        const char* pathTracingStatusText;
+        PathTracingRuntimeState pathTracingRuntimeState;
         bool temporalUpscalerAvailable;
         const char* temporalUpscalerBackendName;
         const char* temporalUpscalerStatusText;
@@ -335,6 +365,9 @@ public:
     const Engine::RayReconstructionSettings& GetRayReconstructionSettings() const { return m_rayReconstructionSettings; }
     void SetHybridReflectionSettings(const HybridReflectionSettings& settings);
     const HybridReflectionSettings& GetHybridReflectionSettings() const { return m_hybridReflectionSettings; }
+    void SetPathTracingSettings(const PathTracingSettings& settings);
+    const PathTracingSettings& GetPathTracingSettings() const { return m_pathTracingSettings; }
+    const PathTracingRuntimeState& GetPathTracingRuntimeState() const { return m_pathTracingRuntimeState; }
     void ResetHybridReflectionHistoryForDiagnostics();
     void SetMaterialParams(UINT materialIndex, const MaterialParams& params);
     void SetRenderingPath(RenderingPath renderingPath);
@@ -998,6 +1031,8 @@ private:
     Engine::TemporalUpscalerSettings m_temporalUpscalerSettings;
     Engine::RayReconstructionSupportInfo m_rayReconstructionSupport;
     Engine::RayReconstructionSettings m_rayReconstructionSettings;
+    PathTracingSettings m_pathTracingSettings;
+    PathTracingRuntimeState m_pathTracingRuntimeState;
     bool m_temporalUpscalerHistoryReset = true;
     struct ReflectionHistoryState
     {

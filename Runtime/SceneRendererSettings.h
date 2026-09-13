@@ -12,13 +12,14 @@ namespace RtPbrSurvey
 {
 struct SceneRendererSettings
 {
-    static constexpr int kSchemaVersion = 1;
+    static constexpr int kSchemaVersion = 2;
 
     RtPbrSurveyEngine::LightingParams lighting;
     RtPbrSurveyEngine::ShadowSettings shadow;
     Engine::TemporalUpscalerSettings temporalUpscaler;
     Engine::RayReconstructionSettings rayReconstruction;
     RtPbrSurveyEngine::HybridReflectionSettings hybridReflection;
+    RtPbrSurveyEngine::PathTracingSettings pathTracing;
     RtPbrSurveyEngine::ToneMapParams toneMap;
     RtPbrSurveyEngine::SpecularDebugLineSettings specularDebugLines;
     RtPbrSurveyEngine::RenderingPath renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;

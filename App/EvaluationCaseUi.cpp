@@ -20,7 +20,15 @@ namespace
 {
 const char* RenderingPathName(const RtPbrSurvey::EvaluationState& state)
 {
-    return state.sceneConfig.value("renderingPath", 1) == 0 ? "Forward" : "Deferred";
+    switch (state.sceneConfig.value("renderingPath", 1))
+    {
+        case 0:
+            return "Forward";
+        case 2:
+            return "Path Tracing";
+        default:
+            return "Deferred";
+    }
 }
 
 const char* DlssQualityName(int qualityMode)

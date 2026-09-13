@@ -911,7 +911,48 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton("Forward", &renderingPath, static_cast<int>(RenderingPath::Forward));
         ImGui::SameLine();
         ImGui::RadioButton("Deferred", &renderingPath, static_cast<int>(RenderingPath::Deferred));
+        ImGui::SameLine();
+        ImGui::RadioButton("Path Tracing", &renderingPath, static_cast<int>(RenderingPath::PathTracing));
         app.m_renderingPath = static_cast<RenderingPath>(renderingPath);
+
+        if (app.m_renderingPath == RenderingPath::PathTracing)
+        {
+            ImGui::Text("Path Tracing Support: %s", context.pathTracingSupported ? "Available" : "Unavailable");
+            ImGui::Text("Runtime Status: %s", context.pathTracingStatusText);
+            ImGui::TextDisabled("Deferred fallback is displayed until the Path Tracing GPU pass is implemented.");
+            ImGui::TextDisabled("DLSS SR and RR settings are retained but inactive in this mode.");
+
+            RtPbrSurveyEngine::PathTracingSettings pathTracingSettings =
+                app.m_sceneRenderer.GetPathTracingSettings();
+            bool pathTracingSettingsChanged = false;
+            pathTracingSettingsChanged |= ImGui::Checkbox("Accumulate", &pathTracingSettings.accumulate);
+            int samplesPerFrame = static_cast<int>(pathTracingSettings.samplesPerFrame);
+            if (ImGui::SliderInt("Samples / Frame", &samplesPerFrame, 1, 16))
+            {
+                pathTracingSettings.samplesPerFrame = static_cast<UINT>(samplesPerFrame);
+                pathTracingSettingsChanged = true;
+            }
+            int maxBounces = static_cast<int>(pathTracingSettings.maxBounces);
+            if (ImGui::SliderInt("Max Bounces", &maxBounces, 1, 16))
+            {
+                pathTracingSettings.maxBounces = static_cast<UINT>(maxBounces);
+                pathTracingSettingsChanged = true;
+            }
+            pathTracingSettingsChanged |=
+                ImGui::InputScalar("Random Seed", ImGuiDataType_U32, &pathTracingSettings.randomSeed);
+            pathTracingSettingsChanged |=
+                ImGui::Checkbox("Direct Lighting", &pathTracingSettings.directLightingEnabled);
+            ImGui::SameLine();
+            pathTracingSettingsChanged |= ImGui::Checkbox("Environment", &pathTracingSettings.environmentEnabled);
+            ImGui::SameLine();
+            pathTracingSettingsChanged |= ImGui::Checkbox("Emissive", &pathTracingSettings.emissiveEnabled);
+            pathTracingSettingsChanged |=
+                ImGui::Checkbox("Russian Roulette", &pathTracingSettings.russianRouletteEnabled);
+            if (pathTracingSettingsChanged)
+            {
+                app.m_sceneRenderer.SetPathTracingSettings(pathTracingSettings);
+            }
+        }
 
         const bool deferredRendering = app.m_renderingPath == RenderingPath::Deferred;
         int renderViewMode = static_cast<int>(app.m_renderViewMode);
@@ -987,6 +1028,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::EndDisabled();
         ImGui::EndDisabled();
         app.m_renderViewMode = static_cast<RenderViewMode>(renderViewMode);
+        if (!deferredRendering)
+        {
+            app.m_renderViewMode = RenderViewMode::LightPass;
+        }
         if (!context.rayTracingSupported &&
             (app.m_renderViewMode == RenderViewMode::ShadowMask || app.m_renderViewMode == RenderViewMode::TlasDebug ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayHit ||

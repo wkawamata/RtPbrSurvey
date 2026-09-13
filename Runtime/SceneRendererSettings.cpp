@@ -4,6 +4,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
+
 namespace
 {
 using json = nlohmann::json;
@@ -105,6 +107,16 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
         settings.hybridReflection.rejectedPixelNeighborhoodEnabled;
     hybridReflection["surfaceVarianceFilterEnabled"] = settings.hybridReflection.surfaceVarianceFilterEnabled;
 
+    json pathTracing;
+    pathTracing["accumulate"] = settings.pathTracing.accumulate;
+    pathTracing["samplesPerFrame"] = settings.pathTracing.samplesPerFrame;
+    pathTracing["maxBounces"] = settings.pathTracing.maxBounces;
+    pathTracing["randomSeed"] = settings.pathTracing.randomSeed;
+    pathTracing["directLightingEnabled"] = settings.pathTracing.directLightingEnabled;
+    pathTracing["environmentEnabled"] = settings.pathTracing.environmentEnabled;
+    pathTracing["emissiveEnabled"] = settings.pathTracing.emissiveEnabled;
+    pathTracing["russianRouletteEnabled"] = settings.pathTracing.russianRouletteEnabled;
+
     json toneMap;
     toneMap["operatorIndex"] = settings.toneMap.operatorIndex;
     toneMap["exposure"] = settings.toneMap.exposure;
@@ -125,6 +137,7 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
     result["temporalUpscaler"] = std::move(temporalUpscaler);
     result["rayReconstruction"] = std::move(rayReconstruction);
     result["hybridReflection"] = std::move(hybridReflection);
+    result["pathTracing"] = std::move(pathTracing);
     result["toneMap"] = std::move(toneMap);
     result["specularDebugLines"] = std::move(specularDebugLines);
     result["renderingPath"] = static_cast<int>(settings.renderingPath);
@@ -242,6 +255,25 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
                 "surfaceVarianceFilterEnabled", parsed.hybridReflection.surfaceVarianceFilterEnabled);
         }
 
+        if (value.contains("pathTracing"))
+        {
+            const json& pathTracing = value.at("pathTracing");
+            parsed.pathTracing.accumulate = pathTracing.value("accumulate", parsed.pathTracing.accumulate);
+            parsed.pathTracing.samplesPerFrame =
+                (std::clamp)(pathTracing.value("samplesPerFrame", parsed.pathTracing.samplesPerFrame), 1u, 16u);
+            parsed.pathTracing.maxBounces =
+                (std::clamp)(pathTracing.value("maxBounces", parsed.pathTracing.maxBounces), 1u, 16u);
+            parsed.pathTracing.randomSeed = pathTracing.value("randomSeed", parsed.pathTracing.randomSeed);
+            parsed.pathTracing.directLightingEnabled =
+                pathTracing.value("directLightingEnabled", parsed.pathTracing.directLightingEnabled);
+            parsed.pathTracing.environmentEnabled =
+                pathTracing.value("environmentEnabled", parsed.pathTracing.environmentEnabled);
+            parsed.pathTracing.emissiveEnabled =
+                pathTracing.value("emissiveEnabled", parsed.pathTracing.emissiveEnabled);
+            parsed.pathTracing.russianRouletteEnabled =
+                pathTracing.value("russianRouletteEnabled", parsed.pathTracing.russianRouletteEnabled);
+        }
+
         if (value.contains("toneMap"))
         {
             const json& toneMap = value.at("toneMap");
@@ -263,7 +295,12 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
                 debugLines.value("showReflection", parsed.specularDebugLines.showReflection);
         }
 
-        parsed.renderingPath = EnumValue(value, "renderingPath", parsed.renderingPath);
+        const int renderingPathValue = value.value("renderingPath", static_cast<int>(parsed.renderingPath));
+        if (renderingPathValue >= static_cast<int>(RtPbrSurveyEngine::RenderingPath::Forward) &&
+            renderingPathValue <= static_cast<int>(RtPbrSurveyEngine::RenderingPath::PathTracing))
+        {
+            parsed.renderingPath = static_cast<RtPbrSurveyEngine::RenderingPath>(renderingPathValue);
+        }
         parsed.renderViewMode = EnumValue(value, "renderViewMode", parsed.renderViewMode);
         if (value.contains("backBufferClearColor"))
             parsed.backBufferClearColor = Float4FromJson(value.at("backBufferClearColor"), parsed.backBufferClearColor);

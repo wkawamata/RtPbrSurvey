@@ -67,7 +67,7 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
     else
     {
         AddPass(MakeGBufferPass());
-        if (m_rayTracingSupport.IsSupported())
+        if (m_renderingPath == RenderingPath::Deferred && m_rayTracingSupport.IsSupported())
         {
             AddPass(MakeRayQueryShadowPass());
             if (m_hybridReflectionSettings.enabled)

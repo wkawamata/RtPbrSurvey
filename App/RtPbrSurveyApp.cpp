@@ -35,6 +35,19 @@ void RunStagedAllocatorTests(ID3D12Device* device);
 
 namespace
 {
+const char* RenderingPathMetadataName(RtPbrSurveyEngine::RenderingPath renderingPath)
+{
+    switch (renderingPath)
+    {
+        case RtPbrSurveyEngine::RenderingPath::Forward:
+            return "forward";
+        case RtPbrSurveyEngine::RenderingPath::PathTracing:
+            return "path-tracing";
+        default:
+            return "deferred";
+    }
+}
+
 
 static_assert(Engine::ImGuiSystem::kMaxTextureCount >= RtPbrSurveyEngine::kMaxDebugTextureOutputCount);
 
@@ -1220,7 +1233,7 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
         {"comparisonMetadata",
-         {{"renderingPath", m_renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred ? "deferred" : "forward"},
+         {{"renderingPath", RenderingPathMetadataName(m_renderingPath)},
           {"signalBoundaries",
            {{"evaluatedRadiance", "current-reflection-unweighted-linear-hdr"},
             {"resolvedRadiance", "resolved-reflection-unweighted-linear-hdr"},

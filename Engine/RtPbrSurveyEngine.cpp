@@ -203,7 +203,14 @@ void RtPbrSurveyEngine::ResolveRenderDimensions(
         return;
     }
 
-    if (m_temporalUpscalerSettings.enabled &&
+    if (m_renderingPath == RenderingPath::PathTracing)
+    {
+        renderWidth = outputWidth;
+        renderHeight = outputHeight;
+        return;
+    }
+
+    if (m_renderingPath == RenderingPath::Deferred && m_temporalUpscalerSettings.enabled &&
         m_temporalUpscalerSettings.backend == Engine::TemporalUpscalerBackend::Streamline &&
         m_temporalUpscalerSupport.IsAvailable())
     {
@@ -241,7 +248,7 @@ void RtPbrSurveyEngine::UpdateRenderDimensions()
 
 bool RtPbrSurveyEngine::IsTemporalJitterEnabled() const
 {
-    return m_temporalUpscalerSettings.enabled &&
+    return m_renderingPath == RenderingPath::Deferred && m_temporalUpscalerSettings.enabled &&
         m_temporalUpscalerSettings.backend == Engine::TemporalUpscalerBackend::Streamline &&
         m_temporalUpscalerSupport.IsAvailable() && m_renderWidth > 0 && m_renderHeight > 0;
 }
@@ -405,6 +412,12 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_rayTracingSupport.IsSupported(),
             m_rayTracingSupport.TierName(),
             static_cast<int>(m_rayTracingSupport.Tier()),
+            m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1,
+            false,
+            m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1 ?
+                "GPU pass not implemented" :
+                "Requires DXR 1.1",
+            m_pathTracingRuntimeState,
             m_temporalUpscalerSupport.IsAvailable(),
             m_temporalUpscalerSupport.BackendName(),
             m_temporalUpscalerSupport.StatusText(),
@@ -496,15 +509,37 @@ void RtPbrSurveyEngine::SetRayReconstructionSettings(const Engine::RayReconstruc
     m_rayReconstructionSettings = settings;
 }
 
+void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settings)
+{
+    const bool changed =
+        m_pathTracingSettings.accumulate != settings.accumulate ||
+        m_pathTracingSettings.samplesPerFrame != settings.samplesPerFrame ||
+        m_pathTracingSettings.maxBounces != settings.maxBounces ||
+        m_pathTracingSettings.randomSeed != settings.randomSeed ||
+        m_pathTracingSettings.directLightingEnabled != settings.directLightingEnabled ||
+        m_pathTracingSettings.environmentEnabled != settings.environmentEnabled ||
+        m_pathTracingSettings.emissiveEnabled != settings.emissiveEnabled ||
+        m_pathTracingSettings.russianRouletteEnabled != settings.russianRouletteEnabled;
+
+    m_pathTracingSettings = settings;
+    m_pathTracingSettings.samplesPerFrame = (std::clamp)(m_pathTracingSettings.samplesPerFrame, 1u, 16u);
+    m_pathTracingSettings.maxBounces = (std::clamp)(m_pathTracingSettings.maxBounces, 1u, 16u);
+    if (changed)
+    {
+        m_pathTracingRuntimeState = {};
+    }
+}
+
 bool RtPbrSurveyEngine::ShouldRunTemporalUpscaler() const
 {
-    return m_debugViewSettings.renderViewMode == RenderViewMode::LightPass &&
+    return m_renderingPath == RenderingPath::Deferred &&
+        m_debugViewSettings.renderViewMode == RenderViewMode::LightPass &&
         m_temporalUpscalerSettings.enabled && m_temporalUpscalerSupport.IsAvailable();
 }
 
 bool RtPbrSurveyEngine::ShouldRunRayReconstruction() const
 {
-    return m_rayReconstructionSettings.enabled &&
+    return m_renderingPath == RenderingPath::Deferred && m_rayReconstructionSettings.enabled &&
         m_rayReconstructionSettings.backend == Engine::RayReconstructionBackend::Streamline &&
         m_rayReconstructionSupport.IsAvailable();
 }
@@ -733,6 +768,13 @@ void RtPbrSurveyEngine::SetRenderingPath(RenderingPath renderingPath)
     if (m_renderingPath != renderingPath)
     {
         InvalidateReflectionHistory();
+        m_pathTracingRuntimeState = {};
+        if (m_width > 0 && m_height > 0)
+        {
+            const UINT resizeWidth = m_pendingResize ? m_pendingResizeWidth : m_width;
+            const UINT resizeHeight = m_pendingResize ? m_pendingResizeHeight : m_height;
+            RequestResize(resizeWidth, resizeHeight);
+        }
     }
     m_renderingPath = renderingPath;
 }

@@ -30,9 +30,17 @@ bool TestRoundTrip()
     source.temporalUpscaler.qualityMode = Engine::TemporalUpscalerQualityMode::Balanced;
     source.temporalUpscaler.renderScale = 0.67f;
     source.hybridReflection.contributionMaxDistance = 37.0f;
+    source.pathTracing.accumulate = false;
+    source.pathTracing.samplesPerFrame = 4;
+    source.pathTracing.maxBounces = 7;
+    source.pathTracing.randomSeed = 42;
+    source.pathTracing.directLightingEnabled = false;
+    source.pathTracing.environmentEnabled = false;
+    source.pathTracing.emissiveEnabled = false;
+    source.pathTracing.russianRouletteEnabled = true;
     source.toneMap.exposure = 1.7f;
     source.specularDebugLines.lineLength = 3.5f;
-    source.renderingPath = RtPbrSurveyEngine::RenderingPath::Forward;
+    source.renderingPath = RtPbrSurveyEngine::RenderingPath::PathTracing;
     source.renderViewMode = RtPbrSurveyEngine::RenderViewMode::Depth;
     source.backBufferClearColor = {0.1f, 0.2f, 0.3f, 0.9f};
     source.lightingPassDebugGradient = true;
@@ -64,6 +72,15 @@ bool TestRoundTrip()
     passed &=
         Check(restored.hybridReflection.contributionMaxDistance == source.hybridReflection.contributionMaxDistance,
               "hybrid reflection settings round-trip");
+    passed &= Check(restored.pathTracing.accumulate == source.pathTracing.accumulate &&
+                        restored.pathTracing.samplesPerFrame == source.pathTracing.samplesPerFrame &&
+                        restored.pathTracing.maxBounces == source.pathTracing.maxBounces &&
+                        restored.pathTracing.randomSeed == source.pathTracing.randomSeed &&
+                        restored.pathTracing.directLightingEnabled == source.pathTracing.directLightingEnabled &&
+                        restored.pathTracing.environmentEnabled == source.pathTracing.environmentEnabled &&
+                        restored.pathTracing.emissiveEnabled == source.pathTracing.emissiveEnabled &&
+                        restored.pathTracing.russianRouletteEnabled == source.pathTracing.russianRouletteEnabled,
+                    "path tracing settings round-trip");
     passed &= Check(restored.toneMap.exposure == source.toneMap.exposure, "tone mapping settings round-trip");
     passed &= Check(restored.specularDebugLines.lineLength == source.specularDebugLines.lineLength,
                     "specular debug settings round-trip");
@@ -79,6 +96,7 @@ bool TestMissingFieldsKeepDefaults()
     RtPbrSurvey::SceneRendererSettings settings;
     settings.lighting.diffuseIntensity = 3.0f;
     settings.shadow.normalBias = 0.04f;
+    settings.pathTracing.maxBounces = 9;
     settings.toneMap.exposure = 1.25f;
 
     const std::string partial = R"({"lighting":{"lightDirection":[1.0,0.0,0.0]}})";
@@ -87,6 +105,7 @@ bool TestMissingFieldsKeepDefaults()
     passed &= Check(settings.lighting.lightDirection.x == 1.0f, "present field is restored");
     passed &= Check(settings.lighting.diffuseIntensity == 3.0f, "missing lighting field keeps default");
     passed &= Check(settings.shadow.normalBias == 0.04f, "missing group keeps default");
+    passed &= Check(settings.pathTracing.maxBounces == 9, "missing path tracing group keeps default");
     passed &= Check(settings.toneMap.exposure == 1.25f, "missing tone map keeps default");
     return passed;
 }
@@ -103,11 +122,27 @@ bool TestInvalidJsonIsNonDestructive()
     passed &= Check(settings.lighting.diffuseIntensity == 2.75f, "invalid JSON does not modify destination settings");
     return passed;
 }
+
+bool TestPathTracingValuesAreBounded()
+{
+    RtPbrSurvey::SceneRendererSettings settings;
+    const std::string invalidValues =
+        R"({"pathTracing":{"samplesPerFrame":0,"maxBounces":99},"renderingPath":99})";
+
+    bool passed = Check(
+        RtPbrSurvey::DeserializeSceneRendererSettings(invalidValues, settings), "bounded settings deserialize");
+    passed &= Check(settings.pathTracing.samplesPerFrame == 1, "samples per frame is clamped");
+    passed &= Check(settings.pathTracing.maxBounces == 16, "max bounces is clamped");
+    passed &= Check(settings.renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred,
+                    "invalid rendering path keeps default");
+    return passed;
+}
 } // namespace
 
 int main()
 {
-    const bool passed = TestRoundTrip() && TestMissingFieldsKeepDefaults() && TestInvalidJsonIsNonDestructive();
+    const bool passed = TestRoundTrip() && TestMissingFieldsKeepDefaults() && TestInvalidJsonIsNonDestructive() &&
+        TestPathTracingValuesAreBounded();
     if (passed)
     {
         std::cout << "SceneRendererSettings tests passed.\n";
