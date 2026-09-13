@@ -524,6 +524,8 @@ that RtPbrSurvey can adopt the useful algorithm without inheriting unrelated fra
 Before Commit 1, record a short source map in this document or a separate review note. For each reference, identify the
 exact shader and host files that answer the listed questions. Do not import source code during this audit.
 
+Audit result: `doc/branch/feature/path-tracing-reference-audit.md`
+
 | Reference | Questions | RtPbrSurvey output |
 |---|---|---|
 | MJP DXRPathTracer | primary-ray generation, path state/payload, throughput, emission, BRDF/PDF, termination, accumulation reset | minimal path-state and accumulation contract |
