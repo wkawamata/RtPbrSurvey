@@ -18,10 +18,16 @@ struct PathTracingShaderConstants
     UINT debugOutput;
     UINT environmentEnabled;
     UINT emissiveEnabled;
+    UINT samplesPerFrame;
+    UINT sampleStartIndex;
+    UINT randomSeed;
+    float previousSampleCount;
     float rayTMin;
     float rayTMax;
     std::array<float, 3> missColor;
 };
+
+static_assert(sizeof(PathTracingShaderConstants) == 16 * sizeof(UINT));
 
 } // namespace
 
@@ -49,14 +55,15 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
     commandList->SetComputeRootSignature(desc.rootSignature);
     commandList->SetPipelineState(desc.pipelineState);
     commandList->SetComputeRootDescriptorTable(0, desc.sceneColorUav);
-    commandList->SetComputeRootDescriptorTable(1, desc.scene.tlasSrv);
-    commandList->SetComputeRootDescriptorTable(2, desc.scene.cameraCbv);
-    commandList->SetComputeRootShaderResourceView(3, desc.scene.vertexBufferSrv);
-    commandList->SetComputeRootShaderResourceView(4, desc.scene.indexBufferSrv);
-    commandList->SetComputeRootShaderResourceView(5, desc.scene.instanceBufferSrv);
-    commandList->SetComputeRootDescriptorTable(6, desc.scene.materialBufferSrv);
-    commandList->SetComputeRootDescriptorTable(7, desc.scene.textureTableSrv);
-    commandList->SetComputeRootShaderResourceView(8, desc.scene.meshRangeBufferSrv);
+    commandList->SetComputeRootDescriptorTable(1, desc.accumulationUav);
+    commandList->SetComputeRootDescriptorTable(2, desc.scene.tlasSrv);
+    commandList->SetComputeRootDescriptorTable(3, desc.scene.cameraCbv);
+    commandList->SetComputeRootShaderResourceView(4, desc.scene.vertexBufferSrv);
+    commandList->SetComputeRootShaderResourceView(5, desc.scene.indexBufferSrv);
+    commandList->SetComputeRootShaderResourceView(6, desc.scene.instanceBufferSrv);
+    commandList->SetComputeRootDescriptorTable(7, desc.scene.materialBufferSrv);
+    commandList->SetComputeRootDescriptorTable(8, desc.scene.textureTableSrv);
+    commandList->SetComputeRootShaderResourceView(9, desc.scene.meshRangeBufferSrv);
 
     const PathTracingShaderConstants constants = {
         desc.scene.usesIndexedDraw,
@@ -66,11 +73,15 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
         desc.debugOutput,
         desc.environmentEnabled,
         desc.emissiveEnabled,
+        desc.samplesPerFrame,
+        desc.sampleStartIndex,
+        desc.randomSeed,
+        desc.previousSampleCount,
         desc.rayTMin,
         desc.rayTMax,
         desc.missColor,
     };
-    commandList->SetComputeRoot32BitConstants(9, 12, &constants, 0);
+    commandList->SetComputeRoot32BitConstants(10, 16, &constants, 0);
 
     constexpr UINT kThreadGroupSize = 8;
     const UINT dispatchX = (desc.width + kThreadGroupSize - 1) / kThreadGroupSize;

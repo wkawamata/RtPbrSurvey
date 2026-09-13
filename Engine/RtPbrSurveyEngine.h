@@ -285,6 +285,14 @@ public:
     enum class PathTracingResetReason
     {
         Initial = 0,
+        Manual,
+        Camera,
+        Scene,
+        Material,
+        Lighting,
+        RenderSize,
+        Settings,
+        RenderingPath,
     };
 
     struct PathTracingRuntimeState
@@ -292,7 +300,10 @@ public:
         uint64_t accumulatedSampleCount = 0;
         UINT frameSampleIndex = 0;
         bool historyValid = false;
+        bool accumulationPaused = false;
         PathTracingResetReason lastResetReason = PathTracingResetReason::Initial;
+
+        const char* ResetReasonText() const;
     };
 
     struct SpecularDebugLineSettings
@@ -377,6 +388,8 @@ public:
     void SetPathTracingSettings(const PathTracingSettings& settings);
     const PathTracingSettings& GetPathTracingSettings() const { return m_pathTracingSettings; }
     const PathTracingRuntimeState& GetPathTracingRuntimeState() const { return m_pathTracingRuntimeState; }
+    void ResetPathTracingAccumulation();
+    void SetPathTracingAccumulationPaused(bool paused);
     void ResetHybridReflectionHistoryForDiagnostics();
     void SetMaterialParams(UINT materialIndex, const MaterialParams& params);
     void SetRenderingPath(RenderingPath renderingPath);
@@ -1057,6 +1070,11 @@ private:
     Engine::RayReconstructionSettings m_rayReconstructionSettings;
     PathTracingSettings m_pathTracingSettings;
     PathTracingRuntimeState m_pathTracingRuntimeState;
+    bool m_pathTracingHistoryClearRequired = true;
+    bool m_pathTracingFrameAdvance = true;
+    bool m_pathTracingSampleCommitPending = false;
+    UINT m_pathTracingPendingSampleCount = 0;
+    bool m_pathTracingPendingAccumulate = false;
     bool m_temporalUpscalerHistoryReset = true;
     struct ReflectionHistoryState
     {
@@ -1651,6 +1669,8 @@ private:
     void ExecuteClearPass(const RenderPass& pass);
     void ExecutePathTracingHistoryClearPass(const RenderPass& pass);
     void ExecutePathTracingPass(const RenderPass& pass);
+    void InvalidatePathTracingHistory(PathTracingResetReason reason);
+    void CommitPathTracingFrame();
     void ExecuteDepthPrePass(const RenderPass& pass);
     void ExecuteGBufferPass(const RenderPass& pass);
     void ExecuteHybridReflectionPass(const RenderPass& pass);

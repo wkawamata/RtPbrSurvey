@@ -1,6 +1,7 @@
 #include "Material.hlsli"
 
 RWTexture2D<float4> g_sceneColor : register(u0);
+RWTexture2D<float4> g_accumulation : register(u1);
 RaytracingAccelerationStructure g_tlas : register(t0);
 ByteAddressBuffer g_sceneVertices : register(t1);
 ByteAddressBuffer g_sceneIndices : register(t2);
@@ -35,6 +36,10 @@ cbuffer PathTracingConstants : register(b1)
     uint debugOutput;
     uint environmentEnabled;
     uint emissiveEnabled;
+    uint samplesPerFrame;
+    uint sampleStartIndex;
+    uint randomSeed;
+    float previousSampleCount;
     float rayTMin;
     float rayTMax;
     float3 missColor;
@@ -42,19 +47,30 @@ cbuffer PathTracingConstants : register(b1)
 
 #include "SceneRayQuery.hlsli"
 
-[numthreads(8, 8, 1)]
-void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
+uint HashUint(uint value)
 {
-    uint2 pixel = dispatchThreadId.xy;
-    uint width;
-    uint height;
-    g_sceneColor.GetDimensions(width, height);
-    if (pixel.x >= width || pixel.y >= height)
-    {
-        return;
-    }
+    value ^= value >> 16;
+    value *= 0x7feb352du;
+    value ^= value >> 15;
+    value *= 0x846ca68bu;
+    value ^= value >> 16;
+    return value;
+}
 
-    float2 uv = (float2(pixel) + 0.5) / float2(width, height);
+uint MakeRandomState(uint2 pixel, uint sampleIndex)
+{
+    return HashUint(pixel.x ^ HashUint(pixel.y ^ HashUint(sampleIndex ^ randomSeed)));
+}
+
+float NextRandom(inout uint state)
+{
+    state = HashUint(state + 0x9e3779b9u);
+    return float(state >> 8) * (1.0 / 16777216.0);
+}
+
+float3 TracePrimaryDiagnostic(uint2 pixel, float2 subpixelPosition, uint2 dimensions)
+{
+    float2 uv = (float2(pixel) + subpixelPosition) / float2(dimensions);
     float2 clipUv = uv * 2.0 - 1.0;
     clipUv.y = -clipUv.y;
 
@@ -75,8 +91,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
     {
-        g_sceneColor[pixel] = float4(environmentEnabled != 0 ? missColor : float3(0.0, 0.0, 0.0), 1.0);
-        return;
+        return environmentEnabled != 0 ? missColor : float3(0.0, 0.0, 0.0);
     }
 
     uint index0;
@@ -105,5 +120,35 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     {
         outputColor += hitMaterial.emissive;
     }
-    g_sceneColor[pixel] = float4(outputColor, 1.0);
+    return outputColor;
+}
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    uint2 pixel = dispatchThreadId.xy;
+    uint width;
+    uint height;
+    g_sceneColor.GetDimensions(width, height);
+    if (pixel.x >= width || pixel.y >= height)
+    {
+        return;
+    }
+
+    const uint sampleCount = max(samplesPerFrame, 1u);
+    float3 frameRadianceSum = 0.0;
+    for (uint sampleOffset = 0; sampleOffset < sampleCount; ++sampleOffset)
+    {
+        uint randomState = MakeRandomState(pixel, sampleStartIndex + sampleOffset);
+        const float2 subpixelPosition = float2(NextRandom(randomState), NextRandom(randomState));
+        frameRadianceSum += TracePrimaryDiagnostic(pixel, subpixelPosition, uint2(width, height));
+    }
+
+    float3 accumulatedRadiance = frameRadianceSum;
+    float totalSampleCount = float(sampleCount);
+    accumulatedRadiance += g_accumulation[pixel].rgb;
+    totalSampleCount += previousSampleCount;
+
+    g_accumulation[pixel] = float4(accumulatedRadiance, totalSampleCount);
+    g_sceneColor[pixel] = float4(accumulatedRadiance / max(totalSampleCount, 1.0), 1.0);
 }

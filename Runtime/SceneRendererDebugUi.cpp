@@ -567,8 +567,21 @@ namespace
             ImGui::Text("Render Resolution: %u x %u", context.renderWidth, context.renderHeight);
             ImGui::Text("Accumulated Samples: %llu",
                         static_cast<unsigned long long>(context.pathTracingRuntimeState.accumulatedSampleCount));
-            ImGui::TextDisabled("Primary-hit diagnostics are active; progressive accumulation is not implemented.");
+            ImGui::Text("Next Sample Index: %u", context.pathTracingRuntimeState.frameSampleIndex);
+            ImGui::Text("Last Reset: %s", context.pathTracingRuntimeState.ResetReasonText());
+            ImGui::TextDisabled("Progressive primary-hit diagnostics are active.");
             ImGui::TextDisabled("DLSS SR and RR settings are retained but inactive in this mode.");
+
+            bool accumulationPaused = context.pathTracingRuntimeState.accumulationPaused;
+            if (ImGui::Checkbox("Pause Accumulation", &accumulationPaused))
+            {
+                renderer.SetPathTracingAccumulationPaused(accumulationPaused);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Reset Accumulation"))
+            {
+                renderer.ResetPathTracingAccumulation();
+            }
 
             RtPbrSurveyEngine::PathTracingSettings pathTracingSettings = renderer.GetPathTracingSettings();
             bool settingsChanged = false;

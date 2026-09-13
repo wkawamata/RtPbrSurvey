@@ -125,6 +125,43 @@ float Halton(UINT index, UINT base)
     return result;
 }
 
+bool CameraStatesEqual(const Engine::CameraState& left, const Engine::CameraState& right)
+{
+    return left.pos.x == right.pos.x && left.pos.y == right.pos.y && left.pos.z == right.pos.z &&
+        left.rot.x == right.rot.x && left.rot.y == right.rot.y && left.rot.z == right.rot.z &&
+        left.gazePoint.x == right.gazePoint.x && left.gazePoint.y == right.gazePoint.y &&
+        left.gazePoint.z == right.gazePoint.z && left.up.x == right.up.x && left.up.y == right.up.y &&
+        left.up.z == right.up.z && left.projection == right.projection && left.fov == right.fov &&
+        left.orthographicHeight == right.orthographicHeight && left.nearZ == right.nearZ &&
+        left.farZ == right.farZ;
+}
+
+bool MatricesEqual(const DirectX::XMFLOAT4X4& left, const DirectX::XMFLOAT4X4& right)
+{
+    return left._11 == right._11 && left._12 == right._12 && left._13 == right._13 && left._14 == right._14 &&
+        left._21 == right._21 && left._22 == right._22 && left._23 == right._23 && left._24 == right._24 &&
+        left._31 == right._31 && left._32 == right._32 && left._33 == right._33 && left._34 == right._34 &&
+        left._41 == right._41 && left._42 == right._42 && left._43 == right._43 && left._44 == right._44;
+}
+
+bool SceneInstancesEqual(const std::vector<Engine::InstanceData>& left,
+                         const std::vector<Engine::InstanceData>& right)
+{
+    if (left.size() != right.size())
+    {
+        return false;
+    }
+    for (size_t index = 0; index < left.size(); ++index)
+    {
+        if (left[index].materialId != right[index].materialId || left[index].meshId != right[index].meshId ||
+            !MatricesEqual(left[index].world, right[index].world))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 
 static_assert(sizeof(Engine::SceneVertex) == 52,
               "shaders_HybridReflection.hlsl reads SceneVertex normals through a byte-address buffer.");
@@ -158,6 +195,33 @@ const wchar_t* EnvironmentSourceName(Engine::EnvironmentSource source)
 }
 
 } // namespace
+
+const char* RtPbrSurveyEngine::PathTracingRuntimeState::ResetReasonText() const
+{
+    switch (lastResetReason)
+    {
+        case PathTracingResetReason::Initial:
+            return "Initial";
+        case PathTracingResetReason::Manual:
+            return "Manual";
+        case PathTracingResetReason::Camera:
+            return "Camera";
+        case PathTracingResetReason::Scene:
+            return "Scene";
+        case PathTracingResetReason::Material:
+            return "Material";
+        case PathTracingResetReason::Lighting:
+            return "Lighting";
+        case PathTracingResetReason::RenderSize:
+            return "Render Size";
+        case PathTracingResetReason::Settings:
+            return "Settings";
+        case PathTracingResetReason::RenderingPath:
+            return "Rendering Path";
+        default:
+            return "Unknown";
+    }
+}
 
 RtPbrSurveyEngine::RtPbrSurveyEngine(GraphicsDevice& graphicsDevice)
     : m_graphicsDevice(graphicsDevice), m_width(0), m_height(0), m_renderWidth(0), m_renderHeight(0),
@@ -467,17 +531,29 @@ void RtPbrSurveyEngine::SetLightingParams(const LightingParams& params)
         m_lightingParams.diffuseIblEnabled != params.diffuseIblEnabled ||
         m_lightingParams.specularIblEnabled != params.specularIblEnabled ||
         m_lightingParams.emissiveEnabled != params.emissiveEnabled;
+    const bool pathTracingHistoryChanged =
+        reflectionHistoryChanged || m_lightingParams.skyboxEnabled != params.skyboxEnabled;
 
     m_lightingParams = params;
     if (reflectionHistoryChanged)
     {
         InvalidateReflectionHistory();
     }
+    if (pathTracingHistoryChanged)
+    {
+        InvalidatePathTracingHistory(PathTracingResetReason::Lighting);
+    }
 }
 
 void RtPbrSurveyEngine::SetShadowSettings(const ShadowSettings& settings)
 {
+    const bool pathTracingHistoryChanged =
+        m_shadowSettings.rayTMin != settings.rayTMin || m_shadowSettings.rayTMax != settings.rayTMax;
     m_shadowSettings = settings;
+    if (pathTracingHistoryChanged)
+    {
+        InvalidatePathTracingHistory(PathTracingResetReason::Settings);
+    }
 }
 
 void RtPbrSurveyEngine::SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings)
@@ -535,8 +611,18 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
     m_pathTracingSettings.maxBounces = (std::clamp)(m_pathTracingSettings.maxBounces, 1u, 16u);
     if (changed)
     {
-        m_pathTracingRuntimeState = {};
+        InvalidatePathTracingHistory(PathTracingResetReason::Settings);
     }
+}
+
+void RtPbrSurveyEngine::ResetPathTracingAccumulation()
+{
+    InvalidatePathTracingHistory(PathTracingResetReason::Manual);
+}
+
+void RtPbrSurveyEngine::SetPathTracingAccumulationPaused(bool paused)
+{
+    m_pathTracingRuntimeState.accumulationPaused = paused;
 }
 
 bool RtPbrSurveyEngine::ShouldRunTemporalUpscaler() const
@@ -742,6 +828,8 @@ void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialPara
         material.roughnessFactor != params.roughnessFactor ||
         material.metallicFactor != params.metallicFactor ||
         material.emissiveScale != params.emissiveScale;
+    const bool pathTracingHistoryChanged = reflectionHistoryChanged ||
+        material.ambientOcclusionFactor != params.ambientOcclusionFactor;
     material.roughnessFactor = params.roughnessFactor;
     material.metallicFactor = params.metallicFactor;
     material.ambientOcclusionFactor = params.ambientOcclusionFactor;
@@ -750,6 +838,10 @@ void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialPara
     if (reflectionHistoryChanged)
     {
         InvalidateReflectionHistory();
+    }
+    if (pathTracingHistoryChanged)
+    {
+        InvalidatePathTracingHistory(PathTracingResetReason::Material);
     }
 }
 
@@ -796,7 +888,7 @@ void RtPbrSurveyEngine::SetRenderingPath(RenderingPath renderingPath)
     if (m_renderingPath != renderingPath)
     {
         InvalidateReflectionHistory();
-        m_pathTracingRuntimeState = {};
+        InvalidatePathTracingHistory(PathTracingResetReason::RenderingPath);
         if (m_width > 0 && m_height > 0)
         {
             const UINT resizeWidth = m_pendingResize ? m_pendingResizeWidth : m_width;
@@ -814,18 +906,38 @@ void RtPbrSurveyEngine::SetLightingPassDebugGradient(bool enabled)
 
 void RtPbrSurveyEngine::SetBackBufferClearColor(const std::array<float, 4>& color)
 {
+    const bool pathTracingHistoryChanged = m_backBufferClearColor != color;
     m_backBufferClearColor = color;
+    if (pathTracingHistoryChanged)
+    {
+        InvalidatePathTracingHistory(PathTracingResetReason::Lighting);
+    }
 }
 
 void RtPbrSurveyEngine::SetScene(const Scene& scene)
 {
+    const bool cameraChanged = !CameraStatesEqual(m_scene.camera, scene.camera);
+    const bool sceneChanged = m_scene.mesh != scene.mesh || !SceneInstancesEqual(m_scene.instances, scene.instances);
     m_scene = scene;
     m_depthVisualizationSettings.Reset(m_scene.camera.nearZ, m_scene.camera.farZ);
+    if (sceneChanged)
+    {
+        InvalidatePathTracingHistory(PathTracingResetReason::Scene);
+    }
+    else if (cameraChanged)
+    {
+        InvalidatePathTracingHistory(PathTracingResetReason::Camera);
+    }
 }
 
 void RtPbrSurveyEngine::SetCamera(const CameraState& camera)
 {
+    const bool cameraChanged = !CameraStatesEqual(m_scene.camera, camera);
     m_scene.camera = camera;
+    if (cameraChanged)
+    {
+        InvalidatePathTracingHistory(PathTracingResetReason::Camera);
+    }
 }
 
 const RtPbrSurveyEngine::CameraState& RtPbrSurveyEngine::GetCamera() const
@@ -846,6 +958,7 @@ void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
     m_temporalFrameIndex = 0;
     ReleaseSceneResources();
     SetScene(scene);
+    InvalidatePathTracingHistory(PathTracingResetReason::Scene);
     m_displayInstanceCount = previousDisplayInstanceCount > 0 ?
         std::clamp(previousDisplayInstanceCount, 0, sceneInstanceCount) :
         sceneInstanceCount;
@@ -885,12 +998,18 @@ void RtPbrSurveyEngine::CloseSceneResources()
 {
     WaitForGpu();
     InvalidateReflectionHistory();
+    InvalidatePathTracingHistory(PathTracingResetReason::Scene);
     ReleaseSceneResources();
 }
 
 void RtPbrSurveyEngine::SetDisplayInstanceCount(int count)
 {
-    m_displayInstanceCount = std::clamp(count, 0, static_cast<int>(kMaxInstanceCount));
+    const int clampedCount = std::clamp(count, 0, static_cast<int>(kMaxInstanceCount));
+    if (m_displayInstanceCount != clampedCount)
+    {
+        InvalidatePathTracingHistory(PathTracingResetReason::Scene);
+    }
+    m_displayInstanceCount = clampedCount;
 }
 
 void RtPbrSurveyEngine::SetToneMapParams(const ToneMapParams& params)
@@ -1165,6 +1284,7 @@ void RtPbrSurveyEngine::ReloadEnvironmentResources(const Engine::ProceduralEnvir
 
     m_environmentSettings = settings;
     InvalidateReflectionHistory();
+    InvalidatePathTracingHistory(PathTracingResetReason::Lighting);
 
     WCHAR debugMessage[160] = {};
     swprintf_s(debugMessage, L"ReloadEnvironmentResources source=%s\n", EnvironmentSourceName(settings.source));
@@ -1309,6 +1429,37 @@ void RtPbrSurveyEngine::InvalidateReflectionHistory()
     m_reflectionHistoryState.valid = false;
     m_reflectionTemporalFrameIndex = 0;
     m_reflectionSamplingFrameIndex = 0;
+}
+
+void RtPbrSurveyEngine::InvalidatePathTracingHistory(PathTracingResetReason reason)
+{
+    m_pathTracingRuntimeState.accumulatedSampleCount = 0;
+    m_pathTracingRuntimeState.frameSampleIndex = 0;
+    m_pathTracingRuntimeState.historyValid = false;
+    m_pathTracingRuntimeState.lastResetReason = reason;
+    m_pathTracingHistoryClearRequired = true;
+    m_pathTracingSampleCommitPending = false;
+}
+
+void RtPbrSurveyEngine::CommitPathTracingFrame()
+{
+    if (!m_pathTracingSampleCommitPending)
+    {
+        return;
+    }
+
+    if (m_pathTracingPendingAccumulate)
+    {
+        m_pathTracingRuntimeState.accumulatedSampleCount += m_pathTracingPendingSampleCount;
+        m_pathTracingRuntimeState.historyValid = true;
+    }
+    else
+    {
+        m_pathTracingRuntimeState.accumulatedSampleCount = m_pathTracingPendingSampleCount;
+        m_pathTracingRuntimeState.historyValid = false;
+    }
+    m_pathTracingRuntimeState.frameSampleIndex += m_pathTracingPendingSampleCount;
+    m_pathTracingSampleCommitPending = false;
 }
 
 void RtPbrSurveyEngine::CommitReflectionHistoryFrame()
@@ -2196,6 +2347,8 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
 
     CD3DX12_DESCRIPTOR_RANGE1 sceneColorUavRange = {};
     sceneColorUavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
+    CD3DX12_DESCRIPTOR_RANGE1 accumulationUavRange = {};
+    accumulationUavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 1, 0);
     CD3DX12_DESCRIPTOR_RANGE1 tlasSrvRange = {};
     tlasSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
     CD3DX12_DESCRIPTOR_RANGE1 cameraCbvRange = {};
@@ -2210,17 +2363,18 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
                          D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE |
                              D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[10] = {};
+    CD3DX12_ROOT_PARAMETER1 rootParameters[11] = {};
     rootParameters[0].InitAsDescriptorTable(1, &sceneColorUavRange);
-    rootParameters[1].InitAsDescriptorTable(1, &tlasSrvRange);
-    rootParameters[2].InitAsDescriptorTable(1, &cameraCbvRange);
-    rootParameters[3].InitAsShaderResourceView(1, 0);
-    rootParameters[4].InitAsShaderResourceView(2, 0);
-    rootParameters[5].InitAsShaderResourceView(3, 0);
-    rootParameters[6].InitAsDescriptorTable(1, &materialSrvRange);
-    rootParameters[7].InitAsDescriptorTable(1, &textureSrvRange);
-    rootParameters[8].InitAsShaderResourceView(5, 0);
-    rootParameters[9].InitAsConstants(12, 1, 0);
+    rootParameters[1].InitAsDescriptorTable(1, &accumulationUavRange);
+    rootParameters[2].InitAsDescriptorTable(1, &tlasSrvRange);
+    rootParameters[3].InitAsDescriptorTable(1, &cameraCbvRange);
+    rootParameters[4].InitAsShaderResourceView(1, 0);
+    rootParameters[5].InitAsShaderResourceView(2, 0);
+    rootParameters[6].InitAsShaderResourceView(3, 0);
+    rootParameters[7].InitAsDescriptorTable(1, &materialSrvRange);
+    rootParameters[8].InitAsDescriptorTable(1, &textureSrvRange);
+    rootParameters[9].InitAsShaderResourceView(5, 0);
+    rootParameters[10].InitAsConstants(16, 1, 0);
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -4383,6 +4537,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     m_graphicsDevice.ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
     CommitReflectionHistoryFrame();
     CommitReflectionSamplingFrame();
+    CommitPathTracingFrame();
 
     if (m_reflectionHdrDiagnosticPending)
     {
@@ -4454,6 +4609,7 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool ad
     }
 
     UpdateHdr10DisplayMode();
+    m_pathTracingFrameAdvance = advanceFrame;
 
     m_workMeter.Start();
     UpdateFrame(advanceFrame);
@@ -4469,6 +4625,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_height = height;
     UpdateRenderDimensions();
     InvalidateReflectionHistory();
+    InvalidatePathTracingHistory(PathTracingResetReason::RenderSize);
     m_temporalUpscalerHistoryReset = true;
     m_temporalFrameIndex = 0;
 
@@ -4546,7 +4703,6 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_temporalUpscalerSceneColor.Reset();
     m_pathTracingAccumulation.Reset();
     m_pathTracingSceneColor.Reset();
-    m_pathTracingRuntimeState = {};
     for (ComPtr<ID3D12Resource>& resource : m_debugTexturePreviews)
     {
         resource.Reset();
@@ -5296,9 +5452,16 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
          m_pathTracingAccumulationUav.gpu,
          clearColor},
         L"Path Tracing History Clear");
+    Engine::RecordPathTracingUavClear(
+        m_commandList.Get(),
+        {m_pathTracingSceneColor.Get(),
+         m_pathTracingSceneColorClearUav,
+         m_pathTracingSceneColorUav.gpu,
+         clearColor},
+        L"Path Tracing Scene Color Clear");
     m_pathTracingRuntimeState.accumulatedSampleCount = 0;
-    m_pathTracingRuntimeState.frameSampleIndex = 0;
     m_pathTracingRuntimeState.historyValid = false;
+    m_pathTracingHistoryClearRequired = false;
 }
 
 void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
@@ -5320,6 +5483,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.rootSignature = m_pathTracingRootSignature.Get();
     passDesc.pipelineState = m_pathTracingPipeline.Get();
     passDesc.sceneColorUav = m_pathTracingSceneColorUav.gpu;
+    passDesc.accumulationUav = m_pathTracingAccumulationUav.gpu;
     passDesc.scene = MakeRayQuerySceneBindings();
     passDesc.missColor = {m_backBufferClearColor[0], m_backBufferClearColor[1], m_backBufferClearColor[2]};
     passDesc.rayTMin = m_shadowSettings.rayTMin;
@@ -5327,10 +5491,18 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.debugOutput = static_cast<UINT>(m_pathTracingSettings.debugOutput);
     passDesc.environmentEnabled = m_pathTracingSettings.environmentEnabled ? 1u : 0u;
     passDesc.emissiveEnabled = m_pathTracingSettings.emissiveEnabled ? 1u : 0u;
+    passDesc.samplesPerFrame = m_pathTracingSettings.samplesPerFrame;
+    passDesc.sampleStartIndex = m_pathTracingRuntimeState.frameSampleIndex;
+    passDesc.randomSeed = m_pathTracingSettings.randomSeed;
+    passDesc.previousSampleCount = m_pathTracingSettings.accumulate ?
+        static_cast<float>(m_pathTracingRuntimeState.accumulatedSampleCount) : 0.0f;
+    passDesc.accumulate = m_pathTracingSettings.accumulate;
     passDesc.width = m_renderWidth;
     passDesc.height = m_renderHeight;
     Engine::RecordPathTracingPass(m_commandList.Get(), passDesc);
-    m_pathTracingRuntimeState.historyValid = m_pathTracingSettings.accumulate;
+    m_pathTracingPendingSampleCount = passDesc.samplesPerFrame;
+    m_pathTracingPendingAccumulate = passDesc.accumulate;
+    m_pathTracingSampleCommitPending = true;
 }
 
 void RtPbrSurveyEngine::ExecuteDepthPrePass(const RenderPass& pass)

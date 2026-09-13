@@ -18,6 +18,7 @@ void RtPbrSurveyEngine::BuildRenderPasses()
     m_temporalUpscalerOutputAvailable = false;
     m_reflectionHistoryCommitPending = false;
     m_reflectionSamplingCommitPending = false;
+    m_pathTracingSampleCommitPending = false;
     m_renderGraphRuntime.Graph().Clear();
     m_renderGraphRuntime.Operations().Clear();
 
@@ -27,11 +28,15 @@ void RtPbrSurveyEngine::BuildRenderPasses()
     {
         if (m_renderingPath == RenderingPath::PathTracing)
         {
-            if (!m_pathTracingRuntimeState.historyValid || !m_pathTracingSettings.accumulate)
+            const bool traceFrame = !m_pathTracingRuntimeState.accumulationPaused && m_pathTracingFrameAdvance;
+            if (m_pathTracingHistoryClearRequired || (!m_pathTracingSettings.accumulate && traceFrame))
             {
                 AddPass(MakePathTracingHistoryClearPass());
             }
-            AddPass(MakePathTracingPass());
+            if (traceFrame)
+            {
+                AddPass(MakePathTracingPass());
+            }
         }
         else
         {
@@ -263,7 +268,8 @@ auto RtPbrSurveyEngine::MakePathTracingHistoryClearPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"PathTracingHistoryClearPass")
-        .Writes({{kPathTracingAccumulationResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
+        .Writes({{kPathTracingAccumulationResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PathTracingHistoryClear, &RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass)
         .Build();
 }
@@ -286,7 +292,8 @@ auto RtPbrSurveyEngine::MakePathTracingPass() -> RenderPass
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"PathTracingPass")
         .Reads(std::move(reads))
-        .Writes({{kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
+        .Writes({{kPathTracingAccumulationResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PathTracing, &RtPbrSurveyEngine::ExecutePathTracingPass)
         .Build();
 }

@@ -238,6 +238,16 @@ namespace RtPbrSurvey
         return m_engine.GetPathTracingRuntimeState();
     }
 
+    void SceneRenderer::ResetPathTracingAccumulation()
+    {
+        m_engine.ResetPathTracingAccumulation();
+    }
+
+    void SceneRenderer::SetPathTracingAccumulationPaused(bool paused)
+    {
+        m_engine.SetPathTracingAccumulationPaused(paused);
+    }
+
     void SceneRenderer::ResetHybridReflectionHistoryForDiagnostics()
     {
         m_engine.ResetHybridReflectionHistoryForDiagnostics();

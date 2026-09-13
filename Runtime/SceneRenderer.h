@@ -79,6 +79,8 @@ namespace RtPbrSurvey
         void SetPathTracingSettings(const RtPbrSurveyEngine::PathTracingSettings& settings);
         const RtPbrSurveyEngine::PathTracingSettings& GetPathTracingSettings() const;
         const RtPbrSurveyEngine::PathTracingRuntimeState& GetPathTracingRuntimeState() const;
+        void ResetPathTracingAccumulation();
+        void SetPathTracingAccumulationPaused(bool paused);
         void ResetHybridReflectionHistoryForDiagnostics();
         void SetMaterialParams(UINT materialIndex, const RtPbrSurveyEngine::MaterialParams& params);
         void SetRenderingPath(RtPbrSurveyEngine::RenderingPath renderingPath);

@@ -21,6 +21,7 @@ struct PathTracingPassDesc
     ID3D12RootSignature* rootSignature = nullptr;
     ID3D12PipelineState* pipelineState = nullptr;
     D3D12_GPU_DESCRIPTOR_HANDLE sceneColorUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE accumulationUav = {};
     RayQuerySceneBindings scene;
     std::array<float, 3> missColor = {};
     float rayTMin = 0.001f;
@@ -28,6 +29,11 @@ struct PathTracingPassDesc
     UINT debugOutput = 0;
     UINT environmentEnabled = 1;
     UINT emissiveEnabled = 1;
+    UINT samplesPerFrame = 1;
+    UINT sampleStartIndex = 0;
+    UINT randomSeed = 1;
+    float previousSampleCount = 0.0f;
+    bool accumulate = true;
     UINT width = 0;
     UINT height = 0;
 };
