@@ -386,6 +386,13 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
     m_resourceDefaultStates.push_back({kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayEmissionResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
+    m_resourceDefaultStates.push_back(
+        {kSceneTlasResourceName, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE});
+    m_resourceDefaultStates.push_back({kSceneVertexBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
+    m_resourceDefaultStates.push_back({kSceneIndexBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
+    m_resourceDefaultStates.push_back({kSceneInstanceBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
+    m_resourceDefaultStates.push_back({kSceneMeshRangeBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
+    m_resourceDefaultStates.push_back({kSceneCameraConstantsResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
     m_resourceDefaultStates.push_back({kMaterialBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
     for (UINT i = 0; i < Engine::GBuffer::kCount; ++i)
     {
@@ -4086,6 +4093,20 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
                                                       [this]() { return m_renderTargets[m_currentFrameIndex].Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kMaterialBufferResourceName,
                                                       [this]() { return m_materialBuffer.Resource(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kSceneTlasResourceName,
+                                                      [this]() { return m_accelerationStructures.tlas.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kSceneVertexBufferResourceName,
+                                                      [this]() { return m_vertexBuffer.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(
+        kSceneIndexBufferResourceName, [this]() { return m_indexBuffer ? m_indexBuffer.Get() : m_vertexBuffer.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(
+        kSceneInstanceBufferResourceName,
+        [this]() { return m_frameResources[m_currentFrameIndex].instanceBuffer.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kSceneMeshRangeBufferResourceName,
+                                                      [this]() { return m_meshRangeBuffer.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(
+        kSceneCameraConstantsResourceName,
+        [this]() { return m_frameResources[m_currentFrameIndex].cameraCB.buffer.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kDepthStencilResourceName,
                                                       [this]() { return m_depthStencil.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kLightPassRenderTargetResourceName,
@@ -5232,25 +5253,13 @@ void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     passDesc.reflectionRayColorUav = m_reflectionRayColorUav.gpu;
     passDesc.reflectionRayMaterialUav = m_reflectionRayMaterialUav.gpu;
     passDesc.reflectionRayEmissionUav = m_reflectionRayEmissionUav.gpu;
-    passDesc.tlasSrv = m_accelerationStructures.tlasSrv.Gpu();
     passDesc.depthSrv = m_depthStencilSrv.gpu;
     passDesc.normalSrv = m_gbuffer.srvHandles[Engine::GBuffer::Normal].gpu;
     passDesc.pbrParamsSrv = m_gbuffer.srvHandles[Engine::GBuffer::PBRParams].gpu;
-    passDesc.cameraCbv = m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu;
-    passDesc.materialBufferSrv = m_materialBuffer.Srv().gpu;
-    passDesc.textureTableSrv = m_textureTableStart.gpu;
+    passDesc.scene = MakeRayQuerySceneBindings();
     passDesc.normalBias = m_shadowSettings.normalBias;
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
-    passDesc.vertexBufferSrv = m_vertexBuffer ? m_vertexBuffer->GetGPUVirtualAddress() : 0;
-    passDesc.indexBufferSrv = m_indexBuffer ? m_indexBuffer->GetGPUVirtualAddress() : passDesc.vertexBufferSrv;
-    passDesc.instanceBufferSrv = m_frameResources[m_currentFrameIndex].instanceBuffer ?
-        m_frameResources[m_currentFrameIndex].instanceBuffer->GetGPUVirtualAddress() :
-        0;
-    passDesc.meshRangeBufferSrv = m_meshRangeBuffer ? m_meshRangeBuffer->GetGPUVirtualAddress() : 0;
-    passDesc.usesIndexedDraw = m_usesIndexedDraw ? 1u : 0u;
-    passDesc.vertexCount = m_vertexCountPerInstance;
-    passDesc.indexCount = m_indexCountPerInstance;
     passDesc.hitNormalSource = static_cast<UINT>(m_hybridReflectionSettings.hitNormalSource);
     passDesc.stochasticSamplingEnabled = m_hybridReflectionSettings.stochasticSamplingEnabled ? 1u : 0u;
     passDesc.samplingFrameIndex = m_reflectionSamplingFrameIndex;
@@ -6022,6 +6031,25 @@ auto RtPbrSurveyEngine::MakeSceneGeometryDrawDesc() const -> Engine::SceneGeomet
     return {m_vertexBufferView, m_indexBufferView, m_sceneGeometryDraws};
 }
 
+auto RtPbrSurveyEngine::MakeRayQuerySceneBindings() const -> Engine::RayQuerySceneBindings
+{
+    Engine::RayQuerySceneBindings bindings = {};
+    bindings.tlasSrv = m_accelerationStructures.tlasSrv.Gpu();
+    bindings.cameraCbv = m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu;
+    bindings.materialBufferSrv = m_materialBuffer.Srv().gpu;
+    bindings.textureTableSrv = m_textureTableStart.gpu;
+    bindings.vertexBufferSrv = m_vertexBuffer ? m_vertexBuffer->GetGPUVirtualAddress() : 0;
+    bindings.indexBufferSrv = m_indexBuffer ? m_indexBuffer->GetGPUVirtualAddress() : bindings.vertexBufferSrv;
+    bindings.instanceBufferSrv = m_frameResources[m_currentFrameIndex].instanceBuffer ?
+        m_frameResources[m_currentFrameIndex].instanceBuffer->GetGPUVirtualAddress() :
+        0;
+    bindings.meshRangeBufferSrv = m_meshRangeBuffer ? m_meshRangeBuffer->GetGPUVirtualAddress() : 0;
+    bindings.usesIndexedDraw = m_usesIndexedDraw ? 1u : 0u;
+    bindings.vertexCount = m_vertexCountPerInstance;
+    bindings.indexCount = m_indexCountPerInstance;
+    return bindings;
+}
+
 auto RtPbrSurveyEngine::ResolveRenderTargets(const PassRenderTargetBinding& renderTargets) const
     -> Engine::ResolvedRenderTargets
 {
@@ -6058,6 +6086,18 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
                                          Engine::RenderGraphResourceKind::Texture};
     metadata[kMaterialBufferResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
                                              Engine::RenderGraphResourceKind::Buffer};
+    metadata[kSceneTlasResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
+                                        Engine::RenderGraphResourceKind::Buffer};
+    metadata[kSceneVertexBufferResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
+                                                Engine::RenderGraphResourceKind::Buffer};
+    metadata[kSceneIndexBufferResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
+                                               Engine::RenderGraphResourceKind::Buffer};
+    metadata[kSceneInstanceBufferResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
+                                                  Engine::RenderGraphResourceKind::Buffer};
+    metadata[kSceneMeshRangeBufferResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
+                                                   Engine::RenderGraphResourceKind::Buffer};
+    metadata[kSceneCameraConstantsResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
+                                                   Engine::RenderGraphResourceKind::Buffer};
 
     const auto registerPingPongGroup = [&metadata, this](const char* const (&resourceNames)[2],
                                                          const char* logicalGroupName)

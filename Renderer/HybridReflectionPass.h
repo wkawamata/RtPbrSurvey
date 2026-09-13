@@ -1,5 +1,7 @@
 #pragma once
 
+#include "RayQuerySceneBindings.h"
+
 #include <d3d12.h>
 namespace Engine
 {
@@ -12,13 +14,10 @@ struct HybridReflectionPassDesc
     D3D12_GPU_DESCRIPTOR_HANDLE reflectionRayColorUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE reflectionRayMaterialUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE reflectionRayEmissionUav = {};
-    D3D12_GPU_DESCRIPTOR_HANDLE tlasSrv = {};
     D3D12_GPU_DESCRIPTOR_HANDLE depthSrv = {};
     D3D12_GPU_DESCRIPTOR_HANDLE normalSrv = {};
     D3D12_GPU_DESCRIPTOR_HANDLE pbrParamsSrv = {};
-    D3D12_GPU_DESCRIPTOR_HANDLE cameraCbv = {};
-    D3D12_GPU_DESCRIPTOR_HANDLE materialBufferSrv = {};
-    D3D12_GPU_DESCRIPTOR_HANDLE textureTableSrv = {};
+    RayQuerySceneBindings scene;
     float normalBias = 0.01f;
     float rayTMin = 0.001f;
     float rayTMax = 10000.0f;
@@ -26,13 +25,6 @@ struct HybridReflectionPassDesc
     float minMetallic = 0.0f;
     UINT stochasticSamplingEnabled = 0;
     UINT samplingFrameIndex = 0;
-    D3D12_GPU_VIRTUAL_ADDRESS vertexBufferSrv = 0;
-    D3D12_GPU_VIRTUAL_ADDRESS indexBufferSrv = 0;
-    D3D12_GPU_VIRTUAL_ADDRESS instanceBufferSrv = 0;
-    D3D12_GPU_VIRTUAL_ADDRESS meshRangeBufferSrv = 0;
-    UINT usesIndexedDraw = 0;
-    UINT vertexCount = 0;
-    UINT indexCount = 0;
     UINT hitNormalSource = 0;
     UINT width = 0;
     UINT height = 0;

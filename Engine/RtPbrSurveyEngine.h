@@ -1312,6 +1312,12 @@ private:
     static constexpr const char* kReflectionRayColorResourceName = "ReflectionRayColor";
     static constexpr const char* kReflectionRayMaterialResourceName = "ReflectionRayMaterial";
     static constexpr const char* kReflectionRayEmissionResourceName = "ReflectionRayEmission";
+    static constexpr const char* kSceneTlasResourceName = "Scene.TLAS";
+    static constexpr const char* kSceneVertexBufferResourceName = "Scene.VertexBuffer";
+    static constexpr const char* kSceneIndexBufferResourceName = "Scene.IndexBuffer";
+    static constexpr const char* kSceneInstanceBufferResourceName = "Scene.InstanceBuffer";
+    static constexpr const char* kSceneMeshRangeBufferResourceName = "Scene.MeshRangeBuffer";
+    static constexpr const char* kSceneCameraConstantsResourceName = "Scene.CameraConstants";
     static constexpr const char* kMaterialBufferResourceName = "MaterialBuffer";
 
     using TransientResourceState = Engine::TransientResourceState;
@@ -1671,6 +1677,7 @@ private:
     void PrintDebugDump();
 
     Engine::SceneGeometryDrawDesc MakeSceneGeometryDrawDesc() const;
+    Engine::RayQuerySceneBindings MakeRayQuerySceneBindings() const;
     Engine::ResolvedRenderTargets ResolveRenderTargets(const PassRenderTargetBinding& renderTargets) const;
 
     void ApplyResize(UINT width, UINT height);

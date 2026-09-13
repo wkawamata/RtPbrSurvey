@@ -321,11 +321,25 @@ auto RtPbrSurveyEngine::MakeGBufferPass() -> RenderPass
 
 auto RtPbrSurveyEngine::MakeHybridReflectionPass() -> RenderPass
 {
+    Engine::ResourceUsages reads = {
+        {kDepthStencilResourceName, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE},
+        {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE},
+        {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE},
+        {kSceneTlasResourceName, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE},
+        {kSceneVertexBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
+        {kSceneInstanceBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
+        {kSceneMeshRangeBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
+        {kSceneCameraConstantsResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
+        {kMaterialBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
+    };
+    if (m_usesIndexedDraw)
+    {
+        reads.push_back({kSceneIndexBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
+    }
+
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"HybridReflectionPass")
-        .Reads({{kDepthStencilResourceName, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE},
-                {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE},
-                {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE}})
+        .Reads(std::move(reads))
         .Writes({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
