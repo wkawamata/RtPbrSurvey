@@ -165,6 +165,8 @@ bool SceneInstancesEqual(const std::vector<Engine::InstanceData>& left,
 
 static_assert(sizeof(Engine::SceneVertex) == 52,
               "shaders_HybridReflection.hlsl reads SceneVertex normals through a byte-address buffer.");
+static_assert(offsetof(Engine::SceneVertex, tangent) == 32,
+              "SceneRayQuery.hlsli tangent offset must match SceneVertex.");
 static_assert(sizeof(Engine::InstanceData) == 144,
               "shaders_HybridReflection.hlsl reads InstanceData materialId through a byte-address buffer.");
 static_assert(offsetof(Engine::InstanceData, meshId) == 132,
@@ -489,7 +491,7 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1,
             m_pathTracingPipeline != nullptr,
             m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1 ?
-                "Progressive Lambert path tracing" :
+                "Progressive metallic-roughness path tracing" :
                 "Requires DXR 1.1",
             m_pathTracingRuntimeState,
             m_temporalUpscalerSupport.IsAvailable(),
@@ -2378,7 +2380,7 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     rootParameters[8].InitAsDescriptorTable(1, &textureSrvRange);
     rootParameters[9].InitAsShaderResourceView(5, 0);
     rootParameters[10].InitAsDescriptorTable(1, &environmentSrvRange);
-    rootParameters[11].InitAsConstants(25, 1, 0);
+    rootParameters[11].InitAsConstants(26, 1, 0);
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -5508,6 +5510,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.directLightingEnabled =
         m_pathTracingSettings.directLightingEnabled && m_lightingParams.directLightEnabled ? 1u : 0u;
     passDesc.shadowEnabled = m_shadowSettings.enabled ? 1u : 0u;
+    passDesc.russianRouletteEnabled = m_pathTracingSettings.russianRouletteEnabled ? 1u : 0u;
     passDesc.samplesPerFrame = m_pathTracingSettings.samplesPerFrame;
     passDesc.sampleStartIndex = m_pathTracingRuntimeState.frameSampleIndex;
     passDesc.randomSeed = m_pathTracingSettings.randomSeed;

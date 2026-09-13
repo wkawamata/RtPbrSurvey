@@ -470,6 +470,25 @@ cosine-weighted Lambert bounce を追加する。GGX、metallic lobe、normal ma
 
 完了条件: metallic/roughness sphere と DamagedHelmet で expected material response を確認できる。
 
+実装では diffuse と GGX specular を確率選択し、両方を含む mixture PDF と完全な
+metallic-roughness BRDF から throughput weight を計算する。normal texture がある material は
+interpolated tangent frame から shading normal を復元し、ray origin と geometry-side 判定には
+geometry normal を使う。Russian Roulette は設定で有効化し、3 bounce 目から throughput に応じた
+継続確率を適用する。
+
+Commit 6 の初期 Evaluation Case は次の 4 件とする。
+
+| Case | Scene / settings | ROI | Test items |
+|---|---|---|---|
+| `PT Metallic Response` | metallic/roughness sphere、Radiance、2 bounces | metallic sphere 列 | metallic reflection visible (bool)、specular response (1-5) |
+| `PT Roughness Response` | metallic/roughness sphere、Radiance、2 bounces | roughness variation row | highlight broadening ordered (bool)、roughness response (1-5) |
+| `PT Normal Map` | DamagedHelmet、Radiance、2 bounces | forehead と face plate | normal detail visible (bool)、normal stability (1-5) |
+| `PT Russian Roulette` | DamagedHelmet、Radiance、4 bounces、Russian Roulette on | helmet 全体 | no obvious bias (bool)、noise/stability (1-5) |
+
+DamagedHelmet の自動比較は 64 warm-up frames、固定 seed の同一条件で 2 回取得し、
+SHA-256 `FB0F948918B47A7455E0831D1F34C30330747E7EF1C014CB446D4C400BAFBC4E`
+で一致した。D3D12 Debug Layer は既知の buffer initial-state warning 2 件のみで error はない。
+
 ### Commit 7: validation and diagnostics
 
 - CLI fixed-sample capture

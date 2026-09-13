@@ -264,6 +264,7 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         cs_6_5
         CSMain
         "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/PathTracingSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli")
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayQueryTlasDebug.hlsl cs_6_5 CSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_SpecularDebugRayQuery.hlsl cs_6_5 CSMain)

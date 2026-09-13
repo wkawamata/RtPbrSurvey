@@ -5,6 +5,7 @@ static const uint kSceneVertexStride = 52;
 static const uint kSceneVertexPositionOffset = 0;
 static const uint kSceneVertexUvOffset = 12;
 static const uint kSceneVertexNormalOffset = 20;
+static const uint kSceneVertexTangentOffset = 32;
 static const uint kSceneVertexMaterialIdOffset = 48;
 static const uint kInstanceDataStride = 144;
 static const uint kInstanceDataMaterialIdOffset = 128;
@@ -18,6 +19,9 @@ struct HitMaterialSample
     float metallic;
     float roughness;
     uint flags;
+    float2 uv;
+    uint materialId;
+    uint normalTextureIndex;
 };
 
 float3 LoadSceneVertexPosition(uint vertexIndex)
@@ -44,6 +48,20 @@ float3 LoadSceneVertexNormal(uint vertexIndex)
     return normalize(asfloat(uint3(g_sceneVertices.Load(normalOffset),
                                    g_sceneVertices.Load(normalOffset + 4),
                                    g_sceneVertices.Load(normalOffset + 8))));
+}
+
+float4 LoadSceneVertexTangent(uint vertexIndex)
+{
+    if (vertexIndex >= vertexCount)
+    {
+        return float4(0.0, 0.0, 0.0, 0.0);
+    }
+
+    uint tangentOffset = vertexIndex * kSceneVertexStride + kSceneVertexTangentOffset;
+    return asfloat(uint4(g_sceneVertices.Load(tangentOffset),
+                         g_sceneVertices.Load(tangentOffset + 4),
+                         g_sceneVertices.Load(tangentOffset + 8),
+                         g_sceneVertices.Load(tangentOffset + 12)));
 }
 
 float2 LoadSceneVertexUv(uint vertexIndex)
@@ -188,7 +206,50 @@ HitMaterialSample LoadCommittedHitMaterialSample(uint index0, uint index1, uint 
     result.metallic = saturate(metallicRoughness.b * material.metallicFactor);
     result.roughness = saturate(metallicRoughness.g * material.roughnessFactor);
     result.flags = material.flags;
+    result.uv = uv;
+    result.materialId = materialId;
+    result.normalTextureIndex = material.normalTexIndex;
     return result;
+}
+
+float3 LoadCommittedHitShadingNormal(uint index0,
+                                     uint index1,
+                                     uint index2,
+                                     float2 barycentric,
+                                     float3x4 objectToWorld,
+                                     float3 baseNormal,
+                                     HitMaterialSample hitMaterial)
+{
+    if ((hitMaterial.flags & MaterialFlagHasNormalTexture) == 0)
+    {
+        return baseNormal;
+    }
+
+    const float bary0 = 1.0 - barycentric.x - barycentric.y;
+    const float4 tangent0 = LoadSceneVertexTangent(index0);
+    const float4 tangent1 = LoadSceneVertexTangent(index1);
+    const float4 tangent2 = LoadSceneVertexTangent(index2);
+    const float4 objectTangent =
+        tangent0 * bary0 + tangent1 * barycentric.x + tangent2 * barycentric.y;
+    if (dot(objectTangent.xyz, objectTangent.xyz) < 0.000001)
+    {
+        return baseNormal;
+    }
+
+    float3 worldTangent = TransformObjectNormalToWorld(objectTangent.xyz, objectToWorld);
+    worldTangent -= baseNormal * dot(baseNormal, worldTangent);
+    if (dot(worldTangent, worldTangent) < 0.000001)
+    {
+        return baseNormal;
+    }
+    worldTangent = normalize(worldTangent);
+    const float handedness = objectTangent.w >= 0.0 ? 1.0 : -1.0;
+    const float3 worldBitangent = cross(baseNormal, worldTangent) * handedness;
+    const float3 tangentNormal =
+        g_texture[hitMaterial.normalTextureIndex].SampleLevel(g_sampler, hitMaterial.uv, 0).xyz * 2.0 - 1.0;
+    return normalize(worldTangent * tangentNormal.x +
+                     worldBitangent * tangentNormal.y +
+                     baseNormal * tangentNormal.z);
 }
 
 float3 GetHitAlbedoPayload(HitMaterialSample hitMaterial)
@@ -218,17 +279,33 @@ uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 ba
     return materialId == kMaterialFromInstance ? LoadInstanceMaterialId(instanceId) : materialId;
 }
 
+float3 LoadCommittedHitVertexNormal(uint index0,
+                                    uint index1,
+                                    uint index2,
+                                    float2 barycentric,
+                                    float3x4 objectToWorld)
+{
+    const float bary0 = 1.0 - barycentric.x - barycentric.y;
+    const float3 objectNormal = normalize(LoadSceneVertexNormal(index0) * bary0 +
+                                          LoadSceneVertexNormal(index1) * barycentric.x +
+                                          LoadSceneVertexNormal(index2) * barycentric.y);
+    return TransformObjectNormalToWorld(objectNormal, objectToWorld);
+}
+
+float3 LoadCommittedHitGeometricNormal(uint index0, uint index1, uint index2, float3x4 objectToWorld)
+{
+    const float3 position0 = TransformObjectPointToWorld(LoadSceneVertexPosition(index0), objectToWorld);
+    const float3 position1 = TransformObjectPointToWorld(LoadSceneVertexPosition(index1), objectToWorld);
+    const float3 position2 = TransformObjectPointToWorld(LoadSceneVertexPosition(index2), objectToWorld);
+    return normalize(cross(position1 - position0, position2 - position0));
+}
+
 float3 LoadCommittedHitNormal(uint primitiveIndex, float2 barycentric, float3x4 objectToWorld, uint instanceId)
 {
     uint index0;
     uint index1;
     uint index2;
     LoadPrimitiveVertexIndices(primitiveIndex, instanceId, index0, index1, index2);
-
-    float bary0 = 1.0 - barycentric.x - barycentric.y;
-    float3 objectNormal = normalize(LoadSceneVertexNormal(index0) * bary0 +
-                                    LoadSceneVertexNormal(index1) * barycentric.x +
-                                    LoadSceneVertexNormal(index2) * barycentric.y);
 
     if (hitNormalSource == 2)
     {
@@ -249,13 +326,10 @@ float3 LoadCommittedHitNormal(uint primitiveIndex, float2 barycentric, float3x4 
 
     if (hitNormalSource == 1)
     {
-        float3 position0 = TransformObjectPointToWorld(LoadSceneVertexPosition(index0), objectToWorld);
-        float3 position1 = TransformObjectPointToWorld(LoadSceneVertexPosition(index1), objectToWorld);
-        float3 position2 = TransformObjectPointToWorld(LoadSceneVertexPosition(index2), objectToWorld);
-        return normalize(cross(position1 - position0, position2 - position0));
+        return LoadCommittedHitGeometricNormal(index0, index1, index2, objectToWorld);
     }
 
-    return TransformObjectNormalToWorld(objectNormal, objectToWorld);
+    return LoadCommittedHitVertexNormal(index0, index1, index2, barycentric, objectToWorld);
 }
 
 float2 EncodeNormalOctahedron(float3 normal)

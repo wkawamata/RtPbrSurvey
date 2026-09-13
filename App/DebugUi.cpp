@@ -924,7 +924,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                         static_cast<unsigned long long>(context.pathTracingRuntimeState.accumulatedSampleCount));
             ImGui::Text("Next Sample Index: %u", context.pathTracingRuntimeState.frameSampleIndex);
             ImGui::Text("Last Reset: %s", context.pathTracingRuntimeState.ResetReasonText());
-            ImGui::TextDisabled("Progressive Lambert path tracing is active.");
+            ImGui::TextDisabled("Progressive metallic-roughness path tracing is active.");
             ImGui::TextDisabled("DLSS SR and RR settings are retained but inactive in this mode.");
 
             bool accumulationPaused = context.pathTracingRuntimeState.accumulationPaused;
@@ -975,7 +975,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             ImGui::SameLine();
             pathTracingSettingsChanged |= ImGui::Checkbox("Emissive", &pathTracingSettings.emissiveEnabled);
             pathTracingSettingsChanged |=
-                ImGui::Checkbox("Russian Roulette", &pathTracingSettings.russianRouletteEnabled);
+                ImGui::Checkbox("Russian Roulette (bounce 3+)", &pathTracingSettings.russianRouletteEnabled);
             if (pathTracingSettingsChanged)
             {
                 app.m_sceneRenderer.SetPathTracingSettings(pathTracingSettings);

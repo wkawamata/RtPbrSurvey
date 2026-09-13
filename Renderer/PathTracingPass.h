@@ -37,6 +37,7 @@ struct PathTracingPassDesc
     UINT emissiveEnabled = 1;
     UINT directLightingEnabled = 1;
     UINT shadowEnabled = 1;
+    UINT russianRouletteEnabled = 0;
     UINT samplesPerFrame = 1;
     UINT sampleStartIndex = 0;
     UINT randomSeed = 1;

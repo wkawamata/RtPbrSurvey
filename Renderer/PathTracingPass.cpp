@@ -32,9 +32,10 @@ struct PathTracingShaderConstants
     float environmentIntensity;
     std::array<float, 3> lightColor;
     float diffuseIntensity;
+    UINT russianRouletteEnabled;
 };
 
-static_assert(sizeof(PathTracingShaderConstants) == 25 * sizeof(UINT));
+static_assert(sizeof(PathTracingShaderConstants) == 26 * sizeof(UINT));
 
 } // namespace
 
@@ -95,8 +96,9 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
         desc.environmentIntensity,
         desc.lightColor,
         desc.diffuseIntensity,
+        desc.russianRouletteEnabled,
     };
-    commandList->SetComputeRoot32BitConstants(11, 25, &constants, 0);
+    commandList->SetComputeRoot32BitConstants(11, 26, &constants, 0);
 
     constexpr UINT kThreadGroupSize = 8;
     const UINT dispatchX = (desc.width + kThreadGroupSize - 1) / kThreadGroupSize;

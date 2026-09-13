@@ -51,9 +51,11 @@ cbuffer PathTracingConstants : register(b1)
     float environmentIntensity;
     float3 lightColor;
     float diffuseIntensity;
+    uint russianRouletteEnabled;
 };
 
 #include "SceneRayQuery.hlsli"
+#include "PathTracingSampling.hlsli"
 
 uint HashUint(uint value)
 {
@@ -125,23 +127,6 @@ float TraceShadow(float3 worldPosition, float3 normal)
     return query.CommittedStatus() == COMMITTED_TRIANGLE_HIT ? 0.0 : 1.0;
 }
 
-float3 SampleCosineHemisphere(float3 normal, inout uint randomState)
-{
-    const float u1 = NextRandom(randomState);
-    const float u2 = NextRandom(randomState);
-    const float radius = sqrt(u1);
-    const float angle = 6.28318531 * u2;
-    float sine;
-    float cosine;
-    sincos(angle, sine, cosine);
-
-    const float3 helper = abs(normal.y) < 0.999 ? float3(0.0, 1.0, 0.0) : float3(1.0, 0.0, 0.0);
-    const float3 tangent = normalize(cross(helper, normal));
-    const float3 bitangent = cross(normal, tangent);
-    const float3 localDirection = float3(radius * cosine, radius * sine, sqrt(max(0.0, 1.0 - u1)));
-    return normalize(tangent * localDirection.x + bitangent * localDirection.y + normal * localDirection.z);
-}
-
 float3 TracePath(uint2 pixel, inout uint randomState, uint2 dimensions)
 {
     const float2 subpixelPosition = float2(NextRandom(randomState), NextRandom(randomState));
@@ -171,14 +156,29 @@ float3 TracePath(uint2 pixel, inout uint randomState, uint2 dimensions)
         const uint instanceId = query.CommittedInstanceID();
         LoadPrimitiveVertexIndices(primitiveIndex, instanceId, index0, index1, index2);
 
-        float3 hitNormal = LoadCommittedHitNormal(
-            primitiveIndex, barycentric, query.CommittedObjectToWorld3x4(), instanceId);
-        if (dot(hitNormal, ray.Direction) > 0.0)
-        {
-            hitNormal = -hitNormal;
-        }
+        const float3x4 objectToWorld = query.CommittedObjectToWorld3x4();
+        float3 geometryNormal = LoadCommittedHitGeometricNormal(index0, index1, index2, objectToWorld);
+        float3 vertexNormal =
+            LoadCommittedHitVertexNormal(index0, index1, index2, barycentric, objectToWorld);
         const HitMaterialSample hitMaterial =
             LoadCommittedHitMaterialSample(index0, index1, index2, barycentric, instanceId);
+        if (dot(geometryNormal, ray.Direction) > 0.0)
+        {
+            geometryNormal = -geometryNormal;
+        }
+        if (dot(vertexNormal, geometryNormal) < 0.0)
+        {
+            vertexNormal = -vertexNormal;
+        }
+        float3 hitNormal = LoadCommittedHitShadingNormal(index0,
+                                                         index1,
+                                                         index2,
+                                                         barycentric,
+                                                         objectToWorld,
+                                                         vertexNormal,
+                                                         hitMaterial);
+        hitNormal = dot(hitNormal, geometryNormal) >= 0.0 ? hitNormal : -hitNormal;
+        const float3 hitPosition = ray.Origin + ray.Direction * query.CommittedRayT();
 
         if (bounce == 0 && debugOutput < 3)
         {
@@ -208,12 +208,18 @@ float3 TracePath(uint2 pixel, inout uint randomState, uint2 dimensions)
 
         const float3 surfaceToLight = normalize(lightDirection);
         const float normalDotLight = saturate(dot(hitNormal, surfaceToLight));
-        if (directLightingEnabled != 0 && normalDotLight > 0.0)
+        if (directLightingEnabled != 0 && normalDotLight > 0.0 && dot(geometryNormal, surfaceToLight) > 0.0)
         {
-            const float3 hitPosition = ray.Origin + ray.Direction * query.CommittedRayT();
-            const float visibility = TraceShadow(hitPosition, hitNormal);
-            radiance += throughput * hitMaterial.albedo * lightColor *
-                (diffuseIntensity * normalDotLight * visibility / 3.14159265);
+            const float visibility = TraceShadow(hitPosition, geometryNormal);
+            const float3 viewDirection = -ray.Direction;
+            const float3 brdf = EvaluatePathTracingBrdf(hitMaterial.albedo,
+                                                        hitMaterial.metallic,
+                                                        hitMaterial.roughness,
+                                                        hitNormal,
+                                                        viewDirection,
+                                                        surfaceToLight);
+            radiance += throughput * brdf * lightColor *
+                (diffuseIntensity * normalDotLight * visibility);
         }
 
         if (bounce + 1 >= max(maxBounces, 1u))
@@ -221,12 +227,36 @@ float3 TracePath(uint2 pixel, inout uint randomState, uint2 dimensions)
             break;
         }
 
-        const float3 hitPosition = ray.Origin + ray.Direction * query.CommittedRayT();
-        ray.Origin = hitPosition + hitNormal * normalBias;
-        ray.Direction = SampleCosineHemisphere(hitNormal, randomState);
+        const float lobeSample = NextRandom(randomState);
+        const float2 directionSample = float2(NextRandom(randomState), NextRandom(randomState));
+        const PathTracingBsdfSample bsdfSample = SamplePathTracingBsdf(hitMaterial.albedo,
+                                                                       hitMaterial.metallic,
+                                                                       hitMaterial.roughness,
+                                                                       hitNormal,
+                                                                       -ray.Direction,
+                                                                       lobeSample,
+                                                                       directionSample);
+        if (bsdfSample.valid == 0 || dot(bsdfSample.direction, geometryNormal) <= 0.0)
+        {
+            break;
+        }
+
+        throughput *= bsdfSample.weight;
+        if (russianRouletteEnabled != 0 && bounce >= 2)
+        {
+            const float continuationProbability =
+                clamp(max(throughput.x, max(throughput.y, throughput.z)), 0.05, 0.95);
+            if (NextRandom(randomState) >= continuationProbability)
+            {
+                break;
+            }
+            throughput /= continuationProbability;
+        }
+
+        ray.Origin = hitPosition + geometryNormal * normalBias;
+        ray.Direction = bsdfSample.direction;
         ray.TMin = rayTMin;
         ray.TMax = rayTMax;
-        throughput *= hitMaterial.albedo;
     }
     return radiance;
 }
