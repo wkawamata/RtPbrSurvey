@@ -267,6 +267,7 @@ public:
         Albedo = 0,
         WorldNormal,
         Emissive,
+        Radiance,
     };
 
     struct PathTracingSettings
@@ -279,7 +280,7 @@ public:
         bool environmentEnabled = true;
         bool emissiveEnabled = true;
         bool russianRouletteEnabled = false;
-        PathTracingDebugOutput debugOutput = PathTracingDebugOutput::Albedo;
+        PathTracingDebugOutput debugOutput = PathTracingDebugOutput::Radiance;
     };
 
     enum class PathTracingResetReason
@@ -1239,6 +1240,7 @@ private:
     static constexpr const char* kDepthStencilResourceName = "DepthStencil";
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";
     static constexpr const char* kTemporalUpscalerSceneColorResourceName = "TemporalUpscaler.SceneColor";
+    static constexpr const char* kEnvironmentMapResourceName = "EnvironmentMap";
     static constexpr const char* kPathTracingAccumulationResourceName = "PathTracing.Accumulation";
     static constexpr const char* kPathTracingSceneColorResourceName = "PathTracing.SceneColor";
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {

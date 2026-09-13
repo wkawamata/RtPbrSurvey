@@ -283,6 +283,7 @@ auto RtPbrSurveyEngine::MakePathTracingPass() -> RenderPass
         {kSceneMeshRangeBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
         {kSceneCameraConstantsResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
         {kMaterialBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
+        {kEnvironmentMapResourceName, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE},
     };
     if (m_usesIndexedDraw)
     {

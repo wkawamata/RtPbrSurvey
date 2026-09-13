@@ -448,6 +448,18 @@ tone map できる。
 
 完了条件: Cornell Box 相当 scene で direct shadow と diffuse bounce を確認できる。
 
+初期 Evaluation Case は次の 3 件とする。状態ファイルはユーザー設定なのでリポジトリには固定せず、
+Evaluation Case Window から同名の case と ROI を保存する。
+
+| Case | Scene / settings | ROI | Test items |
+|---|---|---|---|
+| `PT Direct Shadow` | Shadow Test Ground Cubes、Radiance、1 bounce、Direct on、Environment off | cubes と床の接地部 | shadow visibility (bool)、shadow edge quality (1-5) |
+| `PT Diffuse Bounce` | Cornell Box、Radiance、2 bounces、Direct on、Environment on | 赤壁・緑壁に近い白色面 | color bleeding visible (bool)、indirect stability (1-5) |
+| `PT Environment Emissive` | Cornell Box、Radiance、2 bounces、Direct off、Environment/Emissive on | 背景と emissive panel | environment miss visible (bool)、emissive response (1-5) |
+
+Commit 5 の実装では directional light の hard-shadow RayQuery、environment cube miss、emissive 加算、
+cosine-weighted Lambert bounce を追加する。GGX、metallic lobe、normal map、Russian Roulette は Commit 6 に残す。
+
 ### Commit 6: metallic-roughness PBR
 
 - GGX importance sampling

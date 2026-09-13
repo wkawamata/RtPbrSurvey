@@ -439,6 +439,7 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
         m_resourceDefaultStates.push_back({resourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
     }
     m_resourceDefaultStates.push_back({kTemporalUpscalerSceneColorResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET});
+    m_resourceDefaultStates.push_back({kEnvironmentMapResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
     m_resourceDefaultStates.push_back({kPathTracingAccumulationResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
     for (const char* resourceName : kDebugTexturePreviewResourceNames)
@@ -488,7 +489,7 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1,
             m_pathTracingPipeline != nullptr,
             m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1 ?
-                "Primary-hit diagnostic baseline" :
+                "Progressive Lambert path tracing" :
                 "Requires DXR 1.1",
             m_pathTracingRuntimeState,
             m_temporalUpscalerSupport.IsAvailable(),
@@ -2362,8 +2363,10 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
                          kPathTracingTextureSrvSpace,
                          D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE |
                              D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+    CD3DX12_DESCRIPTOR_RANGE1 environmentSrvRange = {};
+    environmentSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 6, 0);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[11] = {};
+    CD3DX12_ROOT_PARAMETER1 rootParameters[12] = {};
     rootParameters[0].InitAsDescriptorTable(1, &sceneColorUavRange);
     rootParameters[1].InitAsDescriptorTable(1, &accumulationUavRange);
     rootParameters[2].InitAsDescriptorTable(1, &tlasSrvRange);
@@ -2374,7 +2377,8 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     rootParameters[7].InitAsDescriptorTable(1, &materialSrvRange);
     rootParameters[8].InitAsDescriptorTable(1, &textureSrvRange);
     rootParameters[9].InitAsShaderResourceView(5, 0);
-    rootParameters[10].InitAsConstants(16, 1, 0);
+    rootParameters[10].InitAsDescriptorTable(1, &environmentSrvRange);
+    rootParameters[11].InitAsConstants(25, 1, 0);
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -4385,6 +4389,8 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
     }
     m_renderGraphRuntime.Resources().RegisterResource(kTemporalUpscalerSceneColorResourceName,
                                                       [this]() { return m_temporalUpscalerSceneColor.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kEnvironmentMapResourceName,
+                                                      [this]() { return m_environmentMap.Resource(); });
     m_renderGraphRuntime.Resources().RegisterResource(kPathTracingAccumulationResourceName,
                                                       [this]() { return m_pathTracingAccumulation.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kPathTracingSceneColorResourceName,
@@ -5484,13 +5490,24 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.pipelineState = m_pathTracingPipeline.Get();
     passDesc.sceneColorUav = m_pathTracingSceneColorUav.gpu;
     passDesc.accumulationUav = m_pathTracingAccumulationUav.gpu;
+    passDesc.environmentMapSrv = m_environmentMap.Srv().gpu;
     passDesc.scene = MakeRayQuerySceneBindings();
-    passDesc.missColor = {m_backBufferClearColor[0], m_backBufferClearColor[1], m_backBufferClearColor[2]};
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
+    passDesc.normalBias = m_shadowSettings.normalBias;
+    passDesc.lightDirection = {
+        m_lightingParams.lightDirection.x, m_lightingParams.lightDirection.y, m_lightingParams.lightDirection.z};
+    passDesc.lightColor = {m_lightingParams.lightColor.x, m_lightingParams.lightColor.y, m_lightingParams.lightColor.z};
+    passDesc.environmentIntensity = m_lightingParams.iblIntensity;
+    passDesc.diffuseIntensity = m_lightingParams.diffuseIntensity;
     passDesc.debugOutput = static_cast<UINT>(m_pathTracingSettings.debugOutput);
+    passDesc.maxBounces = m_pathTracingSettings.maxBounces;
     passDesc.environmentEnabled = m_pathTracingSettings.environmentEnabled ? 1u : 0u;
-    passDesc.emissiveEnabled = m_pathTracingSettings.emissiveEnabled ? 1u : 0u;
+    passDesc.emissiveEnabled =
+        m_pathTracingSettings.emissiveEnabled && m_lightingParams.emissiveEnabled ? 1u : 0u;
+    passDesc.directLightingEnabled =
+        m_pathTracingSettings.directLightingEnabled && m_lightingParams.directLightEnabled ? 1u : 0u;
+    passDesc.shadowEnabled = m_shadowSettings.enabled ? 1u : 0u;
     passDesc.samplesPerFrame = m_pathTracingSettings.samplesPerFrame;
     passDesc.sampleStartIndex = m_pathTracingRuntimeState.frameSampleIndex;
     passDesc.randomSeed = m_pathTracingSettings.randomSeed;
@@ -6364,6 +6381,8 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
     }
     metadata[kBackBufferResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
                                          Engine::RenderGraphResourceKind::Texture};
+    metadata[kEnvironmentMapResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
+                                             Engine::RenderGraphResourceKind::Texture};
     metadata[kMaterialBufferResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
                                              Engine::RenderGraphResourceKind::Buffer};
     metadata[kSceneTlasResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,

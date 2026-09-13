@@ -275,7 +275,7 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
                 pathTracing.value("russianRouletteEnabled", parsed.pathTracing.russianRouletteEnabled);
             const int debugOutput = pathTracing.value("debugOutput", static_cast<int>(parsed.pathTracing.debugOutput));
             if (debugOutput >= static_cast<int>(RtPbrSurveyEngine::PathTracingDebugOutput::Albedo) &&
-                debugOutput <= static_cast<int>(RtPbrSurveyEngine::PathTracingDebugOutput::Emissive))
+                debugOutput <= static_cast<int>(RtPbrSurveyEngine::PathTracingDebugOutput::Radiance))
             {
                 parsed.pathTracing.debugOutput =
                     static_cast<RtPbrSurveyEngine::PathTracingDebugOutput>(debugOutput);

@@ -924,7 +924,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                         static_cast<unsigned long long>(context.pathTracingRuntimeState.accumulatedSampleCount));
             ImGui::Text("Next Sample Index: %u", context.pathTracingRuntimeState.frameSampleIndex);
             ImGui::Text("Last Reset: %s", context.pathTracingRuntimeState.ResetReasonText());
-            ImGui::TextDisabled("Progressive primary-hit diagnostics are active.");
+            ImGui::TextDisabled("Progressive Lambert path tracing is active.");
             ImGui::TextDisabled("DLSS SR and RR settings are retained but inactive in this mode.");
 
             bool accumulationPaused = context.pathTracingRuntimeState.accumulationPaused;
@@ -942,9 +942,9 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 app.m_sceneRenderer.GetPathTracingSettings();
             bool pathTracingSettingsChanged = false;
             static constexpr const char* kPathTracingDebugOutputs[] = {
-                "Albedo + Emissive", "World Normal", "Emissive"};
+                "Albedo + Emissive", "World Normal", "Emissive", "Radiance"};
             int debugOutput = static_cast<int>(pathTracingSettings.debugOutput);
-            if (ImGui::Combo("Primary Hit Output",
+            if (ImGui::Combo("Path Tracing Output",
                              &debugOutput,
                              kPathTracingDebugOutputs,
                              _countof(kPathTracingDebugOutputs)))

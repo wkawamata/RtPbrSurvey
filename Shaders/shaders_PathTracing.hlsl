@@ -15,6 +15,7 @@ struct MeshRange
     uint indexCount;
 };
 StructuredBuffer<MeshRange> g_meshRanges : register(t5);
+TextureCube<float4> g_environmentMap : register(t6);
 Texture2D g_texture[] : register(t0, space8);
 SamplerState g_sampler : register(s0);
 
@@ -42,7 +43,14 @@ cbuffer PathTracingConstants : register(b1)
     float previousSampleCount;
     float rayTMin;
     float rayTMax;
-    float3 missColor;
+    uint maxBounces;
+    uint directLightingEnabled;
+    uint shadowEnabled;
+    float normalBias;
+    float3 lightDirection;
+    float environmentIntensity;
+    float3 lightColor;
+    float diffuseIntensity;
 };
 
 #include "SceneRayQuery.hlsli"
@@ -68,7 +76,7 @@ float NextRandom(inout uint state)
     return float(state >> 8) * (1.0 / 16777216.0);
 }
 
-float3 TracePrimaryDiagnostic(uint2 pixel, float2 subpixelPosition, uint2 dimensions)
+RayDesc MakePrimaryRay(uint2 pixel, float2 subpixelPosition, uint2 dimensions)
 {
     float2 uv = (float2(pixel) + subpixelPosition) / float2(dimensions);
     float2 clipUv = uv * 2.0 - 1.0;
@@ -84,43 +92,143 @@ float3 TracePrimaryDiagnostic(uint2 pixel, float2 subpixelPosition, uint2 dimens
     ray.Direction = normalize(farPosition - nearPosition);
     ray.TMin = rayTMin;
     ray.TMax = rayTMax;
+    return ray;
+}
 
-    RayQuery<RAY_FLAG_CULL_BACK_FACING_TRIANGLES> query;
-    query.TraceRayInline(g_tlas, 0, 0xff, ray);
-    query.Proceed();
-
-    if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
+float3 SampleEnvironment(float3 direction)
+{
+    if (environmentEnabled == 0)
     {
-        return environmentEnabled != 0 ? missColor : float3(0.0, 0.0, 0.0);
+        return float3(0.0, 0.0, 0.0);
+    }
+    return g_environmentMap.SampleLevel(g_sampler, direction, 0).rgb * environmentIntensity;
+}
+
+float TraceShadow(float3 worldPosition, float3 normal)
+{
+    if (shadowEnabled == 0)
+    {
+        return 1.0;
     }
 
-    uint index0;
-    uint index1;
-    uint index2;
-    const uint primitiveIndex = query.CommittedPrimitiveIndex();
-    const float2 barycentric = query.CommittedTriangleBarycentrics();
-    const uint instanceId = query.CommittedInstanceID();
-    LoadPrimitiveVertexIndices(primitiveIndex, instanceId, index0, index1, index2);
+    RayDesc shadowRay;
+    shadowRay.Origin = worldPosition + normal * normalBias;
+    shadowRay.Direction = normalize(lightDirection);
+    shadowRay.TMin = rayTMin;
+    shadowRay.TMax = rayTMax;
 
-    const float3 hitNormal = LoadCommittedHitNormal(
-        primitiveIndex, barycentric, query.CommittedObjectToWorld3x4(), instanceId);
-    const HitMaterialSample hitMaterial =
-        LoadCommittedHitMaterialSample(index0, index1, index2, barycentric, instanceId);
+    RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> query;
+    query.TraceRayInline(g_tlas, 0, 0xff, shadowRay);
+    while (query.Proceed())
+    {
+    }
+    return query.CommittedStatus() == COMMITTED_TRIANGLE_HIT ? 0.0 : 1.0;
+}
 
-    float3 outputColor = hitMaterial.albedo;
-    if (debugOutput == 1)
+float3 SampleCosineHemisphere(float3 normal, inout uint randomState)
+{
+    const float u1 = NextRandom(randomState);
+    const float u2 = NextRandom(randomState);
+    const float radius = sqrt(u1);
+    const float angle = 6.28318531 * u2;
+    float sine;
+    float cosine;
+    sincos(angle, sine, cosine);
+
+    const float3 helper = abs(normal.y) < 0.999 ? float3(0.0, 1.0, 0.0) : float3(1.0, 0.0, 0.0);
+    const float3 tangent = normalize(cross(helper, normal));
+    const float3 bitangent = cross(normal, tangent);
+    const float3 localDirection = float3(radius * cosine, radius * sine, sqrt(max(0.0, 1.0 - u1)));
+    return normalize(tangent * localDirection.x + bitangent * localDirection.y + normal * localDirection.z);
+}
+
+float3 TracePath(uint2 pixel, inout uint randomState, uint2 dimensions)
+{
+    const float2 subpixelPosition = float2(NextRandom(randomState), NextRandom(randomState));
+    RayDesc ray = MakePrimaryRay(pixel, subpixelPosition, dimensions);
+    float3 radiance = 0.0;
+    float3 throughput = 1.0;
+
+    [loop] for (uint bounce = 0; bounce < max(maxBounces, 1u); ++bounce)
     {
-        outputColor = hitNormal * 0.5 + 0.5;
+        RayQuery<RAY_FLAG_CULL_BACK_FACING_TRIANGLES> query;
+        query.TraceRayInline(g_tlas, 0, 0xff, ray);
+        while (query.Proceed())
+        {
+        }
+
+        if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
+        {
+            radiance += throughput * SampleEnvironment(ray.Direction);
+            break;
+        }
+
+        uint index0;
+        uint index1;
+        uint index2;
+        const uint primitiveIndex = query.CommittedPrimitiveIndex();
+        const float2 barycentric = query.CommittedTriangleBarycentrics();
+        const uint instanceId = query.CommittedInstanceID();
+        LoadPrimitiveVertexIndices(primitiveIndex, instanceId, index0, index1, index2);
+
+        float3 hitNormal = LoadCommittedHitNormal(
+            primitiveIndex, barycentric, query.CommittedObjectToWorld3x4(), instanceId);
+        if (dot(hitNormal, ray.Direction) > 0.0)
+        {
+            hitNormal = -hitNormal;
+        }
+        const HitMaterialSample hitMaterial =
+            LoadCommittedHitMaterialSample(index0, index1, index2, barycentric, instanceId);
+
+        if (bounce == 0 && debugOutput < 3)
+        {
+            if (debugOutput == 1)
+            {
+                return hitNormal * 0.5 + 0.5;
+            }
+            if (debugOutput == 2)
+            {
+                return hitMaterial.emissive;
+            }
+            return hitMaterial.albedo + (emissiveEnabled != 0 ? hitMaterial.emissive : 0.0);
+        }
+
+        const bool unlit = (hitMaterial.flags & MaterialFlagUnlit) != 0;
+        if (unlit)
+        {
+            radiance += throughput *
+                (hitMaterial.albedo + (emissiveEnabled != 0 ? hitMaterial.emissive : 0.0));
+            break;
+        }
+
+        if (emissiveEnabled != 0)
+        {
+            radiance += throughput * hitMaterial.emissive;
+        }
+
+        const float3 surfaceToLight = normalize(lightDirection);
+        const float normalDotLight = saturate(dot(hitNormal, surfaceToLight));
+        if (directLightingEnabled != 0 && normalDotLight > 0.0)
+        {
+            const float3 hitPosition = ray.Origin + ray.Direction * query.CommittedRayT();
+            const float visibility = TraceShadow(hitPosition, hitNormal);
+            radiance += throughput * hitMaterial.albedo * lightColor *
+                (diffuseIntensity * normalDotLight * visibility / 3.14159265);
+        }
+
+        if (bounce + 1 >= max(maxBounces, 1u))
+        {
+            break;
+        }
+
+        const float3 hitPosition = ray.Origin + ray.Direction * query.CommittedRayT();
+        ray.Origin = hitPosition + hitNormal * normalBias;
+        ray.Direction = SampleCosineHemisphere(hitNormal, randomState);
+        ray.TMin = rayTMin;
+        ray.TMax = rayTMax;
+        throughput *= hitMaterial.albedo;
     }
-    else if (debugOutput == 2)
-    {
-        outputColor = hitMaterial.emissive;
-    }
-    else if (emissiveEnabled != 0)
-    {
-        outputColor += hitMaterial.emissive;
-    }
-    return outputColor;
+    return radiance;
 }
 
 [numthreads(8, 8, 1)]
@@ -140,8 +248,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     for (uint sampleOffset = 0; sampleOffset < sampleCount; ++sampleOffset)
     {
         uint randomState = MakeRandomState(pixel, sampleStartIndex + sampleOffset);
-        const float2 subpixelPosition = float2(NextRandom(randomState), NextRandom(randomState));
-        frameRadianceSum += TracePrimaryDiagnostic(pixel, subpixelPosition, uint2(width, height));
+        frameRadianceSum += TracePath(pixel, randomState, uint2(width, height));
     }
 
     float3 accumulatedRadiance = frameRadianceSum;

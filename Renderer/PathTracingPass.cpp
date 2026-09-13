@@ -24,10 +24,17 @@ struct PathTracingShaderConstants
     float previousSampleCount;
     float rayTMin;
     float rayTMax;
-    std::array<float, 3> missColor;
+    UINT maxBounces;
+    UINT directLightingEnabled;
+    UINT shadowEnabled;
+    float normalBias;
+    std::array<float, 3> lightDirection;
+    float environmentIntensity;
+    std::array<float, 3> lightColor;
+    float diffuseIntensity;
 };
 
-static_assert(sizeof(PathTracingShaderConstants) == 16 * sizeof(UINT));
+static_assert(sizeof(PathTracingShaderConstants) == 25 * sizeof(UINT));
 
 } // namespace
 
@@ -64,6 +71,7 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
     commandList->SetComputeRootDescriptorTable(7, desc.scene.materialBufferSrv);
     commandList->SetComputeRootDescriptorTable(8, desc.scene.textureTableSrv);
     commandList->SetComputeRootShaderResourceView(9, desc.scene.meshRangeBufferSrv);
+    commandList->SetComputeRootDescriptorTable(10, desc.environmentMapSrv);
 
     const PathTracingShaderConstants constants = {
         desc.scene.usesIndexedDraw,
@@ -79,9 +87,16 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
         desc.previousSampleCount,
         desc.rayTMin,
         desc.rayTMax,
-        desc.missColor,
+        desc.maxBounces,
+        desc.directLightingEnabled,
+        desc.shadowEnabled,
+        desc.normalBias,
+        desc.lightDirection,
+        desc.environmentIntensity,
+        desc.lightColor,
+        desc.diffuseIntensity,
     };
-    commandList->SetComputeRoot32BitConstants(10, 16, &constants, 0);
+    commandList->SetComputeRoot32BitConstants(11, 25, &constants, 0);
 
     constexpr UINT kThreadGroupSize = 8;
     const UINT dispatchX = (desc.width + kThreadGroupSize - 1) / kThreadGroupSize;

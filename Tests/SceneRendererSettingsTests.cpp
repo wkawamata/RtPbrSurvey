@@ -108,6 +108,8 @@ bool TestMissingFieldsKeepDefaults()
     passed &= Check(settings.lighting.diffuseIntensity == 3.0f, "missing lighting field keeps default");
     passed &= Check(settings.shadow.normalBias == 0.04f, "missing group keeps default");
     passed &= Check(settings.pathTracing.maxBounces == 9, "missing path tracing group keeps default");
+    passed &= Check(settings.pathTracing.debugOutput == RtPbrSurveyEngine::PathTracingDebugOutput::Radiance,
+                    "missing path tracing output keeps the radiance default");
     passed &= Check(settings.toneMap.exposure == 1.25f, "missing tone map keeps default");
     return passed;
 }
