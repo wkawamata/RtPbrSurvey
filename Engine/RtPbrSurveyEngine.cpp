@@ -1074,6 +1074,22 @@ bool RtPbrSurveyEngine::UpdateDebugLine(RtPbrSurvey::DebugLineHandle handle,
     {
         UpdateDebugLines();
     }
+    if (!updated || desc.visible)
+    {
+        char message[256] = {};
+        std::snprintf(
+            message,
+            sizeof(message),
+            "[RtPbrSurvey DebugLine] Update: engine=%p registry=%p handle=%u updated=%d visible=%d depthVertices=%zu overlayVertices=%zu\n",
+            static_cast<void*>(this),
+            static_cast<void*>(&m_debugLineRegistry),
+            handle,
+            updated ? 1 : 0,
+            desc.visible ? 1 : 0,
+            m_debugLineVertices.depthTested.size(),
+            m_debugLineVertices.overlay.size());
+        OutputDebugStringA(message);
+    }
     return updated;
 }
 
@@ -1085,6 +1101,14 @@ void RtPbrSurveyEngine::RemoveDebugLine(RtPbrSurvey::DebugLineHandle handle)
 
 void RtPbrSurveyEngine::ClearDebugLines()
 {
+    char message[160] = {};
+    std::snprintf(
+        message,
+        sizeof(message),
+        "[RtPbrSurvey DebugLine] Clear: engine=%p registry=%p\n",
+        static_cast<void*>(this),
+        static_cast<void*>(&m_debugLineRegistry));
+    OutputDebugStringA(message);
     m_debugLineRegistry.Clear();
     UpdateDebugLines();
 }
@@ -5403,6 +5427,24 @@ void RtPbrSurveyEngine::ExecuteDebugLinePass(const RenderPass& pass)
     UNREFERENCED_PARAMETER(pass);
 
     UpdateDebugLines();
+    static size_t lastDepthTestedVertexCount = static_cast<size_t>(-1);
+    static size_t lastOverlayVertexCount = static_cast<size_t>(-1);
+    if (m_debugLineVertices.depthTested.size() != lastDepthTestedVertexCount ||
+        m_debugLineVertices.overlay.size() != lastOverlayVertexCount)
+    {
+        char message[192] = {};
+        std::snprintf(
+            message,
+            sizeof(message),
+            "[RtPbrSurvey DebugLine] Execute pass: engine=%p registry=%p depthVertices=%zu overlayVertices=%zu\n",
+            static_cast<void*>(this),
+            static_cast<void*>(&m_debugLineRegistry),
+            m_debugLineVertices.depthTested.size(),
+            m_debugLineVertices.overlay.size());
+        OutputDebugStringA(message);
+        lastDepthTestedVertexCount = m_debugLineVertices.depthTested.size();
+        lastOverlayVertexCount = m_debugLineVertices.overlay.size();
+    }
     if (m_debugLineVertices.depthTested.empty() && m_debugLineVertices.overlay.empty())
     {
         return;
