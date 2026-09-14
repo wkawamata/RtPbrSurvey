@@ -353,8 +353,10 @@ Path Tracing settings は SceneRendererSettings に保存される。固定 seed
 - `int 1-5`: diffuse indirect-light stability
 - Japanese comment: reference difference と目視判断
 
-CLI capture は最終 frame 数ではなく accumulated sample count を明記する。将来
-`-PathTracingSamples <N>` と固定 seed option を追加し、N samples 到達後に capture する。
+CLI capture は最終 frame 数ではなく accumulated sample count を明記する。
+`-PathTracingSamples <N>` と `-PathTracingSeed <N>` を指定すると、1 sample/frame の固定条件で
+N samples 到達時に accumulation を停止し、追加sampleを描かずにcaptureする。`-EvaluationCase <name>` は
+保存済みscene、camera、rendering settings、ROI、判定項目を復元してからPath Tracing CLI overrideを適用する。
 
 ## 10. DLSS integration policy
 
@@ -498,6 +500,11 @@ SHA-256 `FB0F948918B47A7455E0831D1F34C30330747E7EF1C014CB446D4C400BAFBC4E`
 - 2080 と 4090 の performance/compatibility notes
 
 完了条件: deterministic capture を再生成でき、Debug Layer error なしで比較 report を残せる。
+
+実装と運用手順は `Tests/PathTracing/Invoke-ReferenceCapture.ps1` と
+`doc/branch/feature/path-tracing-validation.md` に固定する。GPU timestampは`PathTracingPass`の実測時間、
+primary samplesはrender pixel数とsamples/frameの積、path segmentとRayQueryはmax bounceおよびshadow rayを
+含む上限値として区別して表示する。
 
 ## 12. Test matrix
 

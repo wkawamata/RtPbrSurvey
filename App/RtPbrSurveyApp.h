@@ -96,6 +96,8 @@ private:
     void WriteReflectionHdrDiagnosticsReport();
     void ApplyRayReconstructionCommandLineOverrides();
     void LogRayReconstructionDiagnostics();
+    void AccumulatePathTracingCaptureDiagnostics();
+    void LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::UiFrameContext& context);
     void FlushD3D12DebugMessages();
     void LogFpsToFile(float cpuFrameTimeMs);
     bool CaptureEvaluationState(RtPbrSurvey::EvaluationState& state, std::string* error = nullptr);
@@ -171,6 +173,10 @@ private:
     UINT64 m_fpsLogFrameCounter = 0;
     UINT64 m_automationFrameCounter = 0;
     bool m_automationScreenshotRequested = false;
+    double m_pathTracingGpuTimeSumMs = 0.0;
+    float m_pathTracingGpuTimeMinMs = 0.0f;
+    float m_pathTracingGpuTimeMaxMs = 0.0f;
+    UINT64 m_pathTracingGpuTimingSampleCount = 0;
     float m_automationOrbitStartYaw = 0.0f;
     float m_automationOrbitDistance = 5.0f;
     Platform::ReflectionCapturePlan m_reflectionCapturePlan;

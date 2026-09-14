@@ -569,7 +569,23 @@ namespace
                         static_cast<unsigned long long>(context.pathTracingRuntimeState.accumulatedSampleCount));
             ImGui::Text("Next Sample Index: %u", context.pathTracingRuntimeState.frameSampleIndex);
             ImGui::Text("Last Reset: %s", context.pathTracingRuntimeState.ResetReasonText());
-            ImGui::TextDisabled("Progressive primary-hit diagnostics are active.");
+            if (context.pathTracingDiagnostics.gpuTimingAvailable)
+            {
+                ImGui::Text("Path Tracing GPU: %.3f ms", context.pathTracingDiagnostics.gpuTimeMs);
+                ImGui::Text("Primary Samples / Second: %.3f M",
+                            context.pathTracingDiagnostics.primarySamplesPerSecond / 1000000.0);
+            }
+            else
+            {
+                ImGui::TextDisabled("Path Tracing GPU: N/A");
+            }
+            ImGui::Text("Primary Samples / Frame: %llu",
+                        static_cast<unsigned long long>(context.pathTracingDiagnostics.primarySamplesPerFrame));
+            ImGui::Text("Max Path Segments / Frame: %llu",
+                        static_cast<unsigned long long>(context.pathTracingDiagnostics.maxPathSegmentsPerFrame));
+            ImGui::Text("Max Ray Queries / Frame: %llu",
+                        static_cast<unsigned long long>(context.pathTracingDiagnostics.maxRayQueriesPerFrame));
+            ImGui::TextDisabled("Progressive metallic-roughness path tracing is active.");
             ImGui::TextDisabled("DLSS SR and RR settings are retained but inactive in this mode.");
 
             bool accumulationPaused = context.pathTracingRuntimeState.accumulationPaused;
@@ -586,7 +602,7 @@ namespace
             RtPbrSurveyEngine::PathTracingSettings pathTracingSettings = renderer.GetPathTracingSettings();
             bool settingsChanged = false;
             static constexpr const char* kPathTracingDebugOutputs[] = {
-                "Albedo + Emissive", "World Normal", "Emissive"};
+                "Albedo + Emissive", "World Normal", "Emissive", "Radiance"};
             int debugOutput = static_cast<int>(pathTracingSettings.debugOutput);
             if (ImGui::Combo("Primary Hit Output",
                              &debugOutput,
@@ -617,7 +633,8 @@ namespace
             settingsChanged |= ImGui::Checkbox("Environment", &pathTracingSettings.environmentEnabled);
             ImGui::SameLine();
             settingsChanged |= ImGui::Checkbox("Emissive", &pathTracingSettings.emissiveEnabled);
-            settingsChanged |= ImGui::Checkbox("Russian Roulette", &pathTracingSettings.russianRouletteEnabled);
+            settingsChanged |=
+                ImGui::Checkbox("Russian Roulette (bounce 3+)", &pathTracingSettings.russianRouletteEnabled);
             if (settingsChanged)
             {
                 renderer.SetPathTracingSettings(pathTracingSettings);

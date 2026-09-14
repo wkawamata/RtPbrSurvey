@@ -924,6 +924,22 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                         static_cast<unsigned long long>(context.pathTracingRuntimeState.accumulatedSampleCount));
             ImGui::Text("Next Sample Index: %u", context.pathTracingRuntimeState.frameSampleIndex);
             ImGui::Text("Last Reset: %s", context.pathTracingRuntimeState.ResetReasonText());
+            if (context.pathTracingDiagnostics.gpuTimingAvailable)
+            {
+                ImGui::Text("Path Tracing GPU: %.3f ms", context.pathTracingDiagnostics.gpuTimeMs);
+                ImGui::Text("Primary Samples / Second: %.3f M",
+                            context.pathTracingDiagnostics.primarySamplesPerSecond / 1000000.0);
+            }
+            else
+            {
+                ImGui::TextDisabled("Path Tracing GPU: N/A");
+            }
+            ImGui::Text("Primary Samples / Frame: %llu",
+                        static_cast<unsigned long long>(context.pathTracingDiagnostics.primarySamplesPerFrame));
+            ImGui::Text("Max Path Segments / Frame: %llu",
+                        static_cast<unsigned long long>(context.pathTracingDiagnostics.maxPathSegmentsPerFrame));
+            ImGui::Text("Max Ray Queries / Frame: %llu",
+                        static_cast<unsigned long long>(context.pathTracingDiagnostics.maxRayQueriesPerFrame));
             ImGui::TextDisabled("Progressive metallic-roughness path tracing is active.");
             ImGui::TextDisabled("DLSS SR and RR settings are retained but inactive in this mode.");
 

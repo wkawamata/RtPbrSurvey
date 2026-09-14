@@ -162,6 +162,43 @@ bool SceneInstancesEqual(const std::vector<Engine::InstanceData>& left,
     return true;
 }
 
+RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
+    const std::vector<MyDx12Util::GpuWorkMeter::CheckPoint>& checkPoints,
+    UINT renderWidth,
+    UINT renderHeight,
+    const RtPbrSurveyEngine::PathTracingSettings& settings,
+    bool shadowRayEnabled)
+{
+    RtPbrSurveyEngine::PathTracingDiagnostics diagnostics;
+    diagnostics.primarySamplesPerFrame = static_cast<uint64_t>(renderWidth) * renderHeight *
+                                         (std::max)(settings.samplesPerFrame, 1u);
+    diagnostics.maxPathSegmentsPerFrame =
+        diagnostics.primarySamplesPerFrame * (std::max)(settings.maxBounces, 1u);
+    diagnostics.maxRayQueriesPerFrame = diagnostics.maxPathSegmentsPerFrame;
+    if (settings.directLightingEnabled && shadowRayEnabled)
+    {
+        diagnostics.maxRayQueriesPerFrame += diagnostics.maxPathSegmentsPerFrame;
+    }
+
+    for (size_t i = 1; i < checkPoints.size(); ++i)
+    {
+        if (checkPoints[i].name != "PathTracingPass")
+        {
+            continue;
+        }
+
+        diagnostics.gpuTimeMs = checkPoints[i].timeStamp - checkPoints[i - 1].timeStamp;
+        diagnostics.gpuTimingAvailable = diagnostics.gpuTimeMs >= 0.0f;
+        if (diagnostics.gpuTimeMs > 0.0f)
+        {
+            diagnostics.primarySamplesPerSecond =
+                static_cast<double>(diagnostics.primarySamplesPerFrame) * 1000.0 /
+                diagnostics.gpuTimeMs;
+        }
+        break;
+    }
+    return diagnostics;
+}
 
 static_assert(sizeof(Engine::SceneVertex) == 52,
               "shaders_HybridReflection.hlsl reads SceneVertex normals through a byte-address buffer.");
@@ -479,6 +516,12 @@ std::wstring RtPbrSurveyEngine::GetShaderFullPath(LPCWSTR shaderName)
 
 RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
 {
+    const PathTracingDiagnostics pathTracingDiagnostics =
+        BuildPathTracingDiagnostics(m_completedGpuWorkMeterCheckPoints,
+                                    m_renderWidth,
+                                    m_renderHeight,
+                                    m_pathTracingSettings,
+                                    m_shadowSettings.enabled && m_lightingParams.directLightEnabled);
     return {static_cast<int>(m_currentFrameIndex),
             m_cpuFrameTime,
             m_renderWidth,
@@ -494,6 +537,7 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
                 "Progressive metallic-roughness path tracing" :
                 "Requires DXR 1.1",
             m_pathTracingRuntimeState,
+            pathTracingDiagnostics,
             m_temporalUpscalerSupport.IsAvailable(),
             m_temporalUpscalerSupport.BackendName(),
             m_temporalUpscalerSupport.StatusText(),

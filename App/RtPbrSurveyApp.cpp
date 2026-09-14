@@ -48,6 +48,30 @@ const char* RenderingPathMetadataName(RtPbrSurveyEngine::RenderingPath rendering
     }
 }
 
+std::string WideToUtf8(const std::wstring& value)
+{
+    if (value.empty())
+    {
+        return {};
+    }
+
+    const int length = WideCharToMultiByte(
+        CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr);
+    if (length <= 0)
+    {
+        throw std::runtime_error("Failed to convert command-line text to UTF-8.");
+    }
+    std::string result(static_cast<size_t>(length), '\0');
+    WideCharToMultiByte(CP_UTF8,
+                        0,
+                        value.c_str(),
+                        static_cast<int>(value.size()),
+                        result.data(),
+                        length,
+                        nullptr,
+                        nullptr);
+    return result;
+}
 
 static_assert(Engine::ImGuiSystem::kMaxTextureCount >= RtPbrSurveyEngine::kMaxDebugTextureOutputCount);
 
@@ -130,12 +154,21 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     const UINT autoSelectModeCount =
         static_cast<UINT>(m_commandLineOptions.autoSelectGltfDamagedHelmet) +
         static_cast<UINT>(!m_commandLineOptions.autoSelectGltfAssetName.empty()) +
-        static_cast<UINT>(m_commandLineOptions.autoSelectHybridReflectionEstimatorTest);
+        static_cast<UINT>(m_commandLineOptions.autoSelectHybridReflectionEstimatorTest) +
+        static_cast<UINT>(!m_commandLineOptions.evaluationCaseName.empty());
     if (autoSelectModeCount > 1)
     {
         throw std::invalid_argument(
             "-AutoSelectGltfDamagedHelmet, -AutoSelectGltfAsset, and "
-            "-AutoSelectHybridReflectionEstimatorTest are mutually exclusive.");
+            "-AutoSelectHybridReflectionEstimatorTest, and -EvaluationCase are mutually exclusive.");
+    }
+    if (!m_commandLineOptions.evaluationCaseName.empty() && m_commandLineOptions.useSceneDefaults)
+    {
+        throw std::invalid_argument("-EvaluationCase and -UseSceneDefaults are mutually exclusive.");
+    }
+    if (m_commandLineOptions.pathTracingSampleTarget > 0 && m_commandLineOptions.capturePath.empty())
+    {
+        throw std::invalid_argument("-PathTracingSamples requires -CapturePath.");
     }
     if (m_commandLineOptions.enablePathTracing &&
         (m_commandLineOptions.enableDlssSr || m_commandLineOptions.enableDlssRayReconstruction ||
@@ -168,8 +201,11 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
 
 void RtPbrSurveyApp::OnInit()
 {
-    const Engine::StreamlineAdapterInitDesc streamlineInitDesc = {L"RtPbrSurvey"};
-    Engine::InitializeStreamlineAdapter(streamlineInitDesc);
+    if (!m_commandLineOptions.enablePathTracing)
+    {
+        const Engine::StreamlineAdapterInitDesc streamlineInitDesc = {L"RtPbrSurvey"};
+        Engine::InitializeStreamlineAdapter(streamlineInitDesc);
+    }
 
     CreateSampleScenes();
 
@@ -180,7 +216,10 @@ void RtPbrSurveyApp::OnInit()
     deviceDesc.bufferCount = RtPbrSurveyEngine::kSwapChainBufferCount;
     deviceDesc.swapChainFormat = RtPbrSurveyEngine::kSwapChainFormat;
     deviceDesc.useWarpDevice = m_commandLineOptions.useWarpDevice;
-    deviceDesc.deviceCreatedHandler = [](ID3D12Device* device) { Engine::SetStreamlineD3DDevice(device); };
+    if (!m_commandLineOptions.enablePathTracing)
+    {
+        deviceDesc.deviceCreatedHandler = [](ID3D12Device* device) { Engine::SetStreamlineD3DDevice(device); };
+    }
     m_graphicsDevice.Initialize(deviceDesc);
 
     // Open debug log file and query ID3D12InfoQueue for D3D12 message capture.
@@ -280,9 +319,39 @@ void RtPbrSurveyApp::OnInit()
 
     if (m_commandLineOptions.autoSelectGltfDamagedHelmet ||
         !m_commandLineOptions.autoSelectGltfAssetName.empty() ||
-        m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
+        m_commandLineOptions.autoSelectHybridReflectionEstimatorTest ||
+        !m_commandLineOptions.evaluationCaseName.empty())
     {
-        if (m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
+        if (!m_commandLineOptions.evaluationCaseName.empty())
+        {
+            const std::string evaluationCaseName = WideToUtf8(m_commandLineOptions.evaluationCaseName);
+            const auto state = std::find_if(m_evaluationStates.States().begin(),
+                                            m_evaluationStates.States().end(),
+                                            [&evaluationCaseName](const RtPbrSurvey::EvaluationState& candidate)
+                                            { return candidate.name == evaluationCaseName; });
+            if (state == m_evaluationStates.States().end())
+            {
+                throw std::runtime_error("Saved Evaluation Case is unavailable: " + evaluationCaseName);
+            }
+            const auto duplicate = std::find_if(std::next(state),
+                                                m_evaluationStates.States().end(),
+                                                [&evaluationCaseName](const RtPbrSurvey::EvaluationState& candidate)
+                                                { return candidate.name == evaluationCaseName; });
+            if (duplicate != m_evaluationStates.States().end())
+            {
+                throw std::runtime_error("Saved Evaluation Case name is ambiguous: " + evaluationCaseName);
+            }
+
+            std::string error;
+            if (!RestoreEvaluationState(*state, &error))
+            {
+                throw std::runtime_error("Failed to restore Evaluation Case: " + error);
+            }
+            m_selectedEvaluationStateIndex =
+                static_cast<int>(std::distance(m_evaluationStates.States().begin(), state));
+            ApplyPathTracingCommandLineOptions();
+        }
+        else if (m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
         {
             const auto scene = std::find_if(
                 m_sampleScenes.begin(),
@@ -329,12 +398,16 @@ void RtPbrSurveyApp::OnInit()
         {
             m_selectedSceneIndex = kDefaultSceneIndex;
         }
-        OpenSelectedScene();
+        if (m_commandLineOptions.evaluationCaseName.empty())
+        {
+            OpenSelectedScene();
+        }
 
         // HDR diagnostics must not inherit interactive user camera overrides. The
         // manifest ROIs and camera motion are defined against versioned scene defaults.
-        if (m_commandLineOptions.useSceneDefaults ||
-            !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty())
+        if (m_commandLineOptions.evaluationCaseName.empty() &&
+            (m_commandLineOptions.useSceneDefaults ||
+             !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty()))
         {
             m_sceneConfig.LoadDefaultsForScene(
                 m_selectedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
@@ -593,6 +666,15 @@ void RtPbrSurveyApp::OnIdle()
             const bool capturePlanComplete =
                 !m_reflectionCapturePlan.captures.empty() &&
                 m_completedReflectionCaptureCount == m_reflectionCapturePlan.captures.size();
+            if (m_logFile)
+            {
+                fprintf(m_logFile,
+                        "[Capture] complete=%s exitAfterCapture=%s path=%s\n",
+                        (singleCaptureComplete || capturePlanComplete) ? "true" : "false",
+                        m_commandLineOptions.exitAfterCapture ? "true" : "false",
+                        result->path.string().c_str());
+                fflush(m_logFile);
+            }
             if (m_commandLineOptions.exitAfterCapture && (singleCaptureComplete || capturePlanComplete))
             {
                 DestroyWindow(Win32Application::GetHwnd());
@@ -625,11 +707,31 @@ void RtPbrSurveyApp::OnIdle()
         }
     }
     else if (m_reflectionCapturePlan.captures.empty() && !m_commandLineOptions.capturePath.empty() &&
-             !m_automationScreenshotRequested &&
-             m_automationFrameCounter >= m_commandLineOptions.captureAfterFrames)
+             !m_automationScreenshotRequested)
     {
         const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
-        if (m_commandLineOptions.enableDlssSr && !context.temporalUpscalerOutputAvailable)
+        bool singleCaptureReady = false;
+        if (m_commandLineOptions.pathTracingSampleTarget > 0)
+        {
+            const uint64_t accumulatedSamples = context.pathTracingRuntimeState.accumulatedSampleCount;
+            if (accumulatedSamples > m_commandLineOptions.pathTracingSampleTarget)
+            {
+                FailAutomatedCapture("Path Tracing exceeded the requested accumulated sample target.");
+                return;
+            }
+            singleCaptureReady = accumulatedSamples == m_commandLineOptions.pathTracingSampleTarget;
+            if (singleCaptureReady)
+            {
+                m_sceneRenderer.SetPathTracingAccumulationPaused(true);
+                LogPathTracingCaptureDiagnostics(context);
+            }
+        }
+        else
+        {
+            singleCaptureReady = m_automationFrameCounter >= m_commandLineOptions.captureAfterFrames;
+        }
+
+        if (singleCaptureReady && m_commandLineOptions.enableDlssSr && !context.temporalUpscalerOutputAvailable)
         {
             const Engine::StreamlineEvaluateResult& result = context.temporalUpscalerLastEvaluateResult;
             const Engine::TemporalUpscalerSettings& settings = m_sceneRenderer.GetTemporalUpscalerSettings();
@@ -643,8 +745,11 @@ void RtPbrSurveyApp::OnIdle()
                 ", path=" + std::to_string(static_cast<int>(engine.GetRenderingPath())) + ").");
             return;
         }
-        m_sceneRenderer.RequestScreenshot({m_commandLineOptions.capturePath});
-        m_automationScreenshotRequested = true;
+        if (singleCaptureReady)
+        {
+            m_sceneRenderer.RequestScreenshot({m_commandLineOptions.capturePath});
+            m_automationScreenshotRequested = true;
+        }
     }
 
     if (m_reflectionCapturePlanFailed && m_commandLineOptions.exitAfterCapture)
@@ -658,6 +763,7 @@ void RtPbrSurveyApp::OnIdle()
     m_sceneRenderer.RunFrame(
         [this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); }, advanceFrame);
     LogRayReconstructionDiagnostics();
+    AccumulatePathTracingCaptureDiagnostics();
 
     if (HasAutomatedCapture())
     {
@@ -1455,6 +1561,117 @@ void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
     fflush(m_logFile);
 }
 
+void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::UiFrameContext& context)
+{
+    if (!m_logFile)
+    {
+        return;
+    }
+
+    const RtPbrSurveyEngine::PathTracingSettings& settings = m_sceneRenderer.GetPathTracingSettings();
+    const DXGI_ADAPTER_DESC1& adapter = m_graphicsDevice.AdapterDescription();
+    const double gpuTimeAverageMs = m_pathTracingGpuTimingSampleCount > 0 ?
+        m_pathTracingGpuTimeSumMs / static_cast<double>(m_pathTracingGpuTimingSampleCount) :
+        0.0;
+    const double averagePrimarySamplesPerSecond = gpuTimeAverageMs > 0.0 ?
+        static_cast<double>(context.pathTracingDiagnostics.primarySamplesPerFrame) * 1000.0 / gpuTimeAverageMs :
+        0.0;
+    nlohmann::json evaluationCase = nullptr;
+    if (m_selectedEvaluationStateIndex >= 0 &&
+        m_selectedEvaluationStateIndex < static_cast<int>(m_evaluationStates.States().size()))
+    {
+        const RtPbrSurvey::EvaluationState& state =
+            m_evaluationStates.States()[static_cast<size_t>(m_selectedEvaluationStateIndex)];
+        nlohmann::json testItems = nlohmann::json::array();
+        for (const RtPbrSurvey::EvaluationTestItem& item : state.testItems)
+        {
+            testItems.push_back({
+                {"prompt", item.prompt},
+                {"judgment",
+                 item.judgmentKind == RtPbrSurvey::EvaluationJudgmentKind::Boolean ? "boolean" : "score1To5"},
+                {"value",
+                 item.judgmentKind == RtPbrSurvey::EvaluationJudgmentKind::Boolean ?
+                     nlohmann::json(item.booleanValue) :
+                     nlohmann::json((std::clamp)(item.score, 1, 5))},
+            });
+        }
+        evaluationCase = {
+            {"name", state.name},
+            {"comment", state.comment},
+            {"roi",
+             {{"enabled", state.roi.enabled},
+              {"x", state.roi.x},
+              {"y", state.roi.y},
+              {"width", state.roi.width},
+              {"height", state.roi.height}}},
+            {"testItems", std::move(testItems)},
+        };
+    }
+
+    const nlohmann::json diagnostics = {
+        {"schemaVersion", 1},
+        {"scene", m_loadedScene != nullptr ? m_loadedScene->Name() : ""},
+        {"adapter",
+         {{"name", WideToUtf8(adapter.Description)},
+          {"vendorId", adapter.VendorId},
+          {"deviceId", adapter.DeviceId},
+          {"dedicatedVideoMemory", adapter.DedicatedVideoMemory}}},
+        {"capturePath", std::filesystem::absolute(m_commandLineOptions.capturePath).string()},
+        {"accumulatedSamples", context.pathTracingRuntimeState.accumulatedSampleCount},
+        {"targetSamples", m_commandLineOptions.pathTracingSampleTarget},
+        {"randomSeed", settings.randomSeed},
+        {"samplesPerFrame", settings.samplesPerFrame},
+        {"maxBounces", settings.maxBounces},
+        {"russianRoulette", settings.russianRouletteEnabled},
+        {"renderWidth", context.renderWidth},
+        {"renderHeight", context.renderHeight},
+        {"gpuTimingAvailable", context.pathTracingDiagnostics.gpuTimingAvailable},
+        {"gpuTimeMs", context.pathTracingDiagnostics.gpuTimeMs},
+        {"gpuTimingSampleCount", m_pathTracingGpuTimingSampleCount},
+        {"gpuTimeAverageMs", gpuTimeAverageMs},
+        {"gpuTimeMinMs", m_pathTracingGpuTimeMinMs},
+        {"gpuTimeMaxMs", m_pathTracingGpuTimeMaxMs},
+        {"primarySamplesPerFrame", context.pathTracingDiagnostics.primarySamplesPerFrame},
+        {"maxPathSegmentsPerFrame", context.pathTracingDiagnostics.maxPathSegmentsPerFrame},
+        {"maxRayQueriesPerFrame", context.pathTracingDiagnostics.maxRayQueriesPerFrame},
+        {"primarySamplesPerSecond", context.pathTracingDiagnostics.primarySamplesPerSecond},
+        {"averagePrimarySamplesPerSecond", averagePrimarySamplesPerSecond},
+        {"evaluationCase", std::move(evaluationCase)},
+    };
+    fprintf(m_logFile, "[PathTracing] %s\n", diagnostics.dump().c_str());
+    fflush(m_logFile);
+}
+
+void RtPbrSurveyApp::AccumulatePathTracingCaptureDiagnostics()
+{
+    if (m_commandLineOptions.pathTracingSampleTarget == 0 || m_automationScreenshotRequested)
+    {
+        return;
+    }
+
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    if (!context.pathTracingDiagnostics.gpuTimingAvailable || context.pathTracingDiagnostics.gpuTimeMs <= 0.0f ||
+        context.pathTracingRuntimeState.accumulatedSampleCount == 0 ||
+        context.pathTracingRuntimeState.accumulatedSampleCount > m_commandLineOptions.pathTracingSampleTarget)
+    {
+        return;
+    }
+
+    const float gpuTimeMs = context.pathTracingDiagnostics.gpuTimeMs;
+    m_pathTracingGpuTimeSumMs += gpuTimeMs;
+    if (m_pathTracingGpuTimingSampleCount == 0)
+    {
+        m_pathTracingGpuTimeMinMs = gpuTimeMs;
+        m_pathTracingGpuTimeMaxMs = gpuTimeMs;
+    }
+    else
+    {
+        m_pathTracingGpuTimeMinMs = (std::min)(m_pathTracingGpuTimeMinMs, gpuTimeMs);
+        m_pathTracingGpuTimeMaxMs = (std::max)(m_pathTracingGpuTimeMaxMs, gpuTimeMs);
+    }
+    ++m_pathTracingGpuTimingSampleCount;
+}
+
 void RtPbrSurveyApp::CreateSampleScenes()
 {
     m_sampleScenes.clear();
@@ -1711,6 +1928,27 @@ void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
 
     m_renderingPath = RtPbrSurveyEngine::RenderingPath::PathTracing;
     m_sceneRenderer.SetRenderingPath(m_renderingPath);
+
+    RtPbrSurveyEngine::PathTracingSettings settings = m_sceneRenderer.GetPathTracingSettings();
+    if (m_commandLineOptions.pathTracingSampleTarget > 0)
+    {
+        settings.accumulate = true;
+        settings.samplesPerFrame = 1;
+    }
+    if (m_commandLineOptions.hasPathTracingRandomSeed)
+    {
+        settings.randomSeed = m_commandLineOptions.pathTracingRandomSeed;
+    }
+    m_sceneRenderer.SetPathTracingSettings(settings);
+    m_sceneRenderer.SetPathTracingAccumulationPaused(false);
+    if (m_commandLineOptions.pathTracingSampleTarget > 0)
+    {
+        m_pathTracingGpuTimeSumMs = 0.0;
+        m_pathTracingGpuTimeMinMs = 0.0f;
+        m_pathTracingGpuTimeMaxMs = 0.0f;
+        m_pathTracingGpuTimingSampleCount = 0;
+        m_sceneRenderer.ResetPathTracingAccumulation();
+    }
 }
 
 void RtPbrSurveyApp::CloseRunningScene()

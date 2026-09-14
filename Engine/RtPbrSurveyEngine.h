@@ -307,6 +307,16 @@ public:
         const char* ResetReasonText() const;
     };
 
+    struct PathTracingDiagnostics
+    {
+        bool gpuTimingAvailable = false;
+        float gpuTimeMs = 0.0f;
+        uint64_t primarySamplesPerFrame = 0;
+        uint64_t maxPathSegmentsPerFrame = 0;
+        uint64_t maxRayQueriesPerFrame = 0;
+        double primarySamplesPerSecond = 0.0;
+    };
+
     struct SpecularDebugLineSettings
     {
         bool enabled = true;
@@ -331,6 +341,7 @@ public:
         bool pathTracingExecutionAvailable;
         const char* pathTracingStatusText;
         PathTracingRuntimeState pathTracingRuntimeState;
+        PathTracingDiagnostics pathTracingDiagnostics;
         bool temporalUpscalerAvailable;
         const char* temporalUpscalerBackendName;
         const char* temporalUpscalerStatusText;
