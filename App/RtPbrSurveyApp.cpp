@@ -1700,6 +1700,10 @@ bool RtPbrSurveyApp::SaveSceneEditorDocument(bool saveAs, std::string* error)
 
     m_sceneEditorSession->Document() = std::move(document);
     m_sceneEditorSession->MarkSaved();
+    if (createsNewScene)
+    {
+        m_sceneEditorPresetDirty = false;
+    }
     m_sceneEditorDocumentPath = targetPath.generic_string();
     m_sceneEditorSavePath = m_sceneEditorDocumentPath;
     std::string previewError;
@@ -1711,6 +1715,74 @@ bool RtPbrSurveyApp::SaveSceneEditorDocument(bool saveAs, std::string* error)
     {
         m_sceneEditorStatus = "Saved: " + m_sceneEditorDocumentPath;
     }
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
+bool RtPbrSurveyApp::SaveSceneEditorRenderPreset(std::string* error)
+{
+    if (!m_sceneEditorSession.has_value() || m_sceneEditorDocumentPath.empty())
+    {
+        if (error != nullptr)
+        {
+            *error = "Save the Scene Document before saving its render preset.";
+        }
+        return false;
+    }
+
+    std::filesystem::path presetPath;
+    if (!App::ResolveRenderPresetPath(m_sceneEditorDocumentPath,
+                                      m_sceneEditorSession->Document().renderPresetPath,
+                                      {},
+                                      presetPath,
+                                      error))
+    {
+        return false;
+    }
+    if (!App::SaveRenderPresetFile(presetPath, m_sceneRenderer.CaptureSettings(), error))
+    {
+        return false;
+    }
+    m_sceneEditorPresetDirty = false;
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
+bool RtPbrSurveyApp::ReloadSceneEditorRenderPreset(std::string* error)
+{
+    if (!m_sceneEditorSession.has_value() || m_sceneEditorDocumentPath.empty())
+    {
+        if (error != nullptr)
+        {
+            *error = "Save or load a Scene Document before reloading its render preset.";
+        }
+        return false;
+    }
+
+    std::filesystem::path presetPath;
+    if (!App::ResolveRenderPresetPath(m_sceneEditorDocumentPath,
+                                      m_sceneEditorSession->Document().renderPresetPath,
+                                      {},
+                                      presetPath,
+                                      error))
+    {
+        return false;
+    }
+    App::LoadedRenderPreset preset;
+    if (!App::LoadRenderPresetFile(presetPath, m_sceneRenderer.CaptureSettings(), preset, error))
+    {
+        return false;
+    }
+    m_sceneRenderer.ApplySettings(preset.settings);
+    m_renderingPath = preset.settings.renderingPath;
+    m_renderViewMode = preset.settings.renderViewMode;
+    m_sceneEditorPresetDirty = false;
     if (error != nullptr)
     {
         error->clear();
@@ -1786,6 +1858,25 @@ bool RtPbrSurveyApp::LoadSceneEditorDocument(const std::string& path, std::strin
         return false;
     }
 
+    std::filesystem::path presetPath;
+    if (!App::ResolveRenderPresetPath(documentPath, candidate.Document().renderPresetPath, {}, presetPath, &loadError))
+    {
+        if (error != nullptr)
+        {
+            *error = loadError;
+        }
+        return false;
+    }
+    App::LoadedRenderPreset preset;
+    if (!App::LoadRenderPresetFile(presetPath, m_sceneRenderer.CaptureSettings(), preset, &loadError))
+    {
+        if (error != nullptr)
+        {
+            *error = loadError;
+        }
+        return false;
+    }
+
     m_sceneEditorSession.emplace(candidate.Document());
     m_sceneEditorDocumentPath = documentPath.generic_string();
     m_sceneEditorSavePath = m_sceneEditorDocumentPath;
@@ -1798,6 +1889,10 @@ bool RtPbrSurveyApp::LoadSceneEditorDocument(const std::string& path, std::strin
         }
         return false;
     }
+    m_sceneRenderer.ApplySettings(preset.settings);
+    m_renderingPath = preset.settings.renderingPath;
+    m_renderViewMode = preset.settings.renderViewMode;
+    m_sceneEditorPresetDirty = false;
     m_sceneEditorStatus = "Loaded and validated: " + m_sceneEditorDocumentPath;
     if (error != nullptr)
     {

@@ -542,6 +542,59 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         }
     }
 
+    if (ImGui::CollapsingHeader("Render Preset"))
+    {
+        ImGui::Text("Reference: %s", document.renderPresetPath.c_str());
+        ImGui::TextDisabled(app.m_sceneEditorPresetDirty ? "Preset: Modified" : "Preset: Saved");
+        const bool canUsePresetFile = !app.m_sceneEditorDocumentPath.empty();
+        ImGui::BeginDisabled(!canUsePresetFile);
+        if (ImGui::Button("Save Preset"))
+        {
+            std::string error;
+            if (app.SaveSceneEditorRenderPreset(&error))
+            {
+                app.m_sceneEditorStatus = "Render preset saved.";
+            }
+            else
+            {
+                app.m_sceneEditorStatus = "Save Preset failed: " + error;
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Reload Preset"))
+        {
+            std::string error;
+            if (app.ReloadSceneEditorRenderPreset(&error))
+            {
+                app.m_sceneEditorStatus = "Render preset reloaded.";
+            }
+            else
+            {
+                app.m_sceneEditorStatus = "Reload Preset failed: " + error;
+            }
+        }
+        ImGui::EndDisabled();
+
+        const RtPbrSurveyEngine::RenderingPath renderingPath = app.m_sceneRenderer.GetRenderingPath();
+        if (ImGui::RadioButton("Forward", renderingPath == RtPbrSurveyEngine::RenderingPath::Forward))
+        {
+            app.m_sceneRenderer.SetRenderingPath(RtPbrSurveyEngine::RenderingPath::Forward);
+            app.m_renderingPath = RtPbrSurveyEngine::RenderingPath::Forward;
+            app.m_sceneEditorPresetDirty = true;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Deferred", renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred))
+        {
+            app.m_sceneRenderer.SetRenderingPath(RtPbrSurveyEngine::RenderingPath::Deferred);
+            app.m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
+            app.m_sceneEditorPresetDirty = true;
+        }
+        if (!canUsePresetFile)
+        {
+            ImGui::TextDisabled("Save the Scene Document before saving or reloading its preset.");
+        }
+    }
+
     if (!app.m_sceneEditorStatus.empty())
     {
         ImGui::Separator();

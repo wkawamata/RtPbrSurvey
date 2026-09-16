@@ -110,6 +110,8 @@ private:
     void RequestReturnToTopMenu();
     bool SaveSceneEditorDocument(bool saveAs, std::string* error = nullptr);
     void ResolveSceneEditorPendingAction(bool saveChanges, bool discardChanges);
+    bool SaveSceneEditorRenderPreset(std::string* error = nullptr);
+    bool ReloadSceneEditorRenderPreset(std::string* error = nullptr);
     bool RebuildSceneEditorPreview(std::string* error = nullptr);
     void ApplySceneEditorEnvironmentSettings();
     void ReturnToTopMenu();
@@ -155,6 +157,7 @@ private:
     std::string m_sceneEditorLoadPath = "Assets/Scenes/TestSceneEditorSmoke/scene.json";
     std::string m_sceneEditorSavePath = "Assets/Scenes/NewTestScene/scene.json";
     std::string m_sceneEditorStatus;
+    bool m_sceneEditorPresetDirty = false;
     SceneEditorPendingAction m_sceneEditorPendingAction = SceneEditorPendingAction::None;
     std::string m_sceneEditorPendingLoadPath;
 
