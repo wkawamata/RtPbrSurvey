@@ -112,6 +112,7 @@ private:
     void ResolveSceneEditorPendingAction(bool saveChanges, bool discardChanges);
     bool SaveSceneEditorRenderPreset(std::string* error = nullptr);
     bool ReloadSceneEditorRenderPreset(std::string* error = nullptr);
+    bool AddSceneEditorGltfNode(const std::string& relativePath, std::string* error = nullptr);
     bool RebuildSceneEditorPreview(std::string* error = nullptr);
     void ApplySceneEditorEnvironmentSettings();
     void ReturnToTopMenu();

@@ -212,6 +212,22 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     }
     ImGui::SameLine();
 
+    static std::string gltfAssetPath = "Assets/Models/DamagedHelmet/glTF/DamagedHelmet.gltf";
+    ImGui::InputText("glTF Asset Path", &gltfAssetPath);
+    ImGui::SameLine();
+    if (ImGui::Button("Add glTF"))
+    {
+        std::string error;
+        if (app.AddSceneEditorGltfNode(gltfAssetPath, &error))
+        {
+            app.m_sceneEditorStatus = "Added glTF: " + gltfAssetPath;
+        }
+        else
+        {
+            app.m_sceneEditorStatus = "Add glTF failed: " + error;
+        }
+    }
+
     if (ImGui::Button("Add Cube"))
     {
         session.AddPrimitive(RtPbrSurvey::ScenePrimitiveKind::Cube);

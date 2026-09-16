@@ -5,6 +5,7 @@
 #include "Scene/SceneGraph.h"
 
 #include <algorithm>
+#include <filesystem>
 #include <iterator>
 #include <unordered_map>
 #include <unordered_set>
@@ -195,6 +196,53 @@ bool SceneEditorSession::AddEmpty(std::string* error)
     {
         node.name = "Empty " + std::to_string(suffix);
     }
+    m_document.nodes.push_back(std::move(node));
+    m_selectedNodeId = m_document.nodes.back().id;
+    m_modified = true;
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
+bool SceneEditorSession::AddGltfNode(const std::string& relativePath, std::string* error)
+{
+    const std::filesystem::path assetPath(relativePath);
+    if (assetPath.empty() || assetPath.is_absolute())
+    {
+        if (error != nullptr)
+        {
+            *error = "glTF asset path must be non-empty and relative.";
+        }
+        return false;
+    }
+
+    const std::string normalizedPath = assetPath.lexically_normal().generic_string();
+    auto asset = std::find_if(m_document.assets.begin(), m_document.assets.end(), [&normalizedPath](const RtPbrSurvey::SceneAsset& candidate)
+    {
+        return candidate.path == normalizedPath;
+    });
+
+    PushUndoSnapshot();
+    if (asset == m_document.assets.end())
+    {
+        RtPbrSurvey::SceneAsset newAsset;
+        newAsset.id = CreateAssetId();
+        newAsset.path = normalizedPath;
+        m_document.assets.push_back(std::move(newAsset));
+        asset = std::prev(m_document.assets.end());
+    }
+
+    RtPbrSurvey::SceneNode node;
+    node.id = CreateNodeId();
+    node.name = assetPath.stem().generic_string();
+    if (node.name.empty())
+    {
+        node.name = "glTF";
+    }
+    node.type = RtPbrSurvey::SceneNodeType::Gltf;
+    node.assetId = asset->id;
     m_document.nodes.push_back(std::move(node));
     m_selectedNodeId = m_document.nodes.back().id;
     m_modified = true;
@@ -405,6 +453,23 @@ std::string SceneEditorSession::CreateNodeId()
         id = "node-" + std::to_string(m_nextNodeId++);
     } while (ids.contains(id));
     return id;
+}
+
+std::string SceneEditorSession::CreateAssetId() const
+{
+    std::unordered_set<std::string> ids;
+    for (const RtPbrSurvey::SceneAsset& asset : m_document.assets)
+    {
+        ids.insert(asset.id);
+    }
+    for (uint64_t suffix = 1;; ++suffix)
+    {
+        const std::string id = "asset-" + std::to_string(suffix);
+        if (!ids.contains(id))
+        {
+            return id;
+        }
+    }
 }
 
 std::string SceneEditorSession::CreateMaterialId() const

@@ -116,6 +116,26 @@ bool TestMaterialCreationIsUndoable()
     return passed;
 }
 
+bool TestGltfAssetIsSharedAcrossNodes()
+{
+    RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("gltf-test", "glTF Test");
+    App::SceneEditorSession session(std::move(document));
+    bool passed = Check(session.AddGltfNode("Assets/Models/DamagedHelmet/glTF/DamagedHelmet.gltf"),
+                        "first glTF node is added");
+    passed &= Check(session.AddGltfNode("Assets/Models/DamagedHelmet/glTF/DamagedHelmet.gltf"),
+                    "second glTF node is added");
+    passed &= Check(session.Document().assets.size() == 1 && session.Document().nodes.size() == 2,
+                    "same glTF path uses one asset and two nodes");
+    passed &= Check(session.Document().nodes[0].assetId == session.Document().nodes[1].assetId,
+                    "glTF nodes reference the shared asset");
+    passed &= Check(session.Undo() && session.Document().assets.size() == 1 && session.Document().nodes.size() == 1,
+                    "undo preserves the asset used by the remaining node");
+    std::string error;
+    passed &= Check(!session.AddGltfNode("C:/absolute/model.gltf", &error) && !error.empty(),
+                    "absolute glTF asset path is rejected");
+    return passed;
+}
+
 bool TestSceneSettingsEditIsUndoable()
 {
     RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("settings-test", "Settings Test");
@@ -139,7 +159,7 @@ int main()
 {
     return TestPrimitiveAddAndSubtreeDelete() && TestUndoRedoRestoresDocumentAndDirtyState() &&
                    TestDuplicateAndReparentSelectedSubtree() && TestMaterialCreationIsUndoable() &&
-                   TestSceneSettingsEditIsUndoable() ?
+                   TestGltfAssetIsSharedAcrossNodes() && TestSceneSettingsEditIsUndoable() ?
                0 :
                1;
 }

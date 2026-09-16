@@ -1790,6 +1790,61 @@ bool RtPbrSurveyApp::ReloadSceneEditorRenderPreset(std::string* error)
     return true;
 }
 
+bool RtPbrSurveyApp::AddSceneEditorGltfNode(const std::string& relativePath, std::string* error)
+{
+    if (!m_sceneEditorSession.has_value())
+    {
+        if (error != nullptr)
+        {
+            *error = "No Scene Document is selected.";
+        }
+        return false;
+    }
+
+    const std::filesystem::path assetPath(relativePath);
+    if (assetPath.empty() || assetPath.is_absolute())
+    {
+        if (error != nullptr)
+        {
+            *error = "glTF asset path must be non-empty and relative.";
+        }
+        return false;
+    }
+
+    const std::filesystem::path documentPath = m_sceneEditorDocumentPath.empty() ?
+                                                    std::filesystem::current_path() :
+                                                    std::filesystem::path(m_sceneEditorDocumentPath);
+    const std::filesystem::path sceneDirectory = m_sceneEditorDocumentPath.empty() ?
+                                                        documentPath :
+                                                        documentPath.parent_path();
+    App::SceneEditorSession candidateSession(m_sceneEditorSession->Document(), m_sceneEditorSession->IsModified());
+    std::string buildError;
+    if (!candidateSession.AddGltfNode(relativePath, &buildError))
+    {
+        if (error != nullptr)
+        {
+            *error = buildError;
+        }
+        return false;
+    }
+
+    Engine::SceneDocumentRuntimeScene candidate(documentPath);
+    if (!candidate.LoadFromDocument(candidateSession.Document(), sceneDirectory, &buildError))
+    {
+        if (error != nullptr)
+        {
+            *error = buildError;
+        }
+        return false;
+    }
+
+    if (!m_sceneEditorSession->AddGltfNode(relativePath, error))
+    {
+        return false;
+    }
+    return RebuildSceneEditorPreview(error);
+}
+
 void RtPbrSurveyApp::ResolveSceneEditorPendingAction(bool saveChanges, bool discardChanges)
 {
     if (m_sceneEditorPendingAction == SceneEditorPendingAction::None)
