@@ -391,10 +391,22 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             "Capture failed: " + result->error;
     }
 
-    if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneSelect)
+    if (app.m_appMode == RtPbrSurveyApp::AppMode::TopMenu)
     {
         App::DrawSceneSelectUi(app);
         App::DrawEvaluationCasesWindow(app, App::EvaluationCaseScope::AllScenes);
+        return;
+    }
+
+    if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneEditorStart)
+    {
+        App::DrawSceneEditorStartUi(app);
+        return;
+    }
+
+    if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneEditorEdit)
+    {
+        App::DrawSceneEditorEditUi(app);
         return;
     }
 

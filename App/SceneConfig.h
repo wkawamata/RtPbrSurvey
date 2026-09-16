@@ -136,6 +136,7 @@ public:
                                RtPbrSurveyApp& app,
                                RtPbrSurveyEngine& engine,
                                std::string* error = nullptr);
+    bool ValidateCurrentSceneJson(std::string_view jsonText, std::string* error = nullptr) const;
 
 private:
     std::string m_defaultsPath;

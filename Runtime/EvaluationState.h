@@ -32,8 +32,28 @@ struct EvaluationTestItem
     uint64_t id = 0;
     std::string prompt;
     EvaluationJudgmentKind judgmentKind = EvaluationJudgmentKind::Score1To5;
+};
+
+struct EvaluationTestResult
+{
+    uint64_t testItemId = 0;
     int score = 3;
     bool booleanValue = false;
+};
+
+struct EvaluationRun
+{
+    uint64_t id = 0;
+    std::string comment;
+    std::vector<EvaluationTestResult> results;
+};
+
+// Existing sample scenes use a stable application-defined ID. File-backed scenes
+// will store their SceneDocument sceneId and document path here.
+struct EvaluationSceneReference
+{
+    std::string id;
+    std::string path;
 };
 
 struct EvaluationState
@@ -43,9 +63,11 @@ struct EvaluationState
     std::string comment;
     int sceneIndex = -1;
     std::string sceneName;
+    EvaluationSceneReference sceneReference;
     nlohmann::json sceneConfig = nlohmann::json::object();
     EvaluationRoi roi;
     std::vector<EvaluationTestItem> testItems;
+    std::vector<EvaluationRun> runs;
 };
 
 std::string SerializeEvaluationStates(const std::vector<EvaluationState>& states, int indent = 2);
@@ -69,6 +91,7 @@ public:
     bool Save(std::string* error = nullptr) const;
     uint64_t NextStateId() const;
     uint64_t NextTestItemId(const EvaluationState& state) const;
+    uint64_t NextRunId(const EvaluationState& state) const;
 
     std::vector<EvaluationState>& States()
     {

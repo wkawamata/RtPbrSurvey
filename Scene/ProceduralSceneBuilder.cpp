@@ -123,6 +123,21 @@ SceneMesh CreateCubeMesh(float size)
     return mesh;
 }
 
+SceneMesh CreatePlaneMesh(float width, float depth)
+{
+    if (width <= 0.0f || depth <= 0.0f)
+    {
+        throw std::invalid_argument("Plane width and depth must be positive.");
+    }
+    const float halfWidth = width * 0.5f;
+    const float halfDepth = depth * 0.5f;
+    return CreateQuadMesh({-halfWidth, 0.0f, -halfDepth},
+                          {halfWidth, 0.0f, -halfDepth},
+                          {halfWidth, 0.0f, halfDepth},
+                          {-halfWidth, 0.0f, halfDepth},
+                          {0.0f, 1.0f, 0.0f});
+}
+
 SceneMesh CreateSphereMesh(float radius, int stackCount, int sliceCount)
 {
     SceneMesh mesh = {};

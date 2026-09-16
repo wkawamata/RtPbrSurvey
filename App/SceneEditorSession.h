@@ -1,0 +1,70 @@
+#pragma once
+
+#include "Scene/SceneDocument.h"
+
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace App
+{
+
+class SceneEditorSession
+{
+public:
+    explicit SceneEditorSession(RtPbrSurvey::SceneDocument document, bool modified = false);
+
+    RtPbrSurvey::SceneDocument& Document();
+    const RtPbrSurvey::SceneDocument& Document() const;
+
+    const std::optional<std::string>& SelectedNodeId() const;
+    RtPbrSurvey::SceneNode* SelectedNode();
+    const RtPbrSurvey::SceneNode* SelectedNode() const;
+    bool SelectNode(const std::string& nodeId);
+
+    bool IsModified() const;
+    void MarkSaved();
+    void MarkModified();
+
+    bool CanUndo() const;
+    bool CanRedo() const;
+    bool Undo();
+    bool Redo();
+    void BeginEdit();
+    void CommitEdit();
+
+    bool AddPrimitive(RtPbrSurvey::ScenePrimitiveKind kind, std::string* error = nullptr);
+    bool AddEmpty(std::string* error = nullptr);
+    bool DeleteSelectedNode(std::string* error = nullptr);
+    bool DuplicateSelectedSubtree(std::string* error = nullptr);
+    bool ReparentSelectedNodePreservingWorld(const std::optional<std::string>& parentId,
+                                             std::string* error = nullptr);
+
+private:
+    struct Snapshot
+    {
+        RtPbrSurvey::SceneDocument document;
+        std::optional<std::string> selectedNodeId;
+        bool modified = false;
+    };
+
+    Snapshot CaptureSnapshot() const;
+    void RestoreSnapshot(Snapshot snapshot);
+    void PushUndoSnapshot();
+    std::string CreateNodeId();
+    std::string CreateNodeName(RtPbrSurvey::ScenePrimitiveKind kind) const;
+    std::string EnsurePrimitiveMaterial();
+
+    RtPbrSurvey::SceneDocument m_document;
+    std::optional<std::string> m_selectedNodeId;
+    uint64_t m_nextNodeId = 1;
+    bool m_modified = false;
+    std::vector<Snapshot> m_undoHistory;
+    std::vector<Snapshot> m_redoHistory;
+    std::optional<Snapshot> m_activeEditSnapshot;
+
+    static constexpr size_t kMaxHistoryEntries = 100;
+};
+
+} // namespace App

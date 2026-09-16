@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "scene-reflection-lab",
+  "name": "Reflection Lab",
+  "renderPreset": "../../RenderPresets/deferred-reference.json",
+  "assets": [
+    {
+      "id": "helmet",
+      "type": "gltf",
+      "path": "../../Models/DamagedHelmet/DamagedHelmet.gltf"
+    }
+  ],
+  "materials": [
+    {
+      "id": "metal",
+      "name": "Polished Metal",
+      "baseColor": [0.8, 0.8, 0.8, 1.0],
+      "metallic": 1.0,
+      "roughness": 0.15
+    },
+    {
+      "id": "floor",
+      "name": "Rough Floor",
+      "baseColor": [0.3, 0.3, 0.3, 1.0],
+      "metallic": 0.0,
+      "roughness": 0.8
+    }
+  ],
+  "nodes": [
+    {
+      "id": "group",
+      "name": "Test Group",
+      "parentId": null,
+      "type": "empty",
+      "translation": [0.0, 0.0, 0.0],
+      "rotation": [0.0, 0.0, 0.0, 1.0],
+      "scale": [1.0, 1.0, 1.0],
+      "visible": true
+    },
+    {
+      "id": "helmet-01",
+      "name": "Helmet",
+      "parentId": "group",
+      "type": "gltf",
+      "translation": [-1.5, 1.0, 0.0],
+      "rotation": [0.0, 0.0, 0.0, 1.0],
+      "scale": [1.0, 1.0, 1.0],
+      "visible": true,
+      "assetId": "helmet"
+    },
+    {
+      "id": "sphere-01",
+      "name": "Metal Sphere",
+      "parentId": "group",
+      "type": "primitive",
+      "translation": [1.5, 0.5, 0.0],
+      "rotation": [0.0, 0.0, 0.0, 1.0],
+      "scale": [1.0, 1.0, 1.0],
+      "visible": true,
+      "primitive": {
+        "kind": "sphere",
+        "size": 1.0,
+        "radius": 0.5,
+        "height": 1.0,
+        "width": 1.0,
+        "depth": 1.0,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "metal"
+    },
+    {
+      "id": "floor-01",
+      "name": "Floor",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [0.0, 0.0, 0.0],
+      "rotation": [0.0, 0.0, 0.0, 1.0],
+      "scale": [1.0, 1.0, 1.0],
+      "visible": true,
+      "primitive": {
+        "kind": "plane",
+        "size": 1.0,
+        "radius": 0.5,
+        "height": 1.0,
+        "width": 10.0,
+        "depth": 10.0,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "floor"
+    }
+  ],
+  "camera": {
+    "position": [0.0, 2.0, -6.0],
+    "target": [0.0, 0.8, 0.0],
+    "up": [0.0, 1.0, 0.0],
+    "projection": "perspective",
+    "verticalFovDegrees": 60.0,
+    "orthographicHeight": 10.0,
+    "nearZ": 0.1,
+    "farZ": 1000.0
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [0.42, 0.56, 0.72],
+    "groundColor": [0.18, 0.17, 0.15],
+    "lightColor": [1.0, 0.96, 0.86],
+    "lightDirection": [0.35, 0.75, 0.25],
+    "backgroundIntensity": 0.6,
+    "lightIntensity": 6.0,
+    "lightSize": 0.12,
+    "fillIntensity": 0.12,
+    "colorPanelIntensity": 1.5,
+    "horizonSharpness": 0.08
+  }
+}

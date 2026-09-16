@@ -66,6 +66,8 @@ struct CommandLineOptions
     bool autoSelectGltfDamagedHelmet = false;
     std::wstring autoSelectGltfAssetName;
     bool autoSelectHybridReflectionEstimatorTest = false;
+    std::filesystem::path sceneFilePath;
+    std::filesystem::path renderPresetPath;
     bool useSceneDefaults = false;
     bool enableDlssSr = false;
     bool enableDebugTexturePreview = false;

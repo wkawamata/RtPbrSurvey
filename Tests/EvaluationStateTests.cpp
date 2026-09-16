@@ -21,35 +21,40 @@ bool TestRoundTripPreservesJapaneseAndTypedJudgments()
 {
     RtPbrSurvey::EvaluationState state;
     state.id = 7;
-    state.name = "DLSS RR 評価";
-    state.comment = "金属面の時間安定性を確認";
+    state.name = "DLSS RR \xE6\x97\xA5";
+    state.comment = "\xE6\x9C\xAC\xE8\xAA\x9E";
     state.sceneIndex = 3;
     state.sceneName = "DamagedHelmet";
+    state.sceneReference = {"sample:DamagedHelmet", ""};
     state.sceneConfig = {{"camera", {{"mode", "arcball"}}}, {"renderingPath", 1}};
     state.roi = {true, 0.1f, 0.2f, 0.4f, 0.5f};
     state.testItems = {
-        {1, "反射ノイズが時間方向に安定している", RtPbrSurvey::EvaluationJudgmentKind::Score1To5, 4, false},
-        {2, "移動中に残像がない", RtPbrSurvey::EvaluationJudgmentKind::Boolean, 3, true},
+        {1, "\xE5\x8F\x8D\xE5\xB0\x84", RtPbrSurvey::EvaluationJudgmentKind::Score1To5},
+        {2, "\xE6\xAE\x8B\xE5\x83\x8F", RtPbrSurvey::EvaluationJudgmentKind::Boolean},
     };
+    state.runs = {{1, "\xE5\x88\x9D\xE5\x9B\x9E", {{1, 4, false}, {2, 3, true}}}};
 
     const std::string serialized = RtPbrSurvey::SerializeEvaluationStates({state});
     const nlohmann::json json = nlohmann::json::parse(serialized);
-    const nlohmann::json& testItems = json.at("states").at(0).at("testItems");
+    const nlohmann::json& results = json.at("states").at(0).at("runs").at(0).at("results");
     std::vector<RtPbrSurvey::EvaluationState> restored;
     std::string error;
 
-    bool passed = Check(testItems.at(0).at("value").is_number_integer(), "score is stored as an integer");
-    passed &= Check(testItems.at(1).at("value").is_boolean(), "boolean result is stored as a JSON boolean");
-    passed &= Check(serialized.find("反射ノイズ") != std::string::npos, "Japanese prompt remains readable UTF-8");
+    bool passed = Check(results.at(0).at("score").is_number_integer(), "score is stored as an integer");
+    passed &= Check(results.at(1).at("booleanValue").is_boolean(), "boolean result is stored as a JSON boolean");
+    passed &= Check(serialized.find("\xE5\x8F\x8D\xE5\xB0\x84") != std::string::npos,
+                    "Japanese prompt remains readable UTF-8");
     passed &=
         Check(RtPbrSurvey::DeserializeEvaluationStates(serialized, restored, &error), "evaluation states deserialize");
     passed &= Check(error.empty(), "successful deserialize clears error");
     passed &= Check(restored.size() == 1 && restored[0].name == state.name, "state identity round-trips");
     passed &= Check(restored[0].comment == state.comment, "Japanese comment round-trips");
     passed &= Check(restored[0].sceneConfig == state.sceneConfig, "captured scene config round-trips");
-    passed &=
-        Check(restored[0].testItems.size() == 2 && restored[0].testItems[0].score == 4, "score result round-trips");
-    passed &= Check(restored[0].testItems[1].booleanValue, "boolean result round-trips");
+    passed &= Check(restored[0].sceneReference.id == state.sceneReference.id, "stable scene ID round-trips");
+    passed &= Check(restored[0].testItems.size() == 2 && restored[0].runs.size() == 1 &&
+                        restored[0].runs[0].results[0].score == 4,
+                    "score result round-trips");
+    passed &= Check(restored[0].runs[0].results[1].booleanValue, "boolean result round-trips");
     return passed;
 }
 
@@ -72,15 +77,17 @@ bool TestInvalidDocumentIsNonDestructive()
            Check(states.size() == 1 && states[0].id == 9, "invalid JSON does not replace existing states");
 }
 
-bool TestLegacyStateWithoutCommentLoadsAsEmpty()
+bool TestLegacyStateMigratesToFirstRun()
 {
     const std::string document =
-        R"({"schemaVersion":1,"states":[{"id":1,"name":"Legacy","scene":{"index":0,"name":"Scene","config":{}},"roi":{},"testItems":[]}]})";
+        R"({"schemaVersion":1,"states":[{"id":1,"name":"Legacy","scene":{"index":0,"name":"Scene","config":{}},"roi":{},"testItems":[{"id":9,"prompt":"Legacy item","judgment":"score1To5","value":5}]}]})";
     std::vector<RtPbrSurvey::EvaluationState> states;
     std::string error;
     return Check(RtPbrSurvey::DeserializeEvaluationStates(document, states, &error),
                  "legacy evaluation state deserializes") &&
-           Check(states.size() == 1 && states[0].comment.empty(), "missing comment defaults to empty");
+           Check(states.size() == 1 && states[0].comment.empty(), "missing comment defaults to empty") &&
+           Check(states[0].runs.size() == 1 && states[0].runs[0].results[0].score == 5,
+                 "legacy result migrates to the first run");
 }
 
 bool TestStoreSavesAndLoadsEvaluationStates()
@@ -98,7 +105,7 @@ bool TestStoreSavesAndLoadsEvaluationStates()
     source.SetPath(path);
     RtPbrSurvey::EvaluationState state;
     state.id = 12;
-    state.name = "日本語保存テスト";
+    state.name = "\xE6\x97\xA5\xE6\x9C\xAC\xE8\xAA\x9E";
     source.States().push_back(state);
     std::string error;
     bool passed = Check(source.Save(&error), "evaluation store saves an atomic JSON file");
@@ -117,7 +124,7 @@ bool TestStoreSavesAndLoadsEvaluationStates()
 int main()
 {
     const bool passed = TestRoundTripPreservesJapaneseAndTypedJudgments() && TestRoiIsClampedToNormalizedViewport() &&
-                        TestInvalidDocumentIsNonDestructive() && TestLegacyStateWithoutCommentLoadsAsEmpty() &&
+                        TestInvalidDocumentIsNonDestructive() && TestLegacyStateMigratesToFirstRun() &&
                         TestStoreSavesAndLoadsEvaluationStates();
     if (passed)
     {
