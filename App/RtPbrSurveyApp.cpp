@@ -1842,6 +1842,7 @@ bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
     m_displayInstanceCount = m_loadedScene->DisplayInstanceCount();
     m_sceneRenderer.SetDisplayInstanceCount(m_displayInstanceCount);
     m_sceneRenderer.ResetHybridReflectionHistoryForDiagnostics();
+    ApplySceneEditorEnvironmentSettings();
 
     Engine::CameraState& camera = m_loadedScene->GetScene().camera;
     const XMVECTOR direction = XMVector3Normalize(XMLoadFloat3(&camera.gazePoint) - XMLoadFloat3(&camera.pos));
@@ -1858,6 +1859,34 @@ bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
         error->clear();
     }
     return true;
+}
+
+void RtPbrSurveyApp::ApplySceneEditorEnvironmentSettings()
+{
+    if (!m_sceneEditorSession.has_value())
+    {
+        return;
+    }
+
+    const RtPbrSurvey::SceneEnvironment& environment = m_sceneEditorSession->Document().environment;
+    m_environmentSettings.source = Engine::EnvironmentSource::ProceduralStudio;
+    m_environmentSettings.skyColor = {environment.skyColor.x, environment.skyColor.y, environment.skyColor.z};
+    m_environmentSettings.groundColor = {environment.groundColor.x, environment.groundColor.y, environment.groundColor.z};
+    m_environmentSettings.lightColor = {environment.lightColor.x, environment.lightColor.y, environment.lightColor.z};
+    m_environmentSettings.lightDirection = {
+        environment.lightDirection.x,
+        environment.lightDirection.y,
+        environment.lightDirection.z,
+    };
+    m_environmentSettings.backgroundIntensity = environment.backgroundIntensity;
+    m_environmentSettings.lightIntensity = environment.lightIntensity;
+    m_environmentSettings.lightSize = environment.lightSize;
+    m_environmentSettings.fillIntensity = environment.fillIntensity;
+    m_environmentSettings.colorPanelIntensity = environment.colorPanelIntensity;
+    m_environmentSettings.horizonSharpness = environment.horizonSharpness;
+    m_environmentAutoUpdate = true;
+    m_iblEnabled = environment.iblEnabled;
+    m_sceneRenderer.ReloadEnvironmentResources(m_environmentSettings);
 }
 
 void RtPbrSurveyApp::ReturnToTopMenu()

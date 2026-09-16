@@ -111,6 +111,7 @@ private:
     bool SaveSceneEditorDocument(bool saveAs, std::string* error = nullptr);
     void ResolveSceneEditorPendingAction(bool saveChanges, bool discardChanges);
     bool RebuildSceneEditorPreview(std::string* error = nullptr);
+    void ApplySceneEditorEnvironmentSettings();
     void ReturnToTopMenu();
     void ApplyDlssSrCommandLineOptions();
     void CloseRunningScene();

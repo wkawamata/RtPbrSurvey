@@ -467,6 +467,81 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     }
     ImGui::Columns(1);
 
+    if (ImGui::CollapsingHeader("Scene Camera and Environment"))
+    {
+        bool sceneSettingsCommitted = false;
+        float cameraPosition[3] = {document.camera.position.x, document.camera.position.y, document.camera.position.z};
+        if (ImGui::InputFloat3("Camera Position", cameraPosition))
+        {
+            session.BeginEdit();
+            document.camera.position = {cameraPosition[0], cameraPosition[1], cameraPosition[2]};
+        }
+        sceneSettingsCommitted = sceneSettingsCommitted || ImGui::IsItemDeactivatedAfterEdit();
+        float cameraTarget[3] = {document.camera.target.x, document.camera.target.y, document.camera.target.z};
+        if (ImGui::InputFloat3("Camera Target", cameraTarget))
+        {
+            session.BeginEdit();
+            document.camera.target = {cameraTarget[0], cameraTarget[1], cameraTarget[2]};
+        }
+        sceneSettingsCommitted = sceneSettingsCommitted || ImGui::IsItemDeactivatedAfterEdit();
+        float verticalFovDegrees = document.camera.verticalFovDegrees;
+        if (ImGui::SliderFloat("Camera Vertical FOV", &verticalFovDegrees, 10.0f, 120.0f))
+        {
+            session.BeginEdit();
+            document.camera.verticalFovDegrees = verticalFovDegrees;
+        }
+        sceneSettingsCommitted = sceneSettingsCommitted || ImGui::IsItemDeactivatedAfterEdit();
+
+        ImGui::Separator();
+        bool iblEnabled = document.environment.iblEnabled;
+        if (ImGui::Checkbox("Environment IBL Enabled", &iblEnabled))
+        {
+            session.BeginEdit();
+            document.environment.iblEnabled = iblEnabled;
+            session.CommitEdit();
+            rebuildPreview();
+        }
+        float skyColor[3] = {
+            document.environment.skyColor.x,
+            document.environment.skyColor.y,
+            document.environment.skyColor.z};
+        if (ImGui::ColorEdit3("Environment Sky Color", skyColor))
+        {
+            session.BeginEdit();
+            document.environment.skyColor = {skyColor[0], skyColor[1], skyColor[2]};
+        }
+        sceneSettingsCommitted = sceneSettingsCommitted || ImGui::IsItemDeactivatedAfterEdit();
+        float groundColor[3] = {
+            document.environment.groundColor.x,
+            document.environment.groundColor.y,
+            document.environment.groundColor.z};
+        if (ImGui::ColorEdit3("Environment Ground Color", groundColor))
+        {
+            session.BeginEdit();
+            document.environment.groundColor = {groundColor[0], groundColor[1], groundColor[2]};
+        }
+        sceneSettingsCommitted = sceneSettingsCommitted || ImGui::IsItemDeactivatedAfterEdit();
+        float lightIntensity = document.environment.lightIntensity;
+        if (ImGui::SliderFloat("Environment Light Intensity", &lightIntensity, 0.0f, 20.0f))
+        {
+            session.BeginEdit();
+            document.environment.lightIntensity = lightIntensity;
+        }
+        sceneSettingsCommitted = sceneSettingsCommitted || ImGui::IsItemDeactivatedAfterEdit();
+        float backgroundIntensity = document.environment.backgroundIntensity;
+        if (ImGui::SliderFloat("Environment Background Intensity", &backgroundIntensity, 0.0f, 5.0f))
+        {
+            session.BeginEdit();
+            document.environment.backgroundIntensity = backgroundIntensity;
+        }
+        sceneSettingsCommitted = sceneSettingsCommitted || ImGui::IsItemDeactivatedAfterEdit();
+        if (sceneSettingsCommitted)
+        {
+            session.CommitEdit();
+            rebuildPreview();
+        }
+    }
+
     if (!app.m_sceneEditorStatus.empty())
     {
         ImGui::Separator();

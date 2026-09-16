@@ -115,12 +115,31 @@ bool TestMaterialCreationIsUndoable()
                     "material creation is redoable");
     return passed;
 }
+
+bool TestSceneSettingsEditIsUndoable()
+{
+    RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("settings-test", "Settings Test");
+    App::SceneEditorSession session(std::move(document));
+    session.MarkSaved();
+    session.BeginEdit();
+    session.Document().camera.position = {2.0f, 3.0f, -4.0f};
+    session.Document().environment.lightIntensity = 8.0f;
+    session.CommitEdit();
+    bool passed = Check(session.IsModified() && session.Document().camera.position.x == 2.0f &&
+                             session.Document().environment.lightIntensity == 8.0f,
+                        "scene settings edit is recorded");
+    passed &= Check(session.Undo() && !session.IsModified() && session.Document().camera.position.x == 0.0f &&
+                        session.Document().environment.lightIntensity == 6.0f,
+                    "undo restores saved camera and environment settings");
+    return passed;
+}
 } // namespace
 
 int main()
 {
     return TestPrimitiveAddAndSubtreeDelete() && TestUndoRedoRestoresDocumentAndDirtyState() &&
-                   TestDuplicateAndReparentSelectedSubtree() && TestMaterialCreationIsUndoable() ?
+                   TestDuplicateAndReparentSelectedSubtree() && TestMaterialCreationIsUndoable() &&
+                   TestSceneSettingsEditIsUndoable() ?
                0 :
                1;
 }
