@@ -205,6 +205,25 @@ bool SceneEditorSession::AddEmpty(std::string* error)
     return true;
 }
 
+bool SceneEditorSession::AddMaterial(std::string* materialId, std::string* error)
+{
+    PushUndoSnapshot();
+    RtPbrSurvey::SceneMaterial material;
+    material.id = CreateMaterialId();
+    material.name = "Material " + std::to_string(m_document.materials.size() + 1);
+    m_document.materials.push_back(material);
+    m_modified = true;
+    if (materialId != nullptr)
+    {
+        *materialId = material.id;
+    }
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
 bool SceneEditorSession::DeleteSelectedNode(std::string* error)
 {
     if (!m_selectedNodeId.has_value())
@@ -386,6 +405,23 @@ std::string SceneEditorSession::CreateNodeId()
         id = "node-" + std::to_string(m_nextNodeId++);
     } while (ids.contains(id));
     return id;
+}
+
+std::string SceneEditorSession::CreateMaterialId() const
+{
+    std::unordered_set<std::string> ids;
+    for (const RtPbrSurvey::SceneMaterial& material : m_document.materials)
+    {
+        ids.insert(material.id);
+    }
+    for (uint64_t suffix = 1;; ++suffix)
+    {
+        const std::string id = "material-" + std::to_string(suffix);
+        if (!ids.contains(id))
+        {
+            return id;
+        }
+    }
 }
 
 std::string SceneEditorSession::CreateNodeName(RtPbrSurvey::ScenePrimitiveKind kind) const

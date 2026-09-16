@@ -150,6 +150,13 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
+    if (ImGui::Button("Add Material"))
+    {
+        std::string materialId;
+        session.AddMaterial(&materialId);
+        app.m_sceneEditorStatus = "Added material: " + materialId;
+    }
+    ImGui::SameLine();
 
     if (ImGui::Button("Add Cube"))
     {
@@ -347,6 +354,77 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
             ImGui::Columns(1);
             ImGui::End();
             return;
+        }
+        if (selectedNode->type == RtPbrSurvey::SceneNodeType::Primitive)
+        {
+            const RtPbrSurvey::SceneMaterial* currentMaterial = nullptr;
+            for (const RtPbrSurvey::SceneMaterial& material : document.materials)
+            {
+                if (material.id == selectedNode->materialId)
+                {
+                    currentMaterial = &material;
+                    break;
+                }
+            }
+            const char* materialPreview = currentMaterial != nullptr ? currentMaterial->name.c_str() : "<Missing Material>";
+            if (ImGui::BeginCombo("Material", materialPreview))
+            {
+                for (const RtPbrSurvey::SceneMaterial& material : document.materials)
+                {
+                    const bool selected = selectedNode->materialId == material.id;
+                    if (ImGui::Selectable(material.name.c_str(), selected) && !selected)
+                    {
+                        session.BeginEdit();
+                        selectedNode->materialId = material.id;
+                        session.CommitEdit();
+                        rebuildPreview();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+
+            RtPbrSurvey::SceneMaterial* editableMaterial = nullptr;
+            for (RtPbrSurvey::SceneMaterial& material : document.materials)
+            {
+                if (material.id == selectedNode->materialId)
+                {
+                    editableMaterial = &material;
+                    break;
+                }
+            }
+            if (editableMaterial != nullptr)
+            {
+                float baseColor[3] = {
+                    editableMaterial->baseColor.x,
+                    editableMaterial->baseColor.y,
+                    editableMaterial->baseColor.z};
+                bool materialCommitted = false;
+                if (ImGui::ColorEdit3("Base Color", baseColor))
+                {
+                    session.BeginEdit();
+                    editableMaterial->baseColor = {baseColor[0], baseColor[1], baseColor[2], 1.0f};
+                }
+                materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                float metallic = editableMaterial->metallic;
+                if (ImGui::SliderFloat("Metallic", &metallic, 0.0f, 1.0f))
+                {
+                    session.BeginEdit();
+                    editableMaterial->metallic = metallic;
+                }
+                materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                float roughness = editableMaterial->roughness;
+                if (ImGui::SliderFloat("Roughness", &roughness, 0.0f, 1.0f))
+                {
+                    session.BeginEdit();
+                    editableMaterial->roughness = roughness;
+                }
+                materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                if (materialCommitted)
+                {
+                    session.CommitEdit();
+                    rebuildPreview();
+                }
+            }
         }
         ImGui::Separator();
         bool transformCommitted = false;

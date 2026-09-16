@@ -36,6 +36,7 @@ public:
 
     bool AddPrimitive(RtPbrSurvey::ScenePrimitiveKind kind, std::string* error = nullptr);
     bool AddEmpty(std::string* error = nullptr);
+    bool AddMaterial(std::string* materialId = nullptr, std::string* error = nullptr);
     bool DeleteSelectedNode(std::string* error = nullptr);
     bool DuplicateSelectedSubtree(std::string* error = nullptr);
     bool ReparentSelectedNodePreservingWorld(const std::optional<std::string>& parentId,
@@ -53,6 +54,7 @@ private:
     void RestoreSnapshot(Snapshot snapshot);
     void PushUndoSnapshot();
     std::string CreateNodeId();
+    std::string CreateMaterialId() const;
     std::string CreateNodeName(RtPbrSurvey::ScenePrimitiveKind kind) const;
     std::string EnsurePrimitiveMaterial();
 

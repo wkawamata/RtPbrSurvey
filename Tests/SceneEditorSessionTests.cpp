@@ -101,12 +101,26 @@ bool TestDuplicateAndReparentSelectedSubtree()
     passed &= Check(childWorld != nullptr && childWorld->_41 == 3.0f, "reparent preserves child world translation");
     return passed;
 }
+
+bool TestMaterialCreationIsUndoable()
+{
+    RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("material-test", "Material Test");
+    App::SceneEditorSession session(std::move(document));
+    std::string materialId;
+    bool passed = Check(session.AddMaterial(&materialId), "material is added");
+    passed &= Check(materialId == "material-1" && session.Document().materials.size() == 1,
+                    "new material has a unique ID");
+    passed &= Check(session.Undo() && session.Document().materials.empty(), "material creation is undoable");
+    passed &= Check(session.Redo() && session.Document().materials.size() == 1,
+                    "material creation is redoable");
+    return passed;
+}
 } // namespace
 
 int main()
 {
     return TestPrimitiveAddAndSubtreeDelete() && TestUndoRedoRestoresDocumentAndDirtyState() &&
-                   TestDuplicateAndReparentSelectedSubtree() ?
+                   TestDuplicateAndReparentSelectedSubtree() && TestMaterialCreationIsUndoable() ?
                0 :
                1;
 }
