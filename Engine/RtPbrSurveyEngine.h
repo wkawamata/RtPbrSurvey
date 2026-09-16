@@ -677,7 +677,16 @@ private:
     static constexpr UINT kReflectionResolvedRadianceDescriptorCount = 2;  // One SRV per physical history slot
     static constexpr UINT kReflectionAuxiliaryHistoryDescriptorCount = 4;  // Depth + normal, two slots each
     static constexpr UINT kReflectionEstimatorHistoryDescriptorCount = 4;  // Resolved estimate + moments, two slots each
-    static constexpr UINT kPathTracingDescriptorCount = 4;  // Accumulation and scene color, SRV + UAV each
+    enum PathTracingGuideTexture : UINT
+    {
+        PathTracingGuideNormalRoughness,
+        PathTracingGuideViewZ,
+        PathTracingGuideMotionVectors,
+        PathTracingGuideAlbedo,
+        PathTracingGuideTextureCount,
+    };
+    static constexpr UINT kPathTracingDescriptorCount =
+        2 * (2 + PathTracingGuideTextureCount); // Accumulation, scene color, and guide textures: SRV + UAV each
     static constexpr UINT kTlasDescriptorCount = 1;       // TLAS SRV
 
     // Descriptor allocation order is tracked by DescriptorHeapHandle.
@@ -986,6 +995,7 @@ private:
     ComPtr<ID3D12Resource> m_temporalUpscalerSceneColor;
     ComPtr<ID3D12Resource> m_pathTracingAccumulation;
     ComPtr<ID3D12Resource> m_pathTracingSceneColor;
+    std::array<ComPtr<ID3D12Resource>, PathTracingGuideTextureCount> m_pathTracingGuideTextures;
     std::array<ComPtr<ID3D12Resource>, kMaxDebugTextureOutputCount> m_debugTexturePreviews;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
@@ -1009,6 +1019,9 @@ private:
     DescriptorHeapHandle m_pathTracingSceneColorSrv;
     DescriptorHeapHandle m_pathTracingSceneColorUav;
     D3D12_CPU_DESCRIPTOR_HANDLE m_pathTracingSceneColorClearUav = {};
+    std::array<DescriptorHeapHandle, PathTracingGuideTextureCount> m_pathTracingGuideTextureSrvs;
+    std::array<DescriptorHeapHandle, PathTracingGuideTextureCount> m_pathTracingGuideTextureUavs;
+    std::array<D3D12_CPU_DESCRIPTOR_HANDLE, PathTracingGuideTextureCount> m_pathTracingGuideTextureClearUavs = {};
     std::array<DescriptorHeapHandle, kMaxDebugTextureOutputCount> m_debugTexturePreviewSrvs;
     UINT m_debugTexturePreviewActiveSlotMask = 0;
     UINT m_debugTexturePreviewUpdateSlotMask = 0;
@@ -1254,6 +1267,12 @@ private:
     static constexpr const char* kEnvironmentMapResourceName = "EnvironmentMap";
     static constexpr const char* kPathTracingAccumulationResourceName = "PathTracing.Accumulation";
     static constexpr const char* kPathTracingSceneColorResourceName = "PathTracing.SceneColor";
+    static constexpr const char* kPathTracingGuideTextureResourceNames[PathTracingGuideTextureCount] = {
+        "PathTracing.NormalRoughness",
+        "PathTracing.ViewZ",
+        "PathTracing.MotionVectors",
+        "PathTracing.Albedo",
+    };
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
         "DebugTexturePreview.Output.0",
         "DebugTexturePreview.Output.1",

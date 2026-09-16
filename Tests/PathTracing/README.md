@@ -24,3 +24,12 @@ items:
 
 Generated captures, logs, and reports are written under `bin/x64/Debug/PathTracingReference` by default and must not
 be committed.
+
+Commit 8 exposes these current-frame primary-surface resources through RenderGraph and Debug Texture Preview:
+
+- `PathTracing.NormalRoughness`
+- `PathTracing.ViewZ`
+- `PathTracing.MotionVectors`
+- `PathTracing.Albedo`
+
+Use `-DebugPreviewResource <name>` with the normal Path Tracing CLI arguments to open one for visual validation.

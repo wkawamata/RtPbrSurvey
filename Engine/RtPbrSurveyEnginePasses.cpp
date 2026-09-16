@@ -269,7 +269,15 @@ auto RtPbrSurveyEngine::MakePathTracingHistoryClearPass() -> RenderPass
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"PathTracingHistoryClearPass")
         .Writes({{kPathTracingAccumulationResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
-                 {kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
+                 {kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNormalRoughness],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideViewZ],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideMotionVectors],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideAlbedo],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PathTracingHistoryClear, &RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass)
         .Build();
 }
@@ -294,7 +302,15 @@ auto RtPbrSurveyEngine::MakePathTracingPass() -> RenderPass
         .CreatePass(L"PathTracingPass")
         .Reads(std::move(reads))
         .Writes({{kPathTracingAccumulationResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
-                 {kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
+                 {kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNormalRoughness],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideViewZ],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideMotionVectors],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideAlbedo],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PathTracing, &RtPbrSurveyEngine::ExecutePathTracingPass)
         .Build();
 }

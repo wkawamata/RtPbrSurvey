@@ -33,6 +33,26 @@ Evaluation Caseを使う場合:
 
 既定出力は`bin/x64/Debug/PathTracingReference`であり、PNG、log、JSON、Markdownはcommitしない。
 
+Guide bufferを確認する場合は`-DebugPreviewResource`に次のresource名を指定する。
+
+| Resource | Format | Contract |
+|---|---|---|
+| `PathTracing.NormalRoughness` | `R16G16B16A16_FLOAT` | world normal XYZ、roughness A |
+| `PathTracing.ViewZ` | `R32_FLOAT` | positive linear view-Z、miss 0 |
+| `PathTracing.MotionVectors` | `R16G16_FLOAT` | previous NDC - current NDC |
+| `PathTracing.Albedo` | `R16G16B16A16_FLOAT` | linear albedo RGB、hit mask A |
+
+```powershell
+.\bin\x64\Debug\RtPbrSurvey.exe `
+  -AutoSelectGltfAsset DamagedHelmet `
+  -UseSceneDefaults `
+  -EnablePathTracing `
+  -DebugPreviewResource PathTracing.NormalRoughness
+```
+
+複数sample/frameでもguideはframe内の最初のprimary sampleを表す。guideは現在のframe signalであり、
+progressive accumulationしない。
+
 ## 4. Diagnostics contract
 
 | Field | Meaning |
@@ -56,6 +76,8 @@ Evaluation Caseを使う場合:
 - D3D12 `ERROR`と`CORRUPTION`が0件である。
 - Evaluation Case指定時はROI、comment、boolまたは1-5のtest itemがreportへ残る。
 - metallic/roughness response、normal map、shadow、emissive/environmentを目視確認する。
+- 4 guide resourceを個別にDebug Texture Previewで開ける。
+- 静止sceneのMotionVectorsは0付近、camera/instance移動では既存GBufferと同じ向きに変化する。
 
 buffer initial stateがCOMMONへ扱われる既知のwarning 2件/captureはerror判定に含めない。
 
@@ -69,3 +91,4 @@ buffer initial stateがCOMMONへ扱われる既知のwarning 2件/captureはerro
 4090の結果は別PCで同じscriptを実行し、生成された`path-tracing-reference.json`の値をこの表へ転記する。
 2080 Tiのdriver versionは実行環境のWMI queryが拒否されたため未記録。adapter名、vendor/device ID、VRAMは
 アプリが選択したDXGI adapterから記録している。A/Bとも64 samples、同一PNG hash、既知warning 2件、error 0件。
+Commit 8のguide buffer追加後も同じ64-sample hashを維持し、4 resource個別のDebug Preview実行はerror 0件。

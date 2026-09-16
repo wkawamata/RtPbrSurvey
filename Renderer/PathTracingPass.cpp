@@ -64,15 +64,19 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
     commandList->SetPipelineState(desc.pipelineState);
     commandList->SetComputeRootDescriptorTable(0, desc.sceneColorUav);
     commandList->SetComputeRootDescriptorTable(1, desc.accumulationUav);
-    commandList->SetComputeRootDescriptorTable(2, desc.scene.tlasSrv);
-    commandList->SetComputeRootDescriptorTable(3, desc.scene.cameraCbv);
-    commandList->SetComputeRootShaderResourceView(4, desc.scene.vertexBufferSrv);
-    commandList->SetComputeRootShaderResourceView(5, desc.scene.indexBufferSrv);
-    commandList->SetComputeRootShaderResourceView(6, desc.scene.instanceBufferSrv);
-    commandList->SetComputeRootDescriptorTable(7, desc.scene.materialBufferSrv);
-    commandList->SetComputeRootDescriptorTable(8, desc.scene.textureTableSrv);
-    commandList->SetComputeRootShaderResourceView(9, desc.scene.meshRangeBufferSrv);
-    commandList->SetComputeRootDescriptorTable(10, desc.environmentMapSrv);
+    commandList->SetComputeRootDescriptorTable(2, desc.normalRoughnessUav);
+    commandList->SetComputeRootDescriptorTable(3, desc.viewZUav);
+    commandList->SetComputeRootDescriptorTable(4, desc.motionVectorsUav);
+    commandList->SetComputeRootDescriptorTable(5, desc.albedoUav);
+    commandList->SetComputeRootDescriptorTable(6, desc.scene.tlasSrv);
+    commandList->SetComputeRootDescriptorTable(7, desc.scene.cameraCbv);
+    commandList->SetComputeRootShaderResourceView(8, desc.scene.vertexBufferSrv);
+    commandList->SetComputeRootShaderResourceView(9, desc.scene.indexBufferSrv);
+    commandList->SetComputeRootShaderResourceView(10, desc.scene.instanceBufferSrv);
+    commandList->SetComputeRootDescriptorTable(11, desc.scene.materialBufferSrv);
+    commandList->SetComputeRootDescriptorTable(12, desc.scene.textureTableSrv);
+    commandList->SetComputeRootShaderResourceView(13, desc.scene.meshRangeBufferSrv);
+    commandList->SetComputeRootDescriptorTable(14, desc.environmentMapSrv);
 
     const PathTracingShaderConstants constants = {
         desc.scene.usesIndexedDraw,
@@ -98,7 +102,7 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
         desc.diffuseIntensity,
         desc.russianRouletteEnabled,
     };
-    commandList->SetComputeRoot32BitConstants(11, 26, &constants, 0);
+    commandList->SetComputeRoot32BitConstants(15, 26, &constants, 0);
 
     constexpr UINT kThreadGroupSize = 8;
     const UINT dispatchX = (desc.width + kThreadGroupSize - 1) / kThreadGroupSize;

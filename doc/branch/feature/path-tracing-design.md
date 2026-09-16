@@ -506,6 +506,22 @@ SHA-256 `FB0F948918B47A7455E0831D1F34C30330747E7EF1C014CB446D4C400BAFBC4E`
 primary samplesはrender pixel数とsamples/frameの積、path segmentとRayQueryはmax bounceおよびshadow rayを
 含む上限値として区別して表示する。
 
+### Commit 8: primary-surface guide buffers
+
+- `PathTracing.NormalRoughness`: world-space shading normal XYZ、perceptual roughness A、`R16G16B16A16_FLOAT`
+- `PathTracing.ViewZ`: camera-forward axis上のpositive linear depth、missは0、`R32_FLOAT`
+- `PathTracing.MotionVectors`: existing GBufferと同じ`previous NDC - current NDC`、`R16G16_FLOAT`
+- `PathTracing.Albedo`: linear base color RGB、hit mask A、`R16G16B16A16_FLOAT`
+- 4 resourceをPathTracingPassのUAV、RenderGraph texture node、Debug Texture Preview sourceとして公開
+
+guideはframe内の最初のprimary sampleから生成する。Radiance accumulationとdebug outputの選択には影響せず、
+複数sample/frameの平均radianceに対してguideを平均しない。MotionVectorsは`prevWorld`を使ってinstance motionを
+含める。これらは将来のsignal separation、temporal reprojection、NRD/RR入力調査のためのrenderer-owned resourceで
+あり、Commit 8ではdenoiserへ接続しない。
+
+完了条件: 4 resourceがRenderGraphとDebug Texture Previewに現れ、既存Radianceの固定seed capture hashを維持し、
+各resourceをpreview sourceにしたDebug Layer実行でerrorがない。
+
 ## 12. Test matrix
 
 | Area | Test |
@@ -515,11 +531,11 @@ primary samplesはrender pixel数とsamples/frameの積、path segmentとRayQuer
 | Support | DXR tier below 1.1 cannot select active Path Tracing execution |
 | Serialization | new settings round-trip and old JSON loads with defaults |
 | RenderGraph | Path Tracing contains clear/path/tone-map; Deferred graph is unchanged |
-| Resources | resize recreates both textures and resets history |
+| Resources | resize recreates accumulation、scene color、4 guide textures and resets history |
 | History | camera, scene, material, light, seed, bounce changes reset exactly once |
 | Post process | exposure/tone-map change does not reset accumulation |
 | Geometry | indexed/non-indexed, multi-range, multi-instance hit reconstruction |
-| Visual | normal, albedo, emissive diagnostics match existing scene data |
+| Visual | normal/roughness、ViewZ、motion vectors、albedo guideが既存scene dataと一致する |
 | Runtime | fixed seed/sample count capture is reproducible |
 | D3D12 | no error in Debug Layer log during scene load, resize, path switching, capture |
 

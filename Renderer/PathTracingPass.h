@@ -22,6 +22,10 @@ struct PathTracingPassDesc
     ID3D12PipelineState* pipelineState = nullptr;
     D3D12_GPU_DESCRIPTOR_HANDLE sceneColorUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE accumulationUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE normalRoughnessUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE viewZUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE motionVectorsUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE albedoUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE environmentMapSrv = {};
     RayQuerySceneBindings scene;
     float rayTMin = 0.001f;

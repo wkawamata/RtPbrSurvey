@@ -2,6 +2,10 @@
 
 RWTexture2D<float4> g_sceneColor : register(u0);
 RWTexture2D<float4> g_accumulation : register(u1);
+RWTexture2D<float4> g_normalRoughness : register(u2);
+RWTexture2D<float> g_viewZ : register(u3);
+RWTexture2D<float2> g_motionVectors : register(u4);
+RWTexture2D<float4> g_albedo : register(u5);
 RaytracingAccelerationStructure g_tlas : register(t0);
 ByteAddressBuffer g_sceneVertices : register(t1);
 ByteAddressBuffer g_sceneIndices : register(t2);
@@ -56,6 +60,58 @@ cbuffer PathTracingConstants : register(b1)
 
 #include "SceneRayQuery.hlsli"
 #include "PathTracingSampling.hlsli"
+
+static const uint kInstanceDataPreviousWorldOffset = 64;
+
+struct PrimarySurfaceData
+{
+    float4 normalRoughness;
+    float viewZ;
+    float2 motionVector;
+    float4 albedo;
+};
+
+PrimarySurfaceData MakeMissPrimarySurfaceData()
+{
+    PrimarySurfaceData result;
+    result.normalRoughness = float4(0.0, 0.0, 0.0, 1.0);
+    result.viewZ = 0.0;
+    result.motionVector = float2(0.0, 0.0);
+    result.albedo = float4(0.0, 0.0, 0.0, 0.0);
+    return result;
+}
+
+float3 TransformObjectPointToPreviousWorld(uint instanceId, float3 objectPosition)
+{
+    const uint matrixOffset = instanceId * kInstanceDataStride + kInstanceDataPreviousWorldOffset;
+    const float4 objectPosition4 = float4(objectPosition, 1.0);
+    return float3(dot(objectPosition4, asfloat(g_instanceData.Load4(matrixOffset))),
+                  dot(objectPosition4, asfloat(g_instanceData.Load4(matrixOffset + 16))),
+                  dot(objectPosition4, asfloat(g_instanceData.Load4(matrixOffset + 32))));
+}
+
+float ComputePrimaryViewZ(float3 worldPosition)
+{
+    float4 farCenter = mul(float4(0.0, 0.0, 1.0, 1.0), invViewProj);
+    farCenter.xyz /= farCenter.w;
+    const float3 cameraForward = normalize(farCenter.xyz - cameraPosition);
+    return max(dot(worldPosition - cameraPosition, cameraForward), 0.0);
+}
+
+float2 ComputePrimaryMotionVector(float3 worldPosition, float3 objectPosition, uint instanceId)
+{
+    const float3 previousWorldPosition =
+        TransformObjectPointToPreviousWorld(instanceId, objectPosition);
+    const float4 currentClipPosition = mul(float4(worldPosition, 1.0), viewProj);
+    const float4 previousClipPosition = mul(float4(previousWorldPosition, 1.0), prevViewProj);
+    if (abs(currentClipPosition.w) < 0.000001 || abs(previousClipPosition.w) < 0.000001)
+    {
+        return float2(0.0, 0.0);
+    }
+    const float2 currentNdc = currentClipPosition.xy / currentClipPosition.w;
+    const float2 previousNdc = previousClipPosition.xy / previousClipPosition.w;
+    return previousNdc - currentNdc;
+}
 
 uint HashUint(uint value)
 {
@@ -127,8 +183,12 @@ float TraceShadow(float3 worldPosition, float3 normal)
     return query.CommittedStatus() == COMMITTED_TRIANGLE_HIT ? 0.0 : 1.0;
 }
 
-float3 TracePath(uint2 pixel, inout uint randomState, uint2 dimensions)
+float3 TracePath(uint2 pixel,
+                 inout uint randomState,
+                 uint2 dimensions,
+                 out PrimarySurfaceData primarySurface)
 {
+    primarySurface = MakeMissPrimarySurfaceData();
     const float2 subpixelPosition = float2(NextRandom(randomState), NextRandom(randomState));
     RayDesc ray = MakePrimaryRay(pixel, subpixelPosition, dimensions);
     float3 radiance = 0.0;
@@ -179,6 +239,19 @@ float3 TracePath(uint2 pixel, inout uint randomState, uint2 dimensions)
                                                          hitMaterial);
         hitNormal = dot(hitNormal, geometryNormal) >= 0.0 ? hitNormal : -hitNormal;
         const float3 hitPosition = ray.Origin + ray.Direction * query.CommittedRayT();
+
+        if (bounce == 0)
+        {
+            const float barycentric0 = 1.0 - barycentric.x - barycentric.y;
+            const float3 objectPosition =
+                LoadSceneVertexPosition(index0) * barycentric0 +
+                LoadSceneVertexPosition(index1) * barycentric.x +
+                LoadSceneVertexPosition(index2) * barycentric.y;
+            primarySurface.normalRoughness = float4(hitNormal, hitMaterial.roughness);
+            primarySurface.viewZ = ComputePrimaryViewZ(hitPosition);
+            primarySurface.motionVector = ComputePrimaryMotionVector(hitPosition, objectPosition, instanceId);
+            primarySurface.albedo = float4(hitMaterial.albedo, 1.0);
+        }
 
         if (bounce == 0 && debugOutput < 3)
         {
@@ -275,10 +348,16 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     const uint sampleCount = max(samplesPerFrame, 1u);
     float3 frameRadianceSum = 0.0;
+    PrimarySurfaceData primarySurface = MakeMissPrimarySurfaceData();
     for (uint sampleOffset = 0; sampleOffset < sampleCount; ++sampleOffset)
     {
         uint randomState = MakeRandomState(pixel, sampleStartIndex + sampleOffset);
-        frameRadianceSum += TracePath(pixel, randomState, uint2(width, height));
+        PrimarySurfaceData samplePrimarySurface;
+        frameRadianceSum += TracePath(pixel, randomState, uint2(width, height), samplePrimarySurface);
+        if (sampleOffset == 0)
+        {
+            primarySurface = samplePrimarySurface;
+        }
     }
 
     float3 accumulatedRadiance = frameRadianceSum;
@@ -288,4 +367,8 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     g_accumulation[pixel] = float4(accumulatedRadiance, totalSampleCount);
     g_sceneColor[pixel] = float4(accumulatedRadiance / max(totalSampleCount, 1.0), 1.0);
+    g_normalRoughness[pixel] = primarySurface.normalRoughness;
+    g_viewZ[pixel] = primarySurface.viewZ;
+    g_motionVectors[pixel] = primarySurface.motionVector;
+    g_albedo[pixel] = primarySurface.albedo;
 }
