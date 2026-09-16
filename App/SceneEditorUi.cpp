@@ -8,12 +8,49 @@
 #include <imgui_stdlib.h>
 
 #include <functional>
+#include <algorithm>
+#include <cfloat>
+#include <filesystem>
+#include <vector>
+
+namespace
+{
+std::vector<std::filesystem::path> FindSceneEditorSceneFiles()
+{
+    const std::filesystem::path sceneRoot = std::filesystem::current_path() / "Assets" / "Scenes";
+    std::vector<std::filesystem::path> sceneFiles;
+    std::error_code error;
+    if (!std::filesystem::is_directory(sceneRoot, error))
+    {
+        return sceneFiles;
+    }
+    for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(sceneRoot, error))
+    {
+        if (error)
+        {
+            break;
+        }
+        if (!entry.is_directory(error))
+        {
+            continue;
+        }
+        const std::filesystem::path scenePath = entry.path() / "scene.json";
+        if (std::filesystem::is_regular_file(scenePath, error))
+        {
+            sceneFiles.push_back(scenePath);
+        }
+    }
+    std::sort(sceneFiles.begin(), sceneFiles.end());
+    return sceneFiles;
+}
+} // namespace
 
 namespace App
 {
 
 void DrawSceneEditorStartUi(RtPbrSurveyApp& app)
 {
+    static std::vector<std::filesystem::path> sceneFiles = FindSceneEditorSceneFiles();
     ImGui::SetNextWindowSize(ImVec2(480.0f, 250.0f), ImGuiCond_FirstUseEver);
     ImGui::Begin("Scene Editor");
     ImGui::TextUnformatted("Create or load a test scene document.");
@@ -26,6 +63,23 @@ void DrawSceneEditorStartUi(RtPbrSurveyApp& app)
     }
 
     ImGui::Dummy(ImVec2(0.0f, 8.0f));
+    if (ImGui::Button("Refresh Scene List"))
+    {
+        sceneFiles = FindSceneEditorSceneFiles();
+    }
+    if (ImGui::BeginListBox("Saved Scenes", ImVec2(-FLT_MIN, 80.0f)))
+    {
+        for (const std::filesystem::path& scenePath : sceneFiles)
+        {
+            const std::string sceneName = scenePath.parent_path().filename().generic_string();
+            const bool selected = app.m_sceneEditorLoadPath == scenePath.generic_string();
+            if (ImGui::Selectable(sceneName.c_str(), selected))
+            {
+                app.m_sceneEditorLoadPath = scenePath.generic_string();
+            }
+        }
+        ImGui::EndListBox();
+    }
     ImGui::InputText("Scene File", &app.m_sceneEditorLoadPath);
     if (ImGui::Button("Load"))
     {
