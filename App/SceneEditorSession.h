@@ -38,6 +38,9 @@ public:
     bool AddEmpty(std::string* error = nullptr);
     bool AddGltfNode(const std::string& relativePath, std::string* error = nullptr);
     bool AddMaterial(std::string* materialId = nullptr, std::string* error = nullptr);
+    bool RemoveUnusedResources(size_t* removedAssetCount = nullptr,
+                               size_t* removedMaterialCount = nullptr,
+                               std::string* error = nullptr);
     bool DeleteSelectedNode(std::string* error = nullptr);
     bool DuplicateSelectedSubtree(std::string* error = nullptr);
     bool ReparentSelectedNodePreservingWorld(const std::optional<std::string>& parentId,

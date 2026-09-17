@@ -136,6 +136,35 @@ bool TestGltfAssetIsSharedAcrossNodes()
     return passed;
 }
 
+bool TestUnusedResourcesAreRemovedAndUndoable()
+{
+    RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("cleanup-test", "Cleanup Test");
+    document.assets = {{"asset-used", "Assets/Models/used.gltf"}, {"asset-unused", "Assets/Models/unused.gltf"}};
+    document.materials = {{"material-used", "Used"}, {"material-unused", "Unused"}};
+    RtPbrSurvey::SceneNode gltfNode;
+    gltfNode.id = "gltf";
+    gltfNode.name = "Gltf";
+    gltfNode.type = RtPbrSurvey::SceneNodeType::Gltf;
+    gltfNode.assetId = "asset-used";
+    RtPbrSurvey::SceneNode primitiveNode;
+    primitiveNode.id = "primitive";
+    primitiveNode.name = "Primitive";
+    primitiveNode.type = RtPbrSurvey::SceneNodeType::Primitive;
+    primitiveNode.materialId = "material-used";
+    document.nodes = {gltfNode, primitiveNode};
+
+    App::SceneEditorSession session(std::move(document));
+    size_t removedAssets = 0;
+    size_t removedMaterials = 0;
+    bool passed = Check(session.RemoveUnusedResources(&removedAssets, &removedMaterials), "unused resources are removed");
+    passed &= Check(removedAssets == 1 && removedMaterials == 1 && session.Document().assets.size() == 1 &&
+                        session.Document().materials.size() == 1,
+                    "only unused asset and material are removed");
+    passed &= Check(session.Undo() && session.Document().assets.size() == 2 && session.Document().materials.size() == 2,
+                    "resource cleanup is undoable");
+    return passed;
+}
+
 bool TestSceneSettingsEditIsUndoable()
 {
     RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("settings-test", "Settings Test");
@@ -159,7 +188,8 @@ int main()
 {
     return TestPrimitiveAddAndSubtreeDelete() && TestUndoRedoRestoresDocumentAndDirtyState() &&
                    TestDuplicateAndReparentSelectedSubtree() && TestMaterialCreationIsUndoable() &&
-                   TestGltfAssetIsSharedAcrossNodes() && TestSceneSettingsEditIsUndoable() ?
+                   TestGltfAssetIsSharedAcrossNodes() && TestUnusedResourcesAreRemovedAndUndoable() &&
+                   TestSceneSettingsEditIsUndoable() ?
                0 :
                1;
 }

@@ -272,6 +272,73 @@ bool SceneEditorSession::AddMaterial(std::string* materialId, std::string* error
     return true;
 }
 
+bool SceneEditorSession::RemoveUnusedResources(size_t* removedAssetCount,
+                                                size_t* removedMaterialCount,
+                                                std::string* error)
+{
+    std::unordered_set<std::string> usedAssetIds;
+    std::unordered_set<std::string> usedMaterialIds;
+    for (const RtPbrSurvey::SceneNode& node : m_document.nodes)
+    {
+        if (node.type == RtPbrSurvey::SceneNodeType::Gltf)
+        {
+            usedAssetIds.insert(node.assetId);
+        }
+        else if (node.type == RtPbrSurvey::SceneNodeType::Primitive)
+        {
+            usedMaterialIds.insert(node.materialId);
+        }
+    }
+
+    RtPbrSurvey::SceneDocument candidate = m_document;
+    const size_t assetCount = candidate.assets.size();
+    candidate.assets.erase(std::remove_if(candidate.assets.begin(), candidate.assets.end(), [&usedAssetIds](const RtPbrSurvey::SceneAsset& asset)
+    {
+        return !usedAssetIds.contains(asset.id);
+    }), candidate.assets.end());
+    const size_t materialCount = candidate.materials.size();
+    candidate.materials.erase(std::remove_if(candidate.materials.begin(), candidate.materials.end(), [&usedMaterialIds](const RtPbrSurvey::SceneMaterial& material)
+    {
+        return !usedMaterialIds.contains(material.id);
+    }), candidate.materials.end());
+
+    const size_t assetsRemoved = assetCount - candidate.assets.size();
+    const size_t materialsRemoved = materialCount - candidate.materials.size();
+    if (assetsRemoved == 0 && materialsRemoved == 0)
+    {
+        if (removedAssetCount != nullptr)
+        {
+            *removedAssetCount = 0;
+        }
+        if (removedMaterialCount != nullptr)
+        {
+            *removedMaterialCount = 0;
+        }
+        if (error != nullptr)
+        {
+            error->clear();
+        }
+        return false;
+    }
+
+    PushUndoSnapshot();
+    m_document = std::move(candidate);
+    m_modified = true;
+    if (removedAssetCount != nullptr)
+    {
+        *removedAssetCount = assetsRemoved;
+    }
+    if (removedMaterialCount != nullptr)
+    {
+        *removedMaterialCount = materialsRemoved;
+    }
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
 bool SceneEditorSession::DeleteSelectedNode(std::string* error)
 {
     if (!m_selectedNodeId.has_value())

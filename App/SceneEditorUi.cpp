@@ -210,8 +210,6 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         session.AddMaterial(&materialId);
         app.m_sceneEditorStatus = "Added material: " + materialId;
     }
-    ImGui::SameLine();
-
     static std::string gltfAssetPath = "Assets/Models/DamagedHelmet/glTF/DamagedHelmet.gltf";
     ImGui::InputText("glTF Asset Path", &gltfAssetPath);
     ImGui::SameLine();
@@ -225,6 +223,20 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         else
         {
             app.m_sceneEditorStatus = "Add glTF failed: " + error;
+        }
+    }
+    if (ImGui::Button("Remove Unused Resources"))
+    {
+        size_t removedAssets = 0;
+        size_t removedMaterials = 0;
+        if (session.RemoveUnusedResources(&removedAssets, &removedMaterials))
+        {
+            app.m_sceneEditorStatus = "Removed unused resources: " + std::to_string(removedAssets) +
+                                      " assets, " + std::to_string(removedMaterials) + " materials.";
+        }
+        else
+        {
+            app.m_sceneEditorStatus = "No unused resources to remove.";
         }
     }
 
@@ -494,6 +506,27 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                     session.CommitEdit();
                     rebuildPreview();
                 }
+            }
+        }
+        else if (selectedNode->type == RtPbrSurvey::SceneNodeType::Gltf)
+        {
+            const RtPbrSurvey::SceneAsset* asset = nullptr;
+            for (const RtPbrSurvey::SceneAsset& candidate : document.assets)
+            {
+                if (candidate.id == selectedNode->assetId)
+                {
+                    asset = &candidate;
+                    break;
+                }
+            }
+            ImGui::Text("Asset ID: %s", selectedNode->assetId.c_str());
+            if (asset != nullptr)
+            {
+                ImGui::TextWrapped("Asset Path: %s", asset->path.c_str());
+            }
+            else
+            {
+                ImGui::TextDisabled("Referenced glTF asset is missing from this document.");
             }
         }
         ImGui::Separator();
