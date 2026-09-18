@@ -892,6 +892,31 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         ImGui::Separator();
         ImGui::TextWrapped("%s", app.m_sceneEditorStatus.c_str());
     }
+
+    if (ImGui::CollapsingHeader("glTF Assets"))
+    {
+        if (ImGui::Button("Reload All glTF Assets"))
+        {
+            if (rebuildPreview())
+            {
+                app.m_sceneEditorStatus = "Reloaded glTF assets from the current Scene Document.";
+            }
+        }
+        if (document.assets.empty())
+        {
+            ImGui::TextDisabled("No glTF assets are registered in this Scene Document.");
+        }
+        for (const RtPbrSurvey::SceneAsset& asset : document.assets)
+        {
+            const size_t useCount = static_cast<size_t>(std::count_if(document.nodes.begin(), document.nodes.end(), [&asset](const RtPbrSurvey::SceneNode& node)
+            {
+                return node.type == RtPbrSurvey::SceneNodeType::Gltf && node.assetId == asset.id;
+            }));
+            ImGui::Separator();
+            ImGui::Text("%s  (%zu node%s)", asset.id.c_str(), useCount, useCount == 1 ? "" : "s");
+            ImGui::TextWrapped("%s", asset.path.c_str());
+        }
+    }
     ImGui::End();
 }
 
