@@ -298,6 +298,11 @@ SceneMeshId SceneBuilder::AddCube(float size)
     return AddMeshRange(Procedural::CreateCubeMesh(size));
 }
 
+SceneMeshId SceneBuilder::AddPlane(float width, float depth)
+{
+    return AddMeshRange(Procedural::CreatePlaneMesh(width, depth));
+}
+
 SceneMeshId SceneBuilder::AddSphere(float radius, int stackCount, int sliceCount)
 {
     return AddMeshRange(Procedural::CreateSphereMesh(radius, stackCount, sliceCount));

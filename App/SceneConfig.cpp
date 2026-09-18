@@ -771,4 +771,25 @@ bool SceneConfigManager::ApplyCurrentSceneJson(std::string_view jsonText,
     }
 }
 
+bool SceneConfigManager::ValidateCurrentSceneJson(std::string_view jsonText, std::string* error) const
+{
+    try
+    {
+        (void)SceneConfigFromJson(json::parse(jsonText));
+        if (error != nullptr)
+        {
+            error->clear();
+        }
+        return true;
+    }
+    catch (const std::exception& exception)
+    {
+        if (error != nullptr)
+        {
+            *error = exception.what();
+        }
+        return false;
+    }
+}
+
 } // namespace App

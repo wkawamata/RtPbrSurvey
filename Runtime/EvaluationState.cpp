@@ -13,7 +13,7 @@ namespace
 {
 using json = nlohmann::json;
 
-constexpr int kEvaluationStateSchemaVersion = 1;
+constexpr int kEvaluationStateSchemaVersion = 2;
 
 const char* JudgmentKindName(EvaluationJudgmentKind kind)
 {
@@ -58,8 +58,6 @@ json TestItemToJson(const EvaluationTestItem& item)
     value["id"] = item.id;
     value["prompt"] = item.prompt;
     value["judgment"] = JudgmentKindName(item.judgmentKind);
-    value["value"] = item.judgmentKind == EvaluationJudgmentKind::Boolean ? json(item.booleanValue)
-                                                                          : json(std::clamp(item.score, 1, 5));
     return value;
 }
 
@@ -69,18 +67,53 @@ EvaluationTestItem TestItemFromJson(const json& value)
     item.id = value.value("id", uint64_t{0});
     item.prompt = value.value("prompt", std::string{});
     item.judgmentKind = JudgmentKindFromJson(value.value("judgment", json("score1To5")));
-    if (value.contains("value"))
+    return item;
+}
+
+json TestResultToJson(const EvaluationTestResult& result)
+{
+    return {
+        {"testItemId", result.testItemId},
+        {"score", std::clamp(result.score, 1, 5)},
+        {"booleanValue", result.booleanValue},
+    };
+}
+
+EvaluationTestResult TestResultFromJson(const json& value)
+{
+    EvaluationTestResult result;
+    result.testItemId = value.value("testItemId", uint64_t{0});
+    result.score = std::clamp(value.value("score", result.score), 1, 5);
+    result.booleanValue = value.value("booleanValue", result.booleanValue);
+    return result;
+}
+
+json RunToJson(const EvaluationRun& run)
+{
+    json results = json::array();
+    for (const EvaluationTestResult& result : run.results)
     {
-        if (item.judgmentKind == EvaluationJudgmentKind::Boolean && value.at("value").is_boolean())
+        results.push_back(TestResultToJson(result));
+    }
+    return {{"id", run.id}, {"comment", run.comment}, {"results", std::move(results)}};
+}
+
+EvaluationRun RunFromJson(const json& value)
+{
+    EvaluationRun run;
+    run.id = value.value("id", uint64_t{0});
+    run.comment = value.value("comment", std::string{});
+    if (value.contains("results") && value.at("results").is_array())
+    {
+        for (const json& result : value.at("results"))
         {
-            item.booleanValue = value.at("value").get<bool>();
-        }
-        else if (item.judgmentKind == EvaluationJudgmentKind::Score1To5 && value.at("value").is_number_integer())
-        {
-            item.score = std::clamp(value.at("value").get<int>(), 1, 5);
+            if (result.is_object())
+            {
+                run.results.push_back(TestResultFromJson(result));
+            }
         }
     }
-    return item;
+    return run;
 }
 
 json StateToJson(const EvaluationState& state)
@@ -90,18 +123,29 @@ json StateToJson(const EvaluationState& state)
     {
         testItems.push_back(TestItemToJson(item));
     }
+    json runs = json::array();
+    for (const EvaluationRun& run : state.runs)
+    {
+        runs.push_back(RunToJson(run));
+    }
 
     return {
         {"id", state.id},
         {"name", state.name},
         {"comment", state.comment},
-        {"scene", {{"index", state.sceneIndex}, {"name", state.sceneName}, {"config", state.sceneConfig}}},
+        {"scene",
+         {{"id", state.sceneReference.id},
+          {"path", state.sceneReference.path},
+          {"index", state.sceneIndex},
+          {"name", state.sceneName},
+          {"config", state.sceneConfig}}},
         {"roi", RoiToJson(state.roi)},
         {"testItems", std::move(testItems)},
+        {"runs", std::move(runs)},
     };
 }
 
-EvaluationState StateFromJson(const json& value)
+EvaluationState StateFromJson(const json& value, int schemaVersion)
 {
     EvaluationState state;
     state.id = value.value("id", uint64_t{0});
@@ -110,6 +154,8 @@ EvaluationState StateFromJson(const json& value)
     if (value.contains("scene") && value.at("scene").is_object())
     {
         const json& scene = value.at("scene");
+        state.sceneReference.id = scene.value("id", std::string{});
+        state.sceneReference.path = scene.value("path", std::string{});
         state.sceneIndex = scene.value("index", -1);
         state.sceneName = scene.value("name", std::string{});
         if (scene.contains("config") && scene.at("config").is_object())
@@ -130,6 +176,43 @@ EvaluationState StateFromJson(const json& value)
                 state.testItems.push_back(TestItemFromJson(item));
             }
         }
+    }
+    if (schemaVersion >= 2 && value.contains("runs") && value.at("runs").is_array())
+    {
+        for (const json& run : value.at("runs"))
+        {
+            if (run.is_object())
+            {
+                state.runs.push_back(RunFromJson(run));
+            }
+        }
+    }
+    else if (schemaVersion == 1 && !state.testItems.empty())
+    {
+        EvaluationRun run;
+        run.id = 1;
+        for (const json& itemValue : value.at("testItems"))
+        {
+            if (!itemValue.is_object())
+            {
+                continue;
+            }
+            const EvaluationTestItem item = TestItemFromJson(itemValue);
+            EvaluationTestResult result;
+            result.testItemId = item.id;
+            if (item.judgmentKind == EvaluationJudgmentKind::Boolean && itemValue.contains("value") &&
+                itemValue.at("value").is_boolean())
+            {
+                result.booleanValue = itemValue.at("value").get<bool>();
+            }
+            else if (item.judgmentKind == EvaluationJudgmentKind::Score1To5 && itemValue.contains("value") &&
+                     itemValue.at("value").is_number_integer())
+            {
+                result.score = std::clamp(itemValue.at("value").get<int>(), 1, 5);
+            }
+            run.results.push_back(result);
+        }
+        state.runs.push_back(std::move(run));
     }
     return state;
 }
@@ -163,7 +246,8 @@ bool DeserializeEvaluationStates(std::string_view jsonText, std::vector<Evaluati
     try
     {
         const json root = json::parse(jsonText);
-        if (!root.is_object() || root.value("schemaVersion", 0) != kEvaluationStateSchemaVersion ||
+        const int schemaVersion = root.value("schemaVersion", 0);
+        if (!root.is_object() || (schemaVersion != 1 && schemaVersion != kEvaluationStateSchemaVersion) ||
             !root.contains("states") || !root.at("states").is_array())
         {
             if (error != nullptr)
@@ -178,7 +262,7 @@ bool DeserializeEvaluationStates(std::string_view jsonText, std::vector<Evaluati
         {
             if (value.is_object())
             {
-                parsedStates.push_back(StateFromJson(value));
+                parsedStates.push_back(StateFromJson(value, schemaVersion));
             }
         }
         states = std::move(parsedStates);
@@ -278,6 +362,16 @@ uint64_t EvaluationStateStore::NextTestItemId(const EvaluationState& state) cons
     for (const EvaluationTestItem& item : state.testItems)
     {
         nextId = (std::max)(nextId, item.id + 1);
+    }
+    return nextId;
+}
+
+uint64_t EvaluationStateStore::NextRunId(const EvaluationState& state) const
+{
+    uint64_t nextId = 1;
+    for (const EvaluationRun& run : state.runs)
+    {
+        nextId = (std::max)(nextId, run.id + 1);
     }
     return nextId;
 }

@@ -110,8 +110,13 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Runtime/SceneRendererDebugUi.cpp
     Runtime/RenderGraphNodeEditorView.cpp
     Runtime/SceneRendererSettings.cpp
+    App/RenderPresetStore.cpp
     Scene/ProceduralSceneBuilder.cpp
     Scene/SceneBuilder.cpp
+    Scene/SceneDocumentJson.cpp
+    Scene/SceneDocumentBuilder.cpp
+    Scene/SceneDocumentRuntimeScene.cpp
+    Scene/SceneGraph.cpp
     Scene/SceneFactory.cpp
     Scene/SampleScene.cpp
     Ui/DebugUiPreferences.cpp
@@ -326,6 +331,8 @@ if(RTPBRSURVEY_BUILD_APP)
         App/EvaluationCaseUi.cpp
         App/RtPbrSurveyApp.cpp
         App/SceneConfig.cpp
+        App/SceneEditorSession.cpp
+        App/SceneEditorUi.cpp
         App/SceneSelectUi.cpp)
     target_link_libraries(RtPbrSurvey PRIVATE RtPbrSurvey::SceneRenderer)
     if(MSVC)
@@ -409,6 +416,31 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.SceneDocumentTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.SceneDocument COMMAND RtPbrSurvey.SceneDocumentTests)
+
+    add_executable(RtPbrSurvey.SceneDocumentBuilderTests
+        Tests/SceneDocumentBuilderTests.cpp)
+    target_link_libraries(RtPbrSurvey.SceneDocumentBuilderTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.SceneDocumentBuilderTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.SceneDocumentBuilder COMMAND RtPbrSurvey.SceneDocumentBuilderTests)
+
+    add_executable(RtPbrSurvey.SceneEditorSessionTests
+        Tests/SceneEditorSessionTests.cpp
+        App/SceneEditorSession.cpp)
+    target_link_libraries(RtPbrSurvey.SceneEditorSessionTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.SceneEditorSessionTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.SceneEditorSession COMMAND RtPbrSurvey.SceneEditorSessionTests)
+
+    add_executable(RtPbrSurvey.RenderPresetStoreTests
+        Tests/RenderPresetStoreTests.cpp)
+    target_link_libraries(RtPbrSurvey.RenderPresetStoreTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.RenderPresetStoreTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.RenderPresetStore COMMAND RtPbrSurvey.RenderPresetStoreTests)
 
     add_executable(RtPbrSurvey.DebugCameraControllerTests
         Tests/DebugCameraControllerTests.cpp)

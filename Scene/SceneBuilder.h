@@ -52,6 +52,7 @@ public:
                                  DirectX::XMFLOAT2 uvOffset = {0.0f, 0.0f});
 
     SceneMeshId AddCube(float size);
+    SceneMeshId AddPlane(float width, float depth);
     SceneMeshId AddSphere(float radius, int stackCount, int sliceCount);
     SceneMeshId AddCylinder(float radius,
                             float height,

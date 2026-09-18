@@ -68,21 +68,33 @@ const char* DlssRrSummary(const RtPbrSurvey::EvaluationState& state)
 
 std::string ResultSummary(const RtPbrSurvey::EvaluationState& state)
 {
+    if (state.runs.empty())
+    {
+        return "No runs";
+    }
+
+    const RtPbrSurvey::EvaluationRun& run = state.runs.back();
     int scoreCount = 0;
     int scoreTotal = 0;
     int booleanCount = 0;
     int trueCount = 0;
     for (const RtPbrSurvey::EvaluationTestItem& item : state.testItems)
     {
+        const auto result = std::find_if(run.results.begin(), run.results.end(), [&item](const auto& candidate)
+                                         { return candidate.testItemId == item.id; });
+        if (result == run.results.end())
+        {
+            continue;
+        }
         if (item.judgmentKind == RtPbrSurvey::EvaluationJudgmentKind::Score1To5)
         {
             ++scoreCount;
-            scoreTotal += std::clamp(item.score, 1, 5);
+            scoreTotal += std::clamp(result->score, 1, 5);
         }
         else
         {
             ++booleanCount;
-            trueCount += item.booleanValue ? 1 : 0;
+            trueCount += result->booleanValue ? 1 : 0;
         }
     }
 
@@ -108,6 +120,18 @@ std::string ResultSummary(const RtPbrSurvey::EvaluationState& state)
         sprintf_s(text, "No results");
     }
     return text;
+}
+
+RtPbrSurvey::EvaluationTestResult& FindOrAddResult(RtPbrSurvey::EvaluationRun& run, uint64_t testItemId)
+{
+    const auto result = std::find_if(run.results.begin(), run.results.end(), [testItemId](const auto& candidate)
+                                     { return candidate.testItemId == testItemId; });
+    if (result != run.results.end())
+    {
+        return *result;
+    }
+    run.results.push_back({testItemId});
+    return run.results.back();
 }
 
 bool IsVisibleCase(const RtPbrSurvey::EvaluationState& state,
@@ -220,10 +244,6 @@ void DrawEvaluationCasesWindow(RtPbrSurveyApp& app, EvaluationCaseScope scope)
             if (ImGui::Selectable(rowLabel.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns))
             {
                 app.m_selectedEvaluationStateIndex = static_cast<int>(index);
-                if (scope == EvaluationCaseScope::CurrentScene)
-                {
-                    restoreIndex = index;
-                }
             }
             const bool openFromDoubleClick = scope == EvaluationCaseScope::AllScenes && ImGui::IsItemHovered() &&
                                              ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
@@ -358,6 +378,31 @@ void DrawEvaluationCasesWindow(RtPbrSurveyApp& app, EvaluationCaseScope scope)
             }
         }
 
+        ImGui::SeparatorText("Evaluation Runs");
+        if (ImGui::Button("New Evaluation Run"))
+        {
+            RtPbrSurvey::EvaluationRun run;
+            run.id = app.m_evaluationStates.NextRunId(state);
+            for (const RtPbrSurvey::EvaluationTestItem& item : state.testItems)
+            {
+                run.results.push_back({item.id});
+            }
+            state.runs.push_back(std::move(run));
+        }
+        if (state.runs.empty())
+        {
+            ImGui::TextDisabled("Create a run to record results.");
+        }
+        else
+        {
+            RtPbrSurvey::EvaluationRun& activeRun = state.runs.back();
+            ImGui::Text("Active Run: #%llu (%zu total)",
+                        static_cast<unsigned long long>(activeRun.id),
+                        state.runs.size());
+            ImGui::SetNextItemWidth(-1.0f);
+            ImGui::InputTextMultiline("Run Comment", &activeRun.comment, ImVec2(0.0f, 42.0f));
+        }
+
         ImGui::SeparatorText("Test Items");
         if (ImGui::Button("Add Test Item"))
         {
@@ -380,17 +425,26 @@ void DrawEvaluationCasesWindow(RtPbrSurveyApp& app, EvaluationCaseScope scope)
             {
                 item.judgmentKind = static_cast<RtPbrSurvey::EvaluationJudgmentKind>(judgmentKind);
             }
-            ImGui::SameLine();
-            if (item.judgmentKind == RtPbrSurvey::EvaluationJudgmentKind::Score1To5)
+            if (!state.runs.empty())
             {
-                ImGui::SetNextItemWidth(150.0f);
-                ImGui::SliderInt("Result", &item.score, 1, 5);
+                RtPbrSurvey::EvaluationTestResult& result = FindOrAddResult(state.runs.back(), item.id);
+                ImGui::SameLine();
+                if (item.judgmentKind == RtPbrSurvey::EvaluationJudgmentKind::Score1To5)
+                {
+                    ImGui::SetNextItemWidth(150.0f);
+                    ImGui::SliderInt("Result", &result.score, 1, 5);
+                }
+                else
+                {
+                    ImGui::Checkbox("Result", &result.booleanValue);
+                    ImGui::SameLine();
+                    ImGui::TextUnformatted(result.booleanValue ? "true" : "false");
+                }
             }
             else
             {
-                ImGui::Checkbox("Result", &item.booleanValue);
                 ImGui::SameLine();
-                ImGui::TextUnformatted(item.booleanValue ? "true" : "false");
+                ImGui::TextDisabled("No run");
             }
             ImGui::SameLine();
             if (ImGui::SmallButton("Remove"))
@@ -402,7 +456,17 @@ void DrawEvaluationCasesWindow(RtPbrSurveyApp& app, EvaluationCaseScope scope)
         }
         if (removeItemIndex.has_value())
         {
+            const uint64_t removedItemId = state.testItems[*removeItemIndex].id;
             state.testItems.erase(state.testItems.begin() + static_cast<ptrdiff_t>(*removeItemIndex));
+            for (RtPbrSurvey::EvaluationRun& run : state.runs)
+            {
+                run.results.erase(
+                    std::remove_if(run.results.begin(),
+                                   run.results.end(),
+                                   [removedItemId](const RtPbrSurvey::EvaluationTestResult& result)
+                                   { return result.testItemId == removedItemId; }),
+                    run.results.end());
+            }
         }
     }
 

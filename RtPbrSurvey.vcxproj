@@ -218,14 +218,21 @@
     <ClInclude Include="Scene\CameraProjection.h" />
     <ClInclude Include="Scene\CameraView.h" />
     <ClInclude Include="Scene\SceneDocument.h" />
+    <ClInclude Include="Scene\SceneDocumentJson.h" />
+    <ClInclude Include="Scene\SceneDocumentBuilder.h" />
+    <ClInclude Include="Scene\SceneDocumentRuntimeScene.h" />
+    <ClInclude Include="Scene\SceneGraph.h" />
     <ClInclude Include="Scene\SampleScene.h" />
     <ClInclude Include="Ui\DebugUiPreferences.h" />
     <ClInclude Include="Ui\ImGuiSystem.h" />
     <ClInclude Include="App\DebugUi.h" />
     <ClInclude Include="App\EvaluationCaseUi.h" />
-    <ClInclude Include="App\SceneSelectUi.h" />
+      <ClInclude Include="App\SceneSelectUi.h" />
+      <ClInclude Include="App\SceneEditorUi.h" />
+      <ClInclude Include="App\SceneEditorSession.h" />
     <ClInclude Include="App\RtPbrSurveyApp.h" />
     <ClInclude Include="App\SceneConfig.h" />
+    <ClInclude Include="App\RenderPresetStore.h" />
     <ClInclude Include="TextureSemantic.h" />
     <ClInclude Include="Platform\Win32Application.h" />
     <ClInclude Include="Engine\RtPbrSurveyEngine.h" />
@@ -305,6 +312,10 @@
     <ClCompile Include="Runtime\SceneRendererDebugUi.cpp" />
     <ClCompile Include="Runtime\RenderGraphNodeEditorView.cpp" />
     <ClCompile Include="Runtime\SceneRendererSettings.cpp" />
+    <ClCompile Include="Scene\SceneDocumentJson.cpp" />
+    <ClCompile Include="Scene\SceneDocumentBuilder.cpp" />
+    <ClCompile Include="Scene\SceneDocumentRuntimeScene.cpp" />
+    <ClCompile Include="Scene\SceneGraph.cpp" />
     <ClCompile Include="Scene\ProceduralSceneBuilder.cpp" />
     <ClCompile Include="Scene\SceneBuilder.cpp" />
     <ClCompile Include="Scene\SceneFactory.cpp" />
@@ -317,9 +328,12 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="App\DebugUi.cpp" />
     <ClCompile Include="App\EvaluationCaseUi.cpp" />
-    <ClCompile Include="App\SceneSelectUi.cpp" />
+      <ClCompile Include="App\SceneSelectUi.cpp" />
+      <ClCompile Include="App\SceneEditorUi.cpp" />
+      <ClCompile Include="App\SceneEditorSession.cpp" />
     <ClCompile Include="App\RtPbrSurveyApp.cpp" />
     <ClCompile Include="App\SceneConfig.cpp" />
+    <ClCompile Include="App\RenderPresetStore.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>

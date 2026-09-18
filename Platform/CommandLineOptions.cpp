@@ -250,6 +250,22 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             }
             options.evaluationCaseName = argv[++i];
         }
+        else if (IsCommandLineArg(argv[i], L"-SceneFile"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-SceneFile expects a scene.json path.");
+            }
+            options.sceneFilePath = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-RenderPreset"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-RenderPreset expects a preset JSON path.");
+            }
+            options.renderPresetPath = argv[++i];
+        }
         else if (IsCommandLineArg(argv[i], L"-UseSceneDefaults"))
         {
             options.useSceneDefaults = true;

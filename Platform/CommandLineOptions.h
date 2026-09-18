@@ -67,6 +67,8 @@ struct CommandLineOptions
     std::wstring autoSelectGltfAssetName;
     bool autoSelectHybridReflectionEstimatorTest = false;
     std::wstring evaluationCaseName;
+    std::filesystem::path sceneFilePath;
+    std::filesystem::path renderPresetPath;
     bool useSceneDefaults = false;
     bool enablePathTracing = false;
     UINT pathTracingSampleTarget = 0;

@@ -69,10 +69,19 @@
     <ClInclude Include="App\EvaluationCaseUi.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>
-    <ClInclude Include="App\SceneSelectUi.h">
+      <ClInclude Include="App\SceneSelectUi.h">
+        <Filter>Source Files\App</Filter>
+      </ClInclude>
+      <ClInclude Include="App\SceneEditorSession.h">
+        <Filter>Source Files\App</Filter>
+      </ClInclude>
+    <ClInclude Include="App\RtPbrSurveyApp.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>
-    <ClInclude Include="App\RtPbrSurveyApp.h">
+    <ClInclude Include="App\SceneEditorUi.h">
+      <Filter>Source Files\App</Filter>
+    </ClInclude>
+    <ClInclude Include="App\RenderPresetStore.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>
     <ClInclude Include="TextureSemantic.h">
@@ -273,6 +282,18 @@
     <ClInclude Include="Scene\SceneDocument.h">
       <Filter>Source Files\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\SceneDocumentJson.h">
+      <Filter>Source Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneDocumentBuilder.h">
+      <Filter>Source Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneDocumentRuntimeScene.h">
+      <Filter>Source Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneGraph.h">
+      <Filter>Source Files\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\SampleScene.h">
       <Filter>Source Files\Scene</Filter>
     </ClInclude>
@@ -344,10 +365,19 @@
     <ClCompile Include="App\EvaluationCaseUi.cpp">
       <Filter>Source Files\App</Filter>
     </ClCompile>
-    <ClCompile Include="App\SceneSelectUi.cpp">
+      <ClCompile Include="App\SceneSelectUi.cpp">
+        <Filter>Source Files\App</Filter>
+      </ClCompile>
+      <ClCompile Include="App\SceneEditorSession.cpp">
+        <Filter>Source Files\App</Filter>
+      </ClCompile>
+    <ClCompile Include="App\RtPbrSurveyApp.cpp">
       <Filter>Source Files\App</Filter>
     </ClCompile>
-    <ClCompile Include="App\RtPbrSurveyApp.cpp">
+    <ClCompile Include="App\SceneEditorUi.cpp">
+      <Filter>Source Files\App</Filter>
+    </ClCompile>
+    <ClCompile Include="App\RenderPresetStore.cpp">
       <Filter>Source Files\App</Filter>
     </ClCompile>
     <ClCompile Include="Engine\RtPbrSurveyEngine.cpp">
@@ -505,6 +535,18 @@
     </ClCompile>
     <ClCompile Include="Runtime\EvaluationState.cpp">
       <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneDocumentJson.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneDocumentBuilder.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneDocumentRuntimeScene.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneGraph.cpp">
+      <Filter>Source Files\Scene</Filter>
     </ClCompile>
     <ClCompile Include="Runtime\DebugBufferInspector.cpp">
       <Filter>Source Files\Runtime</Filter>
