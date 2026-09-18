@@ -683,6 +683,8 @@ private:
         PathTracingGuideViewZ,
         PathTracingGuideMotionVectors,
         PathTracingGuideAlbedo,
+        PathTracingGuideDiffuseRadianceHitT,
+        PathTracingGuideSpecularRadianceHitT,
         PathTracingGuideTextureCount,
     };
     static constexpr UINT kPathTracingDescriptorCount =
@@ -1272,6 +1274,8 @@ private:
         "PathTracing.ViewZ",
         "PathTracing.MotionVectors",
         "PathTracing.Albedo",
+        "PathTracing.DiffuseRadianceHitT",
+        "PathTracing.SpecularRadianceHitT",
     };
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
         "DebugTexturePreview.Output.0",

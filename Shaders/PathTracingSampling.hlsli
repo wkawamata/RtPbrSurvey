@@ -9,6 +9,7 @@ struct PathTracingBsdfSample
     float3 weight;
     float pdf;
     uint valid;
+    uint sampledSpecular;
 };
 
 float PathTracingLuminance(float3 color)
@@ -52,18 +53,22 @@ float3 PathTracingDirectionToWorld(float3 localDirection, float3 normal)
     return normalize(tangent * localDirection.x + bitangent * localDirection.y + normal * localDirection.z);
 }
 
-float3 EvaluatePathTracingBrdf(float3 albedo,
-                               float metallic,
-                               float roughness,
-                               float3 normal,
-                               float3 viewDirection,
-                               float3 lightDirection)
+void EvaluatePathTracingBrdfComponents(float3 albedo,
+                                       float metallic,
+                                       float roughness,
+                                       float3 normal,
+                                       float3 viewDirection,
+                                       float3 lightDirection,
+                                       out float3 diffuse,
+                                       out float3 specular)
 {
     const float normalDotView = saturate(dot(normal, viewDirection));
     const float normalDotLight = saturate(dot(normal, lightDirection));
     if (normalDotView <= 0.0 || normalDotLight <= 0.0)
     {
-        return float3(0.0, 0.0, 0.0);
+        diffuse = float3(0.0, 0.0, 0.0);
+        specular = float3(0.0, 0.0, 0.0);
+        return;
     }
 
     const float3 halfVector = normalize(viewDirection + lightDirection);
@@ -75,9 +80,22 @@ float3 EvaluatePathTracingBrdf(float3 albedo,
         PathTracingSmithG1(normalDotLight, alpha);
     const float3 f0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
     const float3 fresnel = PathTracingFresnelSchlick(viewDotHalf, f0);
-    const float3 specular = distribution * geometry * fresnel /
+    specular = distribution * geometry * fresnel /
         max(4.0 * normalDotView * normalDotLight, 0.000001);
-    const float3 diffuse = (1.0 - fresnel) * (1.0 - metallic) * albedo / kPathTracingPi;
+    diffuse = (1.0 - fresnel) * (1.0 - metallic) * albedo / kPathTracingPi;
+}
+
+float3 EvaluatePathTracingBrdf(float3 albedo,
+                               float metallic,
+                               float roughness,
+                               float3 normal,
+                               float3 viewDirection,
+                               float3 lightDirection)
+{
+    float3 diffuse;
+    float3 specular;
+    EvaluatePathTracingBrdfComponents(
+        albedo, metallic, roughness, normal, viewDirection, lightDirection, diffuse, specular);
     return diffuse + specular;
 }
 
@@ -147,6 +165,7 @@ PathTracingBsdfSample SamplePathTracingBsdf(float3 albedo,
         PathTracingSpecularProbability(albedo, metallic, normal, viewDirection);
     if (lobeSample < specularProbability)
     {
+        result.sampledSpecular = 1u;
         const float3 halfVector = SamplePathTracingGgxHalfVector(directionSample, roughness, normal);
         if (dot(viewDirection, halfVector) <= 0.0)
         {

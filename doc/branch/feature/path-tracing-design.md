@@ -527,6 +527,21 @@ guideはframe内の最初のprimary sampleから生成する。Radiance accumula
 完了条件: 4 resourceがRenderGraphとDebug Texture Previewに現れ、既存Radianceの固定seed capture hashを維持し、
 各resourceをpreview sourceにしたDebug Layer実行でerrorがない。
 
+### Commit 9: backend-neutral noisy signal separation
+
+- `PathTracing.DiffuseRadianceHitT`: current-frame diffuse-attributed radiance RGB、primary ray hit distance A
+- `PathTracing.SpecularRadianceHitT`: current-frame specular-attributed radiance RGB、primary ray hit distance A
+- primary direct lightはdiffuse/specular BRDF componentを個別に記録する
+- indirect contributionはprimary surfaceで最初にsampleしたBSDF lobeへ分類する
+- 2 resourceをPathTracingPassのUAV、RenderGraph texture node、Debug Texture Preview sourceとして公開する
+
+signalはprogressive accumulationせず、frame内sampleの平均を保持する。Primary missは両signalを0とし、surface hit時だけ
+raw primary `RayQuery::CommittedRayT()`をAへ格納する。このAはbackend-neutralな診断値であり、NRDのnormalized hit distanceや
+DLSS RR固有packingではない。各backendへ接続する際に、公式packing helperと要求単位へ変換する。
+
+完了条件: 2 resourceを個別にpreviewでき、DiffuseとSpecularが異なる内容を示し、既存Radianceの固定seed capture hashを
+維持し、Debug Layer errorがない。Commit 9ではtemporal reprojection、denoiser、NRD、DLSS RRへ接続しない。
+
 ## 12. Test matrix
 
 | Area | Test |

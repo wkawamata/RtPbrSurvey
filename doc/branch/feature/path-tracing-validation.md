@@ -41,6 +41,8 @@ Guide bufferを確認する場合は`-DebugPreviewResource`に次のresource名�
 | `PathTracing.ViewZ` | `R32_FLOAT` | positive linear view-Z、miss 0 |
 | `PathTracing.MotionVectors` | `R16G16_FLOAT` | previous NDC - current NDC |
 | `PathTracing.Albedo` | `R16G16B16A16_FLOAT` | linear albedo RGB、hit mask A |
+| `PathTracing.DiffuseRadianceHitT` | `R16G16B16A16_FLOAT` | current-frame diffuse-attributed radiance RGB、raw primary hit distance A |
+| `PathTracing.SpecularRadianceHitT` | `R16G16B16A16_FLOAT` | current-frame specular-attributed radiance RGB、raw primary hit distance A |
 
 Environment比較では、Primary missの可視背景とSecondary missのIBLを別々に確認する。
 `Show Skybox`を無効にした場合、Primary missはclear colorへ切り替わるが、Path Tracingの`Environment`が有効なら
@@ -55,8 +57,9 @@ Secondary missのIBL寄与は残る。`Show Skybox`を有効にした場合、Pr
   -DebugPreviewResource PathTracing.NormalRoughness
 ```
 
-複数sample/frameでもguideはframe内の最初のprimary sampleを表す。guideは現在のframe signalであり、
-progressive accumulationしない。
+複数sample/frameでもprimary-surface guideはframe内の最初のprimary sampleを表す。Diffuse/Specular signalはframe内sampleを
+平均する。いずれも現在frameの値でありprogressive accumulationしない。RadianceHitTのAはbackend-neutralなraw hit distanceで、
+NRD/DLSS RR向けpacking済みデータではない。
 
 ## 4. Diagnostics contract
 
@@ -81,8 +84,9 @@ progressive accumulationしない。
 - D3D12 `ERROR`と`CORRUPTION`が0件である。
 - Evaluation Case指定時はROI、comment、boolまたは1-5のtest itemがreportへ残る。
 - metallic/roughness response、normal map、shadow、emissive/environmentを目視確認する。
-- 4 guide resourceを個別にDebug Texture Previewで開ける。
+- 4 primary-surface guideと2 noisy radiance signalを個別にDebug Texture Previewで開ける。
 - 静止sceneのMotionVectorsは0付近、camera/instance移動では既存GBufferと同じ向きに変化する。
+- surface hit領域でDiffuse/Specular signalが同一画像ではなく、primary miss領域では両方0になる。
 
 buffer initial stateがCOMMONへ扱われる既知のwarning 2件/captureはerror判定に含めない。
 

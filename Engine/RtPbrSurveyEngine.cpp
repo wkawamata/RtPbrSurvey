@@ -809,6 +809,12 @@ void RtPbrSurveyEngine::RegisterDebugResourceViews()
     registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideAlbedo],
                     Engine::DebugTexturePreviewSemantic::Color,
                     DXGI_FORMAT_R16G16B16A16_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideDiffuseRadianceHitT],
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    DXGI_FORMAT_R16G16B16A16_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideSpecularRadianceHitT],
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    DXGI_FORMAT_R16G16B16A16_FLOAT);
     registerTexture(kReflectionEvaluatedRadianceResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionSpecularAlbedoResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionRoughnessResourceName, Engine::DebugTexturePreviewSemantic::Scalar);
@@ -2434,6 +2440,10 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     motionVectorsUavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 4, 0);
     CD3DX12_DESCRIPTOR_RANGE1 albedoUavRange = {};
     albedoUavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 5, 0);
+    CD3DX12_DESCRIPTOR_RANGE1 diffuseRadianceHitTUavRange = {};
+    diffuseRadianceHitTUavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 6, 0);
+    CD3DX12_DESCRIPTOR_RANGE1 specularRadianceHitTUavRange = {};
+    specularRadianceHitTUavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 7, 0);
     CD3DX12_DESCRIPTOR_RANGE1 tlasSrvRange = {};
     tlasSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
     CD3DX12_DESCRIPTOR_RANGE1 cameraCbvRange = {};
@@ -2450,23 +2460,25 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     CD3DX12_DESCRIPTOR_RANGE1 environmentSrvRange = {};
     environmentSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 6, 0);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[16] = {};
+    CD3DX12_ROOT_PARAMETER1 rootParameters[18] = {};
     rootParameters[0].InitAsDescriptorTable(1, &sceneColorUavRange);
     rootParameters[1].InitAsDescriptorTable(1, &accumulationUavRange);
     rootParameters[2].InitAsDescriptorTable(1, &normalRoughnessUavRange);
     rootParameters[3].InitAsDescriptorTable(1, &viewZUavRange);
     rootParameters[4].InitAsDescriptorTable(1, &motionVectorsUavRange);
     rootParameters[5].InitAsDescriptorTable(1, &albedoUavRange);
-    rootParameters[6].InitAsDescriptorTable(1, &tlasSrvRange);
-    rootParameters[7].InitAsDescriptorTable(1, &cameraCbvRange);
-    rootParameters[8].InitAsShaderResourceView(1, 0);
-    rootParameters[9].InitAsShaderResourceView(2, 0);
-    rootParameters[10].InitAsShaderResourceView(3, 0);
-    rootParameters[11].InitAsDescriptorTable(1, &materialSrvRange);
-    rootParameters[12].InitAsDescriptorTable(1, &textureSrvRange);
-    rootParameters[13].InitAsShaderResourceView(5, 0);
-    rootParameters[14].InitAsDescriptorTable(1, &environmentSrvRange);
-    rootParameters[15].InitAsConstants(32, 1, 0);
+    rootParameters[6].InitAsDescriptorTable(1, &diffuseRadianceHitTUavRange);
+    rootParameters[7].InitAsDescriptorTable(1, &specularRadianceHitTUavRange);
+    rootParameters[8].InitAsDescriptorTable(1, &tlasSrvRange);
+    rootParameters[9].InitAsDescriptorTable(1, &cameraCbvRange);
+    rootParameters[10].InitAsShaderResourceView(1, 0);
+    rootParameters[11].InitAsShaderResourceView(2, 0);
+    rootParameters[12].InitAsShaderResourceView(3, 0);
+    rootParameters[13].InitAsDescriptorTable(1, &materialSrvRange);
+    rootParameters[14].InitAsDescriptorTable(1, &textureSrvRange);
+    rootParameters[15].InitAsShaderResourceView(5, 0);
+    rootParameters[16].InitAsDescriptorTable(1, &environmentSrvRange);
+    rootParameters[17].InitAsConstants(32, 1, 0);
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -3811,6 +3823,8 @@ void RtPbrSurveyEngine::RegisterPathTracingResources()
         DXGI_FORMAT_R16G16B16A16_FLOAT,
         DXGI_FORMAT_R32_FLOAT,
         DXGI_FORMAT_R16G16_FLOAT,
+        DXGI_FORMAT_R16G16B16A16_FLOAT,
+        DXGI_FORMAT_R16G16B16A16_FLOAT,
         DXGI_FORMAT_R16G16B16A16_FLOAT,
     };
     for (UINT i = 0; i < PathTracingGuideTextureCount; ++i)
@@ -5628,6 +5642,8 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
         L"Path Tracing View Z Clear",
         L"Path Tracing Motion Vectors Clear",
         L"Path Tracing Albedo Clear",
+        L"Path Tracing Diffuse Radiance HitT Clear",
+        L"Path Tracing Specular Radiance HitT Clear",
     };
     for (UINT i = 0; i < PathTracingGuideTextureCount; ++i)
     {
@@ -5668,6 +5684,10 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.viewZUav = m_pathTracingGuideTextureUavs[PathTracingGuideViewZ].gpu;
     passDesc.motionVectorsUav = m_pathTracingGuideTextureUavs[PathTracingGuideMotionVectors].gpu;
     passDesc.albedoUav = m_pathTracingGuideTextureUavs[PathTracingGuideAlbedo].gpu;
+    passDesc.diffuseRadianceHitTUav =
+        m_pathTracingGuideTextureUavs[PathTracingGuideDiffuseRadianceHitT].gpu;
+    passDesc.specularRadianceHitTUav =
+        m_pathTracingGuideTextureUavs[PathTracingGuideSpecularRadianceHitT].gpu;
     passDesc.environmentMapSrv = m_environmentMap.Srv().gpu;
     passDesc.scene = MakeRayQuerySceneBindings();
     passDesc.rayTMin = m_shadowSettings.rayTMin;

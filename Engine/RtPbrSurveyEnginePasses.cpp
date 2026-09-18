@@ -277,6 +277,10 @@ auto RtPbrSurveyEngine::MakePathTracingHistoryClearPass() -> RenderPass
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideMotionVectors],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideAlbedo],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideDiffuseRadianceHitT],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideSpecularRadianceHitT],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PathTracingHistoryClear, &RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass)
         .Build();
@@ -310,6 +314,10 @@ auto RtPbrSurveyEngine::MakePathTracingPass() -> RenderPass
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideMotionVectors],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideAlbedo],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideDiffuseRadianceHitT],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideSpecularRadianceHitT],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PathTracing, &RtPbrSurveyEngine::ExecutePathTracingPass)
         .Build();
