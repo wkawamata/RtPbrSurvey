@@ -15,14 +15,12 @@ endforeach()
 list(REMOVE_DUPLICATES runtime_shader_names)
 
 file(READ "${RTPBRSURVEY_ROOT}/CMakeLists.txt" cmake_source)
-string(REGEX MATCHALL
-    "rtpbrsurvey_add_shader\\(RTPBRSURVEY_SHADER_OUTPUTS[ \t]+Shaders/[^ \t\r\n]+[ \t]+[^ \t\r\n]+[ \t]+[^ \t\r\n\\)]+\\)"
-    shader_rules "${cmake_source}")
+string(REGEX MATCHALL "rtpbrsurvey_add_shader\\([^\\)]*\\)" shader_rules "${cmake_source}")
 
 set(generated_shader_names)
 foreach(shader_rule IN LISTS shader_rules)
     string(REGEX REPLACE
-        ".*Shaders/([^/ \t\r\n]+)\\.hlsl[ \t]+[^ \t\r\n]+[ \t]+([^ \t\r\n\\)]+)\\).*"
+        "rtpbrsurvey_add_shader\\([ \t\r\n]*RTPBRSURVEY_SHADER_OUTPUTS[ \t\r\n]+Shaders/([^/ \t\r\n]+)\\.hlsl[ \t\r\n]+[^ \t\r\n]+[ \t\r\n]+([^ \t\r\n\\)]+)[^\\)]*\\)"
         "\\1_\\2.cso" shader_name "${shader_rule}")
     list(APPEND generated_shader_names "${shader_name}")
 endforeach()

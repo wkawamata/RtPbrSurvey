@@ -551,10 +551,94 @@ namespace
         pathChanged |= ImGui::RadioButton("Forward", &renderingPathValue, static_cast<int>(RtPbrSurveyEngine::RenderingPath::Forward));
         ImGui::SameLine();
         pathChanged |= ImGui::RadioButton("Deferred", &renderingPathValue, static_cast<int>(RtPbrSurveyEngine::RenderingPath::Deferred));
+        ImGui::SameLine();
+        pathChanged |= ImGui::RadioButton(
+            "Path Tracing", &renderingPathValue, static_cast<int>(RtPbrSurveyEngine::RenderingPath::PathTracing));
         if (pathChanged)
         {
             renderingPath = static_cast<RtPbrSurveyEngine::RenderingPath>(renderingPathValue);
             renderer.SetRenderingPath(renderingPath);
+        }
+
+        if (renderingPath == RtPbrSurveyEngine::RenderingPath::PathTracing)
+        {
+            ImGui::Text("Path Tracing Support: %s", context.pathTracingSupported ? "Available" : "Unavailable");
+            ImGui::Text("Runtime Status: %s", context.pathTracingStatusText);
+            ImGui::Text("Render Resolution: %u x %u", context.renderWidth, context.renderHeight);
+            ImGui::Text("Accumulated Samples: %llu",
+                        static_cast<unsigned long long>(context.pathTracingRuntimeState.accumulatedSampleCount));
+            ImGui::Text("Next Sample Index: %u", context.pathTracingRuntimeState.frameSampleIndex);
+            ImGui::Text("Last Reset: %s", context.pathTracingRuntimeState.ResetReasonText());
+            if (context.pathTracingDiagnostics.gpuTimingAvailable)
+            {
+                ImGui::Text("Path Tracing GPU: %.3f ms", context.pathTracingDiagnostics.gpuTimeMs);
+                ImGui::Text("Primary Samples / Second: %.3f M",
+                            context.pathTracingDiagnostics.primarySamplesPerSecond / 1000000.0);
+            }
+            else
+            {
+                ImGui::TextDisabled("Path Tracing GPU: N/A");
+            }
+            ImGui::Text("Primary Samples / Frame: %llu",
+                        static_cast<unsigned long long>(context.pathTracingDiagnostics.primarySamplesPerFrame));
+            ImGui::Text("Max Path Segments / Frame: %llu",
+                        static_cast<unsigned long long>(context.pathTracingDiagnostics.maxPathSegmentsPerFrame));
+            ImGui::Text("Max Ray Queries / Frame: %llu",
+                        static_cast<unsigned long long>(context.pathTracingDiagnostics.maxRayQueriesPerFrame));
+            ImGui::TextDisabled("Progressive metallic-roughness path tracing is active.");
+            ImGui::TextDisabled("DLSS SR and RR settings are retained but inactive in this mode.");
+
+            bool accumulationPaused = context.pathTracingRuntimeState.accumulationPaused;
+            if (ImGui::Checkbox("Pause Accumulation", &accumulationPaused))
+            {
+                renderer.SetPathTracingAccumulationPaused(accumulationPaused);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Reset Accumulation"))
+            {
+                renderer.ResetPathTracingAccumulation();
+            }
+
+            RtPbrSurveyEngine::PathTracingSettings pathTracingSettings = renderer.GetPathTracingSettings();
+            bool settingsChanged = false;
+            static constexpr const char* kPathTracingDebugOutputs[] = {
+                "Albedo + Emissive", "World Normal", "Emissive", "Radiance"};
+            int debugOutput = static_cast<int>(pathTracingSettings.debugOutput);
+            if (ImGui::Combo("Primary Hit Output",
+                             &debugOutput,
+                             kPathTracingDebugOutputs,
+                             _countof(kPathTracingDebugOutputs)))
+            {
+                pathTracingSettings.debugOutput =
+                    static_cast<RtPbrSurveyEngine::PathTracingDebugOutput>(debugOutput);
+                settingsChanged = true;
+            }
+            settingsChanged |= ImGui::Checkbox("Accumulate", &pathTracingSettings.accumulate);
+            int samplesPerFrame = static_cast<int>(pathTracingSettings.samplesPerFrame);
+            if (ImGui::SliderInt("Samples / Frame", &samplesPerFrame, 1, 16))
+            {
+                pathTracingSettings.samplesPerFrame = static_cast<UINT>(samplesPerFrame);
+                settingsChanged = true;
+            }
+            int maxBounces = static_cast<int>(pathTracingSettings.maxBounces);
+            if (ImGui::SliderInt("Max Bounces", &maxBounces, 1, 16))
+            {
+                pathTracingSettings.maxBounces = static_cast<UINT>(maxBounces);
+                settingsChanged = true;
+            }
+            settingsChanged |= ImGui::InputScalar(
+                "Random Seed", ImGuiDataType_U32, &pathTracingSettings.randomSeed);
+            settingsChanged |= ImGui::Checkbox("Direct Lighting", &pathTracingSettings.directLightingEnabled);
+            ImGui::SameLine();
+            settingsChanged |= ImGui::Checkbox("Environment", &pathTracingSettings.environmentEnabled);
+            ImGui::SameLine();
+            settingsChanged |= ImGui::Checkbox("Emissive", &pathTracingSettings.emissiveEnabled);
+            settingsChanged |=
+                ImGui::Checkbox("Russian Roulette (bounce 3+)", &pathTracingSettings.russianRouletteEnabled);
+            if (settingsChanged)
+            {
+                renderer.SetPathTracingSettings(pathTracingSettings);
+            }
         }
 
         const bool deferredRendering = renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred;

@@ -77,6 +77,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/HybridReflectionPass.cpp
     Renderer/LightingPass.cpp
     Renderer/MaterialBuffer.cpp
+    Renderer/PathTracingPass.cpp
     Renderer/PipelineFactory.cpp
     Renderer/RayQueryShadowPass.cpp
     Renderer/RayQueryTlasDebugPass.cpp
@@ -211,7 +212,7 @@ function(rtpbrsurvey_add_shader output_var shader_file stage entry_point)
         COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe"
             -nologo "-T${stage}" "-E${entry_point}" -Zi -Qembed_debug
             "-Fo${output_file}" "${RTPBRSURVEY_ROOT}/${shader_file}"
-        DEPENDS "${RTPBRSURVEY_ROOT}/${shader_file}"
+        DEPENDS "${RTPBRSURVEY_ROOT}/${shader_file}" ${ARGN}
         WORKING_DIRECTORY "${RTPBRSURVEY_ROOT}"
         VERBATIM)
     set(${output_var} "${${output_var}};${output_file}" PARENT_SCOPE)
@@ -256,7 +257,20 @@ if(RTPBRSURVEY_BUILD_SHADERS)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugBufferPreview.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ProceduralEnvMap.hlsl cs_6_0 CSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayQueryShadow.hlsl cs_6_5 CSMain)
-    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_HybridReflection.hlsl cs_6_5 CSMain)
+    rtpbrsurvey_add_shader(
+        RTPBRSURVEY_SHADER_OUTPUTS
+        Shaders/shaders_HybridReflection.hlsl
+        cs_6_5
+        CSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli")
+    rtpbrsurvey_add_shader(
+        RTPBRSURVEY_SHADER_OUTPUTS
+        Shaders/shaders_PathTracing.hlsl
+        cs_6_5
+        CSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/PathTracingSampling.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli")
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayQueryTlasDebug.hlsl cs_6_5 CSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_SpecularDebugRayQuery.hlsl cs_6_5 CSMain)
 

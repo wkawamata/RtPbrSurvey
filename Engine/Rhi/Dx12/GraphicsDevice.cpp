@@ -90,6 +90,11 @@ ID3D12Device* GraphicsDevice::Device() const
     return m_device.Get();
 }
 
+const DXGI_ADAPTER_DESC1& GraphicsDevice::AdapterDescription() const
+{
+    return m_adapterDescription;
+}
+
 IDXGIFactory4* GraphicsDevice::DxgiFactory() const
 {
     return m_dxgiFactory.Get();
@@ -150,18 +155,17 @@ void GraphicsDevice::Initialize(const GraphicsDeviceDesc& desc)
 
     ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&m_dxgiFactory)));
 
+    ComPtr<IDXGIAdapter1> selectedAdapter;
     if (desc.useWarpDevice)
     {
-        ComPtr<IDXGIAdapter> warpAdapter;
-        ThrowIfFailed(m_dxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter)));
-        ThrowIfFailed(D3D12CreateDevice(warpAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device)));
+        ThrowIfFailed(m_dxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&selectedAdapter)));
     }
     else
     {
-        ComPtr<IDXGIAdapter1> hardwareAdapter;
-        GetHardwareAdapter(m_dxgiFactory.Get(), &hardwareAdapter);
-        ThrowIfFailed(D3D12CreateDevice(hardwareAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device)));
+        GetHardwareAdapter(m_dxgiFactory.Get(), &selectedAdapter);
     }
+    ThrowIfFailed(selectedAdapter->GetDesc1(&m_adapterDescription));
+    ThrowIfFailed(D3D12CreateDevice(selectedAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device)));
 
     if (desc.deviceCreatedHandler)
     {

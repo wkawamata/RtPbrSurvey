@@ -37,6 +37,7 @@ struct GraphicsDevice
     UINT Width() const;
     UINT Height() const;
     ID3D12Device* Device() const;
+    const DXGI_ADAPTER_DESC1& AdapterDescription() const;
     IDXGIFactory4* DxgiFactory() const;
     IDXGISwapChain3* SwapChain() const;
     ID3D12CommandQueue* CommandQueue() const;
@@ -62,6 +63,7 @@ private:
     UINT m_height = 0;
     ComPtr<IDXGISwapChain3> m_swapChain;
     ComPtr<ID3D12Device> m_device;
+    DXGI_ADAPTER_DESC1 m_adapterDescription = {};
     ComPtr<IDXGIFactory4> m_dxgiFactory;
     ComPtr<ID3D12CommandQueue> m_commandQueue;
     ComPtr<ID3D12Fence> m_fence;

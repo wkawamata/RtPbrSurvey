@@ -55,6 +55,11 @@ struct DebugTextureInspector
     bool focusRequested = true;
 };
 
+constexpr float kDefaultMotionVectorPreviewScale = 32.0f;
+
+void SetMotionVectorPreviewScale(DebugTextureInspector& inspector, float scale);
+void SetDebugTexturePreviewSemantic(DebugTextureInspector& inspector, DebugTextureSemantic semantic);
+
 class DebugTextureInspectorManager
 {
 public:

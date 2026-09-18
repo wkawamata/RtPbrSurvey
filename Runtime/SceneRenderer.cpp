@@ -147,6 +147,7 @@ namespace RtPbrSurvey
         settings.temporalUpscaler = m_engine.GetTemporalUpscalerSettings();
         settings.rayReconstruction = m_engine.GetRayReconstructionSettings();
         settings.hybridReflection = m_engine.GetHybridReflectionSettings();
+        settings.pathTracing = m_engine.GetPathTracingSettings();
         settings.toneMap = m_engine.GetToneMapParams();
         settings.specularDebugLines = m_engine.GetSpecularDebugLineSettings();
         settings.renderingPath = m_engine.GetRenderingPath();
@@ -163,6 +164,7 @@ namespace RtPbrSurvey
         m_engine.SetTemporalUpscalerSettings(settings.temporalUpscaler);
         m_engine.SetRayReconstructionSettings(settings.rayReconstruction);
         m_engine.SetHybridReflectionSettings(settings.hybridReflection);
+        m_engine.SetPathTracingSettings(settings.pathTracing);
         m_engine.SetToneMapParams(settings.toneMap);
         m_engine.SetSpecularDebugLineSettings(settings.specularDebugLines);
         m_engine.SetRenderingPath(settings.renderingPath);
@@ -219,6 +221,31 @@ namespace RtPbrSurvey
     const RtPbrSurveyEngine::HybridReflectionSettings& SceneRenderer::GetHybridReflectionSettings() const
     {
         return m_engine.GetHybridReflectionSettings();
+    }
+
+    void SceneRenderer::SetPathTracingSettings(const RtPbrSurveyEngine::PathTracingSettings& settings)
+    {
+        m_engine.SetPathTracingSettings(settings);
+    }
+
+    const RtPbrSurveyEngine::PathTracingSettings& SceneRenderer::GetPathTracingSettings() const
+    {
+        return m_engine.GetPathTracingSettings();
+    }
+
+    const RtPbrSurveyEngine::PathTracingRuntimeState& SceneRenderer::GetPathTracingRuntimeState() const
+    {
+        return m_engine.GetPathTracingRuntimeState();
+    }
+
+    void SceneRenderer::ResetPathTracingAccumulation()
+    {
+        m_engine.ResetPathTracingAccumulation();
+    }
+
+    void SceneRenderer::SetPathTracingAccumulationPaused(bool paused)
+    {
+        m_engine.SetPathTracingAccumulationPaused(paused);
     }
 
     void SceneRenderer::ResetHybridReflectionHistoryForDiagnostics()

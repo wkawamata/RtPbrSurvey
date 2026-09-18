@@ -31,6 +31,7 @@
 #include "Renderer/EdgeAwareSpatialReflectionPass.h"
 #include "Renderer/Material.h"
 #include "Renderer/MaterialBuffer.h"
+#include "Renderer/PathTracingPass.h"
 #include "Renderer/StagedDescriptorAllocator.h"
 #include "Renderer/PipelineFactory.h"
 #include "Renderer/AccelerationStructureResources.h"
@@ -157,6 +158,7 @@ public:
     {
         Forward = 0,
         Deferred,
+        PathTracing,
     };
 
     struct LightingParams
@@ -261,6 +263,61 @@ public:
         bool confidenceForceStableEvidence = false;
     };
 
+    enum class PathTracingDebugOutput
+    {
+        Albedo = 0,
+        WorldNormal,
+        Emissive,
+        Radiance,
+    };
+
+    struct PathTracingSettings
+    {
+        bool accumulate = true;
+        UINT samplesPerFrame = 1;
+        UINT maxBounces = 2;
+        UINT randomSeed = 1;
+        bool directLightingEnabled = true;
+        bool environmentEnabled = true;
+        bool emissiveEnabled = true;
+        bool russianRouletteEnabled = false;
+        PathTracingDebugOutput debugOutput = PathTracingDebugOutput::Radiance;
+    };
+
+    enum class PathTracingResetReason
+    {
+        Initial = 0,
+        Manual,
+        Camera,
+        Scene,
+        Material,
+        Lighting,
+        RenderSize,
+        Settings,
+        RenderingPath,
+    };
+
+    struct PathTracingRuntimeState
+    {
+        uint64_t accumulatedSampleCount = 0;
+        UINT frameSampleIndex = 0;
+        bool historyValid = false;
+        bool accumulationPaused = false;
+        PathTracingResetReason lastResetReason = PathTracingResetReason::Initial;
+
+        const char* ResetReasonText() const;
+    };
+
+    struct PathTracingDiagnostics
+    {
+        bool gpuTimingAvailable = false;
+        float gpuTimeMs = 0.0f;
+        uint64_t primarySamplesPerFrame = 0;
+        uint64_t maxPathSegmentsPerFrame = 0;
+        uint64_t maxRayQueriesPerFrame = 0;
+        double primarySamplesPerSecond = 0.0;
+    };
+
     struct SpecularDebugLineSettings
     {
         bool enabled = true;
@@ -281,6 +338,11 @@ public:
         bool rayTracingSupported;
         const wchar_t* rayTracingTierName;
         int rayTracingTierRaw;
+        bool pathTracingSupported;
+        bool pathTracingExecutionAvailable;
+        const char* pathTracingStatusText;
+        PathTracingRuntimeState pathTracingRuntimeState;
+        PathTracingDiagnostics pathTracingDiagnostics;
         bool temporalUpscalerAvailable;
         const char* temporalUpscalerBackendName;
         const char* temporalUpscalerStatusText;
@@ -336,6 +398,11 @@ public:
     const Engine::RayReconstructionSettings& GetRayReconstructionSettings() const { return m_rayReconstructionSettings; }
     void SetHybridReflectionSettings(const HybridReflectionSettings& settings);
     const HybridReflectionSettings& GetHybridReflectionSettings() const { return m_hybridReflectionSettings; }
+    void SetPathTracingSettings(const PathTracingSettings& settings);
+    const PathTracingSettings& GetPathTracingSettings() const { return m_pathTracingSettings; }
+    const PathTracingRuntimeState& GetPathTracingRuntimeState() const { return m_pathTracingRuntimeState; }
+    void ResetPathTracingAccumulation();
+    void SetPathTracingAccumulationPaused(bool paused);
     void ResetHybridReflectionHistoryForDiagnostics();
     void SetMaterialParams(UINT materialIndex, const MaterialParams& params);
     void SetRenderingPath(RenderingPath renderingPath);
@@ -529,6 +596,8 @@ private:
         struct Operation
         {
             static constexpr const char* Clear = "Clear";
+            static constexpr const char* PathTracingHistoryClear = "PathTracingHistoryClear";
+            static constexpr const char* PathTracing = "PathTracing";
             static constexpr const char* DepthPrePass = "DepthPrePass";
             static constexpr const char* GBuffer = "GBuffer";
             static constexpr const char* Forward = "Forward";
@@ -610,6 +679,18 @@ private:
     static constexpr UINT kReflectionResolvedRadianceDescriptorCount = 2;  // One SRV per physical history slot
     static constexpr UINT kReflectionAuxiliaryHistoryDescriptorCount = 4;  // Depth + normal, two slots each
     static constexpr UINT kReflectionEstimatorHistoryDescriptorCount = 4;  // Resolved estimate + moments, two slots each
+    enum PathTracingGuideTexture : UINT
+    {
+        PathTracingGuideNormalRoughness,
+        PathTracingGuideViewZ,
+        PathTracingGuideMotionVectors,
+        PathTracingGuideAlbedo,
+        PathTracingGuideDiffuseRadianceHitT,
+        PathTracingGuideSpecularRadianceHitT,
+        PathTracingGuideTextureCount,
+    };
+    static constexpr UINT kPathTracingDescriptorCount =
+        2 * (2 + PathTracingGuideTextureCount); // Accumulation, scene color, and guide textures: SRV + UAV each
     static constexpr UINT kTlasDescriptorCount = 1;       // TLAS SRV
 
     // Descriptor allocation order is tracked by DescriptorHeapHandle.
@@ -626,6 +707,7 @@ private:
                                                       kReflectionResolvedRadianceDescriptorCount +
                                                       kReflectionAuxiliaryHistoryDescriptorCount +
                                                       kReflectionEstimatorHistoryDescriptorCount +
+                                                      kPathTracingDescriptorCount +
                                                       kTlasDescriptorCount;
     static constexpr UINT kStagedDescriptorReservedCount = 64;
 
@@ -915,6 +997,9 @@ private:
     ComPtr<ID3D12Resource> m_reflectionSpecularConfidence[2];
     ComPtr<ID3D12Resource> m_reflectionDenoisedRadiance;
     ComPtr<ID3D12Resource> m_temporalUpscalerSceneColor;
+    ComPtr<ID3D12Resource> m_pathTracingAccumulation;
+    ComPtr<ID3D12Resource> m_pathTracingSceneColor;
+    std::array<ComPtr<ID3D12Resource>, PathTracingGuideTextureCount> m_pathTracingGuideTextures;
     std::array<ComPtr<ID3D12Resource>, kMaxDebugTextureOutputCount> m_debugTexturePreviews;
     ComPtr<ID3D12Resource> m_shadowMask;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
@@ -932,6 +1017,15 @@ private:
     DescriptorHeapHandle m_depthStencilSrv;
     DescriptorHeapHandle m_lightPassColorSrv;
     DescriptorHeapHandle m_temporalUpscalerSceneColorSrv;
+    DescriptorHeapHandle m_pathTracingAccumulationSrv;
+    DescriptorHeapHandle m_pathTracingAccumulationUav;
+    D3D12_CPU_DESCRIPTOR_HANDLE m_pathTracingAccumulationClearUav = {};
+    DescriptorHeapHandle m_pathTracingSceneColorSrv;
+    DescriptorHeapHandle m_pathTracingSceneColorUav;
+    D3D12_CPU_DESCRIPTOR_HANDLE m_pathTracingSceneColorClearUav = {};
+    std::array<DescriptorHeapHandle, PathTracingGuideTextureCount> m_pathTracingGuideTextureSrvs;
+    std::array<DescriptorHeapHandle, PathTracingGuideTextureCount> m_pathTracingGuideTextureUavs;
+    std::array<D3D12_CPU_DESCRIPTOR_HANDLE, PathTracingGuideTextureCount> m_pathTracingGuideTextureClearUavs = {};
     std::array<DescriptorHeapHandle, kMaxDebugTextureOutputCount> m_debugTexturePreviewSrvs;
     UINT m_debugTexturePreviewActiveSlotMask = 0;
     UINT m_debugTexturePreviewUpdateSlotMask = 0;
@@ -974,6 +1068,7 @@ private:
     ComPtr<ID3D12RootSignature> m_rootSignature;
     ComPtr<ID3D12RootSignature> m_proceduralEnvRootSignature;
     ComPtr<ID3D12RootSignature> m_hybridReflectionRootSignature;
+    ComPtr<ID3D12RootSignature> m_pathTracingRootSignature;
     ComPtr<ID3D12RootSignature> m_rayQueryShadowRootSignature;
     ComPtr<ID3D12RootSignature> m_specularDebugRayQueryRootSignature;
     ComPtr<ID3D12RootSignature> m_rayQueryTlasDebugRootSignature;
@@ -981,6 +1076,7 @@ private:
 
     ComPtr<ID3D12PipelineState> m_proceduralEnvPipeline;
     ComPtr<ID3D12PipelineState> m_hybridReflectionPipeline;
+    ComPtr<ID3D12PipelineState> m_pathTracingPipeline;
     ComPtr<ID3D12PipelineState> m_rayQueryShadowPipeline;
     ComPtr<ID3D12PipelineState> m_specularDebugRayQueryPipeline;
     ComPtr<ID3D12PipelineState> m_rayQueryTlasDebugPipeline;
@@ -990,6 +1086,7 @@ private:
 
     ComPtr<ID3D12DescriptorHeap> m_heap;                     // CBV/SRV/UAV heap
     SimpleDescriptorHeapAllocator m_descriptorHeapAllocator; // Allocator for CBV/SRV/UAV heap
+    ComPtr<ID3D12DescriptorHeap> m_pathTracingClearUavHeap;
     ComPtr<ID3D12DescriptorHeap> m_proceduralEnvUavHeap;
     ComPtr<ID3D12Resource> m_proceduralEnvSettingsBuffer;
 
@@ -1000,6 +1097,13 @@ private:
     Engine::TemporalUpscalerSettings m_temporalUpscalerSettings;
     Engine::RayReconstructionSupportInfo m_rayReconstructionSupport;
     Engine::RayReconstructionSettings m_rayReconstructionSettings;
+    PathTracingSettings m_pathTracingSettings;
+    PathTracingRuntimeState m_pathTracingRuntimeState;
+    bool m_pathTracingHistoryClearRequired = true;
+    bool m_pathTracingFrameAdvance = true;
+    bool m_pathTracingSampleCommitPending = false;
+    UINT m_pathTracingPendingSampleCount = 0;
+    bool m_pathTracingPendingAccumulate = false;
     bool m_temporalUpscalerHistoryReset = true;
     struct ReflectionHistoryState
     {
@@ -1164,6 +1268,17 @@ private:
     static constexpr const char* kDepthStencilResourceName = "DepthStencil";
     static constexpr const char* kLightPassRenderTargetResourceName = "LightPass.RenderTarget";
     static constexpr const char* kTemporalUpscalerSceneColorResourceName = "TemporalUpscaler.SceneColor";
+    static constexpr const char* kEnvironmentMapResourceName = "EnvironmentMap";
+    static constexpr const char* kPathTracingAccumulationResourceName = "PathTracing.Accumulation";
+    static constexpr const char* kPathTracingSceneColorResourceName = "PathTracing.SceneColor";
+    static constexpr const char* kPathTracingGuideTextureResourceNames[PathTracingGuideTextureCount] = {
+        "PathTracing.NormalRoughness",
+        "PathTracing.ViewZ",
+        "PathTracing.MotionVectors",
+        "PathTracing.Albedo",
+        "PathTracing.DiffuseRadianceHitT",
+        "PathTracing.SpecularRadianceHitT",
+    };
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
         "DebugTexturePreview.Output.0",
         "DebugTexturePreview.Output.1",
@@ -1267,6 +1382,12 @@ private:
     static constexpr const char* kReflectionRayColorResourceName = "ReflectionRayColor";
     static constexpr const char* kReflectionRayMaterialResourceName = "ReflectionRayMaterial";
     static constexpr const char* kReflectionRayEmissionResourceName = "ReflectionRayEmission";
+    static constexpr const char* kSceneTlasResourceName = "Scene.TLAS";
+    static constexpr const char* kSceneVertexBufferResourceName = "Scene.VertexBuffer";
+    static constexpr const char* kSceneIndexBufferResourceName = "Scene.IndexBuffer";
+    static constexpr const char* kSceneInstanceBufferResourceName = "Scene.InstanceBuffer";
+    static constexpr const char* kSceneMeshRangeBufferResourceName = "Scene.MeshRangeBuffer";
+    static constexpr const char* kSceneCameraConstantsResourceName = "Scene.CameraConstants";
     static constexpr const char* kMaterialBufferResourceName = "MaterialBuffer";
 
     using TransientResourceState = Engine::TransientResourceState;
@@ -1283,6 +1404,8 @@ private:
         bool createRtv = false;
         bool createSrv = false;
         DXGI_FORMAT srvFormat = DXGI_FORMAT_UNKNOWN;
+        bool createUav = false;
+        DXGI_FORMAT uavFormat = DXGI_FORMAT_UNKNOWN;
 
         ComPtr<ID3D12Resource> resource;
 
@@ -1335,6 +1458,7 @@ private:
         GraphicsPipelineShaderSet debugTexturePreview;
         GraphicsPipelineShaderSet debugBufferPreview;
         ShaderBytecode hybridReflection;
+        ShaderBytecode pathTracing;
         ShaderBytecode proceduralEnv;
         ShaderBytecode rayQueryShadow;
         ShaderBytecode specularDebugRayQuery;
@@ -1346,6 +1470,7 @@ private:
     void CreateRootSignature();
     void CreateProceduralEnvRootSignature();
     void CreateHybridReflectionRootSignature();
+    void CreatePathTracingRootSignature();
     void CreateRayQueryShadowRootSignature();
     void CreateSpecularDebugRayQueryRootSignature();
     void CreateRayQueryTlasDebugRootSignature();
@@ -1429,6 +1554,7 @@ private:
     void RegisterReflectionEstimatorHistory();
     void RegisterReflectionDenoisedRadiance();
     void RegisterTemporalUpscalerSceneColor();
+    void RegisterPathTracingResources();
     void RegisterDebugTexturePreview();
     void RegisterRenderTexture(const Engine::RenderTextureSpec& spec);
     UINT ResolveRenderTextureWidth(const Engine::RenderTextureSpec& spec) const;
@@ -1498,6 +1624,8 @@ private:
     PipelineKey PipelineId(const std::string& name);
     DescriptorKey DescriptorId(const std::string& name);
     RenderPass MakeClearPass();
+    RenderPass MakePathTracingHistoryClearPass();
+    RenderPass MakePathTracingPass();
     RenderPass MakeDepthPrePass();
     RenderPass MakeGBufferPass();
     RenderPass MakeHybridReflectionPass();
@@ -1542,6 +1670,11 @@ private:
                                              ID3D12Resource* resource,
                                              UINT rtvIndex,
                                              DescriptorHeapHandle srv);
+    void CreatePathTracingTextureDescriptors(const TransientResource& transientResource,
+                                             ID3D12Resource* resource,
+                                             DescriptorHeapHandle srv,
+                                             DescriptorHeapHandle uav,
+                                             D3D12_CPU_DESCRIPTOR_HANDLE clearUav);
     void CreateDsvHeap();
 
     void CreateGBuffer();
@@ -1573,6 +1706,10 @@ private:
 
     void BeginFrame();
     void ExecuteClearPass(const RenderPass& pass);
+    void ExecutePathTracingHistoryClearPass(const RenderPass& pass);
+    void ExecutePathTracingPass(const RenderPass& pass);
+    void InvalidatePathTracingHistory(PathTracingResetReason reason);
+    void CommitPathTracingFrame();
     void ExecuteDepthPrePass(const RenderPass& pass);
     void ExecuteGBufferPass(const RenderPass& pass);
     void ExecuteHybridReflectionPass(const RenderPass& pass);
@@ -1615,6 +1752,7 @@ private:
     void PrintDebugDump();
 
     Engine::SceneGeometryDrawDesc MakeSceneGeometryDrawDesc() const;
+    Engine::RayQuerySceneBindings MakeRayQuerySceneBindings() const;
     Engine::ResolvedRenderTargets ResolveRenderTargets(const PassRenderTargetBinding& renderTargets) const;
 
     void ApplyResize(UINT width, UINT height);

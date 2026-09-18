@@ -63,7 +63,7 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     }
     else if (semantic == 3)
     {
-        value.rgb = float3(value.xy * 0.5 + 0.5, 0.0);
+        value.rgb = float3(value.xy * 0.5 + 0.5, 0.5);
     }
 
     value.rgb *= exp2(exposure);

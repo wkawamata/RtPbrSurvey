@@ -430,7 +430,8 @@ CompareRenderGraphBarrierEvents(const RenderGraphDocument& document,
 
     for (const RenderGraphStateDiagnostic& expected : BuildRenderGraphStateDiagnostics(document))
     {
-        if (expected.kind != RenderGraphStateDiagnosticKind::RequiredTransition)
+        if (expected.kind != RenderGraphStateDiagnosticKind::RequiredTransition &&
+            expected.kind != RenderGraphStateDiagnosticKind::UavBarrierCandidate)
         {
             continue;
         }

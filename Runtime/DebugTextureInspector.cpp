@@ -8,6 +8,28 @@
 
 namespace RtPbrSurvey
 {
+void SetMotionVectorPreviewScale(DebugTextureInspector& inspector, float scale)
+{
+    inspector.scale = std::clamp(scale, 1.0f, 100.0f);
+    inspector.offset = 0.5f * (1.0f - inspector.scale);
+}
+
+void SetDebugTexturePreviewSemantic(DebugTextureInspector& inspector, DebugTextureSemantic semantic)
+{
+    const bool leavingMotionVector = inspector.semantic == DebugTextureSemantic::MotionVector &&
+        semantic != DebugTextureSemantic::MotionVector;
+    inspector.semantic = semantic;
+    if (semantic == DebugTextureSemantic::MotionVector)
+    {
+        SetMotionVectorPreviewScale(inspector, kDefaultMotionVectorPreviewScale);
+    }
+    else if (leavingMotionVector)
+    {
+        inspector.scale = 1.0f;
+        inspector.offset = 0.0f;
+    }
+}
+
 DebugTextureInspector* DebugTextureInspectorManager::OpenPreview(
     std::string resourceName, std::string displayName, DebugTextureSemantic semantic)
 {
@@ -69,7 +91,10 @@ DebugTextureInspector* DebugTextureInspectorManager::Open(
     if (existing != m_inspectors.end())
     {
         existing->displayName = std::move(displayName);
-        existing->semantic = semantic;
+        if (existing->semantic != semantic)
+        {
+            SetDebugTexturePreviewSemantic(*existing, semantic);
+        }
         existing->pinned = existing->pinned || pinned;
         existing->focusRequested = true;
         return &*existing;
@@ -138,7 +163,7 @@ DebugTextureInspector* DebugTextureInspectorManager::CreateInSlot(std::string re
     inspector.slotIndex = slotIndex;
     inspector.resourceName = std::move(resourceName);
     inspector.displayName = std::move(displayName);
-    inspector.semantic = semantic;
+    SetDebugTexturePreviewSemantic(inspector, semantic);
     inspector.pinned = pinned;
     m_inspectors.push_back(std::move(inspector));
     return &m_inspectors.back();

@@ -2,11 +2,13 @@
 
 #include "CommandLineOptions.h"
 
+#include <cerrno>
 #include <cstdlib>
 #include <cmath>
 #include <cstring>
 #include <cwchar>
 #include <fstream>
+#include <limits>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <unordered_set>
@@ -19,6 +21,27 @@ namespace
 bool IsCommandLineArg(const WCHAR* arg, const WCHAR* expected)
 {
     return _wcsicmp(arg, expected) == 0;
+}
+
+bool TryParseUint(const WCHAR* value, bool allowZero, UINT& result)
+{
+    if (value == nullptr || value[0] == L'\0' || value[0] == L'-')
+    {
+        return false;
+    }
+
+    wchar_t* end = nullptr;
+    errno = 0;
+    const unsigned long long parsed = wcstoull(value, &end, 10);
+    if (errno == ERANGE || end == value || *end != L'\0' ||
+        parsed > static_cast<unsigned long long>((std::numeric_limits<UINT>::max)()) ||
+        (!allowZero && parsed == 0))
+    {
+        return false;
+    }
+
+    result = static_cast<UINT>(parsed);
+    return true;
 }
 
 bool TryParseDebugResourceName(const WCHAR* value, std::string& resourceName)
@@ -219,6 +242,14 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.autoSelectHybridReflectionEstimatorTest = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-EvaluationCase"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-EvaluationCase expects a saved Evaluation Case name.");
+            }
+            options.evaluationCaseName = argv[++i];
+        }
         else if (IsCommandLineArg(argv[i], L"-SceneFile"))
         {
             if (i + 1 >= argc || argv[i + 1][0] == L'\0')
@@ -242,6 +273,27 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         else if (IsCommandLineArg(argv[i], L"-EnableDlssSr"))
         {
             options.enableDlssSr = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-EnablePathTracing"))
+        {
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingSamples"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.pathTracingSampleTarget))
+            {
+                throw std::invalid_argument("-PathTracingSamples expects an integer in [1, UINT_MAX].");
+            }
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingSeed"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.pathTracingRandomSeed))
+            {
+                throw std::invalid_argument("-PathTracingSeed expects an integer in [0, UINT_MAX].");
+            }
+            options.hasPathTracingRandomSeed = true;
+            options.enablePathTracing = true;
         }
         else if (IsCommandLineArg(argv[i], L"-EnableDebugTexturePreview"))
         {

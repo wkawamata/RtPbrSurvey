@@ -141,6 +141,12 @@
     <ClInclude Include="Renderer\MaterialBuffer.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\PathTracingPass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\RayQuerySceneBindings.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\PipelineFactory.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -434,6 +440,9 @@
     <ClCompile Include="Renderer\LightingPass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\PathTracingPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
@@ -610,6 +619,9 @@
     <CustomBuild Include="Shaders\shaders_HybridReflection.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_PathTracing.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
     <CustomBuild Include="Shaders\shaders_RayQueryTlasDebug.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
@@ -648,7 +660,13 @@
     <None Include="Shaders\PbrLighting.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
+    <None Include="Shaders\PathTracingSampling.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
     <None Include="Shaders\ReflectionSampling.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\SceneRayQuery.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="packages.config" />

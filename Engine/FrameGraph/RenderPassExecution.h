@@ -13,6 +13,7 @@
 
 #include "RenderPassGraph.h"
 
+#include <algorithm>
 #include <cassert>
 #include <d3d12.h>
 #include <functional>
@@ -390,7 +391,10 @@ private:
     RenderPassAuthoringContext<OperationHandlerT> m_authoring;
 };
 
-inline void TransitionResource(const ResourceTransitionContext& context, const ResourceUsage& usage, int passIndex = -1)
+inline void TransitionResource(const ResourceTransitionContext& context,
+                               const ResourceUsage& usage,
+                               int passIndex = -1,
+                               bool requiresUavBarrier = false)
 {
     assert(context.commandList != nullptr);
     assert(context.resolveResource);
@@ -398,7 +402,9 @@ inline void TransitionResource(const ResourceTransitionContext& context, const R
     assert(context.setResourceState);
 
     const D3D12_RESOURCE_STATES currentState = context.getResourceState(usage.name);
-    if (currentState == usage.state)
+    const bool insertUavBarrier = requiresUavBarrier && currentState == D3D12_RESOURCE_STATE_UNORDERED_ACCESS &&
+        usage.state == D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    if (currentState == usage.state && !insertUavBarrier)
     {
         return;
     }
@@ -414,8 +420,10 @@ inline void TransitionResource(const ResourceTransitionContext& context, const R
         return;
     }
 
-    context.commandList->ResourceBarrier(
-        1, &CD3DX12_RESOURCE_BARRIER::Transition(resource, currentState, usage.state));
+    const D3D12_RESOURCE_BARRIER barrier = insertUavBarrier
+        ? CD3DX12_RESOURCE_BARRIER::UAV(resource)
+        : CD3DX12_RESOURCE_BARRIER::Transition(resource, currentState, usage.state);
+    context.commandList->ResourceBarrier(1, &barrier);
     if (context.onTransition)
     {
         context.onTransition(passIndex, usage, currentState, usage.state);
@@ -425,10 +433,57 @@ inline void TransitionResource(const ResourceTransitionContext& context, const R
 
 inline void TransitionPassResources(const ResourceTransitionContext& context,
                                     const RenderPass& pass,
-                                    int passIndex = -1)
+                                    int passIndex = -1,
+                                    std::unordered_map<std::string, bool>* previousUavWrites = nullptr)
 {
-    pass.ForEachResourceUsage(
-        [&context, passIndex](const ResourceUsage& usage) { TransitionResource(context, usage, passIndex); });
+    std::vector<ResourceUsage> usages;
+    std::unordered_map<std::string, bool> writes;
+    const auto collectUsage = [&usages, &writes](const ResourceUsage& usage, bool isWrite)
+    {
+        const auto existing = std::find_if(usages.begin(),
+                                           usages.end(),
+                                           [&usage](const ResourceUsage& item) { return item.name == usage.name; });
+        if (existing == usages.end())
+        {
+            usages.push_back(usage);
+        }
+        else
+        {
+            assert(existing->state == usage.state && "A pass cannot use one resource in conflicting states.");
+        }
+        writes[usage.name] = writes[usage.name] || isWrite;
+    };
+    for (const ResourceUsage& usage : pass.reads)
+    {
+        collectUsage(usage, false);
+    }
+    for (const ResourceUsage& usage : pass.writes)
+    {
+        collectUsage(usage, true);
+    }
+
+    for (const ResourceUsage& usage : usages)
+    {
+        bool requiresUavBarrier = false;
+        if (previousUavWrites != nullptr && usage.state == D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+        {
+            const auto previous = previousUavWrites->find(usage.name);
+            requiresUavBarrier = previous != previousUavWrites->end() && (previous->second || writes[usage.name]);
+        }
+        TransitionResource(context, usage, passIndex, requiresUavBarrier);
+
+        if (previousUavWrites != nullptr)
+        {
+            if (usage.state == D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+            {
+                (*previousUavWrites)[usage.name] = writes[usage.name];
+            }
+            else
+            {
+                previousUavWrites->erase(usage.name);
+            }
+        }
+    }
 }
 
 struct RenderPassExecutionContext
@@ -453,6 +508,7 @@ inline void ExecuteRenderPassGraph(const RenderPassGraph& graph, const RenderPas
     assert(context.constantsRegistry != nullptr);
     assert(context.resourceTransitions != nullptr);
 
+    std::unordered_map<std::string, bool> previousUavWrites;
     for (int passIndex = 0; passIndex < static_cast<int>(graph.Size()); ++passIndex)
     {
         if (context.createResourcesForPass)
@@ -463,7 +519,7 @@ inline void ExecuteRenderPassGraph(const RenderPassGraph& graph, const RenderPas
         const RenderPass& pass = graph[passIndex];
         if (context.resourceTransitions)
         {
-            TransitionPassResources(*context.resourceTransitions, pass, passIndex);
+            TransitionPassResources(*context.resourceTransitions, pass, passIndex, &previousUavWrites);
         }
 
         context.bindingResolvers->BindRenderTargets(context.commandList, pass);

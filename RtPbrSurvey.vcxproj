@@ -168,6 +168,8 @@
     <ClInclude Include="Renderer\EdgeAwareSpatialReflectionPass.h" />
     <ClInclude Include="Renderer\Material.h" />
     <ClInclude Include="Renderer\MaterialBuffer.h" />
+    <ClInclude Include="Renderer\PathTracingPass.h" />
+    <ClInclude Include="Renderer\RayQuerySceneBindings.h" />
     <ClInclude Include="Renderer\PipelineFactory.h" />
     <ClInclude Include="Renderer\AccelerationStructureResources.h" />
     <ClInclude Include="Renderer\RayQueryShadowPass.h" />
@@ -273,6 +275,7 @@
     <ClCompile Include="Renderer\HdrOutput.cpp" />
     <ClCompile Include="Renderer\HybridReflectionPass.cpp" />
     <ClCompile Include="Renderer\LightingPass.cpp" />
+    <ClCompile Include="Renderer\PathTracingPass.cpp" />
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp" />
     <ClCompile Include="Renderer\TemporalReflectionPass.cpp" />
     <ClCompile Include="Renderer\EdgeAwareSpatialReflectionPass.cpp" />
@@ -371,7 +374,9 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\InstanceData.hlsli" />
     <None Include="Shaders\SceneDrawConstants.hlsli" />
     <None Include="Shaders\PbrLighting.hlsli" />
+    <None Include="Shaders\PathTracingSampling.hlsli" />
     <None Include="Shaders\ReflectionSampling.hlsli" />
+    <None Include="Shaders\SceneRayQuery.hlsli" />
     <None Include="packages.config" />
     <None Include="vcpkg.json" />
     <None Include="third_party\imgui-node-editor\imgui_bezier_math.inl" />
@@ -639,6 +644,19 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dxc.exe -nologo -Tcs_6_5 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
+      <AdditionalInputs>$(ProjectDir)Shaders\SceneRayQuery.hlsli;%(AdditionalInputs)</AdditionalInputs>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_PathTracing.hlsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Identity)</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Identity)</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">dxc.exe -nologo -Tcs_6_5 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dxc.exe -nologo -Tcs_6_5 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
+      <AdditionalInputs>$(ProjectDir)Shaders\Material.hlsli;$(ProjectDir)Shaders\PathTracingSampling.hlsli;$(ProjectDir)Shaders\SceneRayQuery.hlsli;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_RayQueryTlasDebug.hlsl">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>

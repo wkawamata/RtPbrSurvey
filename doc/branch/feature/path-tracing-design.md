@@ -353,8 +353,10 @@ Path Tracing settings は SceneRendererSettings に保存される。固定 seed
 - `int 1-5`: diffuse indirect-light stability
 - Japanese comment: reference difference と目視判断
 
-CLI capture は最終 frame 数ではなく accumulated sample count を明記する。将来
-`-PathTracingSamples <N>` と固定 seed option を追加し、N samples 到達後に capture する。
+CLI capture は最終 frame 数ではなく accumulated sample count を明記する。
+`-PathTracingSamples <N>` と `-PathTracingSeed <N>` を指定すると、1 sample/frame の固定条件で
+N samples 到達時に accumulation を停止し、追加sampleを描かずにcaptureする。`-EvaluationCase <name>` は
+保存済みscene、camera、rendering settings、ROI、判定項目を復元してからPath Tracing CLI overrideを適用する。
 
 ## 10. DLSS integration policy
 
@@ -448,6 +450,23 @@ tone map できる。
 
 完了条件: Cornell Box 相当 scene で direct shadow と diffuse bounce を確認できる。
 
+初期 Evaluation Case は次の 3 件とする。状態ファイルはユーザー設定なのでリポジトリには固定せず、
+Evaluation Case Window から同名の case と ROI を保存する。
+
+| Case | Scene / settings | ROI | Test items |
+|---|---|---|---|
+| `PT Direct Shadow` | Shadow Test Ground Cubes、Radiance、1 bounce、Direct on、Environment off | cubes と床の接地部 | shadow visibility (bool)、shadow edge quality (1-5) |
+| `PT Diffuse Bounce` | Cornell Box、Radiance、2 bounces、Direct on、Environment on | 赤壁・緑壁に近い白色面 | color bleeding visible (bool)、indirect stability (1-5) |
+| `PT Environment Emissive` | Cornell Box、Radiance、2 bounces、Direct off、Environment/Emissive on | 背景と emissive panel | environment miss visible (bool)、emissive response (1-5) |
+
+Commit 5 の実装では directional light の hard-shadow RayQuery、environment cube miss、emissive 加算、
+cosine-weighted Lambert bounce を追加する。GGX、metallic lobe、normal map、Russian Roulette は Commit 6 に残す。
+
+Environment cubeの用途はHybrid rendererと同じ設定契約に分離する。Primary rayのmissは`Show Skybox`に従い、
+有効時は生成済みenvironment cubeをそのまま表示し、無効時はback-buffer clear colorを表示する。
+Secondary rayのmissだけがPath Tracingの`Environment`と`IBL Intensity`に従う。これにより天球を非表示にしても
+IBL照明を維持できる。Environmentの向きは共通cube resource、露出とtone mappingは共通ToneMap passを使用する。
+
 ### Commit 6: metallic-roughness PBR
 
 - GGX importance sampling
@@ -457,6 +476,25 @@ tone map できる。
 - reference comparison captures
 
 完了条件: metallic/roughness sphere と DamagedHelmet で expected material response を確認できる。
+
+実装では diffuse と GGX specular を確率選択し、両方を含む mixture PDF と完全な
+metallic-roughness BRDF から throughput weight を計算する。normal texture がある material は
+interpolated tangent frame から shading normal を復元し、ray origin と geometry-side 判定には
+geometry normal を使う。Russian Roulette は設定で有効化し、3 bounce 目から throughput に応じた
+継続確率を適用する。
+
+Commit 6 の初期 Evaluation Case は次の 4 件とする。
+
+| Case | Scene / settings | ROI | Test items |
+|---|---|---|---|
+| `PT Metallic Response` | metallic/roughness sphere、Radiance、2 bounces | metallic sphere 列 | metallic reflection visible (bool)、specular response (1-5) |
+| `PT Roughness Response` | metallic/roughness sphere、Radiance、2 bounces | roughness variation row | highlight broadening ordered (bool)、roughness response (1-5) |
+| `PT Normal Map` | DamagedHelmet、Radiance、2 bounces | forehead と face plate | normal detail visible (bool)、normal stability (1-5) |
+| `PT Russian Roulette` | DamagedHelmet、Radiance、4 bounces、Russian Roulette on | helmet 全体 | no obvious bias (bool)、noise/stability (1-5) |
+
+DamagedHelmet の自動比較は 64 warm-up frames、固定 seed の同一条件で 2 回取得し、
+SHA-256 `FB0F948918B47A7455E0831D1F34C30330747E7EF1C014CB446D4C400BAFBC4E`
+で一致した。D3D12 Debug Layer は既知の buffer initial-state warning 2 件のみで error はない。
 
 ### Commit 7: validation and diagnostics
 
@@ -468,6 +506,42 @@ tone map できる。
 
 完了条件: deterministic capture を再生成でき、Debug Layer error なしで比較 report を残せる。
 
+実装と運用手順は `Tests/PathTracing/Invoke-ReferenceCapture.ps1` と
+`doc/branch/feature/path-tracing-validation.md` に固定する。GPU timestampは`PathTracingPass`の実測時間、
+primary samplesはrender pixel数とsamples/frameの積、path segmentとRayQueryはmax bounceおよびshadow rayを
+含む上限値として区別して表示する。
+
+### Commit 8: primary-surface guide buffers
+
+- `PathTracing.NormalRoughness`: world-space shading normal XYZ、perceptual roughness A、`R16G16B16A16_FLOAT`
+- `PathTracing.ViewZ`: camera-forward axis上のpositive linear depth、missは0、`R32_FLOAT`
+- `PathTracing.MotionVectors`: existing GBufferと同じ`previous NDC - current NDC`、`R16G16_FLOAT`
+- `PathTracing.Albedo`: linear base color RGB、hit mask A、`R16G16B16A16_FLOAT`
+- 4 resourceをPathTracingPassのUAV、RenderGraph texture node、Debug Texture Preview sourceとして公開
+
+guideはframe内の最初のprimary sampleから生成する。Radiance accumulationとdebug outputの選択には影響せず、
+複数sample/frameの平均radianceに対してguideを平均しない。MotionVectorsは`prevWorld`を使ってinstance motionを
+含める。これらは将来のsignal separation、temporal reprojection、NRD/RR入力調査のためのrenderer-owned resourceで
+あり、Commit 8ではdenoiserへ接続しない。
+
+完了条件: 4 resourceがRenderGraphとDebug Texture Previewに現れ、既存Radianceの固定seed capture hashを維持し、
+各resourceをpreview sourceにしたDebug Layer実行でerrorがない。
+
+### Commit 9: backend-neutral noisy signal separation
+
+- `PathTracing.DiffuseRadianceHitT`: current-frame diffuse-attributed radiance RGB、primary ray hit distance A
+- `PathTracing.SpecularRadianceHitT`: current-frame specular-attributed radiance RGB、primary ray hit distance A
+- primary direct lightはdiffuse/specular BRDF componentを個別に記録する
+- indirect contributionはprimary surfaceで最初にsampleしたBSDF lobeへ分類する
+- 2 resourceをPathTracingPassのUAV、RenderGraph texture node、Debug Texture Preview sourceとして公開する
+
+signalはprogressive accumulationせず、frame内sampleの平均を保持する。Primary missは両signalを0とし、surface hit時だけ
+raw primary `RayQuery::CommittedRayT()`をAへ格納する。このAはbackend-neutralな診断値であり、NRDのnormalized hit distanceや
+DLSS RR固有packingではない。各backendへ接続する際に、公式packing helperと要求単位へ変換する。
+
+完了条件: 2 resourceを個別にpreviewでき、DiffuseとSpecularが異なる内容を示し、既存Radianceの固定seed capture hashを
+維持し、Debug Layer errorがない。Commit 9ではtemporal reprojection、denoiser、NRD、DLSS RRへ接続しない。
+
 ## 12. Test matrix
 
 | Area | Test |
@@ -477,11 +551,11 @@ tone map できる。
 | Support | DXR tier below 1.1 cannot select active Path Tracing execution |
 | Serialization | new settings round-trip and old JSON loads with defaults |
 | RenderGraph | Path Tracing contains clear/path/tone-map; Deferred graph is unchanged |
-| Resources | resize recreates both textures and resets history |
+| Resources | resize recreates accumulation、scene color、4 guide textures and resets history |
 | History | camera, scene, material, light, seed, bounce changes reset exactly once |
 | Post process | exposure/tone-map change does not reset accumulation |
 | Geometry | indexed/non-indexed, multi-range, multi-instance hit reconstruction |
-| Visual | normal, albedo, emissive diagnostics match existing scene data |
+| Visual | normal/roughness、ViewZ、motion vectors、albedo guideが既存scene dataと一致する |
 | Runtime | fixed seed/sample count capture is reproducible |
 | D3D12 | no error in Debug Layer log during scene load, resize, path switching, capture |
 
@@ -831,3 +905,12 @@ type is established.
 
 The extraction may be one review branch but should use at least two commits: shader extraction first, CPU binding
 commonization second. This makes a Hybrid regression bisectable before Path Tracing code is introduced.
+
+### 16.9 Commit 10: motion-vector observability
+
+`PathTracing.MotionVectors`の保存値は既存rendererと同じ`previous NDC - current NDC`を維持する。Debug Texture
+Previewだけをzero-centered 32x表示にし、encoded neutral 0.5がscale変更後も0.5のままになるoffsetを自動設定する。
+静止時はneutral gray、camera移動frameでは方向を持つ色差として観測できる。
+
+CLIの`-DebugPreviewResource`指定時はDebug UIをcaptureへ含める。静止/camera orbitの比較scriptはresourceがcamera
+motionへ反応することとD3D12 error 0件を検証するが、reprojection signの数学的証明やdenoiser統合は行わない。
