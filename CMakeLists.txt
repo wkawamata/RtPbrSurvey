@@ -126,6 +126,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     third_party/imgui-node-editor/imgui_canvas.cpp
     third_party/imgui-node-editor/imgui_node_editor.cpp
     third_party/imgui-node-editor/imgui_node_editor_api.cpp
+    third_party/ImGuizmo/ImGuizmo.cpp
 )
 
 set_source_files_properties(
@@ -133,6 +134,7 @@ set_source_files_properties(
     third_party/imgui-node-editor/imgui_canvas.cpp
     third_party/imgui-node-editor/imgui_node_editor.cpp
     third_party/imgui-node-editor/imgui_node_editor_api.cpp
+    third_party/ImGuizmo/ImGuizmo.cpp
     PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 
 add_library(RtPbrSurvey.SceneRenderer STATIC ${RTPBRSURVEY_RENDERER_SOURCES})

@@ -255,6 +255,7 @@
     <ClInclude Include="third_party\imgui-node-editor\imgui_extra_math.h" />
     <ClInclude Include="third_party\imgui-node-editor\imgui_node_editor.h" />
     <ClInclude Include="third_party\imgui-node-editor\imgui_node_editor_internal.h" />
+    <ClInclude Include="third_party\ImGuizmo\ImGuizmo.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CubeMesh.cpp" />
@@ -350,6 +351,9 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="third_party\imgui-node-editor\imgui_node_editor_api.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="third_party\ImGuizmo\ImGuizmo.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
   </ItemGroup>
