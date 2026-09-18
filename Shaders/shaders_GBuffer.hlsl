@@ -33,6 +33,7 @@ struct GBufferOutput
     float2 motionVector : SV_Target3;
     float4 pbrParams : SV_Target4;
     float4 emissive : SV_Target5;
+    uint objectId : SV_Target6;
 };
 
 Texture2D g_texture[] : register(t0, space0);
@@ -129,6 +130,7 @@ GBufferOutput PSMain(PSInput input)
     float ambientOcclusion = saturate(lerp(1.0, occlusion, mat.occlusionStrength) * mat.ambientOcclusionFactor);
     output.pbrParams = float4(metallic, roughness, ambientOcclusion, 1.0);
     output.emissive = float4(emissive * mat.emissiveScale, 1.0);
+    output.objectId = input.instanceId + 1;
     
     return output;
 }

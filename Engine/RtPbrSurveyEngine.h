@@ -207,6 +207,7 @@ public:
         int screenX = 0;
         int screenY = 0;
         float depthNdc = 0.0f;
+        UINT objectId = 0;
         XMFLOAT4 albedo = {0.0f, 0.0f, 0.0f, 1.0f};
         XMFLOAT3 normal = {0.0f, 0.0f, 0.0f};
         UINT materialId = 0;
@@ -498,6 +499,7 @@ private:
             static constexpr const char* GBufferMotionVector = "GBufferMotionVector";
             static constexpr const char* GBufferPBRParams = "GBufferPBRParams";
             static constexpr const char* GBufferEmissive = "GBufferEmissive";
+            static constexpr const char* GBufferObjectId = "GBufferObjectId";
             static constexpr const char* LightPass = "LightPass";
             static constexpr const char* ReflectionEvaluatedRadiance = "ReflectionEvaluatedRadiance";
             static constexpr const char* ReflectionSpecularEstimate = "ReflectionSpecularEstimate";
@@ -1258,7 +1260,8 @@ private:
         "GBuffer.Material",
         "GBuffer.MotionVector",
         "GBuffer.PBRParams",
-        "GBuffer.Emissive"};
+        "GBuffer.Emissive",
+        "GBuffer.ObjectId"};
     static constexpr const char* kShadowMaskResourceName = "ShadowMask";
     static constexpr const char* kReflectionRayHitResourceName = "ReflectionRayHit";
     static constexpr const char* kReflectionRayColorResourceName = "ReflectionRayColor";

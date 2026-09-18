@@ -617,6 +617,9 @@ void RtPbrSurveyEngine::RegisterDebugResourceViews()
     registerTexture(kGBufferResourceNames[Engine::GBuffer::Emissive],
                     Engine::DebugTexturePreviewSemantic::Color,
                     m_gbuffer.formats[Engine::GBuffer::Emissive]);
+    m_debugResourceViewRegistry.RegisterUnsupported(
+        kGBufferResourceNames[Engine::GBuffer::ObjectId],
+        "Unsigned integer Object ID texture preview is not registered.");
     Engine::DebugResourceViewDescriptor materialBufferDescriptor;
     materialBufferDescriptor.resourceName = kMaterialBufferResourceName;
     materialBufferDescriptor.viewKind = Engine::DebugResourceViewKind::StructuredBuffer;
@@ -3709,6 +3712,8 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
                                                 [this]() { return GetGBufferRTV(Engine::GBuffer::PBRParams); });
     m_renderGraphRuntime.Bindings().RegisterRtv(m_renderGraphRuntime.RegisterRtv(RtvName::GBufferEmissive),
                                                 [this]() { return GetGBufferRTV(Engine::GBuffer::Emissive); });
+    m_renderGraphRuntime.Bindings().RegisterRtv(m_renderGraphRuntime.RegisterRtv(RtvName::GBufferObjectId),
+                                                [this]() { return GetGBufferRTV(Engine::GBuffer::ObjectId); });
     m_renderGraphRuntime.Bindings().RegisterRtv(m_renderGraphRuntime.RegisterRtv(RtvName::LightPass),
                                                 [this]() { return GetLightPassRTV(); });
     m_renderGraphRuntime.Bindings().RegisterRtv(m_renderGraphRuntime.RegisterRtv(RtvName::ReflectionEvaluatedRadiance),
@@ -5622,6 +5627,13 @@ void RtPbrSurveyEngine::ReadbackPixelPick()
               [this](const UINT8* row)
               {
                   m_pixelPickResult.materialId = *reinterpret_cast<const UINT*>(row);
+              });
+
+    // Read object id (R32_UINT, instance index + 1; zero is background).
+    readPixel(m_pixelPickGBufferReadbacks[Engine::GBuffer::ObjectId],
+              [this](const UINT8* row)
+              {
+                  m_pixelPickResult.objectId = *reinterpret_cast<const UINT*>(row);
               });
 
     // Read PBR params (R8G8B8A8_UNORM: metallic, roughness, ambient occlusion)

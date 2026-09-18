@@ -7,7 +7,7 @@ Texture2D<float4> g_reflectionHistoryNormal : register(t0, space13);
 Texture2D<float4> g_visibleNormal : register(t1, space3);
 Texture2D<float2> g_motionVector : register(t3, space3);
 Texture2D<float4> g_visiblePbrParams : register(t4, space3);
-Texture2D<float> g_visibleDepth : register(t6, space3);
+Texture2D<float> g_visibleDepth : register(t7, space3);
 Texture2D<float4> g_reflectionSpecularEstimate : register(t0, space16);
 Texture2D<float4> g_reflectionResolvedSpecularEstimateHistory : register(t0, space14);
 Texture2D<float2> g_reflectionSpecularMomentsHistory : register(t0, space15);

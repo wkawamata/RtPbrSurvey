@@ -163,6 +163,7 @@ private:
     std::string m_sceneEditorStatus;
     bool m_sceneEditorPresetDirty = false;
     float m_sceneEditorTranslationStep = 0.25f;
+    bool m_sceneEditorObjectPickPending = false;
     SceneEditorPendingAction m_sceneEditorPendingAction = SceneEditorPendingAction::None;
     std::string m_sceneEditorPendingLoadPath;
     std::vector<RtPbrSurvey::DebugLineHandle> m_sceneEditorSelectionLineHandles;

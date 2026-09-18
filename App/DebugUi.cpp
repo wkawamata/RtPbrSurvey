@@ -1465,7 +1465,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         if (pick.valid)
         {
             ImGui::Text("Screen / Depth / Material");
-            ImGui::Text("  Screen: (%d, %d)  Mat ID: %u", pick.screenX, pick.screenY, pick.materialId);
+            ImGui::Text("  Screen: (%d, %d)  Mat ID: %u  Object ID: %u", pick.screenX, pick.screenY, pick.materialId,
+                        pick.objectId);
             ImGui::Text("  Depth (NDC): %.4f", pick.depthNdc);
             ImGui::Separator();
             ImGui::Text("World Vectors");
