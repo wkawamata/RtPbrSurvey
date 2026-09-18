@@ -257,6 +257,35 @@ bool TestMaterialRenameAndDuplicateAssignmentAreUndoable()
     return passed;
 }
 
+bool TestMultipleSelectionSupportsBulkDuplicateAndDelete()
+{
+    RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("multi-select-test", "Multi Select Test");
+    RtPbrSurvey::SceneNode first;
+    first.id = "first";
+    first.name = "First";
+    RtPbrSurvey::SceneNode firstChild;
+    firstChild.id = "first-child";
+    firstChild.name = "First Child";
+    firstChild.parentId = first.id;
+    RtPbrSurvey::SceneNode second;
+    second.id = "second";
+    second.name = "Second";
+    document.nodes = {first, firstChild, second};
+
+    App::SceneEditorSession session(std::move(document));
+    bool passed = Check(session.SelectNode("first") && session.ToggleNodeSelection("second"), "two hierarchy roots are selected");
+    passed &= Check(session.SelectedNodeIds().size() == 2, "multi-selection retains both roots");
+    passed &= Check(session.DuplicateSelectedSubtrees(), "multiple selected subtrees are duplicated");
+    passed &= Check(session.Document().nodes.size() == 6 && session.SelectedNodeIds().size() == 2,
+                    "bulk duplicate copies both roots and the child");
+    passed &= Check(session.DeleteSelectedNodes(), "duplicated roots are bulk deleted");
+    passed &= Check(session.Document().nodes.size() == 3 && session.SelectedNodeIds().empty(),
+                    "bulk delete removes duplicated subtrees and clears selection");
+    passed &= Check(session.Undo() && session.Document().nodes.size() == 6 && session.SelectedNodeIds().size() == 2,
+                    "bulk delete is undoable with multi-selection");
+    return passed;
+}
+
 bool TestSceneSettingsEditIsUndoable()
 {
     RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("settings-test", "Settings Test");
@@ -283,7 +312,7 @@ int main()
                    TestGltfAssetIsSharedAcrossNodes() && TestUnusedResourcesAreRemovedAndUndoable() &&
                    TestNodeRenameIsUndoableAndRejectsEmptyNames() && TestCopyPasteSelectedSubtreeIsUndoable() &&
                    TestPrimitiveShapeEditIsUndoable() && TestMaterialRenameAndDuplicateAssignmentAreUndoable() &&
-                   TestSceneSettingsEditIsUndoable() ?
+                   TestMultipleSelectionSupportsBulkDuplicateAndDelete() && TestSceneSettingsEditIsUndoable() ?
                0 :
                1;
 }

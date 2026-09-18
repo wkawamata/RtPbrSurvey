@@ -122,6 +122,8 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     ImGui::Text("Scene ID: %s", document.sceneId.c_str());
     ImGui::Text("Nodes: %zu   Assets: %zu   Materials: %zu",
                 document.nodes.size(), document.assets.size(), document.materials.size());
+    ImGui::SameLine();
+    ImGui::Text("Selected: %zu", session.SelectedNodeIds().size());
     ImGui::Text("Document: %s", app.m_sceneEditorDocumentPath.empty() ? "Unsaved" : app.m_sceneEditorDocumentPath.c_str());
     ImGui::SameLine();
     ImGui::TextDisabled(session.IsModified() ? "Modified" : "Saved");
@@ -367,7 +369,7 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
             {
                 continue;
             }
-            const bool selected = session.SelectedNodeId().has_value() && *session.SelectedNodeId() == node.id;
+            const bool selected = session.IsNodeSelected(node.id);
             const bool hasChildren = std::any_of(document.nodes.begin(), document.nodes.end(), [&node](const RtPbrSurvey::SceneNode& candidate)
             {
                 return candidate.parentId.has_value() && *candidate.parentId == node.id;
@@ -384,7 +386,14 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
             const bool opened = ImGui::TreeNodeEx(node.id.c_str(), flags, "%s", node.name.c_str());
             if (ImGui::IsItemClicked())
             {
-                session.SelectNode(node.id);
+                if (ImGui::GetIO().KeyCtrl)
+                {
+                    session.ToggleNodeSelection(node.id);
+                }
+                else
+                {
+                    session.SelectNode(node.id);
+                }
             }
             if (ImGui::BeginDragDropSource())
             {

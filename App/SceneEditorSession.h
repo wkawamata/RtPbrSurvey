@@ -19,9 +19,12 @@ public:
     const RtPbrSurvey::SceneDocument& Document() const;
 
     const std::optional<std::string>& SelectedNodeId() const;
+    const std::vector<std::string>& SelectedNodeIds() const;
     RtPbrSurvey::SceneNode* SelectedNode();
     const RtPbrSurvey::SceneNode* SelectedNode() const;
     bool SelectNode(const std::string& nodeId);
+    bool ToggleNodeSelection(const std::string& nodeId);
+    bool IsNodeSelected(const std::string& nodeId) const;
 
     bool IsModified() const;
     void MarkSaved();
@@ -48,7 +51,9 @@ public:
     bool CopySelectedSubtree(std::string* error = nullptr);
     bool PasteSubtree(std::string* error = nullptr);
     bool DeleteSelectedNode(std::string* error = nullptr);
+    bool DeleteSelectedNodes(std::string* error = nullptr);
     bool DuplicateSelectedSubtree(std::string* error = nullptr);
+    bool DuplicateSelectedSubtrees(std::string* error = nullptr);
     bool ReparentSelectedNodePreservingWorld(const std::optional<std::string>& parentId,
                                              std::string* error = nullptr);
 
@@ -57,6 +62,7 @@ private:
     {
         RtPbrSurvey::SceneDocument document;
         std::optional<std::string> selectedNodeId;
+        std::vector<std::string> selectedNodeIds;
         bool modified = false;
     };
 
@@ -77,6 +83,7 @@ private:
 
     RtPbrSurvey::SceneDocument m_document;
     std::optional<std::string> m_selectedNodeId;
+    std::vector<std::string> m_selectedNodeIds;
     uint64_t m_nextNodeId = 1;
     bool m_modified = false;
     std::vector<Snapshot> m_undoHistory;

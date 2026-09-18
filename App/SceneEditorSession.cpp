@@ -61,6 +61,11 @@ const std::optional<std::string>& SceneEditorSession::SelectedNodeId() const
     return m_selectedNodeId;
 }
 
+const std::vector<std::string>& SceneEditorSession::SelectedNodeIds() const
+{
+    return m_selectedNodeIds;
+}
+
 RtPbrSurvey::SceneNode* SceneEditorSession::SelectedNode()
 {
     if (!m_selectedNodeId.has_value())
@@ -90,7 +95,48 @@ bool SceneEditorSession::SelectNode(const std::string& nodeId)
         return false;
     }
     m_selectedNodeId = nodeId;
+    m_selectedNodeIds = {nodeId};
     return true;
+}
+
+bool SceneEditorSession::ToggleNodeSelection(const std::string& nodeId)
+{
+    const auto node = std::find_if(m_document.nodes.begin(), m_document.nodes.end(), [&nodeId](const RtPbrSurvey::SceneNode& candidate)
+    {
+        return candidate.id == nodeId;
+    });
+    if (node == m_document.nodes.end())
+    {
+        return false;
+    }
+
+    const auto selected = std::find(m_selectedNodeIds.begin(), m_selectedNodeIds.end(), nodeId);
+    if (selected != m_selectedNodeIds.end())
+    {
+        m_selectedNodeIds.erase(selected);
+        if (m_selectedNodeId == nodeId)
+        {
+            if (m_selectedNodeIds.empty())
+            {
+                m_selectedNodeId.reset();
+            }
+            else
+            {
+                m_selectedNodeId = m_selectedNodeIds.back();
+            }
+        }
+    }
+    else
+    {
+        m_selectedNodeIds.push_back(nodeId);
+        m_selectedNodeId = nodeId;
+    }
+    return true;
+}
+
+bool SceneEditorSession::IsNodeSelected(const std::string& nodeId) const
+{
+    return std::find(m_selectedNodeIds.begin(), m_selectedNodeIds.end(), nodeId) != m_selectedNodeIds.end();
 }
 
 bool SceneEditorSession::IsModified() const
@@ -182,6 +228,7 @@ bool SceneEditorSession::AddPrimitive(RtPbrSurvey::ScenePrimitiveKind kind, std:
     }
     m_document.nodes.push_back(std::move(node));
     m_selectedNodeId = m_document.nodes.back().id;
+    m_selectedNodeIds = {*m_selectedNodeId};
     m_modified = true;
     if (error != nullptr)
     {
@@ -207,6 +254,7 @@ bool SceneEditorSession::AddEmpty(std::string* error)
     }
     m_document.nodes.push_back(std::move(node));
     m_selectedNodeId = m_document.nodes.back().id;
+    m_selectedNodeIds = {*m_selectedNodeId};
     m_modified = true;
     if (error != nullptr)
     {
@@ -254,6 +302,7 @@ bool SceneEditorSession::AddGltfNode(const std::string& relativePath, std::strin
     node.assetId = asset->id;
     m_document.nodes.push_back(std::move(node));
     m_selectedNodeId = m_document.nodes.back().id;
+    m_selectedNodeIds = {*m_selectedNodeId};
     m_modified = true;
     if (error != nullptr)
     {
@@ -560,6 +609,7 @@ bool SceneEditorSession::PasteSubtree(std::string* error)
     }
 
     m_selectedNodeId = pastedIds.at(m_clipboard->rootId);
+    m_selectedNodeIds = {*m_selectedNodeId};
     m_document.nodes.insert(m_document.nodes.end(),
                             std::make_move_iterator(pastedNodes.begin()),
                             std::make_move_iterator(pastedNodes.end()));
@@ -573,18 +623,23 @@ bool SceneEditorSession::PasteSubtree(std::string* error)
 
 bool SceneEditorSession::DeleteSelectedNode(std::string* error)
 {
-    if (!m_selectedNodeId.has_value())
+    return DeleteSelectedNodes(error);
+}
+
+bool SceneEditorSession::DeleteSelectedNodes(std::string* error)
+{
+    if (m_selectedNodeIds.empty())
     {
         if (error != nullptr)
         {
-            *error = "No hierarchy node is selected.";
+            *error = "No hierarchy nodes are selected.";
         }
         return false;
     }
 
     PushUndoSnapshot();
 
-    std::unordered_set<std::string> removedIds = {*m_selectedNodeId};
+    std::unordered_set<std::string> removedIds(m_selectedNodeIds.begin(), m_selectedNodeIds.end());
     bool addedDescendant = true;
     while (addedDescendant)
     {
@@ -603,6 +658,7 @@ bool SceneEditorSession::DeleteSelectedNode(std::string* error)
         return removedIds.contains(node.id);
     }), m_document.nodes.end());
     m_selectedNodeId.reset();
+    m_selectedNodeIds.clear();
     m_modified = true;
     if (error != nullptr)
     {
@@ -613,17 +669,40 @@ bool SceneEditorSession::DeleteSelectedNode(std::string* error)
 
 bool SceneEditorSession::DuplicateSelectedSubtree(std::string* error)
 {
-    const RtPbrSurvey::SceneNode* selectedNode = SelectedNode();
-    if (selectedNode == nullptr)
+    return DuplicateSelectedSubtrees(error);
+}
+
+bool SceneEditorSession::DuplicateSelectedSubtrees(std::string* error)
+{
+    if (m_selectedNodeIds.empty())
     {
         if (error != nullptr)
         {
-            *error = "No hierarchy node is selected.";
+            *error = "No hierarchy nodes are selected.";
         }
         return false;
     }
 
-    std::unordered_set<std::string> sourceIds = {selectedNode->id};
+    std::unordered_set<std::string> selectedIds(m_selectedNodeIds.begin(), m_selectedNodeIds.end());
+    std::unordered_set<std::string> rootIds;
+    for (const RtPbrSurvey::SceneNode& node : m_document.nodes)
+    {
+        if (!selectedIds.contains(node.id) || (node.parentId.has_value() && selectedIds.contains(*node.parentId)))
+        {
+            continue;
+        }
+        rootIds.insert(node.id);
+    }
+    if (rootIds.empty())
+    {
+        if (error != nullptr)
+        {
+            *error = "Selected hierarchy nodes are unavailable.";
+        }
+        return false;
+    }
+
+    std::unordered_set<std::string> sourceIds = rootIds;
     bool addedDescendant = true;
     while (addedDescendant)
     {
@@ -651,7 +730,7 @@ bool SceneEditorSession::DuplicateSelectedSubtree(std::string* error)
         const std::string duplicateId = CreateNodeId();
         duplicateIds.emplace(node.id, duplicateId);
         duplicate.id = duplicateId;
-        if (node.id == selectedNode->id)
+        if (rootIds.contains(node.id))
         {
             duplicate.name += " Copy";
         }
@@ -668,11 +747,18 @@ bool SceneEditorSession::DuplicateSelectedSubtree(std::string* error)
             }
         }
     }
-    const std::string duplicatedRootId = duplicateIds.at(selectedNode->id);
     m_document.nodes.insert(m_document.nodes.end(),
                             std::make_move_iterator(duplicates.begin()),
                             std::make_move_iterator(duplicates.end()));
-    m_selectedNodeId = duplicatedRootId;
+    m_selectedNodeIds.clear();
+    for (const RtPbrSurvey::SceneNode& node : m_document.nodes)
+    {
+        if (rootIds.contains(node.id))
+        {
+            m_selectedNodeIds.push_back(duplicateIds.at(node.id));
+        }
+    }
+    m_selectedNodeId = m_selectedNodeIds.front();
     m_modified = true;
     if (error != nullptr)
     {
@@ -718,13 +804,14 @@ bool SceneEditorSession::ReparentSelectedNodePreservingWorld(const std::optional
 
 SceneEditorSession::Snapshot SceneEditorSession::CaptureSnapshot() const
 {
-    return {m_document, m_selectedNodeId, m_modified};
+    return {m_document, m_selectedNodeId, m_selectedNodeIds, m_modified};
 }
 
 void SceneEditorSession::RestoreSnapshot(Snapshot snapshot)
 {
     m_document = std::move(snapshot.document);
     m_selectedNodeId = std::move(snapshot.selectedNodeId);
+    m_selectedNodeIds = std::move(snapshot.selectedNodeIds);
     m_modified = snapshot.modified;
     m_activeEditSnapshot.reset();
 }
