@@ -1879,7 +1879,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                                  &semantic,
                                  "Color\0Normal\0Depth\0Motion Vector\0Scalar\0"))
                 {
-                    inspector.semantic = static_cast<RtPbrSurvey::DebugTextureSemantic>(semantic);
+                    RtPbrSurvey::SetDebugTexturePreviewSemantic(
+                        inspector, static_cast<RtPbrSurvey::DebugTextureSemantic>(semantic));
                 }
             }
             ImGui::SameLine();
@@ -1910,20 +1911,36 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                              "%.2f");
             ImGui::SameLine();
             ImGui::SetNextItemWidth(110.0f);
-            ImGui::DragFloat(("Scale##DebugTexture" + std::to_string(inspector.id)).c_str(),
-                             &inspector.scale,
-                             0.01f,
-                             -100.0f,
-                             100.0f,
-                             "%.3f");
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(110.0f);
-            ImGui::DragFloat(("Offset##DebugTexture" + std::to_string(inspector.id)).c_str(),
-                             &inspector.offset,
-                             0.01f,
-                             -100.0f,
-                             100.0f,
-                             "%.3f");
+            if (inspector.semantic == RtPbrSurvey::DebugTextureSemantic::MotionVector)
+            {
+                float motionScale = inspector.scale;
+                if (ImGui::DragFloat(("Motion Scale##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                                     &motionScale,
+                                     0.25f,
+                                     1.0f,
+                                     100.0f,
+                                     "%.2f"))
+                {
+                    RtPbrSurvey::SetMotionVectorPreviewScale(inspector, motionScale);
+                }
+            }
+            else
+            {
+                ImGui::DragFloat(("Scale##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                                 &inspector.scale,
+                                 0.01f,
+                                 -100.0f,
+                                 100.0f,
+                                 "%.3f");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(110.0f);
+                ImGui::DragFloat(("Offset##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                                 &inspector.offset,
+                                 0.01f,
+                                 -100.0f,
+                                 100.0f,
+                                 "%.3f");
+            }
 
             if (inspector.semantic == RtPbrSurvey::DebugTextureSemantic::Depth)
             {

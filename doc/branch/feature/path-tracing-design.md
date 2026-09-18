@@ -905,3 +905,12 @@ type is established.
 
 The extraction may be one review branch but should use at least two commits: shader extraction first, CPU binding
 commonization second. This makes a Hybrid regression bisectable before Path Tracing code is introduced.
+
+### 16.9 Commit 10: motion-vector observability
+
+`PathTracing.MotionVectors`の保存値は既存rendererと同じ`previous NDC - current NDC`を維持する。Debug Texture
+Previewだけをzero-centered 32x表示にし、encoded neutral 0.5がscale変更後も0.5のままになるoffsetを自動設定する。
+静止時はneutral gray、camera移動frameでは方向を持つ色差として観測できる。
+
+CLIの`-DebugPreviewResource`指定時はDebug UIをcaptureへ含める。静止/camera orbitの比較scriptはresourceがcamera
+motionへ反応することとD3D12 error 0件を検証するが、reprojection signの数学的証明やdenoiser統合は行わない。

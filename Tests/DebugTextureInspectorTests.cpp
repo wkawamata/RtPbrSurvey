@@ -61,6 +61,30 @@ bool TestDifferentPreviewsRemainIndependent()
            Check(manager.Find(firstId)->resourceName == "GBuffer.Albedo", "first preview remains unchanged");
 }
 
+bool TestMotionVectorPreviewUsesCenteredAmplification()
+{
+    RtPbrSurvey::DebugTextureInspectorManager manager;
+    auto* inspector = manager.OpenPreview(
+        "PathTracing.MotionVectors", "Motion Vectors", RtPbrSurvey::DebugTextureSemantic::MotionVector);
+    if (!Check(inspector != nullptr, "motion-vector preview opens"))
+    {
+        return false;
+    }
+
+    bool passed = Check(inspector->scale == RtPbrSurvey::kDefaultMotionVectorPreviewScale,
+                        "motion-vector preview uses the default amplification") &&
+                  Check(inspector->offset == -15.5f, "motion-vector preview remains centered on neutral gray");
+    RtPbrSurvey::SetMotionVectorPreviewScale(*inspector, 8.0f);
+    passed &= Check(inspector->scale == 8.0f, "motion-vector scale can be adjusted");
+    passed &= Check(inspector->offset == -3.5f, "adjusted motion-vector scale updates the centered offset");
+    passed &= Check(0.5f * inspector->scale + inspector->offset == 0.5f,
+                    "zero motion remains neutral gray after amplification");
+    RtPbrSurvey::SetDebugTexturePreviewSemantic(*inspector, RtPbrSurvey::DebugTextureSemantic::Color);
+    passed &= Check(inspector->scale == 1.0f && inspector->offset == 0.0f,
+                    "leaving motion-vector visualization restores neutral controls");
+    return passed;
+}
+
 bool TestPreviewLimitUsesFifoReplacement()
 {
     RtPbrSurvey::DebugTextureInspectorManager manager;
@@ -394,7 +418,8 @@ int main()
 {
     const bool passed =
         TestOpenPreviewReusesMatchingInspector() && TestPinnedPreviewsRemainIndependent() &&
-        TestDifferentPreviewsRemainIndependent() && TestPreviewLimitUsesFifoReplacement() &&
+        TestDifferentPreviewsRemainIndependent() && TestMotionVectorPreviewUsesCenteredAmplification() &&
+        TestPreviewLimitUsesFifoReplacement() &&
         TestFifoReplacementSkipsPinnedPreviews() && TestAllPinnedPreviewsRejectReplacement() && TestCloseAndRemove() &&
         TestClosedSlotIsReusedWithoutMovingLiveInspectors() && TestDepthVisualizationDefaultsFollowCameraRange() &&
         TestDepthVisualizationConstantsSanitizeInvalidValues() &&

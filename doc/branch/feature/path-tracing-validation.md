@@ -88,6 +88,16 @@ NRD/DLSS RR向けpacking済みデータではない。
 - 静止sceneのMotionVectorsは0付近、camera/instance移動では既存GBufferと同じ向きに変化する。
 - surface hit領域でDiffuse/Specular signalが同一画像ではなく、primary miss領域では両方0になる。
 
+Motion Vectorの表示確認には次を使う。Previewはzero motionをneutral grayへ保ったまま既定32倍で増幅される。
+
+```powershell
+.\Tests\PathTracing\Invoke-MotionVectorValidation.ps1
+```
+
+scriptは静止captureとdeterministic camera orbit中のcaptureを生成し、画像差とD3D12 error 0件を確認する。画像差は
+resourceがcamera motionへ反応することの確認であり、符号と座標系の独立証明ではない。符号契約は既存rendererと同じ
+`previous NDC - current NDC`である。
+
 buffer initial stateがCOMMONへ扱われる既知のwarning 2件/captureはerror判定に含めない。
 
 ## 6. Hardware matrix

@@ -428,7 +428,20 @@ void RtPbrSurveyApp::OnInit()
                 m_debugCamera.ObjectViewerPivot());
             m_debugCamera.UpdateObjectViewerCamera();
         }
-        m_debugUiVisible = false;
+        m_debugUiVisible = m_commandLineOptions.enableDebugTexturePreview;
+
+        const bool automatedSingleCaptureOrbit = !m_commandLineOptions.capturePath.empty() &&
+            m_commandLineOptions.reflectionOrbitFrames > 0;
+        if (automatedSingleCaptureOrbit)
+        {
+            if (m_debugCamera.GetMode() != RtPbrSurvey::DebugCameraController::Mode::Arcball)
+            {
+                m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::Arcball);
+                m_debugCamera.InitObjectViewerFromCamera();
+            }
+            m_automationOrbitStartYaw = m_debugCamera.ObjectViewerYaw();
+            m_automationOrbitDistance = m_debugCamera.ObjectViewerDistance();
+        }
 
         if (m_commandLineOptions.captureReflectionResolvedRadiance)
         {
@@ -790,7 +803,9 @@ void RtPbrSurveyApp::OnIdle()
 
 void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
 {
-    if (!m_commandLineOptions.captureReflectionResolvedRadiance ||
+    const bool automatedSingleCaptureOrbit = !m_commandLineOptions.capturePath.empty() &&
+        m_commandLineOptions.reflectionOrbitFrames > 0;
+    if ((!m_commandLineOptions.captureReflectionResolvedRadiance && !automatedSingleCaptureOrbit) ||
         m_debugCamera.GetMode() != RtPbrSurvey::DebugCameraController::Mode::Arcball)
     {
         return;

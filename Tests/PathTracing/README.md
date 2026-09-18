@@ -33,3 +33,12 @@ Commit 8 exposes these current-frame primary-surface resources through RenderGra
 - `PathTracing.Albedo`
 
 Use `-DebugPreviewResource <name>` with the normal Path Tracing CLI arguments to open one for visual validation.
+Motion-vector previews use a centered 32x display scale by default, so zero motion remains neutral gray while small
+positive and negative values remain visible. Run the stationary/camera-motion comparison with:
+
+```powershell
+.\Tests\PathTracing\Invoke-MotionVectorValidation.ps1
+```
+
+The generated captures and report are written under `bin/x64/Debug/PathTracingMotionVectorValidation` by default and
+must not be committed.
