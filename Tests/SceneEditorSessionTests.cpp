@@ -217,6 +217,27 @@ bool TestCopyPasteSelectedSubtreeIsUndoable()
     return passed;
 }
 
+bool TestPrimitiveShapeEditIsUndoable()
+{
+    RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("primitive-edit-test", "Primitive Edit Test");
+    App::SceneEditorSession session(std::move(document));
+    bool passed = Check(session.AddPrimitive(RtPbrSurvey::ScenePrimitiveKind::Sphere), "sphere is added for shape edit");
+    session.MarkSaved();
+    session.BeginEdit();
+    RtPbrSurvey::SceneNode* sphere = session.SelectedNode();
+    sphere->primitive.radius = 2.0f;
+    sphere->primitive.stacks = 32;
+    sphere->primitive.slices = 48;
+    session.CommitEdit();
+    passed &= Check(session.IsModified() && sphere->primitive.radius == 2.0f && sphere->primitive.stacks == 32 &&
+                        sphere->primitive.slices == 48,
+                    "primitive shape edit updates values");
+    passed &= Check(session.Undo() && session.SelectedNode()->primitive.radius == 0.5f &&
+                        session.SelectedNode()->primitive.stacks == 24 && session.SelectedNode()->primitive.slices == 32,
+                    "primitive shape edit is undoable");
+    return passed;
+}
+
 bool TestSceneSettingsEditIsUndoable()
 {
     RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("settings-test", "Settings Test");
@@ -242,7 +263,7 @@ int main()
                    TestDuplicateAndReparentSelectedSubtree() && TestMaterialCreationIsUndoable() &&
                    TestGltfAssetIsSharedAcrossNodes() && TestUnusedResourcesAreRemovedAndUndoable() &&
                    TestNodeRenameIsUndoableAndRejectsEmptyNames() && TestCopyPasteSelectedSubtreeIsUndoable() &&
-                   TestSceneSettingsEditIsUndoable() ?
+                   TestPrimitiveShapeEditIsUndoable() && TestSceneSettingsEditIsUndoable() ?
                0 :
                1;
 }

@@ -559,6 +559,56 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                     rebuildPreview();
                 }
             }
+
+            bool primitiveCommitted = false;
+            auto editPrimitiveFloat = [&session, &primitiveCommitted](const char* label, float& value, float minimum)
+            {
+                float editedValue = value;
+                if (ImGui::DragFloat(label, &editedValue, 0.01f, minimum, 1000.0f))
+                {
+                    session.BeginEdit();
+                    value = editedValue;
+                }
+                primitiveCommitted = primitiveCommitted || ImGui::IsItemDeactivatedAfterEdit();
+            };
+            auto editPrimitiveCount = [&session, &primitiveCommitted](const char* label, uint32_t& value, int minimum)
+            {
+                int editedValue = static_cast<int>(value);
+                if (ImGui::DragInt(label, &editedValue, 1.0f, minimum, 256))
+                {
+                    session.BeginEdit();
+                    value = static_cast<uint32_t>(std::clamp(editedValue, minimum, 256));
+                }
+                primitiveCommitted = primitiveCommitted || ImGui::IsItemDeactivatedAfterEdit();
+            };
+
+            ImGui::SeparatorText("Primitive Shape");
+            RtPbrSurvey::ScenePrimitive& primitive = selectedNode->primitive;
+            switch (primitive.kind)
+            {
+            case RtPbrSurvey::ScenePrimitiveKind::Cube:
+                editPrimitiveFloat("Size", primitive.size, 0.001f);
+                break;
+            case RtPbrSurvey::ScenePrimitiveKind::Sphere:
+                editPrimitiveFloat("Radius", primitive.radius, 0.001f);
+                editPrimitiveCount("Stacks", primitive.stacks, 2);
+                editPrimitiveCount("Slices", primitive.slices, 3);
+                break;
+            case RtPbrSurvey::ScenePrimitiveKind::Plane:
+                editPrimitiveFloat("Width", primitive.width, 0.001f);
+                editPrimitiveFloat("Depth", primitive.depth, 0.001f);
+                break;
+            case RtPbrSurvey::ScenePrimitiveKind::Cylinder:
+                editPrimitiveFloat("Radius", primitive.radius, 0.001f);
+                editPrimitiveFloat("Height", primitive.height, 0.001f);
+                editPrimitiveCount("Radial Segments", primitive.radialSegments, 3);
+                break;
+            }
+            if (primitiveCommitted)
+            {
+                session.CommitEdit();
+                rebuildPreview();
+            }
         }
         else if (selectedNode->type == RtPbrSurvey::SceneNodeType::Gltf)
         {
