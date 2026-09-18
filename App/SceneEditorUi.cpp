@@ -394,6 +394,7 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                 {
                     session.SelectNode(node.id);
                 }
+                app.UpdateSceneEditorSelectionOverlay();
             }
             if (ImGui::BeginDragDropSource())
             {
@@ -456,7 +457,55 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     ImGui::TextUnformatted("3D Preview");
     ImGui::Separator();
     ImGui::TextWrapped("The renderer behind this editor displays the current document. Mouse and keyboard camera controls remain available.");
-    ImGui::TextDisabled("Rebuilds occur after a transform field is committed.");
+    ImGui::TextDisabled("Selected nodes show red, green, and blue axes in the renderer.");
+    ImGui::TextDisabled("Move controls apply to the primary selection.");
+    ImGui::DragFloat("Move Step", &app.m_sceneEditorTranslationStep, 0.01f, 0.01f, 100.0f, "%.2f");
+    const auto nudgeSelectedNode = [&session, &rebuildPreview](float x, float y, float z)
+    {
+        RtPbrSurvey::SceneNode* node = session.SelectedNode();
+        if (node == nullptr)
+        {
+            return;
+        }
+        session.BeginEdit();
+        node->transform.translation.x += x;
+        node->transform.translation.y += y;
+        node->transform.translation.z += z;
+        session.CommitEdit();
+        rebuildPreview();
+    };
+    const float moveStep = app.m_sceneEditorTranslationStep;
+    ImGui::BeginDisabled(session.SelectedNode() == nullptr);
+    if (ImGui::Button("X-"))
+    {
+        nudgeSelectedNode(-moveStep, 0.0f, 0.0f);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("X+"))
+    {
+        nudgeSelectedNode(moveStep, 0.0f, 0.0f);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Y-"))
+    {
+        nudgeSelectedNode(0.0f, -moveStep, 0.0f);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Y+"))
+    {
+        nudgeSelectedNode(0.0f, moveStep, 0.0f);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Z-"))
+    {
+        nudgeSelectedNode(0.0f, 0.0f, -moveStep);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Z+"))
+    {
+        nudgeSelectedNode(0.0f, 0.0f, moveStep);
+    }
+    ImGui::EndDisabled();
 
     ImGui::NextColumn();
     ImGui::TextUnformatted("Inspector");

@@ -27,6 +27,7 @@
 #include "../Renderer/StreamlineAdapter.h"
 #include "../Renderer/ReflectionHdrDiagnosticStatistics.h"
 #include "../Scene/SceneFactory.h"
+#include "../Scene/SceneGraph.h"
 #include "../Scene/SceneDocumentJson.h"
 #include "../Scene/SceneDocumentRuntimeScene.h"
 #include "imgui.h"
@@ -2004,11 +2005,72 @@ bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
     m_debugCamera.SetCameraState(&camera);
     m_debugCamera.SetWindowSize(GetWidth(), GetHeight());
     m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::FreeLook);
+    UpdateSceneEditorSelectionOverlay();
     if (error != nullptr)
     {
         error->clear();
     }
     return true;
+}
+
+void RtPbrSurveyApp::UpdateSceneEditorSelectionOverlay()
+{
+    ClearSceneEditorSelectionOverlay();
+    if (!m_sceneEditorSession.has_value())
+    {
+        return;
+    }
+
+    const RtPbrSurvey::SceneDocument& document = m_sceneEditorSession->Document();
+    RtPbrSurvey::SceneGraphEvaluation graph;
+    if (!RtPbrSurvey::EvaluateSceneGraph(document, graph, nullptr))
+    {
+        return;
+    }
+
+    constexpr float axisLength = 0.45f;
+    const std::array<DirectX::XMFLOAT3, 3> axisDirections = {
+        DirectX::XMFLOAT3{axisLength, 0.0f, 0.0f},
+        DirectX::XMFLOAT3{0.0f, axisLength, 0.0f},
+        DirectX::XMFLOAT3{0.0f, 0.0f, axisLength},
+    };
+    const std::array<DirectX::XMFLOAT4, 3> axisColors = {
+        DirectX::XMFLOAT4{1.0f, 0.2f, 0.2f, 1.0f},
+        DirectX::XMFLOAT4{0.2f, 1.0f, 0.2f, 1.0f},
+        DirectX::XMFLOAT4{0.2f, 0.5f, 1.0f, 1.0f},
+    };
+    for (const std::string& nodeId : m_sceneEditorSession->SelectedNodeIds())
+    {
+        const DirectX::XMFLOAT4X4* world = graph.FindWorld(nodeId, document);
+        if (world == nullptr)
+        {
+            continue;
+        }
+        const DirectX::XMFLOAT3 origin = {world->_41, world->_42, world->_43};
+        for (size_t axis = 0; axis < axisDirections.size(); ++axis)
+        {
+            const DirectX::XMFLOAT3& direction = axisDirections[axis];
+            RtPbrSurvey::DebugLineDesc line = {};
+            line.start = origin;
+            line.end = {origin.x + direction.x, origin.y + direction.y, origin.z + direction.z};
+            line.color = axisColors[axis];
+            line.depthMode = RtPbrSurvey::DebugLineDepthMode::Overlay;
+            const RtPbrSurvey::DebugLineHandle handle = m_sceneRenderer.AddDebugLine(line);
+            if (handle != RtPbrSurvey::kInvalidDebugLineHandle)
+            {
+                m_sceneEditorSelectionLineHandles.push_back(handle);
+            }
+        }
+    }
+}
+
+void RtPbrSurveyApp::ClearSceneEditorSelectionOverlay()
+{
+    for (const RtPbrSurvey::DebugLineHandle handle : m_sceneEditorSelectionLineHandles)
+    {
+        m_sceneRenderer.RemoveDebugLine(handle);
+    }
+    m_sceneEditorSelectionLineHandles.clear();
 }
 
 void RtPbrSurveyApp::ApplySceneEditorEnvironmentSettings()
@@ -2041,6 +2103,7 @@ void RtPbrSurveyApp::ApplySceneEditorEnvironmentSettings()
 
 void RtPbrSurveyApp::ReturnToTopMenu()
 {
+    ClearSceneEditorSelectionOverlay();
     m_appMode = AppMode::TopMenu;
     m_sceneEditorStatus.clear();
 }

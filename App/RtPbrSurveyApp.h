@@ -36,6 +36,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 class RtPbrSurveyApp : public Platform::IApplication
 {
@@ -115,6 +116,8 @@ private:
     bool AddSceneEditorGltfNode(const std::string& relativePath, std::string* error = nullptr);
     bool RebuildSceneEditorPreview(std::string* error = nullptr);
     void ApplySceneEditorEnvironmentSettings();
+    void UpdateSceneEditorSelectionOverlay();
+    void ClearSceneEditorSelectionOverlay();
     void ReturnToTopMenu();
     void ApplyDlssSrCommandLineOptions();
     void CloseRunningScene();
@@ -159,8 +162,10 @@ private:
     std::string m_sceneEditorSavePath = "Assets/Scenes/NewTestScene/scene.json";
     std::string m_sceneEditorStatus;
     bool m_sceneEditorPresetDirty = false;
+    float m_sceneEditorTranslationStep = 0.25f;
     SceneEditorPendingAction m_sceneEditorPendingAction = SceneEditorPendingAction::None;
     std::string m_sceneEditorPendingLoadPath;
+    std::vector<RtPbrSurvey::DebugLineHandle> m_sceneEditorSelectionLineHandles;
 
     RtPbrSurveyEngine::LightingParams m_lightingParams;
     Engine::ProceduralEnvironmentSettings m_environmentSettings;
