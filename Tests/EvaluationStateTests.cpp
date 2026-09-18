@@ -23,9 +23,9 @@ bool TestRoundTripPreservesJapaneseAndTypedJudgments()
     state.id = 7;
     state.name = "DLSS RR \xE6\x97\xA5";
     state.comment = "\xE6\x9C\xAC\xE8\xAA\x9E";
-    state.sceneIndex = 3;
-    state.sceneName = "DamagedHelmet";
-    state.sceneReference = {"sample:DamagedHelmet", ""};
+    state.sceneIndex = -1;
+    state.sceneName = "Test Scene";
+    state.sceneReference = {"scene-test-001", "Assets/Scenes/TestScene/scene.json"};
     state.sceneConfig = {{"camera", {{"mode", "arcball"}}}, {"renderingPath", 1}};
     state.roi = {true, 0.1f, 0.2f, 0.4f, 0.5f};
     state.testItems = {
@@ -51,6 +51,8 @@ bool TestRoundTripPreservesJapaneseAndTypedJudgments()
     passed &= Check(restored[0].comment == state.comment, "Japanese comment round-trips");
     passed &= Check(restored[0].sceneConfig == state.sceneConfig, "captured scene config round-trips");
     passed &= Check(restored[0].sceneReference.id == state.sceneReference.id, "stable scene ID round-trips");
+    passed &= Check(restored[0].sceneReference.path == state.sceneReference.path,
+                    "file-backed scene path round-trips");
     passed &= Check(restored[0].testItems.size() == 2 && restored[0].runs.size() == 1 &&
                         restored[0].runs[0].results[0].score == 4,
                     "score result round-trips");

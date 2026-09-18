@@ -2180,7 +2180,7 @@ void RtPbrSurveyApp::OpenSelectedScene()
 
 bool RtPbrSurveyApp::CaptureEvaluationState(RtPbrSurvey::EvaluationState& state, std::string* error)
 {
-    if (m_loadedSceneIndex < 0 || m_loadedScene == nullptr)
+    if (m_loadedScene == nullptr)
     {
         if (error != nullptr)
         {
@@ -2191,10 +2191,29 @@ bool RtPbrSurveyApp::CaptureEvaluationState(RtPbrSurvey::EvaluationState& state,
 
     try
     {
-        state.sceneIndex = m_loadedSceneIndex;
-        state.sceneName = LoadedScene().Name();
-        state.sceneReference.id = "sample:" + state.sceneName;
-        state.sceneReference.path.clear();
+        if (m_sceneEditorPreviewScene != nullptr && m_loadedScene == m_sceneEditorPreviewScene.get() &&
+            m_sceneEditorSession.has_value() && !m_sceneEditorDocumentPath.empty())
+        {
+            state.sceneIndex = -1;
+            state.sceneName = m_sceneEditorSession->Document().name;
+            state.sceneReference.id = m_sceneEditorSession->Document().sceneId;
+            state.sceneReference.path = m_sceneEditorDocumentPath;
+        }
+        else if (m_loadedSceneIndex >= 0)
+        {
+            state.sceneIndex = m_loadedSceneIndex;
+            state.sceneName = LoadedScene().Name();
+            state.sceneReference.id = "sample:" + state.sceneName;
+            state.sceneReference.path.clear();
+        }
+        else
+        {
+            if (error != nullptr)
+            {
+                *error = "The loaded scene cannot be saved as an evaluation case.";
+            }
+            return false;
+        }
         state.sceneConfig = nlohmann::json::parse(m_sceneConfig.CaptureCurrentSceneJson(
             *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene()));
         state.roi = m_evaluationRoi;
@@ -2224,12 +2243,50 @@ bool RtPbrSurveyApp::RestoreEvaluationState(const RtPbrSurvey::EvaluationState& 
 
     if (!state.sceneReference.path.empty())
     {
+        const std::filesystem::path documentPath = std::filesystem::absolute(state.sceneReference.path);
+        Engine::SceneDocumentRuntimeScene candidate(documentPath);
+        std::string loadError;
+        if (!candidate.LoadFromFile(&loadError))
+        {
+            if (error != nullptr)
+            {
+                *error = "Could not load evaluation Scene Document: " + loadError;
+            }
+            return false;
+        }
+        if (!state.sceneReference.id.empty() && candidate.Document().sceneId != state.sceneReference.id)
+        {
+            if (error != nullptr)
+            {
+                *error = "Evaluation Scene Document ID does not match the saved case.";
+            }
+            return false;
+        }
+        if (!LoadSceneEditorDocument(documentPath.generic_string(), &loadError))
+        {
+            if (error != nullptr)
+            {
+                *error = "Could not restore evaluation Scene Document: " + loadError;
+            }
+            return false;
+        }
+        if (!m_sceneConfig.ApplyCurrentSceneJson(
+                state.sceneConfig.dump(), *this, m_sceneRenderer.EngineForDebugTools(), error))
+        {
+            return false;
+        }
+
+        m_evaluationRoi = state.roi;
+        m_evaluationRoi.Sanitize();
+        m_appMode = AppMode::Running;
+        m_framePaused = false;
+        m_forwardStepRequested = false;
+        m_debugUiVisible = true;
         if (error != nullptr)
         {
-            *error = "File-backed evaluation scenes are not available until Test Scene Editor loading is implemented: " +
-                     state.sceneReference.path;
+            error->clear();
         }
-        return false;
+        return true;
     }
 
     int sceneIndex = -1;
