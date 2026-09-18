@@ -355,6 +355,9 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
 
     ImGui::TextUnformatted("Hierarchy");
     ImGui::Separator();
+    std::string draggedNodeId;
+    std::optional<std::string> droppedParentId;
+    bool hasDroppedParent = false;
     std::function<void(const std::optional<std::string>&)> drawNodes;
     drawNodes = [&](const std::optional<std::string>& parentId)
     {
@@ -383,6 +386,26 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
             {
                 session.SelectNode(node.id);
             }
+            if (ImGui::BeginDragDropSource())
+            {
+                ImGui::SetDragDropPayload("SceneEditorNode", node.id.c_str(), node.id.size() + 1);
+                ImGui::Text("Move %s", node.name.c_str());
+                ImGui::EndDragDropSource();
+            }
+            if (ImGui::BeginDragDropTarget())
+            {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SceneEditorNode"))
+                {
+                    if (payload->DataSize > 1)
+                    {
+                        const char* sourceId = static_cast<const char*>(payload->Data);
+                        draggedNodeId.assign(sourceId, static_cast<size_t>(payload->DataSize - 1));
+                        droppedParentId = node.id;
+                        hasDroppedParent = true;
+                    }
+                }
+                ImGui::EndDragDropTarget();
+            }
             if (opened && hasChildren)
             {
                 drawNodes(node.id);
@@ -391,6 +414,34 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         }
     };
     drawNodes(std::nullopt);
+    ImGui::TextDisabled("Drop here to move a node to Root.");
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SceneEditorNode"))
+        {
+            if (payload->DataSize > 1)
+            {
+                const char* sourceId = static_cast<const char*>(payload->Data);
+                draggedNodeId.assign(sourceId, static_cast<size_t>(payload->DataSize - 1));
+                droppedParentId.reset();
+                hasDroppedParent = true;
+            }
+        }
+        ImGui::EndDragDropTarget();
+    }
+    if (hasDroppedParent && !draggedNodeId.empty())
+    {
+        session.SelectNode(draggedNodeId);
+        std::string error;
+        if (!session.ReparentSelectedNodePreservingWorld(droppedParentId, &error))
+        {
+            app.m_sceneEditorStatus = "Hierarchy move failed: " + error;
+        }
+        else
+        {
+            rebuildPreview();
+        }
+    }
 
     ImGui::NextColumn();
     ImGui::TextUnformatted("3D Preview");
