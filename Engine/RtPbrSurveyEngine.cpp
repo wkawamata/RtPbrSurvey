@@ -2466,7 +2466,7 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     rootParameters[12].InitAsDescriptorTable(1, &textureSrvRange);
     rootParameters[13].InitAsShaderResourceView(5, 0);
     rootParameters[14].InitAsDescriptorTable(1, &environmentSrvRange);
-    rootParameters[15].InitAsConstants(26, 1, 0);
+    rootParameters[15].InitAsConstants(32, 1, 0);
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -5678,9 +5678,11 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.lightColor = {m_lightingParams.lightColor.x, m_lightingParams.lightColor.y, m_lightingParams.lightColor.z};
     passDesc.environmentIntensity = m_lightingParams.iblIntensity;
     passDesc.diffuseIntensity = m_lightingParams.diffuseIntensity;
+    passDesc.backgroundColor = m_backBufferClearColor;
     passDesc.debugOutput = static_cast<UINT>(m_pathTracingSettings.debugOutput);
     passDesc.maxBounces = m_pathTracingSettings.maxBounces;
     passDesc.environmentEnabled = m_pathTracingSettings.environmentEnabled ? 1u : 0u;
+    passDesc.skyboxEnabled = m_lightingParams.skyboxEnabled ? 1u : 0u;
     passDesc.emissiveEnabled =
         m_pathTracingSettings.emissiveEnabled && m_lightingParams.emissiveEnabled ? 1u : 0u;
     passDesc.directLightingEnabled =

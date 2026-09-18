@@ -462,6 +462,11 @@ Evaluation Case Window から同名の case と ROI を保存する。
 Commit 5 の実装では directional light の hard-shadow RayQuery、environment cube miss、emissive 加算、
 cosine-weighted Lambert bounce を追加する。GGX、metallic lobe、normal map、Russian Roulette は Commit 6 に残す。
 
+Environment cubeの用途はHybrid rendererと同じ設定契約に分離する。Primary rayのmissは`Show Skybox`に従い、
+有効時は生成済みenvironment cubeをそのまま表示し、無効時はback-buffer clear colorを表示する。
+Secondary rayのmissだけがPath Tracingの`Environment`と`IBL Intensity`に従う。これにより天球を非表示にしても
+IBL照明を維持できる。Environmentの向きは共通cube resource、露出とtone mappingは共通ToneMap passを使用する。
+
 ### Commit 6: metallic-roughness PBR
 
 - GGX importance sampling

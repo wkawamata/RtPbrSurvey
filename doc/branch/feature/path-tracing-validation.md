@@ -42,6 +42,11 @@ Guide bufferを確認する場合は`-DebugPreviewResource`に次のresource名�
 | `PathTracing.MotionVectors` | `R16G16_FLOAT` | previous NDC - current NDC |
 | `PathTracing.Albedo` | `R16G16B16A16_FLOAT` | linear albedo RGB、hit mask A |
 
+Environment比較では、Primary missの可視背景とSecondary missのIBLを別々に確認する。
+`Show Skybox`を無効にした場合、Primary missはclear colorへ切り替わるが、Path Tracingの`Environment`が有効なら
+Secondary missのIBL寄与は残る。`Show Skybox`を有効にした場合、Primary missはHybrid rendererと同じenvironment cubeを
+`IBL Intensity`で再スケールせず表示する。両rendering pathは同じToneMap設定を通す。
+
 ```powershell
 .\bin\x64\Debug\RtPbrSurvey.exe `
   -AutoSelectGltfAsset DamagedHelmet `

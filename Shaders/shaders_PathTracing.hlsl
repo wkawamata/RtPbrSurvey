@@ -56,6 +56,9 @@ cbuffer PathTracingConstants : register(b1)
     float3 lightColor;
     float diffuseIntensity;
     uint russianRouletteEnabled;
+    uint skyboxEnabled;
+    float constantBufferPadding;
+    float4 backgroundColor;
 };
 
 #include "SceneRayQuery.hlsli"
@@ -153,13 +156,22 @@ RayDesc MakePrimaryRay(uint2 pixel, float2 subpixelPosition, uint2 dimensions)
     return ray;
 }
 
-float3 SampleEnvironment(float3 direction)
+float3 SampleEnvironmentLighting(float3 direction)
 {
     if (environmentEnabled == 0)
     {
         return float3(0.0, 0.0, 0.0);
     }
     return g_environmentMap.SampleLevel(g_sampler, direction, 0).rgb * environmentIntensity;
+}
+
+float3 SamplePrimaryMiss(float3 direction)
+{
+    if (skyboxEnabled == 0)
+    {
+        return backgroundColor.rgb;
+    }
+    return g_environmentMap.SampleLevel(g_sampler, direction, 0).rgb;
 }
 
 float TraceShadow(float3 worldPosition, float3 normal)
@@ -204,7 +216,9 @@ float3 TracePath(uint2 pixel,
 
         if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
         {
-            radiance += throughput * SampleEnvironment(ray.Direction);
+            const float3 missRadiance =
+                bounce == 0 ? SamplePrimaryMiss(ray.Direction) : SampleEnvironmentLighting(ray.Direction);
+            radiance += throughput * missRadiance;
             break;
         }
 
