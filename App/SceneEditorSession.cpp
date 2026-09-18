@@ -5,6 +5,7 @@
 #include "Scene/SceneGraph.h"
 
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <iterator>
 #include <unordered_map>
@@ -28,6 +29,14 @@ const char* PrimitiveName(RtPbrSurvey::ScenePrimitiveKind kind)
         return "Cylinder";
     }
     return "Primitive";
+}
+
+bool HasVisibleCharacters(const std::string& value)
+{
+    return std::any_of(value.begin(), value.end(), [](unsigned char character)
+    {
+        return !std::isspace(character);
+    });
 }
 } // namespace
 
@@ -332,6 +341,44 @@ bool SceneEditorSession::RemoveUnusedResources(size_t* removedAssetCount,
     {
         *removedMaterialCount = materialsRemoved;
     }
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
+bool SceneEditorSession::RenameSelectedNode(const std::string& name, std::string* error)
+{
+    RtPbrSurvey::SceneNode* node = SelectedNode();
+    if (node == nullptr)
+    {
+        if (error != nullptr)
+        {
+            *error = "No hierarchy node is selected.";
+        }
+        return false;
+    }
+    if (!HasVisibleCharacters(name))
+    {
+        if (error != nullptr)
+        {
+            *error = "Node name must contain at least one non-space character.";
+        }
+        return false;
+    }
+    if (node->name == name)
+    {
+        if (error != nullptr)
+        {
+            error->clear();
+        }
+        return false;
+    }
+
+    PushUndoSnapshot();
+    node->name = name;
+    m_modified = true;
     if (error != nullptr)
     {
         error->clear();

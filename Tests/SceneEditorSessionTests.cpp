@@ -165,6 +165,23 @@ bool TestUnusedResourcesAreRemovedAndUndoable()
     return passed;
 }
 
+bool TestNodeRenameIsUndoableAndRejectsEmptyNames()
+{
+    RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("rename-test", "Rename Test");
+    RtPbrSurvey::SceneNode node;
+    node.id = "node";
+    node.name = "Original";
+    document.nodes.push_back(node);
+    App::SceneEditorSession session(std::move(document));
+    bool passed = Check(session.SelectNode("node"), "node is selected for rename");
+    passed &= Check(session.RenameSelectedNode("Renamed"), "node is renamed");
+    passed &= Check(session.SelectedNode()->name == "Renamed" && session.IsModified(), "renamed node is dirty");
+    passed &= Check(session.Undo() && session.SelectedNode()->name == "Original", "node rename is undoable");
+    std::string error;
+    passed &= Check(!session.RenameSelectedNode("   ", &error) && !error.empty(), "empty node name is rejected");
+    return passed;
+}
+
 bool TestSceneSettingsEditIsUndoable()
 {
     RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("settings-test", "Settings Test");
@@ -189,7 +206,7 @@ int main()
     return TestPrimitiveAddAndSubtreeDelete() && TestUndoRedoRestoresDocumentAndDirtyState() &&
                    TestDuplicateAndReparentSelectedSubtree() && TestMaterialCreationIsUndoable() &&
                    TestGltfAssetIsSharedAcrossNodes() && TestUnusedResourcesAreRemovedAndUndoable() &&
-                   TestSceneSettingsEditIsUndoable() ?
+                   TestNodeRenameIsUndoableAndRejectsEmptyNames() && TestSceneSettingsEditIsUndoable() ?
                0 :
                1;
 }

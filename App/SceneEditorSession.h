@@ -41,6 +41,7 @@ public:
     bool RemoveUnusedResources(size_t* removedAssetCount = nullptr,
                                size_t* removedMaterialCount = nullptr,
                                std::string* error = nullptr);
+    bool RenameSelectedNode(const std::string& name, std::string* error = nullptr);
     bool DeleteSelectedNode(std::string* error = nullptr);
     bool DuplicateSelectedSubtree(std::string* error = nullptr);
     bool ReparentSelectedNodePreservingWorld(const std::optional<std::string>& parentId,

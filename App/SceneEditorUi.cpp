@@ -382,6 +382,28 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         ImGui::Text("ID: %s", selectedNode->id.c_str());
         ImGui::Text("Type: %s", selectedNode->type == RtPbrSurvey::SceneNodeType::Empty ? "Empty" :
                                        selectedNode->type == RtPbrSurvey::SceneNodeType::Gltf ? "glTF" : "Primitive");
+        static std::string editedNodeId;
+        static std::string editedNodeName;
+        if (editedNodeId != selectedNode->id)
+        {
+            editedNodeId = selectedNode->id;
+            editedNodeName = selectedNode->name;
+        }
+        ImGui::InputText("Node Name", &editedNodeName);
+        ImGui::SameLine();
+        if (ImGui::Button("Apply Node Name"))
+        {
+            std::string error;
+            if (session.RenameSelectedNode(editedNodeName, &error))
+            {
+                app.m_sceneEditorStatus = "Node renamed.";
+            }
+            else if (!error.empty())
+            {
+                app.m_sceneEditorStatus = "Rename failed: " + error;
+                editedNodeName = selectedNode->name;
+            }
+        }
         bool visible = selectedNode->visible;
         if (ImGui::Checkbox("Visible", &visible))
         {
