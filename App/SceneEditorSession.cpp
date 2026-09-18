@@ -281,6 +281,91 @@ bool SceneEditorSession::AddMaterial(std::string* materialId, std::string* error
     return true;
 }
 
+bool SceneEditorSession::RenameMaterial(const std::string& materialId, const std::string& name, std::string* error)
+{
+    if (!HasVisibleCharacters(name))
+    {
+        if (error != nullptr)
+        {
+            *error = "Material name must contain at least one non-space character.";
+        }
+        return false;
+    }
+
+    const auto material = std::find_if(m_document.materials.begin(), m_document.materials.end(), [&materialId](const RtPbrSurvey::SceneMaterial& candidate)
+    {
+        return candidate.id == materialId;
+    });
+    if (material == m_document.materials.end())
+    {
+        if (error != nullptr)
+        {
+            *error = "Material does not exist: " + materialId;
+        }
+        return false;
+    }
+    if (material->name == name)
+    {
+        if (error != nullptr)
+        {
+            error->clear();
+        }
+        return false;
+    }
+
+    PushUndoSnapshot();
+    material->name = name;
+    m_modified = true;
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
+bool SceneEditorSession::DuplicateMaterialForSelectedPrimitive(std::string* materialId, std::string* error)
+{
+    RtPbrSurvey::SceneNode* node = SelectedNode();
+    if (node == nullptr || node->type != RtPbrSurvey::SceneNodeType::Primitive)
+    {
+        if (error != nullptr)
+        {
+            *error = "Select a Primitive node before duplicating its material.";
+        }
+        return false;
+    }
+
+    const auto source = std::find_if(m_document.materials.begin(), m_document.materials.end(), [node](const RtPbrSurvey::SceneMaterial& candidate)
+    {
+        return candidate.id == node->materialId;
+    });
+    if (source == m_document.materials.end())
+    {
+        if (error != nullptr)
+        {
+            *error = "Selected Primitive references a missing material.";
+        }
+        return false;
+    }
+
+    PushUndoSnapshot();
+    RtPbrSurvey::SceneMaterial duplicate = *source;
+    duplicate.id = CreateMaterialId();
+    duplicate.name += " Copy";
+    m_document.materials.push_back(std::move(duplicate));
+    node->materialId = m_document.materials.back().id;
+    m_modified = true;
+    if (materialId != nullptr)
+    {
+        *materialId = node->materialId;
+    }
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
 bool SceneEditorSession::RemoveUnusedResources(size_t* removedAssetCount,
                                                 size_t* removedMaterialCount,
                                                 std::string* error)

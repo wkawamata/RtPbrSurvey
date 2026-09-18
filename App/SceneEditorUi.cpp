@@ -579,6 +579,28 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
             }
             if (editableMaterial != nullptr)
             {
+                static std::string editedMaterialId;
+                static std::string editedMaterialName;
+                if (editedMaterialId != editableMaterial->id)
+                {
+                    editedMaterialId = editableMaterial->id;
+                    editedMaterialName = editableMaterial->name;
+                }
+                ImGui::InputText("Material Name", &editedMaterialName);
+                ImGui::SameLine();
+                if (ImGui::Button("Apply Material Name"))
+                {
+                    std::string error;
+                    if (session.RenameMaterial(editableMaterial->id, editedMaterialName, &error))
+                    {
+                        app.m_sceneEditorStatus = "Material renamed.";
+                    }
+                    else if (!error.empty())
+                    {
+                        app.m_sceneEditorStatus = "Rename failed: " + error;
+                        editedMaterialName = editableMaterial->name;
+                    }
+                }
                 float baseColor[3] = {
                     editableMaterial->baseColor.x,
                     editableMaterial->baseColor.y,
@@ -608,6 +630,20 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                 {
                     session.CommitEdit();
                     rebuildPreview();
+                }
+            }
+            if (ImGui::Button("Duplicate Material and Assign"))
+            {
+                std::string materialId;
+                std::string error;
+                if (session.DuplicateMaterialForSelectedPrimitive(&materialId, &error))
+                {
+                    app.m_sceneEditorStatus = "Duplicated and assigned material: " + materialId;
+                    rebuildPreview();
+                }
+                else
+                {
+                    app.m_sceneEditorStatus = "Material duplication failed: " + error;
                 }
             }
 

@@ -238,6 +238,25 @@ bool TestPrimitiveShapeEditIsUndoable()
     return passed;
 }
 
+bool TestMaterialRenameAndDuplicateAssignmentAreUndoable()
+{
+    RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("material-management-test", "Material Management Test");
+    App::SceneEditorSession session(std::move(document));
+    bool passed = Check(session.AddPrimitive(RtPbrSurvey::ScenePrimitiveKind::Cube), "cube is added for material management");
+    const std::string originalMaterialId = session.SelectedNode()->materialId;
+    passed &= Check(session.RenameMaterial(originalMaterialId, "Shared Metal"), "material is renamed");
+    passed &= Check(session.DuplicateMaterialForSelectedPrimitive(), "material is duplicated and assigned");
+    const std::string duplicatedMaterialId = session.SelectedNode()->materialId;
+    passed &= Check(duplicatedMaterialId != originalMaterialId && session.Document().materials.size() == 2,
+                    "selected primitive receives a new material");
+    passed &= Check(session.Undo() && session.SelectedNode()->materialId == originalMaterialId &&
+                        session.Document().materials.size() == 1,
+                    "material duplication is undoable");
+    passed &= Check(session.Undo() && session.Document().materials.front().name == "Default Material",
+                    "material rename is undoable");
+    return passed;
+}
+
 bool TestSceneSettingsEditIsUndoable()
 {
     RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("settings-test", "Settings Test");
@@ -263,7 +282,8 @@ int main()
                    TestDuplicateAndReparentSelectedSubtree() && TestMaterialCreationIsUndoable() &&
                    TestGltfAssetIsSharedAcrossNodes() && TestUnusedResourcesAreRemovedAndUndoable() &&
                    TestNodeRenameIsUndoableAndRejectsEmptyNames() && TestCopyPasteSelectedSubtreeIsUndoable() &&
-                   TestPrimitiveShapeEditIsUndoable() && TestSceneSettingsEditIsUndoable() ?
+                   TestPrimitiveShapeEditIsUndoable() && TestMaterialRenameAndDuplicateAssignmentAreUndoable() &&
+                   TestSceneSettingsEditIsUndoable() ?
                0 :
                1;
 }

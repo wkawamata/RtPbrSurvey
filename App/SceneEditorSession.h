@@ -38,6 +38,8 @@ public:
     bool AddEmpty(std::string* error = nullptr);
     bool AddGltfNode(const std::string& relativePath, std::string* error = nullptr);
     bool AddMaterial(std::string* materialId = nullptr, std::string* error = nullptr);
+    bool RenameMaterial(const std::string& materialId, const std::string& name, std::string* error = nullptr);
+    bool DuplicateMaterialForSelectedPrimitive(std::string* materialId = nullptr, std::string* error = nullptr);
     bool RemoveUnusedResources(size_t* removedAssetCount = nullptr,
                                size_t* removedMaterialCount = nullptr,
                                std::string* error = nullptr);
