@@ -459,9 +459,25 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     ImGui::TextWrapped("The renderer behind this editor displays the current document. Mouse and keyboard camera controls remain available.");
     ImGui::TextDisabled("Selected nodes show red, green, and blue axes in the renderer.");
     ImGui::TextDisabled("Ctrl+Click the renderer to select a scene node.");
-    ImGui::TextDisabled("Move controls apply to the primary selection.");
-    ImGui::DragFloat("Move Step", &app.m_sceneEditorTranslationStep, 0.01f, 0.01f, 100.0f, "%.2f");
-    const auto nudgeSelectedNode = [&session, &rebuildPreview](float x, float y, float z)
+    ImGui::TextDisabled("Transform controls apply to the primary selection.");
+    ImGui::RadioButton("Move", &app.m_sceneEditorTransformTool, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton("Rotate", &app.m_sceneEditorTransformTool, 1);
+    ImGui::SameLine();
+    ImGui::RadioButton("Scale", &app.m_sceneEditorTransformTool, 2);
+    if (app.m_sceneEditorTransformTool == 0)
+    {
+        ImGui::DragFloat("Move Step", &app.m_sceneEditorTranslationStep, 0.01f, 0.01f, 100.0f, "%.2f");
+    }
+    else if (app.m_sceneEditorTransformTool == 1)
+    {
+        ImGui::DragFloat("Rotate Step", &app.m_sceneEditorRotationStepDegrees, 1.0f, 1.0f, 180.0f, "%.0f deg");
+    }
+    else
+    {
+        ImGui::DragFloat("Scale Step", &app.m_sceneEditorScaleStep, 0.01f, 0.01f, 100.0f, "%.2f");
+    }
+    const auto applyTransformAxis = [&app, &session, &rebuildPreview](int axis, float direction)
     {
         RtPbrSurvey::SceneNode* node = session.SelectedNode();
         if (node == nullptr)
@@ -469,42 +485,75 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
             return;
         }
         session.BeginEdit();
-        node->transform.translation.x += x;
-        node->transform.translation.y += y;
-        node->transform.translation.z += z;
+        const auto selectAxisComponent = [axis](RtPbrSurvey::SceneFloat3& value) -> float&
+        {
+            if (axis == 0)
+            {
+                return value.x;
+            }
+            if (axis == 1)
+            {
+                return value.y;
+            }
+            return value.z;
+        };
+        if (app.m_sceneEditorTransformTool == 0)
+        {
+            selectAxisComponent(node->transform.translation) += direction * app.m_sceneEditorTranslationStep;
+        }
+        else if (app.m_sceneEditorTransformTool == 1)
+        {
+            const DirectX::XMVECTOR currentRotation = DirectX::XMVectorSet(node->transform.rotation.x,
+                                                                             node->transform.rotation.y,
+                                                                             node->transform.rotation.z,
+                                                                             node->transform.rotation.w);
+            const DirectX::XMVECTOR rotationAxis = axis == 0 ? DirectX::XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f) :
+                                                   axis == 1 ? DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f) :
+                                                               DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+            const DirectX::XMVECTOR deltaRotation = DirectX::XMQuaternionRotationAxis(
+                rotationAxis, DirectX::XMConvertToRadians(direction * app.m_sceneEditorRotationStepDegrees));
+            DirectX::XMFLOAT4 rotation = {};
+            DirectX::XMStoreFloat4(&rotation, DirectX::XMQuaternionNormalize(
+                                                DirectX::XMQuaternionMultiply(currentRotation, deltaRotation)));
+            node->transform.rotation = {rotation.x, rotation.y, rotation.z, rotation.w};
+        }
+        else
+        {
+            float& scale = selectAxisComponent(node->transform.scale);
+            scale = (std::max)(0.01f, scale + direction * app.m_sceneEditorScaleStep);
+        }
         session.CommitEdit();
         rebuildPreview();
     };
-    const float moveStep = app.m_sceneEditorTranslationStep;
     ImGui::BeginDisabled(session.SelectedNode() == nullptr);
     if (ImGui::Button("X-"))
     {
-        nudgeSelectedNode(-moveStep, 0.0f, 0.0f);
+        applyTransformAxis(0, -1.0f);
     }
     ImGui::SameLine();
     if (ImGui::Button("X+"))
     {
-        nudgeSelectedNode(moveStep, 0.0f, 0.0f);
+        applyTransformAxis(0, 1.0f);
     }
     ImGui::SameLine();
     if (ImGui::Button("Y-"))
     {
-        nudgeSelectedNode(0.0f, -moveStep, 0.0f);
+        applyTransformAxis(1, -1.0f);
     }
     ImGui::SameLine();
     if (ImGui::Button("Y+"))
     {
-        nudgeSelectedNode(0.0f, moveStep, 0.0f);
+        applyTransformAxis(1, 1.0f);
     }
     ImGui::SameLine();
     if (ImGui::Button("Z-"))
     {
-        nudgeSelectedNode(0.0f, 0.0f, -moveStep);
+        applyTransformAxis(2, -1.0f);
     }
     ImGui::SameLine();
     if (ImGui::Button("Z+"))
     {
-        nudgeSelectedNode(0.0f, 0.0f, moveStep);
+        applyTransformAxis(2, 1.0f);
     }
     ImGui::EndDisabled();
 

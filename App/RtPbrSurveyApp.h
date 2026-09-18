@@ -163,6 +163,9 @@ private:
     std::string m_sceneEditorStatus;
     bool m_sceneEditorPresetDirty = false;
     float m_sceneEditorTranslationStep = 0.25f;
+    float m_sceneEditorRotationStepDegrees = 15.0f;
+    float m_sceneEditorScaleStep = 0.1f;
+    int m_sceneEditorTransformTool = 0;
     bool m_sceneEditorObjectPickPending = false;
     SceneEditorPendingAction m_sceneEditorPendingAction = SceneEditorPendingAction::None;
     std::string m_sceneEditorPendingLoadPath;
