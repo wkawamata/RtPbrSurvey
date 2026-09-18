@@ -197,6 +197,36 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     }
     ImGui::SameLine();
     ImGui::BeginDisabled(session.SelectedNode() == nullptr);
+    if (ImGui::Button("Copy Selected"))
+    {
+        std::string error;
+        if (session.CopySelectedSubtree(&error))
+        {
+            app.m_sceneEditorStatus = "Copied selected subtree.";
+        }
+        else
+        {
+            app.m_sceneEditorStatus = "Copy failed: " + error;
+        }
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!session.CanPasteSubtree());
+    if (ImGui::Button("Paste"))
+    {
+        std::string error;
+        if (session.PasteSubtree(&error))
+        {
+            rebuildPreview();
+        }
+        else
+        {
+            app.m_sceneEditorStatus = "Paste failed: " + error;
+        }
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(session.SelectedNode() == nullptr);
     if (ImGui::Button("Duplicate Selected"))
     {
         session.DuplicateSelectedSubtree();

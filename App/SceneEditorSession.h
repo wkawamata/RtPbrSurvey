@@ -42,6 +42,9 @@ public:
                                size_t* removedMaterialCount = nullptr,
                                std::string* error = nullptr);
     bool RenameSelectedNode(const std::string& name, std::string* error = nullptr);
+    bool CanPasteSubtree() const;
+    bool CopySelectedSubtree(std::string* error = nullptr);
+    bool PasteSubtree(std::string* error = nullptr);
     bool DeleteSelectedNode(std::string* error = nullptr);
     bool DuplicateSelectedSubtree(std::string* error = nullptr);
     bool ReparentSelectedNodePreservingWorld(const std::optional<std::string>& parentId,
@@ -53,6 +56,12 @@ private:
         RtPbrSurvey::SceneDocument document;
         std::optional<std::string> selectedNodeId;
         bool modified = false;
+    };
+
+    struct Clipboard
+    {
+        std::vector<RtPbrSurvey::SceneNode> nodes;
+        std::string rootId;
     };
 
     Snapshot CaptureSnapshot() const;
@@ -71,6 +80,7 @@ private:
     std::vector<Snapshot> m_undoHistory;
     std::vector<Snapshot> m_redoHistory;
     std::optional<Snapshot> m_activeEditSnapshot;
+    std::optional<Clipboard> m_clipboard;
 
     static constexpr size_t kMaxHistoryEntries = 100;
 };

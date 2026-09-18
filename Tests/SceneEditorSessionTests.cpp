@@ -182,6 +182,41 @@ bool TestNodeRenameIsUndoableAndRejectsEmptyNames()
     return passed;
 }
 
+bool TestCopyPasteSelectedSubtreeIsUndoable()
+{
+    RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("clipboard-test", "Clipboard Test");
+    RtPbrSurvey::SceneNode root;
+    root.id = "root";
+    root.name = "Root";
+    RtPbrSurvey::SceneNode child;
+    child.id = "child";
+    child.name = "Child";
+    child.parentId = root.id;
+    document.nodes = {root, child};
+
+    App::SceneEditorSession session(std::move(document));
+    bool passed = Check(session.SelectNode("root"), "root is selected for copy");
+    passed &= Check(session.CopySelectedSubtree() && session.CanPasteSubtree(), "selected subtree is copied");
+    passed &= Check(session.PasteSubtree(), "copied subtree is pasted");
+    passed &= Check(session.Document().nodes.size() == 4, "paste adds root and child");
+    const RtPbrSurvey::SceneNode* pastedRoot = session.SelectedNode();
+    bool pastedChildHasPastedParent = false;
+    if (pastedRoot != nullptr)
+    {
+        for (const RtPbrSurvey::SceneNode& node : session.Document().nodes)
+        {
+            if (node.id != "child" && node.parentId == pastedRoot->id)
+            {
+                pastedChildHasPastedParent = true;
+            }
+        }
+    }
+    passed &= Check(pastedRoot != nullptr && pastedRoot->id != "root" && pastedChildHasPastedParent,
+                    "paste creates a distinct hierarchy");
+    passed &= Check(session.Undo() && session.Document().nodes.size() == 2, "paste is undoable");
+    return passed;
+}
+
 bool TestSceneSettingsEditIsUndoable()
 {
     RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("settings-test", "Settings Test");
@@ -206,7 +241,8 @@ int main()
     return TestPrimitiveAddAndSubtreeDelete() && TestUndoRedoRestoresDocumentAndDirtyState() &&
                    TestDuplicateAndReparentSelectedSubtree() && TestMaterialCreationIsUndoable() &&
                    TestGltfAssetIsSharedAcrossNodes() && TestUnusedResourcesAreRemovedAndUndoable() &&
-                   TestNodeRenameIsUndoableAndRejectsEmptyNames() && TestSceneSettingsEditIsUndoable() ?
+                   TestNodeRenameIsUndoableAndRejectsEmptyNames() && TestCopyPasteSelectedSubtreeIsUndoable() &&
+                   TestSceneSettingsEditIsUndoable() ?
                0 :
                1;
 }

@@ -386,6 +386,106 @@ bool SceneEditorSession::RenameSelectedNode(const std::string& name, std::string
     return true;
 }
 
+bool SceneEditorSession::CanPasteSubtree() const
+{
+    return m_clipboard.has_value() && !m_clipboard->nodes.empty();
+}
+
+bool SceneEditorSession::CopySelectedSubtree(std::string* error)
+{
+    const RtPbrSurvey::SceneNode* selectedNode = SelectedNode();
+    if (selectedNode == nullptr)
+    {
+        if (error != nullptr)
+        {
+            *error = "No hierarchy node is selected.";
+        }
+        return false;
+    }
+
+    std::unordered_set<std::string> copiedIds = {selectedNode->id};
+    bool addedDescendant = true;
+    while (addedDescendant)
+    {
+        addedDescendant = false;
+        for (const RtPbrSurvey::SceneNode& node : m_document.nodes)
+        {
+            if (node.parentId.has_value() && copiedIds.contains(*node.parentId))
+            {
+                addedDescendant = copiedIds.insert(node.id).second || addedDescendant;
+            }
+        }
+    }
+
+    Clipboard clipboard;
+    clipboard.rootId = selectedNode->id;
+    clipboard.nodes.reserve(copiedIds.size());
+    for (const RtPbrSurvey::SceneNode& node : m_document.nodes)
+    {
+        if (copiedIds.contains(node.id))
+        {
+            clipboard.nodes.push_back(node);
+        }
+    }
+    m_clipboard = std::move(clipboard);
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
+bool SceneEditorSession::PasteSubtree(std::string* error)
+{
+    if (!CanPasteSubtree())
+    {
+        if (error != nullptr)
+        {
+            *error = "The Scene Editor clipboard is empty.";
+        }
+        return false;
+    }
+
+    PushUndoSnapshot();
+    std::unordered_map<std::string, std::string> pastedIds;
+    std::vector<RtPbrSurvey::SceneNode> pastedNodes;
+    pastedNodes.reserve(m_clipboard->nodes.size());
+    for (const RtPbrSurvey::SceneNode& source : m_clipboard->nodes)
+    {
+        RtPbrSurvey::SceneNode pasted = source;
+        const std::string pastedId = CreateNodeId();
+        pastedIds.emplace(source.id, pastedId);
+        pasted.id = pastedId;
+        if (source.id == m_clipboard->rootId)
+        {
+            pasted.name += " Copy";
+        }
+        pastedNodes.push_back(std::move(pasted));
+    }
+    for (RtPbrSurvey::SceneNode& pasted : pastedNodes)
+    {
+        if (pasted.parentId.has_value())
+        {
+            const auto pastedParent = pastedIds.find(*pasted.parentId);
+            if (pastedParent != pastedIds.end())
+            {
+                pasted.parentId = pastedParent->second;
+            }
+        }
+    }
+
+    m_selectedNodeId = pastedIds.at(m_clipboard->rootId);
+    m_document.nodes.insert(m_document.nodes.end(),
+                            std::make_move_iterator(pastedNodes.begin()),
+                            std::make_move_iterator(pastedNodes.end()));
+    m_modified = true;
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
 bool SceneEditorSession::DeleteSelectedNode(std::string* error)
 {
     if (!m_selectedNodeId.has_value())
