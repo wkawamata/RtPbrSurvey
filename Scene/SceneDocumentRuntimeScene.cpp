@@ -54,6 +54,18 @@ const RtPbrSurvey::SceneDocument& SceneDocumentRuntimeScene::Document() const
     return m_document;
 }
 
+std::optional<std::string> SceneDocumentRuntimeScene::FindNodeIdByInstanceIndex(size_t instanceIndex) const
+{
+    for (const auto& [nodeId, nodeInstanceIndex] : m_builder.Result().nodeInstanceIndices)
+    {
+        if (nodeInstanceIndex == instanceIndex)
+        {
+            return nodeId;
+        }
+    }
+    return std::nullopt;
+}
+
 const char* SceneDocumentRuntimeScene::Name() const
 {
     return m_name.c_str();

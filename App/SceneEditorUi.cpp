@@ -458,6 +458,7 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     ImGui::Separator();
     ImGui::TextWrapped("The renderer behind this editor displays the current document. Mouse and keyboard camera controls remain available.");
     ImGui::TextDisabled("Selected nodes show red, green, and blue axes in the renderer.");
+    ImGui::TextDisabled("Ctrl+Click the renderer to select a scene node.");
     ImGui::TextDisabled("Move controls apply to the primary selection.");
     ImGui::DragFloat("Move Step", &app.m_sceneEditorTranslationStep, 0.01f, 0.01f, 100.0f, "%.2f");
     const auto nudgeSelectedNode = [&session, &rebuildPreview](float x, float y, float z)

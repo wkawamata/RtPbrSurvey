@@ -5,6 +5,7 @@
 #include "Scene/SampleScene.h"
 
 #include <filesystem>
+#include <optional>
 #include <string>
 
 namespace Engine
@@ -21,6 +22,7 @@ public:
                           std::string* error = nullptr);
     const std::filesystem::path& DocumentPath() const;
     const RtPbrSurvey::SceneDocument& Document() const;
+    std::optional<std::string> FindNodeIdByInstanceIndex(size_t instanceIndex) const;
 
     const char* Name() const override;
     void Load() override;

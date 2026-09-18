@@ -348,7 +348,8 @@ auto RtPbrSurveyEngine::MakeGBufferPass() -> RenderPass
                  {kGBufferResourceNames[Engine::GBuffer::Material], D3D12_RESOURCE_STATE_RENDER_TARGET},
                  {kGBufferResourceNames[Engine::GBuffer::MotionVector], D3D12_RESOURCE_STATE_RENDER_TARGET},
                  {kGBufferResourceNames[Engine::GBuffer::PBRParams], D3D12_RESOURCE_STATE_RENDER_TARGET},
-                 {kGBufferResourceNames[Engine::GBuffer::Emissive], D3D12_RESOURCE_STATE_RENDER_TARGET}})
+                 {kGBufferResourceNames[Engine::GBuffer::Emissive], D3D12_RESOURCE_STATE_RENDER_TARGET},
+                 {kGBufferResourceNames[Engine::GBuffer::ObjectId], D3D12_RESOURCE_STATE_RENDER_TARGET}})
         .Descriptor(RootSignatureLayout::TextureTable, Desc::TextureTable)
         .Descriptor(RootSignatureLayout::InstanceSrv, Desc::InstanceBufferSrv)
         .Descriptor(RootSignatureLayout::MaterialSrv, Desc::MaterialBufferSrv)
@@ -358,7 +359,8 @@ auto RtPbrSurveyEngine::MakeGBufferPass() -> RenderPass
                RtvName::GBufferMaterial,
                RtvName::GBufferMotionVector,
                RtvName::GBufferPBRParams,
-               RtvName::GBufferEmissive})
+               RtvName::GBufferEmissive,
+               RtvName::GBufferObjectId})
         .Dsv(DsvName::Depth)
         .Operation(Op::GBuffer, &RtPbrSurveyEngine::ExecuteGBufferPass)
         .Build();

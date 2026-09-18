@@ -5,7 +5,7 @@
 Texture2D<float4> g_albedo : register(t0, space3);
 Texture2D<float4> g_normal : register(t1, space3);
 Texture2D<float4> g_pbrParams : register(t4, space3);
-Texture2D<float> g_depth : register(t6, space3);
+Texture2D<float> g_depth : register(t7, space3);
 TextureCube<float4> g_environmentMap : register(t0, space5);
 TextureCube<float4> g_diffuseIrradianceMap : register(t1, space5);
 TextureCube<float4> g_specularPrefilterMap : register(t2, space5);

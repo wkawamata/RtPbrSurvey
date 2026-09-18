@@ -518,6 +518,30 @@ void RtPbrSurveyApp::UpdateSampleState()
         return;
     }
 
+    if (m_sceneEditorObjectPickPending)
+    {
+        const RtPbrSurveyEngine::PixelPickResult& pick = m_sceneRenderer.GetPixelPickResult();
+        if (pick.valid)
+        {
+            m_sceneEditorObjectPickPending = false;
+            if (pick.objectId == 0 || !m_sceneEditorPreviewScene)
+            {
+                m_sceneEditorStatus = "No scene node was selected.";
+            }
+            else if (const std::optional<std::string> nodeId =
+                         m_sceneEditorPreviewScene->FindNodeIdByInstanceIndex(pick.objectId - 1))
+            {
+                m_sceneEditorSession->SelectNode(*nodeId);
+                UpdateSceneEditorSelectionOverlay();
+                m_sceneEditorStatus = "Selected from 3D preview: " + *nodeId;
+            }
+            else
+            {
+                m_sceneEditorStatus = "The selected object is not a Scene Document node.";
+            }
+        }
+    }
+
     UpdateAutomatedCaptureCamera();
 
     if (GetForegroundWindow() == Win32Application::GetHwnd())
@@ -621,6 +645,17 @@ void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
 
     if (button == VK_LBUTTON)
     {
+        if (m_appMode == AppMode::SceneEditorEdit && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
+        {
+            if (m_renderingPath != RtPbrSurveyEngine::RenderingPath::Deferred)
+            {
+                m_sceneEditorStatus = "3D selection requires Deferred rendering.";
+                return;
+            }
+            m_sceneEditorObjectPickPending = true;
+            m_sceneRenderer.RequestPixelPick(x, y);
+            return;
+        }
         if (m_renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
         {
             m_sceneRenderer.RequestPixelPick(x, y);
@@ -2369,6 +2404,7 @@ void RtPbrSurveyApp::ApplySceneEditorEnvironmentSettings()
 void RtPbrSurveyApp::ReturnToTopMenu()
 {
     ClearSceneEditorSelectionOverlay();
+    m_sceneEditorObjectPickPending = false;
     m_appMode = AppMode::TopMenu;
     m_sceneEditorStatus.clear();
 }

@@ -4,7 +4,7 @@ Texture2D<float4> g_reflectionResolvedRadiance : register(t0, space9);
 Texture2D<float4> g_reflectionRayHit : register(t0, space6);
 Texture2D<float4> g_visibleNormal : register(t1, space3);
 Texture2D<float4> g_visiblePbrParams : register(t4, space3);
-Texture2D<float> g_visibleDepth : register(t6, space3);
+Texture2D<float> g_visibleDepth : register(t7, space3);
 Texture2D<float2> g_reflectionSpecularMoments : register(t0, space15);
 Texture2D<float> g_reflectionSpecularConfidence : register(t0, space17);
 
