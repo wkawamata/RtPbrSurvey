@@ -41,6 +41,7 @@ struct PathTracingPassDesc
     UINT debugOutput = 0;
     UINT maxBounces = 2;
     UINT environmentEnabled = 1;
+    UINT environmentSamplingMode = 0;
     UINT skyboxEnabled = 1;
     UINT emissiveEnabled = 1;
     UINT directLightingEnabled = 1;

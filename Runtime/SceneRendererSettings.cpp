@@ -114,6 +114,7 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
     pathTracing["randomSeed"] = settings.pathTracing.randomSeed;
     pathTracing["directLightingEnabled"] = settings.pathTracing.directLightingEnabled;
     pathTracing["environmentEnabled"] = settings.pathTracing.environmentEnabled;
+    pathTracing["environmentSamplingMode"] = settings.pathTracing.environmentSamplingMode;
     pathTracing["emissiveEnabled"] = settings.pathTracing.emissiveEnabled;
     pathTracing["russianRouletteEnabled"] = settings.pathTracing.russianRouletteEnabled;
     pathTracing["debugOutput"] = static_cast<int>(settings.pathTracing.debugOutput);
@@ -269,6 +270,8 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
                 pathTracing.value("directLightingEnabled", parsed.pathTracing.directLightingEnabled);
             parsed.pathTracing.environmentEnabled =
                 pathTracing.value("environmentEnabled", parsed.pathTracing.environmentEnabled);
+            parsed.pathTracing.environmentSamplingMode = (std::min)(
+                pathTracing.value("environmentSamplingMode", parsed.pathTracing.environmentSamplingMode), 2u);
             parsed.pathTracing.emissiveEnabled =
                 pathTracing.value("emissiveEnabled", parsed.pathTracing.emissiveEnabled);
             parsed.pathTracing.russianRouletteEnabled =

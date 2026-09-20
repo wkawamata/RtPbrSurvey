@@ -963,3 +963,28 @@ non-delta estimatorとMISは後続stepで追加する。sample生成は非有限
 SHA-256 `6674ABEF8D3160A99FF094D9A5147EED03C3DB654FC92E45F6758507C70DFD4E`が一致した。
 D3D12 error 0件、既知のbuffer initial-state warningは各run 2件。この条件での回帰確認であり、
 他sceneや将来のnon-delta lightの正しさを保証するものではない。
+
+### 17.2 Step 3: Constant Environment NEE
+
+`Environment Sampling`は0: Environment Map / BSDF（既定）、1: Constant White / BSDF、
+2: Constant White / NEEを選択する。constant環境の入射radianceは全方向で`iblIntensity`。
+背景のskybox表示は独立して維持する。設定はrenderer settingsへ保存され、変更時にaccumulationをresetする。
+CLIは`-PathTracingEnvironmentMode 0|1|2`、reference capture scriptは`-EnvironmentMode 0|1|2`で指定する。
+
+NEEは一様球面の`directionPdf = 1 / (4 * pi)`、`selectionPdf = 1`でsampleを生成する。
+surfaceで`Li * BRDF * NdotL * visibility / PDF`を加算し、secondary missの環境加算を抑止する。
+BSDF continuationはgeometryへの間接経路を引き続き追跡する。既存のmax-bounce定義と揃えるため、
+最後のsurfaceではenvironment NEEを評価しない。Directionalとenvironmentのshadow queryは別々に数える。
+Environment checkboxとshadow設定を尊重する。MISは未導入。
+
+`Tests/PathTracing/Test-ConstantEnvironmentPdf.ps1`は解析式の独立チェックであり、shader実行テストではない。
+PDF積分1、Lambert反射率0.6・入射radiance 2で期待値1.2、推定量分散2.4を確認した。
+Debug x64とsettings round-trip CTestは成功。RTX 2080 Ti / DamagedHelmet / seed 1で次を確認した。
+
+- 通常環境64 samples: Step 2とPNG SHA-256一致
+- Constant BSDF / NEE各256 samples: 各モードのA/BでPNG SHA-256一致
+- 全6回のcaptureでD3D12 error 0件
+- NEE単独は金属面に点状ノイズが残る。256 samplesのtone-mapped画像では収束一致を判定しない
+
+この段階はNEE経路とPDFの基礎検証。HDR収束誤差や多seedの統計比較はStep 6で扱い、
+NEEとBSDFの双方を使うMISはStep 5で追加する。

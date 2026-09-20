@@ -36,6 +36,7 @@ bool TestRoundTrip()
     source.pathTracing.randomSeed = 42;
     source.pathTracing.directLightingEnabled = false;
     source.pathTracing.environmentEnabled = false;
+    source.pathTracing.environmentSamplingMode = 2;
     source.pathTracing.emissiveEnabled = false;
     source.pathTracing.russianRouletteEnabled = true;
     source.pathTracing.debugOutput = RtPbrSurveyEngine::PathTracingDebugOutput::WorldNormal;
@@ -79,6 +80,7 @@ bool TestRoundTrip()
                         restored.pathTracing.randomSeed == source.pathTracing.randomSeed &&
                         restored.pathTracing.directLightingEnabled == source.pathTracing.directLightingEnabled &&
                         restored.pathTracing.environmentEnabled == source.pathTracing.environmentEnabled &&
+                        restored.pathTracing.environmentSamplingMode == source.pathTracing.environmentSamplingMode &&
                         restored.pathTracing.emissiveEnabled == source.pathTracing.emissiveEnabled &&
                         restored.pathTracing.russianRouletteEnabled == source.pathTracing.russianRouletteEnabled &&
                         restored.pathTracing.debugOutput == source.pathTracing.debugOutput,

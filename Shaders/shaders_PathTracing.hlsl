@@ -59,7 +59,7 @@ cbuffer PathTracingConstants : register(b1)
     float diffuseIntensity;
     uint russianRouletteEnabled;
     uint skyboxEnabled;
-    float constantBufferPadding;
+    uint environmentSamplingMode;
     float4 backgroundColor;
 };
 
@@ -166,6 +166,10 @@ float3 SampleEnvironmentLighting(float3 direction)
     {
         return float3(0.0, 0.0, 0.0);
     }
+    if (environmentSamplingMode != 0)
+    {
+        return environmentIntensity.xxx;
+    }
     return g_environmentMap.SampleLevel(g_sampler, direction, 0).rgb * environmentIntensity;
 }
 
@@ -226,7 +230,8 @@ float3 TracePath(uint2 pixel,
         if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
         {
             const float3 missRadiance =
-                bounce == 0 ? SamplePrimaryMiss(ray.Direction) : SampleEnvironmentLighting(ray.Direction);
+                bounce == 0 ? SamplePrimaryMiss(ray.Direction) :
+                (environmentSamplingMode == 2 ? float3(0.0, 0.0, 0.0) : SampleEnvironmentLighting(ray.Direction));
             const float3 contribution = throughput * missRadiance;
             radiance += contribution;
             if (bounce > 0)
@@ -358,6 +363,39 @@ float3 TracePath(uint2 pixel,
             else
             {
                 diffuseRadiance += contribution;
+            }
+        }
+
+        if (environmentEnabled != 0 && environmentSamplingMode == 2 && bounce + 1 < max(maxBounces, 1u))
+        {
+            const float2 environmentRandom = float2(NextRandom(randomState), NextRandom(randomState));
+            const PathTracingLightSample environmentSample = MakePathTracingConstantEnvironmentSample(
+                environmentRandom, environmentIntensity.xxx, rayTMax);
+            const PathTracingDirectLightCandidate environmentCandidate = MakePathTracingDirectLightCandidate(
+                environmentSample, hitMaterial.albedo, hitMaterial.metallic, hitMaterial.roughness,
+                hitNormal, geometryNormal, -ray.Direction);
+            if (environmentCandidate.valid != 0)
+            {
+                const float visibility = TraceShadow(hitPosition, geometryNormal, environmentSample);
+                const float3 lighting = environmentSample.radiance * (environmentCandidate.normalDotLight *
+                    visibility / (environmentSample.selectionPdf * environmentSample.directionPdf));
+                const float3 diffuseContribution = throughput * environmentCandidate.diffuseBrdf * lighting;
+                const float3 specularContribution = throughput * environmentCandidate.specularBrdf * lighting;
+                const float3 contribution = diffuseContribution + specularContribution;
+                radiance += contribution;
+                if (bounce == 0)
+                {
+                    diffuseRadiance += diffuseContribution;
+                    specularRadiance += specularContribution;
+                }
+                else if (primarySpecularPath)
+                {
+                    specularRadiance += contribution;
+                }
+                else
+                {
+                    diffuseRadiance += contribution;
+                }
             }
         }
 

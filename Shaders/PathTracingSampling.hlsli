@@ -64,6 +64,20 @@ PathTracingLightSample MakePathTracingDirectionalLightSample(float3 surfaceToLig
     return result;
 }
 
+PathTracingLightSample MakePathTracingConstantEnvironmentSample(float2 randomSample,
+                                                                float3 radiance,
+                                                                float shadowDistance)
+{
+    const float z = 1.0 - 2.0 * randomSample.x;
+    const float radius = sqrt(max(0.0, 1.0 - z * z));
+    const float phi = 2.0 * kPathTracingPi * randomSample.y;
+    PathTracingLightSample result = MakePathTracingDirectionalLightSample(
+        float3(radius * cos(phi), radius * sin(phi), z), radiance, shadowDistance, 1.0, 0u);
+    result.directionPdf = 1.0 / (4.0 * kPathTracingPi);
+    result.isDelta = 0u;
+    return result;
+}
+
 float PathTracingLuminance(float3 color)
 {
     return dot(color, float3(0.2126, 0.7152, 0.0722));
