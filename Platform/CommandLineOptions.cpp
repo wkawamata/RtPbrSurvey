@@ -289,9 +289,9 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         else if (IsCommandLineArg(argv[i], L"-PathTracingEnvironmentMode"))
         {
             if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.pathTracingEnvironmentMode) ||
-                options.pathTracingEnvironmentMode > 2)
+                options.pathTracingEnvironmentMode > 4)
             {
-                throw std::invalid_argument("-PathTracingEnvironmentMode expects 0 (map), 1 (constant BSDF), or 2 (constant NEE).");
+                throw std::invalid_argument("-PathTracingEnvironmentMode expects 0 (map BSDF), 1 (constant BSDF), 2 (constant NEE), 3 (map uniform NEE), or 4 (map importance NEE).");
             }
             options.hasPathTracingEnvironmentMode = true;
             options.enablePathTracing = true;

@@ -25,6 +25,22 @@ items:
 Generated captures, logs, and reports are written under `bin/x64/Debug/PathTracingReference` by default and must not
 be committed.
 
+Environment sampling is selected with `-EnvironmentMode` (or the application flag
+`-PathTracingEnvironmentMode`): 0 = map BSDF, 1 = constant BSDF, 2 = constant NEE,
+3 = map uniform NEE, 4 = map importance NEE. Use separate output directories when comparing modes.
+Modes 3/4 use the actual environment map for lighting; primary skybox visibility remains independent.
+
+```powershell
+.\Tests\PathTracing\Test-ConstantEnvironmentPdf.ps1
+.\Tests\PathTracing\Test-EnvironmentImportancePdf.ps1
+.\Tests\PathTracing\Invoke-ReferenceCapture.ps1 -EnvironmentMode 3 -Samples 256 -OutputDirectory bin/PT-Uniform
+.\Tests\PathTracing\Invoke-ReferenceCapture.ps1 -EnvironmentMode 4 -Samples 256 -OutputDirectory bin/PT-Importance
+```
+
+The PDF scripts check analytic estimator contracts on the CPU. They do not execute the shader and do not
+establish HDR image convergence. Importance NEE uses a coarse equal-solid-angle distribution with a 5% uniform
+mixture. Narrow highlights can still have high variance before BSDF MIS is added.
+
 Commit 8 exposes these current-frame primary-surface resources through RenderGraph and Debug Texture Preview:
 
 - `PathTracing.NormalRoughness`

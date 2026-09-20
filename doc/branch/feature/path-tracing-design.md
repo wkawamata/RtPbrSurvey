@@ -988,3 +988,31 @@ Debug x64とsettings round-trip CTestは成功。RTX 2080 Ti / DamagedHelmet / s
 
 この段階はNEE経路とPDFの基礎検証。HDR収束誤差や多seedの統計比較はStep 6で扱い、
 NEEとBSDFの双方を使うMISはStep 5で追加する。
+
+### 17.3 Step 4: Environment importance sampling
+
+mode 3は実環境mapの一様球面NEE、mode 4はimportance NEEとする。既定mode 0は維持する。
+GPU上で現在のcubemapを読み、16 azimuth columns x 8 cos(theta) rowsの等立体角cell分布を作る。
+各cellの立体角は`4*pi/128`なので、重みはcell中心の非負luminanceに比例する。
+cell確率は`0.95 * luminance / total + 0.05 / 128`。全黒では一様分布へfallbackする。
+cell内はazimuthとcos(theta)について一様にsampleし、最終radianceはsample方向のcubemap値を使用する。
+PDFは実際のCDF差分をcell立体角で割った値とし、粗い重み近似が照明値そのものを変えないようにする。
+
+CDFはPathTracingPassの各8x8 thread groupで生成・共有する。全threadがdistribution barrierを通った後に
+画面外threadをreturnさせる。CPU readbackや永続bufferを使わず、HDR/Proceduralの更新を毎dispatchで反映する。
+この初期実装は各groupに128 cubemap lookupとCDF構築コストを持つ。高解像度での最適化では、
+environment更新時の独立distribution passとpersistent resourceへの移行を検討する。
+
+`EnvironmentImportancePdf(direction)`は同じcell分割とCDFから立体角PDFを逆引きする。
+Step 5のBSDF MISで使用するための境界であり、このstepではsecondary missの環境寄与を引き続き抑止する。
+細いsunや鋭いspecular lobeの分散低減はこの128-cell分布だけでは保証しない。
+
+`Test-EnvironmentImportancePdf.ps1`はblack/constant/hotspotのPDF積分、全cellの到達性、
+piecewise radiance積分、hotspot推定量のsecond moment改善を確認するCPU解析テストである。
+shader実行とHDR収束の検証は別に扱う。
+
+検証: Debug x64 MSBuild、settings round-trip CTest、PDF解析テスト成功。
+RTX 2080 Ti / DamagedHelmet / seed 1で、mode 0の64 samplesは従来のPNG hashと一致した。
+mode 3/4の各256 samplesはそれぞれA/Bで一致し、全6回でD3D12 error 0件。
+このrunのPathTracingPass平均はmode 3が約1.01 ms、mode 4が約1.52 msだった。
+これは1条件の観測であり、一般的な速度改善や収束改善の主張には使用しない。

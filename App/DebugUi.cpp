@@ -1009,7 +1009,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             pathTracingSettingsChanged |= ImGui::Checkbox("Emissive", &pathTracingSettings.emissiveEnabled);
             int environmentSamplingMode = static_cast<int>(pathTracingSettings.environmentSamplingMode);
             if (ImGui::Combo("Environment Sampling", &environmentSamplingMode,
-                "Environment Map / BSDF\0Constant White / BSDF\0Constant White / NEE\0"))
+                "Environment Map / BSDF\0Constant White / BSDF\0Constant White / NEE\0Environment Map / Uniform NEE\0Environment Map / Importance NEE\0"))
             {
                 pathTracingSettings.environmentSamplingMode = static_cast<UINT>(environmentSamplingMode);
                 pathTracingSettingsChanged = true;

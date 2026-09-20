@@ -67,6 +67,87 @@ cbuffer PathTracingConstants : register(b1)
 #include "PathTracingSampling.hlsli"
 
 static const uint kInstanceDataPreviousWorldOffset = 64;
+static const uint kEnvironmentColumns = 16;
+static const uint kEnvironmentRows = 8;
+static const uint kEnvironmentCells = kEnvironmentColumns * kEnvironmentRows;
+groupshared float g_environmentCdf[129];
+
+float3 EnvironmentCellDirection(uint cell, float2 offset)
+{
+    const float z = 1.0 - 2.0 * ((float(cell / kEnvironmentColumns) + offset.y) / kEnvironmentRows);
+    const float phi = 2.0 * kPathTracingPi * ((float(cell % kEnvironmentColumns) + offset.x) / kEnvironmentColumns);
+    const float radius = sqrt(max(0.0, 1.0 - z * z));
+    return float3(radius * cos(phi), radius * sin(phi), z);
+}
+
+void BuildEnvironmentDistribution(uint groupIndex)
+{
+    for (uint cell = groupIndex; cell < kEnvironmentCells; cell += 64)
+    {
+        const float3 value = g_environmentMap.SampleLevel(g_sampler, EnvironmentCellDirection(cell, 0.5), 0).rgb;
+        const float weight = PathTracingLuminance(max(value, 0.0));
+        g_environmentCdf[cell + 1] = isfinite(weight) ? min(weight, 1e20) : 0.0;
+    }
+    GroupMemoryBarrierWithGroupSync();
+    if (groupIndex == 0)
+    {
+        float total = 0.0;
+        for (uint cell = 0; cell < kEnvironmentCells; ++cell)
+        {
+            total += g_environmentCdf[cell + 1];
+        }
+        g_environmentCdf[0] = 0.0;
+        float cumulative = 0.0;
+        for (uint cell = 0; cell < kEnvironmentCells; ++cell)
+        {
+            const float probability = total > 0.0 ?
+                0.95 * (g_environmentCdf[cell + 1] / total) + 0.05 / kEnvironmentCells :
+                1.0 / kEnvironmentCells;
+            cumulative += probability;
+            g_environmentCdf[cell + 1] = cumulative;
+        }
+        g_environmentCdf[kEnvironmentCells] = 1.0;
+    }
+    GroupMemoryBarrierWithGroupSync();
+}
+
+float EnvironmentImportancePdf(float3 direction)
+{
+    float phi = atan2(direction.y, direction.x);
+    if (phi < 0.0)
+    {
+        phi += 2.0 * kPathTracingPi;
+    }
+    const uint column = min(uint(phi * (kEnvironmentColumns / (2.0 * kPathTracingPi))), kEnvironmentColumns - 1);
+    const uint row = min(uint(saturate(0.5 * (1.0 - direction.z)) * kEnvironmentRows), kEnvironmentRows - 1);
+    const uint cell = row * kEnvironmentColumns + column;
+    return (g_environmentCdf[cell + 1] - g_environmentCdf[cell]) * (kEnvironmentCells / (4.0 * kPathTracingPi));
+}
+
+PathTracingLightSample SampleEnvironmentImportance(float3 randomSample)
+{
+    uint lower = 0;
+    uint upper = kEnvironmentCells;
+    while (lower + 1 < upper)
+    {
+        const uint middle = (lower + upper) / 2;
+        if (randomSample.x < g_environmentCdf[middle])
+        {
+            upper = middle;
+        }
+        else
+        {
+            lower = middle;
+        }
+    }
+    const float3 direction = EnvironmentCellDirection(lower, randomSample.yz);
+    PathTracingLightSample result = MakePathTracingDirectionalLightSample(direction,
+        g_environmentMap.SampleLevel(g_sampler, direction, 0).rgb * environmentIntensity, rayTMax, 1.0, 0u);
+    result.directionPdf = (g_environmentCdf[lower + 1] - g_environmentCdf[lower]) *
+        (kEnvironmentCells / (4.0 * kPathTracingPi));
+    result.isDelta = 0u;
+    return result;
+}
 
 struct PrimarySurfaceData
 {
@@ -166,7 +247,7 @@ float3 SampleEnvironmentLighting(float3 direction)
     {
         return float3(0.0, 0.0, 0.0);
     }
-    if (environmentSamplingMode != 0)
+    if (environmentSamplingMode == 1 || environmentSamplingMode == 2)
     {
         return environmentIntensity.xxx;
     }
@@ -231,7 +312,7 @@ float3 TracePath(uint2 pixel,
         {
             const float3 missRadiance =
                 bounce == 0 ? SamplePrimaryMiss(ray.Direction) :
-                (environmentSamplingMode == 2 ? float3(0.0, 0.0, 0.0) : SampleEnvironmentLighting(ray.Direction));
+                (environmentSamplingMode >= 2 ? float3(0.0, 0.0, 0.0) : SampleEnvironmentLighting(ray.Direction));
             const float3 contribution = throughput * missRadiance;
             radiance += contribution;
             if (bounce > 0)
@@ -366,11 +447,19 @@ float3 TracePath(uint2 pixel,
             }
         }
 
-        if (environmentEnabled != 0 && environmentSamplingMode == 2 && bounce + 1 < max(maxBounces, 1u))
+        if (environmentEnabled != 0 && environmentSamplingMode >= 2 && bounce + 1 < max(maxBounces, 1u))
         {
             const float2 environmentRandom = float2(NextRandom(randomState), NextRandom(randomState));
-            const PathTracingLightSample environmentSample = MakePathTracingConstantEnvironmentSample(
+            PathTracingLightSample environmentSample = MakePathTracingConstantEnvironmentSample(
                 environmentRandom, environmentIntensity.xxx, rayTMax);
+            if (environmentSamplingMode == 3)
+            {
+                environmentSample.radiance = SampleEnvironmentLighting(environmentSample.direction);
+            }
+            else if (environmentSamplingMode == 4)
+            {
+                environmentSample = SampleEnvironmentImportance(float3(environmentRandom, NextRandom(randomState)));
+            }
             const PathTracingDirectLightCandidate environmentCandidate = MakePathTracingDirectLightCandidate(
                 environmentSample, hitMaterial.albedo, hitMaterial.metallic, hitMaterial.roughness,
                 hitNormal, geometryNormal, -ray.Direction);
@@ -444,8 +533,12 @@ float3 TracePath(uint2 pixel,
 }
 
 [numthreads(8, 8, 1)]
-void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
+void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
 {
+    if (environmentEnabled != 0 && environmentSamplingMode == 4)
+    {
+        BuildEnvironmentDistribution(groupIndex);
+    }
     uint2 pixel = dispatchThreadId.xy;
     uint width;
     uint height;

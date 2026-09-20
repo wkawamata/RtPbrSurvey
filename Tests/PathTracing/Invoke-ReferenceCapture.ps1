@@ -7,7 +7,7 @@ param(
     [ValidateRange(1, [uint32]::MaxValue)]
     [uint32]$Samples = 64,
     [uint32]$Seed = 1,
-    [ValidateRange(0, 2)]
+    [ValidateRange(0, 4)]
     [uint32]$EnvironmentMode = 0,
     [ValidateRange(1, 3600)]
     [int]$TimeoutSeconds = 300
