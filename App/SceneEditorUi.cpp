@@ -3,18 +3,154 @@
 #include "App/SceneEditorUi.h"
 
 #include "App/RtPbrSurveyApp.h"
+#include "Scene/CameraProjection.h"
+#include "Scene/CameraView.h"
+#include "Scene/SceneGraph.h"
 
 #include <imgui.h>
 #include <imgui_stdlib.h>
 
+#include "third_party/ImGuizmo/ImGuizmo.h"
+
 #include <functional>
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
 #include <filesystem>
 #include <vector>
 
 namespace
 {
+bool ApplyWorldTransformToSelectedNode(App::SceneEditorSession& session, DirectX::FXMMATRIX worldTransform)
+{
+    RtPbrSurvey::SceneNode* node = session.SelectedNode();
+    if (node == nullptr)
+    {
+        return false;
+    }
+
+    RtPbrSurvey::SceneGraphEvaluation graph;
+    if (!RtPbrSurvey::EvaluateSceneGraph(session.Document(), graph, nullptr))
+    {
+        return false;
+    }
+
+    DirectX::XMMATRIX localTransform = worldTransform;
+    if (node->parentId.has_value())
+    {
+        const DirectX::XMFLOAT4X4* parentWorld = graph.FindWorld(*node->parentId, session.Document());
+        if (parentWorld == nullptr)
+        {
+            return false;
+        }
+        const DirectX::XMMATRIX parentWorldMatrix = DirectX::XMLoadFloat4x4(parentWorld);
+        const DirectX::XMVECTOR determinant = DirectX::XMMatrixDeterminant(parentWorldMatrix);
+        if (std::abs(DirectX::XMVectorGetX(determinant)) < 1.0e-6f)
+        {
+            return false;
+        }
+        localTransform = DirectX::XMMatrixMultiply(worldTransform, DirectX::XMMatrixInverse(nullptr, parentWorldMatrix));
+    }
+
+    DirectX::XMVECTOR scale;
+    DirectX::XMVECTOR rotation;
+    DirectX::XMVECTOR translation;
+    if (!DirectX::XMMatrixDecompose(&scale, &rotation, &translation, localTransform))
+    {
+        return false;
+    }
+
+    DirectX::XMFLOAT3 scaleValue = {};
+    DirectX::XMFLOAT4 rotationValue = {};
+    DirectX::XMFLOAT3 translationValue = {};
+    DirectX::XMStoreFloat3(&scaleValue, scale);
+    DirectX::XMStoreFloat4(&rotationValue, DirectX::XMQuaternionNormalize(rotation));
+    DirectX::XMStoreFloat3(&translationValue, translation);
+    if (scaleValue.x <= 0.0f || scaleValue.y <= 0.0f || scaleValue.z <= 0.0f)
+    {
+        return false;
+    }
+
+    node->transform.translation = {translationValue.x, translationValue.y, translationValue.z};
+    node->transform.rotation = {rotationValue.x, rotationValue.y, rotationValue.z, rotationValue.w};
+    node->transform.scale = {scaleValue.x, scaleValue.y, scaleValue.z};
+    return true;
+}
+
+void DrawSceneEditorGizmo(App::SceneEditorSession& session,
+                          RtPbrSurvey::SceneRenderer& renderer,
+                          UINT viewportWidth,
+                          UINT viewportHeight,
+                          int transformTool,
+                          float translationStep,
+                          float rotationStepDegrees,
+                          float scaleStep,
+                          bool& gizmoEditing,
+                          std::string& status,
+                          const std::function<bool()>& rebuildPreview)
+{
+    RtPbrSurvey::SceneNode* selectedNode = session.SelectedNode();
+    if (selectedNode == nullptr)
+    {
+        return;
+    }
+
+    RtPbrSurvey::SceneGraphEvaluation graph;
+    const RtPbrSurvey::SceneDocument& document = session.Document();
+    const DirectX::XMFLOAT4X4* selectedWorld =
+        RtPbrSurvey::EvaluateSceneGraph(document, graph, nullptr) ? graph.FindWorld(selectedNode->id, document) : nullptr;
+    if (selectedWorld == nullptr)
+    {
+        return;
+    }
+
+    const Engine::CameraState& camera = renderer.GetCamera();
+    const float aspectRatio = static_cast<float>((std::max)(viewportWidth, 1u)) /
+                              static_cast<float>((std::max)(viewportHeight, 1u));
+    DirectX::XMFLOAT4X4 view = {};
+    DirectX::XMFLOAT4X4 projection = {};
+    DirectX::XMFLOAT4X4 manipulatedWorld = *selectedWorld;
+    DirectX::XMStoreFloat4x4(&view, Engine::CreateCameraViewMatrix(camera));
+    DirectX::XMStoreFloat4x4(&projection, Engine::CreateCameraProjectionMatrix(camera, aspectRatio));
+
+    ImGuizmo::BeginFrame();
+    ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGuizmo::SetRect(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y);
+    ImGuizmo::SetOrthographic(camera.projection == Engine::CameraProjection::Orthographic);
+
+    const ImGuizmo::OPERATION operation =
+        transformTool == 0 ? ImGuizmo::TRANSLATE : transformTool == 1 ? ImGuizmo::ROTATE : ImGuizmo::SCALE;
+    const float snapValue = transformTool == 0 ? translationStep : transformTool == 1 ? rotationStepDegrees : scaleStep;
+    const float snap[] = {snapValue, snapValue, snapValue};
+    const bool manipulated = ImGuizmo::Manipulate(&view._11,
+                                                   &projection._11,
+                                                   operation,
+                                                   ImGuizmo::LOCAL,
+                                                   &manipulatedWorld._11,
+                                                   nullptr,
+                                                   snap);
+    if (manipulated)
+    {
+        if (!gizmoEditing)
+        {
+            session.BeginEdit();
+            gizmoEditing = true;
+        }
+        if (!ApplyWorldTransformToSelectedNode(session, DirectX::XMLoadFloat4x4(&manipulatedWorld)))
+        {
+            status = "Gizmo transform could not be applied to the selected node.";
+        }
+    }
+    else if (gizmoEditing)
+    {
+        session.CommitEdit();
+        gizmoEditing = false;
+        rebuildPreview();
+        status = "Gizmo transform applied.";
+    }
+}
+
 std::vector<std::filesystem::path> FindSceneEditorSceneFiles()
 {
     const std::filesystem::path sceneRoot = std::filesystem::current_path() / "Assets" / "Scenes";
@@ -556,6 +692,18 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         applyTransformAxis(2, 1.0f);
     }
     ImGui::EndDisabled();
+
+    DrawSceneEditorGizmo(session,
+                          app.m_sceneRenderer,
+                          app.GetWidth(),
+                          app.GetHeight(),
+                          app.m_sceneEditorTransformTool,
+                          app.m_sceneEditorTranslationStep,
+                          app.m_sceneEditorRotationStepDegrees,
+                          app.m_sceneEditorScaleStep,
+                          app.m_sceneEditorGizmoEditing,
+                          app.m_sceneEditorStatus,
+                          rebuildPreview);
 
     ImGui::NextColumn();
     ImGui::TextUnformatted("Inspector");
