@@ -271,7 +271,7 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
             parsed.pathTracing.environmentEnabled =
                 pathTracing.value("environmentEnabled", parsed.pathTracing.environmentEnabled);
             parsed.pathTracing.environmentSamplingMode = (std::min)(
-                pathTracing.value("environmentSamplingMode", parsed.pathTracing.environmentSamplingMode), 4u);
+                pathTracing.value("environmentSamplingMode", parsed.pathTracing.environmentSamplingMode), 7u);
             parsed.pathTracing.emissiveEnabled =
                 pathTracing.value("emissiveEnabled", parsed.pathTracing.emissiveEnabled);
             parsed.pathTracing.russianRouletteEnabled =

@@ -664,7 +664,7 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
         m_pathTracingSettings.debugOutput != settings.debugOutput;
 
     m_pathTracingSettings = settings;
-    m_pathTracingSettings.environmentSamplingMode = (std::min)(settings.environmentSamplingMode, 4u);
+    m_pathTracingSettings.environmentSamplingMode = (std::min)(settings.environmentSamplingMode, 7u);
     m_pathTracingSettings.samplesPerFrame = (std::clamp)(m_pathTracingSettings.samplesPerFrame, 1u, 16u);
     m_pathTracingSettings.maxBounces = (std::clamp)(m_pathTracingSettings.maxBounces, 1u, 16u);
     if (changed)

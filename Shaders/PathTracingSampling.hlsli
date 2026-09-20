@@ -241,6 +241,32 @@ float PathTracingSpecularPdf(float3 normal,
         max(4.0 * viewDotHalf, 0.000001);
 }
 
+float PathTracingPowerHeuristic(float sampledPdf, float competingPdf)
+{
+    const float scale = max(sampledPdf, competingPdf);
+    if (!isfinite(scale) || scale <= 0.0)
+    {
+        return 0.0;
+    }
+    const float a = sampledPdf / scale;
+    const float b = competingPdf / scale;
+    return a * a / (a * a + b * b);
+}
+
+float EvaluatePathTracingBsdfPdf(float3 albedo, float metallic, float roughness,
+                                 float3 normal, float3 viewDirection, float3 direction)
+{
+    const float normalDotLight = saturate(dot(normal, direction));
+    if (normalDotLight <= 0.0 || dot(normal, viewDirection) <= 0.0)
+    {
+        return 0.0;
+    }
+    const float specularProbability = PathTracingSpecularProbability(albedo, metallic, normal, viewDirection);
+    const float diffusePdf = normalDotLight / kPathTracingPi;
+    const float specularPdf = PathTracingSpecularPdf(normal, viewDirection, direction, roughness);
+    return lerp(diffusePdf, specularPdf, specularProbability);
+}
+
 PathTracingBsdfSample SamplePathTracingBsdf(float3 albedo,
                                             float metallic,
                                             float roughness,
@@ -273,9 +299,7 @@ PathTracingBsdfSample SamplePathTracingBsdf(float3 albedo,
         return result;
     }
 
-    const float diffusePdf = normalDotLight / kPathTracingPi;
-    const float specularPdf = PathTracingSpecularPdf(normal, viewDirection, result.direction, roughness);
-    result.pdf = lerp(diffusePdf, specularPdf, specularProbability);
+    result.pdf = EvaluatePathTracingBsdfPdf(albedo, metallic, roughness, normal, viewDirection, result.direction);
     if (!isfinite(result.pdf) || result.pdf <= 0.0)
     {
         return result;

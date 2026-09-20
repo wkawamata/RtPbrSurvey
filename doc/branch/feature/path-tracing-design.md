@@ -1016,3 +1016,29 @@ RTX 2080 Ti / DamagedHelmet / seed 1で、mode 0の64 samplesは従来のPNG has
 mode 3/4の各256 samplesはそれぞれA/Bで一致し、全6回でD3D12 error 0件。
 このrunのPathTracingPass平均はmode 3が約1.01 ms、mode 4が約1.52 msだった。
 これは1条件の観測であり、一般的な速度改善や収束改善の主張には使用しない。
+
+### 17.4 Step 5: Environment / BSDF MIS
+
+mode 5: Constant White / MIS、6: Environment Map / Uniform MIS、7: Environment Map / Importance MISを追加する。
+各surfaceでenvironment sampleを1つ、BSDF continuationを1つ生成する。両者のPDFは立体角密度で比較し、
+power heuristic（beta 2）で`pA^2 / (pA^2 + pB^2)`を使う。演算前に最大PDFでscaleしoverflowを避ける。
+Directionalはdelta lightとして従来のweight 1を維持する。
+
+NEE側はdiffuse/specular混合BSDFの全PDFを評価する。BSDF側は前surfaceのsample PDFとenvironment PDFを
+保持し、secondary miss時のradianceに対応する重みを掛ける。primary backgroundはMIS対象外。
+`EvaluatePathTracingBsdfPdf()`をsamplingとNEE評価の両方から呼び、lobe選択確率を含めた密度を共有する。
+environment shadow rayのback-face cullingをcontinuation rayと揃える（Directional shadowは従来のまま）。
+Russian rouletteの生存後throughput補正を維持し、MISはroulette前の方向PDF同士で比較する。
+
+shadow無効時はNEEをweight 1、secondary environment missを0としてNEE単独へ戻す。
+遮蔽を無視したNEEと、geometryを追跡するBSDF escape rayの重みを混ぜないためである。
+environment無効時はimportance CDFを参照しない。最終bounceの扱いはStep 3と同じ。
+
+`Test-EnvironmentMis.ps1`は重みのpartition of unityと、constant Lambertの2-technique積分を検証する。
+これはCPUの解析チェックであり、GGX shaderのHDR収束誤差はStep 6の複数seed比較で扱う。
+
+検証: Debug x64 MSBuild、settings round-trip CTest、MIS解析テスト成功。
+RTX 2080 Ti / DamagedHelmet / seed 1で、mode 0（64 samples）は従来PNG hashと一致。
+mode 5（256 samples）、6（64 samples）、7（256 samples）は各A/Bで一致し、全8captureでD3D12 error 0件。
+mode 5/7の画像ではNEE単独の点状ノイズが減少した。mode 7のPathTracingPass平均はこのrunで約1.46 ms。
+限られたscene・sample数での目視結果であり、HDR収束一致や一般的な性能向上は未判定。

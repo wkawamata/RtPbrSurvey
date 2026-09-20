@@ -247,7 +247,7 @@ float3 SampleEnvironmentLighting(float3 direction)
     {
         return float3(0.0, 0.0, 0.0);
     }
-    if (environmentSamplingMode == 1 || environmentSamplingMode == 2)
+    if (environmentSamplingMode == 1 || environmentSamplingMode == 2 || environmentSamplingMode == 5)
     {
         return environmentIntensity.xxx;
     }
@@ -263,7 +263,7 @@ float3 SamplePrimaryMiss(float3 direction)
     return g_environmentMap.SampleLevel(g_sampler, direction, 0).rgb;
 }
 
-float TraceShadow(float3 worldPosition, float3 normal, PathTracingLightSample lightSample)
+float TraceShadow(float3 worldPosition, float3 normal, PathTracingLightSample lightSample, uint rayFlags)
 {
     if (shadowEnabled == 0)
     {
@@ -277,7 +277,7 @@ float TraceShadow(float3 worldPosition, float3 normal, PathTracingLightSample li
     shadowRay.TMax = lightSample.distance;
 
     RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> query;
-    query.TraceRayInline(g_tlas, 0, 0xff, shadowRay);
+    query.TraceRayInline(g_tlas, rayFlags, 0xff, shadowRay);
     while (query.Proceed())
     {
     }
@@ -299,6 +299,9 @@ float3 TracePath(uint2 pixel,
     float3 radiance = 0.0;
     float3 throughput = 1.0;
     bool primarySpecularPath = false;
+    float previousBsdfPdf = 0.0;
+    float previousEnvironmentPdf = 0.0;
+    const bool environmentMisEnabled = environmentSamplingMode >= 5 && shadowEnabled != 0;
 
     [loop] for (uint bounce = 0; bounce < max(maxBounces, 1u); ++bounce)
     {
@@ -310,9 +313,12 @@ float3 TracePath(uint2 pixel,
 
         if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
         {
-            const float3 missRadiance =
-                bounce == 0 ? SamplePrimaryMiss(ray.Direction) :
-                (environmentSamplingMode >= 2 ? float3(0.0, 0.0, 0.0) : SampleEnvironmentLighting(ray.Direction));
+            float3 missRadiance = bounce == 0 ? SamplePrimaryMiss(ray.Direction) : SampleEnvironmentLighting(ray.Direction);
+            if (bounce > 0 && environmentSamplingMode >= 2)
+            {
+                missRadiance *= environmentMisEnabled ?
+                    PathTracingPowerHeuristic(previousBsdfPdf, previousEnvironmentPdf) : 0.0;
+            }
             const float3 contribution = throughput * missRadiance;
             radiance += contribution;
             if (bounce > 0)
@@ -426,7 +432,7 @@ float3 TracePath(uint2 pixel,
             hitNormal, geometryNormal, -ray.Direction);
         if (directLightingEnabled != 0 && candidate.valid != 0)
         {
-            const float visibility = TraceShadow(hitPosition, geometryNormal, candidate.lightSample);
+            const float visibility = TraceShadow(hitPosition, geometryNormal, candidate.lightSample, 0);
             const float3 brdf = candidate.diffuseBrdf + candidate.specularBrdf;
             const float3 lighting = candidate.lightSample.radiance *
                 (candidate.normalDotLight * visibility / candidate.lightSample.selectionPdf);
@@ -452,11 +458,11 @@ float3 TracePath(uint2 pixel,
             const float2 environmentRandom = float2(NextRandom(randomState), NextRandom(randomState));
             PathTracingLightSample environmentSample = MakePathTracingConstantEnvironmentSample(
                 environmentRandom, environmentIntensity.xxx, rayTMax);
-            if (environmentSamplingMode == 3)
+            if (environmentSamplingMode == 3 || environmentSamplingMode == 6)
             {
                 environmentSample.radiance = SampleEnvironmentLighting(environmentSample.direction);
             }
-            else if (environmentSamplingMode == 4)
+            else if (environmentSamplingMode == 4 || environmentSamplingMode == 7)
             {
                 environmentSample = SampleEnvironmentImportance(float3(environmentRandom, NextRandom(randomState)));
             }
@@ -465,9 +471,14 @@ float3 TracePath(uint2 pixel,
                 hitNormal, geometryNormal, -ray.Direction);
             if (environmentCandidate.valid != 0)
             {
-                const float visibility = TraceShadow(hitPosition, geometryNormal, environmentSample);
+                const float visibility = TraceShadow(hitPosition, geometryNormal, environmentSample,
+                    RAY_FLAG_CULL_BACK_FACING_TRIANGLES);
+                const float lightPdf = environmentSample.selectionPdf * environmentSample.directionPdf;
+                const float bsdfPdf = EvaluatePathTracingBsdfPdf(hitMaterial.albedo, hitMaterial.metallic,
+                    hitMaterial.roughness, hitNormal, -ray.Direction, environmentSample.direction);
+                const float misWeight = environmentMisEnabled ? PathTracingPowerHeuristic(lightPdf, bsdfPdf) : 1.0;
                 const float3 lighting = environmentSample.radiance * (environmentCandidate.normalDotLight *
-                    visibility / (environmentSample.selectionPdf * environmentSample.directionPdf));
+                    visibility * misWeight / lightPdf);
                 const float3 diffuseContribution = throughput * environmentCandidate.diffuseBrdf * lighting;
                 const float3 specularContribution = throughput * environmentCandidate.specularBrdf * lighting;
                 const float3 contribution = diffuseContribution + specularContribution;
@@ -513,6 +524,9 @@ float3 TracePath(uint2 pixel,
         }
 
         throughput *= bsdfSample.weight;
+        previousBsdfPdf = bsdfSample.pdf;
+        previousEnvironmentPdf = environmentEnabled != 0 && environmentMisEnabled && environmentSamplingMode == 7 ?
+            EnvironmentImportancePdf(bsdfSample.direction) : 1.0 / (4.0 * kPathTracingPi);
         if (russianRouletteEnabled != 0 && bounce >= 2)
         {
             const float continuationProbability =
@@ -535,7 +549,7 @@ float3 TracePath(uint2 pixel,
 [numthreads(8, 8, 1)]
 void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
 {
-    if (environmentEnabled != 0 && environmentSamplingMode == 4)
+    if (environmentEnabled != 0 && (environmentSamplingMode == 4 || environmentSamplingMode == 7))
     {
         BuildEnvironmentDistribution(groupIndex);
     }

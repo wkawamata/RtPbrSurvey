@@ -27,19 +27,24 @@ be committed.
 
 Environment sampling is selected with `-EnvironmentMode` (or the application flag
 `-PathTracingEnvironmentMode`): 0 = map BSDF, 1 = constant BSDF, 2 = constant NEE,
-3 = map uniform NEE, 4 = map importance NEE. Use separate output directories when comparing modes.
+3 = map uniform NEE, 4 = map importance NEE, 5 = constant MIS, 6 = map uniform MIS,
+7 = map importance MIS. Use separate output directories when comparing modes.
 Modes 3/4 use the actual environment map for lighting; primary skybox visibility remains independent.
 
 ```powershell
 .\Tests\PathTracing\Test-ConstantEnvironmentPdf.ps1
 .\Tests\PathTracing\Test-EnvironmentImportancePdf.ps1
+.\Tests\PathTracing\Test-EnvironmentMis.ps1
 .\Tests\PathTracing\Invoke-ReferenceCapture.ps1 -EnvironmentMode 3 -Samples 256 -OutputDirectory bin/PT-Uniform
 .\Tests\PathTracing\Invoke-ReferenceCapture.ps1 -EnvironmentMode 4 -Samples 256 -OutputDirectory bin/PT-Importance
+.\Tests\PathTracing\Invoke-ReferenceCapture.ps1 -EnvironmentMode 7 -Samples 256 -OutputDirectory bin/PT-Importance-MIS
 ```
 
 The PDF scripts check analytic estimator contracts on the CPU. They do not execute the shader and do not
 establish HDR image convergence. Importance NEE uses a coarse equal-solid-angle distribution with a 5% uniform
-mixture. Narrow highlights can still have high variance before BSDF MIS is added.
+mixture. MIS modes combine one environment sample and one BSDF sample using power-heuristic weights.
+With shadow rays disabled, MIS modes fall back to environment NEE only, because unoccluded NEE and
+occluded BSDF escape rays do not represent the same visibility integral.
 
 Commit 8 exposes these current-frame primary-surface resources through RenderGraph and Debug Texture Preview:
 
