@@ -12,6 +12,56 @@ struct PathTracingBsdfSample
     uint sampledSpecular;
 };
 
+struct PathTracingLightSample
+{
+    float3 direction;
+    float distance;
+    float3 radiance;
+    float selectionPdf;
+    float directionPdf;
+    uint sourceIndex;
+    uint isDelta;
+    uint valid;
+};
+
+struct PathTracingDirectLightCandidate
+{
+    PathTracingLightSample lightSample;
+    float3 diffuseBrdf;
+    float3 specularBrdf;
+    float normalDotLight;
+    uint valid;
+};
+
+PathTracingLightSample MakeInvalidPathTracingLightSample()
+{
+    return (PathTracingLightSample)0;
+}
+
+PathTracingLightSample MakePathTracingDirectionalLightSample(float3 surfaceToLight,
+                                                              float3 radiance,
+                                                              float shadowDistance,
+                                                              float selectionPdf,
+                                                              uint sourceIndex)
+{
+    PathTracingLightSample result = MakeInvalidPathTracingLightSample();
+    const float directionLengthSquared = dot(surfaceToLight, surfaceToLight);
+    if (directionLengthSquared <= 0.000001 || shadowDistance <= 0.0 || selectionPdf <= 0.0)
+    {
+        return result;
+    }
+
+    result.direction = surfaceToLight * rsqrt(directionLengthSquared);
+    result.distance = shadowDistance;
+    result.radiance = max(radiance, 0.0);
+    result.selectionPdf = selectionPdf;
+    result.directionPdf = 0.0;
+    result.sourceIndex = sourceIndex;
+    result.isDelta = 1u;
+    result.valid = all(isfinite(result.direction)) && all(isfinite(result.radiance)) ? 1u : 0u;
+    return result;
+}
+
 float PathTracingLuminance(float3 color)
 {
     return dot(color, float3(0.2126, 0.7152, 0.0722));

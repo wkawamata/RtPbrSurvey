@@ -914,3 +914,37 @@ Previewだけをzero-centered 32x表示にし、encoded neutral 0.5がscale変�
 
 CLIの`-DebugPreviewResource`指定時はDebug UIをcaptureへ含める。静止/camera orbitの比較scriptはresourceがcamera
 motionへ反応することとD3D12 error 0件を検証するが、reprojection signの数学的証明やdenoiser統合は行わない。
+
+## 17. NEE / MIS light sampling contract
+
+Path Tracingの直接光サンプリングは、SceneやRaster/Hybrid固有のlight型をshaderへ直接持ち込まず、
+`PathTracingLightSample`と`PathTracingDirectLightCandidate`を境界にする。
+
+`PathTracingLightSample`のcontractは次の通り。
+
+- `direction`: shading pointからlightへ向かう正規化済みworld-space方向
+- `distance`: shadow rayの最大距離。無限遠光はrenderer設定の有限な`rayTMax`を使用する
+- `radiance`: visibility、BRDF、cosineを掛ける前の入射放射輝度
+- `selectionPdf`: 複数のlight sourceからこのsourceを選ぶ離散確率
+- `directionPdf`: non-delta source内で方向を選ぶ立体角密度
+- `sourceIndex`: source側の安定したindex。sampling coreはsourceの具象型を解釈しない
+- `isDelta`: Directional/Point/Spotなど、連続な方向PDFを持たないdelta sampleを示す
+- `valid`: sampleの全入力が評価可能であることを示す
+
+non-delta lightの完全なlight-sampling PDFは`selectionPdf * directionPdf`とする。delta lightは
+`directionPdf = 0`、`isDelta = 1`とし、MIS時にBSDFの連続PDFと直接比較しない。これにより単位の異なる
+離散確率と立体角密度を1つの値へ混在させない。
+
+`PathTracingDirectLightCandidate`はlight sampleに加え、現在のsurfaceで評価したdiffuse/specular BRDFと
+`normalDotLight`を保持する。shadow visibilityはcandidate生成後に評価するため含めない。ReSTIR固有の
+reservoir weightやDLSS/denoiser固有データもこのcontractには含めない。
+
+導入は次の順序で行う。
+
+1. neutral sample/candidate contractを定義する（描画結果は変更しない）
+2. 現在の単一Directional Lightをcontract経由へ移行する
+3. Constant EnvironmentでNEEとPDFを検証する
+4. Environment importance samplingを追加する
+5. BSDF samplingとのMISを追加する
+6. 固定seedでNEE OFF/ON、MIS OFF/ONを比較する
+7. 複数light実装をcandidate sourceとして接続する
