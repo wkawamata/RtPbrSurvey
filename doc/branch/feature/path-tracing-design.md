@@ -948,3 +948,18 @@ reservoir weightやDLSS/denoiser固有データもこのcontractには含めな�
 5. BSDF samplingとのMISを追加する
 6. 固定seedでNEE OFF/ON、MIS OFF/ONを比較する
 7. 複数light実装をcandidate sourceとして接続する
+
+### 17.1 Step 2: Directional Light migration
+
+単一Directional Lightを`MakePathTracingDirectionalLightSample()`経由で生成し、source index 0、
+selection PDF 1のdelta sampleとして評価する。radianceには既存の`lightColor * diffuseIntensity`を渡す。
+`MakePathTracingDirectLightCandidate()`がsurfaceのdiffuse/specular BRDFを一度だけ評価し、final radianceと
+診断バッファで共有する。shadow queryはsampleのdirection/distanceを使用する。
+
+現在のdelta estimatorは`radiance * NdotL * visibility / selectionPdf`にBRDFとpath throughputを掛ける。
+non-delta estimatorとMISは後続stepで追加する。sample生成は非有限値、不正な距離、範囲外の選択確率を拒否する。
+
+検証: Debug x64 MSBuild成功。DamagedHelmet、64 samples、seed 1のA/B captureは一致し、Step 1とも
+SHA-256 `6674ABEF8D3160A99FF094D9A5147EED03C3DB654FC92E45F6758507C70DFD4E`が一致した。
+D3D12 error 0件、既知のbuffer initial-state warningは各run 2件。この条件での回帰確認であり、
+他sceneや将来のnon-delta lightの正しさを保証するものではない。

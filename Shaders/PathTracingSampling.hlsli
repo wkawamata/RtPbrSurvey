@@ -46,7 +46,9 @@ PathTracingLightSample MakePathTracingDirectionalLightSample(float3 surfaceToLig
 {
     PathTracingLightSample result = MakeInvalidPathTracingLightSample();
     const float directionLengthSquared = dot(surfaceToLight, surfaceToLight);
-    if (directionLengthSquared <= 0.000001 || shadowDistance <= 0.0 || selectionPdf <= 0.0)
+    if (!isfinite(directionLengthSquared) || directionLengthSquared <= 0.000001 ||
+        !all(isfinite(radiance)) || !isfinite(shadowDistance) || shadowDistance <= 0.0 ||
+        !isfinite(selectionPdf) || selectionPdf <= 0.0 || selectionPdf > 1.0)
     {
         return result;
     }
@@ -133,6 +135,29 @@ void EvaluatePathTracingBrdfComponents(float3 albedo,
     specular = distribution * geometry * fresnel /
         max(4.0 * normalDotView * normalDotLight, 0.000001);
     diffuse = (1.0 - fresnel) * (1.0 - metallic) * albedo / kPathTracingPi;
+}
+
+PathTracingDirectLightCandidate MakePathTracingDirectLightCandidate(PathTracingLightSample lightSample,
+                                                                   float3 albedo,
+                                                                   float metallic,
+                                                                   float roughness,
+                                                                   float3 normal,
+                                                                   float3 geometryNormal,
+                                                                   float3 viewDirection)
+{
+    PathTracingDirectLightCandidate result = (PathTracingDirectLightCandidate)0;
+    result.lightSample = lightSample;
+    result.normalDotLight = saturate(dot(normal, lightSample.direction));
+    if (lightSample.valid == 0 || result.normalDotLight <= 0.0 ||
+        dot(geometryNormal, lightSample.direction) <= 0.0)
+    {
+        return result;
+    }
+
+    EvaluatePathTracingBrdfComponents(albedo, metallic, roughness, normal, viewDirection,
+        lightSample.direction, result.diffuseBrdf, result.specularBrdf);
+    result.valid = all(isfinite(result.diffuseBrdf)) && all(isfinite(result.specularBrdf)) ? 1u : 0u;
+    return result;
 }
 
 float3 EvaluatePathTracingBrdf(float3 albedo,

@@ -178,7 +178,7 @@ float3 SamplePrimaryMiss(float3 direction)
     return g_environmentMap.SampleLevel(g_sampler, direction, 0).rgb;
 }
 
-float TraceShadow(float3 worldPosition, float3 normal)
+float TraceShadow(float3 worldPosition, float3 normal, PathTracingLightSample lightSample)
 {
     if (shadowEnabled == 0)
     {
@@ -187,9 +187,9 @@ float TraceShadow(float3 worldPosition, float3 normal)
 
     RayDesc shadowRay;
     shadowRay.Origin = worldPosition + normal * normalBias;
-    shadowRay.Direction = normalize(lightDirection);
+    shadowRay.Direction = lightSample.direction;
     shadowRay.TMin = rayTMin;
-    shadowRay.TMax = rayTMax;
+    shadowRay.TMax = lightSample.distance;
 
     RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> query;
     query.TraceRayInline(g_tlas, 0, 0xff, shadowRay);
@@ -333,35 +333,23 @@ float3 TracePath(uint2 pixel,
             }
         }
 
-        const float3 surfaceToLight = normalize(lightDirection);
-        const float normalDotLight = saturate(dot(hitNormal, surfaceToLight));
-        if (directLightingEnabled != 0 && normalDotLight > 0.0 && dot(geometryNormal, surfaceToLight) > 0.0)
+        const PathTracingLightSample lightSample = MakePathTracingDirectionalLightSample(
+            lightDirection, lightColor * diffuseIntensity, rayTMax, 1.0, 0u);
+        const PathTracingDirectLightCandidate candidate = MakePathTracingDirectLightCandidate(
+            lightSample, hitMaterial.albedo, hitMaterial.metallic, hitMaterial.roughness,
+            hitNormal, geometryNormal, -ray.Direction);
+        if (directLightingEnabled != 0 && candidate.valid != 0)
         {
-            const float visibility = TraceShadow(hitPosition, geometryNormal);
-            const float3 viewDirection = -ray.Direction;
-            const float3 brdf = EvaluatePathTracingBrdf(hitMaterial.albedo,
-                                                        hitMaterial.metallic,
-                                                        hitMaterial.roughness,
-                                                        hitNormal,
-                                                        viewDirection,
-                                                        surfaceToLight);
-            const float3 lighting = lightColor * (diffuseIntensity * normalDotLight * visibility);
+            const float visibility = TraceShadow(hitPosition, geometryNormal, candidate.lightSample);
+            const float3 brdf = candidate.diffuseBrdf + candidate.specularBrdf;
+            const float3 lighting = candidate.lightSample.radiance *
+                (candidate.normalDotLight * visibility / candidate.lightSample.selectionPdf);
             const float3 contribution = throughput * brdf * lighting;
             radiance += contribution;
             if (bounce == 0)
             {
-                float3 diffuseBrdf;
-                float3 specularBrdf;
-                EvaluatePathTracingBrdfComponents(hitMaterial.albedo,
-                                                  hitMaterial.metallic,
-                                                  hitMaterial.roughness,
-                                                  hitNormal,
-                                                  viewDirection,
-                                                  surfaceToLight,
-                                                  diffuseBrdf,
-                                                  specularBrdf);
-                diffuseRadiance += throughput * diffuseBrdf * lighting;
-                specularRadiance += throughput * specularBrdf * lighting;
+                diffuseRadiance += throughput * candidate.diffuseBrdf * lighting;
+                specularRadiance += throughput * candidate.specularBrdf * lighting;
             }
             else if (primarySpecularPath)
             {
