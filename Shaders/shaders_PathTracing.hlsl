@@ -213,7 +213,7 @@ uint HashUint(uint value)
 
 uint MakeRandomState(uint2 pixel, uint sampleIndex)
 {
-    return HashUint(pixel.x ^ HashUint(pixel.y ^ HashUint(sampleIndex ^ randomSeed)));
+    return HashUint(pixel.x ^ HashUint(pixel.y ^ HashUint(sampleIndex) ^ HashUint(randomSeed + 0x9e3779b9u)));
 }
 
 float NextRandom(inout uint state)

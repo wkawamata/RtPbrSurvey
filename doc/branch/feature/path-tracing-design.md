@@ -1042,3 +1042,44 @@ RTX 2080 Ti / DamagedHelmet / seed 1で、mode 0（64 samples）は従来PNG has
 mode 5（256 samples）、6（64 samples）、7（256 samples）は各A/Bで一致し、全8captureでD3D12 error 0件。
 mode 5/7の画像ではNEE単独の点状ノイズが減少した。mode 7のPathTracingPass平均はこのrunで約1.46 ms。
 限られたscene・sample数での目視結果であり、HDR収束一致や一般的な性能向上は未判定。
+
+### 17.5 Step 6: Multi-seed linear HDR comparison
+
+Path Tracing中の`.pfm` screenshotは`PathTracing.Accumulation`をCOPY_SOURCEとしてRenderGraphへ宣言し、
+既存のscreenshot readback/fence/completion経路で保存する。32-bit RGB sumをpixel内sample countで割り、
+ToneMap前のlinear HDRをbottom-up、little-endian float RGBとして出力する。PNG経路は維持する。
+非有限値・不正なsample countはcapture失敗として扱う。
+
+`Tests/PathTracing/compare_hdr.py`はscene defaults、固定ROI、同一sample数でmap BSDF/Uniform NEE/
+Importance NEE/Uniform MIS/Importance MISを比較する。評価seedとreference seedは独立させる。
+参照は高sampleのImportance MIS複数seed平均であり、ground truthとは呼ばない。
+JSON/Markdownへ各seedのRGB RMSE、mean image RMSE、seed間不偏標本分散、平均RGB radiance、
+参照2seed同士のRMSE、commit、capture hash、renderer diagnosticsを記録する。
+背景に誤差が希釈されないようROIで集計するが、signal自体はdirect/emissiveを含むtotal radianceである。
+
+PFM writerのpadding・上下方向・sample正規化・異常値拒否はScreenshot CTestで確認する。
+PFM reader/ROI/RMSEはPython unittestで確認する。実行スクリプトはD3D12 error、設定不一致、
+非有限値、process failure/timeout、固定seed repeatのhash不一致を失敗とする。
+画質の勝敗に固定thresholdは置かず、有限referenceの不確かさとともに比較材料を出力する。
+
+初回比較でseed間分散が約1e-17となり、`sampleIndex ^ randomSeed`がpower-of-two sample数では
+同一sample集合の順序だけを変える不具合を検出した。sample indexとseedを別々にhashしてから混合する形へ
+修正する。過去の固定seed画像hashは変わるが、同じseedの再現性は維持する。
+stochastic scene用の`--require-seed-variation`で全modeの分散がほぼ0の場合を失敗にできる。
+
+修正後の検証: Debug x64成功、Screenshot CTest成功、Python unittest 3件成功。
+DamagedHelmet / ROI (885,460,175,180) / 32 samples / seed 1,2、参照mode 7 / 128 samples / seed 101,102。
+全13captureでD3D12 errorなし、固定seed再captureはPFM hash一致、seed変動のassertionも成功。
+生成レポートは`bin/PathTracing-Step6-SeedFixed/report.json`と`report.md`（非commit）。
+
+| Mode | Mean-image HDR RGB RMSE | Seed variance |
+|---|---:|---:|
+| BSDF (0) | 0.00512470 | 0.0000458157 |
+| Uniform NEE (3) | 0.04962084 | 0.00451094 |
+| Importance NEE (4) | 0.05102727 | 0.00475207 |
+| Uniform MIS (6) | 0.00516549 | 0.0000454501 |
+| Importance MIS (7) | 0.00487305 | 0.0000401475 |
+
+参照2seedの不一致RMSEは0.00486988。NEE単独の大きな分散は観測できるが、BSDFとMISの小さな差を
+この少数seed・低sample検証から一般化しない。defaultの64 samples / 3 seeds / 1024-sample referencesによる
+長時間比較や別sceneの検証はこの実行には含まない。

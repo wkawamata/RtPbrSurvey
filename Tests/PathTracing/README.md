@@ -46,6 +46,38 @@ mixture. MIS modes combine one environment sample and one BSDF sample using powe
 With shadow rays disabled, MIS modes fall back to environment NEE only, because unoccluded NEE and
 occluded BSDF escape rays do not represent the same visibility integral.
 
+## Linear HDR comparison
+
+With Path Tracing active, `-CapturePath result.pfm` saves the float32 accumulation buffer divided by its
+per-pixel sample count. PFM contains bottom-up RGB rows, little-endian floats, unit scale, before ToneMap.
+PNG capture behavior is unchanged. Non-finite radiance or invalid sample counts fail the PFM capture.
+
+Python 3.10+ (standard library only):
+
+```powershell
+python -B Tests/PathTracing/test_compare_hdr.py
+python -B Tests/PathTracing/compare_hdr.py --output bin/PT-HdrComparison
+```
+
+Default comparison: DamagedHelmet with scene defaults, ROI `(885,460,175,180)` in top-left image coordinates,
+64 samples, seeds 1/2/3, modes 0/3/4/6/7. The reference is the mean of mode 7 at 1024 samples with independent
+seeds 101/102. Change `--roi`, `--scene`, `--samples`, `--reference-samples`, `--seeds`, and `--modes` explicitly
+for other conditions. At least two distinct seeds are required for each group and groups must not overlap.
+
+The JSON report contains per-seed RGB RMSE, RMSE of each mode's mean image, mean unbiased sample variance
+across seeds, mean RGB radiance, capture hashes, settings diagnostics, and reference disagreement RMSE.
+The Markdown report summarizes these metrics. Reference disagreement is not a statistical confidence bound;
+the finite-sample MIS reference is not ground truth. The report measures total path radiance including direct
+light and emission, not an isolated environment-only signal. It reports evidence without asserting which
+technique must win. It fails on non-finite HDR, mismatched sample/mode/seed/dimensions, D3D12 errors, process
+failure, timeout, or a failed fixed-seed repeat. Generated PFM/log/report files remain under `bin/`.
+For a stochastic scene such as DamagedHelmet, add `--require-seed-variation` to reject runs whose variance
+is effectively zero in every mode. Do not use this assertion for a deliberately constant/black ROI.
+
+The Step 6 RNG separates hashing of the sample index and seed. The former `sampleIndex ^ seed` mapping
+permuted the same sample set for power-of-two sample counts and small seeds, invalidating independent-seed
+statistics. Old PNG hashes change with this correction; fixed-seed repeatability remains required.
+
 Commit 8 exposes these current-frame primary-surface resources through RenderGraph and Debug Texture Preview:
 
 - `PathTracing.NormalRoughness`

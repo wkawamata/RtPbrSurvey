@@ -1295,6 +1295,11 @@ void RtPbrSurveyEngine::RequestScreenshot(RtPbrSurvey::ScreenshotRequest request
             return;
         }
         request.path = std::filesystem::absolute(request.path);
+        if (request.path.extension() == L".pfm" && m_renderingPath != RenderingPath::PathTracing)
+        {
+            m_screenshotResults.push_back({request.path, false, "PFM capture requires Path Tracing."});
+            return;
+        }
         m_screenshotRequests.push_back(std::move(request));
     }
     catch (const std::exception& exception)
@@ -6159,7 +6164,8 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
     {
         Engine::RecordScreenshotCapture(m_commandList.Get(),
                                         m_graphicsDevice.Device(),
-                                        m_renderTargets[m_currentFrameIndex].Get(),
+                                        capture.request.path.extension() == L".pfm" ?
+                                            m_pathTracingAccumulation.Get() : m_renderTargets[m_currentFrameIndex].Get(),
                                         m_hdrOutputPolicy.settings.hdr10Enabled,
                                         m_toneMapPass.settings.paperWhiteNits,
                                         capture.readback);
