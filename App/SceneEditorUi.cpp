@@ -592,9 +592,9 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     ImGui::NextColumn();
     ImGui::TextUnformatted("3D Preview");
     ImGui::Separator();
-    ImGui::TextWrapped("The renderer behind this editor displays the current document. Mouse and keyboard camera controls remain available.");
+    ImGui::TextWrapped("Left-click a mesh in the renderer to select it. Right-drag operates the camera.");
     ImGui::TextDisabled("Selected nodes show red, green, and blue axes in the renderer.");
-    ImGui::TextDisabled("Ctrl+Click the renderer to select a scene node.");
+    ImGui::TextDisabled("3D selection requires Deferred rendering.");
     ImGui::TextDisabled("Transform controls apply to the primary selection.");
     ImGui::RadioButton("Move", &app.m_sceneEditorTransformTool, 0);
     ImGui::SameLine();

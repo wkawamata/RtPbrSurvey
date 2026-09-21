@@ -518,6 +518,9 @@ void RtPbrSurveyApp::UpdateSampleState()
         return;
     }
 
+    m_debugCamera.SetPrimaryDragButton(
+        m_appMode == AppMode::SceneEditorEdit ? VK_RBUTTON : VK_LBUTTON);
+
     if (m_sceneEditorObjectPickPending)
     {
         const RtPbrSurveyEngine::PixelPickResult& pick = m_sceneRenderer.GetPixelPickResult();
@@ -645,7 +648,7 @@ void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
 
     if (button == VK_LBUTTON)
     {
-        if (m_appMode == AppMode::SceneEditorEdit && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
+        if (m_appMode == AppMode::SceneEditorEdit)
         {
             if (m_renderingPath != RtPbrSurveyEngine::RenderingPath::Deferred)
             {
@@ -668,6 +671,10 @@ void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
 void RtPbrSurveyApp::OnMouseUp(UINT8 button, int x, int y)
 {
     if (m_appMode != AppMode::Running && m_appMode != AppMode::SceneEditorEdit)
+    {
+        return;
+    }
+    if (m_appMode == AppMode::SceneEditorEdit && button == VK_LBUTTON)
     {
         return;
     }
