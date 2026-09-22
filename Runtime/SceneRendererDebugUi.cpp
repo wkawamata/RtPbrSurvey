@@ -193,9 +193,18 @@ namespace
             }
         }
 
+        bool simpleTemporalUpscalerEnabled =
+            context.temporalUpscalerAvailable && temporalUpscalerSettings.enabled;
+        bool* temporalUpscalerEnabled =
+            preferences.dlssSrDetailed ? &temporalUpscalerSettings.enabled : &simpleTemporalUpscalerEnabled;
         ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
-        changed |= ImGui::Checkbox(preferences.dlssSrDetailed ? "DLSS Enabled" : "DLSS##Simple",
-                                   &temporalUpscalerSettings.enabled);
+        const bool temporalUpscalerEnabledChanged =
+            ImGui::Checkbox(preferences.dlssSrDetailed ? "DLSS Enabled" : "DLSS##Simple", temporalUpscalerEnabled);
+        if (temporalUpscalerEnabledChanged && !preferences.dlssSrDetailed)
+        {
+            temporalUpscalerSettings.enabled = simpleTemporalUpscalerEnabled;
+        }
+        changed |= temporalUpscalerEnabledChanged;
         int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
         if (ImGui::Combo(preferences.dlssSrDetailed ? "DLSS Quality" : "DLSS SR Mode##Simple",
                          &temporalUpscalerQualityMode,
@@ -219,7 +228,7 @@ namespace
 
         if (!preferences.dlssRrDetailed)
         {
-            bool nativeRayReconstructionEnabled =
+            bool nativeRayReconstructionEnabled = context.rayReconstructionAvailable &&
                 rayReconstructionSettings.enabled && rayReconstructionSettings.experimentalNativeEvaluationEnabled;
             ImGui::BeginDisabled(!context.rayReconstructionAvailable);
             if (ImGui::Checkbox("DLSS RR##Simple", &nativeRayReconstructionEnabled))
