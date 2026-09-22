@@ -500,6 +500,14 @@ if(RTPBRSURVEY_BUILD_TESTS)
     endif()
     add_test(NAME RtPbrSurvey.Screenshot COMMAND RtPbrSurvey.ScreenshotTests)
 
+    add_executable(RtPbrSurvey.ScreenshotRequestQueueTests
+        Tests/ScreenshotRequestQueueTests.cpp)
+    target_link_libraries(RtPbrSurvey.ScreenshotRequestQueueTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.ScreenshotRequestQueueTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.ScreenshotRequestQueue COMMAND RtPbrSurvey.ScreenshotRequestQueueTests)
+
     add_executable(RtPbrSurvey.AssetPathTests
         Tests/AssetPathTests.cpp)
     target_link_libraries(RtPbrSurvey.AssetPathTests PRIVATE RtPbrSurvey::SceneRenderer)

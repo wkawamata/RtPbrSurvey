@@ -1284,29 +1284,22 @@ void RtPbrSurveyEngine::RequestScreenshot(RtPbrSurvey::ScreenshotRequest request
     {
         if (request.path.empty())
         {
-            m_screenshotResults.push_back({request.path, false, "Screenshot output path is empty."});
+            m_screenshotRequestQueue.AddResult({request.path, false, "Screenshot output path is empty."});
             return;
         }
         request.path = std::filesystem::absolute(request.path);
-        m_screenshotRequests.push_back(std::move(request));
+        m_screenshotRequestQueue.Enqueue(std::move(request));
     }
     catch (const std::exception& exception)
     {
-        m_screenshotResults.push_back({request.path, false, exception.what()});
+        m_screenshotRequestQueue.AddResult({request.path, false, exception.what()});
     }
 }
 
 std::optional<RtPbrSurvey::ScreenshotResult> RtPbrSurveyEngine::ConsumeScreenshotResult()
 {
     ProcessCompletedScreenshot();
-    if (m_screenshotResults.empty())
-    {
-        return std::nullopt;
-    }
-
-    RtPbrSurvey::ScreenshotResult result = std::move(m_screenshotResults.front());
-    m_screenshotResults.pop_front();
-    return result;
+    return m_screenshotRequestQueue.ConsumeResult();
 }
 
 void RtPbrSurveyEngine::RequestPixelPick(int screenX, int screenY)
@@ -4947,14 +4940,10 @@ void RtPbrSurveyEngine::Shutdown()
     {
         const RtPbrSurvey::ScreenshotRequest request = std::move(m_pendingScreenshotCapture->request);
         m_pendingScreenshotCapture.reset();
-        m_screenshotResults.push_back({request.path, false, "Renderer shut down before screenshot submission."});
+        m_screenshotRequestQueue.CompletePending(
+            {request.path, false, "Renderer shut down before screenshot submission."});
     }
-    while (!m_screenshotRequests.empty())
-    {
-        RtPbrSurvey::ScreenshotRequest request = std::move(m_screenshotRequests.front());
-        m_screenshotRequests.pop_front();
-        m_screenshotResults.push_back({request.path, false, "Renderer shut down before screenshot capture."});
-    }
+    m_screenshotRequestQueue.FailQueued("Renderer shut down before screenshot capture.");
     Engine::ShutdownStreamlineAdapter();
 }
 
@@ -6136,16 +6125,16 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 
-    assert(!m_screenshotRequests.empty());
-    assert(!m_pendingScreenshotCapture.has_value());
-    if (m_screenshotRequests.empty() || m_pendingScreenshotCapture.has_value())
+    if (m_pendingScreenshotCapture.has_value())
     {
         return;
     }
 
     PendingScreenshotCapture capture;
-    capture.request = std::move(m_screenshotRequests.front());
-    m_screenshotRequests.pop_front();
+    if (!m_screenshotRequestQueue.BeginNextCapture(capture.request))
+    {
+        return;
+    }
 
     try
     {
@@ -6159,7 +6148,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
     }
     catch (const std::exception& exception)
     {
-        m_screenshotResults.push_back({capture.request.path, false, exception.what()});
+        m_screenshotRequestQueue.CompletePending({capture.request.path, false, exception.what()});
     }
 }
 
@@ -6721,7 +6710,7 @@ void RtPbrSurveyEngine::ProcessCompletedScreenshot()
         result.succeeded = false;
         result.error = exception.what();
     }
-    m_screenshotResults.push_back(std::move(result));
+    m_screenshotRequestQueue.CompletePending(std::move(result));
 }
 
 void RtPbrSurveyEngine::EndFrame()
