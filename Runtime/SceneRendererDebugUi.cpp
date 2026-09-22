@@ -956,7 +956,10 @@ namespace RtPbrSurvey
     {
         ImGui::PushID("RtPbrSurvey.SceneRendererDebugUi");
         DrawRayTracingDiagnostics(renderer);
-        DrawTemporalUpscalerControls(renderer);
+        if (ImGui::CollapsingHeader("DLSS", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            DrawTemporalUpscalerControls(renderer);
+        }
         ImGui::Separator();
 
         if (ImGui::CollapsingHeader("Back Buffer", ImGuiTreeNodeFlags_DefaultOpen))
