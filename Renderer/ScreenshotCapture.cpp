@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <combaseapi.h>
+#include <stdexcept>
 #include <wincodec.h>
 
 namespace Engine
@@ -95,13 +96,25 @@ void RecordScreenshotCapture(ID3D12GraphicsCommandList* commandList,
                              ID3D12Resource* source,
                              bool hdr10,
                              float paperWhiteNits,
+                             const std::optional<RtPbrSurvey::ScreenshotRegion>& region,
                              ScreenshotReadback& readback)
 {
     const D3D12_RESOURCE_DESC desc = source->GetDesc();
+    if (desc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D ||
+        !IsScreenshotRegionValid(static_cast<UINT>(desc.Width), desc.Height, region))
+    {
+        throw std::invalid_argument("Screenshot region is outside the capture source.");
+    }
+
+    const UINT captureWidth = region.has_value() ? region->width : static_cast<UINT>(desc.Width);
+    const UINT captureHeight = region.has_value() ? region->height : desc.Height;
+    D3D12_RESOURCE_DESC copyDesc = desc;
+    copyDesc.Width = captureWidth;
+    copyDesc.Height = captureHeight;
     UINT numRows = 0;
     UINT64 rowSizeInBytes = 0;
     UINT64 totalBytes = 0;
-    device->GetCopyableFootprints(&desc, 0, 1, 0, &readback.layout, &numRows, &rowSizeInBytes, &totalBytes);
+    device->GetCopyableFootprints(&copyDesc, 0, 1, 0, &readback.layout, &numRows, &rowSizeInBytes, &totalBytes);
 
     const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_READBACK);
     const CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(totalBytes);
@@ -114,13 +127,34 @@ void RecordScreenshotCapture(ID3D12GraphicsCommandList* commandList,
 
     const CD3DX12_TEXTURE_COPY_LOCATION destination(readback.resource.Get(), readback.layout);
     const CD3DX12_TEXTURE_COPY_LOCATION sourceLocation(source, 0);
-    commandList->CopyTextureRegion(&destination, 0, 0, 0, &sourceLocation, nullptr);
+    D3D12_BOX sourceBox = {0, 0, 0, captureWidth, captureHeight, 1};
+    if (region.has_value())
+    {
+        sourceBox.left = region->x;
+        sourceBox.top = region->y;
+        sourceBox.right = region->x + region->width;
+        sourceBox.bottom = region->y + region->height;
+    }
+    commandList->CopyTextureRegion(&destination, 0, 0, 0, &sourceLocation, &sourceBox);
 
     readback.format = desc.Format;
-    readback.width = static_cast<UINT>(desc.Width);
-    readback.height = desc.Height;
+    readback.width = captureWidth;
+    readback.height = captureHeight;
     readback.hdr10 = hdr10;
     readback.paperWhiteNits = paperWhiteNits;
+}
+
+bool IsScreenshotRegionValid(UINT sourceWidth,
+                             UINT sourceHeight,
+                             const std::optional<RtPbrSurvey::ScreenshotRegion>& region)
+{
+    if (!region.has_value())
+    {
+        return sourceWidth > 0 && sourceHeight > 0;
+    }
+
+    return region->width > 0 && region->height > 0 && region->x < sourceWidth && region->y < sourceHeight &&
+        region->width <= sourceWidth - region->x && region->height <= sourceHeight - region->y;
 }
 
 std::vector<std::uint8_t> ConvertScreenshotToRgba8(const std::uint8_t* sourceData,

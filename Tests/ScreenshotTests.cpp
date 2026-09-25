@@ -130,11 +130,27 @@ bool TestPngEncoding()
     std::filesystem::remove(path, removeError);
     return passed;
 }
+
+bool TestScreenshotRegionValidation()
+{
+    bool passed = Check(Engine::IsScreenshotRegionValid(1920, 1080, std::nullopt), "full capture region is valid");
+    passed &= Check(Engine::IsScreenshotRegionValid(1920, 1080, {{100, 200, 640, 480}}),
+                    "interior capture region is valid");
+    passed &= Check(Engine::IsScreenshotRegionValid(1920, 1080, {{1280, 600, 640, 480}}),
+                    "edge-aligned capture region is valid");
+    passed &= Check(!Engine::IsScreenshotRegionValid(1920, 1080, {{1920, 0, 1, 1}}),
+                    "capture region cannot begin beyond the source width");
+    passed &= Check(!Engine::IsScreenshotRegionValid(1920, 1080, {{0, 0, 0, 1}}),
+                    "capture region width must be nonzero");
+    passed &= Check(!Engine::IsScreenshotRegionValid(1920, 1080, {{1600, 900, 400, 200}}),
+                    "capture region cannot exceed the source bounds");
+    return passed;
+}
 } // namespace
 
 int main()
 {
-    if (TestSdrConversion() && TestHdr10Conversion() && TestPngEncoding())
+    if (TestSdrConversion() && TestHdr10Conversion() && TestPngEncoding() && TestScreenshotRegionValidation())
     {
         std::cout << "Screenshot tests passed.\n";
         return 0;
