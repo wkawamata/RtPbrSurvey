@@ -9,6 +9,8 @@
 #include <dxgiformat.h>
 #include <wrl/client.h>
 
+#include "Shared/Screenshot.h"
+
 namespace Engine
 {
 struct ScreenshotReadback
@@ -30,7 +32,12 @@ void RecordScreenshotCapture(ID3D12GraphicsCommandList* commandList,
                              ID3D12Resource* source,
                              bool hdr10,
                              float paperWhiteNits,
+                             const std::optional<RtPbrSurvey::ScreenshotRegion>& region,
                              ScreenshotReadback& readback);
+
+bool IsScreenshotRegionValid(UINT sourceWidth,
+                             UINT sourceHeight,
+                             const std::optional<RtPbrSurvey::ScreenshotRegion>& region);
 
 std::vector<std::uint8_t> ConvertScreenshotToRgba8(const std::uint8_t* sourceData,
                                                    UINT width,
