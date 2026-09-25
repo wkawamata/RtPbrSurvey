@@ -204,6 +204,9 @@
     <ClInclude Include="Renderer\ScreenshotCapture.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\ScreenshotRequestQueue.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\SimpleDescriptorHeapAllocator.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>

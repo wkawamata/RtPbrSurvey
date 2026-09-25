@@ -192,6 +192,7 @@
     <ClInclude Include="Renderer\RootSignatureLayout.h" />
     <ClInclude Include="Renderer\SceneGeometryPass.h" />
     <ClInclude Include="Renderer\ScreenshotCapture.h" />
+    <ClInclude Include="Renderer\ScreenshotRequestQueue.h" />
     <ClInclude Include="Renderer\SimpleDescriptorHeapAllocator.h" />
     <ClInclude Include="Renderer\StagedDescriptorAllocator.h" />
     <ClInclude Include="Renderer\StreamlineAdapter.h" />

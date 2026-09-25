@@ -52,6 +52,7 @@
 #include "Renderer/RootSignatureLayout.h"
 #include "Renderer/SceneGeometryPass.h"
 #include "Renderer/ScreenshotCapture.h"
+#include "Renderer/ScreenshotRequestQueue.h"
 #include "Renderer/SimpleDescriptorHeapAllocator.h"
 #include "Renderer/ShadowMaskDebugPass.h"
 #include "Renderer/DebugLinePass.h"
@@ -1159,9 +1160,8 @@ private:
         Engine::ScreenshotReadback readback;
         UINT64 fenceValue = 0;
     };
-    std::deque<RtPbrSurvey::ScreenshotRequest> m_screenshotRequests;
+    Engine::ScreenshotRequestQueue m_screenshotRequestQueue;
     std::optional<PendingScreenshotCapture> m_pendingScreenshotCapture;
-    std::deque<RtPbrSurvey::ScreenshotResult> m_screenshotResults;
 
     // Pixel pick (Ctrl+Click to inspect reflection vector)
     bool m_pixelPickRequested = false;
