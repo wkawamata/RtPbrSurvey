@@ -215,6 +215,9 @@ function(rtpbrsurvey_add_shader output_var shader_file stage entry_point)
             -nologo "-T${stage}" "-E${entry_point}" -Zi -Qembed_debug
             "-Fo${output_file}" "${RTPBRSURVEY_ROOT}/${shader_file}"
         DEPENDS "${RTPBRSURVEY_ROOT}/${shader_file}" ${ARGN}
+            "${RTPBRSURVEY_ROOT}/Shaders/DirectLights.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/DirectPbrLighting.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/ReflectionSampling.hlsli"
         WORKING_DIRECTORY "${RTPBRSURVEY_ROOT}"
         VERBATIM)
     set(${output_var} "${${output_var}};${output_file}" PARENT_SCOPE)
