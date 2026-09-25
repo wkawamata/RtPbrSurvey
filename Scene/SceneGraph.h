@@ -27,4 +27,9 @@ bool ReparentSceneNodePreservingWorld(SceneDocument& document,
                                       const std::optional<std::string>& newParentId,
                                       std::string* error = nullptr);
 
+bool SetSceneNodeWorldTransform(SceneDocument& document,
+                                std::string_view nodeId,
+                                DirectX::FXMMATRIX worldTransform,
+                                std::string* error = nullptr);
+
 } // namespace RtPbrSurvey
