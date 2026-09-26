@@ -103,6 +103,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/TextureMipChain.cpp
     Renderer/ToneMap.cpp
     Runtime/SceneRenderer.cpp
+    Runtime/CaptureSession.cpp
     Runtime/DebugBufferInspector.cpp
     Runtime/DebugTextureInspector.cpp
     Runtime/DebugTextureThumbnailScheduler.cpp
@@ -514,6 +515,14 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.ScreenshotRequestQueueTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.ScreenshotRequestQueue COMMAND RtPbrSurvey.ScreenshotRequestQueueTests)
+
+    add_executable(RtPbrSurvey.CaptureSessionTests
+        Tests/CaptureSessionTests.cpp)
+    target_link_libraries(RtPbrSurvey.CaptureSessionTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.CaptureSessionTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.CaptureSession COMMAND RtPbrSurvey.CaptureSessionTests)
 
     add_executable(RtPbrSurvey.AssetPathTests
         Tests/AssetPathTests.cpp)

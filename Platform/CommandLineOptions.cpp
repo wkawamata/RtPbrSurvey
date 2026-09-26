@@ -344,6 +344,67 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 }
             }
         }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionOutputDir"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionOutputDir expects a directory path.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionOutputDirectory = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionBaseName"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionBaseName expects a non-empty name.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionBaseName = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionFormat"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionFormat expects png, exr, gif, or mp4.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionFormat = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionFps"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.captureSessionFramesPerSecond))
+            {
+                throw std::invalid_argument("-CaptureSessionFps expects an integer in [1, UINT_MAX].");
+            }
+            options.captureSessionEnabled = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionFrames"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.captureSessionFrameLimit))
+            {
+                throw std::invalid_argument("-CaptureSessionFrames expects an integer in [1, UINT_MAX].");
+            }
+            options.captureSessionEnabled = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionWarmupFrames"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.captureSessionWarmupFrames))
+            {
+                throw std::invalid_argument("-CaptureSessionWarmupFrames expects an integer in [0, UINT_MAX].");
+            }
+            options.captureSessionEnabled = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionClock"))
+        {
+            if (i + 1 >= argc ||
+                (_wcsicmp(argv[i + 1], L"real-time") != 0 && _wcsicmp(argv[i + 1], L"fixed-step") != 0))
+            {
+                throw std::invalid_argument("-CaptureSessionClock expects real-time or fixed-step.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionFixedStep = _wcsicmp(argv[++i], L"fixed-step") == 0;
+        }
         else if (IsCommandLineArg(argv[i], L"-ExitAfterCapture"))
         {
             options.exitAfterCapture = true;

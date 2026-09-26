@@ -204,6 +204,7 @@
     <ClInclude Include="Renderer\DebugResourceViewRegistry.h" />
     <ClInclude Include="Renderer\DepthVisualization.h" />
     <ClInclude Include="Runtime\DebugLine.h" />
+    <ClInclude Include="Runtime\CaptureSession.h" />
     <ClInclude Include="Runtime\SceneRenderer.h" />
     <ClInclude Include="Runtime\DebugBufferInspector.h" />
     <ClInclude Include="Runtime\DebugTextureInspector.h" />
@@ -309,6 +310,7 @@
     <ClCompile Include="Renderer\DebugTexturePreviewPass.cpp" />
     <ClCompile Include="Renderer\DebugResourceViewRegistry.cpp" />
     <ClCompile Include="Runtime\DebugLine.cpp" />
+    <ClCompile Include="Runtime\CaptureSession.cpp" />
     <ClCompile Include="Runtime\SceneRenderer.cpp" />
     <ClCompile Include="Runtime\DebugBufferInspector.cpp" />
     <ClCompile Include="Runtime\DebugTextureInspector.cpp" />

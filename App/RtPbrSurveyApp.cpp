@@ -139,6 +139,27 @@ Engine::TemporalUpscalerQualityMode GetDlssSrQualityMode(Platform::DlssSrQuality
     }
 }
 
+RtPbrSurvey::CaptureSessionOutputFormat GetCaptureSessionOutputFormat(const std::wstring& format)
+{
+    if (_wcsicmp(format.c_str(), L"png") == 0)
+    {
+        return RtPbrSurvey::CaptureSessionOutputFormat::Png;
+    }
+    if (_wcsicmp(format.c_str(), L"exr") == 0)
+    {
+        return RtPbrSurvey::CaptureSessionOutputFormat::Exr;
+    }
+    if (_wcsicmp(format.c_str(), L"gif") == 0)
+    {
+        return RtPbrSurvey::CaptureSessionOutputFormat::Gif;
+    }
+    if (_wcsicmp(format.c_str(), L"mp4") == 0)
+    {
+        return RtPbrSurvey::CaptureSessionOutputFormat::Mp4;
+    }
+    throw std::invalid_argument("-CaptureSessionFormat expects png, exr, gif, or mp4.");
+}
+
 } // namespace
 
 RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
@@ -150,7 +171,8 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
 {
     m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
     if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() &&
-        (!m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty()))
+        (!m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
+         !m_commandLineOptions.reflectionCapturePlanPath.empty()))
     {
         throw std::invalid_argument(
             "-ReflectionHdrDiagnostics is mutually exclusive with screenshot capture automation.");
@@ -174,6 +196,19 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     if (m_commandLineOptions.pathTracingSampleTarget > 0 && m_commandLineOptions.capturePath.empty())
     {
         throw std::invalid_argument("-PathTracingSamples requires -CapturePath.");
+    }
+    if (m_commandLineOptions.captureSessionEnabled)
+    {
+        if (!m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty())
+        {
+            throw std::invalid_argument("Capture Session is mutually exclusive with existing screenshot automation.");
+        }
+        if (m_commandLineOptions.captureSessionOutputDirectory.empty() ||
+            m_commandLineOptions.captureSessionBaseName.empty() || m_commandLineOptions.captureSessionFrameLimit == 0)
+        {
+            throw std::invalid_argument(
+                "Capture Session requires -CaptureSessionOutputDir, -CaptureSessionBaseName, and -CaptureSessionFrames.");
+        }
     }
     if (m_commandLineOptions.enablePathTracing &&
         (m_commandLineOptions.enableDlssSr || m_commandLineOptions.enableDlssRayReconstruction ||
@@ -504,6 +539,28 @@ void RtPbrSurveyApp::OnInit()
                 m_debugCamera.ObjectViewerDistance() * m_commandLineOptions.reflectionCameraDistanceScale);
         }
     }
+
+    if (m_commandLineOptions.captureSessionEnabled)
+    {
+        RtPbrSurvey::CaptureSessionConfig config;
+        config.outputDirectory = m_commandLineOptions.captureSessionOutputDirectory;
+        config.baseName = WideToUtf8(m_commandLineOptions.captureSessionBaseName);
+        config.outputFormat = GetCaptureSessionOutputFormat(m_commandLineOptions.captureSessionFormat);
+        config.source = config.outputFormat == RtPbrSurvey::CaptureSessionOutputFormat::Exr ?
+            RtPbrSurvey::ScreenshotCaptureSource::PreToneMapSceneColor : RtPbrSurvey::ScreenshotCaptureSource::FinalOutput;
+        config.clock = m_commandLineOptions.captureSessionFixedStep ?
+            RtPbrSurvey::CaptureSessionClock::FixedStep : RtPbrSurvey::CaptureSessionClock::RealTime;
+        config.framesPerSecond = m_commandLineOptions.captureSessionFramesPerSecond;
+        config.warmupFrames = m_commandLineOptions.captureSessionWarmupFrames;
+        config.frameLimit = m_commandLineOptions.captureSessionFrameLimit;
+        std::string error;
+        if (!m_sceneRenderer.StartCaptureSession(config, error))
+        {
+            throw std::runtime_error("Failed to start Capture Session: " + error);
+        }
+        m_captureSessionActive = true;
+        m_captureSessionStartTime = std::chrono::steady_clock::now();
+    }
 }
 
 void RtPbrSurveyApp::UpdateSampleState()
@@ -709,7 +766,25 @@ void RtPbrSurveyApp::OnIdle()
         return;
     }
 
-    if (HasAutomatedCapture())
+    if (m_captureSessionActive)
+    {
+        const double realTimeSeconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - m_captureSessionStartTime).count();
+        m_sceneRenderer.UpdateCaptureSession({m_automationFrameCounter, realTimeSeconds, realTimeSeconds});
+        const RtPbrSurvey::CaptureSessionStatus& status = m_sceneRenderer.GetCaptureSessionStatus();
+        if (status.state == RtPbrSurvey::CaptureSessionState::Completed || status.state == RtPbrSurvey::CaptureSessionState::Failed)
+        {
+            m_captureSessionActive = false;
+            m_screenshotStatus = status.state == RtPbrSurvey::CaptureSessionState::Completed ?
+                "Capture session completed: " + status.lastOutputPath.string() :
+                "Capture session failed: " + status.error;
+            if (m_commandLineOptions.exitAfterCapture)
+            {
+                DestroyWindow(Win32Application::GetHwnd());
+                return;
+            }
+        }
+    }
+    else if (HasAutomatedCapture())
     {
         if (const std::optional<RtPbrSurvey::ScreenshotResult> result = m_sceneRenderer.ConsumeScreenshotResult())
         {
@@ -959,7 +1034,7 @@ void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
 bool RtPbrSurveyApp::HasAutomatedCapture() const
 {
     return !m_commandLineOptions.capturePath.empty() || !m_reflectionCapturePlan.captures.empty() ||
-           !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty();
+           !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() || m_captureSessionActive;
 }
 
 void RtPbrSurveyApp::ApplyRayReconstructionCommandLineOverrides()

@@ -82,6 +82,14 @@ struct CommandLineOptions
     DlssSrQualityMode dlssSrQualityMode = DlssSrQualityMode::Quality;
     std::filesystem::path capturePath;
     UINT captureAfterFrames = 0;
+    bool captureSessionEnabled = false;
+    std::filesystem::path captureSessionOutputDirectory;
+    std::wstring captureSessionBaseName;
+    std::wstring captureSessionFormat = L"png";
+    UINT captureSessionFramesPerSecond = 60;
+    UINT captureSessionFrameLimit = 0;
+    UINT captureSessionWarmupFrames = 0;
+    bool captureSessionFixedStep = false;
     bool exitAfterCapture = false;
     bool enableDlssRayReconstruction = false;
     bool enableExperimentalNativeRayReconstruction = false;
