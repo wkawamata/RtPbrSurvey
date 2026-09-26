@@ -114,3 +114,105 @@ PC搭載GPUはNVIDIA GeForce RTX 3080 Laptop GPU (driver 32.0.16.1664)とIntel U
 Pushは引き渡しであり、上記未検証項目や段階1全体の完了を意味しない。
 
 Status: blocked
+
+## 2026-09-26: Work-4での引き継ぎ検証
+
+### 作業状態と範囲
+
+- 編集workspace: `C:\work\RtPbrSurvey-work-4`。Work-3は編集していない。
+- 作業ブランチ: `codex/multi-light-validation-work4`。
+- 引き継ぎ元: `origin/codex/multi-light-scene-editor` の `1df79b9`。
+- main `5dd7789` を通常マージした `b010575` を検証基点とした。競合は依頼書MDのadd/addだけで、複数光源側の追記を保持して解消した。
+- `e856cd4` の `SetSceneNodeWorldTransform` 追加は光源実装から参照されていない。単独のテストがなく、入力行列のfinite/TRS検証・失敗時の状態保持を含む別レビューが必要なため、`Scene/SceneGraph.cpp` / `.h` をmainと同じ内容に戻し、光源の先行差分から分離した。元実装は引き継ぎ元ブランチのコミットに残る。
+- `PathTracingSampling.hlsli` / `shaders_PathTracing.hlsl` / NEE・MIS estimatorは変更していない。今回の検証追加はpushしていない。
+
+### ビルド・CPUテスト
+
+- [x] 引き継ぎ＋main統合後のDebug x64ビルド成功（ERROR 0、既存のvcpkg MSB4011 WARNING 1）。
+- [x] CMakeのDebugテストビルド成功。
+- [x] SceneRendererSettings / RenderPresetStore / SceneDocument / SceneDocumentBuilderの4テスト成功。
+- [x] SceneGraph分離後もDebug x64ビルド成功（ERROR 0、既存MSB4011 WARNING 1）、テストビルド成功（WARNING / ERROR 0）、上記4テスト再実行成功。
+
+NuGetは既存の `C:\work\RtPbrSurvey-work\tools\nuget.exe` を実行ファイルとして使用し、復元先はWork-4のpackagesとした。CMakeの依存prefixは `C:/work/RtPbrSurvey-work-4/vcpkg_installed/x64-windows/x64-windows`。
+
+```powershell
+ctest --test-dir build/multi-light-validation -C Debug -R 'SceneRendererSettings|RenderPresetStore|SceneDocument' --output-on-failure
+```
+
+ビルドのログフォルダ（編集workspaceとは別）:
+
+- `C:\work\RtPbrSurvey-agents\multi-light-work4-debug-20260926`
+- `C:\work\RtPbrSurvey-agents\multi-light-work4-tests-20260926`
+- `C:\work\RtPbrSurvey-agents\multi-light-work4-baseline-20260926`
+- `C:\work\RtPbrSurvey-agents\multi-light-work4-final-debug-20260926`
+- `C:\work\RtPbrSurvey-agents\multi-light-work4-final-tests-20260926`
+
+### キャプチャと画像互換
+
+成果物のrootは `C:\work\RtPbrSurvey-work-4\bin\x64\Debug\MultiLightValidationWork4`。PNG、log、一時preset、`run-captures.ps1` は生成物でcommit対象外。
+
+1920×1080、120 warm-up frames、同梱検証シーン、同一camera/exposureで比較した。各実行のD3D12 ERRORは0。WARNINGは各4件で、旧mainでも同じbuffer初期状態UNORDERED_ACCESSをCOMMONとして扱う通知4件を確認した。
+
+| ケース | 結果 |
+| --- | --- |
+| mixed / forward / hybrid | それぞれキャプチャ成功。hybridはcontributionEnabled=trueを指定 |
+| deleted-stale / deleted-clear | 主Directional削除後、古い主ID=1と解除ID=0でPNG完全一致 |
+| disabled-stale / disabled-clear | 主Directional無効化後、古い主ID=1と解除ID=0でPNG完全一致 |
+| point-stale / point-clear | 主DirectionalをPointへ変更後、古い主ID=1と解除ID=0でPNG完全一致 |
+| one / legacy | 現実装のv4単一灯とv3旧形式でPNG完全一致 |
+| baseline-legacy / one | 変更前main実行ファイルと現実装の単一灯でPNG完全一致 |
+
+主光源ID残留テストは起動時の状態を比較したものであり、UIでの動的切替確認とは別の証拠である。
+
+旧mainはWork-4内の `build/multi-light-baseline` に `5dd7789` のdetached worktreeを作ってDebugビルドした。同一のv3旧プリセットを `-RenderPreset` で指定して実行した。単なる新実行ファイル内のv3/v4比較ではない。baselineは元シーンJSONが参照するv4を読めないため、旧プリセットの明示指定が必要。
+
+`baseline-legacy.png` / `one.png` / `legacy.png` のSHA256:
+
+`F82D0F0CD3A44AFA7CCA6DCE90E5EAFA6A9183B9FFE718272334B57C61923735`
+
+削除・無効化した4ケースのSHA256:
+
+`64CCDD680EAA671AB123490B6662C1830998FE2F14038DAB034258725591894F`
+
+Point型変更の2ケースのSHA256:
+
+`E471999E0BE184F58C47DB0EFD854B8451B32AA1DD9FD767F13292DA748FB022`
+
+### Scene Editorの実操作
+
+同梱fixture自体を編集せず、成果物root配下の `ui/scene.json` と `ui/render-preset.json` のコピーを使用した。
+
+- [x] Pointを追加（4→5灯）、複製（5→6灯）、複製した光源を削除（6→5灯）。
+- [x] 追加PointをSpotに型変更し、無効化。型に合わせた編集項目の切替を確認。
+- [x] Save Presetで保存したJSONを確認。id=5、name=Point 5、type=spot、enabled=falseと各値を保持。主ID=1を保持。
+- [x] 未保存のSpotを追加後、Reload Presetで保存済み5灯へ復元。
+- [x] アプリ終了・再起動後に同じScene DocumentをLoadし、保存済み5灯と無効状態を復元。主Directionalを選択すると主影指定のチェックも復元。
+- [x] Save PresetはScene Documentを書き換えない。最初の保存直後に元scene.jsonとコピーのSHA256一致を確認（後述のcamera調整より前）。
+- [x] 主Directionalを無効化すると主影指定が解除され、色付き追加灯だけの描画へ更新。
+- [x] 主DirectionalをPointへ変更すると主影指定が解除され、描画も更新。
+- [x] 保存状態へ戻した後、主Directionalを削除。Save Presetの結果は4灯、IDs=2,3,4,5、primaryShadowLightId=0。別光源への自動付替えなし。
+- [x] Forwardへ切替後、青いPointの無効化で画面の青い寄与が消えることを確認。
+- [x] Hybrid ReflectionのResolved Radiance表示（renderViewMode=32）、temporalHistoryWeight=0.9で、青いPointの無効化により反射内の青い寄与が消えることを確認。
+
+Reflectionについて、`SetLightingParams` の配列・主ID変更検出から `InvalidateReflectionHistory` へ到達し、valid=false、temporal/sampling frame=0となるコード経路も確認した。ただしUI取得は変更後の画面確認であり、変更直後の最初の1フレームやGPU history clearを数値記録した検証ではない。PT accumulationの動的resetは今回の実操作対象外であり、完了扱いにしない。
+
+`ui.log` は途中のscene再読込を含みWARNING 8件、`ui-resume.log` はWARNING 4件。いずれも同じ既知通知でERROR 0。
+
+### 検証で見つかった別件と残作業
+
+元fixtureをScene EditorでLoadすると、CLIでの同じシーンと異なりcameraが上を向き、対象が見えにくかった。UI検証用コピーだけposition.y / target.yを1.0に揃えると対象を表示できた。FreeLookへ渡すpitchの符号と、その後のcamera更新が調査候補。該当camera初期化コードは今回の光源差分では変更されておらず、本検証ではcamera実装を修正していない。恒久修正は別件として再現確認する。
+
+Raster / Hybridの主要な未完了検証（UI、保存、影指定、旧実行ファイルとの比較）は上記で実施した。厳密な履歴切替フレームの計測、PT accumulation操作検証、PT複数灯adapterは引き続き残る。段階1全体を完了扱いにしない。
+
+PT adapterの統合提案:
+
+1. #02側のNEE/MIS契約が統合されたcommitを基点に、独立したadapter差分を作る。
+2. `DirectLightSample` のsurfaceToLight / radiance / distanceを契約へ変換する。Directionalは既存の有限rayTMax、Point / Spotは光源距離をvisibilityの上限とする。
+3. Directional / Point / Spotをdelta扱いとし、全列挙に余分なselectionPdfの逆数を掛けない。BRDF・visibility・MIS weightはadapterへ混ぜない。
+4. 主影指定とPTの光源選択を分離する。現在の主Directionalのみの暫定bridgeを、契約に沿った全光源入力へ置き換える。
+5. #02との合意後にのみPT本体へ接続し、灯数・型の変更と有限距離遮蔽、蓄積resetを別途検証する。
+### 最終確認
+
+SceneGraph分離後の実行ファイルで混合4灯を再キャプチャした。final-mixed.pngはmixed.pngとSHA256完全一致（04A335B61E486019888E7D54D25048272A6992B9D199598D1E1EFD347208C63D）。D3D12 ERROR 0、旧mainと同じWARNING 4件。
+
+今回のRaster / Hybrid引き継ぎ検証は完了。PT統合と上記の追加検証は後続作業。検証メモおよびSceneGraph分離の差分は未commit・未push。
