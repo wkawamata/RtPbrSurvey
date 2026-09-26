@@ -107,6 +107,21 @@ settings, checks capture diagnostics and D3D12 errors, and writes ignored artifa
 This verifies the range and cone exclusion behavior on the bundled fixture. It does not prove the inverse-square
 falloff or cone interpolation numerically, or whether an occluder beyond the light is excluded by the shadow ray.
 
+`Test-LocalLightVisibility.ps1` generates a direct-only floor scene with a Point or Spot light. It compares the
+center floor ROI with no blocker, a blocker between the floor and light, and a blocker beyond the light. The
+between case must darken the floor; the beyond case must reproduce the unblocked HDR values in the ROI. The
+bundled spheres remain in the generated scene but are moved out of view. Scene variants, PFM captures, logs,
+and JSON reports are generated under `bin/x64/Debug/PathTracingPointVisibility` or
+`bin/x64/Debug/PathTracingSpotVisibility` and must not be committed.
+
+```powershell
+.\Tests\PathTracing\Test-LocalLightVisibility.ps1 -LightType Point -Samples 1 -Seed 1
+.\Tests\PathTracing\Test-LocalLightVisibility.ps1 -LightType Spot -Samples 1 -Seed 1
+```
+
+The ROI comparison isolates visible floor pixels; it does not require the entire images to match because the
+blocker itself may be visible elsewhere. It checks finite shadow distance, not falloff magnitude or penumbrae.
+
 Commit 8 exposes these current-frame primary-surface resources through RenderGraph and Debug Texture Preview:
 
 - `PathTracing.NormalRoughness`
