@@ -248,6 +248,9 @@
     <ClInclude Include="Shared\D3d12Helpers.h" />
     <ClInclude Include="Shared\Error.h" />
     <ClInclude Include="Shared\Screenshot.h" />
+    <ClInclude Include="Shared\DirectLight.h" />
+    <ClInclude Include="Runtime\DirectLightJson.h" />
+    <ClInclude Include="Ui\DirectLightUi.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="WorkMeter.h" />
     <ClInclude Include="third_party\imgui-node-editor\crude_json.h" />
@@ -360,6 +363,7 @@
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shaders\shaders.hlsl">
+      <AdditionalInputs>$(ProjectDir)Shaders\DirectLights.hlsli;$(ProjectDir)Shaders\DirectPbrLighting.hlsli;%(AdditionalInputs)</AdditionalInputs>
       <FileType>Document</FileType>
       <DeploymentContent>true</DeploymentContent>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">dxc.exe -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_VSMain.cso" "%(FullPath)"
@@ -379,6 +383,8 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\InstanceData.hlsli" />
     <None Include="Shaders\SceneDrawConstants.hlsli" />
     <None Include="Shaders\PbrLighting.hlsli" />
+    <None Include="Shaders\DirectLights.hlsli" />
+    <None Include="Shaders\DirectPbrLighting.hlsli" />
     <None Include="Shaders\PathTracingSampling.hlsli" />
     <None Include="Shaders\ReflectionSampling.hlsli" />
     <None Include="Shaders\SceneRayQuery.hlsli" />
@@ -447,6 +453,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_ReflectionRayHitDebug.hlsl">
+      <AdditionalInputs>$(ProjectDir)Shaders\DirectLights.hlsli;$(ProjectDir)Shaders\DirectPbrLighting.hlsli;$(ProjectDir)Shaders\ReflectionSampling.hlsli;%(AdditionalInputs)</AdditionalInputs>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
@@ -463,6 +470,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shaders\shaders_LightPass.hlsl">
+      <AdditionalInputs>$(ProjectDir)Shaders\DirectLights.hlsli;$(ProjectDir)Shaders\DirectPbrLighting.hlsli;%(AdditionalInputs)</AdditionalInputs>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
@@ -493,6 +501,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shaders\shaders_ReflectionEvaluate.hlsl">
+      <AdditionalInputs>$(ProjectDir)Shaders\DirectLights.hlsli;$(ProjectDir)Shaders\DirectPbrLighting.hlsli;%(AdditionalInputs)</AdditionalInputs>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
       <FileType>Document</FileType>

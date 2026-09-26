@@ -273,6 +273,13 @@
     <ClInclude Include="Runtime\SceneRendererSettings.h">
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="Runtime\DirectLightJson.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="Shared\DirectLight.h">
+      <Filter>Source Files\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="Ui\DirectLightUi.h" />
     <ClInclude Include="Scene\Scene.h">
       <Filter>Source Files\Scene</Filter>
     </ClInclude>
@@ -661,6 +668,12 @@
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="Shaders\PbrLighting.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\DirectLights.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\DirectPbrLighting.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="Shaders\PathTracingSampling.hlsli">
