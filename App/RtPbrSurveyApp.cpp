@@ -766,10 +766,19 @@ void RtPbrSurveyApp::OnIdle()
         return;
     }
 
+    const double captureSessionRealTimeSeconds =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - m_captureSessionStartTime).count();
+    if (!m_captureSessionActive)
+    {
+        RtPbrSurvey::CaptureSessionUi::Update(
+            m_sceneRenderer,
+            {m_automationFrameCounter, captureSessionRealTimeSeconds, captureSessionRealTimeSeconds});
+    }
+
     if (m_captureSessionActive)
     {
-        const double realTimeSeconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - m_captureSessionStartTime).count();
-        m_sceneRenderer.UpdateCaptureSession({m_automationFrameCounter, realTimeSeconds, realTimeSeconds});
+        m_sceneRenderer.UpdateCaptureSession(
+            {m_automationFrameCounter, captureSessionRealTimeSeconds, captureSessionRealTimeSeconds});
         const RtPbrSurvey::CaptureSessionStatus& status = m_sceneRenderer.GetCaptureSessionStatus();
         if (status.state == RtPbrSurvey::CaptureSessionState::Completed || status.state == RtPbrSurvey::CaptureSessionState::Failed)
         {

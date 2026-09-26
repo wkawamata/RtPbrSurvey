@@ -255,6 +255,9 @@
     <ClInclude Include="Runtime\CaptureSession.h">
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="Runtime\CaptureSessionUi.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="Runtime\SceneRenderer.h">
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
@@ -538,6 +541,9 @@
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="Runtime\CaptureSession.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="Runtime\CaptureSessionUi.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
     <ClCompile Include="Runtime\SceneRenderer.cpp">

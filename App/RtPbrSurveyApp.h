@@ -23,6 +23,7 @@
 #include "Platform/IApplication.h"
 #include "Platform/WindowInfo.h"
 #include "Runtime/SceneRenderer.h"
+#include "Runtime/CaptureSessionUi.h"
 #include "Runtime/DebugTextureInspector.h"
 #include "Runtime/DebugTextureThumbnailScheduler.h"
 #include "Runtime/EvaluationState.h"
@@ -229,6 +230,7 @@ private:
     bool m_automationScreenshotRequested = false;
     bool m_captureSessionActive = false;
     std::chrono::steady_clock::time_point m_captureSessionStartTime;
+    RtPbrSurvey::CaptureSessionUiState m_captureSessionUiState;
     double m_pathTracingGpuTimeSumMs = 0.0;
     float m_pathTracingGpuTimeMinMs = 0.0f;
     float m_pathTracingGpuTimeMaxMs = 0.0f;

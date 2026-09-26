@@ -7,6 +7,7 @@
 #include "../Runtime/SceneRendererDebugUi.h"
 #include "../Ui/DebugUiPreferences.h"
 #include "Ui/DirectLightUi.h"
+#include "Runtime/CaptureSessionUi.h"
 
 #include <imgui.h>
 #include <imgui_stdlib.h>
@@ -475,6 +476,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         {
             ImGui::TextWrapped("%s", app.m_screenshotStatus.c_str());
         }
+
+        ImGui::Separator();
+        ImGui::TextUnformatted("Capture Session");
+        RtPbrSurvey::CaptureSessionUi::Draw(app.m_sceneRenderer, app.m_captureSessionUiState);
     }
 
     if (ImGui::CollapsingHeader("WorkMeter"))
