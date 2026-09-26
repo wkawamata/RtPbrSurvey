@@ -1715,6 +1715,7 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
         {"accumulatedSamples", context.pathTracingRuntimeState.accumulatedSampleCount},
         {"targetSamples", m_commandLineOptions.pathTracingSampleTarget},
         {"randomSeed", settings.randomSeed},
+        {"environmentSamplingMode", settings.environmentSamplingMode},
         {"samplesPerFrame", settings.samplesPerFrame},
         {"maxBounces", settings.maxBounces},
         {"russianRoulette", settings.russianRouletteEnabled},
@@ -2498,6 +2499,7 @@ void RtPbrSurveyApp::OpenFileScene()
     m_sceneRenderer.SetDisplayInstanceCount(LoadedScene().DisplayInstanceCount());
     ApplyRayReconstructionCommandLineOverrides();
     ApplyDlssSrCommandLineOptions();
+    ApplyPathTracingCommandLineOptions();
     m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
     m_appMode = AppMode::Running;
     m_framePaused = false;
@@ -2819,6 +2821,10 @@ void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
     if (m_commandLineOptions.hasPathTracingRandomSeed)
     {
         settings.randomSeed = m_commandLineOptions.pathTracingRandomSeed;
+    }
+    if (m_commandLineOptions.hasPathTracingEnvironmentMode)
+    {
+        settings.environmentSamplingMode = m_commandLineOptions.pathTracingEnvironmentMode;
     }
     m_sceneRenderer.SetPathTracingSettings(settings);
     m_sceneRenderer.SetPathTracingAccumulationPaused(false);

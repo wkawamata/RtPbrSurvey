@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <limits>
 
 namespace
 {
@@ -88,6 +89,36 @@ bool TestHdr10Conversion()
                  "HDR10 paper white converts to displayable SDR white");
 }
 
+bool TestPfmEncoding()
+{
+    std::array<float, 12> data = {2, 4, 6, 2, 99, 99, 8, 12, 16, 4, 99, 99};
+    const auto path = std::filesystem::temp_directory_path() / "RtPbrSurvey.ScreenshotTests.pfm";
+    std::string error;
+    bool passed = Check(Engine::SaveAccumulationPfm(path, 1, 2,
+        reinterpret_cast<const std::uint8_t*>(data.data()), 6 * sizeof(float), error), "PFM saves padded rows");
+    std::ifstream stream(path, std::ios::binary);
+    std::string line;
+    std::getline(stream, line);
+    passed &= Check(line == "PF", "PFM RGB signature");
+    std::getline(stream, line);
+    passed &= Check(line == "1 2", "PFM dimensions");
+    std::getline(stream, line);
+    passed &= Check(line == "-1.0", "PFM little endian");
+    std::array<float, 6> pixels = {};
+    stream.read(reinterpret_cast<char*>(pixels.data()), sizeof(pixels));
+    passed &= Check(pixels == std::array<float, 6>{2, 3, 4, 1, 2, 3}, "PFM bottom-up rows and sample normalization");
+    stream.close();
+    data[3] = 0;
+    passed &= Check(!Engine::SaveAccumulationPfm(path, 1, 2,
+        reinterpret_cast<const std::uint8_t*>(data.data()), 6 * sizeof(float), error), "PFM rejects zero samples");
+    data[3] = 2;
+    data[0] = std::numeric_limits<float>::infinity();
+    passed &= Check(!Engine::SaveAccumulationPfm(path, 1, 2,
+        reinterpret_cast<const std::uint8_t*>(data.data()), 6 * sizeof(float), error), "PFM rejects non-finite radiance");
+    std::filesystem::remove(path);
+    return passed;
+}
+
 bool TestPngEncoding()
 {
     const std::array<std::uint8_t, 16> rgba = {
@@ -134,7 +165,7 @@ bool TestPngEncoding()
 
 int main()
 {
-    if (TestSdrConversion() && TestHdr10Conversion() && TestPngEncoding())
+    if (TestSdrConversion() && TestHdr10Conversion() && TestPngEncoding() && TestPfmEncoding())
     {
         std::cout << "Screenshot tests passed.\n";
         return 0;

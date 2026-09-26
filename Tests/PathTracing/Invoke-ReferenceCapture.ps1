@@ -7,6 +7,8 @@ param(
     [ValidateRange(1, [uint32]::MaxValue)]
     [uint32]$Samples = 64,
     [uint32]$Seed = 1,
+    [ValidateRange(0, 7)]
+    [uint32]$EnvironmentMode = 0,
     [ValidateRange(1, 3600)]
     [int]$TimeoutSeconds = 300
 )
@@ -58,6 +60,7 @@ function Invoke-Capture([string]$Variant)
         "-EnablePathTracing",
         "-PathTracingSamples", $Samples,
         "-PathTracingSeed", $Seed,
+        "-PathTracingEnvironmentMode", $EnvironmentMode,
         "-CapturePath", (Quote-ProcessArgument $capturePath),
         "-LogToFile", (Quote-ProcessArgument $logPath),
         "-ExitAfterCapture"
@@ -148,6 +151,7 @@ $report = [ordered]@{
         evaluationCase = $EvaluationCaseName
         accumulatedSamples = $Samples
         randomSeed = $Seed
+        environmentMode = $EnvironmentMode
     }
     hardware = [ordered]@{
         appAdapter = $captures[0].diagnostics.adapter
@@ -182,6 +186,7 @@ $markdown = @"
 - Evaluation Case: $evaluationLabel
 - Accumulated samples: $Samples
 - Random seed: $Seed
+- Environment mode: $EnvironmentMode
 - GPU: $gpuNames
 - Deterministic A/B: ``$deterministic``
 - SHA-256: ``$($captures[0].sha256)``

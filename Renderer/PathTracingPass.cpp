@@ -34,7 +34,7 @@ struct PathTracingShaderConstants
     float diffuseIntensity;
     UINT russianRouletteEnabled;
     UINT skyboxEnabled;
-    float constantBufferPadding;
+    UINT environmentSamplingMode;
     std::array<float, 4> backgroundColor;
 };
 
@@ -107,7 +107,7 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
         desc.diffuseIntensity,
         desc.russianRouletteEnabled,
         desc.skyboxEnabled,
-        0.0f,
+        desc.environmentSamplingMode,
         desc.backgroundColor,
     };
     commandList->SetComputeRoot32BitConstants(17, 32, &constants, 0);

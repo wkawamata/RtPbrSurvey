@@ -74,6 +74,8 @@ struct CommandLineOptions
     UINT pathTracingSampleTarget = 0;
     bool hasPathTracingRandomSeed = false;
     UINT pathTracingRandomSeed = 1;
+    UINT pathTracingEnvironmentMode = 0;
+    bool hasPathTracingEnvironmentMode = false;
     bool enableDlssSr = false;
     bool enableDebugTexturePreview = false;
     std::string debugPreviewResourceName;

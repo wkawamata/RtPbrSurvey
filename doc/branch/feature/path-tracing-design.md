@@ -914,3 +914,172 @@ Previewだけをzero-centered 32x表示にし、encoded neutral 0.5がscale変�
 
 CLIの`-DebugPreviewResource`指定時はDebug UIをcaptureへ含める。静止/camera orbitの比較scriptはresourceがcamera
 motionへ反応することとD3D12 error 0件を検証するが、reprojection signの数学的証明やdenoiser統合は行わない。
+
+## 17. NEE / MIS light sampling contract
+
+Path Tracingの直接光サンプリングは、SceneやRaster/Hybrid固有のlight型をshaderへ直接持ち込まず、
+`PathTracingLightSample`と`PathTracingDirectLightCandidate`を境界にする。
+
+`PathTracingLightSample`のcontractは次の通り。
+
+- `direction`: shading pointからlightへ向かう正規化済みworld-space方向
+- `distance`: shadow rayの最大距離。無限遠光はrenderer設定の有限な`rayTMax`を使用する
+- `radiance`: visibility、BRDF、cosineを掛ける前の入射放射輝度
+- `selectionPdf`: 複数のlight sourceからこのsourceを選ぶ離散確率
+- `directionPdf`: non-delta source内で方向を選ぶ立体角密度
+- `sourceIndex`: source側の安定したindex。sampling coreはsourceの具象型を解釈しない
+- `isDelta`: Directional/Point/Spotなど、連続な方向PDFを持たないdelta sampleを示す
+- `valid`: sampleの全入力が評価可能であることを示す
+
+non-delta lightの完全なlight-sampling PDFは`selectionPdf * directionPdf`とする。delta lightは
+`directionPdf = 0`、`isDelta = 1`とし、MIS時にBSDFの連続PDFと直接比較しない。これにより単位の異なる
+離散確率と立体角密度を1つの値へ混在させない。
+
+`PathTracingDirectLightCandidate`はlight sampleに加え、現在のsurfaceで評価したdiffuse/specular BRDFと
+`normalDotLight`を保持する。shadow visibilityはcandidate生成後に評価するため含めない。ReSTIR固有の
+reservoir weightやDLSS/denoiser固有データもこのcontractには含めない。
+
+導入は次の順序で行う。
+
+1. neutral sample/candidate contractを定義する（描画結果は変更しない）
+2. 現在の単一Directional Lightをcontract経由へ移行する
+3. Constant EnvironmentでNEEとPDFを検証する
+4. Environment importance samplingを追加する
+5. BSDF samplingとのMISを追加する
+6. 固定seedでNEE OFF/ON、MIS OFF/ONを比較する
+7. 複数light実装をcandidate sourceとして接続する
+
+### 17.1 Step 2: Directional Light migration
+
+単一Directional Lightを`MakePathTracingDirectionalLightSample()`経由で生成し、source index 0、
+selection PDF 1のdelta sampleとして評価する。radianceには既存の`lightColor * diffuseIntensity`を渡す。
+`MakePathTracingDirectLightCandidate()`がsurfaceのdiffuse/specular BRDFを一度だけ評価し、final radianceと
+診断バッファで共有する。shadow queryはsampleのdirection/distanceを使用する。
+
+現在のdelta estimatorは`radiance * NdotL * visibility / selectionPdf`にBRDFとpath throughputを掛ける。
+non-delta estimatorとMISは後続stepで追加する。sample生成は非有限値、不正な距離、範囲外の選択確率を拒否する。
+
+検証: Debug x64 MSBuild成功。DamagedHelmet、64 samples、seed 1のA/B captureは一致し、Step 1とも
+SHA-256 `6674ABEF8D3160A99FF094D9A5147EED03C3DB654FC92E45F6758507C70DFD4E`が一致した。
+D3D12 error 0件、既知のbuffer initial-state warningは各run 2件。この条件での回帰確認であり、
+他sceneや将来のnon-delta lightの正しさを保証するものではない。
+
+### 17.2 Step 3: Constant Environment NEE
+
+`Environment Sampling`は0: Environment Map / BSDF（既定）、1: Constant White / BSDF、
+2: Constant White / NEEを選択する。constant環境の入射radianceは全方向で`iblIntensity`。
+背景のskybox表示は独立して維持する。設定はrenderer settingsへ保存され、変更時にaccumulationをresetする。
+CLIは`-PathTracingEnvironmentMode 0|1|2`、reference capture scriptは`-EnvironmentMode 0|1|2`で指定する。
+
+NEEは一様球面の`directionPdf = 1 / (4 * pi)`、`selectionPdf = 1`でsampleを生成する。
+surfaceで`Li * BRDF * NdotL * visibility / PDF`を加算し、secondary missの環境加算を抑止する。
+BSDF continuationはgeometryへの間接経路を引き続き追跡する。既存のmax-bounce定義と揃えるため、
+最後のsurfaceではenvironment NEEを評価しない。Directionalとenvironmentのshadow queryは別々に数える。
+Environment checkboxとshadow設定を尊重する。MISは未導入。
+
+`Tests/PathTracing/Test-ConstantEnvironmentPdf.ps1`は解析式の独立チェックであり、shader実行テストではない。
+PDF積分1、Lambert反射率0.6・入射radiance 2で期待値1.2、推定量分散2.4を確認した。
+Debug x64とsettings round-trip CTestは成功。RTX 2080 Ti / DamagedHelmet / seed 1で次を確認した。
+
+- 通常環境64 samples: Step 2とPNG SHA-256一致
+- Constant BSDF / NEE各256 samples: 各モードのA/BでPNG SHA-256一致
+- 全6回のcaptureでD3D12 error 0件
+- NEE単独は金属面に点状ノイズが残る。256 samplesのtone-mapped画像では収束一致を判定しない
+
+この段階はNEE経路とPDFの基礎検証。HDR収束誤差や多seedの統計比較はStep 6で扱い、
+NEEとBSDFの双方を使うMISはStep 5で追加する。
+
+### 17.3 Step 4: Environment importance sampling
+
+mode 3は実環境mapの一様球面NEE、mode 4はimportance NEEとする。既定mode 0は維持する。
+GPU上で現在のcubemapを読み、16 azimuth columns x 8 cos(theta) rowsの等立体角cell分布を作る。
+各cellの立体角は`4*pi/128`なので、重みはcell中心の非負luminanceに比例する。
+cell確率は`0.95 * luminance / total + 0.05 / 128`。全黒では一様分布へfallbackする。
+cell内はazimuthとcos(theta)について一様にsampleし、最終radianceはsample方向のcubemap値を使用する。
+PDFは実際のCDF差分をcell立体角で割った値とし、粗い重み近似が照明値そのものを変えないようにする。
+
+CDFはPathTracingPassの各8x8 thread groupで生成・共有する。全threadがdistribution barrierを通った後に
+画面外threadをreturnさせる。CPU readbackや永続bufferを使わず、HDR/Proceduralの更新を毎dispatchで反映する。
+この初期実装は各groupに128 cubemap lookupとCDF構築コストを持つ。高解像度での最適化では、
+environment更新時の独立distribution passとpersistent resourceへの移行を検討する。
+
+`EnvironmentImportancePdf(direction)`は同じcell分割とCDFから立体角PDFを逆引きする。
+Step 5のBSDF MISで使用するための境界であり、このstepではsecondary missの環境寄与を引き続き抑止する。
+細いsunや鋭いspecular lobeの分散低減はこの128-cell分布だけでは保証しない。
+
+`Test-EnvironmentImportancePdf.ps1`はblack/constant/hotspotのPDF積分、全cellの到達性、
+piecewise radiance積分、hotspot推定量のsecond moment改善を確認するCPU解析テストである。
+shader実行とHDR収束の検証は別に扱う。
+
+検証: Debug x64 MSBuild、settings round-trip CTest、PDF解析テスト成功。
+RTX 2080 Ti / DamagedHelmet / seed 1で、mode 0の64 samplesは従来のPNG hashと一致した。
+mode 3/4の各256 samplesはそれぞれA/Bで一致し、全6回でD3D12 error 0件。
+このrunのPathTracingPass平均はmode 3が約1.01 ms、mode 4が約1.52 msだった。
+これは1条件の観測であり、一般的な速度改善や収束改善の主張には使用しない。
+
+### 17.4 Step 5: Environment / BSDF MIS
+
+mode 5: Constant White / MIS、6: Environment Map / Uniform MIS、7: Environment Map / Importance MISを追加する。
+各surfaceでenvironment sampleを1つ、BSDF continuationを1つ生成する。両者のPDFは立体角密度で比較し、
+power heuristic（beta 2）で`pA^2 / (pA^2 + pB^2)`を使う。演算前に最大PDFでscaleしoverflowを避ける。
+Directionalはdelta lightとして従来のweight 1を維持する。
+
+NEE側はdiffuse/specular混合BSDFの全PDFを評価する。BSDF側は前surfaceのsample PDFとenvironment PDFを
+保持し、secondary miss時のradianceに対応する重みを掛ける。primary backgroundはMIS対象外。
+`EvaluatePathTracingBsdfPdf()`をsamplingとNEE評価の両方から呼び、lobe選択確率を含めた密度を共有する。
+environment shadow rayのback-face cullingをcontinuation rayと揃える（Directional shadowは従来のまま）。
+Russian rouletteの生存後throughput補正を維持し、MISはroulette前の方向PDF同士で比較する。
+
+shadow無効時はNEEをweight 1、secondary environment missを0としてNEE単独へ戻す。
+遮蔽を無視したNEEと、geometryを追跡するBSDF escape rayの重みを混ぜないためである。
+environment無効時はimportance CDFを参照しない。最終bounceの扱いはStep 3と同じ。
+
+`Test-EnvironmentMis.ps1`は重みのpartition of unityと、constant Lambertの2-technique積分を検証する。
+これはCPUの解析チェックであり、GGX shaderのHDR収束誤差はStep 6の複数seed比較で扱う。
+
+検証: Debug x64 MSBuild、settings round-trip CTest、MIS解析テスト成功。
+RTX 2080 Ti / DamagedHelmet / seed 1で、mode 0（64 samples）は従来PNG hashと一致。
+mode 5（256 samples）、6（64 samples）、7（256 samples）は各A/Bで一致し、全8captureでD3D12 error 0件。
+mode 5/7の画像ではNEE単独の点状ノイズが減少した。mode 7のPathTracingPass平均はこのrunで約1.46 ms。
+限られたscene・sample数での目視結果であり、HDR収束一致や一般的な性能向上は未判定。
+
+### 17.5 Step 6: Multi-seed linear HDR comparison
+
+Path Tracing中の`.pfm` screenshotは`PathTracing.Accumulation`をCOPY_SOURCEとしてRenderGraphへ宣言し、
+既存のscreenshot readback/fence/completion経路で保存する。32-bit RGB sumをpixel内sample countで割り、
+ToneMap前のlinear HDRをbottom-up、little-endian float RGBとして出力する。PNG経路は維持する。
+非有限値・不正なsample countはcapture失敗として扱う。
+
+`Tests/PathTracing/compare_hdr.py`はscene defaults、固定ROI、同一sample数でmap BSDF/Uniform NEE/
+Importance NEE/Uniform MIS/Importance MISを比較する。評価seedとreference seedは独立させる。
+参照は高sampleのImportance MIS複数seed平均であり、ground truthとは呼ばない。
+JSON/Markdownへ各seedのRGB RMSE、mean image RMSE、seed間不偏標本分散、平均RGB radiance、
+参照2seed同士のRMSE、commit、capture hash、renderer diagnosticsを記録する。
+背景に誤差が希釈されないようROIで集計するが、signal自体はdirect/emissiveを含むtotal radianceである。
+
+PFM writerのpadding・上下方向・sample正規化・異常値拒否はScreenshot CTestで確認する。
+PFM reader/ROI/RMSEはPython unittestで確認する。実行スクリプトはD3D12 error、設定不一致、
+非有限値、process failure/timeout、固定seed repeatのhash不一致を失敗とする。
+画質の勝敗に固定thresholdは置かず、有限referenceの不確かさとともに比較材料を出力する。
+
+初回比較でseed間分散が約1e-17となり、`sampleIndex ^ randomSeed`がpower-of-two sample数では
+同一sample集合の順序だけを変える不具合を検出した。sample indexとseedを別々にhashしてから混合する形へ
+修正する。過去の固定seed画像hashは変わるが、同じseedの再現性は維持する。
+stochastic scene用の`--require-seed-variation`で全modeの分散がほぼ0の場合を失敗にできる。
+
+修正後の検証: Debug x64成功、Screenshot CTest成功、Python unittest 3件成功。
+DamagedHelmet / ROI (885,460,175,180) / 32 samples / seed 1,2、参照mode 7 / 128 samples / seed 101,102。
+全13captureでD3D12 errorなし、固定seed再captureはPFM hash一致、seed変動のassertionも成功。
+生成レポートは`bin/PathTracing-Step6-SeedFixed/report.json`と`report.md`（非commit）。
+
+| Mode | Mean-image HDR RGB RMSE | Seed variance |
+|---|---:|---:|
+| BSDF (0) | 0.00512470 | 0.0000458157 |
+| Uniform NEE (3) | 0.04962084 | 0.00451094 |
+| Importance NEE (4) | 0.05102727 | 0.00475207 |
+| Uniform MIS (6) | 0.00516549 | 0.0000454501 |
+| Importance MIS (7) | 0.00487305 | 0.0000401475 |
+
+参照2seedの不一致RMSEは0.00486988。NEE単独の大きな分散は観測できるが、BSDFとMISの小さな差を
+この少数seed・低sample検証から一般化しない。defaultの64 samples / 3 seeds / 1024-sample referencesによる
+長時間比較や別sceneの検証はこの実行には含まない。

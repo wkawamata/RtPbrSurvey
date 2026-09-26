@@ -998,6 +998,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             pathTracingSettingsChanged |= ImGui::Checkbox("Environment", &pathTracingSettings.environmentEnabled);
             ImGui::SameLine();
             pathTracingSettingsChanged |= ImGui::Checkbox("Emissive", &pathTracingSettings.emissiveEnabled);
+            int environmentSamplingMode = static_cast<int>(pathTracingSettings.environmentSamplingMode);
+            if (ImGui::Combo("Environment Sampling", &environmentSamplingMode,
+                "Environment Map / BSDF\0Constant White / BSDF\0Constant White / NEE\0Environment Map / Uniform NEE\0Environment Map / Importance NEE\0Constant White / MIS\0Environment Map / Uniform MIS\0Environment Map / Importance MIS\0"))
+            {
+                pathTracingSettings.environmentSamplingMode = static_cast<UINT>(environmentSamplingMode);
+                pathTracingSettingsChanged = true;
+            }
             pathTracingSettingsChanged |=
                 ImGui::Checkbox("Russian Roulette (bounce 3+)", &pathTracingSettings.russianRouletteEnabled);
             if (pathTracingSettingsChanged)

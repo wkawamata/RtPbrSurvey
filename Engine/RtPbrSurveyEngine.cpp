@@ -179,6 +179,11 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     {
         diagnostics.maxRayQueriesPerFrame += diagnostics.maxPathSegmentsPerFrame;
     }
+    if (settings.environmentEnabled && settings.environmentSamplingMode >= 2 && shadowRayEnabled)
+    {
+        diagnostics.maxRayQueriesPerFrame += diagnostics.primarySamplesPerFrame *
+            ((std::max)(settings.maxBounces, 1u) - 1u);
+    }
 
     for (size_t i = 1; i < checkPoints.size(); ++i)
     {
@@ -650,11 +655,13 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
         m_pathTracingSettings.randomSeed != settings.randomSeed ||
         m_pathTracingSettings.directLightingEnabled != settings.directLightingEnabled ||
         m_pathTracingSettings.environmentEnabled != settings.environmentEnabled ||
+        m_pathTracingSettings.environmentSamplingMode != settings.environmentSamplingMode ||
         m_pathTracingSettings.emissiveEnabled != settings.emissiveEnabled ||
         m_pathTracingSettings.russianRouletteEnabled != settings.russianRouletteEnabled ||
         m_pathTracingSettings.debugOutput != settings.debugOutput;
 
     m_pathTracingSettings = settings;
+    m_pathTracingSettings.environmentSamplingMode = (std::min)(settings.environmentSamplingMode, 7u);
     m_pathTracingSettings.samplesPerFrame = (std::clamp)(m_pathTracingSettings.samplesPerFrame, 1u, 16u);
     m_pathTracingSettings.maxBounces = (std::clamp)(m_pathTracingSettings.maxBounces, 1u, 16u);
     if (changed)
@@ -1300,6 +1307,11 @@ void RtPbrSurveyEngine::RequestScreenshot(RtPbrSurvey::ScreenshotRequest request
             return;
         }
         request.path = std::filesystem::absolute(request.path);
+        if (request.path.extension() == L".pfm" && m_renderingPath != RenderingPath::PathTracing)
+        {
+            m_screenshotRequestQueue.AddResult({request.path, false, "PFM capture requires Path Tracing."});
+            return;
+        }
         m_screenshotRequestQueue.Enqueue(std::move(request));
     }
     catch (const std::exception& exception)
@@ -5713,6 +5725,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.debugOutput = static_cast<UINT>(m_pathTracingSettings.debugOutput);
     passDesc.maxBounces = m_pathTracingSettings.maxBounces;
     passDesc.environmentEnabled = m_pathTracingSettings.environmentEnabled ? 1u : 0u;
+    passDesc.environmentSamplingMode = m_pathTracingSettings.environmentSamplingMode;
     passDesc.skyboxEnabled = m_lightingParams.skyboxEnabled ? 1u : 0u;
     passDesc.emissiveEnabled =
         m_pathTracingSettings.emissiveEnabled && m_lightingParams.emissiveEnabled ? 1u : 0u;
@@ -6161,7 +6174,8 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
     {
         Engine::RecordScreenshotCapture(m_commandList.Get(),
                                         m_graphicsDevice.Device(),
-                                        m_renderTargets[m_currentFrameIndex].Get(),
+                                        capture.request.path.extension() == L".pfm" ?
+                                            m_pathTracingAccumulation.Get() : m_renderTargets[m_currentFrameIndex].Get(),
                                         m_hdrOutputPolicy.settings.hdr10Enabled,
                                         m_toneMapPass.settings.paperWhiteNits,
                                         capture.readback);

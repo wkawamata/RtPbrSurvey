@@ -9,6 +9,7 @@
 #include <cmath>
 #include <combaseapi.h>
 #include <wincodec.h>
+#include <fstream>
 
 namespace Engine
 {
@@ -245,6 +246,54 @@ bool SaveRgba8Png(
     return true;
 }
 
+bool SaveAccumulationPfm(const std::filesystem::path& path, UINT width, UINT height,
+                          const std::uint8_t* source, UINT rowPitch, std::string& error)
+{
+    error.clear();
+    if (source == nullptr || width == 0 || height == 0 || static_cast<size_t>(rowPitch) < static_cast<size_t>(width) * 16)
+    {
+        error = "Invalid accumulation PFM input.";
+        return false;
+    }
+    std::vector<float> pixels(static_cast<size_t>(width) * height * 3);
+    for (UINT y = 0; y < height; ++y)
+    {
+        const float* row = reinterpret_cast<const float*>(source + static_cast<size_t>(height - 1 - y) * rowPitch);
+        for (UINT x = 0; x < width; ++x)
+        {
+            const float count = row[x * 4 + 3];
+            if (!std::isfinite(count) || count <= 0.0f)
+            {
+                error = "Invalid accumulation sample count.";
+                return false;
+            }
+            for (UINT channel = 0; channel < 3; ++channel)
+            {
+                const float value = row[x * 4 + channel] / count;
+                if (!std::isfinite(value))
+                {
+                    error = "Non-finite HDR radiance.";
+                    return false;
+                }
+                pixels[(static_cast<size_t>(y) * width + x) * 3 + channel] = value;
+            }
+        }
+    }
+    if (path.has_parent_path())
+    {
+        std::filesystem::create_directories(path.parent_path());
+    }
+    std::ofstream stream(path, std::ios::binary);
+    stream << "PF\n" << width << " " << height << "\n-1.0\n";
+    stream.write(reinterpret_cast<const char*>(pixels.data()), static_cast<std::streamsize>(pixels.size() * sizeof(float)));
+    if (!stream)
+    {
+        error = "Failed to write accumulation PFM.";
+        return false;
+    }
+    return true;
+}
+
 bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem::path& path, std::string& error)
 {
     if (!readback.IsValid())
@@ -262,6 +311,32 @@ bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem:
     {
         error = HResultMessage(mapResult);
         return false;
+    }
+
+    if (path.extension() == L".pfm")
+    {
+        bool succeeded = false;
+        try
+        {
+            if (readback.format != DXGI_FORMAT_R32G32B32A32_FLOAT)
+            {
+                error = "PFM requires a float32 accumulation texture.";
+            }
+            else
+            {
+                succeeded = SaveAccumulationPfm(path, readback.width, readback.height,
+                    mappedData + readback.layout.Offset, readback.layout.Footprint.RowPitch, error);
+            }
+        }
+        catch (...)
+        {
+            const D3D12_RANGE writtenRange = {0, 0};
+            readback.resource->Unmap(0, &writtenRange);
+            throw;
+        }
+        const D3D12_RANGE writtenRange = {0, 0};
+        readback.resource->Unmap(0, &writtenRange);
+        return succeeded;
     }
 
     const std::vector<std::uint8_t> rgba8 = ConvertScreenshotToRgba8(mappedData + readback.layout.Offset,
