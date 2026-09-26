@@ -65,6 +65,7 @@ cbuffer PathTracingConstants : register(b1)
 
 #include "SceneRayQuery.hlsli"
 #include "PathTracingSampling.hlsli"
+#include "PathTracingDirectLightAdapter.hlsli"
 
 static const uint kInstanceDataPreviousWorldOffset = 64;
 static const uint kEnvironmentColumns = 16;
@@ -425,31 +426,39 @@ float3 TracePath(uint2 pixel,
             }
         }
 
-        const PathTracingLightSample lightSample = MakePathTracingDirectionalLightSample(
-            lightDirection, lightColor * diffuseIntensity, rayTMax, 1.0, 0u);
-        const PathTracingDirectLightCandidate candidate = MakePathTracingDirectLightCandidate(
-            lightSample, hitMaterial.albedo, hitMaterial.metallic, hitMaterial.roughness,
-            hitNormal, geometryNormal, -ray.Direction);
-        if (directLightingEnabled != 0 && candidate.valid != 0)
+        if (directLightingEnabled != 0)
         {
-            const float visibility = TraceShadow(hitPosition, geometryNormal, candidate.lightSample, 0);
-            const float3 brdf = candidate.diffuseBrdf + candidate.specularBrdf;
-            const float3 lighting = candidate.lightSample.radiance *
-                (candidate.normalDotLight * visibility / candidate.lightSample.selectionPdf);
-            const float3 contribution = throughput * brdf * lighting;
-            radiance += contribution;
-            if (bounce == 0)
+            // One deterministic candidate per enabled light: each source has selection probability 1.
+            [loop] for (uint lightIndex = 0; lightIndex < min(ptLightCount, 16u); ++lightIndex)
             {
-                diffuseRadiance += throughput * candidate.diffuseBrdf * lighting;
-                specularRadiance += throughput * candidate.specularBrdf * lighting;
-            }
-            else if (primarySpecularPath)
-            {
-                specularRadiance += contribution;
-            }
-            else
-            {
-                diffuseRadiance += contribution;
+                const PathTracingLightSample lightSample = MakePathTracingSceneLightSample(
+                    lightIndex, hitPosition, rayTMin, rayTMax);
+                const PathTracingDirectLightCandidate candidate = MakePathTracingDirectLightCandidate(
+                    lightSample, hitMaterial.albedo, hitMaterial.metallic, hitMaterial.roughness,
+                    hitNormal, geometryNormal, -ray.Direction);
+                if (candidate.valid == 0)
+                {
+                    continue;
+                }
+                const float visibility = TraceShadow(hitPosition, geometryNormal, candidate.lightSample, 0);
+                const float3 brdf = candidate.diffuseBrdf + candidate.specularBrdf;
+                const float3 lighting = candidate.lightSample.radiance *
+                    (candidate.normalDotLight * visibility / candidate.lightSample.selectionPdf);
+                const float3 contribution = throughput * brdf * lighting;
+                radiance += contribution;
+                if (bounce == 0)
+                {
+                    diffuseRadiance += throughput * candidate.diffuseBrdf * lighting;
+                    specularRadiance += throughput * candidate.specularBrdf * lighting;
+                }
+                else if (primarySpecularPath)
+                {
+                    specularRadiance += contribution;
+                }
+                else
+                {
+                    diffuseRadiance += contribution;
+                }
             }
         }
 
