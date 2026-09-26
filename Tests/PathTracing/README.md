@@ -122,6 +122,21 @@ and JSON reports are generated under `bin/x64/Debug/PathTracingPointVisibility` 
 The ROI comparison isolates visible floor pixels; it does not require the entire images to match because the
 blocker itself may be visible elsewhere. It checks finite shadow distance, not falloff magnitude or penumbrae.
 
+`Test-PointLightFalloff.ps1` checks the Point light's numerical attenuation on the same floor with no blocker,
+environment, or emissive lighting. It captures a light directly above the center ROI at heights 2 and 4 with
+range 20, then at height 2 with range 5. The measured linear HDR ratios are compared with
+`(1 - (distance / range)^4)^2 / distance^2` at the ROI center. A 2% relative tolerance allows the small changes
+in light angle and BRDF across the sampled 16x16-pixel ROI. It checks settings diagnostics and D3D12 errors.
+Generated scenes, presets, PFM files, logs, and the JSON report remain under
+`bin/x64/Debug/PathTracingPointFalloff` and must not be committed.
+
+```powershell
+.\Tests\PathTracing\Test-PointLightFalloff.ps1 -Samples 4 -Seed 7
+```
+
+This is an approximate output-level ratio check, not an analytic reference for every floor pixel or a test of
+the Spot cone interpolation.
+
 Commit 8 exposes these current-frame primary-surface resources through RenderGraph and Debug Texture Preview:
 
 - `PathTracing.NormalRoughness`
