@@ -1019,10 +1019,20 @@ auto RtPbrSurveyEngine::MakeImGuiPass() -> RenderPass
 
 auto RtPbrSurveyEngine::MakeScreenshotPass() -> RenderPass
 {
+    const RtPbrSurvey::ScreenshotRequest* request = m_screenshotRequestQueue.PeekNextCapture();
+    const char* sourceResourceName = kBackBufferResourceName;
+    if (m_screenshotRequestQueue.NextCaptureIsPfm())
+    {
+        sourceResourceName = kPathTracingAccumulationResourceName;
+    }
+    else if (request != nullptr && request->source == RtPbrSurvey::ScreenshotCaptureSource::PreToneMapSceneColor)
+    {
+        sourceResourceName = kLightPassRenderTargetResourceName;
+    }
+
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"Screenshot")
-        .Reads({{m_screenshotRequestQueue.NextCaptureIsPfm() ?
-            kPathTracingAccumulationResourceName : kBackBufferResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
+        .Reads({{sourceResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
         .Operation(Op::Screenshot, &RtPbrSurveyEngine::ExecuteScreenshotPass)
         .Build();
 }

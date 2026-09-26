@@ -6168,12 +6168,51 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
 
     try
     {
+        ID3D12Resource* source = nullptr;
+        bool hdr10 = false;
+        float paperWhiteNits = 300.0f;
+        if (capture.request.path.extension() == L".pfm")
+        {
+            if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png ||
+                capture.request.source != RtPbrSurvey::ScreenshotCaptureSource::FinalOutput)
+            {
+                throw std::invalid_argument("PFM capture uses the legacy final-output request contract.");
+            }
+            source = m_pathTracingAccumulation.Get();
+        }
+        else
+        {
+            switch (capture.request.source)
+            {
+            case RtPbrSurvey::ScreenshotCaptureSource::FinalOutput:
+                if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png)
+                {
+                    throw std::invalid_argument("Final-output screenshot capture supports PNG only.");
+                }
+                source = m_renderTargets[m_currentFrameIndex].Get();
+                hdr10 = m_hdrOutputPolicy.settings.hdr10Enabled;
+                paperWhiteNits = m_toneMapPass.settings.paperWhiteNits;
+                break;
+
+            case RtPbrSurvey::ScreenshotCaptureSource::PreToneMapSceneColor:
+                if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Exr)
+                {
+                    throw std::invalid_argument("Pre-tone-map screenshot capture supports EXR only.");
+                }
+                if (m_renderingPath == RenderingPath::PathTracing || m_lightPassRenderTarget == nullptr)
+                {
+                    throw std::runtime_error("Pre-tone-map scene color is unavailable for the active rendering path.");
+                }
+                source = m_lightPassRenderTarget.Get();
+                break;
+            }
+        }
+
         Engine::RecordScreenshotCapture(m_commandList.Get(),
                                         m_graphicsDevice.Device(),
-                                        capture.request.path.extension() == L".pfm" ?
-                                            m_pathTracingAccumulation.Get() : m_renderTargets[m_currentFrameIndex].Get(),
-                                        m_hdrOutputPolicy.settings.hdr10Enabled,
-                                        m_toneMapPass.settings.paperWhiteNits,
+                                        source,
+                                        hdr10,
+                                        paperWhiteNits,
                                         capture.request.region,
                                         capture.readback);
         m_pendingScreenshotCapture = std::move(capture);
@@ -6735,7 +6774,9 @@ void RtPbrSurveyEngine::ProcessCompletedScreenshot()
     result.height = capture.readback.height;
     try
     {
-        result.succeeded = Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
+        result.succeeded = capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Exr
+            ? Engine::SaveExrScreenshotReadback(capture.readback, result.path, result.error)
+            : Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
     }
     catch (const std::exception& exception)
     {
