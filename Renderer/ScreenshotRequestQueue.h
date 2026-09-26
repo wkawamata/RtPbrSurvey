@@ -22,6 +22,11 @@ public:
         return !m_capturePending && !m_requests.empty();
     }
 
+    const RtPbrSurvey::ScreenshotRequest* PeekNextCapture() const
+    {
+        return CanBeginNextCapture() ? &m_requests.front() : nullptr;
+    }
+
     bool BeginNextCapture(RtPbrSurvey::ScreenshotRequest& request)
     {
         if (!CanBeginNextCapture())

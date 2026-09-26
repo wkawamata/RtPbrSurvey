@@ -5,9 +5,12 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdlib>
+#include <DirectXPackedVector.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <tinyexr.h>
 #include <vector>
 
 namespace
@@ -131,6 +134,87 @@ bool TestPngEncoding()
     return passed;
 }
 
+bool TestRgba16fConversion()
+{
+    const std::array<std::uint16_t, 8> source = {
+        DirectX::PackedVector::XMConvertFloatToHalf(0.0f),
+        DirectX::PackedVector::XMConvertFloatToHalf(0.5f),
+        DirectX::PackedVector::XMConvertFloatToHalf(2.0f),
+        DirectX::PackedVector::XMConvertFloatToHalf(1.0f),
+        DirectX::PackedVector::XMConvertFloatToHalf(0.25f),
+        DirectX::PackedVector::XMConvertFloatToHalf(1.5f),
+        DirectX::PackedVector::XMConvertFloatToHalf(4.0f),
+        DirectX::PackedVector::XMConvertFloatToHalf(0.0f),
+    };
+    const std::vector<float> converted =
+        Engine::ConvertRgba16fToRgba32f(reinterpret_cast<const std::uint8_t*>(source.data()), 2, 1, sizeof(source));
+
+    bool passed = Check(converted.size() == 8, "RGBA16F conversion produces RGBA32F pixels");
+    passed &= Check(std::abs(converted[0] - 0.0f) < 0.0001f && std::abs(converted[1] - 0.5f) < 0.0001f &&
+                        std::abs(converted[2] - 2.0f) < 0.0001f && std::abs(converted[3] - 1.0f) < 0.0001f,
+                    "RGBA16F conversion preserves the first linear HDR pixel");
+    passed &= Check(std::abs(converted[4] - 0.25f) < 0.0001f && std::abs(converted[5] - 1.5f) < 0.0001f &&
+                        std::abs(converted[6] - 4.0f) < 0.0001f && std::abs(converted[7] - 0.0f) < 0.0001f,
+                    "RGBA16F conversion preserves values above one");
+    return passed;
+}
+
+bool TestExrEncoding()
+{
+    const std::array<float, 8> rgba = {
+        0.0f,
+        0.5f,
+        2.0f,
+        1.0f,
+        0.25f,
+        1.5f,
+        4.0f,
+        0.0f,
+    };
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / "RtPbrSurvey.ScreenshotTests.exr";
+    std::string error;
+    bool passed = Check(Engine::SaveRgba32fExr(path, 2, 1, rgba.data(), error), "EXR encoding succeeds");
+    if (!passed)
+    {
+        std::cerr << error << '\n';
+        return false;
+    }
+
+    std::ifstream stream(path, std::ios::binary);
+    const std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+    const std::array<std::uint8_t, 4> signature = {0x76, 0x2f, 0x31, 0x01};
+    passed &= Check(bytes.size() >= signature.size() && std::equal(signature.begin(), signature.end(), bytes.begin()),
+                    "EXR contains its magic signature");
+
+    float* decoded = nullptr;
+    int width = 0;
+    int height = 0;
+    const char* tinyExrError = nullptr;
+    const int loadResult = LoadEXR(&decoded, &width, &height, path.string().c_str(), &tinyExrError);
+    passed &= Check(loadResult == TINYEXR_SUCCESS, "EXR can be decoded by TinyEXR");
+    if (loadResult == TINYEXR_SUCCESS)
+    {
+        passed &= Check(width == 2 && height == 1, "EXR dimensions match the requested capture region");
+        passed &= Check(std::abs(decoded[0] - 0.0f) < 0.0001f && std::abs(decoded[1] - 0.5f) < 0.0001f &&
+                            std::abs(decoded[2] - 2.0f) < 0.0001f && std::abs(decoded[3] - 1.0f) < 0.0001f &&
+                            std::abs(decoded[6] - 4.0f) < 0.0001f,
+                        "EXR preserves linear HDR values without exposure compensation");
+    }
+    else if (tinyExrError != nullptr)
+    {
+        std::cerr << tinyExrError << '\n';
+    }
+    if (tinyExrError != nullptr)
+    {
+        FreeEXRErrorMessage(tinyExrError);
+    }
+    std::free(decoded);
+
+    std::error_code removeError;
+    std::filesystem::remove(path, removeError);
+    return passed;
+}
+
 bool TestScreenshotRegionValidation()
 {
     bool passed = Check(Engine::IsScreenshotRegionValid(1920, 1080, std::nullopt), "full capture region is valid");
@@ -150,7 +234,8 @@ bool TestScreenshotRegionValidation()
 
 int main()
 {
-    if (TestSdrConversion() && TestHdr10Conversion() && TestPngEncoding() && TestScreenshotRegionValidation())
+    if (TestSdrConversion() && TestHdr10Conversion() && TestPngEncoding() && TestRgba16fConversion() && TestExrEncoding() &&
+        TestScreenshotRegionValidation())
     {
         std::cout << "Screenshot tests passed.\n";
         return 0;

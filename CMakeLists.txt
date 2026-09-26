@@ -18,6 +18,7 @@ set(RTPBRSURVEY_STREAMLINE_SDK_DIR
 
 find_package(imgui CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(tinyexr CONFIG REQUIRED)
 find_path(TINYGLTF_INCLUDE_DIR tiny_gltf.h REQUIRED)
 
 set(RTPBRSURVEY_D3D12_PACKAGE_DIR
@@ -181,6 +182,7 @@ target_link_libraries(RtPbrSurvey.SceneRenderer
         PUBLIC
         imgui::imgui
         nlohmann_json::nlohmann_json
+        unofficial::tinyexr::tinyexr
         d3dcompiler
         dxguid
         delayimp

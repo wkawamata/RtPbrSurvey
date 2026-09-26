@@ -15,10 +15,27 @@ struct ScreenshotRegion
     std::uint32_t height = 0;
 };
 
+enum class ScreenshotOutputFormat
+{
+    Png,
+    Exr,
+};
+
+enum class ScreenshotCaptureSource
+{
+    // The composed display output, including ImGui.
+    FinalOutput,
+
+    // Linear scene color before tone mapping. This excludes ImGui.
+    PreToneMapSceneColor,
+};
+
 struct ScreenshotRequest
 {
     std::filesystem::path path;
     std::optional<ScreenshotRegion> region;
+    ScreenshotOutputFormat outputFormat = ScreenshotOutputFormat::Png;
+    ScreenshotCaptureSource source = ScreenshotCaptureSource::FinalOutput;
 };
 
 struct ScreenshotResult

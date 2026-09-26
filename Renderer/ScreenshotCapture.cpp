@@ -8,7 +8,9 @@
 #include <algorithm>
 #include <cmath>
 #include <combaseapi.h>
+#include <DirectXPackedVector.h>
 #include <stdexcept>
+#include <tinyexr.h>
 #include <wincodec.h>
 
 namespace Engine
@@ -198,6 +200,27 @@ std::vector<std::uint8_t> ConvertScreenshotToRgba8(const std::uint8_t* sourceDat
     return rgba8;
 }
 
+std::vector<float> ConvertRgba16fToRgba32f(const std::uint8_t* sourceData, UINT width, UINT height, UINT rowPitch)
+{
+    if (sourceData == nullptr)
+    {
+        return {};
+    }
+
+    std::vector<float> rgba32f(static_cast<size_t>(width) * height * 4);
+    for (UINT y = 0; y < height; ++y)
+    {
+        const std::uint16_t* sourceRow =
+            reinterpret_cast<const std::uint16_t*>(sourceData + static_cast<size_t>(y) * rowPitch);
+        float* destinationRow = rgba32f.data() + static_cast<size_t>(y) * width * 4;
+        for (UINT x = 0; x < width * 4; ++x)
+        {
+            destinationRow[x] = DirectX::PackedVector::XMConvertHalfToFloat(sourceRow[x]);
+        }
+    }
+    return rgba32f;
+}
+
 bool SaveRgba8Png(
     const std::filesystem::path& path, UINT width, UINT height, const std::uint8_t* rgba8, std::string& error)
 {
@@ -279,6 +302,43 @@ bool SaveRgba8Png(
     return true;
 }
 
+bool SaveRgba32fExr(
+    const std::filesystem::path& path, UINT width, UINT height, const float* rgba32f, std::string& error)
+{
+    error.clear();
+    if (path.empty() || width == 0 || height == 0 || rgba32f == nullptr)
+    {
+        error = "Invalid EXR output arguments.";
+        return false;
+    }
+
+    try
+    {
+        if (path.has_parent_path())
+        {
+            std::filesystem::create_directories(path.parent_path());
+        }
+    }
+    catch (const std::exception& exception)
+    {
+        error = exception.what();
+        return false;
+    }
+
+    const char* tinyExrError = nullptr;
+    const int result = SaveEXR(rgba32f, static_cast<int>(width), static_cast<int>(height), 4, 1, path.string().c_str(), &tinyExrError);
+    if (result != TINYEXR_SUCCESS)
+    {
+        error = tinyExrError != nullptr ? tinyExrError : "TinyEXR failed to save the image.";
+        if (tinyExrError != nullptr)
+        {
+            FreeEXRErrorMessage(tinyExrError);
+        }
+        return false;
+    }
+    return true;
+}
+
 bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem::path& path, std::string& error)
 {
     if (!readback.IsValid())
@@ -314,5 +374,44 @@ bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem:
         return false;
     }
     return SaveRgba8Png(path, readback.width, readback.height, rgba8.data(), error);
+}
+
+bool SaveExrScreenshotReadback(ScreenshotReadback& readback, const std::filesystem::path& path, std::string& error)
+{
+    if (!readback.IsValid())
+    {
+        error = "Screenshot readback is not available.";
+        return false;
+    }
+    if (readback.format != DXGI_FORMAT_R16G16B16A16_FLOAT)
+    {
+        error = "EXR capture requires R16G16B16A16_FLOAT scene color.";
+        return false;
+    }
+
+    std::uint8_t* mappedData = nullptr;
+    const D3D12_RANGE readRange = {static_cast<SIZE_T>(readback.layout.Offset),
+                                   static_cast<SIZE_T>(readback.layout.Offset) +
+                                       static_cast<SIZE_T>(readback.layout.Footprint.RowPitch) * readback.height};
+    const HRESULT mapResult = readback.resource->Map(0, &readRange, reinterpret_cast<void**>(&mappedData));
+    if (FAILED(mapResult))
+    {
+        error = HResultMessage(mapResult);
+        return false;
+    }
+
+    const std::vector<float> rgba32f = ConvertRgba16fToRgba32f(mappedData + readback.layout.Offset,
+                                                                readback.width,
+                                                                readback.height,
+                                                                readback.layout.Footprint.RowPitch);
+    const D3D12_RANGE writtenRange = {0, 0};
+    readback.resource->Unmap(0, &writtenRange);
+
+    if (rgba32f.empty())
+    {
+        error = "Failed to convert EXR scene color readback.";
+        return false;
+    }
+    return SaveRgba32fExr(path, readback.width, readback.height, rgba32f.data(), error);
 }
 } // namespace Engine
