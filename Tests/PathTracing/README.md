@@ -78,6 +78,22 @@ The Step 6 RNG separates hashing of the sample index and seed. The former `sampl
 permuted the same sample set for power-of-two sample counts and small seeds, invalidating independent-seed
 statistics. Old PNG hashes change with this correction; fixed-seed repeatability remains required.
 
+## Multi-light direct estimator
+
+`Test-MultiLightAdditivity.ps1` captures the bundled four-light scene as zero lights, each light alone, and all
+lights together. It disables environment/emissive terms and uses one bounce so the test isolates direct lighting.
+At identical seed and sample count, it compares linear HDR `all - none` with the sum of each `single - none` on
+an 8-pixel grid across the full image. It checks that every light contributes, the capture diagnostics match the
+requested settings, and the D3D12 log contains no error. The generated presets, PFM files, logs, and JSON report
+are under `bin/x64/Debug/PathTracingMultiLightAdditivity` and must not be committed.
+
+```powershell
+.\Tests\PathTracing\Test-MultiLightAdditivity.ps1 -Samples 1 -Seed 1
+```
+
+This checks the all-light summation path, not Point/Spot attenuation formulas, visibility edge cases, or
+multi-seed convergence. Those require separate tests.
+
 Commit 8 exposes these current-frame primary-surface resources through RenderGraph and Debug Texture Preview:
 
 - `PathTracing.NormalRoughness`
