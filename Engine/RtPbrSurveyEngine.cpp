@@ -179,6 +179,11 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     {
         diagnostics.maxRayQueriesPerFrame += diagnostics.maxPathSegmentsPerFrame;
     }
+    if (settings.environmentEnabled && settings.environmentSamplingMode >= 2 && shadowRayEnabled)
+    {
+        diagnostics.maxRayQueriesPerFrame += diagnostics.primarySamplesPerFrame *
+            ((std::max)(settings.maxBounces, 1u) - 1u);
+    }
 
     for (size_t i = 1; i < checkPoints.size(); ++i)
     {
@@ -569,15 +574,12 @@ void RtPbrSurveyEngine::SetUpdateHandler(UpdateHandler handler)
 
 void RtPbrSurveyEngine::SetLightingParams(const LightingParams& params)
 {
+    LightingParams validated = params;
+    RtPbrSurvey::ValidateDirectLights(validated.lights);
     const bool reflectionHistoryChanged =
-        m_lightingParams.lightDirection.x != params.lightDirection.x ||
-        m_lightingParams.lightDirection.y != params.lightDirection.y ||
-        m_lightingParams.lightDirection.z != params.lightDirection.z ||
-        m_lightingParams.lightColor.x != params.lightColor.x ||
-        m_lightingParams.lightColor.y != params.lightColor.y ||
-        m_lightingParams.lightColor.z != params.lightColor.z ||
+        m_lightingParams.lights != validated.lights ||
+        m_lightingParams.primaryShadowLightId != validated.primaryShadowLightId ||
         m_lightingParams.iblIntensity != params.iblIntensity ||
-        m_lightingParams.diffuseIntensity != params.diffuseIntensity ||
         m_lightingParams.directLightEnabled != params.directLightEnabled ||
         m_lightingParams.diffuseIblEnabled != params.diffuseIblEnabled ||
         m_lightingParams.specularIblEnabled != params.specularIblEnabled ||
@@ -585,7 +587,7 @@ void RtPbrSurveyEngine::SetLightingParams(const LightingParams& params)
     const bool pathTracingHistoryChanged =
         reflectionHistoryChanged || m_lightingParams.skyboxEnabled != params.skyboxEnabled;
 
-    m_lightingParams = params;
+    m_lightingParams = std::move(validated);
     if (reflectionHistoryChanged)
     {
         InvalidateReflectionHistory();
@@ -653,11 +655,13 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
         m_pathTracingSettings.randomSeed != settings.randomSeed ||
         m_pathTracingSettings.directLightingEnabled != settings.directLightingEnabled ||
         m_pathTracingSettings.environmentEnabled != settings.environmentEnabled ||
+        m_pathTracingSettings.environmentSamplingMode != settings.environmentSamplingMode ||
         m_pathTracingSettings.emissiveEnabled != settings.emissiveEnabled ||
         m_pathTracingSettings.russianRouletteEnabled != settings.russianRouletteEnabled ||
         m_pathTracingSettings.debugOutput != settings.debugOutput;
 
     m_pathTracingSettings = settings;
+    m_pathTracingSettings.environmentSamplingMode = (std::min)(settings.environmentSamplingMode, 7u);
     m_pathTracingSettings.samplesPerFrame = (std::clamp)(m_pathTracingSettings.samplesPerFrame, 1u, 16u);
     m_pathTracingSettings.maxBounces = (std::clamp)(m_pathTracingSettings.maxBounces, 1u, 16u);
     if (changed)
@@ -926,11 +930,11 @@ void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialPara
 
 auto RtPbrSurveyEngine::MakeLightingConstants() const -> LightingConstants
 {
-    return {
-        m_lightingParams.lightDirection,
+    LightingConstants result = {
+        RtPbrSurvey::ShadowLightDirection(m_lightingParams.lights, m_lightingParams.primaryShadowLightId),
         m_lightingParams.iblIntensity,
-        m_lightingParams.lightColor,
-        m_lightingParams.diffuseIntensity,
+        {0.0f, 0.0f, 0.0f},
+        0.0f,
         {m_backBufferClearColor[0], m_backBufferClearColor[1], m_backBufferClearColor[2], m_backBufferClearColor[3]},
         m_lightingParams.skyboxEnabled ? 1.0f : 0.0f,
         m_lightingParams.skyboxPreview ? 1.0f : 0.0f,
@@ -960,6 +964,21 @@ auto RtPbrSurveyEngine::MakeLightingConstants() const -> LightingConstants
         m_hybridReflectionSettings.contributionIntensity,
         m_hybridReflectionSettings.contributionMaxDistance,
     };
+    result.lightCount = static_cast<uint32_t>(m_lightingParams.lights.size());
+    result.reflectionRayNormalBias = m_shadowSettings.normalBias;
+    result.reflectionLightSamplingEnabled = m_hybridReflectionSettings.stochasticSamplingEnabled ? 1u : 0u;
+    result.reflectionLightSamplingFrame = m_reflectionSamplingFrameIndex;
+    for (uint32_t i = 0; i < result.lightCount; ++i)
+    {
+        const RtPbrSurvey::DirectLight& light = m_lightingParams.lights[i];
+        result.lights[i] = RtPbrSurvey::MakeLightGpuData(light);
+        if (light.id == m_lightingParams.primaryShadowLightId && light.enabled &&
+            light.type == RtPbrSurvey::LightType::Directional)
+        {
+            result.primaryShadowLightIndex = i;
+        }
+    }
+    return result;
 }
 
 void RtPbrSurveyEngine::SetRenderingPath(RenderingPath renderingPath)
@@ -1288,6 +1307,11 @@ void RtPbrSurveyEngine::RequestScreenshot(RtPbrSurvey::ScreenshotRequest request
             return;
         }
         request.path = std::filesystem::absolute(request.path);
+        if (request.path.extension() == L".pfm" && m_renderingPath != RenderingPath::PathTracing)
+        {
+            m_screenshotRequestQueue.AddResult({request.path, false, "PFM capture requires Path Tracing."});
+            return;
+        }
         m_screenshotRequestQueue.Enqueue(std::move(request));
     }
     catch (const std::exception& exception)
@@ -2456,7 +2480,10 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     CD3DX12_DESCRIPTOR_RANGE1 environmentSrvRange = {};
     environmentSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 6, 0);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[18] = {};
+    CD3DX12_DESCRIPTOR_RANGE1 lightCbvRange = {};
+    lightCbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 2, 0);
+
+    CD3DX12_ROOT_PARAMETER1 rootParameters[19] = {};
     rootParameters[0].InitAsDescriptorTable(1, &sceneColorUavRange);
     rootParameters[1].InitAsDescriptorTable(1, &accumulationUavRange);
     rootParameters[2].InitAsDescriptorTable(1, &normalRoughnessUavRange);
@@ -2475,6 +2502,7 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     rootParameters[15].InitAsShaderResourceView(5, 0);
     rootParameters[16].InitAsDescriptorTable(1, &environmentSrvRange);
     rootParameters[17].InitAsConstants(32, 1, 0);
+    rootParameters[18].InitAsDescriptorTable(1, &lightCbvRange);
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -5687,15 +5715,13 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
     passDesc.normalBias = m_shadowSettings.normalBias;
-    passDesc.lightDirection = {
-        m_lightingParams.lightDirection.x, m_lightingParams.lightDirection.y, m_lightingParams.lightDirection.z};
-    passDesc.lightColor = {m_lightingParams.lightColor.x, m_lightingParams.lightColor.y, m_lightingParams.lightColor.z};
+    passDesc.lightCbv = m_frameResources[m_currentFrameIndex].lightCB.cbv.gpu;
     passDesc.environmentIntensity = m_lightingParams.iblIntensity;
-    passDesc.diffuseIntensity = m_lightingParams.diffuseIntensity;
     passDesc.backgroundColor = m_backBufferClearColor;
     passDesc.debugOutput = static_cast<UINT>(m_pathTracingSettings.debugOutput);
     passDesc.maxBounces = m_pathTracingSettings.maxBounces;
     passDesc.environmentEnabled = m_pathTracingSettings.environmentEnabled ? 1u : 0u;
+    passDesc.environmentSamplingMode = m_pathTracingSettings.environmentSamplingMode;
     passDesc.skyboxEnabled = m_lightingParams.skyboxEnabled ? 1u : 0u;
     passDesc.emissiveEnabled =
         m_pathTracingSettings.emissiveEnabled && m_lightingParams.emissiveEnabled ? 1u : 0u;
@@ -5784,11 +5810,14 @@ void RtPbrSurveyEngine::ExecuteRayQueryShadowPass(const RenderPass& pass)
     passDesc.depthSrv = m_depthStencilSrv.gpu;
     passDesc.normalSrv = m_gbuffer.srvHandles[Engine::GBuffer::Normal].gpu;
     passDesc.cameraCbv = m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu;
-    passDesc.lightDirection = m_lightingParams.lightDirection;
+    passDesc.lightDirection =
+        RtPbrSurvey::ShadowLightDirection(m_lightingParams.lights, m_lightingParams.primaryShadowLightId);
     passDesc.normalBias = m_shadowSettings.normalBias;
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
-    passDesc.enabled = m_shadowSettings.enabled ? 1 : 0;
+    passDesc.enabled = m_shadowSettings.enabled && m_lightingParams.directLightEnabled &&
+        RtPbrSurvey::FindShadowLight(m_lightingParams.lights, m_lightingParams.primaryShadowLightId) ?
+        1 : 0;
     passDesc.softShadowEnabled = m_shadowSettings.softShadowEnabled ? 1 : 0;
     passDesc.sampleCount = static_cast<uint32_t>(m_shadowSettings.sampleCount);
     passDesc.lightAngularRadius = m_shadowSettings.lightAngularRadius;
@@ -5859,7 +5888,8 @@ void RtPbrSurveyEngine::ExecuteRayQueryTlasDebugPass(const RenderPass& pass)
     passDesc.depthSrv = m_depthStencilSrv.gpu;
     passDesc.normalSrv = m_gbuffer.srvHandles[Engine::GBuffer::Normal].gpu;
     passDesc.cameraCbv = m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu;
-    passDesc.lightDirection = m_lightingParams.lightDirection;
+    passDesc.lightDirection =
+        RtPbrSurvey::ShadowLightDirection(m_lightingParams.lights, m_lightingParams.primaryShadowLightId);
     passDesc.width = m_renderWidth;
     passDesc.height = m_renderHeight;
 
@@ -6140,7 +6170,8 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
     {
         Engine::RecordScreenshotCapture(m_commandList.Get(),
                                         m_graphicsDevice.Device(),
-                                        m_renderTargets[m_currentFrameIndex].Get(),
+                                        capture.request.path.extension() == L".pfm" ?
+                                            m_pathTracingAccumulation.Get() : m_renderTargets[m_currentFrameIndex].Get(),
                                         m_hdrOutputPolicy.settings.hdr10Enabled,
                                         m_toneMapPass.settings.paperWhiteNits,
                                         capture.request.region,

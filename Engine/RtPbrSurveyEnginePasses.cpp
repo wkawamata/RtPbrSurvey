@@ -1021,7 +1021,8 @@ auto RtPbrSurveyEngine::MakeScreenshotPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"Screenshot")
-        .Reads({{kBackBufferResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
+        .Reads({{m_screenshotRequestQueue.NextCaptureIsPfm() ?
+            kPathTracingAccumulationResourceName : kBackBufferResourceName, D3D12_RESOURCE_STATE_COPY_SOURCE}})
         .Operation(Op::Screenshot, &RtPbrSurveyEngine::ExecuteScreenshotPass)
         .Build();
 }

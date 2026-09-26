@@ -34,7 +34,7 @@ struct PathTracingShaderConstants
     float diffuseIntensity;
     UINT russianRouletteEnabled;
     UINT skyboxEnabled;
-    float constantBufferPadding;
+    UINT environmentSamplingMode;
     std::array<float, 4> backgroundColor;
 };
 
@@ -82,6 +82,7 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
     commandList->SetComputeRootDescriptorTable(14, desc.scene.textureTableSrv);
     commandList->SetComputeRootShaderResourceView(15, desc.scene.meshRangeBufferSrv);
     commandList->SetComputeRootDescriptorTable(16, desc.environmentMapSrv);
+    commandList->SetComputeRootDescriptorTable(18, desc.lightCbv);
 
     const PathTracingShaderConstants constants = {
         desc.scene.usesIndexedDraw,
@@ -107,7 +108,7 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
         desc.diffuseIntensity,
         desc.russianRouletteEnabled,
         desc.skyboxEnabled,
-        0.0f,
+        desc.environmentSamplingMode,
         desc.backgroundColor,
     };
     commandList->SetComputeRoot32BitConstants(17, 32, &constants, 0);

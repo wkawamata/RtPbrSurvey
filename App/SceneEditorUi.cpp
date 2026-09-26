@@ -3,6 +3,7 @@
 #include "App/SceneEditorUi.h"
 
 #include "App/RtPbrSurveyApp.h"
+#include "Ui/DirectLightUi.h"
 
 #include <imgui.h>
 #include <imgui_stdlib.h>
@@ -974,6 +975,18 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
             }
         }
         ImGui::EndDisabled();
+
+        if (ImGui::TreeNode("Lights"))
+        {
+            RtPbrSurveyEngine::LightingParams lighting = app.m_sceneRenderer.GetLightingParams();
+            if (RtPbrSurvey::DrawDirectLightControls(lighting))
+            {
+                app.m_sceneRenderer.SetLightingParams(lighting);
+                app.m_sceneEditorPresetDirty = true;
+            }
+            ImGui::TextWrapped("Lights are stored in the render preset. Use Save Preset above to persist changes.");
+            ImGui::TreePop();
+        }
 
         const RtPbrSurveyEngine::RenderingPath renderingPath = app.m_sceneRenderer.GetRenderingPath();
         if (ImGui::RadioButton("Forward", renderingPath == RtPbrSurveyEngine::RenderingPath::Forward))

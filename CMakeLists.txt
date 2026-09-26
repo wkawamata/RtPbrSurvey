@@ -215,6 +215,10 @@ function(rtpbrsurvey_add_shader output_var shader_file stage entry_point)
             -nologo "-T${stage}" "-E${entry_point}" -Zi -Qembed_debug
             "-Fo${output_file}" "${RTPBRSURVEY_ROOT}/${shader_file}"
         DEPENDS "${RTPBRSURVEY_ROOT}/${shader_file}" ${ARGN}
+            "${RTPBRSURVEY_ROOT}/Shaders/DirectLights.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/DirectLightEvaluation.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/DirectPbrLighting.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/ReflectionSampling.hlsli"
         WORKING_DIRECTORY "${RTPBRSURVEY_ROOT}"
         VERBATIM)
     set(${output_var} "${${output_var}};${output_file}" PARENT_SCOPE)
@@ -272,6 +276,7 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         CSMain
         "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingSampling.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDirectLightAdapter.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli")
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayQueryTlasDebug.hlsl cs_6_5 CSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_SpecularDebugRayQuery.hlsl cs_6_5 CSMain)

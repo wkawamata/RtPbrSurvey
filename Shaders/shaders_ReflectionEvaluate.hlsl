@@ -28,32 +28,8 @@ cbuffer ConstantBuffer : register(b0)
     float constantBufferPadding;
 };
 
-cbuffer LightingConstants : register(b2)
-{
-    float3 lightDirection;
-    float iblIntensity;
-    float3 lightColor;
-    float diffuseIntensity;
-    float4 backgroundColor;
-    float skyboxEnabled;
-    float skyboxPreview;
-    float skyboxPreviewExposure;
-    float lightPassDebugViewMode;
-    float directLightEnabled;
-    float diffuseIblEnabled;
-    float specularIblEnabled;
-    float emissiveEnabled;
-    float iblDebugMip;
-    float iblDebugExposure;
-    float rayTracingSupported;
-    float shadowMaskBlurEnabled;
-    float reflectionHitOverlayEnabled;
-    float reflectionHitOverlayIntensity;
-    float reflectionHitOverlayMode;
-    float reflectionContributionEnabled;
-    float reflectionContributionIntensity;
-    float reflectionContributionMaxDistance;
-};
+#include "DirectLights.hlsli"
+#include "DirectPbrLighting.hlsli"
 
 cbuffer ReflectionSamplingConstants : register(b6)
 {
@@ -176,8 +152,8 @@ ReflectionEvaluateOutput PSMain(FullscreenVSOutput input)
     float hitNdotV = saturate(dot(hitSurface.normal, -reflectionDir));
     float2 hitBrdf = g_brdfLut.Sample(g_sampler, float2(hitNdotV, hitSurface.roughness)).rg;
     float3 hitEnvironmentSpecular = g_specularPrefilterMap.SampleLevel(g_sampler, hitSpecularDirection, specularMip).rgb;
-    float3 lightDir = normalize(lightDirection);
-    float3 lightRadiance = lightColor * diffuseIntensity;
+    float3 lightDir = hitSurface.normal;
+    float3 lightRadiance = 0.0;
     PbrRadianceComponents hitRadiance = EvaluatePbrRadianceComponents(hitSurface,
                                                                       hitViewDir,
                                                                       lightDir,
@@ -189,6 +165,8 @@ ReflectionEvaluateOutput PSMain(FullscreenVSOutput input)
                                                                       directLightEnabled,
                                                                       iblIntensity * diffuseIblEnabled,
                                                                       iblIntensity * specularIblEnabled);
+    hitRadiance.direct = EvaluateDirectPbrLights(hitSurface, hitViewDir,
+        worldPos + normal * reflectionRayNormalBias + reflectionDir * reflectionHit.x);
     float3 evaluatedHitRadiance = EvaluatePbrSurfaceRadiance(hitSurface, hitRadiance, emissiveEnabled);
 
     // Keep this signal independent of visible-surface contribution weighting so temporal processing can

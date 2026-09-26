@@ -286,6 +286,16 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             }
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingEnvironmentMode"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.pathTracingEnvironmentMode) ||
+                options.pathTracingEnvironmentMode > 7)
+            {
+                throw std::invalid_argument("-PathTracingEnvironmentMode expects 0..7: map BSDF, constant BSDF, constant NEE, map uniform NEE, map importance NEE, constant MIS, map uniform MIS, map importance MIS.");
+            }
+            options.hasPathTracingEnvironmentMode = true;
+            options.enablePathTracing = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingSeed"))
         {
             if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.pathTracingRandomSeed))

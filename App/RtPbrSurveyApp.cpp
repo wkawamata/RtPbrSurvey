@@ -1628,6 +1628,19 @@ void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
     const float fps = 1000.0f / cpuFrameTimeMs;
     fprintf(m_logFile, "[FPS] Frame %llu: %.1f FPS (%.2f ms)\n",
             static_cast<unsigned long long>(m_fpsLogFrameCounter), fps, cpuFrameTimeMs);
+    // These timestamps belong to the latest completed GPU frame, not the CPU frame above.
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    const auto& checkPoints = context.gpuCheckPoints;
+    if (checkPoints.size() >= 2)
+    {
+        fprintf(m_logFile, "[GPU] Frame %llu: latest completed total %.6f ms\n",
+                static_cast<unsigned long long>(m_fpsLogFrameCounter), checkPoints.back().timeStamp);
+        for (size_t i = 1; i + 1 < checkPoints.size(); ++i)
+        {
+            fprintf(m_logFile, "[GPU Pass] %s: %.6f ms\n", checkPoints[i].name.c_str(),
+                    checkPoints[i].timeStamp - checkPoints[i - 1].timeStamp);
+        }
+    }
     fflush(m_logFile);
 }
 
@@ -1702,6 +1715,7 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
         {"accumulatedSamples", context.pathTracingRuntimeState.accumulatedSampleCount},
         {"targetSamples", m_commandLineOptions.pathTracingSampleTarget},
         {"randomSeed", settings.randomSeed},
+        {"environmentSamplingMode", settings.environmentSamplingMode},
         {"samplesPerFrame", settings.samplesPerFrame},
         {"maxBounces", settings.maxBounces},
         {"russianRoulette", settings.russianRouletteEnabled},
@@ -2485,6 +2499,7 @@ void RtPbrSurveyApp::OpenFileScene()
     m_sceneRenderer.SetDisplayInstanceCount(LoadedScene().DisplayInstanceCount());
     ApplyRayReconstructionCommandLineOverrides();
     ApplyDlssSrCommandLineOptions();
+    ApplyPathTracingCommandLineOptions();
     m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
     m_appMode = AppMode::Running;
     m_framePaused = false;
@@ -2806,6 +2821,10 @@ void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
     if (m_commandLineOptions.hasPathTracingRandomSeed)
     {
         settings.randomSeed = m_commandLineOptions.pathTracingRandomSeed;
+    }
+    if (m_commandLineOptions.hasPathTracingEnvironmentMode)
+    {
+        settings.environmentSamplingMode = m_commandLineOptions.pathTracingEnvironmentMode;
     }
     m_sceneRenderer.SetPathTracingSettings(settings);
     m_sceneRenderer.SetPathTracingAccumulationPaused(false);
