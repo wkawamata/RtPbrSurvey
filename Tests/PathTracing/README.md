@@ -94,6 +94,19 @@ are under `bin/x64/Debug/PathTracingMultiLightAdditivity` and must not be commit
 This checks the all-light summation path, not Point/Spot attenuation formulas, visibility edge cases, or
 multi-seed convergence. Those require separate tests.
 
+`Test-MultiLightRangeCone.ps1` captures the same scene with a Point or Spot light active, with range reduced to
+0.1, and with the Spot aimed upward. The short-range and upward cases must match the zero-light PFM byte for
+byte; the normal Point and Spot cases must differ from zero lights. It uses the same direct-only, one-bounce
+settings, checks capture diagnostics and D3D12 errors, and writes ignored artifacts under
+`bin/x64/Debug/PathTracingMultiLightRangeCone`.
+
+```powershell
+.\Tests\PathTracing\Test-MultiLightRangeCone.ps1 -Samples 1 -Seed 1
+```
+
+This verifies the range and cone exclusion behavior on the bundled fixture. It does not prove the inverse-square
+falloff or cone interpolation numerically, or whether an occluder beyond the light is excluded by the shadow ray.
+
 Commit 8 exposes these current-frame primary-surface resources through RenderGraph and Debug Texture Preview:
 
 - `PathTracing.NormalRoughness`
