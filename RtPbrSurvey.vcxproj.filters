@@ -673,6 +673,12 @@
     <None Include="Shaders\DirectLights.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
+    <None Include="Shaders\DirectLightEvaluation.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\PathTracingDirectLightAdapter.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
     <None Include="Shaders\DirectPbrLighting.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>

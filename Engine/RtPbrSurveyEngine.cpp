@@ -2480,7 +2480,10 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     CD3DX12_DESCRIPTOR_RANGE1 environmentSrvRange = {};
     environmentSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 6, 0);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[18] = {};
+    CD3DX12_DESCRIPTOR_RANGE1 lightCbvRange = {};
+    lightCbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 2, 0);
+
+    CD3DX12_ROOT_PARAMETER1 rootParameters[19] = {};
     rootParameters[0].InitAsDescriptorTable(1, &sceneColorUavRange);
     rootParameters[1].InitAsDescriptorTable(1, &accumulationUavRange);
     rootParameters[2].InitAsDescriptorTable(1, &normalRoughnessUavRange);
@@ -2499,6 +2502,7 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     rootParameters[15].InitAsShaderResourceView(5, 0);
     rootParameters[16].InitAsDescriptorTable(1, &environmentSrvRange);
     rootParameters[17].InitAsConstants(32, 1, 0);
+    rootParameters[18].InitAsDescriptorTable(1, &lightCbvRange);
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -5711,16 +5715,8 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
     passDesc.normalBias = m_shadowSettings.normalBias;
-    // Temporary single-directional PT bridge until the NEE/MIS light adapter contract is integrated.
-    const RtPbrSurvey::DirectLight* ptLight =
-        RtPbrSurvey::FindShadowLight(m_lightingParams.lights, m_lightingParams.primaryShadowLightId);
-    const XMFLOAT3 ptDirection =
-        RtPbrSurvey::ShadowLightDirection(m_lightingParams.lights, m_lightingParams.primaryShadowLightId);
-    passDesc.lightDirection = {ptDirection.x, ptDirection.y, ptDirection.z};
-    passDesc.lightColor = ptLight ? std::array<float, 3>{ptLight->color.x, ptLight->color.y, ptLight->color.z} :
-                                   std::array<float, 3>{0.0f, 0.0f, 0.0f};
+    passDesc.lightCbv = m_frameResources[m_currentFrameIndex].lightCB.cbv.gpu;
     passDesc.environmentIntensity = m_lightingParams.iblIntensity;
-    passDesc.diffuseIntensity = ptLight ? ptLight->intensity : 0.0f;
     passDesc.backgroundColor = m_backBufferClearColor;
     passDesc.debugOutput = static_cast<UINT>(m_pathTracingSettings.debugOutput);
     passDesc.maxBounces = m_pathTracingSettings.maxBounces;
