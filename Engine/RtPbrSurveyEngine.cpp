@@ -6174,6 +6174,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                                             m_pathTracingAccumulation.Get() : m_renderTargets[m_currentFrameIndex].Get(),
                                         m_hdrOutputPolicy.settings.hdr10Enabled,
                                         m_toneMapPass.settings.paperWhiteNits,
+                                        capture.request.region,
                                         capture.readback);
         m_pendingScreenshotCapture = std::move(capture);
     }
