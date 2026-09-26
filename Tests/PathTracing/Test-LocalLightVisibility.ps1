@@ -7,6 +7,10 @@ param(
     [int]$Samples = 1,
     [uint32]$Seed = 1,
     [switch]$NearLightBoundary,
+    [ValidateRange(0.001, 0.1)]
+    [double]$NormalBias = 0.01,
+    [ValidateRange(0, 3)]
+    [double]$LightOffsetX = 0,
     [ValidateRange(1, 600)]
     [int]$TimeoutSeconds = 120
 )
@@ -77,7 +81,7 @@ $variants = [ordered]@{
 if ($NearLightBoundary)
 {
     $variants.between = @(0, 1, 0)
-    $variants.beyond = @(0, 2.005, 0)
+    $variants.beyond = @(0, (2 + 0.25 * $NormalBias), 0)
 }
 $captures = [ordered]@{}
 foreach ($variant in $variants.Keys)
@@ -89,7 +93,7 @@ foreach ($variant in $variants.Keys)
     if ($NearLightBoundary)
     {
         $blocker.primitive.size = 1
-        $blocker.scale = @(10, 0.004, 10)
+        $blocker.scale = @(10, (0.2 * $NormalBias), 10)
     }
     foreach ($node in $scene.nodes)
     {
@@ -113,12 +117,20 @@ foreach ($variant in $variants.Keys)
     $light.position = @(-2, 3, 0)
     if ($NearLightBoundary)
     {
-        $light.position = @(0, 2, 0)
+        $light.position = @($LightOffsetX, 2, 0)
     }
     if ($LightType -eq 'Spot')
     {
         $light.type = 'spot'
-        $light.direction = if ($NearLightBoundary) { @(0, -1, 0) } else { @(0.5547002, -0.8320503, 0) }
+        if ($NearLightBoundary)
+        {
+            $lightDistance = [Math]::Sqrt($LightOffsetX * $LightOffsetX + 4)
+            $light.direction = @((-1 * $LightOffsetX / $lightDistance), (-2 / $lightDistance), 0)
+        }
+        else
+        {
+            $light.direction = @(0.5547002, -0.8320503, 0)
+        }
     }
     $preset.lighting.lights = @($light)
     $preset.lighting.primaryShadowLightId = 0
@@ -127,6 +139,10 @@ foreach ($variant in $variants.Keys)
     $preset.lighting.specularIblEnabled = $false
     $preset.lighting.emissiveEnabled = $false
     $preset.shadow.enabled = $true
+    if ($NearLightBoundary)
+    {
+        $preset.shadow.normalBias = $NormalBias
+    }
     $preset.pathTracing = @{
         maxBounces = 1
         directLightingEnabled = $true
@@ -221,6 +237,8 @@ $report = [ordered]@{
     samples = $Samples
     seed = $Seed
     nearLightBoundary = [bool]$NearLightBoundary
+    normalBias = if ($NearLightBoundary) { $NormalBias } else { $null }
+    lightOffsetX = if ($NearLightBoundary) { $LightOffsetX } else { $null }
     roi = @(($centerX - $roiHalfWidth), ($centerY - $roiHalfWidth), (2 * $roiHalfWidth), (2 * $roiHalfWidth))
     sampledFloatCount = $count
     clearMean = $clearSum / $count

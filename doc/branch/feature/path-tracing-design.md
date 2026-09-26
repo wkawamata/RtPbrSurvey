@@ -1099,14 +1099,21 @@ DamagedHelmet / ROI (885,460,175,180) / 32 samples / seed 1,2、参照mode 7 / 1
 - 最終bounceではenvironment NEE/continuationを行わず、shadow無効時はNEE単独に戻す。
   これは現行の有限bounce contractであり、無限bounceの不偏推定を意味しない。
 
-この監査で、有限光源のshadow rayが法線bias後もunbiasedな光源距離を`TMax`に使い、
+この監査で、有限光源のshadow rayが法線bias後もunbiasedな光源方向と距離を使い、
 光源直後の遮蔽物を誤検出する境界不具合を再現した。Point lightの2 m先、
 光源から5 mm後ろの薄板で、中央ROIのHDR平均はclear `0.07460696`に対して`0`だった。
-adapter内でbiased originから光源位置へのray方向射影距離を計算し、従来の`TMax`との最小値で
-有限光源のshadow rayを終了する。Directionalとenvironmentの距離は変更しない。
+距離だけを光源方向へ射影して短縮すると正面配置では直るが、斜め配置ではrayが光源位置を通らず、
+光源背後の薄板をなお誤検出した。最終修正ではadapter内でbiased originから有限光源への方向と
+距離を再計算し、距離は従来の`TMax`以下に制限する。Directionalとenvironmentのrayは変更しない。
 
 Debug x64 build後、`Test-LocalLightVisibility.ps1`のPoint/Spotそれぞれで従来ケースと
 `-NearLightBoundary`ケースを1 sample、seed 1で実行した。4ケースともD3D12 errorなし。
 近接ケースの中央16x16 ROIではclearと光源背後の薄板が画素単位で一致し、
 光源手前の板は遮光した。従来ケースの中央48x48 ROIも同じ関係を維持した。
 これは有限光源のshadow endpointに対する回帰確認であり、全scene/全bias値での可視性証明ではない。
+
+追加検証ではlightを横に2 mずらし、光源直後に`normalBias`の0.25倍だけ離した薄板を置いた。
+距離のみの修正ではPointの中央ROI HDR平均がclear `0.02522388`から`0`に落ちた。
+方向と距離の再計算後はPoint/Spotの`normalBias = 0.01`、Pointの`0.005`、Spotの`0.03`で、
+clearと背後板の中央16x16 ROIが画素単位で一致し、手前板は遮光した。すべて1 sample、seed 1で、
+D3D12 errorはなかった。`-NearLightBoundary -NormalBias <value> -LightOffsetX <value>`で再実行できる。

@@ -275,7 +275,8 @@ float TraceShadow(float3 worldPosition, float3 normal, PathTracingLightSample li
     shadowRay.Origin = worldPosition + normal * normalBias;
     shadowRay.Direction = lightSample.direction;
     shadowRay.TMin = rayTMin;
-    shadowRay.TMax = ResolvePathTracingShadowDistance(lightSample, shadowRay.Origin);
+    shadowRay.TMax = lightSample.distance;
+    ResolvePathTracingShadowRay(lightSample, shadowRay.Origin, shadowRay.Direction, shadowRay.TMax);
     if (shadowRay.TMax <= shadowRay.TMin)
     {
         return 1.0;

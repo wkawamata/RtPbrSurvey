@@ -35,15 +35,25 @@ PathTracingLightSample MakePathTracingSceneLightSample(uint index, float3 worldP
         direct.surfaceToLight, direct.radiance, distance, 1.0, index);
 }
 
-float ResolvePathTracingShadowDistance(PathTracingLightSample sample, float3 shadowOrigin)
+void ResolvePathTracingShadowRay(PathTracingLightSample sample,
+                                 float3 shadowOrigin,
+                                 inout float3 direction,
+                                 inout float distance)
 {
     if (sample.isDelta == 0u || sample.sourceIndex >= min(ptLightCount, 16u) ||
         ptLights[sample.sourceIndex].type == 0u)
     {
-        return sample.distance;
+        return;
     }
-    const float distanceToLightPlane = dot(ptLights[sample.sourceIndex].position - shadowOrigin, sample.direction);
-    return min(sample.distance, distanceToLightPlane);
+    const float3 lightOffset = ptLights[sample.sourceIndex].position - shadowOrigin;
+    const float distanceToLight = length(lightOffset);
+    if (distanceToLight <= 0.0)
+    {
+        distance = 0.0;
+        return;
+    }
+    direction = lightOffset / distanceToLight;
+    distance = min(sample.distance, distanceToLight);
 }
 
 #endif
