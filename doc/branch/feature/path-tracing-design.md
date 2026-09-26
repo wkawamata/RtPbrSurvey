@@ -1083,3 +1083,30 @@ DamagedHelmet / ROI (885,460,175,180) / 32 samples / seed 1,2、参照mode 7 / 1
 参照2seedの不一致RMSEは0.00486988。NEE単独の大きな分散は観測できるが、BSDFとMISの小さな差を
 この少数seed・低sample検証から一般化しない。defaultの64 samples / 3 seeds / 1024-sample referencesによる
 長時間比較や別sceneの検証はこの実行には含まない。
+
+### 17.6 Multi-light estimator audit and finite shadow boundary
+
+`shaders_PathTracing.hlsl`の推定式を、`PathTracingSampling.hlsli`と
+`PathTracingDirectLightAdapter.hlsli`のPDF contractに照らして確認した。
+
+- Directional/Point/Spotは全lightを決定的に列挙するため`selectionPdf = 1`。
+  直接光は`throughput * BRDF * Li * NdotL * visibility / selectionPdf`で加算し、
+  delta sampleには連続方向PDFとのMISを適用しない。
+- Environment NEEは1方向をsampleし、`selectionPdf * directionPdf`で割る。
+  mode 5-7ではBSDF混合PDFとpower heuristicで重み付けする。
+- BSDF continuationは混合PDFで重みを正規化する。secondary missのMISには直前のBSDF PDFと
+  environment PDFを使用し、primary missはMIS対象外。Russian rouletteの生存補正はthroughputだけに適用する。
+- 最終bounceではenvironment NEE/continuationを行わず、shadow無効時はNEE単独に戻す。
+  これは現行の有限bounce contractであり、無限bounceの不偏推定を意味しない。
+
+この監査で、有限光源のshadow rayが法線bias後もunbiasedな光源距離を`TMax`に使い、
+光源直後の遮蔽物を誤検出する境界不具合を再現した。Point lightの2 m先、
+光源から5 mm後ろの薄板で、中央ROIのHDR平均はclear `0.07460696`に対して`0`だった。
+adapter内でbiased originから光源位置へのray方向射影距離を計算し、従来の`TMax`との最小値で
+有限光源のshadow rayを終了する。Directionalとenvironmentの距離は変更しない。
+
+Debug x64 build後、`Test-LocalLightVisibility.ps1`のPoint/Spotそれぞれで従来ケースと
+`-NearLightBoundary`ケースを1 sample、seed 1で実行した。4ケースともD3D12 errorなし。
+近接ケースの中央16x16 ROIではclearと光源背後の薄板が画素単位で一致し、
+光源手前の板は遮光した。従来ケースの中央48x48 ROIも同じ関係を維持した。
+これは有限光源のshadow endpointに対する回帰確認であり、全scene/全bias値での可視性証明ではない。

@@ -6,6 +6,7 @@ param(
     [ValidateRange(1, 4096)]
     [int]$Samples = 1,
     [uint32]$Seed = 1,
+    [switch]$NearLightBoundary,
     [ValidateRange(1, 600)]
     [int]$TimeoutSeconds = 120
 )
@@ -17,7 +18,8 @@ $sourceScene = Join-Path $root 'Assets/Scenes/MultiLightValidation/scene.json'
 $sourcePreset = Join-Path $root 'Assets/Scenes/MultiLightValidation/render-preset.json'
 if (-not $OutputDirectory)
 {
-    $OutputDirectory = Join-Path $root "bin/x64/Debug/PathTracing${LightType}Visibility"
+    $suffix = if ($NearLightBoundary) { 'NearLightVisibility' } else { 'Visibility' }
+    $OutputDirectory = Join-Path $root "bin/x64/Debug/PathTracing${LightType}${suffix}"
 }
 $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 [IO.Directory]::CreateDirectory($OutputDirectory) | Out-Null
@@ -72,6 +74,11 @@ $variants = [ordered]@{
     between = @(-1, 1.5, 0)
     beyond = @(-3, 4.5, 0)
 }
+if ($NearLightBoundary)
+{
+    $variants.between = @(0, 1, 0)
+    $variants.beyond = @(0, 2.005, 0)
+}
 $captures = [ordered]@{}
 foreach ($variant in $variants.Keys)
 {
@@ -79,6 +86,11 @@ foreach ($variant in $variants.Keys)
     $blocker = @($scene.nodes | Where-Object { $_.id -eq 'blocker' })[0]
     $blocker.primitive.size = 0.45
     $blocker.translation = $variants[$variant]
+    if ($NearLightBoundary)
+    {
+        $blocker.primitive.size = 1
+        $blocker.scale = @(10, 0.004, 10)
+    }
     foreach ($node in $scene.nodes)
     {
         if ($node.id -in @('smooth', 'rough', 'diffuse'))
@@ -90,7 +102,7 @@ foreach ($variant in $variants.Keys)
     {
         $scene.nodes = @($scene.nodes | Where-Object { $_.id -ne 'blocker' })
     }
-    $scene.camera.position = @(0, 4, -7)
+    $scene.camera.position = if ($NearLightBoundary) { @(0, 1, -7) } else { @(0, 4, -7) }
     $scene.camera.target = @(0, 0, 0)
     $scene.renderPreset = "$variant-preset.json"
     $scenePath = Join-Path $OutputDirectory "$variant-scene.json"
@@ -99,10 +111,14 @@ foreach ($variant in $variants.Keys)
     $preset = Get-Content -LiteralPath $sourcePreset -Raw | ConvertFrom-Json -AsHashtable
     $light = $preset.lighting.lights[1]
     $light.position = @(-2, 3, 0)
+    if ($NearLightBoundary)
+    {
+        $light.position = @(0, 2, 0)
+    }
     if ($LightType -eq 'Spot')
     {
         $light.type = 'spot'
-        $light.direction = @(0.5547002, -0.8320503, 0)
+        $light.direction = if ($NearLightBoundary) { @(0, -1, 0) } else { @(0.5547002, -0.8320503, 0) }
     }
     $preset.lighting.lights = @($light)
     $preset.lighting.primaryShadowLightId = 0
@@ -170,10 +186,12 @@ $clearSum = 0.0
 $betweenSum = 0.0
 $beyondSum = 0.0
 $maxBeyondDifference = 0.0
+$maxBeyondPixel = @()
 $count = 0
-for ($y = $centerY - 24; $y -lt $centerY + 24; $y += 2)
+$roiHalfWidth = if ($NearLightBoundary) { 8 } else { 24 }
+for ($y = $centerY - $roiHalfWidth; $y -lt $centerY + $roiHalfWidth; $y += 2)
 {
-    for ($x = $centerX - 24; $x -lt $centerX + 24; $x += 2)
+    for ($x = $centerX - $roiHalfWidth; $x -lt $centerX + $roiHalfWidth; $x += 2)
     {
         for ($channel = 0; $channel -lt 3; ++$channel)
         {
@@ -188,7 +206,12 @@ for ($y = $centerY - 24; $y -lt $centerY + 24; $y += 2)
             $clearSum += $a
             $betweenSum += $b
             $beyondSum += $c
-            $maxBeyondDifference = [Math]::Max($maxBeyondDifference, [Math]::Abs($a - $c))
+            $difference = [Math]::Abs($a - $c)
+            if ($difference -gt $maxBeyondDifference)
+            {
+                $maxBeyondDifference = $difference
+                $maxBeyondPixel = @($x, $y, $channel)
+            }
             ++$count
         }
     }
@@ -197,12 +220,14 @@ $report = [ordered]@{
     lightType = $LightType
     samples = $Samples
     seed = $Seed
-    roi = @(($centerX - 24), ($centerY - 24), 48, 48)
+    nearLightBoundary = [bool]$NearLightBoundary
+    roi = @(($centerX - $roiHalfWidth), ($centerY - $roiHalfWidth), (2 * $roiHalfWidth), (2 * $roiHalfWidth))
     sampledFloatCount = $count
     clearMean = $clearSum / $count
     betweenMean = $betweenSum / $count
     beyondMean = $beyondSum / $count
     maxBeyondDifference = $maxBeyondDifference
+    maxBeyondPixel = $maxBeyondPixel
     captures = $captures
 }
 $reportPath = Join-Path $OutputDirectory 'report.json'

@@ -275,7 +275,11 @@ float TraceShadow(float3 worldPosition, float3 normal, PathTracingLightSample li
     shadowRay.Origin = worldPosition + normal * normalBias;
     shadowRay.Direction = lightSample.direction;
     shadowRay.TMin = rayTMin;
-    shadowRay.TMax = lightSample.distance;
+    shadowRay.TMax = ResolvePathTracingShadowDistance(lightSample, shadowRay.Origin);
+    if (shadowRay.TMax <= shadowRay.TMin)
+    {
+        return 1.0;
+    }
 
     RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> query;
     query.TraceRayInline(g_tlas, rayFlags, 0xff, shadowRay);
