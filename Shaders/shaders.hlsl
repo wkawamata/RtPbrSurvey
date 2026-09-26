@@ -35,6 +35,7 @@ struct PSInput
     float3 normal : NORMAL;
     uint instanceId : SV_InstanceID;
     nointerpolation uint materialId : TEXCOORD1;
+    float3 worldPosition : TEXCOORD2;
 };
 
 
@@ -43,14 +44,7 @@ SamplerState g_sampler : register(s0);
 StructuredBuffer<InstanceData> g_instanceData : register(t0, space1);
 StructuredBuffer<Material> g_materialData : register(t0, space2);
 
-cbuffer LightingConstants : register(b2)
-{
-    float3 lightDirection;
-    float ambientIntensity;
-    float3 lightColor;
-    float diffuseIntensity;
-    float4 backgroundColor;
-};
+#include "DirectLights.hlsli"
 
 PSInput VSMain(float4 position : POSITION,
                float2 uv : TEXCOORD,
@@ -65,7 +59,8 @@ PSInput VSMain(float4 position : POSITION,
     InstanceData inst = g_instanceData[instanceId];    
 
     float4x4 worldViewProj = mul(inst.world, viewProj);
-    result.position = mul(float4(position.xyz, 1.0), worldViewProj);    
+    result.position = mul(float4(position.xyz, 1.0), worldViewProj);
+    result.worldPosition = mul(float4(position.xyz, 1.0), inst.world).xyz;
     result.uv = uv;
     result.normal = normalize(mul(normal, (float3x3)inst.world));
     result.instanceId = instanceId;
@@ -80,9 +75,13 @@ float4 PSMain(PSInput input) : SV_TARGET
     float2 materialUv = input.uv * mat.uvScale + mat.uvOffset;
     float4 albedo = g_texture[mat.albedoTexIndex].Sample(g_sampler, materialUv);
     float3 normal = normalize(input.normal);
-    float3 lightDir = normalize(-lightDirection);
-    float ndotl = saturate(dot(normal, lightDir));
-    float3 ambient = albedo.rgb * ambientIntensity;
-    float3 diffuse = albedo.rgb * lightColor * ndotl * diffuseIntensity;
+    float3 ambient = albedo.rgb * iblIntensity * diffuseIblEnabled;
+    float3 diffuse = 0.0;
+    for (uint lightIndex = 0; lightIndex < lightCount; ++lightIndex)
+    {
+        DirectLightSample light = EvaluateDirectLight(lightIndex, input.worldPosition);
+        diffuse += albedo.rgb * light.radiance * saturate(dot(normal, light.surfaceToLight));
+    }
+    diffuse *= directLightEnabled;
     return float4(ambient + diffuse, albedo.a);
 }

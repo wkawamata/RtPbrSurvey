@@ -59,4 +59,7 @@ bool SaveRgba32fExr(
 bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem::path& path, std::string& error);
 
 bool SaveExrScreenshotReadback(ScreenshotReadback& readback, const std::filesystem::path& path, std::string& error);
+
+bool SaveAccumulationPfm(const std::filesystem::path& path, UINT width, UINT height,
+                          const std::uint8_t* source, UINT rowPitch, std::string& error);
 } // namespace Engine

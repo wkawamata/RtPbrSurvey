@@ -1,5 +1,6 @@
 #include "FullscreenTriangle.hlsli"
 #include "PbrLighting.hlsli"
+#include "ReflectionSampling.hlsli"
 
 Texture2D<float4> g_normal : register(t1, space3);
 Texture2D<float4> g_pbrParams : register(t4, space3);
@@ -36,32 +37,8 @@ cbuffer ReflectionRayHitDebugConstants : register(b1)
     float contributionIntensity;
 };
 
-cbuffer LightingConstants : register(b2)
-{
-    float3 lightDirection;
-    float iblIntensity;
-    float3 lightColor;
-    float diffuseIntensity;
-    float4 backgroundColor;
-    float skyboxEnabled;
-    float skyboxPreview;
-    float skyboxPreviewExposure;
-    float lightPassDebugViewMode;
-    float directLightEnabled;
-    float diffuseIblEnabled;
-    float specularIblEnabled;
-    float emissiveEnabled;
-    float iblDebugMip;
-    float iblDebugExposure;
-    float rayTracingSupported;
-    float shadowMaskBlurEnabled;
-    float reflectionHitOverlayEnabled;
-    float reflectionHitOverlayIntensity;
-    float reflectionHitOverlayMode;
-    float reflectionContributionEnabled;
-    float reflectionContributionIntensity;
-    float reflectionContributionMaxDistance;
-};
+#include "DirectLights.hlsli"
+#include "DirectPbrLighting.hlsli"
 
 float3 DecodeNormalOctahedron(float2 encodedNormal)
 {
@@ -286,6 +263,11 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         float3 worldPos = ReconstructWorldPosition(input.uv, depth);
         float3 viewDir = normalize(cameraPosition - worldPos);
         float3 reflectionDir = reflect(-viewDir, visibleNormal);
+        if (reflectionLightSamplingEnabled != 0u)
+        {
+            reflectionDir = SampleRoughReflectionDirection(uint2(input.position.xy), reflectionLightSamplingFrame,
+                -viewDir, visibleNormal, visibleRoughness, reflectionDir);
+        }
         float3 hitNormal = DecodeNormalOctahedron(rayHit.zw);
         PbrSurface hitSurface = MakeReflectionHitSurface(rayColor, rayMaterial, hitNormal, rayEmission);
         float3 hitViewDir = -reflectionDir;
@@ -296,8 +278,8 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
         float2 hitBrdf = g_brdfLut.Sample(g_sampler, float2(hitNdotV, hitSurface.roughness)).rg;
         float3 hitEnvironmentSpecular =
             g_specularPrefilterMap.SampleLevel(g_sampler, hitSpecularDirection, specularMip).rgb;
-        float3 lightDir = normalize(lightDirection);
-        float3 lightRadiance = lightColor * diffuseIntensity;
+        float3 lightDir = hitSurface.normal;
+        float3 lightRadiance = 0.0;
         PbrRadianceComponents hitRadiance = EvaluatePbrRadianceComponents(hitSurface,
                                                                           hitViewDir,
                                                                           lightDir,
@@ -309,6 +291,8 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
                                                                           directLightEnabled,
                                                                           iblIntensity * diffuseIblEnabled,
                                                                           iblIntensity * specularIblEnabled);
+        hitRadiance.direct = EvaluateDirectPbrLights(hitSurface, hitViewDir,
+            worldPos + visibleNormal * reflectionRayNormalBias + reflectionDir * rayHit.x);
 
         float3 component = hitRadiance.direct;
         if (debugTarget == 10)

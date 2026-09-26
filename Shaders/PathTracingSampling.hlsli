@@ -12,6 +12,72 @@ struct PathTracingBsdfSample
     uint sampledSpecular;
 };
 
+struct PathTracingLightSample
+{
+    float3 direction;
+    float distance;
+    float3 radiance;
+    float selectionPdf;
+    float directionPdf;
+    uint sourceIndex;
+    uint isDelta;
+    uint valid;
+};
+
+struct PathTracingDirectLightCandidate
+{
+    PathTracingLightSample lightSample;
+    float3 diffuseBrdf;
+    float3 specularBrdf;
+    float normalDotLight;
+    uint valid;
+};
+
+PathTracingLightSample MakeInvalidPathTracingLightSample()
+{
+    return (PathTracingLightSample)0;
+}
+
+PathTracingLightSample MakePathTracingDirectionalLightSample(float3 surfaceToLight,
+                                                              float3 radiance,
+                                                              float shadowDistance,
+                                                              float selectionPdf,
+                                                              uint sourceIndex)
+{
+    PathTracingLightSample result = MakeInvalidPathTracingLightSample();
+    const float directionLengthSquared = dot(surfaceToLight, surfaceToLight);
+    if (!isfinite(directionLengthSquared) || directionLengthSquared <= 0.000001 ||
+        !all(isfinite(radiance)) || !isfinite(shadowDistance) || shadowDistance <= 0.0 ||
+        !isfinite(selectionPdf) || selectionPdf <= 0.0 || selectionPdf > 1.0)
+    {
+        return result;
+    }
+
+    result.direction = surfaceToLight * rsqrt(directionLengthSquared);
+    result.distance = shadowDistance;
+    result.radiance = max(radiance, 0.0);
+    result.selectionPdf = selectionPdf;
+    result.directionPdf = 0.0;
+    result.sourceIndex = sourceIndex;
+    result.isDelta = 1u;
+    result.valid = all(isfinite(result.direction)) && all(isfinite(result.radiance)) ? 1u : 0u;
+    return result;
+}
+
+PathTracingLightSample MakePathTracingConstantEnvironmentSample(float2 randomSample,
+                                                                float3 radiance,
+                                                                float shadowDistance)
+{
+    const float z = 1.0 - 2.0 * randomSample.x;
+    const float radius = sqrt(max(0.0, 1.0 - z * z));
+    const float phi = 2.0 * kPathTracingPi * randomSample.y;
+    PathTracingLightSample result = MakePathTracingDirectionalLightSample(
+        float3(radius * cos(phi), radius * sin(phi), z), radiance, shadowDistance, 1.0, 0u);
+    result.directionPdf = 1.0 / (4.0 * kPathTracingPi);
+    result.isDelta = 0u;
+    return result;
+}
+
 float PathTracingLuminance(float3 color)
 {
     return dot(color, float3(0.2126, 0.7152, 0.0722));
@@ -85,6 +151,29 @@ void EvaluatePathTracingBrdfComponents(float3 albedo,
     diffuse = (1.0 - fresnel) * (1.0 - metallic) * albedo / kPathTracingPi;
 }
 
+PathTracingDirectLightCandidate MakePathTracingDirectLightCandidate(PathTracingLightSample lightSample,
+                                                                   float3 albedo,
+                                                                   float metallic,
+                                                                   float roughness,
+                                                                   float3 normal,
+                                                                   float3 geometryNormal,
+                                                                   float3 viewDirection)
+{
+    PathTracingDirectLightCandidate result = (PathTracingDirectLightCandidate)0;
+    result.lightSample = lightSample;
+    result.normalDotLight = saturate(dot(normal, lightSample.direction));
+    if (lightSample.valid == 0 || result.normalDotLight <= 0.0 ||
+        dot(geometryNormal, lightSample.direction) <= 0.0)
+    {
+        return result;
+    }
+
+    EvaluatePathTracingBrdfComponents(albedo, metallic, roughness, normal, viewDirection,
+        lightSample.direction, result.diffuseBrdf, result.specularBrdf);
+    result.valid = all(isfinite(result.diffuseBrdf)) && all(isfinite(result.specularBrdf)) ? 1u : 0u;
+    return result;
+}
+
 float3 EvaluatePathTracingBrdf(float3 albedo,
                                float metallic,
                                float roughness,
@@ -152,6 +241,32 @@ float PathTracingSpecularPdf(float3 normal,
         max(4.0 * viewDotHalf, 0.000001);
 }
 
+float PathTracingPowerHeuristic(float sampledPdf, float competingPdf)
+{
+    const float scale = max(sampledPdf, competingPdf);
+    if (!isfinite(scale) || scale <= 0.0)
+    {
+        return 0.0;
+    }
+    const float a = sampledPdf / scale;
+    const float b = competingPdf / scale;
+    return a * a / (a * a + b * b);
+}
+
+float EvaluatePathTracingBsdfPdf(float3 albedo, float metallic, float roughness,
+                                 float3 normal, float3 viewDirection, float3 direction)
+{
+    const float normalDotLight = saturate(dot(normal, direction));
+    if (normalDotLight <= 0.0 || dot(normal, viewDirection) <= 0.0)
+    {
+        return 0.0;
+    }
+    const float specularProbability = PathTracingSpecularProbability(albedo, metallic, normal, viewDirection);
+    const float diffusePdf = normalDotLight / kPathTracingPi;
+    const float specularPdf = PathTracingSpecularPdf(normal, viewDirection, direction, roughness);
+    return lerp(diffusePdf, specularPdf, specularProbability);
+}
+
 PathTracingBsdfSample SamplePathTracingBsdf(float3 albedo,
                                             float metallic,
                                             float roughness,
@@ -184,9 +299,7 @@ PathTracingBsdfSample SamplePathTracingBsdf(float3 albedo,
         return result;
     }
 
-    const float diffusePdf = normalDotLight / kPathTracingPi;
-    const float specularPdf = PathTracingSpecularPdf(normal, viewDirection, result.direction, roughness);
-    result.pdf = lerp(diffusePdf, specularPdf, specularProbability);
+    result.pdf = EvaluatePathTracingBsdfPdf(albedo, metallic, roughness, normal, viewDirection, result.direction);
     if (!isfinite(result.pdf) || result.pdf <= 0.0)
     {
         return result;

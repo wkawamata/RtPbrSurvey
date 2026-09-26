@@ -19,7 +19,7 @@ request.source = RtPbrSurvey::ScreenshotCaptureSource::PreToneMapSceneColor;
 renderer.RequestScreenshot(std::move(request));
 ```
 
-`Png` is valid only with `FinalOutput`; it captures the composed final back buffer after ImGui. `Exr` is valid only with `PreToneMapSceneColor`; it captures `LightPass.RenderTarget` and excludes ImGui by construction. Unsupported combinations, invalid ROI bounds, unavailable scene color, and unsupported rendering paths return a failed `ScreenshotResult` rather than changing the active rendering path.
+`Png` is valid only with `FinalOutput`; it captures the composed final back buffer after ImGui. `Exr` is valid only with `PreToneMapSceneColor`; it captures `LightPass.RenderTarget` and excludes ImGui by construction. The existing `.pfm` path remains a backward-compatible exception: in Path Tracing it captures the normalized accumulation buffer through its existing final-output request shape. Unsupported combinations, invalid ROI bounds, unavailable scene color, and unsupported rendering paths return a failed `ScreenshotResult` rather than changing the active rendering path.
 
 ## Color and Resolution
 
