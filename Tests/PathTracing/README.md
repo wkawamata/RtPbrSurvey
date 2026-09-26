@@ -137,6 +137,26 @@ Generated scenes, presets, PFM files, logs, and the JSON report remain under
 This is an approximate output-level ratio check, not an analytic reference for every floor pixel or a test of
 the Spot cone interpolation.
 
+## Multi-light convergence
+
+`compare_hdr.py` accepts `--scene-file` and `--render-preset` for the bundled multi-light fixture. With
+`--direct-only`, it writes a derived preset under the output directory with environment/emissive disabled and
+one bounce; the source preset is unchanged. `--reference-mode 0 --modes 0` compares the direct-light estimator
+only. Run two sample counts with disjoint evaluation/reference seeds, then use `compare_convergence.py` to
+recompute both against the same higher-sample reference. The reports include scene/preset hashes and capture
+diagnostics; generated PFM/log/report files under `bin/` must not be committed.
+
+```powershell
+python -B Tests/PathTracing/compare_hdr.py --scene-file Assets/Scenes/MultiLightValidation/scene.json --render-preset Assets/Scenes/MultiLightValidation/render-preset.json --direct-only --roi 600 300 720 480 --samples 8 --reference-samples 32 --seeds 1 2 3 --reference-seeds 101 102 --modes 0 --reference-mode 0 --require-seed-variation --output bin/PathTracingMultiLightConvergence-8spp
+python -B Tests/PathTracing/compare_hdr.py --scene-file Assets/Scenes/MultiLightValidation/scene.json --render-preset Assets/Scenes/MultiLightValidation/render-preset.json --direct-only --roi 600 300 720 480 --samples 32 --reference-samples 128 --seeds 1 2 3 --reference-seeds 101 102 --modes 0 --reference-mode 0 --require-seed-variation --output bin/PathTracingMultiLightConvergence-32spp
+python -B Tests/PathTracing/compare_convergence.py --low-report bin/PathTracingMultiLightConvergence-8spp/report.json --high-report bin/PathTracingMultiLightConvergence-32spp/report.json --output bin/PathTracingMultiLightConvergence-common/report.json
+```
+
+On RTX 2080 Ti (2026-09-27), the common 128 spp reference gave mean-image RGB RMSE `0.04663` at 8 spp and
+`0.02142` at 32 spp; seed variance was `0.007053` and `0.002356`, respectively. Fixed-seed repeats matched,
+and all captures had zero D3D12 errors. The two 128 spp reference seeds disagreed by RMSE `0.03143`, so this
+is evidence of a convergence trend, not a ground-truth error or bias estimate.
+
 Commit 8 exposes these current-frame primary-surface resources through RenderGraph and Debug Texture Preview:
 
 - `PathTracing.NormalRoughness`

@@ -42,15 +42,38 @@ def rmse(a, b):
     return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)) / len(a))
 
 
+def write_direct_only_preset(source, destination):
+    preset = json.loads(source.read_text(encoding="utf-8-sig"))
+    lighting = preset["lighting"]
+    lighting.update(skyboxEnabled=False, diffuseIblEnabled=False,
+                    specularIblEnabled=False, emissiveEnabled=False)
+    preset.setdefault("shadow", {})["enabled"] = True
+    preset.setdefault("pathTracing", {}).update(
+        maxBounces=1, directLightingEnabled=True, environmentEnabled=False,
+        emissiveEnabled=False, russianRouletteEnabled=False)
+    destination.write_text(json.dumps(preset, indent=2) + "\n", encoding="utf-8")
+
+
+def build_capture_command(args, mode, seed, samples, path, log):
+    command = [str(args.exe)]
+    if args.scene_file:
+        command.extend(["-SceneFile", str(args.scene_file)])
+        if args.render_preset:
+            command.extend(["-RenderPreset", str(args.render_preset)])
+    else:
+        command.extend(["-AutoSelectGltfAsset", args.scene, "-UseSceneDefaults"])
+    command.extend(["-EnablePathTracing", "-PathTracingSamples", str(samples),
+                    "-PathTracingSeed", str(seed), "-PathTracingEnvironmentMode", str(mode),
+                    "-CapturePath", str(path), "-LogToFile", str(log), "-ExitAfterCapture"])
+    return command
+
+
 def capture(args, mode, seed, samples, name):
     path = args.output / (name + ".pfm")
     log = args.output / (name + ".log")
     path.unlink(missing_ok=True)
     log.unlink(missing_ok=True)
-    command = [str(args.exe), "-AutoSelectGltfAsset", args.scene, "-UseSceneDefaults",
-               "-EnablePathTracing", "-PathTracingSamples", str(samples),
-               "-PathTracingSeed", str(seed), "-PathTracingEnvironmentMode", str(mode),
-               "-CapturePath", str(path), "-LogToFile", str(log), "-ExitAfterCapture"]
+    command = build_capture_command(args, mode, seed, samples, path, log)
     startup = subprocess.STARTUPINFO()
     startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     subprocess.run(command, cwd=args.root, check=True, timeout=args.timeout, startupinfo=startup)
@@ -77,12 +100,16 @@ def main():
     parser.add_argument("--exe", type=Path, default=root / "bin/x64/Debug/RtPbrSurvey.exe")
     parser.add_argument("--output", type=Path, default=root / "bin/PathTracing-HdrComparison")
     parser.add_argument("--scene", default="DamagedHelmet")
+    parser.add_argument("--scene-file", type=Path)
+    parser.add_argument("--render-preset", type=Path)
+    parser.add_argument("--direct-only", action="store_true")
     parser.add_argument("--roi", type=int, nargs=4, default=[885, 460, 175, 180])
     parser.add_argument("--samples", type=int, default=64)
     parser.add_argument("--reference-samples", type=int, default=1024)
     parser.add_argument("--seeds", type=int, nargs="+", default=[1, 2, 3])
     parser.add_argument("--reference-seeds", type=int, nargs="+", default=[101, 102])
     parser.add_argument("--modes", type=int, nargs="+", default=[0, 3, 4, 6, 7])
+    parser.add_argument("--reference-mode", type=int, default=7)
     parser.add_argument("--timeout", type=int, default=300)
     parser.add_argument("--require-seed-variation", action="store_true")
     args = parser.parse_args()
@@ -92,16 +119,29 @@ def main():
             or set(args.seeds) & set(args.reference_seeds)
             or min(args.samples, args.reference_samples) <= 0
             or args.reference_samples <= args.samples
-            or not args.modes or any(m not in (0, 3, 4, 6, 7) for m in args.modes)):
+            or not args.modes or any(m not in (0, 3, 4, 6, 7) for m in args.modes)
+            or args.reference_mode not in (0, 3, 4, 6, 7)):
         parser.error("Use at least two distinct seeds per group, disjoint reference seeds, more reference samples, and map modes 0/3/4/6/7")
+    if args.render_preset and not args.scene_file:
+        parser.error("--render-preset requires --scene-file")
+    if args.direct_only and not args.render_preset:
+        parser.error("--direct-only requires --render-preset")
+    if args.scene_file:
+        args.scene_file = args.scene_file.resolve(strict=True)
+    if args.render_preset:
+        args.render_preset = args.render_preset.resolve(strict=True)
     args.output = args.output.resolve()
     args.exe = args.exe.resolve()
     args.output.mkdir(parents=True, exist_ok=True)
+    source_preset = args.render_preset
+    if args.direct_only:
+        args.render_preset = args.output / "direct-only-preset.json"
+        write_direct_only_preset(source_preset, args.render_preset)
     for report_name in ("report.json", "report.md"):
         (args.output / report_name).unlink(missing_ok=True)
     records, references = [], []
     for seed in args.reference_seeds:
-        record, pixels = capture(args, 7, seed, args.reference_samples, f"reference-{seed}")
+        record, pixels = capture(args, args.reference_mode, seed, args.reference_samples, f"reference-{seed}")
         if records and record["dimensions"] != records[0]["dimensions"]:
             raise ValueError("Reference dimensions changed")
         records.append(record)
@@ -130,9 +170,17 @@ def main():
                             meanRadiance=sum(average) / len(average)))
     if args.require_seed_variation and max(result["seedVariance"] for result in results) < 1e-12:
         raise RuntimeError("Expected stochastic seed variation was absent")
-    report = dict(schemaVersion=1, domain="linear-hdr-rgb", scene=args.scene, roi=args.roi,
+    report = dict(schemaVersion=1, domain="linear-hdr-rgb",
+                  scene=str(args.scene_file) if args.scene_file else args.scene,
+                  sceneFileSha256=hashlib.sha256(args.scene_file.read_bytes()).hexdigest() if args.scene_file else None,
+                  sourceRenderPreset=str(source_preset) if args.direct_only else None,
+                  sourceRenderPresetSha256=hashlib.sha256(source_preset.read_bytes()).hexdigest() if args.direct_only else None,
+                  renderPreset=str(args.render_preset) if args.render_preset else None,
+                  renderPresetSha256=hashlib.sha256(args.render_preset.read_bytes()).hexdigest() if args.render_preset else None,
+                  directOnly=args.direct_only,
+                  roi=args.roi,
                   samples=args.samples, referenceSamples=args.reference_samples,
-                  referenceMode=7, referenceSeeds=args.reference_seeds, seeds=args.seeds,
+                  referenceMode=args.reference_mode, referenceSeeds=args.reference_seeds, seeds=args.seeds,
                   referenceDisagreementRmse=rmse(references[0], references[1]),
                   limitation="Finite-sample MIS reference, not ground truth. Two-seed reference disagreement is an uncertainty indicator, not a confidence bound.",
                   deterministic=True, results=results, captures=records)
