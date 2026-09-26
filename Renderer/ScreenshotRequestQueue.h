@@ -17,6 +17,11 @@ public:
         m_requests.push_back(std::move(request));
     }
 
+    bool NextCaptureIsPfm() const
+    {
+        return !m_requests.empty() && m_requests.front().path.extension() == L".pfm";
+    }
+
     bool CanBeginNextCapture() const
     {
         return !m_capturePending && !m_requests.empty();

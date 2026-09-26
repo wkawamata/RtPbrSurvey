@@ -2499,6 +2499,7 @@ void RtPbrSurveyApp::OpenFileScene()
     m_sceneRenderer.SetDisplayInstanceCount(LoadedScene().DisplayInstanceCount());
     ApplyRayReconstructionCommandLineOverrides();
     ApplyDlssSrCommandLineOptions();
+    ApplyPathTracingCommandLineOptions();
     m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
     m_appMode = AppMode::Running;
     m_framePaused = false;
