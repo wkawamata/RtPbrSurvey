@@ -574,15 +574,12 @@ void RtPbrSurveyEngine::SetUpdateHandler(UpdateHandler handler)
 
 void RtPbrSurveyEngine::SetLightingParams(const LightingParams& params)
 {
+    LightingParams validated = params;
+    RtPbrSurvey::ValidateDirectLights(validated.lights);
     const bool reflectionHistoryChanged =
-        m_lightingParams.lightDirection.x != params.lightDirection.x ||
-        m_lightingParams.lightDirection.y != params.lightDirection.y ||
-        m_lightingParams.lightDirection.z != params.lightDirection.z ||
-        m_lightingParams.lightColor.x != params.lightColor.x ||
-        m_lightingParams.lightColor.y != params.lightColor.y ||
-        m_lightingParams.lightColor.z != params.lightColor.z ||
+        m_lightingParams.lights != validated.lights ||
+        m_lightingParams.primaryShadowLightId != validated.primaryShadowLightId ||
         m_lightingParams.iblIntensity != params.iblIntensity ||
-        m_lightingParams.diffuseIntensity != params.diffuseIntensity ||
         m_lightingParams.directLightEnabled != params.directLightEnabled ||
         m_lightingParams.diffuseIblEnabled != params.diffuseIblEnabled ||
         m_lightingParams.specularIblEnabled != params.specularIblEnabled ||
@@ -590,7 +587,7 @@ void RtPbrSurveyEngine::SetLightingParams(const LightingParams& params)
     const bool pathTracingHistoryChanged =
         reflectionHistoryChanged || m_lightingParams.skyboxEnabled != params.skyboxEnabled;
 
-    m_lightingParams = params;
+    m_lightingParams = std::move(validated);
     if (reflectionHistoryChanged)
     {
         InvalidateReflectionHistory();
@@ -933,11 +930,11 @@ void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialPara
 
 auto RtPbrSurveyEngine::MakeLightingConstants() const -> LightingConstants
 {
-    return {
-        m_lightingParams.lightDirection,
+    LightingConstants result = {
+        RtPbrSurvey::ShadowLightDirection(m_lightingParams.lights, m_lightingParams.primaryShadowLightId),
         m_lightingParams.iblIntensity,
-        m_lightingParams.lightColor,
-        m_lightingParams.diffuseIntensity,
+        {0.0f, 0.0f, 0.0f},
+        0.0f,
         {m_backBufferClearColor[0], m_backBufferClearColor[1], m_backBufferClearColor[2], m_backBufferClearColor[3]},
         m_lightingParams.skyboxEnabled ? 1.0f : 0.0f,
         m_lightingParams.skyboxPreview ? 1.0f : 0.0f,
@@ -967,6 +964,21 @@ auto RtPbrSurveyEngine::MakeLightingConstants() const -> LightingConstants
         m_hybridReflectionSettings.contributionIntensity,
         m_hybridReflectionSettings.contributionMaxDistance,
     };
+    result.lightCount = static_cast<uint32_t>(m_lightingParams.lights.size());
+    result.reflectionRayNormalBias = m_shadowSettings.normalBias;
+    result.reflectionLightSamplingEnabled = m_hybridReflectionSettings.stochasticSamplingEnabled ? 1u : 0u;
+    result.reflectionLightSamplingFrame = m_reflectionSamplingFrameIndex;
+    for (uint32_t i = 0; i < result.lightCount; ++i)
+    {
+        const RtPbrSurvey::DirectLight& light = m_lightingParams.lights[i];
+        result.lights[i] = RtPbrSurvey::MakeLightGpuData(light);
+        if (light.id == m_lightingParams.primaryShadowLightId && light.enabled &&
+            light.type == RtPbrSurvey::LightType::Directional)
+        {
+            result.primaryShadowLightIndex = i;
+        }
+    }
+    return result;
 }
 
 void RtPbrSurveyEngine::SetRenderingPath(RenderingPath renderingPath)
@@ -1291,34 +1303,27 @@ void RtPbrSurveyEngine::RequestScreenshot(RtPbrSurvey::ScreenshotRequest request
     {
         if (request.path.empty())
         {
-            m_screenshotResults.push_back({request.path, false, "Screenshot output path is empty."});
+            m_screenshotRequestQueue.AddResult({request.path, false, "Screenshot output path is empty."});
             return;
         }
         request.path = std::filesystem::absolute(request.path);
         if (request.path.extension() == L".pfm" && m_renderingPath != RenderingPath::PathTracing)
         {
-            m_screenshotResults.push_back({request.path, false, "PFM capture requires Path Tracing."});
+            m_screenshotRequestQueue.AddResult({request.path, false, "PFM capture requires Path Tracing."});
             return;
         }
-        m_screenshotRequests.push_back(std::move(request));
+        m_screenshotRequestQueue.Enqueue(std::move(request));
     }
     catch (const std::exception& exception)
     {
-        m_screenshotResults.push_back({request.path, false, exception.what()});
+        m_screenshotRequestQueue.AddResult({request.path, false, exception.what()});
     }
 }
 
 std::optional<RtPbrSurvey::ScreenshotResult> RtPbrSurveyEngine::ConsumeScreenshotResult()
 {
     ProcessCompletedScreenshot();
-    if (m_screenshotResults.empty())
-    {
-        return std::nullopt;
-    }
-
-    RtPbrSurvey::ScreenshotResult result = std::move(m_screenshotResults.front());
-    m_screenshotResults.pop_front();
-    return result;
+    return m_screenshotRequestQueue.ConsumeResult();
 }
 
 void RtPbrSurveyEngine::RequestPixelPick(int screenX, int screenY)
@@ -4959,14 +4964,10 @@ void RtPbrSurveyEngine::Shutdown()
     {
         const RtPbrSurvey::ScreenshotRequest request = std::move(m_pendingScreenshotCapture->request);
         m_pendingScreenshotCapture.reset();
-        m_screenshotResults.push_back({request.path, false, "Renderer shut down before screenshot submission."});
+        m_screenshotRequestQueue.CompletePending(
+            {request.path, false, "Renderer shut down before screenshot submission."});
     }
-    while (!m_screenshotRequests.empty())
-    {
-        RtPbrSurvey::ScreenshotRequest request = std::move(m_screenshotRequests.front());
-        m_screenshotRequests.pop_front();
-        m_screenshotResults.push_back({request.path, false, "Renderer shut down before screenshot capture."});
-    }
+    m_screenshotRequestQueue.FailQueued("Renderer shut down before screenshot capture.");
     Engine::ShutdownStreamlineAdapter();
 }
 
@@ -5710,11 +5711,16 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
     passDesc.normalBias = m_shadowSettings.normalBias;
-    passDesc.lightDirection = {
-        m_lightingParams.lightDirection.x, m_lightingParams.lightDirection.y, m_lightingParams.lightDirection.z};
-    passDesc.lightColor = {m_lightingParams.lightColor.x, m_lightingParams.lightColor.y, m_lightingParams.lightColor.z};
+    // Temporary single-directional PT bridge until the NEE/MIS light adapter contract is integrated.
+    const RtPbrSurvey::DirectLight* ptLight =
+        RtPbrSurvey::FindShadowLight(m_lightingParams.lights, m_lightingParams.primaryShadowLightId);
+    const XMFLOAT3 ptDirection =
+        RtPbrSurvey::ShadowLightDirection(m_lightingParams.lights, m_lightingParams.primaryShadowLightId);
+    passDesc.lightDirection = {ptDirection.x, ptDirection.y, ptDirection.z};
+    passDesc.lightColor = ptLight ? std::array<float, 3>{ptLight->color.x, ptLight->color.y, ptLight->color.z} :
+                                   std::array<float, 3>{0.0f, 0.0f, 0.0f};
     passDesc.environmentIntensity = m_lightingParams.iblIntensity;
-    passDesc.diffuseIntensity = m_lightingParams.diffuseIntensity;
+    passDesc.diffuseIntensity = ptLight ? ptLight->intensity : 0.0f;
     passDesc.backgroundColor = m_backBufferClearColor;
     passDesc.debugOutput = static_cast<UINT>(m_pathTracingSettings.debugOutput);
     passDesc.maxBounces = m_pathTracingSettings.maxBounces;
@@ -5808,11 +5814,14 @@ void RtPbrSurveyEngine::ExecuteRayQueryShadowPass(const RenderPass& pass)
     passDesc.depthSrv = m_depthStencilSrv.gpu;
     passDesc.normalSrv = m_gbuffer.srvHandles[Engine::GBuffer::Normal].gpu;
     passDesc.cameraCbv = m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu;
-    passDesc.lightDirection = m_lightingParams.lightDirection;
+    passDesc.lightDirection =
+        RtPbrSurvey::ShadowLightDirection(m_lightingParams.lights, m_lightingParams.primaryShadowLightId);
     passDesc.normalBias = m_shadowSettings.normalBias;
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
-    passDesc.enabled = m_shadowSettings.enabled ? 1 : 0;
+    passDesc.enabled = m_shadowSettings.enabled && m_lightingParams.directLightEnabled &&
+        RtPbrSurvey::FindShadowLight(m_lightingParams.lights, m_lightingParams.primaryShadowLightId) ?
+        1 : 0;
     passDesc.softShadowEnabled = m_shadowSettings.softShadowEnabled ? 1 : 0;
     passDesc.sampleCount = static_cast<uint32_t>(m_shadowSettings.sampleCount);
     passDesc.lightAngularRadius = m_shadowSettings.lightAngularRadius;
@@ -5883,7 +5892,8 @@ void RtPbrSurveyEngine::ExecuteRayQueryTlasDebugPass(const RenderPass& pass)
     passDesc.depthSrv = m_depthStencilSrv.gpu;
     passDesc.normalSrv = m_gbuffer.srvHandles[Engine::GBuffer::Normal].gpu;
     passDesc.cameraCbv = m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu;
-    passDesc.lightDirection = m_lightingParams.lightDirection;
+    passDesc.lightDirection =
+        RtPbrSurvey::ShadowLightDirection(m_lightingParams.lights, m_lightingParams.primaryShadowLightId);
     passDesc.width = m_renderWidth;
     passDesc.height = m_renderHeight;
 
@@ -6149,16 +6159,16 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 
-    assert(!m_screenshotRequests.empty());
-    assert(!m_pendingScreenshotCapture.has_value());
-    if (m_screenshotRequests.empty() || m_pendingScreenshotCapture.has_value())
+    if (m_pendingScreenshotCapture.has_value())
     {
         return;
     }
 
     PendingScreenshotCapture capture;
-    capture.request = std::move(m_screenshotRequests.front());
-    m_screenshotRequests.pop_front();
+    if (!m_screenshotRequestQueue.BeginNextCapture(capture.request))
+    {
+        return;
+    }
 
     try
     {
@@ -6173,7 +6183,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
     }
     catch (const std::exception& exception)
     {
-        m_screenshotResults.push_back({capture.request.path, false, exception.what()});
+        m_screenshotRequestQueue.CompletePending({capture.request.path, false, exception.what()});
     }
 }
 
@@ -6735,7 +6745,7 @@ void RtPbrSurveyEngine::ProcessCompletedScreenshot()
         result.succeeded = false;
         result.error = exception.what();
     }
-    m_screenshotResults.push_back(std::move(result));
+    m_screenshotRequestQueue.CompletePending(std::move(result));
 }
 
 void RtPbrSurveyEngine::EndFrame()

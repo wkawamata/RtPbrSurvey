@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "Runtime/SceneRendererSettings.h"
+#include "Runtime/DirectLightJson.h"
 
 #include <nlohmann/json.hpp>
 
@@ -10,24 +11,9 @@ namespace
 {
 using json = nlohmann::json;
 
-json Float3ToJson(const DirectX::XMFLOAT3& value)
-{
-    return json{value.x, value.y, value.z};
-}
-
 json Float4ToJson(const std::array<float, 4>& value)
 {
     return json{value[0], value[1], value[2], value[3]};
-}
-
-DirectX::XMFLOAT3 Float3FromJson(const json& value, const DirectX::XMFLOAT3& defaults)
-{
-    if (!value.is_array() || value.size() != 3)
-    {
-        return defaults;
-    }
-
-    return {value[0].get<float>(), value[1].get<float>(), value[2].get<float>()};
 }
 
 std::array<float, 4> Float4FromJson(const json& value, const std::array<float, 4>& defaults)
@@ -51,10 +37,9 @@ namespace RtPbrSurvey
 nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings)
 {
     json lighting;
-    lighting["lightDirection"] = Float3ToJson(settings.lighting.lightDirection);
-    lighting["lightColor"] = Float3ToJson(settings.lighting.lightColor);
+    lighting["lights"] = DirectLightsToJson(settings.lighting.lights);
+    lighting["primaryShadowLightId"] = settings.lighting.primaryShadowLightId;
     lighting["iblIntensity"] = settings.lighting.iblIntensity;
-    lighting["diffuseIntensity"] = settings.lighting.diffuseIntensity;
     lighting["skyboxEnabled"] = settings.lighting.skyboxEnabled;
     lighting["skyboxPreview"] = settings.lighting.skyboxPreview;
     lighting["skyboxPreviewExposure"] = settings.lighting.skyboxPreviewExposure;
@@ -162,17 +147,74 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
         }
 
         SceneRendererSettings parsed = defaults;
+        if (value.contains("schemaVersion") && !value.at("schemaVersion").is_number_integer())
+        {
+            throw std::runtime_error("Renderer settings schemaVersion must be an integer.");
+        }
+        if (value.contains("schemaVersion") &&
+            (value.at("schemaVersion") < 1 || value.at("schemaVersion") > SceneRendererSettings::kSchemaVersion))
+        {
+            throw std::runtime_error("Unsupported renderer settings schemaVersion.");
+        }
+        const int version = value.value("schemaVersion", 1);
 
         if (value.contains("lighting"))
         {
             const json& lighting = value.at("lighting");
-            if (lighting.contains("lightDirection"))
-                parsed.lighting.lightDirection =
-                    Float3FromJson(lighting.at("lightDirection"), parsed.lighting.lightDirection);
-            if (lighting.contains("lightColor"))
-                parsed.lighting.lightColor = Float3FromJson(lighting.at("lightColor"), parsed.lighting.lightColor);
+            if (!lighting.is_object())
+            {
+                throw std::runtime_error("lighting must be an object.");
+            }
+            const bool legacy = lighting.contains("lightDirection") || lighting.contains("lightColor") ||
+                lighting.contains("diffuseIntensity");
+            if (lighting.contains("primaryShadowLightId") && (version != 4 || legacy))
+            {
+                throw std::runtime_error("primaryShadowLightId requires schemaVersion 4 without legacy light fields.");
+            }
+            if (lighting.contains("primaryShadowLightId"))
+            {
+                parsed.lighting.primaryShadowLightId = LightIdFromJson(lighting.at("primaryShadowLightId"));
+            }
+            if (lighting.contains("lights"))
+            {
+                if (version != 4 || legacy)
+                {
+                    throw std::runtime_error("Light arrays require schemaVersion 4 and cannot mix legacy light fields.");
+                }
+                parsed.lighting.lights = DirectLightsFromJson(lighting.at("lights"));
+                parsed.lighting.primaryShadowLightId = LightIdFromJson(lighting.at("primaryShadowLightId"));
+            }
+            else if (legacy)
+            {
+                if (version == 4)
+                {
+                    throw std::runtime_error("Legacy light fields are not valid in schemaVersion 4.");
+                }
+                DirectLight light;
+                if (const DirectLight* previous = FindShadowLight(defaults.lighting.lights,
+                                                                  defaults.lighting.primaryShadowLightId))
+                {
+                    // Preserve the existing partial-preset behavior for omitted legacy fields.
+                    light.color = previous->color;
+                    light.intensity = previous->intensity;
+                    light.direction = previous->direction;
+                }
+                if (lighting.contains("lightDirection"))
+                {
+                    const DirectX::XMFLOAT3 direction = LightFloat3FromJson(lighting.at("lightDirection"));
+                    light.direction = {-direction.x, -direction.y, -direction.z};
+                }
+                if (lighting.contains("lightColor"))
+                {
+                    light.color = LightFloat3FromJson(lighting.at("lightColor"));
+                }
+                light.intensity = lighting.value("diffuseIntensity", light.intensity);
+                light.enabled = lighting.value("directLightEnabled", parsed.lighting.directLightEnabled);
+                ValidateDirectLight(light);
+                parsed.lighting.lights = {light};
+                parsed.lighting.primaryShadowLightId = light.id;
+            }
             parsed.lighting.iblIntensity = lighting.value("iblIntensity", parsed.lighting.iblIntensity);
-            parsed.lighting.diffuseIntensity = lighting.value("diffuseIntensity", parsed.lighting.diffuseIntensity);
             parsed.lighting.skyboxEnabled = lighting.value("skyboxEnabled", parsed.lighting.skyboxEnabled);
             parsed.lighting.skyboxPreview = lighting.value("skyboxPreview", parsed.lighting.skyboxPreview);
             parsed.lighting.skyboxPreviewExposure =

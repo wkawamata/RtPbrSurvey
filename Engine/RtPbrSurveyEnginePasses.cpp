@@ -68,7 +68,7 @@ void RtPbrSurveyEngine::BuildRenderPasses()
     }
 
     AddPass(MakeImGuiPass());
-    if (!m_screenshotRequests.empty() && !m_pendingScreenshotCapture.has_value())
+    if (m_screenshotRequestQueue.CanBeginNextCapture())
     {
         AddPass(MakeScreenshotPass());
     }

@@ -1628,6 +1628,19 @@ void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
     const float fps = 1000.0f / cpuFrameTimeMs;
     fprintf(m_logFile, "[FPS] Frame %llu: %.1f FPS (%.2f ms)\n",
             static_cast<unsigned long long>(m_fpsLogFrameCounter), fps, cpuFrameTimeMs);
+    // These timestamps belong to the latest completed GPU frame, not the CPU frame above.
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    const auto& checkPoints = context.gpuCheckPoints;
+    if (checkPoints.size() >= 2)
+    {
+        fprintf(m_logFile, "[GPU] Frame %llu: latest completed total %.6f ms\n",
+                static_cast<unsigned long long>(m_fpsLogFrameCounter), checkPoints.back().timeStamp);
+        for (size_t i = 1; i + 1 < checkPoints.size(); ++i)
+        {
+            fprintf(m_logFile, "[GPU Pass] %s: %.6f ms\n", checkPoints[i].name.c_str(),
+                    checkPoints[i].timeStamp - checkPoints[i - 1].timeStamp);
+        }
+    }
     fflush(m_logFile);
 }
 

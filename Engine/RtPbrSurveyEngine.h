@@ -10,6 +10,7 @@
 //*********************************************************
 
 #pragma once
+#include "Shared/DirectLight.h"
 #include <include/d3dx12/d3dx12.h>
 #include <wrl/client.h>
 #include "Rhi/Dx12/GraphicsDevice.h"
@@ -51,6 +52,7 @@
 #include "Renderer/RootSignatureLayout.h"
 #include "Renderer/SceneGeometryPass.h"
 #include "Renderer/ScreenshotCapture.h"
+#include "Renderer/ScreenshotRequestQueue.h"
 #include "Renderer/SimpleDescriptorHeapAllocator.h"
 #include "Renderer/ShadowMaskDebugPass.h"
 #include "Renderer/DebugLinePass.h"
@@ -163,11 +165,10 @@ public:
 
     struct LightingParams
     {
-        XMFLOAT3 lightDirection = {0.0f, 1.0f, -1.0f};
-        XMFLOAT3 lightColor = {1.0f, 1.0f, 1.0f};
+        std::vector<RtPbrSurvey::DirectLight> lights = {RtPbrSurvey::DirectLight{}};
+        uint32_t primaryShadowLightId = 1;
         // HDR environment maps are bright, so the default IBL contribution is intentionally modest.
         float iblIntensity = 0.10f;
-        float diffuseIntensity = 1.0f;
         bool skyboxEnabled = true;
         bool skyboxPreview = false;
         float skyboxPreviewExposure = 1.0f;
@@ -750,7 +751,19 @@ private:
         float reflectionContributionEnabled = 0.0f;
         float reflectionContributionIntensity = 0.25f;
         float reflectionContributionMaxDistance = 20.0f;
+        uint32_t lightCount = 0;
+        uint32_t primaryShadowLightIndex = RtPbrSurvey::kNoShadowLight;
+        std::array<RtPbrSurvey::LightGpuData, RtPbrSurvey::kMaxDirectLights> lights = {};
+        float reflectionRayNormalBias = 0.0f;
+        uint32_t reflectionLightSamplingEnabled = 0;
+        uint32_t reflectionLightSamplingFrame = 0;
     };
+
+    static_assert(offsetof(LightingConstants, lightCount) == 120);
+    static_assert(offsetof(LightingConstants, primaryShadowLightIndex) == 124);
+    static_assert(offsetof(LightingConstants, lights) == 128);
+    static_assert(offsetof(LightingConstants, reflectionRayNormalBias) == 1152);
+    static_assert(sizeof(LightingConstants) == 1280);
 
     LightingConstants MakeLightingConstants() const;
 
@@ -1148,9 +1161,8 @@ private:
         Engine::ScreenshotReadback readback;
         UINT64 fenceValue = 0;
     };
-    std::deque<RtPbrSurvey::ScreenshotRequest> m_screenshotRequests;
+    Engine::ScreenshotRequestQueue m_screenshotRequestQueue;
     std::optional<PendingScreenshotCapture> m_pendingScreenshotCapture;
-    std::deque<RtPbrSurvey::ScreenshotResult> m_screenshotResults;
 
     // Pixel pick (Ctrl+Click to inspect reflection vector)
     bool m_pixelPickRequested = false;

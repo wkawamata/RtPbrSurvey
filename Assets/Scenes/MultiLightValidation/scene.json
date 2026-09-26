@@ -1,0 +1,286 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "multi-light-validation",
+  "name": "Multi-Light Validation",
+  "renderPreset": "render-preset.json",
+  "assets": [],
+  "materials": [
+    {
+      "id": "smooth",
+      "name": "Smooth metal",
+      "baseColor": [
+        0.7,
+        0.7,
+        0.7,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.18
+    },
+    {
+      "id": "rough",
+      "name": "Rough metal",
+      "baseColor": [
+        0.7,
+        0.7,
+        0.7,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.6
+    },
+    {
+      "id": "diffuse",
+      "name": "Diffuse",
+      "baseColor": [
+        0.65,
+        0.65,
+        0.65,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.8
+    },
+    {
+      "id": "floor",
+      "name": "Floor",
+      "baseColor": [
+        0.35,
+        0.35,
+        0.35,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.65
+    }
+  ],
+  "nodes": [
+    {
+      "id": "smooth",
+      "name": "smooth",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -1.7,
+        0.55,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "sphere",
+        "size": 1,
+        "radius": 0.55,
+        "height": 1,
+        "width": 1,
+        "depth": 1,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "smooth"
+    },
+    {
+      "id": "rough",
+      "name": "rough",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        0.55,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "sphere",
+        "size": 1,
+        "radius": 0.55,
+        "height": 1,
+        "width": 1,
+        "depth": 1,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "rough"
+    },
+    {
+      "id": "diffuse",
+      "name": "diffuse",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        1.7,
+        0.55,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "sphere",
+        "size": 1,
+        "radius": 0.55,
+        "height": 1,
+        "width": 1,
+        "depth": 1,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "diffuse"
+    },
+    {
+      "id": "floor-01",
+      "name": "Floor",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "plane",
+        "size": 1,
+        "radius": 0.5,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "floor"
+    },
+    {
+      "id": "blocker",
+      "name": "Shadow blocker",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        0.65,
+        1.7
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1.3,
+        "radius": 0.55,
+        "height": 1,
+        "width": 1,
+        "depth": 1,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "diffuse"
+    }
+  ],
+  "camera": {
+    "position": [
+      0,
+      3,
+      -7
+    ],
+    "target": [
+      0,
+      0.3,
+      0.6
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 55,
+    "orthographicHeight": 10,
+    "nearZ": 0.1,
+    "farZ": 1000
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      0.42,
+      0.56,
+      0.72
+    ],
+    "groundColor": [
+      0.18,
+      0.17,
+      0.15
+    ],
+    "lightColor": [
+      1,
+      0.96,
+      0.86
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 0.6,
+    "lightIntensity": 6,
+    "lightSize": 0.12,
+    "fillIntensity": 0.12,
+    "colorPanelIntensity": 1.5,
+    "horizonSharpness": 0.08
+  }
+}

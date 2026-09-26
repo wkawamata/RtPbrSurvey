@@ -6,6 +6,7 @@
 #include "../ImGuiWidgets.h"
 #include "../Runtime/SceneRendererDebugUi.h"
 #include "../Ui/DebugUiPreferences.h"
+#include "Ui/DirectLightUi.h"
 
 #include <imgui.h>
 #include <imgui_stdlib.h>
@@ -566,17 +567,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
     if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        {
-            static constexpr float defaultDir[] = {0.0f, 1.0f, -1.0f};
-            ImGuiWidgets::SliderFloat3WithControls("Light Direction", &app.m_lightingParams.lightDirection.x, -1.0f, 1.0f,
-                                                     0.05f, defaultDir);
-        }
-        ImGui::SameLine();
-        ImGuiWidgets::SliderFloatWithControls("Direct Light Intensity", &app.m_lightingParams.diffuseIntensity, 0.0f, 4.0f,
-                                               0.1f, 1.0f);
-        ImGui::ColorEdit3("Light Color", &app.m_lightingParams.lightColor.x);
-        ImGui::Checkbox("Direct Light", &app.m_lightingParams.directLightEnabled);
-        ImGui::SameLine();
+        RtPbrSurvey::DrawDirectLightControls(app.m_lightingParams);
         ImGui::Checkbox("Emissive", &app.m_lightingParams.emissiveEnabled);
     }
     if (ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
