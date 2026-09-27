@@ -1303,20 +1303,26 @@ void RtPbrSurveyEngine::RequestScreenshot(RtPbrSurvey::ScreenshotRequest request
     {
         if (request.path.empty())
         {
-            m_screenshotRequestQueue.AddResult({request.path, false, "Screenshot output path is empty."});
+            RtPbrSurvey::ScreenshotResult result = {request.path, false, "Screenshot output path is empty."};
+            result.requestId = request.requestId;
+            m_screenshotRequestQueue.AddResult(std::move(result));
             return;
         }
         request.path = std::filesystem::absolute(request.path);
         if (request.path.extension() == L".pfm" && m_renderingPath != RenderingPath::PathTracing)
         {
-            m_screenshotRequestQueue.AddResult({request.path, false, "PFM capture requires Path Tracing."});
+            RtPbrSurvey::ScreenshotResult result = {request.path, false, "PFM capture requires Path Tracing."};
+            result.requestId = request.requestId;
+            m_screenshotRequestQueue.AddResult(std::move(result));
             return;
         }
         m_screenshotRequestQueue.Enqueue(std::move(request));
     }
     catch (const std::exception& exception)
     {
-        m_screenshotRequestQueue.AddResult({request.path, false, exception.what()});
+        RtPbrSurvey::ScreenshotResult result = {request.path, false, exception.what()};
+        result.requestId = request.requestId;
+        m_screenshotRequestQueue.AddResult(std::move(result));
     }
 }
 
@@ -1324,6 +1330,23 @@ std::optional<RtPbrSurvey::ScreenshotResult> RtPbrSurveyEngine::ConsumeScreensho
 {
     ProcessCompletedScreenshot();
     return m_screenshotRequestQueue.ConsumeResult();
+}
+
+std::optional<RtPbrSurvey::ScreenshotResult> RtPbrSurveyEngine::ConsumeScreenshotResult(std::uint64_t requestId)
+{
+    ProcessCompletedScreenshot();
+    return m_screenshotRequestQueue.ConsumeResult(requestId);
+}
+
+std::optional<RtPbrSurvey::ScreenshotResult> RtPbrSurveyEngine::ConsumeScreenshotResultExcept(std::uint64_t requestId)
+{
+    ProcessCompletedScreenshot();
+    return m_screenshotRequestQueue.ConsumeResultExcept(requestId);
+}
+
+bool RtPbrSurveyEngine::IsScreenshotCaptureIdle() const
+{
+    return m_screenshotRequestQueue.IsIdle();
 }
 
 void RtPbrSurveyEngine::RequestPixelPick(int screenX, int screenY)

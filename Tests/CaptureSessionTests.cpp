@@ -39,7 +39,7 @@ bool TestOutputOrderAndStopDrain()
     session.MarkRequestAccepted();
     session.Stop();
     passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Draining, "stop drains an accepted request");
-    session.CompleteRequest({first->path, true, {}, 1, 1});
+    session.CompleteRequest({first->path, true, {}, 1, 1, first->requestId});
     passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Completed, "drain completes after output");
     passed &= Check(session.GetStatus().savedFrameCount == 1, "drain preserves completed output");
     return passed;
@@ -53,12 +53,12 @@ bool TestOutputNumbering()
     session.Update({0, 0.0, 0.0});
     const auto first = session.AcquireReadyRequest();
     session.MarkRequestAccepted();
-    session.CompleteRequest({first->path, true, {}, 1, 1});
+    session.CompleteRequest({first->path, true, {}, 1, 1, first->requestId});
     session.Update({1, 0.1, 0.1});
     const auto second = session.AcquireReadyRequest();
     passed &= Check(second.has_value() && second->path.filename() == "frame_000001.png", "second output preserves ordering");
     session.MarkRequestAccepted();
-    session.CompleteRequest({second->path, true, {}, 1, 1});
+    session.CompleteRequest({second->path, true, {}, 1, 1, second->requestId});
     passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Completed, "frame limit completes after final result");
     return passed;
 }
@@ -73,7 +73,7 @@ bool TestRealTimeDropAndFixedStepBackpressure()
     realTime.MarkRequestAccepted();
     realTime.Update({1, 0.050, 0.050});
     passed &= Check(realTime.GetStatus().droppedFrameCount == 3, "real-time busy frames are explicitly dropped");
-    realTime.CompleteRequest({request->path, true, {}, 1, 1});
+    realTime.CompleteRequest({request->path, true, {}, 1, 1, request->requestId});
 
     RtPbrSurvey::CaptureSession fixedStep;
     passed &= Check(fixedStep.Start(MakeConfig(RtPbrSurvey::CaptureSessionClock::FixedStep), error), "fixed-step session starts");
@@ -81,10 +81,11 @@ bool TestRealTimeDropAndFixedStepBackpressure()
     const auto fixedRequest = fixedStep.AcquireReadyRequest();
     passed &= Check(!fixedStep.CanAdvanceFixedStep(), "fixed-step host waits while a capture request is ready");
     fixedStep.MarkRequestAccepted();
-    passed &= Check(fixedStep.CanAdvanceFixedStep(), "fixed-step host may advance after accepting the request");
+    passed &= Check(!fixedStep.CanAdvanceFixedStep(), "fixed-step host waits while renderer readback is in flight");
     fixedStep.Update({1, 1.0, 1.0});
     passed &= Check(fixedStep.GetStatus().droppedFrameCount == 0, "fixed-step capture never drops busy frames");
-    fixedStep.CompleteRequest({fixedRequest->path, true, {}, 1, 1});
+    fixedStep.CompleteRequest({fixedRequest->path, true, {}, 1, 1, fixedRequest->requestId});
+    passed &= Check(fixedStep.CanAdvanceFixedStep(), "fixed-step host advances after its renderer result is polled");
     fixedStep.Update({2, 1.1, 1.1});
     passed &= Check(fixedStep.AcquireReadyRequest().has_value(), "fixed-step capture waits for and schedules the required frame");
     return passed;
@@ -113,6 +114,13 @@ bool TestValidationAndLegacyCli()
     WCHAR format[] = L"exr";
     WCHAR frameOption[] = L"-CaptureSessionFrames";
     WCHAR frames[] = L"12";
+    WCHAR roiOption[] = L"-CaptureSessionRoi";
+    WCHAR roiX[] = L"8";
+    WCHAR roiY[] = L"12";
+    WCHAR roiWidth[] = L"320";
+    WCHAR roiHeight[] = L"180";
+    WCHAR durationOption[] = L"-CaptureSessionDurationSeconds";
+    WCHAR duration[] = L"2.5";
     WCHAR* sessionArgv[] = {
         executable,
         outputDirectoryOption,
@@ -123,12 +131,27 @@ bool TestValidationAndLegacyCli()
         format,
         frameOption,
         frames,
+        roiOption,
+        roiX,
+        roiY,
+        roiWidth,
+        roiHeight,
+        durationOption,
+        duration,
     };
-    const Platform::CommandLineOptions sessionOptions = Platform::ParseCommandLineOptions(sessionArgv, 9);
+    const Platform::CommandLineOptions sessionOptions = Platform::ParseCommandLineOptions(sessionArgv, 16);
     passed &= Check(sessionOptions.captureSessionEnabled && sessionOptions.captureSessionOutputDirectory == "Captures" &&
                         sessionOptions.captureSessionBaseName == L"turntable" &&
                         sessionOptions.captureSessionFormat == L"exr" && sessionOptions.captureSessionFrameLimit == 12,
                     "Capture Session CLI parses common output settings");
+    RtPbrSurvey::CaptureSessionConfig sessionConfig;
+    std::string configError;
+    passed &= Check(Platform::BuildCaptureSessionConfig(sessionOptions, sessionConfig, configError),
+                    "Capture Session CLI builds shared config");
+    passed &= Check(sessionConfig.durationSeconds == 2.5 && sessionConfig.region.has_value() &&
+                        sessionConfig.region->x == 8 && sessionConfig.region->height == 180 &&
+                        sessionConfig.source == RtPbrSurvey::ScreenshotCaptureSource::PreToneMapSceneColor,
+                    "shared CLI config preserves ROI, duration, and EXR source");
     return passed;
 }
 
@@ -140,10 +163,55 @@ bool TestOutputFailureCompletesCleanup()
     session.Update({0, 0.0, 0.0});
     const auto request = session.AcquireReadyRequest();
     session.MarkRequestAccepted();
-    session.CompleteRequest({request->path, false, "write failed"});
+    session.CompleteRequest({request->path, false, "write failed", 0, 0, request->requestId});
     passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Failed,
                     "output failure reaches failed after cleanup");
     passed &= Check(session.GetStatus().error == "write failed", "output failure is retained in status");
+    return passed;
+}
+
+bool TestWarmupExcludedFromDuration()
+{
+    RtPbrSurvey::CaptureSessionConfig config = MakeConfig(RtPbrSurvey::CaptureSessionClock::RealTime);
+    config.frameLimit.reset();
+    config.warmupFrames = 3;
+    config.durationSeconds = 1.0;
+    RtPbrSurvey::CaptureSession session;
+    std::string error;
+    bool passed = Check(session.Start(config, error), "duration session starts");
+    session.Update({0, 10.0, 10.0});
+    session.Update({3, 20.0, 20.0});
+    passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Recording,
+                    "warmup completion starts recording");
+    const auto request = session.AcquireReadyRequest();
+    session.MarkRequestAccepted();
+    session.Update({4, 20.9, 20.9});
+    passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Recording,
+                    "duration excludes warmup time");
+    session.Update({5, 21.0, 21.0});
+    passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Draining,
+                    "duration drains an in-flight request from recording start");
+    session.CompleteRequest({request->path, true, {}, 1, 1, request->requestId});
+    passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Completed,
+                    "duration completes after its in-flight result");
+    return passed;
+}
+
+bool TestMismatchedResultDoesNotCompleteSession()
+{
+    RtPbrSurvey::CaptureSession session;
+    std::string error;
+    bool passed = Check(session.Start(MakeConfig(RtPbrSurvey::CaptureSessionClock::FixedStep), error),
+                        "token session starts");
+    session.Update({0, 0.0, 0.0});
+    const auto request = session.AcquireReadyRequest();
+    session.MarkRequestAccepted();
+    session.CompleteRequest({request->path, true, {}, 1, 1, 0});
+    passed &= Check(session.GetStatus().savedFrameCount == 0 && !session.CanAdvanceFixedStep(),
+                    "legacy result cannot complete an in-flight session request");
+    session.CompleteRequest({request->path, true, {}, 1, 1, request->requestId});
+    passed &= Check(session.GetStatus().savedFrameCount == 1 && session.CanAdvanceFixedStep(),
+                    "matching session token completes the request");
     return passed;
 }
 } // namespace
@@ -151,7 +219,8 @@ bool TestOutputFailureCompletesCleanup()
 int main()
 {
     return TestOutputOrderAndStopDrain() && TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
-                   TestValidationAndLegacyCli() && TestOutputFailureCompletesCleanup() ?
+                   TestValidationAndLegacyCli() && TestOutputFailureCompletesCleanup() && TestWarmupExcludedFromDuration() &&
+                   TestMismatchedResultDoesNotCompleteSession() ?
         0 :
         1;
 }

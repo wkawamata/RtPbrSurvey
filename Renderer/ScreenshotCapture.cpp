@@ -398,8 +398,7 @@ bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem:
 
     std::uint8_t* mappedData = nullptr;
     const D3D12_RANGE readRange = {static_cast<SIZE_T>(readback.layout.Offset),
-                                   static_cast<SIZE_T>(readback.layout.Offset) +
-                                       static_cast<SIZE_T>(readback.layout.Footprint.RowPitch) * readback.height};
+                                   static_cast<SIZE_T>(readback.resource->GetDesc().Width)};
     const HRESULT mapResult = readback.resource->Map(0, &readRange, reinterpret_cast<void**>(&mappedData));
     if (FAILED(mapResult))
     {
@@ -466,8 +465,7 @@ bool SaveExrScreenshotReadback(ScreenshotReadback& readback, const std::filesyst
 
     std::uint8_t* mappedData = nullptr;
     const D3D12_RANGE readRange = {static_cast<SIZE_T>(readback.layout.Offset),
-                                   static_cast<SIZE_T>(readback.layout.Offset) +
-                                       static_cast<SIZE_T>(readback.layout.Footprint.RowPitch) * readback.height};
+                                   static_cast<SIZE_T>(readback.resource->GetDesc().Width)};
     const HRESULT mapResult = readback.resource->Map(0, &readRange, reinterpret_cast<void**>(&mappedData));
     if (FAILED(mapResult))
     {

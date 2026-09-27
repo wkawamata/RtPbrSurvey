@@ -32,6 +32,11 @@ namespace RtPbrSurvey
     bool CaptureSession::Start(const CaptureSessionConfig& config, std::string& error)
     {
         error.clear();
+        if (IsActive())
+        {
+            error = "A capture session is already active.";
+            return false;
+        }
         if (config.outputFormat == CaptureSessionOutputFormat::Gif || config.outputFormat == CaptureSessionOutputFormat::Mp4)
         {
             error = "GIF and MP4 capture sessions are not implemented.";
@@ -86,7 +91,9 @@ namespace RtPbrSurvey
         m_config = config;
         m_status = {};
         m_startTiming.reset();
+        m_recordingStartTiming.reset();
         m_readyRequest.reset();
+        m_activeRequestId.reset();
         m_requestInFlight = false;
         m_stopRequested = false;
         m_nextCaptureSeconds = 0.0;
@@ -115,6 +122,10 @@ namespace RtPbrSurvey
         {
             m_startTiming = timing;
             m_nextCaptureSeconds = GetClockSeconds(timing);
+            if (m_status.state == CaptureSessionState::Recording)
+            {
+                m_recordingStartTiming = timing;
+            }
         }
 
         if (m_status.state == CaptureSessionState::Warmup)
@@ -124,6 +135,7 @@ namespace RtPbrSurvey
                 return;
             }
             m_status.state = CaptureSessionState::Recording;
+            m_recordingStartTiming = timing;
             m_nextCaptureSeconds = GetClockSeconds(timing);
         }
 
@@ -158,7 +170,14 @@ namespace RtPbrSurvey
             return;
         }
 
-        m_readyRequest = ScreenshotRequest{BuildOutputPath(), m_config.region, GetScreenshotOutputFormat(m_config.outputFormat), m_config.source};
+        ScreenshotRequest request = {
+            BuildOutputPath(),
+            m_config.region,
+            GetScreenshotOutputFormat(m_config.outputFormat),
+            m_config.source,
+        };
+        request.requestId = m_nextRequestId++;
+        m_readyRequest = std::move(request);
     }
 
     std::optional<ScreenshotRequest> CaptureSession::AcquireReadyRequest()
@@ -179,6 +198,7 @@ namespace RtPbrSurvey
 
         m_status.lastOutputPath = m_readyRequest->path;
         ++m_status.acceptedFrameCount;
+        m_activeRequestId = m_readyRequest->requestId;
         m_readyRequest.reset();
         m_requestInFlight = true;
         m_nextCaptureSeconds += 1.0 / static_cast<double>(m_config.framesPerSecond);
@@ -186,12 +206,13 @@ namespace RtPbrSurvey
 
     void CaptureSession::CompleteRequest(ScreenshotResult result)
     {
-        if (!m_requestInFlight)
+        if (!m_requestInFlight || !m_activeRequestId.has_value() || result.requestId != *m_activeRequestId)
         {
             return;
         }
 
         m_requestInFlight = false;
+        m_activeRequestId.reset();
         m_status.lastOutputPath = std::move(result.path);
         if (!result.succeeded)
         {
@@ -202,7 +223,8 @@ namespace RtPbrSurvey
         }
 
         ++m_status.savedFrameCount;
-        if (m_stopRequested || IsRecordingLimitReached(m_nextCaptureSeconds))
+        if (m_status.state == CaptureSessionState::Draining || m_stopRequested ||
+            IsRecordingLimitReached(m_nextCaptureSeconds))
         {
             BeginDraining();
         }
@@ -210,7 +232,19 @@ namespace RtPbrSurvey
 
     bool CaptureSession::CanAdvanceFixedStep() const
     {
-        return m_config.clock != CaptureSessionClock::FixedStep || !m_readyRequest.has_value();
+        return m_config.clock != CaptureSessionClock::FixedStep ||
+               (!m_readyRequest.has_value() && !m_requestInFlight);
+    }
+
+    bool CaptureSession::IsActive() const
+    {
+        return m_status.state == CaptureSessionState::Warmup || m_status.state == CaptureSessionState::Recording ||
+               m_status.state == CaptureSessionState::Draining;
+    }
+
+    std::optional<std::uint64_t> CaptureSession::GetActiveRequestId() const
+    {
+        return m_activeRequestId;
     }
 
     const CaptureSessionStatus& CaptureSession::GetStatus() const
@@ -224,8 +258,8 @@ namespace RtPbrSurvey
         {
             return true;
         }
-        return m_config.durationSeconds.has_value() && m_startTiming.has_value() &&
-               clockSeconds - GetClockSeconds(*m_startTiming) >= *m_config.durationSeconds;
+        return m_config.durationSeconds.has_value() && m_recordingStartTiming.has_value() &&
+               clockSeconds - GetClockSeconds(*m_recordingStartTiming) >= *m_config.durationSeconds;
     }
 
     double CaptureSession::GetClockSeconds(const CaptureSessionTiming& timing) const

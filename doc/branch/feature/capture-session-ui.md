@@ -19,24 +19,23 @@ Mouse-driven ROI selection is intentionally out of scope for this phase.
 
 ## Host integration example
 
-The host updates capture scheduling once per frame with its own timing source, then draws the reusable ImGui panel. A physics host should provide its actual simulation clock and check fixed-step readiness before advancing the next simulation step.
+The host updates capture scheduling once per frame with its own timing source, then draws the reusable ImGui panel. A physics host should provide its actual simulation clock and check fixed-step readiness before advancing the next simulation step. It remains false while the session readback is in flight, without embedding a GPU wait.
 
 ```cpp
 RtPbrSurvey::CaptureSessionUiState captureUi;
 
 void Tick(double realTimeSeconds, double simulationTimeSeconds, uint64_t renderFrameIndex)
 {
+    if (renderer.CanAdvanceCaptureSessionFixedStep())
+    {
+        AdvancePhysics();
+    }
     const RtPbrSurvey::CaptureSessionTiming timing = {
         renderFrameIndex,
         realTimeSeconds,
         simulationTimeSeconds,
     };
     RtPbrSurvey::CaptureSessionUi::Update(renderer, timing);
-
-    if (renderer.CanAdvanceCaptureSessionFixedStep())
-    {
-        AdvancePhysics();
-    }
 
     renderer.RunFrame([&](ID3D12GraphicsCommandList*) {
         ImGui::Begin("Capture");
@@ -46,4 +45,4 @@ void Tick(double realTimeSeconds, double simulationTimeSeconds, uint64_t renderF
 }
 ```
 
-`CaptureSessionUi::Update` performs no GPU wait. In real-time mode, delayed readback increments the visible dropped counter. In fixed-step mode, a ready request blocks the next advance until it is accepted by the renderer bridge.
+`CaptureSessionUi::Update` performs no GPU wait. In real-time mode, delayed readback increments the visible dropped counter. In fixed-step mode, a ready or in-flight request blocks the next advance until its result is polled. Recording duration starts after warmup.

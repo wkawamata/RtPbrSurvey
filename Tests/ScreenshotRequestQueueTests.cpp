@@ -55,9 +55,33 @@ bool TestPendingCaptureQueuesRequestsInFifoOrder()
     passed &= Check(!queue.ConsumeResult().has_value(), "all results are consumed once");
     return passed;
 }
+
+bool TestRequestIdsKeepLegacyAndSessionResultsSeparate()
+{
+    Engine::ScreenshotRequestQueue queue;
+    RtPbrSurvey::ScreenshotRequest legacy = {"legacy.png"};
+    RtPbrSurvey::ScreenshotRequest session = {"session.png"};
+    session.requestId = 42;
+    queue.Enqueue(legacy);
+    queue.Enqueue(session);
+
+    RtPbrSurvey::ScreenshotRequest active;
+    bool passed = Check(queue.BeginNextCapture(active), "legacy request begins first");
+    passed &= Check(queue.CompletePending({active.path, true, {}, 1, 1}), "legacy request completes");
+    passed &= Check(queue.BeginNextCapture(active), "session request begins second");
+    passed &= Check(queue.CompletePending({active.path, true, {}, 1, 1}), "session request completes");
+
+    const auto sessionResult = queue.ConsumeResult(42);
+    passed &= Check(sessionResult.has_value() && sessionResult->path == "session.png" && sessionResult->requestId == 42,
+                    "session consumes only its token result");
+    const auto legacyResult = queue.ConsumeResultExcept(42);
+    passed &= Check(legacyResult.has_value() && legacyResult->path == "legacy.png" && legacyResult->requestId == 0,
+                    "legacy consumer retains its result");
+    return passed;
+}
 } // namespace
 
 int main()
 {
-    return TestPendingCaptureQueuesRequestsInFifoOrder() ? 0 : 1;
+    return TestPendingCaptureQueuesRequestsInFifoOrder() && TestRequestIdsKeepLegacyAndSessionResultsSeparate() ? 0 : 1;
 }

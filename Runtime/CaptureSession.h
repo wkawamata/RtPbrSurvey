@@ -80,6 +80,8 @@ namespace RtPbrSurvey
         void CompleteRequest(ScreenshotResult result);
 
         bool CanAdvanceFixedStep() const;
+        bool IsActive() const;
+        std::optional<std::uint64_t> GetActiveRequestId() const;
         const CaptureSessionStatus& GetStatus() const;
 
     private:
@@ -92,9 +94,12 @@ namespace RtPbrSurvey
         CaptureSessionConfig m_config;
         CaptureSessionStatus m_status;
         std::optional<CaptureSessionTiming> m_startTiming;
+        std::optional<CaptureSessionTiming> m_recordingStartTiming;
         std::optional<ScreenshotRequest> m_readyRequest;
+        std::optional<std::uint64_t> m_activeRequestId;
         bool m_requestInFlight = false;
         bool m_stopRequested = false;
         double m_nextCaptureSeconds = 0.0;
+        std::uint64_t m_nextRequestId = 1;
     };
 } // namespace RtPbrSurvey
