@@ -6,6 +6,11 @@
 #include <string>
 #include <vector>
 
+namespace RtPbrSurvey
+{
+    struct CaptureSessionConfig;
+}
+
 namespace Platform
 {
 
@@ -90,6 +95,13 @@ struct CommandLineOptions
     UINT captureSessionFrameLimit = 0;
     UINT captureSessionWarmupFrames = 0;
     bool captureSessionFixedStep = false;
+    bool hasCaptureSessionRoi = false;
+    UINT captureSessionRoiX = 0;
+    UINT captureSessionRoiY = 0;
+    UINT captureSessionRoiWidth = 0;
+    UINT captureSessionRoiHeight = 0;
+    bool hasCaptureSessionDuration = false;
+    double captureSessionDurationSeconds = 0.0;
     bool exitAfterCapture = false;
     bool enableDlssRayReconstruction = false;
     bool enableExperimentalNativeRayReconstruction = false;
@@ -123,6 +135,9 @@ struct CommandLineOptions
 };
 
 CommandLineOptions ParseCommandLineOptions(_In_reads_(argc) WCHAR* argv[], int argc);
+bool BuildCaptureSessionConfig(const CommandLineOptions& options,
+                               RtPbrSurvey::CaptureSessionConfig& config,
+                               std::string& error);
 bool LoadReflectionCapturePlan(const std::filesystem::path& path,
                                const std::string& variant,
                                ReflectionCapturePlan& plan,

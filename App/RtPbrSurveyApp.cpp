@@ -139,27 +139,6 @@ Engine::TemporalUpscalerQualityMode GetDlssSrQualityMode(Platform::DlssSrQuality
     }
 }
 
-RtPbrSurvey::CaptureSessionOutputFormat GetCaptureSessionOutputFormat(const std::wstring& format)
-{
-    if (_wcsicmp(format.c_str(), L"png") == 0)
-    {
-        return RtPbrSurvey::CaptureSessionOutputFormat::Png;
-    }
-    if (_wcsicmp(format.c_str(), L"exr") == 0)
-    {
-        return RtPbrSurvey::CaptureSessionOutputFormat::Exr;
-    }
-    if (_wcsicmp(format.c_str(), L"gif") == 0)
-    {
-        return RtPbrSurvey::CaptureSessionOutputFormat::Gif;
-    }
-    if (_wcsicmp(format.c_str(), L"mp4") == 0)
-    {
-        return RtPbrSurvey::CaptureSessionOutputFormat::Mp4;
-    }
-    throw std::invalid_argument("-CaptureSessionFormat expects png, exr, gif, or mp4.");
-}
-
 } // namespace
 
 RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
@@ -203,11 +182,11 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
         {
             throw std::invalid_argument("Capture Session is mutually exclusive with existing screenshot automation.");
         }
-        if (m_commandLineOptions.captureSessionOutputDirectory.empty() ||
-            m_commandLineOptions.captureSessionBaseName.empty() || m_commandLineOptions.captureSessionFrameLimit == 0)
+        RtPbrSurvey::CaptureSessionConfig config;
+        std::string error;
+        if (!Platform::BuildCaptureSessionConfig(m_commandLineOptions, config, error))
         {
-            throw std::invalid_argument(
-                "Capture Session requires -CaptureSessionOutputDir, -CaptureSessionBaseName, and -CaptureSessionFrames.");
+            throw std::invalid_argument(error);
         }
     }
     if (m_commandLineOptions.enablePathTracing &&
@@ -543,18 +522,9 @@ void RtPbrSurveyApp::OnInit()
     if (m_commandLineOptions.captureSessionEnabled)
     {
         RtPbrSurvey::CaptureSessionConfig config;
-        config.outputDirectory = m_commandLineOptions.captureSessionOutputDirectory;
-        config.baseName = WideToUtf8(m_commandLineOptions.captureSessionBaseName);
-        config.outputFormat = GetCaptureSessionOutputFormat(m_commandLineOptions.captureSessionFormat);
-        config.source = config.outputFormat == RtPbrSurvey::CaptureSessionOutputFormat::Exr ?
-            RtPbrSurvey::ScreenshotCaptureSource::PreToneMapSceneColor : RtPbrSurvey::ScreenshotCaptureSource::FinalOutput;
-        config.clock = m_commandLineOptions.captureSessionFixedStep ?
-            RtPbrSurvey::CaptureSessionClock::FixedStep : RtPbrSurvey::CaptureSessionClock::RealTime;
-        config.framesPerSecond = m_commandLineOptions.captureSessionFramesPerSecond;
-        config.warmupFrames = m_commandLineOptions.captureSessionWarmupFrames;
-        config.frameLimit = m_commandLineOptions.captureSessionFrameLimit;
         std::string error;
-        if (!m_sceneRenderer.StartCaptureSession(config, error))
+        if (!Platform::BuildCaptureSessionConfig(m_commandLineOptions, config, error) ||
+            !m_sceneRenderer.StartCaptureSession(config, error))
         {
             throw std::runtime_error("Failed to start Capture Session: " + error);
         }
@@ -917,10 +887,7 @@ void RtPbrSurveyApp::OnIdle()
     LogRayReconstructionDiagnostics();
     AccumulatePathTracingCaptureDiagnostics();
 
-    if (HasAutomatedCapture())
-    {
-        ++m_automationFrameCounter;
-    }
+    ++m_automationFrameCounter;
 
     // Poll D3D12 debug messages and FPS logging.
     if (m_logFile)

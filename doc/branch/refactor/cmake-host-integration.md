@@ -17,6 +17,7 @@ The CMake path expects vcpkg packages for:
 - `imgui` with `dx12-binding` and `win32-binding`
 - `tinygltf`
 - `nlohmann-json`
+- `tinyexr` for EXR capture (including its transitive dependencies)
 
 It also expects the existing NuGet packages under `packages/`:
 
@@ -52,14 +53,49 @@ rtpbrsurvey_copy_runtime_files(TankSandbox)
 - `dxcompiler.dll`
 - `dxil.dll`
 - `WinPixEventRuntime.dll`
+- configuration-matching `miniz.dll` when the vcpkg TinyEXR dependency exports it
 - `sl.interposer.dll`, `sl.common.dll`, `sl.dlss.dll`, and `nvngx_dlss.dll` when the Streamline SDK is available
 
 The helper is intended to be called by a parent host project after `add_subdirectory(External/RtPbrSurvey)`.
 It uses RtPbrSurvey's own source, package, and shader output paths rather than the caller's current source or binary directory.
-When Streamline is enabled on MSVC, the helper also validates the final executable's PE dependencies after linking.
-The executable must import `sl.interposer.dll` and must not directly import `d3d12.dll`, `dxgi.dll`, or `d3d11.dll`.
-The helper also scans the renderer's `.cso` references and fails the build when any required runtime shader is absent
-from the host output directory. This keeps CMake shader generation synchronized with newly added renderer passes.
+
+## Capture Runtime Dependencies
+
+Static linkage of `RtPbrSurvey::SceneRenderer` or TinyEXR does not guarantee that the
+complete dependency chain is static. In the validated vcpkg `x64-windows` configuration,
+`unofficial::tinyexr::tinyexr` is static but links the shared `miniz::miniz` target.
+The host executable therefore needs the configuration-matching `miniz.dll` beside it:
+`debug/bin/miniz.dll` for Debug, or `bin/miniz.dll` for Release in the installed triplet.
+Do not mix Debug and Release runtime files.
+
+Keep vcpkg app-local deployment enabled for the final host executable.
+`rtpbrsurvey_copy_runtime_files()` deploys the Debug or Release `miniz.dll` location
+captured while RtPbrSurvey configures TinyEXR, so it remains usable from a parent
+`add_subdirectory` call even when the imported vcpkg target is directory-scoped. It does
+not validate the full transitive vcpkg DLL dependency chain. A successful static-library
+build or CPU-only CTest run is not a host deployment check.
+A missing load-time dependency can prevent startup before capture code can report an error.
+
+Before distribution, launch the actual host from a clean staged output directory without
+vcpkg package directories on `PATH`, then perform a short PNG and EXR capture. Check the
+process exit status, output files, and D3D12 log. Tank integration at renderer commit
+`817938f` required vcpkg app-local deployment of `miniz.dll` for this configuration.
+Other triplets or package versions may have different runtime dependencies.
+
+### Proposed Missing-Runtime Check (Not Implemented)
+
+A future host helper should validate the final executable and its recursive non-system
+PE dependencies after app-local deployment, and report unresolved DLL names and the host
+configuration. Run this as a separate validation target or packaging step with explicit
+ordering, rather than assuming the helper's POST_BUILD command follows vcpkg deployment.
+Also retain a short host-launch test: dynamically loaded plugins are not necessarily
+visible in the static import graph.
+
+Do not infer runtime completeness from TinyEXR's STATIC target type, or hard-code
+`miniz.dll` as the only dependency. Imported package targets can be directory-scoped when
+RtPbrSurvey is consumed with `add_subdirectory`, so a parent-callable helper must not assume
+it can resolve every package target by name. This follow-up needs Debug/Release and
+SDK-present/SDK-free host coverage before becoming a required build check.
 
 ## Streamline Host Link Contract
 

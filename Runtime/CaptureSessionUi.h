@@ -8,6 +8,13 @@ namespace RtPbrSurvey
 {
     class SceneRenderer;
 
+    enum class CaptureSessionUiAction
+    {
+        None,
+        Start,
+        Stop,
+    };
+
     struct CaptureSessionUiState
     {
         std::string outputDirectory = "Screenshots";
@@ -35,5 +42,6 @@ namespace RtPbrSurvey
         static bool IsActive(const CaptureSessionStatus& status);
         static void Update(SceneRenderer& renderer, const CaptureSessionTiming& timing);
         static void Draw(SceneRenderer& renderer, CaptureSessionUiState& state);
+        static CaptureSessionUiAction Draw(const CaptureSessionStatus& status, CaptureSessionUiState& state);
     };
 } // namespace RtPbrSurvey

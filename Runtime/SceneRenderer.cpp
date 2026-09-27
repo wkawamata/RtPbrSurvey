@@ -424,16 +424,26 @@ namespace RtPbrSurvey
 
     void SceneRenderer::RequestScreenshot(ScreenshotRequest request)
     {
+        request.requestId = 0;
         m_engine.RequestScreenshot(std::move(request));
     }
 
     std::optional<ScreenshotResult> SceneRenderer::ConsumeScreenshotResult()
     {
+        if (const std::optional<std::uint64_t> requestId = m_captureSession.GetActiveRequestId())
+        {
+            return m_engine.ConsumeScreenshotResultExcept(*requestId);
+        }
         return m_engine.ConsumeScreenshotResult();
     }
 
     bool SceneRenderer::StartCaptureSession(const CaptureSessionConfig& config, std::string& error)
     {
+        if (!m_engine.IsScreenshotCaptureIdle())
+        {
+            error = "Screenshot capture is busy with a non-session request.";
+            return false;
+        }
         return m_captureSession.Start(config, error);
     }
 
@@ -447,12 +457,15 @@ namespace RtPbrSurvey
         m_captureSession.Update(timing);
         if (const std::optional<ScreenshotRequest> request = m_captureSession.AcquireReadyRequest())
         {
-            RequestScreenshot(*request);
+            m_engine.RequestScreenshot(*request);
             m_captureSession.MarkRequestAccepted();
         }
-        if (const std::optional<ScreenshotResult> result = ConsumeScreenshotResult())
+        if (const std::optional<std::uint64_t> requestId = m_captureSession.GetActiveRequestId())
         {
-            m_captureSession.CompleteRequest(*result);
+            if (const std::optional<ScreenshotResult> result = m_engine.ConsumeScreenshotResult(*requestId))
+            {
+                m_captureSession.CompleteRequest(*result);
+            }
         }
     }
 

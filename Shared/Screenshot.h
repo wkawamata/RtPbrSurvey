@@ -36,6 +36,7 @@ struct ScreenshotRequest
     std::optional<ScreenshotRegion> region;
     ScreenshotOutputFormat outputFormat = ScreenshotOutputFormat::Png;
     ScreenshotCaptureSource source = ScreenshotCaptureSource::FinalOutput;
+    std::uint64_t requestId = 0;
 };
 
 struct ScreenshotResult
@@ -45,5 +46,6 @@ struct ScreenshotResult
     std::string error;
     unsigned int width = 0;
     unsigned int height = 0;
+    std::uint64_t requestId = 0;
 };
 } // namespace RtPbrSurvey

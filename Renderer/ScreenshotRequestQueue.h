@@ -2,6 +2,8 @@
 
 #include "Shared/Screenshot.h"
 
+#include <algorithm>
+#include <cstdint>
 #include <deque>
 #include <optional>
 #include <string>
@@ -27,6 +29,11 @@ public:
         return !m_capturePending && !m_requests.empty();
     }
 
+    bool IsIdle() const
+    {
+        return !m_capturePending && m_requests.empty();
+    }
+
     const RtPbrSurvey::ScreenshotRequest* PeekNextCapture() const
     {
         return CanBeginNextCapture() ? &m_requests.front() : nullptr;
@@ -42,6 +49,7 @@ public:
         request = std::move(m_requests.front());
         m_requests.pop_front();
         m_capturePending = true;
+        m_pendingRequestId = request.requestId;
         return true;
     }
 
@@ -53,6 +61,8 @@ public:
         }
 
         m_capturePending = false;
+        result.requestId = m_pendingRequestId;
+        m_pendingRequestId = 0;
         m_results.push_back(std::move(result));
         return true;
     }
@@ -68,7 +78,9 @@ public:
         {
             RtPbrSurvey::ScreenshotRequest request = std::move(m_requests.front());
             m_requests.pop_front();
-            m_results.push_back({request.path, false, error});
+            RtPbrSurvey::ScreenshotResult result = {request.path, false, error};
+            result.requestId = request.requestId;
+            m_results.push_back(std::move(result));
         }
     }
 
@@ -84,9 +96,42 @@ public:
         return result;
     }
 
+    std::optional<RtPbrSurvey::ScreenshotResult> ConsumeResult(std::uint64_t requestId)
+    {
+        const auto result = std::find_if(m_results.begin(),
+                                         m_results.end(),
+                                         [requestId](const RtPbrSurvey::ScreenshotResult& candidate)
+                                         { return candidate.requestId == requestId; });
+        if (result == m_results.end())
+        {
+            return std::nullopt;
+        }
+
+        RtPbrSurvey::ScreenshotResult value = std::move(*result);
+        m_results.erase(result);
+        return value;
+    }
+
+    std::optional<RtPbrSurvey::ScreenshotResult> ConsumeResultExcept(std::uint64_t requestId)
+    {
+        const auto result = std::find_if(m_results.begin(),
+                                         m_results.end(),
+                                         [requestId](const RtPbrSurvey::ScreenshotResult& candidate)
+                                         { return candidate.requestId != requestId; });
+        if (result == m_results.end())
+        {
+            return std::nullopt;
+        }
+
+        RtPbrSurvey::ScreenshotResult value = std::move(*result);
+        m_results.erase(result);
+        return value;
+    }
+
 private:
     std::deque<RtPbrSurvey::ScreenshotRequest> m_requests;
     std::deque<RtPbrSurvey::ScreenshotResult> m_results;
     bool m_capturePending = false;
+    std::uint64_t m_pendingRequestId = 0;
 };
 } // namespace Engine

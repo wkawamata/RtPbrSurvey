@@ -83,7 +83,23 @@ namespace RtPbrSurvey
 
     void CaptureSessionUi::Draw(SceneRenderer& renderer, CaptureSessionUiState& state)
     {
-        const CaptureSessionStatus& status = renderer.GetCaptureSessionStatus();
+        const CaptureSessionUiAction action = Draw(renderer.GetCaptureSessionStatus(), state);
+        if (action == CaptureSessionUiAction::Start)
+        {
+            std::string error;
+            state.message = renderer.StartCaptureSession(BuildConfig(state), error) ?
+                "Capture session started." : "Unable to start capture session: " + error;
+        }
+        else if (action == CaptureSessionUiAction::Stop)
+        {
+            renderer.StopCaptureSession();
+            state.message = "Capture session is draining queued output.";
+        }
+    }
+
+    CaptureSessionUiAction CaptureSessionUi::Draw(const CaptureSessionStatus& status, CaptureSessionUiState& state)
+    {
+        CaptureSessionUiAction action = CaptureSessionUiAction::None;
         const bool active = IsActive(status);
         const char* formatNames[] = {
             "PNG (final output)",
@@ -92,23 +108,20 @@ namespace RtPbrSurvey
             "MP4 (not available)",
         };
 
-        ImGui::Text("State: %s", GetStateName(status.state));
-        ImGui::Text("Frames: accepted %llu, saved %llu, dropped %llu",
-                    static_cast<unsigned long long>(status.acceptedFrameCount),
-                    static_cast<unsigned long long>(status.savedFrameCount),
-                    static_cast<unsigned long long>(status.droppedFrameCount));
-        if (!status.lastOutputPath.empty())
+        // Keep commands ahead of all variable-height settings and status output.
+        ImGui::BeginDisabled(active);
+        if (ImGui::Button("Start Capture Session"))
         {
-            ImGui::TextWrapped("Last output: %s", status.lastOutputPath.string().c_str());
+            action = CaptureSessionUiAction::Start;
         }
-        if (!status.error.empty())
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!active);
+        if (ImGui::Button("Stop Capture Session"))
         {
-            ImGui::TextWrapped("Error: %s", status.error.c_str());
+            action = CaptureSessionUiAction::Stop;
         }
-        if (!state.message.empty())
-        {
-            ImGui::TextWrapped("%s", state.message.c_str());
-        }
+        ImGui::EndDisabled();
 
         ImGui::BeginDisabled(active);
         ImGui::InputText("Output directory", &state.outputDirectory);
@@ -140,28 +153,26 @@ namespace RtPbrSurvey
             ImGui::InputFloat("Duration (seconds)", &state.durationSeconds, 0.1f, 1.0f, "%.2f");
         }
         ImGui::Checkbox("Fixed-step clock", &state.fixedStep);
-        if (ImGui::Button("Start Capture Session"))
-        {
-            std::string error;
-            if (renderer.StartCaptureSession(BuildConfig(state), error))
-            {
-                state.message = "Capture session started.";
-            }
-            else
-            {
-                state.message = "Unable to start capture session: " + error;
-            }
-        }
         ImGui::EndDisabled();
 
-        ImGui::SameLine();
-        ImGui::BeginDisabled(!active);
-        if (ImGui::Button("Stop Capture Session"))
+        ImGui::Text("State: %s", GetStateName(status.state));
+        ImGui::Text("Frames: accepted %llu, saved %llu, dropped %llu",
+                    static_cast<unsigned long long>(status.acceptedFrameCount),
+                    static_cast<unsigned long long>(status.savedFrameCount),
+                    static_cast<unsigned long long>(status.droppedFrameCount));
+        if (!status.lastOutputPath.empty())
         {
-            renderer.StopCaptureSession();
-            state.message = "Capture session is draining queued output.";
+            ImGui::TextWrapped("Last output: %s", status.lastOutputPath.string().c_str());
         }
-        ImGui::EndDisabled();
+        if (!status.error.empty())
+        {
+            ImGui::TextWrapped("Error: %s", status.error.c_str());
+        }
+        if (!state.message.empty())
+        {
+            ImGui::TextWrapped("%s", state.message.c_str());
+        }
 
+        return action;
     }
 } // namespace RtPbrSurvey

@@ -2,6 +2,8 @@
 
 #include "CommandLineOptions.h"
 
+#include "Runtime/CaptureSession.h"
+
 #include <cerrno>
 #include <cstdlib>
 #include <cmath>
@@ -42,6 +44,68 @@ bool TryParseUint(const WCHAR* value, bool allowZero, UINT& result)
 
     result = static_cast<UINT>(parsed);
     return true;
+}
+
+bool TryParsePositiveDouble(const WCHAR* value, double& result)
+{
+    if (value == nullptr || value[0] == L'\0')
+    {
+        return false;
+    }
+
+    wchar_t* end = nullptr;
+    errno = 0;
+    const double parsed = wcstod(value, &end);
+    if (errno == ERANGE || end == value || *end != L'\0' || !std::isfinite(parsed) || parsed <= 0.0)
+    {
+        return false;
+    }
+
+    result = parsed;
+    return true;
+}
+
+std::string WideToUtf8(const std::wstring& value)
+{
+    if (value.empty())
+    {
+        return {};
+    }
+
+    const int length = WideCharToMultiByte(
+        CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr);
+    if (length <= 0)
+    {
+        throw std::runtime_error("Failed to convert command-line text to UTF-8.");
+    }
+    std::string result(static_cast<size_t>(length), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), result.data(), length, nullptr, nullptr);
+    return result;
+}
+
+bool TryParseCaptureSessionFormat(const std::wstring& value, RtPbrSurvey::CaptureSessionOutputFormat& format)
+{
+    if (_wcsicmp(value.c_str(), L"png") == 0)
+    {
+        format = RtPbrSurvey::CaptureSessionOutputFormat::Png;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"exr") == 0)
+    {
+        format = RtPbrSurvey::CaptureSessionOutputFormat::Exr;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"gif") == 0)
+    {
+        format = RtPbrSurvey::CaptureSessionOutputFormat::Gif;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"mp4") == 0)
+    {
+        format = RtPbrSurvey::CaptureSessionOutputFormat::Mp4;
+        return true;
+    }
+    return false;
 }
 
 bool TryParseDebugResourceName(const WCHAR* value, std::string& resourceName)
@@ -405,6 +469,27 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             options.captureSessionEnabled = true;
             options.captureSessionFixedStep = _wcsicmp(argv[++i], L"fixed-step") == 0;
         }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionRoi"))
+        {
+            if (i + 4 >= argc || !TryParseUint(argv[++i], true, options.captureSessionRoiX) ||
+                !TryParseUint(argv[++i], true, options.captureSessionRoiY) ||
+                !TryParseUint(argv[++i], false, options.captureSessionRoiWidth) ||
+                !TryParseUint(argv[++i], false, options.captureSessionRoiHeight))
+            {
+                throw std::invalid_argument("-CaptureSessionRoi expects x y width height with non-zero dimensions.");
+            }
+            options.captureSessionEnabled = true;
+            options.hasCaptureSessionRoi = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionDurationSeconds"))
+        {
+            if (i + 1 >= argc || !TryParsePositiveDouble(argv[++i], options.captureSessionDurationSeconds))
+            {
+                throw std::invalid_argument("-CaptureSessionDurationSeconds expects a finite value greater than zero.");
+            }
+            options.captureSessionEnabled = true;
+            options.hasCaptureSessionDuration = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-ExitAfterCapture"))
         {
             options.exitAfterCapture = true;
@@ -626,6 +711,64 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
     }
 
     return options;
+}
+
+bool BuildCaptureSessionConfig(const CommandLineOptions& options,
+                               RtPbrSurvey::CaptureSessionConfig& config,
+                               std::string& error)
+{
+    error.clear();
+    if (!options.captureSessionEnabled)
+    {
+        error = "Capture Session was not requested.";
+        return false;
+    }
+    if (options.captureSessionOutputDirectory.empty() || options.captureSessionBaseName.empty())
+    {
+        error = "Capture Session requires -CaptureSessionOutputDir and -CaptureSessionBaseName.";
+        return false;
+    }
+    if (options.captureSessionFrameLimit == 0 && !options.hasCaptureSessionDuration)
+    {
+        error = "Capture Session requires -CaptureSessionFrames or -CaptureSessionDurationSeconds.";
+        return false;
+    }
+
+    RtPbrSurvey::CaptureSessionOutputFormat format;
+    if (!TryParseCaptureSessionFormat(options.captureSessionFormat, format))
+    {
+        error = "-CaptureSessionFormat expects png, exr, gif, or mp4.";
+        return false;
+    }
+
+    config = {};
+    config.outputDirectory = options.captureSessionOutputDirectory;
+    config.baseName = WideToUtf8(options.captureSessionBaseName);
+    config.outputFormat = format;
+    config.source = format == RtPbrSurvey::CaptureSessionOutputFormat::Exr ?
+        RtPbrSurvey::ScreenshotCaptureSource::PreToneMapSceneColor : RtPbrSurvey::ScreenshotCaptureSource::FinalOutput;
+    config.clock = options.captureSessionFixedStep ?
+        RtPbrSurvey::CaptureSessionClock::FixedStep : RtPbrSurvey::CaptureSessionClock::RealTime;
+    config.framesPerSecond = options.captureSessionFramesPerSecond;
+    config.warmupFrames = options.captureSessionWarmupFrames;
+    if (options.captureSessionFrameLimit > 0)
+    {
+        config.frameLimit = options.captureSessionFrameLimit;
+    }
+    if (options.hasCaptureSessionDuration)
+    {
+        config.durationSeconds = options.captureSessionDurationSeconds;
+    }
+    if (options.hasCaptureSessionRoi)
+    {
+        config.region = RtPbrSurvey::ScreenshotRegion{
+            options.captureSessionRoiX,
+            options.captureSessionRoiY,
+            options.captureSessionRoiWidth,
+            options.captureSessionRoiHeight,
+        };
+    }
+    return true;
 }
 
 bool LoadReflectionCapturePlan(const std::filesystem::path& path,

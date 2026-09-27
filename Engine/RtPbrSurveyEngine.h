@@ -461,6 +461,9 @@ public:
     std::optional<Engine::ReflectionHdrDiagnosticFrame> ConsumeReflectionHdrDiagnosticFrame();
     void RequestScreenshot(RtPbrSurvey::ScreenshotRequest request);
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult();
+    std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult(std::uint64_t requestId);
+    std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResultExcept(std::uint64_t requestId);
+    bool IsScreenshotCaptureIdle() const;
     void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
     void RequestPixelPick(int screenX, int screenY);
     const PixelPickResult& GetPixelPickResult() const { return m_pixelPickResult; }
