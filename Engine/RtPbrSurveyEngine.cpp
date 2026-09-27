@@ -601,6 +601,8 @@ void RtPbrSurveyEngine::SetLightingParams(const LightingParams& params)
 void RtPbrSurveyEngine::SetShadowSettings(const ShadowSettings& settings)
 {
     const bool pathTracingHistoryChanged =
+        m_shadowSettings.enabled != settings.enabled ||
+        m_shadowSettings.normalBias != settings.normalBias ||
         m_shadowSettings.rayTMin != settings.rayTMin || m_shadowSettings.rayTMax != settings.rayTMax;
     m_shadowSettings = settings;
     if (pathTracingHistoryChanged)

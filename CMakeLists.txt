@@ -379,6 +379,14 @@ if(RTPBRSURVEY_BUILD_TESTS)
     endif()
     add_test(NAME RtPbrSurvey.SceneRendererSettings COMMAND RtPbrSurvey.SceneRendererSettingsTests)
 
+    add_executable(RtPbrSurvey.PathTracingShadowSettingsTests
+        Tests/PathTracingShadowSettingsTests.cpp)
+    target_link_libraries(RtPbrSurvey.PathTracingShadowSettingsTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.PathTracingShadowSettingsTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.PathTracingShadowSettings COMMAND RtPbrSurvey.PathTracingShadowSettingsTests)
+
     add_executable(RtPbrSurvey.EvaluationStateTests
         Tests/EvaluationStateTests.cpp)
     target_link_libraries(RtPbrSurvey.EvaluationStateTests PRIVATE RtPbrSurvey::SceneRenderer)
