@@ -29,11 +29,30 @@
 
 生成画像、PFM、ログ、一時preset、撮影スクリプトは`bin/x64/Debug/PathTracingMultiLightWork4`配下に置き、commitしない。baseline worktreeはWork4内の`build/pt-nee-baseline`、ビルドログは`C:\work\RtPbrSurvey-agents\pt-multi-light-work4-*`。
 
-## 残る確認と統合順
+## 残る確認
 
-- 編集直後の最初のPT frameでaccumulation resetとhistory clearを実測するUI検証は未実施。`SetLightingParams`の全灯比較から`InvalidatePathTracingHistory(Lighting)`へ到達し、sample count/index=0、historyValid=false、clearRequired=trueとなるコード経路は確認済み。
+- 編集直後の最初のPT frameのaccumulation resetとhistory clearは、2026-09-27にUI操作と一時計測ログで確認済み。下記の追補を参照。
 - Point/Spotの光源直近や遮蔽物が光源の背後にある極端な配置については専用シーンでの境界テストを追加できる。現検証は同梱fixtureでの有限距離・影ON/OFFの確認。
 - PTは各bounceで最大16灯を全列挙する。灯数が多い場合のGPUコストと、必要なら離散的な光源選択PDFを導入する性能検討は後続。
-- #02のNEE/MISブランチがmainへ統合された後、このWork4 adapter差分をmain基点へ整理して独立PRにする。#02本体の推定量変更と混ぜない。
+- #02のNEE/MISはPR #75、Work4 adapterはPR #76としてmainへ統合済み。#02本体の推定量変更とWork4のadapter差分は独立PRのまま維持した。
+## 2026-09-27: UI光源編集直後の蓄積リセット実測
 
-Status: Work4 adapter implemented and validated locally; main integration waits for #02.
+PR #75 / #76はmainへマージ済み。この検証はWork4の同一実装（2e8752d）を使用した。
+
+- Multi-Light Validationの一時コピーをScene Editorから読み込み、PT / accumulate=true / 1 sample per frameで実行した。
+- Engineに一時ログを入れ、UI編集前後、履歴UAV clearコマンド記録後、PT dispatch直前、frame commit後を記録した。計測コードは検証後に取り除いた。
+- UI操作はWindows Computer Useから行い、光源設定の保存は行っていない。
+
+| UI操作 | 編集直前の蓄積数 | reset直後 | 最初のdispatch | 最初のcommit |
+| --- | ---: | --- | --- | --- |
+| Directional 1: Enabled OFF | 2803 | count/index=0, valid=false, clear=true | count/index=0, valid=false, clear=false | count/index=1, valid=true |
+| Point 3: Intensity 8から4 | 2803 | count/index=0, valid=false, clear=true | count/index=0, valid=false, clear=false | count/index=1, valid=true |
+| Spot 4: Enabled OFF | 1687 | count/index=0, valid=false, clear=true | count/index=0, valid=false, clear=false | count/index=1, valid=true |
+
+全ケースでreset reasonはLighting（5）。reset後、最初のdispatchより前にhistory clearが記録され、次フレームではcount/index=2へ進んだ。古い蓄積数を引き継いだdispatchは観測されなかった。
+
+観測対象はCPU側の状態とGPUコマンド記録順であり、GPUの履歴テクスチャreadbackや編集直後の画像のピクセル比較は実施していない。起動直後のフレームではなく、蓄積が進んだ状態でのUI光源変更を測った。
+
+一時ログ: `build/pt-ui-reset-trace.log`（非commit）。各操作の開始tickは984579281、984626000、984654109。検証用scene/presetと元ソースのbackupも`build/`配下に保存した。
+
+Status: UI-triggered PT accumulation reset and history-clear command ordering verified.
