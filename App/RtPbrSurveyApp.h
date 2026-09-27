@@ -227,6 +227,8 @@ private:
     UINT64 m_fpsLogFrameCounter = 0;
     UINT64 m_automationFrameCounter = 0;
     bool m_automationScreenshotRequested = false;
+    bool m_captureSessionActive = false;
+    std::chrono::steady_clock::time_point m_captureSessionStartTime;
     double m_pathTracingGpuTimeSumMs = 0.0;
     float m_pathTracingGpuTimeMinMs = 0.0f;
     float m_pathTracingGpuTimeMaxMs = 0.0f;

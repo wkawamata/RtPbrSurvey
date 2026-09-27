@@ -432,6 +432,40 @@ namespace RtPbrSurvey
         return m_engine.ConsumeScreenshotResult();
     }
 
+    bool SceneRenderer::StartCaptureSession(const CaptureSessionConfig& config, std::string& error)
+    {
+        return m_captureSession.Start(config, error);
+    }
+
+    void SceneRenderer::StopCaptureSession()
+    {
+        m_captureSession.Stop();
+    }
+
+    void SceneRenderer::UpdateCaptureSession(const CaptureSessionTiming& timing)
+    {
+        m_captureSession.Update(timing);
+        if (const std::optional<ScreenshotRequest> request = m_captureSession.AcquireReadyRequest())
+        {
+            RequestScreenshot(*request);
+            m_captureSession.MarkRequestAccepted();
+        }
+        if (const std::optional<ScreenshotResult> result = ConsumeScreenshotResult())
+        {
+            m_captureSession.CompleteRequest(*result);
+        }
+    }
+
+    bool SceneRenderer::CanAdvanceCaptureSessionFixedStep() const
+    {
+        return m_captureSession.CanAdvanceFixedStep();
+    }
+
+    const CaptureSessionStatus& SceneRenderer::GetCaptureSessionStatus() const
+    {
+        return m_captureSession.GetStatus();
+    }
+
     void SceneRenderer::ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings)
     {
         m_engine.ReloadEnvironmentResources(settings);
