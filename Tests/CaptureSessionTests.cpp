@@ -2,8 +2,10 @@
 
 #include "Platform/CommandLineOptions.h"
 #include "Runtime/CaptureSession.h"
+#include "Runtime/CaptureSessionUi.h"
 
 #include <iostream>
+#include <imgui.h>
 
 namespace
 {
@@ -25,6 +27,84 @@ RtPbrSurvey::CaptureSessionConfig MakeConfig(RtPbrSurvey::CaptureSessionClock cl
     config.framesPerSecond = 60;
     config.frameLimit = 2;
     return config;
+}
+
+bool TestStableOutputPath()
+{
+    bool passed = true;
+    for (bool singleOutput : {false, true})
+    {
+        RtPbrSurvey::CaptureSession session;
+        auto config = MakeConfig(RtPbrSurvey::CaptureSessionClock::FixedStep);
+        config.outputDirectory = "Captures/../Captures";
+        if (singleOutput)
+        {
+            config.singleOutputPath = "Captures/../single.png";
+            config.frameLimit = 1;
+        }
+        std::string error;
+        passed &= Check(session.Start(config, error), "path session starts");
+        session.Update({0, 0.0, 0.0});
+        const auto request = session.AcquireReadyRequest();
+        if (!request)
+        {
+            return Check(false, "path request exists");
+        }
+        passed &= Check(request->path.is_absolute() && request->path == request->path.lexically_normal(),
+                        "request path is normalized and absolute");
+        session.MarkRequestAccepted();
+        const auto acceptedPath = session.GetStatus().lastOutputPath;
+        session.CompleteRequest({request->path.filename(), true, {}, 1, 1, request->requestId});
+        passed &= Check(session.GetStatus().lastOutputPath == acceptedPath,
+                        "completion does not replace accepted path with renderer spelling");
+    }
+    return passed;
+}
+
+bool TestStableStopButton()
+{
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = ImVec2(800, 800);
+    io.DeltaTime = 1.0f / 60.0f;
+    unsigned char* pixels = nullptr;
+    int width = 0;
+    int height = 0;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    RtPbrSurvey::CaptureSessionStatus status;
+    status.state = RtPbrSurvey::CaptureSessionState::Recording;
+    RtPbrSurvey::CaptureSessionUiState state;
+    ImVec2 stopPosition;
+    const auto draw = [&]()
+    {
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
+        ImGui::SetNextWindowSize(ImVec2(440, 780));
+        ImGui::Begin("Capture test", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+        const ImVec2 origin = ImGui::GetCursorScreenPos();
+        const ImGuiStyle& style = ImGui::GetStyle();
+        stopPosition = ImVec2(origin.x + ImGui::CalcTextSize("Start Capture Session").x +
+                                 style.FramePadding.x * 2 + style.ItemSpacing.x + 5,
+                             origin.y + ImGui::GetFrameHeight() * 0.5f);
+        const auto action = RtPbrSurvey::CaptureSessionUi::Draw(status, state);
+        ImGui::End();
+        ImGui::Render();
+        return action;
+    };
+    draw();
+    io.AddMousePosEvent(stopPosition.x, stopPosition.y);
+    draw();
+    io.AddMouseButtonEvent(0, true);
+    draw();
+    status.lastOutputPath = std::string(240, 'x') + "/frame_000001.png";
+    status.error = "A variable-height diagnostic appears while the mouse button is held.";
+    state.message = std::string(160, 'm');
+    io.AddMouseButtonEvent(0, false);
+    const bool passed = Check(draw() == RtPbrSurvey::CaptureSessionUiAction::Stop,
+                              "Stop retains its click target and ID when wrapped status changes");
+    ImGui::DestroyContext();
+    return passed;
 }
 
 bool TestOutputOrderAndStopDrain()
@@ -218,7 +298,7 @@ bool TestMismatchedResultDoesNotCompleteSession()
 
 int main()
 {
-    return TestOutputOrderAndStopDrain() && TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
+    return TestStableOutputPath() && TestStableStopButton() && TestOutputOrderAndStopDrain() && TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
                    TestValidationAndLegacyCli() && TestOutputFailureCompletesCleanup() && TestWarmupExcludedFromDuration() &&
                    TestMismatchedResultDoesNotCompleteSession() ?
         0 :

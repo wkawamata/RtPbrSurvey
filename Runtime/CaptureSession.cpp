@@ -88,7 +88,20 @@ namespace RtPbrSurvey
             return false;
         }
 
-        m_config = config;
+        CaptureSessionConfig resolvedConfig = config;
+        std::error_code pathError;
+        resolvedConfig.outputDirectory = std::filesystem::absolute(config.outputDirectory, pathError).lexically_normal();
+        if (!pathError && config.singleOutputPath.has_value())
+        {
+            resolvedConfig.singleOutputPath = std::filesystem::absolute(*config.singleOutputPath, pathError).lexically_normal();
+        }
+        if (pathError)
+        {
+            error = "Unable to resolve capture output path: " + pathError.message();
+            return false;
+        }
+
+        m_config = std::move(resolvedConfig);
         m_status = {};
         m_startTiming.reset();
         m_recordingStartTiming.reset();
@@ -213,7 +226,7 @@ namespace RtPbrSurvey
 
         m_requestInFlight = false;
         m_activeRequestId.reset();
-        m_status.lastOutputPath = std::move(result.path);
+        // Keep the accepted absolute request path stable across renderer completion.
         if (!result.succeeded)
         {
             m_status.error = std::move(result.error);

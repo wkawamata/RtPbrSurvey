@@ -53,14 +53,11 @@ rtpbrsurvey_copy_runtime_files(TankSandbox)
 - `dxcompiler.dll`
 - `dxil.dll`
 - `WinPixEventRuntime.dll`
+- configuration-matching `miniz.dll` when the vcpkg TinyEXR dependency exports it
 - `sl.interposer.dll`, `sl.common.dll`, `sl.dlss.dll`, and `nvngx_dlss.dll` when the Streamline SDK is available
 
 The helper is intended to be called by a parent host project after `add_subdirectory(External/RtPbrSurvey)`.
 It uses RtPbrSurvey's own source, package, and shader output paths rather than the caller's current source or binary directory.
-When Streamline is enabled on MSVC, the helper also validates the final executable's PE dependencies after linking.
-The executable must import `sl.interposer.dll` and must not directly import `d3d12.dll`, `dxgi.dll`, or `d3d11.dll`.
-The helper also scans the renderer's `.cso` references and fails the build when any required runtime shader is absent
-from the host output directory. This keeps CMake shader generation synchronized with newly added renderer passes.
 
 ## Capture Runtime Dependencies
 
@@ -71,10 +68,12 @@ The host executable therefore needs the configuration-matching `miniz.dll` besid
 `debug/bin/miniz.dll` for Debug, or `bin/miniz.dll` for Release in the installed triplet.
 Do not mix Debug and Release runtime files.
 
-Keep vcpkg app-local deployment enabled for the final host executable. The current
-`rtpbrsurvey_copy_runtime_files()` implementation copies the explicitly listed renderer
-runtimes; it does not deploy or validate the full transitive vcpkg DLL dependency chain.
-A successful static-library build or CPU-only CTest run is not a host deployment check.
+Keep vcpkg app-local deployment enabled for the final host executable.
+`rtpbrsurvey_copy_runtime_files()` deploys the Debug or Release `miniz.dll` location
+captured while RtPbrSurvey configures TinyEXR, so it remains usable from a parent
+`add_subdirectory` call even when the imported vcpkg target is directory-scoped. It does
+not validate the full transitive vcpkg DLL dependency chain. A successful static-library
+build or CPU-only CTest run is not a host deployment check.
 A missing load-time dependency can prevent startup before capture code can report an error.
 
 Before distribution, launch the actual host from a clean staged output directory without

@@ -63,6 +63,7 @@ namespace RtPbrSurvey
         std::uint64_t acceptedFrameCount = 0;
         std::uint64_t savedFrameCount = 0;
         std::uint64_t droppedFrameCount = 0;
+        // Absolute, lexically normalized path of the last accepted request; empty before acceptance.
         std::filesystem::path lastOutputPath;
         std::string error;
     };

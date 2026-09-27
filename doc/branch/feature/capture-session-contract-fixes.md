@@ -8,6 +8,12 @@ Depends on PR #79, which depends on PR #78. Do not merge the dependency branch i
 - `Platform/CommandLineOptions.h` exposes `bool BuildCaptureSessionConfig(const CommandLineOptions&, RtPbrSurvey::CaptureSessionConfig&, std::string&)`. Include `Runtime/CaptureSession.h` for the complete config type. Both CLI and UI ultimately use core Start validation. The CLI helper handles format/source conversion, ROI, and optional duration; Start remains required for semantic validation.
 - `-CaptureSessionRoi x y width height` and `-CaptureSessionDurationSeconds seconds` are available to standalone and external hosts. Legacy `-CapturePath` behavior is retained.
 - PNG/EXR readback Map ranges use the actual buffer extent, fixing unaligned ROI widths whose final row has no trailing pitch padding.
+- Capture controls are drawn before variable-height settings and status text. The Start/Stop
+  button IDs and screen positions therefore remain stable while output paths, errors, or
+  messages wrap. `lastOutputPath` is the absolute, normalized accepted request path and is
+  not replaced by a renderer completion path with different relative/absolute spelling.
+- The CMake runtime helper deploys the configuration-matching TinyEXR `miniz.dll` when its
+  imported target provides one. Capture Session UI-focused tests use the same helper.
 
 Validation: CMake SceneRenderer and focused Screenshot, ScreenshotRequestQueue, CaptureSession tests; standalone Debug x64 MSBuild; duration-only real-time CLI smoke with a 100x80 ROI, five PNG outputs and no D3D12 error. Interactive panel manipulation and deterministic standalone simulation timing were not validated. GIF/MP4 and PT-specific sequence scheduling remain outside this change.
 

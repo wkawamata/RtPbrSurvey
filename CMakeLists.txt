@@ -37,6 +37,12 @@ set_property(GLOBAL PROPERTY RTPBRSURVEY_D3D12_NATIVE_DIR "${RTPBRSURVEY_D3D12_N
 set_property(GLOBAL PROPERTY RTPBRSURVEY_DXC_NATIVE_DIR "${RTPBRSURVEY_DXC_NATIVE_DIR}")
 set_property(GLOBAL PROPERTY RTPBRSURVEY_WINPIX_PACKAGE_DIR "${RTPBRSURVEY_WINPIX_PACKAGE_DIR}")
 set_property(GLOBAL PROPERTY RTPBRSURVEY_SHADER_OUTPUT_DIR "${RTPBRSURVEY_SHADER_OUTPUT_DIR}")
+if(TARGET miniz::miniz)
+    get_target_property(rtpbrsurvey_miniz_debug_dll miniz::miniz IMPORTED_LOCATION_DEBUG)
+    get_target_property(rtpbrsurvey_miniz_release_dll miniz::miniz IMPORTED_LOCATION_RELEASE)
+    set_property(GLOBAL PROPERTY RTPBRSURVEY_MINIZ_DEBUG_DLL "${rtpbrsurvey_miniz_debug_dll}")
+    set_property(GLOBAL PROPERTY RTPBRSURVEY_MINIZ_RELEASE_DLL "${rtpbrsurvey_miniz_release_dll}")
+endif()
 
 if(NOT EXISTS "${RTPBRSURVEY_D3D12_NATIVE_DIR}/include/d3d12.h")
     message(FATAL_ERROR
@@ -295,6 +301,8 @@ function(rtpbrsurvey_copy_runtime_files target)
     get_property(rtpbrsurvey_dxc_native_dir GLOBAL PROPERTY RTPBRSURVEY_DXC_NATIVE_DIR)
     get_property(rtpbrsurvey_winpix_package_dir GLOBAL PROPERTY RTPBRSURVEY_WINPIX_PACKAGE_DIR)
     get_property(rtpbrsurvey_shader_output_dir GLOBAL PROPERTY RTPBRSURVEY_SHADER_OUTPUT_DIR)
+    get_property(rtpbrsurvey_miniz_debug_dll GLOBAL PROPERTY RTPBRSURVEY_MINIZ_DEBUG_DLL)
+    get_property(rtpbrsurvey_miniz_release_dll GLOBAL PROPERTY RTPBRSURVEY_MINIZ_RELEASE_DLL)
 
     add_custom_command(TARGET ${target} POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
@@ -311,6 +319,14 @@ function(rtpbrsurvey_copy_runtime_files target)
             "${rtpbrsurvey_winpix_package_dir}/bin/x64/WinPixEventRuntime.dll"
             "$<TARGET_FILE_DIR:${target}>"
         VERBATIM)
+
+    if(rtpbrsurvey_miniz_debug_dll AND rtpbrsurvey_miniz_release_dll)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "$<IF:$<CONFIG:Debug>,${rtpbrsurvey_miniz_debug_dll},${rtpbrsurvey_miniz_release_dll}>"
+                "$<TARGET_FILE_DIR:${target}>"
+            VERBATIM)
+    endif()
 
     if(RTPBRSURVEY_HAS_STREAMLINE_SDK)
         add_custom_command(TARGET ${target} POST_BUILD
@@ -520,6 +536,7 @@ if(RTPBRSURVEY_BUILD_TESTS)
     add_executable(RtPbrSurvey.CaptureSessionTests
         Tests/CaptureSessionTests.cpp)
     target_link_libraries(RtPbrSurvey.CaptureSessionTests PRIVATE RtPbrSurvey::SceneRenderer)
+    rtpbrsurvey_copy_runtime_files(RtPbrSurvey.CaptureSessionTests)
     if(MSVC)
         target_compile_options(RtPbrSurvey.CaptureSessionTests PRIVATE /permissive)
     endif()
