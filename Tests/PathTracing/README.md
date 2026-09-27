@@ -78,6 +78,85 @@ The Step 6 RNG separates hashing of the sample index and seed. The former `sampl
 permuted the same sample set for power-of-two sample counts and small seeds, invalidating independent-seed
 statistics. Old PNG hashes change with this correction; fixed-seed repeatability remains required.
 
+## Multi-light direct estimator
+
+`Test-MultiLightAdditivity.ps1` captures the bundled four-light scene as zero lights, each light alone, and all
+lights together. It disables environment/emissive terms and uses one bounce so the test isolates direct lighting.
+At identical seed and sample count, it compares linear HDR `all - none` with the sum of each `single - none` on
+an 8-pixel grid across the full image. It checks that every light contributes, the capture diagnostics match the
+requested settings, and the D3D12 log contains no error. The generated presets, PFM files, logs, and JSON report
+are under `bin/x64/Debug/PathTracingMultiLightAdditivity` and must not be committed.
+
+```powershell
+.\Tests\PathTracing\Test-MultiLightAdditivity.ps1 -Samples 1 -Seed 1
+```
+
+This checks the all-light summation path, not Point/Spot attenuation formulas, visibility edge cases, or
+multi-seed convergence. Those require separate tests.
+
+`Test-MultiLightRangeCone.ps1` captures the same scene with a Point or Spot light active, with range reduced to
+0.1, and with the Spot aimed upward. The short-range and upward cases must match the zero-light PFM byte for
+byte; the normal Point and Spot cases must differ from zero lights. It uses the same direct-only, one-bounce
+settings, checks capture diagnostics and D3D12 errors, and writes ignored artifacts under
+`bin/x64/Debug/PathTracingMultiLightRangeCone`.
+
+```powershell
+.\Tests\PathTracing\Test-MultiLightRangeCone.ps1 -Samples 1 -Seed 1
+```
+
+This verifies the range and cone exclusion behavior on the bundled fixture. It does not prove the inverse-square
+falloff or cone interpolation numerically, or whether an occluder beyond the light is excluded by the shadow ray.
+
+`Test-LocalLightVisibility.ps1` generates a direct-only floor scene with a Point or Spot light. It compares the
+center floor ROI with no blocker, a blocker between the floor and light, and a blocker beyond the light. The
+between case must darken the floor; the beyond case must reproduce the unblocked HDR values in the ROI. The
+bundled spheres remain in the generated scene but are moved out of view. Scene variants, PFM captures, logs,
+and JSON reports are generated under `bin/x64/Debug/PathTracingPointVisibility` or
+`bin/x64/Debug/PathTracingSpotVisibility` and must not be committed.
+
+```powershell
+.\Tests\PathTracing\Test-LocalLightVisibility.ps1 -LightType Point -Samples 1 -Seed 1
+.\Tests\PathTracing\Test-LocalLightVisibility.ps1 -LightType Spot -Samples 1 -Seed 1
+```
+
+The ROI comparison isolates visible floor pixels; it does not require the entire images to match because the
+blocker itself may be visible elsewhere. It checks finite shadow distance, not falloff magnitude or penumbrae.
+
+`Test-PointLightFalloff.ps1` checks the Point light's numerical attenuation on the same floor with no blocker,
+environment, or emissive lighting. It captures a light directly above the center ROI at heights 2 and 4 with
+range 20, then at height 2 with range 5. The measured linear HDR ratios are compared with
+`(1 - (distance / range)^4)^2 / distance^2` at the ROI center. A 2% relative tolerance allows the small changes
+in light angle and BRDF across the sampled 16x16-pixel ROI. It checks settings diagnostics and D3D12 errors.
+Generated scenes, presets, PFM files, logs, and the JSON report remain under
+`bin/x64/Debug/PathTracingPointFalloff` and must not be committed.
+
+```powershell
+.\Tests\PathTracing\Test-PointLightFalloff.ps1 -Samples 4 -Seed 7
+```
+
+This is an approximate output-level ratio check, not an analytic reference for every floor pixel or a test of
+the Spot cone interpolation.
+
+## Multi-light convergence
+
+`compare_hdr.py` accepts `--scene-file` and `--render-preset` for the bundled multi-light fixture. With
+`--direct-only`, it writes a derived preset under the output directory with environment/emissive disabled and
+one bounce; the source preset is unchanged. `--reference-mode 0 --modes 0` compares the direct-light estimator
+only. Run two sample counts with disjoint evaluation/reference seeds, then use `compare_convergence.py` to
+recompute both against the same higher-sample reference. The reports include scene/preset hashes and capture
+diagnostics; generated PFM/log/report files under `bin/` must not be committed.
+
+```powershell
+python -B Tests/PathTracing/compare_hdr.py --scene-file Assets/Scenes/MultiLightValidation/scene.json --render-preset Assets/Scenes/MultiLightValidation/render-preset.json --direct-only --roi 600 300 720 480 --samples 8 --reference-samples 32 --seeds 1 2 3 --reference-seeds 101 102 --modes 0 --reference-mode 0 --require-seed-variation --output bin/PathTracingMultiLightConvergence-8spp
+python -B Tests/PathTracing/compare_hdr.py --scene-file Assets/Scenes/MultiLightValidation/scene.json --render-preset Assets/Scenes/MultiLightValidation/render-preset.json --direct-only --roi 600 300 720 480 --samples 32 --reference-samples 128 --seeds 1 2 3 --reference-seeds 101 102 --modes 0 --reference-mode 0 --require-seed-variation --output bin/PathTracingMultiLightConvergence-32spp
+python -B Tests/PathTracing/compare_convergence.py --low-report bin/PathTracingMultiLightConvergence-8spp/report.json --high-report bin/PathTracingMultiLightConvergence-32spp/report.json --output bin/PathTracingMultiLightConvergence-common/report.json
+```
+
+On RTX 2080 Ti (2026-09-27), the common 128 spp reference gave mean-image RGB RMSE `0.04663` at 8 spp and
+`0.02142` at 32 spp; seed variance was `0.007053` and `0.002356`, respectively. Fixed-seed repeats matched,
+and all captures had zero D3D12 errors. The two 128 spp reference seeds disagreed by RMSE `0.03143`, so this
+is evidence of a convergence trend, not a ground-truth error or bias estimate.
+
 Commit 8 exposes these current-frame primary-surface resources through RenderGraph and Debug Texture Preview:
 
 - `PathTracing.NormalRoughness`
