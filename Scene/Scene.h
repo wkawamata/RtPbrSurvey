@@ -31,6 +31,10 @@ struct CameraState
     CameraProjection projection = CameraProjection::Perspective;
     // Vertical field of view in degrees. Kept as "fov" for source compatibility.
     float fov = 60.0f;
+    // Offset of the perspective projection centre, in half-frustum units.
+    // Zero preserves a symmetric perspective projection.
+    float lensShiftX = 0.0f;
+    float lensShiftY = 0.0f;
     float orthographicHeight = 10.0f;
     float nearZ = 0.1f;
     float farZ = 10000.0f;
