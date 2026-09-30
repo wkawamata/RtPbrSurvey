@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "roughness",
+  "name": "PT Roughness",
+  "renderPreset": "render-preset.json",
+  "assets": [],
+  "materials": [
+    {
+      "id": "smooth",
+      "name": "smooth",
+      "baseColor": [
+        0.7,
+        0.7,
+        0.7,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.18
+    },
+    {
+      "id": "medium",
+      "name": "medium",
+      "baseColor": [
+        0.7,
+        0.7,
+        0.7,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.4
+    },
+    {
+      "id": "rough",
+      "name": "rough",
+      "baseColor": [
+        0.7,
+        0.7,
+        0.7,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.8
+    }
+  ],
+  "nodes": [
+    {
+      "id": "smooth",
+      "name": "smooth",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -2,
+        0.7,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "sphere",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "smooth"
+    },
+    {
+      "id": "medium",
+      "name": "medium",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        0.7,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "sphere",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "medium"
+    },
+    {
+      "id": "rough",
+      "name": "rough",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        2,
+        0.7,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "sphere",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "rough"
+    }
+  ],
+  "camera": {
+    "position": [
+      0,
+      4,
+      -7
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 55,
+    "orthographicHeight": 10,
+    "nearZ": 0.1,
+    "farZ": 1000
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      0.96,
+      0.86
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  }
+}
