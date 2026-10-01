@@ -1,6 +1,7 @@
 # Path Tracing Reference Capture
 
 Editable analytic fixtures and the Part 1 runner are described in [PART1.md](PART1.md).
+The static multi-sample, multi-seed convergence suite is described in [PART2.md](PART2.md).
 
 `Invoke-ReferenceCapture.ps1` runs two fixed-sample Path Tracing captures and writes JSON and Markdown reports.
 It fails when the PNG hashes differ, a process fails, a capture times out, or a D3D12 error/corruption message is logged.
