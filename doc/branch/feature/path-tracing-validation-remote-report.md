@@ -10,7 +10,7 @@ Their exact hashes and commands are recorded in `path-tracing-validation-results
 Four editable SceneDocument JSON fixtures and relative render presets are under
 `Assets/Scenes/PathTracingValidation/`: constant environment, single-light visibility,
 two-surface indirect reflection, and metallic roughness comparison.
-No shader, renderer, engine, camera API or capture API changes were made.
+No shader, renderer, engine, camera API or capture API changes were made. A subsequent App camera initialization fix is described below.
 Scene Editor uses the same schema; user load/edit/save instructions and scope are in
 `Tests/PathTracing/PART1.md`, linked from the existing README.
 All four fixtures were loaded by the application and captured. Interactive editor save/reload was not automated.
@@ -63,5 +63,17 @@ On this PC, Python is at
 Use the Debug build command from AGENTS.md before captures. Artifacts are local ignored files, not shared uploads.
 Implementation and result metadata are committed locally; no push or PR is part of this Part-1-only request.
 Part 2 (convergence), followed by the combined Part 1+2 PR, remains separate work.
+
+## Interactive camera follow-up
+
+The user inspected all four scenes interactively. Foreground FreeLook updates revealed an inverted
+initial pitch in CLI SceneFile loading and Scene Editor preview rebuilding: the stored look-at target
+was correct, but the Euler pitch had the opposite sign for DirectX rotation. Automated hidden captures
+did not exercise the foreground keyboard update, so the original HDR results remain valid for their
+recorded saved camera. The two App initialization sites now use negative asin(direction.y).
+The user confirmed the second scene was corrected and viewed all four scenes with the CameraFix build.
+The normal Debug build was subsequently updated. The DebugCameraController regression test confirms
+that a no-input FreeLook update preserves the downward view from (0,4,-7) toward the floor.
+No SceneDocument schema or camera API was changed. Convergence measurements remain Part 2 work.
 
 Status: done

@@ -1929,7 +1929,7 @@ void RtPbrSurveyApp::LoadFileSceneCpuData()
     const XMVECTOR direction = XMVector3Normalize(XMLoadFloat3(&camera.gazePoint) - XMLoadFloat3(&camera.pos));
     XMFLOAT3 directionFloat = {};
     XMStoreFloat3(&directionFloat, direction);
-    camera.rot.x = std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
+    camera.rot.x = -std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
     camera.rot.y = std::atan2(directionFloat.x, directionFloat.z);
     camera.rot.z = 0.0f;
     m_debugCamera.SetCameraState(&camera);
@@ -2364,7 +2364,7 @@ bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
     const XMVECTOR direction = XMVector3Normalize(XMLoadFloat3(&camera.gazePoint) - XMLoadFloat3(&camera.pos));
     XMFLOAT3 directionFloat = {};
     XMStoreFloat3(&directionFloat, direction);
-    camera.rot.x = std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
+    camera.rot.x = -std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
     camera.rot.y = std::atan2(directionFloat.x, directionFloat.z);
     camera.rot.z = 0.0f;
     m_debugCamera.SetCameraState(&camera);
