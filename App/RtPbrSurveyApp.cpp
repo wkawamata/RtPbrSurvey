@@ -339,7 +339,7 @@ void RtPbrSurveyApp::OnInit()
     if (!m_commandLineOptions.sceneFilePath.empty())
     {
         OpenFileScene();
-        m_debugUiVisible = false;
+        m_debugUiVisible = m_commandLineOptions.enableDebugTexturePreview;
     }
     else if (m_commandLineOptions.autoSelectGltfDamagedHelmet ||
         !m_commandLineOptions.autoSelectGltfAssetName.empty() ||
