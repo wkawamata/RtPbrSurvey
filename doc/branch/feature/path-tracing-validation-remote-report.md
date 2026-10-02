@@ -294,3 +294,26 @@ TLAS rebuilds, animation and importance modes need separately labelled cohorts.
 No optimization or renderer fix was applied.
 
 Status: done
+
+## Part 5: native PT guide validation
+
+Branch: `codex/path-tracing-validation-part5`; workspace: `C:\work\RtPbrSurvey`.
+Base: `9455eec`; numeric cohort tested `db83005`; preview fix/regression tested `1aa2749`.
+GPU: RTX 3080 Laptop GPU, driver 616.64; Debug x64.
+
+Added editable front-plane, lens-shifted, orthographic and foreground-marker scenes, native full-frame `.ptbuf` capture through the existing screenshot readback/fence, exact camera matrix/seed/index metadata, independent Python plane-hit/reprojection/material comparisons, CSV/JSON and plots. Scene documents now carry optional lensShiftX/Y into the existing projection implementation. Existing motion PNG script accepts optional scene/preset paths. File-scene orbit initialization and explicit inspector visibility now follow existing capture options.
+
+The final 20-run numeric cohort has no process failures or D3D12 errors. Four C++ tests and 30 Python tests pass; Debug build passes. World normals and effective roughness match (.000488282 max channel error). Primary marker material classification has zero mismatches over 123,664 ROI pixels. Static and camera-moving vectors agree with previous-minus-current NDC: max error 3.07920e-5 NDC, below .02957 pixels and within the predeclared half-format/computation bound. Initial 2e-5 absolute failures remain reported. The fixed-seed marker payload repeats exactly; seed 8 changes 651 boundary pixels. An additional moving normal capture distinguishes world -Z from rotated view normal.
+
+Three follow-ups are isolated and reproduced, not silently repaired:
+- ViewZ uses the inverse-projected off-axis far-center direction. On a plane at camera-axis distance 5 with lens shift (.35,-.2), it varies 3.637805 to 6.918375 (max error 1.918375). Its implemented definition matches within 5.65e-6. Moving shifted depth reproduces the same issue.
+- Albedo uses gamma 2.2 decoding; known bytes [137,188,225] produce [.254883,.511230,.759277], differing from standard-sRGB decoding by up to .00834401. The implemented approximation matches within .000167351.
+- SceneDocumentBuilder shares the baseColor texture with metallic/roughness, so JSON roughness .37 becomes .272784 before half storage. Dedicated neutral data textures are a separate material correction.
+
+The initial file-scene orbit cohort did not move and is excluded from motion evidence. Initial PNG reuse also failed because OnInit hid UI and closed the inspector; its identical black captures remain saved. A one-line explicit-preview visibility correction passes a fresh PNG retry and preserves the native normal payload exactly. No shader/estimator changes were made. Native controls and legacy PFM export pass. The final summary includes the historical incomplete controls report and the successful retry separately.
+
+Definitions, tolerances, commands, retained failures and proposals: `Tests/PathTracing/PART5.md`.
+Machine-readable results: `doc/branch/feature/path-tracing-validation-results/part-5-summary.json`.
+Raw artifacts: ignored `bin/PathTracingValidation/part5-inputs-final`, `part5-controls`, `part5-preview-retry`, `part5-preview-regression`; pilot directories remain retained. Object motion, normal maps, spatial textures and other GPUs are unverified. Denoiser/NRD/DLSS RR integration remains a follow-up.
+
+Status: done
