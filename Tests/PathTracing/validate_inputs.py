@@ -95,6 +95,14 @@ def srgb_texture_material(base, roughness):
     return decoded, roughness*sampled[1], bytes_.astype(int).tolist()
 
 
+def projection_plane_forward(stored_inverse):
+    import numpy as np
+    points = np.array([[0, 0, 1, 1], [1, 0, 1, 1], [0, 1, 1, 1]]) @ np.asarray(stored_inverse).T
+    points = points[:, :3]/points[:, 3, None]
+    forward = np.cross(points[1]-points[0], points[2]-points[0])
+    return forward/np.linalg.norm(forward)
+
+
 def analyze(path, marker=False):
     import numpy as np
     meta, raw = read_buffer(path)
@@ -107,8 +115,9 @@ def analyze(path, marker=False):
     forward = np.asarray(meta['cameraTarget']) - camera
     forward /= np.linalg.norm(forward)
     center = np.array([0, 0, 1, 1]) @ np.asarray(meta['inverseViewProjection']).T
-    shader_forward = center[:3]/center[3]-camera
-    shader_forward /= np.linalg.norm(shader_forward)
+    off_axis_forward = center[:3]/center[3]-camera
+    off_axis_forward /= np.linalg.norm(off_axis_forward)
+    shader_forward = projection_plane_forward(meta['inverseViewProjection'])
     expected_axis_depth = (world-camera) @ forward
     expected_shader_depth = (world-camera) @ shader_forward
     decoded0, rough0, bytes0 = srgb_texture_material([.25, .5, .75], .37)
@@ -151,6 +160,7 @@ def analyze(path, marker=False):
         shader_error = abs(observed[:, 0]-expected_shader_depth)
         result.update(shaderDefinitionMaxError=float(shader_error.max()),
             cameraAxisDefinitionPassed=result['passed'],
+            legacyOffAxisDefinitionMaxError=float(abs(observed[:, 0]-(world-camera) @ off_axis_forward).max()),
             shaderDefinitionPassed=bool(shader_error.max() <= tolerance))
     if resource == 'MotionVectors':
         displacement = observed * [meta['width']/2, -meta['height']/2]
@@ -174,6 +184,7 @@ def main():
     parser.add_argument('--smoke', action='store_true')
     parser.add_argument('--cases', help='Comma-separated capture names')
     parser.add_argument('--seed', type=int, default=7)
+    parser.add_argument('--base-commit', default='9455eec', help='Recorded validation baseline commit')
     args = parser.parse_args()
     if args.packages:
         sys.path.insert(0, str(args.packages.resolve()))
@@ -187,13 +198,14 @@ def main():
         requested = set(args.cases.split(','))
         def capture_name(item):
             return f'{item[0]}-{item[2]}-' + ('moving' if item[1] else 'static')
-        unknown = requested - {capture_name(item) for item in plan}
+        available = plan + [('input-shifted', True, 'ViewZ'), ('input-camera-transform', False, 'ViewZ')]
+        unknown = requested - {capture_name(item) for item in available}
         if unknown:
             parser.error('Unknown capture names: '+str(sorted(unknown)))
-        plan = [item for item in plan if capture_name(item) in requested]
+        plan = [item for item in available if capture_name(item) in requested]
     if not 0 <= args.seed <= 0xffffffff:
         parser.error('Seed must be uint32')
-    report = dict(schemaVersion=1, generatedUtc=datetime.now(timezone.utc).isoformat(), baseCommit='9455eec',
+    report = dict(schemaVersion=1, generatedUtc=datetime.now(timezone.utc).isoformat(), baseCommit=args.base_commit,
         testedCommit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
         branch=subprocess.check_output(['git', 'branch', '--show-current'], cwd=ROOT, text=True).strip(),
         workspace=str(ROOT), build='Debug x64', samplesPerFrame=1, seed=args.seed, captureAfterFrames=30,
@@ -236,7 +248,7 @@ def main():
             if errors:
                 raise RuntimeError('D3D12 errors: '+str(errors[:2]))
             meta, result = analyze(path, scene_id == 'input-marker')
-            if moving and max(abs(v) for v in result['expectedMin']+result['expectedMax']) < .001:
+            if moving and meta['viewProjection'] == meta['previousViewProjection']:
                 raise RuntimeError('Requested orbit did not produce measurable camera motion')
             record.update(metadata=meta, result=result, sha256=sha(path), logSha256=sha(log), d3d12Errors=0)
             print(name, json.dumps(result), flush=True)
