@@ -851,6 +851,10 @@ void RtPbrSurveyApp::OnIdle()
         else
         {
             singleCaptureReady = m_automationFrameCounter >= m_commandLineOptions.captureAfterFrames;
+            if (singleCaptureReady && m_renderingPath == RtPbrSurveyEngine::RenderingPath::PathTracing)
+            {
+                LogPathTracingCaptureDiagnostics(context);
+            }
         }
 
         if (singleCaptureReady && m_commandLineOptions.enableDlssSr && !context.temporalUpscalerOutputAvailable)
