@@ -33,7 +33,7 @@ def main():
     parser.add_argument("--packages", type=Path)
     args = parser.parse_args()
     directory = args.output.resolve()
-    report = json.loads((directory / "report.json").read_text())
+    report = json.loads((directory / "report.json").read_text(encoding="utf-8"))
     if report["status"] != "complete" or len(report["runs"]) != len(report["cases"])*report["repeats"]:
         raise ValueError("Suite has not completed")
     if args.packages:
@@ -85,6 +85,10 @@ def main():
     summary = {k:report[k] for k in ("schemaVersion", "part", "baseCommit", "rendererBuildCommit", "branch", "workspace", "build",
         "warmupObservations", "measurementObservations", "repeats", "seed", "timing", "exeSha256", "initialPower", "finalPower", "failures")}
     summary["complete"] = True
+    summary["status"] = "done"
+    summary["testedCommit"] = report["baseCommit"]
+    summary["launchCount"] = len(report["runs"])
+    summary["measurementObservationCount"] = sum(r["stats"]["count"] for r in report["runs"])
     summary["cases"] = []
     for name, case in cases.items():
         runs = [r for r in report["runs"] if r["case"] == name]
@@ -92,8 +96,10 @@ def main():
             runStatistics=[r["stats"] for r in runs],
             measuredGpuState=telemetry_summary([v for r in runs for v in r["measurementGpuTelemetry"]])))
     summary["runs"] = [{k:r[k] for k in ("name", "case", "repeat", "command", "sceneSha256", "presetSha256", "stats",
-        "firstMeasuredCpuFrame", "lastMeasuredCpuFrame", "totalValidObservations", "diagnostics", "powerBefore", "powerAfter")}
+        "firstMeasuredCpuFrame", "lastMeasuredCpuFrame", "totalValidObservations", "diagnostics", "powerBefore", "powerAfter", "window")}
         for r in report["runs"]]
+    for compact, raw in zip(summary["runs"], report["runs"]):
+        compact["measurementGpuState"] = telemetry_summary(raw["measurementGpuTelemetry"])
     summary["d3d12ErrorCount"] = sum(sum(line.startswith(("[ERROR]", "[CORRUPTION]")) for line in
         p.read_text(encoding="utf-8-sig").splitlines()) for p in directory.glob("*.log"))
     summary["artifacts"] = [dict(path=str(p.relative_to(ROOT)), sha256=hashlib.sha256(p.read_bytes()).hexdigest())
@@ -101,10 +107,19 @@ def main():
     summary["sourceHashes"] = [dict(path=str(p.relative_to(ROOT)), sha256=hashlib.sha256(p.read_bytes()).hexdigest())
         for p in (ROOT / "App/RtPbrSurveyApp.cpp", ROOT / "Tests/PathTracing/measure_performance.py",
             ROOT / "Tests/PathTracing/test_measure_performance.py", Path(__file__).resolve())]
+    summary["excludedPilotReports"] = []
+    for pilot in sorted(directory.parent.glob("part4-*")):
+        pilot_report = pilot / "report.json"
+        if pilot != directory and pilot_report.is_file():
+            metadata = json.loads(pilot_report.read_text(encoding="utf-8"))
+            summary["excludedPilotReports"].append(dict(path=str(pilot_report.relative_to(ROOT)),
+                sha256=hashlib.sha256(pilot_report.read_bytes()).hexdigest(), status=metadata["status"],
+                reason="Pilot protocol/visibility cohort; not pooled into final measurements."))
     summary["limitations"] = ["Debug, VSync=1, balanced AC power, GPU clocks not locked; rankings may be confounded by P-state changes.",
         "Latest completed GPU observations have no independent GPU frame ID; p95 is an empirical observation percentile.",
         "Tessellation changes polygonal approximation; this is not TLAS instance count scaling.",
-        "Static warm path excludes rebuild/reset/capture costs; measured primary samples are not actual ray counts."]
+        "Static warm path excludes rebuild/reset/capture costs; measured primary samples are not actual ray counts.",
+        "16 discarded observations do not guarantee a settled GPU power state. Short windows can have no telemetry sample."]
     destination = ROOT / "doc/branch/feature/path-tracing-validation-results/part-4-summary.json"
     write_json(destination, summary)
     lines = ["| Case | Median ms | P95 ms | Run medians ms | SM clock MHz |", "| --- | ---: | ---: | --- | --- |"]

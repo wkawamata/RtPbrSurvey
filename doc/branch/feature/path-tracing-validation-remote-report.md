@@ -208,4 +208,89 @@ intensity compensation cannot preserve similarity inside that clamp.
 
 No external message was sent to Work-3, and no renderer fix is claimed by this report.
 
+## Part 4: GPU pass performance (2026-10-02)
+
+Branch: `codex/path-tracing-validation-part4`, starting from Part 3 `4b4b9a9`.
+Protocol commits: `fc49730`, `cf6a202`. Debug x64 rebuilt successfully with the
+App-only logging addition; renderer/engine/shaders are unchanged.
+The App addition emits the existing PT capture diagnostic for frame-based
+captures. Exact-sample capture still forces one sample/frame and its 4-sample
+regression passed. Frame-based capture preserves the preset's 4 samples/frame.
+Python tests: 24 passed. Existing MSBuild macro/vcpkg warnings remain.
+
+An editable performance fixture, `measure_performance.py`, its calculation tests,
+and `summarize_performance.py` provide a reproducible one-factor matrix.
+See `Tests/PathTracing/PART4.md`. Eleven conditions vary resolution, samples/frame,
+bounce limit, co-located Point light count and sphere tessellation. Light intensity
+is divided by count, preserving total illumination. Three spheres share a mesh:
+geometry is unique BLAS triangle count, not increasing TLAS instances.
+
+Final cohort: 33 launches, 16 discarded positive GPU observations then 32 measured
+observations each; 96 pooled observations/case. Order is shuffled in three seeded
+rounds. Raw logs/CSV/PFM/report and figures stay under
+`bin/PathTracingValidation/part4-performance-final`.
+The committed summary is `path-tracing-validation-results/part-4-summary.json`.
+It retains commands, fixture/executable hashes, statistics, power conditions and
+artifact hashes. CPU FPS is not substituted for GPU timestamps.
+
+Power investigation: AC power, Windows Balanced plan, RTX 3080 Laptop driver 616.64.
+Pilots used 60 warm-up and 120 measurement observations, but GPU P8/low-clock and
+roughly 4 fps frame progression appeared with hidden, visible and initially
+foreground windows. Visibility alone did not resolve the behavior. The shorter
+final protocol was selected before its cohort and retains power telemetry.
+The final results are observations under current driver/power behavior, not a
+maximum-throughput benchmark. GPU P-states and memory/core clocks can transition
+inside the window, and short windows can miss telemetry samples entirely.
+
+| Case | Median ms | P95 ms | Run medians ms | SM clock MHz |
+| --- | ---: | ---: | --- | --- |
+| baseline | 2.881024 | 2.927872 | 2.861568, 2.880512, 2.899456 | [435.0, 480.0] |
+| resolution-0 | 0.760320 | 0.785152 | 0.764928, 0.754176, 0.769536 | [450.0, 510.0] |
+| resolution-1 | 1.311744 | 1.366784 | 1.304064, 1.309696, 1.320448 | [480.0, 525.0] |
+| samplesPerFrame-0 | 2.913280 | 2.949120 | 2.929152, 2.917888, 2.881024 | [450.0, 600.0] |
+| samplesPerFrame-1 | 3.494912 | 3.515392 | 3.502080, 3.504128, 3.307520 | [330.0, 525.0] |
+| maxBounces-0 | 2.838528 | 6.895360 | 2.856448, 2.833920, 2.836992 | [345.0, 450.0] |
+| maxBounces-1 | 2.850304 | 2.936576 | 2.850304, 2.910208, 0.414208 | [315.0, 1245.0] |
+| lights-0 | 2.878464 | 2.927872 | 2.878464, 2.906624, 2.830336 | [435.0, 525.0] |
+| lights-1 | 2.895360 | 7.042560 | 2.894848, 2.861056, 2.990592 | [585.0, 660.0] |
+| geometry-0 | 2.895872 | 2.940672 | 2.903040, 2.890752, 2.891776 | [480.0, 480.0] |
+| geometry-1 | 2.894848 | 2.941952 | 2.888192, 2.891264, 2.896896 | [300.0, 525.0] |
+
+All 33 final launches succeeded: 1056 measured observations, no D3D12 errors,
+no missing GPU-timing fallback. Measured telemetry temperatures span 50..53 C.
+The 4-bounce third run is 0.414208 ms versus 2.850304/2.910208 ms in the first
+two. Its telemetry shows P0, SM 1245 MHz and memory 6001 MHz; the other runs
+mostly report memory 810 MHz, sometimes 405 MHz. This is a direct reason not
+to infer bounce-cost ranking from pooled medians. Telemetry is sparse and does
+not establish the cause of every long-tail timing excursion.
+
+Figures: `plots/gpu-performance.png` and `plots/gpu-timelines.png` in the final
+output directory; SVG is available for the comparison figure. They show pooled
+median/p95 together with all three run medians, and retain the anomalous run.
+
+Interpretation and follow-up:
+
+- Resolution affects the median strongly. This small static scene's per-pixel
+  costs are a bottleneck candidate. The shader writes accumulation, scene color
+  and six guide outputs once per pixel/frame; samples/frame increases the path
+  loop while those writes remain once per frame. This supports investigating
+  fixed output/UAV traffic and dispatch costs; it does not prove bandwidth saturation.
+- Small median changes with light count, bounce limit and tessellation do not
+  establish that these factors are free. Only four instances, co-located lights,
+  constant environment and often short paths are covered, with uncontrolled clocks.
+- P95 includes observed power-state transitions. With 96 samples it is a short
+  empirical percentile, not a robust estimate of rare stalls or a confidence bound.
+- Next: repeat Release measurements with an agreed stable power/clock policy and
+  longer windows, compare pass timings and hardware-profiler bandwidth counters,
+  add larger instance counts and path-length-heavy closed scenes, and compare
+  constant mode 5 with modes 4/7. Importance distribution construction occurs
+  inside the PT shader for modes 4/7 and would be part of its pass time.
+
+The checkpoint interval includes resource transitions/bindings and dispatch.
+Warm-up discards initial scene setup, resize/history clear and BLAS/TLAS creation.
+No edits/animation/camera movement occur in the steady cohort. Timing rows stop
+before capture-queued diagnostics; screenshot/readback is excluded. Resets,
+TLAS rebuilds, animation and importance modes need separately labelled cohorts.
+No optimization or renderer fix was applied.
+
 Status: done

@@ -1,5 +1,6 @@
 import unittest
 from measure_performance import cases, percentile, parse_timing_log, make_fixture
+from summarize_performance import telemetry_summary
 
 
 class PerformanceTests(unittest.TestCase):
@@ -27,6 +28,19 @@ class PerformanceTests(unittest.TestCase):
             scene, preset = make_fixture(case)
             self.assertAlmostEqual(sum(l["intensity"] for l in preset["lighting"]["lights"]), 8)
             self.assertEqual(len(preset["lighting"]["lights"]), case["lights"])
+
+    def test_invalid_gpu_observations_are_rejected(self):
+        with self.assertRaises(ValueError):
+            parse_timing_log("[GPU] Frame 1: total 1 ms\n[GPU Pass] PathTracingPass: nan ms")
+        with self.assertRaises(ValueError):
+            parse_timing_log("[GPU] Frame 1: total 1 ms\n[GPU Pass] PathTracingPass: 1 ms\n[GPU Pass] PathTracingPass: 1 ms")
+
+    def test_gpu_telemetry_missing_values_remain_explicit(self):
+        result = telemetry_summary([dict(exitCode=0, gpu="2026/10/02 11:00:00, P8, 50, 210 MHz, [N/A], 14 W")])
+        self.assertEqual(result["smClockRangeMHz"], [210, 210])
+        self.assertEqual(result["pStates"], ["P8"])
+        self.assertIsNone(result["memoryClockRangeMHz"])
+        self.assertIsNone(telemetry_summary([])["smClockRangeMHz"])
 
 
 if __name__ == "__main__":

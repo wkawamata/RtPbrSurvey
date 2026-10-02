@@ -69,9 +69,11 @@ python -B Tests/PathTracing/test_measure_performance.py
 python -B Tests/PathTracing/measure_performance.py --smoke --repeats 1 --output bin/PathTracingValidation/part4-resolution-smoke
 python -B Tests/PathTracing/measure_performance.py --cases samplesPerFrame-1 --repeats 1 --output bin/PathTracingValidation/part4-frame-smoke
 python -B Tests/PathTracing/measure_performance.py --output bin/PathTracingValidation/part4-performance-final
+python -B Tests/PathTracing/summarize_performance.py --output bin/PathTracingValidation/part4-performance-final
 ```
 
 Use fresh output directories. `--cases` selects named cases for isolated reproduction.
+The summary needs matplotlib; `--packages` accepts an existing local package directory.
 Failures and artifacts remain ignored under `bin`; result hashes and representative
 statistics are committed in `doc/branch/feature/path-tracing-validation-results/part-4-summary.json`.
 
