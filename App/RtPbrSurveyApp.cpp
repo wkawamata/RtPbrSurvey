@@ -873,7 +873,12 @@ void RtPbrSurveyApp::OnIdle()
         }
         if (singleCaptureReady)
         {
-            m_sceneRenderer.RequestScreenshot({m_commandLineOptions.capturePath});
+            RtPbrSurvey::ScreenshotRequest request = {m_commandLineOptions.capturePath};
+            if (request.path.extension() == L".ptbuf")
+            {
+                request.debugResourceName = m_commandLineOptions.debugPreviewResourceName;
+            }
+            m_sceneRenderer.RequestScreenshot(std::move(request));
             m_automationScreenshotRequested = true;
         }
     }
@@ -2544,6 +2549,32 @@ void RtPbrSurveyApp::ApplyFileSceneSettings()
     }
 }
 
+void RtPbrSurveyApp::OpenCommandLineDebugTexturePreview()
+{
+    if (!m_commandLineOptions.debugPreviewResourceName.empty())
+    {
+        const Engine::DebugResourceInspection inspection =
+            m_sceneRenderer.GetDebugResourceViewRegistry().Inspect(m_commandLineOptions.debugPreviewResourceName);
+        if (!inspection.IsInspectable())
+        {
+            throw std::runtime_error("Debug Preview resource is unavailable: " +
+                                     m_commandLineOptions.debugPreviewResourceName);
+        }
+        const Engine::DebugResourceViewDescriptor& descriptor = *inspection.descriptor;
+        RtPbrSurvey::DebugTextureInspector* inspector =
+            m_debugTextureInspectors.OpenPreview(descriptor.resourceName,
+                                                 descriptor.resourceName,
+                                                 static_cast<RtPbrSurvey::DebugTextureSemantic>(
+                                                     static_cast<UINT>(descriptor.semantic)));
+        if (inspector == nullptr)
+        {
+            throw std::runtime_error("Debug Preview slot is unavailable.");
+        }
+        inspector->sourceViewKind = descriptor.viewKind;
+        inspector->bufferImageLayout = descriptor.imageLayout;
+    }
+}
+
 void RtPbrSurveyApp::OpenFileScene()
 {
     m_evaluationRoi = {};
@@ -2556,6 +2587,14 @@ void RtPbrSurveyApp::OpenFileScene()
     ApplyDlssSrCommandLineOptions();
     ApplyPathTracingCommandLineOptions();
     m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
+    OpenCommandLineDebugTexturePreview();
+    if (!m_commandLineOptions.capturePath.empty() && m_commandLineOptions.reflectionOrbitFrames > 0)
+    {
+        m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::Arcball);
+        m_debugCamera.InitObjectViewerFromCamera();
+        m_automationOrbitStartYaw = m_debugCamera.ObjectViewerYaw();
+        m_automationOrbitDistance = m_debugCamera.ObjectViewerDistance();
+    }
     m_appMode = AppMode::Running;
     m_framePaused = false;
     m_forwardStepRequested = false;
@@ -2585,28 +2624,7 @@ void RtPbrSurveyApp::OpenSelectedScene()
     ApplyDlssSrCommandLineOptions();
     ApplyPathTracingCommandLineOptions();
     m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
-    if (!m_commandLineOptions.debugPreviewResourceName.empty())
-    {
-        const Engine::DebugResourceInspection inspection =
-            m_sceneRenderer.GetDebugResourceViewRegistry().Inspect(m_commandLineOptions.debugPreviewResourceName);
-        if (!inspection.IsInspectable())
-        {
-            throw std::runtime_error("Debug Preview resource is unavailable: " +
-                                     m_commandLineOptions.debugPreviewResourceName);
-        }
-        const Engine::DebugResourceViewDescriptor& descriptor = *inspection.descriptor;
-        RtPbrSurvey::DebugTextureInspector* inspector =
-            m_debugTextureInspectors.OpenPreview(descriptor.resourceName,
-                                                 descriptor.resourceName,
-                                                 static_cast<RtPbrSurvey::DebugTextureSemantic>(
-                                                     static_cast<UINT>(descriptor.semantic)));
-        if (inspector == nullptr)
-        {
-            throw std::runtime_error("Debug Preview slot is unavailable.");
-        }
-        inspector->sourceViewKind = descriptor.viewKind;
-        inspector->bufferImageLayout = descriptor.imageLayout;
-    }
+    OpenCommandLineDebugTexturePreview();
     m_appMode = AppMode::Running;
     m_framePaused = false;
     m_forwardStepRequested = false;

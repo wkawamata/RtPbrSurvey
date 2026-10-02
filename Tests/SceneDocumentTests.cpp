@@ -304,11 +304,29 @@ bool TestReparentPreservesWorldTransform()
     return passed;
 }
 
+bool TestLensShiftCompatibility()
+{
+    RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("shift", "shift");
+    document.renderPresetPath = "render-preset.json";
+    document.camera.lensShiftX = 0.35f;
+    document.camera.lensShiftY = -0.2f;
+    std::string json;
+    std::string error;
+    RtPbrSurvey::SceneDocument restored;
+    bool passed = Check(RtPbrSurvey::SerializeSceneDocument(document, json, &error) &&
+                        RtPbrSurvey::DeserializeSceneDocument(json, restored, &error), "shift round trip");
+    passed &= Check(NearlyEqual(restored.camera.lensShiftX, 0.35f) &&
+                    NearlyEqual(restored.camera.lensShiftY, -0.2f), "shift values preserved");
+    document.camera.lensShiftX = 1.01f;
+    passed &= Check(!RtPbrSurvey::SerializeSceneDocument(document, json, &error), "invalid shift rejected");
+    return passed;
+}
+
 } // namespace
 
 int main()
 {
-    const bool passed = TestEmptyDocumentDefaults() && TestReflectionLabFixtureData() && TestDuplicateIdsAreRejected() &&
+    const bool passed = TestLensShiftCompatibility() && TestEmptyDocumentDefaults() && TestReflectionLabFixtureData() && TestDuplicateIdsAreRejected() &&
                         TestJsonRoundTrip() && TestInvalidJsonDoesNotReplaceDocument() && TestFixtureFileLoadSaveLoad() &&
                         TestSaveAsRebasesRelativePaths() &&
                         TestSceneGraphEvaluatesUnorderedThreeLevelHierarchy() &&

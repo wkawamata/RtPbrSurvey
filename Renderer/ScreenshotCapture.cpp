@@ -92,6 +92,7 @@ void ScreenshotReadback::Reset()
     height = 0;
     hdr10 = false;
     paperWhiteNits = 300.0f;
+    diagnosticMetadata.clear();
 }
 
 void RecordScreenshotCapture(ID3D12GraphicsCommandList* commandList,
@@ -404,6 +405,56 @@ bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem:
     {
         error = HResultMessage(mapResult);
         return false;
+    }
+
+    if (path.extension() == L".ptbuf")
+    {
+        UINT bytesPerPixel = 0;
+        switch (readback.format)
+        {
+        case DXGI_FORMAT_R16G16B16A16_FLOAT: bytesPerPixel = 8; break;
+        case DXGI_FORMAT_R16G16_FLOAT: bytesPerPixel = 4; break;
+        case DXGI_FORMAT_R32_FLOAT: bytesPerPixel = 4; break;
+        default: break;
+        }
+        bool succeeded = false;
+        try
+        {
+            if (bytesPerPixel == 0 || readback.diagnosticMetadata.empty())
+            {
+                error = "Unsupported PT buffer format or missing capture metadata.";
+            }
+            else
+            {
+                if (path.has_parent_path())
+                {
+                    std::filesystem::create_directories(path.parent_path());
+                }
+                std::ofstream output(path, std::ios::binary);
+                output << "PTBUF1\n" << readback.diagnosticMetadata << "\n";
+                for (UINT y = 0; y < readback.height; ++y)
+                {
+                    output.write(reinterpret_cast<const char*>(mappedData + readback.layout.Offset +
+                        static_cast<size_t>(y) * readback.layout.Footprint.RowPitch),
+                        static_cast<std::streamsize>(readback.width) * bytesPerPixel);
+                }
+                output.close();
+                succeeded = !output.fail();
+                if (!succeeded)
+                {
+                    error = "Failed to write PT buffer capture.";
+                }
+            }
+        }
+        catch (...)
+        {
+            const D3D12_RANGE writtenRange = {0, 0};
+            readback.resource->Unmap(0, &writtenRange);
+            throw;
+        }
+        const D3D12_RANGE writtenRange = {0, 0};
+        readback.resource->Unmap(0, &writtenRange);
+        return succeeded;
     }
 
     if (path.extension() == L".pfm")

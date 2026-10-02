@@ -44,6 +44,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <nlohmann/json.hpp>
 #include "Shared/Error.h"
 #include "Platform/FileIO.h"
 #include "Platform/AssetPath.h"
@@ -2971,7 +2972,7 @@ void RtPbrSurveyEngine::CreateSceneTextureResources(std::vector<ComPtr<ID3D12Res
     const UINT textureResourceCount = m_sceneTextureCount + Engine::kTextureSemanticCount;
     assert(textureResourceCount <= kTextureDescriptorCapacity);
 
-    // 3つの領域を定義
+    // 3縺､縺ｮ鬆伜沺繧貞ｮ夂ｾｩ
     // [0, m_sceneTextureCount)              : Scene textures (from glTF)
     // [m_sceneTextureCount, textureResourceCount) : Semantic fallback (5 types)
     // [textureResourceCount, kTextureDescriptorCapacity) : Unused -> BaseColor fallback
@@ -6196,7 +6197,31 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
         ID3D12Resource* source = nullptr;
         bool hdr10 = false;
         float paperWhiteNits = 300.0f;
-        if (capture.request.path.extension() == L".pfm")
+        std::string diagnosticSource;
+        if (capture.request.path.extension() == L".ptbuf")
+        {
+            if (m_renderingPath != RenderingPath::PathTracing ||
+                capture.request.source != RtPbrSurvey::ScreenshotCaptureSource::FinalOutput ||
+                capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png)
+            {
+                throw std::invalid_argument("PT buffer capture requires Path Tracing and the default request contract.");
+            }
+            for (UINT index = 0; index < 4; ++index)
+            {
+                if (capture.request.debugResourceName == kPathTracingGuideTextureResourceNames[index])
+                {
+                    source = m_pathTracingGuideTextures[index].Get();
+                    diagnosticSource = kPathTracingGuideTextureResourceNames[index];
+                    break;
+                }
+            }
+            if (source == nullptr)
+            {
+                throw std::invalid_argument("PT buffer capture requires one of the four primary guide resources.");
+            }
+            TransitionResource({diagnosticSource, D3D12_RESOURCE_STATE_COPY_SOURCE});
+        }
+        else if (capture.request.path.extension() == L".pfm")
         {
             if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png ||
                 capture.request.source != RtPbrSurvey::ScreenshotCaptureSource::FinalOutput)
@@ -6240,6 +6265,35 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                                         paperWhiteNits,
                                         capture.request.region,
                                         capture.readback);
+        if (!diagnosticSource.empty())
+        {
+            TransitionResource({diagnosticSource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
+            const auto matrixJson = [](const XMFLOAT4X4& matrix)
+            {
+                nlohmann::json rows = nlohmann::json::array();
+                for (int row = 0; row < 4; ++row)
+                {
+                    rows.push_back({matrix.m[row][0], matrix.m[row][1], matrix.m[row][2], matrix.m[row][3]});
+                }
+                return rows;
+            };
+            const CameraState& camera = GetCamera();
+            const nlohmann::json metadata = {
+                {"schemaVersion", 1}, {"resource", diagnosticSource},
+                {"sampleStartIndex", m_pathTracingRuntimeState.frameSampleIndex},
+                {"randomSeed", m_pathTracingSettings.randomSeed},
+                {"width", capture.readback.width}, {"height", capture.readback.height},
+                {"format", static_cast<int>(capture.readback.format)}, {"rowOrder", "top-down"},
+                {"matrixConvention", "transpose of DirectX row-vector matrices"},
+                {"viewProjection", matrixJson(m_constantBufferData.viewProjection)},
+                {"previousViewProjection", matrixJson(m_constantBufferData.prevViewProjection)},
+                {"inverseViewProjection", matrixJson(m_constantBufferData.invViewProjection)},
+                {"cameraPosition", {camera.pos.x, camera.pos.y, camera.pos.z}},
+                {"cameraTarget", {camera.gazePoint.x, camera.gazePoint.y, camera.gazePoint.z}},
+                {"lensShift", {camera.lensShiftX, camera.lensShiftY}},
+            };
+            capture.readback.diagnosticMetadata = metadata.dump();
+        }
         m_pendingScreenshotCapture = std::move(capture);
     }
     catch (const std::exception& exception)

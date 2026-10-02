@@ -104,6 +104,7 @@ private:
     void LoadFileSceneCpuData();
     void OpenSelectedScene();
     void OpenFileScene();
+    void OpenCommandLineDebugTexturePreview();
     void ApplyFileSceneSettings();
     void CreateNewSceneEditorDocument();
     bool LoadSceneEditorDocument(const std::string& path, std::string* error = nullptr);
