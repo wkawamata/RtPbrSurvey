@@ -96,6 +96,23 @@ bool TestArcballSwitchPreservesEightyEightDegreeCamera()
 
 int main()
 {
+    // Positive DirectX pitch looks downward. A no-input foreground update must
+    // preserve the saved validation camera's direction toward the floor.
+    Engine::CameraState camera;
+    camera.pos = {0.0f, 4.0f, -7.0f};
+    camera.gazePoint = {0.0f, 0.0f, 0.0f};
+    camera.rot = {std::atan2(4.0f, 7.0f), 0.0f, 0.0f};
+    RtPbrSurvey::DebugCameraController controller;
+    controller.SetCameraState(&camera);
+    controller.SetMode(RtPbrSurvey::DebugCameraController::Mode::FreeLook);
+    controller.UpdateFreeLookKeyboard(0.0f, false, false, false, false, false, false, false, false);
+    const float distance = std::sqrt(65.0f);
+    if (!NearlyEqual(camera.gazePoint, {0.0f, 4.0f - 4.0f / distance, -7.0f + 7.0f / distance}))
+    {
+        std::cerr << "FreeLook changed the saved camera direction.\n";
+        return 1;
+    }
+
     if (!TestRegularHorizontalAndVerticalOrbit() || !TestNearLimitDragDoesNotCrossPole() ||
         !TestArcballSwitchPreservesEightyEightDegreeCamera())
     {

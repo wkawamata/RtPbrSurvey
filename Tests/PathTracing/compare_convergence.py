@@ -15,20 +15,34 @@ def capture_pixels(record, roi):
 
 
 def metrics(images, reference):
+    if len(images) < 2 or not reference or any(len(image) != len(reference) for image in images):
+        raise ValueError("Need two or more equal-sized seed images and a reference")
     average = mean_image(images)
     variance = sum(sum((image[i] - average[i]) ** 2 for image in images) /
                    (len(images) - 1) for i in range(len(average))) / len(average)
-    return dict(meanImageRmse=rmse(average, reference), seedVariance=variance,
+    result = dict(meanImageRmse=rmse(average, reference), seedVariance=variance,
                 perSeedRmse=[rmse(image, reference) for image in images],
                 meanRadiance=sum(average) / len(average))
+    if len(average) % 3 == 0:
+        result["meanRgb"] = [sum(average[c::3]) / (len(average) // 3) for c in range(3)]
+    result["seedCount"] = len(images)
+    return result
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--low-report", type=Path, required=True)
-    parser.add_argument("--high-report", type=Path, required=True)
+    parser.add_argument("--low-report", type=Path)
+    parser.add_argument("--high-report", type=Path)
+    parser.add_argument("--suite-report", type=Path, help="Plot a multi-sample suite without recapturing")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.suite_report:
+        if args.low_report or args.high_report:
+            parser.error("Suite and legacy two-report inputs are mutually exclusive")
+        plot_suite(args.suite_report, args.output)
+        return
+    if not args.low_report or not args.high_report:
+        parser.error("Supply --suite-report or both --low-report and --high-report")
     low = json.loads(args.low_report.read_text(encoding="utf-8"))
     high = json.loads(args.high_report.read_text(encoding="utf-8"))
     for key in ("sceneFileSha256", "renderPresetSha256", "roi", "seeds", "referenceSeeds",
@@ -75,6 +89,48 @@ def main():
     for result in results:
         print(f"{result['samples']} spp: RMSE={result['meanImageRmse']:.8g}, "
               f"seed variance={result['seedVariance']:.8g}, mean radiance={result['meanRadiance']:.8g}")
+
+
+def plot_suite(source, output):
+    """Scientific plot artifacts; all series use the suite's common reference."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    report = json.loads(source.read_text())
+    if report["status"] != "complete" or not report["results"]:
+        raise ValueError("Cannot plot incomplete or smoke-only suite")
+    output.mkdir(parents=True, exist_ok=True)
+    for scene_id, rois in report["scenes"].items():
+        fig, axes = plt.subplots(len(rois), 2, figsize=(10, 3 * len(rois)), squeeze=False)
+        for row, label in enumerate(rois):
+            reference = next(r for r in report["references"] if r["sceneId"] == scene_id and r["roiName"] == label)
+            for mode in report["modes"]:
+                series = sorted((r for r in report["results"] if r["sceneId"] == scene_id and
+                    r["roiName"] == label and r["mode"] == mode), key=lambda r: r["samples"])
+                name = {0: "Local light paths", 1: "BSDF", 2: "NEE", 5: "MIS"}[mode]
+                for column, key in enumerate(("meanImageRmse", "seedVariance")):
+                    axes[row, column].plot([r["samples"] for r in series], [r[key] for r in series], "o-", label=name)
+            disagreement = reference["pairwiseDisagreementRmse"][0]
+            if disagreement > 0:
+                axes[row, 0].axhline(disagreement, color="gray", linestyle="--", label="Reference seed disagreement")
+            else:
+                axes[row, 0].text(.03, .95, "Reference seed disagreement = 0", transform=axes[row, 0].transAxes, va="top", fontsize=8)
+            for column, axis in enumerate(axes[row]):
+                axis.set_xscale("log", base=2)
+                positive = any(any(value > 0 for value in line.get_ydata()) for line in axis.lines)
+                axis.set_yscale("log" if positive else "linear")
+                axis.set_xlabel("Accumulated samples / pixel")
+                axis.set_ylabel("Mean-image RGB RMSE" if column == 0 else "Mean unbiased seed variance")
+                axis.set_title(label)
+                axis.grid(True, alpha=.25)
+                axis.legend(fontsize=8)
+        bounces = next(c["diagnostics"]["maxBounces"] for c in report["captures"] if c["sceneId"] == scene_id)
+        fig.suptitle(f"{scene_id}: static, {bounces} bounces; {len(report['seeds'])} seeds; finite {report['referenceSamples']} spp reference")
+        fig.tight_layout()
+        fig.savefig(output / (scene_id + ".png"), dpi=160)
+        fig.savefig(output / (scene_id + ".svg"))
+        plt.close(fig)
 
 
 if __name__ == "__main__":

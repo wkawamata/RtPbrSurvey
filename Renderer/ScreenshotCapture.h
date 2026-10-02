@@ -22,6 +22,7 @@ struct ScreenshotReadback
     UINT height = 0;
     bool hdr10 = false;
     float paperWhiteNits = 300.0f;
+    std::string diagnosticMetadata;
 
     bool IsValid() const;
     void Reset();

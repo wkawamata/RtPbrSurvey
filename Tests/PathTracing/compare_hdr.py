@@ -119,9 +119,9 @@ def main():
             or set(args.seeds) & set(args.reference_seeds)
             or min(args.samples, args.reference_samples) <= 0
             or args.reference_samples <= args.samples
-            or not args.modes or any(m not in (0, 3, 4, 6, 7) for m in args.modes)
-            or args.reference_mode not in (0, 3, 4, 6, 7)):
-        parser.error("Use at least two distinct seeds per group, disjoint reference seeds, more reference samples, and map modes 0/3/4/6/7")
+            or not args.modes or any(m not in range(8) for m in args.modes)
+            or args.reference_mode not in range(8)):
+        parser.error("Use at least two distinct seeds per group, disjoint reference seeds, more reference samples, and modes 0-7")
     if args.render_preset and not args.scene_file:
         parser.error("--render-preset requires --scene-file")
     if args.direct_only and not args.render_preset:
@@ -182,7 +182,7 @@ def main():
                   samples=args.samples, referenceSamples=args.reference_samples,
                   referenceMode=args.reference_mode, referenceSeeds=args.reference_seeds, seeds=args.seeds,
                   referenceDisagreementRmse=rmse(references[0], references[1]),
-                  limitation="Finite-sample MIS reference, not ground truth. Two-seed reference disagreement is an uncertainty indicator, not a confidence bound.",
+                  limitation="Finite-sample reference, not ground truth. Two-seed reference disagreement is an uncertainty indicator, not a confidence bound.",
                   deterministic=True, results=results, captures=records)
     report["commit"] = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=args.root, text=True).strip()
     report["dirty"] = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=args.root, text=True).strip())

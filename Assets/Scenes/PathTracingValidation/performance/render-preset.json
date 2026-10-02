@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 4,
+  "renderingPath": 1,
+  "renderViewMode": 0,
+  "lighting": {
+    "lights": [
+      {
+        "id": 1,
+        "name": "Perf light 1",
+        "type": "point",
+        "enabled": true,
+        "color": [
+          1,
+          1,
+          1
+        ],
+        "intensity": 8.0,
+        "position": [
+          -2,
+          3,
+          0
+        ],
+        "direction": [
+          0,
+          -1,
+          0
+        ],
+        "range": 20,
+        "innerCone": 15,
+        "outerCone": 30
+      }
+    ],
+    "primaryShadowLightId": 1,
+    "iblIntensity": 1,
+    "skyboxEnabled": false,
+    "directLightEnabled": true,
+    "diffuseIblEnabled": false,
+    "specularIblEnabled": false,
+    "emissiveEnabled": false
+  },
+  "shadow": {
+    "enabled": true,
+    "normalBias": 0.001
+  },
+  "toneMap": {
+    "operatorIndex": 2,
+    "exposure": 1
+  },
+  "temporalUpscaler": {
+    "autoExposure": false
+  },
+  "pathTracing": {
+    "accumulate": true,
+    "samplesPerFrame": 1,
+    "maxBounces": 2,
+    "randomSeed": 7,
+    "directLightingEnabled": true,
+    "environmentEnabled": true,
+    "environmentSamplingMode": 5,
+    "emissiveEnabled": false,
+    "russianRouletteEnabled": false,
+    "debugOutput": 3
+  }
+}

@@ -230,6 +230,8 @@ bool SceneDocumentBuilder::Build(const SceneDocument& document,
                                 ? Engine::CameraProjection::Perspective
                                 : Engine::CameraProjection::Orthographic;
         camera.fov = document.camera.verticalFovDegrees;
+        camera.lensShiftX = document.camera.lensShiftX;
+        camera.lensShiftY = document.camera.lensShiftY;
         camera.orthographicHeight = document.camera.orthographicHeight;
         camera.nearZ = document.camera.nearZ;
         camera.farZ = document.camera.farZ;

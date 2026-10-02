@@ -8,6 +8,7 @@ import unittest
 
 from compare_hdr import build_capture_command, mean_image, read_pfm, rmse, write_direct_only_preset
 from compare_convergence import metrics
+from run_convergence_suite import reference_metrics
 
 
 class HdrTests(unittest.TestCase):
@@ -27,6 +28,13 @@ class HdrTests(unittest.TestCase):
             path.write_bytes(b"PF\n1 1\n-1.0\n" + struct.pack("<3f", 1, math.nan, 3))
             with self.assertRaises(ValueError):
                 read_pfm(path, (0, 0, 1, 1))
+
+    def test_pfm_is_already_sample_normalized(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "normalized.pfm"
+            path.write_bytes(b"PF\n1 1\n-1.0\n" + struct.pack("<3f", 2.5, 0.5, 4.0))
+            _, values = read_pfm(path, (0, 0, 1, 1))
+            self.assertEqual(list(values), [2.5, 0.5, 4.0])
 
     def test_metrics(self):
         self.assertEqual(mean_image([[1, 3, 5], [3, 5, 7]]), [2, 4, 6])
@@ -64,6 +72,21 @@ class HdrTests(unittest.TestCase):
         result = metrics([[1.0, 3.0], [3.0, 5.0]], [2.0, 4.0])
         self.assertEqual(result["meanImageRmse"], 0.0)
         self.assertEqual(result["seedVariance"], 2.0)
+
+    def test_rgb_statistics_and_reference_standard_error(self):
+        images = [[1, 2, 3, 3, 4, 5], [3, 4, 5, 5, 6, 7]]
+        result = metrics(images, [2, 3, 4, 4, 5, 6])
+        self.assertEqual(result["meanRgb"], [3, 4, 5])
+        self.assertEqual(result["seedCount"], 2)
+        self.assertEqual(result["perSeedRmse"], [1, 1])
+        reference = reference_metrics(images)
+        self.assertEqual(reference["meanPixelStandardError"], 1)
+        self.assertEqual(reference["pairwiseDisagreementRmse"], [2])
+
+    def test_statistics_reject_insufficient_or_mismatched_seeds(self):
+        for images, reference in [([[1, 2, 3]], [1, 2, 3]), ([[1], [1, 2]], [1]), ([[], []], [])]:
+            with self.assertRaises(ValueError):
+                metrics(images, reference)
 
 
 if __name__ == "__main__":

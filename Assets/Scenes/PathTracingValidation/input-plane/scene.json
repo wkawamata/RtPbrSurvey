@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "input-plane",
+  "name": "PT input-plane",
+  "renderPreset": "render-preset.json",
+  "assets": [],
+  "materials": [
+    {
+      "id": "dielectric",
+      "name": "dielectric",
+      "baseColor": [
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.37
+    }
+  ],
+  "nodes": [
+    {
+      "id": "receiver",
+      "name": "receiver",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        -0.7071067811865476,
+        0,
+        0,
+        0.7071067811865476
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "plane",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 40,
+        "depth": 40,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "dielectric"
+    }
+  ],
+  "camera": {
+    "position": [
+      0,
+      0,
+      -5
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 55,
+    "orthographicHeight": 6,
+    "nearZ": 0.1,
+    "farZ": 1000,
+    "lensShiftX": 0,
+    "lensShiftY": 0
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      0.96,
+      0.86
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  }
+}

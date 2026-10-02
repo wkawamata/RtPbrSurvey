@@ -37,6 +37,8 @@ struct ScreenshotRequest
     ScreenshotOutputFormat outputFormat = ScreenshotOutputFormat::Png;
     ScreenshotCaptureSource source = ScreenshotCaptureSource::FinalOutput;
     std::uint64_t requestId = 0;
+    // Used only by diagnostic .ptbuf captures.
+    std::string debugResourceName;
 };
 
 struct ScreenshotResult

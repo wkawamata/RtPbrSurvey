@@ -1,0 +1,2252 @@
+{
+  "schemaVersion": 1,
+  "part": 2,
+  "status": "done",
+  "date": "2026-10-02",
+  "baseCommit": "816c3f7",
+  "workspace": "C:\\work\\RtPbrSurvey",
+  "branch": "codex/path-tracing-validation-part1",
+  "build": "Debug x64",
+  "gpu": "NVIDIA GeForce RTX 3080 Laptop GPU",
+  "driver": "616.64",
+  "pythonTestsPassed": 13,
+  "measurementCaptures": 84,
+  "smokeCaptures": 4,
+  "d3d12ErrorCount": 0,
+  "fixedSeedRepeatCases": 4,
+  "cohorts": [
+    {
+      "id": "constant-environment",
+      "sceneHash": "e0d812c16c4ea7db46185f086272675d8014f5ba3147bf41619391aad00597d8",
+      "presetHash": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a",
+      "camera": "saved static camera",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "rois": {
+        "floor": [
+          928,
+          508,
+          64,
+          64
+        ]
+      },
+      "samples": [
+        8,
+        32,
+        128
+      ],
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "modes": [
+        1,
+        2,
+        5
+      ],
+      "referenceSamples": 512,
+      "referenceSeeds": [
+        101,
+        102
+      ],
+      "referenceMode": 5,
+      "maxBounces": 2,
+      "russianRoulette": false,
+      "shadowEnabled": true,
+      "directLightingEnabled": false,
+      "environmentEnabled": true,
+      "emissiveEnabled": false,
+      "fixedSeedRepeat": true,
+      "exampleCaptureCommand": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\constant-environment\\scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\constant-environment\\render-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "8",
+        "-PathTracingSeed",
+        "1",
+        "-PathTracingEnvironmentMode",
+        "1",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part2-main\\constant-environment-mode-1-spp-8-seed-1.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part2-main\\constant-environment-mode-1-spp-8-seed-1.log",
+        "-ExitAfterCapture"
+      ],
+      "reportPath": "bin/PathTracingValidation/part2-main/report.json"
+    },
+    {
+      "id": "roughness",
+      "sceneHash": "47f75b8f062e5e58d0bcb2389ee8e80d48f40ee08c5ea31fea10cb5ae1afc80d",
+      "presetHash": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a",
+      "camera": "saved static camera",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "rois": {
+        "roughness-0.18": [
+          664,
+          424,
+          48,
+          48
+        ],
+        "roughness-0.4": [
+          936,
+          424,
+          48,
+          48
+        ],
+        "roughness-0.8": [
+          1208,
+          424,
+          48,
+          48
+        ]
+      },
+      "samples": [
+        8,
+        32,
+        128
+      ],
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "modes": [
+        1,
+        2,
+        5
+      ],
+      "referenceSamples": 512,
+      "referenceSeeds": [
+        101,
+        102
+      ],
+      "referenceMode": 5,
+      "maxBounces": 2,
+      "russianRoulette": false,
+      "shadowEnabled": true,
+      "directLightingEnabled": false,
+      "environmentEnabled": true,
+      "emissiveEnabled": false,
+      "fixedSeedRepeat": true,
+      "exampleCaptureCommand": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\roughness\\scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\roughness\\render-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "8",
+        "-PathTracingSeed",
+        "1",
+        "-PathTracingEnvironmentMode",
+        "1",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part2-main\\roughness-mode-1-spp-8-seed-1.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part2-main\\roughness-mode-1-spp-8-seed-1.log",
+        "-ExitAfterCapture"
+      ],
+      "reportPath": "bin/PathTracingValidation/part2-main/report.json"
+    },
+    {
+      "id": "two-surface-direct",
+      "sceneHash": "8d74063ae29569d20be29ecc9598635b7622bc586be35710827ff2542e7fb265",
+      "presetHash": "1f36aa880e225275d1ee1532565b0af785930c34eb9c86e0dbeab9024b746794",
+      "camera": "saved static camera",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "rois": {
+        "floor": [
+          928,
+          508,
+          64,
+          64
+        ]
+      },
+      "samples": [
+        8,
+        32,
+        128
+      ],
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "modes": [
+        0
+      ],
+      "referenceSamples": 512,
+      "referenceSeeds": [
+        101,
+        102
+      ],
+      "referenceMode": 0,
+      "maxBounces": 1,
+      "russianRoulette": false,
+      "shadowEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": false,
+      "emissiveEnabled": false,
+      "fixedSeedRepeat": true,
+      "exampleCaptureCommand": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\two-surface-indirect\\scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part2-controls\\two-surface-direct-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "8",
+        "-PathTracingSeed",
+        "1",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part2-controls\\two-surface-direct-mode-0-spp-8-seed-1.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part2-controls\\two-surface-direct-mode-0-spp-8-seed-1.log",
+        "-ExitAfterCapture"
+      ],
+      "reportPath": "bin/PathTracingValidation/part2-controls/report.json"
+    },
+    {
+      "id": "two-surface-indirect",
+      "sceneHash": "8d74063ae29569d20be29ecc9598635b7622bc586be35710827ff2542e7fb265",
+      "presetHash": "441481f993a89b18de8d85cebfd4e8a94cb90f284d4b7054c471f10bcd35b8a7",
+      "camera": "saved static camera",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "rois": {
+        "floor": [
+          928,
+          508,
+          64,
+          64
+        ]
+      },
+      "samples": [
+        8,
+        32,
+        128
+      ],
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "modes": [
+        0
+      ],
+      "referenceSamples": 512,
+      "referenceSeeds": [
+        101,
+        102
+      ],
+      "referenceMode": 0,
+      "maxBounces": 4,
+      "russianRoulette": false,
+      "shadowEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": false,
+      "emissiveEnabled": false,
+      "fixedSeedRepeat": true,
+      "exampleCaptureCommand": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\two-surface-indirect\\scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part2-controls\\two-surface-indirect-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "8",
+        "-PathTracingSeed",
+        "1",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part2-controls\\two-surface-indirect-mode-0-spp-8-seed-1.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part2-controls\\two-surface-indirect-mode-0-spp-8-seed-1.log",
+        "-ExitAfterCapture"
+      ],
+      "reportPath": "bin/PathTracingValidation/part2-controls/report.json"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-reference-101.pfm",
+      "sha256": "9ff9499cd44271c4dc85ccd58b51a273bf099ba2f25b35a39329775e5b388e47"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-reference-101.log",
+      "sha256": "eafc68beeba9398258fbbb3d26ea0d7b3f7a24f0a3f58c8e03c4a145e7b05ef9"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-reference-102.pfm",
+      "sha256": "a9b90a2a903d8e07b121afa5fc002674cbf5d0ae6d5d88b25d3a7f31f9f27a8a"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-reference-102.log",
+      "sha256": "caf9519381849284244f7e17c563610368d020d5cbc8cce38f8eeb25f573e0be"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-8-seed-1.pfm",
+      "sha256": "e46c5f66b5a76439541afaa2042c942162c545018ab7ec31ac25492afa8ba3ae"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-8-seed-1.log",
+      "sha256": "8b2d16e5cb5074bf01aa5bfa623aaf772cb5aea8e3de3b6b1ce08e3e64f5e864"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-8-seed-2.pfm",
+      "sha256": "81d28d8f87b22332776b07f3d6f2153ebc10002a0cd493540ce932a2d450d775"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-8-seed-2.log",
+      "sha256": "dfdad8c8ebb478d61130908370d2b7cfce92ba3f3b79d2c7323422ecf70bcc6b"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-8-seed-3.pfm",
+      "sha256": "67cdbd10401d059a095c3f902fb2cd5936a3cb2fde584935fc35b8ae9a58ec1a"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-8-seed-3.log",
+      "sha256": "bcc9ff751a3386720d0aeb365e8b6331eee41f11c2e877692445790287d414fc"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-repeat.pfm",
+      "sha256": "e46c5f66b5a76439541afaa2042c942162c545018ab7ec31ac25492afa8ba3ae"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-repeat.log",
+      "sha256": "59b0dfb757091b7eda31dd596f5be610c20f91973d00d4c3430417f4c7160027"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-32-seed-1.pfm",
+      "sha256": "ecd430b388cf354f5bd7de96daf8612524a1ded9075440ea0cffe1b03bb2e992"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-32-seed-1.log",
+      "sha256": "358232e5fb8618df18c5460fd5a2724b1a50371df34422c2725a01a489701399"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-32-seed-2.pfm",
+      "sha256": "0644565359af39a7f9d336cb85d5d086f2e180b5d6be10c0f48b28b06425f322"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-32-seed-2.log",
+      "sha256": "00622dbdfc267766273f36599a924da99caaa278cd3eda067c922e3863f705d5"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-32-seed-3.pfm",
+      "sha256": "d90e5d744ab0ff5de5afc34d29e72272e7b7be9b7aff9ae39917f2a8bdf92ae9"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-32-seed-3.log",
+      "sha256": "2cb07a4657c48196ebb3047aa0a569528fcb577bb3aa2a068e14ebc3a66a2a11"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-128-seed-1.pfm",
+      "sha256": "8b77c7af0de10573418dc7b759095d531460a9658d223eaf49a86f65c936b96e"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-128-seed-1.log",
+      "sha256": "9fa593f4e2d11e94fa9d9d6a9fe5e753a3d37f769dfdcb756c61e846b3472bc8"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-128-seed-2.pfm",
+      "sha256": "6e2f8af4855796b03af269012633a16ad47d24e3a9c0b3c99001ecddcc61e1ed"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-128-seed-2.log",
+      "sha256": "fdecb7e2f4cc9575262e0435137095d351a9819dcb6e2a1f03970d7670868f5e"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-128-seed-3.pfm",
+      "sha256": "aa4b8d2bea4e33114223dcf2fabee95d1229adb50131b86675ae3ac0600831ff"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-1-spp-128-seed-3.log",
+      "sha256": "24971cc6e688ce87a16fc65378dba1f2451687836e3492a83dd6b93ca77c1977"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-8-seed-1.pfm",
+      "sha256": "5562b23894ad13555f91675bb06130d76088e9b5ab4db08a528b9cc068941762"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-8-seed-1.log",
+      "sha256": "eab18d378f5290c2a1b52cfb2b25b44f48fae74ed5ea9e73a99dc9cfc49b5834"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-8-seed-2.pfm",
+      "sha256": "4c2f455322feced1ddb90f5064319547ca7083723de9ada55231274edb61090f"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-8-seed-2.log",
+      "sha256": "7ade0922a7c126e00e5fb020b98699ccdf1ff35cd9b779f548e1741d9d94a846"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-8-seed-3.pfm",
+      "sha256": "b0833cc2c96a35e45d63d3e90d6875ef7a534677af92fa431d42d544d91569c8"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-8-seed-3.log",
+      "sha256": "886ed24be595d9814edb65f12d630b2beaf00dd0f5546499444b61970c83c0c6"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-32-seed-1.pfm",
+      "sha256": "3a88c1f708e75b317ddd032e8ad5d36ebd7a94b5869ef83c6130c24766fc5309"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-32-seed-1.log",
+      "sha256": "1bbd26943bcd8de2ab91a68316d583bbdca5d2473f52cba21c00457571fe7163"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-32-seed-2.pfm",
+      "sha256": "0db02b401fe337aaea1125118fdcc21012da900c2575bf6fa7a435059fccb50d"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-32-seed-2.log",
+      "sha256": "d569def1eb40926ed3e8058885211f6b40ed94d854d101e9960b89b3d37d1a5a"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-32-seed-3.pfm",
+      "sha256": "8fac0f37c076287754f9d25af272dff66fa0f6bd16c10e7251d88042655f8128"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-32-seed-3.log",
+      "sha256": "cbe43ae134991333b04a79ad46c0a1f96b2ac83a932b947c5a0a2a3c4a63b5d7"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-128-seed-1.pfm",
+      "sha256": "58083b0103147b31a5952109af4362ee0160198f9177b54e202f83265b9930e8"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-128-seed-1.log",
+      "sha256": "eb0630fa1450de27a212d0e761c50a0f857c17230f4239baf457a86dfbeb1fd2"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-128-seed-2.pfm",
+      "sha256": "14378673d9f7374858264a1d0640f42e3e4d8217b3681a773a2fdfb03954e5a0"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-128-seed-2.log",
+      "sha256": "8fbb73564a5e1a4cd71e99e42344e9f1def6ea95419644be987c476d2fbeb4f7"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-128-seed-3.pfm",
+      "sha256": "19f28f10a2c0705a76e562360188cb98a313f29e2f8b8da8ce81d94942c806a2"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-2-spp-128-seed-3.log",
+      "sha256": "864b85e4ce6baa584bbfb72e24ddad35bfa06c92ebc9997ae43cca35999fa153"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-8-seed-1.pfm",
+      "sha256": "5ccaeb925ef6b8587339f3e1412521ca8cee3805532f9ae3f43d7662937c17fe"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-8-seed-1.log",
+      "sha256": "eea0d284437194cefa0fe7d2a676ec6a0ed2060f141414d9ab22273beace8372"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-8-seed-2.pfm",
+      "sha256": "4c0e71f2d7c6836ab7f610737957cd334bcbdfdc088129802d19bd5ff8a67b79"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-8-seed-2.log",
+      "sha256": "1d7a7d279b999cfc0aa79e1aa3a8650ef3beeaf504a33f17d5e6fc3a5c3521e0"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-8-seed-3.pfm",
+      "sha256": "0c63574d1753c07bea21f87198c3f1fb1c810387a69d557ab0b11fc7f055c8f2"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-8-seed-3.log",
+      "sha256": "d595eaeec305abeb8cff500577002b71aef04769bd84a880c46d341dfc8058ab"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-32-seed-1.pfm",
+      "sha256": "d55923d17bbf92ff0136f24c25e223cedab7fb4fd71eef9bee602fdc7fd44152"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-32-seed-1.log",
+      "sha256": "dde50a7d1b0a03c53e6fcfe9f028b2149931bd03942cbad4bde90393411eee3e"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-32-seed-2.pfm",
+      "sha256": "8dcf822a4315bc7a7e9562ed9934c4a830667a4300d8503b87f35b427f097a8b"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-32-seed-2.log",
+      "sha256": "4cf6696e97e2ed3bbafb11c2dc600cb21c373b0fbe7a068597ff1854795cda10"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-32-seed-3.pfm",
+      "sha256": "941fd5eaba5587d535a1050d31536e1eed1f6771e050b19d1f28f27a50f6d565"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-32-seed-3.log",
+      "sha256": "f3c0a25e91c12eca62effaf403d72d7659cce0a900e0b6f20844553fe78c7eb2"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-128-seed-1.pfm",
+      "sha256": "432073df8008f630ef76ed655b940434f00cfcb81e536b39e4de9fd831b9bf4e"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-128-seed-1.log",
+      "sha256": "a8d241e4018cdb05ea96f87cdb8d79f3a1fc4329200859183b78b2295a510fb4"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-128-seed-2.pfm",
+      "sha256": "3b937687e15ae4882e68c860b8ee3daab3dd36bd5a939a03c9e1014781116643"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-128-seed-2.log",
+      "sha256": "2f6b60606b4a6cdeaa1dba1ce30c7554032a3d010ae347e5302c968e7648de1d"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-128-seed-3.pfm",
+      "sha256": "a921737e81debadd33c99c9779baea79080521c47c3cdacdb297be562ae7663c"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/constant-environment-mode-5-spp-128-seed-3.log",
+      "sha256": "9c1779242c8ade04a1afebbe23d53a56adf003d6e54516c840dcb2e7dace206b"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-reference-101.pfm",
+      "sha256": "948acc0046b943ca4cfa85553a187409551ec79db63b6a2e822ec72486efaea0"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-reference-101.log",
+      "sha256": "210029bb9e60ce93538cef40b4dc5a42e0c0f8a26a4bbd65c320c1ad80ab14c3"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-reference-102.pfm",
+      "sha256": "3bef88692a963ab256e0b402b8381585db39ff2ae30306ce40ff6ab14018a3b9"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-reference-102.log",
+      "sha256": "3c5f9bef7f7dc29dca264241c46c1f1e79355587f0c3a1fc0c48c783d36f5ee7"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-8-seed-1.pfm",
+      "sha256": "91d6be1a7d94a0eeccd2bac41f28fcb30e8da49970fbb24e73f30cc79d99dafa"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-8-seed-1.log",
+      "sha256": "529a4fe1ac2fbf2ac6331829fd2dd60996a1bb966b717db18f2854984c43c797"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-8-seed-2.pfm",
+      "sha256": "04337b940b08f5c60a67268584871713e45dd98befd128ef96c08fb24be935c6"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-8-seed-2.log",
+      "sha256": "61b7980521a19e97b54c499acd161681f5c29ed2611e39ded41dd2c0bf053f02"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-8-seed-3.pfm",
+      "sha256": "eb44ff3052a9a80a912860e5de34edc8e38c32d2832ba51a23891916ad7041eb"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-8-seed-3.log",
+      "sha256": "75813d95a6a496ead2f86f7531633b879d7a37300e75f01d4fad89d29b64c9e0"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-repeat.pfm",
+      "sha256": "91d6be1a7d94a0eeccd2bac41f28fcb30e8da49970fbb24e73f30cc79d99dafa"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-repeat.log",
+      "sha256": "9cfccad4a3451357e24015eadc6f48241482d0aee1289a31e27bfcc954ae309f"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-32-seed-1.pfm",
+      "sha256": "51e7369ed6c04d5983dba542ef4581229e652b9b320eebd328bc50c531406398"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-32-seed-1.log",
+      "sha256": "3ebf11afa67393bd7b9957b7d046da385a217ba90b76eb5a62b91582243bc259"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-32-seed-2.pfm",
+      "sha256": "aac98df18fe3d664b500c68c88b67915ac8baf6e6800b9d19ac45124063dc22e"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-32-seed-2.log",
+      "sha256": "cb6066638cbe5d394b851ad387b8622dc2b5cb905a00771701c2640472fc56b9"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-32-seed-3.pfm",
+      "sha256": "8b31329b4976507b116fb044f14655eb9821f4d2aa83f91085e6ff70e4980f97"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-32-seed-3.log",
+      "sha256": "1a0f1d475bd97ea2caf12d9e68751610f30f10ca6b5340577ad2b227cda0868c"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-128-seed-1.pfm",
+      "sha256": "e964c8fa11e4a310906087e03d4a6f5641b471543199ce3c4c2f354eb693ef8c"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-128-seed-1.log",
+      "sha256": "830d27fa71b77cfdfca69976d6f0194ce8712fa1e96dcff8c7966aa934701287"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-128-seed-2.pfm",
+      "sha256": "ef5112db1cda4ebe8afb501bf67aed1e688b22c4667e2f1e5e58b5d70e18bd41"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-128-seed-2.log",
+      "sha256": "4c4e9c26826a67bd41077395ffaf7e172646af67d691facc2ef2950f52760438"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-128-seed-3.pfm",
+      "sha256": "a38a7296b5fa3dce31db56c48a5018cbc7d466d1835f9f57ae56b9d1e74fa991"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-1-spp-128-seed-3.log",
+      "sha256": "c86549f175843cf68acc439f4f3e8a43b5fee79b22ef99a4e9fd51f913674341"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-8-seed-1.pfm",
+      "sha256": "92c856513dd4395112456cc677058ea0c1b92cc31ff206693cb09ecc72bda48b"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-8-seed-1.log",
+      "sha256": "a2e875d8120a7f3a919a47de39b1ef78cb712925ed4dddd5ec6f7f8d193d2b56"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-8-seed-2.pfm",
+      "sha256": "6c6ac605e818e45b72f1a01061808f70e39f0663eb4d0885f98063f331c3934d"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-8-seed-2.log",
+      "sha256": "ef4218d475b622ad1b7acbc2e369549a40497585ac18e980a70e5b079148e9be"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-8-seed-3.pfm",
+      "sha256": "1214345f8091139f6605915347aa8143d8344d14155011d5b31f974b6e4c82ab"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-8-seed-3.log",
+      "sha256": "d8fb9bae7d1e12c8cec2e04c5576ac963301f7f9fe2b7e45dca0cde119811a2e"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-32-seed-1.pfm",
+      "sha256": "fe3c3fec9f75918cc073041629aad7cd39d26706660ffadc2eaa0fbd039f6b0f"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-32-seed-1.log",
+      "sha256": "2caf23e72a8e4bf4ce5effb1b7c38cd14dceda94809598d4f7c0ff16a52c1c84"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-32-seed-2.pfm",
+      "sha256": "9f03e56e48908dfb817e6d9475e758212e1256ce207c76fdae9ba345db8f2a7a"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-32-seed-2.log",
+      "sha256": "f1d0cdb4b4c8a00bcb02d882b7258d02c1ae22db2881a96f96d4c935e169488f"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-32-seed-3.pfm",
+      "sha256": "5287e7ce3e78a710ac31d6ea6d1db50f8f9d6efdf86e06017a0bfc77dec91dbc"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-32-seed-3.log",
+      "sha256": "9d9cf310ed5a5f8a88caf2e8971b8d95c81b0e6baf441d7286efb770d39844fd"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-128-seed-1.pfm",
+      "sha256": "52d6ca367916b7feae6dfcb2fef056afffdeab821ced240033fa3eaf47b12c5a"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-128-seed-1.log",
+      "sha256": "b188d6a1c61e82e395cd65c00264f10f70d626506a86081d2128a20a3f8aec31"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-128-seed-2.pfm",
+      "sha256": "f74063c9bc5315ffa58e4e3f43ec060126f8a8193d4f8703beb7a794c06edab0"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-128-seed-2.log",
+      "sha256": "91ae06e94c0f4f1f3ff1d4c428b3175ad97d57de2122d08a0459ab924739da7d"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-128-seed-3.pfm",
+      "sha256": "2941d265c3416b1f091e6b9c8af8ed536808e1fc3310e74896c432a4ec911daa"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-2-spp-128-seed-3.log",
+      "sha256": "191deae8688645dbf002c919d3db45ef4c28b0d9a947b2ad6d8d8a27e4cfc4f5"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-8-seed-1.pfm",
+      "sha256": "d20ae7004526209212022aeb679f2cfdd72bb9029307d46be6c217cca6d306b3"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-8-seed-1.log",
+      "sha256": "9765e9c815ce7233cb46e9be05bb0813f31b2052d79e4d9339c09b84ad0f426f"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-8-seed-2.pfm",
+      "sha256": "57f1a9d20d92b39f3bfce36a9aa32c87f8ac38dd9e13915362f62d03624a6fba"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-8-seed-2.log",
+      "sha256": "b5c86f46a761a787fa0af262a53f8af276afa69367db9add42e8eb8592e3cd89"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-8-seed-3.pfm",
+      "sha256": "3e31447c21949d24c37cfcd36830375d38327b17ccd2cee42a5e14a465739ece"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-8-seed-3.log",
+      "sha256": "11f008208499b217bc501ba7f1dfd74199cc025511c9a7d75424f80a7a4ed378"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-32-seed-1.pfm",
+      "sha256": "e2095a43d718a7095acf4d0c6012fc8302e3ee10c18186b07bd5d5721b9f9c73"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-32-seed-1.log",
+      "sha256": "8eea92fece54b74553caf999e9889cd3546772da50daf216cf2c069df3c48867"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-32-seed-2.pfm",
+      "sha256": "5b9072eaf92e2a21a749e51adfa0eb0dfe9979ee70ccc306647483f2b82e721a"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-32-seed-2.log",
+      "sha256": "cfc4372bace2729f2a942dd0c3b7912696b7ed6f8bbaf1fb16f2cf3265a2a1b5"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-32-seed-3.pfm",
+      "sha256": "bf3a2ce14c82eef803cda81e882fed88f5ce404f5f85598430ba34ceda84ebd0"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-32-seed-3.log",
+      "sha256": "5f8ef569babe436888ac18e4c381dd3672b63f98907b1f72e796f901f467655a"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-128-seed-1.pfm",
+      "sha256": "91c6443e4d84410f2e1a0af98ab5941d356235cc2d9284509689c6a607cac100"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-128-seed-1.log",
+      "sha256": "ef3df3f08ce32e7194a8ab069b9d00d18ba87af85891337f75c256035f73d6a6"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-128-seed-2.pfm",
+      "sha256": "f76d2b90eeba23a65d0621314a338b87ae962ad1d254a5ef8b0edd955aa982a3"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-128-seed-2.log",
+      "sha256": "f0b9057adb9c5c1a5bf2ec4b058d095be35a007ca790d613d04d00c0adc7eb17"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-128-seed-3.pfm",
+      "sha256": "007d50776329e4efcaf5643d5e2758dcffc28c0339b1d6e5b0383dd79e6fdc84"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/roughness-mode-5-spp-128-seed-3.log",
+      "sha256": "3a92cc3117abfea5f51c7574e8c5549847fabdac05ce391a2f32b0a9e46f6a52"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/report.json",
+      "sha256": "2a502cd49695ae6bfe4daa1a547cd529b2d188f2edbda4407726ed18703bb518"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/report.md",
+      "sha256": "9d8bd41b9e8165542db50e2f71f33047e37a4e1fb60ee096f956bc6a5daeda79"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/plots/constant-environment.png",
+      "sha256": "d35004ac064b465741d5adbbe1de92918d01f89bb52875381f804a7eda35e590"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/plots/constant-environment.svg",
+      "sha256": "6ca024c2c8a7e032b946fbccb9bdbf899424d13017abaab1c7dd5663b550070b"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/plots/roughness.png",
+      "sha256": "d0ee624444f8cc7e1e84abc331c44663649c765fc5f2d0e4b6e10b84ffa5d286"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-main/plots/roughness.svg",
+      "sha256": "e45743f92e8839d9fe53cfdef29bf3a5e6471bc6a78a161af2cb0fda567ffc6b"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-reference-101.pfm",
+      "sha256": "3dcceb5c77562f59bf651b2e50d88ac5655641a315acd372c801ad1c455558df"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-reference-101.log",
+      "sha256": "9da367b763328b58c1c559f072f8a2d84d52d9d2827007475f9bc05d1af6c877"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-reference-102.pfm",
+      "sha256": "2d47e50c0314a49391107603cfa9c5f1c1054c73500f796d33a22e66044f0e12"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-reference-102.log",
+      "sha256": "72b77dbfda6b4909c0211bc275d9e0555bc675ff0731ad99e49c835f8b7ee320"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-8-seed-1.pfm",
+      "sha256": "01378081fac52b1a39499d1db77bf2093743fa9d57b6d67ae792df6462f4e6fb"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-8-seed-1.log",
+      "sha256": "771e54853a53ed77783d115b809a822f74ed0f91354ed08ecafaadad7bd95dcf"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-8-seed-2.pfm",
+      "sha256": "0046382b704a8f0403ed56731dc92cfd9fdb18c6c3c38ac6cf2fa0773cedff2a"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-8-seed-2.log",
+      "sha256": "73b9e2c94f0a2036bc319d27e8021a5cdafc96897b028080bc4559e731df685d"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-8-seed-3.pfm",
+      "sha256": "e05f9298c06ebe43948760a228b58ef7799ca6effb2aaf04858dd251b2b70b8a"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-8-seed-3.log",
+      "sha256": "57de610bd5a01f1b1cb0c7f65de4cf45cd63b3ab0114db11cc913b09d6604b06"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-repeat.pfm",
+      "sha256": "01378081fac52b1a39499d1db77bf2093743fa9d57b6d67ae792df6462f4e6fb"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-repeat.log",
+      "sha256": "65a6842e08b6c7dca27b37a9d823bff7e98a912d29fa7c41026d6ebebdeb6388"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-32-seed-1.pfm",
+      "sha256": "8a8e079fcffa4d604277d623bc6b2bdc1ec6fb1cdc98146fee46ac155a44ee3e"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-32-seed-1.log",
+      "sha256": "3e6790cd7f29d12baecf146f37ef843bfa0a406eca6f545c12635e05bab46860"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-32-seed-2.pfm",
+      "sha256": "a3ddf7019f14496e25155686e4d9a21f71123fb477d549be9bb75c640ac7ee73"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-32-seed-2.log",
+      "sha256": "ed1a2612bb1c0a69367cb2e6a58b9fb3441980591eae68fd2a477f83668ea4b3"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-32-seed-3.pfm",
+      "sha256": "706bb9ff8b8c16219da7f76c7c96aaada04b8f3bfee6d1d967c20fc5624ee086"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-32-seed-3.log",
+      "sha256": "c4a060e0826340945367c9aad76002e77c08ee8cb0e49c972b92a6d85406b87d"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-128-seed-1.pfm",
+      "sha256": "089ad82a95356e85efcbc7461673fc187f300816b4630942cfe4524043a586bf"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-128-seed-1.log",
+      "sha256": "606562b33546c98ddd97b9710e4803c7314da6c5538dd6ca71bd6d5cb7840a1e"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-128-seed-2.pfm",
+      "sha256": "06d78a6f5fce6ecfea39496babc45412064fbdbc055b2e64cf08ad7b68af4b55"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-128-seed-2.log",
+      "sha256": "ee7c32495871c8867f7fcffb56d64d33d1a356f026ad8b379f0a25b975872616"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-128-seed-3.pfm",
+      "sha256": "b8e37bd98700dd3445fa915d5b252f83c080d0d74d94e2c11d997379926c22cb"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-direct-mode-0-spp-128-seed-3.log",
+      "sha256": "d58fb3f4d173b1f5207d4499f07bec90798d9a93671867c17329abfd8539dd0a"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-reference-101.pfm",
+      "sha256": "34cc5c45219966ae3221661880b6724b83a6147002ed5fef710a391540bfe6f5"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-reference-101.log",
+      "sha256": "a444fa6af4023e9b835eaf47fc5c649f1dcd15d108ee189814de16eabb9fe714"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-reference-102.pfm",
+      "sha256": "b28a42c545395bb022dc1f21ecdbaa07cb1626fdb73cd07a874982fe7e4ec647"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-reference-102.log",
+      "sha256": "32c044824f0bcfe0a9e4e3f8da71037621ec8c81e9c4e4de0a0a3b293fdb22bb"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-8-seed-1.pfm",
+      "sha256": "89f5b998d61fcdee5525110a997157fe47ff97246f06b3a624cf46dfde67b22e"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-8-seed-1.log",
+      "sha256": "a1003ec8a020f397915a50e5dfcca046d3e66e3719004f6181351d4123c28a14"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-8-seed-2.pfm",
+      "sha256": "5c82506ee1d2113a54c1b5c99052254d112f38f77d8b5095066b502e8e54c735"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-8-seed-2.log",
+      "sha256": "932a660986ac9aa3ba98988a05a0eac31f1994c105adb4f913cbd24f255667d3"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-8-seed-3.pfm",
+      "sha256": "83ec6cf4fcfe657cf75d19b608be65092024b92c2dc2df6b2172abeb91675b09"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-8-seed-3.log",
+      "sha256": "3c1797a740aa29cc02eb46852df275c7c78a873fbd0a3d514f6ca78cfe57e800"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-repeat.pfm",
+      "sha256": "89f5b998d61fcdee5525110a997157fe47ff97246f06b3a624cf46dfde67b22e"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-repeat.log",
+      "sha256": "ceb3a98f313de3caeb06820a25fd32a0dbf31312b38fd13e0caecd746a50f532"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-32-seed-1.pfm",
+      "sha256": "4f8c14fa48d0b9fe3761c9446fa3a88e4e41d2b988fd211480ccf0569676728b"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-32-seed-1.log",
+      "sha256": "84f876fd7b5cfcca71fa3ce2895e5abdbe692eeb1ff7115a7f68e1cf5377c48c"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-32-seed-2.pfm",
+      "sha256": "61ca26d0b7a0c615daacd34ae1f5f3a7ae3666a20441f46437ba68802e8ca7d5"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-32-seed-2.log",
+      "sha256": "73d5402369632a9fd14d7dbcd92ab47ab24c97c74a877b578774609100d8f555"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-32-seed-3.pfm",
+      "sha256": "448eaa0a770ff6b3fa72efd0a399c00ec467814f8c8377a3783e1c7b387951e7"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-32-seed-3.log",
+      "sha256": "926116200bbaa03e9b218ae98c49d4a71b2faeb2bbb7c545d35b52d06d97e557"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-128-seed-1.pfm",
+      "sha256": "e9f3277612b4a224ffd5cce15418ed24bccb1da0dc603841a3a8adb608252e15"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-128-seed-1.log",
+      "sha256": "0f0cc46bce7367d11ae33148111c61773873935bd75615441b116a100f1b699a"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-128-seed-2.pfm",
+      "sha256": "bf5ce65f4be951c7e7eaa886c577b6c35f0aad86ee9879d25c00dcf9ff594fcb"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-128-seed-2.log",
+      "sha256": "03edc2220f235cc77e27443e76ee44a65ccb57145b3750c3295ba7e2234a8b0a"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-128-seed-3.pfm",
+      "sha256": "6597408a9446ac9e8732eaa0271ab2d627852764096f53935ee1d13b00a32ce5"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/two-surface-indirect-mode-0-spp-128-seed-3.log",
+      "sha256": "85d67267c9f1bcd31bf0bd74931d666dfa429a39efc7a29117efade9810172b7"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/report.json",
+      "sha256": "4780fc426846f676172181eed026d18ff784b224e3296f8cf8edb66f582b4c1c"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/report.md",
+      "sha256": "ebeda0f99f3b4f070fb10f9b5bb80984ce9ab83770973efa973a0c17466ae8d5"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/plots/two-surface-direct.png",
+      "sha256": "6f7e3dbeabfe9fc5873aba1d35236fbef3b9aa401bcf25067619f1fd0f513dc0"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/plots/two-surface-direct.svg",
+      "sha256": "e43a3bb5d558f2827ef9dd793621d89efbf337371a3dfb1821627eeba77e0ede"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/plots/two-surface-indirect.png",
+      "sha256": "38712db08433cff60067a845acc447384de5a89585b2f32091d961c85f4deeef"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls/plots/two-surface-indirect.svg",
+      "sha256": "c5e19a6d83ba00a450c0153fc35f0df161185f26fe5b92c7f8682887f3353668"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-smoke/report.json",
+      "sha256": "5c41a97a83dfbddfbbf114312f9b8bb412c989c3590d49108eb78841f17ea7d4"
+    },
+    {
+      "path": "bin/PathTracingValidation/part2-controls-smoke/report.json",
+      "sha256": "ae40603aff2e7bedf10f04b57ea34e5602333e1f751cc67fef6a21a3c8b8686b"
+    }
+  ],
+  "results": [
+    {
+      "sceneId": "constant-environment",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 1,
+      "samples": 8,
+      "meanImageRmse": 0.020442963624006466,
+      "seedVariance": 0.001119990197820941,
+      "perSeedRmse": [
+        0.034874399178481036,
+        0.03357046359412928,
+        0.03391938880425823
+      ],
+      "meanRadiance": 0.535845156480112,
+      "meanRgb": [
+        0.535845156480112,
+        0.535845156480112,
+        0.535845156480112
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "constant-environment",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 1,
+      "samples": 32,
+      "meanImageRmse": 0.010895527361291155,
+      "seedVariance": 0.00028787227262702366,
+      "perSeedRmse": [
+        0.017704956360426696,
+        0.017686932059952774,
+        0.017481105493588812
+      ],
+      "meanRadiance": 0.5359849871650416,
+      "meanRgb": [
+        0.5359849871650416,
+        0.5359849871650416,
+        0.5359849871650416
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "constant-environment",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 1,
+      "samples": 128,
+      "meanImageRmse": 0.007004462865369368,
+      "seedVariance": 7.241526620559498e-05,
+      "perSeedRmse": [
+        0.00982591680211433,
+        0.009886409574645547,
+        0.009885762349383556
+      ],
+      "meanRadiance": 0.5356868099697749,
+      "meanRgb": [
+        0.5356868099697749,
+        0.5356868099697749,
+        0.5356868099697749
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "constant-environment",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 2,
+      "samples": 8,
+      "meanImageRmse": 0.14036008854336193,
+      "seedVariance": 0.0580209711389707,
+      "perSeedRmse": [
+        0.24337200870021986,
+        0.24128843857362703,
+        0.24019733644976946
+      ],
+      "meanRadiance": 0.537336291133195,
+      "meanRgb": [
+        0.537336291133195,
+        0.537336291133195,
+        0.537336291133195
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "constant-environment",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 2,
+      "samples": 32,
+      "meanImageRmse": 0.07065235630579099,
+      "seedVariance": 0.014448606484052441,
+      "perSeedRmse": [
+        0.11793663696103455,
+        0.12288761164988724,
+        0.12191006475305413
+      ],
+      "meanRadiance": 0.5360555907148713,
+      "meanRgb": [
+        0.5360555907148713,
+        0.5360555907148713,
+        0.5360555907148713
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "constant-environment",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 2,
+      "samples": 128,
+      "meanImageRmse": 0.03524209626598982,
+      "seedVariance": 0.003608276654799143,
+      "perSeedRmse": [
+        0.05982993391578421,
+        0.060762595168560744,
+        0.06058758448128345
+      ],
+      "meanRadiance": 0.5352292456494373,
+      "meanRgb": [
+        0.5352292456494373,
+        0.5352292456494373,
+        0.5352292456494373
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "constant-environment",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 5,
+      "samples": 8,
+      "meanImageRmse": 0.03305566148446207,
+      "seedVariance": 0.0032104193023284257,
+      "perSeedRmse": [
+        0.05671321124747482,
+        0.057204244914929724,
+        0.0566582289424487
+      ],
+      "meanRadiance": 0.5365556893933293,
+      "meanRgb": [
+        0.5365556893933293,
+        0.5365556893933293,
+        0.5365556893933293
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "constant-environment",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 5,
+      "samples": 32,
+      "meanImageRmse": 0.01686843368262829,
+      "seedVariance": 0.0008082423601548594,
+      "perSeedRmse": [
+        0.02804222653988274,
+        0.028829152058626767,
+        0.029199835740837246
+      ],
+      "meanRadiance": 0.5359299779011053,
+      "meanRgb": [
+        0.5359299779011053,
+        0.5359299779011053,
+        0.5359299779011053
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "constant-environment",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 5,
+      "samples": 128,
+      "meanImageRmse": 0.009523837222768202,
+      "seedVariance": 0.00020345481093272502,
+      "perSeedRmse": [
+        0.015107372054200801,
+        0.015022171215590333,
+        0.015004057110936608
+      ],
+      "meanRadiance": 0.5357687859238164,
+      "meanRgb": [
+        0.5357687859238164,
+        0.5357687859238164,
+        0.5357687859238164
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.18",
+      "roi": [
+        664,
+        424,
+        48,
+        48
+      ],
+      "mode": 1,
+      "samples": 8,
+      "meanImageRmse": 0.029457323616911252,
+      "seedVariance": 0.0024651942640800998,
+      "perSeedRmse": [
+        0.050491327089294685,
+        0.049246945358410836,
+        0.05058611008767195
+      ],
+      "meanRadiance": 0.6508206212461961,
+      "meanRgb": [
+        0.650820621246196,
+        0.650820621246196,
+        0.650820621246196
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.4",
+      "roi": [
+        936,
+        424,
+        48,
+        48
+      ],
+      "mode": 1,
+      "samples": 8,
+      "meanImageRmse": 0.024833351039575235,
+      "seedVariance": 0.0016743528502114141,
+      "perSeedRmse": [
+        0.04126024822071464,
+        0.041927862688492044,
+        0.041694579013669346
+      ],
+      "meanRadiance": 0.640943504279238,
+      "meanRgb": [
+        0.640943504279238,
+        0.640943504279238,
+        0.640943504279238
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.8",
+      "roi": [
+        1208,
+        424,
+        48,
+        48
+      ],
+      "mode": 1,
+      "samples": 8,
+      "meanImageRmse": 0.0504778384104264,
+      "seedVariance": 0.007207569536440535,
+      "perSeedRmse": [
+        0.0850595267246913,
+        0.08502104614408068,
+        0.08715201782280231
+      ],
+      "meanRadiance": 0.47543882669587795,
+      "meanRgb": [
+        0.47543882669587795,
+        0.47543882669587795,
+        0.47543882669587795
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.18",
+      "roi": [
+        664,
+        424,
+        48,
+        48
+      ],
+      "mode": 1,
+      "samples": 32,
+      "meanImageRmse": 0.01636155192445487,
+      "seedVariance": 0.000618100855421624,
+      "perSeedRmse": [
+        0.025978414886040916,
+        0.02618284350804279,
+        0.02605539331530453
+      ],
+      "meanRadiance": 0.6506744544711653,
+      "meanRgb": [
+        0.6506744544711655,
+        0.6506744544711655,
+        0.6506744544711655
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.4",
+      "roi": [
+        936,
+        424,
+        48,
+        48
+      ],
+      "mode": 1,
+      "samples": 32,
+      "meanImageRmse": 0.01433106427427998,
+      "seedVariance": 0.0004256004145967939,
+      "perSeedRmse": [
+        0.022479297360687427,
+        0.022372655571852095,
+        0.021482190570965672
+      ],
+      "meanRadiance": 0.640531257579655,
+      "meanRgb": [
+        0.640531257579655,
+        0.640531257579655,
+        0.640531257579655
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.8",
+      "roi": [
+        1208,
+        424,
+        48,
+        48
+      ],
+      "mode": 1,
+      "samples": 32,
+      "meanImageRmse": 0.02525063547265834,
+      "seedVariance": 0.001761390915921088,
+      "perSeedRmse": [
+        0.04272002338650499,
+        0.04177153295486721,
+        0.043193798670854364
+      ],
+      "meanRadiance": 0.476259485318291,
+      "meanRgb": [
+        0.476259485318291,
+        0.476259485318291,
+        0.476259485318291
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.18",
+      "roi": [
+        664,
+        424,
+        48,
+        48
+      ],
+      "mode": 1,
+      "samples": 128,
+      "meanImageRmse": 0.010309211708210324,
+      "seedVariance": 0.0001563992335619285,
+      "perSeedRmse": [
+        0.01457750382556585,
+        0.014429377222485032,
+        0.014523341917231126
+      ],
+      "meanRadiance": 0.6507614282459987,
+      "meanRgb": [
+        0.6507614282459986,
+        0.6507614282459986,
+        0.6507614282459986
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.4",
+      "roi": [
+        936,
+        424,
+        48,
+        48
+      ],
+      "mode": 1,
+      "samples": 128,
+      "meanImageRmse": 0.009636141176411194,
+      "seedVariance": 0.00010555513754658727,
+      "perSeedRmse": [
+        0.01280398562317603,
+        0.012934375808620838,
+        0.012587128346498338
+      ],
+      "meanRadiance": 0.6405218721850326,
+      "meanRgb": [
+        0.6405218721850328,
+        0.6405218721850328,
+        0.6405218721850328
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.8",
+      "roi": [
+        1208,
+        424,
+        48,
+        48
+      ],
+      "mode": 1,
+      "samples": 128,
+      "meanImageRmse": 0.014585089681469992,
+      "seedVariance": 0.0004371270449376182,
+      "perSeedRmse": [
+        0.022578407230791964,
+        0.022392625474758718,
+        0.022387819549757673
+      ],
+      "meanRadiance": 0.47616682612526884,
+      "meanRgb": [
+        0.47616682612526884,
+        0.47616682612526884,
+        0.47616682612526884
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.18",
+      "roi": [
+        664,
+        424,
+        48,
+        48
+      ],
+      "mode": 2,
+      "samples": 8,
+      "meanImageRmse": 3.113213153923933,
+      "seedVariance": 27.50265334013371,
+      "perSeedRmse": [
+        4.012955824059753,
+        5.205822431803888,
+        6.393527466761584
+      ],
+      "meanRadiance": 0.62387617598989,
+      "meanRgb": [
+        0.62387617598989,
+        0.62387617598989,
+        0.62387617598989
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.4",
+      "roi": [
+        936,
+        424,
+        48,
+        48
+      ],
+      "mode": 2,
+      "samples": 8,
+      "meanImageRmse": 0.6289814165528842,
+      "seedVariance": 1.141290283649484,
+      "perSeedRmse": [
+        1.1046492395660092,
+        1.0406933362637925,
+        1.0798800265714525
+      ],
+      "meanRadiance": 0.6276714158104655,
+      "meanRgb": [
+        0.6276714158104655,
+        0.6276714158104655,
+        0.6276714158104655
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.8",
+      "roi": [
+        1208,
+        424,
+        48,
+        48
+      ],
+      "mode": 2,
+      "samples": 8,
+      "meanImageRmse": 0.15213606549807185,
+      "seedVariance": 0.06314716863383885,
+      "perSeedRmse": [
+        0.25306083884671127,
+        0.2553112284668882,
+        0.2578892650040047
+      ],
+      "meanRadiance": 0.4744286546226451,
+      "meanRgb": [
+        0.4744286546226451,
+        0.4744286546226451,
+        0.4744286546226451
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.18",
+      "roi": [
+        664,
+        424,
+        48,
+        48
+      ],
+      "mode": 2,
+      "samples": 32,
+      "meanImageRmse": 1.6640276016031672,
+      "seedVariance": 8.488498565928934,
+      "perSeedRmse": [
+        3.0268766571945873,
+        2.7189535159413714,
+        2.954533836128808
+      ],
+      "meanRadiance": 0.7052553838189785,
+      "meanRgb": [
+        0.7052553838189783,
+        0.7052553838189783,
+        0.7052553838189783
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.4",
+      "roi": [
+        936,
+        424,
+        48,
+        48
+      ],
+      "mode": 2,
+      "samples": 32,
+      "meanImageRmse": 0.3077144150017829,
+      "seedVariance": 0.2993802936901314,
+      "perSeedRmse": [
+        0.5451821274056723,
+        0.5382413277151177,
+        0.5439648812899817
+      ],
+      "meanRadiance": 0.6398833643238673,
+      "meanRgb": [
+        0.6398833643238673,
+        0.6398833643238673,
+        0.6398833643238673
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.8",
+      "roi": [
+        1208,
+        424,
+        48,
+        48
+      ],
+      "mode": 2,
+      "samples": 32,
+      "meanImageRmse": 0.0735922317037335,
+      "seedVariance": 0.016178012089275454,
+      "perSeedRmse": [
+        0.128205856720282,
+        0.12556408563414823,
+        0.1280640175124836
+      ],
+      "meanRadiance": 0.47815848293464147,
+      "meanRgb": [
+        0.47815848293464147,
+        0.47815848293464147,
+        0.47815848293464147
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.18",
+      "roi": [
+        664,
+        424,
+        48,
+        48
+      ],
+      "mode": 2,
+      "samples": 128,
+      "meanImageRmse": 0.7861147522061768,
+      "seedVariance": 1.781868592109114,
+      "perSeedRmse": [
+        1.3968625492731461,
+        1.38732958936361,
+        1.2416754906339613
+      ],
+      "meanRadiance": 0.6603135615463274,
+      "meanRgb": [
+        0.6603135615463274,
+        0.6603135615463274,
+        0.6603135615463274
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.4",
+      "roi": [
+        936,
+        424,
+        48,
+        48
+      ],
+      "mode": 2,
+      "samples": 128,
+      "meanImageRmse": 0.15755964239359813,
+      "seedVariance": 0.07314420404788297,
+      "perSeedRmse": [
+        0.2712246036064231,
+        0.27269450542733153,
+        0.2698859980392521
+      ],
+      "meanRadiance": 0.6412824667080443,
+      "meanRgb": [
+        0.6412824667080443,
+        0.6412824667080443,
+        0.6412824667080443
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.8",
+      "roi": [
+        1208,
+        424,
+        48,
+        48
+      ],
+      "mode": 2,
+      "samples": 128,
+      "meanImageRmse": 0.0377797040630574,
+      "seedVariance": 0.004011451831924796,
+      "perSeedRmse": [
+        0.06298920097815137,
+        0.06485316978346231,
+        0.06427479062818986
+      ],
+      "meanRadiance": 0.4752893163024931,
+      "meanRgb": [
+        0.4752893163024931,
+        0.4752893163024931,
+        0.4752893163024931
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.18",
+      "roi": [
+        664,
+        424,
+        48,
+        48
+      ],
+      "mode": 5,
+      "samples": 8,
+      "meanImageRmse": 0.04972758622665414,
+      "seedVariance": 0.007241450370964731,
+      "perSeedRmse": [
+        0.0858983681365008,
+        0.0861001154931342,
+        0.08431867943268896
+      ],
+      "meanRadiance": 0.6515667664913323,
+      "meanRgb": [
+        0.6515667664913323,
+        0.6515667664913323,
+        0.6515667664913323
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.4",
+      "roi": [
+        936,
+        424,
+        48,
+        48
+      ],
+      "mode": 5,
+      "samples": 8,
+      "meanImageRmse": 0.048969858289879785,
+      "seedVariance": 0.007408955484512448,
+      "perSeedRmse": [
+        0.08534483778589809,
+        0.08479941439245428,
+        0.08681802816128213
+      ],
+      "meanRadiance": 0.640680205210595,
+      "meanRgb": [
+        0.640680205210595,
+        0.640680205210595,
+        0.640680205210595
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.8",
+      "roi": [
+        1208,
+        424,
+        48,
+        48
+      ],
+      "mode": 5,
+      "samples": 8,
+      "meanImageRmse": 0.052318041640114395,
+      "seedVariance": 0.007770391210710166,
+      "perSeedRmse": [
+        0.08886669737216145,
+        0.09016755880101388,
+        0.08789104790944835
+      ],
+      "meanRadiance": 0.47697702842048817,
+      "meanRgb": [
+        0.47697702842048817,
+        0.47697702842048817,
+        0.47697702842048817
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.18",
+      "roi": [
+        664,
+        424,
+        48,
+        48
+      ],
+      "mode": 5,
+      "samples": 32,
+      "meanImageRmse": 0.025106677311693002,
+      "seedVariance": 0.0017400742611299053,
+      "perSeedRmse": [
+        0.042182504770377646,
+        0.042881903490131254,
+        0.041868399820394225
+      ],
+      "meanRadiance": 0.6513292794288309,
+      "meanRgb": [
+        0.6513292794288309,
+        0.6513292794288309,
+        0.6513292794288309
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.4",
+      "roi": [
+        936,
+        424,
+        48,
+        48
+      ],
+      "mode": 5,
+      "samples": 32,
+      "meanImageRmse": 0.024662303052629158,
+      "seedVariance": 0.00178852728987829,
+      "perSeedRmse": [
+        0.04245282987344561,
+        0.04177211528153619,
+        0.04306494834523871
+      ],
+      "meanRadiance": 0.6402585889445618,
+      "meanRgb": [
+        0.6402585889445618,
+        0.6402585889445618,
+        0.6402585889445618
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.8",
+      "roi": [
+        1208,
+        424,
+        48,
+        48
+      ],
+      "mode": 5,
+      "samples": 32,
+      "meanImageRmse": 0.02653539163307861,
+      "seedVariance": 0.0019167151971491126,
+      "perSeedRmse": [
+        0.045004335563517274,
+        0.04499157730854696,
+        0.043545139492671005
+      ],
+      "meanRadiance": 0.4764134935491408,
+      "meanRgb": [
+        0.4764134935491408,
+        0.4764134935491408,
+        0.4764134935491408
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.18",
+      "roi": [
+        664,
+        424,
+        48,
+        48
+      ],
+      "mode": 5,
+      "samples": 128,
+      "meanImageRmse": 0.013938322022552898,
+      "seedVariance": 0.0004590056037811331,
+      "perSeedRmse": [
+        0.022528372759809803,
+        0.02213185911576321,
+        0.022438692093134215
+      ],
+      "meanRadiance": 0.6503676932684526,
+      "meanRgb": [
+        0.6503676932684526,
+        0.6503676932684526,
+        0.6503676932684526
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.4",
+      "roi": [
+        936,
+        424,
+        48,
+        48
+      ],
+      "mode": 5,
+      "samples": 128,
+      "meanImageRmse": 0.014544117451645957,
+      "seedVariance": 0.00045377821535170907,
+      "perSeedRmse": [
+        0.022194255429249507,
+        0.02269976906496999,
+        0.02311462736847592
+      ],
+      "meanRadiance": 0.6403940510073746,
+      "meanRgb": [
+        0.6403940510073746,
+        0.6403940510073746,
+        0.6403940510073746
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.8",
+      "roi": [
+        1208,
+        424,
+        48,
+        48
+      ],
+      "mode": 5,
+      "samples": 128,
+      "meanImageRmse": 0.014676819411050507,
+      "seedVariance": 0.0004961245978185387,
+      "perSeedRmse": [
+        0.02331430467829701,
+        0.02373995342556349,
+        0.023050685205226736
+      ],
+      "meanRadiance": 0.47599412996701346,
+      "meanRgb": [
+        0.47599412996701346,
+        0.47599412996701346,
+        0.47599412996701346
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "two-surface-direct",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 0,
+      "samples": 8,
+      "meanImageRmse": 3.5058438693409116e-05,
+      "seedVariance": 3.5394315865459373e-09,
+      "perSeedRmse": [
+        6.071942112018754e-05,
+        5.9730222615864096e-05,
+        5.925873732234845e-05
+      ],
+      "meanRadiance": 0.0809940757365742,
+      "meanRgb": [
+        0.0809940757365742,
+        0.0809940757365742,
+        0.0809940757365742
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "two-surface-direct",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 0,
+      "samples": 32,
+      "meanImageRmse": 1.827836526881088e-05,
+      "seedVariance": 8.913299158133528e-10,
+      "perSeedRmse": [
+        3.0511547554352994e-05,
+        2.996735188141721e-05,
+        3.0918587118118714e-05
+      ],
+      "meanRadiance": 0.08099424828772801,
+      "meanRgb": [
+        0.08099424828772801,
+        0.08099424828772801,
+        0.08099424828772801
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "two-surface-direct",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 0,
+      "samples": 128,
+      "meanImageRmse": 1.0027092342188265e-05,
+      "seedVariance": 2.11601963648413e-10,
+      "perSeedRmse": [
+        1.5499339907449133e-05,
+        1.5493837250811973e-05,
+        1.56378751591079e-05
+      ],
+      "meanRadiance": 0.08099420862345141,
+      "meanRgb": [
+        0.08099420862345141,
+        0.08099420862345141,
+        0.08099420862345141
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "two-surface-indirect",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 0,
+      "samples": 8,
+      "meanImageRmse": 0.004285563139108742,
+      "seedVariance": 5.375795920342912e-05,
+      "perSeedRmse": [
+        0.006994973607208487,
+        0.007375545158144142,
+        0.007699724054753792
+      ],
+      "meanRadiance": 0.08723602976109153,
+      "meanRgb": [
+        0.09616751422739374,
+        0.08277028752794043,
+        0.08277028752794043
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "two-surface-indirect",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 0,
+      "samples": 32,
+      "meanImageRmse": 0.0022411860480838148,
+      "seedVariance": 1.373878534171685e-05,
+      "perSeedRmse": [
+        0.00367832397243284,
+        0.0037608500935490665,
+        0.0038564562382436295
+      ],
+      "meanRadiance": 0.08725852776842657,
+      "meanRgb": [
+        0.09620150743770257,
+        0.08278703793378857,
+        0.08278703793378857
+      ],
+      "seedCount": 3
+    },
+    {
+      "sceneId": "two-surface-indirect",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "mode": 0,
+      "samples": 128,
+      "meanImageRmse": 0.0012840297544692994,
+      "seedVariance": 3.4846045102052053e-06,
+      "perSeedRmse": [
+        0.0019739794666899365,
+        0.001986808379965122,
+        0.002017771983620736
+      ],
+      "meanRadiance": 0.08728893468287424,
+      "meanRgb": [
+        0.09624641254898354,
+        0.08281019574981958,
+        0.08281019574981958
+      ],
+      "seedCount": 3
+    }
+  ],
+  "references": [
+    {
+      "sceneId": "constant-environment",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "seedCount": 2,
+      "pairwiseDisagreementRmse": [
+        0.0100597968728517
+      ],
+      "meanPixelStandardError": 0.00502989843642585,
+      "meanRgb": [
+        0.5356562326051062,
+        0.5356562326051062,
+        0.5356562326051062
+      ]
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.18",
+      "roi": [
+        664,
+        424,
+        48,
+        48
+      ],
+      "seedCount": 2,
+      "pairwiseDisagreementRmse": [
+        0.015164068010147662
+      ],
+      "meanPixelStandardError": 0.007582034005073831,
+      "meanRgb": [
+        0.6505119857869835,
+        0.6505119857869835,
+        0.6505119857869835
+      ]
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.4",
+      "roi": [
+        936,
+        424,
+        48,
+        48
+      ],
+      "seedCount": 2,
+      "pairwiseDisagreementRmse": [
+        0.015061073465915656
+      ],
+      "meanPixelStandardError": 0.007530536732957828,
+      "meanRgb": [
+        0.6404467552977925,
+        0.6404467552977925,
+        0.6404467552977925
+      ]
+    },
+    {
+      "sceneId": "roughness",
+      "roiName": "roughness-0.8",
+      "roi": [
+        1208,
+        424,
+        48,
+        48
+      ],
+      "seedCount": 2,
+      "pairwiseDisagreementRmse": [
+        0.015658648334103933
+      ],
+      "meanPixelStandardError": 0.007829324167051966,
+      "meanRgb": [
+        0.4759176875619839,
+        0.4759176875619839,
+        0.4759176875619839
+      ]
+    },
+    {
+      "sceneId": "two-surface-direct",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "seedCount": 2,
+      "pairwiseDisagreementRmse": [
+        1.0479380632336516e-05
+      ],
+      "meanPixelStandardError": 5.239690316168258e-06,
+      "meanRgb": [
+        0.08099424478950823,
+        0.08099424478950823,
+        0.08099424478950823
+      ]
+    },
+    {
+      "sceneId": "two-surface-indirect",
+      "roiName": "floor",
+      "roi": [
+        928,
+        508,
+        64,
+        64
+      ],
+      "seedCount": 2,
+      "pairwiseDisagreementRmse": [
+        0.0013459900073894866
+      ],
+      "meanPixelStandardError": 0.0006729950036947433,
+      "meanRgb": [
+        0.09628169032384903,
+        0.08284289278344659,
+        0.08284289278344659
+      ]
+    }
+  ],
+  "failures": [],
+  "limits": [
+    "Single GPU and driver",
+    "Finite reference from same implementation with independent seeds, not ground truth",
+    "No absolute bias conclusion",
+    "Equal spp is not equal GPU work",
+    "Static cameras only; moving-camera noise issue recorded separately"
+  ],
+  "testedCommit": "302a057ef68d843b00c1f335609e6a599bd54bf7",
+  "allMeasuredSeriesDecrease": true,
+  "reproductionCommands": [
+    "python -B Tests/PathTracing/run_convergence_suite.py --output bin/PathTracingValidation/part2-main-new",
+    "python -B Tests/PathTracing/run_convergence_suite.py --lighting-controls --output bin/PathTracingValidation/part2-controls-new"
+  ],
+  "deliveryCodeCommit": "12fa71f719e9ab82f5a8693baa2b567428436788"
+}
