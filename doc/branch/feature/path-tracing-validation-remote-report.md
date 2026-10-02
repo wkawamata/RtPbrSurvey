@@ -142,4 +142,70 @@ The moving-camera fixed noise observation and proposed RNG/history separation ar
 Next options are a higher-sample reference for bias questions, a combined Part 1+2 PR, or separately
 starting Part 3 after the user chooses the next task.
 
+## Part 3: scene scale and self-intersection (2026-10-02)
+
+Branch: `codex/path-tracing-validation-part3`, based on Part 1+2 delivery `fc0b70d`.
+Renderer: existing Debug x64 build from `302a057`; no renderer/shader changes.
+Editable small/medium/large contact scenes and saved presets are added under
+`Assets/Scenes/PathTracingValidation/scale-*`. Protocol and commands: `Tests/PathTracing/PART3.md`.
+Machine-readable measurements: `path-tracing-validation-results/part-3-summary.json`.
+
+Scale 0.01/1/100 applies to geometry, camera and light position/range; intensity
+scales by s squared. Seed 7, 4 spp, one bounce, direct lighting, no environment/emission,
+1920x1080 linear HDR. Main matrix contains 57 captures plus supplementary TMax
+and existing near-light Point/Spot checks. Generated scenes, logs and images remain ignored.
+
+Main findings:
+
+- Relative bias `0.01*s` and TMin `0.001*s` preserve front/angled visibility at all
+  three scales. Light-beyond-slab maximum difference is zero in every main case.
+- Fixed bias 0.01 at scale 0.01 leaks light in the angled between-light test:
+  blocked/clear ratio 0.805307, failing the preselected <0.8 threshold.
+- In the small-scale contact-floor ROI, all 124 baseline shadow columns become
+  lit (>0.9 of clear radiance) with fixed bias. Holding bias alone fixed reproduces
+  the loss; holding only TMin fixed retains all 124 shadow columns. At scale 100,
+  fixed bias changes the shadow extent from 124 to 125 columns in this ROI.
+- With both offsets zero, convex sphere mean/reference ratios are 0.439759,
+  0.411224, and 0.455183 for small/medium/large. Respectively 96.48%, 96.18%,
+  and 95.44% of positive channels lose >10% radiance. Relative settings match
+  the shadow-disabled reference exactly in this ROI (RMSE 0).
+- TMax `2*s` prevents the primary floor hit at every scale and yields the saved
+  background color 0.2. TMax `20*s` retains the floor. These are primary-clipping
+  controls, not evidence that a truncated shadow ray has the correct visibility.
+- Existing near-light Point/Spot checks pass for offsets 0 and 1 (12 captures);
+  between-light ROI is black and beyond-light max difference is zero in all four.
+- Clear-floor mean agreement across scales is within 0.000358% of medium scale.
+  All 75 main/supplementary captures completed without D3D12 errors or process
+  failures; the fixed-small visibility failure is an observed artifact, not a
+  capture failure. Six earlier smoke captures also passed. Python tests: 18 passed.
+
+Images (local regeneration via summary command):
+`bin/PathTracingValidation/part3-scale/plots/contact-profiles.png`,
+`contact-ratio-crops.png`, and `self-hit-ratio.png`.
+Ratio crops use linear HDR and a fixed 0..1 display range, not application tone mapping.
+The numeric contact ROI is outside the primary cube silhouette; its independent
+pinhole/AABB check is retained in the summary.
+
+Minimal leak reproduction after measurement:
+
+```powershell
+.\bin\x64\Debug\RtPbrSurvey.exe -SceneFile bin\PathTracingValidation\part3-scale\scale-contact-0.01-angled-contact-fixed-scene.json -EnablePathTracing
+```
+
+Compare the `relative` variant in the same directory. The zero-offset sphere is
+`scale-self-1.0-angled-shadowed-zero-scene.json`; compare its relative variant.
+
+Proposal for Work-3: replace the universally fixed world-space offset with a
+geometry/position precision aware origin-offset policy, preserving finite-light
+endpoint reconstruction. Relative scaling is an effective control here, not proof
+of a universal global-scene-scale formula. Mixed-scale geometry, nonuniform scaling,
+large world-coordinate translations, smooth normals and multiple bounces need
+separate regression coverage before changing the renderer. Do not remove both
+offsets: the sphere control demonstrates severe self-hit loss.
+TMin-only stability in this ROI does not establish that a fixed TMin is safe at
+arbitrarily small scale. Light falloff has a 1 cm minimum distance clamp, so the
+intensity compensation cannot preserve similarity inside that clamp.
+
+No external message was sent to Work-3, and no renderer fix is claimed by this report.
+
 Status: done
