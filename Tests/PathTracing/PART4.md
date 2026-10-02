@@ -28,11 +28,11 @@ unique mesh triangles including floor are 386/1538/24578; summed instance triang
 are 1154/4610/73730. Pole-degenerate triangles emitted by the generator are included.
 This does not measure TLAS instance-count scaling or arbitrary large assets.
 
-Discard the first 60 positive GPU timing observations; retain the next 120.
-Capture at CPU automation frame 196 leaves a 16-frame margin for readback latency.
+After the pilots, select 16 positive GPU timing observations for warm-up and retain
+the next 32. Capture at CPU automation frame 64 leaves a 16-frame margin for readback latency.
 Each case runs three times in separately seeded shuffled rounds (84,85,86),
-33 launches total. Pool 360 observations/case for median, p90 and p95 (linear
-interpolation, type 7); retain every run's statistics and raw 120-row CSV.
+33 launches total. Pool 96 observations/case for median, p90 and p95 (linear
+interpolation, type 7); retain every run's statistics and raw 32-row CSV.
 Per-run median variation and GPU clock changes limit the interpretation.
 
 Use frame-based capture, not `-PathTracingSamples`: the latter deliberately forces
@@ -45,6 +45,15 @@ The script changes only its own child window to borderless and matches the windo
 DPI context, ensuring exact client dimensions. Final diagnostics must match
 resolution, samples/frame, bounce limit and seed. Too few GPU timings, missing
 GPU timing support, accumulation resets or D3D12 errors reject the run.
+The benchmark window is visible and foreground activation is attempted and recorded.
+Hidden, visible and foreground pilot runs all eventually exhibited roughly 4 fps
+frame progression and P8 clocks. Thus visibility alone did not explain or resolve
+the low-power state. The pilots are separate from the final fixed protocol.
+The original 60/120-observation pilot protocol was reduced before the final cohort
+because frame progression is slow while P8 clocks and positive GPU durations remain
+stable. This is a short-window empirical distribution, not a thermal steady-state
+or maximum-throughput benchmark. P95 has only about five upper-tail observations
+per pooled case; do not interpret it as a reliable rare-stall estimate.
 
 Power conditions: record AC/battery status, active Windows power scheme and GPU
 name/driver/P-state/temperature/clocks/power before and after each run. During
@@ -59,7 +68,7 @@ validation effects and cannot be treated as Release throughput.
 python -B Tests/PathTracing/test_measure_performance.py
 python -B Tests/PathTracing/measure_performance.py --smoke --repeats 1 --output bin/PathTracingValidation/part4-resolution-smoke
 python -B Tests/PathTracing/measure_performance.py --cases samplesPerFrame-1 --repeats 1 --output bin/PathTracingValidation/part4-frame-smoke
-python -B Tests/PathTracing/measure_performance.py --output bin/PathTracingValidation/part4-performance-frame
+python -B Tests/PathTracing/measure_performance.py --output bin/PathTracingValidation/part4-performance-final
 ```
 
 Use fresh output directories. `--cases` selects named cases for isolated reproduction.

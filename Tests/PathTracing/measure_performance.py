@@ -132,6 +132,9 @@ def resize_own_window(process, width, height):
     user.GetWindowLongPtrW.restype = ctypes.c_ssize_t
     user.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_ssize_t]
     user.SetWindowLongPtrW.restype = ctypes.c_ssize_t
+    user.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+    user.SetForegroundWindow.argtypes = [wintypes.HWND]
+    user.GetForegroundWindow.restype = wintypes.HWND
     callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
     deadline = time.monotonic()+30
     while time.monotonic() < deadline:
@@ -173,7 +176,10 @@ def resize_own_window(process, width, height):
             if (client.right, client.bottom) != (width, height):
                 raise ValueError(f"Client size {client.right}x{client.bottom} differs from {width}x{height}")
             user.SetThreadDpiAwarenessContext(previous_dpi)
-            return dict(pid=process.pid, clientWidth=client.right, clientHeight=client.bottom)
+            user.ShowWindow(handle, 5)
+            user.SetForegroundWindow(handle)
+            return dict(pid=process.pid, clientWidth=client.right, clientHeight=client.bottom, visible=True,
+                foreground=user.GetForegroundWindow() == handle, borderless=True)
         if process.poll() is not None:
             raise RuntimeError("Application exited before its window was created")
         time.sleep(.05)
@@ -185,8 +191,8 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--smoke", action="store_true")
     parser.add_argument("--cases", nargs="+", choices=[r["name"] for r in cases()])
-    parser.add_argument("--warmup", type=int, default=60)
-    parser.add_argument("--frames", type=int, default=120)
+    parser.add_argument("--warmup", type=int, default=16)
+    parser.add_argument("--frames", type=int, default=32)
     parser.add_argument("--repeats", type=int, default=3)
     args = parser.parse_args()
     if min(args.warmup, args.frames, args.repeats) <= 0:
@@ -229,6 +235,7 @@ def main():
             sceneSha256=hashlib.sha256(scene_path.read_bytes()).hexdigest(), presetSha256=hashlib.sha256(preset_path.read_bytes()).hexdigest())
         startup = subprocess.STARTUPINFO()
         startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startup.wShowWindow = 5
         process = subprocess.Popen(command, cwd=ROOT, startupinfo=startup)
         telemetry = []
         stop = threading.Event()
