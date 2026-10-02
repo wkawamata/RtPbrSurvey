@@ -6202,9 +6202,10 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
         {
             if (m_renderingPath != RenderingPath::PathTracing ||
                 capture.request.source != RtPbrSurvey::ScreenshotCaptureSource::FinalOutput ||
-                capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png)
+                capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png ||
+                capture.request.region.has_value())
             {
-                throw std::invalid_argument("PT buffer capture requires Path Tracing and the default request contract.");
+                throw std::invalid_argument("PT buffer capture requires Path Tracing, the default request contract and a full-frame capture.");
             }
             for (UINT index = 0; index < 4; ++index)
             {

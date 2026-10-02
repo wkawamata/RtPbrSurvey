@@ -412,10 +412,15 @@ bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem:
         UINT bytesPerPixel = 0;
         switch (readback.format)
         {
-        case DXGI_FORMAT_R16G16B16A16_FLOAT: bytesPerPixel = 8; break;
-        case DXGI_FORMAT_R16G16_FLOAT: bytesPerPixel = 4; break;
-        case DXGI_FORMAT_R32_FLOAT: bytesPerPixel = 4; break;
-        default: break;
+        case DXGI_FORMAT_R16G16B16A16_FLOAT:
+            bytesPerPixel = 8;
+            break;
+        case DXGI_FORMAT_R16G16_FLOAT:
+        case DXGI_FORMAT_R32_FLOAT:
+            bytesPerPixel = 4;
+            break;
+        default:
+            break;
         }
         bool succeeded = false;
         try

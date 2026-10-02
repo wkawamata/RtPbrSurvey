@@ -145,8 +145,8 @@ def analyze(path, marker=False):
             shaderDefinitionPassed=bool(shader_error.max() <= tolerance),
             shaderExpectedMin=shader_expected.min(axis=0).tolist(),
             shaderExpectedMax=shader_expected.max(axis=0).tolist(),
-            primaryHitMaterialMismatchCount=int((np.linalg.norm(observed[:, :3]-approximate1, axis=1) <
-                np.linalg.norm(observed[:, :3]-approximate0, axis=1)).astype(int).__ne__(material).sum()) if marker else 0)
+            primaryHitMaterialMismatchCount=int(np.count_nonzero((np.linalg.norm(observed[:, :3]-approximate1, axis=1) <
+                np.linalg.norm(observed[:, :3]-approximate0, axis=1)).astype(int) != material)) if marker else 0)
     if resource == 'ViewZ':
         shader_error = abs(observed[:, 0]-expected_shader_depth)
         result.update(shaderDefinitionMaxError=float(shader_error.max()),
