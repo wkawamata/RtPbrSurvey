@@ -178,7 +178,12 @@ float2 LoadCommittedHitUv(uint index0, uint index1, uint index2, float2 barycent
 
 float3 SrgbToLinear(float3 color)
 {
-    return pow(saturate(color), 2.2);
+    color = saturate(color);
+    const float3 low = color / 12.92;
+    const float3 high = pow((color + 0.055) / 1.055, 2.4);
+    return float3(color.r <= 0.04045 ? low.r : high.r,
+                  color.g <= 0.04045 ? low.g : high.g,
+                  color.b <= 0.04045 ? low.b : high.b);
 }
 
 uint LoadCommittedHitMaterialId(uint index0, uint index1, uint index2, float2 barycentric, uint instanceId);

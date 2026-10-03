@@ -92,7 +92,7 @@ def srgb_texture_material(base, roughness):
     bytes_ = np.floor(encoded*255+.5)
     sampled = bytes_/255
     decoded = np.where(sampled <= .04045, sampled/12.92, ((sampled+.055)/1.055)**2.4)
-    return decoded, roughness*sampled[1], bytes_.astype(int).tolist()
+    return decoded, roughness, bytes_.astype(int).tolist()
 
 
 def projection_plane_forward(stored_inverse):
@@ -150,12 +150,13 @@ def analyze(path, marker=False):
         shader_expected = np.column_stack((np.where(material[:, None] == 0, approximate0, approximate1), np.ones(len(xs))))
         shader_error = abs(observed-shader_expected)
         result.update(standardSrgbPassed=result['passed'],
-            shaderDefinitionMaxError=float(shader_error.max()),
-            shaderDefinitionPassed=bool(shader_error.max() <= tolerance),
-            shaderExpectedMin=shader_expected.min(axis=0).tolist(),
-            shaderExpectedMax=shader_expected.max(axis=0).tolist(),
-            primaryHitMaterialMismatchCount=int(np.count_nonzero((np.linalg.norm(observed[:, :3]-approximate1, axis=1) <
-                np.linalg.norm(observed[:, :3]-approximate0, axis=1)).astype(int) != material)) if marker else 0)
+            legacyGamma22MaxError=float(shader_error.max()),
+            shaderDefinitionMaxError=float(error.max()),
+            shaderDefinitionPassed=result['passed'],
+            shaderExpectedMin=expected.min(axis=0).tolist(),
+            shaderExpectedMax=expected.max(axis=0).tolist(),
+            primaryHitMaterialMismatchCount=int(np.count_nonzero((np.linalg.norm(observed[:, :3]-decoded1, axis=1) <
+                np.linalg.norm(observed[:, :3]-decoded0, axis=1)).astype(int) != material)) if marker else 0)
     if resource == 'ViewZ':
         shader_error = abs(observed[:, 0]-expected_shader_depth)
         result.update(shaderDefinitionMaxError=float(shader_error.max()),

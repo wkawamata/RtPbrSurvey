@@ -41,12 +41,11 @@ class InputTests(unittest.TestCase):
         np.testing.assert_allclose(motion[:, :2], [[.02, -.04], [.02, -.04]], atol=1e-15)
         np.testing.assert_allclose(motion[:, :2]*[1000/2, -500/2], [[10, 10], [10, 10]], atol=1e-12)
 
-    def test_texture_color_space_and_shared_roughness_texture(self):
+    def test_texture_color_space_and_independent_roughness(self):
         decoded, roughness, bytes_ = srgb_texture_material([.25, .5, .75], .37)
         self.assertEqual(bytes_, [137, 188, 225])
         np.testing.assert_allclose(decoded, [.2501582847, .5028864580, .7529422168], atol=1e-9)
-        self.assertAlmostEqual(roughness, .37*188/255)
-        self.assertGreater(abs(roughness-.37), .09)
+        self.assertAlmostEqual(roughness, .37)
 
     def test_shader_hash_unsigned_wrap(self):
         self.assertEqual(int(hash_uint(0)), 0)
