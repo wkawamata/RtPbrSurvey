@@ -79,6 +79,57 @@ void TestGltfRotationAndHandednessConversion()
             "glTF quaternion rotation should be applied before the handedness conversion.");
 }
 
+void TestSurfaceTransforms()
+{
+    using namespace DirectX;
+    const std::filesystem::path path = FixturePath().parent_path() / "surface-transforms.gltf";
+    const Engine::GltfSceneAssetLoadResult loadResult = Engine::LoadGltfSceneAsset(path.string());
+    Require(static_cast<bool>(loadResult), "The surface-transform fixture should load.");
+    const auto extract = [&](const char* name)
+    {
+        Engine::SceneBuilder builder;
+        Require(static_cast<bool>(builder.AddGltfNodeMesh(loadResult.asset, name)),
+                "Each transformed surface should extract.");
+        return builder.GetMesh();
+    };
+    const Engine::SceneMesh scaled = extract("Scaled");
+    const Engine::SceneMesh matrix = extract("Matrix");
+    for (size_t i = 0; i < scaled.vertices.size(); ++i)
+    {
+        const Engine::SceneVertex& a = scaled.vertices[i];
+        const Engine::SceneVertex& b = matrix.vertices[i];
+        Require(NearlyEqual(a.position.x, b.position.x) && NearlyEqual(a.position.y, b.position.y) &&
+                    NearlyEqual(a.position.z, b.position.z), "Matrix and TRS positions must agree.");
+        Require(NearlyEqual(a.normal.x, b.normal.x) && NearlyEqual(a.normal.y, b.normal.y) &&
+                    NearlyEqual(a.normal.z, b.normal.z), "Matrix and TRS normals must agree.");
+        Require(NearlyEqual(a.tangent.x, b.tangent.x) && NearlyEqual(a.tangent.y, b.tangent.y) &&
+                    NearlyEqual(a.tangent.z, b.tangent.z), "Matrix and TRS tangents must agree.");
+    }
+    for (const char* name : {"Scaled", "Mirrored"})
+    {
+        const Engine::SceneMesh mesh = extract(name);
+        const Engine::SceneVertex& vertex = mesh.vertices[0];
+        const XMVECTOR normal = XMLoadFloat3(&vertex.normal);
+        const XMVECTOR tangent = XMVectorSet(vertex.tangent.x, vertex.tangent.y, vertex.tangent.z, 0.0f);
+        Require(NearlyEqual(XMVectorGetX(XMVector3Dot(normal, tangent)), 0.0f),
+                "Nonuniform scale must preserve perpendicular surface normal and tangent.");
+        Require(NearlyEqual(XMVectorGetX(XMVector3Length(normal)), 1.0f) &&
+                    NearlyEqual(XMVectorGetX(XMVector3Length(tangent)), 1.0f), "Surface directions must be normalized.");
+        const XMVECTOR p0 = XMLoadFloat3(&mesh.vertices[mesh.indices[0]].position);
+        const XMVECTOR p1 = XMLoadFloat3(&mesh.vertices[mesh.indices[1]].position);
+        const XMVECTOR p2 = XMLoadFloat3(&mesh.vertices[mesh.indices[2]].position);
+        const XMVECTOR geometricNormal = XMVector3Normalize(XMVector3Cross(p1 - p0, p2 - p0));
+        Require(XMVectorGetX(XMVector3Dot(geometricNormal, normal)) > 0.9999f,
+                "Mirroring and LH conversion must preserve front-face winding relative to normals.");
+        Require(NearlyEqual(vertex.tangent.w, std::string(name) == "Mirrored" ? 1.0f : -1.0f),
+                "Tangent handedness must include both node mirroring and RH-to-LH conversion.");
+        const float sign = std::string(name) == "Mirrored" ? -1.0f : 1.0f;
+        const XMVECTOR expectedTangent = XMVector3Normalize(XMVectorSet(1.0f, 2.0f * sign, 0.0f, 0.0f));
+        Require(XMVectorGetX(XMVector3Dot(tangent, expectedTangent)) > 0.9999f,
+                "Tangents must use the forward transform, not the normal inverse transpose.");
+    }
+}
+
 void TestIndependentNodeMeshesAndLifetime()
 {
     Engine::SceneBuilder builder;
@@ -147,6 +198,7 @@ int main(int argc, char* argv[])
         TestNodeEnumerationAndFailures();
         TestIndependentNodeMeshesAndLifetime();
         TestGltfRotationAndHandednessConversion();
+        TestSurfaceTransforms();
         TestExistingFlattenedMeshContract();
     }
     catch (const std::exception& error)

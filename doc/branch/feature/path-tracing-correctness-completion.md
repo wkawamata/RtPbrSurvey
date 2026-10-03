@@ -120,6 +120,9 @@ imported meshes remain outside this fixture-family guarantee.
 
 ## Reproduction
 
+Step 4 geometry-transform validation and the remaining material/importer gaps are
+tracked in [path-tracing-material-geometry-validation.md](path-tracing-material-geometry-validation.md).
+
 ```powershell
 python -B -m unittest discover -s Tests/PathTracing -p 'test_*.py'
 python -B Tests/PathTracing/run_completion_regression.py --output bin/PathTracingValidation/completion-reproduction

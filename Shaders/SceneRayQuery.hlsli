@@ -1,6 +1,8 @@
 #ifndef RTPBRSURVEY_SCENE_RAY_QUERY_HLSLI
 #define RTPBRSURVEY_SCENE_RAY_QUERY_HLSLI
 
+#include "SurfaceTransform.hlsli"
+
 static const uint kSceneVertexStride = 52;
 static const uint kSceneVertexPositionOffset = 0;
 static const uint kSceneVertexUvOffset = 12;
@@ -139,7 +141,7 @@ float3 TransformObjectPointToWorld(float3 objectPosition, float3x4 objectToWorld
 float3 TransformObjectNormalToWorld(float3 objectNormal, float3x4 objectToWorld)
 {
     float3x3 objectToWorld3x3 = float3x3(objectToWorld[0].xyz, objectToWorld[1].xyz, objectToWorld[2].xyz);
-    return normalize(mul(objectNormal, objectToWorld3x3));
+    return TransformSurfaceNormal(objectNormal, objectToWorld3x3);
 }
 
 float3 HashMaterialIdToDebugNormal(uint materialId)
@@ -241,7 +243,8 @@ float3 LoadCommittedHitShadingNormal(uint index0,
         return baseNormal;
     }
 
-    float3 worldTangent = TransformObjectNormalToWorld(objectTangent.xyz, objectToWorld);
+    const float3x3 objectToWorld3x3 = float3x3(objectToWorld[0].xyz, objectToWorld[1].xyz, objectToWorld[2].xyz);
+    float3 worldTangent = mul(objectToWorld3x3, objectTangent.xyz);
     worldTangent -= baseNormal * dot(baseNormal, worldTangent);
     if (dot(worldTangent, worldTangent) < 0.000001)
     {
@@ -249,7 +252,8 @@ float3 LoadCommittedHitShadingNormal(uint index0,
     }
     worldTangent = normalize(worldTangent);
     const float handedness = objectTangent.w >= 0.0 ? 1.0 : -1.0;
-    const float3 worldBitangent = cross(baseNormal, worldTangent) * handedness;
+    const float3 worldBitangent = cross(baseNormal, worldTangent) * handedness *
+                                 SurfaceTransformHandedness(objectToWorld3x3);
     const float3 tangentNormal =
         g_texture[hitMaterial.normalTextureIndex].SampleLevel(g_sampler, hitMaterial.uv, 0).xyz * 2.0 - 1.0;
     return normalize(worldTangent * tangentNormal.x +

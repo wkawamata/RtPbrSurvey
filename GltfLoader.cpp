@@ -41,7 +41,7 @@ static DirectX::XMMATRIX GetNodeLocalTransform(const tinygltf::Node& node)
         {
             for (int col = 0; col < 4; col++)
             {
-                m.m[row][col] = static_cast<float>(node.matrix[col * 4 + row]);
+                m.m[row][col] = static_cast<float>(node.matrix[row * 4 + col]);
             }
         }
         return XMLoadFloat4x4(&m);
@@ -128,6 +128,7 @@ static bool AppendPrimitive(const tinygltf::Model& model,
     normalTransform.r[3] = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
 
     XMVECTOR det = XMMatrixDeterminant(normalTransform);
+    const float transformHandedness = XMVectorGetX(det) < 0.0f ? -1.0f : 1.0f;
     if (std::abs(XMVectorGetX(det)) > 0.000001f)
     {
         normalTransform = XMMatrixTranspose(XMMatrixInverse(&det, normalTransform));
@@ -175,10 +176,11 @@ static bool AppendPrimitive(const tinygltf::Model& model,
         if (tangents)
         {
             XMVECTOR tangent = XMVectorSet(tangents[i * 4 + 0], tangents[i * 4 + 1], tangents[i * 4 + 2], 0.0f);
-            tangent = XMVector3Normalize(XMVector3TransformNormal(tangent, normalTransform));
+            tangent = XMVector3Normalize(XMVector3TransformNormal(tangent, nodeTransform));
             XMFLOAT3 t = {};
             XMStoreFloat3(&t, tangent);
-            v.tangent = ConvertGltfTangentToEngineLH(t.x, t.y, t.z, static_cast<float>(tangents[i * 4 + 3]));
+            v.tangent = ConvertGltfTangentToEngineLH(
+                t.x, t.y, t.z, static_cast<float>(tangents[i * 4 + 3]) * transformHandedness);
         }
 
         if (prim.material >= 0)
@@ -220,8 +222,8 @@ static bool AppendPrimitive(const tinygltf::Model& model,
         return false;
     }
 
-    // The Z mirror above flips triangle winding, so restore front faces for the LH renderer.
-    for (size_t i = baseIndex; i + 2 < outMesh.indices.size(); i += 3)
+    // RH-to-LH conversion flips winding unless the baked node transform already mirrors it.
+    for (size_t i = baseIndex; transformHandedness > 0.0f && i + 2 < outMesh.indices.size(); i += 3)
     {
         std::swap(outMesh.indices[i + 1], outMesh.indices[i + 2]);
     }

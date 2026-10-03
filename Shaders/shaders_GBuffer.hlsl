@@ -1,6 +1,7 @@
 #include "Material.hlsli"
 #include "InstanceData.hlsli"
 #include "SceneDrawConstants.hlsli"
+#include "SurfaceTransform.hlsli"
 
 cbuffer ConstantBuffer : register(b0)
 {
@@ -84,7 +85,8 @@ PSInput VSMain(float4 position : POSITION,
     instanceId += sceneInstanceOffset;
     InstanceData inst = g_instanceData[instanceId];
     float4x4 worldViewProj = mul(inst.world, viewProj);
-    float3 worldNormal = normalize(mul(float4(normal, 0.0), inst.world).xyz);
+    const float3x3 objectToWorld = transpose((float3x3)inst.world);
+    float3 worldNormal = TransformSurfaceNormal(normal, objectToWorld);
     float3 worldTangent = mul(float4(tangent.xyz, 0.0), inst.world).xyz;
     float4 worldPos = mul(float4(position.xyz, 1.0), inst.world);
     float4 prevWorldPos = mul(float4(position.xyz, 1.0), inst.prevWorld);
@@ -92,7 +94,7 @@ PSInput VSMain(float4 position : POSITION,
     result.position = mul(float4(position.xyz, 1.0), worldViewProj);
     result.uv = uv;
     result.normal = worldNormal;
-    result.tangent = float4(worldTangent, tangent.w);
+    result.tangent = float4(worldTangent, tangent.w * SurfaceTransformHandedness(objectToWorld));
     result.currClipPos = mul(worldPos, viewProj);
     result.prevClipPos = mul(prevWorldPos, prevViewProj);    
     result.instanceId = instanceId;

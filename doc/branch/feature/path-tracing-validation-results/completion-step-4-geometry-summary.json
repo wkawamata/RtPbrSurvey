@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "generatedUtc": "2026-10-03T02:42:47.273029+00:00",
+  "testedCommit": "f3dd3717039ed94f0a8f6f3fa9a3652a8c5c7f29",
+  "executableSha256": "d3498800c1dd3d7c4cbe3967355d617208d4300462c89bc3be06c1273b6946b0",
+  "sourceSha256": {
+    "GltfLoader.cpp": "9a8a32e9d172637bc6165617e5c1c415ca0786789ee3b32e00ebea7e85b2f976",
+    "Shaders/SurfaceTransform.hlsli": "5de5e218330e766019219619273f9a061639228a6b133e30ce7669e0e3233637",
+    "Shaders/SceneRayQuery.hlsli": "445330e72385ef1bbbaff486e24398c9676bd4e33b098f85411d112c9ed76fc0",
+    "Shaders/shaders_GBuffer.hlsl": "7debc544e772a998f175c43935533ecd456f7382a0cac060dea10e94d29f0f88",
+    "Tests/PathTracing/validate_geometry.py": "8149a346db99a12e9711a305891eb1b6e5bb1ed7b7f1f6b049e58e7d2992d239"
+  },
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "records": [
+    {
+      "name": "normal",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\normal-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\normal-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.NormalRoughness",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\normal.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\normal.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "9a558b18c8db5bf94b54adfd7d8b0f9394868b55d74f01197511a663b597f4ce",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "assetSha256": "52876fcffc5ab4da8c1a090aefc066065695fb4693d3a8fd75e14edd4bd4611e",
+      "checks": [
+        {
+          "instance": 0,
+          "pixelCount": 38477,
+          "expected": [
+            -0.79493882730144,
+            0.30429030972509225,
+            -0.5248615705650572,
+            0.37
+          ],
+          "observedMean": [
+            -0.794921875,
+            0.30419921875,
+            -0.5244140625,
+            0.369873046875
+          ],
+          "maxAbsoluteError": 0.00044750806505722274,
+          "tolerance": 0.001,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "d3d12Errors": 0,
+      "sha256": "b80b873f6bc6bc65d162eed15663d0675103557f166a1354e845741e545f07e2"
+    },
+    {
+      "name": "mapped",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\mapped-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\mapped-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.NormalRoughness",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\mapped.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\mapped.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "4c32a8fbd089a7f66d22a3d891f9ef910948f55e4c31be80df4990cd60cea11c",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "assetSha256": "faa564e67593d4be991b0fde78030d4dbb66f2369cd7ecc6e43fca356c9d4a4e",
+      "checks": [
+        {
+          "instance": 0,
+          "pixelCount": 38477,
+          "expected": [
+            -0.42224036736394294,
+            0.49808779308415513,
+            -0.7573781238911766,
+            0.37
+          ],
+          "observedMean": [
+            -0.422119140625,
+            0.498046875,
+            -0.75732421875,
+            0.369873046875
+          ],
+          "maxAbsoluteError": 0.00012695312499999556,
+          "tolerance": 0.001,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "d3d12Errors": 0,
+      "sha256": "8e49445577962cd407b9bb9a54a63ef10a23ebdc2585eaabc72fe60ab040f5ca"
+    },
+    {
+      "name": "mirrored-node",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\mirrored-node-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\mirrored-node-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.NormalRoughness",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\mirrored-node.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\mirrored-node.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "a4413db0e45cdb046c303dd9a2e8d3716b11c80b4d679f89a26ed890e4cdc60e",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "assetSha256": "e0dfe1620e5e05236b73552eae5fa5bb0ae8409108aee0bf951c957578951ff7",
+      "checks": [
+        {
+          "instance": 0,
+          "pixelCount": 29590,
+          "expected": [
+            -0.42224036736394294,
+            -0.49808779308415513,
+            -0.7573781238911766,
+            0.37
+          ],
+          "observedMean": [
+            -0.422119140625,
+            -0.498046875,
+            -0.75732421875,
+            0.369873046875
+          ],
+          "maxAbsoluteError": 0.00012695312499999556,
+          "tolerance": 0.001,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "d3d12Errors": 0,
+      "sha256": "5faa4fcca2dd27ac65aac1c922ac54923eb7e467f8761f84de8d13881cd2a2b6"
+    },
+    {
+      "name": "instances",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\instances-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\instances-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.NormalRoughness",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\instances.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\geometry-crlf-20261003\\instances.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "c6d84e6dc9334de44e77fe4f55cebc1c3a4c6ba8b4ea6d7d7f73f331d94cc37a",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "assetSha256": "faa564e67593d4be991b0fde78030d4dbb66f2369cd7ecc6e43fca356c9d4a4e",
+      "checks": [
+        {
+          "instance": 0,
+          "pixelCount": 13019,
+          "expected": [
+            -0.42224036736394294,
+            0.49808779308415513,
+            -0.7573781238911766,
+            0.37
+          ],
+          "observedMean": [
+            -0.422119140625,
+            0.498046875,
+            -0.75732421875,
+            0.369873046875
+          ],
+          "maxAbsoluteError": 0.00012695312499999556,
+          "tolerance": 0.001,
+          "passed": true
+        },
+        {
+          "instance": 1,
+          "pixelCount": 35231,
+          "expected": [
+            0.23697818027205306,
+            0.4980877930841551,
+            -0.8341162343795392,
+            0.37
+          ],
+          "observedMean": [
+            0.2369384765625,
+            0.498046875,
+            -0.833984375,
+            0.369873046875
+          ],
+          "maxAbsoluteError": 0.0001318593795391898,
+          "tolerance": 0.001,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "d3d12Errors": 0,
+      "sha256": "e7bd022f81f179b76faa8af766c126033b4a4eefe7cc0a433be8ee71a6e8bd1a"
+    }
+  ],
+  "status": "passed"
+}

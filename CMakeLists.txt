@@ -239,8 +239,10 @@ if(RTPBRSURVEY_BUILD_SHADERS)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DepthOnlyVS.hlsl vs_6_0 VSMain)
-    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl vs_6_0 VSMain)
-    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl vs_6_0 VSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl ps_6_0 PSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBufferDebug.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBufferDebug.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ShadowMaskDebug.hlsl vs_6_0 VSMain)
@@ -278,7 +280,8 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         Shaders/shaders_HybridReflection.hlsl
         cs_6_5
         CSMain
-        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli")
+        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(
         RTPBRSURVEY_SHADER_OUTPUTS
         Shaders/shaders_PathTracing.hlsl
@@ -287,7 +290,8 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDirectLightAdapter.hlsli"
-        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli")
+        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayQueryTlasDebug.hlsl cs_6_5 CSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_SpecularDebugRayQuery.hlsl cs_6_5 CSMain)
 

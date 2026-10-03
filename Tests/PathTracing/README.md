@@ -211,3 +211,19 @@ standard errors. More than 5% uncertainty, or more than 0.2% quadrature change, 
 This diagnostic band is not a formal confidence interval or proof of unbiasedness. Reports retain scene/preset
 and executable hashes, ROI means, settings diagnostics, and raw capture paths. Generated assets and captures
 remain under `bin/`; source fixtures are unchanged.
+
+## Geometry and imported normal-map validation
+
+```powershell
+python -B Tests/PathTracing/validate_geometry.py --output bin/PathTracingValidation/geometry
+```
+
+Requires NumPy and Pillow. Four native normal/roughness captures check rotation,
+nonuniform scaling, a supplied-tangent normal map, a mirrored baked glTF node, and
+two differently rotated instances sharing a mesh. The oracle uses a NumPy inverse
+transpose and compares every visible hit pixel against a 0.001 absolute tolerance.
+Generated fixtures and capture files remain under `bin/`.
+
+This does not establish complete glTF material support: imported color/emissive
+factors, normal-map scale, alpha/double-sided semantics and unsupported attribute
+layouts require further work. See `doc/branch/feature/path-tracing-material-geometry-validation.md`.
