@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 import numpy as np
-from validate_inputs import read_buffer, project, srgb_texture_material, hash_uint, plane_hits
+from validate_inputs import read_buffer, project, srgb_texture_material, hash_uint, plane_hits, projection_plane_forward
 
 
 class InputTests(unittest.TestCase):
@@ -41,12 +41,11 @@ class InputTests(unittest.TestCase):
         np.testing.assert_allclose(motion[:, :2], [[.02, -.04], [.02, -.04]], atol=1e-15)
         np.testing.assert_allclose(motion[:, :2]*[1000/2, -500/2], [[10, 10], [10, 10]], atol=1e-12)
 
-    def test_texture_color_space_and_shared_roughness_texture(self):
+    def test_texture_color_space_and_independent_roughness(self):
         decoded, roughness, bytes_ = srgb_texture_material([.25, .5, .75], .37)
         self.assertEqual(bytes_, [137, 188, 225])
         np.testing.assert_allclose(decoded, [.2501582847, .5028864580, .7529422168], atol=1e-9)
-        self.assertAlmostEqual(roughness, .37*188/255)
-        self.assertGreater(abs(roughness-.37), .09)
+        self.assertAlmostEqual(roughness, .37)
 
     def test_shader_hash_unsigned_wrap(self):
         self.assertEqual(int(hash_uint(0)), 0)
@@ -59,6 +58,31 @@ class InputTests(unittest.TestCase):
             return value ^ (value >> 16)
         for value in [1, 0xffffffff, 84, 123456789]:
             self.assertEqual(int(hash_uint(value)), scalar(value))
+
+    def test_projection_depth_axis_with_shift_roll_and_translation(self):
+        eye = np.array([3, 2, -5.])
+        forward = np.array([-4, -1.5, 6.])
+        forward /= np.linalg.norm(forward)
+        right = np.cross([.2, 1, .1], forward)
+        right /= np.linalg.norm(right)
+        up = np.cross(forward, right)
+        view = np.eye(4)
+        view[:3, :3] = np.array([right, up, forward]).T
+        view[3, :3] = -eye @ view[:3, :3]
+        for orthographic in [False, True]:
+            for shift in [0, .35, -.8]:
+                near, far = .1, 1000
+                if orthographic:
+                    projection = np.diag([.2, 1/3, 1/(far-near), 1.])
+                    projection[3, 2] = -near/(far-near)
+                else:
+                    projection = np.zeros((4, 4))
+                    projection[0, 0], projection[1, 1] = 1.1, 1.9
+                    projection[2, :3] = [-shift, .2, far/(far-near)]
+                    projection[2, 3] = 1
+                    projection[3, 2] = -near*far/(far-near)
+                inverse = np.linalg.inv(view @ projection).T
+                np.testing.assert_allclose(projection_plane_forward(inverse), forward, atol=1e-12)
 
     def test_off_axis_direction_is_not_view_axis_depth(self):
         # Independent geometric counterexample: plane z=5, camera forward +Z.

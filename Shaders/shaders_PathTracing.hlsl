@@ -183,7 +183,11 @@ float ComputePrimaryViewZ(float3 worldPosition)
 {
     float4 farCenter = mul(float4(0.0, 0.0, 1.0, 1.0), invViewProj);
     farCenter.xyz /= farCenter.w;
-    const float3 cameraForward = normalize(farCenter.xyz - cameraPosition);
+    const float4 farRight = mul(float4(1.0, 0.0, 1.0, 1.0), invViewProj);
+    const float4 farUp = mul(float4(0.0, 1.0, 1.0, 1.0), invViewProj);
+    // Lens shift changes the center ray, but not the far plane's view-axis normal.
+    const float3 cameraForward = normalize(cross(farRight.xyz / farRight.w - farCenter.xyz,
+                                                 farUp.xyz / farUp.w - farCenter.xyz));
     return max(dot(worldPosition - cameraPosition, cameraForward), 0.0);
 }
 

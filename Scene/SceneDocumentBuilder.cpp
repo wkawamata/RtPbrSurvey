@@ -145,6 +145,13 @@ bool SceneDocumentBuilder::Build(const SceneDocument& document,
         m_builder.Clear();
         SceneDocumentBuildResult result;
         result.graph = std::move(graph);
+        // Document materials supply scalar PBR values, not packed data textures.
+        const std::array<uint8_t, 4> neutralDataPixels = {255, 255, 255, 255};
+        const std::array<uint8_t, 4> noEmissionPixels = {0, 0, 0, 255};
+        Engine::SceneTextureOptions dataOptions;
+        dataOptions.colorSpace = Engine::TextureColorSpace::Linear;
+        const uint32_t neutralDataTexture = m_builder.AddTextureRGBA8(1, 1, neutralDataPixels, dataOptions);
+        const uint32_t noEmissionTexture = m_builder.AddTextureRGBA8(1, 1, noEmissionPixels);
         for (const SceneMaterial& material : document.materials)
         {
             const std::array<uint8_t, 4> pixels = {
@@ -156,9 +163,9 @@ bool SceneDocumentBuilder::Build(const SceneDocument& document,
             const uint32_t textureId = m_builder.AddTextureRGBA8(1, 1, pixels);
             Engine::SceneMaterial rendererMaterial = {};
             rendererMaterial.albedoTexIndex = static_cast<int>(textureId);
-            rendererMaterial.metallicRoughnessTexIndex = textureId;
-            rendererMaterial.occlusionTexIndex = textureId;
-            rendererMaterial.emissiveTexIndex = textureId;
+            rendererMaterial.metallicRoughnessTexIndex = neutralDataTexture;
+            rendererMaterial.occlusionTexIndex = neutralDataTexture;
+            rendererMaterial.emissiveTexIndex = noEmissionTexture;
             rendererMaterial.normalTexIndex = -1;
             rendererMaterial.metallicFactor = material.metallic;
             rendererMaterial.roughnessFactor = material.roughness;

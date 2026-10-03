@@ -98,6 +98,18 @@ bool TestPrimitiveBuildAndMeshReuse()
     passed &= Check(mesh.materials[result.materialIds.at("metal")].metallicFactor == 1.0f &&
                         NearlyEqual(mesh.materials[result.materialIds.at("metal")].roughnessFactor, 0.2f),
                     "PBR material factors are preserved");
+    for (const Engine::SceneMaterial& material : mesh.materials)
+    {
+        const Engine::SceneTexture& data = mesh.textures.at(material.metallicRoughnessTexIndex);
+        const Engine::SceneTexture& emission = mesh.textures.at(material.emissiveTexIndex);
+        passed &= Check(material.albedoTexIndex != material.metallicRoughnessTexIndex &&
+                            data.colorSpace == Engine::TextureColorSpace::Linear &&
+                            data.pixels == std::vector<unsigned char>({255, 255, 255, 255}),
+                        "scalar metallic and roughness use neutral linear data, independent of base color");
+        passed &= Check(material.occlusionTexIndex == material.metallicRoughnessTexIndex &&
+                            emission.pixels == std::vector<unsigned char>({0, 0, 0, 255}),
+                        "document materials have neutral occlusion and no implicit emission");
+    }
     const Engine::SceneMesh::Range& planeRange = mesh.ranges[scene.instances[2].meshId];
     passed &= Check(planeRange.vertexCount == 4 && mesh.vertices[planeRange.firstVertex].normal.y == 1.0f,
                     "plane is generated on XZ with an upward normal");
