@@ -180,3 +180,34 @@ positive and negative values remain visible. Run the stationary/camera-motion co
 
 The generated captures and report are written under `bin/x64/Debug/PathTracingMotionVectorValidation` by default and
 must not be committed.
+
+## Completion regression and transport validation
+
+`run_completion_regression.py` runs Parts 1-5 and transport validation serially. Part 2 is a reduced
+4/16 spp regression against a finite 32 spp reference, not a replacement for the original convergence campaign.
+Part 3 runs 57 main scale captures and 18 supplementary TMax/near-light captures (PowerShell 7 required);
+its fixed-bias negative controls can legitimately fail visibility.
+`assess_scale_policy.py` requires complete relative-policy visibility/contact/convex-self-hit measurements;
+the aggregate runner rejects a failed supported policy while preserving fixed/zero negative controls.
+Part 4 is a three-case timing smoke, not a cross-GPU benchmark. Part 5 returns failure for rejected numeric checks.
+Part 5 controls additionally cover moving shifted-projection ViewZ and transformed-camera ViewZ.
+Use a new, empty output directory. `--parts` selects a subset without overlapping GPU processes.
+
+```powershell
+python -B Tests/PathTracing/run_completion_regression.py --output bin/PathTracingValidation/completion
+python -B Tests/PathTracing/validate_transport.py --output bin/PathTracingValidation/transport --samples 64
+python -B Tests/PathTracing/validate_transport.py --output bin/PathTracingValidation/rr-repeat --rr-only --samples 256
+```
+
+Transport checks dielectric/metallic materials at roughness 0.18, 0.4, and 0.8 under a constant unit environment.
+BSDF and MIS estimates are compared with each other and with CPU BRDF hemisphere quadrature (128/256 orders,
+nine representative ROI view directions). The CPU reference tests the sampler/integrator, not the material parser.
+The enclosed-room cohort compares one/two/eight bounces and RR off/on at the same eight-bounce limit.
+The eight-bounce mean must exceed the two-bounce mean to verify a contribution from RR-eligible path depths.
+The output is linear HDR Radiance; no denoiser or tone mapping participates in the comparison.
+
+At least four unique seeds are required. Agreement allows 2% relative discrepancy plus four seed-level
+standard errors. More than 5% uncertainty, or more than 0.2% quadrature change, is inconclusive, not passed.
+This diagnostic band is not a formal confidence interval or proof of unbiasedness. Reports retain scene/preset
+and executable hashes, ROI means, settings diagnostics, and raw capture paths. Generated assets and captures
+remain under `bin/`; source fixtures are unchanged.
