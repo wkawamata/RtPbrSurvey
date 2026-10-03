@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <functional>
 #include <tiny_gltf.h>
+#include <cstdio>
 
 static const unsigned char* GetAccessorData(const tinygltf::Model& model, const tinygltf::Accessor& accessor)
 {
@@ -261,7 +262,310 @@ static std::string ResolveGltfPath(const std::string& path)
     return std::filesystem::exists(runtimePath) ? runtimePath.string() : path;
 }
 
-static bool LoadGltfModel(const std::string& path, tinygltf::Model& model, std::string& message)
+static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImportDiagnostic>& diagnostics)
+{
+    bool valid = true;
+    const auto report = [&](GltfDiagnosticSeverity severity, const char* code,
+                            const std::string& location, const char* message)
+    {
+        diagnostics.push_back({severity, code, location, message});
+        valid = valid && severity != GltfDiagnosticSeverity::Error;
+    };
+    const auto warning = [&](const char* code, const std::string& location, const char* message)
+    {
+        report(GltfDiagnosticSeverity::Warning, code, location, message);
+    };
+    const auto error = [&](const char* code, const std::string& location, const char* message)
+    {
+        report(GltfDiagnosticSeverity::Error, code, location, message);
+    };
+    const auto accessorValid = [&](int index, int type, int componentType, size_t count,
+                                    const std::string& location)
+    {
+        if (index < 0 || index >= static_cast<int>(model.accessors.size()))
+        {
+            error("InvalidAccessor", location, "Accessor index is outside the asset.");
+            return false;
+        }
+        const tinygltf::Accessor& accessor = model.accessors[index];
+        if (accessor.type != type || accessor.componentType != componentType || accessor.normalized ||
+            accessor.sparse.isSparse || (count != 0 && accessor.count != count))
+        {
+            error("UnsupportedAccessor", location, "Expected dense, unnormalized attributes with matching counts and supported types.");
+            return false;
+        }
+        if (accessor.bufferView < 0 || accessor.bufferView >= static_cast<int>(model.bufferViews.size()))
+        {
+            error("InvalidBufferView", location, "Accessor has no valid dense buffer view.");
+            return false;
+        }
+        const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
+        const size_t elementSize = static_cast<size_t>(tinygltf::GetComponentSizeInBytes(componentType)) *
+                                   static_cast<size_t>(tinygltf::GetNumComponentsInType(type));
+        if (view.byteStride != 0 && view.byteStride != elementSize)
+        {
+            error("UnsupportedStride", location, "Interleaved attributes are not supported by the packed-data importer.");
+            return false;
+        }
+        if (view.buffer < 0 || view.buffer >= static_cast<int>(model.buffers.size()))
+        {
+            error("InvalidBuffer", location, "Buffer view references an invalid buffer.");
+            return false;
+        }
+        const size_t size = model.buffers[view.buffer].data.size();
+        if (view.byteOffset > size || view.byteLength > size - view.byteOffset ||
+            accessor.byteOffset > view.byteLength || accessor.count == 0 ||
+            accessor.count > (view.byteLength - accessor.byteOffset) / elementSize ||
+            (view.byteOffset + accessor.byteOffset) % tinygltf::GetComponentSizeInBytes(componentType) != 0)
+        {
+            error("InvalidAccessorBounds", location, "Accessor data is empty, unaligned or outside its buffer view.");
+            return false;
+        }
+        if (componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+        {
+            const unsigned char* data = GetAccessorData(model, accessor);
+            for (size_t offset = 0; offset < accessor.count * elementSize; offset += sizeof(float))
+            {
+                float value = 0.0f;
+                std::memcpy(&value, data + offset, sizeof(float));
+                if (!std::isfinite(value))
+                {
+                    error("NonfiniteAttribute", location, "Float attributes must contain finite values.");
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+    for (const std::string& extension : model.extensionsUsed)
+    {
+        warning("UnsupportedExtension", "extensionsUsed." + extension, "Extension behavior is not implemented; only core data will be imported.");
+    }
+    for (const std::string& extension : model.extensionsRequired)
+    {
+        error("RequiredExtension", "extensionsRequired." + extension, "Required extensions are not supported.");
+    }
+    if (!model.animations.empty())
+    {
+        warning("AnimationIgnored", "animations", "Animations are ignored; the static node pose is imported.");
+    }
+    for (size_t i = 0; i < model.materials.size(); ++i)
+    {
+        const tinygltf::Material& material = model.materials[i];
+        const std::string location = "materials[" + std::to_string(i) + "]";
+        if (material.alphaMode != "OPAQUE")
+        {
+            warning("AlphaModeIgnored", location, "Alpha MASK/BLEND is rendered as opaque; cutoff and blending are ignored.");
+        }
+        if (material.doubleSided)
+        {
+            warning("DoubleSidedIgnored", location, "Material doubleSided is ignored; ray paths use back-face culling.");
+        }
+        for (const auto& extension : material.extensions)
+        {
+            warning("MaterialExtensionIgnored", location + ".extensions." + extension.first,
+                    "Material extension behavior is not implemented; core material fields are used.");
+        }
+        const auto checkTexture = [&](int index, int texCoord, const tinygltf::ExtensionMap& extensions, const char* name)
+        {
+            if (index >= static_cast<int>(model.textures.size()) || index < -1)
+            {
+                error("InvalidTexture", location + "." + name, "Texture index is outside the asset.");
+            }
+            if (index >= 0 && texCoord != 0)
+            {
+                warning("TextureCoordinateIgnored", location + "." + name, "Only TEXCOORD_0 is used; the requested coordinate set is ignored.");
+            }
+            if (!extensions.empty())
+            {
+                warning("TextureExtensionIgnored", location + "." + name, "Texture-info extensions, including texture transforms, are ignored.");
+            }
+        };
+        checkTexture(material.pbrMetallicRoughness.baseColorTexture.index, material.pbrMetallicRoughness.baseColorTexture.texCoord,
+                     material.pbrMetallicRoughness.baseColorTexture.extensions, "baseColorTexture");
+        checkTexture(material.pbrMetallicRoughness.metallicRoughnessTexture.index, material.pbrMetallicRoughness.metallicRoughnessTexture.texCoord,
+                     material.pbrMetallicRoughness.metallicRoughnessTexture.extensions, "metallicRoughnessTexture");
+        checkTexture(material.normalTexture.index, material.normalTexture.texCoord, material.normalTexture.extensions, "normalTexture");
+        checkTexture(material.emissiveTexture.index, material.emissiveTexture.texCoord, material.emissiveTexture.extensions, "emissiveTexture");
+        checkTexture(material.occlusionTexture.index, material.occlusionTexture.texCoord, material.occlusionTexture.extensions, "occlusionTexture");
+    }
+    for (size_t i = 0; i < model.textures.size(); ++i)
+    {
+        const tinygltf::Texture& texture = model.textures[i];
+        const std::string location = "textures[" + std::to_string(i) + "]";
+        if (texture.source < 0 || texture.source >= static_cast<int>(model.images.size()))
+        {
+            error("InvalidTextureSource", location, "Texture source must reference a decoded core image.");
+        }
+        if (texture.sampler >= 0)
+        {
+            warning("SamplerIgnored", location, "Per-texture sampler settings are ignored; the renderer's shared sampler is used.");
+        }
+    }
+    for (size_t meshIndex = 0; meshIndex < model.meshes.size(); ++meshIndex)
+    {
+        const tinygltf::Mesh& mesh = model.meshes[meshIndex];
+        for (size_t primitiveIndex = 0; primitiveIndex < mesh.primitives.size(); ++primitiveIndex)
+        {
+            const tinygltf::Primitive& primitive = mesh.primitives[primitiveIndex];
+            const std::string location = "meshes[" + std::to_string(meshIndex) + "].primitives[" + std::to_string(primitiveIndex) + "]";
+            if (primitive.mode != TINYGLTF_MODE_TRIANGLES && primitive.mode != -1)
+            {
+                error("UnsupportedPrimitiveMode", location, "Only indexed TRIANGLES primitives are supported.");
+            }
+            if (primitive.material < -1 || primitive.material >= static_cast<int>(model.materials.size()))
+            {
+                error("InvalidMaterial", location, "Primitive material index is outside the asset.");
+            }
+            if (!primitive.targets.empty())
+            {
+                warning("MorphTargetsIgnored", location, "Morph targets are ignored; base vertex data is imported.");
+            }
+            const auto position = primitive.attributes.find("POSITION");
+            if (position == primitive.attributes.end() ||
+                !accessorValid(position->second, TINYGLTF_TYPE_VEC3, TINYGLTF_COMPONENT_TYPE_FLOAT, 0, location + ".POSITION"))
+            {
+                error("MissingOrInvalidPosition", location, "A supported POSITION accessor is required.");
+                continue;
+            }
+            const size_t vertexCount = model.accessors[position->second].count;
+            for (const auto& attribute : primitive.attributes)
+            {
+                int type = 0;
+                if (attribute.first == "NORMAL")
+                {
+                    type = TINYGLTF_TYPE_VEC3;
+                }
+                if (attribute.first == "TANGENT")
+                {
+                    type = TINYGLTF_TYPE_VEC4;
+                }
+                if (attribute.first == "TEXCOORD_0")
+                {
+                    type = TINYGLTF_TYPE_VEC2;
+                }
+                if (type != 0)
+                {
+                    accessorValid(attribute.second, type, TINYGLTF_COMPONENT_TYPE_FLOAT, vertexCount, location + "." + attribute.first);
+                }
+                else if (attribute.first != "POSITION")
+                {
+                    warning("AttributeIgnored", location + "." + attribute.first, "Vertex attribute is not consumed by the renderer.");
+                }
+            }
+            if (!primitive.attributes.contains("NORMAL"))
+            {
+                warning("MissingNormals", location, "Missing normals use a fixed fallback, not generated smooth normals.");
+            }
+            if (primitive.material >= 0 && primitive.material < static_cast<int>(model.materials.size()) &&
+                model.materials[primitive.material].normalTexture.index >= 0 &&
+                !primitive.attributes.contains("TANGENT"))
+            {
+                warning("MissingTangents", location, "PT ignores the normal map without tangents; GBuffer uses a fallback frame.");
+            }
+            if (primitive.material >= 0 && primitive.material < static_cast<int>(model.materials.size()) &&
+                !primitive.attributes.contains("TEXCOORD_0"))
+            {
+                const tinygltf::Material& material = model.materials[primitive.material];
+                if (material.pbrMetallicRoughness.baseColorTexture.index >= 0 ||
+                    material.pbrMetallicRoughness.metallicRoughnessTexture.index >= 0 ||
+                    material.normalTexture.index >= 0 || material.emissiveTexture.index >= 0 || material.occlusionTexture.index >= 0)
+                {
+                    warning("MissingTexcoords", location, "Textured material has no TEXCOORD_0; a constant zero UV is used.");
+                }
+            }
+            if (primitive.indices < 0 || primitive.indices >= static_cast<int>(model.accessors.size()))
+            {
+                error("MissingIndices", location, "A supported index accessor is required.");
+                continue;
+            }
+            const tinygltf::Accessor& indices = model.accessors[primitive.indices];
+            const int component = indices.componentType;
+            if (component != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE && component != TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT &&
+                component != TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
+            {
+                error("UnsupportedIndices", location, "Indices must be unsigned 8-, 16-, or 32-bit values.");
+                continue;
+            }
+            if (!accessorValid(primitive.indices, TINYGLTF_TYPE_SCALAR, component, 0, location + ".indices"))
+            {
+                continue;
+            }
+            if (indices.count % 3 != 0)
+            {
+                error("InvalidTriangleCount", location, "Triangle index count must be a multiple of three.");
+            }
+            const unsigned char* data = GetAccessorData(model, indices);
+            const size_t bytes = tinygltf::GetComponentSizeInBytes(component);
+            for (size_t i = 0; i < indices.count; ++i)
+            {
+                uint32_t index = 0;
+                std::memcpy(&index, data + i * bytes, bytes);
+                if (index >= vertexCount)
+                {
+                    error("IndexOutOfRange", location, "Triangle index references a vertex outside POSITION.");
+                    break;
+                }
+            }
+        }
+    }
+    for (size_t i = 0; i < model.nodes.size(); ++i)
+    {
+        const tinygltf::Node& node = model.nodes[i];
+        if (node.mesh < -1 || node.mesh >= static_cast<int>(model.meshes.size()))
+        {
+            error("InvalidMesh", "nodes[" + std::to_string(i) + "]", "Node mesh index is outside the asset.");
+        }
+        if (node.skin >= 0)
+        {
+            warning("SkinIgnored", "nodes[" + std::to_string(i) + "]", "Skinning is ignored; undeformed vertices are imported.");
+        }
+    }
+    std::vector<uint8_t> nodeState(model.nodes.size(), 0);
+    std::function<void(int)> visitNode;
+    visitNode = [&](int index)
+    {
+        if (index < 0 || index >= static_cast<int>(model.nodes.size()))
+        {
+            error("InvalidNode", "nodes", "Scene or child node index is outside the asset.");
+            return;
+        }
+        if (nodeState[index] == 1)
+        {
+            error("NodeCycle", "nodes[" + std::to_string(index) + "]", "Cyclic node hierarchies cannot be imported.");
+            return;
+        }
+        if (nodeState[index] == 2)
+        {
+            return;
+        }
+        nodeState[index] = 1;
+        for (int child : model.nodes[index].children)
+        {
+            visitNode(child);
+        }
+        nodeState[index] = 2;
+    };
+    for (size_t i = 0; i < model.nodes.size(); ++i)
+    {
+        visitNode(static_cast<int>(i));
+    }
+    for (const tinygltf::Scene& scene : model.scenes)
+    {
+        for (int root : scene.nodes)
+        {
+            visitNode(root);
+        }
+    }
+    if (model.defaultScene < -1 || model.defaultScene >= static_cast<int>(model.scenes.size()))
+    {
+        error("InvalidScene", "scene", "Default scene index is outside the asset.");
+    }
+    return valid;
+}
+
+static bool LoadGltfModel(const std::string& path, tinygltf::Model& model, std::string& message,
+                          std::vector<GltfImportDiagnostic>& diagnostics)
 {
     tinygltf::TinyGLTF loader;
     std::string warn;
@@ -281,7 +585,23 @@ static bool LoadGltfModel(const std::string& path, tinygltf::Model& model, std::
     }
 
     message = !error.empty() ? error : warn;
-    return loaded;
+    if (!loaded)
+    {
+        return false;
+    }
+    const bool valid = ValidateGltfImport(model, diagnostics);
+    for (const GltfImportDiagnostic& diagnostic : diagnostics)
+    {
+        const std::string text = "[glTF][" + std::string(diagnostic.severity == GltfDiagnosticSeverity::Error ? "ERROR" : "WARNING") +
+                                 "][" + diagnostic.code + "] " + path + " " + diagnostic.location + ": " + diagnostic.message + "\n";
+        OutputDebugStringA(text.c_str());
+        std::fputs(text.c_str(), stderr);
+        if (diagnostic.severity == GltfDiagnosticSeverity::Error && valid == false)
+        {
+            message = diagnostic.code + ": " + diagnostic.location + ": " + diagnostic.message;
+        }
+    }
+    return valid;
 }
 
 static void CopyMaterialsAndTextures(const tinygltf::Model& model, GltfMeshData& outMesh)
@@ -297,6 +617,11 @@ static void CopyMaterialsAndTextures(const tinygltf::Model& model, GltfMeshData&
         destination.emissiveTexIndex = material.emissiveTexture.index;
         destination.occlusionTexIndex = material.occlusionTexture.index;
         destination.normalTexIndex = material.normalTexture.index;
+        destination.normalTextureScale = static_cast<float>(material.normalTexture.scale);
+        for (int channel = 0; channel < 3; ++channel)
+        {
+            destination.emissiveFactor[channel] = static_cast<float>(material.emissiveFactor[channel]);
+        }
         destination.roughnessFactor = static_cast<float>(pbr.roughnessFactor);
         destination.metallicFactor = static_cast<float>(pbr.metallicFactor);
         destination.occlusionStrength = static_cast<float>(material.occlusionTexture.strength);
@@ -333,13 +658,38 @@ static void CopyMaterialsAndTextures(const tinygltf::Model& model, GltfMeshData&
         destination.pixels = image.image;
         outMesh.textures.push_back(std::move(destination));
     }
+    int whiteEmissiveTexture = -1;
+    for (GltfMaterial& material : outMesh.materials)
+    {
+        if (material.emissiveTexIndex < 0 &&
+            (material.emissiveFactor[0] > 0.0f || material.emissiveFactor[1] > 0.0f || material.emissiveFactor[2] > 0.0f))
+        {
+            if (whiteEmissiveTexture < 0)
+            {
+                whiteEmissiveTexture = static_cast<int>(outMesh.textures.size());
+                GltfTextureData texture = {};
+                texture.width = texture.height = 1;
+                texture.component = 4;
+                texture.pixels = {255, 255, 255, 255};
+                outMesh.textures.push_back(std::move(texture));
+            }
+            material.emissiveTexIndex = whiteEmissiveTexture;
+        }
+    }
 }
 
-bool LoadGltfMesh(const std::string& path, GltfMeshData& outMesh)
+bool LoadGltfMesh(const std::string& path, GltfMeshData& outMesh, std::vector<GltfImportDiagnostic>* diagnostics)
 {
+    outMesh = {};
     tinygltf::Model model;
     std::string message;
-    if (!LoadGltfModel(path, model, message))
+    std::vector<GltfImportDiagnostic> importDiagnostics;
+    const bool loaded = LoadGltfModel(path, model, message, importDiagnostics);
+    if (diagnostics != nullptr)
+    {
+        *diagnostics = importDiagnostics;
+    }
+    if (!loaded)
         return false;
 
     if (model.meshes.empty())
@@ -454,9 +804,17 @@ Engine::GltfSceneAssetLoadResult Engine::LoadGltfSceneAsset(const std::string& p
 {
     GltfSceneAssetLoadResult result = {};
     auto impl = std::make_shared<GltfSceneAsset::Impl>();
-    if (!LoadGltfModel(path, impl->model, result.message))
+    if (!LoadGltfModel(path, impl->model, result.message, result.diagnostics))
     {
         result.status = GltfSceneAssetLoadStatus::FileLoadFailed;
+        for (const GltfImportDiagnostic& diagnostic : result.diagnostics)
+        {
+            if (diagnostic.severity == GltfDiagnosticSeverity::Error)
+            {
+                result.status = GltfSceneAssetLoadStatus::UnsupportedData;
+                break;
+            }
+        }
         return result;
     }
     if (impl->model.meshes.empty())
@@ -468,7 +826,6 @@ Engine::GltfSceneAssetLoadResult Engine::LoadGltfSceneAsset(const std::string& p
 
     result.status = GltfSceneAssetLoadStatus::Success;
     result.asset = GltfSceneAsset(std::move(impl));
-    result.message.clear();
     return result;
 }
 

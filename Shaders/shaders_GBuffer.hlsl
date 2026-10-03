@@ -110,13 +110,14 @@ GBufferOutput PSMain(PSInput input)
 
     GBufferOutput output;
     float4 albedo = g_texture[mat.albedoTexIndex].Sample(g_sampler, materialUv);
-    output.albedo = float4(SrgbToLinear(albedo.rgb), albedo.a);
+    output.albedo = float4(SrgbToLinear(albedo.rgb), albedo.a) * mat.baseColorFactor;
 
     float3 baseNormal = normalize(input.normal); // We should use the interpolated normal from vertex shader as the base normal for normal mapping, otherwise the normal map will not work correctly on flat surfaces.
     float3 mappedNormal = baseNormal;
     if ((mat.flags & MaterialFlagHasNormalTexture) != 0)
     {
         float3 normalTex = g_texture[mat.normalTexIndex].Sample(g_sampler, materialUv).xyz * 2.0 - 1.0;
+        normalTex.xy *= mat.normalTextureScale;
         mappedNormal = normalize(mul(normalTex, BuildTangentFrame(baseNormal, input.tangent)));
     }
     output.normal = float4(mappedNormal, 1.0);
@@ -136,7 +137,7 @@ GBufferOutput PSMain(PSInput input)
     // Indirect Occlusion is an artist/debug multiplier applied after glTF occlusionStrength.
     float ambientOcclusion = saturate(lerp(1.0, occlusion, mat.occlusionStrength) * mat.ambientOcclusionFactor);
     output.pbrParams = float4(metallic, roughness, ambientOcclusion, 1.0);
-    output.emissive = float4(emissive * mat.emissiveScale, 1.0);
+    output.emissive = float4(emissive * mat.emissiveScale * mat.emissiveFactor, 1.0);
     output.objectId = input.instanceId + 1;
     
     return output;

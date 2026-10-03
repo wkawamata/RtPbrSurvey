@@ -224,6 +224,13 @@ two differently rotated instances sharing a mesh. The oracle uses a NumPy invers
 transpose and compares every visible hit pixel against a 0.001 absolute tolerance.
 Generated fixtures and capture files remain under `bin/`.
 
-This does not establish complete glTF material support: imported color/emissive
-factors, normal-map scale, alpha/double-sided semantics and unsupported attribute
-layouts require further work. See `doc/branch/feature/path-tracing-material-geometry-validation.md`.
+Material factors and normal-map scale have a separate native validation:
+
+```powershell
+python -B Tests/PathTracing/validate_materials.py --output bin/PathTracingValidation/materials
+```
+
+This uses shared texture references with different material factors, plus factor-only
+color and emission. It does not establish complete glTF support: alpha/double-sided
+semantics, unsupported attribute layouts and importer diagnostics require further work.
+See `doc/branch/feature/path-tracing-material-geometry-validation.md`.

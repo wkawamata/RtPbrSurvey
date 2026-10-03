@@ -226,6 +226,7 @@ function(rtpbrsurvey_add_shader output_var shader_file stage entry_point)
             "-Fo${output_file}" "${RTPBRSURVEY_ROOT}/${shader_file}"
         DEPENDS "${RTPBRSURVEY_ROOT}/${shader_file}" ${ARGN}
             "${RTPBRSURVEY_ROOT}/Shaders/DirectLights.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/DirectLightEvaluation.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/DirectPbrLighting.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/ReflectionSampling.hlsli"

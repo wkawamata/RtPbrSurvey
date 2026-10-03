@@ -216,9 +216,12 @@ static_assert(offsetof(Engine::InstanceData, meshId) == 132,
               "CPU and HLSL InstanceData meshId layouts must match.");
 static_assert(sizeof(Engine::SceneMesh::Range) == 16,
               "Hybrid reflection reads SceneMesh::Range as four uint values.");
-static_assert(sizeof(Engine::Material) == 60, "Material.hlsli must match Engine::Material structured buffer layout.");
+static_assert(sizeof(Engine::Material) == 92, "Material.hlsli must match Engine::Material structured buffer layout.");
 static_assert(offsetof(Engine::Material, uvScale) == 44, "Material UV scale offset must match Material.hlsli.");
 static_assert(offsetof(Engine::Material, uvOffset) == 52, "Material UV offset must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, baseColorFactor) == 60, "Material color factor must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, emissiveFactor) == 76, "Material emissive factor must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, normalTextureScale) == 88, "Material normal scale must match Material.hlsli.");
 
 const wchar_t* EnvironmentSourceName(Engine::EnvironmentSource source)
 {
@@ -3089,6 +3092,15 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
         m.occlusionStrength = 1.0f;
         m.ambientOcclusionFactor = 1.0f;
         m.emissiveScale = 1.0f;
+        for (float& channel : m.baseColorFactor)
+        {
+            channel = 1.0f;
+        }
+        for (float& channel : m.emissiveFactor)
+        {
+            channel = 1.0f;
+        }
+        m.normalTextureScale = 1.0f;
         m.flags = 0;
         m.uvScale[0] = 1.0f;
         m.uvScale[1] = 1.0f;
@@ -3119,6 +3131,14 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
                 m.occlusionStrength = gltfMaterial.occlusionStrength;
                 m.ambientOcclusionFactor = gltfMaterial.ambientOcclusionFactor;
                 m.emissiveScale = gltfMaterial.emissiveTexIndex >= 0 ? gltfMaterial.emissiveScale : 0.0f;
+                m.baseColorFactor[0] = gltfMaterial.baseColorFactor.x;
+                m.baseColorFactor[1] = gltfMaterial.baseColorFactor.y;
+                m.baseColorFactor[2] = gltfMaterial.baseColorFactor.z;
+                m.baseColorFactor[3] = gltfMaterial.baseColorFactor.w;
+                m.emissiveFactor[0] = gltfMaterial.emissiveFactor.x;
+                m.emissiveFactor[1] = gltfMaterial.emissiveFactor.y;
+                m.emissiveFactor[2] = gltfMaterial.emissiveFactor.z;
+                m.normalTextureScale = gltfMaterial.normalTextureScale;
                 m.uvScale[0] = gltfMaterial.uvScale.x;
                 m.uvScale[1] = gltfMaterial.uvScale.y;
                 m.uvOffset[0] = gltfMaterial.uvOffset.x;

@@ -12,10 +12,11 @@ Base: `f3dd371`
 - [x] Make glTF matrix and TRS node transforms agree.
 - [x] Add CPU regression fixtures and native GPU normal-map / instance checks.
 - [x] Record supported inputs and explicit exclusions.
-- [ ] Finish imported material-factor handling and unsupported-input diagnostics.
+- [x] Carry imported base-color/emissive factors and normal-map scale to the GPU.
+- [x] Add unsupported-input diagnostics and reject unsafe packed-data inputs.
 
 Step 4 is not a declaration of full glTF material compliance. The geometry-transform
-portion is validated; remaining importer/material gaps are listed below before advancing
+portion and imported material factors are validated; remaining importer gaps are listed below before advancing
 to emissive-surface sampling in Step 5.
 
 ## Changes
@@ -71,11 +72,12 @@ it is not included as a passing capture. The corrected fixtures use relative pat
 | Positive nonsingular nonuniform instance scale + rotation | Native PT guide tested |
 | Same mesh in multiple instances | Native PT guide tested |
 | Multiple mesh ranges and material-ID remapping | Existing CPU tests; no new GPU multi-mesh campaign |
-| Normal map, UV0, supplied tangents, default scale=1 | Native PT guide tested |
+| Normal map, UV0, supplied tangents, scale=1 / 0.35 / 1.7 | Native PT guide tested |
 | Missing tangents | PT ignores the normal map; GBuffer uses an arbitrary fallback frame |
-| `normalTexture.scale` / alternate texture coordinate sets | Not carried by the current material API |
-| `baseColorFactor` | Loader reads it, but SceneBuilder does not carry it to the GPU material |
-| glTF `emissiveFactor` | Not carried by the current loader/material path |
+| `normalTexture.scale` | Carried through loader, scene, GPU material and PT/GBuffer sampling |
+| Alternate texture coordinate sets | Not carried by the current vertex/material API |
+| `baseColorFactor` | Carried to GPU; native PT textured and factor-only cases tested |
+| glTF `emissiveFactor` | Carried to GPU; textured and factor-only emission tested |
 | Alpha MASK / BLEND / transmission | Not supported: BLAS geometry is opaque |
 | `doubleSided` material semantics | Not supported: PT primary/continuation rays cull back faces |
 | Interleaved, sparse, normalized integer attributes / non-triangle modes | Outside current packed-float importer contract; no new coverage |
@@ -85,8 +87,9 @@ it is not included as a passing capture. The corrected fixtures use relative pat
 Opaque-only behavior must not be presented as faithful rendering of transparent,
 cutout, or double-sided assets. Zero-scale geometry is outside the correctness guarantee;
 the shader's degenerate normal fallback only prevents normalization of a zero vector.
-GBuffer transform changes compile successfully but were not separately numerically
-captured; the Forward shading path was not changed.
+GBuffer transform and factor changes compile successfully but were not separately numerically
+captured. Forward receives the base-color multiplier but retains its existing lighting/color-space path;
+its normal transform and normal mapping were not changed.
 
 The glTF specification defines normal textures as linear tangent-space data, applies
 normal scale to XY, and distinguishes opaque/mask/blend and double-sided material
@@ -95,14 +98,94 @@ behavior. These requirements motivate the exclusions above:
 
 ## Next small steps
 
-1. Carry base-color and emissive factors, and normal texture scale through the neutral
-   scene/GPU material contract. Add independent Albedo/Emissive/Normal guide tests,
-   including shared texture references with different factors.
-2. Make unsupported glTF features visible in import diagnostics. Do not silently
-   advertise arbitrary glTF compliance; decide whether to reject or warn per feature.
-3. Add GPU multi-mesh / different-material fixtures and a GBuffer/PT surface-input
+1. Add separate-BLAS GPU multi-mesh fixtures and a GBuffer/PT surface-input
    comparison. Treat negative runtime instance scale as a separate winding test.
-4. Close Step 4 within the declared opaque subset, then proceed to Step 5 emission MIS.
+2. Close Step 4 within the declared opaque subset, then proceed to Step 5 emission MIS.
+
+## Import diagnostics (2026-10-04)
+
+The shared glTF model-load path now inspects inputs before the importer accesses raw
+attribute/index pointers. Both flattened `LoadGltfMesh` and CPU `LoadGltfSceneAsset`
+use this policy. Each diagnostic has a Warning/Error severity, stable code, asset
+location and explanation. `GltfSceneAssetLoadResult::diagnostics` retains them;
+`LoadGltfMesh` has an optional diagnostic output parameter. Rejected model data returns
+`UnsupportedData`, an invalid asset and an explanatory message. The legacy loader
+clears output on entry, preventing stale mesh data from surviving a failed load.
+
+Diagnostics are emitted once per load to `OutputDebugStringA` (Visual Studio Output)
+and stderr (console/helper logs). No new ImGui window is introduced. `-LogToFile` is
+the D3D12 message log and is not a persistence mechanism for these importer messages.
+
+| Policy | Inputs |
+| --- | --- |
+| Warn and import core/static approximation | MASK/BLEND, double-sided, UV sets other than UV0, texture/material extensions, optional extensions, custom samplers, morph targets, skinning, animations, ignored attributes, missing normals/tangents/UV0 |
+| Reject before raw conversion | Required extensions, non-indexed/non-triangle primitives, wrong/normalized/sparse attribute types, mismatched counts, interleaving, empty/unaligned/out-of-bounds accessor data, nonfinite float attributes, invalid index type/count/range, invalid material/texture/image/node/mesh/scene references, cyclic node graphs |
+
+Warnings do not mean feature compliance: for example, a MASK material still renders
+opaque, double-sided still uses ray back-face culling, and UV1 samples UV0. A missing
+normal uses the existing fixed fallback; a missing tangent retains the documented
+PT/GBuffer behavior. Required extensions fail rather than silently substituting a
+core approximation. Sampler overrides are warned because one shared renderer sampler
+is used. This is an importer-contract check, not a complete Khronos schema validator.
+
+The CPU test mutates a supported glTF into 26 warning/rejection variants, including
+sparse and interleaved attributes, NaN positions, invalid triangle indices, and a
+node cycle. Warning cases must load and expose the expected code/location; error
+cases must fail through both APIs without stale output. Supported opaque packed-float
+input must remain diagnostic-free.
+
+Validation on 2026-10-04: Debug x64 MSBuild and the full CMake Debug build succeeded,
+CTest passed 24/24 tests (including all 26 diagnostic variants), and Python passed
+60/60 tests. DamagedHelmet loaded and converted successfully; sampler overrides
+and its missing tangents produced the expected warnings. The five native material
+captures were repeated after the validator change and all passed, with zero D3D12
+ERROR/CORRUPTION lines and unchanged capture hashes relative to the material campaign.
+The new source/executable snapshot is retained in
+`path-tracing-validation-results/completion-step-4-import-regression-summary.json`.
+
+## Material-factor follow-up
+
+Base: `4ee6691`. The GPU material stride is now 92 bytes (previously 60). Color factor,
+emissive factor and normal scale offsets are 60, 76 and 88; CPU static assertions and
+shared HLSL declarations guard the layout. Rebuild the renderer and all material-consuming
+shaders together; cached old shaders are incompatible with the new structured-buffer stride.
+
+SceneMaterial defaults remain unit factors and scale=1 to preserve procedural scenes.
+Imported glTF emissive factors default to zero as specified. A glTF material that has
+nonzero emission but no emission texture receives one shared white texture per loaded
+asset, so it does not multiply its factor by the missing-emission black fallback.
+Normal-map scale multiplies tangent-normal XY before world-space normalization.
+Base-color and emission factors multiply decoded linear RGB in PT/GBuffer; no texture
+is modified or duplicated to bake a per-material color factor.
+
+`validate_materials.py` uses two glTF meshes with two materials that share one 1x1 texture.
+The loader flattens them into one mesh while preserving primitive material IDs. It captures
+NormalRoughness, Albedo, emission debug HDR, factor-only emission, and factor-only Albedo.
+The oracle derives standard sRGB decoding, linear factors and independently transformed
+tangent frames. It removes a two-pixel boundary from the hit mask, requires 1000 pixels
+per material and retains both material regions separately. PT guide alpha is hit coverage,
+not the imported material alpha; alpha-mask/blend rendering is still excluded.
+
+Debug MSBuild and the complete CMake Debug build succeeded. CTest passed 24/24 tests;
+Python passed 60/60 tests. Native material tests use RTX 2080 Ti / driver 616.56.
+Results are retained in `path-tracing-validation-results/completion-step-4-materials-summary.json`.
+These debug/input tests do not establish unbiased emissive-surface transport or light sampling.
+
+All five material captures passed with zero D3D12 ERROR/CORRUPTION lines:
+
+| Capture | Maximum absolute error |
+| --- | --- |
+| Normal scale 0.35 / 1.7 | 0.0003344794 |
+| Shared-texture Albedo with different factors | 0.0003593340 |
+| Shared-texture emission with different factors | 0.0000001826 |
+| Factor-only emission | 0.0000000238 |
+| Factor-only Albedo | 0.0003906250 |
+
+The existing procedural input-plane regression also passed: NormalRoughness maximum
+error 0.0004882813 (limit 0.001), Albedo 0.0004450518 (limit 0.0015), with zero D3D12
+errors. This confirms the unit SceneMaterial defaults for the tested fixture, not a
+whole-scene visual equivalence guarantee. Its report is retained as
+`path-tracing-validation-results/completion-step-4-existing-inputs-summary.json`.
 
 ## Reproduction
 
@@ -111,6 +194,7 @@ cmake --build build --config Debug --target RtPbrSurvey.GltfNodeMeshTests
 ctest --test-dir build -C Debug --output-on-failure
 python -B -m unittest discover -s Tests/PathTracing -p 'test_*.py'
 python -B Tests/PathTracing/validate_geometry.py --output bin/PathTracingValidation/geometry-repeat
+python -B Tests/PathTracing/validate_materials.py --output bin/PathTracingValidation/materials-repeat
 ```
 
 Use the freshly built Debug application. Python requires NumPy and Pillow. Generated
