@@ -177,6 +177,14 @@ def analyze(path, marker=False):
     return meta, result
 
 
+def require_numeric_validation(result):
+    check = 'halfPrecisionBoundPassed' if result['resource'] == 'MotionVectors' else 'passed'
+    if not result.get(check, False):
+        raise RuntimeError(f"{result['resource']} numeric validation failed: {check}")
+    if result.get('primaryHitMaterialMismatchCount', 0) != 0:
+        raise RuntimeError('Primary-hit material classification failed')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--packages', type=Path)
@@ -253,6 +261,7 @@ def main():
                 raise RuntimeError('Requested orbit did not produce measurable camera motion')
             record.update(metadata=meta, result=result, sha256=sha(path), logSha256=sha(log), d3d12Errors=0)
             print(name, json.dumps(result), flush=True)
+            require_numeric_validation(result)
         except Exception as error:
             record['failure'] = str(error)
             report['failures'].append(dict(name=name, error=str(error)))

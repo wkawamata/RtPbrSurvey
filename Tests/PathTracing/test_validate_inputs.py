@@ -3,8 +3,10 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 import numpy as np
 from validate_inputs import read_buffer, project, srgb_texture_material, hash_uint, plane_hits, projection_plane_forward
+import validate_inputs
 
 
 class InputTests(unittest.TestCase):
@@ -93,6 +95,51 @@ class InputTests(unittest.TestCase):
         off_axis = points @ ray
         np.testing.assert_array_equal(axis, [5, 5, 5])
         self.assertGreater(np.ptp(off_axis), .9)
+
+    def run_numeric_report(self, result):
+        with tempfile.TemporaryDirectory() as directory:
+            arguments = ['validate_inputs.py', '--analyze-only', '--output', str(Path(directory)/'captures'),
+                '--cases', 'input-plane-'+result['resource']+'-static']
+            with patch('sys.argv', arguments), \
+                patch.object(validate_inputs, 'ROOT', Path(directory)), \
+                patch.object(validate_inputs.subprocess, 'check_output', side_effect=['commit', 'branch', '', 'GPU']), \
+                patch.object(validate_inputs, 'sha', return_value='hash'), \
+                patch.object(Path, 'read_text', return_value=''), \
+                patch.object(validate_inputs, 'analyze', return_value=({}, result)), \
+                patch.object(validate_inputs, 'write_json') as write, \
+                patch('builtins.print'):
+                exit_failure = validate_inputs.main()
+                report = write.call_args.args[1]
+                return exit_failure, report
+
+    def test_numeric_failure_retains_result_and_fails_run(self):
+        for resource in ['NormalRoughness', 'Albedo', 'ViewZ']:
+            with self.subTest(resource=resource):
+                result = dict(resource=resource, passed=False)
+                failure, report = self.run_numeric_report(result)
+                self.assertTrue(failure)
+                self.assertEqual(report['status'], 'incomplete')
+                self.assertEqual(len(report['failures']), 1)
+                self.assertEqual(report['records'][0]['result'], result)
+
+    def test_passing_numeric_capture_completes_run(self):
+        failure, report = self.run_numeric_report(dict(resource='ViewZ', passed=True))
+        self.assertFalse(failure)
+        self.assertEqual(report['status'], 'done')
+        self.assertEqual(report['failures'], [])
+
+    def test_motion_uses_format_bound_and_retains_absolute_diagnostic(self):
+        for format_passed in [True, False]:
+            result = dict(resource='MotionVectors', passed=False, halfPrecisionBoundPassed=format_passed)
+            failure, report = self.run_numeric_report(result)
+            self.assertEqual(failure, not format_passed)
+            self.assertFalse(report['records'][0]['result']['passed'])
+
+    def test_material_mismatch_fails_otherwise_passing_capture(self):
+        failure, report = self.run_numeric_report(dict(resource='Albedo', passed=True,
+            primaryHitMaterialMismatchCount=1))
+        self.assertTrue(failure)
+        self.assertEqual(report['status'], 'incomplete')
 
 
 if __name__ == '__main__':

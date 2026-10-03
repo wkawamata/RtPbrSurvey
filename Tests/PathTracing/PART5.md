@@ -59,6 +59,8 @@ python -B Tests/PathTracing/summarize_inputs.py --output bin/PathTracingValidati
 
 `--packages` accepts an existing local package directory. Use fresh output directories. `--cases input-shifted-ViewZ-static` isolates the depth reproduction. The raw script logs and retains process failures, timeouts and D3D12 errors and rejects a requested moving capture with zero expected motion. `--analyze-only` recomputes metrics from captures; use it only with the same executable/source provenance as the saved cohort. Source/executable hashes, full commands and scene/preset hashes accompany each final result.
 
+Numeric comparison failures also produce `status: incomplete` and a nonzero exit code, retaining the measured result in the failed record. NormalRoughness, Albedo and ViewZ use their declared numeric tolerance; Albedo also requires zero primary-hit material mismatches. MotionVectors use `halfPrecisionBoundPassed`, while the older absolute-threshold result remains a diagnostic. This policy applies to both new captures and `--analyze-only` runs.
+
 Final plan: 16 static captures (four resources x four scenes) and four camera-orbit motion captures. Seed 7; captureAfterFrames 30; 8 degrees over the last 8 frames. Output dimensions are recorded per capture (1920x1080 on this machine). Numeric ROI is x/y in [16,dimension-16), stride 4; all full-buffer values must be finite. Initial smoke and nonmoving pilot remain under ignored part5-smoke, part5-inputs and part5-orbit-smoke, with their limitations preserved above.
 
 ## Retained preview failure and minimal correction
