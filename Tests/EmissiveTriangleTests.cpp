@@ -147,6 +147,27 @@ void TestInvalidAndDegenerate()
     Require(Engine::BuildEmissiveTriangleTable(scene).triangles.empty());
 }
 
+void TestGpuSerialization()
+{
+    Engine::SceneMesh mesh = Mesh();
+    Engine::Scene scene;
+    scene.mesh = &mesh;
+    scene.instances = {Instance(DirectX::XMMatrixIdentity()), Instance(DirectX::XMMatrixScaling(2, 3, 4))};
+    Engine::EmissiveTriangleTable table = Engine::BuildEmissiveTriangleTable(scene);
+    const auto gpu = Engine::SerializeEmissiveTriangleTable(table);
+    Require(gpu.size() == 2 && sizeof(gpu[0]) == 88);
+    Require(gpu[0].area == .5f && gpu[1].area == 3);
+    Require(gpu[0].selectionPdf == gpu[0].cumulativeProbability);
+    Require(gpu[1].selectionPdf == 1.0f - gpu[0].cumulativeProbability);
+    Require(gpu[1].instanceId == 1 && gpu[1].materialId == 0);
+    Require(Engine::SerializeEmissiveTriangleTable({}).empty());
+    table.triangles[0].cumulativeProbability = 1.0 - 1e-10;
+    Reject([&] { Engine::SerializeEmissiveTriangleTable(table); });
+    table = Engine::BuildEmissiveTriangleTable(scene);
+    table.triangles[0].area = 1e100;
+    Reject([&] { Engine::SerializeEmissiveTriangleTable(table); });
+}
+
 } // namespace
 
 int main()
@@ -156,6 +177,7 @@ int main()
         TestInstances();
         TestRanges();
         TestInvalidAndDegenerate();
+        TestGpuSerialization();
     }
     catch (const std::exception& error)
     {

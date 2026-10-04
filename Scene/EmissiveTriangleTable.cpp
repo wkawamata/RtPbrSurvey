@@ -3,11 +3,19 @@
 #include "EmissiveTriangleTable.h"
 
 #include <cmath>
+#include <cstddef>
 #include <limits>
 #include <stdexcept>
 
 namespace Engine
 {
+static_assert(sizeof(EmissiveTriangleGpu) == 88);
+static_assert(offsetof(EmissiveTriangleGpu, area) == 12);
+static_assert(offsetof(EmissiveTriangleGpu, cumulativeProbability) == 28);
+static_assert(offsetof(EmissiveTriangleGpu, selectionPdf) == 44);
+static_assert(offsetof(EmissiveTriangleGpu, uvs) == 48);
+static_assert(offsetof(EmissiveTriangleGpu, instanceId) == 72);
+static_assert(offsetof(EmissiveTriangleGpu, materialId) == 80);
 namespace
 {
 
@@ -183,6 +191,45 @@ EmissiveTriangleTable BuildEmissiveTriangleTable(const Scene& scene)
     if (!result.triangles.empty())
     {
         result.triangles.back().cumulativeProbability = 1.0;
+    }
+    return result;
+}
+
+std::vector<EmissiveTriangleGpu> SerializeEmissiveTriangleTable(const EmissiveTriangleTable& table)
+{
+    std::vector<EmissiveTriangleGpu> result;
+    result.reserve(table.triangles.size());
+    float previous = 0.0f;
+    for (size_t index = 0; index < table.triangles.size(); ++index)
+    {
+        const EmissiveTriangle& source = table.triangles[index];
+        EmissiveTriangleGpu triangle;
+        triangle.position0 = source.positions[0];
+        triangle.position1 = source.positions[1];
+        triangle.position2 = source.positions[2];
+        triangle.area = static_cast<float>(source.area);
+        triangle.cumulativeProbability = static_cast<float>(source.cumulativeProbability);
+        if (index + 1 == table.triangles.size())
+        {
+            if (source.cumulativeProbability != 1.0)
+            {
+                throw std::invalid_argument("Emitter CDF must terminate at one.");
+            }
+            triangle.cumulativeProbability = 1.0f;
+        }
+        triangle.selectionPdf = triangle.cumulativeProbability - previous;
+        if (!std::isfinite(triangle.area) || triangle.area <= 0.0f ||
+            !std::isfinite(triangle.cumulativeProbability) || triangle.cumulativeProbability > 1.0f ||
+            triangle.selectionPdf <= 0.0f)
+        {
+            throw std::invalid_argument("Emitter area/CDF is not representable by the GPU float distribution.");
+        }
+        triangle.uvs = source.uvs;
+        triangle.instanceId = source.instanceId;
+        triangle.primitiveIndex = source.primitiveIndex;
+        triangle.materialId = source.materialId;
+        previous = triangle.cumulativeProbability;
+        result.push_back(triangle);
     }
     return result;
 }

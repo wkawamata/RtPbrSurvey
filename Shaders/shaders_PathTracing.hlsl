@@ -65,6 +65,7 @@ cbuffer PathTracingConstants : register(b1)
 
 #include "SceneRayQuery.hlsli"
 #include "PathTracingSampling.hlsli"
+#include "EmissiveTriangleSampling.hlsli"
 #include "PathTracingDirectLightAdapter.hlsli"
 
 static const uint kInstanceDataPreviousWorldOffset = 64;

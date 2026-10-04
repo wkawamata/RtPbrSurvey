@@ -291,6 +291,7 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         CSMain
         "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingSampling.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/EmissiveTriangleSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDirectLightAdapter.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")

@@ -11,6 +11,7 @@ Base: `f9a2724`
 - [x] Add independent area quadrature and reference unit tests.
 - [x] Complete the BSDF-only native GPU baseline and emission-off control.
 - [x] Build an instance-aware CPU emissive-triangle sampling table.
+- [x] Define GPU record serialization and compile sampling/PDF helpers.
 - [ ] Serialize/upload the table and add GPU sampling/PDF lookup.
 - [ ] Add area-sampled NEE with finite endpoint visibility.
 - [ ] Add matching BSDF-hit MIS and explicit sampling modes.
@@ -121,6 +122,28 @@ non-indexed geometry, zero/missing/partly black emission textures, disjoint text
 channels, degenerate geometry and invalid geometry/material/texture/transform inputs.
 No new GPU capture is needed for this unconnected CPU-only batch; GPU integration
 must be validated separately before claiming runtime behavior.
+
+## GPU format and sampling helpers
+
+Base: `b7cdba3`. `EmissiveTriangleGpu` is an 88-byte structured-buffer record.
+Static assertions guard area/CDF/PDF/UV/identity offsets at 12/28/44/48/72 bytes.
+`SerializeEmissiveTriangleTable` converts the double-precision CPU distribution
+to float, derives selectionPdf from the actual float CDF interval width and fixes
+the last CDF endpoint at one. Zero-width float intervals and unrepresentable areas
+are rejected, not silently removed or assigned an unrelated ideal probability.
+The shader declaration matches the CPU fields without double values or pointers.
+
+`EmissiveTriangleSampling.hlsli` adds upper-bound CDF selection (return=count means
+no selection), square-root barycentrics and the one-sided area-to-solid-angle PDF.
+Selection input must be in [0,1); random barycentric inputs must be in [0,1).
+The geometric normal follows the cross product used by SceneRayQuery. Degenerate,
+back-facing or nonfinite PDF configurations return zero. This helper is compiled
+through the PT shader include; it is not yet called by TracePath.
+
+Serialization tests cover the 1:6 area distribution, exact float-interval PDFs,
+identity/stride, empty tables, collapsed float CDF intervals and overflowing area.
+GPU upload, per-frame ownership, runtime refresh/reset and native shader-output
+validation remain open. There is no new root binding or emission contribution yet.
 
 ## Implementation batches
 
