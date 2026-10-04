@@ -10,7 +10,8 @@ Base: `f9a2724`
 - [x] Add a constant, opaque, one-sided rectangle-emitter fixture.
 - [x] Add independent area quadrature and reference unit tests.
 - [x] Complete the BSDF-only native GPU baseline and emission-off control.
-- [ ] Build an instance-aware emissive-triangle sampling table.
+- [x] Build an instance-aware CPU emissive-triangle sampling table.
+- [ ] Serialize/upload the table and add GPU sampling/PDF lookup.
 - [ ] Add area-sampled NEE with finite endpoint visibility.
 - [ ] Add matching BSDF-hit MIS and explicit sampling modes.
 - [ ] Validate mean agreement, occlusion, multiple emitters and convergence.
@@ -88,6 +89,38 @@ This validates the existing two-segment BSDF-only baseline, not yet the new NEE/
 8. Rebuild/refit the table for geometry, instance transform, material or emission changes;
    these changes reset accumulation. Do not reuse an old area/PDF after a transform edit.
    Environment MIS PDFs and analytic-light delta semantics are not modified by this table.
+
+## CPU table follow-up
+
+Base: `49e541c`. `Scene/EmissiveTriangleTable.h/.cpp` adds a pure extraction API
+without changing the rendering path. Each record preserves world vertices, UVs,
+instance ID, primitive index, resolved material ID, double-precision area, area-weighted
+selection PDF and CDF. Matrices are transposed back from InstanceData GPU storage
+before transforming vertices. Indexed ranges use the scene's absolute vertex indices;
+non-indexed ranges use firstVertex. The material is resolved from the first vertex
+or the instance sentinel, matching SceneRayQuery.
+
+Potential emission checks the texture RGB against positive emission-factor channels;
+a partially black texture remains eligible. Missing textures use the renderer's black
+fallback semantics. glTF factor-only emitters already receive a white texture during
+import. Invalid references, malformed RGBA8 data, nonfinite/negative emission parameters,
+nonfinite/projective transforms and incomplete triangles are rejected. Zero-area
+triangles are skipped. Runtime mirrored or singular instance transforms are explicitly
+rejected by this initial table policy; baked glTF mirrors use their corrected geometry
+with a positive instance transform and are not rejected on that basis.
+
+The CPU table is not a GPU ABI. GPU serialization, float-CDF precision policy,
+resource lifetime, update/reset hooks and shader binding remain for the next batch.
+No emitter buffer is uploaded and no NEE/MIS is enabled by this change.
+
+Debug x64 MSBuild succeeded after a local Windows max-macro compatibility repair.
+CMake built the emitter test target; CTest passed 25/25, including the new test.
+Python remained 70/70. Tests cover shared mesh instances with area ratio 1:6,
+nonuniform transform/translation, separate mesh ranges and material remapping,
+non-indexed geometry, zero/missing/partly black emission textures, disjoint texture/factor
+channels, degenerate geometry and invalid geometry/material/texture/transform inputs.
+No new GPU capture is needed for this unconnected CPU-only batch; GPU integration
+must be validated separately before claiming runtime behavior.
 
 ## Implementation batches
 

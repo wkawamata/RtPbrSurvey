@@ -327,6 +327,8 @@
     <ClCompile Include="Scene\SceneGraph.cpp" />
     <ClCompile Include="Scene\ProceduralSceneBuilder.cpp" />
     <ClCompile Include="Scene\SceneBuilder.cpp" />
+    <ClCompile Include="Scene\EmissiveTriangleTable.cpp" />
+    <ClInclude Include="Scene\EmissiveTriangleTable.h" />
     <ClCompile Include="Scene\SceneFactory.cpp" />
     <ClCompile Include="Scene\SampleScene.cpp" />
     <ClCompile Include="Ui\DebugUiPreferences.cpp" />

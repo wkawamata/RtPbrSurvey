@@ -122,6 +122,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     App/RenderPresetStore.cpp
     Scene/ProceduralSceneBuilder.cpp
     Scene/SceneBuilder.cpp
+    Scene/EmissiveTriangleTable.cpp
     Scene/SceneDocumentJson.cpp
     Scene/SceneDocumentBuilder.cpp
     Scene/SceneDocumentRuntimeScene.cpp
@@ -513,6 +514,10 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.SceneBuilderMeshTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.SceneBuilderMesh COMMAND RtPbrSurvey.SceneBuilderMeshTests)
+
+    add_executable(RtPbrSurvey.EmissiveTriangleTests Tests/EmissiveTriangleTests.cpp)
+    target_link_libraries(RtPbrSurvey.EmissiveTriangleTests PRIVATE RtPbrSurvey::SceneRenderer)
+    add_test(NAME RtPbrSurvey.EmissiveTriangle COMMAND RtPbrSurvey.EmissiveTriangleTests)
 
     add_executable(RtPbrSurvey.GltfNodeMeshTests
         Tests/GltfNodeMeshTests.cpp)
