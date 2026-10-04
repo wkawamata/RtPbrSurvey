@@ -299,17 +299,17 @@ float TraceShadow(float3 worldPosition, float3 normal, PathTracingLightSample li
     return query.CommittedStatus() == COMMITTED_TRIANGLE_HIT ? 0.0 : 1.0;
 }
 
-bool IsSampledEmitter(uint instanceId, uint primitiveIndex)
+uint FindSampledEmitter(uint instanceId, uint primitiveIndex)
 {
     for (uint i = 0; i < emissiveTriangleCount; ++i)
     {
         const EmissiveTriangleGpu emitter = g_emissiveTriangles[i];
         if (emitter.instanceId == instanceId && emitter.primitiveIndex == primitiveIndex)
         {
-            return true;
+            return i;
         }
     }
-    return false;
+    return emissiveTriangleCount;
 }
 
 float TraceEmitterVisibility(float3 origin, float3 direction, float distance, EmissiveTriangleGpu emitter)
@@ -350,7 +350,7 @@ float3 TracePath(uint2 pixel,
     float previousBsdfPdf = 0.0;
     float previousEnvironmentPdf = 0.0;
     bool previousEmissiveNeeActive = false;
-    const bool emissiveNeeEnabled = emissiveSamplingMode == 1 && emissiveEnabled != 0 &&
+    const bool emissiveNeeEnabled = emissiveSamplingMode >= 1 && emissiveEnabled != 0 &&
         shadowEnabled != 0 && emissiveTriangleCount != 0;
     const bool environmentMisEnabled = environmentSamplingMode >= 5 && shadowEnabled != 0;
 
@@ -464,8 +464,18 @@ float3 TracePath(uint2 pixel,
 
         if (emissiveEnabled != 0)
         {
-            const float emissionWeight = bounce > 0 && previousEmissiveNeeActive &&
-                IsSampledEmitter(instanceId, primitiveIndex) ? 0.0 : 1.0;
+            float emissionWeight = 1.0;
+            if (bounce > 0 && previousEmissiveNeeActive)
+            {
+                const uint emitterIndex = FindSampledEmitter(instanceId, primitiveIndex);
+                if (emitterIndex < emissiveTriangleCount)
+                {
+                    const float lightPdf = EmissiveTriangleSolidAnglePdf(
+                        g_emissiveTriangles[emitterIndex], ray.Origin, hitPosition);
+                    emissionWeight = emissiveSamplingMode == 2 ?
+                        PathTracingPowerHeuristic(previousBsdfPdf, lightPdf) : 0.0;
+                }
+            }
             const float3 contribution = throughput * hitMaterial.emissive * emissionWeight;
             radiance += contribution;
             if (bounce == 0 || !primarySpecularPath)
@@ -545,7 +555,11 @@ float3 TracePath(uint2 pixel,
                     if (candidate.valid != 0)
                     {
                         const float visibility = TraceEmitterVisibility(origin, lightSample.direction, distance, emitter);
-                        const float3 lighting = emission * (candidate.normalDotLight * visibility / lightPdf);
+                        const float bsdfPdf = EvaluatePathTracingBsdfPdf(hitMaterial.albedo, hitMaterial.metallic,
+                            hitMaterial.roughness, hitNormal, -ray.Direction, lightSample.direction);
+                        const float misWeight = emissiveSamplingMode == 2 ?
+                            PathTracingPowerHeuristic(lightPdf, bsdfPdf) : 1.0;
+                        const float3 lighting = emission * (candidate.normalDotLight * visibility * misWeight / lightPdf);
                         const float3 diffuseContribution = throughput * candidate.diffuseBrdf * lighting;
                         const float3 specularContribution = throughput * candidate.specularBrdf * lighting;
                         const float3 contribution = diffuseContribution + specularContribution;

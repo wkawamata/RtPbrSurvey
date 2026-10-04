@@ -225,7 +225,7 @@ previous vertex. Primary-visible emission, unlit surfaces and non-table emitters
 remain visible. Empty/unavailable tables and disabled shadows retain BSDF-only
 transport rather than suppressing emission without a matching estimator.
 
-This batch is not MIS. Shadow-off/empty-table fallback, nonuniform textures,
+The validated NEE-only batch does not establish MIS correctness. Shadow-off/empty-table fallback, nonuniform textures,
 many emitters, tiny emitters, back-facing and beyond-endpoint blocker campaigns
 remain targets for the next expanded validation batch.
 
@@ -249,13 +249,32 @@ python -B Tests/PathTracing/validate_emissive.py --output bin/PathTracingValidat
 1. [x] Baseline reference and diagnostics.
 2. [x] CPU emitter extraction, stable identity and GPU table plumbing, with tests for
    shared BLAS instances, separate mesh ranges, mirrored baked nodes and unequal areas.
-3. [*] NEE-only finite visibility is complete; paired MIS with BSDF-hit PDF evaluation is next.
+3. [*] NEE-only finite visibility is validated; paired MIS is implemented but GPU validation is pending.
 4. [ ] Expanded multi-seed GPU comparisons of BSDF-only/NEE-only/MIS, blocked/off/back-facing controls,
    small/large emitters, multiple unequal emitters and texture modulation. Compare
    means before accepting variance reduction. Keep environment and analytic lights off
    for isolated tests, then run a combined-lighting regression.
 
 ## Reproduction
+
+### MIS integration checkpoint
+
+Mode 2 is exposed as `MIS (BSDF + NEE)` in both the normal PT UI and Scene Editor.
+NEE samples use the power heuristic with the full triangle-selection/solid-angle
+PDF and the existing mixture BSDF PDF. BSDF hits identify the corresponding table
+record and evaluate the complementary weight from the continuation ray origin
+and hit position. Primary-visible/non-table emission and fallback policies remain
+unchanged. The comparison runner accepts modes 0/1/2 and reports paired seed-mean
+agreement in addition to the independent reference comparison.
+
+Scene Editor now exposes Path Tracing, accumulation, samples/frame, bounce budget,
+lighting toggles, emissive sampling, output selection, shadows and reset. Changes
+mark the render preset modified; persistence still requires explicit Save Preset.
+
+The MIS shader and engine were Debug-built successfully before the final UI-label
+edits. The final UI edits passed C++ compilation and Python tests passed 71/71.
+MIS multi-seed native captures and updated CTest have not yet been run at this
+checkpoint. Do not treat the earlier NEE evidence as MIS validation.
 
 ```powershell
 python -B -m unittest discover -s Tests/PathTracing -p 'test_*.py'

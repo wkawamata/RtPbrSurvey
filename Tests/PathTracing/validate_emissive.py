@@ -14,7 +14,7 @@ import numpy as np
 from compare_hdr import capture
 from validate_part1 import sha, write_json
 from validate_inputs import srgb_texture_material
-from validate_transport import reference_agreement
+from validate_transport import reference_agreement, paired_agreement
 
 ROOT = Path(__file__).resolve().parents[2]
 EMISSION = np.array([.8, .4, .2])
@@ -122,7 +122,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--samples', type=int, default=64)
     parser.add_argument('--require-emitter-table', action='store_true')
-    parser.add_argument('--modes', type=int, nargs='+', choices=[0, 1], default=[0])
+    parser.add_argument('--modes', type=int, nargs='+', choices=[0, 1, 2], default=[0])
     parser.add_argument('--visibility-controls', action='store_true')
     parser.add_argument('--seeds', type=int, nargs='+', default=[11, 23, 37, 53])
     args = parser.parse_args()
@@ -149,6 +149,7 @@ def main():
         scene_file=output/'scene.json', render_preset=output/'preset.json', output=output, timeout=300, roi=ROI)
     try:
         agreements = {}
+        mode_means = {}
         for mode in dict.fromkeys(args.modes):
             means = []
             preset['pathTracing']['emissiveSamplingMode'] = mode
@@ -169,8 +170,11 @@ def main():
                 report['records'].append(record)
                 write_json(output/'report.json', report)
             agreements[str(mode)] = reference_agreement(means, oracle)
+            mode_means[mode] = means
         report['agreements'] = agreements
         report['agreement'] = agreements[str(args.modes[0])]
+        report['pairedAgreements'] = {str(mode): paired_agreement(mode_means[args.modes[0]], means)
+            for mode, means in mode_means.items() if mode != args.modes[0]}
         zero_controls = []
         if args.visibility_controls:
             write_json(output/'scene.json', blocked_scene(scene))
@@ -182,7 +186,7 @@ def main():
                 report['blockedControls'].append(dict(capture=record, maximum=float(max(abs(v) for v in pixels))))
             zero_controls.extend(report['blockedControls'])
             write_json(output/'scene.json', scene)
-            preset['pathTracing'].update(maxBounces=1, emissiveSamplingMode=1)
+            preset['pathTracing'].update(maxBounces=1, emissiveSamplingMode=args.modes[-1])
             write_json(output/'preset.json', preset)
             record, pixels = capture(request, 0, args.seeds[0], args.samples, 'one-bounce')
             report['oneBounceControl'] = dict(capture=record, maximum=float(max(abs(v) for v in pixels)))
@@ -206,7 +210,8 @@ def main():
             raise ValueError('Emission-off control was not disabled')
         report['offControl'] = dict(capture=record, maximum=float(max(abs(v) for v in pixels)))
         controls = [report['offControl']] + zero_controls
-        statuses = [value['status'] for value in agreements.values()]
+        statuses = [value['status'] for value in agreements.values()] + [
+            value['status'] for value in report['pairedAgreements'].values()]
         report['status'] = ('passed' if all(status == 'passed' for status in statuses) else
             'failed' if 'failed' in statuses else 'inconclusive')
         if any(control['maximum'] >= 1e-7 for control in controls):
@@ -216,7 +221,8 @@ def main():
     except Exception as error:
         report.update(status='failed', failure=str(error))
     write_json(output/'report.json', report)
-    print(json.dumps({k: v for k, v in report.items() if k in ['status', 'agreement', 'failure']}), flush=True)
+    print(json.dumps({k: v for k, v in report.items() if k in [
+        'status', 'agreements', 'pairedAgreements', 'failure']}), flush=True)
     return report['status'] != 'passed'
 
 

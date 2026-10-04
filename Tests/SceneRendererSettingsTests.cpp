@@ -37,7 +37,7 @@ bool TestRoundTrip()
     source.pathTracing.directLightingEnabled = false;
     source.pathTracing.environmentEnabled = false;
     source.pathTracing.environmentSamplingMode = 7;
-    source.pathTracing.emissiveSamplingMode = 1;
+    source.pathTracing.emissiveSamplingMode = 2;
     source.pathTracing.emissiveEnabled = false;
     source.pathTracing.russianRouletteEnabled = true;
     source.pathTracing.debugOutput = RtPbrSurveyEngine::PathTracingDebugOutput::WorldNormal;
@@ -221,7 +221,7 @@ bool TestPathTracingValuesAreBounded()
         Check(RtPbrSurvey::DeserializeSceneRendererSettings(invalidValues, settings), "bounded settings deserialize");
     passed &= Check(settings.pathTracing.samplesPerFrame == 1, "samples per frame is clamped");
     passed &= Check(settings.pathTracing.maxBounces == 16, "max bounces is clamped");
-    passed &= Check(settings.pathTracing.emissiveSamplingMode == 1, "emissive sampling mode is clamped");
+    passed &= Check(settings.pathTracing.emissiveSamplingMode == 2, "emissive sampling mode is clamped");
     passed &= Check(settings.renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred,
                     "invalid rendering path keeps default");
     return passed;
