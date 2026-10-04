@@ -37,6 +37,7 @@ bool TestRoundTrip()
     source.pathTracing.directLightingEnabled = false;
     source.pathTracing.environmentEnabled = false;
     source.pathTracing.environmentSamplingMode = 7;
+    source.pathTracing.emissiveSamplingMode = 1;
     source.pathTracing.emissiveEnabled = false;
     source.pathTracing.russianRouletteEnabled = true;
     source.pathTracing.debugOutput = RtPbrSurveyEngine::PathTracingDebugOutput::WorldNormal;
@@ -81,6 +82,7 @@ bool TestRoundTrip()
                         restored.pathTracing.directLightingEnabled == source.pathTracing.directLightingEnabled &&
                         restored.pathTracing.environmentEnabled == source.pathTracing.environmentEnabled &&
                         restored.pathTracing.environmentSamplingMode == source.pathTracing.environmentSamplingMode &&
+                        restored.pathTracing.emissiveSamplingMode == source.pathTracing.emissiveSamplingMode &&
                         restored.pathTracing.emissiveEnabled == source.pathTracing.emissiveEnabled &&
                         restored.pathTracing.russianRouletteEnabled == source.pathTracing.russianRouletteEnabled &&
                         restored.pathTracing.debugOutput == source.pathTracing.debugOutput,
@@ -213,12 +215,13 @@ bool TestMultipleLightsAndInvalidInputs()
 bool TestPathTracingValuesAreBounded()
 {
     RtPbrSurvey::SceneRendererSettings settings;
-    const std::string invalidValues = R"({"pathTracing":{"samplesPerFrame":0,"maxBounces":99},"renderingPath":99})";
+    const std::string invalidValues = R"({"pathTracing":{"samplesPerFrame":0,"maxBounces":99,"emissiveSamplingMode":99},"renderingPath":99})";
 
     bool passed =
         Check(RtPbrSurvey::DeserializeSceneRendererSettings(invalidValues, settings), "bounded settings deserialize");
     passed &= Check(settings.pathTracing.samplesPerFrame == 1, "samples per frame is clamped");
     passed &= Check(settings.pathTracing.maxBounces == 16, "max bounces is clamped");
+    passed &= Check(settings.pathTracing.emissiveSamplingMode == 1, "emissive sampling mode is clamped");
     passed &= Check(settings.renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred,
                     "invalid rendering path keeps default");
     return passed;

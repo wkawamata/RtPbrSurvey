@@ -1,6 +1,7 @@
-"""Establish an independent area-light reference for the existing BSDF-only PT estimator."""
+"""Compare emissive estimators with an independent area-light reference and visibility controls."""
 import argparse
 import base64
+import copy
 import json
 import math
 from pathlib import Path
@@ -108,11 +109,21 @@ def fixture(output):
     return scene, preset
 
 
+def blocked_scene(scene):
+    result = copy.deepcopy(scene)
+    result['nodes'].append(dict(id='blocker', name='blocker', type='primitive', parentId=None,
+        translation=[0, 1.5, 0], rotation=[0, 0, 0, 1], scale=[4, .1, 4], visible=True,
+        primitive=dict(kind='cube', size=1), materialId='dielectric'))
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--samples', type=int, default=64)
     parser.add_argument('--require-emitter-table', action='store_true')
+    parser.add_argument('--modes', type=int, nargs='+', choices=[0, 1], default=[0])
+    parser.add_argument('--visibility-controls', action='store_true')
     parser.add_argument('--seeds', type=int, nargs='+', default=[11, 23, 37, 53])
     args = parser.parse_args()
     if not 1 <= args.samples <= 4096 or len(set(args.seeds)) < 4 or len(set(args.seeds)) != len(args.seeds):
@@ -137,29 +148,71 @@ def main():
     request = SimpleNamespace(root=ROOT, exe=ROOT/'bin/x64/Debug/RtPbrSurvey.exe',
         scene_file=output/'scene.json', render_preset=output/'preset.json', output=output, timeout=300, roi=ROI)
     try:
-        means = []
-        for seed in args.seeds:
-            record, pixels = capture(request, 0, seed, args.samples, 'bsdf-seed-'+str(seed))
-            diagnostic = record['diagnostics']
-            if args.require_emitter_table and (diagnostic.get('emissiveTriangleCount') != 2 or
-                    diagnostic.get('emissiveTableStatus') != 'ready'):
-                raise ValueError('Expected two uploaded emitter triangles')
-            if (not diagnostic['emissiveEnabled'] or diagnostic['environmentEnabled'] or
-                    diagnostic['directLightingEnabled'] or diagnostic['maxBounces'] != 2):
-                raise ValueError('Wrong lighting settings')
-            mean = statistics.mean(pixels)
-            record.update(mean=mean, presetSha256=sha(output/'preset.json'))
-            means.append(mean)
-            report['records'].append(record)
-            write_json(output/'report.json', report)
-        report['agreement'] = reference_agreement(means, oracle)
+        agreements = {}
+        for mode in dict.fromkeys(args.modes):
+            means = []
+            preset['pathTracing']['emissiveSamplingMode'] = mode
+            write_json(output/'preset.json', preset)
+            for seed in args.seeds:
+                record, pixels = capture(request, 0, seed, args.samples, f'mode-{mode}-seed-{seed}')
+                diagnostic = record['diagnostics']
+                if args.require_emitter_table and (diagnostic.get('emissiveTriangleCount') != 2 or
+                        diagnostic.get('emissiveTableStatus') != 'ready'):
+                    raise ValueError('Expected two uploaded emitter triangles')
+                if (not diagnostic['emissiveEnabled'] or diagnostic['environmentEnabled'] or
+                        diagnostic['directLightingEnabled'] or diagnostic['maxBounces'] != 2 or
+                        diagnostic.get('emissiveSamplingMode') != mode):
+                    raise ValueError('Wrong lighting settings')
+                mean = statistics.mean(pixels)
+                record.update(mean=mean, emissiveSamplingMode=mode, presetSha256=sha(output/'preset.json'))
+                means.append(mean)
+                report['records'].append(record)
+                write_json(output/'report.json', report)
+            agreements[str(mode)] = reference_agreement(means, oracle)
+        report['agreements'] = agreements
+        report['agreement'] = agreements[str(args.modes[0])]
+        zero_controls = []
+        if args.visibility_controls:
+            write_json(output/'scene.json', blocked_scene(scene))
+            report['blockedControls'] = []
+            for mode in dict.fromkeys(args.modes):
+                preset['pathTracing']['emissiveSamplingMode'] = mode
+                write_json(output/'preset.json', preset)
+                record, pixels = capture(request, 0, args.seeds[0], args.samples, f'blocked-mode-{mode}')
+                report['blockedControls'].append(dict(capture=record, maximum=float(max(abs(v) for v in pixels))))
+            zero_controls.extend(report['blockedControls'])
+            write_json(output/'scene.json', scene)
+            preset['pathTracing'].update(maxBounces=1, emissiveSamplingMode=1)
+            write_json(output/'preset.json', preset)
+            record, pixels = capture(request, 0, args.seeds[0], args.samples, 'one-bounce')
+            report['oneBounceControl'] = dict(capture=record, maximum=float(max(abs(v) for v in pixels)))
+            zero_controls.append(report['oneBounceControl'])
+            primary_scene = copy.deepcopy(scene)
+            primary_scene['camera'].update(position=[0, .1, 0], target=[0, HEIGHT, 0], up=[0, 0, 1])
+            write_json(output/'scene.json', primary_scene)
+            report['primaryControls'] = []
+            for mode in dict.fromkeys(args.modes):
+                preset['pathTracing']['emissiveSamplingMode'] = mode
+                write_json(output/'preset.json', preset)
+                record, pixels = capture(request, 0, args.seeds[0], args.samples, f'primary-mode-{mode}')
+                maximum_error = float(np.max(np.abs(np.asarray(pixels).reshape(-1, 3) - EMISSION)))
+                report['primaryControls'].append(dict(capture=record, maximumError=maximum_error))
+            write_json(output/'scene.json', scene)
+            preset['pathTracing']['maxBounces'] = 2
         preset['pathTracing']['emissiveEnabled'] = False
         write_json(output/'preset.json', preset)
         record, pixels = capture(request, 0, args.seeds[0], args.samples, 'emission-off')
         if record['diagnostics']['emissiveEnabled']:
             raise ValueError('Emission-off control was not disabled')
         report['offControl'] = dict(capture=record, maximum=float(max(abs(v) for v in pixels)))
-        report['status'] = report['agreement']['status'] if report['offControl']['maximum'] < 1e-7 else 'failed'
+        controls = [report['offControl']] + zero_controls
+        statuses = [value['status'] for value in agreements.values()]
+        report['status'] = ('passed' if all(status == 'passed' for status in statuses) else
+            'failed' if 'failed' in statuses else 'inconclusive')
+        if any(control['maximum'] >= 1e-7 for control in controls):
+            report['status'] = 'failed'
+        if any(control['maximumError'] >= 1e-5 for control in report.get('primaryControls', [])):
+            report['status'] = 'failed'
     except Exception as error:
         report.update(status='failed', failure=str(error))
     write_json(output/'report.json', report)

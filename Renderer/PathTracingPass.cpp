@@ -37,7 +37,8 @@ struct PathTracingShaderConstants
     UINT environmentSamplingMode;
     std::array<float, 4> backgroundColor;
     UINT emissiveTriangleCount;
-    std::array<UINT, 3> padding;
+    UINT emissiveSamplingMode;
+    std::array<UINT, 2> padding;
 };
 
 static_assert(sizeof(PathTracingShaderConstants) == 36 * sizeof(UINT));
@@ -114,6 +115,7 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
         desc.environmentSamplingMode,
         desc.backgroundColor,
         desc.emissiveTriangleCount,
+        desc.emissiveSamplingMode,
         {},
     };
     commandList->SetComputeRoot32BitConstants(17, 36, &constants, 0);

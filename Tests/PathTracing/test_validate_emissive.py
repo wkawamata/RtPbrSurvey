@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from validate_emissive import rectangle_integral, reference, fixture
+from validate_emissive import rectangle_integral, reference, fixture, blocked_scene
 from pathlib import Path
 import tempfile
 
@@ -25,6 +25,13 @@ class EmissiveReferenceTests(unittest.TestCase):
             self.assertGreater(value['mean'], 0)
             self.assertLess(value['quadratureRelativeChange'], .002)
             self.assertFalse(preset['pathTracing']['environmentEnabled'])
+
+    def test_blocker_does_not_mutate_original_fixture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            scene, _ = fixture(Path(directory))
+            blocked = blocked_scene(scene)
+            self.assertEqual(len(blocked['nodes']), len(scene['nodes']) + 1)
+            self.assertEqual(blocked['nodes'][-1]['translation'], [0, 1.5, 0])
 
 
 if __name__ == '__main__':

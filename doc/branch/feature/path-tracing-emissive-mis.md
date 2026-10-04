@@ -199,11 +199,58 @@ the upcoming NEE/MIS integration.
 
 ## Implementation batches
 
-1. Baseline reference and diagnostics (current batch).
-2. CPU emitter extraction, stable identity and GPU table plumbing, with tests for
+### NEE-only integration
+
+`emissiveSamplingMode` is persisted in renderer settings: 0 is the unchanged
+BSDF-only default and 1 is NEE-only. The PT UI exposes both modes; changing the
+mode resets accumulation. Capture diagnostics record the effective setting.
+The new value occupies an existing padding word, keeping 36 root constants and
+the 60-DWORD root-signature budget unchanged.
+
+NEE selects an uploaded triangle using its float CDF, samples uniform area via
+square-root barycentrics and evaluates the same textured emission/UV transform
+as BSDF hits. Its solid-angle PDF includes both triangle selection probability
+and the area-to-solid-angle Jacobian. Evaluation uses the continuation ray's
+normal-offset origin and the existing diffuse/GGX mixture BRDF.
+
+Visibility traces only to the sampled endpoint (one float ULP expansion, capped
+by rayTMax), with the same back-face policy as BSDF continuation. A closest hit
+on the selected instance/primitive is the light endpoint, not an occluder; a
+different closest hit blocks it. No fixed world-unit endpoint subtraction or
+blanket exclusion of all triangles belonging to the emitting object is used.
+
+NEE runs only if an additional path segment fits the bounce budget. Secondary
+emission from table members is suppressed only when NEE was active at the
+previous vertex. Primary-visible emission, unlit surfaces and non-table emitters
+remain visible. Empty/unavailable tables and disabled shadows retain BSDF-only
+transport rather than suppressing emission without a matching estimator.
+
+This batch is not MIS. Shadow-off/empty-table fallback, nonuniform textures,
+many emitters, tiny emitters, back-facing and beyond-endpoint blocker campaigns
+remain targets for the next expanded validation batch.
+
+Debug MSBuild and CMake succeeded; CTest passed 25/25 and Python tests 71/71.
+On RTX 2080 Ti, the 64 spp / four-seed campaign passed for both estimators:
+BSDF mean 0.0555422220 (0.3278% reference difference), NEE mean 0.0556517462
+(0.1313% difference), independent reference 0.0557248885. Four-standard-error
+relative uncertainty was 1.0606% for BSDF and 0.0657% for NEE. This uncertainty
+comparison describes the four ROI-mean observations, not a general image-variance
+guarantee. The four BSDF PFM hashes exactly match the upload baseline.
+
+Both blocked-mode ROIs, the one-bounce ROI and emission-off ROI were exactly zero.
+Primary-visible emission matched the expected RGB within 4.65e-7 for both modes.
+All 14 captures had zero D3D12 ERROR/CORRUPTION messages. Retained evidence is in
+`path-tracing-validation-results/completion-step-5-emissive-nee-summary.json`.
+
+```powershell
+python -B Tests/PathTracing/validate_emissive.py --output bin/PathTracingValidation/emissive-nee --samples 64 --modes 0 1 --require-emitter-table --visibility-controls
+```
+
+1. [x] Baseline reference and diagnostics.
+2. [x] CPU emitter extraction, stable identity and GPU table plumbing, with tests for
    shared BLAS instances, separate mesh ranges, mirrored baked nodes and unequal areas.
-3. NEE-only finite visibility, then paired MIS with BSDF-hit PDF evaluation.
-4. Multi-seed GPU comparisons of BSDF-only/NEE-only/MIS, blocked/off/back-facing controls,
+3. [*] NEE-only finite visibility is complete; paired MIS with BSDF-hit PDF evaluation is next.
+4. [ ] Expanded multi-seed GPU comparisons of BSDF-only/NEE-only/MIS, blocked/off/back-facing controls,
    small/large emitters, multiple unequal emitters and texture modulation. Compare
    means before accepting variance reduction. Keep environment and analytic lights off
    for isolated tests, then run a combined-lighting regression.

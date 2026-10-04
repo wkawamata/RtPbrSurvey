@@ -282,6 +282,7 @@ public:
         bool directLightingEnabled = true;
         bool environmentEnabled = true;
         UINT environmentSamplingMode = 0;
+        UINT emissiveSamplingMode = 0;
         bool emissiveEnabled = true;
         bool russianRouletteEnabled = false;
         PathTracingDebugOutput debugOutput = PathTracingDebugOutput::Radiance;

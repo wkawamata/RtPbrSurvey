@@ -1778,6 +1778,7 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
         {"environmentSamplingMode", settings.environmentSamplingMode},
         {"environmentEnabled", settings.environmentEnabled},
         {"emissiveEnabled", settings.emissiveEnabled},
+        {"emissiveSamplingMode", settings.emissiveSamplingMode},
         {"directLightingEnabled", settings.directLightingEnabled},
         {"emissiveTriangleCount", context.pathTracingDiagnostics.emissiveTriangleCount},
         {"emissiveTableStatus", context.pathTracingDiagnostics.emissiveTableStatus},

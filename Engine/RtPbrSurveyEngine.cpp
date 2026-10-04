@@ -664,12 +664,14 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
         m_pathTracingSettings.directLightingEnabled != settings.directLightingEnabled ||
         m_pathTracingSettings.environmentEnabled != settings.environmentEnabled ||
         m_pathTracingSettings.environmentSamplingMode != settings.environmentSamplingMode ||
+        m_pathTracingSettings.emissiveSamplingMode != settings.emissiveSamplingMode ||
         m_pathTracingSettings.emissiveEnabled != settings.emissiveEnabled ||
         m_pathTracingSettings.russianRouletteEnabled != settings.russianRouletteEnabled ||
         m_pathTracingSettings.debugOutput != settings.debugOutput;
 
     m_pathTracingSettings = settings;
     m_pathTracingSettings.environmentSamplingMode = (std::min)(settings.environmentSamplingMode, 7u);
+    m_pathTracingSettings.emissiveSamplingMode = (std::min)(settings.emissiveSamplingMode, 1u);
     m_pathTracingSettings.samplesPerFrame = (std::clamp)(m_pathTracingSettings.samplesPerFrame, 1u, 16u);
     m_pathTracingSettings.maxBounces = (std::clamp)(m_pathTracingSettings.maxBounces, 1u, 16u);
     if (changed)
@@ -5891,6 +5893,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.maxBounces = m_pathTracingSettings.maxBounces;
     passDesc.environmentEnabled = m_pathTracingSettings.environmentEnabled ? 1u : 0u;
     passDesc.environmentSamplingMode = m_pathTracingSettings.environmentSamplingMode;
+    passDesc.emissiveSamplingMode = m_pathTracingSettings.emissiveSamplingMode;
     passDesc.skyboxEnabled = m_lightingParams.skyboxEnabled ? 1u : 0u;
     passDesc.emissiveEnabled =
         m_pathTracingSettings.emissiveEnabled && m_lightingParams.emissiveEnabled ? 1u : 0u;
