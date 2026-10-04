@@ -106,6 +106,8 @@ struct SceneCamera
     SceneFloat3 up = {0.0f, 1.0f, 0.0f};
     SceneCameraProjection projection = SceneCameraProjection::Perspective;
     float verticalFovDegrees = 60.0f;
+    float lensShiftX = 0.0f;
+    float lensShiftY = 0.0f;
     float orthographicHeight = 10.0f;
     float nearZ = 0.1f;
     float farZ = 1000.0f;

@@ -3,6 +3,8 @@ param(
     [string]$ExecutablePath,
     [string]$OutputDirectory,
     [string]$SceneName = "DamagedHelmet",
+    [string]$SceneFile,
+    [string]$RenderPreset,
     [ValidateRange(1, 10000)]
     [int]$CaptureAfterFrames = 30,
     [ValidateRange(0.1, 180.0)]
@@ -54,6 +56,16 @@ function Invoke-MotionVectorCapture([string]$Variant, [bool]$Moving)
         "-LogToFile", (Quote-ProcessArgument $logPath),
         "-ExitAfterCapture"
     )
+    if (-not [string]::IsNullOrWhiteSpace($SceneFile))
+    {
+        # Preserve the original glTF invocation unless an editable scene is specified.
+        $arguments = $arguments[2..($arguments.Count - 1)]
+        $arguments = @("-SceneFile", (Quote-ProcessArgument ([IO.Path]::GetFullPath($SceneFile)))) + $arguments
+        if (-not [string]::IsNullOrWhiteSpace($RenderPreset))
+        {
+            $arguments += @("-RenderPreset", (Quote-ProcessArgument ([IO.Path]::GetFullPath($RenderPreset))))
+        }
+    }
     if ($Moving)
     {
         $arguments += @(
@@ -108,7 +120,8 @@ $report = [ordered]@{
     schemaVersion = 1
     generatedUtc = [DateTime]::UtcNow.ToString("o")
     commit = (& git -C $repoRoot rev-parse HEAD).Trim()
-    scene = $SceneName
+    scene = $(if ([string]::IsNullOrWhiteSpace($SceneFile)) { $SceneName } else { [IO.Path]::GetFullPath($SceneFile) })
+    renderPreset = $RenderPreset
     resource = "PathTracing.MotionVectors"
     centeredPreviewScale = 32.0
     captureAfterFrames = $CaptureAfterFrames
@@ -129,7 +142,7 @@ $markdown = @"
 
 - Generated UTC: $($report.generatedUtc)
 - Commit: ``$($report.commit)``
-- Scene: $SceneName
+- Scene: $($report.scene)
 - Resource: ``PathTracing.MotionVectors``
 - Centered preview scale: $($report.centeredPreviewScale)x
 - Stationary SHA-256: ``$($captures[0].sha256)``

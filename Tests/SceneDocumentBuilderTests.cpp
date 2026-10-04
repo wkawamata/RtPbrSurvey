@@ -27,6 +27,8 @@ RtPbrSurvey::SceneDocument CreatePrimitiveDocument()
 {
     RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("primitive-test", "Primitive Test");
     document.renderPresetPath = "RenderPresets/default.json";
+    document.camera.lensShiftX = 0.35f;
+    document.camera.lensShiftY = -0.2f;
     document.materials = {
         {"metal", "Metal", {0.8f, 0.4f, 0.2f, 1.0f}, 1.0f, 0.2f},
         {"floor", "Floor", {0.3f, 0.3f, 0.3f, 1.0f}, 0.0f, 0.8f},
@@ -87,6 +89,8 @@ bool TestPrimitiveBuildAndMeshReuse()
     const Engine::Scene& scene = builder.GetScene();
     const RtPbrSurvey::SceneDocumentBuildResult& result = documentBuilder.Result();
     bool passed = Check(scene.instances.size() == 5, "one instance is built per visible primitive");
+    passed &= Check(NearlyEqual(scene.camera.lensShiftX, 0.35f) && NearlyEqual(scene.camera.lensShiftY, -0.2f),
+                    "lens shift reaches runtime camera");
     passed &= Check(mesh.ranges.size() == 4, "identical primitive parameters reuse a mesh range");
     passed &= Check(scene.instances[0].meshId == scene.instances[1].meshId, "duplicate cubes share a mesh ID");
     passed &= Check(result.nodeInstanceIndices.size() == 5 && result.materialIds.size() == 2,
@@ -94,6 +98,18 @@ bool TestPrimitiveBuildAndMeshReuse()
     passed &= Check(mesh.materials[result.materialIds.at("metal")].metallicFactor == 1.0f &&
                         NearlyEqual(mesh.materials[result.materialIds.at("metal")].roughnessFactor, 0.2f),
                     "PBR material factors are preserved");
+    for (const Engine::SceneMaterial& material : mesh.materials)
+    {
+        const Engine::SceneTexture& data = mesh.textures.at(material.metallicRoughnessTexIndex);
+        const Engine::SceneTexture& emission = mesh.textures.at(material.emissiveTexIndex);
+        passed &= Check(material.albedoTexIndex != material.metallicRoughnessTexIndex &&
+                            data.colorSpace == Engine::TextureColorSpace::Linear &&
+                            data.pixels == std::vector<unsigned char>({255, 255, 255, 255}),
+                        "scalar metallic and roughness use neutral linear data, independent of base color");
+        passed &= Check(material.occlusionTexIndex == material.metallicRoughnessTexIndex &&
+                            emission.pixels == std::vector<unsigned char>({0, 0, 0, 255}),
+                        "document materials have neutral occlusion and no implicit emission");
+    }
     const Engine::SceneMesh::Range& planeRange = mesh.ranges[scene.instances[2].meshId];
     passed &= Check(planeRange.vertexCount == 4 && mesh.vertices[planeRange.firstVertex].normal.y == 1.0f,
                     "plane is generated on XZ with an upward normal");

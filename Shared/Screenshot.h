@@ -44,6 +44,8 @@ struct ScreenshotRequest
     // GIF graphic-control disposal: 1 keeps the composed frame, 2 restores the background, 3 restores the previous frame.
     std::uint8_t gifDisposal = 1;
     std::uint64_t requestId = 0;
+    // Used only by diagnostic .ptbuf captures.
+    std::string debugResourceName;
 };
 
 struct ScreenshotResult

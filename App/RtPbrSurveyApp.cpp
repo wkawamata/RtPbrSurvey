@@ -339,7 +339,7 @@ void RtPbrSurveyApp::OnInit()
     if (!m_commandLineOptions.sceneFilePath.empty())
     {
         OpenFileScene();
-        m_debugUiVisible = false;
+        m_debugUiVisible = m_commandLineOptions.enableDebugTexturePreview;
     }
     else if (m_commandLineOptions.autoSelectGltfDamagedHelmet ||
         !m_commandLineOptions.autoSelectGltfAssetName.empty() ||
@@ -851,6 +851,10 @@ void RtPbrSurveyApp::OnIdle()
         else
         {
             singleCaptureReady = m_automationFrameCounter >= m_commandLineOptions.captureAfterFrames;
+            if (singleCaptureReady && m_renderingPath == RtPbrSurveyEngine::RenderingPath::PathTracing)
+            {
+                LogPathTracingCaptureDiagnostics(context);
+            }
         }
 
         if (singleCaptureReady && m_commandLineOptions.enableDlssSr && !context.temporalUpscalerOutputAvailable)
@@ -869,7 +873,12 @@ void RtPbrSurveyApp::OnIdle()
         }
         if (singleCaptureReady)
         {
-            m_sceneRenderer.RequestScreenshot({m_commandLineOptions.capturePath});
+            RtPbrSurvey::ScreenshotRequest request = {m_commandLineOptions.capturePath};
+            if (request.path.extension() == L".ptbuf")
+            {
+                request.debugResourceName = m_commandLineOptions.debugPreviewResourceName;
+            }
+            m_sceneRenderer.RequestScreenshot(std::move(request));
             m_automationScreenshotRequested = true;
         }
     }
@@ -1929,7 +1938,7 @@ void RtPbrSurveyApp::LoadFileSceneCpuData()
     const XMVECTOR direction = XMVector3Normalize(XMLoadFloat3(&camera.gazePoint) - XMLoadFloat3(&camera.pos));
     XMFLOAT3 directionFloat = {};
     XMStoreFloat3(&directionFloat, direction);
-    camera.rot.x = std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
+    camera.rot.x = -std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
     camera.rot.y = std::atan2(directionFloat.x, directionFloat.z);
     camera.rot.z = 0.0f;
     m_debugCamera.SetCameraState(&camera);
@@ -2364,7 +2373,7 @@ bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
     const XMVECTOR direction = XMVector3Normalize(XMLoadFloat3(&camera.gazePoint) - XMLoadFloat3(&camera.pos));
     XMFLOAT3 directionFloat = {};
     XMStoreFloat3(&directionFloat, direction);
-    camera.rot.x = std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
+    camera.rot.x = -std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
     camera.rot.y = std::atan2(directionFloat.x, directionFloat.z);
     camera.rot.z = 0.0f;
     m_debugCamera.SetCameraState(&camera);
@@ -2540,6 +2549,32 @@ void RtPbrSurveyApp::ApplyFileSceneSettings()
     }
 }
 
+void RtPbrSurveyApp::OpenCommandLineDebugTexturePreview()
+{
+    if (!m_commandLineOptions.debugPreviewResourceName.empty())
+    {
+        const Engine::DebugResourceInspection inspection =
+            m_sceneRenderer.GetDebugResourceViewRegistry().Inspect(m_commandLineOptions.debugPreviewResourceName);
+        if (!inspection.IsInspectable())
+        {
+            throw std::runtime_error("Debug Preview resource is unavailable: " +
+                                     m_commandLineOptions.debugPreviewResourceName);
+        }
+        const Engine::DebugResourceViewDescriptor& descriptor = *inspection.descriptor;
+        RtPbrSurvey::DebugTextureInspector* inspector =
+            m_debugTextureInspectors.OpenPreview(descriptor.resourceName,
+                                                 descriptor.resourceName,
+                                                 static_cast<RtPbrSurvey::DebugTextureSemantic>(
+                                                     static_cast<UINT>(descriptor.semantic)));
+        if (inspector == nullptr)
+        {
+            throw std::runtime_error("Debug Preview slot is unavailable.");
+        }
+        inspector->sourceViewKind = descriptor.viewKind;
+        inspector->bufferImageLayout = descriptor.imageLayout;
+    }
+}
+
 void RtPbrSurveyApp::OpenFileScene()
 {
     m_evaluationRoi = {};
@@ -2552,6 +2587,14 @@ void RtPbrSurveyApp::OpenFileScene()
     ApplyDlssSrCommandLineOptions();
     ApplyPathTracingCommandLineOptions();
     m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
+    OpenCommandLineDebugTexturePreview();
+    if (!m_commandLineOptions.capturePath.empty() && m_commandLineOptions.reflectionOrbitFrames > 0)
+    {
+        m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::Arcball);
+        m_debugCamera.InitObjectViewerFromCamera();
+        m_automationOrbitStartYaw = m_debugCamera.ObjectViewerYaw();
+        m_automationOrbitDistance = m_debugCamera.ObjectViewerDistance();
+    }
     m_appMode = AppMode::Running;
     m_framePaused = false;
     m_forwardStepRequested = false;
@@ -2581,28 +2624,7 @@ void RtPbrSurveyApp::OpenSelectedScene()
     ApplyDlssSrCommandLineOptions();
     ApplyPathTracingCommandLineOptions();
     m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
-    if (!m_commandLineOptions.debugPreviewResourceName.empty())
-    {
-        const Engine::DebugResourceInspection inspection =
-            m_sceneRenderer.GetDebugResourceViewRegistry().Inspect(m_commandLineOptions.debugPreviewResourceName);
-        if (!inspection.IsInspectable())
-        {
-            throw std::runtime_error("Debug Preview resource is unavailable: " +
-                                     m_commandLineOptions.debugPreviewResourceName);
-        }
-        const Engine::DebugResourceViewDescriptor& descriptor = *inspection.descriptor;
-        RtPbrSurvey::DebugTextureInspector* inspector =
-            m_debugTextureInspectors.OpenPreview(descriptor.resourceName,
-                                                 descriptor.resourceName,
-                                                 static_cast<RtPbrSurvey::DebugTextureSemantic>(
-                                                     static_cast<UINT>(descriptor.semantic)));
-        if (inspector == nullptr)
-        {
-            throw std::runtime_error("Debug Preview slot is unavailable.");
-        }
-        inspector->sourceViewKind = descriptor.viewKind;
-        inspector->bufferImageLayout = descriptor.imageLayout;
-    }
+    OpenCommandLineDebugTexturePreview();
     m_appMode = AppMode::Running;
     m_framePaused = false;
     m_forwardStepRequested = false;

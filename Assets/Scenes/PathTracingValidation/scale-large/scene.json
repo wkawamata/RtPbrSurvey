@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "scale-visibility-100.0-angled-contact-relative",
+  "name": "PT scale-visibility-100.0-angled-contact-relative",
+  "renderPreset": "render-preset.json",
+  "assets": [],
+  "materials": [
+    {
+      "id": "neutral",
+      "name": "neutral",
+      "baseColor": [
+        0.5,
+        0.5,
+        0.5,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.8
+    }
+  ],
+  "nodes": [
+    {
+      "id": "receiver",
+      "name": "receiver",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        100.0,
+        100.0,
+        100.0
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "plane",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "neutral"
+    },
+    {
+      "id": "blocker",
+      "name": "blocker",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0.0,
+        50.0,
+        0.0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        100.0,
+        100.0,
+        100.0
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "neutral"
+    }
+  ],
+  "camera": {
+    "position": [
+      0.0,
+      400.0,
+      -700.0
+    ],
+    "target": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 55,
+    "orthographicHeight": 1000.0,
+    "nearZ": 10.0,
+    "farZ": 100000.0
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      0.96,
+      0.86
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  }
+}
