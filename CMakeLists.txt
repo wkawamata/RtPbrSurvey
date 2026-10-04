@@ -69,6 +69,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Platform/CommandLineOptions.cpp
     Platform/Win32Application.cpp
     Renderer/AccelerationStructureResources.cpp
+    Renderer/AnimatedGifEncoder.cpp
     Renderer/BrdfLut.cpp
     Renderer/ClearPass.cpp
     Renderer/DebugDumpCapture.cpp
@@ -398,6 +399,14 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.SceneRendererSettingsTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.SceneRendererSettings COMMAND RtPbrSurvey.SceneRendererSettingsTests)
+
+    add_executable(RtPbrSurvey.PathTracingShadowSettingsTests
+        Tests/PathTracingShadowSettingsTests.cpp)
+    target_link_libraries(RtPbrSurvey.PathTracingShadowSettingsTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.PathTracingShadowSettingsTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.PathTracingShadowSettings COMMAND RtPbrSurvey.PathTracingShadowSettingsTests)
 
     add_executable(RtPbrSurvey.EvaluationStateTests
         Tests/EvaluationStateTests.cpp)

@@ -465,6 +465,19 @@ namespace RtPbrSurvey
             if (const std::optional<ScreenshotResult> result = m_engine.ConsumeScreenshotResult(*requestId))
             {
                 m_captureSession.CompleteRequest(*result);
+                const CaptureSessionStatus& status = m_captureSession.GetStatus();
+                if (status.state == CaptureSessionState::Completed && m_captureSession.UsesAnimatedGif())
+                {
+                    std::string error;
+                    if (!m_engine.FinalizeAnimatedGif(error))
+                    {
+                        m_captureSession.FailFinalization("GIF finalization failed: " + error);
+                    }
+                }
+                else if (status.state == CaptureSessionState::Failed && m_captureSession.UsesAnimatedGif())
+                {
+                    m_engine.AbortAnimatedGif();
+                }
             }
         }
     }

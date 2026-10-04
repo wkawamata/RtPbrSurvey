@@ -47,6 +47,31 @@ bool TestOrthographicProjection()
         NearlyEqual(actual._33, expected._33) && NearlyEqual(actual._43, expected._43);
 }
 
+bool TestOffCenterPerspectiveProjection()
+{
+    Engine::CameraState camera;
+    camera.projection = Engine::CameraProjection::Perspective;
+    camera.fov = 60.0f;
+    camera.nearZ = 0.5f;
+    camera.farZ = 500.0f;
+    camera.lensShiftX = 0.25f;
+    camera.lensShiftY = -0.5f;
+
+    constexpr float aspect = 2.0f;
+    const float halfHeight = 0.5f * std::tan(DirectX::XMConvertToRadians(30.0f));
+    const float halfWidth = halfHeight * aspect;
+    DirectX::XMFLOAT4X4 actual;
+    DirectX::XMFLOAT4X4 expected;
+    DirectX::XMStoreFloat4x4(&actual, Engine::CreateCameraProjectionMatrix(camera, aspect));
+    DirectX::XMStoreFloat4x4(&expected, DirectX::XMMatrixPerspectiveOffCenterLH(
+        -halfWidth + 0.25f * halfWidth, halfWidth + 0.25f * halfWidth,
+        -halfHeight - 0.5f * halfHeight, halfHeight - 0.5f * halfHeight,
+        0.5f, 500.0f));
+    return NearlyEqual(actual._11, expected._11) && NearlyEqual(actual._22, expected._22) &&
+        NearlyEqual(actual._31, expected._31) && NearlyEqual(actual._32, expected._32) &&
+        NearlyEqual(actual._33, expected._33) && NearlyEqual(actual._43, expected._43);
+}
+
 bool TestProjectionFramingConversions()
 {
     constexpr float fovYDegrees = 60.0f;
@@ -99,7 +124,7 @@ bool TestLegacyMatchClampCompatibility()
 
 int main()
 {
-    if (!TestPerspectiveProjection() || !TestOrthographicProjection() || !TestProjectionFramingConversions() ||
+    if (!TestPerspectiveProjection() || !TestOrthographicProjection() || !TestOffCenterPerspectiveProjection() || !TestProjectionFramingConversions() ||
         !TestSmallFovLargeDistanceRoundTrip() || !TestStrictInvalidInputs() || !TestLegacyMatchClampCompatibility())
     {
         std::cerr << "Camera projection tests failed.\n";

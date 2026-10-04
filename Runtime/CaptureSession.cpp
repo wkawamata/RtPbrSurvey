@@ -3,6 +3,7 @@
 #include "Runtime/CaptureSession.h"
 
 #include <cmath>
+#include <limits>
 #include <iomanip>
 #include <sstream>
 
@@ -18,6 +19,8 @@ namespace RtPbrSurvey
                     return ".png";
                 case CaptureSessionOutputFormat::Exr:
                     return ".exr";
+                case CaptureSessionOutputFormat::Gif:
+                    return ".gif";
                 default:
                     return "";
             }
@@ -25,7 +28,35 @@ namespace RtPbrSurvey
 
         ScreenshotOutputFormat GetScreenshotOutputFormat(CaptureSessionOutputFormat format)
         {
-            return format == CaptureSessionOutputFormat::Exr ? ScreenshotOutputFormat::Exr : ScreenshotOutputFormat::Png;
+            switch (format)
+            {
+                case CaptureSessionOutputFormat::Exr:
+                    return ScreenshotOutputFormat::Exr;
+                case CaptureSessionOutputFormat::Gif:
+                    return ScreenshotOutputFormat::Gif;
+                default:
+                    return ScreenshotOutputFormat::Png;
+            }
+        }
+
+        bool IsRelativeSubdirectory(const std::filesystem::path& path)
+        {
+            if (path.empty())
+            {
+                return true;
+            }
+            if (path.has_root_name() || path.has_root_directory())
+            {
+                return false;
+            }
+            for (const std::filesystem::path& component : path)
+            {
+                if (component == "..")
+                {
+                    return false;
+                }
+            }
+            return true;
         }
     } // namespace
 
@@ -37,14 +68,19 @@ namespace RtPbrSurvey
             error = "A capture session is already active.";
             return false;
         }
-        if (config.outputFormat == CaptureSessionOutputFormat::Gif || config.outputFormat == CaptureSessionOutputFormat::Mp4)
+        if (config.outputFormat == CaptureSessionOutputFormat::Mp4)
         {
-            error = "GIF and MP4 capture sessions are not implemented.";
+            error = "MP4 capture sessions are not implemented.";
             return false;
         }
         if (config.outputDirectory.empty() || config.baseName.empty())
         {
             error = "Capture session requires an output directory and base name.";
+            return false;
+        }
+        if (!IsRelativeSubdirectory(config.outputSubdirectory))
+        {
+            error = "Capture session subfolder must be a relative path below the output directory.";
             return false;
         }
         if (config.framesPerSecond == 0)
@@ -82,6 +118,25 @@ namespace RtPbrSurvey
             error = "PNG capture sessions require the final output source.";
             return false;
         }
+        if (config.outputFormat == CaptureSessionOutputFormat::Gif && config.source != ScreenshotCaptureSource::FinalOutput)
+        {
+            error = "GIF capture sessions require the final output source.";
+            return false;
+        }
+        if (config.gifRepeatMode != CaptureSessionGifRepeatMode::None &&
+            config.gifRepeatMode != CaptureSessionGifRepeatMode::Infinite &&
+            config.gifRepeatMode != CaptureSessionGifRepeatMode::Count)
+        {
+            error = "Capture session GIF repeat mode is invalid.";
+            return false;
+        }
+        if (config.gifDisposal != CaptureSessionGifDisposal::Keep &&
+            config.gifDisposal != CaptureSessionGifDisposal::Background &&
+            config.gifDisposal != CaptureSessionGifDisposal::Previous)
+        {
+            error = "Capture session GIF disposal mode is invalid.";
+            return false;
+        }
         if (config.outputFormat == CaptureSessionOutputFormat::Exr && config.source != ScreenshotCaptureSource::PreToneMapSceneColor)
         {
             error = "EXR capture sessions require the pre-tone-map scene color source.";
@@ -91,6 +146,10 @@ namespace RtPbrSurvey
         CaptureSessionConfig resolvedConfig = config;
         std::error_code pathError;
         resolvedConfig.outputDirectory = std::filesystem::absolute(config.outputDirectory, pathError).lexically_normal();
+        if (!pathError)
+        {
+            resolvedConfig.outputDirectory = (resolvedConfig.outputDirectory / config.outputSubdirectory).lexically_normal();
+        }
         if (!pathError && config.singleOutputPath.has_value())
         {
             resolvedConfig.singleOutputPath = std::filesystem::absolute(*config.singleOutputPath, pathError).lexically_normal();
@@ -99,6 +158,14 @@ namespace RtPbrSurvey
         {
             error = "Unable to resolve capture output path: " + pathError.message();
             return false;
+        }
+
+        if (resolvedConfig.outputFormat == CaptureSessionOutputFormat::Gif && !resolvedConfig.singleOutputPath.has_value())
+        {
+            if (!ResolveGifOutputPath(resolvedConfig, error))
+            {
+                return false;
+            }
         }
 
         m_config = std::move(resolvedConfig);
@@ -189,6 +256,20 @@ namespace RtPbrSurvey
             GetScreenshotOutputFormat(m_config.outputFormat),
             m_config.source,
         };
+        if (m_config.outputFormat == CaptureSessionOutputFormat::Gif)
+        {
+            request.frameDelayCentiseconds = static_cast<std::uint16_t>(
+                (std::max)(1u, static_cast<unsigned int>(std::lround(100.0 / m_config.framesPerSecond))));
+            if (m_config.gifRepeatMode == CaptureSessionGifRepeatMode::Infinite)
+            {
+                request.gifRepeatCount = 0;
+            }
+            else if (m_config.gifRepeatMode == CaptureSessionGifRepeatMode::Count)
+            {
+                request.gifRepeatCount = m_config.gifRepeatCount;
+            }
+            request.gifDisposal = static_cast<std::uint8_t>(m_config.gifDisposal);
+        }
         request.requestId = m_nextRequestId++;
         m_readyRequest = std::move(request);
     }
@@ -255,6 +336,20 @@ namespace RtPbrSurvey
                m_status.state == CaptureSessionState::Draining;
     }
 
+    bool CaptureSession::UsesAnimatedGif() const
+    {
+        return m_config.outputFormat == CaptureSessionOutputFormat::Gif;
+    }
+
+    void CaptureSession::FailFinalization(const std::string& error)
+    {
+        if (m_status.state == CaptureSessionState::Completed)
+        {
+            m_status.state = CaptureSessionState::Failed;
+            m_status.error = error;
+        }
+    }
+
     std::optional<std::uint64_t> CaptureSession::GetActiveRequestId() const
     {
         return m_activeRequestId;
@@ -298,6 +393,43 @@ namespace RtPbrSurvey
         }
     }
 
+    bool CaptureSession::ResolveGifOutputPath(CaptureSessionConfig& config, std::string& error)
+    {
+        std::error_code fileError;
+        const std::filesystem::path basePath = config.outputDirectory / (config.baseName + GetExtension(config.outputFormat));
+        if (!std::filesystem::exists(basePath, fileError))
+        {
+            if (fileError)
+            {
+                error = "Unable to check GIF output path: " + fileError.message();
+                return false;
+            }
+            config.singleOutputPath = basePath;
+            return true;
+        }
+
+        for (std::uint64_t suffix = 1; suffix <= static_cast<std::uint64_t>((std::numeric_limits<unsigned int>::max)()); ++suffix)
+        {
+            std::ostringstream name;
+            name << config.baseName << '_' << std::setw(6) << std::setfill('0') << suffix << GetExtension(config.outputFormat);
+            const std::filesystem::path candidate = config.outputDirectory / name.str();
+            fileError.clear();
+            if (!std::filesystem::exists(candidate, fileError))
+            {
+                if (fileError)
+                {
+                    error = "Unable to check GIF output path: " + fileError.message();
+                    return false;
+                }
+                config.singleOutputPath = candidate;
+                return true;
+            }
+        }
+
+        error = "Unable to find an unused GIF output filename.";
+        return false;
+    }
+
     std::filesystem::path CaptureSession::BuildOutputPath() const
     {
         if (m_config.singleOutputPath.has_value())
@@ -306,8 +438,12 @@ namespace RtPbrSurvey
         }
 
         std::ostringstream name;
-        name << m_config.baseName << '_' << std::setw(6) << std::setfill('0') << m_status.acceptedFrameCount
-             << GetExtension(m_config.outputFormat);
+        name << m_config.baseName;
+        if (m_config.outputFormat != CaptureSessionOutputFormat::Gif)
+        {
+            name << '_' << std::setw(6) << std::setfill('0') << m_status.acceptedFrameCount;
+        }
+        name << GetExtension(m_config.outputFormat);
         return m_config.outputDirectory / name.str();
     }
 } // namespace RtPbrSurvey

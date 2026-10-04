@@ -44,6 +44,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <nlohmann/json.hpp>
 #include "Shared/Error.h"
 #include "Platform/FileIO.h"
 #include "Platform/AssetPath.h"
@@ -601,6 +602,8 @@ void RtPbrSurveyEngine::SetLightingParams(const LightingParams& params)
 void RtPbrSurveyEngine::SetShadowSettings(const ShadowSettings& settings)
 {
     const bool pathTracingHistoryChanged =
+        m_shadowSettings.enabled != settings.enabled ||
+        m_shadowSettings.normalBias != settings.normalBias ||
         m_shadowSettings.rayTMin != settings.rayTMin || m_shadowSettings.rayTMax != settings.rayTMax;
     m_shadowSettings = settings;
     if (pathTracingHistoryChanged)
@@ -1347,6 +1350,16 @@ std::optional<RtPbrSurvey::ScreenshotResult> RtPbrSurveyEngine::ConsumeScreensho
 bool RtPbrSurveyEngine::IsScreenshotCaptureIdle() const
 {
     return m_screenshotRequestQueue.IsIdle();
+}
+
+bool RtPbrSurveyEngine::FinalizeAnimatedGif(std::string& error)
+{
+    return m_animatedGifEncoder.Finalize(error);
+}
+
+void RtPbrSurveyEngine::AbortAnimatedGif()
+{
+    m_animatedGifEncoder.Reset();
 }
 
 void RtPbrSurveyEngine::RequestPixelPick(int screenX, int screenY)
@@ -2993,7 +3006,7 @@ void RtPbrSurveyEngine::CreateSceneTextureResources(std::vector<ComPtr<ID3D12Res
     const UINT textureResourceCount = m_sceneTextureCount + Engine::kTextureSemanticCount;
     assert(textureResourceCount <= kTextureDescriptorCapacity);
 
-    // 3つの領域を定義
+    // 3縺､縺ｮ鬆伜沺繧貞ｮ夂ｾｩ
     // [0, m_sceneTextureCount)              : Scene textures (from glTF)
     // [m_sceneTextureCount, textureResourceCount) : Semantic fallback (5 types)
     // [textureResourceCount, kTextureDescriptorCapacity) : Unused -> BaseColor fallback
@@ -6236,7 +6249,32 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
         ID3D12Resource* source = nullptr;
         bool hdr10 = false;
         float paperWhiteNits = 300.0f;
-        if (capture.request.path.extension() == L".pfm")
+        std::string diagnosticSource;
+        if (capture.request.path.extension() == L".ptbuf")
+        {
+            if (m_renderingPath != RenderingPath::PathTracing ||
+                capture.request.source != RtPbrSurvey::ScreenshotCaptureSource::FinalOutput ||
+                capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png ||
+                capture.request.region.has_value())
+            {
+                throw std::invalid_argument("PT buffer capture requires Path Tracing, the default request contract and a full-frame capture.");
+            }
+            for (UINT index = 0; index < 4; ++index)
+            {
+                if (capture.request.debugResourceName == kPathTracingGuideTextureResourceNames[index])
+                {
+                    source = m_pathTracingGuideTextures[index].Get();
+                    diagnosticSource = kPathTracingGuideTextureResourceNames[index];
+                    break;
+                }
+            }
+            if (source == nullptr)
+            {
+                throw std::invalid_argument("PT buffer capture requires one of the four primary guide resources.");
+            }
+            TransitionResource({diagnosticSource, D3D12_RESOURCE_STATE_COPY_SOURCE});
+        }
+        else if (capture.request.path.extension() == L".pfm")
         {
             if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png ||
                 capture.request.source != RtPbrSurvey::ScreenshotCaptureSource::FinalOutput)
@@ -6250,9 +6288,10 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             switch (capture.request.source)
             {
             case RtPbrSurvey::ScreenshotCaptureSource::FinalOutput:
-                if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png)
+                if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png &&
+                    capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Gif)
                 {
-                    throw std::invalid_argument("Final-output screenshot capture supports PNG only.");
+                    throw std::invalid_argument("Final-output screenshot capture supports PNG or GIF only.");
                 }
                 source = m_renderTargets[m_currentFrameIndex].Get();
                 hdr10 = m_hdrOutputPolicy.settings.hdr10Enabled;
@@ -6280,6 +6319,35 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                                         paperWhiteNits,
                                         capture.request.region,
                                         capture.readback);
+        if (!diagnosticSource.empty())
+        {
+            TransitionResource({diagnosticSource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
+            const auto matrixJson = [](const XMFLOAT4X4& matrix)
+            {
+                nlohmann::json rows = nlohmann::json::array();
+                for (int row = 0; row < 4; ++row)
+                {
+                    rows.push_back({matrix.m[row][0], matrix.m[row][1], matrix.m[row][2], matrix.m[row][3]});
+                }
+                return rows;
+            };
+            const CameraState& camera = GetCamera();
+            const nlohmann::json metadata = {
+                {"schemaVersion", 1}, {"resource", diagnosticSource},
+                {"sampleStartIndex", m_pathTracingRuntimeState.frameSampleIndex},
+                {"randomSeed", m_pathTracingSettings.randomSeed},
+                {"width", capture.readback.width}, {"height", capture.readback.height},
+                {"format", static_cast<int>(capture.readback.format)}, {"rowOrder", "top-down"},
+                {"matrixConvention", "transpose of DirectX row-vector matrices"},
+                {"viewProjection", matrixJson(m_constantBufferData.viewProjection)},
+                {"previousViewProjection", matrixJson(m_constantBufferData.prevViewProjection)},
+                {"inverseViewProjection", matrixJson(m_constantBufferData.invViewProjection)},
+                {"cameraPosition", {camera.pos.x, camera.pos.y, camera.pos.z}},
+                {"cameraTarget", {camera.gazePoint.x, camera.gazePoint.y, camera.gazePoint.z}},
+                {"lensShift", {camera.lensShiftX, camera.lensShiftY}},
+            };
+            capture.readback.diagnosticMetadata = metadata.dump();
+        }
         m_pendingScreenshotCapture = std::move(capture);
     }
     catch (const std::exception& exception)
@@ -6839,9 +6907,38 @@ void RtPbrSurveyEngine::ProcessCompletedScreenshot()
     result.height = capture.readback.height;
     try
     {
-        result.succeeded = capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Exr
-            ? Engine::SaveExrScreenshotReadback(capture.readback, result.path, result.error)
-            : Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
+        if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Exr)
+        {
+            result.succeeded = Engine::SaveExrScreenshotReadback(capture.readback, result.path, result.error);
+        }
+        else if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Gif)
+        {
+            const D3D12_RANGE readRange = {static_cast<SIZE_T>(capture.readback.layout.Offset),
+                                           static_cast<SIZE_T>(capture.readback.resource->GetDesc().Width)};
+            std::uint8_t* mappedData = nullptr;
+            ThrowIfFailed(capture.readback.resource->Map(0, &readRange, reinterpret_cast<void**>(&mappedData)));
+            const std::vector<std::uint8_t> rgba8 = Engine::ConvertScreenshotToRgba8(
+                mappedData + capture.readback.layout.Offset,
+                capture.readback.width,
+                capture.readback.height,
+                capture.readback.layout.Footprint.RowPitch,
+                capture.readback.format,
+                capture.readback.hdr10,
+                capture.readback.paperWhiteNits);
+            capture.readback.resource->Unmap(0, nullptr);
+            result.succeeded = m_animatedGifEncoder.AppendFrame(result.path,
+                                                                 result.width,
+                                                                 result.height,
+                                                                 rgba8.data(),
+                                                                 capture.request.frameDelayCentiseconds,
+                                                                 capture.request.gifRepeatCount,
+                                                                 capture.request.gifDisposal,
+                                                                 result.error);
+        }
+        else
+        {
+            result.succeeded = Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
+        }
     }
     catch (const std::exception& exception)
     {

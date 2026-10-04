@@ -18,14 +18,19 @@ namespace RtPbrSurvey
     struct CaptureSessionUiState
     {
         std::string outputDirectory = "Screenshots";
+        std::string outputSubdirectory;
         std::string baseName = "capture";
         int outputFormat = static_cast<int>(CaptureSessionOutputFormat::Png);
         bool useRegion = false;
+        bool showRegionOverlay = true;
         int regionX = 0;
         int regionY = 0;
         int regionWidth = 640;
         int regionHeight = 480;
         int framesPerSecond = 60;
+        int gifRepeatMode = static_cast<int>(CaptureSessionGifRepeatMode::Infinite);
+        int gifRepeatCount = 1;
+        int gifDisposal = static_cast<int>(CaptureSessionGifDisposal::Keep);
         int warmupFrames = 0;
         bool useFrameLimit = true;
         int frameLimit = 60;
