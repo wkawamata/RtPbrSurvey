@@ -112,6 +112,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--samples', type=int, default=64)
+    parser.add_argument('--require-emitter-table', action='store_true')
     parser.add_argument('--seeds', type=int, nargs='+', default=[11, 23, 37, 53])
     args = parser.parse_args()
     if not 1 <= args.samples <= 4096 or len(set(args.seeds)) < 4 or len(set(args.seeds)) != len(args.seeds):
@@ -140,6 +141,9 @@ def main():
         for seed in args.seeds:
             record, pixels = capture(request, 0, seed, args.samples, 'bsdf-seed-'+str(seed))
             diagnostic = record['diagnostics']
+            if args.require_emitter_table and (diagnostic.get('emissiveTriangleCount') != 2 or
+                    diagnostic.get('emissiveTableStatus') != 'ready'):
+                raise ValueError('Expected two uploaded emitter triangles')
             if (not diagnostic['emissiveEnabled'] or diagnostic['environmentEnabled'] or
                     diagnostic['directLightingEnabled'] or diagnostic['maxBounces'] != 2):
                 raise ValueError('Wrong lighting settings')

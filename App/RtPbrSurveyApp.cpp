@@ -1779,6 +1779,8 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
         {"environmentEnabled", settings.environmentEnabled},
         {"emissiveEnabled", settings.emissiveEnabled},
         {"directLightingEnabled", settings.directLightingEnabled},
+        {"emissiveTriangleCount", context.pathTracingDiagnostics.emissiveTriangleCount},
+        {"emissiveTableStatus", context.pathTracingDiagnostics.emissiveTableStatus},
         {"samplesPerFrame", settings.samplesPerFrame},
         {"maxBounces", settings.maxBounces},
         {"russianRoulette", settings.russianRouletteEnabled},

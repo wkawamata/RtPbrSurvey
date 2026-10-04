@@ -29,6 +29,8 @@ struct PathTracingPassDesc
     D3D12_GPU_DESCRIPTOR_HANDLE diffuseRadianceHitTUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE specularRadianceHitTUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE environmentMapSrv = {};
+    D3D12_GPU_VIRTUAL_ADDRESS emissiveTriangleSrv = 0;
+    UINT emissiveTriangleCount = 0;
     D3D12_GPU_DESCRIPTOR_HANDLE lightCbv = {};
     RayQuerySceneBindings scene;
     float rayTMin = 0.001f;

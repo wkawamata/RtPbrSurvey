@@ -72,6 +72,13 @@ void TestInstances()
     Require(table.triangles[1].positions[0].x == 5 && table.triangles[1].area == 3);
     Require(std::abs(table.triangles[0].selectionPdf - 1.0 / 7) < 1e-12);
     Require(table.triangles.back().cumulativeProbability == 1);
+    std::vector<Engine::SceneMaterial> overrides = mesh.materials;
+    overrides[0].emissiveScale = 0;
+    Require(Engine::BuildEmissiveTriangleTable(scene, overrides).triangles.empty());
+    overrides[0].emissiveScale = 2;
+    Require(Engine::BuildEmissiveTriangleTable(scene, overrides).triangles.size() == 2);
+    overrides.push_back(overrides[0]);
+    Reject([&] { Engine::BuildEmissiveTriangleTable(scene, overrides); });
     mesh.materials[0].emissiveScale = 0;
     Require(Engine::BuildEmissiveTriangleTable(scene).triangles.empty());
     mesh.materials[0].emissiveScale = 1;

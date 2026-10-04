@@ -74,7 +74,8 @@ double TriangleArea(const std::array<DirectX::XMFLOAT3, 3>& positions)
 
 } // namespace
 
-EmissiveTriangleTable BuildEmissiveTriangleTable(const Scene& scene)
+EmissiveTriangleTable BuildEmissiveTriangleTable(const Scene& scene,
+    std::span<const SceneMaterial> materialOverrides)
 {
     EmissiveTriangleTable result;
     if (scene.instances.empty())
@@ -86,8 +87,14 @@ EmissiveTriangleTable BuildEmissiveTriangleTable(const Scene& scene)
         throw std::invalid_argument("Emitter extraction requires valid scene geometry and instance IDs.");
     }
     const SceneMesh& mesh = *scene.mesh;
+    const std::span<const SceneMaterial> materials = materialOverrides.empty() ?
+        std::span<const SceneMaterial>(mesh.materials) : materialOverrides;
+    if (materials.size() != mesh.materials.size())
+    {
+        throw std::invalid_argument("Emitter material overrides must match the scene material list.");
+    }
     std::vector<bool> emitting;
-    for (const SceneMaterial& material : mesh.materials)
+    for (const SceneMaterial& material : materials)
     {
         emitting.push_back(CanEmit(material, mesh));
     }

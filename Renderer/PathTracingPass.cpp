@@ -36,9 +36,11 @@ struct PathTracingShaderConstants
     UINT skyboxEnabled;
     UINT environmentSamplingMode;
     std::array<float, 4> backgroundColor;
+    UINT emissiveTriangleCount;
+    std::array<UINT, 3> padding;
 };
 
-static_assert(sizeof(PathTracingShaderConstants) == 32 * sizeof(UINT));
+static_assert(sizeof(PathTracingShaderConstants) == 36 * sizeof(UINT));
 
 } // namespace
 
@@ -83,6 +85,7 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
     commandList->SetComputeRootShaderResourceView(15, desc.scene.meshRangeBufferSrv);
     commandList->SetComputeRootDescriptorTable(16, desc.environmentMapSrv);
     commandList->SetComputeRootDescriptorTable(18, desc.lightCbv);
+    commandList->SetComputeRootShaderResourceView(19, desc.emissiveTriangleSrv);
 
     const PathTracingShaderConstants constants = {
         desc.scene.usesIndexedDraw,
@@ -110,8 +113,10 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
         desc.skyboxEnabled,
         desc.environmentSamplingMode,
         desc.backgroundColor,
+        desc.emissiveTriangleCount,
+        {},
     };
-    commandList->SetComputeRoot32BitConstants(17, 32, &constants, 0);
+    commandList->SetComputeRoot32BitConstants(17, 36, &constants, 0);
 
     constexpr UINT kThreadGroupSize = 8;
     const UINT dispatchX = (desc.width + kThreadGroupSize - 1) / kThreadGroupSize;

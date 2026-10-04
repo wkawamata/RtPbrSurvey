@@ -61,11 +61,14 @@ cbuffer PathTracingConstants : register(b1)
     uint skyboxEnabled;
     uint environmentSamplingMode;
     float4 backgroundColor;
+    uint emissiveTriangleCount;
+    uint3 emissivePadding;
 };
 
 #include "SceneRayQuery.hlsli"
 #include "PathTracingSampling.hlsli"
 #include "EmissiveTriangleSampling.hlsli"
+StructuredBuffer<EmissiveTriangleGpu> g_emissiveTriangles : register(t7);
 #include "PathTracingDirectLightAdapter.hlsli"
 
 static const uint kInstanceDataPreviousWorldOffset = 64;

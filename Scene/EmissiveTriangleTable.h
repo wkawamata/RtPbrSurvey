@@ -3,6 +3,7 @@
 #include "Scene.h"
 
 #include <array>
+#include <span>
 
 namespace Engine
 {
@@ -25,7 +26,8 @@ struct EmissiveTriangleTable
     double totalArea = 0.0;
 };
 
-EmissiveTriangleTable BuildEmissiveTriangleTable(const Scene& scene);
+EmissiveTriangleTable BuildEmissiveTriangleTable(const Scene& scene,
+    std::span<const SceneMaterial> materialOverrides = {});
 
 struct EmissiveTriangleGpu
 {

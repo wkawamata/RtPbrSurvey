@@ -12,7 +12,8 @@ Base: `f9a2724`
 - [x] Complete the BSDF-only native GPU baseline and emission-off control.
 - [x] Build an instance-aware CPU emissive-triangle sampling table.
 - [x] Define GPU record serialization and compile sampling/PDF helpers.
-- [ ] Serialize/upload the table and add GPU sampling/PDF lookup.
+- [x] Upload the table per frame and bind it to the PT pipeline.
+- [ ] Invoke GPU sampling/PDF lookup from TracePath.
 - [ ] Add area-sampled NEE with finite endpoint visibility.
 - [ ] Add matching BSDF-hit MIS and explicit sampling modes.
 - [ ] Validate mean agreement, occlusion, multiple emitters and convergence.
@@ -142,8 +143,59 @@ through the PT shader include; it is not yet called by TracePath.
 
 Serialization tests cover the 1:6 area distribution, exact float-interval PDFs,
 identity/stride, empty tables, collapsed float CDF intervals and overflowing area.
-GPU upload, per-frame ownership, runtime refresh/reset and native shader-output
-validation remain open. There is no new root binding or emission contribution yet.
+At this format-only stage, GPU upload, per-frame ownership, runtime refresh/reset
+and native shader-output validation remained open. See the upload follow-up below.
+
+## GPU upload and binding follow-up
+
+Base: `c59d96c`. Each FrameResource owns an upload buffer and capacity/version.
+The current frame slot is reused only after the existing fence wait. The table is
+bound as a root SRV at t7/root index 19; the PT root constants grow from 32 to 36
+DWORDs with emitter count plus three padding words. The complete root signature
+uses 60 DWORDs, below the 64-DWORD limit. Empty/unavailable tables use a valid zeroed
+dummy record and count zero. A missing buffer uses the existing unsupported PT clear
+instead of dereferencing a null resource.
+
+Static scenes reuse extracted records. Visible instance count, instance world/mesh/material
+identity and effective material changes rebuild the table; previous-world matrices alone
+do not trigger a rebuild. Extraction applies runtime GPU emission scale/factors rather
+than stale SceneMaterial values, and excludes unlit/out-of-range GPU materials.
+Geometry/texture/material resource recreation invalidates the cache. Table changes reset
+PT accumulation. Arbitrary CPU vertex/texture mutation without the normal renderer
+resource-update path is not a supported update contract.
+
+Extraction or float-serialization errors clear the table, preserve BSDF-only rendering
+and publish the reason through `emissiveTableStatus`. The capture diagnostics also report
+`emissiveTriangleCount`. Allocation/map failures remain ordinary renderer failures; they
+are not misreported as successful table extraction. Scene release clears all table caches
+and frame buffers. No new RenderGraph redesign or descriptor allocation is introduced.
+
+The bound table is not consumed for lighting yet: the optimizer may remove its unused
+shader declaration. These tests verify allocation/binding compatibility and regression,
+not shader record decoding or MIS correctness. Actual GPU PDF/sampling validation belongs
+to the next NEE batch.
+
+Reproduction of the emitter upload check uses the freshly built Debug executable:
+
+```powershell
+python -B Tests/PathTracing/validate_emissive.py --output bin/PathTracingValidation/emissive-upload --samples 64 --require-emitter-table
+```
+
+The flag requires ready status and exactly two emitter records in each BSDF cohort.
+GPU source/output evidence is retained in
+`path-tracing-validation-results/completion-step-5-emissive-upload-summary.json`.
+
+Final Debug MSBuild and CMake builds succeeded. CTest passed 25/25 and Python
+70/70. The four 64 spp BSDF seeds plus emission-off control passed on RTX 2080 Ti;
+all five PFM hashes exactly matched the pre-upload baseline. Emissive count was two
+and status ready. A sixth capture with no emitter verified ready/count=0 and the
+dummy-buffer path. All six captures had zero D3D12 ERROR/CORRUPTION lines. The
+independent area-reference discrepancy remained 0.3278%. CPU tests additionally
+check effective emission scale overrides and override-list size rejection.
+
+Interactive transform/material editing and shader-side record decoding are not
+established by this static campaign. They remain explicit verification targets for
+the upcoming NEE/MIS integration.
 
 ## Implementation batches
 
