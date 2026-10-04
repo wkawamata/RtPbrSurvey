@@ -67,6 +67,86 @@ bool TestStableOutputPath()
     return passed;
 }
 
+bool TestMouseRegionCoordinates()
+{
+    using Ui = RtPbrSurvey::CaptureSessionUi;
+    const auto forward = Ui::RegionFromDrag(565, 285, 715, 435, 1280, 720, 2560, 1440);
+    bool passed = Check(forward && forward->x == 1130 && forward->y == 570 &&
+                        forward->width == 300 && forward->height == 300,
+                        "mouse ROI maps logical coordinates to output pixels");
+    const auto reverse = Ui::RegionFromDrag(715, 435, 565, 285, 1280, 720, 2560, 1440);
+    passed &= Check(reverse && reverse->x == 1130 && reverse->y == 570 &&
+                    reverse->width == 300 && reverse->height == 300, "reverse drag selects the same rectangle");
+    const auto clamped = Ui::RegionFromDrag(-20, -10, 1400, 800, 1280, 720, 2560, 1440);
+    passed &= Check(clamped && clamped->x == 0 && clamped->y == 0 &&
+                    clamped->width == 2560 && clamped->height == 1440, "drag is clamped to output bounds");
+    passed &= Check(!Ui::RegionFromDrag(10.5f, 10.5f, 10.5f, 10.5f, 1280, 720, 2560, 1440),
+                    "a click cannot overwrite ROI with an empty selection");
+    return passed;
+}
+
+bool TestMouseRegionInteraction()
+{
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = ImVec2(800, 600);
+    io.DeltaTime = 1.0f / 60.0f;
+    unsigned char* pixels = nullptr;
+    int width = 0;
+    int height = 0;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    RtPbrSurvey::CaptureSessionStatus status;
+    RtPbrSurvey::CaptureSessionUiState state;
+    state.selectingRegion = true;
+    const auto draw = [&]()
+    {
+        ImGui::NewFrame();
+        RtPbrSurvey::CaptureSessionUi::DrawRegionOverlay(status, state, 1600, 1200);
+        ImGui::Render();
+    };
+    draw();
+    io.AddMousePosEvent(100, 80);
+    draw();
+    io.AddMouseButtonEvent(0, true);
+    draw();
+    io.AddMousePosEvent(400, 300);
+    draw();
+    io.AddMouseButtonEvent(0, false);
+    draw();
+    bool passed = Check(!state.selectingRegion && state.useRegion && state.showRegionOverlay &&
+                        state.regionX == 200 && state.regionY == 160 &&
+                        state.regionWidth == 600 && state.regionHeight == 440,
+                        "mouse release commits the scaled selection to numeric ROI fields");
+    state.selectingRegion = true;
+    draw();
+    io.AddMouseButtonEvent(1, true);
+    draw();
+    passed &= Check(!state.selectingRegion && state.regionWidth == 600,
+                    "right-click cancels while retaining the previous ROI");
+    io.AddMouseButtonEvent(1, false);
+    draw();
+    state.selectingRegion = true;
+    io.AddKeyEvent(ImGuiKey_Escape, true);
+    draw();
+    passed &= Check(!state.selectingRegion && state.regionHeight == 440,
+                    "Escape cancels without changing the selected region");
+    io.AddKeyEvent(ImGuiKey_Escape, false);
+    state.showRegionOverlay = false;
+    draw();
+    passed &= Check(ImGui::GetDrawData()->CmdListsCount == 0, "overlay toggle hides the selected region");
+    state.showRegionOverlay = true;
+    draw();
+    passed &= Check(ImGui::GetDrawData()->CmdListsCount > 0, "ROI stays visible without a settings panel");
+    state.selectingRegion = true;
+    status.state = RtPbrSurvey::CaptureSessionState::Recording;
+    draw();
+    passed &= Check(!state.selectingRegion && ImGui::GetDrawData()->CmdListsCount == 0,
+                    "capture suppresses ROI selection and overlay drawing");
+    ImGui::DestroyContext();
+    return passed;
+}
+
 bool TestStableStopButton()
 {
     ImGui::CreateContext();
@@ -400,7 +480,7 @@ bool TestMismatchedResultDoesNotCompleteSession()
 
 int main()
 {
-    return TestStableOutputPath() && TestStableStopButton() && TestOutputOrderAndStopDrain() && TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
+    return TestMouseRegionCoordinates() && TestMouseRegionInteraction() && TestStableOutputPath() && TestStableStopButton() && TestOutputOrderAndStopDrain() && TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
                    TestValidationAndLegacyCli() && TestGifOutputPathDoesNotOverwrite() && TestGifMetadataEncoding() && TestOutputFailureCompletesCleanup() && TestWarmupExcludedFromDuration() &&
                    TestMismatchedResultDoesNotCompleteSession() ?
         0 :

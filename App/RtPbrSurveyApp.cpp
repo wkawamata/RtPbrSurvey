@@ -615,6 +615,14 @@ void RtPbrSurveyApp::UpdateSampleState()
 
 void RtPbrSurveyApp::OnKeyDown(UINT8 key)
 {
+    if (m_captureSessionUiState.selectingRegion)
+    {
+        if (key == VK_ESCAPE)
+        {
+            RtPbrSurvey::CaptureSessionUi::CancelRegionSelection(m_captureSessionUiState);
+        }
+        return;
+    }
     if (m_appMode == AppMode::TopMenu && key == VK_ESCAPE)
     {
         DestroyWindow(Win32Application::GetHwnd());
@@ -665,6 +673,10 @@ void RtPbrSurveyApp::OnKeyUp(UINT8 key) {}
 
 void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
 {
+    if (m_captureSessionUiState.selectingRegion)
+    {
+        return;
+    }
     if (m_appMode != AppMode::Running && m_appMode != AppMode::SceneEditorEdit)
     {
         return;
@@ -694,6 +706,10 @@ void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
 
 void RtPbrSurveyApp::OnMouseUp(UINT8 button, int x, int y)
 {
+    if (m_captureSessionUiState.selectingRegion)
+    {
+        return;
+    }
     if (m_appMode != AppMode::Running && m_appMode != AppMode::SceneEditorEdit)
     {
         return;
@@ -703,6 +719,10 @@ void RtPbrSurveyApp::OnMouseUp(UINT8 button, int x, int y)
 
 void RtPbrSurveyApp::OnMouseMove(int x, int y)
 {
+    if (m_captureSessionUiState.selectingRegion)
+    {
+        return;
+    }
     if (m_appMode != AppMode::Running && m_appMode != AppMode::SceneEditorEdit)
     {
         return;
@@ -713,6 +733,10 @@ void RtPbrSurveyApp::OnMouseMove(int x, int y)
 
 void RtPbrSurveyApp::OnMouseWheel(int wheelDelta)
 {
+    if (m_captureSessionUiState.selectingRegion)
+    {
+        return;
+    }
     if (m_appMode != AppMode::Running && m_appMode != AppMode::SceneEditorEdit)
     {
         return;
@@ -3043,6 +3067,9 @@ void RtPbrSurveyApp::UpdateUiFrame()
         DrawDebugUi(m_sceneRenderer.GetUiFrameContext());
     }
     m_sceneRenderer.DrawToolUi();
+    const auto captureFrame = m_sceneRenderer.GetUiFrameContext();
+    RtPbrSurvey::CaptureSessionUi::DrawRegionOverlay(m_sceneRenderer.GetCaptureSessionStatus(), m_captureSessionUiState,
+                                                    captureFrame.outputWidth, captureFrame.outputHeight);
     m_imguiSystem.EndFrame();
 }
 
