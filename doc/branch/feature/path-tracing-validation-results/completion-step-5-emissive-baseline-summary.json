@@ -1,0 +1,306 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "reference": {
+    "mean": 0.05572488850287086,
+    "rgb": [
+      0.09552838029063576,
+      0.04776419014531788,
+      0.02388209507265894
+    ],
+    "orders": [
+      64,
+      128
+    ],
+    "spatialSamples": 9,
+    "quadratureRelativeChange": 3.552713678800501e-15,
+    "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+  },
+  "records": [
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-baseline-verified-20261004\\bsdf-seed-11.pfm",
+      "mode": 0,
+      "seed": 11,
+      "samples": 64,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "e83729967da09735a636a033b08d0d14ad222e0bf576dc87deb9b1577df08c46",
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 11562647552,
+          "deviceId": 7687,
+          "name": "NVIDIA GeForce RTX 2080 Ti",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 537153158.3270501,
+        "capturePath": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-baseline-verified-20261004\\bsdf-seed-11.pfm",
+        "directLightingEnabled": false,
+        "emissiveEnabled": true,
+        "environmentEnabled": false,
+        "environmentSamplingMode": 0,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 3.860351499110933,
+        "gpuTimeMaxMs": 14.002176284790039,
+        "gpuTimeMinMs": 0.7086079716682434,
+        "gpuTimeMs": 0.7128320336341858,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 63,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 4147200,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 2908960178.7791414,
+        "randomSeed": 11,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT Constant Environment",
+        "schemaVersion": 1,
+        "targetSamples": 64
+      },
+      "warningCount": 3,
+      "mean": 0.055532947851550794,
+      "presetSha256": "a6f3a32bf3fcf5cd7815ec43a97ded5d789feb435b7c28440d51a9d55b639b61"
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-baseline-verified-20261004\\bsdf-seed-23.pfm",
+      "mode": 0,
+      "seed": 23,
+      "samples": 64,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "6883a05c1bee3cbf38a8aa7a1bf3685ff72b73c48243c370d14c1ae58d8f70a1",
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 11562647552,
+          "deviceId": 7687,
+          "name": "NVIDIA GeForce RTX 2080 Ti",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 545139086.7644365,
+        "capturePath": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-baseline-verified-20261004\\bsdf-seed-23.pfm",
+        "directLightingEnabled": false,
+        "emissiveEnabled": true,
+        "environmentEnabled": false,
+        "environmentSamplingMode": 0,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 3.8037998931748525,
+        "gpuTimeMaxMs": 13.934592247009277,
+        "gpuTimeMinMs": 0.7080320119857788,
+        "gpuTimeMs": 0.7168319821357727,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 63,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 4147200,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 2892728075.3040485,
+        "randomSeed": 23,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT Constant Environment",
+        "schemaVersion": 1,
+        "targetSamples": 64
+      },
+      "warningCount": 3,
+      "mean": 0.05522124490873163,
+      "presetSha256": "a6f3a32bf3fcf5cd7815ec43a97ded5d789feb435b7c28440d51a9d55b639b61"
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-baseline-verified-20261004\\bsdf-seed-37.pfm",
+      "mode": 0,
+      "seed": 37,
+      "samples": 64,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "bbe7fd1b241fb0dfca9d7b5015430a8aaef63929e0e77b6fc35eeb46dd46ccbc",
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 11562647552,
+          "deviceId": 7687,
+          "name": "NVIDIA GeForce RTX 2080 Ti",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 487521532.99951226,
+        "capturePath": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-baseline-verified-20261004\\bsdf-seed-37.pfm",
+        "directLightingEnabled": false,
+        "emissiveEnabled": true,
+        "environmentEnabled": false,
+        "environmentSamplingMode": 0,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 4.253350589956556,
+        "gpuTimeMaxMs": 18.106367111206055,
+        "gpuTimeMinMs": 0.6776639819145203,
+        "gpuTimeMs": 0.6809920072555542,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 63,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 4147200,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 3044969658.8316126,
+        "randomSeed": 37,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT Constant Environment",
+        "schemaVersion": 1,
+        "targetSamples": 64
+      },
+      "warningCount": 3,
+      "mean": 0.05547895011117513,
+      "presetSha256": "a6f3a32bf3fcf5cd7815ec43a97ded5d789feb435b7c28440d51a9d55b639b61"
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-baseline-verified-20261004\\bsdf-seed-53.pfm",
+      "mode": 0,
+      "seed": 53,
+      "samples": 64,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "10d5abae08d8c723b20aabc1fc42cae556db27e02a2189698a3d597dc2f35df3",
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 11562647552,
+          "deviceId": 7687,
+          "name": "NVIDIA GeForce RTX 2080 Ti",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 613628626.1960222,
+        "capturePath": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-baseline-verified-20261004\\bsdf-seed-53.pfm",
+        "directLightingEnabled": false,
+        "emissiveEnabled": true,
+        "environmentEnabled": false,
+        "environmentSamplingMode": 0,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 3.3792426094176276,
+        "gpuTimeMaxMs": 13.621119499206543,
+        "gpuTimeMinMs": 0.6923519968986511,
+        "gpuTimeMs": 0.696287989616394,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 63,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 4147200,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 2978078081.085972,
+        "randomSeed": 53,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT Constant Environment",
+        "schemaVersion": 1,
+        "targetSamples": 64
+      },
+      "warningCount": 3,
+      "mean": 0.055935745303618965,
+      "presetSha256": "a6f3a32bf3fcf5cd7815ec43a97ded5d789feb435b7c28440d51a9d55b639b61"
+    }
+  ],
+  "commit": "f9a2724eb0b4d8d34ffff8c8686ab3efb9b3c2d6",
+  "executableSha256": "87be7737296f33c09324b545cff9133dad6d649b2d28c294e2b3dd4c3fab9867",
+  "samples": 64,
+  "seeds": [
+    11,
+    23,
+    37,
+    53
+  ],
+  "sourceSha256": {
+    "Shaders/shaders_PathTracing.hlsl": "663f2ca5912c1c82df9625423ee983fee983b07091089aadfd7d149e3fe77def",
+    "Shaders/PathTracingSampling.hlsli": "d63b74f5f9d2b5b6be615a65fe06153ca5b6cb87253093722b0f8898ed9d44e1",
+    "App/RtPbrSurveyApp.cpp": "ca1a2ca169bc81a7c64fb1c3ed33a9fe3799b7eb19533eb582695dbb959361a9",
+    "Tests/PathTracing/validate_emissive.py": "b7ca7a2d722e9c682df1e3315454d7f1ad134ad89263e17c26bf56e94cb61e71"
+  },
+  "sceneSha256": "d33c52b50480b80853763a7ea26a323490a94b4b092ff7f2ec2f4f3069ccdf21",
+  "emitterSha256": "8852c93c16e9c1a5652fdbb92a45adcfa03a16056ff565b53a4239855acde659",
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "agreement": {
+    "status": "passed",
+    "measuredMean": 0.05554222204376913,
+    "relativeDifference": 0.0032780049275885625,
+    "fourStandardErrorRelative": 0.010605987240355007,
+    "reference": {
+      "mean": 0.05572488850287086,
+      "rgb": [
+        0.09552838029063576,
+        0.04776419014531788,
+        0.02388209507265894
+      ],
+      "orders": [
+        64,
+        128
+      ],
+      "spatialSamples": 9,
+      "quadratureRelativeChange": 3.552713678800501e-15,
+      "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+    }
+  },
+  "offControl": {
+    "capture": {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-baseline-verified-20261004\\emission-off.pfm",
+      "mode": 0,
+      "seed": 11,
+      "samples": 64,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "2c28f41fdbd5d0e0ba6fbed00c5a10eb72de3cf2c2a615cfaa23f52286a6624d",
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 11562647552,
+          "deviceId": 7687,
+          "name": "NVIDIA GeForce RTX 2080 Ti",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 398042079.23698235,
+        "capturePath": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-baseline-verified-20261004\\emission-off.pfm",
+        "directLightingEnabled": false,
+        "emissiveEnabled": false,
+        "environmentEnabled": false,
+        "environmentSamplingMode": 0,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 5.2094994679329885,
+        "gpuTimeMaxMs": 13.320223808288574,
+        "gpuTimeMinMs": 0.7129920721054077,
+        "gpuTimeMs": 0.7147519588470459,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 63,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 4147200,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 2901146298.843152,
+        "randomSeed": 11,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT Constant Environment",
+        "schemaVersion": 1,
+        "targetSamples": 64
+      },
+      "warningCount": 3
+    },
+    "maximum": 0.0
+  }
+}

@@ -253,3 +253,17 @@ is excluded because PT guide alpha is hit coverage. This is not a final-lighting
 GBuffer.PBRParams and GBuffer.Emissive through `-DebugPreviewResource`. It preserves
 native format values without display remapping or tone mapping. All other GBuffer
 resources, Forward rendering and cropped native-buffer requests are rejected.
+
+## Emissive-surface baseline (Step 5)
+
+```powershell
+python -B Tests/PathTracing/validate_emissive.py --output bin/PathTracingValidation/emissive-baseline --samples 64
+```
+
+Uses a one-sided constant rectangle emitter, four independent seeds and a two-segment
+BSDF-only path limit. Direct/environment lighting and RR are disabled. Gauss-Legendre
+area integration independently checks the receiver's Lambert/GGX BRDF response;
+an emission-off control checks isolation. Agreement uses a predeclared 2% relative
+tolerance plus four seed-level standard errors, with uncertainty above 5% marked
+inconclusive. This is a baseline for future emissive NEE/MIS, not its validation.
+See `doc/branch/feature/path-tracing-emissive-mis.md` for the integration contract.
