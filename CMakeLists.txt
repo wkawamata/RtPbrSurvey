@@ -69,6 +69,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Platform/CommandLineOptions.cpp
     Platform/Win32Application.cpp
     Renderer/AccelerationStructureResources.cpp
+    Renderer/AnimatedGifEncoder.cpp
     Renderer/BrdfLut.cpp
     Renderer/ClearPass.cpp
     Renderer/DebugDumpCapture.cpp

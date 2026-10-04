@@ -40,12 +40,16 @@ namespace RtPbrSurvey
     {
         CaptureSessionConfig config;
         config.outputDirectory = state.outputDirectory;
+        config.outputSubdirectory = state.outputSubdirectory;
         config.baseName = state.baseName;
         config.outputFormat = static_cast<CaptureSessionOutputFormat>(state.outputFormat);
         config.source = config.outputFormat == CaptureSessionOutputFormat::Exr ?
             ScreenshotCaptureSource::PreToneMapSceneColor : ScreenshotCaptureSource::FinalOutput;
         config.clock = state.fixedStep ? CaptureSessionClock::FixedStep : CaptureSessionClock::RealTime;
         config.framesPerSecond = static_cast<std::uint32_t>((std::max)(0, state.framesPerSecond));
+        config.gifRepeatMode = static_cast<CaptureSessionGifRepeatMode>(state.gifRepeatMode);
+        config.gifRepeatCount = static_cast<std::uint16_t>((std::clamp)(state.gifRepeatCount, 0, 65535));
+        config.gifDisposal = static_cast<CaptureSessionGifDisposal>(state.gifDisposal);
         config.warmupFrames = static_cast<std::uint32_t>((std::max)(0, state.warmupFrames));
         if (state.useFrameLimit)
         {
@@ -104,7 +108,7 @@ namespace RtPbrSurvey
         const char* formatNames[] = {
             "PNG (final output)",
             "EXR (linear scene color)",
-            "GIF (not available)",
+            "GIF (animated final output)",
             "MP4 (not available)",
         };
 
@@ -125,12 +129,30 @@ namespace RtPbrSurvey
 
         ImGui::BeginDisabled(active);
         ImGui::InputText("Output directory", &state.outputDirectory);
+        ImGui::InputText("Subfolder", &state.outputSubdirectory);
         ImGui::InputText("Base name", &state.baseName);
         ImGui::Combo("Format", &state.outputFormat, formatNames, IM_ARRAYSIZE(formatNames));
         const CaptureSessionOutputFormat outputFormat = static_cast<CaptureSessionOutputFormat>(state.outputFormat);
         ImGui::TextDisabled(outputFormat == CaptureSessionOutputFormat::Exr ?
                                 "Source: pre-tone-map scene color" :
                                 "Source: final output");
+        if (outputFormat == CaptureSessionOutputFormat::Gif)
+        {
+            ImGui::SeparatorText("Animated GIF");
+            const char* repeatNames[] = {"Play once", "Loop forever", "Repeat count"};
+            ImGui::Combo("Repeat", &state.gifRepeatMode, repeatNames, IM_ARRAYSIZE(repeatNames));
+            if (static_cast<CaptureSessionGifRepeatMode>(state.gifRepeatMode) == CaptureSessionGifRepeatMode::Count)
+            {
+                ImGui::InputInt("Additional repeats", &state.gifRepeatCount);
+            }
+            const char* disposalNames[] = {"Keep frame", "Restore background", "Restore previous"};
+            int disposalIndex = state.gifDisposal - static_cast<int>(CaptureSessionGifDisposal::Keep);
+            if (ImGui::Combo("Frame disposal", &disposalIndex, disposalNames, IM_ARRAYSIZE(disposalNames)))
+            {
+                state.gifDisposal = disposalIndex + static_cast<int>(CaptureSessionGifDisposal::Keep);
+            }
+            ImGui::TextDisabled("Frame delay follows FPS (GIF resolution: centiseconds).");
+        }
 
         ImGui::Checkbox("Use ROI", &state.useRegion);
         if (state.useRegion)
@@ -139,6 +161,7 @@ namespace RtPbrSurvey
             ImGui::InputInt("ROI Y", &state.regionY);
             ImGui::InputInt("ROI Width", &state.regionWidth);
             ImGui::InputInt("ROI Height", &state.regionHeight);
+            ImGui::Checkbox("Show ROI overlay", &state.showRegionOverlay);
         }
         ImGui::InputInt("FPS", &state.framesPerSecond);
         ImGui::InputInt("Warmup frames", &state.warmupFrames);
