@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from validate_part1 import write_json, sha
 
 ROOT = Path(__file__).resolve().parents[2]
-FORMATS = {10: ('<f2', 4), 34: ('<f2', 2), 41: ('<f4', 1)}
+FORMATS = {10: ('<f2', 4), 28: ('u1', 4), 34: ('<f2', 2), 41: ('<f4', 1)}
 RESOURCES = ['NormalRoughness', 'ViewZ', 'MotionVectors', 'Albedo']
 
 
@@ -31,6 +31,8 @@ def read_buffer(path):
         if len(data) != width*height*channels*np.dtype(dtype).itemsize:
             raise ValueError('Truncated or trailing PTBUF data')
         values = np.frombuffer(data, dtype=dtype).reshape(height, width, channels).astype(np.float64)
+        if meta['format'] == 28:
+            values /= 255
         if not np.isfinite(values).all():
             raise ValueError('Nonfinite guide values')
         return meta, values

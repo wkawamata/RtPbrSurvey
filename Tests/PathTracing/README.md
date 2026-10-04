@@ -218,9 +218,10 @@ remain under `bin/`; source fixtures are unchanged.
 python -B Tests/PathTracing/validate_geometry.py --output bin/PathTracingValidation/geometry
 ```
 
-Requires NumPy and Pillow. Four native normal/roughness captures check rotation,
+Requires NumPy and Pillow. Five native normal/roughness captures check rotation,
 nonuniform scaling, a supplied-tangent normal map, a mirrored baked glTF node, and
-two differently rotated instances sharing a mesh. The oracle uses a NumPy inverse
+two differently rotated instances sharing a mesh, and separate BLAS/mesh ranges
+with different mirrored geometry, normal scale and roughness. The oracle uses a NumPy inverse
 transpose and compares every visible hit pixel against a 0.001 absolute tolerance.
 Generated fixtures and capture files remain under `bin/`.
 
@@ -232,5 +233,23 @@ python -B Tests/PathTracing/validate_materials.py --output bin/PathTracingValida
 
 This uses shared texture references with different material factors, plus factor-only
 color and emission. It does not establish complete glTF support: alpha/double-sided
-semantics, unsupported attribute layouts and importer diagnostics require further work.
+semantics remain unsupported. Unsafe attribute layouts are rejected and importer
+limitations produce structured diagnostics.
 See `doc/branch/feature/path-tracing-material-geometry-validation.md`.
+
+## GBuffer/PT surface-input comparison
+
+```powershell
+python -B Tests/PathTracing/validate_gbuffer_pt.py --output bin/PathTracingValidation/gbuffer-pt
+```
+
+Seven native captures compare two material regions' normal, roughness, Albedo RGB
+and emission RGB against both an independent oracle and the other rendering path.
+The common hit interior is eroded by two pixels. Limits include GBuffer UNORM8
+quantization: 0.0025 for Albedo/roughness, 0.001 for normal/emission. Material alpha
+is excluded because PT guide alpha is hit coverage. This is not a final-lighting test.
+
+`.ptbuf` additionally supports Deferred GBuffer.Albedo, GBuffer.Normal,
+GBuffer.PBRParams and GBuffer.Emissive through `-DebugPreviewResource`. It preserves
+native format values without display remapping or tone mapping. All other GBuffer
+resources, Forward rendering and cropped native-buffer requests are rejected.

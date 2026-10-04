@@ -6218,28 +6218,43 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
         bool hdr10 = false;
         float paperWhiteNits = 300.0f;
         std::string diagnosticSource;
+        D3D12_RESOURCE_STATES diagnosticRestoreState = D3D12_RESOURCE_STATE_COMMON;
         if (capture.request.path.extension() == L".ptbuf")
         {
-            if (m_renderingPath != RenderingPath::PathTracing ||
-                capture.request.source != RtPbrSurvey::ScreenshotCaptureSource::FinalOutput ||
+            if (capture.request.source != RtPbrSurvey::ScreenshotCaptureSource::FinalOutput ||
                 capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png ||
                 capture.request.region.has_value())
             {
-                throw std::invalid_argument("PT buffer capture requires Path Tracing, the default request contract and a full-frame capture.");
+                throw std::invalid_argument("Native buffer capture requires the default request contract and a full-frame capture.");
             }
             for (UINT index = 0; index < 4; ++index)
             {
-                if (capture.request.debugResourceName == kPathTracingGuideTextureResourceNames[index])
+                if (m_renderingPath == RenderingPath::PathTracing &&
+                    capture.request.debugResourceName == kPathTracingGuideTextureResourceNames[index])
                 {
                     source = m_pathTracingGuideTextures[index].Get();
                     diagnosticSource = kPathTracingGuideTextureResourceNames[index];
                     break;
                 }
             }
+            if (m_renderingPath == RenderingPath::Deferred)
+            {
+                for (const Engine::GBuffer::Target target : {Engine::GBuffer::Albedo, Engine::GBuffer::Normal,
+                                                            Engine::GBuffer::PBRParams, Engine::GBuffer::Emissive})
+                {
+                    if (capture.request.debugResourceName == kGBufferResourceNames[target])
+                    {
+                        source = m_gbuffer.resources[target].Get();
+                        diagnosticSource = kGBufferResourceNames[target];
+                        break;
+                    }
+                }
+            }
             if (source == nullptr)
             {
-                throw std::invalid_argument("PT buffer capture requires one of the four primary guide resources.");
+                throw std::invalid_argument("Native buffer capture requires an active PT guide or supported Deferred GBuffer resource.");
             }
+            diagnosticRestoreState = GetResourceState(diagnosticSource);
             TransitionResource({diagnosticSource, D3D12_RESOURCE_STATE_COPY_SOURCE});
         }
         else if (capture.request.path.extension() == L".pfm")
@@ -6288,7 +6303,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                                         capture.readback);
         if (!diagnosticSource.empty())
         {
-            TransitionResource({diagnosticSource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
+            TransitionResource({diagnosticSource, diagnosticRestoreState});
             const auto matrixJson = [](const XMFLOAT4X4& matrix)
             {
                 nlohmann::json rows = nlohmann::json::array();
@@ -6301,6 +6316,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             const CameraState& camera = GetCamera();
             const nlohmann::json metadata = {
                 {"schemaVersion", 1}, {"resource", diagnosticSource},
+                {"renderingPath", static_cast<int>(m_renderingPath)},
                 {"sampleStartIndex", m_pathTracingRuntimeState.frameSampleIndex},
                 {"randomSeed", m_pathTracingSettings.randomSeed},
                 {"width", capture.readback.width}, {"height", capture.readback.height},

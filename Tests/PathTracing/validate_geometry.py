@@ -35,16 +35,18 @@ def surface_frame(mirrored=False, angle=30):
     return normal, tangent, bitangent
 
 
-def expected_normal(mapped, mirrored=False, angle=30):
+def expected_normal(mapped, mirrored=False, angle=30, normal_scale=1):
     import numpy as np
     normal, tangent, bitangent = surface_frame(mirrored, angle)
     if not mapped:
         return normal
-    encoded = unit(np.asarray(NORMAL_BYTES)/255*2-1)
+    encoded = np.asarray(NORMAL_BYTES)/255*2-1
+    encoded[:2] *= normal_scale
+    encoded = unit(encoded)
     return unit(tangent*encoded[0] + bitangent*encoded[1] + normal*encoded[2])
 
 
-def fixtures(output, name, mapped, mirrored, instances):
+def fixtures(output, name, mapped, mirrored, instances, separate_meshes=False):
     import numpy as np
     from PIL import Image
     gltf = json.loads((ROOT/'Tests/Fixtures/Gltf/surface-transforms.gltf').read_text())
@@ -72,6 +74,15 @@ def fixtures(output, name, mapped, mirrored, instances):
             assetId='surface', translation=[-1.5 if i == 0 else 1.5, 0, 0] if instances else [0, 0, 0],
             rotation=[0, float(np.sin(radians)), 0, float(np.cos(radians))], scale=[1, .7, 2], visible=True))
     scene['camera'].update(position=[0, 0, -7 if instances else -5], target=[0, 0, 0])
+    if separate_meshes:
+        second = json.loads(json.dumps(gltf))
+        second['nodes'][0]['scale'][0] *= -1
+        second['materials'][0]['pbrMetallicRoughness']['roughnessFactor'] = .71
+        second['materials'][0]['normalTexture']['scale'] = .6
+        second_asset = output/(name+'-second.gltf')
+        write_json(second_asset, second)
+        scene['assets'].append(dict(id='surface-second', type='gltf', path=second_asset.name))
+        scene['nodes'][1]['assetId'] = 'surface-second'
     preset = json.loads((ROOT/'Assets/Scenes/PathTracingValidation/input-plane/render-preset.json').read_text())
     scene_path, preset_path = output/(name+'-scene.json'), output/(name+'-preset.json')
     scene['renderPreset'] = preset_path.name
@@ -80,7 +91,7 @@ def fixtures(output, name, mapped, mirrored, instances):
     return scene_path, preset_path, asset
 
 
-def analyze(path, mapped, mirrored, instances):
+def analyze(path, mapped, mirrored, instances, separate_meshes=False):
     import numpy as np
     meta, values = read_buffer(path)
     if meta['resource'] != 'PathTracing.NormalRoughness':
@@ -97,7 +108,9 @@ def analyze(path, mapped, mirrored, instances):
         samples = values[mask]
         if len(samples) < 1000:
             raise ValueError('Insufficient visible surface pixels')
-        expected = np.append(expected_normal(mapped, mirrored, angle), .37)
+        second = separate_meshes and i == 1
+        expected = np.append(expected_normal(mapped, mirrored or second, angle, .6 if second else 1),
+            .71 if second else .37)
         error = float(np.abs(samples-expected).max())
         checks.append(dict(instance=i, pixelCount=len(samples), expected=expected.tolist(),
             observedMean=samples.mean(axis=0).tolist(), maxAbsoluteError=error, tolerance=.001,
@@ -119,13 +132,17 @@ def main():
         gpuDriver=subprocess.check_output(['nvidia-smi', '--query-gpu=name,driver_version', '--format=csv,noheader'], text=True).strip(),
         records=[], status='running')
     for name, mapped, mirrored, instances in [('normal', False, False, False), ('mapped', True, False, False),
-            ('mirrored-node', True, True, False), ('instances', True, False, True)]:
-        scene, preset, asset = fixtures(output, name, mapped, mirrored, instances)
+            ('mirrored-node', True, True, False), ('instances', True, False, True),
+            ('separate-meshes', True, False, True)]:
+        separate_meshes = name == 'separate-meshes'
+        scene, preset, asset = fixtures(output, name, mapped, mirrored, instances, separate_meshes)
         path, log = output/(name+'.ptbuf'), output/(name+'.log')
         command = [str(ROOT/'bin/x64/Debug/RtPbrSurvey.exe'), '-SceneFile', str(scene), '-RenderPreset', str(preset),
             '-EnablePathTracing', '-PathTracingSeed', '7', '-DebugPreviewResource', 'PathTracing.NormalRoughness',
             '-CapturePath', str(path), '-CaptureAfterFrames', '30', '-LogToFile', str(log), '-ExitAfterCapture']
         record = dict(name=name, command=command, sceneSha256=sha(scene), presetSha256=sha(preset), assetSha256=sha(asset))
+        if separate_meshes:
+            record['secondAssetSha256'] = sha(output/(name+'-second.gltf'))
         try:
             startup = subprocess.STARTUPINFO()
             startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
@@ -134,7 +151,7 @@ def main():
             errors = [s for s in log.read_text(encoding='utf-8-sig').splitlines() if '[ERROR]' in s or '[CORRUPTION]' in s]
             if errors:
                 raise ValueError('D3D12 errors: '+str(errors[:2]))
-            checks = analyze(path, mapped, mirrored, instances)
+            checks = analyze(path, mapped, mirrored, instances, separate_meshes)
             record.update(checks=checks, passed=all(c['passed'] for c in checks), d3d12Errors=0, sha256=sha(path))
         except Exception as error:
             record.update(passed=False, failure=str(error))

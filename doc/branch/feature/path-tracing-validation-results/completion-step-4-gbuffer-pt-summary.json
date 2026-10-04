@@ -1,0 +1,396 @@
+{
+  "schemaVersion": 1,
+  "generatedUtc": "2026-10-04T09:05:12.220016+09:00",
+  "testedCommit": "6f665fc1f660ae1f96e4a00c4cff2e2e72d73293",
+  "workingTreeModified": true,
+  "executableSha256": "3ba5abadc73fa6691c8b5136be4972d8edd665c5b6457dbfc818e38c7d4861fe",
+  "sourceSha256": {
+    "Engine/RtPbrSurveyEngine.cpp": "3d7652281a2efc1f76cee191a72289c7e83252b02365f95f5819226d4278728b",
+    "Renderer/ScreenshotCapture.cpp": "17f397d77b01c117d62ae4e10fce25d908b69430f2e72a7c16ccae53a2bf3df0",
+    "Shaders/shaders_GBuffer.hlsl": "b70ae0077b72b2d9db5e9cfa66252016b11007ff83461c1fe779af388a7289f2",
+    "Shaders/SceneRayQuery.hlsli": "1ad1e244640f09bf5d1a205fb41a0cac9ede4f7bc4bc78d3e9a3e59eeb9f267d",
+    "Shaders/Material.hlsli": "e9a4163b6f5e6c1dfcad80eafc913cfd385664cade30896668fbbe57a399c4c6",
+    "Tests/PathTracing/validate_gbuffer_pt.py": "df90e200d1900f1fe983bf18184a89fa1158915e38620943a3a5a44562a78309",
+    "Tests/PathTracing/validate_materials.py": "9cb7d7db645761763e273edd13d52cb94264939a98454f16c814d044bb641d5b"
+  },
+  "sceneSha256": "ca024f78a4468a532f3f5a7c56b296be42f9d9881c851dc927bc5c9109ac79db",
+  "assetSha256": "fcde3a1ba549ea2e4b398dd231918c35e0bed5c1d96ff4cef362cb7f3499c147",
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "records": [
+    {
+      "backend": "pt",
+      "resource": "NormalRoughness",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\materials-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\materials-preset.json",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\pt-NormalRoughness.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\pt-NormalRoughness.log",
+        "-ExitAfterCapture",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.NormalRoughness"
+      ],
+      "presetSha256": "5155ed7b667cdf35b5ce3e3cab22816a760b649f18f2886b6bb78abff3ebc5f3",
+      "sha256": "ff7da365bb34f37cb281bda377c0b95e42b17c521dbba47b3ce43488c3f468fd",
+      "d3d12Errors": 0
+    },
+    {
+      "backend": "pt",
+      "resource": "Albedo",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\materials-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\materials-preset.json",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\pt-Albedo.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\pt-Albedo.log",
+        "-ExitAfterCapture",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.Albedo"
+      ],
+      "presetSha256": "5155ed7b667cdf35b5ce3e3cab22816a760b649f18f2886b6bb78abff3ebc5f3",
+      "sha256": "7f7f89d22e677686b770dbe94b5fb29a54e9ca7345e959139c2de47076412376",
+      "d3d12Errors": 0
+    },
+    {
+      "backend": "pt",
+      "resource": "Emissive",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\materials-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\materials-preset.json",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\pt-Emissive.pfm",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\pt-Emissive.log",
+        "-ExitAfterCapture",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7"
+      ],
+      "presetSha256": "e9d572c951f134075155614885b5c9c6752da09833b9a1541c760719c252a24c",
+      "sha256": "6785639bf446b73b7c35f4f2cc9372271584372d7aff3691ab736d7f7b9f22b6",
+      "d3d12Errors": 0
+    },
+    {
+      "backend": "gbuffer",
+      "resource": "Normal",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\materials-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\materials-preset.json",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\gbuffer-Normal.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\gbuffer-Normal.log",
+        "-ExitAfterCapture",
+        "-DebugPreviewResource",
+        "GBuffer.Normal"
+      ],
+      "presetSha256": "0b191cc70cb490c9c58f59f9171a5a9f613808554df3c88139a559f70bad3200",
+      "sha256": "22d82b720a22d8d606819a4bc87b13ba138bae96dc6e5fd0f8d1a59685fcc3c3",
+      "d3d12Errors": 0
+    },
+    {
+      "backend": "gbuffer",
+      "resource": "Albedo",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\materials-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\materials-preset.json",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\gbuffer-Albedo.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\gbuffer-Albedo.log",
+        "-ExitAfterCapture",
+        "-DebugPreviewResource",
+        "GBuffer.Albedo"
+      ],
+      "presetSha256": "0b191cc70cb490c9c58f59f9171a5a9f613808554df3c88139a559f70bad3200",
+      "sha256": "c4ea72852544db3c11ff5141a1e844fba7108a52ff91dc37d256821b13f83cce",
+      "d3d12Errors": 0
+    },
+    {
+      "backend": "gbuffer",
+      "resource": "PBRParams",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\materials-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\materials-preset.json",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\gbuffer-PBRParams.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\gbuffer-PBRParams.log",
+        "-ExitAfterCapture",
+        "-DebugPreviewResource",
+        "GBuffer.PBRParams"
+      ],
+      "presetSha256": "0b191cc70cb490c9c58f59f9171a5a9f613808554df3c88139a559f70bad3200",
+      "sha256": "c2573a2a4d3be75c86e71acc09d2bf66ca375f492862ee92cfaafd464f439d59",
+      "d3d12Errors": 0
+    },
+    {
+      "backend": "gbuffer",
+      "resource": "Emissive",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\materials-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\materials-preset.json",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\gbuffer-Emissive.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\gbuffer-pt-20261004\\gbuffer-Emissive.log",
+        "-ExitAfterCapture",
+        "-DebugPreviewResource",
+        "GBuffer.Emissive"
+      ],
+      "presetSha256": "e19b3c20ee4b3f37f1f5731f8c2fe4884d019985b60a4713cb58ee7271764bef",
+      "sha256": "05007c7d6640c2cc4b502f29962cf04e3f8cb987fd3f0d457f1b2496f17e0c14",
+      "d3d12Errors": 0
+    }
+  ],
+  "status": "passed",
+  "checks": [
+    {
+      "material": 0,
+      "resource": "Normal",
+      "pixelCount": 10347,
+      "expected": [
+        -0.6724128942575792,
+        0.3882858657402811,
+        -0.6301547318734233
+      ],
+      "ptMean": [
+        -0.67236328125,
+        0.38818359375,
+        -0.6298828125
+      ],
+      "gbufferMean": [
+        -0.67236328125,
+        0.38818359375,
+        -0.6298828125
+      ],
+      "maxAbsoluteErrors": {
+        "ptOracle": 0.00027191937342330164,
+        "gbufferOracle": 0.00027191937342330164,
+        "pair": 0.0
+      },
+      "tolerance": 0.001,
+      "passed": true
+    },
+    {
+      "material": 0,
+      "resource": "Roughness",
+      "pixelCount": 10347,
+      "expected": [
+        0.37
+      ],
+      "ptMean": [
+        0.369873046875
+      ],
+      "gbufferMean": [
+        0.3686274509803921
+      ],
+      "maxAbsoluteErrors": {
+        "ptOracle": 0.00012695312499999556,
+        "gbufferOracle": 0.001372549019607816,
+        "pair": 0.0012455958946078205
+      },
+      "tolerance": 0.0025,
+      "passed": true
+    },
+    {
+      "material": 0,
+      "resource": "Albedo",
+      "pixelCount": 10347,
+      "expected": [
+        0.09128220463608094,
+        0.05097507217425898,
+        0.5228202715192782
+      ],
+      "ptMean": [
+        0.09124755859375,
+        0.05096435546875,
+        0.5224609375
+      ],
+      "gbufferMean": [
+        0.0901960784313807,
+        0.050980392156868753,
+        0.5215686274510715
+      ],
+      "maxAbsoluteErrors": {
+        "ptOracle": 0.0003593340192782346,
+        "gbufferOracle": 0.001251644068297808,
+        "pair": 0.0010514801623774522
+      },
+      "tolerance": 0.0025,
+      "passed": true
+    },
+    {
+      "material": 0,
+      "resource": "Emission",
+      "pixelCount": 10347,
+      "expected": [
+        0.04564110231804047,
+        0.03823130413069423,
+        0.7842304072789175
+      ],
+      "ptMean": [
+        0.045641109347343445,
+        0.03823130950331688,
+        0.7842305898666382
+      ],
+      "gbufferMean": [
+        0.045623779296875,
+        0.0382080078125,
+        0.7841796875
+      ],
+      "maxAbsoluteErrors": {
+        "ptOracle": 1.8258772072066165E-07,
+        "gbufferOracle": 5.071977891746293E-05,
+        "pair": 5.0902366638183594E-05
+      },
+      "tolerance": 0.001,
+      "passed": true
+    },
+    {
+      "material": 1,
+      "resource": "Normal",
+      "pixelCount": 29787,
+      "expected": [
+        -0.18985775021189133,
+        0.5542716858388983,
+        -0.8103930731205597
+      ],
+      "ptMean": [
+        -0.1898193359375,
+        0.55419921875,
+        -0.81005859375
+      ],
+      "gbufferMean": [
+        -0.1898193359375,
+        0.55419921875,
+        -0.81005859375
+      ],
+      "maxAbsoluteErrors": {
+        "ptOracle": 0.0003344793705597482,
+        "gbufferOracle": 0.0003344793705597482,
+        "pair": 0.0
+      },
+      "tolerance": 0.001,
+      "passed": true
+    },
+    {
+      "material": 1,
+      "resource": "Roughness",
+      "pixelCount": 29787,
+      "expected": [
+        0.37
+      ],
+      "ptMean": [
+        0.369873046875
+      ],
+      "gbufferMean": [
+        0.36862745098039224
+      ],
+      "maxAbsoluteErrors": {
+        "ptOracle": 0.00012695312499999556,
+        "gbufferOracle": 0.001372549019607816,
+        "pair": 0.0012455958946078205
+      },
+      "tolerance": 0.0025,
+      "passed": true
+    },
+    {
+      "material": 1,
+      "resource": "Albedo",
+      "pixelCount": 29787,
+      "expected": [
+        0.3651288185443238,
+        0.012743768043564745,
+        0.2614101357596391
+      ],
+      "ptMean": [
+        0.364990234375,
+        0.0127410888671875,
+        0.26123046875
+      ],
+      "gbufferMean": [
+        0.3647058823529723,
+        0.011764705882347107,
+        0.2627450980391554
+      ],
+      "maxAbsoluteErrors": {
+        "ptOracle": 0.0001796670096391173,
+        "gbufferOracle": 0.0013349622795765792,
+        "pair": 0.0015146292892156965
+      },
+      "tolerance": 0.0025,
+      "passed": true
+    },
+    {
+      "material": 1,
+      "resource": "Emission",
+      "pixelCount": 29787,
+      "expected": [
+        0.31948771622628325,
+        0.02548753608712949,
+        0.08713671191987972
+      ],
+      "ptMean": [
+        0.3194877505302429,
+        0.025487540289759636,
+        0.08713673800230026
+      ],
+      "gbufferMean": [
+        0.3193359375,
+        0.025482177734375,
+        0.08709716796875
+      ],
+      "maxAbsoluteErrors": {
+        "ptOracle": 3.430395967285449E-08,
+        "gbufferOracle": 0.00015177872628324707,
+        "pair": 0.00015181303024291992
+      },
+      "tolerance": 0.001,
+      "passed": true
+    }
+  ]
+}

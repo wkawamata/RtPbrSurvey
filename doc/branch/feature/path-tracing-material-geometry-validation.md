@@ -14,10 +14,13 @@ Base: `f3dd371`
 - [x] Record supported inputs and explicit exclusions.
 - [x] Carry imported base-color/emissive factors and normal-map scale to the GPU.
 - [x] Add unsupported-input diagnostics and reject unsafe packed-data inputs.
+- [x] Validate separate-BLAS mesh ranges and remapped materials on the GPU.
+- [x] Numerically compare GBuffer and PT surface inputs.
 
 Step 4 is not a declaration of full glTF material compliance. The geometry-transform
-portion and imported material factors are validated; remaining importer gaps are listed below before advancing
-to emissive-surface sampling in Step 5.
+portion, imported material factors and GBuffer/PT input comparison are validated.
+Step 4 is complete within the declared opaque subset; importer gaps remain listed
+below and are not implied to be supported. Next is emissive-surface sampling in Step 5.
 
 ## Changes
 
@@ -71,7 +74,7 @@ it is not included as a passing capture. The corrected fixtures use relative pat
 | glTF baked negative-determinant node | CPU and native PT guide tested |
 | Positive nonsingular nonuniform instance scale + rotation | Native PT guide tested |
 | Same mesh in multiple instances | Native PT guide tested |
-| Multiple mesh ranges and material-ID remapping | Existing CPU tests; no new GPU multi-mesh campaign |
+| Multiple mesh ranges and material-ID remapping | CPU tests and separate-BLAS native GPU campaign |
 | Normal map, UV0, supplied tangents, scale=1 / 0.35 / 1.7 | Native PT guide tested |
 | Missing tangents | PT ignores the normal map; GBuffer uses an arbitrary fallback frame |
 | `normalTexture.scale` | Carried through loader, scene, GPU material and PT/GBuffer sampling |
@@ -87,8 +90,9 @@ it is not included as a passing capture. The corrected fixtures use relative pat
 Opaque-only behavior must not be presented as faithful rendering of transparent,
 cutout, or double-sided assets. Zero-scale geometry is outside the correctness guarantee;
 the shader's degenerate normal fallback only prevents normalization of a zero vector.
-GBuffer transform and factor changes compile successfully but were not separately numerically
-captured. Forward receives the base-color multiplier but retains its existing lighting/color-space path;
+GBuffer transform and factor changes are now numerically captured for supplied-tangent,
+constant-texture surfaces (see the follow-up below). Forward receives the base-color
+multiplier but retains its existing lighting/color-space path;
 its normal transform and normal mapping were not changed.
 
 The glTF specification defines normal textures as linear tangent-space data, applies
@@ -98,9 +102,9 @@ behavior. These requirements motivate the exclusions above:
 
 ## Next small steps
 
-1. Add separate-BLAS GPU multi-mesh fixtures and a GBuffer/PT surface-input
-   comparison. Treat negative runtime instance scale as a separate winding test.
-2. Close Step 4 within the declared opaque subset, then proceed to Step 5 emission MIS.
+1. Proceed to Step 5 emission sampling and MIS within the declared opaque subset.
+2. Keep negative runtime instance scale, missing-tangent normal mapping and alpha
+   semantics as explicit follow-up work rather than claiming full glTF compliance.
 
 ## Import diagnostics (2026-10-04)
 
@@ -200,3 +204,62 @@ python -B Tests/PathTracing/validate_materials.py --output bin/PathTracingValida
 Use the freshly built Debug application. Python requires NumPy and Pillow. Generated
 glTF/scene/preset/PTBUF/log files stay under ignored `bin/PathTracingValidation`.
 The retained summary is `path-tracing-validation-results/completion-step-4-geometry-summary.json`.
+
+## Separate-BLAS validation (2026-10-04)
+
+Base: `6f665fc`. The geometry campaign now includes five captures. The new case
+uses two asset IDs and two glTF files, so SceneDocumentBuilder creates two SceneMesh
+ranges rather than reusing one cached mesh. Each range receives its own BLAS. The
+second asset has a mirrored baked node, normal scale 0.6 and roughness 0.71; the first
+uses normal scale 1 and roughness 0.37. Both have different runtime rotations.
+This checks distinct vertex/index ranges and remapped material lookup, not merely
+two transforms of one BLAS. Runtime instance scales remain positive.
+
+All five captures passed on RTX 2080 Ti / driver 616.56 with zero D3D12
+ERROR/CORRUPTION lines. The separate-mesh regions contained 13019 and 32312 visible
+pixels. Their maximum normal/roughness errors were 0.0001269531 and 0.0002859946,
+below the preselected 0.001 tolerance. Python passed 62/62 tests. Renderer sources
+are unchanged by this follow-up, so the previously verified Debug executable was
+reused; its hash and the source/fixture hashes are retained in
+`path-tracing-validation-results/completion-step-4-separate-meshes-summary.json`.
+
+These separate-BLAS results do not establish correctness of emitted-light transport.
+
+## GBuffer/PT comparison (2026-10-04)
+
+`validate_gbuffer_pt.py` captures PT NormalRoughness, Albedo and emission debug HDR,
+then Deferred GBuffer Normal, Albedo, PBRParams and Emissive for the same fixture.
+The fixture has two opaque material regions sharing one constant texture, different
+color/emission factors and normal scales 0.35/1.7, with nonuniform transformed geometry.
+The PT stochastic primary-ray edge and raster edge need not agree: comparisons use
+their common interior, eroded by two pixels, with at least 1000 pixels per region.
+The two measured regions contained 10347 and 29787 pixels.
+
+Each path is checked against the independent material/transform oracle as well as
+against the other path. Albedo alpha is excluded because PT alpha represents hit
+coverage, not imported material alpha. GBuffer Albedo/PBRParams are linear UNORM8;
+PT guides and GBuffer normals/emission use half floats. Limits were selected before
+capture: 0.001 for normal/emission, 0.0025 for Albedo/roughness including quantization.
+
+| Input | Maximum PT/GBuffer pair error | Maximum independent oracle error |
+| --- | --- | --- |
+| Normal | 0 | 0.0003344794 |
+| Roughness | 0.0012455959 | 0.0013725490 |
+| Albedo RGB | 0.0015146293 | 0.0013349623 |
+| Emission RGB | 0.0001518130 | 0.0001517787 |
+
+All eight checks passed. Seven native captures had zero D3D12 ERROR/CORRUPTION
+lines on RTX 2080 Ti / driver 616.56. Debug x64 MSBuild and complete CMake Debug
+build succeeded; CTest passed 24/24 and Python passed 67/67 tests.
+The retained result is `path-tracing-validation-results/completion-step-4-gbuffer-pt-summary.json`.
+
+The `.ptbuf` schema/magic remains compatible. Native capture now additionally
+allows only Deferred GBuffer Albedo, Normal, PBRParams and Emissive; it rejects
+unlisted resources, Forward rendering and region captures. RGBA8_UNORM is saved
+as original bytes and decoded as bytes/255 by the reader. Captures restore the
+resource's recorded pre-copy state instead of assuming every diagnostic source is a UAV.
+Metadata includes renderingPath, resource name, dimensions, format and camera matrices.
+PT seed/sample fields have meaning only for PT captures.
+
+This validates surface inputs, not final lighting equivalence, minified texture
+LOD agreement, transparent materials or unbiased emissive transport.

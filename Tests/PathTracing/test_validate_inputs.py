@@ -10,6 +10,13 @@ import validate_inputs
 
 
 class InputTests(unittest.TestCase):
+    def test_native_unorm_rgba(self):
+        meta = dict(schemaVersion=1, rowOrder='top-down', format=28, width=1, height=1)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'test.ptbuf'
+            path.write_bytes(b'PTBUF1\n'+json.dumps(meta).encode()+b'\n'+bytes([0, 128, 255, 64]))
+            np.testing.assert_allclose(read_buffer(path)[1][0, 0], [0, 128/255, 1, 64/255])
+
     def test_native_half_signed_rg_and_orientation(self):
         meta = dict(schemaVersion=1, rowOrder='top-down', format=34, width=2, height=2)
         values = np.array([[[.125, -.25], [.5, -.5]], [[1, -1], [2, -2]]], dtype='<f2')

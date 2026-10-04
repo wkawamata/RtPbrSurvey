@@ -417,6 +417,7 @@ bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem:
             break;
         case DXGI_FORMAT_R16G16_FLOAT:
         case DXGI_FORMAT_R32_FLOAT:
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
             bytesPerPixel = 4;
             break;
         default:
@@ -427,7 +428,7 @@ bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem:
         {
             if (bytesPerPixel == 0 || readback.diagnosticMetadata.empty())
             {
-                error = "Unsupported PT buffer format or missing capture metadata.";
+                error = "Unsupported native buffer format or missing capture metadata.";
             }
             else
             {
