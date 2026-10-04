@@ -19,6 +19,7 @@ enum class ScreenshotOutputFormat
 {
     Png,
     Exr,
+    Gif,
 };
 
 enum class ScreenshotCaptureSource
@@ -36,6 +37,12 @@ struct ScreenshotRequest
     std::optional<ScreenshotRegion> region;
     ScreenshotOutputFormat outputFormat = ScreenshotOutputFormat::Png;
     ScreenshotCaptureSource source = ScreenshotCaptureSource::FinalOutput;
+    // GIF uses centiseconds because that is the timing resolution of its frame metadata.
+    std::uint16_t frameDelayCentiseconds = 0;
+    // GIF loop extension: unset plays once, zero loops forever, positive values repeat after the first play.
+    std::optional<std::uint16_t> gifRepeatCount;
+    // GIF graphic-control disposal: 1 keeps the composed frame, 2 restores the background, 3 restores the previous frame.
+    std::uint8_t gifDisposal = 1;
     std::uint64_t requestId = 0;
     // Used only by diagnostic .ptbuf captures.
     std::string debugResourceName;

@@ -1352,6 +1352,16 @@ bool RtPbrSurveyEngine::IsScreenshotCaptureIdle() const
     return m_screenshotRequestQueue.IsIdle();
 }
 
+bool RtPbrSurveyEngine::FinalizeAnimatedGif(std::string& error)
+{
+    return m_animatedGifEncoder.Finalize(error);
+}
+
+void RtPbrSurveyEngine::AbortAnimatedGif()
+{
+    m_animatedGifEncoder.Reset();
+}
+
 void RtPbrSurveyEngine::RequestPixelPick(int screenX, int screenY)
 {
     m_pixelPickRequested = true;
@@ -6236,9 +6246,10 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             switch (capture.request.source)
             {
             case RtPbrSurvey::ScreenshotCaptureSource::FinalOutput:
-                if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png)
+                if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png &&
+                    capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Gif)
                 {
-                    throw std::invalid_argument("Final-output screenshot capture supports PNG only.");
+                    throw std::invalid_argument("Final-output screenshot capture supports PNG or GIF only.");
                 }
                 source = m_renderTargets[m_currentFrameIndex].Get();
                 hdr10 = m_hdrOutputPolicy.settings.hdr10Enabled;
@@ -6854,9 +6865,38 @@ void RtPbrSurveyEngine::ProcessCompletedScreenshot()
     result.height = capture.readback.height;
     try
     {
-        result.succeeded = capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Exr
-            ? Engine::SaveExrScreenshotReadback(capture.readback, result.path, result.error)
-            : Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
+        if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Exr)
+        {
+            result.succeeded = Engine::SaveExrScreenshotReadback(capture.readback, result.path, result.error);
+        }
+        else if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Gif)
+        {
+            const D3D12_RANGE readRange = {static_cast<SIZE_T>(capture.readback.layout.Offset),
+                                           static_cast<SIZE_T>(capture.readback.resource->GetDesc().Width)};
+            std::uint8_t* mappedData = nullptr;
+            ThrowIfFailed(capture.readback.resource->Map(0, &readRange, reinterpret_cast<void**>(&mappedData)));
+            const std::vector<std::uint8_t> rgba8 = Engine::ConvertScreenshotToRgba8(
+                mappedData + capture.readback.layout.Offset,
+                capture.readback.width,
+                capture.readback.height,
+                capture.readback.layout.Footprint.RowPitch,
+                capture.readback.format,
+                capture.readback.hdr10,
+                capture.readback.paperWhiteNits);
+            capture.readback.resource->Unmap(0, nullptr);
+            result.succeeded = m_animatedGifEncoder.AppendFrame(result.path,
+                                                                 result.width,
+                                                                 result.height,
+                                                                 rgba8.data(),
+                                                                 capture.request.frameDelayCentiseconds,
+                                                                 capture.request.gifRepeatCount,
+                                                                 capture.request.gifDisposal,
+                                                                 result.error);
+        }
+        else
+        {
+            result.succeeded = Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
+        }
     }
     catch (const std::exception& exception)
     {

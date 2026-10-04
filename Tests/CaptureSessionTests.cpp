@@ -1,10 +1,16 @@
 #include "stdafx.h"
 
 #include "Platform/CommandLineOptions.h"
+#include "Renderer/AnimatedGifEncoder.h"
 #include "Runtime/CaptureSession.h"
 #include "Runtime/CaptureSessionUi.h"
 
+#include <array>
+#include <chrono>
+#include <fstream>
 #include <iostream>
+#include <iterator>
+#include <vector>
 #include <imgui.h>
 
 namespace
@@ -177,7 +183,20 @@ bool TestValidationAndLegacyCli()
     RtPbrSurvey::CaptureSessionConfig config = MakeConfig(RtPbrSurvey::CaptureSessionClock::RealTime);
     config.outputFormat = RtPbrSurvey::CaptureSessionOutputFormat::Gif;
     std::string error;
-    bool passed = Check(!session.Start(config, error) && !error.empty(), "unimplemented GIF format fails at start");
+    bool passed = Check(session.Start(config, error), "GIF format starts");
+    session.Update({0, 0.0, 0.0});
+    const auto gifFirst = session.AcquireReadyRequest();
+    passed &= Check(gifFirst.has_value() && gifFirst->path.filename() == "frame.gif" &&
+                        gifFirst->outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Gif &&
+                        gifFirst->frameDelayCentiseconds == 2 && gifFirst->gifRepeatCount == 0 &&
+                        gifFirst->gifDisposal == static_cast<std::uint8_t>(RtPbrSurvey::CaptureSessionGifDisposal::Keep),
+                    "GIF uses one output path, centisecond frame delay, infinite repeat, and frame disposal");
+    session.MarkRequestAccepted();
+    session.CompleteRequest({gifFirst->path, true, {}, 1, 1, gifFirst->requestId});
+    session.Update({1, 0.1, 0.1});
+    const auto gifSecond = session.AcquireReadyRequest();
+    passed &= Check(gifSecond.has_value() && gifSecond->path == gifFirst->path,
+                    "GIF frames append to the same output path");
 
     WCHAR executable[] = L"RtPbrSurvey.exe";
     WCHAR option[] = L"-CapturePath";
@@ -190,8 +209,14 @@ bool TestValidationAndLegacyCli()
     WCHAR outputDirectory[] = L"Captures";
     WCHAR baseNameOption[] = L"-CaptureSessionBaseName";
     WCHAR baseName[] = L"turntable";
+    WCHAR subfolderOption[] = L"-CaptureSessionSubfolder";
+    WCHAR subfolder[] = L"run01";
     WCHAR formatOption[] = L"-CaptureSessionFormat";
     WCHAR format[] = L"exr";
+    WCHAR gifRepeatOption[] = L"-CaptureSessionGifRepeat";
+    WCHAR gifRepeat[] = L"3";
+    WCHAR gifDisposalOption[] = L"-CaptureSessionGifDisposal";
+    WCHAR gifDisposal[] = L"background";
     WCHAR frameOption[] = L"-CaptureSessionFrames";
     WCHAR frames[] = L"12";
     WCHAR roiOption[] = L"-CaptureSessionRoi";
@@ -207,8 +232,14 @@ bool TestValidationAndLegacyCli()
         outputDirectory,
         baseNameOption,
         baseName,
+        subfolderOption,
+        subfolder,
         formatOption,
         format,
+        gifRepeatOption,
+        gifRepeat,
+        gifDisposalOption,
+        gifDisposal,
         frameOption,
         frames,
         roiOption,
@@ -219,19 +250,90 @@ bool TestValidationAndLegacyCli()
         durationOption,
         duration,
     };
-    const Platform::CommandLineOptions sessionOptions = Platform::ParseCommandLineOptions(sessionArgv, 16);
+    const Platform::CommandLineOptions sessionOptions = Platform::ParseCommandLineOptions(sessionArgv, 22);
     passed &= Check(sessionOptions.captureSessionEnabled && sessionOptions.captureSessionOutputDirectory == "Captures" &&
                         sessionOptions.captureSessionBaseName == L"turntable" &&
+                        sessionOptions.captureSessionOutputSubdirectory == "run01" &&
+                        sessionOptions.captureSessionGifRepeat == L"3" &&
+                        sessionOptions.captureSessionGifDisposal == L"background" &&
                         sessionOptions.captureSessionFormat == L"exr" && sessionOptions.captureSessionFrameLimit == 12,
                     "Capture Session CLI parses common output settings");
     RtPbrSurvey::CaptureSessionConfig sessionConfig;
     std::string configError;
     passed &= Check(Platform::BuildCaptureSessionConfig(sessionOptions, sessionConfig, configError),
                     "Capture Session CLI builds shared config");
-    passed &= Check(sessionConfig.durationSeconds == 2.5 && sessionConfig.region.has_value() &&
+    passed &= Check(sessionConfig.outputSubdirectory == "run01" &&
+                        sessionConfig.gifRepeatMode == RtPbrSurvey::CaptureSessionGifRepeatMode::Count &&
+                        sessionConfig.gifRepeatCount == 3 &&
+                        sessionConfig.gifDisposal == RtPbrSurvey::CaptureSessionGifDisposal::Background &&
+                        sessionConfig.durationSeconds == 2.5 && sessionConfig.region.has_value() &&
                         sessionConfig.region->x == 8 && sessionConfig.region->height == 180 &&
                         sessionConfig.source == RtPbrSurvey::ScreenshotCaptureSource::PreToneMapSceneColor,
                     "shared CLI config preserves ROI, duration, and EXR source");
+    return passed;
+}
+
+bool TestGifOutputPathDoesNotOverwrite()
+{
+    const std::filesystem::path root = std::filesystem::temp_directory_path() /
+        ("RtPbrSurveyCaptureSessionTests_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const std::filesystem::path subfolder = root / "take";
+    std::error_code fileError;
+    std::filesystem::create_directories(subfolder, fileError);
+    if (fileError)
+    {
+        return Check(false, "GIF collision test directory is created");
+    }
+
+    const std::filesystem::path existingGif = subfolder / "frame.gif";
+    std::ofstream(existingGif, std::ios::binary).put('\0');
+
+    RtPbrSurvey::CaptureSession session;
+    auto config = MakeConfig(RtPbrSurvey::CaptureSessionClock::FixedStep);
+    config.outputDirectory = root;
+    config.outputSubdirectory = "take";
+    config.outputFormat = RtPbrSurvey::CaptureSessionOutputFormat::Gif;
+    std::string error;
+    bool passed = Check(session.Start(config, error), "GIF collision session starts");
+    session.Update({0, 0.0, 0.0});
+    const auto request = session.AcquireReadyRequest();
+    passed &= Check(request.has_value() && request->path == (subfolder / "frame_000001.gif"),
+                    "GIF collision appends a numbered suffix below the selected subfolder");
+
+    std::filesystem::remove_all(root, fileError);
+    return passed;
+}
+
+bool TestGifMetadataEncoding()
+{
+    const std::filesystem::path path = std::filesystem::temp_directory_path() /
+        ("RtPbrSurveyAnimatedGifTests_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".gif");
+    const std::vector<std::uint8_t> rgba = {255, 0, 0, 255};
+    Engine::AnimatedGifEncoder encoder;
+    std::string error;
+    bool passed = Check(encoder.AppendFrame(path, 1, 1, rgba.data(), 5, 3, 2, error),
+                        "GIF encoder writes a frame with repeat and disposal metadata");
+    passed &= Check(encoder.Finalize(error), "GIF encoder finalizes metadata test output");
+
+    std::ifstream input(path, std::ios::binary);
+    const std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+    const std::string text(bytes.begin(), bytes.end());
+    const size_t applicationOffset = text.find("NETSCAPE2.0");
+    passed &= Check(applicationOffset != std::string::npos && applicationOffset + 15 < bytes.size() &&
+                        bytes[applicationOffset + 11] == 3 && bytes[applicationOffset + 12] == 1 &&
+                        bytes[applicationOffset + 13] == 3 && bytes[applicationOffset + 14] == 0 &&
+                        bytes[applicationOffset + 15] == 0,
+                    "GIF repeat count is written to the NETSCAPE extension");
+    constexpr std::array<std::uint8_t, 3> graphicControlSignature = {0x21, 0xf9, 0x04};
+    const auto graphicControl = std::search(bytes.begin(), bytes.end(),
+                                            graphicControlSignature.begin(), graphicControlSignature.end());
+    passed &= Check(graphicControl != bytes.end() && ((*(graphicControl + 3) >> 2) & 0x07) == 2,
+                    "GIF graphic control writes the requested disposal mode");
+
+    std::error_code fileError;
+    std::filesystem::remove(path, fileError);
     return passed;
 }
 
@@ -299,7 +401,7 @@ bool TestMismatchedResultDoesNotCompleteSession()
 int main()
 {
     return TestStableOutputPath() && TestStableStopButton() && TestOutputOrderAndStopDrain() && TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
-                   TestValidationAndLegacyCli() && TestOutputFailureCompletesCleanup() && TestWarmupExcludedFromDuration() &&
+                   TestValidationAndLegacyCli() && TestGifOutputPathDoesNotOverwrite() && TestGifMetadataEncoding() && TestOutputFailureCompletesCleanup() && TestWarmupExcludedFromDuration() &&
                    TestMismatchedResultDoesNotCompleteSession() ?
         0 :
         1;
