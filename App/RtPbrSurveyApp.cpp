@@ -21,18 +21,61 @@
 #include <stdexcept>
 #include <sys/stat.h>
 #include "RtPbrSurveyApp.h"
+#include "App/RenderPresetStore.h"
 #include "../Platform/Win32Application.h"
 #include "../Platform/AssetPath.h"
 #include "../Renderer/StreamlineAdapter.h"
 #include "../Renderer/ReflectionHdrDiagnosticStatistics.h"
 #include "../Scene/SceneFactory.h"
+#include "../Scene/SceneGraph.h"
+#include "../Scene/SceneDocumentJson.h"
+#include "../Scene/SceneDocumentRuntimeScene.h"
 #include "imgui.h"
 #include "ImGuiWidgets.h"
+
+#include <nlohmann/json.hpp>
 
 void RunStagedAllocatorTests(ID3D12Device* device);
 
 namespace
 {
+const char* RenderingPathMetadataName(RtPbrSurveyEngine::RenderingPath renderingPath)
+{
+    switch (renderingPath)
+    {
+        case RtPbrSurveyEngine::RenderingPath::Forward:
+            return "forward";
+        case RtPbrSurveyEngine::RenderingPath::PathTracing:
+            return "path-tracing";
+        default:
+            return "deferred";
+    }
+}
+
+std::string WideToUtf8(const std::wstring& value)
+{
+    if (value.empty())
+    {
+        return {};
+    }
+
+    const int length = WideCharToMultiByte(
+        CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr);
+    if (length <= 0)
+    {
+        throw std::runtime_error("Failed to convert command-line text to UTF-8.");
+    }
+    std::string result(static_cast<size_t>(length), '\0');
+    WideCharToMultiByte(CP_UTF8,
+                        0,
+                        value.c_str(),
+                        static_cast<int>(value.size()),
+                        result.data(),
+                        length,
+                        nullptr,
+                        nullptr);
+    return result;
+}
 
 static_assert(Engine::ImGuiSystem::kMaxTextureCount >= RtPbrSurveyEngine::kMaxDebugTextureOutputCount);
 
@@ -107,7 +150,8 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
 {
     m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
     if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() &&
-        (!m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty()))
+        (!m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
+         !m_commandLineOptions.reflectionCapturePlanPath.empty()))
     {
         throw std::invalid_argument(
             "-ReflectionHdrDiagnostics is mutually exclusive with screenshot capture automation.");
@@ -115,12 +159,42 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     const UINT autoSelectModeCount =
         static_cast<UINT>(m_commandLineOptions.autoSelectGltfDamagedHelmet) +
         static_cast<UINT>(!m_commandLineOptions.autoSelectGltfAssetName.empty()) +
-        static_cast<UINT>(m_commandLineOptions.autoSelectHybridReflectionEstimatorTest);
+        static_cast<UINT>(m_commandLineOptions.autoSelectHybridReflectionEstimatorTest) +
+        static_cast<UINT>(!m_commandLineOptions.evaluationCaseName.empty()) +
+        static_cast<UINT>(!m_commandLineOptions.sceneFilePath.empty());
     if (autoSelectModeCount > 1)
     {
         throw std::invalid_argument(
-            "-AutoSelectGltfDamagedHelmet, -AutoSelectGltfAsset, and "
-            "-AutoSelectHybridReflectionEstimatorTest are mutually exclusive.");
+            "-AutoSelectGltfDamagedHelmet, -AutoSelectGltfAsset, "
+            "-AutoSelectHybridReflectionEstimatorTest, -EvaluationCase, and -SceneFile are mutually exclusive.");
+    }
+    if (!m_commandLineOptions.evaluationCaseName.empty() && m_commandLineOptions.useSceneDefaults)
+    {
+        throw std::invalid_argument("-EvaluationCase and -UseSceneDefaults are mutually exclusive.");
+    }
+    if (m_commandLineOptions.pathTracingSampleTarget > 0 && m_commandLineOptions.capturePath.empty())
+    {
+        throw std::invalid_argument("-PathTracingSamples requires -CapturePath.");
+    }
+    if (m_commandLineOptions.captureSessionEnabled)
+    {
+        if (!m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty())
+        {
+            throw std::invalid_argument("Capture Session is mutually exclusive with existing screenshot automation.");
+        }
+        RtPbrSurvey::CaptureSessionConfig config;
+        std::string error;
+        if (!Platform::BuildCaptureSessionConfig(m_commandLineOptions, config, error))
+        {
+            throw std::invalid_argument(error);
+        }
+    }
+    if (m_commandLineOptions.enablePathTracing &&
+        (m_commandLineOptions.enableDlssSr || m_commandLineOptions.enableDlssRayReconstruction ||
+         m_commandLineOptions.captureReflectionResolvedRadiance))
+    {
+        throw std::invalid_argument(
+            "-EnablePathTracing is mutually exclusive with DLSS SR and reflection capture automation.");
     }
     if (!m_commandLineOptions.reflectionCapturePlanPath.empty())
     {
@@ -146,8 +220,11 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
 
 void RtPbrSurveyApp::OnInit()
 {
-    const Engine::StreamlineAdapterInitDesc streamlineInitDesc = {L"RtPbrSurvey"};
-    Engine::InitializeStreamlineAdapter(streamlineInitDesc);
+    if (!m_commandLineOptions.enablePathTracing)
+    {
+        const Engine::StreamlineAdapterInitDesc streamlineInitDesc = {L"RtPbrSurvey"};
+        Engine::InitializeStreamlineAdapter(streamlineInitDesc);
+    }
 
     CreateSampleScenes();
 
@@ -158,7 +235,10 @@ void RtPbrSurveyApp::OnInit()
     deviceDesc.bufferCount = RtPbrSurveyEngine::kSwapChainBufferCount;
     deviceDesc.swapChainFormat = RtPbrSurveyEngine::kSwapChainFormat;
     deviceDesc.useWarpDevice = m_commandLineOptions.useWarpDevice;
-    deviceDesc.deviceCreatedHandler = [](ID3D12Device* device) { Engine::SetStreamlineD3DDevice(device); };
+    if (!m_commandLineOptions.enablePathTracing)
+    {
+        deviceDesc.deviceCreatedHandler = [](ID3D12Device* device) { Engine::SetStreamlineD3DDevice(device); };
+    }
     m_graphicsDevice.Initialize(deviceDesc);
 
     // Open debug log file and query ID3D12InfoQueue for D3D12 message capture.
@@ -236,13 +316,66 @@ void RtPbrSurveyApp::OnInit()
         }
 
         m_sceneConfig.SetPaths(defaultsPathA, userConfigPath);
+        std::string evaluationStatePath = userConfigPath;
+        const size_t separator = evaluationStatePath.find_last_of("\\/");
+        if (separator != std::string::npos)
+        {
+            evaluationStatePath.resize(separator + 1);
+        }
+        else
+        {
+            evaluationStatePath.clear();
+        }
+        evaluationStatePath += "evaluation_states.json";
+        m_evaluationStates.SetPath(evaluationStatePath);
+        std::string evaluationLoadError;
+        if (!m_evaluationStates.Load(&evaluationLoadError))
+        {
+            m_evaluationStatus = "Load failed: " + evaluationLoadError;
+            DBG_PRINT("Evaluation state load failed: %s\n", evaluationLoadError.c_str());
+        }
     }
 
-    if (m_commandLineOptions.autoSelectGltfDamagedHelmet ||
-        !m_commandLineOptions.autoSelectGltfAssetName.empty() ||
-        m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
+    if (!m_commandLineOptions.sceneFilePath.empty())
     {
-        if (m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
+        OpenFileScene();
+        m_debugUiVisible = false;
+    }
+    else if (m_commandLineOptions.autoSelectGltfDamagedHelmet ||
+        !m_commandLineOptions.autoSelectGltfAssetName.empty() ||
+        m_commandLineOptions.autoSelectHybridReflectionEstimatorTest ||
+        !m_commandLineOptions.evaluationCaseName.empty())
+    {
+        if (!m_commandLineOptions.evaluationCaseName.empty())
+        {
+            const std::string evaluationCaseName = WideToUtf8(m_commandLineOptions.evaluationCaseName);
+            const auto state = std::find_if(m_evaluationStates.States().begin(),
+                                            m_evaluationStates.States().end(),
+                                            [&evaluationCaseName](const RtPbrSurvey::EvaluationState& candidate)
+                                            { return candidate.name == evaluationCaseName; });
+            if (state == m_evaluationStates.States().end())
+            {
+                throw std::runtime_error("Saved Evaluation Case is unavailable: " + evaluationCaseName);
+            }
+            const auto duplicate = std::find_if(std::next(state),
+                                                m_evaluationStates.States().end(),
+                                                [&evaluationCaseName](const RtPbrSurvey::EvaluationState& candidate)
+                                                { return candidate.name == evaluationCaseName; });
+            if (duplicate != m_evaluationStates.States().end())
+            {
+                throw std::runtime_error("Saved Evaluation Case name is ambiguous: " + evaluationCaseName);
+            }
+
+            std::string error;
+            if (!RestoreEvaluationState(*state, &error))
+            {
+                throw std::runtime_error("Failed to restore Evaluation Case: " + error);
+            }
+            m_selectedEvaluationStateIndex =
+                static_cast<int>(std::distance(m_evaluationStates.States().begin(), state));
+            ApplyPathTracingCommandLineOptions();
+        }
+        else if (m_commandLineOptions.autoSelectHybridReflectionEstimatorTest)
         {
             const auto scene = std::find_if(
                 m_sampleScenes.begin(),
@@ -289,17 +422,22 @@ void RtPbrSurveyApp::OnInit()
         {
             m_selectedSceneIndex = kDefaultSceneIndex;
         }
-        OpenSelectedScene();
+        if (m_commandLineOptions.evaluationCaseName.empty())
+        {
+            OpenSelectedScene();
+        }
 
         // HDR diagnostics must not inherit interactive user camera overrides. The
         // manifest ROIs and camera motion are defined against versioned scene defaults.
-        if (m_commandLineOptions.useSceneDefaults ||
-            !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty())
+        if (m_commandLineOptions.evaluationCaseName.empty() &&
+            (m_commandLineOptions.useSceneDefaults ||
+             !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty()))
         {
             m_sceneConfig.LoadDefaultsForScene(
                 m_selectedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
             ApplyRayReconstructionCommandLineOverrides();
             ApplyDlssSrCommandLineOptions();
+            ApplyPathTracingCommandLineOptions();
         }
 
         if (m_debugCamera.GetMode() == RtPbrSurvey::DebugCameraController::Mode::Arcball &&
@@ -314,7 +452,20 @@ void RtPbrSurveyApp::OnInit()
                 m_debugCamera.ObjectViewerPivot());
             m_debugCamera.UpdateObjectViewerCamera();
         }
-        m_debugUiVisible = false;
+        m_debugUiVisible = m_commandLineOptions.enableDebugTexturePreview;
+
+        const bool automatedSingleCaptureOrbit = !m_commandLineOptions.capturePath.empty() &&
+            m_commandLineOptions.reflectionOrbitFrames > 0;
+        if (automatedSingleCaptureOrbit)
+        {
+            if (m_debugCamera.GetMode() != RtPbrSurvey::DebugCameraController::Mode::Arcball)
+            {
+                m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::Arcball);
+                m_debugCamera.InitObjectViewerFromCamera();
+            }
+            m_automationOrbitStartYaw = m_debugCamera.ObjectViewerYaw();
+            m_automationOrbitDistance = m_debugCamera.ObjectViewerDistance();
+        }
 
         if (m_commandLineOptions.captureReflectionResolvedRadiance)
         {
@@ -367,6 +518,19 @@ void RtPbrSurveyApp::OnInit()
                 m_debugCamera.ObjectViewerDistance() * m_commandLineOptions.reflectionCameraDistanceScale);
         }
     }
+
+    if (m_commandLineOptions.captureSessionEnabled)
+    {
+        RtPbrSurvey::CaptureSessionConfig config;
+        std::string error;
+        if (!Platform::BuildCaptureSessionConfig(m_commandLineOptions, config, error) ||
+            !m_sceneRenderer.StartCaptureSession(config, error))
+        {
+            throw std::runtime_error("Failed to start Capture Session: " + error);
+        }
+        m_captureSessionActive = true;
+        m_captureSessionStartTime = std::chrono::steady_clock::now();
+    }
 }
 
 void RtPbrSurveyApp::UpdateSampleState()
@@ -375,10 +539,34 @@ void RtPbrSurveyApp::UpdateSampleState()
     const float deltaTime = std::chrono::duration<float>(now - m_prevTime).count();
     m_prevTime = now;
 
-    if (m_appMode == AppMode::SceneSelect)
+    if (m_appMode != AppMode::Running && m_appMode != AppMode::SceneEditorEdit)
     {
         m_sceneRenderer.SetDisplayInstanceCount(0);
         return;
+    }
+
+    if (m_sceneEditorObjectPickPending)
+    {
+        const RtPbrSurveyEngine::PixelPickResult& pick = m_sceneRenderer.GetPixelPickResult();
+        if (pick.valid)
+        {
+            m_sceneEditorObjectPickPending = false;
+            if (pick.objectId == 0 || !m_sceneEditorPreviewScene)
+            {
+                m_sceneEditorStatus = "No scene node was selected.";
+            }
+            else if (const std::optional<std::string> nodeId =
+                         m_sceneEditorPreviewScene->FindNodeIdByInstanceIndex(pick.objectId - 1))
+            {
+                m_sceneEditorSession->SelectNode(*nodeId);
+                UpdateSceneEditorSelectionOverlay();
+                m_sceneEditorStatus = "Selected from 3D preview: " + *nodeId;
+            }
+            else
+            {
+                m_sceneEditorStatus = "The selected object is not a Scene Document node.";
+            }
+        }
     }
 
     UpdateAutomatedCaptureCamera();
@@ -427,7 +615,7 @@ void RtPbrSurveyApp::UpdateSampleState()
 
 void RtPbrSurveyApp::OnKeyDown(UINT8 key)
 {
-    if (m_appMode == AppMode::SceneSelect && key == VK_ESCAPE)
+    if (m_appMode == AppMode::TopMenu && key == VK_ESCAPE)
     {
         DestroyWindow(Win32Application::GetHwnd());
         return;
@@ -436,6 +624,12 @@ void RtPbrSurveyApp::OnKeyDown(UINT8 key)
     if (m_appMode == AppMode::Running && key == VK_ESCAPE)
     {
         CloseRunningScene();
+        return;
+    }
+
+    if ((m_appMode == AppMode::SceneEditorStart || m_appMode == AppMode::SceneEditorEdit) && key == VK_ESCAPE)
+    {
+        RequestReturnToTopMenu();
         return;
     }
 
@@ -471,13 +665,24 @@ void RtPbrSurveyApp::OnKeyUp(UINT8 key) {}
 
 void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
 {
-    if (m_appMode == AppMode::SceneSelect)
+    if (m_appMode != AppMode::Running && m_appMode != AppMode::SceneEditorEdit)
     {
         return;
     }
 
     if (button == VK_LBUTTON)
     {
+        if (m_appMode == AppMode::SceneEditorEdit && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
+        {
+            if (m_renderingPath != RtPbrSurveyEngine::RenderingPath::Deferred)
+            {
+                m_sceneEditorStatus = "3D selection requires Deferred rendering.";
+                return;
+            }
+            m_sceneEditorObjectPickPending = true;
+            m_sceneRenderer.RequestPixelPick(x, y);
+            return;
+        }
         if (m_renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
         {
             m_sceneRenderer.RequestPixelPick(x, y);
@@ -489,12 +694,16 @@ void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
 
 void RtPbrSurveyApp::OnMouseUp(UINT8 button, int x, int y)
 {
+    if (m_appMode != AppMode::Running && m_appMode != AppMode::SceneEditorEdit)
+    {
+        return;
+    }
     m_debugCamera.OnMouseUp(button, x, y);
 }
 
 void RtPbrSurveyApp::OnMouseMove(int x, int y)
 {
-    if (m_appMode == AppMode::SceneSelect)
+    if (m_appMode != AppMode::Running && m_appMode != AppMode::SceneEditorEdit)
     {
         return;
     }
@@ -504,7 +713,7 @@ void RtPbrSurveyApp::OnMouseMove(int x, int y)
 
 void RtPbrSurveyApp::OnMouseWheel(int wheelDelta)
 {
-    if (m_appMode == AppMode::SceneSelect)
+    if (m_appMode != AppMode::Running && m_appMode != AppMode::SceneEditorEdit)
     {
         return;
     }
@@ -527,7 +736,34 @@ void RtPbrSurveyApp::OnIdle()
         return;
     }
 
-    if (HasAutomatedCapture())
+    const double captureSessionRealTimeSeconds =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - m_captureSessionStartTime).count();
+    if (!m_captureSessionActive)
+    {
+        RtPbrSurvey::CaptureSessionUi::Update(
+            m_sceneRenderer,
+            {m_automationFrameCounter, captureSessionRealTimeSeconds, captureSessionRealTimeSeconds});
+    }
+
+    if (m_captureSessionActive)
+    {
+        m_sceneRenderer.UpdateCaptureSession(
+            {m_automationFrameCounter, captureSessionRealTimeSeconds, captureSessionRealTimeSeconds});
+        const RtPbrSurvey::CaptureSessionStatus& status = m_sceneRenderer.GetCaptureSessionStatus();
+        if (status.state == RtPbrSurvey::CaptureSessionState::Completed || status.state == RtPbrSurvey::CaptureSessionState::Failed)
+        {
+            m_captureSessionActive = false;
+            m_screenshotStatus = status.state == RtPbrSurvey::CaptureSessionState::Completed ?
+                "Capture session completed: " + status.lastOutputPath.string() :
+                "Capture session failed: " + status.error;
+            if (m_commandLineOptions.exitAfterCapture)
+            {
+                DestroyWindow(Win32Application::GetHwnd());
+                return;
+            }
+        }
+    }
+    else if (HasAutomatedCapture())
     {
         if (const std::optional<RtPbrSurvey::ScreenshotResult> result = m_sceneRenderer.ConsumeScreenshotResult())
         {
@@ -552,6 +788,15 @@ void RtPbrSurveyApp::OnIdle()
             const bool capturePlanComplete =
                 !m_reflectionCapturePlan.captures.empty() &&
                 m_completedReflectionCaptureCount == m_reflectionCapturePlan.captures.size();
+            if (m_logFile)
+            {
+                fprintf(m_logFile,
+                        "[Capture] complete=%s exitAfterCapture=%s path=%s\n",
+                        (singleCaptureComplete || capturePlanComplete) ? "true" : "false",
+                        m_commandLineOptions.exitAfterCapture ? "true" : "false",
+                        result->path.string().c_str());
+                fflush(m_logFile);
+            }
             if (m_commandLineOptions.exitAfterCapture && (singleCaptureComplete || capturePlanComplete))
             {
                 DestroyWindow(Win32Application::GetHwnd());
@@ -584,11 +829,31 @@ void RtPbrSurveyApp::OnIdle()
         }
     }
     else if (m_reflectionCapturePlan.captures.empty() && !m_commandLineOptions.capturePath.empty() &&
-             !m_automationScreenshotRequested &&
-             m_automationFrameCounter >= m_commandLineOptions.captureAfterFrames)
+             !m_automationScreenshotRequested)
     {
         const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
-        if (m_commandLineOptions.enableDlssSr && !context.temporalUpscalerOutputAvailable)
+        bool singleCaptureReady = false;
+        if (m_commandLineOptions.pathTracingSampleTarget > 0)
+        {
+            const uint64_t accumulatedSamples = context.pathTracingRuntimeState.accumulatedSampleCount;
+            if (accumulatedSamples > m_commandLineOptions.pathTracingSampleTarget)
+            {
+                FailAutomatedCapture("Path Tracing exceeded the requested accumulated sample target.");
+                return;
+            }
+            singleCaptureReady = accumulatedSamples == m_commandLineOptions.pathTracingSampleTarget;
+            if (singleCaptureReady)
+            {
+                m_sceneRenderer.SetPathTracingAccumulationPaused(true);
+                LogPathTracingCaptureDiagnostics(context);
+            }
+        }
+        else
+        {
+            singleCaptureReady = m_automationFrameCounter >= m_commandLineOptions.captureAfterFrames;
+        }
+
+        if (singleCaptureReady && m_commandLineOptions.enableDlssSr && !context.temporalUpscalerOutputAvailable)
         {
             const Engine::StreamlineEvaluateResult& result = context.temporalUpscalerLastEvaluateResult;
             const Engine::TemporalUpscalerSettings& settings = m_sceneRenderer.GetTemporalUpscalerSettings();
@@ -602,8 +867,11 @@ void RtPbrSurveyApp::OnIdle()
                 ", path=" + std::to_string(static_cast<int>(engine.GetRenderingPath())) + ").");
             return;
         }
-        m_sceneRenderer.RequestScreenshot({m_commandLineOptions.capturePath});
-        m_automationScreenshotRequested = true;
+        if (singleCaptureReady)
+        {
+            m_sceneRenderer.RequestScreenshot({m_commandLineOptions.capturePath});
+            m_automationScreenshotRequested = true;
+        }
     }
 
     if (m_reflectionCapturePlanFailed && m_commandLineOptions.exitAfterCapture)
@@ -617,11 +885,9 @@ void RtPbrSurveyApp::OnIdle()
     m_sceneRenderer.RunFrame(
         [this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); }, advanceFrame);
     LogRayReconstructionDiagnostics();
+    AccumulatePathTracingCaptureDiagnostics();
 
-    if (HasAutomatedCapture())
-    {
-        ++m_automationFrameCounter;
-    }
+    ++m_automationFrameCounter;
 
     // Poll D3D12 debug messages and FPS logging.
     if (m_logFile)
@@ -643,7 +909,9 @@ void RtPbrSurveyApp::OnIdle()
 
 void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
 {
-    if (!m_commandLineOptions.captureReflectionResolvedRadiance ||
+    const bool automatedSingleCaptureOrbit = !m_commandLineOptions.capturePath.empty() &&
+        m_commandLineOptions.reflectionOrbitFrames > 0;
+    if ((!m_commandLineOptions.captureReflectionResolvedRadiance && !automatedSingleCaptureOrbit) ||
         m_debugCamera.GetMode() != RtPbrSurvey::DebugCameraController::Mode::Arcball)
     {
         return;
@@ -742,7 +1010,7 @@ void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
 bool RtPbrSurveyApp::HasAutomatedCapture() const
 {
     return !m_commandLineOptions.capturePath.empty() || !m_reflectionCapturePlan.captures.empty() ||
-           !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty();
+           !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() || m_captureSessionActive;
 }
 
 void RtPbrSurveyApp::ApplyRayReconstructionCommandLineOverrides()
@@ -1200,7 +1468,7 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
         {"signalDomain", "linear-hdr"},
         {"reference", "none"},
         {"comparisonMetadata",
-         {{"renderingPath", m_renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred ? "deferred" : "forward"},
+         {{"renderingPath", RenderingPathMetadataName(m_renderingPath)},
           {"signalBoundaries",
            {{"evaluatedRadiance", "current-reflection-unweighted-linear-hdr"},
             {"resolvedRadiance", "resolved-reflection-unweighted-linear-hdr"},
@@ -1349,13 +1617,6 @@ void RtPbrSurveyApp::FailAutomatedCapture(const std::string& error)
 
 void RtPbrSurveyApp::OnDestroy()
 {
-    // Save current scene config before shutdown
-    if (m_loadedSceneIndex >= 0 && !HasAutomatedCapture())
-    {
-        m_sceneConfig.SaveCurrentScene(
-            m_loadedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
-    }
-
     if (m_logFile)
     {
         FlushD3D12DebugMessages();
@@ -1418,7 +1679,144 @@ void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
     const float fps = 1000.0f / cpuFrameTimeMs;
     fprintf(m_logFile, "[FPS] Frame %llu: %.1f FPS (%.2f ms)\n",
             static_cast<unsigned long long>(m_fpsLogFrameCounter), fps, cpuFrameTimeMs);
+    // These timestamps belong to the latest completed GPU frame, not the CPU frame above.
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    const auto& checkPoints = context.gpuCheckPoints;
+    if (checkPoints.size() >= 2)
+    {
+        fprintf(m_logFile, "[GPU] Frame %llu: latest completed total %.6f ms\n",
+                static_cast<unsigned long long>(m_fpsLogFrameCounter), checkPoints.back().timeStamp);
+        for (size_t i = 1; i + 1 < checkPoints.size(); ++i)
+        {
+            fprintf(m_logFile, "[GPU Pass] %s: %.6f ms\n", checkPoints[i].name.c_str(),
+                    checkPoints[i].timeStamp - checkPoints[i - 1].timeStamp);
+        }
+    }
     fflush(m_logFile);
+}
+
+void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::UiFrameContext& context)
+{
+    if (!m_logFile)
+    {
+        return;
+    }
+
+    const RtPbrSurveyEngine::PathTracingSettings& settings = m_sceneRenderer.GetPathTracingSettings();
+    const DXGI_ADAPTER_DESC1& adapter = m_graphicsDevice.AdapterDescription();
+    const double gpuTimeAverageMs = m_pathTracingGpuTimingSampleCount > 0 ?
+        m_pathTracingGpuTimeSumMs / static_cast<double>(m_pathTracingGpuTimingSampleCount) :
+        0.0;
+    const double averagePrimarySamplesPerSecond = gpuTimeAverageMs > 0.0 ?
+        static_cast<double>(context.pathTracingDiagnostics.primarySamplesPerFrame) * 1000.0 / gpuTimeAverageMs :
+        0.0;
+    nlohmann::json evaluationCase = nullptr;
+    if (m_selectedEvaluationStateIndex >= 0 &&
+        m_selectedEvaluationStateIndex < static_cast<int>(m_evaluationStates.States().size()))
+    {
+        const RtPbrSurvey::EvaluationState& state =
+            m_evaluationStates.States()[static_cast<size_t>(m_selectedEvaluationStateIndex)];
+        const RtPbrSurvey::EvaluationRun* activeRun = state.runs.empty() ? nullptr : &state.runs.back();
+        nlohmann::json testItems = nlohmann::json::array();
+        for (const RtPbrSurvey::EvaluationTestItem& item : state.testItems)
+        {
+            nlohmann::json value = nullptr;
+            if (activeRun != nullptr)
+            {
+                const auto result = std::find_if(activeRun->results.begin(),
+                                                 activeRun->results.end(),
+                                                 [&item](const RtPbrSurvey::EvaluationTestResult& candidate)
+                                                 { return candidate.testItemId == item.id; });
+                if (result != activeRun->results.end())
+                {
+                    value = item.judgmentKind == RtPbrSurvey::EvaluationJudgmentKind::Boolean ?
+                        nlohmann::json(result->booleanValue) :
+                        nlohmann::json((std::clamp)(result->score, 1, 5));
+                }
+            }
+            testItems.push_back({
+                {"prompt", item.prompt},
+                {"judgment",
+                 item.judgmentKind == RtPbrSurvey::EvaluationJudgmentKind::Boolean ? "boolean" : "score1To5"},
+                {"value", std::move(value)},
+            });
+        }
+        evaluationCase = {
+            {"name", state.name},
+            {"comment", state.comment},
+            {"roi",
+             {{"enabled", state.roi.enabled},
+              {"x", state.roi.x},
+              {"y", state.roi.y},
+              {"width", state.roi.width},
+              {"height", state.roi.height}}},
+            {"testItems", std::move(testItems)},
+        };
+    }
+
+    const nlohmann::json diagnostics = {
+        {"schemaVersion", 1},
+        {"scene", m_loadedScene != nullptr ? m_loadedScene->Name() : ""},
+        {"adapter",
+         {{"name", WideToUtf8(adapter.Description)},
+          {"vendorId", adapter.VendorId},
+          {"deviceId", adapter.DeviceId},
+          {"dedicatedVideoMemory", adapter.DedicatedVideoMemory}}},
+        {"capturePath", std::filesystem::absolute(m_commandLineOptions.capturePath).string()},
+        {"accumulatedSamples", context.pathTracingRuntimeState.accumulatedSampleCount},
+        {"targetSamples", m_commandLineOptions.pathTracingSampleTarget},
+        {"randomSeed", settings.randomSeed},
+        {"environmentSamplingMode", settings.environmentSamplingMode},
+        {"samplesPerFrame", settings.samplesPerFrame},
+        {"maxBounces", settings.maxBounces},
+        {"russianRoulette", settings.russianRouletteEnabled},
+        {"renderWidth", context.renderWidth},
+        {"renderHeight", context.renderHeight},
+        {"gpuTimingAvailable", context.pathTracingDiagnostics.gpuTimingAvailable},
+        {"gpuTimeMs", context.pathTracingDiagnostics.gpuTimeMs},
+        {"gpuTimingSampleCount", m_pathTracingGpuTimingSampleCount},
+        {"gpuTimeAverageMs", gpuTimeAverageMs},
+        {"gpuTimeMinMs", m_pathTracingGpuTimeMinMs},
+        {"gpuTimeMaxMs", m_pathTracingGpuTimeMaxMs},
+        {"primarySamplesPerFrame", context.pathTracingDiagnostics.primarySamplesPerFrame},
+        {"maxPathSegmentsPerFrame", context.pathTracingDiagnostics.maxPathSegmentsPerFrame},
+        {"maxRayQueriesPerFrame", context.pathTracingDiagnostics.maxRayQueriesPerFrame},
+        {"primarySamplesPerSecond", context.pathTracingDiagnostics.primarySamplesPerSecond},
+        {"averagePrimarySamplesPerSecond", averagePrimarySamplesPerSecond},
+        {"evaluationCase", std::move(evaluationCase)},
+    };
+    fprintf(m_logFile, "[PathTracing] %s\n", diagnostics.dump().c_str());
+    fflush(m_logFile);
+}
+
+void RtPbrSurveyApp::AccumulatePathTracingCaptureDiagnostics()
+{
+    if (m_commandLineOptions.pathTracingSampleTarget == 0 || m_automationScreenshotRequested)
+    {
+        return;
+    }
+
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    if (!context.pathTracingDiagnostics.gpuTimingAvailable || context.pathTracingDiagnostics.gpuTimeMs <= 0.0f ||
+        context.pathTracingRuntimeState.accumulatedSampleCount == 0 ||
+        context.pathTracingRuntimeState.accumulatedSampleCount > m_commandLineOptions.pathTracingSampleTarget)
+    {
+        return;
+    }
+
+    const float gpuTimeMs = context.pathTracingDiagnostics.gpuTimeMs;
+    m_pathTracingGpuTimeSumMs += gpuTimeMs;
+    if (m_pathTracingGpuTimingSampleCount == 0)
+    {
+        m_pathTracingGpuTimeMinMs = gpuTimeMs;
+        m_pathTracingGpuTimeMaxMs = gpuTimeMs;
+    }
+    else
+    {
+        m_pathTracingGpuTimeMinMs = (std::min)(m_pathTracingGpuTimeMinMs, gpuTimeMs);
+        m_pathTracingGpuTimeMaxMs = (std::max)(m_pathTracingGpuTimeMaxMs, gpuTimeMs);
+    }
+    ++m_pathTracingGpuTimingSampleCount;
 }
 
 void RtPbrSurveyApp::CreateSampleScenes()
@@ -1508,17 +1906,661 @@ void RtPbrSurveyApp::LoadSceneCpuData(int sceneIndex)
     }
 }
 
-void RtPbrSurveyApp::OpenSelectedScene()
+void RtPbrSurveyApp::LoadFileSceneCpuData()
 {
-    // Save outgoing scene config before switching
-    if (m_loadedSceneIndex >= 0 && m_selectedSceneIndex != m_loadedSceneIndex)
+    const std::filesystem::path documentPath = std::filesystem::absolute(m_commandLineOptions.sceneFilePath);
+    auto scene = std::make_unique<Engine::SceneDocumentRuntimeScene>(documentPath);
+    std::string error;
+    if (!scene->LoadFromFile(&error))
     {
-        m_sceneConfig.SaveCurrentScene(
-            m_loadedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(),
-            *m_sampleScenes[static_cast<size_t>(m_loadedSceneIndex)]);
+        throw std::runtime_error("Could not load -SceneFile '" + documentPath.generic_string() + "': " + error);
     }
 
-    if (m_selectedSceneIndex != m_loadedSceneIndex)
+    m_fileScene = std::move(scene);
+    m_loadedScene = m_fileScene.get();
+    m_loadedSceneIndex = -1;
+    m_sceneResourcesLoaded = false;
+    m_meshScale = 1.0f;
+    m_displayInstanceCount = m_loadedScene->DisplayInstanceCount();
+    m_selectedMaterialIndex = 0;
+    m_dragRotation = {0.0f, 0.0f, 0.0f, 1.0f};
+
+    Engine::CameraState& camera = m_loadedScene->GetScene().camera;
+    const XMVECTOR direction = XMVector3Normalize(XMLoadFloat3(&camera.gazePoint) - XMLoadFloat3(&camera.pos));
+    XMFLOAT3 directionFloat = {};
+    XMStoreFloat3(&directionFloat, direction);
+    camera.rot.x = std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
+    camera.rot.y = std::atan2(directionFloat.x, directionFloat.z);
+    camera.rot.z = 0.0f;
+    m_debugCamera.SetCameraState(&camera);
+    m_debugCamera.SetWindowSize(GetWidth(), GetHeight());
+    m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::FreeLook);
+}
+
+void RtPbrSurveyApp::CreateNewSceneEditorDocument()
+{
+    static uint64_t nextSceneId = 1;
+    const std::string name = m_sceneEditorNewName.empty() ? "New Test Scene" : m_sceneEditorNewName;
+    const uint64_t timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count());
+    RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument(
+        "scene-" + std::to_string(timestamp) + "-" + std::to_string(nextSceneId++), name);
+    document.renderPresetPath = "RenderPresets/test-scene-default.json";
+    m_sceneEditorSession.emplace(std::move(document), true);
+    m_sceneEditorDocumentPath.clear();
+    m_appMode = AppMode::SceneEditorEdit;
+    std::string error;
+    if (!RebuildSceneEditorPreview(&error))
+    {
+        m_sceneEditorStatus = "Could not create preview: " + error;
+        return;
+    }
+    m_sceneEditorStatus = "New unsaved Scene Document created.";
+}
+
+void RtPbrSurveyApp::RequestNewSceneEditorDocument()
+{
+    if (m_sceneEditorSession.has_value() && m_sceneEditorSession->IsModified())
+    {
+        m_sceneEditorPendingAction = SceneEditorPendingAction::NewDocument;
+        return;
+    }
+    CreateNewSceneEditorDocument();
+}
+
+void RtPbrSurveyApp::RequestLoadSceneEditorDocument(const std::string& path)
+{
+    if (m_sceneEditorSession.has_value() && m_sceneEditorSession->IsModified())
+    {
+        m_sceneEditorPendingAction = SceneEditorPendingAction::LoadDocument;
+        m_sceneEditorPendingLoadPath = path;
+        return;
+    }
+
+    std::string error;
+    if (!LoadSceneEditorDocument(path, &error))
+    {
+        m_sceneEditorStatus = "Load failed: " + error;
+    }
+}
+
+void RtPbrSurveyApp::RequestReturnToTopMenu()
+{
+    if (m_sceneEditorSession.has_value() && m_sceneEditorSession->IsModified())
+    {
+        m_sceneEditorPendingAction = SceneEditorPendingAction::ReturnToTopMenu;
+        return;
+    }
+    ReturnToTopMenu();
+}
+
+bool RtPbrSurveyApp::SaveSceneEditorDocument(bool saveAs, std::string* error)
+{
+    if (!m_sceneEditorSession.has_value())
+    {
+        if (error != nullptr)
+        {
+            *error = "No Scene Document is selected.";
+        }
+        return false;
+    }
+
+    const bool createsNewScene = saveAs || m_sceneEditorDocumentPath.empty();
+    const std::string targetPathText = createsNewScene ? m_sceneEditorSavePath : m_sceneEditorDocumentPath;
+    if (targetPathText.empty())
+    {
+        if (error != nullptr)
+        {
+            *error = "Save path is empty.";
+        }
+        return false;
+    }
+
+    const std::filesystem::path targetPath = std::filesystem::absolute(targetPathText);
+    std::error_code filesystemError;
+    std::filesystem::create_directories(targetPath.parent_path(), filesystemError);
+    if (filesystemError)
+    {
+        if (error != nullptr)
+        {
+            *error = "Could not create scene directory: " + targetPath.parent_path().generic_string();
+        }
+        return false;
+    }
+
+    RtPbrSurvey::SceneDocument document = m_sceneEditorSession->Document();
+    if (saveAs && !m_sceneEditorDocumentPath.empty() &&
+        !RtPbrSurvey::RebaseSceneDocumentPaths(document,
+                                                std::filesystem::path(m_sceneEditorDocumentPath).parent_path(),
+                                                targetPath.parent_path(),
+                                                error))
+    {
+        return false;
+    }
+    if (createsNewScene)
+    {
+        static uint64_t nextSavedSceneId = 1;
+        const uint64_t timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+        document.sceneId = "scene-" + std::to_string(timestamp) + "-" + std::to_string(nextSavedSceneId++);
+        document.renderPresetPath = "render-preset.json";
+
+        const std::filesystem::path presetPath = targetPath.parent_path() / document.renderPresetPath;
+        if (!App::SaveRenderPresetFile(presetPath, m_sceneRenderer.CaptureSettings(), error))
+        {
+            return false;
+        }
+    }
+
+    std::string saveError;
+    if (!RtPbrSurvey::SaveSceneDocumentFile(targetPath.generic_string(), document, &saveError))
+    {
+        if (error != nullptr)
+        {
+            *error = createsNewScene ?
+                         "Render preset was saved, but scene save failed: " + saveError :
+                         saveError;
+        }
+        return false;
+    }
+
+    m_sceneEditorSession->Document() = std::move(document);
+    m_sceneEditorSession->MarkSaved();
+    if (createsNewScene)
+    {
+        m_sceneEditorPresetDirty = false;
+    }
+    m_sceneEditorDocumentPath = targetPath.generic_string();
+    m_sceneEditorSavePath = m_sceneEditorDocumentPath;
+    std::string previewError;
+    if (!RebuildSceneEditorPreview(&previewError))
+    {
+        m_sceneEditorStatus = "Saved, but preview update failed: " + previewError;
+    }
+    else
+    {
+        m_sceneEditorStatus = "Saved: " + m_sceneEditorDocumentPath;
+    }
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
+bool RtPbrSurveyApp::SaveSceneEditorRenderPreset(std::string* error)
+{
+    if (!m_sceneEditorSession.has_value() || m_sceneEditorDocumentPath.empty())
+    {
+        if (error != nullptr)
+        {
+            *error = "Save the Scene Document before saving its render preset.";
+        }
+        return false;
+    }
+
+    std::filesystem::path presetPath;
+    if (!App::ResolveRenderPresetPath(m_sceneEditorDocumentPath,
+                                      m_sceneEditorSession->Document().renderPresetPath,
+                                      {},
+                                      presetPath,
+                                      error))
+    {
+        return false;
+    }
+    if (!App::SaveRenderPresetFile(presetPath, m_sceneRenderer.CaptureSettings(), error))
+    {
+        return false;
+    }
+    m_sceneEditorPresetDirty = false;
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
+bool RtPbrSurveyApp::ReloadSceneEditorRenderPreset(std::string* error)
+{
+    if (!m_sceneEditorSession.has_value() || m_sceneEditorDocumentPath.empty())
+    {
+        if (error != nullptr)
+        {
+            *error = "Save or load a Scene Document before reloading its render preset.";
+        }
+        return false;
+    }
+
+    std::filesystem::path presetPath;
+    if (!App::ResolveRenderPresetPath(m_sceneEditorDocumentPath,
+                                      m_sceneEditorSession->Document().renderPresetPath,
+                                      {},
+                                      presetPath,
+                                      error))
+    {
+        return false;
+    }
+    App::LoadedRenderPreset preset;
+    if (!App::LoadRenderPresetFile(presetPath, m_sceneRenderer.CaptureSettings(), preset, error))
+    {
+        return false;
+    }
+    m_sceneRenderer.ApplySettings(preset.settings);
+    m_renderingPath = preset.settings.renderingPath;
+    m_renderViewMode = preset.settings.renderViewMode;
+    m_sceneEditorPresetDirty = false;
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
+bool RtPbrSurveyApp::AddSceneEditorGltfNode(const std::string& relativePath, std::string* error)
+{
+    if (!m_sceneEditorSession.has_value())
+    {
+        if (error != nullptr)
+        {
+            *error = "No Scene Document is selected.";
+        }
+        return false;
+    }
+
+    const std::filesystem::path assetPath(relativePath);
+    if (assetPath.empty() || assetPath.is_absolute())
+    {
+        if (error != nullptr)
+        {
+            *error = "glTF asset path must be non-empty and relative.";
+        }
+        return false;
+    }
+
+    const std::filesystem::path documentPath = m_sceneEditorDocumentPath.empty() ?
+                                                    std::filesystem::current_path() :
+                                                    std::filesystem::path(m_sceneEditorDocumentPath);
+    const std::filesystem::path sceneDirectory = m_sceneEditorDocumentPath.empty() ?
+                                                        documentPath :
+                                                        documentPath.parent_path();
+    App::SceneEditorSession candidateSession(m_sceneEditorSession->Document(), m_sceneEditorSession->IsModified());
+    std::string buildError;
+    if (!candidateSession.AddGltfNode(relativePath, &buildError))
+    {
+        if (error != nullptr)
+        {
+            *error = buildError;
+        }
+        return false;
+    }
+
+    Engine::SceneDocumentRuntimeScene candidate(documentPath);
+    if (!candidate.LoadFromDocument(candidateSession.Document(), sceneDirectory, &buildError))
+    {
+        if (error != nullptr)
+        {
+            *error = buildError;
+        }
+        return false;
+    }
+
+    if (!m_sceneEditorSession->AddGltfNode(relativePath, error))
+    {
+        return false;
+    }
+    return RebuildSceneEditorPreview(error);
+}
+
+void RtPbrSurveyApp::ResolveSceneEditorPendingAction(bool saveChanges, bool discardChanges)
+{
+    if (m_sceneEditorPendingAction == SceneEditorPendingAction::None)
+    {
+        return;
+    }
+    if (!saveChanges && !discardChanges)
+    {
+        m_sceneEditorPendingAction = SceneEditorPendingAction::None;
+        return;
+    }
+    if (saveChanges)
+    {
+        std::string error;
+        if (!SaveSceneEditorDocument(false, &error))
+        {
+            m_sceneEditorStatus = "Save failed: " + error;
+            return;
+        }
+    }
+    else if (discardChanges && m_sceneEditorSession.has_value())
+    {
+        m_sceneEditorSession->MarkSaved();
+    }
+
+    const SceneEditorPendingAction action = m_sceneEditorPendingAction;
+    const std::string loadPath = m_sceneEditorPendingLoadPath;
+    m_sceneEditorPendingAction = SceneEditorPendingAction::None;
+    m_sceneEditorPendingLoadPath.clear();
+    switch (action)
+    {
+    case SceneEditorPendingAction::NewDocument:
+        CreateNewSceneEditorDocument();
+        break;
+    case SceneEditorPendingAction::LoadDocument:
+        RequestLoadSceneEditorDocument(loadPath);
+        break;
+    case SceneEditorPendingAction::ReturnToTopMenu:
+        ReturnToTopMenu();
+        break;
+    case SceneEditorPendingAction::None:
+        break;
+    }
+}
+
+bool RtPbrSurveyApp::LoadSceneEditorDocument(const std::string& path, std::string* error)
+{
+    if (path.empty())
+    {
+        if (error != nullptr)
+        {
+            *error = "Scene file path is empty.";
+        }
+        return false;
+    }
+
+    const std::filesystem::path documentPath = std::filesystem::absolute(path);
+    Engine::SceneDocumentRuntimeScene candidate(documentPath);
+    std::string loadError;
+    if (!candidate.LoadFromFile(&loadError))
+    {
+        if (error != nullptr)
+        {
+            *error = loadError;
+        }
+        return false;
+    }
+
+    std::filesystem::path presetPath;
+    if (!App::ResolveRenderPresetPath(documentPath, candidate.Document().renderPresetPath, {}, presetPath, &loadError))
+    {
+        if (error != nullptr)
+        {
+            *error = loadError;
+        }
+        return false;
+    }
+    App::LoadedRenderPreset preset;
+    if (!App::LoadRenderPresetFile(presetPath, m_sceneRenderer.CaptureSettings(), preset, &loadError))
+    {
+        if (error != nullptr)
+        {
+            *error = loadError;
+        }
+        return false;
+    }
+
+    m_sceneEditorSession.emplace(candidate.Document());
+    m_sceneEditorDocumentPath = documentPath.generic_string();
+    m_sceneEditorSavePath = m_sceneEditorDocumentPath;
+    m_appMode = AppMode::SceneEditorEdit;
+    if (!RebuildSceneEditorPreview(&loadError))
+    {
+        if (error != nullptr)
+        {
+            *error = loadError;
+        }
+        return false;
+    }
+    m_sceneRenderer.ApplySettings(preset.settings);
+    m_renderingPath = preset.settings.renderingPath;
+    m_renderViewMode = preset.settings.renderViewMode;
+    m_sceneEditorPresetDirty = false;
+    m_sceneEditorStatus = "Loaded and validated: " + m_sceneEditorDocumentPath;
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
+bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
+{
+    if (!m_sceneEditorSession.has_value())
+    {
+        if (error != nullptr)
+        {
+            *error = "No Scene Document is selected.";
+        }
+        return false;
+    }
+
+    const std::filesystem::path documentPath = m_sceneEditorDocumentPath.empty() ?
+                                                    std::filesystem::current_path() :
+                                                    std::filesystem::path(m_sceneEditorDocumentPath);
+    const std::filesystem::path sceneDirectory = m_sceneEditorDocumentPath.empty() ?
+                                                        documentPath :
+                                                        documentPath.parent_path();
+    auto candidate = std::make_unique<Engine::SceneDocumentRuntimeScene>(documentPath);
+    std::string buildError;
+    if (!candidate->LoadFromDocument(m_sceneEditorSession->Document(), sceneDirectory, &buildError))
+    {
+        if (error != nullptr)
+        {
+            *error = buildError;
+        }
+        return false;
+    }
+
+    m_sceneRenderer.ReloadSceneResources(candidate->GetScene());
+    m_sceneEditorPreviewScene = std::move(candidate);
+    m_loadedScene = m_sceneEditorPreviewScene.get();
+    m_loadedSceneIndex = -1;
+    m_sceneResourcesLoaded = true;
+    m_displayInstanceCount = m_loadedScene->DisplayInstanceCount();
+    m_sceneRenderer.SetDisplayInstanceCount(m_displayInstanceCount);
+    m_sceneRenderer.ResetHybridReflectionHistoryForDiagnostics();
+    ApplySceneEditorEnvironmentSettings();
+
+    Engine::CameraState& camera = m_loadedScene->GetScene().camera;
+    const XMVECTOR direction = XMVector3Normalize(XMLoadFloat3(&camera.gazePoint) - XMLoadFloat3(&camera.pos));
+    XMFLOAT3 directionFloat = {};
+    XMStoreFloat3(&directionFloat, direction);
+    camera.rot.x = std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
+    camera.rot.y = std::atan2(directionFloat.x, directionFloat.z);
+    camera.rot.z = 0.0f;
+    m_debugCamera.SetCameraState(&camera);
+    m_debugCamera.SetWindowSize(GetWidth(), GetHeight());
+    m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::FreeLook);
+    UpdateSceneEditorSelectionOverlay();
+    if (error != nullptr)
+    {
+        error->clear();
+    }
+    return true;
+}
+
+void RtPbrSurveyApp::UpdateSceneEditorSelectionOverlay()
+{
+    ClearSceneEditorSelectionOverlay();
+    if (!m_sceneEditorSession.has_value())
+    {
+        return;
+    }
+
+    const RtPbrSurvey::SceneDocument& document = m_sceneEditorSession->Document();
+    RtPbrSurvey::SceneGraphEvaluation graph;
+    if (!RtPbrSurvey::EvaluateSceneGraph(document, graph, nullptr))
+    {
+        return;
+    }
+
+    constexpr float axisLength = 0.45f;
+    const std::array<DirectX::XMFLOAT3, 3> axisDirections = {
+        DirectX::XMFLOAT3{axisLength, 0.0f, 0.0f},
+        DirectX::XMFLOAT3{0.0f, axisLength, 0.0f},
+        DirectX::XMFLOAT3{0.0f, 0.0f, axisLength},
+    };
+    const std::array<DirectX::XMFLOAT4, 3> axisColors = {
+        DirectX::XMFLOAT4{1.0f, 0.2f, 0.2f, 1.0f},
+        DirectX::XMFLOAT4{0.2f, 1.0f, 0.2f, 1.0f},
+        DirectX::XMFLOAT4{0.2f, 0.5f, 1.0f, 1.0f},
+    };
+    for (const std::string& nodeId : m_sceneEditorSession->SelectedNodeIds())
+    {
+        const DirectX::XMFLOAT4X4* world = graph.FindWorld(nodeId, document);
+        if (world == nullptr)
+        {
+            continue;
+        }
+        const DirectX::XMFLOAT3 origin = {world->_41, world->_42, world->_43};
+        for (size_t axis = 0; axis < axisDirections.size(); ++axis)
+        {
+            const DirectX::XMFLOAT3& direction = axisDirections[axis];
+            RtPbrSurvey::DebugLineDesc line = {};
+            line.start = origin;
+            line.end = {origin.x + direction.x, origin.y + direction.y, origin.z + direction.z};
+            line.color = axisColors[axis];
+            line.depthMode = RtPbrSurvey::DebugLineDepthMode::Overlay;
+            const RtPbrSurvey::DebugLineHandle handle = m_sceneRenderer.AddDebugLine(line);
+            if (handle != RtPbrSurvey::kInvalidDebugLineHandle)
+            {
+                m_sceneEditorSelectionLineHandles.push_back(handle);
+            }
+        }
+    }
+}
+
+void RtPbrSurveyApp::ClearSceneEditorSelectionOverlay()
+{
+    for (const RtPbrSurvey::DebugLineHandle handle : m_sceneEditorSelectionLineHandles)
+    {
+        m_sceneRenderer.RemoveDebugLine(handle);
+    }
+    m_sceneEditorSelectionLineHandles.clear();
+}
+
+void RtPbrSurveyApp::ApplySceneEditorEnvironmentSettings()
+{
+    if (!m_sceneEditorSession.has_value())
+    {
+        return;
+    }
+
+    const RtPbrSurvey::SceneEnvironment& environment = m_sceneEditorSession->Document().environment;
+    m_environmentSettings.source = Engine::EnvironmentSource::ProceduralStudio;
+    m_environmentSettings.skyColor = {environment.skyColor.x, environment.skyColor.y, environment.skyColor.z};
+    m_environmentSettings.groundColor = {environment.groundColor.x, environment.groundColor.y, environment.groundColor.z};
+    m_environmentSettings.lightColor = {environment.lightColor.x, environment.lightColor.y, environment.lightColor.z};
+    m_environmentSettings.lightDirection = {
+        environment.lightDirection.x,
+        environment.lightDirection.y,
+        environment.lightDirection.z,
+    };
+    m_environmentSettings.backgroundIntensity = environment.backgroundIntensity;
+    m_environmentSettings.lightIntensity = environment.lightIntensity;
+    m_environmentSettings.lightSize = environment.lightSize;
+    m_environmentSettings.fillIntensity = environment.fillIntensity;
+    m_environmentSettings.colorPanelIntensity = environment.colorPanelIntensity;
+    m_environmentSettings.horizonSharpness = environment.horizonSharpness;
+    m_environmentAutoUpdate = true;
+    m_iblEnabled = environment.iblEnabled;
+    m_sceneRenderer.ReloadEnvironmentResources(m_environmentSettings);
+}
+
+void RtPbrSurveyApp::ReturnToTopMenu()
+{
+    ClearSceneEditorSelectionOverlay();
+    m_sceneEditorObjectPickPending = false;
+    m_appMode = AppMode::TopMenu;
+    m_sceneEditorStatus.clear();
+}
+
+void RtPbrSurveyApp::ApplyFileSceneSettings()
+{
+    assert(m_fileScene != nullptr);
+    const RtPbrSurvey::SceneDocument& document = m_fileScene->Document();
+    std::string error;
+    std::filesystem::path presetPath;
+    if (!App::ResolveRenderPresetPath(m_fileScene->DocumentPath(),
+                                      document.renderPresetPath,
+                                      m_commandLineOptions.renderPresetPath,
+                                      presetPath,
+                                      &error))
+    {
+        throw std::runtime_error(error);
+    }
+    App::LoadedRenderPreset preset;
+    if (!App::LoadRenderPresetFile(presetPath, m_sceneRenderer.CaptureSettings(), preset, &error))
+    {
+        throw std::runtime_error("Could not load Scene renderPreset '" + presetPath.generic_string() + "': " + error);
+    }
+
+    const RtPbrSurvey::SceneEnvironment& environment = document.environment;
+    m_environmentSettings.source = Engine::EnvironmentSource::ProceduralStudio;
+    m_environmentSettings.skyColor = {environment.skyColor.x, environment.skyColor.y, environment.skyColor.z};
+    m_environmentSettings.groundColor = {environment.groundColor.x, environment.groundColor.y, environment.groundColor.z};
+    m_environmentSettings.lightColor = {environment.lightColor.x, environment.lightColor.y, environment.lightColor.z};
+    m_environmentSettings.lightDirection = {
+        environment.lightDirection.x,
+        environment.lightDirection.y,
+        environment.lightDirection.z,
+    };
+    m_environmentSettings.backgroundIntensity = environment.backgroundIntensity;
+    m_environmentSettings.lightIntensity = environment.lightIntensity;
+    m_environmentSettings.lightSize = environment.lightSize;
+    m_environmentSettings.fillIntensity = environment.fillIntensity;
+    m_environmentSettings.colorPanelIntensity = environment.colorPanelIntensity;
+    m_environmentSettings.horizonSharpness = environment.horizonSharpness;
+    m_environmentAutoUpdate = true;
+    m_iblEnabled = environment.iblEnabled;
+
+    m_lightingParams = preset.settings.lighting;
+    m_toneMapParams = preset.settings.toneMap;
+    m_renderingPath = preset.settings.renderingPath;
+    m_renderViewMode = preset.settings.renderViewMode;
+    m_lightingPassDebugGradient = preset.settings.lightingPassDebugGradient;
+    m_backBufferClearColor = preset.settings.backBufferClearColor;
+    m_sceneRenderer.ReloadEnvironmentResources(m_environmentSettings);
+    m_sceneRenderer.ApplySettings(preset.settings);
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    if (m_logFile != nullptr)
+    {
+        fprintf(m_logFile,
+                "[SceneFile] renderPreset=%s requestedPath=%d effectivePath=%d requestedView=%d effectiveView=%d "
+                "temporalUpscaler=%s reason=%s rayReconstruction=%s reason=%s\n",
+                preset.path.generic_string().c_str(),
+                static_cast<int>(preset.settings.renderingPath),
+                static_cast<int>(m_sceneRenderer.GetRenderingPath()),
+                static_cast<int>(preset.settings.renderViewMode),
+                static_cast<int>(m_sceneRenderer.GetRenderViewMode()),
+                context.temporalUpscalerAvailable ? "available" : "unavailable",
+                context.temporalUpscalerStatusText != nullptr ? context.temporalUpscalerStatusText : "unknown",
+                context.rayReconstructionAvailable ? "available" : "unavailable",
+                context.rayReconstructionStatusText != nullptr ? context.rayReconstructionStatusText : "unknown");
+        fflush(m_logFile);
+    }
+}
+
+void RtPbrSurveyApp::OpenFileScene()
+{
+    m_evaluationRoi = {};
+    LoadFileSceneCpuData();
+    m_sceneRenderer.ReloadSceneResources(LoadedScene().GetScene());
+    m_sceneResourcesLoaded = true;
+    ApplyFileSceneSettings();
+    m_sceneRenderer.SetDisplayInstanceCount(LoadedScene().DisplayInstanceCount());
+    ApplyRayReconstructionCommandLineOverrides();
+    ApplyDlssSrCommandLineOptions();
+    ApplyPathTracingCommandLineOptions();
+    m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
+    m_appMode = AppMode::Running;
+    m_framePaused = false;
+    m_forwardStepRequested = false;
+}
+
+void RtPbrSurveyApp::OpenSelectedScene()
+{
+    m_evaluationRoi = {};
+    if (m_selectedSceneIndex != m_loadedSceneIndex || !m_sceneResourcesLoaded)
     {
         LoadSceneCpuData(m_selectedSceneIndex);
     }
@@ -1537,6 +2579,7 @@ void RtPbrSurveyApp::OpenSelectedScene()
     m_sceneRenderer.SetDisplayInstanceCount(m_displayInstanceCount);
     ApplyRayReconstructionCommandLineOverrides();
     ApplyDlssSrCommandLineOptions();
+    ApplyPathTracingCommandLineOptions();
     m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
     if (!m_commandLineOptions.debugPreviewResourceName.empty())
     {
@@ -1566,6 +2609,218 @@ void RtPbrSurveyApp::OpenSelectedScene()
     m_debugUiVisible = true;
 }
 
+bool RtPbrSurveyApp::CaptureEvaluationState(RtPbrSurvey::EvaluationState& state, std::string* error)
+{
+    if (m_loadedScene == nullptr)
+    {
+        if (error != nullptr)
+        {
+            *error = "No scene is loaded.";
+        }
+        return false;
+    }
+
+    try
+    {
+        if (m_sceneEditorPreviewScene != nullptr && m_loadedScene == m_sceneEditorPreviewScene.get() &&
+            m_sceneEditorSession.has_value() && !m_sceneEditorDocumentPath.empty())
+        {
+            state.sceneIndex = -1;
+            state.sceneName = m_sceneEditorSession->Document().name;
+            state.sceneReference.id = m_sceneEditorSession->Document().sceneId;
+            state.sceneReference.path = m_sceneEditorDocumentPath;
+        }
+        else if (m_loadedSceneIndex >= 0)
+        {
+            state.sceneIndex = m_loadedSceneIndex;
+            state.sceneName = LoadedScene().Name();
+            state.sceneReference.id = "sample:" + state.sceneName;
+            state.sceneReference.path.clear();
+        }
+        else
+        {
+            if (error != nullptr)
+            {
+                *error = "The loaded scene cannot be saved as an evaluation case.";
+            }
+            return false;
+        }
+        state.sceneConfig = nlohmann::json::parse(m_sceneConfig.CaptureCurrentSceneJson(
+            *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene()));
+        state.roi = m_evaluationRoi;
+        state.roi.Sanitize();
+        if (error != nullptr)
+        {
+            error->clear();
+        }
+        return true;
+    }
+    catch (const std::exception& exception)
+    {
+        if (error != nullptr)
+        {
+            *error = exception.what();
+        }
+        return false;
+    }
+}
+
+bool RtPbrSurveyApp::RestoreEvaluationState(const RtPbrSurvey::EvaluationState& state, std::string* error)
+{
+    if (!m_sceneConfig.ValidateCurrentSceneJson(state.sceneConfig.dump(), error))
+    {
+        return false;
+    }
+
+    if (!state.sceneReference.path.empty())
+    {
+        const std::filesystem::path documentPath = std::filesystem::absolute(state.sceneReference.path);
+        Engine::SceneDocumentRuntimeScene candidate(documentPath);
+        std::string loadError;
+        if (!candidate.LoadFromFile(&loadError))
+        {
+            if (error != nullptr)
+            {
+                *error = "Could not load evaluation Scene Document: " + loadError;
+            }
+            return false;
+        }
+        if (!state.sceneReference.id.empty() && candidate.Document().sceneId != state.sceneReference.id)
+        {
+            if (error != nullptr)
+            {
+                *error = "Evaluation Scene Document ID does not match the saved case.";
+            }
+            return false;
+        }
+        if (!LoadSceneEditorDocument(documentPath.generic_string(), &loadError))
+        {
+            if (error != nullptr)
+            {
+                *error = "Could not restore evaluation Scene Document: " + loadError;
+            }
+            return false;
+        }
+        if (!m_sceneConfig.ApplyCurrentSceneJson(
+                state.sceneConfig.dump(), *this, m_sceneRenderer.EngineForDebugTools(), error))
+        {
+            return false;
+        }
+
+        m_evaluationRoi = state.roi;
+        m_evaluationRoi.Sanitize();
+        m_appMode = AppMode::Running;
+        m_framePaused = false;
+        m_forwardStepRequested = false;
+        m_debugUiVisible = true;
+        if (error != nullptr)
+        {
+            error->clear();
+        }
+        return true;
+    }
+
+    int sceneIndex = -1;
+    if (!state.sceneReference.id.empty())
+    {
+        const auto scene = std::find_if(m_sampleScenes.begin(),
+                                        m_sampleScenes.end(),
+                                        [&state](const std::unique_ptr<Engine::SampleScene>& candidate)
+                                        {
+                                            return state.sceneReference.id ==
+                                                   std::string("sample:") + candidate->Name();
+                                        });
+        if (scene != m_sampleScenes.end())
+        {
+            sceneIndex = static_cast<int>(std::distance(m_sampleScenes.begin(), scene));
+        }
+    }
+    if (sceneIndex < 0 && state.sceneIndex >= 0 && state.sceneIndex < static_cast<int>(m_sampleScenes.size()) &&
+        state.sceneName == m_sampleScenes[static_cast<size_t>(state.sceneIndex)]->Name())
+    {
+        sceneIndex = state.sceneIndex;
+    }
+    else
+    {
+        const auto scene = std::find_if(m_sampleScenes.begin(),
+                                        m_sampleScenes.end(),
+                                        [&state](const std::unique_ptr<Engine::SampleScene>& candidate)
+                                        { return state.sceneName == candidate->Name(); });
+        if (scene != m_sampleScenes.end())
+        {
+            sceneIndex = static_cast<int>(std::distance(m_sampleScenes.begin(), scene));
+        }
+    }
+
+    if (sceneIndex < 0)
+    {
+        if (error != nullptr)
+        {
+            *error = "The saved scene is unavailable: " + state.sceneName;
+        }
+        return false;
+    }
+
+    const int previousSceneIndex = m_loadedSceneIndex;
+    const int previousSelectionIndex = m_selectedSceneIndex;
+    const RtPbrSurvey::EvaluationRoi previousRoi = m_evaluationRoi;
+    std::string previousSceneConfig;
+    if (previousSceneIndex >= 0 && m_loadedScene != nullptr)
+    {
+        previousSceneConfig = m_sceneConfig.CaptureCurrentSceneJson(
+            *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
+    }
+
+    try
+    {
+        m_selectedSceneIndex = sceneIndex;
+        OpenSelectedScene();
+        if (m_sceneConfig.ApplyCurrentSceneJson(
+                state.sceneConfig.dump(), *this, m_sceneRenderer.EngineForDebugTools(), error))
+        {
+            m_evaluationRoi = state.roi;
+            m_evaluationRoi.Sanitize();
+            return true;
+        }
+    }
+    catch (const std::exception& exception)
+    {
+        if (error != nullptr)
+        {
+            *error = exception.what();
+        }
+    }
+
+    if (previousSceneIndex >= 0 && !previousSceneConfig.empty())
+    {
+        try
+        {
+            m_selectedSceneIndex = previousSceneIndex;
+            OpenSelectedScene();
+            std::string rollbackError;
+            if (!m_sceneConfig.ApplyCurrentSceneJson(
+                    previousSceneConfig, *this, m_sceneRenderer.EngineForDebugTools(), &rollbackError) &&
+                error != nullptr)
+            {
+                *error += " Rollback failed: " + rollbackError;
+            }
+        }
+        catch (const std::exception& exception)
+        {
+            if (error != nullptr)
+            {
+                *error += " Rollback failed: " + std::string(exception.what());
+            }
+        }
+    }
+    else
+    {
+        m_selectedSceneIndex = previousSelectionIndex;
+    }
+    m_evaluationRoi = previousRoi;
+    return false;
+}
+
 void RtPbrSurveyApp::ApplyDlssSrCommandLineOptions()
 {
     if (!m_commandLineOptions.enableDlssSr)
@@ -1592,16 +2847,51 @@ void RtPbrSurveyApp::ApplyDlssSrCommandLineOptions()
     m_sceneRenderer.SetTemporalUpscalerSettings(settings);
 }
 
-void RtPbrSurveyApp::CloseRunningScene()
+void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
 {
-    // Save current scene config before closing
-    if (m_loadedSceneIndex >= 0)
+    if (!m_commandLineOptions.enablePathTracing)
     {
-        m_sceneConfig.SaveCurrentScene(
-            m_loadedSceneIndex, *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene());
+        return;
     }
 
-    m_appMode = AppMode::SceneSelect;
+    const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    if (!context.pathTracingExecutionAvailable)
+    {
+        throw std::runtime_error(std::string("Path Tracing is unavailable: ") + context.pathTracingStatusText);
+    }
+
+    m_renderingPath = RtPbrSurveyEngine::RenderingPath::PathTracing;
+    m_sceneRenderer.SetRenderingPath(m_renderingPath);
+
+    RtPbrSurveyEngine::PathTracingSettings settings = m_sceneRenderer.GetPathTracingSettings();
+    if (m_commandLineOptions.pathTracingSampleTarget > 0)
+    {
+        settings.accumulate = true;
+        settings.samplesPerFrame = 1;
+    }
+    if (m_commandLineOptions.hasPathTracingRandomSeed)
+    {
+        settings.randomSeed = m_commandLineOptions.pathTracingRandomSeed;
+    }
+    if (m_commandLineOptions.hasPathTracingEnvironmentMode)
+    {
+        settings.environmentSamplingMode = m_commandLineOptions.pathTracingEnvironmentMode;
+    }
+    m_sceneRenderer.SetPathTracingSettings(settings);
+    m_sceneRenderer.SetPathTracingAccumulationPaused(false);
+    if (m_commandLineOptions.pathTracingSampleTarget > 0)
+    {
+        m_pathTracingGpuTimeSumMs = 0.0;
+        m_pathTracingGpuTimeMinMs = 0.0f;
+        m_pathTracingGpuTimeMaxMs = 0.0f;
+        m_pathTracingGpuTimingSampleCount = 0;
+        m_sceneRenderer.ResetPathTracingAccumulation();
+    }
+}
+
+void RtPbrSurveyApp::CloseRunningScene()
+{
+    m_appMode = AppMode::TopMenu;
     m_isPlaying = false;
     m_framePaused = false;
     m_forwardStepRequested = false;
@@ -1726,7 +3016,7 @@ void RtPbrSurveyApp::UpdateUiFrame()
         m_debugTextureInspectors.RemoveClosed();
     }
     m_imguiSystem.BeginFrame();
-    if (m_appMode == AppMode::SceneSelect || m_debugUiVisible)
+    if (m_appMode != AppMode::Running || m_debugUiVisible)
     {
         DrawDebugUi(m_sceneRenderer.GetUiFrameContext());
     }

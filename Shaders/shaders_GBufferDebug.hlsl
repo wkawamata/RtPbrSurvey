@@ -7,7 +7,7 @@ Texture2D<uint> g_material : register(t2, space3);
 Texture2D<float2> g_motionVector : register(t3, space3);
 Texture2D<float4> g_pbrParams : register(t4, space3);
 Texture2D<float4> g_emissive : register(t5, space3);
-Texture2D<float> g_depth : register(t6, space3);
+Texture2D<float> g_depth : register(t7, space3);
 SamplerState g_sampler : register(s0);
 
 cbuffer GBufferDebugConstants : register(b1)

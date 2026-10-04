@@ -168,6 +168,8 @@
     <ClInclude Include="Renderer\EdgeAwareSpatialReflectionPass.h" />
     <ClInclude Include="Renderer\Material.h" />
     <ClInclude Include="Renderer\MaterialBuffer.h" />
+    <ClInclude Include="Renderer\PathTracingPass.h" />
+    <ClInclude Include="Renderer\RayQuerySceneBindings.h" />
     <ClInclude Include="Renderer\PipelineFactory.h" />
     <ClInclude Include="Renderer\AccelerationStructureResources.h" />
     <ClInclude Include="Renderer\RayQueryShadowPass.h" />
@@ -190,6 +192,7 @@
     <ClInclude Include="Renderer\RootSignatureLayout.h" />
     <ClInclude Include="Renderer\SceneGeometryPass.h" />
     <ClInclude Include="Renderer\ScreenshotCapture.h" />
+    <ClInclude Include="Renderer\ScreenshotRequestQueue.h" />
     <ClInclude Include="Renderer\SimpleDescriptorHeapAllocator.h" />
     <ClInclude Include="Renderer\StagedDescriptorAllocator.h" />
     <ClInclude Include="Renderer\StreamlineAdapter.h" />
@@ -201,10 +204,13 @@
     <ClInclude Include="Renderer\DebugResourceViewRegistry.h" />
     <ClInclude Include="Renderer\DepthVisualization.h" />
     <ClInclude Include="Runtime\DebugLine.h" />
+    <ClInclude Include="Runtime\CaptureSession.h" />
+    <ClInclude Include="Runtime\CaptureSessionUi.h" />
     <ClInclude Include="Runtime\SceneRenderer.h" />
     <ClInclude Include="Runtime\DebugBufferInspector.h" />
     <ClInclude Include="Runtime\DebugTextureInspector.h" />
     <ClInclude Include="Runtime\DebugTextureThumbnailScheduler.h" />
+    <ClInclude Include="Runtime\EvaluationState.h" />
     <ClInclude Include="Runtime\SceneRendererDebugUi.h" />
     <ClInclude Include="Runtime\RenderGraphNodeEditorView.h" />
     <ClInclude Include="Runtime\SceneRendererSettings.h" />
@@ -215,13 +221,21 @@
     <ClInclude Include="Scene\CameraProjection.h" />
     <ClInclude Include="Scene\CameraView.h" />
     <ClInclude Include="Scene\SceneDocument.h" />
+    <ClInclude Include="Scene\SceneDocumentJson.h" />
+    <ClInclude Include="Scene\SceneDocumentBuilder.h" />
+    <ClInclude Include="Scene\SceneDocumentRuntimeScene.h" />
+    <ClInclude Include="Scene\SceneGraph.h" />
     <ClInclude Include="Scene\SampleScene.h" />
     <ClInclude Include="Ui\DebugUiPreferences.h" />
     <ClInclude Include="Ui\ImGuiSystem.h" />
     <ClInclude Include="App\DebugUi.h" />
-    <ClInclude Include="App\SceneSelectUi.h" />
+    <ClInclude Include="App\EvaluationCaseUi.h" />
+      <ClInclude Include="App\SceneSelectUi.h" />
+      <ClInclude Include="App\SceneEditorUi.h" />
+      <ClInclude Include="App\SceneEditorSession.h" />
     <ClInclude Include="App\RtPbrSurveyApp.h" />
     <ClInclude Include="App\SceneConfig.h" />
+    <ClInclude Include="App\RenderPresetStore.h" />
     <ClInclude Include="TextureSemantic.h" />
     <ClInclude Include="Platform\Win32Application.h" />
     <ClInclude Include="Engine\RtPbrSurveyEngine.h" />
@@ -236,6 +250,9 @@
     <ClInclude Include="Shared\D3d12Helpers.h" />
     <ClInclude Include="Shared\Error.h" />
     <ClInclude Include="Shared\Screenshot.h" />
+    <ClInclude Include="Shared\DirectLight.h" />
+    <ClInclude Include="Runtime\DirectLightJson.h" />
+    <ClInclude Include="Ui\DirectLightUi.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="WorkMeter.h" />
     <ClInclude Include="third_party\imgui-node-editor\crude_json.h" />
@@ -244,6 +261,7 @@
     <ClInclude Include="third_party\imgui-node-editor\imgui_extra_math.h" />
     <ClInclude Include="third_party\imgui-node-editor\imgui_node_editor.h" />
     <ClInclude Include="third_party\imgui-node-editor\imgui_node_editor_internal.h" />
+    <ClInclude Include="third_party\ImGuizmo\ImGuizmo.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CubeMesh.cpp" />
@@ -264,6 +282,7 @@
     <ClCompile Include="Renderer\HdrOutput.cpp" />
     <ClCompile Include="Renderer\HybridReflectionPass.cpp" />
     <ClCompile Include="Renderer\LightingPass.cpp" />
+    <ClCompile Include="Renderer\PathTracingPass.cpp" />
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp" />
     <ClCompile Include="Renderer\TemporalReflectionPass.cpp" />
     <ClCompile Include="Renderer\EdgeAwareSpatialReflectionPass.cpp" />
@@ -292,13 +311,20 @@
     <ClCompile Include="Renderer\DebugTexturePreviewPass.cpp" />
     <ClCompile Include="Renderer\DebugResourceViewRegistry.cpp" />
     <ClCompile Include="Runtime\DebugLine.cpp" />
+    <ClCompile Include="Runtime\CaptureSession.cpp" />
+    <ClCompile Include="Runtime\CaptureSessionUi.cpp" />
     <ClCompile Include="Runtime\SceneRenderer.cpp" />
     <ClCompile Include="Runtime\DebugBufferInspector.cpp" />
     <ClCompile Include="Runtime\DebugTextureInspector.cpp" />
     <ClCompile Include="Runtime\DebugTextureThumbnailScheduler.cpp" />
+    <ClCompile Include="Runtime\EvaluationState.cpp" />
     <ClCompile Include="Runtime\SceneRendererDebugUi.cpp" />
     <ClCompile Include="Runtime\RenderGraphNodeEditorView.cpp" />
     <ClCompile Include="Runtime\SceneRendererSettings.cpp" />
+    <ClCompile Include="Scene\SceneDocumentJson.cpp" />
+    <ClCompile Include="Scene\SceneDocumentBuilder.cpp" />
+    <ClCompile Include="Scene\SceneDocumentRuntimeScene.cpp" />
+    <ClCompile Include="Scene\SceneGraph.cpp" />
     <ClCompile Include="Scene\ProceduralSceneBuilder.cpp" />
     <ClCompile Include="Scene\SceneBuilder.cpp" />
     <ClCompile Include="Scene\SceneFactory.cpp" />
@@ -310,9 +336,13 @@
     <ClCompile Include="Engine\RtPbrSurveyEnginePasses.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="App\DebugUi.cpp" />
-    <ClCompile Include="App\SceneSelectUi.cpp" />
+    <ClCompile Include="App\EvaluationCaseUi.cpp" />
+      <ClCompile Include="App\SceneSelectUi.cpp" />
+      <ClCompile Include="App\SceneEditorUi.cpp" />
+      <ClCompile Include="App\SceneEditorSession.cpp" />
     <ClCompile Include="App\RtPbrSurveyApp.cpp" />
     <ClCompile Include="App\SceneConfig.cpp" />
+    <ClCompile Include="App\RenderPresetStore.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
@@ -331,9 +361,13 @@
     <ClCompile Include="third_party\imgui-node-editor\imgui_node_editor_api.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="third_party\ImGuizmo\ImGuizmo.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shaders\shaders.hlsl">
+      <AdditionalInputs>$(ProjectDir)Shaders\DirectLights.hlsli;$(ProjectDir)Shaders\DirectLightEvaluation.hlsli;$(ProjectDir)Shaders\DirectPbrLighting.hlsli;%(AdditionalInputs)</AdditionalInputs>
       <FileType>Document</FileType>
       <DeploymentContent>true</DeploymentContent>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">dxc.exe -nologo -Tvs_6_0 -E"VSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_VSMain.cso" "%(FullPath)"
@@ -353,7 +387,13 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\InstanceData.hlsli" />
     <None Include="Shaders\SceneDrawConstants.hlsli" />
     <None Include="Shaders\PbrLighting.hlsli" />
+    <None Include="Shaders\DirectLights.hlsli" />
+    <None Include="Shaders\DirectLightEvaluation.hlsli" />
+    <None Include="Shaders\PathTracingDirectLightAdapter.hlsli" />
+    <None Include="Shaders\DirectPbrLighting.hlsli" />
+    <None Include="Shaders\PathTracingSampling.hlsli" />
     <None Include="Shaders\ReflectionSampling.hlsli" />
+    <None Include="Shaders\SceneRayQuery.hlsli" />
     <None Include="packages.config" />
     <None Include="vcpkg.json" />
     <None Include="third_party\imgui-node-editor\imgui_bezier_math.inl" />
@@ -419,6 +459,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_ReflectionRayHitDebug.hlsl">
+      <AdditionalInputs>$(ProjectDir)Shaders\DirectLights.hlsli;$(ProjectDir)Shaders\DirectLightEvaluation.hlsli;$(ProjectDir)Shaders\DirectPbrLighting.hlsli;$(ProjectDir)Shaders\ReflectionSampling.hlsli;%(AdditionalInputs)</AdditionalInputs>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
@@ -435,6 +476,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shaders\shaders_LightPass.hlsl">
+      <AdditionalInputs>$(ProjectDir)Shaders\DirectLights.hlsli;$(ProjectDir)Shaders\DirectLightEvaluation.hlsli;$(ProjectDir)Shaders\DirectPbrLighting.hlsli;%(AdditionalInputs)</AdditionalInputs>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
@@ -465,6 +507,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shaders\shaders_ReflectionEvaluate.hlsl">
+      <AdditionalInputs>$(ProjectDir)Shaders\DirectLights.hlsli;$(ProjectDir)Shaders\DirectLightEvaluation.hlsli;$(ProjectDir)Shaders\DirectPbrLighting.hlsli;%(AdditionalInputs)</AdditionalInputs>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
@@ -621,6 +664,19 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dxc.exe -nologo -Tcs_6_5 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
+      <AdditionalInputs>$(ProjectDir)Shaders\SceneRayQuery.hlsli;%(AdditionalInputs)</AdditionalInputs>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_PathTracing.hlsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Identity)</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Identity)</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">dxc.exe -nologo -Tcs_6_5 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dxc.exe -nologo -Tcs_6_5 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
+      <AdditionalInputs>$(ProjectDir)Shaders\Material.hlsli;$(ProjectDir)Shaders\PathTracingSampling.hlsli;$(ProjectDir)Shaders\PathTracingDirectLightAdapter.hlsli;$(ProjectDir)Shaders\DirectLightEvaluation.hlsli;$(ProjectDir)Shaders\SceneRayQuery.hlsli;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_RayQueryTlasDebug.hlsl">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>

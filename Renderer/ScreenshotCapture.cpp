@@ -8,7 +8,11 @@
 #include <algorithm>
 #include <cmath>
 #include <combaseapi.h>
+#include <DirectXPackedVector.h>
+#include <stdexcept>
+#include <tinyexr.h>
 #include <wincodec.h>
+#include <fstream>
 
 namespace Engine
 {
@@ -95,13 +99,25 @@ void RecordScreenshotCapture(ID3D12GraphicsCommandList* commandList,
                              ID3D12Resource* source,
                              bool hdr10,
                              float paperWhiteNits,
+                             const std::optional<RtPbrSurvey::ScreenshotRegion>& region,
                              ScreenshotReadback& readback)
 {
     const D3D12_RESOURCE_DESC desc = source->GetDesc();
+    if (desc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D ||
+        !IsScreenshotRegionValid(static_cast<UINT>(desc.Width), desc.Height, region))
+    {
+        throw std::invalid_argument("Screenshot region is outside the capture source.");
+    }
+
+    const UINT captureWidth = region.has_value() ? region->width : static_cast<UINT>(desc.Width);
+    const UINT captureHeight = region.has_value() ? region->height : desc.Height;
+    D3D12_RESOURCE_DESC copyDesc = desc;
+    copyDesc.Width = captureWidth;
+    copyDesc.Height = captureHeight;
     UINT numRows = 0;
     UINT64 rowSizeInBytes = 0;
     UINT64 totalBytes = 0;
-    device->GetCopyableFootprints(&desc, 0, 1, 0, &readback.layout, &numRows, &rowSizeInBytes, &totalBytes);
+    device->GetCopyableFootprints(&copyDesc, 0, 1, 0, &readback.layout, &numRows, &rowSizeInBytes, &totalBytes);
 
     const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_READBACK);
     const CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(totalBytes);
@@ -114,13 +130,34 @@ void RecordScreenshotCapture(ID3D12GraphicsCommandList* commandList,
 
     const CD3DX12_TEXTURE_COPY_LOCATION destination(readback.resource.Get(), readback.layout);
     const CD3DX12_TEXTURE_COPY_LOCATION sourceLocation(source, 0);
-    commandList->CopyTextureRegion(&destination, 0, 0, 0, &sourceLocation, nullptr);
+    D3D12_BOX sourceBox = {0, 0, 0, captureWidth, captureHeight, 1};
+    if (region.has_value())
+    {
+        sourceBox.left = region->x;
+        sourceBox.top = region->y;
+        sourceBox.right = region->x + region->width;
+        sourceBox.bottom = region->y + region->height;
+    }
+    commandList->CopyTextureRegion(&destination, 0, 0, 0, &sourceLocation, &sourceBox);
 
     readback.format = desc.Format;
-    readback.width = static_cast<UINT>(desc.Width);
-    readback.height = desc.Height;
+    readback.width = captureWidth;
+    readback.height = captureHeight;
     readback.hdr10 = hdr10;
     readback.paperWhiteNits = paperWhiteNits;
+}
+
+bool IsScreenshotRegionValid(UINT sourceWidth,
+                             UINT sourceHeight,
+                             const std::optional<RtPbrSurvey::ScreenshotRegion>& region)
+{
+    if (!region.has_value())
+    {
+        return sourceWidth > 0 && sourceHeight > 0;
+    }
+
+    return region->width > 0 && region->height > 0 && region->x < sourceWidth && region->y < sourceHeight &&
+        region->width <= sourceWidth - region->x && region->height <= sourceHeight - region->y;
 }
 
 std::vector<std::uint8_t> ConvertScreenshotToRgba8(const std::uint8_t* sourceData,
@@ -162,6 +199,27 @@ std::vector<std::uint8_t> ConvertScreenshotToRgba8(const std::uint8_t* sourceDat
         }
     }
     return rgba8;
+}
+
+std::vector<float> ConvertRgba16fToRgba32f(const std::uint8_t* sourceData, UINT width, UINT height, UINT rowPitch)
+{
+    if (sourceData == nullptr)
+    {
+        return {};
+    }
+
+    std::vector<float> rgba32f(static_cast<size_t>(width) * height * 4);
+    for (UINT y = 0; y < height; ++y)
+    {
+        const std::uint16_t* sourceRow =
+            reinterpret_cast<const std::uint16_t*>(sourceData + static_cast<size_t>(y) * rowPitch);
+        float* destinationRow = rgba32f.data() + static_cast<size_t>(y) * width * 4;
+        for (UINT x = 0; x < width * 4; ++x)
+        {
+            destinationRow[x] = DirectX::PackedVector::XMConvertHalfToFloat(sourceRow[x]);
+        }
+    }
+    return rgba32f;
 }
 
 bool SaveRgba8Png(
@@ -245,6 +303,91 @@ bool SaveRgba8Png(
     return true;
 }
 
+bool SaveRgba32fExr(
+    const std::filesystem::path& path, UINT width, UINT height, const float* rgba32f, std::string& error)
+{
+    error.clear();
+    if (path.empty() || width == 0 || height == 0 || rgba32f == nullptr)
+    {
+        error = "Invalid EXR output arguments.";
+        return false;
+    }
+
+    try
+    {
+        if (path.has_parent_path())
+        {
+            std::filesystem::create_directories(path.parent_path());
+        }
+    }
+    catch (const std::exception& exception)
+    {
+        error = exception.what();
+        return false;
+    }
+
+    const char* tinyExrError = nullptr;
+    const int result = SaveEXR(rgba32f, static_cast<int>(width), static_cast<int>(height), 4, 1, path.string().c_str(), &tinyExrError);
+    if (result != TINYEXR_SUCCESS)
+    {
+        error = tinyExrError != nullptr ? tinyExrError : "TinyEXR failed to save the image.";
+        if (tinyExrError != nullptr)
+        {
+            FreeEXRErrorMessage(tinyExrError);
+        }
+        return false;
+    }
+    return true;
+}
+
+bool SaveAccumulationPfm(const std::filesystem::path& path, UINT width, UINT height,
+                          const std::uint8_t* source, UINT rowPitch, std::string& error)
+{
+    error.clear();
+    if (source == nullptr || width == 0 || height == 0 || static_cast<size_t>(rowPitch) < static_cast<size_t>(width) * 16)
+    {
+        error = "Invalid accumulation PFM input.";
+        return false;
+    }
+    std::vector<float> pixels(static_cast<size_t>(width) * height * 3);
+    for (UINT y = 0; y < height; ++y)
+    {
+        const float* row = reinterpret_cast<const float*>(source + static_cast<size_t>(height - 1 - y) * rowPitch);
+        for (UINT x = 0; x < width; ++x)
+        {
+            const float count = row[x * 4 + 3];
+            if (!std::isfinite(count) || count <= 0.0f)
+            {
+                error = "Invalid accumulation sample count.";
+                return false;
+            }
+            for (UINT channel = 0; channel < 3; ++channel)
+            {
+                const float value = row[x * 4 + channel] / count;
+                if (!std::isfinite(value))
+                {
+                    error = "Non-finite HDR radiance.";
+                    return false;
+                }
+                pixels[(static_cast<size_t>(y) * width + x) * 3 + channel] = value;
+            }
+        }
+    }
+    if (path.has_parent_path())
+    {
+        std::filesystem::create_directories(path.parent_path());
+    }
+    std::ofstream stream(path, std::ios::binary);
+    stream << "PF\n" << width << " " << height << "\n-1.0\n";
+    stream.write(reinterpret_cast<const char*>(pixels.data()), static_cast<std::streamsize>(pixels.size() * sizeof(float)));
+    if (!stream)
+    {
+        error = "Failed to write accumulation PFM.";
+        return false;
+    }
+    return true;
+}
+
 bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem::path& path, std::string& error)
 {
     if (!readback.IsValid())
@@ -255,13 +398,38 @@ bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem:
 
     std::uint8_t* mappedData = nullptr;
     const D3D12_RANGE readRange = {static_cast<SIZE_T>(readback.layout.Offset),
-                                   static_cast<SIZE_T>(readback.layout.Offset) +
-                                       static_cast<SIZE_T>(readback.layout.Footprint.RowPitch) * readback.height};
+                                   static_cast<SIZE_T>(readback.resource->GetDesc().Width)};
     const HRESULT mapResult = readback.resource->Map(0, &readRange, reinterpret_cast<void**>(&mappedData));
     if (FAILED(mapResult))
     {
         error = HResultMessage(mapResult);
         return false;
+    }
+
+    if (path.extension() == L".pfm")
+    {
+        bool succeeded = false;
+        try
+        {
+            if (readback.format != DXGI_FORMAT_R32G32B32A32_FLOAT)
+            {
+                error = "PFM requires a float32 accumulation texture.";
+            }
+            else
+            {
+                succeeded = SaveAccumulationPfm(path, readback.width, readback.height,
+                    mappedData + readback.layout.Offset, readback.layout.Footprint.RowPitch, error);
+            }
+        }
+        catch (...)
+        {
+            const D3D12_RANGE writtenRange = {0, 0};
+            readback.resource->Unmap(0, &writtenRange);
+            throw;
+        }
+        const D3D12_RANGE writtenRange = {0, 0};
+        readback.resource->Unmap(0, &writtenRange);
+        return succeeded;
     }
 
     const std::vector<std::uint8_t> rgba8 = ConvertScreenshotToRgba8(mappedData + readback.layout.Offset,
@@ -280,5 +448,43 @@ bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem:
         return false;
     }
     return SaveRgba8Png(path, readback.width, readback.height, rgba8.data(), error);
+}
+
+bool SaveExrScreenshotReadback(ScreenshotReadback& readback, const std::filesystem::path& path, std::string& error)
+{
+    if (!readback.IsValid())
+    {
+        error = "Screenshot readback is not available.";
+        return false;
+    }
+    if (readback.format != DXGI_FORMAT_R16G16B16A16_FLOAT)
+    {
+        error = "EXR capture requires R16G16B16A16_FLOAT scene color.";
+        return false;
+    }
+
+    std::uint8_t* mappedData = nullptr;
+    const D3D12_RANGE readRange = {static_cast<SIZE_T>(readback.layout.Offset),
+                                   static_cast<SIZE_T>(readback.resource->GetDesc().Width)};
+    const HRESULT mapResult = readback.resource->Map(0, &readRange, reinterpret_cast<void**>(&mappedData));
+    if (FAILED(mapResult))
+    {
+        error = HResultMessage(mapResult);
+        return false;
+    }
+
+    const std::vector<float> rgba32f = ConvertRgba16fToRgba32f(mappedData + readback.layout.Offset,
+                                                                readback.width,
+                                                                readback.height,
+                                                                readback.layout.Footprint.RowPitch);
+    const D3D12_RANGE writtenRange = {0, 0};
+    readback.resource->Unmap(0, &writtenRange);
+
+    if (rgba32f.empty())
+    {
+        error = "Failed to convert EXR scene color readback.";
+        return false;
+    }
+    return SaveRgba32fExr(path, readback.width, readback.height, rgba32f.data(), error);
 }
 } // namespace Engine

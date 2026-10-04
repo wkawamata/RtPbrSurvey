@@ -8,12 +8,38 @@
 #include "imgui_impl_dx12.h"
 #include "imgui_impl_win32.h"
 
+#include <string>
+
 namespace Engine
 {
 
 namespace
 {
 SimpleDescriptorHeapAllocator* g_allocator = nullptr;
+
+void AddDefaultUiFont()
+{
+    ImGuiIO& io = ImGui::GetIO();
+    char windowsDirectory[MAX_PATH] = {};
+    const UINT windowsDirectoryLength = GetWindowsDirectoryA(windowsDirectory, MAX_PATH);
+    if (windowsDirectoryLength > 0 && windowsDirectoryLength < MAX_PATH)
+    {
+        static constexpr const char* fontNames[] = {"YuGothM.ttc", "meiryo.ttc", "msgothic.ttc"};
+        for (const char* fontName : fontNames)
+        {
+            const std::string fontPath = std::string(windowsDirectory) + "\\Fonts\\" + fontName;
+            if (GetFileAttributesA(fontPath.c_str()) != INVALID_FILE_ATTRIBUTES &&
+                io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 14.0f, nullptr, io.Fonts->GetGlyphRangesJapanese()) !=
+                    nullptr)
+            {
+                return;
+            }
+        }
+    }
+
+    io.Fonts->AddFontDefault();
+    OutputDebugStringA("[WARNING] Japanese UI font was unavailable; using the default ImGui font.\n");
+}
 }
 
 void ImGuiSystem::Initialize(HWND hwnd,
@@ -29,6 +55,7 @@ void ImGuiSystem::Initialize(HWND hwnd,
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    AddDefaultUiFont();
     RtPbrSurvey::RegisterDebugUiPreferencesSettingsHandler();
     ImGui::StyleColorsDark();
 

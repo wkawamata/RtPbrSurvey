@@ -12,7 +12,7 @@ namespace Engine
 
 struct GBuffer
 {
-    static constexpr UINT kCount = 6;
+    static constexpr UINT kCount = 7;
 
     enum Target : UINT
     {
@@ -22,6 +22,7 @@ struct GBuffer
         MotionVector = 3,
         PBRParams = 4,
         Emissive = 5,
+        ObjectId = 6,
     };
 
     Microsoft::WRL::ComPtr<ID3D12Resource> resources[kCount];
@@ -33,6 +34,7 @@ struct GBuffer
         DXGI_FORMAT_R16G16_FLOAT,       // Motion Vector
         DXGI_FORMAT_R8G8B8A8_UNORM,     // PBR Params (Metallic, Roughness, Occlusion)
         DXGI_FORMAT_R16G16B16A16_FLOAT, // Emissive RGB
+        DXGI_FORMAT_R32_UINT,           // Object ID (instance index + 1)
     };
 
     D3D12_CLEAR_VALUE clearValues[kCount] = {
@@ -42,6 +44,7 @@ struct GBuffer
         {DXGI_FORMAT_R16G16_FLOAT, {0.0f, 0.0f, 0.0f, 0.0f}},
         {DXGI_FORMAT_R8G8B8A8_UNORM, {0.0f, 0.0f, 0.0f, 0.0f}},
         {DXGI_FORMAT_R16G16B16A16_FLOAT, {0.0f, 0.0f, 0.0f, 1.0f}},
+        {DXGI_FORMAT_R32_UINT, {0.0f, 0.0f, 0.0f, 0.0f}},
     };
 
     UINT rtvIndex[kCount] = {};

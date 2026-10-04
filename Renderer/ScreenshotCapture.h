@@ -9,6 +9,8 @@
 #include <dxgiformat.h>
 #include <wrl/client.h>
 
+#include "Shared/Screenshot.h"
+
 namespace Engine
 {
 struct ScreenshotReadback
@@ -30,7 +32,12 @@ void RecordScreenshotCapture(ID3D12GraphicsCommandList* commandList,
                              ID3D12Resource* source,
                              bool hdr10,
                              float paperWhiteNits,
+                             const std::optional<RtPbrSurvey::ScreenshotRegion>& region,
                              ScreenshotReadback& readback);
+
+bool IsScreenshotRegionValid(UINT sourceWidth,
+                             UINT sourceHeight,
+                             const std::optional<RtPbrSurvey::ScreenshotRegion>& region);
 
 std::vector<std::uint8_t> ConvertScreenshotToRgba8(const std::uint8_t* sourceData,
                                                    UINT width,
@@ -40,8 +47,19 @@ std::vector<std::uint8_t> ConvertScreenshotToRgba8(const std::uint8_t* sourceDat
                                                    bool hdr10,
                                                    float paperWhiteNits);
 
+std::vector<float> ConvertRgba16fToRgba32f(
+    const std::uint8_t* sourceData, UINT width, UINT height, UINT rowPitch);
+
 bool SaveRgba8Png(
     const std::filesystem::path& path, UINT width, UINT height, const std::uint8_t* rgba8, std::string& error);
 
+bool SaveRgba32fExr(
+    const std::filesystem::path& path, UINT width, UINT height, const float* rgba32f, std::string& error);
+
 bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem::path& path, std::string& error);
+
+bool SaveExrScreenshotReadback(ScreenshotReadback& readback, const std::filesystem::path& path, std::string& error);
+
+bool SaveAccumulationPfm(const std::filesystem::path& path, UINT width, UINT height,
+                          const std::uint8_t* source, UINT rowPitch, std::string& error);
 } // namespace Engine

@@ -6,6 +6,11 @@
 #include <string>
 #include <vector>
 
+namespace RtPbrSurvey
+{
+    struct CaptureSessionConfig;
+}
+
 namespace Platform
 {
 
@@ -66,13 +71,37 @@ struct CommandLineOptions
     bool autoSelectGltfDamagedHelmet = false;
     std::wstring autoSelectGltfAssetName;
     bool autoSelectHybridReflectionEstimatorTest = false;
+    std::wstring evaluationCaseName;
+    std::filesystem::path sceneFilePath;
+    std::filesystem::path renderPresetPath;
     bool useSceneDefaults = false;
+    bool enablePathTracing = false;
+    UINT pathTracingSampleTarget = 0;
+    bool hasPathTracingRandomSeed = false;
+    UINT pathTracingRandomSeed = 1;
+    UINT pathTracingEnvironmentMode = 0;
+    bool hasPathTracingEnvironmentMode = false;
     bool enableDlssSr = false;
     bool enableDebugTexturePreview = false;
     std::string debugPreviewResourceName;
     DlssSrQualityMode dlssSrQualityMode = DlssSrQualityMode::Quality;
     std::filesystem::path capturePath;
     UINT captureAfterFrames = 0;
+    bool captureSessionEnabled = false;
+    std::filesystem::path captureSessionOutputDirectory;
+    std::wstring captureSessionBaseName;
+    std::wstring captureSessionFormat = L"png";
+    UINT captureSessionFramesPerSecond = 60;
+    UINT captureSessionFrameLimit = 0;
+    UINT captureSessionWarmupFrames = 0;
+    bool captureSessionFixedStep = false;
+    bool hasCaptureSessionRoi = false;
+    UINT captureSessionRoiX = 0;
+    UINT captureSessionRoiY = 0;
+    UINT captureSessionRoiWidth = 0;
+    UINT captureSessionRoiHeight = 0;
+    bool hasCaptureSessionDuration = false;
+    double captureSessionDurationSeconds = 0.0;
     bool exitAfterCapture = false;
     bool enableDlssRayReconstruction = false;
     bool enableExperimentalNativeRayReconstruction = false;
@@ -106,6 +135,9 @@ struct CommandLineOptions
 };
 
 CommandLineOptions ParseCommandLineOptions(_In_reads_(argc) WCHAR* argv[], int argc);
+bool BuildCaptureSessionConfig(const CommandLineOptions& options,
+                               RtPbrSurvey::CaptureSessionConfig& config,
+                               std::string& error);
 bool LoadReflectionCapturePlan(const std::filesystem::path& path,
                                const std::string& variant,
                                ReflectionCapturePlan& plan,

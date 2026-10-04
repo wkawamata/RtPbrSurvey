@@ -20,6 +20,8 @@ SceneMesh CreateQuadMesh(
 
 SceneMesh CreateCubeMesh(float size);
 
+SceneMesh CreatePlaneMesh(float width, float depth);
+
 SceneMesh CreateSphereMesh(float radius, int stackCount, int sliceCount);
 
 SceneMesh CreateCylinderMesh(float radius,

@@ -66,10 +66,22 @@
     <ClInclude Include="App\DebugUi.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>
-    <ClInclude Include="App\SceneSelectUi.h">
+    <ClInclude Include="App\EvaluationCaseUi.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>
+      <ClInclude Include="App\SceneSelectUi.h">
+        <Filter>Source Files\App</Filter>
+      </ClInclude>
+      <ClInclude Include="App\SceneEditorSession.h">
+        <Filter>Source Files\App</Filter>
+      </ClInclude>
     <ClInclude Include="App\RtPbrSurveyApp.h">
+      <Filter>Source Files\App</Filter>
+    </ClInclude>
+    <ClInclude Include="App\SceneEditorUi.h">
+      <Filter>Source Files\App</Filter>
+    </ClInclude>
+    <ClInclude Include="App\RenderPresetStore.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>
     <ClInclude Include="TextureSemantic.h">
@@ -129,6 +141,12 @@
     <ClInclude Include="Renderer\MaterialBuffer.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\PathTracingPass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\RayQuerySceneBindings.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\PipelineFactory.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -186,6 +204,9 @@
     <ClInclude Include="Renderer\ScreenshotCapture.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\ScreenshotRequestQueue.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\SimpleDescriptorHeapAllocator.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -231,6 +252,12 @@
     <ClInclude Include="Runtime\DebugLine.h">
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="Runtime\CaptureSession.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\CaptureSessionUi.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="Runtime\SceneRenderer.h">
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
@@ -238,6 +265,9 @@
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="Runtime\DebugTextureThumbnailScheduler.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\EvaluationState.h">
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="Runtime\DebugBufferInspector.h">
@@ -249,6 +279,13 @@
     <ClInclude Include="Runtime\SceneRendererSettings.h">
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
+    <ClInclude Include="Runtime\DirectLightJson.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="Shared\DirectLight.h">
+      <Filter>Source Files\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="Ui\DirectLightUi.h" />
     <ClInclude Include="Scene\Scene.h">
       <Filter>Source Files\Scene</Filter>
     </ClInclude>
@@ -259,6 +296,18 @@
       <Filter>Source Files\Scene</Filter>
     </ClInclude>
     <ClInclude Include="Scene\SceneDocument.h">
+      <Filter>Source Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneDocumentJson.h">
+      <Filter>Source Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneDocumentBuilder.h">
+      <Filter>Source Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneDocumentRuntimeScene.h">
+      <Filter>Source Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneGraph.h">
       <Filter>Source Files\Scene</Filter>
     </ClInclude>
     <ClInclude Include="Scene\SampleScene.h">
@@ -329,10 +378,22 @@
     <ClCompile Include="App\DebugUi.cpp">
       <Filter>Source Files\App</Filter>
     </ClCompile>
-    <ClCompile Include="App\SceneSelectUi.cpp">
+    <ClCompile Include="App\EvaluationCaseUi.cpp">
       <Filter>Source Files\App</Filter>
     </ClCompile>
+      <ClCompile Include="App\SceneSelectUi.cpp">
+        <Filter>Source Files\App</Filter>
+      </ClCompile>
+      <ClCompile Include="App\SceneEditorSession.cpp">
+        <Filter>Source Files\App</Filter>
+      </ClCompile>
     <ClCompile Include="App\RtPbrSurveyApp.cpp">
+      <Filter>Source Files\App</Filter>
+    </ClCompile>
+    <ClCompile Include="App\SceneEditorUi.cpp">
+      <Filter>Source Files\App</Filter>
+    </ClCompile>
+    <ClCompile Include="App\RenderPresetStore.cpp">
       <Filter>Source Files\App</Filter>
     </ClCompile>
     <ClCompile Include="Engine\RtPbrSurveyEngine.cpp">
@@ -393,6 +454,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\LightingPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingPass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp">
@@ -476,6 +540,12 @@
     <ClCompile Include="Runtime\DebugLine.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
+    <ClCompile Include="Runtime\CaptureSession.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="Runtime\CaptureSessionUi.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
     <ClCompile Include="Runtime\SceneRenderer.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
@@ -484,6 +554,21 @@
     </ClCompile>
     <ClCompile Include="Runtime\DebugTextureThumbnailScheduler.cpp">
       <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="Runtime\EvaluationState.cpp">
+      <Filter>Source Files\Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneDocumentJson.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneDocumentBuilder.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneDocumentRuntimeScene.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneGraph.cpp">
+      <Filter>Source Files\Scene</Filter>
     </ClCompile>
     <ClCompile Include="Runtime\DebugBufferInspector.cpp">
       <Filter>Source Files\Runtime</Filter>
@@ -556,6 +641,9 @@
     <CustomBuild Include="Shaders\shaders_HybridReflection.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_PathTracing.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
     <CustomBuild Include="Shaders\shaders_RayQueryTlasDebug.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
@@ -594,7 +682,25 @@
     <None Include="Shaders\PbrLighting.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
+    <None Include="Shaders\DirectLights.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\DirectLightEvaluation.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\PathTracingDirectLightAdapter.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\DirectPbrLighting.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\PathTracingSampling.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
     <None Include="Shaders\ReflectionSampling.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\SceneRayQuery.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="packages.config" />

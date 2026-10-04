@@ -1,12 +1,16 @@
 #include "stdafx.h"
 #include "DebugUi.h"
+#include "EvaluationCaseUi.h"
 #include "SceneSelectUi.h"
 #include "RtPbrSurveyApp.h"
 #include "../ImGuiWidgets.h"
 #include "../Runtime/SceneRendererDebugUi.h"
 #include "../Ui/DebugUiPreferences.h"
+#include "Ui/DirectLightUi.h"
+#include "Runtime/CaptureSessionUi.h"
 
 #include <imgui.h>
+#include <imgui_stdlib.h>
 
 #include <cmath>
 #include <ctime>
@@ -378,6 +382,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     using RenderViewMode = RtPbrSurveyEngine::RenderViewMode;
     using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
     static bool renderGraphWindowOpen = false;
+    static bool evaluationCasesWindowOpen = true;
     static bool arrangeDebugTexturePreviewsRequested = false;
     static uint64_t activeDiagnosticInspectorId = 0;
 
@@ -388,9 +393,22 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             "Capture failed: " + result->error;
     }
 
-    if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneSelect)
+    if (app.m_appMode == RtPbrSurveyApp::AppMode::TopMenu)
     {
         App::DrawSceneSelectUi(app);
+        App::DrawEvaluationCasesWindow(app, App::EvaluationCaseScope::AllScenes);
+        return;
+    }
+
+    if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneEditorStart)
+    {
+        App::DrawSceneEditorStartUi(app);
+        return;
+    }
+
+    if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneEditorEdit)
+    {
+        App::DrawSceneEditorEditUi(app);
         return;
     }
 
@@ -436,10 +454,14 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 context.rayTracingSupported ? "Supported" : "Not supported",
                 context.rayTracingTierName,
                 context.rayTracingTierRaw);
-    ImGui::Checkbox("Open RenderGraph Window", &renderGraphWindowOpen);
-    if (ImGui::Checkbox("Open Information Window", &debugUiPreferences.informationWindowVisible))
+    if (ImGui::CollapsingHeader("SubWindow"))
     {
-        RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        ImGui::Checkbox("Open RenderGraph Window", &renderGraphWindowOpen);
+        ImGui::Checkbox("Open Evaluation Cases Window", &evaluationCasesWindowOpen);
+        if (ImGui::Checkbox("Open Information Window", &debugUiPreferences.informationWindowVisible))
+        {
+            RtPbrSurvey::MarkDebugUiPreferencesDirty();
+        }
     }
 
     if (ImGui::CollapsingHeader("Screenshot"))
@@ -454,6 +476,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         {
             ImGui::TextWrapped("%s", app.m_screenshotStatus.c_str());
         }
+
+        ImGui::Separator();
+        ImGui::TextUnformatted("Capture Session");
+        RtPbrSurvey::CaptureSessionUi::Draw(app.m_sceneRenderer, app.m_captureSessionUiState);
     }
 
     if (ImGui::CollapsingHeader("WorkMeter"))
@@ -546,17 +572,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
     if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        {
-            static constexpr float defaultDir[] = {0.0f, 1.0f, -1.0f};
-            ImGuiWidgets::SliderFloat3WithControls("Light Direction", &app.m_lightingParams.lightDirection.x, -1.0f, 1.0f,
-                                                     0.05f, defaultDir);
-        }
-        ImGui::SameLine();
-        ImGuiWidgets::SliderFloatWithControls("Direct Light Intensity", &app.m_lightingParams.diffuseIntensity, 0.0f, 4.0f,
-                                               0.1f, 1.0f);
-        ImGui::ColorEdit3("Light Color", &app.m_lightingParams.lightColor.x);
-        ImGui::Checkbox("Direct Light", &app.m_lightingParams.directLightEnabled);
-        ImGui::SameLine();
+        RtPbrSurvey::DrawDirectLightControls(app.m_lightingParams);
         ImGui::Checkbox("Emissive", &app.m_lightingParams.emissiveEnabled);
     }
     if (ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
@@ -908,7 +924,99 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton("Forward", &renderingPath, static_cast<int>(RenderingPath::Forward));
         ImGui::SameLine();
         ImGui::RadioButton("Deferred", &renderingPath, static_cast<int>(RenderingPath::Deferred));
+        ImGui::SameLine();
+        ImGui::RadioButton("Path Tracing", &renderingPath, static_cast<int>(RenderingPath::PathTracing));
         app.m_renderingPath = static_cast<RenderingPath>(renderingPath);
+
+        if (app.m_renderingPath == RenderingPath::PathTracing)
+        {
+            ImGui::Text("Path Tracing Support: %s", context.pathTracingSupported ? "Available" : "Unavailable");
+            ImGui::Text("Runtime Status: %s", context.pathTracingStatusText);
+            ImGui::Text("Render Resolution: %u x %u", context.renderWidth, context.renderHeight);
+            ImGui::Text("Accumulated Samples: %llu",
+                        static_cast<unsigned long long>(context.pathTracingRuntimeState.accumulatedSampleCount));
+            ImGui::Text("Next Sample Index: %u", context.pathTracingRuntimeState.frameSampleIndex);
+            ImGui::Text("Last Reset: %s", context.pathTracingRuntimeState.ResetReasonText());
+            if (context.pathTracingDiagnostics.gpuTimingAvailable)
+            {
+                ImGui::Text("Path Tracing GPU: %.3f ms", context.pathTracingDiagnostics.gpuTimeMs);
+                ImGui::Text("Primary Samples / Second: %.3f M",
+                            context.pathTracingDiagnostics.primarySamplesPerSecond / 1000000.0);
+            }
+            else
+            {
+                ImGui::TextDisabled("Path Tracing GPU: N/A");
+            }
+            ImGui::Text("Primary Samples / Frame: %llu",
+                        static_cast<unsigned long long>(context.pathTracingDiagnostics.primarySamplesPerFrame));
+            ImGui::Text("Max Path Segments / Frame: %llu",
+                        static_cast<unsigned long long>(context.pathTracingDiagnostics.maxPathSegmentsPerFrame));
+            ImGui::Text("Max Ray Queries / Frame: %llu",
+                        static_cast<unsigned long long>(context.pathTracingDiagnostics.maxRayQueriesPerFrame));
+            ImGui::TextDisabled("Progressive metallic-roughness path tracing is active.");
+            ImGui::TextDisabled("DLSS SR and RR settings are retained but inactive in this mode.");
+
+            bool accumulationPaused = context.pathTracingRuntimeState.accumulationPaused;
+            if (ImGui::Checkbox("Pause Accumulation", &accumulationPaused))
+            {
+                app.m_sceneRenderer.SetPathTracingAccumulationPaused(accumulationPaused);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Reset Accumulation"))
+            {
+                app.m_sceneRenderer.ResetPathTracingAccumulation();
+            }
+
+            RtPbrSurveyEngine::PathTracingSettings pathTracingSettings =
+                app.m_sceneRenderer.GetPathTracingSettings();
+            bool pathTracingSettingsChanged = false;
+            static constexpr const char* kPathTracingDebugOutputs[] = {
+                "Albedo + Emissive", "World Normal", "Emissive", "Radiance"};
+            int debugOutput = static_cast<int>(pathTracingSettings.debugOutput);
+            if (ImGui::Combo("Path Tracing Output",
+                             &debugOutput,
+                             kPathTracingDebugOutputs,
+                             _countof(kPathTracingDebugOutputs)))
+            {
+                pathTracingSettings.debugOutput =
+                    static_cast<RtPbrSurveyEngine::PathTracingDebugOutput>(debugOutput);
+                pathTracingSettingsChanged = true;
+            }
+            pathTracingSettingsChanged |= ImGui::Checkbox("Accumulate", &pathTracingSettings.accumulate);
+            int samplesPerFrame = static_cast<int>(pathTracingSettings.samplesPerFrame);
+            if (ImGui::SliderInt("Samples / Frame", &samplesPerFrame, 1, 16))
+            {
+                pathTracingSettings.samplesPerFrame = static_cast<UINT>(samplesPerFrame);
+                pathTracingSettingsChanged = true;
+            }
+            int maxBounces = static_cast<int>(pathTracingSettings.maxBounces);
+            if (ImGui::SliderInt("Max Bounces", &maxBounces, 1, 16))
+            {
+                pathTracingSettings.maxBounces = static_cast<UINT>(maxBounces);
+                pathTracingSettingsChanged = true;
+            }
+            pathTracingSettingsChanged |=
+                ImGui::InputScalar("Random Seed", ImGuiDataType_U32, &pathTracingSettings.randomSeed);
+            pathTracingSettingsChanged |=
+                ImGui::Checkbox("Direct Lighting", &pathTracingSettings.directLightingEnabled);
+            ImGui::SameLine();
+            pathTracingSettingsChanged |= ImGui::Checkbox("Environment", &pathTracingSettings.environmentEnabled);
+            ImGui::SameLine();
+            pathTracingSettingsChanged |= ImGui::Checkbox("Emissive", &pathTracingSettings.emissiveEnabled);
+            int environmentSamplingMode = static_cast<int>(pathTracingSettings.environmentSamplingMode);
+            if (ImGui::Combo("Environment Sampling", &environmentSamplingMode,
+                "Environment Map / BSDF\0Constant White / BSDF\0Constant White / NEE\0Environment Map / Uniform NEE\0Environment Map / Importance NEE\0Constant White / MIS\0Environment Map / Uniform MIS\0Environment Map / Importance MIS\0"))
+            {
+                pathTracingSettings.environmentSamplingMode = static_cast<UINT>(environmentSamplingMode);
+                pathTracingSettingsChanged = true;
+            }
+            pathTracingSettingsChanged |=
+                ImGui::Checkbox("Russian Roulette (bounce 3+)", &pathTracingSettings.russianRouletteEnabled);
+            if (pathTracingSettingsChanged)
+            {
+                app.m_sceneRenderer.SetPathTracingSettings(pathTracingSettings);
+            }
+        }
 
         const bool deferredRendering = app.m_renderingPath == RenderingPath::Deferred;
         int renderViewMode = static_cast<int>(app.m_renderViewMode);
@@ -984,6 +1092,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::EndDisabled();
         ImGui::EndDisabled();
         app.m_renderViewMode = static_cast<RenderViewMode>(renderViewMode);
+        if (!deferredRendering)
+        {
+            app.m_renderViewMode = RenderViewMode::LightPass;
+        }
         if (!context.rayTracingSupported &&
             (app.m_renderViewMode == RenderViewMode::ShadowMask || app.m_renderViewMode == RenderViewMode::TlasDebug ||
              app.m_renderViewMode == RenderViewMode::ReflectionRayHit ||
@@ -1445,7 +1557,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         if (pick.valid)
         {
             ImGui::Text("Screen / Depth / Material");
-            ImGui::Text("  Screen: (%d, %d)  Mat ID: %u", pick.screenX, pick.screenY, pick.materialId);
+            ImGui::Text("  Screen: (%d, %d)  Mat ID: %u  Object ID: %u", pick.screenX, pick.screenY, pick.materialId,
+                        pick.objectId);
             ImGui::Text("  Depth (NDC): %.4f", pick.depthNdc);
             ImGui::Separator();
             ImGui::Text("World Vectors");
@@ -1616,6 +1729,20 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
 
     ImGui::End();
+    if (evaluationCasesWindowOpen)
+    {
+        App::DrawEvaluationCasesWindow(app, App::EvaluationCaseScope::CurrentScene);
+    }
+    if (app.m_evaluationRoi.enabled)
+    {
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        const ImVec2 roiMin(viewport->Pos.x + viewport->Size.x * app.m_evaluationRoi.x,
+                            viewport->Pos.y + viewport->Size.y * app.m_evaluationRoi.y);
+        const ImVec2 roiMax(roiMin.x + viewport->Size.x * app.m_evaluationRoi.width,
+                            roiMin.y + viewport->Size.y * app.m_evaluationRoi.height);
+        ImGui::GetForegroundDrawList()->AddRect(
+            roiMin, roiMax, ImGui::GetColorU32(ImVec4(1.0f, 0.85f, 0.15f, 1.0f)), 0.0f, 0, 2.0f);
+    }
     const RtPbrSurvey::RenderGraphGpuTimingSnapshot renderGraphTiming =
         BuildRenderGraphGpuTimingSnapshot(context.gpuCheckPoints);
     RtPbrSurvey::RenderGraphResourceActions renderGraphResourceActions;
@@ -1776,7 +1903,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                                  &semantic,
                                  "Color\0Normal\0Depth\0Motion Vector\0Scalar\0"))
                 {
-                    inspector.semantic = static_cast<RtPbrSurvey::DebugTextureSemantic>(semantic);
+                    RtPbrSurvey::SetDebugTexturePreviewSemantic(
+                        inspector, static_cast<RtPbrSurvey::DebugTextureSemantic>(semantic));
                 }
             }
             ImGui::SameLine();
@@ -1807,20 +1935,36 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                              "%.2f");
             ImGui::SameLine();
             ImGui::SetNextItemWidth(110.0f);
-            ImGui::DragFloat(("Scale##DebugTexture" + std::to_string(inspector.id)).c_str(),
-                             &inspector.scale,
-                             0.01f,
-                             -100.0f,
-                             100.0f,
-                             "%.3f");
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(110.0f);
-            ImGui::DragFloat(("Offset##DebugTexture" + std::to_string(inspector.id)).c_str(),
-                             &inspector.offset,
-                             0.01f,
-                             -100.0f,
-                             100.0f,
-                             "%.3f");
+            if (inspector.semantic == RtPbrSurvey::DebugTextureSemantic::MotionVector)
+            {
+                float motionScale = inspector.scale;
+                if (ImGui::DragFloat(("Motion Scale##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                                     &motionScale,
+                                     0.25f,
+                                     1.0f,
+                                     100.0f,
+                                     "%.2f"))
+                {
+                    RtPbrSurvey::SetMotionVectorPreviewScale(inspector, motionScale);
+                }
+            }
+            else
+            {
+                ImGui::DragFloat(("Scale##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                                 &inspector.scale,
+                                 0.01f,
+                                 -100.0f,
+                                 100.0f,
+                                 "%.3f");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(110.0f);
+                ImGui::DragFloat(("Offset##DebugTexture" + std::to_string(inspector.id)).c_str(),
+                                 &inspector.offset,
+                                 0.01f,
+                                 -100.0f,
+                                 100.0f,
+                                 "%.3f");
+            }
 
             if (inspector.semantic == RtPbrSurvey::DebugTextureSemantic::Depth)
             {

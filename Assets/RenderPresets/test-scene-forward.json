@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "renderingPath": 0,
+  "renderViewMode": 0,
+  "lighting": {
+    "skyboxEnabled": true,
+    "directLightEnabled": true,
+    "diffuseIblEnabled": true,
+    "specularIblEnabled": true,
+    "emissiveEnabled": true
+  },
+  "toneMap": {
+    "operatorIndex": 1,
+    "exposure": 0.8
+  }
+}

@@ -12,6 +12,7 @@
 #pragma once
 
 #include "Engine/RtPbrSurveyEngine.h"
+#include "Runtime/CaptureSession.h"
 #include "Runtime/DebugLine.h"
 #include "Runtime/SceneRendererSettings.h"
 
@@ -76,6 +77,11 @@ namespace RtPbrSurvey
         const Engine::RayReconstructionSettings& GetRayReconstructionSettings() const;
         void SetHybridReflectionSettings(const RtPbrSurveyEngine::HybridReflectionSettings& settings);
         const RtPbrSurveyEngine::HybridReflectionSettings& GetHybridReflectionSettings() const;
+        void SetPathTracingSettings(const RtPbrSurveyEngine::PathTracingSettings& settings);
+        const RtPbrSurveyEngine::PathTracingSettings& GetPathTracingSettings() const;
+        const RtPbrSurveyEngine::PathTracingRuntimeState& GetPathTracingRuntimeState() const;
+        void ResetPathTracingAccumulation();
+        void SetPathTracingAccumulationPaused(bool paused);
         void ResetHybridReflectionHistoryForDiagnostics();
         void SetMaterialParams(UINT materialIndex, const RtPbrSurveyEngine::MaterialParams& params);
         void SetRenderingPath(RtPbrSurveyEngine::RenderingPath renderingPath);
@@ -116,6 +122,11 @@ namespace RtPbrSurvey
         std::optional<Engine::ReflectionHdrDiagnosticFrame> ConsumeReflectionHdrDiagnosticFrame();
         void RequestScreenshot(ScreenshotRequest request);
         std::optional<ScreenshotResult> ConsumeScreenshotResult();
+        bool StartCaptureSession(const CaptureSessionConfig& config, std::string& error);
+        void StopCaptureSession();
+        void UpdateCaptureSession(const CaptureSessionTiming& timing);
+        bool CanAdvanceCaptureSessionFixedStep() const;
+        const CaptureSessionStatus& GetCaptureSessionStatus() const;
         void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
         void RequestPixelPick(int screenX, int screenY);
         const RtPbrSurveyEngine::PixelPickResult& GetPixelPickResult() const;
@@ -131,6 +142,7 @@ namespace RtPbrSurvey
 
     private:
         RtPbrSurveyEngine m_engine;
+        CaptureSession m_captureSession;
         ToolUiHandler m_toolUiHandler;
     };
 } // namespace RtPbrSurvey

@@ -2,11 +2,15 @@
 
 #include "CommandLineOptions.h"
 
+#include "Runtime/CaptureSession.h"
+
+#include <cerrno>
 #include <cstdlib>
 #include <cmath>
 #include <cstring>
 #include <cwchar>
 #include <fstream>
+#include <limits>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <unordered_set>
@@ -19,6 +23,89 @@ namespace
 bool IsCommandLineArg(const WCHAR* arg, const WCHAR* expected)
 {
     return _wcsicmp(arg, expected) == 0;
+}
+
+bool TryParseUint(const WCHAR* value, bool allowZero, UINT& result)
+{
+    if (value == nullptr || value[0] == L'\0' || value[0] == L'-')
+    {
+        return false;
+    }
+
+    wchar_t* end = nullptr;
+    errno = 0;
+    const unsigned long long parsed = wcstoull(value, &end, 10);
+    if (errno == ERANGE || end == value || *end != L'\0' ||
+        parsed > static_cast<unsigned long long>((std::numeric_limits<UINT>::max)()) ||
+        (!allowZero && parsed == 0))
+    {
+        return false;
+    }
+
+    result = static_cast<UINT>(parsed);
+    return true;
+}
+
+bool TryParsePositiveDouble(const WCHAR* value, double& result)
+{
+    if (value == nullptr || value[0] == L'\0')
+    {
+        return false;
+    }
+
+    wchar_t* end = nullptr;
+    errno = 0;
+    const double parsed = wcstod(value, &end);
+    if (errno == ERANGE || end == value || *end != L'\0' || !std::isfinite(parsed) || parsed <= 0.0)
+    {
+        return false;
+    }
+
+    result = parsed;
+    return true;
+}
+
+std::string WideToUtf8(const std::wstring& value)
+{
+    if (value.empty())
+    {
+        return {};
+    }
+
+    const int length = WideCharToMultiByte(
+        CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr);
+    if (length <= 0)
+    {
+        throw std::runtime_error("Failed to convert command-line text to UTF-8.");
+    }
+    std::string result(static_cast<size_t>(length), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), result.data(), length, nullptr, nullptr);
+    return result;
+}
+
+bool TryParseCaptureSessionFormat(const std::wstring& value, RtPbrSurvey::CaptureSessionOutputFormat& format)
+{
+    if (_wcsicmp(value.c_str(), L"png") == 0)
+    {
+        format = RtPbrSurvey::CaptureSessionOutputFormat::Png;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"exr") == 0)
+    {
+        format = RtPbrSurvey::CaptureSessionOutputFormat::Exr;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"gif") == 0)
+    {
+        format = RtPbrSurvey::CaptureSessionOutputFormat::Gif;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"mp4") == 0)
+    {
+        format = RtPbrSurvey::CaptureSessionOutputFormat::Mp4;
+        return true;
+    }
+    return false;
 }
 
 bool TryParseDebugResourceName(const WCHAR* value, std::string& resourceName)
@@ -219,6 +306,30 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.autoSelectHybridReflectionEstimatorTest = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-EvaluationCase"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-EvaluationCase expects a saved Evaluation Case name.");
+            }
+            options.evaluationCaseName = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-SceneFile"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-SceneFile expects a scene.json path.");
+            }
+            options.sceneFilePath = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-RenderPreset"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-RenderPreset expects a preset JSON path.");
+            }
+            options.renderPresetPath = argv[++i];
+        }
         else if (IsCommandLineArg(argv[i], L"-UseSceneDefaults"))
         {
             options.useSceneDefaults = true;
@@ -226,6 +337,37 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         else if (IsCommandLineArg(argv[i], L"-EnableDlssSr"))
         {
             options.enableDlssSr = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-EnablePathTracing"))
+        {
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingSamples"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.pathTracingSampleTarget))
+            {
+                throw std::invalid_argument("-PathTracingSamples expects an integer in [1, UINT_MAX].");
+            }
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingEnvironmentMode"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.pathTracingEnvironmentMode) ||
+                options.pathTracingEnvironmentMode > 7)
+            {
+                throw std::invalid_argument("-PathTracingEnvironmentMode expects 0..7: map BSDF, constant BSDF, constant NEE, map uniform NEE, map importance NEE, constant MIS, map uniform MIS, map importance MIS.");
+            }
+            options.hasPathTracingEnvironmentMode = true;
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingSeed"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.pathTracingRandomSeed))
+            {
+                throw std::invalid_argument("-PathTracingSeed expects an integer in [0, UINT_MAX].");
+            }
+            options.hasPathTracingRandomSeed = true;
+            options.enablePathTracing = true;
         }
         else if (IsCommandLineArg(argv[i], L"-EnableDebugTexturePreview"))
         {
@@ -265,6 +407,88 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                     options.captureAfterFrames = static_cast<UINT>(captureAfterFrames);
                 }
             }
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionOutputDir"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionOutputDir expects a directory path.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionOutputDirectory = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionBaseName"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionBaseName expects a non-empty name.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionBaseName = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionFormat"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionFormat expects png, exr, gif, or mp4.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionFormat = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionFps"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.captureSessionFramesPerSecond))
+            {
+                throw std::invalid_argument("-CaptureSessionFps expects an integer in [1, UINT_MAX].");
+            }
+            options.captureSessionEnabled = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionFrames"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.captureSessionFrameLimit))
+            {
+                throw std::invalid_argument("-CaptureSessionFrames expects an integer in [1, UINT_MAX].");
+            }
+            options.captureSessionEnabled = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionWarmupFrames"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.captureSessionWarmupFrames))
+            {
+                throw std::invalid_argument("-CaptureSessionWarmupFrames expects an integer in [0, UINT_MAX].");
+            }
+            options.captureSessionEnabled = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionClock"))
+        {
+            if (i + 1 >= argc ||
+                (_wcsicmp(argv[i + 1], L"real-time") != 0 && _wcsicmp(argv[i + 1], L"fixed-step") != 0))
+            {
+                throw std::invalid_argument("-CaptureSessionClock expects real-time or fixed-step.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionFixedStep = _wcsicmp(argv[++i], L"fixed-step") == 0;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionRoi"))
+        {
+            if (i + 4 >= argc || !TryParseUint(argv[++i], true, options.captureSessionRoiX) ||
+                !TryParseUint(argv[++i], true, options.captureSessionRoiY) ||
+                !TryParseUint(argv[++i], false, options.captureSessionRoiWidth) ||
+                !TryParseUint(argv[++i], false, options.captureSessionRoiHeight))
+            {
+                throw std::invalid_argument("-CaptureSessionRoi expects x y width height with non-zero dimensions.");
+            }
+            options.captureSessionEnabled = true;
+            options.hasCaptureSessionRoi = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionDurationSeconds"))
+        {
+            if (i + 1 >= argc || !TryParsePositiveDouble(argv[++i], options.captureSessionDurationSeconds))
+            {
+                throw std::invalid_argument("-CaptureSessionDurationSeconds expects a finite value greater than zero.");
+            }
+            options.captureSessionEnabled = true;
+            options.hasCaptureSessionDuration = true;
         }
         else if (IsCommandLineArg(argv[i], L"-ExitAfterCapture"))
         {
@@ -487,6 +711,64 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
     }
 
     return options;
+}
+
+bool BuildCaptureSessionConfig(const CommandLineOptions& options,
+                               RtPbrSurvey::CaptureSessionConfig& config,
+                               std::string& error)
+{
+    error.clear();
+    if (!options.captureSessionEnabled)
+    {
+        error = "Capture Session was not requested.";
+        return false;
+    }
+    if (options.captureSessionOutputDirectory.empty() || options.captureSessionBaseName.empty())
+    {
+        error = "Capture Session requires -CaptureSessionOutputDir and -CaptureSessionBaseName.";
+        return false;
+    }
+    if (options.captureSessionFrameLimit == 0 && !options.hasCaptureSessionDuration)
+    {
+        error = "Capture Session requires -CaptureSessionFrames or -CaptureSessionDurationSeconds.";
+        return false;
+    }
+
+    RtPbrSurvey::CaptureSessionOutputFormat format;
+    if (!TryParseCaptureSessionFormat(options.captureSessionFormat, format))
+    {
+        error = "-CaptureSessionFormat expects png, exr, gif, or mp4.";
+        return false;
+    }
+
+    config = {};
+    config.outputDirectory = options.captureSessionOutputDirectory;
+    config.baseName = WideToUtf8(options.captureSessionBaseName);
+    config.outputFormat = format;
+    config.source = format == RtPbrSurvey::CaptureSessionOutputFormat::Exr ?
+        RtPbrSurvey::ScreenshotCaptureSource::PreToneMapSceneColor : RtPbrSurvey::ScreenshotCaptureSource::FinalOutput;
+    config.clock = options.captureSessionFixedStep ?
+        RtPbrSurvey::CaptureSessionClock::FixedStep : RtPbrSurvey::CaptureSessionClock::RealTime;
+    config.framesPerSecond = options.captureSessionFramesPerSecond;
+    config.warmupFrames = options.captureSessionWarmupFrames;
+    if (options.captureSessionFrameLimit > 0)
+    {
+        config.frameLimit = options.captureSessionFrameLimit;
+    }
+    if (options.hasCaptureSessionDuration)
+    {
+        config.durationSeconds = options.captureSessionDurationSeconds;
+    }
+    if (options.hasCaptureSessionRoi)
+    {
+        config.region = RtPbrSurvey::ScreenshotRegion{
+            options.captureSessionRoiX,
+            options.captureSessionRoiY,
+            options.captureSessionRoiWidth,
+            options.captureSessionRoiHeight,
+        };
+    }
+    return true;
 }
 
 bool LoadReflectionCapturePlan(const std::filesystem::path& path,

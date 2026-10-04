@@ -11,8 +11,20 @@ namespace App
 
 void DrawSceneSelectUi(RtPbrSurveyApp& app)
 {
-    ImGui::SetNextWindowSize(ImVec2(360, 360), ImGuiCond_FirstUseEver);
-    ImGui::Begin("Scene Select");
+    ImGui::SetNextWindowSize(ImVec2(360, 400), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Top Menu");
+
+    if (ImGui::Button("Scene Editor"))
+    {
+        app.m_sceneEditorSession.reset();
+        app.m_sceneEditorPreviewScene.reset();
+        app.m_sceneEditorDocumentPath.clear();
+        app.m_sceneEditorStatus.clear();
+        app.m_appMode = RtPbrSurveyApp::AppMode::SceneEditorStart;
+        ImGui::End();
+        return;
+    }
+    ImGui::Separator();
 
     const int sceneCount = static_cast<int>(app.m_sampleScenes.size());
     const int benchmarkStart = app.m_gltfViewerCount;

@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 4,
+  "renderingPath": 1,
+  "renderViewMode": 0,
+  "lighting": {
+    "lights": [
+      {
+        "id": 1,
+        "name": "directional 1",
+        "type": "directional",
+        "enabled": true,
+        "color": [
+          1,
+          0.97,
+          0.9
+        ],
+        "intensity": 1,
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "direction": [
+          0,
+          -0.70710678,
+          0.70710678
+        ],
+        "range": 7,
+        "innerCone": 15,
+        "outerCone": 30
+      },
+      {
+        "id": 2,
+        "name": "point 2",
+        "type": "point",
+        "enabled": true,
+        "color": [
+          1,
+          0.02,
+          0.01
+        ],
+        "intensity": 8,
+        "position": [
+          -2,
+          1.8,
+          -1
+        ],
+        "direction": [
+          0,
+          -1,
+          0
+        ],
+        "range": 7,
+        "innerCone": 15,
+        "outerCone": 30
+      },
+      {
+        "id": 3,
+        "name": "point 3",
+        "type": "point",
+        "enabled": true,
+        "color": [
+          0.01,
+          0.03,
+          1
+        ],
+        "intensity": 8,
+        "position": [
+          2,
+          1.8,
+          -1
+        ],
+        "direction": [
+          0,
+          -1,
+          0
+        ],
+        "range": 7,
+        "innerCone": 15,
+        "outerCone": 30
+      },
+      {
+        "id": 4,
+        "name": "spot 4",
+        "type": "spot",
+        "enabled": true,
+        "color": [
+          0.15,
+          1,
+          0.2
+        ],
+        "intensity": 12,
+        "position": [
+          0,
+          3,
+          1
+        ],
+        "direction": [
+          0,
+          -1,
+          0
+        ],
+        "range": 7,
+        "innerCone": 15,
+        "outerCone": 30
+      }
+    ],
+    "primaryShadowLightId": 1,
+    "iblIntensity": 0.05,
+    "skyboxEnabled": true,
+    "directLightEnabled": true,
+    "diffuseIblEnabled": false,
+    "specularIblEnabled": false,
+    "emissiveEnabled": false
+  },
+  "shadow": {
+    "enabled": true
+  },
+  "toneMap": {
+    "operatorIndex": 2,
+    "exposure": 1
+  }
+}

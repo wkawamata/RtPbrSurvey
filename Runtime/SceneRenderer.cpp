@@ -147,6 +147,7 @@ namespace RtPbrSurvey
         settings.temporalUpscaler = m_engine.GetTemporalUpscalerSettings();
         settings.rayReconstruction = m_engine.GetRayReconstructionSettings();
         settings.hybridReflection = m_engine.GetHybridReflectionSettings();
+        settings.pathTracing = m_engine.GetPathTracingSettings();
         settings.toneMap = m_engine.GetToneMapParams();
         settings.specularDebugLines = m_engine.GetSpecularDebugLineSettings();
         settings.renderingPath = m_engine.GetRenderingPath();
@@ -163,6 +164,7 @@ namespace RtPbrSurvey
         m_engine.SetTemporalUpscalerSettings(settings.temporalUpscaler);
         m_engine.SetRayReconstructionSettings(settings.rayReconstruction);
         m_engine.SetHybridReflectionSettings(settings.hybridReflection);
+        m_engine.SetPathTracingSettings(settings.pathTracing);
         m_engine.SetToneMapParams(settings.toneMap);
         m_engine.SetSpecularDebugLineSettings(settings.specularDebugLines);
         m_engine.SetRenderingPath(settings.renderingPath);
@@ -219,6 +221,31 @@ namespace RtPbrSurvey
     const RtPbrSurveyEngine::HybridReflectionSettings& SceneRenderer::GetHybridReflectionSettings() const
     {
         return m_engine.GetHybridReflectionSettings();
+    }
+
+    void SceneRenderer::SetPathTracingSettings(const RtPbrSurveyEngine::PathTracingSettings& settings)
+    {
+        m_engine.SetPathTracingSettings(settings);
+    }
+
+    const RtPbrSurveyEngine::PathTracingSettings& SceneRenderer::GetPathTracingSettings() const
+    {
+        return m_engine.GetPathTracingSettings();
+    }
+
+    const RtPbrSurveyEngine::PathTracingRuntimeState& SceneRenderer::GetPathTracingRuntimeState() const
+    {
+        return m_engine.GetPathTracingRuntimeState();
+    }
+
+    void SceneRenderer::ResetPathTracingAccumulation()
+    {
+        m_engine.ResetPathTracingAccumulation();
+    }
+
+    void SceneRenderer::SetPathTracingAccumulationPaused(bool paused)
+    {
+        m_engine.SetPathTracingAccumulationPaused(paused);
     }
 
     void SceneRenderer::ResetHybridReflectionHistoryForDiagnostics()
@@ -397,12 +424,59 @@ namespace RtPbrSurvey
 
     void SceneRenderer::RequestScreenshot(ScreenshotRequest request)
     {
+        request.requestId = 0;
         m_engine.RequestScreenshot(std::move(request));
     }
 
     std::optional<ScreenshotResult> SceneRenderer::ConsumeScreenshotResult()
     {
+        if (const std::optional<std::uint64_t> requestId = m_captureSession.GetActiveRequestId())
+        {
+            return m_engine.ConsumeScreenshotResultExcept(*requestId);
+        }
         return m_engine.ConsumeScreenshotResult();
+    }
+
+    bool SceneRenderer::StartCaptureSession(const CaptureSessionConfig& config, std::string& error)
+    {
+        if (!m_engine.IsScreenshotCaptureIdle())
+        {
+            error = "Screenshot capture is busy with a non-session request.";
+            return false;
+        }
+        return m_captureSession.Start(config, error);
+    }
+
+    void SceneRenderer::StopCaptureSession()
+    {
+        m_captureSession.Stop();
+    }
+
+    void SceneRenderer::UpdateCaptureSession(const CaptureSessionTiming& timing)
+    {
+        m_captureSession.Update(timing);
+        if (const std::optional<ScreenshotRequest> request = m_captureSession.AcquireReadyRequest())
+        {
+            m_engine.RequestScreenshot(*request);
+            m_captureSession.MarkRequestAccepted();
+        }
+        if (const std::optional<std::uint64_t> requestId = m_captureSession.GetActiveRequestId())
+        {
+            if (const std::optional<ScreenshotResult> result = m_engine.ConsumeScreenshotResult(*requestId))
+            {
+                m_captureSession.CompleteRequest(*result);
+            }
+        }
+    }
+
+    bool SceneRenderer::CanAdvanceCaptureSessionFixedStep() const
+    {
+        return m_captureSession.CanAdvanceFixedStep();
+    }
+
+    const CaptureSessionStatus& SceneRenderer::GetCaptureSessionStatus() const
+    {
+        return m_captureSession.GetStatus();
     }
 
     void SceneRenderer::ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings)

@@ -9,6 +9,7 @@ struct DebugUiPreferences
     bool dlssRrDetailed = true;
     bool hybridReflectionDetailed = false;
     bool informationWindowVisible = false;
+    bool evaluationCommentsVisible = true;
 };
 
 DebugUiPreferences& GetDebugUiPreferences();

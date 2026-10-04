@@ -85,6 +85,8 @@ struct RenderTextureSpec
     bool createRtv = false;
     bool createSrv = false;
     DXGI_FORMAT srvFormat = DXGI_FORMAT_UNKNOWN;
+    bool createUav = false;
+    DXGI_FORMAT uavFormat = DXGI_FORMAT_UNKNOWN;
     bool persistent = false;
 };
 

@@ -5,10 +5,14 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdlib>
+#include <DirectXPackedVector.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <tinyexr.h>
 #include <vector>
+#include <limits>
 
 namespace
 {
@@ -88,6 +92,36 @@ bool TestHdr10Conversion()
                  "HDR10 paper white converts to displayable SDR white");
 }
 
+bool TestPfmEncoding()
+{
+    std::array<float, 12> data = {2, 4, 6, 2, 99, 99, 8, 12, 16, 4, 99, 99};
+    const auto path = std::filesystem::temp_directory_path() / "RtPbrSurvey.ScreenshotTests.pfm";
+    std::string error;
+    bool passed = Check(Engine::SaveAccumulationPfm(path, 1, 2,
+        reinterpret_cast<const std::uint8_t*>(data.data()), 6 * sizeof(float), error), "PFM saves padded rows");
+    std::ifstream stream(path, std::ios::binary);
+    std::string line;
+    std::getline(stream, line);
+    passed &= Check(line == "PF", "PFM RGB signature");
+    std::getline(stream, line);
+    passed &= Check(line == "1 2", "PFM dimensions");
+    std::getline(stream, line);
+    passed &= Check(line == "-1.0", "PFM little endian");
+    std::array<float, 6> pixels = {};
+    stream.read(reinterpret_cast<char*>(pixels.data()), sizeof(pixels));
+    passed &= Check(pixels == std::array<float, 6>{2, 3, 4, 1, 2, 3}, "PFM bottom-up rows and sample normalization");
+    stream.close();
+    data[3] = 0;
+    passed &= Check(!Engine::SaveAccumulationPfm(path, 1, 2,
+        reinterpret_cast<const std::uint8_t*>(data.data()), 6 * sizeof(float), error), "PFM rejects zero samples");
+    data[3] = 2;
+    data[0] = std::numeric_limits<float>::infinity();
+    passed &= Check(!Engine::SaveAccumulationPfm(path, 1, 2,
+        reinterpret_cast<const std::uint8_t*>(data.data()), 6 * sizeof(float), error), "PFM rejects non-finite radiance");
+    std::filesystem::remove(path);
+    return passed;
+}
+
 bool TestPngEncoding()
 {
     const std::array<std::uint8_t, 16> rgba = {
@@ -130,11 +164,110 @@ bool TestPngEncoding()
     std::filesystem::remove(path, removeError);
     return passed;
 }
+
+bool TestRgba16fConversion()
+{
+    const std::array<std::uint16_t, 8> source = {
+        DirectX::PackedVector::XMConvertFloatToHalf(0.0f),
+        DirectX::PackedVector::XMConvertFloatToHalf(0.5f),
+        DirectX::PackedVector::XMConvertFloatToHalf(2.0f),
+        DirectX::PackedVector::XMConvertFloatToHalf(1.0f),
+        DirectX::PackedVector::XMConvertFloatToHalf(0.25f),
+        DirectX::PackedVector::XMConvertFloatToHalf(1.5f),
+        DirectX::PackedVector::XMConvertFloatToHalf(4.0f),
+        DirectX::PackedVector::XMConvertFloatToHalf(0.0f),
+    };
+    const std::vector<float> converted =
+        Engine::ConvertRgba16fToRgba32f(reinterpret_cast<const std::uint8_t*>(source.data()), 2, 1, sizeof(source));
+
+    bool passed = Check(converted.size() == 8, "RGBA16F conversion produces RGBA32F pixels");
+    passed &= Check(std::abs(converted[0] - 0.0f) < 0.0001f && std::abs(converted[1] - 0.5f) < 0.0001f &&
+                        std::abs(converted[2] - 2.0f) < 0.0001f && std::abs(converted[3] - 1.0f) < 0.0001f,
+                    "RGBA16F conversion preserves the first linear HDR pixel");
+    passed &= Check(std::abs(converted[4] - 0.25f) < 0.0001f && std::abs(converted[5] - 1.5f) < 0.0001f &&
+                        std::abs(converted[6] - 4.0f) < 0.0001f && std::abs(converted[7] - 0.0f) < 0.0001f,
+                    "RGBA16F conversion preserves values above one");
+    return passed;
+}
+
+bool TestExrEncoding()
+{
+    const std::array<float, 8> rgba = {
+        0.0f,
+        0.5f,
+        2.0f,
+        1.0f,
+        0.25f,
+        1.5f,
+        4.0f,
+        0.0f,
+    };
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / "RtPbrSurvey.ScreenshotTests.exr";
+    std::string error;
+    bool passed = Check(Engine::SaveRgba32fExr(path, 2, 1, rgba.data(), error), "EXR encoding succeeds");
+    if (!passed)
+    {
+        std::cerr << error << '\n';
+        return false;
+    }
+
+    std::ifstream stream(path, std::ios::binary);
+    const std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+    const std::array<std::uint8_t, 4> signature = {0x76, 0x2f, 0x31, 0x01};
+    passed &= Check(bytes.size() >= signature.size() && std::equal(signature.begin(), signature.end(), bytes.begin()),
+                    "EXR contains its magic signature");
+
+    float* decoded = nullptr;
+    int width = 0;
+    int height = 0;
+    const char* tinyExrError = nullptr;
+    const int loadResult = LoadEXR(&decoded, &width, &height, path.string().c_str(), &tinyExrError);
+    passed &= Check(loadResult == TINYEXR_SUCCESS, "EXR can be decoded by TinyEXR");
+    if (loadResult == TINYEXR_SUCCESS)
+    {
+        passed &= Check(width == 2 && height == 1, "EXR dimensions match the requested capture region");
+        passed &= Check(std::abs(decoded[0] - 0.0f) < 0.0001f && std::abs(decoded[1] - 0.5f) < 0.0001f &&
+                            std::abs(decoded[2] - 2.0f) < 0.0001f && std::abs(decoded[3] - 1.0f) < 0.0001f &&
+                            std::abs(decoded[6] - 4.0f) < 0.0001f,
+                        "EXR preserves linear HDR values without exposure compensation");
+    }
+    else if (tinyExrError != nullptr)
+    {
+        std::cerr << tinyExrError << '\n';
+    }
+    if (tinyExrError != nullptr)
+    {
+        FreeEXRErrorMessage(tinyExrError);
+    }
+    std::free(decoded);
+
+    std::error_code removeError;
+    std::filesystem::remove(path, removeError);
+    return passed;
+}
+
+bool TestScreenshotRegionValidation()
+{
+    bool passed = Check(Engine::IsScreenshotRegionValid(1920, 1080, std::nullopt), "full capture region is valid");
+    passed &= Check(Engine::IsScreenshotRegionValid(1920, 1080, {{100, 200, 640, 480}}),
+                    "interior capture region is valid");
+    passed &= Check(Engine::IsScreenshotRegionValid(1920, 1080, {{1280, 600, 640, 480}}),
+                    "edge-aligned capture region is valid");
+    passed &= Check(!Engine::IsScreenshotRegionValid(1920, 1080, {{1920, 0, 1, 1}}),
+                    "capture region cannot begin beyond the source width");
+    passed &= Check(!Engine::IsScreenshotRegionValid(1920, 1080, {{0, 0, 0, 1}}),
+                    "capture region width must be nonzero");
+    passed &= Check(!Engine::IsScreenshotRegionValid(1920, 1080, {{1600, 900, 400, 200}}),
+                    "capture region cannot exceed the source bounds");
+    return passed;
+}
 } // namespace
 
 int main()
 {
-    if (TestSdrConversion() && TestHdr10Conversion() && TestPngEncoding())
+    if (TestSdrConversion() && TestHdr10Conversion() && TestPfmEncoding() && TestPngEncoding() && TestRgba16fConversion() &&
+        TestExrEncoding() &&
+        TestScreenshotRegionValidation())
     {
         std::cout << "Screenshot tests passed.\n";
         return 0;

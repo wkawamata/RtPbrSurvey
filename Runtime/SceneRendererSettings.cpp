@@ -1,31 +1,19 @@
 #include "stdafx.h"
 
 #include "Runtime/SceneRendererSettings.h"
+#include "Runtime/DirectLightJson.h"
 
 #include <nlohmann/json.hpp>
+
+#include <algorithm>
 
 namespace
 {
 using json = nlohmann::json;
 
-json Float3ToJson(const DirectX::XMFLOAT3& value)
-{
-    return json{value.x, value.y, value.z};
-}
-
 json Float4ToJson(const std::array<float, 4>& value)
 {
     return json{value[0], value[1], value[2], value[3]};
-}
-
-DirectX::XMFLOAT3 Float3FromJson(const json& value, const DirectX::XMFLOAT3& defaults)
-{
-    if (!value.is_array() || value.size() != 3)
-    {
-        return defaults;
-    }
-
-    return {value[0].get<float>(), value[1].get<float>(), value[2].get<float>()};
 }
 
 std::array<float, 4> Float4FromJson(const json& value, const std::array<float, 4>& defaults)
@@ -49,10 +37,9 @@ namespace RtPbrSurvey
 nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings)
 {
     json lighting;
-    lighting["lightDirection"] = Float3ToJson(settings.lighting.lightDirection);
-    lighting["lightColor"] = Float3ToJson(settings.lighting.lightColor);
+    lighting["lights"] = DirectLightsToJson(settings.lighting.lights);
+    lighting["primaryShadowLightId"] = settings.lighting.primaryShadowLightId;
     lighting["iblIntensity"] = settings.lighting.iblIntensity;
-    lighting["diffuseIntensity"] = settings.lighting.diffuseIntensity;
     lighting["skyboxEnabled"] = settings.lighting.skyboxEnabled;
     lighting["skyboxPreview"] = settings.lighting.skyboxPreview;
     lighting["skyboxPreviewExposure"] = settings.lighting.skyboxPreviewExposure;
@@ -105,6 +92,18 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
         settings.hybridReflection.rejectedPixelNeighborhoodEnabled;
     hybridReflection["surfaceVarianceFilterEnabled"] = settings.hybridReflection.surfaceVarianceFilterEnabled;
 
+    json pathTracing;
+    pathTracing["accumulate"] = settings.pathTracing.accumulate;
+    pathTracing["samplesPerFrame"] = settings.pathTracing.samplesPerFrame;
+    pathTracing["maxBounces"] = settings.pathTracing.maxBounces;
+    pathTracing["randomSeed"] = settings.pathTracing.randomSeed;
+    pathTracing["directLightingEnabled"] = settings.pathTracing.directLightingEnabled;
+    pathTracing["environmentEnabled"] = settings.pathTracing.environmentEnabled;
+    pathTracing["environmentSamplingMode"] = settings.pathTracing.environmentSamplingMode;
+    pathTracing["emissiveEnabled"] = settings.pathTracing.emissiveEnabled;
+    pathTracing["russianRouletteEnabled"] = settings.pathTracing.russianRouletteEnabled;
+    pathTracing["debugOutput"] = static_cast<int>(settings.pathTracing.debugOutput);
+
     json toneMap;
     toneMap["operatorIndex"] = settings.toneMap.operatorIndex;
     toneMap["exposure"] = settings.toneMap.exposure;
@@ -125,6 +124,7 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
     result["temporalUpscaler"] = std::move(temporalUpscaler);
     result["rayReconstruction"] = std::move(rayReconstruction);
     result["hybridReflection"] = std::move(hybridReflection);
+    result["pathTracing"] = std::move(pathTracing);
     result["toneMap"] = std::move(toneMap);
     result["specularDebugLines"] = std::move(specularDebugLines);
     result["renderingPath"] = static_cast<int>(settings.renderingPath);
@@ -147,17 +147,74 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
         }
 
         SceneRendererSettings parsed = defaults;
+        if (value.contains("schemaVersion") && !value.at("schemaVersion").is_number_integer())
+        {
+            throw std::runtime_error("Renderer settings schemaVersion must be an integer.");
+        }
+        if (value.contains("schemaVersion") &&
+            (value.at("schemaVersion") < 1 || value.at("schemaVersion") > SceneRendererSettings::kSchemaVersion))
+        {
+            throw std::runtime_error("Unsupported renderer settings schemaVersion.");
+        }
+        const int version = value.value("schemaVersion", 1);
 
         if (value.contains("lighting"))
         {
             const json& lighting = value.at("lighting");
-            if (lighting.contains("lightDirection"))
-                parsed.lighting.lightDirection =
-                    Float3FromJson(lighting.at("lightDirection"), parsed.lighting.lightDirection);
-            if (lighting.contains("lightColor"))
-                parsed.lighting.lightColor = Float3FromJson(lighting.at("lightColor"), parsed.lighting.lightColor);
+            if (!lighting.is_object())
+            {
+                throw std::runtime_error("lighting must be an object.");
+            }
+            const bool legacy = lighting.contains("lightDirection") || lighting.contains("lightColor") ||
+                lighting.contains("diffuseIntensity");
+            if (lighting.contains("primaryShadowLightId") && (version != 4 || legacy))
+            {
+                throw std::runtime_error("primaryShadowLightId requires schemaVersion 4 without legacy light fields.");
+            }
+            if (lighting.contains("primaryShadowLightId"))
+            {
+                parsed.lighting.primaryShadowLightId = LightIdFromJson(lighting.at("primaryShadowLightId"));
+            }
+            if (lighting.contains("lights"))
+            {
+                if (version != 4 || legacy)
+                {
+                    throw std::runtime_error("Light arrays require schemaVersion 4 and cannot mix legacy light fields.");
+                }
+                parsed.lighting.lights = DirectLightsFromJson(lighting.at("lights"));
+                parsed.lighting.primaryShadowLightId = LightIdFromJson(lighting.at("primaryShadowLightId"));
+            }
+            else if (legacy)
+            {
+                if (version == 4)
+                {
+                    throw std::runtime_error("Legacy light fields are not valid in schemaVersion 4.");
+                }
+                DirectLight light;
+                if (const DirectLight* previous = FindShadowLight(defaults.lighting.lights,
+                                                                  defaults.lighting.primaryShadowLightId))
+                {
+                    // Preserve the existing partial-preset behavior for omitted legacy fields.
+                    light.color = previous->color;
+                    light.intensity = previous->intensity;
+                    light.direction = previous->direction;
+                }
+                if (lighting.contains("lightDirection"))
+                {
+                    const DirectX::XMFLOAT3 direction = LightFloat3FromJson(lighting.at("lightDirection"));
+                    light.direction = {-direction.x, -direction.y, -direction.z};
+                }
+                if (lighting.contains("lightColor"))
+                {
+                    light.color = LightFloat3FromJson(lighting.at("lightColor"));
+                }
+                light.intensity = lighting.value("diffuseIntensity", light.intensity);
+                light.enabled = lighting.value("directLightEnabled", parsed.lighting.directLightEnabled);
+                ValidateDirectLight(light);
+                parsed.lighting.lights = {light};
+                parsed.lighting.primaryShadowLightId = light.id;
+            }
             parsed.lighting.iblIntensity = lighting.value("iblIntensity", parsed.lighting.iblIntensity);
-            parsed.lighting.diffuseIntensity = lighting.value("diffuseIntensity", parsed.lighting.diffuseIntensity);
             parsed.lighting.skyboxEnabled = lighting.value("skyboxEnabled", parsed.lighting.skyboxEnabled);
             parsed.lighting.skyboxPreview = lighting.value("skyboxPreview", parsed.lighting.skyboxPreview);
             parsed.lighting.skyboxPreviewExposure =
@@ -242,6 +299,34 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
                 "surfaceVarianceFilterEnabled", parsed.hybridReflection.surfaceVarianceFilterEnabled);
         }
 
+        if (value.contains("pathTracing"))
+        {
+            const json& pathTracing = value.at("pathTracing");
+            parsed.pathTracing.accumulate = pathTracing.value("accumulate", parsed.pathTracing.accumulate);
+            parsed.pathTracing.samplesPerFrame =
+                (std::clamp)(pathTracing.value("samplesPerFrame", parsed.pathTracing.samplesPerFrame), 1u, 16u);
+            parsed.pathTracing.maxBounces =
+                (std::clamp)(pathTracing.value("maxBounces", parsed.pathTracing.maxBounces), 1u, 16u);
+            parsed.pathTracing.randomSeed = pathTracing.value("randomSeed", parsed.pathTracing.randomSeed);
+            parsed.pathTracing.directLightingEnabled =
+                pathTracing.value("directLightingEnabled", parsed.pathTracing.directLightingEnabled);
+            parsed.pathTracing.environmentEnabled =
+                pathTracing.value("environmentEnabled", parsed.pathTracing.environmentEnabled);
+            parsed.pathTracing.environmentSamplingMode = (std::min)(
+                pathTracing.value("environmentSamplingMode", parsed.pathTracing.environmentSamplingMode), 7u);
+            parsed.pathTracing.emissiveEnabled =
+                pathTracing.value("emissiveEnabled", parsed.pathTracing.emissiveEnabled);
+            parsed.pathTracing.russianRouletteEnabled =
+                pathTracing.value("russianRouletteEnabled", parsed.pathTracing.russianRouletteEnabled);
+            const int debugOutput = pathTracing.value("debugOutput", static_cast<int>(parsed.pathTracing.debugOutput));
+            if (debugOutput >= static_cast<int>(RtPbrSurveyEngine::PathTracingDebugOutput::Albedo) &&
+                debugOutput <= static_cast<int>(RtPbrSurveyEngine::PathTracingDebugOutput::Radiance))
+            {
+                parsed.pathTracing.debugOutput =
+                    static_cast<RtPbrSurveyEngine::PathTracingDebugOutput>(debugOutput);
+            }
+        }
+
         if (value.contains("toneMap"))
         {
             const json& toneMap = value.at("toneMap");
@@ -263,7 +348,12 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
                 debugLines.value("showReflection", parsed.specularDebugLines.showReflection);
         }
 
-        parsed.renderingPath = EnumValue(value, "renderingPath", parsed.renderingPath);
+        const int renderingPathValue = value.value("renderingPath", static_cast<int>(parsed.renderingPath));
+        if (renderingPathValue >= static_cast<int>(RtPbrSurveyEngine::RenderingPath::Forward) &&
+            renderingPathValue <= static_cast<int>(RtPbrSurveyEngine::RenderingPath::PathTracing))
+        {
+            parsed.renderingPath = static_cast<RtPbrSurveyEngine::RenderingPath>(renderingPathValue);
+        }
         parsed.renderViewMode = EnumValue(value, "renderViewMode", parsed.renderViewMode);
         if (value.contains("backBufferClearColor"))
             parsed.backBufferClearColor = Float4FromJson(value.at("backBufferClearColor"), parsed.backBufferClearColor);

@@ -249,6 +249,25 @@ bool TestBarrierEventDiagnostics()
                         unexpectedResult[0].kind == Engine::RenderGraphBarrierDiagnosticKind::Unexpected,
                     "redundant runtime barrier is diagnosed as unexpected");
 
+    const std::vector<Engine::RenderPass> uavPasses = {
+        {.name = L"WriteUav", .writes = {{"Counters", D3D12_RESOURCE_STATE_UNORDERED_ACCESS}}},
+        {.name = L"ReadUav", .reads = {{"Counters", D3D12_RESOURCE_STATE_UNORDERED_ACCESS}}},
+    };
+    const Engine::RenderGraphDocument uavDocument = Engine::BuildRenderGraphDocument(uavPasses);
+    const std::vector<Engine::RenderGraphBarrierEvent> uavEvents = {
+        {1,
+         "Counters",
+         D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+         D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+    };
+    passed &= Check(Engine::CompareRenderGraphBarrierEvents(uavDocument, uavEvents).empty(),
+                    "matching UAV barrier produces no diagnostic");
+    const std::vector<Engine::RenderGraphBarrierDiagnostic> missingUav =
+        Engine::CompareRenderGraphBarrierEvents(uavDocument, {});
+    passed &= Check(missingUav.size() == 1 &&
+                        missingUav[0].kind == Engine::RenderGraphBarrierDiagnosticKind::Missing,
+                    "missing UAV barrier is diagnosed");
+
     const std::vector<Engine::RenderPass> evenPingPongPasses = {
         {.name = L"KeepAlternatePhysicalResource",
          .reads = {{"ReflectionResolvedRadiance.1", D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}}},

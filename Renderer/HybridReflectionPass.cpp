@@ -36,17 +36,17 @@ void RecordHybridReflectionPass(ID3D12GraphicsCommandList* commandList, const Hy
     commandList->SetComputeRootDescriptorTable(1, desc.reflectionRayColorUav);
     commandList->SetComputeRootDescriptorTable(2, desc.reflectionRayMaterialUav);
     commandList->SetComputeRootDescriptorTable(3, desc.reflectionRayEmissionUav);
-    commandList->SetComputeRootDescriptorTable(4, desc.tlasSrv);
+    commandList->SetComputeRootDescriptorTable(4, desc.scene.tlasSrv);
     commandList->SetComputeRootDescriptorTable(5, desc.depthSrv);
     commandList->SetComputeRootDescriptorTable(6, desc.normalSrv);
     commandList->SetComputeRootDescriptorTable(7, desc.pbrParamsSrv);
-    commandList->SetComputeRootDescriptorTable(8, desc.cameraCbv);
-    commandList->SetComputeRootShaderResourceView(9, desc.vertexBufferSrv);
-    commandList->SetComputeRootShaderResourceView(10, desc.indexBufferSrv);
-    commandList->SetComputeRootShaderResourceView(11, desc.instanceBufferSrv);
-    commandList->SetComputeRootDescriptorTable(12, desc.materialBufferSrv);
-    commandList->SetComputeRootDescriptorTable(13, desc.textureTableSrv);
-    commandList->SetComputeRootShaderResourceView(14, desc.meshRangeBufferSrv);
+    commandList->SetComputeRootDescriptorTable(8, desc.scene.cameraCbv);
+    commandList->SetComputeRootShaderResourceView(9, desc.scene.vertexBufferSrv);
+    commandList->SetComputeRootShaderResourceView(10, desc.scene.indexBufferSrv);
+    commandList->SetComputeRootShaderResourceView(11, desc.scene.instanceBufferSrv);
+    commandList->SetComputeRootDescriptorTable(12, desc.scene.materialBufferSrv);
+    commandList->SetComputeRootDescriptorTable(13, desc.scene.textureTableSrv);
+    commandList->SetComputeRootShaderResourceView(14, desc.scene.meshRangeBufferSrv);
 
     const HybridReflectionShaderConstants constants = {
         desc.normalBias,
@@ -56,9 +56,9 @@ void RecordHybridReflectionPass(ID3D12GraphicsCommandList* commandList, const Hy
         desc.minMetallic,
         desc.stochasticSamplingEnabled,
         desc.samplingFrameIndex,
-        desc.usesIndexedDraw,
-        desc.vertexCount,
-        desc.indexCount,
+        desc.scene.usesIndexedDraw,
+        desc.scene.vertexCount,
+        desc.scene.indexCount,
         desc.hitNormalSource};
     commandList->SetComputeRoot32BitConstants(15, 11, &constants, 0);
 

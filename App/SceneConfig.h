@@ -6,6 +6,7 @@
 #include <array>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 class RtPbrSurveyApp;
@@ -128,12 +129,22 @@ public:
 
     const std::string& UserConfigPath() const { return m_userConfigPath; }
 
+    std::string CaptureCurrentSceneJson(const RtPbrSurveyApp& app,
+                                        const RtPbrSurveyEngine& engine,
+                                        const Engine::SampleScene& scene) const;
+    bool ApplyCurrentSceneJson(std::string_view jsonText,
+                               RtPbrSurveyApp& app,
+                               RtPbrSurveyEngine& engine,
+                               std::string* error = nullptr);
+    bool ValidateCurrentSceneJson(std::string_view jsonText, std::string* error = nullptr) const;
+
 private:
     std::string m_defaultsPath;
     std::string m_userConfigPath;
 
     std::unordered_map<std::string, SceneConfig> m_defaults;
     std::unordered_map<std::string, SceneConfig> m_userOverrides;
+    std::unordered_map<std::string, SceneConfig> m_codeDefaults;
 
     void ReadDefaultsFromDisk();
     void ReadUserConfigFromDisk();
@@ -141,7 +152,11 @@ private:
 
     SceneConfig CaptureFromApp(const RtPbrSurveyApp& app,
                                const RtPbrSurveyEngine& engine,
-                               const Engine::SampleScene& scene);
+                               const Engine::SampleScene& scene) const;
+    SceneConfig CaptureCodeDefaults(const RtPbrSurveyApp& app,
+                                    const RtPbrSurveyEngine& engine,
+                                    const Engine::SampleScene& scene,
+                                    const std::string& sceneName) const;
 
     void ApplyToEngine(const SceneConfig& cfg,
                        RtPbrSurveyApp& app,
