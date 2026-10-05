@@ -1,7 +1,7 @@
 # TankPhysics 撮影 GUI の RtPbrSurvey 移植計画
 
 作成日: 2026-10-05
-状態: Step 1 完了。Step 2 実装・自動確認済み、GUI の目視確認は未実施。Step 3 実装・自動確認済み。Step 4〜5 は継続作業。
+状態: Step 1 完了。Step 2 実装・自動確認済み、GUI の目視確認は未実施。Step 3 実装・自動確認済み。Step 4 レビュー後の修正実装・自動再検証済み（未コミット）。SceneEditor の実操作と GUI の受け入れ確認は未検証。Step 5 は継続作業。
 
 ## 目的と調査結果
 
@@ -55,11 +55,14 @@ Tank の物理時計をそのままコピーせず、RtPbrSurvey のシーン更
 
 ## Step 4: 撮影の競合と終了処理
 
-- [ ] 単発 Screenshot、CLI 撮影、既存の連続キャプチャとの競合を防ぐ。
-- [ ] GUI とショートカットで同じ開始可否判定を使用する。
-- [ ] Stop は処理中の保存を完了してから撮影終了とする。
-- [ ] ウィンドウ終了とシーン切替では、保存中のフレームを完了させてから処理を進める。
-- [ ] 保存失敗時の状態、表示、CLI 終了コードを整理する。
+- [x] 単発 Screenshot、CLI 撮影、既存の連続キャプチャとの競合を防ぐ。
+- [x] GUI とショートカットで同じ開始可否判定を使用する。
+- [x] Stop は処理中の保存を完了してから撮影終了とする。
+- [x] ウィンドウ終了とシーン切替では、保存中のフレームを完了させてから処理を進める。
+- [x] 保存失敗時の状態、表示、CLI 終了コードを整理する。
+- [x] レビュー後の修正と終了・競合13ケース、時間同期4ケース、故障注入を自動再検証する。
+- [ ] SceneEditor の未保存確認 Save／Discard／Cancel、保存失敗、再編集・再終了を実操作で確認する。
+- [ ] 撮影中の編集拒否と保留 Preview の反映を GUI で確認する。
 
 完了条件: 競合した開始要求が拒否され、途中停止・終了・シーン切替で保存中のフレームが失われない。既存の撮影自動化も動作する。
 
@@ -144,3 +147,34 @@ python -B Tests/CaptureSession/validate_standalone_timing.py --output bin/Captur
 ```
 
 測定結果・ログ・PNG は bin/CapturePort/step3-timing、ビルドログは bin/capture-port-step3-build.log に保持。ソース・実行ファイルのハッシュを測定結果に記録。今回の自動測定は既知平面シーンで実施し、動くシーンの目視確認、GUI スライダーによる編集との関係、全描画方式での回帰は Step 5 に残す。終了・シーン切替時の保存制御は Step 4 で整備する。
+
+## Step 4 レビュー後の修正・再検証記録
+
+実装と修正差分は未コミット。WorkingDir は C:\work\RtPbrSurvey、HEAD は 9db13e4 のまま。
+詳細: [Step 4 報告書](C:/work/RtPbrSurvey/doc/branch/feature/tank-capture-gui-port-step4-report.md)。
+
+- 開始判定を CaptureRequestGate に集約し、各判断の直前に状態を更新する。GUI、F8、単発 Capture PNG は同じ開始可否を使う。
+- 終了・シーン操作は撮影を Stop してから受理済み出力と形式確定を待つ。保留 action を消費して一度だけ実行し、最初の対象パス・選択シーンを保持する。
+- SceneEditor の未保存確認とウィンドウ終了を統合。保留要求がある場合にだけ、撮影出力が解消した後で確認を開く。Save 失敗は終了を保留し、Cancel は要求を解放する。
+- Preview 再構築要求を保持し、最新 Document から実行する。Undo／Redo、追加・削除、Transform／Material 等の UI は Document 変更前に編集を拒否する。
+- CLI 正常終了0、撮影失敗1。Win32の終了コードを int で返す。
+- 自動撮影の予約・in-flight と完了・失敗を区別する。設定パスだけで開始を拒否する HasAutomatedCapture は削除し、自動撮影中の結果はアプリ側、完了後の GUI 単発結果は GUI 側が回収する。
+- 終了検証は期待終了コード、必須checks、保存数、画像デコード、GPUエラーを assert する。Windows入力対象は PID と RtPbrSurveyAppClass の双方で選ぶ。故障注入の失敗理由も確認する。
+
+確認済み:
+
+- Debug x64ビルド成功、CaptureSession／ScreenshotのCTest 2件通過。
+- 終了・競合13ケース通過。P停止中のWM_CLOSE単独、Warmup終了・Stop、Draining終了、シーン閉鎖、予約競合、正常完了・失敗後のF8再開始を確認。
+- GIFをPillow、EXRをOpenEXRで実デコード。受理済み出力の保存を確認。D3D12 ERROR／CORRUPTION 0。
+- 時間同期4ケース通過。固定60／30 FPS、実時間、P／F／F8。合計11枚、全終了コード0。
+- 誤った期待終了コードの故障注入で AssertionError とスクリプト終了コード1を確認。
+- 両スクリプトの既存出力先拒否と report.json のハッシュ不変を確認。
+- 生成物は bin/CapturePort/step4-revision-close-final、step4-revision-timing-final、step4-revision-injected-failure-run2、step4-revision-build-run1。途中結果と出力先重複による旧JSONの上書き事故は報告書に記録した。
+
+未検証:
+
+- SceneEditor の Save／Discard／Cancel、保存失敗、編集拒否・保留Preview反映の実操作。
+- GUIボタンと実マウスROIの目視確認、動くシーン・全描画方式・EXR連番・GUI設定変更との関係。
+- MP4は共通対応PRマージ待ち。
+
+Step 4 の実装・自動再検証は完了した。上記のGUI受け入れ項目と移植全体の最終確認は引き続き残る。Commit／Pushは行っていない。

@@ -632,13 +632,13 @@ void RtPbrSurveyApp::OnKeyDown(UINT8 key)
     }
     if (m_appMode == AppMode::TopMenu && key == VK_ESCAPE)
     {
-        DestroyWindow(Win32Application::GetHwnd());
+        RequestCloseApplication();
         return;
     }
 
     if (m_appMode == AppMode::Running && key == VK_ESCAPE)
     {
-        CloseRunningScene();
+        RequestCloseRunningScene();
         return;
     }
 
@@ -685,6 +685,12 @@ void RtPbrSurveyApp::OnKeyDown(UINT8 key)
 }
 
 void RtPbrSurveyApp::OnKeyUp(UINT8 key) {}
+
+bool RtPbrSurveyApp::OnCloseRequested()
+{
+    RequestCloseApplication();
+    return false;
+}
 
 void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
 {
@@ -781,10 +787,11 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 
 void RtPbrSurveyApp::OnIdle()
 {
-    UpdateReflectionHdrDiagnostics();
-    if (m_reflectionHdrDiagnosticsComplete)
+    UpdateCaptureRequestGate();
+
+    if (!m_reflectionHdrDiagnosticsComplete)
     {
-        return;
+        UpdateReflectionHdrDiagnostics();
     }
 
     const auto now = std::chrono::steady_clock::now();
@@ -800,20 +807,39 @@ void RtPbrSurveyApp::OnIdle()
             m_screenshotStatus = status.state == RtPbrSurvey::CaptureSessionState::Completed ?
                 "Capture session completed: " + status.lastOutputPath.string() :
                 "Capture session failed: " + status.error;
+            if (status.state == RtPbrSurvey::CaptureSessionState::Failed)
+            {
+                m_exitCode = 1;
+            }
             if (m_commandLineOptions.exitAfterCapture)
             {
-                DestroyWindow(Win32Application::GetHwnd());
+                RequestCloseApplication();
                 return;
             }
         }
     }
-    else if (HasAutomatedCapture())
+    else if (IsAutomatedCaptureBlocking())
     {
         if (const std::optional<RtPbrSurvey::ScreenshotResult> result = m_sceneRenderer.ConsumeScreenshotResult())
         {
             m_screenshotStatus = result->succeeded ?
                 "Saved: " + result->path.string() :
                 "Capture failed: " + result->error;
+
+            if (m_reflectionCapturePlan.captures.empty())
+            {
+                m_automatedCaptureCompleted = true;
+            }
+
+            if (!result->succeeded)
+            {
+                m_exitCode = 1;
+                if (m_logFile)
+                {
+                    fprintf(m_logFile, "[ERROR] %s\n", m_screenshotStatus.c_str());
+                    fflush(m_logFile);
+                }
+            }
 
             if (!m_reflectionCapturePlan.captures.empty())
             {
@@ -843,10 +869,22 @@ void RtPbrSurveyApp::OnIdle()
             }
             if (m_commandLineOptions.exitAfterCapture && (singleCaptureComplete || capturePlanComplete))
             {
-                DestroyWindow(Win32Application::GetHwnd());
+                RequestCloseApplication();
                 return;
             }
         }
+    }
+
+    UpdateCaptureRequestGate();
+    if (ResolvePendingHostAction())
+    {
+        return;
+    }
+    ExecutePendingSceneEditorRebuild();
+
+    if (m_reflectionHdrDiagnosticsComplete)
+    {
+        return;
     }
 
     if (!m_reflectionCapturePlan.captures.empty() && !m_reflectionCapturePlanFailed &&
@@ -1106,18 +1144,179 @@ void RtPbrSurveyApp::UpdateCaptureSessionTiming()
 void RtPbrSurveyApp::DrawCaptureSessionUi()
 {
     const RtPbrSurvey::CaptureSessionStatus& status = m_sceneRenderer.GetCaptureSessionStatus();
-    const bool blocked = HasAutomatedCapture() && !RtPbrSurvey::CaptureSessionUi::IsActive(status);
-    if (blocked)
-    {
-        ImGui::TextWrapped("Capture Session is unavailable while automated capture is configured.");
-    }
-    ImGui::BeginDisabled(blocked);
+    std::string reason;
+    const bool canStart = CanStartCaptureSession(reason);
     const RtPbrSurvey::CaptureSessionUiAction action =
-        RtPbrSurvey::CaptureSessionUi::Draw(status, m_captureSessionUiState);
-    ImGui::EndDisabled();
+        RtPbrSurvey::CaptureSessionUi::Draw(status, m_captureSessionUiState, canStart ? nullptr : reason.c_str());
     ApplyCaptureSessionUiAction(action);
     ImGui::TextUnformatted("F8: Start Capture Session / Stop active session");
     ImGui::TextWrapped("Fixed-step advances scene and camera by 1/FPS. P pauses the clock; F advances one step. Space pauses scene animation only.");
+}
+
+void RtPbrSurveyApp::UpdateCaptureRequestGate()
+{
+    RtPbrSurvey::CaptureRequestGate::Inputs inputs;
+    inputs.captureSessionActive = RtPbrSurvey::CaptureSessionUi::IsActive(m_sceneRenderer.GetCaptureSessionStatus());
+    inputs.singleScreenshotInFlight = !m_sceneRenderer.IsScreenshotCaptureIdle();
+    inputs.automatedCaptureBlocking = IsAutomatedCaptureBlocking();
+    inputs.diagnosticCaptureInFlight = m_reflectionHdrDiagnosticInFlight;
+    inputs.sceneEditorDecisionRequired = NeedsSceneEditorDecision();
+    m_captureRequestGate.Update(inputs);
+}
+
+bool RtPbrSurveyApp::IsCaptureWorkPending()
+{
+    UpdateCaptureRequestGate();
+    return m_captureRequestGate.IsWorkPending();
+}
+
+bool RtPbrSurveyApp::CanStartCaptureSession(std::string& reason)
+{
+    UpdateCaptureRequestGate();
+    return m_captureRequestGate.CanStart(reason);
+}
+
+bool RtPbrSurveyApp::NeedsSceneEditorDecision() const
+{
+    return m_captureRequestGate.GetPendingAction() != RtPbrSurvey::PendingHostAction::None &&
+           m_appMode == AppMode::SceneEditorEdit && m_sceneEditorSession.has_value() &&
+           m_sceneEditorSession->IsModified() && !m_sceneEditorPendingDecisionApplied;
+}
+
+bool RtPbrSurveyApp::CanEditSceneEditorDocument(std::string& reason)
+{
+    if (IsCaptureWorkPending() || m_captureRequestGate.GetPendingAction() != RtPbrSurvey::PendingHostAction::None)
+    {
+        reason = "Scene editing is not allowed while capture output is being saved.";
+        return false;
+    }
+    reason.clear();
+    return true;
+}
+
+bool RtPbrSurveyApp::RequestHostAction(RtPbrSurvey::PendingHostAction action, const std::string& loadPath)
+{
+    const RtPbrSurvey::PendingHostAction previous = m_captureRequestGate.GetPendingAction();
+    const RtPbrSurvey::PendingHostAction chosen = m_captureRequestGate.RequestPendingAction(action);
+    if (previous == RtPbrSurvey::PendingHostAction::None || chosen != previous)
+    {
+        m_sceneEditorPendingDecisionApplied = false;
+        m_sceneEditorPendingLoadPath = chosen == RtPbrSurvey::PendingHostAction::SceneEditorLoadDocument ? loadPath : "";
+        m_pendingSelectedSceneIndex = m_selectedSceneIndex;
+    }
+    // Keep the first operation and its payload. A higher-priority exit replaces it.
+    StopCaptureForPendingAction();
+    UpdateCaptureRequestGate();
+    return !m_captureRequestGate.CanExecutePendingAction();
+}
+
+void RtPbrSurveyApp::StopCaptureForPendingAction()
+{
+    if (RtPbrSurvey::CaptureSessionUi::IsActive(m_sceneRenderer.GetCaptureSessionStatus()))
+    {
+        m_sceneRenderer.StopCaptureSession();
+    }
+}
+
+std::string RtPbrSurveyApp::PendingHostActionMessage()
+{
+    std::string message = std::string("Pending ") + m_captureRequestGate.GetPendingActionName();
+    message += NeedsSceneEditorDecision() ? " waits for the Scene Document decision."
+                                          : " waits for capture output to complete.";
+    return message;
+}
+
+const char* RtPbrSurveyApp::GetPendingHostActionName() const
+{
+    return m_captureRequestGate.GetPendingActionName();
+}
+
+bool RtPbrSurveyApp::ExecutePendingHostAction(RtPbrSurvey::PendingHostAction action)
+{
+    switch (action)
+    {
+    case RtPbrSurvey::PendingHostAction::CloseApplication:
+        DestroyWindow(Win32Application::GetHwnd());
+        return true;
+    case RtPbrSurvey::PendingHostAction::CloseRunningScene:
+        CloseRunningScene();
+        break;
+    case RtPbrSurvey::PendingHostAction::OpenSelectedScene:
+        m_selectedSceneIndex = m_pendingSelectedSceneIndex;
+        ExecuteOpenSelectedScene();
+        break;
+    case RtPbrSurvey::PendingHostAction::SceneEditorNewDocument:
+        CreateNewSceneEditorDocument();
+        break;
+    case RtPbrSurvey::PendingHostAction::SceneEditorLoadDocument:
+    {
+        std::string error;
+        if (!LoadSceneEditorDocument(m_sceneEditorPendingLoadPath, &error))
+        {
+            m_sceneEditorStatus = "Load failed: " + error;
+        }
+        break;
+    }
+    case RtPbrSurvey::PendingHostAction::SceneEditorReturnToTopMenu:
+        ReturnToTopMenu();
+        break;
+    default:
+        break;
+    }
+    return false;
+}
+
+bool RtPbrSurveyApp::ResolvePendingHostAction()
+{
+    UpdateCaptureRequestGate();
+    const RtPbrSurvey::PendingHostAction action = m_captureRequestGate.TakeResolvedAction();
+    if (action == RtPbrSurvey::PendingHostAction::None)
+    {
+        return false;
+    }
+    return ExecutePendingHostAction(action);
+}
+
+void RtPbrSurveyApp::RequestCloseApplication()
+{
+    if (RequestHostAction(RtPbrSurvey::PendingHostAction::CloseApplication))
+    {
+        m_captureSessionUiState.message = PendingHostActionMessage();
+        return;
+    }
+    ResolvePendingHostAction();
+}
+
+void RtPbrSurveyApp::RequestCloseRunningScene()
+{
+    if (RequestHostAction(RtPbrSurvey::PendingHostAction::CloseRunningScene))
+    {
+        m_captureSessionUiState.message = PendingHostActionMessage();
+        return;
+    }
+    ResolvePendingHostAction();
+}
+
+void RtPbrSurveyApp::ExecutePendingSceneEditorRebuild()
+{
+    if (m_appMode != AppMode::SceneEditorEdit)
+    {
+        m_sceneEditorPreviewRebuildPending = false;
+        return;
+    }
+    if (!m_sceneEditorPreviewRebuildPending || IsCaptureWorkPending())
+    {
+        return;
+    }
+
+    m_sceneEditorPreviewRebuildPending = false;
+    std::string error;
+    if (!RebuildSceneEditorPreview(&error))
+    {
+        m_sceneEditorStatus = "Pending preview rebuild failed: " + error;
+        return;
+    }
+    m_sceneEditorStatus = "Pending preview rebuild completed from the latest Document.";
 }
 
 void RtPbrSurveyApp::ApplyCaptureSessionUiAction(RtPbrSurvey::CaptureSessionUiAction action)
@@ -1129,9 +1328,10 @@ void RtPbrSurveyApp::ApplyCaptureSessionUiAction(RtPbrSurvey::CaptureSessionUiAc
     }
     else if (action == RtPbrSurvey::CaptureSessionUiAction::Start)
     {
-        if (HasAutomatedCapture())
+        std::string reason;
+        if (!CanStartCaptureSession(reason))
         {
-            m_captureSessionUiState.message = "Capture session is unavailable while automated capture is configured.";
+            m_captureSessionUiState.message = "Unable to start capture session: " + reason;
             return;
         }
         RtPbrSurvey::CaptureSessionUi::CancelRegionSelection(m_captureSessionUiState);
@@ -1149,10 +1349,28 @@ void RtPbrSurveyApp::ApplyCaptureSessionUiAction(RtPbrSurvey::CaptureSessionUiAc
     }
 }
 
-bool RtPbrSurveyApp::HasAutomatedCapture() const
+bool RtPbrSurveyApp::IsAutomatedCaptureBlocking() const
 {
-    return !m_commandLineOptions.capturePath.empty() || !m_reflectionCapturePlan.captures.empty() ||
-           !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() || m_captureSessionActive;
+    // A completed or failed automation is released, so a later GUI session or single screenshot
+    // can start. Only a future reservation or in-flight output keeps a request blocked.
+    if (!m_commandLineOptions.capturePath.empty() && !m_automatedCaptureCompleted)
+    {
+        return true;
+    }
+    if (!m_reflectionCapturePlan.captures.empty() && !m_reflectionCapturePlanFailed &&
+        m_nextReflectionCaptureIndex < m_reflectionCapturePlan.captures.size())
+    {
+        return true;
+    }
+    if (m_reflectionCaptureInFlight)
+    {
+        return true;
+    }
+    if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() && !m_reflectionHdrDiagnosticsComplete)
+    {
+        return true;
+    }
+    return m_captureSessionActive;
 }
 
 void RtPbrSurveyApp::ApplyRayReconstructionCommandLineOverrides()
@@ -1267,7 +1485,7 @@ void RtPbrSurveyApp::UpdateReflectionHdrDiagnostics()
     {
         WriteReflectionHdrDiagnosticsReport();
         m_reflectionHdrDiagnosticsComplete = true;
-        DestroyWindow(Win32Application::GetHwnd());
+        RequestCloseApplication();
         return;
     }
 
@@ -1745,6 +1963,7 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
 void RtPbrSurveyApp::FailAutomatedCapture(const std::string& error)
 {
     m_reflectionCapturePlanFailed = true;
+    m_exitCode = 1;
     m_screenshotStatus = "Capture failed: " + error;
     if (m_logFile)
     {
@@ -1753,7 +1972,7 @@ void RtPbrSurveyApp::FailAutomatedCapture(const std::string& error)
     }
     if (m_commandLineOptions.exitAfterCapture)
     {
-        DestroyWindow(Win32Application::GetHwnd());
+        RequestCloseApplication();
     }
 }
 
@@ -2102,38 +2321,30 @@ void RtPbrSurveyApp::CreateNewSceneEditorDocument()
 
 void RtPbrSurveyApp::RequestNewSceneEditorDocument()
 {
-    if (m_sceneEditorSession.has_value() && m_sceneEditorSession->IsModified())
+    if (RequestHostAction(RtPbrSurvey::PendingHostAction::SceneEditorNewDocument))
     {
-        m_sceneEditorPendingAction = SceneEditorPendingAction::NewDocument;
         return;
     }
-    CreateNewSceneEditorDocument();
+    ResolvePendingHostAction();
 }
 
 void RtPbrSurveyApp::RequestLoadSceneEditorDocument(const std::string& path)
 {
-    if (m_sceneEditorSession.has_value() && m_sceneEditorSession->IsModified())
+    if (RequestHostAction(RtPbrSurvey::PendingHostAction::SceneEditorLoadDocument, path))
     {
-        m_sceneEditorPendingAction = SceneEditorPendingAction::LoadDocument;
-        m_sceneEditorPendingLoadPath = path;
         return;
     }
 
-    std::string error;
-    if (!LoadSceneEditorDocument(path, &error))
-    {
-        m_sceneEditorStatus = "Load failed: " + error;
-    }
+    ResolvePendingHostAction();
 }
 
 void RtPbrSurveyApp::RequestReturnToTopMenu()
 {
-    if (m_sceneEditorSession.has_value() && m_sceneEditorSession->IsModified())
+    if (RequestHostAction(RtPbrSurvey::PendingHostAction::SceneEditorReturnToTopMenu))
     {
-        m_sceneEditorPendingAction = SceneEditorPendingAction::ReturnToTopMenu;
         return;
     }
-    ReturnToTopMenu();
+    ResolvePendingHostAction();
 }
 
 bool RtPbrSurveyApp::SaveSceneEditorDocument(bool saveAs, std::string* error)
@@ -2355,13 +2566,16 @@ bool RtPbrSurveyApp::AddSceneEditorGltfNode(const std::string& relativePath, std
 
 void RtPbrSurveyApp::ResolveSceneEditorPendingAction(bool saveChanges, bool discardChanges)
 {
-    if (m_sceneEditorPendingAction == SceneEditorPendingAction::None)
+    if (m_captureRequestGate.GetPendingAction() == RtPbrSurvey::PendingHostAction::None)
     {
         return;
     }
     if (!saveChanges && !discardChanges)
     {
-        m_sceneEditorPendingAction = SceneEditorPendingAction::None;
+        // Cancel releases the pending action so editing continues.
+        m_captureRequestGate.ClearPendingAction();
+        m_sceneEditorPendingLoadPath.clear();
+        m_sceneEditorPendingDecisionApplied = false;
         return;
     }
     if (saveChanges)
@@ -2378,24 +2592,9 @@ void RtPbrSurveyApp::ResolveSceneEditorPendingAction(bool saveChanges, bool disc
         m_sceneEditorSession->MarkSaved();
     }
 
-    const SceneEditorPendingAction action = m_sceneEditorPendingAction;
-    const std::string loadPath = m_sceneEditorPendingLoadPath;
-    m_sceneEditorPendingAction = SceneEditorPendingAction::None;
-    m_sceneEditorPendingLoadPath.clear();
-    switch (action)
-    {
-    case SceneEditorPendingAction::NewDocument:
-        CreateNewSceneEditorDocument();
-        break;
-    case SceneEditorPendingAction::LoadDocument:
-        RequestLoadSceneEditorDocument(loadPath);
-        break;
-    case SceneEditorPendingAction::ReturnToTopMenu:
-        ReturnToTopMenu();
-        break;
-    case SceneEditorPendingAction::None:
-        break;
-    }
+    // Order: capture output, then the document decision, then the pending operation.
+    m_sceneEditorPendingDecisionApplied = true;
+    ResolvePendingHostAction();
 }
 
 bool RtPbrSurveyApp::LoadSceneEditorDocument(const std::string& path, std::string* error)
@@ -2466,6 +2665,18 @@ bool RtPbrSurveyApp::LoadSceneEditorDocument(const std::string& path, std::strin
 
 bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
 {
+    if (IsCaptureWorkPending())
+    {
+        // Keep the request instead of dropping it. ExecutePendingSceneEditorRebuild runs it from
+        // the latest Document once capture output is processed.
+        m_sceneEditorPreviewRebuildPending = true;
+        if (error != nullptr)
+        {
+            *error = "Preview rebuild is pending until capture output completes.";
+        }
+        return false;
+    }
+
     if (!m_sceneEditorSession.has_value())
     {
         if (error != nullptr)
@@ -2734,6 +2945,16 @@ void RtPbrSurveyApp::OpenFileScene()
 }
 
 void RtPbrSurveyApp::OpenSelectedScene()
+{
+    if (RequestHostAction(RtPbrSurvey::PendingHostAction::OpenSelectedScene))
+    {
+        m_captureSessionUiState.message = PendingHostActionMessage();
+        return;
+    }
+    ResolvePendingHostAction();
+}
+
+void RtPbrSurveyApp::ExecuteOpenSelectedScene()
 {
     m_evaluationRoi = {};
     if (m_selectedSceneIndex != m_loadedSceneIndex || !m_sceneResourcesLoaded)

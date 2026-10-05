@@ -51,7 +51,8 @@ namespace RtPbrSurvey
         static bool IsActive(const CaptureSessionStatus& status);
         static void Update(SceneRenderer& renderer, const CaptureSessionTiming& timing);
         static void Draw(SceneRenderer& renderer, CaptureSessionUiState& state);
-        static CaptureSessionUiAction Draw(const CaptureSessionStatus& status, CaptureSessionUiState& state);
+        static CaptureSessionUiAction Draw(const CaptureSessionStatus& status, CaptureSessionUiState& state,
+                                           const char* startBlockedReason = nullptr);
         // Draw once at the end of the host's UI frame, even when the settings panel is hidden.
         static void DrawRegionOverlay(const CaptureSessionStatus& status, CaptureSessionUiState& state,
                                       std::uint32_t outputWidth, std::uint32_t outputHeight);

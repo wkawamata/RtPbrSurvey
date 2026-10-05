@@ -19,6 +19,9 @@ struct IApplication
     virtual void OnDestroy() = 0;
     virtual bool OnCloseRequested() { return true; }
 
+    // Exit code reported to Windows when the window is destroyed.
+    virtual int GetExitCode() const { return 0; }
+
     // Per-frame callback. The host calls this each iteration of the message loop.
     virtual void OnIdle() {}
 

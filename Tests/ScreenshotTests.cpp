@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <DirectXPackedVector.h>
@@ -165,6 +166,40 @@ bool TestPngEncoding()
     return passed;
 }
 
+bool TestPngSaveFailureForUnusableOutputPath()
+{
+    const std::array<std::uint8_t, 16> rgba = {
+        255, 0, 0, 255,
+        0, 255, 0, 255,
+        0, 0, 255, 255,
+        255, 255, 255, 255,
+    };
+    const std::filesystem::path root = std::filesystem::temp_directory_path() /
+        ("RtPbrSurveyScreenshotTests_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::error_code createError;
+    std::filesystem::create_directories(root, createError);
+    if (createError)
+    {
+        return Check(false, "PNG failure test directory is created");
+    }
+
+    // A parent path that is an existing regular file cannot hold an output file.
+    const std::filesystem::path blocker = root / "blocker.txt";
+    std::ofstream(blocker, std::ios::binary).put('\0');
+    const std::filesystem::path path = blocker / "frame.png";
+    std::string error;
+    bool passed = Check(!Engine::SaveRgba8Png(path, 2, 2, rgba.data(), error),
+                        "PNG save reports an error when the output file cannot be created");
+    passed &= Check(!error.empty(), "PNG save failure keeps an error message");
+    passed &= Check(!std::filesystem::exists(path), "PNG save does not report success without an output file");
+
+    std::error_code removeError;
+    std::filesystem::remove(blocker, removeError);
+    std::filesystem::remove(root, removeError);
+    return passed;
+}
+
 bool TestRgba16fConversion()
 {
     const std::array<std::uint16_t, 8> source = {
@@ -265,7 +300,8 @@ bool TestScreenshotRegionValidation()
 
 int main()
 {
-    if (TestSdrConversion() && TestHdr10Conversion() && TestPfmEncoding() && TestPngEncoding() && TestRgba16fConversion() &&
+    if (TestSdrConversion() && TestHdr10Conversion() && TestPfmEncoding() && TestPngEncoding() &&
+        TestPngSaveFailureForUnusableOutputPath() && TestRgba16fConversion() &&
         TestExrEncoding() &&
         TestScreenshotRegionValidation())
     {

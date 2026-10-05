@@ -102,7 +102,8 @@ namespace RtPbrSurvey
         }
     }
 
-    CaptureSessionUiAction CaptureSessionUi::Draw(const CaptureSessionStatus& status, CaptureSessionUiState& state)
+    CaptureSessionUiAction CaptureSessionUi::Draw(const CaptureSessionStatus& status, CaptureSessionUiState& state,
+                                                  const char* startBlockedReason)
     {
         CaptureSessionUiAction action = CaptureSessionUiAction::None;
         const bool active = IsActive(status);
@@ -114,7 +115,7 @@ namespace RtPbrSurvey
         };
 
         // Keep commands ahead of all variable-height settings and status output.
-        ImGui::BeginDisabled(active);
+        ImGui::BeginDisabled(active || startBlockedReason != nullptr);
         if (ImGui::Button("Start Capture Session"))
         {
             action = CaptureSessionUiAction::Start;
@@ -127,6 +128,10 @@ namespace RtPbrSurvey
             action = CaptureSessionUiAction::Stop;
         }
         ImGui::EndDisabled();
+        if (startBlockedReason != nullptr)
+        {
+            ImGui::TextWrapped("%s", startBlockedReason);
+        }
 
         ImGui::BeginDisabled(active);
         ImGui::InputText("Output directory", &state.outputDirectory);

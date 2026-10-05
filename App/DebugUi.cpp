@@ -386,11 +386,16 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     static bool arrangeDebugTexturePreviewsRequested = false;
     static uint64_t activeDiagnosticInspectorId = 0;
 
-    if (const std::optional<RtPbrSurvey::ScreenshotResult> result = app.m_sceneRenderer.ConsumeScreenshotResult())
+    // The app owns results while an automated request is pending. Completed automation must
+    // not consume later GUI screenshots or change the completed capture-plan counters.
+    if (!app.IsAutomatedCaptureBlocking())
     {
-        app.m_screenshotStatus = result->succeeded ?
-            "Saved: " + result->path.string() :
-            "Capture failed: " + result->error;
+        if (const std::optional<RtPbrSurvey::ScreenshotResult> result = app.m_sceneRenderer.ConsumeScreenshotResult())
+        {
+            app.m_screenshotStatus = result->succeeded ?
+                "Saved: " + result->path.string() :
+                "Capture failed: " + result->error;
+        }
     }
 
     if (app.m_appMode == RtPbrSurveyApp::AppMode::TopMenu)
@@ -441,7 +446,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
     if (closeSceneRequested)
     {
-        app.CloseRunningScene();
+        app.RequestCloseRunningScene();
         ImGui::End();
         return;
     }
@@ -466,7 +471,9 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     if (ImGui::CollapsingHeader("Screenshot"))
     {
-        ImGui::BeginDisabled(RtPbrSurvey::CaptureSessionUi::IsActive(app.m_sceneRenderer.GetCaptureSessionStatus()));
+        std::string captureReason;
+        const bool canCapture = app.CanStartCaptureSession(captureReason);
+        ImGui::BeginDisabled(!canCapture);
         if (ImGui::Button("Capture PNG"))
         {
             const std::filesystem::path path = MakeScreenshotPath();
@@ -474,6 +481,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             app.m_screenshotStatus = "Capture requested: " + path.string();
         }
         ImGui::EndDisabled();
+        if (!canCapture)
+        {
+            ImGui::TextWrapped("%s", captureReason.c_str());
+        }
         if (!app.m_screenshotStatus.empty())
         {
             ImGui::TextWrapped("%s", app.m_screenshotStatus.c_str());

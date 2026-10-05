@@ -35,6 +35,7 @@ def window_for(pid):
     callback_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_ssize_t)
     user.GetWindowThreadProcessId.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulong)]
     user.EnumWindows.argtypes = [callback_type, ctypes.c_ssize_t]
+    user.GetClassNameW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int]
     found = []
 
     @callback_type
@@ -42,7 +43,10 @@ def window_for(pid):
         owner = ctypes.c_ulong()
         user.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
         if owner.value == pid:
-            found.append(hwnd)
+            buffer = ctypes.create_unicode_buffer(256)
+            user.GetClassNameW(hwnd, buffer, 256)
+            if buffer.value == "RtPbrSurveyAppClass":
+                found.append(hwnd)
         return True
 
     user.EnumWindows(visit, 0)
@@ -121,7 +125,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True, help="New artifact directory")
     args = parser.parse_args()
     output = args.output.resolve()
-    output.mkdir(parents=True, exist_ok=True)
+    output.mkdir(parents=True, exist_ok=False)
     report = dict(records=[], testedCommit=subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         dirty=bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip()),
         sourceSha256={name: hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
