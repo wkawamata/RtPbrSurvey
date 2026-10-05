@@ -129,6 +129,8 @@ private:
     UINT SyncDebugTextureInspectorToEngine();
     void UpdateAutomatedCaptureCamera();
     bool HasAutomatedCapture() const;
+    void DrawCaptureSessionUi();
+    void ApplyCaptureSessionUiAction(RtPbrSurvey::CaptureSessionUiAction action);
     void FailAutomatedCapture(const std::string& error);
     void UpdateReflectionHdrDiagnostics();
     void WriteReflectionHdrDiagnosticsReport();

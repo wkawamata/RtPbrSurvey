@@ -657,6 +657,14 @@ void RtPbrSurveyApp::OnKeyDown(UINT8 key)
         m_forwardStepRequested = true;
     }
 
+    if ((m_appMode == AppMode::Running || m_appMode == AppMode::SceneEditorEdit) && key == VK_F8)
+    {
+        const bool active = RtPbrSurvey::CaptureSessionUi::IsActive(m_sceneRenderer.GetCaptureSessionStatus());
+        ApplyCaptureSessionUiAction(active ? RtPbrSurvey::CaptureSessionUiAction::Stop :
+                                             RtPbrSurvey::CaptureSessionUiAction::Start);
+        return;
+    }
+
     if (m_appMode == AppMode::Running && key == VK_F1)
     {
         m_debugUiVisible = !m_debugUiVisible;
@@ -1038,6 +1046,44 @@ void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
                                        m_automationOrbitDistance,
                                        m_debugCamera.ObjectViewerPivot());
     m_debugCamera.UpdateObjectViewerCamera();
+}
+
+void RtPbrSurveyApp::DrawCaptureSessionUi()
+{
+    const RtPbrSurvey::CaptureSessionStatus& status = m_sceneRenderer.GetCaptureSessionStatus();
+    const bool blocked = HasAutomatedCapture() && !RtPbrSurvey::CaptureSessionUi::IsActive(status);
+    if (blocked)
+    {
+        ImGui::TextWrapped("Capture Session is unavailable while automated capture is configured.");
+    }
+    ImGui::BeginDisabled(blocked);
+    const RtPbrSurvey::CaptureSessionUiAction action =
+        RtPbrSurvey::CaptureSessionUi::Draw(status, m_captureSessionUiState);
+    ImGui::EndDisabled();
+    ApplyCaptureSessionUiAction(action);
+    ImGui::TextUnformatted("F8: Start Capture Session / Stop active session");
+}
+
+void RtPbrSurveyApp::ApplyCaptureSessionUiAction(RtPbrSurvey::CaptureSessionUiAction action)
+{
+    if (action == RtPbrSurvey::CaptureSessionUiAction::Stop)
+    {
+        m_sceneRenderer.StopCaptureSession();
+        m_captureSessionUiState.message = "Capture session is draining queued output.";
+    }
+    else if (action == RtPbrSurvey::CaptureSessionUiAction::Start)
+    {
+        if (HasAutomatedCapture())
+        {
+            m_captureSessionUiState.message = "Capture session is unavailable while automated capture is configured.";
+            return;
+        }
+        RtPbrSurvey::CaptureSessionUi::CancelRegionSelection(m_captureSessionUiState);
+        std::string error;
+        m_captureSessionUiState.message = m_sceneRenderer.StartCaptureSession(
+            RtPbrSurvey::CaptureSessionUi::BuildConfig(m_captureSessionUiState), error) ?
+            "Capture session started." : "Unable to start capture session: " + error;
+    }
 }
 
 bool RtPbrSurveyApp::HasAutomatedCapture() const

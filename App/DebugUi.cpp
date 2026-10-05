@@ -466,20 +466,23 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     if (ImGui::CollapsingHeader("Screenshot"))
     {
+        ImGui::BeginDisabled(RtPbrSurvey::CaptureSessionUi::IsActive(app.m_sceneRenderer.GetCaptureSessionStatus()));
         if (ImGui::Button("Capture PNG"))
         {
             const std::filesystem::path path = MakeScreenshotPath();
             app.m_sceneRenderer.RequestScreenshot({path});
             app.m_screenshotStatus = "Capture requested: " + path.string();
         }
+        ImGui::EndDisabled();
         if (!app.m_screenshotStatus.empty())
         {
             ImGui::TextWrapped("%s", app.m_screenshotStatus.c_str());
         }
+    }
 
-        ImGui::Separator();
-        ImGui::TextUnformatted("Capture Session");
-        RtPbrSurvey::CaptureSessionUi::Draw(app.m_sceneRenderer, app.m_captureSessionUiState);
+    if (ImGui::CollapsingHeader("Capture Session"))
+    {
+        app.DrawCaptureSessionUi();
     }
 
     if (ImGui::CollapsingHeader("WorkMeter"))
