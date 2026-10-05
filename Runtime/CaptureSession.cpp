@@ -21,6 +21,8 @@ namespace RtPbrSurvey
                     return ".exr";
                 case CaptureSessionOutputFormat::Gif:
                     return ".gif";
+                case CaptureSessionOutputFormat::Mp4:
+                    return ".mp4";
                 default:
                     return "";
             }
@@ -34,6 +36,8 @@ namespace RtPbrSurvey
                     return ScreenshotOutputFormat::Exr;
                 case CaptureSessionOutputFormat::Gif:
                     return ScreenshotOutputFormat::Gif;
+                case CaptureSessionOutputFormat::Mp4:
+                    return ScreenshotOutputFormat::Mp4;
                 default:
                     return ScreenshotOutputFormat::Png;
             }
@@ -68,9 +72,10 @@ namespace RtPbrSurvey
             error = "A capture session is already active.";
             return false;
         }
-        if (config.outputFormat == CaptureSessionOutputFormat::Mp4)
+        if (config.outputFormat == CaptureSessionOutputFormat::Mp4 &&
+            (config.framesPerSecond > 240 || config.mp4Bitrate < 1000000 || config.mp4Bitrate > 100000000))
         {
-            error = "MP4 capture sessions are not implemented.";
+            error = "MP4 requires FPS 1-240 and bitrate 1-100 Mbps.";
             return false;
         }
         if (config.outputDirectory.empty() || config.baseName.empty())
@@ -123,6 +128,11 @@ namespace RtPbrSurvey
             error = "GIF capture sessions require the final output source.";
             return false;
         }
+        if (config.outputFormat == CaptureSessionOutputFormat::Mp4 && config.source != ScreenshotCaptureSource::FinalOutput)
+        {
+            error = "MP4 capture sessions require the final output source.";
+            return false;
+        }
         if (config.gifRepeatMode != CaptureSessionGifRepeatMode::None &&
             config.gifRepeatMode != CaptureSessionGifRepeatMode::Infinite &&
             config.gifRepeatMode != CaptureSessionGifRepeatMode::Count)
@@ -160,9 +170,10 @@ namespace RtPbrSurvey
             return false;
         }
 
-        if (resolvedConfig.outputFormat == CaptureSessionOutputFormat::Gif && !resolvedConfig.singleOutputPath.has_value())
+        if ((resolvedConfig.outputFormat == CaptureSessionOutputFormat::Gif ||
+             resolvedConfig.outputFormat == CaptureSessionOutputFormat::Mp4) && !resolvedConfig.singleOutputPath.has_value())
         {
-            if (!ResolveGifOutputPath(resolvedConfig, error))
+            if (!ResolveVideoOutputPath(resolvedConfig, error))
             {
                 return false;
             }
@@ -177,6 +188,7 @@ namespace RtPbrSurvey
         m_requestInFlight = false;
         m_stopRequested = false;
         m_nextCaptureSeconds = 0.0;
+        m_lastClockSeconds = 0.0;
         m_status.state = config.warmupFrames > 0 ? CaptureSessionState::Warmup : CaptureSessionState::Recording;
         return true;
     }
@@ -193,6 +205,7 @@ namespace RtPbrSurvey
 
     void CaptureSession::Update(const CaptureSessionTiming& timing)
     {
+        m_lastClockSeconds = GetClockSeconds(timing);
         if (m_status.state != CaptureSessionState::Warmup && m_status.state != CaptureSessionState::Recording)
         {
             return;
@@ -271,6 +284,13 @@ namespace RtPbrSurvey
             request.gifDisposal = static_cast<std::uint8_t>(m_config.gifDisposal);
         }
         request.requestId = m_nextRequestId++;
+        request.videoFramesPerSecond = m_config.framesPerSecond;
+        request.videoBitrate = m_config.mp4Bitrate;
+        if (UsesMp4() && m_config.clock == CaptureSessionClock::RealTime)
+        {
+            request.videoTimestamp100ns = static_cast<std::uint64_t>(std::llround(
+                (std::max)(0.0, clockSeconds - GetClockSeconds(*m_recordingStartTiming)) * 10000000.0));
+        }
         m_readyRequest = std::move(request);
     }
 
@@ -341,6 +361,22 @@ namespace RtPbrSurvey
         return m_config.outputFormat == CaptureSessionOutputFormat::Gif;
     }
 
+    bool CaptureSession::UsesMp4() const
+    {
+        return m_config.outputFormat == CaptureSessionOutputFormat::Mp4;
+    }
+
+    std::optional<std::uint64_t> CaptureSession::GetVideoEndTimestamp100ns() const
+    {
+        if (!UsesMp4() || m_config.clock != CaptureSessionClock::RealTime || !m_recordingStartTiming)
+        {
+            return std::nullopt;
+        }
+        double elapsed = (std::max)(0.0, m_lastClockSeconds - GetClockSeconds(*m_recordingStartTiming));
+        if (m_config.durationSeconds) elapsed = (std::min)(elapsed, *m_config.durationSeconds);
+        return static_cast<std::uint64_t>(std::llround(elapsed * 10000000.0));
+    }
+
     void CaptureSession::FailFinalization(const std::string& error)
     {
         if (m_status.state == CaptureSessionState::Completed)
@@ -393,7 +429,7 @@ namespace RtPbrSurvey
         }
     }
 
-    bool CaptureSession::ResolveGifOutputPath(CaptureSessionConfig& config, std::string& error)
+    bool CaptureSession::ResolveVideoOutputPath(CaptureSessionConfig& config, std::string& error)
     {
         std::error_code fileError;
         const std::filesystem::path basePath = config.outputDirectory / (config.baseName + GetExtension(config.outputFormat));
@@ -401,7 +437,7 @@ namespace RtPbrSurvey
         {
             if (fileError)
             {
-                error = "Unable to check GIF output path: " + fileError.message();
+                error = "Unable to check video output path: " + fileError.message();
                 return false;
             }
             config.singleOutputPath = basePath;
@@ -418,7 +454,7 @@ namespace RtPbrSurvey
             {
                 if (fileError)
                 {
-                    error = "Unable to check GIF output path: " + fileError.message();
+                    error = "Unable to check video output path: " + fileError.message();
                     return false;
                 }
                 config.singleOutputPath = candidate;
@@ -426,7 +462,7 @@ namespace RtPbrSurvey
             }
         }
 
-        error = "Unable to find an unused GIF output filename.";
+        error = "Unable to find an unused video output filename.";
         return false;
     }
 
@@ -439,7 +475,7 @@ namespace RtPbrSurvey
 
         std::ostringstream name;
         name << m_config.baseName;
-        if (m_config.outputFormat != CaptureSessionOutputFormat::Gif)
+        if (m_config.outputFormat != CaptureSessionOutputFormat::Gif && m_config.outputFormat != CaptureSessionOutputFormat::Mp4)
         {
             name << '_' << std::setw(6) << std::setfill('0') << m_status.acceptedFrameCount;
         }

@@ -34,6 +34,7 @@ namespace RtPbrSurvey
         int framesPerSecond = 60;
         int gifRepeatMode = static_cast<int>(CaptureSessionGifRepeatMode::Infinite);
         int gifRepeatCount = 1;
+        int mp4BitrateMbps = 12;
         int gifDisposal = static_cast<int>(CaptureSessionGifDisposal::Keep);
         int warmupFrames = 0;
         bool useFrameLimit = true;

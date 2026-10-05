@@ -517,6 +517,15 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             }
             options.captureSessionEnabled = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionMp4BitrateMbps"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.captureSessionMp4BitrateMbps) ||
+                options.captureSessionMp4BitrateMbps > 100)
+            {
+                throw std::invalid_argument("-CaptureSessionMp4BitrateMbps expects an integer in [1, 100].");
+            }
+            options.captureSessionEnabled = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-CaptureSessionFrames"))
         {
             if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.captureSessionFrameLimit))
@@ -842,6 +851,7 @@ bool BuildCaptureSessionConfig(const CommandLineOptions& options,
     config.clock = options.captureSessionFixedStep ?
         RtPbrSurvey::CaptureSessionClock::FixedStep : RtPbrSurvey::CaptureSessionClock::RealTime;
     config.framesPerSecond = options.captureSessionFramesPerSecond;
+    config.mp4Bitrate = options.captureSessionMp4BitrateMbps * 1000000;
     config.warmupFrames = options.captureSessionWarmupFrames;
     if (options.captureSessionFrameLimit > 0)
     {
