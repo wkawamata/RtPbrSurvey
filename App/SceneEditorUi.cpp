@@ -18,27 +18,32 @@ namespace
 {
 std::vector<std::filesystem::path> FindSceneEditorSceneFiles()
 {
-    const std::filesystem::path sceneRoot = std::filesystem::current_path() / "Assets" / "Scenes";
+    const std::filesystem::path assetsRoot = std::filesystem::current_path() / "Assets";
+    const std::filesystem::path sceneRoots[] = {
+        assetsRoot / "Scenes", assetsRoot / "Scene" / "PathTracingValidation"};
     std::vector<std::filesystem::path> sceneFiles;
-    std::error_code error;
-    if (!std::filesystem::is_directory(sceneRoot, error))
+    for (const std::filesystem::path& sceneRoot : sceneRoots)
     {
-        return sceneFiles;
-    }
-    for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(sceneRoot, error))
-    {
-        if (error)
-        {
-            break;
-        }
-        if (!entry.is_directory(error))
+        std::error_code error;
+        if (!std::filesystem::is_directory(sceneRoot, error))
         {
             continue;
         }
-        const std::filesystem::path scenePath = entry.path() / "scene.json";
-        if (std::filesystem::is_regular_file(scenePath, error))
+        for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(sceneRoot, error))
         {
-            sceneFiles.push_back(scenePath);
+            if (error)
+            {
+                break;
+            }
+            if (!entry.is_directory(error))
+            {
+                continue;
+            }
+            const std::filesystem::path scenePath = entry.path() / "scene.json";
+            if (std::filesystem::is_regular_file(scenePath, error))
+            {
+                sceneFiles.push_back(scenePath);
+            }
         }
     }
     std::sort(sceneFiles.begin(), sceneFiles.end());
@@ -121,6 +126,16 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     RtPbrSurvey::SceneDocument& document = session.Document();
     ImGui::Text("Scene: %s", document.name.c_str());
     ImGui::Text("Scene ID: %s", document.sceneId.c_str());
+    std::string description = document.description;
+    if (ImGui::InputTextMultiline("Description", &description, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 4.0f)))
+    {
+        session.BeginEdit();
+        document.description = std::move(description);
+    }
+    if (ImGui::IsItemDeactivatedAfterEdit())
+    {
+        session.CommitEdit();
+    }
     ImGui::Text("Nodes: %zu   Assets: %zu   Materials: %zu",
                 document.nodes.size(), document.assets.size(), document.materials.size());
     ImGui::SameLine();
@@ -870,6 +885,14 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
 
     if (ImGui::CollapsingHeader("Scene Camera and Environment"))
     {
+        if (ImGui::Button("Reset Camera"))
+        {
+            std::string error;
+            if (!app.RebuildSceneEditorPreview(&error, false))
+            {
+                app.m_sceneEditorStatus = "Camera reset failed: " + error;
+            }
+        }
         bool sceneSettingsCommitted = false;
         float cameraPosition[3] = {document.camera.position.x, document.camera.position.y, document.camera.position.z};
         if (ImGui::InputFloat3("Camera Position", cameraPosition))

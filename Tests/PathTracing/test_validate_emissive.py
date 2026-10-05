@@ -1,4 +1,5 @@
 import unittest
+import json
 import numpy as np
 from validate_emissive import rectangle_integral, reference, fixture, blocked_scene
 from pathlib import Path
@@ -32,6 +33,22 @@ class EmissiveReferenceTests(unittest.TestCase):
             blocked = blocked_scene(scene)
             self.assertEqual(len(blocked['nodes']), len(scene['nodes']) + 1)
             self.assertEqual(blocked['nodes'][-1]['translation'], [0, 1.5, 0])
+
+    def test_archived_baseline_matches_generated_fixture(self):
+        root = Path(__file__).resolve().parents[2]
+        folder = root / 'Assets/Scene/PathTracingValidation/01-emissive-nee-baseline'
+        archived = json.loads((folder / 'scene.json').read_text(encoding='utf-8'))
+        preset = json.loads((folder / 'render-preset.json').read_text(encoding='utf-8'))
+        with tempfile.TemporaryDirectory() as directory:
+            generated, _ = fixture(Path(directory))
+            self.assertEqual(archived['nodes'], generated['nodes'])
+            self.assertEqual(archived['camera'], generated['camera'])
+            self.assertEqual(json.loads((folder / 'emitter.gltf').read_text()),
+                json.loads((Path(directory) / 'emitter.gltf').read_text()))
+        self.assertTrue(archived['description'])
+        self.assertEqual(preset['renderingPath'], 2)
+        self.assertTrue(preset['pathTracing']['emissiveEnabled'])
+        self.assertEqual(preset['pathTracing']['emissiveSamplingMode'], 1)
 
 
 if __name__ == '__main__':

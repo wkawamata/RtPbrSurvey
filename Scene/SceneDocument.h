@@ -142,6 +142,7 @@ struct SceneDocument
     std::string sceneId;
     std::string name;
     std::string renderPresetPath;
+    std::string description;
     std::vector<SceneAsset> assets;
     std::vector<SceneMaterial> materials;
     std::vector<SceneNode> nodes;

@@ -428,6 +428,7 @@ bool SerializeSceneDocument(const SceneDocument& document, std::string& jsonText
     const json root = {{"schemaVersion", document.schemaVersion},
                        {"sceneId", document.sceneId},
                        {"name", document.name},
+                       {"description", document.description},
                        {"renderPreset", document.renderPresetPath},
                        {"assets", std::move(assets)},
                        {"materials", std::move(materials)},
@@ -469,7 +470,7 @@ bool DeserializeSceneDocument(std::string_view jsonText, SceneDocument& document
     try
     {
         const json root = json::parse(jsonText);
-        if (!IsKnownFields(root, {"schemaVersion", "sceneId", "name", "renderPreset", "assets", "materials", "nodes", "camera", "environment"}) ||
+        if (!IsKnownFields(root, {"schemaVersion", "sceneId", "name", "description", "renderPreset", "assets", "materials", "nodes", "camera", "environment"}) ||
             !root.contains("schemaVersion") || !root.at("schemaVersion").is_number_integer() ||
             root.at("schemaVersion").get<int>() != SceneDocument::kSchemaVersion)
         {
@@ -482,6 +483,18 @@ bool DeserializeSceneDocument(std::string_view jsonText, SceneDocument& document
 
         SceneDocument parsed;
         parsed.schemaVersion = root.at("schemaVersion").get<int>();
+        if (root.contains("description"))
+        {
+            if (!root.at("description").is_string())
+            {
+                if (error != nullptr)
+                {
+                    *error = "Scene description must be a string.";
+                }
+                return false;
+            }
+            parsed.description = root.at("description").get<std::string>();
+        }
         if (!RequireString(root, "sceneId", parsed.sceneId, error) || !RequireString(root, "name", parsed.name, error) ||
             !RequireString(root, "renderPreset", parsed.renderPresetPath, error) || !root.contains("assets") ||
             !root.at("assets").is_array() || !root.contains("materials") || !root.at("materials").is_array() ||

@@ -62,6 +62,7 @@ bool TestReflectionLabFixtureData()
     RtPbrSurvey::SceneDocument document =
         RtPbrSurvey::CreateEmptySceneDocument("scene-reflection-lab", "Reflection Lab");
     document.renderPresetPath = "../../RenderPresets/deferred-reference.json";
+    document.description = "Check emissive illumination.\nConfirm BSDF/NEE agreement.\n\xe6\x97\xa5\xe6\x9c\xac\xe8\xaa\x9e";
     document.assets.push_back({"helmet", "../../Models/DamagedHelmet/DamagedHelmet.gltf"});
     document.materials.push_back({"metal", "Polished Metal", {0.8f, 0.8f, 0.8f, 1.0f}, 1.0f, 0.15f});
     document.materials.push_back({"floor", "Rough Floor", {0.3f, 0.3f, 0.3f, 1.0f}, 0.0f, 0.8f});
@@ -151,6 +152,7 @@ bool TestJsonRoundTrip()
     passed &= Check(error.empty(), "successful deserialize clears error");
     passed &= Check(restored.sceneId == document.sceneId && restored.renderPresetPath == document.renderPresetPath,
                     "scene identity and preset round-trip");
+    passed &= Check(restored.description == document.description, "multiline UTF-8 description round-trips");
     passed &= Check(restored.nodes.size() == 2 && restored.nodes[0].assetId == "helmet" &&
                         restored.nodes[1].materialId == "metal",
                     "node references round-trip");
@@ -169,6 +171,27 @@ bool TestInvalidJsonDoesNotReplaceDocument()
            Check(existing.sceneId == "existing", "invalid scene JSON does not replace output");
 }
 
+bool TestInvalidDescriptionDoesNotReplaceDocument()
+{
+    RtPbrSurvey::SceneDocument existing = RtPbrSurvey::CreateEmptySceneDocument("existing", "Existing");
+    existing.renderPresetPath = "preset.json";
+    std::string json;
+    std::string error;
+    if (!RtPbrSurvey::SerializeSceneDocument(existing, json, &error))
+    {
+        return false;
+    }
+    const std::string field = "\"description\": \"\"";
+    const size_t offset = json.find(field);
+    if (offset == std::string::npos)
+    {
+        return false;
+    }
+    json.replace(offset, field.size(), "\"description\":42");
+    return Check(!RtPbrSurvey::DeserializeSceneDocument(json, existing, &error), "non-string description is rejected") &&
+        Check(existing.sceneId == "existing", "invalid description preserves the existing document");
+}
+
 bool TestFixtureFileLoadSaveLoad()
 {
     const std::filesystem::path fixturePath =
@@ -183,6 +206,7 @@ bool TestFixtureFileLoadSaveLoad()
     std::string error;
     bool passed = Check(RtPbrSurvey::LoadSceneDocumentFile(fixturePath.string(), loaded, &error),
                         "fixture scene document loads");
+    passed &= Check(loaded.description.empty(), "legacy scene without description remains compatible");
     passed &= Check(RtPbrSurvey::SaveSceneDocumentFile(outputPath.string(), loaded, &error),
                     "scene document saves atomically");
     passed &= Check(RtPbrSurvey::LoadSceneDocumentFile(outputPath.string(), restored, &error),
@@ -327,7 +351,7 @@ bool TestLensShiftCompatibility()
 int main()
 {
     const bool passed = TestLensShiftCompatibility() && TestEmptyDocumentDefaults() && TestReflectionLabFixtureData() && TestDuplicateIdsAreRejected() &&
-                        TestJsonRoundTrip() && TestInvalidJsonDoesNotReplaceDocument() && TestFixtureFileLoadSaveLoad() &&
+                        TestJsonRoundTrip() && TestInvalidJsonDoesNotReplaceDocument() && TestInvalidDescriptionDoesNotReplaceDocument() && TestFixtureFileLoadSaveLoad() &&
                         TestSaveAsRebasesRelativePaths() &&
                         TestSceneGraphEvaluatesUnorderedThreeLevelHierarchy() &&
                         TestSceneGraphRejectsInvalidParentsWithoutChangingOutput() && TestReparentPreservesWorldTransform();

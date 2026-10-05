@@ -1965,7 +1965,7 @@ void RtPbrSurveyApp::CreateNewSceneEditorDocument()
     m_sceneEditorDocumentPath.clear();
     m_appMode = AppMode::SceneEditorEdit;
     std::string error;
-    if (!RebuildSceneEditorPreview(&error))
+    if (!RebuildSceneEditorPreview(&error, false))
     {
         m_sceneEditorStatus = "Could not create preview: " + error;
         return;
@@ -2317,7 +2317,7 @@ bool RtPbrSurveyApp::LoadSceneEditorDocument(const std::string& path, std::strin
     m_sceneEditorDocumentPath = documentPath.generic_string();
     m_sceneEditorSavePath = m_sceneEditorDocumentPath;
     m_appMode = AppMode::SceneEditorEdit;
-    if (!RebuildSceneEditorPreview(&loadError))
+    if (!RebuildSceneEditorPreview(&loadError, false))
     {
         if (error != nullptr)
         {
@@ -2337,7 +2337,7 @@ bool RtPbrSurveyApp::LoadSceneEditorDocument(const std::string& path, std::strin
     return true;
 }
 
-bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
+bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error, bool preserveCamera)
 {
     if (!m_sceneEditorSession.has_value())
     {
@@ -2365,6 +2365,12 @@ bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
         return false;
     }
 
+    const bool retainCamera = preserveCamera && m_sceneEditorPreviewScene != nullptr &&
+        m_loadedScene == m_sceneEditorPreviewScene.get();
+    if (retainCamera)
+    {
+        candidate->GetScene().camera = m_loadedScene->GetScene().camera;
+    }
     m_sceneRenderer.ReloadSceneResources(candidate->GetScene());
     m_sceneEditorPreviewScene = std::move(candidate);
     m_loadedScene = m_sceneEditorPreviewScene.get();
@@ -2376,12 +2382,15 @@ bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
     ApplySceneEditorEnvironmentSettings();
 
     Engine::CameraState& camera = m_loadedScene->GetScene().camera;
-    const XMVECTOR direction = XMVector3Normalize(XMLoadFloat3(&camera.gazePoint) - XMLoadFloat3(&camera.pos));
-    XMFLOAT3 directionFloat = {};
-    XMStoreFloat3(&directionFloat, direction);
-    camera.rot.x = -std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
-    camera.rot.y = std::atan2(directionFloat.x, directionFloat.z);
-    camera.rot.z = 0.0f;
+    if (!retainCamera)
+    {
+        const XMVECTOR direction = XMVector3Normalize(XMLoadFloat3(&camera.gazePoint) - XMLoadFloat3(&camera.pos));
+        XMFLOAT3 directionFloat = {};
+        XMStoreFloat3(&directionFloat, direction);
+        camera.rot.x = -std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
+        camera.rot.y = std::atan2(directionFloat.x, directionFloat.z);
+        camera.rot.z = 0.0f;
+    }
     m_debugCamera.SetCameraState(&camera);
     m_debugCamera.SetWindowSize(GetWidth(), GetHeight());
     m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::FreeLook);
