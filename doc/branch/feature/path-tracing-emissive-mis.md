@@ -397,3 +397,40 @@ Roulette paths and combined lighting are still pending; Step 5 is not complete.
 ```powershell
 python -B Tests/PathTracing/validate_emissive_extended.py --exe build/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/emissive-size-repeat --samples 256 --cases small large
 ```
+
+### Deep emissive transport and RR (2026-10-06)
+
+An enclosed diffuse room illuminated only by one emissive panel was captured at
+128 spp with seeds 11/23/37/53. Twenty-nine captures passed: BSDF/NEE/MIS x RR
+OFF/ON at eight path segments (24), MIS/RR OFF at two segments (4), and a final
+MIS/RR ON emission-OFF control (1). Diagnostics confirm two ready emitter triangles,
+the requested RR/mode/bounce settings and 1920x1080 dimensions. RR changes the
+output hashes for all three modes, so this is not a no-op toggle comparison.
+
+| Mode | RR OFF mean | RR ON mean | Difference | Four-SE relative uncertainty |
+| --- | --- | --- | --- | --- |
+| BSDF | 0.0303966622 | 0.0303597972 | 0.1213% | 0.5645% |
+| NEE | 0.0304008159 | 0.0303796632 | 0.0696% | 0.2582% |
+| MIS | 0.0304004299 | 0.0303799640 | 0.0673% | 0.2542% |
+
+All seven paired comparisons passed under the unchanged 2% tolerance plus four-SE
+uncertainty, with the existing 5% inconclusive threshold. BSDF vs NEE/MIS differences
+were below 0.067% for both RR states. MIS two-segment mean was 0.0122304060 versus
+eight-segment mean 0.0304004299. The additional 0.0181700238 contribution exceeds
+its four-SE absolute uncertainty 0.0000298179 plus the 0.0001 signal floor.
+The emission-OFF receiver ROI maximum was exactly zero.
+
+No ERROR/CORRUPTION messages were found; existing buffer initial-state warnings
+remain. Python passed 87/87 and CTest 25/25. Renderer/shader code was unchanged.
+The initial attempt stopped because the runner used the wrong RR diagnostic key;
+the corrected campaign is separate and the failed raw attempt is preserved locally.
+
+Asset 11 retains the scene, preset, Japanese Description and report. Evidence:
+path-tracing-validation-results/completion-step-5-emissive-rr-summary.json.
+This validates relative mean preservation in one enclosed diffuse room, not an
+independent absolute deep-transport oracle or all material/RR families. Combined
+emissive/analytic/environment lighting remains pending; Step 5 is not complete yet.
+
+```powershell
+python -B Tests/PathTracing/validate_emissive_rr.py --exe build/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/emissive-rr-repeat --samples 128
+```

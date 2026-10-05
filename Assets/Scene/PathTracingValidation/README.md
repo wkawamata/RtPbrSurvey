@@ -14,6 +14,7 @@ checks and limitations. Geometry and render presets use relative paths.
 08-emissive-shadow-off: shadows OFF selects identical BSDF fallback for all three modes.
 09-small-emissive-panel: 0.3m square emitter, 256 spp and four-seed reference checks.
 10-large-emissive-panel: 9m square emitter, 256 spp and four-seed reference checks.
+11-deep-emissive-rr: enclosed room, eight-segment BSDF/NEE/MIS and RR ON/OFF checks.
 
 Earlier permanent fixtures remain under Assets/Scenes/PathTracingValidation so
 existing runners and reports retain valid references. They have not been deleted

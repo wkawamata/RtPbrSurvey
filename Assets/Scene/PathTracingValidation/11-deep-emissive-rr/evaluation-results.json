@@ -1,0 +1,863 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "records": [
+    {
+      "label": "mode-0-rr-0-b8",
+      "seed": 11,
+      "samples": 128,
+      "sha256": "92ca31e9ccf77ae219d9f109367034213d52500652c3da21694d3d86b3bc46b0",
+      "presetSha256": "6b1bfbd3ac4bb025521b1a09e600e3800fb40eb8a96479eabb365c9db1a241a8",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030381763353943825,
+      "rgb": [
+        0.05208302661776543,
+        0.026041513308882713,
+        0.013020756654441357
+      ],
+      "maximum": 0.0954870730638504,
+      "emissiveSamplingMode": 0,
+      "russianRouletteEnabled": false,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-0-rr-0-b8",
+      "seed": 23,
+      "samples": 128,
+      "sha256": "8eb6f88c06d44144a7170fab4bc2000f4caedcc60128421a62b791b7669c5310",
+      "presetSha256": "6b1bfbd3ac4bb025521b1a09e600e3800fb40eb8a96479eabb365c9db1a241a8",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.03036532551050186,
+      "rgb": [
+        0.05205484479665756,
+        0.02602742239832878,
+        0.01301371119916439
+      ],
+      "maximum": 0.09894336760044098,
+      "emissiveSamplingMode": 0,
+      "russianRouletteEnabled": false,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-0-rr-0-b8",
+      "seed": 37,
+      "samples": 128,
+      "sha256": "61ca07412e754a70da04fdca6c309dd71b4c4e85b3131170f8a108ee04e1a1aa",
+      "presetSha256": "6b1bfbd3ac4bb025521b1a09e600e3800fb40eb8a96479eabb365c9db1a241a8",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030498215928673744,
+      "rgb": [
+        0.052282657474279404,
+        0.026141328737139702,
+        0.013070664368569851
+      ],
+      "maximum": 0.11209758371114731,
+      "emissiveSamplingMode": 0,
+      "russianRouletteEnabled": false,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-0-rr-0-b8",
+      "seed": 53,
+      "samples": 128,
+      "sha256": "a638ffe9bf14d91a2687a45bcae3b35892228fd7d6b1d6559fbb0dabbf37f0dd",
+      "presetSha256": "6b1bfbd3ac4bb025521b1a09e600e3800fb40eb8a96479eabb365c9db1a241a8",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030341343954205513,
+      "rgb": [
+        0.05201373249292374,
+        0.02600686624646187,
+        0.013003433123230934
+      ],
+      "maximum": 0.09806592017412186,
+      "emissiveSamplingMode": 0,
+      "russianRouletteEnabled": false,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-0-rr-1-b8",
+      "seed": 11,
+      "samples": 128,
+      "sha256": "0989a0fd292cbd65524c10d407825d8a28fbb6a8c88d9c7a93533f3e9f36fc64",
+      "presetSha256": "5b88e25d646cfe70fd43e9a701079ec17f94a27ae8ee4e74a33369b604ecff4e",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030429638922214508,
+      "rgb": [
+        0.05216509476304054,
+        0.02608254738152027,
+        0.013041273690760136
+      ],
+      "maximum": 0.10697111487388611,
+      "emissiveSamplingMode": 0,
+      "russianRouletteEnabled": true,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-0-rr-1-b8",
+      "seed": 23,
+      "samples": 128,
+      "sha256": "cd0d30f8ab478a2dc76e2a30e1247fa10c9c520097833c5490fe5a09f28fc228",
+      "presetSha256": "5b88e25d646cfe70fd43e9a701079ec17f94a27ae8ee4e74a33369b604ecff4e",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030349530279636383,
+      "rgb": [
+        0.05202776566147804,
+        0.02601388283073902,
+        0.01300694141536951
+      ],
+      "maximum": 0.10977621376514435,
+      "emissiveSamplingMode": 0,
+      "russianRouletteEnabled": true,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-0-rr-1-b8",
+      "seed": 37,
+      "samples": 128,
+      "sha256": "8e77a9543d912e298680e941489eb4370cc5654117dd0df454a5c0e09b8d684f",
+      "presetSha256": "5b88e25d646cfe70fd43e9a701079ec17f94a27ae8ee4e74a33369b604ecff4e",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030474988743662834,
+      "rgb": [
+        0.052242837846279144,
+        0.026121418923139572,
+        0.013060709461569786
+      ],
+      "maximum": 0.12422281503677368,
+      "emissiveSamplingMode": 0,
+      "russianRouletteEnabled": true,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-0-rr-1-b8",
+      "seed": 53,
+      "samples": 128,
+      "sha256": "cc760c1e60a5a9cfb5d2883bc4026341bb748837da0900bb0f81ef69822565d1",
+      "presetSha256": "5b88e25d646cfe70fd43e9a701079ec17f94a27ae8ee4e74a33369b604ecff4e",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.03018503077328205,
+      "rgb": [
+        0.05174576863646507,
+        0.025872884318232536,
+        0.012936442159116268
+      ],
+      "maximum": 0.11836518347263336,
+      "emissiveSamplingMode": 0,
+      "russianRouletteEnabled": true,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-1-rr-0-b8",
+      "seed": 11,
+      "samples": 128,
+      "sha256": "fdb05cff30a328373d480d46ff65de54932874f469e9c3f38a66d1d65f3f611a",
+      "presetSha256": "f1fca6a03b04be6f6d38ecf516897596e4e20d2bc8e5388e6a7f8e73be687282",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030424268916249275,
+      "rgb": [
+        0.05215588957071304,
+        0.02607794478535652,
+        0.01303897239267826
+      ],
+      "maximum": 0.060430169105529785,
+      "emissiveSamplingMode": 1,
+      "russianRouletteEnabled": false,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-1-rr-0-b8",
+      "seed": 23,
+      "samples": 128,
+      "sha256": "62f1f782b3d48e61237a7f6245ff42e509cec6f041f90e51b4028cf720b8649b",
+      "presetSha256": "f1fca6a03b04be6f6d38ecf516897596e4e20d2bc8e5388e6a7f8e73be687282",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030400894582271576,
+      "rgb": [
+        0.05211582034826279,
+        0.026057910174131393,
+        0.013028955087065697
+      ],
+      "maximum": 0.06106886267662048,
+      "emissiveSamplingMode": 1,
+      "russianRouletteEnabled": false,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-1-rr-0-b8",
+      "seed": 37,
+      "samples": 128,
+      "sha256": "d598e822253751fbc860ae23f0c0bfd23734826bcbdee209e0d4b96f4b77113a",
+      "presetSha256": "f1fca6a03b04be6f6d38ecf516897596e4e20d2bc8e5388e6a7f8e73be687282",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.03037690557539463,
+      "rgb": [
+        0.052074696868658066,
+        0.026037348434329033,
+        0.013018674217164516
+      ],
+      "maximum": 0.06128627061843872,
+      "emissiveSamplingMode": 1,
+      "russianRouletteEnabled": false,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-1-rr-0-b8",
+      "seed": 53,
+      "samples": 128,
+      "sha256": "9d7a990a0ca96c9e8b41ca5a5b03b45f6ae9290bc54ee4155636c0c5fef5cea1",
+      "presetSha256": "f1fca6a03b04be6f6d38ecf516897596e4e20d2bc8e5388e6a7f8e73be687282",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030401194468140602,
+      "rgb": [
+        0.052116334438323975,
+        0.026058167219161987,
+        0.013029083609580994
+      ],
+      "maximum": 0.060913924127817154,
+      "emissiveSamplingMode": 1,
+      "russianRouletteEnabled": false,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-1-rr-1-b8",
+      "seed": 11,
+      "samples": 128,
+      "sha256": "0d843c377cb171fe9a9340a8b229c162bd61ea283d38e6fab1cb597fb51b5b03",
+      "presetSha256": "1d239e74ff2eb36b5aa3ee0b55893caab068d147e1e4a45b0ff4932dc1c28d3d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.03038429468870163,
+      "rgb": [
+        0.052087362855672836,
+        0.026043681427836418,
+        0.013021840713918209
+      ],
+      "maximum": 0.06472249329090118,
+      "emissiveSamplingMode": 1,
+      "russianRouletteEnabled": true,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-1-rr-1-b8",
+      "seed": 23,
+      "samples": 128,
+      "sha256": "404b4aadf91c82d594525c539ae75e865d9d83ba63619c6d5c35a8411a440b5d",
+      "presetSha256": "1d239e74ff2eb36b5aa3ee0b55893caab068d147e1e4a45b0ff4932dc1c28d3d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030427737161517143,
+      "rgb": [
+        0.05216183140873909,
+        0.026080915704369545,
+        0.013040457852184772
+      ],
+      "maximum": 0.06845331937074661,
+      "emissiveSamplingMode": 1,
+      "russianRouletteEnabled": true,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-1-rr-1-b8",
+      "seed": 37,
+      "samples": 128,
+      "sha256": "ba8d0dd197d8b22d942d8a838981cca7f5eaab12cad274c0298c007c3e77b31b",
+      "presetSha256": "1d239e74ff2eb36b5aa3ee0b55893caab068d147e1e4a45b0ff4932dc1c28d3d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.03031342290341854,
+      "rgb": [
+        0.0519658662378788,
+        0.0259829331189394,
+        0.0129914665594697
+      ],
+      "maximum": 0.06418606638908386,
+      "emissiveSamplingMode": 1,
+      "russianRouletteEnabled": true,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-1-rr-1-b8",
+      "seed": 53,
+      "samples": 128,
+      "sha256": "33bb7b39087a98add07801ecb1c7b2b27a2f26b0f17e5b77b2fe15c7518161b1",
+      "presetSha256": "1d239e74ff2eb36b5aa3ee0b55893caab068d147e1e4a45b0ff4932dc1c28d3d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030393198132514954,
+      "rgb": [
+        0.052102625370025635,
+        0.026051312685012817,
+        0.013025656342506409
+      ],
+      "maximum": 0.06795148551464081,
+      "emissiveSamplingMode": 1,
+      "russianRouletteEnabled": true,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-2-rr-0-b8",
+      "seed": 11,
+      "samples": 128,
+      "sha256": "da2060c2c05fc082ed3abec5b1ca96bfcd9b0325e7a27508f0942a2c708d1f5e",
+      "presetSha256": "ddcc725945f585241a362dba1c2d3124e8cdd1af8a589b22d43a6d8d958f6c31",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030423887073993683,
+      "rgb": [
+        0.05215523764491081,
+        0.026077618822455406,
+        0.013038809411227703
+      ],
+      "maximum": 0.06007256358861923,
+      "emissiveSamplingMode": 2,
+      "russianRouletteEnabled": false,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-2-rr-0-b8",
+      "seed": 23,
+      "samples": 128,
+      "sha256": "6cfbe6c0e7ba3d5d0c141c15d88c1c40d1dd3eff5fd7fa42f2edd64aa9a837cd",
+      "presetSha256": "ddcc725945f585241a362dba1c2d3124e8cdd1af8a589b22d43a6d8d958f6c31",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030400224030017853,
+      "rgb": [
+        0.05211466923356056,
+        0.02605733461678028,
+        0.01302866730839014
+      ],
+      "maximum": 0.061119452118873596,
+      "emissiveSamplingMode": 2,
+      "russianRouletteEnabled": false,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-2-rr-0-b8",
+      "seed": 37,
+      "samples": 128,
+      "sha256": "44a903d2148e76c4701af9a7cb44f74e208e2986089804fc7ac0d249fbea7bb4",
+      "presetSha256": "ddcc725945f585241a362dba1c2d3124e8cdd1af8a589b22d43a6d8d958f6c31",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.03037712164223194,
+      "rgb": [
+        0.052075065672397614,
+        0.026037532836198807,
+        0.013018766418099403
+      ],
+      "maximum": 0.0611756332218647,
+      "emissiveSamplingMode": 2,
+      "russianRouletteEnabled": false,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-2-rr-0-b8",
+      "seed": 53,
+      "samples": 128,
+      "sha256": "ea4687be9ed8ea2cfb8932c897c7cb87e0ec1ea6bdd9484cddfe87af99069f35",
+      "presetSha256": "ddcc725945f585241a362dba1c2d3124e8cdd1af8a589b22d43a6d8d958f6c31",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030400486662983894,
+      "rgb": [
+        0.052115119993686676,
+        0.026057559996843338,
+        0.013028779998421669
+      ],
+      "maximum": 0.06092577055096626,
+      "emissiveSamplingMode": 2,
+      "russianRouletteEnabled": false,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-2-rr-1-b8",
+      "seed": 11,
+      "samples": 128,
+      "sha256": "93c08decf52517befa8f893b9102f1a34ad8fc8fa6c561d0e47faa98d7acf3c4",
+      "presetSha256": "89d33dda3d41f6d907740365379a9c8993cdddbc1d74296e5283b06d1462461e",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030382489785552025,
+      "rgb": [
+        0.052084267139434814,
+        0.026042133569717407,
+        0.013021066784858704
+      ],
+      "maximum": 0.06421034783124924,
+      "emissiveSamplingMode": 2,
+      "russianRouletteEnabled": true,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-2-rr-1-b8",
+      "seed": 23,
+      "samples": 128,
+      "sha256": "e943c269cfdd4bafebc4745cf6e2ed8b37ff8b5bf5b9d5cf3b8835bcb6e8c718",
+      "presetSha256": "89d33dda3d41f6d907740365379a9c8993cdddbc1d74296e5283b06d1462461e",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030426783487200737,
+      "rgb": [
+        0.052160199731588364,
+        0.026080099865794182,
+        0.013040049932897091
+      ],
+      "maximum": 0.06865563988685608,
+      "emissiveSamplingMode": 2,
+      "russianRouletteEnabled": true,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-2-rr-1-b8",
+      "seed": 37,
+      "samples": 128,
+      "sha256": "3c2283a570ad4539cb105d8b7b92fded8c6b6b70ef201cdc35b8f9b530bc7594",
+      "presetSha256": "89d33dda3d41f6d907740365379a9c8993cdddbc1d74296e5283b06d1462461e",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030316321179270744,
+      "rgb": [
+        0.05197083577513695,
+        0.025985417887568474,
+        0.012992708943784237
+      ],
+      "maximum": 0.06429436057806015,
+      "emissiveSamplingMode": 2,
+      "russianRouletteEnabled": true,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-2-rr-1-b8",
+      "seed": 53,
+      "samples": 128,
+      "sha256": "32446e04dd1b8a074f4a91ad362269a4042c5b628d9fad5ae5ca871e0e51a2e2",
+      "presetSha256": "89d33dda3d41f6d907740365379a9c8993cdddbc1d74296e5283b06d1462461e",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.030394261702895164,
+      "rgb": [
+        0.05210444703698158,
+        0.02605222351849079,
+        0.013026111759245396
+      ],
+      "maximum": 0.06725224107503891,
+      "emissiveSamplingMode": 2,
+      "russianRouletteEnabled": true,
+      "maxBounces": 8,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-2-rr-0-b2",
+      "seed": 11,
+      "samples": 128,
+      "sha256": "bc1a0823a96b44fc4d32806091690c1436ae28a594684fcea59445b9b4bab3e7",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.01223556324839592,
+      "rgb": [
+        0.020975252613425255,
+        0.010487626306712627,
+        0.005243813153356314
+      ],
+      "maximum": 0.023656025528907776,
+      "emissiveSamplingMode": 2,
+      "russianRouletteEnabled": false,
+      "maxBounces": 2,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-2-rr-0-b2",
+      "seed": 23,
+      "samples": 128,
+      "sha256": "4fa31a6e45fa26922f03ea491dfe65de6d3be8661888ae4786f6b75238c3191c",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.01222912222146988,
+      "rgb": [
+        0.020964210852980614,
+        0.010482105426490307,
+        0.005241052713245153
+      ],
+      "maximum": 0.023234251886606216,
+      "emissiveSamplingMode": 2,
+      "russianRouletteEnabled": false,
+      "maxBounces": 2,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-2-rr-0-b2",
+      "seed": 37,
+      "samples": 128,
+      "sha256": "cda09129d77d9b1b463b4c1ab8ff2b0f14a071c72641d3dda8aaa985b2aa0be6",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.012225243262946606,
+      "rgb": [
+        0.02095755934715271,
+        0.010478779673576355,
+        0.0052393898367881775
+      ],
+      "maximum": 0.02339257299900055,
+      "emissiveSamplingMode": 2,
+      "russianRouletteEnabled": false,
+      "maxBounces": 2,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "mode-2-rr-0-b2",
+      "seed": 53,
+      "samples": 128,
+      "sha256": "6d31343cd56a1221a0df4633ef863eda3ea5a01c9df2b1b4366f04c2ffd0bbfb",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0.012231695465743542,
+      "rgb": [
+        0.020968619734048843,
+        0.010484309867024422,
+        0.005242154933512211
+      ],
+      "maximum": 0.023407988250255585,
+      "emissiveSamplingMode": 2,
+      "russianRouletteEnabled": false,
+      "maxBounces": 2,
+      "emissiveEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "emission-off",
+      "seed": 11,
+      "samples": 128,
+      "sha256": "f0907609219e25e27e559844dec2767b10d21970a50d09544726ba01df52b0e8",
+      "presetSha256": "f58c4d97c8d61670eb03c3a7bc0eef8f4eba8c42e0a9533407f5f0a334e0e7ab",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "mean": 0,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "maximum": 0,
+      "emissiveSamplingMode": 2,
+      "russianRouletteEnabled": true,
+      "maxBounces": 8,
+      "emissiveEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    }
+  ],
+  "comparisons": [
+    {
+      "case": "mode-0-rr",
+      "status": "passed",
+      "referenceMean": 0.030396662186831236,
+      "candidateMean": 0.030359797179698944,
+      "relativeDifference": 0.0012127978692431185,
+      "pairedStandardError": 0.00004289401376826074,
+      "fourStandardErrorRelative": 0.005644568933867185,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    },
+    {
+      "case": "mode-1-rr",
+      "status": "passed",
+      "referenceMean": 0.03040081588551402,
+      "candidateMean": 0.030379663221538067,
+      "relativeDifference": 0.0006957926410795209,
+      "pairedStandardError": 0.0000196271775440094,
+      "fourStandardErrorRelative": 0.002582454052275846,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    },
+    {
+      "case": "mode-2-rr",
+      "status": "passed",
+      "referenceMean": 0.030400429852306843,
+      "candidateMean": 0.030379964038729668,
+      "relativeDifference": 0.0006732080328009624,
+      "pairedStandardError": 0.000019320085789730817,
+      "fourStandardErrorRelative": 0.0025420806065694196,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    },
+    {
+      "case": "rr-0-bsdf-vs-mode-1",
+      "status": "passed",
+      "referenceMean": 0.030396662186831236,
+      "candidateMean": 0.03040081588551402,
+      "relativeDifference": 0.00013664982876259826,
+      "pairedStandardError": 0.00004213189080481853,
+      "fourStandardErrorRelative": 0.005544278585044295,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    },
+    {
+      "case": "rr-0-bsdf-vs-mode-2",
+      "status": "passed",
+      "referenceMean": 0.030396662186831236,
+      "candidateMean": 0.030400429852306843,
+      "relativeDifference": 0.0001239499736006931,
+      "pairedStandardError": 0.000041929722406661575,
+      "fourStandardErrorRelative": 0.005517674558995074,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    },
+    {
+      "case": "rr-1-bsdf-vs-mode-1",
+      "status": "passed",
+      "referenceMean": 0.030359797179698944,
+      "candidateMean": 0.030379663221538067,
+      "relativeDifference": 0.0006543535756031612,
+      "pairedStandardError": 0.00007959844407860164,
+      "fourStandardErrorRelative": 0.01048734859557332,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    },
+    {
+      "case": "rr-1-bsdf-vs-mode-2",
+      "status": "passed",
+      "referenceMean": 0.030359797179698944,
+      "candidateMean": 0.030379964038729668,
+      "relativeDifference": 0.0006642619814406662,
+      "pairedStandardError": 0.00007932909735779171,
+      "fourStandardErrorRelative": 0.010451861307010004,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    }
+  ],
+  "samples": 128,
+  "seeds": [
+    11,
+    23,
+    37,
+    53
+  ],
+  "roi": [
+    928,
+    508,
+    64,
+    64
+  ],
+  "commit": "841480efa8a9a6772d347f249ad844c292c41775",
+  "executableSha256": "64741214ef635b9fce6647a010be56d84ad7441d8543b689422635d4530b66a8",
+  "executable": "C:\\work\\RtPbrSurvey-work-3\\build\\Debug\\RtPbrSurvey.exe",
+  "sourceSha256": {
+    "Shaders/shaders_PathTracing.hlsl": "c368e77350df4e81b9e012bce1b07317a6ad75077bcf2d4b6231c77d6854fc0e",
+    "Shaders/PathTracingSampling.hlsli": "d63b74f5f9d2b5b6be615a65fe06153ca5b6cb87253093722b0f8898ed9d44e1",
+    "Shaders/EmissiveTriangleSampling.hlsli": "5d009369152e3b246879c7392d69e785008f9aeda193b1f8c802720ef700fecd",
+    "Tests/PathTracing/validate_emissive_rr.py": "bdd574e856fc293b948ddf1d9f25f84d7a1133327a0b2749645e2169f3ae6f0c",
+    "Tests/PathTracing/validate_emissive.py": "336148aa2ffb63d918ecc9e9a5414dd256d76096bfdc4a6d710f581b5526e320",
+    "Tests/PathTracing/validate_transport.py": "0217170cbeaf58f2f17cfa1c765094dc009ee38a1359eb4ba7d0669fbaf818bc"
+  },
+  "sceneSha256": "277747ba56b41ff6871b1ed657497ac482eeb44f4bae475d8650c9bcc93edcfa",
+  "emitterSha256": "8852c93c16e9c1a5652fdbb92a45adcfa03a16056ff565b53a4239855acde659",
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "limitation": "Relative mean preservation in one enclosed diffuse room, not an absolute deep-transport oracle.",
+  "deepContribution": {
+    "twoBounceMean": 0.012230406049638987,
+    "eightBounceMean": 0.030400429852306843,
+    "contribution": 0.018170023802667856,
+    "fourStandardError": 0.000029817861353748438,
+    "passed": true
+  },
+  "rrChangesImages": true,
+  "offMaximum": 0,
+  "evaluationDate": "2026-10-06",
+  "captureCount": 29,
+  "tests": {
+    "python": "87/87",
+    "ctest": "25/25"
+  },
+  "logCheck": {
+    "errorCorruptionCount": 0,
+    "warningKind": "Existing CreateCommittedResource buffer initial-state warnings"
+  },
+  "preliminaryAttempt": {
+    "status": "failed",
+    "reason": "Validation runner used russianRouletteEnabled instead of the existing diagnostic key russianRoulette; corrected before this campaign.",
+    "rawFolder": "bin/PathTracingValidation/emissive-deep-rr-20261006"
+  },
+  "archiveNote": "Archived scene adds Japanese description and uses render-preset.json; the preset defaults to MIS with RR ON."
+}

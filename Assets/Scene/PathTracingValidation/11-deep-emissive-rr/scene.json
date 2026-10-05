@@ -1,0 +1,316 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "emissive-deep-rr",
+  "name": "PT Deep Emissive RR",
+  "renderPreset": "render-preset.json",
+  "assets": [
+    {
+      "id": "emitter",
+      "type": "gltf",
+      "path": "emitter.gltf"
+    }
+  ],
+  "materials": [
+    {
+      "id": "neutral",
+      "name": "neutral",
+      "baseColor": [
+        0.7,
+        0.7,
+        0.7,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.8
+    }
+  ],
+  "nodes": [
+    {
+      "id": "floor",
+      "name": "floor",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        -0.1,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        8,
+        0.2,
+        10
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "neutral"
+    },
+    {
+      "id": "ceiling",
+      "name": "ceiling",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        4.1,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        8,
+        0.2,
+        10
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "neutral"
+    },
+    {
+      "id": "left",
+      "name": "left",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -4.1,
+        2,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.2,
+        4,
+        10
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "neutral"
+    },
+    {
+      "id": "right",
+      "name": "right",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        4.1,
+        2,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.2,
+        4,
+        10
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "neutral"
+    },
+    {
+      "id": "back",
+      "name": "back",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        2,
+        5.1
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        8,
+        4,
+        0.2
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "neutral"
+    },
+    {
+      "id": "front",
+      "name": "front",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        2,
+        -5.1
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        8,
+        4,
+        0.2
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "neutral"
+    },
+    {
+      "id": "emitter",
+      "name": "emitter",
+      "type": "gltf",
+      "assetId": "emitter",
+      "parentId": null,
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true
+    }
+  ],
+  "camera": {
+    "position": [
+      0,
+      2,
+      -3
+    ],
+    "target": [
+      0,
+      1,
+      2
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 55,
+    "orthographicHeight": 10,
+    "nearZ": 0.01,
+    "farZ": 1000
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      0.96,
+      0.86
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  },
+  "description": "目的: 閉じた部屋を発光面だけで照らし、深い経路とRussian Roulette (RR) の平均値保存を確認する。\n見る場所: 画面中央の床・壁。BSDF / NEE / MIS とRR ON/OFFで平均的な明るさが変わらないこと。RRではノイズの見え方が変わることがある。\n設定: 8バウンス、発光・影ON、直接光・環境光OFF。MIS + RR ONが初期設定。\n追加確認: MISで2バウンスへ減らすと、多重反射の寄与が減ること。数値評価は4 seedの中央ROI平均で行う。\n限界: これは方式間の整合性検証で、深い経路の独立した絶対輝度の基準ではない。\n数値評価 2026-10-06: 128 spp・4 seed、29キャプチャ合格。RR ON/OFF差はBSDF 0.121%、NEE 0.070%、MIS 0.067%。MISの2バウンス平均0.01223、8バウンス平均0.03040。発光OFFはゼロ。"
+}
