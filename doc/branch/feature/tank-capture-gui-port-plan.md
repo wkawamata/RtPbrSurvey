@@ -1,7 +1,7 @@
 # TankPhysics 撮影 GUI の RtPbrSurvey 移植計画
 
 作成日: 2026-10-05
-状態: Step 1 完了。Step 2 実装・自動確認済み、GUI の目視確認は未実施。Step 3 実装・自動確認済み。Step 4 レビュー後の修正実装・自動再検証済み（c31fa7d で Commit 済み、PR マージ準備）。SceneEditor の実操作と GUI の受け入れ確認は未検証。Step 5 は継続作業。
+状態: Step 1～4と共通MP4統合はPR #92でmainへマージ済み。Step 5をcodex/capture-gui-step5で再開。形式別GPU検証と実マウスROI・MP4終了操作を確認し、空SceneEditorのassertionを修正。未コミット。残る受け入れ項目はStep 5報告書を参照。
 
 ## 目的と調査結果
 
@@ -61,22 +61,22 @@ Tank の物理時計をそのままコピーせず、RtPbrSurvey のシーン更
 - [x] ウィンドウ終了とシーン切替では、保存中のフレームを完了させてから処理を進める。
 - [x] 保存失敗時の状態、表示、CLI 終了コードを整理する。
 - [x] レビュー後の修正と終了・競合13ケース、時間同期4ケース、故障注入を自動再検証する。
-- [ ] SceneEditor の未保存確認 Save／Discard／Cancel、保存失敗、再編集・再終了を実操作で確認する。
+- [x] SceneEditor の未保存確認 Save／Discard／Cancel、保存失敗、再編集・再終了を実操作で確認する。
 - [ ] 撮影中の編集拒否と保留 Preview の反映を GUI で確認する。
 
 完了条件: 競合した開始要求が拒否され、途中停止・終了・シーン切替で保存中のフレームが失われない。既存の撮影自動化も動作する。
 
 ## Step 5: GUI・GPU 検証と報告
 
-- [ ] PNG／EXR 連番とアニメーション GIF を実 GPU で検証する。
-- [ ] 共通 MP4 対応 PR のマージ後に取り込み、MP4 の生成・再生・終了時の確定を検証する。
-- [ ] Mouse ROI の順方向・逆方向ドラッグ、キャンセル、出力座標への変換、選択中のカメラ操作抑制を確認する。
-- [ ] 全画面、ROI、保存先・サブフォルダー、GIF の繰り返し設定を確認する。
+- [x] PNG／EXR 連番とアニメーション GIF を実 GPU で検証する。
+- [x] 共通 MP4 対応 PR のマージ後に取り込み、MP4 の生成・再生・終了時の確定を検証する。
+- [x] Mouse ROI の順方向・逆方向ドラッグ、キャンセル、出力座標への変換、選択中のカメラ操作抑制を確認する。
+- [x] 全画面、ROI、保存先・サブフォルダー、GIF の繰り返し設定を確認する。
 - [ ] F8、途中停止、撮影中のウィンドウ終了、シーン切替を確認する。
-- [ ] 固定ステップの撮影間隔、再生・一時停止・コマ送りの挙動を確認する。
+- [x] 固定ステップの撮影間隔、再生・一時停止・コマ送りの挙動を確認する。
 - [ ] 不正設定や保存失敗を確認する。
-- [ ] Debug ビルドで D3D12 Debug Layer エラーを調べる。
-- [ ] 結果、再現コマンド、制限事項、未検証項目を報告書に残す。
+- [x] Debug ビルドで D3D12 Debug Layer エラーを調べる。
+- [x] 結果、再現コマンド、制限事項、未検証項目を報告書に残す。
 
 参考: 調査用 Tank の tests/CaptureSessionSmoke.ps1 と Docs/capture-session.md。
 Tank の物理シーンに依存する検証は RtPbrSurvey のシーンに合わせて置き換える。
@@ -187,3 +187,12 @@ MP4 対応 PR #91（main: 1f6b86a）がマージ済みであることを確認�
 Step 4 の13ケース・時間同期4ケースは2026-10-05の検証結果であり、MP4統合後には再実行していない。
 Step 5 はユーザーが実施する。MP4 のアプリ上での生成・再生・終了時の確定、SceneEditor、GUIボタン、実マウスROIなどの受け入れ確認は未実施。
 以前の節にある未コミット・MP4マージ待ちの記述は2026-10-05時点の作業記録。
+
+## 2026-10-06 Step 5 再開
+
+ユーザーのMP4対応まで含める再開指示により、PR #92マージ後のmainを基点に検証を再開した。直前のユーザー実施予定の記録は再開前の状態。
+結果: [Step 5報告書](C:/work/RtPbrSurvey/doc/branch/feature/tank-capture-gui-port-step5-report.md)。
+PNG/EXR/GIF/MP4の実GPU出力・デコード、3描画方式の撮影経路、GUI Start/Stop/F8/P/F/Space、Mouse ROI、MP4終了確定を確認。SceneEditorの空Mesh assertionを修正し、新規作成/Cube追加/Undo/Redo/Cancel/Save and Continueを実操作で確認した。
+SceneEditorのSave As失敗後Cancel/再編集/Discardと保存後再ロードを追加確認。終了確認内の保存失敗、撮影中編集/シーン切替などの残項目は報告書末尾に明記。Step 5全体は継続中。今回の変更は未コミット。
+
+追加確認: MP4 Recording中のClose Scene後、2168フレームを全デコードし動画確定を確認。終了確認内のSave and Continue失敗後Cancel/Add Empty/再終了も実操作で確認した。保存エラー文が1フレームだけ表示される不具合を修正しDebugビルド成功。修正版のGUIで失敗理由と保存先の持続表示を確認済み。

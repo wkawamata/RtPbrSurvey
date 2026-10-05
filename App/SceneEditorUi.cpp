@@ -352,7 +352,6 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                 ImGui::End();
                 return;
             }
-            ImGui::TextWrapped("%s", app.m_sceneEditorStatus.c_str());
         }
         ImGui::SameLine();
         if (ImGui::Button("Discard"))
@@ -368,6 +367,10 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         {
             app.ResolveSceneEditorPendingAction(false, false);
             ImGui::CloseCurrentPopup();
+        }
+        if (app.m_sceneEditorStatus.rfind("Save failed: ", 0) == 0)
+        {
+            ImGui::TextWrapped("%s", app.m_sceneEditorStatus.c_str());
         }
         ImGui::EndPopup();
     }

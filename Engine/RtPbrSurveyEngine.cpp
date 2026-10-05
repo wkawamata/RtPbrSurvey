@@ -1060,6 +1060,12 @@ void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
     ReleaseSceneResources();
     SetScene(scene);
     InvalidatePathTracingHistory(PathTracingResetReason::Scene);
+    // Empty editor documents have no GPU geometry until a visible mesh is added.
+    if (scene.mesh == nullptr || scene.mesh->vertices.empty())
+    {
+        m_displayInstanceCount = 0;
+        return;
+    }
     m_displayInstanceCount = previousDisplayInstanceCount > 0 ?
         std::clamp(previousDisplayInstanceCount, 0, sceneInstanceCount) :
         sceneInstanceCount;
