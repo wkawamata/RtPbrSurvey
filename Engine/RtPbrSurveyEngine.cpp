@@ -1362,6 +1362,16 @@ void RtPbrSurveyEngine::AbortAnimatedGif()
     m_animatedGifEncoder.Reset();
 }
 
+bool RtPbrSurveyEngine::FinalizeMp4(std::string& error, std::optional<std::uint64_t> endTimestamp100ns)
+{
+    return m_mp4Encoder.Finalize(error, endTimestamp100ns);
+}
+
+void RtPbrSurveyEngine::AbortMp4()
+{
+    m_mp4Encoder.Reset();
+}
+
 void RtPbrSurveyEngine::RequestPixelPick(int screenX, int screenY)
 {
     m_pixelPickRequested = true;
@@ -6289,9 +6299,10 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             {
             case RtPbrSurvey::ScreenshotCaptureSource::FinalOutput:
                 if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png &&
-                    capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Gif)
+                    capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Gif &&
+                    capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Mp4)
                 {
-                    throw std::invalid_argument("Final-output screenshot capture supports PNG or GIF only.");
+                    throw std::invalid_argument("Final-output screenshot capture supports PNG, GIF, or MP4 only.");
                 }
                 source = m_renderTargets[m_currentFrameIndex].Get();
                 hdr10 = m_hdrOutputPolicy.settings.hdr10Enabled;
@@ -6911,7 +6922,8 @@ void RtPbrSurveyEngine::ProcessCompletedScreenshot()
         {
             result.succeeded = Engine::SaveExrScreenshotReadback(capture.readback, result.path, result.error);
         }
-        else if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Gif)
+        else if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Gif ||
+                 capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
         {
             const D3D12_RANGE readRange = {static_cast<SIZE_T>(capture.readback.layout.Offset),
                                            static_cast<SIZE_T>(capture.readback.resource->GetDesc().Width)};
@@ -6926,7 +6938,15 @@ void RtPbrSurveyEngine::ProcessCompletedScreenshot()
                 capture.readback.hdr10,
                 capture.readback.paperWhiteNits);
             capture.readback.resource->Unmap(0, nullptr);
-            result.succeeded = m_animatedGifEncoder.AppendFrame(result.path,
+            if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+            {
+                result.succeeded = m_mp4Encoder.AppendFrame(result.path, result.width, result.height, rgba8.data(),
+                                                           capture.request.videoFramesPerSecond, capture.request.videoBitrate,
+                                                           result.error, capture.request.videoTimestamp100ns);
+            }
+            else
+            {
+                result.succeeded = m_animatedGifEncoder.AppendFrame(result.path,
                                                                  result.width,
                                                                  result.height,
                                                                  rgba8.data(),
@@ -6934,6 +6954,7 @@ void RtPbrSurveyEngine::ProcessCompletedScreenshot()
                                                                  capture.request.gifRepeatCount,
                                                                  capture.request.gifDisposal,
                                                                  result.error);
+            }
         }
         else
         {

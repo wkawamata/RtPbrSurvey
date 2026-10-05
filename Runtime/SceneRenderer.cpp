@@ -455,6 +455,7 @@ namespace RtPbrSurvey
     void SceneRenderer::StopCaptureSession()
     {
         m_captureSession.Stop();
+        FinalizeCaptureSessionOutput();
     }
 
     void SceneRenderer::UpdateCaptureSession(const CaptureSessionTiming& timing)
@@ -470,20 +471,28 @@ namespace RtPbrSurvey
             if (const std::optional<ScreenshotResult> result = m_engine.ConsumeScreenshotResult(*requestId))
             {
                 m_captureSession.CompleteRequest(*result);
-                const CaptureSessionStatus& status = m_captureSession.GetStatus();
-                if (status.state == CaptureSessionState::Completed && m_captureSession.UsesAnimatedGif())
-                {
-                    std::string error;
-                    if (!m_engine.FinalizeAnimatedGif(error))
-                    {
-                        m_captureSession.FailFinalization("GIF finalization failed: " + error);
-                    }
-                }
-                else if (status.state == CaptureSessionState::Failed && m_captureSession.UsesAnimatedGif())
-                {
-                    m_engine.AbortAnimatedGif();
-                }
             }
+        }
+        FinalizeCaptureSessionOutput();
+    }
+
+    void SceneRenderer::FinalizeCaptureSessionOutput()
+    {
+        const CaptureSessionStatus& status = m_captureSession.GetStatus();
+        if (status.state == CaptureSessionState::Completed)
+        {
+            std::string error;
+            const bool succeeded = m_captureSession.UsesAnimatedGif() ? m_engine.FinalizeAnimatedGif(error) :
+                (m_captureSession.UsesMp4() ? m_engine.FinalizeMp4(error, m_captureSession.GetVideoEndTimestamp100ns()) : true);
+            if (!succeeded)
+            {
+                m_captureSession.FailFinalization("Video finalization failed: " + error);
+            }
+        }
+        else if (status.state == CaptureSessionState::Failed)
+        {
+            if (m_captureSession.UsesAnimatedGif()) m_engine.AbortAnimatedGif();
+            if (m_captureSession.UsesMp4()) m_engine.AbortMp4();
         }
     }
 

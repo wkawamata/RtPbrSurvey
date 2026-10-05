@@ -95,6 +95,7 @@ struct CommandLineOptions
     std::wstring captureSessionGifRepeat = L"infinite";
     std::wstring captureSessionGifDisposal = L"keep";
     UINT captureSessionFramesPerSecond = 60;
+    UINT captureSessionMp4BitrateMbps = 12;
     UINT captureSessionFrameLimit = 0;
     UINT captureSessionWarmupFrames = 0;
     bool captureSessionFixedStep = false;

@@ -20,6 +20,7 @@ enum class ScreenshotOutputFormat
     Png,
     Exr,
     Gif,
+    Mp4,
 };
 
 enum class ScreenshotCaptureSource
@@ -46,6 +47,11 @@ struct ScreenshotRequest
     std::uint64_t requestId = 0;
     // Used only by diagnostic .ptbuf captures.
     std::string debugResourceName;
+    // MP4 uses exact rational frame timing, independent of GIF centiseconds.
+    std::uint32_t videoFramesPerSecond = 60;
+    std::uint32_t videoBitrate = 12000000;
+    // MP4 presentation time in 100 ns units; gaps retain real-time playback speed.
+    std::optional<std::uint64_t> videoTimestamp100ns;
 };
 
 struct ScreenshotResult

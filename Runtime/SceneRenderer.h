@@ -143,6 +143,7 @@ namespace RtPbrSurvey
         const RtPbrSurveyEngine& EngineForDebugTools() const;
 
     private:
+        void FinalizeCaptureSessionOutput();
         RtPbrSurveyEngine m_engine;
         CaptureSession m_captureSession;
         ToolUiHandler m_toolUiHandler;

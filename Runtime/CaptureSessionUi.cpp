@@ -48,6 +48,7 @@ namespace RtPbrSurvey
             ScreenshotCaptureSource::PreToneMapSceneColor : ScreenshotCaptureSource::FinalOutput;
         config.clock = state.fixedStep ? CaptureSessionClock::FixedStep : CaptureSessionClock::RealTime;
         config.framesPerSecond = static_cast<std::uint32_t>((std::max)(0, state.framesPerSecond));
+        config.mp4Bitrate = static_cast<std::uint32_t>((std::clamp)(state.mp4BitrateMbps, 0, 1000)) * 1000000;
         config.gifRepeatMode = static_cast<CaptureSessionGifRepeatMode>(state.gifRepeatMode);
         config.gifRepeatCount = static_cast<std::uint16_t>((std::clamp)(state.gifRepeatCount, 0, 65535));
         config.gifDisposal = static_cast<CaptureSessionGifDisposal>(state.gifDisposal);
@@ -111,7 +112,7 @@ namespace RtPbrSurvey
             "PNG (final output)",
             "EXR (linear scene color)",
             "GIF (animated final output)",
-            "MP4 (not available)",
+            "MP4 (H.264 final output)",
         };
 
         // Keep commands ahead of all variable-height settings and status output.
@@ -159,6 +160,12 @@ namespace RtPbrSurvey
             }
             ImGui::TextDisabled("Frame delay follows FPS (GIF resolution: centiseconds).");
         }
+        if (outputFormat == CaptureSessionOutputFormat::Mp4)
+        {
+            ImGui::InputInt("Bitrate (Mbps)", &state.mp4BitrateMbps);
+            ImGui::TextDisabled("H.264, no audio. Bitrate: 1-100 Mbps; FPS: 1-240.");
+            ImGui::TextWrapped("Odd ROI dimensions are padded at the right/bottom edge by one pixel.");
+        }
 
         ImGui::Checkbox("Use ROI", &state.useRegion);
         if (ImGui::Button("Select ROI with mouse"))
@@ -196,7 +203,16 @@ namespace RtPbrSurvey
                     static_cast<unsigned long long>(status.droppedFrameCount));
         if (!status.lastOutputPath.empty())
         {
-            ImGui::TextWrapped("Last output: %s", status.lastOutputPath.string().c_str());
+            const std::u8string outputPathUtf8 = status.lastOutputPath.u8string();
+            const std::string outputPath(outputPathUtf8.begin(), outputPathUtf8.end());
+            ImGui::TextUnformatted("Last output:");
+            ImGui::SameLine();
+            if (ImGui::Button("Copy path"))
+            {
+                ImGui::SetClipboardText(outputPath.c_str());
+                state.message = "Last output path copied to clipboard.";
+            }
+            ImGui::TextWrapped("%s", outputPath.c_str());
         }
         if (!status.error.empty())
         {

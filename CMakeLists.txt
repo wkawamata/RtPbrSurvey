@@ -70,6 +70,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Platform/Win32Application.cpp
     Renderer/AccelerationStructureResources.cpp
     Renderer/AnimatedGifEncoder.cpp
+    Renderer/Mp4Encoder.cpp
     Renderer/BrdfLut.cpp
     Renderer/ClearPass.cpp
     Renderer/DebugDumpCapture.cpp
@@ -196,7 +197,10 @@ target_link_libraries(RtPbrSurvey.SceneRenderer
         d3dcompiler
         dxguid
         delayimp
-        windowscodecs)
+        windowscodecs
+        mfplat
+        mfreadwrite
+        mfuuid)
 
 if(NOT RTPBRSURVEY_HAS_STREAMLINE_SDK)
     target_link_libraries(RtPbrSurvey.SceneRenderer PUBLIC d3d12 dxgi)
@@ -551,6 +555,14 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.CaptureSessionTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.CaptureSession COMMAND RtPbrSurvey.CaptureSessionTests)
+
+    add_executable(RtPbrSurvey.Mp4EncoderTests Tests/Mp4EncoderTests.cpp)
+    target_link_libraries(RtPbrSurvey.Mp4EncoderTests PRIVATE RtPbrSurvey::SceneRenderer)
+    rtpbrsurvey_copy_runtime_files(RtPbrSurvey.Mp4EncoderTests)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.Mp4EncoderTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.Mp4Encoder COMMAND RtPbrSurvey.Mp4EncoderTests)
 
     add_executable(RtPbrSurvey.AssetPathTests
         Tests/AssetPathTests.cpp)

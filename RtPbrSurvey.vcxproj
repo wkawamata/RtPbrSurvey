@@ -93,7 +93,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS)%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(RTPBRSURVEY_PLATFORM_LIBRARIES)d3dcompiler.lib;dxguid.lib;windowscodecs.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(RTPBRSURVEY_PLATFORM_LIBRARIES)d3dcompiler.lib;dxguid.lib;windowscodecs.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>$(RTPBRSURVEY_PLATFORM_DELAY_LOAD_DLLS)$(RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS)%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
@@ -128,7 +128,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>$(RTPBRSURVEY_STREAMLINE_LIBRARY_DIRS)%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(RTPBRSURVEY_PLATFORM_LIBRARIES)d3dcompiler.lib;dxguid.lib;windowscodecs.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(RTPBRSURVEY_PLATFORM_LIBRARIES)d3dcompiler.lib;dxguid.lib;windowscodecs.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;$(RTPBRSURVEY_STREAMLINE_LIBRARIES)%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>$(RTPBRSURVEY_PLATFORM_DELAY_LOAD_DLLS)$(RTPBRSURVEY_STREAMLINE_DELAY_LOAD_DLLS)%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
     <CustomBuildStep>
@@ -193,6 +193,7 @@
     <ClInclude Include="Renderer\SceneGeometryPass.h" />
     <ClInclude Include="Renderer\ScreenshotCapture.h" />
     <ClInclude Include="Renderer\AnimatedGifEncoder.h" />
+    <ClInclude Include="Renderer\Mp4Encoder.h" />
     <ClInclude Include="Renderer\ScreenshotRequestQueue.h" />
     <ClInclude Include="Renderer\SimpleDescriptorHeapAllocator.h" />
     <ClInclude Include="Renderer\StagedDescriptorAllocator.h" />
@@ -306,6 +307,7 @@
     <ClCompile Include="Renderer\SceneGeometryPass.cpp" />
     <ClCompile Include="Renderer\ScreenshotCapture.cpp" />
     <ClCompile Include="Renderer\AnimatedGifEncoder.cpp" />
+    <ClCompile Include="Renderer\Mp4Encoder.cpp" />
     <ClCompile Include="Renderer\StreamlineAdapter.cpp" />
     <ClCompile Include="Renderer\TemporalUpscalerSupport.cpp" />
     <ClCompile Include="Renderer\TextureMipChain.cpp" />
