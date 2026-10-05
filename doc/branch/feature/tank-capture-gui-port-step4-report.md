@@ -1,6 +1,8 @@
 # Step 4 レビュー後の修正・再検証報告
 
-更新日: 2026-10-05
+更新日: 2026-10-06
+
+追記: ユーザーの PR マージ指示により、Step 4 を c31fa7d で Commit し、MP4 対応 PR #91 を含む main を 42ce9e8 で統合した。統合後の Debug x64 ビルドと CaptureSession／Screenshot／Mp4Encoder の CTest 3件は成功。Step 5 はユーザーが実施する。以下の未コミット状態・検証結果・Git状態は2026-10-05時点の記録。
 WorkingDir: `C:\work\RtPbrSurvey`
 Branch: `codex/tank-capture-gui-port`
 Base commit / 最終 HEAD: `9db13e45985d9dd383f574e707123d874c364dd1`

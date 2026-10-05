@@ -1,7 +1,7 @@
 # TankPhysics 撮影 GUI の RtPbrSurvey 移植計画
 
 作成日: 2026-10-05
-状態: Step 1 完了。Step 2 実装・自動確認済み、GUI の目視確認は未実施。Step 3 実装・自動確認済み。Step 4 レビュー後の修正実装・自動再検証済み（未コミット）。SceneEditor の実操作と GUI の受け入れ確認は未検証。Step 5 は継続作業。
+状態: Step 1 完了。Step 2 実装・自動確認済み、GUI の目視確認は未実施。Step 3 実装・自動確認済み。Step 4 レビュー後の修正実装・自動再検証済み（c31fa7d で Commit 済み、PR マージ準備）。SceneEditor の実操作と GUI の受け入れ確認は未検証。Step 5 は継続作業。
 
 ## 目的と調査結果
 
@@ -178,3 +178,12 @@ python -B Tests/CaptureSession/validate_standalone_timing.py --output bin/Captur
 - MP4は共通対応PRマージ待ち。
 
 Step 4 の実装・自動再検証は完了した。上記のGUI受け入れ項目と移植全体の最終確認は引き続き残る。Commit／Pushは行っていない。
+
+## 2026-10-06 PR マージ準備と MP4 統合
+
+ユーザーの PR マージ指示により、Step 4 の差分を c31fa7d で Commit した。
+MP4 対応 PR #91（main: 1f6b86a）がマージ済みであることを確認し、42ce9e8 で最新 main を競合なく統合した。MP4 の共通 GUI 設定とエンコーダーを保持している。
+統合後の Debug x64 ビルド成功。CaptureSession、Screenshot、Mp4Encoder の CTest 3件が通過した。
+Step 4 の13ケース・時間同期4ケースは2026-10-05の検証結果であり、MP4統合後には再実行していない。
+Step 5 はユーザーが実施する。MP4 のアプリ上での生成・再生・終了時の確定、SceneEditor、GUIボタン、実マウスROIなどの受け入れ確認は未実施。
+以前の節にある未コミット・MP4マージ待ちの記述は2026-10-05時点の作業記録。
