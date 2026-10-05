@@ -437,6 +437,11 @@ namespace RtPbrSurvey
         return m_engine.ConsumeScreenshotResult();
     }
 
+    bool SceneRenderer::IsScreenshotCaptureIdle() const
+    {
+        return m_engine.IsScreenshotCaptureIdle();
+    }
+
     bool SceneRenderer::StartCaptureSession(const CaptureSessionConfig& config, std::string& error)
     {
         if (!m_engine.IsScreenshotCaptureIdle())

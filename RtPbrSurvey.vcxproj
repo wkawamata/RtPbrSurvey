@@ -208,6 +208,7 @@
     <ClInclude Include="Runtime\DebugLine.h" />
     <ClInclude Include="Runtime\CaptureSession.h" />
     <ClInclude Include="Runtime\CaptureSessionUi.h" />
+    <ClInclude Include="Runtime\CaptureRequestGate.h" />
     <ClInclude Include="Runtime\SceneRenderer.h" />
     <ClInclude Include="Runtime\DebugBufferInspector.h" />
     <ClInclude Include="Runtime\DebugTextureInspector.h" />
@@ -317,6 +318,7 @@
     <ClCompile Include="Runtime\DebugLine.cpp" />
     <ClCompile Include="Runtime\CaptureSession.cpp" />
     <ClCompile Include="Runtime\CaptureSessionUi.cpp" />
+    <ClCompile Include="Runtime\CaptureRequestGate.cpp" />
     <ClCompile Include="Runtime\SceneRenderer.cpp" />
     <ClCompile Include="Runtime\DebugBufferInspector.cpp" />
     <ClCompile Include="Runtime\DebugTextureInspector.cpp" />

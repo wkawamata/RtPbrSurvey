@@ -4,6 +4,7 @@
 #include "Renderer/AnimatedGifEncoder.h"
 #include "Runtime/CaptureSession.h"
 #include "Runtime/CaptureSessionUi.h"
+#include "Runtime/CaptureRequestGate.h"
 
 #include <array>
 #include <chrono>
@@ -476,13 +477,78 @@ bool TestMismatchedResultDoesNotCompleteSession()
                     "matching session token completes the request");
     return passed;
 }
+
+bool TestCaptureRequestGate()
+{
+    using RtPbrSurvey::CaptureRequestGate;
+    using RtPbrSurvey::PendingHostAction;
+
+    CaptureRequestGate gate;
+    std::string reason;
+    bool passed = Check(gate.CanStart(reason), "start is allowed when no capture work exists");
+
+    gate.Update({true, false, false, false, false});
+    passed &= Check(!gate.CanStart(reason) && reason == "A capture session is already active.",
+                    "start is refused while a capture session is active");
+    gate.Update({false, true, false, false, false});
+    passed &= Check(!gate.CanStart(reason) && reason == "A single screenshot request is still saving.",
+                    "start is refused while a single screenshot request is saving");
+    gate.Update({false, false, true, false, false});
+    passed &= Check(!gate.CanStart(reason) &&
+                        reason == "Capture session is unavailable while automated capture is pending.",
+                    "start is refused while an automated capture is pending");
+    gate.Update({false, false, false, true, false});
+    passed &= Check(!gate.CanStart(reason) && reason == "A diagnostic capture is still saving.",
+                    "start is refused while a diagnostic capture is saving");
+
+    // A completed or failed automation is not pending work, so a recorded host action is not
+    // blocked forever and a later request can start.
+    RtPbrSurvey::CaptureSessionStatus failedStatus;
+    failedStatus.state = RtPbrSurvey::CaptureSessionState::Failed;
+    passed &= Check(!RtPbrSurvey::CaptureSessionUi::IsActive(failedStatus),
+                    "failed state is not pending capture work");
+
+    gate.Update({true, false, false, false, false});
+    passed &= Check(gate.RequestPendingAction(PendingHostAction::SceneEditorReturnToTopMenu) ==
+                        PendingHostAction::SceneEditorReturnToTopMenu,
+                    "scene switch is recorded while capture work is pending");
+    passed &= Check(!gate.CanStart(reason) &&
+                        reason == "A pending exit or scene switch is waiting for capture output to complete.",
+                    "start is refused while a host action is pending");
+    passed &= Check(!gate.CanExecutePendingAction(),
+                    "pending action does not run while capture work is pending");
+    passed &= Check(gate.RequestPendingAction(PendingHostAction::CloseApplication) ==
+                        PendingHostAction::CloseApplication,
+                    "application close outranks the recorded scene switch");
+    passed &= Check(gate.RequestPendingAction(PendingHostAction::CloseRunningScene) ==
+                        PendingHostAction::CloseApplication,
+                    "a duplicate request keeps the higher priority action");
+    passed &= Check(gate.TakeResolvedAction() == PendingHostAction::None,
+                    "pending action still waits while capture work is pending");
+
+    // A confirmation decision must be resolved before the recorded action runs.
+    gate.Update({false, false, false, false, true});
+    passed &= Check(!gate.CanExecutePendingAction(), "pending action waits for the confirmation decision");
+    gate.Update({false, false, false, false, false});
+    passed &= Check(gate.TakeResolvedAction() == PendingHostAction::CloseApplication,
+                    "pending action runs once after capture output and the decision are resolved");
+    passed &= Check(gate.TakeResolvedAction() == PendingHostAction::None,
+                    "pending action is consumed once");
+    passed &= Check(gate.CanStart(reason), "start is allowed again after the pending action ran");
+
+    // Cancel releases the recorded action so editing continues.
+    gate.RequestPendingAction(PendingHostAction::SceneEditorLoadDocument);
+    gate.ClearPendingAction();
+    passed &= Check(gate.GetPendingAction() == PendingHostAction::None, "cancel releases the pending action");
+    return passed;
+}
 } // namespace
 
 int main()
 {
     return TestMouseRegionCoordinates() && TestMouseRegionInteraction() && TestStableOutputPath() && TestStableStopButton() && TestOutputOrderAndStopDrain() && TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
                    TestValidationAndLegacyCli() && TestGifOutputPathDoesNotOverwrite() && TestGifMetadataEncoding() && TestOutputFailureCompletesCleanup() && TestWarmupExcludedFromDuration() &&
-                   TestMismatchedResultDoesNotCompleteSession() ?
+                   TestMismatchedResultDoesNotCompleteSession() && TestCaptureRequestGate() ?
         0 :
         1;
 }

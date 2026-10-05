@@ -176,6 +176,12 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         return true;
     };
 
+    // Document edits are refused before the Document changes, so a refused operation cannot leave
+    // the Document and the preview diverging.
+    std::string editReason;
+    const bool editAllowed = app.CanEditSceneEditorDocument(editReason);
+    ImGui::BeginDisabled(!editAllowed);
+
     ImGui::BeginDisabled(!session.CanUndo());
     if (ImGui::Button("Undo"))
     {
@@ -304,11 +310,15 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         rebuildPreview();
     }
     ImGui::EndDisabled();
-    ImGui::SameLine();
+    ImGui::EndDisabled();
+    if (!editAllowed)
+    {
+        ImGui::TextWrapped("%s", editReason.c_str());
+    }
     if (ImGui::Button("Back to TopMenu"))
     {
         app.RequestReturnToTopMenu();
-        if (app.m_sceneEditorPendingAction != RtPbrSurveyApp::SceneEditorPendingAction::None)
+        if (app.NeedsSceneEditorDecision() && !app.IsCaptureWorkPending())
         {
             ImGui::OpenPopup("Unsaved Scene Changes");
         }
@@ -319,7 +329,7 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         }
     }
 
-    if (app.m_sceneEditorPendingAction != RtPbrSurveyApp::SceneEditorPendingAction::None)
+    if (app.NeedsSceneEditorDecision() && !app.IsCaptureWorkPending())
     {
         ImGui::OpenPopup("Unsaved Scene Changes");
     }
@@ -327,13 +337,22 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     {
         ImGui::TextUnformatted("The Scene Document has unsaved changes.");
         ImGui::TextUnformatted("Save before continuing?");
+        ImGui::TextWrapped("Pending operation: %s.", app.GetPendingHostActionName());
+        if (app.IsCaptureWorkPending())
+        {
+            ImGui::TextWrapped("Capture output is still being saved. The pending operation runs after capture completes.");
+        }
         if (ImGui::Button("Save and Continue"))
         {
             app.ResolveSceneEditorPendingAction(true, false);
-            ImGui::CloseCurrentPopup();
-            ImGui::EndPopup();
-            ImGui::End();
-            return;
+            if (!app.NeedsSceneEditorDecision())
+            {
+                ImGui::CloseCurrentPopup();
+                ImGui::EndPopup();
+                ImGui::End();
+                return;
+            }
+            ImGui::TextWrapped("%s", app.m_sceneEditorStatus.c_str());
         }
         ImGui::SameLine();
         if (ImGui::Button("Discard"))
@@ -351,6 +370,12 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
+    }
+
+    if (!editAllowed)
+    {
+        ImGui::End();
+        return;
     }
 
     ImGui::Separator();
