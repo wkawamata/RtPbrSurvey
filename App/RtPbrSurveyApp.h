@@ -130,6 +130,9 @@ private:
     void UpdateAutomatedCaptureCamera();
     bool HasAutomatedCapture() const;
     void DrawCaptureSessionUi();
+    void InitializeCaptureSessionClock(const RtPbrSurvey::CaptureSessionConfig& config);
+    void UpdateCaptureSessionTiming();
+    bool IsFixedStepCaptureActive() const;
     void ApplyCaptureSessionUiAction(RtPbrSurvey::CaptureSessionUiAction action);
     void FailAutomatedCapture(const std::string& error);
     void UpdateReflectionHdrDiagnostics();
@@ -234,6 +237,10 @@ private:
     bool m_captureSessionActive = false;
     std::chrono::steady_clock::time_point m_captureSessionStartTime;
     RtPbrSurvey::CaptureSessionUiState m_captureSessionUiState;
+    bool m_captureSessionFixedStep = false;
+    double m_captureSessionStepSeconds = 1.0 / 60.0;
+    double m_captureSimulationSeconds = 0.0;
+    float m_sceneDeltaTime = 0.0f;
     double m_pathTracingGpuTimeSumMs = 0.0;
     float m_pathTracingGpuTimeMinMs = 0.0f;
     float m_pathTracingGpuTimeMaxMs = 0.0f;
