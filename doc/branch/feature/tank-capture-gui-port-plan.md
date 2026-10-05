@@ -29,11 +29,11 @@ PNG／GIF は UI を含む最終出力、EXR は UI を含まないトーンマ�
 
 ## Step 2: 撮影 GUI と操作の移植
 
-- [ ] Capture Session を独立した GUI 項目として表示する。
-- [ ] 保存先・形式・FPS・時間・GIF 設定には共通 CaptureSessionUi を利用する。
-- [ ] F8 で撮影開始・停止を切り替えられるようにする。
-- [ ] 数値 ROI の枠をプレビューし、撮影中は枠を非表示にする。
-- [ ] 状態、保存数、ドロップ数、出力先、エラーを確認できるようにする。
+- [x] Capture Session を独立した GUI 項目として表示する。
+- [x] 保存先・形式・FPS・時間・GIF 設定には共通 CaptureSessionUi を利用する。
+- [x] F8 で撮影開始・停止を切り替えられるようにする。
+- [x] 数値 ROI の枠をプレビューし、撮影中は枠を非表示にする。
+- [x] 状態、保存数、ドロップ数、出力先、エラーを確認できるようにする。
 
 主な変更先: App/DebugUi.cpp、App/RtPbrSurveyApp.cpp、App/RtPbrSurveyApp.h。
 共通 GUI の変更が必要な場合だけ Runtime/CaptureSessionUi.* を変更する。
@@ -94,3 +94,26 @@ PR 作成・Push・マージはユーザーの指示に従う。
 - Mouse ROI は共通 CaptureSessionUi::DrawRegionOverlay とアプリ入力の抑制処理が既に接続済み。既存実装を保持する。
 - MP4 対応は未マージ。共通の形式選択と API を維持して後続変更を取り込む。
 - 基点の Debug x64 ビルド成功。既存のマクロ再定義・vcpkg 警告は残るが、ビルドエラーはない。
+
+## Step 2 実装・検証記録
+
+実装コミット: d6142f2。
+
+- Capture Session を Screenshot 配下から独立した折り畳み項目に変更。
+- GUI と F8 は同じアクション処理を利用。Running と SceneEditorEdit で F8 を使用できる。
+- 既存の撮影自動化が設定されている場合、新しい GUI/F8 撮影の開始を拒否。セッション中の単発 Capture PNG ボタンを無効化。
+- 共通 Mouse ROI の入力抑制・描画接続を保持。撮影開始では選択状態をキャンセル。
+- 共通 GUI の PNG／EXR／GIF 設定と MP4 未対応表示を維持。
+
+確認結果:
+
+- 移植前・移植後の Debug x64 ビルド成功。
+- CTest RtPbrSurvey.CaptureSession 成功。Mouse ROI の座標変換とドラッグ・キャンセル、GUI の Stop ボタン、GIF メタデータ・出力パス、保存待ちなどの既存回帰を含む。
+- 専用のアプリプロセスへ F8 の Windows キーメッセージを送る実行確認成功。開始後に PNG の保存を待ち、再度 F8 を送って出力が止まることを確認。1920×1080 の PNG 2枚、終了コード0、D3D12 エラー0。
+- 実行結果とログは bin/CapturePort/step2-f8、ビルドログは bin/capture-port-baseline-build.log と bin/capture-port-step2-build.log に保持。生成物はコミットしない。
+
+未検証・残作業:
+
+- GUI の配置、手動ボタン操作、実マウスでの ROI 操作の目視確認は未実施。Step 2 のチェックは実装完了を示し、完了条件の目視確認はまだ残る。
+- 固定ステップの時計と更新制御、終了・シーン切替時の保存完了は Step 3〜4 で整備する。
+- MP4 は後続の共通対応 PR マージ後に取り込み、Step 5 で生成・再生を検証する。
