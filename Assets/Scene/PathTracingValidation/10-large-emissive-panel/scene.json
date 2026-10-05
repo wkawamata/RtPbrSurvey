@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "sceneId": "emissive-nee-validation",
-  "name": "PT Emissive NEE Validation",
+  "sceneId": "emissive-large",
+  "name": "PT Emissive large",
   "renderPreset": "render-preset.json",
   "assets": [
     {
-      "id": "emitter",
-      "path": "emitter.gltf",
-      "type": "gltf"
+      "id": "emitter-0",
+      "type": "gltf",
+      "path": "emitter-0.gltf"
     }
   ],
   "materials": [
@@ -61,10 +61,16 @@
       "materialId": "dielectric"
     },
     {
-      "assetId": "emitter",
-      "id": "emitter",
-      "name": "emitter",
+      "id": "emitter-0",
+      "name": "emitter-0",
+      "type": "gltf",
+      "assetId": "emitter-0",
       "parentId": null,
+      "translation": [
+        0,
+        0,
+        0
+      ],
       "rotation": [
         0,
         0,
@@ -72,16 +78,10 @@
         1
       ],
       "scale": [
+        3,
         1,
-        1,
-        1
+        3
       ],
-      "translation": [
-        0,
-        0,
-        0
-      ],
-      "type": "gltf",
       "visible": true
     }
   ],
@@ -137,5 +137,5 @@
     "colorPanelIntensity": 0,
     "horizonSharpness": 0.08
   },
-  "description": "目的: 発光面から床への照明と、BSDF-only / NEE-only の推定結果を比較する。\n見る場所: emitter直下の床。オレンジ色の照明、ノイズ、蓄積による収束を確認する。\n設定: Path Tracing / Emissive ON / Shadows ON / Max Bounces 2 / Radiance。解析光源・環境照明はOFF。\n確認: サンプリング方式を切り替えても平均的な明るさが変わらないこと。発光OFFや遮蔽物で照明が消えること。\n数値評価: 64 spp・4 seed。BSDF基準差0.328%、NEE基準差0.131%。2026-10-05: MISも64 spp・4 seedで検証済み。基準差0.128%。遮蔽・発光OFF・1 bounce・直接可視の基本チェックは成功。複数発光面・テクスチャ等の追加検証は未実施。"
+  "description": "目的: 9m角の大型発光面で、BSDF / NEE / MIS の平均輝度が一致することを確認する。\n見る場所: 床中央。大きな発光面が広い立体角を占める条件で、方式の切り替えにより平均輝度が変わらないこと。\n設定: 2バウンス、環境光・直接光OFF、発光・影ON。発光面の高さ3m。\n数値判定: 独立した面積積分を基準に256 spp・4 seedで比較する。64次/128次積分の差も確認する。\n数値評価 2026-10-06: 256 spp・4 seed。BSDF基準差0.068%、NEE 0.054%、MIS 0.029%。RGB・方式間比較・発光OFFは合格。"
 }

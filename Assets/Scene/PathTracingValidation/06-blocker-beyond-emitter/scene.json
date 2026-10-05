@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "sceneId": "emissive-nee-validation",
-  "name": "PT Emissive NEE Validation",
+  "sceneId": "emissive-control-beyond",
+  "name": "PT Emissive beyond",
   "renderPreset": "render-preset.json",
   "assets": [
     {
       "id": "emitter",
-      "path": "emitter.gltf",
-      "type": "gltf"
+      "type": "gltf",
+      "path": "emitter.gltf"
     }
   ],
   "materials": [
@@ -61,10 +61,16 @@
       "materialId": "dielectric"
     },
     {
-      "assetId": "emitter",
       "id": "emitter",
       "name": "emitter",
+      "type": "gltf",
+      "assetId": "emitter",
       "parentId": null,
+      "translation": [
+        0,
+        0,
+        0
+      ],
       "rotation": [
         0,
         0,
@@ -76,13 +82,35 @@
         1,
         1
       ],
+      "visible": true
+    },
+    {
+      "id": "blocker",
+      "name": "blocker",
+      "type": "primitive",
+      "parentId": null,
       "translation": [
         0,
-        0,
+        4.5,
         0
       ],
-      "type": "gltf",
-      "visible": true
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        4,
+        0.1,
+        4
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "dielectric"
     }
   ],
   "camera": {
@@ -137,5 +165,5 @@
     "colorPanelIntensity": 0,
     "horizonSharpness": 0.08
   },
-  "description": "目的: 発光面から床への照明と、BSDF-only / NEE-only の推定結果を比較する。\n見る場所: emitter直下の床。オレンジ色の照明、ノイズ、蓄積による収束を確認する。\n設定: Path Tracing / Emissive ON / Shadows ON / Max Bounces 2 / Radiance。解析光源・環境照明はOFF。\n確認: サンプリング方式を切り替えても平均的な明るさが変わらないこと。発光OFFや遮蔽物で照明が消えること。\n数値評価: 64 spp・4 seed。BSDF基準差0.328%、NEE基準差0.131%。2026-10-05: MISも64 spp・4 seedで検証済み。基準差0.128%。遮蔽・発光OFF・1 bounce・直接可視の基本チェックは成功。複数発光面・テクスチャ等の追加検証は未実施。"
+  "description": "光源より奥の遮蔽物がNEEの可視性判定を妨げないことを確認する。発光面は高さ3、遮蔽物は高さ4.5。各モードの出力は遮蔽物なしの01基準シーンと同一になること。環境光と直接光は無効。2バウンス、固定seedで検証。"
 }

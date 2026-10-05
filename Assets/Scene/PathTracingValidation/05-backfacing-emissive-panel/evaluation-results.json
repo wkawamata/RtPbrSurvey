@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-06",
+  "status": "passed",
+  "samples": 64,
+  "seed": 11,
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "executableSha256": "64741214ef635b9fce6647a010be56d84ad7441d8543b689422635d4530b66a8",
+  "checks": {
+    "case": "backface",
+    "status": "passed",
+    "checks": [
+      {
+        "mode": 0,
+        "passed": true
+      },
+      {
+        "mode": 1,
+        "passed": true
+      },
+      {
+        "mode": 2,
+        "passed": true
+      }
+    ],
+    "sceneSha256": "39f55953e8338f5df77fe5726e19a051d959926daa89591f8092ee54081ace41",
+    "records": [
+      {
+        "emissiveSamplingMode": 0,
+        "sha256": "95b07bf211db6e10f7a8cb314293e92c592feecd1e2916a56131b96df8884b8b",
+        "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+        "mean": 0,
+        "maximum": 0,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "warningCount": 3,
+        "emissiveTriangleCount": 2,
+        "emissiveTableStatus": "ready"
+      },
+      {
+        "emissiveSamplingMode": 1,
+        "sha256": "95b07bf211db6e10f7a8cb314293e92c592feecd1e2916a56131b96df8884b8b",
+        "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+        "mean": 0,
+        "maximum": 0,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "warningCount": 3,
+        "emissiveTriangleCount": 2,
+        "emissiveTableStatus": "ready"
+      },
+      {
+        "emissiveSamplingMode": 2,
+        "sha256": "95b07bf211db6e10f7a8cb314293e92c592feecd1e2916a56131b96df8884b8b",
+        "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+        "mean": 0,
+        "maximum": 0,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "warningCount": 3,
+        "emissiveTriangleCount": 2,
+        "emissiveTableStatus": "ready"
+      }
+    ]
+  },
+  "baseline": {
+    "case": "baseline",
+    "status": "passed",
+    "checks": [
+      {
+        "mode": 0,
+        "passed": true
+      },
+      {
+        "mode": 1,
+        "passed": true
+      },
+      {
+        "mode": 2,
+        "passed": true
+      }
+    ],
+    "sceneSha256": "228e0ad4d3fbe8d553be8d122d9507ab3adca9217070f683ca49388d0f112f76",
+    "records": [
+      {
+        "emissiveSamplingMode": 0,
+        "sha256": "079360e6f24e2c561c486aa360c1f639360561090dfbe20c3197505c71ee00f5",
+        "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+        "mean": 0.05553295090794563,
+        "maximum": 0.19785547256469727,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "warningCount": 3,
+        "emissiveTriangleCount": 2,
+        "emissiveTableStatus": "ready"
+      },
+      {
+        "emissiveSamplingMode": 1,
+        "sha256": "c2be44db59035a66f26a7ff9b385fc2e3691e9072c5e164a09725479021bba80",
+        "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+        "mean": 0.055676013231277466,
+        "maximum": 0.10397181659936905,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "warningCount": 3,
+        "emissiveTriangleCount": 2,
+        "emissiveTableStatus": "ready"
+      },
+      {
+        "emissiveSamplingMode": 2,
+        "sha256": "c372a6551e508fe52a8d73faf63adb9c1ed1d9e541e616fb7392b4920674130d",
+        "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+        "mean": 0.0556790716946125,
+        "maximum": 0.10360556095838547,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "warningCount": 3,
+        "emissiveTriangleCount": 2,
+        "emissiveTableStatus": "ready"
+      }
+    ]
+  },
+  "limitation": "One fixed seed, 64x64 receiver ROI; equality controls are not convergence tests."
+}

@@ -249,13 +249,45 @@ python -B Tests/PathTracing/validate_emissive.py --output bin/PathTracingValidat
 1. [x] Baseline reference and diagnostics.
 2. [x] CPU emitter extraction, stable identity and GPU table plumbing, with tests for
    shared BLAS instances, separate mesh ranges, mirrored baked nodes and unequal areas.
-3. [*] NEE-only finite visibility is validated; paired MIS is implemented but GPU validation is pending.
-4. [ ] Expanded multi-seed GPU comparisons of BSDF-only/NEE-only/MIS, blocked/off/back-facing controls,
+3. [x] NEE-only finite visibility and paired MIS are validated in the basic constant-emitter campaign.
+4. [*] Expanded multi-seed GPU comparisons of BSDF-only/NEE-only/MIS, blocked/off/back-facing controls,
    small/large emitters, multiple unequal emitters and texture modulation. Compare
    means before accepting variance reduction. Keep environment and analytic lights off
    for isolated tests, then run a combined-lighting regression.
 
 ## Reproduction
+
+### Unequal and textured emitters (2026-10-05)
+
+Two additional fixture families passed 64 spp/four-seed comparisons across all
+three modes, including RGB-channel reference agreement and paired-seed mean checks.
+The unequal family uses 2x2 and 1x1 panels at y=3, centered at x=-2/+2 with warm/cool
+emission colors. Its four GPU triangles test area selection ratio 4:1, separate
+material/range identity and positive nonuniform instance scale.
+
+The texture family uses a 3x3 panel with explicit 0-1 UVs and an embedded black/white
+2x2 PNG. The independent integral applies bilinear WRAP filtering in sRGB space,
+then sRGB-to-linear decoding and emission factors. Quadrature intervals are split
+at filter boundaries. Order 64/128 relative change was 1.21e-10.
+
+Independent-reference discrepancies (BSDF/NEE/MIS) were 0.111%/0.160%/0.162% for
+unequal emitters and 0.246%/0.048%/0.057% for the texture family. Both MIS emission-off
+controls had exact zero ROI maxima. Twenty-six captures completed with no D3D12
+ERROR/CORRUPTION lines. GPU tables were ready with four/two triangles respectively.
+No renderer correction was required. Python tests passed 76/76; CTest passed 25/25.
+
+Numbered scenes 03 and 04 now retain the inputs, Japanese Description and evaluation
+results under Assets/Scene/PathTracingValidation. Complete campaign provenance is
+in `path-tracing-validation-results/completion-step-5-emissive-extended-summary.json`.
+The original raw report's constant-emitter limitation label is corrected in the
+retained summary; only metadata wording changed after capture, not the integrand.
+
+Tiny/large emitters, back-facing and beyond-endpoint blockers, empty-table/shadow-off
+fallback, deeper RR paths and combined lighting remain pending before Step 5 closure.
+
+```powershell
+python -B Tests/PathTracing/validate_emissive_extended.py --exe build/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/emissive-extended-repeat --samples 64
+```
 
 ### MIS integration checkpoint
 
@@ -271,12 +303,97 @@ Scene Editor now exposes Path Tracing, accumulation, samples/frame, bounce budge
 lighting toggles, emissive sampling, output selection, shadows and reset. Changes
 mark the render preset modified; persistence still requires explicit Save Preset.
 
-The MIS shader and engine were Debug-built successfully before the final UI-label
-edits. The final UI edits passed C++ compilation and Python tests passed 71/71.
-MIS multi-seed native captures and updated CTest have not yet been run at this
-checkpoint. Do not treat the earlier NEE evidence as MIS validation.
+The initial integration checkpoint did not claim GPU MIS validation. The following
+2026-10-05 campaign adds separate evidence; the older NEE report remains unchanged.
+
+### Basic MIS validation (2026-10-05)
+
+The current CMake Debug application was used via the runner's optional `--exe`
+argument. Twenty native captures passed: three modes x four seeds at 64 spp,
+three blocked controls, three primary-visible controls, one MIS one-bounce control
+and one MIS emission-off control. The independent quadrature reference was
+0.0557248885. ROI means were BSDF 0.0555422220 (0.3278% discrepancy), NEE
+0.0556517443 (0.1313%) and MIS 0.0556538089 (0.1276%). All independent-reference
+and paired-seed agreement checks passed. MIS vs BSDF mean difference was 0.2009%
+with four-standard-error relative uncertainty 1.0554%.
+
+Blocked/off/one-bounce ROI maxima were exactly zero. Primary-visible emission
+matched the expected RGB within 4.65e-7 for all three modes. All images were
+1920x1080, emitter count was two with ready status, and the log scan found zero
+D3D12 ERROR/CORRUPTION lines. CTest passed 25/25 and Python tests 72/72.
+
+The four-seed ROI-mean uncertainty is not a general image-variance guarantee.
+Multiple unequal emitters, texture modulation, tiny/large emitters, back-facing
+and beyond-endpoint blockers, deeper RR paths and combined lighting remain pending.
+Step 5 is therefore not complete yet.
+
+### Visibility and fallback controls (2026-10-06)
+
+Fifteen CMake Debug captures passed at 64 spp with seed 11, covering baseline,
+back-facing emitter, beyond-endpoint blocker, empty emitter table and shadows OFF,
+each in BSDF/NEE/MIS modes. Back-facing receiver ROI values were exactly zero.
+Beyond-endpoint blockers produced identical full HDR file hashes to the baseline
+for each mode. Empty-table and shadows-OFF captures produced identical full HDR
+hashes across all three modes, with nonzero receiver illumination. Empty-table
+validation uses constant-white environment sampling mode 1; other cases disable
+environment and direct lighting. The empty table reported count zero and ready.
+
+No ERROR/CORRUPTION messages were found. The 2-4 warnings per capture are existing
+buffer initial-state warnings. Python tests passed 81/81 and CTest passed 25/25.
+Numbered assets 05-08 retain Japanese descriptions and evaluation hashes.
+The archived relative preset path is render-preset.json, not the runner's preset.json.
+This fixed-seed equality campaign does not replace multi-seed convergence checks.
+Tiny/large emitters, deeper Russian Roulette paths and combined lighting remain
+pending; Step 5 is not yet complete.
+
+Evidence: path-tracing-validation-results/completion-step-5-emissive-controls-summary.json.
+
+```powershell
+python -B Tests/PathTracing/validate_emissive_controls.py --output bin/PathTracingValidation/emissive-controls-repeat --samples 64 --seed 11
+```
+
+Provenance and capture hashes are retained in
+`path-tracing-validation-results/completion-step-5-emissive-mis-summary.json`.
+The numbered baseline asset also retains `evaluation-mis-results.json` alongside
+the original NEE-only result. Its Description now records the basic MIS checks.
+
+```powershell
+python -B Tests/PathTracing/validate_emissive.py --exe build/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/emissive-mis-repeat --samples 64 --modes 0 1 2 --require-emitter-table --visibility-controls
+```
 
 ```powershell
 python -B -m unittest discover -s Tests/PathTracing -p 'test_*.py'
 python -B Tests/PathTracing/validate_emissive.py --output bin/PathTracingValidation/emissive-repeat --samples 64
+```
+
+### Small and large emitters (2026-10-06)
+
+Twenty-six CMake Debug captures passed: two square emitter sizes, three modes,
+four seeds (11/23/37/53), 256 spp, plus one emission-OFF capture for each size.
+The small emitter is 0.3m square and the large emitter is 9m square; both are at
+height 3m. Transform scale changes X/Z only, preserving height and orientation.
+
+| Emitter | Reference mean | BSDF discrepancy | NEE discrepancy | MIS discrepancy |
+| --- | --- | --- | --- | --- |
+| 0.3m square | 0.0007314670 | 0.9040% | 0.2219% | 0.2220% |
+| 9m square | 0.1734776053 | 0.0681% | 0.0540% | 0.0287% |
+
+All RGB-channel reference comparisons and paired BSDF/NEE/MIS checks passed.
+Small-emitter BSDF four-standard-error relative uncertainty was 2.2146%, below
+the unchanged 5% inconclusive threshold. NEE/MIS uncertainty was approximately
+0.0019%. These are seed-mean uncertainties, not per-pixel variance guarantees.
+64/128-point quadrature changes were zero for the small emitter and 1.12e-14 for
+the large one. Both emission-OFF receiver ROI maxima were exactly zero.
+
+Captures reported two ready emitter triangles and 1920x1080 dimensions. Logs
+contained no ERROR/CORRUPTION messages. CTest passed 25/25; Python passed 83/83.
+Renderer/shader code was unchanged; the already-built current CMake Debug binary
+was used. Assets 09/10 retain geometry, presets, Japanese descriptions and results.
+Evidence: path-tracing-validation-results/completion-step-5-emissive-size-summary.json.
+
+The tested domain remains two-segment opaque one-sided transport. Deeper Russian
+Roulette paths and combined lighting are still pending; Step 5 is not complete.
+
+```powershell
+python -B Tests/PathTracing/validate_emissive_extended.py --exe build/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/emissive-size-repeat --samples 256 --cases small large
 ```

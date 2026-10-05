@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "sceneId": "emissive-nee-validation",
-  "name": "PT Emissive NEE Validation",
+  "sceneId": "emissive-control-shadow-off",
+  "name": "PT Emissive shadow-off",
   "renderPreset": "render-preset.json",
   "assets": [
     {
       "id": "emitter",
-      "path": "emitter.gltf",
-      "type": "gltf"
+      "type": "gltf",
+      "path": "emitter.gltf"
     }
   ],
   "materials": [
@@ -61,10 +61,16 @@
       "materialId": "dielectric"
     },
     {
-      "assetId": "emitter",
       "id": "emitter",
       "name": "emitter",
+      "type": "gltf",
+      "assetId": "emitter",
       "parentId": null,
+      "translation": [
+        0,
+        0,
+        0
+      ],
       "rotation": [
         0,
         0,
@@ -76,12 +82,6 @@
         1,
         1
       ],
-      "translation": [
-        0,
-        0,
-        0
-      ],
-      "type": "gltf",
       "visible": true
     }
   ],
@@ -137,5 +137,5 @@
     "colorPanelIntensity": 0,
     "horizonSharpness": 0.08
   },
-  "description": "目的: 発光面から床への照明と、BSDF-only / NEE-only の推定結果を比較する。\n見る場所: emitter直下の床。オレンジ色の照明、ノイズ、蓄積による収束を確認する。\n設定: Path Tracing / Emissive ON / Shadows ON / Max Bounces 2 / Radiance。解析光源・環境照明はOFF。\n確認: サンプリング方式を切り替えても平均的な明るさが変わらないこと。発光OFFや遮蔽物で照明が消えること。\n数値評価: 64 spp・4 seed。BSDF基準差0.328%、NEE基準差0.131%。2026-10-05: MISも64 spp・4 seedで検証済み。基準差0.128%。遮蔽・発光OFF・1 bounce・直接可視の基本チェックは成功。複数発光面・テクスチャ等の追加検証は未実施。"
+  "description": "影OFF時の発光サンプリングのフォールバックを確認する。BSDF / NEE / MIS の出力が同一で、床は発光面からのBSDF経路で明るくなること。環境光と直接光は無効。影をONに戻すと通常のNEE/MIS動作へ戻る。"
 }

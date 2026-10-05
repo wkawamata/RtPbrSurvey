@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "sceneId": "emissive-nee-validation",
-  "name": "PT Emissive NEE Validation",
+  "sceneId": "emissive-texture",
+  "name": "PT Emissive texture",
   "renderPreset": "render-preset.json",
   "assets": [
     {
-      "id": "emitter",
-      "path": "emitter.gltf",
-      "type": "gltf"
+      "id": "emitter-0",
+      "type": "gltf",
+      "path": "emitter-0.gltf"
     }
   ],
   "materials": [
@@ -61,10 +61,16 @@
       "materialId": "dielectric"
     },
     {
-      "assetId": "emitter",
-      "id": "emitter",
-      "name": "emitter",
+      "id": "emitter-0",
+      "name": "emitter-0",
+      "type": "gltf",
+      "assetId": "emitter-0",
       "parentId": null,
+      "translation": [
+        0,
+        0,
+        0
+      ],
       "rotation": [
         0,
         0,
@@ -76,12 +82,6 @@
         1,
         1
       ],
-      "translation": [
-        0,
-        0,
-        0
-      ],
-      "type": "gltf",
       "visible": true
     }
   ],
@@ -137,5 +137,5 @@
     "colorPanelIntensity": 0,
     "horizonSharpness": 0.08
   },
-  "description": "目的: 発光面から床への照明と、BSDF-only / NEE-only の推定結果を比較する。\n見る場所: emitter直下の床。オレンジ色の照明、ノイズ、蓄積による収束を確認する。\n設定: Path Tracing / Emissive ON / Shadows ON / Max Bounces 2 / Radiance。解析光源・環境照明はOFF。\n確認: サンプリング方式を切り替えても平均的な明るさが変わらないこと。発光OFFや遮蔽物で照明が消えること。\n数値評価: 64 spp・4 seed。BSDF基準差0.328%、NEE基準差0.131%。2026-10-05: MISも64 spp・4 seedで検証済み。基準差0.128%。遮蔽・発光OFF・1 bounce・直接可視の基本チェックは成功。複数発光面・テクスチャ等の追加検証は未実施。"
+  "description": "目的: 白黒2×2の発光テクスチャとUVによる照明の変化を確認する。\n見る場所: 発光面の白黒模様と、床に届くオレンジ色の照明。\n確認: 双線形WRAP補間後のsRGB線形化を含め、BSDF-only / NEE-only / MISで平均的な明るさが一致すること。\n設定: PT / Emissive ON / Max Bounces 2 / Shadows ON / Radiance。解析光源・環境照明はOFF。\n2026-10-05: 64 spp・4 seedで平均値・RGB・方式間比較が成功。MISの独立基準差0.057%。発光OFFはゼロ。UV変換や別テクスチャは未検証。"
 }

@@ -23,10 +23,15 @@ HEIGHT = 3.0
 ROI = [928, 508, 64, 64]
 
 
-def rectangle_integral(position, view, albedo, roughness, order=64):
+def rectangle_integral(position, view, albedo, roughness, order=64,
+        half_size=HALF_SIZE, height=HEIGHT, center=(0, 0), emission=EMISSION, texture=False):
     nodes, weights = np.polynomial.legendre.leggauss(order)
-    x, z = np.meshgrid(nodes*HALF_SIZE, nodes*HALF_SIZE)
-    points = np.stack((x, np.full_like(x, HEIGHT), z), axis=-1)
+    if texture:
+        intervals = [(-1, -.5), (-.5, .5), (.5, 1)]
+        weights = np.concatenate([weights*(b-a)/2 for a, b in intervals])
+        nodes = np.concatenate([nodes*(b-a)/2+(a+b)/2 for a, b in intervals])
+    x, z = np.meshgrid(nodes*half_size, nodes*half_size)
+    points = np.stack((x+center[0], np.full_like(x, height), z+center[1]), axis=-1)
     delta = points-np.asarray(position)
     distance_squared = np.sum(delta*delta, axis=-1)
     light = delta/np.sqrt(distance_squared)[..., None]
@@ -45,12 +50,27 @@ def rectangle_integral(position, view, albedo, roughness, order=64):
         return 2*cosine/(cosine+np.sqrt(alpha_squared+(1-alpha_squared)*cosine*cosine))
     fresnel = .04+.96*(1-vh)**5
     brdf = (1-fresnel)*albedo/math.pi + distribution*smith(view[1])*smith(mu)*fresnel/(4*view[1]*mu)
-    area_weights = np.outer(weights, weights)*HALF_SIZE**2
-    scalar = float(np.sum(brdf*mu*mu/distance_squared*area_weights))
-    return EMISSION*scalar
+    area_weights = np.outer(weights, weights)*half_size**2
+    integrand = brdf*mu*mu/distance_squared*area_weights
+    if texture:
+        uv = np.stack((x/half_size*.5+.5, z/half_size*.5+.5), axis=-1)
+        texel = uv*2-.5
+        lower = np.floor(texel).astype(int)
+        fraction = texel-lower
+        gray = np.zeros_like(x)
+        for row in range(2):
+            for column in range(2):
+                value = ((lower[..., 0]+column+lower[..., 1]+row) % 2).astype(float)
+                weight_x = fraction[..., 0] if column else 1-fraction[..., 0]
+                weight_y = fraction[..., 1] if row else 1-fraction[..., 1]
+                gray += value*weight_x*weight_y
+        linear = np.where(gray <= .04045, gray/12.92, ((gray+.055)/1.055)**2.4)
+        integrand *= linear
+    return np.asarray(emission)*float(np.sum(integrand))
 
 
-def reference(scene):
+def reference(scene, emitters=None):
+    emitters = [{}] if emitters is None else emitters
     camera = scene['camera']
     eye = np.asarray(camera['position'], dtype=float)
     forward = np.asarray(camera['target'])-eye
@@ -67,11 +87,14 @@ def reference(scene):
             direction /= np.linalg.norm(direction)
             position = eye+direction*(-eye[1]/direction[1])
             for order in results:
-                results[order].append(rectangle_integral(position, -direction, albedo, .8, order))
+                results[order].append(sum((rectangle_integral(position, -direction, albedo, .8, order,
+                    **emitter) for emitter in emitters), np.zeros(3)))
     low, high = [np.mean(results[order], axis=0) for order in [64, 128]]
+    emitter_kind = ('textured rectangular emitter' if any(emitter.get('texture') for emitter in emitters)
+        else 'constant rectangular emitters' if len(emitters) > 1 else 'constant emitter')
     return dict(mean=float(high.mean()), rgb=high.tolist(), orders=[64, 128], spatialSamples=9,
         quadratureRelativeChange=float(np.max(np.abs(low/high-1))),
-        limitation='Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit.')
+        limitation=f'Nine representative ROI positions; opaque one-sided {emitter_kind}, two-bounce path limit.')
 
 
 def fixture(output):
@@ -120,12 +143,14 @@ def blocked_scene(scene):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--exe', type=Path, default=ROOT/'bin/x64/Debug/RtPbrSurvey.exe')
     parser.add_argument('--samples', type=int, default=64)
     parser.add_argument('--require-emitter-table', action='store_true')
     parser.add_argument('--modes', type=int, nargs='+', choices=[0, 1, 2], default=[0])
     parser.add_argument('--visibility-controls', action='store_true')
     parser.add_argument('--seeds', type=int, nargs='+', default=[11, 23, 37, 53])
     args = parser.parse_args()
+    args.exe = args.exe.resolve(strict=True)
     if not 1 <= args.samples <= 4096 or len(set(args.seeds)) < 4 or len(set(args.seeds)) != len(args.seeds):
         parser.error('Require positive samples and at least four unique seeds')
     if any(s < 0 or s > 0xffffffff for s in args.seeds):
@@ -138,14 +163,14 @@ def main():
     oracle = reference(scene)
     report = dict(schemaVersion=1, status='running', reference=oracle, records=[],
         commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-        executableSha256=sha(ROOT/'bin/x64/Debug/RtPbrSurvey.exe'), samples=args.samples, seeds=args.seeds,
+        executable=str(args.exe), executableSha256=sha(args.exe), samples=args.samples, seeds=args.seeds,
         sourceSha256={p: sha(ROOT/p) for p in ['Shaders/shaders_PathTracing.hlsl',
-            'Shaders/PathTracingSampling.hlsli', 'App/RtPbrSurveyApp.cpp',
+            'Shaders/PathTracingSampling.hlsli', 'Shaders/EmissiveTriangleSampling.hlsli', 'App/RtPbrSurveyApp.cpp',
             'Tests/PathTracing/validate_emissive.py']},
         sceneSha256=sha(output/'scene.json'), emitterSha256=sha(output/'emitter.gltf'),
         gpuDriver=subprocess.check_output(['nvidia-smi', '--query-gpu=name,driver_version',
             '--format=csv,noheader'], text=True).strip())
-    request = SimpleNamespace(root=ROOT, exe=ROOT/'bin/x64/Debug/RtPbrSurvey.exe',
+    request = SimpleNamespace(root=ROOT, exe=args.exe,
         scene_file=output/'scene.json', render_preset=output/'preset.json', output=output, timeout=300, roi=ROI)
     try:
         agreements = {}
