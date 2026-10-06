@@ -13,14 +13,19 @@ Base: `f9a2724`
 - [x] Build an instance-aware CPU emissive-triangle sampling table.
 - [x] Define GPU record serialization and compile sampling/PDF helpers.
 - [x] Upload the table per frame and bind it to the PT pipeline.
-- [ ] Invoke GPU sampling/PDF lookup from TracePath.
-- [ ] Add area-sampled NEE with finite endpoint visibility.
-- [ ] Add matching BSDF-hit MIS and explicit sampling modes.
-- [ ] Validate mean agreement, occlusion, multiple emitters and convergence.
+- [x] Invoke GPU sampling/PDF lookup from TracePath.
+- [x] Add area-sampled NEE with finite endpoint visibility.
+- [x] Add matching BSDF-hit MIS and explicit sampling modes.
+- [x] Validate mean agreement, occlusion, multiple emitters, texture and size controls.
+- [x] Validate deep-path RR mean preservation.
+- [x] Validate combined-lighting additivity and joint MIS.
+- [x] Complete final convergence checks.
 
-Step 5 is in progress. No emissive NEE/MIS shader implementation is enabled yet.
-Current shaders add emission only on a BSDF hit, including directly visible primary hits.
-Environment NEE/MIS and analytic scene lights remain separate techniques.
+Step 5 is complete within the declared validation domains as of 2026-10-06.
+Emissive BSDF-only, NEE-only and MIS shader paths are
+implemented and the native campaigns below cover their declared fixture domains.
+Primary-visible emission retains unit weight. Environment NEE/MIS and analytic
+scene lights remain separate techniques; their additivity is validated below.
 
 ## Baseline
 
@@ -433,4 +438,82 @@ emissive/analytic/environment lighting remains pending; Step 5 is not complete y
 
 ```powershell
 python -B Tests/PathTracing/validate_emissive_rr.py --exe build/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/emissive-rr-repeat --samples 128
+```
+
+### Combined lighting (2026-10-06)
+
+Thirty-seven CMake Debug captures passed at 128 spp and seeds 11/23/37/53.
+The receiver/emitter geometry is unchanged between lighting cohorts. Sources are
+warm emission RGB (0.8,0.4,0.2), a cool point light RGB (0.2,0.5,1), intensity 4
+at (-2,2,-1), and constant-white environment intensity 0.2. Shadows are ON,
+max path segments are two, and RR is OFF. Environment mode 5 uses constant MIS;
+the independent technique comparison uses emissive BSDF and environment mode 1.
+
+Captured cohorts: emissive-only modes 0/1/2 (12), direct-only (4), environment-only
+(4), combined modes 0/1/2 (12), combined pure-BSDF environment (4), and all-OFF (1).
+Each seed's isolated-source RGB sum is compared with its combined capture. All
+six comparisons x mean/R/G/B (24 checks) passed under unchanged tolerances.
+
+| Emissive mode | Isolated sum mean | Combined mean | Discrepancy |
+| --- | --- | --- | --- |
+| BSDF | 0.1604140364 | 0.1605481058 | 0.0836% |
+| NEE | 0.1605173262 | 0.1605666975 | 0.0308% |
+| MIS | 0.1605139698 | 0.1605606874 | 0.0291% |
+
+Maximum RGB-channel additivity discrepancy was 0.1258%. Joint MIS vs pure BSDF
+mean discrepancy was 0.0561%, with maximum RGB discrepancy 0.0874%. The largest
+four-SE relative uncertainty across all checks was 0.2804%, below the unchanged
+5% inconclusive threshold. The all-OFF receiver ROI maximum was exactly zero.
+All three isolated sources exceeded the 0.0001 signal floor.
+
+No ERROR/CORRUPTION messages were found; existing buffer initial-state warnings
+remain. Python passed 91/91 and CTest 25/25. No renderer/shader edit was required.
+Asset 12 retains geometry, preset, Japanese Description and evaluation results.
+Evidence: path-tracing-validation-results/completion-step-5-emissive-combined-summary.json.
+
+This confirms additivity and technique agreement in the declared fixture, not an
+absolute transport oracle or arbitrary imported-scene lighting. The final remaining
+Step 5 checkpoint is an explicit sample-count convergence campaign before Step 6
+accumulation/reset validation.
+
+```powershell
+python -B Tests/PathTracing/validate_emissive_combined.py --exe build/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/emissive-combined-repeat --samples 128
+```
+
+### Sample-count convergence (2026-10-06)
+
+Thirty-seven CMake Debug captures passed: BSDF/NEE/MIS x 16/64/256 spp x four
+seeds (11/23/37/53), plus one exact repeat of MIS/256 spp/seed 11. The baseline
+fixture is unchanged: two segments, only emission, shadows ON and RR OFF.
+All nine cohort means and RGB channels passed the independent area-reference
+comparison; all six paired BSDF/NEE/MIS mean comparisons passed.
+
+Noise is mean unbiased per-pixel RGB variance across seeds (ddof=1), not variance
+across pixels. Static shading does not count as noise. Predeclared requirements:
+each >=4x sample increase has variance ratio <=0.65, final/initial ratio <=0.25,
+and log-variance slope <=-0.5. Zero variance is rejected as a missing stochastic
+signal. These are fixture diagnostics, not formal confidence bounds or proof
+of zero deterministic bias.
+
+| Mode | Variance at 16 spp | At 64 spp | At 256 spp | Final/initial | Log slope |
+| --- | --- | --- | --- | --- | --- |
+| BSDF | 9.06111e-4 | 2.24844e-4 | 5.70161e-5 | 0.062924 | -0.99756 |
+| NEE | 9.26401e-6 | 2.36031e-6 | 5.77786e-7 | 0.062369 | -1.00076 |
+| MIS | 9.43877e-6 | 2.40517e-6 | 5.97660e-7 | 0.063320 | -0.99530 |
+
+All curves show approximately inverse-sample-count variance. This is not
+cost-normalized: NEE/MIS perform extra work per primary sample. The repeat PFM
+hash matched exactly. No ERROR/CORRUPTION messages were found. Python passed
+96/96 and CTest 25/25; renderer/shader code was unchanged.
+
+Baseline asset 01 retains evaluation-convergence-results.json. Evidence:
+path-tracing-validation-results/completion-step-5-emissive-convergence-summary.json.
+Step 5 is complete for the measured opaque one-sided affine emitter/receiver
+fixtures, including visibility, texture, size, RR and joint-lighting controls.
+Arbitrary imported/unlit/transparent emitters, all RR material families, per-pixel
+bias guarantees and cross-GPU replication are not claimed. Step 6 follows with
+accumulation count, pause/reset and invalidation validation.
+
+```powershell
+python -B Tests/PathTracing/validate_emissive_convergence.py --exe build/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/emissive-convergence-repeat --samples 16 64 256
 ```

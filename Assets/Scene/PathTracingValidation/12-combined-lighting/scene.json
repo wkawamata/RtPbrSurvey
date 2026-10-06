@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "sceneId": "emissive-nee-validation",
-  "name": "PT Emissive NEE Validation",
+  "sceneId": "emissive-combined",
+  "name": "PT Combined Lighting",
   "renderPreset": "render-preset.json",
   "assets": [
     {
       "id": "emitter",
-      "path": "emitter.gltf",
-      "type": "gltf"
+      "type": "gltf",
+      "path": "emitter.gltf"
     }
   ],
   "materials": [
@@ -61,10 +61,16 @@
       "materialId": "dielectric"
     },
     {
-      "assetId": "emitter",
       "id": "emitter",
       "name": "emitter",
+      "type": "gltf",
+      "assetId": "emitter",
       "parentId": null,
+      "translation": [
+        0,
+        0,
+        0
+      ],
       "rotation": [
         0,
         0,
@@ -76,12 +82,6 @@
         1,
         1
       ],
-      "translation": [
-        0,
-        0,
-        0
-      ],
-      "type": "gltf",
       "visible": true
     }
   ],
@@ -137,5 +137,5 @@
     "colorPanelIntensity": 0,
     "horizonSharpness": 0.08
   },
-  "description": "目的: 発光面から床への照明と、BSDF-only / NEE-only の推定結果を比較する。\n見る場所: emitter直下の床。オレンジ色の照明、ノイズ、蓄積による収束を確認する。\n設定: Path Tracing / Emissive ON / Shadows ON / Max Bounces 2 / Radiance。解析光源・環境照明はOFF。\n確認: サンプリング方式を切り替えても平均的な明るさが変わらないこと。発光OFFや遮蔽物で照明が消えること。\n数値評価: 64 spp・4 seed。BSDF基準差0.328%、NEE基準差0.131%。2026-10-05: MISも64 spp・4 seedで検証済み。基準差0.128%。遮蔽・発光OFF・1 bounce・直接可視の基本チェックは成功。複数発光面・テクスチャ等の追加検証はシーン03-12を参照。\n2026-10-06: 16 / 64 / 256 spp・4 seedで収束を確認。3方式とも分散が約1/16に減少し、平均・RGB基準比較は合格。同一seedのMIS 256 spp画像も完全一致。Step 5は宣言した検証対象の範囲で完了。"
+  "description": "目的: 暖色の発光面、青系の点光源、一定白色の環境光を併用し、寄与の二重計上や欠落がないことを確認する。\n見る場所: 床中央。各光源を個別にONにした結果のRGB平均の和と、同時にONにした結果のRGB平均が一致すること。\n設定: 2バウンス、発光MIS、環境光MIS (Constant White)、影ON。環境光強度0.2、点光源強度4。\n追加比較: 発光のBSDF / NEE / MISを切り替えても平均的な明るさが変わらないこと。環境光もBSDFにした結果と、両方MISの結果を比較する。\n限界: 固定シーンの線形HDR平均を比較するテスト。ToneMap後の画像を足し合わせる評価ではない。\n数値評価 2026-10-06: 128 spp・4 seed、37キャプチャ合格。個別寄与の和との差はBSDF 0.084%、NEE 0.031%、MIS 0.029%。RGB各チャンネルも合格。両方BSDFと両方MISの差0.056%。全光源OFFはゼロ。"
 }

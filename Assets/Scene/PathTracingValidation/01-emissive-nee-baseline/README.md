@@ -20,9 +20,15 @@ campaign. All independent-reference and paired-seed comparisons passed. This doe
 not establish correctness for multiple/unequal/textured emitters or deeper RR paths.
 Use Emissive Sampling = MIS (BSDF + NEE) for interactive review of the same scene.
 
+evaluation-convergence-results.json retains the 2026-10-06 16/64/256 spp campaign.
+All three methods preserve their means and show approximately 1/N seed variance.
+The same-seed MIS/256 spp repeat matched its original PFM hash exactly. Noise is
+per-pixel inter-seed variance, not spatial image variance or a per-pixel bias test.
+
 From the repository root, the original campaign can be regenerated in a new folder:
 
 ```powershell
 python -B Tests/PathTracing/validate_emissive.py --output bin/PathTracingValidation/emissive-review-repeat --samples 64 --modes 0 1 --require-emitter-table --visibility-controls
 python -B Tests/PathTracing/validate_emissive.py --exe build/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/emissive-mis-repeat --samples 64 --modes 0 1 2 --require-emitter-table --visibility-controls
+python -B Tests/PathTracing/validate_emissive_convergence.py --output bin/PathTracingValidation/emissive-convergence-repeat --samples 16 64 256
 ```

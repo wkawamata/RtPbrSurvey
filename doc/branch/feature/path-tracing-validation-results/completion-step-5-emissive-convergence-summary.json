@@ -1,0 +1,1203 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "samples": [
+    16,
+    64,
+    256
+  ],
+  "seeds": [
+    11,
+    23,
+    37,
+    53
+  ],
+  "roi": [
+    928,
+    508,
+    64,
+    64
+  ],
+  "reference": {
+    "mean": 0.05572488850287086,
+    "rgb": [
+      0.09552838029063576,
+      0.04776419014531788,
+      0.02388209507265894
+    ],
+    "orders": [
+      64,
+      128
+    ],
+    "spatialSamples": 9,
+    "quadratureRelativeChange": 3.552713678800501e-15,
+    "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+  },
+  "records": [
+    {
+      "seed": 11,
+      "samples": 16,
+      "emissiveSamplingMode": 0,
+      "mean": 0.055827361237182536,
+      "rgb": [
+        0.09570404783517006,
+        0.04785202391758503,
+        0.023926011958792515
+      ],
+      "sha256": "bcd6ed36e766fca8636d077b75dcae42ffd6897edea16791a51615c394079758",
+      "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 23,
+      "samples": 16,
+      "emissiveSamplingMode": 0,
+      "mean": 0.05489924882863306,
+      "rgb": [
+        0.0941129979919424,
+        0.0470564989959712,
+        0.0235282494979856
+      ],
+      "sha256": "66126a9101706761546ebf2f0a0a3ed967830bb953a43c3ed5b87cb69a38a438",
+      "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 37,
+      "samples": 16,
+      "emissiveSamplingMode": 0,
+      "mean": 0.05517411781454484,
+      "rgb": [
+        0.09458420196779116,
+        0.04729210098389558,
+        0.02364605049194779
+      ],
+      "sha256": "7a797ce9a7bb11ca19d96bdd3b2161fd7de0b88dadfd85895d1eb9393b3cfde7",
+      "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 53,
+      "samples": 16,
+      "emissiveSamplingMode": 0,
+      "mean": 0.0558162417027764,
+      "rgb": [
+        0.09568498577618811,
+        0.04784249288809406,
+        0.02392124644404703
+      ],
+      "sha256": "7f1080b5c7aab8fa8b18984fb00507dc900b59c75e1db1f2ba10a175a5a5dbd0",
+      "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 11,
+      "samples": 64,
+      "emissiveSamplingMode": 0,
+      "mean": 0.055532947851550794,
+      "rgb": [
+        0.09519933917408707,
+        0.047599669587043536,
+        0.023799834793521768
+      ],
+      "sha256": "079360e6f24e2c561c486aa360c1f639360561090dfbe20c3197505c71ee00f5",
+      "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 23,
+      "samples": 64,
+      "emissiveSamplingMode": 0,
+      "mean": 0.05522124490873163,
+      "rgb": [
+        0.09466499127211137,
+        0.04733249563605568,
+        0.02366624781802784
+      ],
+      "sha256": "1c8141cafd781066333ba4faa03382e64ad55043f87bead56e72f527047fffb0",
+      "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 37,
+      "samples": 64,
+      "emissiveSamplingMode": 0,
+      "mean": 0.05547895011117513,
+      "rgb": [
+        0.09510677161915737,
+        0.047553385809578685,
+        0.023776692904789343
+      ],
+      "sha256": "bbe7fd1b241fb0dfca9d7b5015430a8aaef63929e0e77b6fc35eeb46dd46ccbc",
+      "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 53,
+      "samples": 64,
+      "emissiveSamplingMode": 0,
+      "mean": 0.055935745303618965,
+      "rgb": [
+        0.09588984909191822,
+        0.04794492454595911,
+        0.023972462272979556
+      ],
+      "sha256": "70002e5b9922c8f916977405e03693f2830f9c9afe06bedb6a538c790dd5186f",
+      "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 11,
+      "samples": 256,
+      "emissiveSamplingMode": 0,
+      "mean": 0.05578168438319153,
+      "rgb": [
+        0.09562574465689977,
+        0.047812872328449885,
+        0.023906436164224942
+      ],
+      "sha256": "b1cd84ee9d69e4c934ba4a2f97bda2b5c40316e3c3bdb6e3136d5fc5fd28b0a8",
+      "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 23,
+      "samples": 256,
+      "emissiveSamplingMode": 0,
+      "mean": 0.05552622502030621,
+      "rgb": [
+        0.09518781432052492,
+        0.04759390716026246,
+        0.02379695358013123
+      ],
+      "sha256": "1acac8137d4f6c479125fc58ff267bcebb39d277da7c189e6b0ab677fe146223",
+      "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 37,
+      "samples": 256,
+      "emissiveSamplingMode": 0,
+      "mean": 0.055732274553671836,
+      "rgb": [
+        0.09554104209200887,
+        0.04777052104600443,
+        0.023885260523002216
+      ],
+      "sha256": "10965c524d5f875923396d3fe41c2a9b8c89c5fe16db84a5cf5478baf8dd6196",
+      "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 53,
+      "samples": 256,
+      "emissiveSamplingMode": 0,
+      "mean": 0.055744839668553446,
+      "rgb": [
+        0.09556258228894876,
+        0.04778129114447438,
+        0.02389064557223719
+      ],
+      "sha256": "71b4e1082f585a35b37b2cf32d02513e404ea0f8eab89a8fe0badc04760e3c66",
+      "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 11,
+      "samples": 16,
+      "emissiveSamplingMode": 1,
+      "mean": 0.05570618368407546,
+      "rgb": [
+        0.09549631488698651,
+        0.047748157443493255,
+        0.023874078721746628
+      ],
+      "sha256": "de56c8a0bf3a15a78b03c7903031e299600e928ef7a62df7563dfdde41cdf2ec",
+      "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 23,
+      "samples": 16,
+      "emissiveSamplingMode": 1,
+      "mean": 0.0556271223448069,
+      "rgb": [
+        0.09536078116252611,
+        0.047680390581263055,
+        0.023840195290631527
+      ],
+      "sha256": "80e9a0f23ab97963e9d6ab4197ba153145e91bee8a53fe741288a99633cb762d",
+      "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 37,
+      "samples": 16,
+      "emissiveSamplingMode": 1,
+      "mean": 0.055669852441648494,
+      "rgb": [
+        0.09543403275711171,
+        0.047717016378555854,
+        0.023858508189277927
+      ],
+      "sha256": "36c87e5143da43924daee48eba7cc1fd69b3d9c5223aa53d43aee9da0ac10b60",
+      "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 53,
+      "samples": 16,
+      "emissiveSamplingMode": 1,
+      "mean": 0.055659640767771634,
+      "rgb": [
+        0.09541652703046566,
+        0.04770826351523283,
+        0.023854131757616415
+      ],
+      "sha256": "2371adedd233e2a1d8d1c2c7df8eb6a5d1ded4b7c5b10325ad3470795a8a1572",
+      "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 11,
+      "samples": 64,
+      "emissiveSamplingMode": 1,
+      "mean": 0.05567601178548406,
+      "rgb": [
+        0.09544459163225838,
+        0.04772229581612919,
+        0.023861147908064595
+      ],
+      "sha256": "c2be44db59035a66f26a7ff9b385fc2e3691e9072c5e164a09725479021bba80",
+      "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 23,
+      "samples": 64,
+      "emissiveSamplingMode": 1,
+      "mean": 0.055631665001783404,
+      "rgb": [
+        0.09536856857448583,
+        0.04768428428724292,
+        0.02384214214362146
+      ],
+      "sha256": "08aa80eafb530f5e4e35ed3f4c8fb30560c2e7e26e329b66a2ed6c7fdfd06b41",
+      "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 37,
+      "samples": 64,
+      "emissiveSamplingMode": 1,
+      "mean": 0.055651232047542486,
+      "rgb": [
+        0.0954021120815014,
+        0.0477010560407507,
+        0.02385052802037535
+      ],
+      "sha256": "8a7b8e3d3e7eaefa984cd7e6f6a0d361602c5f9eb618800d882579507190d007",
+      "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 53,
+      "samples": 64,
+      "emissiveSamplingMode": 1,
+      "mean": 0.05564806817862215,
+      "rgb": [
+        0.0953966883062094,
+        0.0476983441531047,
+        0.02384917207655235
+      ],
+      "sha256": "25be278690bb3d56ced85c502a2052924428909d99473455b2dbea5f04a96c4a",
+      "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 11,
+      "samples": 256,
+      "emissiveSamplingMode": 1,
+      "mean": 0.0556603709214869,
+      "rgb": [
+        0.09541777872254897,
+        0.04770888936127449,
+        0.023854444680637243
+      ],
+      "sha256": "64f6c6fac1eeb7c290566fe96c2f2e3e14c4134a9c5a3f674bbe157ca484ead4",
+      "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 23,
+      "samples": 256,
+      "emissiveSamplingMode": 1,
+      "mean": 0.055667832368271775,
+      "rgb": [
+        0.09543056977418019,
+        0.04771528488709009,
+        0.023857642443545046
+      ],
+      "sha256": "8827626626ca1bffc1fbe868ecbd1d6060c3ff6a52a771ba14edad4ba916946b",
+      "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 37,
+      "samples": 256,
+      "emissiveSamplingMode": 1,
+      "mean": 0.055665665553230305,
+      "rgb": [
+        0.0954268552341091,
+        0.04771342761705455,
+        0.023856713808527275
+      ],
+      "sha256": "6c9eaae4d53a80286067d1d4848a8936b20977df0d58e5b3553b34ecaf7036e5",
+      "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 53,
+      "samples": 256,
+      "emissiveSamplingMode": 1,
+      "mean": 0.05566566467359735,
+      "rgb": [
+        0.09542685372616688,
+        0.04771342686308344,
+        0.02385671343154172
+      ],
+      "sha256": "c480221b03009571903306b6d7753c343b4ba6536413f90346f2285e86631de4",
+      "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 11,
+      "samples": 16,
+      "emissiveSamplingMode": 2,
+      "mean": 0.05567956119997083,
+      "rgb": [
+        0.09545067634280713,
+        0.047725338171403564,
+        0.023862669085701782
+      ],
+      "sha256": "3ef1e48bff63f8ed257c79051bef45338930d264498969c443ceed99244e6bac",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 23,
+      "samples": 16,
+      "emissiveSamplingMode": 2,
+      "mean": 0.05565735427914357,
+      "rgb": [
+        0.09541260733567469,
+        0.047706303667837346,
+        0.023853151833918673
+      ],
+      "sha256": "eb2b9d1b90669819cedc1ab16c48d0ef6dbe0cb15836228877f384e813c0a164",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 37,
+      "samples": 16,
+      "emissiveSamplingMode": 2,
+      "mean": 0.05565525964175322,
+      "rgb": [
+        0.0954090165287198,
+        0.0477045082643599,
+        0.02385225413217995
+      ],
+      "sha256": "0f50f87dff8ccfa132316fb3a017a8fddcc726f48132d3cf1e53953083861010",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 53,
+      "samples": 16,
+      "emissiveSamplingMode": 2,
+      "mean": 0.05567608279276707,
+      "rgb": [
+        0.09544471335902927,
+        0.04772235667951463,
+        0.023861178339757316
+      ],
+      "sha256": "0438388f64b8659c4b8b09ffb74161f193338c8e996c9805ae1f45134cebc463",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 11,
+      "samples": 64,
+      "emissiveSamplingMode": 2,
+      "mean": 0.05567907303126655,
+      "rgb": [
+        0.09544983948217123,
+        0.047724919741085614,
+        0.023862459870542807
+      ],
+      "sha256": "c372a6551e508fe52a8d73faf63adb9c1ed1d9e541e616fb7392b4920674130d",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 23,
+      "samples": 64,
+      "emissiveSamplingMode": 2,
+      "mean": 0.05563606357827666,
+      "rgb": [
+        0.09537610899133142,
+        0.04768805449566571,
+        0.023844027247832855
+      ],
+      "sha256": "0026ad228888dcf1ad463fe29b5e13e56a3ce0e16bdf9021dc78852adad41896",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 37,
+      "samples": 64,
+      "emissiveSamplingMode": 2,
+      "mean": 0.05565354569125702,
+      "rgb": [
+        0.09540607832786918,
+        0.04770303916393459,
+        0.023851519581967295
+      ],
+      "sha256": "7023fd67b35d8708ce9ef594ab9b29d614ddd6dc1029f0fe13718f2ee3179a1e",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 53,
+      "samples": 64,
+      "emissiveSamplingMode": 2,
+      "mean": 0.05564655325648952,
+      "rgb": [
+        0.09539409129683918,
+        0.04769704564841959,
+        0.023848522824209795
+      ],
+      "sha256": "fd49606f60cbe8679e3f1f71d66eed0f4840339d9566d3c3e409a01cc12f38ce",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 11,
+      "samples": 256,
+      "emissiveSamplingMode": 2,
+      "mean": 0.05565923240055781,
+      "rgb": [
+        0.09541582697238482,
+        0.04770791348619241,
+        0.023853956743096205
+      ],
+      "sha256": "fdfa13e1c3973aea124b6b37042c4989188f6646cfe89d2ee8d862c847632293",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 23,
+      "samples": 256,
+      "emissiveSamplingMode": 2,
+      "mean": 0.055657731866631366,
+      "rgb": [
+        0.09541325462851091,
+        0.047706627314255456,
+        0.023853313657127728
+      ],
+      "sha256": "5d643b2874a33484dfb72d3b3d78d5e17d55cbfa421a20af95bf0a69b9b4f8ac",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 37,
+      "samples": 256,
+      "emissiveSamplingMode": 2,
+      "mean": 0.05566318430070775,
+      "rgb": [
+        0.09542260165835614,
+        0.04771130082917807,
+        0.023855650414589036
+      ],
+      "sha256": "07f34e50ec4777ddb4c0adcb816ce0d3b0560fbd78230b532fe8fcb2f9ec18ee",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    },
+    {
+      "seed": 53,
+      "samples": 256,
+      "emissiveSamplingMode": 2,
+      "mean": 0.055668737391746013,
+      "rgb": [
+        0.09543212124299316,
+        0.04771606062149658,
+        0.02385803031074829
+      ],
+      "sha256": "9f1425228f52480ee9950a35d709cc92074c0f0068159cb2518dd2a0e374af6d",
+      "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "warningCount": 3,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready"
+    }
+  ],
+  "cohorts": [
+    {
+      "mode": 0,
+      "samples": 16,
+      "seedVariance": 0.0009061111256700578,
+      "meanAgreement": {
+        "status": "passed",
+        "measuredMean": 0.055429242395784215,
+        "relativeDifference": 0.0053054589256184,
+        "fourStandardErrorRelative": 0.016760679841003382
+      },
+      "channelAgreements": [
+        {
+          "status": "passed",
+          "measuredMean": 0.09502155839277293,
+          "relativeDifference": 0.005305458925618511,
+          "fourStandardErrorRelative": 0.016760679841003337
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.047510779196386466,
+          "relativeDifference": 0.005305458925618511,
+          "fourStandardErrorRelative": 0.016760679841003337
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.023755389598193233,
+          "relativeDifference": 0.005305458925618511,
+          "fourStandardErrorRelative": 0.016760679841003337
+        }
+      ]
+    },
+    {
+      "mode": 0,
+      "samples": 64,
+      "seedVariance": 0.0002248442000466548,
+      "meanAgreement": {
+        "status": "passed",
+        "measuredMean": 0.05554222204376913,
+        "relativeDifference": 0.0032780049275885625,
+        "fourStandardErrorRelative": 0.010605987240355007
+      },
+      "channelAgreements": [
+        {
+          "status": "passed",
+          "measuredMean": 0.09521523778931851,
+          "relativeDifference": 0.0032780049275885625,
+          "fourStandardErrorRelative": 0.010605987240354936
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.047607618894659254,
+          "relativeDifference": 0.0032780049275885625,
+          "fourStandardErrorRelative": 0.010605987240354936
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.023803809447329627,
+          "relativeDifference": 0.0032780049275885625,
+          "fourStandardErrorRelative": 0.010605987240354936
+        }
+      ]
+    },
+    {
+      "mode": 0,
+      "samples": 256,
+      "seedVariance": 0.000057016130555103686,
+      "meanAgreement": {
+        "status": "passed",
+        "measuredMean": 0.05569625590643076,
+        "relativeDifference": 0.0005138206142598634,
+        "fourStandardErrorRelative": 0.004137355725495455
+      },
+      "channelAgreements": [
+        {
+          "status": "passed",
+          "measuredMean": 0.09547929583959558,
+          "relativeDifference": 0.0005138206142598634,
+          "fourStandardErrorRelative": 0.004137355725495492
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.04773964791979779,
+          "relativeDifference": 0.0005138206142598634,
+          "fourStandardErrorRelative": 0.004137355725495492
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.023869823959898895,
+          "relativeDifference": 0.0005138206142598634,
+          "fourStandardErrorRelative": 0.004137355725495492
+        }
+      ]
+    },
+    {
+      "mode": 1,
+      "samples": 16,
+      "seedVariance": 0.0000092640101207812,
+      "meanAgreement": {
+        "status": "passed",
+        "measuredMean": 0.05566569980957562,
+        "relativeDifference": 0.001062159025983389,
+        "fourStandardErrorRelative": 0.001168719444546408
+      },
+      "channelAgreements": [
+        {
+          "status": "passed",
+          "measuredMean": 0.0954269139592725,
+          "relativeDifference": 0.001062159025983278,
+          "fourStandardErrorRelative": 0.0011687194445464788
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.04771345697963625,
+          "relativeDifference": 0.001062159025983278,
+          "fourStandardErrorRelative": 0.0011687194445464788
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.023856728489818124,
+          "relativeDifference": 0.001062159025983278,
+          "fourStandardErrorRelative": 0.0011687194445464788
+        }
+      ]
+    },
+    {
+      "mode": 1,
+      "samples": 64,
+      "seedVariance": 0.0000023603107516764014,
+      "meanAgreement": {
+        "status": "passed",
+        "measuredMean": 0.055651744253358025,
+        "relativeDifference": 0.0013125957086315143,
+        "fourStandardErrorRelative": 0.0006571886915358011
+      },
+      "channelAgreements": [
+        {
+          "status": "passed",
+          "measuredMean": 0.09540299014861375,
+          "relativeDifference": 0.0013125957086315143,
+          "fourStandardErrorRelative": 0.0006571886915357598
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.04770149507430688,
+          "relativeDifference": 0.0013125957086315143,
+          "fourStandardErrorRelative": 0.0006571886915357598
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.02385074753715344,
+          "relativeDifference": 0.0013125957086315143,
+          "fourStandardErrorRelative": 0.0006571886915357598
+        }
+      ]
+    },
+    {
+      "mode": 1,
+      "samples": 256,
+      "seedVariance": 5.777861960968169e-7,
+      "meanAgreement": {
+        "status": "passed",
+        "measuredMean": 0.05566488337914658,
+        "relativeDifference": 0.001076810117281668,
+        "fourStandardErrorRelative": 0.00011402641484831137
+      },
+      "channelAgreements": [
+        {
+          "status": "passed",
+          "measuredMean": 0.09542551436425128,
+          "relativeDifference": 0.001076810117281557,
+          "fourStandardErrorRelative": 0.00011402641484831818
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.04771275718212564,
+          "relativeDifference": 0.001076810117281557,
+          "fourStandardErrorRelative": 0.00011402641484831818
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.02385637859106282,
+          "relativeDifference": 0.001076810117281557,
+          "fourStandardErrorRelative": 0.00011402641484831818
+        }
+      ]
+    },
+    {
+      "mode": 2,
+      "samples": 16,
+      "seedVariance": 0.000009438774179028768,
+      "meanAgreement": {
+        "status": "passed",
+        "measuredMean": 0.05566706447840867,
+        "relativeDifference": 0.0010376696304957855,
+        "fourStandardErrorRelative": 0.0004497749176842295
+      },
+      "channelAgreements": [
+        {
+          "status": "passed",
+          "measuredMean": 0.09542925339155772,
+          "relativeDifference": 0.0010376696304956745,
+          "fourStandardErrorRelative": 0.00044977491768420045
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.04771462669577886,
+          "relativeDifference": 0.0010376696304956745,
+          "fourStandardErrorRelative": 0.00044977491768420045
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.02385731334788943,
+          "relativeDifference": 0.0010376696304956745,
+          "fourStandardErrorRelative": 0.00044977491768420045
+        }
+      ]
+    },
+    {
+      "mode": 2,
+      "samples": 64,
+      "seedVariance": 0.000002405170428712408,
+      "meanAgreement": {
+        "status": "passed",
+        "measuredMean": 0.055653808889322434,
+        "relativeDifference": 0.0012755451909924886,
+        "fourStandardErrorRelative": 0.0006571955758407833
+      },
+      "channelAgreements": [
+        {
+          "status": "passed",
+          "measuredMean": 0.09540652952455275,
+          "relativeDifference": 0.0012755451909923776,
+          "fourStandardErrorRelative": 0.0006571955758408105
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.047703264762276376,
+          "relativeDifference": 0.0012755451909923776,
+          "fourStandardErrorRelative": 0.0006571955758408105
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.023851632381138188,
+          "relativeDifference": 0.0012755451909923776,
+          "fourStandardErrorRelative": 0.0006571955758408105
+        }
+      ]
+    },
+    {
+      "mode": 2,
+      "samples": 256,
+      "seedVariance": 5.976603144318423e-7,
+      "meanAgreement": {
+        "status": "passed",
+        "measuredMean": 0.055662221489910735,
+        "relativeDifference": 0.0011245785257497642,
+        "fourStandardErrorRelative": 0.0001764068040234571
+      },
+      "channelAgreements": [
+        {
+          "status": "passed",
+          "measuredMean": 0.09542095112556126,
+          "relativeDifference": 0.0011245785257497642,
+          "fourStandardErrorRelative": 0.00017640680402342585
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.04771047556278063,
+          "relativeDifference": 0.0011245785257497642,
+          "fourStandardErrorRelative": 0.00017640680402342585
+        },
+        {
+          "status": "passed",
+          "measuredMean": 0.023855237781390315,
+          "relativeDifference": 0.0011245785257497642,
+          "fourStandardErrorRelative": 0.00017640680402342585
+        }
+      ]
+    }
+  ],
+  "curves": [
+    {
+      "mode": 0,
+      "status": "passed",
+      "variances": [
+        0.0009061111256700578,
+        0.0002248442000466548,
+        0.000057016130555103686
+      ],
+      "adjacentRatios": [
+        0.24814197031339322,
+        0.25358061512493063
+      ],
+      "finalToInitialRatio": 0.06292399347038254,
+      "logVarianceSlope": -0.9975614888736436,
+      "policy": {
+        "maxAdjacentRatio": 0.65,
+        "maxFinalToInitialRatio": 0.25,
+        "maxSlope": -0.5
+      }
+    },
+    {
+      "mode": 1,
+      "status": "passed",
+      "variances": [
+        0.0000092640101207812,
+        0.0000023603107516764014,
+        5.777861960968169e-7
+      ],
+      "adjacentRatios": [
+        0.25478283388116213,
+        0.24479242645759527
+      ],
+      "finalToInitialRatio": 0.0623689081255121,
+      "logVarianceSlope": -1.0007572968705571,
+      "policy": {
+        "maxAdjacentRatio": 0.65,
+        "maxFinalToInitialRatio": 0.25,
+        "maxSlope": -0.5
+      }
+    },
+    {
+      "mode": 2,
+      "status": "passed",
+      "variances": [
+        0.000009438774179028768,
+        0.000002405170428712408,
+        5.976603144318423e-7
+      ],
+      "adjacentRatios": [
+        0.25481809216881757,
+        0.2484897981852354
+      ],
+      "finalToInitialRatio": 0.06331969629697619,
+      "logVarianceSlope": -0.9953004634860622,
+      "policy": {
+        "maxAdjacentRatio": 0.65,
+        "maxFinalToInitialRatio": 0.25,
+        "maxSlope": -0.5
+      }
+    }
+  ],
+  "pairedComparisons": [
+    {
+      "samples": 16,
+      "mode": 1,
+      "status": "passed",
+      "referenceMean": 0.055429242395784215,
+      "candidateMean": 0.05566569980957562,
+      "relativeDifference": 0.004265932629982975,
+      "pairedStandardError": 0.00022194445516287683,
+      "fourStandardErrorRelative": 0.01601641628641544,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    },
+    {
+      "samples": 16,
+      "mode": 2,
+      "status": "passed",
+      "referenceMean": 0.055429242395784215,
+      "candidateMean": 0.05566706447840867,
+      "relativeDifference": 0.004290552645954039,
+      "pairedStandardError": 0.00022757294272067967,
+      "fourStandardErrorRelative": 0.01642259088412063,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    },
+    {
+      "samples": 64,
+      "mode": 1,
+      "status": "passed",
+      "referenceMean": 0.05554222204376913,
+      "candidateMean": 0.055651744253358025,
+      "relativeDifference": 0.001971873028460884,
+      "pairedStandardError": 0.00014530734044462327,
+      "fourStandardErrorRelative": 0.010464640059241146,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    },
+    {
+      "samples": 64,
+      "mode": 2,
+      "status": "passed",
+      "referenceMean": 0.05554222204376913,
+      "candidateMean": 0.055653808889322434,
+      "relativeDifference": 0.002009045397308269,
+      "pairedStandardError": 0.00014655381749121348,
+      "fourStandardErrorRelative": 0.010554407951178055,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    },
+    {
+      "samples": 256,
+      "mode": 1,
+      "status": "passed",
+      "referenceMean": 0.05569625590643076,
+      "candidateMean": 0.05566488337914658,
+      "relativeDifference": 0.0005632789273461846,
+      "pairedStandardError": 0.00005883458016757356,
+      "fourStandardErrorRelative": 0.004225388526396831,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    },
+    {
+      "samples": 256,
+      "mode": 2,
+      "status": "passed",
+      "referenceMean": 0.05569625590643076,
+      "candidateMean": 0.055662221489910735,
+      "relativeDifference": 0.0006110718928252178,
+      "pairedStandardError": 0.00005643594616893988,
+      "fourStandardErrorRelative": 0.004053123158853033,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    }
+  ],
+  "commit": "1205caf188a73fd041290bdcff193cdaecfb0945",
+  "executable": "C:\\work\\RtPbrSurvey-work-3\\build\\Debug\\RtPbrSurvey.exe",
+  "executableSha256": "64741214ef635b9fce6647a010be56d84ad7441d8543b689422635d4530b66a8",
+  "sceneSha256": "d33c52b50480b80853763a7ea26a323490a94b4b092ff7f2ec2f4f3069ccdf21",
+  "emitterSha256": "8852c93c16e9c1a5652fdbb92a45adcfa03a16056ff565b53a4239855acde659",
+  "sourceSha256": {
+    "Shaders/shaders_PathTracing.hlsl": "c368e77350df4e81b9e012bce1b07317a6ad75077bcf2d4b6231c77d6854fc0e",
+    "Tests/PathTracing/validate_emissive.py": "336148aa2ffb63d918ecc9e9a5414dd256d76096bfdc4a6d710f581b5526e320",
+    "Tests/PathTracing/validate_emissive_convergence.py": "d72c7b981a09ea9b53721f1912ef88c14ab9d4cb1586c05b090bf7e1aa52880e"
+  },
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "limitation": "Inter-seed ROI variance measures stochastic noise, not deterministic bias. Mean reference uses nine representative ROI positions; no denoiser, RR or motion.",
+  "repeat": {
+    "sha256": "fdfa13e1c3973aea124b6b37042c4989188f6646cfe89d2ee8d862c847632293",
+    "originalSha256": "fdfa13e1c3973aea124b6b37042c4989188f6646cfe89d2ee8d862c847632293",
+    "passed": true
+  },
+  "evaluationDate": "2026-10-06",
+  "captureCount": 37,
+  "tests": {
+    "python": "96/96",
+    "ctest": "25/25"
+  },
+  "logCheck": {
+    "errorCorruptionCount": 0,
+    "warningKind": "Existing buffer initial-state warnings"
+  },
+  "archiveNote": "Reuses numbered baseline scene 01; captured source scene uses preset.json whereas the archived scene uses render-preset.json and adds a Japanese description. RGB reference channels correspond to R/G/B."
+}
