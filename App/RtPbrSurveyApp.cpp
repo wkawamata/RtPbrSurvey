@@ -810,6 +810,11 @@ void RtPbrSurveyApp::OnIdle()
             if (status.state == RtPbrSurvey::CaptureSessionState::Failed)
             {
                 m_exitCode = 1;
+                if (m_logFile)
+                {
+                    fprintf(m_logFile, "[ERROR] %s\n", m_screenshotStatus.c_str());
+                    fflush(m_logFile);
+                }
             }
             if (m_commandLineOptions.exitAfterCapture)
             {

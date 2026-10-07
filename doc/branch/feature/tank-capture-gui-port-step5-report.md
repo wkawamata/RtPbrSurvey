@@ -105,6 +105,23 @@ Alt+F4のSave and Continueが失敗しても終了せず、Cancelで編集へ戻
 App/SceneEditorUi.cppでSave failedをダイアログが開いている間毎フレーム表示するよう修正した。
 Debugビルド成功。ログ: bin/CapturePort/step5-modal-error-build.log。再起動した修正版でSave and Continueの失敗理由と保存先がダイアログに残ることを実画面で確認し、Discardで終了した。
 
+## 追加確認: 4形式のCLI保存失敗
+
+前回の修正と検証記録を c74c2e8 にCommitした。Pushはしていない。
+Tests/CaptureSession/validate_standalone_save_failures.py を追加し、通常ファイルblocker.txtの配下を撮影出力先に指定する。
+既存でない成果物ルートだけを使用し、PNG/EXR/GIF/MP4を順番に起動する。GUI入力は行わない。
+
+最初のrun1ではPNGの終了コード1を確認したが、連続撮影失敗の理由がLogToFileに出力されず、検証は失敗した。
+App/RtPbrSurveyApp.cppのOnIdleでCaptureSessionState::Failedを処理するとき、[ERROR] Capture session failedと理由をログに記録してflushするよう修正した。
+
+修正後の bin/CapturePort/step5-save-failures-run2 は4形式すべて通過。
+終了コード1、理由のログ出力、D3D12 ERROR/CORRUPTIONなし、blocker.txtを上書きしないことを確認した。
+PNG/EXR/GIFはcreate_directories失敗、MP4はUnable to create MP4 output folderを記録する。
+report.jsonに再現コマンド、実行ファイルSHA256、基点Commit、終了コードとエラーを保持する。
+これはCLIの実行時保存失敗確認であり、GUIの不正設定入力や失敗後再Startの確認を代替しない。
+Debugビルド成功（bin/CapturePort/step5-session-failure-build.log、既存警告あり）。CaptureSession/Screenshot/Mp4EncoderのCTest 3件通過。
+この追加修正・スクリプト・報告書更新は未コミット。
+
 ## 残る受け入れ確認
 
 Step 5全体を完了扱いにはしない。
