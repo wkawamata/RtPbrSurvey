@@ -194,6 +194,58 @@ bool TestStableStopButton()
     return passed;
 }
 
+bool TestStartButtonAvailability()
+{
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = ImVec2(800, 800);
+    io.DeltaTime = 1.0f / 60.0f;
+    unsigned char* pixels = nullptr;
+    int width = 0;
+    int height = 0;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+
+    RtPbrSurvey::CaptureSessionStatus status;
+    RtPbrSurvey::CaptureSessionUiState state;
+    ImVec2 startPosition;
+    const auto draw = [&status, &state, &startPosition](const char* startBlockedReason)
+    {
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
+        ImGui::SetNextWindowSize(ImVec2(440, 780));
+        ImGui::Begin("Capture start test", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+        const ImVec2 origin = ImGui::GetCursorScreenPos();
+        startPosition = ImVec2(origin.x + 5.0f, origin.y + ImGui::GetFrameHeight() * 0.5f);
+        const RtPbrSurvey::CaptureSessionUiAction action =
+            RtPbrSurvey::CaptureSessionUi::Draw(status, state, startBlockedReason);
+        ImGui::End();
+        ImGui::Render();
+        return action;
+    };
+    const auto clickStart = [&draw, &startPosition](const char* startBlockedReason)
+    {
+        draw(startBlockedReason);
+        ImGui::GetIO().AddMousePosEvent(startPosition.x, startPosition.y);
+        draw(startBlockedReason);
+        ImGui::GetIO().AddMouseButtonEvent(0, true);
+        draw(startBlockedReason);
+        ImGui::GetIO().AddMouseButtonEvent(0, false);
+        return draw(startBlockedReason);
+    };
+
+    bool passed = Check(clickStart(nullptr) == RtPbrSurvey::CaptureSessionUiAction::Start,
+                        "Start is available after a terminal capture status");
+    status.state = RtPbrSurvey::CaptureSessionState::Recording;
+    passed &= Check(clickStart(nullptr) == RtPbrSurvey::CaptureSessionUiAction::None,
+                    "Start is disabled while recording");
+    status.state = RtPbrSurvey::CaptureSessionState::Failed;
+    passed &= Check(clickStart("A screenshot request is still saving.") == RtPbrSurvey::CaptureSessionUiAction::None,
+                    "Start is disabled while the host capture gate is blocked");
+    ImGui::DestroyContext();
+    return passed;
+}
+
 bool TestOutputOrderAndStopDrain()
 {
     RtPbrSurvey::CaptureSession session;
@@ -430,6 +482,10 @@ bool TestOutputFailureCompletesCleanup()
     passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Failed,
                     "output failure reaches failed after cleanup");
     passed &= Check(session.GetStatus().error == "write failed", "output failure is retained in status");
+    passed &= Check(session.Start(MakeConfig(RtPbrSurvey::CaptureSessionClock::RealTime), error),
+                    "a failed capture session can be started again");
+    passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Recording,
+                    "restart resets the terminal failure state");
     return passed;
 }
 
@@ -546,7 +602,7 @@ bool TestCaptureRequestGate()
 
 int main()
 {
-    return TestMouseRegionCoordinates() && TestMouseRegionInteraction() && TestStableOutputPath() && TestStableStopButton() && TestOutputOrderAndStopDrain() && TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
+    return TestMouseRegionCoordinates() && TestMouseRegionInteraction() && TestStableOutputPath() && TestStableStopButton() && TestStartButtonAvailability() && TestOutputOrderAndStopDrain() && TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
                    TestValidationAndLegacyCli() && TestGifOutputPathDoesNotOverwrite() && TestGifMetadataEncoding() && TestOutputFailureCompletesCleanup() && TestWarmupExcludedFromDuration() &&
                    TestMismatchedResultDoesNotCompleteSession() && TestCaptureRequestGate() ?
         0 :

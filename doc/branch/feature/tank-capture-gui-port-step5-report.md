@@ -122,6 +122,27 @@ report.jsonに再現コマンド、実行ファイルSHA256、基点Commit、終
 Debugビルド成功（bin/CapturePort/step5-session-failure-build.log、既存警告あり）。CaptureSession/Screenshot/Mp4EncoderのCTest 3件通過。
 この追加修正・スクリプト・報告書更新は未コミット。
 
+## 2026-10-08 継続: GUI 制御の回帰と保存失敗の再確認
+
+`codex/capture-gui-step5-completion` を最新 main (`49aca62`) から作成した。
+
+`Tests/CaptureSessionTests.cpp` に次の focused regression を追加した。
+
+- Capture Session が `Failed` の terminal state から再 Start でき、次の Start が `Recording` に戻る。
+- Start は terminal status では有効、`Recording` 中と host capture gate が理由付きで block している間は無効である。
+- 既存の ImGui synthetic click を利用し、可変高 status 表示があっても Start/Stop の操作契約を独立して確認する。
+
+CMake の `RtPbrSurvey.CaptureSession` は通過した。Debug x64 MSBuild は成功した。
+最初のビルドは中断済みの generated `obj/x64/Debug/vc143.pdb` と競合したため、生成 PDB のみを再作成した。
+node editor / ImGuizmo の既存 object について LNK4099 の debug-info warning は残るが、リンクと実行ファイル生成は成功した。
+
+`Tests/CaptureSession/validate_standalone_save_failures.py` を新規 output root
+`bin/CapturePort/step5-completion-save-failures-20261008` で再実行した。PNG/EXR/GIF/MP4
+すべてで期待どおり終了コード 1、`[ERROR] Capture session failed`、D3D12 ERROR/CORRUPTION なしを確認した。
+
+この実行環境の Computer Use は起動済み RtPbrSurvey native window を列挙できず、次の実マウス GUI
+受け入れ項目は代替したものではない。別の GUI 操作可能環境で継続する。
+
 ## 残る受け入れ確認
 
 Step 5全体を完了扱いにはしない。
