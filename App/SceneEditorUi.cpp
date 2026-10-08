@@ -164,6 +164,11 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         return;
     }
 
+    if (ImGui::CollapsingHeader("Capture Session"))
+    {
+        app.DrawCaptureSessionUi();
+    }
+
     auto rebuildPreview = [&app]()
     {
         std::string error;

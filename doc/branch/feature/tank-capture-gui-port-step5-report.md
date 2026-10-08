@@ -140,17 +140,44 @@ node editor / ImGuizmo の既存 object について LNK4099 の debug-info warn
 `bin/CapturePort/step5-completion-save-failures-20261008` で再実行した。PNG/EXR/GIF/MP4
 すべてで期待どおり終了コード 1、`[ERROR] Capture session failed`、D3D12 ERROR/CORRUPTION なしを確認した。
 
-この実行環境の Computer Use は起動済み RtPbrSurvey native window を列挙できず、次の実マウス GUI
-受け入れ項目は代替したものではない。別の GUI 操作可能環境で継続する。
+native window の列挙失敗は、native 操作無効の別 API を選んだ操作側の誤りだった。
+Windows 用 `@oai/sky` API で RtPbrSurvey window を取得し、実マウス GUI 検証を再開した。
+SceneEditor で新規 Document に Cube を追加し、検証専用の生成物フォルダへ保存した。
+SceneEditor の UI は共通 Capture Session パネルを表示していなかったため、編集禁止範囲の外へ
+パネルを追加した。これにより撮影中にも Stop と status/error を参照できる。
+
+### 今回の実 GUI 確認
+
+- SceneEditor の Capture Session パネル表示。
+- ROI 選択を右クリックで Cancel。ROI 未設定のまま通常操作へ復帰。
+- FPS 0 で Start を拒否し、`framesPerSecond must be greater than zero` を表示。
+- 書き込み不可の working directory に相対出力し、MP4 が `Failed` と
+  `Unable to create MP4 output folder: Access is denied.` を表示。アプリは継続。
+- 絶対出力先を生成物フォルダに変更し、Failed から MP4 再 Start に成功。
+- Recording 中は撮影設定と SceneEditor の Add Empty / Add Cube などが無効。
+  Add Empty への実クリックでも scene に変化はなかった。
+- GUI Stop 後に Completed、accepted/saved 16/16、dropped 0。編集ボタンが復帰。
+- ROI を右下端までドラッグし、X 1399、Y 669、Width 519、Height 410。
+  1920x1080 の出力範囲を超えない。画面外への drag は未確認。
+
+生成 MP4: `bin/CapturePort/step5-gui-20261008/capture.mp4`。
+Media Foundation inspector は H.264 1920x1080、全16フレームをデコードした。
+今回は fixed-step OFF の実時間モードであるため、固定刻み時刻を前提とする
+inspector の FPS/時刻/duration assertion は不一致となった。固定刻み検証成功とは扱わない。
+
+追加変更後の Debug x64 MSBuild 成功。vcpkg 自動 import がない shell では
+`ForceImportAfterCppProps` / `ForceImportBeforeCppTargets` を既存 vcpkg props/targets に
+指定してビルドした。CMake Mp4EncoderTests を生成後、Screenshot / CaptureSession /
+Mp4Encoder の CTest 3/3 通過。
 
 ## 残る受け入れ確認
 
 Step 5全体を完了扱いにはしない。
 
-- 撮影中の編集拒否、保留Preview反映、GUIスライダー操作と保存中出力の関係。
+- 保留Preview反映、GUIスライダー操作と保存中出力の関係。撮影中の編集拒否は今回確認済み。
 - MP4撮影中のシーン切替。Step 4の既存13ケースは2026-10-05の結果で、MP4統合後の再実行結果ではない。
-- GUIでの不正設定/保存失敗。単体CTestの拒否・失敗テストと区別する。
-- 実マウスROIの右クリックCancel、画面境界外ドラッグ/クランプ。
+- GUIでの形式別の不正設定/保存失敗。FPS 0 と MP4 保存失敗からの再Startは今回確認済み。
+- 実マウスROIの画面境界外ドラッグ/クランプ。右クリックCancelと右下端は今回確認済み。
 - 全描画方式の見た目、長時間/高解像度MP4、実再生アプリの操作確認。今回のMP4再生検証はMedia Foundationによる全デコード。
 
 生成物はbin配下に保持し、Commit対象にしない。
