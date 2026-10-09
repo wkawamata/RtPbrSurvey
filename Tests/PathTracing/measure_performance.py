@@ -20,6 +20,33 @@ from validate_part1 import write_json
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE = dict(width=1920, height=1080, samplesPerFrame=1, maxBounces=2, lights=1, stacks=24, slices=32)
+HIDDEN_PROCESS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
+def foreground_pid():
+    user = ctypes.windll.user32
+    user.GetForegroundWindow.restype = wintypes.HWND
+    user.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    pid = wintypes.DWORD()
+    user.GetWindowThreadProcessId(user.GetForegroundWindow(), ctypes.byref(pid))
+    return pid.value
+
+
+def other_renderers(own_pid=None):
+    command = ["powershell", "-NoProfile", "-Command",
+        "@(Get-Process RtPbrSurvey -ErrorAction SilentlyContinue | Select-Object Id,Path) | ConvertTo-Json -Compress"]
+    run = subprocess.run(command, capture_output=True, text=True, timeout=15, check=True,
+                         creationflags=HIDDEN_PROCESS)
+    processes = json.loads(run.stdout) if run.stdout.strip() else []
+    if isinstance(processes, dict):
+        processes = [processes]
+    return [process for process in processes if process["Id"] != own_pid]
+
+
+def validate_isolation(processes):
+    if processes:
+        raise RuntimeError("Other RtPbrSurvey processes are running; close them before measuring: " +
+                           json.dumps(processes))
 
 
 def cases():
@@ -101,20 +128,23 @@ def power_state():
     for key, command in (
         ("powerScheme", ["powercfg", "/getactivescheme"]),
         ("gpu", ["nvidia-smi", "--query-gpu=name,driver_version,pstate,temperature.gpu,clocks.sm,clocks.mem,power.draw,power.limit", "--format=csv,noheader"])):
-        run = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
+        run = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10,
+                             creationflags=HIDDEN_PROCESS)
         result[key] = dict(exitCode=run.returncode, stdout=run.stdout.strip(), stderr=run.stderr.strip())
     return result
 
 
-def monitor_gpu(stop, log_path, observations):
+def monitor_gpu(stop, log_path, observations, own_pid):
     while not stop.is_set():
         run = subprocess.run(["nvidia-smi", "--query-gpu=timestamp,pstate,temperature.gpu,clocks.sm,clocks.mem,power.draw",
-            "--format=csv,noheader"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
+            "--format=csv,noheader"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10,
+            creationflags=HIDDEN_PROCESS)
         text = log_path.read_text(encoding="utf-8-sig", errors="replace") if log_path.exists() else ""
         frames = re.findall(r"\[GPU\] Frame (\d+):", text)
         observations.append(dict(utc=datetime.now(timezone.utc).isoformat(),
             latestLoggedCpuFrame=int(frames[-1]) if frames else None, exitCode=run.returncode,
-            gpu=run.stdout.strip(), error=run.stderr.strip()))
+            gpu=run.stdout.strip(), error=run.stderr.strip(), otherRenderers=other_renderers(own_pid),
+            foregroundPid=foreground_pid()))
         stop.wait(.5)
 
 
@@ -189,12 +219,14 @@ def resize_own_window(process, width, height):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--exe", type=Path, default=ROOT / "build/Debug/RtPbrSurvey.exe")
     parser.add_argument("--smoke", action="store_true")
     parser.add_argument("--cases", nargs="+", choices=[r["name"] for r in cases()])
     parser.add_argument("--warmup", type=int, default=16)
     parser.add_argument("--frames", type=int, default=32)
     parser.add_argument("--repeats", type=int, default=3)
     args = parser.parse_args()
+    args.exe = args.exe.resolve(strict=True)
     if min(args.warmup, args.frames, args.repeats) <= 0:
         parser.error("Warm-up, measurement frames and repeats must be positive")
     output = args.output.resolve()
@@ -211,8 +243,14 @@ def main():
         measurementObservations=args.frames, repeats=args.repeats, seed=7, cases=selected, runs=[], failures=[], status="running",
         timing="Latest completed GPU PathTracingPass duration logged once per CPU frame; no CPU FPS substitution",
         initialPower=power_state())
-    report["exeSha256"] = hashlib.sha256((ROOT / "bin/x64/Debug/RtPbrSurvey.exe").read_bytes()).hexdigest()
-    report["rendererBuildCommit"] = report["baseCommit"]
+    report["executable"] = str(args.exe)
+    report["exeSha256"] = hashlib.sha256(args.exe.read_bytes()).hexdigest()
+    report["workingTreeModified"] = bool(subprocess.check_output(
+        ["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())
+    report["rendererSourceSha256"] = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in [ROOT / "Engine/RtPbrSurveyEngine.cpp", ROOT / "Shaders/shaders_PathTracing.hlsl"]}
+    report["rendererBuildCommit"] = None
+    report["monitorPolicy"] = "Hidden helper processes; sampled foreground PID; no clock or power changes"
     write_json(output / "report.json", report)
     schedule = []
     for repeat in range(args.repeats):
@@ -220,6 +258,13 @@ def main():
         random.Random(84+repeat).shuffle(order)
         schedule.extend((repeat, case) for case in order)
     for repeat, case in schedule:
+        try:
+            validate_isolation(other_renderers())
+        except Exception as error:
+            report["status"] = "blocked"
+            report["failures"].append(dict(stage="isolation-preflight", error=str(error)))
+            write_json(output / "report.json", report)
+            raise
         name = f"{case['name']}-r{repeat}"
         scene, preset = make_fixture(case)
         scene_path, preset_path = output / (name+"-scene.json"), output / (name+"-preset.json")
@@ -227,7 +272,7 @@ def main():
         write_json(scene_path, scene)
         write_json(preset_path, preset)
         capture_frame = args.warmup+args.frames+16
-        command = [str(ROOT / "bin/x64/Debug/RtPbrSurvey.exe"), "-SceneFile", str(scene_path), "-RenderPreset", str(preset_path),
+        command = [str(args.exe), "-SceneFile", str(scene_path), "-RenderPreset", str(preset_path),
             "-EnablePathTracing", "-PathTracingSeed", "7", "-PathTracingEnvironmentMode", "5",
             "-CaptureAfterFrames", str(capture_frame), "-LogFPS", "1", "-LogToFile", str(output / (name+".log")),
             "-CapturePath", str(output / (name+".pfm")), "-ExitAfterCapture"]
@@ -239,12 +284,15 @@ def main():
         process = subprocess.Popen(command, cwd=ROOT, startupinfo=startup)
         telemetry = []
         stop = threading.Event()
-        monitor = threading.Thread(target=monitor_gpu, args=(stop, output / (name+".log"), telemetry), daemon=True)
+        monitor = threading.Thread(target=monitor_gpu, args=(stop, output / (name+".log"), telemetry, process.pid), daemon=True)
         monitor.start()
         try:
             record["window"] = resize_own_window(process, case["width"], case["height"])
             if process.wait(timeout=240) != 0:
                 raise RuntimeError("Application returned a failure")
+            validate_isolation(other_renderers())
+            for observation in telemetry:
+                validate_isolation(observation["otherRenderers"])
             text = (output / (name+".log")).read_text(encoding="utf-8-sig")
             if any(line.startswith(("[ERROR]", "[CORRUPTION]")) for line in text.splitlines()):
                 raise RuntimeError("D3D12 error in capture log")
