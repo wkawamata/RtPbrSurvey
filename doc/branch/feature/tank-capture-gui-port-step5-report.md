@@ -283,6 +283,18 @@ SHA256: `32c2cbe8ef267156624cc9ca4487db71dc1222b7163b3e37e9c111cfaea24e4a`。
 GPUログは同caseの`d3d12.log`。関連CTest 3/3通過、MSBuild Debug成功。
 1800frames固定刻みcaseはopt-inのまま、次回用timeoutを2400秒へ拡張した。再実行は未実施。
 
+### 2026-10-10: GPU実行前の保留Previewゲート検証
+
+保留Previewの消費判断を既存CaptureRequestGateのCPUメソッドへ移し、Appから同じ判断を使用。
+撮影session・単発Screenshot・診断Captureがpendingの間は要求を保持し、全出力完了後に
+一度だけ消費すること、編集モードを離れた場合は古い要求を破棄することをテストした。
+消費後はrebuild失敗を理由に毎frame再試行しない、既存の動作を維持。
+Document内容は保持せず、実行時にAppが最新Documentからrebuildする構造を維持した。
+
+CMake DebugのCaptureSessionTests build成功、関連CTest 3/3通過。
+この確認はCPUゲートの検証であり、GPU Preview再構築・Document内容のGPU反映の実行証明ではない。
+ユーザー指示によりGPU撮影・アプリ起動は行っていない。
+
 ## 残る受け入れ確認
 
 Step 5全体を完了扱いにはしない。
