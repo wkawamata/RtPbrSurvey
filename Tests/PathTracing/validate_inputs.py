@@ -190,6 +190,7 @@ def require_numeric_validation(result):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--packages', type=Path)
+    parser.add_argument('--exe', type=Path, default=ROOT/'build/Debug/RtPbrSurvey.exe')
     parser.add_argument('--output', type=Path, default=ROOT/'bin/PathTracingValidation/part5-inputs')
     parser.add_argument('--analyze-only', action='store_true')
     parser.add_argument('--smoke', action='store_true')
@@ -197,6 +198,7 @@ def main():
     parser.add_argument('--seed', type=int, default=7)
     parser.add_argument('--base-commit', default='9455eec', help='Recorded validation baseline commit')
     args = parser.parse_args()
+    args.exe = args.exe.resolve(strict=True)
     if args.packages:
         sys.path.insert(0, str(args.packages.resolve()))
     args.output = args.output.resolve()
@@ -222,7 +224,7 @@ def main():
         workspace=str(ROOT), build='Debug x64', samplesPerFrame=1, seed=args.seed, captureAfterFrames=30,
         roi='x/y from 16 to dimension-16 exclusive, stride 4', records=[], failures=[],
         dirty=bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip()),
-        executableSha256=sha(ROOT/'bin/x64/Debug/RtPbrSurvey.exe'),
+        executable=str(args.exe), executableSha256=sha(args.exe),
         sourceSha256={p: sha(ROOT/p) for p in ['App/RtPbrSurveyApp.cpp', 'Engine/RtPbrSurveyEngine.cpp',
             'Renderer/ScreenshotCapture.cpp', 'Scene/SceneDocumentBuilder.cpp', 'Scene/SceneDocumentJson.cpp',
             'Shaders/shaders_PathTracing.hlsl', 'Shaders/SceneRayQuery.hlsli', 'Tests/PathTracing/validate_inputs.py']},
@@ -232,7 +234,7 @@ def main():
         path = args.output/(name+'.ptbuf')
         log = args.output/(name+'.log')
         directory = ROOT/'Assets/Scenes/PathTracingValidation'/scene_id
-        command = [str(ROOT/'bin/x64/Debug/RtPbrSurvey.exe'), '-SceneFile', str(directory/'scene.json'),
+        command = [str(args.exe), '-SceneFile', str(directory/'scene.json'),
             '-RenderPreset', str(directory/'render-preset.json'), '-EnablePathTracing', '-PathTracingSeed', str(args.seed),
             '-DebugPreviewResource', 'PathTracing.'+resource, '-CapturePath', str(path), '-CaptureAfterFrames', '30',
             '-LogToFile', str(log), '-ExitAfterCapture']

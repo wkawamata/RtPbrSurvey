@@ -105,8 +105,10 @@ class InputTests(unittest.TestCase):
 
     def run_numeric_report(self, result):
         with tempfile.TemporaryDirectory() as directory:
+            executable = Path(directory)/'test.exe'
+            executable.write_bytes(b'test executable')
             arguments = ['validate_inputs.py', '--analyze-only', '--output', str(Path(directory)/'captures'),
-                '--cases', 'input-plane-'+result['resource']+'-static']
+                '--cases', 'input-plane-'+result['resource']+'-static', '--exe', str(executable)]
             with patch('sys.argv', arguments), \
                 patch.object(validate_inputs, 'ROOT', Path(directory)), \
                 patch.object(validate_inputs.subprocess, 'check_output', side_effect=['commit', 'branch', '', 'GPU']), \
