@@ -150,6 +150,11 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
 {
     m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
     m_sceneRenderer.EngineForDebugTools().SetVSyncEnabled(!m_commandLineOptions.disableVSync);
+    if (m_commandLineOptions.hasPathTracingObjectMotion &&
+        (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.capturePath.empty()))
+    {
+        throw std::invalid_argument("-PathTracingObjectMotionX requires -SceneFile and -CapturePath.");
+    }
     if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() &&
         (!m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
          !m_commandLineOptions.reflectionCapturePlanPath.empty()))
@@ -622,6 +627,20 @@ void RtPbrSurveyApp::UpdateSampleState()
     sceneUpdate.meshScale = m_meshScale;
     sceneUpdate.dragRotation = m_dragRotation;
     LoadedScene().Update(deltaTime, sceneUpdate);
+
+    if (m_commandLineOptions.hasPathTracingObjectMotion)
+    {
+        Engine::Scene& scene = LoadedScene().GetScene();
+        if (scene.instances.size() != 1)
+        {
+            throw std::invalid_argument("-PathTracingObjectMotionX requires a single-instance scene.");
+        }
+        Engine::InstanceData& instance = scene.instances.front();
+        instance.prevWorld = instance.world;
+        const DirectX::XMMATRIX world = DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&instance.world));
+        const DirectX::XMMATRIX translated = world * DirectX::XMMatrixTranslation(m_commandLineOptions.pathTracingObjectMotionX, 0.0f, 0.0f);
+        DirectX::XMStoreFloat4x4(&instance.world, DirectX::XMMatrixTranspose(translated));
+    }
 
     m_sceneRenderer.SetScene(LoadedScene().GetScene());
     m_sceneRenderer.SetDisplayInstanceCount(LoadedScene().DisplayInstanceCount());

@@ -81,6 +81,8 @@ struct CommandLineOptions
     std::filesystem::path pathTracingHistoryValidationDirectory;
     bool hasPathTracingRandomSeed = false;
     UINT pathTracingRandomSeed = 1;
+    bool hasPathTracingObjectMotion = false;
+    float pathTracingObjectMotionX = 0.0f;
     UINT pathTracingEnvironmentMode = 0;
     bool hasPathTracingEnvironmentMode = false;
     bool enableDlssSr = false;

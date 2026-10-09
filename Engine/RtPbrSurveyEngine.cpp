@@ -6462,6 +6462,8 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 {"cameraPosition", {camera.pos.x, camera.pos.y, camera.pos.z}},
                 {"cameraTarget", {camera.gazePoint.x, camera.gazePoint.y, camera.gazePoint.z}},
                 {"lensShift", {camera.lensShiftX, camera.lensShiftY}},
+                {"singleInstanceWorld", m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().world) : nlohmann::json(nullptr)},
+                {"singleInstancePreviousWorld", m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().prevWorld) : nlohmann::json(nullptr)},
             };
             capture.readback.diagnosticMetadata = metadata.dump();
         }

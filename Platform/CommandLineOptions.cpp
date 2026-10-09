@@ -382,6 +382,24 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             options.hasPathTracingRandomSeed = true;
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingObjectMotionX"))
+        {
+            if (i + 1 >= argc)
+            {
+                throw std::invalid_argument("-PathTracingObjectMotionX expects a finite delta in [-1, 1].");
+            }
+            wchar_t* end = nullptr;
+            errno = 0;
+            const WCHAR* value = argv[++i];
+            const double delta = wcstod(value, &end);
+            if (errno == ERANGE || end == value || *end != L'\0' || !std::isfinite(delta) || std::abs(delta) > 1.0)
+            {
+                throw std::invalid_argument("-PathTracingObjectMotionX expects a finite delta in [-1, 1].");
+            }
+            options.pathTracingObjectMotionX = static_cast<float>(delta);
+            options.hasPathTracingObjectMotion = true;
+            options.enablePathTracing = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-EnableDebugTexturePreview"))
         {
             options.enableDebugTexturePreview = true;

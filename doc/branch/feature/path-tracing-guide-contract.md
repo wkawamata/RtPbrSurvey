@@ -179,3 +179,50 @@ roughness or primary hitT blindly. An initial denoiser experiment should use one
 sample per frame and explicit backend conversion. Supporting larger batches
 requires a separately validated guide/signal association and boundary policy.
 This is an integration requirement, not evidence of a defect in Native accumulation.
+
+## Object Motion Validation
+
+An opt-in `-PathTracingObjectMotionX <delta>` translates the single instance of a
+file scene once per frame through the existing SetScene/TLAS rebuild path. The
+delta is a finite world-space X displacement in [-1, 1]. SceneFile and CapturePath
+are required. Without the flag, application behavior is unchanged. Native capture
+metadata now records current/previous object matrices for single-instance scenes;
+multi-instance captures use null for those fields.
+
+The input-plane fixture retains its original orientation. Independent analysis
+uses primary ray-plane hits on z=0 and computes previous world hits by subtracting
+the requested X displacement, then projects with the recorded camera matrices.
+It checks unchanged camera matrices and that the full object-matrix difference
+contains only the requested translation. Shader motion-vector code was not changed.
+
+Fresh Debug x64 captures on RTX 2080 Ti, driver 616.56, seed 7, 30 warm-up frames:
+
+| Object delta/frame | Pixels tested | Max absolute NDC error | Max bound-normalized error |
+| --- | ---: | ---: | ---: |
+| 0 | 123664 | 0.000001847744 | 0.592376 |
+| +0.05 | 123664 | 0.000002301931 | 0.611485 |
+| -0.05 | 123664 | 0.000002301931 | 0.592376 |
+
+All three pass both the historical 2e-5 absolute diagnostic and the predeclared
+2 half ULP + 3e-6 NDC acceptance bound. Observed mean X vectors are approximately
+0, -0.0108032 and +0.0108032 respectively, confirming previous-minus-current
+sign. All logs contain zero D3D12 ERROR/CORRUPTION entries. Debug build reports
+zero warnings/errors and Python unit tests pass 130/130.
+
+Raw evidence: bin/PathTracingValidation/completion-step8-object-motion-20261010-r2.
+Executable SHA256: 65754f1fcd88aea1ae01a6964c355b17b3c866b91d201f5346983d4b0e8862da.
+The report records HEAD 3885c98 plus dirty source hashes: the motion diagnostic
+was not committed when tested. The earlier cohort failed an overly strict test
+assumption that the plane's original matrix was identity; its report is retained
+as report-before-transform-check.json in completion-step8-object-motion-20261010.
+Correcting the fixture assumption required no shader change or tolerance change.
+
+```powershell
+python -B Tests/PathTracing/validate_object_motion.py --output bin/PathTracingValidation/step8-object-motion
+```
+
+Coverage remains limited to a rigid single plane translated along world X with
+a fixed camera and single-sample primary guides. Rotating/scaling/deforming
+objects, multiple visible instances, disocclusion boundaries, normal maps and
+spatial material textures are not validated by this cohort. This is not a
+backend-specific denoiser-readiness claim.
