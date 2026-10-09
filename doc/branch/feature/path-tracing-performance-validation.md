@@ -99,6 +99,20 @@ and other GPU workloads idle. Require stable observed foreground and power/clock
 telemetry before extending the campaign. Do not continuously steal focus from
 the user or silently change system/NVIDIA power settings.
 
+## Follow-up baseline after commit 2a751e9
+
+The completion-step7-foreground-20261010 cohort completed three runs and 192
+observations. Medians were 0.477008, 0.469936 and 0.475440 ms. Median spread
+improved to 1.49%, but maximum p95/median was 1.6583, so the result remains
+inconclusive under the unchanged gates. No scaling ratio is accepted.
+
+Measured telemetry sampled another foreground PID in run 0, but the test app
+itself in runs 1 and 2. Run 2 still sampled P3/585 MHz SM/5000 MHz memory.
+Foreground ownership alone therefore does not guarantee stable clocks or timing.
+Do not proceed to a full matrix yet. The next diagnostic needs controlled GPU
+power behavior or a sustained workload, preserving settings and reporting any
+policy change explicitly; system power policy has not been changed here.
+
 ## Protocol
 
 Use the current CMake Debug executable, fixed seed 7, constant-environment MIS,
