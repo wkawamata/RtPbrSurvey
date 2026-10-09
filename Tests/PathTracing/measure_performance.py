@@ -221,6 +221,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--exe", type=Path, default=ROOT / "build/Debug/RtPbrSurvey.exe")
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument("--disable-vsync", action="store_true")
     parser.add_argument("--cases", nargs="+", choices=[r["name"] for r in cases()])
     parser.add_argument("--warmup", type=int, default=16)
     parser.add_argument("--frames", type=int, default=32)
@@ -251,6 +252,7 @@ def main():
         for path in [ROOT / "Engine/RtPbrSurveyEngine.cpp", ROOT / "Shaders/shaders_PathTracing.hlsl"]}
     report["rendererBuildCommit"] = None
     report["monitorPolicy"] = "Hidden helper processes; sampled foreground PID; no clock or power changes"
+    report["presentSyncInterval"] = 0 if args.disable_vsync else 1
     write_json(output / "report.json", report)
     schedule = []
     for repeat in range(args.repeats):
@@ -276,6 +278,8 @@ def main():
             "-EnablePathTracing", "-PathTracingSeed", "7", "-PathTracingEnvironmentMode", "5",
             "-CaptureAfterFrames", str(capture_frame), "-LogFPS", "1", "-LogToFile", str(output / (name+".log")),
             "-CapturePath", str(output / (name+".pfm")), "-ExitAfterCapture"]
+        if args.disable_vsync:
+            command.append("-DisableVSync")
         record = dict(name=name, case=case["name"], repeat=repeat, command=command, powerBefore=power_state(),
             sceneSha256=hashlib.sha256(scene_path.read_bytes()).hexdigest(), presetSha256=hashlib.sha256(preset_path.read_bytes()).hexdigest())
         startup = subprocess.STARTUPINFO()

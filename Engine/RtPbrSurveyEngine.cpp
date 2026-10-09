@@ -4908,7 +4908,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     }
 
     // Present the frame.
-    m_graphicsDevice.Present(1, 0);
+    m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
 
     UINT64 submittedFenceValue = MoveToNextFrame();
     if (m_pendingScreenshotCapture.has_value() && m_pendingScreenshotCapture->fenceValue == 0)
@@ -6361,7 +6361,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 source = m_pathTracingAccumulation.Get();
                 diagnosticSource = kPathTracingAccumulationResourceName;
             }
-            for (UINT index = 0; index < 4; ++index)
+            for (UINT index = 0; index < PathTracingGuideTextureCount; ++index)
             {
                 if (m_renderingPath == RenderingPath::PathTracing &&
                     capture.request.debugResourceName == kPathTracingGuideTextureResourceNames[index])

@@ -377,6 +377,7 @@ public:
     void Initialize(UINT width, UINT height);
     void RenderFrame(const UiRenderHandler& uiRenderHandler);
     void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
+    void SetVSyncEnabled(bool enabled) { m_vSyncEnabled = enabled; }
     void Shutdown();
     void SetScene(const Scene& scene);
     void SetCamera(const CameraState& camera);
@@ -985,6 +986,7 @@ private:
 
     // Pipeline objects.
     GraphicsDevice& m_graphicsDevice;
+    bool m_vSyncEnabled = true;
     UINT m_width = 0;
     UINT m_height = 0;
     UINT m_renderWidth = 0;

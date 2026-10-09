@@ -149,6 +149,7 @@ RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
 _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], int argc)
 {
     m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
+    m_sceneRenderer.EngineForDebugTools().SetVSyncEnabled(!m_commandLineOptions.disableVSync);
     if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() &&
         (!m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
          !m_commandLineOptions.reflectionCapturePlanPath.empty()))

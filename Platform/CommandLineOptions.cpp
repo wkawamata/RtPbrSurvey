@@ -338,6 +338,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.enableDlssSr = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-DisableVSync"))
+        {
+            options.disableVSync = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-EnablePathTracing"))
         {
             options.enablePathTracing = true;

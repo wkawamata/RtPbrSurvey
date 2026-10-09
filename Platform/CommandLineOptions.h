@@ -76,6 +76,7 @@ struct CommandLineOptions
     std::filesystem::path renderPresetPath;
     bool useSceneDefaults = false;
     bool enablePathTracing = false;
+    bool disableVSync = false;
     UINT pathTracingSampleTarget = 0;
     std::filesystem::path pathTracingHistoryValidationDirectory;
     bool hasPathTracingRandomSeed = false;
