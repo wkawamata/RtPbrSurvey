@@ -113,6 +113,33 @@ Do not proceed to a full matrix yet. The next diagnostic needs controlled GPU
 power behavior or a sustained workload, preserving settings and reporting any
 policy change explicitly; system power policy has not been changed here.
 
+## Sustained workload diagnosis after commit 2eec7b6
+
+The completion-step7-sustained-20261010 cohort used 1,024 discarded and 512
+measured observations per run, with three independently launched baseline runs.
+The executable, rendering settings and system/GPU power policy were unchanged.
+All three runs completed: 1,536 measured observations; no D3D12 error/corruption
+entries or competing RtPbrSurvey processes were detected.
+
+| Repeat | Median (ms) | p95 (ms) |
+| --- | ---: | ---: |
+| 0 | 3.451360 | 5.107683 |
+| 1 | 3.442800 | 5.098778 |
+| 2 | 3.436512 | 5.099242 |
+
+Median spread was 0.43%, but maximum p95/median was 1.4838, so the unchanged
+stability gate still reports inconclusive. No normalized performance ratio is
+accepted. Do not pool these observations with the short-warmup cohorts.
+
+Each run retained ten measured telemetry samples. Every sample showed its own
+test application as foreground, while GPU power state remained P5 with SM clocks
+480-555 MHz and memory at 810 MHz. Temperatures were 32-33 C. Thus longer warmup
+and foreground ownership alone did not establish the earlier P0/high-clock
+operating condition. This is not proof of a renderer bottleneck or exact cause
+of timing tails. The next controlled experiment should explicitly compare GPU
+power-management conditions, with user-approved reversible settings and recorded
+before/after policy. No such settings have been modified by this test.
+
 ## Protocol
 
 Use the current CMake Debug executable, fixed seed 7, constant-environment MIS,
