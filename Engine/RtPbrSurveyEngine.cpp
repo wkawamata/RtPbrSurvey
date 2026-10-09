@@ -133,6 +133,7 @@ bool CameraStatesEqual(const Engine::CameraState& left, const Engine::CameraStat
         left.gazePoint.x == right.gazePoint.x && left.gazePoint.y == right.gazePoint.y &&
         left.gazePoint.z == right.gazePoint.z && left.up.x == right.up.x && left.up.y == right.up.y &&
         left.up.z == right.up.z && left.projection == right.projection && left.fov == right.fov &&
+        left.lensShiftX == right.lensShiftX && left.lensShiftY == right.lensShiftY &&
         left.orthographicHeight == right.orthographicHeight && left.nearZ == right.nearZ &&
         left.farZ == right.farZ;
 }
@@ -657,23 +658,24 @@ void RtPbrSurveyEngine::SetRayReconstructionSettings(const Engine::RayReconstruc
 
 void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settings)
 {
+    PathTracingSettings validated = settings;
+    validated.environmentSamplingMode = (std::min)(validated.environmentSamplingMode, 7u);
+    validated.emissiveSamplingMode = (std::min)(validated.emissiveSamplingMode, 2u);
+    validated.samplesPerFrame = (std::clamp)(validated.samplesPerFrame, 1u, 16u);
+    validated.maxBounces = (std::clamp)(validated.maxBounces, 1u, 16u);
     const bool changed =
-        m_pathTracingSettings.accumulate != settings.accumulate ||
-        m_pathTracingSettings.maxBounces != settings.maxBounces ||
-        m_pathTracingSettings.randomSeed != settings.randomSeed ||
-        m_pathTracingSettings.directLightingEnabled != settings.directLightingEnabled ||
-        m_pathTracingSettings.environmentEnabled != settings.environmentEnabled ||
-        m_pathTracingSettings.environmentSamplingMode != settings.environmentSamplingMode ||
-        m_pathTracingSettings.emissiveSamplingMode != settings.emissiveSamplingMode ||
-        m_pathTracingSettings.emissiveEnabled != settings.emissiveEnabled ||
-        m_pathTracingSettings.russianRouletteEnabled != settings.russianRouletteEnabled ||
-        m_pathTracingSettings.debugOutput != settings.debugOutput;
+        m_pathTracingSettings.accumulate != validated.accumulate ||
+        m_pathTracingSettings.maxBounces != validated.maxBounces ||
+        m_pathTracingSettings.randomSeed != validated.randomSeed ||
+        m_pathTracingSettings.directLightingEnabled != validated.directLightingEnabled ||
+        m_pathTracingSettings.environmentEnabled != validated.environmentEnabled ||
+        m_pathTracingSettings.environmentSamplingMode != validated.environmentSamplingMode ||
+        m_pathTracingSettings.emissiveSamplingMode != validated.emissiveSamplingMode ||
+        m_pathTracingSettings.emissiveEnabled != validated.emissiveEnabled ||
+        m_pathTracingSettings.russianRouletteEnabled != validated.russianRouletteEnabled ||
+        m_pathTracingSettings.debugOutput != validated.debugOutput;
 
-    m_pathTracingSettings = settings;
-    m_pathTracingSettings.environmentSamplingMode = (std::min)(settings.environmentSamplingMode, 7u);
-    m_pathTracingSettings.emissiveSamplingMode = (std::min)(settings.emissiveSamplingMode, 2u);
-    m_pathTracingSettings.samplesPerFrame = (std::clamp)(m_pathTracingSettings.samplesPerFrame, 1u, 16u);
-    m_pathTracingSettings.maxBounces = (std::clamp)(m_pathTracingSettings.maxBounces, 1u, 16u);
+    m_pathTracingSettings = validated;
     if (changed)
     {
         InvalidatePathTracingHistory(PathTracingResetReason::Settings);
@@ -6353,6 +6355,12 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             {
                 throw std::invalid_argument("Native buffer capture requires the default request contract and a full-frame capture.");
             }
+            if (m_renderingPath == RenderingPath::PathTracing &&
+                capture.request.debugResourceName == kPathTracingAccumulationResourceName)
+            {
+                source = m_pathTracingAccumulation.Get();
+                diagnosticSource = kPathTracingAccumulationResourceName;
+            }
             for (UINT index = 0; index < 4; ++index)
             {
                 if (m_renderingPath == RenderingPath::PathTracing &&
@@ -6378,7 +6386,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             }
             if (source == nullptr)
             {
-                throw std::invalid_argument("Native buffer capture requires an active PT guide or supported Deferred GBuffer resource.");
+                throw std::invalid_argument("Native buffer capture requires an active PT accumulation/guide or supported Deferred GBuffer resource.");
             }
             diagnosticRestoreState = GetResourceState(diagnosticSource);
             TransitionResource({diagnosticSource, D3D12_RESOURCE_STATE_COPY_SOURCE});

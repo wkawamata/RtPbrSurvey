@@ -77,6 +77,7 @@ struct CommandLineOptions
     bool useSceneDefaults = false;
     bool enablePathTracing = false;
     UINT pathTracingSampleTarget = 0;
+    std::filesystem::path pathTracingHistoryValidationDirectory;
     bool hasPathTracingRandomSeed = false;
     UINT pathTracingRandomSeed = 1;
     UINT pathTracingEnvironmentMode = 0;

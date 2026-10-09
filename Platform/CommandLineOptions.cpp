@@ -350,6 +350,15 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             }
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingHistoryValidation"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-PathTracingHistoryValidation expects an output directory.");
+            }
+            options.pathTracingHistoryValidationDirectory = argv[++i];
+            options.enablePathTracing = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingEnvironmentMode"))
         {
             if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.pathTracingEnvironmentMode) ||

@@ -176,6 +176,19 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     {
         throw std::invalid_argument("-PathTracingSamples requires -CapturePath.");
     }
+    if (!m_commandLineOptions.pathTracingHistoryValidationDirectory.empty())
+    {
+        if (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
+            !m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
+            !m_commandLineOptions.reflectionCapturePlanPath.empty() ||
+            !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() ||
+            m_commandLineOptions.pathTracingSampleTarget != 0)
+        {
+            throw std::invalid_argument(
+                "-PathTracingHistoryValidation requires -SceneFile and -LogToFile, "
+                "and is mutually exclusive with other capture automation.");
+        }
+    }
     if (m_commandLineOptions.captureSessionEnabled)
     {
         if (!m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty())
@@ -730,6 +743,11 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 
 void RtPbrSurveyApp::OnIdle()
 {
+    if (!m_commandLineOptions.pathTracingHistoryValidationDirectory.empty())
+    {
+        RunPathTracingHistoryValidation();
+        return;
+    }
     UpdateReflectionHdrDiagnostics();
     if (m_reflectionHdrDiagnosticsComplete)
     {

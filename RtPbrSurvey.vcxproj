@@ -343,6 +343,7 @@
       <ClCompile Include="App\SceneEditorUi.cpp" />
       <ClCompile Include="App\SceneEditorSession.cpp" />
     <ClCompile Include="App\RtPbrSurveyApp.cpp" />
+    <ClCompile Include="App\PathTracingHistoryValidation.cpp" />
     <ClCompile Include="App\SceneConfig.cpp" />
     <ClCompile Include="App\RenderPresetStore.cpp" />
     <ClCompile Include="stdafx.cpp">

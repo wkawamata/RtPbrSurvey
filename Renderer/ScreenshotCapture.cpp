@@ -415,6 +415,9 @@ bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem:
         case DXGI_FORMAT_R16G16B16A16_FLOAT:
             bytesPerPixel = 8;
             break;
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+            bytesPerPixel = 16;
+            break;
         case DXGI_FORMAT_R16G16_FLOAT:
         case DXGI_FORMAT_R32_FLOAT:
         case DXGI_FORMAT_R8G8B8A8_UNORM:

@@ -364,6 +364,7 @@ if(RTPBRSURVEY_BUILD_APP)
         App/DebugUi.cpp
         App/EvaluationCaseUi.cpp
         App/RtPbrSurveyApp.cpp
+        App/PathTracingHistoryValidation.cpp
         App/SceneConfig.cpp
         App/SceneEditorSession.cpp
         App/SceneEditorUi.cpp
@@ -413,6 +414,14 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.PathTracingShadowSettingsTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.PathTracingShadowSettings COMMAND RtPbrSurvey.PathTracingShadowSettingsTests)
+
+    add_executable(RtPbrSurvey.PathTracingHistoryTests
+        Tests/PathTracingHistoryTests.cpp)
+    target_link_libraries(RtPbrSurvey.PathTracingHistoryTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.PathTracingHistoryTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.PathTracingHistory COMMAND RtPbrSurvey.PathTracingHistoryTests)
 
     add_executable(RtPbrSurvey.EvaluationStateTests
         Tests/EvaluationStateTests.cpp)

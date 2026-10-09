@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from validate_part1 import write_json, sha
 
 ROOT = Path(__file__).resolve().parents[2]
-FORMATS = {10: ('<f2', 4), 28: ('u1', 4), 34: ('<f2', 2), 41: ('<f4', 1)}
+FORMATS = {2: ('<f4', 4), 10: ('<f2', 4), 28: ('u1', 4), 34: ('<f2', 2), 41: ('<f4', 1)}
 RESOURCES = ['NormalRoughness', 'ViewZ', 'MotionVectors', 'Albedo']
 
 

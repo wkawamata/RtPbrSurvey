@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-08",
+  "status": "passed",
+  "step6CompleteWithinMeasuredDomain": true,
+  "testedBaseCommit": "13a4934577a17dc784302175fb11608d00d1f1a5",
+  "workingTreeModified": true,
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "scene": "Assets/Scene/PathTracingValidation/01-emissive-nee-baseline/scene.json",
+  "successfulCaptures": 19,
+  "everyGpuPixelCountMatchesCpu": true,
+  "executableSha256": "4c4acfd7aafc4dc7e78a0c043357386e76bc8e1d87851f7f0f2e5e09ad9bb26a",
+  "sourceSha256": {
+    "Engine/RtPbrSurveyEngine.cpp": "5ffedb15365266f1b4dc3eadb3cc101fadaf2be9a84fb3478a09bfd04db1f224",
+    "Renderer/ScreenshotCapture.cpp": "3ffc68d223b2e4f563e6361f1ccc1c014c8b1f19476efed6117b4fcd9b5a0da5",
+    "App/PathTracingHistoryValidation.cpp": "dc3801b48be4e7d232f34e76a0067576b7fbe7dcb3f150778f77149641bcb6a7",
+    "Tests/PathTracing/validate_history.py": "41700ab93eaa07538173c5fabd7f7ff58fe90207030aac90952f59f7ce0512b6"
+  },
+  "fix": "CameraStatesEqual now includes lensShiftX and lensShiftY",
+  "firstAttempt": "Failed at Lens Shift mutation because CPU history was not invalidated",
+  "changedStatePairs": [
+    {
+      "change": "Lens Shift X +0.12",
+      "exact": true,
+      "mutationRmse": 0.060240179739250686,
+      "entryResetReason": "Camera",
+      "finalResetReason": "Camera",
+      "pairSha256": "fb64dc454427358ce7b09237a17754ab1c52475d8adf45c3e589589088d3f6af"
+    },
+    {
+      "change": "Add downward directional light, intensity 0.7, RGB 0.2/0.5/1",
+      "exact": true,
+      "mutationRmse": 0.0530148818104709,
+      "entryResetReason": "Lighting",
+      "finalResetReason": "Lighting",
+      "pairSha256": "a6c27068438373b5dc75bf6f551344d882cb66ba2b7e0e42af4ad39694275eca"
+    },
+    {
+      "change": "Receiver roughness 0.25, metallic 0.5",
+      "exact": true,
+      "mutationRmse": 0.03979527112645633,
+      "entryResetReason": "Material",
+      "finalResetReason": "Scene",
+      "secondaryRefresh": "Existing emissive-table source refresh",
+      "pairSha256": "3cbc034251545fdc2f1b23c7bdecb45fa2405de202b036476eaea715ee558447"
+    },
+    {
+      "change": "Receiver instance X translation +0.75",
+      "exact": true,
+      "mutationRmse": 0.015855884462189895,
+      "entryResetReason": "Scene",
+      "finalResetReason": "Scene",
+      "pairSha256": "3b450790db860ec77e3c10df84cd5d813799a25d8ac1b92aaae00be122d6944c"
+    },
+    {
+      "change": "Resize 1920x1080 to 1280x720",
+      "exact": true,
+      "resourceDimensions": [1280, 720],
+      "entryResetReason": "Pending Resize",
+      "finalResetReason": "Render Size",
+      "pairSha256": "114c4a8616291ed7d0a62b0d16e5b9eadb52d49f2e0e8ec68b8594aa60ceacd5"
+    }
+  ],
+  "pairSamples": 16,
+  "mutationRmseMinimum": 0.00001,
+  "originalLifecycleChecksPassed": true,
+  "resetRgbaMaxAbs": 0.0,
+  "batchMaxAbsError": 1.7881393432617188e-7,
+  "batchRelativeRmse": 4.4492853700390963e-7,
+  "d3d12ErrorCount": 0,
+  "existingInitialStateWarnings": 3,
+  "ctestPassed": 26,
+  "pythonTestsPassed": 111,
+  "rawReport": "bin/PathTracingValidation/completion-history-changes-20261008-r2/report.json",
+  "limitation": "One static fixture on one GPU. Fresh history is manual reset in the same process. Topology replacement, skinned animation, environment reload, all texture edits, long-run precision and cross-GPU replay are not claimed."
+}
