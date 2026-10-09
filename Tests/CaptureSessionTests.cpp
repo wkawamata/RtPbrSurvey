@@ -133,6 +133,19 @@ bool TestMouseRegionInteraction()
     passed &= Check(!state.selectingRegion && state.regionHeight == 440,
                     "Escape cancels without changing the selected region");
     io.AddKeyEvent(ImGuiKey_Escape, false);
+    draw();
+    state.selectingRegion = true;
+    io.AddMousePosEvent(700, 500);
+    draw();
+    io.AddMouseButtonEvent(0, true);
+    draw();
+    io.AddMousePosEvent(900, 700);
+    draw();
+    io.AddMouseButtonEvent(0, false);
+    draw();
+    passed &= Check(!state.selectingRegion && state.regionX == 1400 && state.regionY == 1000 &&
+                        state.regionWidth == 200 && state.regionHeight == 200,
+                    "release beyond display bounds commits a clamped ROI");
     state.showRegionOverlay = false;
     draw();
     passed &= Check(ImGui::GetDrawData()->CmdListsCount == 0, "overlay toggle hides the selected region");
