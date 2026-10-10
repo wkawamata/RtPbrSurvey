@@ -6,6 +6,24 @@ Scene-scale, contact-shadow and self-intersection measurements are described in 
 GPU pass performance measurements are described in [PART4.md](PART4.md).
 Native PT guide-buffer definitions and measurements are described in [PART5.md](PART5.md).
 
+## Current Final Regression
+
+The bounded Step 9 runner selects an explicit executable for every GPU child and
+checks report completeness and binary hashes in addition to process exit codes.
+It runs Python/CTest, representative native primary guides, object MotionVectors,
+GPU accumulation lifecycle checkpoints and emissive visibility/fallback controls.
+Build the Debug application and C++ tests first; Python requires NumPy and CTest
+must be available. Use an empty output directory:
+
+```powershell
+python -B Tests/PathTracing/run_final_regression.py --exe build/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/final-regression
+```
+
+This is not a full convergence or performance rerun. Detailed evidence and scope:
+[Step 9](../../doc/branch/feature/path-tracing-final-validation.md).
+
+## Reference Capture
+
 `Invoke-ReferenceCapture.ps1` runs two fixed-sample Path Tracing captures and writes JSON and Markdown reports.
 It fails when the PNG hashes differ, a process fails, a capture times out, or a D3D12 error/corruption message is logged.
 
