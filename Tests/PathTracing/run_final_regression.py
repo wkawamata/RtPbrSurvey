@@ -2,6 +2,7 @@
 import argparse
 from datetime import datetime, timezone
 import json
+import math
 from pathlib import Path
 import re
 import shutil
@@ -9,7 +10,72 @@ import subprocess
 import sys
 from validate_inputs import ROOT
 from validate_part1 import sha, write_json
-from validate_history import CASES as HISTORY_CASES
+from validate_history import CASES as HISTORY_CASES, CHANGES, validate_records
+
+
+PRIMARY_CASES = (
+    ('input-plane-NormalRoughness-static', 'NormalRoughness', False),
+    ('input-shifted-ViewZ-static', 'ViewZ', False),
+    ('input-marker-Albedo-static', 'Albedo', False),
+    ('input-shifted-MotionVectors-moving', 'MotionVectors', True),
+)
+MOTION_CASES = (('static', 0), ('positive-x', 0.05), ('negative-x', -0.05))
+HISTORY_PAIRS = (
+    ('baseline-16', 'paused-16'), ('baseline-16', 'reset-repeat-16'),
+    ('resumed-32', 'fresh-32'), ('non-accumulated-index-12', 'non-accumulated-repeat-12'),
+)
+
+
+def finite_nonnegative(value):
+    return type(value) in (int, float) and math.isfinite(value) and value >= 0
+
+
+def validate_history_report(report):
+    records = report.get('records', [])
+    dimensions = validate_records(records, [record.get('case') for record in records])
+    if report.get('dimensions') != list(dimensions) or report.get('errorCount') != 0:
+        raise ValueError('Incomplete history timeline')
+    for record in records:
+        if (not isinstance(record.get('path'), str) or not record['path'] or
+                not isinstance(record.get('sha256'), str) or
+                not re.fullmatch(r'[0-9a-f]{64}', record['sha256']) or
+                not finite_nonnegative(record.get('rawRgbaMaxAbs')) or
+                record.get('gpuSampleCount') != record['accumulatedSamples']):
+            raise ValueError('Missing history capture evidence')
+    assessment = report.get('assessment', {})
+    comparisons = assessment.get('exactComparisons', [])
+    if ([(item.get('left'), item.get('right')) for item in comparisons] != list(HISTORY_PAIRS) or
+            any(item.get('exact') is not True for item in comparisons)):
+        raise ValueError('Missing or failed history replay assessment')
+    changes = assessment.get('changedStateComparisons', [])
+    if ([item.get('change') for item in changes] != list(CHANGES) or
+            any(item.get('exact') is not True for item in changes)):
+        raise ValueError('Missing or failed changed-state assessment')
+    for item in changes:
+        signal = item.get('mutationRmse')
+        if item['change'] == 'resize':
+            if 'mutationRmse' not in item or signal is not None:
+                raise ValueError('Invalid resize assessment')
+        elif not finite_nonnegative(signal) or signal <= 1e-5:
+            raise ValueError('Missing observable history mutation')
+    if not finite_nonnegative(assessment.get('resetMaxAbs')) or assessment['resetMaxAbs'] != 0:
+        raise ValueError('Missing or failed reset assessment')
+    fresh = next(record for record in records if record['case'] == 'fresh-32')
+    max_limit = 2e-6 * max(1.0, fresh['rawRgbaMaxAbs'] / fresh['accumulatedSamples'])
+    for metric, limit, ceiling in (('batchMaxAbsError', 'batchMaxAbsLimit', max_limit),
+                                   ('batchRelativeRmse', 'batchRelativeRmseLimit', 1e-6)):
+        value, threshold = assessment.get(metric), assessment.get(limit)
+        if (not finite_nonnegative(value) or not finite_nonnegative(threshold) or
+                threshold <= 0 or threshold > ceiling or value > threshold):
+            raise ValueError('Missing or failed history batching assessment')
+    return len(HISTORY_CASES)
+
+
+def verify_history_capture_files(report):
+    for record in report['records']:
+        path = Path(record['path'])
+        if not path.is_file() or sha(path) != record['sha256']:
+            raise ValueError('Missing or changed history capture: '+record['case'])
 
 
 def validate_child(name, report, executable_hash):
@@ -20,19 +86,28 @@ def validate_child(name, report, executable_hash):
         raise ValueError('Child executable mismatch: '+name)
     if name in ('primary', 'motion'):
         records = report.get('records', [])
-        expected_count = 4 if name == 'primary' else 3
+        expected_count = len(PRIMARY_CASES) if name == 'primary' else len(MOTION_CASES)
         if len(records) != expected_count or any(record.get('failure') for record in records):
             raise ValueError('Incomplete native guide captures: '+name)
-        for record in records:
+        for index, record in enumerate(records):
             result = record.get('result', {})
+            if name == 'primary':
+                case, resource, moving = PRIMARY_CASES[index]
+                if (record.get('name') != case or result.get('resource') != resource or
+                        record.get('moving') is not moving or
+                        record.get('metadata', {}).get('resource') != 'PathTracing.'+resource):
+                    raise ValueError('Unexpected primary guide case/resource')
+            else:
+                case, delta = MOTION_CASES[index]
+                if (record.get('name') != case or record.get('deltaPerFrame') != delta or
+                        record.get('metadata', {}).get('resource') != 'PathTracing.MotionVectors'):
+                    raise ValueError('Unexpected object motion case/resource')
             key = 'halfPrecisionBoundPassed' if name == 'primary' and result.get('resource') == 'MotionVectors' else 'passed'
             if result.get(key) is not True or record.get('d3d12Errors') != 0:
                 raise ValueError('Invalid native guide result: '+name)
         return len(records)
     if name == 'history':
-        if [record.get('case') for record in report.get('records', [])] != list(HISTORY_CASES) or report.get('errorCount') != 0:
-            raise ValueError('Incomplete history timeline')
-        return len(HISTORY_CASES)
+        return validate_history_report(report)
     cases = report.get('cases', [])
     if [case.get('case') for case in cases] != ['baseline', 'backface', 'beyond', 'empty', 'shadow-off']:
         raise ValueError('Incomplete emissive controls')
@@ -102,7 +177,10 @@ def main():
                 run['testsPassed'] = test_counts(name, log.read_text(encoding='utf-8'))
             else:
                 child = output/name/'report.json'
-                run['captureCount'] = validate_child(name, json.loads(child.read_text()), report['executableSha256'])
+                child_report = json.loads(child.read_text())
+                run['captureCount'] = validate_child(name, child_report, report['executableSha256'])
+                if name == 'history':
+                    verify_history_capture_files(child_report)
                 run['reportSha256'] = sha(child)
             run['status'] = 'passed'
         except Exception as error:

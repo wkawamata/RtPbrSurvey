@@ -70,6 +70,25 @@ regression, not a GPU timing benchmark. It does not change driver power settings
 
 ## Evidence Index
 
+### Review Follow-up (2026-10-10)
+
+Two P2 report-validation gaps were corrected after commit 3d34d65:
+
+- Primary and object-motion results now require the exact ordered case names,
+  resource identities and camera/object movement conditions. Count-only acceptance
+  and repeated ViewZ results are rejected.
+- History results now reuse the child runtime-state validator and require capture
+  paths/hashes, GPU sample counts, finite capture magnitude, all replay/change
+  assessments, zero reset residual and bounded finite batching errors. The parent
+  also checks that all 19 capture files exist and match their recorded SHA256.
+
+Python: 154/154 tests passed, including duplicate/missing/wrong-case reports,
+missing or failed/non-finite assessments, runtime/capture evidence omissions and
+missing/changed capture files. The existing 41-capture campaign was accepted by
+the corrected validators; all 19 history file hashes matched. This is a recheck
+of stored evidence, not a new GPU run. The original campaign summary retains its
+148-test count and original source hashes; no C++/HLSL changes or rebuild occurred.
+
 | Step | Evidence | Important qualification |
 | --- | --- | --- |
 | 1 | path-tracing-correctness-completion.md; completion-steps-1-3-summary.json | Post-fix regression, finite sample counts, one measured GPU |
