@@ -26,6 +26,21 @@ namespace RtPbrSurvey
                m_inputs.diagnosticCaptureInFlight;
     }
 
+    bool CaptureRequestGate::TakePendingPreviewRebuild(bool& pending, bool editing) const
+    {
+        if (!editing)
+        {
+            pending = false;
+            return false;
+        }
+        if (!pending || IsWorkPending())
+        {
+            return false;
+        }
+        pending = false;
+        return true;
+    }
+
     bool CaptureRequestGate::CanStart(std::string& reason) const
     {
         if (m_pendingAction != PendingHostAction::None)

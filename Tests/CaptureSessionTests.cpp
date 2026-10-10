@@ -133,6 +133,19 @@ bool TestMouseRegionInteraction()
     passed &= Check(!state.selectingRegion && state.regionHeight == 440,
                     "Escape cancels without changing the selected region");
     io.AddKeyEvent(ImGuiKey_Escape, false);
+    draw();
+    state.selectingRegion = true;
+    io.AddMousePosEvent(700, 500);
+    draw();
+    io.AddMouseButtonEvent(0, true);
+    draw();
+    io.AddMousePosEvent(900, 700);
+    draw();
+    io.AddMouseButtonEvent(0, false);
+    draw();
+    passed &= Check(!state.selectingRegion && state.regionX == 1400 && state.regionY == 1000 &&
+                        state.regionWidth == 200 && state.regionHeight == 200,
+                    "release beyond display bounds commits a clamped ROI");
     state.showRegionOverlay = false;
     draw();
     passed &= Check(ImGui::GetDrawData()->CmdListsCount == 0, "overlay toggle hides the selected region");
@@ -540,6 +553,34 @@ bool TestCaptureRequestGate()
     using RtPbrSurvey::PendingHostAction;
 
     CaptureRequestGate gate;
+    bool previewPending = true;
+    CaptureRequestGate::Inputs previewInputs;
+    bool previewPassed = true;
+    for (int source = 0; source < 3; ++source)
+    {
+        previewInputs = {};
+        previewInputs.captureSessionActive = source == 0;
+        previewInputs.singleScreenshotInFlight = source == 1;
+        previewInputs.diagnosticCaptureInFlight = source == 2;
+        previewPending = true;
+        gate.Update(previewInputs);
+        previewPassed &= Check(!gate.TakePendingPreviewRebuild(previewPending, true) && previewPending,
+                               "preview remains pending while any capture output is in flight");
+        gate.Update({});
+        previewPassed &= Check(gate.TakePendingPreviewRebuild(previewPending, true) && !previewPending,
+                               "preview is consumed after capture output completes");
+        previewPassed &= Check(!gate.TakePendingPreviewRebuild(previewPending, true),
+                               "consumed preview is not retried, including after a rebuild failure");
+    }
+    previewPending = true;
+    gate.Update(previewInputs);
+    previewPassed &= Check(!gate.TakePendingPreviewRebuild(previewPending, false) && !previewPending,
+                           "leaving edit mode cancels the old document preview request");
+    gate.Update({});
+    if (!previewPassed)
+    {
+        return false;
+    }
     std::string reason;
     bool passed = Check(gate.CanStart(reason), "start is allowed when no capture work exists");
 

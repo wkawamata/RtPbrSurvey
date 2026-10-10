@@ -87,5 +87,12 @@ globalThis.targetWindow = state.window;
   for validation outputs; do not overwrite user assets.
 - GUI evidence, CLI evidence, and unit tests are distinct. Report which was
   actually exercised, including failures and remaining acceptance items.
+- SDK-present CLI launch may require normal host permissions outside the agent
+  sandbox. On 2026-10-09, Streamline plugin `weakly_canonical` received Access
+  denied inside the sandbox and `slInit` crashed before D3D12 log creation.
+  The unchanged executable completed a short GPU capture with an approved
+  `require_escalated` launch. Request that execution permission; do not weaken
+  Windows security or disable DLSS as a workaround. Capture native SDK diagnostics
+  and distinguish this condition from renderer failures.
 - Follow the skill's confirmation rules. Do not automate terminals, Run dialogs,
   authentication/security UI, or Codex UI. Do not use Windows-key shortcuts.

@@ -1304,17 +1304,13 @@ void RtPbrSurveyApp::RequestCloseRunningScene()
 
 void RtPbrSurveyApp::ExecutePendingSceneEditorRebuild()
 {
-    if (m_appMode != AppMode::SceneEditorEdit)
-    {
-        m_sceneEditorPreviewRebuildPending = false;
-        return;
-    }
-    if (!m_sceneEditorPreviewRebuildPending || IsCaptureWorkPending())
+    UpdateCaptureRequestGate();
+    if (!m_captureRequestGate.TakePendingPreviewRebuild(
+            m_sceneEditorPreviewRebuildPending, m_appMode == AppMode::SceneEditorEdit))
     {
         return;
     }
 
-    m_sceneEditorPreviewRebuildPending = false;
     std::string error;
     if (!RebuildSceneEditorPreview(&error))
     {

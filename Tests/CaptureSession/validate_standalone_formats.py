@@ -14,7 +14,6 @@ INSPECTOR = ROOT / "build/scene-document-tests/Debug/RtPbrSurvey.Mp4EncoderTests
 
 
 def validate_outputs(directory, case, accepted):
-    from PIL import Image
     files = sorted((directory / "outputs" / "nested").glob("*"))
     width, height = case.get("roi", (0, 0, 1920, 1080))[2:]
     expected_size = (width, height)
@@ -27,6 +26,7 @@ def validate_outputs(directory, case, accepted):
             else:
                 assert capture.exr_readable(path)
     elif case["format"] == "gif":
+        from PIL import Image
         assert len(files) == 1
         with Image.open(files[0]) as image:
             assert image.n_frames == len(accepted)
@@ -80,9 +80,14 @@ def run_case(output, case):
         preset_path = directory / "render-preset.json"
         preset_path.write_text(json.dumps(preset, indent=2), encoding="utf-8")
         command[command.index("-RenderPreset") + 1] = str(preset_path)
-    child = capture.start(command, directory)
+    startup = subprocess.STARTUPINFO()
+    startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startup.wShowWindow = 0
+    process_log = (directory / "process.log").open("w", encoding="utf-8")
+    child = subprocess.Popen(command, cwd=directory, startupinfo=startup,
+                             stdout=process_log, stderr=subprocess.STDOUT)
     try:
-        code = child.wait(timeout=150)
+        code = child.wait(timeout=case.get("timeout", 150))
         assert code == 0, f"Application exited with {code}"
         accepted = capture.frames(log)
         assert accepted, "No GPU capture was accepted"
@@ -102,13 +107,17 @@ def run_case(output, case):
         if child.poll() is None:
             child.kill()
             child.wait()
+        process_log.close()
 
 
 def main():
+    global INSPECTOR
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--cases", help="Comma-separated case names")
+    parser.add_argument("--inspector", type=Path, default=INSPECTOR)
     args = parser.parse_args()
+    INSPECTOR = args.inspector.resolve()
     sys.path.insert(0, str(ROOT / "bin/CapturePort/python-packages"))
     sys.path.insert(0, str(ROOT / "bin/PathTracingValidation/python-packages"))
     output = args.output.resolve()
@@ -121,6 +130,7 @@ def main():
         dict(name="mp4-odd-roi-60", format="mp4", fps=60, frames=5, roi=(100, 100, 63, 47)),
         dict(name="mp4-roi-30", format="mp4", fps=30, frames=5, roi=(100, 100, 64, 64)),
         dict(name="mp4-full", format="mp4", fps=30, frames=3),
+        dict(name="mp4-full-long", format="mp4", fps=30, frames=1800, timeout=2400),
         dict(name="mp4-real-time", format="mp4", fps=60, frames=100, duration=1.5,
              clock="real-time", roi=(100, 100, 64, 64)),
     ]
@@ -132,6 +142,8 @@ def main():
         requested = set(args.cases.split(","))
         assert requested <= {case["name"] for case in cases}, "Unknown case name"
         cases = [case for case in cases if case["name"] in requested]
+    else:
+        cases = [case for case in cases if case["name"] != "mp4-full-long"]
     report = {"records": [], "testedCommit": subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         "executableSha256": hashlib.sha256(capture.EXECUTABLE.read_bytes()).hexdigest(),
