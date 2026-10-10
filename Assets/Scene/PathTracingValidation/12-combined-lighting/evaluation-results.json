@@ -1,0 +1,1323 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "records": [
+    {
+      "label": "emissive-m0-env5",
+      "component": "emissive",
+      "seed": 11,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "e32c9195cd0d1d4b7aaa5448a9762e715b55b226cd807eb4f96a9e71f3a243f1",
+      "presetSha256": "3b7f664b345e69c9da2896088504906f371a1032d14880ebe1cdcedb30a5afc6",
+      "mean": 0.055664900690317154,
+      "rgb": [
+        0.095425546169281,
+        0.0477127730846405,
+        0.02385638654232025
+      ],
+      "maximum": 0.16091205179691315,
+      "emissiveSamplingMode": 0,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": false,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "emissive-m0-env5",
+      "component": "emissive",
+      "seed": 23,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "bcf51ba1d0c6c47848db43ff94866cc2bf5e209f25cc6d7f571b7f152fa47947",
+      "presetSha256": "3b7f664b345e69c9da2896088504906f371a1032d14880ebe1cdcedb30a5afc6",
+      "mean": 0.05544906482100487,
+      "rgb": [
+        0.09505553543567657,
+        0.04752776771783829,
+        0.023763883858919144
+      ],
+      "maximum": 0.1542995274066925,
+      "emissiveSamplingMode": 0,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": false,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "emissive-m0-env5",
+      "component": "emissive",
+      "seed": 37,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "2ed16e95fb707f7c9eac8b60a480c87ad97973fc9f69453b5dc55df5ab17a0ab",
+      "presetSha256": "3b7f664b345e69c9da2896088504906f371a1032d14880ebe1cdcedb30a5afc6",
+      "mean": 0.05554010346531868,
+      "rgb": [
+        0.09521160274744034,
+        0.04760580137372017,
+        0.023802900686860085
+      ],
+      "maximum": 0.15001554787158966,
+      "emissiveSamplingMode": 0,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": false,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "emissive-m0-env5",
+      "component": "emissive",
+      "seed": 53,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "f57af6cda62260af391e73d33ec39e2fb531c4519a028a839e79a969b6b78a80",
+      "presetSha256": "3b7f664b345e69c9da2896088504906f371a1032d14880ebe1cdcedb30a5afc6",
+      "mean": 0.05558273196220398,
+      "rgb": [
+        0.09528467804193497,
+        0.047642339020967484,
+        0.023821169510483742
+      ],
+      "maximum": 0.1603776067495346,
+      "emissiveSamplingMode": 0,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": false,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "emissive-m1-env5",
+      "component": "emissive",
+      "seed": 11,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "701f4f4ac39d56e3ed5c3a4bf02eebdc4ba8202301d80d55f142186e9bfa485e",
+      "presetSha256": "5c167d11404976fb3e071cc44ad6534745f0ddd33a90711bfbc7729c03142216",
+      "mean": 0.055668070912361145,
+      "rgb": [
+        0.09543097764253616,
+        0.04771548882126808,
+        0.02385774441063404
+      ],
+      "maximum": 0.10160518437623978,
+      "emissiveSamplingMode": 1,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": false,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "emissive-m1-env5",
+      "component": "emissive",
+      "seed": 23,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "7080b34b9ba509fb3484de0622e0f243626ce4bebe72e6d2f77eaae743f42da0",
+      "presetSha256": "5c167d11404976fb3e071cc44ad6534745f0ddd33a90711bfbc7729c03142216",
+      "mean": 0.05565459653735161,
+      "rgb": [
+        0.0954078733921051,
+        0.04770393669605255,
+        0.023851968348026276
+      ],
+      "maximum": 0.10126937180757523,
+      "emissiveSamplingMode": 1,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": false,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "emissive-m1-env5",
+      "component": "emissive",
+      "seed": 37,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "dd095de6cb87db0e691efd9b465c4eff8257c5026db5ddfb9903b2d5796de411",
+      "presetSha256": "5c167d11404976fb3e071cc44ad6534745f0ddd33a90711bfbc7729c03142216",
+      "mean": 0.05566820874810219,
+      "rgb": [
+        0.09543121606111526,
+        0.04771560803055763,
+        0.023857804015278816
+      ],
+      "maximum": 0.10157791525125504,
+      "emissiveSamplingMode": 1,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": false,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "emissive-m1-env5",
+      "component": "emissive",
+      "seed": 53,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "93e9d0ad2432047c7492991f1106890bcd65eec3ad5d6946daa1554f547909ff",
+      "presetSha256": "5c167d11404976fb3e071cc44ad6534745f0ddd33a90711bfbc7729c03142216",
+      "mean": 0.055659085512161255,
+      "rgb": [
+        0.09541556984186172,
+        0.04770778492093086,
+        0.02385389246046543
+      ],
+      "maximum": 0.10154500603675842,
+      "emissiveSamplingMode": 1,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": false,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "emissive-m2-env5",
+      "component": "emissive",
+      "seed": 11,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "44257ce9f67f2ef8b8ec72375b90cfabfbc746695301cbf07dd3e0b063bda34f",
+      "presetSha256": "da2d1a8c466bc3ab97aa80b7599e11acb2b91a971a133729ce43a15be63f62c2",
+      "mean": 0.05566699430346489,
+      "rgb": [
+        0.09542912989854813,
+        0.04771456494927406,
+        0.02385728247463703
+      ],
+      "maximum": 0.10206255316734314,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": false,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "emissive-m2-env5",
+      "component": "emissive",
+      "seed": 23,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "7840a6d9d4f50e0f46b42d7803cb03b2f47f41a73e1a3eec6cc4208ea1246fd1",
+      "presetSha256": "da2d1a8c466bc3ab97aa80b7599e11acb2b91a971a133729ce43a15be63f62c2",
+      "mean": 0.05565129593014717,
+      "rgb": [
+        0.09540221840143204,
+        0.04770110920071602,
+        0.02385055460035801
+      ],
+      "maximum": 0.10126107186079025,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": false,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "emissive-m2-env5",
+      "component": "emissive",
+      "seed": 37,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "a7126ad4dace61251d5a984fc5fd07e17501156bdc734183d0d091fc74e8fe51",
+      "presetSha256": "da2d1a8c466bc3ab97aa80b7599e11acb2b91a971a133729ce43a15be63f62c2",
+      "mean": 0.05566003546118736,
+      "rgb": [
+        0.09541720151901245,
+        0.047708600759506226,
+        0.023854300379753113
+      ],
+      "maximum": 0.10131196677684784,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": false,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "emissive-m2-env5",
+      "component": "emissive",
+      "seed": 53,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "b09c17afb49febc57bc0fd8a19cabfe66f2bfc653b7a4833af72277529da5d48",
+      "presetSha256": "da2d1a8c466bc3ab97aa80b7599e11acb2b91a971a133729ce43a15be63f62c2",
+      "mean": 0.05565821751952171,
+      "rgb": [
+        0.09541407972574234,
+        0.04770703986287117,
+        0.023853519931435585
+      ],
+      "maximum": 0.10261212289333344,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": false,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "direct-m2-env5",
+      "component": "direct",
+      "seed": 11,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "7e3b525050285670d364cabd1fec50929480439aae208c52ab4ec60c2d470c94",
+      "presetSha256": "c47cc0d5946ba8c8a0ffcce72959e260e60d2dcfadf3a46ac50774a765a24451",
+      "mean": 0.026596302166581154,
+      "rgb": [
+        0.009386938065290451,
+        0.023467322811484337,
+        0.046934645622968674
+      ],
+      "maximum": 0.06325370073318481,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": false,
+      "directLightingEnabled": true,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "direct-m2-env5",
+      "component": "direct",
+      "seed": 23,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "cca327a18f0656e43b8b40f9dfaf70bb322d13b06c0831d9ca519208ac1207cd",
+      "presetSha256": "c47cc0d5946ba8c8a0ffcce72959e260e60d2dcfadf3a46ac50774a765a24451",
+      "mean": 0.02659640461206436,
+      "rgb": [
+        0.009386962279677391,
+        0.023467417806386948,
+        0.046934835612773895
+      ],
+      "maximum": 0.06331975758075714,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": false,
+      "directLightingEnabled": true,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "direct-m2-env5",
+      "component": "direct",
+      "seed": 37,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "ddf4985dc10e9790527805acbe469b2641e417c3d26d7135f5d6d44036b02b2a",
+      "presetSha256": "c47cc0d5946ba8c8a0ffcce72959e260e60d2dcfadf3a46ac50774a765a24451",
+      "mean": 0.026596365496516228,
+      "rgb": [
+        0.009386959485709667,
+        0.023467378690838814,
+        0.04693475738167763
+      ],
+      "maximum": 0.06333155930042267,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": false,
+      "directLightingEnabled": true,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "direct-m2-env5",
+      "component": "direct",
+      "seed": 53,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "0e6a489914f0ab6ced56e2222671907831029ae305c927e5ae336474ffd41902",
+      "presetSha256": "c47cc0d5946ba8c8a0ffcce72959e260e60d2dcfadf3a46ac50774a765a24451",
+      "mean": 0.026597073301672935,
+      "rgb": [
+        0.00938720628619194,
+        0.023468004539608955,
+        0.04693600907921791
+      ],
+      "maximum": 0.06331843137741089,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": false,
+      "directLightingEnabled": true,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "environment-m2-env5",
+      "component": "environment",
+      "seed": 11,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "993088d9a4e04b4a784b5334b1e269fc17e21173f428e121e81661b52dfec678",
+      "presetSha256": "96e11a8453ef64c960cd4d651edad656758527be40c526dc2266942dbf0ae5ed",
+      "mean": 0.07819760590791702,
+      "rgb": [
+        0.07819760590791702,
+        0.07819760590791702,
+        0.07819760590791702
+      ],
+      "maximum": 0.09237994998693466,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": false,
+      "directLightingEnabled": false,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "environment-m2-env5",
+      "component": "environment",
+      "seed": 23,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "85fb0bd73d02a6493331da21f444599d41221c75c8a64af94f05a61b8122a6cc",
+      "presetSha256": "96e11a8453ef64c960cd4d651edad656758527be40c526dc2266942dbf0ae5ed",
+      "mean": 0.07824701815843582,
+      "rgb": [
+        0.07824701815843582,
+        0.07824701815843582,
+        0.07824701815843582
+      ],
+      "maximum": 0.09225517511367798,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": false,
+      "directLightingEnabled": false,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "environment-m2-env5",
+      "component": "environment",
+      "seed": 37,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "abb6c1df4bf5deaab60c10396aa636e08a8a47832002477c56761e870db51a21",
+      "presetSha256": "96e11a8453ef64c960cd4d651edad656758527be40c526dc2266942dbf0ae5ed",
+      "mean": 0.07831384986639023,
+      "rgb": [
+        0.07831384986639023,
+        0.07831384986639023,
+        0.07831384986639023
+      ],
+      "maximum": 0.0928826704621315,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": false,
+      "directLightingEnabled": false,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "environment-m2-env5",
+      "component": "environment",
+      "seed": 53,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "871340c1242faeeba3c56d38ee819cc8f5fb7c8b2197b950baa801d672cae121",
+      "presetSha256": "96e11a8453ef64c960cd4d651edad656758527be40c526dc2266942dbf0ae5ed",
+      "mean": 0.07827472686767578,
+      "rgb": [
+        0.07827472686767578,
+        0.07827472686767578,
+        0.07827472686767578
+      ],
+      "maximum": 0.09212678670883179,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": false,
+      "directLightingEnabled": false,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m0-env5",
+      "component": "combined",
+      "seed": 11,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "221395f6d2d9145dca033357a66b4553e595f973cfd8758c87d7654392b87a2f",
+      "presetSha256": "c701dd5bf5c13e846696a3666c9553f00d1a5d78d24668cd72cbfb56b21c15de",
+      "mean": 0.1607498973608017,
+      "rgb": [
+        0.18350844085216522,
+        0.14962735772132874,
+        0.14911387860774994
+      ],
+      "maximum": 0.2287517488002777,
+      "emissiveSamplingMode": 0,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m0-env5",
+      "component": "combined",
+      "seed": 23,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "8c40e4c60b685b8cade24a468d9e4a1ca74ffd9f5678df8da8c8c959ba4db92d",
+      "presetSha256": "c701dd5bf5c13e846696a3666c9553f00d1a5d78d24668cd72cbfb56b21c15de",
+      "mean": 0.16048599779605865,
+      "rgb": [
+        0.18302150070667267,
+        0.14940784871578217,
+        0.14902867376804352
+      ],
+      "maximum": 0.23110850155353546,
+      "emissiveSamplingMode": 0,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m0-env5",
+      "component": "combined",
+      "seed": 37,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "e673cd8baa4b41c42eb528f5af4302e4aaf631ad170eced244ced163c44a878c",
+      "presetSha256": "c701dd5bf5c13e846696a3666c9553f00d1a5d78d24668cd72cbfb56b21c15de",
+      "mean": 0.1604829877614975,
+      "rgb": [
+        0.18296848237514496,
+        0.14941486716270447,
+        0.14906559884548187
+      ],
+      "maximum": 0.2410661280155182,
+      "emissiveSamplingMode": 0,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m0-env5",
+      "component": "combined",
+      "seed": 53,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "2a880a85f7bb3918cd308272b238cce8b37735276619f97c99e0ed6ced212774",
+      "presetSha256": "c701dd5bf5c13e846696a3666c9553f00d1a5d78d24668cd72cbfb56b21c15de",
+      "mean": 0.1604735404253006,
+      "rgb": [
+        0.18298007547855377,
+        0.14940129220485687,
+        0.14903925359249115
+      ],
+      "maximum": 0.24652834236621857,
+      "emissiveSamplingMode": 0,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m1-env5",
+      "component": "combined",
+      "seed": 11,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "92eaf9f26af43564aaed98cc6d1319e6063dd2c0409a129cfb665b4960a26608",
+      "presetSha256": "aa288e705f5fe2071f9db07e27ec4092b07eb4535827e446013a085c9ee8a3b7",
+      "mean": 0.16057716310024261,
+      "rgb": [
+        0.18313062191009521,
+        0.14949552714824677,
+        0.14910534024238586
+      ],
+      "maximum": 0.19879035651683807,
+      "emissiveSamplingMode": 1,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m1-env5",
+      "component": "combined",
+      "seed": 23,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "36efe6757ade2e4224d34338f2796f128717681f20ee9c8a9894e916af96125c",
+      "presetSha256": "aa288e705f5fe2071f9db07e27ec4092b07eb4535827e446013a085c9ee8a3b7",
+      "mean": 0.1605522483587265,
+      "rgb": [
+        0.183096244931221,
+        0.14947275817394257,
+        0.14908774197101593
+      ],
+      "maximum": 0.20156478881835938,
+      "emissiveSamplingMode": 1,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m1-env5",
+      "component": "combined",
+      "seed": 37,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "3d6fa05c3230f688e86df9ef7c4b8a1f421d0eb5b2c58ecb307ecf3140038f1c",
+      "presetSha256": "aa288e705f5fe2071f9db07e27ec4092b07eb4535827e446013a085c9ee8a3b7",
+      "mean": 0.16049866378307343,
+      "rgb": [
+        0.18305222690105438,
+        0.14941717684268951,
+        0.149026557803154
+      ],
+      "maximum": 0.1984655112028122,
+      "emissiveSamplingMode": 1,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m1-env5",
+      "component": "combined",
+      "seed": 53,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "b46d946a5b21c809933ececd34c0e7333672791cf032f42bd681055511ffd7c1",
+      "presetSha256": "aa288e705f5fe2071f9db07e27ec4092b07eb4535827e446013a085c9ee8a3b7",
+      "mean": 0.1606387346982956,
+      "rgb": [
+        0.18318602442741394,
+        0.1495583951473236,
+        0.14917175471782684
+      ],
+      "maximum": 0.19764167070388794,
+      "emissiveSamplingMode": 1,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m2-env5",
+      "component": "combined",
+      "seed": 11,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "6af17056b40bc47656216b12d83b0f1b7b9d7ab355908c3c0049f282857ea15c",
+      "presetSha256": "e13a4357249d14d566ea53cb84d6591fa5f5c52eebf25adaa474052cf3d36356",
+      "mean": 0.16057421267032623,
+      "rgb": [
+        0.1831255406141281,
+        0.1494929939508438,
+        0.14910411834716797
+      ],
+      "maximum": 0.19648709893226624,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m2-env5",
+      "component": "combined",
+      "seed": 23,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "ef570db148ee455edb5096a1e5ea89e04ac4cdb446b0f88e2e6ae61d339815cd",
+      "presetSha256": "e13a4357249d14d566ea53cb84d6591fa5f5c52eebf25adaa474052cf3d36356",
+      "mean": 0.1605437844991684,
+      "rgb": [
+        0.18308207392692566,
+        0.14946521818637848,
+        0.14908401668071747
+      ],
+      "maximum": 0.19971950352191925,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m2-env5",
+      "component": "combined",
+      "seed": 37,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "12e0a8e901e9b37a30649c1b994cd24c11e587f4faff45a76be1ca6144cb8427",
+      "presetSha256": "e13a4357249d14d566ea53cb84d6591fa5f5c52eebf25adaa474052cf3d36356",
+      "mean": 0.16049285233020782,
+      "rgb": [
+        0.18304231762886047,
+        0.14941205084323883,
+        0.14902415871620178
+      ],
+      "maximum": 0.1974051296710968,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m2-env5",
+      "component": "combined",
+      "seed": 53,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "fd97d88a0ca506ce6b8f41a56aa178efba5d5d335ce5d69cdac2f5f703f8df43",
+      "presetSha256": "e13a4357249d14d566ea53cb84d6591fa5f5c52eebf25adaa474052cf3d36356",
+      "mean": 0.16063192486763,
+      "rgb": [
+        0.1831742525100708,
+        0.1495526283979416,
+        0.14916887879371643
+      ],
+      "maximum": 0.19654659926891327,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m0-env1",
+      "component": "combined",
+      "seed": 11,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "7fecab7cc381ff05c30c6f40584f8cc1196a62a9dd50517c238329807fa53ef5",
+      "presetSha256": "374d306bdbf71690c40b37ca69dbcc18d7ade91638a65cc059798ce4d74d3d61",
+      "mean": 0.16060090065002441,
+      "rgb": [
+        0.18315233290195465,
+        0.14951978623867035,
+        0.14913059771060944
+      ],
+      "maximum": 0.2359204739332199,
+      "emissiveSamplingMode": 0,
+      "environmentSamplingMode": 1,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m0-env1",
+      "component": "combined",
+      "seed": 23,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "4c412e862ec259936722794ddf35df26790d5a1466c7643094cfe32f3048f7e5",
+      "presetSha256": "374d306bdbf71690c40b37ca69dbcc18d7ade91638a65cc059798ce4d74d3d61",
+      "mean": 0.1603718400001526,
+      "rgb": [
+        0.18276892602443695,
+        0.14932139217853546,
+        0.14902521669864655
+      ],
+      "maximum": 0.22904084622859955,
+      "emissiveSamplingMode": 0,
+      "environmentSamplingMode": 1,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m0-env1",
+      "component": "combined",
+      "seed": 37,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "6f47abbd4c20b5345c925f25a7737b16ba26d2be5ff5cf469457c84194fe8bd8",
+      "presetSha256": "374d306bdbf71690c40b37ca69dbcc18d7ade91638a65cc059798ce4d74d3d61",
+      "mean": 0.16047511994838715,
+      "rgb": [
+        0.18293699622154236,
+        0.1494118869304657,
+        0.14907649159431458
+      ],
+      "maximum": 0.2276296615600586,
+      "emissiveSamplingMode": 0,
+      "environmentSamplingMode": 1,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "combined-m0-env1",
+      "component": "combined",
+      "seed": 53,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "e2f50c95dc2b0cdd3aee8f8830724d7648e729389e114b9e4ee1cb511218fc2f",
+      "presetSha256": "374d306bdbf71690c40b37ca69dbcc18d7ade91638a65cc059798ce4d74d3d61",
+      "mean": 0.16043496131896973,
+      "rgb": [
+        0.18292705714702606,
+        0.14936554431915283,
+        0.1490122526884079
+      ],
+      "maximum": 0.23428930342197418,
+      "emissiveSamplingMode": 0,
+      "environmentSamplingMode": 1,
+      "emissiveEnabled": true,
+      "directLightingEnabled": true,
+      "environmentEnabled": true,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "label": "off-m2-env5",
+      "component": "off",
+      "seed": 11,
+      "samples": 128,
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "af4472ac1ea440bbd60c5b018b821c1eebab9619ee9c45cbcbe5ba58571468a0",
+      "presetSha256": "a6fc5b110e2333e10d49fa58f1868f369956f387f1031775e9006a8239d3a15b",
+      "mean": 0,
+      "rgb": [
+        0,
+        0,
+        0
+      ],
+      "maximum": 0,
+      "emissiveSamplingMode": 2,
+      "environmentSamplingMode": 5,
+      "emissiveEnabled": false,
+      "directLightingEnabled": false,
+      "environmentEnabled": false,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "warningCount": 3
+    }
+  ],
+  "comparisons": [
+    {
+      "case": "additivity-mode-0",
+      "mean": {
+        "status": "passed",
+        "referenceMean": 0.16041403636336327,
+        "candidateMean": 0.1605481058359146,
+        "relativeDifference": 0.0008357714548598303,
+        "pairedStandardError": 0.00006564272076826413,
+        "fourStandardErrorRelative": 0.001636832343513206,
+        "relativeTolerance": 0.02,
+        "maxUncertainty": 0.05
+      },
+      "channels": [
+        {
+          "status": "passed",
+          "referenceMean": 0.1828896589577198,
+          "candidateMean": 0.18311962485313416,
+          "relativeDifference": 0.0012574023962039081,
+          "pairedStandardError": 0.00011228016593931862,
+          "fourStandardErrorRelative": 0.0024556919528244165,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        {
+          "status": "passed",
+          "referenceMean": 0.14934799820184708,
+          "candidateMean": 0.14946284145116806,
+          "relativeDifference": 0.0007689641019879672,
+          "pairedStandardError": 0.000056311169741344336,
+          "fourStandardErrorRelative": 0.001508186796457454,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        {
+          "status": "passed",
+          "referenceMean": 0.14900445193052292,
+          "candidateMean": 0.14906185120344162,
+          "relativeDifference": 0.00038521850974939346,
+          "pairedStandardError": 0.000028337588299394663,
+          "fourStandardErrorRelative": 0.0007607178962037396,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        }
+      ]
+    },
+    {
+      "case": "additivity-mode-1",
+      "mean": {
+        "status": "passed",
+        "referenceMean": 0.16051732624570528,
+        "candidateMean": 0.16056669751803082,
+        "relativeDifference": 0.00030757597002300954,
+        "pairedStandardError": 0.00004513993620415356,
+        "fourStandardErrorRelative": 0.0011248614030626815,
+        "relativeTolerance": 0.02,
+        "maxUncertainty": 0.05
+      },
+      "channels": [
+        {
+          "status": "passed",
+          "referenceMean": 0.183066725730896,
+          "candidateMean": 0.18311627954244614,
+          "relativeDifference": 0.0002706871571133215,
+          "pairedStandardError": 0.000045210760924578686,
+          "fourStandardErrorRelative": 0.0009878531610607926,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        {
+          "status": "passed",
+          "referenceMean": 0.14943653717637062,
+          "candidateMean": 0.1494859643280506,
+          "relativeDifference": 0.000330756805624162,
+          "pairedStandardError": 0.00004511103233572841,
+          "fourStandardErrorRelative": 0.0012074967257167282,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        {
+          "status": "passed",
+          "referenceMean": 0.14904871582984924,
+          "candidateMean": 0.14909784868359566,
+          "relativeDifference": 0.0003296429189131906,
+          "pairedStandardError": 0.00004509867325436702,
+          "fourStandardErrorRelative": 0.0012103069255786324,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        }
+      ]
+    },
+    {
+      "case": "additivity-mode-2",
+      "mean": {
+        "status": "passed",
+        "referenceMean": 0.16051396975914636,
+        "candidateMean": 0.16056068738301596,
+        "relativeDifference": 0.00029105020541009676,
+        "pairedStandardError": 0.000043677556854023906,
+        "fourStandardErrorRelative": 0.0010884425055230455,
+        "relativeTolerance": 0.02,
+        "maxUncertainty": 0.05
+      },
+      "channels": [
+        {
+          "status": "passed",
+          "referenceMean": 0.18306097760796547,
+          "candidateMean": 0.18310604616999626,
+          "relativeDifference": 0.00024619426062122803,
+          "pairedStandardError": 0.00004269487824202017,
+          "fourStandardErrorRelative": 0.00093291052631552,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        {
+          "status": "passed",
+          "referenceMean": 0.1494336575269699,
+          "candidateMean": 0.14948072284460068,
+          "relativeDifference": 0.00031495794461347125,
+          "pairedStandardError": 0.00004389154230071791,
+          "fourStandardErrorRelative": 0.0011748770130396182,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        {
+          "status": "passed",
+          "referenceMean": 0.14904727414250374,
+          "candidateMean": 0.1490952931344509,
+          "relativeDifference": 0.0003221728959716716,
+          "pairedStandardError": 0.000044455590345074746,
+          "fourStandardErrorRelative": 0.00119306013748553,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        }
+      ]
+    },
+    {
+      "case": "combined-bsdf-vs-mode-1",
+      "mean": {
+        "status": "passed",
+        "referenceMean": 0.1605481058359146,
+        "candidateMean": 0.16056669751803082,
+        "relativeDifference": 0.00011580131711552836,
+        "pairedStandardError": 0.00007092958650124035,
+        "fourStandardErrorRelative": 0.0017671858819370363,
+        "relativeTolerance": 0.02,
+        "maxUncertainty": 0.05
+      },
+      "channels": [
+        {
+          "status": "passed",
+          "referenceMean": 0.18311962485313416,
+          "candidateMean": 0.18311627954244614,
+          "relativeDifference": 0.000018268444415511497,
+          "pairedStandardError": 0.00012836056080180194,
+          "fourStandardErrorRelative": 0.0028038624676028,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        {
+          "status": "passed",
+          "referenceMean": 0.14946284145116806,
+          "candidateMean": 0.1494859643280506,
+          "relativeDifference": 0.000154706525435004,
+          "pairedStandardError": 0.00006064963394354664,
+          "fourStandardErrorRelative": 0.0016231361147609885,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        {
+          "status": "passed",
+          "referenceMean": 0.14906185120344162,
+          "candidateMean": 0.14909784868359566,
+          "relativeDifference": 0.00024149358043935488,
+          "pairedStandardError": 0.00003814384307787182,
+          "fourStandardErrorRelative": 0.0010235708940931532,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        }
+      ]
+    },
+    {
+      "case": "combined-bsdf-vs-mode-2",
+      "mean": {
+        "status": "passed",
+        "referenceMean": 0.1605481058359146,
+        "candidateMean": 0.16056068738301596,
+        "relativeDifference": 0.00007836621326574046,
+        "pairedStandardError": 0.0000699679343372203,
+        "fourStandardErrorRelative": 0.001743226654040498,
+        "relativeTolerance": 0.02,
+        "maxUncertainty": 0.05
+      },
+      "channels": [
+        {
+          "status": "passed",
+          "referenceMean": 0.18311962485313416,
+          "candidateMean": 0.18310604616999626,
+          "relativeDifference": 0.00007415198206518864,
+          "pairedStandardError": 0.0001267216598881366,
+          "fourStandardErrorRelative": 0.0027680628985510443,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        {
+          "status": "passed",
+          "referenceMean": 0.14946284145116806,
+          "candidateMean": 0.14948072284460068,
+          "relativeDifference": 0.00011963771904108574,
+          "pairedStandardError": 0.000059844574415568176,
+          "fourStandardErrorRelative": 0.0016015907053425148,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        {
+          "status": "passed",
+          "referenceMean": 0.14906185120344162,
+          "candidateMean": 0.1490952931344509,
+          "relativeDifference": 0.00022434936061306932,
+          "pairedStandardError": 0.00003786448069408015,
+          "fourStandardErrorRelative": 0.0010160743446665558,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        }
+      ]
+    },
+    {
+      "case": "joint-mis-vs-pure-bsdf",
+      "mean": {
+        "status": "passed",
+        "referenceMean": 0.1604707067211469,
+        "candidateMean": 0.16056068738301596,
+        "relativeDifference": 0.0005607295169790913,
+        "pairedStandardError": 0.00005552383437041225,
+        "fourStandardErrorRelative": 0.0013840241750015373,
+        "relativeTolerance": 0.02,
+        "maxUncertainty": 0.05
+      },
+      "channels": [
+        {
+          "status": "passed",
+          "referenceMean": 0.18294632807374,
+          "candidateMean": 0.18310604616999626,
+          "relativeDifference": 0.0008730325333005792,
+          "pairedStandardError": 0.00007579473419674106,
+          "fourStandardErrorRelative": 0.00165720154090637,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        {
+          "status": "passed",
+          "referenceMean": 0.14940465241670609,
+          "candidateMean": 0.14948072284460068,
+          "relativeDifference": 0.0005091570219809719,
+          "pairedStandardError": 0.000052644552284170795,
+          "fourStandardErrorRelative": 0.0014094488071854502,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        {
+          "status": "passed",
+          "referenceMean": 0.1490611396729946,
+          "candidateMean": 0.1490952931344509,
+          "relativeDifference": 0.00022912384496203076,
+          "pairedStandardError": 0.00004722572203233692,
+          "fourStandardErrorRelative": 0.0012672846091459958,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        }
+      ]
+    }
+  ],
+  "samples": 128,
+  "seeds": [
+    11,
+    23,
+    37,
+    53
+  ],
+  "roi": [
+    928,
+    508,
+    64,
+    64
+  ],
+  "sceneSha256": "5d507e82aa2d222a6bf989b2308d443c29d451e8e677d15400baec5d8c5e3896",
+  "emitterSha256": "8852c93c16e9c1a5652fdbb92a45adcfa03a16056ff565b53a4239855acde659",
+  "commit": "1205caf188a73fd041290bdcff193cdaecfb0945",
+  "executable": "C:\\work\\RtPbrSurvey-work-3\\build\\Debug\\RtPbrSurvey.exe",
+  "executableSha256": "64741214ef635b9fce6647a010be56d84ad7441d8543b689422635d4530b66a8",
+  "sourceSha256": {
+    "Shaders/shaders_PathTracing.hlsl": "c368e77350df4e81b9e012bce1b07317a6ad75077bcf2d4b6231c77d6854fc0e",
+    "Shaders/PathTracingSampling.hlsli": "d63b74f5f9d2b5b6be615a65fe06153ca5b6cb87253093722b0f8898ed9d44e1",
+    "Shaders/EmissiveTriangleSampling.hlsli": "5d009369152e3b246879c7392d69e785008f9aeda193b1f8c802720ef700fecd",
+    "Tests/PathTracing/validate_emissive.py": "336148aa2ffb63d918ecc9e9a5414dd256d76096bfdc4a6d710f581b5526e320",
+    "Tests/PathTracing/validate_emissive_combined.py": "9c73689e290f36f5d4a9c7d2929affea88379d161088a2b24d74b14dad65e617"
+  },
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "limitation": "Two-segment opaque receiver/rectangle fixture; constant environment and one point light. Additivity/technique agreement is not an independent absolute transport oracle.",
+  "offMaximum": 0,
+  "componentMeans": {
+    "emissive": 0.055659133940935135,
+    "direct": 0.026596536859869957,
+    "environment": 0.07825829833745956,
+    "combined": 0.16056068241596222,
+    "sum": 0.1605139821767807
+  },
+  "evaluationDate": "2026-10-06",
+  "captureCount": 37,
+  "tests": {
+    "python": "91/91",
+    "ctest": "25/25"
+  },
+  "logCheck": {
+    "errorCorruptionCount": 0,
+    "warningKind": "Existing CreateCommittedResource buffer initial-state warnings"
+  },
+  "archiveNote": "Archived scene adds Japanese description and uses render-preset.json. Geometry and light parameters are unchanged; default is combined sources with joint MIS."
+}

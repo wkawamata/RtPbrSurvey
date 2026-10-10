@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "emissive-combined",
+  "name": "PT Combined Lighting",
+  "renderPreset": "render-preset.json",
+  "assets": [
+    {
+      "id": "emitter",
+      "type": "gltf",
+      "path": "emitter.gltf"
+    }
+  ],
+  "materials": [
+    {
+      "id": "dielectric",
+      "name": "dielectric",
+      "baseColor": [
+        0.5,
+        0.5,
+        0.5,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.8
+    }
+  ],
+  "nodes": [
+    {
+      "id": "receiver",
+      "name": "receiver",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "plane",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "dielectric"
+    },
+    {
+      "id": "emitter",
+      "name": "emitter",
+      "type": "gltf",
+      "assetId": "emitter",
+      "parentId": null,
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true
+    }
+  ],
+  "camera": {
+    "position": [
+      0,
+      4,
+      -7
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 55,
+    "orthographicHeight": 10,
+    "nearZ": 0.1,
+    "farZ": 1000
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      0.96,
+      0.86
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  },
+  "description": "目的: 暖色の発光面、青系の点光源、一定白色の環境光を併用し、寄与の二重計上や欠落がないことを確認する。\n見る場所: 床中央。各光源を個別にONにした結果のRGB平均の和と、同時にONにした結果のRGB平均が一致すること。\n設定: 2バウンス、発光MIS、環境光MIS (Constant White)、影ON。環境光強度0.2、点光源強度4。\n追加比較: 発光のBSDF / NEE / MISを切り替えても平均的な明るさが変わらないこと。環境光もBSDFにした結果と、両方MISの結果を比較する。\n限界: 固定シーンの線形HDR平均を比較するテスト。ToneMap後の画像を足し合わせる評価ではない。\n数値評価 2026-10-06: 128 spp・4 seed、37キャプチャ合格。個別寄与の和との差はBSDF 0.084%、NEE 0.031%、MIS 0.029%。RGB各チャンネルも合格。両方BSDFと両方MISの差0.056%。全光源OFFはゼロ。"
+}

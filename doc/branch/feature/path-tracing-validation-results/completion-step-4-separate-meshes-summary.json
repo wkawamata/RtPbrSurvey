@@ -1,0 +1,301 @@
+{
+  "schemaVersion": 1,
+  "generatedUtc": "2026-10-03T15:55:38.075927+00:00",
+  "testedCommit": "6f665fc1f660ae1f96e4a00c4cff2e2e72d73293",
+  "executableSha256": "1394a6e3ca255416b61aec5a80e3d51c7873c4c20fa56ce7bdb74cf9bdef2567",
+  "sourceSha256": {
+    "GltfLoader.cpp": "a2ec08351a9f69d3f1daf1ef4ef4844524d369c03c345f8e6ea702f7d2459936",
+    "Shaders/SurfaceTransform.hlsli": "5de5e218330e766019219619273f9a061639228a6b133e30ce7669e0e3233637",
+    "Shaders/SceneRayQuery.hlsli": "1ad1e244640f09bf5d1a205fb41a0cac9ede4f7bc4bc78d3e9a3e59eeb9f267d",
+    "Shaders/shaders_GBuffer.hlsl": "b70ae0077b72b2d9db5e9cfa66252016b11007ff83461c1fe779af388a7289f2",
+    "Tests/PathTracing/validate_geometry.py": "0618b698601b9a2c3238d1059c8439ecdb714e4a9cba218a082cc137814da71e"
+  },
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "records": [
+    {
+      "name": "normal",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\normal-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\normal-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.NormalRoughness",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\normal.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\normal.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "9a558b18c8db5bf94b54adfd7d8b0f9394868b55d74f01197511a663b597f4ce",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "assetSha256": "f5403ac10e6c90e3781d0f5245e08f7343573515eaa3ced984ceb724e1002e38",
+      "checks": [
+        {
+          "instance": 0,
+          "pixelCount": 38477,
+          "expected": [
+            -0.79493882730144,
+            0.30429030972509225,
+            -0.5248615705650572,
+            0.37
+          ],
+          "observedMean": [
+            -0.794921875,
+            0.30419921875,
+            -0.5244140625,
+            0.369873046875
+          ],
+          "maxAbsoluteError": 0.00044750806505722274,
+          "tolerance": 0.001,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "d3d12Errors": 0,
+      "sha256": "b80b873f6bc6bc65d162eed15663d0675103557f166a1354e845741e545f07e2"
+    },
+    {
+      "name": "mapped",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\mapped-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\mapped-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.NormalRoughness",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\mapped.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\mapped.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "4c32a8fbd089a7f66d22a3d891f9ef910948f55e4c31be80df4990cd60cea11c",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "assetSha256": "887ed85ab944b87b99713e7b268d81042c21fb504eac8283f352ef86065494b3",
+      "checks": [
+        {
+          "instance": 0,
+          "pixelCount": 38477,
+          "expected": [
+            -0.42224036736394294,
+            0.49808779308415513,
+            -0.7573781238911766,
+            0.37
+          ],
+          "observedMean": [
+            -0.422119140625,
+            0.498046875,
+            -0.75732421875,
+            0.369873046875
+          ],
+          "maxAbsoluteError": 0.00012695312499999556,
+          "tolerance": 0.001,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "d3d12Errors": 0,
+      "sha256": "8e49445577962cd407b9bb9a54a63ef10a23ebdc2585eaabc72fe60ab040f5ca"
+    },
+    {
+      "name": "mirrored-node",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\mirrored-node-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\mirrored-node-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.NormalRoughness",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\mirrored-node.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\mirrored-node.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "a4413db0e45cdb046c303dd9a2e8d3716b11c80b4d679f89a26ed890e4cdc60e",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "assetSha256": "d1512ec32990b17170c7d140731d2e8d6f7ad8e20e28a08837e65b0bd5d048e7",
+      "checks": [
+        {
+          "instance": 0,
+          "pixelCount": 29590,
+          "expected": [
+            -0.42224036736394294,
+            -0.49808779308415513,
+            -0.7573781238911766,
+            0.37
+          ],
+          "observedMean": [
+            -0.422119140625,
+            -0.498046875,
+            -0.75732421875,
+            0.369873046875
+          ],
+          "maxAbsoluteError": 0.00012695312499999556,
+          "tolerance": 0.001,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "d3d12Errors": 0,
+      "sha256": "5faa4fcca2dd27ac65aac1c922ac54923eb7e467f8761f84de8d13881cd2a2b6"
+    },
+    {
+      "name": "instances",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\instances-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\instances-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.NormalRoughness",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\instances.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\instances.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "c6d84e6dc9334de44e77fe4f55cebc1c3a4c6ba8b4ea6d7d7f73f331d94cc37a",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "assetSha256": "887ed85ab944b87b99713e7b268d81042c21fb504eac8283f352ef86065494b3",
+      "checks": [
+        {
+          "instance": 0,
+          "pixelCount": 13019,
+          "expected": [
+            -0.42224036736394294,
+            0.49808779308415513,
+            -0.7573781238911766,
+            0.37
+          ],
+          "observedMean": [
+            -0.422119140625,
+            0.498046875,
+            -0.75732421875,
+            0.369873046875
+          ],
+          "maxAbsoluteError": 0.00012695312499999556,
+          "tolerance": 0.001,
+          "passed": true
+        },
+        {
+          "instance": 1,
+          "pixelCount": 35231,
+          "expected": [
+            0.23697818027205306,
+            0.4980877930841551,
+            -0.8341162343795392,
+            0.37
+          ],
+          "observedMean": [
+            0.2369384765625,
+            0.498046875,
+            -0.833984375,
+            0.369873046875
+          ],
+          "maxAbsoluteError": 0.0001318593795391898,
+          "tolerance": 0.001,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "d3d12Errors": 0,
+      "sha256": "e7bd022f81f179b76faa8af766c126033b4a4eefe7cc0a433be8ee71a6e8bd1a"
+    },
+    {
+      "name": "separate-meshes",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\separate-meshes-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\separate-meshes-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.NormalRoughness",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\separate-meshes.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\separate-meshes-20261004\\separate-meshes.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "96b2e25d9d6063266072e4605bb360692851580adc5057be050b5eadcd44b639",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "assetSha256": "887ed85ab944b87b99713e7b268d81042c21fb504eac8283f352ef86065494b3",
+      "secondAssetSha256": "3fb2beb5c057ffbd35ae133d9be195e90f8507cb4ec214788f06e8bcb31092d3",
+      "checks": [
+        {
+          "instance": 0,
+          "pixelCount": 13019,
+          "expected": [
+            -0.42224036736394294,
+            0.49808779308415513,
+            -0.7573781238911766,
+            0.37
+          ],
+          "observedMean": [
+            -0.422119140625,
+            0.498046875,
+            -0.75732421875,
+            0.369873046875
+          ],
+          "maxAbsoluteError": 0.00012695312499999556,
+          "tolerance": 0.001,
+          "passed": true
+        },
+        {
+          "instance": 1,
+          "pixelCount": 32312,
+          "expected": [
+            0.08040065191824486,
+            -0.43813668026728037,
+            -0.8953055258265126,
+            0.71
+          ],
+          "observedMean": [
+            0.08038330078125,
+            -0.43798828125,
+            -0.89501953125,
+            0.7099609375
+          ],
+          "maxAbsoluteError": 0.00028599457651257154,
+          "tolerance": 0.001,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "d3d12Errors": 0,
+      "sha256": "45fb416fa6df8e14fe805e49e0e0dafb430b50222cb05078b5e08da53552e3c6"
+    }
+  ],
+  "status": "passed"
+}

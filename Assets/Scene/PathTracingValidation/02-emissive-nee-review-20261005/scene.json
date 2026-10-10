@@ -1,0 +1,143 @@
+{
+  "assets": [
+    {
+      "id": "emitter",
+      "path": "emitter.gltf",
+      "type": "gltf"
+    }
+  ],
+  "camera": {
+    "farZ": 1000,
+    "lensShiftX": 0,
+    "lensShiftY": 0,
+    "nearZ": 0.10000000149011612,
+    "orthographicHeight": 10,
+    "position": [
+      0,
+      4,
+      -7
+    ],
+    "projection": "perspective",
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "verticalFovDegrees": 55
+  },
+  "environment": {
+    "backgroundIntensity": 1,
+    "colorPanelIntensity": 0,
+    "fillIntensity": 0,
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "horizonSharpness": 0.07999999821186066,
+    "iblEnabled": true,
+    "lightColor": [
+      1,
+      0.9599999785423279,
+      0.8600000143051147
+    ],
+    "lightDirection": [
+      0.3499999940395355,
+      0.75,
+      0.25
+    ],
+    "lightIntensity": 0,
+    "lightSize": 0.11999999731779099,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "source": "procedural"
+  },
+  "materials": [
+    {
+      "baseColor": [
+        0.5,
+        0.5,
+        0.5,
+        1
+      ],
+      "id": "dielectric",
+      "metallic": 0,
+      "name": "dielectric",
+      "roughness": 0.800000011920929
+    }
+  ],
+  "name": "PT Emissive NEE Review 2026-10-05",
+  "nodes": [
+    {
+      "id": "receiver",
+      "materialId": "dielectric",
+      "name": "receiver",
+      "parentId": null,
+      "primitive": {
+        "depth": 10,
+        "height": 1,
+        "kind": "plane",
+        "radialSegments": 32,
+        "radius": 0.699999988079071,
+        "size": 1,
+        "slices": 32,
+        "stacks": 24,
+        "width": 10
+      },
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "type": "primitive",
+      "visible": true
+    },
+    {
+      "assetId": "emitter",
+      "id": "emitter",
+      "name": "emitter",
+      "parentId": null,
+      "rotation": [
+        0,
+        0.2588190734386444,
+        0,
+        0.9659258723258972
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "translation": [
+        0.5,
+        0,
+        0
+      ],
+      "type": "gltf",
+      "visible": true
+    }
+  ],
+  "renderPreset": "render-preset.json",
+  "sceneId": "emissive-nee-review-20261005",
+  "schemaVersion": 1,
+  "description": "目的: 2026-10-05に保存されたemitterの移動・回転状態を再確認する。\n見る場所: 発光面に照らされた床。発光面の移動・回転に対する照明範囲の変化を見る。\n確認: emitter編集でカメラが戻らないこと。Reset Cameraを押した時だけ基準位置へ戻ること。\n記録: オレンジ色の照明を目視確認。保存されたemitter位置X=0.5、Y回転約30度。\n注意: 基準シーンから変形しているため、基準シーンの数値評価結果をこの状態に適用しない。"
+}

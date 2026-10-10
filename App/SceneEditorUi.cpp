@@ -18,27 +18,32 @@ namespace
 {
 std::vector<std::filesystem::path> FindSceneEditorSceneFiles()
 {
-    const std::filesystem::path sceneRoot = std::filesystem::current_path() / "Assets" / "Scenes";
+    const std::filesystem::path assetsRoot = std::filesystem::current_path() / "Assets";
+    const std::filesystem::path sceneRoots[] = {
+        assetsRoot / "Scenes", assetsRoot / "Scene" / "PathTracingValidation"};
     std::vector<std::filesystem::path> sceneFiles;
-    std::error_code error;
-    if (!std::filesystem::is_directory(sceneRoot, error))
+    for (const std::filesystem::path& sceneRoot : sceneRoots)
     {
-        return sceneFiles;
-    }
-    for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(sceneRoot, error))
-    {
-        if (error)
-        {
-            break;
-        }
-        if (!entry.is_directory(error))
+        std::error_code error;
+        if (!std::filesystem::is_directory(sceneRoot, error))
         {
             continue;
         }
-        const std::filesystem::path scenePath = entry.path() / "scene.json";
-        if (std::filesystem::is_regular_file(scenePath, error))
+        for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(sceneRoot, error))
         {
-            sceneFiles.push_back(scenePath);
+            if (error)
+            {
+                break;
+            }
+            if (!entry.is_directory(error))
+            {
+                continue;
+            }
+            const std::filesystem::path scenePath = entry.path() / "scene.json";
+            if (std::filesystem::is_regular_file(scenePath, error))
+            {
+                sceneFiles.push_back(scenePath);
+            }
         }
     }
     std::sort(sceneFiles.begin(), sceneFiles.end());
@@ -121,6 +126,16 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     RtPbrSurvey::SceneDocument& document = session.Document();
     ImGui::Text("Scene: %s", document.name.c_str());
     ImGui::Text("Scene ID: %s", document.sceneId.c_str());
+    std::string description = document.description;
+    if (ImGui::InputTextMultiline("Description", &description, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 4.0f)))
+    {
+        session.BeginEdit();
+        document.description = std::move(description);
+    }
+    if (ImGui::IsItemDeactivatedAfterEdit())
+    {
+        session.CommitEdit();
+    }
     ImGui::Text("Nodes: %zu   Assets: %zu   Materials: %zu",
                 document.nodes.size(), document.assets.size(), document.materials.size());
     ImGui::SameLine();
@@ -903,6 +918,14 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
 
     if (ImGui::CollapsingHeader("Scene Camera and Environment"))
     {
+        if (ImGui::Button("Reset Camera"))
+        {
+            std::string error;
+            if (!app.RebuildSceneEditorPreview(&error, false))
+            {
+                app.m_sceneEditorStatus = "Camera reset failed: " + error;
+            }
+        }
         bool sceneSettingsCommitted = false;
         float cameraPosition[3] = {document.camera.position.x, document.camera.position.y, document.camera.position.z};
         if (ImGui::InputFloat3("Camera Position", cameraPosition))
@@ -1034,6 +1057,60 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
             app.m_sceneRenderer.SetRenderingPath(RtPbrSurveyEngine::RenderingPath::Deferred);
             app.m_renderingPath = RtPbrSurveyEngine::RenderingPath::Deferred;
             app.m_sceneEditorPresetDirty = true;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Path Tracing", renderingPath == RtPbrSurveyEngine::RenderingPath::PathTracing))
+        {
+            app.m_sceneRenderer.SetRenderingPath(RtPbrSurveyEngine::RenderingPath::PathTracing);
+            app.m_renderingPath = RtPbrSurveyEngine::RenderingPath::PathTracing;
+            app.m_sceneEditorPresetDirty = true;
+        }
+        if (app.m_sceneRenderer.GetRenderingPath() == RtPbrSurveyEngine::RenderingPath::PathTracing)
+        {
+            RtPbrSurveyEngine::PathTracingSettings settings = app.m_sceneRenderer.GetPathTracingSettings();
+            bool changed = ImGui::Checkbox("Accumulate", &settings.accumulate);
+            int maxBounces = static_cast<int>(settings.maxBounces);
+            if (ImGui::SliderInt("Max Bounces", &maxBounces, 1, 16))
+            {
+                settings.maxBounces = static_cast<UINT>(maxBounces);
+                changed = true;
+            }
+            int samplesPerFrame = static_cast<int>(settings.samplesPerFrame);
+            if (ImGui::SliderInt("Samples / Frame", &samplesPerFrame, 1, 16))
+            {
+                settings.samplesPerFrame = static_cast<UINT>(samplesPerFrame);
+                changed = true;
+            }
+            changed |= ImGui::Checkbox("Direct Lighting", &settings.directLightingEnabled);
+            changed |= ImGui::Checkbox("Environment", &settings.environmentEnabled);
+            changed |= ImGui::Checkbox("Emissive", &settings.emissiveEnabled);
+            int emissiveSamplingMode = static_cast<int>(settings.emissiveSamplingMode);
+            if (ImGui::Combo("Emissive Sampling", &emissiveSamplingMode, "BSDF-only\0NEE-only\0MIS (BSDF + NEE)\0"))
+            {
+                settings.emissiveSamplingMode = static_cast<UINT>(emissiveSamplingMode);
+                changed = true;
+            }
+            int output = static_cast<int>(settings.debugOutput);
+            if (ImGui::Combo("Path Tracing Output", &output, "Albedo + Emissive\0World Normal\0Emissive\0Radiance\0"))
+            {
+                settings.debugOutput = static_cast<RtPbrSurveyEngine::PathTracingDebugOutput>(output);
+                changed = true;
+            }
+            if (changed)
+            {
+                app.m_sceneRenderer.SetPathTracingSettings(settings);
+                app.m_sceneEditorPresetDirty = true;
+            }
+            RtPbrSurveyEngine::ShadowSettings shadow = app.m_sceneRenderer.GetShadowSettings();
+            if (ImGui::Checkbox("Shadows", &shadow.enabled))
+            {
+                app.m_sceneRenderer.SetShadowSettings(shadow);
+                app.m_sceneEditorPresetDirty = true;
+            }
+            if (ImGui::Button("Reset Accumulation"))
+            {
+                app.m_sceneRenderer.ResetPathTracingAccumulation();
+            }
         }
         if (!canUsePresetFile)
         {

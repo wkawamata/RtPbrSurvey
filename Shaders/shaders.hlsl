@@ -74,6 +74,7 @@ float4 PSMain(PSInput input) : SV_TARGET
     Material mat = g_materialData[input.materialId];
     float2 materialUv = input.uv * mat.uvScale + mat.uvOffset;
     float4 albedo = g_texture[mat.albedoTexIndex].Sample(g_sampler, materialUv);
+    albedo *= mat.baseColorFactor;
     float3 normal = normalize(input.normal);
     float3 ambient = albedo.rgb * iblIntensity * diffuseIblEnabled;
     float3 diffuse = 0.0;

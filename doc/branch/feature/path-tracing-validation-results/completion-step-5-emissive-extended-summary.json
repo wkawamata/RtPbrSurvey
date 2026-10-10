@@ -1,0 +1,670 @@
+{
+  "schemaVersion": 1,
+  "evaluationDate": "2026-10-05",
+  "step": "5-emissive-extended",
+  "status": "passed",
+  "commit": "d044f7270e4fe8d804665779b079f8492e55ce65",
+  "executable": "C:\\work\\RtPbrSurvey-work-3\\build\\Debug\\RtPbrSurvey.exe",
+  "executableSha256": "64741214ef635b9fce6647a010be56d84ad7441d8543b689422635d4530b66a8",
+  "sourceSha256": {
+    "Shaders/shaders_PathTracing.hlsl": "c368e77350df4e81b9e012bce1b07317a6ad75077bcf2d4b6231c77d6854fc0e",
+    "Shaders/EmissiveTriangleSampling.hlsli": "5d009369152e3b246879c7392d69e785008f9aeda193b1f8c802720ef700fecd",
+    "Tests/PathTracing/validate_emissive.py": "b8c3c75dcefb422e8b30a6dd353a371f8316d3d3670e2eecb9439db0d6716b26",
+    "Tests/PathTracing/validate_emissive_extended.py": "63bd0dd4a938ffaec58e4d7280097cbe211e89bea11a083fddd604e90f89549f"
+  },
+  "samples": 64,
+  "seeds": [
+    11,
+    23,
+    37,
+    53
+  ],
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "cases": [
+    {
+      "case": "unequal",
+      "status": "passed",
+      "reference": {
+        "mean": 0.020333412036289644,
+        "rgb": [
+          0.028380624930708295,
+          0.018388143013550226,
+          0.014231468164610406
+        ],
+        "orders": [
+          64,
+          128
+        ],
+        "spatialSamples": 9,
+        "quadratureRelativeChange": 2.220446049250313e-16,
+        "limitation": "Nine ROI positions; two opaque, one-sided rectangular emitters with area ratio 4:1, two-bounce transport."
+      },
+      "agreements": {
+        "0": {
+          "status": "passed",
+          "measuredMean": 0.020310891792178154,
+          "relativeDifference": 0.0011075487021704467,
+          "fourStandardErrorRelative": 0.008427333218313376
+        },
+        "1": {
+          "status": "passed",
+          "measuredMean": 0.020300948061048985,
+          "relativeDifference": 0.0015965827664692345,
+          "fourStandardErrorRelative": 0.000632028666555523
+        },
+        "2": {
+          "status": "passed",
+          "measuredMean": 0.0203005475923419,
+          "relativeDifference": 0.001616277872552252,
+          "fourStandardErrorRelative": 0.0006183121611811189
+        }
+      },
+      "channelAgreements": {
+        "0": [
+          {
+            "status": "passed",
+            "measuredMean": 0.028319277800619602,
+            "relativeDifference": 0.0021615848924564363,
+            "fourStandardErrorRelative": 0.0027300838104250616
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.01837220136076212,
+            "relativeDifference": 0.0008669528389223524,
+            "fourStandardErrorRelative": 0.009869170831686732
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.014241196680814028,
+            "relativeDifference": 0.0006835918888405956,
+            "fourStandardErrorRelative": 0.01930098449304985
+          }
+        ],
+        "1": [
+          {
+            "status": "passed",
+            "measuredMean": 0.02830347279086709,
+            "relativeDifference": 0.0027184792452447093,
+            "fourStandardErrorRelative": 0.0014044639111230434
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.018363505136221647,
+            "relativeDifference": 0.001339878491831592,
+            "fourStandardErrorRelative": 0.0007284052641429398
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.014235866721719503,
+            "relativeDifference": 0.0003090726169796554,
+            "fourStandardErrorRelative": 0.0023937190560984075
+          }
+        ],
+        "2": [
+          {
+            "status": "passed",
+            "measuredMean": 0.02830274635925889,
+            "relativeDifference": 0.0027440752851477512,
+            "fourStandardErrorRelative": 0.0013410314526729782
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.018363173585385084,
+            "relativeDifference": 0.001357909178036243,
+            "fourStandardErrorRelative": 0.0007309063866968494
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.014235722832381725,
+            "relativeDifference": 0.0002989619709019564,
+            "fourStandardErrorRelative": 0.0023936222832705426
+          }
+        ]
+      },
+      "pairedAgreements": {
+        "1": {
+          "status": "passed",
+          "referenceMean": 0.020310891792178154,
+          "candidateMean": 0.020300948061048985,
+          "relativeDifference": 0.0004895762938877383,
+          "pairedStandardError": 0.00004304971202226384,
+          "fourStandardErrorRelative": 0.008478152995496247,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        "2": {
+          "status": "passed",
+          "referenceMean": 0.020310891792178154,
+          "candidateMean": 0.0203005475923419,
+          "relativeDifference": 0.0005092932374460157,
+          "pairedStandardError": 0.000042693315044792994,
+          "fourStandardErrorRelative": 0.008407964649043021,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        }
+      },
+      "offMaximum": 0,
+      "captures": [
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\unequal\\mode-0-seed-11.pfm",
+          "sha256": "be6cef65bcdb5577a930199c7a0294477c52d343a1aef046d1cc5ba601cf39b5",
+          "seed": 11,
+          "mean": 0.020269522443413734,
+          "rgb": [
+            0.028331441804766655,
+            0.018324440345168114,
+            0.01415268611162901
+          ],
+          "mode": 0,
+          "emitterCount": 4,
+          "tableStatus": "ready",
+          "warningCount": 4
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\unequal\\mode-0-seed-23.pfm",
+          "sha256": "d193e8e00959efe78bfba1b9bb4a1a0c5037b951c72db4a3c3705becd83e5bd8",
+          "seed": 23,
+          "mean": 0.020425425842404366,
+          "rgb": [
+            0.028348905965685844,
+            0.01849507912993431,
+            0.014432292431592941
+          ],
+          "mode": 0,
+          "emitterCount": 4,
+          "tableStatus": "ready",
+          "warningCount": 4
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\unequal\\mode-0-seed-37.pfm",
+          "sha256": "9d61e8cbca4dadc5dfb5737d8888f8dd360143695cf61663559ff612bae6c75b",
+          "seed": 37,
+          "mean": 0.020321829244494438,
+          "rgb": [
+            0.02833446115255356,
+            0.01838207058608532,
+            0.014248954132199287
+          ],
+          "mode": 0,
+          "emitterCount": 4,
+          "tableStatus": "ready",
+          "warningCount": 4
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\unequal\\mode-0-seed-53.pfm",
+          "sha256": "acdc5bbc7487e46af8a0deea0ea6c6629360cbb1c2714881dbd791e9fdcc7316",
+          "seed": 53,
+          "mean": 0.020226789638400078,
+          "rgb": [
+            0.02826230227947235,
+            0.018287215381860733,
+            0.014130854047834873
+          ],
+          "mode": 0,
+          "emitterCount": 4,
+          "tableStatus": "ready",
+          "warningCount": 4
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\unequal\\mode-1-seed-11.pfm",
+          "sha256": "13ef0a764ac0663aa624f89a221ed8512ad6d5471c6be761347bd50c194bed21",
+          "seed": 11,
+          "mean": 0.020300863310694695,
+          "rgb": [
+            0.028331343084573746,
+            0.01835928112268448,
+            0.014211968518793583
+          ],
+          "mode": 1,
+          "emitterCount": 4,
+          "tableStatus": "ready",
+          "warningCount": 4
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\unequal\\mode-1-seed-23.pfm",
+          "sha256": "f58137380e42b9790dc182033569acff53b4ec6688c33e90f55f62c8b2f45077",
+          "seed": 23,
+          "mean": 0.02029637061059475,
+          "rgb": [
+            0.028288420289754868,
+            0.01836063340306282,
+            0.014240056276321411
+          ],
+          "mode": 1,
+          "emitterCount": 4,
+          "tableStatus": "ready",
+          "warningCount": 4
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\unequal\\mode-1-seed-37.pfm",
+          "sha256": "d195afaabbeeb2df0082fe9799c05ca9e0e6d81b49c2f0edf03e6efce73f9405",
+          "seed": 37,
+          "mean": 0.020310062915086746,
+          "rgb": [
+            0.02830434776842594,
+            0.018373506143689156,
+            0.014252334833145142
+          ],
+          "mode": 1,
+          "emitterCount": 4,
+          "tableStatus": "ready",
+          "warningCount": 4
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\unequal\\mode-1-seed-53.pfm",
+          "sha256": "4089d460d8f7f0ecf42615f59d09be2636c120ce00b842cc5a12bfec0d062bce",
+          "seed": 53,
+          "mean": 0.020296495407819748,
+          "rgb": [
+            0.028289780020713806,
+            0.018360599875450134,
+            0.014239107258617878
+          ],
+          "mode": 1,
+          "emitterCount": 4,
+          "tableStatus": "ready",
+          "warningCount": 4
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\unequal\\mode-2-seed-11.pfm",
+          "sha256": "d046494d94fc77eaec55bfba711e0a43ed7d39a88142492db5e9b7046cbf4d75",
+          "seed": 11,
+          "mean": 0.02029982954263687,
+          "rgb": [
+            0.02832929603755474,
+            0.01835843175649643,
+            0.014211758971214294
+          ],
+          "mode": 2,
+          "emitterCount": 4,
+          "tableStatus": "ready",
+          "warningCount": 4
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\unequal\\mode-2-seed-23.pfm",
+          "sha256": "9d2e2a2ecf013809d9651e79c27ea775392ca6d61ea786ef8e5318d9b5be7c30",
+          "seed": 23,
+          "mean": 0.020297037437558174,
+          "rgb": [
+            0.02828921191394329,
+            0.018361276015639305,
+            0.014240624383091927
+          ],
+          "mode": 2,
+          "emitterCount": 4,
+          "tableStatus": "ready",
+          "warningCount": 4
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\unequal\\mode-2-seed-37.pfm",
+          "sha256": "b907f316973675e8817c23cd1d2d2616c8687bfe41963da73cd9b51b4cadcdf0",
+          "seed": 37,
+          "mean": 0.02030961774289608,
+          "rgb": [
+            0.028303775936365128,
+            0.018373101949691772,
+            0.014251974411308765
+          ],
+          "mode": 2,
+          "emitterCount": 4,
+          "tableStatus": "ready",
+          "warningCount": 4
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\unequal\\mode-2-seed-53.pfm",
+          "sha256": "3aaae38f5e9c1d3e37b140334646ec32656a6e221db5fe82fb2581b7842cbe14",
+          "seed": 53,
+          "mean": 0.020295705646276474,
+          "rgb": [
+            0.0282887015491724,
+            0.01835988461971283,
+            0.014238533563911915
+          ],
+          "mode": 2,
+          "emitterCount": 4,
+          "tableStatus": "ready",
+          "warningCount": 4
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\unequal\\emission-off.pfm",
+          "sha256": "2c28f41fdbd5d0e0ba6fbed00c5a10eb72de3cf2c2a615cfaa23f52286a6624d",
+          "seed": 11,
+          "mean": null,
+          "rgb": null,
+          "mode": 2,
+          "emitterCount": 4,
+          "tableStatus": "ready",
+          "warningCount": 4
+        }
+      ]
+    },
+    {
+      "case": "texture",
+      "status": "passed",
+      "reference": {
+        "mean": 0.013785100543226132,
+        "rgb": [
+          0.0236316009312448,
+          0.0118158004656224,
+          0.0059079002328112
+        ],
+        "orders": [
+          64,
+          128
+        ],
+        "spatialSamples": 9,
+        "quadratureRelativeChange": 1.2118817060979836e-10,
+        "limitation": "Nine ROI positions; opaque one-sided emitter with bilinear WRAP 2x2 grayscale texture decoded from sRGB after filtering; two-bounce transport."
+      },
+      "agreements": {
+        "0": {
+          "status": "passed",
+          "measuredMean": 0.013751251390203834,
+          "relativeDifference": 0.0024554882944928247,
+          "fourStandardErrorRelative": 0.009158368038555525
+        },
+        "1": {
+          "status": "passed",
+          "measuredMean": 0.013778523309156299,
+          "relativeDifference": 0.000477126303809583,
+          "fourStandardErrorRelative": 0.003878725140286139
+        },
+        "2": {
+          "status": "passed",
+          "measuredMean": 0.013777187094092369,
+          "relativeDifference": 0.0005740581368230968,
+          "fourStandardErrorRelative": 0.003630906805578827
+        }
+      },
+      "channelAgreements": {
+        "0": [
+          {
+            "status": "passed",
+            "measuredMean": 0.02357357367873192,
+            "relativeDifference": 0.002455493924500063,
+            "fourStandardErrorRelative": 0.009158287058544183
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.01178678683936596,
+            "relativeDifference": 0.002455493924500063,
+            "fourStandardErrorRelative": 0.009158287058544183
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.00589339341968298,
+            "relativeDifference": 0.002455493924500063,
+            "fourStandardErrorRelative": 0.009158287058544183
+          }
+        ],
+        "1": [
+          {
+            "status": "passed",
+            "measuredMean": 0.023620326071977615,
+            "relativeDifference": 0.0004771094137882015,
+            "fourStandardErrorRelative": 0.0038787202371424446
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.011810163035988808,
+            "relativeDifference": 0.0004771094137882015,
+            "fourStandardErrorRelative": 0.0038787202371424446
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.005905081517994404,
+            "relativeDifference": 0.0004771094137882015,
+            "fourStandardErrorRelative": 0.0038787202371424446
+          }
+        ],
+        "2": [
+          {
+            "status": "passed",
+            "measuredMean": 0.02361803548410535,
+            "relativeDifference": 0.0005740384317981517,
+            "fourStandardErrorRelative": 0.0036309734086590897
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.011809017742052674,
+            "relativeDifference": 0.0005740384317981517,
+            "fourStandardErrorRelative": 0.0036309734086590897
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.005904508871026337,
+            "relativeDifference": 0.0005740384317981517,
+            "fourStandardErrorRelative": 0.0036309734086590897
+          }
+        ]
+      },
+      "pairedAgreements": {
+        "1": {
+          "status": "passed",
+          "referenceMean": 0.013751251390203834,
+          "candidateMean": 0.013778523309156299,
+          "relativeDifference": 0.0019832317931365233,
+          "pairedStandardError": 0.0000356519968880902,
+          "fourStandardErrorRelative": 0.010370546178361075,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        "2": {
+          "status": "passed",
+          "referenceMean": 0.013751251390203834,
+          "candidateMean": 0.013777187094092369,
+          "relativeDifference": 0.001886061359260123,
+          "pairedStandardError": 0.00003484613770726872,
+          "fourStandardErrorRelative": 0.010136135750406698,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        }
+      },
+      "offMaximum": 0,
+      "captures": [
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-0-seed-11.pfm",
+          "sha256": "267d7f260ce485326f9da28142c3b2ea56736583bbdbd0c678b18849db4201e9",
+          "seed": 11,
+          "mean": 0.013731145299971104,
+          "rgb": [
+            0.02353910729289055,
+            0.011769553646445274,
+            0.005884776823222637
+          ],
+          "mode": 0,
+          "emitterCount": 2,
+          "tableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-0-seed-23.pfm",
+          "sha256": "22b8e9c3a693aa7d2f0e7b307e1313c7600e532d151906c0153725cb43688499",
+          "seed": 23,
+          "mean": 0.0136803537607193,
+          "rgb": [
+            0.0234520360827446,
+            0.0117260180413723,
+            0.00586300902068615
+          ],
+          "mode": 0,
+          "emitterCount": 2,
+          "tableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-0-seed-37.pfm",
+          "sha256": "ccc8c326aafa4586c42ed968fea3c09b458ecfe42a73c3e639b734c3df4292a6",
+          "seed": 37,
+          "mean": 0.013762238435447216,
+          "rgb": [
+            0.023592406883835793,
+            0.011796203441917896,
+            0.005898101720958948
+          ],
+          "mode": 0,
+          "emitterCount": 2,
+          "tableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-0-seed-53.pfm",
+          "sha256": "e4d4117c2a7ff0944a6bdb7ea8624e267a2e35e69301d676fa108eadb3e5cefc",
+          "seed": 53,
+          "mean": 0.013831268064677715,
+          "rgb": [
+            0.023710744455456734,
+            0.011855372227728367,
+            0.005927686113864183
+          ],
+          "mode": 0,
+          "emitterCount": 2,
+          "tableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-1-seed-11.pfm",
+          "sha256": "4fa2f104e8b6c518c4765181d8c8dd44be5be483301169ac989644b05af9325c",
+          "seed": 11,
+          "mean": 0.01381660532206297,
+          "rgb": [
+            0.02368560992181301,
+            0.011842804960906506,
+            0.005921402480453253
+          ],
+          "mode": 1,
+          "emitterCount": 2,
+          "tableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-1-seed-23.pfm",
+          "sha256": "4b9a1fb7145315479286b1612d75fe476e470dd6a90d11dfb8697faedf4d3a4f",
+          "seed": 23,
+          "mean": 0.013757627457380295,
+          "rgb": [
+            0.023584505543112755,
+            0.011792252771556377,
+            0.005896126385778189
+          ],
+          "mode": 1,
+          "emitterCount": 2,
+          "tableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-1-seed-37.pfm",
+          "sha256": "45e442a7e2d8be4f29e456fb3ac50e3d9d0f7fc99424f08baf1e9a176509717c",
+          "seed": 37,
+          "mean": 0.013777333311736584,
+          "rgb": [
+            0.023618284612894058,
+            0.011809142306447029,
+            0.0059045711532235146
+          ],
+          "mode": 1,
+          "emitterCount": 2,
+          "tableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-1-seed-53.pfm",
+          "sha256": "b48d1efd1e6df70cb0636c97ccb2197749a3baa4d4699932671dd9609395a9b9",
+          "seed": 53,
+          "mean": 0.013762527145445347,
+          "rgb": [
+            0.023592904210090637,
+            0.011796452105045319,
+            0.005898226052522659
+          ],
+          "mode": 1,
+          "emitterCount": 2,
+          "tableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-2-seed-11.pfm",
+          "sha256": "d28297dc50743b9557d3e46650dfcda55cc077f64487ed408e168bb913b9208f",
+          "seed": 11,
+          "mean": 0.013811537064611912,
+          "rgb": [
+            0.023676922544836998,
+            0.011838461272418499,
+            0.0059192306362092495
+          ],
+          "mode": 2,
+          "emitterCount": 2,
+          "tableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-2-seed-23.pfm",
+          "sha256": "7cb94d6c4905a29df10eb385ff95908c9e4e0c92a6939abf9ae20fe02bc5fbab",
+          "seed": 23,
+          "mean": 0.013755754567682743,
+          "rgb": [
+            0.02358129434287548,
+            0.01179064717143774,
+            0.00589532358571887
+          ],
+          "mode": 2,
+          "emitterCount": 2,
+          "tableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-2-seed-37.pfm",
+          "sha256": "5f23f7cc5f0c05c733812137e82a270a0a95786325050dcfb9cc998d235fde13",
+          "seed": 37,
+          "mean": 0.013779566623270512,
+          "rgb": [
+            0.023622114211320877,
+            0.011811057105660439,
+            0.005905528552830219
+          ],
+          "mode": 2,
+          "emitterCount": 2,
+          "tableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-2-seed-53.pfm",
+          "sha256": "83890911137427b301d04e0e48a6a2aa9f74e8d1e6d27d63b7d00ac0ff30da47",
+          "seed": 53,
+          "mean": 0.01376189012080431,
+          "rgb": [
+            0.02359181083738804,
+            0.01179590541869402,
+            0.00589795270934701
+          ],
+          "mode": 2,
+          "emitterCount": 2,
+          "tableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\emission-off.pfm",
+          "sha256": "2c28f41fdbd5d0e0ba6fbed00c5a10eb72de3cf2c2a615cfaa23f52286a6624d",
+          "seed": 11,
+          "mean": null,
+          "rgb": null,
+          "mode": 2,
+          "emitterCount": 2,
+          "tableStatus": "ready",
+          "warningCount": 3
+        }
+      ]
+    }
+  ],
+  "workingTreeModified": true,
+  "tests": {
+    "python": "76/76",
+    "ctest": "25/25"
+  },
+  "d3d12ErrorAndCorruptionCount": 0,
+  "referenceMetadataNote": "The raw campaign used the earlier constant-emitter limitation label; summary wording is corrected to describe the actual integrands. Numeric calculations are unchanged.",
+  "limitations": [
+    "One GPU, 64 spp and four seeds; nine representative ROI positions, not a full-image oracle.",
+    "Back-facing, beyond-endpoint, empty-table/shadow-off, tiny/large emitters, UV transforms, deeper RR paths and combined lighting remain pending."
+  ]
+}

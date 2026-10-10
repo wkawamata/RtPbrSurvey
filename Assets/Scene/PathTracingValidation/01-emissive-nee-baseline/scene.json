@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "emissive-nee-validation",
+  "name": "PT Emissive NEE Validation",
+  "renderPreset": "render-preset.json",
+  "assets": [
+    {
+      "id": "emitter",
+      "path": "emitter.gltf",
+      "type": "gltf"
+    }
+  ],
+  "materials": [
+    {
+      "id": "dielectric",
+      "name": "dielectric",
+      "baseColor": [
+        0.5,
+        0.5,
+        0.5,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.8
+    }
+  ],
+  "nodes": [
+    {
+      "id": "receiver",
+      "name": "receiver",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "plane",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "dielectric"
+    },
+    {
+      "assetId": "emitter",
+      "id": "emitter",
+      "name": "emitter",
+      "parentId": null,
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "type": "gltf",
+      "visible": true
+    }
+  ],
+  "camera": {
+    "position": [
+      0,
+      4,
+      -7
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 55,
+    "orthographicHeight": 10,
+    "nearZ": 0.1,
+    "farZ": 1000
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      0.96,
+      0.86
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  },
+  "description": "目的: 発光面から床への照明と、BSDF-only / NEE-only の推定結果を比較する。\n見る場所: emitter直下の床。オレンジ色の照明、ノイズ、蓄積による収束を確認する。\n設定: Path Tracing / Emissive ON / Shadows ON / Max Bounces 2 / Radiance。解析光源・環境照明はOFF。\n確認: サンプリング方式を切り替えても平均的な明るさが変わらないこと。発光OFFや遮蔽物で照明が消えること。\n数値評価: 64 spp・4 seed。BSDF基準差0.328%、NEE基準差0.131%。2026-10-05: MISも64 spp・4 seedで検証済み。基準差0.128%。遮蔽・発光OFF・1 bounce・直接可視の基本チェックは成功。複数発光面・テクスチャ等の追加検証はシーン03-12を参照。\n2026-10-06: 16 / 64 / 256 spp・4 seedで収束を確認。3方式とも分散が約1/16に減少し、平均・RGB基準比較は合格。同一seedのMIS 256 spp画像も完全一致。Step 5は宣言した検証対象の範囲で完了。"
+}

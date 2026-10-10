@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "evaluationDate": "2026-10-05",
+  "status": "passed",
+  "scene": "scene.json",
+  "modes": [
+    "BSDF-only",
+    "NEE-only",
+    "MIS (BSDF + NEE)"
+  ],
+  "samples": 64,
+  "seeds": [
+    11,
+    23,
+    37,
+    53
+  ],
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "roi": [
+    928,
+    508,
+    64,
+    64
+  ],
+  "reference": {
+    "mean": 0.05572488850287086,
+    "rgb": [
+      0.09552838029063576,
+      0.04776419014531788,
+      0.02388209507265894
+    ],
+    "orders": [
+      64,
+      128
+    ],
+    "spatialSamples": 9,
+    "quadratureRelativeChange": 3.552713678800501e-15,
+    "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+  },
+  "agreements": {
+    "0": {
+      "status": "passed",
+      "measuredMean": 0.05554222204376913,
+      "relativeDifference": 0.0032780049275885625,
+      "fourStandardErrorRelative": 0.010605987240355007,
+      "reference": {
+        "mean": 0.05572488850287086,
+        "rgb": [
+          0.09552838029063576,
+          0.04776419014531788,
+          0.02388209507265894
+        ],
+        "orders": [
+          64,
+          128
+        ],
+        "spatialSamples": 9,
+        "quadratureRelativeChange": 3.552713678800501e-15,
+        "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+      }
+    },
+    "1": {
+      "status": "passed",
+      "measuredMean": 0.055651744253358025,
+      "relativeDifference": 0.0013125957086315143,
+      "fourStandardErrorRelative": 0.0006571886915358011,
+      "reference": {
+        "mean": 0.05572488850287086,
+        "rgb": [
+          0.09552838029063576,
+          0.04776419014531788,
+          0.02388209507265894
+        ],
+        "orders": [
+          64,
+          128
+        ],
+        "spatialSamples": 9,
+        "quadratureRelativeChange": 3.552713678800501e-15,
+        "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+      }
+    },
+    "2": {
+      "status": "passed",
+      "measuredMean": 0.055653808889322434,
+      "relativeDifference": 0.0012755451909924886,
+      "fourStandardErrorRelative": 0.0006571955758407833,
+      "reference": {
+        "mean": 0.05572488850287086,
+        "rgb": [
+          0.09552838029063576,
+          0.04776419014531788,
+          0.02388209507265894
+        ],
+        "orders": [
+          64,
+          128
+        ],
+        "spatialSamples": 9,
+        "quadratureRelativeChange": 3.552713678800501e-15,
+        "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+      }
+    }
+  },
+  "pairedAgreements": {
+    "1": {
+      "status": "passed",
+      "referenceMean": 0.05554222204376913,
+      "candidateMean": 0.055651744253358025,
+      "relativeDifference": 0.001971873028460884,
+      "pairedStandardError": 0.00014530734044462327,
+      "fourStandardErrorRelative": 0.010464640059241146,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    },
+    "2": {
+      "status": "passed",
+      "referenceMean": 0.05554222204376913,
+      "candidateMean": 0.055653808889322434,
+      "relativeDifference": 0.002009045397308269,
+      "pairedStandardError": 0.00014655381749121348,
+      "fourStandardErrorRelative": 0.010554407951178055,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    }
+  },
+  "controls": {
+    "blocked": [
+      {
+        "mode": 0,
+        "maximum": 0
+      },
+      {
+        "mode": 1,
+        "maximum": 0
+      },
+      {
+        "mode": 2,
+        "maximum": 0
+      }
+    ],
+    "oneBounceMaximum": 0,
+    "primary": [
+      {
+        "mode": 0,
+        "maximumError": 4.649162292924558e-7
+      },
+      {
+        "mode": 1,
+        "maximumError": 4.649162292924558e-7
+      },
+      {
+        "mode": 2,
+        "maximumError": 4.649162292924558e-7
+      }
+    ],
+    "offMaximum": 0
+  },
+  "evidenceDocument": "../../../../doc/branch/feature/path-tracing-validation-results/completion-step-5-emissive-mis-summary.json",
+  "limitations": [
+    "Opaque one-sided constant 3x3 emitter, two-bounce isolated transport on one GPU.",
+    "ROI means and four-seed uncertainty do not establish general image variance reduction.",
+    "Multiple unequal emitters, textures, tiny emitters, back-facing/endpoint controls, deeper transport with RR and combined lighting remain pending."
+  ]
+}

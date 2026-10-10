@@ -149,6 +149,12 @@ RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
 _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], int argc)
 {
     m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
+    m_sceneRenderer.EngineForDebugTools().SetVSyncEnabled(!m_commandLineOptions.disableVSync);
+    if (m_commandLineOptions.hasPathTracingObjectMotion &&
+        (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.capturePath.empty()))
+    {
+        throw std::invalid_argument("-PathTracingObjectMotionX requires -SceneFile and -CapturePath.");
+    }
     if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() &&
         (!m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
          !m_commandLineOptions.reflectionCapturePlanPath.empty()))
@@ -175,6 +181,19 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     if (m_commandLineOptions.pathTracingSampleTarget > 0 && m_commandLineOptions.capturePath.empty())
     {
         throw std::invalid_argument("-PathTracingSamples requires -CapturePath.");
+    }
+    if (!m_commandLineOptions.pathTracingHistoryValidationDirectory.empty())
+    {
+        if (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
+            !m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
+            !m_commandLineOptions.reflectionCapturePlanPath.empty() ||
+            !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() ||
+            m_commandLineOptions.pathTracingSampleTarget != 0)
+        {
+            throw std::invalid_argument(
+                "-PathTracingHistoryValidation requires -SceneFile and -LogToFile, "
+                "and is mutually exclusive with other capture automation.");
+        }
     }
     if (m_commandLineOptions.captureSessionEnabled)
     {
@@ -616,6 +635,20 @@ void RtPbrSurveyApp::UpdateSampleState()
     sceneUpdate.dragRotation = m_dragRotation;
     LoadedScene().Update(deltaTime, sceneUpdate);
 
+    if (m_commandLineOptions.hasPathTracingObjectMotion)
+    {
+        Engine::Scene& scene = LoadedScene().GetScene();
+        if (scene.instances.size() != 1)
+        {
+            throw std::invalid_argument("-PathTracingObjectMotionX requires a single-instance scene.");
+        }
+        Engine::InstanceData& instance = scene.instances.front();
+        instance.prevWorld = instance.world;
+        const DirectX::XMMATRIX world = DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&instance.world));
+        const DirectX::XMMATRIX translated = world * DirectX::XMMatrixTranslation(m_commandLineOptions.pathTracingObjectMotionX, 0.0f, 0.0f);
+        DirectX::XMStoreFloat4x4(&instance.world, DirectX::XMMatrixTranspose(translated));
+    }
+
     m_sceneRenderer.SetScene(LoadedScene().GetScene());
     m_sceneRenderer.SetDisplayInstanceCount(LoadedScene().DisplayInstanceCount());
 }
@@ -787,6 +820,11 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 
 void RtPbrSurveyApp::OnIdle()
 {
+    if (!m_commandLineOptions.pathTracingHistoryValidationDirectory.empty())
+    {
+        RunPathTracingHistoryValidation();
+        return;
+    }
     UpdateCaptureRequestGate();
 
     if (!m_reflectionHdrDiagnosticsComplete)
@@ -2129,6 +2167,12 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
         {"targetSamples", m_commandLineOptions.pathTracingSampleTarget},
         {"randomSeed", settings.randomSeed},
         {"environmentSamplingMode", settings.environmentSamplingMode},
+        {"environmentEnabled", settings.environmentEnabled},
+        {"emissiveEnabled", settings.emissiveEnabled},
+        {"emissiveSamplingMode", settings.emissiveSamplingMode},
+        {"directLightingEnabled", settings.directLightingEnabled},
+        {"emissiveTriangleCount", context.pathTracingDiagnostics.emissiveTriangleCount},
+        {"emissiveTableStatus", context.pathTracingDiagnostics.emissiveTableStatus},
         {"samplesPerFrame", settings.samplesPerFrame},
         {"maxBounces", settings.maxBounces},
         {"russianRoulette", settings.russianRouletteEnabled},
@@ -2312,7 +2356,7 @@ void RtPbrSurveyApp::CreateNewSceneEditorDocument()
     m_sceneEditorDocumentPath.clear();
     m_appMode = AppMode::SceneEditorEdit;
     std::string error;
-    if (!RebuildSceneEditorPreview(&error))
+    if (!RebuildSceneEditorPreview(&error, false))
     {
         m_sceneEditorStatus = "Could not create preview: " + error;
         return;
@@ -2644,7 +2688,7 @@ bool RtPbrSurveyApp::LoadSceneEditorDocument(const std::string& path, std::strin
     m_sceneEditorDocumentPath = documentPath.generic_string();
     m_sceneEditorSavePath = m_sceneEditorDocumentPath;
     m_appMode = AppMode::SceneEditorEdit;
-    if (!RebuildSceneEditorPreview(&loadError))
+    if (!RebuildSceneEditorPreview(&loadError, false))
     {
         if (error != nullptr)
         {
@@ -2664,7 +2708,7 @@ bool RtPbrSurveyApp::LoadSceneEditorDocument(const std::string& path, std::strin
     return true;
 }
 
-bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
+bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error, bool preserveCamera)
 {
     if (IsCaptureWorkPending())
     {
@@ -2704,6 +2748,12 @@ bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
         return false;
     }
 
+    const bool retainCamera = preserveCamera && m_sceneEditorPreviewScene != nullptr &&
+        m_loadedScene == m_sceneEditorPreviewScene.get();
+    if (retainCamera)
+    {
+        candidate->GetScene().camera = m_loadedScene->GetScene().camera;
+    }
     m_sceneRenderer.ReloadSceneResources(candidate->GetScene());
     m_sceneEditorPreviewScene = std::move(candidate);
     m_loadedScene = m_sceneEditorPreviewScene.get();
@@ -2715,12 +2765,15 @@ bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
     ApplySceneEditorEnvironmentSettings();
 
     Engine::CameraState& camera = m_loadedScene->GetScene().camera;
-    const XMVECTOR direction = XMVector3Normalize(XMLoadFloat3(&camera.gazePoint) - XMLoadFloat3(&camera.pos));
-    XMFLOAT3 directionFloat = {};
-    XMStoreFloat3(&directionFloat, direction);
-    camera.rot.x = -std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
-    camera.rot.y = std::atan2(directionFloat.x, directionFloat.z);
-    camera.rot.z = 0.0f;
+    if (!retainCamera)
+    {
+        const XMVECTOR direction = XMVector3Normalize(XMLoadFloat3(&camera.gazePoint) - XMLoadFloat3(&camera.pos));
+        XMFLOAT3 directionFloat = {};
+        XMStoreFloat3(&directionFloat, direction);
+        camera.rot.x = -std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
+        camera.rot.y = std::atan2(directionFloat.x, directionFloat.z);
+        camera.rot.z = 0.0f;
+    }
     m_debugCamera.SetCameraState(&camera);
     m_debugCamera.SetWindowSize(GetWidth(), GetHeight());
     m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::FreeLook);

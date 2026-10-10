@@ -24,6 +24,9 @@ struct Material
     uint32_t flags;
     float uvScale[2];
     float uvOffset[2];
+    float baseColorFactor[4];
+    float emissiveFactor[3];
+    float normalTextureScale;
 };
 
 } // namespace Engine

@@ -84,6 +84,9 @@ struct SceneMaterial
     float occlusionStrength = 1.0f;
     float ambientOcclusionFactor = 1.0f;
     float emissiveScale = 1.0f;
+    DirectX::XMFLOAT4 baseColorFactor = {1.0f, 1.0f, 1.0f, 1.0f};
+    DirectX::XMFLOAT3 emissiveFactor = {1.0f, 1.0f, 1.0f};
+    float normalTextureScale = 1.0f;
     DirectX::XMFLOAT2 uvScale = {1.0f, 1.0f};
     DirectX::XMFLOAT2 uvOffset = {0.0f, 0.0f};
 };

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-10",
+  "exeSha256": "a49186c9154b24feb4a7d81f89cc5ef592d9fc798e6b366ec5ee5da219df7940",
+  "rawReport": "bin/PathTracingValidation/completion-step8-batch-guides-20261010-r2/report.json",
+  "status": "passed",
+  "captures": 21,
+  "pythonTestsPassed": 123,
+  "seed": 7,
+  "primarySampleStartIndex": 60,
+  "boundaryRoi": {"pixelCount": 1978624, "stride": 1, "excludedBorder": 16},
+  "batches": [
+    {"samples": 1, "primaryGuidesIdentical": true, "mixedMaterialPixels": 0, "partitionMaxError": 0.0010260343551635742},
+    {"samples": 2, "primaryGuidesIdentical": true, "mixedMaterialPixels": 643, "partitionMaxError": 0.0009937286376953125},
+    {"samples": 4, "primaryGuidesIdentical": true, "mixedMaterialPixels": 1126, "partitionMaxError": 0.0009859800338745117}
+  ],
+  "excludedEvidence": [
+    "One-segment zero-signal cohort: interrupted-excluded",
+    "Initial stride-4 boundary analysis: no mixed samples, preserved before dense reanalysis"
+  ],
+  "rendererChanged": false,
+  "denoiserReady": false,
+  "limitations": [
+    "All-hit planar marker scene; mixed hit/miss is unverified",
+    "Signals are frame-averaged while primary guides describe the first sample",
+    "No object motion, normal mapping or backend-specific guide conversion validated"
+  ]
+}

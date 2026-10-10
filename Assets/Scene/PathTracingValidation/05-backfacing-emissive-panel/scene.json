@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "emissive-control-backface",
+  "name": "PT Emissive backface",
+  "renderPreset": "render-preset.json",
+  "assets": [
+    {
+      "id": "emitter",
+      "type": "gltf",
+      "path": "emitter.gltf"
+    }
+  ],
+  "materials": [
+    {
+      "id": "dielectric",
+      "name": "dielectric",
+      "baseColor": [
+        0.5,
+        0.5,
+        0.5,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.8
+    }
+  ],
+  "nodes": [
+    {
+      "id": "receiver",
+      "name": "receiver",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "plane",
+        "size": 1,
+        "radius": 0.7,
+        "height": 1,
+        "width": 10,
+        "depth": 10,
+        "stacks": 24,
+        "slices": 32,
+        "radialSegments": 32
+      },
+      "materialId": "dielectric"
+    },
+    {
+      "id": "emitter",
+      "name": "emitter",
+      "type": "gltf",
+      "assetId": "emitter",
+      "parentId": null,
+      "translation": [
+        0,
+        6,
+        0
+      ],
+      "rotation": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true
+    }
+  ],
+  "camera": {
+    "position": [
+      0,
+      4,
+      -7
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 55,
+    "orthographicHeight": 10,
+    "nearZ": 0.1,
+    "farZ": 1000
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      0.96,
+      0.86
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  },
+  "description": "発光面の背面から照明が漏れないことを確認する。BSDF / NEE / MIS の各モードで、床の中央ROIが完全に黒になること。発光面は高さ3のまま180度回転し、床に背面を向けている。環境光と直接光は無効。2バウンス、固定seedで検証。"
+}

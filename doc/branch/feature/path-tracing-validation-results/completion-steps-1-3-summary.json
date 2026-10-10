@@ -1,0 +1,1638 @@
+{
+  "schemaVersion": 1,
+  "generatedUtc": "2026-10-03T01:59:42.0533194Z",
+  "rendererBuildCommit": "0e6fd04125281400d492991c2cc740b7806e9e34",
+  "validationImplementationCommit": "016cd51024ecb11f6fc82267df9e438e5ae57df9",
+  "branch": "codex/pt-correctness-completion",
+  "workspace": "C:\\work\\RtPbrSurvey-work-3",
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "executableSha256": "b16de8ca3f2a21158fc20695ee6fb15683874ba0f44e0851de68ec15480415e6",
+  "build": "Debug x64 MSBuild succeeded; one existing vcpkg MSB4011 warning",
+  "tests": {
+    "python": 51,
+    "ctest": 24,
+    "failed": 0
+  },
+  "captureCounts": {
+    "hdr": 180,
+    "nativeGuide": 22,
+    "applicationPng": 4,
+    "generatedDiagnosticPng": 1
+  },
+  "d3d12": {
+    "errorOrCorruptionLines": 0,
+    "warningLines": 476,
+    "unexpectedWarnings": 0
+  },
+  "status": "passed-with-documented-scope",
+  "part1": {
+    "status": "passed",
+    "samples": 8,
+    "checks": {
+      "fixedSeedRepeat": true,
+      "seedVariation": true,
+      "visibility": true,
+      "falloff": true
+    },
+    "visibility": {
+      "clearMean": 0.08157423659577034,
+      "betweenMean": 0.0,
+      "beyondMean": 0.08157423659577034,
+      "maxBeyondDifference": 0.0
+    },
+    "falloff": {
+      "measuredRatio": 4.004799113142043,
+      "expectedRatio": 4.012028259638499,
+      "relativeError": 0.001801868289209918
+    },
+    "indirect": {
+      "oneBounceMeanRgb": [
+        0.0808618189767003,
+        0.0808618189767003,
+        0.0808618189767003
+      ],
+      "fourBounceMeanRgb": [
+        0.09253526039537974,
+        0.08187215140787885,
+        0.08187215140787885
+      ]
+    }
+  },
+  "part2": {
+    "status": "complete",
+    "samples": [
+      4,
+      16
+    ],
+    "referenceSamples": 32,
+    "seeds": [
+      1,
+      2
+    ],
+    "referenceSeeds": [
+      101,
+      102
+    ],
+    "captureCount": 22,
+    "results": [
+      {
+        "sceneId": "constant-environment",
+        "roiName": "floor",
+        "roi": [
+          928,
+          508,
+          64,
+          64
+        ],
+        "mode": 1,
+        "samples": 4,
+        "meanImageRmse": 0.04813494240616964,
+        "seedVariance": 0.0037348052224455424,
+        "perSeedRmse": [
+          0.06625349703529189,
+          0.06308109632790673
+        ],
+        "meanRadiance": 0.5105485610129108,
+        "meanRgb": [
+          0.5105485610129108,
+          0.5105485610129108,
+          0.5105485610129108
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "constant-environment",
+        "roiName": "floor",
+        "roi": [
+          928,
+          508,
+          64,
+          64
+        ],
+        "mode": 1,
+        "samples": 16,
+        "meanImageRmse": 0.03031505118617469,
+        "seedVariance": 0.0008962703967675639,
+        "perSeedRmse": [
+          0.037316828061849106,
+          0.036629624581897335
+        ],
+        "meanRadiance": 0.5108529164062929,
+        "meanRgb": [
+          0.5108529164062929,
+          0.5108529164062929,
+          0.5108529164062929
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "constant-environment",
+        "roiName": "floor",
+        "roi": [
+          928,
+          508,
+          64,
+          64
+        ],
+        "mode": 5,
+        "samples": 4,
+        "meanImageRmse": 0.06412116880585605,
+        "seedVariance": 0.007002268125931102,
+        "perSeedRmse": [
+          0.08667829881659611,
+          0.08781907092568306
+        ],
+        "meanRadiance": 0.5110468813109037,
+        "meanRgb": [
+          0.5110468813109037,
+          0.5110468813109037,
+          0.5110468813109037
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "constant-environment",
+        "roiName": "floor",
+        "roi": [
+          928,
+          508,
+          64,
+          64
+        ],
+        "mode": 5,
+        "samples": 16,
+        "meanImageRmse": 0.03711747576712854,
+        "seedVariance": 0.001787953216006369,
+        "perSeedRmse": [
+          0.046995472036498016,
+          0.04831969410830174
+        ],
+        "meanRadiance": 0.5118090462274267,
+        "meanRgb": [
+          0.5118090462274267,
+          0.5118090462274267,
+          0.5118090462274267
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.18",
+        "roi": [
+          664,
+          424,
+          48,
+          48
+        ],
+        "mode": 1,
+        "samples": 4,
+        "meanImageRmse": 0.01831763125993755,
+        "seedVariance": 0.00020489372495514373,
+        "perSeedRmse": [
+          0.021485672337503176,
+          0.02035511825341915
+        ],
+        "meanRadiance": 0.7001630232488323,
+        "meanRgb": [
+          0.7001630232488323,
+          0.7001630232488323,
+          0.7001630232488323
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.4",
+        "roi": [
+          936,
+          424,
+          48,
+          48
+        ],
+        "mode": 1,
+        "samples": 4,
+        "meanImageRmse": 0.05412862493650798,
+        "seedVariance": 0.003963244452361232,
+        "perSeedRmse": [
+          0.07057827692363458,
+          0.06958280932734959
+        ],
+        "meanRadiance": 0.6761653522165337,
+        "meanRgb": [
+          0.6761653522165337,
+          0.6761653522165337,
+          0.6761653522165337
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.8",
+        "roi": [
+          1208,
+          424,
+          48,
+          48
+        ],
+        "mode": 1,
+        "samples": 4,
+        "meanImageRmse": 0.11027218657454325,
+        "seedVariance": 0.021939495574990524,
+        "perSeedRmse": [
+          0.15116349781037702,
+          0.15300000904766123
+        ],
+        "meanRadiance": 0.3864930127885802,
+        "meanRgb": [
+          0.3864930127885802,
+          0.3864930127885802,
+          0.3864930127885802
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.18",
+        "roi": [
+          664,
+          424,
+          48,
+          48
+        ],
+        "mode": 1,
+        "samples": 16,
+        "meanImageRmse": 0.016296215714945175,
+        "seedVariance": 4.8852940339348514E-05,
+        "perSeedRmse": [
+          0.016979285871611478,
+          0.017078936878081596
+        ],
+        "meanRadiance": 0.700154662779015,
+        "meanRgb": [
+          0.700154662779015,
+          0.700154662779015,
+          0.700154662779015
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.4",
+        "roi": [
+          936,
+          424,
+          48,
+          48
+        ],
+        "mode": 1,
+        "samples": 16,
+        "meanImageRmse": 0.03705967150195473,
+        "seedVariance": 0.0008906094535390436,
+        "perSeedRmse": [
+          0.043247686800905925,
+          0.042036716612687326
+        ],
+        "meanRadiance": 0.6772650670738787,
+        "meanRgb": [
+          0.6772650670738787,
+          0.6772650670738787,
+          0.6772650670738787
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.8",
+        "roi": [
+          1208,
+          424,
+          48,
+          48
+        ],
+        "mode": 1,
+        "samples": 16,
+        "meanImageRmse": 0.06089409925208088,
+        "seedVariance": 0.005175090067207017,
+        "perSeedRmse": [
+          0.07977444782325993,
+          0.07891330806109671
+        ],
+        "meanRadiance": 0.3874107781092688,
+        "meanRgb": [
+          0.3874107781092688,
+          0.3874107781092688,
+          0.3874107781092688
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.18",
+        "roi": [
+          664,
+          424,
+          48,
+          48
+        ],
+        "mode": 5,
+        "samples": 4,
+        "meanImageRmse": 0.04734126193286087,
+        "seedVariance": 0.004094703240924028,
+        "perSeedRmse": [
+          0.06537327833670141,
+          0.06560051740060956
+        ],
+        "meanRadiance": 0.7002983209483015,
+        "meanRgb": [
+          0.7002983209483015,
+          0.7002983209483015,
+          0.7002983209483015
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.4",
+        "roi": [
+          936,
+          424,
+          48,
+          48
+        ],
+        "mode": 5,
+        "samples": 4,
+        "meanImageRmse": 0.08720042060392855,
+        "seedVariance": 0.01382258629671407,
+        "perSeedRmse": [
+          0.12014855003945044,
+          0.12080868729994478
+        ],
+        "meanRadiance": 0.6771592166559357,
+        "meanRgb": [
+          0.6771592166559357,
+          0.6771592166559357,
+          0.6771592166559357
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.8",
+        "roi": [
+          1208,
+          424,
+          48,
+          48
+        ],
+        "mode": 5,
+        "samples": 4,
+        "meanImageRmse": 0.09997993386610474,
+        "seedVariance": 0.017274800019824274,
+        "perSeedRmse": [
+          0.1359224035702649,
+          0.13708345844502054
+        ],
+        "meanRadiance": 0.38830663911054825,
+        "meanRgb": [
+          0.38830663911054825,
+          0.38830663911054825,
+          0.38830663911054825
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.18",
+        "roi": [
+          664,
+          424,
+          48,
+          48
+        ],
+        "mode": 5,
+        "samples": 16,
+        "meanImageRmse": 0.02700126894869468,
+        "seedVariance": 0.0009844004771895466,
+        "perSeedRmse": [
+          0.03468805683132133,
+          0.03520335552381414
+        ],
+        "meanRadiance": 0.7005341449079828,
+        "meanRgb": [
+          0.7005341449079828,
+          0.7005341449079828,
+          0.7005341449079828
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.4",
+        "roi": [
+          936,
+          424,
+          48,
+          48
+        ],
+        "mode": 5,
+        "samples": 16,
+        "meanImageRmse": 0.05051373644563126,
+        "seedVariance": 0.0033528075903780288,
+        "perSeedRmse": [
+          0.0656311550750443,
+          0.06440989220058442
+        ],
+        "meanRadiance": 0.676706893537711,
+        "meanRgb": [
+          0.676706893537711,
+          0.676706893537711,
+          0.676706893537711
+        ],
+        "seedCount": 2
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.8",
+        "roi": [
+          1208,
+          424,
+          48,
+          48
+        ],
+        "mode": 5,
+        "samples": 16,
+        "meanImageRmse": 0.057419706046264646,
+        "seedVariance": 0.004361955745194615,
+        "perSeedRmse": [
+          0.07408580131560225,
+          0.07394115953579984
+        ],
+        "meanRadiance": 0.3883291226650019,
+        "meanRgb": [
+          0.3883291226650019,
+          0.3883291226650019,
+          0.3883291226650019
+        ],
+        "seedCount": 2
+      }
+    ],
+    "references": [
+      {
+        "sceneId": "constant-environment",
+        "roiName": "floor",
+        "roi": [
+          928,
+          508,
+          64,
+          64
+        ],
+        "seedCount": 2,
+        "pairwiseDisagreementRmse": [
+          0.04250053938356175
+        ],
+        "meanPixelStandardError": 0.021250269691780874,
+        "meanRgb": [
+          0.5105326180855627,
+          0.5105326180855627,
+          0.5105326180855627
+        ]
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.18",
+        "roi": [
+          664,
+          424,
+          48,
+          48
+        ],
+        "seedCount": 2,
+        "pairwiseDisagreementRmse": [
+          0.030966179446976643
+        ],
+        "meanPixelStandardError": 0.015483089723488322,
+        "meanRgb": [
+          0.7004851000642197,
+          0.7004851000642197,
+          0.7004851000642197
+        ]
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.4",
+        "roi": [
+          936,
+          424,
+          48,
+          48
+        ],
+        "seedCount": 2,
+        "pairwiseDisagreementRmse": [
+          0.05991639193074056
+        ],
+        "meanPixelStandardError": 0.02995819596537028,
+        "meanRgb": [
+          0.6779910260035346,
+          0.6779910260035346,
+          0.6779910260035346
+        ]
+      },
+      {
+        "sceneId": "roughness",
+        "roiName": "roughness-0.8",
+        "roi": [
+          1208,
+          424,
+          48,
+          48
+        ],
+        "seedCount": 2,
+        "pairwiseDisagreementRmse": [
+          0.0623549678880179
+        ],
+        "meanPixelStandardError": 0.03117748394400895,
+        "meanRgb": [
+          0.38670048165497267,
+          0.38670048165497267,
+          0.38670048165497267
+        ]
+      }
+    ],
+    "limitation": "Finite-sample reference is not ground truth; standard error summarizes spatially averaged variance, not a confidence bound. Static camera; fixed bounce limit within each cohort. No sampler superiority or general GPU conclusions."
+  },
+  "scale": {
+    "assessment": {
+      "status": "passed",
+      "failures": [],
+      "supportedPolicy": {
+        "normalBias": "0.01 * sceneScale",
+        "rayTMin": "0.001 * sceneScale",
+        "rayTMax": "10000 * sceneScale",
+        "testedScales": [
+          0.01,
+          1.0,
+          100.0
+        ]
+      },
+      "fixedVisibilityFailures": [
+        {
+          "scale": 0.01,
+          "angle": "angled",
+          "policy": "fixed",
+          "clearMean": 0.0814478922256967,
+          "blockedMean": 0.06559742950594227,
+          "blockedRatio": 0.805391370032856,
+          "beyondMaxDifference": 0.0,
+          "passed": false
+        }
+      ],
+      "zeroOffsetControls": [
+        {
+          "scale": 0.01,
+          "policy": "zero",
+          "roi": [
+            936,
+            516,
+            48,
+            48
+          ],
+          "rmse": 0.04030518402846214,
+          "meanRatio": 0.43976287897194444,
+          "darkenedChannelFraction": 0.96484375
+        },
+        {
+          "scale": 1.0,
+          "policy": "zero",
+          "roi": [
+            936,
+            516,
+            48,
+            48
+          ],
+          "rmse": 0.042764838105595955,
+          "meanRatio": 0.4116720572735648,
+          "darkenedChannelFraction": 0.9618055555555556
+        },
+        {
+          "scale": 100.0,
+          "policy": "zero",
+          "roi": [
+            936,
+            516,
+            48,
+            48
+          ],
+          "rmse": 0.039552312269817605,
+          "meanRatio": 0.45522256525499627,
+          "darkenedChannelFraction": 0.9544270833333334
+        }
+      ],
+      "limitation": "Policy validated only on the scaled fixture family near the origin. Not an automatic scene-size heuristic or guarantee for thin geometry, grazing rays, or large world-coordinate translations."
+    },
+    "captureCount": 57,
+    "visibility": [
+      {
+        "scale": 0.01,
+        "angle": "front",
+        "policy": "relative",
+        "clearMean": 0.14182907859503757,
+        "blockedMean": 0.0,
+        "blockedRatio": 0.0,
+        "beyondMaxDifference": 0.0,
+        "passed": true
+      },
+      {
+        "scale": 0.01,
+        "angle": "front",
+        "policy": "fixed",
+        "clearMean": 0.14182907859503757,
+        "blockedMean": 0.0,
+        "blockedRatio": 0.0,
+        "beyondMaxDifference": 0.0,
+        "passed": true
+      },
+      {
+        "scale": 0.01,
+        "angle": "angled",
+        "policy": "relative",
+        "clearMean": 0.0814478922256967,
+        "blockedMean": 0.0,
+        "blockedRatio": 0.0,
+        "beyondMaxDifference": 0.0,
+        "passed": true
+      },
+      {
+        "scale": 0.01,
+        "angle": "angled",
+        "policy": "fixed",
+        "clearMean": 0.0814478922256967,
+        "blockedMean": 0.06559742950594227,
+        "blockedRatio": 0.805391370032856,
+        "beyondMaxDifference": 0.0,
+        "passed": false
+      },
+      {
+        "scale": 1.0,
+        "angle": "front",
+        "policy": "relative",
+        "clearMean": 0.14182885149784852,
+        "blockedMean": 0.0,
+        "blockedRatio": 0.0,
+        "beyondMaxDifference": 0.0,
+        "passed": true
+      },
+      {
+        "scale": 1.0,
+        "angle": "front",
+        "policy": "fixed",
+        "clearMean": 0.14182885149784852,
+        "blockedMean": 0.0,
+        "blockedRatio": 0.0,
+        "beyondMaxDifference": 0.0,
+        "passed": true
+      },
+      {
+        "scale": 1.0,
+        "angle": "angled",
+        "policy": "relative",
+        "clearMean": 0.0814478119573323,
+        "blockedMean": 0.0,
+        "blockedRatio": 0.0,
+        "beyondMaxDifference": 0.0,
+        "passed": true
+      },
+      {
+        "scale": 1.0,
+        "angle": "angled",
+        "policy": "fixed",
+        "clearMean": 0.0814478119573323,
+        "blockedMean": 0.0,
+        "blockedRatio": 0.0,
+        "beyondMaxDifference": 0.0,
+        "passed": true
+      },
+      {
+        "scale": 100.0,
+        "angle": "front",
+        "policy": "relative",
+        "clearMean": 0.14182907648500986,
+        "blockedMean": 0.0,
+        "blockedRatio": 0.0,
+        "beyondMaxDifference": 0.0,
+        "passed": true
+      },
+      {
+        "scale": 100.0,
+        "angle": "front",
+        "policy": "fixed",
+        "clearMean": 0.14182907648500986,
+        "blockedMean": 0.0,
+        "blockedRatio": 0.0,
+        "beyondMaxDifference": 0.0,
+        "passed": true
+      },
+      {
+        "scale": 100.0,
+        "angle": "angled",
+        "policy": "relative",
+        "clearMean": 0.08144789031939581,
+        "blockedMean": 0.0,
+        "blockedRatio": 0.0,
+        "beyondMaxDifference": 0.0,
+        "passed": true
+      },
+      {
+        "scale": 100.0,
+        "angle": "angled",
+        "policy": "fixed",
+        "clearMean": 0.08144789031939581,
+        "blockedMean": 0.0,
+        "blockedRatio": 0.0,
+        "beyondMaxDifference": 0.0,
+        "passed": true
+      }
+    ],
+    "contact": [
+      {
+        "scale": 0.01,
+        "policy": "relative",
+        "shadowColumnCount": 124,
+        "baselineShadowLeakFraction": 0.0
+      },
+      {
+        "scale": 0.01,
+        "policy": "fixed",
+        "shadowColumnCount": 0,
+        "baselineShadowLeakFraction": 1.0
+      },
+      {
+        "scale": 0.01,
+        "policy": "fixed-bias",
+        "shadowColumnCount": 0,
+        "baselineShadowLeakFraction": 1.0
+      },
+      {
+        "scale": 0.01,
+        "policy": "fixed-tmin",
+        "shadowColumnCount": 124,
+        "baselineShadowLeakFraction": 0.0
+      },
+      {
+        "scale": 1.0,
+        "policy": "relative",
+        "shadowColumnCount": 124,
+        "baselineShadowLeakFraction": 0.0
+      },
+      {
+        "scale": 1.0,
+        "policy": "fixed",
+        "shadowColumnCount": 124,
+        "baselineShadowLeakFraction": 0.0
+      },
+      {
+        "scale": 1.0,
+        "policy": "fixed-bias",
+        "shadowColumnCount": 124,
+        "baselineShadowLeakFraction": 0.0
+      },
+      {
+        "scale": 1.0,
+        "policy": "fixed-tmin",
+        "shadowColumnCount": 124,
+        "baselineShadowLeakFraction": 0.0
+      },
+      {
+        "scale": 100.0,
+        "policy": "relative",
+        "shadowColumnCount": 124,
+        "baselineShadowLeakFraction": 0.0
+      },
+      {
+        "scale": 100.0,
+        "policy": "fixed",
+        "shadowColumnCount": 125,
+        "baselineShadowLeakFraction": 0.0
+      },
+      {
+        "scale": 100.0,
+        "policy": "fixed-bias",
+        "shadowColumnCount": 125,
+        "baselineShadowLeakFraction": 0.0
+      },
+      {
+        "scale": 100.0,
+        "policy": "fixed-tmin",
+        "shadowColumnCount": 124,
+        "baselineShadowLeakFraction": 0.0
+      }
+    ],
+    "selfIntersection": [
+      {
+        "scale": 0.01,
+        "policy": "relative",
+        "roi": [
+          936,
+          516,
+          48,
+          48
+        ],
+        "rmse": 0.0,
+        "meanRatio": 1.0,
+        "darkenedChannelFraction": 0.0
+      },
+      {
+        "scale": 0.01,
+        "policy": "zero",
+        "roi": [
+          936,
+          516,
+          48,
+          48
+        ],
+        "rmse": 0.04030518402846214,
+        "meanRatio": 0.43976287897194444,
+        "darkenedChannelFraction": 0.96484375
+      },
+      {
+        "scale": 1.0,
+        "policy": "relative",
+        "roi": [
+          936,
+          516,
+          48,
+          48
+        ],
+        "rmse": 0.0,
+        "meanRatio": 1.0,
+        "darkenedChannelFraction": 0.0
+      },
+      {
+        "scale": 1.0,
+        "policy": "zero",
+        "roi": [
+          936,
+          516,
+          48,
+          48
+        ],
+        "rmse": 0.042764838105595955,
+        "meanRatio": 0.4116720572735648,
+        "darkenedChannelFraction": 0.9618055555555556
+      },
+      {
+        "scale": 100.0,
+        "policy": "relative",
+        "roi": [
+          936,
+          516,
+          48,
+          48
+        ],
+        "rmse": 0.0,
+        "meanRatio": 1.0,
+        "darkenedChannelFraction": 0.0
+      },
+      {
+        "scale": 100.0,
+        "policy": "zero",
+        "roi": [
+          936,
+          516,
+          48,
+          48
+        ],
+        "rmse": 0.039552312269817605,
+        "meanRatio": 0.45522256525499627,
+        "darkenedChannelFraction": 0.9544270833333334
+      }
+    ],
+    "supplementary": {
+      "tmax": [
+        {
+          "scale": 0.01,
+          "normalizedTMax": 2,
+          "mean": 0.20000000298023224
+        },
+        {
+          "scale": 0.01,
+          "normalizedTMax": 20,
+          "mean": 0.0814478922256967
+        },
+        {
+          "scale": 1.0,
+          "normalizedTMax": 2,
+          "mean": 0.20000000298023224
+        },
+        {
+          "scale": 1.0,
+          "normalizedTMax": 20,
+          "mean": 0.0814478119573323
+        },
+        {
+          "scale": 100.0,
+          "normalizedTMax": 2,
+          "mean": 0.20000000298023224
+        },
+        {
+          "scale": 100.0,
+          "normalizedTMax": 20,
+          "mean": 0.08144789031939581
+        }
+      ],
+      "nearLight": [
+        {
+          "type": "Point",
+          "lightOffsetX": 0.0,
+          "exitCode": 0,
+          "clearMean": 0.0762656647687739,
+          "betweenMean": 0.0,
+          "beyondMean": 0.0762656647687739,
+          "maxBeyondDifference": 0.0
+        },
+        {
+          "type": "Point",
+          "lightOffsetX": 1.0,
+          "exitCode": 0,
+          "clearMean": 0.053658036130097266,
+          "betweenMean": 0.0,
+          "beyondMean": 0.053658036130097266,
+          "maxBeyondDifference": 0.0
+        },
+        {
+          "type": "Spot",
+          "lightOffsetX": 0.0,
+          "exitCode": 0,
+          "clearMean": 0.0762656647687739,
+          "betweenMean": 0.0,
+          "beyondMean": 0.0762656647687739,
+          "maxBeyondDifference": 0.0
+        },
+        {
+          "type": "Spot",
+          "lightOffsetX": 1.0,
+          "exitCode": 0,
+          "clearMean": 0.053658036130097266,
+          "betweenMean": 0.0,
+          "beyondMean": 0.053658036130097266,
+          "maxBeyondDifference": 0.0
+        }
+      ],
+      "failures": []
+    }
+  },
+  "performance": {
+    "initialSmoke": [
+      {
+        "case": "baseline",
+        "count": 16,
+        "medianMs": 0.476704,
+        "p90Ms": 23.3510715,
+        "p95Ms": 23.4477435,
+        "meanMs": 6.6963579375,
+        "minMs": 0.470016,
+        "maxMs": 23.494593
+      },
+      {
+        "case": "resolution-0",
+        "count": 16,
+        "medianMs": 2.168352,
+        "p90Ms": 2.2050400000000003,
+        "p95Ms": 2.221632,
+        "meanMs": 2.16986,
+        "minMs": 2.080608,
+        "maxMs": 2.251008
+      },
+      {
+        "case": "resolution-1",
+        "count": 16,
+        "medianMs": 3.7889920000000004,
+        "p90Ms": 3.832016,
+        "p95Ms": 3.845656,
+        "meanMs": 3.786662,
+        "minMs": 3.663552,
+        "maxMs": 3.8704
+      }
+    ],
+    "initialBaselineAccepted": false,
+    "repeatWarmup": 64,
+    "repeatObservations": 64,
+    "repeatCount": 3,
+    "repeatAggregates": [
+      {
+        "case": "baseline",
+        "count": 192,
+        "medianMs": 0.477232,
+        "p90Ms": 0.482576,
+        "p95Ms": 0.4843712,
+        "meanMs": 0.4792955,
+        "minMs": 0.467168,
+        "maxMs": 0.868352
+      }
+    ],
+    "repeatRuns": [
+      {
+        "name": "baseline-r0",
+        "stats": {
+          "count": 64,
+          "medianMs": 0.47296000000000005,
+          "p90Ms": 0.4755008,
+          "p95Ms": 0.47716,
+          "meanMs": 0.478617,
+          "minMs": 0.467168,
+          "maxMs": 0.868352
+        }
+      },
+      {
+        "name": "baseline-r1",
+        "stats": {
+          "count": 64,
+          "medianMs": 0.479232,
+          "p90Ms": 0.4817824,
+          "p95Ms": 0.48253440000000003,
+          "meanMs": 0.4789605,
+          "minMs": 0.473088,
+          "maxMs": 0.489344
+        }
+      },
+      {
+        "name": "baseline-r2",
+        "stats": {
+          "count": 64,
+          "medianMs": 0.48063999999999996,
+          "p90Ms": 0.4845472,
+          "p95Ms": 0.4852112,
+          "meanMs": 0.480309,
+          "minMs": 0.471584,
+          "maxMs": 0.485376
+        }
+      }
+    ],
+    "limitation": "Baseline-only longer-warmup stability check; not a cross-resolution or cross-GPU benchmark"
+  },
+  "inputs": {
+    "standardStatus": "done",
+    "controlStatus": "done",
+    "captureCount": 22,
+    "results": [
+      {
+        "name": "input-plane-NormalRoughness-static",
+        "resource": "NormalRoughness",
+        "maxAbsoluteError": 0.00048828125,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "5567650ab08c8050a987b652b9be2cd55978004154b3f5e5f64a7dd34c3888b1"
+      },
+      {
+        "name": "input-plane-ViewZ-static",
+        "resource": "ViewZ",
+        "maxAbsoluteError": 1.430511474609375E-06,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "7eddde48178a42220b3ba5e71e74bf750957f14d3fe357d4d7c5035f957fe4d6"
+      },
+      {
+        "name": "input-plane-MotionVectors-static",
+        "resource": "MotionVectors",
+        "maxAbsoluteError": 1.8477439880371094E-06,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "b463a9563bb18bfc07add402508110942f6e00ccb2331174e5e99f2984cc93e6"
+      },
+      {
+        "name": "input-plane-Albedo-static",
+        "resource": "Albedo",
+        "maxAbsoluteError": 0.00044505178256870614,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": 0,
+        "sha256": "54e66a8e665f308c11626a8b00b174028e982803ea80db212b12f6b9bc91ec01"
+      },
+      {
+        "name": "input-shifted-NormalRoughness-static",
+        "resource": "NormalRoughness",
+        "maxAbsoluteError": 0.00048828125,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "69b873f0652221d2da24442998dde7c20308b61d48fdab1b890a393d54880dfe"
+      },
+      {
+        "name": "input-shifted-ViewZ-static",
+        "resource": "ViewZ",
+        "maxAbsoluteError": 4.76837158203125E-06,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "6ab75c27bdbcc91de4e5ffdff2091a85b9c449176c71e2aed193d5f280ab2906"
+      },
+      {
+        "name": "input-shifted-MotionVectors-static",
+        "resource": "MotionVectors",
+        "maxAbsoluteError": 1.9073486328125E-06,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "e7c817719abdf94497f9e39db167286a37bffd4eb78b49c6ff1c4649fc1722d5"
+      },
+      {
+        "name": "input-shifted-Albedo-static",
+        "resource": "Albedo",
+        "maxAbsoluteError": 0.00044505178256870614,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": 0,
+        "sha256": "6a169936c979cab809ec3cde3a0fbf17e71381ec8baf3d336cb372f3ab3caec4"
+      },
+      {
+        "name": "input-ortho-NormalRoughness-static",
+        "resource": "NormalRoughness",
+        "maxAbsoluteError": 0.00048828125,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "f4f1e63443769e2f35d82dc6ef2af45ec48cdc6ee1509f038a9507802527c33b"
+      },
+      {
+        "name": "input-ortho-ViewZ-static",
+        "resource": "ViewZ",
+        "maxAbsoluteError": 9.5367431640625E-07,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "d8c3042bb27c2782dd601376553ab6bc49158fc6b89b70783fbe3d60d281558d"
+      },
+      {
+        "name": "input-ortho-MotionVectors-static",
+        "resource": "MotionVectors",
+        "maxAbsoluteError": 1.3709068298339844E-06,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "f83a64e3382e30b029278c2a64b63ca82b9cd6065db63ffc92a7a1bb59b10e81"
+      },
+      {
+        "name": "input-ortho-Albedo-static",
+        "resource": "Albedo",
+        "maxAbsoluteError": 0.00044505178256870614,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": 0,
+        "sha256": "20e76bf01c570d98247e856a1cd94befb24704c44d00b6ff5c3516a16dd871c2"
+      },
+      {
+        "name": "input-marker-NormalRoughness-static",
+        "resource": "NormalRoughness",
+        "maxAbsoluteError": 0.00048828125,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "5c544d4647a95c578e628b274c92143324765736d759b7fc4b334d56725c1f84"
+      },
+      {
+        "name": "input-marker-ViewZ-static",
+        "resource": "ViewZ",
+        "maxAbsoluteError": 4.76837158203125E-06,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "ff37370a340e10232beb6bcf4f419a1e4db763ec6c743b6d86f47dd8d4456dfc"
+      },
+      {
+        "name": "input-marker-MotionVectors-static",
+        "resource": "MotionVectors",
+        "maxAbsoluteError": 1.7881393432617188E-06,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "d902af70b856bec4aba497a0abddaee0e0fb8f3db90d464f6891ab28c4f6d65f"
+      },
+      {
+        "name": "input-marker-Albedo-static",
+        "resource": "Albedo",
+        "maxAbsoluteError": 0.00044505178256870614,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": 0,
+        "sha256": "00dd99851e7b09069fe79e3f1dbd342beaf4ea779918571dadec53c8dfdfa0e3"
+      },
+      {
+        "name": "input-plane-MotionVectors-moving",
+        "resource": "MotionVectors",
+        "maxAbsoluteError": 1.5720190717383176E-05,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "300418f8a5c1022bb1fca0cb80b332dc86b071efd40ae296cea07fffa1ee4c8e"
+      },
+      {
+        "name": "input-shifted-MotionVectors-moving",
+        "resource": "MotionVectors",
+        "maxAbsoluteError": 3.079194138810859E-05,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "e4947efa176e84e8d0e8351fec1c15af1cd449c5eeccffda198eeb0094eb9abc"
+      },
+      {
+        "name": "input-ortho-MotionVectors-moving",
+        "resource": "MotionVectors",
+        "maxAbsoluteError": 2.61244108723524E-06,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "5c856231330bc6973e029e7e7bccfcd07d3b3c70eadadbc05d2d5121f9e02096"
+      },
+      {
+        "name": "input-marker-MotionVectors-moving",
+        "resource": "MotionVectors",
+        "maxAbsoluteError": 3.079194138810859E-05,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "02873c82f9866522535df847e06a0d426428c7b00115a7e308711ec7ac5c56e6"
+      },
+      {
+        "name": "input-shifted-ViewZ-moving",
+        "resource": "ViewZ",
+        "maxAbsoluteError": 1.4139105029009613E-05,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "cd459dc7d77d5b954720118198289bc6f9321aa0803ef3eff1f52454b5b3f3d3"
+      },
+      {
+        "name": "input-camera-transform-ViewZ-static",
+        "resource": "ViewZ",
+        "maxAbsoluteError": 4.684564791368473E-05,
+        "passed": true,
+        "primaryHitMaterialMismatchCount": null,
+        "sha256": "1b561ad85e265105289e7fdf67b2259c5bc429a344743e821be72090b1f96b18"
+      }
+    ],
+    "motionAcceptance": "2 ULP(expected half) + 3e-6 NDC float geometry/matrix allowance; not the old fixed 2e-5 bound"
+  },
+  "transport": {
+    "status": "passed",
+    "samples": 64,
+    "seeds": [
+      11,
+      23,
+      37,
+      53
+    ],
+    "captureCount": 64,
+    "bounceControl": {
+      "oneBounceMean": 0.048649355369207115,
+      "twoBounceMean": 0.09849261487715921,
+      "eightBounceMean": 0.20312294329050928,
+      "indirectContribution": 0.15447358792130217,
+      "beyondTwoBounceContribution": 0.10463032841335007,
+      "passed": true
+    },
+    "comparisons": [
+      {
+        "case": "ggx-m0-r0.18",
+        "status": "passed",
+        "referenceMean": 0.552475441898423,
+        "candidateMean": 0.552464403112026,
+        "relativeDifference": 1.9980592004297423E-05,
+        "pairedStandardError": 9.966457250789728E-05,
+        "fourStandardErrorRelative": 0.0007215855399141625,
+        "relativeTolerance": 0.02,
+        "maxUncertainty": 0.05
+      },
+      {
+        "case": "ggx-m0-r0.18-bsdf-quadrature",
+        "status": "passed",
+        "measuredMean": 0.552475441898423,
+        "relativeDifference": 0.00017913482180786922,
+        "fourStandardErrorRelative": 0.00017342108369413327,
+        "reference": {
+          "mean": 0.5525744272199786,
+          "quadratureRelativeChange": 1.1962798418529985E-08,
+          "orders": [
+            128,
+            256
+          ],
+          "spatialSamples": 9,
+          "decodedAlbedo": 0.5028864580325687,
+          "limitation": "Nine representative ROI view directions; not an independent material or camera parser."
+        }
+      },
+      {
+        "case": "ggx-m0-r0.18-mis-quadrature",
+        "status": "passed",
+        "measuredMean": 0.552464403112026,
+        "relativeDifference": 0.00019911183459231374,
+        "fourStandardErrorRelative": 0.000815033914833188,
+        "reference": {
+          "mean": 0.5525744272199786,
+          "quadratureRelativeChange": 1.1962798418529985E-08,
+          "orders": [
+            128,
+            256
+          ],
+          "spatialSamples": 9,
+          "decodedAlbedo": 0.5028864580325687,
+          "limitation": "Nine representative ROI view directions; not an independent material or camera parser."
+        }
+      },
+      {
+        "case": "ggx-m0-r0.4",
+        "status": "passed",
+        "referenceMean": 0.5462119092298963,
+        "candidateMean": 0.5459698295326234,
+        "relativeDifference": 0.0004431973986326382,
+        "pairedStandardError": 0.00018277238032847606,
+        "fourStandardErrorRelative": 0.0013384723199182287,
+        "relativeTolerance": 0.02,
+        "maxUncertainty": 0.05
+      },
+      {
+        "case": "ggx-m0-r0.4-bsdf-quadrature",
+        "status": "passed",
+        "measuredMean": 0.5462119092298963,
+        "relativeDifference": 0.0001835783727590634,
+        "fourStandardErrorRelative": 0.0004991599748059407,
+        "reference": {
+          "mean": 0.5461116549409375,
+          "quadratureRelativeChange": 5.551115123125783E-16,
+          "orders": [
+            128,
+            256
+          ],
+          "spatialSamples": 9,
+          "decodedAlbedo": 0.5028864580325687,
+          "limitation": "Nine representative ROI view directions; not an independent material or camera parser."
+        }
+      },
+      {
+        "case": "ggx-m0-r0.4-mis-quadrature",
+        "status": "passed",
+        "measuredMean": 0.5459698295326234,
+        "relativeDifference": 0.00025970038733091894,
+        "fourStandardErrorRelative": 0.0009099992820735637,
+        "reference": {
+          "mean": 0.5461116549409375,
+          "quadratureRelativeChange": 5.551115123125783E-16,
+          "orders": [
+            128,
+            256
+          ],
+          "spatialSamples": 9,
+          "decodedAlbedo": 0.5028864580325687,
+          "limitation": "Nine representative ROI view directions; not an independent material or camera parser."
+        }
+      },
+      {
+        "case": "ggx-m0-r0.8",
+        "status": "passed",
+        "referenceMean": 0.5107059485417267,
+        "candidateMean": 0.5106615960594354,
+        "relativeDifference": 8.68454389809481E-05,
+        "pairedStandardError": 0.00028468436303174464,
+        "fourStandardErrorRelative": 0.0022297321097953476,
+        "relativeTolerance": 0.02,
+        "maxUncertainty": 0.05
+      },
+      {
+        "case": "ggx-m0-r0.8-bsdf-quadrature",
+        "status": "passed",
+        "measuredMean": 0.5107059485417267,
+        "relativeDifference": 0.00017087826295147934,
+        "fourStandardErrorRelative": 0.0014673971993027148,
+        "reference": {
+          "mean": 0.5106186949061106,
+          "quadratureRelativeChange": 2.220446049250313E-16,
+          "orders": [
+            128,
+            256
+          ],
+          "spatialSamples": 9,
+          "decodedAlbedo": 0.5028864580325687,
+          "limitation": "Nine representative ROI view directions; not an independent material or camera parser."
+        }
+      },
+      {
+        "case": "ggx-m0-r0.8-mis-quadrature",
+        "status": "passed",
+        "measuredMean": 0.5106615960594354,
+        "relativeDifference": 8.401798397272842E-05,
+        "fourStandardErrorRelative": 0.0012272222753916561,
+        "reference": {
+          "mean": 0.5106186949061106,
+          "quadratureRelativeChange": 2.220446049250313E-16,
+          "orders": [
+            128,
+            256
+          ],
+          "spatialSamples": 9,
+          "decodedAlbedo": 0.5028864580325687,
+          "limitation": "Nine representative ROI view directions; not an independent material or camera parser."
+        }
+      },
+      {
+        "case": "ggx-m1-r0.18",
+        "status": "passed",
+        "referenceMean": 0.5182339608691109,
+        "candidateMean": 0.5180822109159635,
+        "relativeDifference": 0.0002928213212674811,
+        "pairedStandardError": 8.685964196477046E-05,
+        "fourStandardErrorRelative": 0.0006704280191834698,
+        "relativeTolerance": 0.02,
+        "maxUncertainty": 0.05
+      },
+      {
+        "case": "ggx-m1-r0.18-bsdf-quadrature",
+        "status": "passed",
+        "measuredMean": 0.5182339608691109,
+        "relativeDifference": 0.00015449254724275718,
+        "fourStandardErrorRelative": 0.0004069361236353948,
+        "reference": {
+          "mean": 0.5181539099516986,
+          "quadratureRelativeChange": 8.828785247327886E-08,
+          "orders": [
+            128,
+            256
+          ],
+          "spatialSamples": 9,
+          "decodedAlbedo": 0.5028864580325687,
+          "limitation": "Nine representative ROI view directions; not an independent material or camera parser."
+        }
+      },
+      {
+        "case": "ggx-m1-r0.18-mis-quadrature",
+        "status": "passed",
+        "measuredMean": 0.5180822109159635,
+        "relativeDifference": 0.00013837401273653072,
+        "fourStandardErrorRelative": 0.000725529922999898,
+        "reference": {
+          "mean": 0.5181539099516986,
+          "quadratureRelativeChange": 8.828785247327886E-08,
+          "orders": [
+            128,
+            256
+          ],
+          "spatialSamples": 9,
+          "decodedAlbedo": 0.5028864580325687,
+          "limitation": "Nine representative ROI view directions; not an independent material or camera parser."
+        }
+      },
+      {
+        "case": "ggx-m1-r0.4",
+        "status": "passed",
+        "referenceMean": 0.4804146156329807,
+        "candidateMean": 0.47992732598868315,
+        "relativeDifference": 0.0010143106151246513,
+        "pairedStandardError": 0.0002758720115815227,
+        "fourStandardErrorRelative": 0.0022969493650233062,
+        "relativeTolerance": 0.02,
+        "maxUncertainty": 0.05
+      },
+      {
+        "case": "ggx-m1-r0.4-bsdf-quadrature",
+        "status": "passed",
+        "measuredMean": 0.4804146156329807,
+        "relativeDifference": 0.000586455852065404,
+        "fourStandardErrorRelative": 0.0016979806891284023,
+        "reference": {
+          "mean": 0.480133038802605,
+          "quadratureRelativeChange": 4.9960036108132044E-15,
+          "orders": [
+            128,
+            256
+          ],
+          "spatialSamples": 9,
+          "decodedAlbedo": 0.5028864580325687,
+          "limitation": "Nine representative ROI view directions; not an independent material or camera parser."
+        }
+      },
+      {
+        "case": "ggx-m1-r0.4-mis-quadrature",
+        "status": "passed",
+        "measuredMean": 0.47992732598868315,
+        "relativeDifference": 0.00042844961145538374,
+        "fourStandardErrorRelative": 0.0017439277172279384,
+        "reference": {
+          "mean": 0.480133038802605,
+          "quadratureRelativeChange": 4.9960036108132044E-15,
+          "orders": [
+            128,
+            256
+          ],
+          "spatialSamples": 9,
+          "decodedAlbedo": 0.5028864580325687,
+          "limitation": "Nine representative ROI view directions; not an independent material or camera parser."
+        }
+      },
+      {
+        "case": "ggx-m1-r0.8",
+        "status": "passed",
+        "referenceMean": 0.3058318878720456,
+        "candidateMean": 0.3058425012804946,
+        "relativeDifference": 3.470340690382801E-05,
+        "pairedStandardError": 0.0005516007438934668,
+        "fourStandardErrorRelative": 0.007214430747970221,
+        "relativeTolerance": 0.02,
+        "maxUncertainty": 0.05
+      },
+      {
+        "case": "ggx-m1-r0.8-bsdf-quadrature",
+        "status": "passed",
+        "measuredMean": 0.3058318878720456,
+        "relativeDifference": 0.00014332691389062902,
+        "fourStandardErrorRelative": 0.006530074099223445,
+        "reference": {
+          "mean": 0.3057880602130707,
+          "quadratureRelativeChange": 8.881784197001252E-16,
+          "orders": [
+            128,
+            256
+          ],
+          "spatialSamples": 9,
+          "decodedAlbedo": 0.5028864580325687,
+          "limitation": "Nine representative ROI view directions; not an independent material or camera parser."
+        }
+      },
+      {
+        "case": "ggx-m1-r0.8-mis-quadrature",
+        "status": "passed",
+        "measuredMean": 0.3058425012804946,
+        "relativeDifference": 0.00017803529472670832,
+        "fourStandardErrorRelative": 0.001307770279297937,
+        "reference": {
+          "mean": 0.3057880602130707,
+          "quadratureRelativeChange": 8.881784197001252E-16,
+          "orders": [
+            128,
+            256
+          ],
+          "spatialSamples": 9,
+          "decodedAlbedo": 0.5028864580325687,
+          "limitation": "Nine representative ROI view directions; not an independent material or camera parser."
+        }
+      },
+      {
+        "case": "room-rr",
+        "status": "passed",
+        "referenceMean": 0.20312294329050928,
+        "candidateMean": 0.20286069485428015,
+        "relativeDifference": 0.0012910822971586103,
+        "pairedStandardError": 0.0001208647908007606,
+        "fourStandardErrorRelative": 0.0023801307492457525,
+        "relativeTolerance": 0.02,
+        "maxUncertainty": 0.05
+      }
+    ],
+    "limitation": "Paired seed-level ROI means; four standard errors are a diagnostic band, not a formal confidence interval. Finite bounce limits. No denoising or tone map. No universal energy conservation claim.",
+    "sourceHashes": {
+      "Tests/PathTracing/validate_transport.py": "0217170cbeaf58f2f17cfa1c765094dc009ee38a1359eb4ba7d0669fbaf818bc",
+      "Tests/PathTracing/compare_hdr.py": "bf53ff445ff87e1d5495badb3c0c3574f6c183560af8a7c39563af9ff4fac134",
+      "Tests/PathTracing/validate_inputs.py": "62447dc77b163d39290fd9bdb00d4facb05d3b92cd3c3703b166bf20713b63f1",
+      "Shaders/PathTracingSampling.hlsli": "d63b74f5f9d2b5b6be615a65fe06153ca5b6cb87253093722b0f8898ed9d44e1",
+      "Shaders/shaders_PathTracing.hlsl": "663f2ca5912c1c82df9625423ee983fee983b07091089aadfd7d149e3fe77def",
+      "Scene/SceneDocumentBuilder.cpp": "8d1371bbb1f772dcf53bc0128c03787df56059766e62ed9aa6decb00f5198931"
+    }
+  },
+  "evidence": [
+    {
+      "name": "part1",
+      "path": "bin/PathTracingValidation/completion-20261003/part1/report.json",
+      "sha256": "67f12bfdd93c182e4dd8d420f96287126418bebadb5e07023472be88f24e94d9"
+    },
+    {
+      "name": "part2",
+      "path": "bin/PathTracingValidation/completion-20261003/suite/part2/report.json",
+      "sha256": "902c0a128471dd557f9115e4b4a79ab6b79e18b2889f24bf7d1a78548f6f2ebe"
+    },
+    {
+      "name": "part3",
+      "path": "bin/PathTracingValidation/completion-20261003/suite/part3/report.json",
+      "sha256": "120ce5d2d7c922855dd352a450b3a1196be72e5756e9a09cf3cd2118a75c5b4f"
+    },
+    {
+      "name": "policy",
+      "path": "bin/PathTracingValidation/completion-20261003/suite/part3/policy-assessment.json",
+      "sha256": "c49d78c08b665aa76f49ab4fb08799669f1d64f3d1c21885737de6d5150f76b4"
+    },
+    {
+      "name": "part3Extra",
+      "path": "bin/PathTracingValidation/completion-20261003/controls/part3-extra/report.json",
+      "sha256": "ca89ceb5732059948c158e7563f4741feb1ccbe66c9593828146c3fb7bbc9e22"
+    },
+    {
+      "name": "part4Smoke",
+      "path": "bin/PathTracingValidation/completion-20261003/suite/part4/report.json",
+      "sha256": "a62f0f1dbd84a36dd41dc27dbe48e4e7830e2aaa4c9b3751a9769678ca61034c"
+    },
+    {
+      "name": "part4Repeat",
+      "path": "bin/PathTracingValidation/completion-20261003/performance-repeat/report.json",
+      "sha256": "cba3a74ef1d0dc78fb4b0b6c61164ea0ef58d893ca7d1d5d00ed9c36cf7390a2"
+    },
+    {
+      "name": "part5",
+      "path": "bin/PathTracingValidation/completion-20261003/suite/part5/report.json",
+      "sha256": "ed0d89f311072c702a9c67e230249deefb545308dc10f00183ef09a52656af73"
+    },
+    {
+      "name": "part5Controls",
+      "path": "bin/PathTracingValidation/completion-20261003/controls/part5-controls/report.json",
+      "sha256": "eb5fa4fb8e952a74b75521f737f66b4db8b5e7a37d656c96f533991a8847c197"
+    },
+    {
+      "name": "transport",
+      "path": "bin/PathTracingValidation/completion-20261003/suite/transport/report.json",
+      "sha256": "61f99e0c667294e60eadc61bb7d7469d2d40312d6751c42fe8327e4186b3310c"
+    }
+  ],
+  "remainingScope": [
+    "Same-source second-GPU validation",
+    "Full original 512 spp convergence campaign rerun",
+    "Animated-object motion vectors",
+    "Extreme smooth/grazing GGX and other RR material families",
+    "Thin/grazing/large-translated-coordinate self-intersection"
+  ]
+}
