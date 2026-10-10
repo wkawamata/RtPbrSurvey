@@ -295,6 +295,25 @@ CMake DebugのCaptureSessionTests build成功、関連CTest 3/3通過。
 この確認はCPUゲートの検証であり、GPU Preview再構築・Document内容のGPU反映の実行証明ではない。
 ユーザー指示によりGPU撮影・アプリ起動は行っていない。
 
+### 2026-10-10: 固定刻み1800frames GPU検証成功
+
+CPUゲート変更commit `d53395c` のDebugアプリを、通常ホスト権限で実行。
+1920x1080、fixed-step、30 FPS、1800frames、warmup 3frames、8 Mbps。
+アプリexit 0、受理1800framesと全1800framesのデコード数が一致。
+simulation時刻の1/30秒間隔、H.264、寸法、動画timestamp、終端60秒の厳密検査を通過。
+D3D12 ERROR/CORRUPTIONと保存エラーなし。以前のexit -1は今回は再現せず、原因特定とは扱わない。
+
+再現:
+
+```powershell
+python -B Tests/CaptureSession/validate_standalone_formats.py --output bin/CapturePort/step5-fixed1800-20261010 --cases mp4-full-long --inspector out/build/sdk-free-exr/Debug/RtPbrSurvey.Mp4EncoderTests.exe
+```
+
+既存outputは拒否するため、再実行時は新しいoutput名を使う。SDK-present起動には承認付き通常権限が必要。
+成果物・詳細記録: `bin/CapturePort/step5-fixed1800-20261010/report.json`。
+MP4 SHA256: `45fe1d9008aae80d2e1a72f329caad992b15c7cb83c8588ca078d00a720a34f3`。
+このsceneは均一平面なので、撮影・保存・時間軸の検証であり、動く被写体の画質検証ではない。
+
 ## 残る受け入れ確認
 
 Step 5全体を完了扱いにはしない。
@@ -304,7 +323,7 @@ Step 5全体を完了扱いにはしない。
   Step 4の既存13ケース全体は2026-10-05の結果で、MP4統合後の全再実行結果ではない。
 - GUIでの形式別の不正設定/保存失敗。FPS 0 と MP4 保存失敗からの再Startは今回確認済み。
 - 実マウスROIの画面境界外ドラッグ/クランプ。右クリックCancelと右下端は今回確認済み。
-- 全描画方式の見た目、1800frames固定刻み/4K MP4、実再生アプリの操作確認。
-  フルHD実時間60秒は確認済み。今回のMP4再生検証はMedia Foundationによる全デコード。
+- 全描画方式の見た目、4K MP4、実再生アプリの操作確認。
+  フルHD実時間60秒と固定刻み1800framesは確認済み。今回のMP4再生検証はMedia Foundationによる全デコード。
 
 生成物はbin配下に保持し、Commit対象にしない。
