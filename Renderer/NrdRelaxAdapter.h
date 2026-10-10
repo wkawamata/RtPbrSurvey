@@ -1,0 +1,21 @@
+#pragma once
+
+namespace Engine
+{
+
+enum class NrdRelaxSupportStatus
+{
+    NotIntegrated = 0,
+};
+
+struct NrdRelaxSupportInfo
+{
+    bool available = false;
+    NrdRelaxSupportStatus status = NrdRelaxSupportStatus::NotIntegrated;
+    const char* targetSdkVersion = nullptr;
+    const char* reason = nullptr;
+};
+
+NrdRelaxSupportInfo QueryNrdRelaxSupport();
+
+}

@@ -281,6 +281,14 @@ auto RtPbrSurveyEngine::MakePathTracingHistoryClearPass() -> RenderPass
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideDiffuseRadianceHitT],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideSpecularRadianceHitT],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideCurrentFrameRadiance],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideMaterialF0Metallic],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideStableRadiance],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideBackgroundRadiance],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PathTracingHistoryClear, &RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass)
         .Build();
@@ -318,6 +326,14 @@ auto RtPbrSurveyEngine::MakePathTracingPass() -> RenderPass
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideDiffuseRadianceHitT],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideSpecularRadianceHitT],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideCurrentFrameRadiance],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideMaterialF0Metallic],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideStableRadiance],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideBackgroundRadiance],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PathTracing, &RtPbrSurveyEngine::ExecutePathTracingPass)
         .Build();

@@ -28,6 +28,10 @@ struct PathTracingPassDesc
     D3D12_GPU_DESCRIPTOR_HANDLE albedoUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE diffuseRadianceHitTUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE specularRadianceHitTUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE currentFrameRadianceUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE materialF0MetallicUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE stableRadianceUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE backgroundRadianceUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE environmentMapSrv = {};
     D3D12_GPU_VIRTUAL_ADDRESS emissiveTriangleSrv = 0;
     UINT emissiveTriangleCount = 0;

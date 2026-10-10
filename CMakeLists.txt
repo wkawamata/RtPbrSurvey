@@ -86,6 +86,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/HybridReflectionPass.cpp
     Renderer/LightingPass.cpp
     Renderer/MaterialBuffer.cpp
+    Renderer/NrdRelaxAdapter.cpp
     Renderer/PathTracingPass.cpp
     Renderer/PipelineFactory.cpp
     Renderer/RayQueryShadowPass.cpp
@@ -428,6 +429,10 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.PathTracingHistoryTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.PathTracingHistory COMMAND RtPbrSurvey.PathTracingHistoryTests)
+
+    add_executable(RtPbrSurvey.NrdRelaxAdapterTests Tests/NrdRelaxAdapterTests.cpp)
+    target_link_libraries(RtPbrSurvey.NrdRelaxAdapterTests PRIVATE RtPbrSurvey::SceneRenderer)
+    add_test(NAME RtPbrSurvey.NrdRelaxAdapter COMMAND RtPbrSurvey.NrdRelaxAdapterTests)
 
     add_executable(RtPbrSurvey.EvaluationStateTests
         Tests/EvaluationStateTests.cpp)

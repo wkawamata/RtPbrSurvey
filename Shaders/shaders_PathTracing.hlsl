@@ -8,6 +8,10 @@ RWTexture2D<float2> g_motionVectors : register(u4);
 RWTexture2D<float4> g_albedo : register(u5);
 RWTexture2D<float4> g_diffuseRadianceHitT : register(u6);
 RWTexture2D<float4> g_specularRadianceHitT : register(u7);
+RWTexture2D<float4> g_currentFrameRadiance : register(u8);
+RWTexture2D<float4> g_materialF0Metallic : register(u9);
+RWTexture2D<float4> g_stableRadiance : register(u10);
+RWTexture2D<float4> g_backgroundRadiance : register(u11);
 RaytracingAccelerationStructure g_tlas : register(t0);
 ByteAddressBuffer g_sceneVertices : register(t1);
 ByteAddressBuffer g_sceneIndices : register(t2);
@@ -161,6 +165,7 @@ struct PrimarySurfaceData
     float viewZ;
     float2 motionVector;
     float4 albedo;
+    float4 materialF0Metallic;
     float hitT;
 };
 
@@ -171,6 +176,7 @@ PrimarySurfaceData MakeMissPrimarySurfaceData()
     result.viewZ = 0.0;
     result.motionVector = float2(0.0, 0.0);
     result.albedo = float4(0.0, 0.0, 0.0, 0.0);
+    result.materialF0Metallic = 0.0;
     result.hitT = 0.0;
     return result;
 }
@@ -337,11 +343,15 @@ float3 TracePath(uint2 pixel,
                  uint2 dimensions,
                  out PrimarySurfaceData primarySurface,
                  out float3 diffuseRadiance,
-                 out float3 specularRadiance)
+                 out float3 specularRadiance,
+                 out float3 stableRadiance,
+                 out float3 backgroundRadiance)
 {
     primarySurface = MakeMissPrimarySurfaceData();
     diffuseRadiance = 0.0;
     specularRadiance = 0.0;
+    stableRadiance = 0.0;
+    backgroundRadiance = 0.0;
     const float2 subpixelPosition = float2(NextRandom(randomState), NextRandom(randomState));
     RayDesc ray = MakePrimaryRay(pixel, subpixelPosition, dimensions);
     float3 radiance = 0.0;
@@ -372,6 +382,10 @@ float3 TracePath(uint2 pixel,
             }
             const float3 contribution = throughput * missRadiance;
             radiance += contribution;
+            if (bounce == 0)
+            {
+                backgroundRadiance = contribution;
+            }
             if (bounce > 0)
             {
                 if (primarySpecularPath)
@@ -429,6 +443,9 @@ float3 TracePath(uint2 pixel,
             primarySurface.viewZ = ComputePrimaryViewZ(hitPosition);
             primarySurface.motionVector = ComputePrimaryMotionVector(hitPosition, objectPosition, instanceId);
             primarySurface.albedo = float4(hitMaterial.albedo, 1.0);
+            primarySurface.materialF0Metallic = float4(
+                lerp(float3(0.04, 0.04, 0.04), hitMaterial.albedo, hitMaterial.metallic),
+                hitMaterial.metallic);
             primarySurface.hitT = query.CommittedRayT();
         }
 
@@ -451,6 +468,10 @@ float3 TracePath(uint2 pixel,
             const float3 contribution = throughput *
                 (hitMaterial.albedo + (emissiveEnabled != 0 ? hitMaterial.emissive : 0.0));
             radiance += contribution;
+            if (bounce == 0)
+            {
+                stableRadiance += contribution;
+            }
             if (bounce == 0 || !primarySpecularPath)
             {
                 diffuseRadiance += contribution;
@@ -478,6 +499,10 @@ float3 TracePath(uint2 pixel,
             }
             const float3 contribution = throughput * hitMaterial.emissive * emissionWeight;
             radiance += contribution;
+            if (bounce == 0)
+            {
+                stableRadiance += contribution;
+            }
             if (bounce == 0 || !primarySpecularPath)
             {
                 diffuseRadiance += contribution;
@@ -696,6 +721,8 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_G
     float3 frameRadianceSum = 0.0;
     float3 frameDiffuseRadianceSum = 0.0;
     float3 frameSpecularRadianceSum = 0.0;
+    float3 frameStableRadianceSum = 0.0;
+    float3 frameBackgroundRadianceSum = 0.0;
     PrimarySurfaceData primarySurface = MakeMissPrimarySurfaceData();
     for (uint sampleOffset = 0; sampleOffset < sampleCount; ++sampleOffset)
     {
@@ -703,14 +730,20 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_G
         PrimarySurfaceData samplePrimarySurface;
         float3 sampleDiffuseRadiance;
         float3 sampleSpecularRadiance;
+        float3 sampleStableRadiance;
+        float3 sampleBackgroundRadiance;
         frameRadianceSum += TracePath(pixel,
                                       randomState,
                                       uint2(width, height),
                                       samplePrimarySurface,
                                       sampleDiffuseRadiance,
-                                      sampleSpecularRadiance);
+                                      sampleSpecularRadiance,
+                                      sampleStableRadiance,
+                                      sampleBackgroundRadiance);
         frameDiffuseRadianceSum += sampleDiffuseRadiance;
         frameSpecularRadianceSum += sampleSpecularRadiance;
+        frameStableRadianceSum += sampleStableRadiance;
+        frameBackgroundRadianceSum += sampleBackgroundRadiance;
         if (sampleOffset == 0)
         {
             primarySurface = samplePrimarySurface;
@@ -732,4 +765,8 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_G
         float4(frameDiffuseRadianceSum / float(sampleCount), primarySurface.hitT);
     g_specularRadianceHitT[pixel] =
         float4(frameSpecularRadianceSum / float(sampleCount), primarySurface.hitT);
+    g_currentFrameRadiance[pixel] = float4(frameRadianceSum / float(sampleCount), 1.0);
+    g_materialF0Metallic[pixel] = primarySurface.materialF0Metallic;
+    g_stableRadiance[pixel] = float4(frameStableRadianceSum / float(sampleCount), 0.0);
+    g_backgroundRadiance[pixel] = float4(frameBackgroundRadianceSum / float(sampleCount), 0.0);
 }

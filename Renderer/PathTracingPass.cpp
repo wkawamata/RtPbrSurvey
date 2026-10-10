@@ -87,6 +87,10 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
     commandList->SetComputeRootDescriptorTable(16, desc.environmentMapSrv);
     commandList->SetComputeRootDescriptorTable(18, desc.lightCbv);
     commandList->SetComputeRootShaderResourceView(19, desc.emissiveTriangleSrv);
+    commandList->SetComputeRootDescriptorTable(20, desc.currentFrameRadianceUav);
+    commandList->SetComputeRootDescriptorTable(21, desc.materialF0MetallicUav);
+    commandList->SetComputeRootDescriptorTable(22, desc.stableRadianceUav);
+    commandList->SetComputeRootDescriptorTable(23, desc.backgroundRadianceUav);
 
     const PathTracingShaderConstants constants = {
         desc.scene.usesIndexedDraw,

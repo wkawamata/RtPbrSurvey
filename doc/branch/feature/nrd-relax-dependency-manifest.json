@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/NVIDIA-RTX/NRD.git",
+  "tag": "v4.17.3",
+  "commit": "792eff196afdd350fd9c3f862119017ccb438a0e",
+  "localSourceRoot": "third_party/nrd-sdk-4.17.3",
+  "sourceOnly": true,
+  "runtimeLinked": false,
+  "denoiser": "RELAX_DIFFUSE_SPECULAR",
+  "integration": "Native D3D12 dispatch through isolated adapter; no NRI",
+  "license": "NVIDIA RTX SDKs LICENSE; see LICENSE.txt; review before redistribution",
+  "sourceSha256": {
+    "Include/NRD.h": "a14fa17e766ba7ba80b4412ac923ad50751ded046b992ff872279621132728cf",
+    "Include/NRDDescs.h": "0a57e72e4219a8e9eb6d7f4052a5580d70efc9e055da7cc950ff3385644084bf",
+    "Include/NRDSettings.h": "6d9884a3e6de77cd097627a390be870b27c0c836788c2e9659015f7f8b7f486d",
+    "Shaders/NRD.hlsli": "17c59c9b7e96a4957d0ac20a4d22dfc914ce4367fc3f4432a0928a94dc2bdad0",
+    "CMakeLists.txt": "0a41df720f51db69d5a4a0476c2f70af2d086d7d78ef7e250b9aabb42af88cca",
+    "LICENSE.txt": "85201d19c2dc5041d9a2029e9fda9d78105fe41ce21ce9701d4aa7e56184b6e7",
+    "README.md": "fcd263f93e323bc6c43e3d133096fd0d48042e78d01789c9bbf6cda784a4a6e0"
+  },
+  "proposedBuild": {
+    "configuration": "Debug x64 first, Release separate",
+    "NRD_STATIC_LIBRARY": true,
+    "NRD_NRI": false,
+    "NRD_EMBEDS_DXIL_SHADERS": true,
+    "NRD_EMBEDS_DXBC_SHADERS": false,
+    "NRD_EMBEDS_SPIRV_SHADERS": false,
+    "NRD_NORMAL_ENCODING": 4,
+    "normalEncoding": "RGBA16_SNORM helper convention, float16 texture candidate",
+    "NRD_ROUGHNESS_ENCODING": 1,
+    "roughnessEncoding": "LINEAR",
+    "compiledArtifactHashes": null
+  },
+  "upstreamBuildDependencies": {
+    "MathLib": "v11 / aa432ad9a80691eb8c3ec4d576bbad5ac100fdc8",
+    "ShaderMake": "18f5a344e7ca8fa65daaf079d07bc8ce38453e05"
+  },
+  "readinessBlockers": [
+    "No SDK library/compiled shader integration",
+    "No backend material/stable radiance conversion",
+    "No secondary hit distance contract implementation",
+    "No validated coherent primary sampling path",
+    "No SDK dispatch or history lifecycle"
+  ]
+}

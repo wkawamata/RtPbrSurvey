@@ -703,6 +703,10 @@ private:
         PathTracingGuideAlbedo,
         PathTracingGuideDiffuseRadianceHitT,
         PathTracingGuideSpecularRadianceHitT,
+        PathTracingGuideCurrentFrameRadiance,
+        PathTracingGuideMaterialF0Metallic,
+        PathTracingGuideStableRadiance,
+        PathTracingGuideBackgroundRadiance,
         PathTracingGuideTextureCount,
     };
     static constexpr UINT kPathTracingDescriptorCount =
@@ -1317,6 +1321,10 @@ private:
         "PathTracing.Albedo",
         "PathTracing.DiffuseRadianceHitT",
         "PathTracing.SpecularRadianceHitT",
+        "PathTracing.CurrentFrameRadiance",
+        "PathTracing.MaterialF0Metallic",
+        "PathTracing.StableRadiance",
+        "PathTracing.BackgroundRadiance",
     };
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
         "DebugTexturePreview.Output.0",

@@ -831,6 +831,18 @@ void RtPbrSurveyEngine::RegisterDebugResourceViews()
     registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideSpecularRadianceHitT],
                     Engine::DebugTexturePreviewSemantic::Color,
                     DXGI_FORMAT_R16G16B16A16_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideCurrentFrameRadiance],
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideMaterialF0Metallic],
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    DXGI_FORMAT_R16G16B16A16_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideStableRadiance],
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideBackgroundRadiance],
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    DXGI_FORMAT_R32G32B32A32_FLOAT);
     registerTexture(kReflectionEvaluatedRadianceResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionSpecularAlbedoResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionRoughnessResourceName, Engine::DebugTexturePreviewSemantic::Scalar);
@@ -2549,6 +2561,11 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     diffuseRadianceHitTUavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 6, 0);
     CD3DX12_DESCRIPTOR_RANGE1 specularRadianceHitTUavRange = {};
     specularRadianceHitTUavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 7, 0);
+    CD3DX12_DESCRIPTOR_RANGE1 additionalGuideUavRanges[4] = {};
+    for (UINT i = 0; i < _countof(additionalGuideUavRanges); ++i)
+    {
+        additionalGuideUavRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 8 + i, 0);
+    }
     CD3DX12_DESCRIPTOR_RANGE1 tlasSrvRange = {};
     tlasSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
     CD3DX12_DESCRIPTOR_RANGE1 cameraCbvRange = {};
@@ -2568,7 +2585,8 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     CD3DX12_DESCRIPTOR_RANGE1 lightCbvRange = {};
     lightCbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 2, 0);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[20] = {};
+    static_assert(18 + 5 * 2 + 36 == 64);
+    CD3DX12_ROOT_PARAMETER1 rootParameters[24] = {};
     rootParameters[0].InitAsDescriptorTable(1, &sceneColorUavRange);
     rootParameters[1].InitAsDescriptorTable(1, &accumulationUavRange);
     rootParameters[2].InitAsDescriptorTable(1, &normalRoughnessUavRange);
@@ -2589,6 +2607,10 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     rootParameters[17].InitAsConstants(36, 1, 0);
     rootParameters[18].InitAsDescriptorTable(1, &lightCbvRange);
     rootParameters[19].InitAsShaderResourceView(7, 0);
+    for (UINT i = 0; i < _countof(additionalGuideUavRanges); ++i)
+    {
+        rootParameters[20 + i].InitAsDescriptorTable(1, &additionalGuideUavRanges[i]);
+    }
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -4067,6 +4089,10 @@ void RtPbrSurveyEngine::RegisterPathTracingResources()
         DXGI_FORMAT_R16G16B16A16_FLOAT,
         DXGI_FORMAT_R16G16B16A16_FLOAT,
         DXGI_FORMAT_R16G16B16A16_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R16G16B16A16_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
     };
     for (UINT i = 0; i < PathTracingGuideTextureCount; ++i)
     {
@@ -5887,6 +5913,10 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
         L"Path Tracing Albedo Clear",
         L"Path Tracing Diffuse Radiance HitT Clear",
         L"Path Tracing Specular Radiance HitT Clear",
+        L"Path Tracing Current Frame Radiance Clear",
+        L"Path Tracing Material F0 Metallic Clear",
+        L"Path Tracing Stable Radiance Clear",
+        L"Path Tracing Background Radiance Clear",
     };
     for (UINT i = 0; i < PathTracingGuideTextureCount; ++i)
     {
@@ -5931,6 +5961,10 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
         m_pathTracingGuideTextureUavs[PathTracingGuideDiffuseRadianceHitT].gpu;
     passDesc.specularRadianceHitTUav =
         m_pathTracingGuideTextureUavs[PathTracingGuideSpecularRadianceHitT].gpu;
+    passDesc.currentFrameRadianceUav = m_pathTracingGuideTextureUavs[PathTracingGuideCurrentFrameRadiance].gpu;
+    passDesc.materialF0MetallicUav = m_pathTracingGuideTextureUavs[PathTracingGuideMaterialF0Metallic].gpu;
+    passDesc.stableRadianceUav = m_pathTracingGuideTextureUavs[PathTracingGuideStableRadiance].gpu;
+    passDesc.backgroundRadianceUav = m_pathTracingGuideTextureUavs[PathTracingGuideBackgroundRadiance].gpu;
     passDesc.environmentMapSrv = m_environmentMap.Srv().gpu;
     passDesc.emissiveTriangleSrv = m_frameResources[m_currentFrameIndex].emissiveTriangleBuffer->GetGPUVirtualAddress();
     passDesc.emissiveTriangleCount = static_cast<UINT>(m_emissiveTriangles.size());

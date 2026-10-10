@@ -144,6 +144,9 @@
     <ClInclude Include="Renderer\PathTracingPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\NrdRelaxAdapter.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\RayQuerySceneBindings.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -463,6 +466,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\PathTracingPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\NrdRelaxAdapter.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp">
