@@ -24,6 +24,7 @@
 #include "Platform/WindowInfo.h"
 #include "Runtime/SceneRenderer.h"
 #include "Runtime/CaptureSessionUi.h"
+#include "Runtime/CaptureRequestGate.h"
 #include "Runtime/DebugTextureInspector.h"
 #include "Runtime/DebugTextureThumbnailScheduler.h"
 #include "Runtime/EvaluationState.h"
@@ -55,6 +56,7 @@ public:
     void OnMouseWheel(int wheelDelta) override;
     void OnWindowSizeChanged(UINT width, UINT height) override;
     void OnIdle() override;
+    bool OnCloseRequested() override;
 
     void ParseCommandLineArgs(_In_reads_(argc) WCHAR* argv[], int argc) override;
 
@@ -69,6 +71,11 @@ public:
     const WCHAR* GetTitle() const override
     {
         return m_windowInfo.title.c_str();
+    }
+
+    int GetExitCode() const override
+    {
+        return m_exitCode;
     }
 
     void UpdateSampleState();
@@ -89,20 +96,13 @@ private:
         Running,
     };
 
-    enum class SceneEditorPendingAction
-    {
-        None,
-        NewDocument,
-        LoadDocument,
-        ReturnToTopMenu,
-    };
-
     static constexpr int kDefaultSceneIndex = 0;
 
     void CreateSampleScenes();
     void LoadSceneCpuData(int sceneIndex);
     void LoadFileSceneCpuData();
     void OpenSelectedScene();
+    void ExecuteOpenSelectedScene();
     void OpenFileScene();
     void OpenCommandLineDebugTexturePreview();
     void ApplyFileSceneSettings();
@@ -113,6 +113,7 @@ private:
     void RequestReturnToTopMenu();
     bool SaveSceneEditorDocument(bool saveAs, std::string* error = nullptr);
     void ResolveSceneEditorPendingAction(bool saveChanges, bool discardChanges);
+    void ExecutePendingSceneEditorRebuild();
     bool SaveSceneEditorRenderPreset(std::string* error = nullptr);
     bool ReloadSceneEditorRenderPreset(std::string* error = nullptr);
     bool AddSceneEditorGltfNode(const std::string& relativePath, std::string* error = nullptr);
@@ -128,7 +129,29 @@ private:
     void UpdateUiFrame();
     UINT SyncDebugTextureInspectorToEngine();
     void UpdateAutomatedCaptureCamera();
-    bool HasAutomatedCapture() const;
+    // Future reservation or in-flight output only; a completed or failed automation is released.
+    bool IsAutomatedCaptureBlocking() const;
+    void DrawCaptureSessionUi();
+    void UpdateCaptureRequestGate();
+    // Returns true when the application is closing and the frame loop must stop.
+    bool ResolvePendingHostAction();
+    void RequestCloseApplication();
+    void RequestCloseRunningScene();
+    // Records a host action when a confirmation decision or capture output must be processed first.
+    // Returns true when the action has to wait.
+    bool RequestHostAction(RtPbrSurvey::PendingHostAction action, const std::string& loadPath = {});
+    bool ExecutePendingHostAction(RtPbrSurvey::PendingHostAction action);
+    std::string PendingHostActionMessage();
+    const char* GetPendingHostActionName() const;
+    void StopCaptureForPendingAction();
+    bool NeedsSceneEditorDecision() const;
+    bool CanEditSceneEditorDocument(std::string& reason);
+    bool IsCaptureWorkPending();
+    bool CanStartCaptureSession(std::string& reason);
+    void InitializeCaptureSessionClock(const RtPbrSurvey::CaptureSessionConfig& config);
+    void UpdateCaptureSessionTiming();
+    bool IsFixedStepCaptureActive() const;
+    void ApplyCaptureSessionUiAction(RtPbrSurvey::CaptureSessionUiAction action);
     void FailAutomatedCapture(const std::string& error);
     void UpdateReflectionHdrDiagnostics();
     void WriteReflectionHdrDiagnosticsReport();
@@ -173,8 +196,11 @@ private:
     float m_sceneEditorScaleStep = 0.1f;
     int m_sceneEditorTransformTool = 0;
     bool m_sceneEditorObjectPickPending = false;
-    SceneEditorPendingAction m_sceneEditorPendingAction = SceneEditorPendingAction::None;
     std::string m_sceneEditorPendingLoadPath;
+    int m_pendingSelectedSceneIndex = kDefaultSceneIndex;
+    bool m_sceneEditorPendingDecisionApplied = false;
+    // A rebuild request that could not run while capture output was being processed.
+    bool m_sceneEditorPreviewRebuildPending = false;
     std::vector<RtPbrSurvey::DebugLineHandle> m_sceneEditorSelectionLineHandles;
 
     RtPbrSurveyEngine::LightingParams m_lightingParams;
@@ -231,8 +257,16 @@ private:
     UINT64 m_automationFrameCounter = 0;
     bool m_automationScreenshotRequested = false;
     bool m_captureSessionActive = false;
+    RtPbrSurvey::CaptureRequestGate m_captureRequestGate;
+    int m_exitCode = 0;
+    // Set when the single automated capture produced its result, so a later start is allowed.
+    bool m_automatedCaptureCompleted = false;
     std::chrono::steady_clock::time_point m_captureSessionStartTime;
     RtPbrSurvey::CaptureSessionUiState m_captureSessionUiState;
+    bool m_captureSessionFixedStep = false;
+    double m_captureSessionStepSeconds = 1.0 / 60.0;
+    double m_captureSimulationSeconds = 0.0;
+    float m_sceneDeltaTime = 0.0f;
     double m_pathTracingGpuTimeSumMs = 0.0;
     float m_pathTracingGpuTimeMinMs = 0.0f;
     float m_pathTracingGpuTimeMaxMs = 0.0f;

@@ -90,7 +90,7 @@ int Win32Application::Run(Platform::IApplication* pApp, HINSTANCE hInstance, int
     pApp->OnDestroy();
 
     // Return this part of the WM_QUIT message to Windows.
-    return static_cast<char>(msg.wParam);
+    return static_cast<int>(msg.wParam);
 }
 
 // Main message handler for the sample.
@@ -218,7 +218,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
             return 0;
 
         case WM_DESTROY:
-            PostQuitMessage(0);
+            PostQuitMessage(pApp != nullptr ? static_cast<UINT>(pApp->GetExitCode()) : 0);
             return 0;
     }
 

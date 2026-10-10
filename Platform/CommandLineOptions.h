@@ -93,9 +93,13 @@ struct CommandLineOptions
     UINT captureAfterFrames = 0;
     bool captureSessionEnabled = false;
     std::filesystem::path captureSessionOutputDirectory;
+    std::filesystem::path captureSessionOutputSubdirectory;
     std::wstring captureSessionBaseName;
     std::wstring captureSessionFormat = L"png";
+    std::wstring captureSessionGifRepeat = L"infinite";
+    std::wstring captureSessionGifDisposal = L"keep";
     UINT captureSessionFramesPerSecond = 60;
+    UINT captureSessionMp4BitrateMbps = 12;
     UINT captureSessionFrameLimit = 0;
     UINT captureSessionWarmupFrames = 0;
     bool captureSessionFixedStep = false;

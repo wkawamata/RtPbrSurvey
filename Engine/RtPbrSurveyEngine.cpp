@@ -1069,6 +1069,12 @@ void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
     ReleaseSceneResources();
     SetScene(scene);
     InvalidatePathTracingHistory(PathTracingResetReason::Scene);
+    // Empty editor documents have no GPU geometry until a visible mesh is added.
+    if (scene.mesh == nullptr || scene.mesh->vertices.empty())
+    {
+        m_displayInstanceCount = 0;
+        return;
+    }
     m_displayInstanceCount = previousDisplayInstanceCount > 0 ?
         std::clamp(previousDisplayInstanceCount, 0, sceneInstanceCount) :
         sceneInstanceCount;
@@ -1361,6 +1367,26 @@ bool RtPbrSurveyEngine::IsScreenshotCaptureIdle() const
     return m_screenshotRequestQueue.IsIdle();
 }
 
+bool RtPbrSurveyEngine::FinalizeAnimatedGif(std::string& error)
+{
+    return m_animatedGifEncoder.Finalize(error);
+}
+
+void RtPbrSurveyEngine::AbortAnimatedGif()
+{
+    m_animatedGifEncoder.Reset();
+}
+
+bool RtPbrSurveyEngine::FinalizeMp4(std::string& error, std::optional<std::uint64_t> endTimestamp100ns)
+{
+    return m_mp4Encoder.Finalize(error, endTimestamp100ns);
+}
+
+void RtPbrSurveyEngine::AbortMp4()
+{
+    m_mp4Encoder.Reset();
+}
+
 void RtPbrSurveyEngine::RequestPixelPick(int screenX, int screenY)
 {
     m_pixelPickRequested = true;
@@ -1394,6 +1420,22 @@ bool RtPbrSurveyEngine::UpdateDebugLine(RtPbrSurvey::DebugLineHandle handle,
     {
         UpdateDebugLines();
     }
+    if (!updated || desc.visible)
+    {
+        char message[256] = {};
+        std::snprintf(
+            message,
+            sizeof(message),
+            "[RtPbrSurvey DebugLine] Update: engine=%p registry=%p handle=%u updated=%d visible=%d depthVertices=%zu overlayVertices=%zu\n",
+            static_cast<void*>(this),
+            static_cast<void*>(&m_debugLineRegistry),
+            handle,
+            updated ? 1 : 0,
+            desc.visible ? 1 : 0,
+            m_debugLineVertices.depthTested.size(),
+            m_debugLineVertices.overlay.size());
+        OutputDebugStringA(message);
+    }
     return updated;
 }
 
@@ -1405,6 +1447,14 @@ void RtPbrSurveyEngine::RemoveDebugLine(RtPbrSurvey::DebugLineHandle handle)
 
 void RtPbrSurveyEngine::ClearDebugLines()
 {
+    char message[160] = {};
+    std::snprintf(
+        message,
+        sizeof(message),
+        "[RtPbrSurvey DebugLine] Clear: engine=%p registry=%p\n",
+        static_cast<void*>(this),
+        static_cast<void*>(&m_debugLineRegistry));
+    OutputDebugStringA(message);
     m_debugLineRegistry.Clear();
     UpdateDebugLines();
 }
@@ -6309,6 +6359,24 @@ void RtPbrSurveyEngine::ExecuteDebugLinePass(const RenderPass& pass)
     UNREFERENCED_PARAMETER(pass);
 
     UpdateDebugLines();
+    static size_t lastDepthTestedVertexCount = static_cast<size_t>(-1);
+    static size_t lastOverlayVertexCount = static_cast<size_t>(-1);
+    if (m_debugLineVertices.depthTested.size() != lastDepthTestedVertexCount ||
+        m_debugLineVertices.overlay.size() != lastOverlayVertexCount)
+    {
+        char message[192] = {};
+        std::snprintf(
+            message,
+            sizeof(message),
+            "[RtPbrSurvey DebugLine] Execute pass: engine=%p registry=%p depthVertices=%zu overlayVertices=%zu\n",
+            static_cast<void*>(this),
+            static_cast<void*>(&m_debugLineRegistry),
+            m_debugLineVertices.depthTested.size(),
+            m_debugLineVertices.overlay.size());
+        OutputDebugStringA(message);
+        lastDepthTestedVertexCount = m_debugLineVertices.depthTested.size();
+        lastOverlayVertexCount = m_debugLineVertices.overlay.size();
+    }
     if (m_debugLineVertices.depthTested.empty() && m_debugLineVertices.overlay.empty())
     {
         return;
@@ -6405,9 +6473,11 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             switch (capture.request.source)
             {
             case RtPbrSurvey::ScreenshotCaptureSource::FinalOutput:
-                if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png)
+                if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png &&
+                    capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Gif &&
+                    capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Mp4)
                 {
-                    throw std::invalid_argument("Final-output screenshot capture supports PNG only.");
+                    throw std::invalid_argument("Final-output screenshot capture supports PNG, GIF, or MP4 only.");
                 }
                 source = m_renderTargets[m_currentFrameIndex].Get();
                 hdr10 = m_hdrOutputPolicy.settings.hdr10Enabled;
@@ -7026,9 +7096,48 @@ void RtPbrSurveyEngine::ProcessCompletedScreenshot()
     result.height = capture.readback.height;
     try
     {
-        result.succeeded = capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Exr
-            ? Engine::SaveExrScreenshotReadback(capture.readback, result.path, result.error)
-            : Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
+        if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Exr)
+        {
+            result.succeeded = Engine::SaveExrScreenshotReadback(capture.readback, result.path, result.error);
+        }
+        else if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Gif ||
+                 capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+        {
+            const D3D12_RANGE readRange = {static_cast<SIZE_T>(capture.readback.layout.Offset),
+                                           static_cast<SIZE_T>(capture.readback.resource->GetDesc().Width)};
+            std::uint8_t* mappedData = nullptr;
+            ThrowIfFailed(capture.readback.resource->Map(0, &readRange, reinterpret_cast<void**>(&mappedData)));
+            const std::vector<std::uint8_t> rgba8 = Engine::ConvertScreenshotToRgba8(
+                mappedData + capture.readback.layout.Offset,
+                capture.readback.width,
+                capture.readback.height,
+                capture.readback.layout.Footprint.RowPitch,
+                capture.readback.format,
+                capture.readback.hdr10,
+                capture.readback.paperWhiteNits);
+            capture.readback.resource->Unmap(0, nullptr);
+            if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+            {
+                result.succeeded = m_mp4Encoder.AppendFrame(result.path, result.width, result.height, rgba8.data(),
+                                                           capture.request.videoFramesPerSecond, capture.request.videoBitrate,
+                                                           result.error, capture.request.videoTimestamp100ns);
+            }
+            else
+            {
+                result.succeeded = m_animatedGifEncoder.AppendFrame(result.path,
+                                                                 result.width,
+                                                                 result.height,
+                                                                 rgba8.data(),
+                                                                 capture.request.frameDelayCentiseconds,
+                                                                 capture.request.gifRepeatCount,
+                                                                 capture.request.gifDisposal,
+                                                                 result.error);
+            }
+        }
+        else
+        {
+            result.succeeded = Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
+        }
     }
     catch (const std::exception& exception)
     {

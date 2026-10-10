@@ -23,6 +23,20 @@ namespace RtPbrSurvey
         FixedStep,
     };
 
+    enum class CaptureSessionGifRepeatMode
+    {
+        None,
+        Infinite,
+        Count,
+    };
+
+    enum class CaptureSessionGifDisposal
+    {
+        Keep = 1,
+        Background = 2,
+        Previous = 3,
+    };
+
     enum class CaptureSessionState
     {
         Idle,
@@ -36,12 +50,18 @@ namespace RtPbrSurvey
     struct CaptureSessionConfig
     {
         std::filesystem::path outputDirectory;
+        // Optional relative path appended below outputDirectory.
+        std::filesystem::path outputSubdirectory;
         std::string baseName;
         CaptureSessionOutputFormat outputFormat = CaptureSessionOutputFormat::Png;
         ScreenshotCaptureSource source = ScreenshotCaptureSource::FinalOutput;
         std::optional<ScreenshotRegion> region;
         CaptureSessionClock clock = CaptureSessionClock::RealTime;
         std::uint32_t framesPerSecond = 60;
+        std::uint32_t mp4Bitrate = 12000000;
+        CaptureSessionGifRepeatMode gifRepeatMode = CaptureSessionGifRepeatMode::Infinite;
+        std::uint16_t gifRepeatCount = 0;
+        CaptureSessionGifDisposal gifDisposal = CaptureSessionGifDisposal::Keep;
         std::uint32_t warmupFrames = 0;
         std::optional<std::uint64_t> frameLimit;
         std::optional<double> durationSeconds;
@@ -82,6 +102,10 @@ namespace RtPbrSurvey
 
         bool CanAdvanceFixedStep() const;
         bool IsActive() const;
+        bool UsesAnimatedGif() const;
+        bool UsesMp4() const;
+        std::optional<std::uint64_t> GetVideoEndTimestamp100ns() const;
+        void FailFinalization(const std::string& error);
         std::optional<std::uint64_t> GetActiveRequestId() const;
         const CaptureSessionStatus& GetStatus() const;
 
@@ -90,6 +114,7 @@ namespace RtPbrSurvey
         double GetClockSeconds(const CaptureSessionTiming& timing) const;
         void BeginDraining();
         void FinishDraining();
+        static bool ResolveVideoOutputPath(CaptureSessionConfig& config, std::string& error);
         std::filesystem::path BuildOutputPath() const;
 
         CaptureSessionConfig m_config;
@@ -101,6 +126,7 @@ namespace RtPbrSurvey
         bool m_requestInFlight = false;
         bool m_stopRequested = false;
         double m_nextCaptureSeconds = 0.0;
+        double m_lastClockSeconds = 0.0;
         std::uint64_t m_nextRequestId = 1;
     };
 } // namespace RtPbrSurvey

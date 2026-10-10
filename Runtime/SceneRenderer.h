@@ -122,6 +122,8 @@ namespace RtPbrSurvey
         std::optional<Engine::ReflectionHdrDiagnosticFrame> ConsumeReflectionHdrDiagnosticFrame();
         void RequestScreenshot(ScreenshotRequest request);
         std::optional<ScreenshotResult> ConsumeScreenshotResult();
+        // True when no asynchronous capture request is waiting for its GPU readback and save.
+        bool IsScreenshotCaptureIdle() const;
         bool StartCaptureSession(const CaptureSessionConfig& config, std::string& error);
         void StopCaptureSession();
         void UpdateCaptureSession(const CaptureSessionTiming& timing);
@@ -141,6 +143,7 @@ namespace RtPbrSurvey
         const RtPbrSurveyEngine& EngineForDebugTools() const;
 
     private:
+        void FinalizeCaptureSessionOutput();
         RtPbrSurveyEngine m_engine;
         CaptureSession m_captureSession;
         ToolUiHandler m_toolUiHandler;

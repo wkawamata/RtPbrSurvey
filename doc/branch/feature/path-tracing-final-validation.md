@@ -108,6 +108,24 @@ for the newest renderer binary.
 
 ## Remaining Boundaries
 
+### PR 96 Main Integration (2026-10-10)
+
+Integrated origin/main f606701 before merging PR 96. The single conflict in
+RtPbrSurveyApp::OnIdle was resolved by preserving the dedicated PT history
+validation early path and main's capture request/timing/close handling.
+
+- Python 154/154 and CTest 27/27 passed, including the newly added MP4 test.
+- Fresh PT history GPU timeline: 19/19 checkpoints passed, numeric assessments
+  passed, zero captured errors and all capture file hashes verified by the parent.
+  Evidence: bin/PathTracingValidation/pr96-main-integration-history-20261010.
+- Initial Debug ALL_BUILD succeeded with 22 warnings (including LNK4199 in test
+  targets). CMake regeneration required a subsequent build for the new MP4 target.
+  Follow-up parallel builds encountered runtime/Assets post-build copy failures;
+  standalone Assets copy and final app-target build succeeded (zero warnings/errors).
+  Logs remain under C:/work/RtPbrSurvey-agents/pt-pr96-*-20261010.
+- This integration check does not repeat the full historical campaigns or all
+  41 Step 9 GPU captures on the newly integrated executable.
+
 - Cross-GPU/Release validation remains separate from the measured RTX 2080 Ti Debug scope.
 - Negative SceneDocument scale is invalid input; glTF-baked reflection is a different supported path.
 - Sparse/interleaved/non-triangle inputs, alpha MASK/BLEND, transmission, true

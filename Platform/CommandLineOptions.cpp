@@ -108,6 +108,53 @@ bool TryParseCaptureSessionFormat(const std::wstring& value, RtPbrSurvey::Captur
     return false;
 }
 
+bool TryParseCaptureSessionGifRepeat(const std::wstring& value,
+                                     RtPbrSurvey::CaptureSessionGifRepeatMode& mode,
+                                     std::uint16_t& count)
+{
+    if (_wcsicmp(value.c_str(), L"none") == 0)
+    {
+        mode = RtPbrSurvey::CaptureSessionGifRepeatMode::None;
+        count = 0;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"infinite") == 0)
+    {
+        mode = RtPbrSurvey::CaptureSessionGifRepeatMode::Infinite;
+        count = 0;
+        return true;
+    }
+
+    UINT parsedCount = 0;
+    if (!TryParseUint(value.c_str(), false, parsedCount) || parsedCount > (std::numeric_limits<std::uint16_t>::max)())
+    {
+        return false;
+    }
+    mode = RtPbrSurvey::CaptureSessionGifRepeatMode::Count;
+    count = static_cast<std::uint16_t>(parsedCount);
+    return true;
+}
+
+bool TryParseCaptureSessionGifDisposal(const std::wstring& value, RtPbrSurvey::CaptureSessionGifDisposal& disposal)
+{
+    if (_wcsicmp(value.c_str(), L"keep") == 0)
+    {
+        disposal = RtPbrSurvey::CaptureSessionGifDisposal::Keep;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"background") == 0)
+    {
+        disposal = RtPbrSurvey::CaptureSessionGifDisposal::Background;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"previous") == 0)
+    {
+        disposal = RtPbrSurvey::CaptureSessionGifDisposal::Previous;
+        return true;
+    }
+    return false;
+}
+
 bool TryParseDebugResourceName(const WCHAR* value, std::string& resourceName)
 {
     resourceName.clear();
@@ -457,6 +504,15 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             options.captureSessionEnabled = true;
             options.captureSessionBaseName = argv[++i];
         }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionSubfolder"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionSubfolder expects a non-empty relative path.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionOutputSubdirectory = argv[++i];
+        }
         else if (IsCommandLineArg(argv[i], L"-CaptureSessionFormat"))
         {
             if (i + 1 >= argc || argv[i + 1][0] == L'\0')
@@ -466,11 +522,38 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             options.captureSessionEnabled = true;
             options.captureSessionFormat = argv[++i];
         }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionGifRepeat"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionGifRepeat expects none, infinite, or a repeat count in [1, 65535].");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionGifRepeat = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionGifDisposal"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionGifDisposal expects keep, background, or previous.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionGifDisposal = argv[++i];
+        }
         else if (IsCommandLineArg(argv[i], L"-CaptureSessionFps"))
         {
             if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.captureSessionFramesPerSecond))
             {
                 throw std::invalid_argument("-CaptureSessionFps expects an integer in [1, UINT_MAX].");
+            }
+            options.captureSessionEnabled = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionMp4BitrateMbps"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.captureSessionMp4BitrateMbps) ||
+                options.captureSessionMp4BitrateMbps > 100)
+            {
+                throw std::invalid_argument("-CaptureSessionMp4BitrateMbps expects an integer in [1, 100].");
             }
             options.captureSessionEnabled = true;
         }
@@ -772,15 +855,34 @@ bool BuildCaptureSessionConfig(const CommandLineOptions& options,
         return false;
     }
 
+    RtPbrSurvey::CaptureSessionGifRepeatMode gifRepeatMode;
+    std::uint16_t gifRepeatCount = 0;
+    if (!TryParseCaptureSessionGifRepeat(options.captureSessionGifRepeat, gifRepeatMode, gifRepeatCount))
+    {
+        error = "-CaptureSessionGifRepeat expects none, infinite, or a repeat count in [1, 65535].";
+        return false;
+    }
+    RtPbrSurvey::CaptureSessionGifDisposal gifDisposal;
+    if (!TryParseCaptureSessionGifDisposal(options.captureSessionGifDisposal, gifDisposal))
+    {
+        error = "-CaptureSessionGifDisposal expects keep, background, or previous.";
+        return false;
+    }
+
     config = {};
     config.outputDirectory = options.captureSessionOutputDirectory;
+    config.outputSubdirectory = options.captureSessionOutputSubdirectory;
     config.baseName = WideToUtf8(options.captureSessionBaseName);
     config.outputFormat = format;
+    config.gifRepeatMode = gifRepeatMode;
+    config.gifRepeatCount = gifRepeatCount;
+    config.gifDisposal = gifDisposal;
     config.source = format == RtPbrSurvey::CaptureSessionOutputFormat::Exr ?
         RtPbrSurvey::ScreenshotCaptureSource::PreToneMapSceneColor : RtPbrSurvey::ScreenshotCaptureSource::FinalOutput;
     config.clock = options.captureSessionFixedStep ?
         RtPbrSurvey::CaptureSessionClock::FixedStep : RtPbrSurvey::CaptureSessionClock::RealTime;
     config.framesPerSecond = options.captureSessionFramesPerSecond;
+    config.mp4Bitrate = options.captureSessionMp4BitrateMbps * 1000000;
     config.warmupFrames = options.captureSessionWarmupFrames;
     if (options.captureSessionFrameLimit > 0)
     {

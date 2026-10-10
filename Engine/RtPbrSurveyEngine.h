@@ -36,6 +36,8 @@
 #include "Renderer/StagedDescriptorAllocator.h"
 #include "Renderer/PipelineFactory.h"
 #include "Renderer/AccelerationStructureResources.h"
+#include "Renderer/AnimatedGifEncoder.h"
+#include "Renderer/Mp4Encoder.h"
 #include "Renderer/RayQueryShadowPass.h"
 #include "Renderer/SpecularDebugRayQueryPass.h"
 #include "Renderer/RayQueryTlasDebugPass.h"
@@ -469,6 +471,10 @@ public:
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult(std::uint64_t requestId);
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResultExcept(std::uint64_t requestId);
     bool IsScreenshotCaptureIdle() const;
+    bool FinalizeAnimatedGif(std::string& error);
+    void AbortAnimatedGif();
+    bool FinalizeMp4(std::string& error, std::optional<std::uint64_t> endTimestamp100ns = std::nullopt);
+    void AbortMp4();
     void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
     void RequestPixelPick(int screenX, int screenY);
     const PixelPickResult& GetPixelPickResult() const { return m_pixelPickResult; }
@@ -1175,6 +1181,8 @@ private:
     };
     Engine::ScreenshotRequestQueue m_screenshotRequestQueue;
     std::optional<PendingScreenshotCapture> m_pendingScreenshotCapture;
+    Engine::AnimatedGifEncoder m_animatedGifEncoder;
+    Engine::Mp4Encoder m_mp4Encoder;
 
     // Pixel pick (Ctrl+Click to inspect reflection vector)
     bool m_pixelPickRequested = false;
