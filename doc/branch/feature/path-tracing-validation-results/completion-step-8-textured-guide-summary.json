@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "status": "done",
+  "testedHead": "26ba6fd2b79af54c677f6a68b1dfd8ad607e0d20",
+  "testedWithUncommittedFixtureAndTests": true,
+  "gpu": "NVIDIA GeForce RTX 2080 Ti",
+  "driver": "616.56",
+  "executableSha256": "65754f1fcd88aea1ae01a6964c355b17b3c866b91d201f5346983d4b0e8862da",
+  "rawEvidence": "bin/PathTracingValidation/completion-step8-textured-guides-20261010-r2/report.json",
+  "scope": "Four spatial texture regions on opaque supplied-tangent glTF plane; single-sample native primary guides",
+  "thresholds": {"Albedo": 0.0015, "NormalRoughness": 0.002},
+  "records": [
+    {"condition": "normal scale 0.5", "pixelsPerCapture": 45454, "normalRoughnessMaxError": 0.0003420499279452871, "albedoMaxError": 0.0001217688183395571, "passed": true},
+    {"condition": "normal scale 0", "pixelsPerCapture": 45454, "normalRoughnessMaxError": 0.00048828125, "albedoMaxError": 0.0001217688183395571, "passed": true},
+    {"condition": "glTF-baked X reflection", "pixelsPerCapture": 45454, "normalRoughnessMaxError": 0.0003420499279452871, "albedoMaxError": 0.0001217688183395571, "passed": true}
+  ],
+  "captureCount": 6,
+  "d3d12Errors": 0,
+  "unitTestsPassed": 136,
+  "rendererOrShaderChanges": false,
+  "excludedPilot": "Negative SceneDocument scale is invalid input; the original campaign is retained as incomplete",
+  "notCovered": ["bilinear transitions", "negative runtime instance scale", "missing tangents", "alternate UV sets", "alpha and double-sided semantics", "deformation", "denoised radiance"]
+}

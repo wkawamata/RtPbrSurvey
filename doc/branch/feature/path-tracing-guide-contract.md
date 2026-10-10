@@ -39,8 +39,11 @@ pixels or UV: previous-minus-current pixels = NDC * (width/2, -height/2).
 PT disables temporal-upscaler projection jitter but retains stochastic primary
 ray sample positions. Motion quality for animated/skinned geometry is not implied.
 
-Miss sentinels: NormalRoughness=(0,0,0,1); ViewZ=0; MotionVectors=(0,0);
-Albedo=(0,0,0,0); both radiance/hitT guides=(0,0,0,0). Primary environment
+First-sample miss sentinels: NormalRoughness=(0,0,0,1); ViewZ=0;
+MotionVectors=(0,0); Albedo=(0,0,0,0); both hitT alpha values=0.
+Radiance RGB is zero when all samples miss, not necessarily when only the first
+sample misses: later surface samples still contribute to the batch-average RGB.
+Primary environment
 background is included in total radiance but not in either separated surface
 signal. It must be composited explicitly rather than denoised as a surface hit.
 
@@ -226,3 +229,146 @@ a fixed camera and single-sample primary guides. Rotating/scaling/deforming
 objects, multiple visible instances, disocclusion boundaries, normal maps and
 spatial material textures are not validated by this cohort. This is not a
 backend-specific denoiser-readiness claim.
+
+## Spatial Texture And Normal Map Validation
+
+The input-textured fixture is a self-contained opaque glTF plane with embedded
+geometry and three lossless 16x16 RGBA PNG textures. Four constant regions have
+different base-color, tangent-normal and roughness bytes. Base-color factor is
+(0.8, 0.6, 0.4); roughness factor is 0.7. Tangents are explicitly supplied.
+The fixture generator is make_textured_fixture.py; regeneration is deterministic
+and unit-tested against the checked-in JSON assets.
+
+Three conditions capture native NormalRoughness and Albedo, for six captures:
+normal scale 0.5, normal scale 0, and glTF-baked X reflection at normal scale 0.5.
+The scene-level instance scale remains positive in all conditions. CPU analysis
+predicts UV from stochastic primary plane hits and checks all four texture
+regions. It uses standard sRGB decode followed by the base-color factor, linear
+roughness texels followed by their factor, XY-only normal strength, and an explicit
+LH tangent frame including the baked mirror's handedness.
+
+Each capture tests 45,454 pixels across four regions, with at least 11,286 samples
+per region. A 1/16 UV margin excludes bilinear transition bands and texture edges.
+Tolerance was declared before capture: 0.0015 for RGBA16 Albedo and 0.002 for
+RGBA16 NormalRoughness, including texture sampling and half-storage error.
+
+| Condition | NormalRoughness max error | Albedo max error |
+| --- | ---: | ---: |
+| Normal scale 0.5 | 0.00034204993 | 0.00012176882 |
+| Normal scale 0 | 0.00048828125 | 0.00012176882 |
+| glTF-baked X reflection | 0.00034204993 | 0.00012176882 |
+
+All six captures pass. Zero strength restores the geometric normal. Baked mirror
+flips the expected world-normal X component and texture location; Y/Z and material
+semantics remain consistent. Spatial variation is required, preventing a uniform
+fallback texture from passing. D3D12 ERROR/CORRUPTION count is zero; Python passes
+136/136 tests. No C++ or shader changes were necessary. The previously successful
+Debug binary was reused (SHA256 65754f1fcd88aea1ae01a6964c355b17b3c866b91d201f5346983d4b0e8862da).
+The tested HEAD is 26ba6fd with new fixture/test files uncommitted at capture time.
+
+Raw evidence: bin/PathTracingValidation/completion-step8-textured-guides-20261010-r2.
+The earlier folder without -r2 retains an incomplete campaign: its first mirror
+attempt used negative SceneDocument scale, rejected by the existing positive-scale
+input contract in SceneDocumentJson.cpp. That invalid-input application displayed
+a Debug runtime Abort dialog. One test-owned process was terminated, and the next
+invalid-input process exited with code 3. Those failures are not passing renderer
+evidence. The corrected campaign uses supported baked glTF reflection; it does not
+claim support for negative runtime instance scale. The Part 1 primitive-only unit
+test now reads its explicit validation-plan scene list; the new glTF references
+are separately tested.
+
+```powershell
+python -B Tests/PathTracing/make_textured_fixture.py
+python -B Tests/PathTracing/validate_textured_guides.py --output bin/PathTracingValidation/step8-textured-guides
+```
+
+Coverage is limited to single-sample primary guides on opaque, front-facing,
+supplied-tangent surfaces. Bilinear transition correctness, missing tangents,
+alternate UV sets, alpha/double-sided semantics, deformation, texture filtering
+at oblique angles and denoised radiance remain outside this cohort. Earlier
+material/geometry validation has additional constant-texture transform coverage;
+this campaign adds spatial color/roughness/normal variation, not a replacement
+for those prior results. Mixed hit/miss multisample guide policy and explicit
+backend signal conversion remain follow-up work.
+
+## Multisample Hit/Miss Boundary Validation
+
+input-boundary is a finite 2x2 opaque plane at z=0, with camera z=-5, known
+material values, emission/direct lighting disabled, two ray segments and constant
+environment BSDF sampling. Accumulation is disabled. The primary miss background
+is explicitly set to (0.125, 0.25, 0.5), with skybox disabled. It differs from the
+surface environment contribution and is not included in separated surface signals.
+
+For seed 7, batches 1/2/4 use 60/30/15 warm-up frames so their captured first
+sampleStartIndex is 60. Seven native resources per batch produce 21 captures.
+All four primary guide buffers are bit-identical across batches. CPU analysis
+projects the finite plane's silhouette and samples every pixel in a four-pixel
+edge band plus a stride-16 full-view control grid: 21,053 distinct pixels/batch.
+The first sample contains 7,132 hits and 13,921 misses in that analysis population.
+
+Every sample independently predicts hit/miss against the finite plane. The
+comparison is frame radiance minus the fraction of primary misses times the known
+background, versus Diffuse RGB plus Specular RGB. First-sample hitT and validity
+remain independent of later samples. All-miss controls require zero surface
+signals and exact background radiance; both diffuse and specular must be nonzero
+on surface controls. Mixed pixels where sample zero misses must retain surface
+contributions from later samples.
+
+| Batch | Mixed pixels (nominal CPU classification) | First miss / later hit | First hit / later miss | Accepted partition max error |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 0 | 0 | 0 | 0.00048822165 |
+| 2 | 776 | 379 | 397 | 0.00048816204 |
+| 4 | 1438 | 746 | 692 | 0.00060546398 |
+
+The original strict double-precision classification passes batches 1/2 but fails
+one pixel in batch 4: (814,747), sample offset 2, CPU world y=-1.0000000574074366.
+The residual background is consistent with two misses while the strict model
+predicts three. Its strict max radiance-partition error is 0.12475979328. This
+failure is retained, not called a strict pass. The original report is preserved
+as report-before-final-analysis.json, and final records retain strict pass/error
+fields alongside the accepted interval comparison.
+
+After that pilot, the reference explicitly models hit-classification uncertainty
+within 8 * float32 epsilon * max(1, abs(world coordinate)) of either geometry edge,
+approximately 9.54e-7 world units at this plane. This is a conservative numerical
+reference allowance, not a formal DXR accuracy guarantee. For those samples only,
+both hit and miss are allowed, producing an interval for background contribution.
+Every pixel remains in the test; no captures are removed. The radiance tolerance
+stays 0.002 * max(abs(frame radiance),1) + 1e-5. Batches 1/2 each contain one
+ambiguous sample/pixel; batch 4 has two. The first-sample guide comparisons still
+pass their original exact hit/miss validity and numeric guide checks. The interval
+policy was introduced after observing the strict failure and must not be described
+as predeclared for that first cohort.
+
+All batches pass under the explicitly qualified interval policy, and all 21 logs
+contain zero D3D12 ERROR/CORRUPTION entries. No C++/shader change or rebuild was
+required; the prior Debug executable SHA256 remains
+65754f1fcd88aea1ae01a6964c355b17b3c866b91d201f5346983d4b0e8862da.
+Capture HEAD is 26ba6fd plus uncommitted test/fixture files. Original capture source
+hashes and final analysis hash are stored separately. Python tests pass 144/144.
+
+Raw evidence: bin/PathTracingValidation/completion-step8-hit-miss-20261010.
+
+The interval policy was then frozen and tested prospectively with seed 11, batch
+4, seven fresh captures in completion-step8-hit-miss-seed11-20261010. All checks
+pass: 21,053 pixels, 1,441 nominal mixed pixels, 791 first-miss/later-hit and 650
+first-hit/later-miss. Three samples/pixels are numerically ambiguous. The accepted
+max error is 0.00059741735; the separately retained strict error is 0.12500506639
+and its strict comparison fails. This additional campaign validates the declared
+interval policy on new random sample locations; it does not claim strict DXR/CPU
+edge equivalence or cross-batch bit identity for seed 11 (only batch 4 was captured).
+All seven follow-up logs are free of ERROR/CORRUPTION entries.
+
+```powershell
+python -B Tests/PathTracing/make_boundary_fixture.py
+python -B Tests/PathTracing/validate_hit_miss_guides.py --output bin/PathTracingValidation/step8-hit-miss
+python -B Tests/PathTracing/validate_hit_miss_guides.py --output bin/PathTracingValidation/step8-hit-miss --analyze-only
+python -B Tests/PathTracing/validate_hit_miss_guides.py --output bin/PathTracingValidation/step8-hit-miss-seed11 --batches 4 --seed 11
+```
+
+Decision: keep the existing native first-sample guide / all-sample signal semantics.
+Do not erase a mixed pixel's surface signals merely because its first-sample
+validity is zero. A denoiser adapter still needs an explicit coverage/background
+policy or a validated one-sample-per-frame mode. This cohort does not establish
+backend packing/demodulation correctness, estimator energy accuracy, arbitrary
+mesh silhouettes, alpha coverage or temporal disocclusion quality.

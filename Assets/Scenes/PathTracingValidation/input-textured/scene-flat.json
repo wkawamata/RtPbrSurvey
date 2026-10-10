@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "input-textured-flat",
+  "name": "PT textured guides flat",
+  "renderPreset": "render-preset.json",
+  "assets": [
+    {
+      "id": "plane",
+      "type": "gltf",
+      "path": "flat.gltf"
+    }
+  ],
+  "materials": [],
+  "nodes": [
+    {
+      "id": "receiver",
+      "name": "Textured receiver",
+      "parentId": null,
+      "type": "gltf",
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "assetId": "plane"
+    }
+  ],
+  "camera": {
+    "position": [
+      0,
+      0,
+      -5
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 55,
+    "orthographicHeight": 6,
+    "nearZ": 0.1,
+    "farZ": 1000,
+    "lensShiftX": 0,
+    "lensShiftY": 0
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      0.96,
+      0.86
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  },
+  "description": "Validate PT primary Albedo and NormalRoughness: four texture regions, linear color, roughness data, normal scale and mirrored tangent frame."
+}
