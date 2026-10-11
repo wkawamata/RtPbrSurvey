@@ -751,3 +751,55 @@ Next: define in-lobe acceptance/fallback separately for diffuse and specular,
 then validate pinned-SDK packing and material demodulation. A correct mixture
 segment does not establish distance validity for both lobes. RELAX dispatch,
 arbitrary-mesh distance validation and denoised quality acceptance remain pending.
+
+### Step 2G: Lobe Distance Policy and Capture Audit (2026-10-11)
+
+Audited PathTracingSampling.hlsli against the pinned NRD README's hit-distance
+requirements. SamplePathTracingCosineHemisphere is cosine-weighted. The native
+SamplePathTracingGgxHalfVector samples the GGX NDF, not a view-conditioned VNDF.
+Rejecting below-surface directions does not turn that NDF sampler into VNDF.
+Proposal ID 2 therefore cannot certify the selected VNDF integration baseline.
+
+#### Chosen First Integration Policy
+
+- Keep Native BRDF, mixture PDF, RNG consumption and physical radiance unchanged.
+- Use a separate, deterministically seeded distance-sampling stream. No distance
+  sampling may consume the Native transport stream or alter its throughput.
+- Generate a cosine diffuse distance ray and a view-conditioned GGX VNDF
+  specular distance ray at the same primary surface. Do not weight their distances
+  by the physical radiance fractions, mixture PDF, or throughput.
+- Initially trace both dedicated lobe rays rather than probabilistically skip
+  one. This avoids claiming that the current nonzero two-component radiance split
+  is a skipped-lobe estimator, and avoids relying on sparse reconstruction.
+- Preserve separate hit/miss/untraced states until pinned-SDK miss encoding is
+  verified. A diagnostic miss distance of zero is not ready for NRD packing.
+- Below-geometric-surface, inactive-lobe and failed sample handling must be
+  explicit and tested before dispatch. Do not resample without documenting the
+  resulting distribution, or substitute primary camera distance.
+- Treat current cosine-proposal distances as possible future diffuse reuse only.
+  Reuse on specular-selected pixels requires a cosine fallback. Do not implement
+  cross-lobe acceptance based solely on nonzero BRDF component weights.
+
+The dedicated path costs up to two extra first-segment traces per primary hit.
+Start with this inspectable baseline; optimize reuse only after its geometric,
+sampling-distribution and miss-policy tests pass. VNDF implementation and its
+reference must be chosen before adding the GPU sampler; no sampler was changed
+in this step. Radiance demodulation and pinned RELAX packing remain subsequent
+work, not implied by distance readiness.
+
+#### Validation
+
+Added audit_nrd_lobe_distance.py, which reruns the independent geometry oracle,
+checks the source report's exact resource set and capture hashes, and rejects
+unknown states/proposals and invalid corrected distance values over the full
+image. It always reports nrdDistanceReady=false until the dedicated path exists.
+The planar oracle's geometric proof still covers only its fixed ROI.
+
+Replayed the Step 2F capture cohort, not a new GPU run: 833603 untraced pixels,
+72160 diffuse-proposal hits, 717980 diffuse-proposal misses, 78159 GGX-NDF-proposal
+hits and 371698 GGX-NDF-proposal misses. Six focused tests passed, including
+unknown proposals/nonfinite values outside the geometric ROI, finite miss
+distance rejection and refusal to mark diffuse-only inputs fully ready.
+No runtime or shader source changed; no new build or quality result is claimed.
+Evidence: bin/PathTracingValidation/nrd-step2f-surface-distance-20261011/lobe-distance-audit.json.
+Next: implement and independently test the dedicated VNDF/cosine distance path.
