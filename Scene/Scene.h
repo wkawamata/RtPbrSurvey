@@ -31,6 +31,10 @@ struct CameraState
     CameraProjection projection = CameraProjection::Perspective;
     // Vertical field of view in degrees. Kept as "fov" for source compatibility.
     float fov = 60.0f;
+    // Offset of the perspective projection centre, in half-frustum units.
+    // Zero preserves a symmetric perspective projection.
+    float lensShiftX = 0.0f;
+    float lensShiftY = 0.0f;
     float orthographicHeight = 10.0f;
     float nearZ = 0.1f;
     float farZ = 10000.0f;
@@ -80,6 +84,9 @@ struct SceneMaterial
     float occlusionStrength = 1.0f;
     float ambientOcclusionFactor = 1.0f;
     float emissiveScale = 1.0f;
+    DirectX::XMFLOAT4 baseColorFactor = {1.0f, 1.0f, 1.0f, 1.0f};
+    DirectX::XMFLOAT3 emissiveFactor = {1.0f, 1.0f, 1.0f};
+    float normalTextureScale = 1.0f;
     DirectX::XMFLOAT2 uvScale = {1.0f, 1.0f};
     DirectX::XMFLOAT2 uvOffset = {0.0f, 0.0f};
 };

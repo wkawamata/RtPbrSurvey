@@ -375,6 +375,8 @@ bool ValidateSceneDocument(const SceneDocument& document, std::string* error)
     }
     if (!IsFinite(document.camera.position) || !IsFinite(document.camera.target) || !IsFinite(document.camera.up) ||
         !IsFinite(document.camera.verticalFovDegrees) || !IsFinite(document.camera.orthographicHeight) ||
+        !IsFinite(document.camera.lensShiftX) || !IsFinite(document.camera.lensShiftY) ||
+        std::abs(document.camera.lensShiftX) > 1.0f || std::abs(document.camera.lensShiftY) > 1.0f ||
         !IsFinite(document.camera.nearZ) || !IsFinite(document.camera.farZ) || document.camera.nearZ <= 0.0f ||
         document.camera.farZ <= document.camera.nearZ || document.camera.verticalFovDegrees <= 0.0f ||
         document.camera.verticalFovDegrees >= 180.0f || document.camera.orthographicHeight <= 0.0f)
@@ -426,6 +428,7 @@ bool SerializeSceneDocument(const SceneDocument& document, std::string& jsonText
     const json root = {{"schemaVersion", document.schemaVersion},
                        {"sceneId", document.sceneId},
                        {"name", document.name},
+                       {"description", document.description},
                        {"renderPreset", document.renderPresetPath},
                        {"assets", std::move(assets)},
                        {"materials", std::move(materials)},
@@ -436,6 +439,8 @@ bool SerializeSceneDocument(const SceneDocument& document, std::string& jsonText
                          {"up", Float3ToJson(document.camera.up)},
                          {"projection", document.camera.projection == SceneCameraProjection::Perspective ? "perspective" : "orthographic"},
                          {"verticalFovDegrees", document.camera.verticalFovDegrees},
+                         {"lensShiftX", document.camera.lensShiftX},
+                         {"lensShiftY", document.camera.lensShiftY},
                          {"orthographicHeight", document.camera.orthographicHeight},
                          {"nearZ", document.camera.nearZ},
                          {"farZ", document.camera.farZ}}},
@@ -465,7 +470,7 @@ bool DeserializeSceneDocument(std::string_view jsonText, SceneDocument& document
     try
     {
         const json root = json::parse(jsonText);
-        if (!IsKnownFields(root, {"schemaVersion", "sceneId", "name", "renderPreset", "assets", "materials", "nodes", "camera", "environment"}) ||
+        if (!IsKnownFields(root, {"schemaVersion", "sceneId", "name", "description", "renderPreset", "assets", "materials", "nodes", "camera", "environment"}) ||
             !root.contains("schemaVersion") || !root.at("schemaVersion").is_number_integer() ||
             root.at("schemaVersion").get<int>() != SceneDocument::kSchemaVersion)
         {
@@ -478,6 +483,18 @@ bool DeserializeSceneDocument(std::string_view jsonText, SceneDocument& document
 
         SceneDocument parsed;
         parsed.schemaVersion = root.at("schemaVersion").get<int>();
+        if (root.contains("description"))
+        {
+            if (!root.at("description").is_string())
+            {
+                if (error != nullptr)
+                {
+                    *error = "Scene description must be a string.";
+                }
+                return false;
+            }
+            parsed.description = root.at("description").get<std::string>();
+        }
         if (!RequireString(root, "sceneId", parsed.sceneId, error) || !RequireString(root, "name", parsed.name, error) ||
             !RequireString(root, "renderPreset", parsed.renderPresetPath, error) || !root.contains("assets") ||
             !root.at("assets").is_array() || !root.contains("materials") || !root.at("materials").is_array() ||
@@ -525,7 +542,7 @@ bool DeserializeSceneDocument(std::string_view jsonText, SceneDocument& document
             }
             parsed.nodes.push_back(std::move(node));
         }
-        if (!root.contains("camera") || !IsKnownFields(root.at("camera"), {"position", "target", "up", "projection", "verticalFovDegrees", "orthographicHeight", "nearZ", "farZ"}) ||
+        if (!root.contains("camera") || !IsKnownFields(root.at("camera"), {"position", "target", "up", "projection", "verticalFovDegrees", "orthographicHeight", "nearZ", "farZ", "lensShiftX", "lensShiftY"}) ||
             !root.at("camera").contains("position") || !Float3FromJson(root.at("camera").at("position"), parsed.camera.position) ||
             !root.at("camera").contains("target") || !Float3FromJson(root.at("camera").at("target"), parsed.camera.target) ||
             !root.at("camera").contains("up") || !Float3FromJson(root.at("camera").at("up"), parsed.camera.up) ||
@@ -551,6 +568,19 @@ bool DeserializeSceneDocument(std::string_view jsonText, SceneDocument& document
             return false;
         }
         parsed.camera.projection = projection == "perspective" ? SceneCameraProjection::Perspective : SceneCameraProjection::Orthographic;
+        for (const char* key : {"lensShiftX", "lensShiftY"})
+        {
+            if (root.at("camera").contains(key) && !root.at("camera").at(key).is_number())
+            {
+                if (error != nullptr)
+                {
+                    *error = "Invalid lens shift.";
+                }
+                return false;
+            }
+        }
+        parsed.camera.lensShiftX = root.at("camera").value("lensShiftX", 0.0f);
+        parsed.camera.lensShiftY = root.at("camera").value("lensShiftY", 0.0f);
         parsed.camera.verticalFovDegrees = root.at("camera").at("verticalFovDegrees").get<float>();
         parsed.camera.orthographicHeight = root.at("camera").at("orthographicHeight").get<float>();
         parsed.camera.nearZ = root.at("camera").at("nearZ").get<float>();

@@ -32,6 +32,8 @@ namespace RtPbrSurvey
                          bool* open = nullptr,
                          const char* windowName = "RtPbrSurvey Debug",
                          EnvironmentMappingUiState* environment = nullptr);
+        static void DrawContents(SceneRenderer& renderer, EnvironmentMappingUiState* environment = nullptr);
+        static void DrawAuxiliaryWindows(SceneRenderer& renderer);
         static void DrawEnvironmentMapping(SceneRenderer& renderer, EnvironmentMappingUiState& state);
         static void DrawRenderGraphDiagnostics(SceneRenderer& renderer,
                                                const RenderGraphGpuTimingSnapshot* timing = nullptr,

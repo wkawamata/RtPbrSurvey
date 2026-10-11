@@ -1,0 +1,1135 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "records": [
+    {
+      "case": "small",
+      "status": "passed",
+      "reference": {
+        "mean": 0.0007314670177212666,
+        "rgb": [
+          0.0012539434589507426,
+          0.0006269717294753713,
+          0.00031348586473768566
+        ],
+        "orders": [
+          64,
+          128
+        ],
+        "spatialSamples": 9,
+        "quadratureRelativeChange": 0,
+        "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+      },
+      "agreements": {
+        "0": {
+          "status": "passed",
+          "measuredMean": 0.000724854675354436,
+          "relativeDifference": 0.009039836666087764,
+          "fourStandardErrorRelative": 0.022146362798222817,
+          "reference": {
+            "mean": 0.0007314670177212666,
+            "rgb": [
+              0.0012539434589507426,
+              0.0006269717294753713,
+              0.00031348586473768566
+            ],
+            "orders": [
+              64,
+              128
+            ],
+            "spatialSamples": 9,
+            "quadratureRelativeChange": 0,
+            "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+          }
+        },
+        "1": {
+          "status": "passed",
+          "measuredMean": 0.0007298436248674989,
+          "relativeDifference": 0.0022193657600927397,
+          "fourStandardErrorRelative": 0.000018183906891067697,
+          "reference": {
+            "mean": 0.0007314670177212666,
+            "rgb": [
+              0.0012539434589507426,
+              0.0006269717294753713,
+              0.00031348586473768566
+            ],
+            "orders": [
+              64,
+              128
+            ],
+            "spatialSamples": 9,
+            "quadratureRelativeChange": 0,
+            "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+          }
+        },
+        "2": {
+          "status": "passed",
+          "measuredMean": 0.0007298433338291943,
+          "relativeDifference": 0.002219763643110717,
+          "fourStandardErrorRelative": 0.00001899732042670765,
+          "reference": {
+            "mean": 0.0007314670177212666,
+            "rgb": [
+              0.0012539434589507426,
+              0.0006269717294753713,
+              0.00031348586473768566
+            ],
+            "orders": [
+              64,
+              128
+            ],
+            "spatialSamples": 9,
+            "quadratureRelativeChange": 0,
+            "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+          }
+        }
+      },
+      "channelAgreements": {
+        "0": [
+          {
+            "status": "passed",
+            "measuredMean": 0.0012426080065779388,
+            "relativeDifference": 0.009039843297471317,
+            "fourStandardErrorRelative": 0.022146443554372276,
+            "reference": {
+              "mean": 0.0012539434589507426,
+              "rgb": [
+                0.0012539434589507426,
+                0.0006269717294753713,
+                0.00031348586473768566
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 0,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.0006213040032889694,
+            "relativeDifference": 0.009039843297471317,
+            "fourStandardErrorRelative": 0.022146443554372276,
+            "reference": {
+              "mean": 0.0006269717294753713,
+              "rgb": [
+                0.0012539434589507426,
+                0.0006269717294753713,
+                0.00031348586473768566
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 0,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.0003106520016444847,
+            "relativeDifference": 0.009039843297471317,
+            "fourStandardErrorRelative": 0.022146443554372276,
+            "reference": {
+              "mean": 0.00031348586473768566,
+              "rgb": [
+                0.0012539434589507426,
+                0.0006269717294753713,
+                0.00031348586473768566
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 0,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          }
+        ],
+        "1": [
+          {
+            "status": "passed",
+            "measuredMean": 0.001251160487299785,
+            "relativeDifference": 0.0022193757071681253,
+            "fourStandardErrorRelative": 0.000018178429284797527,
+            "reference": {
+              "mean": 0.0012539434589507426,
+              "rgb": [
+                0.0012539434589507426,
+                0.0006269717294753713,
+                0.00031348586473768566
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 0,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.0006255802436498925,
+            "relativeDifference": 0.0022193757071681253,
+            "fourStandardErrorRelative": 0.000018178429284797527,
+            "reference": {
+              "mean": 0.0006269717294753713,
+              "rgb": [
+                0.0012539434589507426,
+                0.0006269717294753713,
+                0.00031348586473768566
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 0,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.00031279012182494625,
+            "relativeDifference": 0.0022193757071681253,
+            "fourStandardErrorRelative": 0.000018178429284797527,
+            "reference": {
+              "mean": 0.00031348586473768566,
+              "rgb": [
+                0.0012539434589507426,
+                0.0006269717294753713,
+                0.00031348586473768566
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 0,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          }
+        ],
+        "2": [
+          {
+            "status": "passed",
+            "measuredMean": 0.0012511599925346673,
+            "relativeDifference": 0.0022197702744942704,
+            "fourStandardErrorRelative": 0.000018939535050286994,
+            "reference": {
+              "mean": 0.0012539434589507426,
+              "rgb": [
+                0.0012539434589507426,
+                0.0006269717294753713,
+                0.00031348586473768566
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 0,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.0006255799962673336,
+            "relativeDifference": 0.0022197702744942704,
+            "fourStandardErrorRelative": 0.000018939535050286994,
+            "reference": {
+              "mean": 0.0006269717294753713,
+              "rgb": [
+                0.0012539434589507426,
+                0.0006269717294753713,
+                0.00031348586473768566
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 0,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.0003127899981336668,
+            "relativeDifference": 0.0022197702744942704,
+            "fourStandardErrorRelative": 0.000018939535050286994,
+            "reference": {
+              "mean": 0.00031348586473768566,
+              "rgb": [
+                0.0012539434589507426,
+                0.0006269717294753713,
+                0.00031348586473768566
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 0,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          }
+        ]
+      },
+      "pairedAgreements": {
+        "1": {
+          "status": "passed",
+          "referenceMean": 0.000724854675354436,
+          "candidateMean": 0.0007298436248674989,
+          "relativeDifference": 0.006882689293027408,
+          "pairedStandardError": 0.0000040465600082109935,
+          "fourStandardErrorRelative": 0.02233032438526978,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        "2": {
+          "status": "passed",
+          "referenceMean": 0.000724854675354436,
+          "candidateMean": 0.0007298433338291943,
+          "relativeDifference": 0.006882287780400859,
+          "pairedStandardError": 0.0000040464244942625735,
+          "fourStandardErrorRelative": 0.02232957657220861,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        }
+      },
+      "offControl": {
+        "maximum": 0,
+        "sha256": "cb56ffe47bc4f3ff88e1ef528e18918612d3d9fff1519b570ace33600f1d6489",
+        "emissiveEnabled": false
+      },
+      "records": [
+        {
+          "sha256": "38a58f3b89763ec5f0a1154e7b5d60272596fa1966ff4b1c1e6608852cfaa07c",
+          "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+          "seed": 11,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.0007286903564818203,
+          "rgb": [
+            0.0012491834349930286,
+            0.0006245917174965143,
+            0.00031229585874825716
+          ],
+          "emissiveSamplingMode": 0,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "bf20faf64451378ae26bbcb9f4f1519ce859cb01717c816af3b68a84603c3621",
+          "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+          "seed": 23,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.0007127074059098959,
+          "rgb": [
+            0.001221784041263163,
+            0.0006108920206315815,
+            0.00030544601031579077
+          ],
+          "emissiveSamplingMode": 0,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "f61caaebf4213d4a6dbf470a5c4ef5d4bb561027800322b9e3afd8334c7e9895",
+          "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+          "seed": 37,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.0007290549692697823,
+          "rgb": [
+            0.0012498085852712393,
+            0.0006249042926356196,
+            0.0003124521463178098
+          ],
+          "emissiveSamplingMode": 0,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "1f221f8f3dacbb51d083b27a623ad4d828b6e6ed66d3c6fe7b4f2653f05e5d27",
+          "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+          "seed": 53,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.0007289659697562456,
+          "rgb": [
+            0.0012496559647843242,
+            0.0006248279823921621,
+            0.00031241399119608104
+          ],
+          "emissiveSamplingMode": 0,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "36077c5643b8aeb233c7c4f87c2c5f44ba1d67da27fc341f001ad50e13428596",
+          "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+          "seed": 11,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.0007298479322344065,
+          "rgb": [
+            0.0012511678505688906,
+            0.0006255839252844453,
+            0.00031279196264222264
+          ],
+          "emissiveSamplingMode": 1,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "25f56f657c6ce629f5f613fe46a6a6d42f2c4e9e0c941ed0029aba854dc40ba5",
+          "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+          "seed": 23,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.0007298337877728045,
+          "rgb": [
+            0.0012511436361819506,
+            0.0006255718180909753,
+            0.00031278590904548764
+          ],
+          "emissiveSamplingMode": 1,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "b76b50d9932bc699e65f0537d9b709f65f5306327b616fa2a97e20cb55938241",
+          "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+          "seed": 37,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.0007298474083654583,
+          "rgb": [
+            0.0012511670356616378,
+            0.0006255835178308189,
+            0.00031279175891540945
+          ],
+          "emissiveSamplingMode": 1,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "3ea03ec4ee192d738205db381dbea659201e6f8749713811095cfb54a6031a43",
+          "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+          "seed": 53,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.0007298453710973263,
+          "rgb": [
+            0.0012511634267866611,
+            0.0006255817133933306,
+            0.0003127908566966653
+          ],
+          "emissiveSamplingMode": 1,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "dcc2c1120455996e339410e66990edeab19d9d9d4aff901c07b59a28dcd24a62",
+          "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+          "seed": 11,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.0007298478740267456,
+          "rgb": [
+            0.0012511677341535687,
+            0.0006255838670767844,
+            0.0003127919335383922
+          ],
+          "emissiveSamplingMode": 2,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "8d160d93ebf764a5f2a7a9524f81130b893677255c4152ab8094be4c56b6fc4c",
+          "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+          "seed": 23,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.0007298330892808735,
+          "rgb": [
+            0.0012511424720287323,
+            0.0006255712360143661,
+            0.0003127856180071831
+          ],
+          "emissiveSamplingMode": 2,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "16288cbdd8a411d646481c476c5566759bff25375a2d71406710bdfdb64132ed",
+          "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+          "seed": 37,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.0007298474083654583,
+          "rgb": [
+            0.001251166919246316,
+            0.000625583459623158,
+            0.000312791729811579
+          ],
+          "emissiveSamplingMode": 2,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "ebe9a9e908a20e20f0fe09b8acb98a4f487fccc59be1e94437a57fff5a59e3d8",
+          "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+          "seed": 53,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.0007298449636436999,
+          "rgb": [
+            0.001251162844710052,
+            0.000625581422355026,
+            0.000312790711177513
+          ],
+          "emissiveSamplingMode": 2,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        }
+      ]
+    },
+    {
+      "case": "large",
+      "status": "passed",
+      "reference": {
+        "mean": 0.1734776053322371,
+        "rgb": [
+          0.29739018056954936,
+          0.14869509028477468,
+          0.07434754514238734
+        ],
+        "orders": [
+          64,
+          128
+        ],
+        "spatialSamples": 9,
+        "quadratureRelativeChange": 1.1102230246251565e-14,
+        "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+      },
+      "agreements": {
+        "0": {
+          "status": "passed",
+          "measuredMean": 0.17359567806124687,
+          "relativeDifference": 0.0006806223130855216,
+          "fourStandardErrorRelative": 0.0006784429653539524,
+          "reference": {
+            "mean": 0.1734776053322371,
+            "rgb": [
+              0.29739018056954936,
+              0.14869509028477468,
+              0.07434754514238734
+            ],
+            "orders": [
+              64,
+              128
+            ],
+            "spatialSamples": 9,
+            "quadratureRelativeChange": 1.1102230246251565e-14,
+            "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+          }
+        },
+        "1": {
+          "status": "passed",
+          "measuredMean": 0.17357131838798523,
+          "relativeDifference": 0.0005402026132921289,
+          "fourStandardErrorRelative": 0.000924169637709346,
+          "reference": {
+            "mean": 0.1734776053322371,
+            "rgb": [
+              0.29739018056954936,
+              0.14869509028477468,
+              0.07434754514238734
+            ],
+            "orders": [
+              64,
+              128
+            ],
+            "spatialSamples": 9,
+            "quadratureRelativeChange": 1.1102230246251565e-14,
+            "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+          }
+        },
+        "2": {
+          "status": "passed",
+          "measuredMean": 0.17342783510684967,
+          "relativeDifference": 0.00028689712019092095,
+          "fourStandardErrorRelative": 0.00040069594534207416,
+          "reference": {
+            "mean": 0.1734776053322371,
+            "rgb": [
+              0.29739018056954936,
+              0.14869509028477468,
+              0.07434754514238734
+            ],
+            "orders": [
+              64,
+              128
+            ],
+            "spatialSamples": 9,
+            "quadratureRelativeChange": 1.1102230246251565e-14,
+            "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+          }
+        }
+      },
+      "channelAgreements": {
+        "0": [
+          {
+            "status": "passed",
+            "measuredMean": 0.2975926026701927,
+            "relativeDifference": 0.0006806616824257539,
+            "fourStandardErrorRelative": 0.0006784295164892955,
+            "reference": {
+              "mean": 0.29739018056954936,
+              "rgb": [
+                0.29739018056954936,
+                0.14869509028477468,
+                0.07434754514238734
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 1.1102230246251565e-14,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.14879630133509636,
+            "relativeDifference": 0.0006806616824257539,
+            "fourStandardErrorRelative": 0.0006784295164892955,
+            "reference": {
+              "mean": 0.14869509028477468,
+              "rgb": [
+                0.29739018056954936,
+                0.14869509028477468,
+                0.07434754514238734
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 1.1102230246251565e-14,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.07439815066754818,
+            "relativeDifference": 0.0006806616824257539,
+            "fourStandardErrorRelative": 0.0006784295164892955,
+            "reference": {
+              "mean": 0.07434754514238734,
+              "rgb": [
+                0.29739018056954936,
+                0.14869509028477468,
+                0.07434754514238734
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 1.1102230246251565e-14,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          }
+        ],
+        "1": [
+          {
+            "status": "passed",
+            "measuredMean": 0.29755083471536636,
+            "relativeDifference": 0.0005402133503846773,
+            "fourStandardErrorRelative": 0.000924220135415945,
+            "reference": {
+              "mean": 0.29739018056954936,
+              "rgb": [
+                0.29739018056954936,
+                0.14869509028477468,
+                0.07434754514238734
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 1.1102230246251565e-14,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.14877541735768318,
+            "relativeDifference": 0.0005402133503846773,
+            "fourStandardErrorRelative": 0.000924220135415945,
+            "reference": {
+              "mean": 0.14869509028477468,
+              "rgb": [
+                0.29739018056954936,
+                0.14869509028477468,
+                0.07434754514238734
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 1.1102230246251565e-14,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.07438770867884159,
+            "relativeDifference": 0.0005402133503846773,
+            "fourStandardErrorRelative": 0.000924220135415945,
+            "reference": {
+              "mean": 0.07434754514238734,
+              "rgb": [
+                0.29739018056954936,
+                0.14869509028477468,
+                0.07434754514238734
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 1.1102230246251565e-14,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          }
+        ],
+        "2": [
+          {
+            "status": "passed",
+            "measuredMean": 0.2973048537969589,
+            "relativeDifference": 0.0002869185943766839,
+            "fourStandardErrorRelative": 0.0004007063471797712,
+            "reference": {
+              "mean": 0.29739018056954936,
+              "rgb": [
+                0.29739018056954936,
+                0.14869509028477468,
+                0.07434754514238734
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 1.1102230246251565e-14,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.14865242689847946,
+            "relativeDifference": 0.0002869185943766839,
+            "fourStandardErrorRelative": 0.0004007063471797712,
+            "reference": {
+              "mean": 0.14869509028477468,
+              "rgb": [
+                0.29739018056954936,
+                0.14869509028477468,
+                0.07434754514238734
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 1.1102230246251565e-14,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          },
+          {
+            "status": "passed",
+            "measuredMean": 0.07432621344923973,
+            "relativeDifference": 0.0002869185943766839,
+            "fourStandardErrorRelative": 0.0004007063471797712,
+            "reference": {
+              "mean": 0.07434754514238734,
+              "rgb": [
+                0.29739018056954936,
+                0.14869509028477468,
+                0.07434754514238734
+              ],
+              "orders": [
+                64,
+                128
+              ],
+              "spatialSamples": 9,
+              "quadratureRelativeChange": 1.1102230246251565e-14,
+              "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+            }
+          }
+        ]
+      },
+      "pairedAgreements": {
+        "1": {
+          "status": "passed",
+          "referenceMean": 0.17359567806124687,
+          "candidateMean": 0.17357131838798523,
+          "relativeDifference": 0.00014032419201731532,
+          "pairedStandardError": 0.00006369423667179995,
+          "fourStandardErrorRelative": 0.0014676456783521482,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        },
+        "2": {
+          "status": "passed",
+          "referenceMean": 0.17359567806124687,
+          "candidateMean": 0.17342783510684967,
+          "relativeDifference": 0.0009668613658571863,
+          "pairedStandardError": 0.00004615266200100221,
+          "fourStandardErrorRelative": 0.0010634518673839088,
+          "relativeTolerance": 0.02,
+          "maxUncertainty": 0.05
+        }
+      },
+      "offControl": {
+        "maximum": 0,
+        "sha256": "cb56ffe47bc4f3ff88e1ef528e18918612d3d9fff1519b570ace33600f1d6489",
+        "emissiveEnabled": false
+      },
+      "records": [
+        {
+          "sha256": "a40838a98f544fd2f01f686da2998bd470ac146e258481380e693cb59af697ea",
+          "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+          "seed": 11,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.17365212738513947,
+          "rgb": [
+            0.2976893484592438,
+            0.1488446742296219,
+            0.07442233711481094
+          ],
+          "emissiveSamplingMode": 0,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "c392564c07553d1cf25579d6e7cd741cdc418241d071870eb01d3bad610fa9dc",
+          "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+          "seed": 23,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.1735881119966507,
+          "rgb": [
+            0.29757964611053467,
+            0.14878982305526733,
+            0.07439491152763367
+          ],
+          "emissiveSamplingMode": 0,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "098e4d31c9fd41cd62914117ea4c921653b5cc2a7c112f1428f291eb50528329",
+          "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+          "seed": 37,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.17362578213214874,
+          "rgb": [
+            0.2976442277431488,
+            0.1488221138715744,
+            0.0744110569357872
+          ],
+          "emissiveSamplingMode": 0,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "0cb4104fc81aaa18907a62dd85627b36421399021b78a0d712a56f96c39daf60",
+          "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+          "seed": 53,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.17351669073104858,
+          "rgb": [
+            0.29745718836784363,
+            0.14872859418392181,
+            0.07436429709196091
+          ],
+          "emissiveSamplingMode": 0,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "7f3bf0bece940e891e4a21558937ddb608e9e8ef83a2eb5261cae8ccd9ab7ec9",
+          "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+          "seed": 11,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.1734655499458313,
+          "rgb": [
+            0.29736950993537903,
+            0.14868475496768951,
+            0.07434237748384476
+          ],
+          "emissiveSamplingMode": 1,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "474f4212045ac544a0d2eae9dbaab012a8b9610649ffe82c68e66a7b295c617b",
+          "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+          "seed": 23,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.17365439236164093,
+          "rgb": [
+            0.29769325256347656,
+            0.14884662628173828,
+            0.07442331314086914
+          ],
+          "emissiveSamplingMode": 1,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "1fb21e0444557b0de2fda00709fe3230959518a46802055718a42035280fde1a",
+          "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+          "seed": 37,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.17356108129024506,
+          "rgb": [
+            0.2975332736968994,
+            0.1487666368484497,
+            0.07438331842422485
+          ],
+          "emissiveSamplingMode": 1,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "2038181bae56d180aebf6fb8886daf7556ba2338d073e4515f0361bbece1366c",
+          "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+          "seed": 53,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.17360424995422363,
+          "rgb": [
+            0.29760730266571045,
+            0.14880365133285522,
+            0.07440182566642761
+          ],
+          "emissiveSamplingMode": 1,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "9415978a2858f6ace604d39a765e6362d778ddece45741637d0dcd1008493c92",
+          "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+          "seed": 11,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.1733933538198471,
+          "rgb": [
+            0.29724574089050293,
+            0.14862287044525146,
+            0.07431143522262573
+          ],
+          "emissiveSamplingMode": 2,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "e3a41abdc6789f8ed921383d14068bbe55bb0c90d752fb5de3d6b6e88468fbf1",
+          "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+          "seed": 23,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.1734175682067871,
+          "rgb": [
+            0.297287255525589,
+            0.1486436277627945,
+            0.07432181388139725
+          ],
+          "emissiveSamplingMode": 2,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "5825d5ace54217f309dfbd5e13702272c944fe14887c3812c42c0915deb4c2cb",
+          "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+          "seed": 37,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.17342443764209747,
+          "rgb": [
+            0.29729902744293213,
+            0.14864951372146606,
+            0.07432475686073303
+          ],
+          "emissiveSamplingMode": 2,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        },
+        {
+          "sha256": "e0b01f896e771413e407caee5addb9bd057acb9918073b3341972dd5ae086565",
+          "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+          "seed": 53,
+          "samples": 256,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "mean": 0.173475980758667,
+          "rgb": [
+            0.29738739132881165,
+            0.14869369566440582,
+            0.07434684783220291
+          ],
+          "emissiveSamplingMode": 2,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready",
+          "warningCount": 3
+        }
+      ]
+    }
+  ],
+  "samples": 256,
+  "seeds": [
+    11,
+    23,
+    37,
+    53
+  ],
+  "commit": "d044f7270e4fe8d804665779b079f8492e55ce65",
+  "executableSha256": "64741214ef635b9fce6647a010be56d84ad7441d8543b689422635d4530b66a8",
+  "executable": "C:\\work\\RtPbrSurvey-work-3\\build\\Debug\\RtPbrSurvey.exe",
+  "sourceSha256": {
+    "Shaders/shaders_PathTracing.hlsl": "c368e77350df4e81b9e012bce1b07317a6ad75077bcf2d4b6231c77d6854fc0e",
+    "Shaders/EmissiveTriangleSampling.hlsli": "5d009369152e3b246879c7392d69e785008f9aeda193b1f8c802720ef700fecd",
+    "Tests/PathTracing/validate_emissive.py": "336148aa2ffb63d918ecc9e9a5414dd256d76096bfdc4a6d710f581b5526e320",
+    "Tests/PathTracing/validate_emissive_extended.py": "b333d2301217cc71d0795c51bbc295eaee0162316bbf356a896b2637ea1f017d"
+  },
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "evaluationDate": "2026-10-06",
+  "tests": {
+    "python": "83/83",
+    "ctest": "25/25"
+  },
+  "captureCount": 26,
+  "logCheck": {
+    "errorCorruptionCount": 0,
+    "warningKind": "Existing CreateCommittedResource buffer initial-state warnings"
+  },
+  "limitation": "Opaque one-sided square emitters, two path segments, 64x64 receiver ROI, four seeds. Reference integrates nine representative ROI positions; this does not validate deeper transport or arbitrary scenes.",
+  "archiveNote": "Archived scenes add Japanese descriptions and use render-preset.json. Geometry and rendering settings are unchanged."
+}

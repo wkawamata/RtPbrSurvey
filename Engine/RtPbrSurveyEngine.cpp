@@ -44,6 +44,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <nlohmann/json.hpp>
 #include "Shared/Error.h"
 #include "Platform/FileIO.h"
 #include "Platform/AssetPath.h"
@@ -132,6 +133,7 @@ bool CameraStatesEqual(const Engine::CameraState& left, const Engine::CameraStat
         left.gazePoint.x == right.gazePoint.x && left.gazePoint.y == right.gazePoint.y &&
         left.gazePoint.z == right.gazePoint.z && left.up.x == right.up.x && left.up.y == right.up.y &&
         left.up.z == right.up.z && left.projection == right.projection && left.fov == right.fov &&
+        left.lensShiftX == right.lensShiftX && left.lensShiftY == right.lensShiftY &&
         left.orthographicHeight == right.orthographicHeight && left.nearZ == right.nearZ &&
         left.farZ == right.farZ;
 }
@@ -179,6 +181,11 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     {
         diagnostics.maxRayQueriesPerFrame += diagnostics.maxPathSegmentsPerFrame;
     }
+    if (settings.environmentEnabled && settings.environmentSamplingMode >= 2 && shadowRayEnabled)
+    {
+        diagnostics.maxRayQueriesPerFrame += diagnostics.primarySamplesPerFrame *
+            ((std::max)(settings.maxBounces, 1u) - 1u);
+    }
 
     for (size_t i = 1; i < checkPoints.size(); ++i)
     {
@@ -210,9 +217,12 @@ static_assert(offsetof(Engine::InstanceData, meshId) == 132,
               "CPU and HLSL InstanceData meshId layouts must match.");
 static_assert(sizeof(Engine::SceneMesh::Range) == 16,
               "Hybrid reflection reads SceneMesh::Range as four uint values.");
-static_assert(sizeof(Engine::Material) == 60, "Material.hlsli must match Engine::Material structured buffer layout.");
+static_assert(sizeof(Engine::Material) == 92, "Material.hlsli must match Engine::Material structured buffer layout.");
 static_assert(offsetof(Engine::Material, uvScale) == 44, "Material UV scale offset must match Material.hlsli.");
 static_assert(offsetof(Engine::Material, uvOffset) == 52, "Material UV offset must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, baseColorFactor) == 60, "Material color factor must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, emissiveFactor) == 76, "Material emissive factor must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, normalTextureScale) == 88, "Material normal scale must match Material.hlsli.");
 
 const wchar_t* EnvironmentSourceName(Engine::EnvironmentSource source)
 {
@@ -520,12 +530,14 @@ std::wstring RtPbrSurveyEngine::GetShaderFullPath(LPCWSTR shaderName)
 
 RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
 {
-    const PathTracingDiagnostics pathTracingDiagnostics =
+    PathTracingDiagnostics pathTracingDiagnostics =
         BuildPathTracingDiagnostics(m_completedGpuWorkMeterCheckPoints,
                                     m_renderWidth,
                                     m_renderHeight,
                                     m_pathTracingSettings,
                                     m_shadowSettings.enabled && m_lightingParams.directLightEnabled);
+    pathTracingDiagnostics.emissiveTriangleCount = static_cast<UINT>(m_emissiveTriangles.size());
+    pathTracingDiagnostics.emissiveTableStatus = m_emissiveTableStatus;
     return {static_cast<int>(m_currentFrameIndex),
             m_cpuFrameTime,
             m_renderWidth,
@@ -569,15 +581,12 @@ void RtPbrSurveyEngine::SetUpdateHandler(UpdateHandler handler)
 
 void RtPbrSurveyEngine::SetLightingParams(const LightingParams& params)
 {
+    LightingParams validated = params;
+    RtPbrSurvey::ValidateDirectLights(validated.lights);
     const bool reflectionHistoryChanged =
-        m_lightingParams.lightDirection.x != params.lightDirection.x ||
-        m_lightingParams.lightDirection.y != params.lightDirection.y ||
-        m_lightingParams.lightDirection.z != params.lightDirection.z ||
-        m_lightingParams.lightColor.x != params.lightColor.x ||
-        m_lightingParams.lightColor.y != params.lightColor.y ||
-        m_lightingParams.lightColor.z != params.lightColor.z ||
+        m_lightingParams.lights != validated.lights ||
+        m_lightingParams.primaryShadowLightId != validated.primaryShadowLightId ||
         m_lightingParams.iblIntensity != params.iblIntensity ||
-        m_lightingParams.diffuseIntensity != params.diffuseIntensity ||
         m_lightingParams.directLightEnabled != params.directLightEnabled ||
         m_lightingParams.diffuseIblEnabled != params.diffuseIblEnabled ||
         m_lightingParams.specularIblEnabled != params.specularIblEnabled ||
@@ -585,7 +594,7 @@ void RtPbrSurveyEngine::SetLightingParams(const LightingParams& params)
     const bool pathTracingHistoryChanged =
         reflectionHistoryChanged || m_lightingParams.skyboxEnabled != params.skyboxEnabled;
 
-    m_lightingParams = params;
+    m_lightingParams = std::move(validated);
     if (reflectionHistoryChanged)
     {
         InvalidateReflectionHistory();
@@ -599,6 +608,8 @@ void RtPbrSurveyEngine::SetLightingParams(const LightingParams& params)
 void RtPbrSurveyEngine::SetShadowSettings(const ShadowSettings& settings)
 {
     const bool pathTracingHistoryChanged =
+        m_shadowSettings.enabled != settings.enabled ||
+        m_shadowSettings.normalBias != settings.normalBias ||
         m_shadowSettings.rayTMin != settings.rayTMin || m_shadowSettings.rayTMax != settings.rayTMax;
     m_shadowSettings = settings;
     if (pathTracingHistoryChanged)
@@ -647,19 +658,24 @@ void RtPbrSurveyEngine::SetRayReconstructionSettings(const Engine::RayReconstruc
 
 void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settings)
 {
+    PathTracingSettings validated = settings;
+    validated.environmentSamplingMode = (std::min)(validated.environmentSamplingMode, 7u);
+    validated.emissiveSamplingMode = (std::min)(validated.emissiveSamplingMode, 2u);
+    validated.samplesPerFrame = (std::clamp)(validated.samplesPerFrame, 1u, 16u);
+    validated.maxBounces = (std::clamp)(validated.maxBounces, 1u, 16u);
     const bool changed =
-        m_pathTracingSettings.accumulate != settings.accumulate ||
-        m_pathTracingSettings.maxBounces != settings.maxBounces ||
-        m_pathTracingSettings.randomSeed != settings.randomSeed ||
-        m_pathTracingSettings.directLightingEnabled != settings.directLightingEnabled ||
-        m_pathTracingSettings.environmentEnabled != settings.environmentEnabled ||
-        m_pathTracingSettings.emissiveEnabled != settings.emissiveEnabled ||
-        m_pathTracingSettings.russianRouletteEnabled != settings.russianRouletteEnabled ||
-        m_pathTracingSettings.debugOutput != settings.debugOutput;
+        m_pathTracingSettings.accumulate != validated.accumulate ||
+        m_pathTracingSettings.maxBounces != validated.maxBounces ||
+        m_pathTracingSettings.randomSeed != validated.randomSeed ||
+        m_pathTracingSettings.directLightingEnabled != validated.directLightingEnabled ||
+        m_pathTracingSettings.environmentEnabled != validated.environmentEnabled ||
+        m_pathTracingSettings.environmentSamplingMode != validated.environmentSamplingMode ||
+        m_pathTracingSettings.emissiveSamplingMode != validated.emissiveSamplingMode ||
+        m_pathTracingSettings.emissiveEnabled != validated.emissiveEnabled ||
+        m_pathTracingSettings.russianRouletteEnabled != validated.russianRouletteEnabled ||
+        m_pathTracingSettings.debugOutput != validated.debugOutput;
 
-    m_pathTracingSettings = settings;
-    m_pathTracingSettings.samplesPerFrame = (std::clamp)(m_pathTracingSettings.samplesPerFrame, 1u, 16u);
-    m_pathTracingSettings.maxBounces = (std::clamp)(m_pathTracingSettings.maxBounces, 1u, 16u);
+    m_pathTracingSettings = validated;
     if (changed)
     {
         InvalidatePathTracingHistory(PathTracingResetReason::Settings);
@@ -926,11 +942,11 @@ void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialPara
 
 auto RtPbrSurveyEngine::MakeLightingConstants() const -> LightingConstants
 {
-    return {
-        m_lightingParams.lightDirection,
+    LightingConstants result = {
+        RtPbrSurvey::ShadowLightDirection(m_lightingParams.lights, m_lightingParams.primaryShadowLightId),
         m_lightingParams.iblIntensity,
-        m_lightingParams.lightColor,
-        m_lightingParams.diffuseIntensity,
+        {0.0f, 0.0f, 0.0f},
+        0.0f,
         {m_backBufferClearColor[0], m_backBufferClearColor[1], m_backBufferClearColor[2], m_backBufferClearColor[3]},
         m_lightingParams.skyboxEnabled ? 1.0f : 0.0f,
         m_lightingParams.skyboxPreview ? 1.0f : 0.0f,
@@ -960,6 +976,21 @@ auto RtPbrSurveyEngine::MakeLightingConstants() const -> LightingConstants
         m_hybridReflectionSettings.contributionIntensity,
         m_hybridReflectionSettings.contributionMaxDistance,
     };
+    result.lightCount = static_cast<uint32_t>(m_lightingParams.lights.size());
+    result.reflectionRayNormalBias = m_shadowSettings.normalBias;
+    result.reflectionLightSamplingEnabled = m_hybridReflectionSettings.stochasticSamplingEnabled ? 1u : 0u;
+    result.reflectionLightSamplingFrame = m_reflectionSamplingFrameIndex;
+    for (uint32_t i = 0; i < result.lightCount; ++i)
+    {
+        const RtPbrSurvey::DirectLight& light = m_lightingParams.lights[i];
+        result.lights[i] = RtPbrSurvey::MakeLightGpuData(light);
+        if (light.id == m_lightingParams.primaryShadowLightId && light.enabled &&
+            light.type == RtPbrSurvey::LightType::Directional)
+        {
+            result.primaryShadowLightIndex = i;
+        }
+    }
+    return result;
 }
 
 void RtPbrSurveyEngine::SetRenderingPath(RenderingPath renderingPath)
@@ -1038,6 +1069,12 @@ void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
     ReleaseSceneResources();
     SetScene(scene);
     InvalidatePathTracingHistory(PathTracingResetReason::Scene);
+    // Empty editor documents have no GPU geometry until a visible mesh is added.
+    if (scene.mesh == nullptr || scene.mesh->vertices.empty())
+    {
+        m_displayInstanceCount = 0;
+        return;
+    }
     m_displayInstanceCount = previousDisplayInstanceCount > 0 ?
         std::clamp(previousDisplayInstanceCount, 0, sceneInstanceCount) :
         sceneInstanceCount;
@@ -1284,29 +1321,70 @@ void RtPbrSurveyEngine::RequestScreenshot(RtPbrSurvey::ScreenshotRequest request
     {
         if (request.path.empty())
         {
-            m_screenshotResults.push_back({request.path, false, "Screenshot output path is empty."});
+            RtPbrSurvey::ScreenshotResult result = {request.path, false, "Screenshot output path is empty."};
+            result.requestId = request.requestId;
+            m_screenshotRequestQueue.AddResult(std::move(result));
             return;
         }
         request.path = std::filesystem::absolute(request.path);
-        m_screenshotRequests.push_back(std::move(request));
+        if (request.path.extension() == L".pfm" && m_renderingPath != RenderingPath::PathTracing)
+        {
+            RtPbrSurvey::ScreenshotResult result = {request.path, false, "PFM capture requires Path Tracing."};
+            result.requestId = request.requestId;
+            m_screenshotRequestQueue.AddResult(std::move(result));
+            return;
+        }
+        m_screenshotRequestQueue.Enqueue(std::move(request));
     }
     catch (const std::exception& exception)
     {
-        m_screenshotResults.push_back({request.path, false, exception.what()});
+        RtPbrSurvey::ScreenshotResult result = {request.path, false, exception.what()};
+        result.requestId = request.requestId;
+        m_screenshotRequestQueue.AddResult(std::move(result));
     }
 }
 
 std::optional<RtPbrSurvey::ScreenshotResult> RtPbrSurveyEngine::ConsumeScreenshotResult()
 {
     ProcessCompletedScreenshot();
-    if (m_screenshotResults.empty())
-    {
-        return std::nullopt;
-    }
+    return m_screenshotRequestQueue.ConsumeResult();
+}
 
-    RtPbrSurvey::ScreenshotResult result = std::move(m_screenshotResults.front());
-    m_screenshotResults.pop_front();
-    return result;
+std::optional<RtPbrSurvey::ScreenshotResult> RtPbrSurveyEngine::ConsumeScreenshotResult(std::uint64_t requestId)
+{
+    ProcessCompletedScreenshot();
+    return m_screenshotRequestQueue.ConsumeResult(requestId);
+}
+
+std::optional<RtPbrSurvey::ScreenshotResult> RtPbrSurveyEngine::ConsumeScreenshotResultExcept(std::uint64_t requestId)
+{
+    ProcessCompletedScreenshot();
+    return m_screenshotRequestQueue.ConsumeResultExcept(requestId);
+}
+
+bool RtPbrSurveyEngine::IsScreenshotCaptureIdle() const
+{
+    return m_screenshotRequestQueue.IsIdle();
+}
+
+bool RtPbrSurveyEngine::FinalizeAnimatedGif(std::string& error)
+{
+    return m_animatedGifEncoder.Finalize(error);
+}
+
+void RtPbrSurveyEngine::AbortAnimatedGif()
+{
+    m_animatedGifEncoder.Reset();
+}
+
+bool RtPbrSurveyEngine::FinalizeMp4(std::string& error, std::optional<std::uint64_t> endTimestamp100ns)
+{
+    return m_mp4Encoder.Finalize(error, endTimestamp100ns);
+}
+
+void RtPbrSurveyEngine::AbortMp4()
+{
+    m_mp4Encoder.Reset();
 }
 
 void RtPbrSurveyEngine::RequestPixelPick(int screenX, int screenY)
@@ -1342,6 +1420,22 @@ bool RtPbrSurveyEngine::UpdateDebugLine(RtPbrSurvey::DebugLineHandle handle,
     {
         UpdateDebugLines();
     }
+    if (!updated || desc.visible)
+    {
+        char message[256] = {};
+        std::snprintf(
+            message,
+            sizeof(message),
+            "[RtPbrSurvey DebugLine] Update: engine=%p registry=%p handle=%u updated=%d visible=%d depthVertices=%zu overlayVertices=%zu\n",
+            static_cast<void*>(this),
+            static_cast<void*>(&m_debugLineRegistry),
+            handle,
+            updated ? 1 : 0,
+            desc.visible ? 1 : 0,
+            m_debugLineVertices.depthTested.size(),
+            m_debugLineVertices.overlay.size());
+        OutputDebugStringA(message);
+    }
     return updated;
 }
 
@@ -1353,6 +1447,14 @@ void RtPbrSurveyEngine::RemoveDebugLine(RtPbrSurvey::DebugLineHandle handle)
 
 void RtPbrSurveyEngine::ClearDebugLines()
 {
+    char message[160] = {};
+    std::snprintf(
+        message,
+        sizeof(message),
+        "[RtPbrSurvey DebugLine] Clear: engine=%p registry=%p\n",
+        static_cast<void*>(this),
+        static_cast<void*>(&m_debugLineRegistry));
+    OutputDebugStringA(message);
     m_debugLineRegistry.Clear();
     UpdateDebugLines();
 }
@@ -2463,7 +2565,10 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     CD3DX12_DESCRIPTOR_RANGE1 environmentSrvRange = {};
     environmentSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 6, 0);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[18] = {};
+    CD3DX12_DESCRIPTOR_RANGE1 lightCbvRange = {};
+    lightCbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 2, 0);
+
+    CD3DX12_ROOT_PARAMETER1 rootParameters[20] = {};
     rootParameters[0].InitAsDescriptorTable(1, &sceneColorUavRange);
     rootParameters[1].InitAsDescriptorTable(1, &accumulationUavRange);
     rootParameters[2].InitAsDescriptorTable(1, &normalRoughnessUavRange);
@@ -2481,7 +2586,9 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     rootParameters[14].InitAsDescriptorTable(1, &textureSrvRange);
     rootParameters[15].InitAsShaderResourceView(5, 0);
     rootParameters[16].InitAsDescriptorTable(1, &environmentSrvRange);
-    rootParameters[17].InitAsConstants(32, 1, 0);
+    rootParameters[17].InitAsConstants(36, 1, 0);
+    rootParameters[18].InitAsDescriptorTable(1, &lightCbvRange);
+    rootParameters[19].InitAsShaderResourceView(7, 0);
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -2839,6 +2946,7 @@ void RtPbrSurveyEngine::CreateInitialCommandList()
 
 void RtPbrSurveyEngine::CreateSceneGeometryBuffers()
 {
+    m_emissiveSourceMesh = nullptr;
     assert(m_scene.mesh != nullptr);
     const Engine::SceneMesh& mesh = *m_scene.mesh;
     assert(!mesh.vertices.empty());
@@ -2912,6 +3020,7 @@ void RtPbrSurveyEngine::CreateSceneGeometryBuffers()
 
 void RtPbrSurveyEngine::CreateSceneTextureResources(std::vector<ComPtr<ID3D12Resource>>& textureUploadHeap)
 {
+    m_emissiveSourceMesh = nullptr;
     assert(m_scene.mesh != nullptr);
     const Engine::SceneMesh& mesh = *m_scene.mesh;
 
@@ -2925,7 +3034,7 @@ void RtPbrSurveyEngine::CreateSceneTextureResources(std::vector<ComPtr<ID3D12Res
     const UINT textureResourceCount = m_sceneTextureCount + Engine::kTextureSemanticCount;
     assert(textureResourceCount <= kTextureDescriptorCapacity);
 
-    // 3つの領域を定義
+    // 3縺､縺ｮ鬆伜沺繧貞ｮ夂ｾｩ
     // [0, m_sceneTextureCount)              : Scene textures (from glTF)
     // [m_sceneTextureCount, textureResourceCount) : Semantic fallback (5 types)
     // [textureResourceCount, kTextureDescriptorCapacity) : Unused -> BaseColor fallback
@@ -3015,6 +3124,7 @@ void RtPbrSurveyEngine::PrepareSceneInstanceData()
 
 void RtPbrSurveyEngine::CreateSceneMaterialResources()
 {
+    m_emissiveSourceMesh = nullptr;
     assert(m_scene.mesh != nullptr);
     const Engine::SceneMesh& mesh = *m_scene.mesh;
 
@@ -3042,6 +3152,15 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
         m.occlusionStrength = 1.0f;
         m.ambientOcclusionFactor = 1.0f;
         m.emissiveScale = 1.0f;
+        for (float& channel : m.baseColorFactor)
+        {
+            channel = 1.0f;
+        }
+        for (float& channel : m.emissiveFactor)
+        {
+            channel = 1.0f;
+        }
+        m.normalTextureScale = 1.0f;
         m.flags = 0;
         m.uvScale[0] = 1.0f;
         m.uvScale[1] = 1.0f;
@@ -3072,6 +3191,14 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
                 m.occlusionStrength = gltfMaterial.occlusionStrength;
                 m.ambientOcclusionFactor = gltfMaterial.ambientOcclusionFactor;
                 m.emissiveScale = gltfMaterial.emissiveTexIndex >= 0 ? gltfMaterial.emissiveScale : 0.0f;
+                m.baseColorFactor[0] = gltfMaterial.baseColorFactor.x;
+                m.baseColorFactor[1] = gltfMaterial.baseColorFactor.y;
+                m.baseColorFactor[2] = gltfMaterial.baseColorFactor.z;
+                m.baseColorFactor[3] = gltfMaterial.baseColorFactor.w;
+                m.emissiveFactor[0] = gltfMaterial.emissiveFactor.x;
+                m.emissiveFactor[1] = gltfMaterial.emissiveFactor.y;
+                m.emissiveFactor[2] = gltfMaterial.emissiveFactor.z;
+                m.normalTextureScale = gltfMaterial.normalTextureScale;
                 m.uvScale[0] = gltfMaterial.uvScale.x;
                 m.uvScale[1] = gltfMaterial.uvScale.y;
                 m.uvOffset[0] = gltfMaterial.uvOffset.x;
@@ -3083,6 +3210,105 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
     }
 
     m_materialBuffer.Create(m_graphicsDevice.Device(), m_descriptorHeapAllocator, m_materialData);
+}
+
+void RtPbrSurveyEngine::UpdateEmissiveTriangleBuffer()
+{
+    const size_t instanceCount = (std::min)(m_scene.instances.size(),
+        static_cast<size_t>((std::min)(GetVisibleCubeCount(), kMaxInstanceCount)));
+    const Engine::SceneMesh* mesh = m_scene.mesh;
+    std::vector<Engine::SceneMaterial> effectiveMaterials = mesh != nullptr ?
+        mesh->materials : std::vector<Engine::SceneMaterial>{};
+    for (size_t index = 0; index < effectiveMaterials.size(); ++index)
+    {
+        if (index >= m_materialData.size() || (m_materialData[index].flags & Engine::kMaterialFlagUnlit) != 0)
+        {
+            effectiveMaterials[index].emissiveScale = 0.0f;
+            continue;
+        }
+        effectiveMaterials[index].emissiveScale = m_materialData[index].emissiveScale;
+        effectiveMaterials[index].emissiveFactor = {m_materialData[index].emissiveFactor[0],
+            m_materialData[index].emissiveFactor[1], m_materialData[index].emissiveFactor[2]};
+    }
+    bool changed = m_emissiveTriangleVersion == 0 || mesh != m_emissiveSourceMesh ||
+        instanceCount != m_emissiveSourceInstances.size() ||
+        (mesh != nullptr && mesh->materials.size() != m_emissiveSourceMaterials.size());
+    if (!changed)
+    {
+        for (size_t index = 0; index < instanceCount; ++index)
+        {
+            const InstanceData& current = m_scene.instances[index];
+            const InstanceData& previous = m_emissiveSourceInstances[index];
+            if (memcmp(&current.world, &previous.world, sizeof(current.world)) != 0 ||
+                current.meshId != previous.meshId || current.materialId != previous.materialId)
+            {
+                changed = true;
+                break;
+            }
+        }
+        if (mesh != nullptr && !changed && !mesh->materials.empty())
+        {
+            changed = memcmp(effectiveMaterials.data(), m_emissiveSourceMaterials.data(),
+                mesh->materials.size() * sizeof(Engine::SceneMaterial)) != 0;
+        }
+    }
+    if (changed)
+    {
+        m_emissiveSourceMesh = mesh;
+        m_emissiveSourceInstances.assign(m_scene.instances.begin(), m_scene.instances.begin() + instanceCount);
+        m_emissiveSourceMaterials = std::move(effectiveMaterials);
+        try
+        {
+            Engine::Scene source;
+            source.mesh = mesh;
+            source.instances = m_emissiveSourceInstances;
+            m_emissiveTriangles = Engine::SerializeEmissiveTriangleTable(
+                Engine::BuildEmissiveTriangleTable(source, m_emissiveSourceMaterials));
+            if (m_emissiveTriangles.size() > UINT_MAX / sizeof(Engine::EmissiveTriangleGpu))
+            {
+                throw std::overflow_error("Emitter upload exceeds supported buffer size.");
+            }
+            m_emissiveTableStatus = "ready";
+        }
+        catch (const std::exception& error)
+        {
+            m_emissiveTriangles.clear();
+            m_emissiveTableStatus = std::string("unavailable: ") + error.what();
+            OutputDebugStringA(("[PathTracing] " + m_emissiveTableStatus + "\n").c_str());
+        }
+        if (m_emissiveTriangleVersion != 0)
+        {
+            InvalidatePathTracingHistory(PathTracingResetReason::Scene);
+        }
+        ++m_emissiveTriangleVersion;
+    }
+
+    FrameResource& frame = m_frameResources[m_currentFrameIndex];
+    if (frame.emissiveTriangleVersion == m_emissiveTriangleVersion && frame.emissiveTriangleBuffer != nullptr)
+    {
+        return;
+    }
+    const UINT count = (std::max)(static_cast<UINT>(m_emissiveTriangles.size()), 1u);
+    if (frame.emissiveTriangleCapacity < count || frame.emissiveTriangleBuffer == nullptr)
+    {
+        MyDx12Util::CreateUploadBuffer(m_graphicsDevice.Device(), count * sizeof(Engine::EmissiveTriangleGpu),
+            frame.emissiveTriangleBuffer);
+        frame.emissiveTriangleCapacity = count;
+    }
+    void* mapped = nullptr;
+    const D3D12_RANGE readRange = {0, 0};
+    ThrowIfFailed(frame.emissiveTriangleBuffer->Map(0, &readRange, &mapped));
+    if (m_emissiveTriangles.empty())
+    {
+        const Engine::EmissiveTriangleGpu empty = {};
+        memcpy(mapped, &empty, sizeof(empty));
+    }
+    else
+    {
+        memcpy(mapped, m_emissiveTriangles.data(), m_emissiveTriangles.size() * sizeof(Engine::EmissiveTriangleGpu));
+    }
+    frame.emissiveTriangleBuffer->Unmap(0, nullptr);
+    frame.emissiveTriangleVersion = m_emissiveTriangleVersion;
 }
 
 void RtPbrSurveyEngine::CreateInstanceBuffers()
@@ -3171,6 +3397,18 @@ void RtPbrSurveyEngine::RebuildAccelerationStructures()
 
 void RtPbrSurveyEngine::ReleaseSceneResources()
 {
+    m_emissiveTriangles.clear();
+    m_emissiveSourceInstances.clear();
+    m_emissiveSourceMaterials.clear();
+    m_emissiveSourceMesh = nullptr;
+    m_emissiveTriangleVersion = 0;
+    m_emissiveTableStatus = "not-built";
+    for (FrameResource& frame : m_frameResources)
+    {
+        frame.emissiveTriangleBuffer.Reset();
+        frame.emissiveTriangleCapacity = 0;
+        frame.emissiveTriangleVersion = 0;
+    }
     m_displayInstanceCount = 0;
     m_sceneResourcesAvailable = false;
 
@@ -4620,6 +4858,10 @@ void RtPbrSurveyEngine::UpdateFrame(bool advanceFrame)
                    sizeof(InstanceData) * sceneInstanceCount);
         }
         m_frameResources[m_currentFrameIndex].instanceBuffer->Unmap(0, nullptr);
+        if (m_renderingPath == RenderingPath::PathTracing)
+        {
+            UpdateEmissiveTriangleBuffer();
+        }
     }
 
     if (advanceFrame)
@@ -4716,7 +4958,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     }
 
     // Present the frame.
-    m_graphicsDevice.Present(1, 0);
+    m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
 
     UINT64 submittedFenceValue = MoveToNextFrame();
     if (m_pendingScreenshotCapture.has_value() && m_pendingScreenshotCapture->fenceValue == 0)
@@ -4947,14 +5189,10 @@ void RtPbrSurveyEngine::Shutdown()
     {
         const RtPbrSurvey::ScreenshotRequest request = std::move(m_pendingScreenshotCapture->request);
         m_pendingScreenshotCapture.reset();
-        m_screenshotResults.push_back({request.path, false, "Renderer shut down before screenshot submission."});
+        m_screenshotRequestQueue.CompletePending(
+            {request.path, false, "Renderer shut down before screenshot submission."});
     }
-    while (!m_screenshotRequests.empty())
-    {
-        RtPbrSurvey::ScreenshotRequest request = std::move(m_screenshotRequests.front());
-        m_screenshotRequests.pop_front();
-        m_screenshotResults.push_back({request.path, false, "Renderer shut down before screenshot capture."});
-    }
+    m_screenshotRequestQueue.FailQueued("Renderer shut down before screenshot capture.");
     Engine::ShutdownStreamlineAdapter();
 }
 
@@ -5668,7 +5906,7 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
 void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
-    if (m_pathTracingPipeline == nullptr)
+    if (m_pathTracingPipeline == nullptr || m_frameResources[m_currentFrameIndex].emissiveTriangleBuffer == nullptr)
     {
         Engine::RecordPathTracingUavClear(
             m_commandList.Get(),
@@ -5694,19 +5932,20 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.specularRadianceHitTUav =
         m_pathTracingGuideTextureUavs[PathTracingGuideSpecularRadianceHitT].gpu;
     passDesc.environmentMapSrv = m_environmentMap.Srv().gpu;
+    passDesc.emissiveTriangleSrv = m_frameResources[m_currentFrameIndex].emissiveTriangleBuffer->GetGPUVirtualAddress();
+    passDesc.emissiveTriangleCount = static_cast<UINT>(m_emissiveTriangles.size());
     passDesc.scene = MakeRayQuerySceneBindings();
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
     passDesc.normalBias = m_shadowSettings.normalBias;
-    passDesc.lightDirection = {
-        m_lightingParams.lightDirection.x, m_lightingParams.lightDirection.y, m_lightingParams.lightDirection.z};
-    passDesc.lightColor = {m_lightingParams.lightColor.x, m_lightingParams.lightColor.y, m_lightingParams.lightColor.z};
+    passDesc.lightCbv = m_frameResources[m_currentFrameIndex].lightCB.cbv.gpu;
     passDesc.environmentIntensity = m_lightingParams.iblIntensity;
-    passDesc.diffuseIntensity = m_lightingParams.diffuseIntensity;
     passDesc.backgroundColor = m_backBufferClearColor;
     passDesc.debugOutput = static_cast<UINT>(m_pathTracingSettings.debugOutput);
     passDesc.maxBounces = m_pathTracingSettings.maxBounces;
     passDesc.environmentEnabled = m_pathTracingSettings.environmentEnabled ? 1u : 0u;
+    passDesc.environmentSamplingMode = m_pathTracingSettings.environmentSamplingMode;
+    passDesc.emissiveSamplingMode = m_pathTracingSettings.emissiveSamplingMode;
     passDesc.skyboxEnabled = m_lightingParams.skyboxEnabled ? 1u : 0u;
     passDesc.emissiveEnabled =
         m_pathTracingSettings.emissiveEnabled && m_lightingParams.emissiveEnabled ? 1u : 0u;
@@ -5795,11 +6034,14 @@ void RtPbrSurveyEngine::ExecuteRayQueryShadowPass(const RenderPass& pass)
     passDesc.depthSrv = m_depthStencilSrv.gpu;
     passDesc.normalSrv = m_gbuffer.srvHandles[Engine::GBuffer::Normal].gpu;
     passDesc.cameraCbv = m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu;
-    passDesc.lightDirection = m_lightingParams.lightDirection;
+    passDesc.lightDirection =
+        RtPbrSurvey::ShadowLightDirection(m_lightingParams.lights, m_lightingParams.primaryShadowLightId);
     passDesc.normalBias = m_shadowSettings.normalBias;
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
-    passDesc.enabled = m_shadowSettings.enabled ? 1 : 0;
+    passDesc.enabled = m_shadowSettings.enabled && m_lightingParams.directLightEnabled &&
+        RtPbrSurvey::FindShadowLight(m_lightingParams.lights, m_lightingParams.primaryShadowLightId) ?
+        1 : 0;
     passDesc.softShadowEnabled = m_shadowSettings.softShadowEnabled ? 1 : 0;
     passDesc.sampleCount = static_cast<uint32_t>(m_shadowSettings.sampleCount);
     passDesc.lightAngularRadius = m_shadowSettings.lightAngularRadius;
@@ -5870,7 +6112,8 @@ void RtPbrSurveyEngine::ExecuteRayQueryTlasDebugPass(const RenderPass& pass)
     passDesc.depthSrv = m_depthStencilSrv.gpu;
     passDesc.normalSrv = m_gbuffer.srvHandles[Engine::GBuffer::Normal].gpu;
     passDesc.cameraCbv = m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu;
-    passDesc.lightDirection = m_lightingParams.lightDirection;
+    passDesc.lightDirection =
+        RtPbrSurvey::ShadowLightDirection(m_lightingParams.lights, m_lightingParams.primaryShadowLightId);
     passDesc.width = m_renderWidth;
     passDesc.height = m_renderHeight;
 
@@ -6116,6 +6359,24 @@ void RtPbrSurveyEngine::ExecuteDebugLinePass(const RenderPass& pass)
     UNREFERENCED_PARAMETER(pass);
 
     UpdateDebugLines();
+    static size_t lastDepthTestedVertexCount = static_cast<size_t>(-1);
+    static size_t lastOverlayVertexCount = static_cast<size_t>(-1);
+    if (m_debugLineVertices.depthTested.size() != lastDepthTestedVertexCount ||
+        m_debugLineVertices.overlay.size() != lastOverlayVertexCount)
+    {
+        char message[192] = {};
+        std::snprintf(
+            message,
+            sizeof(message),
+            "[RtPbrSurvey DebugLine] Execute pass: engine=%p registry=%p depthVertices=%zu overlayVertices=%zu\n",
+            static_cast<void*>(this),
+            static_cast<void*>(&m_debugLineRegistry),
+            m_debugLineVertices.depthTested.size(),
+            m_debugLineVertices.overlay.size());
+        OutputDebugStringA(message);
+        lastDepthTestedVertexCount = m_debugLineVertices.depthTested.size();
+        lastOverlayVertexCount = m_debugLineVertices.overlay.size();
+    }
     if (m_debugLineVertices.depthTested.empty() && m_debugLineVertices.overlay.empty())
     {
         return;
@@ -6136,30 +6397,151 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 
-    assert(!m_screenshotRequests.empty());
-    assert(!m_pendingScreenshotCapture.has_value());
-    if (m_screenshotRequests.empty() || m_pendingScreenshotCapture.has_value())
+    if (m_pendingScreenshotCapture.has_value())
     {
         return;
     }
 
     PendingScreenshotCapture capture;
-    capture.request = std::move(m_screenshotRequests.front());
-    m_screenshotRequests.pop_front();
+    if (!m_screenshotRequestQueue.BeginNextCapture(capture.request))
+    {
+        return;
+    }
 
     try
     {
+        ID3D12Resource* source = nullptr;
+        bool hdr10 = false;
+        float paperWhiteNits = 300.0f;
+        std::string diagnosticSource;
+        D3D12_RESOURCE_STATES diagnosticRestoreState = D3D12_RESOURCE_STATE_COMMON;
+        if (capture.request.path.extension() == L".ptbuf")
+        {
+            if (capture.request.source != RtPbrSurvey::ScreenshotCaptureSource::FinalOutput ||
+                capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png ||
+                capture.request.region.has_value())
+            {
+                throw std::invalid_argument("Native buffer capture requires the default request contract and a full-frame capture.");
+            }
+            if (m_renderingPath == RenderingPath::PathTracing &&
+                capture.request.debugResourceName == kPathTracingAccumulationResourceName)
+            {
+                source = m_pathTracingAccumulation.Get();
+                diagnosticSource = kPathTracingAccumulationResourceName;
+            }
+            for (UINT index = 0; index < PathTracingGuideTextureCount; ++index)
+            {
+                if (m_renderingPath == RenderingPath::PathTracing &&
+                    capture.request.debugResourceName == kPathTracingGuideTextureResourceNames[index])
+                {
+                    source = m_pathTracingGuideTextures[index].Get();
+                    diagnosticSource = kPathTracingGuideTextureResourceNames[index];
+                    break;
+                }
+            }
+            if (m_renderingPath == RenderingPath::Deferred)
+            {
+                for (const Engine::GBuffer::Target target : {Engine::GBuffer::Albedo, Engine::GBuffer::Normal,
+                                                            Engine::GBuffer::PBRParams, Engine::GBuffer::Emissive})
+                {
+                    if (capture.request.debugResourceName == kGBufferResourceNames[target])
+                    {
+                        source = m_gbuffer.resources[target].Get();
+                        diagnosticSource = kGBufferResourceNames[target];
+                        break;
+                    }
+                }
+            }
+            if (source == nullptr)
+            {
+                throw std::invalid_argument("Native buffer capture requires an active PT accumulation/guide or supported Deferred GBuffer resource.");
+            }
+            diagnosticRestoreState = GetResourceState(diagnosticSource);
+            TransitionResource({diagnosticSource, D3D12_RESOURCE_STATE_COPY_SOURCE});
+        }
+        else if (capture.request.path.extension() == L".pfm")
+        {
+            if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png ||
+                capture.request.source != RtPbrSurvey::ScreenshotCaptureSource::FinalOutput)
+            {
+                throw std::invalid_argument("PFM capture uses the legacy final-output request contract.");
+            }
+            source = m_pathTracingAccumulation.Get();
+        }
+        else
+        {
+            switch (capture.request.source)
+            {
+            case RtPbrSurvey::ScreenshotCaptureSource::FinalOutput:
+                if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png &&
+                    capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Gif &&
+                    capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+                {
+                    throw std::invalid_argument("Final-output screenshot capture supports PNG, GIF, or MP4 only.");
+                }
+                source = m_renderTargets[m_currentFrameIndex].Get();
+                hdr10 = m_hdrOutputPolicy.settings.hdr10Enabled;
+                paperWhiteNits = m_toneMapPass.settings.paperWhiteNits;
+                break;
+
+            case RtPbrSurvey::ScreenshotCaptureSource::PreToneMapSceneColor:
+                if (capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Exr)
+                {
+                    throw std::invalid_argument("Pre-tone-map screenshot capture supports EXR only.");
+                }
+                if (m_renderingPath == RenderingPath::PathTracing || m_lightPassRenderTarget == nullptr)
+                {
+                    throw std::runtime_error("Pre-tone-map scene color is unavailable for the active rendering path.");
+                }
+                source = m_lightPassRenderTarget.Get();
+                break;
+            }
+        }
+
         Engine::RecordScreenshotCapture(m_commandList.Get(),
                                         m_graphicsDevice.Device(),
-                                        m_renderTargets[m_currentFrameIndex].Get(),
-                                        m_hdrOutputPolicy.settings.hdr10Enabled,
-                                        m_toneMapPass.settings.paperWhiteNits,
+                                        source,
+                                        hdr10,
+                                        paperWhiteNits,
+                                        capture.request.region,
                                         capture.readback);
+        if (!diagnosticSource.empty())
+        {
+            TransitionResource({diagnosticSource, diagnosticRestoreState});
+            const auto matrixJson = [](const XMFLOAT4X4& matrix)
+            {
+                nlohmann::json rows = nlohmann::json::array();
+                for (int row = 0; row < 4; ++row)
+                {
+                    rows.push_back({matrix.m[row][0], matrix.m[row][1], matrix.m[row][2], matrix.m[row][3]});
+                }
+                return rows;
+            };
+            const CameraState& camera = GetCamera();
+            const nlohmann::json metadata = {
+                {"schemaVersion", 1}, {"resource", diagnosticSource},
+                {"renderingPath", static_cast<int>(m_renderingPath)},
+                {"sampleStartIndex", m_pathTracingRuntimeState.frameSampleIndex},
+                {"randomSeed", m_pathTracingSettings.randomSeed},
+                {"width", capture.readback.width}, {"height", capture.readback.height},
+                {"format", static_cast<int>(capture.readback.format)}, {"rowOrder", "top-down"},
+                {"matrixConvention", "transpose of DirectX row-vector matrices"},
+                {"viewProjection", matrixJson(m_constantBufferData.viewProjection)},
+                {"previousViewProjection", matrixJson(m_constantBufferData.prevViewProjection)},
+                {"inverseViewProjection", matrixJson(m_constantBufferData.invViewProjection)},
+                {"cameraPosition", {camera.pos.x, camera.pos.y, camera.pos.z}},
+                {"cameraTarget", {camera.gazePoint.x, camera.gazePoint.y, camera.gazePoint.z}},
+                {"lensShift", {camera.lensShiftX, camera.lensShiftY}},
+                {"singleInstanceWorld", m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().world) : nlohmann::json(nullptr)},
+                {"singleInstancePreviousWorld", m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().prevWorld) : nlohmann::json(nullptr)},
+            };
+            capture.readback.diagnosticMetadata = metadata.dump();
+        }
         m_pendingScreenshotCapture = std::move(capture);
     }
     catch (const std::exception& exception)
     {
-        m_screenshotResults.push_back({capture.request.path, false, exception.what()});
+        m_screenshotRequestQueue.CompletePending({capture.request.path, false, exception.what()});
     }
 }
 
@@ -6714,14 +7096,55 @@ void RtPbrSurveyEngine::ProcessCompletedScreenshot()
     result.height = capture.readback.height;
     try
     {
-        result.succeeded = Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
+        if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Exr)
+        {
+            result.succeeded = Engine::SaveExrScreenshotReadback(capture.readback, result.path, result.error);
+        }
+        else if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Gif ||
+                 capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+        {
+            const D3D12_RANGE readRange = {static_cast<SIZE_T>(capture.readback.layout.Offset),
+                                           static_cast<SIZE_T>(capture.readback.resource->GetDesc().Width)};
+            std::uint8_t* mappedData = nullptr;
+            ThrowIfFailed(capture.readback.resource->Map(0, &readRange, reinterpret_cast<void**>(&mappedData)));
+            const std::vector<std::uint8_t> rgba8 = Engine::ConvertScreenshotToRgba8(
+                mappedData + capture.readback.layout.Offset,
+                capture.readback.width,
+                capture.readback.height,
+                capture.readback.layout.Footprint.RowPitch,
+                capture.readback.format,
+                capture.readback.hdr10,
+                capture.readback.paperWhiteNits);
+            capture.readback.resource->Unmap(0, nullptr);
+            if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+            {
+                result.succeeded = m_mp4Encoder.AppendFrame(result.path, result.width, result.height, rgba8.data(),
+                                                           capture.request.videoFramesPerSecond, capture.request.videoBitrate,
+                                                           result.error, capture.request.videoTimestamp100ns);
+            }
+            else
+            {
+                result.succeeded = m_animatedGifEncoder.AppendFrame(result.path,
+                                                                 result.width,
+                                                                 result.height,
+                                                                 rgba8.data(),
+                                                                 capture.request.frameDelayCentiseconds,
+                                                                 capture.request.gifRepeatCount,
+                                                                 capture.request.gifDisposal,
+                                                                 result.error);
+            }
+        }
+        else
+        {
+            result.succeeded = Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
+        }
     }
     catch (const std::exception& exception)
     {
         result.succeeded = false;
         result.error = exception.what();
     }
-    m_screenshotResults.push_back(std::move(result));
+    m_screenshotRequestQueue.CompletePending(std::move(result));
 }
 
 void RtPbrSurveyEngine::EndFrame()

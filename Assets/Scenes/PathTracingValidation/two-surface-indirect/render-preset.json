@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 4,
+  "renderingPath": 1,
+  "renderViewMode": 0,
+  "lighting": {
+    "lights": [
+      {
+        "id": 1,
+        "name": "White point",
+        "type": "point",
+        "enabled": true,
+        "color": [
+          1,
+          1,
+          1
+        ],
+        "intensity": 8,
+        "position": [
+          0,
+          3,
+          -2
+        ],
+        "direction": [
+          0,
+          -1,
+          0
+        ],
+        "range": 20,
+        "innerCone": 15,
+        "outerCone": 30
+      }
+    ],
+    "primaryShadowLightId": 0,
+    "iblIntensity": 1,
+    "skyboxEnabled": false,
+    "directLightEnabled": true,
+    "diffuseIblEnabled": false,
+    "specularIblEnabled": false,
+    "emissiveEnabled": false
+  },
+  "shadow": {
+    "enabled": true,
+    "normalBias": 0.001
+  },
+  "toneMap": {
+    "operatorIndex": 2,
+    "exposure": 1
+  },
+  "temporalUpscaler": {
+    "autoExposure": false
+  },
+  "pathTracing": {
+    "accumulate": true,
+    "samplesPerFrame": 1,
+    "maxBounces": 4,
+    "randomSeed": 1,
+    "directLightingEnabled": true,
+    "environmentEnabled": false,
+    "environmentSamplingMode": 5,
+    "emissiveEnabled": false,
+    "russianRouletteEnabled": false,
+    "debugOutput": 3
+  }
+}

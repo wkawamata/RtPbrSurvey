@@ -424,12 +424,86 @@ namespace RtPbrSurvey
 
     void SceneRenderer::RequestScreenshot(ScreenshotRequest request)
     {
+        request.requestId = 0;
         m_engine.RequestScreenshot(std::move(request));
     }
 
     std::optional<ScreenshotResult> SceneRenderer::ConsumeScreenshotResult()
     {
+        if (const std::optional<std::uint64_t> requestId = m_captureSession.GetActiveRequestId())
+        {
+            return m_engine.ConsumeScreenshotResultExcept(*requestId);
+        }
         return m_engine.ConsumeScreenshotResult();
+    }
+
+    bool SceneRenderer::IsScreenshotCaptureIdle() const
+    {
+        return m_engine.IsScreenshotCaptureIdle();
+    }
+
+    bool SceneRenderer::StartCaptureSession(const CaptureSessionConfig& config, std::string& error)
+    {
+        if (!m_engine.IsScreenshotCaptureIdle())
+        {
+            error = "Screenshot capture is busy with a non-session request.";
+            return false;
+        }
+        return m_captureSession.Start(config, error);
+    }
+
+    void SceneRenderer::StopCaptureSession()
+    {
+        m_captureSession.Stop();
+        FinalizeCaptureSessionOutput();
+    }
+
+    void SceneRenderer::UpdateCaptureSession(const CaptureSessionTiming& timing)
+    {
+        m_captureSession.Update(timing);
+        if (const std::optional<ScreenshotRequest> request = m_captureSession.AcquireReadyRequest())
+        {
+            m_engine.RequestScreenshot(*request);
+            m_captureSession.MarkRequestAccepted();
+        }
+        if (const std::optional<std::uint64_t> requestId = m_captureSession.GetActiveRequestId())
+        {
+            if (const std::optional<ScreenshotResult> result = m_engine.ConsumeScreenshotResult(*requestId))
+            {
+                m_captureSession.CompleteRequest(*result);
+            }
+        }
+        FinalizeCaptureSessionOutput();
+    }
+
+    void SceneRenderer::FinalizeCaptureSessionOutput()
+    {
+        const CaptureSessionStatus& status = m_captureSession.GetStatus();
+        if (status.state == CaptureSessionState::Completed)
+        {
+            std::string error;
+            const bool succeeded = m_captureSession.UsesAnimatedGif() ? m_engine.FinalizeAnimatedGif(error) :
+                (m_captureSession.UsesMp4() ? m_engine.FinalizeMp4(error, m_captureSession.GetVideoEndTimestamp100ns()) : true);
+            if (!succeeded)
+            {
+                m_captureSession.FailFinalization("Video finalization failed: " + error);
+            }
+        }
+        else if (status.state == CaptureSessionState::Failed)
+        {
+            if (m_captureSession.UsesAnimatedGif()) m_engine.AbortAnimatedGif();
+            if (m_captureSession.UsesMp4()) m_engine.AbortMp4();
+        }
+    }
+
+    bool SceneRenderer::CanAdvanceCaptureSessionFixedStep() const
+    {
+        return m_captureSession.CanAdvanceFixedStep();
+    }
+
+    const CaptureSessionStatus& SceneRenderer::GetCaptureSessionStatus() const
+    {
+        return m_captureSession.GetStatus();
     }
 
     void SceneRenderer::ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings)

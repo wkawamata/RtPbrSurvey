@@ -1,0 +1,5718 @@
+{
+  "schemaVersion": 1,
+  "part": 4,
+  "baseCommit": "cf6a202807a2f96e0e26397b60d8e484bd502997",
+  "rendererBuildCommit": "cf6a202807a2f96e0e26397b60d8e484bd502997",
+  "branch": "codex/path-tracing-validation-part4",
+  "workspace": "C:\\work\\RtPbrSurvey",
+  "build": "Debug x64",
+  "warmupObservations": 16,
+  "measurementObservations": 32,
+  "repeats": 3,
+  "seed": 7,
+  "timing": "Latest completed GPU PathTracingPass duration logged once per CPU frame; no CPU FPS substitution",
+  "exeSha256": "663cba8e091bf311aa85cd4f0f575a5f30274495fd6dea5099208cf286f1d02d",
+  "initialPower": {
+    "acLineStatus": 1,
+    "batteryPercent": 99,
+    "powerScheme": {
+      "exitCode": 0,
+      "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+      "stderr": ""
+    },
+    "gpu": {
+      "exitCode": 0,
+      "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P8, 50, 345 MHz, 405 MHz, 17.74 W, [N/A]",
+      "stderr": ""
+    }
+  },
+  "finalPower": {
+    "acLineStatus": 1,
+    "batteryPercent": 99,
+    "powerScheme": {
+      "exitCode": 0,
+      "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+      "stderr": ""
+    },
+    "gpu": {
+      "exitCode": 0,
+      "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 53, 450 MHz, 810 MHz, 21.08 W, [N/A]",
+      "stderr": ""
+    }
+  },
+  "failures": [],
+  "complete": true,
+  "status": "done",
+  "testedCommit": "cf6a202807a2f96e0e26397b60d8e484bd502997",
+  "launchCount": 33,
+  "measurementObservationCount": 1056,
+  "cases": [
+    {
+      "settings": {
+        "name": "baseline",
+        "axis": "baseline",
+        "width": 1920,
+        "height": 1080,
+        "samplesPerFrame": 1,
+        "maxBounces": 2,
+        "lights": 1,
+        "stacks": 24,
+        "slices": 32
+      },
+      "aggregate": {
+        "case": "baseline",
+        "count": 96,
+        "medianMs": 2.881024,
+        "p90Ms": 2.92352,
+        "p95Ms": 2.927872,
+        "meanMs": 2.880416,
+        "minMs": 2.802688,
+        "maxMs": 2.958336
+      },
+      "runStatistics": [
+        {
+          "count": 32,
+          "medianMs": 2.861568,
+          "p90Ms": 2.897408,
+          "p95Ms": 2.9178368,
+          "meanMs": 2.862848,
+          "minMs": 2.802688,
+          "maxMs": 2.958336
+        },
+        {
+          "count": 32,
+          "medianMs": 2.880512,
+          "p90Ms": 2.9058048,
+          "p95Ms": 2.9086208,
+          "meanMs": 2.877888,
+          "minMs": 2.830336,
+          "maxMs": 2.911232
+        },
+        {
+          "count": 32,
+          "medianMs": 2.899456,
+          "p90Ms": 2.9273088,
+          "p95Ms": 2.9295616,
+          "meanMs": 2.900512,
+          "minMs": 2.83136,
+          "maxMs": 2.946048
+        }
+      ],
+      "measuredGpuState": {
+        "observationCount": 2,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          435.0,
+          480.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "settings": {
+        "width": 960,
+        "height": 540,
+        "samplesPerFrame": 1,
+        "maxBounces": 2,
+        "lights": 1,
+        "stacks": 24,
+        "slices": 32,
+        "name": "resolution-0",
+        "axis": "resolution"
+      },
+      "aggregate": {
+        "case": "resolution-0",
+        "count": 96,
+        "medianMs": 0.76032,
+        "p90Ms": 0.782336,
+        "p95Ms": 0.785152,
+        "meanMs": 0.7494613333333333,
+        "minMs": 0.702464,
+        "maxMs": 0.821248
+      },
+      "runStatistics": [
+        {
+          "count": 32,
+          "medianMs": 0.764928,
+          "p90Ms": 0.7841792,
+          "p95Ms": 0.7871488,
+          "meanMs": 0.751552,
+          "minMs": 0.702464,
+          "maxMs": 0.801792
+        },
+        {
+          "count": 32,
+          "medianMs": 0.754176,
+          "p90Ms": 0.766976,
+          "p95Ms": 0.7705088,
+          "meanMs": 0.744192,
+          "minMs": 0.704512,
+          "maxMs": 0.77312
+        },
+        {
+          "count": 32,
+          "medianMs": 0.769536,
+          "p90Ms": 0.78336,
+          "p95Ms": 0.7888384,
+          "meanMs": 0.75264,
+          "minMs": 0.705536,
+          "maxMs": 0.821248
+        }
+      ],
+      "measuredGpuState": {
+        "observationCount": 3,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          51.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          450.0,
+          510.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "settings": {
+        "width": 1280,
+        "height": 720,
+        "samplesPerFrame": 1,
+        "maxBounces": 2,
+        "lights": 1,
+        "stacks": 24,
+        "slices": 32,
+        "name": "resolution-1",
+        "axis": "resolution"
+      },
+      "aggregate": {
+        "case": "resolution-1",
+        "count": 96,
+        "medianMs": 1.311744,
+        "p90Ms": 1.35168,
+        "p95Ms": 1.366784,
+        "meanMs": 1.308864,
+        "minMs": 1.23392,
+        "maxMs": 1.43872
+      },
+      "runStatistics": [
+        {
+          "count": 32,
+          "medianMs": 1.304064,
+          "p90Ms": 1.3494272,
+          "p95Ms": 1.3586943999999999,
+          "meanMs": 1.304064,
+          "minMs": 1.234944,
+          "maxMs": 1.393664
+        },
+        {
+          "count": 32,
+          "medianMs": 1.3096960000000002,
+          "p90Ms": 1.3430784,
+          "p95Ms": 1.361664,
+          "meanMs": 1.31136,
+          "minMs": 1.24416,
+          "maxMs": 1.43872
+        },
+        {
+          "count": 32,
+          "medianMs": 1.3204479999999998,
+          "p90Ms": 1.3534208,
+          "p95Ms": 1.3628928,
+          "meanMs": 1.311168,
+          "minMs": 1.23392,
+          "maxMs": 1.378304
+        }
+      ],
+      "measuredGpuState": {
+        "observationCount": 2,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          480.0,
+          525.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "samplesPerFrame": 2,
+        "maxBounces": 2,
+        "lights": 1,
+        "stacks": 24,
+        "slices": 32,
+        "name": "samplesPerFrame-0",
+        "axis": "samplesPerFrame"
+      },
+      "aggregate": {
+        "case": "samplesPerFrame-0",
+        "count": 96,
+        "medianMs": 2.91328,
+        "p90Ms": 2.9419519999999997,
+        "p95Ms": 2.94912,
+        "meanMs": 2.90896,
+        "minMs": 2.816,
+        "maxMs": 2.95936
+      },
+      "runStatistics": [
+        {
+          "count": 32,
+          "medianMs": 2.929152,
+          "p90Ms": 2.9489152,
+          "p95Ms": 2.95424,
+          "meanMs": 2.926112,
+          "minMs": 2.889728,
+          "maxMs": 2.95936
+        },
+        {
+          "count": 32,
+          "medianMs": 2.917888,
+          "p90Ms": 2.9395968,
+          "p95Ms": 2.9468672000000002,
+          "meanMs": 2.91728,
+          "minMs": 2.880512,
+          "maxMs": 2.958336
+        },
+        {
+          "count": 32,
+          "medianMs": 2.881024,
+          "p90Ms": 2.9203456,
+          "p95Ms": 2.9244416,
+          "meanMs": 2.883488,
+          "minMs": 2.816,
+          "maxMs": 2.925568
+        }
+      ],
+      "measuredGpuState": {
+        "observationCount": 3,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          51.0,
+          53.0
+        ],
+        "smClockRangeMHz": [
+          450.0,
+          600.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "samplesPerFrame": 4,
+        "maxBounces": 2,
+        "lights": 1,
+        "stacks": 24,
+        "slices": 32,
+        "name": "samplesPerFrame-1",
+        "axis": "samplesPerFrame"
+      },
+      "aggregate": {
+        "case": "samplesPerFrame-1",
+        "count": 96,
+        "medianMs": 3.494912,
+        "p90Ms": 3.513344,
+        "p95Ms": 3.515392,
+        "meanMs": 3.436832,
+        "minMs": 3.288064,
+        "maxMs": 3.518464
+      },
+      "runStatistics": [
+        {
+          "count": 32,
+          "medianMs": 3.5020800000000003,
+          "p90Ms": 3.5130368,
+          "p95Ms": 3.5168768,
+          "meanMs": 3.499936,
+          "minMs": 3.477504,
+          "maxMs": 3.518464
+        },
+        {
+          "count": 32,
+          "medianMs": 3.5041279999999997,
+          "p90Ms": 3.514368,
+          "p95Ms": 3.515392,
+          "meanMs": 3.50352,
+          "minMs": 3.48672,
+          "maxMs": 3.516416
+        },
+        {
+          "count": 32,
+          "medianMs": 3.30752,
+          "p90Ms": 3.3155072,
+          "p95Ms": 3.3181184,
+          "meanMs": 3.3070399999999998,
+          "minMs": 3.288064,
+          "maxMs": 3.321856
+        }
+      ],
+      "measuredGpuState": {
+        "observationCount": 3,
+        "pStates": [
+          "P5",
+          "P8"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          53.0
+        ],
+        "smClockRangeMHz": [
+          330.0,
+          525.0
+        ],
+        "memoryClockRangeMHz": [
+          405.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "samplesPerFrame": 1,
+        "maxBounces": 1,
+        "lights": 1,
+        "stacks": 24,
+        "slices": 32,
+        "name": "maxBounces-0",
+        "axis": "maxBounces"
+      },
+      "aggregate": {
+        "case": "maxBounces-0",
+        "count": 96,
+        "medianMs": 2.838528,
+        "p90Ms": 6.840832,
+        "p95Ms": 6.89536,
+        "meanMs": 3.3444266666666667,
+        "minMs": 2.724864,
+        "maxMs": 7.028736
+      },
+      "runStatistics": [
+        {
+          "count": 32,
+          "medianMs": 2.856448,
+          "p90Ms": 6.957260799999999,
+          "p95Ms": 6.9843968,
+          "meanMs": 4.365632,
+          "minMs": 2.803712,
+          "maxMs": 7.028736
+        },
+        {
+          "count": 32,
+          "medianMs": 2.83392,
+          "p90Ms": 2.8609536,
+          "p95Ms": 2.8644863999999997,
+          "meanMs": 2.830112,
+          "minMs": 2.750464,
+          "maxMs": 2.87232
+        },
+        {
+          "count": 32,
+          "medianMs": 2.836992,
+          "p90Ms": 2.870272,
+          "p95Ms": 2.8870144,
+          "meanMs": 2.837536,
+          "minMs": 2.724864,
+          "maxMs": 2.911232
+        }
+      ],
+      "measuredGpuState": {
+        "observationCount": 3,
+        "pStates": [
+          "P5",
+          "P8"
+        ],
+        "temperatureRangeC": [
+          51.0,
+          53.0
+        ],
+        "smClockRangeMHz": [
+          345.0,
+          450.0
+        ],
+        "memoryClockRangeMHz": [
+          405.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "samplesPerFrame": 1,
+        "maxBounces": 4,
+        "lights": 1,
+        "stacks": 24,
+        "slices": 32,
+        "name": "maxBounces-1",
+        "axis": "maxBounces"
+      },
+      "aggregate": {
+        "case": "maxBounces-1",
+        "count": 96,
+        "medianMs": 2.850304,
+        "p90Ms": 2.922496,
+        "p95Ms": 2.9365759999999996,
+        "meanMs": 2.09744,
+        "minMs": 0.410624,
+        "maxMs": 6.431744
+      },
+      "runStatistics": [
+        {
+          "count": 32,
+          "medianMs": 2.850304,
+          "p90Ms": 2.8804096,
+          "p95Ms": 2.8971008,
+          "meanMs": 2.853952,
+          "minMs": 2.817024,
+          "maxMs": 2.920448
+        },
+        {
+          "count": 32,
+          "medianMs": 2.910208,
+          "p90Ms": 2.9582336000000002,
+          "p95Ms": 2.969088,
+          "meanMs": 3.020096,
+          "minMs": 2.85696,
+          "maxMs": 6.431744
+        },
+        {
+          "count": 32,
+          "medianMs": 0.414208,
+          "p90Ms": 0.4279296,
+          "p95Ms": 0.4335104,
+          "meanMs": 0.418272,
+          "minMs": 0.410624,
+          "maxMs": 0.436224
+        }
+      ],
+      "measuredGpuState": {
+        "observationCount": 3,
+        "pStates": [
+          "P0",
+          "P5",
+          "P8"
+        ],
+        "temperatureRangeC": [
+          50.0,
+          53.0
+        ],
+        "smClockRangeMHz": [
+          315.0,
+          1245.0
+        ],
+        "memoryClockRangeMHz": [
+          405.0,
+          6001.0
+        ]
+      }
+    },
+    {
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "samplesPerFrame": 1,
+        "maxBounces": 2,
+        "lights": 4,
+        "stacks": 24,
+        "slices": 32,
+        "name": "lights-0",
+        "axis": "lights"
+      },
+      "aggregate": {
+        "case": "lights-0",
+        "count": 96,
+        "medianMs": 2.878464,
+        "p90Ms": 2.922496,
+        "p95Ms": 2.927872,
+        "meanMs": 2.873056,
+        "minMs": 2.765824,
+        "maxMs": 2.95424
+      },
+      "runStatistics": [
+        {
+          "count": 32,
+          "medianMs": 2.878464,
+          "p90Ms": 2.9036544,
+          "p95Ms": 2.9090816,
+          "meanMs": 2.878752,
+          "minMs": 2.82624,
+          "maxMs": 2.95424
+        },
+        {
+          "count": 32,
+          "medianMs": 2.906624,
+          "p90Ms": 2.9312,
+          "p95Ms": 2.9377536,
+          "meanMs": 2.909472,
+          "minMs": 2.874368,
+          "maxMs": 2.947072
+        },
+        {
+          "count": 32,
+          "medianMs": 2.830336,
+          "p90Ms": 2.8599296,
+          "p95Ms": 2.8645888,
+          "meanMs": 2.830944,
+          "minMs": 2.765824,
+          "maxMs": 2.88768
+        }
+      ],
+      "measuredGpuState": {
+        "observationCount": 3,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          435.0,
+          525.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "samplesPerFrame": 1,
+        "maxBounces": 2,
+        "lights": 8,
+        "stacks": 24,
+        "slices": 32,
+        "name": "lights-1",
+        "axis": "lights"
+      },
+      "aggregate": {
+        "case": "lights-1",
+        "count": 96,
+        "medianMs": 2.89536,
+        "p90Ms": 7.0000634999999996,
+        "p95Ms": 7.04256,
+        "meanMs": 3.7509013229166666,
+        "minMs": 2.820096,
+        "maxMs": 7.144448
+      },
+      "runStatistics": [
+        {
+          "count": 32,
+          "medianMs": 2.894848,
+          "p90Ms": 6.9948407,
+          "p95Ms": 7.0373376,
+          "meanMs": 3.91814396875,
+          "minMs": 2.866176,
+          "maxMs": 7.099392
+        },
+        {
+          "count": 32,
+          "medianMs": 2.861056,
+          "p90Ms": 2.8944384000000003,
+          "p95Ms": 2.9001216,
+          "meanMs": 2.861376,
+          "minMs": 2.820096,
+          "maxMs": 2.906112
+        },
+        {
+          "count": 32,
+          "medianMs": 2.990592,
+          "p90Ms": 7.0407168,
+          "p95Ms": 7.0597632,
+          "meanMs": 4.473184,
+          "minMs": 2.863104,
+          "maxMs": 7.144448
+        }
+      ],
+      "measuredGpuState": {
+        "observationCount": 2,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          50.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          585.0,
+          660.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "samplesPerFrame": 1,
+        "maxBounces": 2,
+        "lights": 1,
+        "stacks": 12,
+        "slices": 16,
+        "name": "geometry-0",
+        "axis": "geometry"
+      },
+      "aggregate": {
+        "case": "geometry-0",
+        "count": 96,
+        "medianMs": 2.895872,
+        "p90Ms": 2.930688,
+        "p95Ms": 2.9406719999999997,
+        "meanMs": 2.8959573333333335,
+        "minMs": 2.824192,
+        "maxMs": 3.001344
+      },
+      "runStatistics": [
+        {
+          "count": 32,
+          "medianMs": 2.90304,
+          "p90Ms": 2.9391871999999997,
+          "p95Ms": 2.952448,
+          "meanMs": 2.90896,
+          "minMs": 2.8672,
+          "maxMs": 3.001344
+        },
+        {
+          "count": 32,
+          "medianMs": 2.890752,
+          "p90Ms": 2.9247488,
+          "p95Ms": 2.9344768,
+          "meanMs": 2.891744,
+          "minMs": 2.834432,
+          "maxMs": 2.942976
+        },
+        {
+          "count": 32,
+          "medianMs": 2.891776,
+          "p90Ms": 2.9172736,
+          "p95Ms": 2.9226495999999997,
+          "meanMs": 2.887168,
+          "minMs": 2.824192,
+          "maxMs": 2.944
+        }
+      ],
+      "measuredGpuState": {
+        "observationCount": 2,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          53.0
+        ],
+        "smClockRangeMHz": [
+          480.0,
+          480.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "samplesPerFrame": 1,
+        "maxBounces": 2,
+        "lights": 1,
+        "stacks": 96,
+        "slices": 128,
+        "name": "geometry-1",
+        "axis": "geometry"
+      },
+      "aggregate": {
+        "case": "geometry-1",
+        "count": 96,
+        "medianMs": 2.894848,
+        "p90Ms": 2.935296,
+        "p95Ms": 2.941952,
+        "meanMs": 2.8953173333333333,
+        "minMs": 2.779136,
+        "maxMs": 3.013632
+      },
+      "runStatistics": [
+        {
+          "count": 32,
+          "medianMs": 2.888192,
+          "p90Ms": 2.919424,
+          "p95Ms": 2.9351423999999997,
+          "meanMs": 2.887776,
+          "minMs": 2.779136,
+          "maxMs": 2.973696
+        },
+        {
+          "count": 32,
+          "medianMs": 2.8912639999999996,
+          "p90Ms": 2.9262848,
+          "p95Ms": 2.941952,
+          "meanMs": 2.891104,
+          "minMs": 2.828288,
+          "maxMs": 2.972672
+        },
+        {
+          "count": 32,
+          "medianMs": 2.896896,
+          "p90Ms": 2.936832,
+          "p95Ms": 2.9543936,
+          "meanMs": 2.907072,
+          "minMs": 2.861056,
+          "maxMs": 3.013632
+        }
+      ],
+      "measuredGpuState": {
+        "observationCount": 3,
+        "pStates": [
+          "P5",
+          "P8"
+        ],
+        "temperatureRangeC": [
+          51.0,
+          53.0
+        ],
+        "smClockRangeMHz": [
+          300.0,
+          525.0
+        ],
+        "memoryClockRangeMHz": [
+          405.0,
+          810.0
+        ]
+      }
+    }
+  ],
+  "runs": [
+    {
+      "name": "lights-1-r0",
+      "case": "lights-1",
+      "repeat": 0,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r0-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r0-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r0.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r0.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "1159f37d59004ba34b4942646d59ec7887dccf77bacc00bbbe3221056082f44b",
+      "presetSha256": "9c407bc0161bf8931158ec213939268ae3421a3e3a4ecd0baa5d7dff86ee15da",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.894848,
+        "p90Ms": 6.9948407,
+        "p95Ms": 7.0373376,
+        "meanMs": 3.91814396875,
+        "minMs": 2.866176,
+        "maxMs": 7.099392
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r0.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.8938241004943848,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 716560484.6700058,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance lights-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P8, 50, 345 MHz, 405 MHz, 17.74 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 50, 585 MHz, 810 MHz, 21.29 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 18132,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          50.0,
+          50.0
+        ],
+        "smClockRangeMHz": [
+          585.0,
+          585.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "maxBounces-1-r0",
+      "case": "maxBounces-1",
+      "repeat": 0,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r0-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r0-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r0.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r0.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "032086bd5ea748ac1aa8e653688f00bf335f6d9c2255a2448ed872a0f3b0e99b",
+      "presetSha256": "f18e88fae4d8b30c8b874165e1111aa3b1f53938cbec0ff2cda095a8301e129e",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.850304,
+        "p90Ms": 2.8804096,
+        "p95Ms": 2.8971008,
+        "meanMs": 2.853952,
+        "minMs": 2.817024,
+        "maxMs": 2.920448
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r0.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.8549118041992188,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 4,
+        "maxPathSegmentsPerFrame": 8294400,
+        "maxRayQueriesPerFrame": 22809600,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 726327166.0266329,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance maxBounces-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 50, 585 MHz, 810 MHz, 21.29 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 50, 495 MHz, 810 MHz, 20.98 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 23168,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P8"
+        ],
+        "temperatureRangeC": [
+          50.0,
+          50.0
+        ],
+        "smClockRangeMHz": [
+          315.0,
+          315.0
+        ],
+        "memoryClockRangeMHz": [
+          405.0,
+          405.0
+        ]
+      }
+    },
+    {
+      "name": "samplesPerFrame-0-r0",
+      "case": "samplesPerFrame-0",
+      "repeat": 0,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r0-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r0-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r0.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r0.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "39b8339c47ffa48747cd050bfb87f46c499022d46d58de70add33ac13dcdda04",
+      "presetSha256": "78010eb65093744d011cae6079d5702ad5b238e624f39eef63d5e569346398cb",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.929152,
+        "p90Ms": 2.9489152,
+        "p95Ms": 2.95424,
+        "meanMs": 2.926112,
+        "minMs": 2.889728,
+        "maxMs": 2.95936
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 128,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r0.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.9286398887634277,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 8294400,
+        "maxRayQueriesPerFrame": 20736000,
+        "primarySamplesPerFrame": 4147200,
+        "primarySamplesPerSecond": 1416083969.8700855,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 2,
+        "scene": "PT performance samplesPerFrame-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 50, 495 MHz, 810 MHz, 20.98 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 51, 480 MHz, 810 MHz, 21.22 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 1908,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          51.0,
+          51.0
+        ],
+        "smClockRangeMHz": [
+          480.0,
+          480.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "resolution-0-r0",
+      "case": "resolution-0",
+      "repeat": 0,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r0-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r0-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r0.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r0.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "d2e2dbc4d98200d3b64e78cddc97dfede67e22b9f167affc1a9c971c0808a5d6",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 0.764928,
+        "p90Ms": 0.7841792,
+        "p95Ms": 0.7871488,
+        "meanMs": 0.751552,
+        "minMs": 0.702464,
+        "maxMs": 0.801792
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r0.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 0.7598080039024353,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 1036800,
+        "maxRayQueriesPerFrame": 2592000,
+        "primarySamplesPerFrame": 518400,
+        "primarySamplesPerSecond": 682277624.5281119,
+        "randomSeed": 7,
+        "renderHeight": 540,
+        "renderWidth": 960,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance resolution-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 51, 480 MHz, 810 MHz, 21.22 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 51, 510 MHz, 810 MHz, 20.36 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 31752,
+        "clientWidth": 960,
+        "clientHeight": 540,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          51.0,
+          51.0
+        ],
+        "smClockRangeMHz": [
+          510.0,
+          510.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "resolution-1-r0",
+      "case": "resolution-1",
+      "repeat": 0,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r0-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r0-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r0.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r0.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "410ddd78604e68cc18a29d411df0eb0e8f52b8dc6b4a8b9281ec36d6e85ea971",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 1.304064,
+        "p90Ms": 1.3494272,
+        "p95Ms": 1.3586943999999999,
+        "meanMs": 1.304064,
+        "minMs": 1.234944,
+        "maxMs": 1.393664
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r0.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 1.3649920225143433,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 1843200,
+        "maxRayQueriesPerFrame": 4608000,
+        "primarySamplesPerFrame": 921600,
+        "primarySamplesPerSecond": 675168781.061734,
+        "randomSeed": 7,
+        "renderHeight": 720,
+        "renderWidth": 1280,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance resolution-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 51, 510 MHz, 810 MHz, 20.36 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 51, 495 MHz, 810 MHz, 19.96 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 1240,
+        "clientWidth": 1280,
+        "clientHeight": 720,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 0,
+        "pStates": [],
+        "temperatureRangeC": null,
+        "smClockRangeMHz": null,
+        "memoryClockRangeMHz": null
+      }
+    },
+    {
+      "name": "maxBounces-0-r0",
+      "case": "maxBounces-0",
+      "repeat": 0,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r0-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r0-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r0.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r0.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "ef113812e82cdb287f326ee05e581a563627f8346ba66b31bbfd6b3748b51262",
+      "presetSha256": "db969eed8967caa463a1c8254e91cfd48893d8cabd929498b8ed879b381772f4",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.856448,
+        "p90Ms": 6.957260799999999,
+        "p95Ms": 6.9843968,
+        "meanMs": 4.365632,
+        "minMs": 2.803712,
+        "maxMs": 7.028736
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r0.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.825216054916382,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 1,
+        "maxPathSegmentsPerFrame": 2073600,
+        "maxRayQueriesPerFrame": 4147200,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 733961566.0160096,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance maxBounces-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 51, 495 MHz, 810 MHz, 19.96 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 51, 525 MHz, 810 MHz, 21.12 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 19532,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          51.0,
+          51.0
+        ],
+        "smClockRangeMHz": [
+          450.0,
+          450.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "geometry-1-r0",
+      "case": "geometry-1",
+      "repeat": 0,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r0-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r0-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r0.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r0.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "74437668126d9a1b11d03e18e56bb0259948cb45261031e39e1e85cdb6b7905e",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.888192,
+        "p90Ms": 2.919424,
+        "p95Ms": 2.9351423999999997,
+        "meanMs": 2.887776,
+        "minMs": 2.779136,
+        "maxMs": 2.973696
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r0.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.875391960144043,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 721153856.149797,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance geometry-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 51, 525 MHz, 810 MHz, 21.12 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 51, 465 MHz, 810 MHz, 20.96 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 23712,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P8"
+        ],
+        "temperatureRangeC": [
+          51.0,
+          51.0
+        ],
+        "smClockRangeMHz": [
+          300.0,
+          300.0
+        ],
+        "memoryClockRangeMHz": [
+          405.0,
+          405.0
+        ]
+      }
+    },
+    {
+      "name": "geometry-0-r0",
+      "case": "geometry-0",
+      "repeat": 0,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r0-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r0-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r0.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r0.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "3aede53113539264d7b96b7dbb8e309d844b7be83d21486684dbd4514b30915b",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.90304,
+        "p90Ms": 2.9391871999999997,
+        "p95Ms": 2.952448,
+        "meanMs": 2.90896,
+        "minMs": 2.8672,
+        "maxMs": 3.001344
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r0.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.899967908859253,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 715042395.3538446,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance geometry-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 51, 465 MHz, 810 MHz, 20.96 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 480 MHz, 810 MHz, 20.86 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 3612,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          480.0,
+          480.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "lights-0-r0",
+      "case": "lights-0",
+      "repeat": 0,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r0-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r0-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r0.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r0.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "5d06d1afdb556834f9e49f261cb709b1420cd1f59446c8610b167bad434a0c60",
+      "presetSha256": "72d2025c4d020627ac5bf9e2bb7573fba545a3a435481baba001c0a4a64a6a1b",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.878464,
+        "p90Ms": 2.9036544,
+        "p95Ms": 2.9090816,
+        "meanMs": 2.878752,
+        "minMs": 2.82624,
+        "maxMs": 2.95424
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r0.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.8794877529144287,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 720128084.5529689,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance lights-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 480 MHz, 810 MHz, 20.86 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 450 MHz, 810 MHz, 20.89 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 33496,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          450.0,
+          450.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "baseline-r0",
+      "case": "baseline",
+      "repeat": 0,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r0-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r0-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r0.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r0.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "111e50e508a12bc5dd341d3d02e49709206feb26037af6094acc2a1e0289e7ce",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.861568,
+        "p90Ms": 2.897408,
+        "p95Ms": 2.9178368,
+        "meanMs": 2.862848,
+        "minMs": 2.802688,
+        "maxMs": 2.958336
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r0.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.8989439010620117,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 715294973.1936338,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance baseline",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 450 MHz, 810 MHz, 20.89 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 480 MHz, 810 MHz, 20.94 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 28344,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          480.0,
+          480.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "samplesPerFrame-1-r0",
+      "case": "samplesPerFrame-1",
+      "repeat": 0,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r0-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r0-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r0.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r0.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "7e4deb95144e1ca119d8473391a0121ee2ce94384f4111cf23818212a6025025",
+      "presetSha256": "e46682d0cff0fa13015bcdc5f55bca10cbe7dee640084f47dfcc46d40a513427",
+      "stats": {
+        "count": 32,
+        "medianMs": 3.5020800000000003,
+        "p90Ms": 3.5130368,
+        "p95Ms": 3.5168768,
+        "meanMs": 3.499936,
+        "minMs": 3.477504,
+        "maxMs": 3.518464
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 256,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r0.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 3.4897918701171875,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 16588800,
+        "maxRayQueriesPerFrame": 41472000,
+        "primarySamplesPerFrame": 8294400,
+        "primarySamplesPerSecond": 2376760651.8383784,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 4,
+        "scene": "PT performance samplesPerFrame-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 480 MHz, 810 MHz, 20.94 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 495 MHz, 810 MHz, 22.02 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 24548,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          495.0,
+          495.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "lights-0-r1",
+      "case": "lights-0",
+      "repeat": 1,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r1-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r1-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r1.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r1.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "2d438e8bd1f896baef7abf93c048171280d717de75baa84c93b40a6c2b3939cb",
+      "presetSha256": "72d2025c4d020627ac5bf9e2bb7573fba545a3a435481baba001c0a4a64a6a1b",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.906624,
+        "p90Ms": 2.9312,
+        "p95Ms": 2.9377536,
+        "meanMs": 2.909472,
+        "minMs": 2.874368,
+        "maxMs": 2.947072
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r1.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.880511999130249,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 719872022.9688714,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance lights-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 495 MHz, 810 MHz, 22.02 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 435 MHz, 810 MHz, 20.95 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 19744,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          435.0,
+          435.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "baseline-r1",
+      "case": "baseline",
+      "repeat": 1,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r1-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r1-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r1.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r1.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "0bcd7845ebc3a702161ff3c1e3b9bf6b776cae43a07b60da33de2a6f0649a841",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.880512,
+        "p90Ms": 2.9058048,
+        "p95Ms": 2.9086208,
+        "meanMs": 2.877888,
+        "minMs": 2.830336,
+        "maxMs": 2.911232
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r1.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.905087947845459,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 713782177.0724267,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance baseline",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 435 MHz, 810 MHz, 20.95 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 435 MHz, 810 MHz, 20.96 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 29672,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          435.0,
+          435.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "samplesPerFrame-1-r1",
+      "case": "samplesPerFrame-1",
+      "repeat": 1,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r1-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r1-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r1.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r1.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "976ed1532cec8741c4bb65a3b8b8b93926d7eacbebaa27c1268c266a430a80e2",
+      "presetSha256": "e46682d0cff0fa13015bcdc5f55bca10cbe7dee640084f47dfcc46d40a513427",
+      "stats": {
+        "count": 32,
+        "medianMs": 3.5041279999999997,
+        "p90Ms": 3.514368,
+        "p95Ms": 3.515392,
+        "meanMs": 3.50352,
+        "minMs": 3.48672,
+        "maxMs": 3.516416
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 256,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r1.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 3.516416072845459,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 16588800,
+        "maxRayQueriesPerFrame": 41472000,
+        "primarySamplesPerFrame": 8294400,
+        "primarySamplesPerSecond": 2358765239.429767,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 4,
+        "scene": "PT performance samplesPerFrame-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 435 MHz, 810 MHz, 20.96 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 495 MHz, 810 MHz, 22.58 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 18440,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P8"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          330.0,
+          330.0
+        ],
+        "memoryClockRangeMHz": [
+          405.0,
+          405.0
+        ]
+      }
+    },
+    {
+      "name": "resolution-1-r1",
+      "case": "resolution-1",
+      "repeat": 1,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r1-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r1-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r1.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r1.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "49933c37e07dc8c3908269bcc006633497c6d724c263e8391a067a0cc02f1928",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 1.3096960000000002,
+        "p90Ms": 1.3430784,
+        "p95Ms": 1.361664,
+        "meanMs": 1.31136,
+        "minMs": 1.24416,
+        "maxMs": 1.43872
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r1.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 1.3209600448608398,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 1843200,
+        "maxRayQueriesPerFrame": 4608000,
+        "primarySamplesPerFrame": 921600,
+        "primarySamplesPerSecond": 697674394.9110804,
+        "randomSeed": 7,
+        "renderHeight": 720,
+        "renderWidth": 1280,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance resolution-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 495 MHz, 810 MHz, 22.58 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 525 MHz, 810 MHz, 20.42 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 18600,
+        "clientWidth": 1280,
+        "clientHeight": 720,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          525.0,
+          525.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "geometry-1-r1",
+      "case": "geometry-1",
+      "repeat": 1,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r1-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r1-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r1.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r1.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "35e46634a0873d5624da68411a9be4d516b4a09f17626a6c019ccb0f129822aa",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.8912639999999996,
+        "p90Ms": 2.9262848,
+        "p95Ms": 2.941952,
+        "meanMs": 2.891104,
+        "minMs": 2.828288,
+        "maxMs": 2.972672
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r1.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.9183998107910156,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 710526361.8551162,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance geometry-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 525 MHz, 810 MHz, 20.42 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 525 MHz, 810 MHz, 20.92 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 18676,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          525.0,
+          525.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "maxBounces-1-r1",
+      "case": "maxBounces-1",
+      "repeat": 1,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r1-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r1-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r1.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r1.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "4415df319638171757d05df66468288ea99cb011fc28e19027ea7ec80a2d3d4f",
+      "presetSha256": "f18e88fae4d8b30c8b874165e1111aa3b1f53938cbec0ff2cda095a8301e129e",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.910208,
+        "p90Ms": 2.9582336000000002,
+        "p95Ms": 2.969088,
+        "meanMs": 3.020096,
+        "minMs": 2.85696,
+        "maxMs": 6.431744
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r1.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.9214720726013184,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 4,
+        "maxPathSegmentsPerFrame": 8294400,
+        "maxRayQueriesPerFrame": 22809600,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 709779162.1720479,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance maxBounces-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 525 MHz, 810 MHz, 20.92 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 510 MHz, 810 MHz, 21.30 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 23228,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          450.0,
+          450.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "lights-1-r1",
+      "case": "lights-1",
+      "repeat": 1,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r1-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r1-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r1.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r1.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "aec6eefb4818b35b1cbd14ec5844644de6b6c8fe484be6f3d8ede5f2744e0202",
+      "presetSha256": "9c407bc0161bf8931158ec213939268ae3421a3e3a4ecd0baa5d7dff86ee15da",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.861056,
+        "p90Ms": 2.8944384000000003,
+        "p95Ms": 2.9001216,
+        "meanMs": 2.861376,
+        "minMs": 2.820096,
+        "maxMs": 2.906112
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r1.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.955264091491699,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 701663179.940487,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance lights-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 510 MHz, 810 MHz, 21.30 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 660 MHz, 810 MHz, 21.13 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 12740,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          660.0,
+          660.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "maxBounces-0-r1",
+      "case": "maxBounces-0",
+      "repeat": 1,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r1-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r1-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r1.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r1.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "ea30b67f5bc59b5f60e6b1bc1404caa1b8fd94c4d84d7b1ce68f710b4ea8695c",
+      "presetSha256": "db969eed8967caa463a1c8254e91cfd48893d8cabd929498b8ed879b381772f4",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.83392,
+        "p90Ms": 2.8609536,
+        "p95Ms": 2.8644863999999997,
+        "meanMs": 2.830112,
+        "minMs": 2.750464,
+        "maxMs": 2.87232
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r1.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.8190720081329346,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 1,
+        "maxPathSegmentsPerFrame": 2073600,
+        "maxRayQueriesPerFrame": 4147200,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 735561203.8350666,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance maxBounces-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 660 MHz, 810 MHz, 21.13 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 600 MHz, 810 MHz, 20.89 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 29164,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P8"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          360.0,
+          360.0
+        ],
+        "memoryClockRangeMHz": [
+          405.0,
+          405.0
+        ]
+      }
+    },
+    {
+      "name": "resolution-0-r1",
+      "case": "resolution-0",
+      "repeat": 1,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r1-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r1-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r1.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r1.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "75a8502dc4f581e56220f89fa58084b628808b4417c03a8d3bacbd9b089737d1",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 0.754176,
+        "p90Ms": 0.766976,
+        "p95Ms": 0.7705088,
+        "meanMs": 0.744192,
+        "minMs": 0.704512,
+        "maxMs": 0.77312
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r1.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 0.7761920094490051,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 1036800,
+        "maxRayQueriesPerFrame": 2592000,
+        "primarySamplesPerFrame": 518400,
+        "primarySamplesPerSecond": 667875981.3154947,
+        "randomSeed": 7,
+        "renderHeight": 540,
+        "renderWidth": 960,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance resolution-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 600 MHz, 810 MHz, 20.89 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 465 MHz, 810 MHz, 20.07 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 10356,
+        "clientWidth": 960,
+        "clientHeight": 540,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          465.0,
+          465.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "geometry-0-r1",
+      "case": "geometry-0",
+      "repeat": 1,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r1-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r1-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r1.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r1.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "f57d594af1b33ef5e3d02d5037536e305c659a3ca0cc09667a7bd6c9cebc0044",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.890752,
+        "p90Ms": 2.9247488,
+        "p95Ms": 2.9344768,
+        "meanMs": 2.891744,
+        "minMs": 2.834432,
+        "maxMs": 2.942976
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r1.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.881535768508911,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 719616262.5019268,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance geometry-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 465 MHz, 810 MHz, 20.07 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 585 MHz, 810 MHz, 20.88 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 24244,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 0,
+        "pStates": [],
+        "temperatureRangeC": null,
+        "smClockRangeMHz": null,
+        "memoryClockRangeMHz": null
+      }
+    },
+    {
+      "name": "samplesPerFrame-0-r1",
+      "case": "samplesPerFrame-0",
+      "repeat": 1,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r1-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r1-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r1.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r1.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "bfbf78e034300a0f9630a6c43f21a594a1a658321c67e3cac89caf3ae13c58cc",
+      "presetSha256": "78010eb65093744d011cae6079d5702ad5b238e624f39eef63d5e569346398cb",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.917888,
+        "p90Ms": 2.9395968,
+        "p95Ms": 2.9468672000000002,
+        "meanMs": 2.91728,
+        "minMs": 2.880512,
+        "maxMs": 2.958336
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 128,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r1.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.9132800102233887,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 8294400,
+        "maxRayQueriesPerFrame": 20736000,
+        "primarySamplesPerFrame": 4147200,
+        "primarySamplesPerSecond": 1423550082.8778882,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 2,
+        "scene": "PT performance samplesPerFrame-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 585 MHz, 810 MHz, 20.88 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 495 MHz, 810 MHz, 21.33 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 29956,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          450.0,
+          450.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "geometry-0-r2",
+      "case": "geometry-0",
+      "repeat": 2,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r2.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r2.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "da2327bf852d016d64af926eb81aa296eb81d61fa9d692b46f8f1e82144eb871",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.891776,
+        "p90Ms": 2.9172736,
+        "p95Ms": 2.9226495999999997,
+        "meanMs": 2.887168,
+        "minMs": 2.824192,
+        "maxMs": 2.944
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r2.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.959360122680664,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 700692012.4752104,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance geometry-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 495 MHz, 810 MHz, 21.33 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 480 MHz, 810 MHz, 21.08 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 23308,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          53.0,
+          53.0
+        ],
+        "smClockRangeMHz": [
+          480.0,
+          480.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "resolution-0-r2",
+      "case": "resolution-0",
+      "repeat": 2,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r2.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r2.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "9b0856c4be0b2b36811ee3426c0ce8abe4be407002d1c2bc5ac342687658cb7c",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 0.769536,
+        "p90Ms": 0.78336,
+        "p95Ms": 0.7888384,
+        "meanMs": 0.75264,
+        "minMs": 0.705536,
+        "maxMs": 0.821248
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r2.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 0.7741439938545227,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 1036800,
+        "maxRayQueriesPerFrame": 2592000,
+        "primarySamplesPerFrame": 518400,
+        "primarySamplesPerSecond": 669642862.4587609,
+        "randomSeed": 7,
+        "renderHeight": 540,
+        "renderWidth": 960,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance resolution-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 480 MHz, 810 MHz, 21.08 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 510 MHz, 810 MHz, 20.23 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 30756,
+        "clientWidth": 960,
+        "clientHeight": 540,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          450.0,
+          450.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "samplesPerFrame-0-r2",
+      "case": "samplesPerFrame-0",
+      "repeat": 2,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r2.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r2.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "00ece342b15019d149abd65476606f4513f5cadf38a212bdd2b36ae9d824d49c",
+      "presetSha256": "78010eb65093744d011cae6079d5702ad5b238e624f39eef63d5e569346398cb",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.881024,
+        "p90Ms": 2.9203456,
+        "p95Ms": 2.9244416,
+        "meanMs": 2.883488,
+        "minMs": 2.816,
+        "maxMs": 2.925568
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 128,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r2.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.8590078353881836,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 8294400,
+        "maxRayQueriesPerFrame": 20736000,
+        "primarySamplesPerFrame": 4147200,
+        "primarySamplesPerSecond": 1450573149.421576,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 2,
+        "scene": "PT performance samplesPerFrame-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 510 MHz, 810 MHz, 20.23 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 53, 600 MHz, 810 MHz, 21.40 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 32540,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          53.0,
+          53.0
+        ],
+        "smClockRangeMHz": [
+          600.0,
+          600.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "resolution-1-r2",
+      "case": "resolution-1",
+      "repeat": 2,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r2.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r2.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "3c01a05058345a59efc01ba83cefd1af7189e49587dd40b8f39580d88fc1f1d1",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 1.3204479999999998,
+        "p90Ms": 1.3534208,
+        "p95Ms": 1.3628928,
+        "meanMs": 1.311168,
+        "minMs": 1.23392,
+        "maxMs": 1.378304
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r2.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 1.248255968093872,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 1843200,
+        "maxRayQueriesPerFrame": 4608000,
+        "primarySamplesPerFrame": 921600,
+        "primarySamplesPerSecond": 738310109.109523,
+        "randomSeed": 7,
+        "renderHeight": 720,
+        "renderWidth": 1280,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance resolution-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 53, 600 MHz, 810 MHz, 21.40 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 480 MHz, 810 MHz, 20.84 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 24264,
+        "clientWidth": 1280,
+        "clientHeight": 720,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          480.0,
+          480.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "samplesPerFrame-1-r2",
+      "case": "samplesPerFrame-1",
+      "repeat": 2,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r2.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r2.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "21ab57cb41d22865ee81bd085f15b494e805737ae093d8ca3cb001137b9a524c",
+      "presetSha256": "e46682d0cff0fa13015bcdc5f55bca10cbe7dee640084f47dfcc46d40a513427",
+      "stats": {
+        "count": 32,
+        "medianMs": 3.30752,
+        "p90Ms": 3.3155072,
+        "p95Ms": 3.3181184,
+        "meanMs": 3.3070399999999998,
+        "minMs": 3.288064,
+        "maxMs": 3.321856
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 256,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r2.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 3.3126401901245117,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 16588800,
+        "maxRayQueriesPerFrame": 41472000,
+        "primarySamplesPerFrame": 8294400,
+        "primarySamplesPerSecond": 2503863843.929346,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 4,
+        "scene": "PT performance samplesPerFrame-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 480 MHz, 810 MHz, 20.84 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 525 MHz, 810 MHz, 22.91 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 11828,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          53.0,
+          53.0
+        ],
+        "smClockRangeMHz": [
+          525.0,
+          525.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "lights-0-r2",
+      "case": "lights-0",
+      "repeat": 2,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r2.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r2.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "f20c9982ef3837b5306254000769ffe85d513d259d4517f417175fdf1c1a323e",
+      "presetSha256": "72d2025c4d020627ac5bf9e2bb7573fba545a3a435481baba001c0a4a64a6a1b",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.830336,
+        "p90Ms": 2.8599296,
+        "p95Ms": 2.8645888,
+        "meanMs": 2.830944,
+        "minMs": 2.765824,
+        "maxMs": 2.88768
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-0-r2.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.8149759769439697,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 736631508.3978685,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance lights-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 525 MHz, 810 MHz, 22.91 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P8, 52, 390 MHz, 405 MHz, 20.97 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 22956,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          52.0,
+          52.0
+        ],
+        "smClockRangeMHz": [
+          525.0,
+          525.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "maxBounces-1-r2",
+      "case": "maxBounces-1",
+      "repeat": 2,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r2.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r2.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "21f1c61d4f1407c17fa327b1a7f776f6ad2f8f4e60a7f6b2acef496bfbffa5a1",
+      "presetSha256": "f18e88fae4d8b30c8b874165e1111aa3b1f53938cbec0ff2cda095a8301e129e",
+      "stats": {
+        "count": 32,
+        "medianMs": 0.414208,
+        "p90Ms": 0.4279296,
+        "p95Ms": 0.4335104,
+        "meanMs": 0.418272,
+        "minMs": 0.410624,
+        "maxMs": 0.436224
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r2.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 0.41676801443099976,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 4,
+        "maxPathSegmentsPerFrame": 8294400,
+        "maxRayQueriesPerFrame": 22809600,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 4975429803.15085,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance maxBounces-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P8, 52, 390 MHz, 405 MHz, 20.97 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P0, 53, 1245 MHz, 6001 MHz, 29.15 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 25276,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P0"
+        ],
+        "temperatureRangeC": [
+          53.0,
+          53.0
+        ],
+        "smClockRangeMHz": [
+          1245.0,
+          1245.0
+        ],
+        "memoryClockRangeMHz": [
+          6001.0,
+          6001.0
+        ]
+      }
+    },
+    {
+      "name": "geometry-1-r2",
+      "case": "geometry-1",
+      "repeat": 2,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r2.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r2.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "f44cc8ed59e9b07222abf9a07207ecd0694d6a1d32bc6f039860461cf64191c8",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.896896,
+        "p90Ms": 2.936832,
+        "p95Ms": 2.9543936,
+        "meanMs": 2.907072,
+        "minMs": 2.861056,
+        "maxMs": 3.013632
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r2.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.9675519466400146,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 698757776.5396208,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance geometry-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P0, 53, 1245 MHz, 6001 MHz, 29.15 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 53, 465 MHz, 810 MHz, 21.70 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 21816,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P5"
+        ],
+        "temperatureRangeC": [
+          53.0,
+          53.0
+        ],
+        "smClockRangeMHz": [
+          465.0,
+          465.0
+        ],
+        "memoryClockRangeMHz": [
+          810.0,
+          810.0
+        ]
+      }
+    },
+    {
+      "name": "maxBounces-0-r2",
+      "case": "maxBounces-0",
+      "repeat": 2,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r2.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r2.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "149bfe91b9ddf29ef48be8da5603a6f1f5ebd467fcf9f2f6544df2e7f71cadde",
+      "presetSha256": "db969eed8967caa463a1c8254e91cfd48893d8cabd929498b8ed879b381772f4",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.836992,
+        "p90Ms": 2.870272,
+        "p95Ms": 2.8870144,
+        "meanMs": 2.837536,
+        "minMs": 2.724864,
+        "maxMs": 2.911232
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r2.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.8098559379577637,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 1,
+        "maxPathSegmentsPerFrame": 2073600,
+        "maxRayQueriesPerFrame": 4147200,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 737973777.2275673,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance maxBounces-0",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 53, 465 MHz, 810 MHz, 20.79 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 53, 510 MHz, 810 MHz, 21.18 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 9244,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 1,
+        "pStates": [
+          "P8"
+        ],
+        "temperatureRangeC": [
+          53.0,
+          53.0
+        ],
+        "smClockRangeMHz": [
+          345.0,
+          345.0
+        ],
+        "memoryClockRangeMHz": [
+          405.0,
+          405.0
+        ]
+      }
+    },
+    {
+      "name": "lights-1-r2",
+      "case": "lights-1",
+      "repeat": 2,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r2.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r2.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "94fc714192b7a1a1f78e2c13bdf642d7f65c517e21b5e93cbd1c1be4b1546593",
+      "presetSha256": "9c407bc0161bf8931158ec213939268ae3421a3e3a4ecd0baa5d7dff86ee15da",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.990592,
+        "p90Ms": 7.0407168,
+        "p95Ms": 7.0597632,
+        "meanMs": 4.473184,
+        "minMs": 2.863104,
+        "maxMs": 7.144448
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\lights-1-r2.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.9429759979248047,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 704592902.3757476,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance lights-1",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 53, 510 MHz, 810 MHz, 21.18 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 525 MHz, 810 MHz, 22.00 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 1468,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 0,
+        "pStates": [],
+        "temperatureRangeC": null,
+        "smClockRangeMHz": null,
+        "memoryClockRangeMHz": null
+      }
+    },
+    {
+      "name": "baseline-r2",
+      "case": "baseline",
+      "repeat": 2,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CaptureAfterFrames",
+        "64",
+        "-LogFPS",
+        "1",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r2.log",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r2.pfm",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "b097017003678fa7e361e714ec413a73e9e5b738d8fa98c56435ac85a58f51c5",
+      "presetSha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12",
+      "stats": {
+        "count": 32,
+        "medianMs": 2.899456,
+        "p90Ms": 2.9273088,
+        "p95Ms": 2.9295616,
+        "meanMs": 2.900512,
+        "minMs": 2.83136,
+        "maxMs": 2.946048
+      },
+      "firstMeasuredCpuFrame": 18,
+      "lastMeasuredCpuFrame": 49,
+      "totalValidObservations": 63,
+      "diagnostics": {
+        "accumulatedSamples": 64,
+        "adapter": {
+          "dedicatedVideoMemory": 16960716800,
+          "deviceId": 9372,
+          "name": "NVIDIA GeForce RTX 3080 Laptop GPU",
+          "vendorId": 4318
+        },
+        "averagePrimarySamplesPerSecond": 0.0,
+        "capturePath": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part4-performance-final\\baseline-r2.pfm",
+        "environmentSamplingMode": 5,
+        "evaluationCase": null,
+        "gpuTimeAverageMs": 0.0,
+        "gpuTimeMaxMs": 0.0,
+        "gpuTimeMinMs": 0.0,
+        "gpuTimeMs": 2.8590080738067627,
+        "gpuTimingAvailable": true,
+        "gpuTimingSampleCount": 0,
+        "maxBounces": 2,
+        "maxPathSegmentsPerFrame": 4147200,
+        "maxRayQueriesPerFrame": 10368000,
+        "primarySamplesPerFrame": 2073600,
+        "primarySamplesPerSecond": 725286514.2276448,
+        "randomSeed": 7,
+        "renderHeight": 1080,
+        "renderWidth": 1920,
+        "russianRoulette": false,
+        "samplesPerFrame": 1,
+        "scene": "PT performance baseline",
+        "schemaVersion": 1,
+        "targetSamples": 0
+      },
+      "powerBefore": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 52, 525 MHz, 810 MHz, 22.00 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "powerAfter": {
+        "acLineStatus": 1,
+        "batteryPercent": 99,
+        "powerScheme": {
+          "exitCode": 0,
+          "stdout": "電源設定の GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (バランス)",
+          "stderr": ""
+        },
+        "gpu": {
+          "exitCode": 0,
+          "stdout": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64, P5, 53, 450 MHz, 810 MHz, 21.57 W, [N/A]",
+          "stderr": ""
+        }
+      },
+      "window": {
+        "pid": 21468,
+        "clientWidth": 1920,
+        "clientHeight": 1080,
+        "visible": true,
+        "foreground": true,
+        "borderless": true
+      },
+      "measurementGpuState": {
+        "observationCount": 0,
+        "pStates": [],
+        "temperatureRangeC": null,
+        "smClockRangeMHz": null,
+        "memoryClockRangeMHz": null
+      }
+    }
+  ],
+  "d3d12ErrorCount": 0,
+  "artifacts": [
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r0-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r0-scene.json",
+      "sha256": "111e50e508a12bc5dd341d3d02e49709206feb26037af6094acc2a1e0289e7ce"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r0.csv",
+      "sha256": "25bfe7bf56cc2c6875c2976e9a0695299919b531f547c94034d28f528729be2e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r0.log",
+      "sha256": "8f66c30fc9fb8977bbfef49df6d27f755a4567abddef4e6234349f26ea45a054"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r0.pfm",
+      "sha256": "8c2157593468f542c101037494e248bfbda1090efcb9e921e98c11f78eedf09d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r1-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r1-scene.json",
+      "sha256": "0bcd7845ebc3a702161ff3c1e3b9bf6b776cae43a07b60da33de2a6f0649a841"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r1.csv",
+      "sha256": "6aa491d23224b0876fabdf3729ffad44fd91a28a0cd2fcf9f1a9c5a89173f879"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r1.log",
+      "sha256": "54f9e48256917235cf0d19aaabe0aab96e409840e5088be8e3519830c858252e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r1.pfm",
+      "sha256": "8c2157593468f542c101037494e248bfbda1090efcb9e921e98c11f78eedf09d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r2-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r2-scene.json",
+      "sha256": "b097017003678fa7e361e714ec413a73e9e5b738d8fa98c56435ac85a58f51c5"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r2.csv",
+      "sha256": "4934cada9816f33608a34b92e16ba9e604a25acca5b03db992f89de729c4cd42"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r2.log",
+      "sha256": "77959df9d34428511ff4a89f7f5536b224dbf632e8471e4489a1563d6bf3b2e8"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\baseline-r2.pfm",
+      "sha256": "8c2157593468f542c101037494e248bfbda1090efcb9e921e98c11f78eedf09d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r0-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r0-scene.json",
+      "sha256": "3aede53113539264d7b96b7dbb8e309d844b7be83d21486684dbd4514b30915b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r0.csv",
+      "sha256": "b4c971a33c28ea4c6ca38f414376410467183c7665f4b687a3107ec69a1127e1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r0.log",
+      "sha256": "a3d5d0e14b88e8ea257ea19b52f59836088c050039783ba7ed676e6d94d81aea"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r0.pfm",
+      "sha256": "6b04af155a8adc0c863831bff5e00660e563a64e4e1f05d8e5a97d9427c3a79d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r1-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r1-scene.json",
+      "sha256": "f57d594af1b33ef5e3d02d5037536e305c659a3ca0cc09667a7bd6c9cebc0044"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r1.csv",
+      "sha256": "cdaaa9bbb394a63cad7982d5615f63a849dcb6afb42b9a4fc30f5715e837e702"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r1.log",
+      "sha256": "8921f2135cd130ad32cee65ea12f96551e160fae89555905da1047b05f689282"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r1.pfm",
+      "sha256": "6b04af155a8adc0c863831bff5e00660e563a64e4e1f05d8e5a97d9427c3a79d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r2-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r2-scene.json",
+      "sha256": "da2327bf852d016d64af926eb81aa296eb81d61fa9d692b46f8f1e82144eb871"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r2.csv",
+      "sha256": "bb4b67db8fe488397bb6ba344b80f1620afbd4df762f1c479a69f9cfe9d2a9da"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r2.log",
+      "sha256": "fcf232e3d6a668c83c405745e6530453a514333366ce674485f4bf5aee65196b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-0-r2.pfm",
+      "sha256": "6b04af155a8adc0c863831bff5e00660e563a64e4e1f05d8e5a97d9427c3a79d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r0-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r0-scene.json",
+      "sha256": "74437668126d9a1b11d03e18e56bb0259948cb45261031e39e1e85cdb6b7905e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r0.csv",
+      "sha256": "dc31e8183612dfbda22c19c1b1dd3ff8cd1f026ebee86d77cc67f86d965045e9"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r0.log",
+      "sha256": "63bdb77ef85329150edf3ebdf5b45cb31c9fe56450e5e1f00af4741279a9c93f"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r0.pfm",
+      "sha256": "4aeb603d6f00e926239af7839fe098f6a807f0e621e7ce03bc8afb36142b8b0e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r1-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r1-scene.json",
+      "sha256": "35e46634a0873d5624da68411a9be4d516b4a09f17626a6c019ccb0f129822aa"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r1.csv",
+      "sha256": "0d41e554b376665a6f130b0edba5d623a5166022344c084c9a7e6c5008809445"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r1.log",
+      "sha256": "ea1b58d1998968f06204de0405935c83e26ce3972c140c1fa252b4f593c4ecba"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r1.pfm",
+      "sha256": "4aeb603d6f00e926239af7839fe098f6a807f0e621e7ce03bc8afb36142b8b0e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r2-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r2-scene.json",
+      "sha256": "f44cc8ed59e9b07222abf9a07207ecd0694d6a1d32bc6f039860461cf64191c8"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r2.csv",
+      "sha256": "a293be41441595097b6de82adca676af2c1a3ca2a6db20366226cd86704df2f3"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r2.log",
+      "sha256": "21a520cb68aa4d9dcb8df6c51216279de4e986bb7a932cb7020d737f1628b555"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\geometry-1-r2.pfm",
+      "sha256": "4aeb603d6f00e926239af7839fe098f6a807f0e621e7ce03bc8afb36142b8b0e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r0-preset.json",
+      "sha256": "72d2025c4d020627ac5bf9e2bb7573fba545a3a435481baba001c0a4a64a6a1b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r0-scene.json",
+      "sha256": "5d06d1afdb556834f9e49f261cb709b1420cd1f59446c8610b167bad434a0c60"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r0.csv",
+      "sha256": "77052716f5b99da06a13337440eb4aa11b759b5f9083dcad097bcd39fac03943"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r0.log",
+      "sha256": "4bcd73efec3dde6f95f6d55bfa63ee098714c64857643de1c8e3a200d38250d7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r0.pfm",
+      "sha256": "70a731486ebca4dd951ba2a9ad62111b1e707681421dd0c2a7c234453ab2b608"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r1-preset.json",
+      "sha256": "72d2025c4d020627ac5bf9e2bb7573fba545a3a435481baba001c0a4a64a6a1b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r1-scene.json",
+      "sha256": "2d438e8bd1f896baef7abf93c048171280d717de75baa84c93b40a6c2b3939cb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r1.csv",
+      "sha256": "2d57055b0b6ba2be004bbbdc114f8c0d5d67ee0996770b2e90b679370ba86660"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r1.log",
+      "sha256": "5d8a8de407dc00f48c8bfff69530b1b53ef9b85bf810192c19d94bb75b4feb74"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r1.pfm",
+      "sha256": "70a731486ebca4dd951ba2a9ad62111b1e707681421dd0c2a7c234453ab2b608"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r2-preset.json",
+      "sha256": "72d2025c4d020627ac5bf9e2bb7573fba545a3a435481baba001c0a4a64a6a1b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r2-scene.json",
+      "sha256": "f20c9982ef3837b5306254000769ffe85d513d259d4517f417175fdf1c1a323e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r2.csv",
+      "sha256": "f8ad5cacbbc633f10ccd8bca28b641506d44efc74951d594864fd4c793b93481"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r2.log",
+      "sha256": "628bae49e40a8f8228587529664bd229a03fd718a91852fe4f49b2efa8e7a23f"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-0-r2.pfm",
+      "sha256": "70a731486ebca4dd951ba2a9ad62111b1e707681421dd0c2a7c234453ab2b608"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r0-preset.json",
+      "sha256": "9c407bc0161bf8931158ec213939268ae3421a3e3a4ecd0baa5d7dff86ee15da"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r0-scene.json",
+      "sha256": "1159f37d59004ba34b4942646d59ec7887dccf77bacc00bbbe3221056082f44b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r0.csv",
+      "sha256": "2de6f17e0dbed8a26485342e4ebacfce506a4d80c5ce90ccd7f8ec26c998f9e1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r0.log",
+      "sha256": "588df90111f7668a80feb6f4518331b2b70b87b52770cbea9a4f95d7c29b719d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r0.pfm",
+      "sha256": "398827e0b02aeb91a5b23e0b2bdd520c1150db602ccd114ee45672e19e681f08"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r1-preset.json",
+      "sha256": "9c407bc0161bf8931158ec213939268ae3421a3e3a4ecd0baa5d7dff86ee15da"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r1-scene.json",
+      "sha256": "aec6eefb4818b35b1cbd14ec5844644de6b6c8fe484be6f3d8ede5f2744e0202"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r1.csv",
+      "sha256": "5f152544fb80ade3ccfb4c62b6e2f49e133d975d722115f9cfa2fdd898a12bdf"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r1.log",
+      "sha256": "7d1ab20c5f76ad1e10e312fd91a1ee5acfc639d67ef2c6970a2e0526f5fde095"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r1.pfm",
+      "sha256": "398827e0b02aeb91a5b23e0b2bdd520c1150db602ccd114ee45672e19e681f08"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r2-preset.json",
+      "sha256": "9c407bc0161bf8931158ec213939268ae3421a3e3a4ecd0baa5d7dff86ee15da"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r2-scene.json",
+      "sha256": "94fc714192b7a1a1f78e2c13bdf642d7f65c517e21b5e93cbd1c1be4b1546593"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r2.csv",
+      "sha256": "aae82a02d382b880deb28b960bb82056d5e945360235500fc2178b563ccc437e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r2.log",
+      "sha256": "693977d894bc4ae3ab1233fd9f492a6ccccc52af8bb9cc2891c59f5347189b2f"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\lights-1-r2.pfm",
+      "sha256": "398827e0b02aeb91a5b23e0b2bdd520c1150db602ccd114ee45672e19e681f08"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r0-preset.json",
+      "sha256": "db969eed8967caa463a1c8254e91cfd48893d8cabd929498b8ed879b381772f4"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r0-scene.json",
+      "sha256": "ef113812e82cdb287f326ee05e581a563627f8346ba66b31bbfd6b3748b51262"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r0.csv",
+      "sha256": "2bb55b39a9f40473be926cb3e38590b74f34e8c5e45b289a50c8ad72e6256aa3"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r0.log",
+      "sha256": "63b12769619bdff83586ae000d13393827a8cc21415cde2d8d9ed618f661868c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r0.pfm",
+      "sha256": "e76520205dd1cd219bdcb3310a96287c96d3423847f32ce00061d576ebe3dfae"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r1-preset.json",
+      "sha256": "db969eed8967caa463a1c8254e91cfd48893d8cabd929498b8ed879b381772f4"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r1-scene.json",
+      "sha256": "ea30b67f5bc59b5f60e6b1bc1404caa1b8fd94c4d84d7b1ce68f710b4ea8695c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r1.csv",
+      "sha256": "ebdd07c5f10143f0c59463370476bd46ac6513f1676869af34fe523b1f95abb4"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r1.log",
+      "sha256": "019d8bc9935fd830138961ba1ed376a0bcc310ebc1cfa3d03a47243b6611b95b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r1.pfm",
+      "sha256": "e76520205dd1cd219bdcb3310a96287c96d3423847f32ce00061d576ebe3dfae"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r2-preset.json",
+      "sha256": "db969eed8967caa463a1c8254e91cfd48893d8cabd929498b8ed879b381772f4"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r2-scene.json",
+      "sha256": "149bfe91b9ddf29ef48be8da5603a6f1f5ebd467fcf9f2f6544df2e7f71cadde"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r2.csv",
+      "sha256": "b42cb8a7b9b61d3adb84897f1001b21a6aa38a933197c3610093c92fa7fbb9c0"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r2.log",
+      "sha256": "59b97ab2340f763e321e5957d83690da6ccbd3cd05de5f17ef959101c7a53726"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-0-r2.pfm",
+      "sha256": "e76520205dd1cd219bdcb3310a96287c96d3423847f32ce00061d576ebe3dfae"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r0-preset.json",
+      "sha256": "f18e88fae4d8b30c8b874165e1111aa3b1f53938cbec0ff2cda095a8301e129e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r0-scene.json",
+      "sha256": "032086bd5ea748ac1aa8e653688f00bf335f6d9c2255a2448ed872a0f3b0e99b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r0.csv",
+      "sha256": "efb9dee929244e328ff531959bfb0e133283d635bc4673c9bddf5340bba8e64b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r0.log",
+      "sha256": "8dabbc12e5afc56e669b5d7a90335fe972cb2cd387b10c306db400914adc555a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r0.pfm",
+      "sha256": "9c9774bf79924f4fb7f8a8e202562e23594f255184da8f103885aef14e90536e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r1-preset.json",
+      "sha256": "f18e88fae4d8b30c8b874165e1111aa3b1f53938cbec0ff2cda095a8301e129e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r1-scene.json",
+      "sha256": "4415df319638171757d05df66468288ea99cb011fc28e19027ea7ec80a2d3d4f"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r1.csv",
+      "sha256": "e40717a5128a41eee1f9d0ae753066b868bbc9a3f038fe3ff77b86939b6ee1c5"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r1.log",
+      "sha256": "a88d506fe280ab58d1aadc32579bad384128ed90397b1a9188872015e4103da5"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r1.pfm",
+      "sha256": "9c9774bf79924f4fb7f8a8e202562e23594f255184da8f103885aef14e90536e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r2-preset.json",
+      "sha256": "f18e88fae4d8b30c8b874165e1111aa3b1f53938cbec0ff2cda095a8301e129e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r2-scene.json",
+      "sha256": "21f1c61d4f1407c17fa327b1a7f776f6ad2f8f4e60a7f6b2acef496bfbffa5a1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r2.csv",
+      "sha256": "cec96fdb71ebe5ebddc9c8c03d149e265389db2ad29a74489037c502d73f6c55"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r2.log",
+      "sha256": "e0d2c2b7e37bf58aa8686ae0dbc3d66f09afe55dd7217f45466d0e5bbcc2fd6a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\maxBounces-1-r2.pfm",
+      "sha256": "9c9774bf79924f4fb7f8a8e202562e23594f255184da8f103885aef14e90536e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\report.json",
+      "sha256": "f975659a4ec382ad694973ba0db3f1a71c82e7647fe75ac492fd301269d12d83"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r0-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r0-scene.json",
+      "sha256": "d2e2dbc4d98200d3b64e78cddc97dfede67e22b9f167affc1a9c971c0808a5d6"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r0.csv",
+      "sha256": "d0afd9d5f346d24bf35c4ae5da3e60db4590ffeaab181999b9038fc0091b660e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r0.log",
+      "sha256": "7882fc56b963e83da9f21e4cf09a2b50f3bf5c958e43a08b362ef8d2369a4ffa"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r0.pfm",
+      "sha256": "cbc6f24de123d38958cd55df2d15aa546ee625b86f373fd531a8df43ef001bc4"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r1-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r1-scene.json",
+      "sha256": "75a8502dc4f581e56220f89fa58084b628808b4417c03a8d3bacbd9b089737d1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r1.csv",
+      "sha256": "c786653e757ccd0e5fcdb0acaa8d6441ba11bf2895505f235ba3f836c659ea22"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r1.log",
+      "sha256": "a2ff4ebab3921d0e47b57a24b50f70fbaac32bee888dfb0b06ff489472adf3ac"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r1.pfm",
+      "sha256": "cbc6f24de123d38958cd55df2d15aa546ee625b86f373fd531a8df43ef001bc4"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r2-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r2-scene.json",
+      "sha256": "9b0856c4be0b2b36811ee3426c0ce8abe4be407002d1c2bc5ac342687658cb7c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r2.csv",
+      "sha256": "6c24eb90e2b9e27b64dd1c8d8e1b09837226ce3a2e6b2a45b22e7c1e3c41d4d1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r2.log",
+      "sha256": "f39e6463df9c085f6570aaf8c3da7cec1db59040fece1ef67a32506196d720fc"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-0-r2.pfm",
+      "sha256": "cbc6f24de123d38958cd55df2d15aa546ee625b86f373fd531a8df43ef001bc4"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r0-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r0-scene.json",
+      "sha256": "410ddd78604e68cc18a29d411df0eb0e8f52b8dc6b4a8b9281ec36d6e85ea971"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r0.csv",
+      "sha256": "dd63c5a5e116bac76ac9a446cea50be4462374c0281769b6982d696f1dca98e8"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r0.log",
+      "sha256": "d58c56d6e9f601d32e0d4a560640a5dde66f9d783211023fb68bba251f067b86"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r0.pfm",
+      "sha256": "07541712fd2fcafea4bdf2da72b121caaf4d0a390217edfc00d306ea76d436bd"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r1-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r1-scene.json",
+      "sha256": "49933c37e07dc8c3908269bcc006633497c6d724c263e8391a067a0cc02f1928"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r1.csv",
+      "sha256": "3db57606ac8c50e69fee6e3d4a7050e2cef0ec2d437899f611f2bfd193f61611"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r1.log",
+      "sha256": "bdcb5e61a53f41ad7b2cd7040b0a673a4296b50e5cbe92c84b79e36fd0fc6318"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r1.pfm",
+      "sha256": "07541712fd2fcafea4bdf2da72b121caaf4d0a390217edfc00d306ea76d436bd"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r2-preset.json",
+      "sha256": "18a0fb6c83af082146d591ffcbc6cefc467bc956da35bb7b0ee43278321afd12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r2-scene.json",
+      "sha256": "3c01a05058345a59efc01ba83cefd1af7189e49587dd40b8f39580d88fc1f1d1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r2.csv",
+      "sha256": "ed558cd33ce3e498e978fc3681ab91c88b058d6e21fb4f5e786102409cdcd9d0"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r2.log",
+      "sha256": "2fe5db89f3fb29e6366227dc4577d0976e8fb1fbcaa9e7a3ed9628bedd770e47"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\resolution-1-r2.pfm",
+      "sha256": "07541712fd2fcafea4bdf2da72b121caaf4d0a390217edfc00d306ea76d436bd"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r0-preset.json",
+      "sha256": "78010eb65093744d011cae6079d5702ad5b238e624f39eef63d5e569346398cb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r0-scene.json",
+      "sha256": "39b8339c47ffa48747cd050bfb87f46c499022d46d58de70add33ac13dcdda04"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r0.csv",
+      "sha256": "35235bb1624a7d6275b97c3b26acc7be20e9dc14d7c1488f60332e5e8d0db708"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r0.log",
+      "sha256": "1d5e3d4da16765c11df4301079f45dba9d1f978ea19856ab490157433f629cb0"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r0.pfm",
+      "sha256": "4aaafd3de0e90ca240a97a752bc0d69cfe70f16a1332acc5140e8b86ff0c6192"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r1-preset.json",
+      "sha256": "78010eb65093744d011cae6079d5702ad5b238e624f39eef63d5e569346398cb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r1-scene.json",
+      "sha256": "bfbf78e034300a0f9630a6c43f21a594a1a658321c67e3cac89caf3ae13c58cc"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r1.csv",
+      "sha256": "f6533ab392d997d9f72d8eec22cae5fa9634952c5b01d1ed79da6c822eaedd8d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r1.log",
+      "sha256": "fff3bdd4a449817413e570d9922bb8cb6619ac3a13a0afe422f3d4ace959f129"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r1.pfm",
+      "sha256": "4aaafd3de0e90ca240a97a752bc0d69cfe70f16a1332acc5140e8b86ff0c6192"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r2-preset.json",
+      "sha256": "78010eb65093744d011cae6079d5702ad5b238e624f39eef63d5e569346398cb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r2-scene.json",
+      "sha256": "00ece342b15019d149abd65476606f4513f5cadf38a212bdd2b36ae9d824d49c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r2.csv",
+      "sha256": "526873ab9a666c0d73c0edf24b235c413d61fd63e5ac928253f9e2bc58574201"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r2.log",
+      "sha256": "733a74012c38c8cb507c4ac340d473a37457f86346210047d17fddf15ceb6c63"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-0-r2.pfm",
+      "sha256": "4aaafd3de0e90ca240a97a752bc0d69cfe70f16a1332acc5140e8b86ff0c6192"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r0-preset.json",
+      "sha256": "e46682d0cff0fa13015bcdc5f55bca10cbe7dee640084f47dfcc46d40a513427"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r0-scene.json",
+      "sha256": "7e4deb95144e1ca119d8473391a0121ee2ce94384f4111cf23818212a6025025"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r0.csv",
+      "sha256": "56169f670ba60df05ef50722d32cb4d88b2b911c8b42802eb2326b79cbe8c11c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r0.log",
+      "sha256": "bb6032a0a770d1f89aeb2236f144a490d39c45e011291e54031baa24c9927429"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r0.pfm",
+      "sha256": "9ca78f996ca8b5915d50b59eaef93c8f006116493026db2189ad5912d5b94cb8"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r1-preset.json",
+      "sha256": "e46682d0cff0fa13015bcdc5f55bca10cbe7dee640084f47dfcc46d40a513427"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r1-scene.json",
+      "sha256": "976ed1532cec8741c4bb65a3b8b8b93926d7eacbebaa27c1268c266a430a80e2"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r1.csv",
+      "sha256": "6c175588ec93bd7b7a1b5dedc1a17a32a0c306566db243476b5c6fb07d1a6959"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r1.log",
+      "sha256": "c05a04c4c39f665915ad27af1532f1cf64bde18e7987bb8e2c3793db0c39d287"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r1.pfm",
+      "sha256": "9ca78f996ca8b5915d50b59eaef93c8f006116493026db2189ad5912d5b94cb8"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r2-preset.json",
+      "sha256": "e46682d0cff0fa13015bcdc5f55bca10cbe7dee640084f47dfcc46d40a513427"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r2-scene.json",
+      "sha256": "21ab57cb41d22865ee81bd085f15b494e805737ae093d8ca3cb001137b9a524c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r2.csv",
+      "sha256": "d6accf1e4f3a5ea715bc9c703f15af511eea4af79023aca82aca0a54545a7414"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r2.log",
+      "sha256": "cf27a07c3009220895b4944615061f6b2e4b72e26b85804757b9690af20c8e9b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\samplesPerFrame-1-r2.pfm",
+      "sha256": "9ca78f996ca8b5915d50b59eaef93c8f006116493026db2189ad5912d5b94cb8"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\plots\\gpu-performance.png",
+      "sha256": "73d8d94a22237d3f97246084def0d538c3279408e1a1edc65d4457345be9f3e3"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\plots\\gpu-performance.svg",
+      "sha256": "fe0ee9f65a5f1f9a56ffed8410ea6c8dc9212446a1813e2df0bb3d8b8ea77c46"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\plots\\gpu-timelines.png",
+      "sha256": "0f355e0c9a4460b2782484f3f4c7e798537edd886c914394235794e86a14c4a1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-final\\table.md",
+      "sha256": "c3d3d2214584e6cf52bde3858ba4d660cc5d5f35fb2c01771c6bcf8dade23eef"
+    }
+  ],
+  "sourceHashes": [
+    {
+      "path": "App\\RtPbrSurveyApp.cpp",
+      "sha256": "9da49c6195ecd0879e75dbc18161d945d7830fa1a7378a9315658835bc48086b"
+    },
+    {
+      "path": "Tests\\PathTracing\\measure_performance.py",
+      "sha256": "c4c2b7fe601f048725ff06824d19e73d2d6b4f00d27925d480c265ec4cf893d4"
+    },
+    {
+      "path": "Tests\\PathTracing\\test_measure_performance.py",
+      "sha256": "b66c01e86591a358f6ac51227ad47504d1a274b05043f1a9b07dc066fdefaa08"
+    },
+    {
+      "path": "Tests\\PathTracing\\summarize_performance.py",
+      "sha256": "4d813b069ccf0d7fcba65a16282965229d5f3b4846f9cd93913867d492fa3851"
+    }
+  ],
+  "excludedPilotReports": [
+    {
+      "path": "bin\\PathTracingValidation\\part4-foreground-smoke\\report.json",
+      "sha256": "37fedbd356ae5a22c0acdeaaa36f2fb21134fe50472ccc5118a498da7367d7c2",
+      "status": "complete",
+      "reason": "Pilot protocol/visibility cohort; not pooled into final measurements."
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-frame-smoke\\report.json",
+      "sha256": "9a68ce01bbf76e7c4c552e4ebc9e2d852eae420f7f936dd0bfa00fbebe71d034",
+      "status": "complete",
+      "reason": "Pilot protocol/visibility cohort; not pooled into final measurements."
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance\\report.json",
+      "sha256": "ef576c03c77656a0350d0536a554f7dd8d8abadf78a1c4b8a7f0913a502cca03",
+      "status": "failed",
+      "reason": "Pilot protocol/visibility cohort; not pooled into final measurements."
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-performance-frame\\report.json",
+      "sha256": "0f0a43b8cc9bd30ffa4beacc36e570f9786b545731af10974a8f6f6f9e9f2e1e",
+      "status": "aborted",
+      "reason": "Pilot protocol/visibility cohort; not pooled into final measurements."
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-resolution-smoke\\report.json",
+      "sha256": "e3d85b165ecc6165bc78e9458a69b281d1a0b0a549ebe4e9446228884acb4e49",
+      "status": "complete",
+      "reason": "Pilot protocol/visibility cohort; not pooled into final measurements."
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-smoke\\report.json",
+      "sha256": "b2d980b8223c97c295243ce0314644874d565b618fdfeaaaebf73f9fb3e1ac57",
+      "status": "failed",
+      "reason": "Pilot protocol/visibility cohort; not pooled into final measurements."
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-smoke-borderless\\report.json",
+      "sha256": "7675ed530cc8893e8cf660d83311a36c0f19c776bcac8a435c5d0ea4290a15f6",
+      "status": "complete",
+      "reason": "Pilot protocol/visibility cohort; not pooled into final measurements."
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-smoke-dpi\\report.json",
+      "sha256": "eb534b378917e8022ad37d1b7d343648b6ce00d69e0f034c35dd7a3431cfa3cd",
+      "status": "failed",
+      "reason": "Pilot protocol/visibility cohort; not pooled into final measurements."
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-smoke-dpi2\\report.json",
+      "sha256": "215e968af353cb68c03d9963ceb9dd731cbe10e7768900959e72ae9784c97308",
+      "status": "failed",
+      "reason": "Pilot protocol/visibility cohort; not pooled into final measurements."
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-smoke-dpi3\\report.json",
+      "sha256": "cd8b89b49d0c4d5b0870f12a06f7faac2cbcce3495915dfaacbe91b2b78d4d57",
+      "status": "failed",
+      "reason": "Pilot protocol/visibility cohort; not pooled into final measurements."
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part4-visible-smoke\\report.json",
+      "sha256": "edbab4de089f9d8d5948bde135c2f192a9ba5bd16402d18f447e70af7e7fa3de",
+      "status": "complete",
+      "reason": "Pilot protocol/visibility cohort; not pooled into final measurements."
+    }
+  ],
+  "limitations": [
+    "Debug, VSync=1, balanced AC power, GPU clocks not locked; rankings may be confounded by P-state changes.",
+    "Latest completed GPU observations have no independent GPU frame ID; p95 is an empirical observation percentile.",
+    "Tessellation changes polygonal approximation; this is not TLAS instance count scaling.",
+    "Static warm path excludes rebuild/reset/capture costs; measured primary samples are not actual ray counts.",
+    "16 discarded observations do not guarantee a settled GPU power state. Short windows can have no telemetry sample."
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "resolution": [
+    1920,
+    1080
+  ],
+  "seed": 7,
+  "smokeSamples": 4,
+  "roi": [
+    952,
+    532,
+    16,
+    16
+  ],
+  "visibility": {
+    "minClearMean": 0.001,
+    "maxBetweenRatio": 0.8,
+    "maxBeyondDifference": 1e-06
+  },
+  "falloff": {
+    "relativeTolerance": 0.02,
+    "heights": [
+      2,
+      4
+    ],
+    "range": 20
+  },
+  "scenes": [
+    "constant-environment",
+    "single-light-visibility",
+    "two-surface-indirect",
+    "roughness"
+  ]
+}

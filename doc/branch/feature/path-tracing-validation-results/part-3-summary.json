@@ -1,0 +1,3804 @@
+{
+  "schemaVersion": 1,
+  "part": 3,
+  "baseCommit": "fc0b70d3e9ccf6617089b5616cd09d4f76fd9269",
+  "testedCommit": "fc0b70d3e9ccf6617089b5616cd09d4f76fd9269",
+  "rendererBuildCommit": "302a057",
+  "workspace": "C:\\work\\RtPbrSurvey",
+  "branch": "codex/path-tracing-validation-part3",
+  "gpuDriver": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64",
+  "build": "Debug x64",
+  "samples": 4,
+  "seed": 7,
+  "rois": {
+    "visibility": [
+      944,
+      524,
+      32,
+      32
+    ],
+    "contact": [
+      1060,
+      524,
+      128,
+      32
+    ],
+    "selfIntersection": [
+      936,
+      516,
+      48,
+      48
+    ]
+  },
+  "scaleIllumination": "Position/range/camera/geometry scaled by s; intensity scaled by s^2",
+  "captureCount": 75,
+  "failures": [],
+  "visibility": [
+    {
+      "scale": 0.01,
+      "angle": "front",
+      "policy": "relative",
+      "clearMean": 0.14359448956383858,
+      "blockedMean": 0.0,
+      "blockedRatio": 0.0,
+      "beyondMaxDifference": 0.0,
+      "passed": true
+    },
+    {
+      "scale": 0.01,
+      "angle": "front",
+      "policy": "fixed",
+      "clearMean": 0.14359448956383858,
+      "blockedMean": 0.0,
+      "blockedRatio": 0.0,
+      "beyondMaxDifference": 0.0,
+      "passed": true
+    },
+    {
+      "scale": 0.01,
+      "angle": "angled",
+      "policy": "relative",
+      "clearMean": 0.0818073578629992,
+      "blockedMean": 0.0,
+      "blockedRatio": 0.0,
+      "beyondMaxDifference": 0.0,
+      "passed": true
+    },
+    {
+      "scale": 0.01,
+      "angle": "angled",
+      "policy": "fixed",
+      "clearMean": 0.0818073578629992,
+      "blockedMean": 0.06588006861056783,
+      "blockedRatio": 0.8053073749294726,
+      "beyondMaxDifference": 0.0,
+      "passed": false
+    },
+    {
+      "scale": 1.0,
+      "angle": "front",
+      "policy": "relative",
+      "clearMean": 0.1435939766379306,
+      "blockedMean": 0.0,
+      "blockedRatio": 0.0,
+      "beyondMaxDifference": 0.0,
+      "passed": true
+    },
+    {
+      "scale": 1.0,
+      "angle": "front",
+      "policy": "fixed",
+      "clearMean": 0.1435939766379306,
+      "blockedMean": 0.0,
+      "blockedRatio": 0.0,
+      "beyondMaxDifference": 0.0,
+      "passed": true
+    },
+    {
+      "scale": 1.0,
+      "angle": "angled",
+      "policy": "relative",
+      "clearMean": 0.081807238078909,
+      "blockedMean": 0.0,
+      "blockedRatio": 0.0,
+      "beyondMaxDifference": 0.0,
+      "passed": true
+    },
+    {
+      "scale": 1.0,
+      "angle": "angled",
+      "policy": "fixed",
+      "clearMean": 0.081807238078909,
+      "blockedMean": 0.0,
+      "blockedRatio": 0.0,
+      "beyondMaxDifference": 0.0,
+      "passed": true
+    },
+    {
+      "scale": 100.0,
+      "angle": "front",
+      "policy": "relative",
+      "clearMean": 0.1435944875847781,
+      "blockedMean": 0.0,
+      "blockedRatio": 0.0,
+      "beyondMaxDifference": 0.0,
+      "passed": true
+    },
+    {
+      "scale": 100.0,
+      "angle": "front",
+      "policy": "fixed",
+      "clearMean": 0.1435944875847781,
+      "blockedMean": 0.0,
+      "blockedRatio": 0.0,
+      "beyondMaxDifference": 0.0,
+      "passed": true
+    },
+    {
+      "scale": 100.0,
+      "angle": "angled",
+      "policy": "relative",
+      "clearMean": 0.08180735582573107,
+      "blockedMean": 0.0,
+      "blockedRatio": 0.0,
+      "beyondMaxDifference": 0.0,
+      "passed": true
+    },
+    {
+      "scale": 100.0,
+      "angle": "angled",
+      "policy": "fixed",
+      "clearMean": 0.08180735582573107,
+      "blockedMean": 0.0,
+      "blockedRatio": 0.0,
+      "beyondMaxDifference": 0.0,
+      "passed": true
+    }
+  ],
+  "scaleAgreement": [
+    {
+      "scale": 0.01,
+      "angle": "front",
+      "meanRatio": 1.0000035720572686,
+      "rmse": 8.766817956105854e-07,
+      "passed": true
+    },
+    {
+      "scale": 1.0,
+      "angle": "front",
+      "meanRatio": 1.0,
+      "rmse": 0.0,
+      "passed": true
+    },
+    {
+      "scale": 100.0,
+      "angle": "front",
+      "meanRatio": 1.0000035582749323,
+      "rmse": 8.728209388072766e-07,
+      "passed": true
+    },
+    {
+      "scale": 0.01,
+      "angle": "angled",
+      "meanRatio": 1.000001464223619,
+      "rmse": 3.250166510185006e-07,
+      "passed": true
+    },
+    {
+      "scale": 1.0,
+      "angle": "angled",
+      "meanRatio": 1.0,
+      "rmse": 0.0,
+      "passed": true
+    },
+    {
+      "scale": 100.0,
+      "angle": "angled",
+      "meanRatio": 1.0000014393203442,
+      "rmse": 3.228803663059846e-07,
+      "passed": true
+    }
+  ],
+  "contact": [
+    {
+      "scale": 0.01,
+      "policy": "relative",
+      "roi": [
+        1060,
+        524,
+        128,
+        32
+      ],
+      "baselineShadowColumnCount": 124,
+      "baselineShadowLeakFraction": 0.0,
+      "shadowColumnCount": 124
+    },
+    {
+      "scale": 0.01,
+      "policy": "fixed",
+      "roi": [
+        1060,
+        524,
+        128,
+        32
+      ],
+      "baselineShadowColumnCount": 124,
+      "baselineShadowLeakFraction": 1.0,
+      "shadowColumnCount": 0
+    },
+    {
+      "scale": 0.01,
+      "policy": "fixed-bias",
+      "roi": [
+        1060,
+        524,
+        128,
+        32
+      ],
+      "baselineShadowColumnCount": 124,
+      "baselineShadowLeakFraction": 1.0,
+      "shadowColumnCount": 0
+    },
+    {
+      "scale": 0.01,
+      "policy": "fixed-tmin",
+      "roi": [
+        1060,
+        524,
+        128,
+        32
+      ],
+      "baselineShadowColumnCount": 124,
+      "baselineShadowLeakFraction": 0.0,
+      "shadowColumnCount": 124
+    },
+    {
+      "scale": 1.0,
+      "policy": "relative",
+      "roi": [
+        1060,
+        524,
+        128,
+        32
+      ],
+      "baselineShadowColumnCount": 124,
+      "baselineShadowLeakFraction": 0.0,
+      "shadowColumnCount": 124
+    },
+    {
+      "scale": 1.0,
+      "policy": "fixed",
+      "roi": [
+        1060,
+        524,
+        128,
+        32
+      ],
+      "baselineShadowColumnCount": 124,
+      "baselineShadowLeakFraction": 0.0,
+      "shadowColumnCount": 124
+    },
+    {
+      "scale": 1.0,
+      "policy": "fixed-bias",
+      "roi": [
+        1060,
+        524,
+        128,
+        32
+      ],
+      "baselineShadowColumnCount": 124,
+      "baselineShadowLeakFraction": 0.0,
+      "shadowColumnCount": 124
+    },
+    {
+      "scale": 1.0,
+      "policy": "fixed-tmin",
+      "roi": [
+        1060,
+        524,
+        128,
+        32
+      ],
+      "baselineShadowColumnCount": 124,
+      "baselineShadowLeakFraction": 0.0,
+      "shadowColumnCount": 124
+    },
+    {
+      "scale": 100.0,
+      "policy": "relative",
+      "roi": [
+        1060,
+        524,
+        128,
+        32
+      ],
+      "baselineShadowColumnCount": 124,
+      "baselineShadowLeakFraction": 0.0,
+      "shadowColumnCount": 124
+    },
+    {
+      "scale": 100.0,
+      "policy": "fixed",
+      "roi": [
+        1060,
+        524,
+        128,
+        32
+      ],
+      "baselineShadowColumnCount": 124,
+      "baselineShadowLeakFraction": 0.0,
+      "shadowColumnCount": 125
+    },
+    {
+      "scale": 100.0,
+      "policy": "fixed-bias",
+      "roi": [
+        1060,
+        524,
+        128,
+        32
+      ],
+      "baselineShadowColumnCount": 124,
+      "baselineShadowLeakFraction": 0.0,
+      "shadowColumnCount": 125
+    },
+    {
+      "scale": 100.0,
+      "policy": "fixed-tmin",
+      "roi": [
+        1060,
+        524,
+        128,
+        32
+      ],
+      "baselineShadowColumnCount": 124,
+      "baselineShadowLeakFraction": 0.0,
+      "shadowColumnCount": 124
+    }
+  ],
+  "selfIntersection": [
+    {
+      "scale": 0.01,
+      "policy": "relative",
+      "roi": [
+        936,
+        516,
+        48,
+        48
+      ],
+      "rmse": 0.0,
+      "meanRatio": 1.0,
+      "darkenedChannelFraction": 0.0
+    },
+    {
+      "scale": 0.01,
+      "policy": "zero",
+      "roi": [
+        936,
+        516,
+        48,
+        48
+      ],
+      "rmse": 0.04099796286526576,
+      "meanRatio": 0.43975870207913476,
+      "darkenedChannelFraction": 0.96484375
+    },
+    {
+      "scale": 1.0,
+      "policy": "relative",
+      "roi": [
+        936,
+        516,
+        48,
+        48
+      ],
+      "rmse": 0.0,
+      "meanRatio": 1.0,
+      "darkenedChannelFraction": 0.0
+    },
+    {
+      "scale": 1.0,
+      "policy": "zero",
+      "roi": [
+        936,
+        516,
+        48,
+        48
+      ],
+      "rmse": 0.043562608450615305,
+      "meanRatio": 0.4112235099565835,
+      "darkenedChannelFraction": 0.9618055555555556
+    },
+    {
+      "scale": 100.0,
+      "policy": "relative",
+      "roi": [
+        936,
+        516,
+        48,
+        48
+      ],
+      "rmse": 0.0,
+      "meanRatio": 1.0,
+      "darkenedChannelFraction": 0.0
+    },
+    {
+      "scale": 100.0,
+      "policy": "zero",
+      "roi": [
+        936,
+        516,
+        48,
+        48
+      ],
+      "rmse": 0.040242861064041076,
+      "meanRatio": 0.45518319550600855,
+      "darkenedChannelFraction": 0.9544270833333334
+    }
+  ],
+  "contactRoiContract": {
+    "primaryRaysMissCube": true,
+    "normalizedFloorCorners": [
+      [
+        0.7987729448307487,
+        0,
+        0.257596534543719
+      ],
+      [
+        0.7567847625070225,
+        0,
+        -0.24405575261266055
+      ],
+      [
+        1.8212023142141063,
+        0,
+        0.257596534543719
+      ],
+      [
+        1.7254692585160105,
+        0,
+        -0.24405575261266055
+      ]
+    ],
+    "note": "Independent pinhole/AABB corner check; continuous ROI lies to the right of cube silhouette."
+  },
+  "tmax": [
+    {
+      "scale": 0.01,
+      "normalizedTMax": 2,
+      "mean": 0.20000000298023224,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-0.01-2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-0.01-2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-0.01-2.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-0.01-2.log",
+        "-ExitAfterCapture"
+      ],
+      "path": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-0.01-2.pfm",
+      "sha256": "3e0128f03757ec8a432e1d1904a8a6ab8e0dba248316e07d4b42f923d4e61143"
+    },
+    {
+      "scale": 0.01,
+      "normalizedTMax": 20,
+      "mean": 0.0818073578629992,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-0.01-20-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-0.01-20-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-0.01-20.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-0.01-20.log",
+        "-ExitAfterCapture"
+      ],
+      "path": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-0.01-20.pfm",
+      "sha256": "fb0d0b111325036eb2d2a964edf6a91b468e017d9da0ee57ae0c05dbe5a41e52"
+    },
+    {
+      "scale": 1.0,
+      "normalizedTMax": 2,
+      "mean": 0.20000000298023224,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-1.0-2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-1.0-2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-1.0-2.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-1.0-2.log",
+        "-ExitAfterCapture"
+      ],
+      "path": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-1.0-2.pfm",
+      "sha256": "3e0128f03757ec8a432e1d1904a8a6ab8e0dba248316e07d4b42f923d4e61143"
+    },
+    {
+      "scale": 1.0,
+      "normalizedTMax": 20,
+      "mean": 0.081807238078909,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-1.0-20-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-1.0-20-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-1.0-20.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-1.0-20.log",
+        "-ExitAfterCapture"
+      ],
+      "path": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-1.0-20.pfm",
+      "sha256": "1a9c1fe6cd96fd8e78acb9d13cc8eea905a975a59efd8571c9557f1e829f88b7"
+    },
+    {
+      "scale": 100.0,
+      "normalizedTMax": 2,
+      "mean": 0.20000000298023224,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-100.0-2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-100.0-2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-100.0-2.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-100.0-2.log",
+        "-ExitAfterCapture"
+      ],
+      "path": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-100.0-2.pfm",
+      "sha256": "3e0128f03757ec8a432e1d1904a8a6ab8e0dba248316e07d4b42f923d4e61143"
+    },
+    {
+      "scale": 100.0,
+      "normalizedTMax": 20,
+      "mean": 0.08180735582573107,
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-100.0-20-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-100.0-20-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-100.0-20.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-100.0-20.log",
+        "-ExitAfterCapture"
+      ],
+      "path": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\tmax-100.0-20.pfm",
+      "sha256": "b4689d22f0f90585580f131532332dc350a209857c93f77c78a60684f8da025d"
+    }
+  ],
+  "nearLight": [
+    {
+      "command": [
+        "C:\\Users\\wkawa\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe",
+        "-NoProfile",
+        "-File",
+        "C:\\work\\RtPbrSurvey\\Tests\\PathTracing\\Test-LocalLightVisibility.ps1",
+        "-OutputDirectory",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\near-Point-0",
+        "-LightType",
+        "Point",
+        "-NearLightBoundary",
+        "-LightOffsetX",
+        "0",
+        "-Samples",
+        "4",
+        "-Seed",
+        "7"
+      ],
+      "exitCode": 0,
+      "report": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\near-Point-0\\report.json",
+      "metrics": {
+        "lightType": "Point",
+        "samples": 4,
+        "seed": 7,
+        "normalBias": 0.01,
+        "lightOffsetX": 0.0,
+        "roi": [
+          952,
+          532,
+          16,
+          16
+        ],
+        "clearMean": 0.07460589611582691,
+        "betweenMean": 0.0,
+        "beyondMean": 0.07460589611582691,
+        "maxBeyondDifference": 0.0
+      }
+    },
+    {
+      "command": [
+        "C:\\Users\\wkawa\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe",
+        "-NoProfile",
+        "-File",
+        "C:\\work\\RtPbrSurvey\\Tests\\PathTracing\\Test-LocalLightVisibility.ps1",
+        "-OutputDirectory",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\near-Point-1",
+        "-LightType",
+        "Point",
+        "-NearLightBoundary",
+        "-LightOffsetX",
+        "1",
+        "-Samples",
+        "4",
+        "-Seed",
+        "7"
+      ],
+      "exitCode": 0,
+      "report": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\near-Point-1\\report.json",
+      "metrics": {
+        "lightType": "Point",
+        "samples": 4,
+        "seed": 7,
+        "normalBias": 0.01,
+        "lightOffsetX": 1.0,
+        "roi": [
+          952,
+          532,
+          16,
+          16
+        ],
+        "clearMean": 0.05274623835187716,
+        "betweenMean": 0.0,
+        "beyondMean": 0.05274623835187716,
+        "maxBeyondDifference": 0.0
+      }
+    },
+    {
+      "command": [
+        "C:\\Users\\wkawa\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe",
+        "-NoProfile",
+        "-File",
+        "C:\\work\\RtPbrSurvey\\Tests\\PathTracing\\Test-LocalLightVisibility.ps1",
+        "-OutputDirectory",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\near-Spot-0",
+        "-LightType",
+        "Spot",
+        "-NearLightBoundary",
+        "-LightOffsetX",
+        "0",
+        "-Samples",
+        "4",
+        "-Seed",
+        "7"
+      ],
+      "exitCode": 0,
+      "report": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\near-Spot-0\\report.json",
+      "metrics": {
+        "lightType": "Spot",
+        "samples": 4,
+        "seed": 7,
+        "normalBias": 0.01,
+        "lightOffsetX": 0.0,
+        "roi": [
+          952,
+          532,
+          16,
+          16
+        ],
+        "clearMean": 0.07460589611582691,
+        "betweenMean": 0.0,
+        "beyondMean": 0.07460589611582691,
+        "maxBeyondDifference": 0.0
+      }
+    },
+    {
+      "command": [
+        "C:\\Users\\wkawa\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe",
+        "-NoProfile",
+        "-File",
+        "C:\\work\\RtPbrSurvey\\Tests\\PathTracing\\Test-LocalLightVisibility.ps1",
+        "-OutputDirectory",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\near-Spot-1",
+        "-LightType",
+        "Spot",
+        "-NearLightBoundary",
+        "-LightOffsetX",
+        "1",
+        "-Samples",
+        "4",
+        "-Seed",
+        "7"
+      ],
+      "exitCode": 0,
+      "report": "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-extra\\near-Spot-1\\report.json",
+      "metrics": {
+        "lightType": "Spot",
+        "samples": 4,
+        "seed": 7,
+        "normalBias": 0.01,
+        "lightOffsetX": 1.0,
+        "roi": [
+          952,
+          532,
+          16,
+          16
+        ],
+        "clearMean": 0.05274623835187716,
+        "betweenMean": 0.0,
+        "beyondMean": 0.05274623835187716,
+        "maxBeyondDifference": 0.0
+      }
+    }
+  ],
+  "thresholds": {
+    "minClearMean": 0.001,
+    "maxBlockedRatio": 0.8,
+    "maxBeyondDifference": 1e-06,
+    "relativeGeometryRadianceTolerance": 0.01,
+    "shadowProfileCutoff": 0.5,
+    "leakRatioCutoff": 0.9
+  },
+  "mainReport": "bin\\PathTracingValidation\\part3-scale\\report.json",
+  "extraReport": "bin\\PathTracingValidation\\part3-extra\\report.json",
+  "captureCommandsAndInputHashes": [
+    {
+      "name": "scale-visibility-0.01-front-clear-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "40c97391bd64410f3d0b4b65c6d1d42e763033c37bd15a11cc0aa6ffea593b24",
+      "presetHash": "dbf40582c0c2e2b5f549902c58e205484ae048ba97abb54631b43e3ffebea319",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.0001,
+        "rayTMin": 1e-05,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-visibility-0.01-front-between-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "36b63f55baf181e567bb28518da4f1cdc1f04b4077e95fbb2e53703a1e1c82b1",
+      "presetHash": "dbf40582c0c2e2b5f549902c58e205484ae048ba97abb54631b43e3ffebea319",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.0001,
+        "rayTMin": 1e-05,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-visibility-0.01-front-beyond-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "e838a3541103ef038652f52f96854e5bc263191bf11f1182f9d5d9164a07e669",
+      "presetHash": "dbf40582c0c2e2b5f549902c58e205484ae048ba97abb54631b43e3ffebea319",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.0001,
+        "rayTMin": 1e-05,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-visibility-0.01-front-clear-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "c03eb6b1cae2b1a8a8591eb2facd7ba5d8139b93eeebbb7273b2930a30b70017",
+      "presetHash": "d1e84524e99f00973fd42bbd18eac514094be73296cbc4e6538969449e71dffc",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-visibility-0.01-front-between-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "488d4871deae990aa68aff73fcb2929ade786a897b3d45808a0f2b4216b1ce63",
+      "presetHash": "d1e84524e99f00973fd42bbd18eac514094be73296cbc4e6538969449e71dffc",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-visibility-0.01-front-beyond-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "90a5687bbcb8b4ac19ea344b601ace42a441fd626df24f748336f9794f595fcb",
+      "presetHash": "d1e84524e99f00973fd42bbd18eac514094be73296cbc4e6538969449e71dffc",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-visibility-0.01-angled-clear-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "07a4a940dda85f133ddbb01d544c03d88f9f5ec228285b741ed3cd4caecb3b4d",
+      "presetHash": "2bdcdc74948e9f3a2db3e407dc91c70ef60777f2dc9cbfbfd614343bc94d7028",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.0001,
+        "rayTMin": 1e-05,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-visibility-0.01-angled-between-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "c29b6bab6b06392cf750084f523ab5378a5e973117702c91f2ce03450ce2f1cc",
+      "presetHash": "2bdcdc74948e9f3a2db3e407dc91c70ef60777f2dc9cbfbfd614343bc94d7028",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.0001,
+        "rayTMin": 1e-05,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-visibility-0.01-angled-beyond-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "a67c71f769028c7d1b04d055378d8cf770359a0c06a9ea75a0ea83653a27f636",
+      "presetHash": "2bdcdc74948e9f3a2db3e407dc91c70ef60777f2dc9cbfbfd614343bc94d7028",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.0001,
+        "rayTMin": 1e-05,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-visibility-0.01-angled-clear-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "217313001c8db630dfc29d6d1c42ae01f0c2b8edc5ca8c88c8f8ab0337a7f57c",
+      "presetHash": "ed3c1e0d9b55ca360f12b947ec31771dbe7b880e096606c00e9fba9e454a9c66",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-visibility-0.01-angled-between-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "5f61b3dada66c0b9237d98fccdfb425cbcadbee17260b2219092558ba8a6cee6",
+      "presetHash": "ed3c1e0d9b55ca360f12b947ec31771dbe7b880e096606c00e9fba9e454a9c66",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-visibility-0.01-angled-beyond-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "f61537c79ec579410e7eba9de0080af5de98791d641d02a9e7faf6ae5e91b2d1",
+      "presetHash": "ed3c1e0d9b55ca360f12b947ec31771dbe7b880e096606c00e9fba9e454a9c66",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-visibility-1.0-front-clear-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "04d5a0f9fc50369c06436573f70dc8a2d67a38b2cf532b103f1351f86cf7b888",
+      "presetHash": "f99f15bf23e01ce3bde876fd1c6189784b3fd9301ef866d16731fdec68a49fe9",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-visibility-1.0-front-between-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "50a881993d68d67df82cdec4745a0476f0ddf79b0f499c22ee54d89805869f78",
+      "presetHash": "f99f15bf23e01ce3bde876fd1c6189784b3fd9301ef866d16731fdec68a49fe9",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-visibility-1.0-front-beyond-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "7e3ec1a1af08c69ada45ba93ff65b0619f7492b76773299a675408b5601562d2",
+      "presetHash": "f99f15bf23e01ce3bde876fd1c6189784b3fd9301ef866d16731fdec68a49fe9",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-visibility-1.0-front-clear-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "b002eab3a4889e811ab4f3411e7018f1d7461de2022d94ef0a2e5bd594cdc62e",
+      "presetHash": "f99f15bf23e01ce3bde876fd1c6189784b3fd9301ef866d16731fdec68a49fe9",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-visibility-1.0-front-between-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "e4f295dc41642ca01d1b117934efa7d21b6a303157ab7ab44a291f284ba9cd3e",
+      "presetHash": "f99f15bf23e01ce3bde876fd1c6189784b3fd9301ef866d16731fdec68a49fe9",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-visibility-1.0-front-beyond-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "9e12865bd18a3f46a4f8573d7921ff747d9e186eab7f2b4e162c2b4660ade125",
+      "presetHash": "f99f15bf23e01ce3bde876fd1c6189784b3fd9301ef866d16731fdec68a49fe9",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-visibility-1.0-angled-clear-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "7a94ce95dce1704b0e3ab9a4ed24be891e45bb5e613ec0e6748de5aa3d905f53",
+      "presetHash": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-visibility-1.0-angled-between-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "5f4d3d5ca9193199efa43c2fda99673495f1fd06408540d824d8b6a12455dcac",
+      "presetHash": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-visibility-1.0-angled-beyond-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "51a45b78a84a7906bccae0020417268f8d4041d6b16665405d704beba7b0e4c7",
+      "presetHash": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-visibility-1.0-angled-clear-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "95ef3db67d903ed7f763253ef887e75552e5a72ffe53772c7953aa810b94d28d",
+      "presetHash": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-visibility-1.0-angled-between-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "d695b2db1c66528c65900f2a21acbbf6e9fdfcdf07414bbeb6e7eb26d875e9b3",
+      "presetHash": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-visibility-1.0-angled-beyond-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "ac4749d61b5cebbeb879e9aeb4e60be686bf4dfe6972c2b6e0f0d67f937a9f8c",
+      "presetHash": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-visibility-100.0-front-clear-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "c0796a2c1f9c3baa4c97a40b696cecc14c50cb359bbd6c46f0bc20b4b00f1c84",
+      "presetHash": "8d79ef5d1d4c6c30e230eb40265868f0ef7084d686a2fa508f77a4c73b597f69",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 1.0,
+        "rayTMin": 0.1,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-visibility-100.0-front-between-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "860bb8eca6499a3dff4b44e31d2ea88f38d15fbd1596f44d835a204dc65ce0a2",
+      "presetHash": "8d79ef5d1d4c6c30e230eb40265868f0ef7084d686a2fa508f77a4c73b597f69",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 1.0,
+        "rayTMin": 0.1,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-visibility-100.0-front-beyond-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "4a692c7c1635ba978b5382b14cd64acfdd85d0374302acf70e22f6d7c4013590",
+      "presetHash": "8d79ef5d1d4c6c30e230eb40265868f0ef7084d686a2fa508f77a4c73b597f69",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 1.0,
+        "rayTMin": 0.1,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-visibility-100.0-front-clear-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "fe08ef2b868953f33dd30e327775e06ad9c3e153c9d97d168a64bb827c757e38",
+      "presetHash": "e5dfb49aee4df333f1884f9a00343c4df8eeb381a14ac87b39a2c51cad91a5a2",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-visibility-100.0-front-between-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "28bba6ee6b475717577e413d3781bea48ccb1ad0828bd4184f8bd9333fb89716",
+      "presetHash": "e5dfb49aee4df333f1884f9a00343c4df8eeb381a14ac87b39a2c51cad91a5a2",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-visibility-100.0-front-beyond-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "e496f7210dc42e1bcfef74b3242b2122f50463cfa144e278a27924902338d566",
+      "presetHash": "e5dfb49aee4df333f1884f9a00343c4df8eeb381a14ac87b39a2c51cad91a5a2",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-visibility-100.0-angled-clear-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "3559342b8802af38852fcbcad2ecef200408161f03c00647aa561f14777cdd44",
+      "presetHash": "675eb05ae6ae9031bcf6faa6fb12c538debfb17f098d65a32e4637d4bcf96d7a",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 1.0,
+        "rayTMin": 0.1,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-visibility-100.0-angled-between-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "12111d61ad2fdc21039b2c6171c20dcf5dc711f9691ae9020a2a6567b7737b33",
+      "presetHash": "675eb05ae6ae9031bcf6faa6fb12c538debfb17f098d65a32e4637d4bcf96d7a",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 1.0,
+        "rayTMin": 0.1,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-visibility-100.0-angled-beyond-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "213ef7bb5242981bb29f51f0376f694eb302040426ca56cfe810d421ccfb6291",
+      "presetHash": "675eb05ae6ae9031bcf6faa6fb12c538debfb17f098d65a32e4637d4bcf96d7a",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 1.0,
+        "rayTMin": 0.1,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-visibility-100.0-angled-clear-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "7e3d297cd94e5c14331f137fcf56a45d9c88c7e8210f0e39506d38e1d66c74eb",
+      "presetHash": "21240027a335b3fee562e14ac4ac7682366868aa975f5413e74d3de8d3816991",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-visibility-100.0-angled-between-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "8abad44e9ac28c8e783eca63119c1eed01214efb511bd99f1eddc5d74011a6de",
+      "presetHash": "21240027a335b3fee562e14ac4ac7682366868aa975f5413e74d3de8d3816991",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-visibility-100.0-angled-beyond-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "c284d946e42731d7832911d4e3b84c1de3315a006441171235af33a439ac3502",
+      "presetHash": "21240027a335b3fee562e14ac4ac7682366868aa975f5413e74d3de8d3816991",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-contact-0.01-angled-contact-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "47e674eaf9e475aa7758ba48106bf6d02dedcd82e2f53b7ec7c6ddb36767327b",
+      "presetHash": "2bdcdc74948e9f3a2db3e407dc91c70ef60777f2dc9cbfbfd614343bc94d7028",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.0001,
+        "rayTMin": 1e-05,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-contact-0.01-angled-contact-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "216a19b805c47fec2a31505c99cfd141afb5aadec454c21eda0ae56031d81e3c",
+      "presetHash": "ed3c1e0d9b55ca360f12b947ec31771dbe7b880e096606c00e9fba9e454a9c66",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-contact-0.01-angled-contact-fixed-bias",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-bias-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-bias-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-bias.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-bias.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "eca5a3c406f1eae409b3df440220b6d5c1e709c128ee0fc8fe28019d5dc72eb7",
+      "presetHash": "1a7252e89001507f70abda9fa5ac4c8db9c1b3dd2b1ae23d977070697fe4449d",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 1e-05,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-contact-0.01-angled-contact-fixed-tmin",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-tmin-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-tmin-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-tmin.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-tmin.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "7305780ae1a75816672f187e9cdb0b0fd2d3574eb011f5fd5309d70ca7861586",
+      "presetHash": "0bac0963f3e532aed6e1c8156b84f98205a9133d1e41cbe480244487cdb92a8f",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.0001,
+        "rayTMin": 0.001,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-contact-1.0-angled-contact-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "c277abb874267df61bba7ab4098712a06fa8a9b406b42bea0b19dee25318b561",
+      "presetHash": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-contact-1.0-angled-contact-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "fcc7bc58409e923efe268165ebfa33ba3bd7711ae4e81b0ca8e55e7c929efcf8",
+      "presetHash": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-contact-1.0-angled-contact-fixed-bias",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-bias-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-bias-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-bias.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-bias.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "4841baf0fd185a02dc1bc1cbc64a60987d53f7dfdb25887ce2942b3f22986ea1",
+      "presetHash": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-contact-1.0-angled-contact-fixed-tmin",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-tmin-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-tmin-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-tmin.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-tmin.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "2ec669a607062784a461cecfccd7367c57a2044ad32a5bb8bd64820f0a97143e",
+      "presetHash": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-contact-100.0-angled-contact-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "8c34d4dae88b42194d2ed8a7e77a4ce53ed02e58450bb91721963cd3173ecec0",
+      "presetHash": "675eb05ae6ae9031bcf6faa6fb12c538debfb17f098d65a32e4637d4bcf96d7a",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 1.0,
+        "rayTMin": 0.1,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-contact-100.0-angled-contact-fixed",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "bb5c7d47d4a8c97b9a767a4cab571da39f69388cc5102dbce8c31dada1e3576a",
+      "presetHash": "21240027a335b3fee562e14ac4ac7682366868aa975f5413e74d3de8d3816991",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-contact-100.0-angled-contact-fixed-bias",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-bias-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-bias-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-bias.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-bias.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "0e61d30518d0a3fe13e63e19524f2803834a8fe31ef4e2c1355e0bc78efad65e",
+      "presetHash": "b4748a776f1871665fdbf58f909ec9c48288472243e48ea8f0d6077e6f7941f7",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.1,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-contact-100.0-angled-contact-fixed-tmin",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-tmin-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-tmin-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-tmin.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-tmin.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "9b3d5e7df655e82374fed46fb47b87a35bfff0a32fd1f34e663cbe0c265b39d3",
+      "presetHash": "c7f543df1a28ac0a5264705105f641c1d1f4489d803b0ef9112e89304f788a66",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 1.0,
+        "rayTMin": 0.001,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-self-0.01-angled-unshadowed-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-unshadowed-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-unshadowed-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-unshadowed-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-unshadowed-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "13b21930ed9b22d14f7e03666f75ad7a1eb1b9e42aa56708fc6ca8e875f3b62d",
+      "presetHash": "345ea72390ae062f876cb2290c9f16a4e70eb3741956bd81359a48e8d014c7d2",
+      "shadow": {
+        "enabled": false,
+        "normalBias": 0.0001,
+        "rayTMin": 1e-05,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-self-0.01-angled-shadowed-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "93a003aa9bdefb4c19209c50c2c8123e45418da1f35f7012bd72bd07bae5867e",
+      "presetHash": "68883f88ac41a59604e6e02280fa8d072d2bc5c2b68f97a0f062bcb452d92482",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.0001,
+        "rayTMin": 1e-05,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-self-0.01-angled-shadowed-zero",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-zero-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-zero-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-zero.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-zero.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "5678ff83bae3e2e00fc99f042d0dea5e7bc91b30da4289a9707ad574de3f0c95",
+      "presetHash": "96bd0828c85c2af576b50f3a039a38de35339393d4837c72d3201aee27ac2e21",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0,
+        "rayTMin": 0,
+        "rayTMax": 100.0
+      }
+    },
+    {
+      "name": "scale-self-1.0-angled-unshadowed-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-unshadowed-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-unshadowed-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-unshadowed-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-unshadowed-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "bbffd1257565641649d5d30e98814c03dd3d1658a52b28b9cfac244870545f12",
+      "presetHash": "0c3fd9bd80ad10c3a170d39aab7b0578e4bd665bb23c953c83baff216e40c75b",
+      "shadow": {
+        "enabled": false,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-self-1.0-angled-shadowed-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "a763f6e84829767d41555db5c899def1f00aae7a438d7bf3057a0c926c0f8e3e",
+      "presetHash": "e28c8ed7da6f65bd872854ecc24ca26ee6c895b2e8f775e1f16f89bfa420af50",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0.01,
+        "rayTMin": 0.001,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-self-1.0-angled-shadowed-zero",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-zero-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-zero-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-zero.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-zero.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "036778ed068e3a3901f95b8293734860395cc528fc12614cf5523af456d0d436",
+      "presetHash": "af16f170739943cbf9588d492905fb16847be06c5a1d4b142fa92e80c9f86c40",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0,
+        "rayTMin": 0,
+        "rayTMax": 10000.0
+      }
+    },
+    {
+      "name": "scale-self-100.0-angled-unshadowed-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-unshadowed-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-unshadowed-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-unshadowed-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-unshadowed-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "82c22c4b5f128d87af61e1465f6320e62049e71e409e584f2d83910551e67b7a",
+      "presetHash": "c08d50913bc88ed591eabc6f6b7a637f3e312c1eb5bd3c61784d67c41c44fe50",
+      "shadow": {
+        "enabled": false,
+        "normalBias": 1.0,
+        "rayTMin": 0.1,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-self-100.0-angled-shadowed-relative",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-relative-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-relative-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-relative.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-relative.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "27fecef2f5b23d85689e1b439bf6ff08f666184d91d9b7cb82104c40f60071f4",
+      "presetHash": "86e583ce95b94cc123a6d15980110bd1381bb9daed11d1db02b701a631a8f6a3",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 1.0,
+        "rayTMin": 0.1,
+        "rayTMax": 1000000.0
+      }
+    },
+    {
+      "name": "scale-self-100.0-angled-shadowed-zero",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-zero-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-zero-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-zero.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-zero.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneHash": "233adb84282aedae35a364ff4d8a69968e00b8d2e76c55bb81420882cdc82a66",
+      "presetHash": "8caa201947a3597aa1c29a7db520612f004d1cfc73a73e69925b481666949fe9",
+      "shadow": {
+        "enabled": true,
+        "normalBias": 0,
+        "rayTMin": 0,
+        "rayTMax": 1000000.0
+      }
+    }
+  ],
+  "measurementCodeHashes": [
+    {
+      "path": "bin\\x64\\Debug\\RtPbrSurvey.exe",
+      "sha256": "fdfd740daf09732e2cfab9a86281e3e2b02fda37b530a188209e8699e4f4c6f9"
+    },
+    {
+      "path": "Tests\\PathTracing\\complete_scale_suite.py",
+      "sha256": "b7647b7f9970dcc2b81c4a2fe0697f82a0218b5ad10eb53460db30cbd3c97bdb"
+    },
+    {
+      "path": "Tests\\PathTracing\\summarize_scale.py",
+      "sha256": "2b86dbc8d9a2008489a33aedf79ea45565b7600b0b12fa59fa5bd7bd7886aa38"
+    },
+    {
+      "path": "Tests\\PathTracing\\test_validate_scale.py",
+      "sha256": "35b50b8664bfc1ddf1fd1f28fa8f888d34afa8f36dc5a9375e86908a9d82d8c2"
+    },
+    {
+      "path": "Tests\\PathTracing\\validate_scale.py",
+      "sha256": "2f29f858621bc86ef9f29f0e9ae1e601b0b2bfcac2985aee36c1f32f4c32e4b6"
+    },
+    {
+      "path": "Tests\\PathTracing\\Test-LocalLightVisibility.ps1",
+      "sha256": "3dc1ae26b66d56dc770620ff6aa25c1f55f82446c580c0f09408b69023fa2aef"
+    }
+  ],
+  "d3d12ErrorCount": 0,
+  "assessment": {
+    "status": "done",
+    "rendererFixed": false,
+    "relativeVisibilityPassed": true,
+    "reproducedFixedBiasFailures": [
+      {
+        "scale": 0.01,
+        "angle": "angled",
+        "policy": "fixed",
+        "clearMean": 0.0818073578629992,
+        "blockedMean": 0.06588006861056783,
+        "blockedRatio": 0.8053073749294726,
+        "beyondMaxDifference": 0.0,
+        "passed": false
+      }
+    ],
+    "nearLightPassed": true,
+    "limitations": "One GPU, one seed, 4 spp; mixed-scale geometry and translated/nonuniform transforms untested."
+  },
+  "artifacts": [
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\report.json",
+      "sha256": "7cbf1b364e0173c5c866d8b7afc5aecd557ccf7363067bad586dfe6b9339aa56"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-bias-preset.json",
+      "sha256": "1a7252e89001507f70abda9fa5ac4c8db9c1b3dd2b1ae23d977070697fe4449d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-bias-scene.json",
+      "sha256": "eca5a3c406f1eae409b3df440220b6d5c1e709c128ee0fc8fe28019d5dc72eb7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-bias.log",
+      "sha256": "a3f97f949e8a48d7f29ffc0e4ac036e96ef26b3b5f1a0c2f14267f61107d14a2"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-bias.pfm",
+      "sha256": "a514bf00e7a831b67db5d78621298fb133b7158546bfa69e4d18d6912c612f16"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-preset.json",
+      "sha256": "ed3c1e0d9b55ca360f12b947ec31771dbe7b880e096606c00e9fba9e454a9c66"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-scene.json",
+      "sha256": "216a19b805c47fec2a31505c99cfd141afb5aadec454c21eda0ae56031d81e3c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-tmin-preset.json",
+      "sha256": "0bac0963f3e532aed6e1c8156b84f98205a9133d1e41cbe480244487cdb92a8f"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-tmin-scene.json",
+      "sha256": "7305780ae1a75816672f187e9cdb0b0fd2d3574eb011f5fd5309d70ca7861586"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-tmin.log",
+      "sha256": "5fcac0d2bdf2ce92015c7618ecc810f3e2c47be94ac5576396335f440e036b27"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed-tmin.pfm",
+      "sha256": "9781bf8023959a00eb4e0fc0cdcecae013e100554d0404aef10017c03ea692f1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed.log",
+      "sha256": "ade540bcd4249729f1bcbc02dbb30fdbe1915f8f7bfb073abc9014db45317183"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-fixed.pfm",
+      "sha256": "a514bf00e7a831b67db5d78621298fb133b7158546bfa69e4d18d6912c612f16"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-relative-preset.json",
+      "sha256": "2bdcdc74948e9f3a2db3e407dc91c70ef60777f2dc9cbfbfd614343bc94d7028"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-relative-scene.json",
+      "sha256": "47e674eaf9e475aa7758ba48106bf6d02dedcd82e2f53b7ec7c6ddb36767327b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-relative.log",
+      "sha256": "ce1bfa8ca7ea1d4f384429cd0bd58ebbf23453fd767f40fc383025b87b55188c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-0.01-angled-contact-relative.pfm",
+      "sha256": "f6b953c356f6f3f8613e4c04a10013551688ed665176b341626ab19796d06491"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-bias-preset.json",
+      "sha256": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-bias-scene.json",
+      "sha256": "4841baf0fd185a02dc1bc1cbc64a60987d53f7dfdb25887ce2942b3f22986ea1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-bias.log",
+      "sha256": "b6224b2db1f356e56d901cb84fd2a538bed3fe163472c138d40e814792dcf4ca"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-bias.pfm",
+      "sha256": "b7dfcf1c1b55ed1783e7aef77644cd4b3e2745a80030e5b0e669da2108b007f8"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-preset.json",
+      "sha256": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-scene.json",
+      "sha256": "fcc7bc58409e923efe268165ebfa33ba3bd7711ae4e81b0ca8e55e7c929efcf8"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-tmin-preset.json",
+      "sha256": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-tmin-scene.json",
+      "sha256": "2ec669a607062784a461cecfccd7367c57a2044ad32a5bb8bd64820f0a97143e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-tmin.log",
+      "sha256": "7a679eb32b1348922bd9270482944a766d2f7dae9e9b0eeb82c074793acce6f2"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed-tmin.pfm",
+      "sha256": "b7dfcf1c1b55ed1783e7aef77644cd4b3e2745a80030e5b0e669da2108b007f8"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed.log",
+      "sha256": "4bfeb44dc89b330c4732ac6a848456273d7d94866f3074cbef1b068b186ade29"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-fixed.pfm",
+      "sha256": "b7dfcf1c1b55ed1783e7aef77644cd4b3e2745a80030e5b0e669da2108b007f8"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-relative-preset.json",
+      "sha256": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-relative-scene.json",
+      "sha256": "c277abb874267df61bba7ab4098712a06fa8a9b406b42bea0b19dee25318b561"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-relative.log",
+      "sha256": "96dd227a9aa0c0f0246b7cee0324277fca224db2bef92abd730c93b66ebec653"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-1.0-angled-contact-relative.pfm",
+      "sha256": "b7dfcf1c1b55ed1783e7aef77644cd4b3e2745a80030e5b0e669da2108b007f8"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-bias-preset.json",
+      "sha256": "b4748a776f1871665fdbf58f909ec9c48288472243e48ea8f0d6077e6f7941f7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-bias-scene.json",
+      "sha256": "0e61d30518d0a3fe13e63e19524f2803834a8fe31ef4e2c1355e0bc78efad65e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-bias.log",
+      "sha256": "7396f60d7585009895a179bb7c287340b6a3d8375c721d42d8168a272e7d014b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-bias.pfm",
+      "sha256": "d72ffe7b3b72eb9e116ae643fcc70c7e27544c80385fec41eed35457834a6d29"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-preset.json",
+      "sha256": "21240027a335b3fee562e14ac4ac7682366868aa975f5413e74d3de8d3816991"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-scene.json",
+      "sha256": "bb5c7d47d4a8c97b9a767a4cab571da39f69388cc5102dbce8c31dada1e3576a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-tmin-preset.json",
+      "sha256": "c7f543df1a28ac0a5264705105f641c1d1f4489d803b0ef9112e89304f788a66"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-tmin-scene.json",
+      "sha256": "9b3d5e7df655e82374fed46fb47b87a35bfff0a32fd1f34e663cbe0c265b39d3"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-tmin.log",
+      "sha256": "5ff1814d8c7b1cb101d9b2df9ed75f52ff4517e99f06bd597bcc37501d7cecb2"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed-tmin.pfm",
+      "sha256": "a1682ec1485145f83eb74e1439fece20863015d40f1231d97bf6339367e23b77"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed.log",
+      "sha256": "400a3b04477fcad8e92d44b2e41c897bb2e0b70961783e94864f4fc6b06b1157"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-fixed.pfm",
+      "sha256": "d72ffe7b3b72eb9e116ae643fcc70c7e27544c80385fec41eed35457834a6d29"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-relative-preset.json",
+      "sha256": "675eb05ae6ae9031bcf6faa6fb12c538debfb17f098d65a32e4637d4bcf96d7a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-relative-scene.json",
+      "sha256": "8c34d4dae88b42194d2ed8a7e77a4ce53ed02e58450bb91721963cd3173ecec0"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-relative.log",
+      "sha256": "04399d9f1ba88ff6cab8d0af452198ba277fd66a218b015133492c73f38062bf"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-contact-100.0-angled-contact-relative.pfm",
+      "sha256": "a1682ec1485145f83eb74e1439fece20863015d40f1231d97bf6339367e23b77"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-relative-preset.json",
+      "sha256": "68883f88ac41a59604e6e02280fa8d072d2bc5c2b68f97a0f062bcb452d92482"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-relative-scene.json",
+      "sha256": "93a003aa9bdefb4c19209c50c2c8123e45418da1f35f7012bd72bd07bae5867e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-relative.log",
+      "sha256": "1e6e42c8a0ea2ab1b353c353c0e9d07b29857640180b959789e939ef7cbb1007"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-relative.pfm",
+      "sha256": "72507a141533a4b0cb8227b3b2103d04939bd9f8778bcf061f2ab1fcae851aa1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-zero-preset.json",
+      "sha256": "96bd0828c85c2af576b50f3a039a38de35339393d4837c72d3201aee27ac2e21"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-zero-scene.json",
+      "sha256": "5678ff83bae3e2e00fc99f042d0dea5e7bc91b30da4289a9707ad574de3f0c95"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-zero.log",
+      "sha256": "037a497c519fadf108e0b0ab66b6234e3673749adc0bfd873b174e4c76b71e61"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-shadowed-zero.pfm",
+      "sha256": "f6dcae5f83bc22b9b74a0e806b2a72c926a63b81cd2ee1697449b84a419b96dd"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-unshadowed-relative-preset.json",
+      "sha256": "345ea72390ae062f876cb2290c9f16a4e70eb3741956bd81359a48e8d014c7d2"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-unshadowed-relative-scene.json",
+      "sha256": "13b21930ed9b22d14f7e03666f75ad7a1eb1b9e42aa56708fc6ca8e875f3b62d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-unshadowed-relative.log",
+      "sha256": "18f2875446a336f998145756a1691210a7afb74562e9d13005e9693a1f80b84f"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-0.01-angled-unshadowed-relative.pfm",
+      "sha256": "72507a141533a4b0cb8227b3b2103d04939bd9f8778bcf061f2ab1fcae851aa1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-relative-preset.json",
+      "sha256": "e28c8ed7da6f65bd872854ecc24ca26ee6c895b2e8f775e1f16f89bfa420af50"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-relative-scene.json",
+      "sha256": "a763f6e84829767d41555db5c899def1f00aae7a438d7bf3057a0c926c0f8e3e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-relative.log",
+      "sha256": "987e8a86a77bbac38e92dc7262413503f5feb9fc5060e573dce829678d28b131"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-relative.pfm",
+      "sha256": "076d61709bee7215899e6f88e33b7d5daa43c54160a5a6c9635b6068dd75e063"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-zero-preset.json",
+      "sha256": "af16f170739943cbf9588d492905fb16847be06c5a1d4b142fa92e80c9f86c40"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-zero-scene.json",
+      "sha256": "036778ed068e3a3901f95b8293734860395cc528fc12614cf5523af456d0d436"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-zero.log",
+      "sha256": "18a960b04db60776211246b699ee1f3a9569f6a5cf8211ad0814dd496a0d6f61"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-shadowed-zero.pfm",
+      "sha256": "0f63ae5e36c268fd57fe29184df1945a1f2e635dc01adafd0808364cedefc369"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-unshadowed-relative-preset.json",
+      "sha256": "0c3fd9bd80ad10c3a170d39aab7b0578e4bd665bb23c953c83baff216e40c75b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-unshadowed-relative-scene.json",
+      "sha256": "bbffd1257565641649d5d30e98814c03dd3d1658a52b28b9cfac244870545f12"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-unshadowed-relative.log",
+      "sha256": "431e91c69789a473a1559b4baf341f001a72b807dc20260589934e9230d3ad15"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-1.0-angled-unshadowed-relative.pfm",
+      "sha256": "076d61709bee7215899e6f88e33b7d5daa43c54160a5a6c9635b6068dd75e063"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-relative-preset.json",
+      "sha256": "86e583ce95b94cc123a6d15980110bd1381bb9daed11d1db02b701a631a8f6a3"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-relative-scene.json",
+      "sha256": "27fecef2f5b23d85689e1b439bf6ff08f666184d91d9b7cb82104c40f60071f4"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-relative.log",
+      "sha256": "6bf05bb4b05e506593537168ffb196b51a8a2e64d5432776fa334b332913a6d6"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-relative.pfm",
+      "sha256": "9d18500ad0157777515aadc3ee448b69511d404309b0f34e3104c181bba01ee5"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-zero-preset.json",
+      "sha256": "8caa201947a3597aa1c29a7db520612f004d1cfc73a73e69925b481666949fe9"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-zero-scene.json",
+      "sha256": "233adb84282aedae35a364ff4d8a69968e00b8d2e76c55bb81420882cdc82a66"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-zero.log",
+      "sha256": "0e5679605bd546b26b25fc70a7786f0d64fe08a34ffedd0e00c106a265b620a0"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-shadowed-zero.pfm",
+      "sha256": "53b24d97ccb0eba47222cb328446d2105e03db954bc21295cb3e16be27d1ad3a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-unshadowed-relative-preset.json",
+      "sha256": "c08d50913bc88ed591eabc6f6b7a637f3e312c1eb5bd3c61784d67c41c44fe50"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-unshadowed-relative-scene.json",
+      "sha256": "82c22c4b5f128d87af61e1465f6320e62049e71e409e584f2d83910551e67b7a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-unshadowed-relative.log",
+      "sha256": "ab9c6a6bdfe0532013354700beba6fcc4a032271da3ada615e8b250efca641e8"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-self-100.0-angled-unshadowed-relative.pfm",
+      "sha256": "9d18500ad0157777515aadc3ee448b69511d404309b0f34e3104c181bba01ee5"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-fixed-preset.json",
+      "sha256": "ed3c1e0d9b55ca360f12b947ec31771dbe7b880e096606c00e9fba9e454a9c66"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-fixed-scene.json",
+      "sha256": "5f61b3dada66c0b9237d98fccdfb425cbcadbee17260b2219092558ba8a6cee6"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-fixed.log",
+      "sha256": "299131ef2b4bf3ff08efec86bfdf7ef8780c2a7d6ac340b127a29ab7f66cf6b0"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-fixed.pfm",
+      "sha256": "4a4d39e765f1691d22372d1c3791e247801bd56ce4fe6d52b433e8610130743f"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-relative-preset.json",
+      "sha256": "2bdcdc74948e9f3a2db3e407dc91c70ef60777f2dc9cbfbfd614343bc94d7028"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-relative-scene.json",
+      "sha256": "c29b6bab6b06392cf750084f523ab5378a5e973117702c91f2ce03450ce2f1cc"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-relative.log",
+      "sha256": "fc9e5c2d60773d2c9a8e132f4d20024528fbb0d1998c0b3d216be81bc1378efc"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-between-relative.pfm",
+      "sha256": "c8d18d4f7480b762e664fcfa536395c08321df93f7afd24ea2835e972dc166c3"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-fixed-preset.json",
+      "sha256": "ed3c1e0d9b55ca360f12b947ec31771dbe7b880e096606c00e9fba9e454a9c66"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-fixed-scene.json",
+      "sha256": "f61537c79ec579410e7eba9de0080af5de98791d641d02a9e7faf6ae5e91b2d1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-fixed.log",
+      "sha256": "9b615cdbce98e9ecccc52b2e39a106cd4c50b230fd310767c30e7ed171e6e92b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-fixed.pfm",
+      "sha256": "dbfccf0f19c46e5bf7b0c77caf0e67ec7c5acc9b55a71686deb96a6fac74ae3a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-relative-preset.json",
+      "sha256": "2bdcdc74948e9f3a2db3e407dc91c70ef60777f2dc9cbfbfd614343bc94d7028"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-relative-scene.json",
+      "sha256": "a67c71f769028c7d1b04d055378d8cf770359a0c06a9ea75a0ea83653a27f636"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-relative.log",
+      "sha256": "7433b4e407ff34e6cc4ba84a7a052b36b72b25fbca8cb92723981be260e4d0ca"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-beyond-relative.pfm",
+      "sha256": "dbfccf0f19c46e5bf7b0c77caf0e67ec7c5acc9b55a71686deb96a6fac74ae3a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-fixed-preset.json",
+      "sha256": "ed3c1e0d9b55ca360f12b947ec31771dbe7b880e096606c00e9fba9e454a9c66"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-fixed-scene.json",
+      "sha256": "217313001c8db630dfc29d6d1c42ae01f0c2b8edc5ca8c88c8f8ab0337a7f57c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-fixed.log",
+      "sha256": "56e014c55324197b5a2767200dcb67b57e65383871fc21695a21e9c266fbc73c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-fixed.pfm",
+      "sha256": "fb0d0b111325036eb2d2a964edf6a91b468e017d9da0ee57ae0c05dbe5a41e52"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-relative-preset.json",
+      "sha256": "2bdcdc74948e9f3a2db3e407dc91c70ef60777f2dc9cbfbfd614343bc94d7028"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-relative-scene.json",
+      "sha256": "07a4a940dda85f133ddbb01d544c03d88f9f5ec228285b741ed3cd4caecb3b4d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-relative.log",
+      "sha256": "559fab8f895b6bdb7dc91a95104b4280c5f8f7c232b682a2f6e034aacaa958fb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-angled-clear-relative.pfm",
+      "sha256": "fb0d0b111325036eb2d2a964edf6a91b468e017d9da0ee57ae0c05dbe5a41e52"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-fixed-preset.json",
+      "sha256": "d1e84524e99f00973fd42bbd18eac514094be73296cbc4e6538969449e71dffc"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-fixed-scene.json",
+      "sha256": "488d4871deae990aa68aff73fcb2929ade786a897b3d45808a0f2b4216b1ce63"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-fixed.log",
+      "sha256": "f472a748065e30fb1b15e355100c15f06bf8fe9995e6060e6b86da270fa7f99a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-fixed.pfm",
+      "sha256": "c0807e6db64b9558adfdc24e49e40c09a4776a8c7205f16c824b8d4d96cfbf41"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-relative-preset.json",
+      "sha256": "dbf40582c0c2e2b5f549902c58e205484ae048ba97abb54631b43e3ffebea319"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-relative-scene.json",
+      "sha256": "36b63f55baf181e567bb28518da4f1cdc1f04b4077e95fbb2e53703a1e1c82b1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-relative.log",
+      "sha256": "42ebce4d2d230b12dcfea69b9d4da7a31efde2ee418840704dd0f306cffe363d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-between-relative.pfm",
+      "sha256": "ef9b716b4df2bc155d2de30cf796e6a04371b31a684373898a233946754f77ef"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-fixed-preset.json",
+      "sha256": "d1e84524e99f00973fd42bbd18eac514094be73296cbc4e6538969449e71dffc"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-fixed-scene.json",
+      "sha256": "90a5687bbcb8b4ac19ea344b601ace42a441fd626df24f748336f9794f595fcb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-fixed.log",
+      "sha256": "3d3cd45e6e7f77483c9d54aa95beeebff5780d98edaf72a98341af87aaada74f"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-fixed.pfm",
+      "sha256": "fd7604882295428bf4ce707285f7dc35dd9eb2abd7fb5bcffda431883aea5ff4"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-relative-preset.json",
+      "sha256": "dbf40582c0c2e2b5f549902c58e205484ae048ba97abb54631b43e3ffebea319"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-relative-scene.json",
+      "sha256": "e838a3541103ef038652f52f96854e5bc263191bf11f1182f9d5d9164a07e669"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-relative.log",
+      "sha256": "5d6853ede7add4a860417c058e7715e8927fc176af7b6bbcab6b5a5eba126288"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-beyond-relative.pfm",
+      "sha256": "fd7604882295428bf4ce707285f7dc35dd9eb2abd7fb5bcffda431883aea5ff4"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-fixed-preset.json",
+      "sha256": "d1e84524e99f00973fd42bbd18eac514094be73296cbc4e6538969449e71dffc"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-fixed-scene.json",
+      "sha256": "c03eb6b1cae2b1a8a8591eb2facd7ba5d8139b93eeebbb7273b2930a30b70017"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-fixed.log",
+      "sha256": "e0a1c376a74bd7df3c3f5c3d3174e4cb534ce969d514ebc236eb8780f6d521f5"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-fixed.pfm",
+      "sha256": "90e22cd4fca381aa3a8a8b49fc6ae92062ebcd56dda688eedbbe869f13682253"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-relative-preset.json",
+      "sha256": "dbf40582c0c2e2b5f549902c58e205484ae048ba97abb54631b43e3ffebea319"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-relative-scene.json",
+      "sha256": "40c97391bd64410f3d0b4b65c6d1d42e763033c37bd15a11cc0aa6ffea593b24"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-relative.log",
+      "sha256": "8bc66c99654c95207729d1cb06016ceef959284dd1db937acfe8cebf110870a0"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-0.01-front-clear-relative.pfm",
+      "sha256": "90e22cd4fca381aa3a8a8b49fc6ae92062ebcd56dda688eedbbe869f13682253"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-fixed-preset.json",
+      "sha256": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-fixed-scene.json",
+      "sha256": "d695b2db1c66528c65900f2a21acbbf6e9fdfcdf07414bbeb6e7eb26d875e9b3"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-fixed.log",
+      "sha256": "48e2cc2df172a6c479354f3e6f582335e759f982961fb04eb3d954fbb6d085d5"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-fixed.pfm",
+      "sha256": "84568879d8beef1205677e1872d65d2c8535e364fc314d2266b1d7aaf91ad04c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-relative-preset.json",
+      "sha256": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-relative-scene.json",
+      "sha256": "5f4d3d5ca9193199efa43c2fda99673495f1fd06408540d824d8b6a12455dcac"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-relative.log",
+      "sha256": "0425819bd121a39ab343f607a74151c903b59ebeb6612b6535492c5d317ee1dc"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-between-relative.pfm",
+      "sha256": "84568879d8beef1205677e1872d65d2c8535e364fc314d2266b1d7aaf91ad04c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-fixed-preset.json",
+      "sha256": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-fixed-scene.json",
+      "sha256": "ac4749d61b5cebbeb879e9aeb4e60be686bf4dfe6972c2b6e0f0d67f937a9f8c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-fixed.log",
+      "sha256": "8b713a9f8b14dd8d2d10a68a849d200673b5387969fa77f57b066a380b497339"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-fixed.pfm",
+      "sha256": "8d04916f75fbf29cfb9838ab25f0f3541be3bdabf7f977b2f5cbab28fae76b63"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-relative-preset.json",
+      "sha256": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-relative-scene.json",
+      "sha256": "51a45b78a84a7906bccae0020417268f8d4041d6b16665405d704beba7b0e4c7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-relative.log",
+      "sha256": "fdf30f7f5ee2dcdecd39ddcee2534316b6cb2e6cd688e6a6b93479e1190bd7bb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-beyond-relative.pfm",
+      "sha256": "8d04916f75fbf29cfb9838ab25f0f3541be3bdabf7f977b2f5cbab28fae76b63"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-fixed-preset.json",
+      "sha256": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-fixed-scene.json",
+      "sha256": "95ef3db67d903ed7f763253ef887e75552e5a72ffe53772c7953aa810b94d28d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-fixed.log",
+      "sha256": "74e6f909fe58ecfdee460986a6a4c670874dd030e016689fd0eb4e0514ca06fe"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-fixed.pfm",
+      "sha256": "1a9c1fe6cd96fd8e78acb9d13cc8eea905a975a59efd8571c9557f1e829f88b7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-relative-preset.json",
+      "sha256": "55d0b07b505990a5972daf0390f66298acd27faf95fa77e42e36be4b2a1aceaa"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-relative-scene.json",
+      "sha256": "7a94ce95dce1704b0e3ab9a4ed24be891e45bb5e613ec0e6748de5aa3d905f53"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-relative.log",
+      "sha256": "e4e6ba58b35f304e4e6e481ad2b79ae9d7cbfb99f8391556b7b58c4d4291fb1a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-angled-clear-relative.pfm",
+      "sha256": "1a9c1fe6cd96fd8e78acb9d13cc8eea905a975a59efd8571c9557f1e829f88b7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-fixed-preset.json",
+      "sha256": "f99f15bf23e01ce3bde876fd1c6189784b3fd9301ef866d16731fdec68a49fe9"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-fixed-scene.json",
+      "sha256": "e4f295dc41642ca01d1b117934efa7d21b6a303157ab7ab44a291f284ba9cd3e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-fixed.log",
+      "sha256": "8191093192dc3944fc0f62e641fc06bba0977f552117a3ad88deb6a12c132e66"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-fixed.pfm",
+      "sha256": "acc0943a6119c152d728f97e9a57535c6147f9b2826fa5fb24fc71ebef592053"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-relative-preset.json",
+      "sha256": "f99f15bf23e01ce3bde876fd1c6189784b3fd9301ef866d16731fdec68a49fe9"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-relative-scene.json",
+      "sha256": "50a881993d68d67df82cdec4745a0476f0ddf79b0f499c22ee54d89805869f78"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-relative.log",
+      "sha256": "36f505866ec892b54b65f3b75e6b271e699e029fa9719256a6ec24560970aac8"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-between-relative.pfm",
+      "sha256": "acc0943a6119c152d728f97e9a57535c6147f9b2826fa5fb24fc71ebef592053"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-fixed-preset.json",
+      "sha256": "f99f15bf23e01ce3bde876fd1c6189784b3fd9301ef866d16731fdec68a49fe9"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-fixed-scene.json",
+      "sha256": "9e12865bd18a3f46a4f8573d7921ff747d9e186eab7f2b4e162c2b4660ade125"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-fixed.log",
+      "sha256": "d98cb67b99ab6ee7a422082c03ada3ddaa9388f437ad0251920d886c53689f2e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-fixed.pfm",
+      "sha256": "17de9b8a83500f5e7cce081d1af9095c9bbff8c3a1f3314453fb8738833f53fc"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-relative-preset.json",
+      "sha256": "f99f15bf23e01ce3bde876fd1c6189784b3fd9301ef866d16731fdec68a49fe9"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-relative-scene.json",
+      "sha256": "7e3ec1a1af08c69ada45ba93ff65b0619f7492b76773299a675408b5601562d2"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-relative.log",
+      "sha256": "9abe41bff40a0e130570852a2b59b2affe63d02c5dae4df4c9636046fc69247c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-beyond-relative.pfm",
+      "sha256": "17de9b8a83500f5e7cce081d1af9095c9bbff8c3a1f3314453fb8738833f53fc"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-fixed-preset.json",
+      "sha256": "f99f15bf23e01ce3bde876fd1c6189784b3fd9301ef866d16731fdec68a49fe9"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-fixed-scene.json",
+      "sha256": "b002eab3a4889e811ab4f3411e7018f1d7461de2022d94ef0a2e5bd594cdc62e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-fixed.log",
+      "sha256": "da661a8c459fc755f672ceaed84abd332bbcbb993e9950e3b46a63e977fae79e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-fixed.pfm",
+      "sha256": "d654a02f97dcf12f00124998aca29c63df93bd1da62ca9349f7ad4f0f7a72f25"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-relative-preset.json",
+      "sha256": "f99f15bf23e01ce3bde876fd1c6189784b3fd9301ef866d16731fdec68a49fe9"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-relative-scene.json",
+      "sha256": "04d5a0f9fc50369c06436573f70dc8a2d67a38b2cf532b103f1351f86cf7b888"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-relative.log",
+      "sha256": "748f141904237191c0340e0b8b532f9bff03ddee86cc95535888969908d12394"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-1.0-front-clear-relative.pfm",
+      "sha256": "d654a02f97dcf12f00124998aca29c63df93bd1da62ca9349f7ad4f0f7a72f25"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-fixed-preset.json",
+      "sha256": "21240027a335b3fee562e14ac4ac7682366868aa975f5413e74d3de8d3816991"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-fixed-scene.json",
+      "sha256": "8abad44e9ac28c8e783eca63119c1eed01214efb511bd99f1eddc5d74011a6de"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-fixed.log",
+      "sha256": "1fb6c9179195eec3bca193cc864ba9db571db94631a1fc0d66a5da8171d4365c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-fixed.pfm",
+      "sha256": "adcf0bc4dafa1eadd568be9194affed12ce39103afffbcf44e0b71a65e02467c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-relative-preset.json",
+      "sha256": "675eb05ae6ae9031bcf6faa6fb12c538debfb17f098d65a32e4637d4bcf96d7a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-relative-scene.json",
+      "sha256": "12111d61ad2fdc21039b2c6171c20dcf5dc711f9691ae9020a2a6567b7737b33"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-relative.log",
+      "sha256": "cc6c76026ef111ae2054061e38d8156bea8ec83babfd3ddb0118ff708951dc77"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-between-relative.pfm",
+      "sha256": "59eeaa914b93d4c9bf09f7dc8ccb1ccc7f62edaf2dbdd795f62fe9050c72ddb7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-fixed-preset.json",
+      "sha256": "21240027a335b3fee562e14ac4ac7682366868aa975f5413e74d3de8d3816991"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-fixed-scene.json",
+      "sha256": "c284d946e42731d7832911d4e3b84c1de3315a006441171235af33a439ac3502"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-fixed.log",
+      "sha256": "1912e1d98946aadb86e608a31f621e2c2d8fb5214e0e5dad1e1e7d74ae3925e9"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-fixed.pfm",
+      "sha256": "82ee626d836a2ea08b2d18fea8cec127af3d5546d6fa7518918a2440e7490cf7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-relative-preset.json",
+      "sha256": "675eb05ae6ae9031bcf6faa6fb12c538debfb17f098d65a32e4637d4bcf96d7a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-relative-scene.json",
+      "sha256": "213ef7bb5242981bb29f51f0376f694eb302040426ca56cfe810d421ccfb6291"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-relative.log",
+      "sha256": "ee4b188f3c71f86acf38af4d4bbd6f71eef3ef0be272312c0bb8b2c8dd1a1097"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-beyond-relative.pfm",
+      "sha256": "82ee626d836a2ea08b2d18fea8cec127af3d5546d6fa7518918a2440e7490cf7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-fixed-preset.json",
+      "sha256": "21240027a335b3fee562e14ac4ac7682366868aa975f5413e74d3de8d3816991"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-fixed-scene.json",
+      "sha256": "7e3d297cd94e5c14331f137fcf56a45d9c88c7e8210f0e39506d38e1d66c74eb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-fixed.log",
+      "sha256": "f54d8d43a950b8560fa8929b27cc952ce5a298a18040aed67838fb1dac218402"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-fixed.pfm",
+      "sha256": "b4689d22f0f90585580f131532332dc350a209857c93f77c78a60684f8da025d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-relative-preset.json",
+      "sha256": "675eb05ae6ae9031bcf6faa6fb12c538debfb17f098d65a32e4637d4bcf96d7a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-relative-scene.json",
+      "sha256": "3559342b8802af38852fcbcad2ecef200408161f03c00647aa561f14777cdd44"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-relative.log",
+      "sha256": "4979a7cea39d0fe22378906e9f30ee5606aa97692865bbf419ef45a1adf2b30d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-angled-clear-relative.pfm",
+      "sha256": "b4689d22f0f90585580f131532332dc350a209857c93f77c78a60684f8da025d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-fixed-preset.json",
+      "sha256": "e5dfb49aee4df333f1884f9a00343c4df8eeb381a14ac87b39a2c51cad91a5a2"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-fixed-scene.json",
+      "sha256": "28bba6ee6b475717577e413d3781bea48ccb1ad0828bd4184f8bd9333fb89716"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-fixed.log",
+      "sha256": "b1cf14445acfd26a26f6785d49f9e0c73192630580fd9f22e8c7754aeccacf60"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-fixed.pfm",
+      "sha256": "cc313ba51e36217091d5cee244e8a61de3668c5463309239a02dc82e61770242"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-relative-preset.json",
+      "sha256": "8d79ef5d1d4c6c30e230eb40265868f0ef7084d686a2fa508f77a4c73b597f69"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-relative-scene.json",
+      "sha256": "860bb8eca6499a3dff4b44e31d2ea88f38d15fbd1596f44d835a204dc65ce0a2"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-relative.log",
+      "sha256": "6cca09fb6d4f7e3c92ff0d403d6831619872ec2891eb3de743a220c919ebb138"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-between-relative.pfm",
+      "sha256": "901f854631a8905c4a8772614778816037934bfa7c743a8269ad5369f2023957"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-fixed-preset.json",
+      "sha256": "e5dfb49aee4df333f1884f9a00343c4df8eeb381a14ac87b39a2c51cad91a5a2"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-fixed-scene.json",
+      "sha256": "e496f7210dc42e1bcfef74b3242b2122f50463cfa144e278a27924902338d566"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-fixed.log",
+      "sha256": "2d4ef09d418d7d7c87e9cad9fc9dcb44883bfe1e209d6263408a60ea040ef912"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-fixed.pfm",
+      "sha256": "cb5f8f7dde2a0f7a4dda931bca3fb4dc855f51c92c6697dfeb01e102880669db"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-relative-preset.json",
+      "sha256": "8d79ef5d1d4c6c30e230eb40265868f0ef7084d686a2fa508f77a4c73b597f69"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-relative-scene.json",
+      "sha256": "4a692c7c1635ba978b5382b14cd64acfdd85d0374302acf70e22f6d7c4013590"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-relative.log",
+      "sha256": "ae7410799d493fbb077ce233f532baa3dcff5fbf9bf7d20fdf9d622f5317eda1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-beyond-relative.pfm",
+      "sha256": "cb5f8f7dde2a0f7a4dda931bca3fb4dc855f51c92c6697dfeb01e102880669db"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-fixed-preset.json",
+      "sha256": "e5dfb49aee4df333f1884f9a00343c4df8eeb381a14ac87b39a2c51cad91a5a2"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-fixed-scene.json",
+      "sha256": "fe08ef2b868953f33dd30e327775e06ad9c3e153c9d97d168a64bb827c757e38"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-fixed.log",
+      "sha256": "ac093d347725ffc1c8da4da79b3dcf0fcb818c3401d780d8ec5ae292fdae5e9f"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-fixed.pfm",
+      "sha256": "89c22731eae382b2f571f01b7760ae69cbb878c17a1f26d5e641d7bb51f88cd6"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-relative-preset.json",
+      "sha256": "8d79ef5d1d4c6c30e230eb40265868f0ef7084d686a2fa508f77a4c73b597f69"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-relative-scene.json",
+      "sha256": "c0796a2c1f9c3baa4c97a40b696cecc14c50cb359bbd6c46f0bc20b4b00f1c84"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-relative.log",
+      "sha256": "37b21633ee638011943b3d54b2979e2a7e500ee196a7f875bfd7737ef16cbd03"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\scale-visibility-100.0-front-clear-relative.pfm",
+      "sha256": "89c22731eae382b2f571f01b7760ae69cbb878c17a1f26d5e641d7bb51f88cd6"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\plots\\contact-profiles.png",
+      "sha256": "a135c7b398f4534363287f506564db5fcaa9661c411e22a111a7b513f2789899"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\plots\\contact-profiles.svg",
+      "sha256": "bb49ca6d0466e3a737328971ac822eba529d9b4aceef690c566e1681a337c455"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\plots\\contact-ratio-crops.png",
+      "sha256": "8240cf5268304768b7b68a7d907851272628117833ff1ba309e278bbdda79de1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-scale\\plots\\self-hit-ratio.png",
+      "sha256": "20074c2b8ca5f83e993e5775f321eb1fa9ce2e7ffd322a9566bd771f14391d6d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-0.txt",
+      "sha256": "981bea7d0b884e097dd16d50a99096205bf27e3d54683c299077a5717e1b2bd7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-1.txt",
+      "sha256": "8e451919ef90a8e91833ca7889b9cf0c9d54bcb6f149fd9e5ef94e6690154c8f"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-0.txt",
+      "sha256": "3425c0d057ca41e2e5bc67ba2476ff0b89b3a47634087cac957b3964729dbc9c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-1.txt",
+      "sha256": "faff6f25a4214bed7fcba99782f22c3fcb7528764820323e3551d3d52df21f27"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\report.json",
+      "sha256": "fd6f0337dc045c663848f6b37618bfa6bcb0a1f0f1169a9622f1e58b37115481"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-0.01-2-preset.json",
+      "sha256": "6a478eaf82b4f478b8dfc7d5721b2b5fdba1e04cca7f14b2c825adbdfdb0a75f"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-0.01-2-scene.json",
+      "sha256": "5684ceaab5ddee20a9ea485e3958ca0e5f8adc1acb965c603faf6c0a283f4336"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-0.01-2.log",
+      "sha256": "6c07198942b9279a0e2a3977d06ebf2def6fdbaa445b5a27c5621075df077347"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-0.01-2.pfm",
+      "sha256": "3e0128f03757ec8a432e1d1904a8a6ab8e0dba248316e07d4b42f923d4e61143"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-0.01-20-preset.json",
+      "sha256": "3bba248362cacc97f5c081883cc89e75b08f1c0519b607d8a7393d622a8db873"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-0.01-20-scene.json",
+      "sha256": "78508f6faa40dcbf2669a9c9641ceb9903464fe71bdc811e1731c25be4bbec23"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-0.01-20.log",
+      "sha256": "7052352bece868e9ecd49a75177c6ef3aec324a173f6880892162fccb390bb6c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-0.01-20.pfm",
+      "sha256": "fb0d0b111325036eb2d2a964edf6a91b468e017d9da0ee57ae0c05dbe5a41e52"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-1.0-2-preset.json",
+      "sha256": "1641b9eca1b556650f798084a790f3c47583cf39e969eebe4a6bd4c667bafbb1"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-1.0-2-scene.json",
+      "sha256": "926acd8605f11bd794fc94f50887352fce1080157677aa4a7563d3d928e4d718"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-1.0-2.log",
+      "sha256": "3726e7953e85d1d42a8e3caa41c0d1991c97898841b745be8199b5acdef611df"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-1.0-2.pfm",
+      "sha256": "3e0128f03757ec8a432e1d1904a8a6ab8e0dba248316e07d4b42f923d4e61143"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-1.0-20-preset.json",
+      "sha256": "bd0273c099379dad70426b95c5dc4e6a462eb93c55c76ae549c4016a59ded80f"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-1.0-20-scene.json",
+      "sha256": "17ab1fe85121a8eef93218a02f154696cb4bdb48f64efe3d2cbd730a0c30970a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-1.0-20.log",
+      "sha256": "302ac1bb9b10a8ec5625da75dd201b5a78dee5caff55939d7d21b512c7158b5e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-1.0-20.pfm",
+      "sha256": "1a9c1fe6cd96fd8e78acb9d13cc8eea905a975a59efd8571c9557f1e829f88b7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-100.0-2-preset.json",
+      "sha256": "3b88d88f898491a374e3e8d0117c5f96d81dd31d2e8403574888192a714bf4f4"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-100.0-2-scene.json",
+      "sha256": "4b4c412ddcceef7be3fb1396bd1143da51136233f6556e7096f2447094cb26a4"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-100.0-2.log",
+      "sha256": "7f609a950126b98eb1fd7af7829e227458d497d2ca415792d82372a450815689"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-100.0-2.pfm",
+      "sha256": "3e0128f03757ec8a432e1d1904a8a6ab8e0dba248316e07d4b42f923d4e61143"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-100.0-20-preset.json",
+      "sha256": "b6dd0dd6eb8d687b98f60d0160100fcae57ae4d1a5d5efcd042fca8e88882c5c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-100.0-20-scene.json",
+      "sha256": "dc2baaf4e764bb1e0b7f92104713ee5a6a102bb06b9e399c71f954a156bba908"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-100.0-20.log",
+      "sha256": "ff41e77ee44c8d63d42a3998ba7404caf45cf6312cd4ef1e699ab87d7da1baa9"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\tmax-100.0-20.pfm",
+      "sha256": "b4689d22f0f90585580f131532332dc350a209857c93f77c78a60684f8da025d"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-0\\between-preset.json",
+      "sha256": "b289595db52f7b6e02ef4180bfe073f2c9b2a58d3456cd856b8e2db08ddc8f9b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-0\\between-scene.json",
+      "sha256": "b18ff1e6d6d2149204cca65719f2a5f45a2309032e0adb0ae4efc2d7c6cf1dbb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-0\\between.log",
+      "sha256": "c1b88c84f1a193bc2e62a83b700cc68d3cb4fa46e12ba27fc30cabb5a98452bb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-0\\between.pfm",
+      "sha256": "aafe34ae3b445d5cc5d5a76688b6e700cead2320387a6307ed814ecf41b6f195"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-0\\beyond-preset.json",
+      "sha256": "b289595db52f7b6e02ef4180bfe073f2c9b2a58d3456cd856b8e2db08ddc8f9b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-0\\beyond-scene.json",
+      "sha256": "f33f67eb57f847c6cc96552c3473a872142a7fb7bcf2dd1298b4168a75f1a77a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-0\\beyond.log",
+      "sha256": "94906573bbdc4952f8504ff5c2e53d25d6e950fb0d84f51135abe05f6877c1fa"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-0\\beyond.pfm",
+      "sha256": "359d0a8c5d973739563effd0e96e3a2b87ad8072d40eb8ddc748afd2a704b4b0"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-0\\clear-preset.json",
+      "sha256": "b289595db52f7b6e02ef4180bfe073f2c9b2a58d3456cd856b8e2db08ddc8f9b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-0\\clear-scene.json",
+      "sha256": "b94d066bce2d23430681d1a665cc4c5fe402ab92a45fc4a63a859af328c076e7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-0\\clear.log",
+      "sha256": "a959484fa6ca85059e520cd78d1a776675b209f58c0d57bfef2574b3cd276a04"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-0\\clear.pfm",
+      "sha256": "f2fdad28bfbc2db166ed90bef240670f2f598b193f6194b6554ab339364636a5"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-0\\report.json",
+      "sha256": "9a2eecd2b2c2e1ee2c6a734f82501578bbbededc3a5204b3eef9dedf04f290bc"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-1\\between-preset.json",
+      "sha256": "4ccc7b3823949afc2bbd8acc695ed027e2cfcb1f56acb3e13987341efe9bd0a5"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-1\\between-scene.json",
+      "sha256": "b18ff1e6d6d2149204cca65719f2a5f45a2309032e0adb0ae4efc2d7c6cf1dbb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-1\\between.log",
+      "sha256": "10bdba63a52bfc11452907ae796f61218e161e5fcf4435c967eb26e9e72fb425"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-1\\between.pfm",
+      "sha256": "aafe34ae3b445d5cc5d5a76688b6e700cead2320387a6307ed814ecf41b6f195"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-1\\beyond-preset.json",
+      "sha256": "4ccc7b3823949afc2bbd8acc695ed027e2cfcb1f56acb3e13987341efe9bd0a5"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-1\\beyond-scene.json",
+      "sha256": "f33f67eb57f847c6cc96552c3473a872142a7fb7bcf2dd1298b4168a75f1a77a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-1\\beyond.log",
+      "sha256": "1f109529f1672c987cefc85f004de4080b74ef6b6f4f232be9ff26da1fedd1aa"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-1\\beyond.pfm",
+      "sha256": "8fdbcd981bcfcb61e9d4366e18153525c993b3afffb2f4b5d3340af31a3088a4"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-1\\clear-preset.json",
+      "sha256": "4ccc7b3823949afc2bbd8acc695ed027e2cfcb1f56acb3e13987341efe9bd0a5"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-1\\clear-scene.json",
+      "sha256": "b94d066bce2d23430681d1a665cc4c5fe402ab92a45fc4a63a859af328c076e7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-1\\clear.log",
+      "sha256": "83a060df696dbbc2bc76da5eb621bb6caefb0461a6a8e4dbe6069103fd3dd888"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-1\\clear.pfm",
+      "sha256": "f6b68c924e5937f7f4881cf528007525371813fa42c3d3b87cd5c859e373359c"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Point-1\\report.json",
+      "sha256": "ad0a5e3cee43a7f07e6125541eff8c4a3eb49e28bc0fd9cce8607c1e2a328010"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-0\\between-preset.json",
+      "sha256": "ee51cdbfc33a6b69faffe3c3649a482cea49f1a3b1c3a7a3c4c77f21d557e0bb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-0\\between-scene.json",
+      "sha256": "b18ff1e6d6d2149204cca65719f2a5f45a2309032e0adb0ae4efc2d7c6cf1dbb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-0\\between.log",
+      "sha256": "732ff367778f1597ade393eab01e56249360a0a5645d54628e85fb6e412a3b32"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-0\\between.pfm",
+      "sha256": "aafe34ae3b445d5cc5d5a76688b6e700cead2320387a6307ed814ecf41b6f195"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-0\\beyond-preset.json",
+      "sha256": "ee51cdbfc33a6b69faffe3c3649a482cea49f1a3b1c3a7a3c4c77f21d557e0bb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-0\\beyond-scene.json",
+      "sha256": "f33f67eb57f847c6cc96552c3473a872142a7fb7bcf2dd1298b4168a75f1a77a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-0\\beyond.log",
+      "sha256": "f15114902ce513ec5c1176174b0145c3fd9bb98b45bff06a58e68cbbf264f928"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-0\\beyond.pfm",
+      "sha256": "408f33acee087fbd42683e2bae532e21b3defbc83d4854c2c80151bfb1a70eab"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-0\\clear-preset.json",
+      "sha256": "ee51cdbfc33a6b69faffe3c3649a482cea49f1a3b1c3a7a3c4c77f21d557e0bb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-0\\clear-scene.json",
+      "sha256": "b94d066bce2d23430681d1a665cc4c5fe402ab92a45fc4a63a859af328c076e7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-0\\clear.log",
+      "sha256": "4cae2c0b9d69179db1963e3d0959a51a55e3cf6b05f43b8b9360ea59bb81d077"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-0\\clear.pfm",
+      "sha256": "4b71abd45742a99a6d97c3d49f46f1742911e3e73edf5179094800e1f5176395"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-0\\report.json",
+      "sha256": "1807658d912ba349e301434c3d23b527657a489f6dff801f81f761fc27438c9b"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-1\\between-preset.json",
+      "sha256": "037abd022b0ef57d7f6e102b9d0e3e611b750ef4f96a20fb4fe3a5d8628d5656"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-1\\between-scene.json",
+      "sha256": "b18ff1e6d6d2149204cca65719f2a5f45a2309032e0adb0ae4efc2d7c6cf1dbb"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-1\\between.log",
+      "sha256": "03d31b5e7b36a49655a4bc132369128ee9ee4352bf91027e39c15563d5c71d45"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-1\\between.pfm",
+      "sha256": "aafe34ae3b445d5cc5d5a76688b6e700cead2320387a6307ed814ecf41b6f195"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-1\\beyond-preset.json",
+      "sha256": "037abd022b0ef57d7f6e102b9d0e3e611b750ef4f96a20fb4fe3a5d8628d5656"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-1\\beyond-scene.json",
+      "sha256": "f33f67eb57f847c6cc96552c3473a872142a7fb7bcf2dd1298b4168a75f1a77a"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-1\\beyond.log",
+      "sha256": "91ccaa8c50c0cc0bb268547a676d0a1494ab97d8801a02f790bb20ad4e0591b4"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-1\\beyond.pfm",
+      "sha256": "5773be6194e8ab3099f2bbc6fa466cd4aedcd2af3c58403d671f6ed8148aa4a6"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-1\\clear-preset.json",
+      "sha256": "037abd022b0ef57d7f6e102b9d0e3e611b750ef4f96a20fb4fe3a5d8628d5656"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-1\\clear-scene.json",
+      "sha256": "b94d066bce2d23430681d1a665cc4c5fe402ab92a45fc4a63a859af328c076e7"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-1\\clear.log",
+      "sha256": "c22bef19e329b138deabdd7a2eacabac7d66b9ba7373b3e4f036e51748ba0f1e"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-1\\clear.pfm",
+      "sha256": "4e348995c18754cf4f357cf72a867c970671d7ab871ba64e062f9372d0447058"
+    },
+    {
+      "path": "bin\\PathTracingValidation\\part3-extra\\near-Spot-1\\report.json",
+      "sha256": "d66dd7a854b0c801d2635ec5678ddb2e471320c997efb10a39ba8ced492efe53"
+    }
+  ]
+}

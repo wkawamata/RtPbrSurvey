@@ -12,6 +12,7 @@
 #pragma once
 
 #include "Engine/RtPbrSurveyEngine.h"
+#include "Runtime/CaptureSession.h"
 #include "Runtime/DebugLine.h"
 #include "Runtime/SceneRendererSettings.h"
 
@@ -121,6 +122,13 @@ namespace RtPbrSurvey
         std::optional<Engine::ReflectionHdrDiagnosticFrame> ConsumeReflectionHdrDiagnosticFrame();
         void RequestScreenshot(ScreenshotRequest request);
         std::optional<ScreenshotResult> ConsumeScreenshotResult();
+        // True when no asynchronous capture request is waiting for its GPU readback and save.
+        bool IsScreenshotCaptureIdle() const;
+        bool StartCaptureSession(const CaptureSessionConfig& config, std::string& error);
+        void StopCaptureSession();
+        void UpdateCaptureSession(const CaptureSessionTiming& timing);
+        bool CanAdvanceCaptureSessionFixedStep() const;
+        const CaptureSessionStatus& GetCaptureSessionStatus() const;
         void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
         void RequestPixelPick(int screenX, int screenY);
         const RtPbrSurveyEngine::PixelPickResult& GetPixelPickResult() const;
@@ -135,7 +143,9 @@ namespace RtPbrSurvey
         const RtPbrSurveyEngine& EngineForDebugTools() const;
 
     private:
+        void FinalizeCaptureSessionOutput();
         RtPbrSurveyEngine m_engine;
+        CaptureSession m_captureSession;
         ToolUiHandler m_toolUiHandler;
     };
 } // namespace RtPbrSurvey

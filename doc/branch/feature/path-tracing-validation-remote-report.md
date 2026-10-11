@@ -1,0 +1,319 @@
+# Path Tracing validation report: Parts 1 and 2
+
+Date: 2026-10-01. Workspace: `C:\work\RtPbrSurvey`.
+Branch: `codex/path-tracing-validation-part1`, based on remote main `816c3f7` (PRs #82/#83/#84 included).
+The Debug application was built at that commit; new scene/preset assets were measured from the working tree.
+Their exact hashes and commands are recorded in `path-tracing-validation-results/part-1-summary.json`.
+
+## Delivered
+
+Four editable SceneDocument JSON fixtures and relative render presets are under
+`Assets/Scenes/PathTracingValidation/`: constant environment, single-light visibility,
+two-surface indirect reflection, and metallic roughness comparison.
+No shader, renderer, engine, camera API or capture API changes were made. A subsequent App camera initialization fix is described below.
+Scene Editor uses the same schema; user load/edit/save instructions and scope are in
+`Tests/PathTracing/PART1.md`, linked from the existing README.
+All four fixtures were loaded by the application and captured. Interactive editor save/reload was not automated.
+
+`validate_part1.py` reuses the existing HDR capture/PFM/ROI reader and preserves source assets.
+It writes derived variants and records failures, settings, commands and hashes in ignored output.
+`test_validate_part1.py` adds four tests of attenuation and fixture references/radiance mode.
+
+## Validation
+
+- Debug x64 MSBuild succeeded; existing toolchain macro redefinition and vcpkg import warnings occurred.
+- GPU: NVIDIA GeForce RTX 3080 Laptop GPU, driver 616.64 (Windows 32.0.16.1664).
+- Ten Python tests passed: four new contracts and six existing HDR reader/statistics tests.
+- Thirteen PFM captures and four PNG captures: 1920x1080, four samples, seed 7 (one seed-8 variant), ROI (952,532,16,16).
+- No D3D12 error/corruption, process failure, timeout or non-finite HDR occurred in the corrected run.
+- Each capture emitted two or three existing buffer InitialState warnings; they were retained in logs.
+- Constant-MIS fixed-seed PFM hashes matched; seed 8 differed. Modes 1/2/5 were exercised.
+
+| Check | Observation | Decision |
+| --- | --- | --- |
+| Visibility | Clear mean 0.08193004; between 0; beyond 0.08193004; maximum beyond difference 0 | Passed predeclared thresholds |
+| Point attenuation | Expected ratio 4.01202826; measured 4.00515281; relative error 0.17137% | Passed 2% tolerance |
+| Indirect contribution | One-bounce RGB (0.08108261,0.08108261,0.08108261); four-bounce (0.09651842,0.08283577,0.08283577) | Observed red contribution; no convergence claim |
+
+The attenuation ratio is an independently evaluated analytic formula with a small-ROI spatial approximation.
+It does not validate absolute GGX radiance. Metallic=0 retains a specular term; pure Lambert cannot be represented
+by the current SceneMaterial. Constant-environment fixtures therefore start with sampling comparison, as requested.
+Four-sample mode differences and the roughness image are smoke observations, not evidence of a preferred sampler.
+Part 2 must use independent finite-sample references and multiple sphere ROIs/sample counts/seeds.
+
+## Retained unsuccessful first run
+
+The first draft preset incorrectly selected Albedo output (0) instead of Radiance (3), and the initial wall
+orientation faced away from the camera. Its results remain at `bin/PathTracingValidation/part1/report.json`:
+fixed-seed repeat passed, but seed variation, visibility and falloff failed. This was a fixture configuration
+mistake, not an estimator defect. The presets and wall orientation were corrected without relaxing thresholds.
+The fixture test and runner now require Radiance mode. Corrected captures remain separately at
+`bin/PathTracingValidation/part1-radiance/`. Report hashes and representative artifact hashes are in the summary.
+
+## Reproduction and next work
+
+```powershell
+python -B Tests/PathTracing/test_validate_part1.py
+python -B Tests/PathTracing/test_compare_hdr.py
+python -B Tests/PathTracing/validate_part1.py --samples 4 --output bin/PathTracingValidation/part1-reproduction
+```
+
+On this PC, Python is at
+`C:\Users\wkawa\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe`.
+Use the Debug build command from AGENTS.md before captures. Artifacts are local ignored files, not shared uploads.
+Implementation and result metadata are committed locally. Push and the combined Part 1+2 PR have not been performed.
+Parts 3-5 remain separate follow-up tasks.
+
+## Interactive camera follow-up
+
+The user inspected all four scenes interactively. Foreground FreeLook updates revealed an inverted
+initial pitch in CLI SceneFile loading and Scene Editor preview rebuilding: the stored look-at target
+was correct, but the Euler pitch had the opposite sign for DirectX rotation. Automated hidden captures
+did not exercise the foreground keyboard update, so the original HDR results remain valid for their
+recorded saved camera. The two App initialization sites now use negative asin(direction.y).
+The user confirmed the second scene was corrected and viewed all four scenes with the CameraFix build.
+The normal Debug build was subsequently updated. The DebugCameraController regression test confirms
+that a no-input FreeLook update preserves the downward view from (0,4,-7) toward the floor.
+No SceneDocument schema or camera API was changed.
+
+## Part 2: static convergence (2026-10-02)
+
+Local implementation commits: `d0ea693` (Part 1), `302a057` (camera initialization),
+`12fa71f` (Part 2 runner/statistics/tests). Result metadata is saved in the following report commit.
+
+The Debug binary at commit `302a057` was reused; estimator/shader/engine code was unchanged.
+The measurement runner and statistics extensions were measured from the working tree. Exact commands,
+scene/preset hashes, GPU/driver/build, ROI/sample/seed settings, metrics and artifact paths/hashes are in
+`path-tracing-validation-results/part-2-summary.json`. This commit identifies the tested renderer,
+not a claim that the new Python runner had already been committed at capture time.
+
+Two initial 8 spp smoke captures took about 13 seconds each. Before reviewing convergence results,
+the protocol selected 8/32/128 spp, evaluation seeds 1/2/3 and a common 512 spp reference averaged
+from independent seeds 101/102. Constant-environment floor and three metallic sphere ROIs compare
+BSDF (1), uniform NEE (2) and MIS (5) with two bounces. The direct/indirect controls use the same red-wall
+fixture with separate one/four-bounce cohorts and local lighting, environment disabled, mode 0.
+Each fixed-bounce cohort has its own common reference. Resolution is 1920x1080; no camera motion,
+automatic exposure, emissive term or Russian roulette. See `Tests/PathTracing/PART2.md` for the full protocol.
+
+The 60 environment captures and 24 lighting-control captures completed, plus four smoke captures.
+Four complete-PFM fixed-seed repeats matched. Scene/preset hashes were consistent within every cohort.
+PFM hashes were checked again when producing the summary. No non-finite HDR, process failure,
+timeout, capture failure or D3D12 error/corruption occurred; existing buffer InitialState warnings remain in logs.
+Thirteen Python tests passed, including ROI orientation, already-normalized HDR values, unbiased seed
+variance, RGB means and reference standard error. No generated image, package or raw log is committed.
+
+Representative mean-image RGB RMSE against the common finite-sample reference:
+
+| ROI / estimator | 8 spp | 32 spp | 128 spp |
+| --- | ---: | ---: | ---: |
+| Floor / BSDF | 0.020443 | 0.010896 | 0.007004 |
+| Floor / NEE | 0.140360 | 0.070652 | 0.035242 |
+| Floor / MIS | 0.033056 | 0.016868 | 0.009524 |
+| Roughness 0.18 / BSDF | 0.029457 | 0.016362 | 0.010309 |
+| Roughness 0.18 / NEE | 3.113213 | 1.664028 | 0.786115 |
+| Roughness 0.18 / MIS | 0.049728 | 0.025107 | 0.013938 |
+| Direct-only floor / 1 bounce | 0.00003506 | 0.00001828 | 0.00001003 |
+| Indirect floor / 4 bounces | 0.004286 | 0.002241 | 0.001284 |
+
+All 14 measured series reduced both mean-image RMSE and seed variance at the three sample counts.
+At equal spp, uniform NEE had particularly high variance on the smoother metal in this constant environment.
+This is an observation about these fixtures and one GPU, not a general sampler recommendation.
+Equal spp does not imply equal work; MIS samples both techniques, and GPU cost comparison belongs to Part 4.
+
+Reference-seed disagreement RMSE was 0.010060 for the floor, 0.015164/0.015061/0.015659 for
+roughness 0.18/0.4/0.8, 0.00001048 for direct-only, and 0.001346 for the four-bounce cohort.
+Several 128 spp mean-image errors are comparable to these disagreements. More reference samples/seeds
+are needed before estimating residual bias; the disagreements are not confidence bounds.
+The reference shares the renderer implementation, so even agreement cannot establish absolute correctness.
+
+At 128 spp, one-bounce mean RGB was (0.080994,0.080994,0.080994); four-bounce mean RGB was
+(0.096246,0.082810,0.082810). This records red indirect contribution. It is a comparison of path contributions,
+not a claim that increasing the bounce limit improved convergence.
+
+Main capture elapsed times totaled about 14.5 minutes; controls about 8.2 minutes. These include process
+startup, capture and readback and must not be interpreted as isolated PathTracingPass GPU benchmarks.
+Complete JSON/MD and standalone PNG/SVG plots remain at `bin/PathTracingValidation/part2-main/`
+and `bin/PathTracingValidation/part2-controls/`. Reproduction commands are in PART2.md and the summary.
+Plotting requires matplotlib; on this PC its isolated installation is under
+`bin/PathTracingValidation/python-packages/`. Statistics and capture retain standard-library-only dependencies.
+
+The moving-camera fixed noise observation and proposed RNG/history separation are recorded in
+`path-tracing-validation-moving-camera-note.md`. No estimator change was included.
+Next options are a higher-sample reference for bias questions, a combined Part 1+2 PR, or separately
+starting Part 3 after the user chooses the next task.
+
+## Part 3: scene scale and self-intersection (2026-10-02)
+
+Branch: `codex/path-tracing-validation-part3`, based on Part 1+2 delivery `fc0b70d`.
+Renderer: existing Debug x64 build from `302a057`; no renderer/shader changes.
+Editable small/medium/large contact scenes and saved presets are added under
+`Assets/Scenes/PathTracingValidation/scale-*`. Protocol and commands: `Tests/PathTracing/PART3.md`.
+Machine-readable measurements: `path-tracing-validation-results/part-3-summary.json`.
+
+Scale 0.01/1/100 applies to geometry, camera and light position/range; intensity
+scales by s squared. Seed 7, 4 spp, one bounce, direct lighting, no environment/emission,
+1920x1080 linear HDR. Main matrix contains 57 captures plus supplementary TMax
+and existing near-light Point/Spot checks. Generated scenes, logs and images remain ignored.
+
+Main findings:
+
+- Relative bias `0.01*s` and TMin `0.001*s` preserve front/angled visibility at all
+  three scales. Light-beyond-slab maximum difference is zero in every main case.
+- Fixed bias 0.01 at scale 0.01 leaks light in the angled between-light test:
+  blocked/clear ratio 0.805307, failing the preselected <0.8 threshold.
+- In the small-scale contact-floor ROI, all 124 baseline shadow columns become
+  lit (>0.9 of clear radiance) with fixed bias. Holding bias alone fixed reproduces
+  the loss; holding only TMin fixed retains all 124 shadow columns. At scale 100,
+  fixed bias changes the shadow extent from 124 to 125 columns in this ROI.
+- With both offsets zero, convex sphere mean/reference ratios are 0.439759,
+  0.411224, and 0.455183 for small/medium/large. Respectively 96.48%, 96.18%,
+  and 95.44% of positive channels lose >10% radiance. Relative settings match
+  the shadow-disabled reference exactly in this ROI (RMSE 0).
+- TMax `2*s` prevents the primary floor hit at every scale and yields the saved
+  background color 0.2. TMax `20*s` retains the floor. These are primary-clipping
+  controls, not evidence that a truncated shadow ray has the correct visibility.
+- Existing near-light Point/Spot checks pass for offsets 0 and 1 (12 captures);
+  between-light ROI is black and beyond-light max difference is zero in all four.
+- Clear-floor mean agreement across scales is within 0.000358% of medium scale.
+  All 75 main/supplementary captures completed without D3D12 errors or process
+  failures; the fixed-small visibility failure is an observed artifact, not a
+  capture failure. Six earlier smoke captures also passed. Python tests: 18 passed.
+
+Images (local regeneration via summary command):
+`bin/PathTracingValidation/part3-scale/plots/contact-profiles.png`,
+`contact-ratio-crops.png`, and `self-hit-ratio.png`.
+Ratio crops use linear HDR and a fixed 0..1 display range, not application tone mapping.
+The numeric contact ROI is outside the primary cube silhouette; its independent
+pinhole/AABB check is retained in the summary.
+
+Minimal leak reproduction after measurement:
+
+```powershell
+.\bin\x64\Debug\RtPbrSurvey.exe -SceneFile bin\PathTracingValidation\part3-scale\scale-contact-0.01-angled-contact-fixed-scene.json -EnablePathTracing
+```
+
+Compare the `relative` variant in the same directory. The zero-offset sphere is
+`scale-self-1.0-angled-shadowed-zero-scene.json`; compare its relative variant.
+
+Proposal for Work-3: replace the universally fixed world-space offset with a
+geometry/position precision aware origin-offset policy, preserving finite-light
+endpoint reconstruction. Relative scaling is an effective control here, not proof
+of a universal global-scene-scale formula. Mixed-scale geometry, nonuniform scaling,
+large world-coordinate translations, smooth normals and multiple bounces need
+separate regression coverage before changing the renderer. Do not remove both
+offsets: the sphere control demonstrates severe self-hit loss.
+TMin-only stability in this ROI does not establish that a fixed TMin is safe at
+arbitrarily small scale. Light falloff has a 1 cm minimum distance clamp, so the
+intensity compensation cannot preserve similarity inside that clamp.
+
+No external message was sent to Work-3, and no renderer fix is claimed by this report.
+
+## Part 4: GPU pass performance (2026-10-02)
+
+Branch: `codex/path-tracing-validation-part4`, starting from Part 3 `4b4b9a9`.
+Protocol commits: `fc49730`, `cf6a202`. Debug x64 rebuilt successfully with the
+App-only logging addition; renderer/engine/shaders are unchanged.
+The App addition emits the existing PT capture diagnostic for frame-based
+captures. Exact-sample capture still forces one sample/frame and its 4-sample
+regression passed. Frame-based capture preserves the preset's 4 samples/frame.
+Python tests: 24 passed. Existing MSBuild macro/vcpkg warnings remain.
+
+An editable performance fixture, `measure_performance.py`, its calculation tests,
+and `summarize_performance.py` provide a reproducible one-factor matrix.
+See `Tests/PathTracing/PART4.md`. Eleven conditions vary resolution, samples/frame,
+bounce limit, co-located Point light count and sphere tessellation. Light intensity
+is divided by count, preserving total illumination. Three spheres share a mesh:
+geometry is unique BLAS triangle count, not increasing TLAS instances.
+
+Final cohort: 33 launches, 16 discarded positive GPU observations then 32 measured
+observations each; 96 pooled observations/case. Order is shuffled in three seeded
+rounds. Raw logs/CSV/PFM/report and figures stay under
+`bin/PathTracingValidation/part4-performance-final`.
+The committed summary is `path-tracing-validation-results/part-4-summary.json`.
+It retains commands, fixture/executable hashes, statistics, power conditions and
+artifact hashes. CPU FPS is not substituted for GPU timestamps.
+
+Power investigation: AC power, Windows Balanced plan, RTX 3080 Laptop driver 616.64.
+Pilots used 60 warm-up and 120 measurement observations, but GPU P8/low-clock and
+roughly 4 fps frame progression appeared with hidden, visible and initially
+foreground windows. Visibility alone did not resolve the behavior. The shorter
+final protocol was selected before its cohort and retains power telemetry.
+The final results are observations under current driver/power behavior, not a
+maximum-throughput benchmark. GPU P-states and memory/core clocks can transition
+inside the window, and short windows can miss telemetry samples entirely.
+
+| Case | Median ms | P95 ms | Run medians ms | SM clock MHz |
+| --- | ---: | ---: | --- | --- |
+| baseline | 2.881024 | 2.927872 | 2.861568, 2.880512, 2.899456 | [435.0, 480.0] |
+| resolution-0 | 0.760320 | 0.785152 | 0.764928, 0.754176, 0.769536 | [450.0, 510.0] |
+| resolution-1 | 1.311744 | 1.366784 | 1.304064, 1.309696, 1.320448 | [480.0, 525.0] |
+| samplesPerFrame-0 | 2.913280 | 2.949120 | 2.929152, 2.917888, 2.881024 | [450.0, 600.0] |
+| samplesPerFrame-1 | 3.494912 | 3.515392 | 3.502080, 3.504128, 3.307520 | [330.0, 525.0] |
+| maxBounces-0 | 2.838528 | 6.895360 | 2.856448, 2.833920, 2.836992 | [345.0, 450.0] |
+| maxBounces-1 | 2.850304 | 2.936576 | 2.850304, 2.910208, 0.414208 | [315.0, 1245.0] |
+| lights-0 | 2.878464 | 2.927872 | 2.878464, 2.906624, 2.830336 | [435.0, 525.0] |
+| lights-1 | 2.895360 | 7.042560 | 2.894848, 2.861056, 2.990592 | [585.0, 660.0] |
+| geometry-0 | 2.895872 | 2.940672 | 2.903040, 2.890752, 2.891776 | [480.0, 480.0] |
+| geometry-1 | 2.894848 | 2.941952 | 2.888192, 2.891264, 2.896896 | [300.0, 525.0] |
+
+All 33 final launches succeeded: 1056 measured observations, no D3D12 errors,
+no missing GPU-timing fallback. Measured telemetry temperatures span 50..53 C.
+The 4-bounce third run is 0.414208 ms versus 2.850304/2.910208 ms in the first
+two. Its telemetry shows P0, SM 1245 MHz and memory 6001 MHz; the other runs
+mostly report memory 810 MHz, sometimes 405 MHz. This is a direct reason not
+to infer bounce-cost ranking from pooled medians. Telemetry is sparse and does
+not establish the cause of every long-tail timing excursion.
+
+Figures: `plots/gpu-performance.png` and `plots/gpu-timelines.png` in the final
+output directory; SVG is available for the comparison figure. They show pooled
+median/p95 together with all three run medians, and retain the anomalous run.
+
+Interpretation and follow-up:
+
+- Resolution affects the median strongly. This small static scene's per-pixel
+  costs are a bottleneck candidate. The shader writes accumulation, scene color
+  and six guide outputs once per pixel/frame; samples/frame increases the path
+  loop while those writes remain once per frame. This supports investigating
+  fixed output/UAV traffic and dispatch costs; it does not prove bandwidth saturation.
+- Small median changes with light count, bounce limit and tessellation do not
+  establish that these factors are free. Only four instances, co-located lights,
+  constant environment and often short paths are covered, with uncontrolled clocks.
+- P95 includes observed power-state transitions. With 96 samples it is a short
+  empirical percentile, not a robust estimate of rare stalls or a confidence bound.
+- Next: repeat Release measurements with an agreed stable power/clock policy and
+  longer windows, compare pass timings and hardware-profiler bandwidth counters,
+  add larger instance counts and path-length-heavy closed scenes, and compare
+  constant mode 5 with modes 4/7. Importance distribution construction occurs
+  inside the PT shader for modes 4/7 and would be part of its pass time.
+
+The checkpoint interval includes resource transitions/bindings and dispatch.
+Warm-up discards initial scene setup, resize/history clear and BLAS/TLAS creation.
+No edits/animation/camera movement occur in the steady cohort. Timing rows stop
+before capture-queued diagnostics; screenshot/readback is excluded. Resets,
+TLAS rebuilds, animation and importance modes need separately labelled cohorts.
+No optimization or renderer fix was applied.
+
+Status: done
+
+## Part 5: native PT guide validation
+
+Branch: `codex/path-tracing-validation-part5`; workspace: `C:\work\RtPbrSurvey`.
+Base: `9455eec`; numeric cohort tested `db83005`; preview fix/regression tested `1aa2749`.
+GPU: RTX 3080 Laptop GPU, driver 616.64; Debug x64.
+
+Added editable front-plane, lens-shifted, orthographic and foreground-marker scenes, native full-frame `.ptbuf` capture through the existing screenshot readback/fence, exact camera matrix/seed/index metadata, independent Python plane-hit/reprojection/material comparisons, CSV/JSON and plots. Scene documents now carry optional lensShiftX/Y into the existing projection implementation. Existing motion PNG script accepts optional scene/preset paths. File-scene orbit initialization and explicit inspector visibility now follow existing capture options.
+
+The final 20-run numeric cohort has no process failures or D3D12 errors. Four C++ tests and 30 Python tests pass; Debug build passes. World normals and effective roughness match (.000488282 max channel error). Primary marker material classification has zero mismatches over 123,664 ROI pixels. Static and camera-moving vectors agree with previous-minus-current NDC: max error 3.07920e-5 NDC, below .02957 pixels and within the predeclared half-format/computation bound. Initial 2e-5 absolute failures remain reported. The fixed-seed marker payload repeats exactly; seed 8 changes 651 boundary pixels. An additional moving normal capture distinguishes world -Z from rotated view normal.
+
+Three follow-ups are isolated and reproduced, not silently repaired:
+- ViewZ uses the inverse-projected off-axis far-center direction. On a plane at camera-axis distance 5 with lens shift (.35,-.2), it varies 3.637805 to 6.918375 (max error 1.918375). Its implemented definition matches within 5.65e-6. Moving shifted depth reproduces the same issue.
+- Albedo uses gamma 2.2 decoding; known bytes [137,188,225] produce [.254883,.511230,.759277], differing from standard-sRGB decoding by up to .00834401. The implemented approximation matches within .000167351.
+- SceneDocumentBuilder shares the baseColor texture with metallic/roughness, so JSON roughness .37 becomes .272784 before half storage. Dedicated neutral data textures are a separate material correction.
+
+The initial file-scene orbit cohort did not move and is excluded from motion evidence. Initial PNG reuse also failed because OnInit hid UI and closed the inspector; its identical black captures remain saved. A one-line explicit-preview visibility correction passes a fresh PNG retry and preserves the native normal payload exactly. No shader/estimator changes were made. Native controls and legacy PFM export pass. The final summary includes the historical incomplete controls report and the successful retry separately.
+
+Definitions, tolerances, commands, retained failures and proposals: `Tests/PathTracing/PART5.md`.
+Machine-readable results: `doc/branch/feature/path-tracing-validation-results/part-5-summary.json`.
+Raw artifacts: ignored `bin/PathTracingValidation/part5-inputs-final`, `part5-controls`, `part5-preview-retry`, `part5-preview-regression`; pilot directories remain retained. Object motion, normal maps, spatial textures and other GPUs are unverified. Denoiser/NRD/DLSS RR integration remains a follow-up.
+
+Status: done

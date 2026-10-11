@@ -12,7 +12,7 @@ namespace RtPbrSurvey
 {
 struct SceneRendererSettings
 {
-    static constexpr int kSchemaVersion = 3;
+    static constexpr int kSchemaVersion = 4;
 
     RtPbrSurveyEngine::LightingParams lighting;
     RtPbrSurveyEngine::ShadowSettings shadow;

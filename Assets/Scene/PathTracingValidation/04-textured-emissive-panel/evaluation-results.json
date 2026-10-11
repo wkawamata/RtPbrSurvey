@@ -1,0 +1,332 @@
+{
+  "schemaVersion": 1,
+  "evaluationDate": "2026-10-05",
+  "case": "texture",
+  "status": "passed",
+  "reference": {
+    "mean": 0.013785100543226132,
+    "rgb": [
+      0.0236316009312448,
+      0.0118158004656224,
+      0.0059079002328112
+    ],
+    "orders": [
+      64,
+      128
+    ],
+    "spatialSamples": 9,
+    "quadratureRelativeChange": 1.2118817060979836e-10,
+    "limitation": "Nine ROI positions; opaque one-sided emitter with bilinear WRAP 2x2 grayscale texture decoded from sRGB after filtering; two-bounce transport."
+  },
+  "agreements": {
+    "0": {
+      "status": "passed",
+      "measuredMean": 0.013751251390203834,
+      "relativeDifference": 0.0024554882944928247,
+      "fourStandardErrorRelative": 0.009158368038555525
+    },
+    "1": {
+      "status": "passed",
+      "measuredMean": 0.013778523309156299,
+      "relativeDifference": 0.000477126303809583,
+      "fourStandardErrorRelative": 0.003878725140286139
+    },
+    "2": {
+      "status": "passed",
+      "measuredMean": 0.013777187094092369,
+      "relativeDifference": 0.0005740581368230968,
+      "fourStandardErrorRelative": 0.003630906805578827
+    }
+  },
+  "channelAgreements": {
+    "0": [
+      {
+        "status": "passed",
+        "measuredMean": 0.02357357367873192,
+        "relativeDifference": 0.002455493924500063,
+        "fourStandardErrorRelative": 0.009158287058544183
+      },
+      {
+        "status": "passed",
+        "measuredMean": 0.01178678683936596,
+        "relativeDifference": 0.002455493924500063,
+        "fourStandardErrorRelative": 0.009158287058544183
+      },
+      {
+        "status": "passed",
+        "measuredMean": 0.00589339341968298,
+        "relativeDifference": 0.002455493924500063,
+        "fourStandardErrorRelative": 0.009158287058544183
+      }
+    ],
+    "1": [
+      {
+        "status": "passed",
+        "measuredMean": 0.023620326071977615,
+        "relativeDifference": 0.0004771094137882015,
+        "fourStandardErrorRelative": 0.0038787202371424446
+      },
+      {
+        "status": "passed",
+        "measuredMean": 0.011810163035988808,
+        "relativeDifference": 0.0004771094137882015,
+        "fourStandardErrorRelative": 0.0038787202371424446
+      },
+      {
+        "status": "passed",
+        "measuredMean": 0.005905081517994404,
+        "relativeDifference": 0.0004771094137882015,
+        "fourStandardErrorRelative": 0.0038787202371424446
+      }
+    ],
+    "2": [
+      {
+        "status": "passed",
+        "measuredMean": 0.02361803548410535,
+        "relativeDifference": 0.0005740384317981517,
+        "fourStandardErrorRelative": 0.0036309734086590897
+      },
+      {
+        "status": "passed",
+        "measuredMean": 0.011809017742052674,
+        "relativeDifference": 0.0005740384317981517,
+        "fourStandardErrorRelative": 0.0036309734086590897
+      },
+      {
+        "status": "passed",
+        "measuredMean": 0.005904508871026337,
+        "relativeDifference": 0.0005740384317981517,
+        "fourStandardErrorRelative": 0.0036309734086590897
+      }
+    ]
+  },
+  "pairedAgreements": {
+    "1": {
+      "status": "passed",
+      "referenceMean": 0.013751251390203834,
+      "candidateMean": 0.013778523309156299,
+      "relativeDifference": 0.0019832317931365233,
+      "pairedStandardError": 0.0000356519968880902,
+      "fourStandardErrorRelative": 0.010370546178361075,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    },
+    "2": {
+      "status": "passed",
+      "referenceMean": 0.013751251390203834,
+      "candidateMean": 0.013777187094092369,
+      "relativeDifference": 0.001886061359260123,
+      "pairedStandardError": 0.00003484613770726872,
+      "fourStandardErrorRelative": 0.010136135750406698,
+      "relativeTolerance": 0.02,
+      "maxUncertainty": 0.05
+    }
+  },
+  "offMaximum": 0,
+  "captures": [
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-0-seed-11.pfm",
+      "sha256": "267d7f260ce485326f9da28142c3b2ea56736583bbdbd0c678b18849db4201e9",
+      "seed": 11,
+      "mean": 0.013731145299971104,
+      "rgb": [
+        0.02353910729289055,
+        0.011769553646445274,
+        0.005884776823222637
+      ],
+      "mode": 0,
+      "emitterCount": 2,
+      "tableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-0-seed-23.pfm",
+      "sha256": "22b8e9c3a693aa7d2f0e7b307e1313c7600e532d151906c0153725cb43688499",
+      "seed": 23,
+      "mean": 0.0136803537607193,
+      "rgb": [
+        0.0234520360827446,
+        0.0117260180413723,
+        0.00586300902068615
+      ],
+      "mode": 0,
+      "emitterCount": 2,
+      "tableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-0-seed-37.pfm",
+      "sha256": "ccc8c326aafa4586c42ed968fea3c09b458ecfe42a73c3e639b734c3df4292a6",
+      "seed": 37,
+      "mean": 0.013762238435447216,
+      "rgb": [
+        0.023592406883835793,
+        0.011796203441917896,
+        0.005898101720958948
+      ],
+      "mode": 0,
+      "emitterCount": 2,
+      "tableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-0-seed-53.pfm",
+      "sha256": "e4d4117c2a7ff0944a6bdb7ea8624e267a2e35e69301d676fa108eadb3e5cefc",
+      "seed": 53,
+      "mean": 0.013831268064677715,
+      "rgb": [
+        0.023710744455456734,
+        0.011855372227728367,
+        0.005927686113864183
+      ],
+      "mode": 0,
+      "emitterCount": 2,
+      "tableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-1-seed-11.pfm",
+      "sha256": "4fa2f104e8b6c518c4765181d8c8dd44be5be483301169ac989644b05af9325c",
+      "seed": 11,
+      "mean": 0.01381660532206297,
+      "rgb": [
+        0.02368560992181301,
+        0.011842804960906506,
+        0.005921402480453253
+      ],
+      "mode": 1,
+      "emitterCount": 2,
+      "tableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-1-seed-23.pfm",
+      "sha256": "4b9a1fb7145315479286b1612d75fe476e470dd6a90d11dfb8697faedf4d3a4f",
+      "seed": 23,
+      "mean": 0.013757627457380295,
+      "rgb": [
+        0.023584505543112755,
+        0.011792252771556377,
+        0.005896126385778189
+      ],
+      "mode": 1,
+      "emitterCount": 2,
+      "tableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-1-seed-37.pfm",
+      "sha256": "45e442a7e2d8be4f29e456fb3ac50e3d9d0f7fc99424f08baf1e9a176509717c",
+      "seed": 37,
+      "mean": 0.013777333311736584,
+      "rgb": [
+        0.023618284612894058,
+        0.011809142306447029,
+        0.0059045711532235146
+      ],
+      "mode": 1,
+      "emitterCount": 2,
+      "tableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-1-seed-53.pfm",
+      "sha256": "b48d1efd1e6df70cb0636c97ccb2197749a3baa4d4699932671dd9609395a9b9",
+      "seed": 53,
+      "mean": 0.013762527145445347,
+      "rgb": [
+        0.023592904210090637,
+        0.011796452105045319,
+        0.005898226052522659
+      ],
+      "mode": 1,
+      "emitterCount": 2,
+      "tableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-2-seed-11.pfm",
+      "sha256": "d28297dc50743b9557d3e46650dfcda55cc077f64487ed408e168bb913b9208f",
+      "seed": 11,
+      "mean": 0.013811537064611912,
+      "rgb": [
+        0.023676922544836998,
+        0.011838461272418499,
+        0.0059192306362092495
+      ],
+      "mode": 2,
+      "emitterCount": 2,
+      "tableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-2-seed-23.pfm",
+      "sha256": "7cb94d6c4905a29df10eb385ff95908c9e4e0c92a6939abf9ae20fe02bc5fbab",
+      "seed": 23,
+      "mean": 0.013755754567682743,
+      "rgb": [
+        0.02358129434287548,
+        0.01179064717143774,
+        0.00589532358571887
+      ],
+      "mode": 2,
+      "emitterCount": 2,
+      "tableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-2-seed-37.pfm",
+      "sha256": "5f23f7cc5f0c05c733812137e82a270a0a95786325050dcfb9cc998d235fde13",
+      "seed": 37,
+      "mean": 0.013779566623270512,
+      "rgb": [
+        0.023622114211320877,
+        0.011811057105660439,
+        0.005905528552830219
+      ],
+      "mode": 2,
+      "emitterCount": 2,
+      "tableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\mode-2-seed-53.pfm",
+      "sha256": "83890911137427b301d04e0e48a6a2aa9f74e8d1e6d27d63b7d00ac0ff30da47",
+      "seed": 53,
+      "mean": 0.01376189012080431,
+      "rgb": [
+        0.02359181083738804,
+        0.01179590541869402,
+        0.00589795270934701
+      ],
+      "mode": 2,
+      "emitterCount": 2,
+      "tableStatus": "ready",
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-extended-20261005\\texture\\emission-off.pfm",
+      "sha256": "2c28f41fdbd5d0e0ba6fbed00c5a10eb72de3cf2c2a615cfaa23f52286a6624d",
+      "seed": 11,
+      "mean": null,
+      "rgb": null,
+      "mode": 2,
+      "emitterCount": 2,
+      "tableStatus": "ready",
+      "warningCount": 3
+    }
+  ],
+  "samples": 64,
+  "seeds": [
+    11,
+    23,
+    37,
+    53
+  ],
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "evidenceDocument": "../../../../doc/branch/feature/path-tracing-validation-results/completion-step-5-emissive-extended-summary.json",
+  "limitations": [
+    "One GPU, 64 spp and four seeds; nine representative ROI positions, not a full-image oracle.",
+    "Back-facing, beyond-endpoint, empty-table/shadow-off, tiny/large emitters, UV transforms, deeper RR paths and combined lighting remain pending."
+  ]
+}

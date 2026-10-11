@@ -16,6 +16,7 @@
 #include "ImGuiWidgets.h"
 #include "Runtime/RenderGraphNodeEditorView.h"
 #include "Ui/DebugUiPreferences.h"
+#include "Ui/DirectLightUi.h"
 
 #include <imgui.h>
 
@@ -130,7 +131,9 @@ namespace
         return changed;
     }
 
-    void DrawFrameSummary(RtPbrSurvey::SceneRenderer& renderer)
+    bool g_renderGraphWindowOpen = false;
+
+    void DrawStandaloneFrameSummary(RtPbrSurvey::SceneRenderer& renderer)
     {
         const RtPbrSurvey::SceneRenderer::UiFrameContext context = renderer.GetUiFrameContext();
         ImGui::Text("FrameIndex: %d", context.frameIndex);
@@ -142,18 +145,15 @@ namespace
         {
             ImGui::TextUnformatted("CPU Frame: unavailable");
         }
+    }
+
+    void DrawRayTracingDiagnostics(RtPbrSurvey::SceneRenderer& renderer)
+    {
+        const RtPbrSurvey::SceneRenderer::UiFrameContext context = renderer.GetUiFrameContext();
         ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
                     context.rayTracingSupported ? "Supported" : "Not supported",
                     context.rayTracingTierName,
                     context.rayTracingTierRaw);
-        ImGui::Text("Temporal Upscaler: %s (Backend: %s, Status: %s)",
-                    context.temporalUpscalerAvailable ? "Available" : "Unavailable",
-                    context.temporalUpscalerBackendName,
-                    context.temporalUpscalerStatusText);
-        ImGui::Text("DLSS Ray Reconstruction: %s (Backend: %s, Status: %s)",
-                    context.rayReconstructionAvailable ? "Available" : "Unavailable",
-                    context.rayReconstructionBackendName,
-                    context.rayReconstructionStatusText);
     }
 
     void DrawTemporalUpscalerControls(RtPbrSurvey::SceneRenderer& renderer)
@@ -166,6 +166,9 @@ namespace
 
         RtPbrSurvey::DebugUiPreferences& preferences = RtPbrSurvey::GetDebugUiPreferences();
         ImGui::TextUnformatted("DLSS SR");
+        ImGui::Text("Availability: %s", context.temporalUpscalerAvailable ? "Available" : "Unavailable");
+        ImGui::Text("Backend: %s", context.temporalUpscalerBackendName);
+        ImGui::Text("Status: %s", context.temporalUpscalerStatusText);
         if (ImGuiWidgets::SimpleDetailMode("DlssSrDebugMode", &preferences.dlssSrDetailed))
         {
             RtPbrSurvey::MarkDebugUiPreferencesDirty();
@@ -191,9 +194,18 @@ namespace
             }
         }
 
+        bool simpleTemporalUpscalerEnabled =
+            context.temporalUpscalerAvailable && temporalUpscalerSettings.enabled;
+        bool* temporalUpscalerEnabled =
+            preferences.dlssSrDetailed ? &temporalUpscalerSettings.enabled : &simpleTemporalUpscalerEnabled;
         ImGui::BeginDisabled(!context.temporalUpscalerAvailable);
-        changed |= ImGui::Checkbox(preferences.dlssSrDetailed ? "DLSS Enabled" : "DLSS##Simple",
-                                   &temporalUpscalerSettings.enabled);
+        const bool temporalUpscalerEnabledChanged =
+            ImGui::Checkbox(preferences.dlssSrDetailed ? "DLSS Enabled" : "DLSS##Simple", temporalUpscalerEnabled);
+        if (temporalUpscalerEnabledChanged && !preferences.dlssSrDetailed)
+        {
+            temporalUpscalerSettings.enabled = simpleTemporalUpscalerEnabled;
+        }
+        changed |= temporalUpscalerEnabledChanged;
         int temporalUpscalerQualityMode = static_cast<int>(temporalUpscalerSettings.qualityMode);
         if (ImGui::Combo(preferences.dlssSrDetailed ? "DLSS Quality" : "DLSS SR Mode##Simple",
                          &temporalUpscalerQualityMode,
@@ -207,6 +219,9 @@ namespace
 
         ImGui::Separator();
         ImGui::TextUnformatted("DLSS RR");
+        ImGui::Text("Availability: %s", context.rayReconstructionAvailable ? "Available" : "Unavailable");
+        ImGui::Text("Backend: %s", context.rayReconstructionBackendName);
+        ImGui::Text("Status: %s", context.rayReconstructionStatusText);
         if (ImGuiWidgets::SimpleDetailMode("DlssRrDebugMode", &preferences.dlssRrDetailed))
         {
             RtPbrSurvey::MarkDebugUiPreferencesDirty();
@@ -214,7 +229,7 @@ namespace
 
         if (!preferences.dlssRrDetailed)
         {
-            bool nativeRayReconstructionEnabled =
+            bool nativeRayReconstructionEnabled = context.rayReconstructionAvailable &&
                 rayReconstructionSettings.enabled && rayReconstructionSettings.experimentalNativeEvaluationEnabled;
             ImGui::BeginDisabled(!context.rayReconstructionAvailable);
             if (ImGui::Checkbox("DLSS RR##Simple", &nativeRayReconstructionEnabled))
@@ -229,9 +244,6 @@ namespace
         {
             const Engine::RayReconstructionDiagnostics& rayReconstructionDiagnostics =
                 context.rayReconstructionDiagnostics;
-            ImGui::Text("DLSS Ray Reconstruction: %s (Status: %s)",
-                        context.rayReconstructionAvailable ? "Available" : "Unavailable",
-                        rayReconstructionDiagnostics.StatusText());
             ImGui::Text("RR Support Query: %s", rayReconstructionDiagnostics.supportQueryResultName);
             if (rayReconstructionDiagnostics.featureVersionAvailable)
             {
@@ -299,17 +311,7 @@ namespace
     void DrawLightingControls(RtPbrSurvey::SceneRenderer& renderer)
     {
         auto lightingParams = renderer.GetLightingParams();
-        bool changed = false;
-
-        static constexpr float defaultDirection[] = {0.0f, 1.0f, -1.0f};
-        changed |= ImGuiWidgets::SliderFloat3WithControls(
-            "Light Direction", &lightingParams.lightDirection.x, -1.0f, 1.0f, 0.05f, defaultDirection);
-        changed |= ImGui::Checkbox("Direct Light", &lightingParams.directLightEnabled);
-        ImGui::BeginDisabled(!lightingParams.directLightEnabled);
-        changed |= ImGuiWidgets::SliderFloatWithControls(
-            "Direct Light Intensity", &lightingParams.diffuseIntensity, 0.0f, 4.0f, 0.1f, 1.0f);
-        changed |= ImGui::ColorEdit3("Light Color", &lightingParams.lightColor.x);
-        ImGui::EndDisabled();
+        const bool changed = RtPbrSurvey::DrawDirectLightControls(lightingParams);
 
         if (changed)
         {
@@ -938,58 +940,73 @@ namespace RtPbrSurvey
                                     const char* windowName,
                                     EnvironmentMappingUiState* environment)
     {
-        static bool renderGraphWindowOpen = false;
         ImGui::SetNextWindowSize(ImVec2(420, 520), ImGuiCond_FirstUseEver);
         const bool debugWindowVisible = ImGui::Begin(windowName, open);
         if (debugWindowVisible)
         {
-            DrawFrameSummary(renderer);
-            DrawTemporalUpscalerControls(renderer);
-            ImGui::Separator();
-
-            if (ImGui::CollapsingHeader("Back Buffer", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                DrawBackBufferControls(renderer);
-            }
-
-            if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                DrawLightingControls(renderer);
-            }
-
-            if (environment != nullptr &&
-                ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                DrawEnvironmentMapping(renderer, *environment);
-            }
-
-            if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                DrawToneMapControls(renderer);
-            }
-
-            if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                DrawShadowControls(renderer);
-            }
-
-            if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                DrawHybridReflectionControls(renderer);
-            }
-
-            if (ImGui::CollapsingHeader("Render View", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                DrawRenderViewControls(renderer);
-            }
-
-            if (ImGui::Button("Open RenderGraph Window"))
-            {
-                renderGraphWindowOpen = true;
-            }
+            DrawStandaloneFrameSummary(renderer);
+            DrawContents(renderer, environment);
         }
 
         ImGui::End();
-        DrawRenderGraphWindow(renderer, &renderGraphWindowOpen);
+        DrawAuxiliaryWindows(renderer);
+    }
+
+    void SceneRendererDebugUi::DrawContents(SceneRenderer& renderer, EnvironmentMappingUiState* environment)
+    {
+        ImGui::PushID("RtPbrSurvey.SceneRendererDebugUi");
+        DrawRayTracingDiagnostics(renderer);
+        if (ImGui::CollapsingHeader("DLSS", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            DrawTemporalUpscalerControls(renderer);
+        }
+        ImGui::Separator();
+
+        if (ImGui::CollapsingHeader("Back Buffer", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            DrawBackBufferControls(renderer);
+        }
+
+        if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            DrawLightingControls(renderer);
+        }
+
+        if (environment != nullptr &&
+            ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            DrawEnvironmentMapping(renderer, *environment);
+        }
+
+        if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            DrawToneMapControls(renderer);
+        }
+
+        if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            DrawShadowControls(renderer);
+        }
+
+        if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            DrawHybridReflectionControls(renderer);
+        }
+
+        if (ImGui::CollapsingHeader("Render View", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            DrawRenderViewControls(renderer);
+        }
+
+        if (ImGui::Button("Open RenderGraph Window"))
+        {
+            g_renderGraphWindowOpen = true;
+        }
+        ImGui::PopID();
+    }
+
+    void SceneRendererDebugUi::DrawAuxiliaryWindows(SceneRenderer& renderer)
+    {
+        DrawRenderGraphWindow(renderer, &g_renderGraphWindowOpen);
     }
 }

@@ -59,14 +59,101 @@ cbuffer PathTracingConstants : register(b1)
     float diffuseIntensity;
     uint russianRouletteEnabled;
     uint skyboxEnabled;
-    float constantBufferPadding;
+    uint environmentSamplingMode;
     float4 backgroundColor;
+    uint emissiveTriangleCount;
+    uint emissiveSamplingMode;
+    uint2 emissivePadding;
 };
 
 #include "SceneRayQuery.hlsli"
 #include "PathTracingSampling.hlsli"
+#include "EmissiveTriangleSampling.hlsli"
+StructuredBuffer<EmissiveTriangleGpu> g_emissiveTriangles : register(t7);
+#include "PathTracingDirectLightAdapter.hlsli"
 
 static const uint kInstanceDataPreviousWorldOffset = 64;
+static const uint kEnvironmentColumns = 16;
+static const uint kEnvironmentRows = 8;
+static const uint kEnvironmentCells = kEnvironmentColumns * kEnvironmentRows;
+groupshared float g_environmentCdf[129];
+
+float3 EnvironmentCellDirection(uint cell, float2 offset)
+{
+    const float z = 1.0 - 2.0 * ((float(cell / kEnvironmentColumns) + offset.y) / kEnvironmentRows);
+    const float phi = 2.0 * kPathTracingPi * ((float(cell % kEnvironmentColumns) + offset.x) / kEnvironmentColumns);
+    const float radius = sqrt(max(0.0, 1.0 - z * z));
+    return float3(radius * cos(phi), radius * sin(phi), z);
+}
+
+void BuildEnvironmentDistribution(uint groupIndex)
+{
+    for (uint cell = groupIndex; cell < kEnvironmentCells; cell += 64)
+    {
+        const float3 value = g_environmentMap.SampleLevel(g_sampler, EnvironmentCellDirection(cell, 0.5), 0).rgb;
+        const float weight = PathTracingLuminance(max(value, 0.0));
+        g_environmentCdf[cell + 1] = isfinite(weight) ? min(weight, 1e20) : 0.0;
+    }
+    GroupMemoryBarrierWithGroupSync();
+    if (groupIndex == 0)
+    {
+        float total = 0.0;
+        for (uint cell = 0; cell < kEnvironmentCells; ++cell)
+        {
+            total += g_environmentCdf[cell + 1];
+        }
+        g_environmentCdf[0] = 0.0;
+        float cumulative = 0.0;
+        for (uint cell = 0; cell < kEnvironmentCells; ++cell)
+        {
+            const float probability = total > 0.0 ?
+                0.95 * (g_environmentCdf[cell + 1] / total) + 0.05 / kEnvironmentCells :
+                1.0 / kEnvironmentCells;
+            cumulative += probability;
+            g_environmentCdf[cell + 1] = cumulative;
+        }
+        g_environmentCdf[kEnvironmentCells] = 1.0;
+    }
+    GroupMemoryBarrierWithGroupSync();
+}
+
+float EnvironmentImportancePdf(float3 direction)
+{
+    float phi = atan2(direction.y, direction.x);
+    if (phi < 0.0)
+    {
+        phi += 2.0 * kPathTracingPi;
+    }
+    const uint column = min(uint(phi * (kEnvironmentColumns / (2.0 * kPathTracingPi))), kEnvironmentColumns - 1);
+    const uint row = min(uint(saturate(0.5 * (1.0 - direction.z)) * kEnvironmentRows), kEnvironmentRows - 1);
+    const uint cell = row * kEnvironmentColumns + column;
+    return (g_environmentCdf[cell + 1] - g_environmentCdf[cell]) * (kEnvironmentCells / (4.0 * kPathTracingPi));
+}
+
+PathTracingLightSample SampleEnvironmentImportance(float3 randomSample)
+{
+    uint lower = 0;
+    uint upper = kEnvironmentCells;
+    while (lower + 1 < upper)
+    {
+        const uint middle = (lower + upper) / 2;
+        if (randomSample.x < g_environmentCdf[middle])
+        {
+            upper = middle;
+        }
+        else
+        {
+            lower = middle;
+        }
+    }
+    const float3 direction = EnvironmentCellDirection(lower, randomSample.yz);
+    PathTracingLightSample result = MakePathTracingDirectionalLightSample(direction,
+        g_environmentMap.SampleLevel(g_sampler, direction, 0).rgb * environmentIntensity, rayTMax, 1.0, 0u);
+    result.directionPdf = (g_environmentCdf[lower + 1] - g_environmentCdf[lower]) *
+        (kEnvironmentCells / (4.0 * kPathTracingPi));
+    result.isDelta = 0u;
+    return result;
+}
 
 struct PrimarySurfaceData
 {
@@ -101,7 +188,11 @@ float ComputePrimaryViewZ(float3 worldPosition)
 {
     float4 farCenter = mul(float4(0.0, 0.0, 1.0, 1.0), invViewProj);
     farCenter.xyz /= farCenter.w;
-    const float3 cameraForward = normalize(farCenter.xyz - cameraPosition);
+    const float4 farRight = mul(float4(1.0, 0.0, 1.0, 1.0), invViewProj);
+    const float4 farUp = mul(float4(0.0, 1.0, 1.0, 1.0), invViewProj);
+    // Lens shift changes the center ray, but not the far plane's view-axis normal.
+    const float3 cameraForward = normalize(cross(farRight.xyz / farRight.w - farCenter.xyz,
+                                                 farUp.xyz / farUp.w - farCenter.xyz));
     return max(dot(worldPosition - cameraPosition, cameraForward), 0.0);
 }
 
@@ -132,7 +223,7 @@ uint HashUint(uint value)
 
 uint MakeRandomState(uint2 pixel, uint sampleIndex)
 {
-    return HashUint(pixel.x ^ HashUint(pixel.y ^ HashUint(sampleIndex ^ randomSeed)));
+    return HashUint(pixel.x ^ HashUint(pixel.y ^ HashUint(sampleIndex) ^ HashUint(randomSeed + 0x9e3779b9u)));
 }
 
 float NextRandom(inout uint state)
@@ -166,6 +257,10 @@ float3 SampleEnvironmentLighting(float3 direction)
     {
         return float3(0.0, 0.0, 0.0);
     }
+    if (environmentSamplingMode == 1 || environmentSamplingMode == 2 || environmentSamplingMode == 5)
+    {
+        return environmentIntensity.xxx;
+    }
     return g_environmentMap.SampleLevel(g_sampler, direction, 0).rgb * environmentIntensity;
 }
 
@@ -178,7 +273,7 @@ float3 SamplePrimaryMiss(float3 direction)
     return g_environmentMap.SampleLevel(g_sampler, direction, 0).rgb;
 }
 
-float TraceShadow(float3 worldPosition, float3 normal)
+float TraceShadow(float3 worldPosition, float3 normal, PathTracingLightSample lightSample, uint rayFlags)
 {
     if (shadowEnabled == 0)
     {
@@ -187,16 +282,54 @@ float TraceShadow(float3 worldPosition, float3 normal)
 
     RayDesc shadowRay;
     shadowRay.Origin = worldPosition + normal * normalBias;
-    shadowRay.Direction = normalize(lightDirection);
+    shadowRay.Direction = lightSample.direction;
     shadowRay.TMin = rayTMin;
-    shadowRay.TMax = rayTMax;
+    shadowRay.TMax = lightSample.distance;
+    ResolvePathTracingShadowRay(lightSample, shadowRay.Origin, shadowRay.Direction, shadowRay.TMax);
+    if (shadowRay.TMax <= shadowRay.TMin)
+    {
+        return 1.0;
+    }
 
     RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> query;
-    query.TraceRayInline(g_tlas, 0, 0xff, shadowRay);
+    query.TraceRayInline(g_tlas, rayFlags, 0xff, shadowRay);
     while (query.Proceed())
     {
     }
     return query.CommittedStatus() == COMMITTED_TRIANGLE_HIT ? 0.0 : 1.0;
+}
+
+uint FindSampledEmitter(uint instanceId, uint primitiveIndex)
+{
+    for (uint i = 0; i < emissiveTriangleCount; ++i)
+    {
+        const EmissiveTriangleGpu emitter = g_emissiveTriangles[i];
+        if (emitter.instanceId == instanceId && emitter.primitiveIndex == primitiveIndex)
+        {
+            return i;
+        }
+    }
+    return emissiveTriangleCount;
+}
+
+float TraceEmitterVisibility(float3 origin, float3 direction, float distance, EmissiveTriangleGpu emitter)
+{
+    RayDesc shadowRay;
+    shadowRay.Origin = origin;
+    shadowRay.Direction = direction;
+    shadowRay.TMin = rayTMin;
+    shadowRay.TMax = min(rayTMax, asfloat(asuint(distance) + 1u));
+    RayQuery<RAY_FLAG_CULL_BACK_FACING_TRIANGLES> query;
+    query.TraceRayInline(g_tlas, 0, 0xff, shadowRay);
+    while (query.Proceed())
+    {
+    }
+    if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
+    {
+        return 1.0;
+    }
+    return query.CommittedInstanceID() == emitter.instanceId &&
+        query.CommittedPrimitiveIndex() == emitter.primitiveIndex ? 1.0 : 0.0;
 }
 
 float3 TracePath(uint2 pixel,
@@ -214,6 +347,12 @@ float3 TracePath(uint2 pixel,
     float3 radiance = 0.0;
     float3 throughput = 1.0;
     bool primarySpecularPath = false;
+    float previousBsdfPdf = 0.0;
+    float previousEnvironmentPdf = 0.0;
+    bool previousEmissiveNeeActive = false;
+    const bool emissiveNeeEnabled = emissiveSamplingMode >= 1 && emissiveEnabled != 0 &&
+        shadowEnabled != 0 && emissiveTriangleCount != 0;
+    const bool environmentMisEnabled = environmentSamplingMode >= 5 && shadowEnabled != 0;
 
     [loop] for (uint bounce = 0; bounce < max(maxBounces, 1u); ++bounce)
     {
@@ -225,8 +364,12 @@ float3 TracePath(uint2 pixel,
 
         if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
         {
-            const float3 missRadiance =
-                bounce == 0 ? SamplePrimaryMiss(ray.Direction) : SampleEnvironmentLighting(ray.Direction);
+            float3 missRadiance = bounce == 0 ? SamplePrimaryMiss(ray.Direction) : SampleEnvironmentLighting(ray.Direction);
+            if (bounce > 0 && environmentSamplingMode >= 2)
+            {
+                missRadiance *= environmentMisEnabled ?
+                    PathTracingPowerHeuristic(previousBsdfPdf, previousEnvironmentPdf) : 0.0;
+            }
             const float3 contribution = throughput * missRadiance;
             radiance += contribution;
             if (bounce > 0)
@@ -321,7 +464,19 @@ float3 TracePath(uint2 pixel,
 
         if (emissiveEnabled != 0)
         {
-            const float3 contribution = throughput * hitMaterial.emissive;
+            float emissionWeight = 1.0;
+            if (bounce > 0 && previousEmissiveNeeActive)
+            {
+                const uint emitterIndex = FindSampledEmitter(instanceId, primitiveIndex);
+                if (emitterIndex < emissiveTriangleCount)
+                {
+                    const float lightPdf = EmissiveTriangleSolidAnglePdf(
+                        g_emissiveTriangles[emitterIndex], ray.Origin, hitPosition);
+                    emissionWeight = emissiveSamplingMode == 2 ?
+                        PathTracingPowerHeuristic(previousBsdfPdf, lightPdf) : 0.0;
+                }
+            }
+            const float3 contribution = throughput * hitMaterial.emissive * emissionWeight;
             radiance += contribution;
             if (bounce == 0 || !primarySpecularPath)
             {
@@ -333,43 +488,143 @@ float3 TracePath(uint2 pixel,
             }
         }
 
-        const float3 surfaceToLight = normalize(lightDirection);
-        const float normalDotLight = saturate(dot(hitNormal, surfaceToLight));
-        if (directLightingEnabled != 0 && normalDotLight > 0.0 && dot(geometryNormal, surfaceToLight) > 0.0)
+        if (directLightingEnabled != 0)
         {
-            const float visibility = TraceShadow(hitPosition, geometryNormal);
-            const float3 viewDirection = -ray.Direction;
-            const float3 brdf = EvaluatePathTracingBrdf(hitMaterial.albedo,
-                                                        hitMaterial.metallic,
-                                                        hitMaterial.roughness,
-                                                        hitNormal,
-                                                        viewDirection,
-                                                        surfaceToLight);
-            const float3 lighting = lightColor * (diffuseIntensity * normalDotLight * visibility);
-            const float3 contribution = throughput * brdf * lighting;
-            radiance += contribution;
-            if (bounce == 0)
+            // One deterministic candidate per enabled light: each source has selection probability 1.
+            [loop] for (uint lightIndex = 0; lightIndex < min(ptLightCount, 16u); ++lightIndex)
             {
-                float3 diffuseBrdf;
-                float3 specularBrdf;
-                EvaluatePathTracingBrdfComponents(hitMaterial.albedo,
-                                                  hitMaterial.metallic,
-                                                  hitMaterial.roughness,
-                                                  hitNormal,
-                                                  viewDirection,
-                                                  surfaceToLight,
-                                                  diffuseBrdf,
-                                                  specularBrdf);
-                diffuseRadiance += throughput * diffuseBrdf * lighting;
-                specularRadiance += throughput * specularBrdf * lighting;
+                const PathTracingLightSample lightSample = MakePathTracingSceneLightSample(
+                    lightIndex, hitPosition, rayTMin, rayTMax);
+                const PathTracingDirectLightCandidate candidate = MakePathTracingDirectLightCandidate(
+                    lightSample, hitMaterial.albedo, hitMaterial.metallic, hitMaterial.roughness,
+                    hitNormal, geometryNormal, -ray.Direction);
+                if (candidate.valid == 0)
+                {
+                    continue;
+                }
+                const float visibility = TraceShadow(hitPosition, geometryNormal, candidate.lightSample, 0);
+                const float3 brdf = candidate.diffuseBrdf + candidate.specularBrdf;
+                const float3 lighting = candidate.lightSample.radiance *
+                    (candidate.normalDotLight * visibility / candidate.lightSample.selectionPdf);
+                const float3 contribution = throughput * brdf * lighting;
+                radiance += contribution;
+                if (bounce == 0)
+                {
+                    diffuseRadiance += throughput * candidate.diffuseBrdf * lighting;
+                    specularRadiance += throughput * candidate.specularBrdf * lighting;
+                }
+                else if (primarySpecularPath)
+                {
+                    specularRadiance += contribution;
+                }
+                else
+                {
+                    diffuseRadiance += contribution;
+                }
             }
-            else if (primarySpecularPath)
+        }
+
+        const bool emissiveNeeActive = emissiveNeeEnabled && bounce + 1 < max(maxBounces, 1u);
+        if (emissiveNeeActive)
+        {
+            const uint emitterIndex = SelectEmissiveTriangle(g_emissiveTriangles, emissiveTriangleCount,
+                NextRandom(randomState));
+            if (emitterIndex < emissiveTriangleCount)
             {
-                specularRadiance += contribution;
+                const EmissiveTriangleGpu emitter = g_emissiveTriangles[emitterIndex];
+                const float3 bary = EmissiveTriangleBarycentrics(
+                    float2(NextRandom(randomState), NextRandom(randomState)));
+                const float3 samplePosition = emitter.position0 * bary.x + emitter.position1 * bary.y +
+                    emitter.position2 * bary.z;
+                const float3 origin = hitPosition + geometryNormal * normalBias;
+                const float3 delta = samplePosition - origin;
+                const float distance = length(delta);
+                const float lightPdf = EmissiveTriangleSolidAnglePdf(emitter, origin, samplePosition);
+                if (lightPdf > 0.0 && distance > rayTMin && distance <= rayTMax)
+                {
+                    const Material material = g_materialData[emitter.materialId];
+                    const float2 uv = (emitter.uv0 * bary.x + emitter.uv1 * bary.y + emitter.uv2 * bary.z) *
+                        material.uvScale + material.uvOffset;
+                    const float3 emission = SrgbToLinear(g_texture[NonUniformResourceIndex(material.emissiveTexIndex)].
+                        SampleLevel(g_sampler, uv, 0).rgb) * material.emissiveScale * material.emissiveFactor;
+                    const PathTracingLightSample lightSample = MakePathTracingDirectionalLightSample(
+                        delta / distance, emission, distance, 1.0, 0u);
+                    const PathTracingDirectLightCandidate candidate = MakePathTracingDirectLightCandidate(
+                        lightSample, hitMaterial.albedo, hitMaterial.metallic, hitMaterial.roughness,
+                        hitNormal, geometryNormal, -ray.Direction);
+                    if (candidate.valid != 0)
+                    {
+                        const float visibility = TraceEmitterVisibility(origin, lightSample.direction, distance, emitter);
+                        const float bsdfPdf = EvaluatePathTracingBsdfPdf(hitMaterial.albedo, hitMaterial.metallic,
+                            hitMaterial.roughness, hitNormal, -ray.Direction, lightSample.direction);
+                        const float misWeight = emissiveSamplingMode == 2 ?
+                            PathTracingPowerHeuristic(lightPdf, bsdfPdf) : 1.0;
+                        const float3 lighting = emission * (candidate.normalDotLight * visibility * misWeight / lightPdf);
+                        const float3 diffuseContribution = throughput * candidate.diffuseBrdf * lighting;
+                        const float3 specularContribution = throughput * candidate.specularBrdf * lighting;
+                        const float3 contribution = diffuseContribution + specularContribution;
+                        radiance += contribution;
+                        if (bounce == 0)
+                        {
+                            diffuseRadiance += diffuseContribution;
+                            specularRadiance += specularContribution;
+                        }
+                        else if (primarySpecularPath)
+                        {
+                            specularRadiance += contribution;
+                        }
+                        else
+                        {
+                            diffuseRadiance += contribution;
+                        }
+                    }
+                }
             }
-            else
+        }
+
+        if (environmentEnabled != 0 && environmentSamplingMode >= 2 && bounce + 1 < max(maxBounces, 1u))
+        {
+            const float2 environmentRandom = float2(NextRandom(randomState), NextRandom(randomState));
+            PathTracingLightSample environmentSample = MakePathTracingConstantEnvironmentSample(
+                environmentRandom, environmentIntensity.xxx, rayTMax);
+            if (environmentSamplingMode == 3 || environmentSamplingMode == 6)
             {
-                diffuseRadiance += contribution;
+                environmentSample.radiance = SampleEnvironmentLighting(environmentSample.direction);
+            }
+            else if (environmentSamplingMode == 4 || environmentSamplingMode == 7)
+            {
+                environmentSample = SampleEnvironmentImportance(float3(environmentRandom, NextRandom(randomState)));
+            }
+            const PathTracingDirectLightCandidate environmentCandidate = MakePathTracingDirectLightCandidate(
+                environmentSample, hitMaterial.albedo, hitMaterial.metallic, hitMaterial.roughness,
+                hitNormal, geometryNormal, -ray.Direction);
+            if (environmentCandidate.valid != 0)
+            {
+                const float visibility = TraceShadow(hitPosition, geometryNormal, environmentSample,
+                    RAY_FLAG_CULL_BACK_FACING_TRIANGLES);
+                const float lightPdf = environmentSample.selectionPdf * environmentSample.directionPdf;
+                const float bsdfPdf = EvaluatePathTracingBsdfPdf(hitMaterial.albedo, hitMaterial.metallic,
+                    hitMaterial.roughness, hitNormal, -ray.Direction, environmentSample.direction);
+                const float misWeight = environmentMisEnabled ? PathTracingPowerHeuristic(lightPdf, bsdfPdf) : 1.0;
+                const float3 lighting = environmentSample.radiance * (environmentCandidate.normalDotLight *
+                    visibility * misWeight / lightPdf);
+                const float3 diffuseContribution = throughput * environmentCandidate.diffuseBrdf * lighting;
+                const float3 specularContribution = throughput * environmentCandidate.specularBrdf * lighting;
+                const float3 contribution = diffuseContribution + specularContribution;
+                radiance += contribution;
+                if (bounce == 0)
+                {
+                    diffuseRadiance += diffuseContribution;
+                    specularRadiance += specularContribution;
+                }
+                else if (primarySpecularPath)
+                {
+                    specularRadiance += contribution;
+                }
+                else
+                {
+                    diffuseRadiance += contribution;
+                }
             }
         }
 
@@ -398,6 +653,10 @@ float3 TracePath(uint2 pixel,
         }
 
         throughput *= bsdfSample.weight;
+        previousEmissiveNeeActive = emissiveNeeActive;
+        previousBsdfPdf = bsdfSample.pdf;
+        previousEnvironmentPdf = environmentEnabled != 0 && environmentMisEnabled && environmentSamplingMode == 7 ?
+            EnvironmentImportancePdf(bsdfSample.direction) : 1.0 / (4.0 * kPathTracingPi);
         if (russianRouletteEnabled != 0 && bounce >= 2)
         {
             const float continuationProbability =
@@ -418,8 +677,12 @@ float3 TracePath(uint2 pixel,
 }
 
 [numthreads(8, 8, 1)]
-void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
+void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
 {
+    if (environmentEnabled != 0 && (environmentSamplingMode == 4 || environmentSamplingMode == 7))
+    {
+        BuildEnvironmentDistribution(groupIndex);
+    }
     uint2 pixel = dispatchThreadId.xy;
     uint width;
     uint height;

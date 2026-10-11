@@ -74,8 +74,19 @@ inline DirectX::XMMATRIX CreateCameraProjectionMatrix(const CameraState& camera,
     }
 
     const float fovYDegrees = std::clamp(camera.fov, 0.1f, 179.0f);
-    return DirectX::XMMatrixPerspectiveFovLH(
-        DirectX::XMConvertToRadians(fovYDegrees), safeAspectRatio, nearZ, farZ);
+    const float halfHeight = nearZ * std::tan(
+        DirectX::XMConvertToRadians(fovYDegrees) * 0.5f);
+    const float halfWidth = halfHeight * safeAspectRatio;
+    const float shiftX = std::isfinite(camera.lensShiftX)
+        ? std::clamp(camera.lensShiftX, -1.0f, 1.0f) : 0.0f;
+    const float shiftY = std::isfinite(camera.lensShiftY)
+        ? std::clamp(camera.lensShiftY, -1.0f, 1.0f) : 0.0f;
+    return DirectX::XMMatrixPerspectiveOffCenterLH(
+        -halfWidth + shiftX * halfWidth,
+         halfWidth + shiftX * halfWidth,
+        -halfHeight + shiftY * halfHeight,
+         halfHeight + shiftY * halfHeight,
+        nearZ, farZ);
 }
 
 } // namespace Engine

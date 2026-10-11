@@ -1,0 +1,949 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "816c3f7",
+  "testedCommit": "816c3f7e2a036ae17b36ccee564cb1a93b85a8da",
+  "workspace": "C:\\work\\RtPbrSurvey",
+  "branch": "codex/path-tracing-validation-part1",
+  "build": "Debug x64",
+  "samples": 4,
+  "seed": 7,
+  "roi": [
+    952,
+    532,
+    16,
+    16
+  ],
+  "checks": {
+    "fixedSeedRepeat": true,
+    "seedVariation": true,
+    "visibility": true,
+    "falloff": true
+  },
+  "visibility": {
+    "clearMean": 0.08193004265194759,
+    "betweenMean": 0.0,
+    "beyondMean": 0.08193004265194759,
+    "maxBeyondDifference": 0.0
+  },
+  "falloff": {
+    "measuredRatio": 4.005152805253069,
+    "expectedRatio": 4.012028259638499,
+    "relativeError": 0.0017137103580744384
+  },
+  "indirect": {
+    "oneBounceMeanRgb": [
+      0.08108260983135551,
+      0.08108260983135551,
+      0.08108260983135551
+    ],
+    "fourBounceMeanRgb": [
+      0.09651842032326385,
+      0.08283576610847376,
+      0.08283576610847376
+    ]
+  },
+  "status": "passed",
+  "gpu": "NVIDIA GeForce RTX 3080 Laptop GPU",
+  "driver": "616.64",
+  "testedWorkingTreeAssets": true,
+  "buildResult": "passed",
+  "pythonTests": 10,
+  "generatedDate": "2026-10-01",
+  "d3d12Errors": 0,
+  "limitations": [
+    "Interactive editor save/reload not automated",
+    "No pure Lambert material",
+    "Four-sample smoke is not convergence evidence"
+  ],
+  "runs": [
+    {
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-environment-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-environment-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-environment.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-environment.log",
+        "-ExitAfterCapture"
+      ],
+      "meanRgb": [
+        0.5406187920598313,
+        0.5406187920598313,
+        0.5406187920598313
+      ],
+      "sceneHash": "0fbae7398a71ea2b3dd68e8c2fa55170903bee5b66f96363134cff57f7b511b0",
+      "presetHash": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a",
+      "sourceSceneHash": "e0d812c16c4ea7db46185f086272675d8014f5ba3147bf41619391aad00597d8",
+      "sourcePresetHash": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a",
+      "warningCount": 2,
+      "name": "constant-environment",
+      "mode": 5,
+      "seed": 7,
+      "samples": 4,
+      "maxBounces": 2,
+      "russianRoulette": false,
+      "roi": [
+        952,
+        532,
+        16,
+        16
+      ],
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "artifacts": [
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-environment.pfm",
+          "sha256": "2b837118731437ae510047fa15ac845b8dba8a3781b272a53b1ef78ad40a2612"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-environment.log",
+          "sha256": "423ff6e7d0f5ec5d55511702ff0cc8fc53b49730992ae6cd4ac7f5db81ae548e"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-environment-scene.json",
+          "sha256": "0fbae7398a71ea2b3dd68e8c2fa55170903bee5b66f96363134cff57f7b511b0"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-environment-preset.json",
+          "sha256": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-environment.png",
+          "sha256": "c398e36ac40816dd47767175ec6a8ac4bcb19789050566f719fc85a415d1533b"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-environment-png.log",
+          "sha256": "f308168d8d31ef6992a93d39c15b4cf25006eb80d554a6f7805b9726d9816a44"
+        }
+      ]
+    },
+    {
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\single-light-visibility-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\single-light-visibility-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\single-light-visibility.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\single-light-visibility.log",
+        "-ExitAfterCapture"
+      ],
+      "meanRgb": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "sceneHash": "10667a86e7e253437f89896f4e184e29772f5d251ba9b8c2ddb0b93a90677d8a",
+      "presetHash": "fdc0d184b43c19c4f702e5256fc7ff64016eb1fe377bfff4766f27b0fc5b0238",
+      "sourceSceneHash": "9420267bfeca06d5b6b63b26056cd7183e9ba497dd250741ac1ef587ba197674",
+      "sourcePresetHash": "fdc0d184b43c19c4f702e5256fc7ff64016eb1fe377bfff4766f27b0fc5b0238",
+      "warningCount": 3,
+      "name": "single-light-visibility",
+      "mode": 0,
+      "seed": 7,
+      "samples": 4,
+      "maxBounces": 1,
+      "russianRoulette": false,
+      "roi": [
+        952,
+        532,
+        16,
+        16
+      ],
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "artifacts": [
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/single-light-visibility.pfm",
+          "sha256": "8c1b74934b69742e533cbe58cba09577f53bd25736595fc8aea848734ca8b6a5"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/single-light-visibility.log",
+          "sha256": "18742cf076f1fcc85ee977a2436040684029ea0a2e03777f3e02aa6a181c1075"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/single-light-visibility-scene.json",
+          "sha256": "10667a86e7e253437f89896f4e184e29772f5d251ba9b8c2ddb0b93a90677d8a"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/single-light-visibility-preset.json",
+          "sha256": "fdc0d184b43c19c4f702e5256fc7ff64016eb1fe377bfff4766f27b0fc5b0238"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/single-light-visibility.png",
+          "sha256": "f44141fe070aa54843556f55799ee1cae263eb1865a06e91c1ce1742828395e2"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/single-light-visibility-png.log",
+          "sha256": "3b56c2a8ad41b583188ea8b32b925d1755c4cad57261e453e0c8ab1d1253d20c"
+        }
+      ]
+    },
+    {
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\two-surface-indirect-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\two-surface-indirect-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\two-surface-indirect.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\two-surface-indirect.log",
+        "-ExitAfterCapture"
+      ],
+      "meanRgb": [
+        0.09651842032326385,
+        0.08283576610847376,
+        0.08283576610847376
+      ],
+      "sceneHash": "ae44c245e4014ea8ce41ee275f2d8c51161134d9c56065ecd02229f10689569f",
+      "presetHash": "441481f993a89b18de8d85cebfd4e8a94cb90f284d4b7054c471f10bcd35b8a7",
+      "sourceSceneHash": "8d74063ae29569d20be29ecc9598635b7622bc586be35710827ff2542e7fb265",
+      "sourcePresetHash": "441481f993a89b18de8d85cebfd4e8a94cb90f284d4b7054c471f10bcd35b8a7",
+      "warningCount": 2,
+      "name": "two-surface-indirect",
+      "mode": 0,
+      "seed": 7,
+      "samples": 4,
+      "maxBounces": 4,
+      "russianRoulette": false,
+      "roi": [
+        952,
+        532,
+        16,
+        16
+      ],
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "artifacts": [
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/two-surface-indirect.pfm",
+          "sha256": "4d0c0f88c4b102727620095ff4255a6d61715aa6c7aeed190c5b074a654b1099"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/two-surface-indirect.log",
+          "sha256": "507a75e6e4fd78b176d895b6b65b57b683ff1f7f83b8cb73c01f4770787f0b26"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/two-surface-indirect-scene.json",
+          "sha256": "ae44c245e4014ea8ce41ee275f2d8c51161134d9c56065ecd02229f10689569f"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/two-surface-indirect-preset.json",
+          "sha256": "441481f993a89b18de8d85cebfd4e8a94cb90f284d4b7054c471f10bcd35b8a7"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/two-surface-indirect.png",
+          "sha256": "bd45dd08bad5b13aba35fd6a45cf3e438dac8039cf02b26bccf18abb89740dba"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/two-surface-indirect-png.log",
+          "sha256": "dfb95a4af88492933c9c858789abe64e956ae78abe209dadc2e4ef7ffdfcce7a"
+        }
+      ]
+    },
+    {
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\roughness-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\roughness-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\roughness.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\roughness.log",
+        "-ExitAfterCapture"
+      ],
+      "meanRgb": [
+        0.6554774284595624,
+        0.6554774284595624,
+        0.6554774284595624
+      ],
+      "sceneHash": "c5dcbd0f579a0b15d7f4368f7d33fb2660144116f8b1f1dc2cab8ddf2f5f1168",
+      "presetHash": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a",
+      "sourceSceneHash": "47f75b8f062e5e58d0bcb2389ee8e80d48f40ee08c5ea31fea10cb5ae1afc80d",
+      "sourcePresetHash": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a",
+      "warningCount": 2,
+      "name": "roughness",
+      "mode": 5,
+      "seed": 7,
+      "samples": 4,
+      "maxBounces": 2,
+      "russianRoulette": false,
+      "roi": [
+        952,
+        532,
+        16,
+        16
+      ],
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "artifacts": [
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/roughness.pfm",
+          "sha256": "d594a7d0bb677e91f5bef483b3600105305574277f99cf867bb87b1d0f4bb361"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/roughness.log",
+          "sha256": "41af26bf9cf1c72a7b09ca8d92615e67b539b372ef90a38a5e6d2f3b6d1b9ce3"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/roughness-scene.json",
+          "sha256": "c5dcbd0f579a0b15d7f4368f7d33fb2660144116f8b1f1dc2cab8ddf2f5f1168"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/roughness-preset.json",
+          "sha256": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/roughness.png",
+          "sha256": "7750c8ab28fefe6ab622e3ab710dedc780322d55aa5118763e779c3370b02275"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/roughness-png.log",
+          "sha256": "a4d65f83569e4235bf8f44e1785672e24e490f9b6020b42c6e87b4b4c85f3815"
+        }
+      ]
+    },
+    {
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-repeat-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-repeat-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-repeat.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-repeat.log",
+        "-ExitAfterCapture"
+      ],
+      "meanRgb": [
+        0.5406187920598313,
+        0.5406187920598313,
+        0.5406187920598313
+      ],
+      "sceneHash": "60c1ae6357cd05fa8e45507d3f6115a3917511a8e7110d6303ff3c60c306b24d",
+      "presetHash": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a",
+      "sourceSceneHash": "e0d812c16c4ea7db46185f086272675d8014f5ba3147bf41619391aad00597d8",
+      "sourcePresetHash": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a",
+      "warningCount": 2,
+      "name": "constant-repeat",
+      "mode": 5,
+      "seed": 7,
+      "samples": 4,
+      "maxBounces": 2,
+      "russianRoulette": false,
+      "roi": [
+        952,
+        532,
+        16,
+        16
+      ],
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "artifacts": [
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-repeat.pfm",
+          "sha256": "2b837118731437ae510047fa15ac845b8dba8a3781b272a53b1ef78ad40a2612"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-repeat.log",
+          "sha256": "6cc6fce7b0c8163c9c50d89293b73c2b052a748f9760bd77bf36adfe1414e653"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-repeat-scene.json",
+          "sha256": "60c1ae6357cd05fa8e45507d3f6115a3917511a8e7110d6303ff3c60c306b24d"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-repeat-preset.json",
+          "sha256": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a"
+        }
+      ]
+    },
+    {
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-seed8-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-seed8-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "8",
+        "-PathTracingEnvironmentMode",
+        "5",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-seed8.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-seed8.log",
+        "-ExitAfterCapture"
+      ],
+      "meanRgb": [
+        0.533745480934158,
+        0.533745480934158,
+        0.533745480934158
+      ],
+      "sceneHash": "fad731dc762378bd4d903cd2196f9d3d3a51c2ecbf172e68af5e9480a40d69f1",
+      "presetHash": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a",
+      "sourceSceneHash": "e0d812c16c4ea7db46185f086272675d8014f5ba3147bf41619391aad00597d8",
+      "sourcePresetHash": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a",
+      "warningCount": 2,
+      "name": "constant-seed8",
+      "mode": 5,
+      "seed": 8,
+      "samples": 4,
+      "maxBounces": 2,
+      "russianRoulette": false,
+      "roi": [
+        952,
+        532,
+        16,
+        16
+      ],
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "artifacts": [
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-seed8.pfm",
+          "sha256": "bd81e3ce2555e8d0a3756e3444926e5b19853e1f9318ac87bd2879126d19980c"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-seed8.log",
+          "sha256": "836c3f303859f13632caa3e49887eab2ee8cb830026efc7b881e905ce39fee31"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-seed8-scene.json",
+          "sha256": "fad731dc762378bd4d903cd2196f9d3d3a51c2ecbf172e68af5e9480a40d69f1"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-seed8-preset.json",
+          "sha256": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a"
+        }
+      ]
+    },
+    {
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-bsdf-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-bsdf-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "1",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-bsdf.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-bsdf.log",
+        "-ExitAfterCapture"
+      ],
+      "meanRgb": [
+        0.5303415589733049,
+        0.5303415589733049,
+        0.5303415589733049
+      ],
+      "sceneHash": "888d5d0582dabbff99fd843594c0a0a45500a0fb5a63d2011b207e29549a0f6e",
+      "presetHash": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a",
+      "sourceSceneHash": "e0d812c16c4ea7db46185f086272675d8014f5ba3147bf41619391aad00597d8",
+      "sourcePresetHash": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a",
+      "warningCount": 2,
+      "name": "constant-bsdf",
+      "mode": 1,
+      "seed": 7,
+      "samples": 4,
+      "maxBounces": 2,
+      "russianRoulette": false,
+      "roi": [
+        952,
+        532,
+        16,
+        16
+      ],
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "artifacts": [
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-bsdf.pfm",
+          "sha256": "d45a2698f3307ea6c7afef07d0b64e0886908d4e41c907639be79143fb2da06c"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-bsdf.log",
+          "sha256": "58487bd68e90a4baf0ffeedb2f559d3cd702064beeae7e472941764212e176c2"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-bsdf-scene.json",
+          "sha256": "888d5d0582dabbff99fd843594c0a0a45500a0fb5a63d2011b207e29549a0f6e"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-bsdf-preset.json",
+          "sha256": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a"
+        }
+      ]
+    },
+    {
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-nee-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-nee-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "2",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-nee.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\constant-nee.log",
+        "-ExitAfterCapture"
+      ],
+      "meanRgb": [
+        0.5167337872608186,
+        0.5167337872608186,
+        0.5167337872608186
+      ],
+      "sceneHash": "2e39c313161ba83be27c40471e7d676f29128ca43f78acbc6334db6a58b125a1",
+      "presetHash": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a",
+      "sourceSceneHash": "e0d812c16c4ea7db46185f086272675d8014f5ba3147bf41619391aad00597d8",
+      "sourcePresetHash": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a",
+      "warningCount": 2,
+      "name": "constant-nee",
+      "mode": 2,
+      "seed": 7,
+      "samples": 4,
+      "maxBounces": 2,
+      "russianRoulette": false,
+      "roi": [
+        952,
+        532,
+        16,
+        16
+      ],
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "artifacts": [
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-nee.pfm",
+          "sha256": "970a9c4103f52d5a9177168bb80d7edc5969cd3c9fda229b419d28e29d12bcea"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-nee.log",
+          "sha256": "e00865039862a47f6620e88c9606eb96ed376f7a023863dded84a17231df7ce5"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-nee-scene.json",
+          "sha256": "2e39c313161ba83be27c40471e7d676f29128ca43f78acbc6334db6a58b125a1"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/constant-nee-preset.json",
+          "sha256": "ce60234c8bfa60db02e799896d4b5187911fb81aa27bb78e8e93a580f0d7bb3a"
+        }
+      ]
+    },
+    {
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\visibility-clear-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\visibility-clear-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\visibility-clear.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\visibility-clear.log",
+        "-ExitAfterCapture"
+      ],
+      "meanRgb": [
+        0.08193004265194759,
+        0.08193004265194759,
+        0.08193004265194759
+      ],
+      "sceneHash": "fe10769eff77946d4da97f1d2283dadd39d0435c500fda1433e226472319cf7c",
+      "presetHash": "fdc0d184b43c19c4f702e5256fc7ff64016eb1fe377bfff4766f27b0fc5b0238",
+      "sourceSceneHash": "9420267bfeca06d5b6b63b26056cd7183e9ba497dd250741ac1ef587ba197674",
+      "sourcePresetHash": "fdc0d184b43c19c4f702e5256fc7ff64016eb1fe377bfff4766f27b0fc5b0238",
+      "warningCount": 2,
+      "name": "visibility-clear",
+      "mode": 0,
+      "seed": 7,
+      "samples": 4,
+      "maxBounces": 1,
+      "russianRoulette": false,
+      "roi": [
+        952,
+        532,
+        16,
+        16
+      ],
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "artifacts": [
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/visibility-clear.pfm",
+          "sha256": "1a9c1fe6cd96fd8e78acb9d13cc8eea905a975a59efd8571c9557f1e829f88b7"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/visibility-clear.log",
+          "sha256": "8b6435f4d9b7bd1698a9425988ca59754c38826fc339418c1683ca6aa982a43c"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/visibility-clear-scene.json",
+          "sha256": "fe10769eff77946d4da97f1d2283dadd39d0435c500fda1433e226472319cf7c"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/visibility-clear-preset.json",
+          "sha256": "fdc0d184b43c19c4f702e5256fc7ff64016eb1fe377bfff4766f27b0fc5b0238"
+        }
+      ]
+    },
+    {
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\visibility-beyond-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\visibility-beyond-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\visibility-beyond.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\visibility-beyond.log",
+        "-ExitAfterCapture"
+      ],
+      "meanRgb": [
+        0.08193004265194759,
+        0.08193004265194759,
+        0.08193004265194759
+      ],
+      "sceneHash": "8a526f360850bc5ad37fb2e4c599643f49347b8ae5496c9f280811d1f1b0b8a6",
+      "presetHash": "fdc0d184b43c19c4f702e5256fc7ff64016eb1fe377bfff4766f27b0fc5b0238",
+      "sourceSceneHash": "9420267bfeca06d5b6b63b26056cd7183e9ba497dd250741ac1ef587ba197674",
+      "sourcePresetHash": "fdc0d184b43c19c4f702e5256fc7ff64016eb1fe377bfff4766f27b0fc5b0238",
+      "warningCount": 3,
+      "name": "visibility-beyond",
+      "mode": 0,
+      "seed": 7,
+      "samples": 4,
+      "maxBounces": 1,
+      "russianRoulette": false,
+      "roi": [
+        952,
+        532,
+        16,
+        16
+      ],
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "artifacts": [
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/visibility-beyond.pfm",
+          "sha256": "1a9c1fe6cd96fd8e78acb9d13cc8eea905a975a59efd8571c9557f1e829f88b7"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/visibility-beyond.log",
+          "sha256": "fe2ee10593e5776ec5c47e98fba04cd9322f17449a15f4cf28d5ec847a340f81"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/visibility-beyond-scene.json",
+          "sha256": "8a526f360850bc5ad37fb2e4c599643f49347b8ae5496c9f280811d1f1b0b8a6"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/visibility-beyond-preset.json",
+          "sha256": "fdc0d184b43c19c4f702e5256fc7ff64016eb1fe377bfff4766f27b0fc5b0238"
+        }
+      ]
+    },
+    {
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\falloff-2-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\falloff-2-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\falloff-2.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\falloff-2.log",
+        "-ExitAfterCapture"
+      ],
+      "meanRgb": [
+        0.323932271101512,
+        0.323932271101512,
+        0.323932271101512
+      ],
+      "sceneHash": "19bb62dcd9913d9df23214d2d3fe92d038a3d45956ddd7cf66858523d8dd7371",
+      "presetHash": "16cb0b955e5ac08b86689d7997a5c691f2da4ac5d0762f27df92bd3313ec4d7a",
+      "sourceSceneHash": "9420267bfeca06d5b6b63b26056cd7183e9ba497dd250741ac1ef587ba197674",
+      "sourcePresetHash": "fdc0d184b43c19c4f702e5256fc7ff64016eb1fe377bfff4766f27b0fc5b0238",
+      "warningCount": 2,
+      "name": "falloff-2",
+      "mode": 0,
+      "seed": 7,
+      "samples": 4,
+      "maxBounces": 1,
+      "russianRoulette": false,
+      "roi": [
+        952,
+        532,
+        16,
+        16
+      ],
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "artifacts": [
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/falloff-2.pfm",
+          "sha256": "ddce89cc41c6625a2a44e99892e8151c1497a248e8fb56e42ae8e6c26dd5ad9f"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/falloff-2.log",
+          "sha256": "36881ab4a0ac0928226f374647d7be28095093dfa345a4a7f36646901d3cab1d"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/falloff-2-scene.json",
+          "sha256": "19bb62dcd9913d9df23214d2d3fe92d038a3d45956ddd7cf66858523d8dd7371"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/falloff-2-preset.json",
+          "sha256": "16cb0b955e5ac08b86689d7997a5c691f2da4ac5d0762f27df92bd3313ec4d7a"
+        }
+      ]
+    },
+    {
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\falloff-4-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\falloff-4-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\falloff-4.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\falloff-4.log",
+        "-ExitAfterCapture"
+      ],
+      "meanRgb": [
+        0.08087887949659489,
+        0.08087887949659489,
+        0.08087887949659489
+      ],
+      "sceneHash": "9f8354605e1a0c6bed7858a02d4080bd5b6e097454f567a5a8528262686d4fe0",
+      "presetHash": "e3171098cad82266649dba24dd766ce214f436ae6e05d896143ea11404e93055",
+      "sourceSceneHash": "9420267bfeca06d5b6b63b26056cd7183e9ba497dd250741ac1ef587ba197674",
+      "sourcePresetHash": "fdc0d184b43c19c4f702e5256fc7ff64016eb1fe377bfff4766f27b0fc5b0238",
+      "warningCount": 2,
+      "name": "falloff-4",
+      "mode": 0,
+      "seed": 7,
+      "samples": 4,
+      "maxBounces": 1,
+      "russianRoulette": false,
+      "roi": [
+        952,
+        532,
+        16,
+        16
+      ],
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "artifacts": [
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/falloff-4.pfm",
+          "sha256": "8e04b9b73465ea6551b5e6ec8834331a8683624d844d3cee3033507c66117695"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/falloff-4.log",
+          "sha256": "2823cc1653ce5819ba98ee1c72070cdce64809311c32a10a9ae8468c2e2620ee"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/falloff-4-scene.json",
+          "sha256": "9f8354605e1a0c6bed7858a02d4080bd5b6e097454f567a5a8528262686d4fe0"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/falloff-4-preset.json",
+          "sha256": "e3171098cad82266649dba24dd766ce214f436ae6e05d896143ea11404e93055"
+        }
+      ]
+    },
+    {
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\indirect-one-bounce-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\indirect-one-bounce-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSamples",
+        "4",
+        "-PathTracingSeed",
+        "7",
+        "-PathTracingEnvironmentMode",
+        "0",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\indirect-one-bounce.pfm",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\part1-radiance\\indirect-one-bounce.log",
+        "-ExitAfterCapture"
+      ],
+      "meanRgb": [
+        0.08108260983135551,
+        0.08108260983135551,
+        0.08108260983135551
+      ],
+      "sceneHash": "9058df7b343c246fd939c3a35511b602915fa69b7d42efcf26ea0163b5758606",
+      "presetHash": "1f36aa880e225275d1ee1532565b0af785930c34eb9c86e0dbeab9024b746794",
+      "sourceSceneHash": "8d74063ae29569d20be29ecc9598635b7622bc586be35710827ff2542e7fb265",
+      "sourcePresetHash": "441481f993a89b18de8d85cebfd4e8a94cb90f284d4b7054c471f10bcd35b8a7",
+      "warningCount": 2,
+      "name": "indirect-one-bounce",
+      "mode": 0,
+      "seed": 7,
+      "samples": 4,
+      "maxBounces": 1,
+      "russianRoulette": false,
+      "roi": [
+        952,
+        532,
+        16,
+        16
+      ],
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "artifacts": [
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/indirect-one-bounce.pfm",
+          "sha256": "befd53eeb40ffd40dcd7f4c3df2b5aa8b2f80701c24599a7c2ff1b5eb3c7b4b9"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/indirect-one-bounce.log",
+          "sha256": "5eb18cbaf619f39dca16dd88707fad6a9384069d0d09dcbd5653a59c118578ec"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/indirect-one-bounce-scene.json",
+          "sha256": "9058df7b343c246fd939c3a35511b602915fa69b7d42efcf26ea0163b5758606"
+        },
+        {
+          "path": "bin/PathTracingValidation/part1-radiance/indirect-one-bounce-preset.json",
+          "sha256": "1f36aa880e225275d1ee1532565b0af785930c34eb9c86e0dbeab9024b746794"
+        }
+      ]
+    }
+  ],
+  "reports": [
+    {
+      "path": "bin/PathTracingValidation/part1/report.json",
+      "sha256": "c3829e162b0f327c8efe2935cc102a22e3cf9aa858c98f0dee674be944d3616b",
+      "status": "failed"
+    },
+    {
+      "path": "bin/PathTracingValidation/part1-radiance/report.json",
+      "sha256": "37fbf769e083d1df275147fde40b0607cbe78e1a0ab9273c72d3cce3f372ad8b",
+      "status": "passed"
+    }
+  ]
+}

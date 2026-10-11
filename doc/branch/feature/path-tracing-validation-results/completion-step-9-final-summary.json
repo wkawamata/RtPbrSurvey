@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "testedCommit": "131f328f86e2797efd074da5e397a1920d7a3a20",
+  "testedWithUncommittedRunner": true,
+  "branch": "codex/pt-correctness-completion",
+  "executableSha256": "65754f1fcd88aea1ae01a6964c355b17b3c866b91d201f5346983d4b0e8862da",
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "captureCount": 41,
+  "reportSha256": "bf378469bb2232d487fe11cd0b74881a68eab276bbb12163f1f469f7d647ed7f",
+  "rawEvidence": "bin/PathTracingValidation/completion-step9-final-20261010/report.json",
+  "runs": [
+    {
+      "name": "python",
+      "status": "passed",
+      "testsPassed": 148,
+      "captureCount": null,
+      "reportSha256": null,
+      "logSha256": "0f47fb02471b1b2bd90dec02f52efcff1f131838387b6a7bb17b4fdbad25448f"
+    },
+    {
+      "name": "ctest",
+      "status": "passed",
+      "testsPassed": 26,
+      "captureCount": null,
+      "reportSha256": null,
+      "logSha256": "276b2d105685f219ae625087503b8c6678d3474c83ada95b903822137eab7ab3"
+    },
+    {
+      "name": "primary",
+      "status": "passed",
+      "testsPassed": null,
+      "captureCount": 4,
+      "reportSha256": "0469ded71ed560aa31d2032d59bc1facf104c0b7af6e514260a7eab036bcfeaa",
+      "logSha256": "204ba6c21ed2dc212684fe959510e416b7ad25e00ec466fb61516d4080de14e5"
+    },
+    {
+      "name": "motion",
+      "status": "passed",
+      "testsPassed": null,
+      "captureCount": 3,
+      "reportSha256": "2c3cf5c8ff2dea729bc0084077252ea7623117d51d8026c753b9d7dfb8505b7a",
+      "logSha256": "74f3ae7b038149c1f1dcc723a5c33d334f987fbdb5c46489f76ff61dd8c444c6"
+    },
+    {
+      "name": "history",
+      "status": "passed",
+      "testsPassed": null,
+      "captureCount": 19,
+      "reportSha256": "ba90f2e0db4d1cb49289567dff9ac823e45164f7910c6f855f79d4f649644a66",
+      "logSha256": "2e69ec85eef2ec493baec6bbf38f5a7e7a440b412a27631326242d3c8f5fb63a"
+    },
+    {
+      "name": "emissive",
+      "status": "passed",
+      "testsPassed": null,
+      "captureCount": 15,
+      "reportSha256": "6bcbd4106a360bd3e774db33388f6e77737a73b4029dbeea5cc39ab3def42fa3",
+      "logSha256": "087a370a2e3c22e568046bf5a6eb7bd5823c19ec52c2e7b18d5de075518f925e"
+    }
+  ],
+  "build": {
+    "configuration": "Debug x64 ALL_BUILD",
+    "warnings": 0,
+    "errors": 0,
+    "log": "C:/work/RtPbrSurvey-agents/pt-final-regression-20261010/build.out.log",
+    "logSha256": "4a10d6d24794f0d76f70d2df0851584e614fd29edd2e71b81a93e0d342129d89"
+  },
+  "scope": "Bounded regression, not a complete convergence/performance/cross-GPU rerun",
+  "limitations": [
+    "Not a fresh rerun of every historic convergence/scale/performance campaign",
+    "Moving-camera MV retains qualified half-precision acceptance; legacy fixed threshold fails",
+    "Step 8 mixed hit/miss interval policy retains strict edge-classification failures",
+    "No denoiser-ready packing or full glTF/cross-GPU compliance claim"
+  ]
+}

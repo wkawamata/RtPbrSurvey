@@ -2,6 +2,8 @@
 
 #include "CommandLineOptions.h"
 
+#include "Runtime/CaptureSession.h"
+
 #include <cerrno>
 #include <cstdlib>
 #include <cmath>
@@ -42,6 +44,115 @@ bool TryParseUint(const WCHAR* value, bool allowZero, UINT& result)
 
     result = static_cast<UINT>(parsed);
     return true;
+}
+
+bool TryParsePositiveDouble(const WCHAR* value, double& result)
+{
+    if (value == nullptr || value[0] == L'\0')
+    {
+        return false;
+    }
+
+    wchar_t* end = nullptr;
+    errno = 0;
+    const double parsed = wcstod(value, &end);
+    if (errno == ERANGE || end == value || *end != L'\0' || !std::isfinite(parsed) || parsed <= 0.0)
+    {
+        return false;
+    }
+
+    result = parsed;
+    return true;
+}
+
+std::string WideToUtf8(const std::wstring& value)
+{
+    if (value.empty())
+    {
+        return {};
+    }
+
+    const int length = WideCharToMultiByte(
+        CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr);
+    if (length <= 0)
+    {
+        throw std::runtime_error("Failed to convert command-line text to UTF-8.");
+    }
+    std::string result(static_cast<size_t>(length), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), result.data(), length, nullptr, nullptr);
+    return result;
+}
+
+bool TryParseCaptureSessionFormat(const std::wstring& value, RtPbrSurvey::CaptureSessionOutputFormat& format)
+{
+    if (_wcsicmp(value.c_str(), L"png") == 0)
+    {
+        format = RtPbrSurvey::CaptureSessionOutputFormat::Png;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"exr") == 0)
+    {
+        format = RtPbrSurvey::CaptureSessionOutputFormat::Exr;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"gif") == 0)
+    {
+        format = RtPbrSurvey::CaptureSessionOutputFormat::Gif;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"mp4") == 0)
+    {
+        format = RtPbrSurvey::CaptureSessionOutputFormat::Mp4;
+        return true;
+    }
+    return false;
+}
+
+bool TryParseCaptureSessionGifRepeat(const std::wstring& value,
+                                     RtPbrSurvey::CaptureSessionGifRepeatMode& mode,
+                                     std::uint16_t& count)
+{
+    if (_wcsicmp(value.c_str(), L"none") == 0)
+    {
+        mode = RtPbrSurvey::CaptureSessionGifRepeatMode::None;
+        count = 0;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"infinite") == 0)
+    {
+        mode = RtPbrSurvey::CaptureSessionGifRepeatMode::Infinite;
+        count = 0;
+        return true;
+    }
+
+    UINT parsedCount = 0;
+    if (!TryParseUint(value.c_str(), false, parsedCount) || parsedCount > (std::numeric_limits<std::uint16_t>::max)())
+    {
+        return false;
+    }
+    mode = RtPbrSurvey::CaptureSessionGifRepeatMode::Count;
+    count = static_cast<std::uint16_t>(parsedCount);
+    return true;
+}
+
+bool TryParseCaptureSessionGifDisposal(const std::wstring& value, RtPbrSurvey::CaptureSessionGifDisposal& disposal)
+{
+    if (_wcsicmp(value.c_str(), L"keep") == 0)
+    {
+        disposal = RtPbrSurvey::CaptureSessionGifDisposal::Keep;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"background") == 0)
+    {
+        disposal = RtPbrSurvey::CaptureSessionGifDisposal::Background;
+        return true;
+    }
+    if (_wcsicmp(value.c_str(), L"previous") == 0)
+    {
+        disposal = RtPbrSurvey::CaptureSessionGifDisposal::Previous;
+        return true;
+    }
+    return false;
 }
 
 bool TryParseDebugResourceName(const WCHAR* value, std::string& resourceName)
@@ -274,6 +385,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.enableDlssSr = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-DisableVSync"))
+        {
+            options.disableVSync = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-EnablePathTracing"))
         {
             options.enablePathTracing = true;
@@ -286,6 +401,25 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             }
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingHistoryValidation"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-PathTracingHistoryValidation expects an output directory.");
+            }
+            options.pathTracingHistoryValidationDirectory = argv[++i];
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingEnvironmentMode"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.pathTracingEnvironmentMode) ||
+                options.pathTracingEnvironmentMode > 7)
+            {
+                throw std::invalid_argument("-PathTracingEnvironmentMode expects 0..7: map BSDF, constant BSDF, constant NEE, map uniform NEE, map importance NEE, constant MIS, map uniform MIS, map importance MIS.");
+            }
+            options.hasPathTracingEnvironmentMode = true;
+            options.enablePathTracing = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingSeed"))
         {
             if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.pathTracingRandomSeed))
@@ -293,6 +427,24 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 throw std::invalid_argument("-PathTracingSeed expects an integer in [0, UINT_MAX].");
             }
             options.hasPathTracingRandomSeed = true;
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingObjectMotionX"))
+        {
+            if (i + 1 >= argc)
+            {
+                throw std::invalid_argument("-PathTracingObjectMotionX expects a finite delta in [-1, 1].");
+            }
+            wchar_t* end = nullptr;
+            errno = 0;
+            const WCHAR* value = argv[++i];
+            const double delta = wcstod(value, &end);
+            if (errno == ERANGE || end == value || *end != L'\0' || !std::isfinite(delta) || std::abs(delta) > 1.0)
+            {
+                throw std::invalid_argument("-PathTracingObjectMotionX expects a finite delta in [-1, 1].");
+            }
+            options.pathTracingObjectMotionX = static_cast<float>(delta);
+            options.hasPathTracingObjectMotion = true;
             options.enablePathTracing = true;
         }
         else if (IsCommandLineArg(argv[i], L"-EnableDebugTexturePreview"))
@@ -333,6 +485,124 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                     options.captureAfterFrames = static_cast<UINT>(captureAfterFrames);
                 }
             }
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionOutputDir"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionOutputDir expects a directory path.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionOutputDirectory = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionBaseName"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionBaseName expects a non-empty name.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionBaseName = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionSubfolder"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionSubfolder expects a non-empty relative path.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionOutputSubdirectory = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionFormat"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionFormat expects png, exr, gif, or mp4.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionFormat = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionGifRepeat"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionGifRepeat expects none, infinite, or a repeat count in [1, 65535].");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionGifRepeat = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionGifDisposal"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-CaptureSessionGifDisposal expects keep, background, or previous.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionGifDisposal = argv[++i];
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionFps"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.captureSessionFramesPerSecond))
+            {
+                throw std::invalid_argument("-CaptureSessionFps expects an integer in [1, UINT_MAX].");
+            }
+            options.captureSessionEnabled = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionMp4BitrateMbps"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.captureSessionMp4BitrateMbps) ||
+                options.captureSessionMp4BitrateMbps > 100)
+            {
+                throw std::invalid_argument("-CaptureSessionMp4BitrateMbps expects an integer in [1, 100].");
+            }
+            options.captureSessionEnabled = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionFrames"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.captureSessionFrameLimit))
+            {
+                throw std::invalid_argument("-CaptureSessionFrames expects an integer in [1, UINT_MAX].");
+            }
+            options.captureSessionEnabled = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionWarmupFrames"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.captureSessionWarmupFrames))
+            {
+                throw std::invalid_argument("-CaptureSessionWarmupFrames expects an integer in [0, UINT_MAX].");
+            }
+            options.captureSessionEnabled = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionClock"))
+        {
+            if (i + 1 >= argc ||
+                (_wcsicmp(argv[i + 1], L"real-time") != 0 && _wcsicmp(argv[i + 1], L"fixed-step") != 0))
+            {
+                throw std::invalid_argument("-CaptureSessionClock expects real-time or fixed-step.");
+            }
+            options.captureSessionEnabled = true;
+            options.captureSessionFixedStep = _wcsicmp(argv[++i], L"fixed-step") == 0;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionRoi"))
+        {
+            if (i + 4 >= argc || !TryParseUint(argv[++i], true, options.captureSessionRoiX) ||
+                !TryParseUint(argv[++i], true, options.captureSessionRoiY) ||
+                !TryParseUint(argv[++i], false, options.captureSessionRoiWidth) ||
+                !TryParseUint(argv[++i], false, options.captureSessionRoiHeight))
+            {
+                throw std::invalid_argument("-CaptureSessionRoi expects x y width height with non-zero dimensions.");
+            }
+            options.captureSessionEnabled = true;
+            options.hasCaptureSessionRoi = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionDurationSeconds"))
+        {
+            if (i + 1 >= argc || !TryParsePositiveDouble(argv[++i], options.captureSessionDurationSeconds))
+            {
+                throw std::invalid_argument("-CaptureSessionDurationSeconds expects a finite value greater than zero.");
+            }
+            options.captureSessionEnabled = true;
+            options.hasCaptureSessionDuration = true;
         }
         else if (IsCommandLineArg(argv[i], L"-ExitAfterCapture"))
         {
@@ -555,6 +825,83 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
     }
 
     return options;
+}
+
+bool BuildCaptureSessionConfig(const CommandLineOptions& options,
+                               RtPbrSurvey::CaptureSessionConfig& config,
+                               std::string& error)
+{
+    error.clear();
+    if (!options.captureSessionEnabled)
+    {
+        error = "Capture Session was not requested.";
+        return false;
+    }
+    if (options.captureSessionOutputDirectory.empty() || options.captureSessionBaseName.empty())
+    {
+        error = "Capture Session requires -CaptureSessionOutputDir and -CaptureSessionBaseName.";
+        return false;
+    }
+    if (options.captureSessionFrameLimit == 0 && !options.hasCaptureSessionDuration)
+    {
+        error = "Capture Session requires -CaptureSessionFrames or -CaptureSessionDurationSeconds.";
+        return false;
+    }
+
+    RtPbrSurvey::CaptureSessionOutputFormat format;
+    if (!TryParseCaptureSessionFormat(options.captureSessionFormat, format))
+    {
+        error = "-CaptureSessionFormat expects png, exr, gif, or mp4.";
+        return false;
+    }
+
+    RtPbrSurvey::CaptureSessionGifRepeatMode gifRepeatMode;
+    std::uint16_t gifRepeatCount = 0;
+    if (!TryParseCaptureSessionGifRepeat(options.captureSessionGifRepeat, gifRepeatMode, gifRepeatCount))
+    {
+        error = "-CaptureSessionGifRepeat expects none, infinite, or a repeat count in [1, 65535].";
+        return false;
+    }
+    RtPbrSurvey::CaptureSessionGifDisposal gifDisposal;
+    if (!TryParseCaptureSessionGifDisposal(options.captureSessionGifDisposal, gifDisposal))
+    {
+        error = "-CaptureSessionGifDisposal expects keep, background, or previous.";
+        return false;
+    }
+
+    config = {};
+    config.outputDirectory = options.captureSessionOutputDirectory;
+    config.outputSubdirectory = options.captureSessionOutputSubdirectory;
+    config.baseName = WideToUtf8(options.captureSessionBaseName);
+    config.outputFormat = format;
+    config.gifRepeatMode = gifRepeatMode;
+    config.gifRepeatCount = gifRepeatCount;
+    config.gifDisposal = gifDisposal;
+    config.source = format == RtPbrSurvey::CaptureSessionOutputFormat::Exr ?
+        RtPbrSurvey::ScreenshotCaptureSource::PreToneMapSceneColor : RtPbrSurvey::ScreenshotCaptureSource::FinalOutput;
+    config.clock = options.captureSessionFixedStep ?
+        RtPbrSurvey::CaptureSessionClock::FixedStep : RtPbrSurvey::CaptureSessionClock::RealTime;
+    config.framesPerSecond = options.captureSessionFramesPerSecond;
+    config.mp4Bitrate = options.captureSessionMp4BitrateMbps * 1000000;
+    config.warmupFrames = options.captureSessionWarmupFrames;
+    if (options.captureSessionFrameLimit > 0)
+    {
+        config.frameLimit = options.captureSessionFrameLimit;
+    }
+    if (options.hasCaptureSessionDuration)
+    {
+        config.durationSeconds = options.captureSessionDurationSeconds;
+    }
+    if (options.hasCaptureSessionRoi)
+    {
+        config.region = RtPbrSurvey::ScreenshotRegion{
+            options.captureSessionRoiX,
+            options.captureSessionRoiY,
+            options.captureSessionRoiWidth,
+            options.captureSessionRoiHeight,
+        };
+    }
+    return true;
 }
 
 bool LoadReflectionCapturePlan(const std::filesystem::path& path,

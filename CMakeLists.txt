@@ -18,6 +18,7 @@ set(RTPBRSURVEY_STREAMLINE_SDK_DIR
 
 find_package(imgui CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(tinyexr CONFIG REQUIRED)
 find_path(TINYGLTF_INCLUDE_DIR tiny_gltf.h REQUIRED)
 
 set(RTPBRSURVEY_D3D12_PACKAGE_DIR
@@ -36,6 +37,12 @@ set_property(GLOBAL PROPERTY RTPBRSURVEY_D3D12_NATIVE_DIR "${RTPBRSURVEY_D3D12_N
 set_property(GLOBAL PROPERTY RTPBRSURVEY_DXC_NATIVE_DIR "${RTPBRSURVEY_DXC_NATIVE_DIR}")
 set_property(GLOBAL PROPERTY RTPBRSURVEY_WINPIX_PACKAGE_DIR "${RTPBRSURVEY_WINPIX_PACKAGE_DIR}")
 set_property(GLOBAL PROPERTY RTPBRSURVEY_SHADER_OUTPUT_DIR "${RTPBRSURVEY_SHADER_OUTPUT_DIR}")
+if(TARGET miniz::miniz)
+    get_target_property(rtpbrsurvey_miniz_debug_dll miniz::miniz IMPORTED_LOCATION_DEBUG)
+    get_target_property(rtpbrsurvey_miniz_release_dll miniz::miniz IMPORTED_LOCATION_RELEASE)
+    set_property(GLOBAL PROPERTY RTPBRSURVEY_MINIZ_DEBUG_DLL "${rtpbrsurvey_miniz_debug_dll}")
+    set_property(GLOBAL PROPERTY RTPBRSURVEY_MINIZ_RELEASE_DLL "${rtpbrsurvey_miniz_release_dll}")
+endif()
 
 if(NOT EXISTS "${RTPBRSURVEY_D3D12_NATIVE_DIR}/include/d3d12.h")
     message(FATAL_ERROR
@@ -62,6 +69,8 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Platform/CommandLineOptions.cpp
     Platform/Win32Application.cpp
     Renderer/AccelerationStructureResources.cpp
+    Renderer/AnimatedGifEncoder.cpp
+    Renderer/Mp4Encoder.cpp
     Renderer/BrdfLut.cpp
     Renderer/ClearPass.cpp
     Renderer/DebugDumpCapture.cpp
@@ -102,6 +111,9 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/TextureMipChain.cpp
     Renderer/ToneMap.cpp
     Runtime/SceneRenderer.cpp
+    Runtime/CaptureSession.cpp
+    Runtime/CaptureSessionUi.cpp
+    Runtime/CaptureRequestGate.cpp
     Runtime/DebugBufferInspector.cpp
     Runtime/DebugTextureInspector.cpp
     Runtime/DebugTextureThumbnailScheduler.cpp
@@ -113,6 +125,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     App/RenderPresetStore.cpp
     Scene/ProceduralSceneBuilder.cpp
     Scene/SceneBuilder.cpp
+    Scene/EmissiveTriangleTable.cpp
     Scene/SceneDocumentJson.cpp
     Scene/SceneDocumentBuilder.cpp
     Scene/SceneDocumentRuntimeScene.cpp
@@ -181,10 +194,14 @@ target_link_libraries(RtPbrSurvey.SceneRenderer
         PUBLIC
         imgui::imgui
         nlohmann_json::nlohmann_json
+        unofficial::tinyexr::tinyexr
         d3dcompiler
         dxguid
         delayimp
-        windowscodecs)
+        windowscodecs
+        mfplat
+        mfreadwrite
+        mfuuid)
 
 if(NOT RTPBRSURVEY_HAS_STREAMLINE_SDK)
     target_link_libraries(RtPbrSurvey.SceneRenderer PUBLIC d3d12 dxgi)
@@ -215,6 +232,11 @@ function(rtpbrsurvey_add_shader output_var shader_file stage entry_point)
             -nologo "-T${stage}" "-E${entry_point}" -Zi -Qembed_debug
             "-Fo${output_file}" "${RTPBRSURVEY_ROOT}/${shader_file}"
         DEPENDS "${RTPBRSURVEY_ROOT}/${shader_file}" ${ARGN}
+            "${RTPBRSURVEY_ROOT}/Shaders/DirectLights.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/DirectLightEvaluation.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/DirectPbrLighting.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/ReflectionSampling.hlsli"
         WORKING_DIRECTORY "${RTPBRSURVEY_ROOT}"
         VERBATIM)
     set(${output_var} "${${output_var}};${output_file}" PARENT_SCOPE)
@@ -225,8 +247,10 @@ if(RTPBRSURVEY_BUILD_SHADERS)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DepthOnlyVS.hlsl vs_6_0 VSMain)
-    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl vs_6_0 VSMain)
-    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl vs_6_0 VSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl ps_6_0 PSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBufferDebug.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBufferDebug.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ShadowMaskDebug.hlsl vs_6_0 VSMain)
@@ -264,7 +288,8 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         Shaders/shaders_HybridReflection.hlsl
         cs_6_5
         CSMain
-        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli")
+        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(
         RTPBRSURVEY_SHADER_OUTPUTS
         Shaders/shaders_PathTracing.hlsl
@@ -272,7 +297,10 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         CSMain
         "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingSampling.hlsli"
-        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli")
+        "${RTPBRSURVEY_ROOT}/Shaders/EmissiveTriangleSampling.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDirectLightAdapter.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayQueryTlasDebug.hlsl cs_6_5 CSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_SpecularDebugRayQuery.hlsl cs_6_5 CSMain)
 
@@ -286,6 +314,8 @@ function(rtpbrsurvey_copy_runtime_files target)
     get_property(rtpbrsurvey_dxc_native_dir GLOBAL PROPERTY RTPBRSURVEY_DXC_NATIVE_DIR)
     get_property(rtpbrsurvey_winpix_package_dir GLOBAL PROPERTY RTPBRSURVEY_WINPIX_PACKAGE_DIR)
     get_property(rtpbrsurvey_shader_output_dir GLOBAL PROPERTY RTPBRSURVEY_SHADER_OUTPUT_DIR)
+    get_property(rtpbrsurvey_miniz_debug_dll GLOBAL PROPERTY RTPBRSURVEY_MINIZ_DEBUG_DLL)
+    get_property(rtpbrsurvey_miniz_release_dll GLOBAL PROPERTY RTPBRSURVEY_MINIZ_RELEASE_DLL)
 
     add_custom_command(TARGET ${target} POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
@@ -302,6 +332,14 @@ function(rtpbrsurvey_copy_runtime_files target)
             "${rtpbrsurvey_winpix_package_dir}/bin/x64/WinPixEventRuntime.dll"
             "$<TARGET_FILE_DIR:${target}>"
         VERBATIM)
+
+    if(rtpbrsurvey_miniz_debug_dll AND rtpbrsurvey_miniz_release_dll)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "$<IF:$<CONFIG:Debug>,${rtpbrsurvey_miniz_debug_dll},${rtpbrsurvey_miniz_release_dll}>"
+                "$<TARGET_FILE_DIR:${target}>"
+            VERBATIM)
+    endif()
 
     if(RTPBRSURVEY_HAS_STREAMLINE_SDK)
         add_custom_command(TARGET ${target} POST_BUILD
@@ -332,6 +370,7 @@ if(RTPBRSURVEY_BUILD_APP)
         App/DebugUi.cpp
         App/EvaluationCaseUi.cpp
         App/RtPbrSurveyApp.cpp
+        App/PathTracingHistoryValidation.cpp
         App/SceneConfig.cpp
         App/SceneEditorSession.cpp
         App/SceneEditorUi.cpp
@@ -373,6 +412,22 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.SceneRendererSettingsTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.SceneRendererSettings COMMAND RtPbrSurvey.SceneRendererSettingsTests)
+
+    add_executable(RtPbrSurvey.PathTracingShadowSettingsTests
+        Tests/PathTracingShadowSettingsTests.cpp)
+    target_link_libraries(RtPbrSurvey.PathTracingShadowSettingsTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.PathTracingShadowSettingsTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.PathTracingShadowSettings COMMAND RtPbrSurvey.PathTracingShadowSettingsTests)
+
+    add_executable(RtPbrSurvey.PathTracingHistoryTests
+        Tests/PathTracingHistoryTests.cpp)
+    target_link_libraries(RtPbrSurvey.PathTracingHistoryTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.PathTracingHistoryTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.PathTracingHistory COMMAND RtPbrSurvey.PathTracingHistoryTests)
 
     add_executable(RtPbrSurvey.EvaluationStateTests
         Tests/EvaluationStateTests.cpp)
@@ -452,6 +507,14 @@ if(RTPBRSURVEY_BUILD_TESTS)
     endif()
     add_test(NAME RtPbrSurvey.DebugCameraController COMMAND RtPbrSurvey.DebugCameraControllerTests)
 
+    add_executable(RtPbrSurvey.SceneRendererDebugUiApiTests
+        Tests/SceneRendererDebugUiApiTests.cpp)
+    target_link_libraries(RtPbrSurvey.SceneRendererDebugUiApiTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.SceneRendererDebugUiApiTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.SceneRendererDebugUiApi COMMAND RtPbrSurvey.SceneRendererDebugUiApiTests)
+
     add_executable(RtPbrSurvey.SceneBuilderTextureTests
         Tests/SceneBuilderTextureTests.cpp)
     target_link_libraries(RtPbrSurvey.SceneBuilderTextureTests PRIVATE RtPbrSurvey::SceneRenderer)
@@ -467,6 +530,10 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.SceneBuilderMeshTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.SceneBuilderMesh COMMAND RtPbrSurvey.SceneBuilderMeshTests)
+
+    add_executable(RtPbrSurvey.EmissiveTriangleTests Tests/EmissiveTriangleTests.cpp)
+    target_link_libraries(RtPbrSurvey.EmissiveTriangleTests PRIVATE RtPbrSurvey::SceneRenderer)
+    add_test(NAME RtPbrSurvey.EmissiveTriangle COMMAND RtPbrSurvey.EmissiveTriangleTests)
 
     add_executable(RtPbrSurvey.GltfNodeMeshTests
         Tests/GltfNodeMeshTests.cpp)
@@ -491,6 +558,31 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.ScreenshotTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.Screenshot COMMAND RtPbrSurvey.ScreenshotTests)
+
+    add_executable(RtPbrSurvey.ScreenshotRequestQueueTests
+        Tests/ScreenshotRequestQueueTests.cpp)
+    target_link_libraries(RtPbrSurvey.ScreenshotRequestQueueTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.ScreenshotRequestQueueTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.ScreenshotRequestQueue COMMAND RtPbrSurvey.ScreenshotRequestQueueTests)
+
+    add_executable(RtPbrSurvey.CaptureSessionTests
+        Tests/CaptureSessionTests.cpp)
+    target_link_libraries(RtPbrSurvey.CaptureSessionTests PRIVATE RtPbrSurvey::SceneRenderer)
+    rtpbrsurvey_copy_runtime_files(RtPbrSurvey.CaptureSessionTests)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.CaptureSessionTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.CaptureSession COMMAND RtPbrSurvey.CaptureSessionTests)
+
+    add_executable(RtPbrSurvey.Mp4EncoderTests Tests/Mp4EncoderTests.cpp)
+    target_link_libraries(RtPbrSurvey.Mp4EncoderTests PRIVATE RtPbrSurvey::SceneRenderer)
+    rtpbrsurvey_copy_runtime_files(RtPbrSurvey.Mp4EncoderTests)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.Mp4EncoderTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.Mp4Encoder COMMAND RtPbrSurvey.Mp4EncoderTests)
 
     add_executable(RtPbrSurvey.AssetPathTests
         Tests/AssetPathTests.cpp)

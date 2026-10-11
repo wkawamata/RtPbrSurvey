@@ -31,32 +31,7 @@ cbuffer ConstantBuffer : register(b0)
     float constantBufferPadding;
 };
 
-cbuffer LightingConstants : register(b2)
-{
-    float3 lightDirection;
-    float iblIntensity;
-    float3 lightColor;
-    float diffuseIntensity;
-    float4 backgroundColor;
-    float skyboxEnabled;
-    float skyboxPreview;
-    float skyboxPreviewExposure;
-    float lightPassDebugViewMode;
-    float directLightEnabled;
-    float diffuseIblEnabled;
-    float specularIblEnabled;
-    float emissiveEnabled;
-    float iblDebugMip;
-    float iblDebugExposure;
-    float rayTracingSupported;
-    float shadowMaskBlurEnabled;
-    float reflectionHitOverlayEnabled;
-    float reflectionHitOverlayIntensity;
-    float reflectionHitOverlayMode;
-    float reflectionContributionEnabled;
-    float reflectionContributionIntensity;
-    float reflectionContributionMaxDistance;
-};
+#include "DirectLights.hlsli"
 
 FullscreenVSOutput VSMain(uint vertexId : SV_VertexID)
 {
@@ -193,22 +168,28 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float occlusion = pbrParams.b;
     float3 emissive = g_emissive.Sample(g_sampler, input.uv).rgb;
     float3 worldPos = ReconstructWorldPosition(input.uv, depth);
-    float3 lightDir = normalize(lightDirection);
     float3 viewDir = normalize(cameraPosition - worldPos);
-    float ndotl = saturate(dot(normal, lightDir));
     float ndotv = saturate(dot(normal, viewDir));
 
     float receiveLighting = (material.flags & MaterialFlagUnlit) ? 0.0 : 1.0;
     float3 f0 = PbrF0(albedo, metallic);
-    float3 radiance = lightColor * diffuseIntensity;
     float shadowMask = 1.0;
     if (rayTracingSupported)
     {
         shadowMask = SampleShadowMask(input.uv, input.position);
     }
-    float3 directLighting =
-        EvaluatePbrDirectLighting(albedo, metallic, roughness, normal, viewDir, lightDir, radiance) * receiveLighting *
-        shadowMask * directLightEnabled;
+    float3 directLighting = 0.0;
+    for (uint lightIndex = 0; lightIndex < lightCount; ++lightIndex)
+    {
+        DirectLightSample light = EvaluateDirectLight(lightIndex, worldPos);
+        if (any(light.radiance > 0.0))
+        {
+            float visibility = lightIndex == primaryShadowLightIndex ? shadowMask : 1.0;
+            directLighting += EvaluatePbrDirectLighting(albedo, metallic, roughness, normal, viewDir,
+                light.surfaceToLight, light.radiance) * visibility;
+        }
+    }
+    directLighting *= receiveLighting * directLightEnabled;
     float3 irradiance = g_diffuseIrradianceMap.Sample(g_sampler, normal).rgb;
     float3 iblDiffuse = EvaluatePbrDiffuseIbl(irradiance, albedo, metallic, occlusion) * iblIntensity *
                         diffuseIblEnabled;

@@ -122,3 +122,34 @@ Path Tracing初版は少数灯の全列挙とし、確率的な光源選択やMI
 納品はレビュー可能な差分、検証手順、画像と計測の所在、既知制限、開始/終了コミットまたは作業状態の報告とする。報告には実際の編集workspaceとrepo外のtask/report/logフォルダを区別して記載する。UTF-8 BOMなし・CRLF・Allman・4 spacesを守り、include順序を変更しない。生成ログや一時画像はcommit対象にしない。commit / push / merge / reset / checkout / branch切替は別途依頼がある場合だけ実施する。
 
 最終報告の末尾に `Status: done` または `Status: blocked` を付ける。未実施の検証、対応できなかった描画経路がある場合は明示し、段階1を完了扱いにしない。
+
+## 2026-09-21: 本タスクでの実装方針・追加提案
+
+実装workspaceは `C:\work\RtPbrSurvey`、開始コミットは `8786df8`。本タスクの使命は複数光源、複数光源タイプ、シーンエディタへの統合とする。開始時に存在した `Scene/SceneGraph.cpp` / `.h` の未コミット変更は別作業として保持する。
+
+### 採用した方針
+
+- 光源一覧・選択・追加・複製・削除・プロパティ編集を共通UIにし、Debug UI、renderer tools、Scene EditorのRender Presetパネルで再利用する。安定IDで選択と主Directionalを指定する。
+- Scene Editorの光源は段階1ではrender presetに保存する。パネルに保存状態、Save Preset、保存先の説明を表示する。Scene Documentのノード所有・schema拡張は次段階とする。
+- renderer settingsのschemaVersionを4にする。新形式は `lighting.lights` と `lighting.primaryShadowLightId`。v1～v3の旧単一光源フィールドはDirectionalへ変換する。新旧フィールド混在、未知version/type、不正な値、17灯以上を拒否する。
+- GPUは最大16灯の固定長CBVとし、CPU/HLSLのoffset・サイズを検証する。方向・距離・減衰・円錐係数を共通HLSLに集約する。
+- 追加光源の影はDeferred / Forwardでは未対応と表示する。主Directionalを削除・無効化・型変更した場合、UIは主光源指定を解除する。保存データが存在しないIDを指す場合も影マスクは無効になり、別光源へ自動付替えしない。
+- `Assets/Scenes/MultiLightValidation/` に外部モデルを使わない検証シーンと4灯プリセットを追加する。赤・青のPoint、緑のSpot、Directional、roughnessの異なる球、床、遮蔽物で確認する。
+
+### 検証中に判明した点
+
+- 現在のScene Document builderはプリミティブの色テクスチャをEmissiveにも割り当てている。光源評価を見やすくするため、検証プリセットではIBLとEmissiveをOFFにする。この既存マテリアル生成挙動の修正は別の小さい差分として検討する。
+- 1 / 4 / 16灯のCPUフレーム時間は表示同期の影響を受ける。GPUコストの比較には、同期条件を揃えたGPU timestamp計測を追加することを提案する。CPU FPSをGPU性能の根拠にしない。
+- 現checkoutには `PathTracingLightSample` / `PathTracingDirectLightCandidate` 契約がまだない。現段階のPTは主Directionalだけの暫定接続であり、複数灯・Point / Spotは統合待ち。契約の重複定義は行わず、契約統合後に全灯のadapterと有限長visibilityを接続する。段階1全体の完了条件から外さない。
+
+### 次段階の提案
+
+1. 光源の位置・方向をviewportで確認できる表示とgizmoを追加する。Scene Documentの所有モデルを決めたうえで、ノード選択・Undo/Redo・保存を統合する。
+2. Scene Editorの通常SaveとSave Presetの関係を整理し、シーンと光源を一緒に保存する操作を追加する場合は、部分失敗時の状態保持も設計する。
+3. 主Directionalの影だけでなく、Point / Spotの光源別visibilityを追加し、Reflectionのヒット位置での遮蔽も扱う。対応前後の品質とGPU時間を比較する。
+
+追加提案・採用結果は本節を更新する。ビルド・テスト・画像・計測の詳細と未完了項目は実装検証メモへ記録する。
+
+### 2026-09-22: GPU計測提案の採用
+
+既存GPU timestampを `-LogFPS` のログに併記する変更を実装した。1 / 4 / 16灯を各60サンプルで比較し、16灯/1灯の中央値比はLightPass約3.27倍、GPU計測区間total約1.15倍だった。Debug・単一シーン・単回実行の参考値であり、一般的な負荷倍率とはしない。詳細は `multi-light-validation_j.md` に記録。次の性能検証では選択adapter名・電力条件を明示し、実行順反転の反復計測を提案する。現時点では、この測定だけを根拠にタイル/クラスタ方式へ拡張せず、段階1の統合と未完了検証を優先する。

@@ -1,0 +1,1376 @@
+{
+  "schemaVersion": 1,
+  "generatedUtc": "2026-10-02T23:50:41.308663+00:00",
+  "baseCommit": "01ea9af",
+  "testedCommit": "2a823559a6dab30929d3558d1f56376d6d95baa8",
+  "branch": "codex/path-tracing-viewz-fix",
+  "workspace": "C:\\work\\RtPbrSurvey",
+  "build": "Debug x64",
+  "samplesPerFrame": 1,
+  "seed": 7,
+  "captureAfterFrames": 30,
+  "roi": "x/y from 16 to dimension-16 exclusive, stride 4",
+  "records": [
+    {
+      "name": "input-plane-ViewZ-static",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\input-plane\\scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\input-plane\\render-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.ViewZ",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\viewz-fix-final\\input-plane-ViewZ-static.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\viewz-fix-final\\input-plane-ViewZ-static.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "4eb01a4ddcf33612e8d590861db133d2a356cd6739f88ab0374def90c230dfff",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "moving": false,
+      "path": "bin\\PathTracingValidation\\viewz-fix-final\\input-plane-ViewZ-static.ptbuf",
+      "metadata": {
+        "cameraPosition": [
+          0.0,
+          0.0,
+          -5.0
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "format": 41,
+        "height": 1080,
+        "inverseViewProjection": [
+          [
+            0.9254525303840637,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.5205670595169067,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            49.99503707885742,
+            -49.00004196166992
+          ],
+          [
+            0.0,
+            0.0,
+            -9.999008178710938,
+            10.000008583068848
+          ]
+        ],
+        "lensShift": [
+          0.0,
+          0.0
+        ],
+        "matrixConvention": "transpose of DirectX row-vector matrices",
+        "previousViewProjection": [
+          [
+            1.0805524587631226,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.920982003211975,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.000100016593933,
+            4.9004902839660645
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            5.0
+          ]
+        ],
+        "randomSeed": 7,
+        "resource": "PathTracing.ViewZ",
+        "rowOrder": "top-down",
+        "sampleStartIndex": 30,
+        "schemaVersion": 1,
+        "viewProjection": [
+          [
+            1.0805524587631226,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.920982003211975,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.000100016593933,
+            4.9004902839660645
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            5.0
+          ]
+        ],
+        "width": 1920
+      },
+      "result": {
+        "resource": "ViewZ",
+        "pixelCount": 123664,
+        "maxAbsoluteError": 1.430511474609375e-06,
+        "meanAbsoluteError": 2.8286950062897245e-07,
+        "tolerance": 0.0001,
+        "passed": true,
+        "observedMin": [
+          4.999999046325684
+        ],
+        "observedMax": [
+          5.000001430511475
+        ],
+        "expectedMin": [
+          5.0
+        ],
+        "expectedMax": [
+          5.0
+        ],
+        "matrixReprojectionMaxError": 2.74569666058877e-06,
+        "sampleStartIndex": 30,
+        "cameraPosition": [
+          0.0,
+          0.0,
+          -5.0
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "lensShift": [
+          0.0,
+          0.0
+        ],
+        "textureBytes": [
+          [
+            137,
+            188,
+            225
+          ],
+          [
+            225,
+            137,
+            99
+          ]
+        ],
+        "effectiveRoughness": [
+          0.2727843137254902,
+          0.42980392156862746
+        ],
+        "shaderDefinitionMaxError": 1.430511474609375e-06,
+        "cameraAxisDefinitionPassed": true,
+        "legacyOffAxisDefinitionMaxError": 1.430511474609375e-06,
+        "shaderDefinitionPassed": true
+      },
+      "sha256": "7eddde48178a42220b3ba5e71e74bf750957f14d3fe357d4d7c5035f957fe4d6",
+      "logSha256": "de9c392ed6392651a9a4fbb636e9938fba6344dd0d5738cbe550e79c7a969b4c",
+      "d3d12Errors": 0
+    },
+    {
+      "name": "input-shifted-ViewZ-static",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\input-shifted\\scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\input-shifted\\render-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.ViewZ",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\viewz-fix-final\\input-shifted-ViewZ-static.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\viewz-fix-final\\input-shifted-ViewZ-static.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "b3d14e959518cef4a991d872a755d1327456e38e28a1a98e3615721d7c1391b6",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "moving": false,
+      "path": "bin\\PathTracingValidation\\viewz-fix-final\\input-shifted-ViewZ-static.ptbuf",
+      "metadata": {
+        "cameraPosition": [
+          0.0,
+          0.0,
+          -5.0
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "format": 41,
+        "height": 1080,
+        "inverseViewProjection": [
+          [
+            0.9254525303840637,
+            0.0,
+            0.0,
+            0.3239079713821411
+          ],
+          [
+            0.0,
+            0.5205670595169067,
+            0.0,
+            -0.10411364585161209
+          ],
+          [
+            0.0,
+            0.0,
+            49.99503707885742,
+            -49.00004196166992
+          ],
+          [
+            0.0,
+            0.0,
+            -9.999008178710938,
+            10.000008583068848
+          ]
+        ],
+        "lensShift": [
+          0.3499999940395355,
+          -0.20000000298023224
+        ],
+        "matrixConvention": "transpose of DirectX row-vector matrices",
+        "previousViewProjection": [
+          [
+            1.0805524587631226,
+            0.0,
+            -0.3499999940395355,
+            -1.75
+          ],
+          [
+            0.0,
+            1.920982003211975,
+            0.19999997317790985,
+            0.9999998807907104
+          ],
+          [
+            0.0,
+            0.0,
+            1.000100016593933,
+            4.9004902839660645
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            5.0
+          ]
+        ],
+        "randomSeed": 7,
+        "resource": "PathTracing.ViewZ",
+        "rowOrder": "top-down",
+        "sampleStartIndex": 30,
+        "schemaVersion": 1,
+        "viewProjection": [
+          [
+            1.0805524587631226,
+            0.0,
+            -0.3499999940395355,
+            -1.75
+          ],
+          [
+            0.0,
+            1.920982003211975,
+            0.19999997317790985,
+            0.9999998807907104
+          ],
+          [
+            0.0,
+            0.0,
+            1.000100016593933,
+            4.9004902839660645
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            5.0
+          ]
+        ],
+        "width": 1920
+      },
+      "result": {
+        "resource": "ViewZ",
+        "pixelCount": 123664,
+        "maxAbsoluteError": 4.76837158203125e-06,
+        "meanAbsoluteError": 3.847773254943366e-07,
+        "tolerance": 0.0001,
+        "passed": true,
+        "observedMin": [
+          4.999995231628418
+        ],
+        "observedMax": [
+          5.000003814697266
+        ],
+        "expectedMin": [
+          5.0
+        ],
+        "expectedMax": [
+          5.0
+        ],
+        "matrixReprojectionMaxError": 3.6623718868700195e-06,
+        "sampleStartIndex": 30,
+        "cameraPosition": [
+          0.0,
+          0.0,
+          -5.0
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "lensShift": [
+          0.3499999940395355,
+          -0.20000000298023224
+        ],
+        "textureBytes": [
+          [
+            137,
+            188,
+            225
+          ],
+          [
+            225,
+            137,
+            99
+          ]
+        ],
+        "effectiveRoughness": [
+          0.2727843137254902,
+          0.42980392156862746
+        ],
+        "shaderDefinitionMaxError": 4.76837158203125e-06,
+        "cameraAxisDefinitionPassed": true,
+        "legacyOffAxisDefinitionMaxError": 1.9183789764092714,
+        "shaderDefinitionPassed": true
+      },
+      "sha256": "6ab75c27bdbcc91de4e5ffdff2091a85b9c449176c71e2aed193d5f280ab2906",
+      "logSha256": "9c70b997ba59638d5115aa7906f3219acb4ceb6d7fbd2e2a39194a81b2964fbf",
+      "d3d12Errors": 0
+    },
+    {
+      "name": "input-ortho-ViewZ-static",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\input-ortho\\scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\input-ortho\\render-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.ViewZ",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\viewz-fix-final\\input-ortho-ViewZ-static.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\viewz-fix-final\\input-ortho-ViewZ-static.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "74c36b2fdf9cba7e09198473db40c4c925149f9ac94310894ca37feb7135c50e",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "moving": false,
+      "path": "bin\\PathTracingValidation\\viewz-fix-final\\input-ortho-ViewZ-static.ptbuf",
+      "metadata": {
+        "cameraPosition": [
+          0.0,
+          0.0,
+          -5.0
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "format": 41,
+        "height": 1080,
+        "inverseViewProjection": [
+          [
+            5.333333492279053,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            3.000000238418579,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            999.9000854492188,
+            -4.899999618530273
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "lensShift": [
+          0.0,
+          0.0
+        ],
+        "matrixConvention": "transpose of DirectX row-vector matrices",
+        "previousViewProjection": [
+          [
+            0.1875,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.3333333432674408,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0010000999318435788,
+            0.004900489468127489
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "randomSeed": 7,
+        "resource": "PathTracing.ViewZ",
+        "rowOrder": "top-down",
+        "sampleStartIndex": 30,
+        "schemaVersion": 1,
+        "viewProjection": [
+          [
+            0.1875,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.3333333432674408,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0010000999318435788,
+            0.004900489468127489
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "width": 1920
+      },
+      "result": {
+        "resource": "ViewZ",
+        "pixelCount": 123664,
+        "maxAbsoluteError": 9.5367431640625e-07,
+        "meanAbsoluteError": 4.76837158203125e-07,
+        "tolerance": 0.0001,
+        "passed": true,
+        "observedMin": [
+          4.999999046325684
+        ],
+        "observedMax": [
+          5.0
+        ],
+        "expectedMin": [
+          5.0
+        ],
+        "expectedMax": [
+          5.0
+        ],
+        "matrixReprojectionMaxError": 1.0603622657701095e-07,
+        "sampleStartIndex": 30,
+        "cameraPosition": [
+          0.0,
+          0.0,
+          -5.0
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "lensShift": [
+          0.0,
+          0.0
+        ],
+        "textureBytes": [
+          [
+            137,
+            188,
+            225
+          ],
+          [
+            225,
+            137,
+            99
+          ]
+        ],
+        "effectiveRoughness": [
+          0.2727843137254902,
+          0.42980392156862746
+        ],
+        "shaderDefinitionMaxError": 9.5367431640625e-07,
+        "cameraAxisDefinitionPassed": true,
+        "legacyOffAxisDefinitionMaxError": 9.5367431640625e-07,
+        "shaderDefinitionPassed": true
+      },
+      "sha256": "d8c3042bb27c2782dd601376553ab6bc49158fc6b89b70783fbe3d60d281558d",
+      "logSha256": "89ada849bd841dab648a606d07def5b854164dce264b7a89d1786eb86e82f927",
+      "d3d12Errors": 0
+    },
+    {
+      "name": "input-marker-ViewZ-static",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\input-marker\\scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\input-marker\\render-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.ViewZ",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\viewz-fix-final\\input-marker-ViewZ-static.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\viewz-fix-final\\input-marker-ViewZ-static.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "4295c02206cb3dbabb5f0a43c2910ea446384768d87827d3c9b40f9f565bcc72",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "moving": false,
+      "path": "bin\\PathTracingValidation\\viewz-fix-final\\input-marker-ViewZ-static.ptbuf",
+      "metadata": {
+        "cameraPosition": [
+          0.0,
+          0.0,
+          -5.0
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "format": 41,
+        "height": 1080,
+        "inverseViewProjection": [
+          [
+            0.9254525303840637,
+            0.0,
+            0.0,
+            0.3239079713821411
+          ],
+          [
+            0.0,
+            0.5205670595169067,
+            0.0,
+            -0.10411364585161209
+          ],
+          [
+            0.0,
+            0.0,
+            49.99503707885742,
+            -49.00004196166992
+          ],
+          [
+            0.0,
+            0.0,
+            -9.999008178710938,
+            10.000008583068848
+          ]
+        ],
+        "lensShift": [
+          0.3499999940395355,
+          -0.20000000298023224
+        ],
+        "matrixConvention": "transpose of DirectX row-vector matrices",
+        "previousViewProjection": [
+          [
+            1.0805524587631226,
+            0.0,
+            -0.3499999940395355,
+            -1.75
+          ],
+          [
+            0.0,
+            1.920982003211975,
+            0.19999997317790985,
+            0.9999998807907104
+          ],
+          [
+            0.0,
+            0.0,
+            1.000100016593933,
+            4.9004902839660645
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            5.0
+          ]
+        ],
+        "randomSeed": 7,
+        "resource": "PathTracing.ViewZ",
+        "rowOrder": "top-down",
+        "sampleStartIndex": 30,
+        "schemaVersion": 1,
+        "viewProjection": [
+          [
+            1.0805524587631226,
+            0.0,
+            -0.3499999940395355,
+            -1.75
+          ],
+          [
+            0.0,
+            1.920982003211975,
+            0.19999997317790985,
+            0.9999998807907104
+          ],
+          [
+            0.0,
+            0.0,
+            1.000100016593933,
+            4.9004902839660645
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            5.0
+          ]
+        ],
+        "width": 1920
+      },
+      "result": {
+        "resource": "ViewZ",
+        "pixelCount": 123664,
+        "maxAbsoluteError": 4.76837158203125e-06,
+        "meanAbsoluteError": 3.7338696964839896e-07,
+        "tolerance": 0.0001,
+        "passed": true,
+        "observedMin": [
+          3.9999988079071045
+        ],
+        "observedMax": [
+          5.000003814697266
+        ],
+        "expectedMin": [
+          4.0
+        ],
+        "expectedMax": [
+          5.0
+        ],
+        "matrixReprojectionMaxError": 3.6623718868700195e-06,
+        "sampleStartIndex": 30,
+        "cameraPosition": [
+          0.0,
+          0.0,
+          -5.0
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "lensShift": [
+          0.3499999940395355,
+          -0.20000000298023224
+        ],
+        "textureBytes": [
+          [
+            137,
+            188,
+            225
+          ],
+          [
+            225,
+            137,
+            99
+          ]
+        ],
+        "effectiveRoughness": [
+          0.2727843137254902,
+          0.42980392156862746
+        ],
+        "shaderDefinitionMaxError": 4.76837158203125e-06,
+        "cameraAxisDefinitionPassed": true,
+        "legacyOffAxisDefinitionMaxError": 1.9183789764092714,
+        "shaderDefinitionPassed": true
+      },
+      "sha256": "ff37370a340e10232beb6bcf4f419a1e4db763ec6c743b6d86f47dd8d4456dfc",
+      "logSha256": "fb826cc553d6e3fddd20762d52da081b93c5bd5b8a9fb85b3a367cb8a519278d",
+      "d3d12Errors": 0
+    },
+    {
+      "name": "input-shifted-MotionVectors-moving",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\input-shifted\\scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\input-shifted\\render-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.MotionVectors",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\viewz-fix-final\\input-shifted-MotionVectors-moving.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\viewz-fix-final\\input-shifted-MotionVectors-moving.log",
+        "-ExitAfterCapture",
+        "-ReflectionOrbitDegrees",
+        "8",
+        "-ReflectionOrbitFrames",
+        "8"
+      ],
+      "sceneSha256": "b3d14e959518cef4a991d872a755d1327456e38e28a1a98e3615721d7c1391b6",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "moving": true,
+      "path": "bin\\PathTracingValidation\\viewz-fix-final\\input-shifted-MotionVectors-moving.ptbuf",
+      "metadata": {
+        "cameraPosition": [
+          -0.6958655118942261,
+          0.0,
+          -4.951340198516846
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "format": 34,
+        "height": 1080,
+        "inverseViewProjection": [
+          [
+            0.9164460301399231,
+            0.0,
+            6.9579925537109375,
+            -6.4987592697143555
+          ],
+          [
+            4.4863135428840906e-09,
+            0.520566999912262,
+            -3.499324634503864e-07,
+            -0.10411405563354492
+          ],
+          [
+            -0.12879814207553864,
+            0.0,
+            49.508697509765625,
+            -48.568458557128906
+          ],
+          [
+            0.0,
+            0.0,
+            -9.99905014038086,
+            10.000049591064453
+          ]
+        ],
+        "lensShift": [
+          0.3499999940395355,
+          -0.20000000298023224
+        ],
+        "matrixConvention": "transpose of DirectX row-vector matrices",
+        "previousViewProjection": [
+          [
+            1.0298439264297485,
+            0.0,
+            -0.4790775179862976,
+            -1.7500001192092896
+          ],
+          [
+            0.024373888969421387,
+            1.9209822416305542,
+            0.19850921630859375,
+            0.9999999403953552
+          ],
+          [
+            0.1218816488981247,
+            0.0,
+            0.9926454424858093,
+            4.900490760803223
+          ],
+          [
+            0.12186945974826813,
+            0.0,
+            0.9925462007522583,
+            5.000000476837158
+          ]
+        ],
+        "randomSeed": 7,
+        "resource": "PathTracing.MotionVectors",
+        "rowOrder": "top-down",
+        "sampleStartIndex": 0,
+        "schemaVersion": 1,
+        "viewProjection": [
+          [
+            1.0213260650634766,
+            0.0,
+            -0.49697768688201904,
+            -1.7500001192092896
+          ],
+          [
+            0.02783462032675743,
+            1.9209822416305542,
+            0.19805359840393066,
+            0.9999998807907104
+          ],
+          [
+            0.1391870379447937,
+            0.0,
+            0.9903671741485596,
+            4.9004902839660645
+          ],
+          [
+            0.13917312026023865,
+            0.0,
+            0.9902681112289429,
+            5.0
+          ]
+        ],
+        "width": 1920
+      },
+      "result": {
+        "resource": "MotionVectors",
+        "pixelCount": 123664,
+        "maxAbsoluteError": 3.079194138810859e-05,
+        "meanAbsoluteError": 2.2691769974759153e-06,
+        "tolerance": 2e-05,
+        "passed": false,
+        "observedMin": [
+          -8.26120376586914e-05,
+          -0.02557373046875
+        ],
+        "observedMax": [
+          0.0323486328125,
+          0.0168914794921875
+        ],
+        "expectedMin": [
+          -8.167917513290934e-05,
+          -0.025575385591626976
+        ],
+        "expectedMax": [
+          0.0323703099442354,
+          0.016905784659050238
+        ],
+        "matrixReprojectionMaxError": 3.280117535031657e-06,
+        "sampleStartIndex": 0,
+        "cameraPosition": [
+          -0.6958655118942261,
+          0.0,
+          -4.951340198516846
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "lensShift": [
+          0.3499999940395355,
+          -0.20000000298023224
+        ],
+        "textureBytes": [
+          [
+            137,
+            188,
+            225
+          ],
+          [
+            225,
+            137,
+            99
+          ]
+        ],
+        "effectiveRoughness": [
+          0.2727843137254902,
+          0.42980392156862746
+        ],
+        "pixelDisplacementMin": [
+          -0.07930755615234375,
+          -9.12139892578125
+        ],
+        "pixelDisplacementMax": [
+          31.0546875,
+          13.809814453125
+        ],
+        "absoluteThresholdPassed": false,
+        "halfPrecisionBound": "2 ULP(expected half) + 3e-6 NDC float geometry/matrix allowance",
+        "halfPrecisionBoundMin": 3.1192092895507813e-06,
+        "halfPrecisionBoundMax": 6.403515625e-05,
+        "halfPrecisionBoundPassed": true,
+        "maxBoundNormalizedError": 0.5387091022642836
+      },
+      "sha256": "e4947efa176e84e8d0e8351fec1c15af1cd449c5eeccffda198eeb0094eb9abc",
+      "logSha256": "c91ca9469787fd004f1666c81046d41591810b63bf0a6aa264101d7e32e52ebe",
+      "d3d12Errors": 0
+    },
+    {
+      "name": "input-shifted-ViewZ-moving",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\input-shifted\\scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\input-shifted\\render-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.ViewZ",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\viewz-fix-final\\input-shifted-ViewZ-moving.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\viewz-fix-final\\input-shifted-ViewZ-moving.log",
+        "-ExitAfterCapture",
+        "-ReflectionOrbitDegrees",
+        "8",
+        "-ReflectionOrbitFrames",
+        "8"
+      ],
+      "sceneSha256": "b3d14e959518cef4a991d872a755d1327456e38e28a1a98e3615721d7c1391b6",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "moving": true,
+      "path": "bin\\PathTracingValidation\\viewz-fix-final\\input-shifted-ViewZ-moving.ptbuf",
+      "metadata": {
+        "cameraPosition": [
+          -0.6958655118942261,
+          0.0,
+          -4.951340198516846
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "format": 41,
+        "height": 1080,
+        "inverseViewProjection": [
+          [
+            0.9164460301399231,
+            0.0,
+            6.9579925537109375,
+            -6.4987592697143555
+          ],
+          [
+            4.4863135428840906e-09,
+            0.520566999912262,
+            -3.499324634503864e-07,
+            -0.10411405563354492
+          ],
+          [
+            -0.12879814207553864,
+            0.0,
+            49.508697509765625,
+            -48.568458557128906
+          ],
+          [
+            0.0,
+            0.0,
+            -9.99905014038086,
+            10.000049591064453
+          ]
+        ],
+        "lensShift": [
+          0.3499999940395355,
+          -0.20000000298023224
+        ],
+        "matrixConvention": "transpose of DirectX row-vector matrices",
+        "previousViewProjection": [
+          [
+            1.0298439264297485,
+            0.0,
+            -0.4790775179862976,
+            -1.7500001192092896
+          ],
+          [
+            0.024373888969421387,
+            1.9209822416305542,
+            0.19850921630859375,
+            0.9999999403953552
+          ],
+          [
+            0.1218816488981247,
+            0.0,
+            0.9926454424858093,
+            4.900490760803223
+          ],
+          [
+            0.12186945974826813,
+            0.0,
+            0.9925462007522583,
+            5.000000476837158
+          ]
+        ],
+        "randomSeed": 7,
+        "resource": "PathTracing.ViewZ",
+        "rowOrder": "top-down",
+        "sampleStartIndex": 0,
+        "schemaVersion": 1,
+        "viewProjection": [
+          [
+            1.0213260650634766,
+            0.0,
+            -0.49697768688201904,
+            -1.7500001192092896
+          ],
+          [
+            0.02783462032675743,
+            1.9209822416305542,
+            0.19805359840393066,
+            0.9999998807907104
+          ],
+          [
+            0.1391870379447937,
+            0.0,
+            0.9903671741485596,
+            4.9004902839660645
+          ],
+          [
+            0.13917312026023865,
+            0.0,
+            0.9902681112289429,
+            5.0
+          ]
+        ],
+        "width": 1920
+      },
+      "result": {
+        "resource": "ViewZ",
+        "pixelCount": 123664,
+        "maxAbsoluteError": 1.4139105029009613e-05,
+        "meanAbsoluteError": 4.120199501117482e-06,
+        "tolerance": 0.0001,
+        "passed": true,
+        "observedMin": [
+          4.619473457336426
+        ],
+        "observedMax": [
+          6.046046733856201
+        ],
+        "expectedMin": [
+          4.619476792504172
+        ],
+        "expectedMax": [
+          6.0460365783952295
+        ],
+        "matrixReprojectionMaxError": 3.280117535031657e-06,
+        "sampleStartIndex": 0,
+        "cameraPosition": [
+          -0.6958655118942261,
+          0.0,
+          -4.951340198516846
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "lensShift": [
+          0.3499999940395355,
+          -0.20000000298023224
+        ],
+        "textureBytes": [
+          [
+            137,
+            188,
+            225
+          ],
+          [
+            225,
+            137,
+            99
+          ]
+        ],
+        "effectiveRoughness": [
+          0.2727843137254902,
+          0.42980392156862746
+        ],
+        "shaderDefinitionMaxError": 1.3770352205177971e-05,
+        "cameraAxisDefinitionPassed": true,
+        "legacyOffAxisDefinitionMaxError": 2.3210147010912294,
+        "shaderDefinitionPassed": true
+      },
+      "sha256": "cd459dc7d77d5b954720118198289bc6f9321aa0803ef3eff1f52454b5b3f3d3",
+      "logSha256": "f0d022c9a70251a0e78ad007d45ca6483efea09f9df024ebf62003d76c143613",
+      "d3d12Errors": 0
+    },
+    {
+      "name": "input-camera-transform-ViewZ-static",
+      "command": [
+        "C:\\work\\RtPbrSurvey\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\input-camera-transform\\scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey\\Assets\\Scenes\\PathTracingValidation\\input-camera-transform\\render-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.ViewZ",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\viewz-fix-final\\input-camera-transform-ViewZ-static.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey\\bin\\PathTracingValidation\\viewz-fix-final\\input-camera-transform-ViewZ-static.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "4f6f007c89b622687de8d8b4a0b97663d2505a580f2ee8bca7b27ed8d5c55751",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "moving": false,
+      "path": "bin\\PathTracingValidation\\viewz-fix-final\\input-camera-transform-ViewZ-static.ptbuf",
+      "metadata": {
+        "cameraPosition": [
+          3.0,
+          2.0,
+          -5.0
+        ],
+        "cameraTarget": [
+          -1.0,
+          0.5,
+          1.0
+        ],
+        "format": 41,
+        "height": 1080,
+        "inverseViewProjection": [
+          [
+            0.7740002870559692,
+            0.03892635554075241,
+            -29.99698257446289,
+            29.720022201538086
+          ],
+          [
+            -0.201365664601326,
+            0.49691158533096313,
+            -19.997983932495117,
+            19.6264705657959
+          ],
+          [
+            0.4656580686569214,
+            0.15017876029014587,
+            49.99496841430664,
+            -49.052406311035156
+          ],
+          [
+            0.0,
+            0.0,
+            -9.998992919921875,
+            9.999992370605469
+          ]
+        ],
+        "lensShift": [
+          0.3499999940395355,
+          -0.20000000298023224
+        ],
+        "matrixConvention": "transpose of DirectX row-vector matrices",
+        "previousViewProjection": [
+          [
+            1.0937939882278442,
+            -0.16383489966392517,
+            0.25858545303344727,
+            -1.6607850790023804
+          ],
+          [
+            0.035029880702495575,
+            1.7929588556289673,
+            0.7171082496643066,
+            -0.10546588897705078
+          ],
+          [
+            -0.5431296825408936,
+            -0.20367364585399628,
+            0.8146945834159851,
+            6.010199546813965
+          ],
+          [
+            -0.5430753827095032,
+            -0.2036532759666443,
+            0.8146131038665771,
+            6.109598636627197
+          ]
+        ],
+        "randomSeed": 7,
+        "resource": "PathTracing.ViewZ",
+        "rowOrder": "top-down",
+        "sampleStartIndex": 30,
+        "schemaVersion": 1,
+        "viewProjection": [
+          [
+            1.0937939882278442,
+            -0.16383489966392517,
+            0.25858545303344727,
+            -1.6607850790023804
+          ],
+          [
+            0.035029880702495575,
+            1.7929588556289673,
+            0.7171082496643066,
+            -0.10546588897705078
+          ],
+          [
+            -0.5431296825408936,
+            -0.20367364585399628,
+            0.8146945834159851,
+            6.010199546813965
+          ],
+          [
+            -0.5430753827095032,
+            -0.2036532759666443,
+            0.8146131038665771,
+            6.109598636627197
+          ]
+        ],
+        "width": 1920
+      },
+      "result": {
+        "resource": "ViewZ",
+        "pixelCount": 123664,
+        "maxAbsoluteError": 4.684564791368473e-05,
+        "meanAbsoluteError": 7.166787798258175e-06,
+        "tolerance": 0.0001,
+        "passed": true,
+        "observedMin": [
+          3.2270846366882324
+        ],
+        "observedMax": [
+          14.489917755126953
+        ],
+        "expectedMin": [
+          3.227071525431767
+        ],
+        "expectedMax": [
+          14.489963535045934
+        ],
+        "matrixReprojectionMaxError": 4.152120872791265e-06,
+        "sampleStartIndex": 30,
+        "cameraPosition": [
+          3.0,
+          2.0,
+          -5.0
+        ],
+        "cameraTarget": [
+          -1.0,
+          0.5,
+          1.0
+        ],
+        "lensShift": [
+          0.3499999940395355,
+          -0.20000000298023224
+        ],
+        "textureBytes": [
+          [
+            137,
+            188,
+            225
+          ],
+          [
+            225,
+            137,
+            99
+          ]
+        ],
+        "effectiveRoughness": [
+          0.2727843137254902,
+          0.42980392156862746
+        ],
+        "shaderDefinitionMaxError": 4.126314939512099e-05,
+        "cameraAxisDefinitionPassed": true,
+        "legacyOffAxisDefinitionMaxError": 2.5102652050801755,
+        "shaderDefinitionPassed": true
+      },
+      "sha256": "1b561ad85e265105289e7fdf67b2259c5bc429a344743e821be72090b1f96b18",
+      "logSha256": "6c06c6a67b2234384832b8d5a30c2b020c650eb4202677015189c8f86dbcac13",
+      "d3d12Errors": 0
+    }
+  ],
+  "failures": [],
+  "dirty": false,
+  "executableSha256": "936acd98aa7f063b58ecd790b498fe86dd03d9c6ee703e6d8b87b0f4011011d7",
+  "sourceSha256": {
+    "App/RtPbrSurveyApp.cpp": "d4a179c839a25e2f5a4b381dacad2e38b320a241d79a4c253f251b314f7ca7c0",
+    "Engine/RtPbrSurveyEngine.cpp": "94d2635e5aae5c008063f1f99fee51a5ee3adba8201367f3032d976aee1b0623",
+    "Renderer/ScreenshotCapture.cpp": "f9adb8ac22408106b99a1e653b21bae5c7da1f19326f1d5b78f0f42653ce9106",
+    "Scene/SceneDocumentBuilder.cpp": "f760067e1304c6d5a09111bf60ea0fa16402fda93be0eb61cfc02a9ce95c14fb",
+    "Scene/SceneDocumentJson.cpp": "1239b1fa866a75d63c355befc6f026103553b4f12592c45114842e1db5508ca0",
+    "Shaders/shaders_PathTracing.hlsl": "663f2ca5912c1c82df9625423ee983fee983b07091089aadfd7d149e3fe77def",
+    "Shaders/SceneRayQuery.hlsli": "d185f0960d85c06d66acb0455ca62d6265e59bbbd8edf5047e3999767327a1d2",
+    "Tests/PathTracing/validate_inputs.py": "66b58da809147228aec08fcf423c3fc58b1e2d9ef45056caae47bda16c37491f"
+  },
+  "gpuDriver": "NVIDIA GeForce RTX 3080 Laptop GPU, 616.64",
+  "status": "done",
+  "verification": {
+    "depthCasesPassed": 6,
+    "maximumDepthError": 4.684564791368473e-05,
+    "motionHalfPrecisionBoundPassed": true,
+    "pythonUnitTestsPassed": 31,
+    "debugBuildPassed": true,
+    "d3d12Errors": 0
+  }
+}

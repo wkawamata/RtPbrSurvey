@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "Camera/DebugCameraController.h"
+#include "Scene/CameraView.h"
 
 #include <cmath>
 #include <iostream>
@@ -109,12 +110,85 @@ bool TestRightPrimaryDragPreservesArcballOrbit()
     return NearlyEqual(controller.ObjectViewerYaw(), 0.2f) && NearlyEqual(controller.ObjectViewerPitch(), 0.0f);
 }
 
+bool TestRightPrimaryDragIgnoresSelectionAndStopsOnRelease()
+{
+    Engine::CameraState camera;
+    RtPbrSurvey::DebugCameraController controller = MakeController(camera);
+    controller.SetPrimaryDragButton(VK_RBUTTON);
+    const DirectX::XMFLOAT3 initialPosition = camera.pos;
+    DragWithButton(controller, VK_LBUTTON, 40, 20);
+    if (!NearlyEqual(camera.pos, initialPosition))
+    {
+        return false;
+    }
+    DragWithButton(controller, VK_RBUTTON, 40, 0);
+    const DirectX::XMFLOAT3 releasedPosition = camera.pos;
+    controller.OnMouseMove(500, 350);
+    return NearlyEqual(camera.pos, releasedPosition);
+}
+
+bool TestChangingPrimaryButtonResetsDrag()
+{
+    Engine::CameraState camera;
+    RtPbrSurvey::DebugCameraController controller = MakeController(camera);
+    controller.OnMouseDown(VK_LBUTTON, 400, 300);
+    controller.SetPrimaryDragButton(VK_RBUTTON);
+    const DirectX::XMFLOAT3 initialPosition = camera.pos;
+    controller.OnMouseMove(440, 300);
+    if (!NearlyEqual(camera.pos, initialPosition))
+    {
+        return false;
+    }
+    controller.SetPrimaryDragButton(VK_LBUTTON);
+    Drag(controller, 40, 0);
+    return NearlyEqual(controller.ObjectViewerYaw(), 0.2f);
+}
+
 } // namespace
 
 int main()
 {
+    Engine::CameraState rolledCamera;
+    Engine::SetCameraRotationRadians(rolledCamera, {0.2f, 0.3f, 0.45f});
+    RtPbrSurvey::DebugCameraController rolledController;
+    rolledController.SetCameraState(&rolledCamera);
+    rolledController.SetMode(RtPbrSurvey::DebugCameraController::Mode::FreeLook);
+    rolledController.UpdateFreeLookKeyboard(0.0f, false, false, false, false, false, false, false, false);
+    DirectX::XMFLOAT3 rolledAngles = Engine::GetCameraRotationRadians(rolledCamera);
+    if (!NearlyEqual(rolledAngles, rolledCamera.rot))
+    {
+        std::cerr << "Keyboard update did not preserve camera roll.\n";
+        return 1;
+    }
+    rolledController.OnMouseDown(VK_RBUTTON, 0, 0);
+    rolledController.OnMouseMove(20, 10);
+    rolledController.OnMouseUp(VK_RBUTTON, 20, 10);
+    rolledAngles = Engine::GetCameraRotationRadians(rolledCamera);
+    if (!NearlyEqual(rolledAngles, rolledCamera.rot) || !NearlyEqual(rolledAngles.z, 0.45f))
+    {
+        std::cerr << "Mouse rotation did not synchronize camera roll.\n";
+        return 1;
+    }
+    // Positive DirectX pitch looks downward. A no-input foreground update must
+    // preserve the saved validation camera's direction toward the floor.
+    Engine::CameraState camera;
+    camera.pos = {0.0f, 4.0f, -7.0f};
+    camera.gazePoint = {0.0f, 0.0f, 0.0f};
+    camera.rot = {std::atan2(4.0f, 7.0f), 0.0f, 0.0f};
+    RtPbrSurvey::DebugCameraController controller;
+    controller.SetCameraState(&camera);
+    controller.SetMode(RtPbrSurvey::DebugCameraController::Mode::FreeLook);
+    controller.UpdateFreeLookKeyboard(0.0f, false, false, false, false, false, false, false, false);
+    const float distance = std::sqrt(65.0f);
+    if (!NearlyEqual(camera.gazePoint, {0.0f, 4.0f - 4.0f / distance, -7.0f + 7.0f / distance}))
+    {
+        std::cerr << "FreeLook changed the saved camera direction.\n";
+        return 1;
+    }
+
     if (!TestRegularHorizontalAndVerticalOrbit() || !TestNearLimitDragDoesNotCrossPole() ||
-        !TestArcballSwitchPreservesEightyEightDegreeCamera() || !TestRightPrimaryDragPreservesArcballOrbit())
+        !TestArcballSwitchPreservesEightyEightDegreeCamera() || !TestRightPrimaryDragPreservesArcballOrbit() ||
+        !TestRightPrimaryDragIgnoresSelectionAndStopsOnRelease() || !TestChangingPrimaryButtonResetsDrag())
     {
         std::cerr << "Debug camera controller tests failed.\n";
         return 1;

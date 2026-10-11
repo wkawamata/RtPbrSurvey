@@ -1,0 +1,349 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "date": "2026-10-06",
+  "commit": "d044f7270e4fe8d804665779b079f8492e55ce65",
+  "executableSha256": "64741214ef635b9fce6647a010be56d84ad7441d8543b689422635d4530b66a8",
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "samples": 64,
+  "seed": 11,
+  "roi": [
+    928,
+    508,
+    64,
+    64
+  ],
+  "captureCount": 15,
+  "sourceSha256": {
+    "Shaders/shaders_PathTracing.hlsl": "c368e77350df4e81b9e012bce1b07317a6ad75077bcf2d4b6231c77d6854fc0e",
+    "Tests/PathTracing/validate_emissive_controls.py": "63e486cb067fa5f1184edf7dcb45dd64f6c678f2c1c72a2c1483efc6aed833bc",
+    "Tests/PathTracing/validate_emissive.py": "336148aa2ffb63d918ecc9e9a5414dd256d76096bfdc4a6d710f581b5526e320"
+  },
+  "provenanceNote": "Captured runner source hashes precede CRLF-only normalization. Archived scenes add Japanese descriptions and rename the relative preset path; rendering content is unchanged.",
+  "tests": {
+    "python": "81/81",
+    "ctest": "25/25"
+  },
+  "logCheck": {
+    "errorCorruptionCount": 0,
+    "warningKind": "CreateCommittedResource ignores UNORDERED_ACCESS initial state for buffers"
+  },
+  "limitation": "One fixed seed, 64x64 receiver ROI; equality controls are not convergence tests.",
+  "cases": [
+    {
+      "case": "baseline",
+      "status": "passed",
+      "checks": [
+        {
+          "mode": 0,
+          "passed": true
+        },
+        {
+          "mode": 1,
+          "passed": true
+        },
+        {
+          "mode": 2,
+          "passed": true
+        }
+      ],
+      "sceneSha256": "228e0ad4d3fbe8d553be8d122d9507ab3adca9217070f683ca49388d0f112f76",
+      "records": [
+        {
+          "emissiveSamplingMode": 0,
+          "sha256": "079360e6f24e2c561c486aa360c1f639360561090dfbe20c3197505c71ee00f5",
+          "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+          "mean": 0.05553295090794563,
+          "maximum": 0.19785547256469727,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 3,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready"
+        },
+        {
+          "emissiveSamplingMode": 1,
+          "sha256": "c2be44db59035a66f26a7ff9b385fc2e3691e9072c5e164a09725479021bba80",
+          "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+          "mean": 0.055676013231277466,
+          "maximum": 0.10397181659936905,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 3,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready"
+        },
+        {
+          "emissiveSamplingMode": 2,
+          "sha256": "c372a6551e508fe52a8d73faf63adb9c1ed1d9e541e616fb7392b4920674130d",
+          "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+          "mean": 0.0556790716946125,
+          "maximum": 0.10360556095838547,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 3,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready"
+        }
+      ]
+    },
+    {
+      "case": "backface",
+      "status": "passed",
+      "checks": [
+        {
+          "mode": 0,
+          "passed": true
+        },
+        {
+          "mode": 1,
+          "passed": true
+        },
+        {
+          "mode": 2,
+          "passed": true
+        }
+      ],
+      "sceneSha256": "39f55953e8338f5df77fe5726e19a051d959926daa89591f8092ee54081ace41",
+      "records": [
+        {
+          "emissiveSamplingMode": 0,
+          "sha256": "95b07bf211db6e10f7a8cb314293e92c592feecd1e2916a56131b96df8884b8b",
+          "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+          "mean": 0,
+          "maximum": 0,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 3,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready"
+        },
+        {
+          "emissiveSamplingMode": 1,
+          "sha256": "95b07bf211db6e10f7a8cb314293e92c592feecd1e2916a56131b96df8884b8b",
+          "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+          "mean": 0,
+          "maximum": 0,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 3,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready"
+        },
+        {
+          "emissiveSamplingMode": 2,
+          "sha256": "95b07bf211db6e10f7a8cb314293e92c592feecd1e2916a56131b96df8884b8b",
+          "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+          "mean": 0,
+          "maximum": 0,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 3,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready"
+        }
+      ]
+    },
+    {
+      "case": "beyond",
+      "status": "passed",
+      "checks": [
+        {
+          "mode": 0,
+          "passed": true
+        },
+        {
+          "mode": 1,
+          "passed": true
+        },
+        {
+          "mode": 2,
+          "passed": true
+        }
+      ],
+      "sceneSha256": "1d7fa47d8da5ba9cb05c1a5b64e682b6f0f2fa71aaaa30b96043906cd454d1aa",
+      "records": [
+        {
+          "emissiveSamplingMode": 0,
+          "sha256": "079360e6f24e2c561c486aa360c1f639360561090dfbe20c3197505c71ee00f5",
+          "presetSha256": "2397a652056c0680dba4a22a9e7bc607295850515d21d6013fb0d499ff1f7151",
+          "mean": 0.05553295090794563,
+          "maximum": 0.19785547256469727,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 4,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready"
+        },
+        {
+          "emissiveSamplingMode": 1,
+          "sha256": "c2be44db59035a66f26a7ff9b385fc2e3691e9072c5e164a09725479021bba80",
+          "presetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+          "mean": 0.055676013231277466,
+          "maximum": 0.10397181659936905,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 4,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready"
+        },
+        {
+          "emissiveSamplingMode": 2,
+          "sha256": "c372a6551e508fe52a8d73faf63adb9c1ed1d9e541e616fb7392b4920674130d",
+          "presetSha256": "207e604b2824bbb307c7f379c7f4469472fa001066e3294685a91f0736a3371d",
+          "mean": 0.0556790716946125,
+          "maximum": 0.10360556095838547,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 4,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready"
+        }
+      ]
+    },
+    {
+      "case": "empty",
+      "status": "passed",
+      "checks": [
+        {
+          "mode": 0,
+          "passed": true
+        },
+        {
+          "mode": 1,
+          "passed": true
+        },
+        {
+          "mode": 2,
+          "passed": true
+        }
+      ],
+      "sceneSha256": "d82df54fca87f588a5454d44b9912ea8ee309bd5e1210627cf494a78391df656",
+      "records": [
+        {
+          "emissiveSamplingMode": 0,
+          "sha256": "eb43dbd2569e75476920c30b8bff3608aee7f14e8f8b8d34c1a023b728bfc9c5",
+          "presetSha256": "0d533ed56319598a865c8e11d9b3f45dc4f7b27d89a8d772a3e66413b69d40c4",
+          "mean": 0.5111002326011658,
+          "maximum": 0.5502225160598755,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 2,
+          "emissiveTriangleCount": 0,
+          "emissiveTableStatus": "ready"
+        },
+        {
+          "emissiveSamplingMode": 1,
+          "sha256": "eb43dbd2569e75476920c30b8bff3608aee7f14e8f8b8d34c1a023b728bfc9c5",
+          "presetSha256": "49d624eaa11fcecb4991167c1464f0390afc66592e8f70d1044ba469044d6aac",
+          "mean": 0.5111002326011658,
+          "maximum": 0.5502225160598755,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 2,
+          "emissiveTriangleCount": 0,
+          "emissiveTableStatus": "ready"
+        },
+        {
+          "emissiveSamplingMode": 2,
+          "sha256": "eb43dbd2569e75476920c30b8bff3608aee7f14e8f8b8d34c1a023b728bfc9c5",
+          "presetSha256": "791a5ed5583bfd83152b00622fa1633ded5d9e2e42b5dd4cc7f8d3716884bfca",
+          "mean": 0.5111002326011658,
+          "maximum": 0.5502225160598755,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 2,
+          "emissiveTriangleCount": 0,
+          "emissiveTableStatus": "ready"
+        }
+      ]
+    },
+    {
+      "case": "shadow-off",
+      "status": "passed",
+      "checks": [
+        {
+          "mode": 0,
+          "passed": true
+        },
+        {
+          "mode": 1,
+          "passed": true
+        },
+        {
+          "mode": 2,
+          "passed": true
+        }
+      ],
+      "sceneSha256": "e4c1610756939c4aceb4001fd56ef560927cd26f153fea622e037c48b9cea3cc",
+      "records": [
+        {
+          "emissiveSamplingMode": 0,
+          "sha256": "079360e6f24e2c561c486aa360c1f639360561090dfbe20c3197505c71ee00f5",
+          "presetSha256": "156bae138ed55ab0fd3cfc4849b5e590391361ba7381b0db8aa4ec396ac885ef",
+          "mean": 0.05553295090794563,
+          "maximum": 0.19785547256469727,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 3,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready"
+        },
+        {
+          "emissiveSamplingMode": 1,
+          "sha256": "079360e6f24e2c561c486aa360c1f639360561090dfbe20c3197505c71ee00f5",
+          "presetSha256": "682a0d2fbfc300d37a648246078dc5a8c6569a2580999b08b33526978c6f0ee4",
+          "mean": 0.05553295090794563,
+          "maximum": 0.19785547256469727,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 3,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready"
+        },
+        {
+          "emissiveSamplingMode": 2,
+          "sha256": "079360e6f24e2c561c486aa360c1f639360561090dfbe20c3197505c71ee00f5",
+          "presetSha256": "017a98bfcc88b96c8b3ee6b592b47f9627987857172763b62ebb02780052bcb8",
+          "mean": 0.05553295090794563,
+          "maximum": 0.19785547256469727,
+          "dimensions": [
+            1920,
+            1080
+          ],
+          "warningCount": 3,
+          "emissiveTriangleCount": 2,
+          "emissiveTableStatus": "ready"
+        }
+      ]
+    }
+  ]
+}

@@ -10,6 +10,7 @@
 //*********************************************************
 
 #pragma once
+#include "Shared/DirectLight.h"
 #include <include/d3dx12/d3dx12.h>
 #include <wrl/client.h>
 #include "Rhi/Dx12/GraphicsDevice.h"
@@ -35,6 +36,8 @@
 #include "Renderer/StagedDescriptorAllocator.h"
 #include "Renderer/PipelineFactory.h"
 #include "Renderer/AccelerationStructureResources.h"
+#include "Renderer/AnimatedGifEncoder.h"
+#include "Renderer/Mp4Encoder.h"
 #include "Renderer/RayQueryShadowPass.h"
 #include "Renderer/SpecularDebugRayQueryPass.h"
 #include "Renderer/RayQueryTlasDebugPass.h"
@@ -51,6 +54,7 @@
 #include "Renderer/RootSignatureLayout.h"
 #include "Renderer/SceneGeometryPass.h"
 #include "Renderer/ScreenshotCapture.h"
+#include "Renderer/ScreenshotRequestQueue.h"
 #include "Renderer/SimpleDescriptorHeapAllocator.h"
 #include "Renderer/ShadowMaskDebugPass.h"
 #include "Renderer/DebugLinePass.h"
@@ -60,6 +64,7 @@
 #include "Renderer/StreamlineAdapter.h"
 #include "Renderer/ToneMap.h"
 #include "Scene/Scene.h"
+#include "Scene/EmissiveTriangleTable.h"
 #include "Shared/Screenshot.h"
 #include "TextureSemantic.h"
 #include "WorkMeter.h"
@@ -163,11 +168,10 @@ public:
 
     struct LightingParams
     {
-        XMFLOAT3 lightDirection = {0.0f, 1.0f, -1.0f};
-        XMFLOAT3 lightColor = {1.0f, 1.0f, 1.0f};
+        std::vector<RtPbrSurvey::DirectLight> lights = {RtPbrSurvey::DirectLight{}};
+        uint32_t primaryShadowLightId = 1;
         // HDR environment maps are bright, so the default IBL contribution is intentionally modest.
         float iblIntensity = 0.10f;
-        float diffuseIntensity = 1.0f;
         bool skyboxEnabled = true;
         bool skyboxPreview = false;
         float skyboxPreviewExposure = 1.0f;
@@ -279,6 +283,8 @@ public:
         UINT randomSeed = 1;
         bool directLightingEnabled = true;
         bool environmentEnabled = true;
+        UINT environmentSamplingMode = 0;
+        UINT emissiveSamplingMode = 0;
         bool emissiveEnabled = true;
         bool russianRouletteEnabled = false;
         PathTracingDebugOutput debugOutput = PathTracingDebugOutput::Radiance;
@@ -310,6 +316,8 @@ public:
 
     struct PathTracingDiagnostics
     {
+        UINT emissiveTriangleCount = 0;
+        std::string emissiveTableStatus;
         bool gpuTimingAvailable = false;
         float gpuTimeMs = 0.0f;
         uint64_t primarySamplesPerFrame = 0;
@@ -371,6 +379,7 @@ public:
     void Initialize(UINT width, UINT height);
     void RenderFrame(const UiRenderHandler& uiRenderHandler);
     void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
+    void SetVSyncEnabled(bool enabled) { m_vSyncEnabled = enabled; }
     void Shutdown();
     void SetScene(const Scene& scene);
     void SetCamera(const CameraState& camera);
@@ -459,6 +468,13 @@ public:
     std::optional<Engine::ReflectionHdrDiagnosticFrame> ConsumeReflectionHdrDiagnosticFrame();
     void RequestScreenshot(RtPbrSurvey::ScreenshotRequest request);
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult();
+    std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult(std::uint64_t requestId);
+    std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResultExcept(std::uint64_t requestId);
+    bool IsScreenshotCaptureIdle() const;
+    bool FinalizeAnimatedGif(std::string& error);
+    void AbortAnimatedGif();
+    bool FinalizeMp4(std::string& error, std::optional<std::uint64_t> endTimestamp100ns = std::nullopt);
+    void AbortMp4();
     void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
     void RequestPixelPick(int screenX, int screenY);
     const PixelPickResult& GetPixelPickResult() const { return m_pixelPickResult; }
@@ -749,7 +765,19 @@ private:
         float reflectionContributionEnabled = 0.0f;
         float reflectionContributionIntensity = 0.25f;
         float reflectionContributionMaxDistance = 20.0f;
+        uint32_t lightCount = 0;
+        uint32_t primaryShadowLightIndex = RtPbrSurvey::kNoShadowLight;
+        std::array<RtPbrSurvey::LightGpuData, RtPbrSurvey::kMaxDirectLights> lights = {};
+        float reflectionRayNormalBias = 0.0f;
+        uint32_t reflectionLightSamplingEnabled = 0;
+        uint32_t reflectionLightSamplingFrame = 0;
     };
+
+    static_assert(offsetof(LightingConstants, lightCount) == 120);
+    static_assert(offsetof(LightingConstants, primaryShadowLightIndex) == 124);
+    static_assert(offsetof(LightingConstants, lights) == 128);
+    static_assert(offsetof(LightingConstants, reflectionRayNormalBias) == 1152);
+    static_assert(sizeof(LightingConstants) == 1280);
 
     LightingConstants MakeLightingConstants() const;
 
@@ -764,6 +792,9 @@ private:
     {
         ComPtr<ID3D12CommandAllocator> commandAllocator;
         ComPtr<ID3D12Resource> instanceBuffer;
+        ComPtr<ID3D12Resource> emissiveTriangleBuffer;
+        UINT emissiveTriangleCapacity = 0;
+        uint64_t emissiveTriangleVersion = 0;
         DescriptorAllocation instanceBufferSrv;
         InstanceData* pSrvDataBegin = nullptr;
         ComPtr<ID3D12Resource> tlasInstanceBuffer;
@@ -961,6 +992,7 @@ private:
 
     // Pipeline objects.
     GraphicsDevice& m_graphicsDevice;
+    bool m_vSyncEnabled = true;
     UINT m_width = 0;
     UINT m_height = 0;
     UINT m_renderWidth = 0;
@@ -1147,9 +1179,10 @@ private:
         Engine::ScreenshotReadback readback;
         UINT64 fenceValue = 0;
     };
-    std::deque<RtPbrSurvey::ScreenshotRequest> m_screenshotRequests;
+    Engine::ScreenshotRequestQueue m_screenshotRequestQueue;
     std::optional<PendingScreenshotCapture> m_pendingScreenshotCapture;
-    std::deque<RtPbrSurvey::ScreenshotResult> m_screenshotResults;
+    Engine::AnimatedGifEncoder m_animatedGifEncoder;
+    Engine::Mp4Encoder m_mp4Encoder;
 
     // Pixel pick (Ctrl+Click to inspect reflection vector)
     bool m_pixelPickRequested = false;
@@ -1196,6 +1229,12 @@ private:
     ComPtr<ID3D12Resource> m_indexBuffer;
     D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
     ComPtr<ID3D12Resource> m_meshRangeBuffer;
+    std::vector<Engine::EmissiveTriangleGpu> m_emissiveTriangles;
+    std::vector<InstanceData> m_emissiveSourceInstances;
+    std::vector<Engine::SceneMaterial> m_emissiveSourceMaterials;
+    const Engine::SceneMesh* m_emissiveSourceMesh = nullptr;
+    uint64_t m_emissiveTriangleVersion = 0;
+    std::string m_emissiveTableStatus = "not-built";
     std::vector<Engine::SceneMesh::Range> m_sceneMeshRanges;
     std::vector<Engine::AccelerationStructureGeometry> m_accelerationStructureGeometries;
     mutable std::vector<Engine::SceneGeometryInstanceDraw> m_sceneGeometryDraws;
@@ -1514,6 +1553,7 @@ private:
     void PrepareSceneInstanceData();
     void CreateSceneMaterialResources();
     void CreateInstanceBuffers();
+    void UpdateEmissiveTriangleBuffer();
     void BuildAccelerationStructures();
     void RebuildAccelerationStructures();
     void ReleaseSceneResources();

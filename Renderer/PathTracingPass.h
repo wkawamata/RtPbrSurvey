@@ -29,6 +29,9 @@ struct PathTracingPassDesc
     D3D12_GPU_DESCRIPTOR_HANDLE diffuseRadianceHitTUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE specularRadianceHitTUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE environmentMapSrv = {};
+    D3D12_GPU_VIRTUAL_ADDRESS emissiveTriangleSrv = 0;
+    UINT emissiveTriangleCount = 0;
+    D3D12_GPU_DESCRIPTOR_HANDLE lightCbv = {};
     RayQuerySceneBindings scene;
     float rayTMin = 0.001f;
     float rayTMax = 10000.0f;
@@ -41,6 +44,8 @@ struct PathTracingPassDesc
     UINT debugOutput = 0;
     UINT maxBounces = 2;
     UINT environmentEnabled = 1;
+    UINT environmentSamplingMode = 0;
+    UINT emissiveSamplingMode = 0;
     UINT skyboxEnabled = 1;
     UINT emissiveEnabled = 1;
     UINT directLightingEnabled = 1;
