@@ -57,6 +57,21 @@ void DebugCameraController::SetMode(Mode mode)
     }
 }
 
+void DebugCameraController::SetPrimaryDragButton(UINT8 button)
+{
+    if (button != VK_LBUTTON && button != VK_RBUTTON)
+    {
+        return;
+    }
+    if (m_primaryDragButton == button)
+    {
+        return;
+    }
+
+    ResetInputState();
+    m_primaryDragButton = button;
+}
+
 bool DebugCameraController::IsRightDragging() const
 {
     return m_isRightDragging;
@@ -152,7 +167,7 @@ void DebugCameraController::ResetInputState()
 
 void DebugCameraController::OnMouseDown(UINT8 button, int x, int y)
 {
-    if (button == VK_LBUTTON)
+    if (button == m_primaryDragButton)
     {
         m_isDragging = true;
         m_lastMouseX = x;
@@ -175,7 +190,7 @@ void DebugCameraController::OnMouseDown(UINT8 button, int x, int y)
 
 void DebugCameraController::OnMouseUp(UINT8 button, int, int)
 {
-    if (button == VK_LBUTTON)
+    if (button == m_primaryDragButton)
     {
         m_isDragging = false;
     }

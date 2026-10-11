@@ -38,6 +38,13 @@ void Drag(RtPbrSurvey::DebugCameraController& controller, int dx, int dy)
     controller.OnMouseUp(VK_LBUTTON, 400 + dx, 300 + dy);
 }
 
+void DragWithButton(RtPbrSurvey::DebugCameraController& controller, UINT8 button, int dx, int dy)
+{
+    controller.OnMouseDown(button, 400, 300);
+    controller.OnMouseMove(400 + dx, 300 + dy);
+    controller.OnMouseUp(button, 400 + dx, 300 + dy);
+}
+
 bool TestRegularHorizontalAndVerticalOrbit()
 {
     Engine::CameraState camera;
@@ -93,6 +100,50 @@ bool TestArcballSwitchPreservesEightyEightDegreeCamera()
         NearlyEqual(camera.pos, positionBeforeSwitch, 0.0005f);
 }
 
+bool TestRightPrimaryDragPreservesArcballOrbit()
+{
+    Engine::CameraState camera;
+    RtPbrSurvey::DebugCameraController controller = MakeController(camera);
+    controller.SetPrimaryDragButton(VK_RBUTTON);
+
+    DragWithButton(controller, VK_RBUTTON, 40, 0);
+    return NearlyEqual(controller.ObjectViewerYaw(), 0.2f) && NearlyEqual(controller.ObjectViewerPitch(), 0.0f);
+}
+
+bool TestRightPrimaryDragIgnoresSelectionAndStopsOnRelease()
+{
+    Engine::CameraState camera;
+    RtPbrSurvey::DebugCameraController controller = MakeController(camera);
+    controller.SetPrimaryDragButton(VK_RBUTTON);
+    const DirectX::XMFLOAT3 initialPosition = camera.pos;
+    DragWithButton(controller, VK_LBUTTON, 40, 20);
+    if (!NearlyEqual(camera.pos, initialPosition))
+    {
+        return false;
+    }
+    DragWithButton(controller, VK_RBUTTON, 40, 0);
+    const DirectX::XMFLOAT3 releasedPosition = camera.pos;
+    controller.OnMouseMove(500, 350);
+    return NearlyEqual(camera.pos, releasedPosition);
+}
+
+bool TestChangingPrimaryButtonResetsDrag()
+{
+    Engine::CameraState camera;
+    RtPbrSurvey::DebugCameraController controller = MakeController(camera);
+    controller.OnMouseDown(VK_LBUTTON, 400, 300);
+    controller.SetPrimaryDragButton(VK_RBUTTON);
+    const DirectX::XMFLOAT3 initialPosition = camera.pos;
+    controller.OnMouseMove(440, 300);
+    if (!NearlyEqual(camera.pos, initialPosition))
+    {
+        return false;
+    }
+    controller.SetPrimaryDragButton(VK_LBUTTON);
+    Drag(controller, 40, 0);
+    return NearlyEqual(controller.ObjectViewerYaw(), 0.2f);
+}
+
 } // namespace
 
 int main()
@@ -136,7 +187,8 @@ int main()
     }
 
     if (!TestRegularHorizontalAndVerticalOrbit() || !TestNearLimitDragDoesNotCrossPole() ||
-        !TestArcballSwitchPreservesEightyEightDegreeCamera())
+        !TestArcballSwitchPreservesEightyEightDegreeCamera() || !TestRightPrimaryDragPreservesArcballOrbit() ||
+        !TestRightPrimaryDragIgnoresSelectionAndStopsOnRelease() || !TestChangingPrimaryButtonResetsDrag())
     {
         std::cerr << "Debug camera controller tests failed.\n";
         return 1;

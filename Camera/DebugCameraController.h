@@ -23,6 +23,7 @@ public:
 
     Mode GetMode() const;
     void SetMode(Mode mode);
+    void SetPrimaryDragButton(UINT8 button);
     bool IsRightDragging() const;
 
     float SpeedMultiplier() const;
@@ -87,6 +88,7 @@ private:
     bool m_isDragging = false;
     bool m_isMiddleDragging = false;
     bool m_isRightDragging = false;
+    UINT8 m_primaryDragButton = VK_LBUTTON;
     int m_lastMouseX = 0;
     int m_lastMouseY = 0;
     DirectX::XMFLOAT3 m_lastArcballVector = {0.0f, 0.0f, 1.0f};
