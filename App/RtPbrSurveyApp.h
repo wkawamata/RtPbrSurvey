@@ -86,6 +86,7 @@ private:
     friend void App::DrawSceneSelectUi(RtPbrSurveyApp& app);
     friend void App::DrawSceneEditorStartUi(RtPbrSurveyApp& app);
     friend void App::DrawSceneEditorEditUi(RtPbrSurveyApp& app);
+    friend void App::DrawSceneEditorTransformUi(RtPbrSurveyApp& app);
     friend class App::SceneConfigManager;
 
     enum class AppMode
@@ -195,6 +196,11 @@ private:
     float m_sceneEditorRotationStepDegrees = 15.0f;
     float m_sceneEditorScaleStep = 0.1f;
     int m_sceneEditorTransformTool = 0;
+    bool m_sceneEditorShowTransformWindow = true;
+    bool m_sceneEditorTransformGizmoEnabled = true;
+    bool m_sceneEditorTransformEditPending = false;
+    bool m_sceneEditorGizmoUsing = false;
+    bool m_sceneEditorGizmoCapturesMouse = false;
     bool m_sceneEditorObjectPickPending = false;
     std::string m_sceneEditorPendingLoadPath;
     int m_pendingSelectedSceneIndex = kDefaultSceneIndex;

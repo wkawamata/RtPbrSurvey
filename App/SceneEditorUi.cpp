@@ -4,6 +4,10 @@
 
 #include "App/RtPbrSurveyApp.h"
 #include "Ui/DirectLightUi.h"
+#include "Scene/CameraView.h"
+#include "Scene/CameraProjection.h"
+#include "Scene/SceneGraph.h"
+#include "third_party/ImGuizmo/ImGuizmo.h"
 
 #include <imgui.h>
 #include <imgui_stdlib.h>
@@ -48,6 +52,19 @@ std::vector<std::filesystem::path> FindSceneEditorSceneFiles()
     }
     std::sort(sceneFiles.begin(), sceneFiles.end());
     return sceneFiles;
+}
+bool SceneActionButton(const char* label, bool needsAction)
+{
+    if (needsAction)
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.75f, 0.2f, 1.0f));
+    }
+    const bool clicked = ImGui::Button(label);
+    if (needsAction)
+    {
+        ImGui::PopStyleColor();
+    }
+    return clicked;
 }
 } // namespace
 
@@ -110,8 +127,20 @@ void DrawSceneEditorStartUi(RtPbrSurveyApp& app)
 
 void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
 {
+    std::string windowTitle = "Scene Editor";
+    if (!app.m_sceneEditorDocumentPath.empty())
+    {
+        const std::u8string sceneFolder = std::filesystem::path(app.m_sceneEditorDocumentPath).parent_path().filename().u8string();
+        windowTitle += " - ";
+        windowTitle.append(sceneFolder.begin(), sceneFolder.end());
+    }
+    else if (app.m_sceneEditorSession.has_value())
+    {
+        windowTitle += " - " + app.m_sceneEditorSession->Document().name;
+    }
+    windowTitle += "###Scene Editor";
     ImGui::SetNextWindowSize(ImVec2(960.0f, 560.0f), ImGuiCond_FirstUseEver);
-    ImGui::Begin("Scene Editor");
+    ImGui::Begin(windowTitle.c_str());
     if (!app.m_sceneEditorSession.has_value())
     {
         ImGui::TextUnformatted("No Scene Document is selected.");
@@ -143,10 +172,14 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     ImGui::Text("Document: %s", app.m_sceneEditorDocumentPath.empty() ? "Unsaved" : app.m_sceneEditorDocumentPath.c_str());
     ImGui::SameLine();
     ImGui::TextDisabled(session.IsModified() ? "Modified" : "Saved");
+    if (ImGui::CollapsingHeader("SubWindow"))
+    {
+        ImGui::Checkbox("Transform Window", &app.m_sceneEditorShowTransformWindow);
+    }
     ImGui::Separator();
 
     ImGui::InputText("Save Path", &app.m_sceneEditorSavePath);
-    if (ImGui::Button("Save"))
+    if (SceneActionButton("Save", session.IsModified()))
     {
         std::string error;
         if (!app.SaveSceneEditorDocument(false, &error))
@@ -155,7 +188,7 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         }
     }
     ImGui::SameLine();
-    if (ImGui::Button("Save As"))
+    if (SceneActionButton("Save As", session.IsModified()))
     {
         std::string error;
         if (!app.SaveSceneEditorDocument(true, &error))
@@ -505,106 +538,11 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     ImGui::NextColumn();
     ImGui::TextUnformatted("3D Preview");
     ImGui::Separator();
-    ImGui::TextWrapped("The renderer behind this editor displays the current document. Mouse and keyboard camera controls remain available.");
-    ImGui::TextDisabled("Selected nodes show red, green, and blue axes in the renderer.");
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    ImGui::TextWrapped("%s", reinterpret_cast<const char*>(u8"\u9078\u629e\u3057\u305f\u8981\u7d20\u306b\u306f\u30013D\u30d3\u30e5\u30fc\u306b\u8d64\u30fb\u7dd1\u30fb\u9752\u306e\u5ea7\u6a19\u8ef8\u304c\u8868\u793a\u3055\u308c\u307e\u3059\u3002"));
+    ImGui::PopStyleColor();
     ImGui::TextDisabled("Ctrl+Click the renderer to select a scene node.");
     ImGui::TextDisabled("Transform controls apply to the primary selection.");
-    ImGui::RadioButton("Move", &app.m_sceneEditorTransformTool, 0);
-    ImGui::SameLine();
-    ImGui::RadioButton("Rotate", &app.m_sceneEditorTransformTool, 1);
-    ImGui::SameLine();
-    ImGui::RadioButton("Scale", &app.m_sceneEditorTransformTool, 2);
-    if (app.m_sceneEditorTransformTool == 0)
-    {
-        ImGui::DragFloat("Move Step", &app.m_sceneEditorTranslationStep, 0.01f, 0.01f, 100.0f, "%.2f");
-    }
-    else if (app.m_sceneEditorTransformTool == 1)
-    {
-        ImGui::DragFloat("Rotate Step", &app.m_sceneEditorRotationStepDegrees, 1.0f, 1.0f, 180.0f, "%.0f deg");
-    }
-    else
-    {
-        ImGui::DragFloat("Scale Step", &app.m_sceneEditorScaleStep, 0.01f, 0.01f, 100.0f, "%.2f");
-    }
-    const auto applyTransformAxis = [&app, &session, &rebuildPreview](int axis, float direction)
-    {
-        RtPbrSurvey::SceneNode* node = session.SelectedNode();
-        if (node == nullptr)
-        {
-            return;
-        }
-        session.BeginEdit();
-        const auto selectAxisComponent = [axis](RtPbrSurvey::SceneFloat3& value) -> float&
-        {
-            if (axis == 0)
-            {
-                return value.x;
-            }
-            if (axis == 1)
-            {
-                return value.y;
-            }
-            return value.z;
-        };
-        if (app.m_sceneEditorTransformTool == 0)
-        {
-            selectAxisComponent(node->transform.translation) += direction * app.m_sceneEditorTranslationStep;
-        }
-        else if (app.m_sceneEditorTransformTool == 1)
-        {
-            const DirectX::XMVECTOR currentRotation = DirectX::XMVectorSet(node->transform.rotation.x,
-                                                                             node->transform.rotation.y,
-                                                                             node->transform.rotation.z,
-                                                                             node->transform.rotation.w);
-            const DirectX::XMVECTOR rotationAxis = axis == 0 ? DirectX::XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f) :
-                                                   axis == 1 ? DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f) :
-                                                               DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
-            const DirectX::XMVECTOR deltaRotation = DirectX::XMQuaternionRotationAxis(
-                rotationAxis, DirectX::XMConvertToRadians(direction * app.m_sceneEditorRotationStepDegrees));
-            DirectX::XMFLOAT4 rotation = {};
-            DirectX::XMStoreFloat4(&rotation, DirectX::XMQuaternionNormalize(
-                                                DirectX::XMQuaternionMultiply(currentRotation, deltaRotation)));
-            node->transform.rotation = {rotation.x, rotation.y, rotation.z, rotation.w};
-        }
-        else
-        {
-            float& scale = selectAxisComponent(node->transform.scale);
-            scale = (std::max)(0.01f, scale + direction * app.m_sceneEditorScaleStep);
-        }
-        session.CommitEdit();
-        rebuildPreview();
-    };
-    ImGui::BeginDisabled(session.SelectedNode() == nullptr);
-    if (ImGui::Button("X-"))
-    {
-        applyTransformAxis(0, -1.0f);
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("X+"))
-    {
-        applyTransformAxis(0, 1.0f);
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Y-"))
-    {
-        applyTransformAxis(1, -1.0f);
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Y+"))
-    {
-        applyTransformAxis(1, 1.0f);
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Z-"))
-    {
-        applyTransformAxis(2, -1.0f);
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Z+"))
-    {
-        applyTransformAxis(2, 1.0f);
-    }
-    ImGui::EndDisabled();
 
     ImGui::NextColumn();
     ImGui::TextUnformatted("Inspector");
@@ -618,7 +556,7 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     {
         ImGui::Text("Name: %s", selectedNode->name.c_str());
         ImGui::Text("ID: %s", selectedNode->id.c_str());
-        ImGui::Text("Type: %s", selectedNode->type == RtPbrSurvey::SceneNodeType::Empty ? "Empty" :
+        ImGui::Text("Type: %s", selectedNode->type == RtPbrSurvey::SceneNodeType::Empty ? "Empty Node" :
                                        selectedNode->type == RtPbrSurvey::SceneNodeType::Gltf ? "glTF" : "Primitive");
         static std::string editedNodeId;
         static std::string editedNodeName;
@@ -875,79 +813,107 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                 ImGui::TextDisabled("Referenced glTF asset is missing from this document.");
             }
         }
-        ImGui::Separator();
-        bool transformCommitted = false;
-        float translation[3] = {
-            selectedNode->transform.translation.x,
-            selectedNode->transform.translation.y,
-            selectedNode->transform.translation.z};
-        if (ImGui::InputFloat3("Translation", translation))
-        {
-            session.BeginEdit();
-            selectedNode->transform.translation = {translation[0], translation[1], translation[2]};
-        }
-        transformCommitted = transformCommitted || ImGui::IsItemDeactivatedAfterEdit();
-        float rotation[4] = {
-            selectedNode->transform.rotation.x,
-            selectedNode->transform.rotation.y,
-            selectedNode->transform.rotation.z,
-            selectedNode->transform.rotation.w};
-        if (ImGui::InputFloat4("Rotation", rotation))
-        {
-            session.BeginEdit();
-            selectedNode->transform.rotation = {rotation[0], rotation[1], rotation[2], rotation[3]};
-        }
-        transformCommitted = transformCommitted || ImGui::IsItemDeactivatedAfterEdit();
-        float scale[3] = {
-            selectedNode->transform.scale.x,
-            selectedNode->transform.scale.y,
-            selectedNode->transform.scale.z};
-        if (ImGui::InputFloat3("Scale", scale))
-        {
-            session.BeginEdit();
-            selectedNode->transform.scale = {scale[0], scale[1], scale[2]};
-        }
-        transformCommitted = transformCommitted || ImGui::IsItemDeactivatedAfterEdit();
-        if (transformCommitted)
-        {
-            session.CommitEdit();
-            rebuildPreview();
-        }
     }
     ImGui::Columns(1);
 
     if (ImGui::CollapsingHeader("Scene Camera and Environment"))
     {
+        ImGui::TextWrapped("%s", reinterpret_cast<const char*>(u8"\u80cc\u666f\u306e3D\u30d3\u30e5\u30fc\u306b\u306f\u7de8\u96c6\u4e2d\u306e\u30b7\u30fc\u30f3\u304c\u8868\u793a\u3055\u308c\u307e\u3059\u3002\u30de\u30a6\u30b9\u3068\u30ad\u30fc\u30dc\u30fc\u30c9\u3067\u30ab\u30e1\u30e9\u3092\u64cd\u4f5c\u3067\u304d\u307e\u3059\u3002"));
+        ImGui::Separator();
+        Engine::CameraState storedCamera;
+        storedCamera.pos = {document.camera.position.x, document.camera.position.y, document.camera.position.z};
+        storedCamera.gazePoint = {document.camera.target.x, document.camera.target.y, document.camera.target.z};
+        storedCamera.up = {document.camera.up.x, document.camera.up.y, document.camera.up.z};
+        storedCamera.fov = document.camera.verticalFovDegrees;
+        storedCamera.projection = document.camera.projection == RtPbrSurvey::SceneCameraProjection::Perspective
+            ? Engine::CameraProjection::Perspective : Engine::CameraProjection::Orthographic;
+        storedCamera.orthographicHeight = document.camera.orthographicHeight;
+        storedCamera.nearZ = document.camera.nearZ;
+        storedCamera.farZ = document.camera.farZ;
+        storedCamera.lensShiftX = document.camera.lensShiftX;
+        storedCamera.lensShiftY = document.camera.lensShiftY;
+        const DirectX::XMFLOAT3 storedRotation = Engine::GetCameraRotationRadians(storedCamera);
+        ImGui::TextUnformatted("Scene Camera");
+        ImGui::Text("Position: %.3f, %.3f, %.3f", storedCamera.pos.x, storedCamera.pos.y, storedCamera.pos.z);
+        ImGui::Text("Rotation XYZ: %.3f, %.3f, %.3f deg",
+                    DirectX::XMConvertToDegrees(storedRotation.x), DirectX::XMConvertToDegrees(storedRotation.y),
+                    DirectX::XMConvertToDegrees(storedRotation.z));
+        ImGui::Text("FOV: %.3f deg", document.camera.verticalFovDegrees);
+        const bool hasCamera = app.m_loadedScene != nullptr && app.m_loadedScene == app.m_sceneEditorPreviewScene.get();
+        ImGui::BeginDisabled(!hasCamera);
         if (ImGui::Button("Reset Camera"))
         {
-            std::string error;
-            if (!app.RebuildSceneEditorPreview(&error, false))
+            Engine::CameraState& current = app.m_loadedScene->GetScene().camera;
+            current.pos = storedCamera.pos;
+            current.gazePoint = storedCamera.gazePoint;
+            current.up = storedCamera.up;
+            current.rot = storedRotation;
+            current.fov = document.camera.verticalFovDegrees;
+            current.projection = document.camera.projection == RtPbrSurvey::SceneCameraProjection::Perspective
+                ? Engine::CameraProjection::Perspective : Engine::CameraProjection::Orthographic;
+            current.orthographicHeight = document.camera.orthographicHeight;
+            current.nearZ = document.camera.nearZ;
+            current.farZ = document.camera.farZ;
+            current.lensShiftX = document.camera.lensShiftX;
+            current.lensShiftY = document.camera.lensShiftY;
+            app.m_sceneRenderer.SetCamera(current);
+        }
+        ImGui::SameLine();
+        const bool cameraNeedsUpdate = hasCamera &&
+            !Engine::CameraViewParametersMatch(app.m_loadedScene->GetScene().camera, storedCamera);
+        if (SceneActionButton("Update Scene Camera", cameraNeedsUpdate))
+        {
+            const Engine::CameraState& current = app.m_loadedScene->GetScene().camera;
+            session.BeginEdit();
+            document.camera.position = {current.pos.x, current.pos.y, current.pos.z};
+            document.camera.target = {current.gazePoint.x, current.gazePoint.y, current.gazePoint.z};
+            document.camera.up = {current.up.x, current.up.y, current.up.z};
+            document.camera.verticalFovDegrees = current.fov;
+            document.camera.projection = current.projection == Engine::CameraProjection::Perspective
+                ? RtPbrSurvey::SceneCameraProjection::Perspective : RtPbrSurvey::SceneCameraProjection::Orthographic;
+            document.camera.orthographicHeight = current.orthographicHeight;
+            document.camera.nearZ = current.nearZ;
+            document.camera.farZ = current.farZ;
+            document.camera.lensShiftX = current.lensShiftX;
+            document.camera.lensShiftY = current.lensShiftY;
+            session.CommitEdit();
+        }
+        if (hasCamera)
+        {
+            Engine::CameraState& current = app.m_loadedScene->GetScene().camera;
+            bool cameraChanged = false;
+            float position[3] = {current.pos.x, current.pos.y, current.pos.z};
+            if (ImGui::InputFloat3("Camera Position", position))
             {
-                app.m_sceneEditorStatus = "Camera reset failed: " + error;
+                if (std::isfinite(position[0]) && std::isfinite(position[1]) && std::isfinite(position[2]))
+                {
+                    Engine::SetCameraPosition(current, {position[0], position[1], position[2]});
+                    cameraChanged = true;
+                }
+            }
+            const DirectX::XMFLOAT3 radians = Engine::GetCameraRotationRadians(current);
+            float degrees[3] = {DirectX::XMConvertToDegrees(radians.x), DirectX::XMConvertToDegrees(radians.y),
+                                DirectX::XMConvertToDegrees(radians.z)};
+            if (ImGui::InputFloat3("Camera Rotation XYZ (deg)", degrees))
+            {
+                if (std::isfinite(degrees[0]) && std::isfinite(degrees[1]) && std::isfinite(degrees[2]))
+                {
+                    Engine::SetCameraRotationRadians(current, {DirectX::XMConvertToRadians(degrees[0]),
+                        DirectX::XMConvertToRadians(degrees[1]), DirectX::XMConvertToRadians(degrees[2])});
+                    cameraChanged = true;
+                }
+            }
+            if (ImGui::SliderFloat("Camera Vertical FOV", &current.fov, 10.0f, 120.0f))
+            {
+                cameraChanged = true;
+            }
+            if (cameraChanged)
+            {
+                app.m_sceneRenderer.SetCamera(current);
             }
         }
+        ImGui::EndDisabled();
         bool sceneSettingsCommitted = false;
-        float cameraPosition[3] = {document.camera.position.x, document.camera.position.y, document.camera.position.z};
-        if (ImGui::InputFloat3("Camera Position", cameraPosition))
-        {
-            session.BeginEdit();
-            document.camera.position = {cameraPosition[0], cameraPosition[1], cameraPosition[2]};
-        }
-        sceneSettingsCommitted = sceneSettingsCommitted || ImGui::IsItemDeactivatedAfterEdit();
-        float cameraTarget[3] = {document.camera.target.x, document.camera.target.y, document.camera.target.z};
-        if (ImGui::InputFloat3("Camera Target", cameraTarget))
-        {
-            session.BeginEdit();
-            document.camera.target = {cameraTarget[0], cameraTarget[1], cameraTarget[2]};
-        }
-        sceneSettingsCommitted = sceneSettingsCommitted || ImGui::IsItemDeactivatedAfterEdit();
-        float verticalFovDegrees = document.camera.verticalFovDegrees;
-        if (ImGui::SliderFloat("Camera Vertical FOV", &verticalFovDegrees, 10.0f, 120.0f))
-        {
-            session.BeginEdit();
-            document.camera.verticalFovDegrees = verticalFovDegrees;
-        }
-        sceneSettingsCommitted = sceneSettingsCommitted || ImGui::IsItemDeactivatedAfterEdit();
 
         ImGui::Separator();
         bool iblEnabled = document.environment.iblEnabled;
@@ -1149,6 +1115,333 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         }
     }
     ImGui::End();
+}
+
+void DrawSceneEditorTransformUi(RtPbrSurveyApp& app)
+{
+    const bool wasUsing = app.m_sceneEditorGizmoUsing;
+    app.m_sceneEditorGizmoUsing = false;
+    app.m_sceneEditorGizmoCapturesMouse = false;
+    if (!app.m_sceneEditorSession.has_value())
+    {
+        return;
+    }
+    SceneEditorSession& session = *app.m_sceneEditorSession;
+    RtPbrSurvey::SceneNode* node = session.SelectedNode();
+    std::string editReason;
+    const bool editAllowed = app.CanEditSceneEditorDocument(editReason);
+    if (node == nullptr || !editAllowed || app.m_loadedScene == nullptr)
+    {
+        if (wasUsing || app.m_sceneEditorTransformEditPending)
+        {
+            session.CommitEdit();
+            app.m_sceneEditorTransformEditPending = false;
+        }
+        return;
+    }
+
+    const auto rebuildPreview = [&app]()
+    {
+        std::string error;
+        if (!app.RebuildSceneEditorPreview(&error))
+        {
+            app.m_sceneEditorStatus = "Transform preview failed: " + error;
+        }
+    };
+    const auto localMatrix = [&node]()
+    {
+        const RtPbrSurvey::SceneTransform& transform = node->transform;
+        return DirectX::XMMatrixScaling(transform.scale.x, transform.scale.y, transform.scale.z) *
+            DirectX::XMMatrixRotationQuaternion(DirectX::XMQuaternionNormalize(DirectX::XMVectorSet(
+                transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w))) *
+            DirectX::XMMatrixTranslation(transform.translation.x, transform.translation.y, transform.translation.z);
+    };
+
+    const bool windowOpen = app.m_sceneEditorShowTransformWindow;
+    if (windowOpen)
+    {
+        ImGui::SetNextWindowSize(ImVec2(430.0f, 290.0f), ImGuiCond_FirstUseEver);
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + (std::max)(0.0f, viewport->WorkSize.x - 450.0f),
+                                     viewport->WorkPos.y + 20.0f), ImGuiCond_FirstUseEver);
+    }
+    const char* nodeType = "Unknown";
+    switch (node->type)
+    {
+    case RtPbrSurvey::SceneNodeType::Gltf:
+        nodeType = "Mesh (glTF)";
+        break;
+    case RtPbrSurvey::SceneNodeType::Primitive:
+        nodeType = "Mesh (Primitive)";
+        break;
+    case RtPbrSurvey::SceneNodeType::Empty:
+        nodeType = "Empty Node";
+        break;
+    }
+    const std::string transformTitle = "Transform - " + node->name + " [" + nodeType + "]###Transform";
+    const bool visible = windowOpen && ImGui::Begin(transformTitle.c_str(), &app.m_sceneEditorShowTransformWindow);
+    bool changed = false;
+    bool committed = false;
+    if (visible)
+    {
+        ImGui::Text("%s (Local)", node->name.c_str());
+        ImGui::Text("Type: %s", nodeType);
+        ImGui::PushID(node->id.c_str());
+        ImGui::Checkbox("Transform Gizumo", &app.m_sceneEditorTransformGizmoEnabled);
+        ImGui::BeginDisabled(wasUsing);
+        ImGui::RadioButton("Move", &app.m_sceneEditorTransformTool, 0);
+        ImGui::SameLine();
+        ImGui::RadioButton("Rotate", &app.m_sceneEditorTransformTool, 1);
+        ImGui::SameLine();
+        ImGui::RadioButton("Scale", &app.m_sceneEditorTransformTool, 2);
+        if (app.m_sceneEditorTransformTool == 0)
+        {
+            ImGui::DragFloat("Move Step", &app.m_sceneEditorTranslationStep, 0.01f, 0.01f, 100.0f, "%.2f");
+        }
+        else if (app.m_sceneEditorTransformTool == 1)
+        {
+            ImGui::DragFloat("Rotate Step", &app.m_sceneEditorRotationStepDegrees, 1.0f, 1.0f, 180.0f, "%.0f deg");
+        }
+        else
+        {
+            ImGui::DragFloat("Scale Step", &app.m_sceneEditorScaleStep, 0.01f, 0.01f, 100.0f, "%.2f");
+        }
+        const auto applyTransformAxis = [&app, &session, &rebuildPreview](int axis, float direction)
+        {
+            RtPbrSurvey::SceneNode* node = session.SelectedNode();
+            if (node == nullptr)
+            {
+                return;
+            }
+            session.CommitEdit();
+            app.m_sceneEditorTransformEditPending = false;
+            session.BeginEdit();
+            const auto selectAxisComponent = [axis](RtPbrSurvey::SceneFloat3& value) -> float&
+            {
+                if (axis == 0)
+                {
+                    return value.x;
+                }
+                if (axis == 1)
+                {
+                    return value.y;
+                }
+                return value.z;
+            };
+            if (app.m_sceneEditorTransformTool == 0)
+            {
+                selectAxisComponent(node->transform.translation) += direction * app.m_sceneEditorTranslationStep;
+            }
+            else if (app.m_sceneEditorTransformTool == 1)
+            {
+                const DirectX::XMVECTOR currentRotation = DirectX::XMVectorSet(node->transform.rotation.x,
+                                                                                 node->transform.rotation.y,
+                                                                                 node->transform.rotation.z,
+                                                                                 node->transform.rotation.w);
+                const DirectX::XMVECTOR rotationAxis = axis == 0 ? DirectX::XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f) :
+                                                       axis == 1 ? DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f) :
+                                                                   DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+                const DirectX::XMVECTOR deltaRotation = DirectX::XMQuaternionRotationAxis(
+                    rotationAxis, DirectX::XMConvertToRadians(direction * app.m_sceneEditorRotationStepDegrees));
+                DirectX::XMFLOAT4 rotation = {};
+                DirectX::XMStoreFloat4(&rotation, DirectX::XMQuaternionNormalize(
+                                                    DirectX::XMQuaternionMultiply(currentRotation, deltaRotation)));
+                node->transform.rotation = {rotation.x, rotation.y, rotation.z, rotation.w};
+            }
+            else
+            {
+                float& scale = selectAxisComponent(node->transform.scale);
+                scale = (std::max)(0.01f, scale + direction * app.m_sceneEditorScaleStep);
+            }
+            session.CommitEdit();
+            rebuildPreview();
+        };
+        ImGui::BeginDisabled(session.SelectedNode() == nullptr);
+        if (ImGui::Button("X-"))
+        {
+            applyTransformAxis(0, -1.0f);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("X+"))
+        {
+            applyTransformAxis(0, 1.0f);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Y-"))
+        {
+            applyTransformAxis(1, -1.0f);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Y+"))
+        {
+            applyTransformAxis(1, 1.0f);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Z-"))
+        {
+            applyTransformAxis(2, -1.0f);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Z+"))
+        {
+            applyTransformAxis(2, 1.0f);
+        }
+        ImGui::EndDisabled();
+        ImGui::Separator();
+        float position[3] = {node->transform.translation.x, node->transform.translation.y, node->transform.translation.z};
+        if (ImGui::InputFloat3("Position", position) &&
+            std::isfinite(position[0]) && std::isfinite(position[1]) && std::isfinite(position[2]))
+        {
+            session.BeginEdit();
+            node->transform.translation = {position[0], position[1], position[2]};
+            changed = true;
+        }
+        committed |= ImGui::IsItemDeactivatedAfterEdit();
+        DirectX::XMFLOAT4X4 local;
+        DirectX::XMStoreFloat4x4(&local, localMatrix());
+        float translation[3], rotation[3], scale[3];
+        ImGuizmo::DecomposeMatrixToComponents(&local._11, translation, rotation, scale);
+        if (ImGui::InputFloat3("Rotation XYZ", rotation, "%.3f deg") &&
+            std::isfinite(rotation[0]) && std::isfinite(rotation[1]) && std::isfinite(rotation[2]))
+        {
+            ImGuizmo::RecomposeMatrixFromComponents(translation, rotation, scale, &local._11);
+            DirectX::XMVECTOR s, q, t;
+            if (DirectX::XMMatrixDecompose(&s, &q, &t, DirectX::XMLoadFloat4x4(&local)))
+            {
+                DirectX::XMFLOAT4 quaternion;
+                DirectX::XMStoreFloat4(&quaternion, DirectX::XMQuaternionNormalize(q));
+                session.BeginEdit();
+                node->transform.rotation = {quaternion.x, quaternion.y, quaternion.z, quaternion.w};
+                changed = true;
+            }
+        }
+        committed |= ImGui::IsItemDeactivatedAfterEdit();
+        if (ImGui::InputFloat3("Scale", scale) &&
+            std::isfinite(scale[0]) && std::isfinite(scale[1]) && std::isfinite(scale[2]) &&
+            scale[0] > 0.0f && scale[1] > 0.0f && scale[2] > 0.0f)
+        {
+            session.BeginEdit();
+            node->transform.scale = {scale[0], scale[1], scale[2]};
+            changed = true;
+        }
+        committed |= ImGui::IsItemDeactivatedAfterEdit();
+        ImGui::EndDisabled();
+        ImGui::PopID();
+    }
+    if (windowOpen)
+    {
+        ImGui::End();
+    }
+    app.m_sceneEditorTransformEditPending |= changed;
+    if (committed || (!visible && !wasUsing && app.m_sceneEditorTransformEditPending))
+    {
+        session.CommitEdit();
+        app.m_sceneEditorTransformEditPending = false;
+    }
+    if (changed)
+    {
+        session.MarkModified();
+        rebuildPreview();
+    }
+
+    if (!app.m_sceneEditorTransformGizmoEnabled)
+    {
+        ImGuizmo::BeginFrame();
+        ImGuizmo::PushID(node->id.c_str());
+        ImGuizmo::Enable(false);
+        ImGuizmo::PopID();
+        if (wasUsing)
+        {
+            session.CommitEdit();
+        }
+        return;
+    }
+
+    RtPbrSurvey::SceneGraphEvaluation graph;
+    if (!RtPbrSurvey::EvaluateSceneGraph(session.Document(), graph, nullptr))
+    {
+        return;
+    }
+    const DirectX::XMFLOAT4X4* nodeWorld = graph.FindWorld(node->id, session.Document());
+    if (nodeWorld == nullptr)
+    {
+        return;
+    }
+    DirectX::XMMATRIX parentWorld = DirectX::XMMatrixIdentity();
+    if (node->parentId.has_value())
+    {
+        const DirectX::XMFLOAT4X4* parent = graph.FindWorld(*node->parentId, session.Document());
+        if (parent == nullptr)
+        {
+            return;
+        }
+        parentWorld = DirectX::XMLoadFloat4x4(parent);
+    }
+    DirectX::XMFLOAT4X4 world = *nodeWorld;
+    const Engine::CameraState& camera = app.m_loadedScene->GetScene().camera;
+    const ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+    DirectX::XMFLOAT4X4 view, projection;
+    DirectX::XMStoreFloat4x4(&view, Engine::CreateCameraViewMatrix(camera));
+    DirectX::XMStoreFloat4x4(&projection, Engine::CreateCameraProjectionMatrix(
+        camera, displaySize.x / (std::max)(displaySize.y, 1.0f)));
+    ImGuizmo::BeginFrame();
+    ImGuizmo::SetDrawlist(ImGui::GetBackgroundDrawList());
+    ImGuizmo::SetRect(0.0f, 0.0f, displaySize.x, displaySize.y);
+    ImGuizmo::SetOrthographic(camera.projection == Engine::CameraProjection::Orthographic);
+    ImGuizmo::PushID(node->id.c_str());
+    ImGuizmo::Enable(!ImGui::IsAnyItemActive() || wasUsing);
+    const ImGuizmo::OPERATION operation = app.m_sceneEditorTransformTool == 0 ? ImGuizmo::TRANSLATE :
+        app.m_sceneEditorTransformTool == 1 ? ImGuizmo::ROTATE : ImGuizmo::SCALE;
+    const bool manipulated = ImGuizmo::Manipulate(&view._11, &projection._11, operation, ImGuizmo::LOCAL, &world._11);
+    app.m_sceneEditorGizmoUsing = ImGuizmo::IsUsing();
+    app.m_sceneEditorGizmoCapturesMouse = ImGuizmo::IsOver() || app.m_sceneEditorGizmoUsing;
+    if (manipulated)
+    {
+        const DirectX::XMMATRIX local = DirectX::XMLoadFloat4x4(&world) * DirectX::XMMatrixInverse(nullptr, parentWorld);
+        DirectX::XMVECTOR s, q, t;
+        if (DirectX::XMMatrixDecompose(&s, &q, &t, local))
+        {
+            DirectX::XMFLOAT3 scale, position;
+            DirectX::XMFLOAT4 rotation;
+            DirectX::XMStoreFloat3(&scale, s);
+            DirectX::XMStoreFloat3(&position, t);
+            DirectX::XMStoreFloat4(&rotation, DirectX::XMQuaternionNormalize(q));
+            const DirectX::XMMATRIX reconstructed = DirectX::XMMatrixScalingFromVector(s) *
+                DirectX::XMMatrixRotationQuaternion(q) * DirectX::XMMatrixTranslationFromVector(t);
+            DirectX::XMFLOAT4X4 original, result;
+            DirectX::XMStoreFloat4x4(&original, local);
+            DirectX::XMStoreFloat4x4(&result, reconstructed);
+            bool representable = scale.x > 0.0f && scale.y > 0.0f && scale.z > 0.0f;
+            for (size_t index = 0; index < 16; ++index)
+            {
+                const float value = (&original._11)[index];
+                representable &= std::isfinite(value) && std::isfinite((&result._11)[index]) &&
+                    std::abs(value - (&result._11)[index]) <= 0.0001f * (std::max)(1.0f, std::abs(value));
+            }
+            if (representable)
+            {
+                session.BeginEdit();
+                node->transform.translation = {position.x, position.y, position.z};
+                node->transform.rotation = {rotation.x, rotation.y, rotation.z, rotation.w};
+                node->transform.scale = {scale.x, scale.y, scale.z};
+                session.MarkModified();
+                rebuildPreview();
+            }
+            else
+            {
+                app.m_sceneEditorStatus = "Gizmo transform cannot be represented as local Position / Rotation / Scale.";
+            }
+        }
+        else
+        {
+            app.m_sceneEditorStatus = "Gizmo transform cannot be decomposed into local Position / Rotation / Scale.";
+        }
+    }
+    ImGuizmo::PopID();
+    if (wasUsing && !app.m_sceneEditorGizmoUsing)
+    {
+        session.CommitEdit();
+    }
 }
 
 } // namespace App

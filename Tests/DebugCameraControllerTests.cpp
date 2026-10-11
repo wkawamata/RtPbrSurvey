@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "Camera/DebugCameraController.h"
+#include "Scene/CameraView.h"
 
 #include <cmath>
 #include <iostream>
@@ -96,6 +97,27 @@ bool TestArcballSwitchPreservesEightyEightDegreeCamera()
 
 int main()
 {
+    Engine::CameraState rolledCamera;
+    Engine::SetCameraRotationRadians(rolledCamera, {0.2f, 0.3f, 0.45f});
+    RtPbrSurvey::DebugCameraController rolledController;
+    rolledController.SetCameraState(&rolledCamera);
+    rolledController.SetMode(RtPbrSurvey::DebugCameraController::Mode::FreeLook);
+    rolledController.UpdateFreeLookKeyboard(0.0f, false, false, false, false, false, false, false, false);
+    DirectX::XMFLOAT3 rolledAngles = Engine::GetCameraRotationRadians(rolledCamera);
+    if (!NearlyEqual(rolledAngles, rolledCamera.rot))
+    {
+        std::cerr << "Keyboard update did not preserve camera roll.\n";
+        return 1;
+    }
+    rolledController.OnMouseDown(VK_RBUTTON, 0, 0);
+    rolledController.OnMouseMove(20, 10);
+    rolledController.OnMouseUp(VK_RBUTTON, 20, 10);
+    rolledAngles = Engine::GetCameraRotationRadians(rolledCamera);
+    if (!NearlyEqual(rolledAngles, rolledCamera.rot) || !NearlyEqual(rolledAngles.z, 0.45f))
+    {
+        std::cerr << "Mouse rotation did not synchronize camera roll.\n";
+        return 1;
+    }
     // Positive DirectX pitch looks downward. A no-input foreground update must
     // preserve the saved validation camera's direction toward the floor.
     Engine::CameraState camera;

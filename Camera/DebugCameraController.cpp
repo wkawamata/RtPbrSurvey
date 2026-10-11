@@ -215,6 +215,7 @@ void DebugCameraController::OnMouseMove(int x, int y)
         const auto camRot = XMMatrixRotationRollPitchYaw(camera->rot.x, camera->rot.y, camera->rot.z);
         const XMVECTOR fwd = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRot);
         XMStoreFloat3(&camera->gazePoint, XMVectorAdd(XMLoadFloat3(&camera->pos), fwd));
+        XMStoreFloat3(&camera->up, XMVector3TransformNormal(XMVectorSet(0, 1, 0, 0), camRot));
         return;
     }
 
@@ -234,6 +235,7 @@ void DebugCameraController::OnMouseMove(int x, int y)
             const auto camRot = XMMatrixRotationRollPitchYaw(camera->rot.x, camera->rot.y, camera->rot.z);
             const XMVECTOR fwd = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRot);
             XMStoreFloat3(&camera->gazePoint, XMVectorAdd(XMLoadFloat3(&camera->pos), fwd));
+            XMStoreFloat3(&camera->up, XMVector3TransformNormal(XMVectorSet(0, 1, 0, 0), camRot));
         }
         else if (m_isMiddleDragging)
         {
@@ -404,6 +406,7 @@ void DebugCameraController::UpdateRightDragKeyboard(bool moveLeft,
     const auto camRot = XMMatrixRotationRollPitchYaw(camera->rot.x, camera->rot.y, camera->rot.z);
     const XMVECTOR fwd = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRot);
     XMStoreFloat3(&camera->gazePoint, XMVectorAdd(XMLoadFloat3(&camera->pos), fwd));
+    XMStoreFloat3(&camera->up, XMVector3TransformNormal(XMVectorSet(0, 1, 0, 0), camRot));
 }
 
 void DebugCameraController::UpdateFreeLookKeyboard(float,
@@ -456,6 +459,7 @@ void DebugCameraController::UpdateFreeLookKeyboard(float,
     const auto camRot = XMMatrixRotationRollPitchYaw(camera->rot.x, camera->rot.y, camera->rot.z);
     const XMVECTOR fwd = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRot);
     XMStoreFloat3(&camera->gazePoint, XMVectorAdd(XMLoadFloat3(&camera->pos), fwd));
+    XMStoreFloat3(&camera->up, XMVector3TransformNormal(XMVectorSet(0, 1, 0, 0), camRot));
 }
 
 XMFLOAT3 DebugCameraController::ProjectToArcball(int x, int y) const
