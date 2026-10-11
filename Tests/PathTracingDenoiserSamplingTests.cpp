@@ -1,0 +1,295 @@
+#include <windows.h>
+#include <d3d12.h>
+#include <d3d12sdklayers.h>
+#include <dxgi1_4.h>
+#include <wrl/client.h>
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <iterator>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+using Microsoft::WRL::ComPtr;
+
+namespace
+{
+constexpr unsigned int kSamplesPerCase = 1024;
+constexpr unsigned int kSampleCount = 28 * kSamplesPerCase;
+constexpr double kPi = 3.141592653589793;
+
+void Check(HRESULT result)
+{
+    if (FAILED(result))
+    {
+        throw std::runtime_error("D3D12 operation failed: " + std::to_string(result));
+    }
+}
+
+struct Vector
+{
+    double x, y, z;
+    Vector operator+(Vector other) const
+    {
+        return {x + other.x, y + other.y, z + other.z};
+    }
+    Vector operator*(double scale) const
+    {
+        return {x * scale, y * scale, z * scale};
+    }
+};
+
+double Dot(Vector a, Vector b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+Vector Cross(Vector a, Vector b)
+{
+    return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
+Vector Normalize(Vector a)
+{
+    return a * (1.0 / std::sqrt(Dot(a, a)));
+}
+
+Vector ReferenceNormal(Vector view, double alpha, double u, double v)
+{
+    const Vector stretched = Normalize({alpha * view.x, alpha * view.y, view.z});
+    const double planarLength = std::hypot(stretched.x, stretched.y);
+    const Vector tangent = planarLength > 0.0 ? Vector{-stretched.y / planarLength, stretched.x / planarLength, 0.0}
+                                              : Vector{1.0, 0.0, 0.0};
+    const Vector bitangent = Cross(stretched, tangent);
+    const double diskX = std::sqrt(u) * std::cos(2.0 * kPi * v);
+    const double blend = (1.0 + stretched.z) / 2.0;
+    const double diskY =
+        (1.0 - blend) * std::sqrt(std::max(0.0, 1.0 - diskX * diskX)) + blend * std::sqrt(u) * std::sin(2.0 * kPi * v);
+    const Vector normal =
+        tangent * diskX + bitangent * diskY + stretched * std::sqrt(std::max(0.0, 1.0 - diskX * diskX - diskY * diskY));
+    return Normalize({alpha * normal.x, alpha * normal.y, std::max(0.0, normal.z)});
+}
+
+ComPtr<ID3D12Resource> Buffer(ID3D12Device* device, UINT64 size, D3D12_HEAP_TYPE heap, D3D12_RESOURCE_STATES state)
+{
+    D3D12_HEAP_PROPERTIES properties = {};
+    properties.Type = heap;
+    D3D12_RESOURCE_DESC desc = {};
+    desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    desc.Width = size;
+    desc.Height = 1;
+    desc.DepthOrArraySize = 1;
+    desc.MipLevels = 1;
+    desc.SampleDesc.Count = 1;
+    desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    desc.Flags =
+        heap == D3D12_HEAP_TYPE_DEFAULT ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS : D3D12_RESOURCE_FLAG_NONE;
+    ComPtr<ID3D12Resource> result;
+    Check(device->CreateCommittedResource(
+        &properties, D3D12_HEAP_FLAG_NONE, &desc, state, nullptr, IID_PPV_ARGS(&result)));
+    return result;
+}
+
+bool Near(double actual, double expected, double absolute = 0.0002, double relative = 0.002)
+{
+    return std::isfinite(actual) && std::abs(actual - expected) <= absolute + relative * std::abs(expected);
+}
+
+void Validate(const float* values)
+{
+    constexpr double roughnesses[] = {0.0, 0.1, 0.35, 0.7, 1.0};
+    constexpr double viewZs[] = {1.0, 0.8, 0.1, 0.0001};
+    unsigned int belowSurface = 0;
+    unsigned int normalIncidenceRoughInvalid = 0;
+    double maxDirectionError = 0.0;
+    for (unsigned int index = 0; index < kSampleCount; ++index)
+    {
+        const float* value = values + index * 16;
+        for (unsigned int channel = 0; channel < 16; ++channel)
+        {
+            if (!std::isfinite(value[channel]))
+                throw std::runtime_error("Non-finite shader output");
+        }
+        const unsigned int caseIndex = index / kSamplesPerCase;
+        if (caseIndex >= 20)
+        {
+            for (unsigned int channel = 0; channel < 8; ++channel)
+            {
+                if (value[channel] != 0.0f)
+                    throw std::runtime_error("Invalid VNDF input accepted");
+            }
+            if (value[12] != 0.0f)
+                throw std::runtime_error("Invalid VNDF PDF accepted");
+            continue;
+        }
+        const unsigned int localIndex = index % kSamplesPerCase;
+        const double u = localIndex == 0      ? 0.0
+                         : localIndex == 1023 ? static_cast<double>(0.99999f)
+                                              : (localIndex % 32 + 0.5) / 32.0;
+        const double v = localIndex == 0      ? 0.0
+                         : localIndex == 1023 ? static_cast<double>(0.99999f)
+                                              : (localIndex / 32 + 0.5) / 32.0;
+        const double alpha = std::max(roughnesses[caseIndex / 4] * roughnesses[caseIndex / 4], 0.001);
+        const double z = viewZs[caseIndex % 4];
+        const Vector view = {std::sqrt(1.0 - z * z), 0.0, z};
+        const Vector normal = ReferenceNormal(view, alpha, u, v);
+        const Vector reflected = normal * (2.0 * Dot(view, normal)) + view * -1.0;
+        const double denominator = normal.x * normal.x + normal.y * normal.y + alpha * alpha * normal.z * normal.z;
+        const double distribution = alpha * alpha / (kPi * denominator * denominator);
+        const double smithRatio = 2.0 / (z + std::sqrt(alpha * alpha + (1.0 - alpha * alpha) * z * z));
+        const double normalPdf = distribution * smithRatio * Dot(view, normal);
+        const bool valid = reflected.z > 0.0;
+        const double directionPdf = valid ? normalPdf / (4.0 * Dot(view, normal)) : 0.0;
+        const double expected[] = {normal.x,
+                                   normal.y,
+                                   normal.z,
+                                   normalPdf,
+                                   reflected.x,
+                                   reflected.y,
+                                   reflected.z,
+                                   valid ? 1.0 : 0.0,
+                                   std::sqrt(u) * std::cos(2.0 * kPi * v),
+                                   std::sqrt(u) * std::sin(2.0 * kPi * v),
+                                   std::sqrt(1.0 - u),
+                                   std::sqrt(1.0 - u) / kPi,
+                                   directionPdf,
+                                   0.0,
+                                   0.0,
+                                   0.0};
+        for (unsigned int channel = 0; channel < 16; ++channel)
+        {
+            if (!Near(value[channel], expected[channel]))
+            {
+                throw std::runtime_error("Reference mismatch at sample " + std::to_string(index) + " channel " +
+                                         std::to_string(channel) + " actual " + std::to_string(value[channel]) +
+                                         " expected " + std::to_string(expected[channel]));
+            }
+            if (channel >= 4 && channel <= 6)
+                maxDirectionError = std::max(maxDirectionError, std::abs(value[channel] - expected[channel]));
+        }
+        const Vector gpuNormal = {value[0], value[1], value[2]};
+        const Vector gpuDirection = {value[4], value[5], value[6]};
+        if (!Near(Dot(gpuNormal, gpuNormal), 1.0) || !Near(Dot(gpuDirection, gpuDirection), 1.0) ||
+            gpuNormal.z <= 0.0 || Dot(view, gpuNormal) <= 0.0 || value[7] != (value[6] > 0.0f ? 1.0f : 0.0f))
+            throw std::runtime_error("VNDF support or validity mismatch");
+        if (caseIndex % 4 == 0)
+        {
+            const double analyticZ = std::sqrt((1.0 - u) / (1.0 + (alpha * alpha - 1.0) * u));
+            if (!Near(value[2], analyticZ))
+                throw std::runtime_error("Normal-incidence CDF mismatch");
+        }
+        if (!valid)
+            ++belowSurface;
+        if (caseIndex == 16 && !valid)
+            ++normalIncidenceRoughInvalid;
+    }
+    if (belowSurface == 0 || normalIncidenceRoughInvalid != 512)
+        throw std::runtime_error("Below-surface rejection distribution mismatch");
+    std::cout << "Validated " << kSampleCount << " HLSL samples; below-surface=" << belowSurface
+              << "; maximum direction error=" << maxDirectionError << '\n';
+}
+} // namespace
+
+int main(int argc, char** argv)
+{
+    try
+    {
+        if (argc < 2)
+            throw std::runtime_error("Shader path required");
+        std::ifstream file(argv[1], std::ios::binary);
+        const std::vector<char> shader((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        if (shader.empty())
+            throw std::runtime_error("Missing shader bytecode");
+        ComPtr<ID3D12Debug> debug;
+        Check(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)));
+        debug->EnableDebugLayer();
+        ComPtr<IDXGIFactory4> factory;
+        Check(CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&factory)));
+        ComPtr<IDXGIAdapter> adapter;
+        const bool hardware = argc > 2 && std::strcmp(argv[2], "--hardware") == 0;
+        if (!hardware)
+            Check(factory->EnumWarpAdapter(IID_PPV_ARGS(&adapter)));
+        ComPtr<ID3D12Device> device;
+        Check(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device)));
+        ComPtr<ID3D12InfoQueue> info;
+        Check(device.As(&info));
+        D3D12_ROOT_PARAMETER parameter = {};
+        parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
+        parameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+        D3D12_ROOT_SIGNATURE_DESC rootDesc = {};
+        rootDesc.NumParameters = 1;
+        rootDesc.pParameters = &parameter;
+        ComPtr<ID3DBlob> blob, errors;
+        Check(D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &errors));
+        ComPtr<ID3D12RootSignature> root;
+        Check(device->CreateRootSignature(0, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS(&root)));
+        D3D12_COMPUTE_PIPELINE_STATE_DESC pipelineDesc = {};
+        pipelineDesc.pRootSignature = root.Get();
+        pipelineDesc.CS = {shader.data(), shader.size()};
+        ComPtr<ID3D12PipelineState> pipeline;
+        Check(device->CreateComputePipelineState(&pipelineDesc, IID_PPV_ARGS(&pipeline)));
+        const UINT64 byteCount = UINT64(kSampleCount) * 16 * sizeof(float);
+        const auto output =
+            Buffer(device.Get(), byteCount, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        const auto readback = Buffer(device.Get(), byteCount, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST);
+        D3D12_COMMAND_QUEUE_DESC queueDesc = {};
+        ComPtr<ID3D12CommandQueue> queue;
+        Check(device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&queue)));
+        ComPtr<ID3D12CommandAllocator> allocator;
+        Check(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&allocator)));
+        ComPtr<ID3D12GraphicsCommandList> commands;
+        Check(device->CreateCommandList(
+            0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator.Get(), pipeline.Get(), IID_PPV_ARGS(&commands)));
+        commands->SetComputeRootSignature(root.Get());
+        commands->SetComputeRootUnorderedAccessView(0, output->GetGPUVirtualAddress());
+        commands->Dispatch(kSampleCount / 64, 1, 1);
+        D3D12_RESOURCE_BARRIER barrier = {};
+        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        barrier.Transition.pResource = output.Get();
+        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        commands->ResourceBarrier(1, &barrier);
+        commands->CopyBufferRegion(readback.Get(), 0, output.Get(), 0, byteCount);
+        Check(commands->Close());
+        ID3D12CommandList* lists[] = {commands.Get()};
+        queue->ExecuteCommandLists(1, lists);
+        ComPtr<ID3D12Fence> fence;
+        Check(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)));
+        Check(queue->Signal(fence.Get(), 1));
+        const HANDLE event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+        if (!event)
+            throw std::runtime_error("Could not create fence event");
+        const HRESULT eventResult = fence->SetEventOnCompletion(1, event);
+        const DWORD wait = SUCCEEDED(eventResult) ? WaitForSingleObject(event, 30000) : WAIT_FAILED;
+        CloseHandle(event);
+        Check(eventResult);
+        if (wait != WAIT_OBJECT_0)
+            throw std::runtime_error("GPU sampling test timed out");
+        for (UINT64 index = 0; index < info->GetNumStoredMessages(); ++index)
+        {
+            SIZE_T length = 0;
+            Check(info->GetMessage(index, nullptr, &length));
+            std::vector<char> messageBytes(length);
+            auto* message = reinterpret_cast<D3D12_MESSAGE*>(messageBytes.data());
+            Check(info->GetMessage(index, message, &length));
+            if (message->Severity <= D3D12_MESSAGE_SEVERITY_ERROR)
+                throw std::runtime_error(message->pDescription);
+        }
+        const D3D12_RANGE range = {0, static_cast<SIZE_T>(byteCount)};
+        void* data = nullptr;
+        Check(readback->Map(0, &range, &data));
+        Validate(static_cast<const float*>(data));
+        const D3D12_RANGE written = {0, 0};
+        readback->Unmap(0, &written);
+        std::cout << (hardware ? "Hardware" : "WARP") << ": no D3D12 errors.\n";
+        return 0;
+    }
+    catch (const std::exception& error)
+    {
+        std::cerr << error.what() << '\n';
+        return 1;
+    }
+}

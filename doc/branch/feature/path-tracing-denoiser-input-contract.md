@@ -803,3 +803,65 @@ distance rejection and refusal to mark diffuse-only inputs fully ready.
 No runtime or shader source changed; no new build or quality result is claimed.
 Evidence: bin/PathTracingValidation/nrd-step2f-surface-distance-20261011/lobe-distance-audit.json.
 Next: implement and independently test the dedicated VNDF/cosine distance path.
+
+### Step 2H: Isolated Cosine / VNDF Sampler (2026-10-12)
+
+Added PathTracingDenoiserSampling.hlsli, separate from Native transport sampling.
+It implements isotropic GGX visible-normal sampling from Heitz 2018 (corrected
+2019), with local normal +Z, and a cosine-weighted local direction sampler.
+Reference: https://jcgt.org/published/0007/04/01/ and its paper.pdf.
+Roughness maps to alpha=max(roughness^2, 0.001), matching the existing Native
+minimum, without changing that sampler. The VNDF normal PDF uses the exact GGX
+distribution and Smith visibility ratio; no arbitrary PDF denominator floor is
+introduced. Reflection density uses the half-vector Jacobian 1/(4*VdotH).
+
+This is the unbounded Heitz VNDF baseline, NOT a bounded or NRD VNDF-v3 sampler.
+Visible microfacet normals can reflect below the surface. The test shader marks
+these directions invalid, with reflection PDF zero; it does not resample or
+renormalize the remaining directions. Handling this missing-distance state,
+including geometric versus shading-normal rejection, remains a dispatch blocker.
+Do not treat the PDF as a normalized conditional above-surface distribution.
+
+Input contracts reject nonfinite/invalid roughness, nonunit or below/tangent
+views, and random coordinates outside [0,1). Roughness zero uses the documented
+alpha floor, not an exact delta distribution. Helpers use local frames only;
+world-frame construction and independent deterministic RNG are not connected yet.
+
+#### HLSL Execution Tests
+
+Added a standalone D3D12 compute test and CTest registration, without linking
+SceneRenderer, Streamline or NRD. It runs 28672 HLSL samples: 20 valid
+roughness/view configurations and eight invalid-input configurations, 1024 samples
+each. Valid cases include roughness 0/0.1/0.35/0.7/1 and view cosine
+1/0.8/0.1/0.0001, random zero and a near-one endpoint. Outputs are checked against
+a double-precision reference, the normal-incidence analytic quantile, unit length,
+visible-normal support, cosine directions/PDFs and rejection state. At roughness
+one/normal incidence, exactly 512 samples reflect below the surface as expected.
+This is pointwise/analytic validation, not a full statistical convergence proof.
+
+The endpoint extension initially failed: subtracting squared disk coordinates
+lost precision near the disk boundary. Equivalent nonnegative residual formulas
+and precise intermediates fixed this without changing the sampling distribution
+or loosening the pre-existing 0.0002 + 0.002*abs(reference) test bound.
+
+Final WARP and default hardware-adapter runs both passed, each with 1539 rejected
+below-surface samples and no D3D12 errors. Maximum reflected-direction errors:
+WARP 0.00000788471, hardware 0.00000862977. Debug x64 test-target build passed
+with zero warnings/errors; CTest passed 29/29 (existing test binaries plus the
+newly built sampling target). Final build log:
+C:/work/RtPbrSurvey-agents/nrd-step2h-sampler-delivery-20261012.
+Native shader source, RNG and radiance are untouched;
+no application radiance cohort or new scene-distance capture is claimed here.
+
+Test invocation from repository root:
+
+```powershell
+& .\build\Debug\RtPbrSurvey.PathTracingDenoiserSamplingTests.exe .\build\Tests\shaders_DenoiserSampling_CSMain.cso
+& .\build\Debug\RtPbrSurvey.PathTracingDenoiserSamplingTests.exe .\build\Tests\shaders_DenoiserSampling_CSMain.cso --hardware
+```
+
+Next: connect an independent deterministic distance RNG, world-frame conversion,
+geometry-normal rejection and dedicated first-segment traces. Validate the new
+directions/distances against the planar oracle and compare Native radiance in a
+matched cohort. NRD miss mapping, material demodulation, packing and RELAX
+dispatch remain pending; support is still unavailable.

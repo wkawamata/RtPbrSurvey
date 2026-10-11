@@ -434,6 +434,20 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_link_libraries(RtPbrSurvey.NrdRelaxAdapterTests PRIVATE RtPbrSurvey::SceneRenderer)
     add_test(NAME RtPbrSurvey.NrdRelaxAdapter COMMAND RtPbrSurvey.NrdRelaxAdapterTests)
 
+    set(denoiser_sampling_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_DenoiserSampling_CSMain.cso")
+    add_custom_command(OUTPUT "${denoiser_sampling_shader}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/Tests"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${denoiser_sampling_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_DenoiserSampling.hlsl"
+        DEPENDS Tests/shaders_DenoiserSampling.hlsl Shaders/PathTracingDenoiserSampling.hlsli
+        VERBATIM)
+    add_executable(RtPbrSurvey.PathTracingDenoiserSamplingTests
+        Tests/PathTracingDenoiserSamplingTests.cpp "${denoiser_sampling_shader}")
+    target_link_libraries(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE d3d12 dxgi)
+    target_compile_definitions(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE NOMINMAX)
+    add_test(NAME RtPbrSurvey.PathTracingDenoiserSampling
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${denoiser_sampling_shader}")
+
     add_executable(RtPbrSurvey.EvaluationStateTests
         Tests/EvaluationStateTests.cpp)
     target_link_libraries(RtPbrSurvey.EvaluationStateTests PRIVATE RtPbrSurvey::SceneRenderer)
