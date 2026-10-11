@@ -12,6 +12,7 @@ RWTexture2D<float4> g_currentFrameRadiance : register(u8);
 RWTexture2D<float4> g_materialF0Metallic : register(u9);
 RWTexture2D<float4> g_stableRadiance : register(u10);
 RWTexture2D<float4> g_backgroundRadiance : register(u11);
+RWTexture2D<float4> g_secondaryRayData : register(u12);
 RaytracingAccelerationStructure g_tlas : register(t0);
 ByteAddressBuffer g_sceneVertices : register(t1);
 ByteAddressBuffer g_sceneIndices : register(t2);
@@ -67,7 +68,6 @@ cbuffer PathTracingConstants : register(b1)
     float4 backgroundColor;
     uint emissiveTriangleCount;
     uint emissiveSamplingMode;
-    uint2 emissivePadding;
 };
 
 #include "SceneRayQuery.hlsli"
@@ -166,6 +166,7 @@ struct PrimarySurfaceData
     float2 motionVector;
     float4 albedo;
     float4 materialF0Metallic;
+    float4 secondaryRayData;
     float hitT;
 };
 
@@ -177,6 +178,7 @@ PrimarySurfaceData MakeMissPrimarySurfaceData()
     result.motionVector = float2(0.0, 0.0);
     result.albedo = float4(0.0, 0.0, 0.0, 0.0);
     result.materialF0Metallic = 0.0;
+    result.secondaryRayData = 0.0;
     result.hitT = 0.0;
     return result;
 }
@@ -370,6 +372,16 @@ float3 TracePath(uint2 pixel,
         query.TraceRayInline(g_tlas, 0, 0xff, ray);
         while (query.Proceed())
         {
+        }
+
+        if (bounce == 1)
+        {
+            const bool secondaryHit = query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
+            primarySurface.secondaryRayData = float4(
+                secondaryHit ? query.CommittedRayT() : ray.TMax,
+                primarySpecularPath ? 2.0 : 1.0,
+                secondaryHit ? 1.0 : 2.0,
+                0.0);
         }
 
         if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
@@ -769,4 +781,5 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_G
     g_materialF0Metallic[pixel] = primarySurface.materialF0Metallic;
     g_stableRadiance[pixel] = float4(frameStableRadianceSum / float(sampleCount), 0.0);
     g_backgroundRadiance[pixel] = float4(frameBackgroundRadianceSum / float(sampleCount), 0.0);
+    g_secondaryRayData[pixel] = primarySurface.secondaryRayData;
 }

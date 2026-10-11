@@ -707,6 +707,7 @@ private:
         PathTracingGuideMaterialF0Metallic,
         PathTracingGuideStableRadiance,
         PathTracingGuideBackgroundRadiance,
+        PathTracingGuideSecondaryRayData,
         PathTracingGuideTextureCount,
     };
     static constexpr UINT kPathTracingDescriptorCount =
@@ -1325,6 +1326,7 @@ private:
         "PathTracing.MaterialF0Metallic",
         "PathTracing.StableRadiance",
         "PathTracing.BackgroundRadiance",
+        "PathTracing.SecondaryRayData",
     };
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
         "DebugTexturePreview.Output.0",

@@ -355,3 +355,141 @@ Shader SHA256:
 b4d854986dee0a39a4e7dae8b4d4778008eb20d166eb1d7ed44c5d9623320630.
 
 Next: secondary-hit distance and lobe partition audit before NRD-specific packing.
+
+## Step 2B: Secondary Ray Diagnostic And Lobe Audit
+
+PathTracing.SecondaryRayData is RGBA32_FLOAT, registered for graph inspection,
+debug preview and PTBUF capture. Like material guides, it records only the first
+primary sample of the dispatch, not a batch average:
+
+| Channel | Meaning |
+| --- | --- |
+| R | First continuation segment CommittedRayT; on miss the segment TMax |
+| G | Sampling proposal: 0 untraced, 1 cosine/diffuse proposal, 2 GGX/specular proposal |
+| B | Trace status: 0 untraced, 1 triangle hit, 2 miss |
+| A | Reserved zero |
+
+An all-zero tuple means no secondary ray was traced (primary miss, one-segment
+limit, invalid BSDF sample, rejected geometry hemisphere, etc.). It does not mean
+an environment miss. A miss has an explicit status and finite TMax, not infinity.
+The distance starts at the biased primary-surface ray origin, not the camera and
+not the exact unbiased surface. It is the first continuation segment, not total
+path length and not distance to a NEE light. It must NOT be supplied to NRD as
+separate diffuse/specular hit distance without completing the signal contract.
+
+No random draw, ray or radiance operation was added/changed. To fit the additional
+UAV table, two unused trailing root-constant padding DWORDs were removed from the
+CPU/HLSL declarations; all used offsets remain unchanged. The root signature now
+costs 63 DWORDs (19 tables + five root SRVs + 34 constants). Resource overhead is
+another 16 bytes/pixel; total Step 2 output overhead is 72 bytes/pixel.
+
+### Audit Findings
+
+The direct-light, emissive NEE and environment NEE branches already split primary
+contributions using EvaluatePathTracingBrdfComponents, with the same lighting
+factor/PDF/MIS weight. Do not rewrite these as if they were still wholly diffuse.
+Primary directly visible emission/Unlit remains intentionally in the legacy
+diffuse signal, removed separately using StableRadiance in the proposed adapter.
+
+The continuation path does have a classification limitation:
+
+```text
+SamplePathTracingBsdf.weight = (diffuseBRDF + specularBRDF) * cos / mixturePDF
+primarySpecularPath = (sampled proposal was GGX)
+all later contributions are assigned to that selected proposal's signal
+```
+
+Selecting a proposal is NOT selecting a physical transport component. For a
+mixed material, either proposal evaluates both BRDF components. Their sum is the
+correct Native estimator, but each separated continuation guide is generally
+not an estimator of its named physical lobe. Perfect bitwise reconstruction of
+the sum does not prove those individual guides are suitable for RELAX.
+
+The metal-only roughness fixture masks this problem because the diffuse BRDF is
+zero. Existing Native correctness acceptance concerns total radiance, not this
+new denoiser component contract. Keep Native behavior/reference outputs intact.
+
+Next narrow delivery: derive component-weighted continuation signals using the
+same sampled direction and mixture PDF, retain shared downstream transport and
+MIS/RR factors, and prove sum preservation plus an independently evaluated
+mixed-material split. Do not select only the sampled proposal's BRDF with an
+incorrect mixture PDF. Legacy guide semantics should remain explicit; new
+backend signals need their own contract and distance association. Only then
+proceed to coherent primary sampling and NRD demodulation/packing.
+
+Validation runner: Tests/PathTracing/validate_secondary_ray.py. The fixtures check
+no continuation at one segment, specular proposals on metal, secondary hits and
+both proposals on mixed-material indirect geometry, finite distances, explicit
+miss/untraced states and primary-miss sentinels. These state checks alone are not
+an independent geometric distance oracle or a completed denoiser distance test.
+
+### Step 2B Validation (2026-10-10)
+
+Debug x64 app build passed with zero warnings/errors. CTest: 28/28 passed;
+Python PT suite: 169/169 passed. GPU diagnostic validation passed all three
+fixtures (six captures), with zero D3D12 capture errors. The indirect fixture
+included 123628 secondary-hit pixels, 1147033 secondary misses and 802939
+untraced pixels; both sampling proposals were present. One-segment and metal
+proposal expectations passed separately. No NRD dispatch or GUI review occurred.
+
+Diagnostic evidence: bin/PathTracingValidation/nrd-step2b-secondary-20261010.
+Build evidence: C:/work/RtPbrSurvey-agents/nrd-step2b-secondary-20261010.
+Executable SHA256:
+3e1d07853778ec756213d9851d54ac856e0d95328df48d54e96dfccaa65578fb.
+Shader SHA256:
+4ec543775bebea3b838b4f3e1cb44042237488fe59b35e464dc5968872d6b17a.
+
+Native regression evidence:
+bin/PathTracingValidation/nrd-step2b-native-regression-20261010.
+All 11 previous guide/frame/accumulation outputs and metadata were bit-identical
+to Step 2A captures. Reconstruction and sentinel checks passed with the unchanged
+maximum error 0.001922607421875; all 11 logs contained zero D3D12 capture errors.
+This confirms the diagnostic/root-padding change did not change this fixture's
+Native outputs; it does not validate physical mixed-lobe signal separation.
+
+### Step 2B Resume (2026-10-11)
+
+The diagnostic path was resumed after the Scene Editor UI work. Added rejection
+tests for unknown assessment modes and nonfinite/nonpositive ray maxima. The
+focused secondary-ray unit suite passed 7/7. CTest passed 28/28.
+
+The current working-tree Python suite passed 170/171: its archived-emitter
+geometry check rejects the manually edited large-emissive-panel scene. That
+user-authored file was preserved, not reset or included in this delivery. When
+only that file's test read was mocked with its committed HEAD contents, all
+171 tests passed. This is explicitly a committed-fixture result, not a claim
+that the modified working-tree fixture passed.
+
+Secondary diagnostics passed three fixtures/six captures with zero recorded
+D3D12 errors. Counts matched the previous run: the indirect fixture had 123628
+hits, 1147033 misses and 802939 untraced pixels. The test still does not provide
+an independent geometric distance oracle or completed RELAX distance packing.
+
+Evidence: bin/PathTracingValidation/nrd-step2b-resume-20261011.
+Native regression was also rerun: all 11 output buffers and metadata were
+bit-identical to the 2026-10-10 baseline, with zero recorded D3D12 errors.
+Reconstruction maximum error remained 0.001922607421875 and all checks passed.
+Evidence: bin/PathTracingValidation/nrd-step2b-native-resume-20261011.
+Executable SHA256:
+55b12e8dcba7cf88dbdf249c54baf95a0dba7cbc50c6e1d9f9c9530ba51632a4.
+Shader SHA256:
+4ec543775bebea3b838b4f3e1cb44042237488fe59b35e464dc5968872d6b17a.
+
+### Next: Step 2C Physical Continuation Split
+
+- Preserve Native total radiance and existing guide semantics/reference files.
+- Evaluate diffuse/specular BRDF components for the same sampled continuation
+  direction, cosine and mixture PDF; proposal identity is diagnostic only.
+- Apply component weights to shared downstream transport, including the same
+  visibility, emission, MIS and Russian Roulette factors; do not sample a second
+  path or change random-number consumption merely to separate signals.
+- Give new backend signals separate names/contracts. Prove their sum reconstructs
+  the original estimator within the storage precision bound, and compare a mixed
+  material against an independently evaluated component reference.
+- Define secondary-distance association and coherent primary sampling before
+  NRD demodulation/packing or RELAX GPU dispatch. Step 2B's distance is not a
+  substitute for that contract.
+
+Manual integration checks 1 (rendering-path switch) and 2 (live edits/PT reset)
+were confirmed by the user. Checks 3-5 remain deferred. NRD denoising quality,
+performance and actual SDK dispatch remain unvalidated.

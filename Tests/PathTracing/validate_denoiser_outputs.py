@@ -138,7 +138,7 @@ def main():
                 raise RuntimeError('D3D12 errors in capture log')
             meta, values = read_buffer(path)
             record.update(sha256=sha(path), d3d12Errors=0)
-            if args.baseline and name in LEGACY_RESOURCES:
+            if args.baseline and (name in LEGACY_RESOURCES or (args.baseline/(name+'.ptbuf')).is_file()):
                 old_meta, old_values = read_buffer(args.baseline/(name+'.ptbuf'))
                 if meta != old_meta or not np.array_equal(values, old_values):
                     raise ValueError('Native baseline changed: ' + name)
