@@ -13,6 +13,9 @@ RWTexture2D<float4> g_materialF0Metallic : register(u9);
 RWTexture2D<float4> g_stableRadiance : register(u10);
 RWTexture2D<float4> g_backgroundRadiance : register(u11);
 RWTexture2D<float4> g_secondaryRayData : register(u12);
+RWTexture2D<float4> g_physicalDiffuse : register(u13);
+RWTexture2D<float4> g_physicalSpecular : register(u14);
+RWTexture2D<float4> g_primaryContinuation : register(u15);
 RaytracingAccelerationStructure g_tlas : register(t0);
 ByteAddressBuffer g_sceneVertices : register(t1);
 ByteAddressBuffer g_sceneIndices : register(t2);
@@ -167,6 +170,7 @@ struct PrimarySurfaceData
     float4 albedo;
     float4 materialF0Metallic;
     float4 secondaryRayData;
+    float4 primaryContinuation;
     float hitT;
 };
 
@@ -179,6 +183,7 @@ PrimarySurfaceData MakeMissPrimarySurfaceData()
     result.albedo = float4(0.0, 0.0, 0.0, 0.0);
     result.materialF0Metallic = 0.0;
     result.secondaryRayData = 0.0;
+    result.primaryContinuation = 0.0;
     result.hitT = 0.0;
     return result;
 }
@@ -347,13 +352,19 @@ float3 TracePath(uint2 pixel,
                  out float3 diffuseRadiance,
                  out float3 specularRadiance,
                  out float3 stableRadiance,
-                 out float3 backgroundRadiance)
+                 out float3 backgroundRadiance,
+                 out float3 physicalDiffuse,
+                 out float3 physicalSpecular)
 {
     primarySurface = MakeMissPrimarySurfaceData();
     diffuseRadiance = 0.0;
     specularRadiance = 0.0;
     stableRadiance = 0.0;
     backgroundRadiance = 0.0;
+    physicalDiffuse = 0.0;
+    physicalSpecular = 0.0;
+    float3 primaryDiffuseFraction = 0.0;
+    float3 primarySpecularFraction = 0.0;
     const float2 subpixelPosition = float2(NextRandom(randomState), NextRandom(randomState));
     RayDesc ray = MakePrimaryRay(pixel, subpixelPosition, dimensions);
     float3 radiance = 0.0;
@@ -394,6 +405,8 @@ float3 TracePath(uint2 pixel,
             }
             const float3 contribution = throughput * missRadiance;
             radiance += contribution;
+            physicalDiffuse += primaryDiffuseFraction * contribution;
+            physicalSpecular += primarySpecularFraction * contribution;
             if (bounce == 0)
             {
                 backgroundRadiance = contribution;
@@ -480,6 +493,8 @@ float3 TracePath(uint2 pixel,
             const float3 contribution = throughput *
                 (hitMaterial.albedo + (emissiveEnabled != 0 ? hitMaterial.emissive : 0.0));
             radiance += contribution;
+            physicalDiffuse += primaryDiffuseFraction * contribution;
+            physicalSpecular += primarySpecularFraction * contribution;
             if (bounce == 0)
             {
                 stableRadiance += contribution;
@@ -511,6 +526,8 @@ float3 TracePath(uint2 pixel,
             }
             const float3 contribution = throughput * hitMaterial.emissive * emissionWeight;
             radiance += contribution;
+            physicalDiffuse += primaryDiffuseFraction * contribution;
+            physicalSpecular += primarySpecularFraction * contribution;
             if (bounce == 0)
             {
                 stableRadiance += contribution;
@@ -545,10 +562,14 @@ float3 TracePath(uint2 pixel,
                     (candidate.normalDotLight * visibility / candidate.lightSample.selectionPdf);
                 const float3 contribution = throughput * brdf * lighting;
                 radiance += contribution;
+                physicalDiffuse += primaryDiffuseFraction * contribution;
+                physicalSpecular += primarySpecularFraction * contribution;
                 if (bounce == 0)
                 {
                     diffuseRadiance += throughput * candidate.diffuseBrdf * lighting;
                     specularRadiance += throughput * candidate.specularBrdf * lighting;
+                    physicalDiffuse += throughput * candidate.diffuseBrdf * lighting;
+                    physicalSpecular += throughput * candidate.specularBrdf * lighting;
                 }
                 else if (primarySpecularPath)
                 {
@@ -601,10 +622,14 @@ float3 TracePath(uint2 pixel,
                         const float3 specularContribution = throughput * candidate.specularBrdf * lighting;
                         const float3 contribution = diffuseContribution + specularContribution;
                         radiance += contribution;
+                        physicalDiffuse += primaryDiffuseFraction * contribution;
+                        physicalSpecular += primarySpecularFraction * contribution;
                         if (bounce == 0)
                         {
                             diffuseRadiance += diffuseContribution;
                             specularRadiance += specularContribution;
+                            physicalDiffuse += diffuseContribution;
+                            physicalSpecular += specularContribution;
                         }
                         else if (primarySpecularPath)
                         {
@@ -649,10 +674,14 @@ float3 TracePath(uint2 pixel,
                 const float3 specularContribution = throughput * environmentCandidate.specularBrdf * lighting;
                 const float3 contribution = diffuseContribution + specularContribution;
                 radiance += contribution;
+                physicalDiffuse += primaryDiffuseFraction * contribution;
+                physicalSpecular += primarySpecularFraction * contribution;
                 if (bounce == 0)
                 {
                     diffuseRadiance += diffuseContribution;
                     specularRadiance += specularContribution;
+                    physicalDiffuse += diffuseContribution;
+                    physicalSpecular += specularContribution;
                 }
                 else if (primarySpecularPath)
                 {
@@ -687,6 +716,16 @@ float3 TracePath(uint2 pixel,
         if (bounce == 0)
         {
             primarySpecularPath = bsdfSample.sampledSpecular != 0;
+            float3 diffuseBrdf, specularBrdf;
+            EvaluatePathTracingBrdfComponents(hitMaterial.albedo, hitMaterial.metallic,
+                hitMaterial.roughness, hitNormal, -ray.Direction, bsdfSample.direction,
+                diffuseBrdf, specularBrdf);
+            const float3 totalBrdf = diffuseBrdf + specularBrdf;
+            const float3 denominator = float3(totalBrdf.x > 0.0 ? totalBrdf.x : 1.0,
+                totalBrdf.y > 0.0 ? totalBrdf.y : 1.0, totalBrdf.z > 0.0 ? totalBrdf.z : 1.0);
+            primaryDiffuseFraction = diffuseBrdf / denominator;
+            primarySpecularFraction = specularBrdf / denominator;
+            primarySurface.primaryContinuation = float4(bsdfSample.direction, bsdfSample.pdf);
         }
 
         throughput *= bsdfSample.weight;
@@ -735,6 +774,8 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_G
     float3 frameSpecularRadianceSum = 0.0;
     float3 frameStableRadianceSum = 0.0;
     float3 frameBackgroundRadianceSum = 0.0;
+    float3 framePhysicalDiffuseSum = 0.0;
+    float3 framePhysicalSpecularSum = 0.0;
     PrimarySurfaceData primarySurface = MakeMissPrimarySurfaceData();
     for (uint sampleOffset = 0; sampleOffset < sampleCount; ++sampleOffset)
     {
@@ -744,6 +785,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_G
         float3 sampleSpecularRadiance;
         float3 sampleStableRadiance;
         float3 sampleBackgroundRadiance;
+        float3 samplePhysicalDiffuse, samplePhysicalSpecular;
         frameRadianceSum += TracePath(pixel,
                                       randomState,
                                       uint2(width, height),
@@ -751,11 +793,15 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_G
                                       sampleDiffuseRadiance,
                                       sampleSpecularRadiance,
                                       sampleStableRadiance,
-                                      sampleBackgroundRadiance);
+                                      sampleBackgroundRadiance,
+                                      samplePhysicalDiffuse,
+                                      samplePhysicalSpecular);
         frameDiffuseRadianceSum += sampleDiffuseRadiance;
         frameSpecularRadianceSum += sampleSpecularRadiance;
         frameStableRadianceSum += sampleStableRadiance;
         frameBackgroundRadianceSum += sampleBackgroundRadiance;
+        framePhysicalDiffuseSum += samplePhysicalDiffuse;
+        framePhysicalSpecularSum += samplePhysicalSpecular;
         if (sampleOffset == 0)
         {
             primarySurface = samplePrimarySurface;
@@ -782,4 +828,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_G
     g_stableRadiance[pixel] = float4(frameStableRadianceSum / float(sampleCount), 0.0);
     g_backgroundRadiance[pixel] = float4(frameBackgroundRadianceSum / float(sampleCount), 0.0);
     g_secondaryRayData[pixel] = primarySurface.secondaryRayData;
+    g_physicalDiffuse[pixel] = float4(framePhysicalDiffuseSum / float(sampleCount), 0.0);
+    g_physicalSpecular[pixel] = float4(framePhysicalSpecularSum / float(sampleCount), 0.0);
+    g_primaryContinuation[pixel] = primarySurface.primaryContinuation;
 }

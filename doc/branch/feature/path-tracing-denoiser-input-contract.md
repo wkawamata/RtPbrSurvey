@@ -493,3 +493,77 @@ Shader SHA256:
 Manual integration checks 1 (rendering-path switch) and 2 (live edits/PT reset)
 were confirmed by the user. Checks 3-5 remain deferred. NRD denoising quality,
 performance and actual SDK dispatch remain unvalidated.
+
+### Step 2C: Physical Continuation Signals (2026-10-11)
+
+Added three independently named RGBA32_FLOAT diagnostic resources, registered
+with RenderGraph and Debug Preview:
+
+- PathTracing.PhysicalDiffuse: current-dispatch averaged physical diffuse RGB.
+- PathTracing.PhysicalSpecular: current-dispatch averaged physical specular RGB.
+- PathTracing.PrimaryContinuation: first primary sample's continuation direction
+  in XYZ and mixture PDF in W; zero when no continuation was sampled.
+
+The two radiance signals exclude primary emission/unlit and primary background.
+Their alpha is reserved zero, NOT an NRD hit distance. Their sum plus
+StableRadiance and BackgroundRadiance reconstructs CurrentFrameRadiance. Legacy
+proposal-classified guides and Native radiance expressions remain unchanged.
+This reconstruction contract applies to the Radiance output (debugOutput=3),
+not the early-return Albedo/Normal/Emission diagnostic rendering modes.
+
+For a primary continuation, evaluate both physical BRDF components for the SAME
+sampled direction and divide each by their sum per channel. Apply these fractions
+to every shared downstream contribution. The common cosine/mixture-PDF factor
+cancels in this ratio; the original throughput, random consumption, MIS and RR
+remain shared. Primary direct/NEE contributions use their existing BRDF split.
+Proposal identity is retained only as a diagnostic, not a physical-lobe label.
+
+One root descriptor table binds UAVs u13-u15 at descriptor offsets 0/2/4 because
+the allocator stores SRV/UAV pairs. Contiguity is asserted; the root signature
+now uses exactly 64 DWORDs. New storage costs 48 bytes/pixel, bringing the
+Step 2 diagnostic additions to 120 bytes/pixel. Performance is not assessed.
+
+The independent GPU oracle uses a single-sample, two-segment mixed-material
+environment-miss fixture. It evaluates a double-precision BRDF from readback
+guides and an independently reconstructed view ray. Readback normals are
+renormalized after half-precision storage. It does not numerically validate the
+recorded PDF or geometric hit distance, primary direct/NEE separation, deeper
+paths or RR behavior. Multiple samples/frame still average radiance across
+different primary hits while guides describe the first sample: not RELAX-ready.
+
+Nine captures passed reconstruction, finite/nonnegative signals, reserved alpha,
+both proposal types, both physical components and normalized directions.
+Mixed-BRDF oracle: 16539 pixels, maximum fraction error 0.00027673653559151523
+against an unchanged 0.003 bound. Reconstruction maximum error:
+1.1920928955078125e-7. No D3D12 capture errors were recorded.
+
+Evidence: bin/PathTracingValidation/nrd-step2c-physical-20261011.
+The initial report failed the oracle because the readback normal was not
+renormalized. report.json is retained; reassessment.json records the corrected
+analysis and its script hash against the SAME captures, not a new GPU run.
+
+Debug x64 build passed with zero warnings/errors. CTest passed 28/28. Python
+suite passed 179/180 against the current working tree: the only failure remains
+the manually edited large-emissive-panel fixture. Mocking only that file's read
+with its committed HEAD contents passed 180/180; no user file was overwritten.
+Initial sandbox-only failures were temporary-file access restrictions; these
+results are from the subsequent unrestricted test execution.
+
+Native comparison passed all 11 pre-existing buffers bit-for-bit, including
+metadata, using the SAME current executable/camera with the previous HEAD PT
+shader compiled separately. The original comparison with historical Step 2B
+captures failed because camera target representation and matrices differed;
+that failure was not accepted or hidden. An initial reference launch with a
+missing compiled output was stopped and excluded from acceptance.
+
+Evidence: bin/PathTracingValidation/nrd-step2c-native-comparison.json, with both
+bytecode hashes, and nrd-step2c-matched-reference-retry-20261011/report.json.
+The generic reference report's source shader hash still identifies the working
+tree; the comparison manifest explicitly identifies the substituted bytecode.
+All 11 logs recorded zero D3D12 errors. The final indentation-only shader cleanup
+was compile-checked separately; GPU captures used pre-format bytecode.
+Build evidence: C:/work/RtPbrSurvey-agents/nrd-step2c-physical-signals-20261011.
+
+Next: define a coherent primary sample contract and lobe-associated secondary
+distance semantics, then NRD demodulation/packing. No NRD SDK dispatch or
+denoising-quality acceptance is included in Step 2C.

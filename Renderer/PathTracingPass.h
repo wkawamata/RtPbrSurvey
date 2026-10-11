@@ -33,6 +33,7 @@ struct PathTracingPassDesc
     D3D12_GPU_DESCRIPTOR_HANDLE stableRadianceUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE backgroundRadianceUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE secondaryRayDataUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE physicalSignalUavTable = {};
     D3D12_GPU_DESCRIPTOR_HANDLE environmentMapSrv = {};
     D3D12_GPU_VIRTUAL_ADDRESS emissiveTriangleSrv = 0;
     UINT emissiveTriangleCount = 0;

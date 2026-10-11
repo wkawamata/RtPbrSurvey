@@ -846,6 +846,12 @@ void RtPbrSurveyEngine::RegisterDebugResourceViews()
     registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideSecondaryRayData],
                     Engine::DebugTexturePreviewSemantic::Scalar,
                     DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuidePhysicalDiffuse],
+                    Engine::DebugTexturePreviewSemantic::Color, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuidePhysicalSpecular],
+                    Engine::DebugTexturePreviewSemantic::Color, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuidePrimaryContinuation],
+                    Engine::DebugTexturePreviewSemantic::Normal, DXGI_FORMAT_R32G32B32A32_FLOAT);
     registerTexture(kReflectionEvaluatedRadianceResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionSpecularAlbedoResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionRoughnessResourceName, Engine::DebugTexturePreviewSemantic::Scalar);
@@ -2588,8 +2594,15 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     CD3DX12_DESCRIPTOR_RANGE1 lightCbvRange = {};
     lightCbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 2, 0);
 
-    static_assert(19 + 5 * 2 + 34 <= 64);
-    CD3DX12_ROOT_PARAMETER1 rootParameters[25] = {};
+    CD3DX12_DESCRIPTOR_RANGE1 physicalSignalRanges[3] = {};
+    for (UINT i = 0; i < _countof(physicalSignalRanges); ++i)
+    {
+        // Guide descriptors are allocated as SRV/UAV pairs.
+        physicalSignalRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 13 + i, 0,
+                                     D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * i);
+    }
+    static_assert(20 + 5 * 2 + 34 == 64);
+    CD3DX12_ROOT_PARAMETER1 rootParameters[26] = {};
     rootParameters[0].InitAsDescriptorTable(1, &sceneColorUavRange);
     rootParameters[1].InitAsDescriptorTable(1, &accumulationUavRange);
     rootParameters[2].InitAsDescriptorTable(1, &normalRoughnessUavRange);
@@ -2614,6 +2627,7 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     {
         rootParameters[20 + i].InitAsDescriptorTable(1, &additionalGuideUavRanges[i]);
     }
+    rootParameters[25].InitAsDescriptorTable(_countof(physicalSignalRanges), physicalSignalRanges);
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -3784,6 +3798,11 @@ void RtPbrSurveyEngine::CreateGBuffer()
             m_pathTracingGuideTextureSrvs[i] = m_descriptorHeapAllocator.AllocWithHandle();
             m_pathTracingGuideTextureUavs[i] = m_descriptorHeapAllocator.AllocWithHandle();
         }
+        for (UINT i = 0; i < 3; ++i)
+        {
+            assert(m_pathTracingGuideTextureUavs[PathTracingGuidePhysicalDiffuse + i].Index ==
+                   m_pathTracingGuideTextureUavs[PathTracingGuidePhysicalDiffuse].Index + 2 * i);
+        }
     }
     for (DescriptorHeapHandle& srv : m_debugTexturePreviewSrvs)
     {
@@ -4094,6 +4113,9 @@ void RtPbrSurveyEngine::RegisterPathTracingResources()
         DXGI_FORMAT_R16G16B16A16_FLOAT,
         DXGI_FORMAT_R32G32B32A32_FLOAT,
         DXGI_FORMAT_R16G16B16A16_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
         DXGI_FORMAT_R32G32B32A32_FLOAT,
         DXGI_FORMAT_R32G32B32A32_FLOAT,
         DXGI_FORMAT_R32G32B32A32_FLOAT,
@@ -5922,6 +5944,9 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
         L"Path Tracing Stable Radiance Clear",
         L"Path Tracing Background Radiance Clear",
         L"Path Tracing Secondary Ray Data Clear",
+        L"Path Tracing Physical Diffuse Clear",
+        L"Path Tracing Physical Specular Clear",
+        L"Path Tracing Primary Continuation Clear",
     };
     for (UINT i = 0; i < PathTracingGuideTextureCount; ++i)
     {
@@ -5971,6 +5996,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.stableRadianceUav = m_pathTracingGuideTextureUavs[PathTracingGuideStableRadiance].gpu;
     passDesc.backgroundRadianceUav = m_pathTracingGuideTextureUavs[PathTracingGuideBackgroundRadiance].gpu;
     passDesc.secondaryRayDataUav = m_pathTracingGuideTextureUavs[PathTracingGuideSecondaryRayData].gpu;
+    passDesc.physicalSignalUavTable = m_pathTracingGuideTextureUavs[PathTracingGuidePhysicalDiffuse].gpu;
     passDesc.environmentMapSrv = m_environmentMap.Srv().gpu;
     passDesc.emissiveTriangleSrv = m_frameResources[m_currentFrameIndex].emissiveTriangleBuffer->GetGPUVirtualAddress();
     passDesc.emissiveTriangleCount = static_cast<UINT>(m_emissiveTriangles.size());

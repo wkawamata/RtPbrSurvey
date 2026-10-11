@@ -291,6 +291,12 @@ auto RtPbrSurveyEngine::MakePathTracingHistoryClearPass() -> RenderPass
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideBackgroundRadiance],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideSecondaryRayData],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuidePhysicalDiffuse],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuidePhysicalSpecular],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuidePrimaryContinuation],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PathTracingHistoryClear, &RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass)
         .Build();
@@ -338,6 +344,12 @@ auto RtPbrSurveyEngine::MakePathTracingPass() -> RenderPass
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideBackgroundRadiance],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideSecondaryRayData],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuidePhysicalDiffuse],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuidePhysicalSpecular],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuidePrimaryContinuation],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PathTracing, &RtPbrSurveyEngine::ExecutePathTracingPass)
         .Build();
