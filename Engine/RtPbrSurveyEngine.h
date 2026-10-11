@@ -712,6 +712,7 @@ private:
         PathTracingGuidePhysicalDiffuse,
         PathTracingGuidePhysicalSpecular,
         PathTracingGuidePrimaryContinuation,
+        PathTracingGuideSecondarySurfaceDistance,
         PathTracingGuideTextureCount,
     };
     static constexpr UINT kPathTracingDescriptorCount =
@@ -1334,6 +1335,7 @@ private:
         "PathTracing.PhysicalDiffuse",
         "PathTracing.PhysicalSpecular",
         "PathTracing.PrimaryContinuation",
+        "PathTracing.SecondarySurfaceDistance",
     };
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
         "DebugTexturePreview.Output.0",

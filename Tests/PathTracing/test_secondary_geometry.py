@@ -29,6 +29,9 @@ class SecondaryGeometryTests(unittest.TestCase):
                 values[:, :64, 2] = -1
                 values[:, 64:, 0] = 1
                 values[..., 3] = .5
+            elif name == 'SecondarySurfaceDistance':
+                values[:, :64] = [2, 1, 0, 0]
+                values[:, 64:] = [0, 2, 0, 0]
             else:
                 values[:, :64] = [1.999, 1, 1, 0]
                 values[:, 64:] = [100, 2, 2, 0]
@@ -81,6 +84,16 @@ class SecondaryGeometryTests(unittest.TestCase):
         buffers = self.fixture()
         buffers['SecondaryRayData'][1][:, :64, 0] = 1
         self.assertFalse(assess(buffers, self.scene())['checks']['secondaryDistance'])
+
+    def test_published_distance_cannot_reuse_biased_hit_parameter(self):
+        buffers = self.fixture()
+        buffers['SecondarySurfaceDistance'][1][:, :64, 0] = 1.999
+        self.assertFalse(assess(buffers, self.scene())['checks']['publishedSurfaceDistance'])
+
+    def test_published_miss_does_not_fabricate_finite_distance(self):
+        buffers = self.fixture()
+        buffers['SecondarySurfaceDistance'][1][:, 64:, 0] = 100
+        self.assertFalse(assess(buffers, self.scene())['checks']['surfaceNoHitZero'])
 
     def test_wrong_hit_status_and_miss_distance_fail(self):
         buffers = self.fixture()

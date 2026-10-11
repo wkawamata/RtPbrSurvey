@@ -853,6 +853,8 @@ void RtPbrSurveyEngine::RegisterDebugResourceViews()
                     Engine::DebugTexturePreviewSemantic::Color, DXGI_FORMAT_R32G32B32A32_FLOAT);
     registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuidePrimaryContinuation],
                     Engine::DebugTexturePreviewSemantic::Normal, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideSecondarySurfaceDistance],
+                    Engine::DebugTexturePreviewSemantic::Scalar, DXGI_FORMAT_R32G32B32A32_FLOAT);
     registerTexture(kReflectionEvaluatedRadianceResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionSpecularAlbedoResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionRoughnessResourceName, Engine::DebugTexturePreviewSemantic::Scalar);
@@ -2595,7 +2597,7 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     CD3DX12_DESCRIPTOR_RANGE1 lightCbvRange = {};
     lightCbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 2, 0);
 
-    CD3DX12_DESCRIPTOR_RANGE1 physicalSignalRanges[3] = {};
+    CD3DX12_DESCRIPTOR_RANGE1 physicalSignalRanges[4] = {};
     for (UINT i = 0; i < _countof(physicalSignalRanges); ++i)
     {
         // Guide descriptors are allocated as SRV/UAV pairs.
@@ -3799,7 +3801,7 @@ void RtPbrSurveyEngine::CreateGBuffer()
             m_pathTracingGuideTextureSrvs[i] = m_descriptorHeapAllocator.AllocWithHandle();
             m_pathTracingGuideTextureUavs[i] = m_descriptorHeapAllocator.AllocWithHandle();
         }
-        for (UINT i = 0; i < 3; ++i)
+        for (UINT i = 0; i < 4; ++i)
         {
             assert(m_pathTracingGuideTextureUavs[PathTracingGuidePhysicalDiffuse + i].Index ==
                    m_pathTracingGuideTextureUavs[PathTracingGuidePhysicalDiffuse].Index + 2 * i);
@@ -4114,6 +4116,7 @@ void RtPbrSurveyEngine::RegisterPathTracingResources()
         DXGI_FORMAT_R16G16B16A16_FLOAT,
         DXGI_FORMAT_R32G32B32A32_FLOAT,
         DXGI_FORMAT_R16G16B16A16_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
         DXGI_FORMAT_R32G32B32A32_FLOAT,
         DXGI_FORMAT_R32G32B32A32_FLOAT,
         DXGI_FORMAT_R32G32B32A32_FLOAT,
@@ -5948,6 +5951,7 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
         L"Path Tracing Physical Diffuse Clear",
         L"Path Tracing Physical Specular Clear",
         L"Path Tracing Primary Continuation Clear",
+        L"Path Tracing Secondary Surface Distance Clear",
     };
     for (UINT i = 0; i < PathTracingGuideTextureCount; ++i)
     {

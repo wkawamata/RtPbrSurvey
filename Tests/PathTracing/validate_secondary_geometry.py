@@ -10,7 +10,7 @@ from validate_inputs import read_buffer, sample_positions
 from validate_part1 import sha, write_json
 
 ROOT = Path(__file__).resolve().parents[2]
-RESOURCES = ('SecondaryRayData', 'PrimaryContinuation', 'Albedo')
+RESOURCES = ('SecondaryRayData', 'PrimaryContinuation', 'Albedo', 'SecondarySurfaceDistance')
 EDGE_MARGIN = .002
 
 
@@ -105,6 +105,7 @@ def assess(buffers, scene):
     ys, xs = np.mgrid[8:meta['height']-8:4, 8:meta['width']-8:4]
     xs, ys = xs.ravel(), ys.ravel()
     secondary = buffers['SecondaryRayData'][1][ys, xs]
+    surface_data = buffers['SecondarySurfaceDistance'][1][ys, xs]
     continuation = buffers['PrimaryContinuation'][1][ys, xs]
     validity = buffers['Albedo'][1][ys, xs, 3]
     planes = planes_from_scene(scene)
@@ -136,12 +137,17 @@ def assess(buffers, scene):
         primaryMissUntraced=bool((secondary[~primary_hit & ~primary_edge] == 0).all()),
         untracedZero=bool((secondary[~traced] == 0).all()),
         reservedZero=bool((secondary[:, 3] == 0).all()),
+        surfaceReservedZero=bool((surface_data[:, 2:] == 0).all()),
+        surfaceStatus=bool(np.array_equal(surface_data[:, 1], secondary[:, 2])),
+        surfaceNoHitZero=bool((surface_data[secondary[:, 2] != 1, 0] == 0).all()),
         directionUnit=bool((abs(np.linalg.norm(secondary_direction, axis=-1)-1) < 1e-5).all()),
         continuationPdf=bool((continuation[eligible, 3] > 0).all()),
         proposals=bool(np.isin(observed[:, 1], [1, 2]).all()),
         secondaryStatus=bool(np.array_equal(observed[selected, 2], np.where(expected_hit, 1, 2))),
         secondaryDistance=bool((error <= bound).all()),
         reconstructedSurfaceDistance=bool((physical_error <= bound[expected_hit]).all()),
+        publishedSurfaceDistance=bool((abs(surface_data[eligible][selected][expected_hit, 0] -
+            physical_expected) <= bound[expected_hit]).all()),
         missSentinel=bool((actual[~expected_hit] == ray_max).all()),
         hitCoverage=bool(expected_hit.sum() >= 100), missCoverage=bool((~expected_hit).sum() >= 100))
     if not selected.any():
@@ -151,6 +157,8 @@ def assess(buffers, scene):
         primaryPixels=int(eligible.sum()), boundaryExcluded=int(primary_edge.sum()+secondary_edge.sum()),
         hitDistanceMaxError=float(error[expected_hit].max()) if expected_hit.any() else None,
         surfaceDistanceMaxError=float(physical_error.max()) if expected_hit.any() else None,
+        publishedSurfaceDistanceMaxError=float(abs(surface_data[eligible][selected][expected_hit, 0] -
+            physical_expected).max()) if expected_hit.any() else None,
         biasCorrectionMax=float(abs(physical_expected-expected[expected_hit]).max()) if expected_hit.any() else None,
         maxBoundNormalizedError=float((error/bound).max()),
         tolerance='1e-4 + 5e-5 * expected distance; fixed before GPU assessment',
@@ -161,8 +169,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--exe', type=Path, default=ROOT/'build/Debug/RtPbrSurvey.exe')
+    parser.add_argument('--baseline', type=Path)
     args = parser.parse_args()
     output, exe = args.output.resolve(), args.exe.resolve(strict=True)
+    baseline = args.baseline.resolve(strict=True) if args.baseline else None
+    if baseline:
+        baseline_report = json.loads((baseline/'report.json').read_text())
+        if baseline_report.get('status') != 'passed' or not baseline_report.get('assessment', {}).get('passed'):
+            parser.error('Baseline must have a passing geometry assessment')
+        for name in ('SecondaryRayData', 'PrimaryContinuation', 'Albedo'):
+            if not (baseline/(name+'.ptbuf')).is_file():
+                parser.error('Missing baseline resource: '+name)
     if output.exists() and any(output.iterdir()):
         parser.error('Use an empty output directory')
     source = ROOT/'Assets/Scenes/PathTracingValidation/two-surface-indirect'
@@ -203,7 +220,14 @@ def main():
             if not (abs(meta['rayTMin']-.001) < 1e-9 and meta['rayTMax'] == 100 and
                     abs(meta['normalBias']-.001) < 1e-9):
                 raise ValueError('Requested ray parameters were not applied')
-            report['records'].append(dict(resource=name, sha256=sha(path), command=command, d3d12Errors=0))
+            record = dict(resource=name, sha256=sha(path), command=command, d3d12Errors=0)
+            if baseline and name != 'SecondarySurfaceDistance':
+                old_meta, old_values = read_buffer(baseline/(name+'.ptbuf'))
+                if meta != old_meta or not np.array_equal(buffers[name][1], old_values):
+                    raise ValueError('Legacy baseline changed: '+name)
+                record['legacyBaselineIdentical'] = True
+                record['baselineSha256'] = sha(baseline/(name+'.ptbuf'))
+            report['records'].append(record)
             write_json(output/'report.json', report)
             print('Captured '+name, flush=True)
         report['assessment'] = assess(buffers, scene)

@@ -713,3 +713,41 @@ The evidence is a first-segment planar geometry audit, not arbitrary mesh,
 multi-sample, deforming-geometry, in-lobe-distance, NEE/RR or NRD dispatch approval.
 Next: publish explicit corrected distance/state, define the in-lobe policy, then
 validate backend packing. RELAX remains unavailable.
+
+### Step 2F: Corrected Secondary Surface Distance (2026-10-11)
+
+Published PathTracing.SecondarySurfaceDistance as RGBA32_FLOAT, available through
+Debug Preview and the RenderGraph resource outputs. R is the unbiased distance
+from the primary surface to the first secondary hit. G is explicit state:
+0=untraced, 1=hit, 2=miss. B/A are reserved zero. Miss and untraced distances are
+zero; the state distinguishes them. This records the first primary sample, not
+an average over samples per frame, and is not an NRD packed input.
+
+The shader computes length((actualRayOrigin - primaryHitPosition) + D * hitT).
+Using the actual GPU origin offset preserves floating-point rounding of the
+normal-bias addition. Existing SecondaryRayData semantics and physical-signal
+alpha remain unchanged. The new texture adds 16 bytes per pixel. Root table 25
+now covers u13-u16 with descriptor offsets 0/2/4/6; the root signature remains
+26 parameters and 64 DWORDs.
+
+Four GPU captures passed with zero D3D12 errors. SecondaryRayData,
+PrimaryContinuation and Albedo were bit-identical to Step 2E, including all
+metadata. The independent plane oracle accepted 9279 hits and 66608 misses.
+Published corrected-distance maximum error was 0.00004546315214870589 against
+the same fixed distance bound. New negative tests reject biased hitT published
+as surface distance and a finite distance published for a miss.
+
+Focused geometry tests passed 11/11. The app-only Debug x64 build passed with
+zero warnings/errors. Existing CTest binaries passed 28/28. Python current-tree
+tests passed 194/195, with the known manually edited emitter-fixture mismatch;
+substituting only that fixture read with committed contents passed 195/195.
+Unrelated Transform UI and manual scene edits were preserved. Native total
+radiance was not recaptured in this step; the exact regression comparison above
+is limited to the three named diagnostic buffers.
+
+Evidence: bin/PathTracingValidation/nrd-step2f-surface-distance-20261011/report.json.
+Build: C:/work/RtPbrSurvey-agents/nrd-step2f-surface-distance-20261011.
+Next: define in-lobe acceptance/fallback separately for diffuse and specular,
+then validate pinned-SDK packing and material demodulation. A correct mixture
+segment does not establish distance validity for both lobes. RELAX dispatch,
+arbitrary-mesh distance validation and denoised quality acceptance remain pending.

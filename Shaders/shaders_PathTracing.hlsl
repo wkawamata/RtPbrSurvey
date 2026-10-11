@@ -16,6 +16,7 @@ RWTexture2D<float4> g_secondaryRayData : register(u12);
 RWTexture2D<float4> g_physicalDiffuse : register(u13);
 RWTexture2D<float4> g_physicalSpecular : register(u14);
 RWTexture2D<float4> g_primaryContinuation : register(u15);
+RWTexture2D<float4> g_secondarySurfaceDistance : register(u16);
 RaytracingAccelerationStructure g_tlas : register(t0);
 ByteAddressBuffer g_sceneVertices : register(t1);
 ByteAddressBuffer g_sceneIndices : register(t2);
@@ -172,6 +173,7 @@ struct PrimarySurfaceData
     float4 materialF0Metallic;
     float4 secondaryRayData;
     float4 primaryContinuation;
+    float4 secondarySurfaceDistance;
     float hitT;
 };
 
@@ -185,6 +187,7 @@ PrimarySurfaceData MakeMissPrimarySurfaceData()
     result.materialF0Metallic = 0.0;
     result.secondaryRayData = 0.0;
     result.primaryContinuation = 0.0;
+    result.secondarySurfaceDistance = 0.0;
     result.hitT = 0.0;
     return result;
 }
@@ -366,6 +369,7 @@ float3 TracePath(uint2 pixel,
     physicalSpecular = 0.0;
     float3 primaryDiffuseFraction = 0.0;
     float3 primarySpecularFraction = 0.0;
+    float3 primaryContinuationOriginOffset = 0.0;
     const float2 randomSubpixelPosition = float2(NextRandom(randomState), NextRandom(randomState));
     const float2 subpixelPosition = pixelCenterPrimary != 0 ? float2(0.5, 0.5) : randomSubpixelPosition;
     RayDesc ray = MakePrimaryRay(pixel, subpixelPosition, dimensions);
@@ -395,6 +399,9 @@ float3 TracePath(uint2 pixel,
                 primarySpecularPath ? 2.0 : 1.0,
                 secondaryHit ? 1.0 : 2.0,
                 0.0);
+            const float surfaceDistance = secondaryHit ?
+                length(primaryContinuationOriginOffset + ray.Direction * query.CommittedRayT()) : 0.0;
+            primarySurface.secondarySurfaceDistance = float4(surfaceDistance, secondaryHit ? 1.0 : 2.0, 0.0, 0.0);
         }
 
         if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
@@ -747,6 +754,10 @@ float3 TracePath(uint2 pixel,
         }
 
         ray.Origin = hitPosition + geometryNormal * normalBias;
+        if (bounce == 0)
+        {
+            primaryContinuationOriginOffset = ray.Origin - hitPosition;
+        }
         ray.Direction = bsdfSample.direction;
         ray.TMin = rayTMin;
         ray.TMax = rayTMax;
@@ -833,4 +844,5 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_G
     g_physicalDiffuse[pixel] = float4(framePhysicalDiffuseSum / float(sampleCount), 0.0);
     g_physicalSpecular[pixel] = float4(framePhysicalSpecularSum / float(sampleCount), 0.0);
     g_primaryContinuation[pixel] = primarySurface.primaryContinuation;
+    g_secondarySurfaceDistance[pixel] = primarySurface.secondarySurfaceDistance;
 }
