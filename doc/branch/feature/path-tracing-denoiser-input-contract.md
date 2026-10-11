@@ -644,3 +644,72 @@ they are not passing build results. App-only final evidence:
 C:/work/RtPbrSurvey-agents/nrd-step2d-app-final-20261011.
 No RELAX packing, secondary-distance validation, dispatch or GUI acceptance was
 performed. Next delivery remains the secondary-distance contract and oracle.
+
+### Step 2E: First Secondary Geometry Oracle (2026-10-11)
+
+Added an independent double-precision CPU oracle for positive-scale, unparented,
+finite primitive planes. It reads JSON transforms and dimensions, reconstructs
+pixel-center primary rays from the captured inverse projection, applies front-face
+culling, and intersects the recorded continuation direction with the scene.
+It does not infer intersection from GPU status, proposal identity, guide depth,
+or radiance. Unsupported geometry is rejected rather than silently ignored.
+
+PTBUF records rayTMin, rayTMax and normalBias from the active engine settings.
+The fixture requests all three explicitly; the runner verifies they were applied
+and requires identical settings/matrices/sample identity across all three buffers.
+No estimator, shader transport, root signature or GPU resource was changed.
+
+#### Distance Semantics
+
+| Native diagnostic state | Meaning | Backend implication |
+| --- | --- | --- |
+| status=1 | First secondary committed hitT, from the biased continuation origin | Excludes primary camera distance but is not yet a validated NRD lobe distance |
+| status=2 | Secondary miss; native diagnostic distance equals rayTMax | A sentinel, not an actual finite surface hit; backend mapping still required |
+| status=0 | No first secondary trace; all SecondaryRayData channels zero | No measured distance; never fabricate one from camera-to-primary hitT |
+| proposal=1/2 | Diffuse/GGX proposal used by the mixture sampler | Not proof that the other physical BRDF component was absent |
+| W=0 | Reserved diagnostic channel | Must not be interpreted as validity, PDF, or packed distance |
+
+The actual ray starts at O=A+normalBias*N_geometry. Its committed hit point is
+B=O+hitT*D. Therefore the unbiased primary-surface-to-hit length is
+length(normalBias*N_geometry + hitT*D), not simply hitT. This oracle verifies
+both the raw ray parameter and the reconstructed unbiased length, using the
+fixture's independently known geometric normal. The shading normal guide is
+not a substitute for that geometric normal. No corrected-distance GPU resource
+or physical-signal alpha is published in Step 2E.
+
+The pinned NRD v4.17.3 README requires in-lobe distance, not merely a geometrically
+correct mixture-sampled hit. Radiance component weights do not automatically
+prove that a direction is an accepted in-lobe distance for both signals. Define
+lobe-specific acceptance/fallback and missing-lobe handling before assigning
+the same distance to both channels. Do not divide distance by PDF/BRDF weights,
+include the primary camera distance, sum arbitrary deeper segments, or treat
+direct-light visibility distance as this indirect segment.
+
+#### Validation
+
+Three GPU captures passed: SecondaryRayData, PrimaryContinuation, Albedo.
+Independent oracle examined 75898 traced primary-hit samples: 9279 secondary
+hits and 66608 misses accepted after fixed boundary exclusions. Excluded-edge
+count 278 includes primary and secondary boundary masks; edge margin is 0.002
+world units. Distance bound was fixed before GPU assessment:
+1e-4 + 5e-5 * expected distance. Maximum hitT error was
+0.00004530241258660084, maximum bound-normalized error 0.17455867601102432.
+Unbiased reconstructed distance error was 0.00004530240977995703; the largest
+normal-bias correction was 0.0009986770890693109. No D3D12 errors were recorded.
+
+Unit tests reject primary-distance substitution, wrong hit/miss status, wrong
+miss sentinel, changed bias/cohort, unsupported transforms/geometry and missing
+buffers; they also test finite bounds, front-face culling and the edge mask.
+Focused suite passed 9/9. Debug x64 build passed with zero warnings/errors;
+CTest passed 28/28. Current Python tree passed 192/193 (the same manually edited
+emitter fixture failure); committed-fixture-only read substitution passed 193/193.
+No user scene or unrelated Transform UI edit was reverted or committed.
+
+Evidence: bin/PathTracingValidation/nrd-step2e-secondary-geometry-20261011/report.json.
+reassessment.json records the same captures analyzed after CRLF-only script
+normalization, with the final analysis script hash; the original report is retained.
+Build: C:/work/RtPbrSurvey-agents/nrd-step2e-secondary-geometry-20261011.
+The evidence is a first-segment planar geometry audit, not arbitrary mesh,
+multi-sample, deforming-geometry, in-lobe-distance, NEE/RR or NRD dispatch approval.
+Next: publish explicit corrected distance/state, define the in-lobe policy, then
+validate backend packing. RELAX remains unavailable.
