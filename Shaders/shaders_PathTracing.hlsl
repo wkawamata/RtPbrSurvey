@@ -47,7 +47,7 @@ cbuffer PathTracingConstants : register(b1)
     uint usesIndexedDraw;
     uint vertexCount;
     uint indexCount;
-    uint hitNormalSource;
+    uint pixelCenterPrimary;
     uint debugOutput;
     uint environmentEnabled;
     uint emissiveEnabled;
@@ -73,6 +73,7 @@ cbuffer PathTracingConstants : register(b1)
     uint emissiveSamplingMode;
 };
 
+static const uint hitNormalSource = 0;
 #include "SceneRayQuery.hlsli"
 #include "PathTracingSampling.hlsli"
 #include "EmissiveTriangleSampling.hlsli"
@@ -365,7 +366,8 @@ float3 TracePath(uint2 pixel,
     physicalSpecular = 0.0;
     float3 primaryDiffuseFraction = 0.0;
     float3 primarySpecularFraction = 0.0;
-    const float2 subpixelPosition = float2(NextRandom(randomState), NextRandom(randomState));
+    const float2 randomSubpixelPosition = float2(NextRandom(randomState), NextRandom(randomState));
+    const float2 subpixelPosition = pixelCenterPrimary != 0 ? float2(0.5, 0.5) : randomSubpixelPosition;
     RayDesc ray = MakePrimaryRay(pixel, subpixelPosition, dimensions);
     float3 radiance = 0.0;
     float3 throughput = 1.0;

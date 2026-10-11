@@ -38,6 +38,8 @@ def assess(buffers):
     if set(buffers) != set(RESOURCES):
         raise ValueError('Missing or unexpected physical signal resources')
     meta = buffers['CurrentFrameRadiance'][0]
+    if meta.get('samplesPerFrame', 1) != 1:
+        raise ValueError('Physical oracle requires one primary sample per pixel')
     for name in RESOURCES:
         other, values = buffers[name]
         expected_format = 10 if name in ('NormalRoughness', 'Albedo') else 2
@@ -47,6 +49,10 @@ def assess(buffers):
                     'previousViewProjection', 'inverseViewProjection'):
             if other[key] != meta[key]:
                 raise ValueError('Cohort mismatch: '+key)
+        if other.get('primarySampling', 'random-per-pixel') != meta.get('primarySampling', 'random-per-pixel'):
+            raise ValueError('Cohort mismatch: primarySampling')
+        if other.get('samplesPerFrame', 1) != 1:
+            raise ValueError('Cohort mismatch: samplesPerFrame')
         if values.shape != (meta['height'], meta['width'], 4) or not np.isfinite(values).all():
             raise ValueError('Invalid signal: '+name)
     arrays = {name: buffers[name][1] for name in RESOURCES}
@@ -97,6 +103,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--exe', type=Path, default=ROOT/'build/Debug/RtPbrSurvey.exe')
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--pixel-center', action='store_true')
     args = parser.parse_args()
     exe, output = args.exe.resolve(strict=True), args.output.resolve()
     if output.exists() and any(output.iterdir()):
@@ -108,6 +115,7 @@ def main():
     scene['renderPreset'] = 'preset.json'
     preset = json.loads((source/'render-preset.json').read_text())
     preset['pathTracing'].update(accumulate=False, samplesPerFrame=1, randomSeed=7,
+        pixelCenterPrimary=args.pixel_center,
         maxBounces=2, directLightingEnabled=False, emissiveEnabled=False,
         environmentEnabled=True, environmentSamplingMode=0, russianRouletteEnabled=False, debugOutput=3)
     write_json(output/'scene.json', scene)
@@ -115,6 +123,7 @@ def main():
     report = dict(schemaVersion=1, status='running', records=[], failures=[], exeSha256=sha(exe),
         shaderSha256=sha(ROOT/'Shaders/shaders_PathTracing.hlsl'), scriptSha256=sha(Path(__file__)),
         sceneSha256=sha(output/'scene.json'), presetSha256=sha(output/'preset.json'))
+    report['primarySampling'] = 'pixel-center' if args.pixel_center else 'random-per-pixel'
     buffers = {}
     try:
         for name in RESOURCES:
@@ -134,6 +143,8 @@ def main():
             if '[ERROR]' in text or '[CORRUPTION]' in text:
                 raise RuntimeError('D3D12 capture errors: '+name)
             buffers[name] = read_buffer(path)
+            if buffers[name][0].get('primarySampling') != report['primarySampling']:
+                raise ValueError('Requested primary sampling was not applied')
             report['records'].append(dict(resource=name, sha256=sha(path), command=command, d3d12Errors=0))
             write_json(output/'report.json', report)
             print('Captured '+name, flush=True)

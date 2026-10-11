@@ -35,6 +35,12 @@ int main()
     RtPbrSurveyEngine engine(graphicsDevice);
     auto settings = engine.GetPathTracingSettings();
     bool passed = CheckSettings(engine, settings, false, "unchanged settings");
+    passed &= Check(!settings.pixelCenterPrimary, "Native random primary sampling is default");
+    settings.pixelCenterPrimary = true;
+    passed &= CheckSettings(engine, settings, true, "primary sampling mode resets history");
+    passed &= CheckSettings(engine, settings, false, "unchanged primary sampling preserves history");
+    settings.pixelCenterPrimary = false;
+    passed &= CheckSettings(engine, settings, true, "return to Native primary sampling resets history");
 
     settings.accumulate = !settings.accumulate;
     passed &= CheckSettings(engine, settings, true, "accumulation mode");

@@ -87,6 +87,16 @@ class PhysicalLobeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             assess(buffers)
 
+    def test_mixed_primary_modes_and_sample_batches_rejected(self):
+        buffers = self.fixture()
+        buffers['PhysicalSpecular'][0]['primarySampling'] = 'pixel-center'
+        with self.assertRaises(ValueError):
+            assess(buffers)
+        buffers = self.fixture()
+        buffers['CurrentFrameRadiance'][0]['samplesPerFrame'] = 4
+        with self.assertRaises(ValueError):
+            assess(buffers)
+
 
 if __name__ == '__main__':
     unittest.main()

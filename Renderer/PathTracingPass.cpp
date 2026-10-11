@@ -14,7 +14,7 @@ struct PathTracingShaderConstants
     UINT usesIndexedDraw;
     UINT vertexCount;
     UINT indexCount;
-    UINT hitNormalSource;
+    UINT pixelCenterPrimary;
     UINT debugOutput;
     UINT environmentEnabled;
     UINT emissiveEnabled;
@@ -97,7 +97,7 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
         desc.scene.usesIndexedDraw,
         desc.scene.vertexCount,
         desc.scene.indexCount,
-        0,
+        desc.pixelCenterPrimary ? 1u : 0u,
         desc.debugOutput,
         desc.environmentEnabled,
         desc.emissiveEnabled,

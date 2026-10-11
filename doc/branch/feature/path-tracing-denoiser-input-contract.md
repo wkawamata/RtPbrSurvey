@@ -2,14 +2,14 @@
 
 Date: 2026-10-10. Base: main 0c175e3 (PR 96).
 Branch: codex/pt-denoiser-input-contract.
-Status: NRD RELAX selected; dependency pin and SDK-free adapter shell added.
-No denoiser dispatch or rendering behavior change.
+Status: NRD RELAX selected; SDK-free adapter and opt-in input experiments added.
+No denoiser dispatch; Native sampling defaults remain unchanged.
 
 ## Current Acceptance State
 
 - [x] Work-3 synchronized to merged main.
 - [x] Native PT correctness evidence and qualified limitations preserved.
-- [ ] User-assisted integrated GUI review (Step 2): pending, desktop locked.
+- [ ] User-assisted integrated GUI review (Step 2): checks 1-2 confirmed; 3-5 pending.
 - [x] Initial backend input gap analysis and staged plan (this document).
 
 The pending GUI review is not a passing test. Documentation and input experiments
@@ -567,3 +567,80 @@ Build evidence: C:/work/RtPbrSurvey-agents/nrd-step2c-physical-signals-20261011.
 Next: define a coherent primary sample contract and lobe-associated secondary
 distance semantics, then NRD demodulation/packing. No NRD SDK dispatch or
 denoising-quality acceptance is included in Step 2C.
+
+### Step 2D: Opt-In Pixel-Center Primary Sampling
+
+Added pathTracing.pixelCenterPrimary (boolean, default false) to engine settings,
+render preset serialization and validation identity. true selects (0.5, 0.5)
+inside every pixel, for every sample/frame, with no projection jitter. The first
+prototype requires samplesPerFrame=1. Native presets are never silently changed.
+No GUI switch or automatic denoiser activation is added in this step.
+
+The shader still consumes the same two primary RNG draws before substituting
+the center coordinate. Continuation random sequencing and the default random
+primary mode remain unchanged. Mode changes invalidate PT accumulation. The
+former always-zero hitNormalSource root constant slot is reused for this flag;
+the shared RayQuery normal-source selector remains explicitly fixed at zero.
+Root constant count and the 64-DWORD signature budget are unchanged.
+
+PTBUF metadata now records samplesPerFrame and primarySampling explicitly.
+Independent ray reconstruction accepts pixel-center or random-per-pixel and
+rejects unknown conventions. Mixed sampling cohorts and multi-sample batches
+are rejected by the physical-component oracle. Legacy captures without these
+fields remain interpreted as the documented random-per-pixel, single-sample
+fixtures by these test helpers; this is not a general backend readiness policy.
+
+QueryNrdRelaxSamplingReadiness qualifies only the sampling sub-contract. It
+rejects non-single-sample or random-primary configurations, without mutating
+settings. QueryNrdRelaxSupport remains unavailable even when sampling qualifies.
+The readiness query is not yet connected to an evaluation path (none exists).
+
+Pixel-center sampling is a conservative integration prototype, not a claim of
+anti-aliasing quality or equivalence to stochastic Native convergence. It removes
+primary stochastic anti-aliasing; secondary transport remains stochastic. Later
+frame-wide jitter requires matching camera constants, motion and reset policy.
+
+Secondary-distance work remains a separate delivery. The pinned NRD README
+recommends the first indirect segment, excluding camera-to-primary distance.
+Our mixture-sampled continuation contributes to both physical components, so
+proposal identity cannot indicate a missing physical component. NEE visibility
+distances, direct/indirect mixing, misses, absent continuations and deeper-path
+statistics require explicit policies and geometric checks before packing. Do
+not copy SecondaryRayData or reserved physical-signal alpha into RELAX unchanged.
+
+#### Step 2D Validation (2026-10-11)
+
+Pixel-center physical signals passed all nine captures, with zero D3D12 errors.
+Independent mixed-BRDF oracle: 16536 pixels, maximum fraction error
+0.0002767289026537334; reconstruction maximum error 1.1920928955078125e-7.
+Evidence: bin/PathTracingValidation/nrd-step2d-physical-center-20261011.
+
+Four pixel-center guide captures passed independent numeric checks: plane
+NormalRoughness, shifted-projection ViewZ, marker Albedo (zero material
+classification mismatches), and moving-camera MotionVectors. MV passed both
+the fixed threshold and the existing half-precision bound. Evidence:
+bin/PathTracingValidation/nrd-step2d-center-guides-20261011.
+
+Default random-primary CurrentFrameRadiance was bit-identical to the Step 2B
+roughness fixture with matching camera matrices (maximum error zero). All
+previous metadata fields matched exactly; the two new sampling fields were
+checked explicitly, not discarded without validation. This tests only that
+radiance buffer, NOT all 11 Step 2C buffers. An attempted Step 2C comparison had
+different camera target representation/matrices and was retained as failed.
+Evidence: bin/PathTracingValidation/nrd-step2d-native-default-20261011,
+matched-baseline-assessment.json (accepted) and report.json (failed comparison).
+Camera compatibility must be checked for each future automation cohort.
+
+Final app-only Debug x64 build passed, zero warnings/errors. CTest passed 28/28,
+including changed settings/history/sampling-readiness tests. Python current
+working tree passed 183/184; the known manual-emitter-fixture mismatch remains.
+Mocking only its file read with committed HEAD contents passed 184/184. Manual
+scene data and unrelated Transform UI edits were preserved.
+
+The first build exposed the shared RayQuery normal-source reference after slot
+reuse; it was fixed with the explicit constant-zero selector. Subsequent
+ALL_BUILD attempts compiled but failed parallel post-build directory copies;
+they are not passing build results. App-only final evidence:
+C:/work/RtPbrSurvey-agents/nrd-step2d-app-final-20261011.
+No RELAX packing, secondary-distance validation, dispatch or GUI acceptance was
+performed. Next delivery remains the secondary-distance contract and oracle.

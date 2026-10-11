@@ -13,4 +13,18 @@ NrdRelaxSupportInfo QueryNrdRelaxSupport()
     return info;
 }
 
+NrdRelaxSamplingReadiness QueryNrdRelaxSamplingReadiness(unsigned int samplesPerFrame,
+                                                       bool pixelCenterPrimary)
+{
+    if (samplesPerFrame != 1)
+    {
+        return {false, "RELAX prototype requires exactly one primary sample per pixel/frame."};
+    }
+    if (!pixelCenterPrimary)
+    {
+        return {false, "RELAX prototype requires pixel-center primary sampling."};
+    }
+    return {true, "Sampling only is coherent; packing, distances and dispatch remain unvalidated."};
+}
+
 }

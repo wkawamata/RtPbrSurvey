@@ -18,4 +18,13 @@ struct NrdRelaxSupportInfo
 
 NrdRelaxSupportInfo QueryNrdRelaxSupport();
 
+struct NrdRelaxSamplingReadiness
+{
+    bool ready = false;
+    const char* reason = nullptr;
+};
+
+NrdRelaxSamplingReadiness QueryNrdRelaxSamplingReadiness(unsigned int samplesPerFrame,
+                                                       bool pixelCenterPrimary);
+
 }

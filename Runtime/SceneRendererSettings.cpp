@@ -95,6 +95,7 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
     json pathTracing;
     pathTracing["accumulate"] = settings.pathTracing.accumulate;
     pathTracing["samplesPerFrame"] = settings.pathTracing.samplesPerFrame;
+    pathTracing["pixelCenterPrimary"] = settings.pathTracing.pixelCenterPrimary;
     pathTracing["maxBounces"] = settings.pathTracing.maxBounces;
     pathTracing["randomSeed"] = settings.pathTracing.randomSeed;
     pathTracing["directLightingEnabled"] = settings.pathTracing.directLightingEnabled;
@@ -306,6 +307,8 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
             parsed.pathTracing.accumulate = pathTracing.value("accumulate", parsed.pathTracing.accumulate);
             parsed.pathTracing.samplesPerFrame =
                 (std::clamp)(pathTracing.value("samplesPerFrame", parsed.pathTracing.samplesPerFrame), 1u, 16u);
+            parsed.pathTracing.pixelCenterPrimary =
+                pathTracing.value("pixelCenterPrimary", parsed.pathTracing.pixelCenterPrimary);
             parsed.pathTracing.maxBounces =
                 (std::clamp)(pathTracing.value("maxBounces", parsed.pathTracing.maxBounces), 1u, 16u);
             parsed.pathTracing.randomSeed = pathTracing.value("randomSeed", parsed.pathTracing.randomSeed);

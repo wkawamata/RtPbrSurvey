@@ -665,6 +665,7 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
     validated.maxBounces = (std::clamp)(validated.maxBounces, 1u, 16u);
     const bool changed =
         m_pathTracingSettings.accumulate != validated.accumulate ||
+        m_pathTracingSettings.pixelCenterPrimary != validated.pixelCenterPrimary ||
         m_pathTracingSettings.maxBounces != validated.maxBounces ||
         m_pathTracingSettings.randomSeed != validated.randomSeed ||
         m_pathTracingSettings.directLightingEnabled != validated.directLightingEnabled ||
@@ -6020,6 +6021,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.shadowEnabled = m_shadowSettings.enabled ? 1u : 0u;
     passDesc.russianRouletteEnabled = m_pathTracingSettings.russianRouletteEnabled ? 1u : 0u;
     passDesc.samplesPerFrame = m_pathTracingSettings.samplesPerFrame;
+    passDesc.pixelCenterPrimary = m_pathTracingSettings.pixelCenterPrimary;
     passDesc.sampleStartIndex = m_pathTracingRuntimeState.frameSampleIndex;
     passDesc.randomSeed = m_pathTracingSettings.randomSeed;
     passDesc.previousSampleCount = m_pathTracingSettings.accumulate ?
@@ -6589,6 +6591,8 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 {"renderingPath", static_cast<int>(m_renderingPath)},
                 {"sampleStartIndex", m_pathTracingRuntimeState.frameSampleIndex},
                 {"randomSeed", m_pathTracingSettings.randomSeed},
+                {"samplesPerFrame", m_pathTracingSettings.samplesPerFrame},
+                {"primarySampling", m_pathTracingSettings.pixelCenterPrimary ? "pixel-center" : "random-per-pixel"},
                 {"width", capture.readback.width}, {"height", capture.readback.height},
                 {"format", static_cast<int>(capture.readback.format)}, {"rowOrder", "top-down"},
                 {"matrixConvention", "transpose of DirectX row-vector matrices"},
