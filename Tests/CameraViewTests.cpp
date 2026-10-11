@@ -80,11 +80,81 @@ bool TestDegenerateInputFallback()
     return IsFinite(Engine::CreateCameraViewMatrix(camera));
 }
 
+bool TestLiveCameraEdits()
+{
+    Engine::CameraState camera;
+    const DirectX::XMFLOAT3 rotation = {0.35f, -0.7f, 0.45f};
+    Engine::SetCameraRotationRadians(camera, rotation);
+    const DirectX::XMFLOAT3 actual = Engine::GetCameraRotationRadians(camera);
+    if (!NearlyEqual(actual.x, rotation.x) || !NearlyEqual(actual.y, rotation.y) ||
+        !NearlyEqual(actual.z, rotation.z))
+    {
+        return false;
+    }
+    const Engine::CameraBasis before = Engine::ResolveCameraBasis(camera);
+    Engine::SetCameraPosition(camera, {7.0f, 2.0f, -3.0f});
+    const Engine::CameraBasis after = Engine::ResolveCameraBasis(camera);
+    return DirectX::XMVectorGetX(DirectX::XMVector3Length(DirectX::XMVectorSubtract(
+        before.forward, after.forward))) < 0.0001f &&
+        DirectX::XMVectorGetX(DirectX::XMVector3Length(DirectX::XMVectorSubtract(
+        before.up, after.up))) < 0.0001f;
+}
+
+bool TestRotationPoleRoundTrip()
+{
+    for (float pitch : {DirectX::XM_PIDIV2, -DirectX::XM_PIDIV2})
+    {
+        Engine::CameraState camera;
+        Engine::SetCameraRotationRadians(camera, {pitch, 0.6f, 0.3f});
+        const Engine::CameraBasis before = Engine::ResolveCameraBasis(camera);
+        Engine::SetCameraRotationRadians(camera, Engine::GetCameraRotationRadians(camera));
+        const Engine::CameraBasis after = Engine::ResolveCameraBasis(camera);
+        if (DirectX::XMVectorGetX(DirectX::XMVector3Length(DirectX::XMVectorSubtract(
+                before.up, after.up))) > 0.0001f || !IsFinite(Engine::CreateCameraViewMatrix(camera)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool TestCameraParameterComparison()
+{
+    Engine::CameraState stored;
+    Engine::SetCameraRotationRadians(stored, {0.3f, -0.4f, 0.2f});
+    Engine::CameraState current = stored;
+    DirectX::XMStoreFloat3(&current.gazePoint, DirectX::XMVectorAdd(
+        DirectX::XMLoadFloat3(&current.pos), Engine::ResolveCameraBasis(current).forward));
+    if (!Engine::CameraViewParametersMatch(current, stored))
+    {
+        return false;
+    }
+    current.pos.x += 0.01f;
+    if (Engine::CameraViewParametersMatch(current, stored))
+    {
+        return false;
+    }
+    current = stored;
+    current.fov += 0.01f;
+    if (Engine::CameraViewParametersMatch(current, stored))
+    {
+        return false;
+    }
+    current = stored;
+    Engine::SetCameraRotationRadians(current, {0.3f, -0.4f, 0.21f});
+    if (Engine::CameraViewParametersMatch(current, stored))
+    {
+        return false;
+    }
+    return Engine::CameraViewParametersMatch(stored, stored);
+}
+
 } // namespace
 
 int main()
 {
-    if (!TestExactTopDownView() || !TestLegacyWorldUpCompatibility() || !TestDegenerateInputFallback())
+    if (!TestExactTopDownView() || !TestLegacyWorldUpCompatibility() || !TestDegenerateInputFallback() ||
+        !TestLiveCameraEdits() || !TestRotationPoleRoundTrip() || !TestCameraParameterComparison())
     {
         std::cerr << "Camera view tests failed.\n";
         return 1;

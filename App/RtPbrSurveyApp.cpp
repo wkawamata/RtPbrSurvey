@@ -30,6 +30,7 @@
 #include "../Scene/SceneGraph.h"
 #include "../Scene/SceneDocumentJson.h"
 #include "../Scene/SceneDocumentRuntimeScene.h"
+#include "../Scene/CameraView.h"
 #include "imgui.h"
 #include "ImGuiWidgets.h"
 
@@ -727,6 +728,10 @@ bool RtPbrSurveyApp::OnCloseRequested()
 
 void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
 {
+    if (m_appMode == AppMode::SceneEditorEdit && m_sceneEditorGizmoCapturesMouse)
+    {
+        return;
+    }
     if (IsFixedStepCaptureActive() && (m_framePaused || !m_sceneRenderer.CanAdvanceCaptureSessionFixedStep()))
     {
         return;
@@ -777,6 +782,10 @@ void RtPbrSurveyApp::OnMouseUp(UINT8 button, int x, int y)
 
 void RtPbrSurveyApp::OnMouseMove(int x, int y)
 {
+    if (m_appMode == AppMode::SceneEditorEdit && m_sceneEditorGizmoCapturesMouse)
+    {
+        return;
+    }
     if (IsFixedStepCaptureActive() && (m_framePaused || !m_sceneRenderer.CanAdvanceCaptureSessionFixedStep()))
     {
         return;
@@ -2462,6 +2471,7 @@ bool RtPbrSurveyApp::SaveSceneEditorDocument(bool saveAs, std::string* error)
         return false;
     }
 
+    m_sceneEditorSession->CommitEdit();
     m_sceneEditorSession->Document() = std::move(document);
     m_sceneEditorSession->MarkSaved();
     if (createsNewScene)
@@ -2765,15 +2775,7 @@ bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error, bool preserve
     ApplySceneEditorEnvironmentSettings();
 
     Engine::CameraState& camera = m_loadedScene->GetScene().camera;
-    if (!retainCamera)
-    {
-        const XMVECTOR direction = XMVector3Normalize(XMLoadFloat3(&camera.gazePoint) - XMLoadFloat3(&camera.pos));
-        XMFLOAT3 directionFloat = {};
-        XMStoreFloat3(&directionFloat, direction);
-        camera.rot.x = -std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
-        camera.rot.y = std::atan2(directionFloat.x, directionFloat.z);
-        camera.rot.z = 0.0f;
-    }
+    camera.rot = Engine::GetCameraRotationRadians(camera);
     m_debugCamera.SetCameraState(&camera);
     m_debugCamera.SetWindowSize(GetWidth(), GetHeight());
     m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::FreeLook);

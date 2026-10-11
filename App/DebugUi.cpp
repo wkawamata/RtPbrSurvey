@@ -414,6 +414,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     if (app.m_appMode == RtPbrSurveyApp::AppMode::SceneEditorEdit)
     {
         App::DrawSceneEditorEditUi(app);
+        App::DrawSceneEditorTransformUi(app);
         return;
     }
 
