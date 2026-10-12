@@ -54,6 +54,25 @@ bool TestRegularHorizontalAndVerticalOrbit()
     return NearlyEqual(controller.ObjectViewerYaw(), 0.2f) && NearlyEqual(controller.ObjectViewerPitch(), 0.2f);
 }
 
+bool TestIdleFreeLookPreservesSceneTarget()
+{
+    Engine::CameraState camera;
+    camera.pos = {0, 4, -7};
+    camera.gazePoint = {0, 0, 0};
+    camera.rot = {.519146f, 0, 0};
+    const Engine::CameraState original = camera;
+    RtPbrSurvey::DebugCameraController controller;
+    controller.SetCameraState(&camera);
+    controller.SetMode(RtPbrSurvey::DebugCameraController::Mode::FreeLook);
+    for (int frame = 0; frame < 30; ++frame)
+    {
+        controller.UpdateFreeLookKeyboard(1.f/60, false, false, false, false, false, false, false, false);
+    }
+    return camera.gazePoint.x == original.gazePoint.x && camera.gazePoint.y == original.gazePoint.y &&
+           camera.gazePoint.z == original.gazePoint.z && NearlyEqual(camera.pos, original.pos) &&
+           NearlyEqual(camera.up, original.up) && NearlyEqual(camera.rot, original.rot);
+}
+
 bool TestNearLimitDragDoesNotCrossPole()
 {
     Engine::CameraState camera;
@@ -97,6 +116,11 @@ bool TestArcballSwitchPreservesEightyEightDegreeCamera()
 
 int main()
 {
+    if (!TestIdleFreeLookPreservesSceneTarget())
+    {
+        std::cerr << "Idle FreeLook must preserve the scene camera target.\n";
+        return 1;
+    }
     Engine::CameraState rolledCamera;
     Engine::SetCameraRotationRadians(rolledCamera, {0.2f, 0.3f, 0.45f});
     RtPbrSurvey::DebugCameraController rolledController;
@@ -128,8 +152,7 @@ int main()
     controller.SetCameraState(&camera);
     controller.SetMode(RtPbrSurvey::DebugCameraController::Mode::FreeLook);
     controller.UpdateFreeLookKeyboard(0.0f, false, false, false, false, false, false, false, false);
-    const float distance = std::sqrt(65.0f);
-    if (!NearlyEqual(camera.gazePoint, {0.0f, 4.0f - 4.0f / distance, -7.0f + 7.0f / distance}))
+    if (!NearlyEqual(camera.gazePoint, {0.0f, 0.0f, 0.0f}))
     {
         std::cerr << "FreeLook changed the saved camera direction.\n";
         return 1;

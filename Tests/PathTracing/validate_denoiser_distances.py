@@ -255,9 +255,10 @@ def main():
             write_json(output/'report.json', report)
             print('Captured '+resource, flush=True)
         if args.normal_guide:
-            _, record = capture(exe, output, 'NormalRoughness', output/'on.json', 'NormalRoughness')
-            report['records'].append(record)
-            write_json(output/'report.json', report)
+            for guide in ('NormalRoughness', 'ViewZ'):
+                _, record = capture(exe, output, guide, output/'on.json', guide)
+                report['records'].append(record)
+                write_json(output/'report.json', report)
         on, record = capture(exe, output, 'CurrentFrameRadiance', output/'on.json', 'RadianceOn')
         report['records'].append(record)
         off, record = capture(exe, output, 'CurrentFrameRadiance', output/'off.json', 'RadianceOff')

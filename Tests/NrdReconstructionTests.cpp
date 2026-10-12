@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <vector>
 #include <string>
+#include <filesystem>
 
 using Microsoft::WRL::ComPtr;
 using float4x4 = DirectX::XMFLOAT4X4;
@@ -58,14 +59,14 @@ ComPtr<ID3D12Resource> Buffer(ID3D12Device* device, UINT64 size, D3D12_HEAP_TYPE
     return resource;
 }
 
-ComPtr<ID3D12Resource> Texture(ID3D12Device* device, UINT size, DXGI_FORMAT format, bool output)
+ComPtr<ID3D12Resource> Texture(ID3D12Device* device, UINT width, UINT height, DXGI_FORMAT format, bool output)
 {
     D3D12_HEAP_PROPERTIES heap = {};
     heap.Type = D3D12_HEAP_TYPE_DEFAULT;
     D3D12_RESOURCE_DESC desc = {};
     desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    desc.Width = size;
-    desc.Height = size;
+    desc.Width = width;
+    desc.Height = height;
     desc.DepthOrArraySize = 1;
     desc.MipLevels = 1;
     desc.SampleDesc.Count = 1;
@@ -109,9 +110,22 @@ void Wait(ID3D12Device* device, ID3D12CommandQueue* queue)
         throw std::runtime_error("Reconstruction timed out");
 }
 
-void RunCase(
-    ID3D12Device* device, ID3D12RootSignature* root, ID3D12PipelineState* pipeline, UINT caseIndex, bool fiveByFive)
+struct ReplayInputs
 {
+    UINT width;
+    UINT height;
+    std::filesystem::path folder;
+};
+
+void RunCase(ID3D12Device* device,
+             ID3D12RootSignature* root,
+             ID3D12PipelineState* pipeline,
+             UINT caseIndex,
+             bool fiveByFive,
+             const ReplayInputs* replay = nullptr)
+{
+    const UINT width = replay ? replay->width : kSize;
+    const UINT height = replay ? replay->height : kSize;
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
     ComPtr<ID3D12CommandQueue> queue;
     Check(device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&queue)));
@@ -156,10 +170,11 @@ void RunCase(
     UINT targetY = caseIndex == 4 ? 0 : 7;
     for (UINT index = 0; index < 7; ++index)
     {
-        const UINT size = index == 0 ? 1 : kSize;
+        const UINT textureWidth = index == 0 ? (width + 15) / 16 : width;
+        const UINT textureHeight = index == 0 ? (height + 15) / 16 : height;
         const UINT channels = index == 0 || index == 2 ? 1 : 4;
         const DXGI_FORMAT format = channels == 1 ? DXGI_FORMAT_R32_FLOAT : DXGI_FORMAT_R32G32B32A32_FLOAT;
-        textures[index] = Texture(device, size, format, index >= 5);
+        textures[index] = Texture(device, textureWidth, textureHeight, format, index >= 5);
         if (index >= 5)
         {
             D3D12_UNORDERED_ACCESS_VIEW_DESC view = {};
@@ -169,12 +184,23 @@ void RunCase(
             device->CreateUnorderedAccessView(textures[index].Get(), nullptr, &view, clearCpu(index - 5));
             continue;
         }
-        std::vector<float> data(size * size * channels, 0);
-        for (UINT y = 0; y < size; ++y)
+        std::vector<float> data(size_t(textureWidth) * textureHeight * channels, 0);
+        if (replay)
         {
-            for (UINT x = 0; x < size; ++x)
+            const char* names[] = {"tiles.raw", "normals.raw", "viewz.raw", "specular.raw", "diffuse.raw"};
+            std::ifstream input(replay->folder / names[index], std::ios::binary);
+            input.read(reinterpret_cast<char*>(data.data()), data.size() * sizeof(float));
+            if (!input || input.peek() != std::char_traits<char>::eof())
+                throw std::runtime_error("Missing, truncated or oversized replay input");
+            for (float value : data)
+                if (!std::isfinite(value))
+                    throw std::runtime_error("Nonfinite replay input");
+        }
+        for (UINT y = 0; !replay && y < textureHeight; ++y)
+        {
+            for (UINT x = 0; x < textureWidth; ++x)
             {
-                const UINT offset = (y * size + x) * channels;
+                const UINT offset = (y * textureWidth + x) * channels;
                 const bool center = x == targetX && y == targetY;
                 if (index == 0)
                     data[offset] = caseIndex == 5 ? 1.f : 0.f;
@@ -207,10 +233,10 @@ void RunCase(
         void* mapped = nullptr;
         D3D12_RANGE noRead = {0, 0};
         Check(uploads.back()->Map(0, &noRead, &mapped));
-        for (UINT row = 0; row < size; ++row)
+        for (UINT row = 0; row < textureHeight; ++row)
             std::memcpy(static_cast<char*>(mapped) + footprint.Offset + row * footprint.Footprint.RowPitch,
-                        data.data() + row * size * channels,
-                        size * channels * sizeof(float));
+                        data.data() + row * textureWidth * channels,
+                        textureWidth * channels * sizeof(float));
         uploads.back()->Unmap(0, nullptr);
         D3D12_TEXTURE_COPY_LOCATION source = {};
         source.pResource = uploads.back().Get();
@@ -232,8 +258,8 @@ void RunCase(
         device->CreateShaderResourceView(textures[index].Get(), &view, cpu(index));
     }
     Constants constants = {};
-    constants.gRectSize = {kSize, kSize};
-    constants.gRectSizeInv = {1.f / kSize, 1.f / kSize};
+    constants.gRectSize = {int(width), int(height)};
+    constants.gRectSizeInv = {1.f / width, 1.f / height};
     constants.gDenoisingRange = 1000;
     constants.gViewZScale = 1;
     const auto constantBuffer = Buffer(device, 768, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
@@ -259,7 +285,7 @@ void RunCase(
         barrier.UAV.pResource = textures[index].Get();
         commands->ResourceBarrier(1, &barrier);
     }
-    commands->Dispatch(2, 2, 1);
+    commands->Dispatch((width + 7) / 8, (height + 7) / 8, 1);
     std::array<ComPtr<ID3D12Resource>, 2> readbacks;
     std::array<D3D12_PLACED_SUBRESOURCE_FOOTPRINT, 2> footprints;
     for (UINT lobe = 0; lobe < 2; ++lobe)
@@ -288,6 +314,26 @@ void RunCase(
     for (UINT lobe = 0; lobe < 2; ++lobe)
     {
         Check(readbacks[lobe]->Map(0, nullptr, &mapped));
+        if (replay)
+        {
+            std::vector<float> output(size_t(width) * height * 4);
+            for (UINT y = 0; y < height; ++y)
+                std::memcpy(output.data() + size_t(y) * width * 4,
+                            static_cast<char*>(mapped) + footprints[lobe].Offset +
+                                y * footprints[lobe].Footprint.RowPitch,
+                            size_t(width) * 4 * sizeof(float));
+            readbacks[lobe]->Unmap(0, &noRead);
+            for (float value : output)
+                if (!std::isfinite(value))
+                    throw std::runtime_error("Nonfinite SDK reconstruction output");
+            const std::string name =
+                std::string(lobe == 0 ? "specular-" : "diffuse-") + (fiveByFive ? "5x5.raw" : "3x3.raw");
+            std::ofstream destination(replay->folder / name, std::ios::binary);
+            destination.write(reinterpret_cast<const char*>(output.data()), output.size() * sizeof(float));
+            if (!destination)
+                throw std::runtime_error("Could not write reconstruction replay output");
+            continue;
+        }
         bool valid = true;
         for (UINT y = 0; y < kSize; ++y)
         {
@@ -329,14 +375,26 @@ int main(int argc, char** argv)
 {
     try
     {
-        if (argc < 3 || argc > 4)
-            throw std::runtime_error("Expected shader, 3x3/5x5 and optional --hardware");
+        const bool replayMode = argc >= 4 && std::strcmp(argv[3], "--replay") == 0;
+        if ((!replayMode && (argc < 3 || argc > 4)) || (replayMode && argc != 7 && argc != 8))
+            throw std::runtime_error("Expected shader, 3x3/5x5, optional --replay folder width height and --hardware");
         const bool five = std::strcmp(argv[2], "5x5") == 0;
         if (!five && std::strcmp(argv[2], "3x3") != 0)
             throw std::runtime_error("Invalid neighborhood mode");
-        const bool hardware = argc == 4 && std::strcmp(argv[3], "--hardware") == 0;
-        if (argc == 4 && !hardware)
+        const bool hardware = (argc == 4 || argc == 8) && std::strcmp(argv[argc - 1], "--hardware") == 0;
+        if ((argc == 4 || argc == 8) && !hardware)
             throw std::runtime_error("Unknown option");
+        ReplayInputs replay = {};
+        if (replayMode)
+        {
+            replay.folder = argv[4];
+            const unsigned long width = std::stoul(argv[5]);
+            const unsigned long height = std::stoul(argv[6]);
+            if (width == 0 || height == 0 || width > 8192 || height > 8192)
+                throw std::runtime_error("Invalid replay dimensions");
+            replay.width = UINT(width);
+            replay.height = UINT(height);
+        }
         std::ifstream stream(argv[1], std::ios::binary);
         std::vector<char> shader((std::istreambuf_iterator<char>(stream)), {});
         if (shader.empty())
@@ -383,8 +441,11 @@ int main(int argc, char** argv)
         pipelineDesc.CS = {shader.data(), shader.size()};
         ComPtr<ID3D12PipelineState> pipeline;
         Check(device->CreateComputePipelineState(&pipelineDesc, IID_PPV_ARGS(&pipeline)));
-        for (UINT index = 0; index < 9; ++index)
-            RunCase(device.Get(), root.Get(), pipeline.Get(), index, five);
+        if (replayMode)
+            RunCase(device.Get(), root.Get(), pipeline.Get(), 0, five, &replay);
+        else
+            for (UINT index = 0; index < 9; ++index)
+                RunCase(device.Get(), root.Get(), pipeline.Get(), index, five);
         for (UINT64 index = 0; index < info->GetNumStoredMessages(); ++index)
         {
             SIZE_T size = 0;
@@ -395,7 +456,8 @@ int main(int argc, char** argv)
             if (message->Severity <= D3D12_MESSAGE_SEVERITY_ERROR)
                 throw std::runtime_error(message->pDescription);
         }
-        std::cout << (hardware ? "Hardware" : "WARP") << ": 9 cases, no D3D12 errors.\n";
+        std::cout << (hardware ? "Hardware" : "WARP") << (replayMode ? ": replay" : ": 9 cases")
+                  << ", no D3D12 errors.\n";
         return 0;
     }
     catch (const std::exception& error)

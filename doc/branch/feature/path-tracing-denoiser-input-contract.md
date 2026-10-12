@@ -1315,3 +1315,69 @@ No captured-scene replay, material demodulation, production NRD dispatch or
 denoising quality acceptance is claimed. Next: replay matched captured inputs
 through this kernel, measure actual unresolved pixels, then implement guarded
 conversion/Native fallback without silently certifying historical ray misses.
+
+### Step 2P: Captured Geometry Replay Harness (2026-10-13)
+
+Extended the isolated SDK execution harness to rectangular images with explicit
+raw-input sizes. The Python replay runner verifies capture hashes, scene hash,
+resource formats, exact metadata cohorts, plane normals and ViewZ computed from
+actual captured primary positions. The capture runner now includes both
+NormalRoughness and ViewZ when --normal-guide is requested.
+
+Replay RGB is a constant 1/2/3 probe, not physical lobe radiance or demodulated
+material output. Captured hit distances are retained; invalid directions remain
+zero. Two separately labelled variants test hit-only seeds and hypothetical
+environment misses encoded as 65504. Both leave inputReady=false and
+runtimeGeometrySnapshotVerified=false. This does not certify historical misses.
+PT primary misses have ViewZ zero; replay explicitly converts them to 1e6 to
+exclude them from NRD's denoising range. Outputs are checked for finiteness,
+range, RGB preservation and cleared excluded pixels before recording counts.
+
+Two initial capture attempts failed exact camera-cohort checks and are retained.
+Inspection found that UpdateFreeLookKeyboard rewrote gazePoint even with no
+input whenever the app was foreground, replacing a distant scene target with
+a unit-distance target and slightly changing projection arithmetic. Idle input
+now leaves the camera untouched. Regression tests preserve the original scene
+target and retain keyboard/mouse roll behavior. No cohort tolerances were relaxed.
+
+The fixed-camera cohort passed all ten captures with zero D3D12 errors and
+bit-identical Native diagnostic ON/OFF radiance. Independent ViewZ maximum
+error was 3.4104e-5; 1,324,467 labelled normals passed. This new cohort has
+46 invalid-direction pixels without surface labels (not the prior cohort's 47).
+
+Both WARP and RTX 2080 Ti passed four full-resolution replay conditions, with
+matching unresolved counts and unchanged probe RGB:
+
+| Specular invalid directions (117072 total) | 3x3 unresolved | 5x5 unresolved |
+| --- | --- | --- |
+| Hit seeds only | 69187 | 49275 |
+| Hypothetical environment seeds | 0 | 0 |
+
+All active unresolved counts for the hit-only variant remain large, including
+real misses deliberately left unencoded; they are not all sampler failures.
+In the hypothetical variant, all active pixels have nonzero output distance.
+The SDK also fills the unlabelled edge population, unlike the conservative
+Python same-plane audit. This is NOT proof that their neighbors belong to the
+correct surface, nor permission to bypass material/history safety checks.
+
+WARP/hardware outputs are not bit-identical: maximum absolute distance
+difference is 2.3842e-6 in hit-only tests and .0625 with 65504-valued environment
+seeds. These are recorded observations, not a universal error-bound approval.
+No demodulated lobe radiance or denoiser quality metric was evaluated.
+
+Evidence is under bin/PathTracingValidation/:
+nrd-step2p-stable-camera-cohort-20261013,
+nrd-step2p-replay-warp-20261013 and nrd-step2p-replay-hardware-20261013.
+The failed pre-fix cohorts nrd-step2p-viewz-cohort-20261013 and
+nrd-step2p-viewz-cohort-retry-20261013 remain preserved.
+Next: actual material/lobe demodulation and guarded GPU input conversion using
+the current TLAS snapshot/range proof, then production NRD dispatch/history.
+
+Final verification: Debug application, camera regression target and replay
+harness built successfully. Five replay-input/output gate tests passed;
+CTest passed 34/34, with the camera and replay targets rebuilt and other
+targets using existing verified binaries. An initial sandbox temp-directory
+permission failure in the Python fixture test was resolved by host-side
+execution, without relaxing test assertions. User Scene Editor and manual
+scene changes remain untouched; generated captures/raw buffers are not Git
+content.
