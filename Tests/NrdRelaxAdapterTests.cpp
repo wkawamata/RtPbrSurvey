@@ -3,6 +3,107 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include "Scene/Scene.h"
+
+namespace
+{
+bool CheckSceneRange()
+{
+    Engine::SceneMesh mesh;
+    mesh.vertices.resize(3);
+    mesh.vertices[0].position = {0, 0, 0};
+    mesh.vertices[1].position = {2, 0, 0};
+    mesh.vertices[2].position = {0, 2, 0};
+    mesh.indices = {0, 1, 2};
+    mesh.ranges.push_back({0, 3, 0, 3});
+    Engine::Scene scene;
+    scene.mesh = &mesh;
+    Engine::InstanceData instance = {};
+    DirectX::XMStoreFloat4x4(&instance.world, DirectX::XMMatrixIdentity());
+    instance.prevWorld = instance.world;
+    scene.instances.push_back(instance);
+    auto bounds = Engine::BuildNrdRelaxWorldBounds(scene);
+    bool passed = bounds.complete && bounds.minimum[0] < 0 && bounds.maximum[0] > 2;
+    Engine::NrdRelaxRayRangeContext context;
+    context.bounds = &bounds;
+    context.origin = {.25f, .25f, .001f};
+    context.direction = {0, 0, 1};
+    const auto inspect = [&](float maximum)
+    { return Engine::InspectNrdRelaxDistance(0, 2, maximum, 0, maximum, true, true, &context); };
+    using Disposition = Engine::NrdRelaxDistanceDisposition;
+    passed &= inspect(100).disposition == Disposition::EnvironmentMissPolicyRequired;
+    context.geometrySnapshotMatches = true;
+    passed &= inspect(100).disposition == Disposition::EnvironmentMissCandidate;
+    passed &= inspect(100).hitDistance == 65504;
+    passed &= inspect(1).disposition == Disposition::EnvironmentMissPolicyRequired;
+    context.direction = {0, 0, .001f};
+    passed &= inspect(100).disposition == Disposition::EnvironmentMissPolicyRequired;
+    context.direction = {0, 0, 2};
+    passed &= inspect(100).disposition == Disposition::EnvironmentMissPolicyRequired;
+    context.direction = {0, 0, 0};
+    passed &= inspect(100).disposition == Disposition::EnvironmentMissPolicyRequired;
+    context.direction = {0, 0, 1};
+    context.origin = {1000, 0, 0};
+    passed &= inspect(100).disposition == Disposition::EnvironmentMissPolicyRequired;
+    context.origin = {.25f, .25f, .001f};
+    context.direction[0] = std::numeric_limits<float>::quiet_NaN();
+    passed &= inspect(100).disposition == Disposition::EnvironmentMissPolicyRequired;
+    context.direction = {0, 0, 1};
+    bounds.complete = false;
+    passed &= inspect(100).disposition == Disposition::EnvironmentMissPolicyRequired;
+    bounds = Engine::BuildNrdRelaxWorldBounds(scene);
+    const auto moved = DirectX::XMMatrixScaling(2, .5f, 1) * DirectX::XMMatrixRotationZ(DirectX::XM_PIDIV2) *
+                       DirectX::XMMatrixTranslation(3, -4, 5);
+    DirectX::XMStoreFloat4x4(&scene.instances[0].world, DirectX::XMMatrixTranspose(moved));
+    auto transformed = Engine::BuildNrdRelaxWorldBounds(scene);
+    passed &= transformed.complete;
+    for (const auto& vertex : mesh.vertices)
+    {
+        DirectX::XMFLOAT3 point;
+        DirectX::XMStoreFloat3(&point,
+                               DirectX::XMVector3TransformCoord(DirectX::XMLoadFloat3(&vertex.position), moved));
+        const float coordinates[] = {point.x, point.y, point.z};
+        for (size_t axis = 0; axis < 3; ++axis)
+        {
+            passed &= coordinates[axis] >= transformed.minimum[axis] && coordinates[axis] <= transformed.maximum[axis];
+        }
+    }
+    scene.instances[0] = instance;
+    instance.world._14 = 100;
+    scene.instances.push_back(instance);
+    bounds = Engine::BuildNrdRelaxWorldBounds(scene);
+    passed &= bounds.complete && bounds.maximum[0] > 102;
+    passed &= inspect(100).disposition == Disposition::EnvironmentMissPolicyRequired;
+    scene.instances.pop_back();
+    mesh.vertices.resize(6);
+    mesh.vertices[3].position = {0, 0, 200};
+    mesh.vertices[4].position = {2, 0, 200};
+    mesh.vertices[5].position = {0, 2, 200};
+    mesh.indices = {3, 4, 5};
+    bounds = Engine::BuildNrdRelaxWorldBounds(scene);
+    passed &= bounds.complete && bounds.maximum[2] > 200;
+    passed &= inspect(100).disposition == Disposition::EnvironmentMissPolicyRequired;
+    mesh.vertices.resize(3);
+    mesh.indices = {0, 1, 2};
+    mesh.indices[0] = UINT32_MAX;
+    passed &= !Engine::BuildNrdRelaxWorldBounds(scene).complete;
+    mesh.indices[0] = 0;
+    scene.instances[0].meshId = 1;
+    passed &= !Engine::BuildNrdRelaxWorldBounds(scene).complete;
+    scene.instances[0].meshId = 0;
+    scene.instances[0].world._41 = 1;
+    passed &= !Engine::BuildNrdRelaxWorldBounds(scene).complete;
+    scene.instances[0].world._41 = 0;
+    mesh.vertices[0].position.x = std::numeric_limits<float>::infinity();
+    passed &= !Engine::BuildNrdRelaxWorldBounds(scene).complete;
+    mesh.vertices[0].position.x = 0;
+    mesh.ranges.clear();
+    passed &= Engine::BuildNrdRelaxWorldBounds(scene).complete;
+    scene.instances.clear();
+    passed &= !Engine::BuildNrdRelaxWorldBounds(scene).complete;
+    return passed;
+}
+} // namespace
 
 int main()
 {
@@ -17,6 +118,7 @@ int main()
     passed &= !Engine::QueryNrdRelaxSamplingReadiness(1, false).ready;
     passed &= Engine::QueryNrdRelaxSamplingReadiness(1, true).ready;
     passed &= !Engine::QueryNrdRelaxSupport().available;
+    passed &= CheckSceneRange();
     using Disposition = Engine::NrdRelaxDistanceDisposition;
     const auto inspect = [](float distance, float state, float raw, bool primary = true, bool active = true)
     { return Engine::InspectNrdRelaxDistance(distance, state, raw, 0.0f, 100.0f, primary, active); };

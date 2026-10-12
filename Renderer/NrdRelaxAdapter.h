@@ -1,7 +1,28 @@
 #pragma once
 
+#include <array>
+
 namespace Engine
 {
+
+class Scene;
+
+struct NrdRelaxWorldBounds
+{
+    bool complete = false;
+    std::array<double, 3> minimum = {};
+    std::array<double, 3> maximum = {};
+};
+
+NrdRelaxWorldBounds BuildNrdRelaxWorldBounds(const Scene& scene);
+
+struct NrdRelaxRayRangeContext
+{
+    const NrdRelaxWorldBounds* bounds = nullptr;
+    std::array<float, 3> origin = {};
+    std::array<float, 3> direction = {};
+    bool geometrySnapshotMatches = false;
+};
 
 enum class NrdRelaxSupportStatus
 {
@@ -36,6 +57,7 @@ enum class NrdRelaxDistanceDisposition
     ExcludePrimaryMiss,
     InactiveLobe,
     PackingRangeExceeded,
+    EnvironmentMissCandidate,
 };
 
 struct NrdRelaxDistanceDecision
@@ -51,6 +73,7 @@ NrdRelaxDistanceDecision InspectNrdRelaxDistance(float surfaceDistance,
                                                  float reserved,
                                                  float rayTMax,
                                                  bool primaryHit,
-                                                 bool lobeActive);
+                                                 bool lobeActive,
+                                                 const NrdRelaxRayRangeContext* rangeContext = nullptr);
 
 } // namespace Engine

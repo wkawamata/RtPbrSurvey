@@ -1037,3 +1037,93 @@ Next: implement environment-miss range proof and invalid-direction replacement
 or a validated bounded-sampling/coverage policy, then connect material
 demodulation and SDK packing to actual GPU input conversion. RELAX dispatch and
 quality acceptance are still unavailable; this step does not enable them.
+
+### Step 2K: Range Proof and Replacement Coverage Audit (2026-10-12)
+
+Added BuildNrdRelaxWorldBounds and an optional NrdRelaxRayRangeContext to the
+adapter's CPU reference gate. Bounds include the actual referenced vertices of
+every supplied scene instance. Indexed BLAS geometry uses global packed vertex
+indices, not only the range's declared local vertex interval; unindexed geometry
+uses its firstVertex interval. Legacy empty range lists use the same whole-mesh
+range-zero fallback as the renderer. The first three rows of stored transposed
+InstanceData::world match the TLAS 3x4 transform.
+
+Nonfinite vertices/matrices, non-affine matrices, invalid ranges/mesh IDs/indices,
+incomplete triangles and float-overflow transforms invalidate the whole bound.
+An empty/missing scene is not certified. Double-precision bounds are inflated by
+32*float-epsilon*max(1, sum of absolute transform terms) per coordinate. This is
+a conservative prototype margin, not a universal proof about arbitrary GPU
+deformation or hardware intersection error.
+
+Canonical misses remain EnvironmentMissPolicyRequired by default. They become
+EnvironmentMissCandidate (distance 65504, validated against the pinned packer)
+only when all these checks pass:
+
+- Supplied bounds are complete, finite and ordered.
+- The caller explicitly verifies geometrySnapshotMatches; default is false.
+- Actual biased ray origin/direction are finite; direction length is within
+  2e-5 of one, matching the diagnostic unit-direction contract.
+- rayTMax*length(direction) strictly exceeds the distance to the farthest AABB
+  corner from that origin, including a 64*float-epsilon arithmetic margin.
+
+The caller must verify the current uploaded vertices/indices and TLAS transform
+snapshot (or a conservative superset), not merely CPU scene-pointer equality.
+This CPU helper is NOT wired to an engine upload-generation check, GPU packing
+or dispatch yet. Do not set the verification flag true for an arbitrary current
+UI scene. The bound only rules out geometry beyond rayTMax under the existing
+opaque/front-face-culling/TMin trace policy; it does not repair near clipping,
+transparency, numerical intersection failures or missing GPU geometry.
+
+Tests cover transformed/scaled geometry, multiple instances, referenced vertices
+outside a declared range, legacy ranges, unknown/stale snapshots, insufficient
+ray range, zero/nonunit/NaN directions, outside origins, invalid indices/mesh IDs,
+projective matrices, nonfinite vertices and empty scenes. A distant indexed
+triangle at z=200 correctly prevents classifying a rayTMax=100 miss as environment.
+
+#### Invalid-Direction Replacement Plan
+
+Do not silently retry the unbounded sampler and retain its old PDF: retries
+condition the distribution and require a corresponding PDF/acceptance contract.
+Investigate bounded VNDF as a separate sampler/PDF change, not a blanket claim
+that all geometric-normal rejections disappear. The pinned SDK also provides
+AREA_3X3/AREA_5X5 hit-distance reconstruction with pre-pass requirements.
+
+Added audit_nrd_replacement_coverage.py as a necessary-condition audit before
+enabling such reconstruction. It checks the passing source report, exact capture
+hashes/cohort and scene hash, maps recorded primary positions to finite-plane
+interiors, excludes ambiguous labels, and searches same-plane 3x3/5x5 witnesses
+without wrapping screen edges. It cannot overwrite the source evidence files.
+It always leaves inputReady=false and runtimeGeometrySnapshotVerified=false.
+No distances, PDFs, radiance or GPU shaders are modified by this audit.
+
+Replayed the existing Step 2I cohort, not a new GPU capture. Diffuse had no invalid
+directions. Specular had 117072 invalid samples:
+
+| Candidate seeds | 3x3 holes | 5x5 holes |
+| --- | --- | --- |
+| Verified hit samples only | 69215 | 49301 |
+| Hits plus hypothetical verified environment misses | 46 | 46 |
+
+The remaining 46 positions lacked an unambiguous plane-interior label. They are
+not proof of a real SDK reconstruction failure: normals and SDK weights were not
+executed. Conversely, 117026 neighbor witnesses are not sufficient proof of valid
+reconstruction. This supports testing a 5x5 reconstruction path after range
+verification, with explicit handling/validation at edges, rather than enabling it
+unconditionally. Need matched NormalRoughness/material data and actual SDK kernel
+results before accepting it. Evidence:
+bin/PathTracingValidation/nrd-step2i-distance-rays-position-20261012/replacement-coverage.json.
+
+Six coverage tests passed, including tiny images, edge wrap rejection, different
+surfaces, unknown labels and holes. Current Python tree passed 215/216 with the
+known manual-emitter fixture mismatch; committed fixture read substitution passed
+216/216. No user scene or unrelated UI changes were modified. CTest passed 30/30
+with the changed adapter target rebuilt and other existing binaries. Debug app
+build passed; adapter-only linking emitted the expected LNK4199 unused Streamline
+delay-load warning (no imports). No new PT image, GPU distance or RELAX quality
+result is claimed. Logs:
+C:/work/RtPbrSurvey-agents/nrd-step2k-delivery-tests-20261012 and nrd-step2k-delivery-app-20261012.
+
+Next: bind bounds to verified engine upload/TLAS snapshots, collect matched normal
+guides to resolve edge coverage, and test actual reconstruction/input conversion.
+Material demodulation, production SDK configuration and RELAX dispatch remain
+pending. The new CPU candidate decision alone never enables RELAX.
