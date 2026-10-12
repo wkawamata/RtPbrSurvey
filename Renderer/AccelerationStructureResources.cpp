@@ -121,7 +121,7 @@ void FillTlasInstanceDescs(
         ZeroMemory(&desc, sizeof(desc));
 
         desc.InstanceID = i;
-        desc.InstanceMask = 0xFF;
+        desc.InstanceMask = HasRenderableTransform(instances[i]) ? 0xFF : 0;
         desc.InstanceContributionToHitGroupIndex = 0;
         desc.Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
         const SceneMeshId meshId = instances[i].meshId;

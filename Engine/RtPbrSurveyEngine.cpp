@@ -6906,6 +6906,10 @@ auto RtPbrSurveyEngine::MakeSceneGeometryDrawDesc() const -> Engine::SceneGeomet
     m_sceneGeometryDraws.reserve(visibleInstanceCount);
     for (UINT instanceIndex = 0; instanceIndex < visibleInstanceCount; ++instanceIndex)
     {
+        if (!Engine::HasRenderableTransform(m_scene.instances[instanceIndex]))
+        {
+            continue;
+        }
         const Engine::SceneMeshId meshId = m_scene.instances[instanceIndex].meshId;
         if (meshId >= m_sceneMeshRanges.size())
         {
