@@ -1127,3 +1127,191 @@ Next: bind bounds to verified engine upload/TLAS snapshots, collect matched norm
 guides to resolve edge coverage, and test actual reconstruction/input conversion.
 Material demodulation, production SDK configuration and RELAX dispatch remain
 pending. The new CPU candidate decision alone never enables RELAX.
+
+### Review Follow-up: Integration Safety Guards (2026-10-12)
+
+The Q3 static review reported no defect in the current default-off contract,
+but identified latent descriptor-layout and configuration reuse risks. The
+test-only NRD configuration now uses normal encoding 4, matching the frozen
+future library policy. This is still a test configuration, not a runtime SDK
+configuration; the radiance/distance packing helper does not consume normals.
+
+The physical-signal UAV pair-layout invariant is checked with a runtime error
+in all build configurations, including repeated descriptor initialization.
+Root-signature cost is calculated from the actual parameter array before
+serialization, instead of a hand-written constant assertion. Current cost
+remains 64 DWORDs (20 tables, five 2-DWORD root SRVs, 34 constants). The earlier
+Q4 claim that root SRVs cost one DWORD was incorrect and is not adopted.
+
+No ray sampling, radiance, distance semantics or RELAX availability changes.
+Next remains engine upload/TLAS snapshot verification and matched normal-guide
+coverage before actual reconstruction/input conversion.
+
+Validation: CMake Debug application and denoiser-sampling target rebuilt
+successfully, including the real pinned SDK packing shader with encoding 4.
+Focused CTest passed 3/3 (NrdRelaxAdapter, PathTracingDenoiserSampling,
+NrdRelaxPacking). No application GPU capture or new RELAX quality result is
+claimed. Unrelated Scene Editor and manually edited validation-scene changes
+were preserved.
+
+### Step 2L: Uploaded Geometry and Recorded TLAS Snapshots (2026-10-13)
+
+NrdRelaxGeometrySnapshot owns a geometry-only immutable copy (vertices, indices,
+ranges). CreateSceneGeometryBuffers uploads directly from that copy; material
+and texture state remains on the original scene. Bounds use this uploaded mesh
+and the exact instance prefix passed to a successfully recorded TLAS build.
+AccelerationStructureResources now reports whether it recorded a build command;
+unsupported devices and empty/missing resources do not certify new bounds.
+
+Each upload, TLAS recording attempt and scene release invalidates previous
+contexts. A monotonically increasing token is checked again when the distance
+gate consumes a snapshot-created context, so even an already-created context
+cannot validate a later TLAS generation. Contexts borrow snapshot storage and
+must not outlive the engine/snapshot owner. Access is single-threaded. Empty or
+invalid geometry produces token zero and cannot certify environment misses.
+
+This certifies CPU provenance and command-recording order, not fence completion.
+Future conversion must use the captured token and actual biased ray coordinates
+for the same command-list/TLAS generation, after the existing build UAV barrier.
+No conversion consumer is enabled yet; no dispatch, reconstruction, distance
+encoding or radiance change is claimed. CPU scene-pointer equality is not used.
+
+Lifecycle tests cover immutable upload copies, valid contexts, stale contexts
+after another recording, stale token requests, distant transformed instances,
+invalidation, release, missing uploads, replacement uploads and empty TLAS input.
+
+Validation: Debug application and NrdRelaxAdapterTests rebuilt successfully.
+CTest passed 30/30, including the new snapshot lifecycle checks; the remaining
+test targets used existing binaries. Adapter-only linking emitted the known
+LNK4199 unused Streamline delay-load warning. No new application GPU capture,
+fence-completion proof or RELAX quality evaluation was performed. Geometry-only
+CPU retention adds a vertex/index/range copy for the lifetime of uploaded scene
+resources; arbitrary deformation or external mutation of GPU buffers is outside
+this static-geometry contract.
+
+### Step 2M: Matched Normal Guide Coverage Audit (2026-10-13)
+
+The dedicated-distance capture runner can now collect NormalRoughness with
+--normal-guide. The replacement audit's --require-normal-guide requires the
+recorded resource hash, RGBA16 format and exact same capture metadata (apart
+from resource/format). A separate or stale normal capture is not accepted.
+Labelled pixels are checked against independently transformed fixture plane
+normals, not merely against neighboring guide values.
+
+Candidate witnesses additionally require unit-normal error <= .005, normal
+dot >= .99 and roughness delta <= .02. These are explicit audit thresholds,
+not the pinned SDK reconstruction weights. Opposite/invalid normals and
+roughness boundaries cannot supply witnesses. Unknown/ambiguous plane labels
+remain excluded: matching normals alone cannot certify geometry identity.
+All source PTBUF files are protected from output overwrite.
+
+inputReady and runtimeGeometrySnapshotVerified remain false. No reconstruction
+kernel, material demodulation or production input conversion is enabled. The
+snapshot provenance implementation from Step 2L does not automatically certify
+historical/offline captures. Material identity and actual SDK weighting still
+require validation before dispatch.
+
+Validation: nine replacement-audit tests and nine dedicated-distance tests
+passed. Legacy evidence replay retains the earlier coverage counts. A fresh
+nine-capture cohort passed distance/direction checks, with zero D3D12 errors
+and bit-identical Native diagnostic ON/OFF radiance. 1,324,466 labelled pixels
+passed the independent normal check (minimum dot approximately 1; maximum
+unit-length error .00048828125). This uniform-roughness planar fixture does not
+exercise real material/normal-map discontinuities; synthetic tests cover guide
+normal and roughness boundary rejection.
+
+Specular invalid count remains 117072. Hit-only holes are 69215 (3x3) and
+49301 (5x5). With hypothetical verified environment seeds, 47 holes remain,
+all lacking a valid surface label. The earlier cohort had 46; these are
+separate captures and no guarantee of identical floating-point edge labels is
+claimed. Normal checks do not eliminate this unresolved edge population.
+
+Evidence: bin/PathTracingValidation/nrd-step2m-normal-coverage-retry-20261013/
+report.json and replacement-coverage.json. The initial cohort is preserved at
+nrd-step2m-normal-coverage-20261013 with status failed: first Albedo camera
+matrices differed from the other captures. Cohort checks were not relaxed.
+No root cause for that initial camera transition is asserted. Next: explicit
+edge policy and actual pinned-SDK reconstruction/input conversion evaluation.
+
+### Step 2N: Pinned Reconstruction Kernel Build Contract (2026-10-13)
+
+Added opt-in RTPBRSURVEY_TEST_NRD_RECONSTRUCTION (default OFF; requires the
+existing packing test option). It compiles the unmodified upstream
+RELAX_HitDistReconstruction.cs.hlsl for BOTH/RADIANCE in 3x3 and 5x5 modes,
+with the same test encoding-4 configuration. No hand-written replacement
+kernel is substituted. MathLib v11 is fixed to
+aa432ad9a80691eb8c3ec4d576bbad5ac100fdc8, matching the dependency manifest;
+the local source checkout is under the ignored SDK's External/MathLib folder.
+Configure rejects mismatched commits or tracked shader-source modifications.
+
+The reflection tests verify 8x8 thread groups, t0 Tiles, t1 NormalRoughness,
+t2 ViewZ, t3 Specular, t4 Diffuse, u0 Specular output, u1 Diffuse output and
+the 712-byte constants at b0/space1. Future D3D12 CBV storage must round this
+size up to the required 256-byte alignment; do not copy a 712-byte logical
+layout into an unaligned CBV allocation. These tests compile/reflect only.
+They do not execute the SDK kernel, link the NRD runtime or enable RELAX.
+
+#### Edge and Unresolved-Distance Policy
+
+- State-3 invalid directions are missing-distance markers for reconstruction,
+  not contact hits. Do not replace them with environment distance 65504.
+- A real environment miss needs the matched range/snapshot proof from Step 2L.
+- SDK reconstruction must use matched NormalRoughness and ViewZ. It uses its
+  own bilateral/normal/Gaussian weights; the Python audit thresholds are not
+  equivalent. Material IDs are not used by this upstream reconstruction pass.
+- Zero distance can remain when no acceptable neighbor contributes. Early-out
+  sky/out-of-range pixels do not write outputs, so the execution harness must
+  clear output textures and distinguish excluded pixels from active lobes.
+- Pending a validated mixed-history policy, any unresolved active-lobe primary
+  pixel prevents accepting the reconstructed frame: use Native for that frame,
+  invalidate denoiser history, and report the unresolved count. Inactive lobes
+  and primary misses may remain zero according to their separate contracts.
+- Never hide the 47 unlabelled audit pixels by relaxing labels or inventing a
+  distance/PDF. The full kernel test must measure its actual output there.
+
+Next execution tests: uniform seed preservation, missing-center reconstruction,
+all-missing neighborhoods, screen borders, depth discontinuities, opposite
+normals, sky tiles, out-of-range ViewZ and RGB preservation. Both neighborhood
+modes must run on WARP first, then hardware with D3D12 error checks. Follow with
+the matched captured cohort before accepting any production conversion path.
+
+Validation: both upstream reconstruction modes compiled and passed reflection
+checks. The checker rejected a packing-only shader as an invalid reconstruction
+kernel. CTest passed 32/32 with two new reflection tests; other targets used the
+existing verified binaries. SDK and MathLib remain source-only local artifacts;
+no SDK shader source edits or runtime application dispatch changes were made.
+
+### Step 2O: Actual SDK Reconstruction on WARP and Hardware (2026-10-13)
+
+Added an opt-in standalone D3D12 texture harness for the unchanged upstream
+3x3/5x5 kernels. Test-only C++ constants expand RELAX_SHARED_CONSTANTS from
+the pinned SDK; static assertions check size 712 and relevant field offsets.
+The CBV allocation is 768 bytes. Five input SRVs and two output UAVs use the
+verified ABI. Uploads, clear-to-dispatch UAV barriers, readback transitions,
+fence waiting and debug-layer error checks are explicit.
+
+Nine synthetic 16x16 cases per mode verify all output pixels for finiteness,
+RGB preservation and expected distances: uniform seeds, missing center,
+all-missing neighborhoods, center ViewZ discontinuity, screen corner,
+sky tile early-out, out-of-denoising-range ViewZ, one seed two pixels away
+(visible only in 5x5), and opposite-normal neighbors. Sky/out-of-range outputs
+remain the explicitly cleared zero; active all-missing RGB is preserved with
+distance zero, demonstrating that unresolved distance must not be confused
+with an excluded pixel or a valid contact hit.
+
+Opposite-normal neighbors still reconstruct the missing center from their
+constant distance: the SDK normal weighting is soft rather than the audit's
+hard dot cutoff. This is observed SDK behavior, not a claim that cross-surface
+reuse is correct. The uniform-distance cases cannot validate relative weights
+between different distances or real scene material boundaries.
+
+Initial execution exposed a test-harness ClearUnorderedAccessViewFloat error:
+its CPU handle referenced the shader-visible heap. Added a separate CPU-only
+clear descriptor heap; final runs have no D3D12 errors. WARP and NVIDIA GeForce
+RTX 2080 Ti each passed both modes (9 cases per mode). CTest passed 34/34;
+the new harness was rebuilt and other targets used existing verified binaries.
+
+No captured-scene replay, material demodulation, production NRD dispatch or
+denoising quality acceptance is claimed. Next: replay matched captured inputs
+through this kernel, measure actual unresolved pixels, then implement guarded
+conversion/Native fallback without silently certifying historical ray misses.

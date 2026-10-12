@@ -6,6 +6,7 @@
 #include <cmath>
 #include <limits>
 #include <algorithm>
+#include <stdexcept>
 
 namespace Engine
 {
@@ -14,6 +15,11 @@ namespace
 bool CoversSceneRange(const NrdRelaxRayRangeContext& context, float rayTMax)
 {
     if (!context.geometrySnapshotMatches || context.bounds == nullptr || !context.bounds->complete)
+    {
+        return false;
+    }
+    if (context.currentSnapshotToken != nullptr &&
+        (context.expectedSnapshotToken == 0 || *context.currentSnapshotToken != context.expectedSnapshotToken))
     {
         return false;
     }
@@ -44,6 +50,64 @@ bool CoversSceneRange(const NrdRelaxRayRangeContext& context, float rayTMax)
     return directionLengthSquared > 0.0 && std::isfinite(travel) && travel > required + margin;
 }
 } // namespace
+
+const SceneMesh& NrdRelaxGeometrySnapshot::CaptureUpload(const SceneMesh& mesh)
+{
+    Reset();
+    auto snapshot = std::make_shared<SceneMesh>();
+    snapshot->vertices = mesh.vertices;
+    snapshot->indices = mesh.indices;
+    snapshot->ranges = mesh.ranges;
+    m_uploadedMesh = std::move(snapshot);
+    return *m_uploadedMesh;
+}
+
+void NrdRelaxGeometrySnapshot::Invalidate()
+{
+    m_bounds = {};
+    if (m_token == std::numeric_limits<uint64_t>::max())
+    {
+        throw std::overflow_error("NRD geometry snapshot token exhausted.");
+    }
+    ++m_token;
+}
+
+void NrdRelaxGeometrySnapshot::Reset()
+{
+    Invalidate();
+    m_uploadedMesh.reset();
+}
+
+void NrdRelaxGeometrySnapshot::RecordTlas(std::span<const InstanceData> instances)
+{
+    Invalidate();
+    if (m_uploadedMesh == nullptr || instances.empty())
+    {
+        return;
+    }
+    Scene snapshot;
+    snapshot.mesh = m_uploadedMesh.get();
+    snapshot.instances.assign(instances.begin(), instances.end());
+    m_bounds = BuildNrdRelaxWorldBounds(snapshot);
+}
+
+uint64_t NrdRelaxGeometrySnapshot::Token() const
+{
+    return m_bounds.complete ? m_token : 0;
+}
+
+NrdRelaxRayRangeContext NrdRelaxGeometrySnapshot::MakeRangeContext(
+    uint64_t token, std::array<float, 3> origin, std::array<float, 3> direction) const
+{
+    NrdRelaxRayRangeContext context;
+    context.bounds = &m_bounds;
+    context.origin = origin;
+    context.direction = direction;
+    context.geometrySnapshotMatches = token != 0 && token == Token();
+    context.currentSnapshotToken = &m_token;
+    context.expectedSnapshotToken = token;
+    return context;
+}
 
 NrdRelaxWorldBounds BuildNrdRelaxWorldBounds(const Scene& scene)
 {

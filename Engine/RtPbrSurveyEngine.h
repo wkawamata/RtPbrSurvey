@@ -62,6 +62,7 @@
 #include "Renderer/RayReconstructionSupport.h"
 #include "Renderer/TemporalUpscalerSupport.h"
 #include "Renderer/StreamlineAdapter.h"
+#include "Renderer/NrdRelaxAdapter.h"
 #include "Renderer/ToneMap.h"
 #include "Scene/Scene.h"
 #include "Scene/EmissiveTriangleTable.h"
@@ -1240,6 +1241,7 @@ private:
     Engine::ProceduralEnvironmentSettings m_environmentSettings;
 
     ComPtr<ID3D12Resource> m_vertexBuffer;
+    Engine::NrdRelaxGeometrySnapshot m_nrdGeometrySnapshot;
     D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
 
     ComPtr<ID3D12Resource> m_indexBuffer;

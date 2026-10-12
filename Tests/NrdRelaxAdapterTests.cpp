@@ -7,6 +7,56 @@
 
 namespace
 {
+bool CheckSnapshotLifecycle()
+{
+    Engine::SceneMesh mesh;
+    mesh.vertices.resize(3);
+    mesh.vertices[0].position = {0, 0, 0};
+    mesh.vertices[1].position = {2, 0, 0};
+    mesh.vertices[2].position = {0, 2, 0};
+    mesh.indices = {0, 1, 2};
+    Engine::InstanceData instance = {};
+    DirectX::XMStoreFloat4x4(&instance.world, DirectX::XMMatrixIdentity());
+    Engine::NrdRelaxGeometrySnapshot snapshot;
+    bool passed = snapshot.Token() == 0;
+    const auto& uploaded = snapshot.CaptureUpload(mesh);
+    passed &= uploaded.vertices.size() == 3 && snapshot.Token() == 0;
+    mesh.vertices[0].position.z = 1000;
+    passed &= uploaded.vertices[0].position.z == 0;
+    snapshot.RecordTlas({&instance, 1});
+    const uint64_t first = snapshot.Token();
+    auto context = snapshot.MakeRangeContext(first, {.25f, .25f, .001f}, {0, 0, 1});
+    using Disposition = Engine::NrdRelaxDistanceDisposition;
+    const auto inspect = [&]()
+    { return Engine::InspectNrdRelaxDistance(0, 2, 100, 0, 100, true, true, &context).disposition; };
+    passed &= first != 0 && inspect() == Disposition::EnvironmentMissCandidate;
+    snapshot.RecordTlas({&instance, 1});
+    passed &= snapshot.Token() != first && inspect() == Disposition::EnvironmentMissPolicyRequired;
+    context = snapshot.MakeRangeContext(first, {.25f, .25f, .001f}, {0, 0, 1});
+    passed &= !context.geometrySnapshotMatches;
+    instance.world._34 = 200;
+    snapshot.RecordTlas({&instance, 1});
+    context = snapshot.MakeRangeContext(snapshot.Token(), {.25f, .25f, .001f}, {0, 0, 1});
+    passed &= inspect() == Disposition::EnvironmentMissPolicyRequired;
+    snapshot.Invalidate();
+    passed &= snapshot.Token() == 0 && inspect() == Disposition::EnvironmentMissPolicyRequired;
+    instance.world._34 = 0;
+    snapshot.RecordTlas({&instance, 1});
+    context = snapshot.MakeRangeContext(snapshot.Token(), {.25f, .25f, .001f}, {0, 0, 1});
+    passed &= inspect() == Disposition::EnvironmentMissCandidate;
+    snapshot.Reset();
+    passed &= snapshot.Token() == 0 && inspect() == Disposition::EnvironmentMissPolicyRequired;
+    snapshot.RecordTlas({&instance, 1});
+    passed &= snapshot.Token() == 0;
+    snapshot.CaptureUpload(mesh);
+    snapshot.RecordTlas({&instance, 1});
+    context = snapshot.MakeRangeContext(snapshot.Token(), {.25f, .25f, .001f}, {0, 0, 1});
+    passed &= inspect() == Disposition::EnvironmentMissPolicyRequired;
+    snapshot.RecordTlas({});
+    passed &= snapshot.Token() == 0;
+    return passed;
+}
+
 bool CheckSceneRange()
 {
     Engine::SceneMesh mesh;
@@ -119,6 +169,7 @@ int main()
     passed &= Engine::QueryNrdRelaxSamplingReadiness(1, true).ready;
     passed &= !Engine::QueryNrdRelaxSupport().available;
     passed &= CheckSceneRange();
+    passed &= CheckSnapshotLifecycle();
     using Disposition = Engine::NrdRelaxDistanceDisposition;
     const auto inspect = [](float distance, float state, float raw, bool primary = true, bool active = true)
     { return Engine::InspectNrdRelaxDistance(distance, state, raw, 0.0f, 100.0f, primary, active); };

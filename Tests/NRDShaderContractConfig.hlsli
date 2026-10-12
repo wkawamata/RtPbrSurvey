@@ -1,5 +1,5 @@
 // Test-only encoding configuration; not a runtime NRD library configuration.
-#define NRD_NORMAL_ENCODING 2
+#define NRD_NORMAL_ENCODING 4
 #define NRD_ROUGHNESS_ENCODING 1
 #define NRD_SUPPORTS_VIEWPORT_OFFSET 1
 #define NRD_SUPPORTS_CHECKERBOARD 1

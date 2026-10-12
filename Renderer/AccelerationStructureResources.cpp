@@ -166,7 +166,7 @@ void CreateTlasSrv(
 
 } // namespace
 
-void AccelerationStructureResources::Build(
+bool AccelerationStructureResources::Build(
     ID3D12Device* device,
     ID3D12GraphicsCommandList* commandList,
     ID3D12Resource* vertexBuffer,
@@ -193,13 +193,13 @@ void AccelerationStructureResources::Build(
     if (!QueryDevice5(device, device5))
     {
         PIXEndEvent(commandList);
-        return;
+        return false;
     }
 
     if (vertexBuffer == nullptr || instanceCount == 0 || totalVertexCount == 0 || geometries.empty())
     {
         PIXEndEvent(commandList);
-        return;
+        return false;
     }
 
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4> commandList4;
@@ -284,9 +284,10 @@ void AccelerationStructureResources::Build(
     CreateTlasSrv(device, tlas.Get(), tlasSrv, descriptorHeapAllocator);
 
     PIXEndEvent(commandList);
+    return true;
 }
 
-void AccelerationStructureResources::RebuildTlas(
+bool AccelerationStructureResources::RebuildTlas(
     ID3D12Device* device,
     ID3D12GraphicsCommandList* commandList,
     std::span<const AccelerationStructureGeometry> geometries,
@@ -297,7 +298,7 @@ void AccelerationStructureResources::RebuildTlas(
     if (blases.empty() || tlas == nullptr || tlasScratch == nullptr || tlasInstanceBuffer == nullptr ||
         instanceCount == 0)
     {
-        return;
+        return false;
     }
     for (UINT i = 0; i < instanceCount; ++i)
     {
@@ -310,7 +311,7 @@ void AccelerationStructureResources::RebuildTlas(
     Microsoft::WRL::ComPtr<ID3D12Device5> device5;
     if (!QueryDevice5(device, device5))
     {
-        return;
+        return false;
     }
 
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4> commandList4;
@@ -342,6 +343,7 @@ void AccelerationStructureResources::RebuildTlas(
     AddUavBarrier(commandList, tlas.Get());
 
     // tlasSrv is stable because tlas resource is reused; no need to recreate SRV.
+    return true;
 }
 
 void AccelerationStructureResources::Release()

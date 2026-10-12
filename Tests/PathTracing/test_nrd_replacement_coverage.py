@@ -2,10 +2,47 @@ import unittest
 
 import numpy as np
 
-from audit_nrd_replacement_coverage import coverage, witnesses
+from audit_nrd_replacement_coverage import coverage, witnesses, assess_plane_normals
 
 
 class ReplacementCoverageTests(unittest.TestCase):
+    def test_plane_normal_assessment_rejects_wrong_guides(self):
+        guide = np.array([[[0., 1., 0., .5]]])
+        labels = np.zeros((1, 1), dtype=int)
+        planes = [(None, None, None, np.array([0, 1, 0]), None, None)]
+        self.assertEqual(assess_plane_normals(guide, labels, planes)['checkedPixels'], 1)
+        guide[..., 1] = -1
+        with self.assertRaises(ValueError):
+            assess_plane_normals(guide, labels, planes)
+        with self.assertRaises(ValueError):
+            assess_plane_normals(guide, np.full((1, 1), -1), planes)
+
+    def test_normal_and_roughness_boundaries_reject_witnesses(self):
+        seeds = np.zeros((3, 3), dtype=bool)
+        seeds[1, 1] = True
+        labels = np.zeros((3, 3), dtype=int)
+        guide = np.zeros((3, 3, 4))
+        guide[..., 2] = 1
+        guide[..., 3] = .5
+        self.assertTrue(witnesses(seeds, labels, 1, guide)[1, 2])
+        guide[1, 2, :3] = [1, 0, 0]
+        self.assertFalse(witnesses(seeds, labels, 1, guide)[1, 2])
+        guide[1, 2] = [0, 0, 1, .7]
+        self.assertFalse(witnesses(seeds, labels, 1, guide)[1, 2])
+        guide[1, 2] = [0, 0, 0, .5]
+        self.assertFalse(witnesses(seeds, labels, 1, guide)[1, 2])
+        guide[1, 2] = [0, 0, 1, .5]
+        labels[1, 2] = -2
+        self.assertFalse(witnesses(seeds, labels, 1, guide)[1, 2])
+
+    def test_invalid_normal_guide_is_rejected(self):
+        seeds = np.zeros((1, 1), dtype=bool)
+        labels = np.zeros((1, 1), dtype=int)
+        for guide in (np.zeros((1, 1, 3)), np.full((1, 1, 4), np.nan),
+                np.array([[[0, 0, 1, 2]]])):
+            with self.assertRaises(ValueError):
+                witnesses(seeds, labels, 1, guide)
+
     def test_five_by_five_covers_distance_two_not_three(self):
         seeds = np.zeros((7, 7), dtype=bool)
         seeds[3, 1] = True

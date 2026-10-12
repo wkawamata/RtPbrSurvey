@@ -1,11 +1,16 @@
 #pragma once
 
 #include <array>
+#include <memory>
+#include <span>
+#include <cstdint>
 
 namespace Engine
 {
 
 class Scene;
+struct SceneMesh;
+struct InstanceData;
 
 struct NrdRelaxWorldBounds
 {
@@ -22,6 +27,29 @@ struct NrdRelaxRayRangeContext
     std::array<float, 3> origin = {};
     std::array<float, 3> direction = {};
     bool geometrySnapshotMatches = false;
+    const uint64_t* currentSnapshotToken = nullptr;
+    uint64_t expectedSnapshotToken = 0;
+};
+
+class NrdRelaxGeometrySnapshot
+{
+public:
+    NrdRelaxGeometrySnapshot() = default;
+    NrdRelaxGeometrySnapshot(const NrdRelaxGeometrySnapshot&) = delete;
+    NrdRelaxGeometrySnapshot& operator=(const NrdRelaxGeometrySnapshot&) = delete;
+    const SceneMesh& CaptureUpload(const SceneMesh& mesh);
+    void RecordTlas(std::span<const InstanceData> instances);
+    void Invalidate();
+    void Reset();
+    uint64_t Token() const;
+    NrdRelaxRayRangeContext MakeRangeContext(uint64_t token,
+                                            std::array<float, 3> origin,
+                                            std::array<float, 3> direction) const;
+
+private:
+    std::shared_ptr<const SceneMesh> m_uploadedMesh;
+    NrdRelaxWorldBounds m_bounds;
+    uint64_t m_token = 0;
 };
 
 enum class NrdRelaxSupportStatus

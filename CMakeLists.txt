@@ -6,6 +6,10 @@ option(RTPBRSURVEY_BUILD_APP "Build the standalone RtPbrSurvey executable." OFF)
 option(RTPBRSURVEY_BUILD_SHADERS "Build RtPbrSurvey runtime shaders." ON)
 option(RTPBRSURVEY_BUILD_TESTS "Build RtPbrSurvey runtime tests." OFF)
 option(RTPBRSURVEY_TEST_NRD_PACKING "Test pinned NRD shader helpers without linking NRD runtime." OFF)
+option(RTPBRSURVEY_TEST_NRD_RECONSTRUCTION "Compile and reflect pinned NRD reconstruction kernels (no dispatch)." OFF)
+if(RTPBRSURVEY_TEST_NRD_RECONSTRUCTION AND NOT RTPBRSURVEY_TEST_NRD_PACKING)
+    message(FATAL_ERROR "NRD reconstruction contract tests require RTPBRSURVEY_TEST_NRD_PACKING.")
+endif()
 
 set(RTPBRSURVEY_D3D12_NUGET_VERSION "1.618.3" CACHE STRING "Microsoft.Direct3D.D3D12 NuGet version.")
 set(RTPBRSURVEY_DXC_NUGET_VERSION "1.8.2505.32" CACHE STRING "Microsoft.Direct3D.DXC NuGet version.")
@@ -477,6 +481,53 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${nrd_packing_shader}")
         add_test(NAME RtPbrSurvey.NrdRelaxPacking
             COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${nrd_packing_shader}" --packing)
+        if(RTPBRSURVEY_TEST_NRD_RECONSTRUCTION)
+            set(RTPBRSURVEY_NRD_MATHLIB_DIR "${RTPBRSURVEY_NRD_SDK_DIR}/External/MathLib"
+                CACHE PATH "Pinned MathLib v11 source for NRD reconstruction shader tests.")
+            execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${RTPBRSURVEY_NRD_MATHLIB_DIR}" rev-parse HEAD
+                OUTPUT_VARIABLE mathlib_test_commit OUTPUT_STRIP_TRAILING_WHITESPACE RESULT_VARIABLE mathlib_test_result)
+            if(NOT mathlib_test_result EQUAL 0 OR NOT mathlib_test_commit STREQUAL "aa432ad9a80691eb8c3ec4d576bbad5ac100fdc8")
+                message(FATAL_ERROR "NRD reconstruction tests require the exact MathLib v11 source commit.")
+            endif()
+            execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${RTPBRSURVEY_NRD_SDK_DIR}" diff --quiet HEAD -- Shaders
+                RESULT_VARIABLE nrd_reconstruction_dirty)
+            execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${RTPBRSURVEY_NRD_MATHLIB_DIR}" diff --quiet HEAD
+                RESULT_VARIABLE mathlib_reconstruction_dirty)
+            if(NOT nrd_reconstruction_dirty EQUAL 0 OR NOT mathlib_reconstruction_dirty EQUAL 0)
+                message(FATAL_ERROR "NRD reconstruction tests require unmodified SDK and MathLib shader sources.")
+            endif()
+            find_program(RTPBRSURVEY_POWERSHELL NAMES pwsh powershell REQUIRED)
+            file(GLOB nrd_reconstruction_inputs CONFIGURE_DEPENDS "${RTPBRSURVEY_NRD_SDK_DIR}/Shaders/*.hlsli")
+            file(GLOB mathlib_reconstruction_inputs CONFIGURE_DEPENDS "${RTPBRSURVEY_NRD_MATHLIB_DIR}/*.hlsli")
+            set(nrd_reconstruction_shaders)
+            foreach(border_mode IN ITEMS 0 1)
+                set(nrd_reconstruction_shader "${nrd_test_dir}/RELAX_Reconstruction_mode${border_mode}.cso")
+                add_custom_command(OUTPUT "${nrd_reconstruction_shader}"
+                    COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -Emain
+                        -DNRD_INTERNAL -DNRD_SIGNAL=3 -DNRD_MODE=0 "-DMODE_5X5=${border_mode}"
+                        "-I${nrd_test_dir}" "-I${RTPBRSURVEY_NRD_MATHLIB_DIR}"
+                        "-Fo${nrd_reconstruction_shader}"
+                        "${RTPBRSURVEY_NRD_SDK_DIR}/Shaders/RELAX_HitDistReconstruction.cs.hlsl"
+                    DEPENDS "${RTPBRSURVEY_NRD_SDK_DIR}/Shaders/RELAX_HitDistReconstruction.cs.hlsl"
+                        "${nrd_test_dir}/NRDConfig.hlsli" ${nrd_reconstruction_inputs} ${mathlib_reconstruction_inputs}
+                    VERBATIM)
+                list(APPEND nrd_reconstruction_shaders "${nrd_reconstruction_shader}")
+                add_test(NAME "RtPbrSurvey.NrdRelaxReconstructionContract${border_mode}"
+                    COMMAND "${RTPBRSURVEY_POWERSHELL}" -NoProfile -File
+                        "${RTPBRSURVEY_ROOT}/Tests/TestNrdReconstructionContract.ps1"
+                        -Dxc "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -Shader "${nrd_reconstruction_shader}")
+            endforeach()
+            add_custom_target(RtPbrSurvey.NrdReconstructionShaders ALL DEPENDS ${nrd_reconstruction_shaders})
+            add_executable(RtPbrSurvey.NrdReconstructionTests Tests/NrdReconstructionTests.cpp)
+            target_include_directories(RtPbrSurvey.NrdReconstructionTests PRIVATE "${RTPBRSURVEY_NRD_SDK_DIR}/Shaders")
+            target_compile_definitions(RtPbrSurvey.NrdReconstructionTests PRIVATE NOMINMAX)
+            target_link_libraries(RtPbrSurvey.NrdReconstructionTests PRIVATE d3d12 dxgi)
+            add_dependencies(RtPbrSurvey.NrdReconstructionTests RtPbrSurvey.NrdReconstructionShaders)
+            add_test(NAME RtPbrSurvey.NrdReconstruction3x3
+                COMMAND RtPbrSurvey.NrdReconstructionTests "${nrd_test_dir}/RELAX_Reconstruction_mode0.cso" 3x3)
+            add_test(NAME RtPbrSurvey.NrdReconstruction5x5
+                COMMAND RtPbrSurvey.NrdReconstructionTests "${nrd_test_dir}/RELAX_Reconstruction_mode1.cso" 5x5)
+        endif()
     endif()
 
     add_executable(RtPbrSurvey.EvaluationStateTests

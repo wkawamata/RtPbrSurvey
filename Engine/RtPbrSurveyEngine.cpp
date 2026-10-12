@@ -2619,7 +2619,6 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
         physicalSignalRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 13 + i, 0,
                                      D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * i);
     }
-    static_assert(20 + 5 * 2 + 34 == 64);
     CD3DX12_ROOT_PARAMETER1 rootParameters[26] = {};
     rootParameters[0].InitAsDescriptorTable(1, &sceneColorUavRange);
     rootParameters[1].InitAsDescriptorTable(1, &accumulationUavRange);
@@ -2646,6 +2645,31 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
         rootParameters[20 + i].InitAsDescriptorTable(1, &additionalGuideUavRanges[i]);
     }
     rootParameters[25].InitAsDescriptorTable(_countof(physicalSignalRanges), physicalSignalRanges);
+
+    UINT rootSignatureDwords = 0;
+    for (const CD3DX12_ROOT_PARAMETER1& parameter : rootParameters)
+    {
+        switch (parameter.ParameterType)
+        {
+        case D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
+            rootSignatureDwords += 1;
+            break;
+        case D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS:
+            rootSignatureDwords += parameter.Constants.Num32BitValues;
+            break;
+        case D3D12_ROOT_PARAMETER_TYPE_CBV:
+        case D3D12_ROOT_PARAMETER_TYPE_SRV:
+        case D3D12_ROOT_PARAMETER_TYPE_UAV:
+            rootSignatureDwords += 2;
+            break;
+        default:
+            throw std::logic_error("Unknown path tracing root parameter type.");
+        }
+    }
+    if (rootSignatureDwords > 64)
+    {
+        throw std::logic_error("Path tracing root signature exceeds the 64-DWORD budget.");
+    }
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -3005,13 +3029,13 @@ void RtPbrSurveyEngine::CreateSceneGeometryBuffers()
 {
     m_emissiveSourceMesh = nullptr;
     assert(m_scene.mesh != nullptr);
-    const Engine::SceneMesh& mesh = *m_scene.mesh;
+    const Engine::SceneMesh& mesh = m_nrdGeometrySnapshot.CaptureUpload(*m_scene.mesh);
     assert(!mesh.vertices.empty());
 
     m_indexCountPerInstance = static_cast<UINT>(mesh.indices.size());
     m_vertexCountPerInstance = static_cast<UINT>(mesh.vertices.size());
     m_usesIndexedDraw = m_indexCountPerInstance > 0;
-    m_sceneHasMaterials = !mesh.materials.empty();
+    m_sceneHasMaterials = !m_scene.mesh->materials.empty();
     m_sceneMeshRanges = mesh.ranges;
     if (m_sceneMeshRanges.empty())
     {
@@ -3415,11 +3439,12 @@ void RtPbrSurveyEngine::CreateInstanceBuffers()
 
 void RtPbrSurveyEngine::BuildAccelerationStructures()
 {
+    m_nrdGeometrySnapshot.Invalidate();
     const UINT instanceCount = (std::min)(
         static_cast<UINT>(m_scene.instances.size()),
         kMaxInstanceCount);
 
-    m_accelerationStructures.Build(
+    const bool recorded = m_accelerationStructures.Build(
         m_graphicsDevice.Device(),
         m_commandList.Get(),
         m_vertexBuffer.Get(),
@@ -3430,10 +3455,15 @@ void RtPbrSurveyEngine::BuildAccelerationStructures()
         instanceCount,
         m_frameResources[m_currentFrameIndex].tlasInstanceBuffer.Get(),
         m_descriptorHeapAllocator);
+    if (recorded)
+    {
+        m_nrdGeometrySnapshot.RecordTlas({m_scene.instances.data(), instanceCount});
+    }
 }
 
 void RtPbrSurveyEngine::RebuildAccelerationStructures()
 {
+    m_nrdGeometrySnapshot.Invalidate();
     if (!m_sceneResourcesAvailable || !m_rayTracingSupport.IsSupported())
     {
         return;
@@ -3443,17 +3473,22 @@ void RtPbrSurveyEngine::RebuildAccelerationStructures()
         GetVisibleCubeCount(),
         static_cast<UINT>(m_scene.instances.size()));
 
-    m_accelerationStructures.RebuildTlas(
+    const bool recorded = m_accelerationStructures.RebuildTlas(
         m_graphicsDevice.Device(),
         m_commandList.Get(),
         m_accelerationStructureGeometries,
         m_scene.instances.data(),
         instanceCount,
         m_frameResources[m_currentFrameIndex].tlasInstanceBuffer.Get());
+    if (recorded)
+    {
+        m_nrdGeometrySnapshot.RecordTlas({m_scene.instances.data(), instanceCount});
+    }
 }
 
 void RtPbrSurveyEngine::ReleaseSceneResources()
 {
+    m_nrdGeometrySnapshot.Reset();
     m_emissiveTriangles.clear();
     m_emissiveSourceInstances.clear();
     m_emissiveSourceMaterials.clear();
@@ -3816,10 +3851,14 @@ void RtPbrSurveyEngine::CreateGBuffer()
             m_pathTracingGuideTextureSrvs[i] = m_descriptorHeapAllocator.AllocWithHandle();
             m_pathTracingGuideTextureUavs[i] = m_descriptorHeapAllocator.AllocWithHandle();
         }
-        for (UINT i = 0; i < PathTracingGuideTextureCount - PathTracingGuidePhysicalDiffuse; ++i)
+    }
+    for (UINT i = 0; i < PathTracingGuideTextureCount - PathTracingGuidePhysicalDiffuse; ++i)
+    {
+        const UINT baseIndex = m_pathTracingGuideTextureUavs[PathTracingGuidePhysicalDiffuse].Index;
+        const UINT index = m_pathTracingGuideTextureUavs[PathTracingGuidePhysicalDiffuse + i].Index;
+        if (baseIndex == UINT_MAX || index == UINT_MAX || index < baseIndex || index - baseIndex != 2 * i)
         {
-            assert(m_pathTracingGuideTextureUavs[PathTracingGuidePhysicalDiffuse + i].Index ==
-                   m_pathTracingGuideTextureUavs[PathTracingGuidePhysicalDiffuse].Index + 2 * i);
+            throw std::logic_error("Path tracing guide UAV descriptors must retain their SRV/UAV pair layout.");
         }
     }
     for (DescriptorHeapHandle& srv : m_debugTexturePreviewSrvs)
