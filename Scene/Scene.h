@@ -48,6 +48,16 @@ struct alignas(16) InstanceData
     SceneMeshId meshId;
 };
 
+// A fully collapsed basis is the scene convention for a hidden instance.
+// Translation and the homogeneous component do not affect this test.
+inline bool HasRenderableTransform(const InstanceData& instance)
+{
+    const auto& w = instance.world;
+    return w._11 != 0 || w._12 != 0 || w._13 != 0 ||
+        w._21 != 0 || w._22 != 0 || w._23 != 0 ||
+        w._31 != 0 || w._32 != 0 || w._33 != 0;
+}
+
 using SceneVertex = GltfVertex;
 
 enum class TextureColorSpace
