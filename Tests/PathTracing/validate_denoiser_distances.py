@@ -156,6 +156,47 @@ def assess(buffers, scene):
         limitation='Uniform active-lobe finite planes, fixed ROI/edge masks, first primary sample; not NRD packing.')
 
 
+def assess_black_metal(buffers, scene):
+    resources = ('Albedo', 'DenoiserDiffuseDistance', 'DenoiserSpecularDistance')
+    if set(buffers) != set(resources):
+        raise ValueError('Missing black-metal resources')
+    if not scene['materials'] or any(m['metallic'] != 1 or m['baseColor'] != [0, 0, 0, 1]
+                                    for m in scene['materials']):
+        raise ValueError('Requires opaque black-metal fixture')
+    meta = buffers['Albedo'][0]
+    if (meta.get('denoiserDistanceDiagnostics') is not True or
+            meta.get('primarySampling') != 'pixel-center' or meta.get('samplesPerFrame') != 1):
+        raise ValueError('Invalid black-metal sampling cohort')
+    keys = ('width', 'height', 'randomSeed', 'sampleStartIndex', 'viewProjection',
+            'previousViewProjection', 'inverseViewProjection', 'primarySampling',
+            'samplesPerFrame', 'denoiserDistanceDiagnostics', 'rayTMin', 'rayTMax', 'normalBias')
+    for name, (other, values) in buffers.items():
+        if (other['resource'] != 'PathTracing.'+name or other['format'] != (10 if name == 'Albedo' else 2)
+                or any(other.get(k) != meta[k] for k in keys) or
+                values.shape != (meta['height'], meta['width'], 4) or not np.isfinite(values).all()):
+            raise ValueError('Black-metal cohort mismatch')
+    primary = buffers['Albedo'][1][..., 3] == 1
+    diffuse = buffers['DenoiserDiffuseDistance'][1]
+    specular = buffers['DenoiserSpecularDistance'][1]
+    ys, xs = np.mgrid[8:meta['height']-8:4, 8:meta['width']-8:4]
+    ys, xs = ys.ravel(), xs.ravel()
+    origins, directions = primary_rays(meta, xs, ys)
+    _, indices, edges = intersect_planes(origins, directions, planes_from_scene(scene), meta['rayTMin'], meta['rayTMax'])
+    checks = dict(primaryValidity=bool(np.array_equal(primary[ys[~edges], xs[~edges]], indices[~edges] >= 0)),
+        primaryCoverage=bool(primary.sum() >= 100),
+        blackAlbedo=bool((buffers['Albedo'][1][primary, :3] == 0).all()),
+        diffuseInactive=bool((diffuse[primary] == [0, 4, 0, 0]).all()),
+        specularNotInactive=bool(np.isin(specular[primary, 1], [1, 2, 3]).all()),
+        specularNonhitZero=bool((specular[..., 0][specular[..., 1] != 1] == 0).all()),
+        specularReservedZero=bool((specular[..., 3] == 0).all()),
+        primaryMissZero=bool((diffuse[~primary] == 0).all() and (specular[~primary] == 0).all()))
+    return dict(passed=all(checks.values()), checks=checks, primaryPixels=int(primary.sum()),
+        specularHits=int((specular[..., 1] == 1).sum()),
+        specularMisses=int((specular[..., 1] == 2).sum()),
+        specularInvalid=int((specular[..., 1] == 3).sum()),
+        limitation='Black-metal lobe-activity regression only; not a distance or NRD quality oracle.')
+
+
 def capture(exe, folder, resource, preset, label):
     path, log = folder/(label+'.ptbuf'), folder/(label+'.log')
     command = [str(exe), '-SceneFile', str(folder/'scene.json'), '-RenderPreset', str(preset),
@@ -179,6 +220,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--exe', type=Path, default=ROOT/'build/Debug/RtPbrSurvey.exe')
+    parser.add_argument('--black-metal', action='store_true')
     args = parser.parse_args()
     output, exe = args.output.resolve(), args.exe.resolve(strict=True)
     if output.exists() and any(output.iterdir()):
@@ -187,6 +229,8 @@ def main():
     scene = json.loads((source/'scene.json').read_text())
     for material in scene['materials']:
         material.update(metallic=.35, roughness=.55)
+        if args.black_metal:
+            material.update(metallic=1, baseColor=[0, 0, 0, 1])
     scene['renderPreset'] = 'on.json'
     preset = json.loads((source/'render-preset.json').read_text())
     preset['pathTracing'].update(accumulate=False, samplesPerFrame=1, pixelCenterPrimary=True,
@@ -203,7 +247,8 @@ def main():
         scriptSha256=sha(Path(__file__)), sceneSha256=sha(output/'scene.json'))
     try:
         buffers = {}
-        for resource in RESOURCES:
+        resources = ('Albedo', 'DenoiserDiffuseDistance', 'DenoiserSpecularDistance') if args.black_metal else RESOURCES
+        for resource in resources:
             buffers[resource], record = capture(exe, output, resource, output/'on.json', resource)
             report['records'].append(record)
             write_json(output/'report.json', report)
@@ -219,7 +264,13 @@ def main():
         if on_meta != off_meta or not np.array_equal(on[1], off[1]):
             raise ValueError('Native radiance changed between diagnostic ON/OFF')
         report['nativeRadianceBitIdentical'] = True
-        report['assessment'] = assess(buffers, scene)
+        if args.black_metal:
+            primary = buffers['Albedo'][1][..., 3] == 1
+            nonzero = int((np.any(on[1][..., :3] > 0, axis=-1) & primary).sum())
+            if nonzero == 0:
+                raise ValueError('Black-metal fixture did not exercise nonzero primary radiance')
+            report['nonzeroPrimaryRadiancePixels'] = nonzero
+        report['assessment'] = assess_black_metal(buffers, scene) if args.black_metal else assess(buffers, scene)
         if not report['assessment']['passed']:
             raise ValueError('Dedicated distance assessment failed')
     except Exception as error:

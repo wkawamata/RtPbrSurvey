@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 
 import test_secondary_geometry
-from validate_denoiser_distances import assess, RESOURCES, sample_lobes
+from validate_denoiser_distances import assess, assess_black_metal, RESOURCES, sample_lobes
 from validate_secondary_geometry import planes_from_scene, primary_rays, intersect_planes
 
 
@@ -77,6 +77,30 @@ class DenoiserDistanceTests(unittest.TestCase):
         buffers, scene = self.fixture()
         buffers['DenoiserPrimaryPosition'][1][..., 0] += .01
         self.assertFalse(assess(buffers, scene)['checks']['primaryPosition'])
+
+    def black_fixture(self):
+        buffers, scene = self.fixture()
+        scene['materials'][0].update(metallic=1, baseColor=[0, 0, 0, 1])
+        names = ('Albedo', 'DenoiserDiffuseDistance', 'DenoiserSpecularDistance')
+        buffers = {name: buffers[name] for name in names}
+        buffers['Albedo'][1][..., :3] = 0
+        buffers['DenoiserDiffuseDistance'][1][:] = [0, 4, 0, 0]
+        return buffers, scene
+
+    def test_black_metal_keeps_specular_active(self):
+        buffers, scene = self.black_fixture()
+        self.assertTrue(assess_black_metal(buffers, scene)['passed'])
+
+    def test_zero_f0_cannot_disable_specular(self):
+        buffers, scene = self.black_fixture()
+        buffers['DenoiserSpecularDistance'][1][:] = [0, 4, 0, 0]
+        self.assertFalse(assess_black_metal(buffers, scene)['checks']['specularNotInactive'])
+
+    def test_black_metal_cohort_mismatch_is_rejected(self):
+        buffers, scene = self.black_fixture()
+        buffers['DenoiserDiffuseDistance'][0]['sampleStartIndex'] += 1
+        with self.assertRaises(ValueError):
+            assess_black_metal(buffers, scene)
 
 
 if __name__ == '__main__':

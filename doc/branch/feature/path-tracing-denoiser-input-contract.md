@@ -909,6 +909,7 @@ or a valid zero-distance contact; state 4 is not a probabilistically skipped lob
 Diffuse is inactive for fully metallic or zero-albedo material; specular is
 inactive if all material F0 components are zero. Directions remain diagnostics
 even when their lobe is inactive. No automatic resampling is performed.
+The F0-only specular inactivity rule above was corrected in Step 2J below.
 
 #### Geometry and Native Regression
 
@@ -951,3 +952,88 @@ behavior, pauses and GUI visual acceptance are not approved by this cohort.
 Next: settle SDK miss/invalid/inactive-lobe handling, then material demodulation
 and pinned RELAX packing. A geometrically valid dedicated distance does not make
 the current unbounded VNDF rejection policy NRD-ready. RELAX remains unavailable.
+
+### Step 2J: Semantic Gate and Pinned SDK Packing Tests (2026-10-12)
+
+Added SDK-neutral InspectNrdRelaxDistance at the adapter boundary. This is a CPU
+reference/preflight decision, not a per-frame GPU conversion or dispatch path.
+It accepts corrected distance/state/raw hitT/reserved data from the dedicated
+distance resource, rayTMax and independently determined primary/lobe activity.
+It must not be called on the legacy camera-hitT diagnostic as if that were a
+dedicated lobe distance. A HitCandidate is not overall input readiness.
+
+| Input | Decision |
+| --- | --- |
+| Positive hit distance, positive raw hitT within range, active lobe/primary | HitCandidate, preserve corrected distance |
+| Hit distance above 65504 | PackingRangeExceeded, require explicit range policy |
+| Canonical finite-range miss | EnvironmentMissPolicyRequired, do not substitute rayTMax as NRD hit distance |
+| Invalid direction | ReplacementRayRequired, not a valid zero-distance contact |
+| Unrecorded primary hit | TraceRequired |
+| Unrecorded primary miss | ExcludePrimaryMiss, keep background outside denoising |
+| Confirmed inactive lobe, zero distance/raw hitT | InactiveLobe, require RGB zero as well as distance zero |
+| NaN/Inf, negative values, unknown/fractional state, nonzero reserved data, contradictory activity | InvalidData |
+
+A ray-range miss alone does not establish an environment miss: geometry can
+exist beyond rayTMax. Establish a conservative scene/ray-range guarantee before
+choosing an environment-distance encoding. Do not borrow SIGMA's occluder-miss
+rule without checking RELAX's own signal semantics. Invalid independent distance
+samples can coexist with nonzero physical radiance; sanitizing their distance to
+zero is not a reconstruction/coverage policy. Both conditions still block the
+prototype's input conversion. Positive distances close to zero are retained;
+an exact zero hit remains rejected by this strict prototype gate.
+
+#### Actual SDK Helper Test
+
+Added optional RTPBRSURVEY_TEST_NRD_PACKING (default OFF). Enabling it requires
+the exact source commit 792eff196afdd350fd9c3f862119017ccb438a0e and unmodified
+Shaders/NRD.hlsli. The original header is copied byte-for-byte into the generated
+test directory, with a repo-owned test-only NRDConfig.hlsli. The test shader calls
+the real RELAX_FrontEnd_PackRadianceAndHitDist, not a rewritten approximation.
+SDK/NRI runtime libraries and production shader configuration are not enabled.
+No NVIDIA types/headers were added to Engine/App/Scene public interfaces.
+
+Eight exact GPU cases cover ordinary radiance/distance, NRD_INF saturation to
+65504, zero/negative/NaN/Inf distances, invalid RGB clearing and component-wise
+RGB range clamping. Both hardware and WARP passed with zero D3D12 errors.
+Sanitization only protects numeric range; the zero and invalid cases demonstrate
+why it cannot certify semantic input validity. The original and generated header
+SHA256 matched: 17c59c9b7e96a4957d0ac20a4d22dfc914ce4367fc3f4432a0928a94dc2bdad0.
+The test configuration is not a substitute for matching the eventual NRD library
+and its encoding configuration.
+
+```powershell
+cmake -S . -B build -DRTPBRSURVEY_TEST_NRD_PACKING=ON
+& .\build\Debug\RtPbrSurvey.PathTracingDenoiserSamplingTests.exe .\build\Tests\NrdPacking\shaders_NrdRelaxPacking_CSMain.cso --packing --hardware
+```
+
+SDK-OFF CMake configuration also passed with a deliberately nonexistent SDK path
+(only the expected unused-variable warning). The local configuration was restored
+to SDK-test ON. Fresh SDK tests do not download, modify or commit vendor artifacts.
+
+#### Zero-F0 Specular Regression
+
+The prior producer treated all-zero F0 as inactive specular. That is incorrect
+for the current Schlick Fresnel model: grazing-angle specular energy can remain.
+The diagnostic producer now keeps specular active; diffuse inactivity remains
+fully metallic or zero base color. This does not change Native BSDF/RNG/radiance.
+
+Five black-metal GPU captures passed: Albedo, both distance buffers and diagnostic
+ON/OFF CurrentFrameRadiance. All 1324948 primary-hit pixels had inactive diffuse
+and active/invalid specular states, never specular state 4. Specular states were
+182106 hits, 1025770 misses and 117072 invalid directions. There were 1090880
+primary-hit pixels with nonzero Native radiance; ON/OFF radiance was bit-identical.
+Zero D3D12 errors. This tests lobe activity, not new distance geometry or denoised
+quality. Evidence: bin/PathTracingValidation/nrd-step2j-black-metal-20261012/report.json.
+
+Debug app and adapter/sampling test-target builds passed with zero warnings/errors.
+CTest passed 30/30 with SDK tests enabled (newly rebuilt changed targets plus
+remaining existing binaries). Nine focused Python tests passed; current tree
+passed 209/210 with the known manual-emitter-fixture mismatch, and committed
+fixture read substitution passed 210/210. User scene and unrelated UI changes
+were preserved. Build logs: C:/work/RtPbrSurvey-agents/nrd-step2j-sdk-packing-20261012,
+nrd-step2j-state-policy-20261012 and nrd-step2j-black-metal-20261012.
+
+Next: implement environment-miss range proof and invalid-direction replacement
+or a validated bounded-sampling/coverage policy, then connect material
+demodulation and SDK packing to actual GPU input conversion. RELAX dispatch and
+quality acceptance are still unavailable; this step does not enable them.

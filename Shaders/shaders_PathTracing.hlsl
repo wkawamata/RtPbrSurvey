@@ -424,7 +424,8 @@ void MakeDenoiserDistanceInputs(uint2 pixel, uint sampleIndex, float3 hitPositio
     surface.denoiserDiffuseDirection = float4(diffuseDirection, diffusePdf);
     surface.denoiserSpecularDirection = float4(specularDirection, specularPdf);
     const bool diffuseActive = material.metallic < 1.0 && any(material.albedo > 0.0);
-    const bool specularActive = any(lerp(float3(0.04, 0.04, 0.04), material.albedo, material.metallic) > 0.0);
+    // Schlick Fresnel can be nonzero at grazing angles even when F0 is zero.
+    const bool specularActive = true;
     surface.denoiserDiffuseDistance = TraceDenoiserDistance(hitPosition, geometryNormal, diffuseDirection, diffusePdf, diffuseActive);
     surface.denoiserSpecularDistance = TraceDenoiserDistance(hitPosition, geometryNormal, specularDirection, specularPdf, specularActive);
 }

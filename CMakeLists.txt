@@ -5,6 +5,7 @@ project(RtPbrSurvey LANGUAGES CXX)
 option(RTPBRSURVEY_BUILD_APP "Build the standalone RtPbrSurvey executable." OFF)
 option(RTPBRSURVEY_BUILD_SHADERS "Build RtPbrSurvey runtime shaders." ON)
 option(RTPBRSURVEY_BUILD_TESTS "Build RtPbrSurvey runtime tests." OFF)
+option(RTPBRSURVEY_TEST_NRD_PACKING "Test pinned NRD shader helpers without linking NRD runtime." OFF)
 
 set(RTPBRSURVEY_D3D12_NUGET_VERSION "1.618.3" CACHE STRING "Microsoft.Direct3D.D3D12 NuGet version.")
 set(RTPBRSURVEY_DXC_NUGET_VERSION "1.8.2505.32" CACHE STRING "Microsoft.Direct3D.DXC NuGet version.")
@@ -448,6 +449,35 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_compile_definitions(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE NOMINMAX)
     add_test(NAME RtPbrSurvey.PathTracingDenoiserSampling
         COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${denoiser_sampling_shader}")
+    if(RTPBRSURVEY_TEST_NRD_PACKING)
+        find_package(Git REQUIRED)
+        set(RTPBRSURVEY_NRD_SDK_DIR "${RTPBRSURVEY_ROOT}/third_party/nrd-sdk-4.17.3"
+            CACHE PATH "Pinned NRD source checkout for optional shader contract tests.")
+        execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${RTPBRSURVEY_NRD_SDK_DIR}" rev-parse HEAD
+            OUTPUT_VARIABLE nrd_test_commit OUTPUT_STRIP_TRAILING_WHITESPACE RESULT_VARIABLE nrd_test_git_result)
+        if(NOT nrd_test_git_result EQUAL 0 OR NOT nrd_test_commit STREQUAL "792eff196afdd350fd9c3f862119017ccb438a0e")
+            message(FATAL_ERROR "NRD shader tests require the exact v4.17.3 source commit.")
+        endif()
+        execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${RTPBRSURVEY_NRD_SDK_DIR}" diff --quiet HEAD -- Shaders/NRD.hlsli
+            RESULT_VARIABLE nrd_test_dirty)
+        if(NOT nrd_test_dirty EQUAL 0)
+            message(FATAL_ERROR "NRD shader tests require an unmodified NRD.hlsli.")
+        endif()
+        set(nrd_test_dir "${CMAKE_CURRENT_BINARY_DIR}/Tests/NrdPacking")
+        configure_file(Tests/NRDShaderContractConfig.hlsli "${nrd_test_dir}/NRDConfig.hlsli" COPYONLY)
+        configure_file("${RTPBRSURVEY_NRD_SDK_DIR}/Shaders/NRD.hlsli" "${nrd_test_dir}/NRD.hlsli" COPYONLY)
+        set(nrd_packing_shader "${nrd_test_dir}/shaders_NrdRelaxPacking_CSMain.cso")
+        add_custom_command(OUTPUT "${nrd_packing_shader}"
+            COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+                "-I${nrd_test_dir}"
+                "-Fo${nrd_packing_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_NrdRelaxPacking.hlsl"
+            DEPENDS Tests/shaders_NrdRelaxPacking.hlsl "${nrd_test_dir}/NRDConfig.hlsli"
+                "${nrd_test_dir}/NRD.hlsli"
+            VERBATIM)
+        target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${nrd_packing_shader}")
+        add_test(NAME RtPbrSurvey.NrdRelaxPacking
+            COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${nrd_packing_shader}" --packing)
+    endif()
 
     add_executable(RtPbrSurvey.EvaluationStateTests
         Tests/EvaluationStateTests.cpp)

@@ -190,6 +190,32 @@ void Validate(const float* values)
     std::cout << "Validated " << kSampleCount << " HLSL samples; below-surface=" << belowSurface
               << "; maximum direction error=" << maxDirectionError << '\n';
 }
+
+void ValidatePacking(const float* values)
+{
+    const float expected[8][4] = {
+        {1, 2, 3, 2},
+        {1, 2, 3, 65504},
+        {1, 2, 3, 0},
+        {1, 2, 3, 0},
+        {1, 2, 3, 0},
+        {0, 0, 0, 2},
+        {0, 65504, 4, 2},
+        {1, 2, 3, 0},
+    };
+    for (unsigned int index = 0; index < kSampleCount; ++index)
+    {
+        for (unsigned int channel = 0; channel < 16; ++channel)
+        {
+            const float target = channel < 4 ? expected[index % 8][channel] : 0.0f;
+            if (values[index * 16 + channel] != target)
+            {
+                throw std::runtime_error("Pinned SDK packing mismatch at case " + std::to_string(index % 8));
+            }
+        }
+    }
+    std::cout << "Validated pinned SDK RELAX packing: eight exact contract cases.\n";
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -208,7 +234,23 @@ int main(int argc, char** argv)
         ComPtr<IDXGIFactory4> factory;
         Check(CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&factory)));
         ComPtr<IDXGIAdapter> adapter;
-        const bool hardware = argc > 2 && std::strcmp(argv[2], "--hardware") == 0;
+        bool hardware = false;
+        bool packing = false;
+        for (int index = 2; index < argc; ++index)
+        {
+            if (std::strcmp(argv[index], "--hardware") == 0)
+            {
+                hardware = true;
+            }
+            else if (std::strcmp(argv[index], "--packing") == 0)
+            {
+                packing = true;
+            }
+            else
+            {
+                throw std::runtime_error("Unknown test option");
+            }
+        }
         if (!hardware)
             Check(factory->EnumWarpAdapter(IID_PPV_ARGS(&adapter)));
         ComPtr<ID3D12Device> device;
@@ -281,7 +323,14 @@ int main(int argc, char** argv)
         const D3D12_RANGE range = {0, static_cast<SIZE_T>(byteCount)};
         void* data = nullptr;
         Check(readback->Map(0, &range, &data));
-        Validate(static_cast<const float*>(data));
+        if (packing)
+        {
+            ValidatePacking(static_cast<const float*>(data));
+        }
+        else
+        {
+            Validate(static_cast<const float*>(data));
+        }
         const D3D12_RANGE written = {0, 0};
         readback->Unmap(0, &written);
         std::cout << (hardware ? "Hardware" : "WARP") << ": no D3D12 errors.\n";
