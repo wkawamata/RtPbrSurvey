@@ -715,6 +715,9 @@
     <None Include="Shaders\PathTracingSampling.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
+    <None Include="Shaders\PathTracingDenoiserSampling.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
     <None Include="Shaders\ReflectionSampling.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>

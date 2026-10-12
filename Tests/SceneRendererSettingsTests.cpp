@@ -33,6 +33,7 @@ bool TestRoundTrip()
     source.pathTracing.accumulate = false;
     source.pathTracing.samplesPerFrame = 4;
     source.pathTracing.pixelCenterPrimary = true;
+    source.pathTracing.denoiserDistanceDiagnostics = true;
     source.pathTracing.maxBounces = 7;
     source.pathTracing.randomSeed = 42;
     source.pathTracing.directLightingEnabled = false;
@@ -79,6 +80,7 @@ bool TestRoundTrip()
     passed &= Check(restored.pathTracing.accumulate == source.pathTracing.accumulate &&
                         restored.pathTracing.samplesPerFrame == source.pathTracing.samplesPerFrame &&
                         restored.pathTracing.pixelCenterPrimary == source.pathTracing.pixelCenterPrimary &&
+                        restored.pathTracing.denoiserDistanceDiagnostics == source.pathTracing.denoiserDistanceDiagnostics &&
                         restored.pathTracing.maxBounces == source.pathTracing.maxBounces &&
                         restored.pathTracing.randomSeed == source.pathTracing.randomSeed &&
                         restored.pathTracing.directLightingEnabled == source.pathTracing.directLightingEnabled &&

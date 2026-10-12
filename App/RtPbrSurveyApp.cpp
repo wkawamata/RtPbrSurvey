@@ -2184,6 +2184,7 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
         {"emissiveTableStatus", context.pathTracingDiagnostics.emissiveTableStatus},
         {"samplesPerFrame", settings.samplesPerFrame},
         {"pixelCenterPrimary", settings.pixelCenterPrimary},
+        {"denoiserDistanceDiagnostics", settings.denoiserDistanceDiagnostics},
         {"maxBounces", settings.maxBounces},
         {"russianRoulette", settings.russianRouletteEnabled},
         {"renderWidth", context.renderWidth},

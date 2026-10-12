@@ -177,6 +177,10 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     diagnostics.maxPathSegmentsPerFrame =
         diagnostics.primarySamplesPerFrame * (std::max)(settings.maxBounces, 1u);
     diagnostics.maxRayQueriesPerFrame = diagnostics.maxPathSegmentsPerFrame;
+    if (settings.denoiserDistanceDiagnostics)
+    {
+        diagnostics.maxRayQueriesPerFrame += 2ull * renderWidth * renderHeight;
+    }
     if (settings.directLightingEnabled && shadowRayEnabled)
     {
         diagnostics.maxRayQueriesPerFrame += diagnostics.maxPathSegmentsPerFrame;
@@ -666,6 +670,7 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
     const bool changed =
         m_pathTracingSettings.accumulate != validated.accumulate ||
         m_pathTracingSettings.pixelCenterPrimary != validated.pixelCenterPrimary ||
+        m_pathTracingSettings.denoiserDistanceDiagnostics != validated.denoiserDistanceDiagnostics ||
         m_pathTracingSettings.maxBounces != validated.maxBounces ||
         m_pathTracingSettings.randomSeed != validated.randomSeed ||
         m_pathTracingSettings.directLightingEnabled != validated.directLightingEnabled ||
@@ -855,6 +860,16 @@ void RtPbrSurveyEngine::RegisterDebugResourceViews()
                     Engine::DebugTexturePreviewSemantic::Normal, DXGI_FORMAT_R32G32B32A32_FLOAT);
     registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideSecondarySurfaceDistance],
                     Engine::DebugTexturePreviewSemantic::Scalar, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserDiffuseDirection],
+                    Engine::DebugTexturePreviewSemantic::Normal, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserSpecularDirection],
+                    Engine::DebugTexturePreviewSemantic::Normal, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserDiffuseDistance],
+                    Engine::DebugTexturePreviewSemantic::Scalar, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserSpecularDistance],
+                    Engine::DebugTexturePreviewSemantic::Scalar, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserPrimaryPosition],
+                    Engine::DebugTexturePreviewSemantic::Color, DXGI_FORMAT_R32G32B32A32_FLOAT);
     registerTexture(kReflectionEvaluatedRadianceResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionSpecularAlbedoResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionRoughnessResourceName, Engine::DebugTexturePreviewSemantic::Scalar);
@@ -2597,7 +2612,7 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     CD3DX12_DESCRIPTOR_RANGE1 lightCbvRange = {};
     lightCbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 2, 0);
 
-    CD3DX12_DESCRIPTOR_RANGE1 physicalSignalRanges[4] = {};
+    CD3DX12_DESCRIPTOR_RANGE1 physicalSignalRanges[PathTracingGuideTextureCount - PathTracingGuidePhysicalDiffuse] = {};
     for (UINT i = 0; i < _countof(physicalSignalRanges); ++i)
     {
         // Guide descriptors are allocated as SRV/UAV pairs.
@@ -3801,7 +3816,7 @@ void RtPbrSurveyEngine::CreateGBuffer()
             m_pathTracingGuideTextureSrvs[i] = m_descriptorHeapAllocator.AllocWithHandle();
             m_pathTracingGuideTextureUavs[i] = m_descriptorHeapAllocator.AllocWithHandle();
         }
-        for (UINT i = 0; i < 4; ++i)
+        for (UINT i = 0; i < PathTracingGuideTextureCount - PathTracingGuidePhysicalDiffuse; ++i)
         {
             assert(m_pathTracingGuideTextureUavs[PathTracingGuidePhysicalDiffuse + i].Index ==
                    m_pathTracingGuideTextureUavs[PathTracingGuidePhysicalDiffuse].Index + 2 * i);
@@ -4116,6 +4131,11 @@ void RtPbrSurveyEngine::RegisterPathTracingResources()
         DXGI_FORMAT_R16G16B16A16_FLOAT,
         DXGI_FORMAT_R32G32B32A32_FLOAT,
         DXGI_FORMAT_R16G16B16A16_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
         DXGI_FORMAT_R32G32B32A32_FLOAT,
         DXGI_FORMAT_R32G32B32A32_FLOAT,
         DXGI_FORMAT_R32G32B32A32_FLOAT,
@@ -5952,6 +5972,11 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
         L"Path Tracing Physical Specular Clear",
         L"Path Tracing Primary Continuation Clear",
         L"Path Tracing Secondary Surface Distance Clear",
+        L"Path Tracing Denoiser Diffuse Direction Clear",
+        L"Path Tracing Denoiser Specular Direction Clear",
+        L"Path Tracing Denoiser Diffuse Distance Clear",
+        L"Path Tracing Denoiser Specular Distance Clear",
+        L"Path Tracing Denoiser Primary Position Clear",
     };
     for (UINT i = 0; i < PathTracingGuideTextureCount; ++i)
     {
@@ -6026,6 +6051,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.russianRouletteEnabled = m_pathTracingSettings.russianRouletteEnabled ? 1u : 0u;
     passDesc.samplesPerFrame = m_pathTracingSettings.samplesPerFrame;
     passDesc.pixelCenterPrimary = m_pathTracingSettings.pixelCenterPrimary;
+    passDesc.denoiserDistanceDiagnostics = m_pathTracingSettings.denoiserDistanceDiagnostics;
     passDesc.sampleStartIndex = m_pathTracingRuntimeState.frameSampleIndex;
     passDesc.randomSeed = m_pathTracingSettings.randomSeed;
     passDesc.previousSampleCount = m_pathTracingSettings.accumulate ?
@@ -6597,6 +6623,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 {"randomSeed", m_pathTracingSettings.randomSeed},
                 {"samplesPerFrame", m_pathTracingSettings.samplesPerFrame},
                 {"primarySampling", m_pathTracingSettings.pixelCenterPrimary ? "pixel-center" : "random-per-pixel"},
+                {"denoiserDistanceDiagnostics", m_pathTracingSettings.denoiserDistanceDiagnostics},
                 {"rayTMin", m_shadowSettings.rayTMin},
                 {"rayTMax", m_shadowSettings.rayTMax},
                 {"normalBias", m_shadowSettings.normalBias},

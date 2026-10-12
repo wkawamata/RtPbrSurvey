@@ -299,6 +299,16 @@ auto RtPbrSurveyEngine::MakePathTracingHistoryClearPass() -> RenderPass
                  {kPathTracingGuideTextureResourceNames[PathTracingGuidePrimaryContinuation],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideSecondarySurfaceDistance],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserDiffuseDirection],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserSpecularDirection],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserDiffuseDistance],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserSpecularDistance],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserPrimaryPosition],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PathTracingHistoryClear, &RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass)
         .Build();
@@ -354,6 +364,16 @@ auto RtPbrSurveyEngine::MakePathTracingPass() -> RenderPass
                  {kPathTracingGuideTextureResourceNames[PathTracingGuidePrimaryContinuation],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideSecondarySurfaceDistance],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserDiffuseDirection],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserSpecularDirection],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserDiffuseDistance],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserSpecularDistance],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserPrimaryPosition],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PathTracing, &RtPbrSurveyEngine::ExecutePathTracingPass)
         .Build();

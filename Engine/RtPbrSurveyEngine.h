@@ -280,6 +280,7 @@ public:
         bool accumulate = true;
         UINT samplesPerFrame = 1;
         bool pixelCenterPrimary = false;
+        bool denoiserDistanceDiagnostics = false;
         UINT maxBounces = 2;
         UINT randomSeed = 1;
         bool directLightingEnabled = true;
@@ -713,6 +714,11 @@ private:
         PathTracingGuidePhysicalSpecular,
         PathTracingGuidePrimaryContinuation,
         PathTracingGuideSecondarySurfaceDistance,
+        PathTracingGuideDenoiserDiffuseDirection,
+        PathTracingGuideDenoiserSpecularDirection,
+        PathTracingGuideDenoiserDiffuseDistance,
+        PathTracingGuideDenoiserSpecularDistance,
+        PathTracingGuideDenoiserPrimaryPosition,
         PathTracingGuideTextureCount,
     };
     static constexpr UINT kPathTracingDescriptorCount =
@@ -1336,6 +1342,11 @@ private:
         "PathTracing.PhysicalSpecular",
         "PathTracing.PrimaryContinuation",
         "PathTracing.SecondarySurfaceDistance",
+        "PathTracing.DenoiserDiffuseDirection",
+        "PathTracing.DenoiserSpecularDirection",
+        "PathTracing.DenoiserDiffuseDistance",
+        "PathTracing.DenoiserSpecularDistance",
+        "PathTracing.DenoiserPrimaryPosition",
     };
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
         "DebugTexturePreview.Output.0",

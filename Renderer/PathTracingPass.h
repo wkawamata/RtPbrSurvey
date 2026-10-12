@@ -59,6 +59,7 @@ struct PathTracingPassDesc
     UINT russianRouletteEnabled = 0;
     UINT samplesPerFrame = 1;
     bool pixelCenterPrimary = false;
+    bool denoiserDistanceDiagnostics = false;
     UINT sampleStartIndex = 0;
     UINT randomSeed = 1;
     float previousSampleCount = 0.0f;

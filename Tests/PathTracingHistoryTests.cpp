@@ -41,6 +41,12 @@ int main()
     passed &= CheckSettings(engine, settings, false, "unchanged primary sampling preserves history");
     settings.pixelCenterPrimary = false;
     passed &= CheckSettings(engine, settings, true, "return to Native primary sampling resets history");
+    passed &= Check(!settings.denoiserDistanceDiagnostics, "distance diagnostics are opt-in");
+    settings.denoiserDistanceDiagnostics = true;
+    passed &= CheckSettings(engine, settings, true, "distance diagnostics reset history");
+    passed &= CheckSettings(engine, settings, false, "unchanged distance diagnostics preserve history");
+    settings.denoiserDistanceDiagnostics = false;
+    passed &= CheckSettings(engine, settings, true, "disabling distance diagnostics resets history");
 
     settings.accumulate = !settings.accumulate;
     passed &= CheckSettings(engine, settings, true, "accumulation mode");

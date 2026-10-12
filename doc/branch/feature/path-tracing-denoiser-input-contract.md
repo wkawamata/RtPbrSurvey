@@ -865,3 +865,89 @@ geometry-normal rejection and dedicated first-segment traces. Validate the new
 directions/distances against the planar oracle and compare Native radiance in a
 matched cohort. NRD miss mapping, material demodulation, packing and RELAX
 dispatch remain pending; support is still unavailable.
+
+### Step 2I: Opt-In Dedicated Distance Rays (2026-10-12)
+
+Added denoiserDistanceDiagnostics (default false), persisted with the existing
+scene/render-preset settings. The PT Debug section exposes Denoiser Distance
+Diagnostics. Changing this setting resets accumulation. Root constant slot 3 is
+now primarySamplingFlags: bit 0 selects pixel-center sampling and bit 1 enables
+distance diagnostics. No extra root DWORD was added. Default random-primary
+behavior is retained when bit 0 is clear, independently of the diagnostic flag.
+
+At the first primary sample only, independent diffuse/specular streams use
+HashUint(MakeRandomState(pixel, sampleIndex) XOR salt), with salts 0xa511e9b3 and
+0x63d83595 respectively. Each consumes two random values, never the Native
+transport state. Cosine and VNDF directions are transformed from the primary
+shading-normal frame, then rejected if they point below the geometric surface.
+The rays use the existing closest-hit/front-face-culling policy, rayTMin/rayTMax
+and geometric-normal bias. Native throughput, mixture PDF and radiance do not
+consume these results. Even with multiple primary samples, at most two additional
+distance rays are traced per pixel/frame. The diagnostic ray-count upper bound
+includes these rays.
+
+#### Diagnostic Resources
+
+Five new RGBA32_FLOAT render-size resources are registered in Debug Preview and
+RenderGraph. They are allocated alongside the existing PT guides, including when
+the diagnostic tracing is disabled; storage cost is 80 additional bytes/pixel.
+Disabled tracing writes zero inputs; it does not incur the extra ray queries.
+Root table 25 extends through u21 with the existing SRV/UAV pair stride, leaving
+the 26-parameter, 64-DWORD root budget unchanged. CMake and the standalone MSBuild
+project both track the new sampling header dependency.
+
+| Resource | Channels |
+| --- | --- |
+| DenoiserDiffuseDirection | XYZ world direction, W cosine direction PDF |
+| DenoiserSpecularDirection | XYZ world reflection direction, W VNDF reflection PDF or zero for invalid samples |
+| DenoiserDiffuseDistance / DenoiserSpecularDistance | R bias-corrected surface distance, G state, B raw hitT or rayTMax for miss, A reserved zero |
+| DenoiserPrimaryPosition | XYZ actual unbiased GPU primary hit position, W=1 for recorded primary hit; zero when disabled/miss |
+
+Distance states: 0=unrecorded/primary miss, 1=hit, 2=miss, 3=invalid direction,
+4=inactive material lobe. R is zero for all non-hit states. State 3 is not a miss
+or a valid zero-distance contact; state 4 is not a probabilistically skipped lobe.
+Diffuse is inactive for fully metallic or zero-albedo material; specular is
+inactive if all material F0 components are zero. Directions remain diagnostics
+even when their lobe is inactive. No automatic resampling is performed.
+
+#### Geometry and Native Regression
+
+Initial captures passed direction/PDF, state and Native ON/OFF checks but failed
+the distance oracle near tangential rays: independent CPU/GPU primary-point
+rounding differences were amplified. That failed report remains at
+bin/PathTracingValidation/nrd-step2i-distance-rays-20261012/report.json.
+
+Added actual primary-position capture rather than widening the secondary-distance
+bound. Its position is independently checked against the camera/plane oracle
+with a fixed component bound 1e-4 + 1e-5*max(1, abs(expected position)). Then the
+recorded point's float32 bias addition is reproduced and its rays intersected
+against the independent finite-plane geometry. Secondary raw and corrected
+distance bounds remain 1e-4 + 5e-5*expected hitT. Sampling directions/PDFs are
+separately checked against independently seeded double-precision references.
+
+Eight final GPU captures passed with zero D3D12 errors. In the fixed planar ROI:
+diffuse had 7672 hits, 73353 misses, zero invalid directions (10 boundary exclusions);
+specular had 11111 hits, 62571 misses, 7327 invalid directions (26 exclusions).
+Corrected-distance maximum errors were 0.000005273699283048217 and
+0.000003998878208566481 respectively. Maximum direction errors were
+0.0000005272970864250714 and 0.00001569781990107266.
+CurrentFrameRadiance was bit-identical with diagnostics ON/OFF, with all metadata
+matching except the explicitly checked diagnostic flag. This is a matched,
+single-sample pixel-center cohort, not an all-buffer/historical baseline claim.
+Evidence: bin/PathTracingValidation/nrd-step2i-distance-rays-position-20261012/report.json.
+
+App-only Debug x64 build passed with zero warnings/errors:
+C:/work/RtPbrSurvey-agents/nrd-step2i-position-capture-20261012.
+Settings/history test targets were rebuilt and CTest passed 29/29, including
+remaining existing binaries. The six focused Python tests passed. Current Python
+tree passed 206/207 with the known manual-emitter-fixture mismatch; committed
+fixture read substitution passed 207/207 without editing that scene. Unrelated
+Transform UI changes were preserved. Standalone MSBuild project XML was checked;
+that separate project was not rebuilt in this step.
+
+The GPU fixture covers active lobes, rigid planes and one pixel-center primary
+sample. Inactive-lobe branches, arbitrary meshes/normal maps, multi-SPF diagnostic
+behavior, pauses and GUI visual acceptance are not approved by this cohort.
+Next: settle SDK miss/invalid/inactive-lobe handling, then material demodulation
+and pinned RELAX packing. A geometrically valid dedicated distance does not make
+the current unbounded VNDF rejection policy NRD-ready. RELAX remains unavailable.
