@@ -133,6 +133,19 @@ bool TestMouseRegionInteraction()
     passed &= Check(!state.selectingRegion && state.regionHeight == 440,
                     "Escape cancels without changing the selected region");
     io.AddKeyEvent(ImGuiKey_Escape, false);
+    draw();
+    state.selectingRegion = true;
+    io.AddMousePosEvent(700, 500);
+    draw();
+    io.AddMouseButtonEvent(0, true);
+    draw();
+    io.AddMousePosEvent(900, 700);
+    draw();
+    io.AddMouseButtonEvent(0, false);
+    draw();
+    passed &= Check(!state.selectingRegion && state.regionX == 1400 && state.regionY == 1000 &&
+                        state.regionWidth == 200 && state.regionHeight == 200,
+                    "release beyond display bounds commits a clamped ROI");
     state.showRegionOverlay = false;
     draw();
     passed &= Check(ImGui::GetDrawData()->CmdListsCount == 0, "overlay toggle hides the selected region");
@@ -190,6 +203,58 @@ bool TestStableStopButton()
     io.AddMouseButtonEvent(0, false);
     const bool passed = Check(draw() == RtPbrSurvey::CaptureSessionUiAction::Stop,
                               "Stop retains its click target and ID when wrapped status changes");
+    ImGui::DestroyContext();
+    return passed;
+}
+
+bool TestStartButtonAvailability()
+{
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = ImVec2(800, 800);
+    io.DeltaTime = 1.0f / 60.0f;
+    unsigned char* pixels = nullptr;
+    int width = 0;
+    int height = 0;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+
+    RtPbrSurvey::CaptureSessionStatus status;
+    RtPbrSurvey::CaptureSessionUiState state;
+    ImVec2 startPosition;
+    const auto draw = [&status, &state, &startPosition](const char* startBlockedReason)
+    {
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
+        ImGui::SetNextWindowSize(ImVec2(440, 780));
+        ImGui::Begin("Capture start test", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+        const ImVec2 origin = ImGui::GetCursorScreenPos();
+        startPosition = ImVec2(origin.x + 5.0f, origin.y + ImGui::GetFrameHeight() * 0.5f);
+        const RtPbrSurvey::CaptureSessionUiAction action =
+            RtPbrSurvey::CaptureSessionUi::Draw(status, state, startBlockedReason);
+        ImGui::End();
+        ImGui::Render();
+        return action;
+    };
+    const auto clickStart = [&draw, &startPosition](const char* startBlockedReason)
+    {
+        draw(startBlockedReason);
+        ImGui::GetIO().AddMousePosEvent(startPosition.x, startPosition.y);
+        draw(startBlockedReason);
+        ImGui::GetIO().AddMouseButtonEvent(0, true);
+        draw(startBlockedReason);
+        ImGui::GetIO().AddMouseButtonEvent(0, false);
+        return draw(startBlockedReason);
+    };
+
+    bool passed = Check(clickStart(nullptr) == RtPbrSurvey::CaptureSessionUiAction::Start,
+                        "Start is available after a terminal capture status");
+    status.state = RtPbrSurvey::CaptureSessionState::Recording;
+    passed &= Check(clickStart(nullptr) == RtPbrSurvey::CaptureSessionUiAction::None,
+                    "Start is disabled while recording");
+    status.state = RtPbrSurvey::CaptureSessionState::Failed;
+    passed &= Check(clickStart("A screenshot request is still saving.") == RtPbrSurvey::CaptureSessionUiAction::None,
+                    "Start is disabled while the host capture gate is blocked");
     ImGui::DestroyContext();
     return passed;
 }
@@ -430,6 +495,10 @@ bool TestOutputFailureCompletesCleanup()
     passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Failed,
                     "output failure reaches failed after cleanup");
     passed &= Check(session.GetStatus().error == "write failed", "output failure is retained in status");
+    passed &= Check(session.Start(MakeConfig(RtPbrSurvey::CaptureSessionClock::RealTime), error),
+                    "a failed capture session can be started again");
+    passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Recording,
+                    "restart resets the terminal failure state");
     return passed;
 }
 
@@ -484,6 +553,34 @@ bool TestCaptureRequestGate()
     using RtPbrSurvey::PendingHostAction;
 
     CaptureRequestGate gate;
+    bool previewPending = true;
+    CaptureRequestGate::Inputs previewInputs;
+    bool previewPassed = true;
+    for (int source = 0; source < 3; ++source)
+    {
+        previewInputs = {};
+        previewInputs.captureSessionActive = source == 0;
+        previewInputs.singleScreenshotInFlight = source == 1;
+        previewInputs.diagnosticCaptureInFlight = source == 2;
+        previewPending = true;
+        gate.Update(previewInputs);
+        previewPassed &= Check(!gate.TakePendingPreviewRebuild(previewPending, true) && previewPending,
+                               "preview remains pending while any capture output is in flight");
+        gate.Update({});
+        previewPassed &= Check(gate.TakePendingPreviewRebuild(previewPending, true) && !previewPending,
+                               "preview is consumed after capture output completes");
+        previewPassed &= Check(!gate.TakePendingPreviewRebuild(previewPending, true),
+                               "consumed preview is not retried, including after a rebuild failure");
+    }
+    previewPending = true;
+    gate.Update(previewInputs);
+    previewPassed &= Check(!gate.TakePendingPreviewRebuild(previewPending, false) && !previewPending,
+                           "leaving edit mode cancels the old document preview request");
+    gate.Update({});
+    if (!previewPassed)
+    {
+        return false;
+    }
     std::string reason;
     bool passed = Check(gate.CanStart(reason), "start is allowed when no capture work exists");
 
@@ -546,7 +643,7 @@ bool TestCaptureRequestGate()
 
 int main()
 {
-    return TestMouseRegionCoordinates() && TestMouseRegionInteraction() && TestStableOutputPath() && TestStableStopButton() && TestOutputOrderAndStopDrain() && TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
+    return TestMouseRegionCoordinates() && TestMouseRegionInteraction() && TestStableOutputPath() && TestStableStopButton() && TestStartButtonAvailability() && TestOutputOrderAndStopDrain() && TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
                    TestValidationAndLegacyCli() && TestGifOutputPathDoesNotOverwrite() && TestGifMetadataEncoding() && TestOutputFailureCompletesCleanup() && TestWarmupExcludedFromDuration() &&
                    TestMismatchedResultDoesNotCompleteSession() && TestCaptureRequestGate() ?
         0 :

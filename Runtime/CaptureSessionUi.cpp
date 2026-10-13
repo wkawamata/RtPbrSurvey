@@ -20,6 +20,8 @@ namespace RtPbrSurvey
             {
                 case CaptureSessionState::Idle:
                     return "Idle";
+                case CaptureSessionState::Delaying:
+                    return "Start delay";
                 case CaptureSessionState::Warmup:
                     return "Warmup";
                 case CaptureSessionState::Recording:
@@ -53,6 +55,7 @@ namespace RtPbrSurvey
         config.gifRepeatCount = static_cast<std::uint16_t>((std::clamp)(state.gifRepeatCount, 0, 65535));
         config.gifDisposal = static_cast<CaptureSessionGifDisposal>(state.gifDisposal);
         config.warmupFrames = static_cast<std::uint32_t>((std::max)(0, state.warmupFrames));
+        config.startDelayMilliseconds = static_cast<std::uint32_t>((std::max)(0, state.startDelayMilliseconds));
         if (state.useFrameLimit)
         {
             config.frameLimit = static_cast<std::uint64_t>((std::max)(0, state.frameLimit));
@@ -75,7 +78,8 @@ namespace RtPbrSurvey
 
     bool CaptureSessionUi::IsActive(const CaptureSessionStatus& status)
     {
-        return status.state == CaptureSessionState::Warmup || status.state == CaptureSessionState::Recording ||
+        return status.state == CaptureSessionState::Delaying || status.state == CaptureSessionState::Warmup ||
+               status.state == CaptureSessionState::Recording ||
                status.state == CaptureSessionState::Draining;
     }
 
@@ -182,6 +186,7 @@ namespace RtPbrSurvey
             ImGui::Checkbox("Show ROI overlay", &state.showRegionOverlay);
         }
         ImGui::InputInt("FPS", &state.framesPerSecond);
+        ImGui::InputInt("Start delay (ms)", &state.startDelayMilliseconds);
         ImGui::InputInt("Warmup frames", &state.warmupFrames);
         ImGui::Checkbox("Frame limit", &state.useFrameLimit);
         if (state.useFrameLimit)

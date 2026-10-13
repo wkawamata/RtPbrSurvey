@@ -24,7 +24,7 @@ namespace
     bool InspectVideo(const std::filesystem::path& path, unsigned int expectedWidth, unsigned int expectedHeight,
                       unsigned int expectedFrames, unsigned int fps, bool checkColors,
                       const std::vector<LONGLONG>& expectedTimes = {},
-                      std::optional<LONGLONG> expectedEndTime = std::nullopt)
+                      std::optional<LONGLONG> expectedEndTime = std::nullopt, bool checkTimeline = true)
     {
         Microsoft::WRL::ComPtr<IMFSourceReader> reader;
         HRESULT result = MFCreateSourceReaderFromURL(path.c_str(), nullptr, &reader);
@@ -38,8 +38,8 @@ namespace
         if (SUCCEEDED(result)) result = MFGetAttributeRatio(nativeType.Get(), MF_MT_FRAME_RATE, &numerator, &denominator);
         bool passed = Check(SUCCEEDED(result) && subtype == MFVideoFormat_H264 &&
                             width == expectedWidth && height == expectedHeight &&
-                            (expectedFrames == 0 || !expectedTimes.empty() || numerator == fps * denominator),
-                            "MP4 contains H.264 at the requested size and fixed-step FPS");
+                            (!checkTimeline || expectedFrames == 0 || !expectedTimes.empty() || numerator == fps * denominator),
+                            "MP4 contains H.264 at the requested size and, when checked, fixed-step FPS");
         Microsoft::WRL::ComPtr<IMFMediaType> decodedType;
         result = MFCreateMediaType(&decodedType);
         if (SUCCEEDED(result)) result = decodedType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
@@ -59,7 +59,7 @@ namespace
             if (sample)
             {
                 passed &= Check(time > lastTime, "video timestamps are ordered");
-                if (expectedFrames != 0)
+                if (checkTimeline && expectedFrames != 0)
                 {
                     const LONGLONG expectedTime = expectedTimes.empty() ?
                         static_cast<LONGLONG>(count * 10000000ull / fps) :
@@ -93,9 +93,15 @@ namespace
         }
         passed &= Check(expectedFrames ? count == expectedFrames : count > 0, "all encoded frames decode, with no extras");
         const LONGLONG expectedEnd = expectedEndTime.value_or(static_cast<LONGLONG>(expectedFrames * 10000000ull / fps));
-        passed &= Check(std::abs(endTime - expectedEnd) <= (expectedFrames ? 1000 : 500000),
-                        "video duration follows the capture timeline");
-        std::cout << "H.264 " << width << 'x' << height << ", " << count << " frames, " << fps << " FPS" << std::endl;
+        if (checkTimeline)
+        {
+            passed &= Check(std::abs(endTime - expectedEnd) <= (expectedFrames ? 1000 : 500000),
+                            "video duration follows the capture timeline");
+        }
+        std::cout << "H.264 " << width << 'x' << height << ", " << count << " frames";
+        if (checkTimeline) std::cout << ", " << fps << " FPS";
+        else std::cout << ", decode-only (fixed-step timeline not checked)";
+        std::cout << std::endl;
         return passed;
     }
 
@@ -239,6 +245,11 @@ int main(int argc, char** argv)
     {
         passed = InspectVideo(argv[2], std::stoul(argv[3]), std::stoul(argv[4]), 0, std::stoul(argv[5]), false, {},
                               static_cast<LONGLONG>(std::llround(std::stod(argv[6]) * 10000000.0)));
+    }
+    else if (argc == 6 && std::string(argv[1]) == "--decode-only")
+    {
+        passed = InspectVideo(argv[2], std::stoul(argv[3]), std::stoul(argv[4]), std::stoul(argv[5]), 1,
+                              false, {}, std::nullopt, false);
     }
     else if (argc == 6)
     {

@@ -35,6 +35,9 @@ namespace RtPbrSurvey
 
         bool IsWorkPending() const;
 
+        // Consume a deferred preview once output is processed; leaving edit mode cancels it.
+        bool TakePendingPreviewRebuild(bool& pending, bool editing) const;
+
         // Shared start decision used by the GUI button and the F8 shortcut.
         bool CanStart(std::string& reason) const;
 

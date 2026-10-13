@@ -1,7 +1,7 @@
 # TankPhysics 撮影 GUI の RtPbrSurvey 移植計画
 
 作成日: 2026-10-05
-状態: Step 1～4と共通MP4統合はPR #92でmainへマージ済み。Step 5をcodex/capture-gui-step5で再開。形式別GPU検証と実マウスROI・MP4終了操作を確認し、空SceneEditorのassertionを修正。未コミット。残る受け入れ項目はStep 5報告書を参照。
+状態: Step 1～4と共通MP4統合はPR #92でmainへマージ済み。PR #93でStep 5の形式別GPU検証、実マウスROI、MP4終了操作、空SceneEditor assertion修正をmainへ取り込み済み。残る受け入れ項目は`codex/capture-gui-step5-completion`で継続し、Step 5報告書を参照。
 
 ## 目的と調査結果
 
