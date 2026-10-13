@@ -222,6 +222,7 @@ def main():
     parser.add_argument('--exe', type=Path, default=ROOT/'build/Debug/RtPbrSurvey.exe')
     parser.add_argument('--black-metal', action='store_true')
     parser.add_argument('--normal-guide', action='store_true')
+    parser.add_argument('--material-guides', action='store_true')
     args = parser.parse_args()
     output, exe = args.output.resolve(), args.exe.resolve(strict=True)
     if output.exists() and any(output.iterdir()):
@@ -254,8 +255,11 @@ def main():
             report['records'].append(record)
             write_json(output/'report.json', report)
             print('Captured '+resource, flush=True)
-        if args.normal_guide:
-            for guide in ('NormalRoughness', 'ViewZ'):
+        if args.normal_guide or args.material_guides:
+            guides = ('NormalRoughness', 'ViewZ')
+            if args.material_guides:
+                guides += ('MaterialF0Metallic', 'PhysicalDiffuse', 'PhysicalSpecular')
+            for guide in guides:
                 _, record = capture(exe, output, guide, output/'on.json', guide)
                 report['records'].append(record)
                 write_json(output/'report.json', report)

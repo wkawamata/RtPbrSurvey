@@ -449,6 +449,7 @@ if(RTPBRSURVEY_BUILD_TESTS)
         VERBATIM)
     add_executable(RtPbrSurvey.PathTracingDenoiserSamplingTests
         Tests/PathTracingDenoiserSamplingTests.cpp "${denoiser_sampling_shader}")
+    target_compile_features(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE cxx_std_17)
     target_link_libraries(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE d3d12 dxgi)
     target_compile_definitions(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE NOMINMAX)
     add_test(NAME RtPbrSurvey.PathTracingDenoiserSampling
@@ -481,6 +482,40 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${nrd_packing_shader}")
         add_test(NAME RtPbrSurvey.NrdRelaxPacking
             COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${nrd_packing_shader}" --packing)
+        set(nrd_material_shader "${nrd_test_dir}/shaders_NrdMaterialFactors_CSMain.cso")
+        add_custom_command(OUTPUT "${nrd_material_shader}"
+            COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+                "-I${nrd_test_dir}" "-Fo${nrd_material_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_NrdMaterialFactors.hlsl"
+            DEPENDS Tests/shaders_NrdMaterialFactors.hlsl "${nrd_test_dir}/NRDConfig.hlsli" "${nrd_test_dir}/NRD.hlsli"
+            VERBATIM)
+        target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${nrd_material_shader}")
+        add_test(NAME RtPbrSurvey.NrdMaterialFactors
+            COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${nrd_material_shader}" --material-factors)
+        set(nrd_conversion_shader "${nrd_test_dir}/shaders_NrdInputConversion_CSMain.cso")
+        add_custom_command(OUTPUT "${nrd_conversion_shader}"
+            COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+                "-I${nrd_test_dir}" "-Fo${nrd_conversion_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_NrdInputConversion.hlsl"
+            DEPENDS Tests/shaders_NrdInputConversion.hlsl Shaders/NrdRelaxInputConversion.hlsli
+                "${nrd_test_dir}/NRDConfig.hlsli" "${nrd_test_dir}/NRD.hlsli"
+            VERBATIM)
+        target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${nrd_conversion_shader}")
+        add_test(NAME RtPbrSurvey.NrdInputConversion
+            COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${nrd_conversion_shader}" --input-conversion)
+        set(nrd_captured_conversion_shader "${nrd_test_dir}/shaders_NrdCapturedConversion_CSMain.cso")
+        add_custom_command(OUTPUT "${nrd_captured_conversion_shader}"
+            COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+                -DNRD_CAPTURED_INPUT=1 "-I${nrd_test_dir}" "-Fo${nrd_captured_conversion_shader}"
+                "${RTPBRSURVEY_ROOT}/Tests/shaders_NrdInputConversion.hlsl"
+            DEPENDS Tests/shaders_NrdInputConversion.hlsl Shaders/NrdRelaxInputConversion.hlsli
+                "${nrd_test_dir}/NRDConfig.hlsli" "${nrd_test_dir}/NRD.hlsli"
+            VERBATIM)
+        target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${nrd_captured_conversion_shader}")
+        find_program(RTPBRSURVEY_POWERSHELL NAMES pwsh powershell REQUIRED)
+        add_test(NAME RtPbrSurvey.NrdCapturedConversion
+            COMMAND "${RTPBRSURVEY_POWERSHELL}" -NoProfile -File
+                "${RTPBRSURVEY_ROOT}/Tests/TestNrdCapturedConversion.ps1"
+                -Exe "$<TARGET_FILE:RtPbrSurvey.PathTracingDenoiserSamplingTests>"
+                -Shader "${nrd_captured_conversion_shader}" -ScratchRoot "${CMAKE_CURRENT_BINARY_DIR}/Tests/CapturedSmoke")
         if(RTPBRSURVEY_TEST_NRD_RECONSTRUCTION)
             set(RTPBRSURVEY_NRD_MATHLIB_DIR "${RTPBRSURVEY_NRD_SDK_DIR}/External/MathLib"
                 CACHE PATH "Pinned MathLib v11 source for NRD reconstruction shader tests.")

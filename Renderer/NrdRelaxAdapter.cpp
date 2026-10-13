@@ -215,6 +215,41 @@ NrdRelaxWorldBounds BuildNrdRelaxWorldBounds(const Scene& scene)
     return result;
 }
 
+NrdRelaxRadianceDecision InspectNrdRelaxRadiance(std::array<float, 3> physical,
+                                               std::array<float, 3> materialFactor,
+                                               bool lobeActive)
+{
+    NrdRelaxRadianceDecision result;
+    for (size_t channel = 0; channel < 3; ++channel)
+    {
+        if (!std::isfinite(physical[channel]) || physical[channel] < 0 ||
+            !std::isfinite(materialFactor[channel]) || materialFactor[channel] <= 0 || materialFactor[channel] > 1 ||
+            (!lobeActive && physical[channel] != 0))
+        {
+            return result;
+        }
+    }
+    if (!lobeActive)
+    {
+        result.disposition = NrdRelaxRadianceDisposition::InactiveLobe;
+        return result;
+    }
+    std::array<float, 3> demodulated;
+    for (size_t channel = 0; channel < 3; ++channel)
+    {
+        const double value = double(physical[channel]) / materialFactor[channel];
+        if (value > 65504)
+        {
+            result.disposition = NrdRelaxRadianceDisposition::PackingRangeExceeded;
+            return result;
+        }
+        demodulated[channel] = static_cast<float>(value);
+    }
+    result.disposition = NrdRelaxRadianceDisposition::Packable;
+    result.demodulated = demodulated;
+    return result;
+}
+
 NrdRelaxSupportInfo QueryNrdRelaxSupport()
 {
     NrdRelaxSupportInfo info;

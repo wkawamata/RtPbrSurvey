@@ -4,9 +4,34 @@
 #include <iostream>
 #include <limits>
 #include "Scene/Scene.h"
+#include <cmath>
 
 namespace
 {
+bool CheckRadianceGate()
+{
+    using Disposition = Engine::NrdRelaxRadianceDisposition;
+    const auto inspect = [](std::array<float, 3> physical, std::array<float, 3> factor, bool active = true)
+    { return Engine::InspectNrdRelaxRadiance(physical, factor, active); };
+    auto valid = inspect({1, 2, 3}, {.5f, .25f, .1f});
+    bool passed = valid.disposition == Disposition::Packable && valid.demodulated[0] == 2 &&
+                  valid.demodulated[1] == 8 && std::abs(valid.demodulated[2] - 30) < .0001f;
+    passed &= inspect({0, 0, 0}, {.02f, .02f, .02f}, false).disposition == Disposition::InactiveLobe;
+    passed &= inspect({1, 0, 0}, {.02f, .02f, .02f}, false).disposition == Disposition::InvalidData;
+    passed &= inspect({65504, 0, 0}, {1, 1, 1}).disposition == Disposition::Packable;
+    auto overflow = inspect({60000, 1, 2}, {.02f, .5f, .5f});
+    passed &=
+        overflow.disposition == Disposition::PackingRangeExceeded && overflow.demodulated == std::array<float, 3>{};
+    passed &= inspect({0, 0, 0}, {0, 1, 1}).disposition == Disposition::InvalidData;
+    passed &= inspect({0, 0, 0}, {1.1f, 1, 1}).disposition == Disposition::InvalidData;
+    passed &= inspect({-1, 0, 0}, {1, 1, 1}).disposition == Disposition::InvalidData;
+    passed &=
+        inspect({std::numeric_limits<float>::infinity(), 0, 0}, {1, 1, 1}).disposition == Disposition::InvalidData;
+    passed &=
+        inspect({0, 0, 0}, {std::numeric_limits<float>::quiet_NaN(), 1, 1}).disposition == Disposition::InvalidData;
+    return passed;
+}
+
 bool CheckSnapshotLifecycle()
 {
     Engine::SceneMesh mesh;
@@ -170,6 +195,7 @@ int main()
     passed &= !Engine::QueryNrdRelaxSupport().available;
     passed &= CheckSceneRange();
     passed &= CheckSnapshotLifecycle();
+    passed &= CheckRadianceGate();
     using Disposition = Engine::NrdRelaxDistanceDisposition;
     const auto inspect = [](float distance, float state, float raw, bool primary = true, bool active = true)
     { return Engine::InspectNrdRelaxDistance(distance, state, raw, 0.0f, 100.0f, primary, active); };

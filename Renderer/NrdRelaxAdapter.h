@@ -95,6 +95,24 @@ struct NrdRelaxDistanceDecision
     bool zeroRadianceRequired = false;
 };
 
+enum class NrdRelaxRadianceDisposition
+{
+    InvalidData,
+    Packable,
+    PackingRangeExceeded,
+    InactiveLobe,
+};
+
+struct NrdRelaxRadianceDecision
+{
+    NrdRelaxRadianceDisposition disposition = NrdRelaxRadianceDisposition::InvalidData;
+    std::array<float, 3> demodulated = {};
+};
+
+NrdRelaxRadianceDecision InspectNrdRelaxRadiance(std::array<float, 3> physical,
+                                               std::array<float, 3> materialFactor,
+                                               bool lobeActive);
+
 NrdRelaxDistanceDecision InspectNrdRelaxDistance(float surfaceDistance,
                                                  float diagnosticState,
                                                  float rawHitT,

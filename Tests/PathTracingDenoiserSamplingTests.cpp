@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <filesystem>
 
 using Microsoft::WRL::ComPtr;
 
@@ -216,6 +217,97 @@ void ValidatePacking(const float* values)
     }
     std::cout << "Validated pinned SDK RELAX packing: eight exact contract cases.\n";
 }
+
+void ValidateMaterialFactors(const float* values)
+{
+    const double cases[8][6] = {{.8, .6, .2, 0, .5, 1},
+                                {0, 0, 0, 0, .5, .8},
+                                {.9, .5, .1, 1, .2, .3},
+                                {0, 0, 0, 1, .25, .001},
+                                {.7, .3, .1, .35, .55, .75},
+                                {.4, .6, .8, 0, 0, .5},
+                                {1, 1, 1, 0, 1, 1},
+                                {1, 1, 1, 0, .5, 0}};
+    const double m1[2][2] = {{.99044, -1.28514}, {1.29678, -.755907}};
+    const double m2[3][3] = {{1, 2.92338, 59.4188}, {20.3225, -27.0302, 222.592}, {121.563, 626.13, 316.627}};
+    const double m3[2][2] = {{.0365463, 3.32707}, {9.0632, -9.04756}};
+    const double m4[3][3] = {{1, 3.59685, -1.36772}, {9.04401, -16.3174, 9.22949}, {5.56589, 19.7886, -20.2123}};
+    for (unsigned int index = 0; index < kSampleCount; ++index)
+    {
+        const double* material = cases[index % 8];
+        const double metallic = material[3], roughness = material[4], noV = material[5];
+        const double m = roughness * roughness;
+        const double x2[] = {1, noV}, y2[] = {1, m};
+        const double x3a[] = {1, noV, noV * noV * noV}, x3b[] = {1, noV * noV, noV * noV * noV};
+        const double y3[] = {1, m, m * m * m};
+        const auto evaluate = [](const auto& matrix, const double* x, const double* y, size_t count)
+        {
+            double result = 0;
+            for (size_t row = 0; row < count; ++row)
+                for (size_t column = 0; column < count; ++column)
+                    result += matrix[row][column] * x[column] * y[row];
+            return result;
+        };
+        const double bias = evaluate(m1, x2, y2, 2) / std::max(evaluate(m2, x3a, y3, 3), 1e-6);
+        const double scale = evaluate(m3, x2, y2, 2) / std::max(evaluate(m4, x3b, y3, 3), 1e-6);
+        const float* actual = values + index * 16;
+        for (unsigned int channel = 0; channel < 16; ++channel)
+            if (!std::isfinite(actual[channel]))
+                throw std::runtime_error("Nonfinite material conversion");
+        for (unsigned int channel = 0; channel < 3; ++channel)
+        {
+            const double reflectance = material[channel] * (1 - metallic);
+            const double f0 = .04 * (1 - metallic) + material[channel] * metallic;
+            const double environment = std::max(0.0, std::min(1.0, f0 * scale + bias));
+            const double diffuseFactor = .02 + .98 * (1 - environment) * reflectance;
+            const double specularFactor = .02 + .98 * environment * (.1 + .9 * roughness);
+            const double incident[] = {.25, 2, 6}, specular[] = {.5, 1, 3};
+            if (actual[channel] < .01999f || actual[4 + channel] < .01999f ||
+                !Near(actual[channel], diffuseFactor, 0.00003, .0005) ||
+                !Near(actual[4 + channel], specularFactor, 0.00003, .0005) ||
+                !Near(actual[8 + channel], reflectance * incident[channel], .00001, .00001) ||
+                !Near(actual[12 + channel], specular[channel], .00001, .00001))
+                throw std::runtime_error("Material factor or round-trip mismatch at case " + std::to_string(index % 8));
+        }
+        if (actual[3] != 0 || actual[7] != 0 || actual[11] != 2 || actual[15] != 4)
+            throw std::runtime_error("Material conversion reserved fields or distance changed");
+    }
+    std::cout << "Validated eight pinned SDK material-factor and packing round-trip cases.\n";
+}
+
+void ValidateInputConversion(const float* values)
+{
+    const float diffuse[4][3] = {{.2f, 1.2f, 1.2f}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+    const float statuses[8][2] = {{0, 0}, {3, 0}, {3, 0}, {3, 0}, {2, 0}, {1, 1}, {0, 1}, {1, 0}};
+    for (unsigned int index = 0; index < kSampleCount; ++index)
+    {
+        const unsigned int test = index % 8;
+        const float* result = values + index * 16;
+        for (unsigned int channel = 0; channel < 16; ++channel)
+            if (!std::isfinite(result[channel]))
+                throw std::runtime_error("Nonfinite input conversion output");
+        if (result[11] != statuses[test][0] || result[15] != statuses[test][1])
+            throw std::runtime_error("Input conversion status mismatch");
+        if (test >= 4)
+        {
+            for (unsigned int channel = 0; channel < 8; ++channel)
+                if (result[channel] != 0)
+                    throw std::runtime_error("Rejected pixel leaked packed radiance");
+            continue;
+        }
+        for (unsigned int channel = 0; channel < 3; ++channel)
+        {
+            const float specular[] = {.5f, 1, 3};
+            if (result[8 + channel] < .01999f || result[12 + channel] < .01999f ||
+                !Near(result[channel] * result[8 + channel], diffuse[test][channel], .00001, .00001) ||
+                !Near(result[4 + channel] * result[12 + channel], specular[channel], .00001, .00001))
+                throw std::runtime_error("Converted RGB round trip failed");
+        }
+        if (result[3] != (test == 0 ? 2 : 0) || result[7] != 4)
+            throw std::runtime_error("Conversion changed hit distance or inactive lobe");
+    }
+    std::cout << "Validated eight guarded SDK input conversion cases.\n";
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -236,6 +328,10 @@ int main(int argc, char** argv)
         ComPtr<IDXGIAdapter> adapter;
         bool hardware = false;
         bool packing = false;
+        bool materialFactors = false;
+        bool inputConversion = false;
+        const char* inputPath = nullptr;
+        const char* outputPath = nullptr;
         for (int index = 2; index < argc; ++index)
         {
             if (std::strcmp(argv[index], "--hardware") == 0)
@@ -246,10 +342,49 @@ int main(int argc, char** argv)
             {
                 packing = true;
             }
+            else if (std::strcmp(argv[index], "--material-factors") == 0)
+            {
+                materialFactors = true;
+            }
+            else if (std::strcmp(argv[index], "--input-conversion") == 0)
+            {
+                inputConversion = true;
+            }
+            else if (std::strcmp(argv[index], "--input") == 0 && index + 1 < argc)
+            {
+                inputPath = argv[++index];
+            }
+            else if (std::strcmp(argv[index], "--output") == 0 && index + 1 < argc)
+            {
+                outputPath = argv[++index];
+            }
             else
             {
                 throw std::runtime_error("Unknown test option");
             }
+        }
+        if (int(packing) + int(materialFactors) + int(inputConversion) > 1)
+            throw std::runtime_error("Packing and material-factor modes are mutually exclusive");
+        if ((inputPath != nullptr) != (outputPath != nullptr) || (inputPath && !inputConversion))
+            throw std::runtime_error("Captured conversion requires both input and output paths");
+        std::vector<char> captured;
+        UINT sampleCount = kSampleCount;
+        if (inputPath)
+        {
+            if (std::filesystem::weakly_canonical(inputPath) == std::filesystem::weakly_canonical(outputPath) ||
+                (std::filesystem::exists(outputPath) && std::filesystem::equivalent(inputPath, outputPath)))
+                throw std::runtime_error("Output must not overwrite captured input");
+            std::ifstream input(inputPath, std::ios::binary | std::ios::ate);
+            const std::streamoff size = input.tellg();
+            constexpr UINT kInputStride = 7 * 4 * sizeof(float);
+            if (size <= 0 || size % kInputStride != 0 || size / kInputStride > 65535 * 64)
+                throw std::runtime_error("Invalid captured input size");
+            sampleCount = UINT(size / kInputStride);
+            captured.resize(static_cast<size_t>(size));
+            input.seekg(0);
+            input.read(captured.data(), size);
+            if (!input)
+                throw std::runtime_error("Could not read captured input");
         }
         if (!hardware)
             Check(factory->EnumWarpAdapter(IID_PPV_ARGS(&adapter)));
@@ -260,9 +395,13 @@ int main(int argc, char** argv)
         D3D12_ROOT_PARAMETER parameter = {};
         parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV;
         parameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+        D3D12_ROOT_PARAMETER parameters[3] = {parameter, {}, {}};
+        parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+        parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+        parameters[2].Constants.Num32BitValues = 1;
         D3D12_ROOT_SIGNATURE_DESC rootDesc = {};
-        rootDesc.NumParameters = 1;
-        rootDesc.pParameters = &parameter;
+        rootDesc.NumParameters = inputPath ? 3 : 1;
+        rootDesc.pParameters = parameters;
         ComPtr<ID3DBlob> blob, errors;
         Check(D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &errors));
         ComPtr<ID3D12RootSignature> root;
@@ -272,7 +411,18 @@ int main(int argc, char** argv)
         pipelineDesc.CS = {shader.data(), shader.size()};
         ComPtr<ID3D12PipelineState> pipeline;
         Check(device->CreateComputePipelineState(&pipelineDesc, IID_PPV_ARGS(&pipeline)));
-        const UINT64 byteCount = UINT64(kSampleCount) * 16 * sizeof(float);
+        const UINT64 byteCount = UINT64(sampleCount) * 16 * sizeof(float);
+        ComPtr<ID3D12Resource> inputBuffer;
+        if (inputPath)
+        {
+            inputBuffer =
+                Buffer(device.Get(), captured.size(), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
+            void* mapped = nullptr;
+            const D3D12_RANGE noRead = {0, 0};
+            Check(inputBuffer->Map(0, &noRead, &mapped));
+            std::memcpy(mapped, captured.data(), captured.size());
+            inputBuffer->Unmap(0, nullptr);
+        }
         const auto output =
             Buffer(device.Get(), byteCount, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
         const auto readback = Buffer(device.Get(), byteCount, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST);
@@ -286,7 +436,12 @@ int main(int argc, char** argv)
             0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator.Get(), pipeline.Get(), IID_PPV_ARGS(&commands)));
         commands->SetComputeRootSignature(root.Get());
         commands->SetComputeRootUnorderedAccessView(0, output->GetGPUVirtualAddress());
-        commands->Dispatch(kSampleCount / 64, 1, 1);
+        if (inputPath)
+        {
+            commands->SetComputeRootShaderResourceView(1, inputBuffer->GetGPUVirtualAddress());
+            commands->SetComputeRoot32BitConstant(2, sampleCount, 0);
+        }
+        commands->Dispatch((sampleCount + 63) / 64, 1, 1);
         D3D12_RESOURCE_BARRIER barrier = {};
         barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
         barrier.Transition.pResource = output.Get();
@@ -323,7 +478,22 @@ int main(int argc, char** argv)
         const D3D12_RANGE range = {0, static_cast<SIZE_T>(byteCount)};
         void* data = nullptr;
         Check(readback->Map(0, &range, &data));
-        if (packing)
+        if (inputPath)
+        {
+            std::ofstream outputFile(outputPath, std::ios::binary);
+            outputFile.write(static_cast<const char*>(data), byteCount);
+            if (!outputFile)
+                throw std::runtime_error("Could not write converted output");
+        }
+        else if (inputConversion)
+        {
+            ValidateInputConversion(static_cast<const float*>(data));
+        }
+        else if (materialFactors)
+        {
+            ValidateMaterialFactors(static_cast<const float*>(data));
+        }
+        else if (packing)
         {
             ValidatePacking(static_cast<const float*>(data));
         }

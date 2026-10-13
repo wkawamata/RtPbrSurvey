@@ -1381,3 +1381,161 @@ permission failure in the Python fixture test was resolved by host-side
 execution, without relaxing test assertions. User Scene Editor and manual
 scene changes remain untouched; generated captures/raw buffers are not Git
 content.
+
+### Step 2Q: Material Demodulation Contract and SDK Round Trip (2026-10-13)
+
+The pinned NRD_MaterialFactors helper is now executed in the optional GPU
+contract harness. Project inputs are explicitly diffuseReflectance = linear
+baseColor*(1-metallic), Rf0 = lerp(.04, baseColor, metallic), the original linear
+material roughness and unit shading normal/view vectors. This matches the
+project's diffuse reflectance and specular F0 decomposition; it is a frozen
+integration convention, not a claim that the SDK helper removes every angular
+BRDF/PDF term from the current Monte Carlo estimator.
+
+Eight deterministic cases cover colored dielectric, black dielectric, colored
+metal, black metal at grazing incidence, mixed metalness, smooth/rough limits
+and exactly grazing view. GPU factors are compared against an independent
+double-precision implementation of the pinned RTG rational environment-term
+equation. Dividing physical test signals by factors, calling real RELAX packing
+and multiplying by the SAME factors restores RGB and preserves hit distance.
+The helper's factor floor is .02 and specular roughness scale floor is .1.
+Black/fully metallic diffuse signals remain zero, not NaN; black-metal specular
+is not declared inactive merely because F0 is zero.
+
+Added InspectNrdRelaxRadiance as a CPU reference gate. It rejects nonfinite or
+negative physical RGB, nonpositive/nonfinite/>1 material factors, and nonzero
+inactive-lobe RGB. Demodulated values above 65504 yield PackingRangeExceeded
+with no partial output; do not rely on SDK sanitization/clamping to hide HDR
+energy loss. The 60000/.02 case proves why originally representable physical
+RGB may require Native fallback after demodulation. Valid inactive lobes return
+zero separately from active but zero-valued samples.
+
+This does not yet convert actual PT GPU buffers. Stable primary emission,
+unlit terms and background remain separate from demodulated lobes. Future
+front/back conversion must use identical factors and original roughness (not
+denoiser roughnessAA), preserve coherent per-pixel guides, and derive view
+direction from primary rays for both perspective and orthographic cameras.
+HDR overflow requires an explicit fallback or separately validated reversible
+exposure policy. RELAX support remains unavailable.
+
+Validation: Debug application and changed adapter/sampling tests rebuilt.
+CTest passed 35/35 (new material-factor case plus existing tests; unchanged
+targets used existing binaries). WARP and the hardware path each passed all
+eight factor/packing round-trip cases without D3D12 errors. The CPU gate covers
+valid division, inactive zero/nonzero signals, the exact 65504 boundary, HDR
+overflow, invalid factors, negative RGB and NaN/Inf. No new real-material
+capture, GPU conversion pass or RELAX output image was produced in this step.
+
+### Step 2R: Guarded SDK GPU Conversion Function (2026-10-13)
+
+Added isolated NrdRelaxInputConversion.hlsli. It computes pinned SDK material
+factors, demodulates both physical lobes and packs their validated distances.
+The app's general PT shader and public C++ interfaces do not include SDK shader
+headers; only the opt-in test currently compiles this backend-specific function.
+
+It checks finite/unit normal and view vectors (normalization after a .005 length
+check), finite baseColor/F0/metalness/roughness in [0,1], nonnegative finite RGB,
+positive finite factors <=1, and finite distances in [0,65504]. Diffuse activity
+is derived from the current material model; specular remains active even for
+black metal. Inactive diffuse requires zero RGB AND zero distance. HDR overflow
+or any invalid lobe rejects the whole pixel without publishing partial packed
+signals. Stored factors must be reused for later remodulation.
+
+conversionReady only means this arithmetic conversion succeeded. Active zero
+distance remains a missing-distance marker needing reconstruction; it is not
+denoiser readiness or a certified hit. Input ray-state semantics, environment
+range proof, TLAS generation, primary-hit mask and coherent sample metadata must
+be checked by the eventual caller. Stable emission/unlit/background are not
+passed through this function. No frame fallback/history policy is enabled yet.
+
+Eight GPU cases validate ordinary conversion, black dielectric, colored metal,
+black metal at grazing incidence, HDR overflow, NaN normal, negative radiance
+and NaN distance. Accepted RGB round trips and hit distances are checked;
+rejected pixels must have zero packed outputs and explicit status codes.
+Next: execute this function against actual captured physical lobe/material
+buffers, then wrap the same kernel in a guarded render-graph conversion pass.
+
+Validation: changed shader/test harness built in Debug. WARP and hardware each
+passed all eight guarded conversion cases without D3D12 errors; CTest passed
+36/36 with the changed sampling harness rebuilt and other targets using prior
+verified binaries. Actual captured physical-lobe buffers and production pass
+bindings were not exercised. GPU bounds are checked on float arithmetic before
+packing; the CPU reference uses double division and can be more conservative
+at a float-rounding boundary. No bitwise CPU/GPU threshold equivalence is claimed.
+
+### Step 2S: Actual Captured Physical-Lobe GPU Conversion (2026-10-13)
+
+The dedicated runner's --material-guides now collects NormalRoughness, ViewZ,
+MaterialF0Metallic, PhysicalDiffuse and PhysicalSpecular alongside the existing
+geometry cohort and Native ON/OFF comparison. Thirteen captures passed with
+unchanged Native radiance and no D3D12 errors. replay_nrd_conversion.py verifies
+unique capture records/hashes, metadata/format agreement, reserved channels and
+primary masks. View vectors come from the inverse-projected primary rays,
+supporting the same perspective/orthographic construction rather than assuming
+camera-to-point vectors. This cohort is still the uniform mixed-metal plane
+fixture; it is not a textured/material-boundary quality test.
+
+The test harness accepts bounded structured input records (seven float4 fields)
+and writes four float4 conversion outputs per pixel. Whole-pixel status, excluded
+primary misses, factor bounds, physical RGB remodulation and exact distance
+preservation are assessed. No accepted primary pixels is rejected as incomplete
+validation; partial output from rejected pixels and false inactive labels cannot
+pass. Input/output alias paths are rejected, including existing equivalent files.
+The prototype input count is bounded to a single legal 65535-group X dispatch.
+
+Initial hardware output was all zero while WARP had succeeded. The shader's
+Root SRV GetDimensions-dependent guard was replaced with an explicit CPU-supplied
+count. Final hardware and WARP runs pass. A 17-record smoke test includes one
+excluded primary miss and checks the non-64-multiple dispatch tail on both
+devices; it is registered with CTest on WARP. The failed hardware report remains
+preserved rather than silently overwritten.
+
+1,324,948 primary pixels were accepted, zero rejected, and 748,652 primary misses
+were excluded, for both hit-only and hypothetical-environment variants. Maximum
+RGB remodulation error was 3.36e-8 on WARP and 7.13e-8 on hardware, with zero
+D3D12 errors. Both reports retain inputReady=false and
+runtimeGeometrySnapshotVerified=false. Factors operate on the captured RGBA16
+material guides, so this does not establish equivalence to unquantized material
+inputs or a correct spatially filtered result.
+
+Evidence under bin/PathTracingValidation: nrd-step2s-material-cohort-20261013,
+nrd-step2s-conversion-warp-final-20261013 and
+nrd-step2s-conversion-hardware-retry-20261013. The initial failed hardware result
+is nrd-step2s-conversion-hardware-20261013. CTest passed 37/37 and four new Python
+conversion-assessment tests passed; the changed GPU harness was rebuilt, other
+test targets used prior binaries. No production RenderGraph conversion pass,
+conversion-to-reconstruction chain, runtime SDK library or RELAX denoising
+dispatch was enabled. Next: chain the actual converted lobe signals through
+SDK reconstruction, then integrate guarded production conversion/dispatch.
+
+### Step 2T: Captured Conversion-to-Reconstruction Chain (2026-10-13)
+
+replay_nrd_converted_reconstruction.py connects the actual Step 2S converted
+Diffuse/Specular RGB and distances to the pinned SDK 3x3/5x5 reconstruction
+harness. It requires exactly the two conversion variants, matching capture
+report hashes, unchanged raw input/output hashes, regenerated input agreement,
+and a recomputed conversion assessment with zero rejected primary pixels.
+Duplicate, missing, stale or contradictory conversion records cannot pass.
+Primary misses are excluded with ViewZ=1e6; the output must remain zero there.
+Packed RGB must be bit-preserved at written pixels. Remodulation uses the same
+captured conversion factors, not independently recomputed factors.
+
+Both WARP and hardware passed all four variant/kernel combinations without
+D3D12 errors. Maximum physical RGB round-trip error remained 3.36e-8 on WARP
+and 7.13e-8 on hardware. Specular invalid-direction pixels numbered 117,072;
+hit-only left 69,187 unresolved with 3x3 and 49,275 with 5x5. Hypothetical
+environment encoding left zero unresolved, but that is not runtime range proof
+or evidence of spatially correct reconstruction. The 46 unlabelled invalid
+pixels and cross-surface reconstruction risks remain outside quality approval.
+Counts agreed between devices; distance outputs are not claimed bit-identical.
+The historical conversion executables differed between device reports; their
+report/raw hashes are retained, and both use the same captured source cohort.
+
+Evidence: bin/PathTracingValidation/nrd-step2t-chain-warp-20261013 and
+nrd-step2t-chain-hardware-20261013. Three focused chain tests plus four previous
+conversion tests passed. No C++ or shader rebuild was needed for this step;
+existing reconstruction binaries were used and hashed. inputReady and
+runtimeGeometrySnapshotVerified remain false. This is an isolated GPU chain,
+not a production RenderGraph pass, full RELAX denoising or temporal history.
+Next: establish guarded production conversion and live snapshot/range readiness
+before wiring full SDK denoising dispatch and remodulated composition.
