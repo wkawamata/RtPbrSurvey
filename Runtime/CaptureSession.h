@@ -40,6 +40,7 @@ namespace RtPbrSurvey
     enum class CaptureSessionState
     {
         Idle,
+        Delaying,
         Warmup,
         Recording,
         Draining,
@@ -63,6 +64,7 @@ namespace RtPbrSurvey
         std::uint16_t gifRepeatCount = 0;
         CaptureSessionGifDisposal gifDisposal = CaptureSessionGifDisposal::Keep;
         std::uint32_t warmupFrames = 0;
+        std::uint32_t startDelayMilliseconds = 0;
         std::optional<std::uint64_t> frameLimit;
         std::optional<double> durationSeconds;
 

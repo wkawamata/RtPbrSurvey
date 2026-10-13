@@ -189,13 +189,15 @@ namespace RtPbrSurvey
         m_stopRequested = false;
         m_nextCaptureSeconds = 0.0;
         m_lastClockSeconds = 0.0;
-        m_status.state = config.warmupFrames > 0 ? CaptureSessionState::Warmup : CaptureSessionState::Recording;
+        m_status.state = config.startDelayMilliseconds > 0 ? CaptureSessionState::Delaying :
+            (config.warmupFrames > 0 ? CaptureSessionState::Warmup : CaptureSessionState::Recording);
         return true;
     }
 
     void CaptureSession::Stop()
     {
-        if (m_status.state == CaptureSessionState::Warmup || m_status.state == CaptureSessionState::Recording)
+        if (m_status.state == CaptureSessionState::Delaying || m_status.state == CaptureSessionState::Warmup ||
+            m_status.state == CaptureSessionState::Recording)
         {
             m_stopRequested = true;
             m_readyRequest.reset();
@@ -206,9 +208,29 @@ namespace RtPbrSurvey
     void CaptureSession::Update(const CaptureSessionTiming& timing)
     {
         m_lastClockSeconds = GetClockSeconds(timing);
-        if (m_status.state != CaptureSessionState::Warmup && m_status.state != CaptureSessionState::Recording)
+        if (m_status.state != CaptureSessionState::Delaying && m_status.state != CaptureSessionState::Warmup &&
+            m_status.state != CaptureSessionState::Recording)
         {
             return;
+        }
+
+        if (m_status.state == CaptureSessionState::Delaying)
+        {
+            if (!m_startTiming.has_value())
+            {
+                m_startTiming = timing;
+            }
+            const double delaySeconds = static_cast<double>(m_config.startDelayMilliseconds) / 1000.0;
+            if (timing.realTimeSeconds - m_startTiming->realTimeSeconds < delaySeconds)
+            {
+                return;
+            }
+            m_status.state = m_config.warmupFrames > 0 ? CaptureSessionState::Warmup : CaptureSessionState::Recording;
+            m_startTiming = timing;
+            if (m_status.state == CaptureSessionState::Recording)
+            {
+                m_recordingStartTiming = timing;
+            }
         }
 
         if (!m_startTiming.has_value())
@@ -346,13 +368,15 @@ namespace RtPbrSurvey
 
     bool CaptureSession::CanAdvanceFixedStep() const
     {
-        return m_config.clock != CaptureSessionClock::FixedStep ||
+        return m_status.state == CaptureSessionState::Delaying ||
+               m_config.clock != CaptureSessionClock::FixedStep ||
                (!m_readyRequest.has_value() && !m_requestInFlight);
     }
 
     bool CaptureSession::IsActive() const
     {
-        return m_status.state == CaptureSessionState::Warmup || m_status.state == CaptureSessionState::Recording ||
+        return m_status.state == CaptureSessionState::Delaying || m_status.state == CaptureSessionState::Warmup ||
+               m_status.state == CaptureSessionState::Recording ||
                m_status.state == CaptureSessionState::Draining;
     }
 

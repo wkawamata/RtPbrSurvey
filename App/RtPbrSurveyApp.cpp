@@ -694,10 +694,6 @@ bool RtPbrSurveyApp::OnCloseRequested()
 
 void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
 {
-    if (IsFixedStepCaptureActive() && (m_framePaused || !m_sceneRenderer.CanAdvanceCaptureSessionFixedStep()))
-    {
-        return;
-    }
     if (m_captureSessionUiState.selectingRegion)
     {
         return;
@@ -726,6 +722,13 @@ void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
             return;
         }
     }
+
+    if (button == VK_RBUTTON && (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0)
+    {
+        m_debugUiVisible = !m_debugUiVisible;
+        return;
+    }
+
     m_debugCamera.OnMouseDown(button, x, y);
 }
 
@@ -744,10 +747,6 @@ void RtPbrSurveyApp::OnMouseUp(UINT8 button, int x, int y)
 
 void RtPbrSurveyApp::OnMouseMove(int x, int y)
 {
-    if (IsFixedStepCaptureActive() && (m_framePaused || !m_sceneRenderer.CanAdvanceCaptureSessionFixedStep()))
-    {
-        return;
-    }
     if (m_captureSessionUiState.selectingRegion)
     {
         return;
@@ -758,14 +757,11 @@ void RtPbrSurveyApp::OnMouseMove(int x, int y)
     }
 
     m_debugCamera.OnMouseMove(x, y);
+    m_sceneRenderer.SetCamera(LoadedScene().GetScene().camera);
 }
 
 void RtPbrSurveyApp::OnMouseWheel(int wheelDelta)
 {
-    if (IsFixedStepCaptureActive() && (m_framePaused || !m_sceneRenderer.CanAdvanceCaptureSessionFixedStep()))
-    {
-        return;
-    }
     if (m_captureSessionUiState.selectingRegion)
     {
         return;
@@ -776,6 +772,7 @@ void RtPbrSurveyApp::OnMouseWheel(int wheelDelta)
     }
 
     m_debugCamera.OnMouseWheel(wheelDelta, (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0);
+    m_sceneRenderer.SetCamera(LoadedScene().GetScene().camera);
 }
 
 void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
@@ -1155,6 +1152,7 @@ void RtPbrSurveyApp::DrawCaptureSessionUi()
         RtPbrSurvey::CaptureSessionUi::Draw(status, m_captureSessionUiState, canStart ? nullptr : reason.c_str());
     ApplyCaptureSessionUiAction(action);
     ImGui::TextUnformatted("F8: Start Capture Session / Stop active session");
+    ImGui::TextUnformatted("Hold Left Mouse + press Right Mouse: Toggle ImGui visibility");
     ImGui::TextWrapped("Fixed-step advances scene and camera by 1/FPS. P pauses the clock; F advances one step. Space pauses scene animation only.");
 }
 
