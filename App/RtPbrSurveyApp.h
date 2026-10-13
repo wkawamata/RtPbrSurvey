@@ -86,6 +86,7 @@ private:
     friend void App::DrawSceneSelectUi(RtPbrSurveyApp& app);
     friend void App::DrawSceneEditorStartUi(RtPbrSurveyApp& app);
     friend void App::DrawSceneEditorEditUi(RtPbrSurveyApp& app);
+    friend void App::DrawSceneEditorTransformUi(RtPbrSurveyApp& app);
     friend class App::SceneConfigManager;
 
     enum class AppMode
@@ -117,7 +118,7 @@ private:
     bool SaveSceneEditorRenderPreset(std::string* error = nullptr);
     bool ReloadSceneEditorRenderPreset(std::string* error = nullptr);
     bool AddSceneEditorGltfNode(const std::string& relativePath, std::string* error = nullptr);
-    bool RebuildSceneEditorPreview(std::string* error = nullptr);
+    bool RebuildSceneEditorPreview(std::string* error = nullptr, bool preserveCamera = true);
     void ApplySceneEditorEnvironmentSettings();
     void UpdateSceneEditorSelectionOverlay();
     void ClearSceneEditorSelectionOverlay();
@@ -159,6 +160,7 @@ private:
     void LogRayReconstructionDiagnostics();
     void AccumulatePathTracingCaptureDiagnostics();
     void LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::UiFrameContext& context);
+    void RunPathTracingHistoryValidation();
     void FlushD3D12DebugMessages();
     void LogFpsToFile(float cpuFrameTimeMs);
     bool CaptureEvaluationState(RtPbrSurvey::EvaluationState& state, std::string* error = nullptr);
@@ -194,6 +196,11 @@ private:
     float m_sceneEditorRotationStepDegrees = 15.0f;
     float m_sceneEditorScaleStep = 0.1f;
     int m_sceneEditorTransformTool = 0;
+    bool m_sceneEditorShowTransformWindow = true;
+    bool m_sceneEditorTransformGizmoEnabled = true;
+    bool m_sceneEditorTransformEditPending = false;
+    bool m_sceneEditorGizmoUsing = false;
+    bool m_sceneEditorGizmoCapturesMouse = false;
     bool m_sceneEditorObjectPickPending = false;
     std::string m_sceneEditorPendingLoadPath;
     int m_pendingSelectedSceneIndex = kDefaultSceneIndex;
@@ -270,6 +277,11 @@ private:
     float m_pathTracingGpuTimeMinMs = 0.0f;
     float m_pathTracingGpuTimeMaxMs = 0.0f;
     UINT64 m_pathTracingGpuTimingSampleCount = 0;
+    UINT m_pathTracingHistoryValidationStage = 0;
+    UINT m_pathTracingHistoryValidationFrames = 0;
+    bool m_pathTracingHistoryValidationEntered = false;
+    bool m_pathTracingHistoryValidationCapturePending = false;
+    std::string m_pathTracingHistoryValidationEntryResetReason;
     float m_automationOrbitStartYaw = 0.0f;
     float m_automationOrbitDistance = 5.0f;
     Platform::ReflectionCapturePlan m_reflectionCapturePlan;

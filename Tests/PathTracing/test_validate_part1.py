@@ -19,7 +19,9 @@ class Part1Tests(unittest.TestCase):
 
     def test_fixture_references_and_radiance(self):
         root = Path(__file__).resolve().parents[2] / "Assets/Scenes/PathTracingValidation"
-        for directory in (p for p in root.iterdir() if p.is_dir()):
+        plan = json.loads((root / "validation-plan.json").read_text())
+        for scene_id in plan["scenes"]:
+            directory = root / scene_id
             scene = json.loads((directory / "scene.json").read_text())
             preset = json.loads((directory / scene["renderPreset"]).read_text())
             self.assertEqual(scene["assets"], [])

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "status": "done-with-qualified-boundary-policy",
+  "testedHead": "26ba6fd2b79af54c677f6a68b1dfd8ad607e0d20",
+  "testedWithUncommittedTestsAndFixtures": true,
+  "executableSha256": "65754f1fcd88aea1ae01a6964c355b17b3c866b91d201f5346983d4b0e8862da",
+  "gpu": "NVIDIA GeForce RTX 2080 Ti",
+  "driver": "616.56",
+  "scope": "Single finite opaque plane, static camera, first-sample primary guides, all-sample radiance with explicit primary background",
+  "primaryBackground": [0.125, 0.25, 0.5],
+  "radianceBound": "0.002 * max(abs(frame radiance),1) + 1e-5",
+  "classificationPolicy": "Within 8 * float32 epsilon * max(1,abs(world coordinate)) of geometry edges, allow hit/miss background intervals; no pixels removed",
+  "policyIntroducedAfterInitialStrictFailure": true,
+  "records": [
+    {"seed": 7, "batch": 1, "pixels": 21053, "mixedPixels": 0, "ambiguousSamples": 1, "strictPassed": true, "intervalPassed": true, "intervalMaxError": 0.0004882216453552246},
+    {"seed": 7, "batch": 2, "pixels": 21053, "mixedPixels": 776, "firstMissLaterHit": 379, "firstHitLaterMiss": 397, "ambiguousSamples": 1, "strictPassed": true, "intervalPassed": true, "intervalMaxError": 0.0004881620407104492},
+    {"seed": 7, "batch": 4, "pixels": 21053, "mixedPixels": 1438, "firstMissLaterHit": 746, "firstHitLaterMiss": 692, "ambiguousSamples": 2, "strictPassed": false, "strictMaxError": 0.12475979328155518, "intervalPassed": true, "intervalMaxError": 0.000605463981628418},
+    {"seed": 11, "batch": 4, "pixels": 21053, "mixedPixels": 1441, "firstMissLaterHit": 791, "firstHitLaterMiss": 650, "ambiguousSamples": 3, "strictPassed": false, "strictMaxError": 0.1250050663948059, "intervalPassed": true, "intervalMaxError": 0.0005974173545837402, "prospectivePolicyValidation": true}
+  ],
+  "seed7PrimaryGuidesBitIdenticalAcrossBatches": true,
+  "captureCount": 28,
+  "d3d12Errors": 0,
+  "unitTestsPassed": 144,
+  "rendererOrShaderChanges": false,
+  "rawEvidence": [
+    "bin/PathTracingValidation/completion-step8-hit-miss-20261010/report.json",
+    "bin/PathTracingValidation/completion-step8-hit-miss-20261010/report-before-final-analysis.json",
+    "bin/PathTracingValidation/completion-step8-hit-miss-seed11-20261010/report.json"
+  ],
+  "notClaimed": ["Strict CPU/DXR edge equivalence", "formal float error guarantee", "arbitrary mesh silhouettes", "alpha coverage", "denoiser readiness", "temporal disocclusion quality"]
+}

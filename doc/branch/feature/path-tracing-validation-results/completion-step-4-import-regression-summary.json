@@ -1,0 +1,351 @@
+{
+  "schemaVersion": 1,
+  "generatedUtc": "2026-10-03T15:44:24.527097+00:00",
+  "testedCommit": "4ee66914f5c99c741d3c8b56e3905266f314d969",
+  "workingTreeModified": true,
+  "executableSha256": "1394a6e3ca255416b61aec5a80e3d51c7873c4c20fa56ce7bdb74cf9bdef2567",
+  "sourceSha256": {
+    "GltfLoader.cpp": "a2ec08351a9f69d3f1daf1ef4ef4844524d369c03c345f8e6ea702f7d2459936",
+    "GltfLoader.h": "039641e04ff1ea2398152bf37aeab9974754ca0490461a05bb5a9b1e4010fc86",
+    "Scene/SceneBuilder.cpp": "f29a6d4a5dc4a9582a38b8f47067095aa6f535e9362394cb71a549e4e70fc081",
+    "Scene/Scene.h": "a6f3a831c448d57e60de265d8fe5b47ee885a602c519ed8eb7271e67fe6f9e31",
+    "Renderer/Material.h": "ff8149ab05cd0f9e5b4a654d0c6a4a4a6224396ea90ba04ae2407f565e080944",
+    "Engine/RtPbrSurveyEngine.cpp": "fed95e3c8bbf8218b35f95f767453fdf65b2fb2ba3a7fcc5b94bca882d6e97a4",
+    "Shaders/Material.hlsli": "e9a4163b6f5e6c1dfcad80eafc913cfd385664cade30896668fbbe57a399c4c6",
+    "Shaders/SceneRayQuery.hlsli": "1ad1e244640f09bf5d1a205fb41a0cac9ede4f7bc4bc78d3e9a3e59eeb9f267d",
+    "Shaders/shaders_GBuffer.hlsl": "b70ae0077b72b2d9db5e9cfa66252016b11007ff83461c1fe779af388a7289f2",
+    "Tests/PathTracing/validate_materials.py": "9cb7d7db645761763e273edd13d52cb94264939a98454f16c814d044bb641d5b"
+  },
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "records": [
+    {
+      "name": "NormalRoughness",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\materials-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\materials-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\NormalRoughness.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\NormalRoughness.log",
+        "-ExitAfterCapture",
+        "-DebugPreviewResource",
+        "PathTracing.NormalRoughness"
+      ],
+      "sceneSha256": "ca024f78a4468a532f3f5a7c56b296be42f9d9881c851dc927bc5c9109ac79db",
+      "presetSha256": "0b191cc70cb490c9c58f59f9171a5a9f613808554df3c88139a559f70bad3200",
+      "assetSha256": "fcde3a1ba549ea2e4b398dd231918c35e0bed5c1d96ff4cef362cb7f3499c147",
+      "checks": [
+        {
+          "material": 0,
+          "pixelCount": 10366,
+          "expected": [
+            -0.6724128942575792,
+            0.3882858657402811,
+            -0.6301547318734233,
+            0.37
+          ],
+          "observedMean": [
+            -0.67236328125,
+            0.38818359375,
+            -0.6298828125,
+            0.369873046875
+          ],
+          "maxAbsoluteError": 0.00027191937342330164,
+          "tolerance": 0.001,
+          "passed": true
+        },
+        {
+          "material": 1,
+          "pixelCount": 29843,
+          "expected": [
+            -0.18985775021189133,
+            0.5542716858388983,
+            -0.8103930731205597,
+            0.37
+          ],
+          "observedMean": [
+            -0.1898193359375,
+            0.55419921875,
+            -0.81005859375,
+            0.369873046875
+          ],
+          "maxAbsoluteError": 0.0003344793705597482,
+          "tolerance": 0.001,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "d3d12Errors": 0,
+      "sha256": "85b316604bfdb0045d6fd66fea8f1c0a265b2c4f17558b44595a49a14bb5ab88"
+    },
+    {
+      "name": "Albedo",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\materials-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\materials-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\Albedo.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\Albedo.log",
+        "-ExitAfterCapture",
+        "-DebugPreviewResource",
+        "PathTracing.Albedo"
+      ],
+      "sceneSha256": "ca024f78a4468a532f3f5a7c56b296be42f9d9881c851dc927bc5c9109ac79db",
+      "presetSha256": "0b191cc70cb490c9c58f59f9171a5a9f613808554df3c88139a559f70bad3200",
+      "assetSha256": "fcde3a1ba549ea2e4b398dd231918c35e0bed5c1d96ff4cef362cb7f3499c147",
+      "checks": [
+        {
+          "material": 0,
+          "pixelCount": 10366,
+          "expected": [
+            0.09128220463608094,
+            0.05097507217425898,
+            0.5228202715192782,
+            1.0
+          ],
+          "observedMean": [
+            0.09124755859375,
+            0.05096435546875,
+            0.5224609375,
+            1.0
+          ],
+          "maxAbsoluteError": 0.0003593340192782346,
+          "tolerance": 0.0015,
+          "passed": true
+        },
+        {
+          "material": 1,
+          "pixelCount": 29843,
+          "expected": [
+            0.3651288185443238,
+            0.012743768043564745,
+            0.2614101357596391,
+            1.0
+          ],
+          "observedMean": [
+            0.364990234375,
+            0.0127410888671875,
+            0.26123046875,
+            1.0
+          ],
+          "maxAbsoluteError": 0.0001796670096391173,
+          "tolerance": 0.0015,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "d3d12Errors": 0,
+      "sha256": "555fa4bc2fa4978da71513308116af70e189252d7300d4d6c4d875708ae99e62"
+    },
+    {
+      "name": "Emissive",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\materials-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\materials-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\Emissive.pfm",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\Emissive.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "ca024f78a4468a532f3f5a7c56b296be42f9d9881c851dc927bc5c9109ac79db",
+      "presetSha256": "e19b3c20ee4b3f37f1f5731f8c2fe4884d019985b60a4713cb58ee7271764bef",
+      "assetSha256": "fcde3a1ba549ea2e4b398dd231918c35e0bed5c1d96ff4cef362cb7f3499c147",
+      "checks": [
+        {
+          "material": 0,
+          "pixelCount": 10366,
+          "expected": [
+            0.04564110231804047,
+            0.03823130413069423,
+            0.7842304072789175
+          ],
+          "observedMean": [
+            0.045641109347343445,
+            0.03823130950331688,
+            0.7842305898666382
+          ],
+          "maxAbsoluteError": 1.8258772072066165e-07,
+          "tolerance": 0.001,
+          "passed": true
+        },
+        {
+          "material": 1,
+          "pixelCount": 29843,
+          "expected": [
+            0.31948771622628325,
+            0.02548753608712949,
+            0.08713671191987972
+          ],
+          "observedMean": [
+            0.3194877505302429,
+            0.025487540289759636,
+            0.08713673800230026
+          ],
+          "maxAbsoluteError": 3.430395967285449e-08,
+          "tolerance": 0.001,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "d3d12Errors": 0,
+      "sha256": "6785639bf446b73b7c35f4f2cc9372271584372d7aff3691ab736d7f7b9f22b6"
+    },
+    {
+      "name": "Emissive-factor-only",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\materials-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\materials-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\Emissive-factor-only.pfm",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\Emissive-factor-only.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "ca024f78a4468a532f3f5a7c56b296be42f9d9881c851dc927bc5c9109ac79db",
+      "presetSha256": "e19b3c20ee4b3f37f1f5731f8c2fe4884d019985b60a4713cb58ee7271764bef",
+      "assetSha256": "7433ee40a25998460aa55931543c7369548a083090d34461e374a9bc2e63ad53",
+      "checks": [
+        {
+          "material": 0,
+          "pixelCount": 10366,
+          "expected": [
+            0.1,
+            0.3,
+            0.9
+          ],
+          "observedMean": [
+            0.10000000149011612,
+            0.30000001192092896,
+            0.8999999761581421
+          ],
+          "maxAbsoluteError": 2.384185793236071e-08,
+          "tolerance": 0.001,
+          "passed": true
+        },
+        {
+          "material": 1,
+          "pixelCount": 29843,
+          "expected": [
+            0.7,
+            0.2,
+            0.1
+          ],
+          "observedMean": [
+            0.699999988079071,
+            0.20000000298023224,
+            0.10000000149011612
+          ],
+          "maxAbsoluteError": 1.1920928910669204e-08,
+          "tolerance": 0.001,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "d3d12Errors": 0,
+      "sha256": "d8620fcbb72f15d20939fb80265a13d8ebe30a0656f55dbe388f959e4142eba7"
+    },
+    {
+      "name": "Albedo-factor-only",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\materials-scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\materials-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\Albedo-factor-only.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\import-diagnostics-20261004\\Albedo-factor-only.log",
+        "-ExitAfterCapture",
+        "-DebugPreviewResource",
+        "PathTracing.Albedo"
+      ],
+      "sceneSha256": "ca024f78a4468a532f3f5a7c56b296be42f9d9881c851dc927bc5c9109ac79db",
+      "presetSha256": "0b191cc70cb490c9c58f59f9171a5a9f613808554df3c88139a559f70bad3200",
+      "assetSha256": "8c9b166838363654d3c4e090a4394a1f9ecfdb5b5d14af0c26919eecbd4e958a",
+      "checks": [
+        {
+          "material": 0,
+          "pixelCount": 10366,
+          "expected": [
+            0.2,
+            0.4,
+            0.6,
+            1.0
+          ],
+          "observedMean": [
+            0.199951171875,
+            0.39990234375,
+            0.599609375,
+            1.0
+          ],
+          "maxAbsoluteError": 0.0003906249999999778,
+          "tolerance": 0.0015,
+          "passed": true
+        },
+        {
+          "material": 1,
+          "pixelCount": 29843,
+          "expected": [
+            0.8,
+            0.1,
+            0.3,
+            1.0
+          ],
+          "observedMean": [
+            0.7998046875,
+            0.0999755859375,
+            0.2998046875,
+            1.0
+          ],
+          "maxAbsoluteError": 0.0001953125000000444,
+          "tolerance": 0.0015,
+          "passed": true
+        }
+      ],
+      "passed": true,
+      "d3d12Errors": 0,
+      "sha256": "c5758a2dbe98ec7f8dfc38aa89ea0388d52fa47a1069a15fbece1d3009e13036"
+    }
+  ],
+  "status": "passed"
+}

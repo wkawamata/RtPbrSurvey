@@ -1,0 +1,439 @@
+{
+  "schemaVersion": 1,
+  "generatedUtc": "2026-10-03T03:00:37.752977+00:00",
+  "baseCommit": "4ee6691",
+  "testedCommit": "4ee66914f5c99c741d3c8b56e3905266f314d969",
+  "branch": "codex/pt-correctness-completion",
+  "workspace": "C:\\work\\RtPbrSurvey-work-3",
+  "build": "Debug x64",
+  "samplesPerFrame": 1,
+  "seed": 7,
+  "captureAfterFrames": 30,
+  "roi": "x/y from 16 to dimension-16 exclusive, stride 4",
+  "records": [
+    {
+      "name": "input-plane-NormalRoughness-static",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\Assets\\Scenes\\PathTracingValidation\\input-plane\\scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\Assets\\Scenes\\PathTracingValidation\\input-plane\\render-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.NormalRoughness",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\materials-existing-inputs-20261003\\input-plane-NormalRoughness-static.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\materials-existing-inputs-20261003\\input-plane-NormalRoughness-static.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "4eb01a4ddcf33612e8d590861db133d2a356cd6739f88ab0374def90c230dfff",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "moving": false,
+      "path": "bin\\PathTracingValidation\\materials-existing-inputs-20261003\\input-plane-NormalRoughness-static.ptbuf",
+      "metadata": {
+        "cameraPosition": [
+          0.0,
+          0.0,
+          -5.0
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "format": 10,
+        "height": 1080,
+        "inverseViewProjection": [
+          [
+            0.9254525303840637,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.5205670595169067,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            49.99503707885742,
+            -49.00004196166992
+          ],
+          [
+            0.0,
+            0.0,
+            -9.999008178710938,
+            10.000008583068848
+          ]
+        ],
+        "lensShift": [
+          0.0,
+          0.0
+        ],
+        "matrixConvention": "transpose of DirectX row-vector matrices",
+        "previousViewProjection": [
+          [
+            1.0805524587631226,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.920982003211975,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.000100016593933,
+            4.9004902839660645
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            5.0
+          ]
+        ],
+        "randomSeed": 7,
+        "resource": "PathTracing.NormalRoughness",
+        "rowOrder": "top-down",
+        "sampleStartIndex": 30,
+        "schemaVersion": 1,
+        "viewProjection": [
+          [
+            1.0805524587631226,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.920982003211975,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.000100016593933,
+            4.9004902839660645
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            5.0
+          ]
+        ],
+        "width": 1920
+      },
+      "result": {
+        "resource": "NormalRoughness",
+        "pixelCount": 123664,
+        "maxAbsoluteError": 0.00048828125,
+        "meanAbsoluteError": 0.00014816733878956478,
+        "tolerance": 0.001,
+        "passed": true,
+        "observedMin": [
+          0.0,
+          -5.960464477539063e-08,
+          -1.0,
+          0.369873046875
+        ],
+        "observedMax": [
+          0.0,
+          -5.960464477539063e-08,
+          -0.99951171875,
+          0.369873046875
+        ],
+        "expectedMin": [
+          0.0,
+          0.0,
+          -1.0,
+          0.37
+        ],
+        "expectedMax": [
+          0.0,
+          0.0,
+          -1.0,
+          0.37
+        ],
+        "matrixReprojectionMaxError": 2.74569666058877e-06,
+        "sampleStartIndex": 30,
+        "cameraPosition": [
+          0.0,
+          0.0,
+          -5.0
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "lensShift": [
+          0.0,
+          0.0
+        ],
+        "textureBytes": [
+          [
+            137,
+            188,
+            225
+          ],
+          [
+            225,
+            137,
+            99
+          ]
+        ],
+        "effectiveRoughness": [
+          0.37,
+          0.8
+        ]
+      },
+      "sha256": "61c0a999b0b188afae84e9a0941fc7e8a4a317de5fb9d4d2a538151807802592",
+      "logSha256": "688998fa12a2efd9284f45d484c88cf8e3f029d8c32a55eddbbccf1133efad5c",
+      "d3d12Errors": 0
+    },
+    {
+      "name": "input-plane-Albedo-static",
+      "command": [
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\x64\\Debug\\RtPbrSurvey.exe",
+        "-SceneFile",
+        "C:\\work\\RtPbrSurvey-work-3\\Assets\\Scenes\\PathTracingValidation\\input-plane\\scene.json",
+        "-RenderPreset",
+        "C:\\work\\RtPbrSurvey-work-3\\Assets\\Scenes\\PathTracingValidation\\input-plane\\render-preset.json",
+        "-EnablePathTracing",
+        "-PathTracingSeed",
+        "7",
+        "-DebugPreviewResource",
+        "PathTracing.Albedo",
+        "-CapturePath",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\materials-existing-inputs-20261003\\input-plane-Albedo-static.ptbuf",
+        "-CaptureAfterFrames",
+        "30",
+        "-LogToFile",
+        "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\materials-existing-inputs-20261003\\input-plane-Albedo-static.log",
+        "-ExitAfterCapture"
+      ],
+      "sceneSha256": "4eb01a4ddcf33612e8d590861db133d2a356cd6739f88ab0374def90c230dfff",
+      "presetSha256": "ca0483daffc13ce18372dfab992872ae8be60668b40bd1b44e75d43f26408bca",
+      "moving": false,
+      "path": "bin\\PathTracingValidation\\materials-existing-inputs-20261003\\input-plane-Albedo-static.ptbuf",
+      "metadata": {
+        "cameraPosition": [
+          0.0,
+          0.0,
+          -5.0
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "format": 10,
+        "height": 1080,
+        "inverseViewProjection": [
+          [
+            0.9254525303840637,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.5205670595169067,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            49.99503707885742,
+            -49.00004196166992
+          ],
+          [
+            0.0,
+            0.0,
+            -9.999008178710938,
+            10.000008583068848
+          ]
+        ],
+        "lensShift": [
+          0.0,
+          0.0
+        ],
+        "matrixConvention": "transpose of DirectX row-vector matrices",
+        "previousViewProjection": [
+          [
+            1.0805524587631226,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.920982003211975,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.000100016593933,
+            4.9004902839660645
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            5.0
+          ]
+        ],
+        "randomSeed": 7,
+        "resource": "PathTracing.Albedo",
+        "rowOrder": "top-down",
+        "sampleStartIndex": 30,
+        "schemaVersion": 1,
+        "viewProjection": [
+          [
+            1.0805524587631226,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.920982003211975,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.000100016593933,
+            4.9004902839660645
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            5.0
+          ]
+        ],
+        "width": 1920
+      },
+      "result": {
+        "resource": "Albedo",
+        "pixelCount": 123664,
+        "maxAbsoluteError": 0.00044505178256870614,
+        "meanAbsoluteError": 0.000153966447150003,
+        "tolerance": 0.0015,
+        "passed": true,
+        "observedMin": [
+          0.25,
+          0.50244140625,
+          0.7529296875,
+          1.0
+        ],
+        "observedMax": [
+          0.25,
+          0.50244140625,
+          0.7529296875,
+          1.0
+        ],
+        "expectedMin": [
+          0.25015828472995344,
+          0.5028864580325687,
+          0.7529422167760779,
+          1.0
+        ],
+        "expectedMax": [
+          0.25015828472995344,
+          0.5028864580325687,
+          0.7529422167760779,
+          1.0
+        ],
+        "matrixReprojectionMaxError": 2.74569666058877e-06,
+        "sampleStartIndex": 30,
+        "cameraPosition": [
+          0.0,
+          0.0,
+          -5.0
+        ],
+        "cameraTarget": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "lensShift": [
+          0.0,
+          0.0
+        ],
+        "textureBytes": [
+          [
+            137,
+            188,
+            225
+          ],
+          [
+            225,
+            137,
+            99
+          ]
+        ],
+        "effectiveRoughness": [
+          0.37,
+          0.8
+        ],
+        "standardSrgbPassed": true,
+        "legacyGamma22MaxError": 0.008956412634879451,
+        "shaderDefinitionMaxError": 0.00044505178256870614,
+        "shaderDefinitionPassed": true,
+        "shaderExpectedMin": [
+          0.25015828472995344,
+          0.5028864580325687,
+          0.7529422167760779,
+          1.0
+        ],
+        "shaderExpectedMax": [
+          0.25015828472995344,
+          0.5028864580325687,
+          0.7529422167760779,
+          1.0
+        ],
+        "primaryHitMaterialMismatchCount": 0
+      },
+      "sha256": "54e66a8e665f308c11626a8b00b174028e982803ea80db212b12f6b9bc91ec01",
+      "logSha256": "160a92710bb6bd1d4a3d5df86e5ce47c7eb3b077a39f4710aae6be40a12cce27",
+      "d3d12Errors": 0
+    }
+  ],
+  "failures": [],
+  "dirty": true,
+  "executableSha256": "02331935dfcf98b1e77edefc32cf12f8d4b60c84e59d0c4864f282f06cd4fcdc",
+  "sourceSha256": {
+    "App/RtPbrSurveyApp.cpp": "d4a179c839a25e2f5a4b381dacad2e38b320a241d79a4c253f251b314f7ca7c0",
+    "Engine/RtPbrSurveyEngine.cpp": "fed95e3c8bbf8218b35f95f767453fdf65b2fb2ba3a7fcc5b94bca882d6e97a4",
+    "Renderer/ScreenshotCapture.cpp": "f9adb8ac22408106b99a1e653b21bae5c7da1f19326f1d5b78f0f42653ce9106",
+    "Scene/SceneDocumentBuilder.cpp": "8d1371bbb1f772dcf53bc0128c03787df56059766e62ed9aa6decb00f5198931",
+    "Scene/SceneDocumentJson.cpp": "1239b1fa866a75d63c355befc6f026103553b4f12592c45114842e1db5508ca0",
+    "Shaders/shaders_PathTracing.hlsl": "663f2ca5912c1c82df9625423ee983fee983b07091089aadfd7d149e3fe77def",
+    "Shaders/SceneRayQuery.hlsli": "1ad1e244640f09bf5d1a205fb41a0cac9ede4f7bc4bc78d3e9a3e59eeb9f267d",
+    "Tests/PathTracing/validate_inputs.py": "62447dc77b163d39290fd9bdb00d4facb05d3b92cd3c3703b166bf20713b63f1"
+  },
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "status": "done"
+}

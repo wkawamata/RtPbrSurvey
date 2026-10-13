@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-07",
+  "status": "passed",
+  "step6Complete": false,
+  "scope": "GPU accumulation lifecycle, not changed-scene invalidation",
+  "testedBaseCommit": "13a4934577a17dc784302175fb11608d00d1f1a5",
+  "workingTreeModified": true,
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "dimensions": [1920, 1080],
+  "scene": "Assets/Scene/PathTracingValidation/01-emissive-nee-baseline/scene.json",
+  "sceneSha256": "e8259cbe6cd6abbd62cfcca2646c38d2ffbf30c40b95c8ecbb3ba29cb5b2fcd1",
+  "renderPresetSha256": "c3fa8a8ccff989a7b062f50c01c478602ce73f5c7189fb4fbc9778aedcbc9b18",
+  "executableSha256": "9d562e7463b19bbd54a637fa6fef8ad0b63a5aa565802c87342ed9a42fe23f4e",
+  "sourceSha256": {
+    "Engine/RtPbrSurveyEngine.cpp": "2a1aa9a048807270058f9a12550de2e06ac12c7ef1d48dbed2be7656e09ab6f4",
+    "Renderer/ScreenshotCapture.cpp": "3ffc68d223b2e4f563e6361f1ccc1c014c8b1f19476efed6117b4fcd9b5a0da5",
+    "App/PathTracingHistoryValidation.cpp": "97f7ab7ef8416b180c10d4505f88e52ed5a8b539f76be2e17f6123824f179c01",
+    "Tests/PathTracing/validate_history.py": "085dbe8b9937aad8f556ad71581f7d282114e4624e66a4966f773916445c739c"
+  },
+  "successfulCaptures": 9,
+  "everyGpuPixelCountMatchesCpu": true,
+  "cases": [
+    {"case": "baseline-16", "count": 16, "index": 16, "batch": 1},
+    {"case": "paused-16", "count": 16, "index": 16, "batch": 1},
+    {"case": "resumed-32", "count": 32, "index": 32, "batch": 1},
+    {"case": "reset-paused-0", "count": 0, "index": 0, "batch": 1},
+    {"case": "reset-repeat-16", "count": 16, "index": 16, "batch": 1},
+    {"case": "batch-4-32", "count": 32, "index": 32, "batch": 4},
+    {"case": "non-accumulated-index-12", "count": 3, "index": 12, "batch": 3},
+    {"case": "non-accumulated-repeat-12", "count": 3, "index": 12, "batch": 3},
+    {"case": "fresh-32", "count": 32, "index": 32, "batch": 1}
+  ],
+  "exactImageComparisons": [
+    ["baseline-16", "paused-16"],
+    ["baseline-16", "reset-repeat-16"],
+    ["resumed-32", "fresh-32"],
+    ["non-accumulated-index-12", "non-accumulated-repeat-12"]
+  ],
+  "resetRgbaMaxAbs": 0.0,
+  "batchMaxAbsError": 1.7881393432617188e-7,
+  "batchMaxAbsLimit": 2e-6,
+  "batchRelativeRmse": 4.4492853700390963e-7,
+  "batchRelativeRmseLimit": 1e-6,
+  "d3d12ErrorCount": 0,
+  "existingInitialStateWarnings": 3,
+  "ctestPassed": 26,
+  "pythonTestsPassed": 107,
+  "rawReport": "bin/PathTracingValidation/completion-history-20261007-r3/report.json",
+  "remaining": [
+    "camera/light/material/geometry/resolution changed-state vs fresh-history comparisons",
+    "cross-GPU replication and long-running precision/overflow tests"
+  ],
+  "limitation": "Static single-GPU fixture. Fresh history is a manual reset in the same process, not an independent rendering oracle. Step 6 remains incomplete."
+}

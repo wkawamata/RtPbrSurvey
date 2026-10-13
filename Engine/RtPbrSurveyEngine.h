@@ -64,6 +64,7 @@
 #include "Renderer/StreamlineAdapter.h"
 #include "Renderer/ToneMap.h"
 #include "Scene/Scene.h"
+#include "Scene/EmissiveTriangleTable.h"
 #include "Shared/Screenshot.h"
 #include "TextureSemantic.h"
 #include "WorkMeter.h"
@@ -283,6 +284,7 @@ public:
         bool directLightingEnabled = true;
         bool environmentEnabled = true;
         UINT environmentSamplingMode = 0;
+        UINT emissiveSamplingMode = 0;
         bool emissiveEnabled = true;
         bool russianRouletteEnabled = false;
         PathTracingDebugOutput debugOutput = PathTracingDebugOutput::Radiance;
@@ -314,6 +316,8 @@ public:
 
     struct PathTracingDiagnostics
     {
+        UINT emissiveTriangleCount = 0;
+        std::string emissiveTableStatus;
         bool gpuTimingAvailable = false;
         float gpuTimeMs = 0.0f;
         uint64_t primarySamplesPerFrame = 0;
@@ -375,6 +379,7 @@ public:
     void Initialize(UINT width, UINT height);
     void RenderFrame(const UiRenderHandler& uiRenderHandler);
     void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
+    void SetVSyncEnabled(bool enabled) { m_vSyncEnabled = enabled; }
     void Shutdown();
     void SetScene(const Scene& scene);
     void SetCamera(const CameraState& camera);
@@ -787,6 +792,9 @@ private:
     {
         ComPtr<ID3D12CommandAllocator> commandAllocator;
         ComPtr<ID3D12Resource> instanceBuffer;
+        ComPtr<ID3D12Resource> emissiveTriangleBuffer;
+        UINT emissiveTriangleCapacity = 0;
+        uint64_t emissiveTriangleVersion = 0;
         DescriptorAllocation instanceBufferSrv;
         InstanceData* pSrvDataBegin = nullptr;
         ComPtr<ID3D12Resource> tlasInstanceBuffer;
@@ -984,6 +992,7 @@ private:
 
     // Pipeline objects.
     GraphicsDevice& m_graphicsDevice;
+    bool m_vSyncEnabled = true;
     UINT m_width = 0;
     UINT m_height = 0;
     UINT m_renderWidth = 0;
@@ -1220,6 +1229,12 @@ private:
     ComPtr<ID3D12Resource> m_indexBuffer;
     D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
     ComPtr<ID3D12Resource> m_meshRangeBuffer;
+    std::vector<Engine::EmissiveTriangleGpu> m_emissiveTriangles;
+    std::vector<InstanceData> m_emissiveSourceInstances;
+    std::vector<Engine::SceneMaterial> m_emissiveSourceMaterials;
+    const Engine::SceneMesh* m_emissiveSourceMesh = nullptr;
+    uint64_t m_emissiveTriangleVersion = 0;
+    std::string m_emissiveTableStatus = "not-built";
     std::vector<Engine::SceneMesh::Range> m_sceneMeshRanges;
     std::vector<Engine::AccelerationStructureGeometry> m_accelerationStructureGeometries;
     mutable std::vector<Engine::SceneGeometryInstanceDraw> m_sceneGeometryDraws;
@@ -1538,6 +1553,7 @@ private:
     void PrepareSceneInstanceData();
     void CreateSceneMaterialResources();
     void CreateInstanceBuffers();
+    void UpdateEmissiveTriangleBuffer();
     void BuildAccelerationStructures();
     void RebuildAccelerationStructures();
     void ReleaseSceneResources();

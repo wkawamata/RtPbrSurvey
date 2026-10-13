@@ -385,6 +385,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.enableDlssSr = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-DisableVSync"))
+        {
+            options.disableVSync = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-EnablePathTracing"))
         {
             options.enablePathTracing = true;
@@ -395,6 +399,15 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             {
                 throw std::invalid_argument("-PathTracingSamples expects an integer in [1, UINT_MAX].");
             }
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingHistoryValidation"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-PathTracingHistoryValidation expects an output directory.");
+            }
+            options.pathTracingHistoryValidationDirectory = argv[++i];
             options.enablePathTracing = true;
         }
         else if (IsCommandLineArg(argv[i], L"-PathTracingEnvironmentMode"))
@@ -414,6 +427,24 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 throw std::invalid_argument("-PathTracingSeed expects an integer in [0, UINT_MAX].");
             }
             options.hasPathTracingRandomSeed = true;
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingObjectMotionX"))
+        {
+            if (i + 1 >= argc)
+            {
+                throw std::invalid_argument("-PathTracingObjectMotionX expects a finite delta in [-1, 1].");
+            }
+            wchar_t* end = nullptr;
+            errno = 0;
+            const WCHAR* value = argv[++i];
+            const double delta = wcstod(value, &end);
+            if (errno == ERANGE || end == value || *end != L'\0' || !std::isfinite(delta) || std::abs(delta) > 1.0)
+            {
+                throw std::invalid_argument("-PathTracingObjectMotionX expects a finite delta in [-1, 1].");
+            }
+            options.pathTracingObjectMotionX = static_cast<float>(delta);
+            options.hasPathTracingObjectMotion = true;
             options.enablePathTracing = true;
         }
         else if (IsCommandLineArg(argv[i], L"-EnableDebugTexturePreview"))

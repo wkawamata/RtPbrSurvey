@@ -29,6 +29,8 @@ struct GltfMaterial
     float roughnessFactor = 1.0f;
     float metallicFactor = 1.0f;
     float occlusionStrength = 1.0f;
+    float emissiveFactor[3] = {0, 0, 0};
+    float normalTextureScale = 1.0f;
 };
 
 struct GltfTextureData
@@ -50,7 +52,22 @@ struct GltfMeshData
     std::vector<GltfTextureData> textures; // interim
 };
 
-bool LoadGltfMesh(const std::string& path, GltfMeshData& outMesh);
+enum class GltfDiagnosticSeverity
+{
+    Warning,
+    Error,
+};
+
+struct GltfImportDiagnostic
+{
+    GltfDiagnosticSeverity severity;
+    std::string code;
+    std::string location;
+    std::string message;
+};
+
+bool LoadGltfMesh(const std::string& path, GltfMeshData& outMesh,
+                  std::vector<GltfImportDiagnostic>* diagnostics = nullptr);
 
 namespace Engine
 {
@@ -92,6 +109,7 @@ enum class GltfSceneAssetLoadStatus
     Success,
     FileLoadFailed,
     NoMeshes,
+    UnsupportedData,
 };
 
 struct GltfSceneAssetLoadResult
@@ -99,6 +117,7 @@ struct GltfSceneAssetLoadResult
     GltfSceneAssetLoadStatus status = GltfSceneAssetLoadStatus::FileLoadFailed;
     GltfSceneAsset asset;
     std::string message;
+    std::vector<GltfImportDiagnostic> diagnostics;
 
     explicit operator bool() const
     {

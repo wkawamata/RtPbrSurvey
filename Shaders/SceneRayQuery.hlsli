@@ -1,6 +1,8 @@
 #ifndef RTPBRSURVEY_SCENE_RAY_QUERY_HLSLI
 #define RTPBRSURVEY_SCENE_RAY_QUERY_HLSLI
 
+#include "SurfaceTransform.hlsli"
+
 static const uint kSceneVertexStride = 52;
 static const uint kSceneVertexPositionOffset = 0;
 static const uint kSceneVertexUvOffset = 12;
@@ -22,6 +24,7 @@ struct HitMaterialSample
     float2 uv;
     uint materialId;
     uint normalTextureIndex;
+    float normalTextureScale;
 };
 
 float3 LoadSceneVertexPosition(uint vertexIndex)
@@ -139,7 +142,7 @@ float3 TransformObjectPointToWorld(float3 objectPosition, float3x4 objectToWorld
 float3 TransformObjectNormalToWorld(float3 objectNormal, float3x4 objectToWorld)
 {
     float3x3 objectToWorld3x3 = float3x3(objectToWorld[0].xyz, objectToWorld[1].xyz, objectToWorld[2].xyz);
-    return normalize(mul(objectNormal, objectToWorld3x3));
+    return TransformSurfaceNormal(objectNormal, objectToWorld3x3);
 }
 
 float3 HashMaterialIdToDebugNormal(uint materialId)
@@ -193,7 +196,7 @@ float3 HitAlbedoToDebugNormal(uint index0, uint index1, uint index2, float2 bary
     uint materialId = LoadCommittedHitMaterialId(index0, index1, index2, barycentric, instanceId);
     Material material = g_materialData[materialId];
     float2 uv = LoadCommittedHitUv(index0, index1, index2, barycentric) * material.uvScale + material.uvOffset;
-    float3 color = SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb);
+    float3 color = SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb) * material.baseColorFactor.rgb;
     return normalize(color * 2.0 - 1.0);
 }
 
@@ -205,15 +208,17 @@ HitMaterialSample LoadCommittedHitMaterialSample(uint index0, uint index1, uint 
     float4 metallicRoughness = g_texture[material.metallicRoughnessTexIndex].SampleLevel(g_sampler, uv, 0);
 
     HitMaterialSample result;
-    result.albedo = SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb);
+    result.albedo = SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb) * material.baseColorFactor.rgb;
     result.emissive =
-        SrgbToLinear(g_texture[material.emissiveTexIndex].SampleLevel(g_sampler, uv, 0).rgb) * material.emissiveScale;
+        SrgbToLinear(g_texture[material.emissiveTexIndex].SampleLevel(g_sampler, uv, 0).rgb) *
+        material.emissiveScale * material.emissiveFactor;
     result.metallic = saturate(metallicRoughness.b * material.metallicFactor);
     result.roughness = saturate(metallicRoughness.g * material.roughnessFactor);
     result.flags = material.flags;
     result.uv = uv;
     result.materialId = materialId;
     result.normalTextureIndex = material.normalTexIndex;
+    result.normalTextureScale = material.normalTextureScale;
     return result;
 }
 
@@ -241,7 +246,8 @@ float3 LoadCommittedHitShadingNormal(uint index0,
         return baseNormal;
     }
 
-    float3 worldTangent = TransformObjectNormalToWorld(objectTangent.xyz, objectToWorld);
+    const float3x3 objectToWorld3x3 = float3x3(objectToWorld[0].xyz, objectToWorld[1].xyz, objectToWorld[2].xyz);
+    float3 worldTangent = mul(objectToWorld3x3, objectTangent.xyz);
     worldTangent -= baseNormal * dot(baseNormal, worldTangent);
     if (dot(worldTangent, worldTangent) < 0.000001)
     {
@@ -249,9 +255,11 @@ float3 LoadCommittedHitShadingNormal(uint index0,
     }
     worldTangent = normalize(worldTangent);
     const float handedness = objectTangent.w >= 0.0 ? 1.0 : -1.0;
-    const float3 worldBitangent = cross(baseNormal, worldTangent) * handedness;
-    const float3 tangentNormal =
+    const float3 worldBitangent = cross(baseNormal, worldTangent) * handedness *
+                                 SurfaceTransformHandedness(objectToWorld3x3);
+    float3 tangentNormal =
         g_texture[hitMaterial.normalTextureIndex].SampleLevel(g_sampler, hitMaterial.uv, 0).xyz * 2.0 - 1.0;
+    tangentNormal.xy *= hitMaterial.normalTextureScale;
     return normalize(worldTangent * tangentNormal.x +
                      worldBitangent * tangentNormal.y +
                      baseNormal * tangentNormal.z);

@@ -1,0 +1,258 @@
+{
+  "schemaVersion": 1,
+  "step": "5-emissive-nee-only",
+  "status": "passed",
+  "baseCommit": "8379506cb98dd12241ea4713a188b69a5e231089",
+  "workingTreeModified": true,
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "executableSha256": "7aebc676d91b3750d8dad594ac72ad2615f388d095d1f85877188b6d73b08839",
+  "samples": 64,
+  "seeds": [
+    11,
+    23,
+    37,
+    53
+  ],
+  "reference": {
+    "mean": 0.05572488850287086,
+    "rgb": [
+      0.09552838029063576,
+      0.04776419014531788,
+      0.02388209507265894
+    ],
+    "orders": [
+      64,
+      128
+    ],
+    "spatialSamples": 9,
+    "quadratureRelativeChange": 3.552713678800501e-15,
+    "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+  },
+  "agreements": {
+    "0": {
+      "status": "passed",
+      "measuredMean": 0.05554222204376913,
+      "relativeDifference": 0.0032780049275885625,
+      "fourStandardErrorRelative": 0.010605987240355007,
+      "reference": {
+        "mean": 0.05572488850287086,
+        "rgb": [
+          0.09552838029063576,
+          0.04776419014531788,
+          0.02388209507265894
+        ],
+        "orders": [
+          64,
+          128
+        ],
+        "spatialSamples": 9,
+        "quadratureRelativeChange": 3.552713678800501e-15,
+        "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+      }
+    },
+    "1": {
+      "status": "passed",
+      "measuredMean": 0.0556517462479178,
+      "relativeDifference": 0.0013125599156523782,
+      "fourStandardErrorRelative": 0.0006571887696676531,
+      "reference": {
+        "mean": 0.05572488850287086,
+        "rgb": [
+          0.09552838029063576,
+          0.04776419014531788,
+          0.02388209507265894
+        ],
+        "orders": [
+          64,
+          128
+        ],
+        "spatialSamples": 9,
+        "quadratureRelativeChange": 3.552713678800501e-15,
+        "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+      }
+    }
+  },
+  "build": {
+    "msbuildDebugX64": "passed",
+    "cmakeDebug": "passed",
+    "ctest": "25/25",
+    "python": "71/71"
+  },
+  "bsdfBaselineCaptureHashesMatch": true,
+  "d3d12ErrorAndCorruptionCount": 0,
+  "blockedControls": [
+    {
+      "mode": 0,
+      "maximum": 0
+    },
+    {
+      "mode": 1,
+      "maximum": 0
+    }
+  ],
+  "oneBounceMaximum": 0,
+  "primaryControls": [
+    {
+      "mode": 0,
+      "maximumError": 4.649162292924558e-7
+    },
+    {
+      "mode": 1,
+      "maximumError": 4.649162292924558e-7
+    }
+  ],
+  "offMaximum": 0,
+  "captureSourceSha256": {
+    "Shaders/shaders_PathTracing.hlsl": "17e0b5e86053c0ef60d96fc3cc38f67310bf86970881280377ba7165e6477ab7",
+    "Shaders/PathTracingSampling.hlsli": "d63b74f5f9d2b5b6be615a65fe06153ca5b6cb87253093722b0f8898ed9d44e1",
+    "App/RtPbrSurveyApp.cpp": "5a8b6c277246cbdf6759569f9ee822f69402e1a64114995715d23cc5652ef5a4",
+    "Tests/PathTracing/validate_emissive.py": "4d1460428d0ebff3b728b26f8defd9cc68fa94ebfee9623292081dfc6a269c37"
+  },
+  "captureSourceNote": "Capture source hashes were recorded before final CRLF normalization of the Python runner; no executable code changed after the builds.",
+  "captures": [
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-nee-20261004\\mode-0-seed-11.pfm",
+      "sha256": "e83729967da09735a636a033b08d0d14ad222e0bf576dc87deb9b1577df08c46",
+      "seed": 11,
+      "emissiveSamplingMode": 0,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "maxBounces": 2,
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-nee-20261004\\mode-0-seed-23.pfm",
+      "sha256": "6883a05c1bee3cbf38a8aa7a1bf3685ff72b73c48243c370d14c1ae58d8f70a1",
+      "seed": 23,
+      "emissiveSamplingMode": 0,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "maxBounces": 2,
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-nee-20261004\\mode-0-seed-37.pfm",
+      "sha256": "bbe7fd1b241fb0dfca9d7b5015430a8aaef63929e0e77b6fc35eeb46dd46ccbc",
+      "seed": 37,
+      "emissiveSamplingMode": 0,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "maxBounces": 2,
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-nee-20261004\\mode-0-seed-53.pfm",
+      "sha256": "10d5abae08d8c723b20aabc1fc42cae556db27e02a2189698a3d597dc2f35df3",
+      "seed": 53,
+      "emissiveSamplingMode": 0,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "maxBounces": 2,
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-nee-20261004\\mode-1-seed-11.pfm",
+      "sha256": "725d71fa2520391253d6834cc5d767740c4c432787134634a14157c9c550a459",
+      "seed": 11,
+      "emissiveSamplingMode": 1,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "maxBounces": 2,
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-nee-20261004\\mode-1-seed-23.pfm",
+      "sha256": "3c0f768cfc73d93282715a99e333b3f93eed7347b1f8df4e6ef658967611ac15",
+      "seed": 23,
+      "emissiveSamplingMode": 1,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "maxBounces": 2,
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-nee-20261004\\mode-1-seed-37.pfm",
+      "sha256": "0c4b2a6f54b93cc0c8990abf78f3ef2799fafb4a7ffcf17bbe7cf682b64862ac",
+      "seed": 37,
+      "emissiveSamplingMode": 1,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "maxBounces": 2,
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-nee-20261004\\mode-1-seed-53.pfm",
+      "sha256": "cda31d334c272e17b14fbf0184ac5fb6813e8c7ff5861ac662d4177a227b1c4e",
+      "seed": 53,
+      "emissiveSamplingMode": 1,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "maxBounces": 2,
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-nee-20261004\\blocked-mode-0.pfm",
+      "sha256": "74f962502a2a85c71fbf9392490ba2dba7f369bd3b647463e97cfcaf91be41da",
+      "seed": 11,
+      "emissiveSamplingMode": 0,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "maxBounces": 2,
+      "warningCount": 4
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-nee-20261004\\blocked-mode-1.pfm",
+      "sha256": "d67b07d145534039ac080f65718d079175be5ad9df36636fe2fbcce47840db12",
+      "seed": 11,
+      "emissiveSamplingMode": 1,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "maxBounces": 2,
+      "warningCount": 4
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-nee-20261004\\one-bounce.pfm",
+      "sha256": "2c28f41fdbd5d0e0ba6fbed00c5a10eb72de3cf2c2a615cfaa23f52286a6624d",
+      "seed": 11,
+      "emissiveSamplingMode": 1,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "maxBounces": 1,
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-nee-20261004\\primary-mode-0.pfm",
+      "sha256": "fcfef115a6da6680574850b7b733a5f0a988b36ef3ce27cd4259c3ca209dd3f8",
+      "seed": 11,
+      "emissiveSamplingMode": 0,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "maxBounces": 1,
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-nee-20261004\\primary-mode-1.pfm",
+      "sha256": "fcfef115a6da6680574850b7b733a5f0a988b36ef3ce27cd4259c3ca209dd3f8",
+      "seed": 11,
+      "emissiveSamplingMode": 1,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "maxBounces": 1,
+      "warningCount": 3
+    },
+    {
+      "path": "C:\\work\\RtPbrSurvey-work-3\\bin\\PathTracingValidation\\emissive-nee-20261004\\emission-off.pfm",
+      "sha256": "2c28f41fdbd5d0e0ba6fbed00c5a10eb72de3cf2c2a615cfaa23f52286a6624d",
+      "seed": 11,
+      "emissiveSamplingMode": 1,
+      "emissiveTriangleCount": 2,
+      "emissiveTableStatus": "ready",
+      "maxBounces": 2,
+      "warningCount": 3
+    }
+  ],
+  "limitations": [
+    "Not MIS; only opaque one-sided constant-area emission validated in this campaign.",
+    "Shadow-off/empty-table fallback and texture/multiple-emitter/back-face/beyond-endpoint controls require expanded validation."
+  ]
+}

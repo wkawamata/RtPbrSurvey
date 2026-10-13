@@ -7,6 +7,9 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <chrono>
+#include <fstream>
+#include <nlohmann/json.hpp>
 
 namespace
 {
@@ -79,6 +82,67 @@ void TestGltfRotationAndHandednessConversion()
             "glTF quaternion rotation should be applied before the handedness conversion.");
 }
 
+void TestSurfaceTransforms()
+{
+    using namespace DirectX;
+    const std::filesystem::path path = FixturePath().parent_path() / "surface-transforms.gltf";
+    const Engine::GltfSceneAssetLoadResult loadResult = Engine::LoadGltfSceneAsset(path.string());
+    Require(static_cast<bool>(loadResult), "The surface-transform fixture should load.");
+    const auto extract = [&](const char* name)
+    {
+        Engine::SceneBuilder builder;
+        Require(static_cast<bool>(builder.AddGltfNodeMesh(loadResult.asset, name)),
+                "Each transformed surface should extract.");
+        return builder.GetMesh();
+    };
+    const Engine::SceneMesh scaled = extract("Scaled");
+    const Engine::SceneMesh matrix = extract("Matrix");
+    const Engine::SceneMaterial& material = scaled.materials[0];
+    Require(NearlyEqual(material.baseColorFactor.x, 0.2f) && NearlyEqual(material.baseColorFactor.w, 0.8f),
+            "Imported base-color factors must survive SceneBuilder conversion.");
+    Require(NearlyEqual(material.emissiveFactor.x, 0.1f) && NearlyEqual(material.emissiveFactor.z, 0.9f),
+            "Imported emissive factors must survive SceneBuilder conversion.");
+    Require(NearlyEqual(material.normalTextureScale, 0.35f), "Imported normal scale must survive conversion.");
+    Require(material.emissiveTexIndex >= 0, "Factor-only emission must receive a neutral white texture.");
+    const Engine::SceneTexture& emission = scaled.textures[material.emissiveTexIndex];
+    Require(emission.pixels == std::vector<unsigned char>({255, 255, 255, 255}),
+            "Factor-only emission must not use the black missing-emission fallback.");
+    for (size_t i = 0; i < scaled.vertices.size(); ++i)
+    {
+        const Engine::SceneVertex& a = scaled.vertices[i];
+        const Engine::SceneVertex& b = matrix.vertices[i];
+        Require(NearlyEqual(a.position.x, b.position.x) && NearlyEqual(a.position.y, b.position.y) &&
+                    NearlyEqual(a.position.z, b.position.z), "Matrix and TRS positions must agree.");
+        Require(NearlyEqual(a.normal.x, b.normal.x) && NearlyEqual(a.normal.y, b.normal.y) &&
+                    NearlyEqual(a.normal.z, b.normal.z), "Matrix and TRS normals must agree.");
+        Require(NearlyEqual(a.tangent.x, b.tangent.x) && NearlyEqual(a.tangent.y, b.tangent.y) &&
+                    NearlyEqual(a.tangent.z, b.tangent.z), "Matrix and TRS tangents must agree.");
+    }
+    for (const char* name : {"Scaled", "Mirrored"})
+    {
+        const Engine::SceneMesh mesh = extract(name);
+        const Engine::SceneVertex& vertex = mesh.vertices[0];
+        const XMVECTOR normal = XMLoadFloat3(&vertex.normal);
+        const XMVECTOR tangent = XMVectorSet(vertex.tangent.x, vertex.tangent.y, vertex.tangent.z, 0.0f);
+        Require(NearlyEqual(XMVectorGetX(XMVector3Dot(normal, tangent)), 0.0f),
+                "Nonuniform scale must preserve perpendicular surface normal and tangent.");
+        Require(NearlyEqual(XMVectorGetX(XMVector3Length(normal)), 1.0f) &&
+                    NearlyEqual(XMVectorGetX(XMVector3Length(tangent)), 1.0f), "Surface directions must be normalized.");
+        const XMVECTOR p0 = XMLoadFloat3(&mesh.vertices[mesh.indices[0]].position);
+        const XMVECTOR p1 = XMLoadFloat3(&mesh.vertices[mesh.indices[1]].position);
+        const XMVECTOR p2 = XMLoadFloat3(&mesh.vertices[mesh.indices[2]].position);
+        const XMVECTOR geometricNormal = XMVector3Normalize(XMVector3Cross(p1 - p0, p2 - p0));
+        Require(XMVectorGetX(XMVector3Dot(geometricNormal, normal)) > 0.9999f,
+                "Mirroring and LH conversion must preserve front-face winding relative to normals.");
+        Require(NearlyEqual(vertex.tangent.w, std::string(name) == "Mirrored" ? 1.0f : -1.0f),
+                "Tangent handedness must include both node mirroring and RH-to-LH conversion.");
+        const float sign = std::string(name) == "Mirrored" ? -1.0f : 1.0f;
+        const XMVECTOR expectedTangent = XMVector3Normalize(XMVectorSet(1.0f, 2.0f * sign, 0.0f, 0.0f));
+        Require(XMVectorGetX(XMVector3Dot(tangent, expectedTangent)) > 0.9999f,
+                "Tangents must use the forward transform, not the normal inverse transpose.");
+    }
+}
+
 void TestIndependentNodeMeshesAndLifetime()
 {
     Engine::SceneBuilder builder;
@@ -124,6 +188,144 @@ void TestExistingFlattenedMeshContract()
             "The existing API should still flatten every default-scene mesh node.");
 }
 
+void TestImportDiagnostics()
+{
+    using Json = nlohmann::json;
+    const std::filesystem::path source = FixturePath().parent_path() / "surface-transforms.gltf";
+    std::ifstream input(source);
+    const Json baseline = Json::parse(input);
+    const std::filesystem::path temporary = std::filesystem::temp_directory_path() /
+        ("RtPbrSurvey-gltf-diagnostics-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".gltf");
+    struct Cleanup
+    {
+        std::filesystem::path path;
+        ~Cleanup()
+        {
+            std::error_code error;
+            std::filesystem::remove(path, error);
+        }
+    } cleanup{temporary};
+    const auto run = [&](const Json& document, const char* code, GltfDiagnosticSeverity severity)
+    {
+        {
+            std::ofstream output(temporary, std::ios::binary);
+            output << document.dump(2) << "\r\n";
+            Require(static_cast<bool>(output), "Temporary diagnostic fixture must be written.");
+        }
+        const Engine::GltfSceneAssetLoadResult result = Engine::LoadGltfSceneAsset(temporary.string());
+        Require(static_cast<bool>(result) == (severity == GltfDiagnosticSeverity::Warning),
+                "Warnings must permit import, while unsafe input must fail.");
+        bool found = false;
+        for (const GltfImportDiagnostic& diagnostic : result.diagnostics)
+        {
+            if (diagnostic.code == code && diagnostic.severity == severity)
+            {
+                Require(!diagnostic.location.empty() && !diagnostic.message.empty(),
+                        "Each diagnostic must identify its target and explain the policy.");
+                found = true;
+            }
+        }
+        Require(found, code);
+        if (severity == GltfDiagnosticSeverity::Error)
+        {
+            Require(result.status == Engine::GltfSceneAssetLoadStatus::UnsupportedData && !result.message.empty(),
+                    "Rejected data must have an explicit load status and error message.");
+            GltfMeshData mesh;
+            mesh.vertices.resize(1);
+            std::vector<GltfImportDiagnostic> diagnostics;
+            Require(!::LoadGltfMesh(temporary.string(), mesh, &diagnostics) && mesh.vertices.empty(),
+                    "The legacy importer must apply the same rejection policy and clear stale output.");
+            Require(!diagnostics.empty(), "Legacy callers must be able to retrieve structured diagnostics.");
+        }
+    };
+    const Engine::GltfSceneAssetLoadResult clean = Engine::LoadGltfSceneAsset(source.string());
+    Require(clean && clean.diagnostics.empty(), "Supported opaque packed-float input must remain diagnostic-free.");
+    Json document = baseline;
+    document["materials"][0]["alphaMode"] = "MASK";
+    run(document, "AlphaModeIgnored", GltfDiagnosticSeverity::Warning);
+    document["materials"][0]["alphaMode"] = "BLEND";
+    run(document, "AlphaModeIgnored", GltfDiagnosticSeverity::Warning);
+    document = baseline;
+    document["materials"][0]["doubleSided"] = true;
+    run(document, "DoubleSidedIgnored", GltfDiagnosticSeverity::Warning);
+    document = baseline;
+    document["materials"][0]["normalTexture"]["texCoord"] = 1;
+    run(document, "TextureCoordinateIgnored", GltfDiagnosticSeverity::Warning);
+    document = baseline;
+    document["materials"][0]["normalTexture"]["extensions"]["KHR_texture_transform"] = { {"offset", {0.1, 0.2}} };
+    run(document, "TextureExtensionIgnored", GltfDiagnosticSeverity::Warning);
+    document = baseline;
+    document["materials"][0]["extensions"]["KHR_materials_unlit"] = Json::object();
+    document["extensionsUsed"] = {"KHR_materials_unlit"};
+    run(document, "MaterialExtensionIgnored", GltfDiagnosticSeverity::Warning);
+    document["extensionsRequired"] = {"KHR_materials_unlit"};
+    run(document, "RequiredExtension", GltfDiagnosticSeverity::Error);
+    document = baseline;
+    document["meshes"][0]["primitives"][0]["attributes"].erase("TANGENT");
+    run(document, "MissingTangents", GltfDiagnosticSeverity::Warning);
+    document = baseline;
+    document["meshes"][0]["primitives"][0]["attributes"].erase("NORMAL");
+    run(document, "MissingNormals", GltfDiagnosticSeverity::Warning);
+    document = baseline;
+    document["meshes"][0]["primitives"][0]["attributes"].erase("TEXCOORD_0");
+    run(document, "MissingTexcoords", GltfDiagnosticSeverity::Warning);
+    document = baseline;
+    document["textures"][0]["sampler"] = 0;
+    document["samplers"] = {{{"wrapS", 33071}, {"wrapT", 33071}}};
+    run(document, "SamplerIgnored", GltfDiagnosticSeverity::Warning);
+    document = baseline;
+    document["meshes"][0]["primitives"][0]["targets"] = {{{"POSITION", 0}}};
+    run(document, "MorphTargetsIgnored", GltfDiagnosticSeverity::Warning);
+    document = baseline;
+    document["nodes"][0]["skin"] = 0;
+    document["skins"] = {{{"joints", {0}}}};
+    run(document, "SkinIgnored", GltfDiagnosticSeverity::Warning);
+    document = baseline;
+    document["animations"] = {{{"samplers", Json::array()}, {"channels", Json::array()}}};
+    run(document, "AnimationIgnored", GltfDiagnosticSeverity::Warning);
+    document = baseline;
+    document["meshes"][0]["primitives"][0]["mode"] = 5;
+    run(document, "UnsupportedPrimitiveMode", GltfDiagnosticSeverity::Error);
+    document = baseline;
+    document["bufferViews"][0]["byteStride"] = 24;
+    run(document, "UnsupportedStride", GltfDiagnosticSeverity::Error);
+    document = baseline;
+    document["accessors"][1]["componentType"] = 5123;
+    run(document, "UnsupportedAccessor", GltfDiagnosticSeverity::Error);
+    document = baseline;
+    document["accessors"][1]["count"] = 2;
+    run(document, "UnsupportedAccessor", GltfDiagnosticSeverity::Error);
+    document = baseline;
+    document["accessors"][0]["count"] = 100;
+    run(document, "InvalidAccessorBounds", GltfDiagnosticSeverity::Error);
+    document = baseline;
+    document["meshes"][0]["primitives"][0]["indices"] = -1;
+    run(document, "MissingIndices", GltfDiagnosticSeverity::Error);
+    document = baseline;
+    document["accessors"][4]["count"] = 2;
+    run(document, "InvalidTriangleCount", GltfDiagnosticSeverity::Error);
+    document = baseline;
+    std::string uri = document["buffers"][0]["uri"].get<std::string>();
+    uri.replace(uri.size() - 8, 8, "AAABAGQA");
+    document["buffers"][0]["uri"] = uri;
+    run(document, "IndexOutOfRange", GltfDiagnosticSeverity::Error);
+    document = baseline;
+    uri = document["buffers"][0]["uri"].get<std::string>();
+    uri.replace(uri.find(',') + 1, 8, "AADAfwAA");
+    document["buffers"][0]["uri"] = uri;
+    run(document, "NonfiniteAttribute", GltfDiagnosticSeverity::Error);
+    document = baseline;
+    document["accessors"][0]["sparse"] = {{"count", 1}, {"indices", {{"bufferView", 4}, {"componentType", 5123}}},
+                                           {"values", {{"bufferView", 0}}}};
+    run(document, "UnsupportedAccessor", GltfDiagnosticSeverity::Error);
+    document = baseline;
+    document["nodes"][0]["children"] = {0};
+    run(document, "NodeCycle", GltfDiagnosticSeverity::Error);
+    document = baseline;
+    document["meshes"][0]["primitives"][0]["material"] = 10;
+    run(document, "InvalidMaterial", GltfDiagnosticSeverity::Error);
+}
+
 } // namespace
 
 int main(int argc, char* argv[])
@@ -147,7 +349,9 @@ int main(int argc, char* argv[])
         TestNodeEnumerationAndFailures();
         TestIndependentNodeMeshesAndLifetime();
         TestGltfRotationAndHandednessConversion();
+        TestSurfaceTransforms();
         TestExistingFlattenedMeshContract();
+        TestImportDiagnostics();
     }
     catch (const std::exception& error)
     {
