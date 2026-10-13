@@ -28,6 +28,8 @@ namespace RtPbrSurvey
                     return "Recording";
                 case CaptureSessionState::Draining:
                     return "Draining";
+                case CaptureSessionState::Finalizing:
+                    return "Finalizing";
                 case CaptureSessionState::Completed:
                     return "Completed";
                 case CaptureSessionState::Failed:
@@ -80,7 +82,7 @@ namespace RtPbrSurvey
     {
         return status.state == CaptureSessionState::Delaying || status.state == CaptureSessionState::Warmup ||
                status.state == CaptureSessionState::Recording ||
-               status.state == CaptureSessionState::Draining;
+               status.state == CaptureSessionState::Draining || status.state == CaptureSessionState::Finalizing;
     }
 
     void CaptureSessionUi::Update(SceneRenderer& renderer, const CaptureSessionTiming& timing)
@@ -206,6 +208,13 @@ namespace RtPbrSurvey
                     static_cast<unsigned long long>(status.acceptedFrameCount),
                     static_cast<unsigned long long>(status.savedFrameCount),
                     static_cast<unsigned long long>(status.droppedFrameCount));
+        if (static_cast<CaptureSessionOutputFormat>(state.outputFormat) == CaptureSessionOutputFormat::Mp4)
+        {
+            ImGui::Text("Encoder pending: %zu frames, %.1f MiB", status.encoder.outstandingFrames,
+                        static_cast<double>(status.encoder.outstandingBytes) / (1024.0 * 1024.0));
+            ImGui::Text("Append: %.2f ms (max %.2f), finalize: %.2f ms", status.encoder.lastAppendMilliseconds,
+                        status.encoder.maxAppendMilliseconds, status.encoder.finalizeMilliseconds);
+        }
         if (!status.lastOutputPath.empty())
         {
             const std::u8string outputPathUtf8 = status.lastOutputPath.u8string();

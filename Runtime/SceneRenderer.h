@@ -127,6 +127,8 @@ namespace RtPbrSurvey
         bool StartCaptureSession(const CaptureSessionConfig& config, std::string& error);
         void StopCaptureSession();
         void UpdateCaptureSession(const CaptureSessionTiming& timing);
+        // Poll results and finalization without scheduling output or advancing capture time.
+        void PollCaptureSession();
         bool CanAdvanceCaptureSessionFixedStep() const;
         const CaptureSessionStatus& GetCaptureSessionStatus() const;
         void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);

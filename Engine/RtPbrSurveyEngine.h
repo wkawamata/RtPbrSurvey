@@ -37,7 +37,7 @@
 #include "Renderer/PipelineFactory.h"
 #include "Renderer/AccelerationStructureResources.h"
 #include "Renderer/AnimatedGifEncoder.h"
-#include "Renderer/Mp4Encoder.h"
+#include "Renderer/Mp4EncoderWorker.h"
 #include "Renderer/RayQueryShadowPass.h"
 #include "Renderer/SpecularDebugRayQueryPass.h"
 #include "Renderer/RayQueryTlasDebugPass.h"
@@ -470,10 +470,15 @@ public:
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult();
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult(std::uint64_t requestId);
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResultExcept(std::uint64_t requestId);
+    std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResultExcept(const std::vector<std::uint64_t>& requestIds);
     bool IsScreenshotCaptureIdle() const;
     bool FinalizeAnimatedGif(std::string& error);
     void AbortAnimatedGif();
-    bool FinalizeMp4(std::string& error, std::optional<std::uint64_t> endTimestamp100ns = std::nullopt);
+    bool BeginMp4Session(std::string& error, const std::optional<RtPbrSurvey::ScreenshotRegion>& region = std::nullopt);
+    bool CanAcceptMp4Capture() const;
+    Engine::Mp4WorkerStatus GetMp4WorkerStatus() const { return m_mp4Encoder.GetStatus(); }
+    bool PollFinalizeMp4(std::string& error, bool& completed,
+                         std::optional<std::uint64_t> endTimestamp100ns = std::nullopt);
     void AbortMp4();
     void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
     void RequestPixelPick(int screenX, int screenY);
@@ -1182,7 +1187,10 @@ private:
     Engine::ScreenshotRequestQueue m_screenshotRequestQueue;
     std::optional<PendingScreenshotCapture> m_pendingScreenshotCapture;
     Engine::AnimatedGifEncoder m_animatedGifEncoder;
-    Engine::Mp4Encoder m_mp4Encoder;
+    Engine::Mp4EncoderWorker m_mp4Encoder;
+    std::size_t m_mp4CaptureFrameBytes = 0;
+    UINT m_mp4OutputWidth = 0;
+    UINT m_mp4OutputHeight = 0;
 
     // Pixel pick (Ctrl+Click to inspect reflection vector)
     bool m_pixelPickRequested = false;

@@ -1026,6 +1026,7 @@ void RtPbrSurveyApp::OnIdle()
         return;
     }
 
+    m_sceneRenderer.PollCaptureSession();
     UpdateUiFrame();
     const bool captureCanAdvance = !IsFixedStepCaptureActive() || m_sceneRenderer.CanAdvanceCaptureSessionFixedStep();
     const bool advanceFrame = (!m_framePaused || m_forwardStepRequested) && captureCanAdvance;
@@ -1193,6 +1194,10 @@ void RtPbrSurveyApp::UpdateCaptureSessionTiming()
         fprintf(m_logFile, "[CAPTURE_FRAME] index=%llu simulation=%.9f render=%llu\n",
                 static_cast<unsigned long long>(status.acceptedFrameCount - 1), m_captureSimulationSeconds,
                 static_cast<unsigned long long>(m_automationFrameCounter));
+        fprintf(m_logFile, "[CAPTURE_PIPELINE] accepted=%llu saved=%llu encoder_pending=%zu encoder_bytes=%zu\n",
+                static_cast<unsigned long long>(status.acceptedFrameCount),
+                static_cast<unsigned long long>(status.savedFrameCount), status.encoder.outstandingFrames,
+                status.encoder.outstandingBytes);
         fflush(m_logFile);
     }
 }

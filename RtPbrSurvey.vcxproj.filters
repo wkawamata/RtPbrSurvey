@@ -210,6 +210,9 @@
     <ClInclude Include="Renderer\Mp4Encoder.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\Mp4EncoderWorker.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\ScreenshotRequestQueue.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -526,6 +529,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\Mp4Encoder.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\Mp4EncoderWorker.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\StreamlineAdapter.cpp">

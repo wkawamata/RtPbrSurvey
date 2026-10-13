@@ -35,7 +35,8 @@ bool TestPendingCaptureQueuesRequestsInFifoOrder()
     RtPbrSurvey::ScreenshotRequest secondRequest;
     passed &= Check(queue.BeginNextCapture(secondRequest), "second request begins after first completion");
     passed &= Check(secondRequest.path == "second.pfm", "second request preserves FIFO order");
-    passed &= Check(queue.CompletePending({secondRequest.path, false, "write failed"}), "second request records failure");
+    passed &=
+        Check(queue.CompletePending({secondRequest.path, false, "write failed"}), "second request records failure");
 
     RtPbrSurvey::ScreenshotRequest thirdRequest;
     passed &= Check(queue.BeginNextCapture(thirdRequest), "third request begins after failed second request");
@@ -79,9 +80,48 @@ bool TestRequestIdsKeepLegacyAndSessionResultsSeparate()
                     "legacy consumer retains its result");
     return passed;
 }
+bool TestDetachedResultsDoNotCompleteNextGpuCapture()
+{
+    Engine::ScreenshotRequestQueue queue;
+    RtPbrSurvey::ScreenshotRequest first = {"movie.mp4"};
+    first.requestId = 42;
+    queue.Enqueue(first);
+    RtPbrSurvey::ScreenshotRequest active;
+    bool passed =
+        Check(queue.BeginNextCapture(active) && queue.DetachPending(), "GPU-complete MP4 detaches for encoding");
+    passed &= Check(queue.IsSubmissionIdle() && !queue.IsIdle(),
+                    "encoding retains ownership without blocking GPU submission");
+    RtPbrSurvey::ScreenshotRequest second = first;
+    second.requestId = 43;
+    queue.Enqueue(second);
+    passed &= Check(queue.BeginNextCapture(active), "next GPU capture overlaps prior encoding");
+    queue.Enqueue({"legacy.png"});
+    passed &= Check(!queue.CompleteDetached({first.path, true, {}, 1, 1, 999}), "unknown encoder token is ignored");
+    passed &=
+        Check(queue.CompleteDetached({first.path, true, {}, 1, 1, 42}), "first encoded frame completes by identity");
+    passed &= Check(!queue.CanBeginNextCapture(), "old completion does not release next GPU request");
+    passed &= Check(!queue.ConsumeResultExcept(std::vector<std::uint64_t>{42, 43}),
+                    "legacy caller cannot steal session results");
+    passed &= Check(queue.DetachPending(), "second GPU frame detaches independently");
+    passed &= Check(queue.BeginNextCapture(active) && queue.CompletePending({active.path, true, {}, 2, 2}),
+                    "legacy request completes normally");
+    const auto legacy = queue.ConsumeResultExcept(std::vector<std::uint64_t>{42, 43});
+    passed &= Check(legacy && legacy->path == "legacy.png" && legacy->requestId == 0, "only legacy result is exposed");
+    passed &= Check(!queue.IsIdle() && queue.CompleteDetached({second.path, false, "encoder failed", 1, 1, 43}),
+                    "detached jobs drain before idle");
+    const auto firstResult = queue.ConsumeResult(42);
+    const auto secondResult = queue.ConsumeResult(43);
+    passed &= Check(queue.IsIdle() && firstResult && secondResult && firstResult->succeeded && !secondResult->succeeded,
+                    "encoder failures preserve request identities and release ownership");
+    passed &= Check(!queue.CompleteDetached({second.path, true, {}, 1, 1, 43}), "duplicate encoder result is ignored");
+    return passed;
+}
 } // namespace
 
 int main()
 {
-    return TestPendingCaptureQueuesRequestsInFifoOrder() && TestRequestIdsKeepLegacyAndSessionResultsSeparate() ? 0 : 1;
+    return TestPendingCaptureQueuesRequestsInFifoOrder() && TestRequestIdsKeepLegacyAndSessionResultsSeparate() &&
+                   TestDetachedResultsDoNotCompleteNextGpuCapture()
+               ? 0
+               : 1;
 }

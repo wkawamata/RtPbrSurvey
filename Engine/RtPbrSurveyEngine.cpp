@@ -1367,6 +1367,13 @@ bool RtPbrSurveyEngine::IsScreenshotCaptureIdle() const
     return m_screenshotRequestQueue.IsIdle();
 }
 
+std::optional<RtPbrSurvey::ScreenshotResult> RtPbrSurveyEngine::ConsumeScreenshotResultExcept(
+    const std::vector<std::uint64_t>& requestIds)
+{
+    ProcessCompletedScreenshot();
+    return m_screenshotRequestQueue.ConsumeResultExcept(requestIds);
+}
+
 bool RtPbrSurveyEngine::FinalizeAnimatedGif(std::string& error)
 {
     return m_animatedGifEncoder.Finalize(error);
@@ -1377,14 +1384,44 @@ void RtPbrSurveyEngine::AbortAnimatedGif()
     m_animatedGifEncoder.Reset();
 }
 
-bool RtPbrSurveyEngine::FinalizeMp4(std::string& error, std::optional<std::uint64_t> endTimestamp100ns)
+bool RtPbrSurveyEngine::BeginMp4Session(std::string& error, const std::optional<RtPbrSurvey::ScreenshotRegion>& region)
 {
-    return m_mp4Encoder.Finalize(error, endTimestamp100ns);
+    const UINT width = region ? region->width : m_width;
+    const UINT height = region ? region->height : m_height;
+    const std::size_t bytes = static_cast<std::size_t>(width) * height * 4;
+    if (!Engine::IsScreenshotRegionValid(m_width, m_height, region) || width > 16384 || height > 16384 ||
+        !m_mp4Encoder.CanFitFrame(bytes))
+    {
+        error = "MP4 capture dimensions or ROI exceed the output or encoder memory budget.";
+        return false;
+    }
+    m_mp4CaptureFrameBytes = bytes;
+    m_mp4OutputWidth = m_width;
+    m_mp4OutputHeight = m_height;
+    return m_mp4Encoder.BeginSession(error);
+}
+
+bool RtPbrSurveyEngine::CanAcceptMp4Capture() const
+{
+    if (m_pendingScreenshotCapture || !m_screenshotRequestQueue.IsSubmissionIdle()) return false;
+    // A resize is reported by the next request rather than leaving a session waiting forever.
+    return m_width != m_mp4OutputWidth || m_height != m_mp4OutputHeight ||
+        m_mp4Encoder.CanAcceptFrame(m_mp4CaptureFrameBytes);
+}
+
+bool RtPbrSurveyEngine::PollFinalizeMp4(std::string& error, bool& completed,
+                                      std::optional<std::uint64_t> endTimestamp100ns)
+{
+    m_mp4Encoder.RequestFinalize(endTimestamp100ns);
+    const Engine::Mp4WorkerStatus status = m_mp4Encoder.GetStatus();
+    completed = status.state == Engine::Mp4WorkerState::Completed || status.state == Engine::Mp4WorkerState::Failed;
+    error = status.error;
+    return status.state != Engine::Mp4WorkerState::Failed;
 }
 
 void RtPbrSurveyEngine::AbortMp4()
 {
-    m_mp4Encoder.Reset();
+    m_mp4Encoder.RequestAbort();
 }
 
 void RtPbrSurveyEngine::RequestPixelPick(int screenX, int screenY)
@@ -5185,6 +5222,8 @@ void RtPbrSurveyEngine::Shutdown()
 {
     DestroyFrameResources();
     ProcessCompletedScreenshot();
+    m_mp4Encoder.Shutdown();
+    ProcessCompletedScreenshot();
     if (m_pendingScreenshotCapture.has_value())
     {
         const RtPbrSurvey::ScreenshotRequest request = std::move(m_pendingScreenshotCapture->request);
@@ -6498,6 +6537,11 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             }
         }
 
+        if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4 &&
+            (m_width != m_mp4OutputWidth || m_height != m_mp4OutputHeight))
+        {
+            throw std::runtime_error("MP4 capture output size changed during recording.");
+        }
         Engine::RecordScreenshotCapture(m_commandList.Get(),
                                         m_graphicsDevice.Device(),
                                         source,
@@ -7085,6 +7129,10 @@ void RtPbrSurveyEngine::RecordImGuiPass()
 
 void RtPbrSurveyEngine::ProcessCompletedScreenshot()
 {
+    while (std::optional<RtPbrSurvey::ScreenshotResult> result = m_mp4Encoder.ConsumeResult())
+    {
+        m_screenshotRequestQueue.CompleteDetached(std::move(*result));
+    }
     if (!m_pendingScreenshotCapture.has_value() || m_pendingScreenshotCapture->fenceValue == 0 ||
         m_graphicsDevice.CompletedFenceValue() < m_pendingScreenshotCapture->fenceValue)
     {
@@ -7111,20 +7159,33 @@ void RtPbrSurveyEngine::ProcessCompletedScreenshot()
                                            static_cast<SIZE_T>(capture.readback.resource->GetDesc().Width)};
             std::uint8_t* mappedData = nullptr;
             ThrowIfFailed(capture.readback.resource->Map(0, &readRange, reinterpret_cast<void**>(&mappedData)));
-            const std::vector<std::uint8_t> rgba8 = Engine::ConvertScreenshotToRgba8(
-                mappedData + capture.readback.layout.Offset,
-                capture.readback.width,
-                capture.readback.height,
-                capture.readback.layout.Footprint.RowPitch,
-                capture.readback.format,
-                capture.readback.hdr10,
-                capture.readback.paperWhiteNits);
+            std::vector<std::uint8_t> rgba8;
+            try
+            {
+                rgba8 = Engine::ConvertScreenshotToRgba8(
+                    mappedData + capture.readback.layout.Offset,
+                    capture.readback.width,
+                    capture.readback.height,
+                    capture.readback.layout.Footprint.RowPitch,
+                    capture.readback.format,
+                    capture.readback.hdr10,
+                    capture.readback.paperWhiteNits);
+            }
+            catch (...)
+            {
+                capture.readback.resource->Unmap(0, nullptr);
+                throw;
+            }
             capture.readback.resource->Unmap(0, nullptr);
             if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
             {
-                result.succeeded = m_mp4Encoder.AppendFrame(result.path, result.width, result.height, rgba8.data(),
-                                                           capture.request.videoFramesPerSecond, capture.request.videoBitrate,
-                                                           result.error, capture.request.videoTimestamp100ns);
+                Engine::Mp4Frame frame = {capture.request, result.width, result.height, std::move(rgba8)};
+                if (m_mp4Encoder.Enqueue(std::move(frame), result.error))
+                {
+                    // GPU copy is done; its request remains owned until the worker returns a result.
+                    m_screenshotRequestQueue.DetachPending();
+                    return;
+                }
             }
             else
             {

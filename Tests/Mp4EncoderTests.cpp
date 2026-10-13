@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "Renderer/Mp4Encoder.h"
+#include "Renderer/Mp4EncoderWorker.h"
 #include "Platform/CommandLineOptions.h"
 #include "Runtime/CaptureSession.h"
 #include "Runtime/CaptureSessionUi.h"
@@ -10,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <thread>
 #include <mfapi.h>
 #include <mferror.h>
 
@@ -154,6 +156,45 @@ namespace
         return passed;
     }
 
+    bool TestWorkerEncoding()
+    {
+        const auto directory = std::filesystem::temp_directory_path() /
+            ("RtPbrSurveyMp4Worker_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+        const auto path = directory / "worker.mp4";
+        Engine::Mp4EncoderWorker worker({}, 4);
+        std::string error;
+        bool passed = Check(worker.BeginSession(error), "real MP4 worker starts");
+        for (unsigned int i = 0; i < 3; ++i)
+        {
+            Engine::Mp4Frame frame;
+            frame.request.path = path;
+            frame.request.requestId = i + 1;
+            frame.width = 63;
+            frame.height = 47;
+            frame.pixels.assign(63 * 47 * 4, 255);
+            passed &= Check(worker.Enqueue(std::move(frame), error), error.c_str());
+        }
+        worker.RequestFinalize(std::nullopt);
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+        while (worker.GetStatus().state == Engine::Mp4WorkerState::Finalizing &&
+               std::chrono::steady_clock::now() < deadline)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        const auto status = worker.GetStatus();
+        passed &= Check(status.state == Engine::Mp4WorkerState::Completed, status.error.c_str());
+        for (unsigned int i = 0; i < 3; ++i)
+        {
+            const auto result = worker.ConsumeResult();
+            passed &= Check(result && result->succeeded && result->requestId == i + 1,
+                            "real worker preserves results and frame order");
+        }
+        worker.Shutdown();
+        if (passed) passed &= InspectVideo(path, 64, 48, 3, 60, false);
+        std::filesystem::remove_all(directory);
+        return passed;
+    }
+
     bool TestSessionConfiguration()
     {
         WCHAR executable[] = L"RtPbrSurvey.exe", output[] = L"-CaptureSessionOutputDir", directory[] = L"Captures";
@@ -193,8 +234,9 @@ namespace
                             "all video frames use one output path");
         }
         session.Stop();
-        passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Completed,
-                        "Stop between video frames completes the session");
+        passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Finalizing,
+                        "MP4 Stop waits for asynchronous finalization");
+        session.CompleteFinalization();
         config.mp4Bitrate = 0;
         passed &= Check(!session.Start(config, error), "invalid bitrate is rejected");
         config.mp4Bitrate = 8000000;
@@ -257,7 +299,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        passed = TestEncoding() && TestSessionConfiguration();
+        passed = TestEncoding() && TestWorkerEncoding() && TestSessionConfiguration();
     }
     MFShutdown();
     CoUninitialize();
