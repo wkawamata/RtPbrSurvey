@@ -5,6 +5,7 @@
 Second medium-complexity step after
 [the update/clock boundary](capture-update-clock-boundary.md). This is a minimal
 CLI validation track, not a general animation editor or camera snapshot system.
+The standalone GUI now exposes the same track; see [GUI Orbit](capture-orbit-gui.md).
 
 Use `-CaptureSessionOrbitDegreesPerSecond 90` together with
 `-CaptureSessionClock fixed-step` and the existing Capture Session options.
@@ -75,7 +76,10 @@ which otherwise applies camera defaults independently of the scene document.
 
 ## Remaining High-Complexity Work
 
+Controlled encoder-delay injection and short moving/stationary PT reset/sample
+metadata validation are now covered by
+[PT capture history validation](pt-capture-history-validation.md).
+
 Manual/live-preview versus capture-camera ownership, detailed pause/step and
-editing policy, controlled encoder-delay injection, longer moving-camera PT
-validation with reset/sample metadata and reference comparisons, and any
+editing policy, longer moving-camera PT reference comparisons, and any
 samples-per-output-frame convergence policy remain separate work.

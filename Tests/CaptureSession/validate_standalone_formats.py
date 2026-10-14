@@ -37,6 +37,45 @@ def validate_readback_pool(text, case, accepted):
             "readbackBytes": final[5], "allocations": final[6], "reuses": final[7]}
 
 
+def validate_pt_history(text, case, camera_samples):
+    pattern = (r'\[CAPTURE_PT\] render=(\d+) output=(-?\d+) advanced=(\d+) mode=(\w+) before_samples=(\d+) '
+               r'samples=(\d+) before_index=(\d+) sample_index=(\d+) history=(\d+) reset="([^"]+)" spp=(\d+) '
+               r'position=([-\d.,]+)')
+    records = re.findall(pattern, text)
+    assert records, "No rendered PT capture diagnostics"
+    encoder = re.search(r'\[CAPTURE_ENCODER\] delay_ms=(\d+) max_append_ms=([\d.]+)', text)
+    assert encoder and int(encoder[1]) == case["encoderDelay"] and float(encoder[2]) >= case["encoderDelay"] * 0.95, "Diagnostic encoder delay was not observed"
+    waits, drains, outputs = 0, 0, []
+    previous = None
+    for record in records:
+        render, output, advanced, mode, before_samples, samples, before_index, index, history, reset, spp, position = record
+        output, advanced, before_samples, samples, before_index, index, history, spp = map(
+            int, (output, advanced, before_samples, samples, before_index, index, history, spp))
+        assert spp == 4, "PT history fixture did not use four samples/update"
+        if not advanced:
+            assert samples == before_samples and index == before_index, "PT advanced during a presentation-only wait"
+            if previous:
+                assert (before_samples, before_index, history) == previous[:3], "PT state changed before wait-frame submission"
+                assert max(abs(a - b) for a, b in zip(map(float, position.split(",")), previous[3])) < 2e-5, "Camera moved during output backpressure"
+            waits += mode == "CapacityWait"
+            drains += mode == "DrainOnly"
+        elif output >= 0 and case["orbit"] != 0 and output > 0:
+            assert reset == "Camera" and samples == spp and index == spp and history == 1, "Moving pose retained old PT history"
+        else:
+            assert samples == before_samples + spp and index == before_index + spp and history == 1, "Stationary PT did not accumulate"
+        if output >= 0:
+            outputs.append(output)
+            assert advanced == 1, "PT output was accepted without rendering its pose"
+            actual = tuple(map(float, position.split(",")))
+            expected = tuple(map(float, camera_samples[output][5].split(",")))
+            assert max(abs(a - b) for a, b in zip(actual, expected)) < 2e-5, "Rendered CPU camera differs from output pose"
+        previous = (samples, index, history, tuple(map(float, position.split(","))))
+    assert outputs == list(range(case["frames"])), "Output-to-PT frame mapping is incomplete"
+    assert waits > 0 and drains > 0, "Injected pressure did not exercise capacity wait and drain"
+    return {"physicalFrames": len(records), "outputs": len(outputs), "capacityWaitFrames": waits, "drainFrames": drains,
+            "maxAppendMilliseconds": float(encoder[2])}
+
+
 def validate_outputs(directory, case, accepted):
     files = sorted((directory / "outputs" / "nested").glob("*"))
     width, height = case.get("roi", (0, 0, 1920, 1080))[2:]
@@ -68,7 +107,7 @@ def validate_outputs(directory, case, accepted):
         else:
             command = [str(INSPECTOR), str(files[0]), *map(str, encoded_size),
                        str(len(accepted)), str(case["fps"])]
-            if "orbit" in case:
+            if case.get("orbit", 0) != 0:
                 command.insert(1, "--motion")
         decoded = subprocess.run(command, capture_output=True, text=True)
         (directory / "decode.log").write_text(decoded.stdout + decoded.stderr, encoding="utf-8")
@@ -96,6 +135,8 @@ def run_case(output, case):
         command += ["-CaptureSessionRoi", *map(str, case["roi"])]
     if case["format"] == "mp4":
         command += ["-CaptureSessionMp4BitrateMbps", "8"]
+        if "encoderDelay" in case:
+            command += ["-CaptureSessionEncoderDelayMs", str(case["encoderDelay"])]
     if case["format"] == "gif":
         command += ["-CaptureSessionGifRepeat", "2"]
     if case.get("duration"):
@@ -123,6 +164,9 @@ def run_case(output, case):
             preset["lighting"]["diffuseIblEnabled"] = True
             preset["lighting"]["specularIblEnabled"] = True
             preset["lighting"]["skyboxEnabled"] = True
+            if case.get("ptHistory"):
+                preset["pathTracing"]["samplesPerFrame"] = 4
+                preset["pathTracing"]["accumulate"] = True
         preset_path = directory / "render-preset.json"
         preset_path.write_text(json.dumps(preset, indent=2), encoding="utf-8")
         command[command.index("-RenderPreset") + 1] = str(preset_path)
@@ -166,13 +210,15 @@ def run_case(output, case):
                                      py + distance * math.sin(pitch),
                                      pz + distance * math.cos(pitch) * math.cos(float(yaw)))
                 assert max(abs(a - b) for a, b in zip((x, y, z), expected_position)) < 2e-5
-            if case["format"] == "png":
+            if case["format"] == "png" and case["orbit"] != 0:
                 from PIL import Image, ImageChops, ImageStat
                 images = outputs["files"]
                 with Image.open(directory / images[0]) as first, Image.open(directory / images[-1]) as last:
                     difference = ImageStat.Stat(ImageChops.difference(first.convert("RGB"), last.convert("RGB")))
                     assert max(difference.mean) > 1, "Orbit PNG output did not change"
             outputs["cameraSamples"] = samples
+            if case.get("ptHistory"):
+                outputs["ptHistory"] = validate_pt_history(text, case, samples)
         if VALIDATE_READBACK_POOL and case["format"] == "mp4":
             outputs["readbackPool"] = validate_readback_pool(text, case, accepted)
         return {"name": case["name"], "command": command, "exitCode": code,
@@ -215,6 +261,10 @@ def main():
         dict(name="mp4-orbit", format="mp4", fps=30, frames=12, orbit=90, roi=(640, 300, 640, 480)),
         dict(name="mp4-orbit-pt", format="mp4", fps=30, frames=12, orbit=90, renderingPath=2,
              roi=(640, 300, 640, 480)),
+        dict(name="mp4-orbit-pt-history", format="mp4", fps=30, frames=12, orbit=90, renderingPath=2,
+             roi=(640, 300, 640, 480), encoderDelay=100, ptHistory=True),
+        dict(name="mp4-static-pt-history", format="mp4", fps=30, frames=12, orbit=0, renderingPath=2,
+             roi=(640, 300, 640, 480), encoderDelay=100, ptHistory=True),
         dict(name="mp4-real-time", format="mp4", fps=60, frames=100, duration=1.5,
              clock="real-time", roi=(100, 100, 64, 64)),
     ]

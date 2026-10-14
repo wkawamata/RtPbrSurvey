@@ -92,6 +92,17 @@ bool Mp4EncoderWorker::CanAcceptFrame(std::size_t bytes) const
            m_status.outstandingBytes <= m_maxBytes - bytes;
 }
 
+bool Mp4EncoderWorker::SetDiagnosticAppendDelay(unsigned int milliseconds)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (milliseconds > 1000 || m_shutdown || m_abortRequested || m_status.outstandingFrames != 0 ||
+        !m_results.empty() || m_status.state == Mp4WorkerState::Recording ||
+        m_status.state == Mp4WorkerState::Finalizing)
+        return false;
+    m_diagnosticAppendDelayMilliseconds = milliseconds;
+    return true;
+}
+
 bool Mp4EncoderWorker::Enqueue(Mp4Frame&& frame, std::string& error)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -255,6 +266,7 @@ void Mp4EncoderWorker::Run()
         Mp4Frame frame;
         bool finalize = false;
         std::optional<std::uint64_t> endTime;
+        unsigned int appendDelay = 0;
         {
             std::unique_lock<std::mutex> lock(m_mutex);
             m_wake.wait(lock,
@@ -283,6 +295,7 @@ void Mp4EncoderWorker::Run()
             {
                 frame = std::move(m_frames.front());
                 m_frames.pop_front();
+                appendDelay = m_diagnosticAppendDelayMilliseconds;
             }
             else
             {
@@ -297,6 +310,14 @@ void Mp4EncoderWorker::Run()
         const auto start = std::chrono::steady_clock::now();
         try
         {
+            if (appendDelay > 0)
+            {
+                std::unique_lock<std::mutex> lock(m_mutex);
+                if (m_wake.wait_for(lock,
+                                    std::chrono::milliseconds(appendDelay),
+                                    [this]() { return m_shutdown || m_abortRequested; }))
+                    throw std::runtime_error("MP4 encoding aborted.");
+            }
             if (!writer)
                 writer = m_factory();
             if (!writer)

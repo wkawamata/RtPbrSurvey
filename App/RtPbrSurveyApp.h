@@ -155,7 +155,9 @@ private:
     bool CanEditSceneEditorDocument(std::string& reason);
     bool IsCaptureWorkPending();
     bool CanStartCaptureSession(std::string& reason);
-    void InitializeCaptureSessionClock(const RtPbrSurvey::CaptureSessionConfig& config);
+    bool ValidateCaptureOrbitSettings(std::string& reason) const;
+    void InitializeCaptureSessionClock(const RtPbrSurvey::CaptureSessionConfig& config,
+                                       std::optional<double> orbitDegreesPerSecond = std::nullopt);
     void UpdateCaptureSessionTiming();
     void ApplyCaptureSessionUiAction(RtPbrSurvey::CaptureSessionUiAction action);
     void FailAutomatedCapture(const std::string& error);
@@ -274,6 +276,8 @@ private:
     bool m_automatedCaptureCompleted = false;
     std::chrono::steady_clock::time_point m_captureSessionStartTime;
     RtPbrSurvey::CaptureSessionUiState m_captureSessionUiState;
+    bool m_captureSessionOrbitEnabled = false;
+    double m_captureSessionOrbitDegreesPerSecond = 90.0;
     RtPbrSurvey::CaptureFrameClock m_captureFrameClock;
     std::optional<RtPbrSurvey::CaptureOrbitTrack> m_captureOrbitTrack;
     RtPbrSurvey::CaptureOrbitPose m_captureOrbitPose;

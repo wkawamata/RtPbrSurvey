@@ -523,6 +523,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
     {
+        ImGui::BeginDisabled(app.IsCaptureOrbitActive());
         int cameraMode = static_cast<int>(app.DebugCamera().GetMode());
         if (ImGui::Combo("Mode", &cameraMode, "FreeLook\0Arcball\0"))
         {
@@ -576,6 +577,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             ImGuiWidgets::SliderFloatWithControls("NearZ", &loadedScene.GetScene().camera.nearZ, 0.01f, 10.0f, 0.01f, 0.1f);
             ImGuiWidgets::SliderFloatWithControls("FarZ", &loadedScene.GetScene().camera.farZ, 10.0f, 100000.0f, 100.0f, 10000.0f);
         }
+        ImGui::EndDisabled();
     }
     if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
     {

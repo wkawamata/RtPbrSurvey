@@ -105,6 +105,7 @@ struct CommandLineOptions
     bool captureSessionFixedStep = false;
     bool hasCaptureSessionOrbit = false;
     double captureSessionOrbitDegreesPerSecond = 0.0;
+    UINT captureSessionEncoderDelayMilliseconds = 0;
     bool hasCaptureSessionRoi = false;
     UINT captureSessionRoiX = 0;
     UINT captureSessionRoiY = 0;

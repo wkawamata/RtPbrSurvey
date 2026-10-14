@@ -478,6 +478,7 @@ public:
     bool CanAcceptMp4Capture() const;
     Engine::ScreenshotReadbackPoolStatus GetMp4ReadbackStatus() const;
     Engine::Mp4WorkerStatus GetMp4WorkerStatus() const { return m_mp4Encoder.GetStatus(); }
+    bool SetMp4DiagnosticAppendDelay(unsigned int milliseconds) { return m_mp4Encoder.SetDiagnosticAppendDelay(milliseconds); }
     bool PollFinalizeMp4(std::string& error, bool& completed,
                          std::optional<std::uint64_t> endTimestamp100ns = std::nullopt);
     void AbortMp4();

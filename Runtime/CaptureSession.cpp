@@ -269,6 +269,13 @@ namespace RtPbrSurvey
         }
 
         const double clockSeconds = GetClockSeconds(timing);
+        if (m_config.clock == CaptureSessionClock::FixedStep && m_status.acceptedFrameCount == 0 &&
+            !m_readyRequest.has_value() && captureAvailable)
+        {
+            // A paused start may poll before any pose is rendered. Anchor output zero to its first eligible update.
+            m_recordingStartTiming = timing;
+            m_nextCaptureSeconds = clockSeconds;
+        }
         if (IsRecordingLimitReached(clockSeconds))
         {
             BeginDraining();

@@ -414,12 +414,45 @@ bool TestConcurrentSessionRequests()
     passed &= Check(realtime && realtime->videoTimestamp100ns == 1000000, "PTS preserve the skipped interval");
     return passed;
 }
+bool TestDiagnosticAppendDelay()
+{
+    const auto state = std::make_shared<WriterState>();
+    state->Release();
+    Engine::Mp4EncoderWorker worker([state]() { return std::make_unique<TestWriter>(state); }, 2, 32);
+    std::string error;
+    bool passed = Check(!worker.SetDiagnosticAppendDelay(1001) && worker.SetDiagnosticAppendDelay(30),
+                        "diagnostic delay is bounded and configurable while idle");
+    passed &= Check(worker.BeginSession(error) && worker.Enqueue(Frame(1), error) && worker.Enqueue(Frame(2), error),
+                    "delayed worker accepts bounded work without blocking its producer");
+    passed &= Check(!worker.SetDiagnosticAppendDelay(0), "diagnostic delay cannot change during a session");
+    worker.RequestFinalize(std::nullopt);
+    passed &= Check(WaitState(worker, Engine::Mp4WorkerState::Completed) && worker.GetStatus().processedFrames == 2 &&
+                        worker.GetStatus().lastAppendMilliseconds >= 20,
+                    "delay is applied on the encoder thread and included in append diagnostics");
+    worker.ConsumeResult();
+    worker.ConsumeResult();
+    passed &=
+        Check(worker.SetDiagnosticAppendDelay(1000) && worker.BeginSession(error) && worker.Enqueue(Frame(3), error),
+              "long diagnostic delay starts for cancellation validation");
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    const auto abortStart = std::chrono::steady_clock::now();
+    worker.RequestAbort();
+    passed &= Check(WaitState(worker, Engine::Mp4WorkerState::Aborted) &&
+                        std::chrono::steady_clock::now() - abortStart < std::chrono::milliseconds(750),
+                    "abort interrupts the diagnostic wait rather than sleeping its full duration");
+    const auto result = worker.ConsumeResult();
+    passed &= Check(result && result->requestId == 3 && !result->succeeded && worker.GetStatus().outstandingBytes == 0,
+                    "cancelled delayed work completes and releases capacity");
+    worker.Shutdown();
+    return passed;
+}
 } // namespace
 
 int main()
 {
     return TestOrderingAndFinalization() && TestFailuresAndAbort() && TestShutdownWithWork() && TestByteCapacity() &&
-                   TestSessionStateAndEndTime() && TestConcurrentSessionRequests() && TestGpuCapacityReservations()
+                   TestSessionStateAndEndTime() && TestConcurrentSessionRequests() && TestGpuCapacityReservations() &&
+                   TestDiagnosticAppendDelay()
                ? 0
                : 1;
 }

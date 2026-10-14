@@ -64,6 +64,7 @@ public:
     Mp4EncoderWorker& operator=(const Mp4EncoderWorker&) = delete;
 
     bool BeginSession(std::string& error);
+    bool SetDiagnosticAppendDelay(unsigned int milliseconds);
     bool CanFitFrame(std::size_t bytes) const
     {
         return bytes > 0 && bytes <= m_maxBytes;
@@ -101,6 +102,7 @@ private:
     bool m_finalizeRequested = false;
     bool m_abortRequested = false;
     bool m_shutdown = false;
+    unsigned int m_diagnosticAppendDelayMilliseconds = 0;
     std::thread m_thread;
 };
 } // namespace Engine

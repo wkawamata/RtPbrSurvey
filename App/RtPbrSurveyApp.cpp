@@ -198,6 +198,9 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     }
     if (m_commandLineOptions.captureSessionEnabled)
     {
+        if (!m_sceneRenderer.EngineForDebugTools().SetMp4DiagnosticAppendDelay(
+            m_commandLineOptions.captureSessionEncoderDelayMilliseconds))
+            throw std::runtime_error("Could not configure MP4 diagnostic append delay.");
         if (!m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty())
         {
             throw std::invalid_argument("Capture Session is mutually exclusive with existing screenshot automation.");
@@ -553,7 +556,9 @@ void RtPbrSurveyApp::OnInit()
             throw std::runtime_error("Failed to start Capture Session: " + error);
         }
         m_captureSessionActive = true;
-        InitializeCaptureSessionClock(config);
+        InitializeCaptureSessionClock(config, m_commandLineOptions.hasCaptureSessionOrbit
+                                                  ? std::optional<double>(m_commandLineOptions.captureSessionOrbitDegreesPerSecond)
+                                                  : std::nullopt);
     }
 }
 
@@ -880,6 +885,10 @@ void RtPbrSurveyApp::OnIdle()
                         status.encoder.gpuReadbackBytes,
                         static_cast<unsigned long long>(status.encoder.gpuReadbackAllocations),
                         static_cast<unsigned long long>(status.encoder.gpuReadbackReuses));
+                fprintf(m_logFile, "[CAPTURE_ENCODER] delay_ms=%u max_append_ms=%.6f last_append_ms=%.6f finalize_ms=%.6f\n",
+                    m_commandLineOptions.captureSessionEncoderDelayMilliseconds,
+                    status.encoder.maxAppendMilliseconds, status.encoder.lastAppendMilliseconds,
+                    status.encoder.finalizeMilliseconds);
                 fflush(m_logFile);
             }
             m_captureSessionActive = false;
@@ -1060,6 +1069,10 @@ void RtPbrSurveyApp::OnIdle()
                                                              !m_framePaused || m_forwardStepRequested,
                                                              m_sceneRenderer.CanAdvanceCaptureSessionFixedStep());
     const bool advanceFrame = RtPbrSurvey::CaptureFrameClock::AdvancesScene(m_frameUpdateMode);
+    const bool logCapturePt = m_logFile && m_renderingPath == RtPbrSurveyEngine::RenderingPath::PathTracing &&
+                              RtPbrSurvey::CaptureSessionUi::IsActive(m_sceneRenderer.GetCaptureSessionStatus());
+    const auto ptBefore = m_sceneRenderer.GetPathTracingRuntimeState();
+    const std::uint64_t acceptedBefore = m_sceneRenderer.GetCaptureSessionStatus().acceptedFrameCount;
     if (advanceFrame)
     {
         m_forwardStepRequested = false;
@@ -1071,6 +1084,51 @@ void RtPbrSurveyApp::OnIdle()
     }
     m_sceneRenderer.RunFrame([this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); },
                              advanceFrame);
+    if (logCapturePt)
+    {
+        const auto& pt = m_sceneRenderer.GetPathTracingRuntimeState();
+        const auto& capture = m_sceneRenderer.GetCaptureSessionStatus();
+        const auto& camera = m_sceneRenderer.GetCamera();
+        const long long output =
+            capture.acceptedFrameCount > acceptedBefore ? static_cast<long long>(capture.acceptedFrameCount - 1) : -1;
+        const char* mode = "LiveScene";
+        switch (m_frameUpdateMode)
+        {
+            case RtPbrSurvey::CaptureFrameUpdateMode::FixedCapture:
+                mode = "FixedCapture";
+                break;
+            case RtPbrSurvey::CaptureFrameUpdateMode::Paused:
+                mode = "Paused";
+                break;
+            case RtPbrSurvey::CaptureFrameUpdateMode::CapacityWait:
+                mode = "CapacityWait";
+                break;
+            case RtPbrSurvey::CaptureFrameUpdateMode::DrainOnly:
+                mode = "DrainOnly";
+                break;
+            default:
+                break;
+        }
+        fprintf(m_logFile,
+                "[CAPTURE_PT] render=%llu output=%lld advanced=%u mode=%s before_samples=%llu "
+                "samples=%llu before_index=%u sample_index=%u history=%u reset=\"%s\" spp=%u "
+                "position=%.9f,%.9f,%.9f\n",
+                static_cast<unsigned long long>(m_automationFrameCounter),
+                output,
+                advanceFrame ? 1u : 0u,
+                mode,
+                static_cast<unsigned long long>(ptBefore.accumulatedSampleCount),
+                static_cast<unsigned long long>(pt.accumulatedSampleCount),
+                ptBefore.frameSampleIndex,
+                pt.frameSampleIndex,
+                pt.historyValid ? 1u : 0u,
+                pt.ResetReasonText(),
+                m_sceneRenderer.GetPathTracingSettings().samplesPerFrame,
+                camera.pos.x,
+                camera.pos.y,
+                camera.pos.z);
+        fflush(m_logFile);
+    }
     LogRayReconstructionDiagnostics();
     AccumulatePathTracingCaptureDiagnostics();
 
@@ -1194,12 +1252,13 @@ void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
     m_debugCamera.UpdateObjectViewerCamera();
 }
 
-void RtPbrSurveyApp::InitializeCaptureSessionClock(const RtPbrSurvey::CaptureSessionConfig& config)
+void RtPbrSurveyApp::InitializeCaptureSessionClock(const RtPbrSurvey::CaptureSessionConfig& config,
+                                                std::optional<double> orbitDegreesPerSecond)
 {
     m_captureSessionStartTime = std::chrono::steady_clock::now();
     m_captureFrameClock.Reset(config.clock, config.framesPerSecond);
     m_captureOrbitTrack.reset();
-    if (m_commandLineOptions.hasCaptureSessionOrbit && config.clock == RtPbrSurvey::CaptureSessionClock::FixedStep)
+    if (orbitDegreesPerSecond && config.clock == RtPbrSurvey::CaptureSessionClock::FixedStep)
     {
         m_debugCamera.ResetInputState();
         m_debugCamera.InitObjectViewerFromCamera(LoadedScene().GetScene().camera.gazePoint);
@@ -1208,8 +1267,7 @@ void RtPbrSurveyApp::InitializeCaptureSessionClock(const RtPbrSurvey::CaptureSes
                                                         m_debugCamera.ObjectViewerPitch(),
                                                         m_debugCamera.ObjectViewerDistance(),
                                                         m_debugCamera.ObjectViewerPivot()};
-        m_captureOrbitTrack.emplace(
-            baseline, m_commandLineOptions.captureSessionOrbitDegreesPerSecond, config.framesPerSecond);
+        m_captureOrbitTrack.emplace(baseline, *orbitDegreesPerSecond, config.framesPerSecond);
         ApplyCaptureOrbitCamera();
         m_sceneRenderer.SetCamera(LoadedScene().GetScene().camera);
     }
@@ -1240,7 +1298,8 @@ void RtPbrSurveyApp::UpdateCaptureSessionTiming()
         std::chrono::duration<double>(std::chrono::steady_clock::now() - m_captureSessionStartTime).count();
     const std::uint64_t previousAccepted = m_sceneRenderer.GetCaptureSessionStatus().acceptedFrameCount;
     // Called after publishing the scene pose, or with a frozen pose while polling.
-    m_sceneRenderer.UpdateCaptureSession(m_captureFrameClock.MakeTiming(realSeconds));
+    m_sceneRenderer.UpdateCaptureSession(m_captureFrameClock.MakeTiming(realSeconds),
+                                        RtPbrSurvey::CaptureFrameClock::AdvancesScene(m_frameUpdateMode));
     const auto& status = m_sceneRenderer.GetCaptureSessionStatus();
     if (m_logFile && status.acceptedFrameCount != previousAccepted)
     {
@@ -1286,9 +1345,20 @@ void RtPbrSurveyApp::DrawCaptureSessionUi()
 {
     const RtPbrSurvey::CaptureSessionStatus& status = m_sceneRenderer.GetCaptureSessionStatus();
     std::string reason;
-    const bool canStart = CanStartCaptureSession(reason);
+    const bool canStart = CanStartCaptureSession(reason) && ValidateCaptureOrbitSettings(reason);
     const RtPbrSurvey::CaptureSessionUiAction action =
         RtPbrSurvey::CaptureSessionUi::Draw(status, m_captureSessionUiState, canStart ? nullptr : reason.c_str());
+    ImGui::BeginDisabled(RtPbrSurvey::CaptureSessionUi::IsActive(status));
+    ImGui::SeparatorText("Camera track");
+    if (ImGui::Checkbox("Orbit camera", &m_captureSessionOrbitEnabled) && m_captureSessionOrbitEnabled)
+    {
+        m_captureSessionUiState.fixedStep = true;
+    }
+    if (m_captureSessionOrbitEnabled)
+    {
+        ImGui::InputDouble("Speed (deg/s)", &m_captureSessionOrbitDegreesPerSecond, 5.0, 30.0, "%.2f");
+    }
+    ImGui::EndDisabled();
     ApplyCaptureSessionUiAction(action);
     ImGui::TextUnformatted("F8: Start Capture Session / Stop active session");
     ImGui::TextUnformatted("Hold Left Mouse + press Right Mouse: Toggle ImGui visibility");
@@ -1316,6 +1386,18 @@ bool RtPbrSurveyApp::CanStartCaptureSession(std::string& reason)
 {
     UpdateCaptureRequestGate();
     return m_captureRequestGate.CanStart(reason);
+}
+
+bool RtPbrSurveyApp::ValidateCaptureOrbitSettings(std::string& reason) const
+{
+    if (m_captureSessionOrbitEnabled &&
+        (!m_captureSessionUiState.fixedStep || !std::isfinite(m_captureSessionOrbitDegreesPerSecond) ||
+         std::abs(m_captureSessionOrbitDegreesPerSecond) > 360.0))
+    {
+        reason = "Orbit camera requires a fixed-step clock and a finite speed in [-360, 360] degrees/sec.";
+        return false;
+    }
+    return true;
 }
 
 bool RtPbrSurveyApp::NeedsSceneEditorDecision() const
@@ -1467,7 +1549,7 @@ void RtPbrSurveyApp::ApplyCaptureSessionUiAction(RtPbrSurvey::CaptureSessionUiAc
     else if (action == RtPbrSurvey::CaptureSessionUiAction::Start)
     {
         std::string reason;
-        if (!CanStartCaptureSession(reason))
+        if (!CanStartCaptureSession(reason) || !ValidateCaptureOrbitSettings(reason))
         {
             m_captureSessionUiState.message = "Unable to start capture session: " + reason;
             return;
@@ -1477,7 +1559,9 @@ void RtPbrSurveyApp::ApplyCaptureSessionUiAction(RtPbrSurvey::CaptureSessionUiAc
         const RtPbrSurvey::CaptureSessionConfig config = RtPbrSurvey::CaptureSessionUi::BuildConfig(m_captureSessionUiState);
         if (m_sceneRenderer.StartCaptureSession(config, error))
         {
-            InitializeCaptureSessionClock(config);
+            InitializeCaptureSessionClock(config, m_captureSessionOrbitEnabled
+                                                      ? std::optional<double>(m_captureSessionOrbitDegreesPerSecond)
+                                                      : std::nullopt);
             m_captureSessionUiState.message = "Capture session started.";
         }
         else

@@ -3,8 +3,14 @@
 Status: reviewed design; dedicated encoder worker and asynchronous finalization
 implemented. See [implementation and validation](mp4-encoder-worker-validation.md).
 Multiple-request tracking and bounded GPU/encoder overlap are also implemented;
-see [pipeline step 2](mp4-capture-pipeline-step2.md). Full clock separation and
-multiple reusable readback slots remain pending.
+see [pipeline step 2](mp4-capture-pipeline-step2.md). Reusable readback slots,
+explicit update clocks and deterministic Orbit are implemented; see
+[readback pool](mp4-capture-readback-pool.md),
+[clock boundary](capture-update-clock-boundary.md),
+[Orbit track](capture-orbit-track.md), and [GUI Orbit](capture-orbit-gui.md).
+Short PT history checks under controlled encoder pressure are covered by
+[PT capture history validation](pt-capture-history-validation.md). Long moving
+tracks and interactive real-time latency acceptance remain pending.
 
 ## Goal and Limits
 
@@ -30,7 +36,7 @@ the requested FPS. The capture contract must make this tradeoff explicit.
   Capture owned pixel buffers first; introduce scene snapshots only when a
   separate capture render timeline becomes necessary.
 
-## Current Implementation Evidence
+## Baseline Evidence Before Decoupling
 
 - `App/RtPbrSurveyApp.cpp`: `OnIdle` derives `advanceFrame` from pause state and
   `CanAdvanceCaptureSessionFixedStep()`.
@@ -80,6 +86,8 @@ Encoder decoupling cannot create camera views that were never rendered.
 - Do not drop logical frames in this mode.
 - Keep UI and input event processing active during backpressure. Interactive
   input is applied to the next generated frame and is not deterministic.
+  When an Orbit track is selected, it owns the pose instead and manual camera
+  input/settings are blocked until the active session ends.
 
 For smooth repeatable camera animation, evaluate a camera track at `n / FPS`.
 If responsive live preview and independent offline capture are both required,

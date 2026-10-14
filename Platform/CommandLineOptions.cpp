@@ -573,6 +573,13 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             }
             options.captureSessionEnabled = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionEncoderDelayMs"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.captureSessionEncoderDelayMilliseconds) ||
+                options.captureSessionEncoderDelayMilliseconds > 1000)
+                throw std::invalid_argument("-CaptureSessionEncoderDelayMs expects an integer in [0, 1000].");
+            options.captureSessionEnabled = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-CaptureSessionOrbitDegreesPerSecond"))
         {
             if (i + 1 >= argc)
@@ -877,6 +884,11 @@ bool BuildCaptureSessionConfig(const CommandLineOptions& options,
     if (!TryParseCaptureSessionFormat(options.captureSessionFormat, format))
     {
         error = "-CaptureSessionFormat expects png, exr, gif, or mp4.";
+        return false;
+    }
+    if (options.captureSessionEncoderDelayMilliseconds > 0 && format != RtPbrSurvey::CaptureSessionOutputFormat::Mp4)
+    {
+        error = "Capture Session encoder delay is a diagnostic option for MP4 only.";
         return false;
     }
 

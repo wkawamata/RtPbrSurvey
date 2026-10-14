@@ -790,6 +790,48 @@ bool TestIntegerClockCaptureCadence()
     }
     return true;
 }
+bool TestPausedFixedCaptureStart()
+{
+    using namespace RtPbrSurvey;
+    bool passed = true;
+    for (unsigned int delay : {0u, 1000u})
+    {
+        CaptureSession session;
+        CaptureFrameClock clock;
+        clock.Reset(CaptureSessionClock::FixedStep, 30);
+        CaptureSessionConfig config = MakeConfig(CaptureSessionClock::FixedStep);
+        config.outputFormat = CaptureSessionOutputFormat::Mp4;
+        config.framesPerSecond = 30;
+        config.frameLimit.reset();
+        config.durationSeconds = 3.0 / 30;
+        config.startDelayMilliseconds = delay;
+        config.warmupFrames = 0;
+        std::string error;
+        passed &= Check(session.Start(config, error), "paused-start session starts");
+        for (unsigned int poll = 0; poll < 10; ++poll)
+        {
+            session.Update(clock.MakeTiming(poll), false);
+            passed &= Check(!session.AcquireReadyRequest(), "paused timing polls do not generate an output pose");
+        }
+        passed &= Check(session.GetStatus().state == CaptureSessionState::Recording,
+                        "wall-time delay can finish while the capture clock is paused");
+        for (unsigned int frame = 0; frame < 3; ++frame)
+        {
+            clock.AdvanceSceneUpdate(CaptureFrameUpdateMode::FixedCapture, 99);
+            session.Update(clock.MakeTiming(10 + frame));
+            const auto request = session.AcquireReadyRequest();
+            if (!Check(request.has_value(), "resume produces every duration-limited logical frame"))
+                return false;
+            session.MarkRequestAccepted();
+            session.CompleteRequest({request->path, true, {}, 2, 2, request->requestId});
+            session.Update(clock.MakeTiming(20 + frame), false);
+        }
+        passed &= Check(session.GetStatus().acceptedFrameCount == 3 &&
+                            session.GetStatus().state == CaptureSessionState::Finalizing,
+                        "paused start does not shorten the fixed-step media duration");
+    }
+    return passed;
+}
 bool TestCaptureOrbitCli()
 {
     WCHAR executable[] = L"RtPbrSurvey.exe";
@@ -826,6 +868,27 @@ bool TestCaptureOrbitCli()
     }
     return passed;
 }
+bool TestCaptureEncoderDelayCli()
+{
+    WCHAR executable[] = L"RtPbrSurvey.exe";
+    WCHAR flag[] = L"-CaptureSessionEncoderDelayMs";
+    WCHAR delay[] = L"100";
+    WCHAR* argv[] = {executable, flag, delay};
+    auto options = Platform::ParseCommandLineOptions(argv, 3);
+    bool passed = Check(options.captureSessionEnabled && options.captureSessionEncoderDelayMilliseconds == 100,
+                        "encoder delay CLI is explicit and bounded");
+    options.captureSessionOutputDirectory = "Captures";
+    options.captureSessionBaseName = L"delay";
+    options.captureSessionFrameLimit = 12;
+    RtPbrSurvey::CaptureSessionConfig config;
+    std::string error;
+    passed &=
+        Check(!Platform::BuildCaptureSessionConfig(options, config, error), "diagnostic delay rejects non-MP4 output");
+    options.captureSessionFormat = L"mp4";
+    passed &=
+        Check(Platform::BuildCaptureSessionConfig(options, config, error), "MP4 diagnostic delay config is accepted");
+    return passed;
+}
 } // namespace
 
 int main()
@@ -837,7 +900,8 @@ int main()
                    TestOutputFailureCompletesCleanup() && TestWarmupExcludedFromDuration() &&
                    TestMismatchedResultDoesNotCompleteSession() && TestCaptureRequestGate() &&
                    TestCaptureFrameClock() && TestWarmupWithPresentationOnlyPolls() &&
-                   TestIntegerClockCaptureCadence() && TestCaptureOrbitCli()
+                   TestIntegerClockCaptureCadence() && TestPausedFixedCaptureStart() && TestCaptureOrbitCli() &&
+                   TestCaptureEncoderDelayCli()
                ? 0
                : 1;
 }

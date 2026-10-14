@@ -461,14 +461,18 @@ namespace RtPbrSurvey
         FinalizeCaptureSessionOutput();
     }
 
-    void SceneRenderer::UpdateCaptureSession(const CaptureSessionTiming& timing)
+    void SceneRenderer::UpdateCaptureSession(const CaptureSessionTiming& timing, bool allowFrameSubmission)
     {
         PollCaptureSession();
-        m_captureSession.Update(timing, !m_captureSession.UsesMp4() || m_engine.CanAcceptMp4Capture());
-        if (const std::optional<ScreenshotRequest> request = m_captureSession.AcquireReadyRequest())
+        m_captureSession.Update(timing, allowFrameSubmission &&
+            (!m_captureSession.UsesMp4() || m_engine.CanAcceptMp4Capture()));
+        if (allowFrameSubmission)
         {
-            m_engine.RequestScreenshot(*request);
-            m_captureSession.MarkRequestAccepted();
+            if (const std::optional<ScreenshotRequest> request = m_captureSession.AcquireReadyRequest())
+            {
+                m_engine.RequestScreenshot(*request);
+                m_captureSession.MarkRequestAccepted();
+            }
         }
         FinalizeCaptureSessionOutput();
     }
