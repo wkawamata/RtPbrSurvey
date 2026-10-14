@@ -96,8 +96,9 @@ uint64_t NrdRelaxGeometrySnapshot::Token() const
     return m_bounds.complete ? m_token : 0;
 }
 
-NrdRelaxRayRangeContext NrdRelaxGeometrySnapshot::MakeRangeContext(
-    uint64_t token, std::array<float, 3> origin, std::array<float, 3> direction) const
+NrdRelaxRayRangeContext NrdRelaxGeometrySnapshot::MakeRangeContext(uint64_t token,
+                                                                   std::array<float, 3> origin,
+                                                                   std::array<float, 3> direction) const
 {
     NrdRelaxRayRangeContext context;
     context.bounds = &m_bounds;
@@ -215,16 +216,14 @@ NrdRelaxWorldBounds BuildNrdRelaxWorldBounds(const Scene& scene)
     return result;
 }
 
-NrdRelaxRadianceDecision InspectNrdRelaxRadiance(std::array<float, 3> physical,
-                                               std::array<float, 3> materialFactor,
-                                               bool lobeActive)
+NrdRelaxRadianceDecision
+InspectNrdRelaxRadiance(std::array<float, 3> physical, std::array<float, 3> materialFactor, bool lobeActive)
 {
     NrdRelaxRadianceDecision result;
     for (size_t channel = 0; channel < 3; ++channel)
     {
-        if (!std::isfinite(physical[channel]) || physical[channel] < 0 ||
-            !std::isfinite(materialFactor[channel]) || materialFactor[channel] <= 0 || materialFactor[channel] > 1 ||
-            (!lobeActive && physical[channel] != 0))
+        if (!std::isfinite(physical[channel]) || physical[channel] < 0 || !std::isfinite(materialFactor[channel]) ||
+            materialFactor[channel] <= 0 || materialFactor[channel] > 1 || (!lobeActive && physical[channel] != 0))
         {
             return result;
         }
@@ -337,6 +336,102 @@ NrdRelaxDistanceDecision InspectNrdRelaxDistance(float surfaceDistance,
     else if (diagnosticState == 3.0f && surfaceDistance == 0.0f && rawHitT == 0.0f)
     {
         result.disposition = NrdRelaxDistanceDisposition::ReplacementRayRequired;
+    }
+    return result;
+}
+
+NrdRelaxPixelDecision
+InspectNrdRelaxPixel(const std::array<NrdRelaxLobeInput, 2>& lobes, float rayTMax, bool primaryHit)
+{
+    NrdRelaxPixelDecision result;
+    std::array<NrdRelaxRadianceDecision, 2> radiance;
+    std::array<NrdRelaxDistanceDecision, 2> distances;
+    bool overflow = false;
+    bool snapshotRequired = false;
+    bool traceRequired = false;
+    bool environmentRequired = false;
+    bool reconstructionRequired = false;
+    uint64_t snapshotToken = 0;
+    const uint64_t* snapshotSource = nullptr;
+    for (size_t index = 0; index < lobes.size(); ++index)
+    {
+        const auto& lobe = lobes[index];
+        const auto& distance = lobe.distance;
+        distances[index] = InspectNrdRelaxDistance(
+            distance[0], distance[1], distance[2], distance[3], rayTMax, primaryHit, lobe.active, lobe.rangeContext);
+        const auto disposition = distances[index].disposition;
+        if (disposition == NrdRelaxDistanceDisposition::InvalidData)
+        {
+            return result;
+        }
+        if (!primaryHit)
+        {
+            if (lobe.physical != std::array<float, 3>{})
+            {
+                return result;
+            }
+            continue;
+        }
+        radiance[index] = InspectNrdRelaxRadiance(lobe.physical, lobe.materialFactor, lobe.active);
+        if (radiance[index].disposition == NrdRelaxRadianceDisposition::InvalidData ||
+            (!lobe.active && disposition != NrdRelaxDistanceDisposition::InactiveLobe))
+        {
+            return result;
+        }
+        overflow |= radiance[index].disposition == NrdRelaxRadianceDisposition::PackingRangeExceeded ||
+                    disposition == NrdRelaxDistanceDisposition::PackingRangeExceeded;
+        traceRequired |= disposition == NrdRelaxDistanceDisposition::TraceRequired;
+        environmentRequired |= disposition == NrdRelaxDistanceDisposition::EnvironmentMissPolicyRequired;
+        reconstructionRequired |= disposition == NrdRelaxDistanceDisposition::ReplacementRayRequired;
+        if (lobe.active)
+        {
+            const auto* context = lobe.rangeContext;
+            if (context == nullptr || !context->geometrySnapshotMatches || context->bounds == nullptr ||
+                !context->bounds->complete || context->currentSnapshotToken == nullptr ||
+                context->expectedSnapshotToken == 0 || *context->currentSnapshotToken != context->expectedSnapshotToken)
+            {
+                snapshotRequired = true;
+            }
+            else if (snapshotSource == nullptr)
+            {
+                snapshotSource = context->currentSnapshotToken;
+                snapshotToken = context->expectedSnapshotToken;
+            }
+            else if (snapshotSource != context->currentSnapshotToken || snapshotToken != context->expectedSnapshotToken)
+            {
+                snapshotRequired = true;
+            }
+        }
+    }
+    if (!primaryHit)
+    {
+        result.disposition = NrdRelaxPixelDisposition::ExcludePrimaryMiss;
+    }
+    else if (overflow)
+    {
+        result.disposition = NrdRelaxPixelDisposition::PackingRangeExceeded;
+    }
+    else if (snapshotRequired)
+    {
+        result.disposition = NrdRelaxPixelDisposition::SnapshotRequired;
+    }
+    else if (traceRequired)
+    {
+        result.disposition = NrdRelaxPixelDisposition::TraceRequired;
+    }
+    else if (environmentRequired)
+    {
+        result.disposition = NrdRelaxPixelDisposition::EnvironmentPolicyRequired;
+    }
+    else
+    {
+        result.disposition = reconstructionRequired ? NrdRelaxPixelDisposition::ReconstructionRequired
+                                                    : NrdRelaxPixelDisposition::Convertible;
+        for (size_t index = 0; index < lobes.size(); ++index)
+        {
+            const auto& rgb = radiance[index].demodulated;
+            result.packed[index] = {rgb[0], rgb[1], rgb[2], distances[index].hitDistance};
+        }
     }
     return result;
 }

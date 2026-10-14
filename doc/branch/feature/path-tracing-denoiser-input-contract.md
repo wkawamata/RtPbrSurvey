@@ -1539,3 +1539,75 @@ runtimeGeometrySnapshotVerified remain false. This is an isolated GPU chain,
 not a production RenderGraph pass, full RELAX denoising or temporal history.
 Next: establish guarded production conversion and live snapshot/range readiness
 before wiring full SDK denoising dispatch and remodulated composition.
+
+### Step 2U: Whole-Pixel Conversion Eligibility (2026-10-14)
+
+InspectNrdRelaxPixel combines the existing distance/radiance checks for both
+lobes. Invalid data, packing overflow, missing/stale geometry snapshots,
+untraced signals and unresolved environment policy produce no partial packed
+output. Active lobes must refer to the same live snapshot token source and
+generation. Inactive lobes require the canonical inactive distance state and
+zero physical radiance. Primary misses require clean distance diagnostics and
+zero physical signals; they do not consume material factors or geometry state.
+
+Convertible and ReconstructionRequired return both candidate packed lobes.
+The latter retains a zero distance marker and explicitly does not grant
+denoising readiness. Environment distance 65504 is returned only when the
+existing per-ray range proof passes. The CPU snapshot token certifies recorded
+upload/TLAS provenance, not GPU fence completion. This SDK-neutral helper is
+not called by a production conversion pass yet and does not enable RELAX.
+
+Focused tests cover stale and mixed snapshots, incomplete traces, environment
+range failure, reconstruction markers, inactive contradictions, overflow,
+nonfinite data, primary exclusions and suppression of partial outputs.
+The Debug adapter test target was rebuilt successfully and CTest passed 37/37;
+other test targets used existing binaries. No full application build or new
+GPU scene capture was performed for this CPU contract step.
+Next: connect the gate's contract to GPU conversion diagnostics/resources;
+retain fail-closed runtime support until dispatch ordering and live inputs are
+verified. Step 2Q-2T were committed separately as d78cf70.
+
+### Step 2W: Contract-Aligned Test Vectors And Report Aggregation (2026-10-14)
+
+Added a deterministic JSON corpus:
+Tests/PathTracing/nrd_pixel_contract_vectors.json. It contains small
+CPU pixel-contract vectors with unique case IDs. Host-only categories
+(snapshot token, scene-range proof, trace provenance) are explicitly
+marked hostOnly=true and gpuRepresentable=false; they must never be
+reported as GPU proof.
+
+Added a fail-closed report aggregator:
+Tests/PathTracing/aggregate_nrd_reports.py. It validates required
+contract/conversion/reconstruction/converted-reconstruction reports,
+schema/status, uniqueness, source/report/raw hashes where available,
+expected variant and kernel-mode coverage, D3D12 error counts, and false
+input-ready/runtime-geometry flags. It rejects missing, duplicated, stale,
+or contradictory evidence. Its aggregate status distinguishes CPU-only,
+GPU arithmetic, SDK reconstruction, hypothetical environment, and
+production runtime. Production runtime remains unavailable/not integrated.
+
+Focused tests:
+- Tests/PathTracing/test_nrd_pixel_contract_vectors.py
+- Tests/PathTracing/test_aggregate_nrd_reports.py
+
+Exact commands:
+
+cd C:\work\RtPbrSurvey-work-3
+python Tests\PathTracing\test_nrd_pixel_contract_vectors.py
+python Tests\PathTracing\test_aggregate_nrd_reports.py
+C:\Program Files\Blender Foundation\Blender 5.2\5.2\python\bin\python.exe -m unittest discover -s Tests\PathTracing
+.\bin\x64\Debug\RtPbrSurvey.NrdRelaxAdapterTests.exe
+ctest --test-dir build -C Debug -R "NrdRelaxAdapter|NrdInputConversion"
+python Tests\PathTracing\aggregate_nrd_reports.py --input-dir <report-directory> --output <report-directory>\aggregate-report.json
+
+Limitations:
+- The corpus is a minimal shared adapter, not an invasive refactor of the
+  C++ or HLSL test binaries. Existing hardcoded vectors remain; the JSON
+  corpus records their contract IDs and conservative fail-closed policy.
+- GPU vectors cover only semantics representable in the isolated conversion
+  contract: rejected pixels must not carry partial packed outputs, and the
+  CPU host gate remains the owner of snapshot/range/trace provenance.
+- Hypothetical environment encoding remains hypothetical. inputReady and
+  runtimeGeometrySnapshotVerified remain false.
+- No production rendering, RenderGraph, production shader, SDK linkage, or
+  RELAX availability changed.

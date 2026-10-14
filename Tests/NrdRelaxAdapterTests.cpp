@@ -8,6 +8,88 @@
 
 namespace
 {
+bool CheckPixelGate()
+{
+    using Disposition = Engine::NrdRelaxPixelDisposition;
+    Engine::NrdRelaxWorldBounds bounds;
+    bounds.complete = true;
+    bounds.minimum = {-1, -1, -1};
+    bounds.maximum = {1, 1, 1};
+    uint64_t token = 7;
+    Engine::NrdRelaxRayRangeContext context;
+    context.bounds = &bounds;
+    context.origin = {0, 0, 0};
+    context.direction = {0, 0, 1};
+    context.geometrySnapshotMatches = true;
+    context.currentSnapshotToken = &token;
+    context.expectedSnapshotToken = token;
+    std::array<Engine::NrdRelaxLobeInput, 2> lobes;
+    for (auto& lobe : lobes)
+    {
+        lobe.physical = {1, 2, 3};
+        lobe.materialFactor = {.5f, .5f, .5f};
+        lobe.distance = {2, 1, 2, 0};
+        lobe.rangeContext = &context;
+    }
+    const auto inspect = [&]() { return Engine::InspectNrdRelaxPixel(lobes, 100, true); };
+    auto decision = inspect();
+    bool passed =
+        decision.disposition == Disposition::Convertible && decision.packed[0] == std::array<float, 4>{2, 4, 6, 2};
+    token = 8;
+    decision = inspect();
+    passed &= decision.disposition == Disposition::SnapshotRequired && decision.packed == decltype(decision.packed){};
+    token = 7;
+    uint64_t otherToken = 7;
+    auto otherContext = context;
+    otherContext.currentSnapshotToken = &otherToken;
+    lobes[1].rangeContext = &otherContext;
+    passed &= inspect().disposition == Disposition::SnapshotRequired;
+    lobes[1].rangeContext = &context;
+    lobes[1].distance = {0, 3, 0, 0};
+    decision = inspect();
+    passed &= decision.disposition == Disposition::ReconstructionRequired && decision.packed[1][3] == 0 &&
+              decision.packed[1][0] == 2;
+    lobes[1].distance = {0, 0, 0, 0};
+    passed &= inspect().disposition == Disposition::TraceRequired;
+    passed &= inspect().packed == decltype(inspect().packed){};
+    lobes[1].distance = {0, 2, 100, 0};
+    passed &= inspect().disposition == Disposition::Convertible && inspect().packed[1][3] == 65504;
+    bounds.maximum[2] = 200;
+    auto environmentDecision = inspect();
+    passed &= environmentDecision.disposition == Disposition::EnvironmentPolicyRequired;
+    passed &= environmentDecision.packed == decltype(environmentDecision.packed){};
+    bounds.maximum[2] = 1;
+    lobes[1].distance = {0, 4, 0, 0};
+    lobes[1].active = false;
+    passed &= inspect().disposition == Disposition::InvalidData;
+    lobes[1].physical = {};
+    passed &= inspect().disposition == Disposition::Convertible && inspect().packed[1] == std::array<float, 4>{};
+    lobes[1].distance = {};
+    passed &= inspect().disposition == Disposition::InvalidData;
+    lobes[1].distance = {0, 4, 0, 0};
+    lobes[0].physical = {60000, 0, 0};
+    lobes[0].materialFactor = {.02f, .5f, .5f};
+    decision = inspect();
+    passed &=
+        decision.disposition == Disposition::PackingRangeExceeded && decision.packed == decltype(decision.packed){};
+    lobes[1].physical[0] = std::numeric_limits<float>::quiet_NaN();
+    auto invalidDecision = inspect();
+    passed &= invalidDecision.disposition == Disposition::InvalidData;
+    passed &= invalidDecision.packed == decltype(invalidDecision.packed){};
+    for (auto& lobe : lobes)
+    {
+        lobe.physical = {};
+        lobe.distance = {};
+        lobe.rangeContext = nullptr;
+    }
+    auto missDecision = Engine::InspectNrdRelaxPixel(lobes, 100, false);
+    passed &= missDecision.disposition == Disposition::ExcludePrimaryMiss;
+    passed &= missDecision.packed == decltype(missDecision.packed){};
+    lobes[1].physical[0] = 1;
+    passed &= Engine::InspectNrdRelaxPixel(lobes, 100, false).disposition == Disposition::InvalidData;
+    return passed;
+}
+
 bool CheckRadianceGate()
 {
     using Disposition = Engine::NrdRelaxRadianceDisposition;
@@ -196,6 +278,7 @@ int main()
     passed &= CheckSceneRange();
     passed &= CheckSnapshotLifecycle();
     passed &= CheckRadianceGate();
+    passed &= CheckPixelGate();
     using Disposition = Engine::NrdRelaxDistanceDisposition;
     const auto inspect = [](float distance, float state, float raw, bool primary = true, bool active = true)
     { return Engine::InspectNrdRelaxDistance(distance, state, raw, 0.0f, 100.0f, primary, active); };

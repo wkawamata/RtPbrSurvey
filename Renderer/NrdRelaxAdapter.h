@@ -42,9 +42,8 @@ public:
     void Invalidate();
     void Reset();
     uint64_t Token() const;
-    NrdRelaxRayRangeContext MakeRangeContext(uint64_t token,
-                                            std::array<float, 3> origin,
-                                            std::array<float, 3> direction) const;
+    NrdRelaxRayRangeContext
+    MakeRangeContext(uint64_t token, std::array<float, 3> origin, std::array<float, 3> direction) const;
 
 private:
     std::shared_ptr<const SceneMesh> m_uploadedMesh;
@@ -109,9 +108,8 @@ struct NrdRelaxRadianceDecision
     std::array<float, 3> demodulated = {};
 };
 
-NrdRelaxRadianceDecision InspectNrdRelaxRadiance(std::array<float, 3> physical,
-                                               std::array<float, 3> materialFactor,
-                                               bool lobeActive);
+NrdRelaxRadianceDecision
+InspectNrdRelaxRadiance(std::array<float, 3> physical, std::array<float, 3> materialFactor, bool lobeActive);
 
 NrdRelaxDistanceDecision InspectNrdRelaxDistance(float surfaceDistance,
                                                  float diagnosticState,
@@ -121,5 +119,35 @@ NrdRelaxDistanceDecision InspectNrdRelaxDistance(float surfaceDistance,
                                                  bool primaryHit,
                                                  bool lobeActive,
                                                  const NrdRelaxRayRangeContext* rangeContext = nullptr);
+
+struct NrdRelaxLobeInput
+{
+    std::array<float, 3> physical = {};
+    std::array<float, 3> materialFactor = {};
+    std::array<float, 4> distance = {};
+    bool active = true;
+    const NrdRelaxRayRangeContext* rangeContext = nullptr;
+};
+
+enum class NrdRelaxPixelDisposition
+{
+    InvalidData,
+    PackingRangeExceeded,
+    SnapshotRequired,
+    TraceRequired,
+    EnvironmentPolicyRequired,
+    ExcludePrimaryMiss,
+    ReconstructionRequired,
+    Convertible,
+};
+
+struct NrdRelaxPixelDecision
+{
+    NrdRelaxPixelDisposition disposition = NrdRelaxPixelDisposition::InvalidData;
+    std::array<std::array<float, 4>, 2> packed = {};
+};
+
+NrdRelaxPixelDecision
+InspectNrdRelaxPixel(const std::array<NrdRelaxLobeInput, 2>& lobes, float rayTMax, bool primaryHit);
 
 } // namespace Engine

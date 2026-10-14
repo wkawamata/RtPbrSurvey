@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "kind": "nrd-pixel-contract-vectors",
+  "description": "Small deterministic CPU/GPU contract vectors for NRD RELAX pixel conversion. Host-only provenance vectors are GPU-ineligible by design.",
+  "hostOnlyCategories": [
+    "snapshot-token",
+    "scene-range-proof",
+    "trace-provenance"
+  ],
+  "vectors": [
+    {
+      "id": "cpu-pixel-convertible-base",
+      "surface": "cpu",
+      "hostOnly": false,
+      "gpuRepresentable": true,
+      "rayTMax": 100.0,
+      "primaryHit": true,
+      "lobes": [
+        {
+          "physical": [1.0, 2.0, 3.0],
+          "materialFactor": [0.5, 0.5, 0.5],
+          "distance": [2.0, 1.0, 2.0, 0.0],
+          "rangeContext": {
+            "snapshotToken": 7,
+            "expectedSnapshotToken": 7,
+            "geometrySnapshotMatches": true
+          }
+        },
+        {
+          "physical": [1.0, 2.0, 3.0],
+          "materialFactor": [0.5, 0.5, 0.5],
+          "distance": [2.0, 1.0, 2.0, 0.0],
+          "rangeContext": {
+            "snapshotToken": 7,
+            "expectedSnapshotToken": 7,
+            "geometrySnapshotMatches": true
+          }
+        }
+      ],
+      "expectedDisposition": "Convertible",
+      "expectedPacked": [
+        [2.0, 4.0, 6.0, 2.0],
+        [2.0, 4.0, 6.0, 2.0]
+      ],
+      "partialOutputsOnFailure": false
+    },
+    {
+      "id": "cpu-pixel-stale-snapshot",
+      "surface": "cpu",
+      "hostOnly": false,
+      "gpuRepresentable": true,
+      "rayTMax": 100.0,
+      "primaryHit": true,
+      "lobes": [
+        {
+          "physical": [1.0, 2.0, 3.0],
+          "materialFactor": [0.5, 0.5, 0.5],
+          "distance": [2.0, 1.0, 2.0, 0.0],
+          "rangeContext": {
+            "snapshotToken": 8,
+            "expectedSnapshotToken": 7,
+            "geometrySnapshotMatches": true
+          }
+        },
+        {
+          "physical": [1.0, 2.0, 3.0],
+          "materialFactor": [0.5, 0.5, 0.5],
+          "distance": [2.0, 1.0, 2.0, 0.0],
+          "rangeContext": {
+            "snapshotToken": 7,
+            "expectedSnapshotToken": 7,
+            "geometrySnapshotMatches": true
+          }
+        }
+      ],
+      "expectedDisposition": "SnapshotRequired",
+      "partialOutputsOnFailure": false
+    },
+    {
+      "id": "cpu-pixel-trace-required",
+      "surface": "cpu",
+      "hostOnly": false,
+      "gpuRepresentable": true,
+      "rayTMax": 100.0,
+      "primaryHit": true,
+      "lobes": [
+        {
+          "physical": [1.0, 2.0, 3.0],
+          "materialFactor": [0.5, 0.5, 0.5],
+          "distance": [2.0, 1.0, 2.0, 0.0],
+          "rangeContext": {
+            "snapshotToken": 7,
+            "expectedSnapshotToken": 7,
+            "geometrySnapshotMatches": true
+          }
+        },
+        {
+          "physical": [1.0, 2.0, 3.0],
+          "materialFactor": [0.5, 0.5, 0.5],
+          "distance": [0.0, 0.0, 0.0, 0.0],
+          "rangeContext": {
+            "snapshotToken": 7,
+            "expectedSnapshotToken": 7,
+            "geometrySnapshotMatches": true
+          }
+        }
+      ],
+      "expectedDisposition": "TraceRequired",
+      "partialOutputsOnFailure": false
+    },
+    {
+      "id": "cpu-pixel-reconstruction-required",
+      "surface": "cpu",
+      "hostOnly": false,
+      "gpuRepresentable": true,
+      "rayTMax": 100.0,
+      "primaryHit": true,
+      "lobes": [
+        {
+          "physical": [1.0, 2.0, 3.0],
+          "materialFactor": [0.5, 0.5, 0.5],
+          "distance": [2.0, 1.0, 2.0, 0.0],
+          "rangeContext": {
+            "snapshotToken": 7,
+            "expectedSnapshotToken": 7,
+            "geometrySnapshotMatches": true
+          }
+        },
+        {
+          "physical": [1.0, 2.0, 3.0],
+          "materialFactor": [0.5, 0.5, 0.5],
+          "distance": [0.0, 3.0, 0.0, 0.0],
+          "rangeContext": {
+            "snapshotToken": 7,
+            "expectedSnapshotToken": 7,
+            "geometrySnapshotMatches": true
+          }
+        }
+      ],
+      "expectedDisposition": "ReconstructionRequired",
+      "partialOutputsOnFailure": false
+    },
+    {
+      "id": "cpu-pixel-exclude-primary-miss",
+      "surface": "cpu",
+      "hostOnly": false,
+      "gpuRepresentable": true,
+      "rayTMax": 100.0,
+      "primaryHit": false,
+      "lobes": [
+        {
+          "physical": [0.0, 0.0, 0.0],
+          "materialFactor": [0.0, 0.0, 0.0],
+          "distance": [0.0, 0.0, 0.0, 0.0],
+          "rangeContext": null
+        },
+        {
+          "physical": [0.0, 0.0, 0.0],
+          "materialFactor": [0.0, 0.0, 0.0],
+          "distance": [0.0, 0.0, 0.0, 0.0],
+          "rangeContext": null
+        }
+      ],
+      "expectedDisposition": "ExcludePrimaryMiss",
+      "partialOutputsOnFailure": false
+    },
+    {
+      "id": "cpu-snapshot-token-provenance",
+      "surface": "cpu",
+      "hostOnly": true,
+      "gpuRepresentable": false,
+      "validates": [
+        "snapshot-token"
+      ],
+      "expectedProofDomain": "host-only",
+      "assertion": "CPU geometry-snapshot token certifies recorded upload/TLAS provenance, not GPU fence completion.",
+      "gpuRepresentation": "not-representable"
+    },
+    {
+      "id": "cpu-scene-range-proof",
+      "surface": "cpu",
+      "hostOnly": true,
+      "gpuRepresentable": false,
+      "validates": [
+        "scene-range-proof"
+      ],
+      "expectedProofDomain": "host-only",
+      "assertion": "NRD environment miss distance 65504 requires host range proof; hypothetical environment encoding is not runtime range proof.",
+      "gpuRepresentation": "not-representable"
+    },
+    {
+      "id": "cpu-trace-provenance",
+      "surface": "cpu",
+      "hostOnly": true,
+      "gpuRepresentable": false,
+      "validates": [
+        "trace-provenance"
+      ],
+      "expectedProofDomain": "host-only",
+      "assertion": "Incomplete or untraced lobe data must not be packed; one-lobe failure suppresses all packed outputs.",
+      "gpuRepresentation": "not-representable"
+    }
+  ]
+}
