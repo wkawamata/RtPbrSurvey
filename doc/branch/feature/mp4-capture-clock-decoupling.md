@@ -185,17 +185,22 @@ existing screenshot formats against their current behavior.
 
 ## Verification and Acceptance
 
-- Scheduler tests with artificial clocks: delay, warmup, limits, pause/step,
-  fixed-step capacity reservation, real-time skips, and timestamp gaps.
-- Worker tests with an injected slow/failing writer: bounded memory, ordering,
-  stop/drain, failure, finalize exactly once, and shutdown with pending work.
-- GPU integration: fence-safe slot reuse, ROI, odd-size padding, resize,
-  scene close, session restart, and D3D12 Debug Layer checks.
+- [x] Scheduler tests with artificial clocks: delay, warmup, limits, pause/step,
+  fixed-step capacity reservation, real-time skips, timestamp gaps, and duration
+  end drop accounting. CTest passed 28/28.
+- [x] Worker tests with an injected slow/failing writer: bounded memory,
+  ordering, stop/drain, failure, finalize exactly once, and shutdown with pending
+  work. See [worker implementation and validation](mp4-encoder-worker-validation.md).
+- [x] GPU integration: fence-safe slot reuse, ROI, odd-size padding, resize,
+  scene close, session restart, PNG/GIF/EXR/MP4 decoding, and D3D12 Debug Layer
+  checks. See [capture Orbit GUI validation](capture-orbit-gui.md) and
+  [capture lifecycle validation](mp4-capture-lifecycle-validation.md).
 - [x] GPU lifecycle integration: deferred close, resize during capture, pause/
   step close, warmup/drain close, scene-switch guard, session restart, and
   GIF/EXR finalization.
-- PT integration: camera movement resets history; paused/draining frames do not
-  accidentally advance sample indices; captured pose matches frame metadata.
+- [x] PT integration: camera movement resets history; paused/draining frames do
+  not accidentally advance sample indices; captured pose matches frame
+  metadata. Moving and stationary PT capture passed under encoder pressure.
 - [x] Record a 1800-frame, 60 FPS deterministic camera track under encoder delay.
   Require 1800 retained frames, 30-second media duration, continuous fixed-step
   PTS, bounded memory, and correct camera poses. Longer wall time is acceptable.
@@ -203,9 +208,10 @@ existing screenshot formats against their current behavior.
   Require live simulation to stay independent of encoder queue capacity, media
   duration to follow elapsed recording time, and all missed intervals to be
   counted. Compare camera-input-to-captured-pose latency against the baseline.
-- Inspect actual MP4 timestamps, frame count, duration, and decoded camera
-  motion. File existence alone is insufficient.
-- Run PNG/GIF/EXR, single screenshot, and non-capture regression checks.
+- [x] Inspect actual MP4 timestamps, frame count, duration, and decoded camera
+  motion. File existence alone is insufficient; fixed-step and real-time MP4
+  timestamps and motion were decoded and checked.
+- [x] Run PNG/GIF/EXR, single screenshot, and non-capture regression checks.
 
 ## Deferred Extensions
 
