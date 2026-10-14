@@ -58,6 +58,12 @@ require all three outputs for a three-frame duration after resuming.
 - Final CLI GPU regression passed normal ROI, normal PT Orbit, delayed moving
   PT and delayed stationary PT. Both delayed PT cases retained 12 outputs at
   30 FPS, camera/reset/sample semantics, and zero pending work after drain.
+- A 1,800-frame 60 FPS Orbit under 100ms diagnostic append delay decoded as
+  exactly 30 seconds with strict per-frame timestamps and visible motion.
+  Fixed-step pose checks covered every output. The bounded encoder reservation
+  peaked at 2 frames / 2.34 MiB; readback memory stayed at 2.34 MiB with two
+  allocations and 1,798 reuses. No D3D12 error or capture failure was logged.
+  See [long Orbit pressure validation](mp4-long-orbit-pressure-validation.md).
 - Delayed moving PT exercised 53 capacity waits and 12 drain frames; stationary
   PT exercised 52 waits and 11 drain frames. No captured CLI D3D12 ERROR/
   CORRUPTION or capture save error was reported. These CLI results are separate
@@ -73,6 +79,6 @@ closing that instance, MSBuild and the corrected runtime validation succeeded.
 
 ## Remaining Work
 
-Long deterministic motion under pressure, interactive real-time latency/drop
-measurements, per-output PT convergence, and richer scene/camera tracks remain
-separate work. No simultaneous independent live-preview camera is implemented.
+Interactive real-time latency/drop measurements, per-output PT convergence,
+and richer scene/camera tracks remain separate work. No simultaneous
+independent live-preview camera is implemented.

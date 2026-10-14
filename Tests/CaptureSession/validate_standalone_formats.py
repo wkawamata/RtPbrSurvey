@@ -174,7 +174,8 @@ def run_case(output, case):
     startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     startup.wShowWindow = 0
     process_log = (directory / "process.log").open("w", encoding="utf-8")
-    child = subprocess.Popen(command, cwd=directory, startupinfo=startup,
+    working_directory = ROOT if case.get("rootCwd") else directory
+    child = subprocess.Popen(command, cwd=working_directory, startupinfo=startup,
                              stdout=process_log, stderr=subprocess.STDOUT)
     try:
         code = child.wait(timeout=case.get("timeout", 150))
@@ -221,6 +222,13 @@ def run_case(output, case):
                 outputs["ptHistory"] = validate_pt_history(text, case, samples)
         if VALIDATE_READBACK_POOL and case["format"] == "mp4":
             outputs["readbackPool"] = validate_readback_pool(text, case, accepted)
+        if "encoderDelay" in case:
+            encoder = re.search(r"\[CAPTURE_ENCODER\] delay_ms=(\d+) max_append_ms=([\d.]+)", text)
+            assert encoder and int(encoder[1]) == case["encoderDelay"], \
+                "Diagnostic encoder delay was not configured"
+            assert float(encoder[2]) >= case["encoderDelay"] * 0.95, "Diagnostic encoder delay was not observed"
+            outputs["encoderDelay"] = {"configuredMilliseconds": int(encoder[1]),
+                                       "maxAppendMilliseconds": float(encoder[2])}
         return {"name": case["name"], "command": command, "exitCode": code,
                 "captureFrames": accepted, "d3d12Errors": errors, **outputs}
     finally:
@@ -257,6 +265,8 @@ def main():
         dict(name="mp4-full-long", format="mp4", fps=30, frames=1800, timeout=2400),
         dict(name="mp4-roi-clock-long", format="mp4", fps=60, frames=1800, timeout=240,
              roi=(100, 100, 64, 64)),
+        dict(name="mp4-orbit-long-pressure", format="mp4", fps=60, frames=1800, orbit=37,
+             encoderDelay=100, timeout=1200, roi=(640, 300, 640, 480), rootCwd=True),
         dict(name="png-orbit", format="png", fps=30, frames=12, orbit=90, roi=(640, 300, 640, 480)),
         dict(name="mp4-orbit", format="mp4", fps=30, frames=12, orbit=90, roi=(640, 300, 640, 480)),
         dict(name="mp4-orbit-pt", format="mp4", fps=30, frames=12, orbit=90, renderingPath=2,
@@ -277,7 +287,8 @@ def main():
         assert requested <= {case["name"] for case in cases}, "Unknown case name"
         cases = [case for case in cases if case["name"] in requested]
     else:
-        cases = [case for case in cases if case["name"] not in ("mp4-full-long", "mp4-roi-clock-long")]
+        cases = [case for case in cases if case["name"] not in
+                 ("mp4-full-long", "mp4-roi-clock-long", "mp4-orbit-long-pressure")]
     report = {"records": [], "testedCommit": subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         "executableSha256": hashlib.sha256(capture.EXECUTABLE.read_bytes()).hexdigest(),
@@ -292,7 +303,12 @@ def main():
             raise
         report["records"].append(record)
         (output / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
-        print(json.dumps(record), flush=True)
+        console_record = {key: value for key, value in record.items()
+                          if key not in ("captureFrames", "cameraSamples")}
+        console_record["captureFrameCount"] = len(record["captureFrames"])
+        if "cameraSamples" in record:
+            console_record["cameraSampleCount"] = len(record["cameraSamples"])
+        print(json.dumps(console_record), flush=True)
     print(f"All {len(cases)} GPU format cases passed.", flush=True)
 
 

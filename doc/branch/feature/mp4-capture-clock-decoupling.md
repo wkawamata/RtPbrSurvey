@@ -10,7 +10,9 @@ explicit update clocks and deterministic Orbit are implemented; see
 [Orbit track](capture-orbit-track.md), and [GUI Orbit](capture-orbit-gui.md).
 Short PT history checks under controlled encoder pressure are covered by
 [PT capture history validation](pt-capture-history-validation.md). Long moving
-tracks and interactive real-time latency acceptance remain pending.
+fixed-step Orbit under controlled encoder pressure is covered by
+[long Orbit pressure validation](mp4-long-orbit-pressure-validation.md).
+Interactive real-time latency acceptance remains pending.
 
 ## Goal and Limits
 
@@ -188,7 +190,7 @@ existing screenshot formats against their current behavior.
   scene close, session restart, and D3D12 Debug Layer checks.
 - PT integration: camera movement resets history; paused/draining frames do not
   accidentally advance sample indices; captured pose matches frame metadata.
-- Record a 1800-frame, 60 FPS deterministic camera track under encoder delay.
+- [x] Record a 1800-frame, 60 FPS deterministic camera track under encoder delay.
   Require 1800 retained frames, 30-second media duration, continuous fixed-step
   PTS, bounded memory, and correct camera poses. Longer wall time is acceptable.
 - Record interactive real-time camera motion under encoder delay and GPU load.
