@@ -210,8 +210,14 @@ namespace RtPbrSurvey
                     static_cast<unsigned long long>(status.droppedFrameCount));
         if (static_cast<CaptureSessionOutputFormat>(state.outputFormat) == CaptureSessionOutputFormat::Mp4)
         {
-            ImGui::Text("Encoder pending: %zu frames, %.1f MiB", status.encoder.outstandingFrames,
+            ImGui::TextWrapped("Reserved/owned: %zu frames, %.1f MiB", status.encoder.outstandingFrames,
                         static_cast<double>(status.encoder.outstandingBytes) / (1024.0 * 1024.0));
+            ImGui::TextWrapped("GPU readback: %zu pending, %.1f MiB",
+                        status.encoder.gpuPendingFrames,
+                        static_cast<double>(status.encoder.gpuReadbackBytes) / (1024.0 * 1024.0));
+            ImGui::TextWrapped("Readback allocations/reuses: %llu / %llu",
+                        static_cast<unsigned long long>(status.encoder.gpuReadbackAllocations),
+                        static_cast<unsigned long long>(status.encoder.gpuReadbackReuses));
             ImGui::Text("Append: %.2f ms (max %.2f), finalize: %.2f ms", status.encoder.lastAppendMilliseconds,
                         status.encoder.maxAppendMilliseconds, status.encoder.finalizeMilliseconds);
         }

@@ -129,6 +129,12 @@ void DebugCameraController::InitObjectViewerFromCamera()
     SetObjectViewerOrbitFromOffset(XMVectorSubtract(camPos, pivot));
 }
 
+void DebugCameraController::InitObjectViewerFromCamera(const XMFLOAT3& pivot)
+{
+    m_objectViewerPivot = pivot;
+    InitObjectViewerFromCamera();
+}
+
 void DebugCameraController::UpdateObjectViewerCamera()
 {
     Engine::CameraState* camera = Camera();

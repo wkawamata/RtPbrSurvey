@@ -491,8 +491,10 @@ namespace RtPbrSurvey
         if (m_captureSession.UsesMp4())
         {
             const Engine::Mp4WorkerStatus encoder = m_engine.GetMp4WorkerStatus();
+            const Engine::ScreenshotReadbackPoolStatus readback = m_engine.GetMp4ReadbackStatus();
             m_captureSession.SetEncoderDiagnostics({encoder.outstandingFrames, encoder.outstandingBytes,
-                encoder.lastAppendMilliseconds, encoder.maxAppendMilliseconds, encoder.finalizeMilliseconds});
+                encoder.lastAppendMilliseconds, encoder.maxAppendMilliseconds, encoder.finalizeMilliseconds,
+                readback.pendingFrames, readback.allocatedBytes, readback.allocations, readback.reuses});
         }
         const CaptureSessionStatus& status = m_captureSession.GetStatus();
         if (status.state == CaptureSessionState::Finalizing)

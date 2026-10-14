@@ -69,6 +69,9 @@ public:
         return bytes > 0 && bytes <= m_maxBytes;
     }
     bool CanAcceptFrame(std::size_t bytes) const;
+    // Reserves downstream capacity before recording a GPU copy; no pixels are owned yet.
+    bool ReserveFrame(std::uint64_t requestId, std::size_t bytes, std::string& error);
+    void CancelReservation(std::uint64_t requestId);
     bool Enqueue(Mp4Frame&& frame, std::string& error);
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeResult();
     void RequestFinalize(std::optional<std::uint64_t> endTime);
@@ -79,12 +82,19 @@ public:
 private:
     void Run();
     void FailQueuedFrames(const std::string& error);
+    void ReleaseReservations();
+    struct Reservation
+    {
+        std::uint64_t requestId;
+        std::size_t bytes;
+    };
     WriterFactory m_factory;
     const std::size_t m_maxFrames;
     const std::size_t m_maxBytes;
     mutable std::mutex m_mutex;
     std::condition_variable m_wake;
     std::deque<Mp4Frame> m_frames;
+    std::vector<Reservation> m_reservations;
     std::deque<RtPbrSurvey::ScreenshotResult> m_results;
     Mp4WorkerStatus m_status;
     std::optional<std::uint64_t> m_endTime;

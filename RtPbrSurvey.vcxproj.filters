@@ -51,6 +51,9 @@
     <ClInclude Include="Camera\DebugCameraController.h">
       <Filter>Source Files\Camera</Filter>
     </ClInclude>
+    <ClInclude Include="Camera\CaptureOrbitTrack.h">
+      <Filter>Source Files\Camera</Filter>
+    </ClInclude>
     <ClInclude Include="Engine\RtPbrSurveyEngine.h">
       <Filter>Source Files\Engine</Filter>
     </ClInclude>
@@ -262,6 +265,9 @@
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="Runtime\CaptureSession.h">
+      <Filter>Source Files\Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\CaptureFrameClock.h">
       <Filter>Source Files\Runtime</Filter>
     </ClInclude>
     <ClInclude Include="Runtime\CaptureSessionUi.h">

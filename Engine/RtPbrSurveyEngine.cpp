@@ -1317,6 +1317,8 @@ std::optional<Engine::ReflectionHdrDiagnosticFrame> RtPbrSurveyEngine::ConsumeRe
 
 void RtPbrSurveyEngine::RequestScreenshot(RtPbrSurvey::ScreenshotRequest request)
 {
+    const std::uint64_t requestId = request.requestId;
+    bool reserved = false;
     try
     {
         if (request.path.empty())
@@ -1334,10 +1336,22 @@ void RtPbrSurveyEngine::RequestScreenshot(RtPbrSurvey::ScreenshotRequest request
             m_screenshotRequestQueue.AddResult(std::move(result));
             return;
         }
+        if (request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+        {
+            std::string error;
+            if (!m_mp4Encoder.ReserveFrame(requestId, m_mp4CaptureFrameBytes, error))
+            {
+                m_screenshotRequestQueue.AddResult({request.path, false, error, 0, 0, requestId});
+                return;
+            }
+            reserved = true;
+        }
         m_screenshotRequestQueue.Enqueue(std::move(request));
     }
     catch (const std::exception& exception)
     {
+        if (reserved)
+            m_mp4Encoder.CancelReservation(requestId);
         RtPbrSurvey::ScreenshotResult result = {request.path, false, exception.what()};
         result.requestId = request.requestId;
         m_screenshotRequestQueue.AddResult(std::move(result));
@@ -1386,6 +1400,11 @@ void RtPbrSurveyEngine::AbortAnimatedGif()
 
 bool RtPbrSurveyEngine::BeginMp4Session(std::string& error, const std::optional<RtPbrSurvey::ScreenshotRegion>& region)
 {
+    if (!IsScreenshotCaptureIdle())
+    {
+        error = "Screenshot pipeline must drain before starting an MP4 session.";
+        return false;
+    }
     const UINT width = region ? region->width : m_width;
     const UINT height = region ? region->height : m_height;
     const std::size_t bytes = static_cast<std::size_t>(width) * height * 4;
@@ -1398,15 +1417,40 @@ bool RtPbrSurveyEngine::BeginMp4Session(std::string& error, const std::optional<
     m_mp4CaptureFrameBytes = bytes;
     m_mp4OutputWidth = m_width;
     m_mp4OutputHeight = m_height;
-    return m_mp4Encoder.BeginSession(error);
+    if (!m_mp4Encoder.BeginSession(error))
+        return false;
+    for (PendingScreenshotCapture& capture : m_screenshotCaptures)
+        capture.readback.Reset();
+    m_mp4ReadbackAllocations = 0;
+    m_mp4ReadbackReuses = 0;
+    return true;
+}
+
+Engine::ScreenshotReadbackPoolStatus RtPbrSurveyEngine::GetMp4ReadbackStatus() const
+{
+    Engine::ScreenshotReadbackPoolStatus status;
+    status.allocations = m_mp4ReadbackAllocations;
+    status.reuses = m_mp4ReadbackReuses;
+    for (const PendingScreenshotCapture& capture : m_screenshotCaptures)
+    {
+        if (capture.active && capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+            ++status.pendingFrames;
+        if (capture.readback.resource)
+            status.allocatedBytes += static_cast<std::size_t>(capture.readback.resource->GetDesc().Width);
+    }
+    return status;
 }
 
 bool RtPbrSurveyEngine::CanAcceptMp4Capture() const
 {
-    if (m_pendingScreenshotCapture || !m_screenshotRequestQueue.IsSubmissionIdle()) return false;
+    if (!m_screenshotRequestQueue.IsSubmissionIdle() ||
+        std::all_of(m_screenshotCaptures.begin(),
+                    m_screenshotCaptures.end(),
+                    [](const PendingScreenshotCapture& capture) { return capture.active; }))
+        return false;
     // A resize is reported by the next request rather than leaving a session waiting forever.
     return m_width != m_mp4OutputWidth || m_height != m_mp4OutputHeight ||
-        m_mp4Encoder.CanAcceptFrame(m_mp4CaptureFrameBytes);
+           m_mp4Encoder.CanAcceptFrame(m_mp4CaptureFrameBytes);
 }
 
 bool RtPbrSurveyEngine::PollFinalizeMp4(std::string& error, bool& completed,
@@ -4998,9 +5042,10 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
 
     UINT64 submittedFenceValue = MoveToNextFrame();
-    if (m_pendingScreenshotCapture.has_value() && m_pendingScreenshotCapture->fenceValue == 0)
+    for (PendingScreenshotCapture& capture : m_screenshotCaptures)
     {
-        m_pendingScreenshotCapture->fenceValue = submittedFenceValue;
+        if (capture.active && capture.fenceValue == 0)
+            capture.fenceValue = submittedFenceValue;
     }
 
     // submittedFenceValue marks completion of the command list submitted for this frame.
@@ -5224,12 +5269,23 @@ void RtPbrSurveyEngine::Shutdown()
     ProcessCompletedScreenshot();
     m_mp4Encoder.Shutdown();
     ProcessCompletedScreenshot();
-    if (m_pendingScreenshotCapture.has_value())
+    for (PendingScreenshotCapture& capture : m_screenshotCaptures)
     {
-        const RtPbrSurvey::ScreenshotRequest request = std::move(m_pendingScreenshotCapture->request);
-        m_pendingScreenshotCapture.reset();
-        m_screenshotRequestQueue.CompletePending(
-            {request.path, false, "Renderer shut down before screenshot submission."});
+        if (capture.active)
+        {
+            m_mp4Encoder.CancelReservation(capture.request.requestId);
+            RtPbrSurvey::ScreenshotResult result = {capture.request.path,
+                                                    false,
+                                                    "Renderer shut down before screenshot submission.",
+                                                    0,
+                                                    0,
+                                                    capture.request.requestId};
+            if (capture.detached)
+                m_screenshotRequestQueue.CompleteDetached(std::move(result));
+            else
+                m_screenshotRequestQueue.CompletePending(std::move(result));
+        }
+        capture = {};
     }
     m_screenshotRequestQueue.FailQueued("Renderer shut down before screenshot capture.");
     Engine::ShutdownStreamlineAdapter();
@@ -6436,12 +6492,25 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 
-    if (m_pendingScreenshotCapture.has_value())
+    const RtPbrSurvey::ScreenshotRequest* next = m_screenshotRequestQueue.PeekNextCapture();
+    if (!next)
+        return;
+    const bool mp4 = next->outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4;
+    if (!mp4 && std::any_of(m_screenshotCaptures.begin(),
+                            m_screenshotCaptures.end(),
+                            [](const PendingScreenshotCapture& capture) { return capture.active; }))
     {
         return;
     }
 
-    PendingScreenshotCapture capture;
+    const auto slot = std::find_if(m_screenshotCaptures.begin(),
+                                   m_screenshotCaptures.end(),
+                                   [](const PendingScreenshotCapture& capture) { return !capture.active; });
+    if (slot == m_screenshotCaptures.end())
+        return;
+    PendingScreenshotCapture& capture = *slot;
+    if (!mp4)
+        capture.readback.Reset();
     if (!m_screenshotRequestQueue.BeginNextCapture(capture.request))
     {
         return;
@@ -6449,6 +6518,9 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
 
     try
     {
+        // Allocate asynchronous request ownership before recording any GPU commands.
+        if (mp4)
+            capture.detached = m_screenshotRequestQueue.DetachPending();
         ID3D12Resource* source = nullptr;
         bool hdr10 = false;
         float paperWhiteNits = 300.0f;
@@ -6542,6 +6614,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
         {
             throw std::runtime_error("MP4 capture output size changed during recording.");
         }
+        const std::uint64_t previousAllocations = capture.readback.allocationCount;
         Engine::RecordScreenshotCapture(m_commandList.Get(),
                                         m_graphicsDevice.Device(),
                                         source,
@@ -6549,6 +6622,12 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                                         paperWhiteNits,
                                         capture.request.region,
                                         capture.readback);
+        if (mp4)
+        {
+            m_mp4ReadbackAllocations += capture.readback.allocationCount - previousAllocations;
+            if (capture.readback.allocationCount == previousAllocations)
+                ++m_mp4ReadbackReuses;
+        }
         if (!diagnosticSource.empty())
         {
             TransitionResource({diagnosticSource, diagnosticRestoreState});
@@ -6581,11 +6660,21 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             };
             capture.readback.diagnosticMetadata = metadata.dump();
         }
-        m_pendingScreenshotCapture = std::move(capture);
+        capture.active = true;
+        capture.sequence = ++m_screenshotCaptureSequence;
+        capture.fenceValue = 0;
     }
     catch (const std::exception& exception)
     {
-        m_screenshotRequestQueue.CompletePending({capture.request.path, false, exception.what()});
+        if (mp4)
+            m_mp4Encoder.CancelReservation(capture.request.requestId);
+        RtPbrSurvey::ScreenshotResult result = {
+            capture.request.path, false, exception.what(), 0, 0, capture.request.requestId};
+        if (capture.detached)
+            m_screenshotRequestQueue.CompleteDetached(std::move(result));
+        else
+            m_screenshotRequestQueue.CompletePending(std::move(result));
+        capture = {};
     }
 }
 
@@ -6598,7 +6687,6 @@ void RtPbrSurveyEngine::RecordDebugDumpPass()
                                    m_debugDumpCapture);
 
     m_debugViewSettings.hdrDumpPending = true;
-
 }
 
 void RtPbrSurveyEngine::RecordReflectionHdrDiagnosticPass()
@@ -7133,83 +7221,105 @@ void RtPbrSurveyEngine::ProcessCompletedScreenshot()
     {
         m_screenshotRequestQueue.CompleteDetached(std::move(*result));
     }
-    if (!m_pendingScreenshotCapture.has_value() || m_pendingScreenshotCapture->fenceValue == 0 ||
-        m_graphicsDevice.CompletedFenceValue() < m_pendingScreenshotCapture->fenceValue)
+    for (;;)
     {
-        return;
-    }
-
-    PendingScreenshotCapture capture = std::move(*m_pendingScreenshotCapture);
-    m_pendingScreenshotCapture.reset();
-
-    RtPbrSurvey::ScreenshotResult result;
-    result.path = capture.request.path;
-    result.width = capture.readback.width;
-    result.height = capture.readback.height;
-    try
-    {
-        if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Exr)
+        // Retire in submission order, even if later slots have already completed.
+        PendingScreenshotCapture* oldest = nullptr;
+        for (PendingScreenshotCapture& candidate : m_screenshotCaptures)
         {
-            result.succeeded = Engine::SaveExrScreenshotReadback(capture.readback, result.path, result.error);
+            if (candidate.active && (!oldest || candidate.sequence < oldest->sequence))
+                oldest = &candidate;
         }
-        else if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Gif ||
-                 capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+        if (!oldest || oldest->fenceValue == 0 || m_graphicsDevice.CompletedFenceValue() < oldest->fenceValue)
+            return;
+
+        PendingScreenshotCapture& capture = *oldest;
+
+        RtPbrSurvey::ScreenshotResult result;
+        result.path = capture.request.path;
+        result.width = capture.readback.width;
+        result.height = capture.readback.height;
+        try
         {
-            const D3D12_RANGE readRange = {static_cast<SIZE_T>(capture.readback.layout.Offset),
-                                           static_cast<SIZE_T>(capture.readback.resource->GetDesc().Width)};
-            std::uint8_t* mappedData = nullptr;
-            ThrowIfFailed(capture.readback.resource->Map(0, &readRange, reinterpret_cast<void**>(&mappedData)));
-            std::vector<std::uint8_t> rgba8;
-            try
+            if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Exr)
             {
-                rgba8 = Engine::ConvertScreenshotToRgba8(
-                    mappedData + capture.readback.layout.Offset,
-                    capture.readback.width,
-                    capture.readback.height,
-                    capture.readback.layout.Footprint.RowPitch,
-                    capture.readback.format,
-                    capture.readback.hdr10,
-                    capture.readback.paperWhiteNits);
+                result.succeeded = Engine::SaveExrScreenshotReadback(capture.readback, result.path, result.error);
             }
-            catch (...)
+            else if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Gif ||
+                     capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
             {
-                capture.readback.resource->Unmap(0, nullptr);
-                throw;
-            }
-            capture.readback.resource->Unmap(0, nullptr);
-            if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
-            {
-                Engine::Mp4Frame frame = {capture.request, result.width, result.height, std::move(rgba8)};
-                if (m_mp4Encoder.Enqueue(std::move(frame), result.error))
+                const D3D12_RANGE readRange = {static_cast<SIZE_T>(capture.readback.layout.Offset),
+                                               static_cast<SIZE_T>(capture.readback.resource->GetDesc().Width)};
+                std::uint8_t* mappedData = nullptr;
+                ThrowIfFailed(capture.readback.resource->Map(0, &readRange, reinterpret_cast<void**>(&mappedData)));
+                std::vector<std::uint8_t> rgba8;
+                try
                 {
-                    // GPU copy is done; its request remains owned until the worker returns a result.
-                    m_screenshotRequestQueue.DetachPending();
-                    return;
+                    rgba8 = Engine::ConvertScreenshotToRgba8(mappedData + capture.readback.layout.Offset,
+                                                             capture.readback.width,
+                                                             capture.readback.height,
+                                                             capture.readback.layout.Footprint.RowPitch,
+                                                             capture.readback.format,
+                                                             capture.readback.hdr10,
+                                                             capture.readback.paperWhiteNits);
+                }
+                catch (...)
+                {
+                    capture.readback.resource->Unmap(0, nullptr);
+                    throw;
+                }
+                capture.readback.resource->Unmap(0, nullptr);
+                if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+                {
+                    Engine::Mp4Frame frame = {capture.request, result.width, result.height, std::move(rgba8)};
+                    if (m_mp4Encoder.Enqueue(std::move(frame), result.error))
+                    {
+                        // Reuse only the GPU slot; the worker retains request ownership and reserved capacity.
+                        capture.active = false;
+                        capture.request = {};
+                        capture.fenceValue = 0;
+                        capture.detached = false;
+                        continue;
+                    }
+                }
+                else
+                {
+                    result.succeeded = m_animatedGifEncoder.AppendFrame(result.path,
+                                                                        result.width,
+                                                                        result.height,
+                                                                        rgba8.data(),
+                                                                        capture.request.frameDelayCentiseconds,
+                                                                        capture.request.gifRepeatCount,
+                                                                        capture.request.gifDisposal,
+                                                                        result.error);
                 }
             }
             else
             {
-                result.succeeded = m_animatedGifEncoder.AppendFrame(result.path,
-                                                                 result.width,
-                                                                 result.height,
-                                                                 rgba8.data(),
-                                                                 capture.request.frameDelayCentiseconds,
-                                                                 capture.request.gifRepeatCount,
-                                                                 capture.request.gifDisposal,
-                                                                 result.error);
+                result.succeeded = Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
             }
+        }
+        catch (const std::exception& exception)
+        {
+            result.succeeded = false;
+            result.error = exception.what();
+        }
+        if (capture.detached)
+        {
+            result.requestId = capture.request.requestId;
+            m_mp4Encoder.CancelReservation(capture.request.requestId);
+            m_screenshotRequestQueue.CompleteDetached(std::move(result));
         }
         else
         {
-            result.succeeded = Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
+            m_screenshotRequestQueue.CompletePending(std::move(result));
+            capture.readback.Reset();
         }
+        capture.active = false;
+        capture.request = {};
+        capture.fenceValue = 0;
+        capture.detached = false;
     }
-    catch (const std::exception& exception)
-    {
-        result.succeeded = false;
-        result.error = exception.what();
-    }
-    m_screenshotRequestQueue.CompletePending(std::move(result));
 }
 
 void RtPbrSurveyEngine::EndFrame()

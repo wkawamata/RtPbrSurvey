@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "Camera/DebugCameraController.h"
+#include "Camera/CaptureOrbitTrack.h"
 #include "Scene/CameraView.h"
 
 #include <cmath>
@@ -144,6 +145,63 @@ bool TestChangingPrimaryButtonResetsDrag()
     return NearlyEqual(controller.ObjectViewerYaw(), 0.2f);
 }
 
+bool TestCaptureOrbitTrack()
+{
+    Engine::CameraState savedCamera;
+    savedCamera.pos = {1.0f, 0.0f, -5.0f};
+    savedCamera.gazePoint = {0.0f, 0.0f, 0.0f};
+    RtPbrSurvey::DebugCameraController savedController;
+    savedController.SetCameraState(&savedCamera);
+    savedController.InitObjectViewerFromCamera(savedCamera.gazePoint);
+    if (!NearlyEqual(savedCamera.pos, {1.0f, 0.0f, -5.0f}))
+        return false;
+    savedController.UpdateObjectViewerCamera();
+    if (!NearlyEqual(savedCamera.pos, {1.0f, 0.0f, -5.0f}))
+        return false;
+    const RtPbrSurvey::CaptureOrbitPose baseline = {0, 0.3f, 0.4f, 5.0f, {2.0f, -1.0f, 3.0f}};
+    const RtPbrSurvey::CaptureOrbitTrack track(baseline, 90, 60);
+    const auto first = track.EvaluateFrame(0);
+    const auto second = track.EvaluateFrame(120);
+    if (!NearlyEqual(first.yaw, baseline.yaw) || second.timeSeconds != 2 ||
+        !NearlyEqual(std::sin(second.yaw), std::sin(baseline.yaw + DirectX::XM_PI)) ||
+        !NearlyEqual(second.pitch, baseline.pitch) || !NearlyEqual(second.distance, baseline.distance) ||
+        !NearlyEqual(second.pivot, baseline.pivot))
+        return false;
+    const auto reference = track.EvaluateFrame(73);
+    for (unsigned int poll = 0; poll < 1000; ++poll)
+    {
+        track.EvaluateFrame(1800 + poll);
+        const auto repeated = track.EvaluateFrame(73);
+        if (repeated.timeSeconds != reference.timeSeconds || repeated.yaw != reference.yaw)
+            return false;
+    }
+    Engine::CameraState camera;
+    auto controller = MakeController(camera);
+    controller.SetObjectViewerState(second.yaw, second.pitch, second.distance, second.pivot);
+    controller.UpdateObjectViewerCamera();
+    const DirectX::XMFLOAT3 expected = {
+        baseline.pivot.x - baseline.distance * std::cos(baseline.pitch) * std::sin(baseline.yaw),
+        baseline.pivot.y + baseline.distance * std::sin(baseline.pitch),
+        baseline.pivot.z - baseline.distance * std::cos(baseline.pitch) * std::cos(baseline.yaw)};
+    if (!NearlyEqual(camera.pos, expected) || !NearlyEqual(camera.gazePoint, baseline.pivot))
+        return false;
+    const RtPbrSurvey::CaptureOrbitTrack reverse(baseline, -90, 60);
+    if (!NearlyEqual(reverse.EvaluateFrame(60).yaw, baseline.yaw - DirectX::XM_PIDIV2))
+        return false;
+    const RtPbrSurvey::CaptureOrbitTrack stationary(baseline, 0, 60);
+    if (stationary.EvaluateFrame(1800).yaw != first.yaw)
+        return false;
+    try
+    {
+        RtPbrSurvey::CaptureOrbitTrack invalid(baseline, 90, 0);
+        return false;
+    }
+    catch (const std::invalid_argument&)
+    {
+    }
+    return true;
+}
+
 } // namespace
 
 int main()
@@ -188,7 +246,8 @@ int main()
 
     if (!TestRegularHorizontalAndVerticalOrbit() || !TestNearLimitDragDoesNotCrossPole() ||
         !TestArcballSwitchPreservesEightyEightDegreeCamera() || !TestRightPrimaryDragPreservesArcballOrbit() ||
-        !TestRightPrimaryDragIgnoresSelectionAndStopsOnRelease() || !TestChangingPrimaryButtonResetsDrag())
+        !TestRightPrimaryDragIgnoresSelectionAndStopsOnRelease() || !TestChangingPrimaryButtonResetsDrag() ||
+        !TestCaptureOrbitTrack())
     {
         std::cerr << "Debug camera controller tests failed.\n";
         return 1;

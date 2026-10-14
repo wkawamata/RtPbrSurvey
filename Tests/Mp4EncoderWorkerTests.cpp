@@ -291,6 +291,67 @@ bool TestSessionStateAndEndTime()
         Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Failed, "finalize failure reaches Failed");
     return passed;
 }
+bool TestGpuCapacityReservations()
+{
+    const auto state = std::make_shared<WriterState>();
+    Engine::Mp4EncoderWorker worker([state]() { return std::make_unique<TestWriter>(state); }, 2, 32);
+    std::string error;
+    bool passed = Check(worker.BeginSession(error), "reservation session starts");
+    passed &= Check(worker.ReserveFrame(1, 16, error) && worker.ReserveFrame(2, 16, error),
+                    "GPU copies reserve downstream count and bytes before pixels exist");
+    passed &= Check(!worker.CanAcceptFrame(16) && !worker.ReserveFrame(3, 16, error) &&
+                        worker.GetStatus().outstandingBytes == 32,
+                    "GPU reservations backpressure admission");
+    worker.CancelReservation(2);
+    worker.CancelReservation(2);
+    passed &= Check(worker.GetStatus().outstandingFrames == 1 && worker.GetStatus().outstandingBytes == 16 &&
+                        !worker.ReserveFrame(1, 16, error),
+                    "cancellation is idempotent and duplicate reservation fails");
+    Engine::Mp4Frame mismatch = Frame(1);
+    mismatch.width = 1;
+    mismatch.pixels.resize(8);
+    passed &= Check(!worker.Enqueue(std::move(mismatch), error) && worker.GetStatus().outstandingBytes == 16,
+                    "a size mismatch retains the reservation for explicit rollback");
+    worker.RequestFinalize(555);
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    {
+        std::lock_guard<std::mutex> lock(state->mutex);
+        passed &= Check(state->finalizeEntries == 0, "finalization cannot overtake a reserved GPU frame");
+    }
+    passed &= Check(worker.Enqueue(Frame(1), error), "reserved GPU frame can arrive while draining");
+    passed &= Check(state->Wait([&]() { return state->appendEntries == 1; }) &&
+                        worker.GetStatus().outstandingFrames == 1 && worker.GetStatus().outstandingBytes == 16,
+                    "enqueue transfers rather than doubles reserved capacity");
+    state->Release();
+    passed &= Check(WaitState(worker, Engine::Mp4WorkerState::Completed), "reserved frame drains then finalizes");
+    const auto result = worker.ConsumeResult();
+    passed &= Check(result && result->succeeded && result->requestId == 1, "reserved frame has one completion");
+    passed &= Check(worker.BeginSession(error) && worker.ReserveFrame(3, 16, error), "abort reservation starts");
+    worker.RequestAbort();
+    passed &= Check(WaitState(worker, Engine::Mp4WorkerState::Aborted) && worker.GetStatus().outstandingBytes == 0,
+                    "abort releases GPU reservations without inventing encoder results");
+    passed &= Check(!worker.ConsumeResult(), "GPU reservation failures remain owned by the renderer");
+    {
+        std::lock_guard<std::mutex> lock(state->mutex);
+        state->holdAppend = true;
+        state->failAppend = true;
+    }
+    passed &= Check(worker.BeginSession(error) && worker.Enqueue(Frame(5), error), "reserved failure starts");
+    passed &= Check(state->Wait([&]() { return state->appendEntries == 2; }) && worker.ReserveFrame(6, 16, error),
+                    "failure has a GPU frame still reserved");
+    state->Release();
+    passed &= Check(WaitState(worker, Engine::Mp4WorkerState::Failed) && worker.GetStatus().outstandingBytes == 0,
+                    "append failure also releases unfulfilled GPU reservations");
+    worker.CancelReservation(6);
+    const auto failed = worker.ConsumeResult();
+    passed &= Check(failed && !failed->succeeded && failed->requestId == 5 && !worker.ConsumeResult(),
+                    "only encoder-owned requests produce encoder failure results");
+    passed &= Check(worker.BeginSession(error) && worker.ReserveFrame(4, 16, error), "shutdown reservation starts");
+    worker.Shutdown();
+    passed &= Check(worker.GetStatus().outstandingFrames == 0 && worker.GetStatus().outstandingBytes == 0,
+                    "shutdown releases all reservations");
+    return passed;
+}
 bool TestConcurrentSessionRequests()
 {
     RtPbrSurvey::CaptureSessionConfig config;
@@ -358,7 +419,7 @@ bool TestConcurrentSessionRequests()
 int main()
 {
     return TestOrderingAndFinalization() && TestFailuresAndAbort() && TestShutdownWithWork() && TestByteCapacity() &&
-                   TestSessionStateAndEndTime() && TestConcurrentSessionRequests()
+                   TestSessionStateAndEndTime() && TestConcurrentSessionRequests() && TestGpuCapacityReservations()
                ? 0
                : 1;
 }

@@ -67,6 +67,9 @@ the tested working-tree binaries. Artifacts remain uncommitted under `bin`.
 
 ## Remaining Work
 
+Readback allocation and reservation work is continued in
+[the reusable readback pool step](mp4-capture-readback-pool.md).
+
 - Replace per-capture readback allocation with bounded reusable GPU slots and
   explicit downstream memory reservations.
 - Separate live camera input/preview from deterministic capture simulation and

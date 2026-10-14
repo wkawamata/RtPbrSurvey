@@ -103,23 +103,88 @@ bool Mp4EncoderWorker::Enqueue(Mp4Frame&& frame, std::string& error)
         error = "MP4 worker requires an owned, tightly packed RGBA8 frame.";
         return false;
     }
-    if (m_shutdown || m_abortRequested || m_status.state != Mp4WorkerState::Recording)
+    const auto reservation =
+        std::find_if(m_reservations.begin(),
+                     m_reservations.end(),
+                     [&frame](const Reservation& value) { return value.requestId == frame.request.requestId; });
+    const bool reserved = reservation != m_reservations.end();
+    if (reserved && reservation->bytes != required)
+    {
+        error = "MP4 frame does not match its capacity reservation.";
+        return false;
+    }
+    if (m_shutdown || m_abortRequested ||
+        (m_status.state != Mp4WorkerState::Recording && !(reserved && m_status.state == Mp4WorkerState::Finalizing)))
     {
         error = "MP4 encoder is not accepting frames.";
         return false;
     }
-    if (m_status.outstandingFrames + m_results.size() >= m_maxFrames || frame.pixels.size() > m_maxBytes ||
-        m_status.outstandingBytes > m_maxBytes - frame.pixels.size())
+    if (!reserved && (m_status.outstandingFrames + m_results.size() >= m_maxFrames ||
+                      frame.pixels.size() > m_maxBytes || m_status.outstandingBytes > m_maxBytes - frame.pixels.size()))
     {
         error = "MP4 encoder queue capacity exceeded.";
         return false;
     }
     const std::size_t bytes = frame.pixels.size();
     m_frames.push_back(std::move(frame));
-    ++m_status.outstandingFrames;
-    m_status.outstandingBytes += bytes;
+    if (reserved)
+        m_reservations.erase(reservation);
+    else
+    {
+        ++m_status.outstandingFrames;
+        m_status.outstandingBytes += bytes;
+    }
     m_wake.notify_one();
     return true;
+}
+
+bool Mp4EncoderWorker::ReserveFrame(std::uint64_t requestId, std::size_t bytes, std::string& error)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    error.clear();
+    if (m_shutdown || m_abortRequested || m_status.state != Mp4WorkerState::Recording ||
+        m_status.outstandingFrames + m_results.size() >= m_maxFrames || !CanFitFrame(bytes) ||
+        m_status.outstandingBytes > m_maxBytes - bytes)
+    {
+        error = "MP4 encoder has no capacity for a GPU capture reservation.";
+        return false;
+    }
+    if (std::any_of(m_reservations.begin(),
+                    m_reservations.end(),
+                    [requestId](const Reservation& value) { return value.requestId == requestId; }))
+    {
+        error = "MP4 capture request is already reserved.";
+        return false;
+    }
+    m_reservations.push_back({requestId, bytes});
+    ++m_status.outstandingFrames;
+    m_status.outstandingBytes += bytes;
+    return true;
+}
+
+void Mp4EncoderWorker::CancelReservation(std::uint64_t requestId)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const auto reservation =
+        std::find_if(m_reservations.begin(),
+                     m_reservations.end(),
+                     [requestId](const Reservation& value) { return value.requestId == requestId; });
+    if (reservation == m_reservations.end())
+        return;
+    --m_status.outstandingFrames;
+    m_status.outstandingBytes -= reservation->bytes;
+    m_reservations.erase(reservation);
+    m_wake.notify_one();
+}
+
+void Mp4EncoderWorker::ReleaseReservations()
+{
+    for (const Reservation& reservation : m_reservations)
+    {
+        --m_status.outstandingFrames;
+        m_status.outstandingBytes -= reservation.bytes;
+    }
+    m_reservations.clear();
 }
 
 std::optional<RtPbrSurvey::ScreenshotResult> Mp4EncoderWorker::ConsumeResult()
@@ -192,11 +257,16 @@ void Mp4EncoderWorker::Run()
         std::optional<std::uint64_t> endTime;
         {
             std::unique_lock<std::mutex> lock(m_mutex);
-            m_wake.wait(
-                lock, [this]() { return m_shutdown || m_abortRequested || !m_frames.empty() || m_finalizeRequested; });
+            m_wake.wait(lock,
+                        [this]()
+                        {
+                            return m_shutdown || m_abortRequested || !m_frames.empty() ||
+                                   (m_finalizeRequested && m_reservations.empty());
+                        });
             if (m_shutdown || m_abortRequested)
             {
                 FailQueuedFrames("MP4 encoding aborted.");
+                ReleaseReservations();
                 m_finalizeRequested = false;
                 lock.unlock();
                 if (writer)
@@ -272,6 +342,7 @@ void Mp4EncoderWorker::Run()
             if (!succeeded)
             {
                 FailQueuedFrames(error);
+                ReleaseReservations();
                 m_finalizeRequested = false;
                 m_status.state = Mp4WorkerState::Failed;
             }

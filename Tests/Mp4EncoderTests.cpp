@@ -26,7 +26,8 @@ namespace
     bool InspectVideo(const std::filesystem::path& path, unsigned int expectedWidth, unsigned int expectedHeight,
                       unsigned int expectedFrames, unsigned int fps, bool checkColors,
                       const std::vector<LONGLONG>& expectedTimes = {},
-                      std::optional<LONGLONG> expectedEndTime = std::nullopt, bool checkTimeline = true)
+                      std::optional<LONGLONG> expectedEndTime = std::nullopt, bool checkTimeline = true,
+                      bool checkMotion = false)
     {
         Microsoft::WRL::ComPtr<IMFSourceReader> reader;
         HRESULT result = MFCreateSourceReaderFromURL(path.c_str(), nullptr, &reader);
@@ -51,6 +52,8 @@ namespace
         unsigned int count = 0;
         LONGLONG lastTime = -1;
         LONGLONG endTime = 0;
+        std::vector<BYTE> firstLuma;
+        std::uint64_t motionDifference = 0;
         for (unsigned int reads = 0; reads < (expectedFrames ? expectedFrames + 16 : 10000); ++reads)
         {
             DWORD flags = 0;
@@ -73,6 +76,26 @@ namespace
                 passed &= Check(SUCCEEDED(sample->GetSampleDuration(&duration)) && duration > 0,
                                 "decoded samples retain frame duration");
                 endTime = time + duration;
+                if (checkMotion && (count == 0 || count + 1 == expectedFrames))
+                {
+                    Microsoft::WRL::ComPtr<IMFMediaBuffer> buffer;
+                    result = sample->ConvertToContiguousBuffer(&buffer);
+                    BYTE* pixels = nullptr;
+                    DWORD length = 0;
+                    if (SUCCEEDED(result)) result = buffer->Lock(&pixels, nullptr, &length);
+                    if (!Check(SUCCEEDED(result), "motion-check pixels are accessible")) return false;
+                    const std::size_t lumaBytes = static_cast<std::size_t>(width) * height;
+                    passed &= Check(length >= lumaBytes, "decoded motion-check luma is complete");
+                    if (length >= lumaBytes)
+                    {
+                        if (count == 0)
+                            firstLuma.assign(pixels, pixels + lumaBytes);
+                        else
+                            for (std::size_t pixel = 0; pixel < lumaBytes; ++pixel)
+                                motionDifference += static_cast<unsigned int>(std::abs(int(pixels[pixel]) - int(firstLuma[pixel])));
+                    }
+                    buffer->Unlock();
+                }
                 if (checkColors && count == 0)
                 {
                     Microsoft::WRL::ComPtr<IMFMediaBuffer> buffer;
@@ -94,6 +117,9 @@ namespace
             if (flags & MF_SOURCE_READERF_ENDOFSTREAM) break;
         }
         passed &= Check(expectedFrames ? count == expectedFrames : count > 0, "all encoded frames decode, with no extras");
+        if (checkMotion)
+            passed &= Check(motionDifference >= static_cast<std::uint64_t>(width) * height,
+                            "first and last decoded frames differ by at least one mean luma level");
         const LONGLONG expectedEnd = expectedEndTime.value_or(static_cast<LONGLONG>(expectedFrames * 10000000ull / fps));
         if (checkTimeline)
         {
@@ -287,6 +313,11 @@ int main(int argc, char** argv)
     {
         passed = InspectVideo(argv[2], std::stoul(argv[3]), std::stoul(argv[4]), 0, std::stoul(argv[5]), false, {},
                               static_cast<LONGLONG>(std::llround(std::stod(argv[6]) * 10000000.0)));
+    }
+    else if (argc == 7 && std::string(argv[1]) == "--motion")
+    {
+        passed = InspectVideo(argv[2], std::stoul(argv[3]), std::stoul(argv[4]), std::stoul(argv[5]),
+                              std::stoul(argv[6]), false, {}, std::nullopt, true, true);
     }
     else if (argc == 6 && std::string(argv[1]) == "--decode-only")
     {

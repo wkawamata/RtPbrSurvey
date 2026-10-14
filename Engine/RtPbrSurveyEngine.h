@@ -476,6 +476,7 @@ public:
     void AbortAnimatedGif();
     bool BeginMp4Session(std::string& error, const std::optional<RtPbrSurvey::ScreenshotRegion>& region = std::nullopt);
     bool CanAcceptMp4Capture() const;
+    Engine::ScreenshotReadbackPoolStatus GetMp4ReadbackStatus() const;
     Engine::Mp4WorkerStatus GetMp4WorkerStatus() const { return m_mp4Encoder.GetStatus(); }
     bool PollFinalizeMp4(std::string& error, bool& completed,
                          std::optional<std::uint64_t> endTimestamp100ns = std::nullopt);
@@ -1183,9 +1184,15 @@ private:
         RtPbrSurvey::ScreenshotRequest request;
         Engine::ScreenshotReadback readback;
         UINT64 fenceValue = 0;
+        UINT64 sequence = 0;
+        bool active = false;
+        bool detached = false;
     };
     Engine::ScreenshotRequestQueue m_screenshotRequestQueue;
-    std::optional<PendingScreenshotCapture> m_pendingScreenshotCapture;
+    std::array<PendingScreenshotCapture, 2> m_screenshotCaptures;
+    UINT64 m_screenshotCaptureSequence = 0;
+    UINT64 m_mp4ReadbackAllocations = 0;
+    UINT64 m_mp4ReadbackReuses = 0;
     Engine::AnimatedGifEncoder m_animatedGifEncoder;
     Engine::Mp4EncoderWorker m_mp4Encoder;
     std::size_t m_mp4CaptureFrameBytes = 0;

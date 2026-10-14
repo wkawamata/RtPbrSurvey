@@ -77,6 +77,7 @@ namespace RtPbrSurvey
 
     struct CaptureSessionTiming
     {
+        // Warmup cadence: advance only for qualifying scene updates, not presentation-only polls.
         std::uint64_t renderFrameIndex = 0;
         double realTimeSeconds = 0.0;
         double simulationTimeSeconds = 0.0;
@@ -89,6 +90,10 @@ namespace RtPbrSurvey
         double lastAppendMilliseconds = 0.0;
         double maxAppendMilliseconds = 0.0;
         double finalizeMilliseconds = 0.0;
+        std::size_t gpuPendingFrames = 0;
+        std::size_t gpuReadbackBytes = 0;
+        std::uint64_t gpuReadbackAllocations = 0;
+        std::uint64_t gpuReadbackReuses = 0;
     };
 
     struct CaptureSessionStatus

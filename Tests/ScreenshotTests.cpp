@@ -296,14 +296,86 @@ bool TestScreenshotRegionValidation()
                     "capture region cannot exceed the source bounds");
     return passed;
 }
+
+bool TestReadbackReuseAfterFence()
+{
+    using Microsoft::WRL::ComPtr;
+    ComPtr<IDXGIFactory4> factory;
+    ComPtr<IDXGIAdapter> warp;
+    ComPtr<ID3D12Device> device;
+    if (!Check(SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&factory))) &&
+                   SUCCEEDED(factory->EnumWarpAdapter(IID_PPV_ARGS(&warp))) &&
+                   SUCCEEDED(D3D12CreateDevice(warp.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device))),
+               "WARP device is available for readback reuse validation"))
+        return false;
+    ComPtr<ID3D12CommandQueue> queue;
+    ComPtr<ID3D12CommandAllocator> allocator;
+    ComPtr<ID3D12GraphicsCommandList> commands;
+    ComPtr<ID3D12Fence> fence;
+    D3D12_COMMAND_QUEUE_DESC queueDesc = {};
+    if (!Check(
+            SUCCEEDED(device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&queue))) &&
+                SUCCEEDED(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&allocator))) &&
+                SUCCEEDED(device->CreateCommandList(
+                    0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator.Get(), nullptr, IID_PPV_ARGS(&commands))) &&
+                SUCCEEDED(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence))),
+            "readback test queue is created"))
+        return false;
+    ComPtr<ID3D12Resource> source;
+    const CD3DX12_HEAP_PROPERTIES heap(D3D12_HEAP_TYPE_DEFAULT);
+    const CD3DX12_RESOURCE_DESC texture = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R10G10B10A2_UNORM, 64, 4);
+    if (!Check(SUCCEEDED(device->CreateCommittedResource(&heap,
+                                                         D3D12_HEAP_FLAG_NONE,
+                                                         &texture,
+                                                         D3D12_RESOURCE_STATE_COPY_SOURCE,
+                                                         nullptr,
+                                                         IID_PPV_ARGS(&source))),
+               "readback test source is created"))
+        return false;
+    Engine::ScreenshotReadback readback;
+    ComPtr<ID3D12Resource> firstAllocation;
+    HANDLE event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    if (!Check(event != nullptr, "readback fence event is created"))
+        return false;
+    bool passed = true;
+    for (UINT64 frame = 1; frame <= 4; ++frame)
+    {
+        if (frame > 1)
+        {
+            passed &= Check(SUCCEEDED(allocator->Reset()) && SUCCEEDED(commands->Reset(allocator.Get(), nullptr)),
+                            "command resources reset only after fence completion");
+        }
+        const RtPbrSurvey::ScreenshotRegion region =
+            frame < 3 ? RtPbrSurvey::ScreenshotRegion{0, 0, 16, 2} : RtPbrSurvey::ScreenshotRegion{0, 0, 64, 4};
+        Engine::RecordScreenshotCapture(commands.Get(), device.Get(), source.Get(), false, 300, region, readback);
+        if (frame == 1 || frame == 3)
+        {
+            if (frame == 3)
+                passed &= Check(readback.resource.Get() != firstAllocation.Get(), "a larger footprint reallocates");
+            firstAllocation = readback.resource;
+        }
+        else
+            passed &= Check(readback.resource.Get() == firstAllocation.Get(), "same-size frames reuse the readback");
+        passed &= Check(SUCCEEDED(commands->Close()), "copy list closes");
+        ID3D12CommandList* lists[] = {commands.Get()};
+        queue->ExecuteCommandLists(1, lists);
+        passed &= Check(SUCCEEDED(queue->Signal(fence.Get(), frame)) &&
+                            SUCCEEDED(fence->SetEventOnCompletion(frame, event)) &&
+                            WaitForSingleObject(event, 5000) == WAIT_OBJECT_0,
+                        "copy fence completes before slot reuse");
+        if (!passed)
+            break;
+    }
+    CloseHandle(event);
+    return passed;
+}
 } // namespace
 
 int main()
 {
     if (TestSdrConversion() && TestHdr10Conversion() && TestPfmEncoding() && TestPngEncoding() &&
-        TestPngSaveFailureForUnusableOutputPath() && TestRgba16fConversion() &&
-        TestExrEncoding() &&
-        TestScreenshotRegionValidation())
+        TestPngSaveFailureForUnusableOutputPath() && TestRgba16fConversion() && TestExrEncoding() &&
+        TestScreenshotRegionValidation() && TestReadbackReuseAfterFence())
     {
         std::cout << "Screenshot tests passed.\n";
         return 0;
