@@ -27,7 +27,8 @@ namespace
                       unsigned int expectedFrames, unsigned int fps, bool checkColors,
                       const std::vector<LONGLONG>& expectedTimes = {},
                       std::optional<LONGLONG> expectedEndTime = std::nullopt, bool checkTimeline = true,
-                      bool checkMotion = false)
+                      bool checkMotion = false,
+                      std::optional<LONGLONG> expectedEndTimeTolerance = std::nullopt)
     {
         Microsoft::WRL::ComPtr<IMFSourceReader> reader;
         HRESULT result = MFCreateSourceReaderFromURL(path.c_str(), nullptr, &reader);
@@ -123,7 +124,8 @@ namespace
         const LONGLONG expectedEnd = expectedEndTime.value_or(static_cast<LONGLONG>(expectedFrames * 10000000ull / fps));
         if (checkTimeline)
         {
-            passed &= Check(std::abs(endTime - expectedEnd) <= (expectedFrames ? 1000 : 500000),
+            passed &= Check(std::abs(endTime - expectedEnd) <= expectedEndTimeTolerance.value_or(
+                                expectedFrames ? 1000 : 500000),
                             "video duration follows the capture timeline");
         }
         std::cout << "H.264 " << width << 'x' << height << ", " << count << " frames";
@@ -313,6 +315,21 @@ int main(int argc, char** argv)
     {
         passed = InspectVideo(argv[2], std::stoul(argv[3]), std::stoul(argv[4]), 0, std::stoul(argv[5]), false, {},
                               static_cast<LONGLONG>(std::llround(std::stod(argv[6]) * 10000000.0)));
+    }
+    else if (argc == 8 && std::string(argv[1]) == "--timeline")
+    {
+        std::ifstream timeline(argv[7]);
+        std::vector<LONGLONG> expectedTimes;
+        double seconds = 0.0;
+        while (timeline >> seconds)
+        {
+            expectedTimes.push_back(static_cast<LONGLONG>(std::llround(seconds * 10000000.0)));
+        }
+        const LONGLONG duration = static_cast<LONGLONG>(std::llround(std::stod(argv[6]) * 10000000.0));
+        passed = timeline.eof() && !expectedTimes.empty() &&
+            InspectVideo(argv[2], std::stoul(argv[3]), std::stoul(argv[4]),
+                         static_cast<unsigned int>(expectedTimes.size()), std::stoul(argv[5]), false,
+                         expectedTimes, duration, true, true, 1000000);
     }
     else if (argc == 7 && std::string(argv[1]) == "--motion")
     {

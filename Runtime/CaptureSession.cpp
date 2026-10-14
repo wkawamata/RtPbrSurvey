@@ -278,6 +278,25 @@ namespace RtPbrSurvey
         }
         if (IsRecordingLimitReached(clockSeconds))
         {
+            if (m_config.clock == CaptureSessionClock::RealTime && m_config.durationSeconds.has_value() &&
+                m_recordingStartTiming.has_value())
+            {
+                const long double requestedIntervals = std::ceil(
+                    static_cast<long double>(*m_config.durationSeconds) * m_config.framesPerSecond);
+                const long double boundedIntervals = m_config.frameLimit.has_value()
+                    ? (std::min)(requestedIntervals, static_cast<long double>(*m_config.frameLimit))
+                    : requestedIntervals;
+                const std::uint64_t expectedIntervals = boundedIntervals >=
+                        static_cast<long double>((std::numeric_limits<std::uint64_t>::max)())
+                    ? (std::numeric_limits<std::uint64_t>::max)()
+                    : static_cast<std::uint64_t>(boundedIntervals);
+                const std::uint64_t accountedIntervals =
+                    m_status.acceptedFrameCount + m_status.droppedFrameCount;
+                if (expectedIntervals > accountedIntervals)
+                {
+                    m_status.droppedFrameCount += expectedIntervals - accountedIntervals;
+                }
+            }
             BeginDraining();
             return;
         }

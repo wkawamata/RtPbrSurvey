@@ -822,6 +822,17 @@ void RtPbrSurveyApp::OnMouseMove(int x, int y)
         return;
     m_debugCamera.OnMouseMove(x, y);
     m_sceneRenderer.SetCamera(LoadedScene().GetScene().camera);
+    if (m_logFile && RtPbrSurvey::CaptureSessionUi::IsActive(m_sceneRenderer.GetCaptureSessionStatus()))
+    {
+        const double elapsedSeconds = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - m_captureSessionStartTime).count();
+        const Engine::CameraState& camera = LoadedScene().GetScene().camera;
+        fprintf(m_logFile,
+                "[CAPTURE_CAMERA_INPUT] real=%.9f x=%d y=%d position=%.9f,%.9f,%.9f gaze=%.9f,%.9f,%.9f\n",
+                elapsedSeconds, x, y, camera.pos.x, camera.pos.y, camera.pos.z,
+                camera.gazePoint.x, camera.gazePoint.y, camera.gazePoint.z);
+        fflush(m_logFile);
+    }
 }
 
 void RtPbrSurveyApp::OnMouseWheel(int wheelDelta)
@@ -874,6 +885,14 @@ void RtPbrSurveyApp::OnIdle()
         {
             if (m_logFile)
             {
+                const double elapsedSeconds = std::chrono::duration<double>(
+                    std::chrono::steady_clock::now() - m_captureSessionStartTime).count();
+                fprintf(m_logFile,
+                        "[CAPTURE_SESSION_END] state=%s accepted=%llu saved=%llu dropped=%llu elapsed=%.9f\n",
+                        status.state == RtPbrSurvey::CaptureSessionState::Completed ? "Completed" : "Failed",
+                        static_cast<unsigned long long>(status.acceptedFrameCount),
+                        static_cast<unsigned long long>(status.savedFrameCount),
+                        static_cast<unsigned long long>(status.droppedFrameCount), elapsedSeconds);
                 fprintf(m_logFile,
                         "[CAPTURE_PIPELINE_END] accepted=%llu saved=%llu encoder_pending=%zu encoder_bytes=%zu "
                         "gpu_pending=%zu readback_bytes=%zu readback_allocations=%llu readback_reuses=%llu\n",
@@ -1304,13 +1323,19 @@ void RtPbrSurveyApp::UpdateCaptureSessionTiming()
     if (m_logFile && status.acceptedFrameCount != previousAccepted)
     {
         fprintf(m_logFile,
-                "[CAPTURE_FRAME] index=%llu simulation=%.9f render=%llu\n",
+                "[CAPTURE_FRAME] index=%llu simulation=%.9f render=%llu real=%.9f dropped=%llu\n",
                 static_cast<unsigned long long>(status.acceptedFrameCount - 1),
                 m_captureFrameClock.GetSimulationSeconds(),
-                static_cast<unsigned long long>(m_automationFrameCounter));
+                static_cast<unsigned long long>(m_automationFrameCounter), realSeconds,
+                static_cast<unsigned long long>(status.droppedFrameCount));
+        const Engine::CameraState& camera = LoadedScene().GetScene().camera;
+        fprintf(m_logFile,
+                "[CAPTURE_CAMERA_POSE] index=%llu real=%.9f position=%.9f,%.9f,%.9f gaze=%.9f,%.9f,%.9f\n",
+                static_cast<unsigned long long>(status.acceptedFrameCount - 1), realSeconds,
+                camera.pos.x, camera.pos.y, camera.pos.z,
+                camera.gazePoint.x, camera.gazePoint.y, camera.gazePoint.z);
         if (m_captureOrbitTrack)
         {
-            const Engine::CameraState& camera = LoadedScene().GetScene().camera;
             fprintf(m_logFile,
                     "[CAPTURE_CAMERA] index=%llu time=%.9f yaw=%.9f pitch=%.9f distance=%.9f "
                     "position=%.9f,%.9f,%.9f pivot=%.9f,%.9f,%.9f\n",
@@ -1559,6 +1584,7 @@ void RtPbrSurveyApp::ApplyCaptureSessionUiAction(RtPbrSurvey::CaptureSessionUiAc
         const RtPbrSurvey::CaptureSessionConfig config = RtPbrSurvey::CaptureSessionUi::BuildConfig(m_captureSessionUiState);
         if (m_sceneRenderer.StartCaptureSession(config, error))
         {
+            m_captureSessionActive = true;
             InitializeCaptureSessionClock(config, m_captureSessionOrbitEnabled
                                                       ? std::optional<double>(m_captureSessionOrbitDegreesPerSecond)
                                                       : std::nullopt);

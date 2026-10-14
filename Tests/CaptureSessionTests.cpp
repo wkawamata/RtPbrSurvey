@@ -530,6 +530,35 @@ bool TestWarmupExcludedFromDuration()
     return passed;
 }
 
+bool TestRealtimeDurationAccountsFinalDrops()
+{
+    RtPbrSurvey::CaptureSessionConfig config = MakeConfig(RtPbrSurvey::CaptureSessionClock::RealTime);
+    config.frameLimit.reset();
+    config.durationSeconds = 1.0;
+    RtPbrSurvey::CaptureSession session;
+    std::string error;
+    bool passed = Check(session.Start(config, error), "real-time duration session starts");
+    session.Update({0, 0.0, 0.0});
+    const auto request = session.AcquireReadyRequest();
+    passed &= Check(request.has_value(), "duration session schedules its initial output");
+    session.MarkRequestAccepted();
+    session.Update({15, 0.25, 0.25});
+    const std::uint64_t dropsBeforeEnd = session.GetStatus().droppedFrameCount;
+    session.Update({60, 1.0, 1.0});
+    passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Draining,
+                    "duration limit drains accepted output");
+    passed &= Check(session.GetStatus().acceptedFrameCount + session.GetStatus().droppedFrameCount == 60 &&
+                        session.GetStatus().droppedFrameCount > dropsBeforeEnd,
+                    "duration end accounts every unaccepted real-time interval as dropped");
+    if (request)
+    {
+        session.CompleteRequest({request->path, true, {}, 1, 1, request->requestId});
+    }
+    passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Completed,
+                    "duration session completes after its accepted request drains");
+    return passed;
+}
+
 bool TestMismatchedResultDoesNotCompleteSession()
 {
     RtPbrSurvey::CaptureSession session;
@@ -898,6 +927,7 @@ int main()
                    TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
                    TestValidationAndLegacyCli() && TestGifOutputPathDoesNotOverwrite() && TestGifMetadataEncoding() &&
                    TestOutputFailureCompletesCleanup() && TestWarmupExcludedFromDuration() &&
+                   TestRealtimeDurationAccountsFinalDrops() &&
                    TestMismatchedResultDoesNotCompleteSession() && TestCaptureRequestGate() &&
                    TestCaptureFrameClock() && TestWarmupWithPresentationOnlyPolls() &&
                    TestIntegerClockCaptureCadence() && TestPausedFixedCaptureStart() && TestCaptureOrbitCli() &&

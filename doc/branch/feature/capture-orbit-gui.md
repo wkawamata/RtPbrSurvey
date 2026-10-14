@@ -64,10 +64,20 @@ require all three outputs for a three-frame duration after resuming.
   peaked at 2 frames / 2.34 MiB; readback memory stayed at 2.34 MiB with two
   allocations and 1,798 reuses. No D3D12 error or capture failure was logged.
   See [long Orbit pressure validation](mp4-long-orbit-pressure-validation.md).
+- Interactive real-time camera motion was captured for four seconds at 60 FPS
+  with and without a 100ms append delay. All 240 scheduled intervals were
+  accounted for as accepted or dropped; captured MP4 timestamps matched the
+  recorded realtime clock. The input-to-next-captured-pose p95 was 76ms at
+  baseline and 134ms under delay. See
+  [realtime camera pressure validation](mp4-realtime-camera-pressure-validation.md).
 - Delayed moving PT exercised 53 capacity waits and 12 drain frames; stationary
   PT exercised 52 waits and 11 drain frames. No captured CLI D3D12 ERROR/
   CORRUPTION or capture save error was reported. These CLI results are separate
   from the GUI observation; the GUI launch did not enable debug-file logging.
+- Capture-session lifecycle GPU validation passed all 15 scenarios, including
+  deferred close, resize during capture, pause/step close, session restart, and
+  GIF/EXR finalization. See
+  [capture lifecycle validation](mp4-capture-lifecycle-validation.md).
 
 GUI media: `bin/CapturePort/gui-orbit-final-output-20261014/capture.mp4`.
 CLI evidence: `bin/CapturePort/gui-orbit-regression-20261014/report.json`.
@@ -79,6 +89,6 @@ closing that instance, MSBuild and the corrected runtime validation succeeded.
 
 ## Remaining Work
 
-Interactive real-time latency/drop measurements, per-output PT convergence,
-and richer scene/camera tracks remain separate work. No simultaneous
-independent live-preview camera is implemented.
+Per-output PT convergence and richer scene/camera tracks remain separate work.
+No simultaneous independent live-preview camera is implemented. Lifecycle
+coverage details are in [capture lifecycle validation](mp4-capture-lifecycle-validation.md).

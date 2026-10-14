@@ -11,8 +11,11 @@ explicit update clocks and deterministic Orbit are implemented; see
 Short PT history checks under controlled encoder pressure are covered by
 [PT capture history validation](pt-capture-history-validation.md). Long moving
 fixed-step Orbit under controlled encoder pressure is covered by
-[long Orbit pressure validation](mp4-long-orbit-pressure-validation.md).
-Interactive real-time latency acceptance remains pending.
+[long Orbit pressure validation](mp4-long-orbit-pressure-validation.md). Manual
+camera response and drop accounting under real-time encoder pressure are
+covered by [realtime camera pressure validation](mp4-realtime-camera-pressure-validation.md).
+Close, resize, pause, restart, and output-finalization lifecycle regressions are
+covered by [capture lifecycle validation](mp4-capture-lifecycle-validation.md).
 
 ## Goal and Limits
 
@@ -188,15 +191,18 @@ existing screenshot formats against their current behavior.
   stop/drain, failure, finalize exactly once, and shutdown with pending work.
 - GPU integration: fence-safe slot reuse, ROI, odd-size padding, resize,
   scene close, session restart, and D3D12 Debug Layer checks.
+- [x] GPU lifecycle integration: deferred close, resize during capture, pause/
+  step close, warmup/drain close, scene-switch guard, session restart, and
+  GIF/EXR finalization.
 - PT integration: camera movement resets history; paused/draining frames do not
   accidentally advance sample indices; captured pose matches frame metadata.
 - [x] Record a 1800-frame, 60 FPS deterministic camera track under encoder delay.
   Require 1800 retained frames, 30-second media duration, continuous fixed-step
   PTS, bounded memory, and correct camera poses. Longer wall time is acceptable.
-- Record interactive real-time camera motion under encoder delay and GPU load.
+- [x] Record interactive real-time camera motion under encoder delay and GPU load.
   Require live simulation to stay independent of encoder queue capacity, media
   duration to follow elapsed recording time, and all missed intervals to be
-  counted. Compare UI/frame latency against the measured baseline.
+  counted. Compare camera-input-to-captured-pose latency against the baseline.
 - Inspect actual MP4 timestamps, frame count, duration, and decoded camera
   motion. File existence alone is insufficient.
 - Run PNG/GIF/EXR, single screenshot, and non-capture regression checks.
