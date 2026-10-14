@@ -438,6 +438,8 @@ if(RTPBRSURVEY_BUILD_TESTS)
 
     add_executable(RtPbrSurvey.NrdRelaxAdapterTests Tests/NrdRelaxAdapterTests.cpp)
     target_link_libraries(RtPbrSurvey.NrdRelaxAdapterTests PRIVATE RtPbrSurvey::SceneRenderer)
+    target_compile_definitions(RtPbrSurvey.NrdRelaxAdapterTests PRIVATE
+        RTPBRSURVEY_NRD_PIXEL_CONTRACT_VECTORS_PATH="${RTPBRSURVEY_ROOT}/Tests/PathTracing/nrd_pixel_contract_vectors.json")
     add_test(NAME RtPbrSurvey.NrdRelaxAdapter COMMAND RtPbrSurvey.NrdRelaxAdapterTests)
 
     set(denoiser_sampling_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_DenoiserSampling_CSMain.cso")
@@ -510,6 +512,15 @@ if(RTPBRSURVEY_BUILD_TESTS)
                 "${nrd_test_dir}/NRDConfig.hlsli" "${nrd_test_dir}/NRD.hlsli"
             VERBATIM)
         target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${nrd_captured_conversion_shader}")
+        set(nrd_pixel_contract_shader "${nrd_test_dir}/shaders_NrdPixelContract_CSMain.cso")
+        add_custom_command(OUTPUT "${nrd_pixel_contract_shader}"
+            COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+                "-I${nrd_test_dir}" "-Fo${nrd_pixel_contract_shader}"
+                "${RTPBRSURVEY_ROOT}/Tests/shaders_NrdPixelContract.hlsl"
+            DEPENDS Tests/shaders_NrdPixelContract.hlsl Shaders/NrdRelaxInputConversion.hlsli
+                "${nrd_test_dir}/NRDConfig.hlsli" "${nrd_test_dir}/NRD.hlsli"
+            VERBATIM)
+        target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${nrd_pixel_contract_shader}")
         find_program(RTPBRSURVEY_POWERSHELL NAMES pwsh powershell REQUIRED)
         add_test(NAME RtPbrSurvey.NrdCapturedConversion
             COMMAND "${RTPBRSURVEY_POWERSHELL}" -NoProfile -File

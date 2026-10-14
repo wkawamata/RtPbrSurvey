@@ -1,10 +1,16 @@
 #include "Renderer/NrdRelaxAdapter.h"
 
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <limits>
+#include <map>
+#include <nlohmann/json.hpp>
+#include <filesystem>
 #include "Scene/Scene.h"
 #include <cmath>
+#include <set>
 
 namespace
 {
@@ -260,9 +266,359 @@ bool CheckSceneRange()
     passed &= !Engine::BuildNrdRelaxWorldBounds(scene).complete;
     return passed;
 }
+
+bool IsFiniteNumericArray(const nlohmann::json& value, size_t count)
+{
+    if (!value.is_array() || value.size() != count)
+    {
+        return false;
+    }
+    for (const auto& element : value)
+    {
+        if (!element.is_number() || !std::isfinite(element.get<float>()))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool ValidatePixelCorpus(const nlohmann::json& data)
+{
+    const std::set<std::string> expectedIds = {"cpu-pixel-convertible-base",
+                                               "cpu-pixel-stale-snapshot",
+                                               "cpu-pixel-trace-required",
+                                               "cpu-pixel-reconstruction-required",
+                                               "cpu-pixel-exclude-primary-miss",
+                                               "cpu-snapshot-token-provenance",
+                                               "cpu-scene-range-proof",
+                                               "cpu-trace-provenance"};
+    const std::set<std::string> hostIds = {
+        "cpu-snapshot-token-provenance", "cpu-scene-range-proof", "cpu-trace-provenance"};
+    if (!data.is_object() || !data.contains("schemaVersion") || data["schemaVersion"] != 1 || !data.contains("kind") ||
+        data["kind"] != "nrd-pixel-contract-vectors" || !data.contains("vectors") || !data["vectors"].is_array())
+    {
+        std::cerr << "Invalid pixel corpus schema.\n";
+        return false;
+    }
+    std::set<std::string> seen;
+    for (const auto& vector : data["vectors"])
+    {
+        if (!vector.is_object() || !vector.contains("id") || !vector["id"].is_string())
+        {
+            std::cerr << "Missing pixel contract case ID.\n";
+            return false;
+        }
+        const std::string id = vector["id"].get<std::string>();
+        const auto invalid = [&]()
+        {
+            std::cerr << "Invalid pixel contract case: " << id << "\n";
+            return false;
+        };
+        if (!expectedIds.contains(id) || !seen.insert(id).second || !vector.contains("hostOnly") ||
+            !vector["hostOnly"].is_boolean() || vector["hostOnly"].get<bool>() != hostIds.contains(id) ||
+            !vector.contains("gpuRepresentable") || !vector["gpuRepresentable"].is_boolean())
+        {
+            return invalid();
+        }
+        if (hostIds.contains(id))
+        {
+            if (vector["gpuRepresentable"].get<bool>())
+            {
+                return invalid();
+            }
+            continue;
+        }
+        if (!vector.contains("expectedDisposition") || !vector["expectedDisposition"].is_string() ||
+            !vector.contains("rayTMax") || !vector["rayTMax"].is_number() ||
+            !std::isfinite(vector["rayTMax"].get<float>()) || !vector.contains("primaryHit") ||
+            !vector["primaryHit"].is_boolean() || !vector.contains("lobes") || !vector["lobes"].is_array() ||
+            vector["lobes"].size() != 2)
+        {
+            return invalid();
+        }
+        for (const auto& lobe : vector["lobes"])
+        {
+            if (!lobe.is_object() || !lobe.contains("physical") || !IsFiniteNumericArray(lobe["physical"], 3) ||
+                !lobe.contains("materialFactor") || !IsFiniteNumericArray(lobe["materialFactor"], 3) ||
+                !lobe.contains("distance") || !IsFiniteNumericArray(lobe["distance"], 4) ||
+                (lobe.contains("active") && !lobe["active"].is_boolean()) || !lobe.contains("rangeContext"))
+            {
+                return invalid();
+            }
+            const auto& context = lobe["rangeContext"];
+            if (!context.is_null() &&
+                (!context.is_object() || !context.contains("snapshotToken") ||
+                 !context["snapshotToken"].is_number_unsigned() || !context.contains("expectedSnapshotToken") ||
+                 !context["expectedSnapshotToken"].is_number_unsigned() ||
+                 !context.contains("geometrySnapshotMatches") || !context["geometrySnapshotMatches"].is_boolean() ||
+                 (context.contains("boundsComplete") && !context["boundsComplete"].is_boolean())))
+            {
+                return invalid();
+            }
+        }
+        const auto& disposition = vector["expectedDisposition"];
+        if ((disposition == "Convertible" || disposition == "ReconstructionRequired") &&
+            !vector.contains("expectedPacked"))
+        {
+            return invalid();
+        }
+        if (vector.contains("expectedPacked") &&
+            (!vector["expectedPacked"].is_array() || vector["expectedPacked"].size() != 2 ||
+             !IsFiniteNumericArray(vector["expectedPacked"][0], 4) ||
+             !IsFiniteNumericArray(vector["expectedPacked"][1], 4)))
+        {
+            return invalid();
+        }
+    }
+    if (seen != expectedIds)
+    {
+        std::cerr << "Pixel corpus is missing required case IDs.\n";
+        return false;
+    }
+    return true;
+}
+
+bool CheckPixelContractVectors(const std::filesystem::path& corpusPath)
+{
+    std::ifstream input(corpusPath);
+    if (!input)
+    {
+        std::cerr << "Unable to open NRD pixel contract vector corpus: " << corpusPath << "\n";
+        return false;
+    }
+    nlohmann::json data;
+    try
+    {
+        input >> data;
+        if (!ValidatePixelCorpus(data))
+        {
+            return false;
+        }
+    }
+    catch (const std::exception& error)
+    {
+        std::cerr << "Invalid NRD pixel contract vector corpus: " << corpusPath << ": " << error.what() << "\n";
+        return false;
+    }
+
+    static const std::map<std::string, Engine::NrdRelaxPixelDisposition> dispositions = {
+        {"InvalidData", Engine::NrdRelaxPixelDisposition::InvalidData},
+        {"PackingRangeExceeded", Engine::NrdRelaxPixelDisposition::PackingRangeExceeded},
+        {"SnapshotRequired", Engine::NrdRelaxPixelDisposition::SnapshotRequired},
+        {"TraceRequired", Engine::NrdRelaxPixelDisposition::TraceRequired},
+        {"EnvironmentPolicyRequired", Engine::NrdRelaxPixelDisposition::EnvironmentPolicyRequired},
+        {"ExcludePrimaryMiss", Engine::NrdRelaxPixelDisposition::ExcludePrimaryMiss},
+        {"ReconstructionRequired", Engine::NrdRelaxPixelDisposition::ReconstructionRequired},
+        {"Convertible", Engine::NrdRelaxPixelDisposition::Convertible},
+    };
+
+    using Disposition = Engine::NrdRelaxPixelDisposition;
+    size_t executed = 0;
+    size_t hostOnly = 0;
+    bool passed = true;
+    for (const auto& vector : data["vectors"])
+    {
+        const std::string id = vector.value("id", "");
+        if (id.empty())
+        {
+            std::cerr << "NRD pixel contract vector is missing an ID.\n";
+            passed = false;
+            continue;
+        }
+        if (vector.value("hostOnly", false))
+        {
+            ++hostOnly;
+            std::cout << "Pixel contract host-only case (not GPU-verified): " << id << "\n";
+            continue;
+        }
+        if (!vector.contains("expectedDisposition") || !vector["expectedDisposition"].is_string())
+        {
+            continue;
+        }
+        const std::string expectedDispositionName = vector["expectedDisposition"].get<std::string>();
+        const auto dispositionIt = dispositions.find(expectedDispositionName);
+        if (dispositionIt == dispositions.end())
+        {
+            std::cerr << "Pixel contract vector has an unknown expected disposition: " << id << "\n";
+            passed = false;
+            continue;
+        }
+
+        ++executed;
+        float rayTMax = vector.value("rayTMax", 100.0f);
+        bool primaryHit = vector.value("primaryHit", true);
+        std::array<Engine::NrdRelaxLobeInput, 2> lobes = {};
+        std::vector<std::shared_ptr<uint64_t>> tokens;
+        std::vector<std::shared_ptr<Engine::NrdRelaxWorldBounds>> boundsStorage;
+        std::vector<std::shared_ptr<Engine::NrdRelaxRayRangeContext>> contexts;
+        std::map<uint64_t, std::shared_ptr<uint64_t>> tokenCache;
+        tokens.reserve(2);
+        boundsStorage.reserve(2);
+        contexts.reserve(2);
+        for (size_t index = 0; index < lobes.size(); ++index)
+        {
+            const auto& lobeJson = vector["lobes"][index];
+            for (size_t channel = 0; channel < 3; ++channel)
+            {
+                lobes[index].physical[channel] = lobeJson["physical"][channel].get<float>();
+                lobes[index].materialFactor[channel] = lobeJson["materialFactor"][channel].get<float>();
+            }
+            for (size_t channel = 0; channel < 4; ++channel)
+            {
+                lobes[index].distance[channel] = lobeJson["distance"][channel].get<float>();
+            }
+            lobes[index].active = lobeJson.value("active", true);
+            const nlohmann::json* rangeJson = lobeJson.contains("rangeContext") && !lobeJson["rangeContext"].is_null()
+                                                  ? &lobeJson["rangeContext"]
+                                                  : nullptr;
+            if (rangeJson != nullptr)
+            {
+                auto bounds = std::make_shared<Engine::NrdRelaxWorldBounds>();
+                bounds->complete = rangeJson->value("boundsComplete", true);
+                bounds->minimum = {-1.0, -1.0, -1.0};
+                bounds->maximum = {1.0, 1.0, 1.0};
+                uint64_t tokenValue = rangeJson->value("snapshotToken", 7ULL);
+                auto cachedToken = tokenCache.find(tokenValue);
+                std::shared_ptr<uint64_t> token;
+                if (cachedToken == tokenCache.end())
+                {
+                    token = std::make_shared<uint64_t>(tokenValue);
+                    tokenCache[tokenValue] = token;
+                }
+                else
+                {
+                    token = cachedToken->second;
+                }
+                auto context = std::make_shared<Engine::NrdRelaxRayRangeContext>();
+                context->bounds = bounds.get();
+                context->origin = {0, 0, 0};
+                context->direction = {0, 0, 1};
+                context->geometrySnapshotMatches = rangeJson->value("geometrySnapshotMatches", true);
+                context->currentSnapshotToken = token.get();
+                context->expectedSnapshotToken = rangeJson->value("expectedSnapshotToken", 7ULL);
+                boundsStorage.push_back(bounds);
+                tokens.push_back(token);
+                contexts.push_back(context);
+                lobes[index].rangeContext = context.get();
+            }
+            else
+            {
+                lobes[index].rangeContext = nullptr;
+            }
+        }
+
+        auto decision = Engine::InspectNrdRelaxPixel(lobes, rayTMax, primaryHit);
+        if (decision.disposition != dispositionIt->second)
+        {
+            std::cerr << "Pixel contract vector disposition mismatch: " << id << "\n";
+            passed = false;
+        }
+
+        if (vector.contains("expectedPacked") && vector["expectedPacked"].is_array())
+        {
+            for (size_t lobe = 0; lobe < 2; ++lobe)
+            {
+                for (size_t channel = 0; channel < 4; ++channel)
+                {
+                    const float expected = vector["expectedPacked"][lobe][channel].get<float>();
+                    const float actual = decision.packed[lobe][channel];
+                    if (std::fabs(expected - actual) > 0.0001f)
+                    {
+                        std::cerr << "Pixel contract vector packed output mismatch: " << id << "\n";
+                        passed = false;
+                    }
+                }
+            }
+        }
+        else if (dispositionIt->second != Disposition::Convertible &&
+                 dispositionIt->second != Disposition::ReconstructionRequired)
+        {
+            for (size_t lobe = 0; lobe < 2; ++lobe)
+            {
+                for (size_t channel = 0; channel < 4; ++channel)
+                {
+                    if (decision.packed[lobe][channel] != 0.0f)
+                    {
+                        std::cerr << "Pixel contract vector partial output leaked: " << id << "\n";
+                        passed = false;
+                    }
+                }
+            }
+        }
+
+        std::cout << "Pixel contract vector case executed: " << id << " -> " << expectedDispositionName << "\n";
+    }
+
+    std::cout << "Pixel contract vectors: executed=" << executed << " host-only=" << hostOnly << "\n";
+    if (executed != 5 || hostOnly != 3)
+    {
+        std::cerr << "Unexpected host-only contract vector count.\n";
+        passed = false;
+    }
+    return passed;
+}
 } // namespace
 
-int main()
+std::filesystem::path FindPixelContractCorpus(int argc, char** argv)
+{
+    if (argc >= 2 && argv[1] != nullptr && argv[1][0] != '\0')
+    {
+        return argv[1];
+    }
+    const char* env = std::getenv("RTPBRSURVEY_NRD_PIXEL_CONTRACT_VECTORS");
+    if (env != nullptr && env[0] != '\0')
+    {
+        return env;
+    }
+#ifdef RTPBRSURVEY_NRD_PIXEL_CONTRACT_VECTORS_PATH
+    if (std::filesystem::exists(RTPBRSURVEY_NRD_PIXEL_CONTRACT_VECTORS_PATH))
+    {
+        return RTPBRSURVEY_NRD_PIXEL_CONTRACT_VECTORS_PATH;
+    }
+#endif
+    std::filesystem::path current = std::filesystem::current_path();
+    for (int level = 0; level < 8 && !current.empty(); ++level)
+    {
+        std::filesystem::path candidate = current / "Tests" / "PathTracing" / "nrd_pixel_contract_vectors.json";
+        if (std::filesystem::exists(candidate))
+        {
+            return candidate;
+        }
+        if (current.has_parent_path() && current.parent_path() != current)
+        {
+            current = current.parent_path();
+        }
+        else
+        {
+            break;
+        }
+    }
+    if (argc > 0 && argv[0] != nullptr)
+    {
+        std::filesystem::path exe(argv[0]);
+        std::filesystem::path base = exe.parent_path();
+        for (int level = 0; level < 8 && !base.empty(); ++level)
+        {
+            std::filesystem::path candidate = base / "Tests" / "PathTracing" / "nrd_pixel_contract_vectors.json";
+            if (std::filesystem::exists(candidate))
+            {
+                return candidate;
+            }
+            if (base.has_parent_path() && base.parent_path() != base)
+            {
+                base = base.parent_path();
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+    return {};
+}
+
+int main(int argc, char** argv)
 {
     const Engine::NrdRelaxSupportInfo defaults;
     const Engine::NrdRelaxSupportInfo info = Engine::QueryNrdRelaxSupport();
@@ -279,6 +635,7 @@ int main()
     passed &= CheckSnapshotLifecycle();
     passed &= CheckRadianceGate();
     passed &= CheckPixelGate();
+    passed &= CheckPixelContractVectors(FindPixelContractCorpus(argc, argv));
     using Disposition = Engine::NrdRelaxDistanceDisposition;
     const auto inspect = [](float distance, float state, float raw, bool primary = true, bool active = true)
     { return Engine::InspectNrdRelaxDistance(distance, state, raw, 0.0f, 100.0f, primary, active); };

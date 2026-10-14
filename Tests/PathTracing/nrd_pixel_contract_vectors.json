@@ -10,6 +10,7 @@
   "vectors": [
     {
       "id": "cpu-pixel-convertible-base",
+      "gpuStatuses": [0, 0],
       "surface": "cpu",
       "hostOnly": false,
       "gpuRepresentable": true,
@@ -48,7 +49,7 @@
       "id": "cpu-pixel-stale-snapshot",
       "surface": "cpu",
       "hostOnly": false,
-      "gpuRepresentable": true,
+      "gpuRepresentable": false,
       "rayTMax": 100.0,
       "primaryHit": true,
       "lobes": [
@@ -80,7 +81,7 @@
       "id": "cpu-pixel-trace-required",
       "surface": "cpu",
       "hostOnly": false,
-      "gpuRepresentable": true,
+      "gpuRepresentable": false,
       "rayTMax": 100.0,
       "primaryHit": true,
       "lobes": [
@@ -112,7 +113,7 @@
       "id": "cpu-pixel-reconstruction-required",
       "surface": "cpu",
       "hostOnly": false,
-      "gpuRepresentable": true,
+      "gpuRepresentable": false,
       "rayTMax": 100.0,
       "primaryHit": true,
       "lobes": [
@@ -138,10 +139,13 @@
         }
       ],
       "expectedDisposition": "ReconstructionRequired",
+      "expectedPacked": [[2, 4, 6, 2], [2, 4, 6, 0]],
       "partialOutputsOnFailure": false
     },
     {
       "id": "cpu-pixel-exclude-primary-miss",
+      "gpuStatuses": [4, 4],
+      "expectedPacked": [[0, 0, 0, 0], [0, 0, 0, 0]],
       "surface": "cpu",
       "hostOnly": false,
       "gpuRepresentable": true,

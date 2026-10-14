@@ -65,7 +65,7 @@ const SceneMesh& NrdRelaxGeometrySnapshot::CaptureUpload(const SceneMesh& mesh)
 void NrdRelaxGeometrySnapshot::Invalidate()
 {
     m_bounds = {};
-    if (m_token == std::numeric_limits<uint64_t>::max())
+    if (m_token == (std::numeric_limits<uint64_t>::max)())
     {
         throw std::overflow_error("NRD geometry snapshot token exhausted.");
     }
@@ -148,7 +148,7 @@ NrdRelaxWorldBounds BuildNrdRelaxWorldBounds(const Scene& scene)
             }
             const double padding = 32.0 * std::numeric_limits<float>::epsilon() * (std::max)(1.0, magnitude);
             if (!std::isfinite(value) || !std::isfinite(magnitude) ||
-                magnitude + padding > std::numeric_limits<float>::max())
+                magnitude + padding > (std::numeric_limits<float>::max)())
             {
                 return false;
             }

@@ -1611,3 +1611,35 @@ Limitations:
   runtimeGeometrySnapshotVerified remain false.
 - No production rendering, RenderGraph, production shader, SDK linkage, or
   RELAX availability changed.
+
+### Step 2X Review Corrections (2026-10-14)
+
+The initial CPU corpus runner silently skipped missing expectedDisposition
+and accepted duplicated IDs. The GPU subset test only classified JSON cases
+and invoked the unrelated fixed eight-case shader. Both review findings are
+corrected. The CPU loader requires the exact eight known IDs, the five numeric
+cases and three host-only metadata cases, schema/type/shape checks, finite
+numeric values, and expectedPacked for convertible/reconstruction cases.
+Malformed input fails with diagnostics; zero executed cases cannot pass.
+Regressions mutate the corpus for missing/duplicate cases, changed expected
+disposition/packed values, absent output expectations and malformed numbers.
+
+Tests/shaders_NrdPixelContract.hlsl uses the existing isolated D3D12 structured
+buffer harness. Python serializes the JSON physical radiance, material factors,
+distances, primary mask and lobe activity into the seven-float4 input ABI,
+dispatches WARP and compares the four-float4 output by case ID. The shader uses
+the same InspectNrdGpuSignal and SDK packing helpers as the conversion function.
+Factors are supplied from the CPU corpus: this validates signal arithmetic and
+packing, not NRD_MaterialFactors computation. Snapshot, missing-trace and
+reconstruction-state cases are excluded from this arithmetic-only GPU subset.
+The two baseline GPU cases are valid hits and a primary miss. Mutations verify
+that changed input/expectations fail, and invalid/overflowing single-lobe data
+suppresses both packed outputs. InputReady and runtime geometry certification
+remain unchanged; production RELAX is still unavailable.
+
+Validation: the two focused Debug targets built successfully; Python corpus
+and GPU subset tests passed 17/17, including actual WARP dispatch. Targeted
+CTest NrdRelaxAdapter/NrdInputConversion passed 2/2. No hardware rerun, full
+application build or new scene capture was performed. The prior real aggregate
+reports still fail for a missing authentic contract report; that remaining
+reporting work is not claimed complete by these review corrections.
