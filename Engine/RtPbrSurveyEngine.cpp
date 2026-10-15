@@ -875,12 +875,17 @@ void RtPbrSurveyEngine::RegisterDebugResourceViews()
 #ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
     for (UINT index : {PathTracingGuideNrdDiffuseCandidate,
                        PathTracingGuideNrdSpecularCandidate,
-                       PathTracingGuideNrdConversionDiagnostics})
+                       PathTracingGuideNrdConversionDiagnostics,
+                       PathTracingGuideNrdValidity})
     {
         registerTexture(kPathTracingGuideTextureResourceNames[index],
                         Engine::DebugTexturePreviewSemantic::Color,
                         DXGI_FORMAT_R32G32B32A32_FLOAT);
     }
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideNrdNormalRoughness],
+                    Engine::DebugTexturePreviewSemantic::Normal, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideNrdViewZ],
+                    Engine::DebugTexturePreviewSemantic::Scalar, DXGI_FORMAT_R32G32B32A32_FLOAT);
 #endif
     registerTexture(kReflectionEvaluatedRadianceResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionSpecularAlbedoResourceName, Engine::DebugTexturePreviewSemantic::Color);
@@ -2923,20 +2928,21 @@ void RtPbrSurveyEngine::CreatePipelineStates()
                            PathTracingGuideDenoiserSpecularDistance,
                            PathTracingGuideDenoiserPrimaryPosition,
                            PathTracingGuideDenoiserDiffuseDirection,
-                           PathTracingGuideDenoiserSpecularDirection};
-    CD3DX12_DESCRIPTOR_RANGE1 inputRanges[10], outputRanges[3], cameraRange;
+                           PathTracingGuideDenoiserSpecularDirection,
+                           PathTracingGuideViewZ};
+    CD3DX12_DESCRIPTOR_RANGE1 inputRanges[11], outputRanges[6], cameraRange;
     for (UINT i = 0; i < _countof(inputs); ++i)
     {
         inputRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * inputs[i]);
     }
-    for (UINT i = 0; i < 3; ++i)
+    for (UINT i = 0; i < _countof(outputRanges); ++i)
     {
         outputRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * i);
     }
     cameraRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
     CD3DX12_ROOT_PARAMETER1 parameters[4];
     parameters[0].InitAsDescriptorTable(_countof(inputRanges), inputRanges);
-    parameters[1].InitAsDescriptorTable(3, outputRanges);
+    parameters[1].InitAsDescriptorTable(_countof(outputRanges), outputRanges);
     parameters[2].InitAsDescriptorTable(1, &cameraRange);
     parameters[3].InitAsConstants(12, 1);
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC signatureDesc;
@@ -6073,6 +6079,9 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
         L"Path Tracing NRD Diffuse Candidate Clear",
         L"Path Tracing NRD Specular Candidate Clear",
         L"Path Tracing NRD Conversion Diagnostics Clear",
+        L"Path Tracing NRD Normal Roughness Clear",
+        L"Path Tracing NRD View Z Clear",
+        L"Path Tracing NRD Validity Clear",
 #endif
     };
     for (UINT i = 0; i < PathTracingGuideTextureCount; ++i)

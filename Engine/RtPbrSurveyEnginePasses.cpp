@@ -322,6 +322,12 @@ auto RtPbrSurveyEngine::MakePathTracingHistoryClearPass() -> RenderPass
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdConversionDiagnostics],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdNormalRoughness],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdViewZ],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdValidity],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
 #endif
         })
         .Operation(Op::PathTracingHistoryClear, &RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass)
@@ -406,7 +412,8 @@ auto RtPbrSurveyEngine::MakeNrdConversionPass() -> RenderPass
                        PathTracingGuideDenoiserSpecularDistance,
                        PathTracingGuideDenoiserPrimaryPosition,
                        PathTracingGuideDenoiserDiffuseDirection,
-                       PathTracingGuideDenoiserSpecularDirection})
+                       PathTracingGuideDenoiserSpecularDirection,
+                       PathTracingGuideViewZ})
     {
         reads.push_back({kPathTracingGuideTextureResourceNames[index], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE});
     }
@@ -418,6 +425,12 @@ auto RtPbrSurveyEngine::MakeNrdConversionPass() -> RenderPass
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdSpecularCandidate],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdConversionDiagnostics],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdNormalRoughness],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdViewZ],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdValidity],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::NrdConversion, &RtPbrSurveyEngine::ExecuteNrdConversionPass)
         .Build();

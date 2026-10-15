@@ -1796,3 +1796,47 @@ changed in this step. Full live reconstruction and RELAX remain pending.
 ```powershell
 python -m unittest discover -s Tests/PathTracing -p test_nrd_runtime_policy.py -v
 ```
+
+### Reconstruction Preparation: Live Guides (2026-10-16)
+
+Step 2ZA was committed as ef33071. The opt-in conversion pass now also writes
+three render-size RGBA32F resources through the existing allocation, resize,
+clear, graph transition and Debug Preview paths:
+
+- PathTracing.NrdNormalRoughness: pinned SDK front-end encoding 4, linear
+  roughness encoding 1, world-space normal, material ID zero.
+- PathTracing.NrdViewZ: positive linear view depth in R; unused channels zero.
+  Excluded pixels use 1e6 as an explicit far-depth sentinel.
+- PathTracing.NrdValidity: R is an accepted candidate, G is convertible without
+  distance reconstruction, B requires distance reconstruction, A remains zero.
+  These are preparation masks, not full RELAX input-readiness flags.
+
+Only conversion-accepted pixels (diagnostic code 0 or 7) populate the guides.
+Invalid source normals, roughness, depth or reconstructed view direction fail
+closed with code 11; radiance candidates remain zero as well. Other excluded
+pixels have zero normal/mask and far depth. Future reconstruction must honor
+the mask and denoising range; the sentinel alone does not establish integration.
+Pause retains the previous guides just like conversion candidates. The normal
+history-clear pass clears all resources before the next conversion dispatch.
+No SDK reconstruction or RELAX dispatch is added; Native remains final output.
+
+The live validator captures seven resources with matched metadata, compares
+the SDK best-fit signed normal representation and unchanged linear roughness,
+requires exact ViewZ copies, and checks masks and excluded-region suppression.
+It rejects malformed, non-finite and contradictory data. Three new Python
+tests exercise successful data and corrupted guides; eight runtime Python
+tests and three related CTest tests pass. Debug app build succeeds.
+
+RTX 2080 Ti validation passed with seven fresh 1920x1080 captures in
+bin/PathTracingValidation/nrd-runtime-guides-20261016: 1,324,948 accepted pixels,
+117,072 requiring distance reconstruction, and 748,652 excluded pixels. All
+capture logs had zero D3D12 errors (the existing two buffer initial-state
+warnings remain). This is guide encoding/mask validation, not denoising quality
+or interactive pause/resize acceptance. Full CTest initially passed 34/37;
+three file-save tests failed inside the sandbox and all three passed when
+rerun outside that restriction. Other unchanged test binaries were reused.
+
+```powershell
+python Tests/PathTracing/validate_nrd_runtime_guides.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
+python -m unittest discover -s Tests/PathTracing -p test_nrd_runtime_*.py -v
+```

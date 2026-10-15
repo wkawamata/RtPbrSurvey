@@ -725,6 +725,9 @@ private:
         PathTracingGuideNrdDiffuseCandidate,
         PathTracingGuideNrdSpecularCandidate,
         PathTracingGuideNrdConversionDiagnostics,
+        PathTracingGuideNrdNormalRoughness,
+        PathTracingGuideNrdViewZ,
+        PathTracingGuideNrdValidity,
 #endif
         PathTracingGuideTextureCount,
     };
@@ -1362,6 +1365,9 @@ private:
         "PathTracing.NrdDiffuseCandidate",
         "PathTracing.NrdSpecularCandidate",
         "PathTracing.NrdConversionDiagnostics",
+        "PathTracing.NrdNormalRoughness",
+        "PathTracing.NrdViewZ",
+        "PathTracing.NrdValidity",
 #endif
     };
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {

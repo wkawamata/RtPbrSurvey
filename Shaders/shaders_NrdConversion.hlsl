@@ -10,9 +10,13 @@ Texture2D<float4> g_specularDistance : register(t6);
 Texture2D<float4> g_primary : register(t7);
 Texture2D<float4> g_diffuseDirection : register(t8);
 Texture2D<float4> g_specularDirection : register(t9);
+Texture2D<float> g_viewZ : register(t10);
 RWTexture2D<float4> g_outputDiffuse : register(u0);
 RWTexture2D<float4> g_outputSpecular : register(u1);
 RWTexture2D<float4> g_diagnostics : register(u2);
+RWTexture2D<float4> g_outputNormalRoughness : register(u3);
+RWTexture2D<float4> g_outputViewZ : register(u4);
+RWTexture2D<float4> g_validity : register(u5);
 cbuffer CameraCB : register(b0)
 {
     float4x4 viewProj;
@@ -76,6 +80,9 @@ uint DistanceStatus(float4 d, bool active, float3 position, float4 direction)
     uint2 pixel = id.xy;
     g_outputDiffuse[pixel] = 0;
     g_outputSpecular[pixel] = 0;
+    g_outputNormalRoughness[pixel] = 0;
+    g_outputViewZ[pixel] = float4(1e6, 0, 0, 0);
+    g_validity[pixel] = 0;
     g_diagnostics[pixel] = float4(hostGate, 0, 0, 0);
     if (hostGate != 0)
         return;
@@ -123,6 +130,14 @@ uint DistanceStatus(float4 d, bool active, float3 position, float4 direction)
     float4 farPoint = mul(float4(clip, 1, 1), invViewProj);
     float3 view = -normalize(farPoint.xyz / farPoint.w - nearPoint.xyz / nearPoint.w);
     float4 normal = g_normal[pixel];
+    float viewZ = g_viewZ[pixel];
+    float normalLength = length(normal.xyz);
+    if (any(!isfinite(normal)) || abs(normalLength - 1) > 2e-3 || normal.w < 0 || normal.w > 1 || !isfinite(viewZ) ||
+        viewZ <= 0 || viewZ >= 1e6 || any(!isfinite(view)))
+    {
+        g_diagnostics[pixel] = float4(11, 0, 0, 0);
+        return;
+    }
     NrdRelaxConvertedSignals converted = ConvertNrdRelaxSignals(normal.xyz,
                                                                 view,
                                                                 albedo.xyz,
@@ -139,5 +154,8 @@ uint DistanceStatus(float4 d, bool active, float3 position, float4 direction)
     {
         g_outputDiffuse[pixel] = converted.diffuse;
         g_outputSpecular[pixel] = converted.specular;
+        g_outputNormalRoughness[pixel] = NRD_FrontEnd_PackNormalAndRoughness(normalize(normal.xyz), normal.w, 0);
+        g_outputViewZ[pixel] = float4(viewZ, 0, 0, 0);
+        g_validity[pixel] = float4(1, gate == 0, gate == 7, 0);
     }
 }
