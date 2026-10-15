@@ -3653,9 +3653,16 @@ void RtPbrSurveyApp::UpdateUiFrame()
         DrawDebugUi(m_sceneRenderer.GetUiFrameContext());
     }
     m_sceneRenderer.DrawToolUi();
-    const auto captureFrame = m_sceneRenderer.GetUiFrameContext();
-    RtPbrSurvey::CaptureSessionUi::DrawRegionOverlay(m_sceneRenderer.GetCaptureSessionStatus(), m_captureSessionUiState,
-                                                    captureFrame.outputWidth, captureFrame.outputHeight);
+    if (m_appMode == AppMode::Running || m_appMode == AppMode::SceneEditorEdit)
+    {
+        const auto captureFrame = m_sceneRenderer.GetUiFrameContext();
+        RtPbrSurvey::CaptureSessionUi::DrawRegionOverlay(m_sceneRenderer.GetCaptureSessionStatus(), m_captureSessionUiState,
+                                                        captureFrame.outputWidth, captureFrame.outputHeight);
+    }
+    else
+    {
+        RtPbrSurvey::CaptureSessionUi::CancelRegionSelection(m_captureSessionUiState);
+    }
     m_imguiSystem.EndFrame();
 }
 

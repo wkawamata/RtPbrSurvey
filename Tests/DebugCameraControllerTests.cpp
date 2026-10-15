@@ -128,6 +128,48 @@ bool TestRightPrimaryDragIgnoresSelectionAndStopsOnRelease()
     return NearlyEqual(camera.pos, releasedPosition);
 }
 
+bool TestOrphanRightButtonReleaseDoesNotResyncArcball()
+{
+    Engine::CameraState camera;
+    RtPbrSurvey::DebugCameraController controller = MakeController(camera);
+    controller.SetObjectViewerState(0.3f, 0.2f, 5.0f, {1.0f, 2.0f, 3.0f});
+    camera.pos = {4.0f, 1.0f, 7.0f};
+    const float yawBefore = controller.ObjectViewerYaw();
+    const float pitchBefore = controller.ObjectViewerPitch();
+    const float distanceBefore = controller.ObjectViewerDistance();
+    const DirectX::XMFLOAT3 pivotBefore = controller.ObjectViewerPivot();
+    const DirectX::XMFLOAT3 cameraBefore = camera.pos;
+
+    controller.OnMouseUp(VK_RBUTTON, 400, 300);
+    return NearlyEqual(controller.ObjectViewerYaw(), yawBefore) &&
+        NearlyEqual(controller.ObjectViewerPitch(), pitchBefore) &&
+        NearlyEqual(controller.ObjectViewerDistance(), distanceBefore) &&
+        NearlyEqual(controller.ObjectViewerPivot(), pivotBefore) && NearlyEqual(camera.pos, cameraBefore);
+}
+
+bool TestRightClickWithoutMovementPreservesCamera()
+{
+    Engine::CameraState camera;
+    RtPbrSurvey::DebugCameraController controller = MakeController(camera);
+    const Engine::CameraState cameraBefore = camera;
+    controller.OnMouseDown(VK_RBUTTON, 400, 300);
+    controller.OnMouseUp(VK_RBUTTON, 400, 300);
+    return NearlyEqual(camera.pos, cameraBefore.pos) && NearlyEqual(camera.rot, cameraBefore.rot) &&
+        NearlyEqual(camera.gazePoint, cameraBefore.gazePoint) && NearlyEqual(camera.up, cameraBefore.up);
+}
+
+bool TestReleasingSecondaryButtonKeepsPrimaryDragActive()
+{
+    Engine::CameraState camera;
+    RtPbrSurvey::DebugCameraController controller = MakeController(camera);
+    controller.OnMouseDown(VK_LBUTTON, 400, 300);
+    controller.OnMouseDown(VK_RBUTTON, 400, 300);
+    controller.OnMouseUp(VK_RBUTTON, 400, 300);
+    controller.OnMouseMove(440, 300);
+    controller.OnMouseUp(VK_LBUTTON, 440, 300);
+    return NearlyEqual(controller.ObjectViewerYaw(), 0.2f);
+}
+
 bool TestChangingPrimaryButtonResetsDrag()
 {
     Engine::CameraState camera;
@@ -246,7 +288,9 @@ int main()
 
     if (!TestRegularHorizontalAndVerticalOrbit() || !TestNearLimitDragDoesNotCrossPole() ||
         !TestArcballSwitchPreservesEightyEightDegreeCamera() || !TestRightPrimaryDragPreservesArcballOrbit() ||
-        !TestRightPrimaryDragIgnoresSelectionAndStopsOnRelease() || !TestChangingPrimaryButtonResetsDrag() ||
+        !TestRightPrimaryDragIgnoresSelectionAndStopsOnRelease() || !TestOrphanRightButtonReleaseDoesNotResyncArcball() ||
+        !TestRightClickWithoutMovementPreservesCamera() || !TestReleasingSecondaryButtonKeepsPrimaryDragActive() ||
+        !TestChangingPrimaryButtonResetsDrag() ||
         !TestCaptureOrbitTrack())
     {
         std::cerr << "Debug camera controller tests failed.\n";

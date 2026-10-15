@@ -206,8 +206,9 @@ void DebugCameraController::OnMouseUp(UINT8 button, int, int)
     }
     else if (button == VK_RBUTTON)
     {
+        const bool wasRightDragging = m_isRightDragging;
         m_isRightDragging = false;
-        if (m_mode == Mode::Arcball)
+        if (wasRightDragging && m_mode == Mode::Arcball)
         {
             InitObjectViewerFromCamera();
         }
