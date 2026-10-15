@@ -867,9 +867,21 @@ void RtPbrSurveyEngine::RegisterDebugResourceViews()
     registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserDiffuseDistance],
                     Engine::DebugTexturePreviewSemantic::Scalar, DXGI_FORMAT_R32G32B32A32_FLOAT);
     registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserSpecularDistance],
-                    Engine::DebugTexturePreviewSemantic::Scalar, DXGI_FORMAT_R32G32B32A32_FLOAT);
+                    Engine::DebugTexturePreviewSemantic::Scalar,
+                    DXGI_FORMAT_R32G32B32A32_FLOAT);
     registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserPrimaryPosition],
-                    Engine::DebugTexturePreviewSemantic::Color, DXGI_FORMAT_R32G32B32A32_FLOAT);
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    DXGI_FORMAT_R32G32B32A32_FLOAT);
+#ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
+    for (UINT index : {PathTracingGuideNrdDiffuseCandidate,
+                       PathTracingGuideNrdSpecularCandidate,
+                       PathTracingGuideNrdConversionDiagnostics})
+    {
+        registerTexture(kPathTracingGuideTextureResourceNames[index],
+                        Engine::DebugTexturePreviewSemantic::Color,
+                        DXGI_FORMAT_R32G32B32A32_FLOAT);
+    }
+#endif
     registerTexture(kReflectionEvaluatedRadianceResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionSpecularAlbedoResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionRoughnessResourceName, Engine::DebugTexturePreviewSemantic::Scalar);
@@ -2901,6 +2913,44 @@ void RtPbrSurveyEngine::CreatePipelineStates()
 {
     const PipelineShaderBytecode shaders = LoadPipelineShaderBytecode();
     RegisterPipelineStates(shaders);
+#ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
+    const UINT inputs[] = {PathTracingGuideNormalRoughness,
+                           PathTracingGuideAlbedo,
+                           PathTracingGuideMaterialF0Metallic,
+                           PathTracingGuidePhysicalDiffuse,
+                           PathTracingGuidePhysicalSpecular,
+                           PathTracingGuideDenoiserDiffuseDistance,
+                           PathTracingGuideDenoiserSpecularDistance,
+                           PathTracingGuideDenoiserPrimaryPosition};
+    CD3DX12_DESCRIPTOR_RANGE1 inputRanges[8], outputRanges[3], cameraRange;
+    for (UINT i = 0; i < 8; ++i)
+    {
+        inputRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * inputs[i]);
+    }
+    for (UINT i = 0; i < 3; ++i)
+    {
+        outputRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * i);
+    }
+    cameraRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
+    CD3DX12_ROOT_PARAMETER1 parameters[4];
+    parameters[0].InitAsDescriptorTable(8, inputRanges);
+    parameters[1].InitAsDescriptorTable(3, outputRanges);
+    parameters[2].InitAsDescriptorTable(1, &cameraRange);
+    parameters[3].InitAsConstants(4, 1);
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC signatureDesc;
+    signatureDesc.Init_1_1(4, parameters);
+    ComPtr<ID3DBlob> signature, error;
+    ThrowIfFailed(
+        D3DX12SerializeVersionedRootSignature(&signatureDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &signature, &error));
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateRootSignature(
+        0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_nrdConversionRootSignature)));
+    const ShaderBytecode conversion = LoadShaderBytecode(L"shaders_NrdConversion_CSMain.cso");
+    D3D12_COMPUTE_PIPELINE_STATE_DESC conversionDesc = {};
+    conversionDesc.pRootSignature = m_nrdConversionRootSignature.Get();
+    conversionDesc.CS = CD3DX12_SHADER_BYTECODE(conversion.data, conversion.size);
+    ThrowIfFailed(
+        m_graphicsDevice.Device()->CreateComputePipelineState(&conversionDesc, IID_PPV_ARGS(&m_nrdConversionPipeline)));
+#endif
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC computeDesc = {};
     computeDesc.pRootSignature = m_proceduralEnvRootSignature.Get();
@@ -4161,7 +4211,7 @@ void RtPbrSurveyEngine::RegisterPathTracingResources()
     sceneColor.persistent = true;
     RegisterRenderTexture(sceneColor);
 
-    static constexpr DXGI_FORMAT kGuideFormats[PathTracingGuideTextureCount] = {
+    static constexpr DXGI_FORMAT kGuideFormats[PathTracingGuideDenoiserPrimaryPosition + 1] = {
         DXGI_FORMAT_R16G16B16A16_FLOAT,
         DXGI_FORMAT_R32_FLOAT,
         DXGI_FORMAT_R16G16_FLOAT,
@@ -4188,7 +4238,8 @@ void RtPbrSurveyEngine::RegisterPathTracingResources()
         Engine::RenderTextureSpec guide = {};
         guide.name = kPathTracingGuideTextureResourceNames[i];
         guide.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
-        guide.format = kGuideFormats[i];
+        guide.format =
+            i < PathTracingGuideDenoiserPrimaryPosition + 1 ? kGuideFormats[i] : DXGI_FORMAT_R32G32B32A32_FLOAT;
         guide.flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
         guide.initialState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
         guide.createSrv = true;
@@ -6016,6 +6067,11 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
         L"Path Tracing Denoiser Diffuse Distance Clear",
         L"Path Tracing Denoiser Specular Distance Clear",
         L"Path Tracing Denoiser Primary Position Clear",
+#ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
+        L"Path Tracing NRD Diffuse Candidate Clear",
+        L"Path Tracing NRD Specular Candidate Clear",
+        L"Path Tracing NRD Conversion Diagnostics Clear",
+#endif
     };
     for (UINT i = 0; i < PathTracingGuideTextureCount; ++i)
     {
@@ -6102,6 +6158,43 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     m_pathTracingPendingSampleCount = passDesc.samplesPerFrame;
     m_pathTracingPendingAccumulate = passDesc.accumulate;
     m_pathTracingSampleCommitPending = true;
+}
+
+void RtPbrSurveyEngine::ExecuteNrdConversionPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+#ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
+    UINT gate = 0;
+    if (!Engine::QueryNrdRelaxSamplingReadiness(m_pathTracingSettings.samplesPerFrame,
+                                                m_pathTracingSettings.pixelCenterPrimary)
+             .ready)
+    {
+        gate = 8;
+    }
+    else if (!m_pathTracingSampleCommitPending || m_nrdGeometrySnapshot.Token() == 0)
+    {
+        gate = 9;
+    }
+    else if (!m_pathTracingSettings.denoiserDistanceDiagnostics)
+    {
+        gate = 10;
+    }
+    struct Constants
+    {
+        UINT width;
+        UINT height;
+        UINT gate;
+        float rayTMax;
+    } constants = {m_renderWidth, m_renderHeight, gate, m_shadowSettings.rayTMax};
+    m_commandList->SetComputeRootSignature(m_nrdConversionRootSignature.Get());
+    m_commandList->SetPipelineState(m_nrdConversionPipeline.Get());
+    m_commandList->SetComputeRootDescriptorTable(0, m_pathTracingGuideTextureSrvs[0].gpu);
+    m_commandList->SetComputeRootDescriptorTable(
+        1, m_pathTracingGuideTextureUavs[PathTracingGuideNrdDiffuseCandidate].gpu);
+    m_commandList->SetComputeRootDescriptorTable(2, m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu);
+    m_commandList->SetComputeRoot32BitConstants(3, 4, &constants, 0);
+    m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
+#endif
 }
 
 void RtPbrSurveyEngine::ExecuteDepthPrePass(const RenderPass& pass)

@@ -6,6 +6,11 @@ option(RTPBRSURVEY_BUILD_APP "Build the standalone RtPbrSurvey executable." OFF)
 option(RTPBRSURVEY_BUILD_SHADERS "Build RtPbrSurvey runtime shaders." ON)
 option(RTPBRSURVEY_BUILD_TESTS "Build RtPbrSurvey runtime tests." OFF)
 option(RTPBRSURVEY_TEST_NRD_PACKING "Test pinned NRD shader helpers without linking NRD runtime." OFF)
+option(RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS "Run experimental PT-to-NRD conversion diagnostics in the application." OFF)
+if(RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS AND
+   (NOT RTPBRSURVEY_TEST_NRD_PACKING OR NOT RTPBRSURVEY_BUILD_TESTS OR NOT RTPBRSURVEY_BUILD_SHADERS))
+    message(FATAL_ERROR "NRD conversion diagnostics require shader builds and the pinned NRD packing test configuration.")
+endif()
 option(RTPBRSURVEY_TEST_NRD_RECONSTRUCTION "Compile and reflect pinned NRD reconstruction kernels (no dispatch)." OFF)
 if(RTPBRSURVEY_TEST_NRD_RECONSTRUCTION AND NOT RTPBRSURVEY_TEST_NRD_PACKING)
     message(FATAL_ERROR "NRD reconstruction contract tests require RTPBRSURVEY_TEST_NRD_PACKING.")
@@ -229,6 +234,11 @@ elseif(MSVC)
 endif()
 
 function(rtpbrsurvey_add_shader output_var shader_file stage entry_point)
+    cmake_parse_arguments(SHADER "" "" "INCLUDE_DIRS;DEPENDS" ${ARGN})
+    set(shader_include_args)
+    foreach(include_dir IN LISTS SHADER_INCLUDE_DIRS)
+        list(APPEND shader_include_args "-I${include_dir}")
+    endforeach()
     get_filename_component(shader_name "${shader_file}" NAME_WE)
     set(output_file "${RTPBRSURVEY_SHADER_OUTPUT_DIR}/${shader_name}_${entry_point}.cso")
     add_custom_command(
@@ -236,8 +246,8 @@ function(rtpbrsurvey_add_shader output_var shader_file stage entry_point)
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${RTPBRSURVEY_SHADER_OUTPUT_DIR}"
         COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe"
             -nologo "-T${stage}" "-E${entry_point}" -Zi -Qembed_debug
-            "-Fo${output_file}" "${RTPBRSURVEY_ROOT}/${shader_file}"
-        DEPENDS "${RTPBRSURVEY_ROOT}/${shader_file}" ${ARGN}
+            ${shader_include_args} "-Fo${output_file}" "${RTPBRSURVEY_ROOT}/${shader_file}"
+        DEPENDS "${RTPBRSURVEY_ROOT}/${shader_file}" ${SHADER_UNPARSED_ARGUMENTS} ${SHADER_DEPENDS}
             "${RTPBRSURVEY_ROOT}/Shaders/DirectLights.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/DirectLightEvaluation.hlsli"
@@ -521,6 +531,16 @@ if(RTPBRSURVEY_BUILD_TESTS)
                 "${nrd_test_dir}/NRDConfig.hlsli" "${nrd_test_dir}/NRD.hlsli"
             VERBATIM)
         target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${nrd_pixel_contract_shader}")
+        if(RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS)
+            target_compile_definitions(RtPbrSurvey.SceneRenderer PUBLIC RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS=1)
+            set(nrd_runtime_conversion_shader "${RTPBRSURVEY_SHADER_OUTPUT_DIR}/shaders_NrdConversion_CSMain.cso")
+            rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_NrdConversion.hlsl cs_6_0 CSMain
+                INCLUDE_DIRS "${nrd_test_dir}"
+                DEPENDS "${RTPBRSURVEY_ROOT}/Shaders/NrdRelaxInputConversion.hlsli"
+                    "${nrd_test_dir}/NRDConfig.hlsli" "${nrd_test_dir}/NRD.hlsli")
+            add_custom_target(RtPbrSurvey.NrdConversionShader DEPENDS "${nrd_runtime_conversion_shader}")
+            add_dependencies(RtPbrSurvey.SceneRenderer RtPbrSurvey.NrdConversionShader)
+        endif()
         find_program(RTPBRSURVEY_POWERSHELL NAMES pwsh powershell REQUIRED)
         add_test(NAME RtPbrSurvey.NrdCapturedConversion
             COMMAND "${RTPBRSURVEY_POWERSHELL}" -NoProfile -File

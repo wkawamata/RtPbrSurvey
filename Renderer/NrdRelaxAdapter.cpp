@@ -253,7 +253,7 @@ NrdRelaxSupportInfo QueryNrdRelaxSupport()
 {
     NrdRelaxSupportInfo info;
     info.targetSdkVersion = "4.17.3";
-    info.reason = "NRD RELAX dispatch and PT input conversion are not integrated.";
+    info.reason = "NRD RELAX denoising dispatch is not integrated; conversion diagnostics do not enable the backend.";
     return info;
 }
 

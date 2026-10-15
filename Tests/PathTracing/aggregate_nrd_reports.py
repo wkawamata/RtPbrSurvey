@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 PASS_STATUSES = {"pass", "passed", "ok", "true"}
@@ -9,8 +10,8 @@ CONVERSION_VARIANTS = {"hit-only", "hypothetical-environment"}
 RECONSTRUCTION_MODES = {"3x3", "5x5"}
 HOST_ONLY_CATEGORIES = {"snapshot-token", "scene-range-proof", "trace-provenance"}
 PRODUCTION_RUNTIME_REASON = (
-    "NRD RELAX dispatch, PT input conversion, production RenderGraph resources, "
-    "and RELAX availability are not integrated; support remains unavailable."
+    "Full NRD RELAX denoising, history and remodulated composition are not integrated; "
+    "experimental conversion diagnostics do not enable the backend."
 )
 
 
@@ -59,9 +60,15 @@ def validate_contract_report(report):
         return ["contract report is not a JSON object"], {}
     if not _status_ok(report.get("status")):
         failures.append("contract report status is not pass/passed")
-    if "inputReady" in report and report.get("inputReady") is not False:
+    if report.get("schemaVersion") != 2 or report.get("failures") != []:
+        failures.append("contract report has an incomplete schema or failures")
+    for key in ("corpusSha256", "cpuExeSha256", "gpuExeSha256", "gpuShaderSha256", "scriptSha256",
+                "gpuHelperSha256", "cpuStdoutSha256"):
+        if not isinstance(report.get(key), str) or not re.fullmatch('[0-9a-f]{64}', report[key]):
+            failures.append("contract report is missing execution provenance: "+key)
+    if report.get("inputReady") is not False:
         failures.append("contract report inputReady is not false")
-    if "runtimeGeometrySnapshotVerified" in report and report.get("runtimeGeometrySnapshotVerified") is not False:
+    if report.get("runtimeGeometrySnapshotVerified") is not False:
         failures.append("contract report runtimeGeometrySnapshotVerified is not false")
     if report.get("gpuProofClaimed") is True or report.get("gpuProof") is True:
         failures.append("contract report claims GPU proof for host-only checks")
@@ -78,12 +85,22 @@ def validate_contract_report(report):
         failures.append("contract report records is not a list")
         records = []
     if records:
-        violations, _ = _unique_key_violations(records, ("id", "caseId"))
+        valid_records = [r for r in records if isinstance(r, dict)]
+        violations, _ = _unique_key_violations(valid_records, ("id", "caseId"))
         if violations:
             failures.append("contract report contains duplicate case IDs")
-        for record in records:
-            if _record_errors(record):
+        for record in valid_records:
+            if type(record.get('d3d12Errors')) is not int or record['d3d12Errors'] != 0:
                 failures.append("contract report contains D3D12 errors")
+    cpu_ids = {"cpu-pixel-convertible-base", "cpu-pixel-stale-snapshot", "cpu-pixel-trace-required",
+               "cpu-pixel-reconstruction-required", "cpu-pixel-exclude-primary-miss"}
+    expected = {('cpu', case) for case in cpu_ids} | {
+        ('gpu', 'cpu-pixel-convertible-base'), ('gpu', 'cpu-pixel-exclude-primary-miss')}
+    if (len(records) != len(expected) or any(not isinstance(r, dict) or r.get('passed') is not True or
+            type(r.get('d3d12Errors')) is not int or r['d3d12Errors'] != 0 or
+            r.get('id') != str(r.get('domain'))+':'+str(r.get('caseId')) for r in records) or
+            {(r.get('domain'), r.get('caseId')) for r in records if isinstance(r, dict)} != expected):
+        failures.append("contract report is missing exact executed case coverage")
     summary = {
         "status": "passed" if not failures else "failed",
         "scope": "cpu-only",

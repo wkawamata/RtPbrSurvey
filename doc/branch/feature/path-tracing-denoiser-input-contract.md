@@ -1643,3 +1643,82 @@ CTest NrdRelaxAdapter/NrdInputConversion passed 2/2. No hardware rerun, full
 application build or new scene capture was performed. The prior real aggregate
 reports still fail for a missing authentic contract report; that remaining
 reporting work is not claimed complete by these review corrections.
+
+### Step 2Y: Executed Contract Report And Runtime Conversion Diagnostics (2026-10-14)
+
+write_nrd_contract_report.py now executes the CPU corpus with its explicit
+path, verifies unique case output and successful exit, and dispatches the JSON
+GPU subset on WARP. The schemaVersion=2 report records five executed CPU cases
+and two GPU signal-arithmetic cases, case/domain IDs, executable/shader/corpus/
+script hashes and the CPU output hash. It grants no GPU proof of host geometry
+provenance. The aggregator requires these execution fields, exact seven-case
+coverage, zero errors and false readiness flags; empty contract metadata no
+longer passes. Output paths preserve existing evidence rather than overwrite it.
+
+The contract report and real captured conversion/reconstruction chain aggregate
+passed. Evidence: bin/PathTracingValidation/nrd-contract-20261014/contract-report.json
+and aggregate-report.json; final producer/aggregator output is under
+nrd-contract-final-20261014. A fresh constant-RGB reconstruction replay against
+the same material cohort is nrd-report-reconstruction-20261014, avoiding reuse
+of a converted chain report as a different proof domain.
+
+The application now has an opt-in PT NRD Conversion Diagnostics RenderGraph
+pass after PathTracingPass and before ToneMap. It reads current NormalRoughness,
+Albedo, F0/metallic, physical Diffuse/Specular, distance diagnostics and primary
+position. Separate render-size RGBA32F textures hold NrdDiffuseCandidate,
+NrdSpecularCandidate and NrdConversionDiagnostics. They are registered with the
+normal resource lifecycle and Debug Preview; graph declarations manage input
+SRV/output UAV transitions. History clear includes all three outputs. Pause
+retains the last frame; resize uses the existing render-resource recreation.
+The final image continues to use Native PT SceneColor.
+
+Enable this prototype in CMake (default OFF):
+
+```powershell
+cmake -S . -B build -DRTPBRSURVEY_BUILD_APP=ON -DRTPBRSURVEY_BUILD_TESTS=ON -DRTPBRSURVEY_TEST_NRD_PACKING=ON -DRTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS=ON
+cmake --build build --config Debug --target RtPbrSurvey
+```
+
+This stage uses the existing pinned NRD shader-helper configuration. No NRD
+runtime library is linked. SDK includes are isolated to the shader helper;
+Engine interfaces remain SDK-neutral. The optional shader is deployed by the
+existing CMake runtime-shader copy path. The default MSBuild/CMake configuration
+does not enable this prototype.
+
+Use one sample/frame, Pixel Center Primary and Denoiser Distance Diagnostics.
+Open the three PathTracing.Nrd* resources from Debug Preview/RenderGraph.
+Diagnostic R codes: 0 convertible candidate, 1 invalid, 4 primary miss,
+5 untraced, 6 environment range policy required, 7 reconstruction required,
+8 incompatible sampling, 9 missing current trace/snapshot, 10 distance diagnostics
+disabled. G/B contain lobe arithmetic statuses for evaluated candidates, or
+distance gate codes for rejected pixels. A remains zero: no denoiser readiness
+is certified. Finite environment misses are not silently encoded as 65504.
+Invalid/pending-policy data suppresses both outputs; state-3 candidates retain
+the zero-distance reconstruction marker. The snapshot gate checks recorded
+current upload/TLAS state, not a completed-fence or per-ray environment proof.
+
+Validation: Debug app build succeeded with the option ON. Eleven matched live
+captures on RTX 2080 Ti passed independent WARP SDK arithmetic comparison for
+53,808 candidate pixels; maximum packed differences were 9.54e-7 Diffuse and
+4.30e-6 Specular. Counts: 43,221 convertible, 10,587 reconstruction candidates,
+748,652 primary misses, 1,271,140 environment-policy rejects; zero invalid or
+untraced pixels. All rejected outputs were zero, all readiness channels zero,
+and no D3D12 errors were captured. A separate distance-diagnostics-OFF run
+verified gate 10 and zero candidates for all 2,073,600 pixels. Evidence:
+nrd-runtime-conversion-20261014 and nrd-runtime-disabled-20261014 under
+bin/PathTracingValidation. Existing buffer initial-state warnings remain.
+Python report/corpus checks passed 29/29 and CTest passed 37/37 (other unchanged
+test binaries were reused). The runtime-shader manifest initially rejected the
+optional shader; it is now registered through the standard shader build helper
+with explicit include/dependency arguments, and the manifest test passes.
+
+```powershell
+python Tests/PathTracing/write_nrd_contract_report.py --output <new-directory>/contract-report.json
+python Tests/PathTracing/validate_nrd_runtime_conversion.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
+python Tests/PathTracing/validate_nrd_runtime_conversion.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <another-new-directory> --disabled-distance-diagnostics
+```
+
+Next: validate the runtime environment range/provenance policy and guarded
+reconstruction, then connect full RELAX SDK dispatch/history/composition. Runtime
+conversion and the isolated contract/reconstruction tests do not establish
+denoising quality, movement/resize acceptance or support availability.

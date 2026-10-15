@@ -8,12 +8,19 @@ from aggregate_nrd_reports import aggregate_reports, validate_conversion_report
 
 def make_reports():
     contract = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "status": "passed",
         "hostOnlyCategories": ["snapshot-token", "scene-range-proof", "trace-provenance"],
         "inputReady": False,
         "runtimeGeometrySnapshotVerified": False,
         "gpuProofClaimed": False,
+        "failures": [],
+        **{key: 'a'*64 for key in ('corpusSha256', 'cpuExeSha256', 'gpuExeSha256', 'gpuShaderSha256',
+            'scriptSha256', 'gpuHelperSha256', 'cpuStdoutSha256')},
+        "records": [dict(id=domain+':'+case, domain=domain, caseId=case, passed=True, d3d12Errors=0)
+            for domain, cases in [('cpu', ['cpu-pixel-convertible-base', 'cpu-pixel-stale-snapshot',
+                'cpu-pixel-trace-required', 'cpu-pixel-reconstruction-required', 'cpu-pixel-exclude-primary-miss']),
+                ('gpu', ['cpu-pixel-convertible-base', 'cpu-pixel-exclude-primary-miss'])] for case in cases],
     }
     conversion = {
         "schemaVersion": 1,
@@ -72,6 +79,18 @@ def make_reports():
 
 
 class AggregateNrdReportsTests(unittest.TestCase):
+    def test_contract_requires_execution_evidence(self):
+        for key in ('records', 'cpuExeSha256', 'cpuStdoutSha256'):
+            reports = make_reports()
+            reports[0].pop(key)
+            result = aggregate_reports(dict(zip(('contract', 'conversion', 'reconstruction', 'convertedReconstruction'), reports)))
+            self.assertEqual(result['status'], 'failed')
+
+    def test_malformed_contract_record_is_rejected(self):
+        reports = make_reports()
+        reports[0]['records'][0] = None
+        result = aggregate_reports(dict(zip(('contract', 'conversion', 'reconstruction', 'convertedReconstruction'), reports)))
+        self.assertEqual(result['status'], 'failed')
     def test_all_reports_pass(self):
         contract, conversion, reconstruction, converted = make_reports()
         result = aggregate_reports({

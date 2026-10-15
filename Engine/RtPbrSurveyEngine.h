@@ -617,6 +617,7 @@ private:
             static constexpr const char* Clear = "Clear";
             static constexpr const char* PathTracingHistoryClear = "PathTracingHistoryClear";
             static constexpr const char* PathTracing = "PathTracing";
+            static constexpr const char* NrdConversion = "NrdConversion";
             static constexpr const char* DepthPrePass = "DepthPrePass";
             static constexpr const char* GBuffer = "GBuffer";
             static constexpr const char* Forward = "Forward";
@@ -720,6 +721,11 @@ private:
         PathTracingGuideDenoiserDiffuseDistance,
         PathTracingGuideDenoiserSpecularDistance,
         PathTracingGuideDenoiserPrimaryPosition,
+#ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
+        PathTracingGuideNrdDiffuseCandidate,
+        PathTracingGuideNrdSpecularCandidate,
+        PathTracingGuideNrdConversionDiagnostics,
+#endif
         PathTracingGuideTextureCount,
     };
     static constexpr UINT kPathTracingDescriptorCount =
@@ -1118,6 +1124,8 @@ private:
     ComPtr<ID3D12RootSignature> m_proceduralEnvRootSignature;
     ComPtr<ID3D12RootSignature> m_hybridReflectionRootSignature;
     ComPtr<ID3D12RootSignature> m_pathTracingRootSignature;
+    ComPtr<ID3D12RootSignature> m_nrdConversionRootSignature;
+    ComPtr<ID3D12PipelineState> m_nrdConversionPipeline;
     ComPtr<ID3D12RootSignature> m_rayQueryShadowRootSignature;
     ComPtr<ID3D12RootSignature> m_specularDebugRayQueryRootSignature;
     ComPtr<ID3D12RootSignature> m_rayQueryTlasDebugRootSignature;
@@ -1349,6 +1357,11 @@ private:
         "PathTracing.DenoiserDiffuseDistance",
         "PathTracing.DenoiserSpecularDistance",
         "PathTracing.DenoiserPrimaryPosition",
+#ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
+        "PathTracing.NrdDiffuseCandidate",
+        "PathTracing.NrdSpecularCandidate",
+        "PathTracing.NrdConversionDiagnostics",
+#endif
     };
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
         "DebugTexturePreview.Output.0",
@@ -1698,6 +1711,7 @@ private:
     RenderPass MakeClearPass();
     RenderPass MakePathTracingHistoryClearPass();
     RenderPass MakePathTracingPass();
+    RenderPass MakeNrdConversionPass();
     RenderPass MakeDepthPrePass();
     RenderPass MakeGBufferPass();
     RenderPass MakeHybridReflectionPass();
@@ -1779,6 +1793,7 @@ private:
     void BeginFrame();
     void ExecuteClearPass(const RenderPass& pass);
     void ExecutePathTracingHistoryClearPass(const RenderPass& pass);
+    void ExecuteNrdConversionPass(const RenderPass& pass);
     void ExecutePathTracingPass(const RenderPass& pass);
     void InvalidatePathTracingHistory(PathTracingResetReason reason);
     void CommitPathTracingFrame();
