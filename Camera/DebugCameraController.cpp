@@ -129,6 +129,12 @@ void DebugCameraController::InitObjectViewerFromCamera()
     SetObjectViewerOrbitFromOffset(XMVectorSubtract(camPos, pivot));
 }
 
+void DebugCameraController::InitObjectViewerFromCamera(const XMFLOAT3& pivot)
+{
+    m_objectViewerPivot = pivot;
+    InitObjectViewerFromCamera();
+}
+
 void DebugCameraController::UpdateObjectViewerCamera()
 {
     Engine::CameraState* camera = Camera();
@@ -200,8 +206,9 @@ void DebugCameraController::OnMouseUp(UINT8 button, int, int)
     }
     else if (button == VK_RBUTTON)
     {
+        const bool wasRightDragging = m_isRightDragging;
         m_isRightDragging = false;
-        if (m_mode == Mode::Arcball)
+        if (wasRightDragging && m_mode == Mode::Arcball)
         {
             InitObjectViewerFromCamera();
         }

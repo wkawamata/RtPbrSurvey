@@ -18,6 +18,7 @@
 #include "App/SceneSelectUi.h"
 #include "App/SceneEditorUi.h"
 #include "Camera/DebugCameraController.h"
+#include "Camera/CaptureOrbitTrack.h"
 #include "../Engine/RtPbrSurveyEngine.h"
 #include "Platform/CommandLineOptions.h"
 #include "Platform/IApplication.h"
@@ -25,6 +26,7 @@
 #include "Runtime/SceneRenderer.h"
 #include "Runtime/CaptureSessionUi.h"
 #include "Runtime/CaptureRequestGate.h"
+#include "Runtime/CaptureFrameClock.h"
 #include "Runtime/DebugTextureInspector.h"
 #include "Runtime/DebugTextureThumbnailScheduler.h"
 #include "Runtime/EvaluationState.h"
@@ -81,6 +83,10 @@ public:
     void UpdateSampleState();
 
 private:
+    void UpdateSceneInteraction(float deltaTime);
+    void UpdateSceneSimulation(float deltaTime);
+    bool IsCaptureOrbitActive() const;
+    void ApplyCaptureOrbitCamera();
     friend void App::DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& context);
     friend void App::DrawEvaluationCasesWindow(RtPbrSurveyApp& app, App::EvaluationCaseScope scope);
     friend void App::DrawSceneSelectUi(RtPbrSurveyApp& app);
@@ -149,9 +155,10 @@ private:
     bool CanEditSceneEditorDocument(std::string& reason);
     bool IsCaptureWorkPending();
     bool CanStartCaptureSession(std::string& reason);
-    void InitializeCaptureSessionClock(const RtPbrSurvey::CaptureSessionConfig& config);
+    bool ValidateCaptureOrbitSettings(std::string& reason) const;
+    void InitializeCaptureSessionClock(const RtPbrSurvey::CaptureSessionConfig& config,
+                                       std::optional<double> orbitDegreesPerSecond = std::nullopt);
     void UpdateCaptureSessionTiming();
-    bool IsFixedStepCaptureActive() const;
     void ApplyCaptureSessionUiAction(RtPbrSurvey::CaptureSessionUiAction action);
     void FailAutomatedCapture(const std::string& error);
     void UpdateReflectionHdrDiagnostics();
@@ -269,9 +276,12 @@ private:
     bool m_automatedCaptureCompleted = false;
     std::chrono::steady_clock::time_point m_captureSessionStartTime;
     RtPbrSurvey::CaptureSessionUiState m_captureSessionUiState;
-    bool m_captureSessionFixedStep = false;
-    double m_captureSessionStepSeconds = 1.0 / 60.0;
-    double m_captureSimulationSeconds = 0.0;
+    bool m_captureSessionOrbitEnabled = false;
+    double m_captureSessionOrbitDegreesPerSecond = 90.0;
+    RtPbrSurvey::CaptureFrameClock m_captureFrameClock;
+    std::optional<RtPbrSurvey::CaptureOrbitTrack> m_captureOrbitTrack;
+    RtPbrSurvey::CaptureOrbitPose m_captureOrbitPose;
+    RtPbrSurvey::CaptureFrameUpdateMode m_frameUpdateMode = RtPbrSurvey::CaptureFrameUpdateMode::LiveScene;
     float m_sceneDeltaTime = 0.0f;
     double m_pathTracingGpuTimeSumMs = 0.0;
     float m_pathTracingGpuTimeMinMs = 0.0f;

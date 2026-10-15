@@ -42,7 +42,7 @@ struct PathTracingPassDesc
     float diffuseIntensity = 1.0f;
     std::array<float, 4> backgroundColor = {0.0f, 0.2f, 0.4f, 1.0f};
     UINT debugOutput = 0;
-    UINT maxBounces = 2;
+    UINT maxBounces = 8;
     UINT environmentEnabled = 1;
     UINT environmentSamplingMode = 0;
     UINT emissiveSamplingMode = 0;

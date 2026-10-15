@@ -573,6 +573,28 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             }
             options.captureSessionEnabled = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionEncoderDelayMs"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.captureSessionEncoderDelayMilliseconds) ||
+                options.captureSessionEncoderDelayMilliseconds > 1000)
+                throw std::invalid_argument("-CaptureSessionEncoderDelayMs expects an integer in [0, 1000].");
+            options.captureSessionEnabled = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionOrbitDegreesPerSecond"))
+        {
+            if (i + 1 >= argc)
+                throw std::invalid_argument("-CaptureSessionOrbitDegreesPerSecond expects a value in [-360, 360].");
+            wchar_t* end = nullptr;
+            errno = 0;
+            const WCHAR* value = argv[++i];
+            const double rate = wcstod(value, &end);
+            if (errno == ERANGE || end == value || *end != L'\0' || !std::isfinite(rate) || std::abs(rate) > 360.0)
+                throw std::invalid_argument(
+                    "-CaptureSessionOrbitDegreesPerSecond expects a finite value in [-360, 360].");
+            options.captureSessionEnabled = true;
+            options.hasCaptureSessionOrbit = true;
+            options.captureSessionOrbitDegreesPerSecond = rate;
+        }
         else if (IsCommandLineArg(argv[i], L"-CaptureSessionClock"))
         {
             if (i + 1 >= argc ||
@@ -842,6 +864,16 @@ bool BuildCaptureSessionConfig(const CommandLineOptions& options,
         error = "Capture Session requires -CaptureSessionOutputDir and -CaptureSessionBaseName.";
         return false;
     }
+    if (options.hasCaptureSessionOrbit &&
+        (!std::isfinite(options.captureSessionOrbitDegreesPerSecond) ||
+         std::abs(options.captureSessionOrbitDegreesPerSecond) > 360.0 || !options.captureSessionFixedStep ||
+         !options.capturePath.empty() || !options.reflectionCapturePlanPath.empty() ||
+         !options.reflectionHdrDiagnosticsPath.empty() || options.reflectionOrbitFrames > 0 ||
+         !options.pathTracingHistoryValidationDirectory.empty()))
+    {
+        error = "Capture Session orbit requires fixed-step clock and no other camera/capture automation.";
+        return false;
+    }
     if (options.captureSessionFrameLimit == 0 && !options.hasCaptureSessionDuration)
     {
         error = "Capture Session requires -CaptureSessionFrames or -CaptureSessionDurationSeconds.";
@@ -852,6 +884,11 @@ bool BuildCaptureSessionConfig(const CommandLineOptions& options,
     if (!TryParseCaptureSessionFormat(options.captureSessionFormat, format))
     {
         error = "-CaptureSessionFormat expects png, exr, gif, or mp4.";
+        return false;
+    }
+    if (options.captureSessionEncoderDelayMilliseconds > 0 && format != RtPbrSurvey::CaptureSessionOutputFormat::Mp4)
+    {
+        error = "Capture Session encoder delay is a diagnostic option for MP4 only.";
         return false;
     }
 

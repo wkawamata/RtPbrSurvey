@@ -36,6 +36,7 @@ public:
     void SetObjectViewerState(float yaw, float pitch, float distance, const DirectX::XMFLOAT3& pivot);
 
     void InitObjectViewerFromCamera();
+    void InitObjectViewerFromCamera(const DirectX::XMFLOAT3& pivot);
     void UpdateObjectViewerCamera();
     void ResetInputState();
 
