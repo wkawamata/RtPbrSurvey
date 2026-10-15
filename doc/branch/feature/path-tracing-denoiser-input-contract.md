@@ -1776,3 +1776,23 @@ The rebuilt adapter and related CTest targets passed 3/3.
 ```powershell
 python Tests/PathTracing/validate_nrd_runtime_conversion.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory> --ray-max 6 --policy-only
 ```
+
+### Step 2ZA: Fail-Closed Runtime Policy Report Checks (2026-10-16)
+
+Step 2Z was committed as 54fcc85. Before connecting reconstruction, the
+policy-only report validator now independently rejects malformed or empty
+capture shapes, non-finite values in any input, noncanonical primary markers,
+primary-hit/exclusion contradictions, readiness claims, missing range rejects,
+and candidate leakage on every excluded pixel (including primary misses).
+Accepted reconstruction candidates remain permitted; this check does not
+certify their arithmetic or reconstruction quality.
+
+Five Python regression tests cover successful counts and the negative cases.
+The retained RTX 2080 Ti four-capture short-range cohort also passes the stronger
+validator with 416,200 rejected pixels and 416,886 primary hits. This is replay
+of existing evidence, not a fresh GPU run. No rendering code or SDK dispatch
+changed in this step. Full live reconstruction and RELAX remain pending.
+
+```powershell
+python -m unittest discover -s Tests/PathTracing -p test_nrd_runtime_policy.py -v
+```

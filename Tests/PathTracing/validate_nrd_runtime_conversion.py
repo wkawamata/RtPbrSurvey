@@ -18,6 +18,24 @@ NAMES = ('NormalRoughness', 'Albedo', 'MaterialF0Metallic', 'PhysicalDiffuse', '
     'NrdDiffuseCandidate', 'NrdSpecularCandidate', 'NrdConversionDiagnostics')
 
 
+def validate_policy_rejection(primary, diagnostics, diffuse, specular):
+    arrays = (primary, diagnostics, diffuse, specular)
+    if (primary.ndim != 3 or primary.shape[-1] != 4 or primary.size == 0 or
+            any(value.shape != primary.shape or not np.isfinite(value).all() for value in arrays)):
+        raise ValueError('Invalid policy capture shape or non-finite data')
+    if not np.isin(primary[..., 3], [0, 1]).all():
+        raise ValueError('Invalid primary hit marker')
+    hit = primary[..., 3] == 1
+    codes = diagnostics[..., 0]
+    rejected = codes == 6
+    excluded = ~np.isin(codes, [0, 7])
+    if (not (hit & rejected).any() or (codes[~hit] != 4).any() or (codes[hit] == 4).any() or
+            (diagnostics[..., 3] != 0).any() or not np.isin(codes, [0, 4, 6, 7]).all() or
+            (diffuse[excluded] != 0).any() or (specular[excluded] != 0).any()):
+        raise ValueError('Insufficient-range suppression failed or was not exercised')
+    return dict(policyRejectedPixels=int(rejected.sum()), primaryPixels=int(hit.sum()))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, required=True)
@@ -60,17 +78,11 @@ def main():
         diagnostics = buffers['NrdConversionDiagnostics'][1]
         codes = diagnostics[..., 0]
         if args.policy_only:
-            primary = buffers['DenoiserPrimaryPosition'][1][..., 3] == 1
-            rejected = codes == 6
-            if (not (primary & rejected).any() or (codes[~primary] != 4).any() or
-                    (diagnostics[..., 3] != 0).any() or not np.isin(codes, [0, 4, 6, 7]).all() or
-                    (buffers['NrdDiffuseCandidate'][1][rejected] != 0).any() or
-                    (buffers['NrdSpecularCandidate'][1][rejected] != 0).any()):
-                raise ValueError('Insufficient-range suppression failed or was not exercised')
-            report.update(status='passed', policyRejectedPixels=int(rejected.sum()),
-                primaryPixels=int(primary.sum()), scope='policy-rejection-only')
+            counts = validate_policy_rejection(buffers['DenoiserPrimaryPosition'][1], diagnostics,
+                buffers['NrdDiffuseCandidate'][1], buffers['NrdSpecularCandidate'][1])
+            report.update(status='passed', **counts, scope='policy-rejection-only')
             write_json(output/'report.json', report)
-            print('passed range-policy rejects='+str(rejected.sum()))
+            print('passed range-policy rejects='+str(counts['policyRejectedPixels']))
             return 0
         if args.disabled_distance_diagnostics:
             if (not (codes == 10).all() or (diagnostics[..., 1:] != 0).any() or
