@@ -279,7 +279,7 @@ public:
     {
         bool accumulate = true;
         UINT samplesPerFrame = 1;
-        UINT maxBounces = 2;
+        UINT maxBounces = 8;
         UINT randomSeed = 1;
         bool directLightingEnabled = true;
         bool environmentEnabled = true;

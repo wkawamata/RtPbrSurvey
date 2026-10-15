@@ -641,6 +641,7 @@ namespace
             {
                 renderer.SetPathTracingSettings(pathTracingSettings);
             }
+            return;
         }
 
         const bool deferredRendering = renderingPath == RtPbrSurveyEngine::RenderingPath::Deferred;
@@ -988,7 +989,8 @@ namespace RtPbrSurvey
             DrawShadowControls(renderer);
         }
 
-        if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
+        if (renderer.GetRenderingPath() != RtPbrSurveyEngine::RenderingPath::PathTracing &&
+            ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
         {
             DrawHybridReflectionControls(renderer);
         }
