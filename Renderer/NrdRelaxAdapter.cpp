@@ -96,6 +96,28 @@ uint64_t NrdRelaxGeometrySnapshot::Token() const
     return m_bounds.complete ? m_token : 0;
 }
 
+NrdRelaxGpuSceneRange NrdRelaxGeometrySnapshot::ExportGpuSceneRange(uint64_t expectedToken) const
+{
+    NrdRelaxGpuSceneRange result;
+    if (expectedToken == 0 || expectedToken != Token())
+    {
+        return result;
+    }
+    const float infinity = std::numeric_limits<float>::infinity();
+    for (size_t axis = 0; axis < 3; ++axis)
+    {
+        result.minimum[axis] = std::nextafter(static_cast<float>(m_bounds.minimum[axis]), -infinity);
+        result.maximum[axis] = std::nextafter(static_cast<float>(m_bounds.maximum[axis]), infinity);
+        if (!std::isfinite(result.minimum[axis]) || !std::isfinite(result.maximum[axis]) ||
+            result.minimum[axis] > result.maximum[axis])
+        {
+            return {};
+        }
+    }
+    result.valid = true;
+    return result;
+}
+
 NrdRelaxRayRangeContext NrdRelaxGeometrySnapshot::MakeRangeContext(uint64_t token,
                                                                    std::array<float, 3> origin,
                                                                    std::array<float, 3> direction) const

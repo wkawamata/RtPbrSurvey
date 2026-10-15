@@ -8,6 +8,8 @@ Texture2D<float4> g_specular : register(t4);
 Texture2D<float4> g_diffuseDistance : register(t5);
 Texture2D<float4> g_specularDistance : register(t6);
 Texture2D<float4> g_primary : register(t7);
+Texture2D<float4> g_diffuseDirection : register(t8);
+Texture2D<float4> g_specularDirection : register(t9);
 RWTexture2D<float4> g_outputDiffuse : register(u0);
 RWTexture2D<float4> g_outputSpecular : register(u1);
 RWTexture2D<float4> g_diagnostics : register(u2);
@@ -25,9 +27,30 @@ cbuffer Constants : register(b1)
     uint height;
     uint hostGate;
     float rayTMax;
+    float3 boundsMinimum;
+    uint rangeValid;
+    float3 boundsMaximum;
+    float normalBias;
 };
 
-uint DistanceStatus(float4 d, bool active)
+bool CoversScene(float3 position, float4 direction)
+{
+    if (rangeValid != 1 || any(!isfinite(position)) || any(!isfinite(direction)) || direction.w <= 0 ||
+        any(!isfinite(boundsMinimum)) || any(!isfinite(boundsMaximum)) || any(boundsMinimum > boundsMaximum) ||
+        !isfinite(normalBias))
+        return false;
+    float directionLength = length(direction.xyz);
+    if (abs(directionLength - 1) > 2e-5)
+        return false;
+    // Enclose the biased origin without substituting the shading normal for the geometry normal.
+    float3 farthest = max(abs(boundsMinimum - position), abs(boundsMaximum - position)) + abs(normalBias);
+    float required = length(farthest);
+    float travel = rayTMax * directionLength;
+    float margin = 128 * 1.192092896e-7 * max(1, max(travel, required));
+    return isfinite(required) && isfinite(travel) && travel > required + margin;
+}
+
+uint DistanceStatus(float4 d, bool active, float3 position, float4 direction)
 {
     if (any(!isfinite(d)) || d.w != 0 || !isfinite(rayTMax) || rayTMax <= 0)
         return 1;
@@ -38,7 +61,7 @@ uint DistanceStatus(float4 d, bool active)
     if (d.x != 0)
         return 1;
     if (d.y == 2)
-        return d.z == rayTMax ? 6 : 1;
+        return d.z != rayTMax ? 1 : CoversScene(position, direction) ? 0 : 6;
     if (d.z != 0)
         return 1;
     if (d.y == 0)
@@ -83,8 +106,8 @@ uint DistanceStatus(float4 d, bool active)
         return;
     }
     bool diffuseActive = material.w < 1 && any(albedo.xyz > 0);
-    uint diffuseGate = DistanceStatus(diffuseDistance, diffuseActive);
-    uint specularGate = DistanceStatus(specularDistance, true);
+    uint diffuseGate = DistanceStatus(diffuseDistance, diffuseActive, primary.xyz, g_diffuseDirection[pixel]);
+    uint specularGate = DistanceStatus(specularDistance, true, primary.xyz, g_specularDirection[pixel]);
     uint gate = diffuseGate == 1 || specularGate == 1   ? 1
                 : diffuseGate == 5 || specularGate == 5 ? 5
                 : diffuseGate == 6 || specularGate == 6 ? 6
@@ -108,8 +131,8 @@ uint DistanceStatus(float4 d, bool active)
                                                                 normal.w,
                                                                 physicalDiffuse,
                                                                 physicalSpecular,
-                                                                diffuseDistance.x,
-                                                                specularDistance.x);
+                                                                diffuseDistance.y == 2 ? 65504 : diffuseDistance.x,
+                                                                specularDistance.y == 2 ? 65504 : specularDistance.x);
     g_diagnostics[pixel] =
         float4(converted.conversionReady ? gate : 1, converted.diffuseStatus, converted.specularStatus, 0);
     if (converted.conversionReady)

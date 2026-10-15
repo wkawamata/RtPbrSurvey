@@ -1250,6 +1250,7 @@ private:
 
     ComPtr<ID3D12Resource> m_vertexBuffer;
     Engine::NrdRelaxGeometrySnapshot m_nrdGeometrySnapshot;
+    uint64_t m_pathTracingGeometryToken = 0;
     D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
 
     ComPtr<ID3D12Resource> m_indexBuffer;

@@ -19,6 +19,7 @@ void RtPbrSurveyEngine::BuildRenderPasses()
     m_reflectionHistoryCommitPending = false;
     m_reflectionSamplingCommitPending = false;
     m_pathTracingSampleCommitPending = false;
+    m_pathTracingGeometryToken = 0;
     m_renderGraphRuntime.Graph().Clear();
     m_renderGraphRuntime.Operations().Clear();
 
@@ -403,7 +404,9 @@ auto RtPbrSurveyEngine::MakeNrdConversionPass() -> RenderPass
                        PathTracingGuidePhysicalSpecular,
                        PathTracingGuideDenoiserDiffuseDistance,
                        PathTracingGuideDenoiserSpecularDistance,
-                       PathTracingGuideDenoiserPrimaryPosition})
+                       PathTracingGuideDenoiserPrimaryPosition,
+                       PathTracingGuideDenoiserDiffuseDirection,
+                       PathTracingGuideDenoiserSpecularDirection})
     {
         reads.push_back({kPathTracingGuideTextureResourceNames[index], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE});
     }

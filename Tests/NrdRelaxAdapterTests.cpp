@@ -143,8 +143,22 @@ bool CheckSnapshotLifecycle()
     const auto inspect = [&]()
     { return Engine::InspectNrdRelaxDistance(0, 2, 100, 0, 100, true, true, &context).disposition; };
     passed &= first != 0 && inspect() == Disposition::EnvironmentMissCandidate;
+    const auto gpuRange = snapshot.ExportGpuSceneRange(first);
+    passed &= gpuRange.valid && gpuRange.minimum[0] <= 0 && gpuRange.maximum[0] >= 2 &&
+              gpuRange.minimum[1] <= 0 && gpuRange.maximum[1] >= 2;
+    Engine::Scene uploadedScene;
+    uploadedScene.mesh = &uploaded;
+    uploadedScene.instances = {instance};
+    const auto cpuBounds = Engine::BuildNrdRelaxWorldBounds(uploadedScene);
+    for (size_t axis = 0; axis < 3; ++axis)
+    {
+        passed &= gpuRange.minimum[axis] <= cpuBounds.minimum[axis] &&
+                  gpuRange.maximum[axis] >= cpuBounds.maximum[axis];
+    }
+    passed &= !snapshot.ExportGpuSceneRange(0).valid && !snapshot.ExportGpuSceneRange(first + 1).valid;
     snapshot.RecordTlas({&instance, 1});
     passed &= snapshot.Token() != first && inspect() == Disposition::EnvironmentMissPolicyRequired;
+    passed &= !snapshot.ExportGpuSceneRange(first).valid;
     context = snapshot.MakeRangeContext(first, {.25f, .25f, .001f}, {0, 0, 1});
     passed &= !context.geometrySnapshotMatches;
     instance.world._34 = 200;

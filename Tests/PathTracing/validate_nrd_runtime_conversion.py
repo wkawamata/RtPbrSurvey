@@ -9,10 +9,12 @@ import numpy as np
 from validate_denoiser_distances import capture
 from validate_part1 import sha, write_json
 from replay_nrd_conversion import make_inputs
+from validate_secondary_geometry import planes_from_scene
 
 ROOT = Path(__file__).resolve().parents[2]
 NAMES = ('NormalRoughness', 'Albedo', 'MaterialF0Metallic', 'PhysicalDiffuse', 'PhysicalSpecular',
     'DenoiserDiffuseDistance', 'DenoiserSpecularDistance', 'DenoiserPrimaryPosition',
+    'DenoiserDiffuseDirection', 'DenoiserSpecularDirection',
     'NrdDiffuseCandidate', 'NrdSpecularCandidate', 'NrdConversionDiagnostics')
 
 
@@ -21,6 +23,9 @@ def main():
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--disabled-distance-diagnostics', action='store_true')
+    parser.add_argument('--ray-max', type=float)
+    parser.add_argument('--expect-policy-rejects', action='store_true')
+    parser.add_argument('--policy-only', action='store_true')
     args = parser.parse_args()
     source, output = args.source.resolve(strict=True), args.output.resolve()
     if output == source or source in output.parents or (output.exists() and any(output.iterdir())):
@@ -28,6 +33,8 @@ def main():
     exe = ROOT/'build/Debug/RtPbrSurvey.exe'
     write_json(output/'scene.json', json.loads((source/'scene.json').read_text()))
     preset = json.loads((source/'on.json').read_text())
+    if args.ray_max is not None:
+        preset['shadow']['rayTMax'] = args.ray_max
     if args.disabled_distance_diagnostics:
         preset['pathTracing']['denoiserDistanceDiagnostics'] = False
     write_json(output/'preset.json', preset)
@@ -38,6 +45,8 @@ def main():
         buffers = {}
         meta = None
         names = NAMES if not args.disabled_distance_diagnostics else NAMES[-3:]
+        if args.policy_only:
+            names = ('DenoiserPrimaryPosition',)+NAMES[-3:]
         for name in names:
             buffers[name], record = capture(exe, output, name, output/'preset.json', name)
             report['records'].append(record)
@@ -50,6 +59,19 @@ def main():
             write_json(output/'report.json', report)
         diagnostics = buffers['NrdConversionDiagnostics'][1]
         codes = diagnostics[..., 0]
+        if args.policy_only:
+            primary = buffers['DenoiserPrimaryPosition'][1][..., 3] == 1
+            rejected = codes == 6
+            if (not (primary & rejected).any() or (codes[~primary] != 4).any() or
+                    (diagnostics[..., 3] != 0).any() or not np.isin(codes, [0, 4, 6, 7]).all() or
+                    (buffers['NrdDiffuseCandidate'][1][rejected] != 0).any() or
+                    (buffers['NrdSpecularCandidate'][1][rejected] != 0).any()):
+                raise ValueError('Insufficient-range suppression failed or was not exercised')
+            report.update(status='passed', policyRejectedPixels=int(rejected.sum()),
+                primaryPixels=int(primary.sum()), scope='policy-rejection-only')
+            write_json(output/'report.json', report)
+            print('passed range-policy rejects='+str(rejected.sum()))
+            return 0
         if args.disabled_distance_diagnostics:
             if (not (codes == 10).all() or (diagnostics[..., 1:] != 0).any() or
                     (buffers['NrdDiffuseCandidate'][1] != 0).any() or
@@ -62,9 +84,26 @@ def main():
         if not np.isin(codes, [0, 1, 4, 5, 6, 7]).all() or (diagnostics[..., 3] != 0).any():
             raise ValueError('Unexpected host gate or runtime readiness claim')
         accepted = np.isin(codes, [0, 7])
-        if not accepted.any():
+        if not accepted.any() and not args.expect_policy_rejects:
             raise ValueError('No convertible primary pixels were exercised')
-        inputs = make_inputs(meta, buffers, False)
+        if args.expect_policy_rejects and not (codes == 6).any():
+            raise ValueError('Insufficient range did not exercise policy rejection')
+        planes = planes_from_scene(json.loads((output/'scene.json').read_text()))
+        corners = np.array([center+sx*axis_x*half_width+sz*axis_z*half_depth
+            for center, axis_x, axis_z, _, half_width, half_depth in planes for sx in (-1, 1) for sz in (-1, 1)])
+        position = buffers['DenoiserPrimaryPosition'][1][..., :3]
+        farthest = np.maximum(abs(corners.min(axis=0)-position), abs(corners.max(axis=0)-position)) + abs(meta['normalBias'])
+        required = np.linalg.norm(farthest, axis=-1)
+        approved_misses = {}
+        for lobe in ('Diffuse', 'Specular'):
+            miss = accepted & (buffers['Denoiser'+lobe+'Distance'][1][..., 1] == 2)
+            direction = buffers['Denoiser'+lobe+'Direction'][1]
+            length = np.linalg.norm(direction[..., :3], axis=-1)
+            if ((abs(length[miss]-1) > 2e-5).any() or (direction[miss, 3] <= 0).any() or
+                    (meta['rayTMax']*length[miss] <= required[miss]+1e-5).any()):
+                raise ValueError('Runtime miss approval violates independent scene/ray range: '+lobe)
+            approved_misses[lobe] = int(miss.sum())
+        inputs = make_inputs(meta, buffers, True)
         inputs.tofile(output/'isolated-input.raw')
         harness = ROOT/'build/Debug/RtPbrSurvey.PathTracingDenoiserSamplingTests.exe'
         shader = ROOT/'build/Tests/NrdPacking/shaders_NrdCapturedConversion_CSMain.cso'
@@ -81,14 +120,14 @@ def main():
             error = abs(actual-expected[..., index, :])
             if (error[accepted] > 2e-5+2e-5*abs(expected[accepted, index, :])).any():
                 raise ValueError('Runtime conversion disagrees with isolated '+lobe)
-            errors[lobe] = float(error[accepted].max())
+            errors[lobe] = float(error[accepted].max()) if accepted.any() else 0
         report.update(status='passed', diagnosticCounts={str(code): int((codes == code).sum()) for code in [0, 1, 4, 5, 6, 7]},
-            acceptedPixels=int(accepted.sum()), maximumPackedError=errors)
+            acceptedPixels=int(accepted.sum()), maximumPackedError=errors, rangeValidatedMisses=approved_misses)
     except Exception as error:
         report['failures'].append(str(error))
         report['status'] = 'failed'
     report['limitation'] = ('Experimental runtime conversion candidates only; Native remains the final image. '
-        'Environment range policy, runtime readiness, reconstruction and full RELAX dispatch are not certified.')
+        'Plane-fixture range oracle only; full runtime readiness, reconstruction and RELAX dispatch are not certified.')
     write_json(output/'report.json', report)
     print(report['status'], report.get('diagnosticCounts'), report['failures'])
     return report['status'] != 'passed'

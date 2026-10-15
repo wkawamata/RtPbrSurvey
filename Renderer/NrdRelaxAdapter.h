@@ -31,6 +31,13 @@ struct NrdRelaxRayRangeContext
     uint64_t expectedSnapshotToken = 0;
 };
 
+struct NrdRelaxGpuSceneRange
+{
+    std::array<float, 3> minimum = {};
+    std::array<float, 3> maximum = {};
+    bool valid = false;
+};
+
 class NrdRelaxGeometrySnapshot
 {
 public:
@@ -42,6 +49,7 @@ public:
     void Invalidate();
     void Reset();
     uint64_t Token() const;
+    NrdRelaxGpuSceneRange ExportGpuSceneRange(uint64_t expectedToken) const;
     NrdRelaxRayRangeContext
     MakeRangeContext(uint64_t token, std::array<float, 3> origin, std::array<float, 3> direction) const;
 

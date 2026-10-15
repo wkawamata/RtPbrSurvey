@@ -2921,9 +2921,11 @@ void RtPbrSurveyEngine::CreatePipelineStates()
                            PathTracingGuidePhysicalSpecular,
                            PathTracingGuideDenoiserDiffuseDistance,
                            PathTracingGuideDenoiserSpecularDistance,
-                           PathTracingGuideDenoiserPrimaryPosition};
-    CD3DX12_DESCRIPTOR_RANGE1 inputRanges[8], outputRanges[3], cameraRange;
-    for (UINT i = 0; i < 8; ++i)
+                           PathTracingGuideDenoiserPrimaryPosition,
+                           PathTracingGuideDenoiserDiffuseDirection,
+                           PathTracingGuideDenoiserSpecularDirection};
+    CD3DX12_DESCRIPTOR_RANGE1 inputRanges[10], outputRanges[3], cameraRange;
+    for (UINT i = 0; i < _countof(inputs); ++i)
     {
         inputRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * inputs[i]);
     }
@@ -2933,10 +2935,10 @@ void RtPbrSurveyEngine::CreatePipelineStates()
     }
     cameraRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
     CD3DX12_ROOT_PARAMETER1 parameters[4];
-    parameters[0].InitAsDescriptorTable(8, inputRanges);
+    parameters[0].InitAsDescriptorTable(_countof(inputRanges), inputRanges);
     parameters[1].InitAsDescriptorTable(3, outputRanges);
     parameters[2].InitAsDescriptorTable(1, &cameraRange);
-    parameters[3].InitAsConstants(4, 1);
+    parameters[3].InitAsConstants(12, 1);
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC signatureDesc;
     signatureDesc.Init_1_1(4, parameters);
     ComPtr<ID3DBlob> signature, error;
@@ -6138,8 +6140,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.environmentSamplingMode = m_pathTracingSettings.environmentSamplingMode;
     passDesc.emissiveSamplingMode = m_pathTracingSettings.emissiveSamplingMode;
     passDesc.skyboxEnabled = m_lightingParams.skyboxEnabled ? 1u : 0u;
-    passDesc.emissiveEnabled =
-        m_pathTracingSettings.emissiveEnabled && m_lightingParams.emissiveEnabled ? 1u : 0u;
+    passDesc.emissiveEnabled = m_pathTracingSettings.emissiveEnabled && m_lightingParams.emissiveEnabled ? 1u : 0u;
     passDesc.directLightingEnabled =
         m_pathTracingSettings.directLightingEnabled && m_lightingParams.directLightEnabled ? 1u : 0u;
     passDesc.shadowEnabled = m_shadowSettings.enabled ? 1u : 0u;
@@ -6149,12 +6150,13 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.denoiserDistanceDiagnostics = m_pathTracingSettings.denoiserDistanceDiagnostics;
     passDesc.sampleStartIndex = m_pathTracingRuntimeState.frameSampleIndex;
     passDesc.randomSeed = m_pathTracingSettings.randomSeed;
-    passDesc.previousSampleCount = m_pathTracingSettings.accumulate ?
-        static_cast<float>(m_pathTracingRuntimeState.accumulatedSampleCount) : 0.0f;
+    passDesc.previousSampleCount =
+        m_pathTracingSettings.accumulate ? static_cast<float>(m_pathTracingRuntimeState.accumulatedSampleCount) : 0.0f;
     passDesc.accumulate = m_pathTracingSettings.accumulate;
     passDesc.width = m_renderWidth;
     passDesc.height = m_renderHeight;
     Engine::RecordPathTracingPass(m_commandList.Get(), passDesc);
+    m_pathTracingGeometryToken = m_nrdGeometrySnapshot.Token();
     m_pathTracingPendingSampleCount = passDesc.samplesPerFrame;
     m_pathTracingPendingAccumulate = passDesc.accumulate;
     m_pathTracingSampleCommitPending = true;
@@ -6164,6 +6166,7 @@ void RtPbrSurveyEngine::ExecuteNrdConversionPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 #ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
+    const Engine::NrdRelaxGpuSceneRange range = m_nrdGeometrySnapshot.ExportGpuSceneRange(m_pathTracingGeometryToken);
     UINT gate = 0;
     if (!Engine::QueryNrdRelaxSamplingReadiness(m_pathTracingSettings.samplesPerFrame,
                                                 m_pathTracingSettings.pixelCenterPrimary)
@@ -6171,7 +6174,7 @@ void RtPbrSurveyEngine::ExecuteNrdConversionPass(const RenderPass& pass)
     {
         gate = 8;
     }
-    else if (!m_pathTracingSampleCommitPending || m_nrdGeometrySnapshot.Token() == 0)
+    else if (!m_pathTracingSampleCommitPending || !range.valid)
     {
         gate = 9;
     }
@@ -6185,14 +6188,26 @@ void RtPbrSurveyEngine::ExecuteNrdConversionPass(const RenderPass& pass)
         UINT height;
         UINT gate;
         float rayTMax;
-    } constants = {m_renderWidth, m_renderHeight, gate, m_shadowSettings.rayTMax};
+        std::array<float, 3> boundsMinimum;
+        UINT rangeValid;
+        std::array<float, 3> boundsMaximum;
+        float normalBias;
+    } constants = {m_renderWidth,
+                   m_renderHeight,
+                   gate,
+                   m_shadowSettings.rayTMax,
+                   range.minimum,
+                   range.valid ? 1u : 0u,
+                   range.maximum,
+                   m_shadowSettings.normalBias};
+    static_assert(sizeof(Constants) == 12 * sizeof(UINT));
     m_commandList->SetComputeRootSignature(m_nrdConversionRootSignature.Get());
     m_commandList->SetPipelineState(m_nrdConversionPipeline.Get());
     m_commandList->SetComputeRootDescriptorTable(0, m_pathTracingGuideTextureSrvs[0].gpu);
     m_commandList->SetComputeRootDescriptorTable(
         1, m_pathTracingGuideTextureUavs[PathTracingGuideNrdDiffuseCandidate].gpu);
     m_commandList->SetComputeRootDescriptorTable(2, m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu);
-    m_commandList->SetComputeRoot32BitConstants(3, 4, &constants, 0);
+    m_commandList->SetComputeRoot32BitConstants(3, 12, &constants, 0);
     m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
 #endif
 }

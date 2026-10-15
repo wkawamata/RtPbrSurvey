@@ -1722,3 +1722,57 @@ Next: validate the runtime environment range/provenance policy and guarded
 reconstruction, then connect full RELAX SDK dispatch/history/composition. Runtime
 conversion and the isolated contract/reconstruction tests do not establish
 denoising quality, movement/resize acceptance or support availability.
+
+### Step 2Z: Runtime Environment-Miss Range Gate (2026-10-16)
+
+Step 2Y was committed as b4b5461. The next change exports the recorded geometry
+snapshot bounds only for a matching, nonzero expected generation. Float bounds
+are rounded outward with nextafter; unrepresentable values fail closed. CPU
+tests check containment of the double bounds, zero/stale generations and
+invalidation after another TLAS recording.
+
+Each graph build clears the PT generation stamp; recording the current PT
+dispatch stamps the snapshot token. Conversion exports bounds against that
+stamp, and host gate 9 rejects a missing trace or mismatched snapshot. Bounds
+and validity are copied into root constants, so later CPU scene changes cannot
+mutate an already recorded conversion dispatch. Direction textures are added
+as explicit graph reads, with the corresponding SRV/UAV state transitions.
+
+For canonical environment misses, GPU conversion requires finite positive PDF,
+unit direction, finite ordered scene bounds and sufficient rayTMax. It bounds
+the farthest scene corner from primary position, conservatively expanded on
+each axis by abs(normalBias), then adds a float arithmetic safety margin. This
+contains the geometric-normal-biased ray origin without using a quantized
+shading normal as a substitute. Only a passing miss becomes distance 65504;
+insufficient range stays gate 6 and suppresses both outputs. Missing directions
+remain reconstruction markers rather than environment rays. These checks use
+recorded command ordering, not a new fence-completion certificate or complete
+RELAX input-readiness claim.
+
+The runtime validator now captures both direction textures and uses an
+independent double-precision primitive-plane corner/range oracle. Successful
+candidates are compared with isolated SDK conversion, with environment
+encoding enabled only in the comparison of approved pixels. The long-range
+fixture passed on RTX 2080 Ti: 1,324,948 candidate pixels, including 1,201,690
+Diffuse and 1,025,770 Specular approved misses. Counts were 1,207,876 normal
+candidates, 117,072 reconstruction candidates, 748,652 primary misses and zero
+policy rejects/invalid/untraced pixels. Maximum packed error was 1.44e-6 Diffuse
+and 7.16e-6 Specular. Evidence: nrd-runtime-range-20261016 under
+bin/PathTracingValidation. No D3D12 errors were captured.
+
+The validator accepts --ray-max and --expect-policy-rejects for a short-range
+negative run. Full RELAX dispatch and runtime reconstruction are still pending;
+Native remains the final image and all readiness channels remain zero.
+
+The initial rayTMax=4 negative fixture produced only primary misses and was
+correctly retained as failed (the intended policy gate was not exercised).
+Retrying with rayTMax=6 and --policy-only exercised 416,200 policy-rejected
+pixels; both candidate outputs were zero there and readiness stayed zero.
+That four-capture smoke run checks rejection only, not arithmetic on any other
+pixels. Evidence: nrd-runtime-short-range-retry-20261016; the failed initial
+run remains nrd-runtime-short-range-20261016. Both runs had no D3D12 errors.
+The rebuilt adapter and related CTest targets passed 3/3.
+
+```powershell
+python Tests/PathTracing/validate_nrd_runtime_conversion.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory> --ray-max 6 --policy-only
+```
