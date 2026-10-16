@@ -264,12 +264,22 @@ void RtPbrSurveyApp::OnInit()
     // Open debug log file and query ID3D12InfoQueue for D3D12 message capture.
     if (!m_commandLineOptions.logFilePath.empty())
     {
-        int fd;
+        const std::filesystem::path logPath(m_commandLineOptions.logFilePath);
+        if (logPath.has_parent_path())
+        {
+            std::error_code directoryError;
+            std::filesystem::create_directories(logPath.parent_path(), directoryError);
+        }
+        int fd = -1;
         errno_t err = _wsopen_s(&fd, m_commandLineOptions.logFilePath.c_str(), _O_WRONLY | _O_CREAT | _O_TRUNC | _O_TEXT,
                                 _SH_DENYNO, _S_IREAD | _S_IWRITE);
         if (err == 0)
         {
             m_logFile = _fdopen(fd, "wt");
+            if (m_logFile == nullptr)
+            {
+                _close(fd);
+            }
         }
         if (m_logFile)
         {
@@ -279,6 +289,11 @@ void RtPbrSurveyApp::OnInit()
                 m_d3d12InfoQueue->SetMessageCountLimit(100000);
                 FlushD3D12DebugMessages();
             }
+        }
+        else
+        {
+            const std::wstring message = L"Failed to open -LogToFile: " + logPath.wstring() + L"\n";
+            OutputDebugStringW(message.c_str());
         }
     }
 

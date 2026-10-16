@@ -17,6 +17,9 @@ RWTexture2D<float4> g_diagnostics : register(u2);
 RWTexture2D<float4> g_outputNormalRoughness : register(u3);
 RWTexture2D<float4> g_outputViewZ : register(u4);
 RWTexture2D<float4> g_validity : register(u5);
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+RWTexture2D<float> g_tiles : register(u6);
+#endif
 cbuffer CameraCB : register(b0)
 {
     float4x4 viewProj;
@@ -78,6 +81,10 @@ uint DistanceStatus(float4 d, bool active, float3 position, float4 direction)
     if (id.x >= width || id.y >= height)
         return;
     uint2 pixel = id.xy;
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+    if (all(pixel < (uint2(width, height) + 15) / 16))
+        g_tiles[pixel] = 0;
+#endif
     g_outputDiffuse[pixel] = 0;
     g_outputSpecular[pixel] = 0;
     g_outputNormalRoughness[pixel] = 0;

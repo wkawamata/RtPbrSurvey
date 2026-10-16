@@ -618,6 +618,7 @@ private:
             static constexpr const char* PathTracingHistoryClear = "PathTracingHistoryClear";
             static constexpr const char* PathTracing = "PathTracing";
             static constexpr const char* NrdConversion = "NrdConversion";
+            static constexpr const char* NrdReconstruction = "NrdReconstruction";
             static constexpr const char* DepthPrePass = "DepthPrePass";
             static constexpr const char* GBuffer = "GBuffer";
             static constexpr const char* Forward = "Forward";
@@ -728,6 +729,11 @@ private:
         PathTracingGuideNrdNormalRoughness,
         PathTracingGuideNrdViewZ,
         PathTracingGuideNrdValidity,
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+        PathTracingGuideNrdTiles,
+        PathTracingGuideNrdReconstructedSpecular,
+        PathTracingGuideNrdReconstructedDiffuse,
+#endif
 #endif
         PathTracingGuideTextureCount,
     };
@@ -826,6 +832,10 @@ private:
         ComPtr<ID3D12Resource> tlasInstanceBuffer;
         ConstantBufferResource cameraCB;
         ConstantBufferResource lightCB;
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+        ComPtr<ID3D12Resource> nrdReconstructionConstants;
+        void* nrdReconstructionMapped = nullptr;
+#endif
         UINT64 fenceValue = 0;
         std::vector<MyDx12Util::GpuWorkMeter::CheckPoint> gpuWorkMeterCheckPoints;
     };
@@ -1129,6 +1139,8 @@ private:
     ComPtr<ID3D12RootSignature> m_pathTracingRootSignature;
     ComPtr<ID3D12RootSignature> m_nrdConversionRootSignature;
     ComPtr<ID3D12PipelineState> m_nrdConversionPipeline;
+    ComPtr<ID3D12RootSignature> m_nrdReconstructionRootSignature;
+    ComPtr<ID3D12PipelineState> m_nrdReconstructionPipeline;
     ComPtr<ID3D12RootSignature> m_rayQueryShadowRootSignature;
     ComPtr<ID3D12RootSignature> m_specularDebugRayQueryRootSignature;
     ComPtr<ID3D12RootSignature> m_rayQueryTlasDebugRootSignature;
@@ -1368,6 +1380,11 @@ private:
         "PathTracing.NrdNormalRoughness",
         "PathTracing.NrdViewZ",
         "PathTracing.NrdValidity",
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+        "PathTracing.NrdTiles",
+        "PathTracing.NrdReconstructedSpecular",
+        "PathTracing.NrdReconstructedDiffuse",
+#endif
 #endif
     };
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
@@ -1479,6 +1496,7 @@ private:
     static constexpr const char* kSceneInstanceBufferResourceName = "Scene.InstanceBuffer";
     static constexpr const char* kSceneMeshRangeBufferResourceName = "Scene.MeshRangeBuffer";
     static constexpr const char* kSceneCameraConstantsResourceName = "Scene.CameraConstants";
+    static constexpr const char* kNrdReconstructionConstantsResourceName = "PathTracing.NrdReconstructionConstants";
     static constexpr const char* kMaterialBufferResourceName = "MaterialBuffer";
 
     using TransientResourceState = Engine::TransientResourceState;
@@ -1719,6 +1737,7 @@ private:
     RenderPass MakePathTracingHistoryClearPass();
     RenderPass MakePathTracingPass();
     RenderPass MakeNrdConversionPass();
+    RenderPass MakeNrdReconstructionPass();
     RenderPass MakeDepthPrePass();
     RenderPass MakeGBufferPass();
     RenderPass MakeHybridReflectionPass();
@@ -1801,6 +1820,7 @@ private:
     void ExecuteClearPass(const RenderPass& pass);
     void ExecutePathTracingHistoryClearPass(const RenderPass& pass);
     void ExecuteNrdConversionPass(const RenderPass& pass);
+    void ExecuteNrdReconstructionPass(const RenderPass& pass);
     void ExecutePathTracingPass(const RenderPass& pass);
     void InvalidatePathTracingHistory(PathTracingResetReason reason);
     void CommitPathTracingFrame();

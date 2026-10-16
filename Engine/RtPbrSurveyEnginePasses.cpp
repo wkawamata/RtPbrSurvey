@@ -41,6 +41,12 @@ void RtPbrSurveyEngine::BuildRenderPasses()
                 if (m_nrdConversionPipeline != nullptr)
                 {
                     AddPass(MakeNrdConversionPass());
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+                    if (m_nrdReconstructionPipeline != nullptr)
+                    {
+                        AddPass(MakeNrdReconstructionPass());
+                    }
+#endif
                 }
 #endif
             }
@@ -328,6 +334,14 @@ auto RtPbrSurveyEngine::MakePathTracingHistoryClearPass() -> RenderPass
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdValidity],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdTiles],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdReconstructedSpecular],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdReconstructedDiffuse],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+#endif
 #endif
         })
         .Operation(Op::PathTracingHistoryClear, &RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass)
@@ -431,8 +445,39 @@ auto RtPbrSurveyEngine::MakeNrdConversionPass() -> RenderPass
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdViewZ],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdValidity],
-                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdTiles],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+#endif
+        })
         .Operation(Op::NrdConversion, &RtPbrSurveyEngine::ExecuteNrdConversionPass)
+        .Build();
+#else
+    return {};
+#endif
+}
+
+auto RtPbrSurveyEngine::MakeNrdReconstructionPass() -> RenderPass
+{
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+    Engine::ResourceUsages reads = {{kNrdReconstructionConstantsResourceName, D3D12_RESOURCE_STATE_GENERIC_READ}};
+    for (UINT index : {PathTracingGuideNrdTiles,
+                       PathTracingGuideNrdNormalRoughness,
+                       PathTracingGuideNrdViewZ,
+                       PathTracingGuideNrdSpecularCandidate,
+                       PathTracingGuideNrdDiffuseCandidate})
+    {
+        reads.push_back({kPathTracingGuideTextureResourceNames[index], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE});
+    }
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"PT NRD Hit Distance Reconstruction 3x3")
+        .Reads(std::move(reads))
+        .Writes({{kPathTracingGuideTextureResourceNames[PathTracingGuideNrdReconstructedSpecular],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdReconstructedDiffuse],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
+        .Operation(Op::NrdReconstruction, &RtPbrSurveyEngine::ExecuteNrdReconstructionPass)
         .Build();
 #else
     return {};

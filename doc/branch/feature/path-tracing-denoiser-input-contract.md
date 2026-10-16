@@ -1840,3 +1840,130 @@ rerun outside that restriction. Other unchanged test binaries were reused.
 python Tests/PathTracing/validate_nrd_runtime_guides.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
 python -m unittest discover -s Tests/PathTracing -p test_nrd_runtime_*.py -v
 ```
+
+### Live Hit-Distance Reconstruction: Step 3 (2026-10-16)
+
+The opt-in RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS CMake option connects the
+unmodified pinned SDK 3x3 RELAX HitDistReconstruction kernel after PT conversion.
+It requires the existing conversion diagnostics and reconstruction test options.
+The runtime wrapper only selects diffuse+specular / 3x3 and includes the SDK
+kernel. SDK constant layout is isolated in Renderer/NrdReconstructionConstants.cpp;
+Engine receives neutral bytes, with a 712-byte layout checked at compile time
+and padded to a 768-byte per-frame upload allocation.
+
+The graph pass is named PT NRD Hit Distance Reconstruction 3x3. It consumes
+NrdNormalRoughness, NrdViewZ, NrdSpecularCandidate, NrdDiffuseCandidate and
+NrdTiles. The tile texture is R32F at ceil(renderSize/16), regenerated on resize;
+all tiles are active (zero), with invalid pixels excluded by the prepared far
+ViewZ. No tile-classification optimization is claimed. The denoising range is
+1000, matching the isolated replay harness, and the viewport origin is zero.
+
+Outputs PathTracing.NrdReconstructedSpecular and NrdReconstructedDiffuse are
+RGBA32F Debug Preview resources. Every dispatch clears both outputs and inserts
+UAV barriers before the SDK call, so early-outs retain zero instead of stale
+history. Graph dependencies handle conversion UAV to reconstruction SRV and
+output transitions. Constants use the current frame slot after its existing
+fence wait; their upload state and persistent lifetime are explicitly registered.
+Pause retains prior results; history clear covers all added textures. Interactive
+pause/reset/resize acceptance is reserved for Step 4.
+
+These are raw SDK reconstruction outputs, not certified full-denoiser inputs.
+RGB remains demodulated center radiance. Missing active distances may remain
+zero, and inactive diffuse lobes can acquire an irrelevant neighbor distance;
+the latter must be sanitized before full RELAX input admission. Neither full
+RELAX history/dispatch nor final-image composition is enabled. Native PT remains
+the final image and QueryNrdRelaxSupport remains unavailable.
+
+The runtime validator captures ten matched resources, replays them through the
+isolated 3x3 SDK harness on the same GPU, and requires bit-exact agreement plus
+RGB preservation, finite bounded distances and zero excluded outputs. It reports
+resolved/unresolved state-3 distances separately from inactive lobes. A separate
+disabled-distance run requires zero validity and zero reconstruction outputs.
+Python regression tests reject output corruption, invalid masks and malformed
+arrays. Shader reflection checks the actual runtime wrapper's 5 SRVs / 2 UAVs,
+8x8 groups, b0 space1 and 712-byte SDK constant layout.
+
+The initial WARP comparison in nrd-runtime-reconstruction-20261016 failed its
+5e-4 + 2e-5 relative threshold for 17 specular-distance pixels. RGB matched
+exactly; maximum absolute differences were 0.0625 specular and 0.015625 diffuse.
+Replaying the same inputs on RTX 2080 Ti matched both runtime outputs bit for
+bit. The failed WARP report and outputs are retained, with same-device probe
+outputs in its hardware-replay subfolder. Same-device bit equality is the
+runtime integration gate; no relaxed WARP threshold was introduced.
+
+The final positive report in nrd-runtime-reconstruction-final-20261016 passed
+with ten fresh captures and same-device RTX 2080 Ti replay. Both lobes matched
+bit for bit over 1,324,948 written pixels. All 117,072 missing specular distances
+were reconstructed; zero remained unresolved. RGB was preserved, and capture
+and replay logs contained no D3D12 errors. A separate three-capture run in
+nrd-runtime-reconstruction-disabled-20261016 passed with distance diagnostics
+disabled: validity and both reconstruction outputs were zero over 2,037,120
+pixels. The two runs used their recorded dimensions independently.
+
+```powershell
+cmake -S . -B build -DRTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS=ON -DRTPBRSURVEY_TEST_NRD_RECONSTRUCTION=ON -DRTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS=ON
+cmake --build build --config Debug --target RtPbrSurvey
+python Tests/PathTracing/validate_nrd_runtime_reconstruction.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
+python Tests/PathTracing/validate_nrd_runtime_reconstruction.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <another-new-directory> --disabled-distance-diagnostics
+```
+
+### Reconstruction Resource Lifecycle: Step 4 (2026-10-16)
+
+The existing 19-stage PT history automation now accepts -DebugPreviewResource
+as its capture target and records the resource name at every checkpoint. Its
+default target remains PathTracing.Accumulation. The new
+Tests/PathTracing/validate_nrd_runtime_history.py runs that timeline separately
+for NrdReconstructedSpecular, NrdReconstructedDiffuse and NrdTiles, validating
+the exact ordered case set, CPU state, resource identity, native format,
+dimensions, sample index, seed and primary-sampling metadata before assessment.
+The report retains per-resource commands, capture hashes and checkpoint records,
+including failed assessments, and keeps inputReady false.
+
+Pause must retain bit-identical buffers. Reset while paused must clear them.
+Unsupported multi-sample batches must clear conversion/reconstruction output.
+Returning to one sample per frame must reproduce a fresh deterministic result.
+Camera, lighting, material, instance transform and resize mutations must match
+their respective manually reset references. Non-tile outputs must retain a
+positive radiance signal; non-resize edits must also differ from their previous
+state, preventing stale but repeatable buffers from passing. Tiles must remain
+zero and use ceil(renderSize/16) dimensions.
+
+The first run failed because the existing geometry mutation changed world._41.
+Instance matrices are stored transposed, so X translation belongs in world._14;
+the old mutation made the matrix non-affine and the geometry snapshot correctly
+rejected it with host gate 9. The timeline now changes _14. The failed run and
+the diagnostic timeline are retained in nrd-runtime-history-20261016 and
+nrd-runtime-history-diagnostic-20261016; no exclusion gate was weakened.
+
+RTX 2080 Ti validation in nrd-runtime-history-fixed-20261016 passed all 57
+checkpoints (19 per resource) with eight bit-exact comparisons per resource.
+The initial render size was 1920x1061 and resized resources were 1280x720;
+the corresponding tile sizes were 120x67 and 80x45. All three runtime logs
+contained zero D3D12 errors. The existing two buffer initial-state warnings
+remain. Debug x64 build passed with zero compiler warnings/errors. Sixteen
+runtime Python tests, fifteen existing history unit tests, and five focused
+shader/SDK CTest tests passed. This is automated resource-lifecycle evidence on
+one scene/GPU; full RELAX temporal history, denoising quality and interactive
+GUI acceptance remain separate work.
+
+The default PathTracing.Accumulation timeline also passed all 19 checkpoints in
+nrd-runtime-default-history-20261016 after the translation fix. Its mutation
+signals remained observable and each changed state matched its fresh reference.
+
+A diagnostic launch also exposed a log-open failure: its missing parent folder
+left m_logFile null, and the history runner called fprintf on it, producing the
+CRT output.cpp stream assertion. -LogToFile now creates parent directories,
+closes a file descriptor if _fdopen fails, and emits a debugger diagnostic if
+opening fails. The history runner exits with code 1 when no log is available;
+other timeline failures also return code 1. A directory supplied as the log
+filename was exercised in nrd-runtime-log-failure-20261016 and returned 1
+without an assertion dialog.
+A separate launch in nrd-runtime-log-parent-20261016 started with no output
+folder, created logs/runtime.log automatically, captured nonzero reconstruction
+radiance and exited with code 0 without D3D12 errors.
+
+```powershell
+python Tests/PathTracing/validate_nrd_runtime_history.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
+python -m unittest discover -s Tests/PathTracing -p test_nrd_runtime_*.py
+python -m unittest discover -s Tests/PathTracing -p test_history.py
+```

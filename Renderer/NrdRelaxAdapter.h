@@ -74,6 +74,10 @@ struct NrdRelaxSupportInfo
 
 NrdRelaxSupportInfo QueryNrdRelaxSupport();
 
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+std::array<unsigned char, 768> MakeNrdReconstructionConstants(unsigned int width, unsigned int height);
+#endif
+
 struct NrdRelaxSamplingReadiness
 {
     bool ready = false;
