@@ -40,3 +40,37 @@ criterion are required before judging ghosting or denoising improvements.
 Not covered: object motion, camera cuts, motion reversal, settling, animation,
 visual acceptance or general denoising quality. Captures/logs/report.json are
 generated evidence and are not committed.
+
+## Fixed-Fixture Numeric Quality Gate
+
+```powershell
+python Tests/PathTracing/validate_nrd_disocclusion_quality.py --source bin/PathTracingValidation/<qualified-motion-directory> --output bin/PathTracingValidation/<new-empty-directory>
+```
+
+The source must be a complete successful sixteen-capture visibility/history
+report. Capture/log, fixture, executable, helper and shader hashes are verified,
+and the geometry/MV/history checks are repeated. These historical moving captures
+are not represented as fresh execution. Four new Native references are captured:
+the exact positive/negative camera poses, each at 1,024 spp with seeds 11 and 29.
+The positive references are also used for the matching reset control.
+
+The existing sample-target CLI uses one sample/frame, pauses at exactly 1,024
+accumulated samples, and captures with the next sample index 1,024. Both runtime
+logs and raw metadata must match that contract. Reference projection must agree
+with the moving capture within the existing 2e-6 matrix allowance and 0.01 pixel
+alignment. Transport settings and render dimensions must also match.
+
+Thresholds are fixed in the runner before capture, separately for revealed and
+retained background regions:
+
+- Independent reference-pair NRMSE <= 3%, normalized by RMS of their mean image.
+- NRD RMSE must not exceed same-frame noisy Native RMSE against that mean.
+- Mean RGB bias norm <= 5% of the reference mean RGB norm.
+- Mean positive red excess <= 2% of reference mean green.
+- 95th-percentile positive red excess <= 5% of reference mean green.
+
+An inconsistent reference yields inconclusive-reference, not an NRD quality
+failure. A consistent reference permits passed-fixed-fixture or
+failed-fixed-fixture. This is a Monte Carlo high-sample consistency check, not an
+analytic ground-truth proof. Passing applies only to this numeric fixture gate;
+subjective quality, motion reversal/settling and general NRD support stay pending.

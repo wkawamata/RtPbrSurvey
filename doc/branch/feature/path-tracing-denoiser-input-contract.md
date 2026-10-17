@@ -2596,3 +2596,80 @@ Next quality work requires a converged Native reference at the exact captured
 camera, an explicit radiance/ghosting criterion for revealed versus retained
 regions, and reversal/settling checkpoints. Finite RGB output or a difference from
 the reset control alone must not satisfy that quality gate.
+
+### Step 9B: Independent High-Sample Reference Gate
+
+validate_nrd_disocclusion_quality.py consumes a complete successful Step 9A
+sixteen-capture report. It checks the expected case/resource inventory, rejects
+duplicates/missing cases, verifies capture/log and executable/fixture/helper/
+shader hashes, and repeats the visibility, matrix/MV and history-state checks.
+Historical moving evidence is marked sourceEvidenceReexecuted=false; it is not
+represented as a new GPU run. The current executable and shader artifacts must
+match that evidence.
+
+Four new Native references use the recorded positive/negative camera position
+and target, seeds 11 and 29, and 1,024 accumulated samples per seed. The positive
+references also serve the matching reset control. No orbit is applied to the
+references. Runtime transport settings, sample count/seed, render dimensions and
+camera projection are checked. Besides the existing 2e-6 matrix allowance,
+independent projected rays must agree within 0.01 pixel.
+
+The existing -PathTracingSamples CLI enforces one sample/frame, then pauses at
+the requested accumulated count. Raw metadata at that paused capture reports
+the next sample index, 1,024. The first pilot correctly produced 1,024 samples,
+but the new validator initially expected a sixteen-sample batch and the previous
+batch's index. That pilot is retained as failed in
+bin/PathTracingValidation/nrd-disocclusion-quality-20261017. The validator now
+checks the actual established CLI contract against both raw metadata and runtime
+logs. No quality threshold was changed in response to this pilot.
+
+Before reference acquisition, the numeric fixture criteria were fixed separately
+for revealed and retained regions:
+
+- Independent reference-pair NRMSE <= 0.03, normalized by RMS of their mean RGB.
+- NRD RMSE against the reference mean must not exceed noisy Native RMSE.
+- Norm of mean RGB bias <= 0.05 times norm of reference mean RGB.
+- Mean positive red excess <= 0.02 times reference mean green.
+- 95th-percentile positive red excess <= 0.05 times reference mean green.
+
+Reference disagreement produces inconclusive-reference, not an NRD failure.
+Otherwise all three cases (positive, negative and reset control) and both regions
+must pass to produce passed-fixed-fixture. Finite output alone cannot pass.
+Tests cover regression, color bias, injected red ghosts, inconsistent references,
+malformed/nonfinite/black regions, duplicate/missing source inventory and wrong
+reference camera/sample/transport state. Threshold values are regression-tested.
+
+```powershell
+python Tests/PathTracing/validate_nrd_disocclusion_quality.py --source <qualified-step9a-directory> --output <new-empty-directory>
+```
+
+This uses independent high-sample Monte Carlo consistency, not an analytic
+ground-truth proof or a general quality guarantee. One moving checkpoint per
+direction does not qualify reversal, settling, animation, moving objects or
+subjective appearance. The reset control also restarts SDK sampling/frame state.
+
+Qualified evidence: bin/PathTracingValidation/nrd-disocclusion-quality-r2-20261017
+passed-fixed-fixture. All sixteen historical moving captures were hash-verified
+and their input/history checks repeated; they were not recaptured. Four fresh
+reference captures (two cameras x two independent 1,024-spp seeds) completed with
+zero D3D12 errors. Reference-pair NRMSE ranged from 1.380% to 1.473%, below the
+fixed 3% consistency limit. For the revealed regions:
+
+| Case | NRD NRMSE | Native 1-spp NRMSE | Mean RGB Bias |
+| --- | --- | --- | --- |
+| +20 degree continuous | 2.458% | 30.547% | 1.919% |
+| -20 degree continuous | 1.388% | 34.148% | 0.718% |
+| +20 degree reset control | 2.580% | 30.547% | 1.904% |
+
+Retained-region NRD NRMSE ranged from 1.430% to 1.708%, versus 31.188% to 31.231%
+for noisy Native. Maximum mean red excess was 0.104% of reference mean green;
+maximum 95th-percentile excess was 0.292%, under the fixed 2%/5% limits. These
+errors are measured against the mean of finite high-sample references, not an
+exact analytic solution. Both regions of all three cases passed every fixed
+criterion. All eighty-eight NRD Python tests passed, including six new quality
+validator tests. No application/shader change or rebuild was needed; the source
+evidence requires the same already Debug-built executable and shader artifacts.
+
+Next is continuous reversal/settling coverage and subjective review. The numeric
+result does not change default-off/experimental NRD support policy or complete
+the outstanding general visual acceptance gate.
