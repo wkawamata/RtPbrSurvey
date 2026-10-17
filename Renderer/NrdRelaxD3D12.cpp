@@ -6,16 +6,22 @@
 #include <map>
 #include <stdexcept>
 #include <include/d3dx12/d3dx12.h>
+#include "Shared/Error.h"
 
 namespace Engine
 {
+bool IsNrdFatalDeviceResult(HRESULT result)
+{
+    return result == DXGI_ERROR_DEVICE_REMOVED || result == DXGI_ERROR_DEVICE_HUNG ||
+           result == DXGI_ERROR_DEVICE_RESET || result == DXGI_ERROR_DRIVER_INTERNAL_ERROR;
+}
+
 namespace
 {
 using Microsoft::WRL::ComPtr;
 void Check(HRESULT result)
 {
-    if (FAILED(result))
-        throw std::runtime_error("NRD D3D12 operation failed: " + std::to_string(result));
+    ThrowIfFailed(result);
 }
 
 struct Texture
@@ -50,15 +56,20 @@ struct NrdRelaxD3D12::Impl
     uint32_t width = 0, height = 0;
     uint32_t descriptorStride = 0, descriptorsPerDispatch = 0, constantStride = 0;
 
-    void AllocatePool(const std::vector<NrdSdkTexture>& descriptions, std::vector<Texture>& pool)
+    void AllocatePool(const std::vector<NrdSdkTexture>& descriptions,
+                      std::vector<Texture>& pool,
+                      uint32_t poolWidth,
+                      uint32_t poolHeight)
     {
         const auto heap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
         for (const auto& description : descriptions)
         {
             const uint32_t factor = description.downsampleFactor;
+            if (factor == 0)
+                throw std::runtime_error("NRD pool downsample factor is zero.");
             const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(static_cast<DXGI_FORMAT>(description.dxgiFormat),
-                                                           (width + factor - 1) / factor,
-                                                           (height + factor - 1) / factor,
+                                                           (poolWidth + factor - 1) / factor,
+                                                           (poolHeight + factor - 1) / factor,
                                                            1,
                                                            1,
                                                            1,
@@ -184,135 +195,205 @@ void NrdRelaxD3D12::ReleaseResolutionResources()
 uint32_t NrdRelaxD3D12::Record(ID3D12GraphicsCommandList* commands,
                                uint32_t frameSlot,
                                const NrdSdkFrame& settings,
-                               const NrdD3D12Inputs& inputs)
+                               const NrdD3D12Inputs& inputs,
+                               bool injectInvalidLastDispatch)
 {
+    if (m_impl != nullptr)
+        Check(m_impl->device->GetDeviceRemovedReason());
     if (m_impl == nullptr || commands == nullptr || frameSlot >= m_impl->frames.size())
-        throw std::runtime_error("NRD GPU execution is not initialized.");
+        throw NrdPreparationError("NRD GPU execution is not initialized.", 0, 0);
     auto& impl = *m_impl;
     const auto& layout = impl.sdk.Layout();
-    std::map<NrdSdkResourceKind, ID3D12Resource*> external = {
-        {NrdSdkResourceKind::Motion, inputs.motion},
-        {NrdSdkResourceKind::NormalRoughness, inputs.normalRoughness},
-        {NrdSdkResourceKind::ViewZ, inputs.viewZ},
-        {NrdSdkResourceKind::DiffuseInput, inputs.diffuse},
-        {NrdSdkResourceKind::SpecularInput, inputs.specular},
-        {NrdSdkResourceKind::DiffuseOutput, inputs.diffuseOutput},
-        {NrdSdkResourceKind::SpecularOutput, inputs.specularOutput}};
-    std::map<ID3D12Resource*, D3D12_RESOURCE_STATES> externalStates, initialStates;
-    for (const auto& entry : external)
+    struct PreparedDispatch
     {
-        if (entry.second == nullptr || entry.second->GetDesc().Width != settings.width ||
-            entry.second->GetDesc().Height != settings.height)
-            throw std::runtime_error("NRD external resource is absent or has the wrong dimensions.");
-        const bool output =
-            entry.first == NrdSdkResourceKind::DiffuseOutput || entry.first == NrdSdkResourceKind::SpecularOutput;
-        externalStates[entry.second] =
-            output ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-    }
-    initialStates = externalStates;
+        const Pipeline* pipeline = nullptr;
+        uint32_t firstDescriptor = 0;
+        uint32_t textureCount = 0;
+        uint64_t constantOffset = 0;
+        uint32_t gridWidth = 0, gridHeight = 0;
+        std::vector<D3D12_RESOURCE_BARRIER> barriers;
+    };
+    std::vector<PreparedDispatch> prepared;
+    std::vector<D3D12_RESOURCE_BARRIER> restore;
+    std::vector<std::pair<Texture*, D3D12_RESOURCE_STATES>> finalPoolStates;
+    std::map<ID3D12Resource*, D3D12_RESOURCE_STATES> plannedStates;
     std::vector<NrdSdkDispatch> dispatches;
-    std::string error;
-    if (!impl.sdk.PrepareFrame(settings, dispatches, error))
-        throw std::runtime_error(error);
-    if (dispatches.size() > layout.maximumDispatches)
-        throw std::runtime_error("NRD dispatch count exceeds allocation limits.");
-    if (impl.width == 0)
-    {
-        if (!settings.reset)
-            throw std::runtime_error("New NRD pools require a history reset.");
-        impl.width = settings.width;
-        impl.height = settings.height;
-        impl.AllocatePool(layout.permanent, impl.permanent);
-        impl.AllocatePool(layout.transient, impl.transient);
-    }
-    if (impl.width != settings.width || impl.height != settings.height)
-        throw std::runtime_error("NRD resize requires GPU completion and pool retirement.");
     auto& frame = impl.frames[frameSlot];
+    try
+    {
+        Check(impl.device->GetDeviceRemovedReason());
+        std::map<NrdSdkResourceKind, ID3D12Resource*> external = {
+            {NrdSdkResourceKind::Motion, inputs.motion},
+            {NrdSdkResourceKind::NormalRoughness, inputs.normalRoughness},
+            {NrdSdkResourceKind::ViewZ, inputs.viewZ},
+            {NrdSdkResourceKind::DiffuseInput, inputs.diffuse},
+            {NrdSdkResourceKind::SpecularInput, inputs.specular},
+            {NrdSdkResourceKind::DiffuseOutput, inputs.diffuseOutput},
+            {NrdSdkResourceKind::SpecularOutput, inputs.specularOutput}};
+        std::map<ID3D12Resource*, D3D12_RESOURCE_STATES> initialStates;
+        for (const auto& entry : external)
+        {
+            if (entry.second == nullptr)
+                throw std::runtime_error("NRD external resource is absent.");
+            const auto desc = entry.second->GetDesc();
+            if (desc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D || desc.Width != settings.width ||
+                desc.Height != settings.height || desc.DepthOrArraySize != 1 || desc.MipLevels != 1 ||
+                desc.SampleDesc.Count != 1)
+                throw std::runtime_error("NRD external resource has an incompatible shape.");
+            const bool output =
+                entry.first == NrdSdkResourceKind::DiffuseOutput || entry.first == NrdSdkResourceKind::SpecularOutput;
+            if (output && (desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) == 0)
+                throw std::runtime_error("NRD external output does not support UAV access.");
+            if (!initialStates
+                     .emplace(entry.second,
+                              output ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS
+                                     : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)
+                     .second)
+                throw std::runtime_error("NRD external resources must not alias.");
+        }
+        std::string error;
+        if (!impl.sdk.PrepareFrame(settings, dispatches, error))
+            throw std::runtime_error(error);
+        if (dispatches.empty() || dispatches.size() > layout.maximumDispatches)
+            throw std::runtime_error("NRD dispatch count exceeds allocation limits or is empty.");
+        if (injectInvalidLastDispatch)
+            dispatches.back().pipelineIndex = UINT16_MAX;
+        if (impl.width == 0)
+        {
+            if (!settings.reset)
+                throw std::runtime_error("New NRD pools require a history reset.");
+            std::vector<Texture> permanent, transient;
+            impl.AllocatePool(layout.permanent, permanent, settings.width, settings.height);
+            impl.AllocatePool(layout.transient, transient, settings.width, settings.height);
+            impl.permanent = std::move(permanent);
+            impl.transient = std::move(transient);
+            impl.width = settings.width;
+            impl.height = settings.height;
+        }
+        if (impl.width != settings.width || impl.height != settings.height)
+            throw std::runtime_error("NRD resize requires GPU completion and pool retirement.");
+        plannedStates = initialStates;
+        for (const auto* pool : {&impl.permanent, &impl.transient})
+            for (const auto& texture : *pool)
+                plannedStates.emplace(texture.resource.Get(), texture.state);
+        const auto transition =
+            [&](std::vector<D3D12_RESOURCE_BARRIER>& barriers, ID3D12Resource* resource, D3D12_RESOURCE_STATES after)
+        {
+            auto& before = plannedStates.at(resource);
+            if (before != after)
+            {
+                barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(resource, before, after));
+                before = after;
+            }
+        };
+        prepared.reserve(dispatches.size());
+        for (uint32_t index = 0; index < dispatches.size(); ++index)
+        {
+            const auto& dispatch = dispatches[index];
+            const auto& desc = layout.pipelines.at(dispatch.pipelineIndex);
+            const auto& pipeline = impl.pipelines.at(dispatch.pipelineIndex);
+            if (dispatch.bindings.size() != desc.textures + desc.storageTextures ||
+                dispatch.constants.size() > impl.constantStride || dispatch.gridWidth == 0 || dispatch.gridHeight == 0)
+                throw std::runtime_error("NRD dispatch does not match its pipeline layout.");
+            PreparedDispatch work;
+            work.pipeline = &pipeline;
+            work.firstDescriptor = index * impl.descriptorsPerDispatch;
+            work.textureCount = desc.textures;
+            work.constantOffset = uint64_t(index) * impl.constantStride;
+            work.gridWidth = dispatch.gridWidth;
+            work.gridHeight = dispatch.gridHeight;
+            std::map<ID3D12Resource*, bool> access;
+            for (uint32_t b = 0; b < dispatch.bindings.size(); ++b)
+            {
+                const auto& binding = dispatch.bindings[b];
+                if (binding.storage != (b >= desc.textures))
+                    throw std::runtime_error("NRD descriptor ranges are not in SRV/UAV order.");
+                ID3D12Resource* resource;
+                if (binding.kind == NrdSdkResourceKind::Permanent || binding.kind == NrdSdkResourceKind::Transient)
+                    resource = (binding.kind == NrdSdkResourceKind::Permanent ? impl.permanent : impl.transient)
+                                   .at(binding.poolIndex)
+                                   .resource.Get();
+                else
+                    resource = external.at(binding.kind);
+                const auto [entry, inserted] = access.emplace(resource, binding.storage);
+                if (!inserted && entry->second != binding.storage)
+                    throw std::runtime_error("NRD dispatch aliases a resource as SRV and UAV.");
+                transition(work.barriers,
+                           resource,
+                           binding.storage ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS
+                                           : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+                const CD3DX12_CPU_DESCRIPTOR_HANDLE handle(
+                    frame.heap->GetCPUDescriptorHandleForHeapStart(), work.firstDescriptor + b, impl.descriptorStride);
+                if (binding.storage)
+                {
+                    D3D12_UNORDERED_ACCESS_VIEW_DESC view = {};
+                    view.Format = resource->GetDesc().Format;
+                    view.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+                    impl.device->CreateUnorderedAccessView(resource, nullptr, &view, handle);
+                }
+                else
+                {
+                    D3D12_SHADER_RESOURCE_VIEW_DESC view = {};
+                    view.Format = resource->GetDesc().Format;
+                    view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                    view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                    view.Texture2D.MipLevels = 1;
+                    impl.device->CreateShaderResourceView(resource, &view, handle);
+                }
+            }
+            memset(frame.mapped + work.constantOffset, 0, impl.constantStride);
+            if (!dispatch.constants.empty())
+                memcpy(frame.mapped + work.constantOffset, dispatch.constants.data(), dispatch.constants.size());
+            prepared.push_back(std::move(work));
+        }
+        for (const auto& entry : initialStates)
+            transition(restore, entry.first, entry.second);
+        for (auto* pool : {&impl.permanent, &impl.transient})
+            for (auto& texture : *pool)
+                finalPoolStates.emplace_back(&texture, plannedStates.at(texture.resource.Get()));
+        Check(impl.device->GetDeviceRemovedReason());
+    }
+    catch (const std::exception& error)
+    {
+        const auto* deviceError = dynamic_cast<const HrException*>(&error);
+        if (deviceError != nullptr && IsNrdFatalDeviceResult(deviceError->Error()))
+            throw;
+        if (FAILED(impl.device->GetDeviceRemovedReason()))
+            throw;
+        throw NrdPreparationError(
+            error.what(), static_cast<uint32_t>(prepared.size()), static_cast<uint32_t>(dispatches.size()));
+    }
+
+    // All allocation, SDK calls, lookups and descriptor writes completed before the first command.
     ID3D12DescriptorHeap* heaps[] = {frame.heap.Get()};
     commands->SetDescriptorHeaps(1, heaps);
-    auto transition = [&](ID3D12Resource* resource, D3D12_RESOURCE_STATES& before, D3D12_RESOURCE_STATES after)
+    for (const auto& work : prepared)
     {
-        if (before != after)
-        {
-            const auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(resource, before, after);
-            commands->ResourceBarrier(1, &barrier);
-            before = after;
-        }
-    };
-    for (uint32_t index = 0; index < dispatches.size(); ++index)
-    {
-        const auto& dispatch = dispatches[index];
-        const auto& desc = layout.pipelines.at(dispatch.pipelineIndex);
-        const auto& pipeline = impl.pipelines.at(dispatch.pipelineIndex);
-        if (dispatch.bindings.size() != desc.textures + desc.storageTextures ||
-            dispatch.constants.size() > impl.constantStride)
-            throw std::runtime_error("NRD dispatch does not match its pipeline layout.");
-        const uint32_t first = index * impl.descriptorsPerDispatch;
-        for (uint32_t b = 0; b < dispatch.bindings.size(); ++b)
-        {
-            const auto& binding = dispatch.bindings[b];
-            if (binding.storage != (b >= desc.textures))
-                throw std::runtime_error("NRD descriptor ranges are not in SRV/UAV order.");
-            ID3D12Resource* resource = nullptr;
-            D3D12_RESOURCE_STATES* state = nullptr;
-            if (binding.kind == NrdSdkResourceKind::Permanent || binding.kind == NrdSdkResourceKind::Transient)
-            {
-                auto& texture = (binding.kind == NrdSdkResourceKind::Permanent ? impl.permanent : impl.transient)
-                                    .at(binding.poolIndex);
-                resource = texture.resource.Get();
-                state = &texture.state;
-            }
-            else
-            {
-                resource = external.at(binding.kind);
-                state = &externalStates.at(resource);
-            }
-            transition(resource,
-                       *state,
-                       binding.storage ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS
-                                       : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-            const CD3DX12_CPU_DESCRIPTOR_HANDLE handle(
-                frame.heap->GetCPUDescriptorHandleForHeapStart(), first + b, impl.descriptorStride);
-            if (binding.storage)
-            {
-                D3D12_UNORDERED_ACCESS_VIEW_DESC view = {};
-                view.Format = resource->GetDesc().Format;
-                view.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-                impl.device->CreateUnorderedAccessView(resource, nullptr, &view, handle);
-            }
-            else
-            {
-                D3D12_SHADER_RESOURCE_VIEW_DESC view = {};
-                view.Format = resource->GetDesc().Format;
-                view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-                view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-                view.Texture2D.MipLevels = 1;
-                impl.device->CreateShaderResourceView(resource, &view, handle);
-            }
-        }
-        const uint64_t constantOffset = uint64_t(index) * impl.constantStride;
-        memset(frame.mapped + constantOffset, 0, impl.constantStride);
-        if (!dispatch.constants.empty())
-            memcpy(frame.mapped + constantOffset, dispatch.constants.data(), dispatch.constants.size());
+        const auto& pipeline = *work.pipeline;
+        if (!work.barriers.empty())
+            commands->ResourceBarrier(static_cast<UINT>(work.barriers.size()), work.barriers.data());
         commands->SetComputeRootSignature(pipeline.root.Get());
         commands->SetPipelineState(pipeline.state.Get());
-        commands->SetComputeRootConstantBufferView(0, frame.constants->GetGPUVirtualAddress() + constantOffset);
+        commands->SetComputeRootConstantBufferView(0, frame.constants->GetGPUVirtualAddress() + work.constantOffset);
         if (pipeline.srvParameter != UINT32_MAX)
             commands->SetComputeRootDescriptorTable(
                 pipeline.srvParameter,
                 CD3DX12_GPU_DESCRIPTOR_HANDLE(
-                    frame.heap->GetGPUDescriptorHandleForHeapStart(), first, impl.descriptorStride));
+                    frame.heap->GetGPUDescriptorHandleForHeapStart(), work.firstDescriptor, impl.descriptorStride));
         if (pipeline.uavParameter != UINT32_MAX)
             commands->SetComputeRootDescriptorTable(
                 pipeline.uavParameter,
-                CD3DX12_GPU_DESCRIPTOR_HANDLE(
-                    frame.heap->GetGPUDescriptorHandleForHeapStart(), first + desc.textures, impl.descriptorStride));
-        commands->Dispatch(dispatch.gridWidth, dispatch.gridHeight, 1);
+                CD3DX12_GPU_DESCRIPTOR_HANDLE(frame.heap->GetGPUDescriptorHandleForHeapStart(),
+                                              work.firstDescriptor + work.textureCount,
+                                              impl.descriptorStride));
+        commands->Dispatch(work.gridWidth, work.gridHeight, 1);
         const auto barrier = CD3DX12_RESOURCE_BARRIER::UAV(nullptr);
         commands->ResourceBarrier(1, &barrier);
     }
-    for (const auto& entry : initialStates)
-        transition(entry.first, externalStates.at(entry.first), entry.second);
+    if (!restore.empty())
+        commands->ResourceBarrier(static_cast<UINT>(restore.size()), restore.data());
+    for (const auto& entry : finalPoolStates)
+        entry.first->state = entry.second;
     return static_cast<uint32_t>(dispatches.size());
 }
 } // namespace Engine

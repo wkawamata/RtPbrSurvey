@@ -547,6 +547,10 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
     pathTracingDiagnostics.emissiveTableStatus = m_emissiveTableStatus;
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     pathTracingDiagnostics.nrdPreviewBuilt = true;
+    pathTracingDiagnostics.nrdFailureReason = m_nrdFailureReason;
+    pathTracingDiagnostics.nrdPreparedDispatches = m_nrdPreparedDispatches;
+    pathTracingDiagnostics.nrdPlannedDispatches = m_nrdPlannedDispatches;
+    pathTracingDiagnostics.nrdFailureCount = m_nrdFailureCount;
 #endif
     pathTracingDiagnostics.nrdPresentationStatus = ResolvePathTracingNrdPresentation();
     return {static_cast<int>(m_currentFrameIndex),
@@ -736,7 +740,7 @@ Engine::NrdRelaxPresentationStatus RtPbrSurveyEngine::ResolvePathTracingNrdPrese
                                                                    m_pathTracingSettings.pixelCenterPrimary)
                                 .ready;
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
-    const bool backendReady = m_nrdGpu != nullptr && m_nrdConversionPipeline != nullptr &&
+    const bool backendReady = m_nrdFailureReason.empty() && m_nrdGpu != nullptr && m_nrdConversionPipeline != nullptr &&
                               m_nrdReconstructionPipeline != nullptr && m_nrdAdmissionPipeline != nullptr &&
                               m_nrdCompositionPipeline != nullptr &&
                               m_pathTracingGuideTextureSrvs[PathTracingGuideNrdSceneColor].IsValid();
@@ -1193,6 +1197,12 @@ void RtPbrSurveyEngine::SetNrdContinuousCameraHistory(bool enabled)
         m_nrdHistoryReset = true;
         m_nrdFrameIndex = 0;
     }
+}
+
+void RtPbrSurveyEngine::SetNrdFailureInjectionForDiagnostics(bool initialization, UINT afterFrames)
+{
+    m_nrdInjectInitializationFailure = initialization;
+    m_nrdInjectFailureAfterFrames = afterFrames;
 }
 #endif
 
@@ -3018,6 +3028,10 @@ void RtPbrSurveyEngine::CreatePipelineStates()
 {
     const PipelineShaderBytecode shaders = LoadPipelineShaderBytecode();
     RegisterPipelineStates(shaders);
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    try
+    {
+#endif
 #ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
     const UINT inputs[] = {PathTracingGuideNormalRoughness,
                            PathTracingGuideAlbedo,
@@ -3153,7 +3167,9 @@ void RtPbrSurveyEngine::CreatePipelineStates()
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     m_nrdGpu = std::make_unique<Engine::NrdRelaxD3D12>();
     m_nrdGpu->Initialize(m_graphicsDevice.Device(),
-                         std::filesystem::path(GetShaderFullPath(L"nrd-relax-manifest.txt")).parent_path(),
+                         m_nrdInjectInitializationFailure
+                             ? std::filesystem::path(L"nrd-missing-manifest-for-validation")
+                             : std::filesystem::path(GetShaderFullPath(L"nrd-relax-manifest.txt")).parent_path(),
                          kFrameCount);
     const UINT compositionInputs[] = {PathTracingGuideNrdOutputDiffuse,
                                       PathTracingGuideNrdOutputSpecular,
@@ -3176,7 +3192,7 @@ void RtPbrSurveyEngine::CreatePipelineStates()
     CD3DX12_ROOT_PARAMETER1 compositionParameters[3];
     compositionParameters[0].InitAsDescriptorTable(8, compositionReads);
     compositionParameters[1].InitAsDescriptorTable(2, compositionWrites);
-    compositionParameters[2].InitAsConstants(2, 0);
+    compositionParameters[2].InitAsConstants(3, 0);
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC compositionRoot;
     compositionRoot.Init_1_1(3, compositionParameters);
     ComPtr<ID3DBlob> compositionSignature, compositionError;
@@ -3193,6 +3209,24 @@ void RtPbrSurveyEngine::CreatePipelineStates()
     ThrowIfFailed(m_graphicsDevice.Device()->CreateComputePipelineState(&compositionDesc,
                                                                         IID_PPV_ARGS(&m_nrdCompositionPipeline)));
 #endif
+#endif
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    }
+    catch (const std::exception& error)
+    {
+        const auto* deviceError = dynamic_cast<const HrException*>(&error);
+        if (deviceError != nullptr && Engine::IsNrdFatalDeviceResult(deviceError->Error()))
+            throw;
+        ThrowIfFailed(m_graphicsDevice.Device()->GetDeviceRemovedReason());
+        m_nrdFailureReason = std::string("initialization: ") + error.what();
+        ++m_nrdFailureCount;
+        m_nrdGpu.reset();
+        m_nrdConversionPipeline.Reset();
+        m_nrdReconstructionPipeline.Reset();
+        m_nrdAdmissionPipeline.Reset();
+        m_nrdCompositionPipeline.Reset();
+        OutputDebugStringA(("[NRD fallback] " + m_nrdFailureReason + "\n").c_str());
+    }
 #endif
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC computeDesc = {};
@@ -6591,10 +6625,30 @@ void RtPbrSurveyEngine::ExecuteNrdRelaxPass(const RenderPass& pass)
                                            m_pathTracingGuideTextures[PathTracingGuideNrdInputSpecular].Get(),
                                            m_pathTracingGuideTextures[PathTracingGuideNrdOutputDiffuse].Get(),
                                            m_pathTracingGuideTextures[PathTracingGuideNrdOutputSpecular].Get()};
-    m_nrdLastDispatchCount = m_nrdGpu->Record(m_commandList.Get(), m_currentFrameIndex, frame, inputs);
+    m_nrdLastEvaluationAttempted = true;
+    m_nrdLastEvaluationRecorded = false;
+    try
+    {
+        m_nrdLastDispatchCount = m_nrdGpu->Record(
+            m_commandList.Get(), m_currentFrameIndex, frame, inputs, m_nrdFrameIndex >= m_nrdInjectFailureAfterFrames);
+    }
+    catch (const Engine::NrdPreparationError& error)
+    {
+        m_nrdFailureReason = std::string("preparation: ") + error.what();
+        ++m_nrdFailureCount;
+        m_nrdPreparedDispatches = error.preparedDispatches;
+        m_nrdPlannedDispatches = error.plannedDispatches;
+        m_nrdComposedOutputValid = false;
+        m_nrdHistoryReset = true;
+        m_nrdLastDispatchCount = 0;
+        m_nrdPreviousFrame = frame;
+        OutputDebugStringA(("[NRD fallback] " + m_nrdFailureReason + "\n").c_str());
+        return;
+    }
     ID3D12DescriptorHeap* heaps[] = {m_heap.Get()};
     m_commandList->SetDescriptorHeaps(1, heaps);
     m_nrdPreviousFrame = frame;
+    m_nrdLastEvaluationRecorded = true;
     m_nrdHistoryReset = false;
     ++m_nrdFrameIndex;
 #endif
@@ -6604,14 +6658,15 @@ void RtPbrSurveyEngine::ExecuteNrdCompositionPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
-    const UINT dimensions[] = {m_renderWidth, m_renderHeight};
+    const UINT dimensions[] = {m_renderWidth, m_renderHeight, m_nrdFailureReason.empty() ? 0u : 1u};
     m_commandList->SetComputeRootSignature(m_nrdCompositionRootSignature.Get());
     m_commandList->SetPipelineState(m_nrdCompositionPipeline.Get());
     m_commandList->SetComputeRootDescriptorTable(0, m_pathTracingAccumulationSrv.gpu);
     m_commandList->SetComputeRootDescriptorTable(1, m_pathTracingGuideTextureUavs[PathTracingGuideNrdSceneColor].gpu);
-    m_commandList->SetComputeRoot32BitConstants(2, 2, dimensions, 0);
+    m_commandList->SetComputeRoot32BitConstants(2, 3, dimensions, 0);
     m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
-    m_nrdComposedOutputValid = m_pathTracingSampleCommitPending && m_nrdLastDispatchCount > 0;
+    m_nrdComposedOutputValid =
+        m_nrdFailureReason.empty() && m_pathTracingSampleCommitPending && m_nrdLastDispatchCount > 0;
 #endif
 }
 
@@ -7204,7 +7259,13 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                                                : nlohmann::json(nullptr)},
             };
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
-            metadata["nrdLastEvaluation"] = {{"continuousCameraHistory", m_nrdContinuousCameraHistory},
+            metadata["nrdFailure"] = m_nrdFailureReason;
+            metadata["nrdPreparedDispatches"] = m_nrdPreparedDispatches;
+            metadata["nrdPlannedDispatches"] = m_nrdPlannedDispatches;
+            metadata["nrdFailureCount"] = m_nrdFailureCount;
+            metadata["nrdLastEvaluation"] = {{"attempted", m_nrdLastEvaluationAttempted},
+                                             {"recorded", m_nrdLastEvaluationRecorded},
+                                             {"continuousCameraHistory", m_nrdContinuousCameraHistory},
                                              {"frameIndex", m_nrdPreviousFrame.frameIndex},
                                              {"reset", m_nrdPreviousFrame.reset},
                                              {"dispatchCount", m_nrdLastDispatchCount},

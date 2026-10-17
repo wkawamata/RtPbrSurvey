@@ -355,6 +355,27 @@ bool TestValidationAndLegacyCli()
     const auto nrdOptions = Platform::ParseCommandLineOptions(nrdArgv, 2);
     passed &= Check(nrdOptions.nrdPreview && nrdOptions.enablePathTracing,
                     "NRD presentation opt-in enables PT without silently changing sampling settings");
+    WCHAR nrdFailureOption[] = L"-NrdDiagnosticFailure";
+    WCHAR nrdFailureMode[] = L"after-four-frames";
+    WCHAR* failureArgv[] = {executable, nrdFailureOption, nrdFailureMode};
+    const auto failureOptions = Platform::ParseCommandLineOptions(failureArgv, 3);
+    passed &= Check(failureOptions.nrdDiagnosticFailure == "after-four-frames" && failureOptions.enablePathTracing,
+                    "diagnostic failure mode parses explicitly");
+    for (int count : {2, 3})
+    {
+        WCHAR invalidMode[] = L"invalid";
+        WCHAR* invalidArgv[] = {executable, nrdFailureOption, invalidMode};
+        bool rejected = false;
+        try
+        {
+            Platform::ParseCommandLineOptions(invalidArgv, count);
+        }
+        catch (const std::invalid_argument&)
+        {
+            rejected = true;
+        }
+        passed &= Check(rejected, "missing or unknown NRD failure mode is rejected");
+    }
 
     WCHAR outputDirectoryOption[] = L"-CaptureSessionOutputDir";
     WCHAR outputDirectory[] = L"Captures";

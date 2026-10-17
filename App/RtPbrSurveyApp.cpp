@@ -311,6 +311,16 @@ void RtPbrSurveyApp::OnInit()
     m_sceneRenderer.SetToneMapParams(m_toneMapParams);
     m_sceneRenderer.SetRenderViewMode(m_renderViewMode);
 
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    m_sceneRenderer.EngineForDebugTools().SetNrdFailureInjectionForDiagnostics(
+        m_commandLineOptions.nrdDiagnosticFailure == "initialization",
+        m_commandLineOptions.nrdDiagnosticFailure == "last-dispatch"       ? 0u
+        : m_commandLineOptions.nrdDiagnosticFailure == "after-four-frames" ? 4u
+                                                                           : UINT_MAX);
+#else
+    if (!m_commandLineOptions.nrdDiagnosticFailure.empty())
+        throw std::invalid_argument("-NrdDiagnosticFailure requires NRD SDK diagnostics.");
+#endif
     m_sceneRenderer.Initialize(GetWidth(), GetHeight());
 
     // Initialize scene config paths
@@ -2203,6 +2213,10 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
         {"nrdPreviewRequested", settings.nrdPreview},
         {"nrdPresentation",
          Engine::NrdRelaxPresentationStatusText(context.pathTracingDiagnostics.nrdPresentationStatus)},
+        {"nrdFailure", context.pathTracingDiagnostics.nrdFailureReason},
+        {"nrdPreparedDispatches", context.pathTracingDiagnostics.nrdPreparedDispatches},
+        {"nrdPlannedDispatches", context.pathTracingDiagnostics.nrdPlannedDispatches},
+        {"nrdFailureCount", context.pathTracingDiagnostics.nrdFailureCount},
         {"maxBounces", settings.maxBounces},
         {"russianRoulette", settings.russianRouletteEnabled},
         {"renderWidth", context.renderWidth},

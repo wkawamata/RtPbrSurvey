@@ -6,7 +6,8 @@ Status: opt-in live input conversion, hit-distance reconstruction and input
 admission and native D3D12 RELAX GPU dispatch diagnostics connected.
 Diagnostic material restoration and scene-color composition are connected.
 Explicit diagnostic final-image selection is connected, default Native.
-Global SDK-failure recovery and quality acceptance remain pending.
+Healthy-device NRD initialization/preparation fallback is connected.
+Device loss/recording failures remain fatal; quality acceptance remains pending.
 
 ## Current Acceptance State
 
@@ -2360,4 +2361,100 @@ Evidence on RTX 2080 Ti (generated reports remain under ignored bin):
 python Tests/PathTracing/validate_nrd_presentation.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
 python Tests/PathTracing/validate_nrd_presentation.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory> --exe build/nrd-off/Debug/RtPbrSurvey.exe --without-sdk
 python Tests/PathTracing/validate_nrd_runtime_history.py --source bin/PathTracingValidation/nrd-composition-qualified-20261017 --output <new-directory> --resource NrdSceneColor --nrd-preview
+```
+
+### Pre-Recording Failure Policy: Step 7C (2026-10-17)
+
+NRD initialization is optional in SDK diagnostic builds. Failure to load/validate
+the manifest, create optional pipelines or allocate backend storage now disables
+the NRD path while retaining Native PT, provided the D3D12 device is healthy.
+The initialization guard covers conversion/reconstruction/admission/composition
+pipeline creation as well as the isolated SDK backend. Native renderer pipeline
+creation is outside that guard and retains its existing fatal error behavior.
+
+The D3D12 backend Record operation now has two phases:
+
+1. Prepare the entire frame without backend command-list calls: validate external
+   resource shape/aliasing, obtain all SDK dispatches, allocate resolution pools,
+   validate every pipeline/binding/grid/constant range, fill the fenced frame
+   slot's private descriptors/constants and precompute transitions/final states.
+2. Record the already prepared barriers/bindings/dispatches, restore external
+   states and publish private pool states. This phase performs no allocations,
+   checked lookups, SDK scheduling or descriptor creation and is outside the
+   recoverable exception handler.
+
+Resolution allocation is transactional: permanent and transient temporary pools
+are published only after both allocations succeed. Planned state changes do not
+mutate actual pool tracking before recording. A NrdPreparationError guarantees
+that this backend recorded no commands. Engine-owned graph transitions and output
+clears may already be recorded, but their states remain valid for Native fallback.
+Only that typed error is caught around runtime evaluation; other exceptions escape.
+
+Healthy-device preparation failure latches the backend disabled for the engine
+lifetime. It does not retry on settings changes, PT Reset or resize. Already
+submitted frames may still reference its resources, so the backend is NOT freed
+in the failure handler. Existing fence-protected resize/shutdown paths retire
+those resources safely. PT accumulation is not invalidated by NRD failure.
+
+On the failing frame, the already scheduled composition uses an explicit
+forceNative constant and writes exact decoded valid Native color with excluded-pixel
+diagnostics (invalid Native retains the existing safe-black diagnostic policy).
+Its validity stays false; ToneMap selects Native. Later graphs skip
+RELAX/composition altogether. UI and PNG/raw capture diagnostics expose failure
+stage/reason, prepared/planned dispatch counts and failure count. Raw metadata
+distinguishes an attempted evaluation from successfully recorded GPU commands,
+so an earlier success is never labeled as the failed frame's evaluation.
+
+DXGI DEVICE_REMOVED, DEVICE_HUNG, DEVICE_RESET and DRIVER_INTERNAL_ERROR results
+are explicitly fatal even if GetDeviceRemovedReason has not updated yet. A failed
+device-health query is also fatal. No exception after recording starts is caught
+as a preparation failure. This is NOT general D3D12/device-loss recovery; Native
+cannot safely continue on a lost device. Actual device removal/hang is not injected
+by these tests, and no driver, system setting or SDK artifact is changed.
+
+The diagnostic-only CLI -NrdDiagnosticFailure accepts initialization,
+last-dispatch or after-four-frames. Initialization points the adapter at a missing
+manifest directory. The latter modes invalidate ONLY the final SDK dispatch's
+pipeline index, either immediately or after four successful frames. Thus the test
+must prepare all earlier dispatches before rejecting the final one; catching a
+failure after partially dispatching cannot satisfy this contract. These controls
+are never persisted in presets and are rejected by SDK diagnostic-OFF builds.
+
+Evidence on RTX 2080 Ti:
+
+- nrd-failure-fallback-20261017: thirteen single captures (ten final-output PNGs,
+  three raw buffers) and a separate nineteen-checkpoint Native accumulation
+  timeline passed. Missing-manifest initialization, immediate last-dispatch
+  rejection, the failure frame after four successful frames and later disabled
+  operation each produced exact Native PNGs in the fixed comparison ROI.
+- Before injection at sample three, NRD remained active and changed 248,572 ROI
+  pixels. Immediate failure prepared 28 of 29 dispatches; failure after four
+  successful frames prepared 9 of 10. Both rejected the final dispatch before
+  backend command recording. Failure count stayed exactly one through subsequent
+  frames, Reset, settings, camera/light/material/geometry edits and resize.
+- On the failing sample-five frame, all 2,037,120 composed pixels exactly matched
+  decoded Native SceneColor. Every composition diagnostic was (0,1,0,0). Raw
+  metadata reported the attempted frame index four, recorded=false and zero
+  recorded dispatches, rather than a stale successful evaluation.
+- The failed-backend Native timeline retained four exact replay pairs and five
+  exact changed-state/fresh pairs. Batch accumulation relative RMSE was
+  2.09e-7 under the unchanged 1e-6 bound. D3D12 error count was zero.
+- nrd-failure-normal-history-20261017: normal NRD, without injection, passed all
+  nineteen checkpoints and nine exact replay pairs after the preparation split.
+- nrd-failure-normal-presentation-20261017: ten final-output A/B captures passed;
+  qualified NRD changed the same 243,610 ROI pixels and all four incompatible
+  cases retained exact Native fallback. An additional full-frame comparison in
+  nrd-failure-previous-output-comparison-20261017 found all ten PNG files
+  hash-identical to the historical Step 7B captures. This explicitly separates
+  the current execution from the historical reference rather than relabeling it.
+- nrd-failure-sdk-off-20261017: two final-output captures passed with SDK
+  diagnostics disabled; NRD opt-in reported not-built and matched Native exactly.
+- Seventy-three NRD Python tests and nine focused CTest tests passed. The latter
+  include fatal/nonfatal HRESULT policy and missing/invalid CLI-value rejection.
+  Application Debug builds with SDK diagnostics ON and OFF passed with zero
+  warnings/errors. Reports preserve the executed binary/source/shader/script,
+  fixture and capture hashes. Driver/device-loss injection is explicitly excluded.
+
+```powershell
+python Tests/PathTracing/validate_nrd_failure_fallback.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
 ```

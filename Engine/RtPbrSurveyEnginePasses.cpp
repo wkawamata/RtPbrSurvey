@@ -53,7 +53,7 @@ void RtPbrSurveyEngine::BuildRenderPasses()
                         AddPass(MakeNrdReconstructionPass());
                         AddPass(MakeNrdAdmissionPass());
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
-                        if (m_nrdGpu != nullptr)
+                        if (m_nrdGpu != nullptr && m_nrdFailureReason.empty())
                         {
                             AddPass(MakeNrdRelaxPass());
                             AddPass(MakeNrdCompositionPass());

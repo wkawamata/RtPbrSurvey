@@ -14,6 +14,7 @@ cbuffer Dimensions : register(b0)
 {
     uint width;
     uint height;
+    uint forceNative;
 };
 
 [numthreads(8, 8, 1)]
@@ -24,7 +25,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     uint2 p = id.xy;
     NrdCompositionResult result = ComposeNrdRadiance(g_diffuse[p].rgb, g_specular[p].rgb,
         g_diffuseFactor[p], g_specularFactor[p], g_stable[p].rgb, g_background[p].rgb,
-        g_native[p], g_admission[p]);
+        g_native[p], forceNative != 0 ? float4(0, 1, 0, 0) : g_admission[p]);
     g_sceneColor[p] = result.color;
     g_diagnostics[p] = result.diagnostics;
 }

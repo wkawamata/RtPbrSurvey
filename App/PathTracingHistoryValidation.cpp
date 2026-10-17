@@ -85,6 +85,10 @@ void RtPbrSurveyApp::RunPathTracingHistoryValidation()
             case 1:
                 if (settings.nrdPreview)
                 {
+                    const auto expectedPreview =
+                        m_sceneRenderer.GetUiFrameContext().pathTracingDiagnostics.nrdFailureReason.empty()
+                            ? Engine::NrdRelaxPresentationStatus::Relax
+                            : Engine::NrdRelaxPresentationStatus::BackendUnavailable;
                     const auto before = m_sceneRenderer.GetPathTracingRuntimeState();
                     settings.nrdPreview = false;
                     m_sceneRenderer.SetPathTracingSettings(settings);
@@ -94,10 +98,10 @@ void RtPbrSurveyApp::RunPathTracingHistoryValidation()
                     settings.nrdPreview = true;
                     m_sceneRenderer.SetPathTracingSettings(settings);
                     const auto after = m_sceneRenderer.GetPathTracingRuntimeState();
-                    const bool relax =
+                    const bool previewMatches =
                         m_sceneRenderer.GetUiFrameContext().pathTracingDiagnostics.nrdPresentationStatus ==
-                        Engine::NrdRelaxPresentationStatus::Relax;
-                    if (!native || !relax || before.accumulatedSampleCount != after.accumulatedSampleCount ||
+                        expectedPreview;
+                    if (!native || !previewMatches || before.accumulatedSampleCount != after.accumulatedSampleCount ||
                         before.frameSampleIndex != after.frameSampleIndex || before.historyValid != after.historyValid)
                     {
                         fail("Presentation-only switch changed PT history or discarded current NRD output.");

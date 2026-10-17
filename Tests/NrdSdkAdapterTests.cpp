@@ -1,4 +1,6 @@
 #include "Renderer/NrdRelaxSdkAdapter.h"
+#include "Renderer/NrdRelaxD3D12.h"
+#include <dxgi.h>
 #include "Scene/Scene.h"
 
 #include <DirectXMath.h>
@@ -38,6 +40,14 @@ int main()
 {
     try
     {
+        Require(Engine::IsNrdFatalDeviceResult(DXGI_ERROR_DEVICE_REMOVED) &&
+                    Engine::IsNrdFatalDeviceResult(DXGI_ERROR_DEVICE_HUNG) &&
+                    Engine::IsNrdFatalDeviceResult(DXGI_ERROR_DEVICE_RESET) &&
+                    Engine::IsNrdFatalDeviceResult(DXGI_ERROR_DRIVER_INTERNAL_ERROR),
+                "Device errors must never be converted to Native fallback");
+        Require(!Engine::IsNrdFatalDeviceResult(S_OK) && !Engine::IsNrdFatalDeviceResult(E_OUTOFMEMORY) &&
+                    !Engine::IsNrdFatalDeviceResult(E_INVALIDARG),
+                "Non-device HRESULT policy changed");
         Engine::NrdRelaxSdkAdapter adapter;
         std::vector<Engine::NrdSdkDispatch> plan;
         std::string error;

@@ -1005,6 +1005,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             ImGui::TextWrapped(
                 "PT Presentation: %s",
                 Engine::NrdRelaxPresentationStatusText(context.pathTracingDiagnostics.nrdPresentationStatus));
+            if (!context.pathTracingDiagnostics.nrdFailureReason.empty())
+            {
+                ImGui::TextWrapped("NRD Failure: %s", context.pathTracingDiagnostics.nrdFailureReason.c_str());
+            }
             pathTracingSettingsChanged |=
                 ImGui::Checkbox("Pixel Center Primary", &pathTracingSettings.pixelCenterPrimary);
             pathTracingSettingsChanged |=

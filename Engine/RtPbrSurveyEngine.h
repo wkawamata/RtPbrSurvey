@@ -333,6 +333,10 @@ public:
         double primarySamplesPerSecond = 0.0;
         bool nrdPreviewBuilt = false;
         Engine::NrdRelaxPresentationStatus nrdPresentationStatus = Engine::NrdRelaxPresentationStatus::Native;
+        std::string nrdFailureReason;
+        UINT nrdPreparedDispatches = 0;
+        UINT nrdPlannedDispatches = 0;
+        UINT nrdFailureCount = 0;
     };
 
     struct SpecularDebugLineSettings
@@ -394,6 +398,7 @@ public:
     void SetCamera(const CameraState& camera);
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     void SetNrdContinuousCameraHistory(bool enabled);
+    void SetNrdFailureInjectionForDiagnostics(bool initialization, UINT afterFrames);
 #endif
     const CameraState& GetCamera() const;
     void ReloadSceneResources(const Scene& scene);
@@ -1173,7 +1178,15 @@ private:
     bool m_nrdHistoryReset = true;
     bool m_nrdContinuousCameraHistory = false;
     bool m_nrdComposedOutputValid = false;
+    std::string m_nrdFailureReason;
+    UINT m_nrdPreparedDispatches = 0;
+    UINT m_nrdPlannedDispatches = 0;
+    UINT m_nrdFailureCount = 0;
+    bool m_nrdInjectInitializationFailure = false;
+    UINT m_nrdInjectFailureAfterFrames = UINT_MAX;
     UINT m_nrdLastDispatchCount = 0;
+    bool m_nrdLastEvaluationAttempted = false;
+    bool m_nrdLastEvaluationRecorded = false;
     ComPtr<ID3D12RootSignature> m_nrdCompositionRootSignature;
     ComPtr<ID3D12PipelineState> m_nrdCompositionPipeline;
     UINT m_nrdFrameIndex = 0;

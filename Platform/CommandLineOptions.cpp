@@ -429,6 +429,22 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             options.hasPathTracingRandomSeed = true;
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-NrdDiagnosticFailure"))
+        {
+            if (i + 1 >= argc)
+                throw std::invalid_argument(
+                    "-NrdDiagnosticFailure expects initialization, last-dispatch or after-four-frames.");
+            const std::wstring value = argv[++i];
+            if (value == L"initialization")
+                options.nrdDiagnosticFailure = "initialization";
+            else if (value == L"last-dispatch")
+                options.nrdDiagnosticFailure = "last-dispatch";
+            else if (value == L"after-four-frames")
+                options.nrdDiagnosticFailure = "after-four-frames";
+            else
+                throw std::invalid_argument("Unknown -NrdDiagnosticFailure mode.");
+            options.enablePathTracing = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-NrdPreview"))
         {
             options.nrdPreview = true;
