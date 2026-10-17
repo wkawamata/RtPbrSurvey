@@ -2872,3 +2872,26 @@ bin/PathTracingValidation/nrd-visual-prepared-20261017 using the unchanged Debug
 binary. No application was launched and no human verdict was recorded in this
 unit. Human review and the broader acceptance gates remain pending; no renderer
 change, rebuild or promotion to default-on/Available is included.
+
+### Step 9E follow-up: Human review of the two fixed fixtures
+
+On 2026-10-17 (Asia/Tokyo), the user performed live Native/NRD display comparison
+using the unchanged Debug executable recorded by the launcher. All six checklist
+items were explicitly accepted: static noise/edge quality, disocclusion color and
+edges, reversal, settling, display toggling without freeze/unexpected reset, and
+emissive/Unlit/background preservation. These are user-reported subjective
+results, not automated image measurements or an agent-observed screen review.
+
+Local session records:
+
+- bin/PathTracingValidation/nrd-visual-20261017-202344-682/results.json:
+  Disocclusion, NRD-LIVE-01 through NRD-LIVE-05, pass.
+- bin/PathTracingValidation/nrd-visual-20261017-205418-089/results.json:
+  StableRadiance, NRD-LIVE-06, pass.
+
+The runtime manifests retain launch status and initially unanswered verdict as
+launch-time provenance; results.json contains the subsequent human responses.
+Generated session records/logs remain local and are not committed. This accepts
+only these fixtures and manual operations, not broad scene/material behavior,
+moving objects, camera cuts, every-frame numeric quality or failure resilience.
+NRD remains experimental/default-off; this does not promote support to Available.
