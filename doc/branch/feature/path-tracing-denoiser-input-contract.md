@@ -2534,3 +2534,65 @@ specular. The report records fixture, executable, shader, runner and capture
 hashes plus common runtime metadata. All seventy-seven NRD Python tests and the
 SceneDocumentBuilder test passed. Debug application build passed with zero
 warnings/errors; the test-only link retains the known LNK4199 delay-load warning.
+
+### Step 9A: Disocclusion Visibility And History Measurement
+
+Assets/Scene/PathTracingValidation/14-nrd-disocclusion contains two static opaque
+planes: a red foreground occluder and a larger green background. Its Japanese
+description identifies the silhouette/revealed region to inspect. The diagnostic
+runner captures Albedo, MotionVectors, NrdSceneColor and Native SceneColor for a
+static camera, +/-20 degree orbits and a +20 degree per-frame-reset control.
+All runs use thirty warm-up frames, with motion in the final twenty frames.
+
+The visibility oracle independently intersects finite planes at a four-pixel
+sampling stride. It projects each current world-space first hit into the previous
+view and traces the previous camera ray to determine whether the foreground hid
+that background point. Both views' plane-edge margins and previous out-of-frustum
+points are excluded. Moving runs require at least twenty revealed samples and
+all runs require at least one hundred retained-background/foreground samples.
+Static camera reprojection must reveal no previously occluded background.
+
+Primary Albedo must match the independent first-hit material, accounting for the
+actual SceneDocument linear-to-rounded-sRGB8-to-linear input path. The comparison
+uses 2 ULP(decoded half) + 3e-6; it does not compare directly to unquantized JSON.
+The initial pilot stopped on that incorrect direct-color expectation and remains
+in bin/PathTracingValidation/nrd-disocclusion-20261017 as failed evidence. Its
+captures are not included in the corrected qualification.
+
+Resource identity/format, common runtime metadata, successful NRD recording and
+presentation, SDK matrix/reset/frame state and the existing independently
+projected half-format MV bound are mandatory. Positive/reset-control runs must
+have identical Native camera/sample inputs. Reset control also restarts the SDK
+frame index, so its output is not an isolated temporal-reuse comparison.
+
+The report measures RGB means and differences from same-frame noisy Native in
+revealed and retained regions. These are NOT quality acceptance criteria:
+qualityVerdict stays not-evaluated even when geometry/MV/history passes. A test
+with deliberately red-contaminated finite output verifies that measurement is
+not mislabeled as quality acceptance. Other new tests cover static and both
+visibility directions, false motion, wrong materials, nonfinite colors,
+missing/wrong capture state and the document color quantization reference.
+The actual saved scene also passes SceneDocumentBuilder schema/geometry loading.
+
+```powershell
+python Tests/PathTracing/validate_nrd_disocclusion.py --output <new-empty-directory>
+```
+
+This step does not accept visual ghosting, converged-radiance error, motion
+reversal/settling, moving objects, camera cuts or animation. Ordinary GUI camera
+edits still reset NRD; continuation remains an explicit diagnostic CLI policy.
+
+Corrected evidence: bin/PathTracingValidation/nrd-disocclusion-r2-20261017 passed
+all sixteen captures with zero D3D12 errors and matching per-case runtime inputs.
+Each orbit direction exposed 252 independently identified sampled background
+points; the static case exposed zero. Continued cases retained NRD frame index
+30/reset=false, while the matching +20 degree reset control used index 0/reset=true.
+The report retains actual color means separately from its geometry/history gate,
+with qualityVerdict=not-evaluated. All eighty-two NRD Python tests and the saved
+scene's SceneDocumentBuilder test passed; the Debug test build had zero warnings
+and errors. No renderer/shader behavior or GUI history policy changed in this step.
+
+Next quality work requires a converged Native reference at the exact captured
+camera, an explicit radiance/ghosting criterion for revealed versus retained
+regions, and reversal/settling checkpoints. Finite RGB output or a difference from
+the reset control alone must not satisfy that quality gate.

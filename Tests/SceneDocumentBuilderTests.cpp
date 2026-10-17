@@ -182,6 +182,20 @@ bool TestNrdStableRadianceFixture()
                  "NRD fixture keeps only the center panel Unlit");
 }
 
+bool TestNrdDisocclusionFixture()
+{
+    const std::filesystem::path directory = std::filesystem::path(__FILE__).parent_path().parent_path() /
+        "Assets/Scene/PathTracingValidation/14-nrd-disocclusion";
+    RtPbrSurvey::SceneDocument document;
+    RtPbrSurvey::SceneDocumentBuilder builder;
+    std::string error;
+    return Check(RtPbrSurvey::LoadSceneDocumentFile((directory / "scene.json").string(), document, &error),
+                 "NRD disocclusion scene schema is valid") &&
+           Check(builder.Build(document, directory, &error), "NRD disocclusion geometry builds") &&
+           Check(builder.Builder().GetScene().instances.size() == 2 && document.materials.size() == 2,
+                 "NRD disocclusion fixture contains foreground and background");
+}
+
 bool TestGltfFailureKeepsPublishedScene()
 {
     RtPbrSurvey::SceneDocumentBuilder documentBuilder;
@@ -212,7 +226,7 @@ bool TestGltfFailureKeepsPublishedScene()
 int main()
 {
     if (!TestPrimitiveBuildAndMeshReuse() || !TestGltfBuildAndMeshReuse() || !TestGltfFailureKeepsPublishedScene() ||
-        !TestNrdStableRadianceFixture())
+        !TestNrdStableRadianceFixture() || !TestNrdDisocclusionFixture())
     {
         return 1;
     }
