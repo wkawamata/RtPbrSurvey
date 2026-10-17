@@ -2673,3 +2673,94 @@ evidence requires the same already Debug-built executable and shader artifacts.
 Next is continuous reversal/settling coverage and subjective review. The numeric
 result does not change default-off/experimental NRD support policy or complete
 the outstanding general visual acceptance gate.
+
+### Step 9C: Continuous Reversal/Settling Capture Contract
+
+The new diagnostic -PathTracingCapturePlan reuses the existing camera-keyframe
+and scheduled-screenshot machinery. It implies PT, requires SceneFile, LogToFile
+and a PathTracing DebugPreviewResource, and rejects combinations with the other
+capture/camera automation modes. Its outputs are raw .ptbuf files; Reflection
+plans remain PNG-only. Relative paths retain the single {variant} token (fixed
+to pt for PT plans), traversal rejection and ordered frame/case constraints.
+PT paths additionally reject normalized/case-insensitive output collisions on
+Windows so separate checkpoints cannot overwrite one another.
+
+The App uses the same frame counter to update the Arcball pose and queue the
+capture. Each raw request carries the requested debug-resource name. Scheduled
+case/frame/path records are logged as PathTracingTimeline, while the existing
+capture completion records confirm output drain. No pause is introduced between
+checkpoints, and no NRD renderer/reset policy changes are made. GUI camera edits
+still use the ordinary reset policy; the runner explicitly enables the existing
+NrdContinuousCameraHistory diagnostic mode.
+
+validate_nrd_timeline.py performs one continuous run per resource (Albedo,
+MotionVectors, NrdSceneColor, SceneColor), each with eight checkpoints:
+
+| Case | Frame | Yaw | Native Sample Index |
+| --- | --- | --- | --- |
+| warm | 20 | 0 | 20 |
+| forward | 36 | +16 | 0 |
+| reverse | 44 | +16 | 0 |
+| middle | 60 | 0 | 0 |
+| stop | 80 | -20 | 0 |
+| settle-4 | 84 | -20 | 4 |
+| settle-16 | 96 | -20 | 16 |
+| settle-32 | 112 | -20 | 32 |
+
+Yaw stays zero through frame 20, reaches +20 at 40, reverses to -20 at 80, then
+holds. Forward/reverse must revisit one pose with opposite measured UV motion.
+NRD frame index must equal the absolute timeline frame with reset=false, while
+Native accumulation resets during motion and resumes after stop. Per-case
+resource metadata must match across the four runs. The previous independent
+plane visibility, half-format MV, SDK matrix and finite-composition checks apply.
+Scheduled and completed capture inventories must contain all eight ordered
+cases. The stop frame's revealed/retained regions are reused at settling frames;
+changed camera poses or a frozen NRD signal are rejected.
+
+This is input/history and measurement qualification, not reference-based quality
+acceptance. qualityVerdict remains not-evaluated. Earlier Step 9B single-orbit
+results must not be relabeled as reversal/settling results. A later reference
+assessment must use these newly acquired continuous-timeline captures and their
+executed binary/shader hashes.
+
+```powershell
+python Tests/PathTracing/validate_nrd_timeline.py --output <new-empty-directory>
+```
+
+Evidence: bin/PathTracingValidation/nrd-timeline-20261017 passed all thirty-two
+raw captures (four continuous resource runs x eight checkpoints), with zero
+D3D12 errors. Every SDK frame index matched the scheduled frame, reset stayed
+false, and Native sample indices matched the table. Forward and reverse mean UV
+X motion were +0.00177442 and -0.00176195 at the same camera pose. Maximum MV
+bound-normalized error across all checkpoints was 0.43016, under the unchanged
+2 ULP(expected half) + 3e-6 contract. Independent revealed-surface samples were
+126 forward, 116 reverse, 122 middle and 252 at stop; stationary checkpoints
+correctly revealed no new surfaces.
+
+The stop frame's 252 revealed and 47,610 retained sampled points remained fixed
+through settling. NRD output changed while the SDK index advanced through
+84/96/112; these changes are measurements, not claims of convergence or reduced
+ghosting. qualityVerdict remains not-evaluated. The report records the executed
+Debug binary, SDK/PT/conversion/composition shaders, fixture, helper and runner
+hashes, each plan/log hash and all raw capture hashes. Debug app and CaptureSession
+test builds passed with zero warnings/errors. CaptureSession tests cover PT CLI
+parsing, missing values, unsafe/duplicate paths including Windows aliases,
+ordered frames/unique cases, and unchanged Reflection PNG loading. All ninety-one
+NRD Python tests passed, including three timeline tests for reversal/settling
+schedule, capture inventory and the separate NRD/Native clocks.
+
+The PT camera automation now releases with the existing automation gate after
+output completes or fails, rather than continuing to force a pose if the process
+is kept open. The final Debug executable including this guard independently
+passed all thirty-two captures again in
+bin/PathTracingValidation/nrd-timeline-final-20261017, with zero D3D12 errors.
+That final run, rather than the earlier executable, is the current checkpoint
+evidence. Its captures were also compared with the earlier run to check that the
+completion guard did not alter active timeline rendering: all thirty-two raw
+files were hash-identical. Mouse interaction
+after completion was not exercised by the exit-after-capture runner.
+
+Next: evaluate these continuous captures against fresh same-camera independent
+high-sample Native references, including the original stop region at each
+settling checkpoint. Do not reuse the earlier single-orbit quality verdict as
+that result.

@@ -79,6 +79,7 @@ struct CommandLineOptions
     bool disableVSync = false;
     UINT pathTracingSampleTarget = 0;
     std::filesystem::path pathTracingHistoryValidationDirectory;
+    std::filesystem::path pathTracingCapturePlanPath;
     bool hasPathTracingRandomSeed = false;
     UINT pathTracingRandomSeed = 1;
     bool hasPathTracingObjectMotion = false;
@@ -153,5 +154,6 @@ bool LoadReflectionCapturePlan(const std::filesystem::path& path,
                                const std::string& variant,
                                ReflectionCapturePlan& plan,
                                std::string& error);
+bool LoadPathTracingCapturePlan(const std::filesystem::path& path, ReflectionCapturePlan& plan, std::string& error);
 
 } // namespace Platform

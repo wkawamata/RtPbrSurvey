@@ -12,6 +12,7 @@
 #include <iostream>
 #include <iterator>
 #include <vector>
+#include <nlohmann/json.hpp>
 #include <imgui.h>
 
 namespace
@@ -665,13 +666,96 @@ bool TestCaptureRequestGate()
     passed &= Check(gate.GetPendingAction() == PendingHostAction::None, "cancel releases the pending action");
     return passed;
 }
+bool TestPathTracingCapturePlan()
+{
+    WCHAR executable[] = L"RtPbrSurvey.exe";
+    WCHAR option[] = L"-PathTracingCapturePlan";
+    WCHAR planName[] = L"timeline.json";
+    WCHAR* argv[] = {executable, option, planName};
+    const auto options = Platform::ParseCommandLineOptions(argv, 3);
+    bool passed = Check(options.enablePathTracing && !options.captureReflectionResolvedRadiance &&
+                            options.pathTracingCapturePlanPath == "timeline.json",
+                        "PT timeline must not imply Reflection rendering");
+    bool rejected = false;
+    try
+    {
+        Platform::ParseCommandLineOptions(argv, 2);
+    }
+    catch (const std::invalid_argument&)
+    {
+        rejected = true;
+    }
+    passed &= Check(rejected, "PT timeline requires a filename");
+    const auto path = std::filesystem::temp_directory_path() /
+                      ("RtPbrSurvey-pt-plan-" +
+                       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".json");
+    struct Cleanup
+    {
+        std::filesystem::path path;
+        ~Cleanup()
+        {
+            std::error_code ignored;
+            std::filesystem::remove(path, ignored);
+        }
+    } cleanup{path};
+    const nlohmann::json baseline = {
+        {"version", 1},
+        {"cameraKeyframes", {{{"frame", 0}, {"yawDegrees", 0}}, {{"frame", 40}, {"yawDegrees", 20}}}},
+        {"captures",
+         {{{"frame", 36}, {"caseId", "forward"}, {"path", "forward-{variant}.ptbuf"}},
+          {{"frame", 44}, {"caseId", "reverse"}, {"path", "reverse-{variant}.ptbuf"}}}}};
+    const auto write = [&](const nlohmann::json& document)
+    {
+        std::ofstream output(path, std::ios::binary);
+        output << document.dump(2) << "\r\n";
+    };
+    Platform::ReflectionCapturePlan plan;
+    std::string error;
+    write(baseline);
+    passed &= Check(Platform::LoadPathTracingCapturePlan(path, plan, error) && plan.captures.size() == 2 &&
+                        plan.captures[0].path.filename() == "forward-pt.ptbuf",
+                    "PT raw timeline loads using the existing keyframe contract");
+    passed &= Check(!Platform::LoadReflectionCapturePlan(path, "a", plan, error), "Reflection plans remain PNG-only");
+    for (int invalid = 0; invalid < 7; ++invalid)
+    {
+        auto document = baseline;
+        if (invalid == 0)
+            document["captures"][1]["path"] = "forward-{variant}.ptbuf";
+        if (invalid == 1)
+            document["captures"][0]["path"] = "../outside-{variant}.ptbuf";
+        if (invalid == 2)
+            document["captures"][1]["frame"] = 36;
+        if (invalid == 3)
+            document["captures"][0]["path"] = "no-token.ptbuf";
+        if (invalid == 4)
+            document["captures"][1]["caseId"] = "forward";
+        if (invalid == 5)
+            document["captures"][1]["path"] = "FORWARD-{variant}.ptbuf";
+        if (invalid == 6)
+            document["captures"][1]["path"] = "./forward-{variant}.ptbuf";
+        write(document);
+        passed &= Check(!Platform::LoadPathTracingCapturePlan(path, plan, error) && !error.empty(),
+                        "PT timeline rejects invalid frame/path/case contracts");
+    }
+    auto png = baseline;
+    png["captures"][0]["path"] = "forward-{variant}.png";
+    png["captures"][1]["path"] = "reverse-{variant}.png";
+    write(png);
+    passed &= Check(Platform::LoadReflectionCapturePlan(path, "a", plan, error), "Reflection PNG loading is unchanged");
+    passed &= Check(!Platform::LoadPathTracingCapturePlan(path, plan, error), "PT plans reject PNG output");
+    return passed;
+}
 } // namespace
 
 int main()
 {
-    return TestMouseRegionCoordinates() && TestMouseRegionInteraction() && TestStableOutputPath() && TestStableStopButton() && TestStartButtonAvailability() && TestOutputOrderAndStopDrain() && TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
-                   TestValidationAndLegacyCli() && TestGifOutputPathDoesNotOverwrite() && TestGifMetadataEncoding() && TestOutputFailureCompletesCleanup() && TestWarmupExcludedFromDuration() &&
-                   TestMismatchedResultDoesNotCompleteSession() && TestCaptureRequestGate() ?
-        0 :
-        1;
+    return TestMouseRegionCoordinates() && TestMouseRegionInteraction() && TestStableOutputPath() &&
+                   TestStableStopButton() && TestStartButtonAvailability() && TestOutputOrderAndStopDrain() &&
+                   TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
+                   TestValidationAndLegacyCli() && TestGifOutputPathDoesNotOverwrite() && TestGifMetadataEncoding() &&
+                   TestOutputFailureCompletesCleanup() && TestWarmupExcludedFromDuration() &&
+                   TestMismatchedResultDoesNotCompleteSession() && TestCaptureRequestGate() &&
+                   TestPathTracingCapturePlan()
+               ? 0
+               : 1;
 }

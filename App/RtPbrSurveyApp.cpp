@@ -188,6 +188,7 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
         if (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
             !m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
             !m_commandLineOptions.reflectionCapturePlanPath.empty() ||
+            !m_commandLineOptions.pathTracingCapturePlanPath.empty() ||
             !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() ||
             m_commandLineOptions.pathTracingSampleTarget != 0)
         {
@@ -198,7 +199,8 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     }
     if (m_commandLineOptions.captureSessionEnabled)
     {
-        if (!m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty())
+        if (!m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty() ||
+            !m_commandLineOptions.pathTracingCapturePlanPath.empty())
         {
             throw std::invalid_argument("Capture Session is mutually exclusive with existing screenshot automation.");
         }
@@ -215,6 +217,25 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     {
         throw std::invalid_argument(
             "-EnablePathTracing is mutually exclusive with DLSS SR and reflection capture automation.");
+    }
+    if (!m_commandLineOptions.pathTracingCapturePlanPath.empty())
+    {
+        if (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
+            !m_commandLineOptions.debugPreviewResourceName.starts_with("PathTracing.") ||
+            !m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty() ||
+            !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() ||
+            m_commandLineOptions.reflectionOrbitFrames != 0)
+        {
+            throw std::invalid_argument(
+                "-PathTracingCapturePlan requires -SceneFile, -LogToFile and a PathTracing debug resource, "
+                "and cannot be combined with other camera/capture automation.");
+        }
+        std::string error;
+        if (!Platform::LoadPathTracingCapturePlan(
+                m_commandLineOptions.pathTracingCapturePlanPath, m_reflectionCapturePlan, error))
+        {
+            throw std::invalid_argument(error);
+        }
     }
     if (!m_commandLineOptions.reflectionCapturePlanPath.empty())
     {
@@ -981,7 +1002,21 @@ void RtPbrSurveyApp::OnIdle()
             }
             else
             {
-                m_sceneRenderer.RequestScreenshot({capture.path});
+                RtPbrSurvey::ScreenshotRequest request = {capture.path};
+                if (!m_commandLineOptions.pathTracingCapturePlanPath.empty())
+                {
+                    if (m_logFile == nullptr)
+                    {
+                        FailAutomatedCapture("Path Tracing timeline requires an open log file.");
+                        return;
+                    }
+                    request.debugResourceName = m_commandLineOptions.debugPreviewResourceName;
+                    const nlohmann::json scheduled = {
+                        {"case", capture.caseId}, {"frame", capture.frame}, {"path", capture.path.string()}};
+                    fprintf(m_logFile, "[PathTracingTimeline] %s\n", scheduled.dump().c_str());
+                    fflush(m_logFile);
+                }
+                m_sceneRenderer.RequestScreenshot(std::move(request));
                 m_reflectionCaptureInFlight = true;
                 ++m_nextReflectionCaptureIndex;
             }
@@ -1088,7 +1123,10 @@ void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
 {
     const bool automatedSingleCaptureOrbit = !m_commandLineOptions.capturePath.empty() &&
         m_commandLineOptions.reflectionOrbitFrames > 0;
-    if ((!m_commandLineOptions.captureReflectionResolvedRadiance && !automatedSingleCaptureOrbit) ||
+    const bool automatedPathTracingPlan = !m_commandLineOptions.pathTracingCapturePlanPath.empty() &&
+        IsAutomatedCaptureBlocking();
+    if ((!m_commandLineOptions.captureReflectionResolvedRadiance && !automatedSingleCaptureOrbit &&
+         !automatedPathTracingPlan) ||
         m_debugCamera.GetMode() != RtPbrSurvey::DebugCameraController::Mode::Arcball)
     {
         return;
@@ -3022,7 +3060,8 @@ void RtPbrSurveyApp::OpenFileScene()
     ApplyPathTracingCommandLineOptions();
     m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
     OpenCommandLineDebugTexturePreview();
-    if (!m_commandLineOptions.capturePath.empty() && m_commandLineOptions.reflectionOrbitFrames > 0)
+    if ((!m_commandLineOptions.capturePath.empty() && m_commandLineOptions.reflectionOrbitFrames > 0) ||
+        !m_commandLineOptions.pathTracingCapturePlanPath.empty())
     {
         m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::Arcball);
         m_debugCamera.InitObjectViewerFromCamera();

@@ -271,6 +271,7 @@ bool HasParentTraversal(const std::filesystem::path& path)
 bool ParseCapturePath(const std::filesystem::path& planDirectory,
                       const std::string& pathTemplate,
                       const std::string& variant,
+                      const wchar_t* requiredExtension,
                       std::filesystem::path& path,
                       std::string& error)
 {
@@ -298,9 +299,10 @@ bool ParseCapturePath(const std::filesystem::path& planDirectory,
         error = "Capture paths must remain relative to the plan directory.";
         return false;
     }
-    if (_wcsicmp(relativePath.extension().c_str(), L".png") != 0)
+    if (_wcsicmp(relativePath.extension().c_str(), requiredExtension) != 0)
     {
-        error = "Capture paths must use the .png extension.";
+        error = _wcsicmp(requiredExtension, L".png") == 0 ? "Capture paths must use the .png extension."
+                                                          : "Path Tracing capture paths must use the .ptbuf extension.";
         return false;
     }
 
@@ -754,6 +756,15 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 }
             }
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingCapturePlan"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'-')
+            {
+                throw std::invalid_argument("-PathTracingCapturePlan expects a plan file.");
+            }
+            options.pathTracingCapturePlanPath = argv[++i];
+            options.enablePathTracing = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-ReflectionCapturePlan"))
         {
             if (i + 1 < argc)
@@ -930,10 +941,11 @@ bool BuildCaptureSessionConfig(const CommandLineOptions& options,
     return true;
 }
 
-bool LoadReflectionCapturePlan(const std::filesystem::path& path,
-                               const std::string& variant,
-                               ReflectionCapturePlan& plan,
-                               std::string& error)
+static bool LoadCapturePlan(const std::filesystem::path& path,
+                            const std::string& variant,
+                            const wchar_t* requiredExtension,
+                            ReflectionCapturePlan& plan,
+                            std::string& error)
 {
     plan = {};
     error.clear();
@@ -1023,6 +1035,7 @@ bool LoadReflectionCapturePlan(const std::filesystem::path& path,
             if (!ParseCapturePath(planDirectory,
                                   value.at("path").get<std::string>(),
                                   variant,
+                                  requiredExtension,
                                   capture.path,
                                   error))
             {
@@ -1038,6 +1051,36 @@ bool LoadReflectionCapturePlan(const std::filesystem::path& path,
         return false;
     }
 
+    return true;
+}
+
+bool LoadReflectionCapturePlan(const std::filesystem::path& path,
+                               const std::string& variant,
+                               ReflectionCapturePlan& plan,
+                               std::string& error)
+{
+    return LoadCapturePlan(path, variant, L".png", plan, error);
+}
+
+bool LoadPathTracingCapturePlan(const std::filesystem::path& path, ReflectionCapturePlan& plan, std::string& error)
+{
+    if (!LoadCapturePlan(path, "pt", L".ptbuf", plan, error))
+    {
+        return false;
+    }
+    std::vector<std::filesystem::path> paths;
+    for (const ReflectionCaptureRequest& capture : plan.captures)
+    {
+        const std::filesystem::path normalized = capture.path.lexically_normal();
+        if (std::any_of(paths.begin(), paths.end(), [&](const std::filesystem::path& previous)
+                        { return _wcsicmp(previous.c_str(), normalized.c_str()) == 0; }))
+        {
+            error = "Path Tracing capture paths must be unique.";
+            plan = {};
+            return false;
+        }
+        paths.push_back(normalized);
+    }
     return true;
 }
 

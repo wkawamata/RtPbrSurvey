@@ -74,3 +74,34 @@ failure. A consistent reference permits passed-fixed-fixture or
 failed-fixed-fixture. This is a Monte Carlo high-sample consistency check, not an
 analytic ground-truth proof. Passing applies only to this numeric fixture gate;
 subjective quality, motion reversal/settling and general NRD support stay pending.
+
+## Continuous Reversal And Settling
+
+```powershell
+python Tests/PathTracing/validate_nrd_timeline.py --output bin/PathTracingValidation/<new-empty-directory>
+```
+
+The diagnostic -PathTracingCapturePlan CLI reuses the existing keyframe-plan
+schema, but only accepts .ptbuf output and requires SceneFile, LogToFile and a
+PathTracing DebugPreviewResource. It implies Path Tracing, not Hybrid Reflection.
+It cannot be combined with other camera/capture automation. Each relative output
+path must contain one {variant} token, resolved as pt; traversal and duplicate
+paths (including case/dot aliases on Windows) are rejected. Reflection plans
+retain their PNG-only contract.
+
+The runner performs one continuous run per resource, with eight checkpoints:
+warm at frame 20, forward at 36, reverse at 44, middle at 60, stop at 80, then
+settle-4/16/32 at frames 84/96/112. Keyframes hold yaw 0 through frame 20, reach
++20 at 40, reverse through 0 to -20 at 80, and remain there. Forward/reverse
+revisit yaw +16 with opposite measured motion. Captures never pause the timeline.
+
+NRD frame index must match the timeline frame without reset at all checkpoints.
+Native sample index is zero while moving and 4/16/32 after stopping. Material
+visibility, MV, camera matrices, finite composition and scheduled/completed
+capture inventory are checked. The stop frame's newly revealed/retained masks
+are reused at later stationary checkpoints to preserve region identity.
+
+This stage measures signal changes, not converged radiance error. Its report
+keeps qualityVerdict=not-evaluated; the earlier two single-orbit quality results
+must not be relabeled as reversal/settling acceptance. A separate high-sample
+reference assessment of this continuous timeline is still required.
