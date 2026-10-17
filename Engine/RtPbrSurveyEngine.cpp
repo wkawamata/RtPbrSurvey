@@ -545,6 +545,10 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
                                     m_shadowSettings.enabled && m_lightingParams.directLightEnabled);
     pathTracingDiagnostics.emissiveTriangleCount = static_cast<UINT>(m_emissiveTriangles.size());
     pathTracingDiagnostics.emissiveTableStatus = m_emissiveTableStatus;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    pathTracingDiagnostics.nrdPreviewBuilt = true;
+#endif
+    pathTracingDiagnostics.nrdPresentationStatus = ResolvePathTracingNrdPresentation();
     return {static_cast<int>(m_currentFrameIndex),
             m_cpuFrameTime,
             m_renderWidth,
@@ -684,6 +688,14 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
         m_pathTracingSettings.russianRouletteEnabled != validated.russianRouletteEnabled ||
         m_pathTracingSettings.debugOutput != validated.debugOutput;
 
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    if (m_pathTracingSettings.samplesPerFrame != validated.samplesPerFrame)
+    {
+        m_nrdComposedOutputValid = false;
+        m_nrdHistoryReset = true;
+        m_nrdFrameIndex = 0;
+    }
+#endif
     m_pathTracingSettings = validated;
     if (changed)
     {
@@ -715,10 +727,36 @@ bool RtPbrSurveyEngine::ShouldRunRayReconstruction() const
         m_rayReconstructionSupport.IsAvailable();
 }
 
+Engine::NrdRelaxPresentationStatus RtPbrSurveyEngine::ResolvePathTracingNrdPresentation() const
+{
+    const bool compatible = m_renderingPath == RenderingPath::PathTracing && m_sceneResourcesAvailable &&
+                            m_pathTracingSettings.debugOutput == PathTracingDebugOutput::Radiance &&
+                            m_pathTracingSettings.denoiserDistanceDiagnostics &&
+                            Engine::QueryNrdRelaxSamplingReadiness(m_pathTracingSettings.samplesPerFrame,
+                                                                   m_pathTracingSettings.pixelCenterPrimary)
+                                .ready;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    const bool backendReady = m_nrdGpu != nullptr && m_nrdConversionPipeline != nullptr &&
+                              m_nrdReconstructionPipeline != nullptr && m_nrdAdmissionPipeline != nullptr &&
+                              m_nrdCompositionPipeline != nullptr &&
+                              m_pathTracingGuideTextureSrvs[PathTracingGuideNrdSceneColor].IsValid();
+    return Engine::ResolveNrdRelaxPresentation(
+        m_pathTracingSettings.nrdPreview, true, backendReady, compatible, m_nrdComposedOutputValid);
+#else
+    return Engine::ResolveNrdRelaxPresentation(m_pathTracingSettings.nrdPreview, false, false, compatible, false);
+#endif
+}
+
 D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveToneMapSceneColorSrv() const
 {
     if (m_renderingPath == RenderingPath::PathTracing && m_pathTracingSceneColorSrv.IsValid())
     {
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+        if (ResolvePathTracingNrdPresentation() == Engine::NrdRelaxPresentationStatus::Relax)
+        {
+            return m_pathTracingGuideTextureSrvs[PathTracingGuideNrdSceneColor].gpu;
+        }
+#endif
         return m_pathTracingSceneColorSrv.gpu;
     }
 
@@ -1723,6 +1761,7 @@ void RtPbrSurveyEngine::InvalidateReflectionHistory()
 void RtPbrSurveyEngine::InvalidatePathTracingHistory(PathTracingResetReason reason, bool preserveNrdCameraHistory)
 {
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    m_nrdComposedOutputValid = false;
     if (!preserveNrdCameraHistory || reason != PathTracingResetReason::Camera)
     {
         m_nrdHistoryReset = true;
@@ -6572,6 +6611,7 @@ void RtPbrSurveyEngine::ExecuteNrdCompositionPass(const RenderPass& pass)
     m_commandList->SetComputeRootDescriptorTable(1, m_pathTracingGuideTextureUavs[PathTracingGuideNrdSceneColor].gpu);
     m_commandList->SetComputeRoot32BitConstants(2, 2, dimensions, 0);
     m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
+    m_nrdComposedOutputValid = m_pathTracingSampleCommitPending && m_nrdLastDispatchCount > 0;
 #endif
 }
 
@@ -7133,18 +7173,23 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             };
             const CameraState& camera = GetCamera();
             nlohmann::json metadata = {
-                {"schemaVersion", 1}, {"resource", diagnosticSource},
+                {"schemaVersion", 1},
+                {"resource", diagnosticSource},
                 {"renderingPath", static_cast<int>(m_renderingPath)},
                 {"sampleStartIndex", m_pathTracingRuntimeState.frameSampleIndex},
                 {"randomSeed", m_pathTracingSettings.randomSeed},
                 {"samplesPerFrame", m_pathTracingSettings.samplesPerFrame},
                 {"primarySampling", m_pathTracingSettings.pixelCenterPrimary ? "pixel-center" : "random-per-pixel"},
                 {"denoiserDistanceDiagnostics", m_pathTracingSettings.denoiserDistanceDiagnostics},
+                {"nrdPreviewRequested", m_pathTracingSettings.nrdPreview},
+                {"nrdPresentation", Engine::NrdRelaxPresentationStatusText(ResolvePathTracingNrdPresentation())},
                 {"rayTMin", m_shadowSettings.rayTMin},
                 {"rayTMax", m_shadowSettings.rayTMax},
                 {"normalBias", m_shadowSettings.normalBias},
-                {"width", capture.readback.width}, {"height", capture.readback.height},
-                {"format", static_cast<int>(capture.readback.format)}, {"rowOrder", "top-down"},
+                {"width", capture.readback.width},
+                {"height", capture.readback.height},
+                {"format", static_cast<int>(capture.readback.format)},
+                {"rowOrder", "top-down"},
                 {"matrixConvention", "transpose of DirectX row-vector matrices"},
                 {"viewProjection", matrixJson(m_constantBufferData.viewProjection)},
                 {"previousViewProjection", matrixJson(m_constantBufferData.prevViewProjection)},
@@ -7152,8 +7197,11 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 {"cameraPosition", {camera.pos.x, camera.pos.y, camera.pos.z}},
                 {"cameraTarget", {camera.gazePoint.x, camera.gazePoint.y, camera.gazePoint.z}},
                 {"lensShift", {camera.lensShiftX, camera.lensShiftY}},
-                {"singleInstanceWorld", m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().world) : nlohmann::json(nullptr)},
-                {"singleInstancePreviousWorld", m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().prevWorld) : nlohmann::json(nullptr)},
+                {"singleInstanceWorld",
+                 m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().world) : nlohmann::json(nullptr)},
+                {"singleInstancePreviousWorld",
+                 m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().prevWorld)
+                                               : nlohmann::json(nullptr)},
             };
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
             metadata["nrdLastEvaluation"] = {{"continuousCameraHistory", m_nrdContinuousCameraHistory},

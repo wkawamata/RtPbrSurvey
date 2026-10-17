@@ -429,6 +429,11 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             options.hasPathTracingRandomSeed = true;
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-NrdPreview"))
+        {
+            options.nrdPreview = true;
+            options.enablePathTracing = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-NrdContinuousCameraHistory"))
         {
             options.nrdContinuousCameraHistory = true;

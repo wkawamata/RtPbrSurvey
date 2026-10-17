@@ -285,6 +285,7 @@ public:
         UINT samplesPerFrame = 1;
         bool pixelCenterPrimary = false;
         bool denoiserDistanceDiagnostics = false;
+        bool nrdPreview = false;
         UINT maxBounces = 2;
         UINT randomSeed = 1;
         bool directLightingEnabled = true;
@@ -330,6 +331,8 @@ public:
         uint64_t maxPathSegmentsPerFrame = 0;
         uint64_t maxRayQueriesPerFrame = 0;
         double primarySamplesPerSecond = 0.0;
+        bool nrdPreviewBuilt = false;
+        Engine::NrdRelaxPresentationStatus nrdPresentationStatus = Engine::NrdRelaxPresentationStatus::Native;
     };
 
     struct SpecularDebugLineSettings
@@ -1169,6 +1172,7 @@ private:
     Engine::NrdSdkFrame m_nrdPreviousFrame;
     bool m_nrdHistoryReset = true;
     bool m_nrdContinuousCameraHistory = false;
+    bool m_nrdComposedOutputValid = false;
     UINT m_nrdLastDispatchCount = 0;
     ComPtr<ID3D12RootSignature> m_nrdCompositionRootSignature;
     ComPtr<ID3D12PipelineState> m_nrdCompositionPipeline;
@@ -1767,6 +1771,7 @@ private:
     bool ShouldRunTemporalUpscaler() const;
     bool ShouldRunRayReconstruction() const;
     D3D12_GPU_DESCRIPTOR_HANDLE ResolveToneMapSceneColorSrv() const;
+    Engine::NrdRelaxPresentationStatus ResolvePathTracingNrdPresentation() const;
 
     std::vector<UINT8> GenerateCheckerboardTextureData();
     std::vector<UINT8> GenerateSolidTextureData(UINT8 r, UINT8 g, UINT8 b, UINT8 a);

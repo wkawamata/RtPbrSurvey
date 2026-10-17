@@ -10,6 +10,48 @@
 
 namespace Engine
 {
+NrdRelaxPresentationStatus
+ResolveNrdRelaxPresentation(bool requested, bool built, bool backendReady, bool inputsCompatible, bool outputValid)
+{
+    if (!requested)
+    {
+        return NrdRelaxPresentationStatus::Native;
+    }
+    if (!built)
+    {
+        return NrdRelaxPresentationStatus::NotBuilt;
+    }
+    if (!backendReady)
+    {
+        return NrdRelaxPresentationStatus::BackendUnavailable;
+    }
+    if (!inputsCompatible)
+    {
+        return NrdRelaxPresentationStatus::IncompatibleInputs;
+    }
+    return outputValid ? NrdRelaxPresentationStatus::Relax : NrdRelaxPresentationStatus::AwaitingEvaluation;
+}
+
+const char* NrdRelaxPresentationStatusText(NrdRelaxPresentationStatus status)
+{
+    switch (status)
+    {
+        case NrdRelaxPresentationStatus::Native:
+            return "Native PT";
+        case NrdRelaxPresentationStatus::NotBuilt:
+            return "Native fallback: NRD SDK diagnostics not built";
+        case NrdRelaxPresentationStatus::BackendUnavailable:
+            return "Native fallback: NRD backend unavailable";
+        case NrdRelaxPresentationStatus::IncompatibleInputs:
+            return "Native fallback: requires PT Radiance, 1 sample/frame, pixel center and distance diagnostics";
+        case NrdRelaxPresentationStatus::AwaitingEvaluation:
+            return "Native fallback: awaiting current NRD composition";
+        case NrdRelaxPresentationStatus::Relax:
+            return "NRD RELAX diagnostic (per-pixel Native fallback)";
+    }
+    return "Native fallback: unknown presentation status";
+}
+
 namespace
 {
 bool CoversSceneRange(const NrdRelaxRayRangeContext& context, float rayTMax)

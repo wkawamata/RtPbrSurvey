@@ -83,6 +83,27 @@ void RtPbrSurveyApp::RunPathTracingHistoryValidation()
                 m_sceneRenderer.SetPathTracingAccumulationPaused(false);
                 break;
             case 1:
+                if (settings.nrdPreview)
+                {
+                    const auto before = m_sceneRenderer.GetPathTracingRuntimeState();
+                    settings.nrdPreview = false;
+                    m_sceneRenderer.SetPathTracingSettings(settings);
+                    const bool native =
+                        m_sceneRenderer.GetUiFrameContext().pathTracingDiagnostics.nrdPresentationStatus ==
+                        Engine::NrdRelaxPresentationStatus::Native;
+                    settings.nrdPreview = true;
+                    m_sceneRenderer.SetPathTracingSettings(settings);
+                    const auto after = m_sceneRenderer.GetPathTracingRuntimeState();
+                    const bool relax =
+                        m_sceneRenderer.GetUiFrameContext().pathTracingDiagnostics.nrdPresentationStatus ==
+                        Engine::NrdRelaxPresentationStatus::Relax;
+                    if (!native || !relax || before.accumulatedSampleCount != after.accumulatedSampleCount ||
+                        before.frameSampleIndex != after.frameSampleIndex || before.historyValid != after.historyValid)
+                    {
+                        fail("Presentation-only switch changed PT history or discarded current NRD output.");
+                        return;
+                    }
+                }
                 break;
             case 2:
                 m_sceneRenderer.SetPathTracingAccumulationPaused(false);

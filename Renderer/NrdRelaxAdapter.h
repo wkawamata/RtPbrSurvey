@@ -74,6 +74,20 @@ struct NrdRelaxSupportInfo
 
 NrdRelaxSupportInfo QueryNrdRelaxSupport();
 
+enum class NrdRelaxPresentationStatus
+{
+    Native,
+    NotBuilt,
+    BackendUnavailable,
+    IncompatibleInputs,
+    AwaitingEvaluation,
+    Relax,
+};
+
+NrdRelaxPresentationStatus
+ResolveNrdRelaxPresentation(bool requested, bool built, bool backendReady, bool inputsCompatible, bool outputValid);
+const char* NrdRelaxPresentationStatusText(NrdRelaxPresentationStatus status);
+
 #ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
 std::array<unsigned char, 768> MakeNrdReconstructionConstants(unsigned int width, unsigned int height);
 #endif

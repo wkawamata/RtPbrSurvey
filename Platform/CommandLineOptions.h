@@ -83,6 +83,7 @@ struct CommandLineOptions
     UINT pathTracingRandomSeed = 1;
     bool hasPathTracingObjectMotion = false;
     bool nrdContinuousCameraHistory = false;
+    bool nrdPreview = false;
     float pathTracingObjectMotionX = 0.0f;
     UINT pathTracingEnvironmentMode = 0;
     bool hasPathTracingEnvironmentMode = false;

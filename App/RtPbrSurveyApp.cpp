@@ -2200,6 +2200,9 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
         {"samplesPerFrame", settings.samplesPerFrame},
         {"pixelCenterPrimary", settings.pixelCenterPrimary},
         {"denoiserDistanceDiagnostics", settings.denoiserDistanceDiagnostics},
+        {"nrdPreviewRequested", settings.nrdPreview},
+        {"nrdPresentation",
+         Engine::NrdRelaxPresentationStatusText(context.pathTracingDiagnostics.nrdPresentationStatus)},
         {"maxBounces", settings.maxBounces},
         {"russianRoulette", settings.russianRouletteEnabled},
         {"renderWidth", context.renderWidth},
@@ -3322,6 +3325,10 @@ void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
     m_sceneRenderer.SetRenderingPath(m_renderingPath);
 
     RtPbrSurveyEngine::PathTracingSettings settings = m_sceneRenderer.GetPathTracingSettings();
+    if (m_commandLineOptions.nrdPreview)
+    {
+        settings.nrdPreview = true;
+    }
     if (m_commandLineOptions.pathTracingSampleTarget > 0)
     {
         settings.accumulate = true;

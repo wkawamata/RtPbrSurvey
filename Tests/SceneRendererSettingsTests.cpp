@@ -34,6 +34,7 @@ bool TestRoundTrip()
     source.pathTracing.samplesPerFrame = 4;
     source.pathTracing.pixelCenterPrimary = true;
     source.pathTracing.denoiserDistanceDiagnostics = true;
+    source.pathTracing.nrdPreview = true;
     source.pathTracing.maxBounces = 7;
     source.pathTracing.randomSeed = 42;
     source.pathTracing.directLightingEnabled = false;
@@ -77,20 +78,22 @@ bool TestRoundTrip()
     passed &=
         Check(restored.hybridReflection.contributionMaxDistance == source.hybridReflection.contributionMaxDistance,
               "hybrid reflection settings round-trip");
-    passed &= Check(restored.pathTracing.accumulate == source.pathTracing.accumulate &&
-                        restored.pathTracing.samplesPerFrame == source.pathTracing.samplesPerFrame &&
-                        restored.pathTracing.pixelCenterPrimary == source.pathTracing.pixelCenterPrimary &&
-                        restored.pathTracing.denoiserDistanceDiagnostics == source.pathTracing.denoiserDistanceDiagnostics &&
-                        restored.pathTracing.maxBounces == source.pathTracing.maxBounces &&
-                        restored.pathTracing.randomSeed == source.pathTracing.randomSeed &&
-                        restored.pathTracing.directLightingEnabled == source.pathTracing.directLightingEnabled &&
-                        restored.pathTracing.environmentEnabled == source.pathTracing.environmentEnabled &&
-                        restored.pathTracing.environmentSamplingMode == source.pathTracing.environmentSamplingMode &&
-                        restored.pathTracing.emissiveSamplingMode == source.pathTracing.emissiveSamplingMode &&
-                        restored.pathTracing.emissiveEnabled == source.pathTracing.emissiveEnabled &&
-                        restored.pathTracing.russianRouletteEnabled == source.pathTracing.russianRouletteEnabled &&
-                        restored.pathTracing.debugOutput == source.pathTracing.debugOutput,
-                    "path tracing settings round-trip");
+    passed &=
+        Check(restored.pathTracing.accumulate == source.pathTracing.accumulate &&
+                  restored.pathTracing.samplesPerFrame == source.pathTracing.samplesPerFrame &&
+                  restored.pathTracing.pixelCenterPrimary == source.pathTracing.pixelCenterPrimary &&
+                  restored.pathTracing.denoiserDistanceDiagnostics == source.pathTracing.denoiserDistanceDiagnostics &&
+                  restored.pathTracing.nrdPreview == source.pathTracing.nrdPreview &&
+                  restored.pathTracing.maxBounces == source.pathTracing.maxBounces &&
+                  restored.pathTracing.randomSeed == source.pathTracing.randomSeed &&
+                  restored.pathTracing.directLightingEnabled == source.pathTracing.directLightingEnabled &&
+                  restored.pathTracing.environmentEnabled == source.pathTracing.environmentEnabled &&
+                  restored.pathTracing.environmentSamplingMode == source.pathTracing.environmentSamplingMode &&
+                  restored.pathTracing.emissiveSamplingMode == source.pathTracing.emissiveSamplingMode &&
+                  restored.pathTracing.emissiveEnabled == source.pathTracing.emissiveEnabled &&
+                  restored.pathTracing.russianRouletteEnabled == source.pathTracing.russianRouletteEnabled &&
+                  restored.pathTracing.debugOutput == source.pathTracing.debugOutput,
+              "path tracing settings round-trip");
     passed &= Check(restored.toneMap.exposure == source.toneMap.exposure, "tone mapping settings round-trip");
     passed &= Check(restored.specularDebugLines.lineLength == source.specularDebugLines.lineLength,
                     "specular debug settings round-trip");

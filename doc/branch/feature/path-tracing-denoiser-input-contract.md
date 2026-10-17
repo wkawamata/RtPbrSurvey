@@ -5,7 +5,8 @@ Branch: codex/pt-denoiser-input-contract.
 Status: opt-in live input conversion, hit-distance reconstruction and input
 admission and native D3D12 RELAX GPU dispatch diagnostics connected.
 Diagnostic material restoration and scene-color composition are connected.
-Final-image selection, global SDK-failure fallback and quality acceptance remain pending.
+Explicit diagnostic final-image selection is connected, default Native.
+Global SDK-failure recovery and quality acceptance remain pending.
 
 ## Current Acceptance State
 
@@ -45,8 +46,8 @@ NRD is pinned to v4.17.3, commit 792eff196afdd350fd9c3f862119017ccb438a0e.
 The ignored source checkout is third_party/nrd-sdk-4.17.3. The dependency manifest
 records source/header/helper hashes and intended build encoding. Optional SDK
 CPU scheduling diagnostics build a static library from pinned sources; live
-reconstruction compiles the pinned 3x3 kernel. Full RELAX shader embedding and
-GPU dispatch remain pending. Native D3D12 dispatch integration is selected; NRI
+reconstruction compiles the pinned 3x3 kernel. Diagnostic GPU dispatch uses 27
+externally compiled RELAX pipelines and verifies their SDK identifiers. NRI
 is not acquired. Pin documentation to this revision and never mix helpers from
 one release with a different binary.
 
@@ -2284,4 +2285,79 @@ python Tests/PathTracing/validate_nrd_composition_vectors.py --output <new-direc
 python Tests/PathTracing/validate_nrd_composition.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
 python Tests/PathTracing/validate_nrd_composition.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory> --disabled-distance-diagnostics
 python Tests/PathTracing/validate_nrd_runtime_history.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory> --resource NrdSceneColor
+```
+
+### Diagnostic Final-Image Selection: Step 7B (2026-10-17)
+
+PathTracingSettings.nrdPreview is an explicit, persisted opt-in, default false.
+The normal Debug UI and Scene Editor renderer UI expose NRD RELAX Preview
+(Diagnostic), Pixel Center Primary, Denoiser Distance Diagnostics and the current
+PT Presentation status. The CLI equivalent is -NrdPreview; it enables PT but does
+not silently change estimator/sampling settings or claim production readiness.
+QueryNrdRelaxSupport remains unavailable pending the remaining acceptance gates.
+
+To inspect NRD in the main viewport, choose Path Tracing / Radiance, one sample
+per frame, Pixel Center Primary and Denoiser Distance Diagnostics, then enable
+the preview. This requires the existing three NRD diagnostic CMake options and
+their packing/reconstruction dependencies. Normal builds retain Native PT.
+
+ToneMap dynamically binds NrdSceneColor only after current composition has been
+recorded. The graph declares both Native and NRD candidate reads when requested,
+because composition validity changes during graph execution. Both sources pass
+through the same ToneMap/exposure/transfer function. Per-pixel Native fallback
+remains in the composition shader; the presentation selector adds whole-frame
+Native fallback for missing diagnostic builds/backends, incompatible inputs and
+an output awaiting evaluation. UI, capture logs and raw-buffer metadata report
+the requested and effective presentation separately.
+
+Composition validity clears on PT invalidation (including preserved-NRD camera
+history), sample-batch changes, history clears and before tracing a new frame.
+Only successful recording of a current composition after nonzero SDK dispatches
+marks it valid again. Pause retains an unchanged valid result; Reset while paused
+selects Native instead of a stale denoised image. Toggling only nrdPreview does
+not invalidate either PT accumulation or current NRD composition. Changes to
+sample batch size still retain Native accumulation as required by the existing
+history contract, but reset private NRD history and cannot resurrect a stale NRD
+output while paused.
+
+Validation uses final-output PNGs for source A/B and raw composed buffers for the
+19-stage lifecycle. It does not treat a changed PNG as a quality improvement.
+The final-output comparator uses a predefined central ROI, avoiding UI/timing
+overlays; incompatible inputs require exact pixel equality with their matched
+Native run, not a relaxed numerical threshold.
+
+Global SDK initialization/recording exceptions and device loss are NOT recovered
+by this selector. It does not catch partial command-list recording failures or
+silently continue with uncertain GPU state. That remains a separate work unit,
+along with live emissive/unlit coverage and user-assisted denoising-quality A/B.
+
+Evidence on RTX 2080 Ti (generated reports remain under ignored bin):
+
+- nrd-presentation-qualified-20261017: ten final-output captures across five
+  Native/preview pairs. Qualified preview changed 243,610 pixels in the fixed
+  ROI (768,265)-(1248,795). Distance diagnostics off, random primary sampling,
+  four samples/frame and Normal output each produced exact Native fallback.
+- nrd-presentation-sdk-off-20261017: two final-output captures from an independent
+  diagnostic-OFF Debug build. Requesting NRD reported the not-built fallback and
+  exactly matched the Native ROI. The normal build has no NRD runtime dependency.
+- nrd-presentation-history-qualified-20261017: nineteen raw captures and nine
+  exact replay pairs passed on the final diagnostic executable. Fifteen capture
+  checkpoints selected NRD, three incompatible sample-batch checkpoints selected
+  Native and reset-paused selected the awaiting-evaluation Native fallback. The
+  paused display-only off/on test retained sample counts, index and valid output.
+- Seventy NRD Python tests and nine focused CTest tests passed, including all
+  thirty-two presentation-gate combinations, settings round-trip and CLI parsing.
+  Both application Debug builds completed with zero warnings/errors. Two test
+  targets retained the existing unused Streamline DELAYLOAD linker warning.
+- All capture logs contained zero D3D12 errors; the two existing initial-buffer
+  state warnings remain. Reports preserve executable, shader, script, preset,
+  scene and capture hashes. Earlier presentation/history pilot reports are kept
+  separately rather than overwritten. A test-target post-build D3D12 DLL copy
+  initially collided with the running capture application; its retry after app
+  exit passed without a source workaround.
+
+```powershell
+python Tests/PathTracing/validate_nrd_presentation.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
+python Tests/PathTracing/validate_nrd_presentation.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory> --exe build/nrd-off/Debug/RtPbrSurvey.exe --without-sdk
+python Tests/PathTracing/validate_nrd_runtime_history.py --source bin/PathTracingValidation/nrd-composition-qualified-20261017 --output <new-directory> --resource NrdSceneColor --nrd-preview
 ```

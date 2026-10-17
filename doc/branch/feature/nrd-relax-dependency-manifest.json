@@ -6,7 +6,7 @@
   "localSourceRoot": "third_party/nrd-sdk-4.17.3",
   "sourceOnly": true,
   "runtimeLinked": true,
-  "runtimeLinkMode": "Optional native D3D12 RELAX GPU and material/composition diagnostics, default OFF; final selection/quality pending",
+  "runtimeLinkMode": "Optional native D3D12 RELAX GPU/composition and explicit final-image preview diagnostics, default OFF; failure recovery/quality pending",
   "denoiser": "RELAX_DIFFUSE_SPECULAR",
   "integration": "Native D3D12 dispatch through isolated adapter; no NRI",
   "license": "NVIDIA RTX SDKs LICENSE; see LICENSE.txt; review before redistribution",
@@ -50,7 +50,7 @@
   },
   "readinessBlockers": [
     "Camera/MV convention passed a small planar orbit fixture; disocclusion, larger motion and visual ghosting acceptance remain pending",
-    "Final-image selection and global SDK-failure fallback remain pending; per-pixel composition fallback is diagnostic only",
+    "Global SDK initialization/recording failure recovery remains pending; explicit diagnostic final-image selection and per-pixel composition fallback are connected",
     "Live primary emissive/unlit composition coverage remains pending (shared-helper arithmetic vectors cover stable/background terms)",
     "End-to-end numeric and visual denoising acceptance remain pending"
   ]

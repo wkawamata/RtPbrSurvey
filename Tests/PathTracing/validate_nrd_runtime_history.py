@@ -64,6 +64,7 @@ def main():
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--timeout', type=int, default=600)
+    parser.add_argument('--nrd-preview', action='store_true')
     parser.add_argument('--resource', action='append', choices=RESOURCES+ADMISSION_RESOURCES+RELAX_RESOURCES+COMPOSITION_RESOURCES)
     args = parser.parse_args()
     resources = args.resource or RESOURCES
@@ -103,6 +104,8 @@ def main():
             command = [str(exe), '-SceneFile', str(scene), '-RenderPreset', str(preset),
                 '-PathTracingHistoryValidation', str(folder), '-LogToFile', str(log),
                 '-DebugPreviewResource', 'PathTracing.'+resource]
+            if args.nrd_preview:
+                command.append('-NrdPreview')
             entry = dict(resource=resource, command=command, status='running')
             report['resources'].append(entry)
             write_json(output/'report.json', report)
@@ -132,9 +135,20 @@ def main():
                         meta['samplesPerFrame'] != record['samplesPerFrame'] or meta['primarySampling'] != 'pixel-center'):
                     raise ValueError('Invalid lifecycle capture identity or state: '+record['case'])
                 images[record['case']] = raw.astype(np.float32)
+                if args.nrd_preview:
+                    if record['case'] == 'reset-paused-0':
+                        expected_presentation = 'Native fallback: awaiting current NRD composition'
+                    elif record['samplesPerFrame'] != 1:
+                        expected_presentation = ('Native fallback: requires PT Radiance, 1 sample/frame, '
+                            'pixel center and distance diagnostics')
+                    else:
+                        expected_presentation = 'NRD RELAX diagnostic (per-pixel Native fallback)'
+                    if meta.get('nrdPreviewRequested') is not True or meta.get('nrdPresentation') != expected_presentation:
+                        raise ValueError('Incorrect presentation after lifecycle transition: '+record['case'])
+                    record['nrdPresentation'] = meta['nrdPresentation']
                 record['sha256'] = sha(path)
             assessment = assess_history(images, resource == 'NrdTiles', resource in COMPOSITION_RESOURCES)
-            entry.update(status='passed', assessment=assessment, d3d12Errors=0)
+            entry.update(status='passed', assessment=assessment, d3d12Errors=0, nrdPreview=args.nrd_preview)
             write_json(output/'report.json', report)
             print('passed '+resource, flush=True)
         report['status'] = 'passed'

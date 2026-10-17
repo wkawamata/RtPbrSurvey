@@ -350,6 +350,11 @@ bool TestValidationAndLegacyCli()
     WCHAR* argv[] = {executable, option, path};
     const Platform::CommandLineOptions options = Platform::ParseCommandLineOptions(argv, 3);
     passed &= Check(options.capturePath == "legacy.png", "legacy CapturePath CLI remains supported");
+    WCHAR nrdOption[] = L"-NrdPreview";
+    WCHAR* nrdArgv[] = {executable, nrdOption};
+    const auto nrdOptions = Platform::ParseCommandLineOptions(nrdArgv, 2);
+    passed &= Check(nrdOptions.nrdPreview && nrdOptions.enablePathTracing,
+                    "NRD presentation opt-in enables PT without silently changing sampling settings");
 
     WCHAR outputDirectoryOption[] = L"-CaptureSessionOutputDir";
     WCHAR outputDirectory[] = L"Captures";

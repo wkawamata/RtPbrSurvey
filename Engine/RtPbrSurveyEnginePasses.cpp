@@ -32,10 +32,16 @@ void RtPbrSurveyEngine::BuildRenderPasses()
             const bool traceFrame = !m_pathTracingRuntimeState.accumulationPaused && m_pathTracingFrameAdvance;
             if (m_pathTracingHistoryClearRequired || (!m_pathTracingSettings.accumulate && traceFrame))
             {
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+                m_nrdComposedOutputValid = false;
+#endif
                 AddPass(MakePathTracingHistoryClearPass());
             }
             if (traceFrame)
             {
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+                m_nrdComposedOutputValid = false;
+#endif
                 AddPass(MakePathTracingPass());
 #ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
                 if (m_nrdConversionPipeline != nullptr)
@@ -998,6 +1004,13 @@ auto RtPbrSurveyEngine::MakeToneMapPass() -> RenderPass
     if (m_renderingPath == RenderingPath::PathTracing)
     {
         reads.push_back({kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+        if (m_pathTracingSettings.nrdPreview)
+        {
+            reads.push_back({kPathTracingGuideTextureResourceNames[PathTracingGuideNrdSceneColor],
+                             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        }
+#endif
     }
     else
     {

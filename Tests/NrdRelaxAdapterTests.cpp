@@ -634,9 +634,27 @@ std::filesystem::path FindPixelContractCorpus(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
+    using Presentation = Engine::NrdRelaxPresentationStatus;
+    bool presentationPassed = true;
+    for (unsigned flags = 0; flags < 32; ++flags)
+    {
+        const bool requested = (flags & 1) != 0;
+        const bool built = (flags & 2) != 0;
+        const bool backend = (flags & 4) != 0;
+        const bool compatible = (flags & 8) != 0;
+        const bool valid = (flags & 16) != 0;
+        const auto expected = !requested    ? Presentation::Native
+                              : !built      ? Presentation::NotBuilt
+                              : !backend    ? Presentation::BackendUnavailable
+                              : !compatible ? Presentation::IncompatibleInputs
+                              : !valid      ? Presentation::AwaitingEvaluation
+                                            : Presentation::Relax;
+        const auto actual = Engine::ResolveNrdRelaxPresentation(requested, built, backend, compatible, valid);
+        presentationPassed &= actual == expected && Engine::NrdRelaxPresentationStatusText(actual)[0] != '\0';
+    }
     const Engine::NrdRelaxSupportInfo defaults;
     const Engine::NrdRelaxSupportInfo info = Engine::QueryNrdRelaxSupport();
-    bool passed = !defaults.available && !info.available &&
+    bool passed = presentationPassed && !defaults.available && !info.available &&
                   defaults.status == Engine::NrdRelaxSupportStatus::NotIntegrated &&
                   info.status == Engine::NrdRelaxSupportStatus::NotIntegrated && info.targetSdkVersion != nullptr &&
                   std::strcmp(info.targetSdkVersion, "4.17.3") == 0 && info.reason != nullptr && info.reason[0] != '\0';
