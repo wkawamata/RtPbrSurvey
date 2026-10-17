@@ -1,4 +1,4 @@
-"""Exercise live reconstruction buffers through the existing 19-stage PT timeline."""
+"""Exercise live NRD buffers through the existing 19-stage PT timeline."""
 import argparse
 import json
 import subprocess
@@ -14,10 +14,11 @@ ROOT = Path(__file__).resolve().parents[2]
 RESOURCES = ('NrdReconstructedSpecular', 'NrdReconstructedDiffuse', 'NrdTiles')
 ADMISSION_RESOURCES = ('NrdInputSpecular', 'NrdInputDiffuse')
 RELAX_RESOURCES = ('NrdOutputSpecular', 'NrdOutputDiffuse')
+COMPOSITION_RESOURCES = ('NrdSceneColor',)
 ZERO_CASES = ('reset-paused-0', 'batch-4-32', 'non-accumulated-index-12', 'non-accumulated-repeat-12')
 
 
-def assess_history(images, tiles=False):
+def assess_history(images, tiles=False, composed=False):
     if set(images) != set(CASES):
         raise ValueError('Missing or unexpected lifecycle checkpoints')
     for name, image in images.items():
@@ -26,14 +27,19 @@ def assess_history(images, tiles=False):
             raise ValueError('Malformed lifecycle image: '+name)
         if tiles and (image != 0).any():
             raise ValueError('All-active tile mask changed')
+        if composed and ((image < 0).any() or (image[..., 3] != (0 if name == 'reset-paused-0' else 1)).any()):
+            raise ValueError('Invalid composed radiance or alpha: '+name)
     original_shapes = {image.shape for name, image in images.items() if not name.startswith('resize-')}
     if len(original_shapes) != 1 or images['resize-changed-16'].shape != images['resize-fresh-16'].shape:
         raise ValueError('Inconsistent lifecycle dimensions')
-    for name in ZERO_CASES:
+    zero_cases = ('reset-paused-0',) if composed else ZERO_CASES
+    for name in zero_cases:
         if (images[name] != 0).any():
             raise ValueError('Reset or incompatible sampling retained reconstruction: '+name)
     comparisons = [('baseline-16', 'paused-16'), ('baseline-16', 'reset-repeat-16'), ('resumed-32', 'fresh-32')]
     comparisons += [(change+'-changed-16', change+'-fresh-16') for change in CHANGES]
+    if composed:
+        comparisons.append(('non-accumulated-index-12', 'non-accumulated-repeat-12'))
     for left, right in comparisons:
         if not np.array_equal(images[left], images[right]):
             raise ValueError('Lifecycle replay mismatch: '+left+' / '+right)
@@ -50,7 +56,7 @@ def assess_history(images, tiles=False):
                 raise ValueError('Mutation did not change reconstruction signal: '+change)
             previous = change+'-fresh-16'
     return dict(exactComparisons=[dict(left=left, right=right) for left, right in comparisons],
-        zeroCases=list(ZERO_CASES), tiles=tiles)
+        zeroCases=list(zero_cases), tiles=tiles, composed=composed)
 
 
 def main():
@@ -58,7 +64,7 @@ def main():
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--timeout', type=int, default=600)
-    parser.add_argument('--resource', action='append', choices=RESOURCES+ADMISSION_RESOURCES+RELAX_RESOURCES)
+    parser.add_argument('--resource', action='append', choices=RESOURCES+ADMISSION_RESOURCES+RELAX_RESOURCES+COMPOSITION_RESOURCES)
     args = parser.parse_args()
     resources = args.resource or RESOURCES
     if len(set(resources)) != len(resources):
@@ -76,15 +82,18 @@ def main():
         exeSha256=sha(exe), sceneSha256=sha(scene), presetSha256=sha(preset),
         scriptSha256=sha(Path(__file__)),
         runtimeShaderSha256=sha(ROOT/'build/shaders/shaders_NrdReconstruction_main.cso'))
-    if any(resource in ADMISSION_RESOURCES+RELAX_RESOURCES for resource in resources):
+    if any(resource in ADMISSION_RESOURCES+RELAX_RESOURCES+COMPOSITION_RESOURCES for resource in resources):
         report['admissionShaderSha256'] = sha(ROOT/'build/shaders/shaders_NrdAdmission_CSMain.cso')
         report['admissionHelperSha256'] = sha(ROOT/'Shaders/NrdRelaxInputAdmission.hlsli')
         report['conversionShaderSha256'] = sha(ROOT/'build/shaders/shaders_NrdConversion_CSMain.cso')
-    if any(resource in RELAX_RESOURCES for resource in resources):
+    if any(resource in RELAX_RESOURCES+COMPOSITION_RESOURCES for resource in resources):
         manifest = ROOT/'build/shaders/nrd-relax-manifest.txt'
         report['sdkShaderManifestSha256'] = sha(manifest)
         report['sdkShaders'] = [dict(identifier=name, sha256=sha(ROOT/f'build/shaders/nrd-relax-{i}.cso'))
             for i, name in enumerate(manifest.read_text().splitlines())]
+    if any(resource in COMPOSITION_RESOURCES for resource in resources):
+        report['compositionShaderSha256'] = sha(ROOT/'build/shaders/shaders_NrdComposition_CSMain.cso')
+        report['compositionHelperSha256'] = sha(ROOT/'Shaders/NrdRelaxComposition.hlsli')
     write_json(output/'report.json', report)
     try:
         for resource in resources:
@@ -124,7 +133,7 @@ def main():
                     raise ValueError('Invalid lifecycle capture identity or state: '+record['case'])
                 images[record['case']] = raw.astype(np.float32)
                 record['sha256'] = sha(path)
-            assessment = assess_history(images, resource == 'NrdTiles')
+            assessment = assess_history(images, resource == 'NrdTiles', resource in COMPOSITION_RESOURCES)
             entry.update(status='passed', assessment=assessment, d3d12Errors=0)
             write_json(output/'report.json', report)
             print('passed '+resource, flush=True)
@@ -135,7 +144,7 @@ def main():
             report['resources'][-1]['status'] = 'failed'
         report['failures'].append(str(error))
     report['limitation'] = ('Automated resource lifecycle on one fixture/GPU; fresh references use manual reset. '
-        'Camera edits reset history; continuous-motion reprojection, denoising quality and final composition remain unvalidated.')
+        'Camera edits reset history in this runner. Continuous motion, visual quality and final ToneMap selection are not covered.')
     write_json(output/'report.json', report)
     print(report['status'], report['failures'])
     return report['status'] != 'passed'

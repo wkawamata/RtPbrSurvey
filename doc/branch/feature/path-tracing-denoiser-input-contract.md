@@ -4,7 +4,8 @@ Date: 2026-10-10. Base: main 0c175e3 (PR 96).
 Branch: codex/pt-denoiser-input-contract.
 Status: opt-in live input conversion, hit-distance reconstruction and input
 admission and native D3D12 RELAX GPU dispatch diagnostics connected.
-Final denoised scene-color composition and quality acceptance remain pending.
+Diagnostic material restoration and scene-color composition are connected.
+Final-image selection, global SDK-failure fallback and quality acceptance remain pending.
 
 ## Current Acceptance State
 
@@ -2203,4 +2204,84 @@ fallback composition into a separately inspectable denoised scene-color output.
 
 ```powershell
 python Tests/PathTracing/validate_nrd_camera_motion.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
+```
+
+### Material Restoration And Diagnostic Composition: Step 7A (2026-10-17)
+
+The conversion pass now stores the SAME NRD_MaterialFactors results used for
+demodulation in RGBA32F NrdDiffuseFactor and NrdSpecularFactor textures. Alpha is
+one only when conversion succeeds; every other pixel is cleared. Existing
+conversion bindings remain unchanged with SDK diagnostics disabled. With SDK
+diagnostics enabled, two additional UAV ranges bind these persistent textures.
+
+PT NRD Material Restore and Composition runs after RELAX. It writes independently
+inspectable PathTracing.NrdSceneColor and NrdCompositionDiagnostics resources:
+
+```text
+color = ((NRD.diffuse.rgb * storedDiffuseFactor.rgb
+        + NRD.specular.rgb * storedSpecularFactor.rgb)
+        + StableRadiance.rgb) + BackgroundRadiance.rgb
+```
+
+Inactive lobe flags force that lobe to zero before addition, even if spatial
+filtering imported nonzero neighbor radiance. Original material factors are not
+recomputed from filtered normals or roughness. In the pinned SDK,
+RELAX_BackEnd_UnpackRadiance is the identity, so the RGB channels are already the
+linear radiance to remodulate. Stable/background terms are added exactly once.
+
+Unadmitted pixels, invalid masks/factors/signals and arithmetic overflow select
+the existing Native SceneColor for the whole pixel. Diagnostics.x is one only
+when NRD composition is used; y is 0 used, 1 excluded, 2 invalid mask, 3 invalid
+factors, 4 invalid radiance, 5 overflow, 6 invalid Native input. Invalid Native
+input itself produces explicit diagnostic code 6 and safe opaque black. zw are
+inactive-lobe flags only on successful composition. Native SceneColor is RGBA16F;
+the new result is RGBA32F, so fallback preserves decoded half values exactly,
+not identical byte layout. Existing Native FP16/HDR limits are unchanged.
+
+The new buffers join the existing render-size allocation, history clear, resize,
+RenderGraph and Debug Preview paths. Native SceneColor also gains raw .ptbuf
+capture support so fallback can be checked directly. ToneMap still consumes
+Native SceneColor; QueryNrdRelaxSupport remains gated. Final-image selection and
+global SDK-failure recovery remain separate work units.
+
+Evidence on RTX 2080 Ti:
+
+- nrd-composition-qualified-20261017: fifteen matched captures. 1,286,774 pixels
+  used NRD composition, 750,346 used exact Native fallback; 1,089,008 admitted
+  pixels had inactive diffuse lobes. CPU float32 composition matched with zero
+  error under the predefined 8 ULP(reference float32) + 1e-6 bound. Stored-factor
+  conversion round-trip errors were at most 6.26e-8 diffuse / 1.19e-7 specular.
+  Background was nonzero at 750,346 pixels; stable radiance was zero in this
+  runtime fixture, so primary emissive/unlit live coverage is still pending.
+- nrd-composition-disabled-20261017: six captures with distance diagnostics off;
+  all 2,037,120 pixels selected exact Native fallback, and both factors cleared.
+- nrd-composition-vectors-final-20261017: seventeen shared-production-helper
+  vectors, bit-exact on WARP and hardware. Cases include nonzero stable and
+  background, inactive neighbor leakage, invalid masks/factors, NaN/negative
+  signals, overflow, invalid Native and HDR-preserving helper fallback.
+- nrd-composition-history-20261017: all nineteen checkpoints passed, including
+  Pause/Reset, settings changes, camera/light/material/geometry edits and resize.
+  Nine exact replay pairs include non-accumulated Native fallback. Reset while
+  paused clears all channels; every evaluated composed output has alpha one.
+- Debug app, SDK-check and vector builds passed without warnings/errors.
+  All 67 NRD Python tests and six focused CTest tests passed. Capture and GPU
+  harness logs contained zero D3D12 errors; known initial-buffer warnings remain.
+
+Failed pilots are retained: nrd-composition-live-20261017 stopped because Native
+SceneColor did not yet support raw capture; nrd-composition-final-20261017 stopped
+because its validator assumed RGBA32F for the Native RGBA16F resource. The final
+validator distinguishes those formats. No numeric acceptance threshold changed.
+Reports retain actual executable/shader/helper/script and captured-buffer hashes.
+
+This qualifies diagnostic arithmetic and resource lifetime, not denoising quality
+or shipping backend availability. Next: explicit final-image selection, live
+emissive/unlit scenes, global failure fallback, then user-assisted Native/NRD A-B
+review for ghosting, edges, fine highlights and moving disocclusions.
+
+```powershell
+cmake --build build --config Debug --target RtPbrSurvey.NrdCompositionVectors RtPbrSurvey
+python Tests/PathTracing/validate_nrd_composition_vectors.py --output <new-directory>
+python Tests/PathTracing/validate_nrd_composition.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
+python Tests/PathTracing/validate_nrd_composition.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory> --disabled-distance-diagnostics
+python Tests/PathTracing/validate_nrd_runtime_history.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory> --resource NrdSceneColor
 ```

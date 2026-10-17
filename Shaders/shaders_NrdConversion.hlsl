@@ -20,6 +20,10 @@ RWTexture2D<float4> g_validity : register(u5);
 #ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
 RWTexture2D<float> g_tiles : register(u6);
 #endif
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+RWTexture2D<float4> g_diffuseFactor : register(u7);
+RWTexture2D<float4> g_specularFactor : register(u8);
+#endif
 cbuffer CameraCB : register(b0)
 {
     float4x4 viewProj;
@@ -87,6 +91,10 @@ uint DistanceStatus(float4 d, bool active, float3 position, float4 direction)
 #endif
     g_outputDiffuse[pixel] = 0;
     g_outputSpecular[pixel] = 0;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    g_diffuseFactor[pixel] = 0;
+    g_specularFactor[pixel] = 0;
+#endif
     g_outputNormalRoughness[pixel] = 0;
     g_outputViewZ[pixel] = float4(1e6, 0, 0, 0);
     g_validity[pixel] = 0;
@@ -161,6 +169,10 @@ uint DistanceStatus(float4 d, bool active, float3 position, float4 direction)
     {
         g_outputDiffuse[pixel] = converted.diffuse;
         g_outputSpecular[pixel] = converted.specular;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+        g_diffuseFactor[pixel] = float4(converted.diffuseFactor, 1);
+        g_specularFactor[pixel] = float4(converted.specularFactor, 1);
+#endif
         g_outputNormalRoughness[pixel] = NRD_FrontEnd_PackNormalAndRoughness(normalize(normal.xyz), normal.w, 0);
         g_outputViewZ[pixel] = float4(viewZ, 0, 0, 0);
         g_validity[pixel] = float4(1, gate == 0, gate == 7, 0);

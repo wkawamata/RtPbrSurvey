@@ -48,7 +48,10 @@ void RtPbrSurveyEngine::BuildRenderPasses()
                         AddPass(MakeNrdAdmissionPass());
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
                         if (m_nrdGpu != nullptr)
+                        {
                             AddPass(MakeNrdRelaxPass());
+                            AddPass(MakeNrdCompositionPass());
+                        }
 #endif
                     }
 #endif
@@ -356,6 +359,14 @@ auto RtPbrSurveyEngine::MakePathTracingHistoryClearPass() -> RenderPass
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdOutputSpecular],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdDiffuseFactor],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdSpecularFactor],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdSceneColor],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdCompositionDiagnostics],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
 #endif
 #endif
 #endif
@@ -462,6 +473,12 @@ auto RtPbrSurveyEngine::MakeNrdConversionPass() -> RenderPass
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdValidity],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdDiffuseFactor],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdSpecularFactor],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+#endif
 #ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdTiles],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
@@ -550,6 +567,35 @@ auto RtPbrSurveyEngine::MakeNrdRelaxPass() -> RenderPass
                  {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdOutputSpecular],
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::NrdRelax, &RtPbrSurveyEngine::ExecuteNrdRelaxPass)
+        .Build();
+#else
+    return {};
+#endif
+}
+
+auto RtPbrSurveyEngine::MakeNrdCompositionPass() -> RenderPass
+{
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    Engine::ResourceUsages reads = {
+        {kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE}};
+    for (UINT index : {PathTracingGuideNrdOutputDiffuse,
+                       PathTracingGuideNrdOutputSpecular,
+                       PathTracingGuideNrdDiffuseFactor,
+                       PathTracingGuideNrdSpecularFactor,
+                       PathTracingGuideStableRadiance,
+                       PathTracingGuideBackgroundRadiance,
+                       PathTracingGuideNrdInputAdmission})
+    {
+        reads.push_back({kPathTracingGuideTextureResourceNames[index], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE});
+    }
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"PT NRD Material Restore and Composition")
+        .Reads(std::move(reads))
+        .Writes({{kPathTracingGuideTextureResourceNames[PathTracingGuideNrdSceneColor],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideNrdCompositionDiagnostics],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
+        .Operation(Op::NrdComposition, &RtPbrSurveyEngine::ExecuteNrdCompositionPass)
         .Build();
 #else
     return {};

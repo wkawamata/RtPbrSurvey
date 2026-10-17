@@ -901,6 +901,10 @@ void RtPbrSurveyEngine::RegisterDebugResourceViews()
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
                        PathTracingGuideNrdOutputDiffuse,
                        PathTracingGuideNrdOutputSpecular,
+                       PathTracingGuideNrdDiffuseFactor,
+                       PathTracingGuideNrdSpecularFactor,
+                       PathTracingGuideNrdSceneColor,
+                       PathTracingGuideNrdCompositionDiagnostics,
 #endif
          })
     {
@@ -2987,7 +2991,9 @@ void RtPbrSurveyEngine::CreatePipelineStates()
                            PathTracingGuideDenoiserDiffuseDirection,
                            PathTracingGuideDenoiserSpecularDirection,
                            PathTracingGuideViewZ};
-#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    constexpr UINT outputCount = 9;
+#elif defined(RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS)
     constexpr UINT outputCount = 7;
 #else
     constexpr UINT outputCount = 6;
@@ -3001,6 +3007,20 @@ void RtPbrSurveyEngine::CreatePipelineStates()
     {
         outputRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * i);
     }
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    outputRanges[7].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+                         1,
+                         7,
+                         0,
+                         D3D12_DESCRIPTOR_RANGE_FLAG_NONE,
+                         2 * (PathTracingGuideNrdDiffuseFactor - PathTracingGuideNrdDiffuseCandidate));
+    outputRanges[8].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+                         1,
+                         8,
+                         0,
+                         D3D12_DESCRIPTOR_RANGE_FLAG_NONE,
+                         2 * (PathTracingGuideNrdSpecularFactor - PathTracingGuideNrdDiffuseCandidate));
+#endif
     cameraRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
     CD3DX12_ROOT_PARAMETER1 parameters[4];
     parameters[0].InitAsDescriptorTable(_countof(inputRanges), inputRanges);
@@ -3096,6 +3116,43 @@ void RtPbrSurveyEngine::CreatePipelineStates()
     m_nrdGpu->Initialize(m_graphicsDevice.Device(),
                          std::filesystem::path(GetShaderFullPath(L"nrd-relax-manifest.txt")).parent_path(),
                          kFrameCount);
+    const UINT compositionInputs[] = {PathTracingGuideNrdOutputDiffuse,
+                                      PathTracingGuideNrdOutputSpecular,
+                                      PathTracingGuideNrdDiffuseFactor,
+                                      PathTracingGuideNrdSpecularFactor,
+                                      PathTracingGuideStableRadiance,
+                                      PathTracingGuideBackgroundRadiance,
+                                      UINT_MAX,
+                                      PathTracingGuideNrdInputAdmission};
+    CD3DX12_DESCRIPTOR_RANGE1 compositionReads[8], compositionWrites[2];
+    for (UINT i = 0; i < _countof(compositionInputs); ++i)
+    {
+        const UINT offset = compositionInputs[i] == UINT_MAX ? 2 : 2 * (2 + compositionInputs[i]);
+        compositionReads[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, offset);
+    }
+    for (UINT i = 0; i < 2; ++i)
+    {
+        compositionWrites[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * i);
+    }
+    CD3DX12_ROOT_PARAMETER1 compositionParameters[3];
+    compositionParameters[0].InitAsDescriptorTable(8, compositionReads);
+    compositionParameters[1].InitAsDescriptorTable(2, compositionWrites);
+    compositionParameters[2].InitAsConstants(2, 0);
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC compositionRoot;
+    compositionRoot.Init_1_1(3, compositionParameters);
+    ComPtr<ID3DBlob> compositionSignature, compositionError;
+    ThrowIfFailed(D3DX12SerializeVersionedRootSignature(
+        &compositionRoot, D3D_ROOT_SIGNATURE_VERSION_1_0, &compositionSignature, &compositionError));
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateRootSignature(0,
+                                                                 compositionSignature->GetBufferPointer(),
+                                                                 compositionSignature->GetBufferSize(),
+                                                                 IID_PPV_ARGS(&m_nrdCompositionRootSignature)));
+    const ShaderBytecode composition = LoadShaderBytecode(L"shaders_NrdComposition_CSMain.cso");
+    D3D12_COMPUTE_PIPELINE_STATE_DESC compositionDesc = {};
+    compositionDesc.pRootSignature = m_nrdCompositionRootSignature.Get();
+    compositionDesc.CS = CD3DX12_SHADER_BYTECODE(composition.data, composition.size);
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateComputePipelineState(&compositionDesc,
+                                                                        IID_PPV_ARGS(&m_nrdCompositionPipeline)));
 #endif
 #endif
 
@@ -6259,6 +6316,10 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
         L"Path Tracing NRD Output Diffuse Clear",
         L"Path Tracing NRD Output Specular Clear",
+        L"Path Tracing NRD Diffuse Factor Clear",
+        L"Path Tracing NRD Specular Factor Clear",
+        L"Path Tracing NRD Scene Color Clear",
+        L"Path Tracing NRD Composition Diagnostics Clear",
 #endif
 #endif
 #endif
@@ -6497,6 +6558,20 @@ void RtPbrSurveyEngine::ExecuteNrdRelaxPass(const RenderPass& pass)
     m_nrdPreviousFrame = frame;
     m_nrdHistoryReset = false;
     ++m_nrdFrameIndex;
+#endif
+}
+
+void RtPbrSurveyEngine::ExecuteNrdCompositionPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    const UINT dimensions[] = {m_renderWidth, m_renderHeight};
+    m_commandList->SetComputeRootSignature(m_nrdCompositionRootSignature.Get());
+    m_commandList->SetPipelineState(m_nrdCompositionPipeline.Get());
+    m_commandList->SetComputeRootDescriptorTable(0, m_pathTracingAccumulationSrv.gpu);
+    m_commandList->SetComputeRootDescriptorTable(1, m_pathTracingGuideTextureUavs[PathTracingGuideNrdSceneColor].gpu);
+    m_commandList->SetComputeRoot32BitConstants(2, 2, dimensions, 0);
+    m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
 #endif
 }
 
@@ -6962,6 +7037,12 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 source = m_pathTracingAccumulation.Get();
                 diagnosticSource = kPathTracingAccumulationResourceName;
             }
+            else if (m_renderingPath == RenderingPath::PathTracing &&
+                capture.request.debugResourceName == kPathTracingSceneColorResourceName)
+            {
+                source = m_pathTracingSceneColor.Get();
+                diagnosticSource = kPathTracingSceneColorResourceName;
+            }
             for (UINT index = 0; index < PathTracingGuideTextureCount; ++index)
             {
                 if (m_renderingPath == RenderingPath::PathTracing &&
@@ -6987,7 +7068,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             }
             if (source == nullptr)
             {
-                throw std::invalid_argument("Native buffer capture requires an active PT accumulation/guide or supported Deferred GBuffer resource.");
+                throw std::invalid_argument("Native buffer capture requires an active PT accumulation/scene color/guide or supported Deferred GBuffer resource.");
             }
             diagnosticRestoreState = GetResourceState(diagnosticSource);
             TransitionResource({diagnosticSource, D3D12_RESOURCE_STATE_COPY_SOURCE});

@@ -627,6 +627,7 @@ private:
             static constexpr const char* NrdReconstruction = "NrdReconstruction";
             static constexpr const char* NrdAdmission = "NrdAdmission";
             static constexpr const char* NrdRelax = "NrdRelax";
+            static constexpr const char* NrdComposition = "NrdComposition";
             static constexpr const char* DepthPrePass = "DepthPrePass";
             static constexpr const char* GBuffer = "GBuffer";
             static constexpr const char* Forward = "Forward";
@@ -748,6 +749,10 @@ private:
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
         PathTracingGuideNrdOutputDiffuse,
         PathTracingGuideNrdOutputSpecular,
+        PathTracingGuideNrdDiffuseFactor,
+        PathTracingGuideNrdSpecularFactor,
+        PathTracingGuideNrdSceneColor,
+        PathTracingGuideNrdCompositionDiagnostics,
 #endif
 #endif
 #endif
@@ -1165,6 +1170,8 @@ private:
     bool m_nrdHistoryReset = true;
     bool m_nrdContinuousCameraHistory = false;
     UINT m_nrdLastDispatchCount = 0;
+    ComPtr<ID3D12RootSignature> m_nrdCompositionRootSignature;
+    ComPtr<ID3D12PipelineState> m_nrdCompositionPipeline;
     UINT m_nrdFrameIndex = 0;
 #endif
     ComPtr<ID3D12RootSignature> m_rayQueryShadowRootSignature;
@@ -1417,6 +1424,10 @@ private:
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
         "PathTracing.NrdOutputDiffuse",
         "PathTracing.NrdOutputSpecular",
+        "PathTracing.NrdDiffuseFactor",
+        "PathTracing.NrdSpecularFactor",
+        "PathTracing.NrdSceneColor",
+        "PathTracing.NrdCompositionDiagnostics",
 #endif
 #endif
 #endif
@@ -1774,6 +1785,7 @@ private:
     RenderPass MakeNrdReconstructionPass();
     RenderPass MakeNrdAdmissionPass();
     RenderPass MakeNrdRelaxPass();
+    RenderPass MakeNrdCompositionPass();
     RenderPass MakeDepthPrePass();
     RenderPass MakeGBufferPass();
     RenderPass MakeHybridReflectionPass();
@@ -1859,6 +1871,7 @@ private:
     void ExecuteNrdReconstructionPass(const RenderPass& pass);
     void ExecuteNrdAdmissionPass(const RenderPass& pass);
     void ExecuteNrdRelaxPass(const RenderPass& pass);
+    void ExecuteNrdCompositionPass(const RenderPass& pass);
     void ExecutePathTracingPass(const RenderPass& pass);
     void InvalidatePathTracingHistory(PathTracingResetReason reason, bool preserveNrdCameraHistory = false);
     void CommitPathTracingFrame();

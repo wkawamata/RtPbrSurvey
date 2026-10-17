@@ -63,3 +63,13 @@ add_custom_target(RtPbrSurvey.NrdRuntimeShaders
 add_dependencies(RtPbrSurvey.SceneRenderer RtPbrSurvey.NrdRuntimeShaders)
 target_compile_definitions(RtPbrSurvey.SceneRenderer PUBLIC RTPBRSURVEY_NRD_SDK_DIAGNOSTICS=1)
 target_sources(RtPbrSurvey.SceneRenderer PRIVATE Renderer/NrdRelaxD3D12.cpp)
+add_custom_target(RtPbrSurvey.NrdCompositionShader
+    DEPENDS "${RTPBRSURVEY_SHADER_OUTPUT_DIR}/shaders_NrdComposition_CSMain.cso")
+add_dependencies(RtPbrSurvey.SceneRenderer RtPbrSurvey.NrdCompositionShader)
+set(nrd_composition_vectors "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_NrdCompositionVectors_CSMain.cso")
+add_custom_command(OUTPUT "${nrd_composition_vectors}"
+    COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+        "-Fo${nrd_composition_vectors}" "${RTPBRSURVEY_ROOT}/Tests/shaders_NrdCompositionVectors.hlsl"
+    DEPENDS Tests/shaders_NrdCompositionVectors.hlsl Shaders/NrdRelaxComposition.hlsli
+    VERBATIM)
+add_custom_target(RtPbrSurvey.NrdCompositionVectors DEPENDS "${nrd_composition_vectors}")

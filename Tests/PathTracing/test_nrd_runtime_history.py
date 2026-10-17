@@ -58,6 +58,21 @@ class RuntimeHistoryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 assess_history(images, tiles=True)
 
+    def test_composed_fallback_and_reset(self):
+        images = self.fixture()
+        for name in ZERO_CASES:
+            if name != 'reset-paused-0':
+                images[name][:] = 3
+        for name, image in images.items():
+            if name != 'reset-paused-0':
+                image[..., 3] = 1
+        result = assess_history(images, composed=True)
+        self.assertEqual(result['zeroCases'], ['reset-paused-0'])
+        self.assertEqual(len(result['exactComparisons']), 9)
+        images['non-accumulated-repeat-12'][0, 0, 0] += 1
+        with self.assertRaises(ValueError):
+            assess_history(images, composed=True)
+
 
 if __name__ == '__main__':
     unittest.main()
