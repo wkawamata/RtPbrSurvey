@@ -339,10 +339,18 @@ static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImp
     };
     for (const std::string& extension : model.extensionsUsed)
     {
+        if (extension == "KHR_materials_unlit")
+        {
+            continue;
+        }
         warning("UnsupportedExtension", "extensionsUsed." + extension, "Extension behavior is not implemented; only core data will be imported.");
     }
     for (const std::string& extension : model.extensionsRequired)
     {
+        if (extension == "KHR_materials_unlit")
+        {
+            continue;
+        }
         error("RequiredExtension", "extensionsRequired." + extension, "Required extensions are not supported.");
     }
     if (!model.animations.empty())
@@ -363,6 +371,10 @@ static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImp
         }
         for (const auto& extension : material.extensions)
         {
+            if (extension.first == "KHR_materials_unlit")
+            {
+                continue;
+            }
             warning("MaterialExtensionIgnored", location + ".extensions." + extension.first,
                     "Material extension behavior is not implemented; core material fields are used.");
         }
@@ -612,6 +624,7 @@ static void CopyMaterialsAndTextures(const tinygltf::Model& model, GltfMeshData&
         const auto& material = model.materials[materialIndex];
         const auto& pbr = material.pbrMetallicRoughness;
         GltfMaterial& destination = outMesh.materials[materialIndex];
+        destination.unlit = material.extensions.find("KHR_materials_unlit") != material.extensions.end();
         destination.albedoTexIndex = pbr.baseColorTexture.index;
         destination.metallicRoughnessTexIndex = pbr.metallicRoughnessTexture.index;
         destination.emissiveTexIndex = material.emissiveTexture.index;

@@ -1047,16 +1047,17 @@ void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialPara
     }
 
     Engine::Material& material = m_materialData[materialIndex];
+    const float emissiveScale = (material.flags & Engine::kMaterialFlagUnlit) != 0 ? 0.0f : params.emissiveScale;
     const bool reflectionHistoryChanged =
         material.roughnessFactor != params.roughnessFactor ||
         material.metallicFactor != params.metallicFactor ||
-        material.emissiveScale != params.emissiveScale;
+        material.emissiveScale != emissiveScale;
     const bool pathTracingHistoryChanged = reflectionHistoryChanged ||
         material.ambientOcclusionFactor != params.ambientOcclusionFactor;
     material.roughnessFactor = params.roughnessFactor;
     material.metallicFactor = params.metallicFactor;
     material.ambientOcclusionFactor = params.ambientOcclusionFactor;
-    material.emissiveScale = params.emissiveScale;
+    material.emissiveScale = emissiveScale;
     m_materialBuffer.Update(m_materialData);
     if (reflectionHistoryChanged)
     {
@@ -3599,6 +3600,11 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
                 m.occlusionStrength = gltfMaterial.occlusionStrength;
                 m.ambientOcclusionFactor = gltfMaterial.ambientOcclusionFactor;
                 m.emissiveScale = gltfMaterial.emissiveTexIndex >= 0 ? gltfMaterial.emissiveScale : 0.0f;
+                if (gltfMaterial.unlit)
+                {
+                    m.flags |= Engine::kMaterialFlagUnlit;
+                    m.emissiveScale = 0.0f;
+                }
                 m.baseColorFactor[0] = gltfMaterial.baseColorFactor.x;
                 m.baseColorFactor[1] = gltfMaterial.baseColorFactor.y;
                 m.baseColorFactor[2] = gltfMaterial.baseColorFactor.z;

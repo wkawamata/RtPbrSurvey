@@ -2458,3 +2458,27 @@ Evidence on RTX 2080 Ti:
 ```powershell
 python Tests/PathTracing/validate_nrd_failure_fallback.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
 ```
+
+### Step 8A: Make opaque Unlit input reachable
+
+Live stable-radiance validation exposed an unreachable input: shaders already
+handled the Unlit flag, but glTF import did not populate it. The importer now
+recognizes KHR_materials_unlit and preserves the flag through both flattened and
+node/mesh SceneBuilder paths. Ordinary materials remain lit by default.
+
+Unlit uses base color without lighting or emission. GPU material creation and
+runtime material updates keep its emissive scale zero, and the CPU emissive
+triangle table excludes Unlit. The existing opaque, single-sided importer
+limitations remain unchanged; this is not full glTF material conformance.
+The color policy follows the
+[Khronos Unlit specification](https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_unlit/README.md).
+
+This prerequisite does not qualify NRD on Unlit. Dedicated live captures must
+still verify primary emissive composition, Unlit Native fallback and background
+preservation. No GPU evidence from earlier steps is relabeled as this validation.
+
+Validation: Debug application build passed. GltfNodeMesh and EmissiveTriangle
+tests passed, covering required/optional Unlit import, both SceneBuilder paths,
+ordinary material defaults, unsupported-extension rejection and emitter exclusion.
+The existing seventy-three NRD Python tests also passed. Test-only links retain
+the known LNK4199 unused Streamline delay-load warning.

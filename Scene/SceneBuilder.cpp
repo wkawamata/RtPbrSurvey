@@ -78,6 +78,7 @@ bool SceneBuilder::LoadGltfMesh(const std::string& path)
         material.emissiveFactor = {gltfMaterial.emissiveFactor[0], gltfMaterial.emissiveFactor[1],
                                  gltfMaterial.emissiveFactor[2]};
         material.normalTextureScale = gltfMaterial.normalTextureScale;
+        material.unlit = gltfMaterial.unlit;
         m_mesh.materials.push_back(material);
     }
 
@@ -188,6 +189,7 @@ std::optional<SceneMeshId> SceneBuilder::AddGltfMeshData(GltfMeshData gltfMesh)
         material.emissiveFactor = {gltfMaterial.emissiveFactor[0], gltfMaterial.emissiveFactor[1],
                                  gltfMaterial.emissiveFactor[2]};
         material.normalTextureScale = gltfMaterial.normalTextureScale;
+        material.unlit = gltfMaterial.unlit;
         m_mesh.materials.push_back(material);
     }
 
