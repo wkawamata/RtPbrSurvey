@@ -1,4 +1,5 @@
 #include "Renderer/NrdRelaxSdkAdapter.h"
+#include "Scene/Scene.h"
 
 #include <DirectXMath.h>
 #include <algorithm>
@@ -41,6 +42,54 @@ int main()
         std::vector<Engine::NrdSdkDispatch> plan;
         std::string error;
         auto frame = MakeFrame(1920, 1080);
+        Engine::CameraState camera, moved;
+        moved = camera;
+        moved.pos.x += 1.0f;
+        moved.gazePoint.y += 1.0f;
+        moved.rot.z += 0.1f;
+        Require(Engine::NrdCameraProjectionMatches(camera, moved), "Camera pose change rejected");
+        for (int changed = 0; changed < 7; ++changed)
+        {
+            moved = camera;
+            switch (changed)
+            {
+                case 0:
+                    moved.fov += 1;
+                    break;
+                case 1:
+                    moved.nearZ += 0.01f;
+                    break;
+                case 2:
+                    moved.farZ += 1;
+                    break;
+                case 3:
+                    moved.orthographicHeight += 1;
+                    break;
+                case 4:
+                    moved.lensShiftX += 0.1f;
+                    break;
+                case 5:
+                    moved.lensShiftY += 0.1f;
+                    break;
+                case 6:
+                    moved.projection = Engine::CameraProjection::Orthographic;
+                    break;
+            }
+            Require(!Engine::NrdCameraProjectionMatches(camera, moved), "Projection change kept NRD history");
+        }
+        std::array<float, 16> nativePrevious = {};
+        DirectX::XMFLOAT4X4 projection, stored;
+        memcpy(&projection, frame.viewToClip.data(), sizeof(projection));
+        DirectX::XMStoreFloat4x4(&stored, DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&projection)));
+        memcpy(nativePrevious.data(), &stored, sizeof(stored));
+        Require(Engine::NrdPreviousViewProjectionMatches(frame.worldToView, frame.viewToClip, nativePrevious),
+                "Matching MV history basis rejected");
+        nativePrevious[12] += 0.1f;
+        Require(!Engine::NrdPreviousViewProjectionMatches(frame.worldToView, frame.viewToClip, nativePrevious),
+                "Skipped evaluation or camera change failed to invalidate MV basis");
+        nativePrevious[0] = std::numeric_limits<float>::quiet_NaN();
+        Require(!Engine::NrdPreviousViewProjectionMatches(frame.worldToView, frame.viewToClip, nativePrevious),
+                "Nonfinite MV history basis accepted");
         Require(!adapter.PrepareFrame(frame, plan, error) && !error.empty() && plan.empty(),
                 "Uninitialized SDK accepted frame");
         Require(adapter.Initialize(error), error);

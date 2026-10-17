@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "NrdRelaxSdkAdapter.h"
+#include "Scene/Scene.h"
 
 #include "NRD.h"
 
@@ -59,6 +60,36 @@ NrdSdkResourceKind ConvertResource(nrd::ResourceType type)
     }
 }
 } // namespace
+
+bool NrdCameraProjectionMatches(const CameraState& previous, const CameraState& current)
+{
+    return previous.projection == current.projection && previous.fov == current.fov &&
+           previous.orthographicHeight == current.orthographicHeight && previous.nearZ == current.nearZ &&
+           previous.farZ == current.farZ && previous.lensShiftX == current.lensShiftX &&
+           previous.lensShiftY == current.lensShiftY;
+}
+
+bool NrdPreviousViewProjectionMatches(const std::array<float, 16>& worldToView,
+                                      const std::array<float, 16>& viewToClip,
+                                      const std::array<float, 16>& storedPreviousViewProjection)
+{
+    DirectX::XMFLOAT4X4 view, projection, expected;
+    memcpy(&view, worldToView.data(), sizeof(view));
+    memcpy(&projection, viewToClip.data(), sizeof(projection));
+    DirectX::XMStoreFloat4x4(&expected,
+                             DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(
+                                 DirectX::XMLoadFloat4x4(&view), DirectX::XMLoadFloat4x4(&projection))));
+    const float* values = &expected.m[0][0];
+    for (size_t i = 0; i < 16; ++i)
+    {
+        if (!std::isfinite(values[i]) || !std::isfinite(storedPreviousViewProjection[i]) ||
+            std::abs(values[i] - storedPreviousViewProjection[i]) > 2e-6f * (std::max)(1.0f, std::abs(values[i])))
+        {
+            return false;
+        }
+    }
+    return true;
+}
 
 struct NrdRelaxSdkAdapter::Impl
 {

@@ -389,6 +389,9 @@ public:
     void Shutdown();
     void SetScene(const Scene& scene);
     void SetCamera(const CameraState& camera);
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    void SetNrdContinuousCameraHistory(bool enabled);
+#endif
     const CameraState& GetCamera() const;
     void ReloadSceneResources(const Scene& scene);
     void CloseSceneResources();
@@ -1160,6 +1163,8 @@ private:
     std::unique_ptr<Engine::NrdRelaxD3D12> m_nrdGpu;
     Engine::NrdSdkFrame m_nrdPreviousFrame;
     bool m_nrdHistoryReset = true;
+    bool m_nrdContinuousCameraHistory = false;
+    UINT m_nrdLastDispatchCount = 0;
     UINT m_nrdFrameIndex = 0;
 #endif
     ComPtr<ID3D12RootSignature> m_rayQueryShadowRootSignature;
@@ -1855,7 +1860,7 @@ private:
     void ExecuteNrdAdmissionPass(const RenderPass& pass);
     void ExecuteNrdRelaxPass(const RenderPass& pass);
     void ExecutePathTracingPass(const RenderPass& pass);
-    void InvalidatePathTracingHistory(PathTracingResetReason reason);
+    void InvalidatePathTracingHistory(PathTracingResetReason reason, bool preserveNrdCameraHistory = false);
     void CommitPathTracingFrame();
     void ExecuteDepthPrePass(const RenderPass& pass);
     void ExecuteGBufferPass(const RenderPass& pass);

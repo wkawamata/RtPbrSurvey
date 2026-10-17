@@ -1108,6 +1108,11 @@ void RtPbrSurveyEngine::SetBackBufferClearColor(const std::array<float, 4>& colo
 
 void RtPbrSurveyEngine::SetScene(const Scene& scene)
 {
+    bool preserveNrdCameraHistory = false;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    preserveNrdCameraHistory =
+        m_nrdContinuousCameraHistory && Engine::NrdCameraProjectionMatches(m_scene.camera, scene.camera);
+#endif
     const bool cameraChanged = !CameraStatesEqual(m_scene.camera, scene.camera);
     const bool sceneChanged = m_scene.mesh != scene.mesh || !SceneInstancesEqual(m_scene.instances, scene.instances);
     m_scene = scene;
@@ -1118,19 +1123,36 @@ void RtPbrSurveyEngine::SetScene(const Scene& scene)
     }
     else if (cameraChanged)
     {
-        InvalidatePathTracingHistory(PathTracingResetReason::Camera);
+        InvalidatePathTracingHistory(PathTracingResetReason::Camera, preserveNrdCameraHistory);
     }
 }
 
 void RtPbrSurveyEngine::SetCamera(const CameraState& camera)
 {
+    bool preserveNrdCameraHistory = false;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    preserveNrdCameraHistory =
+        m_nrdContinuousCameraHistory && Engine::NrdCameraProjectionMatches(m_scene.camera, camera);
+#endif
     const bool cameraChanged = !CameraStatesEqual(m_scene.camera, camera);
     m_scene.camera = camera;
     if (cameraChanged)
     {
-        InvalidatePathTracingHistory(PathTracingResetReason::Camera);
+        InvalidatePathTracingHistory(PathTracingResetReason::Camera, preserveNrdCameraHistory);
     }
 }
+
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+void RtPbrSurveyEngine::SetNrdContinuousCameraHistory(bool enabled)
+{
+    if (m_nrdContinuousCameraHistory != enabled)
+    {
+        m_nrdContinuousCameraHistory = enabled;
+        m_nrdHistoryReset = true;
+        m_nrdFrameIndex = 0;
+    }
+}
+#endif
 
 const RtPbrSurveyEngine::CameraState& RtPbrSurveyEngine::GetCamera() const
 {
@@ -1694,11 +1716,16 @@ void RtPbrSurveyEngine::InvalidateReflectionHistory()
     m_reflectionSamplingFrameIndex = 0;
 }
 
-void RtPbrSurveyEngine::InvalidatePathTracingHistory(PathTracingResetReason reason)
+void RtPbrSurveyEngine::InvalidatePathTracingHistory(PathTracingResetReason reason, bool preserveNrdCameraHistory)
 {
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
-    m_nrdHistoryReset = true;
-    m_nrdFrameIndex = 0;
+    if (!preserveNrdCameraHistory || reason != PathTracingResetReason::Camera)
+    {
+        m_nrdHistoryReset = true;
+        m_nrdFrameIndex = 0;
+    }
+#else
+    UNREFERENCED_PARAMETER(preserveNrdCameraHistory);
 #endif
     m_pathTracingRuntimeState.accumulatedSampleCount = 0;
     m_pathTracingRuntimeState.frameSampleIndex = 0;
@@ -6440,6 +6467,16 @@ void RtPbrSurveyEngine::ExecuteNrdRelaxPass(const RenderPass& pass)
     memcpy(frame.viewToClip.data(), &projection, sizeof(projection));
     frame.width = m_renderWidth;
     frame.height = m_renderHeight;
+    std::array<float, 16> nativePrevious;
+    memcpy(nativePrevious.data(),
+           &m_constantBufferData.prevViewProjection,
+           sizeof(m_constantBufferData.prevViewProjection));
+    if (!m_nrdHistoryReset && !Engine::NrdPreviousViewProjectionMatches(
+                                  m_nrdPreviousFrame.worldToView, m_nrdPreviousFrame.viewToClip, nativePrevious))
+    {
+        m_nrdHistoryReset = true;
+        m_nrdFrameIndex = 0;
+    }
     frame.reset = m_nrdHistoryReset;
     frame.frameIndex = m_nrdFrameIndex;
     const auto& previous = frame.reset ? frame : m_nrdPreviousFrame;
@@ -6454,7 +6491,7 @@ void RtPbrSurveyEngine::ExecuteNrdRelaxPass(const RenderPass& pass)
                                            m_pathTracingGuideTextures[PathTracingGuideNrdInputSpecular].Get(),
                                            m_pathTracingGuideTextures[PathTracingGuideNrdOutputDiffuse].Get(),
                                            m_pathTracingGuideTextures[PathTracingGuideNrdOutputSpecular].Get()};
-    m_nrdGpu->Record(m_commandList.Get(), m_currentFrameIndex, frame, inputs);
+    m_nrdLastDispatchCount = m_nrdGpu->Record(m_commandList.Get(), m_currentFrameIndex, frame, inputs);
     ID3D12DescriptorHeap* heaps[] = {m_heap.Get()};
     m_commandList->SetDescriptorHeaps(1, heaps);
     m_nrdPreviousFrame = frame;
@@ -7014,7 +7051,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 return rows;
             };
             const CameraState& camera = GetCamera();
-            const nlohmann::json metadata = {
+            nlohmann::json metadata = {
                 {"schemaVersion", 1}, {"resource", diagnosticSource},
                 {"renderingPath", static_cast<int>(m_renderingPath)},
                 {"sampleStartIndex", m_pathTracingRuntimeState.frameSampleIndex},
@@ -7037,6 +7074,17 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 {"singleInstanceWorld", m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().world) : nlohmann::json(nullptr)},
                 {"singleInstancePreviousWorld", m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().prevWorld) : nlohmann::json(nullptr)},
             };
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+            metadata["nrdLastEvaluation"] = {{"continuousCameraHistory", m_nrdContinuousCameraHistory},
+                                             {"frameIndex", m_nrdPreviousFrame.frameIndex},
+                                             {"reset", m_nrdPreviousFrame.reset},
+                                             {"dispatchCount", m_nrdLastDispatchCount},
+                                             {"worldToView", m_nrdPreviousFrame.worldToView},
+                                             {"viewToClip", m_nrdPreviousFrame.viewToClip},
+                                             {"previousWorldToView", m_nrdPreviousFrame.previousWorldToView},
+                                             {"previousViewToClip", m_nrdPreviousFrame.previousViewToClip},
+                                             {"motionVectorScale", Engine::kNrdScreenMotionVectorScale}};
+#endif
             capture.readback.diagnosticMetadata = metadata.dump();
         }
         m_pendingScreenshotCapture = std::move(capture);

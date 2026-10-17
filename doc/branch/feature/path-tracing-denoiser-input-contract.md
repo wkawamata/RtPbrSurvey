@@ -2138,3 +2138,69 @@ them as the final PT image.
 python Tests/PathTracing/validate_nrd_gpu_dispatch.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
 python Tests/PathTracing/validate_nrd_runtime_history.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory> --resource NrdOutputSpecular --resource NrdOutputDiffuse
 ```
+
+### Continuous Camera History Diagnostics: Step 6A (2026-10-17)
+
+The diagnostic-only -NrdContinuousCameraHistory flag enables an experimental
+camera-pose continuation policy. It requires RTPBRSURVEY_NRD_SDK_DIAGNOSTICS.
+Ordinary GUI camera edits keep the default reset behavior. Native PT accumulation
+still resets on every camera change; only the private NRD temporal pools can be
+retained. No final denoiser selection or default-on policy is added.
+
+Continuation requires unchanged projection type, FOV, lens shift, near/far planes
+and orthographic extent. Scene, material, lighting, resize, settings and manual
+reset invalidations still reset NRD. Before dispatch, the previous SDK camera
+matrices are compared to the native MV previous-view-projection basis. If a
+skipped evaluation or paused camera move has changed that basis, NRD restarts.
+This comparison uses a 2e-6 relative/absolute matrix arithmetic allowance. It is
+not an automatic large-camera-cut detector; explicit resets remain appropriate
+for cuts while using this experimental CLI mode.
+
+Every raw diagnostic capture now includes nrdLastEvaluation: actual NRD frame
+index, reset flag, dispatch count, current/previous camera matrices and screen MV
+scale. The metadata describes the last evaluation, which can precede a paused
+capture. The SDK and metadata share the same (0.5, -0.5, 0) scale constant.
+
+Evidence on RTX 2080 Ti:
+
+- nrd-camera-motion-20261017 retained the first failed static-MV pilot. Its
+  exact-zero assertion was too strict: observed maximum static motion was
+  5.96e-7 NDC with identical current/previous camera matrices. The numeric MV
+  comparison had already passed the existing format-derived contract.
+- nrd-camera-motion-qualified-20261017 passed twelve captures: static, +4 degree
+  orbit, -4 degree orbit and +4 degree per-frame-reset control, each for native
+  MotionVectors and both NRD outputs. Each moving trajectory spans twenty frames
+  and is captured after thirty warm-up frames. The continued SDK frame index was
+  30 with reset=false; the moving reset control used frame index 0/reset=true.
+- Independent finite-plane intersections and matrix projection matched native
+  RG16 motion within the pre-existing bound, 2 ULP(expected half) + 3e-6 NDC.
+  Maximum normalized errors were 0.153 static, 0.379 positive, 0.394 negative;
+  no threshold was expanded for the pilot. The SDK UV scale/sign and both SDK
+  camera matrix pairs also matched the actual rendering/MV basis.
+- All captures in each case had matched camera/sample metadata. The positive
+  and reset-control native inputs matched too. Continued and reset outputs
+  differed at 1,286,510 diffuse and 1,286,515 specular RGB pixels, establishing a
+  measurable reset-policy effect rather than a claimed quality improvement.
+  This control also resets SDK frame index (and its sampling rotators), so the
+  RGB difference is not an isolated temporal-reuse measurement. The executed
+  report's historyEffect field must be interpreted with this qualification;
+  future reports include it in their limitation text as well.
+- All logs had zero D3D12 errors. The Debug app build succeeded without warnings.
+  The SDK policy test build had only the existing unused interposer delay-load
+  warning. The SDK test covers seven projection changes, matching/stale/nonfinite
+  MV bases; all 63 NRD Python tests and six focused CTest tests passed.
+- nrd-camera-default-history-20261017: the final formatted Debug executable, with
+  continuous camera history disabled, passed all 38 existing pause/reset/edit/
+  resize checkpoints for the two NRD outputs. D3D12 errors remained zero.
+
+The capture report records the executed binary, test script and all SDK shader
+hashes. Subsequent source formatting/EOL normalization does not replace those
+hashes. This is a small static-geometry camera-orbit qualification, not acceptance
+of moving objects, arbitrary cuts, disocclusion/ghosting quality, variable frame
+time, jitter or final-image composition. Those remain separate integration and
+visual gates. Next is material-weight restoration and stable/background/native
+fallback composition into a separately inspectable denoised scene-color output.
+
+```powershell
+python Tests/PathTracing/validate_nrd_camera_motion.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
+```

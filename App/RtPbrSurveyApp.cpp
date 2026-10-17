@@ -3298,6 +3298,15 @@ void RtPbrSurveyApp::ApplyDlssSrCommandLineOptions()
 
 void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
 {
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    m_sceneRenderer.EngineForDebugTools().SetNrdContinuousCameraHistory(
+        m_commandLineOptions.nrdContinuousCameraHistory);
+#else
+    if (m_commandLineOptions.nrdContinuousCameraHistory)
+    {
+        throw std::runtime_error("-NrdContinuousCameraHistory requires NRD SDK diagnostics in this build.");
+    }
+#endif
     if (!m_commandLineOptions.enablePathTracing)
     {
         return;

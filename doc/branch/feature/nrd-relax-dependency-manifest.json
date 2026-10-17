@@ -49,7 +49,7 @@
     "shaderMakeUsage": "Pinned ShaderBlob.h types; no ShaderMake executable or shader compiler downloads"
   },
   "readinessBlockers": [
-    "Continuous-motion camera/MV reprojection remains unvalidated; camera edits currently reset history",
+    "Camera/MV convention passed a small planar orbit fixture; disocclusion, larger motion and visual ghosting acceptance remain pending",
     "Material weighting restoration, stable/background composition and Native fallback remain pending",
     "End-to-end numeric and visual denoising acceptance remain pending"
   ]

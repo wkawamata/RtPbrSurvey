@@ -8,7 +8,12 @@
 
 namespace Engine
 {
+struct CameraState;
 inline constexpr std::array<float, 3> kNrdScreenMotionVectorScale = {0.5f, -0.5f, 0.0f};
+bool NrdCameraProjectionMatches(const CameraState& previous, const CameraState& current);
+bool NrdPreviousViewProjectionMatches(const std::array<float, 16>& worldToView,
+                                      const std::array<float, 16>& viewToClip,
+                                      const std::array<float, 16>& storedPreviousViewProjection);
 
 enum class NrdSdkResourceKind
 {
