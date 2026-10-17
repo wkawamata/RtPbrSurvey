@@ -2846,3 +2846,29 @@ and the unchanged executed binary. All ninety-seven NRD Python tests passed.
 No renderer/shader/C++ change or rebuild was needed in this unit. Remaining gates
 include subjective A/B playback, broader materials/scenes, moving objects and
 camera cuts; the current result does not promote NRD to default-on/Available.
+
+### Step 9E: Prepare human Native/NRD live A/B review
+
+Added Tests/PathTracing/Start-NrdVisualReview.ps1 and the Japanese checklist in
+Tests/SubjectiveValidation/NrdRelax/README.md. The launcher selects either the
+disocclusion or stable-radiance fixture, copies its preset into a new local review
+directory and records executable/scene/preset hashes and exact launch arguments.
+Source scene/preset assets are never rewritten. Native/NRD display switching uses
+the existing diagnostic preview checkbox, with continuous camera history enabled
+explicitly for pose-change review. This is not the default GUI history policy.
+
+The default mode only prepares a session; -Launch explicitly starts the visible
+application and rejects a duplicate instance of the same executable. -DryRun
+writes nothing and cannot be combined with -Launch. Nonempty output directories
+are rejected rather than overwritten. Results start unanswered, with Japanese
+criteria for static noise/blur, disocclusion, reversal, settling, display toggling
+and stable-radiance preservation. Preparation or launch success is not a visual
+pass. The checklist distinguishes manual A/B from identical-frame numeric tests.
+
+Five launcher tests cover dry-run isolation, source preservation, unanswered
+results, scene filtering, output protection and conflicting launch options. All
+102 NRD Python tests passed. A prepare-only session was generated under
+bin/PathTracingValidation/nrd-visual-prepared-20261017 using the unchanged Debug
+binary. No application was launched and no human verdict was recorded in this
+unit. Human review and the broader acceptance gates remain pending; no renderer
+change, rebuild or promotion to default-on/Available is included.
