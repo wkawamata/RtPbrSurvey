@@ -2895,3 +2895,43 @@ Generated session records/logs remain local and are not committed. This accepts
 only these fixtures and manual operations, not broad scene/material behavior,
 moving objects, camera cuts, every-frame numeric quality or failure resilience.
 NRD remains experimental/default-off; this does not promote support to Available.
+
+### Step 10A: Four-material input and composition fixture
+
+Added Assets/Scene/PathTracingValidation/15-nrd-material-matrix with four opaque
+front-facing panels: dielectric/metal crossed with roughness 0.6/0.1. A constant
+white environment isolates material/lobe handling from reflected scene features.
+The Scene Editor description identifies each panel and the limited acceptance
+scope. This is not a perfect-mirror or general glossy-quality benchmark.
+
+Tests/PathTracing/validate_nrd_material_matrix.py captures eighteen resources in
+separate deterministic runs and requires identical cohort metadata, successful
+RELAX recording and the correct resource identity/format. Albedo, Native color,
+F0/metallic and source normal/roughness use float16 RGBA; NRD diagnostic resources
+use float32 RGBA. The initial GPU run exposed a test-helper format assumption at
+MaterialF0Metallic and was retained as a failed run, not counted as a renderer
+failure or a successful validation.
+
+For every material, the gate requires at least 100 identifiable pixels and 100
+pixels actually using admitted NRD composition. It validates captured metallic,
+F0 and roughness, inactive diffuse and zero physical diffuse on pure metals,
+material-factor round trips, independent composition arithmetic and exact Native
+fallback. Background admission, missing materials/resources, invalid values and
+nonfinite data are rejected. Five tests exercise valid and corrupt cohorts,
+fixture identity and format/cohort failures; all 107 NRD Python tests passed.
+
+This unit adds a material contract gate, not a new renderer feature or permission
+to enable NRD by default. High-contrast reflected features, curved surfaces,
+moving objects, camera cuts and subjective specular quality remain separate work.
+
+Evidence: bin/PathTracingValidation/nrd-material-matrix-r2-20261018/report.json
+passed-material-contract. All eighteen fresh captures reported zero D3D12 errors.
+Each of the four materials covered 65,856 pixels, all admitted and actually using
+NRD composition (263,424 total). Pure-metal diffuse was inactive on 131,712
+pixels. The 1,810,176 background pixels used exact decoded Native fallback.
+Independent composition maximum absolute error was zero; diffuse/specular factor
+round-trip maximum errors were 2.086e-8 / 1.883e-8. This is arithmetic/input
+evidence, not a high-sample radiance-quality or subjective specular comparison.
+The failed initial run remains under nrd-material-matrix-20261018. No C++ or HLSL
+change/rebuild was needed; the unchanged executable hash is recorded in each
+report. NRD remains experimental/default-off.
