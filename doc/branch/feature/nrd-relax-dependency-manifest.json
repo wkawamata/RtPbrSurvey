@@ -5,7 +5,8 @@
   "commit": "792eff196afdd350fd9c3f862119017ccb438a0e",
   "localSourceRoot": "third_party/nrd-sdk-4.17.3",
   "sourceOnly": true,
-  "runtimeLinked": false,
+  "runtimeLinked": true,
+  "runtimeLinkMode": "Optional SDK scheduling and native D3D12 RELAX GPU diagnostics, default OFF; final composition pending",
   "denoiser": "RELAX_DIFFUSE_SPECULAR",
   "integration": "Native D3D12 dispatch through isolated adapter; no NRI",
   "license": "NVIDIA RTX SDKs LICENSE; see LICENSE.txt; review before redistribution",
@@ -22,7 +23,8 @@
     "configuration": "Debug x64 first, Release separate",
     "NRD_STATIC_LIBRARY": true,
     "NRD_NRI": false,
-    "NRD_EMBEDS_DXIL_SHADERS": true,
+    "NRD_EMBEDS_DXIL_SHADERS": false,
+    "customIntegrationDxil": "27 pipelines compiled from SDK shaderIdentifier, runtime manifest checked",
     "NRD_EMBEDS_DXBC_SHADERS": false,
     "NRD_EMBEDS_SPIRV_SHADERS": false,
     "NRD_NORMAL_ENCODING": 4,
@@ -35,11 +37,20 @@
     "MathLib": "v11 / aa432ad9a80691eb8c3ec4d576bbad5ac100fdc8",
     "ShaderMake": "18f5a344e7ca8fa65daaf079d07bc8ce38453e05"
   },
+  "cpuDispatchPlanning": {
+    "option": "RTPBRSURVEY_NRD_SDK_DIAGNOSTICS",
+    "defaultEnabled": false,
+    "library": "Unmodified pinned SDK CPU sources compiled as a diagnostic static target",
+    "normalEncoding": 4,
+    "roughnessEncoding": 1,
+    "embeddedShaders": false,
+    "rendererInvokesSdkDispatches": true,
+    "shaderMakeDefaultPath": "build/_deps/nrd-shadermake-src",
+    "shaderMakeUsage": "Pinned ShaderBlob.h types; no ShaderMake executable or shader compiler downloads"
+  },
   "readinessBlockers": [
-    "No SDK library/compiled shader integration",
-    "No backend material/stable radiance conversion",
-    "No secondary hit distance contract implementation",
-    "No validated coherent primary sampling path",
-    "No SDK dispatch or history lifecycle"
+    "Continuous-motion camera/MV reprojection remains unvalidated; camera edits currently reset history",
+    "Material weighting restoration, stable/background composition and Native fallback remain pending",
+    "End-to-end numeric and visual denoising acceptance remain pending"
   ]
 }

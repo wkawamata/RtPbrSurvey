@@ -13,6 +13,10 @@ if(RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS AND
 endif()
 option(RTPBRSURVEY_TEST_NRD_RECONSTRUCTION "Build pinned NRD reconstruction contract and dispatch tests." OFF)
 option(RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS "Run experimental live NRD 3x3 hit-distance reconstruction." OFF)
+option(RTPBRSURVEY_NRD_SDK_DIAGNOSTICS "Run pinned RELAX SDK dispatches through the diagnostic D3D12 adapter." OFF)
+if(RTPBRSURVEY_NRD_SDK_DIAGNOSTICS AND NOT RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS)
+    message(FATAL_ERROR "NRD SDK GPU diagnostics require live reconstruction diagnostics.")
+endif()
 if(RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS AND
    (NOT RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS OR NOT RTPBRSURVEY_TEST_NRD_RECONSTRUCTION))
     message(FATAL_ERROR "Live NRD reconstruction requires conversion diagnostics and pinned reconstruction tests.")
@@ -589,6 +593,21 @@ if(RTPBRSURVEY_BUILD_TESTS)
                 add_custom_target(RtPbrSurvey.NrdRuntimeReconstructionShader
                     DEPENDS "${RTPBRSURVEY_SHADER_OUTPUT_DIR}/shaders_NrdReconstruction_main.cso")
                 add_dependencies(RtPbrSurvey.SceneRenderer RtPbrSurvey.NrdRuntimeReconstructionShader)
+                rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_NrdAdmission.hlsl cs_6_0 CSMain
+                    DEPENDS "${RTPBRSURVEY_ROOT}/Shaders/NrdRelaxInputAdmission.hlsli")
+                set(nrd_admission_vectors "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_NrdAdmissionVectors_CSMain.cso")
+                add_custom_command(OUTPUT "${nrd_admission_vectors}"
+                    COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+                        "-Fo${nrd_admission_vectors}" "${RTPBRSURVEY_ROOT}/Tests/shaders_NrdAdmissionVectors.hlsl"
+                    DEPENDS Tests/shaders_NrdAdmissionVectors.hlsl Shaders/NrdRelaxInputAdmission.hlsli
+                    VERBATIM)
+                add_custom_target(RtPbrSurvey.NrdAdmissionVectors DEPENDS "${nrd_admission_vectors}")
+                add_custom_target(RtPbrSurvey.NrdAdmissionShader
+                    DEPENDS "${RTPBRSURVEY_SHADER_OUTPUT_DIR}/shaders_NrdAdmission_CSMain.cso")
+                add_dependencies(RtPbrSurvey.SceneRenderer RtPbrSurvey.NrdAdmissionShader)
+                if(RTPBRSURVEY_NRD_SDK_DIAGNOSTICS)
+                    include(cmake/NrdSdkPlanning.cmake)
+                endif()
             endif()
             set(nrd_reconstruction_shaders)
             foreach(border_mode IN ITEMS 0 1)

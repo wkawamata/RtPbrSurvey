@@ -2,8 +2,9 @@
 
 Date: 2026-10-10. Base: main 0c175e3 (PR 96).
 Branch: codex/pt-denoiser-input-contract.
-Status: NRD RELAX selected; SDK-free adapter and opt-in input experiments added.
-No denoiser dispatch; Native sampling defaults remain unchanged.
+Status: opt-in live input conversion, hit-distance reconstruction and input
+admission and native D3D12 RELAX GPU dispatch diagnostics connected.
+Final denoised scene-color composition and quality acceptance remain pending.
 
 ## Current Acceptance State
 
@@ -41,10 +42,12 @@ that every described tag/option exists in this checkout. No SDK upgrade is plann
 
 NRD is pinned to v4.17.3, commit 792eff196afdd350fd9c3f862119017ccb438a0e.
 The ignored source checkout is third_party/nrd-sdk-4.17.3. The dependency manifest
-records source/header/helper hashes and intended build encoding. No NRD binary
-or compiled shaders are present or linked. Native D3D12 dispatch integration is
-selected; NRI is not acquired. Pin documentation to this revision and never mix
-helpers from one release with a different binary.
+records source/header/helper hashes and intended build encoding. Optional SDK
+CPU scheduling diagnostics build a static library from pinned sources; live
+reconstruction compiles the pinned 3x3 kernel. Full RELAX shader embedding and
+GPU dispatch remain pending. Native D3D12 dispatch integration is selected; NRI
+is not acquired. Pin documentation to this revision and never mix helpers from
+one release with a different binary.
 
 Official input guidance consulted:
 
@@ -1966,4 +1969,172 @@ radiance and exited with code 0 without D3D12 errors.
 python Tests/PathTracing/validate_nrd_runtime_history.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
 python -m unittest discover -s Tests/PathTracing -p test_nrd_runtime_*.py
 python -m unittest discover -s Tests/PathTracing -p test_history.py
+```
+
+### RELAX Input Admission And SDK Planning: Step 5A (2026-10-16)
+
+Steps 3-4 and the log-open assertion fix were committed as d77be08. Step 5A adds
+PT NRD Reconstruction Input Admission after the live reconstruction pass, under
+the same default-off reconstruction option. The shared production HLSL helper
+validates both lobes and admits or excludes the entire pixel. It preserves raw
+reconstruction outputs and writes four separate RGBA32F Debug Preview textures:
+
+- PathTracing.NrdInputDiffuse and NrdInputSpecular: admitted demodulated signals.
+- PathTracing.NrdInputViewZ: valid linear depth, or 1e6 for excluded pixels.
+- PathTracing.NrdInputAdmission: R = local admission, G = diagnostic code,
+  B/A = admitted inactive diffuse/specular lobe flags.
+
+Codes are 0 for admission, 1 for excluded/out-of-range pixels, 2 for invalid
+guides/masks, 3 for invalid signal/distance-state data and 4 for unresolved active
+distance. Inactive lobes require canonical state 4 and zero RGB, then all four
+signal components become zero, removing irrelevant neighbor distances. Active
+zero distances reject the whole pixel. Finite nonnegative values are required;
+the existing reconstruction distance ceiling tolerance of 65504.5 is retained
+for interpolation overshoot, with admitted distances capped to 65504. Admission
+is not full backend readiness: camera/MV and temporal history still need their
+own contract. Full RELAX support remains unavailable and Native stays final.
+
+The graph declares all six SRV inputs and four UAV outputs. The normal resource
+allocation, history-clear, resize and Debug Preview paths cover these textures.
+Every admission thread writes all outputs, including exclusion defaults. Pause
+retains the latest results. The reusable 19-stage history validator accepts the
+new diffuse/specular resources through repeatable --resource arguments.
+
+The default-off RTPBRSURVEY_NRD_SDK_DIAGNOSTICS option builds the exact pinned
+SDK CPU scheduler from unmodified upstream sources. It uses MathLib v11 and the
+ShaderBlob.h types from ShaderMake commit 18f5a344e7ca8fa65daaf079d07bc8ce38453e05.
+CMake verifies the dependency commits and clean SDK/header sources. It does not
+run upstream CMake in the source checkout, download compilers, add NRI or embed
+SDK GPU bytecode; the generated config resolves to the pinned contract config.
+
+Renderer/NrdRelaxSdkAdapter.h is SDK-neutral; NRD headers/types stay in its cpp.
+The PIMPL owns the real RELAX_DIFFUSE_SPECULAR instance and calls CreateInstance,
+SetDenoiserSettings, SetCommonSettings and GetComputeDispatches. External
+reconstruction is already done, so SDK hit-distance reconstruction is OFF.
+Dispatch names, resource bindings and constant bytes are deep-copied before a
+subsequent SDK query can overwrite them. The frame descriptor requires finite,
+nonsingular non-jittered column-major matrices and 16-bit-compatible dimensions.
+Its proposed screen-space MV scale is (0.5, -0.5, 0) for previous-minus-current
+NDC; application camera/MV wiring is still pending. Reset requests
+CLEAR_AND_RESTART. The adapter is exercised by the SDK test executable and is
+not yet invoked by the rendering loop. Descriptor counts are CPU planning
+diagnostics, not a guarantee about a future bytecode-embedded pipeline layout.
+
+SDK tests passed creation/reinitialization/shutdown, reset versus continuation,
+resize grids, invalid frame rejection and owned dispatch lifetime after later
+queries/shutdown. The SDK reports 27 pipelines, ten permanent textures, seven
+transient textures and 29 reset dispatches in this CPU-only configuration.
+The app Debug x64 build passed with zero compiler warnings/errors; the SDK test
+link had the existing unused sl.interposer delay-load warning. Six focused
+CTest tests and nineteen runtime Python tests passed.
+
+GPU evidence on RTX 2080 Ti:
+
+- nrd-runtime-admission-20261016: ten matched captures, first material made fully
+  metallic in a copied fixture, bit-exact CPU comparison. 1,286,774 pixels were
+  admitted; 1,089,008 had inactive diffuse lobes; 442 nonzero inactive neighbor
+  distances were zeroed. The remaining 750,346 pixels were excluded.
+- nrd-runtime-admission-disabled-20261016: ten matched captures with distance
+  diagnostics disabled; all 2,037,120 pixels excluded, zero admitted signals.
+- nrd-admission-vectors-20261016: sixteen explicit success/failure vectors ran
+  the shared production helper on WARP and hardware. Both matched independent
+  CPU outcomes bit for bit, including NaN, negative radiance, contradictory
+  distance states, inactive RGB, unresolved distances and the packing ceiling.
+- nrd-admission-history-final-20261016: 38 checkpoints for NrdInputSpecular and
+  NrdInputDiffuse, including pause retention, reset clear, incompatible sampling,
+  all five edit/resize cases and eight bit-exact replay comparisons per resource.
+  The final report also records conversion/admission shader and helper hashes;
+  the preceding nrd-admission-history-20261016 run passed the same timeline.
+
+The two ten-capture cohorts preceded extracting the admission helper into the
+shared HLSL include. The final shared helper is covered by the vector tests and
+the 38-checkpoint runtime lifecycle run. Each report records its actual binary
+and shader hashes rather than treating these executions as one binary version.
+
+All capture/harness logs contained zero D3D12 errors. These tests establish local
+input sanitation, not full RELAX denoising quality. Next is D3D12 pipeline/pool/
+descriptor execution of the SDK dispatches, followed by camera/MV and temporal
+history validation and separate denoised scene-color composition.
+
+```powershell
+git clone https://github.com/NVIDIA-RTX/ShaderMake.git build/_deps/nrd-shadermake-src
+git -C build/_deps/nrd-shadermake-src checkout --detach 18f5a344e7ca8fa65daaf079d07bc8ce38453e05
+cmake -S . -B build -DRTPBRSURVEY_BUILD_APP=ON -DRTPBRSURVEY_BUILD_TESTS=ON -DRTPBRSURVEY_TEST_NRD_PACKING=ON -DRTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS=ON -DRTPBRSURVEY_TEST_NRD_RECONSTRUCTION=ON -DRTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS=ON -DRTPBRSURVEY_NRD_SDK_DIAGNOSTICS=ON
+cmake --build build --config Debug --target RtPbrSurvey.NrdSdkAdapterTests RtPbrSurvey.NrdAdmissionVectors RtPbrSurvey
+ctest --test-dir build -C Debug -R NrdSdkAdapter --output-on-failure
+python Tests/PathTracing/validate_nrd_admission_vectors.py --output <new-directory>
+python Tests/PathTracing/validate_nrd_runtime_admission.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
+python Tests/PathTracing/validate_nrd_runtime_admission.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <another-new-directory> --disabled-distance-diagnostics
+python Tests/PathTracing/validate_nrd_runtime_history.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory> --resource NrdInputSpecular --resource NrdInputDiffuse
+```
+
+### Native D3D12 RELAX Dispatch: Step 5B (2026-10-16)
+
+The default-off RTPBRSURVEY_NRD_SDK_DIAGNOSTICS option now runs the SDK's actual
+RELAX_DIFFUSE_SPECULAR dispatch list after reconstruction input admission.
+NrdRelaxSdkAdapter keeps SDK headers private and copies pipeline identifiers,
+resource ranges, pool format/downsample metadata, bindings and constant bytes.
+NrdRelaxD3D12 owns D3D12 pipelines, private permanent/transient textures and
+per-frame descriptors/upload buffers. No NRI dependency is introduced.
+
+The build-time NrdShaderManifest tool links the same pinned SDK scheduler and
+exports its 27 shaderIdentifier strings. compile_nrd_shaders.py compiles those
+exact SDK shader permutations with the pinned encoding configuration and local
+DXC. Generated bytecode and manifests stay in build outputs. At initialization,
+the adapter compares every identifier to the runtime SDK list before creating
+PSOs. Both manifest and bytecode outputs are tracked as build dependencies.
+
+The graph adds PT NRD RELAX GPU Diagnostics. Its external SRV inputs are MotionVectors,
+NrdNormalRoughness, NrdInputViewZ, NrdInputDiffuse and NrdInputSpecular. The two
+RGBA32F UAV outputs are PathTracing.NrdOutputDiffuse and PathTracing.NrdOutputSpecular,
+registered for raw captures and Debug Preview. Outputs are cleared before each
+evaluation so excluded pixels cannot expose stale values. Private SDK pools use
+SDK-declared formats and ceil-divided dimensions. The adapter transitions pool
+and external resources per dispatch, inserts UAV barriers, and restores external
+states to the graph contract. The main descriptor heap is rebound afterward.
+
+Descriptors and constant bytes have separate storage for every engine frame slot;
+the existing frame fence protects reuse. A resize flushes GPU work before releasing
+old private textures. A new allocation requires a reset, and CLEAR_AND_RESTART
+generates SDK clear dispatches for the pools. PT invalidation resets the NRD frame
+index and history. Pause records no NRD dispatch; camera/light/material/geometry
+edits restart history conservatively. Current/previous non-jittered camera matrices
+and resource dimensions are passed explicitly. NDC previous-minus-current motion
+uses normalized screen-space scale (0.5, -0.5, 0).
+
+RTX 2080 Ti evidence:
+
+- nrd-relax-gpu-dispatch-20261016: nine captures covering two inputs, admission,
+  both denoised outputs, bit-exact fresh-process repeats for both outputs, and
+  zero output with distance diagnostics disabled. Both lobes had 1,286,774
+  admitted/changed pixels. All values were finite/nonnegative and excluded pixels
+  stayed zero. This confirms actual filtering, not a denoising quality threshold.
+- nrd-relax-history-20261016: both outputs passed all 19 existing checkpoints,
+  including pause/reset, incompatible sampling, five scene edit/resize cases and
+  eight exact replay comparisons per resource. Reports record executable and all
+  27 SDK shader hashes. The original report's generic limitation text predates
+  this RELAX resource extension; camera edits in this test reset NRD history.
+- nrd-relax-history-final-20261016: the final formatted Debug executable repeated
+  all 38 checkpoints successfully, with zero D3D12 errors and updated limitation
+  text. The nine-capture cohort above used the preceding executable; both reports
+  retain their actual binary/shader hashes.
+- Debug x64 app and SDK layout-test builds succeeded with no warnings/errors.
+  Capture logs contained zero D3D12 errors; the two known initial-buffer-state
+  warnings remain. Focused numeric tests reject nonfinite/negative outputs,
+  passthrough results, excluded-pixel writes and shape mismatches.
+  All 56 NRD Python tests and six focused CTest tests passed. The first sandboxed
+  Python run hit five temporary-directory permission errors; the unrestricted
+  rerun passed all tests. This was an execution-environment failure, not a numeric
+  acceptance failure. The final SDK layout test was relinked and passed again.
+
+This completes GPU dispatch diagnostics, not full backend availability. Native
+scene-color output and the existing NotIntegrated support gate remain until
+material weighting restoration, stable/background composition, continuous-motion
+reprojection, fallback and end-to-end numeric/visual acceptance are completed.
+The current GUI can inspect the two NRD output resources but does not yet select
+them as the final PT image.
+
+```powershell
+python Tests/PathTracing/validate_nrd_gpu_dispatch.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory>
+python Tests/PathTracing/validate_nrd_runtime_history.py --source bin/PathTracingValidation/nrd-step2s-material-cohort-20261013 --output <new-directory> --resource NrdOutputSpecular --resource NrdOutputDiffuse
 ```

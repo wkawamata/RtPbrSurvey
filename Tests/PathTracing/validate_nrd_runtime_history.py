@@ -12,6 +12,8 @@ from validate_part1 import sha, write_json
 
 ROOT = Path(__file__).resolve().parents[2]
 RESOURCES = ('NrdReconstructedSpecular', 'NrdReconstructedDiffuse', 'NrdTiles')
+ADMISSION_RESOURCES = ('NrdInputSpecular', 'NrdInputDiffuse')
+RELAX_RESOURCES = ('NrdOutputSpecular', 'NrdOutputDiffuse')
 ZERO_CASES = ('reset-paused-0', 'batch-4-32', 'non-accumulated-index-12', 'non-accumulated-repeat-12')
 
 
@@ -56,7 +58,11 @@ def main():
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--timeout', type=int, default=600)
+    parser.add_argument('--resource', action='append', choices=RESOURCES+ADMISSION_RESOURCES+RELAX_RESOURCES)
     args = parser.parse_args()
+    resources = args.resource or RESOURCES
+    if len(set(resources)) != len(resources):
+        parser.error('Duplicate lifecycle resource')
     source, output = args.source.resolve(strict=True), args.output.resolve()
     if output == source or source in output.parents or (output.exists() and any(output.iterdir())):
         parser.error('Output must be a separate empty directory')
@@ -70,9 +76,18 @@ def main():
         exeSha256=sha(exe), sceneSha256=sha(scene), presetSha256=sha(preset),
         scriptSha256=sha(Path(__file__)),
         runtimeShaderSha256=sha(ROOT/'build/shaders/shaders_NrdReconstruction_main.cso'))
+    if any(resource in ADMISSION_RESOURCES+RELAX_RESOURCES for resource in resources):
+        report['admissionShaderSha256'] = sha(ROOT/'build/shaders/shaders_NrdAdmission_CSMain.cso')
+        report['admissionHelperSha256'] = sha(ROOT/'Shaders/NrdRelaxInputAdmission.hlsli')
+        report['conversionShaderSha256'] = sha(ROOT/'build/shaders/shaders_NrdConversion_CSMain.cso')
+    if any(resource in RELAX_RESOURCES for resource in resources):
+        manifest = ROOT/'build/shaders/nrd-relax-manifest.txt'
+        report['sdkShaderManifestSha256'] = sha(manifest)
+        report['sdkShaders'] = [dict(identifier=name, sha256=sha(ROOT/f'build/shaders/nrd-relax-{i}.cso'))
+            for i, name in enumerate(manifest.read_text().splitlines())]
     write_json(output/'report.json', report)
     try:
-        for resource in RESOURCES:
+        for resource in resources:
             folder = output/resource
             folder.mkdir()
             log = folder/'runtime.log'
@@ -119,8 +134,8 @@ def main():
         if report['resources']:
             report['resources'][-1]['status'] = 'failed'
         report['failures'].append(str(error))
-    report['limitation'] = ('Automated reconstruction lifecycle on one fixture/GPU; fresh references use manual reset. '
-        'No full RELAX temporal history, denoising quality or input-readiness certification.')
+    report['limitation'] = ('Automated resource lifecycle on one fixture/GPU; fresh references use manual reset. '
+        'Camera edits reset history; continuous-motion reprojection, denoising quality and final composition remain unvalidated.')
     write_json(output/'report.json', report)
     print(report['status'], report['failures'])
     return report['status'] != 'passed'

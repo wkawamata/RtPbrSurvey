@@ -63,6 +63,9 @@
 #include "Renderer/TemporalUpscalerSupport.h"
 #include "Renderer/StreamlineAdapter.h"
 #include "Renderer/NrdRelaxAdapter.h"
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+#include "Renderer/NrdRelaxD3D12.h"
+#endif
 #include "Renderer/ToneMap.h"
 #include "Scene/Scene.h"
 #include "Scene/EmissiveTriangleTable.h"
@@ -619,6 +622,8 @@ private:
             static constexpr const char* PathTracing = "PathTracing";
             static constexpr const char* NrdConversion = "NrdConversion";
             static constexpr const char* NrdReconstruction = "NrdReconstruction";
+            static constexpr const char* NrdAdmission = "NrdAdmission";
+            static constexpr const char* NrdRelax = "NrdRelax";
             static constexpr const char* DepthPrePass = "DepthPrePass";
             static constexpr const char* GBuffer = "GBuffer";
             static constexpr const char* Forward = "Forward";
@@ -733,6 +738,14 @@ private:
         PathTracingGuideNrdTiles,
         PathTracingGuideNrdReconstructedSpecular,
         PathTracingGuideNrdReconstructedDiffuse,
+        PathTracingGuideNrdInputDiffuse,
+        PathTracingGuideNrdInputSpecular,
+        PathTracingGuideNrdInputViewZ,
+        PathTracingGuideNrdInputAdmission,
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+        PathTracingGuideNrdOutputDiffuse,
+        PathTracingGuideNrdOutputSpecular,
+#endif
 #endif
 #endif
         PathTracingGuideTextureCount,
@@ -1141,6 +1154,14 @@ private:
     ComPtr<ID3D12PipelineState> m_nrdConversionPipeline;
     ComPtr<ID3D12RootSignature> m_nrdReconstructionRootSignature;
     ComPtr<ID3D12PipelineState> m_nrdReconstructionPipeline;
+    ComPtr<ID3D12RootSignature> m_nrdAdmissionRootSignature;
+    ComPtr<ID3D12PipelineState> m_nrdAdmissionPipeline;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    std::unique_ptr<Engine::NrdRelaxD3D12> m_nrdGpu;
+    Engine::NrdSdkFrame m_nrdPreviousFrame;
+    bool m_nrdHistoryReset = true;
+    UINT m_nrdFrameIndex = 0;
+#endif
     ComPtr<ID3D12RootSignature> m_rayQueryShadowRootSignature;
     ComPtr<ID3D12RootSignature> m_specularDebugRayQueryRootSignature;
     ComPtr<ID3D12RootSignature> m_rayQueryTlasDebugRootSignature;
@@ -1384,6 +1405,14 @@ private:
         "PathTracing.NrdTiles",
         "PathTracing.NrdReconstructedSpecular",
         "PathTracing.NrdReconstructedDiffuse",
+        "PathTracing.NrdInputDiffuse",
+        "PathTracing.NrdInputSpecular",
+        "PathTracing.NrdInputViewZ",
+        "PathTracing.NrdInputAdmission",
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+        "PathTracing.NrdOutputDiffuse",
+        "PathTracing.NrdOutputSpecular",
+#endif
 #endif
 #endif
     };
@@ -1738,6 +1767,8 @@ private:
     RenderPass MakePathTracingPass();
     RenderPass MakeNrdConversionPass();
     RenderPass MakeNrdReconstructionPass();
+    RenderPass MakeNrdAdmissionPass();
+    RenderPass MakeNrdRelaxPass();
     RenderPass MakeDepthPrePass();
     RenderPass MakeGBufferPass();
     RenderPass MakeHybridReflectionPass();
@@ -1821,6 +1852,8 @@ private:
     void ExecutePathTracingHistoryClearPass(const RenderPass& pass);
     void ExecuteNrdConversionPass(const RenderPass& pass);
     void ExecuteNrdReconstructionPass(const RenderPass& pass);
+    void ExecuteNrdAdmissionPass(const RenderPass& pass);
+    void ExecuteNrdRelaxPass(const RenderPass& pass);
     void ExecutePathTracingPass(const RenderPass& pass);
     void InvalidatePathTracingHistory(PathTracingResetReason reason);
     void CommitPathTracingFrame();
