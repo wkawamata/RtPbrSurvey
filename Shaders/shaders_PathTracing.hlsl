@@ -566,8 +566,15 @@ float3 TracePath(uint2 pixel,
             primarySurface.hitT = query.CommittedRayT();
             if (captureDenoiserDistances && (primarySamplingFlags & 2u) != 0)
             {
-                MakeDenoiserDistanceInputs(pixel, distanceSampleIndex, hitPosition, hitNormal,
-                    geometryNormal, -ray.Direction, hitMaterial, primarySurface);
+                if ((hitMaterial.flags & MaterialFlagUnlit) != 0)
+                {
+                    primarySurface.denoiserPrimaryPosition = float4(hitPosition, 1.0);
+                }
+                else
+                {
+                    MakeDenoiserDistanceInputs(pixel, distanceSampleIndex, hitPosition, hitNormal,
+                        geometryNormal, -ray.Direction, hitMaterial, primarySurface);
+                }
             }
         }
 

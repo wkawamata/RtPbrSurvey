@@ -51,7 +51,7 @@
   "readinessBlockers": [
     "Camera/MV convention passed a small planar orbit fixture; disocclusion, larger motion and visual ghosting acceptance remain pending",
     "Healthy-device failure fallback is qualified for missing manifest and invalid final dispatch; memory-pressure/other initialization failures need broader qualification. Device loss and failures after recording starts remain fatal",
-    "Live primary emissive/unlit composition coverage remains pending (shared-helper arithmetic vectors cover stable/background terms)",
+    "Live primary emissive composition and exact Unlit/background Native fallback passed the fixed opaque three-panel fixture; animated/textured and broader-scene stable-radiance acceptance remain pending",
     "End-to-end numeric and visual denoising acceptance remain pending"
   ]
 }

@@ -2482,3 +2482,55 @@ tests passed, covering required/optional Unlit import, both SceneBuilder paths,
 ordinary material defaults, unsupported-extension rejection and emitter exclusion.
 The existing seventy-three NRD Python tests also passed. Test-only links retain
 the known LNK4199 unused Streamline delay-load warning.
+
+### Step 8B: Live stable-radiance composition contract
+
+The persistent fixture Assets/Scene/PathTracingValidation/13-nrd-stable-radiance
+places a lit emissive panel, an opaque Unlit panel and an ordinary lit panel in
+one plane. Unlit deliberately declares nonzero emission, which must be ignored.
+Primary misses provide nonzero background coverage. The stored scene contains
+Japanese descriptions of the intended checks and limits.
+
+Unlit primary hits retain a valid dedicated primary position, but dedicated PBR
+distance/direction samples stay uncollected. Conversion and admission must reject
+them, and composition must use exact decoded Native color. This avoids importing
+neighboring PBR illumination into an unsupported Unlit signal. Native PT tracing
+and accumulation are unchanged. The other two panels must actually enter NRD
+composition; an all-Native result cannot pass this fixture.
+
+The new runner captures nineteen resources with identical deterministic-frame
+metadata, requires successful NRD recording/presentation, checks all four spatial
+cohorts, and applies the existing independent CPU remodulation/composition oracle.
+Stable-radiance RGB must match material emission or Unlit base color within 1e-6.
+Composition retains 8 ULP(float32) plus 1e-6; Unlit/background fallback remains
+exact decoded Native. Required resource identities, formats and coverage are
+checked, not inferred from capture count.
+
+Four new Python tests reject missing resources, insufficient coverage, missing or
+doubled emission, Unlit contamination/admission, invalid hit state, background
+loss/leakage, composition corruption and incomplete/mismatched metadata. A C++
+SceneDocumentBuilder test loads the actual asset and checks all three panels and
+their Unlit flags. The first live pilot failed before capture because the new
+fixture omitted mandatory orthographicHeight; its failed report is retained in
+bin/PathTracingValidation/nrd-stable-radiance-20261017. The corrected fixture is
+tested separately; no failed pilot is counted as GPU evidence. Temporary startup
+diagnostic code was removed before the corrected run.
+
+```powershell
+python Tests/PathTracing/validate_nrd_stable_radiance.py --output <new-empty-directory>
+```
+
+This is a fixed-camera raw-input/composition contract, not final ToneMap quality,
+general Unlit glTF conformance, disocclusion, animation or temporal acceptance.
+
+Corrected live evidence: bin/PathTracingValidation/nrd-stable-radiance-r2-20261017
+passed all nineteen captures with zero D3D12 errors. Each panel covered 96,866
+pixels. All emissive and ordinary pixels (193,732 total) used NRD composition;
+all 96,866 Unlit pixels and 1,746,522 background pixels matched decoded Native
+exactly. Stable RGB contained only zero, the declared lit emission and the Unlit
+base color. Maximum composition error was 5.9604645e-8 (0.04036 of the unchanged
+bound). Factor round-trip maximum errors were 1.910809e-8 diffuse and 2.397293e-9
+specular. The report records fixture, executable, shader, runner and capture
+hashes plus common runtime metadata. All seventy-seven NRD Python tests and the
+SceneDocumentBuilder test passed. Debug application build passed with zero
+warnings/errors; the test-only link retains the known LNK4199 delay-load warning.
