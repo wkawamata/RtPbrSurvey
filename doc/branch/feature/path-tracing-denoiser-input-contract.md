@@ -2764,3 +2764,85 @@ Next: evaluate these continuous captures against fresh same-camera independent
 high-sample Native references, including the original stop region at each
 settling checkpoint. Do not reuse the earlier single-orbit quality verdict as
 that result.
+
+### Step 9D: Continuous Timeline Reference Quality Gate
+
+validate_nrd_timeline_quality.py requires the complete successful Step 9C source:
+thirty-two case/frame/resource records, eight exact checkpoints and four unique
+resource runs. It verifies executable, fixture, runner/helper, shader, plan, log
+and raw-capture hashes, then repeats scheduled/completed inventory, SDK/Native
+clock, visibility and MV checks. Forward/reverse must share a camera pose with
+opposite motion; all settling poses must match stop. Historical timeline captures
+are explicitly marked not reexecuted, rather than relabeled as fresh execution.
+
+Six fresh Native references cover yaw 0, +16 and -20, each at 1,024 spp with
+independent seeds 11 and 29. Warm/middle share the zero pose, forward/reverse
+share +16, and stop/settling share -20. Each shared reference is checked against
+every target checkpoint's actual camera projection, dimensions and ray settings.
+The previous exact sample-target/transport and 0.01-pixel alignment checks apply.
+
+Fifteen checkpoint/region pairs are required: retained only at warm, and both
+revealed and retained for the remaining seven checkpoints. Settling reuses the
+original stop-frame 80 sampled coordinates and masks, not a newly empty revealed
+mask from stationary-camera reprojection. Every region uses the unchanged Step 9B
+reference agreement, RMSE non-regression, RGB bias and red-excess limits.
+
+The final settling check additionally requires, in each original stop region:
+
+```text
+NRD_NRMSE(settle-32) <= NRD_NRMSE(stop) + referencePairNRMSE
+```
+
+The multiplier is fixed to one before measurement. The reference-pair allowance
+is a conservative finite-reference uncertainty budget, not strict stochastic
+monotonicity or an analytic confidence interval. Stop/final region counts,
+reference means and reference consistency must match exactly. Inconsistent
+references produce inconclusive-reference, not an NRD failure.
+
+Aggregation rejects missing/duplicate checkpoints, absent region measurements,
+nonfinite/invalid numeric values, incomplete criteria and pass flags inconsistent
+with the actual numeric limits. A success count/boolean alone is insufficient.
+Six new tests cover complete success, missing/duplicate data, incorrect flags,
+unconverged references, red contamination, settling-budget bounds and changed
+region/reference identity. Threshold values remain those fixed before capture.
+
+```powershell
+python Tests/PathTracing/validate_nrd_timeline_quality.py --source <qualified-step9c-directory> --output <new-empty-directory>
+```
+
+This is one opaque two-plane fixture at eight sparse checkpoints, using finite
+independent high-sample Monte Carlo references. It does not accept every-frame
+flicker, subjective playback, camera cuts, moving objects or broad scene/material
+behavior. Default-off/experimental NRD integration policy is unchanged.
+
+Evidence: bin/PathTracingValidation/nrd-timeline-quality-20261017 passed-timeline-fixture.
+All thirty-two historical source buffers were hash-verified and their input/
+history checks repeated, not rerendered. Six fresh reference captures completed
+with zero D3D12 errors. All fifteen checkpoint/region pairs passed the unchanged
+fixed criteria. Maximum reference-pair NRMSE was 1.509% (limit 3%), maximum mean
+RGB bias 1.780% (limit 5%), maximum mean red excess 0.096% (limit 2%) and maximum
+95th-percentile red excess 0.186% (limit 5%). For the revealed/original-stop region:
+
+| Checkpoint | NRD NRMSE | Native NRMSE |
+| --- | --- | --- |
+| forward | 4.110% | 33.944% |
+| reverse | 0.947% | 36.241% |
+| middle | 2.088% | 29.786% |
+| stop | 1.461% | 34.148% |
+| settle-4 | 1.185% | 14.551% |
+| settle-16 | 0.737% | 7.644% |
+| settle-32 | 0.883% | 5.485% |
+
+Native accumulates after stop, so its settling results are not 1-spp comparisons.
+The original retained stop region also improved from 1.834% to 1.211% measured
+NRD NRMSE at settle-32. Both final-regression checks passed even without spending
+their uncertainty allowance. The revealed region increased slightly from frame
+16 to 32, illustrating why these finite-reference stochastic measurements are
+not strict monotonic convergence or per-frame flicker evidence.
+
+The report distinguishes historical source hashes from fresh reference commands,
+runtime metadata, capture/log/scene/preset hashes, source runner/helper hashes
+and the unchanged executed binary. All ninety-seven NRD Python tests passed.
+No renderer/shader/C++ change or rebuild was needed in this unit. Remaining gates
+include subjective A/B playback, broader materials/scenes, moving objects and
+camera cuts; the current result does not promote NRD to default-on/Available.

@@ -105,3 +105,35 @@ This stage measures signal changes, not converged radiance error. Its report
 keeps qualityVerdict=not-evaluated; the earlier two single-orbit quality results
 must not be relabeled as reversal/settling acceptance. A separate high-sample
 reference assessment of this continuous timeline is still required.
+
+## Continuous-Timeline Numeric Quality
+
+```powershell
+python Tests/PathTracing/validate_nrd_timeline_quality.py --source bin/PathTracingValidation/<qualified-timeline-directory> --output bin/PathTracingValidation/<new-empty-directory>
+```
+
+The runner requires all thirty-two source captures, four successful continuous
+runs and eight exact checkpoints. It verifies executable, capture, log, plan,
+fixture, helper and shader hashes, then repeats the input/history checks.
+Historical timeline evidence is not represented as a new GPU execution.
+
+Six fresh Native references cover yaw 0, +16 and -20, each at 1,024 spp with
+independent seeds 11 and 29. Camera/sample/transport checks are unchanged from
+the single-orbit gate. Forward and reverse share their +16 references. Stop and
+all settling checkpoints share the -20 references, and settling uses the original
+stop-frame masks rather than an empty newly-revealed mask from a static frame.
+
+All fifteen checkpoint/region pairs must meet the existing fixed reference
+agreement, RMSE non-regression, mean RGB bias and red-excess thresholds. Quality
+result completeness and numeric/boolean consistency are checked before aggregation.
+An inconsistent reference is inconclusive, not an NRD quality failure.
+
+For both stop-frame regions, final (32-frame) NRD NRMSE may not exceed stop NRMSE
+plus one reference-pair NRMSE. This fixed uncertainty allowance avoids requiring
+strict monotonicity from stochastic sparse checkpoints. Region counts and
+reference means/consistency must match exactly across the comparison. It is a
+bounded final-regression check, not a guarantee of per-frame temporal stability.
+
+This numeric gate remains limited to the opaque two-plane fixture. Sparse
+checkpoints do not establish flicker-free playback or subjective quality;
+moving objects, camera cuts and broader scene/material coverage remain separate.
