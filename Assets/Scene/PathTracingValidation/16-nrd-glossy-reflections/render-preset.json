@@ -5,5 +5,5 @@
   "lighting": {"lights": [], "primaryShadowLightId": 0, "iblIntensity": 0.2, "skyboxEnabled": true, "directLightEnabled": false, "diffuseIblEnabled": false, "specularIblEnabled": false, "emissiveEnabled": false},
   "shadow": {"enabled": true, "normalBias": 0.001},
   "toneMap": {"operatorIndex": 2, "exposure": 1},
-  "pathTracing": {"accumulate": true, "samplesPerFrame": 1, "maxBounces": 2, "randomSeed": 7, "directLightingEnabled": false, "environmentEnabled": true, "environmentSamplingMode": 7, "emissiveEnabled": false, "russianRouletteEnabled": false, "debugOutput": 3, "pixelCenterPrimary": true, "denoiserDistanceDiagnostics": true, "nrdPreview": true}
+  "pathTracing": {"accumulate": true, "samplesPerFrame": 1, "maxBounces": 4, "randomSeed": 7, "directLightingEnabled": false, "environmentEnabled": true, "environmentSamplingMode": 7, "emissiveEnabled": false, "russianRouletteEnabled": false, "debugOutput": 3, "pixelCenterPrimary": true, "denoiserDistanceDiagnostics": true, "nrdPreview": true}
 }

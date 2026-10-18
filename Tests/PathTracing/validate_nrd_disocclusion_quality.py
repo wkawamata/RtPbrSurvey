@@ -113,14 +113,14 @@ def load_source(folder):
     return scene, outputs
 
 
-def check_reference(meta, diagnostics, target, seed, *, environment_mode=5):
+def check_reference(meta, diagnostics, target, seed, *, environment_mode=5, sample_count=SAMPLES, max_bounces=2):
     if (meta.get('resource') != 'PathTracing.SceneColor' or meta.get('format') != 10 or
-            meta.get('samplesPerFrame') != 1 or meta.get('sampleStartIndex') != SAMPLES or
+            meta.get('samplesPerFrame') != 1 or meta.get('sampleStartIndex') != sample_count or
             meta.get('randomSeed') != seed or meta.get('primarySampling') != 'pixel-center' or
             meta.get('nrdPreviewRequested') is not False or meta.get('nrdPresentation') != 'Native PT'):
         raise ValueError('Wrong reference capture identity/sampling state')
-    expected = dict(accumulatedSamples=SAMPLES, targetSamples=SAMPLES, randomSeed=seed,
-        samplesPerFrame=1, maxBounces=2, environmentEnabled=True, environmentSamplingMode=environment_mode,
+    expected = dict(accumulatedSamples=sample_count, targetSamples=sample_count, randomSeed=seed,
+        samplesPerFrame=1, maxBounces=max_bounces, environmentEnabled=True, environmentSamplingMode=environment_mode,
         directLightingEnabled=False, emissiveEnabled=False, russianRoulette=False)
     if any(diagnostics.get(key) != value for key, value in expected.items()):
         raise ValueError('Reference runtime transport/sample target differs')

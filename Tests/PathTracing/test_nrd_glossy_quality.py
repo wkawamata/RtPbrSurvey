@@ -6,7 +6,8 @@ import numpy as np
 
 from validate_nrd_disocclusion import document_albedo
 from validate_nrd_glossy_quality import (FIXTURE, LIMITS, MATERIALS, RESOURCES,
-    assess_environment_control, assess_reflection, assess_scene, check_preset, interior)
+    assess_depths, assess_environment_control, assess_reflection, assess_scene,
+    check_candidate, check_preset, interior)
 
 
 class GlossyQualityTests(unittest.TestCase):
@@ -15,11 +16,23 @@ class GlossyQualityTests(unittest.TestCase):
         check_preset(preset)
         for group, key, value in (('pathTracing', 'environmentSamplingMode', 5),
                 ('lighting', 'skyboxEnabled', False), ('pathTracing', 'environmentEnabled', False),
-                ('pathTracing', 'emissiveEnabled', True), ('pathTracing', 'directLightingEnabled', True)):
+                ('pathTracing', 'emissiveEnabled', True), ('pathTracing', 'directLightingEnabled', True),
+                ('pathTracing', 'maxBounces', 2)):
             other = copy.deepcopy(preset)
             other[group][key] = value
             with self.subTest(key=key), self.assertRaises(ValueError):
                 check_preset(other)
+
+    def test_candidate_runtime_requires_four_bounces(self):
+        meta = dict(sampleStartIndex=30, primarySampling='pixel-center', samplesPerFrame=1, nrdPreviewRequested=True)
+        runtime = dict(maxBounces=4, accumulatedSamples=30, samplesPerFrame=1, randomSeed=7,
+            environmentEnabled=True, environmentSamplingMode=7, directLightingEnabled=False,
+            emissiveEnabled=False, russianRoulette=False)
+        check_candidate(meta, runtime)
+        for key, value in (('maxBounces', 2), ('maxBounces', 8), ('accumulatedSamples', 1),
+                ('environmentSamplingMode', 5), ('russianRoulette', True)):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                check_candidate(meta, dict(runtime, **{key: value}))
 
     def test_environment_control_is_required(self):
         meta = dict(resource='PathTracing.SceneColor', format=10, nrdPreviewRequested=False,
@@ -115,6 +128,24 @@ class GlossyQualityTests(unittest.TestCase):
                 [np.full_like(a, np.inf) for a in signals]):
             with self.assertRaises(ValueError):
                 assess_reflection(*values)
+
+    def test_depth_comparison_rejects_missing_and_unconverged_data(self):
+        buffers, refs = self.cohort()
+        references = {depth: copy.deepcopy(refs) for depth in (2, 4, 8)}
+        result = assess_depths(buffers, references)
+        self.assertEqual(result['status'], 'passed-depth-agreement')
+        changed = copy.deepcopy(references)
+        changed[8][1] *= 1.2
+        self.assertEqual(assess_depths(buffers, changed)['status'], 'inconclusive-depth-reference')
+        changed = copy.deepcopy(references)
+        changed[8] = [image*1.2 for image in changed[8]]
+        self.assertEqual(assess_depths(buffers, changed)['status'], 'four-bounce-depth-difference')
+        del references[2]
+        with self.assertRaises(ValueError):
+            assess_depths(buffers, references)
+        references[2] = [refs[0]]
+        with self.assertRaises(ValueError):
+            assess_depths(buffers, references)
 
     def test_erosion_and_fixed_fixture(self):
         self.assertEqual(int(interior(np.ones((20, 20), dtype=bool)).sum()), 196)

@@ -49,7 +49,7 @@
     "shaderMakeUsage": "Pinned ShaderBlob.h types; no ShaderMake executable or shader compiler downloads"
   },
   "readinessBlockers": [
-    "Static glossy illumination is qualified after correcting the fixture to environment-map mode 7 and Skybox ON (zero-radiance control exactly black); 1024-spp independent references exceed the 3% pair-NRMSE limit on three materials, so overall glossy quality remains inconclusive pending more converged references",
+    "Four-bounce static glossy illumination is qualified (zero-radiance control exactly black); 4096-spp independent references pass on three materials but smooth dielectric pair NRMSE 3.041% exceeds the fixed 3% limit, so overall quality and 4-vs-8 depth acceptance remain inconclusive. Whole-material observed 4-vs-8 differences are 0.028%-0.146%, not a Cornell reflection-ROI or infinite-depth proof",
     "Fixed planar camera/MV/disocclusion, single-orbit and continuous reversal/settling high-sample numeric gates passed; cuts, moving objects, broader scenes/materials and general/subjective ghosting acceptance remain pending",
     "Healthy-device failure fallback is qualified for missing manifest and invalid final dispatch; memory-pressure/other initialization failures need broader qualification. Device loss and failures after recording starts remain fatal",
     "Live primary emissive composition and exact Unlit/background Native fallback passed the fixed opaque three-panel fixture; animated/textured and broader-scene stable-radiance acceptance remain pending",

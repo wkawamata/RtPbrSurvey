@@ -3030,3 +3030,62 @@ other three remain unqualified despite their observed RMSE/bias checks. The
 next gate requires more converged independent Native references, not relaxed
 thresholds or a speculative renderer fix. Prior r1/r2/r3 illumination concerns
 are resolved as test-configuration errors, and their reports remain historical.
+
+### Step 10C: Four-bounce baseline and Native depth comparison
+
+User observation on 2026-10-18: Cornell Box sphere reflections included black
+areas at Max Bounces=2 and recovered at 4. This is a user-reported observation,
+not an automated result from scene 16 or a captured Cornell camera/settings
+snapshot. It is consistent with the renderer's finite-depth contract: with two
+segments, camera -> sphere A -> sphere B terminates before another continuation
+or environment NEE at the final hit. It does not imply that all black regions
+were NRD artifacts or establish that four bounces are sufficient generally.
+
+Scene 16's diagnostic preset now uses four bounces; old constant-white fixtures
+and renderer-wide defaults are unchanged. Candidate runtime diagnostics must
+confirm four bounces, 30 accumulated samples, one sample/frame, seed 7, map MIS
+and matching enabled transport. Native quality references use exactly the same
+four-bounce limit. The shared reference checker keeps its existing 1024-spp/
+two-bounce defaults; different sample counts/depths must be supplied explicitly
+and confirmed by runtime diagnostics. Tests reject mismatched depths/counts.
+
+The glossy runner defaults to 4096-spp references and offers --compare-bounces.
+That option captures independent seeds 11/29 at depths 2, 4 and 8. Whole-material
+interiors report pair consistency, mean RGB, black fraction, 2-to-4 and 4-to-8
+NRMSE. Four/eight reference pairs must each meet the unchanged 3% consistency
+bound before their averaged images can pass the fixed 3% depth-agreement bound,
+normalized by eight-bounce reference RMS. This is not an isolated reflection ROI
+test or proof of infinite-depth convergence. Insufficient reference convergence
+or material coverage cannot become a depth-agreement pass. All 119 NRD Python
+tests passed before GPU measurement. Quality limits remain unchanged.
+
+Evidence: bin/PathTracingValidation/nrd-glossy-depth-20261018/report.json.
+Twelve fresh captures completed with zero D3D12 errors: five four-bounce candidate
+resources, one zero-environment control (maximum RGB 0.0), and two 4096-spp Native
+seeds at each depth 2/4/8. Runtime diagnostics confirmed the requested depths and
+sample counts. The unchanged Debug executable was used; no rebuild was needed.
+
+| Material | Native 2-to-4 NRMSE | Native 4-to-8 NRMSE | Four/Eight Pair Qualification |
+| --- | --- | --- | --- |
+| Dielectric rough | 6.949% | 0.146% | Passed |
+| Dielectric smooth | 5.415% | 0.045% | Inconclusive: 3.041% pair NRMSE |
+| Metal rough | 2.769% | 0.058% | Passed |
+| Metal smooth | 4.962% | 0.028% | Passed |
+
+Differences are normalized by the eight-bounce averaged reference RMS. Three
+materials pass the fixed depth-agreement gate, but the overall depth result is
+inconclusive-depth-reference because smooth dielectric misses the predeclared
+3% reference qualification. Observed small four-to-eight differences are not
+promoted to a pass where reference qualification fails. All whole-material
+averaged references have zero exactly-black pixel fraction; this does not
+numerically reproduce the user's Cornell Box local black reflection regions.
+
+The four-bounce NRD image-quality result is also inconclusive-reference for the
+same smooth-dielectric qualification (3.041319% at depth four). The other three
+materials meet reference, RMSE and bias criteria. Four-bounce NRD/Native NRMSE
+was respectively 4.118/20.351%, 22.684/25.033%, 6.073/21.334%, 3.992/4.198%
+in material-table order. No quality threshold was changed. Four is retained as
+the fixture baseline, with general sufficiency and local reflection ROIs still
+unaccepted; a more converged smooth-dielectric reference is the next numeric gate.
+The Scene Editor description was refreshed after capture; render-affecting
+settings are retained in each report's hashed scene/preset copies.

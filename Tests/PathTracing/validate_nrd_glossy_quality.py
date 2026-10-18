@@ -11,7 +11,7 @@ import numpy as np
 from validate_denoiser_distances import capture
 from validate_inputs import read_buffer
 from validate_nrd_disocclusion import document_albedo
-from validate_nrd_disocclusion_quality import check_reference, SAMPLES, SEEDS
+from validate_nrd_disocclusion_quality import check_reference, SEEDS
 from validate_nrd_material_matrix import MATERIALS, check_metadata
 from validate_part1 import sha, write_json
 
@@ -20,14 +20,28 @@ FIXTURE = ROOT/'Assets/Scene/PathTracingValidation/16-nrd-glossy-reflections'
 RESOURCES = ('Albedo', 'NrdSceneColor', 'SceneColor', 'NrdInputAdmission', 'NrdCompositionDiagnostics')
 LIMITS = dict(referencePairNrmse=.03, meanRgbBias=.05, nrdToNativeRmse=1.0,
     minimumContrast=2.0, minimumComposedFraction=.9, minimumPixels=100)
+BASE_BOUNCES = 4
+DEPTHS = (2, 4, 8)
+DEPTH_LIMIT = .03
 
 
 def check_preset(preset):
     lighting, pt = preset.get('lighting', {}), preset.get('pathTracing', {})
     if (lighting.get('skyboxEnabled') is not True or pt.get('environmentSamplingMode') != 7 or
             pt.get('environmentEnabled') is not True or pt.get('directLightingEnabled') is not False or
-            pt.get('emissiveEnabled') is not False):
-        raise ValueError('Glossy fixture requires environment-map importance MIS, Skybox ON and no other emitters')
+            pt.get('emissiveEnabled') is not False or pt.get('maxBounces') != BASE_BOUNCES):
+        raise ValueError('Glossy fixture requires four bounces, environment-map importance MIS, Skybox ON and no other emitters')
+
+
+def check_candidate(meta, diagnostics):
+    if (meta.get('sampleStartIndex') != 30 or meta.get('primarySampling') != 'pixel-center' or
+            meta.get('samplesPerFrame') != 1 or meta.get('nrdPreviewRequested') is not True):
+        raise ValueError('Wrong glossy candidate sampling state')
+    expected = dict(maxBounces=BASE_BOUNCES, accumulatedSamples=30, samplesPerFrame=1,
+        randomSeed=7, environmentEnabled=True, environmentSamplingMode=7,
+        directLightingEnabled=False, emissiveEnabled=False, russianRoulette=False)
+    if any(diagnostics.get(key) != value for key, value in expected.items()):
+        raise ValueError('Glossy candidate transport does not match the reference contract')
 
 
 def interior(mask, radius=3):
@@ -143,22 +157,23 @@ def environment_capture(output, scene, preset):
     return assess_environment_control(meta, image), record
 
 
-def reference_capture(output, scene, preset, target, seed):
-    label = 'reference-'+str(seed)
+def reference_capture(output, scene, preset, target, seed, samples, depth=BASE_BOUNCES):
+    label = 'reference-b'+str(depth)+'-'+str(seed)
     scene, preset = copy.deepcopy(scene), copy.deepcopy(preset)
     scene['renderPreset'] = label+'-preset.json'
-    preset['pathTracing'].update(nrdPreview=False, denoiserDistanceDiagnostics=False, randomSeed=seed)
+    preset['pathTracing'].update(nrdPreview=False, denoiserDistanceDiagnostics=False,
+        randomSeed=seed, maxBounces=depth)
     scene_path, preset_path = output/(label+'-scene.json'), output/(label+'-preset.json')
     write_json(scene_path, scene)
     write_json(preset_path, preset)
     path, log = output/(label+'.ptbuf'), output/(label+'.log')
     exe = ROOT/'build/Debug/RtPbrSurvey.exe'
     command = [str(exe), '-SceneFile', str(scene_path), '-RenderPreset', str(preset_path),
-        '-EnablePathTracing', '-PathTracingSamples', str(SAMPLES), '-DebugPreviewResource',
+        '-EnablePathTracing', '-PathTracingSamples', str(samples), '-DebugPreviewResource',
         'PathTracing.SceneColor', '-CapturePath', str(path), '-LogToFile', str(log), '-ExitAfterCapture']
     child = subprocess.Popen(command, cwd=ROOT)
     try:
-        code = child.wait(timeout=300)
+        code = child.wait(timeout=max(300, samples*.12))
     finally:
         if child.poll() is None:
             child.kill()
@@ -171,15 +186,54 @@ def reference_capture(output, scene, preset, target, seed):
     if len(diagnostics) != 1:
         raise ValueError('Missing/duplicate reference diagnostics')
     meta, image = read_buffer(path)
-    check_reference(meta, diagnostics[0], target, seed, environment_mode=7)
+    check_reference(meta, diagnostics[0], target, seed, environment_mode=7,
+        sample_count=samples, max_bounces=depth)
     return image.astype(np.float32), dict(label=label, command=command, sha256=sha(path),
         logSha256=sha(log), sceneSha256=sha(scene_path), presetSha256=sha(preset_path),
         metadata=meta, diagnostics=diagnostics[0], d3d12Errors=0)
 
 
+def assess_depths(buffers, references):
+    if set(references) != set(DEPTHS) or any(len(images) != 2 for images in references.values()):
+        raise ValueError('Missing depth/seed reference cohort')
+    albedo = buffers['Albedo']
+    if any(image.shape != albedo.shape or not np.isfinite(image).all() or (image < 0).any()
+            for images in references.values() for image in images):
+        raise ValueError('Malformed depth reference image')
+    rows = []
+    for name, color, _, _ in MATERIALS:
+        mask = interior((albedo[..., 3] == 1) &
+            np.isclose(albedo, document_albedo(color), atol=.001, rtol=0).all(axis=-1))
+        if int(mask.sum()) < LIMITS['minimumPixels']:
+            raise ValueError('Missing depth material region: '+name)
+        means, stats = {}, {}
+        for depth in DEPTHS:
+            first, second = (np.asarray(image[mask, :3], dtype=np.float64) for image in references[depth])
+            mean = (first+second)*.5
+            means[depth] = mean
+            norm = float(np.sqrt(np.mean(mean**2)))
+            if norm <= 1e-6:
+                raise ValueError('Insufficient depth reference radiance: '+name)
+            stats[str(depth)] = dict(pairNrmse=float(np.sqrt(np.mean((first-second)**2))/norm),
+                meanRgb=mean.mean(axis=0).tolist(),
+                blackFraction=float((mean.max(axis=-1) <= 1e-6).mean()))
+        norm8 = float(np.sqrt(np.mean(means[8]**2)))
+        delta = float(np.sqrt(np.mean((means[4]-means[8])**2))/norm8)
+        qualified = all(stats[str(depth)]['pairNrmse'] <= LIMITS['referencePairNrmse'] for depth in (4, 8))
+        rows.append(dict(material=name, pixels=int(mask.sum()), depths=stats,
+            fourToEightNrmse=delta, twoToFourNrmse=float(np.sqrt(np.mean((means[2]-means[4])**2))/norm8),
+            qualified=qualified, passed=qualified and delta <= DEPTH_LIMIT))
+    status = ('inconclusive-depth-reference' if not all(row['qualified'] for row in rows) else
+        'passed-depth-agreement' if all(row['passed'] for row in rows) else 'four-bounce-depth-difference')
+    return dict(status=status, limit=DEPTH_LIMIT, regions=rows,
+        limitation='Whole material interiors only; not isolated secondary-sphere reflection ROIs or an infinite-depth proof.')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--reference-samples', type=int, choices=(1024, 2048, 4096, 8192), default=4096)
+    parser.add_argument('--compare-bounces', action='store_true')
     args = parser.parse_args()
     output = args.output.resolve()
     if output == FIXTURE or FIXTURE in output.parents or (output.exists() and any(output.iterdir())):
@@ -194,7 +248,8 @@ def main():
         helperSha256={name: sha(Path(__file__).parent/name) for name in
             ('validate_nrd_material_matrix.py', 'validate_nrd_disocclusion_quality.py',
              'validate_denoiser_distances.py', 'validate_inputs.py')}, limits=LIMITS,
-        referenceSamples=SAMPLES, referenceSeeds=SEEDS)
+        referenceSamples=args.reference_samples, referenceSeeds=SEEDS, maxBounces=BASE_BOUNCES,
+        referenceDepths=DEPTHS if args.compare_bounces else (BASE_BOUNCES,))
     write_json(output/'report.json', report)
     try:
         common, buffers = None, {}
@@ -202,6 +257,13 @@ def main():
             (meta, image), record = capture(ROOT/'build/Debug/RtPbrSurvey.exe', output, name,
                 output/'render-preset.json', name)
             common = check_metadata(meta, name, common)
+            diagnostics = [json.loads(line[len('[PathTracing] '):]) for line in
+                (output/(name+'.log')).read_text(encoding='utf-8-sig').splitlines()
+                if line.startswith('[PathTracing] ')]
+            if len(diagnostics) != 1:
+                raise ValueError('Missing/duplicate candidate diagnostics')
+            check_candidate(meta, diagnostics[0])
+            record['diagnostics'] = diagnostics[0]
             buffers[name] = image.astype(np.float32)
             record['logSha256'] = sha(output/(name+'.log'))
             report['records'].append(record)
@@ -219,15 +281,21 @@ def main():
             write_json(output/'report.json', report)
             print(report['status'], control, flush=True)
             return 1
-        references = []
-        for seed in SEEDS:
-            image, record = reference_capture(output, scene, preset, meta, seed)
-            references.append(image)
-            report['records'].append(record)
-            write_json(output/'report.json', report)
-            print('captured reference '+str(seed), flush=True)
-        verdict, rows = assess_scene(buffers, references)
-        report.update(status=verdict, materials=rows, metadata=common)
+        references = {}
+        for depth in report['referenceDepths']:
+            references[depth] = []
+            for seed in SEEDS:
+                image, record = reference_capture(output, scene, preset, meta, seed, args.reference_samples, depth)
+                references[depth].append(image)
+                report['records'].append(record)
+                write_json(output/'report.json', report)
+                print('captured reference b'+str(depth)+' seed '+str(seed), flush=True)
+        verdict, rows = assess_scene(buffers, references[BASE_BOUNCES])
+        report.update(status=verdict, qualityStatus=verdict, materials=rows, metadata=common)
+        if args.compare_bounces:
+            report['bounceComparison'] = assess_depths(buffers, references)
+            if verdict == 'passed-static-glossy-fixture' and report['bounceComparison']['status'] != 'passed-depth-agreement':
+                report['status'] = report['bounceComparison']['status']
     except Exception as error:
         report.update(status='failed-execution', failures=[str(error)])
     report['limitation'] = 'Static opaque sphere fixture, finite Native references; no temporal/motion, perfect mirror or subjective acceptance.'

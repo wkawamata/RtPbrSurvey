@@ -115,6 +115,18 @@ class DisocclusionQualityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             check_reference(target, diagnostics, target, 11, environment_mode=7)
 
+    def test_sample_count_and_depth_must_match_explicit_contract(self):
+        target, diagnostics = self.reference()
+        target['sampleStartIndex'] = 4096
+        diagnostics.update(accumulatedSamples=4096, targetSamples=4096, maxBounces=4)
+        check_reference(target, diagnostics, target, 11, sample_count=4096, max_bounces=4)
+        with self.assertRaises(ValueError):
+            check_reference(target, diagnostics, target, 11)
+        for key, value in (('targetSamples', 1024), ('accumulatedSamples', 1024), ('maxBounces', 8)):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                check_reference(target, dict(diagnostics, **{key: value}), target, 11,
+                    sample_count=4096, max_bounces=4)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "sceneId": "nrd-glossy-reflections",
   "name": "PT NRD Glossy Reflections",
-  "description": "目的: 暗い環境と明るいソフトボックスが映る曲面で、NRDの金属/低roughnessの反射画質を確認する。\n配置: 左上=非金属0.6、右上=非金属0.1、左下=金属0.6、右下=金属0.1。\n見る場所: 明るい反射の形、境界のぼけ、暗部への光漏れ。NRD ON/OFFで反射が欠けたり平均色が変わらないこと。\n数値評価: 静止30フレームのNRD/Nativeを、独立2 seedの1024 spp Nativeと比較する。\n限界: 静止した不透明球。完全鏡面、動く物体、カメラカット、移動中の履歴品質を合格とはしない。",
+  "description": "目的: 暗い環境と明るいソフトボックスが映る曲面で、NRDの金属/低roughnessの反射画質を確認する。\n配置: 左上=非金属0.6、右上=非金属0.1、左下=金属0.6、右下=金属0.1。\n見る場所: 明るい反射の形、境界のぼけ、暗部への光漏れ。NRD ON/OFFで反射が欠けたり平均色が変わらないこと。\n設定: Max Bounces=4、環境マップImportance MIS、Skybox ON。2では映り込んだ球の照明が打ち切られる場合がある。\n数値評価: 静止30フレームのNRD/Nativeを、独立2 seedの4096 spp Nativeと比較する。追加オプションでNativeの2/4/8バウンス差を測る。\n限界: 静止した不透明球。完全鏡面、動く物体、カメラカット、移動中の履歴品質を合格とはしない。",
   "renderPreset": "render-preset.json",
   "assets": [],
   "materials": [

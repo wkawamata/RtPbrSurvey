@@ -9,18 +9,28 @@ Skybox OFF uses the fixed clear color for primary misses. These modes are useful
 for other tests but invalidate this fixture's requested illumination/control.
 
 ```powershell
-python Tests/PathTracing/validate_nrd_glossy_quality.py --output bin/PathTracingValidation/nrd-glossy-new
+python Tests/PathTracing/validate_nrd_glossy_quality.py --output bin/PathTracingValidation/nrd-glossy-new --reference-samples 4096 --compare-bounces
 ```
 
 Use a new/empty output directory and the NRD diagnostic Debug build. The runner
 captures five deterministic resource runs after 30 warm-up frames, then two
-independent 1024-spp Native references (seeds 11/29). Before references, a sixth
+independent Native references (seeds 11/29, default 4096 spp). Candidate and quality
+references both use four bounces. Before references, a sixth
 capture disables NRD and zeros every procedural environment color/intensity.
 With direct lights and emission disabled, its RGB must be <= 1e-6 everywhere.
 Otherwise the runner stops as inconclusive-environment: intended lighting has
 not been qualified, and no NRD quality pass/failure is issued. The Native candidate has
 accumulated 30 samples; NRD has 30 frames of single-sample history. This is not an
 equal-time or equal-total-ray performance comparison.
+
+`--compare-bounces` additionally captures Native references at two and eight
+bounces, each with the same two seeds and sample count. Depth agreement uses
+whole material interiors: both four/eight-bounce reference pairs must satisfy the
+existing 3% pair-NRMSE bound, then their averaged images must differ by at most
+3% NRMSE normalized by the eight-bounce reference. Two-bounce differences and
+black-pixel fractions are measurements, not a separate quality acceptance gate.
+This cannot prove convergence to infinite depth or isolate small reflected-sphere
+regions; Cornell Box user observations are separate from this automated fixture.
 
 Material masks use captured albedo with document sRGB8 quantization accounted
 for. Three pixels are eroded at silhouettes; all remaining pixels are evaluated,
