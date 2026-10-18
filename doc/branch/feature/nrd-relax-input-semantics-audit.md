@@ -217,3 +217,57 @@ NRD Python regression tests: 150/150 passed. Human acceptance was not repeated
 or revoked. The next experiment is the predeclared five-seed 30/120 confirmation
 of diffuse radius 5, with all 14 ROIs and regressions retained. Do not promote a
 default on the basis of this one-seed experiment.
+
+## Five-seed diffuse-radius confirmation (2026-10-18)
+
+Runner: `Tests/PathTracing/validate_nrd_prepass_seeds.py`.
+Accepted local report:
+`bin/PathTracingValidation/nrd-prepass-seeds-20261018-fixed-camera/report.json`.
+Status: `completed-prepass-seed-study`; quality: `failed-sampled-rois`.
+
+The runner revalidated 68 existing captures (18 reference-chain, 20 bridge,
+30 historical control) and recomputed the historical 140 ROI assessments and
+summaries. It acquired 30 new diffuse-5 captures across the predeclared five
+seeds and 30/120 checkpoints. Native outputs remained exactly equal to Control.
+All 140 ROI references qualified and had actual NRD composition without fallback.
+D3D12 errors: 0. NRD Python tests: 152/152 passed.
+
+| Checkpoint | Control ROI passes | Diffuse-5 ROI passes | Focus ensemble RGB bias, control -> variant |
+| --- | --- | --- | --- |
+| 30 frames | 65/70 | 67/70 | 7.338916% -> 4.557598% |
+| 120 frames | 46/70 | 48/70 | 5.830717% -> 3.193221% |
+
+Four ROI cases recovered, all in `dielectric-smooth/mirror-proxy`: seed 101
+at both checkpoints, seed 307 at 120, and seed 701 at 30. No previously passing
+combined ROI verdict regressed. This does not mean every numeric metric improved:
+mean bias decreased in 53/140 cases, increased in 17/140 and was unchanged in 70.
+Focus NRMSE increased slightly for seed 307 at 30 and seed 701 at 120, without
+crossing the Native-relative RMSE gate. All per-case deltas remain in the report.
+
+Focus mean RGB bias percentages, 30 / 120 frames:
+
+| Seed | Control | Diffuse-5 |
+| --- | --- | --- |
+| 7 | 8.305409 / 5.410741 | 5.760504 / 2.649094 |
+| 101 | 6.523830 / 5.599948 | 4.034193 / 3.158916 |
+| 307 | 3.599054 / 7.282456 | 0.784276 / 4.711694 |
+| 701 | 6.851573 / 2.406798 | 3.978632 / 0.791550 |
+| 1009 | 11.538764 / 8.580870 | 8.661021 / 5.843090 |
+
+At 30 frames, focus bias still failed for seeds 7 and 1009. At 120, seed 1009
+still failed bias and seed 7 still failed Native-relative RMSE. Other smooth
+highlight/border and metal ROI failures remain. The ensemble number is bias of
+the ensemble mean RGB, not the average per-seed bias or ensemble image RMSE.
+The default 30-frame linear-history cap is unchanged at both checkpoints.
+
+An earlier attempt at `nrd-prepass-seeds-20261018` stopped after 11 acquisitions:
+the seed-101/frame-120 NRD capture had camera X=-0.04 and accumulation 98, so it
+was rejected by the fixed-state checks. None of that attempt's captures is used
+in the accepted report; all 30 were reacquired separately. The origin of the
+input/state change was not proven. No capture acceptance rule was relaxed.
+
+Conclusion: diffuse pre-pass radius has a reproducible effect on the measured
+bias, but radius 5 is not a complete quality fix. Defaults remain 30/50 and NRD
+remains experimental/default-off. No new human acceptance is claimed. Next,
+isolate diffuse/specular physical contributions in the fixed reflection ROI to
+locate the remaining bias before further tuning or default changes.
