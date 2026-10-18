@@ -49,6 +49,7 @@
     "shaderMakeUsage": "Pinned ShaderBlob.h types; no ShaderMake executable or shader compiler downloads"
   },
   "readinessBlockers": [
+    "Static glossy fixture environment qualification blocked: changing scene softbox direction produced identical output, and Native zero-environment control retained maximum RGB 0.39990234375; verify executed binary and scene environment application/binding before glossy quality acceptance",
     "Fixed planar camera/MV/disocclusion, single-orbit and continuous reversal/settling high-sample numeric gates passed; cuts, moving objects, broader scenes/materials and general/subjective ghosting acceptance remain pending",
     "Healthy-device failure fallback is qualified for missing manifest and invalid final dispatch; memory-pressure/other initialization failures need broader qualification. Device loss and failures after recording starts remain fatal",
     "Live primary emissive composition and exact Unlit/background Native fallback passed the fixed opaque three-panel fixture; animated/textured and broader-scene stable-radiance acceptance remain pending",

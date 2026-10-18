@@ -2935,3 +2935,59 @@ evidence, not a high-sample radiance-quality or subjective specular comparison.
 The failed initial run remains under nrd-material-matrix-20261018. No C++ or HLSL
 change/rebuild was needed; the unchanged executable hash is recorded in each
 report. NRD remains experimental/default-off.
+
+### Step 10B: Static high-contrast curved reflection quality
+
+Added Assets/Scene/PathTracingValidation/16-nrd-glossy-reflections: the same four
+dielectric/metal and roughness 0.6/0.1 conditions on curved opaque spheres, under
+a bright procedural softbox over a dark environment. Source assets include a
+Japanese Scene Editor description and the reproducible diagnostic preset.
+
+Tests/PathTracing/validate_nrd_glossy_quality.py captures Albedo, NRD/Native color,
+admission and composition diagnostics after 30 frames. Two independent seeds
+(11/29) provide 1024-spp Native references at the identical camera. Reference
+sample/transport state, projection alignment and candidate cohort identity are
+checked. This compares NRD history with accumulated Native, not equal wall time
+or total-ray cost. Three silhouette pixels are excluded before material-region
+assessment; remaining fallback pixels still contribute to image error, and at
+least 90% of each region must actually use admitted NRD composition.
+
+Criteria fixed before measurement: at least 100 pixels per material, reference
+pair NRMSE <= 3%, reference luminance p95/p5 >= 2, NRD RMSE <= Native RMSE and mean
+RGB-vector bias <= 5%. Reference and fixture qualification failures are explicitly
+inconclusive, not denoising passes. Qualifying references with failed quality
+criteria produce failed-quality-criteria without relaxing limits. Six tests
+cover valid quality, bias/regression, unconverged/flat references, missing or
+corrupt cohorts, erosion, fixture identity and the fixed limits. All 113 NRD
+Python tests passed at this initial stage. Moving reflection history and human glossy acceptance remain
+separate; no renderer/shader changes or default-on/Available promotion are made.
+
+Initial evidence nrd-glossy-20261018 returned inconclusive-fixture: reference
+contrast was 1.405/1.775/1.966/352.796 for dielectric rough/smooth and metal
+rough/smooth. All references met the fixed pair-consistency bound, but only the
+smooth metal qualified as a high-contrast region. That region passed (NRD NRMSE
+1.658%, accumulated Native 2.187%, mean bias 0.349%). This does not accept the
+other three materials. Seven captures reported zero D3D12 errors.
+
+A second run nrd-glossy-r2-20261018 changed only the scene softbox direction from
+(0.35, 0.75, -0.55) to (0.8, 0.4, 0.5), without relaxing any criterion. Its
+NrdSceneColor PTBUF SHA-256 was exactly identical to the initial run despite the
+different scene hashes; every reported metric also matched. Therefore neither
+run establishes that the requested softbox settings reached the renderer, and
+the intended illumination must be qualified before broad glossy acceptance.
+
+Added a zero-environment Native control to the runner. All procedural radiance
+colors/intensities are zero, with direct lighting and emission already disabled;
+all output RGB must be <= 1e-6. A failed control stops reference acquisition and
+reports inconclusive-environment rather than blaming NRD or issuing a quality
+pass. A seventh unit test covers zero/nonzero control values and invalid runtime
+identity/state. All 114 NRD Python tests passed with this control.
+
+Evidence nrd-glossy-r3-20261018/report.json returned inconclusive-environment.
+The Native zero-environment control reached maximum RGB 0.39990234375, exceeding
+the fixed 1e-6 bound. All six fresh captures reported zero D3D12 errors; reference
+acquisition was correctly skipped. This is a reproducible qualification blocker,
+not a confirmed NRD quality regression. Next work must verify the executed binary
+and trace scene environment application/resource binding before re-running static
+quality acceptance. Earlier fixed-fixture arithmetic/history evidence remains
+scoped to the actual executed buffers, not proof of intended environment values.
