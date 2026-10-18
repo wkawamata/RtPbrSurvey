@@ -177,3 +177,43 @@ The bridge permits the controlled pre-pass investigation to proceed against
 the existing fixed references for this fixture. It does not reverse the previous
 failed Glossy ROI quality verdict, change defaults, or replace temporal/human
 validation. The next unit is the predeclared 30/10 and 5/50 sensitivity comparison.
+
+## Seed-7 pre-pass sensitivity result (2026-10-18)
+
+Runner: `Tests/PathTracing/validate_nrd_prepass_sensitivity.py`.
+Local report:
+`bin/PathTracingValidation/nrd-prepass-sensitivity-20261018/report.json`.
+Execution completed; quality verdict remains `failed-sampled-rois`.
+
+The runner revalidated all 20 control-bridge captures and their historical
+counterparts, plus the 18-capture reference chain. It acquired 18 fresh captures:
+three profiles, two checkpoints, and Native/NRD/composition-diagnostic outputs.
+All fixed ROI references qualified, with actual NRD composition coverage and no
+fallback in the ROIs. D3D12 errors: 0. Native outputs were identical to the
+control bridge for every profile, and fresh control NRD outputs also matched.
+No shader, transport, history cap, ROI mask or threshold changed.
+
+Focus ROI: `dielectric-smooth/mirror-proxy`, 792 pixels. Values below are percent.
+
+| Diffuse/specular radius | Frames | Mean RGB bias | NRD NRMSE | Native NRMSE | All ROI passes |
+| --- | --- | --- | --- | --- | --- |
+| 30/50 control | 30 | 8.305409 | 24.477725 | 35.115390 | 13/14 |
+| 30/10 | 30 | 8.305409 | 24.477725 | 35.115390 | 13/14 |
+| 5/50 | 30 | 5.760504 | 24.207514 | 35.115390 | 13/14 |
+| 30/50 control | 120 | 5.410741 | 23.570250 | 23.114135 | 8/14 |
+| 30/10 | 120 | 5.410741 | 23.570250 | 23.114135 | 8/14 |
+| 5/50 | 120 | 2.649094 | 23.470798 | 23.114135 | 8/14 |
+
+Neither variant changed any ROI's combined pass/fail status in this trial.
+Diffuse radius 5 reduced focus mean bias at both checkpoints, but still failed
+the 5% bias gate at frame 30 and the Native-relative RMSE gate at frame 120.
+Thus it is a sensitivity finding, not a quality fix or a default recommendation.
+The specular variant changed the full output image at both checkpoints, despite
+identical focus metrics; its lack of focus response is not proof of an inactive
+setting. Other ROI measurements, including adverse numeric changes that did not
+cross a gate, remain in the report rather than being omitted.
+
+NRD Python regression tests: 150/150 passed. Human acceptance was not repeated
+or revoked. The next experiment is the predeclared five-seed 30/120 confirmation
+of diffuse radius 5, with all 14 ROIs and regressions retained. Do not promote a
+default on the basis of this one-seed experiment.
