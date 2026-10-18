@@ -357,6 +357,32 @@ bool TestValidationAndLegacyCli()
     passed &= Check(nrdOptions.nrdPreview && nrdOptions.enablePathTracing,
                     "NRD presentation opt-in enables PT without silently changing sampling settings");
     WCHAR nrdFailureOption[] = L"-NrdDiagnosticFailure";
+    WCHAR prepassOption[] = L"-NrdPrepassProfile";
+    for (const std::wstring profile : {L"control", L"specular-10", L"diffuse-5"})
+    {
+        std::wstring value = profile;
+        WCHAR* profileArgv[] = {executable, prepassOption, value.data()};
+        const auto parsed = Platform::ParseCommandLineOptions(profileArgv, 3);
+        passed &= Check(std::wstring(parsed.nrdPrepassProfile.begin(), parsed.nrdPrepassProfile.end()) == profile &&
+                            parsed.enablePathTracing && parsed.nrdPreview,
+                        "explicit prepass profile enables diagnostic NRD preview");
+    }
+    passed &= Check(options.nrdPrepassProfile.empty(), "prepass diagnostics remain opt-in");
+    for (int count : {2, 3})
+    {
+        WCHAR invalidProfile[] = L"invalid";
+        WCHAR* profileArgv[] = {executable, prepassOption, invalidProfile};
+        bool rejected = false;
+        try
+        {
+            Platform::ParseCommandLineOptions(profileArgv, count);
+        }
+        catch (const std::invalid_argument&)
+        {
+            rejected = true;
+        }
+        passed &= Check(rejected, "missing or unknown prepass profile is rejected");
+    }
     WCHAR nrdFailureMode[] = L"after-four-frames";
     WCHAR* failureArgv[] = {executable, nrdFailureOption, nrdFailureMode};
     const auto failureOptions = Platform::ParseCommandLineOptions(failureArgv, 3);

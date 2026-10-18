@@ -399,6 +399,7 @@ public:
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     void SetNrdContinuousCameraHistory(bool enabled);
     void SetNrdFailureInjectionForDiagnostics(bool initialization, UINT afterFrames);
+    void SetNrdPrepassProfileForDiagnostics(const std::string& profile);
 #endif
     const CameraState& GetCamera() const;
     void ReloadSceneResources(const Scene& scene);
@@ -1177,6 +1178,8 @@ private:
     Engine::NrdSdkFrame m_nrdPreviousFrame;
     bool m_nrdHistoryReset = true;
     bool m_nrdContinuousCameraHistory = false;
+    Engine::NrdPrepassSettings m_nrdPrepass;
+    std::string m_nrdPrepassProfile = "control";
     bool m_nrdComposedOutputValid = false;
     std::string m_nrdFailureReason;
     UINT m_nrdPreparedDispatches = 0;

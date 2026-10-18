@@ -1205,6 +1205,21 @@ void RtPbrSurveyEngine::SetNrdFailureInjectionForDiagnostics(bool initialization
     m_nrdInjectInitializationFailure = initialization;
     m_nrdInjectFailureAfterFrames = afterFrames;
 }
+
+void RtPbrSurveyEngine::SetNrdPrepassProfileForDiagnostics(const std::string& profile)
+{
+    if (m_nrdGpu)
+        throw std::logic_error("NRD prepass profile must be set before backend initialization.");
+    Engine::NrdPrepassSettings settings;
+    if (profile == "specular-10")
+        settings.specularRadius = 10.0f;
+    else if (profile == "diffuse-5")
+        settings.diffuseRadius = 5.0f;
+    else if (profile != "control")
+        throw std::invalid_argument("Unknown NRD prepass profile.");
+    m_nrdPrepass = settings;
+    m_nrdPrepassProfile = profile;
+}
 #endif
 
 const RtPbrSurveyEngine::CameraState& RtPbrSurveyEngine::GetCamera() const
@@ -3171,7 +3186,7 @@ void RtPbrSurveyEngine::CreatePipelineStates()
                          m_nrdInjectInitializationFailure
                              ? std::filesystem::path(L"nrd-missing-manifest-for-validation")
                              : std::filesystem::path(GetShaderFullPath(L"nrd-relax-manifest.txt")).parent_path(),
-                         kFrameCount);
+                         kFrameCount, m_nrdPrepass);
     const UINT compositionInputs[] = {PathTracingGuideNrdOutputDiffuse,
                                       PathTracingGuideNrdOutputSpecular,
                                       PathTracingGuideNrdDiffuseFactor,
@@ -7269,6 +7284,15 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             metadata["nrdPreparedDispatches"] = m_nrdPreparedDispatches;
             metadata["nrdPlannedDispatches"] = m_nrdPlannedDispatches;
             metadata["nrdFailureCount"] = m_nrdFailureCount;
+            metadata["nrdPrepass"] = {{"profile", m_nrdPrepassProfile}, {"applied", false}};
+            if (m_nrdGpu && m_nrdFailureReason.empty())
+            {
+                const auto& prepass = m_nrdGpu->Description().prepass;
+                metadata["nrdPrepass"] = {{"profile", m_nrdPrepassProfile},
+                                           {"applied", true},
+                                           {"diffuseRadius", prepass.diffuseRadius},
+                                           {"specularRadius", prepass.specularRadius}};
+            }
             metadata["nrdLastEvaluation"] = {{"attempted", m_nrdLastEvaluationAttempted},
                                              {"recorded", m_nrdLastEvaluationRecorded},
                                              {"continuousCameraHistory", m_nrdContinuousCameraHistory},

@@ -86,6 +86,7 @@ struct CommandLineOptions
     bool nrdContinuousCameraHistory = false;
     bool nrdPreview = false;
     std::string nrdDiagnosticFailure;
+    std::string nrdPrepassProfile;
     float pathTracingObjectMotionX = 0.0f;
     UINT pathTracingEnvironmentMode = 0;
     bool hasPathTracingEnvironmentMode = false;

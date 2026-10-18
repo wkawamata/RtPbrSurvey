@@ -87,11 +87,19 @@ struct NrdRelaxD3D12::Impl
 NrdRelaxD3D12::NrdRelaxD3D12() = default;
 NrdRelaxD3D12::~NrdRelaxD3D12() = default;
 
-void NrdRelaxD3D12::Initialize(ID3D12Device* device, const std::filesystem::path& directory, uint32_t frameCount)
+const NrdSdkDescription& NrdRelaxD3D12::Description() const
+{
+    if (!m_impl)
+        throw std::logic_error("NRD GPU backend is not initialized.");
+    return m_impl->sdk.Description();
+}
+
+void NrdRelaxD3D12::Initialize(ID3D12Device* device, const std::filesystem::path& directory, uint32_t frameCount,
+                             const NrdPrepassSettings& prepass)
 {
     auto impl = std::make_unique<Impl>();
     std::string error;
-    if (device == nullptr || frameCount == 0 || !impl->sdk.Initialize(error))
+    if (device == nullptr || frameCount == 0 || !impl->sdk.Initialize(error, prepass))
         throw std::runtime_error("NRD GPU initialization: " + error);
     impl->device = device;
     const auto& layout = impl->sdk.Layout();

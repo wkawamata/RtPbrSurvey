@@ -447,6 +447,22 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 throw std::invalid_argument("Unknown -NrdDiagnosticFailure mode.");
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-NrdPrepassProfile"))
+        {
+            if (i + 1 >= argc)
+                throw std::invalid_argument("-NrdPrepassProfile expects control, specular-10 or diffuse-5.");
+            const std::wstring value = argv[++i];
+            if (value == L"control")
+                options.nrdPrepassProfile = "control";
+            else if (value == L"specular-10")
+                options.nrdPrepassProfile = "specular-10";
+            else if (value == L"diffuse-5")
+                options.nrdPrepassProfile = "diffuse-5";
+            else
+                throw std::invalid_argument("Unknown -NrdPrepassProfile mode.");
+            options.enablePathTracing = true;
+            options.nrdPreview = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-NrdPreview"))
         {
             options.nrdPreview = true;

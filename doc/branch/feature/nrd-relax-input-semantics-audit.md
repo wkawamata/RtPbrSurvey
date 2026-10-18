@@ -122,5 +122,22 @@ leave the adapter uninitialized. Zero is accepted for diagnostic use.
 Adapter tests cover both predeclared variants, changed SDK dispatch constants,
 invalid values in either field, and restoration of identical control constants
 after reinitialization. This is CPU planning coverage, not GPU quality evidence.
-CLI/runtime wiring, capture metadata, a separate experiment executable, the
-Native compatibility bridge, and the actual sensitivity captures remain pending.
+CLI/runtime wiring supports `-NrdPrepassProfile control|specular-10|diffuse-5`.
+Explicit profiles enable PT and NRD Preview, without changing sampling settings.
+The option requires an SDK diagnostic build and must be applied before backend
+initialization. Captures expose `nrdPrepass` with the profile, an `applied` flag,
+and applied radii when the backend is ready. Initialization/fallback failures
+must not be interpreted as successful application of an experimental profile.
+
+The separate experiment build is under the ignored
+`bin/PathTracingValidation/nrd-prepass-build` directory. The original `build/`
+executable remains the historical reference identity. The alternate build can
+include local uncommitted Scene Editor changes; it is not a clean-source release.
+The Native compatibility bridge and actual sensitivity captures remain pending;
+successful compilation does not qualify old references for the new executable.
+
+The alternate Native PT CSO hash is
+`e0322c9a7fc2511eae8481f97735112897f7326f8e5b5d94a9bbca186a7f4664`,
+different from the historical CSO hash. No shader source was changed in this
+unit. The hash difference is not waived as proof of equivalent rendering;
+fresh Native-output comparisons or new high-sample references are required.
