@@ -37,6 +37,8 @@ target_link_libraries(RtPbrSurvey.SceneRenderer PRIVATE RtPbrSurvey.NrdSdk)
 add_executable(RtPbrSurvey.NrdSdkAdapterTests Tests/NrdSdkAdapterTests.cpp)
 target_link_libraries(RtPbrSurvey.NrdSdkAdapterTests PRIVATE RtPbrSurvey::SceneRenderer)
 add_test(NAME RtPbrSurvey.NrdSdkAdapter COMMAND RtPbrSurvey.NrdSdkAdapterTests)
+add_executable(RtPbrSurvey.NrdConstantSignalTests Tests/NrdConstantSignalTests.cpp)
+target_link_libraries(RtPbrSurvey.NrdConstantSignalTests PRIVATE RtPbrSurvey::SceneRenderer)
 
 add_executable(RtPbrSurvey.NrdShaderManifest Tools/NrdShaderManifest.cpp)
 target_include_directories(RtPbrSurvey.NrdShaderManifest PRIVATE "${RTPBRSURVEY_NRD_SDK_DIR}/Include")

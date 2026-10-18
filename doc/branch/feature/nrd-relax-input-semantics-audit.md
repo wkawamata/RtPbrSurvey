@@ -320,6 +320,56 @@ signal/guide controls or converged per-lobe references where necessary. Keep the
 application acceptance gates separate from NRD's algorithmic expectations; the
 current 5%/Native-RMSE goals are not SDK guarantees. Defaults remain unchanged.
 
+## GPU constant-field control result (2026-10-18)
+
+Added the manual hardware diagnostic target `RtPbrSurvey.NrdConstantSignalTests`
+and `Tests/PathTracing/run_nrd_constant_controls.py`. It uses the actual pinned
+SDK scheduler and `NrdRelaxD3D12::Record`, not a CPU filter or Native fallback.
+It is not registered as an implicit hardware-dependent CTest.
+
+Accepted local report:
+`bin/PathTracingValidation/nrd-constant-controls-20261018-verified/report.json`.
+Raw readback evidence: `gpu-report.json` in the same directory. Each output
+contains every RGB value in top-down, interleaved order. The Python wrapper
+recomputes mean/max error and all pass flags, requires the exact 12-case/checkpoint
+inventory, and hashes the executable, manifest, all 27 shaders and evidence.
+
+Inputs: 64x64 static plane at view Z=5, world normal (0,0,-1), linear roughness
+0.5, perspective projection, identity view, zero motion and hit distances 2.
+Radiance/normal/motion use RGBA32_FLOAT, depth R32_FLOAT; output RGBA16_FLOAT.
+Normal encoding 4 and roughness encoding 1 are checked by SDK initialization.
+Material demodulation/remodulation is intentionally excluded. A fresh backend
+per case uses default 30/50 radii, reset at frame index 0, then 120 sequential
+frames with GPU completion before reuse of the sole frame slot.
+
+Four signal cases: both zero, diffuse only, specular only, both present.
+Nonzero RGB values are D=(0.125,0.5,2), S=(2,0.25,0.125). The zero-signal lobe
+retains a valid positive distance rather than representing missing geometry.
+Checkpoints are elapsed frames 1/30/120 (SDK indices 0/29/119).
+The predeclared health-check bound is `1e-6` for zero channels, otherwise
+`0.004 * max(1, expected channel)`. This absolute-floor tolerance is our simple
+control criterion, not an SDK accuracy guarantee or a general scene threshold.
+
+Result on hardware vendor 4318/device 7687:
+
+- 12 checkpoints, 24 lobe assessments passed; actual dispatch counts positive.
+- Both-zero outputs were exactly zero at all checkpoints.
+- Maximum absolute errors across cases/lobes: frame 1 = 0.00390625;
+  frames 30 and 120 = 0.0048828125, on an expected channel value of 2.
+- At case 3/frame 120, D mean=(0.124932319,0.499729276,1.998917103),
+  S mean=(1.995692015,0.249461502,0.124730751). Nonzero constants are not
+  bit-exact, and the small downward difference is retained as measured evidence.
+- D3D12 errors: 0; Debug build: 0 warnings/0 errors; Python tests: 159/159;
+  related SDK/CLI CTests: 2/2. Historical and alternate app hashes unchanged.
+
+The preliminary run before full readback storage is not the accepted evidence.
+The verified run reacquired all controls with independent pixel-level aggregation.
+This excludes gross constant-field corruption under the tested state/format/
+dispatch conditions; it neither proves all PT input guides correct nor assigns
+the remaining glossy bias to an NRD limit. Next, introduce declared zero-mean
+noise into the same known signal/guide cohort, preserving the noise-free controls
+and fixed settings, to distinguish variance response from this measured floor.
+
 ## Low-noise experiment admission check (2026-10-18)
 
 Increasing the existing `samplesPerFrame` setting is NOT currently an NRD
