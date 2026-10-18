@@ -107,3 +107,34 @@ The visual launcher creates three unanswered static-review items: highlights,
 reflected spheres and dark regions. It preserves four bounces, mode 7 and Skybox
 ON. Human review, Cornell-specific ROIs and temporal glossy behavior remain
 separate from this fixed-scene numeric evidence.
+
+## Refining references without moving the ROIs
+
+```powershell
+python Tests/PathTracing/refine_nrd_glossy_rois.py --source bin/PathTracingValidation/nrd-glossy-rois-20261018 --output bin/PathTracingValidation/nrd-glossy-refined-new
+```
+
+This validates the complete previous evidence chain and recomputes all fourteen
+old measurements and masks before acquisition. It then captures two fresh
+four-bounce Native references at 32768 spp (seeds 11/29), with NRD disabled and
+VSync disabled. The original Native/NRD candidates are reused, not recaptured.
+The masks remain those selected from the original 8192-spp reference pair: fresh
+brightness or NRD error cannot move the tested regions. The seeds are independent
+of each other, but the longer sequences extend the earlier same-seed references;
+they are not claimed to be independent of the ROI-selection images.
+
+All fourteen ROIs are remeasured under the unchanged limits, including the twelve
+previously passed ROIs. Artifact hashes are checked before and after acquisition;
+nonzero exit, timeout, missing evidence or malformed runtime state cannot pass.
+The generated comparison.png shows Native/NRD/fresh reference without colored
+ROI overlays. The source report retains the actual colored masks and their hashes.
+No fresh eight-bounce comparison or general depth-convergence claim is included.
+
+The 2026-10-18 fixed-camera run completed both references with zero D3D12 errors.
+All fourteen reference pairs now qualify. Thirteen ROIs pass; smooth dielectric
+mirror-proxy fails mean RGB-vector bias (8.3054% > 5%). Its pair NRMSE is 2.6533%,
+within 3%, and NRD/Native NRMSE is 24.4777%/35.1154%. Thus noise reduction does not
+establish unbiased reflected color. The previously pending dark ROI now passes
+(pair 1.9266%, bias 1.2027%). Overall failed-roi-quality (exit 1) is a real local
+quality-criterion failure, not an execution failure. It does not establish a root
+cause in NRD itself versus our inputs/composition/history; that needs diagnosis.

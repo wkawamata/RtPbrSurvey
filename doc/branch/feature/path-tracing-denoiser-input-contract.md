@@ -3196,3 +3196,63 @@ Glossy launcher preparation coverage. A real prepare-only session was created at
 bin/PathTracingValidation/nrd-glossy-visual-20261018 with three unanswered results.
 No GUI application was launched, no human verdict was recorded, and no C++/HLSL
 change or rebuild was required.
+
+### Step 10F: Fixed-mask local reference refinement
+
+Added Tests/PathTracing/refine_nrd_glossy_rois.py. It revalidates the Step 10E
+sixteen-capture provenance chain and exactly reproduces every original ROI
+measurement, mask image/hash and overall verdict before acquiring anything.
+No source file or candidate capture is overwritten. Two fresh Native references
+use 32768 spp, depth four and seeds 11/29, with map-importance MIS and Skybox ON.
+NRD/its distance diagnostics are disabled for reference acquisition, with actual
+sample/transport/camera state checked through runtime metadata. VSync is disabled;
+this is fixed-sample quality evaluation, not a timing comparison.
+
+The original fourteen masks stay fixed, selected from the prior 8192-spp pair.
+They are not reselected from the new references or NRD errors. The two seeds are
+independent of one another, but extend the earlier same-seed sequences; independence
+from selection images is not claimed. All fourteen ROIs are remeasured, not just
+the two pending ones. Existing thresholds and fail/inconclusive distinctions stay
+unchanged. No new depth-eight, Cornell, motion or human acceptance is inferred.
+
+Acquisition records command, capture/log/fixture hashes, sample count and seed.
+Current scripts, executable and compiled shader hashes are checked again after
+both captures. A three-column comparison omits the colored ROI overlays to keep
+real reflected sphere colors distinct from test annotations. The source masks
+remain available through their recorded paths and hashes.
+
+Three new tests cover exact acquisition settings/input preservation, failed and
+timed-out process rejection/cleanup, and fixed-mask/numeric/source-disposition
+tamper rejection. All 133 NRD Python tests passed before GPU acquisition.
+
+Acquisition hygiene: the first local attempt at
+bin/PathTracingValidation/nrd-glossy-refined-20261018 was intentionally stopped
+after a GUI diagnostic scroll changed the camera zoom. It ended failed-execution
+with zero accepted captures. It is not quality evidence. The replacement uses
+bin/PathTracingValidation/nrd-glossy-refined-20261018-fixed-camera and receives no
+GUI inputs. Process/log checks alone monitor progress; final camera metadata must
+still match the source before either capture can be accepted.
+
+Evidence: bin/PathTracingValidation/nrd-glossy-refined-20261018-fixed-camera/report.json.
+Both fresh 32768-spp captures completed, with correct fixed camera/transport and
+zero D3D12 errors. Post-acquisition script/executable/shader hashes matched.
+All fourteen reference pairs qualify (maximum pair NRMSE 2.653268%, bound 3%).
+Thirteen ROIs pass. The previously pending smooth dielectric dark ROI now passes
+with pair NRMSE 1.926555% and mean RGB-vector bias 1.202656%.
+
+Smooth dielectric mirror-proxy (792 pixels) fails the unchanged 5% mean RGB-vector
+bias bound: measured bias 8.305409%, pair NRMSE 2.653268%. NRD/Native NRMSE is
+24.477725%/35.115390%, so lower total error still coexists with excessive mean
+color error. Reference mean RGB is (0.002070837, 0.003331724, 0.002563009), versus
+NRD (0.001972572, 0.003020740, 0.002350646). Overall status is failed-roi-quality,
+exit 1, with an empty execution-failure list. This resolves the old reference
+uncertainty into a qualified local criterion failure; it does not yet identify
+the root cause as SDK filtering, our signal integration or insufficient history.
+The prior report remains inconclusive and is not rewritten.
+
+The clean comparison image was inspected for valid rendering and readable crops;
+it omits all colored mask overlays. All 133 NRD tests passed again after capture.
+No C++/HLSL edits, rebuild, threshold relaxation or default-on promotion occurred.
+Next: isolate the failing reflection region's diffuse/specular signal, history
+length and composition before changing denoiser settings. Human glossy review,
+Cornell-specific evidence and broader temporal acceptance remain separate.
