@@ -319,3 +319,52 @@ whether the residual error follows input variance, then use paired low-noise
 signal/guide controls or converged per-lobe references where necessary. Keep the
 application acceptance gates separate from NRD's algorithmic expectations; the
 current 5%/Native-RMSE goals are not SDK guarantees. Defaults remain unchanged.
+
+## Low-noise experiment admission check (2026-10-18)
+
+Increasing the existing `samplesPerFrame` setting is NOT currently an NRD
+low-noise experiment. `QueryNrdRelaxSamplingReadiness` explicitly rejects values
+other than 1. Conversion assigns host gate 8, invalidates NRD inputs, and the
+presentation selects Native fallback. This conservative contract is retained.
+
+`shaders_PathTracing.hlsl` averages per-frame radiance over all sample offsets,
+but stores primary surface, lobe distances/directions and continuation data from
+sample offset 0. Removing the readiness guard without validating this pairing
+would change the integration contract. It is not justified as a quality probe.
+This finding is a limitation of the CURRENT APPLICATION PATH, not proof that
+the NRD SDK cannot process a properly constructed multi-sample signal.
+
+Runner: `Tests/PathTracing/probe_nrd_multispp_gate.py`.
+Local report: `bin/PathTracingValidation/nrd-multispp-gate-20261018/report.json`.
+Result: `passed-multispp-fallback-probe`, quality `not-evaluated`.
+Six captures cover Native, NRD scene color and NRD validity at 4/16 spp after
+30 elapsed frames (120/480 accumulated Native samples). Both cases reported the
+incompatible-sampling fallback, had zero valid NRD input pixels, and produced
+bit-identical Native fallback. D3D12 errors: 0. These captures must never be
+counted as evidence that NRD improves or fails with low-noise inputs.
+
+### Next controlled test sequence
+
+1. Add a separate GPU diagnostic using the pinned SDK and existing D3D12 backend,
+   without weakening application sampling readiness or changing Native transport.
+2. Supply synthetic, paired signal/guide cohorts with known physical meaning:
+   static plane, consistent view/projection/depth/normal, zero motion, positive
+   in-lobe distance and explicitly valid resource states/lifetimes. Keep material
+   restoration separate from the raw demodulated signal test.
+3. Start with zero and spatially constant diffuse/specular radiance, including
+   diffuse-only and specular-only controls. Use representable values, record
+   packing error, reset state and actual applied SDK settings, and inspect
+   checkpoints 1/30/120. These provide component ground truth without a noisy PT
+   reference. Do not assume arbitrary edge or glossy signals must be exact.
+4. Once those controls are characterized, add declared zero-mean noise and a
+   fixed spatial edge. Separate interior bias from expected edge smoothing.
+   Report per-component mean, maximum error, temporal behavior and all failures;
+   define test bounds before running rather than tuning them to observed output.
+5. Only then connect a low-noise PT signal or converged per-lobe reference with
+   validated guides. Distinguish radiance-noise reduction from changes to hit
+   distance sampling, history length or sample budget.
+
+A synthetic control failure would motivate resource/encoding/SDK isolation;
+a pass only rules out that tested failure mode, not every integration bug.
+Persistent smoothing of a valid detailed signal is evidence about filter
+behavior, not a universal SDK quality ceiling. Defaults remain 30/50 and off.
