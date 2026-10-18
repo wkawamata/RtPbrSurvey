@@ -133,11 +133,47 @@ The separate experiment build is under the ignored
 `bin/PathTracingValidation/nrd-prepass-build` directory. The original `build/`
 executable remains the historical reference identity. The alternate build can
 include local uncommitted Scene Editor changes; it is not a clean-source release.
-The Native compatibility bridge and actual sensitivity captures remain pending;
-successful compilation does not qualify old references for the new executable.
+The static Native/control compatibility bridge is recorded below. Actual
+sensitivity captures remain pending; compilation alone does not qualify old
+references for the new executable.
 
 The alternate Native PT CSO hash is
 `e0322c9a7fc2511eae8481f97735112897f7326f8e5b5d94a9bbca186a7f4664`,
 different from the historical CSO hash. No shader source was changed in this
 unit. The hash difference is not waived as proof of equivalent rendering;
 fresh Native-output comparisons or new high-sample references are required.
+
+## Static control bridge result (2026-10-18)
+
+Runner: `Tests/PathTracing/validate_nrd_prepass_bridge.py`.
+Local report:
+`bin/PathTracingValidation/nrd-prepass-bridge-20261018-verified/report.json`.
+
+- Status: `passed-static-control-bridge`.
+- Revalidated the historical 18-capture reference chain and 30-capture seed
+  study, including commands, hashes, runtime state and recomputed ROI results.
+- Acquired 20 fresh captures: Native and NRD scene color, seeds
+  7/101/307/701/1009, at 30/120 frames, explicit control profile 30/50.
+- All 20 full RGBA images matched their historical counterparts exactly:
+  maximum absolute error 0 and changed values 0. D3D12 errors: 0.
+- Capture metadata matched apart from the declared additive `nrdPrepass` field.
+  Runtime comparison excludes only measured `gpuTimeMs`, measured
+  `primarySamplesPerSecond`, and the separately validated capture destination.
+  Timing values must remain finite and positive; transport state is not excluded.
+- NRD Python regression tests: 147/147 passed, including four bridge tests.
+
+Alternate executable SHA256:
+`98daf2f6c6dccf0e943e99cbc155dae2c4253fd62733fb1d849f95f93e312db8`.
+Historical executable and Native PT shader remain unchanged. The alternate CSO
+hash still differs; this is measured static-output compatibility, not a claim
+that arbitrary cameras, scenes or future binaries are equivalent.
+
+An initial acquisition under `nrd-prepass-bridge-20261018` was rejected because
+the first runner compared timing and output paths for exact equality. Its one
+capture is not accepted evidence. The corrected policy is explicit above and
+the verified run reacquired all 20 outputs in a separate directory.
+
+The bridge permits the controlled pre-pass investigation to proceed against
+the existing fixed references for this fixture. It does not reverse the previous
+failed Glossy ROI quality verdict, change defaults, or replace temporal/human
+validation. The next unit is the predeclared 30/10 and 5/50 sensitivity comparison.
