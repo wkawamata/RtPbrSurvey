@@ -138,3 +138,44 @@ establish unbiased reflected color. The previously pending dark ROI now passes
 (pair 1.9266%, bias 1.2027%). Overall failed-roi-quality (exit 1) is a real local
 quality-criterion failure, not an execution failure. It does not establish a root
 cause in NRD itself versus our inputs/composition/history; that needs diagnosis.
+
+## Isolating signal arithmetic and history
+
+```powershell
+python Tests/PathTracing/isolate_nrd_glossy_bias.py --source bin/PathTracingValidation/nrd-glossy-refined-20261018-fixed-camera --output bin/PathTracingValidation/nrd-glossy-isolation-new
+```
+
+The eighteen-capture source chain is revalidated, including both 32768-spp
+references and all fixed-mask measurements. A 30-frame seed-7 baseline captures
+nineteen resources; Native/NRD color, albedo, admission and composition diagnostics
+must reproduce the prior baseline exactly. Independent CPU checks verify final
+composition, factor round-trip, unchanged radiance RGB through reconstruction/
+admission, and the physical diffuse/specular/stable/background split against the
+current frame's radiance. Ten composition resources are then captured at 120
+frames, without changing the scene, sample rate or denoiser settings.
+The adapter retains the SDK's default 30-frame diffuse/specular linear-history
+cap; 120 is elapsed warm-up time, not a 120-frame accumulation-window setting.
+
+The failing fixed reflection ROI is measured at both checkpoints against the same
+reference pair. Restored diffuse/specular mean RGB and stable/background means
+are reported. There is no converged per-lobe reference: instantaneous input is a
+single Monte Carlo sample. A single-seed history comparison cannot establish a
+causal SDK defect or a general quality pass. Status completed-diagnostic means the
+audit completed, not that the original bias criterion has passed. No fresh
+high-sample references, C++/HLSL changes or settings tuning are part of this audit.
+
+The 2026-10-18 audit completed all 29 fresh diagnostic captures with zero D3D12
+errors. The 30-frame baseline reproduces exactly; composition CPU/GPU difference
+is zero, factor round-trip error <= 1.193e-7, and the current-frame physical split
+differs by <= 2.385e-7. Admission/reconstruction preserves radiance RGB exactly.
+
+| Elapsed frames | Mean RGB bias | NRD NRMSE | Native NRMSE | Local quality |
+| --- | --- | --- | --- | --- |
+| 30 | 8.3054% | 24.4777% | 35.1154% | Failed bias |
+| 120 | 5.4107% | 23.5703% | 23.1141% | Failed bias and RMSE |
+
+Both checkpoints use the same qualified reference pair (pair NRMSE 2.6533%).
+Stable/background radiance is zero inside the failing ROI. These observations
+exclude the audited arithmetic errors, not semantic input errors, sample/history
+sensitivity or SDK filtering as a root cause. Repeat fixed-ROI 30/120 comparisons
+with independent seeds before adjusting settings or calling the issue resolved.

@@ -49,7 +49,7 @@
     "shaderMakeUsage": "Pinned ShaderBlob.h types; no ShaderMake executable or shader compiler downloads"
   },
   "readinessBlockers": [
-    "Fixed four-sphere whole-material static glossy quality and 4-vs-8 depth gates passed with 8192-spp references. Fixed localized masks remeasured against 32768-spp references qualify all 14 ROIs: 13 pass, smooth dielectric mirror-proxy fails mean RGB-vector bias (8.3054% > 5%, pair NRMSE 2.6533% <= 3%). Local NRD quality repair, human glossy review and Cornell acceptance remain pending; older source shader provenance remains limited",
+    "Fixed four-sphere whole-material static glossy quality and 4-vs-8 depth gates passed. Fixed masks with 32768-spp references qualify all 14 ROIs: 13 pass, smooth dielectric mirror-proxy fails bias (8.3054% > 5%). Arithmetic audit passes, but seed-7 warm-up at 120 frames still fails bias (5.4107%) and NRD-vs-Native RMSE (23.5703% vs 23.1141%); multi-seed diagnosis, repair, human glossy/Cornell acceptance remain pending. Older source shader provenance remains limited",
     "Fixed planar camera/MV/disocclusion, single-orbit and continuous reversal/settling high-sample numeric gates passed; cuts, moving objects, broader scenes/materials and general/subjective ghosting acceptance remain pending",
     "Healthy-device failure fallback is qualified for missing manifest and invalid final dispatch; memory-pressure/other initialization failures need broader qualification. Device loss and failures after recording starts remain fatal",
     "Live primary emissive composition and exact Unlit/background Native fallback passed the fixed opaque three-panel fixture; animated/textured and broader-scene stable-radiance acceptance remain pending",

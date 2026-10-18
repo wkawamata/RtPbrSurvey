@@ -3256,3 +3256,76 @@ No C++/HLSL edits, rebuild, threshold relaxation or default-on promotion occurre
 Next: isolate the failing reflection region's diffuse/specular signal, history
 length and composition before changing denoiser settings. Human glossy review,
 Cornell-specific evidence and broader temporal acceptance remain separate.
+
+### Step 10G: Glossy signal and history isolation
+
+Added Tests/PathTracing/isolate_nrd_glossy_bias.py. It validates the eighteen-capture
+evidence chain from Step 10F, reproduces the refined fixed-mask numeric verdict,
+and reuses the same two qualified 32768-spp references. A fresh seed-7 30-frame
+diagnostic cohort contains nineteen resources. The original albedo, Native/NRD
+color, admission and composition-classification images must reproduce bit-exactly.
+All captures require the original camera/geometry, map-MIS transport, one sample
+per frame, successful NRD recording and the exact uninterrupted history index.
+
+The independent CPU composition expression and stored-factor round-trip checks
+are reused. Additional checks require reconstruction/admission to preserve input
+radiance RGB and physical diffuse + physical specular + stable + background to
+reproduce current-frame radiance (16 float32 ULP + 1e-6). A second ten-resource
+cohort at 120 frames checks final composition again and remeasures the same
+reflection ROI; it does not move the ROI or change SDK settings.
+
+The report separates arithmetic validity from image quality. Both history
+checkpoints retain actual reference qualification, RMSE, mean bias and restored
+lobe/stable/background RGB means. No converged per-lobe truth is available from
+these instantaneous one-sample inputs, so the report cannot attribute a mean
+color error to a specific lobe or SDK stage solely from their current values.
+Longer history also changes the sample sequence and Native accumulated sample
+count, so this is an observation, not causal attribution or equal-ray/time work.
+
+Four new tests cover arithmetic/admission corruption, lobe decomposition and
+quality-failure retention, exact checkpoint/camera/transport rejection, and
+process-failure/timeout cleanup. All 137 NRD tests passed before acquisition.
+
+Source inspection: the adapter sets only hit-distance reconstruction OFF on
+default RelaxSettings; the pinned SDK defaults diffuse/specular linear-history
+caps to 30 frames (fast history 6). The 120-frame checkpoint leaves those caps
+unchanged and observes a later warm-up state, not a 120-frame linear window.
+An additional inventory test rejects missing/duplicate references, changed sample
+counts, reselection flags, source hashes and failures; all 138 tests passed while
+acquisition was running.
+
+Evidence: bin/PathTracingValidation/nrd-glossy-bias-isolation-20261018/report.json.
+All eighteen historical captures were revalidated; 29 fresh diagnostic captures
+completed with zero D3D12 errors, no execution failures and unchanged post-run
+artifact/fixture hashes. Status completed-diagnostic is not a quality acceptance.
+
+The five 30-frame baseline images reproduce exactly. CPU/GPU composition has
+zero maximum difference across the full frame. Stored-factor round-trip maximum
+errors are 5.960465e-8 (diffuse) and 1.192093e-7 (specular). Reconstruction and
+admission preserve radiance RGB exactly; the physical-lobe/stable/background
+sum differs from current-frame radiance by at most 2.384186e-7. There are 191,220
+composed pixels, with exact Native fallback on the remaining 1,882,380 pixels.
+
+| Seed 7 elapsed frames | Mean RGB-vector bias | NRD NRMSE | Native NRMSE | ROI disposition |
+| --- | --- | --- | --- | --- |
+| 30 | 8.305409% | 24.477725% | 35.115390% | Failed bias |
+| 120 | 5.410741% | 23.570250% | 23.114135% | Failed bias and RMSE |
+
+The fixed 792-pixel mirror-proxy ROI retains pair NRMSE 2.653268%, so both
+assessments are qualified. Stable and background radiance means are exactly zero
+in the ROI. Restored diffuse mean RGB changes from
+(0.000789993, 0.001417631, 0.001502587) to
+(0.000795497, 0.001445162, 0.001528700); restored specular changes from
+(0.001182579, 0.001603109, 0.000848059) to
+(0.001185066, 0.001696739, 0.000892528). There is no converged per-lobe target
+for assigning the residual error to either component.
+
+The observed bias decreases with longer warm-up but does not pass. At 120 frames
+NRD is also slightly worse in RMSE than the Native image accumulated for 120
+samples; the 30-frame comparison used 30 Native samples. This is not evidence of
+a worsening NRD trajectory: the Native comparator also improved. The audit rules
+out the tested conversion/admission/composition arithmetic mistakes in this
+fixture, not all signal semantics, temporal sampling effects or SDK behavior.
+Next is a fixed-mask multi-seed history study before tuning or attribution.
+No C++/HLSL change, rebuild, threshold relaxation or quality/default-on promotion
+was made.
