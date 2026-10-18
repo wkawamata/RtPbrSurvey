@@ -3348,3 +3348,82 @@ It does not erase the qualified 30/120-frame reflection ROI failures, establish
 moving-glossy/Cornell acceptance, identify a numeric root cause or promote NRD
 to Available/default-on. The next numeric task remains multi-seed fixed-ROI
 history comparison. The review application is left open for the user.
+
+### Step 10H: Fixed multi-seed glossy ROI study
+
+The user closed the manual review application before GPU acquisition. Added
+Tests/PathTracing/validate_nrd_glossy_seeds.py with predeclared candidate seeds
+7/101/307/701/1009, none equal the qualified Native reference seeds 11/29.
+All five streams use 30/120 elapsed-frame checkpoints, unchanged four-bounce
+map-MIS/Skybox conditions, SDK settings and all fourteen prior masks.
+
+The complete eighteen-capture refinement source chain is revalidated. Each of
+the ten seed/checkpoint combinations acquires Native color, NRD color and
+composition diagnostics, requiring successful NRD presentation, exact camera,
+runtime seed/sample/transport state and uninterrupted history index. Every ROI
+must use actual NRD composition rather than Native fallback. Seed 7/frame 30
+must exactly reproduce the three prior baseline images. No new high-sample
+references, renderer changes or settings tuning are included.
+
+The 140 measured seed/frame/ROI combinations must match the exact expected
+inventory, without duplicates or missing cases. Per-ROI verdicts are checked
+against numeric criteria; reference means/pair error must remain identical
+across seeds/checkpoints. Reported mean bias must agree with actual RGB vectors.
+Summaries include individual failure seeds, bias ranges, signed luminance error,
+all-channel darkening and ensemble mean RGB-vector bias. Averaging vectors before
+taking their magnitude differs from averaging bias magnitudes; the former can
+hide opposite-sign sample errors and never replaces per-seed verdicts.
+
+This is a descriptive five-stream study sharing one reference pair, not a formal
+significance/causality proof or broad quality guarantee. The 120-frame checkpoint
+retains the SDK default 30-frame linear-history cap; Native accumulation has
+30/120 samples. Human static visual acceptance remains separate. Execution status
+completed-seed-study is not itself a pass: qualityVerdict and exit code retain
+any sampled quality failures.
+
+Five new tests cover signed/ensemble statistics, exact inventory and forged RGB/
+flags/reference rejection, full NRD coverage/mask requirements, seed/camera/
+history/runtime matching and process-failure/timeout cleanup. All 143 NRD tests
+passed before acquisition.
+
+Evidence: bin/PathTracingValidation/nrd-glossy-seeds-20261018/report.json completed
+all 30 fresh captures, revalidating eighteen source records. D3D12 error count
+and execution-failure count are zero; post-run artifact/fixture/source hashes
+match. Seed 7/frame 30 exactly reproduces the original three-image baseline.
+All 140 reference qualifications pass; 111 ROI assessments pass and 29 fail.
+There are 65/70 passes at frame 30 and 46/70 at frame 120. Execution status is
+completed-seed-study, qualityVerdict failed-sampled-rois, exit 1.
+
+The fixed smooth dielectric mirror-proxy ROI (792 pixels, reference pair NRMSE
+2.653268%) yields:
+
+| Candidate seed | Mean RGB bias at 30 | Mean RGB bias at 120 |
+| --- | --- | --- |
+| 7 | 8.305409% | 5.410741% |
+| 101 | 6.523830% | 5.599948% |
+| 307 | 3.599054% | 7.282456% |
+| 701 | 6.851573% | 2.406798% |
+| 1009 | 11.538764% | 8.580870% |
+
+All five seeds have lower mean R, G and B than the shared reference at both
+checkpoints. Signed mean-luminance errors range from -12.152526% to -3.373085%
+at frame 30 and -8.948262% to -2.241073% at frame 120. Ensemble mean RGB-vector
+bias remains 7.338916%/5.830717%, above the unchanged 5% criterion. Four seeds
+fail bias at each checkpoint; seed 7 also fails RMSE at frame 120. This is a
+consistent direction across the sampled streams, with substantial magnitude
+variation, not evidence that only the original seed was unlucky. Shared finite
+reference uncertainty and the limited five-stream sample remain limitations;
+no root cause, formal statistical significance or general bias bound is claimed.
+
+The full inventory also retains a frame-30 smooth-metal mirror bias failure for
+seed 1009. At frame 120, all five seeds fail RMSE on smooth dielectric highlights
+and smooth metal highlights/borders; smooth metal dark fails for seeds 7/307,
+and smooth metal mirror RMSE fails for 7/101/307. The Native comparator improves
+from 30 to 120 accumulated samples while NRD keeps its default 30-frame linear
+history cap; these failures do not alone indicate that NRD worsened over time.
+They are not hidden by the focus-ROI summary or pooled statistics.
+
+Next inspect physical-lobe radiance and hit-distance/input semantics before
+filter tuning. The arithmetic audit and the three human static visual passes
+remain valid within their own scope. No renderer/SDK settings, thresholds or
+default-on policy were changed.

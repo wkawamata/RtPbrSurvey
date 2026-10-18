@@ -187,3 +187,59 @@ highlights, reflected spheres and dark regions (NRD-LIVE-07/08/09). Local result
 are in bin/PathTracingValidation/nrd-visual-20261018-133419-723/results.json.
 This fixed-scene subjective pass does not override the numeric ROI failures or
 accept moving reflections, Cornell-specific behavior or general scene quality.
+
+## Fixed multi-seed study
+
+```powershell
+python Tests/PathTracing/validate_nrd_glossy_seeds.py --source bin/PathTracingValidation/nrd-glossy-refined-20261018-fixed-camera --output bin/PathTracingValidation/nrd-glossy-seeds-new
+```
+
+The predeclared candidate seeds are 7, 101, 307, 701 and 1009, distinct from the
+Native reference seeds 11/29. Each seed uses 30 and 120 elapsed frames, with the
+same scene, camera, SDK settings and fourteen masks. Three resources per checkpoint
+(Native, NRD and composition diagnostics) produce 30 fresh captures and 140 ROI
+assessments. Seed 7 at frame 30 must reproduce the prior baseline bit-exactly.
+
+Each ROI retains its individual reference qualification, RMSE and bias verdict.
+Summaries require the exact seed/frame/ROI inventory and consistent measured RGB,
+not just successful counts or flags. They report which seeds fail bias/RMSE,
+signed luminance error and ensemble mean RGB-vector bias. This last quantity is
+the magnitude after averaging RGB across seeds, not the average magnitude of
+per-seed bias and not ensemble image RMSE. Opposite-sign errors may cancel there;
+no averaged pass overrides an individual failure.
+
+The study is descriptive, using five streams and one shared reference pair; it
+does not establish statistical significance, independent per-pixel observations,
+a causal SDK defect or general scene acceptance. The 120-frame checkpoint keeps
+the SDK default 30-frame linear-history cap. Native accumulates 30/120 samples,
+so this is not an equal-time/ray comparison. Existing human static acceptance is
+not rerun or revoked. Completed-seed-study describes execution only; inspect
+qualityVerdict separately. A sampled ROI failure returns exit 1 without inventing
+an execution failure.
+
+The 2026-10-18 run completed 30 captures with zero D3D12 errors. All 140 ROI
+assessments qualified their references: 111 passed and 29 failed (30 frames:
+65/70 passed; 120 frames: 46/70 passed). QualityVerdict is failed-sampled-rois;
+the execution-failure list is empty. Seed-7 baseline replay is exact.
+
+| Candidate seed | Reflection ROI bias, 30 frames | Reflection ROI bias, 120 frames |
+| --- | --- | --- |
+| 7 | 8.3054% | 5.4107% |
+| 101 | 6.5238% | 5.5999% |
+| 307 | 3.5991% | 7.2825% |
+| 701 | 6.8516% | 2.4068% |
+| 1009 | 11.5388% | 8.5809% |
+
+All five streams have lower ROI mean R/G/B than the reference at both checkpoints.
+Ensemble mean RGB-vector bias is 7.3389%/5.8307% at 30/120 frames, still above 5%.
+Four seeds fail the individual bias criterion at each checkpoint. This supports
+a repeatable darkening tendency in the sampled fixture, not a single-seed-only
+explanation, but does not establish a causal defect or statistical significance.
+
+Other failures remain visible: the smooth metal mirror ROI fails bias at frame
+30 for seed 1009. At frame 120, smooth dielectric highlights and smooth metal
+highlight/border ROIs fail RMSE for all five seeds; smooth metal dark/mirror ROIs
+fail RMSE for some seeds. These compare against Native accumulated for 120
+samples while SDK linear history remains capped at 30; they are not proof that
+NRD worsened over time. Next inspect input lobe/radiance/hit-distance semantics
+before changing SDK filtering settings. The separate human static pass stands.
