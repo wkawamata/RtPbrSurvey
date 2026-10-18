@@ -29,7 +29,7 @@ class VisualReviewTests(unittest.TestCase):
             capture_output=True, encoding='utf-8', errors='replace')
 
     def test_dry_run_never_writes_or_launches(self):
-        for scene in ('Disocclusion', 'StableRadiance'):
+        for scene in ('Disocclusion', 'StableRadiance', 'Glossy'):
             result = self.run_script('-DryRun', '-Scene', scene, '-InitialMode', 'Native')
             self.assertEqual(result.returncode, 0, result.stderr)
             manifest = json.loads(result.stdout)
@@ -39,6 +39,11 @@ class VisualReviewTests(unittest.TestCase):
             self.assertNotIn('-ExitAfterCapture', manifest['arguments'])
             self.assertNotIn('-CapturePath', manifest['arguments'])
             self.assertFalse(self.output.exists())
+            if scene == 'Glossy':
+                self.assertEqual(manifest['sceneId'], '16-nrd-glossy-reflections')
+                self.assertEqual(manifest['preset']['pathTracing']['maxBounces'], 4)
+                self.assertEqual(manifest['preset']['pathTracing']['environmentSamplingMode'], 7)
+                self.assertTrue(manifest['preset']['lighting']['skyboxEnabled'])
 
     def test_prepare_retains_unanswered_results_and_source(self):
         source = ROOT / 'Assets/Scene/PathTracingValidation/14-nrd-disocclusion/render-preset.json'
@@ -64,6 +69,21 @@ class VisualReviewTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         results = json.loads((self.output / 'results.json').read_text(encoding='utf-8'))
         self.assertEqual([case['id'] for case in results['cases']], ['NRD-LIVE-06'])
+
+    def test_glossy_prepares_only_its_unanswered_cases(self):
+        source = ROOT / 'Assets/Scene/PathTracingValidation/16-nrd-glossy-reflections/render-preset.json'
+        before = source.read_bytes()
+        result = self.run_script('-Scene', 'Glossy')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        results = json.loads((self.output / 'results.json').read_text(encoding='utf-8'))
+        self.assertEqual([case['id'] for case in results['cases']],
+            ['NRD-LIVE-07', 'NRD-LIVE-08', 'NRD-LIVE-09'])
+        self.assertTrue(all(case['result'] == 'unanswered' for case in results['cases']))
+        self.assertEqual(source.read_bytes(), before)
+        manifest = json.loads((self.output / 'session.json').read_text(encoding='utf-8'))
+        self.assertEqual(manifest['status'], 'prepared')
+        self.assertEqual(manifest['subjectiveVerdict'], 'unanswered')
+        self.assertNotIn('processId', manifest)
 
     def test_nonempty_output_is_not_overwritten(self):
         self.output.mkdir()

@@ -9,6 +9,9 @@
     {"id": "NRD-LIVE-03", "scene": "Disocclusion", "criterion": "移動方向の反転で、履歴が引きずられたり輪郭が二重になったりしない", "result": "unanswered", "notes": ""},
     {"id": "NRD-LIVE-04", "scene": "Disocclusion", "criterion": "停止後、ノイズが落ち着き、ちらつきや筋状の残像が長く残らない", "result": "unanswered", "notes": ""},
     {"id": "NRD-LIVE-05", "scene": "Disocclusion", "criterion": "NRD表示のON/OFFで停止・フリーズ・予期しない蓄積リセットが起きない", "result": "unanswered", "notes": ""},
-    {"id": "NRD-LIVE-06", "scene": "StableRadiance", "criterion": "左の発光色・中央のUnlit色・背景が、NRD ON/OFFで欠落・二重加算・色漏れを起こさない", "result": "unanswered", "notes": ""}
+    {"id": "NRD-LIVE-06", "scene": "StableRadiance", "criterion": "左の発光色・中央のUnlit色・背景が、NRD ON/OFFで欠落・二重加算・色漏れを起こさない", "result": "unanswered", "notes": ""},
+    {"id": "NRD-LIVE-07", "scene": "Glossy", "criterion": "静止した4球のハイライトが、NRD ON/OFFで過度にぼけたり形や色が不自然に変わったりしない", "result": "unanswered", "notes": ""},
+    {"id": "NRD-LIVE-08", "scene": "Glossy", "criterion": "滑らかな球に映る小さな球で、ノイズ低減と引き換えに輪郭・色・明るさが不自然に失われない", "result": "unanswered", "notes": ""},
+    {"id": "NRD-LIVE-09", "scene": "Glossy", "criterion": "静止した球の暗部に、NRD由来の光漏れ・不自然な色・黒つぶれがない", "result": "unanswered", "notes": ""}
   ]
 }

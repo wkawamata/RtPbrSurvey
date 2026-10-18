@@ -74,3 +74,36 @@ references, with the actual argument retained. No timing/performance claim is ma
 The source runner did not record shader hashes. Requalification records current
 compiled shader hashes for fresh references and explicitly retains that historical
 provenance limitation rather than retroactively certifying source shader hashes.
+
+## Local highlight and reflection ROIs
+
+```powershell
+python Tests/PathTracing/validate_nrd_glossy_rois.py --source bin/PathTracingValidation/nrd-glossy-requalified-20261018 --output bin/PathTracingValidation/nrd-glossy-rois-new
+.\Tests\PathTracing\Start-NrdVisualReview.ps1 -Scene Glossy -Launch
+```
+
+ROI analysis rerenders nothing. It revalidates the twelve original and four fresh
+reference records, including their hashes, runtime metadata and recomputed source
+aggregates. Selection uses only averaged depth-four reference brightness and
+scene geometry, never NRD error. Each material has highlight (top 5% luminance),
+dark (bottom 20%) and adjacent border (three four-neighbor dilation steps) masks.
+Both smooth materials additionally have ideal-mirror reflection proxy masks.
+These use analytic spheres, stride two and 80% target radius; they are not actual
+GGX sample paths or triangle-hit labels. Source albedo interiors exclude silhouettes.
+
+The fourteen ROIs each require at least 100 pixels, reference-pair NRMSE <= 3%,
+NRD RMSE <= Native RMSE and mean RGB-vector bias <= 5%. Dark or unconverged
+references are inconclusive. Generated mask PNGs and their hashes are retained.
+The contact sheet uses diagnostic exposure 8, Reinhard and sRGB; metrics use
+unmodified linear RGB, not this display transform.
+
+The 2026-10-18 run passed twelve ROIs. Smooth dielectric dark and mirror-proxy
+references did not qualify (pair NRMSE 3.7240% and 4.7736%). The latter's observed
+8.4158% mean bias exceeds the 5% quality limit, but the unconverged reference
+prevents either acceptance or a qualified regression verdict. Overall status is
+inconclusive-rois (exit 1), not execution failure. No limit was relaxed.
+
+The visual launcher creates three unanswered static-review items: highlights,
+reflected spheres and dark regions. It preserves four bounces, mode 7 and Skybox
+ON. Human review, Cornell-specific ROIs and temporal glossy behavior remain
+separate from this fixed-scene numeric evidence.

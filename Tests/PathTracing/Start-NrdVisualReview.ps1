@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Disocclusion', 'StableRadiance')]
+    [ValidateSet('Disocclusion', 'StableRadiance', 'Glossy')]
     [string]$Scene = 'Disocclusion',
     [ValidateSet('Nrd', 'Native')]
     [string]$InitialMode = 'Nrd',
@@ -25,7 +25,12 @@ if (-not (Test-Path -LiteralPath $ExecutablePath -PathType Leaf))
 {
     throw "Executable not found: $ExecutablePath"
 }
-$sceneDirectoryName = if ($Scene -eq 'Disocclusion') { '14-nrd-disocclusion' } else { '13-nrd-stable-radiance' }
+$sceneDirectoryName = switch ($Scene)
+{
+    'Disocclusion' { '14-nrd-disocclusion' }
+    'StableRadiance' { '13-nrd-stable-radiance' }
+    'Glossy' { '16-nrd-glossy-reflections' }
+}
 $sceneDirectory = Join-Path $root "Assets\Scene\PathTracingValidation\$sceneDirectoryName"
 $scenePath = Join-Path $sceneDirectory 'scene.json'
 $preset = Get-Content -LiteralPath (Join-Path $sceneDirectory 'render-preset.json') -Raw -Encoding UTF8 | ConvertFrom-Json

@@ -3148,3 +3148,51 @@ differences from eight, not a general scene-depth guarantee. Next acceptance
 work is isolated reflection/highlight ROIs and human glossy review; Cornell Box
 local black regions, motion and wider scene/material behavior remain outside
 this numeric pass. No C++/HLSL change, rebuild or default-on promotion is included.
+
+### Step 10E: Local glossy ROIs and reproducible human-review setup
+
+Added Tests/PathTracing/validate_nrd_glossy_rois.py. It revalidates the complete
+Step 10D provenance chain: twelve historical source records plus four fresh
+8192-spp reference records, exact commands/settings, capture/log/fixture hashes,
+current executable/compiled-shader identity and recomputed whole-material
+quality/depth aggregates. All sixteen captures are reused; this step performs
+zero fresh GPU executions and does not modify source evidence.
+
+ROI selection cannot inspect NRD output. Per material, reference luminance selects
+top-5% highlights and bottom-20% dark regions; three four-neighbor dilation steps
+select a highlight-adjacent border. Smooth materials also use an analytic
+ideal-mirror sphere-reflection proxy at stride two with target radii shrunk to
+80%. These proxy masks are not actual GGX paths or triangle-hit ground truth.
+Fourteen exact, unique ROI identities and numeric/flag consistency are required.
+Each requires 100 pixels, pair-reference NRMSE <= 3%, NRD RMSE <= Native RMSE and
+mean RGB-vector bias <= 5%; insufficient coverage or reference convergence is
+explicitly inconclusive. No threshold was relaxed after measurement.
+
+Evidence: bin/PathTracingValidation/nrd-glossy-rois-20261018/report.json.
+Twelve ROIs passed. Smooth dielectric dark (9,146 pixels) and mirror-proxy
+(792 pixels) are inconclusive-reference: pair NRMSE is 3.7240% and 4.7736%,
+respectively, exceeding 3%. Dark mean bias is 1.0779%. Mirror-proxy observed
+mean bias is 8.4158%, above the 5% quality limit, while NRD/Native NRMSE is
+24.2286%/35.0314%. This is a concern to investigate, not an accepted ROI or a
+qualified NRD failure while the reference remains unconverged. Overall status
+is inconclusive-rois, with no execution failures. Whole-material acceptance
+from Step 10D is unchanged; it cannot replace these local gates.
+
+Masks and hashes accompany a four-column Native/NRD/reference/mask contact sheet.
+It uses exposure 8, Reinhard and sRGB only for display; metrics remain linear.
+The image was checked for nonblank output and readable, aligned crops. This is
+not a human quality verdict. Historical shader-provenance limitations remain.
+
+Start-NrdVisualReview.ps1 now accepts -Scene Glossy, preserving the asset's
+four-bounce, map-importance-MIS and Skybox-ON settings. Three Japanese static
+review criteria cover highlights, reflected spheres and dark regions. Result
+templates remain unanswered; preparation or launch never implies visual success.
+The launcher defaults to prepare-only, and its tests verify the exact scene,
+transport settings, case inventory, source preservation and no implicit launch.
+Cornell-specific local reflections, motion and general integration remain pending.
+
+Validation: all 130 NRD Python tests passed, including six new ROI tests and
+Glossy launcher preparation coverage. A real prepare-only session was created at
+bin/PathTracingValidation/nrd-glossy-visual-20261018 with three unanswered results.
+No GUI application was launched, no human verdict was recorded, and no C++/HLSL
+change or rebuild was required.
