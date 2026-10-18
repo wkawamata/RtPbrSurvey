@@ -271,3 +271,51 @@ bias, but radius 5 is not a complete quality fix. Defaults remain 30/50 and NRD
 remains experimental/default-off. No new human acceptance is claimed. Next,
 isolate diffuse/specular physical contributions in the fixed reflection ROI to
 locate the remaining bias before further tuning or default changes.
+
+## Physical-lobe sensitivity attribution (2026-10-18)
+
+Runner: `Tests/PathTracing/attribute_nrd_prepass_lobes.py`.
+Accepted local report:
+`bin/PathTracingValidation/nrd-lobe-attribution-20261018-verified/report.json`.
+Status: `completed-lobe-sensitivity-attribution`; quality is not promoted.
+
+The diagnostic revalidated the original Control arithmetic/29 captures and the
+static bridge evidence, then evaluated 5/50 at seed 7 and frames 30/120. The
+accepted report includes ten newly captured frame-120 buffers and ten revalidated
+frame-30 buffers from the initial acquisition. Those ten had been fully acquired
+before an aggregation bug passed ten resources to a helper requiring exactly
+three. The initial attempt did not complete; the revised runner records its
+report hash and original runner hash, rechecks all reused commands/hashes/logs/
+metadata, and recomputes all assessments. No failed summary is trusted.
+
+The physical components are reconstructed using the captured material factors
+and admission masks, including inactive-lobe handling. Their sum is checked
+against the actual GPU composite; attribution requires actual NRD coverage in
+the fixed ROI and exact Native equality. All 14 ROI totals are also assessed.
+
+At the 792-pixel `dielectric-smooth/mirror-proxy` ROI:
+
+| Frame | Diffuse change in mean physical RGB (5/50 minus 30/50) | Specular maximum change | Maximum delta closure error |
+| --- | --- | --- | --- |
+| 30 | (2.960546e-5, 9.424768e-5, 6.684612e-5) | 0 | 4.423782e-9 |
+| 120 | (2.645709e-5, 1.067510e-4, 7.517842e-5) | 0 | 5.820766e-9 |
+
+Stable and background components are zero and unchanged in this ROI. Specular
+restoration is bit-identical per pixel. The output lift caused by reducing the
+diffuse pre-pass radius is therefore attributable to the diffuse component in
+this trial, not a changed specular contribution or composition arithmetic.
+D3D12 errors: 0. NRD Python regression tests: 154/154 passed.
+
+This is attribution of a setting-induced difference, NOT measurement of each
+lobe's absolute bias. Existing high-sample references contain total scene color,
+not independently converged per-lobe ground truth. The reflection-proxy mask is
+also not a specular-only image. Neither remaining error nor the complete previous
+bias can be assigned to diffuse from this experiment alone. No NRD limitation or
+integration bug is declared proven by this result.
+
+Next diagnostic: increase per-frame input sample quality in controlled steps,
+keeping camera, transport, guides and denoiser settings explicit. Determine
+whether the residual error follows input variance, then use paired low-noise
+signal/guide controls or converged per-lobe references where necessary. Keep the
+application acceptance gates separate from NRD's algorithmic expectations; the
+current 5%/Native-RMSE goals are not SDK guarantees. Defaults remain unchanged.
