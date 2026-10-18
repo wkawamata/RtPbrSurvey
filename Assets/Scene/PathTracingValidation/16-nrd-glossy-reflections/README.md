@@ -243,3 +243,11 @@ fail RMSE for some seeds. These compare against Native accumulated for 120
 samples while SDK linear history remains capped at 30; they are not proof that
 NRD worsened over time. Next inspect input lobe/radiance/hit-distance semantics
 before changing SDK filtering settings. The separate human static pass stands.
+
+The subsequent source audit found no concrete hard input-contract violation,
+without certifying distance/radiance correlation or optimal input statistics.
+See doc/branch/feature/nrd-relax-input-semantics-audit.md for the source map and
+limitations. Ten focused CTests and four hardware contract-kernel runs passed;
+no fresh scene-quality result or renderer change is implied. The next controlled
+experiment varies one pre-pass radius at a time, retaining defaults as the
+control and requiring a Native compatibility bridge if the executable changes.

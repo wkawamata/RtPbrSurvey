@@ -3427,3 +3427,37 @@ Next inspect physical-lobe radiance and hit-distance/input semantics before
 filter tuning. The arithmetic audit and the three human static visual passes
 remain valid within their own scope. No renderer/SDK settings, thresholds or
 default-on policy were changed.
+
+### Step 10I: Input-semantics source audit and contract-kernel reexecution
+
+Added doc/branch/feature/nrd-relax-input-semantics-audit.md with the pinned SDK
+requirements, producer/consumer source map, qualified conclusions and unresolved
+risks. No concrete hard contract violation was identified in the reviewed path;
+this does not establish optimal signal statistics or resolve the glossy bias.
+Separate salted distance RNG is the original Step 2G policy, not sufficient by
+itself to declare a bug or justify replacing both in-lobe guides with one Native
+mixture continuation. Primary physical split, geometric first-segment distances,
+miss/unavailable mapping, material factors and external reconstruction/admission
+were traced separately. The unbounded VNDF versus recommended VNDF-v3 distinction
+and unknown distance/radiance correlation remain explicit limitations.
+
+Fresh local evidence:
+bin/PathTracingValidation/nrd-input-semantics-audit-20261018/report.json.
+Focused CTest passed 10/10. Hardware sampler (28,672 samples, 1,539 expected
+below-surface cases, maximum direction error 8.62977e-6), eight RELAX packing
+cases, eight material-factor round-trips and eight guarded conversion cases all
+passed with no D3D12 errors. Exact commands, source/binary/CSO hashes and log hashes
+are retained. Existing Debug test programs/CSOs were reexecuted, not rebuilt;
+this is kernel-contract evidence, not a new scene capture or quality pass.
+All recorded artifacts matched their pre-run hashes after execution.
+
+The SDK checkout HEAD matches the pinned v4.17.3 commit. Physical-lobe Python
+tests passed 10/10 and NRD Python tests passed 143/143 after the audit.
+
+No runtime or shader changes were made. Next experiment is pre-pass sensitivity:
+control radii diffuse/specular 30/50, specular-only reduction 30/10 and diffuse-only
+reduction 5/50, with unchanged history/sampler/input split and fixed masks. A new
+binary requires fresh control and an explicit Native compatibility bridge or new
+references before old high-sample evidence is reused. Do not silently relax hash
+validation or defaults. The full five-seed history profile and off-focus ROI
+regressions remain required for any candidate improvement.
