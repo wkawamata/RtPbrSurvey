@@ -111,3 +111,16 @@ Capture-time arithmetic, admission coverage and deterministic reset checks remai
 required. A favorable diagnostic variant is not permission to change defaults;
 the existing local quality gates, broader temporal work and human acceptance
 remain separate.
+
+## Pre-pass experiment implementation status
+
+The SDK-neutral adapter accepts explicit diffuse/specular pre-pass radii at
+initialization. Defaults remain 30/50. Successful initialization exposes the
+applied values through its description; negative or nonfinite inputs fail and
+leave the adapter uninitialized. Zero is accepted for diagnostic use.
+
+Adapter tests cover both predeclared variants, changed SDK dispatch constants,
+invalid values in either field, and restoration of identical control constants
+after reinitialization. This is CPU planning coverage, not GPU quality evidence.
+CLI/runtime wiring, capture metadata, a separate experiment executable, the
+Native compatibility bridge, and the actual sensitivity captures remain pending.

@@ -104,6 +104,8 @@ int main()
                 "Uninitialized SDK accepted frame");
         Require(adapter.Initialize(error), error);
         const auto description = adapter.Description();
+        Require(description.prepass.diffuseRadius == 30.0f && description.prepass.specularRadius == 50.0f,
+                "Default prepass radii changed");
         Require(description.version == "4.17.3" && description.pipelines > 0 && description.permanentTextures > 0 &&
                     description.transientTextures > 0 && description.maximumConstantBytes > 0 &&
                     !description.embeddedDxil,
@@ -182,6 +184,46 @@ int main()
                 "Shutdown retained SDK state or invalidated owned plan");
         Require(adapter.Initialize(error), error);
         Require(adapter.Initialize(error), error);
+        std::vector<Engine::NrdSdkDispatch> control;
+        Require(adapter.PrepareFrame(frame, control, error), error);
+        for (const Engine::NrdPrepassSettings settings : {Engine::NrdPrepassSettings{30.0f, 10.0f},
+                                                        Engine::NrdPrepassSettings{5.0f, 50.0f}})
+        {
+            Require(adapter.Initialize(error, settings), error);
+            Require(adapter.Description().prepass.diffuseRadius == settings.diffuseRadius &&
+                        adapter.Description().prepass.specularRadius == settings.specularRadius,
+                    "Prepass description does not match applied settings");
+            Require(adapter.PrepareFrame(frame, plan, error), error);
+            Require(plan.size() == control.size(), "Prepass variant changed dispatch count");
+            bool changed = false;
+            for (size_t i = 0; i < plan.size(); ++i)
+            {
+                Require(plan[i].name == control[i].name && plan[i].pipelineIndex == control[i].pipelineIndex,
+                        "Prepass variant changed dispatch structure");
+                changed |= plan[i].constants != control[i].constants;
+            }
+            Require(changed, "Prepass settings did not reach SDK dispatch constants");
+        }
+        for (float invalid : {-1.0f, std::numeric_limits<float>::infinity(),
+                              std::numeric_limits<float>::quiet_NaN()})
+        {
+            for (bool diffuse : {false, true})
+            {
+                Engine::NrdPrepassSettings settings;
+                (diffuse ? settings.diffuseRadius : settings.specularRadius) = invalid;
+                Require(!adapter.Initialize(error, settings) && !error.empty() &&
+                            adapter.Description().pipelines == 0,
+                        "Invalid prepass settings retained an initialized SDK");
+            }
+        }
+        Require(adapter.Initialize(error, {0.0f, 0.0f}), error);
+        Require(adapter.Initialize(error), error);
+        Require(adapter.PrepareFrame(frame, plan, error), error);
+        Require(plan.size() == control.size(), "Default reinitialization changed dispatch count");
+        for (size_t i = 0; i < plan.size(); ++i)
+        {
+            Require(plan[i].constants == control[i].constants, "Default reinitialization retained variant settings");
+        }
         std::cout << "NRD " << description.version << ": pipelines=" << description.pipelines
                   << " permanent=" << description.permanentTextures << " transient=" << description.transientTextures
                   << " resetDispatches=" << resetPlan.size() << "; CPU planning passed, GPU denoising not enabled\n";

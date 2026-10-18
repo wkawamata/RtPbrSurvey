@@ -46,6 +46,12 @@ struct NrdSdkDispatch
     std::vector<uint8_t> constants;
 };
 
+struct NrdPrepassSettings
+{
+    float diffuseRadius = 30.0f;
+    float specularRadius = 50.0f;
+};
+
 struct NrdSdkDescription
 {
     std::string version;
@@ -54,6 +60,7 @@ struct NrdSdkDescription
     uint32_t transientTextures = 0;
     uint32_t maximumConstantBytes = 0;
     bool embeddedDxil = false;
+    NrdPrepassSettings prepass;
 };
 
 struct NrdSdkPipeline
@@ -102,7 +109,7 @@ public:
     ~NrdRelaxSdkAdapter();
     NrdRelaxSdkAdapter(const NrdRelaxSdkAdapter&) = delete;
     NrdRelaxSdkAdapter& operator=(const NrdRelaxSdkAdapter&) = delete;
-    bool Initialize(std::string& error);
+    bool Initialize(std::string& error, const NrdPrepassSettings& prepass = {});
     void Shutdown();
     const NrdSdkDescription& Description() const;
     const NrdSdkLayout& Layout() const;

@@ -106,10 +106,16 @@ struct NrdRelaxSdkAdapter::Impl
 NrdRelaxSdkAdapter::NrdRelaxSdkAdapter() = default;
 NrdRelaxSdkAdapter::~NrdRelaxSdkAdapter() = default;
 
-bool NrdRelaxSdkAdapter::Initialize(std::string& error)
+bool NrdRelaxSdkAdapter::Initialize(std::string& error, const NrdPrepassSettings& prepass)
 {
     Shutdown();
     error.clear();
+    if (!std::isfinite(prepass.diffuseRadius) || !std::isfinite(prepass.specularRadius) ||
+        prepass.diffuseRadius < 0.0f || prepass.specularRadius < 0.0f)
+    {
+        error = "NRD prepass radii must be finite and nonnegative.";
+        return false;
+    }
     const nrd::LibraryDesc* library = nrd::GetLibraryDesc();
     if (library == nullptr || library->versionMajor != 4 || library->versionMinor != 17 || library->versionBuild != 3 ||
         static_cast<uint32_t>(library->normalEncoding) != 4 || static_cast<uint32_t>(library->roughnessEncoding) != 1)
@@ -126,6 +132,8 @@ bool NrdRelaxSdkAdapter::Initialize(std::string& error)
         return false;
     }
     nrd::RelaxSettings settings;
+    settings.diffusePrepassBlurRadius = prepass.diffuseRadius;
+    settings.specularPrepassBlurRadius = prepass.specularRadius;
     settings.hitDistanceReconstructionMode = nrd::HitDistanceReconstructionMode::OFF;
     if (nrd::SetDenoiserSettings(*impl->instance, kRelaxIdentifier, &settings) != nrd::Result::SUCCESS)
     {
@@ -181,7 +189,8 @@ bool NrdRelaxSdkAdapter::Initialize(std::string& error)
                      description.permanentPoolSize,
                      description.transientPoolSize,
                      description.constantBufferMaxDataSize,
-                     false};
+                     false,
+                     prepass};
     for (uint32_t i = 0; i < description.pipelinesNum; ++i)
     {
         m_description.embeddedDxil |= description.pipelines[i].computeShaderDXIL.bytecode != nullptr;
