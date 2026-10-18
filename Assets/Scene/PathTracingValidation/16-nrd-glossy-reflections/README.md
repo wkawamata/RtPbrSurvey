@@ -51,3 +51,26 @@ failure without relaxing limits. Reports retain commands, hashes and metadata.
 This measures static image error, not every-frame stability, moving objects,
 camera cuts, perfect-mirror transport or human acceptance. It cannot establish
 general specular quality or change the experimental/default-off NRD policy.
+
+## Requalifying a complete 4096-spp depth run
+
+```powershell
+python Tests/PathTracing/requalify_nrd_glossy.py --source bin/PathTracingValidation/nrd-glossy-depth-20261018 --output bin/PathTracingValidation/nrd-glossy-requalified-new
+```
+
+The source must contain the exact twelve-capture depth suite. The loader verifies
+capture/log/fixture/helper/executable hashes, commands, runtime metadata, zero
+environment control and recomputed quality/depth aggregates. It rejects missing,
+duplicate, mismatched or changed evidence instead of trusting a status/count.
+Source scene/preset copies are used, not a later edited asset description.
+
+Only depth-four/eight references are recaptured at 8192 spp with seeds 11/29.
+Five candidate resources, the zero-environment control and the two 4096-spp
+depth-two references are historical reuse. Four/eight comparisons therefore use
+matching 8192-spp references; two-to-four remains a diagnostic comparison across
+different sample counts. VSync is disabled for these fresh fixed-sample static
+references, with the actual argument retained. No timing/performance claim is made.
+
+The source runner did not record shader hashes. Requalification records current
+compiled shader hashes for fresh references and explicitly retains that historical
+provenance limitation rather than retroactively certifying source shader hashes.

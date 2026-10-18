@@ -3089,3 +3089,62 @@ the fixture baseline, with general sufficiency and local reflection ROIs still
 unaccepted; a more converged smooth-dielectric reference is the next numeric gate.
 The Scene Editor description was refreshed after capture; render-affecting
 settings are retained in each report's hashed scene/preset copies.
+
+### Step 10D: More-converged references with source evidence revalidation
+
+Added Tests/PathTracing/requalify_nrd_glossy.py. It accepts the complete Step 10C
+4096-spp depth suite, not a loose collection of successful records. The source
+inventory must exactly match five candidates, zero-environment control and both
+seeds at all three depths. Capture/log/scene/preset hashes, helper/runner/executable
+identity, exact commands, runtime transport/sampling/depth state and projection
+are checked. Quality, environment control and depth aggregates are recomputed
+from source buffers and must match the reported values. Counts or pass flags
+alone cannot authorize reuse. Source files are never modified.
+
+Historical candidate/control/depth-two evidence is reused, while four fresh
+8192-spp references (depth 4/8, seeds 11/29) replace the old deeper references.
+The final report separates fresh records from reused records, records sample
+counts by depth and identifies all twelve source captures as revalidated, not
+rerendered. Only four/eight depths use the new matching 8192-spp count; the
+two-to-four difference remains an observational mixed-sample diagnostic.
+
+Fresh static references explicitly use -DisableVSync to avoid presentation waits;
+all sample, camera and transport conditions remain fixed and checked. No timing
+comparison is claimed. Current compiled shader hashes are recorded for fresh
+references; the older source suite lacked those hashes, and that limitation is
+preserved explicitly rather than inventing retrospective provenance.
+
+Four new tests cover exact inventory, hashes/runtime logs, reference depth/sample
+arguments with VSync override, source immutability and failure/timeout cleanup.
+All 123 NRD Python tests passed before acquisition. Quality, reference convergence
+and depth-agreement thresholds are unchanged. Default-off/experimental policy,
+Cornell local-reflection ROI and broader temporal/scene acceptance are unchanged.
+
+Evidence: bin/PathTracingValidation/nrd-glossy-requalified-20261018/report.json
+returned passed-static-glossy-fixture and passed-depth-agreement. All twelve
+historical source captures were revalidated; eight records are reused in the
+final comparison (five candidates, zero environment and two depth-two references).
+Four fresh 8192-spp references completed with zero D3D12 errors. Post-run hashes
+of the executable, requalification runner and recorded compiled shaders still
+matched the acquisition-start values. Historical shader provenance remains
+limited as stated above; no source run is relabeled as freshly executed.
+
+Each material has 45,729 interior pixels and 100% admitted NRD composition.
+All reference pairs at depths four/eight now meet the fixed 3% bound (maximum
+2.171116%). Maximum mean RGB bias is 3.045% (limit 5%); NRD RMSE is lower than
+the 30-sample Native candidate on every material.
+
+| Material | Four-Bounce NRD NRMSE | Native NRMSE | Four-to-Eight NRMSE |
+| --- | --- | --- | --- |
+| Dielectric rough | 4.028% | 20.319% | 0.143% |
+| Dielectric smooth | 22.665% | 25.014% | 0.044% |
+| Metal rough | 5.988% | 21.304% | 0.056% |
+| Metal smooth | 3.979% | 4.186% | 0.027% |
+
+The earlier 4096-spp source verdict stays inconclusive; its pending reference
+qualification is resolved only by this new 8192-spp report. No criterion was
+relaxed. Four remains the fixture baseline with small measured whole-material
+differences from eight, not a general scene-depth guarantee. Next acceptance
+work is isolated reflection/highlight ROIs and human glossy review; Cornell Box
+local black regions, motion and wider scene/material behavior remain outside
+this numeric pass. No C++/HLSL change, rebuild or default-on promotion is included.
