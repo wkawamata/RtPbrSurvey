@@ -96,6 +96,7 @@ struct SceneMaterial
     float emissiveScale = 1.0f;
     DirectX::XMFLOAT2 uvScale = {1.0f, 1.0f};
     DirectX::XMFLOAT2 uvOffset = {0.0f, 0.0f};
+    DirectX::XMFLOAT4 baseColorFactor = {1.0f, 1.0f, 1.0f, 1.0f};
 };
 
 struct SceneMesh

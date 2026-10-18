@@ -108,7 +108,7 @@ GBufferOutput PSMain(PSInput input)
 
     GBufferOutput output;
     float4 albedo = g_texture[mat.albedoTexIndex].Sample(g_sampler, materialUv);
-    output.albedo = float4(SrgbToLinear(albedo.rgb), albedo.a);
+    output.albedo = float4(SrgbToLinear(albedo.rgb) * mat.baseColorFactor.rgb, albedo.a * mat.baseColorFactor.a);
 
     float3 baseNormal = normalize(input.normal); // We should use the interpolated normal from vertex shader as the base normal for normal mapping, otherwise the normal map will not work correctly on flat surfaces.
     float3 mappedNormal = baseNormal;
