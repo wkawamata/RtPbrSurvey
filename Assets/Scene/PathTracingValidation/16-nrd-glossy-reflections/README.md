@@ -3,6 +3,10 @@
 Four opaque spheres use dielectric/metal crossed with roughness 0.6/0.1. Panel
 positions match scene 15. A bright procedural softbox over a dark background
 creates curved, high-contrast reflected features; no external assets are needed.
+The preset must use Environment Map / Importance MIS (mode 7) and Skybox ON.
+Constant White / MIS (mode 5) deliberately ignores environment-map illumination;
+Skybox OFF uses the fixed clear color for primary misses. These modes are useful
+for other tests but invalidate this fixture's requested illumination/control.
 
 ```powershell
 python Tests/PathTracing/validate_nrd_glossy_quality.py --output bin/PathTracingValidation/nrd-glossy-new

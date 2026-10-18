@@ -6,10 +6,21 @@ import numpy as np
 
 from validate_nrd_disocclusion import document_albedo
 from validate_nrd_glossy_quality import (FIXTURE, LIMITS, MATERIALS, RESOURCES,
-    assess_environment_control, assess_reflection, assess_scene, interior)
+    assess_environment_control, assess_reflection, assess_scene, check_preset, interior)
 
 
 class GlossyQualityTests(unittest.TestCase):
+    def test_preset_requires_actual_environment_and_background(self):
+        preset = json.loads((FIXTURE/'render-preset.json').read_text(encoding='utf-8'))
+        check_preset(preset)
+        for group, key, value in (('pathTracing', 'environmentSamplingMode', 5),
+                ('lighting', 'skyboxEnabled', False), ('pathTracing', 'environmentEnabled', False),
+                ('pathTracing', 'emissiveEnabled', True), ('pathTracing', 'directLightingEnabled', True)):
+            other = copy.deepcopy(preset)
+            other[group][key] = value
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                check_preset(other)
+
     def test_environment_control_is_required(self):
         meta = dict(resource='PathTracing.SceneColor', format=10, nrdPreviewRequested=False,
             nrdPresentation='Native PT', primarySampling='pixel-center', samplesPerFrame=1, sampleStartIndex=30)

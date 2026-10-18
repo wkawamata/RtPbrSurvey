@@ -22,6 +22,14 @@ LIMITS = dict(referencePairNrmse=.03, meanRgbBias=.05, nrdToNativeRmse=1.0,
     minimumContrast=2.0, minimumComposedFraction=.9, minimumPixels=100)
 
 
+def check_preset(preset):
+    lighting, pt = preset.get('lighting', {}), preset.get('pathTracing', {})
+    if (lighting.get('skyboxEnabled') is not True or pt.get('environmentSamplingMode') != 7 or
+            pt.get('environmentEnabled') is not True or pt.get('directLightingEnabled') is not False or
+            pt.get('emissiveEnabled') is not False):
+        raise ValueError('Glossy fixture requires environment-map importance MIS, Skybox ON and no other emitters')
+
+
 def interior(mask, radius=3):
     result = mask.copy()
     for _ in range(radius):
@@ -118,6 +126,7 @@ def assess_environment_control(meta, image):
 
 
 def environment_capture(output, scene, preset):
+    check_preset(preset)
     folder = output/'environment-control'
     scene, preset = copy.deepcopy(scene), copy.deepcopy(preset)
     for name in ('skyColor', 'groundColor', 'lightColor'):
@@ -162,7 +171,7 @@ def reference_capture(output, scene, preset, target, seed):
     if len(diagnostics) != 1:
         raise ValueError('Missing/duplicate reference diagnostics')
     meta, image = read_buffer(path)
-    check_reference(meta, diagnostics[0], target, seed)
+    check_reference(meta, diagnostics[0], target, seed, environment_mode=7)
     return image.astype(np.float32), dict(label=label, command=command, sha256=sha(path),
         logSha256=sha(log), sceneSha256=sha(scene_path), presetSha256=sha(preset_path),
         metadata=meta, diagnostics=diagnostics[0], d3d12Errors=0)
@@ -178,6 +187,7 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     for name in ('scene.json', 'render-preset.json'):
         shutil.copyfile(FIXTURE/name, output/name)
+    check_preset(json.loads((output/'render-preset.json').read_text(encoding='utf-8')))
     report = dict(schemaVersion=1, status='running', fullIntegrationReady=False, records=[], failures=[],
         executableSha256=sha(ROOT/'build/Debug/RtPbrSurvey.exe'), scriptSha256=sha(Path(__file__)),
         fixtureSha256={name: sha(output/name) for name in ('scene.json', 'render-preset.json')},

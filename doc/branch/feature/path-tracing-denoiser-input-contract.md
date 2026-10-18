@@ -2991,3 +2991,42 @@ not a confirmed NRD quality regression. Next work must verify the executed binar
 and trace scene environment application/resource binding before re-running static
 quality acceptance. Earlier fixed-fixture arithmetic/history evidence remains
 scoped to the actual executed buffers, not proof of intended environment values.
+
+### Step 10B correction: Use actual environment-map transport
+
+Root cause was the new test preset, not a broken renderer application/binding
+path. It copied environmentSamplingMode=5 (Constant White / MIS), for which
+SampleEnvironmentLighting deliberately returns environmentIntensity independent
+of direction/map contents. It also set skyboxEnabled=false, so SamplePrimaryMiss
+uses the fixed back-buffer clear color rather than the environment map. These
+choices explain identical direction variants and nonzero zero-environment output.
+Existing constant-white fixtures intentionally use these modes and are unchanged.
+
+Scene 16 now uses mode 7 (Environment Map / Importance MIS) and Skybox ON. The
+runner rejects a preset with constant-white transport, disabled environment,
+fixed-clear background or other emitters before capture. Reference validation has
+an explicit environment-mode argument, defaulting to 5 to preserve the existing
+white-fixture contract; glossy references must explicitly match 7. Tests prove
+that these contracts cannot accept each other's modes accidentally. All 116 NRD
+Python tests passed. No C++, HLSL, renderer behavior or binary rebuild is needed.
+
+The corrected run nrd-glossy-r4-20261018 passed the Native zero-environment
+control with maximum RGB exactly 0.0. This resolves the previous illumination
+qualification blocker without weakening the 1e-6 limit or quality criteria.
+
+The corrected full run returned inconclusive-reference, not a quality pass.
+All four materials had 45,729 interior pixels, 100% admitted composition and
+reference contrast above 2. All eight fresh captures had zero D3D12 errors.
+
+| Material | Pair NRMSE | NRD NRMSE | Native NRMSE | Mean RGB Bias |
+| --- | --- | --- | --- | --- |
+| Dielectric rough | 4.363% | 4.352% | 18.035% | 0.774% |
+| Dielectric smooth | 5.921% | 22.881% | 25.025% | 0.490% |
+| Metal rough | 5.052% | 6.346% | 20.791% | 2.763% |
+| Metal smooth | 0.912% | 3.821% | 3.904% | 0.592% |
+
+Only smooth metal meets reference qualification and all quality criteria; the
+other three remain unqualified despite their observed RMSE/bias checks. The
+next gate requires more converged independent Native references, not relaxed
+thresholds or a speculative renderer fix. Prior r1/r2/r3 illumination concerns
+are resolved as test-configuration errors, and their reports remain historical.

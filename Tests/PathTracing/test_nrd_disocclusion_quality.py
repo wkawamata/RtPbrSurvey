@@ -105,6 +105,16 @@ class DisocclusionQualityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             check_reference(other, diagnostics, target, 11)
 
+    def test_environment_map_reference_is_explicit_not_default(self):
+        target, diagnostics = self.reference()
+        diagnostics['environmentSamplingMode'] = 7
+        with self.assertRaises(ValueError):
+            check_reference(target, diagnostics, target, 11)
+        check_reference(target, diagnostics, target, 11, environment_mode=7)
+        diagnostics['environmentSamplingMode'] = 5
+        with self.assertRaises(ValueError):
+            check_reference(target, diagnostics, target, 11, environment_mode=7)
+
 
 if __name__ == '__main__':
     unittest.main()
