@@ -238,4 +238,65 @@ inline bool SliderFloat3WithControls(const char* label,
     return changed;
 }
 
+inline bool SliderFloat3AxisWithControls(const char* label,
+                                         float* v,
+                                         float v_min,
+                                         float v_max,
+                                         float delta,
+                                         const float* defaultValue,
+                                         const char* format = "%.3f",
+                                         ImGuiSliderFlags flags = 0,
+                                         const char* const axisLabels[3] = nullptr)
+{
+    static constexpr const char* defaultAxisLabels[3] = { "X", "Y", "Z" };
+    const char* const* axes = axisLabels ? axisLabels : defaultAxisLabels;
+    const float btnW = CalcButtonWidth(">");
+    const float totalButtons = btnW * 3.0f;
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float axisWidth = ImGui::CalcTextSize("X").x + style.ItemSpacing.x;
+    const float labelWidth = (std::max)(kMinControlLabelWidth, ImGui::CalcTextSize(label).x) + style.ItemSpacing.x;
+    const float sliderWidth = (std::max)(1.0f,
+        ImGui::GetContentRegionAvail().x - axisWidth - totalButtons - labelWidth);
+
+    bool changed = false;
+    ImGui::PushID(label);
+    for (int axis = 0; axis < 3; ++axis)
+    {
+        ImGui::PushID(axis);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(axes[axis]);
+        ImGui::SameLine(0.0f, style.ItemSpacing.x);
+
+        ImGui::PushItemWidth(sliderWidth);
+        changed |= ImGui::SliderFloat("##slider", &v[axis], v_min, v_max, format, flags);
+        ImGui::PopItemWidth();
+
+        ImGui::SameLine(0.0f, 0.0f);
+        if (ImGui::Button("<", ImVec2(btnW, 0.0f)))
+        {
+            v[axis] = std::clamp(v[axis] - delta, v_min, v_max);
+            changed = true;
+        }
+        ImGui::SameLine(0.0f, 0.0f);
+        if (ImGui::Button(">", ImVec2(btnW, 0.0f)))
+        {
+            v[axis] = std::clamp(v[axis] + delta, v_min, v_max);
+            changed = true;
+        }
+        ImGui::SameLine(0.0f, 0.0f);
+        if (ImGui::Button("|", ImVec2(btnW, 0.0f)))
+        {
+            v[axis] = defaultValue[axis];
+            changed = true;
+        }
+        if (axis == 0)
+            DrawSliderControlLabel(label);
+        ImGui::PopID();
+        if (axis < 2)
+            ImGui::NewLine();
+    }
+    ImGui::PopID();
+    return changed;
+}
+
 } // namespace ImGuiWidgets
