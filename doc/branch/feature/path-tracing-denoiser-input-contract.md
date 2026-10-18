@@ -3329,3 +3329,22 @@ fixture, not all signal semantics, temporal sampling effects or SDK behavior.
 Next is a fixed-mask multi-seed history study before tuning or attribution.
 No C++/HLSL change, rebuild, threshold relaxation or quality/default-on promotion
 was made.
+
+### Step 10G follow-up: Human static glossy acceptance
+
+On 2026-10-18 (Asia/Tokyo), the user explicitly reported all three Glossy review
+items as satisfactory: highlight shape/edges/color, reflected-sphere preservation
+and dark-region behavior (NRD-LIVE-07 through NRD-LIVE-09). This is user-reported
+live Native/NRD comparison, not an agent-observed or automated visual verdict.
+The local record is
+bin/PathTracingValidation/nrd-visual-20261018-133419-723/results.json, status pass.
+Its launch manifest retains the initial unanswered launch-time provenance.
+The source template remains unanswered, and generated session records are not
+committed. The unchanged Debug executable SHA256 is
+544bae9d785713849c77a971a60a5dc7586e4b41c1b10528833fb4544276ab67.
+
+This accepts the three static visual criteria for this four-sphere fixture only.
+It does not erase the qualified 30/120-frame reflection ROI failures, establish
+moving-glossy/Cornell acceptance, identify a numeric root cause or promote NRD
+to Available/default-on. The next numeric task remains multi-seed fixed-ROI
+history comparison. The review application is left open for the user.

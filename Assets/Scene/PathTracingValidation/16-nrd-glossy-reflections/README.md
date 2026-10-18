@@ -179,3 +179,11 @@ Stable/background radiance is zero inside the failing ROI. These observations
 exclude the audited arithmetic errors, not semantic input errors, sample/history
 sensitivity or SDK filtering as a root cause. Repeat fixed-ROI 30/120 comparisons
 with independent seeds before adjusting settings or calling the issue resolved.
+
+## Human static review
+
+On 2026-10-18 (Asia/Tokyo), the user accepted all three live visual criteria:
+highlights, reflected spheres and dark regions (NRD-LIVE-07/08/09). Local results
+are in bin/PathTracingValidation/nrd-visual-20261018-133419-723/results.json.
+This fixed-scene subjective pass does not override the numeric ROI failures or
+accept moving reflections, Cornell-specific behavior or general scene quality.
