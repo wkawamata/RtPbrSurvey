@@ -430,11 +430,12 @@ namespace RtPbrSurvey
 
     std::optional<ScreenshotResult> SceneRenderer::ConsumeScreenshotResult()
     {
-        if (const std::optional<std::uint64_t> requestId = m_captureSession.GetActiveRequestId())
-        {
-            return m_engine.ConsumeScreenshotResultExcept(*requestId);
-        }
-        return m_engine.ConsumeScreenshotResult();
+        return m_engine.ConsumeScreenshotResultExcept(m_captureSession.GetActiveRequestIds());
+    }
+
+    bool SceneRenderer::IsScreenshotCaptureIdle() const
+    {
+        return m_engine.IsScreenshotCaptureIdle();
     }
 
     bool SceneRenderer::StartCaptureSession(const CaptureSessionConfig& config, std::string& error)
@@ -444,7 +445,14 @@ namespace RtPbrSurvey
             error = "Screenshot capture is busy with a non-session request.";
             return false;
         }
-        return m_captureSession.Start(config, error);
+        if (!m_captureSession.Start(config, error, config.outputFormat == CaptureSessionOutputFormat::Mp4 ? 2 : 1)) return false;
+        if (m_captureSession.UsesMp4() && !m_engine.BeginMp4Session(error, config.region))
+        {
+            m_captureSession.Stop();
+            m_captureSession.FailFinalization(error);
+            return false;
+        }
+        return true;
     }
 
     void SceneRenderer::StopCaptureSession()
@@ -453,17 +461,28 @@ namespace RtPbrSurvey
         FinalizeCaptureSessionOutput();
     }
 
-    void SceneRenderer::UpdateCaptureSession(const CaptureSessionTiming& timing)
+    void SceneRenderer::UpdateCaptureSession(const CaptureSessionTiming& timing, bool allowFrameSubmission)
     {
-        m_captureSession.Update(timing);
-        if (const std::optional<ScreenshotRequest> request = m_captureSession.AcquireReadyRequest())
+        PollCaptureSession();
+        m_captureSession.Update(timing, allowFrameSubmission &&
+            (!m_captureSession.UsesMp4() || m_engine.CanAcceptMp4Capture()));
+        if (allowFrameSubmission)
         {
-            m_engine.RequestScreenshot(*request);
-            m_captureSession.MarkRequestAccepted();
+            if (const std::optional<ScreenshotRequest> request = m_captureSession.AcquireReadyRequest())
+            {
+                m_engine.RequestScreenshot(*request);
+                m_captureSession.MarkRequestAccepted();
+            }
         }
-        if (const std::optional<std::uint64_t> requestId = m_captureSession.GetActiveRequestId())
+        FinalizeCaptureSessionOutput();
+    }
+
+    void SceneRenderer::PollCaptureSession()
+    {
+        const std::vector<std::uint64_t> requestIds = m_captureSession.GetActiveRequestIds();
+        for (const std::uint64_t requestId : requestIds)
         {
-            if (const std::optional<ScreenshotResult> result = m_engine.ConsumeScreenshotResult(*requestId))
+            if (const std::optional<ScreenshotResult> result = m_engine.ConsumeScreenshotResult(requestId))
             {
                 m_captureSession.CompleteRequest(*result);
             }
@@ -473,18 +492,39 @@ namespace RtPbrSurvey
 
     void SceneRenderer::FinalizeCaptureSessionOutput()
     {
+        if (m_captureSession.UsesMp4())
+        {
+            const Engine::Mp4WorkerStatus encoder = m_engine.GetMp4WorkerStatus();
+            const Engine::ScreenshotReadbackPoolStatus readback = m_engine.GetMp4ReadbackStatus();
+            m_captureSession.SetEncoderDiagnostics({encoder.outstandingFrames, encoder.outstandingBytes,
+                encoder.lastAppendMilliseconds, encoder.maxAppendMilliseconds, encoder.finalizeMilliseconds,
+                readback.pendingFrames, readback.allocatedBytes, readback.allocations, readback.reuses});
+        }
         const CaptureSessionStatus& status = m_captureSession.GetStatus();
-        if (status.state == CaptureSessionState::Completed)
+        if (status.state == CaptureSessionState::Finalizing)
         {
             std::string error;
-            const bool succeeded = m_captureSession.UsesAnimatedGif() ? m_engine.FinalizeAnimatedGif(error) :
-                (m_captureSession.UsesMp4() ? m_engine.FinalizeMp4(error, m_captureSession.GetVideoEndTimestamp100ns()) : true);
+            bool completed = false;
+            if (!m_engine.PollFinalizeMp4(error, completed, m_captureSession.GetVideoEndTimestamp100ns()))
+            {
+                m_captureSession.FailFinalization("Video finalization failed: " + error);
+            }
+            else if (completed)
+            {
+                m_captureSession.CompleteFinalization();
+            }
+        }
+        else if (status.state == CaptureSessionState::Completed && !m_captureSession.UsesMp4())
+        {
+            std::string error;
+            const bool succeeded = m_captureSession.UsesAnimatedGif() ? m_engine.FinalizeAnimatedGif(error) : true;
             if (!succeeded)
             {
                 m_captureSession.FailFinalization("Video finalization failed: " + error);
             }
         }
-        else if (status.state == CaptureSessionState::Failed)
+        else if (status.state == CaptureSessionState::Failed ||
+                 (status.state == CaptureSessionState::Draining && !status.error.empty()))
         {
             if (m_captureSession.UsesAnimatedGif()) m_engine.AbortAnimatedGif();
             if (m_captureSession.UsesMp4()) m_engine.AbortMp4();
@@ -493,7 +533,9 @@ namespace RtPbrSurvey
 
     bool SceneRenderer::CanAdvanceCaptureSessionFixedStep() const
     {
-        return m_captureSession.CanAdvanceFixedStep();
+        return m_captureSession.CanAdvanceFixedStep() &&
+            (!m_captureSession.UsesMp4() || m_captureSession.GetStatus().state != CaptureSessionState::Recording ||
+             m_engine.CanAcceptMp4Capture());
     }
 
     const CaptureSessionStatus& SceneRenderer::GetCaptureSessionStatus() const

@@ -4,6 +4,8 @@
 #include "Renderer/AnimatedGifEncoder.h"
 #include "Runtime/CaptureSession.h"
 #include "Runtime/CaptureSessionUi.h"
+#include "Runtime/CaptureRequestGate.h"
+#include "Runtime/CaptureFrameClock.h"
 
 #include <array>
 #include <chrono>
@@ -132,6 +134,19 @@ bool TestMouseRegionInteraction()
     passed &= Check(!state.selectingRegion && state.regionHeight == 440,
                     "Escape cancels without changing the selected region");
     io.AddKeyEvent(ImGuiKey_Escape, false);
+    draw();
+    state.selectingRegion = true;
+    io.AddMousePosEvent(700, 500);
+    draw();
+    io.AddMouseButtonEvent(0, true);
+    draw();
+    io.AddMousePosEvent(900, 700);
+    draw();
+    io.AddMouseButtonEvent(0, false);
+    draw();
+    passed &= Check(!state.selectingRegion && state.regionX == 1400 && state.regionY == 1000 &&
+                        state.regionWidth == 200 && state.regionHeight == 200,
+                    "release beyond display bounds commits a clamped ROI");
     state.showRegionOverlay = false;
     draw();
     passed &= Check(ImGui::GetDrawData()->CmdListsCount == 0, "overlay toggle hides the selected region");
@@ -189,6 +204,58 @@ bool TestStableStopButton()
     io.AddMouseButtonEvent(0, false);
     const bool passed = Check(draw() == RtPbrSurvey::CaptureSessionUiAction::Stop,
                               "Stop retains its click target and ID when wrapped status changes");
+    ImGui::DestroyContext();
+    return passed;
+}
+
+bool TestStartButtonAvailability()
+{
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = ImVec2(800, 800);
+    io.DeltaTime = 1.0f / 60.0f;
+    unsigned char* pixels = nullptr;
+    int width = 0;
+    int height = 0;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+
+    RtPbrSurvey::CaptureSessionStatus status;
+    RtPbrSurvey::CaptureSessionUiState state;
+    ImVec2 startPosition;
+    const auto draw = [&status, &state, &startPosition](const char* startBlockedReason)
+    {
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
+        ImGui::SetNextWindowSize(ImVec2(440, 780));
+        ImGui::Begin("Capture start test", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+        const ImVec2 origin = ImGui::GetCursorScreenPos();
+        startPosition = ImVec2(origin.x + 5.0f, origin.y + ImGui::GetFrameHeight() * 0.5f);
+        const RtPbrSurvey::CaptureSessionUiAction action =
+            RtPbrSurvey::CaptureSessionUi::Draw(status, state, startBlockedReason);
+        ImGui::End();
+        ImGui::Render();
+        return action;
+    };
+    const auto clickStart = [&draw, &startPosition](const char* startBlockedReason)
+    {
+        draw(startBlockedReason);
+        ImGui::GetIO().AddMousePosEvent(startPosition.x, startPosition.y);
+        draw(startBlockedReason);
+        ImGui::GetIO().AddMouseButtonEvent(0, true);
+        draw(startBlockedReason);
+        ImGui::GetIO().AddMouseButtonEvent(0, false);
+        return draw(startBlockedReason);
+    };
+
+    bool passed = Check(clickStart(nullptr) == RtPbrSurvey::CaptureSessionUiAction::Start,
+                        "Start is available after a terminal capture status");
+    status.state = RtPbrSurvey::CaptureSessionState::Recording;
+    passed &= Check(clickStart(nullptr) == RtPbrSurvey::CaptureSessionUiAction::None,
+                    "Start is disabled while recording");
+    status.state = RtPbrSurvey::CaptureSessionState::Failed;
+    passed &= Check(clickStart("A screenshot request is still saving.") == RtPbrSurvey::CaptureSessionUiAction::None,
+                    "Start is disabled while the host capture gate is blocked");
     ImGui::DestroyContext();
     return passed;
 }
@@ -429,6 +496,10 @@ bool TestOutputFailureCompletesCleanup()
     passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Failed,
                     "output failure reaches failed after cleanup");
     passed &= Check(session.GetStatus().error == "write failed", "output failure is retained in status");
+    passed &= Check(session.Start(MakeConfig(RtPbrSurvey::CaptureSessionClock::RealTime), error),
+                    "a failed capture session can be started again");
+    passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Recording,
+                    "restart resets the terminal failure state");
     return passed;
 }
 
@@ -459,6 +530,35 @@ bool TestWarmupExcludedFromDuration()
     return passed;
 }
 
+bool TestRealtimeDurationAccountsFinalDrops()
+{
+    RtPbrSurvey::CaptureSessionConfig config = MakeConfig(RtPbrSurvey::CaptureSessionClock::RealTime);
+    config.frameLimit.reset();
+    config.durationSeconds = 1.0;
+    RtPbrSurvey::CaptureSession session;
+    std::string error;
+    bool passed = Check(session.Start(config, error), "real-time duration session starts");
+    session.Update({0, 0.0, 0.0});
+    const auto request = session.AcquireReadyRequest();
+    passed &= Check(request.has_value(), "duration session schedules its initial output");
+    session.MarkRequestAccepted();
+    session.Update({15, 0.25, 0.25});
+    const std::uint64_t dropsBeforeEnd = session.GetStatus().droppedFrameCount;
+    session.Update({60, 1.0, 1.0});
+    passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Draining,
+                    "duration limit drains accepted output");
+    passed &= Check(session.GetStatus().acceptedFrameCount + session.GetStatus().droppedFrameCount == 60 &&
+                        session.GetStatus().droppedFrameCount > dropsBeforeEnd,
+                    "duration end accounts every unaccepted real-time interval as dropped");
+    if (request)
+    {
+        session.CompleteRequest({request->path, true, {}, 1, 1, request->requestId});
+    }
+    passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Completed,
+                    "duration session completes after its accepted request drains");
+    return passed;
+}
+
 bool TestMismatchedResultDoesNotCompleteSession()
 {
     RtPbrSurvey::CaptureSession session;
@@ -476,13 +576,362 @@ bool TestMismatchedResultDoesNotCompleteSession()
                     "matching session token completes the request");
     return passed;
 }
+
+bool TestCaptureRequestGate()
+{
+    using RtPbrSurvey::CaptureRequestGate;
+    using RtPbrSurvey::PendingHostAction;
+
+    CaptureRequestGate gate;
+    bool previewPending = true;
+    CaptureRequestGate::Inputs previewInputs;
+    bool previewPassed = true;
+    for (int source = 0; source < 3; ++source)
+    {
+        previewInputs = {};
+        previewInputs.captureSessionActive = source == 0;
+        previewInputs.singleScreenshotInFlight = source == 1;
+        previewInputs.diagnosticCaptureInFlight = source == 2;
+        previewPending = true;
+        gate.Update(previewInputs);
+        previewPassed &= Check(!gate.TakePendingPreviewRebuild(previewPending, true) && previewPending,
+                               "preview remains pending while any capture output is in flight");
+        gate.Update({});
+        previewPassed &= Check(gate.TakePendingPreviewRebuild(previewPending, true) && !previewPending,
+                               "preview is consumed after capture output completes");
+        previewPassed &= Check(!gate.TakePendingPreviewRebuild(previewPending, true),
+                               "consumed preview is not retried, including after a rebuild failure");
+    }
+    previewPending = true;
+    gate.Update(previewInputs);
+    previewPassed &= Check(!gate.TakePendingPreviewRebuild(previewPending, false) && !previewPending,
+                           "leaving edit mode cancels the old document preview request");
+    gate.Update({});
+    if (!previewPassed)
+    {
+        return false;
+    }
+    std::string reason;
+    bool passed = Check(gate.CanStart(reason), "start is allowed when no capture work exists");
+
+    gate.Update({true, false, false, false, false});
+    passed &= Check(!gate.CanStart(reason) && reason == "A capture session is already active.",
+                    "start is refused while a capture session is active");
+    gate.Update({false, true, false, false, false});
+    passed &= Check(!gate.CanStart(reason) && reason == "A single screenshot request is still saving.",
+                    "start is refused while a single screenshot request is saving");
+    gate.Update({false, false, true, false, false});
+    passed &= Check(!gate.CanStart(reason) &&
+                        reason == "Capture session is unavailable while automated capture is pending.",
+                    "start is refused while an automated capture is pending");
+    gate.Update({false, false, false, true, false});
+    passed &= Check(!gate.CanStart(reason) && reason == "A diagnostic capture is still saving.",
+                    "start is refused while a diagnostic capture is saving");
+
+    // A completed or failed automation is not pending work, so a recorded host action is not
+    // blocked forever and a later request can start.
+    RtPbrSurvey::CaptureSessionStatus failedStatus;
+    failedStatus.state = RtPbrSurvey::CaptureSessionState::Failed;
+    passed &= Check(!RtPbrSurvey::CaptureSessionUi::IsActive(failedStatus),
+                    "failed state is not pending capture work");
+
+    gate.Update({true, false, false, false, false});
+    passed &= Check(gate.RequestPendingAction(PendingHostAction::SceneEditorReturnToTopMenu) ==
+                        PendingHostAction::SceneEditorReturnToTopMenu,
+                    "scene switch is recorded while capture work is pending");
+    passed &= Check(!gate.CanStart(reason) &&
+                        reason == "A pending exit or scene switch is waiting for capture output to complete.",
+                    "start is refused while a host action is pending");
+    passed &= Check(!gate.CanExecutePendingAction(),
+                    "pending action does not run while capture work is pending");
+    passed &= Check(gate.RequestPendingAction(PendingHostAction::CloseApplication) ==
+                        PendingHostAction::CloseApplication,
+                    "application close outranks the recorded scene switch");
+    passed &= Check(gate.RequestPendingAction(PendingHostAction::CloseRunningScene) ==
+                        PendingHostAction::CloseApplication,
+                    "a duplicate request keeps the higher priority action");
+    passed &= Check(gate.TakeResolvedAction() == PendingHostAction::None,
+                    "pending action still waits while capture work is pending");
+
+    // A confirmation decision must be resolved before the recorded action runs.
+    gate.Update({false, false, false, false, true});
+    passed &= Check(!gate.CanExecutePendingAction(), "pending action waits for the confirmation decision");
+    gate.Update({false, false, false, false, false});
+    passed &= Check(gate.TakeResolvedAction() == PendingHostAction::CloseApplication,
+                    "pending action runs once after capture output and the decision are resolved");
+    passed &= Check(gate.TakeResolvedAction() == PendingHostAction::None,
+                    "pending action is consumed once");
+    passed &= Check(gate.CanStart(reason), "start is allowed again after the pending action ran");
+
+    // Cancel releases the recorded action so editing continues.
+    gate.RequestPendingAction(PendingHostAction::SceneEditorLoadDocument);
+    gate.ClearPendingAction();
+    passed &= Check(gate.GetPendingAction() == PendingHostAction::None, "cancel releases the pending action");
+    return passed;
+}
+bool TestCaptureFrameClock()
+{
+    using namespace RtPbrSurvey;
+    CaptureFrameClock clock;
+    clock.Reset(CaptureSessionClock::FixedStep, 60);
+    bool passed = Check(clock.ChooseUpdateMode(CaptureSessionState::Recording, true, false) ==
+                            CaptureFrameUpdateMode::CapacityWait,
+                        "fixed recording waits before advancing a pose when output capacity is full");
+    for (CaptureFrameUpdateMode mode :
+         {CaptureFrameUpdateMode::Paused, CaptureFrameUpdateMode::CapacityWait, CaptureFrameUpdateMode::DrainOnly})
+    {
+        passed &= Check(clock.AdvanceSceneUpdate(mode, 100) == 0 && clock.MakeTiming(100).renderFrameIndex == 0 &&
+                            clock.GetSimulationSeconds() == 0,
+                        "polling, pause and drain do not advance the update clock");
+    }
+    passed &=
+        Check(clock.ChooseUpdateMode(CaptureSessionState::Delaying, true, false) == CaptureFrameUpdateMode::LiveScene,
+              "start delay keeps a live scene and is not driven by encoder capacity");
+    clock.AdvanceSceneUpdate(CaptureFrameUpdateMode::LiveScene, 2);
+    passed &= Check(clock.GetSimulationSeconds() == 0 && clock.MakeTiming(2).renderFrameIndex == 1,
+                    "delay scene updates do not consume fixed capture ticks");
+    for (std::uint64_t frame = 1; frame <= 1800; ++frame)
+    {
+        clock.AdvanceSceneUpdate(CaptureFrameUpdateMode::FixedCapture, 99);
+        passed &= Check(clock.GetSimulationSeconds() == static_cast<double>(frame) / 60,
+                        "fixed time is derived from the logical update index without accumulated drift");
+        clock.AdvanceSceneUpdate(CaptureFrameUpdateMode::CapacityWait, 99);
+    }
+    passed &=
+        Check(clock.ChooseUpdateMode(CaptureSessionState::Recording, false, true) == CaptureFrameUpdateMode::Paused,
+              "pause wins over available capture capacity");
+    for (CaptureSessionState state : {CaptureSessionState::Draining, CaptureSessionState::Finalizing})
+        passed &= Check(clock.ChooseUpdateMode(state, true, true) == CaptureFrameUpdateMode::DrainOnly,
+                        "fixed drain never advances scene simulation even with free capacity");
+    passed &=
+        Check(clock.ChooseUpdateMode(CaptureSessionState::Completed, true, false) == CaptureFrameUpdateMode::LiveScene,
+              "live updates resume after capture completes");
+    clock.Reset(CaptureSessionClock::RealTime, 30);
+    passed &=
+        Check(clock.ChooseUpdateMode(CaptureSessionState::Recording, true, false) == CaptureFrameUpdateMode::LiveScene,
+              "real-time scene updates stay independent of encoder capacity");
+    clock.AdvanceSceneUpdate(CaptureFrameUpdateMode::LiveScene, 0.25f);
+    clock.AdvanceSceneUpdate(CaptureFrameUpdateMode::LiveScene, 0.5f);
+    const CaptureSessionTiming timing = clock.MakeTiming(9);
+    passed &= Check(timing.realTimeSeconds == 9 && timing.simulationTimeSeconds == 0.75 && timing.renderFrameIndex == 2,
+                    "wall time, live simulation and qualifying update count remain separate");
+    return passed;
+}
+
+bool TestWarmupWithPresentationOnlyPolls()
+{
+    using namespace RtPbrSurvey;
+    CaptureFrameClock clock;
+    clock.Reset(CaptureSessionClock::FixedStep, 60);
+    CaptureSession session;
+    CaptureSessionConfig config = MakeConfig(CaptureSessionClock::FixedStep);
+    config.outputFormat = CaptureSessionOutputFormat::Mp4;
+    config.startDelayMilliseconds = 1000;
+    config.warmupFrames = 2;
+    std::string error;
+    bool passed = Check(session.Start(config, error, 2), "delayed fixed capture starts");
+    session.Update(clock.MakeTiming(0));
+    clock.AdvanceSceneUpdate(clock.ChooseUpdateMode(session.GetStatus().state, true, false), 0.5f);
+    session.Update(clock.MakeTiming(0.5));
+    session.Update(clock.MakeTiming(1));
+    passed &= Check(session.GetStatus().state == CaptureSessionState::Warmup,
+                    "wall-time delay can finish without a new scene update");
+    for (int poll = 0; poll < 100; ++poll)
+        session.Update(clock.MakeTiming(2 + poll));
+    passed &= Check(session.GetStatus().state == CaptureSessionState::Warmup && !session.AcquireReadyRequest(),
+                    "paused presentation/completion polls do not satisfy warmup");
+    for (int update = 0; update < 2; ++update)
+    {
+        clock.AdvanceSceneUpdate(clock.ChooseUpdateMode(session.GetStatus().state, true, true), 10);
+        session.Update(clock.MakeTiming(102 + update));
+    }
+    const auto first = session.AcquireReadyRequest();
+    if (!Check(first.has_value(), "two actual warmup updates produce the first capture"))
+        return false;
+    session.MarkRequestAccepted();
+    const CaptureSessionTiming beforeWait = clock.MakeTiming(104);
+    for (int poll = 0; poll < 100; ++poll)
+    {
+        clock.AdvanceSceneUpdate(clock.ChooseUpdateMode(session.GetStatus().state, true, false), 10);
+        session.Update(clock.MakeTiming(104 + poll), false);
+    }
+    passed &= Check(clock.MakeTiming(204).renderFrameIndex == beforeWait.renderFrameIndex &&
+                        clock.GetSimulationSeconds() == beforeWait.simulationTimeSeconds,
+                    "capacity wait freezes pose cadence and fixed capture time");
+    session.CompleteRequest({first->path, true, {}, 2, 2, first->requestId});
+    clock.AdvanceSceneUpdate(clock.ChooseUpdateMode(session.GetStatus().state, true, true), 10);
+    session.Update(clock.MakeTiming(204));
+    const auto second = session.AcquireReadyRequest();
+    if (!Check(second.has_value(), "capture resumes at the next logical time after capacity returns"))
+        return false;
+    session.MarkRequestAccepted();
+    passed &= Check(!session.CanAdvanceFixedStep(), "frame limit prevents an extra pose even when capacity is free");
+    session.CompleteRequest({second->path, true, {}, 2, 2, second->requestId});
+    const auto drainMode = clock.ChooseUpdateMode(session.GetStatus().state, true, true);
+    const double stoppedTime = clock.GetSimulationSeconds();
+    clock.AdvanceSceneUpdate(drainMode, 100);
+    passed &= Check(drainMode == CaptureFrameUpdateMode::DrainOnly && clock.GetSimulationSeconds() == stoppedTime,
+                    "finalize polling cannot consume another simulation update");
+    return passed;
+}
+bool TestIntegerClockCaptureCadence()
+{
+    using namespace RtPbrSurvey;
+    for (unsigned int fps : {24u, 30u, 60u, 120u, 240u})
+    {
+        for (bool durationLimit : {false, true})
+        {
+            CaptureFrameClock clock;
+            clock.Reset(CaptureSessionClock::FixedStep, fps);
+            CaptureSession session;
+            CaptureSessionConfig config = MakeConfig(CaptureSessionClock::FixedStep);
+            config.outputFormat = CaptureSessionOutputFormat::Mp4;
+            config.framesPerSecond = fps;
+            config.frameLimit = 1800;
+            if (durationLimit)
+            {
+                config.frameLimit.reset();
+                config.durationSeconds = 1800.0 / fps;
+            }
+            config.warmupFrames = 3;
+            std::string error;
+            if (!Check(session.Start(config, error), "integer cadence session starts"))
+                return false;
+            for (std::uint64_t update = 1; update <= 1803; ++update)
+            {
+                clock.AdvanceSceneUpdate(CaptureFrameUpdateMode::FixedCapture, 99);
+                session.Update(clock.MakeTiming(static_cast<double>(update)));
+                const auto request = session.AcquireReadyRequest();
+                if (!Check(request.has_value() == (update >= 4),
+                           "integer-derived timing must schedule each post-warmup tick without rounding skips"))
+                    return false;
+                if (request)
+                {
+                    session.MarkRequestAccepted();
+                    session.CompleteRequest({request->path, true, {}, 2, 2, request->requestId});
+                }
+            }
+            if (!Check(session.GetStatus().acceptedFrameCount == 1800 &&
+                           session.GetStatus().state == CaptureSessionState::Finalizing,
+                       "1800 integer-clock frames reach finalize without extra updates"))
+                return false;
+        }
+    }
+    return true;
+}
+bool TestPausedFixedCaptureStart()
+{
+    using namespace RtPbrSurvey;
+    bool passed = true;
+    for (unsigned int delay : {0u, 1000u})
+    {
+        CaptureSession session;
+        CaptureFrameClock clock;
+        clock.Reset(CaptureSessionClock::FixedStep, 30);
+        CaptureSessionConfig config = MakeConfig(CaptureSessionClock::FixedStep);
+        config.outputFormat = CaptureSessionOutputFormat::Mp4;
+        config.framesPerSecond = 30;
+        config.frameLimit.reset();
+        config.durationSeconds = 3.0 / 30;
+        config.startDelayMilliseconds = delay;
+        config.warmupFrames = 0;
+        std::string error;
+        passed &= Check(session.Start(config, error), "paused-start session starts");
+        for (unsigned int poll = 0; poll < 10; ++poll)
+        {
+            session.Update(clock.MakeTiming(poll), false);
+            passed &= Check(!session.AcquireReadyRequest(), "paused timing polls do not generate an output pose");
+        }
+        passed &= Check(session.GetStatus().state == CaptureSessionState::Recording,
+                        "wall-time delay can finish while the capture clock is paused");
+        for (unsigned int frame = 0; frame < 3; ++frame)
+        {
+            clock.AdvanceSceneUpdate(CaptureFrameUpdateMode::FixedCapture, 99);
+            session.Update(clock.MakeTiming(10 + frame));
+            const auto request = session.AcquireReadyRequest();
+            if (!Check(request.has_value(), "resume produces every duration-limited logical frame"))
+                return false;
+            session.MarkRequestAccepted();
+            session.CompleteRequest({request->path, true, {}, 2, 2, request->requestId});
+            session.Update(clock.MakeTiming(20 + frame), false);
+        }
+        passed &= Check(session.GetStatus().acceptedFrameCount == 3 &&
+                            session.GetStatus().state == CaptureSessionState::Finalizing,
+                        "paused start does not shorten the fixed-step media duration");
+    }
+    return passed;
+}
+bool TestCaptureOrbitCli()
+{
+    WCHAR executable[] = L"RtPbrSurvey.exe";
+    WCHAR flag[] = L"-CaptureSessionOrbitDegreesPerSecond";
+    WCHAR rate[] = L"-45";
+    WCHAR* argv[] = {executable, flag, rate};
+    auto options = Platform::ParseCommandLineOptions(argv, 3);
+    bool passed = Check(options.hasCaptureSessionOrbit && options.captureSessionEnabled &&
+                            options.captureSessionOrbitDegreesPerSecond == -45,
+                        "signed orbit rate is parsed");
+    options.captureSessionOutputDirectory = "Captures";
+    options.captureSessionBaseName = L"orbit";
+    options.captureSessionFrameLimit = 12;
+    RtPbrSurvey::CaptureSessionConfig config;
+    std::string error;
+    passed &= Check(!Platform::BuildCaptureSessionConfig(options, config, error), "orbit rejects real-time clock");
+    options.captureSessionFixedStep = true;
+    passed &= Check(Platform::BuildCaptureSessionConfig(options, config, error), "fixed orbit config is accepted");
+    options.reflectionOrbitFrames = 10;
+    passed &= Check(!Platform::BuildCaptureSessionConfig(options, config, error), "competing camera automation fails");
+    for (std::wstring invalid : {L"nan", L"inf", L"361", L"bad", L""})
+    {
+        WCHAR* invalidArgv[] = {executable, flag, invalid.data()};
+        bool rejected = false;
+        try
+        {
+            Platform::ParseCommandLineOptions(invalidArgv, 3);
+        }
+        catch (const std::invalid_argument&)
+        {
+            rejected = true;
+        }
+        passed &= Check(rejected, "invalid orbit rates fail explicitly");
+    }
+    return passed;
+}
+bool TestCaptureEncoderDelayCli()
+{
+    WCHAR executable[] = L"RtPbrSurvey.exe";
+    WCHAR flag[] = L"-CaptureSessionEncoderDelayMs";
+    WCHAR delay[] = L"100";
+    WCHAR* argv[] = {executable, flag, delay};
+    auto options = Platform::ParseCommandLineOptions(argv, 3);
+    bool passed = Check(options.captureSessionEnabled && options.captureSessionEncoderDelayMilliseconds == 100,
+                        "encoder delay CLI is explicit and bounded");
+    options.captureSessionOutputDirectory = "Captures";
+    options.captureSessionBaseName = L"delay";
+    options.captureSessionFrameLimit = 12;
+    RtPbrSurvey::CaptureSessionConfig config;
+    std::string error;
+    passed &=
+        Check(!Platform::BuildCaptureSessionConfig(options, config, error), "diagnostic delay rejects non-MP4 output");
+    options.captureSessionFormat = L"mp4";
+    passed &=
+        Check(Platform::BuildCaptureSessionConfig(options, config, error), "MP4 diagnostic delay config is accepted");
+    return passed;
+}
 } // namespace
 
 int main()
 {
-    return TestMouseRegionCoordinates() && TestMouseRegionInteraction() && TestStableOutputPath() && TestStableStopButton() && TestOutputOrderAndStopDrain() && TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
-                   TestValidationAndLegacyCli() && TestGifOutputPathDoesNotOverwrite() && TestGifMetadataEncoding() && TestOutputFailureCompletesCleanup() && TestWarmupExcludedFromDuration() &&
-                   TestMismatchedResultDoesNotCompleteSession() ?
-        0 :
-        1;
+    return TestMouseRegionCoordinates() && TestMouseRegionInteraction() && TestStableOutputPath() &&
+                   TestStableStopButton() && TestStartButtonAvailability() && TestOutputOrderAndStopDrain() &&
+                   TestOutputNumbering() && TestRealTimeDropAndFixedStepBackpressure() &&
+                   TestValidationAndLegacyCli() && TestGifOutputPathDoesNotOverwrite() && TestGifMetadataEncoding() &&
+                   TestOutputFailureCompletesCleanup() && TestWarmupExcludedFromDuration() &&
+                   TestRealtimeDurationAccountsFinalDrops() &&
+                   TestMismatchedResultDoesNotCompleteSession() && TestCaptureRequestGate() &&
+                   TestCaptureFrameClock() && TestWarmupWithPresentationOnlyPolls() &&
+                   TestIntegerClockCaptureCadence() && TestPausedFixedCaptureStart() && TestCaptureOrbitCli() &&
+                   TestCaptureEncoderDelayCli()
+               ? 0
+               : 1;
 }

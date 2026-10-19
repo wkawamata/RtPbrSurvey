@@ -23,9 +23,18 @@ struct ScreenshotReadback
     bool hdr10 = false;
     float paperWhiteNits = 300.0f;
     std::string diagnosticMetadata;
+    std::uint64_t allocationCount = 0;
 
     bool IsValid() const;
     void Reset();
+};
+
+struct ScreenshotReadbackPoolStatus
+{
+    std::size_t pendingFrames = 0;
+    std::size_t allocatedBytes = 0;
+    std::uint64_t allocations = 0;
+    std::uint64_t reuses = 0;
 };
 
 void RecordScreenshotCapture(ID3D12GraphicsCommandList* commandList,

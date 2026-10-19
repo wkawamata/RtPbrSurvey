@@ -1,9 +1,44 @@
 import unittest
-from measure_performance import cases, percentile, parse_timing_log, make_fixture
+from unittest.mock import patch
+import subprocess
+from measure_performance import cases, percentile, parse_timing_log, make_fixture, validate_isolation
+from measure_performance import other_renderers, HIDDEN_PROCESS
+from assess_performance import assess
 from summarize_performance import telemetry_summary
 
 
 class PerformanceTests(unittest.TestCase):
+    def test_isolation_helper_is_hidden_and_excludes_owned_process(self):
+        result = subprocess.CompletedProcess([], 0, stdout='[{"Id":123,"Path":"owned.exe"},{"Id":456,"Path":"other.exe"}]')
+        with patch("measure_performance.subprocess.run", return_value=result) as run:
+            self.assertEqual(other_renderers(123), [dict(Id=456, Path="other.exe")])
+            self.assertEqual(run.call_args.kwargs["creationflags"], HIDDEN_PROCESS)
+
+    def test_other_renderer_rejected(self):
+        validate_isolation([])
+        with self.assertRaises(RuntimeError):
+            validate_isolation([dict(Id=123, Path="other-work.exe")])
+
+    def test_stability_and_incomplete_cohorts(self):
+        report = dict(status="complete", failures=[], repeats=3, warmupObservations=64,
+                      measurementObservations=64, cases=[dict(name="baseline", width=10, height=10,
+                      samplesPerFrame=1)], runs=[dict(case="baseline", repeat=index, values=[1.0] * 64)
+                      for index in range(3)])
+        self.assertEqual(assess(report)["status"], "accepted")
+        report["runs"][2]["values"] = [2.0] * 64
+        result = assess(report)
+        self.assertEqual(result["status"], "inconclusive")
+        self.assertIsNone(result["cases"][0]["acceptedTimeRatioToBaseline"])
+        report["status"] = "running"
+        with self.assertRaises(ValueError):
+            assess(report)
+
+    def test_unstable_tail_rejected(self):
+        report = dict(status="complete", failures=[], repeats=3, warmupObservations=64,
+                      measurementObservations=64, cases=[dict(name="baseline", width=10, height=10,
+                      samplesPerFrame=1)], runs=[dict(case="baseline", repeat=index,
+                      values=[1.0] * 56 + [3.0] * 8) for index in range(3)])
+        self.assertEqual(assess(report)["status"], "inconclusive")
     def test_one_factor_at_a_time(self):
         matrix = cases()
         for case in matrix[1:]:

@@ -14,6 +14,8 @@ struct Material
     float2 uvScale;
     float2 uvOffset;
     float4 baseColorFactor;
+    float3 emissiveFactor;
+    float normalTextureScale;
 };
 
 static const uint MaterialFlagUnlit = 1u << 0;

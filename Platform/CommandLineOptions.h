@@ -76,9 +76,13 @@ struct CommandLineOptions
     std::filesystem::path renderPresetPath;
     bool useSceneDefaults = false;
     bool enablePathTracing = false;
+    bool disableVSync = false;
     UINT pathTracingSampleTarget = 0;
+    std::filesystem::path pathTracingHistoryValidationDirectory;
     bool hasPathTracingRandomSeed = false;
     UINT pathTracingRandomSeed = 1;
+    bool hasPathTracingObjectMotion = false;
+    float pathTracingObjectMotionX = 0.0f;
     UINT pathTracingEnvironmentMode = 0;
     bool hasPathTracingEnvironmentMode = false;
     bool enableDlssSr = false;
@@ -99,6 +103,9 @@ struct CommandLineOptions
     UINT captureSessionFrameLimit = 0;
     UINT captureSessionWarmupFrames = 0;
     bool captureSessionFixedStep = false;
+    bool hasCaptureSessionOrbit = false;
+    double captureSessionOrbitDegreesPerSecond = 0.0;
+    UINT captureSessionEncoderDelayMilliseconds = 0;
     bool hasCaptureSessionRoi = false;
     UINT captureSessionRoiX = 0;
     UINT captureSessionRoiY = 0;

@@ -37,7 +37,7 @@
 #include "Renderer/PipelineFactory.h"
 #include "Renderer/AccelerationStructureResources.h"
 #include "Renderer/AnimatedGifEncoder.h"
-#include "Renderer/Mp4Encoder.h"
+#include "Renderer/Mp4EncoderWorker.h"
 #include "Renderer/RayQueryShadowPass.h"
 #include "Renderer/SpecularDebugRayQueryPass.h"
 #include "Renderer/RayQueryTlasDebugPass.h"
@@ -64,6 +64,7 @@
 #include "Renderer/StreamlineAdapter.h"
 #include "Renderer/ToneMap.h"
 #include "Scene/Scene.h"
+#include "Scene/EmissiveTriangleTable.h"
 #include "Shared/Screenshot.h"
 #include "TextureSemantic.h"
 #include "WorkMeter.h"
@@ -278,11 +279,12 @@ public:
     {
         bool accumulate = true;
         UINT samplesPerFrame = 1;
-        UINT maxBounces = 2;
+        UINT maxBounces = 8;
         UINT randomSeed = 1;
         bool directLightingEnabled = true;
         bool environmentEnabled = true;
         UINT environmentSamplingMode = 0;
+        UINT emissiveSamplingMode = 0;
         bool emissiveEnabled = true;
         bool russianRouletteEnabled = false;
         PathTracingDebugOutput debugOutput = PathTracingDebugOutput::Radiance;
@@ -314,6 +316,8 @@ public:
 
     struct PathTracingDiagnostics
     {
+        UINT emissiveTriangleCount = 0;
+        std::string emissiveTableStatus;
         bool gpuTimingAvailable = false;
         float gpuTimeMs = 0.0f;
         uint64_t primarySamplesPerFrame = 0;
@@ -375,6 +379,7 @@ public:
     void Initialize(UINT width, UINT height);
     void RenderFrame(const UiRenderHandler& uiRenderHandler);
     void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
+    void SetVSyncEnabled(bool enabled) { m_vSyncEnabled = enabled; }
     void Shutdown();
     void SetScene(const Scene& scene);
     void SetCamera(const CameraState& camera);
@@ -465,10 +470,17 @@ public:
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult();
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult(std::uint64_t requestId);
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResultExcept(std::uint64_t requestId);
+    std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResultExcept(const std::vector<std::uint64_t>& requestIds);
     bool IsScreenshotCaptureIdle() const;
     bool FinalizeAnimatedGif(std::string& error);
     void AbortAnimatedGif();
-    bool FinalizeMp4(std::string& error, std::optional<std::uint64_t> endTimestamp100ns = std::nullopt);
+    bool BeginMp4Session(std::string& error, const std::optional<RtPbrSurvey::ScreenshotRegion>& region = std::nullopt);
+    bool CanAcceptMp4Capture() const;
+    Engine::ScreenshotReadbackPoolStatus GetMp4ReadbackStatus() const;
+    Engine::Mp4WorkerStatus GetMp4WorkerStatus() const { return m_mp4Encoder.GetStatus(); }
+    bool SetMp4DiagnosticAppendDelay(unsigned int milliseconds) { return m_mp4Encoder.SetDiagnosticAppendDelay(milliseconds); }
+    bool PollFinalizeMp4(std::string& error, bool& completed,
+                         std::optional<std::uint64_t> endTimestamp100ns = std::nullopt);
     void AbortMp4();
     void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
     void RequestPixelPick(int screenX, int screenY);
@@ -787,6 +799,9 @@ private:
     {
         ComPtr<ID3D12CommandAllocator> commandAllocator;
         ComPtr<ID3D12Resource> instanceBuffer;
+        ComPtr<ID3D12Resource> emissiveTriangleBuffer;
+        UINT emissiveTriangleCapacity = 0;
+        uint64_t emissiveTriangleVersion = 0;
         DescriptorAllocation instanceBufferSrv;
         InstanceData* pSrvDataBegin = nullptr;
         ComPtr<ID3D12Resource> tlasInstanceBuffer;
@@ -984,6 +999,7 @@ private:
 
     // Pipeline objects.
     GraphicsDevice& m_graphicsDevice;
+    bool m_vSyncEnabled = true;
     UINT m_width = 0;
     UINT m_height = 0;
     UINT m_renderWidth = 0;
@@ -1169,11 +1185,20 @@ private:
         RtPbrSurvey::ScreenshotRequest request;
         Engine::ScreenshotReadback readback;
         UINT64 fenceValue = 0;
+        UINT64 sequence = 0;
+        bool active = false;
+        bool detached = false;
     };
     Engine::ScreenshotRequestQueue m_screenshotRequestQueue;
-    std::optional<PendingScreenshotCapture> m_pendingScreenshotCapture;
+    std::array<PendingScreenshotCapture, 2> m_screenshotCaptures;
+    UINT64 m_screenshotCaptureSequence = 0;
+    UINT64 m_mp4ReadbackAllocations = 0;
+    UINT64 m_mp4ReadbackReuses = 0;
     Engine::AnimatedGifEncoder m_animatedGifEncoder;
-    Engine::Mp4Encoder m_mp4Encoder;
+    Engine::Mp4EncoderWorker m_mp4Encoder;
+    std::size_t m_mp4CaptureFrameBytes = 0;
+    UINT m_mp4OutputWidth = 0;
+    UINT m_mp4OutputHeight = 0;
 
     // Pixel pick (Ctrl+Click to inspect reflection vector)
     bool m_pixelPickRequested = false;
@@ -1220,6 +1245,12 @@ private:
     ComPtr<ID3D12Resource> m_indexBuffer;
     D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
     ComPtr<ID3D12Resource> m_meshRangeBuffer;
+    std::vector<Engine::EmissiveTriangleGpu> m_emissiveTriangles;
+    std::vector<InstanceData> m_emissiveSourceInstances;
+    std::vector<Engine::SceneMaterial> m_emissiveSourceMaterials;
+    const Engine::SceneMesh* m_emissiveSourceMesh = nullptr;
+    uint64_t m_emissiveTriangleVersion = 0;
+    std::string m_emissiveTableStatus = "not-built";
     std::vector<Engine::SceneMesh::Range> m_sceneMeshRanges;
     std::vector<Engine::AccelerationStructureGeometry> m_accelerationStructureGeometries;
     mutable std::vector<Engine::SceneGeometryInstanceDraw> m_sceneGeometryDraws;
@@ -1538,6 +1569,7 @@ private:
     void PrepareSceneInstanceData();
     void CreateSceneMaterialResources();
     void CreateInstanceBuffers();
+    void UpdateEmissiveTriangleBuffer();
     void BuildAccelerationStructures();
     void RebuildAccelerationStructures();
     void ReleaseSceneResources();

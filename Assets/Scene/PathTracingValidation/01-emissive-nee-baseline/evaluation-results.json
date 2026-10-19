@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "evaluationDate": "2026-10-04",
+  "status": "passed",
+  "scene": "scene.json",
+  "modes": [
+    "BSDF-only",
+    "NEE-only"
+  ],
+  "samples": 64,
+  "seeds": [
+    11,
+    23,
+    37,
+    53
+  ],
+  "gpuDriver": "NVIDIA GeForce RTX 2080 Ti, 616.56",
+  "reference": {
+    "mean": 0.05572488850287086,
+    "rgb": [
+      0.09552838029063576,
+      0.04776419014531788,
+      0.02388209507265894
+    ],
+    "orders": [
+      64,
+      128
+    ],
+    "spatialSamples": 9,
+    "quadratureRelativeChange": 3.552713678800501e-15,
+    "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+  },
+  "agreements": {
+    "0": {
+      "status": "passed",
+      "measuredMean": 0.05554222204376913,
+      "relativeDifference": 0.0032780049275885625,
+      "fourStandardErrorRelative": 0.010605987240355007,
+      "reference": {
+        "mean": 0.05572488850287086,
+        "rgb": [
+          0.09552838029063576,
+          0.04776419014531788,
+          0.02388209507265894
+        ],
+        "orders": [
+          64,
+          128
+        ],
+        "spatialSamples": 9,
+        "quadratureRelativeChange": 3.552713678800501e-15,
+        "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+      }
+    },
+    "1": {
+      "status": "passed",
+      "measuredMean": 0.0556517462479178,
+      "relativeDifference": 0.0013125599156523782,
+      "fourStandardErrorRelative": 0.0006571887696676531,
+      "reference": {
+        "mean": 0.05572488850287086,
+        "rgb": [
+          0.09552838029063576,
+          0.04776419014531788,
+          0.02388209507265894
+        ],
+        "orders": [
+          64,
+          128
+        ],
+        "spatialSamples": 9,
+        "quadratureRelativeChange": 3.552713678800501e-15,
+        "limitation": "Nine representative ROI positions; opaque one-sided constant emitter, two-bounce path limit."
+      }
+    }
+  },
+  "controls": {
+    "blocked": [
+      {
+        "mode": 0,
+        "maximum": 0
+      },
+      {
+        "mode": 1,
+        "maximum": 0
+      }
+    ],
+    "oneBounceMaximum": 0,
+    "primary": [
+      {
+        "mode": 0,
+        "maximumError": 4.649162292924558e-7
+      },
+      {
+        "mode": 1,
+        "maximumError": 4.649162292924558e-7
+      }
+    ],
+    "offMaximum": 0
+  },
+  "d3d12ErrorAndCorruptionCount": 0,
+  "evidenceDocument": "../../../../doc/branch/feature/path-tracing-validation-results/completion-step-5-emissive-nee-summary.json",
+  "limitations": [
+    "Not MIS; only opaque one-sided constant-area emission validated in this campaign.",
+    "Shadow-off/empty-table fallback and texture/multiple-emitter/back-face/beyond-endpoint controls require expanded validation."
+  ]
+}

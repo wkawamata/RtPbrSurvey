@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-10",
+  "workspace": "C:/work/RtPbrSurvey-work-3",
+  "branch": "codex/pt-correctness-completion",
+  "exeSha256": "a49186c9154b24feb4a7d81f89cc5ef592d9fc798e6b366ec5ee5da219df7940",
+  "build": "Debug x64 MSBuild passed; zero warnings/errors",
+  "pythonTests": {"passed": 120, "total": 120},
+  "contract": {
+    "rawReport": "bin/PathTracingValidation/completion-step8-guide-contract-20261010/report.json",
+    "passed": true,
+    "captures": 7,
+    "checksPassed": 14,
+    "hitPixels": 85892,
+    "missPixels": 1987708,
+    "sampleStartIndex": 30,
+    "signalPartitionMaxError": 0.001922607421875,
+    "signalPartitionBound": "0.002 * max(abs(frame radiance),1) + 1e-5",
+    "d3d12Errors": 0
+  },
+  "independentPrimaryRegression": {
+    "rawReport": "bin/PathTracingValidation/completion-step8-primary-regression-20261010/report.json",
+    "captures": 4,
+    "accepted": 4,
+    "normalMaxError": 0.00048828125,
+    "viewZMaxError": 0.00000476837158203125,
+    "albedoMaxError": 0.00044505178256870614,
+    "materialMismatchCount": 0,
+    "motionMaxError": 0.00003070533774107709,
+    "motionFixedThresholdPassed": false,
+    "motionFormatBoundPassed": true,
+    "motionMaxBoundNormalizedError": 0.5387091022642836
+  },
+  "denoiserReady": false,
+  "limitations": [
+    "Static roughness fixture, one sample/frame, emission disabled for signal partition",
+    "Signal identity is consistency validation, not independent estimator validation",
+    "Raw primary hitT is not backend-normalized or secondary diffuse/specular distance",
+    "Normal-mapped, animated/skinned and multisample-boundary guide correctness remain unverified",
+    "No NRD or DLSS RR backend connected"
+  ]
+}

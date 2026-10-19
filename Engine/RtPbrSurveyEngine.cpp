@@ -133,6 +133,7 @@ bool CameraStatesEqual(const Engine::CameraState& left, const Engine::CameraStat
         left.gazePoint.x == right.gazePoint.x && left.gazePoint.y == right.gazePoint.y &&
         left.gazePoint.z == right.gazePoint.z && left.up.x == right.up.x && left.up.y == right.up.y &&
         left.up.z == right.up.z && left.projection == right.projection && left.fov == right.fov &&
+        left.lensShiftX == right.lensShiftX && left.lensShiftY == right.lensShiftY &&
         left.orthographicHeight == right.orthographicHeight && left.nearZ == right.nearZ &&
         left.farZ == right.farZ;
 }
@@ -216,11 +217,14 @@ static_assert(offsetof(Engine::InstanceData, meshId) == 132,
               "CPU and HLSL InstanceData meshId layouts must match.");
 static_assert(sizeof(Engine::SceneMesh::Range) == 16,
               "Hybrid reflection reads SceneMesh::Range as four uint values.");
-static_assert(sizeof(Engine::Material) == 76, "Material.hlsli must match Engine::Material structured buffer layout.");
+static_assert(sizeof(Engine::Material) == 92, "Material.hlsli must match Engine::Material structured buffer layout.");
 static_assert(offsetof(Engine::Material, baseColorFactor) == 60,
               "CPU and HLSL base color factor offsets must match.");
 static_assert(offsetof(Engine::Material, uvScale) == 44, "Material UV scale offset must match Material.hlsli.");
 static_assert(offsetof(Engine::Material, uvOffset) == 52, "Material UV offset must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, baseColorFactor) == 60, "Material color factor must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, emissiveFactor) == 76, "Material emissive factor must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, normalTextureScale) == 88, "Material normal scale must match Material.hlsli.");
 
 const wchar_t* EnvironmentSourceName(Engine::EnvironmentSource source)
 {
@@ -528,12 +532,14 @@ std::wstring RtPbrSurveyEngine::GetShaderFullPath(LPCWSTR shaderName)
 
 RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
 {
-    const PathTracingDiagnostics pathTracingDiagnostics =
+    PathTracingDiagnostics pathTracingDiagnostics =
         BuildPathTracingDiagnostics(m_completedGpuWorkMeterCheckPoints,
                                     m_renderWidth,
                                     m_renderHeight,
                                     m_pathTracingSettings,
                                     m_shadowSettings.enabled && m_lightingParams.directLightEnabled);
+    pathTracingDiagnostics.emissiveTriangleCount = static_cast<UINT>(m_emissiveTriangles.size());
+    pathTracingDiagnostics.emissiveTableStatus = m_emissiveTableStatus;
     return {static_cast<int>(m_currentFrameIndex),
             m_cpuFrameTime,
             m_renderWidth,
@@ -654,21 +660,24 @@ void RtPbrSurveyEngine::SetRayReconstructionSettings(const Engine::RayReconstruc
 
 void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settings)
 {
+    PathTracingSettings validated = settings;
+    validated.environmentSamplingMode = (std::min)(validated.environmentSamplingMode, 7u);
+    validated.emissiveSamplingMode = (std::min)(validated.emissiveSamplingMode, 2u);
+    validated.samplesPerFrame = (std::clamp)(validated.samplesPerFrame, 1u, 16u);
+    validated.maxBounces = (std::clamp)(validated.maxBounces, 1u, 16u);
     const bool changed =
-        m_pathTracingSettings.accumulate != settings.accumulate ||
-        m_pathTracingSettings.maxBounces != settings.maxBounces ||
-        m_pathTracingSettings.randomSeed != settings.randomSeed ||
-        m_pathTracingSettings.directLightingEnabled != settings.directLightingEnabled ||
-        m_pathTracingSettings.environmentEnabled != settings.environmentEnabled ||
-        m_pathTracingSettings.environmentSamplingMode != settings.environmentSamplingMode ||
-        m_pathTracingSettings.emissiveEnabled != settings.emissiveEnabled ||
-        m_pathTracingSettings.russianRouletteEnabled != settings.russianRouletteEnabled ||
-        m_pathTracingSettings.debugOutput != settings.debugOutput;
+        m_pathTracingSettings.accumulate != validated.accumulate ||
+        m_pathTracingSettings.maxBounces != validated.maxBounces ||
+        m_pathTracingSettings.randomSeed != validated.randomSeed ||
+        m_pathTracingSettings.directLightingEnabled != validated.directLightingEnabled ||
+        m_pathTracingSettings.environmentEnabled != validated.environmentEnabled ||
+        m_pathTracingSettings.environmentSamplingMode != validated.environmentSamplingMode ||
+        m_pathTracingSettings.emissiveSamplingMode != validated.emissiveSamplingMode ||
+        m_pathTracingSettings.emissiveEnabled != validated.emissiveEnabled ||
+        m_pathTracingSettings.russianRouletteEnabled != validated.russianRouletteEnabled ||
+        m_pathTracingSettings.debugOutput != validated.debugOutput;
 
-    m_pathTracingSettings = settings;
-    m_pathTracingSettings.environmentSamplingMode = (std::min)(settings.environmentSamplingMode, 7u);
-    m_pathTracingSettings.samplesPerFrame = (std::clamp)(m_pathTracingSettings.samplesPerFrame, 1u, 16u);
-    m_pathTracingSettings.maxBounces = (std::clamp)(m_pathTracingSettings.maxBounces, 1u, 16u);
+    m_pathTracingSettings = validated;
     if (changed)
     {
         InvalidatePathTracingHistory(PathTracingResetReason::Settings);
@@ -1062,6 +1071,12 @@ void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
     ReleaseSceneResources();
     SetScene(scene);
     InvalidatePathTracingHistory(PathTracingResetReason::Scene);
+    // Empty editor documents have no GPU geometry until a visible mesh is added.
+    if (scene.mesh == nullptr || scene.mesh->vertices.empty())
+    {
+        m_displayInstanceCount = 0;
+        return;
+    }
     m_displayInstanceCount = previousDisplayInstanceCount > 0 ?
         std::clamp(previousDisplayInstanceCount, 0, sceneInstanceCount) :
         sceneInstanceCount;
@@ -1304,6 +1319,8 @@ std::optional<Engine::ReflectionHdrDiagnosticFrame> RtPbrSurveyEngine::ConsumeRe
 
 void RtPbrSurveyEngine::RequestScreenshot(RtPbrSurvey::ScreenshotRequest request)
 {
+    const std::uint64_t requestId = request.requestId;
+    bool reserved = false;
     try
     {
         if (request.path.empty())
@@ -1321,10 +1338,22 @@ void RtPbrSurveyEngine::RequestScreenshot(RtPbrSurvey::ScreenshotRequest request
             m_screenshotRequestQueue.AddResult(std::move(result));
             return;
         }
+        if (request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+        {
+            std::string error;
+            if (!m_mp4Encoder.ReserveFrame(requestId, m_mp4CaptureFrameBytes, error))
+            {
+                m_screenshotRequestQueue.AddResult({request.path, false, error, 0, 0, requestId});
+                return;
+            }
+            reserved = true;
+        }
         m_screenshotRequestQueue.Enqueue(std::move(request));
     }
     catch (const std::exception& exception)
     {
+        if (reserved)
+            m_mp4Encoder.CancelReservation(requestId);
         RtPbrSurvey::ScreenshotResult result = {request.path, false, exception.what()};
         result.requestId = request.requestId;
         m_screenshotRequestQueue.AddResult(std::move(result));
@@ -1354,6 +1383,13 @@ bool RtPbrSurveyEngine::IsScreenshotCaptureIdle() const
     return m_screenshotRequestQueue.IsIdle();
 }
 
+std::optional<RtPbrSurvey::ScreenshotResult> RtPbrSurveyEngine::ConsumeScreenshotResultExcept(
+    const std::vector<std::uint64_t>& requestIds)
+{
+    ProcessCompletedScreenshot();
+    return m_screenshotRequestQueue.ConsumeResultExcept(requestIds);
+}
+
 bool RtPbrSurveyEngine::FinalizeAnimatedGif(std::string& error)
 {
     return m_animatedGifEncoder.Finalize(error);
@@ -1364,14 +1400,74 @@ void RtPbrSurveyEngine::AbortAnimatedGif()
     m_animatedGifEncoder.Reset();
 }
 
-bool RtPbrSurveyEngine::FinalizeMp4(std::string& error, std::optional<std::uint64_t> endTimestamp100ns)
+bool RtPbrSurveyEngine::BeginMp4Session(std::string& error, const std::optional<RtPbrSurvey::ScreenshotRegion>& region)
 {
-    return m_mp4Encoder.Finalize(error, endTimestamp100ns);
+    if (!IsScreenshotCaptureIdle())
+    {
+        error = "Screenshot pipeline must drain before starting an MP4 session.";
+        return false;
+    }
+    const UINT width = region ? region->width : m_width;
+    const UINT height = region ? region->height : m_height;
+    const std::size_t bytes = static_cast<std::size_t>(width) * height * 4;
+    if (!Engine::IsScreenshotRegionValid(m_width, m_height, region) || width > 16384 || height > 16384 ||
+        !m_mp4Encoder.CanFitFrame(bytes))
+    {
+        error = "MP4 capture dimensions or ROI exceed the output or encoder memory budget.";
+        return false;
+    }
+    m_mp4CaptureFrameBytes = bytes;
+    m_mp4OutputWidth = m_width;
+    m_mp4OutputHeight = m_height;
+    if (!m_mp4Encoder.BeginSession(error))
+        return false;
+    for (PendingScreenshotCapture& capture : m_screenshotCaptures)
+        capture.readback.Reset();
+    m_mp4ReadbackAllocations = 0;
+    m_mp4ReadbackReuses = 0;
+    return true;
+}
+
+Engine::ScreenshotReadbackPoolStatus RtPbrSurveyEngine::GetMp4ReadbackStatus() const
+{
+    Engine::ScreenshotReadbackPoolStatus status;
+    status.allocations = m_mp4ReadbackAllocations;
+    status.reuses = m_mp4ReadbackReuses;
+    for (const PendingScreenshotCapture& capture : m_screenshotCaptures)
+    {
+        if (capture.active && capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+            ++status.pendingFrames;
+        if (capture.readback.resource)
+            status.allocatedBytes += static_cast<std::size_t>(capture.readback.resource->GetDesc().Width);
+    }
+    return status;
+}
+
+bool RtPbrSurveyEngine::CanAcceptMp4Capture() const
+{
+    if (!m_screenshotRequestQueue.IsSubmissionIdle() ||
+        std::all_of(m_screenshotCaptures.begin(),
+                    m_screenshotCaptures.end(),
+                    [](const PendingScreenshotCapture& capture) { return capture.active; }))
+        return false;
+    // A resize is reported by the next request rather than leaving a session waiting forever.
+    return m_width != m_mp4OutputWidth || m_height != m_mp4OutputHeight ||
+           m_mp4Encoder.CanAcceptFrame(m_mp4CaptureFrameBytes);
+}
+
+bool RtPbrSurveyEngine::PollFinalizeMp4(std::string& error, bool& completed,
+                                      std::optional<std::uint64_t> endTimestamp100ns)
+{
+    m_mp4Encoder.RequestFinalize(endTimestamp100ns);
+    const Engine::Mp4WorkerStatus status = m_mp4Encoder.GetStatus();
+    completed = status.state == Engine::Mp4WorkerState::Completed || status.state == Engine::Mp4WorkerState::Failed;
+    error = status.error;
+    return status.state != Engine::Mp4WorkerState::Failed;
 }
 
 void RtPbrSurveyEngine::AbortMp4()
 {
-    m_mp4Encoder.Reset();
+    m_mp4Encoder.RequestAbort();
 }
 
 void RtPbrSurveyEngine::RequestPixelPick(int screenX, int screenY)
@@ -2555,7 +2651,7 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     CD3DX12_DESCRIPTOR_RANGE1 lightCbvRange = {};
     lightCbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 2, 0);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[19] = {};
+    CD3DX12_ROOT_PARAMETER1 rootParameters[20] = {};
     rootParameters[0].InitAsDescriptorTable(1, &sceneColorUavRange);
     rootParameters[1].InitAsDescriptorTable(1, &accumulationUavRange);
     rootParameters[2].InitAsDescriptorTable(1, &normalRoughnessUavRange);
@@ -2573,8 +2669,9 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     rootParameters[14].InitAsDescriptorTable(1, &textureSrvRange);
     rootParameters[15].InitAsShaderResourceView(5, 0);
     rootParameters[16].InitAsDescriptorTable(1, &environmentSrvRange);
-    rootParameters[17].InitAsConstants(32, 1, 0);
+    rootParameters[17].InitAsConstants(36, 1, 0);
     rootParameters[18].InitAsDescriptorTable(1, &lightCbvRange);
+    rootParameters[19].InitAsShaderResourceView(7, 0);
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -2932,6 +3029,7 @@ void RtPbrSurveyEngine::CreateInitialCommandList()
 
 void RtPbrSurveyEngine::CreateSceneGeometryBuffers()
 {
+    m_emissiveSourceMesh = nullptr;
     assert(m_scene.mesh != nullptr);
     const Engine::SceneMesh& mesh = *m_scene.mesh;
     assert(!mesh.vertices.empty());
@@ -3005,6 +3103,7 @@ void RtPbrSurveyEngine::CreateSceneGeometryBuffers()
 
 void RtPbrSurveyEngine::CreateSceneTextureResources(std::vector<ComPtr<ID3D12Resource>>& textureUploadHeap)
 {
+    m_emissiveSourceMesh = nullptr;
     assert(m_scene.mesh != nullptr);
     const Engine::SceneMesh& mesh = *m_scene.mesh;
 
@@ -3108,6 +3207,7 @@ void RtPbrSurveyEngine::PrepareSceneInstanceData()
 
 void RtPbrSurveyEngine::CreateSceneMaterialResources()
 {
+    m_emissiveSourceMesh = nullptr;
     assert(m_scene.mesh != nullptr);
     const Engine::SceneMesh& mesh = *m_scene.mesh;
 
@@ -3135,6 +3235,15 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
         m.occlusionStrength = 1.0f;
         m.ambientOcclusionFactor = 1.0f;
         m.emissiveScale = 1.0f;
+        for (float& channel : m.baseColorFactor)
+        {
+            channel = 1.0f;
+        }
+        for (float& channel : m.emissiveFactor)
+        {
+            channel = 1.0f;
+        }
+        m.normalTextureScale = 1.0f;
         m.flags = 0;
         m.uvScale[0] = 1.0f;
         m.uvScale[1] = 1.0f;
@@ -3165,6 +3274,14 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
                 m.occlusionStrength = gltfMaterial.occlusionStrength;
                 m.ambientOcclusionFactor = gltfMaterial.ambientOcclusionFactor;
                 m.emissiveScale = gltfMaterial.emissiveTexIndex >= 0 ? gltfMaterial.emissiveScale : 0.0f;
+                m.baseColorFactor[0] = gltfMaterial.baseColorFactor.x;
+                m.baseColorFactor[1] = gltfMaterial.baseColorFactor.y;
+                m.baseColorFactor[2] = gltfMaterial.baseColorFactor.z;
+                m.baseColorFactor[3] = gltfMaterial.baseColorFactor.w;
+                m.emissiveFactor[0] = gltfMaterial.emissiveFactor.x;
+                m.emissiveFactor[1] = gltfMaterial.emissiveFactor.y;
+                m.emissiveFactor[2] = gltfMaterial.emissiveFactor.z;
+                m.normalTextureScale = gltfMaterial.normalTextureScale;
                 m.uvScale[0] = gltfMaterial.uvScale.x;
                 m.uvScale[1] = gltfMaterial.uvScale.y;
                 m.uvOffset[0] = gltfMaterial.uvOffset.x;
@@ -3180,6 +3297,105 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
     }
 
     m_materialBuffer.Create(m_graphicsDevice.Device(), m_descriptorHeapAllocator, m_materialData);
+}
+
+void RtPbrSurveyEngine::UpdateEmissiveTriangleBuffer()
+{
+    const size_t instanceCount = (std::min)(m_scene.instances.size(),
+        static_cast<size_t>((std::min)(GetVisibleCubeCount(), kMaxInstanceCount)));
+    const Engine::SceneMesh* mesh = m_scene.mesh;
+    std::vector<Engine::SceneMaterial> effectiveMaterials = mesh != nullptr ?
+        mesh->materials : std::vector<Engine::SceneMaterial>{};
+    for (size_t index = 0; index < effectiveMaterials.size(); ++index)
+    {
+        if (index >= m_materialData.size() || (m_materialData[index].flags & Engine::kMaterialFlagUnlit) != 0)
+        {
+            effectiveMaterials[index].emissiveScale = 0.0f;
+            continue;
+        }
+        effectiveMaterials[index].emissiveScale = m_materialData[index].emissiveScale;
+        effectiveMaterials[index].emissiveFactor = {m_materialData[index].emissiveFactor[0],
+            m_materialData[index].emissiveFactor[1], m_materialData[index].emissiveFactor[2]};
+    }
+    bool changed = m_emissiveTriangleVersion == 0 || mesh != m_emissiveSourceMesh ||
+        instanceCount != m_emissiveSourceInstances.size() ||
+        (mesh != nullptr && mesh->materials.size() != m_emissiveSourceMaterials.size());
+    if (!changed)
+    {
+        for (size_t index = 0; index < instanceCount; ++index)
+        {
+            const InstanceData& current = m_scene.instances[index];
+            const InstanceData& previous = m_emissiveSourceInstances[index];
+            if (memcmp(&current.world, &previous.world, sizeof(current.world)) != 0 ||
+                current.meshId != previous.meshId || current.materialId != previous.materialId)
+            {
+                changed = true;
+                break;
+            }
+        }
+        if (mesh != nullptr && !changed && !mesh->materials.empty())
+        {
+            changed = memcmp(effectiveMaterials.data(), m_emissiveSourceMaterials.data(),
+                mesh->materials.size() * sizeof(Engine::SceneMaterial)) != 0;
+        }
+    }
+    if (changed)
+    {
+        m_emissiveSourceMesh = mesh;
+        m_emissiveSourceInstances.assign(m_scene.instances.begin(), m_scene.instances.begin() + instanceCount);
+        m_emissiveSourceMaterials = std::move(effectiveMaterials);
+        try
+        {
+            Engine::Scene source;
+            source.mesh = mesh;
+            source.instances = m_emissiveSourceInstances;
+            m_emissiveTriangles = Engine::SerializeEmissiveTriangleTable(
+                Engine::BuildEmissiveTriangleTable(source, m_emissiveSourceMaterials));
+            if (m_emissiveTriangles.size() > UINT_MAX / sizeof(Engine::EmissiveTriangleGpu))
+            {
+                throw std::overflow_error("Emitter upload exceeds supported buffer size.");
+            }
+            m_emissiveTableStatus = "ready";
+        }
+        catch (const std::exception& error)
+        {
+            m_emissiveTriangles.clear();
+            m_emissiveTableStatus = std::string("unavailable: ") + error.what();
+            OutputDebugStringA(("[PathTracing] " + m_emissiveTableStatus + "\n").c_str());
+        }
+        if (m_emissiveTriangleVersion != 0)
+        {
+            InvalidatePathTracingHistory(PathTracingResetReason::Scene);
+        }
+        ++m_emissiveTriangleVersion;
+    }
+
+    FrameResource& frame = m_frameResources[m_currentFrameIndex];
+    if (frame.emissiveTriangleVersion == m_emissiveTriangleVersion && frame.emissiveTriangleBuffer != nullptr)
+    {
+        return;
+    }
+    const UINT count = (std::max)(static_cast<UINT>(m_emissiveTriangles.size()), 1u);
+    if (frame.emissiveTriangleCapacity < count || frame.emissiveTriangleBuffer == nullptr)
+    {
+        MyDx12Util::CreateUploadBuffer(m_graphicsDevice.Device(), count * sizeof(Engine::EmissiveTriangleGpu),
+            frame.emissiveTriangleBuffer);
+        frame.emissiveTriangleCapacity = count;
+    }
+    void* mapped = nullptr;
+    const D3D12_RANGE readRange = {0, 0};
+    ThrowIfFailed(frame.emissiveTriangleBuffer->Map(0, &readRange, &mapped));
+    if (m_emissiveTriangles.empty())
+    {
+        const Engine::EmissiveTriangleGpu empty = {};
+        memcpy(mapped, &empty, sizeof(empty));
+    }
+    else
+    {
+        memcpy(mapped, m_emissiveTriangles.data(), m_emissiveTriangles.size() * sizeof(Engine::EmissiveTriangleGpu));
+    }
+    frame.emissiveTriangleBuffer->Unmap(0, nullptr);
+    frame.emissiveTriangleVersion = m_emissiveTriangleVersion;
 }
 
 void RtPbrSurveyEngine::CreateInstanceBuffers()
@@ -3268,6 +3484,18 @@ void RtPbrSurveyEngine::RebuildAccelerationStructures()
 
 void RtPbrSurveyEngine::ReleaseSceneResources()
 {
+    m_emissiveTriangles.clear();
+    m_emissiveSourceInstances.clear();
+    m_emissiveSourceMaterials.clear();
+    m_emissiveSourceMesh = nullptr;
+    m_emissiveTriangleVersion = 0;
+    m_emissiveTableStatus = "not-built";
+    for (FrameResource& frame : m_frameResources)
+    {
+        frame.emissiveTriangleBuffer.Reset();
+        frame.emissiveTriangleCapacity = 0;
+        frame.emissiveTriangleVersion = 0;
+    }
     m_displayInstanceCount = 0;
     m_sceneResourcesAvailable = false;
 
@@ -4717,6 +4945,10 @@ void RtPbrSurveyEngine::UpdateFrame(bool advanceFrame)
                    sizeof(InstanceData) * sceneInstanceCount);
         }
         m_frameResources[m_currentFrameIndex].instanceBuffer->Unmap(0, nullptr);
+        if (m_renderingPath == RenderingPath::PathTracing)
+        {
+            UpdateEmissiveTriangleBuffer();
+        }
     }
 
     if (advanceFrame)
@@ -4813,12 +5045,13 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     }
 
     // Present the frame.
-    m_graphicsDevice.Present(1, 0);
+    m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
 
     UINT64 submittedFenceValue = MoveToNextFrame();
-    if (m_pendingScreenshotCapture.has_value() && m_pendingScreenshotCapture->fenceValue == 0)
+    for (PendingScreenshotCapture& capture : m_screenshotCaptures)
     {
-        m_pendingScreenshotCapture->fenceValue = submittedFenceValue;
+        if (capture.active && capture.fenceValue == 0)
+            capture.fenceValue = submittedFenceValue;
     }
 
     // submittedFenceValue marks completion of the command list submitted for this frame.
@@ -5040,12 +5273,25 @@ void RtPbrSurveyEngine::Shutdown()
 {
     DestroyFrameResources();
     ProcessCompletedScreenshot();
-    if (m_pendingScreenshotCapture.has_value())
+    m_mp4Encoder.Shutdown();
+    ProcessCompletedScreenshot();
+    for (PendingScreenshotCapture& capture : m_screenshotCaptures)
     {
-        const RtPbrSurvey::ScreenshotRequest request = std::move(m_pendingScreenshotCapture->request);
-        m_pendingScreenshotCapture.reset();
-        m_screenshotRequestQueue.CompletePending(
-            {request.path, false, "Renderer shut down before screenshot submission."});
+        if (capture.active)
+        {
+            m_mp4Encoder.CancelReservation(capture.request.requestId);
+            RtPbrSurvey::ScreenshotResult result = {capture.request.path,
+                                                    false,
+                                                    "Renderer shut down before screenshot submission.",
+                                                    0,
+                                                    0,
+                                                    capture.request.requestId};
+            if (capture.detached)
+                m_screenshotRequestQueue.CompleteDetached(std::move(result));
+            else
+                m_screenshotRequestQueue.CompletePending(std::move(result));
+        }
+        capture = {};
     }
     m_screenshotRequestQueue.FailQueued("Renderer shut down before screenshot capture.");
     Engine::ShutdownStreamlineAdapter();
@@ -5761,7 +6007,7 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
 void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
-    if (m_pathTracingPipeline == nullptr)
+    if (m_pathTracingPipeline == nullptr || m_frameResources[m_currentFrameIndex].emissiveTriangleBuffer == nullptr)
     {
         Engine::RecordPathTracingUavClear(
             m_commandList.Get(),
@@ -5787,6 +6033,8 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.specularRadianceHitTUav =
         m_pathTracingGuideTextureUavs[PathTracingGuideSpecularRadianceHitT].gpu;
     passDesc.environmentMapSrv = m_environmentMap.Srv().gpu;
+    passDesc.emissiveTriangleSrv = m_frameResources[m_currentFrameIndex].emissiveTriangleBuffer->GetGPUVirtualAddress();
+    passDesc.emissiveTriangleCount = static_cast<UINT>(m_emissiveTriangles.size());
     passDesc.scene = MakeRayQuerySceneBindings();
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
@@ -5798,6 +6046,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.maxBounces = m_pathTracingSettings.maxBounces;
     passDesc.environmentEnabled = m_pathTracingSettings.environmentEnabled ? 1u : 0u;
     passDesc.environmentSamplingMode = m_pathTracingSettings.environmentSamplingMode;
+    passDesc.emissiveSamplingMode = m_pathTracingSettings.emissiveSamplingMode;
     passDesc.skyboxEnabled = m_lightingParams.skyboxEnabled ? 1u : 0u;
     passDesc.emissiveEnabled =
         m_pathTracingSettings.emissiveEnabled && m_lightingParams.emissiveEnabled ? 1u : 0u;
@@ -6249,12 +6498,25 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 
-    if (m_pendingScreenshotCapture.has_value())
+    const RtPbrSurvey::ScreenshotRequest* next = m_screenshotRequestQueue.PeekNextCapture();
+    if (!next)
+        return;
+    const bool mp4 = next->outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4;
+    if (!mp4 && std::any_of(m_screenshotCaptures.begin(),
+                            m_screenshotCaptures.end(),
+                            [](const PendingScreenshotCapture& capture) { return capture.active; }))
     {
         return;
     }
 
-    PendingScreenshotCapture capture;
+    const auto slot = std::find_if(m_screenshotCaptures.begin(),
+                                   m_screenshotCaptures.end(),
+                                   [](const PendingScreenshotCapture& capture) { return !capture.active; });
+    if (slot == m_screenshotCaptures.end())
+        return;
+    PendingScreenshotCapture& capture = *slot;
+    if (!mp4)
+        capture.readback.Reset();
     if (!m_screenshotRequestQueue.BeginNextCapture(capture.request))
     {
         return;
@@ -6262,32 +6524,56 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
 
     try
     {
+        // Allocate asynchronous request ownership before recording any GPU commands.
+        if (mp4)
+            capture.detached = m_screenshotRequestQueue.DetachPending();
         ID3D12Resource* source = nullptr;
         bool hdr10 = false;
         float paperWhiteNits = 300.0f;
         std::string diagnosticSource;
+        D3D12_RESOURCE_STATES diagnosticRestoreState = D3D12_RESOURCE_STATE_COMMON;
         if (capture.request.path.extension() == L".ptbuf")
         {
-            if (m_renderingPath != RenderingPath::PathTracing ||
-                capture.request.source != RtPbrSurvey::ScreenshotCaptureSource::FinalOutput ||
+            if (capture.request.source != RtPbrSurvey::ScreenshotCaptureSource::FinalOutput ||
                 capture.request.outputFormat != RtPbrSurvey::ScreenshotOutputFormat::Png ||
                 capture.request.region.has_value())
             {
-                throw std::invalid_argument("PT buffer capture requires Path Tracing, the default request contract and a full-frame capture.");
+                throw std::invalid_argument("Native buffer capture requires the default request contract and a full-frame capture.");
             }
-            for (UINT index = 0; index < 4; ++index)
+            if (m_renderingPath == RenderingPath::PathTracing &&
+                capture.request.debugResourceName == kPathTracingAccumulationResourceName)
             {
-                if (capture.request.debugResourceName == kPathTracingGuideTextureResourceNames[index])
+                source = m_pathTracingAccumulation.Get();
+                diagnosticSource = kPathTracingAccumulationResourceName;
+            }
+            for (UINT index = 0; index < PathTracingGuideTextureCount; ++index)
+            {
+                if (m_renderingPath == RenderingPath::PathTracing &&
+                    capture.request.debugResourceName == kPathTracingGuideTextureResourceNames[index])
                 {
                     source = m_pathTracingGuideTextures[index].Get();
                     diagnosticSource = kPathTracingGuideTextureResourceNames[index];
                     break;
                 }
             }
+            if (m_renderingPath == RenderingPath::Deferred)
+            {
+                for (const Engine::GBuffer::Target target : {Engine::GBuffer::Albedo, Engine::GBuffer::Normal,
+                                                            Engine::GBuffer::PBRParams, Engine::GBuffer::Emissive})
+                {
+                    if (capture.request.debugResourceName == kGBufferResourceNames[target])
+                    {
+                        source = m_gbuffer.resources[target].Get();
+                        diagnosticSource = kGBufferResourceNames[target];
+                        break;
+                    }
+                }
+            }
             if (source == nullptr)
             {
-                throw std::invalid_argument("PT buffer capture requires one of the four primary guide resources.");
+                throw std::invalid_argument("Native buffer capture requires an active PT accumulation/guide or supported Deferred GBuffer resource.");
             }
+            diagnosticRestoreState = GetResourceState(diagnosticSource);
             TransitionResource({diagnosticSource, D3D12_RESOURCE_STATE_COPY_SOURCE});
         }
         else if (capture.request.path.extension() == L".pfm")
@@ -6329,6 +6615,12 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             }
         }
 
+        if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4 &&
+            (m_width != m_mp4OutputWidth || m_height != m_mp4OutputHeight))
+        {
+            throw std::runtime_error("MP4 capture output size changed during recording.");
+        }
+        const std::uint64_t previousAllocations = capture.readback.allocationCount;
         Engine::RecordScreenshotCapture(m_commandList.Get(),
                                         m_graphicsDevice.Device(),
                                         source,
@@ -6336,9 +6628,15 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                                         paperWhiteNits,
                                         capture.request.region,
                                         capture.readback);
+        if (mp4)
+        {
+            m_mp4ReadbackAllocations += capture.readback.allocationCount - previousAllocations;
+            if (capture.readback.allocationCount == previousAllocations)
+                ++m_mp4ReadbackReuses;
+        }
         if (!diagnosticSource.empty())
         {
-            TransitionResource({diagnosticSource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
+            TransitionResource({diagnosticSource, diagnosticRestoreState});
             const auto matrixJson = [](const XMFLOAT4X4& matrix)
             {
                 nlohmann::json rows = nlohmann::json::array();
@@ -6351,6 +6649,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             const CameraState& camera = GetCamera();
             const nlohmann::json metadata = {
                 {"schemaVersion", 1}, {"resource", diagnosticSource},
+                {"renderingPath", static_cast<int>(m_renderingPath)},
                 {"sampleStartIndex", m_pathTracingRuntimeState.frameSampleIndex},
                 {"randomSeed", m_pathTracingSettings.randomSeed},
                 {"width", capture.readback.width}, {"height", capture.readback.height},
@@ -6362,14 +6661,26 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 {"cameraPosition", {camera.pos.x, camera.pos.y, camera.pos.z}},
                 {"cameraTarget", {camera.gazePoint.x, camera.gazePoint.y, camera.gazePoint.z}},
                 {"lensShift", {camera.lensShiftX, camera.lensShiftY}},
+                {"singleInstanceWorld", m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().world) : nlohmann::json(nullptr)},
+                {"singleInstancePreviousWorld", m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().prevWorld) : nlohmann::json(nullptr)},
             };
             capture.readback.diagnosticMetadata = metadata.dump();
         }
-        m_pendingScreenshotCapture = std::move(capture);
+        capture.active = true;
+        capture.sequence = ++m_screenshotCaptureSequence;
+        capture.fenceValue = 0;
     }
     catch (const std::exception& exception)
     {
-        m_screenshotRequestQueue.CompletePending({capture.request.path, false, exception.what()});
+        if (mp4)
+            m_mp4Encoder.CancelReservation(capture.request.requestId);
+        RtPbrSurvey::ScreenshotResult result = {
+            capture.request.path, false, exception.what(), 0, 0, capture.request.requestId};
+        if (capture.detached)
+            m_screenshotRequestQueue.CompleteDetached(std::move(result));
+        else
+            m_screenshotRequestQueue.CompletePending(std::move(result));
+        capture = {};
     }
 }
 
@@ -6382,7 +6693,6 @@ void RtPbrSurveyEngine::RecordDebugDumpPass()
                                    m_debugDumpCapture);
 
     m_debugViewSettings.hdrDumpPending = true;
-
 }
 
 void RtPbrSurveyEngine::RecordReflectionHdrDiagnosticPass()
@@ -6913,70 +7223,109 @@ void RtPbrSurveyEngine::RecordImGuiPass()
 
 void RtPbrSurveyEngine::ProcessCompletedScreenshot()
 {
-    if (!m_pendingScreenshotCapture.has_value() || m_pendingScreenshotCapture->fenceValue == 0 ||
-        m_graphicsDevice.CompletedFenceValue() < m_pendingScreenshotCapture->fenceValue)
+    while (std::optional<RtPbrSurvey::ScreenshotResult> result = m_mp4Encoder.ConsumeResult())
     {
-        return;
+        m_screenshotRequestQueue.CompleteDetached(std::move(*result));
     }
-
-    PendingScreenshotCapture capture = std::move(*m_pendingScreenshotCapture);
-    m_pendingScreenshotCapture.reset();
-
-    RtPbrSurvey::ScreenshotResult result;
-    result.path = capture.request.path;
-    result.width = capture.readback.width;
-    result.height = capture.readback.height;
-    try
+    for (;;)
     {
-        if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Exr)
+        // Retire in submission order, even if later slots have already completed.
+        PendingScreenshotCapture* oldest = nullptr;
+        for (PendingScreenshotCapture& candidate : m_screenshotCaptures)
         {
-            result.succeeded = Engine::SaveExrScreenshotReadback(capture.readback, result.path, result.error);
+            if (candidate.active && (!oldest || candidate.sequence < oldest->sequence))
+                oldest = &candidate;
         }
-        else if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Gif ||
-                 capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+        if (!oldest || oldest->fenceValue == 0 || m_graphicsDevice.CompletedFenceValue() < oldest->fenceValue)
+            return;
+
+        PendingScreenshotCapture& capture = *oldest;
+
+        RtPbrSurvey::ScreenshotResult result;
+        result.path = capture.request.path;
+        result.width = capture.readback.width;
+        result.height = capture.readback.height;
+        try
         {
-            const D3D12_RANGE readRange = {static_cast<SIZE_T>(capture.readback.layout.Offset),
-                                           static_cast<SIZE_T>(capture.readback.resource->GetDesc().Width)};
-            std::uint8_t* mappedData = nullptr;
-            ThrowIfFailed(capture.readback.resource->Map(0, &readRange, reinterpret_cast<void**>(&mappedData)));
-            const std::vector<std::uint8_t> rgba8 = Engine::ConvertScreenshotToRgba8(
-                mappedData + capture.readback.layout.Offset,
-                capture.readback.width,
-                capture.readback.height,
-                capture.readback.layout.Footprint.RowPitch,
-                capture.readback.format,
-                capture.readback.hdr10,
-                capture.readback.paperWhiteNits);
-            capture.readback.resource->Unmap(0, nullptr);
-            if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+            if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Exr)
             {
-                result.succeeded = m_mp4Encoder.AppendFrame(result.path, result.width, result.height, rgba8.data(),
-                                                           capture.request.videoFramesPerSecond, capture.request.videoBitrate,
-                                                           result.error, capture.request.videoTimestamp100ns);
+                result.succeeded = Engine::SaveExrScreenshotReadback(capture.readback, result.path, result.error);
+            }
+            else if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Gif ||
+                     capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+            {
+                const D3D12_RANGE readRange = {static_cast<SIZE_T>(capture.readback.layout.Offset),
+                                               static_cast<SIZE_T>(capture.readback.resource->GetDesc().Width)};
+                std::uint8_t* mappedData = nullptr;
+                ThrowIfFailed(capture.readback.resource->Map(0, &readRange, reinterpret_cast<void**>(&mappedData)));
+                std::vector<std::uint8_t> rgba8;
+                try
+                {
+                    rgba8 = Engine::ConvertScreenshotToRgba8(mappedData + capture.readback.layout.Offset,
+                                                             capture.readback.width,
+                                                             capture.readback.height,
+                                                             capture.readback.layout.Footprint.RowPitch,
+                                                             capture.readback.format,
+                                                             capture.readback.hdr10,
+                                                             capture.readback.paperWhiteNits);
+                }
+                catch (...)
+                {
+                    capture.readback.resource->Unmap(0, nullptr);
+                    throw;
+                }
+                capture.readback.resource->Unmap(0, nullptr);
+                if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Mp4)
+                {
+                    Engine::Mp4Frame frame = {capture.request, result.width, result.height, std::move(rgba8)};
+                    if (m_mp4Encoder.Enqueue(std::move(frame), result.error))
+                    {
+                        // Reuse only the GPU slot; the worker retains request ownership and reserved capacity.
+                        capture.active = false;
+                        capture.request = {};
+                        capture.fenceValue = 0;
+                        capture.detached = false;
+                        continue;
+                    }
+                }
+                else
+                {
+                    result.succeeded = m_animatedGifEncoder.AppendFrame(result.path,
+                                                                        result.width,
+                                                                        result.height,
+                                                                        rgba8.data(),
+                                                                        capture.request.frameDelayCentiseconds,
+                                                                        capture.request.gifRepeatCount,
+                                                                        capture.request.gifDisposal,
+                                                                        result.error);
+                }
             }
             else
             {
-                result.succeeded = m_animatedGifEncoder.AppendFrame(result.path,
-                                                                 result.width,
-                                                                 result.height,
-                                                                 rgba8.data(),
-                                                                 capture.request.frameDelayCentiseconds,
-                                                                 capture.request.gifRepeatCount,
-                                                                 capture.request.gifDisposal,
-                                                                 result.error);
+                result.succeeded = Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
             }
+        }
+        catch (const std::exception& exception)
+        {
+            result.succeeded = false;
+            result.error = exception.what();
+        }
+        if (capture.detached)
+        {
+            result.requestId = capture.request.requestId;
+            m_mp4Encoder.CancelReservation(capture.request.requestId);
+            m_screenshotRequestQueue.CompleteDetached(std::move(result));
         }
         else
         {
-            result.succeeded = Engine::SaveScreenshotReadback(capture.readback, result.path, result.error);
+            m_screenshotRequestQueue.CompletePending(std::move(result));
+            capture.readback.Reset();
         }
+        capture.active = false;
+        capture.request = {};
+        capture.fenceValue = 0;
+        capture.detached = false;
     }
-    catch (const std::exception& exception)
-    {
-        result.succeeded = false;
-        result.error = exception.what();
-    }
-    m_screenshotRequestQueue.CompletePending(std::move(result));
 }
 
 void RtPbrSurveyEngine::EndFrame()

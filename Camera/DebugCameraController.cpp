@@ -57,6 +57,21 @@ void DebugCameraController::SetMode(Mode mode)
     }
 }
 
+void DebugCameraController::SetPrimaryDragButton(UINT8 button)
+{
+    if (button != VK_LBUTTON && button != VK_RBUTTON)
+    {
+        return;
+    }
+    if (m_primaryDragButton == button)
+    {
+        return;
+    }
+
+    ResetInputState();
+    m_primaryDragButton = button;
+}
+
 bool DebugCameraController::IsRightDragging() const
 {
     return m_isRightDragging;
@@ -114,6 +129,12 @@ void DebugCameraController::InitObjectViewerFromCamera()
     SetObjectViewerOrbitFromOffset(XMVectorSubtract(camPos, pivot));
 }
 
+void DebugCameraController::InitObjectViewerFromCamera(const XMFLOAT3& pivot)
+{
+    m_objectViewerPivot = pivot;
+    InitObjectViewerFromCamera();
+}
+
 void DebugCameraController::UpdateObjectViewerCamera()
 {
     Engine::CameraState* camera = Camera();
@@ -152,7 +173,7 @@ void DebugCameraController::ResetInputState()
 
 void DebugCameraController::OnMouseDown(UINT8 button, int x, int y)
 {
-    if (button == VK_LBUTTON)
+    if (button == m_primaryDragButton)
     {
         m_isDragging = true;
         m_lastMouseX = x;
@@ -175,7 +196,7 @@ void DebugCameraController::OnMouseDown(UINT8 button, int x, int y)
 
 void DebugCameraController::OnMouseUp(UINT8 button, int, int)
 {
-    if (button == VK_LBUTTON)
+    if (button == m_primaryDragButton)
     {
         m_isDragging = false;
     }
@@ -185,8 +206,9 @@ void DebugCameraController::OnMouseUp(UINT8 button, int, int)
     }
     else if (button == VK_RBUTTON)
     {
+        const bool wasRightDragging = m_isRightDragging;
         m_isRightDragging = false;
-        if (m_mode == Mode::Arcball)
+        if (wasRightDragging && m_mode == Mode::Arcball)
         {
             InitObjectViewerFromCamera();
         }
@@ -215,6 +237,7 @@ void DebugCameraController::OnMouseMove(int x, int y)
         const auto camRot = XMMatrixRotationRollPitchYaw(camera->rot.x, camera->rot.y, camera->rot.z);
         const XMVECTOR fwd = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRot);
         XMStoreFloat3(&camera->gazePoint, XMVectorAdd(XMLoadFloat3(&camera->pos), fwd));
+        XMStoreFloat3(&camera->up, XMVector3TransformNormal(XMVectorSet(0, 1, 0, 0), camRot));
         return;
     }
 
@@ -234,6 +257,7 @@ void DebugCameraController::OnMouseMove(int x, int y)
             const auto camRot = XMMatrixRotationRollPitchYaw(camera->rot.x, camera->rot.y, camera->rot.z);
             const XMVECTOR fwd = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRot);
             XMStoreFloat3(&camera->gazePoint, XMVectorAdd(XMLoadFloat3(&camera->pos), fwd));
+            XMStoreFloat3(&camera->up, XMVector3TransformNormal(XMVectorSet(0, 1, 0, 0), camRot));
         }
         else if (m_isMiddleDragging)
         {
@@ -408,6 +432,7 @@ void DebugCameraController::UpdateRightDragKeyboard(bool moveLeft,
     const auto camRot = XMMatrixRotationRollPitchYaw(camera->rot.x, camera->rot.y, camera->rot.z);
     const XMVECTOR fwd = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRot);
     XMStoreFloat3(&camera->gazePoint, XMVectorAdd(XMLoadFloat3(&camera->pos), fwd));
+    XMStoreFloat3(&camera->up, XMVector3TransformNormal(XMVectorSet(0, 1, 0, 0), camRot));
 }
 
 void DebugCameraController::UpdateFreeLookKeyboard(float,
@@ -460,6 +485,7 @@ void DebugCameraController::UpdateFreeLookKeyboard(float,
     const auto camRot = XMMatrixRotationRollPitchYaw(camera->rot.x, camera->rot.y, camera->rot.z);
     const XMVECTOR fwd = XMVector3TransformNormal(XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), camRot);
     XMStoreFloat3(&camera->gazePoint, XMVectorAdd(XMLoadFloat3(&camera->pos), fwd));
+    XMStoreFloat3(&camera->up, XMVector3TransformNormal(XMVectorSet(0, 1, 0, 0), camRot));
 }
 
 XMFLOAT3 DebugCameraController::ProjectToArcball(int x, int y) const

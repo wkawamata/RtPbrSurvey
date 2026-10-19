@@ -6,11 +6,18 @@
 #include <limits>
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
 
 namespace RtPbrSurvey
 {
     namespace
     {
+        double FixedClockRoundingAllowance(double first, double second)
+        {
+            return 4.0 * std::numeric_limits<double>::epsilon() *
+                (std::max)({1.0, std::abs(first), std::abs(second)});
+        }
+
         const char* GetExtension(CaptureSessionOutputFormat format)
         {
             switch (format)
@@ -64,12 +71,18 @@ namespace RtPbrSurvey
         }
     } // namespace
 
-    bool CaptureSession::Start(const CaptureSessionConfig& config, std::string& error)
+    bool CaptureSession::Start(const CaptureSessionConfig& config, std::string& error, std::size_t maxRequestsInFlight)
     {
         error.clear();
         if (IsActive())
         {
             error = "A capture session is already active.";
+            return false;
+        }
+        if (maxRequestsInFlight == 0 || maxRequestsInFlight > 2 ||
+            (maxRequestsInFlight > 1 && config.outputFormat != CaptureSessionOutputFormat::Mp4))
+        {
+            error = "Capture concurrency must be one, or two for MP4.";
             return false;
         }
         if (config.outputFormat == CaptureSessionOutputFormat::Mp4 &&
@@ -184,18 +197,20 @@ namespace RtPbrSurvey
         m_startTiming.reset();
         m_recordingStartTiming.reset();
         m_readyRequest.reset();
-        m_activeRequestId.reset();
-        m_requestInFlight = false;
+        m_activeRequestIds.clear();
+        m_maxRequestsInFlight = maxRequestsInFlight;
         m_stopRequested = false;
         m_nextCaptureSeconds = 0.0;
         m_lastClockSeconds = 0.0;
-        m_status.state = config.warmupFrames > 0 ? CaptureSessionState::Warmup : CaptureSessionState::Recording;
+        m_status.state = config.startDelayMilliseconds > 0 ? CaptureSessionState::Delaying :
+            (config.warmupFrames > 0 ? CaptureSessionState::Warmup : CaptureSessionState::Recording);
         return true;
     }
 
     void CaptureSession::Stop()
     {
-        if (m_status.state == CaptureSessionState::Warmup || m_status.state == CaptureSessionState::Recording)
+        if (m_status.state == CaptureSessionState::Delaying || m_status.state == CaptureSessionState::Warmup ||
+            m_status.state == CaptureSessionState::Recording)
         {
             m_stopRequested = true;
             m_readyRequest.reset();
@@ -203,12 +218,33 @@ namespace RtPbrSurvey
         }
     }
 
-    void CaptureSession::Update(const CaptureSessionTiming& timing)
+    void CaptureSession::Update(const CaptureSessionTiming& timing, bool captureAvailable)
     {
-        m_lastClockSeconds = GetClockSeconds(timing);
-        if (m_status.state != CaptureSessionState::Warmup && m_status.state != CaptureSessionState::Recording)
+        if (m_status.state != CaptureSessionState::Delaying && m_status.state != CaptureSessionState::Warmup &&
+            m_status.state != CaptureSessionState::Recording)
         {
             return;
+        }
+        m_lastClockSeconds = GetClockSeconds(timing);
+
+        if (m_status.state == CaptureSessionState::Delaying)
+        {
+            if (!m_startTiming.has_value())
+            {
+                m_startTiming = timing;
+            }
+            const double delaySeconds = static_cast<double>(m_config.startDelayMilliseconds) / 1000.0;
+            if (timing.realTimeSeconds - m_startTiming->realTimeSeconds < delaySeconds)
+            {
+                return;
+            }
+            m_status.state = m_config.warmupFrames > 0 ? CaptureSessionState::Warmup : CaptureSessionState::Recording;
+            m_startTiming = timing;
+            m_nextCaptureSeconds = GetClockSeconds(timing);
+            if (m_status.state == CaptureSessionState::Recording)
+            {
+                m_recordingStartTiming = timing;
+            }
         }
 
         if (!m_startTiming.has_value())
@@ -233,8 +269,34 @@ namespace RtPbrSurvey
         }
 
         const double clockSeconds = GetClockSeconds(timing);
+        if (m_config.clock == CaptureSessionClock::FixedStep && m_status.acceptedFrameCount == 0 &&
+            !m_readyRequest.has_value() && captureAvailable)
+        {
+            // A paused start may poll before any pose is rendered. Anchor output zero to its first eligible update.
+            m_recordingStartTiming = timing;
+            m_nextCaptureSeconds = clockSeconds;
+        }
         if (IsRecordingLimitReached(clockSeconds))
         {
+            if (m_config.clock == CaptureSessionClock::RealTime && m_config.durationSeconds.has_value() &&
+                m_recordingStartTiming.has_value())
+            {
+                const long double requestedIntervals = std::ceil(
+                    static_cast<long double>(*m_config.durationSeconds) * m_config.framesPerSecond);
+                const long double boundedIntervals = m_config.frameLimit.has_value()
+                    ? (std::min)(requestedIntervals, static_cast<long double>(*m_config.frameLimit))
+                    : requestedIntervals;
+                const std::uint64_t expectedIntervals = boundedIntervals >=
+                        static_cast<long double>((std::numeric_limits<std::uint64_t>::max)())
+                    ? (std::numeric_limits<std::uint64_t>::max)()
+                    : static_cast<std::uint64_t>(boundedIntervals);
+                const std::uint64_t accountedIntervals =
+                    m_status.acceptedFrameCount + m_status.droppedFrameCount;
+                if (expectedIntervals > accountedIntervals)
+                {
+                    m_status.droppedFrameCount += expectedIntervals - accountedIntervals;
+                }
+            }
             BeginDraining();
             return;
         }
@@ -245,7 +307,7 @@ namespace RtPbrSurvey
         }
 
         const double interval = 1.0 / static_cast<double>(m_config.framesPerSecond);
-        if (m_requestInFlight)
+        if (!captureAvailable || m_activeRequestIds.size() >= m_maxRequestsInFlight)
         {
             if (m_config.clock == CaptureSessionClock::RealTime)
             {
@@ -258,9 +320,20 @@ namespace RtPbrSurvey
             return;
         }
 
-        if (clockSeconds < m_nextCaptureSeconds)
+        // Integer-derived host time and base + frame/FPS can differ by a few ULPs at the same tick.
+        const double roundingAllowance = m_config.clock == CaptureSessionClock::FixedStep ?
+            FixedClockRoundingAllowance(clockSeconds, m_nextCaptureSeconds) : 0.0;
+        if (clockSeconds + roundingAllowance < m_nextCaptureSeconds)
         {
             return;
+        }
+        if (m_config.clock == CaptureSessionClock::RealTime)
+        {
+            while (clockSeconds >= m_nextCaptureSeconds + interval)
+            {
+                ++m_status.droppedFrameCount;
+                m_nextCaptureSeconds += interval;
+            }
         }
 
         ScreenshotRequest request = {
@@ -312,33 +385,39 @@ namespace RtPbrSurvey
 
         m_status.lastOutputPath = m_readyRequest->path;
         ++m_status.acceptedFrameCount;
-        m_activeRequestId = m_readyRequest->requestId;
+        m_activeRequestIds.push_back(m_readyRequest->requestId);
         m_readyRequest.reset();
-        m_requestInFlight = true;
-        m_nextCaptureSeconds += 1.0 / static_cast<double>(m_config.framesPerSecond);
+        if (m_config.clock == CaptureSessionClock::FixedStep && m_recordingStartTiming.has_value())
+        {
+            m_nextCaptureSeconds = GetClockSeconds(*m_recordingStartTiming) +
+                static_cast<double>(m_status.acceptedFrameCount) / m_config.framesPerSecond;
+        }
+        else
+        {
+            m_nextCaptureSeconds += 1.0 / static_cast<double>(m_config.framesPerSecond);
+        }
     }
 
     void CaptureSession::CompleteRequest(ScreenshotResult result)
     {
-        if (!m_requestInFlight || !m_activeRequestId.has_value() || result.requestId != *m_activeRequestId)
+        const auto active = std::find(m_activeRequestIds.begin(), m_activeRequestIds.end(), result.requestId);
+        if (active == m_activeRequestIds.end())
         {
             return;
         }
 
-        m_requestInFlight = false;
-        m_activeRequestId.reset();
+        m_activeRequestIds.erase(active);
         // Keep the accepted absolute request path stable across renderer completion.
         if (!result.succeeded)
         {
-            m_status.error = std::move(result.error);
+            if (m_status.error.empty()) m_status.error = result.error.empty() ? "Capture output failed." : std::move(result.error);
             BeginDraining();
-            m_status.state = CaptureSessionState::Failed;
             return;
         }
 
         ++m_status.savedFrameCount;
         if (m_status.state == CaptureSessionState::Draining || m_stopRequested ||
-            IsRecordingLimitReached(m_nextCaptureSeconds))
+            IsRecordingLimitReached(m_config.clock == CaptureSessionClock::FixedStep ? m_nextCaptureSeconds : m_lastClockSeconds))
         {
             BeginDraining();
         }
@@ -346,14 +425,20 @@ namespace RtPbrSurvey
 
     bool CaptureSession::CanAdvanceFixedStep() const
     {
-        return m_config.clock != CaptureSessionClock::FixedStep ||
-               (!m_readyRequest.has_value() && !m_requestInFlight);
+        if (m_config.clock != CaptureSessionClock::FixedStep || !IsActive() ||
+            m_status.state == CaptureSessionState::Delaying)
+            return true;
+        if (m_status.state == CaptureSessionState::Draining || m_status.state == CaptureSessionState::Finalizing ||
+            (m_status.state == CaptureSessionState::Recording && IsRecordingLimitReached(m_nextCaptureSeconds)))
+            return false;
+        return !m_readyRequest.has_value() && m_activeRequestIds.size() < m_maxRequestsInFlight;
     }
 
     bool CaptureSession::IsActive() const
     {
-        return m_status.state == CaptureSessionState::Warmup || m_status.state == CaptureSessionState::Recording ||
-               m_status.state == CaptureSessionState::Draining;
+        return m_status.state == CaptureSessionState::Delaying || m_status.state == CaptureSessionState::Warmup ||
+               m_status.state == CaptureSessionState::Recording ||
+               m_status.state == CaptureSessionState::Draining || m_status.state == CaptureSessionState::Finalizing;
     }
 
     bool CaptureSession::UsesAnimatedGif() const
@@ -379,7 +464,7 @@ namespace RtPbrSurvey
 
     void CaptureSession::FailFinalization(const std::string& error)
     {
-        if (m_status.state == CaptureSessionState::Completed)
+        if (m_status.state == CaptureSessionState::Completed || m_status.state == CaptureSessionState::Finalizing)
         {
             m_status.state = CaptureSessionState::Failed;
             m_status.error = error;
@@ -388,7 +473,15 @@ namespace RtPbrSurvey
 
     std::optional<std::uint64_t> CaptureSession::GetActiveRequestId() const
     {
-        return m_activeRequestId;
+        return m_activeRequestIds.empty() ? std::nullopt : std::optional<std::uint64_t>(m_activeRequestIds.front());
+    }
+
+    void CaptureSession::CompleteFinalization()
+    {
+        if (m_status.state == CaptureSessionState::Finalizing)
+        {
+            m_status.state = CaptureSessionState::Completed;
+        }
     }
 
     const CaptureSessionStatus& CaptureSession::GetStatus() const
@@ -402,8 +495,14 @@ namespace RtPbrSurvey
         {
             return true;
         }
-        return m_config.durationSeconds.has_value() && m_recordingStartTiming.has_value() &&
-               clockSeconds - GetClockSeconds(*m_recordingStartTiming) >= *m_config.durationSeconds;
+        if (!m_config.durationSeconds.has_value() || !m_recordingStartTiming.has_value())
+            return false;
+        const double startSeconds = GetClockSeconds(*m_recordingStartTiming);
+        const double elapsed = clockSeconds - startSeconds;
+        if (elapsed >= *m_config.durationSeconds)
+            return true;
+        return m_config.clock == CaptureSessionClock::FixedStep && elapsed > 0.0 &&
+            elapsed + FixedClockRoundingAllowance(clockSeconds, startSeconds) >= *m_config.durationSeconds;
     }
 
     double CaptureSession::GetClockSeconds(const CaptureSessionTiming& timing) const
@@ -415,7 +514,7 @@ namespace RtPbrSurvey
     {
         m_readyRequest.reset();
         m_status.state = CaptureSessionState::Draining;
-        if (!m_requestInFlight)
+        if (m_activeRequestIds.empty())
         {
             FinishDraining();
         }
@@ -425,7 +524,8 @@ namespace RtPbrSurvey
     {
         if (m_status.state == CaptureSessionState::Draining)
         {
-            m_status.state = m_status.error.empty() ? CaptureSessionState::Completed : CaptureSessionState::Failed;
+            m_status.state = !m_status.error.empty() ? CaptureSessionState::Failed :
+                (UsesMp4() ? CaptureSessionState::Finalizing : CaptureSessionState::Completed);
         }
     }
 

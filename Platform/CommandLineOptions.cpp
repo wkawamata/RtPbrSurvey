@@ -385,6 +385,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.enableDlssSr = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-DisableVSync"))
+        {
+            options.disableVSync = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-EnablePathTracing"))
         {
             options.enablePathTracing = true;
@@ -395,6 +399,15 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             {
                 throw std::invalid_argument("-PathTracingSamples expects an integer in [1, UINT_MAX].");
             }
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingHistoryValidation"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'\0')
+            {
+                throw std::invalid_argument("-PathTracingHistoryValidation expects an output directory.");
+            }
+            options.pathTracingHistoryValidationDirectory = argv[++i];
             options.enablePathTracing = true;
         }
         else if (IsCommandLineArg(argv[i], L"-PathTracingEnvironmentMode"))
@@ -414,6 +427,24 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 throw std::invalid_argument("-PathTracingSeed expects an integer in [0, UINT_MAX].");
             }
             options.hasPathTracingRandomSeed = true;
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingObjectMotionX"))
+        {
+            if (i + 1 >= argc)
+            {
+                throw std::invalid_argument("-PathTracingObjectMotionX expects a finite delta in [-1, 1].");
+            }
+            wchar_t* end = nullptr;
+            errno = 0;
+            const WCHAR* value = argv[++i];
+            const double delta = wcstod(value, &end);
+            if (errno == ERANGE || end == value || *end != L'\0' || !std::isfinite(delta) || std::abs(delta) > 1.0)
+            {
+                throw std::invalid_argument("-PathTracingObjectMotionX expects a finite delta in [-1, 1].");
+            }
+            options.pathTracingObjectMotionX = static_cast<float>(delta);
+            options.hasPathTracingObjectMotion = true;
             options.enablePathTracing = true;
         }
         else if (IsCommandLineArg(argv[i], L"-EnableDebugTexturePreview"))
@@ -541,6 +572,28 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 throw std::invalid_argument("-CaptureSessionWarmupFrames expects an integer in [0, UINT_MAX].");
             }
             options.captureSessionEnabled = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionEncoderDelayMs"))
+        {
+            if (i + 1 >= argc || !TryParseUint(argv[++i], true, options.captureSessionEncoderDelayMilliseconds) ||
+                options.captureSessionEncoderDelayMilliseconds > 1000)
+                throw std::invalid_argument("-CaptureSessionEncoderDelayMs expects an integer in [0, 1000].");
+            options.captureSessionEnabled = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-CaptureSessionOrbitDegreesPerSecond"))
+        {
+            if (i + 1 >= argc)
+                throw std::invalid_argument("-CaptureSessionOrbitDegreesPerSecond expects a value in [-360, 360].");
+            wchar_t* end = nullptr;
+            errno = 0;
+            const WCHAR* value = argv[++i];
+            const double rate = wcstod(value, &end);
+            if (errno == ERANGE || end == value || *end != L'\0' || !std::isfinite(rate) || std::abs(rate) > 360.0)
+                throw std::invalid_argument(
+                    "-CaptureSessionOrbitDegreesPerSecond expects a finite value in [-360, 360].");
+            options.captureSessionEnabled = true;
+            options.hasCaptureSessionOrbit = true;
+            options.captureSessionOrbitDegreesPerSecond = rate;
         }
         else if (IsCommandLineArg(argv[i], L"-CaptureSessionClock"))
         {
@@ -811,6 +864,16 @@ bool BuildCaptureSessionConfig(const CommandLineOptions& options,
         error = "Capture Session requires -CaptureSessionOutputDir and -CaptureSessionBaseName.";
         return false;
     }
+    if (options.hasCaptureSessionOrbit &&
+        (!std::isfinite(options.captureSessionOrbitDegreesPerSecond) ||
+         std::abs(options.captureSessionOrbitDegreesPerSecond) > 360.0 || !options.captureSessionFixedStep ||
+         !options.capturePath.empty() || !options.reflectionCapturePlanPath.empty() ||
+         !options.reflectionHdrDiagnosticsPath.empty() || options.reflectionOrbitFrames > 0 ||
+         !options.pathTracingHistoryValidationDirectory.empty()))
+    {
+        error = "Capture Session orbit requires fixed-step clock and no other camera/capture automation.";
+        return false;
+    }
     if (options.captureSessionFrameLimit == 0 && !options.hasCaptureSessionDuration)
     {
         error = "Capture Session requires -CaptureSessionFrames or -CaptureSessionDurationSeconds.";
@@ -821,6 +884,11 @@ bool BuildCaptureSessionConfig(const CommandLineOptions& options,
     if (!TryParseCaptureSessionFormat(options.captureSessionFormat, format))
     {
         error = "-CaptureSessionFormat expects png, exr, gif, or mp4.";
+        return false;
+    }
+    if (options.captureSessionEncoderDelayMilliseconds > 0 && format != RtPbrSurvey::CaptureSessionOutputFormat::Mp4)
+    {
+        error = "Capture Session encoder delay is a diagnostic option for MP4 only.";
         return false;
     }
 

@@ -93,6 +93,7 @@ void ScreenshotReadback::Reset()
     hdr10 = false;
     paperWhiteNits = 300.0f;
     diagnosticMetadata.clear();
+    allocationCount = 0;
 }
 
 void RecordScreenshotCapture(ID3D12GraphicsCommandList* commandList,
@@ -120,14 +121,20 @@ void RecordScreenshotCapture(ID3D12GraphicsCommandList* commandList,
     UINT64 totalBytes = 0;
     device->GetCopyableFootprints(&copyDesc, 0, 1, 0, &readback.layout, &numRows, &rowSizeInBytes, &totalBytes);
 
-    const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_READBACK);
-    const CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(totalBytes);
-    ThrowIfFailed(device->CreateCommittedResource(&heapProperties,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &bufferDesc,
-                                                  D3D12_RESOURCE_STATE_COPY_DEST,
-                                                  nullptr,
-                                                  IID_PPV_ARGS(&readback.resource)));
+    // The caller owns the fence lifetime and must only pass a slot after its previous copy completed.
+    if (!readback.resource || readback.resource->GetDesc().Width < totalBytes)
+    {
+        const CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_READBACK);
+        const CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(totalBytes);
+        ThrowIfFailed(device->CreateCommittedResource(&heapProperties,
+                                                      D3D12_HEAP_FLAG_NONE,
+                                                      &bufferDesc,
+                                                      D3D12_RESOURCE_STATE_COPY_DEST,
+                                                      nullptr,
+                                                      IID_PPV_ARGS(readback.resource.ReleaseAndGetAddressOf())));
+        ++readback.allocationCount;
+    }
+    readback.diagnosticMetadata.clear();
 
     const CD3DX12_TEXTURE_COPY_LOCATION destination(readback.resource.Get(), readback.layout);
     const CD3DX12_TEXTURE_COPY_LOCATION sourceLocation(source, 0);
@@ -415,8 +422,12 @@ bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem:
         case DXGI_FORMAT_R16G16B16A16_FLOAT:
             bytesPerPixel = 8;
             break;
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+            bytesPerPixel = 16;
+            break;
         case DXGI_FORMAT_R16G16_FLOAT:
         case DXGI_FORMAT_R32_FLOAT:
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
             bytesPerPixel = 4;
             break;
         default:
@@ -427,7 +438,7 @@ bool SaveScreenshotReadback(ScreenshotReadback& readback, const std::filesystem:
         {
             if (bytesPerPixel == 0 || readback.diagnosticMetadata.empty())
             {
-                error = "Unsupported PT buffer format or missing capture metadata.";
+                error = "Unsupported native buffer format or missing capture metadata.";
             }
             else
             {

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 4,
+  "renderingPath": 2,
+  "renderViewMode": 0,
+  "lighting": {
+    "lights": [
+      {
+        "id": 1,
+        "name": "Cool point",
+        "type": "point",
+        "enabled": true,
+        "color": [
+          0.2,
+          0.5,
+          1
+        ],
+        "intensity": 4,
+        "position": [
+          -2,
+          2,
+          -1
+        ],
+        "direction": [
+          0,
+          -1,
+          0
+        ],
+        "range": 20,
+        "innerCone": 15,
+        "outerCone": 30
+      }
+    ],
+    "primaryShadowLightId": 0,
+    "iblIntensity": 0.2,
+    "skyboxEnabled": false,
+    "directLightEnabled": true,
+    "diffuseIblEnabled": false,
+    "specularIblEnabled": false,
+    "emissiveEnabled": true
+  },
+  "shadow": {
+    "enabled": true,
+    "normalBias": 0.001
+  },
+  "toneMap": {
+    "operatorIndex": 2,
+    "exposure": 1
+  },
+  "temporalUpscaler": {
+    "autoExposure": false
+  },
+  "pathTracing": {
+    "accumulate": true,
+    "samplesPerFrame": 1,
+    "maxBounces": 2,
+    "randomSeed": 1,
+    "directLightingEnabled": true,
+    "environmentEnabled": true,
+    "environmentSamplingMode": 5,
+    "emissiveEnabled": true,
+    "russianRouletteEnabled": false,
+    "debugOutput": 3,
+    "emissiveSamplingMode": 2
+  }
+}

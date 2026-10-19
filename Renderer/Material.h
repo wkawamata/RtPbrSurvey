@@ -25,6 +25,8 @@ struct Material
     float uvScale[2];
     float uvOffset[2];
     float baseColorFactor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float emissiveFactor[3];
+    float normalTextureScale;
 };
 
 } // namespace Engine

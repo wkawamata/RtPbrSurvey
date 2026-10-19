@@ -30,6 +30,7 @@
 #include "../Scene/SceneGraph.h"
 #include "../Scene/SceneDocumentJson.h"
 #include "../Scene/SceneDocumentRuntimeScene.h"
+#include "../Scene/CameraView.h"
 #include "imgui.h"
 #include "ImGuiWidgets.h"
 
@@ -149,6 +150,12 @@ RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
 _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], int argc)
 {
     m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
+    m_sceneRenderer.EngineForDebugTools().SetVSyncEnabled(!m_commandLineOptions.disableVSync);
+    if (m_commandLineOptions.hasPathTracingObjectMotion &&
+        (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.capturePath.empty()))
+    {
+        throw std::invalid_argument("-PathTracingObjectMotionX requires -SceneFile and -CapturePath.");
+    }
     if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() &&
         (!m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
          !m_commandLineOptions.reflectionCapturePlanPath.empty()))
@@ -176,8 +183,24 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     {
         throw std::invalid_argument("-PathTracingSamples requires -CapturePath.");
     }
+    if (!m_commandLineOptions.pathTracingHistoryValidationDirectory.empty())
+    {
+        if (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
+            !m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
+            !m_commandLineOptions.reflectionCapturePlanPath.empty() ||
+            !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() ||
+            m_commandLineOptions.pathTracingSampleTarget != 0)
+        {
+            throw std::invalid_argument(
+                "-PathTracingHistoryValidation requires -SceneFile and -LogToFile, "
+                "and is mutually exclusive with other capture automation.");
+        }
+    }
     if (m_commandLineOptions.captureSessionEnabled)
     {
+        if (!m_sceneRenderer.EngineForDebugTools().SetMp4DiagnosticAppendDelay(
+            m_commandLineOptions.captureSessionEncoderDelayMilliseconds))
+            throw std::runtime_error("Could not configure MP4 diagnostic append delay.");
         if (!m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty())
         {
             throw std::invalid_argument("Capture Session is mutually exclusive with existing screenshot automation.");
@@ -263,7 +286,11 @@ void RtPbrSurveyApp::OnInit()
     }
 
     InitializeImGui();
-    m_sceneRenderer.SetUpdateHandler([this]() { UpdateSampleState(); });
+    m_sceneRenderer.SetUpdateHandler([this]()
+    {
+        UpdateSampleState();
+        UpdateCaptureSessionTiming();
+    });
     m_sceneRenderer.SetLightingParams(m_lightingParams);
     m_sceneRenderer.SetRenderingPath(m_renderingPath);
     m_sceneRenderer.SetLightingPassDebugGradient(m_lightingPassDebugGradient);
@@ -529,21 +556,30 @@ void RtPbrSurveyApp::OnInit()
             throw std::runtime_error("Failed to start Capture Session: " + error);
         }
         m_captureSessionActive = true;
-        m_captureSessionStartTime = std::chrono::steady_clock::now();
+        InitializeCaptureSessionClock(config, m_commandLineOptions.hasCaptureSessionOrbit
+                                                  ? std::optional<double>(m_commandLineOptions.captureSessionOrbitDegreesPerSecond)
+                                                  : std::nullopt);
     }
 }
 
 void RtPbrSurveyApp::UpdateSampleState()
 {
-    auto now = std::chrono::steady_clock::now();
-    const float deltaTime = std::chrono::duration<float>(now - m_prevTime).count();
-    m_prevTime = now;
-
     if (m_appMode != AppMode::Running && m_appMode != AppMode::SceneEditorEdit)
     {
         m_sceneRenderer.SetDisplayInstanceCount(0);
         return;
     }
+
+    const float deltaTime = m_captureFrameClock.AdvanceSceneUpdate(m_frameUpdateMode, m_sceneDeltaTime);
+    UpdateSceneInteraction(deltaTime);
+    UpdateSceneSimulation(deltaTime);
+}
+
+void RtPbrSurveyApp::UpdateSceneInteraction(float deltaTime)
+{
+    if (IsCaptureOrbitActive())
+        return;
+    m_debugCamera.SetPrimaryDragButton(m_appMode == AppMode::SceneEditorEdit ? VK_RBUTTON : VK_LBUTTON);
 
     if (m_sceneEditorObjectPickPending)
     {
@@ -602,13 +638,32 @@ void RtPbrSurveyApp::UpdateSampleState()
             m_debugCamera.UpdateObjectViewerCamera();
         }
     }
+}
 
+void RtPbrSurveyApp::UpdateSceneSimulation(float deltaTime)
+{
     Engine::SampleSceneUpdateContext sceneUpdate = {};
     sceneUpdate.isPlaying = m_isPlaying;
     sceneUpdate.meshScale = m_meshScale;
     sceneUpdate.dragRotation = m_dragRotation;
     LoadedScene().Update(deltaTime, sceneUpdate);
 
+    if (m_commandLineOptions.hasPathTracingObjectMotion)
+    {
+        Engine::Scene& scene = LoadedScene().GetScene();
+        if (scene.instances.size() != 1)
+        {
+            throw std::invalid_argument("-PathTracingObjectMotionX requires a single-instance scene.");
+        }
+        Engine::InstanceData& instance = scene.instances.front();
+        instance.prevWorld = instance.world;
+        const DirectX::XMMATRIX world = DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&instance.world));
+        const DirectX::XMMATRIX translated = world * DirectX::XMMatrixTranslation(m_commandLineOptions.pathTracingObjectMotionX, 0.0f, 0.0f);
+        DirectX::XMStoreFloat4x4(&instance.world, DirectX::XMMatrixTranspose(translated));
+    }
+
+    if (IsCaptureOrbitActive())
+        ApplyCaptureOrbitCamera();
     m_sceneRenderer.SetScene(LoadedScene().GetScene());
     m_sceneRenderer.SetDisplayInstanceCount(LoadedScene().DisplayInstanceCount());
 }
@@ -625,13 +680,13 @@ void RtPbrSurveyApp::OnKeyDown(UINT8 key)
     }
     if (m_appMode == AppMode::TopMenu && key == VK_ESCAPE)
     {
-        DestroyWindow(Win32Application::GetHwnd());
+        RequestCloseApplication();
         return;
     }
 
     if (m_appMode == AppMode::Running && key == VK_ESCAPE)
     {
-        CloseRunningScene();
+        RequestCloseRunningScene();
         return;
     }
 
@@ -657,6 +712,14 @@ void RtPbrSurveyApp::OnKeyDown(UINT8 key)
         m_forwardStepRequested = true;
     }
 
+    if ((m_appMode == AppMode::Running || m_appMode == AppMode::SceneEditorEdit) && key == VK_F8)
+    {
+        const bool active = RtPbrSurvey::CaptureSessionUi::IsActive(m_sceneRenderer.GetCaptureSessionStatus());
+        ApplyCaptureSessionUiAction(active ? RtPbrSurvey::CaptureSessionUiAction::Stop :
+                                             RtPbrSurvey::CaptureSessionUiAction::Start);
+        return;
+    }
+
     if (m_appMode == AppMode::Running && key == VK_F1)
     {
         m_debugUiVisible = !m_debugUiVisible;
@@ -671,8 +734,18 @@ void RtPbrSurveyApp::OnKeyDown(UINT8 key)
 
 void RtPbrSurveyApp::OnKeyUp(UINT8 key) {}
 
+bool RtPbrSurveyApp::OnCloseRequested()
+{
+    RequestCloseApplication();
+    return false;
+}
+
 void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
 {
+    if (m_appMode == AppMode::SceneEditorEdit && m_sceneEditorGizmoCapturesMouse)
+    {
+        return;
+    }
     if (m_captureSessionUiState.selectingRegion)
     {
         return;
@@ -684,7 +757,7 @@ void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
 
     if (button == VK_LBUTTON)
     {
-        if (m_appMode == AppMode::SceneEditorEdit && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
+        if (m_appMode == AppMode::SceneEditorEdit)
         {
             if (m_renderingPath != RtPbrSurveyEngine::RenderingPath::Deferred)
             {
@@ -701,7 +774,15 @@ void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
             return;
         }
     }
-    m_debugCamera.OnMouseDown(button, x, y);
+
+    if (button == VK_RBUTTON && (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0)
+    {
+        m_debugUiVisible = !m_debugUiVisible;
+        return;
+    }
+
+    if (!IsCaptureOrbitActive())
+        m_debugCamera.OnMouseDown(button, x, y);
 }
 
 void RtPbrSurveyApp::OnMouseUp(UINT8 button, int x, int y)
@@ -714,11 +795,20 @@ void RtPbrSurveyApp::OnMouseUp(UINT8 button, int x, int y)
     {
         return;
     }
-    m_debugCamera.OnMouseUp(button, x, y);
+    if (m_appMode == AppMode::SceneEditorEdit && button == VK_LBUTTON)
+    {
+        return;
+    }
+    if (!IsCaptureOrbitActive())
+        m_debugCamera.OnMouseUp(button, x, y);
 }
 
 void RtPbrSurveyApp::OnMouseMove(int x, int y)
 {
+    if (m_appMode == AppMode::SceneEditorEdit && m_sceneEditorGizmoCapturesMouse)
+    {
+        return;
+    }
     if (m_captureSessionUiState.selectingRegion)
     {
         return;
@@ -728,7 +818,21 @@ void RtPbrSurveyApp::OnMouseMove(int x, int y)
         return;
     }
 
+    if (IsCaptureOrbitActive())
+        return;
     m_debugCamera.OnMouseMove(x, y);
+    m_sceneRenderer.SetCamera(LoadedScene().GetScene().camera);
+    if (m_logFile && RtPbrSurvey::CaptureSessionUi::IsActive(m_sceneRenderer.GetCaptureSessionStatus()))
+    {
+        const double elapsedSeconds = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - m_captureSessionStartTime).count();
+        const Engine::CameraState& camera = LoadedScene().GetScene().camera;
+        fprintf(m_logFile,
+                "[CAPTURE_CAMERA_INPUT] real=%.9f x=%d y=%d position=%.9f,%.9f,%.9f gaze=%.9f,%.9f,%.9f\n",
+                elapsedSeconds, x, y, camera.pos.x, camera.pos.y, camera.pos.z,
+                camera.gazePoint.x, camera.gazePoint.y, camera.gazePoint.z);
+        fflush(m_logFile);
+    }
 }
 
 void RtPbrSurveyApp::OnMouseWheel(int wheelDelta)
@@ -742,7 +846,10 @@ void RtPbrSurveyApp::OnMouseWheel(int wheelDelta)
         return;
     }
 
+    if (IsCaptureOrbitActive())
+        return;
     m_debugCamera.OnMouseWheel(wheelDelta, (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0);
+    m_sceneRenderer.SetCamera(LoadedScene().GetScene().camera);
 }
 
 void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
@@ -754,46 +861,97 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 
 void RtPbrSurveyApp::OnIdle()
 {
-    UpdateReflectionHdrDiagnostics();
-    if (m_reflectionHdrDiagnosticsComplete)
+    if (!m_commandLineOptions.pathTracingHistoryValidationDirectory.empty())
     {
+        RunPathTracingHistoryValidation();
         return;
     }
+    UpdateCaptureRequestGate();
 
-    const double captureSessionRealTimeSeconds =
-        std::chrono::duration<double>(std::chrono::steady_clock::now() - m_captureSessionStartTime).count();
-    if (!m_captureSessionActive)
+    if (!m_reflectionHdrDiagnosticsComplete)
     {
-        RtPbrSurvey::CaptureSessionUi::Update(
-            m_sceneRenderer,
-            {m_automationFrameCounter, captureSessionRealTimeSeconds, captureSessionRealTimeSeconds});
+        UpdateReflectionHdrDiagnostics();
     }
+
+    const auto now = std::chrono::steady_clock::now();
+    m_sceneDeltaTime = std::chrono::duration<float>(now - m_prevTime).count();
+    m_prevTime = now;
 
     if (m_captureSessionActive)
     {
-        m_sceneRenderer.UpdateCaptureSession(
-            {m_automationFrameCounter, captureSessionRealTimeSeconds, captureSessionRealTimeSeconds});
         const RtPbrSurvey::CaptureSessionStatus& status = m_sceneRenderer.GetCaptureSessionStatus();
-        if (status.state == RtPbrSurvey::CaptureSessionState::Completed || status.state == RtPbrSurvey::CaptureSessionState::Failed)
+        if (status.state == RtPbrSurvey::CaptureSessionState::Completed ||
+            status.state == RtPbrSurvey::CaptureSessionState::Failed)
         {
+            if (m_logFile)
+            {
+                const double elapsedSeconds = std::chrono::duration<double>(
+                    std::chrono::steady_clock::now() - m_captureSessionStartTime).count();
+                fprintf(m_logFile,
+                        "[CAPTURE_SESSION_END] state=%s accepted=%llu saved=%llu dropped=%llu elapsed=%.9f\n",
+                        status.state == RtPbrSurvey::CaptureSessionState::Completed ? "Completed" : "Failed",
+                        static_cast<unsigned long long>(status.acceptedFrameCount),
+                        static_cast<unsigned long long>(status.savedFrameCount),
+                        static_cast<unsigned long long>(status.droppedFrameCount), elapsedSeconds);
+                fprintf(m_logFile,
+                        "[CAPTURE_PIPELINE_END] accepted=%llu saved=%llu encoder_pending=%zu encoder_bytes=%zu "
+                        "gpu_pending=%zu readback_bytes=%zu readback_allocations=%llu readback_reuses=%llu\n",
+                        static_cast<unsigned long long>(status.acceptedFrameCount),
+                        static_cast<unsigned long long>(status.savedFrameCount),
+                        status.encoder.outstandingFrames,
+                        status.encoder.outstandingBytes,
+                        status.encoder.gpuPendingFrames,
+                        status.encoder.gpuReadbackBytes,
+                        static_cast<unsigned long long>(status.encoder.gpuReadbackAllocations),
+                        static_cast<unsigned long long>(status.encoder.gpuReadbackReuses));
+                fprintf(m_logFile, "[CAPTURE_ENCODER] delay_ms=%u max_append_ms=%.6f last_append_ms=%.6f finalize_ms=%.6f\n",
+                    m_commandLineOptions.captureSessionEncoderDelayMilliseconds,
+                    status.encoder.maxAppendMilliseconds, status.encoder.lastAppendMilliseconds,
+                    status.encoder.finalizeMilliseconds);
+                fflush(m_logFile);
+            }
             m_captureSessionActive = false;
-            m_screenshotStatus = status.state == RtPbrSurvey::CaptureSessionState::Completed ?
-                "Capture session completed: " + status.lastOutputPath.string() :
-                "Capture session failed: " + status.error;
+            m_screenshotStatus = status.state == RtPbrSurvey::CaptureSessionState::Completed
+                                     ? "Capture session completed: " + status.lastOutputPath.string()
+                                     : "Capture session failed: " + status.error;
+            if (status.state == RtPbrSurvey::CaptureSessionState::Failed)
+            {
+                m_exitCode = 1;
+                if (m_logFile)
+                {
+                    fprintf(m_logFile, "[ERROR] %s\n", m_screenshotStatus.c_str());
+                    fflush(m_logFile);
+                }
+            }
             if (m_commandLineOptions.exitAfterCapture)
             {
-                DestroyWindow(Win32Application::GetHwnd());
+                RequestCloseApplication();
                 return;
             }
         }
     }
-    else if (HasAutomatedCapture())
+    else if (IsAutomatedCaptureBlocking())
     {
         if (const std::optional<RtPbrSurvey::ScreenshotResult> result = m_sceneRenderer.ConsumeScreenshotResult())
         {
             m_screenshotStatus = result->succeeded ?
                 "Saved: " + result->path.string() :
                 "Capture failed: " + result->error;
+
+            if (m_reflectionCapturePlan.captures.empty())
+            {
+                m_automatedCaptureCompleted = true;
+            }
+
+            if (!result->succeeded)
+            {
+                m_exitCode = 1;
+                if (m_logFile)
+                {
+                    fprintf(m_logFile, "[ERROR] %s\n", m_screenshotStatus.c_str());
+                    fflush(m_logFile);
+                }
+            }
 
             if (!m_reflectionCapturePlan.captures.empty())
             {
@@ -823,10 +981,22 @@ void RtPbrSurveyApp::OnIdle()
             }
             if (m_commandLineOptions.exitAfterCapture && (singleCaptureComplete || capturePlanComplete))
             {
-                DestroyWindow(Win32Application::GetHwnd());
+                RequestCloseApplication();
                 return;
             }
         }
+    }
+
+    UpdateCaptureRequestGate();
+    if (ResolvePendingHostAction())
+    {
+        return;
+    }
+    ExecutePendingSceneEditorRebuild();
+
+    if (m_reflectionHdrDiagnosticsComplete)
+    {
+        return;
     }
 
     if (!m_reflectionCapturePlan.captures.empty() && !m_reflectionCapturePlanFailed &&
@@ -912,11 +1082,72 @@ void RtPbrSurveyApp::OnIdle()
         return;
     }
 
+    m_sceneRenderer.PollCaptureSession();
     UpdateUiFrame();
-    const bool advanceFrame = !m_framePaused || m_forwardStepRequested;
-    m_forwardStepRequested = false;
-    m_sceneRenderer.RunFrame(
-        [this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); }, advanceFrame);
+    m_frameUpdateMode = m_captureFrameClock.ChooseUpdateMode(m_sceneRenderer.GetCaptureSessionStatus().state,
+                                                             !m_framePaused || m_forwardStepRequested,
+                                                             m_sceneRenderer.CanAdvanceCaptureSessionFixedStep());
+    const bool advanceFrame = RtPbrSurvey::CaptureFrameClock::AdvancesScene(m_frameUpdateMode);
+    const bool logCapturePt = m_logFile && m_renderingPath == RtPbrSurveyEngine::RenderingPath::PathTracing &&
+                              RtPbrSurvey::CaptureSessionUi::IsActive(m_sceneRenderer.GetCaptureSessionStatus());
+    const auto ptBefore = m_sceneRenderer.GetPathTracingRuntimeState();
+    const std::uint64_t acceptedBefore = m_sceneRenderer.GetCaptureSessionStatus().acceptedFrameCount;
+    if (advanceFrame)
+    {
+        m_forwardStepRequested = false;
+    }
+    else
+    {
+        // Poll/save without advancing the scene pose or its fixed-step clock.
+        UpdateCaptureSessionTiming();
+    }
+    m_sceneRenderer.RunFrame([this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); },
+                             advanceFrame);
+    if (logCapturePt)
+    {
+        const auto& pt = m_sceneRenderer.GetPathTracingRuntimeState();
+        const auto& capture = m_sceneRenderer.GetCaptureSessionStatus();
+        const auto& camera = m_sceneRenderer.GetCamera();
+        const long long output =
+            capture.acceptedFrameCount > acceptedBefore ? static_cast<long long>(capture.acceptedFrameCount - 1) : -1;
+        const char* mode = "LiveScene";
+        switch (m_frameUpdateMode)
+        {
+            case RtPbrSurvey::CaptureFrameUpdateMode::FixedCapture:
+                mode = "FixedCapture";
+                break;
+            case RtPbrSurvey::CaptureFrameUpdateMode::Paused:
+                mode = "Paused";
+                break;
+            case RtPbrSurvey::CaptureFrameUpdateMode::CapacityWait:
+                mode = "CapacityWait";
+                break;
+            case RtPbrSurvey::CaptureFrameUpdateMode::DrainOnly:
+                mode = "DrainOnly";
+                break;
+            default:
+                break;
+        }
+        fprintf(m_logFile,
+                "[CAPTURE_PT] render=%llu output=%lld advanced=%u mode=%s before_samples=%llu "
+                "samples=%llu before_index=%u sample_index=%u history=%u reset=\"%s\" spp=%u "
+                "position=%.9f,%.9f,%.9f\n",
+                static_cast<unsigned long long>(m_automationFrameCounter),
+                output,
+                advanceFrame ? 1u : 0u,
+                mode,
+                static_cast<unsigned long long>(ptBefore.accumulatedSampleCount),
+                static_cast<unsigned long long>(pt.accumulatedSampleCount),
+                ptBefore.frameSampleIndex,
+                pt.frameSampleIndex,
+                pt.historyValid ? 1u : 0u,
+                pt.ResetReasonText(),
+                m_sceneRenderer.GetPathTracingSettings().samplesPerFrame,
+                camera.pos.x,
+                camera.pos.y,
+                camera.pos.z);
+        fflush(m_logFile);
+    }
     LogRayReconstructionDiagnostics();
     AccumulatePathTracingCaptureDiagnostics();
 
@@ -1040,10 +1271,354 @@ void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
     m_debugCamera.UpdateObjectViewerCamera();
 }
 
-bool RtPbrSurveyApp::HasAutomatedCapture() const
+void RtPbrSurveyApp::InitializeCaptureSessionClock(const RtPbrSurvey::CaptureSessionConfig& config,
+                                                std::optional<double> orbitDegreesPerSecond)
 {
-    return !m_commandLineOptions.capturePath.empty() || !m_reflectionCapturePlan.captures.empty() ||
-           !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() || m_captureSessionActive;
+    m_captureSessionStartTime = std::chrono::steady_clock::now();
+    m_captureFrameClock.Reset(config.clock, config.framesPerSecond);
+    m_captureOrbitTrack.reset();
+    if (orbitDegreesPerSecond && config.clock == RtPbrSurvey::CaptureSessionClock::FixedStep)
+    {
+        m_debugCamera.ResetInputState();
+        m_debugCamera.InitObjectViewerFromCamera(LoadedScene().GetScene().camera.gazePoint);
+        const RtPbrSurvey::CaptureOrbitPose baseline = {0.0,
+                                                        m_debugCamera.ObjectViewerYaw(),
+                                                        m_debugCamera.ObjectViewerPitch(),
+                                                        m_debugCamera.ObjectViewerDistance(),
+                                                        m_debugCamera.ObjectViewerPivot()};
+        m_captureOrbitTrack.emplace(baseline, *orbitDegreesPerSecond, config.framesPerSecond);
+        ApplyCaptureOrbitCamera();
+        m_sceneRenderer.SetCamera(LoadedScene().GetScene().camera);
+    }
+}
+
+bool RtPbrSurveyApp::IsCaptureOrbitActive() const
+{
+    return m_captureOrbitTrack.has_value() &&
+           RtPbrSurvey::CaptureSessionUi::IsActive(m_sceneRenderer.GetCaptureSessionStatus());
+}
+
+void RtPbrSurveyApp::ApplyCaptureOrbitCamera()
+{
+    m_captureOrbitPose =
+        m_captureOrbitTrack->EvaluateFrame(m_sceneRenderer.GetCaptureSessionStatus().acceptedFrameCount);
+    m_debugCamera.SetObjectViewerState(
+        m_captureOrbitPose.yaw, m_captureOrbitPose.pitch, m_captureOrbitPose.distance, m_captureOrbitPose.pivot);
+    m_debugCamera.UpdateObjectViewerCamera();
+}
+
+void RtPbrSurveyApp::UpdateCaptureSessionTiming()
+{
+    if (!RtPbrSurvey::CaptureSessionUi::IsActive(m_sceneRenderer.GetCaptureSessionStatus()))
+    {
+        return;
+    }
+    const double realSeconds =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - m_captureSessionStartTime).count();
+    const std::uint64_t previousAccepted = m_sceneRenderer.GetCaptureSessionStatus().acceptedFrameCount;
+    // Called after publishing the scene pose, or with a frozen pose while polling.
+    m_sceneRenderer.UpdateCaptureSession(m_captureFrameClock.MakeTiming(realSeconds),
+                                        RtPbrSurvey::CaptureFrameClock::AdvancesScene(m_frameUpdateMode));
+    const auto& status = m_sceneRenderer.GetCaptureSessionStatus();
+    if (m_logFile && status.acceptedFrameCount != previousAccepted)
+    {
+        fprintf(m_logFile,
+                "[CAPTURE_FRAME] index=%llu simulation=%.9f render=%llu real=%.9f dropped=%llu\n",
+                static_cast<unsigned long long>(status.acceptedFrameCount - 1),
+                m_captureFrameClock.GetSimulationSeconds(),
+                static_cast<unsigned long long>(m_automationFrameCounter), realSeconds,
+                static_cast<unsigned long long>(status.droppedFrameCount));
+        const Engine::CameraState& camera = LoadedScene().GetScene().camera;
+        fprintf(m_logFile,
+                "[CAPTURE_CAMERA_POSE] index=%llu real=%.9f position=%.9f,%.9f,%.9f gaze=%.9f,%.9f,%.9f\n",
+                static_cast<unsigned long long>(status.acceptedFrameCount - 1), realSeconds,
+                camera.pos.x, camera.pos.y, camera.pos.z,
+                camera.gazePoint.x, camera.gazePoint.y, camera.gazePoint.z);
+        if (m_captureOrbitTrack)
+        {
+            fprintf(m_logFile,
+                    "[CAPTURE_CAMERA] index=%llu time=%.9f yaw=%.9f pitch=%.9f distance=%.9f "
+                    "position=%.9f,%.9f,%.9f pivot=%.9f,%.9f,%.9f\n",
+                    static_cast<unsigned long long>(status.acceptedFrameCount - 1),
+                    m_captureOrbitPose.timeSeconds,
+                    m_captureOrbitPose.yaw,
+                    m_captureOrbitPose.pitch,
+                    m_captureOrbitPose.distance,
+                    camera.pos.x,
+                    camera.pos.y,
+                    camera.pos.z,
+                    m_captureOrbitPose.pivot.x,
+                    m_captureOrbitPose.pivot.y,
+                    m_captureOrbitPose.pivot.z);
+        }
+        fprintf(m_logFile,
+                "[CAPTURE_PIPELINE] accepted=%llu saved=%llu encoder_pending=%zu encoder_bytes=%zu "
+                "gpu_pending=%zu readback_bytes=%zu readback_allocations=%llu readback_reuses=%llu\n",
+                static_cast<unsigned long long>(status.acceptedFrameCount),
+                static_cast<unsigned long long>(status.savedFrameCount),
+                status.encoder.outstandingFrames,
+                status.encoder.outstandingBytes,
+                status.encoder.gpuPendingFrames,
+                status.encoder.gpuReadbackBytes,
+                static_cast<unsigned long long>(status.encoder.gpuReadbackAllocations),
+                static_cast<unsigned long long>(status.encoder.gpuReadbackReuses));
+        fflush(m_logFile);
+    }
+}
+
+void RtPbrSurveyApp::DrawCaptureSessionUi()
+{
+    const RtPbrSurvey::CaptureSessionStatus& status = m_sceneRenderer.GetCaptureSessionStatus();
+    std::string reason;
+    const bool canStart = CanStartCaptureSession(reason) && ValidateCaptureOrbitSettings(reason);
+    const RtPbrSurvey::CaptureSessionUiAction action =
+        RtPbrSurvey::CaptureSessionUi::Draw(status, m_captureSessionUiState, canStart ? nullptr : reason.c_str());
+    ImGui::BeginDisabled(RtPbrSurvey::CaptureSessionUi::IsActive(status));
+    ImGui::SeparatorText("Camera track");
+    if (ImGui::Checkbox("Orbit camera", &m_captureSessionOrbitEnabled) && m_captureSessionOrbitEnabled)
+    {
+        m_captureSessionUiState.fixedStep = true;
+    }
+    if (m_captureSessionOrbitEnabled)
+    {
+        ImGui::InputDouble("Speed (deg/s)", &m_captureSessionOrbitDegreesPerSecond, 5.0, 30.0, "%.2f");
+    }
+    ImGui::EndDisabled();
+    ApplyCaptureSessionUiAction(action);
+    ImGui::TextUnformatted("F8: Start Capture Session / Stop active session");
+    ImGui::TextUnformatted("Hold Left Mouse + press Right Mouse: Toggle ImGui visibility");
+    ImGui::TextWrapped("Fixed-step advances scene and camera by 1/FPS. P pauses the clock; F advances one step. Space pauses scene animation only.");
+}
+
+void RtPbrSurveyApp::UpdateCaptureRequestGate()
+{
+    RtPbrSurvey::CaptureRequestGate::Inputs inputs;
+    inputs.captureSessionActive = RtPbrSurvey::CaptureSessionUi::IsActive(m_sceneRenderer.GetCaptureSessionStatus());
+    inputs.singleScreenshotInFlight = !m_sceneRenderer.IsScreenshotCaptureIdle();
+    inputs.automatedCaptureBlocking = IsAutomatedCaptureBlocking();
+    inputs.diagnosticCaptureInFlight = m_reflectionHdrDiagnosticInFlight;
+    inputs.sceneEditorDecisionRequired = NeedsSceneEditorDecision();
+    m_captureRequestGate.Update(inputs);
+}
+
+bool RtPbrSurveyApp::IsCaptureWorkPending()
+{
+    UpdateCaptureRequestGate();
+    return m_captureRequestGate.IsWorkPending();
+}
+
+bool RtPbrSurveyApp::CanStartCaptureSession(std::string& reason)
+{
+    UpdateCaptureRequestGate();
+    return m_captureRequestGate.CanStart(reason);
+}
+
+bool RtPbrSurveyApp::ValidateCaptureOrbitSettings(std::string& reason) const
+{
+    if (m_captureSessionOrbitEnabled &&
+        (!m_captureSessionUiState.fixedStep || !std::isfinite(m_captureSessionOrbitDegreesPerSecond) ||
+         std::abs(m_captureSessionOrbitDegreesPerSecond) > 360.0))
+    {
+        reason = "Orbit camera requires a fixed-step clock and a finite speed in [-360, 360] degrees/sec.";
+        return false;
+    }
+    return true;
+}
+
+bool RtPbrSurveyApp::NeedsSceneEditorDecision() const
+{
+    return m_captureRequestGate.GetPendingAction() != RtPbrSurvey::PendingHostAction::None &&
+           m_appMode == AppMode::SceneEditorEdit && m_sceneEditorSession.has_value() &&
+           m_sceneEditorSession->IsModified() && !m_sceneEditorPendingDecisionApplied;
+}
+
+bool RtPbrSurveyApp::CanEditSceneEditorDocument(std::string& reason)
+{
+    if (IsCaptureWorkPending() || m_captureRequestGate.GetPendingAction() != RtPbrSurvey::PendingHostAction::None)
+    {
+        reason = "Scene editing is not allowed while capture output is being saved.";
+        return false;
+    }
+    reason.clear();
+    return true;
+}
+
+bool RtPbrSurveyApp::RequestHostAction(RtPbrSurvey::PendingHostAction action, const std::string& loadPath)
+{
+    const RtPbrSurvey::PendingHostAction previous = m_captureRequestGate.GetPendingAction();
+    const RtPbrSurvey::PendingHostAction chosen = m_captureRequestGate.RequestPendingAction(action);
+    if (previous == RtPbrSurvey::PendingHostAction::None || chosen != previous)
+    {
+        m_sceneEditorPendingDecisionApplied = false;
+        m_sceneEditorPendingLoadPath = chosen == RtPbrSurvey::PendingHostAction::SceneEditorLoadDocument ? loadPath : "";
+        m_pendingSelectedSceneIndex = m_selectedSceneIndex;
+    }
+    // Keep the first operation and its payload. A higher-priority exit replaces it.
+    StopCaptureForPendingAction();
+    UpdateCaptureRequestGate();
+    return !m_captureRequestGate.CanExecutePendingAction();
+}
+
+void RtPbrSurveyApp::StopCaptureForPendingAction()
+{
+    if (RtPbrSurvey::CaptureSessionUi::IsActive(m_sceneRenderer.GetCaptureSessionStatus()))
+    {
+        m_sceneRenderer.StopCaptureSession();
+    }
+}
+
+std::string RtPbrSurveyApp::PendingHostActionMessage()
+{
+    std::string message = std::string("Pending ") + m_captureRequestGate.GetPendingActionName();
+    message += NeedsSceneEditorDecision() ? " waits for the Scene Document decision."
+                                          : " waits for capture output to complete.";
+    return message;
+}
+
+const char* RtPbrSurveyApp::GetPendingHostActionName() const
+{
+    return m_captureRequestGate.GetPendingActionName();
+}
+
+bool RtPbrSurveyApp::ExecutePendingHostAction(RtPbrSurvey::PendingHostAction action)
+{
+    switch (action)
+    {
+    case RtPbrSurvey::PendingHostAction::CloseApplication:
+        DestroyWindow(Win32Application::GetHwnd());
+        return true;
+    case RtPbrSurvey::PendingHostAction::CloseRunningScene:
+        CloseRunningScene();
+        break;
+    case RtPbrSurvey::PendingHostAction::OpenSelectedScene:
+        m_selectedSceneIndex = m_pendingSelectedSceneIndex;
+        ExecuteOpenSelectedScene();
+        break;
+    case RtPbrSurvey::PendingHostAction::SceneEditorNewDocument:
+        CreateNewSceneEditorDocument();
+        break;
+    case RtPbrSurvey::PendingHostAction::SceneEditorLoadDocument:
+    {
+        std::string error;
+        if (!LoadSceneEditorDocument(m_sceneEditorPendingLoadPath, &error))
+        {
+            m_sceneEditorStatus = "Load failed: " + error;
+        }
+        break;
+    }
+    case RtPbrSurvey::PendingHostAction::SceneEditorReturnToTopMenu:
+        ReturnToTopMenu();
+        break;
+    default:
+        break;
+    }
+    return false;
+}
+
+bool RtPbrSurveyApp::ResolvePendingHostAction()
+{
+    UpdateCaptureRequestGate();
+    const RtPbrSurvey::PendingHostAction action = m_captureRequestGate.TakeResolvedAction();
+    if (action == RtPbrSurvey::PendingHostAction::None)
+    {
+        return false;
+    }
+    return ExecutePendingHostAction(action);
+}
+
+void RtPbrSurveyApp::RequestCloseApplication()
+{
+    if (RequestHostAction(RtPbrSurvey::PendingHostAction::CloseApplication))
+    {
+        m_captureSessionUiState.message = PendingHostActionMessage();
+        return;
+    }
+    ResolvePendingHostAction();
+}
+
+void RtPbrSurveyApp::RequestCloseRunningScene()
+{
+    if (RequestHostAction(RtPbrSurvey::PendingHostAction::CloseRunningScene))
+    {
+        m_captureSessionUiState.message = PendingHostActionMessage();
+        return;
+    }
+    ResolvePendingHostAction();
+}
+
+void RtPbrSurveyApp::ExecutePendingSceneEditorRebuild()
+{
+    UpdateCaptureRequestGate();
+    if (!m_captureRequestGate.TakePendingPreviewRebuild(
+            m_sceneEditorPreviewRebuildPending, m_appMode == AppMode::SceneEditorEdit))
+    {
+        return;
+    }
+
+    std::string error;
+    if (!RebuildSceneEditorPreview(&error))
+    {
+        m_sceneEditorStatus = "Pending preview rebuild failed: " + error;
+        return;
+    }
+    m_sceneEditorStatus = "Pending preview rebuild completed from the latest Document.";
+}
+
+void RtPbrSurveyApp::ApplyCaptureSessionUiAction(RtPbrSurvey::CaptureSessionUiAction action)
+{
+    if (action == RtPbrSurvey::CaptureSessionUiAction::Stop)
+    {
+        m_sceneRenderer.StopCaptureSession();
+        m_captureSessionUiState.message = "Capture session is draining queued output.";
+    }
+    else if (action == RtPbrSurvey::CaptureSessionUiAction::Start)
+    {
+        std::string reason;
+        if (!CanStartCaptureSession(reason) || !ValidateCaptureOrbitSettings(reason))
+        {
+            m_captureSessionUiState.message = "Unable to start capture session: " + reason;
+            return;
+        }
+        RtPbrSurvey::CaptureSessionUi::CancelRegionSelection(m_captureSessionUiState);
+        std::string error;
+        const RtPbrSurvey::CaptureSessionConfig config = RtPbrSurvey::CaptureSessionUi::BuildConfig(m_captureSessionUiState);
+        if (m_sceneRenderer.StartCaptureSession(config, error))
+        {
+            m_captureSessionActive = true;
+            InitializeCaptureSessionClock(config, m_captureSessionOrbitEnabled
+                                                      ? std::optional<double>(m_captureSessionOrbitDegreesPerSecond)
+                                                      : std::nullopt);
+            m_captureSessionUiState.message = "Capture session started.";
+        }
+        else
+        {
+            m_captureSessionUiState.message = "Unable to start capture session: " + error;
+        }
+    }
+}
+
+bool RtPbrSurveyApp::IsAutomatedCaptureBlocking() const
+{
+    // A completed or failed automation is released, so a later GUI session or single screenshot
+    // can start. Only a future reservation or in-flight output keeps a request blocked.
+    if (!m_commandLineOptions.capturePath.empty() && !m_automatedCaptureCompleted)
+    {
+        return true;
+    }
+    if (!m_reflectionCapturePlan.captures.empty() && !m_reflectionCapturePlanFailed &&
+        m_nextReflectionCaptureIndex < m_reflectionCapturePlan.captures.size())
+    {
+        return true;
+    }
+    if (m_reflectionCaptureInFlight)
+    {
+        return true;
+    }
+    if (!m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() && !m_reflectionHdrDiagnosticsComplete)
+    {
+        return true;
+    }
+    return m_captureSessionActive;
 }
 
 void RtPbrSurveyApp::ApplyRayReconstructionCommandLineOverrides()
@@ -1158,7 +1733,7 @@ void RtPbrSurveyApp::UpdateReflectionHdrDiagnostics()
     {
         WriteReflectionHdrDiagnosticsReport();
         m_reflectionHdrDiagnosticsComplete = true;
-        DestroyWindow(Win32Application::GetHwnd());
+        RequestCloseApplication();
         return;
     }
 
@@ -1636,6 +2211,7 @@ void RtPbrSurveyApp::WriteReflectionHdrDiagnosticsReport()
 void RtPbrSurveyApp::FailAutomatedCapture(const std::string& error)
 {
     m_reflectionCapturePlanFailed = true;
+    m_exitCode = 1;
     m_screenshotStatus = "Capture failed: " + error;
     if (m_logFile)
     {
@@ -1644,7 +2220,7 @@ void RtPbrSurveyApp::FailAutomatedCapture(const std::string& error)
     }
     if (m_commandLineOptions.exitAfterCapture)
     {
-        DestroyWindow(Win32Application::GetHwnd());
+        RequestCloseApplication();
     }
 }
 
@@ -1800,6 +2376,12 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
         {"targetSamples", m_commandLineOptions.pathTracingSampleTarget},
         {"randomSeed", settings.randomSeed},
         {"environmentSamplingMode", settings.environmentSamplingMode},
+        {"environmentEnabled", settings.environmentEnabled},
+        {"emissiveEnabled", settings.emissiveEnabled},
+        {"emissiveSamplingMode", settings.emissiveSamplingMode},
+        {"directLightingEnabled", settings.directLightingEnabled},
+        {"emissiveTriangleCount", context.pathTracingDiagnostics.emissiveTriangleCount},
+        {"emissiveTableStatus", context.pathTracingDiagnostics.emissiveTableStatus},
         {"samplesPerFrame", settings.samplesPerFrame},
         {"maxBounces", settings.maxBounces},
         {"russianRoulette", settings.russianRouletteEnabled},
@@ -1983,7 +2565,7 @@ void RtPbrSurveyApp::CreateNewSceneEditorDocument()
     m_sceneEditorDocumentPath.clear();
     m_appMode = AppMode::SceneEditorEdit;
     std::string error;
-    if (!RebuildSceneEditorPreview(&error))
+    if (!RebuildSceneEditorPreview(&error, false))
     {
         m_sceneEditorStatus = "Could not create preview: " + error;
         return;
@@ -1993,38 +2575,30 @@ void RtPbrSurveyApp::CreateNewSceneEditorDocument()
 
 void RtPbrSurveyApp::RequestNewSceneEditorDocument()
 {
-    if (m_sceneEditorSession.has_value() && m_sceneEditorSession->IsModified())
+    if (RequestHostAction(RtPbrSurvey::PendingHostAction::SceneEditorNewDocument))
     {
-        m_sceneEditorPendingAction = SceneEditorPendingAction::NewDocument;
         return;
     }
-    CreateNewSceneEditorDocument();
+    ResolvePendingHostAction();
 }
 
 void RtPbrSurveyApp::RequestLoadSceneEditorDocument(const std::string& path)
 {
-    if (m_sceneEditorSession.has_value() && m_sceneEditorSession->IsModified())
+    if (RequestHostAction(RtPbrSurvey::PendingHostAction::SceneEditorLoadDocument, path))
     {
-        m_sceneEditorPendingAction = SceneEditorPendingAction::LoadDocument;
-        m_sceneEditorPendingLoadPath = path;
         return;
     }
 
-    std::string error;
-    if (!LoadSceneEditorDocument(path, &error))
-    {
-        m_sceneEditorStatus = "Load failed: " + error;
-    }
+    ResolvePendingHostAction();
 }
 
 void RtPbrSurveyApp::RequestReturnToTopMenu()
 {
-    if (m_sceneEditorSession.has_value() && m_sceneEditorSession->IsModified())
+    if (RequestHostAction(RtPbrSurvey::PendingHostAction::SceneEditorReturnToTopMenu))
     {
-        m_sceneEditorPendingAction = SceneEditorPendingAction::ReturnToTopMenu;
         return;
     }
-    ReturnToTopMenu();
+    ResolvePendingHostAction();
 }
 
 bool RtPbrSurveyApp::SaveSceneEditorDocument(bool saveAs, std::string* error)
@@ -2097,6 +2671,7 @@ bool RtPbrSurveyApp::SaveSceneEditorDocument(bool saveAs, std::string* error)
         return false;
     }
 
+    m_sceneEditorSession->CommitEdit();
     m_sceneEditorSession->Document() = std::move(document);
     m_sceneEditorSession->MarkSaved();
     if (createsNewScene)
@@ -2246,13 +2821,16 @@ bool RtPbrSurveyApp::AddSceneEditorGltfNode(const std::string& relativePath, std
 
 void RtPbrSurveyApp::ResolveSceneEditorPendingAction(bool saveChanges, bool discardChanges)
 {
-    if (m_sceneEditorPendingAction == SceneEditorPendingAction::None)
+    if (m_captureRequestGate.GetPendingAction() == RtPbrSurvey::PendingHostAction::None)
     {
         return;
     }
     if (!saveChanges && !discardChanges)
     {
-        m_sceneEditorPendingAction = SceneEditorPendingAction::None;
+        // Cancel releases the pending action so editing continues.
+        m_captureRequestGate.ClearPendingAction();
+        m_sceneEditorPendingLoadPath.clear();
+        m_sceneEditorPendingDecisionApplied = false;
         return;
     }
     if (saveChanges)
@@ -2269,24 +2847,9 @@ void RtPbrSurveyApp::ResolveSceneEditorPendingAction(bool saveChanges, bool disc
         m_sceneEditorSession->MarkSaved();
     }
 
-    const SceneEditorPendingAction action = m_sceneEditorPendingAction;
-    const std::string loadPath = m_sceneEditorPendingLoadPath;
-    m_sceneEditorPendingAction = SceneEditorPendingAction::None;
-    m_sceneEditorPendingLoadPath.clear();
-    switch (action)
-    {
-    case SceneEditorPendingAction::NewDocument:
-        CreateNewSceneEditorDocument();
-        break;
-    case SceneEditorPendingAction::LoadDocument:
-        RequestLoadSceneEditorDocument(loadPath);
-        break;
-    case SceneEditorPendingAction::ReturnToTopMenu:
-        ReturnToTopMenu();
-        break;
-    case SceneEditorPendingAction::None:
-        break;
-    }
+    // Order: capture output, then the document decision, then the pending operation.
+    m_sceneEditorPendingDecisionApplied = true;
+    ResolvePendingHostAction();
 }
 
 bool RtPbrSurveyApp::LoadSceneEditorDocument(const std::string& path, std::string* error)
@@ -2335,7 +2898,7 @@ bool RtPbrSurveyApp::LoadSceneEditorDocument(const std::string& path, std::strin
     m_sceneEditorDocumentPath = documentPath.generic_string();
     m_sceneEditorSavePath = m_sceneEditorDocumentPath;
     m_appMode = AppMode::SceneEditorEdit;
-    if (!RebuildSceneEditorPreview(&loadError))
+    if (!RebuildSceneEditorPreview(&loadError, false))
     {
         if (error != nullptr)
         {
@@ -2355,8 +2918,20 @@ bool RtPbrSurveyApp::LoadSceneEditorDocument(const std::string& path, std::strin
     return true;
 }
 
-bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
+bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error, bool preserveCamera)
 {
+    if (IsCaptureWorkPending())
+    {
+        // Keep the request instead of dropping it. ExecutePendingSceneEditorRebuild runs it from
+        // the latest Document once capture output is processed.
+        m_sceneEditorPreviewRebuildPending = true;
+        if (error != nullptr)
+        {
+            *error = "Preview rebuild is pending until capture output completes.";
+        }
+        return false;
+    }
+
     if (!m_sceneEditorSession.has_value())
     {
         if (error != nullptr)
@@ -2383,6 +2958,12 @@ bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
         return false;
     }
 
+    const bool retainCamera = preserveCamera && m_sceneEditorPreviewScene != nullptr &&
+        m_loadedScene == m_sceneEditorPreviewScene.get();
+    if (retainCamera)
+    {
+        candidate->GetScene().camera = m_loadedScene->GetScene().camera;
+    }
     m_sceneRenderer.ReloadSceneResources(candidate->GetScene());
     m_sceneEditorPreviewScene = std::move(candidate);
     m_loadedScene = m_sceneEditorPreviewScene.get();
@@ -2394,12 +2975,7 @@ bool RtPbrSurveyApp::RebuildSceneEditorPreview(std::string* error)
     ApplySceneEditorEnvironmentSettings();
 
     Engine::CameraState& camera = m_loadedScene->GetScene().camera;
-    const XMVECTOR direction = XMVector3Normalize(XMLoadFloat3(&camera.gazePoint) - XMLoadFloat3(&camera.pos));
-    XMFLOAT3 directionFloat = {};
-    XMStoreFloat3(&directionFloat, direction);
-    camera.rot.x = -std::asin(std::clamp(directionFloat.y, -1.0f, 1.0f));
-    camera.rot.y = std::atan2(directionFloat.x, directionFloat.z);
-    camera.rot.z = 0.0f;
+    camera.rot = Engine::GetCameraRotationRadians(camera);
     m_debugCamera.SetCameraState(&camera);
     m_debugCamera.SetWindowSize(GetWidth(), GetHeight());
     m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::FreeLook);
@@ -2625,6 +3201,16 @@ void RtPbrSurveyApp::OpenFileScene()
 }
 
 void RtPbrSurveyApp::OpenSelectedScene()
+{
+    if (RequestHostAction(RtPbrSurvey::PendingHostAction::OpenSelectedScene))
+    {
+        m_captureSessionUiState.message = PendingHostActionMessage();
+        return;
+    }
+    ResolvePendingHostAction();
+}
+
+void RtPbrSurveyApp::ExecuteOpenSelectedScene()
 {
     m_evaluationRoi = {};
     if (m_selectedSceneIndex != m_loadedSceneIndex || !m_sceneResourcesLoaded)
@@ -3067,9 +3653,16 @@ void RtPbrSurveyApp::UpdateUiFrame()
         DrawDebugUi(m_sceneRenderer.GetUiFrameContext());
     }
     m_sceneRenderer.DrawToolUi();
-    const auto captureFrame = m_sceneRenderer.GetUiFrameContext();
-    RtPbrSurvey::CaptureSessionUi::DrawRegionOverlay(m_sceneRenderer.GetCaptureSessionStatus(), m_captureSessionUiState,
-                                                    captureFrame.outputWidth, captureFrame.outputHeight);
+    if (m_appMode == AppMode::Running || m_appMode == AppMode::SceneEditorEdit)
+    {
+        const auto captureFrame = m_sceneRenderer.GetUiFrameContext();
+        RtPbrSurvey::CaptureSessionUi::DrawRegionOverlay(m_sceneRenderer.GetCaptureSessionStatus(), m_captureSessionUiState,
+                                                        captureFrame.outputWidth, captureFrame.outputHeight);
+    }
+    else
+    {
+        RtPbrSurvey::CaptureSessionUi::CancelRegionSelection(m_captureSessionUiState);
+    }
     m_imguiSystem.EndFrame();
 }
 

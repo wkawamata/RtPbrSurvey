@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "status": "done",
+  "scope": "Fixed camera, single rigid plane, world X translation, native primary MotionVectors",
+  "testedHead": "3885c98c179be4dd099ebf2258c3e8149e0f8c35",
+  "testedWithUncommittedDiagnosticChanges": true,
+  "gpu": "NVIDIA GeForce RTX 2080 Ti",
+  "driver": "616.56",
+  "executableSha256": "65754f1fcd88aea1ae01a6964c355b17b3c866b91d201f5346983d4b0e8862da",
+  "rawEvidence": "bin/PathTracingValidation/completion-step8-object-motion-20261010-r2/report.json",
+  "acceptedBound": "2 ULP(expected half) + 3e-6 NDC",
+  "records": [
+    {"delta": 0, "pixels": 123664, "maxAbsoluteError": 0.0000018477439880371094, "maxBoundNormalizedError": 0.5923757646615677, "passed": true},
+    {"delta": 0.05, "pixels": 123664, "maxAbsoluteError": 0.0000023019313813987807, "maxBoundNormalizedError": 0.6114846602958118, "passed": true},
+    {"delta": -0.05, "pixels": 123664, "maxAbsoluteError": 0.0000023019313813987807, "maxBoundNormalizedError": 0.5923757646615677, "passed": true}
+  ],
+  "d3d12Errors": 0,
+  "unitTestsPassed": 130,
+  "build": {"configuration": "Debug x64", "warnings": 0, "errors": 0},
+  "notCovered": ["rotation", "scale changes", "deformation", "multiple instances", "disocclusion", "normal maps", "spatial material textures"]
+}

@@ -6,6 +6,24 @@ Scene-scale, contact-shadow and self-intersection measurements are described in 
 GPU pass performance measurements are described in [PART4.md](PART4.md).
 Native PT guide-buffer definitions and measurements are described in [PART5.md](PART5.md).
 
+## Current Final Regression
+
+The bounded Step 9 runner selects an explicit executable for every GPU child and
+checks report completeness and binary hashes in addition to process exit codes.
+It runs Python/CTest, representative native primary guides, object MotionVectors,
+GPU accumulation lifecycle checkpoints and emissive visibility/fallback controls.
+Build the Debug application and C++ tests first; Python requires NumPy and CTest
+must be available. Use an empty output directory:
+
+```powershell
+python -B Tests/PathTracing/run_final_regression.py --exe build/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/final-regression
+```
+
+This is not a full convergence or performance rerun. Detailed evidence and scope:
+[Step 9](../../doc/branch/feature/path-tracing-final-validation.md).
+
+## Reference Capture
+
 `Invoke-ReferenceCapture.ps1` runs two fixed-sample Path Tracing captures and writes JSON and Markdown reports.
 It fails when the PNG hashes differ, a process fails, a capture times out, or a D3D12 error/corruption message is logged.
 
@@ -180,3 +198,90 @@ positive and negative values remain visible. Run the stationary/camera-motion co
 
 The generated captures and report are written under `bin/x64/Debug/PathTracingMotionVectorValidation` by default and
 must not be committed.
+
+## Completion regression and transport validation
+
+`run_completion_regression.py` runs Parts 1-5 and transport validation serially. Part 2 is a reduced
+4/16 spp regression against a finite 32 spp reference, not a replacement for the original convergence campaign.
+Part 3 runs 57 main scale captures and 18 supplementary TMax/near-light captures (PowerShell 7 required);
+its fixed-bias negative controls can legitimately fail visibility.
+`assess_scale_policy.py` requires complete relative-policy visibility/contact/convex-self-hit measurements;
+the aggregate runner rejects a failed supported policy while preserving fixed/zero negative controls.
+Part 4 is a three-case timing smoke, not a cross-GPU benchmark. Part 5 returns failure for rejected numeric checks.
+Part 5 controls additionally cover moving shifted-projection ViewZ and transformed-camera ViewZ.
+Use a new, empty output directory. `--parts` selects a subset without overlapping GPU processes.
+
+```powershell
+python -B Tests/PathTracing/run_completion_regression.py --output bin/PathTracingValidation/completion
+python -B Tests/PathTracing/validate_transport.py --output bin/PathTracingValidation/transport --samples 64
+python -B Tests/PathTracing/validate_transport.py --output bin/PathTracingValidation/rr-repeat --rr-only --samples 256
+```
+
+Transport checks dielectric/metallic materials at roughness 0.18, 0.4, and 0.8 under a constant unit environment.
+BSDF and MIS estimates are compared with each other and with CPU BRDF hemisphere quadrature (128/256 orders,
+nine representative ROI view directions). The CPU reference tests the sampler/integrator, not the material parser.
+The enclosed-room cohort compares one/two/eight bounces and RR off/on at the same eight-bounce limit.
+The eight-bounce mean must exceed the two-bounce mean to verify a contribution from RR-eligible path depths.
+The output is linear HDR Radiance; no denoiser or tone mapping participates in the comparison.
+
+At least four unique seeds are required. Agreement allows 2% relative discrepancy plus four seed-level
+standard errors. More than 5% uncertainty, or more than 0.2% quadrature change, is inconclusive, not passed.
+This diagnostic band is not a formal confidence interval or proof of unbiasedness. Reports retain scene/preset
+and executable hashes, ROI means, settings diagnostics, and raw capture paths. Generated assets and captures
+remain under `bin/`; source fixtures are unchanged.
+
+## Geometry and imported normal-map validation
+
+```powershell
+python -B Tests/PathTracing/validate_geometry.py --output bin/PathTracingValidation/geometry
+```
+
+Requires NumPy and Pillow. Five native normal/roughness captures check rotation,
+nonuniform scaling, a supplied-tangent normal map, a mirrored baked glTF node, and
+two differently rotated instances sharing a mesh, and separate BLAS/mesh ranges
+with different mirrored geometry, normal scale and roughness. The oracle uses a NumPy inverse
+transpose and compares every visible hit pixel against a 0.001 absolute tolerance.
+Generated fixtures and capture files remain under `bin/`.
+
+Material factors and normal-map scale have a separate native validation:
+
+```powershell
+python -B Tests/PathTracing/validate_materials.py --output bin/PathTracingValidation/materials
+```
+
+This uses shared texture references with different material factors, plus factor-only
+color and emission. It does not establish complete glTF support: alpha/double-sided
+semantics remain unsupported. Unsafe attribute layouts are rejected and importer
+limitations produce structured diagnostics.
+See `doc/branch/feature/path-tracing-material-geometry-validation.md`.
+
+## GBuffer/PT surface-input comparison
+
+```powershell
+python -B Tests/PathTracing/validate_gbuffer_pt.py --output bin/PathTracingValidation/gbuffer-pt
+```
+
+Seven native captures compare two material regions' normal, roughness, Albedo RGB
+and emission RGB against both an independent oracle and the other rendering path.
+The common hit interior is eroded by two pixels. Limits include GBuffer UNORM8
+quantization: 0.0025 for Albedo/roughness, 0.001 for normal/emission. Material alpha
+is excluded because PT guide alpha is hit coverage. This is not a final-lighting test.
+
+`.ptbuf` additionally supports Deferred GBuffer.Albedo, GBuffer.Normal,
+GBuffer.PBRParams and GBuffer.Emissive through `-DebugPreviewResource`. It preserves
+native format values without display remapping or tone mapping. All other GBuffer
+resources, Forward rendering and cropped native-buffer requests are rejected.
+
+## Emissive-surface baseline (Step 5)
+
+```powershell
+python -B Tests/PathTracing/validate_emissive.py --output bin/PathTracingValidation/emissive-baseline --samples 64
+```
+
+Uses a one-sided constant rectangle emitter, four independent seeds and a two-segment
+BSDF-only path limit. Direct/environment lighting and RR are disabled. Gauss-Legendre
+area integration independently checks the receiver's Lambert/GGX BRDF response;
+an emission-off control checks isolation. Agreement uses a predeclared 2% relative
+tolerance plus four seed-level standard errors, with uncertainty above 5% marked
+inconclusive. This is a baseline for future emissive NEE/MIS, not its validation.
+See `doc/branch/feature/path-tracing-emissive-mis.md` for the integration contract.

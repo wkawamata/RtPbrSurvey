@@ -71,6 +71,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/AccelerationStructureResources.cpp
     Renderer/AnimatedGifEncoder.cpp
     Renderer/Mp4Encoder.cpp
+    Renderer/Mp4EncoderWorker.cpp
     Renderer/BrdfLut.cpp
     Renderer/ClearPass.cpp
     Renderer/DebugDumpCapture.cpp
@@ -113,6 +114,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Runtime/SceneRenderer.cpp
     Runtime/CaptureSession.cpp
     Runtime/CaptureSessionUi.cpp
+    Runtime/CaptureRequestGate.cpp
     Runtime/DebugBufferInspector.cpp
     Runtime/DebugTextureInspector.cpp
     Runtime/DebugTextureThumbnailScheduler.cpp
@@ -124,6 +126,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     App/RenderPresetStore.cpp
     Scene/ProceduralSceneBuilder.cpp
     Scene/SceneBuilder.cpp
+    Scene/EmissiveTriangleTable.cpp
     Scene/SceneDocumentJson.cpp
     Scene/SceneDocumentBuilder.cpp
     Scene/SceneDocumentRuntimeScene.cpp
@@ -231,6 +234,7 @@ function(rtpbrsurvey_add_shader output_var shader_file stage entry_point)
             "-Fo${output_file}" "${RTPBRSURVEY_ROOT}/${shader_file}"
         DEPENDS "${RTPBRSURVEY_ROOT}/${shader_file}" ${ARGN}
             "${RTPBRSURVEY_ROOT}/Shaders/DirectLights.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/DirectLightEvaluation.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/DirectPbrLighting.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/ReflectionSampling.hlsli"
@@ -244,8 +248,10 @@ if(RTPBRSURVEY_BUILD_SHADERS)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DepthOnlyVS.hlsl vs_6_0 VSMain)
-    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl vs_6_0 VSMain)
-    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl ps_6_0 PSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl vs_6_0 VSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBuffer.hlsl ps_6_0 PSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBufferDebug.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_GBufferDebug.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ShadowMaskDebug.hlsl vs_6_0 VSMain)
@@ -283,7 +289,8 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         Shaders/shaders_HybridReflection.hlsl
         cs_6_5
         CSMain
-        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli")
+        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(
         RTPBRSURVEY_SHADER_OUTPUTS
         Shaders/shaders_PathTracing.hlsl
@@ -291,8 +298,10 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         CSMain
         "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingSampling.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/EmissiveTriangleSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDirectLightAdapter.hlsli"
-        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli")
+        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayQueryTlasDebug.hlsl cs_6_5 CSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_SpecularDebugRayQuery.hlsl cs_6_5 CSMain)
 
@@ -362,6 +371,7 @@ if(RTPBRSURVEY_BUILD_APP)
         App/DebugUi.cpp
         App/EvaluationCaseUi.cpp
         App/RtPbrSurveyApp.cpp
+        App/PathTracingHistoryValidation.cpp
         App/SceneConfig.cpp
         App/SceneEditorSession.cpp
         App/SceneEditorUi.cpp
@@ -411,6 +421,14 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.PathTracingShadowSettingsTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.PathTracingShadowSettings COMMAND RtPbrSurvey.PathTracingShadowSettingsTests)
+
+    add_executable(RtPbrSurvey.PathTracingHistoryTests
+        Tests/PathTracingHistoryTests.cpp)
+    target_link_libraries(RtPbrSurvey.PathTracingHistoryTests PRIVATE RtPbrSurvey::SceneRenderer)
+    if(MSVC)
+        target_compile_options(RtPbrSurvey.PathTracingHistoryTests PRIVATE /permissive)
+    endif()
+    add_test(NAME RtPbrSurvey.PathTracingHistory COMMAND RtPbrSurvey.PathTracingHistoryTests)
 
     add_executable(RtPbrSurvey.EvaluationStateTests
         Tests/EvaluationStateTests.cpp)
@@ -514,6 +532,10 @@ if(RTPBRSURVEY_BUILD_TESTS)
     endif()
     add_test(NAME RtPbrSurvey.SceneBuilderMesh COMMAND RtPbrSurvey.SceneBuilderMeshTests)
 
+    add_executable(RtPbrSurvey.EmissiveTriangleTests Tests/EmissiveTriangleTests.cpp)
+    target_link_libraries(RtPbrSurvey.EmissiveTriangleTests PRIVATE RtPbrSurvey::SceneRenderer)
+    add_test(NAME RtPbrSurvey.EmissiveTriangle COMMAND RtPbrSurvey.EmissiveTriangleTests)
+
     add_executable(RtPbrSurvey.GltfNodeMeshTests
         Tests/GltfNodeMeshTests.cpp)
     target_link_libraries(RtPbrSurvey.GltfNodeMeshTests PRIVATE RtPbrSurvey::SceneRenderer)
@@ -562,6 +584,12 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.Mp4EncoderTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.Mp4Encoder COMMAND RtPbrSurvey.Mp4EncoderTests)
+
+    add_executable(RtPbrSurvey.Mp4EncoderWorkerTests Tests/Mp4EncoderWorkerTests.cpp)
+    target_link_libraries(RtPbrSurvey.Mp4EncoderWorkerTests PRIVATE RtPbrSurvey::SceneRenderer)
+    rtpbrsurvey_copy_runtime_files(RtPbrSurvey.Mp4EncoderWorkerTests)
+    add_test(NAME RtPbrSurvey.Mp4EncoderWorker COMMAND RtPbrSurvey.Mp4EncoderWorkerTests)
+    set_tests_properties(RtPbrSurvey.Mp4EncoderWorker PROPERTIES TIMEOUT 30)
 
     add_executable(RtPbrSurvey.AssetPathTests
         Tests/AssetPathTests.cpp)

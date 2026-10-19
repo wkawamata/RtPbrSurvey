@@ -86,6 +86,11 @@ Preferred Debug build command from repository root:
 
 If the solution or project file changes, verify the actual project name before reusing old commands.
 
+## Windows GUI Automation
+
+- Before operating native Windows apps, read [Windows GUI Automation](doc/windows-gui-automation.md) and the installed Computer Use skill's current guidance/API/safety instructions.
+- Use the Windows `@oai/sky` API through `node_repl`. Do not conclude native automation is unavailable from a browser-only `cua` connection.
+
 ## OpenCode Delegation
 
 When delegating work to OpenCode:

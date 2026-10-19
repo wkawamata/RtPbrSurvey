@@ -18,12 +18,15 @@
 #include "App/SceneSelectUi.h"
 #include "App/SceneEditorUi.h"
 #include "Camera/DebugCameraController.h"
+#include "Camera/CaptureOrbitTrack.h"
 #include "../Engine/RtPbrSurveyEngine.h"
 #include "Platform/CommandLineOptions.h"
 #include "Platform/IApplication.h"
 #include "Platform/WindowInfo.h"
 #include "Runtime/SceneRenderer.h"
 #include "Runtime/CaptureSessionUi.h"
+#include "Runtime/CaptureRequestGate.h"
+#include "Runtime/CaptureFrameClock.h"
 #include "Runtime/DebugTextureInspector.h"
 #include "Runtime/DebugTextureThumbnailScheduler.h"
 #include "Runtime/EvaluationState.h"
@@ -55,6 +58,7 @@ public:
     void OnMouseWheel(int wheelDelta) override;
     void OnWindowSizeChanged(UINT width, UINT height) override;
     void OnIdle() override;
+    bool OnCloseRequested() override;
 
     void ParseCommandLineArgs(_In_reads_(argc) WCHAR* argv[], int argc) override;
 
@@ -71,14 +75,24 @@ public:
         return m_windowInfo.title.c_str();
     }
 
+    int GetExitCode() const override
+    {
+        return m_exitCode;
+    }
+
     void UpdateSampleState();
 
 private:
+    void UpdateSceneInteraction(float deltaTime);
+    void UpdateSceneSimulation(float deltaTime);
+    bool IsCaptureOrbitActive() const;
+    void ApplyCaptureOrbitCamera();
     friend void App::DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& context);
     friend void App::DrawEvaluationCasesWindow(RtPbrSurveyApp& app, App::EvaluationCaseScope scope);
     friend void App::DrawSceneSelectUi(RtPbrSurveyApp& app);
     friend void App::DrawSceneEditorStartUi(RtPbrSurveyApp& app);
     friend void App::DrawSceneEditorEditUi(RtPbrSurveyApp& app);
+    friend void App::DrawSceneEditorTransformUi(RtPbrSurveyApp& app);
     friend class App::SceneConfigManager;
 
     enum class AppMode
@@ -89,20 +103,13 @@ private:
         Running,
     };
 
-    enum class SceneEditorPendingAction
-    {
-        None,
-        NewDocument,
-        LoadDocument,
-        ReturnToTopMenu,
-    };
-
     static constexpr int kDefaultSceneIndex = 0;
 
     void CreateSampleScenes();
     void LoadSceneCpuData(int sceneIndex);
     void LoadFileSceneCpuData();
     void OpenSelectedScene();
+    void ExecuteOpenSelectedScene();
     void OpenFileScene();
     void OpenCommandLineDebugTexturePreview();
     void ApplyFileSceneSettings();
@@ -113,10 +120,11 @@ private:
     void RequestReturnToTopMenu();
     bool SaveSceneEditorDocument(bool saveAs, std::string* error = nullptr);
     void ResolveSceneEditorPendingAction(bool saveChanges, bool discardChanges);
+    void ExecutePendingSceneEditorRebuild();
     bool SaveSceneEditorRenderPreset(std::string* error = nullptr);
     bool ReloadSceneEditorRenderPreset(std::string* error = nullptr);
     bool AddSceneEditorGltfNode(const std::string& relativePath, std::string* error = nullptr);
-    bool RebuildSceneEditorPreview(std::string* error = nullptr);
+    bool RebuildSceneEditorPreview(std::string* error = nullptr, bool preserveCamera = true);
     void ApplySceneEditorEnvironmentSettings();
     void UpdateSceneEditorSelectionOverlay();
     void ClearSceneEditorSelectionOverlay();
@@ -128,7 +136,30 @@ private:
     void UpdateUiFrame();
     UINT SyncDebugTextureInspectorToEngine();
     void UpdateAutomatedCaptureCamera();
-    bool HasAutomatedCapture() const;
+    // Future reservation or in-flight output only; a completed or failed automation is released.
+    bool IsAutomatedCaptureBlocking() const;
+    void DrawCaptureSessionUi();
+    void UpdateCaptureRequestGate();
+    // Returns true when the application is closing and the frame loop must stop.
+    bool ResolvePendingHostAction();
+    void RequestCloseApplication();
+    void RequestCloseRunningScene();
+    // Records a host action when a confirmation decision or capture output must be processed first.
+    // Returns true when the action has to wait.
+    bool RequestHostAction(RtPbrSurvey::PendingHostAction action, const std::string& loadPath = {});
+    bool ExecutePendingHostAction(RtPbrSurvey::PendingHostAction action);
+    std::string PendingHostActionMessage();
+    const char* GetPendingHostActionName() const;
+    void StopCaptureForPendingAction();
+    bool NeedsSceneEditorDecision() const;
+    bool CanEditSceneEditorDocument(std::string& reason);
+    bool IsCaptureWorkPending();
+    bool CanStartCaptureSession(std::string& reason);
+    bool ValidateCaptureOrbitSettings(std::string& reason) const;
+    void InitializeCaptureSessionClock(const RtPbrSurvey::CaptureSessionConfig& config,
+                                       std::optional<double> orbitDegreesPerSecond = std::nullopt);
+    void UpdateCaptureSessionTiming();
+    void ApplyCaptureSessionUiAction(RtPbrSurvey::CaptureSessionUiAction action);
     void FailAutomatedCapture(const std::string& error);
     void UpdateReflectionHdrDiagnostics();
     void WriteReflectionHdrDiagnosticsReport();
@@ -136,6 +167,7 @@ private:
     void LogRayReconstructionDiagnostics();
     void AccumulatePathTracingCaptureDiagnostics();
     void LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::UiFrameContext& context);
+    void RunPathTracingHistoryValidation();
     void FlushD3D12DebugMessages();
     void LogFpsToFile(float cpuFrameTimeMs);
     bool CaptureEvaluationState(RtPbrSurvey::EvaluationState& state, std::string* error = nullptr);
@@ -171,9 +203,17 @@ private:
     float m_sceneEditorRotationStepDegrees = 15.0f;
     float m_sceneEditorScaleStep = 0.1f;
     int m_sceneEditorTransformTool = 0;
+    bool m_sceneEditorShowTransformWindow = true;
+    bool m_sceneEditorTransformGizmoEnabled = true;
+    bool m_sceneEditorTransformEditPending = false;
+    bool m_sceneEditorGizmoUsing = false;
+    bool m_sceneEditorGizmoCapturesMouse = false;
     bool m_sceneEditorObjectPickPending = false;
-    SceneEditorPendingAction m_sceneEditorPendingAction = SceneEditorPendingAction::None;
     std::string m_sceneEditorPendingLoadPath;
+    int m_pendingSelectedSceneIndex = kDefaultSceneIndex;
+    bool m_sceneEditorPendingDecisionApplied = false;
+    // A rebuild request that could not run while capture output was being processed.
+    bool m_sceneEditorPreviewRebuildPending = false;
     std::vector<RtPbrSurvey::DebugLineHandle> m_sceneEditorSelectionLineHandles;
 
     RtPbrSurveyEngine::LightingParams m_lightingParams;
@@ -230,12 +270,28 @@ private:
     UINT64 m_automationFrameCounter = 0;
     bool m_automationScreenshotRequested = false;
     bool m_captureSessionActive = false;
+    RtPbrSurvey::CaptureRequestGate m_captureRequestGate;
+    int m_exitCode = 0;
+    // Set when the single automated capture produced its result, so a later start is allowed.
+    bool m_automatedCaptureCompleted = false;
     std::chrono::steady_clock::time_point m_captureSessionStartTime;
     RtPbrSurvey::CaptureSessionUiState m_captureSessionUiState;
+    bool m_captureSessionOrbitEnabled = false;
+    double m_captureSessionOrbitDegreesPerSecond = 90.0;
+    RtPbrSurvey::CaptureFrameClock m_captureFrameClock;
+    std::optional<RtPbrSurvey::CaptureOrbitTrack> m_captureOrbitTrack;
+    RtPbrSurvey::CaptureOrbitPose m_captureOrbitPose;
+    RtPbrSurvey::CaptureFrameUpdateMode m_frameUpdateMode = RtPbrSurvey::CaptureFrameUpdateMode::LiveScene;
+    float m_sceneDeltaTime = 0.0f;
     double m_pathTracingGpuTimeSumMs = 0.0;
     float m_pathTracingGpuTimeMinMs = 0.0f;
     float m_pathTracingGpuTimeMaxMs = 0.0f;
     UINT64 m_pathTracingGpuTimingSampleCount = 0;
+    UINT m_pathTracingHistoryValidationStage = 0;
+    UINT m_pathTracingHistoryValidationFrames = 0;
+    bool m_pathTracingHistoryValidationEntered = false;
+    bool m_pathTracingHistoryValidationCapturePending = false;
+    std::string m_pathTracingHistoryValidationEntryResetReason;
     float m_automationOrbitStartYaw = 0.0f;
     float m_automationOrbitDistance = 5.0f;
     Platform::ReflectionCapturePlan m_reflectionCapturePlan;
