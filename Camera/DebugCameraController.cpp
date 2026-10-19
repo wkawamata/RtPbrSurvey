@@ -278,8 +278,11 @@ void DebugCameraController::OnMouseMove(int x, int y)
             if (dy != 0)
             {
                 const XMVECTOR lookDir = XMVector3Normalize(XMVectorNegate(offset));
-                const XMVECTOR right =
-                    XMVector3Normalize(XMVector3Cross(XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), lookDir));
+                XMVECTOR right = XMVector3Cross(XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), lookDir);
+                // Exact top/bottom editor views have no horizontal look direction.
+                if (XMVectorGetX(DirectX::XMVector3LengthSq(right)) < 1.0e-8f)
+                    right = XMVectorSet(-std::cos(m_objectViewerYaw), 0.0f, std::sin(m_objectViewerYaw), 0.0f);
+                right = XMVector3Normalize(right);
                 const float requestedPitchDelta = static_cast<float>(dy) * kMouseCameraRotationSpeed;
                 const float clampedPitch = std::clamp(
                     m_objectViewerPitch + requestedPitchDelta, -kObjectViewerPitchLimit, kObjectViewerPitchLimit);
@@ -287,6 +290,7 @@ void DebugCameraController::OnMouseMove(int x, int y)
                 offset = XMVector3TransformNormal(offset, pitchRotation);
             }
             SetObjectViewerOrbitFromOffset(offset);
+            camera->up = {0.0f, 1.0f, 0.0f};
             UpdateObjectViewerCamera();
         }
         else if (m_isMiddleDragging)
