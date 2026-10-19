@@ -357,6 +357,31 @@ bool TestValidationAndLegacyCli()
     passed &= Check(nrdOptions.nrdPreview && nrdOptions.enablePathTracing,
                     "NRD presentation opt-in enables PT without silently changing sampling settings");
     WCHAR nrdFailureOption[] = L"-NrdDiagnosticFailure";
+    WCHAR componentOption[] = L"-PathTracingReferenceComponent";
+    for (std::wstring value : {L"diffuse", L"specular", L"stable", L"background"})
+    {
+        WCHAR* componentArgv[] = {executable, componentOption, value.data()};
+        const auto parsed = Platform::ParseCommandLineOptions(componentArgv, 3);
+        passed &= Check(std::wstring(parsed.pathTracingReferenceComponent.begin(),
+                                    parsed.pathTracingReferenceComponent.end()) == value && parsed.enablePathTracing &&
+                            !parsed.nrdPreview,
+                        "reference component is explicit PT diagnostics, not NRD preview");
+    }
+    for (int count : {2, 3})
+    {
+        WCHAR invalid[] = L"invalid";
+        WCHAR* componentArgv[] = {executable, componentOption, invalid};
+        bool rejected = false;
+        try
+        {
+            Platform::ParseCommandLineOptions(componentArgv, count);
+        }
+        catch (const std::invalid_argument&)
+        {
+            rejected = true;
+        }
+        passed &= Check(rejected, "missing/unknown reference component is rejected");
+    }
     WCHAR prepassOption[] = L"-NrdPrepassProfile";
     for (const std::wstring profile : {L"control", L"specular-10", L"diffuse-5"})
     {

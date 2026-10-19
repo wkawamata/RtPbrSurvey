@@ -745,7 +745,8 @@ Engine::NrdRelaxPresentationStatus RtPbrSurveyEngine::ResolvePathTracingNrdPrese
                               m_nrdCompositionPipeline != nullptr &&
                               m_pathTracingGuideTextureSrvs[PathTracingGuideNrdSceneColor].IsValid();
     return Engine::ResolveNrdRelaxPresentation(
-        m_pathTracingSettings.nrdPreview, true, backendReady, compatible, m_nrdComposedOutputValid);
+        m_pathTracingSettings.nrdPreview, true, backendReady, compatible && m_pathTracingReferenceComponent == 0,
+        m_nrdComposedOutputValid);
 #else
     return Engine::ResolveNrdRelaxPresentation(m_pathTracingSettings.nrdPreview, false, false, compatible, false);
 #endif
@@ -1219,6 +1220,25 @@ void RtPbrSurveyEngine::SetNrdPrepassProfileForDiagnostics(const std::string& pr
         throw std::invalid_argument("Unknown NRD prepass profile.");
     m_nrdPrepass = settings;
     m_nrdPrepassProfile = profile;
+}
+
+void RtPbrSurveyEngine::SetPathTracingReferenceComponentForDiagnostics(const std::string& component)
+{
+    if (m_width != 0 || m_height != 0)
+        throw std::logic_error("Reference component must be selected before initialization.");
+    UINT selected = 0;
+    if (component == "diffuse")
+        selected = 1;
+    else if (component == "specular")
+        selected = 2;
+    else if (component == "stable")
+        selected = 3;
+    else if (component == "background")
+        selected = 4;
+    else
+        throw std::invalid_argument("Unknown PT reference component.");
+    m_pathTracingReferenceComponent = selected;
+    m_pathTracingReferenceComponentName = component;
 }
 #endif
 
@@ -6478,6 +6498,10 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.environmentIntensity = m_lightingParams.iblIntensity;
     passDesc.backgroundColor = m_backBufferClearColor;
     passDesc.debugOutput = static_cast<UINT>(m_pathTracingSettings.debugOutput);
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    if (m_pathTracingReferenceComponent != 0)
+        passDesc.debugOutput = 3 + m_pathTracingReferenceComponent;
+#endif
     passDesc.maxBounces = m_pathTracingSettings.maxBounces;
     passDesc.environmentEnabled = m_pathTracingSettings.environmentEnabled ? 1u : 0u;
     passDesc.environmentSamplingMode = m_pathTracingSettings.environmentSamplingMode;
@@ -6511,6 +6535,10 @@ void RtPbrSurveyEngine::ExecuteNrdConversionPass(const RenderPass& pass)
 #ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
     const Engine::NrdRelaxGpuSceneRange range = m_nrdGeometrySnapshot.ExportGpuSceneRange(m_pathTracingGeometryToken);
     UINT gate = 0;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    if (m_pathTracingReferenceComponent != 0)
+        gate = 8;
+#endif
     if (!Engine::QueryNrdRelaxSamplingReadiness(m_pathTracingSettings.samplesPerFrame,
                                                 m_pathTracingSettings.pixelCenterPrimary)
              .ready)
@@ -7281,6 +7309,8 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             };
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
             metadata["nrdFailure"] = m_nrdFailureReason;
+            if (m_pathTracingReferenceComponent != 0)
+                metadata["pathTracingReferenceComponent"] = m_pathTracingReferenceComponentName;
             metadata["nrdPreparedDispatches"] = m_nrdPreparedDispatches;
             metadata["nrdPlannedDispatches"] = m_nrdPlannedDispatches;
             metadata["nrdFailureCount"] = m_nrdFailureCount;

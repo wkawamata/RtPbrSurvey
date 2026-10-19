@@ -918,7 +918,16 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_G
         }
     }
 
-    float3 accumulatedRadiance = frameRadianceSum;
+    float3 referenceRadiance = frameRadianceSum;
+    if (debugOutput == 4)
+        referenceRadiance = framePhysicalDiffuseSum;
+    else if (debugOutput == 5)
+        referenceRadiance = framePhysicalSpecularSum;
+    else if (debugOutput == 6)
+        referenceRadiance = frameStableRadianceSum;
+    else if (debugOutput == 7)
+        referenceRadiance = frameBackgroundRadianceSum;
+    float3 accumulatedRadiance = referenceRadiance;
     float totalSampleCount = float(sampleCount);
     accumulatedRadiance += g_accumulation[pixel].rgb;
     totalSampleCount += previousSampleCount;

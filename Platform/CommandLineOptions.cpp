@@ -447,6 +447,23 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 throw std::invalid_argument("Unknown -NrdDiagnosticFailure mode.");
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingReferenceComponent"))
+        {
+            if (i + 1 >= argc)
+                throw std::invalid_argument("-PathTracingReferenceComponent expects diffuse, specular, stable or background.");
+            const std::wstring value = argv[++i];
+            if (value == L"diffuse")
+                options.pathTracingReferenceComponent = "diffuse";
+            else if (value == L"specular")
+                options.pathTracingReferenceComponent = "specular";
+            else if (value == L"stable")
+                options.pathTracingReferenceComponent = "stable";
+            else if (value == L"background")
+                options.pathTracingReferenceComponent = "background";
+            else
+                throw std::invalid_argument("Unknown -PathTracingReferenceComponent.");
+            options.enablePathTracing = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-NrdPrepassProfile"))
         {
             if (i + 1 >= argc)

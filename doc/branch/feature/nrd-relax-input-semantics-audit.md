@@ -429,3 +429,14 @@ Python regression tests passing. The noisy constant-field output retained a
 downward mean RGB bias, reaching about 1.159% at frame 120. This is a measured
 response in the tested adapter/SDK configuration, not proof that the real glossy
 scene's remaining error is exclusively an NRD limitation. Step 2 remains open.
+
+## Step 2 component-reference acquisition (2026-10-20)
+
+See `nrd-component-references.md`. Explicit diagnostic component accumulation
+now permits separate physical references without changing ordinary Native/PT
+sampling. Eight fresh captures verified normal Native/NRD control equality,
+rejection of reference components by NRD admission, and 256-sample component
+energy closure. D3D12 errors: 0; Python tests: 165/165; related CTests: 3/3.
+This is acquisition plumbing only. Independent high-sample component references
+and variance qualification are still required before assigning the remaining
+scene error to a specific lobe or to NRD limits. Step 2 is not complete.

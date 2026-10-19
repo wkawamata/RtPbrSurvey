@@ -400,6 +400,7 @@ public:
     void SetNrdContinuousCameraHistory(bool enabled);
     void SetNrdFailureInjectionForDiagnostics(bool initialization, UINT afterFrames);
     void SetNrdPrepassProfileForDiagnostics(const std::string& profile);
+    void SetPathTracingReferenceComponentForDiagnostics(const std::string& component);
 #endif
     const CameraState& GetCamera() const;
     void ReloadSceneResources(const Scene& scene);
@@ -1180,6 +1181,8 @@ private:
     bool m_nrdContinuousCameraHistory = false;
     Engine::NrdPrepassSettings m_nrdPrepass;
     std::string m_nrdPrepassProfile = "control";
+    UINT m_pathTracingReferenceComponent = 0;
+    std::string m_pathTracingReferenceComponentName;
     bool m_nrdComposedOutputValid = false;
     std::string m_nrdFailureReason;
     UINT m_nrdPreparedDispatches = 0;

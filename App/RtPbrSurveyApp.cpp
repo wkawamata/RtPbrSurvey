@@ -333,6 +333,9 @@ void RtPbrSurveyApp::OnInit()
     m_sceneRenderer.SetRenderViewMode(m_renderViewMode);
 
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    if (!m_commandLineOptions.pathTracingReferenceComponent.empty())
+        m_sceneRenderer.EngineForDebugTools().SetPathTracingReferenceComponentForDiagnostics(
+            m_commandLineOptions.pathTracingReferenceComponent);
     if (!m_commandLineOptions.nrdPrepassProfile.empty())
         m_sceneRenderer.EngineForDebugTools().SetNrdPrepassProfileForDiagnostics(
             m_commandLineOptions.nrdPrepassProfile);
@@ -346,6 +349,8 @@ void RtPbrSurveyApp::OnInit()
         throw std::invalid_argument("-NrdDiagnosticFailure requires NRD SDK diagnostics.");
     if (!m_commandLineOptions.nrdPrepassProfile.empty())
         throw std::invalid_argument("-NrdPrepassProfile requires NRD SDK diagnostics.");
+    if (!m_commandLineOptions.pathTracingReferenceComponent.empty())
+        throw std::invalid_argument("-PathTracingReferenceComponent requires NRD SDK diagnostics.");
 #endif
     m_sceneRenderer.Initialize(GetWidth(), GetHeight());
 

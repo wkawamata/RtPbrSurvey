@@ -87,6 +87,7 @@ struct CommandLineOptions
     bool nrdPreview = false;
     std::string nrdDiagnosticFailure;
     std::string nrdPrepassProfile;
+    std::string pathTracingReferenceComponent;
     float pathTracingObjectMotionX = 0.0f;
     UINT pathTracingEnvironmentMode = 0;
     bool hasPathTracingEnvironmentMode = false;
