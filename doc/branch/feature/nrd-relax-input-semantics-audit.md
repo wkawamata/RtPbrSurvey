@@ -418,3 +418,14 @@ A synthetic control failure would motivate resource/encoding/SDK isolation;
 a pass only rules out that tested failure mode, not every integration bug.
 Persistent smoothing of a valid detailed signal is evidence about filter
 behavior, not a universal SDK quality ceiling. Defaults remain 30/50 and off.
+
+## Known-noise Step 1 completion (2026-10-20)
+
+See `nrd-known-noise-controls.md` for the criteria fixed before acquisition and
+`nrd-known-noise-results.md` for results, evidence locations and limitations.
+All 42 evaluated lobe cases passed (27 checkpoints / 54 lobe measurements total),
+with exact input-pattern and temporal-mean checks, zero D3D12 errors and 163/163
+Python regression tests passing. The noisy constant-field output retained a
+downward mean RGB bias, reaching about 1.159% at frame 120. This is a measured
+response in the tested adapter/SDK configuration, not proof that the real glossy
+scene's remaining error is exclusively an NRD limitation. Step 2 remains open.

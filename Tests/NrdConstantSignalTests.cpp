@@ -22,6 +22,36 @@ namespace
 constexpr UINT kSize = 64;
 using Color = std::array<float, 4>;
 
+struct NoiseCase
+{
+    UINT seed;
+    float amplitude;
+};
+
+UINT NoiseHash(UINT value)
+{
+    value ^= value >> 16;
+    value *= 0x7feb352du;
+    value ^= value >> 15;
+    value *= 0x846ca68bu;
+    return value ^ (value >> 16);
+}
+
+std::vector<Color> Signal(const Color& base, const NoiseCase& noise, UINT frame, UINT lobe)
+{
+    std::vector<Color> values(kSize*kSize, base);
+    for (UINT y = 0; y < kSize; ++y)
+        for (UINT x = 0; x < kSize; ++x)
+            for (UINT c = 0; c < 3; ++c)
+            {
+                const UINT key = noise.seed ^ ((y*(kSize/2)+x/2)*0x9e3779b9u) ^
+                                 (frame*0x85ebca6bu) ^ (lobe*0xc2b2ae35u) ^ (c*0x27d4eb2fu);
+                const bool positive = ((NoiseHash(key) & 1u) != 0) != ((x & 1u) != 0);
+                values[y*kSize+x][c] *= 1.0f + (positive ? noise.amplitude : -noise.amplitude);
+            }
+    return values;
+}
+
 void Check(HRESULT result)
 {
     if (FAILED(result))
@@ -132,7 +162,36 @@ ComPtr<ID3D12Resource> Texture(Gpu& gpu, UINT index, const Color& value,
     return texture;
 }
 
-nlohmann::json Read(Gpu& gpu, ID3D12Resource* texture, const Color& expected)
+void UploadSignal(Gpu& gpu, ID3D12Resource* texture, const std::vector<Color>& values,
+                   std::vector<ComPtr<ID3D12Resource>>& uploads)
+{
+    const auto desc = texture->GetDesc();
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
+    UINT64 bytes = 0;
+    gpu.device->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, nullptr, nullptr, &bytes);
+    uploads.push_back(Buffer(gpu.device.Get(), bytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ));
+    void* mapped = nullptr;
+    D3D12_RANGE empty = {0, 0};
+    Check(uploads.back()->Map(0, &empty, &mapped));
+    for (UINT y = 0; y < kSize; ++y)
+        std::memcpy(static_cast<char*>(mapped) + footprint.Offset + y*footprint.Footprint.RowPitch,
+                    values.data()+y*kSize, kSize*sizeof(Color));
+    uploads.back()->Unmap(0, nullptr);
+    Transition(gpu.commands.Get(), texture, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+                D3D12_RESOURCE_STATE_COPY_DEST);
+    D3D12_TEXTURE_COPY_LOCATION source = {}, destination = {};
+    source.pResource = uploads.back().Get();
+    source.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    source.PlacedFootprint = footprint;
+    destination.pResource = texture;
+    destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    gpu.commands->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+    Transition(gpu.commands.Get(), texture, D3D12_RESOURCE_STATE_COPY_DEST,
+                D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+}
+
+nlohmann::json Read(Gpu& gpu, ID3D12Resource* texture, const Color& expected,
+                    D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
 {
     const auto desc = texture->GetDesc();
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
@@ -140,7 +199,7 @@ nlohmann::json Read(Gpu& gpu, ID3D12Resource* texture, const Color& expected)
     gpu.device->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, nullptr, nullptr, &bytes);
     auto readback = Buffer(gpu.device.Get(), bytes, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST);
     gpu.Begin();
-    Transition(gpu.commands.Get(), texture, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+    Transition(gpu.commands.Get(), texture, state, D3D12_RESOURCE_STATE_COPY_SOURCE);
     D3D12_TEXTURE_COPY_LOCATION source = {}, destination = {};
     source.pResource = texture;
     source.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
@@ -148,7 +207,7 @@ nlohmann::json Read(Gpu& gpu, ID3D12Resource* texture, const Color& expected)
     destination.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
     destination.PlacedFootprint = footprint;
     gpu.commands->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
-    Transition(gpu.commands.Get(), texture, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    Transition(gpu.commands.Get(), texture, D3D12_RESOURCE_STATE_COPY_SOURCE, state);
     gpu.Submit();
     void* mapped = nullptr;
     D3D12_RANGE range = {0, static_cast<SIZE_T>(bytes)};
@@ -160,12 +219,13 @@ nlohmann::json Read(Gpu& gpu, ID3D12Resource* texture, const Color& expected)
     UINT nonfinite = 0;
     for (UINT y = 0; y < kSize; ++y)
     {
-        const auto* row = reinterpret_cast<const uint16_t*>(static_cast<const char*>(mapped) +
-            footprint.Offset + y*footprint.Footprint.RowPitch);
+        const auto* row = static_cast<const char*>(mapped) + footprint.Offset + y*footprint.Footprint.RowPitch;
         for (UINT x = 0; x < kSize; ++x)
             for (UINT c = 0; c < 3; ++c)
             {
-                const float value = DirectX::PackedVector::XMConvertHalfToFloat(row[x*4+c]);
+                const float value = desc.Format == DXGI_FORMAT_R32G32B32A32_FLOAT
+                    ? reinterpret_cast<const float*>(row)[x*4+c]
+                    : DirectX::PackedVector::XMConvertHalfToFloat(reinterpret_cast<const uint16_t*>(row)[x*4+c]);
                 samples.push_back(value);
                 if (!std::isfinite(value))
                 {
@@ -187,7 +247,8 @@ nlohmann::json Read(Gpu& gpu, ID3D12Resource* texture, const Color& expected)
             {"rgbSamples", samples}};
 }
 
-void Run(Gpu& gpu, const std::filesystem::path& shaders, UINT caseIndex, nlohmann::json& report)
+void Run(Gpu& gpu, const std::filesystem::path& shaders, UINT caseIndex, nlohmann::json& report,
+          const NoiseCase* noise = nullptr)
 {
     Color diffuse = {0, 0, 0, 2}, specular = diffuse;
     if (caseIndex == 1 || caseIndex == 3)
@@ -215,11 +276,26 @@ void Run(Gpu& gpu, const std::filesystem::path& shaders, UINT caseIndex, nlohman
     std::memcpy(frame.viewToClip.data(), &projection, sizeof(projection));
     frame.previousWorldToView = frame.worldToView;
     frame.previousViewToClip = frame.viewToClip;
+    std::array<std::vector<double>, 2> sums;
+    for (auto& sum : sums)
+        sum.resize(kSize*kSize*3, 0);
     for (UINT index = 0; index < 120; ++index)
     {
         frame.frameIndex = index;
         frame.reset = index == 0;
         gpu.Begin();
+        uploads.clear();
+        if (noise != nullptr)
+        {
+            for (UINT lobe = 0; lobe < 2; ++lobe)
+            {
+                const auto values = Signal(lobe == 0 ? diffuse : specular, *noise, index, lobe);
+                UploadSignal(gpu, textures[3+lobe].Get(), values, uploads);
+                for (UINT pixel = 0; pixel < kSize*kSize; ++pixel)
+                    for (UINT c = 0; c < 3; ++c)
+                        sums[lobe][pixel*3+c] += values[pixel][c];
+            }
+        }
         const UINT dispatches = backend.Record(gpu.commands.Get(), 0, frame, inputs);
         gpu.Submit();
         if (index == 0 || index == 29 || index == 119)
@@ -228,6 +304,21 @@ void Run(Gpu& gpu, const std::filesystem::path& shaders, UINT caseIndex, nlohman
                 {"sdkFrameIndex", index}, {"reset", frame.reset}, {"dispatchCount", dispatches},
                 {"diffuse", Read(gpu, textures[5].Get(), diffuse)},
                 {"specular", Read(gpu, textures[6].Get(), specular)}});
+            if (noise != nullptr)
+            {
+                auto& row = report["checkpoints"].back();
+                row["seed"] = noise->seed;
+                row["amplitude"] = noise->amplitude;
+                row["inputDiffuse"] = Read(gpu, textures[3].Get(), diffuse, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+                row["inputSpecular"] = Read(gpu, textures[4].Get(), specular, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+                for (UINT lobe = 0; lobe < 2; ++lobe)
+                {
+                    auto average = sums[lobe];
+                    for (double& value : average)
+                        value /= index+1;
+                    row[lobe == 0 ? "temporalNativeDiffuse" : "temporalNativeSpecular"] = average;
+                }
+            }
         }
     }
 }
@@ -243,8 +334,16 @@ int main(int argc, char** argv)
         {"limitation", "Predeclared constant-field health check, not an SDK guarantee or scene quality bound."}};
     try
     {
-        if (argc != 3 || std::filesystem::exists(argv[2]))
+        const bool noisy = argc == 4 && std::strcmp(argv[3], "--noise") == 0;
+        if ((argc != 3 && !noisy) || std::filesystem::exists(argv[2]))
             throw std::runtime_error("Expected shader directory and new report path");
+        if (noisy)
+        {
+            report["mode"] = "balanced-pair-noise";
+            report["seeds"] = {7, 101, 307};
+            report["amplitudes"] = {0, .25, .75};
+            report["limitation"] = "Paired multiplicative Rademacher noise; spatially balanced, not independent white/PT noise.";
+        }
         ComPtr<ID3D12Debug> debug;
         Check(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)));
         debug->EnableDebugLayer();
@@ -267,8 +366,20 @@ int main(int argc, char** argv)
         Check(gpu.commands->Close());
         ComPtr<ID3D12InfoQueue> info;
         Check(gpu.device.As(&info));
-        for (UINT caseIndex = 0; caseIndex < 4; ++caseIndex)
-            Run(gpu, argv[1], caseIndex, report);
+        if (noisy)
+        {
+            for (UINT seed : {7u, 101u, 307u})
+                for (float amplitude : {0.f, .25f, .75f})
+                {
+                    const NoiseCase noise = {seed, amplitude};
+                    Run(gpu, argv[1], 3, report, &noise);
+                }
+        }
+        else
+        {
+            for (UINT caseIndex = 0; caseIndex < 4; ++caseIndex)
+                Run(gpu, argv[1], caseIndex, report);
+        }
         UINT errors = 0;
         for (UINT64 index = 0; index < info->GetNumStoredMessages(); ++index)
         {
@@ -284,18 +395,22 @@ int main(int argc, char** argv)
             }
         }
         report["d3d12Errors"] = errors;
-        bool passed = errors == 0 && report["checkpoints"].size() == 12;
+        bool passed = errors == 0 && report["checkpoints"].size() == (noisy ? 27 : 12);
         for (const auto& row : report["checkpoints"])
-            passed &= row["diffuse"]["passed"].get<bool>() && row["specular"]["passed"].get<bool>() &&
-                      row["dispatchCount"].get<UINT>() > 0;
-        report["status"] = passed ? "passed-constant-signal-controls" : "failed-constant-signal-controls";
+        {
+            passed &= row["dispatchCount"].get<UINT>() > 0;
+            for (const char* lobe : {"diffuse", "specular"})
+                passed &= noisy ? row[lobe]["nonfiniteValues"].get<UINT>() == 0 : row[lobe]["passed"].get<bool>();
+        }
+        report["status"] = noisy ? (passed ? "completed-noise-controls" : "failed-noise-controls")
+                                  : (passed ? "passed-constant-signal-controls" : "failed-constant-signal-controls");
     }
     catch (const std::exception& error)
     {
         report["status"] = "failed-execution";
         report["failures"].push_back(error.what());
     }
-    if (argc == 3 && !std::filesystem::exists(argv[2]))
+    if (argc >= 3 && !std::filesystem::exists(argv[2]))
     {
         std::ofstream stream(argv[2]);
         stream << report.dump(2) << '\n';
@@ -303,5 +418,5 @@ int main(int argc, char** argv)
             return 2;
     }
     std::cout << report["status"] << '\n';
-    return report["status"] != "passed-constant-signal-controls";
+    return report["status"] != "passed-constant-signal-controls" && report["status"] != "completed-noise-controls";
 }
