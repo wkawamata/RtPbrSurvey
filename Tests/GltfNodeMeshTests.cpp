@@ -176,6 +176,14 @@ void TestIndependentNodeMeshesAndLifetime()
     Require(partBOrigin.materialId == 3, "The second node material should be remapped to its global material range.");
     Require(mesh.materials[0].albedoTexIndex == 0, "The first node texture should use the first global texture range.");
     Require(mesh.materials[2].albedoTexIndex == 1, "The second node texture should be globally remapped.");
+    Require(NearlyEqual(mesh.materials[0].baseColorFactor.x, 1.0f) &&
+                NearlyEqual(mesh.materials[0].baseColorFactor.y, 1.0f) &&
+                NearlyEqual(mesh.materials[0].baseColorFactor.z, 1.0f),
+            "A material without an explicit factor should preserve the glTF white default.");
+    Require(NearlyEqual(mesh.materials[3].baseColorFactor.x, 0.2f) &&
+                NearlyEqual(mesh.materials[3].baseColorFactor.y, 0.4f) &&
+                NearlyEqual(mesh.materials[3].baseColorFactor.z, 0.6f),
+            "A glTF material without an albedo texture should preserve its baseColorFactor.");
 }
 
 void TestExistingFlattenedMeshContract()
