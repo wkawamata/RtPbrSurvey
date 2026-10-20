@@ -144,12 +144,14 @@ SHA-256 provenance:
 
 ## Remaining Step 2 work
 
-- Use the 27 qualified active component/ROI pairs for comparisons, keeping the
-  seven exact-zero inactive pairs distinct from ordinary quality assessments.
+- The 27 qualified active pairs and seven exact-zero inactive pairs have now
+  been compared against the seed-7 control/diffuse-5 output cohorts. See
+  `nrd-component-comparison.md` for the limited mean-bias and cancellation
+  results; this does not resolve the excluded mirror-proxy reference.
 - Increase reference sampling for the eight inconclusive pairs and requalify;
   do not relax the 3% limit or assume a larger sample count must converge.
-- Compare restored NRD component outputs against qualified component references;
-  record contribution weights and cancellation in total-color errors.
+- Extend restored-component comparisons to newly qualified references and
+  additional output seeds; preserve contribution weights and cancellation.
 - Separate estimator/input variance, guide/admission defects, material factor
   defects and filtering response. Keep unknown causes unknown.
 - Keep the pre-pass defaults and default-off policy unchanged until the scene,
