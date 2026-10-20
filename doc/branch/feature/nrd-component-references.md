@@ -148,11 +148,12 @@ SHA-256 provenance:
   been compared against the seed-7 control/diffuse-5 output cohorts. See
   `nrd-component-comparison.md` for the limited mean-bias and cancellation
   results; this does not resolve the excluded mirror-proxy reference.
-- Increase reference sampling for the eight inconclusive pairs and requalify;
+- Requalify the remaining inconclusive pair with additional reference evidence;
   do not relax the 3% limit or assume a larger sample count must converge.
-  A guarded 32768-sample runner is implemented; its first long acquisition
-  ended without a capture, so qualification remains pending. See
-  `nrd-component-refinement.md` for the failed attempt and successful short smoke.
+  The 32768-sample refinement has now completed using hidden capture windows:
+  34 active pairs qualify, seven are inactive zero, and only the Diffuse
+  dielectric-smooth/mirror-proxy pair remains inconclusive (5.0129%). See
+  `nrd-component-refinement.md` for the separate cohort and execution history.
 - Extend restored-component comparisons to newly qualified references and
   additional output seeds; preserve contribution weights and cancellation.
 - Separate estimator/input variance, guide/admission defects, material factor

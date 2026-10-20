@@ -114,8 +114,14 @@ diffuse-5 profile or default-on policy from these selected results.
 
 ## Next
 
-1. Increase sampling for the eight unqualified reference pairs and requalify
-   them without changing masks or limits. Prioritize the mirror-proxy region.
-2. Extend component comparisons to those pairs only after qualification.
+Follow-up: `nrd-component-refinement.md` records a completed 32768-sample study
+with 34 qualified active pairs, seven inactive pairs and one inconclusive
+Diffuse mirror-proxy pair. The results in this document still use their frozen
+8192-sample cohort; they are not retrospectively regraded with newer references.
+
+1. Reference refinement recovered seven of the eight unqualified pairs. Keep
+   the Diffuse mirror-proxy pair pending without changing masks or limits.
+2. Extend component comparisons to the recovered pairs in a separately
+   identified study, preserving exclusion of the remaining unqualified pair.
 3. Confirm any proposed filtering change across output seeds, temporal cases
    and human review before changing defaults.

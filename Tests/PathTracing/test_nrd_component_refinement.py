@@ -84,6 +84,19 @@ class ComponentRefinementTests(unittest.TestCase):
         child.kill.assert_called_once()
         self.assertEqual(child.wait.call_count, 2)
 
+    def test_hidden_capture_only_changes_process_startup(self):
+        child = MagicMock()
+        child.wait.return_value = 0
+        child.poll.return_value = 0
+        with patch('refine_nrd_component_references.subprocess.Popen', return_value=child) as start, \
+                patch('refine_nrd_component_references.Path.is_file', return_value=False), patch('builtins.print'):
+            with self.assertRaises(ValueError):
+                capture(Path('app.exe'), Path('evidence'), 'diffuse', 11, {}, hidden=True)
+        startup = start.call_args.kwargs['startupinfo']
+        self.assertEqual(startup.wShowWindow, 0)
+        self.assertTrue(startup.dwFlags & subprocess.STARTF_USESHOWWINDOW)
+        self.assertNotIn('--hidden', start.call_args.args[0])
+
 
 if __name__ == '__main__':
     unittest.main()

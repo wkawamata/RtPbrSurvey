@@ -61,14 +61,20 @@ def check_capture(meta, runtime, component, seed, target):
             raise ValueError('Refined camera/geometry changed: '+key)
 
 
-def capture(exe, folder, component, seed, target):
+def capture(exe, folder, component, seed, target, hidden=False):
     path, log = folder/(component+'.ptbuf'), folder/(component+'.log')
     command = [str(exe), '-SceneFile', str(folder/'scene.json'), '-RenderPreset', str(folder/'render-preset.json'),
         '-EnablePathTracing', '-PathTracingReferenceComponent', component, '-DebugPreviewResource',
         'PathTracing.SceneColor', '-CapturePath', str(path), '-PathTracingSamples', str(SAMPLES),
         '-LogToFile', str(log), '-LogFPS', '1024', '-ExitAfterCapture', '-DisableVSync']
     print('starting', component, seed, SAMPLES, flush=True)
-    child = subprocess.Popen(command, cwd=ROOT)
+    launch = {}
+    if hidden:
+        startup = subprocess.STARTUPINFO()
+        startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startup.wShowWindow = 0
+        launch['startupinfo'] = startup
+    child = subprocess.Popen(command, cwd=ROOT, **launch)
     try:
         code = child.wait(timeout=3000)
     finally:
@@ -94,6 +100,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('pairs', 'source', 'executable', 'output'):
         parser.add_argument('--'+name, type=Path, required=True)
+    parser.add_argument('--hidden', action='store_true', help='Hide capture windows to avoid interactive input/resize.')
     args = parser.parse_args()
     pairs, source, exe = (p.resolve(strict=True) for p in (args.pairs, args.source, args.executable))
     output = args.output.resolve()
@@ -108,6 +115,7 @@ def main():
     report = dict(schemaVersion=1, status='running', artifactSha256=artifacts, fixtureSha256={}, records=[], rois=[],
         summary=[], failures=[], samples=SAMPLES, seeds=list(SEEDS), samplesPerFrame=1, pairNrmseLimit=.03,
         freshGpuCaptures=0, reusedTotalCapturesRevalidated=0, fullIntegrationReady=False, masksReselected=False,
+        windowMode='hidden' if args.hidden else 'normal',
         limitation='Reference variance only. Reused historical Total and fresh component builds are explicitly '
         'distinct. No NRD output quality or performance-ceiling verdict.')
     write_json(output/'report.json', report)
@@ -138,7 +146,7 @@ def main():
             for component in COMPONENTS:
                 report['activeCapture'] = dict(component=component, seed=seed, samples=SAMPLES, evidenceFolder=str(folder))
                 write_json(output/'report.json', report)
-                image, record = capture(exe, folder, component, seed, target)
+                image, record = capture(exe, folder, component, seed, target, args.hidden)
                 references[seed, component] = image
                 report['records'].append(record)
                 report['freshGpuCaptures'] += 1

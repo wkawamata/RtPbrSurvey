@@ -23,6 +23,9 @@ Runner: `Tests/PathTracing/refine_nrd_component_references.py`.
   study; the child process is terminated and the report records failure.
 - The final runner logs FPS/frame checkpoints every 1024 frames so that an
   interrupted retry has more progress evidence than startup-only logs.
+- On Windows, `--hidden` starts the existing executable with a hidden window
+  to avoid accidental foreground camera input and manual resizing. No render
+  settings change; metadata must still match the fixed 1920x1080 camera.
 - Stop at this fixed budget even if a pair still does not qualify. A subsequent
   budget change requires a separate study; no post-hoc threshold relaxation.
 
@@ -43,7 +46,7 @@ Even qualifying all pairs would not establish NRD input correctness, a filter
 defect, a quality ceiling or default-on readiness. Component output comparison,
 multiple output seeds, temporal regression and human review remain distinct.
 
-## Current Execution State
+## Earlier Execution Attempts
 
 The first attempt is incomplete, not qualified evidence:
 `bin/PathTracingValidation/nrd-component-refined-20261020/report.json`.
@@ -54,8 +57,8 @@ qualification or NRD output comparison was produced.
 The seed-11 Diffuse process returned exit code 0 without its capture file or
 a capture-completion log. Its log contains startup information and the known
 buffer initial-state warnings, but no D3D12 error. The process was responsive
-when polled during acquisition. The reason for the early exit is not known;
-manual window closure has been asked about but is not assumed. This failure
+when polled during acquisition. The user subsequently confirmed manual window
+closure as the cause. This failure
 is not an NRD quality result. The current runner now explicitly rejects a
 normal process exit without complete capture/log evidence, with a regression
 test for that case. The first failed report retains the pre-guard runner hash
@@ -75,8 +78,80 @@ This checks short-run capture plumbing, not long-run stability or reference
 convergence. A direct PowerShell GUI launch before the waited smoke attempt
 produced no evidence and is excluded.
 
-NRD Python tests: 184/184, including the six new refinement tests. No renderer,
-shader or preset was changed. Long acquisition should be retried in a new
-evidence folder after clarifying the unexpected exit; the existing failed
-attempt and smoke files must not be overwritten or combined into a successful
-refinement cohort. The eight previously unqualified pairs remain unqualified.
+The initial runner passed 184 Python tests. No renderer, shader or preset was
+changed. These failed/short attempts do not qualify any additional references.
+
+### Visible Retry
+
+The user authorized a retry in
+`bin/PathTracingValidation/nrd-component-refined-20261021-retry`.
+Its FPS frame counter passed 32768 without a completed capture. A read-only
+window observation showed render/output size 1920x1009, not the required
+1920x1080. The cause and time of that size change were not established.
+FPS frames are not proof of accumulated samples when history can reset.
+The agent stopped only the matching owned capture process; the runner recorded
+`failed-execution`. No image from this visible retry is accepted reference data.
+Debug-visibility observation was attempted only after detecting the mismatch;
+no material, lighting or camera controls were changed for diagnosis.
+
+### Hidden Launch Calibration
+
+A hidden-startup 256-sample Diffuse capture at seed 11 completed at 1920x1080,
+with exact bit identity to the reviewed Diffuse replay and no D3D12 errors.
+Files: `nrd-component-refined-20261021-retry/11/hidden-smoke-256.ptbuf` and
+`hidden-smoke-256.log` under `bin/PathTracingValidation`.
+The process startup policy, not the render command's sampling inputs, differs.
+The runner now offers explicit `--hidden`; normal startup remains its default.
+The startup option is covered by a mock-based test. Python tests: 185/185.
+
+## Completed Hidden Study
+
+Report:
+`bin/PathTracingValidation/nrd-component-refined-20261021-hidden/report.json`.
+SHA-256: `12464ee792052aeba8616e528e68c17ec1f948f51526a124b88ef47bb508a8c8`.
+Status: `completed-component-reference-refinement`.
+Reference verdict: `partially-inconclusive`.
+
+All four fresh component captures completed at 1920x1080 with exactly 32768
+accumulated samples, one spp, the fixed camera and the unchanged executable/
+shader. Both historical Total captures were revalidated and reused. Artifact
+and fixture hashes remained unchanged throughout acquisition. Capture logs
+contain zero D3D12 errors. No visible-retry or smoke data is combined into the
+accepted reference cohort.
+
+| Component | Qualified active pairs | Exact-zero inactive | Inconclusive |
+| --- | ---: | ---: | ---: |
+| Total (reused 32768-sample references) | 14 | 0 | 0 |
+| Diffuse (fresh) | 6 | 7 | 1 |
+| Specular (fresh) | 14 | 0 | 0 |
+
+The new inventory is 34 qualified active pairs, seven inactive zero pairs and
+one inconclusive pair, versus 27/7/8 in the 8192-sample study. The Total
+improvement is reuse of the previously acquired high-sample evidence, not a
+claim of two additional fresh Total runs.
+
+The focus `dielectric-smooth/mirror-proxy` ROI retains the same 792 pixels:
+
+| Component | Previous 8192 pair NRMSE | 32768 pair NRMSE | Qualification |
+| --- | ---: | ---: | --- |
+| Total | 4.7736% | 2.6533% | Qualified |
+| Diffuse | 10.0104% | 5.0129% | Inconclusive |
+| Specular | 4.2619% | 2.5636% | Qualified |
+
+The roughly halved Diffuse pair difference after quadrupling the sample budget
+is consistent with decreasing Monte Carlo reference variance, but does not
+prove estimator unbiasedness or NRD correctness. The 3% criterion is unchanged.
+No additional sampling is silently scheduled beyond the declared fixed budget.
+
+## Remaining Work
+
+- Compare the newly qualified Total/Specular focus outputs and other recovered
+  pairs against NRD. The prior 8192-based output-comparison results remain a
+  separate study and must not be relabeled using these newer references.
+- Keep the one Diffuse focus pair excluded from absolute component quality
+  attribution until a separately declared reference study qualifies it.
+- Consider validating a faster reference acquisition path before a substantially
+  larger Diffuse sample budget. Do not reuse the rejected 16-spp acceleration
+  or weaken numerical/variance checks merely to shorten execution.
+- Preserve the default-off policy and pre-pass defaults. This run contains no
+  new NRD output quality test, temporal regression or human acceptance test.
