@@ -70,12 +70,84 @@ expected 16 spp despite the CLI sample-target policy. Both defects were fixed;
 all eight final captures were reacquired separately without relaxing any
 energy, camera, sample-count or NRD-admission check.
 
+## Paired-reference study
+
+### Paired-reference acquisition policy
+
+Runner: `Tests/PathTracing/qualify_nrd_component_references.py`.
+The planned reference cohort is Total/Diffuse/Specular, seeds 11 and 29,
+8192 samples each. The 14 existing ROI masks and pair-NRMSE limit 0.03 are
+unchanged. A failed variance qualification is inconclusive, not an NRD defect.
+Pure-metal Diffuse must be exactly zero and is classified as inactive; other
+dark components are inconclusive rather than divided by a near-zero RMS.
+
+A preliminary 16-spp acceleration probe at 256 samples was rejected. Its Total
+capture differed from the validated 1-spp capture by a maximum of 0.02685546875
+and global NRMSE 0.0003484692584, exceeding the predeclared per-value numerical
+budget. Matching camera, seed and sample-count metadata does not establish
+pathwise equivalence. The accumulation texture is FP32, but the cause of this
+difference is not established. No transport or acceptance threshold was changed
+to admit it, and the 16-spp image is not accepted reference evidence.
+Local failed report: `bin/PathTracingValidation/nrd-component-pairs-20261020/report.json`.
+
+The replacement acquisition retains the validated one-spp CLI sample-target
+path. Before high-sample acquisition it replays all five 256-sample components,
+requiring bit identity to the accepted plumbing cohort and rechecking energy
+closure. It also revalidates the historical reference chain, executable/shader
+hashes, camera, transport state and NRD-disabled state. This does not relax the
+separate one-spp NRD input admission contract.
+
+### Results
+
+Local report:
+`bin/PathTracingValidation/nrd-component-pairs-20261020-one-spp/report.json`.
+Status: `completed-reference-pair-study`; verdict: `partially-inconclusive`.
+Eleven fresh captures completed: five bit-identical 256-sample replays, followed
+by six 8192-sample references. All capture/log identities, fixture and artifact
+hashes were checked. D3D12 errors: 0. Python tests: 171/171; targeted history and
+SDK adapter CTests: 2/2. No renderer rebuild or rendering-setting change was
+needed in this unit.
+
+| Component | Qualified pair | Exact-zero inactive | Inconclusive |
+| --- | ---: | ---: | ---: |
+| Total | 12 | 0 | 2 |
+| Diffuse | 5 | 7 | 2 |
+| Specular | 10 | 0 | 4 |
+
+The following pairs exceed the unchanged 3% reference-NRMSE criterion:
+
+| Component | Fixed ROI | Pair NRMSE |
+| --- | --- | ---: |
+| Total | dielectric-smooth/dark | 3.7240% |
+| Total | dielectric-smooth/mirror-proxy | 4.7736% |
+| Diffuse | dielectric-smooth/dark | 3.8919% |
+| Diffuse | dielectric-smooth/mirror-proxy | 10.0104% |
+| Specular | dielectric-rough/dark | 3.6023% |
+| Specular | dielectric-smooth/border | 3.9114% |
+| Specular | dielectric-smooth/dark | 4.4930% |
+| Specular | dielectric-smooth/mirror-proxy | 4.2619% |
+
+In particular, the focus mirror-proxy ROI does not yet have a qualified
+component reference. Its Diffuse pair disagreement cannot establish either
+an NRD bug or the absolute attribution of the historical total-color bias.
+The mirror-proxy mask remains an analytic selection proxy, not specular-only
+ground truth. The earlier qualified 32768-sample Total references remain
+separate evidence; this study does not replace them with unqualified 8192-sample
+images. No NRD quality verdict, default-on promotion or equal-work claim follows
+from this reference qualification.
+
+SHA-256 provenance:
+
+- Report: `566efb7d18b2cc58e3836f2c6a95bf6c8b3900c20363687cb9b4e444f02a737c`.
+- Reference executable: `9036129401f6336da789124a130c5c205a43e8c7e51c339c6592acff941a2f68`.
+- PT shader: `bfab1bfca68586e917612fa30fa9ba70ac656761774a2ff7f692ba34ee935c56`.
+
 ## Remaining Step 2 work
 
-- Acquire independent seed-11/29 high-sample Total/Diffuse/Specular references
-  with this same executable, and qualify reference variance on the fixed ROIs.
-- Do not call these 256-sample images converged references. If a component's
-  reference does not qualify, increase sampling or report inconclusive.
+- Use the 27 qualified active component/ROI pairs for comparisons, keeping the
+  seven exact-zero inactive pairs distinct from ordinary quality assessments.
+- Increase reference sampling for the eight inconclusive pairs and requalify;
+  do not relax the 3% limit or assume a larger sample count must converge.
 - Compare restored NRD component outputs against qualified component references;
   record contribution weights and cancellation in total-color errors.
 - Separate estimator/input variance, guide/admission defects, material factor
