@@ -123,5 +123,7 @@ Diffuse mirror-proxy pair. The results in this document still use their frozen
    the Diffuse mirror-proxy pair pending without changing masks or limits.
 2. Extend component comparisons to the recovered pairs in a separately
    identified study, preserving exclusion of the remaining unqualified pair.
+   Completed for the seed-7 static cohorts in
+   `nrd-refined-component-comparison.md`; this does not remove that exclusion.
 3. Confirm any proposed filtering change across output seeds, temporal cases
    and human review before changing defaults.

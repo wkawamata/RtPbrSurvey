@@ -145,9 +145,9 @@ No additional sampling is silently scheduled beyond the declared fixed budget.
 
 ## Remaining Work
 
-- Compare the newly qualified Total/Specular focus outputs and other recovered
-  pairs against NRD. The prior 8192-based output-comparison results remain a
-  separate study and must not be relabeled using these newer references.
+- The newly qualified Total/Specular focus outputs and other recovered pairs
+  have been compared in `nrd-refined-component-comparison.md`. The prior
+  8192-based comparison remains separate and has not been relabeled.
 - Keep the one Diffuse focus pair excluded from absolute component quality
   attribution until a separately declared reference study qualifies it.
 - Consider validating a faster reference acquisition path before a substantially
