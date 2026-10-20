@@ -150,6 +150,9 @@ SHA-256 provenance:
   results; this does not resolve the excluded mirror-proxy reference.
 - Increase reference sampling for the eight inconclusive pairs and requalify;
   do not relax the 3% limit or assume a larger sample count must converge.
+  A guarded 32768-sample runner is implemented; its first long acquisition
+  ended without a capture, so qualification remains pending. See
+  `nrd-component-refinement.md` for the failed attempt and successful short smoke.
 - Extend restored-component comparisons to newly qualified references and
   additional output seeds; preserve contribution weights and cancellation.
 - Separate estimator/input variance, guide/admission defects, material factor
