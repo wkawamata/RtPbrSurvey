@@ -9,6 +9,11 @@ Explicit diagnostic final-image selection is connected, default Native.
 Healthy-device NRD initialization/preparation fallback is connected.
 Device loss/recording failures remain fatal; quality acceptance remains pending.
 
+Current bounded delivery (2026-10-22): see `nrd-six-hour-delivery.md`. Fresh
+integration, presentation and continuous-history gates pass on the new Debug
+build. Final human review is pending. The remaining high-sample glossy study
+is deferred quality research, not this limited-delivery critical path.
+
 ## Current Acceptance State
 
 - [x] Work-3 synchronized to merged main.

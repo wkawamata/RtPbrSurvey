@@ -36,18 +36,28 @@ phases and use the reserve only when needed. A critical defect is a release
 blocker, not a known-quality exception. If a larger redesign is required at
 the two-hour gate, stop expansion and report the minimal blocking work.
 
+Current progress:
+
+- [x] Scope and acceptance frozen.
+- [x] Final source audit; no concrete critical renderer defect found.
+- [x] Fresh build, CPU/WARP/hardware and mandatory runtime regression.
+- [x] Six static review images prepared from complete committed fixtures.
+- [ ] Live Cornell check.
+- [ ] User visual approval for this delivery build.
+- [ ] Final limited-delivery decision and handoff.
+
 ## Mandatory Acceptance
 
 | Item | Existing evidence | Fresh delivery result |
 | --- | --- | --- |
 | Pinned SDK, input units/packing/material restoration | Input-semantics audit and executed GPU contract kernels | Four hardware kernel suites passed |
-| Native output preserved; explicit NRD selection | Presentation/composition and reference-component tests | Raw Native preserved; selection matrix running |
+| Native output preserved; explicit NRD selection | Presentation/composition and reference-component tests | Raw Native preserved; five selection cases passed |
 | Initialization/preparation failure uses Native fallback | Injected failure and exact raw fallback checks | Three failure modes passed |
 | Reset/Pause/Resume/settings/edit/Resize lifecycle | Existing 19-stage runtime history runner | All 19 checkpoints passed |
-| Continuous motion and stop do not reuse incompatible history | Continuous camera/timeline and disocclusion runners | Four static/motion/reset cases passed; full timeline pending |
+| Continuous motion and stop do not reuse incompatible history | Continuous camera/timeline and disocclusion runners | Four motion/reset cases and 32-capture continuous timeline passed |
 | CPU tests and D3D12 Debug Layer | Previous targeted and GPU passes | CTest 38/38, Python 197/197; runtime logs without errors |
 | Four-sphere, Cornell and emissive scene visual regression | Earlier user approvals, limited to their recorded scope | Pending final review |
-| Default OFF, noncompatible sampling rejected, known limits visible | Current presentation readiness policy | Audit passed; runtime selection matrix running |
+| Default OFF, noncompatible sampling rejected, known limits visible | Current presentation readiness policy | Audit and five-case runtime selection matrix passed |
 
 Prior passes are historical evidence, not fresh results for the delivery build.
 Final evidence must name the executable/shader identity, commands, fixture,
@@ -83,7 +93,14 @@ prove a critical integration defect. The final verdict must distinguish the two.
 - Four fresh hardware suites passed: 28,672 sampling vectors, eight packing
   cases, eight material-factor round trips and eight input-conversion cases.
   All hardware logs report no D3D12 errors.
-- Final presentation matrix and continuous timeline regression are in progress.
+- Fresh presentation matrix: `bin/PathTracingValidation/nrd-delivery-20261022/presentation/report.json`,
+  status `passed`, ten captures across five settings. Compatible inputs select
+  NRD; distance-off, random primary, four-spp and non-Radiance views preserve
+  exact Native output in the existing central viewport comparison region.
+- Fresh continuous timeline: `bin/PathTracingValidation/nrd-delivery-20261022/timeline/report.json`,
+  status `passed-continuous-timeline`. Four resources, eight checkpoints each:
+  warm-up, forward, reverse, middle, stop and 4/16/32-frame settling. Existing
+  visibility/MV/matrix/reset checks pass and settling updates the output.
 - User visual confirmation is pending.
 
 ## Final Source Audit
@@ -112,3 +129,70 @@ contract checks final viewport Native selection after initialization/late
 failure, and raw equality only on the preparation-failure frame itself. A third
 attempt completed these checks but failed to decode a Japanese fixture using
 the process locale. The final runner explicitly uses UTF-8 for JSON fixtures.
+
+## Evidence Identity
+
+All fresh runtime captures above use one new Debug executable:
+`bin/PathTracingValidation/nrd-delivery-build-20261022/Debug/RtPbrSurvey.exe`.
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Executable | `70139a0f65c97a5854e9da593c0509af6c71496d6b2707b059214c15a0eb854a` |
+| Runtime PT CSO | `224efba2281612c21c164c541569aa64d04e552a8b0a590842545ea8942604f7` |
+| Integration report | `7da42a9fc114b82d42d530e0febd272cf93f532d8c792c0900d4217c04ff051b` |
+| Presentation report | `30a6e1aa02957f2959d3193c35b9216b8459d503532346fb286563becb4eaf8e` |
+| Continuous timeline report | `0a5c73fd1a34b4b2db7025a45e12c34df6baa91266a3e8acf9c1e0cd36001287` |
+| Final CTest log | `6cbb29e3fd81880b442449388c6d44541a4eb00de3e633bb0c57292fb94d47da` |
+| Static review image report | `e54f29e3e775f898e8174cd6a38d06e53e13ed6a605c63bd9a7cfadf17dd11dc` |
+| Delivery summary report | `e72d2209184e2aa58942e0c8e5a864462e616e7d0f945dd538670765f9003ef0` |
+
+Reports retain commands, individual capture/log hashes and runtime or raw
+metadata. Hardware logs are in the delivery folder's `hardware` directory.
+Operator scripts for this bounded rerun are retained beside the reports.
+Old evidence builds remain unchanged; new compilation is a distinct cohort,
+not silently substituted into historical quality reports.
+
+## Supported Use and Final Human Gate
+
+- Native-resolution PT Radiance, one sample/frame, pixel-center primary and
+  denoiser distance diagnostics are required for the current diagnostic preview.
+- The GUI control remains `NRD RELAX Preview (Diagnostic)`; this milestone does
+  not promote the general backend-support query or enable NRD by default.
+- Excluded inputs/pixels use Native fallback. View depth at or beyond 1000 is
+  excluded. Arbitrary scene coverage and moving-object quality are not certified.
+- Preserve four bounces for the glossy/Cornell reflection review; the previously
+  observed two-bounce black reflections were path truncation, not an NRD fix.
+- The final human review must confirm four-sphere highlights/reflections, Cornell
+  reflections at four bounces, emissive preservation, movement/stop and ON/OFF.
+  An unanswered item remains pending and prevents the final delivery verdict.
+- Static review images are prepared from committed scene snapshots for
+  four spheres, the large emissive panel and the emissive/Unlit control. Cornell
+  is a built-in scene and still requires the live manual review.
+- Native images at 120 samples and NRD at 120 elapsed frames are demonstration
+  comparisons, not equal-effective-sample quality benchmarks or new references.
+
+Prepared four-sphere review session:
+`bin/PathTracingValidation/nrd-delivery-20261022/manual-glossy/session.json`.
+The existing `Start-NrdVisualReview.ps1` accepts `-ExecutablePath` for this build.
+Do not mark the previous user approvals as answers to this fresh-build review.
+
+Accepted static image pack:
+`bin/PathTracingValidation/nrd-delivery-20261022/review-images-r2/report.json`,
+status `prepared-for-human-review`, six captures. Each fixture contains
+`native.png` and `nrd.png` at 120 samples/elapsed frames. Emissive and Unlit
+controls completed without D3D12 errors. This is preparation, not user approval.
+The first image-pack attempt omitted companion glTF files, causing startup to
+abort before rendering the emissive scene. It is a failed acquisition fixture,
+not passing evidence; the retry snapshots the complete committed directories.
+
+Summary: `bin/PathTracingValidation/nrd-delivery-20261022/report.json`, status
+`automated-acceptance-passed-human-pending`. The 75 mandatory runtime captures
+and six prepared static review images are distinct from the unanswered human
+gate. The summary records fixed case counts and source report/asset/log hashes;
+it does not turn the outstanding quality study into a pass.
+
+No critical integration bug required a renderer fix in this delivery. The final
+decision remains pending human review; do not reopen the deferred glossy
+convergence study as the automatic next task. After approval, record the actual
+answers and finalize the limited, default-off delivery with the known quality
+issues preserved. Do not silently promote it to general quality acceptance.

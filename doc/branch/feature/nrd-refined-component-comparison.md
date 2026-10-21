@@ -83,6 +83,11 @@ promote that profile.
 
 ## Validation and Next Work
 
+Delivery policy update (2026-10-22): the six-hour scope in
+`nrd-six-hour-delivery.md` supersedes the research priority below for the current
+milestone. Additional reference acquisition is deferred; existing failed and
+inconclusive quality results remain unchanged and must be disclosed.
+
 Python tests: 190/190. Five new tests cover the refined report's policy,
 partial-vs-complete verdict, duplicate/missing cases, wrong acquisition roles,
 missing numerical evidence, report identity and independent assessment of
