@@ -93,6 +93,9 @@ Next priority is the one remaining Diffuse reference uncertainty. Validate a
 faster reference acquisition method before substantially increasing the sample
 budget; preserve the existing camera, masks, estimator and acceptance criteria.
 Do not substitute the rejected 16-spp path or silently relax the 3% criterion.
+The subsequent `nrd-fast-reference-pilot.md` study confirmed bit identity for
+Debug Layer opt-out but achieved only 1.044x median speedup, below its 1.5x
+target. It is not adopted as the high-sample acquisition strategy.
 After reference qualification, re-evaluate Diffuse and joint contributions,
 then confirm any proposed setting change across seeds and temporal cases.
 The default-off policy and existing pre-pass defaults remain unchanged.

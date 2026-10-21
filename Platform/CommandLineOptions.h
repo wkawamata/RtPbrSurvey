@@ -77,6 +77,7 @@ struct CommandLineOptions
     bool useSceneDefaults = false;
     bool enablePathTracing = false;
     bool disableVSync = false;
+    bool disableD3D12DebugLayer = false;
     UINT pathTracingSampleTarget = 0;
     std::filesystem::path pathTracingHistoryValidationDirectory;
     std::filesystem::path pathTracingCapturePlanPath;

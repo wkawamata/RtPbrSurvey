@@ -276,6 +276,7 @@ void RtPbrSurveyApp::OnInit()
     deviceDesc.bufferCount = RtPbrSurveyEngine::kSwapChainBufferCount;
     deviceDesc.swapChainFormat = RtPbrSurveyEngine::kSwapChainFormat;
     deviceDesc.useWarpDevice = m_commandLineOptions.useWarpDevice;
+    deviceDesc.enableDebugLayer = !m_commandLineOptions.disableD3D12DebugLayer;
     if (!m_commandLineOptions.enablePathTracing)
     {
         deviceDesc.deviceCreatedHandler = [](ID3D12Device* device) { Engine::SetStreamlineD3DDevice(device); };
@@ -2247,6 +2248,8 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
         {"capturePath", std::filesystem::absolute(m_commandLineOptions.capturePath).string()},
         {"accumulatedSamples", context.pathTracingRuntimeState.accumulatedSampleCount},
         {"targetSamples", m_commandLineOptions.pathTracingSampleTarget},
+        {"d3d12DebugLayerRequested", !m_commandLineOptions.disableD3D12DebugLayer},
+        {"d3d12DebugLayerEnabledByApp", m_graphicsDevice.DebugLayerEnabledByApp()},
         {"randomSeed", settings.randomSeed},
         {"environmentSamplingMode", settings.environmentSamplingMode},
         {"environmentEnabled", settings.environmentEnabled},

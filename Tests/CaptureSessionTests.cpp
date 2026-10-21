@@ -351,6 +351,12 @@ bool TestValidationAndLegacyCli()
     WCHAR* argv[] = {executable, option, path};
     const Platform::CommandLineOptions options = Platform::ParseCommandLineOptions(argv, 3);
     passed &= Check(options.capturePath == "legacy.png", "legacy CapturePath CLI remains supported");
+    passed &= Check(!options.disableD3D12DebugLayer, "D3D12 validation remains enabled by default");
+    WCHAR disableDebugLayer[] = L"-DisableD3D12DebugLayer";
+    WCHAR* disableDebugLayerArgv[] = {executable, disableDebugLayer};
+    const Platform::CommandLineOptions fastOptions = Platform::ParseCommandLineOptions(disableDebugLayerArgv, 2);
+    passed &= Check(fastOptions.disableD3D12DebugLayer && !fastOptions.enablePathTracing && !fastOptions.disableVSync,
+                    "Disabling process-local D3D12 validation does not alter rendering or sampling options");
     WCHAR nrdOption[] = L"-NrdPreview";
     WCHAR* nrdArgv[] = {executable, nrdOption};
     const auto nrdOptions = Platform::ParseCommandLineOptions(nrdArgv, 2);

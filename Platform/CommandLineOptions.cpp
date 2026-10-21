@@ -391,6 +391,10 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.disableVSync = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-DisableD3D12DebugLayer"))
+        {
+            options.disableD3D12DebugLayer = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-EnablePathTracing"))
         {
             options.enablePathTracing = true;
