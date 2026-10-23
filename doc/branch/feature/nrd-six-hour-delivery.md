@@ -280,3 +280,11 @@ decision is whether the user accepts persistent highlight grain as a disclosed
 limitation of the current default-off delivery, or requests one bounded RELAX
 settings A/B before continuing the remaining visual scenes. No visual pass or
 SDK-performance-limit classification is inferred from these measurements.
+
+The user selected the one bounded settings A/B. See `nrd-antilag-ab.md`:
+Anti-lag OFF produced no meaningful static improvement (Specular delta RMS
+0.463576226 versus 0.463570242) and no useful aggregate motion/stop improvement.
+It is not adopted; defaults remain unchanged. The single settings experiment
+is closed. Highlight grain remains an explicit unresolved visual limitation,
+not an accepted pass or proof of an NRD integration defect. User acceptance and
+the remaining visual scenes are still required for the delivery decision.
