@@ -196,22 +196,30 @@ bool TestNrdDisocclusionFixture()
                  "NRD disocclusion fixture contains foreground and background");
 }
 
-bool TestUnsupportedTransmissionKeepsPublishedScene()
+bool TestTransmissionReachesRuntimeMaterial()
 {
     RtPbrSurvey::SceneDocumentBuilder builder;
     std::string error;
     RtPbrSurvey::SceneDocument document = CreatePrimitiveDocument();
-    if (!Check(builder.Build(document, &error), "opaque scene builds before unsupported transmission"))
+    if (!Check(builder.Build(document, &error), "opaque scene builds before transmission"))
     {
         return false;
     }
     const size_t instanceCount = builder.Builder().GetScene().instances.size();
     document.materials[0].transmission.mode = RtPbrSurvey::SceneTransmissionMode::Thin;
     document.materials[0].transmission.factor = 0.5f;
-    return Check(!builder.Build(document, &error) && error.find("Thin transmission") != std::string::npos,
-                 "unfinished rendering capability is rejected explicitly") &&
-           Check(builder.Builder().GetScene().instances.size() == instanceCount,
-                 "unsupported transmission preserves the published scene");
+    document.materials[0].transmission.tint = {0.2f, 0.4f, 0.6f};
+    document.materials[0].transmission.ior = 1.33f;
+    if (!Check(builder.Build(document, &error), "thin transmission scene builds"))
+    {
+        return false;
+    }
+    const auto& material = builder.Builder().GetMesh().materials[builder.Result().materialIds.at("metal")];
+    return Check(material.thinTransmission && NearlyEqual(material.transmissionFactor, 0.5f) &&
+                     NearlyEqual(material.transmissionTint.x, 0.2f) && NearlyEqual(material.transmissionTint.y, 0.4f) &&
+                     NearlyEqual(material.transmissionTint.z, 0.6f) && NearlyEqual(material.transmissionIor, 1.33f),
+                 "thin transmission data reaches runtime material") &&
+           Check(builder.Builder().GetScene().instances.size() == instanceCount, "transmission preserves geometry");
 }
 
 bool TestGltfFailureKeepsPublishedScene()
@@ -243,7 +251,7 @@ bool TestGltfFailureKeepsPublishedScene()
 
 int main()
 {
-    if (!TestUnsupportedTransmissionKeepsPublishedScene() ||
+    if (!TestTransmissionReachesRuntimeMaterial() ||
         !TestPrimitiveBuildAndMeshReuse() || !TestGltfBuildAndMeshReuse() || !TestGltfFailureKeepsPublishedScene() ||
         !TestNrdStableRadianceFixture() || !TestNrdDisocclusionFixture())
     {

@@ -636,6 +636,8 @@ int main(int argc, char** argv)
 {
     using Presentation = Engine::NrdRelaxPresentationStatus;
     bool presentationPassed = true;
+    presentationPassed &= Engine::NrdRelaxPresentationStatusText(Presentation::UnsupportedTransmission) ==
+        std::string("Native fallback: thin transmission is not supported by NRD");
     for (unsigned flags = 0; flags < 32; ++flags)
     {
         const bool requested = (flags & 1) != 0;

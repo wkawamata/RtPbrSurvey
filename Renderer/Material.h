@@ -8,6 +8,7 @@ namespace Engine
 static constexpr uint32_t kMaterialCount = 256;
 static constexpr uint32_t kMaterialFlagUnlit = 1u << 0;
 static constexpr uint32_t kMaterialFlagHasNormalTexture = 1u << 1;
+static constexpr uint32_t kMaterialFlagThinTransmission = 1u << 2;
 
 struct Material
 {
@@ -27,6 +28,9 @@ struct Material
     float baseColorFactor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
     float emissiveFactor[3];
     float normalTextureScale;
+    float transmissionFactor = 0.0f;
+    float transmissionTint[3] = {1.0f, 1.0f, 1.0f};
+    float transmissionIor = 1.5f;
 };
 
 } // namespace Engine

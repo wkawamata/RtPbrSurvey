@@ -1,7 +1,7 @@
 # 色付き薄膜透過の1日実装プラン
 
 作成日: 2026-10-23
-状態: 保存契約の実装を開始。透過描画・GUI・目視評価は未着手。
+状態: 保存契約とNative PT薄膜描画を実装・自動検証済み。GUI・目視評価は未着手。
 対象workspace: `C:\work\RtPbrSurvey-work-3`
 想定作業量: 実働8時間。テストシーン作成、ビルド、検証、修正を含む。
 実装ブランチ案: `codex/pt-thin-transmission`
@@ -180,16 +180,49 @@ alpha coverage、薄膜の透過、体積の屈折・吸収を区別するため
 - [x] 旧JSONの不透明な既定値と、既定材質の既存出力形式を維持。
 - [x] JSONの追加項目は `transmission` オブジェクトとし、不正値を拒否。
 - [x] Debug x64でSceneDocument／SceneDocumentBuilderをビルドし、関連CTest 2/2合格。
-- [ ] CPU/GPU材質への伝搬、定数glTF読込み、実際のPT透過処理。
-- [ ] Scene EditorのRGBA・IOR、NRDガード、検証用3シーン。
+- [x] CPU/GPU材質への伝搬、Native PTの薄膜反射・直進透過。
+- [ ] 定数glTF透過拡張の読込み。既存の未対応診断を維持している。
+- [x] 透過シーンでNRDを使わないガードとNative fallback表示。
+- [ ] Scene EditorのRGBA・IOR、Git管理の検証用3シーン。
 
-最初の作業単位では保存契約だけを追加する。描画側へ未接続のThin材質を
-不透明として黙って表示しないよう、factor>0のThinはSceneDocumentBuilderで
-明示的に拒否し、既存シーンを保持する。描画接続が完成した作業単位で
-この一時ガードを実際の対応範囲チェックへ置き換える。
-glTF対応済みの宣言やGPU材質レイアウトは、この段階では変更しない。
+最初の作業単位では保存契約だけを追加し、未接続のThin材質を不透明として
+黙って表示しないためのBuilderガードを置いた。2番目の作業単位で描画を
+接続し、この一時ガードを除去した。glTF対応済みの宣言はまだ変更しない。
 
 確認内容: 旧JSONの既定値、透過JSONのround-trip、実ファイルのatomic saveと
 再読込み、透過量の両端・IOR=1、未知のモード／項目・型違い・欠落・範囲外・
 非有限値の拒否、失敗時のdocument／公開済みscene保持。
-この段階ではアプリ全体の再ビルドや透過のGPU描画・目視評価は行っていない。
+上記の保存契約のみの段階では、透過のGPU描画・目視評価は行っていなかった。
+
+### Native PT接続の確認、2026-10-24
+
+- CPU材質からGPU Materialへfactor・tint・IORとThinフラグを伝搬。
+  structured bufferは112 bytes。CPUのサイズ／各offsetをstatic_assertで固定。
+- Thinの候補だけ裏面も受理。不透明シーンでは従来のカリングを維持。
+- 既存の不透明成分とThin成分を混合し、ThinはFresnel反射／色付き直進透過を
+  選択する。透過量0では追加の乱数を消費しない。
+- delta経路を連続BSDFのMISに混ぜない。カメラから直進透過だけを経た背景は
+  primary backgroundの扱いを維持し、IOR=1の白い板による背景変化を防ぐ。
+- 透過が有効な材質を持つシーンは保守的にNRD変換・評価・合成を実行しない。
+  Native fallbackの理由と、影は不透明・体積屈折なしの制約をDebugに表示する。
+- Fresnel式の参照: [PBRT scattering](https://github.com/mmp/pbrt-v4/blob/master/src/pbrt/util/scattering.h)。
+  今回は単一の有効表面の近似であり、有限厚の平行ガラス内部の多重反射モデルではない。
+
+検証結果:
+
+- SDK有効Debug x64の全ビルド成功。途中の並列Assetsコピー競合は、直列ビルドで解消。
+- CTest 40/40、既存NRD Pythonテスト197件、新しい比較テスト3件が合格。
+- Fresnel／方向／重み／期待エネルギーの28,672サンプルをWARPと実GPUで検証。
+  通常入射・斜入射・接線方向、IOR=1から100の28条件。D3D12 ERRORなし。
+- 実描画9キャプチャで、限定した不透明新旧比較、白の透過、着色、裏面、2枚重ね、
+  factor=0、NRD非実行とNative同値を確認。全キャプチャでD3D12 ERRORなし。
+- `validate_thin_transmission.py` は生成したUnlit背景板の中央ROIで評価する。
+  RGB最大絶対誤差の事前許容値は0.001、完全同値の比較は0。
+  実測: 白0、着色0.000293、裏面0、2枚重ね0.0000391、factor=0は0、NRD切替0。
+  これは限定した入力・経路の結合確認であり、任意のシーンの画質合格ではない。
+- レポート: `bin/PathTracingValidation/thin-integration-20261024/report.json`。
+  SHA-256: `c81adbb8f4f6adb6963852c8dcfa2c023daf02840719f0bcf448ee527dfecd6f`。
+
+専用ビルド: `bin/PathTracingValidation/thin-transmission-build-20261024/Debug/RtPbrSurvey.exe`。
+次はScene EditorでのRGBA・IOR編集、定数glTFの限定読込み、Git管理の3シーンを追加する。
+色付きの影、屈折、厚み、ユーザー目視確認は依然として未完了。
