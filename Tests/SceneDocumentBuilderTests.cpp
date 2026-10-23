@@ -1,4 +1,5 @@
 #include "Scene/SceneDocumentBuilder.h"
+#include "Scene/SceneDocumentJson.h"
 
 #include <DirectXMath.h>
 
@@ -160,6 +161,41 @@ bool TestGltfBuildAndMeshReuse()
     return passed;
 }
 
+bool TestNrdStableRadianceFixture()
+{
+    const std::filesystem::path directory = std::filesystem::path(__FILE__).parent_path().parent_path() /
+        "Assets/Scene/PathTracingValidation/13-nrd-stable-radiance";
+    RtPbrSurvey::SceneDocument document;
+    RtPbrSurvey::SceneDocumentBuilder builder;
+    std::string error;
+    if (!Check(RtPbrSurvey::LoadSceneDocumentFile((directory / "scene.json").string(), document, &error),
+               "NRD stable-radiance scene schema is valid") ||
+        !Check(builder.Build(document, directory, &error), "NRD stable-radiance glTF builds"))
+    {
+        std::cerr << error << '\n';
+        return false;
+    }
+    const Engine::SceneMesh& mesh = builder.Builder().GetMesh();
+    return Check(mesh.materials.size() == 3 && mesh.indices.size() == 18,
+                 "NRD fixture contains three indexed panels") &&
+           Check(!mesh.materials[0].unlit && mesh.materials[1].unlit && !mesh.materials[2].unlit,
+                 "NRD fixture keeps only the center panel Unlit");
+}
+
+bool TestNrdDisocclusionFixture()
+{
+    const std::filesystem::path directory = std::filesystem::path(__FILE__).parent_path().parent_path() /
+        "Assets/Scene/PathTracingValidation/14-nrd-disocclusion";
+    RtPbrSurvey::SceneDocument document;
+    RtPbrSurvey::SceneDocumentBuilder builder;
+    std::string error;
+    return Check(RtPbrSurvey::LoadSceneDocumentFile((directory / "scene.json").string(), document, &error),
+                 "NRD disocclusion scene schema is valid") &&
+           Check(builder.Build(document, directory, &error), "NRD disocclusion geometry builds") &&
+           Check(builder.Builder().GetScene().instances.size() == 2 && document.materials.size() == 2,
+                 "NRD disocclusion fixture contains foreground and background");
+}
+
 bool TestGltfFailureKeepsPublishedScene()
 {
     RtPbrSurvey::SceneDocumentBuilder documentBuilder;
@@ -189,7 +225,8 @@ bool TestGltfFailureKeepsPublishedScene()
 
 int main()
 {
-    if (!TestPrimitiveBuildAndMeshReuse() || !TestGltfBuildAndMeshReuse() || !TestGltfFailureKeepsPublishedScene())
+    if (!TestPrimitiveBuildAndMeshReuse() || !TestGltfBuildAndMeshReuse() || !TestGltfFailureKeepsPublishedScene() ||
+        !TestNrdStableRadianceFixture() || !TestNrdDisocclusionFixture())
     {
         return 1;
     }

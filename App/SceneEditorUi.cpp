@@ -174,7 +174,12 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     ImGui::TextDisabled(session.IsModified() ? "Modified" : "Saved");
     if (ImGui::CollapsingHeader("SubWindow"))
     {
-        ImGui::Checkbox("Transform Window", &app.m_sceneEditorShowTransformWindow);
+        if (ImGui::Checkbox("Transform Window", &app.m_sceneEditorShowTransformWindow) &&
+            app.m_sceneEditorShowTransformWindow)
+        {
+            ImGui::SetWindowCollapsed("###Transform", false);
+            ImGui::SetWindowFocus("###Transform");
+        }
     }
     ImGui::Separator();
 
@@ -1136,6 +1141,65 @@ void DrawSceneEditorTransformUi(RtPbrSurveyApp& app)
         {
             session.CommitEdit();
             app.m_sceneEditorTransformEditPending = false;
+        }
+        if (app.m_sceneEditorShowTransformWindow)
+        {
+            ImGui::SetNextWindowSize(ImVec2(430.0f, 290.0f), ImGuiCond_FirstUseEver);
+            const ImGuiViewport* viewport = ImGui::GetMainViewport();
+            ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + (std::max)(0.0f, viewport->WorkSize.x - 450.0f),
+                                         viewport->WorkPos.y + 20.0f), ImGuiCond_FirstUseEver);
+            if (ImGui::Begin("Transform###Transform", &app.m_sceneEditorShowTransformWindow))
+            {
+                if (node == nullptr)
+                {
+                    ImGui::TextDisabled("Not Selected");
+                    ImGui::BeginDisabled();
+                    ImGui::Checkbox("Transform Gizumo", &app.m_sceneEditorTransformGizmoEnabled);
+                    ImGui::RadioButton("Move", &app.m_sceneEditorTransformTool, 0);
+                    ImGui::SameLine();
+                    ImGui::RadioButton("Rotate", &app.m_sceneEditorTransformTool, 1);
+                    ImGui::SameLine();
+                    ImGui::RadioButton("Scale", &app.m_sceneEditorTransformTool, 2);
+                    if (app.m_sceneEditorTransformTool == 0)
+                    {
+                        ImGui::DragFloat("Move Step", &app.m_sceneEditorTranslationStep, 0.01f, 0.01f, 100.0f, "%.2f");
+                    }
+                    else if (app.m_sceneEditorTransformTool == 1)
+                    {
+                        ImGui::DragFloat("Rotate Step", &app.m_sceneEditorRotationStepDegrees, 1.0f, 1.0f, 180.0f, "%.0f deg");
+                    }
+                    else
+                    {
+                        ImGui::DragFloat("Scale Step", &app.m_sceneEditorScaleStep, 0.01f, 0.01f, 100.0f, "%.2f");
+                    }
+                    const char* axisButtons[] = {"X-", "X+", "Y-", "Y+", "Z-", "Z+"};
+                    for (size_t index = 0; index < std::size(axisButtons); ++index)
+                    {
+                        if (index > 0)
+                        {
+                            ImGui::SameLine();
+                        }
+                        ImGui::Button(axisButtons[index]);
+                    }
+                    ImGui::Separator();
+                    float position[3] = {};
+                    float rotation[3] = {};
+                    float scale[3] = {1.0f, 1.0f, 1.0f};
+                    ImGui::InputFloat3("Position", position);
+                    ImGui::InputFloat3("Rotation XYZ", rotation, "%.3f deg");
+                    ImGui::InputFloat3("Scale", scale);
+                    ImGui::EndDisabled();
+                }
+                else if (!editAllowed)
+                {
+                    ImGui::TextWrapped("%s", editReason.c_str());
+                }
+                else
+                {
+                    ImGui::TextWrapped("%s", reinterpret_cast<const char*>(u8"\u30b7\u30fc\u30f3\u306e\u30d7\u30ec\u30d3\u30e5\u30fc\u3092\u6e96\u5099\u3057\u3066\u3044\u307e\u3059\u3002"));
+                }
+            }
+            ImGui::End();
         }
         return;
     }

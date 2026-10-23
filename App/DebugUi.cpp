@@ -1000,6 +1000,21 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 pathTracingSettingsChanged = true;
             }
             pathTracingSettingsChanged |= ImGui::Checkbox("Accumulate", &pathTracingSettings.accumulate);
+            ImGui::BeginDisabled(!context.pathTracingDiagnostics.nrdPreviewBuilt);
+            pathTracingSettingsChanged |=
+                ImGui::Checkbox("NRD RELAX Preview (Diagnostic)", &pathTracingSettings.nrdPreview);
+            ImGui::EndDisabled();
+            ImGui::TextWrapped(
+                "PT Presentation: %s",
+                Engine::NrdRelaxPresentationStatusText(context.pathTracingDiagnostics.nrdPresentationStatus));
+            if (!context.pathTracingDiagnostics.nrdFailureReason.empty())
+            {
+                ImGui::TextWrapped("NRD Failure: %s", context.pathTracingDiagnostics.nrdFailureReason.c_str());
+            }
+            pathTracingSettingsChanged |=
+                ImGui::Checkbox("Pixel Center Primary", &pathTracingSettings.pixelCenterPrimary);
+            pathTracingSettingsChanged |=
+                ImGui::Checkbox("Denoiser Distance Diagnostics", &pathTracingSettings.denoiserDistanceDiagnostics);
             int samplesPerFrame = static_cast<int>(pathTracingSettings.samplesPerFrame);
             if (ImGui::SliderInt("Samples / Frame", &samplesPerFrame, 1, 16))
             {

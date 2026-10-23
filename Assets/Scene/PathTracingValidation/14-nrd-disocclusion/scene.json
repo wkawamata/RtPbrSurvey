@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "nrd-disocclusion",
+  "name": "PT NRD Disocclusion",
+  "description": "目的: カメラを左右に動かし、赤い前景の後ろから現れる緑の背景で、遮蔽解除時の履歴を観察する。\n見る場所: 赤い板の左右の輪郭。新しく現れた緑の面に赤い色や古い輪郭が残らないか確認する。\n注意: 通常GUIのカメラ編集はNRD履歴をリセットする。連続履歴の自動検証には診断CLI -NrdContinuousCameraHistoryを使う。\n数値検証の範囲: 独立した平面交差と再投影で遮蔽解除領域・MV・履歴モードを確認する。色の測定値だけで画質合格とは判定しない。",
+  "renderPreset": "render-preset.json",
+  "assets": [],
+  "materials": [
+    {"id": "foreground", "name": "Red foreground", "baseColor": [0.8, 0.03, 0.03, 1], "metallic": 0, "roughness": 1},
+    {"id": "background", "name": "Green background", "baseColor": [0.03, 0.7, 0.08, 1], "metallic": 0, "roughness": 1}
+  ],
+  "nodes": [
+    {"id": "foreground", "name": "Red occluder", "parentId": null, "type": "primitive", "translation": [0, 0, -1], "rotation": [-0.7071067811865475, 0, 0, 0.7071067811865476], "scale": [1, 1, 1], "visible": true, "primitive": {"kind": "plane", "width": 1.4, "depth": 2.4}, "materialId": "foreground"},
+    {"id": "background", "name": "Green receiver", "parentId": null, "type": "primitive", "translation": [0, 0, 1], "rotation": [-0.7071067811865475, 0, 0, 0.7071067811865476], "scale": [1, 1, 1], "visible": true, "primitive": {"kind": "plane", "width": 8, "depth": 5}, "materialId": "background"}
+  ],
+  "camera": {"position": [0, 0, -6], "target": [0, 0, 0], "up": [0, 1, 0], "projection": "perspective", "verticalFovDegrees": 55, "orthographicHeight": 10, "nearZ": 0.1, "farZ": 1000},
+  "environment": {"source": "procedural", "iblEnabled": true, "skyColor": [1, 1, 1], "groundColor": [1, 1, 1], "lightColor": [1, 1, 1], "lightDirection": [0.35, 0.75, 0.25], "backgroundIntensity": 1, "lightIntensity": 0, "lightSize": 0.12, "fillIntensity": 0, "colorPanelIntensity": 0, "horizonSharpness": 0.08}
+}

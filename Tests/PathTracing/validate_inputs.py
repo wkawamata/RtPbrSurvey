@@ -50,6 +50,11 @@ def hash_uint(value):
 
 def sample_positions(meta, xs, ys):
     import numpy as np
+    mode = meta.get('primarySampling', 'random-per-pixel')
+    if mode == 'pixel-center':
+        return np.full(np.shape(xs), .5), np.full(np.shape(ys), .5)
+    if mode != 'random-per-pixel':
+        raise ValueError('Unknown primary sampling convention')
     add = np.uint32(0x9e3779b9)
     seed = np.uint32((meta['randomSeed'] + int(add)) & 0xffffffff)
     state = hash_uint(np.asarray(xs, dtype=np.uint32) ^ hash_uint(
@@ -196,6 +201,7 @@ def main():
     parser.add_argument('--smoke', action='store_true')
     parser.add_argument('--cases', help='Comma-separated capture names')
     parser.add_argument('--seed', type=int, default=7)
+    parser.add_argument('--pixel-center', action='store_true')
     parser.add_argument('--base-commit', default='9455eec', help='Recorded validation baseline commit')
     args = parser.parse_args()
     args.exe = args.exe.resolve(strict=True)
@@ -229,19 +235,27 @@ def main():
             'Renderer/ScreenshotCapture.cpp', 'Scene/SceneDocumentBuilder.cpp', 'Scene/SceneDocumentJson.cpp',
             'Shaders/shaders_PathTracing.hlsl', 'Shaders/SceneRayQuery.hlsli', 'Tests/PathTracing/validate_inputs.py']},
         gpuDriver=subprocess.check_output(['nvidia-smi', '--query-gpu=name,driver_version', '--format=csv,noheader'], text=True).strip())
+    report['primarySampling'] = 'pixel-center' if args.pixel_center else 'random-per-pixel'
     for scene_id, moving, resource in plan:
         name = f'{scene_id}-{resource}-' + ('moving' if moving else 'static')
         path = args.output/(name+'.ptbuf')
         log = args.output/(name+'.log')
         directory = ROOT/'Assets/Scenes/PathTracingValidation'/scene_id
+        preset_path = directory/'render-preset.json'
+        if args.pixel_center:
+            preset = json.loads(preset_path.read_text())
+            preset['pathTracing']['pixelCenterPrimary'] = True
+            preset['pathTracing']['samplesPerFrame'] = 1
+            preset_path = args.output/'presets'/(scene_id+'.json')
+            write_json(preset_path, preset)
         command = [str(args.exe), '-SceneFile', str(directory/'scene.json'),
-            '-RenderPreset', str(directory/'render-preset.json'), '-EnablePathTracing', '-PathTracingSeed', str(args.seed),
+            '-RenderPreset', str(preset_path), '-EnablePathTracing', '-PathTracingSeed', str(args.seed),
             '-DebugPreviewResource', 'PathTracing.'+resource, '-CapturePath', str(path), '-CaptureAfterFrames', '30',
             '-LogToFile', str(log), '-ExitAfterCapture']
         if moving:
             command += ['-ReflectionOrbitDegrees', '8', '-ReflectionOrbitFrames', '8']
         record = dict(name=name, command=command, sceneSha256=sha(directory/'scene.json'),
-            presetSha256=sha(directory/'render-preset.json'), moving=moving, path=str(path.relative_to(ROOT)))
+            presetSha256=sha(preset_path), moving=moving, path=str(path.relative_to(ROOT)))
         report['records'].append(record)
         try:
             if not args.analyze_only:
@@ -261,6 +275,8 @@ def main():
             if errors:
                 raise RuntimeError('D3D12 errors: '+str(errors[:2]))
             meta, result = analyze(path, scene_id == 'input-marker')
+            if meta.get('primarySampling', 'random-per-pixel') != report['primarySampling']:
+                raise RuntimeError('Requested primary sampling convention was not applied')
             if moving and meta['viewProjection'] == meta['previousViewProjection']:
                 raise RuntimeError('Requested orbit did not produce measurable camera motion')
             record.update(metadata=meta, result=result, sha256=sha(path), logSha256=sha(log), d3d12Errors=0)

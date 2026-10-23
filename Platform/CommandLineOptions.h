@@ -77,11 +77,19 @@ struct CommandLineOptions
     bool useSceneDefaults = false;
     bool enablePathTracing = false;
     bool disableVSync = false;
+    bool disableD3D12DebugLayer = false;
     UINT pathTracingSampleTarget = 0;
     std::filesystem::path pathTracingHistoryValidationDirectory;
+    std::filesystem::path pathTracingCapturePlanPath;
     bool hasPathTracingRandomSeed = false;
     UINT pathTracingRandomSeed = 1;
     bool hasPathTracingObjectMotion = false;
+    bool nrdContinuousCameraHistory = false;
+    bool nrdPreview = false;
+    std::string nrdDiagnosticFailure;
+    std::string nrdPrepassProfile;
+    bool nrdDisableAntilag = false;
+    std::string pathTracingReferenceComponent;
     float pathTracingObjectMotionX = 0.0f;
     UINT pathTracingEnvironmentMode = 0;
     bool hasPathTracingEnvironmentMode = false;
@@ -153,5 +161,6 @@ bool LoadReflectionCapturePlan(const std::filesystem::path& path,
                                const std::string& variant,
                                ReflectionCapturePlan& plan,
                                std::string& error);
+bool LoadPathTracingCapturePlan(const std::filesystem::path& path, ReflectionCapturePlan& plan, std::string& error);
 
 } // namespace Platform

@@ -188,6 +188,7 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
         if (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
             !m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
             !m_commandLineOptions.reflectionCapturePlanPath.empty() ||
+            !m_commandLineOptions.pathTracingCapturePlanPath.empty() ||
             !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() ||
             m_commandLineOptions.pathTracingSampleTarget != 0)
         {
@@ -201,7 +202,8 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
         if (!m_sceneRenderer.EngineForDebugTools().SetMp4DiagnosticAppendDelay(
             m_commandLineOptions.captureSessionEncoderDelayMilliseconds))
             throw std::runtime_error("Could not configure MP4 diagnostic append delay.");
-        if (!m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty())
+        if (!m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty() ||
+            !m_commandLineOptions.pathTracingCapturePlanPath.empty())
         {
             throw std::invalid_argument("Capture Session is mutually exclusive with existing screenshot automation.");
         }
@@ -218,6 +220,25 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     {
         throw std::invalid_argument(
             "-EnablePathTracing is mutually exclusive with DLSS SR and reflection capture automation.");
+    }
+    if (!m_commandLineOptions.pathTracingCapturePlanPath.empty())
+    {
+        if (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
+            !m_commandLineOptions.debugPreviewResourceName.starts_with("PathTracing.") ||
+            !m_commandLineOptions.capturePath.empty() || !m_commandLineOptions.reflectionCapturePlanPath.empty() ||
+            !m_commandLineOptions.reflectionHdrDiagnosticsPath.empty() ||
+            m_commandLineOptions.reflectionOrbitFrames != 0)
+        {
+            throw std::invalid_argument(
+                "-PathTracingCapturePlan requires -SceneFile, -LogToFile and a PathTracing debug resource, "
+                "and cannot be combined with other camera/capture automation.");
+        }
+        std::string error;
+        if (!Platform::LoadPathTracingCapturePlan(
+                m_commandLineOptions.pathTracingCapturePlanPath, m_reflectionCapturePlan, error))
+        {
+            throw std::invalid_argument(error);
+        }
     }
     if (!m_commandLineOptions.reflectionCapturePlanPath.empty())
     {
@@ -258,6 +279,7 @@ void RtPbrSurveyApp::OnInit()
     deviceDesc.bufferCount = RtPbrSurveyEngine::kSwapChainBufferCount;
     deviceDesc.swapChainFormat = RtPbrSurveyEngine::kSwapChainFormat;
     deviceDesc.useWarpDevice = m_commandLineOptions.useWarpDevice;
+    deviceDesc.enableDebugLayer = !m_commandLineOptions.disableD3D12DebugLayer;
     if (!m_commandLineOptions.enablePathTracing)
     {
         deviceDesc.deviceCreatedHandler = [](ID3D12Device* device) { Engine::SetStreamlineD3DDevice(device); };
@@ -267,12 +289,22 @@ void RtPbrSurveyApp::OnInit()
     // Open debug log file and query ID3D12InfoQueue for D3D12 message capture.
     if (!m_commandLineOptions.logFilePath.empty())
     {
-        int fd;
+        const std::filesystem::path logPath(m_commandLineOptions.logFilePath);
+        if (logPath.has_parent_path())
+        {
+            std::error_code directoryError;
+            std::filesystem::create_directories(logPath.parent_path(), directoryError);
+        }
+        int fd = -1;
         errno_t err = _wsopen_s(&fd, m_commandLineOptions.logFilePath.c_str(), _O_WRONLY | _O_CREAT | _O_TRUNC | _O_TEXT,
                                 _SH_DENYNO, _S_IREAD | _S_IWRITE);
         if (err == 0)
         {
             m_logFile = _fdopen(fd, "wt");
+            if (m_logFile == nullptr)
+            {
+                _close(fd);
+            }
         }
         if (m_logFile)
         {
@@ -282,6 +314,11 @@ void RtPbrSurveyApp::OnInit()
                 m_d3d12InfoQueue->SetMessageCountLimit(100000);
                 FlushD3D12DebugMessages();
             }
+        }
+        else
+        {
+            const std::wstring message = L"Failed to open -LogToFile: " + logPath.wstring() + L"\n";
+            OutputDebugStringW(message.c_str());
         }
     }
 
@@ -299,6 +336,30 @@ void RtPbrSurveyApp::OnInit()
     m_sceneRenderer.SetToneMapParams(m_toneMapParams);
     m_sceneRenderer.SetRenderViewMode(m_renderViewMode);
 
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    if (!m_commandLineOptions.pathTracingReferenceComponent.empty())
+        m_sceneRenderer.EngineForDebugTools().SetPathTracingReferenceComponentForDiagnostics(
+            m_commandLineOptions.pathTracingReferenceComponent);
+    if (!m_commandLineOptions.nrdPrepassProfile.empty())
+        m_sceneRenderer.EngineForDebugTools().SetNrdPrepassProfileForDiagnostics(
+            m_commandLineOptions.nrdPrepassProfile);
+    m_sceneRenderer.EngineForDebugTools().SetNrdAntilagDisabledForDiagnostics(
+        m_commandLineOptions.nrdDisableAntilag);
+    m_sceneRenderer.EngineForDebugTools().SetNrdFailureInjectionForDiagnostics(
+        m_commandLineOptions.nrdDiagnosticFailure == "initialization",
+        m_commandLineOptions.nrdDiagnosticFailure == "last-dispatch"       ? 0u
+        : m_commandLineOptions.nrdDiagnosticFailure == "after-four-frames" ? 4u
+                                                                           : UINT_MAX);
+#else
+    if (m_commandLineOptions.nrdDisableAntilag)
+        throw std::invalid_argument("-NrdDisableAntilag requires NRD SDK diagnostics.");
+    if (!m_commandLineOptions.nrdDiagnosticFailure.empty())
+        throw std::invalid_argument("-NrdDiagnosticFailure requires NRD SDK diagnostics.");
+    if (!m_commandLineOptions.nrdPrepassProfile.empty())
+        throw std::invalid_argument("-NrdPrepassProfile requires NRD SDK diagnostics.");
+    if (!m_commandLineOptions.pathTracingReferenceComponent.empty())
+        throw std::invalid_argument("-PathTracingReferenceComponent requires NRD SDK diagnostics.");
+#endif
     m_sceneRenderer.Initialize(GetWidth(), GetHeight());
 
     // Initialize scene config paths
@@ -1016,7 +1077,21 @@ void RtPbrSurveyApp::OnIdle()
             }
             else
             {
-                m_sceneRenderer.RequestScreenshot({capture.path});
+                RtPbrSurvey::ScreenshotRequest request = {capture.path};
+                if (!m_commandLineOptions.pathTracingCapturePlanPath.empty())
+                {
+                    if (m_logFile == nullptr)
+                    {
+                        FailAutomatedCapture("Path Tracing timeline requires an open log file.");
+                        return;
+                    }
+                    request.debugResourceName = m_commandLineOptions.debugPreviewResourceName;
+                    const nlohmann::json scheduled = {
+                        {"case", capture.caseId}, {"frame", capture.frame}, {"path", capture.path.string()}};
+                    fprintf(m_logFile, "[PathTracingTimeline] %s\n", scheduled.dump().c_str());
+                    fflush(m_logFile);
+                }
+                m_sceneRenderer.RequestScreenshot(std::move(request));
                 m_reflectionCaptureInFlight = true;
                 ++m_nextReflectionCaptureIndex;
             }
@@ -1175,7 +1250,10 @@ void RtPbrSurveyApp::UpdateAutomatedCaptureCamera()
 {
     const bool automatedSingleCaptureOrbit = !m_commandLineOptions.capturePath.empty() &&
         m_commandLineOptions.reflectionOrbitFrames > 0;
-    if ((!m_commandLineOptions.captureReflectionResolvedRadiance && !automatedSingleCaptureOrbit) ||
+    const bool automatedPathTracingPlan = !m_commandLineOptions.pathTracingCapturePlanPath.empty() &&
+        IsAutomatedCaptureBlocking();
+    if ((!m_commandLineOptions.captureReflectionResolvedRadiance && !automatedSingleCaptureOrbit &&
+         !automatedPathTracingPlan) ||
         m_debugCamera.GetMode() != RtPbrSurvey::DebugCameraController::Mode::Arcball)
     {
         return;
@@ -2374,6 +2452,8 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
         {"capturePath", std::filesystem::absolute(m_commandLineOptions.capturePath).string()},
         {"accumulatedSamples", context.pathTracingRuntimeState.accumulatedSampleCount},
         {"targetSamples", m_commandLineOptions.pathTracingSampleTarget},
+        {"d3d12DebugLayerRequested", !m_commandLineOptions.disableD3D12DebugLayer},
+        {"d3d12DebugLayerEnabledByApp", m_graphicsDevice.DebugLayerEnabledByApp()},
         {"randomSeed", settings.randomSeed},
         {"environmentSamplingMode", settings.environmentSamplingMode},
         {"environmentEnabled", settings.environmentEnabled},
@@ -2383,6 +2463,15 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
         {"emissiveTriangleCount", context.pathTracingDiagnostics.emissiveTriangleCount},
         {"emissiveTableStatus", context.pathTracingDiagnostics.emissiveTableStatus},
         {"samplesPerFrame", settings.samplesPerFrame},
+        {"pixelCenterPrimary", settings.pixelCenterPrimary},
+        {"denoiserDistanceDiagnostics", settings.denoiserDistanceDiagnostics},
+        {"nrdPreviewRequested", settings.nrdPreview},
+        {"nrdPresentation",
+         Engine::NrdRelaxPresentationStatusText(context.pathTracingDiagnostics.nrdPresentationStatus)},
+        {"nrdFailure", context.pathTracingDiagnostics.nrdFailureReason},
+        {"nrdPreparedDispatches", context.pathTracingDiagnostics.nrdPreparedDispatches},
+        {"nrdPlannedDispatches", context.pathTracingDiagnostics.nrdPlannedDispatches},
+        {"nrdFailureCount", context.pathTracingDiagnostics.nrdFailureCount},
         {"maxBounces", settings.maxBounces},
         {"russianRoulette", settings.russianRouletteEnabled},
         {"renderWidth", context.renderWidth},
@@ -3188,7 +3277,8 @@ void RtPbrSurveyApp::OpenFileScene()
     ApplyPathTracingCommandLineOptions();
     m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
     OpenCommandLineDebugTexturePreview();
-    if (!m_commandLineOptions.capturePath.empty() && m_commandLineOptions.reflectionOrbitFrames > 0)
+    if ((!m_commandLineOptions.capturePath.empty() && m_commandLineOptions.reflectionOrbitFrames > 0) ||
+        !m_commandLineOptions.pathTracingCapturePlanPath.empty())
     {
         m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::Arcball);
         m_debugCamera.InitObjectViewerFromCamera();
@@ -3481,6 +3571,15 @@ void RtPbrSurveyApp::ApplyDlssSrCommandLineOptions()
 
 void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
 {
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    m_sceneRenderer.EngineForDebugTools().SetNrdContinuousCameraHistory(
+        m_commandLineOptions.nrdContinuousCameraHistory);
+#else
+    if (m_commandLineOptions.nrdContinuousCameraHistory)
+    {
+        throw std::runtime_error("-NrdContinuousCameraHistory requires NRD SDK diagnostics in this build.");
+    }
+#endif
     if (!m_commandLineOptions.enablePathTracing)
     {
         return;
@@ -3496,6 +3595,10 @@ void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
     m_sceneRenderer.SetRenderingPath(m_renderingPath);
 
     RtPbrSurveyEngine::PathTracingSettings settings = m_sceneRenderer.GetPathTracingSettings();
+    if (m_commandLineOptions.nrdPreview)
+    {
+        settings.nrdPreview = true;
+    }
     if (m_commandLineOptions.pathTracingSampleTarget > 0)
     {
         settings.accumulate = true;

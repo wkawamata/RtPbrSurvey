@@ -13,6 +13,7 @@
 #include <iostream>
 #include <iterator>
 #include <vector>
+#include <nlohmann/json.hpp>
 #include <imgui.h>
 
 namespace
@@ -351,6 +352,96 @@ bool TestValidationAndLegacyCli()
     WCHAR* argv[] = {executable, option, path};
     const Platform::CommandLineOptions options = Platform::ParseCommandLineOptions(argv, 3);
     passed &= Check(options.capturePath == "legacy.png", "legacy CapturePath CLI remains supported");
+    passed &= Check(!options.disableD3D12DebugLayer, "D3D12 validation remains enabled by default");
+    WCHAR disableDebugLayer[] = L"-DisableD3D12DebugLayer";
+    WCHAR* disableDebugLayerArgv[] = {executable, disableDebugLayer};
+    const Platform::CommandLineOptions fastOptions = Platform::ParseCommandLineOptions(disableDebugLayerArgv, 2);
+    passed &= Check(fastOptions.disableD3D12DebugLayer && !fastOptions.enablePathTracing && !fastOptions.disableVSync,
+                    "Disabling process-local D3D12 validation does not alter rendering or sampling options");
+    WCHAR nrdOption[] = L"-NrdPreview";
+    WCHAR* nrdArgv[] = {executable, nrdOption};
+    const auto nrdOptions = Platform::ParseCommandLineOptions(nrdArgv, 2);
+    passed &= Check(nrdOptions.nrdPreview && nrdOptions.enablePathTracing,
+                    "NRD presentation opt-in enables PT without silently changing sampling settings");
+    WCHAR nrdFailureOption[] = L"-NrdDiagnosticFailure";
+    WCHAR componentOption[] = L"-PathTracingReferenceComponent";
+    for (std::wstring value : {L"diffuse", L"specular", L"stable", L"background"})
+    {
+        WCHAR* componentArgv[] = {executable, componentOption, value.data()};
+        const auto parsed = Platform::ParseCommandLineOptions(componentArgv, 3);
+        passed &= Check(std::wstring(parsed.pathTracingReferenceComponent.begin(),
+                                    parsed.pathTracingReferenceComponent.end()) == value && parsed.enablePathTracing &&
+                            !parsed.nrdPreview,
+                        "reference component is explicit PT diagnostics, not NRD preview");
+    }
+    for (int count : {2, 3})
+    {
+        WCHAR invalid[] = L"invalid";
+        WCHAR* componentArgv[] = {executable, componentOption, invalid};
+        bool rejected = false;
+        try
+        {
+            Platform::ParseCommandLineOptions(componentArgv, count);
+        }
+        catch (const std::invalid_argument&)
+        {
+            rejected = true;
+        }
+        passed &= Check(rejected, "missing/unknown reference component is rejected");
+    }
+    WCHAR prepassOption[] = L"-NrdPrepassProfile";
+    for (const std::wstring profile : {L"control", L"specular-10", L"diffuse-5"})
+    {
+        std::wstring value = profile;
+        WCHAR* profileArgv[] = {executable, prepassOption, value.data()};
+        const auto parsed = Platform::ParseCommandLineOptions(profileArgv, 3);
+        passed &= Check(std::wstring(parsed.nrdPrepassProfile.begin(), parsed.nrdPrepassProfile.end()) == profile &&
+                            parsed.enablePathTracing && parsed.nrdPreview,
+                        "explicit prepass profile enables diagnostic NRD preview");
+    }
+    passed &= Check(options.nrdPrepassProfile.empty(), "prepass diagnostics remain opt-in");
+    passed &= Check(!options.nrdDisableAntilag, "NRD antilag remains unchanged by default");
+    WCHAR antilagOption[] = L"-NrdDisableAntilag";
+    WCHAR* antilagArgv[] = {executable, antilagOption};
+    const auto antilagOptions = Platform::ParseCommandLineOptions(antilagArgv, 2);
+    passed &= Check(antilagOptions.nrdDisableAntilag && antilagOptions.enablePathTracing && antilagOptions.nrdPreview &&
+                        antilagOptions.nrdPrepassProfile.empty(),
+                    "Explicit antilag diagnostic enables preview without changing prepass profile");
+    for (int count : {2, 3})
+    {
+        WCHAR invalidProfile[] = L"invalid";
+        WCHAR* profileArgv[] = {executable, prepassOption, invalidProfile};
+        bool rejected = false;
+        try
+        {
+            Platform::ParseCommandLineOptions(profileArgv, count);
+        }
+        catch (const std::invalid_argument&)
+        {
+            rejected = true;
+        }
+        passed &= Check(rejected, "missing or unknown prepass profile is rejected");
+    }
+    WCHAR nrdFailureMode[] = L"after-four-frames";
+    WCHAR* failureArgv[] = {executable, nrdFailureOption, nrdFailureMode};
+    const auto failureOptions = Platform::ParseCommandLineOptions(failureArgv, 3);
+    passed &= Check(failureOptions.nrdDiagnosticFailure == "after-four-frames" && failureOptions.enablePathTracing,
+                    "diagnostic failure mode parses explicitly");
+    for (int count : {2, 3})
+    {
+        WCHAR invalidMode[] = L"invalid";
+        WCHAR* invalidArgv[] = {executable, nrdFailureOption, invalidMode};
+        bool rejected = false;
+        try
+        {
+            Platform::ParseCommandLineOptions(invalidArgv, count);
+        }
+        catch (const std::invalid_argument&)
+        {
+            rejected = true;
+        }
+        passed &= Check(rejected, "missing or unknown NRD failure mode is rejected");
+    }
 
     WCHAR outputDirectoryOption[] = L"-CaptureSessionOutputDir";
     WCHAR outputDirectory[] = L"Captures";
@@ -669,6 +760,86 @@ bool TestCaptureRequestGate()
     passed &= Check(gate.GetPendingAction() == PendingHostAction::None, "cancel releases the pending action");
     return passed;
 }
+bool TestPathTracingCapturePlan()
+{
+    WCHAR executable[] = L"RtPbrSurvey.exe";
+    WCHAR option[] = L"-PathTracingCapturePlan";
+    WCHAR planName[] = L"timeline.json";
+    WCHAR* argv[] = {executable, option, planName};
+    const auto options = Platform::ParseCommandLineOptions(argv, 3);
+    bool passed = Check(options.enablePathTracing && !options.captureReflectionResolvedRadiance &&
+                            options.pathTracingCapturePlanPath == "timeline.json",
+                        "PT timeline must not imply Reflection rendering");
+    bool rejected = false;
+    try
+    {
+        Platform::ParseCommandLineOptions(argv, 2);
+    }
+    catch (const std::invalid_argument&)
+    {
+        rejected = true;
+    }
+    passed &= Check(rejected, "PT timeline requires a filename");
+    const auto path = std::filesystem::temp_directory_path() /
+                      ("RtPbrSurvey-pt-plan-" +
+                       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".json");
+    struct Cleanup
+    {
+        std::filesystem::path path;
+        ~Cleanup()
+        {
+            std::error_code ignored;
+            std::filesystem::remove(path, ignored);
+        }
+    } cleanup{path};
+    const nlohmann::json baseline = {
+        {"version", 1},
+        {"cameraKeyframes", {{{"frame", 0}, {"yawDegrees", 0}}, {{"frame", 40}, {"yawDegrees", 20}}}},
+        {"captures",
+         {{{"frame", 36}, {"caseId", "forward"}, {"path", "forward-{variant}.ptbuf"}},
+          {{"frame", 44}, {"caseId", "reverse"}, {"path", "reverse-{variant}.ptbuf"}}}}};
+    const auto write = [&](const nlohmann::json& document)
+    {
+        std::ofstream output(path, std::ios::binary);
+        output << document.dump(2) << "\r\n";
+    };
+    Platform::ReflectionCapturePlan plan;
+    std::string error;
+    write(baseline);
+    passed &= Check(Platform::LoadPathTracingCapturePlan(path, plan, error) && plan.captures.size() == 2 &&
+                        plan.captures[0].path.filename() == "forward-pt.ptbuf",
+                    "PT raw timeline loads using the existing keyframe contract");
+    passed &= Check(!Platform::LoadReflectionCapturePlan(path, "a", plan, error), "Reflection plans remain PNG-only");
+    for (int invalid = 0; invalid < 7; ++invalid)
+    {
+        auto document = baseline;
+        if (invalid == 0)
+            document["captures"][1]["path"] = "forward-{variant}.ptbuf";
+        if (invalid == 1)
+            document["captures"][0]["path"] = "../outside-{variant}.ptbuf";
+        if (invalid == 2)
+            document["captures"][1]["frame"] = 36;
+        if (invalid == 3)
+            document["captures"][0]["path"] = "no-token.ptbuf";
+        if (invalid == 4)
+            document["captures"][1]["caseId"] = "forward";
+        if (invalid == 5)
+            document["captures"][1]["path"] = "FORWARD-{variant}.ptbuf";
+        if (invalid == 6)
+            document["captures"][1]["path"] = "./forward-{variant}.ptbuf";
+        write(document);
+        passed &= Check(!Platform::LoadPathTracingCapturePlan(path, plan, error) && !error.empty(),
+                        "PT timeline rejects invalid frame/path/case contracts");
+    }
+    auto png = baseline;
+    png["captures"][0]["path"] = "forward-{variant}.png";
+    png["captures"][1]["path"] = "reverse-{variant}.png";
+    write(png);
+    passed &= Check(Platform::LoadReflectionCapturePlan(path, "a", plan, error), "Reflection PNG loading is unchanged");
+    passed &= Check(!Platform::LoadPathTracingCapturePlan(path, plan, error), "PT plans reject PNG output");
+    return passed;
+}
+
 bool TestCaptureFrameClock()
 {
     using namespace RtPbrSurvey;
@@ -931,7 +1102,7 @@ int main()
                    TestMismatchedResultDoesNotCompleteSession() && TestCaptureRequestGate() &&
                    TestCaptureFrameClock() && TestWarmupWithPresentationOnlyPolls() &&
                    TestIntegerClockCaptureCadence() && TestPausedFixedCaptureStart() && TestCaptureOrbitCli() &&
-                   TestCaptureEncoderDelayCli()
+                   TestCaptureEncoderDelayCli() && TestPathTracingCapturePlan()
                ? 0
                : 1;
 }

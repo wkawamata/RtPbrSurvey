@@ -7,6 +7,13 @@
 
 void RtPbrSurveyApp::RunPathTracingHistoryValidation()
 {
+    if (m_logFile == nullptr)
+    {
+        OutputDebugStringA("[PathTracingHistoryFailure] -LogToFile could not be opened.\n");
+        m_exitCode = 1;
+        DestroyWindow(Win32Application::GetHwnd());
+        return;
+    }
     static constexpr const char* names[] = {
         "baseline-16", "paused-16", "resumed-32", "reset-paused-0", "reset-repeat-16",
         "batch-4-32", "non-accumulated-index-12", "non-accumulated-repeat-12", "fresh-32",
@@ -24,6 +31,7 @@ void RtPbrSurveyApp::RunPathTracingHistoryValidation()
     static constexpr UINT stageCount = static_cast<UINT>(std::size(names));
     const auto fail = [this](const std::string& message)
     {
+        m_exitCode = 1;
         fprintf(m_logFile, "[PathTracingHistoryFailure] %s\n", message.c_str());
         fflush(m_logFile);
         DestroyWindow(Win32Application::GetHwnd());
@@ -75,6 +83,31 @@ void RtPbrSurveyApp::RunPathTracingHistoryValidation()
                 m_sceneRenderer.SetPathTracingAccumulationPaused(false);
                 break;
             case 1:
+                if (settings.nrdPreview)
+                {
+                    const auto expectedPreview =
+                        m_sceneRenderer.GetUiFrameContext().pathTracingDiagnostics.nrdFailureReason.empty()
+                            ? Engine::NrdRelaxPresentationStatus::Relax
+                            : Engine::NrdRelaxPresentationStatus::BackendUnavailable;
+                    const auto before = m_sceneRenderer.GetPathTracingRuntimeState();
+                    settings.nrdPreview = false;
+                    m_sceneRenderer.SetPathTracingSettings(settings);
+                    const bool native =
+                        m_sceneRenderer.GetUiFrameContext().pathTracingDiagnostics.nrdPresentationStatus ==
+                        Engine::NrdRelaxPresentationStatus::Native;
+                    settings.nrdPreview = true;
+                    m_sceneRenderer.SetPathTracingSettings(settings);
+                    const auto after = m_sceneRenderer.GetPathTracingRuntimeState();
+                    const bool previewMatches =
+                        m_sceneRenderer.GetUiFrameContext().pathTracingDiagnostics.nrdPresentationStatus ==
+                        expectedPreview;
+                    if (!native || !previewMatches || before.accumulatedSampleCount != after.accumulatedSampleCount ||
+                        before.frameSampleIndex != after.frameSampleIndex || before.historyValid != after.historyValid)
+                    {
+                        fail("Presentation-only switch changed PT history or discarded current NRD output.");
+                        return;
+                    }
+                }
                 break;
             case 2:
                 m_sceneRenderer.SetPathTracingAccumulationPaused(false);
@@ -159,7 +192,7 @@ void RtPbrSurveyApp::RunPathTracingHistoryValidation()
                     fail("Geometry mutation requires a receiver instance.");
                     return;
                 }
-                scene.instances[0].world._41 += 0.75f;
+                scene.instances[0].world._14 += 0.75f;
                 scene.instances[0].prevWorld = scene.instances[0].world;
                 m_sceneRenderer.SetScene(scene);
                 m_sceneRenderer.SetPathTracingAccumulationPaused(false);
@@ -256,6 +289,8 @@ void RtPbrSurveyApp::RunPathTracingHistoryValidation()
                 (std::string(names[stage]) + ".ptbuf"));
             const nlohmann::json record = {
                 {"case", names[stage]}, {"path", path.string()},
+                {"resource", m_commandLineOptions.debugPreviewResourceName.empty() ?
+                    "PathTracing.Accumulation" : m_commandLineOptions.debugPreviewResourceName},
                 {"accumulatedSamples", state.accumulatedSampleCount},
                 {"frameSampleIndex", state.frameSampleIndex}, {"historyValid", state.historyValid},
                 {"paused", state.accumulationPaused}, {"resetReason", state.ResetReasonText()},
@@ -267,7 +302,8 @@ void RtPbrSurveyApp::RunPathTracingHistoryValidation()
             fprintf(m_logFile, "[PathTracingHistory] %s\n", record.dump().c_str());
             fflush(m_logFile);
             RtPbrSurvey::ScreenshotRequest request = {path};
-            request.debugResourceName = "PathTracing.Accumulation";
+            request.debugResourceName = m_commandLineOptions.debugPreviewResourceName.empty() ?
+                "PathTracing.Accumulation" : m_commandLineOptions.debugPreviewResourceName;
             m_sceneRenderer.RequestScreenshot(std::move(request));
             m_pathTracingHistoryValidationCapturePending = true;
         }

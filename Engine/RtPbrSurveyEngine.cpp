@@ -177,6 +177,10 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     diagnostics.maxPathSegmentsPerFrame =
         diagnostics.primarySamplesPerFrame * (std::max)(settings.maxBounces, 1u);
     diagnostics.maxRayQueriesPerFrame = diagnostics.maxPathSegmentsPerFrame;
+    if (settings.denoiserDistanceDiagnostics)
+    {
+        diagnostics.maxRayQueriesPerFrame += 2ull * renderWidth * renderHeight;
+    }
     if (settings.directLightingEnabled && shadowRayEnabled)
     {
         diagnostics.maxRayQueriesPerFrame += diagnostics.maxPathSegmentsPerFrame;
@@ -513,6 +517,9 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
     m_resourceDefaultStates.push_back({kSceneInstanceBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
     m_resourceDefaultStates.push_back({kSceneMeshRangeBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
     m_resourceDefaultStates.push_back({kSceneCameraConstantsResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+    m_resourceDefaultStates.push_back({kNrdReconstructionConstantsResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
+#endif
     m_resourceDefaultStates.push_back({kMaterialBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
     for (UINT i = 0; i < Engine::GBuffer::kCount; ++i)
     {
@@ -540,6 +547,14 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
                                     m_shadowSettings.enabled && m_lightingParams.directLightEnabled);
     pathTracingDiagnostics.emissiveTriangleCount = static_cast<UINT>(m_emissiveTriangles.size());
     pathTracingDiagnostics.emissiveTableStatus = m_emissiveTableStatus;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    pathTracingDiagnostics.nrdPreviewBuilt = true;
+    pathTracingDiagnostics.nrdFailureReason = m_nrdFailureReason;
+    pathTracingDiagnostics.nrdPreparedDispatches = m_nrdPreparedDispatches;
+    pathTracingDiagnostics.nrdPlannedDispatches = m_nrdPlannedDispatches;
+    pathTracingDiagnostics.nrdFailureCount = m_nrdFailureCount;
+#endif
+    pathTracingDiagnostics.nrdPresentationStatus = ResolvePathTracingNrdPresentation();
     return {static_cast<int>(m_currentFrameIndex),
             m_cpuFrameTime,
             m_renderWidth,
@@ -667,6 +682,8 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
     validated.maxBounces = (std::clamp)(validated.maxBounces, 1u, 16u);
     const bool changed =
         m_pathTracingSettings.accumulate != validated.accumulate ||
+        m_pathTracingSettings.pixelCenterPrimary != validated.pixelCenterPrimary ||
+        m_pathTracingSettings.denoiserDistanceDiagnostics != validated.denoiserDistanceDiagnostics ||
         m_pathTracingSettings.maxBounces != validated.maxBounces ||
         m_pathTracingSettings.randomSeed != validated.randomSeed ||
         m_pathTracingSettings.directLightingEnabled != validated.directLightingEnabled ||
@@ -677,6 +694,14 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
         m_pathTracingSettings.russianRouletteEnabled != validated.russianRouletteEnabled ||
         m_pathTracingSettings.debugOutput != validated.debugOutput;
 
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    if (m_pathTracingSettings.samplesPerFrame != validated.samplesPerFrame)
+    {
+        m_nrdComposedOutputValid = false;
+        m_nrdHistoryReset = true;
+        m_nrdFrameIndex = 0;
+    }
+#endif
     m_pathTracingSettings = validated;
     if (changed)
     {
@@ -708,10 +733,37 @@ bool RtPbrSurveyEngine::ShouldRunRayReconstruction() const
         m_rayReconstructionSupport.IsAvailable();
 }
 
+Engine::NrdRelaxPresentationStatus RtPbrSurveyEngine::ResolvePathTracingNrdPresentation() const
+{
+    const bool compatible = m_renderingPath == RenderingPath::PathTracing && m_sceneResourcesAvailable &&
+                            m_pathTracingSettings.debugOutput == PathTracingDebugOutput::Radiance &&
+                            m_pathTracingSettings.denoiserDistanceDiagnostics &&
+                            Engine::QueryNrdRelaxSamplingReadiness(m_pathTracingSettings.samplesPerFrame,
+                                                                   m_pathTracingSettings.pixelCenterPrimary)
+                                .ready;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    const bool backendReady = m_nrdFailureReason.empty() && m_nrdGpu != nullptr && m_nrdConversionPipeline != nullptr &&
+                              m_nrdReconstructionPipeline != nullptr && m_nrdAdmissionPipeline != nullptr &&
+                              m_nrdCompositionPipeline != nullptr &&
+                              m_pathTracingGuideTextureSrvs[PathTracingGuideNrdSceneColor].IsValid();
+    return Engine::ResolveNrdRelaxPresentation(
+        m_pathTracingSettings.nrdPreview, true, backendReady, compatible && m_pathTracingReferenceComponent == 0,
+        m_nrdComposedOutputValid);
+#else
+    return Engine::ResolveNrdRelaxPresentation(m_pathTracingSettings.nrdPreview, false, false, compatible, false);
+#endif
+}
+
 D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveToneMapSceneColorSrv() const
 {
     if (m_renderingPath == RenderingPath::PathTracing && m_pathTracingSceneColorSrv.IsValid())
     {
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+        if (ResolvePathTracingNrdPresentation() == Engine::NrdRelaxPresentationStatus::Relax)
+        {
+            return m_pathTracingGuideTextureSrvs[PathTracingGuideNrdSceneColor].gpu;
+        }
+#endif
         return m_pathTracingSceneColorSrv.gpu;
     }
 
@@ -833,6 +885,83 @@ void RtPbrSurveyEngine::RegisterDebugResourceViews()
     registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideSpecularRadianceHitT],
                     Engine::DebugTexturePreviewSemantic::Color,
                     DXGI_FORMAT_R16G16B16A16_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideCurrentFrameRadiance],
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideMaterialF0Metallic],
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    DXGI_FORMAT_R16G16B16A16_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideStableRadiance],
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideBackgroundRadiance],
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideSecondaryRayData],
+                    Engine::DebugTexturePreviewSemantic::Scalar,
+                    DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuidePhysicalDiffuse],
+                    Engine::DebugTexturePreviewSemantic::Color, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuidePhysicalSpecular],
+                    Engine::DebugTexturePreviewSemantic::Color, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuidePrimaryContinuation],
+                    Engine::DebugTexturePreviewSemantic::Normal, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideSecondarySurfaceDistance],
+                    Engine::DebugTexturePreviewSemantic::Scalar, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserDiffuseDirection],
+                    Engine::DebugTexturePreviewSemantic::Normal, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserSpecularDirection],
+                    Engine::DebugTexturePreviewSemantic::Normal, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserDiffuseDistance],
+                    Engine::DebugTexturePreviewSemantic::Scalar, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserSpecularDistance],
+                    Engine::DebugTexturePreviewSemantic::Scalar,
+                    DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideDenoiserPrimaryPosition],
+                    Engine::DebugTexturePreviewSemantic::Color,
+                    DXGI_FORMAT_R32G32B32A32_FLOAT);
+#ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
+    for (UINT index : {PathTracingGuideNrdDiffuseCandidate,
+                       PathTracingGuideNrdSpecularCandidate,
+                       PathTracingGuideNrdConversionDiagnostics,
+                       PathTracingGuideNrdValidity})
+    {
+        registerTexture(kPathTracingGuideTextureResourceNames[index],
+                        Engine::DebugTexturePreviewSemantic::Color,
+                        DXGI_FORMAT_R32G32B32A32_FLOAT);
+    }
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideNrdNormalRoughness],
+                    Engine::DebugTexturePreviewSemantic::Normal, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideNrdViewZ],
+                    Engine::DebugTexturePreviewSemantic::Scalar, DXGI_FORMAT_R32G32B32A32_FLOAT);
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideNrdTiles],
+                    Engine::DebugTexturePreviewSemantic::Scalar,
+                    DXGI_FORMAT_R32_FLOAT);
+    for (UINT index : {PathTracingGuideNrdReconstructedSpecular,
+                       PathTracingGuideNrdReconstructedDiffuse,
+                       PathTracingGuideNrdInputDiffuse,
+                       PathTracingGuideNrdInputSpecular,
+                       PathTracingGuideNrdInputAdmission,
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+                       PathTracingGuideNrdOutputDiffuse,
+                       PathTracingGuideNrdOutputSpecular,
+                       PathTracingGuideNrdDiffuseFactor,
+                       PathTracingGuideNrdSpecularFactor,
+                       PathTracingGuideNrdSceneColor,
+                       PathTracingGuideNrdCompositionDiagnostics,
+#endif
+         })
+    {
+        registerTexture(kPathTracingGuideTextureResourceNames[index],
+                        Engine::DebugTexturePreviewSemantic::Color,
+                        DXGI_FORMAT_R32G32B32A32_FLOAT);
+    }
+    registerTexture(kPathTracingGuideTextureResourceNames[PathTracingGuideNrdInputViewZ],
+                    Engine::DebugTexturePreviewSemantic::Scalar,
+                    DXGI_FORMAT_R32G32B32A32_FLOAT);
+#endif
+#endif
     registerTexture(kReflectionEvaluatedRadianceResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionSpecularAlbedoResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionRoughnessResourceName, Engine::DebugTexturePreviewSemantic::Scalar);
@@ -921,16 +1050,17 @@ void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialPara
     }
 
     Engine::Material& material = m_materialData[materialIndex];
+    const float emissiveScale = (material.flags & Engine::kMaterialFlagUnlit) != 0 ? 0.0f : params.emissiveScale;
     const bool reflectionHistoryChanged =
         material.roughnessFactor != params.roughnessFactor ||
         material.metallicFactor != params.metallicFactor ||
-        material.emissiveScale != params.emissiveScale;
+        material.emissiveScale != emissiveScale;
     const bool pathTracingHistoryChanged = reflectionHistoryChanged ||
         material.ambientOcclusionFactor != params.ambientOcclusionFactor;
     material.roughnessFactor = params.roughnessFactor;
     material.metallicFactor = params.metallicFactor;
     material.ambientOcclusionFactor = params.ambientOcclusionFactor;
-    material.emissiveScale = params.emissiveScale;
+    material.emissiveScale = emissiveScale;
     m_materialBuffer.Update(m_materialData);
     if (reflectionHistoryChanged)
     {
@@ -1028,6 +1158,11 @@ void RtPbrSurveyEngine::SetBackBufferClearColor(const std::array<float, 4>& colo
 
 void RtPbrSurveyEngine::SetScene(const Scene& scene)
 {
+    bool preserveNrdCameraHistory = false;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    preserveNrdCameraHistory =
+        m_nrdContinuousCameraHistory && Engine::NrdCameraProjectionMatches(m_scene.camera, scene.camera);
+#endif
     const bool cameraChanged = !CameraStatesEqual(m_scene.camera, scene.camera);
     const bool sceneChanged = m_scene.mesh != scene.mesh || !SceneInstancesEqual(m_scene.instances, scene.instances);
     m_scene = scene;
@@ -1038,19 +1173,83 @@ void RtPbrSurveyEngine::SetScene(const Scene& scene)
     }
     else if (cameraChanged)
     {
-        InvalidatePathTracingHistory(PathTracingResetReason::Camera);
+        InvalidatePathTracingHistory(PathTracingResetReason::Camera, preserveNrdCameraHistory);
     }
 }
 
 void RtPbrSurveyEngine::SetCamera(const CameraState& camera)
 {
+    bool preserveNrdCameraHistory = false;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    preserveNrdCameraHistory =
+        m_nrdContinuousCameraHistory && Engine::NrdCameraProjectionMatches(m_scene.camera, camera);
+#endif
     const bool cameraChanged = !CameraStatesEqual(m_scene.camera, camera);
     m_scene.camera = camera;
     if (cameraChanged)
     {
-        InvalidatePathTracingHistory(PathTracingResetReason::Camera);
+        InvalidatePathTracingHistory(PathTracingResetReason::Camera, preserveNrdCameraHistory);
     }
 }
+
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+void RtPbrSurveyEngine::SetNrdContinuousCameraHistory(bool enabled)
+{
+    if (m_nrdContinuousCameraHistory != enabled)
+    {
+        m_nrdContinuousCameraHistory = enabled;
+        m_nrdHistoryReset = true;
+        m_nrdFrameIndex = 0;
+    }
+}
+
+void RtPbrSurveyEngine::SetNrdFailureInjectionForDiagnostics(bool initialization, UINT afterFrames)
+{
+    m_nrdInjectInitializationFailure = initialization;
+    m_nrdInjectFailureAfterFrames = afterFrames;
+}
+
+void RtPbrSurveyEngine::SetNrdAntilagDisabledForDiagnostics(bool disabled)
+{
+    if (m_nrdGpu)
+        throw std::logic_error("NRD antilag diagnostic must be set before backend initialization.");
+    m_nrdAntilagDisabled = disabled;
+}
+
+void RtPbrSurveyEngine::SetNrdPrepassProfileForDiagnostics(const std::string& profile)
+{
+    if (m_nrdGpu)
+        throw std::logic_error("NRD prepass profile must be set before backend initialization.");
+    Engine::NrdPrepassSettings settings;
+    if (profile == "specular-10")
+        settings.specularRadius = 10.0f;
+    else if (profile == "diffuse-5")
+        settings.diffuseRadius = 5.0f;
+    else if (profile != "control")
+        throw std::invalid_argument("Unknown NRD prepass profile.");
+    m_nrdPrepass = settings;
+    m_nrdPrepassProfile = profile;
+}
+
+void RtPbrSurveyEngine::SetPathTracingReferenceComponentForDiagnostics(const std::string& component)
+{
+    if (m_width != 0 || m_height != 0)
+        throw std::logic_error("Reference component must be selected before initialization.");
+    UINT selected = 0;
+    if (component == "diffuse")
+        selected = 1;
+    else if (component == "specular")
+        selected = 2;
+    else if (component == "stable")
+        selected = 3;
+    else if (component == "background")
+        selected = 4;
+    else
+        throw std::invalid_argument("Unknown PT reference component.");
+    m_pathTracingReferenceComponent = selected;
+    m_pathTracingReferenceComponentName = component;
+}
+#endif
 
 const RtPbrSurveyEngine::CameraState& RtPbrSurveyEngine::GetCamera() const
 {
@@ -1695,8 +1894,18 @@ void RtPbrSurveyEngine::InvalidateReflectionHistory()
     m_reflectionSamplingFrameIndex = 0;
 }
 
-void RtPbrSurveyEngine::InvalidatePathTracingHistory(PathTracingResetReason reason)
+void RtPbrSurveyEngine::InvalidatePathTracingHistory(PathTracingResetReason reason, bool preserveNrdCameraHistory)
 {
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    m_nrdComposedOutputValid = false;
+    if (!preserveNrdCameraHistory || reason != PathTracingResetReason::Camera)
+    {
+        m_nrdHistoryReset = true;
+        m_nrdFrameIndex = 0;
+    }
+#else
+    UNREFERENCED_PARAMETER(preserveNrdCameraHistory);
+#endif
     m_pathTracingRuntimeState.accumulatedSampleCount = 0;
     m_pathTracingRuntimeState.frameSampleIndex = 0;
     m_pathTracingRuntimeState.historyValid = false;
@@ -2632,6 +2841,11 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     diffuseRadianceHitTUavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 6, 0);
     CD3DX12_DESCRIPTOR_RANGE1 specularRadianceHitTUavRange = {};
     specularRadianceHitTUavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 7, 0);
+    CD3DX12_DESCRIPTOR_RANGE1 additionalGuideUavRanges[5] = {};
+    for (UINT i = 0; i < _countof(additionalGuideUavRanges); ++i)
+    {
+        additionalGuideUavRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 8 + i, 0);
+    }
     CD3DX12_DESCRIPTOR_RANGE1 tlasSrvRange = {};
     tlasSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
     CD3DX12_DESCRIPTOR_RANGE1 cameraCbvRange = {};
@@ -2651,7 +2865,14 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     CD3DX12_DESCRIPTOR_RANGE1 lightCbvRange = {};
     lightCbvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 2, 0);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[20] = {};
+    CD3DX12_DESCRIPTOR_RANGE1 physicalSignalRanges[PathTracingGuideTextureCount - PathTracingGuidePhysicalDiffuse] = {};
+    for (UINT i = 0; i < _countof(physicalSignalRanges); ++i)
+    {
+        // Guide descriptors are allocated as SRV/UAV pairs.
+        physicalSignalRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 13 + i, 0,
+                                     D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * i);
+    }
+    CD3DX12_ROOT_PARAMETER1 rootParameters[26] = {};
     rootParameters[0].InitAsDescriptorTable(1, &sceneColorUavRange);
     rootParameters[1].InitAsDescriptorTable(1, &accumulationUavRange);
     rootParameters[2].InitAsDescriptorTable(1, &normalRoughnessUavRange);
@@ -2669,9 +2890,39 @@ void RtPbrSurveyEngine::CreatePathTracingRootSignature()
     rootParameters[14].InitAsDescriptorTable(1, &textureSrvRange);
     rootParameters[15].InitAsShaderResourceView(5, 0);
     rootParameters[16].InitAsDescriptorTable(1, &environmentSrvRange);
-    rootParameters[17].InitAsConstants(36, 1, 0);
+    rootParameters[17].InitAsConstants(34, 1, 0);
     rootParameters[18].InitAsDescriptorTable(1, &lightCbvRange);
     rootParameters[19].InitAsShaderResourceView(7, 0);
+    for (UINT i = 0; i < _countof(additionalGuideUavRanges); ++i)
+    {
+        rootParameters[20 + i].InitAsDescriptorTable(1, &additionalGuideUavRanges[i]);
+    }
+    rootParameters[25].InitAsDescriptorTable(_countof(physicalSignalRanges), physicalSignalRanges);
+
+    UINT rootSignatureDwords = 0;
+    for (const CD3DX12_ROOT_PARAMETER1& parameter : rootParameters)
+    {
+        switch (parameter.ParameterType)
+        {
+        case D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
+            rootSignatureDwords += 1;
+            break;
+        case D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS:
+            rootSignatureDwords += parameter.Constants.Num32BitValues;
+            break;
+        case D3D12_ROOT_PARAMETER_TYPE_CBV:
+        case D3D12_ROOT_PARAMETER_TYPE_SRV:
+        case D3D12_ROOT_PARAMETER_TYPE_UAV:
+            rootSignatureDwords += 2;
+            break;
+        default:
+            throw std::logic_error("Unknown path tracing root parameter type.");
+        }
+    }
+    if (rootSignatureDwords > 64)
+    {
+        throw std::logic_error("Path tracing root signature exceeds the 64-DWORD budget.");
+    }
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -2903,6 +3154,206 @@ void RtPbrSurveyEngine::CreatePipelineStates()
 {
     const PipelineShaderBytecode shaders = LoadPipelineShaderBytecode();
     RegisterPipelineStates(shaders);
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    try
+    {
+#endif
+#ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
+    const UINT inputs[] = {PathTracingGuideNormalRoughness,
+                           PathTracingGuideAlbedo,
+                           PathTracingGuideMaterialF0Metallic,
+                           PathTracingGuidePhysicalDiffuse,
+                           PathTracingGuidePhysicalSpecular,
+                           PathTracingGuideDenoiserDiffuseDistance,
+                           PathTracingGuideDenoiserSpecularDistance,
+                           PathTracingGuideDenoiserPrimaryPosition,
+                           PathTracingGuideDenoiserDiffuseDirection,
+                           PathTracingGuideDenoiserSpecularDirection,
+                           PathTracingGuideViewZ};
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    constexpr UINT outputCount = 9;
+#elif defined(RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS)
+    constexpr UINT outputCount = 7;
+#else
+    constexpr UINT outputCount = 6;
+#endif
+    CD3DX12_DESCRIPTOR_RANGE1 inputRanges[11], outputRanges[outputCount], cameraRange;
+    for (UINT i = 0; i < _countof(inputs); ++i)
+    {
+        inputRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * inputs[i]);
+    }
+    for (UINT i = 0; i < _countof(outputRanges); ++i)
+    {
+        outputRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * i);
+    }
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    outputRanges[7].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+                         1,
+                         7,
+                         0,
+                         D3D12_DESCRIPTOR_RANGE_FLAG_NONE,
+                         2 * (PathTracingGuideNrdDiffuseFactor - PathTracingGuideNrdDiffuseCandidate));
+    outputRanges[8].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+                         1,
+                         8,
+                         0,
+                         D3D12_DESCRIPTOR_RANGE_FLAG_NONE,
+                         2 * (PathTracingGuideNrdSpecularFactor - PathTracingGuideNrdDiffuseCandidate));
+#endif
+    cameraRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
+    CD3DX12_ROOT_PARAMETER1 parameters[4];
+    parameters[0].InitAsDescriptorTable(_countof(inputRanges), inputRanges);
+    parameters[1].InitAsDescriptorTable(_countof(outputRanges), outputRanges);
+    parameters[2].InitAsDescriptorTable(1, &cameraRange);
+    parameters[3].InitAsConstants(12, 1);
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC signatureDesc;
+    signatureDesc.Init_1_1(4, parameters);
+    ComPtr<ID3DBlob> signature, error;
+    ThrowIfFailed(
+        D3DX12SerializeVersionedRootSignature(&signatureDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &signature, &error));
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateRootSignature(
+        0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_nrdConversionRootSignature)));
+    const ShaderBytecode conversion = LoadShaderBytecode(L"shaders_NrdConversion_CSMain.cso");
+    D3D12_COMPUTE_PIPELINE_STATE_DESC conversionDesc = {};
+    conversionDesc.pRootSignature = m_nrdConversionRootSignature.Get();
+    conversionDesc.CS = CD3DX12_SHADER_BYTECODE(conversion.data, conversion.size);
+    ThrowIfFailed(
+        m_graphicsDevice.Device()->CreateComputePipelineState(&conversionDesc, IID_PPV_ARGS(&m_nrdConversionPipeline)));
+#endif
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+    const UINT reconstructionInputs[] = {PathTracingGuideNrdTiles,
+                                         PathTracingGuideNrdNormalRoughness,
+                                         PathTracingGuideNrdViewZ,
+                                         PathTracingGuideNrdSpecularCandidate,
+                                         PathTracingGuideNrdDiffuseCandidate};
+    CD3DX12_DESCRIPTOR_RANGE1 reconstructionReads[5], reconstructionWrites[2];
+    for (UINT i = 0; i < _countof(reconstructionReads); ++i)
+    {
+        reconstructionReads[i].Init(
+            D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * reconstructionInputs[i]);
+    }
+    for (UINT i = 0; i < _countof(reconstructionWrites); ++i)
+    {
+        reconstructionWrites[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * i);
+    }
+    CD3DX12_ROOT_PARAMETER1 reconstructionParameters[3];
+    reconstructionParameters[0].InitAsDescriptorTable(5, reconstructionReads);
+    reconstructionParameters[1].InitAsDescriptorTable(2, reconstructionWrites);
+    reconstructionParameters[2].InitAsConstantBufferView(0, 1);
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC reconstructionSignatureDesc;
+    reconstructionSignatureDesc.Init_1_1(3, reconstructionParameters);
+    ComPtr<ID3DBlob> reconstructionSignature, reconstructionError;
+    ThrowIfFailed(D3DX12SerializeVersionedRootSignature(
+        &reconstructionSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &reconstructionSignature, &reconstructionError));
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateRootSignature(0,
+                                                                 reconstructionSignature->GetBufferPointer(),
+                                                                 reconstructionSignature->GetBufferSize(),
+                                                                 IID_PPV_ARGS(&m_nrdReconstructionRootSignature)));
+    const ShaderBytecode reconstruction = LoadShaderBytecode(L"shaders_NrdReconstruction_main.cso");
+    D3D12_COMPUTE_PIPELINE_STATE_DESC reconstructionDesc = {};
+    reconstructionDesc.pRootSignature = m_nrdReconstructionRootSignature.Get();
+    reconstructionDesc.CS = CD3DX12_SHADER_BYTECODE(reconstruction.data, reconstruction.size);
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateComputePipelineState(&reconstructionDesc,
+                                                                        IID_PPV_ARGS(&m_nrdReconstructionPipeline)));
+    const UINT admissionInputs[] = {PathTracingGuideNrdReconstructedDiffuse,
+                                    PathTracingGuideNrdReconstructedSpecular,
+                                    PathTracingGuideDenoiserDiffuseDistance,
+                                    PathTracingGuideDenoiserSpecularDistance,
+                                    PathTracingGuideNrdValidity,
+                                    PathTracingGuideNrdViewZ};
+    CD3DX12_DESCRIPTOR_RANGE1 admissionReads[6], admissionWrites[4];
+    for (UINT i = 0; i < _countof(admissionReads); ++i)
+    {
+        admissionReads[i].Init(
+            D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * admissionInputs[i]);
+    }
+    for (UINT i = 0; i < _countof(admissionWrites); ++i)
+    {
+        admissionWrites[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * i);
+    }
+    CD3DX12_ROOT_PARAMETER1 admissionParameters[3];
+    admissionParameters[0].InitAsDescriptorTable(6, admissionReads);
+    admissionParameters[1].InitAsDescriptorTable(4, admissionWrites);
+    admissionParameters[2].InitAsConstants(2, 0);
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC admissionSignatureDesc;
+    admissionSignatureDesc.Init_1_1(3, admissionParameters);
+    ComPtr<ID3DBlob> admissionSignature, admissionError;
+    ThrowIfFailed(D3DX12SerializeVersionedRootSignature(
+        &admissionSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1_0, &admissionSignature, &admissionError));
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateRootSignature(0,
+                                                                 admissionSignature->GetBufferPointer(),
+                                                                 admissionSignature->GetBufferSize(),
+                                                                 IID_PPV_ARGS(&m_nrdAdmissionRootSignature)));
+    const ShaderBytecode admission = LoadShaderBytecode(L"shaders_NrdAdmission_CSMain.cso");
+    D3D12_COMPUTE_PIPELINE_STATE_DESC admissionDesc = {};
+    admissionDesc.pRootSignature = m_nrdAdmissionRootSignature.Get();
+    admissionDesc.CS = CD3DX12_SHADER_BYTECODE(admission.data, admission.size);
+    ThrowIfFailed(
+        m_graphicsDevice.Device()->CreateComputePipelineState(&admissionDesc, IID_PPV_ARGS(&m_nrdAdmissionPipeline)));
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    m_nrdGpu = std::make_unique<Engine::NrdRelaxD3D12>();
+    m_nrdGpu->Initialize(m_graphicsDevice.Device(),
+                         m_nrdInjectInitializationFailure
+                             ? std::filesystem::path(L"nrd-missing-manifest-for-validation")
+                             : std::filesystem::path(GetShaderFullPath(L"nrd-relax-manifest.txt")).parent_path(),
+                         kFrameCount, m_nrdPrepass, m_nrdAntilagDisabled);
+    const UINT compositionInputs[] = {PathTracingGuideNrdOutputDiffuse,
+                                      PathTracingGuideNrdOutputSpecular,
+                                      PathTracingGuideNrdDiffuseFactor,
+                                      PathTracingGuideNrdSpecularFactor,
+                                      PathTracingGuideStableRadiance,
+                                      PathTracingGuideBackgroundRadiance,
+                                      UINT_MAX,
+                                      PathTracingGuideNrdInputAdmission};
+    CD3DX12_DESCRIPTOR_RANGE1 compositionReads[8], compositionWrites[2];
+    for (UINT i = 0; i < _countof(compositionInputs); ++i)
+    {
+        const UINT offset = compositionInputs[i] == UINT_MAX ? 2 : 2 * (2 + compositionInputs[i]);
+        compositionReads[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, offset);
+    }
+    for (UINT i = 0; i < 2; ++i)
+    {
+        compositionWrites[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * i);
+    }
+    CD3DX12_ROOT_PARAMETER1 compositionParameters[3];
+    compositionParameters[0].InitAsDescriptorTable(8, compositionReads);
+    compositionParameters[1].InitAsDescriptorTable(2, compositionWrites);
+    compositionParameters[2].InitAsConstants(3, 0);
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC compositionRoot;
+    compositionRoot.Init_1_1(3, compositionParameters);
+    ComPtr<ID3DBlob> compositionSignature, compositionError;
+    ThrowIfFailed(D3DX12SerializeVersionedRootSignature(
+        &compositionRoot, D3D_ROOT_SIGNATURE_VERSION_1_0, &compositionSignature, &compositionError));
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateRootSignature(0,
+                                                                 compositionSignature->GetBufferPointer(),
+                                                                 compositionSignature->GetBufferSize(),
+                                                                 IID_PPV_ARGS(&m_nrdCompositionRootSignature)));
+    const ShaderBytecode composition = LoadShaderBytecode(L"shaders_NrdComposition_CSMain.cso");
+    D3D12_COMPUTE_PIPELINE_STATE_DESC compositionDesc = {};
+    compositionDesc.pRootSignature = m_nrdCompositionRootSignature.Get();
+    compositionDesc.CS = CD3DX12_SHADER_BYTECODE(composition.data, composition.size);
+    ThrowIfFailed(m_graphicsDevice.Device()->CreateComputePipelineState(&compositionDesc,
+                                                                        IID_PPV_ARGS(&m_nrdCompositionPipeline)));
+#endif
+#endif
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    }
+    catch (const std::exception& error)
+    {
+        const auto* deviceError = dynamic_cast<const HrException*>(&error);
+        if (deviceError != nullptr && Engine::IsNrdFatalDeviceResult(deviceError->Error()))
+            throw;
+        ThrowIfFailed(m_graphicsDevice.Device()->GetDeviceRemovedReason());
+        m_nrdFailureReason = std::string("initialization: ") + error.what();
+        ++m_nrdFailureCount;
+        m_nrdGpu.reset();
+        m_nrdConversionPipeline.Reset();
+        m_nrdReconstructionPipeline.Reset();
+        m_nrdAdmissionPipeline.Reset();
+        m_nrdCompositionPipeline.Reset();
+        OutputDebugStringA(("[NRD fallback] " + m_nrdFailureReason + "\n").c_str());
+    }
+#endif
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC computeDesc = {};
     computeDesc.pRootSignature = m_proceduralEnvRootSignature.Get();
@@ -3031,13 +3482,13 @@ void RtPbrSurveyEngine::CreateSceneGeometryBuffers()
 {
     m_emissiveSourceMesh = nullptr;
     assert(m_scene.mesh != nullptr);
-    const Engine::SceneMesh& mesh = *m_scene.mesh;
+    const Engine::SceneMesh& mesh = m_nrdGeometrySnapshot.CaptureUpload(*m_scene.mesh);
     assert(!mesh.vertices.empty());
 
     m_indexCountPerInstance = static_cast<UINT>(mesh.indices.size());
     m_vertexCountPerInstance = static_cast<UINT>(mesh.vertices.size());
     m_usesIndexedDraw = m_indexCountPerInstance > 0;
-    m_sceneHasMaterials = !mesh.materials.empty();
+    m_sceneHasMaterials = !m_scene.mesh->materials.empty();
     m_sceneMeshRanges = mesh.ranges;
     if (m_sceneMeshRanges.empty())
     {
@@ -3274,6 +3725,11 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
                 m.occlusionStrength = gltfMaterial.occlusionStrength;
                 m.ambientOcclusionFactor = gltfMaterial.ambientOcclusionFactor;
                 m.emissiveScale = gltfMaterial.emissiveTexIndex >= 0 ? gltfMaterial.emissiveScale : 0.0f;
+                if (gltfMaterial.unlit)
+                {
+                    m.flags |= Engine::kMaterialFlagUnlit;
+                    m.emissiveScale = 0.0f;
+                }
                 m.baseColorFactor[0] = gltfMaterial.baseColorFactor.x;
                 m.baseColorFactor[1] = gltfMaterial.baseColorFactor.y;
                 m.baseColorFactor[2] = gltfMaterial.baseColorFactor.z;
@@ -3445,11 +3901,12 @@ void RtPbrSurveyEngine::CreateInstanceBuffers()
 
 void RtPbrSurveyEngine::BuildAccelerationStructures()
 {
+    m_nrdGeometrySnapshot.Invalidate();
     const UINT instanceCount = (std::min)(
         static_cast<UINT>(m_scene.instances.size()),
         kMaxInstanceCount);
 
-    m_accelerationStructures.Build(
+    const bool recorded = m_accelerationStructures.Build(
         m_graphicsDevice.Device(),
         m_commandList.Get(),
         m_vertexBuffer.Get(),
@@ -3460,10 +3917,15 @@ void RtPbrSurveyEngine::BuildAccelerationStructures()
         instanceCount,
         m_frameResources[m_currentFrameIndex].tlasInstanceBuffer.Get(),
         m_descriptorHeapAllocator);
+    if (recorded)
+    {
+        m_nrdGeometrySnapshot.RecordTlas({m_scene.instances.data(), instanceCount});
+    }
 }
 
 void RtPbrSurveyEngine::RebuildAccelerationStructures()
 {
+    m_nrdGeometrySnapshot.Invalidate();
     if (!m_sceneResourcesAvailable || !m_rayTracingSupport.IsSupported())
     {
         return;
@@ -3473,17 +3935,22 @@ void RtPbrSurveyEngine::RebuildAccelerationStructures()
         GetVisibleCubeCount(),
         static_cast<UINT>(m_scene.instances.size()));
 
-    m_accelerationStructures.RebuildTlas(
+    const bool recorded = m_accelerationStructures.RebuildTlas(
         m_graphicsDevice.Device(),
         m_commandList.Get(),
         m_accelerationStructureGeometries,
         m_scene.instances.data(),
         instanceCount,
         m_frameResources[m_currentFrameIndex].tlasInstanceBuffer.Get());
+    if (recorded)
+    {
+        m_nrdGeometrySnapshot.RecordTlas({m_scene.instances.data(), instanceCount});
+    }
 }
 
 void RtPbrSurveyEngine::ReleaseSceneResources()
 {
+    m_nrdGeometrySnapshot.Reset();
     m_emissiveTriangles.clear();
     m_emissiveSourceInstances.clear();
     m_emissiveSourceMaterials.clear();
@@ -3561,6 +4028,12 @@ void RtPbrSurveyEngine::CreateFrameConstantBuffers()
         CreateConstantBuffer(m_frameResources[n].cameraCB, &m_constantBufferData, sizeof(m_constantBufferData));
         const LightingConstants initialLightingConstants = MakeLightingConstants();
         CreateConstantBuffer(m_frameResources[n].lightCB, &initialLightingConstants, sizeof(initialLightingConstants));
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+        MyDx12Util::CreateUploadBuffer(m_graphicsDevice.Device(), 768, m_frameResources[n].nrdReconstructionConstants);
+        const D3D12_RANGE noRead = {0, 0};
+        ThrowIfFailed(m_frameResources[n].nrdReconstructionConstants->Map(
+            0, &noRead, &m_frameResources[n].nrdReconstructionMapped));
+#endif
     }
 }
 
@@ -3845,6 +4318,15 @@ void RtPbrSurveyEngine::CreateGBuffer()
         {
             m_pathTracingGuideTextureSrvs[i] = m_descriptorHeapAllocator.AllocWithHandle();
             m_pathTracingGuideTextureUavs[i] = m_descriptorHeapAllocator.AllocWithHandle();
+        }
+    }
+    for (UINT i = 0; i < PathTracingGuideTextureCount - PathTracingGuidePhysicalDiffuse; ++i)
+    {
+        const UINT baseIndex = m_pathTracingGuideTextureUavs[PathTracingGuidePhysicalDiffuse].Index;
+        const UINT index = m_pathTracingGuideTextureUavs[PathTracingGuidePhysicalDiffuse + i].Index;
+        if (baseIndex == UINT_MAX || index == UINT_MAX || index < baseIndex || index - baseIndex != 2 * i)
+        {
+            throw std::logic_error("Path tracing guide UAV descriptors must retain their SRV/UAV pair layout.");
         }
     }
     for (DescriptorHeapHandle& srv : m_debugTexturePreviewSrvs)
@@ -4147,20 +4629,44 @@ void RtPbrSurveyEngine::RegisterPathTracingResources()
     sceneColor.persistent = true;
     RegisterRenderTexture(sceneColor);
 
-    static constexpr DXGI_FORMAT kGuideFormats[PathTracingGuideTextureCount] = {
+    static constexpr DXGI_FORMAT kGuideFormats[PathTracingGuideDenoiserPrimaryPosition + 1] = {
         DXGI_FORMAT_R16G16B16A16_FLOAT,
         DXGI_FORMAT_R32_FLOAT,
         DXGI_FORMAT_R16G16_FLOAT,
         DXGI_FORMAT_R16G16B16A16_FLOAT,
         DXGI_FORMAT_R16G16B16A16_FLOAT,
         DXGI_FORMAT_R16G16B16A16_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R16G16B16A16_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
+        DXGI_FORMAT_R32G32B32A32_FLOAT,
     };
     for (UINT i = 0; i < PathTracingGuideTextureCount; ++i)
     {
         Engine::RenderTextureSpec guide = {};
         guide.name = kPathTracingGuideTextureResourceNames[i];
         guide.sizeClass = Engine::RenderTextureSizeClass::RenderSize;
-        guide.format = kGuideFormats[i];
+        guide.format =
+            i < PathTracingGuideDenoiserPrimaryPosition + 1 ? kGuideFormats[i] : DXGI_FORMAT_R32G32B32A32_FLOAT;
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+        if (i == PathTracingGuideNrdTiles)
+        {
+            guide.sizeClass = Engine::RenderTextureSizeClass::Fixed;
+            guide.width = (m_renderWidth + 15) / 16;
+            guide.height = (m_renderHeight + 15) / 16;
+            guide.format = DXGI_FORMAT_R32_FLOAT;
+        }
+#endif
         guide.flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
         guide.initialState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
         guide.createSrv = true;
@@ -4809,6 +5315,11 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
     m_renderGraphRuntime.Resources().RegisterResource(
         kSceneCameraConstantsResourceName,
         [this]() { return m_frameResources[m_currentFrameIndex].cameraCB.buffer.Get(); });
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+    m_renderGraphRuntime.Resources().RegisterResource(
+        kNrdReconstructionConstantsResourceName,
+        [this]() { return m_frameResources[m_currentFrameIndex].nrdReconstructionConstants.Get(); });
+#endif
     m_renderGraphRuntime.Resources().RegisterResource(kDepthStencilResourceName,
                                                       [this]() { return m_depthStencil.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kLightPassRenderTargetResourceName,
@@ -5117,6 +5628,10 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     FlushGpu();
 
     // Clear RTV
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    if (m_nrdGpu != nullptr)
+        m_nrdGpu->ReleaseResolutionResources();
+#endif
     for (UINT n = 0; n < kFrameCount; n++)
     {
         m_renderTargets[n].Reset();
@@ -5304,6 +5819,9 @@ void RtPbrSurveyEngine::DestroyFrameResources()
     WaitForGpu();
 
     m_graphicsDevice.CloseFenceEvent();
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    m_nrdGpu.reset();
+#endif
 }
 
 void RtPbrSurveyEngine::RegisterFullscreenPipeline(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& baseDesc,
@@ -5988,6 +6506,45 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
         L"Path Tracing Albedo Clear",
         L"Path Tracing Diffuse Radiance HitT Clear",
         L"Path Tracing Specular Radiance HitT Clear",
+        L"Path Tracing Current Frame Radiance Clear",
+        L"Path Tracing Material F0 Metallic Clear",
+        L"Path Tracing Stable Radiance Clear",
+        L"Path Tracing Background Radiance Clear",
+        L"Path Tracing Secondary Ray Data Clear",
+        L"Path Tracing Physical Diffuse Clear",
+        L"Path Tracing Physical Specular Clear",
+        L"Path Tracing Primary Continuation Clear",
+        L"Path Tracing Secondary Surface Distance Clear",
+        L"Path Tracing Denoiser Diffuse Direction Clear",
+        L"Path Tracing Denoiser Specular Direction Clear",
+        L"Path Tracing Denoiser Diffuse Distance Clear",
+        L"Path Tracing Denoiser Specular Distance Clear",
+        L"Path Tracing Denoiser Primary Position Clear",
+#ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
+        L"Path Tracing NRD Diffuse Candidate Clear",
+        L"Path Tracing NRD Specular Candidate Clear",
+        L"Path Tracing NRD Conversion Diagnostics Clear",
+        L"Path Tracing NRD Normal Roughness Clear",
+        L"Path Tracing NRD View Z Clear",
+        L"Path Tracing NRD Validity Clear",
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+        L"Path Tracing NRD Tiles Clear",
+        L"Path Tracing NRD Reconstructed Specular Clear",
+        L"Path Tracing NRD Reconstructed Diffuse Clear",
+        L"Path Tracing NRD Input Diffuse Clear",
+        L"Path Tracing NRD Input Specular Clear",
+        L"Path Tracing NRD Input ViewZ Clear",
+        L"Path Tracing NRD Input Admission Clear",
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+        L"Path Tracing NRD Output Diffuse Clear",
+        L"Path Tracing NRD Output Specular Clear",
+        L"Path Tracing NRD Diffuse Factor Clear",
+        L"Path Tracing NRD Specular Factor Clear",
+        L"Path Tracing NRD Scene Color Clear",
+        L"Path Tracing NRD Composition Diagnostics Clear",
+#endif
+#endif
+#endif
     };
     for (UINT i = 0; i < PathTracingGuideTextureCount; ++i)
     {
@@ -6032,6 +6589,12 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
         m_pathTracingGuideTextureUavs[PathTracingGuideDiffuseRadianceHitT].gpu;
     passDesc.specularRadianceHitTUav =
         m_pathTracingGuideTextureUavs[PathTracingGuideSpecularRadianceHitT].gpu;
+    passDesc.currentFrameRadianceUav = m_pathTracingGuideTextureUavs[PathTracingGuideCurrentFrameRadiance].gpu;
+    passDesc.materialF0MetallicUav = m_pathTracingGuideTextureUavs[PathTracingGuideMaterialF0Metallic].gpu;
+    passDesc.stableRadianceUav = m_pathTracingGuideTextureUavs[PathTracingGuideStableRadiance].gpu;
+    passDesc.backgroundRadianceUav = m_pathTracingGuideTextureUavs[PathTracingGuideBackgroundRadiance].gpu;
+    passDesc.secondaryRayDataUav = m_pathTracingGuideTextureUavs[PathTracingGuideSecondaryRayData].gpu;
+    passDesc.physicalSignalUavTable = m_pathTracingGuideTextureUavs[PathTracingGuidePhysicalDiffuse].gpu;
     passDesc.environmentMapSrv = m_environmentMap.Srv().gpu;
     passDesc.emissiveTriangleSrv = m_frameResources[m_currentFrameIndex].emissiveTriangleBuffer->GetGPUVirtualAddress();
     passDesc.emissiveTriangleCount = static_cast<UINT>(m_emissiveTriangles.size());
@@ -6043,29 +6606,225 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.environmentIntensity = m_lightingParams.iblIntensity;
     passDesc.backgroundColor = m_backBufferClearColor;
     passDesc.debugOutput = static_cast<UINT>(m_pathTracingSettings.debugOutput);
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    if (m_pathTracingReferenceComponent != 0)
+        passDesc.debugOutput = 3 + m_pathTracingReferenceComponent;
+#endif
     passDesc.maxBounces = m_pathTracingSettings.maxBounces;
     passDesc.environmentEnabled = m_pathTracingSettings.environmentEnabled ? 1u : 0u;
     passDesc.environmentSamplingMode = m_pathTracingSettings.environmentSamplingMode;
     passDesc.emissiveSamplingMode = m_pathTracingSettings.emissiveSamplingMode;
     passDesc.skyboxEnabled = m_lightingParams.skyboxEnabled ? 1u : 0u;
-    passDesc.emissiveEnabled =
-        m_pathTracingSettings.emissiveEnabled && m_lightingParams.emissiveEnabled ? 1u : 0u;
+    passDesc.emissiveEnabled = m_pathTracingSettings.emissiveEnabled && m_lightingParams.emissiveEnabled ? 1u : 0u;
     passDesc.directLightingEnabled =
         m_pathTracingSettings.directLightingEnabled && m_lightingParams.directLightEnabled ? 1u : 0u;
     passDesc.shadowEnabled = m_shadowSettings.enabled ? 1u : 0u;
     passDesc.russianRouletteEnabled = m_pathTracingSettings.russianRouletteEnabled ? 1u : 0u;
     passDesc.samplesPerFrame = m_pathTracingSettings.samplesPerFrame;
+    passDesc.pixelCenterPrimary = m_pathTracingSettings.pixelCenterPrimary;
+    passDesc.denoiserDistanceDiagnostics = m_pathTracingSettings.denoiserDistanceDiagnostics;
     passDesc.sampleStartIndex = m_pathTracingRuntimeState.frameSampleIndex;
     passDesc.randomSeed = m_pathTracingSettings.randomSeed;
-    passDesc.previousSampleCount = m_pathTracingSettings.accumulate ?
-        static_cast<float>(m_pathTracingRuntimeState.accumulatedSampleCount) : 0.0f;
+    passDesc.previousSampleCount =
+        m_pathTracingSettings.accumulate ? static_cast<float>(m_pathTracingRuntimeState.accumulatedSampleCount) : 0.0f;
     passDesc.accumulate = m_pathTracingSettings.accumulate;
     passDesc.width = m_renderWidth;
     passDesc.height = m_renderHeight;
     Engine::RecordPathTracingPass(m_commandList.Get(), passDesc);
+    m_pathTracingGeometryToken = m_nrdGeometrySnapshot.Token();
     m_pathTracingPendingSampleCount = passDesc.samplesPerFrame;
     m_pathTracingPendingAccumulate = passDesc.accumulate;
     m_pathTracingSampleCommitPending = true;
+}
+
+void RtPbrSurveyEngine::ExecuteNrdConversionPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+#ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
+    const Engine::NrdRelaxGpuSceneRange range = m_nrdGeometrySnapshot.ExportGpuSceneRange(m_pathTracingGeometryToken);
+    UINT gate = 0;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    if (m_pathTracingReferenceComponent != 0)
+        gate = 8;
+#endif
+    if (!Engine::QueryNrdRelaxSamplingReadiness(m_pathTracingSettings.samplesPerFrame,
+                                                m_pathTracingSettings.pixelCenterPrimary)
+             .ready)
+    {
+        gate = 8;
+    }
+    else if (!m_pathTracingSampleCommitPending || !range.valid)
+    {
+        gate = 9;
+    }
+    else if (!m_pathTracingSettings.denoiserDistanceDiagnostics)
+    {
+        gate = 10;
+    }
+    struct Constants
+    {
+        UINT width;
+        UINT height;
+        UINT gate;
+        float rayTMax;
+        std::array<float, 3> boundsMinimum;
+        UINT rangeValid;
+        std::array<float, 3> boundsMaximum;
+        float normalBias;
+    } constants = {m_renderWidth,
+                   m_renderHeight,
+                   gate,
+                   m_shadowSettings.rayTMax,
+                   range.minimum,
+                   range.valid ? 1u : 0u,
+                   range.maximum,
+                   m_shadowSettings.normalBias};
+    static_assert(sizeof(Constants) == 12 * sizeof(UINT));
+    m_commandList->SetComputeRootSignature(m_nrdConversionRootSignature.Get());
+    m_commandList->SetPipelineState(m_nrdConversionPipeline.Get());
+    m_commandList->SetComputeRootDescriptorTable(0, m_pathTracingGuideTextureSrvs[0].gpu);
+    m_commandList->SetComputeRootDescriptorTable(
+        1, m_pathTracingGuideTextureUavs[PathTracingGuideNrdDiffuseCandidate].gpu);
+    m_commandList->SetComputeRootDescriptorTable(2, m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu);
+    m_commandList->SetComputeRoot32BitConstants(3, 12, &constants, 0);
+    m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
+#endif
+}
+
+void RtPbrSurveyEngine::ExecuteNrdReconstructionPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+    const float clear[] = {0, 0, 0, 0};
+    for (UINT index : {PathTracingGuideNrdReconstructedSpecular, PathTracingGuideNrdReconstructedDiffuse})
+    {
+        Engine::RecordPathTracingUavClear(m_commandList.Get(),
+                                          {m_pathTracingGuideTextures[index].Get(),
+                                           m_pathTracingGuideTextureClearUavs[index],
+                                           m_pathTracingGuideTextureUavs[index].gpu,
+                                           clear},
+                                          L"NRD Reconstruction Clear");
+        const auto barrier = CD3DX12_RESOURCE_BARRIER::UAV(m_pathTracingGuideTextures[index].Get());
+        m_commandList->ResourceBarrier(1, &barrier);
+    }
+    FrameResource& frame = m_frameResources[m_currentFrameIndex];
+    const auto constants = Engine::MakeNrdReconstructionConstants(m_renderWidth, m_renderHeight);
+    memcpy(frame.nrdReconstructionMapped, constants.data(), constants.size());
+    m_commandList->SetComputeRootSignature(m_nrdReconstructionRootSignature.Get());
+    m_commandList->SetPipelineState(m_nrdReconstructionPipeline.Get());
+    m_commandList->SetComputeRootDescriptorTable(0, m_pathTracingGuideTextureSrvs[0].gpu);
+    m_commandList->SetComputeRootDescriptorTable(
+        1, m_pathTracingGuideTextureUavs[PathTracingGuideNrdReconstructedSpecular].gpu);
+    m_commandList->SetComputeRootConstantBufferView(2, frame.nrdReconstructionConstants->GetGPUVirtualAddress());
+    m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
+#endif
+}
+
+void RtPbrSurveyEngine::ExecuteNrdAdmissionPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+    const UINT dimensions[] = {m_renderWidth, m_renderHeight};
+    m_commandList->SetComputeRootSignature(m_nrdAdmissionRootSignature.Get());
+    m_commandList->SetPipelineState(m_nrdAdmissionPipeline.Get());
+    m_commandList->SetComputeRootDescriptorTable(0, m_pathTracingGuideTextureSrvs[0].gpu);
+    m_commandList->SetComputeRootDescriptorTable(1, m_pathTracingGuideTextureUavs[PathTracingGuideNrdInputDiffuse].gpu);
+    m_commandList->SetComputeRoot32BitConstants(2, 2, dimensions, 0);
+    m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
+#endif
+}
+
+void RtPbrSurveyEngine::ExecuteNrdRelaxPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    const float clear[] = {0, 0, 0, 0};
+    for (UINT index : {PathTracingGuideNrdOutputDiffuse, PathTracingGuideNrdOutputSpecular})
+    {
+        Engine::RecordPathTracingUavClear(m_commandList.Get(),
+                                          {m_pathTracingGuideTextures[index].Get(),
+                                           m_pathTracingGuideTextureClearUavs[index],
+                                           m_pathTracingGuideTextureUavs[index].gpu,
+                                           clear},
+                                          L"NRD RELAX Output Clear");
+        const auto barrier = CD3DX12_RESOURCE_BARRIER::UAV(m_pathTracingGuideTextures[index].Get());
+        m_commandList->ResourceBarrier(1, &barrier);
+    }
+    Engine::NrdSdkFrame frame;
+    XMFLOAT4X4 view, projection;
+    XMStoreFloat4x4(&view, Engine::CreateCameraViewMatrix(m_scene.camera));
+    XMStoreFloat4x4(&projection, Engine::CreateCameraProjectionMatrix(m_scene.camera, m_aspectRatio));
+    memcpy(frame.worldToView.data(), &view, sizeof(view));
+    memcpy(frame.viewToClip.data(), &projection, sizeof(projection));
+    frame.width = m_renderWidth;
+    frame.height = m_renderHeight;
+    std::array<float, 16> nativePrevious;
+    memcpy(nativePrevious.data(),
+           &m_constantBufferData.prevViewProjection,
+           sizeof(m_constantBufferData.prevViewProjection));
+    if (!m_nrdHistoryReset && !Engine::NrdPreviousViewProjectionMatches(
+                                  m_nrdPreviousFrame.worldToView, m_nrdPreviousFrame.viewToClip, nativePrevious))
+    {
+        m_nrdHistoryReset = true;
+        m_nrdFrameIndex = 0;
+    }
+    frame.reset = m_nrdHistoryReset;
+    frame.frameIndex = m_nrdFrameIndex;
+    const auto& previous = frame.reset ? frame : m_nrdPreviousFrame;
+    frame.previousWidth = previous.width;
+    frame.previousHeight = previous.height;
+    frame.previousWorldToView = previous.worldToView;
+    frame.previousViewToClip = previous.viewToClip;
+    const Engine::NrdD3D12Inputs inputs = {m_pathTracingGuideTextures[PathTracingGuideMotionVectors].Get(),
+                                           m_pathTracingGuideTextures[PathTracingGuideNrdNormalRoughness].Get(),
+                                           m_pathTracingGuideTextures[PathTracingGuideNrdInputViewZ].Get(),
+                                           m_pathTracingGuideTextures[PathTracingGuideNrdInputDiffuse].Get(),
+                                           m_pathTracingGuideTextures[PathTracingGuideNrdInputSpecular].Get(),
+                                           m_pathTracingGuideTextures[PathTracingGuideNrdOutputDiffuse].Get(),
+                                           m_pathTracingGuideTextures[PathTracingGuideNrdOutputSpecular].Get()};
+    m_nrdLastEvaluationAttempted = true;
+    m_nrdLastEvaluationRecorded = false;
+    try
+    {
+        m_nrdLastDispatchCount = m_nrdGpu->Record(
+            m_commandList.Get(), m_currentFrameIndex, frame, inputs, m_nrdFrameIndex >= m_nrdInjectFailureAfterFrames);
+    }
+    catch (const Engine::NrdPreparationError& error)
+    {
+        m_nrdFailureReason = std::string("preparation: ") + error.what();
+        ++m_nrdFailureCount;
+        m_nrdPreparedDispatches = error.preparedDispatches;
+        m_nrdPlannedDispatches = error.plannedDispatches;
+        m_nrdComposedOutputValid = false;
+        m_nrdHistoryReset = true;
+        m_nrdLastDispatchCount = 0;
+        m_nrdPreviousFrame = frame;
+        OutputDebugStringA(("[NRD fallback] " + m_nrdFailureReason + "\n").c_str());
+        return;
+    }
+    ID3D12DescriptorHeap* heaps[] = {m_heap.Get()};
+    m_commandList->SetDescriptorHeaps(1, heaps);
+    m_nrdPreviousFrame = frame;
+    m_nrdLastEvaluationRecorded = true;
+    m_nrdHistoryReset = false;
+    ++m_nrdFrameIndex;
+#endif
+}
+
+void RtPbrSurveyEngine::ExecuteNrdCompositionPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    const UINT dimensions[] = {m_renderWidth, m_renderHeight, m_nrdFailureReason.empty() ? 0u : 1u};
+    m_commandList->SetComputeRootSignature(m_nrdCompositionRootSignature.Get());
+    m_commandList->SetPipelineState(m_nrdCompositionPipeline.Get());
+    m_commandList->SetComputeRootDescriptorTable(0, m_pathTracingAccumulationSrv.gpu);
+    m_commandList->SetComputeRootDescriptorTable(1, m_pathTracingGuideTextureUavs[PathTracingGuideNrdSceneColor].gpu);
+    m_commandList->SetComputeRoot32BitConstants(2, 3, dimensions, 0);
+    m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
+    m_nrdComposedOutputValid =
+        m_nrdFailureReason.empty() && m_pathTracingSampleCommitPending && m_nrdLastDispatchCount > 0;
+#endif
 }
 
 void RtPbrSurveyEngine::ExecuteDepthPrePass(const RenderPass& pass)
@@ -6546,6 +7305,12 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 source = m_pathTracingAccumulation.Get();
                 diagnosticSource = kPathTracingAccumulationResourceName;
             }
+            else if (m_renderingPath == RenderingPath::PathTracing &&
+                capture.request.debugResourceName == kPathTracingSceneColorResourceName)
+            {
+                source = m_pathTracingSceneColor.Get();
+                diagnosticSource = kPathTracingSceneColorResourceName;
+            }
             for (UINT index = 0; index < PathTracingGuideTextureCount; ++index)
             {
                 if (m_renderingPath == RenderingPath::PathTracing &&
@@ -6571,7 +7336,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             }
             if (source == nullptr)
             {
-                throw std::invalid_argument("Native buffer capture requires an active PT accumulation/guide or supported Deferred GBuffer resource.");
+                throw std::invalid_argument("Native buffer capture requires an active PT accumulation/scene color/guide or supported Deferred GBuffer resource.");
             }
             diagnosticRestoreState = GetResourceState(diagnosticSource);
             TransitionResource({diagnosticSource, D3D12_RESOURCE_STATE_COPY_SOURCE});
@@ -6647,13 +7412,24 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 return rows;
             };
             const CameraState& camera = GetCamera();
-            const nlohmann::json metadata = {
-                {"schemaVersion", 1}, {"resource", diagnosticSource},
+            nlohmann::json metadata = {
+                {"schemaVersion", 1},
+                {"resource", diagnosticSource},
                 {"renderingPath", static_cast<int>(m_renderingPath)},
                 {"sampleStartIndex", m_pathTracingRuntimeState.frameSampleIndex},
                 {"randomSeed", m_pathTracingSettings.randomSeed},
-                {"width", capture.readback.width}, {"height", capture.readback.height},
-                {"format", static_cast<int>(capture.readback.format)}, {"rowOrder", "top-down"},
+                {"samplesPerFrame", m_pathTracingSettings.samplesPerFrame},
+                {"primarySampling", m_pathTracingSettings.pixelCenterPrimary ? "pixel-center" : "random-per-pixel"},
+                {"denoiserDistanceDiagnostics", m_pathTracingSettings.denoiserDistanceDiagnostics},
+                {"nrdPreviewRequested", m_pathTracingSettings.nrdPreview},
+                {"nrdPresentation", Engine::NrdRelaxPresentationStatusText(ResolvePathTracingNrdPresentation())},
+                {"rayTMin", m_shadowSettings.rayTMin},
+                {"rayTMax", m_shadowSettings.rayTMax},
+                {"normalBias", m_shadowSettings.normalBias},
+                {"width", capture.readback.width},
+                {"height", capture.readback.height},
+                {"format", static_cast<int>(capture.readback.format)},
+                {"rowOrder", "top-down"},
                 {"matrixConvention", "transpose of DirectX row-vector matrices"},
                 {"viewProjection", matrixJson(m_constantBufferData.viewProjection)},
                 {"previousViewProjection", matrixJson(m_constantBufferData.prevViewProjection)},
@@ -6661,9 +7437,41 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 {"cameraPosition", {camera.pos.x, camera.pos.y, camera.pos.z}},
                 {"cameraTarget", {camera.gazePoint.x, camera.gazePoint.y, camera.gazePoint.z}},
                 {"lensShift", {camera.lensShiftX, camera.lensShiftY}},
-                {"singleInstanceWorld", m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().world) : nlohmann::json(nullptr)},
-                {"singleInstancePreviousWorld", m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().prevWorld) : nlohmann::json(nullptr)},
+                {"singleInstanceWorld",
+                 m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().world) : nlohmann::json(nullptr)},
+                {"singleInstancePreviousWorld",
+                 m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().prevWorld)
+                                               : nlohmann::json(nullptr)},
             };
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+            metadata["nrdFailure"] = m_nrdFailureReason;
+            if (m_pathTracingReferenceComponent != 0)
+                metadata["pathTracingReferenceComponent"] = m_pathTracingReferenceComponentName;
+            metadata["nrdPreparedDispatches"] = m_nrdPreparedDispatches;
+            metadata["nrdPlannedDispatches"] = m_nrdPlannedDispatches;
+            metadata["nrdFailureCount"] = m_nrdFailureCount;
+            metadata["nrdPrepass"] = {{"profile", m_nrdPrepassProfile}, {"applied", false}};
+            if (m_nrdGpu && m_nrdFailureReason.empty())
+            {
+                const auto& prepass = m_nrdGpu->Description().prepass;
+                metadata["nrdAntilagDisabled"] = m_nrdGpu->Description().antilagDisabled;
+                metadata["nrdPrepass"] = {{"profile", m_nrdPrepassProfile},
+                                           {"applied", true},
+                                           {"diffuseRadius", prepass.diffuseRadius},
+                                           {"specularRadius", prepass.specularRadius}};
+            }
+            metadata["nrdLastEvaluation"] = {{"attempted", m_nrdLastEvaluationAttempted},
+                                             {"recorded", m_nrdLastEvaluationRecorded},
+                                             {"continuousCameraHistory", m_nrdContinuousCameraHistory},
+                                             {"frameIndex", m_nrdPreviousFrame.frameIndex},
+                                             {"reset", m_nrdPreviousFrame.reset},
+                                             {"dispatchCount", m_nrdLastDispatchCount},
+                                             {"worldToView", m_nrdPreviousFrame.worldToView},
+                                             {"viewToClip", m_nrdPreviousFrame.viewToClip},
+                                             {"previousWorldToView", m_nrdPreviousFrame.previousWorldToView},
+                                             {"previousViewToClip", m_nrdPreviousFrame.previousViewToClip},
+                                             {"motionVectorScale", Engine::kNrdScreenMotionVectorScale}};
+#endif
             capture.readback.diagnosticMetadata = metadata.dump();
         }
         capture.active = true;
@@ -7134,6 +7942,10 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
                                                    Engine::RenderGraphResourceKind::Buffer};
     metadata[kSceneCameraConstantsResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
                                                    Engine::RenderGraphResourceKind::Buffer};
+#ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
+    metadata[kNrdReconstructionConstantsResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
+                                                         Engine::RenderGraphResourceKind::Buffer};
+#endif
 
     const auto registerPingPongGroup = [&metadata, this](const char* const (&resourceNames)[2],
                                                          const char* logicalGroupName)

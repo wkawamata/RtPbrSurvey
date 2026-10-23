@@ -14,7 +14,7 @@ struct PathTracingShaderConstants
     UINT usesIndexedDraw;
     UINT vertexCount;
     UINT indexCount;
-    UINT hitNormalSource;
+    UINT primarySamplingFlags;
     UINT debugOutput;
     UINT environmentEnabled;
     UINT emissiveEnabled;
@@ -38,10 +38,9 @@ struct PathTracingShaderConstants
     std::array<float, 4> backgroundColor;
     UINT emissiveTriangleCount;
     UINT emissiveSamplingMode;
-    std::array<UINT, 2> padding;
 };
 
-static_assert(sizeof(PathTracingShaderConstants) == 36 * sizeof(UINT));
+static_assert(sizeof(PathTracingShaderConstants) == 34 * sizeof(UINT));
 
 } // namespace
 
@@ -87,12 +86,18 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
     commandList->SetComputeRootDescriptorTable(16, desc.environmentMapSrv);
     commandList->SetComputeRootDescriptorTable(18, desc.lightCbv);
     commandList->SetComputeRootShaderResourceView(19, desc.emissiveTriangleSrv);
+    commandList->SetComputeRootDescriptorTable(20, desc.currentFrameRadianceUav);
+    commandList->SetComputeRootDescriptorTable(21, desc.materialF0MetallicUav);
+    commandList->SetComputeRootDescriptorTable(22, desc.stableRadianceUav);
+    commandList->SetComputeRootDescriptorTable(23, desc.backgroundRadianceUav);
+    commandList->SetComputeRootDescriptorTable(24, desc.secondaryRayDataUav);
+    commandList->SetComputeRootDescriptorTable(25, desc.physicalSignalUavTable);
 
     const PathTracingShaderConstants constants = {
         desc.scene.usesIndexedDraw,
         desc.scene.vertexCount,
         desc.scene.indexCount,
-        0,
+        (desc.pixelCenterPrimary ? 1u : 0u) | (desc.denoiserDistanceDiagnostics ? 2u : 0u),
         desc.debugOutput,
         desc.environmentEnabled,
         desc.emissiveEnabled,
@@ -116,9 +121,8 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
         desc.backgroundColor,
         desc.emissiveTriangleCount,
         desc.emissiveSamplingMode,
-        {},
     };
-    commandList->SetComputeRoot32BitConstants(17, 36, &constants, 0);
+    commandList->SetComputeRoot32BitConstants(17, 34, &constants, 0);
 
     constexpr UINT kThreadGroupSize = 8;
     const UINT dispatchX = (desc.width + kThreadGroupSize - 1) / kThreadGroupSize;

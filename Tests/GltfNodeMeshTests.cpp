@@ -263,11 +263,30 @@ void TestImportDiagnostics()
     document["materials"][0]["normalTexture"]["extensions"]["KHR_texture_transform"] = { {"offset", {0.1, 0.2}} };
     run(document, "TextureExtensionIgnored", GltfDiagnosticSeverity::Warning);
     document = baseline;
+    document["materials"][0]["extensions"]["EXT_test_unsupported"] = Json::object();
+    document["extensionsUsed"] = {"EXT_test_unsupported"};
+    run(document, "MaterialExtensionIgnored", GltfDiagnosticSeverity::Warning);
+    document["extensionsRequired"] = {"EXT_test_unsupported"};
+    run(document, "RequiredExtension", GltfDiagnosticSeverity::Error);
+    document = baseline;
     document["materials"][0]["extensions"]["KHR_materials_unlit"] = Json::object();
     document["extensionsUsed"] = {"KHR_materials_unlit"};
-    run(document, "MaterialExtensionIgnored", GltfDiagnosticSeverity::Warning);
     document["extensionsRequired"] = {"KHR_materials_unlit"};
-    run(document, "RequiredExtension", GltfDiagnosticSeverity::Error);
+    {
+        std::ofstream output(temporary, std::ios::binary);
+        output << document.dump(2) << "\r\n";
+        Require(static_cast<bool>(output), "Unlit fixture must be written.");
+    }
+    const auto unlit = Engine::LoadGltfSceneAsset(temporary.string());
+    Require(unlit && unlit.diagnostics.empty(), "Opaque Unlit must be accepted as a required extension.");
+    Engine::SceneBuilder flattened, node;
+    Require(flattened.AddGltfMesh(temporary.string()).has_value() && flattened.GetMesh().materials[0].unlit,
+            "Flattened import must preserve Unlit.");
+    Require(static_cast<bool>(node.AddGltfNodeMesh(unlit.asset, "Scaled")) && node.GetMesh().materials[0].unlit,
+            "Node import must preserve Unlit.");
+    GltfMeshData litMesh;
+    Require(::LoadGltfMesh(source.string(), litMesh) && !litMesh.materials[0].unlit,
+            "Ordinary materials must remain lit.");
     document = baseline;
     document["meshes"][0]["primitives"][0]["attributes"].erase("TANGENT");
     run(document, "MissingTangents", GltfDiagnosticSeverity::Warning);
