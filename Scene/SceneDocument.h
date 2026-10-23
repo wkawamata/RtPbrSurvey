@@ -67,6 +67,20 @@ struct SceneAsset
     std::string path;
 };
 
+enum class SceneTransmissionMode : uint8_t
+{
+    Opaque,
+    Thin,
+};
+
+struct SceneTransmission
+{
+    SceneTransmissionMode mode = SceneTransmissionMode::Opaque;
+    float factor = 0.0f;
+    SceneFloat3 tint = {1.0f, 1.0f, 1.0f};
+    float ior = 1.5f;
+};
+
 struct SceneMaterial
 {
     std::string id;
@@ -74,6 +88,7 @@ struct SceneMaterial
     SceneFloat4 baseColor = {1.0f, 1.0f, 1.0f, 1.0f};
     float metallic = 0.0f;
     float roughness = 0.5f;
+    SceneTransmission transmission;
 };
 
 struct SceneNode

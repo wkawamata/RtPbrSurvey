@@ -1,7 +1,7 @@
 # 色付き薄膜透過の1日実装プラン
 
 作成日: 2026-10-23
-状態: 設計のみ。実装・評価は未着手。
+状態: 保存契約の実装を開始。透過描画・GUI・目視評価は未着手。
 対象workspace: `C:\work\RtPbrSurvey-work-3`
 想定作業量: 実働8時間。テストシーン作成、ビルド、検証、修正を含む。
 実装ブランチ案: `codex/pt-thin-transmission`
@@ -172,3 +172,24 @@ READMEを置き、sceneのdescriptionにも日本語で目的・操作・判定�
 
 alpha coverage、薄膜の透過、体積の屈折・吸収を区別するための参照。
 これらの全仕様対応を1日の完了条件にはしない。
+
+## 実装進捗
+
+- [x] 設計MDをコミット。実装ブランチ `codex/pt-thin-transmission` を作成。
+- [x] SceneDocumentに独立したmode・factor・tint・iorを追加。
+- [x] 旧JSONの不透明な既定値と、既定材質の既存出力形式を維持。
+- [x] JSONの追加項目は `transmission` オブジェクトとし、不正値を拒否。
+- [x] Debug x64でSceneDocument／SceneDocumentBuilderをビルドし、関連CTest 2/2合格。
+- [ ] CPU/GPU材質への伝搬、定数glTF読込み、実際のPT透過処理。
+- [ ] Scene EditorのRGBA・IOR、NRDガード、検証用3シーン。
+
+最初の作業単位では保存契約だけを追加する。描画側へ未接続のThin材質を
+不透明として黙って表示しないよう、factor>0のThinはSceneDocumentBuilderで
+明示的に拒否し、既存シーンを保持する。描画接続が完成した作業単位で
+この一時ガードを実際の対応範囲チェックへ置き換える。
+glTF対応済みの宣言やGPU材質レイアウトは、この段階では変更しない。
+
+確認内容: 旧JSONの既定値、透過JSONのround-trip、実ファイルのatomic saveと
+再読込み、透過量の両端・IOR=1、未知のモード／項目・型違い・欠落・範囲外・
+非有限値の拒否、失敗時のdocument／公開済みscene保持。
+この段階ではアプリ全体の再ビルドや透過のGPU描画・目視評価は行っていない。

@@ -96,6 +96,18 @@ bool SceneDocumentBuilder::Build(const SceneDocument& document,
         return false;
     }
 
+    for (const SceneMaterial& material : document.materials)
+    {
+        if (material.transmission.mode == SceneTransmissionMode::Thin && material.transmission.factor > 0.0f)
+        {
+            if (error != nullptr)
+            {
+                *error = "Thin transmission rendering is not implemented yet: " + material.id;
+            }
+            return false;
+        }
+    }
+
     SceneGraphEvaluation graph;
     if (!EvaluateSceneGraph(document, graph, error))
     {
