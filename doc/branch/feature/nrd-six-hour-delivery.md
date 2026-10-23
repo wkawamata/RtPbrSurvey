@@ -196,3 +196,45 @@ decision remains pending human review; do not reopen the deferred glossy
 convergence study as the automatic next task. After approval, record the actual
 answers and finalize the limited, default-off delivery with the known quality
 issues preserved. Do not silently promote it to general quality acceptance.
+
+## Human Observation, 2026-10-23
+
+The user reports persistent grain around the upper-right blue sphere's
+highlight with NRD enabled. Native PT with accumulation also starts noisy,
+but that grain disappears after more than about 30 seconds. This is not a
+visual pass and does not establish an NRD limitation or an integration defect.
+The next bounded check is static frame/history continuity, without changing
+filter settings or acquiring new high-sample references. The user authorized
+closing the interactive app, and its exact process identity was verified before
+termination. No other app was stopped.
+
+### Static History Result
+
+Report: `bin/PathTracingValidation/nrd-static-history-20261023/report.json`.
+SHA-256: `20cdb0fb74b9679d561b2eff7aaca1716fe76d52334e86eee0024b672fdd64d3`.
+Status: `passed-static-history`. Same delivery executable and original four-sphere
+launch preset; no rebuild or filter-setting change. This is a fresh fixed-camera
+reproduction, not telemetry recovered from the user's previous interactive pose.
+
+| Capture frame | NRD frame index | Global reset | Recorded | Dispatches |
+| ---: | ---: | --- | --- | ---: |
+| 30 | 30 | false | true | 10 |
+| 60 | 60 | false | true | 10 |
+| 120 | 120 | false | true | 10 |
+| 240 | 240 | false | true | 10 |
+| 360 | 360 | false | true | 10 |
+
+The camera/previous-camera matrices remain identical, Native sampling advances
+continuously, NRD reports no backend failure, and the log has no D3D12 errors.
+Repeated host/global history reset is not reproduced. This does not measure
+per-pixel effective history, disocclusion/antilag rejection or the highlight's
+residual noise, and does not turn the negative human observation into a pass.
+
+The pinned `RelaxSettings` defaults retain 30-frame diffuse/specular linear
+history limits and six-frame fast-history limits. Our adapter changes pre-pass
+radii and reconstruction policy, not those limits. Native PT accumulation and
+finite-history NRD therefore are not expected to converge identically over time.
+This is a relevant distinction, not proof that the observed grain is acceptable
+or solely an SDK limit. Any next diagnostic should stay confined to the blue
+highlight's input/output and local-history behavior; do not reopen a broad
+reference-convergence campaign. Final visual acceptance remains pending.
