@@ -1,6 +1,7 @@
 #include "Scene/SceneDocument.h"
 #include "Scene/SceneDocumentJson.h"
 #include "Scene/SceneGraph.h"
+#include "App/SavedSceneFiles.h"
 
 #include <DirectXMath.h>
 #include <cmath>
@@ -328,6 +329,24 @@ bool TestReparentPreservesWorldTransform()
     return passed;
 }
 
+bool TestSavedSceneDiscovery()
+{
+    const std::filesystem::path assets = std::filesystem::path(__FILE__).parent_path().parent_path() / "Assets";
+    const auto paths = App::FindSavedSceneFiles(assets);
+    bool foundEmissive = false;
+    bool passed = Check(std::is_sorted(paths.begin(), paths.end()), "saved scene list is sorted");
+    for (const auto& path : paths)
+    {
+        passed &= Check(path.filename() == "scene.json" && std::filesystem::is_regular_file(path),
+                        "saved scene entries are existing scene documents");
+        foundEmissive |= path.parent_path().filename() == "10-large-emissive-panel";
+    }
+    passed &= Check(foundEmissive, "saved scene discovery includes emissive validation scene");
+    passed &= Check(App::FindSavedSceneFiles(assets / "missing-root").empty(),
+                    "missing scene roots produce an empty list");
+    return passed;
+}
+
 bool TestLensShiftCompatibility()
 {
     RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("shift", "shift");
@@ -350,7 +369,7 @@ bool TestLensShiftCompatibility()
 
 int main()
 {
-    const bool passed = TestLensShiftCompatibility() && TestEmptyDocumentDefaults() && TestReflectionLabFixtureData() && TestDuplicateIdsAreRejected() &&
+    const bool passed = TestSavedSceneDiscovery() && TestLensShiftCompatibility() && TestEmptyDocumentDefaults() && TestReflectionLabFixtureData() && TestDuplicateIdsAreRejected() &&
                         TestJsonRoundTrip() && TestInvalidJsonDoesNotReplaceDocument() && TestInvalidDescriptionDoesNotReplaceDocument() && TestFixtureFileLoadSaveLoad() &&
                         TestSaveAsRebasesRelativePaths() &&
                         TestSceneGraphEvaluatesUnorderedThreeLevelHierarchy() &&

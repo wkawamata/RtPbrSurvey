@@ -107,12 +107,12 @@ private:
 
     void CreateSampleScenes();
     void LoadSceneCpuData(int sceneIndex);
-    void LoadFileSceneCpuData();
+    void LoadFileSceneCpuData(const std::filesystem::path& path = {});
     void OpenSelectedScene();
     void ExecuteOpenSelectedScene();
-    void OpenFileScene();
+    void OpenFileScene(const std::filesystem::path& savedScenePath = {});
     void OpenCommandLineDebugTexturePreview();
-    void ApplyFileSceneSettings();
+    void ApplyFileSceneSettings(bool useCommandLineOverrides = true);
     void CreateNewSceneEditorDocument();
     bool LoadSceneEditorDocument(const std::string& path, std::string* error = nullptr);
     void RequestNewSceneEditorDocument();
