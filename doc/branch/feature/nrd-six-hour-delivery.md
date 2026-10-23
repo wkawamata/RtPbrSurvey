@@ -288,3 +288,18 @@ It is not adopted; defaults remain unchanged. The single settings experiment
 is closed. Highlight grain remains an explicit unresolved visual limitation,
 not an accepted pass or proof of an NRD integration defect. User acceptance and
 the remaining visual scenes are still required for the delivery decision.
+
+### User Acceptance of the Highlight Limitation
+
+On 2026-10-23 the user explicitly accepted persistent blue-highlight grain as
+a known quality limitation after the single unsuccessful Anti-lag A/B, and
+authorized proceeding to the Cornell/emissive visual checks. This is a scoped
+acceptance of the disclosed limitation, not a claim that the grain was fixed,
+all quality thresholds passed, or an SDK performance limit was proven.
+Keep the default settings and stop further tuning in this delivery.
+Cornell final visual review passed by explicit user confirmation on 2026-10-23,
+with four bounces and the required pixel-center/distance diagnostics enabled.
+The emissive final visual check remains pending: Scene Editor currently hides
+the normal Debug window, preventing interactive NRD switching on saved scenes.
+Add a separate Saved Scenes run entry before resuming that check. This delivery
+is default-off and quality-limited; do not describe the pending check as passed.
