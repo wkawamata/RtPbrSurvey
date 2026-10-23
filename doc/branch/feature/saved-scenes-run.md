@@ -15,9 +15,13 @@
 Manual gate: Run 10-large-emissive-panel, select PT Radiance, one sample per
 frame, four bounces, pixel-center primary and distance diagnostics. Compare
 NRD ON/OFF for floor illumination, emitter-edge artifacts and motion trails.
-This gate remains pending until confirmed by the user.
+On 2026-10-23 the user confirmed successful GUI loading of scene 10, no
+significant static-image issue, and no issue in the requested motion/stop
+review. The Saved Scenes runtime entry and this subjective gate are accepted.
+The scene had local material/transform/camera edits; this review does not
+requalify the unchanged historical numerical fixture or prove pixel identity.
 
 Validation, 2026-10-23: SDK-enabled Debug x64 build succeeded (22 existing
 LNK4199 warnings, no errors). CTest passed 39/39, including shared scene
 discovery, render preset, scene document, camera, capture and NRD GPU tests.
-GUI Run and emissive quality still require interactive confirmation.
+GUI Run and emissive subjective review were subsequently confirmed by the user.
