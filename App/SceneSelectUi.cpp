@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "SceneSelectUi.h"
 #include "RtPbrSurveyApp.h"
+#include "SavedSceneFiles.h"
 
 #include <cstring>
 
@@ -23,6 +24,59 @@ void DrawSceneSelectUi(RtPbrSurveyApp& app)
         app.m_appMode = RtPbrSurveyApp::AppMode::SceneEditorStart;
         ImGui::End();
         return;
+    }
+    ImGui::Separator();
+
+    if (ImGui::CollapsingHeader("Saved Scenes", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        static std::vector<std::filesystem::path> sceneFiles =
+            FindSavedSceneFiles(std::filesystem::current_path() / "Assets");
+        static std::filesystem::path selectedPath;
+        static std::string loadError;
+        if (ImGui::Button("Refresh##SavedScenes"))
+        {
+            sceneFiles = FindSavedSceneFiles(std::filesystem::current_path() / "Assets");
+            if (std::find(sceneFiles.begin(), sceneFiles.end(), selectedPath) == sceneFiles.end())
+            {
+                selectedPath.clear();
+            }
+            loadError.clear();
+        }
+        if (ImGui::BeginListBox("##SavedScenes", ImVec2(-1.0f, 130.0f)))
+        {
+            for (const std::filesystem::path& path : sceneFiles)
+            {
+                ImGui::PushID(path.generic_string().c_str());
+                if (ImGui::Selectable(path.parent_path().filename().string().c_str(), selectedPath == path))
+                {
+                    selectedPath = path;
+                    loadError.clear();
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndListBox();
+        }
+        ImGui::BeginDisabled(selectedPath.empty());
+        const bool run = ImGui::Button("Run##SavedScenes");
+        ImGui::EndDisabled();
+        if (run)
+        {
+            try
+            {
+                app.OpenFileScene(selectedPath);
+                loadError.clear();
+                ImGui::End();
+                return;
+            }
+            catch (const std::exception& error)
+            {
+                loadError = error.what();
+            }
+        }
+        if (!loadError.empty())
+        {
+            ImGui::TextWrapped("Load failed: %s", loadError.c_str());
+        }
     }
     ImGui::Separator();
 

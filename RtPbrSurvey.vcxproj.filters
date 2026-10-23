@@ -84,6 +84,9 @@
     <ClInclude Include="App\SceneEditorUi.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>
+    <ClInclude Include="App\SavedSceneFiles.h">
+      <Filter>Source Files\App</Filter>
+    </ClInclude>
     <ClInclude Include="App\RenderPresetStore.h">
       <Filter>Source Files\App</Filter>
     </ClInclude>

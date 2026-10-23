@@ -239,6 +239,7 @@
     <ClInclude Include="App\EvaluationCaseUi.h" />
       <ClInclude Include="App\SceneSelectUi.h" />
       <ClInclude Include="App\SceneEditorUi.h" />
+      <ClInclude Include="App\SavedSceneFiles.h" />
       <ClInclude Include="App\SceneEditorSession.h" />
     <ClInclude Include="App\RtPbrSurveyApp.h" />
     <ClInclude Include="App\SceneConfig.h" />

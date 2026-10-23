@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "App/SceneEditorUi.h"
+#include "App/SavedSceneFiles.h"
 
 #include "App/RtPbrSurveyApp.h"
 #include "Ui/DirectLightUi.h"
@@ -20,39 +21,6 @@
 
 namespace
 {
-std::vector<std::filesystem::path> FindSceneEditorSceneFiles()
-{
-    const std::filesystem::path assetsRoot = std::filesystem::current_path() / "Assets";
-    const std::filesystem::path sceneRoots[] = {
-        assetsRoot / "Scenes", assetsRoot / "Scene" / "PathTracingValidation"};
-    std::vector<std::filesystem::path> sceneFiles;
-    for (const std::filesystem::path& sceneRoot : sceneRoots)
-    {
-        std::error_code error;
-        if (!std::filesystem::is_directory(sceneRoot, error))
-        {
-            continue;
-        }
-        for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(sceneRoot, error))
-        {
-            if (error)
-            {
-                break;
-            }
-            if (!entry.is_directory(error))
-            {
-                continue;
-            }
-            const std::filesystem::path scenePath = entry.path() / "scene.json";
-            if (std::filesystem::is_regular_file(scenePath, error))
-            {
-                sceneFiles.push_back(scenePath);
-            }
-        }
-    }
-    std::sort(sceneFiles.begin(), sceneFiles.end());
-    return sceneFiles;
-}
 bool SceneActionButton(const char* label, bool needsAction)
 {
     if (needsAction)
@@ -73,7 +41,7 @@ namespace App
 
 void DrawSceneEditorStartUi(RtPbrSurveyApp& app)
 {
-    static std::vector<std::filesystem::path> sceneFiles = FindSceneEditorSceneFiles();
+    static std::vector<std::filesystem::path> sceneFiles = FindSavedSceneFiles(std::filesystem::current_path() / "Assets");
     ImGui::SetNextWindowSize(ImVec2(480.0f, 250.0f), ImGuiCond_FirstUseEver);
     ImGui::Begin("Scene Editor");
     ImGui::TextUnformatted("Create or load a test scene document.");
@@ -88,7 +56,7 @@ void DrawSceneEditorStartUi(RtPbrSurveyApp& app)
     ImGui::Dummy(ImVec2(0.0f, 8.0f));
     if (ImGui::Button("Refresh Scene List"))
     {
-        sceneFiles = FindSceneEditorSceneFiles();
+        sceneFiles = FindSavedSceneFiles(std::filesystem::current_path() / "Assets");
     }
     if (ImGui::BeginListBox("Saved Scenes", ImVec2(-FLT_MIN, 80.0f)))
     {

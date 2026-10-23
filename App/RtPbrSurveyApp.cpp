@@ -2610,14 +2610,15 @@ void RtPbrSurveyApp::LoadSceneCpuData(int sceneIndex)
     }
 }
 
-void RtPbrSurveyApp::LoadFileSceneCpuData()
+void RtPbrSurveyApp::LoadFileSceneCpuData(const std::filesystem::path& path)
 {
-    const std::filesystem::path documentPath = std::filesystem::absolute(m_commandLineOptions.sceneFilePath);
+    const std::filesystem::path documentPath = std::filesystem::absolute(
+        path.empty() ? std::filesystem::path(m_commandLineOptions.sceneFilePath) : path);
     auto scene = std::make_unique<Engine::SceneDocumentRuntimeScene>(documentPath);
     std::string error;
     if (!scene->LoadFromFile(&error))
     {
-        throw std::runtime_error("Could not load -SceneFile '" + documentPath.generic_string() + "': " + error);
+        throw std::runtime_error("Could not load scene '" + documentPath.generic_string() + "': " + error);
     }
 
     m_fileScene = std::move(scene);
@@ -3172,7 +3173,7 @@ void RtPbrSurveyApp::ReturnToTopMenu()
     m_sceneEditorStatus.clear();
 }
 
-void RtPbrSurveyApp::ApplyFileSceneSettings()
+void RtPbrSurveyApp::ApplyFileSceneSettings(bool useCommandLineOverrides)
 {
     assert(m_fileScene != nullptr);
     const RtPbrSurvey::SceneDocument& document = m_fileScene->Document();
@@ -3180,7 +3181,7 @@ void RtPbrSurveyApp::ApplyFileSceneSettings()
     std::filesystem::path presetPath;
     if (!App::ResolveRenderPresetPath(m_fileScene->DocumentPath(),
                                       document.renderPresetPath,
-                                      m_commandLineOptions.renderPresetPath,
+                                      useCommandLineOverrides ? m_commandLineOptions.renderPresetPath : std::filesystem::path{},
                                       presetPath,
                                       &error))
     {
@@ -3264,21 +3265,26 @@ void RtPbrSurveyApp::OpenCommandLineDebugTexturePreview()
     }
 }
 
-void RtPbrSurveyApp::OpenFileScene()
+void RtPbrSurveyApp::OpenFileScene(const std::filesystem::path& savedScenePath)
 {
+    const bool useCommandLineOverrides = savedScenePath.empty();
     m_evaluationRoi = {};
-    LoadFileSceneCpuData();
+    LoadFileSceneCpuData(savedScenePath);
     m_sceneRenderer.ReloadSceneResources(LoadedScene().GetScene());
     m_sceneResourcesLoaded = true;
-    ApplyFileSceneSettings();
+    ApplyFileSceneSettings(useCommandLineOverrides);
     m_sceneRenderer.SetDisplayInstanceCount(LoadedScene().DisplayInstanceCount());
-    ApplyRayReconstructionCommandLineOverrides();
-    ApplyDlssSrCommandLineOptions();
-    ApplyPathTracingCommandLineOptions();
-    m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
-    OpenCommandLineDebugTexturePreview();
-    if ((!m_commandLineOptions.capturePath.empty() && m_commandLineOptions.reflectionOrbitFrames > 0) ||
-        !m_commandLineOptions.pathTracingCapturePlanPath.empty())
+    if (useCommandLineOverrides)
+    {
+        ApplyRayReconstructionCommandLineOverrides();
+        ApplyDlssSrCommandLineOptions();
+        ApplyPathTracingCommandLineOptions();
+        m_sceneRenderer.SetDebugTexturePreviewEnabled(m_commandLineOptions.enableDebugTexturePreview);
+        OpenCommandLineDebugTexturePreview();
+    }
+    if (useCommandLineOverrides &&
+        ((!m_commandLineOptions.capturePath.empty() && m_commandLineOptions.reflectionOrbitFrames > 0) ||
+         !m_commandLineOptions.pathTracingCapturePlanPath.empty()))
     {
         m_debugCamera.SetMode(RtPbrSurvey::DebugCameraController::Mode::Arcball);
         m_debugCamera.InitObjectViewerFromCamera();
@@ -3288,6 +3294,7 @@ void RtPbrSurveyApp::OpenFileScene()
     m_appMode = AppMode::Running;
     m_framePaused = false;
     m_forwardStepRequested = false;
+    m_debugUiVisible = true;
 }
 
 void RtPbrSurveyApp::OpenSelectedScene()

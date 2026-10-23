@@ -315,3 +315,22 @@ failure. CTest passed 39/39, including NRD GPU contract tests and capture tests.
 Python NRD tests ran 197 with no failures and seven skips because historical
 generated evidence is absent in the isolated worktree. No new full visual or
 long convergence campaign was performed. Emissive manual review remains pending.
+
+### Final Scoped Visual Acceptance, 2026-10-23
+
+After the separate Saved Scenes runtime entry was implemented, the user loaded
+10-large-emissive-panel from Top Menu, reported no significant static-image
+issue, and confirmed no issue in the requested camera-motion/stop review of
+illumination, emitter-edge artifacts and persistent trails. This closes the
+previously pending subjective emissive gate. Cornell was accepted earlier.
+
+This emissive review used the user's locally edited scene, not a fresh numerical
+qualification of the committed fixture. Its material, transforms and camera
+changes remain outside the implementation commits. No new quantitative quality
+pass or exact-reference equivalence is inferred from the subjective answers.
+
+The bounded RELAX delivery is accepted as an experimental, default-off,
+native-resolution PT diagnostic preview with Native fallback. Persistent
+blue-highlight grain remains an accepted known quality limitation. Keep the
+SDK defaults unchanged; this is not a claim of universal denoising quality,
+production readiness, or a proven SDK quality ceiling.
