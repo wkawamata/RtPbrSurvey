@@ -108,6 +108,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/MaterialBuffer.cpp
     Renderer/NrdRelaxAdapter.cpp
     Renderer/PathTracingPass.cpp
+    Renderer/PathTracingReconstructionInputs.cpp
     Renderer/PipelineFactory.cpp
     Renderer/RayQueryShadowPass.cpp
     Renderer/RayQueryTlasDebugPass.cpp
@@ -458,6 +459,13 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.PathTracingHistoryTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.PathTracingHistory COMMAND RtPbrSurvey.PathTracingHistoryTests)
+
+    add_executable(RtPbrSurvey.PathTracingReconstructionInputsTests
+        Tests/PathTracingReconstructionInputsTests.cpp
+        Renderer/PathTracingReconstructionInputs.cpp)
+    target_include_directories(RtPbrSurvey.PathTracingReconstructionInputsTests PRIVATE "${RTPBRSURVEY_ROOT}")
+    target_compile_features(RtPbrSurvey.PathTracingReconstructionInputsTests PRIVATE cxx_std_20)
+    add_test(NAME RtPbrSurvey.PathTracingReconstructionInputs COMMAND RtPbrSurvey.PathTracingReconstructionInputsTests)
 
     add_executable(RtPbrSurvey.NrdRelaxAdapterTests Tests/NrdRelaxAdapterTests.cpp)
     target_link_libraries(RtPbrSurvey.NrdRelaxAdapterTests PRIVATE RtPbrSurvey::SceneRenderer)

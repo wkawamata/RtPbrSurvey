@@ -170,6 +170,7 @@
     <ClInclude Include="Renderer\Material.h" />
     <ClInclude Include="Renderer\MaterialBuffer.h" />
     <ClInclude Include="Renderer\PathTracingPass.h" />
+    <ClInclude Include="Renderer\PathTracingReconstructionInputs.h" />
     <ClInclude Include="Renderer\NrdRelaxAdapter.h" />
     <ClInclude Include="Renderer\RayQuerySceneBindings.h" />
     <ClInclude Include="Renderer\PipelineFactory.h" />
@@ -292,6 +293,7 @@
     <ClCompile Include="Renderer\LightingPass.cpp" />
     <ClCompile Include="Renderer\PathTracingPass.cpp" />
     <ClCompile Include="Renderer\NrdRelaxAdapter.cpp" />
+    <ClCompile Include="Renderer\PathTracingReconstructionInputs.cpp" />
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp" />
     <ClCompile Include="Renderer\TemporalReflectionPass.cpp" />
     <ClCompile Include="Renderer\EdgeAwareSpatialReflectionPass.cpp" />

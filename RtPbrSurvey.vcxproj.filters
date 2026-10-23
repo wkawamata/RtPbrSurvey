@@ -150,6 +150,9 @@
     <ClInclude Include="Renderer\PathTracingPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\PathTracingReconstructionInputs.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\NrdRelaxAdapter.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -481,6 +484,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\NrdRelaxAdapter.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingReconstructionInputs.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp">
