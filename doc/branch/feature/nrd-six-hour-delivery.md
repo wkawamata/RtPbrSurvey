@@ -238,3 +238,45 @@ This is a relevant distinction, not proof that the observed grain is acceptable
 or solely an SDK limit. Any next diagnostic should stay confined to the blue
 highlight's input/output and local-history behavior; do not reopen a broad
 reference-convergence campaign. Final visual acceptance remains pending.
+
+### Bounded Blue-Highlight Input/Output Check
+
+Report: `bin/PathTracingValidation/nrd-highlight-20261023/report.json`.
+SHA-256: `22e6c4e7ddf491a406f597787ea666d1be0e9456c5cc95af5516bddadeed45e2`.
+Status: `completed-highlight-input-output-check`; quality remains ungraded.
+Ten fresh captures: admitted diffuse/specular input, diffuse/specular output
+and composition diagnostics at static frames 120/360. Same executable, seed 7,
+four bounces and original launch preset; no filtering or SDK setting changes.
+
+Analysis uses analytically intersected blue-sphere samples, two-pixel stride,
+excluding grazing silhouette samples with view/normal cosine at most 0.2.
+The right-cap subset selects world-space normal X greater than 0.5. These are
+fixed geometric diagnostic regions, not a user-drawn exact grain mask or new
+quality acceptance regions. Sample counts: sphere 11,467, right cap 1,227.
+
+| Right-cap diagnostic | Input | Output |
+| --- | ---: | ---: |
+| Diffuse maximum RGB across two snapshots | 0.39731 | 0.08899 |
+| Specular maximum RGB across two snapshots | 29.74167 | 8.79688 |
+| Diffuse RGB temporal delta RMS, frames 120/360 | 0.04855 | 0.000862 |
+| Specular RGB temporal delta RMS, frames 120/360 | 4.71212 | 0.46358 |
+
+All captured buffers are finite. No sampled input RGB exceeds the SDK's
+documented 250 guideline in either snapshot. Composition diagnostics select
+NRD (reason zero) at every sampled sphere/right-cap point at both checkpoints;
+no Native-fallback flicker is observed in those samples. Global NRD history
+again advances to the declared frames with reset false and successful dispatch.
+The logs contain no D3D12 errors.
+
+Specular has the dominant measured residual temporal change in this cap. Its
+two-snapshot output delta RMS is about one tenth of the input delta RMS. This
+describes attenuation in these samples, not a general noise-reduction guarantee,
+convergence proof or spatial-grain acceptance. Rare HDR excursions, local
+history rejection between checkpoints and a differing interactive camera are
+not ruled out. No concrete integration defect was identified by this check.
+
+Do not expand into another long quality study automatically. The remaining
+decision is whether the user accepts persistent highlight grain as a disclosed
+limitation of the current default-off delivery, or requests one bounded RELAX
+settings A/B before continuing the remaining visual scenes. No visual pass or
+SDK-performance-limit classification is inferred from these measurements.
