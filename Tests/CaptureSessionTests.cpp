@@ -399,6 +399,13 @@ bool TestValidationAndLegacyCli()
                         "explicit prepass profile enables diagnostic NRD preview");
     }
     passed &= Check(options.nrdPrepassProfile.empty(), "prepass diagnostics remain opt-in");
+    passed &= Check(!options.nrdDisableAntilag, "NRD antilag remains unchanged by default");
+    WCHAR antilagOption[] = L"-NrdDisableAntilag";
+    WCHAR* antilagArgv[] = {executable, antilagOption};
+    const auto antilagOptions = Platform::ParseCommandLineOptions(antilagArgv, 2);
+    passed &= Check(antilagOptions.nrdDisableAntilag && antilagOptions.enablePathTracing && antilagOptions.nrdPreview &&
+                        antilagOptions.nrdPrepassProfile.empty(),
+                    "Explicit antilag diagnostic enables preview without changing prepass profile");
     for (int count : {2, 3})
     {
         WCHAR invalidProfile[] = L"invalid";

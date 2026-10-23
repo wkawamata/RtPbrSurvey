@@ -106,7 +106,7 @@ struct NrdRelaxSdkAdapter::Impl
 NrdRelaxSdkAdapter::NrdRelaxSdkAdapter() = default;
 NrdRelaxSdkAdapter::~NrdRelaxSdkAdapter() = default;
 
-bool NrdRelaxSdkAdapter::Initialize(std::string& error, const NrdPrepassSettings& prepass)
+bool NrdRelaxSdkAdapter::Initialize(std::string& error, const NrdPrepassSettings& prepass, bool disableAntilag)
 {
     Shutdown();
     error.clear();
@@ -135,6 +135,11 @@ bool NrdRelaxSdkAdapter::Initialize(std::string& error, const NrdPrepassSettings
     settings.diffusePrepassBlurRadius = prepass.diffuseRadius;
     settings.specularPrepassBlurRadius = prepass.specularRadius;
     settings.hitDistanceReconstructionMode = nrd::HitDistanceReconstructionMode::OFF;
+    if (disableAntilag)
+    {
+        settings.antilagSettings.accelerationAmount = 0.0f;
+        settings.antilagSettings.resetAmount = 0.0f;
+    }
     if (nrd::SetDenoiserSettings(*impl->instance, kRelaxIdentifier, &settings) != nrd::Result::SUCCESS)
     {
         error = "NRD SetDenoiserSettings failed.";
@@ -191,6 +196,7 @@ bool NrdRelaxSdkAdapter::Initialize(std::string& error, const NrdPrepassSettings
                      description.constantBufferMaxDataSize,
                      false,
                      prepass};
+    m_description.antilagDisabled = disableAntilag;
     for (uint32_t i = 0; i < description.pipelinesNum; ++i)
     {
         m_description.embeddedDxil |= description.pipelines[i].computeShaderDXIL.bytecode != nullptr;

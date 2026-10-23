@@ -61,6 +61,7 @@ struct NrdSdkDescription
     uint32_t maximumConstantBytes = 0;
     bool embeddedDxil = false;
     NrdPrepassSettings prepass;
+    bool antilagDisabled = false;
 };
 
 struct NrdSdkPipeline
@@ -109,7 +110,7 @@ public:
     ~NrdRelaxSdkAdapter();
     NrdRelaxSdkAdapter(const NrdRelaxSdkAdapter&) = delete;
     NrdRelaxSdkAdapter& operator=(const NrdRelaxSdkAdapter&) = delete;
-    bool Initialize(std::string& error, const NrdPrepassSettings& prepass = {});
+    bool Initialize(std::string& error, const NrdPrepassSettings& prepass = {}, bool disableAntilag = false);
     void Shutdown();
     const NrdSdkDescription& Description() const;
     const NrdSdkLayout& Layout() const;

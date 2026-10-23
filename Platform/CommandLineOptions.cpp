@@ -484,6 +484,12 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             options.enablePathTracing = true;
             options.nrdPreview = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-NrdDisableAntilag"))
+        {
+            options.nrdDisableAntilag = true;
+            options.nrdPreview = true;
+            options.enablePathTracing = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-NrdPreview"))
         {
             options.nrdPreview = true;

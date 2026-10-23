@@ -204,6 +204,21 @@ int main()
             }
             Require(changed, "Prepass settings did not reach SDK dispatch constants");
         }
+        Require(!adapter.Description().antilagDisabled, "Default settings disabled antilag");
+        Require(adapter.Initialize(error, {}, true), error);
+        Require(adapter.Description().antilagDisabled && adapter.Description().prepass.diffuseRadius == 30.0f &&
+                    adapter.Description().prepass.specularRadius == 50.0f,
+                "Antilag diagnostic changed unrelated prepass settings");
+        Require(adapter.PrepareFrame(frame, plan, error), error);
+        Require(plan.size() == control.size(), "Antilag diagnostic changed dispatch count");
+        bool antilagChanged = false;
+        for (size_t i = 0; i < plan.size(); ++i)
+        {
+            Require(plan[i].name == control[i].name && plan[i].pipelineIndex == control[i].pipelineIndex,
+                    "Antilag diagnostic changed dispatch structure");
+            antilagChanged |= plan[i].constants != control[i].constants;
+        }
+        Require(antilagChanged, "Antilag diagnostic did not reach SDK dispatch constants");
         for (float invalid : {-1.0f, std::numeric_limits<float>::infinity(),
                               std::numeric_limits<float>::quiet_NaN()})
         {
@@ -219,6 +234,7 @@ int main()
         Require(adapter.Initialize(error, {0.0f, 0.0f}), error);
         Require(adapter.Initialize(error), error);
         Require(adapter.PrepareFrame(frame, plan, error), error);
+        Require(!adapter.Description().antilagDisabled, "Default reinitialization retained antilag diagnostic");
         Require(plan.size() == control.size(), "Default reinitialization changed dispatch count");
         for (size_t i = 0; i < plan.size(); ++i)
         {

@@ -340,12 +340,16 @@ void RtPbrSurveyApp::OnInit()
     if (!m_commandLineOptions.nrdPrepassProfile.empty())
         m_sceneRenderer.EngineForDebugTools().SetNrdPrepassProfileForDiagnostics(
             m_commandLineOptions.nrdPrepassProfile);
+    m_sceneRenderer.EngineForDebugTools().SetNrdAntilagDisabledForDiagnostics(
+        m_commandLineOptions.nrdDisableAntilag);
     m_sceneRenderer.EngineForDebugTools().SetNrdFailureInjectionForDiagnostics(
         m_commandLineOptions.nrdDiagnosticFailure == "initialization",
         m_commandLineOptions.nrdDiagnosticFailure == "last-dispatch"       ? 0u
         : m_commandLineOptions.nrdDiagnosticFailure == "after-four-frames" ? 4u
                                                                            : UINT_MAX);
 #else
+    if (m_commandLineOptions.nrdDisableAntilag)
+        throw std::invalid_argument("-NrdDisableAntilag requires NRD SDK diagnostics.");
     if (!m_commandLineOptions.nrdDiagnosticFailure.empty())
         throw std::invalid_argument("-NrdDiagnosticFailure requires NRD SDK diagnostics.");
     if (!m_commandLineOptions.nrdPrepassProfile.empty())

@@ -37,7 +37,7 @@ public:
     NrdRelaxD3D12();
     ~NrdRelaxD3D12();
     void Initialize(ID3D12Device* device, const std::filesystem::path& shaderDirectory, uint32_t frameCount,
-                    const NrdPrepassSettings& prepass = {});
+                    const NrdPrepassSettings& prepass = {}, bool disableAntilag = false);
     const NrdSdkDescription& Description() const;
     // The caller must have completed all GPU work using the old resolution.
     void ReleaseResolutionResources();

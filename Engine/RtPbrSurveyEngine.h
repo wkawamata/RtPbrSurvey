@@ -400,6 +400,7 @@ public:
     void SetNrdContinuousCameraHistory(bool enabled);
     void SetNrdFailureInjectionForDiagnostics(bool initialization, UINT afterFrames);
     void SetNrdPrepassProfileForDiagnostics(const std::string& profile);
+    void SetNrdAntilagDisabledForDiagnostics(bool disabled);
     void SetPathTracingReferenceComponentForDiagnostics(const std::string& component);
 #endif
     const CameraState& GetCamera() const;
@@ -1181,6 +1182,7 @@ private:
     bool m_nrdContinuousCameraHistory = false;
     Engine::NrdPrepassSettings m_nrdPrepass;
     std::string m_nrdPrepassProfile = "control";
+    bool m_nrdAntilagDisabled = false;
     UINT m_pathTracingReferenceComponent = 0;
     std::string m_pathTracingReferenceComponentName;
     bool m_nrdComposedOutputValid = false;

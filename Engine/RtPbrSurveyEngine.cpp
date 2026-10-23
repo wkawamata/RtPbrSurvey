@@ -1207,6 +1207,13 @@ void RtPbrSurveyEngine::SetNrdFailureInjectionForDiagnostics(bool initialization
     m_nrdInjectFailureAfterFrames = afterFrames;
 }
 
+void RtPbrSurveyEngine::SetNrdAntilagDisabledForDiagnostics(bool disabled)
+{
+    if (m_nrdGpu)
+        throw std::logic_error("NRD antilag diagnostic must be set before backend initialization.");
+    m_nrdAntilagDisabled = disabled;
+}
+
 void RtPbrSurveyEngine::SetNrdPrepassProfileForDiagnostics(const std::string& profile)
 {
     if (m_nrdGpu)
@@ -3206,7 +3213,7 @@ void RtPbrSurveyEngine::CreatePipelineStates()
                          m_nrdInjectInitializationFailure
                              ? std::filesystem::path(L"nrd-missing-manifest-for-validation")
                              : std::filesystem::path(GetShaderFullPath(L"nrd-relax-manifest.txt")).parent_path(),
-                         kFrameCount, m_nrdPrepass);
+                         kFrameCount, m_nrdPrepass, m_nrdAntilagDisabled);
     const UINT compositionInputs[] = {PathTracingGuideNrdOutputDiffuse,
                                       PathTracingGuideNrdOutputSpecular,
                                       PathTracingGuideNrdDiffuseFactor,
@@ -7318,6 +7325,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             if (m_nrdGpu && m_nrdFailureReason.empty())
             {
                 const auto& prepass = m_nrdGpu->Description().prepass;
+                metadata["nrdAntilagDisabled"] = m_nrdGpu->Description().antilagDisabled;
                 metadata["nrdPrepass"] = {{"profile", m_nrdPrepassProfile},
                                            {"applied", true},
                                            {"diffuseRadius", prepass.diffuseRadius},

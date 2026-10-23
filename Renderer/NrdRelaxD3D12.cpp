@@ -95,11 +95,11 @@ const NrdSdkDescription& NrdRelaxD3D12::Description() const
 }
 
 void NrdRelaxD3D12::Initialize(ID3D12Device* device, const std::filesystem::path& directory, uint32_t frameCount,
-                             const NrdPrepassSettings& prepass)
+                             const NrdPrepassSettings& prepass, bool disableAntilag)
 {
     auto impl = std::make_unique<Impl>();
     std::string error;
-    if (device == nullptr || frameCount == 0 || !impl->sdk.Initialize(error, prepass))
+    if (device == nullptr || frameCount == 0 || !impl->sdk.Initialize(error, prepass, disableAntilag))
         throw std::runtime_error("NRD GPU initialization: " + error);
     impl->device = device;
     const auto& layout = impl->sdk.Layout();
