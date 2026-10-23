@@ -126,7 +126,10 @@ namespace RtPbrSurvey
         bool IsScreenshotCaptureIdle() const;
         bool StartCaptureSession(const CaptureSessionConfig& config, std::string& error);
         void StopCaptureSession();
-        void UpdateCaptureSession(const CaptureSessionTiming& timing);
+        // False progresses delay/completion timing without submitting a frame from a frozen pose.
+        void UpdateCaptureSession(const CaptureSessionTiming& timing, bool allowFrameSubmission = true);
+        // Poll results and finalization without scheduling output or advancing capture time.
+        void PollCaptureSession();
         bool CanAdvanceCaptureSessionFixedStep() const;
         const CaptureSessionStatus& GetCaptureSessionStatus() const;
         void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);

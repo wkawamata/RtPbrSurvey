@@ -546,7 +546,7 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextWrapped("%s", reinterpret_cast<const char*>(u8"\u9078\u629e\u3057\u305f\u8981\u7d20\u306b\u306f\u30013D\u30d3\u30e5\u30fc\u306b\u8d64\u30fb\u7dd1\u30fb\u9752\u306e\u5ea7\u6a19\u8ef8\u304c\u8868\u793a\u3055\u308c\u307e\u3059\u3002"));
     ImGui::PopStyleColor();
-    ImGui::TextDisabled("Ctrl+Click the renderer to select a scene node.");
+    ImGui::TextDisabled("Left-click a mesh to select it. Right-drag operates the camera.");
     ImGui::TextDisabled("Transform controls apply to the primary selection.");
 
     ImGui::NextColumn();

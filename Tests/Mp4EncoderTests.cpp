@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "Renderer/Mp4Encoder.h"
+#include "Renderer/Mp4EncoderWorker.h"
 #include "Platform/CommandLineOptions.h"
 #include "Runtime/CaptureSession.h"
 #include "Runtime/CaptureSessionUi.h"
@@ -10,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <thread>
 #include <mfapi.h>
 #include <mferror.h>
 
@@ -24,7 +26,9 @@ namespace
     bool InspectVideo(const std::filesystem::path& path, unsigned int expectedWidth, unsigned int expectedHeight,
                       unsigned int expectedFrames, unsigned int fps, bool checkColors,
                       const std::vector<LONGLONG>& expectedTimes = {},
-                      std::optional<LONGLONG> expectedEndTime = std::nullopt, bool checkTimeline = true)
+                      std::optional<LONGLONG> expectedEndTime = std::nullopt, bool checkTimeline = true,
+                      bool checkMotion = false,
+                      std::optional<LONGLONG> expectedEndTimeTolerance = std::nullopt)
     {
         Microsoft::WRL::ComPtr<IMFSourceReader> reader;
         HRESULT result = MFCreateSourceReaderFromURL(path.c_str(), nullptr, &reader);
@@ -49,6 +53,8 @@ namespace
         unsigned int count = 0;
         LONGLONG lastTime = -1;
         LONGLONG endTime = 0;
+        std::vector<BYTE> firstLuma;
+        std::uint64_t motionDifference = 0;
         for (unsigned int reads = 0; reads < (expectedFrames ? expectedFrames + 16 : 10000); ++reads)
         {
             DWORD flags = 0;
@@ -71,6 +77,26 @@ namespace
                 passed &= Check(SUCCEEDED(sample->GetSampleDuration(&duration)) && duration > 0,
                                 "decoded samples retain frame duration");
                 endTime = time + duration;
+                if (checkMotion && (count == 0 || count + 1 == expectedFrames))
+                {
+                    Microsoft::WRL::ComPtr<IMFMediaBuffer> buffer;
+                    result = sample->ConvertToContiguousBuffer(&buffer);
+                    BYTE* pixels = nullptr;
+                    DWORD length = 0;
+                    if (SUCCEEDED(result)) result = buffer->Lock(&pixels, nullptr, &length);
+                    if (!Check(SUCCEEDED(result), "motion-check pixels are accessible")) return false;
+                    const std::size_t lumaBytes = static_cast<std::size_t>(width) * height;
+                    passed &= Check(length >= lumaBytes, "decoded motion-check luma is complete");
+                    if (length >= lumaBytes)
+                    {
+                        if (count == 0)
+                            firstLuma.assign(pixels, pixels + lumaBytes);
+                        else
+                            for (std::size_t pixel = 0; pixel < lumaBytes; ++pixel)
+                                motionDifference += static_cast<unsigned int>(std::abs(int(pixels[pixel]) - int(firstLuma[pixel])));
+                    }
+                    buffer->Unlock();
+                }
                 if (checkColors && count == 0)
                 {
                     Microsoft::WRL::ComPtr<IMFMediaBuffer> buffer;
@@ -92,10 +118,14 @@ namespace
             if (flags & MF_SOURCE_READERF_ENDOFSTREAM) break;
         }
         passed &= Check(expectedFrames ? count == expectedFrames : count > 0, "all encoded frames decode, with no extras");
+        if (checkMotion)
+            passed &= Check(motionDifference >= static_cast<std::uint64_t>(width) * height,
+                            "first and last decoded frames differ by at least one mean luma level");
         const LONGLONG expectedEnd = expectedEndTime.value_or(static_cast<LONGLONG>(expectedFrames * 10000000ull / fps));
         if (checkTimeline)
         {
-            passed &= Check(std::abs(endTime - expectedEnd) <= (expectedFrames ? 1000 : 500000),
+            passed &= Check(std::abs(endTime - expectedEnd) <= expectedEndTimeTolerance.value_or(
+                                expectedFrames ? 1000 : 500000),
                             "video duration follows the capture timeline");
         }
         std::cout << "H.264 " << width << 'x' << height << ", " << count << " frames";
@@ -154,6 +184,45 @@ namespace
         return passed;
     }
 
+    bool TestWorkerEncoding()
+    {
+        const auto directory = std::filesystem::temp_directory_path() /
+            ("RtPbrSurveyMp4Worker_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+        const auto path = directory / "worker.mp4";
+        Engine::Mp4EncoderWorker worker({}, 4);
+        std::string error;
+        bool passed = Check(worker.BeginSession(error), "real MP4 worker starts");
+        for (unsigned int i = 0; i < 3; ++i)
+        {
+            Engine::Mp4Frame frame;
+            frame.request.path = path;
+            frame.request.requestId = i + 1;
+            frame.width = 63;
+            frame.height = 47;
+            frame.pixels.assign(63 * 47 * 4, 255);
+            passed &= Check(worker.Enqueue(std::move(frame), error), error.c_str());
+        }
+        worker.RequestFinalize(std::nullopt);
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+        while (worker.GetStatus().state == Engine::Mp4WorkerState::Finalizing &&
+               std::chrono::steady_clock::now() < deadline)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        const auto status = worker.GetStatus();
+        passed &= Check(status.state == Engine::Mp4WorkerState::Completed, status.error.c_str());
+        for (unsigned int i = 0; i < 3; ++i)
+        {
+            const auto result = worker.ConsumeResult();
+            passed &= Check(result && result->succeeded && result->requestId == i + 1,
+                            "real worker preserves results and frame order");
+        }
+        worker.Shutdown();
+        if (passed) passed &= InspectVideo(path, 64, 48, 3, 60, false);
+        std::filesystem::remove_all(directory);
+        return passed;
+    }
+
     bool TestSessionConfiguration()
     {
         WCHAR executable[] = L"RtPbrSurvey.exe", output[] = L"-CaptureSessionOutputDir", directory[] = L"Captures";
@@ -193,8 +262,9 @@ namespace
                             "all video frames use one output path");
         }
         session.Stop();
-        passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Completed,
-                        "Stop between video frames completes the session");
+        passed &= Check(session.GetStatus().state == RtPbrSurvey::CaptureSessionState::Finalizing,
+                        "MP4 Stop waits for asynchronous finalization");
+        session.CompleteFinalization();
         config.mp4Bitrate = 0;
         passed &= Check(!session.Start(config, error), "invalid bitrate is rejected");
         config.mp4Bitrate = 8000000;
@@ -246,6 +316,26 @@ int main(int argc, char** argv)
         passed = InspectVideo(argv[2], std::stoul(argv[3]), std::stoul(argv[4]), 0, std::stoul(argv[5]), false, {},
                               static_cast<LONGLONG>(std::llround(std::stod(argv[6]) * 10000000.0)));
     }
+    else if (argc == 8 && std::string(argv[1]) == "--timeline")
+    {
+        std::ifstream timeline(argv[7]);
+        std::vector<LONGLONG> expectedTimes;
+        double seconds = 0.0;
+        while (timeline >> seconds)
+        {
+            expectedTimes.push_back(static_cast<LONGLONG>(std::llround(seconds * 10000000.0)));
+        }
+        const LONGLONG duration = static_cast<LONGLONG>(std::llround(std::stod(argv[6]) * 10000000.0));
+        passed = timeline.eof() && !expectedTimes.empty() &&
+            InspectVideo(argv[2], std::stoul(argv[3]), std::stoul(argv[4]),
+                         static_cast<unsigned int>(expectedTimes.size()), std::stoul(argv[5]), false,
+                         expectedTimes, duration, true, true, 1000000);
+    }
+    else if (argc == 7 && std::string(argv[1]) == "--motion")
+    {
+        passed = InspectVideo(argv[2], std::stoul(argv[3]), std::stoul(argv[4]), std::stoul(argv[5]),
+                              std::stoul(argv[6]), false, {}, std::nullopt, true, true);
+    }
     else if (argc == 6 && std::string(argv[1]) == "--decode-only")
     {
         passed = InspectVideo(argv[2], std::stoul(argv[3]), std::stoul(argv[4]), std::stoul(argv[5]), 1,
@@ -257,7 +347,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        passed = TestEncoding() && TestSessionConfiguration();
+        passed = TestEncoding() && TestWorkerEncoding() && TestSessionConfiguration();
     }
     MFShutdown();
     CoUninitialize();

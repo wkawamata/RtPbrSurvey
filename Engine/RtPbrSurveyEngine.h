@@ -37,7 +37,7 @@
 #include "Renderer/PipelineFactory.h"
 #include "Renderer/AccelerationStructureResources.h"
 #include "Renderer/AnimatedGifEncoder.h"
-#include "Renderer/Mp4Encoder.h"
+#include "Renderer/Mp4EncoderWorker.h"
 #include "Renderer/RayQueryShadowPass.h"
 #include "Renderer/SpecularDebugRayQueryPass.h"
 #include "Renderer/RayQueryTlasDebugPass.h"
@@ -286,7 +286,7 @@ public:
         bool pixelCenterPrimary = false;
         bool denoiserDistanceDiagnostics = false;
         bool nrdPreview = false;
-        UINT maxBounces = 2;
+        UINT maxBounces = 8;
         UINT randomSeed = 1;
         bool directLightingEnabled = true;
         bool environmentEnabled = true;
@@ -490,10 +490,17 @@ public:
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult();
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResult(std::uint64_t requestId);
     std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResultExcept(std::uint64_t requestId);
+    std::optional<RtPbrSurvey::ScreenshotResult> ConsumeScreenshotResultExcept(const std::vector<std::uint64_t>& requestIds);
     bool IsScreenshotCaptureIdle() const;
     bool FinalizeAnimatedGif(std::string& error);
     void AbortAnimatedGif();
-    bool FinalizeMp4(std::string& error, std::optional<std::uint64_t> endTimestamp100ns = std::nullopt);
+    bool BeginMp4Session(std::string& error, const std::optional<RtPbrSurvey::ScreenshotRegion>& region = std::nullopt);
+    bool CanAcceptMp4Capture() const;
+    Engine::ScreenshotReadbackPoolStatus GetMp4ReadbackStatus() const;
+    Engine::Mp4WorkerStatus GetMp4WorkerStatus() const { return m_mp4Encoder.GetStatus(); }
+    bool SetMp4DiagnosticAppendDelay(unsigned int milliseconds) { return m_mp4Encoder.SetDiagnosticAppendDelay(milliseconds); }
+    bool PollFinalizeMp4(std::string& error, bool& completed,
+                         std::optional<std::uint64_t> endTimestamp100ns = std::nullopt);
     void AbortMp4();
     void ReloadEnvironmentResources(const Engine::ProceduralEnvironmentSettings& settings);
     void RequestPixelPick(int screenX, int screenY);
@@ -1276,11 +1283,20 @@ private:
         RtPbrSurvey::ScreenshotRequest request;
         Engine::ScreenshotReadback readback;
         UINT64 fenceValue = 0;
+        UINT64 sequence = 0;
+        bool active = false;
+        bool detached = false;
     };
     Engine::ScreenshotRequestQueue m_screenshotRequestQueue;
-    std::optional<PendingScreenshotCapture> m_pendingScreenshotCapture;
+    std::array<PendingScreenshotCapture, 2> m_screenshotCaptures;
+    UINT64 m_screenshotCaptureSequence = 0;
+    UINT64 m_mp4ReadbackAllocations = 0;
+    UINT64 m_mp4ReadbackReuses = 0;
     Engine::AnimatedGifEncoder m_animatedGifEncoder;
-    Engine::Mp4Encoder m_mp4Encoder;
+    Engine::Mp4EncoderWorker m_mp4Encoder;
+    std::size_t m_mp4CaptureFrameBytes = 0;
+    UINT m_mp4OutputWidth = 0;
+    UINT m_mp4OutputHeight = 0;
 
     // Pixel pick (Ctrl+Click to inspect reflection vector)
     bool m_pixelPickRequested = false;

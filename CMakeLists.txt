@@ -90,6 +90,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/AccelerationStructureResources.cpp
     Renderer/AnimatedGifEncoder.cpp
     Renderer/Mp4Encoder.cpp
+    Renderer/Mp4EncoderWorker.cpp
     Renderer/BrdfLut.cpp
     Renderer/ClearPass.cpp
     Renderer/DebugDumpCapture.cpp
@@ -800,6 +801,12 @@ if(RTPBRSURVEY_BUILD_TESTS)
         target_compile_options(RtPbrSurvey.Mp4EncoderTests PRIVATE /permissive)
     endif()
     add_test(NAME RtPbrSurvey.Mp4Encoder COMMAND RtPbrSurvey.Mp4EncoderTests)
+
+    add_executable(RtPbrSurvey.Mp4EncoderWorkerTests Tests/Mp4EncoderWorkerTests.cpp)
+    target_link_libraries(RtPbrSurvey.Mp4EncoderWorkerTests PRIVATE RtPbrSurvey::SceneRenderer)
+    rtpbrsurvey_copy_runtime_files(RtPbrSurvey.Mp4EncoderWorkerTests)
+    add_test(NAME RtPbrSurvey.Mp4EncoderWorker COMMAND RtPbrSurvey.Mp4EncoderWorkerTests)
+    set_tests_properties(RtPbrSurvey.Mp4EncoderWorker PROPERTIES TIMEOUT 30)
 
     add_executable(RtPbrSurvey.AssetPathTests
         Tests/AssetPathTests.cpp)

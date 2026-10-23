@@ -27,4 +27,5 @@ protected:
 
 private:
     static HWND m_hwnd;
+    static UINT m_capturedMouseButtons;
 };

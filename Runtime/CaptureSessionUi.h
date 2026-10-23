@@ -37,6 +37,7 @@ namespace RtPbrSurvey
         int mp4BitrateMbps = 12;
         int gifDisposal = static_cast<int>(CaptureSessionGifDisposal::Keep);
         int warmupFrames = 0;
+        int startDelayMilliseconds = 0;
         bool useFrameLimit = true;
         int frameLimit = 60;
         bool useDurationLimit = false;

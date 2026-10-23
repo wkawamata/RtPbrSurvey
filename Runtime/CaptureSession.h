@@ -3,9 +3,11 @@
 #include "Shared/Screenshot.h"
 
 #include <cstdint>
+#include <cstddef>
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace RtPbrSurvey
 {
@@ -40,11 +42,13 @@ namespace RtPbrSurvey
     enum class CaptureSessionState
     {
         Idle,
+        Delaying,
         Warmup,
         Recording,
         Draining,
         Completed,
         Failed,
+        Finalizing,
     };
 
     struct CaptureSessionConfig
@@ -63,6 +67,7 @@ namespace RtPbrSurvey
         std::uint16_t gifRepeatCount = 0;
         CaptureSessionGifDisposal gifDisposal = CaptureSessionGifDisposal::Keep;
         std::uint32_t warmupFrames = 0;
+        std::uint32_t startDelayMilliseconds = 0;
         std::optional<std::uint64_t> frameLimit;
         std::optional<double> durationSeconds;
 
@@ -72,9 +77,23 @@ namespace RtPbrSurvey
 
     struct CaptureSessionTiming
     {
+        // Warmup cadence: advance only for qualifying scene updates, not presentation-only polls.
         std::uint64_t renderFrameIndex = 0;
         double realTimeSeconds = 0.0;
         double simulationTimeSeconds = 0.0;
+    };
+
+    struct CaptureEncoderDiagnostics
+    {
+        std::size_t outstandingFrames = 0;
+        std::size_t outstandingBytes = 0;
+        double lastAppendMilliseconds = 0.0;
+        double maxAppendMilliseconds = 0.0;
+        double finalizeMilliseconds = 0.0;
+        std::size_t gpuPendingFrames = 0;
+        std::size_t gpuReadbackBytes = 0;
+        std::uint64_t gpuReadbackAllocations = 0;
+        std::uint64_t gpuReadbackReuses = 0;
     };
 
     struct CaptureSessionStatus
@@ -86,6 +105,7 @@ namespace RtPbrSurvey
         // Absolute, lexically normalized path of the last accepted request; empty before acceptance.
         std::filesystem::path lastOutputPath;
         std::string error;
+        CaptureEncoderDiagnostics encoder;
     };
 
     // Host-driven capture scheduler. It never waits for the GPU. A host acquires a
@@ -93,9 +113,9 @@ namespace RtPbrSurvey
     class CaptureSession
     {
     public:
-        bool Start(const CaptureSessionConfig& config, std::string& error);
+        bool Start(const CaptureSessionConfig& config, std::string& error, std::size_t maxRequestsInFlight = 1);
         void Stop();
-        void Update(const CaptureSessionTiming& timing);
+        void Update(const CaptureSessionTiming& timing, bool captureAvailable = true);
         std::optional<ScreenshotRequest> AcquireReadyRequest();
         void MarkRequestAccepted();
         void CompleteRequest(ScreenshotResult result);
@@ -106,7 +126,10 @@ namespace RtPbrSurvey
         bool UsesMp4() const;
         std::optional<std::uint64_t> GetVideoEndTimestamp100ns() const;
         void FailFinalization(const std::string& error);
+        void CompleteFinalization();
+        void SetEncoderDiagnostics(const CaptureEncoderDiagnostics& diagnostics) { m_status.encoder = diagnostics; }
         std::optional<std::uint64_t> GetActiveRequestId() const;
+        const std::vector<std::uint64_t>& GetActiveRequestIds() const { return m_activeRequestIds; }
         const CaptureSessionStatus& GetStatus() const;
 
     private:
@@ -122,8 +145,8 @@ namespace RtPbrSurvey
         std::optional<CaptureSessionTiming> m_startTiming;
         std::optional<CaptureSessionTiming> m_recordingStartTiming;
         std::optional<ScreenshotRequest> m_readyRequest;
-        std::optional<std::uint64_t> m_activeRequestId;
-        bool m_requestInFlight = false;
+        std::vector<std::uint64_t> m_activeRequestIds;
+        std::size_t m_maxRequestsInFlight = 1;
         bool m_stopRequested = false;
         double m_nextCaptureSeconds = 0.0;
         double m_lastClockSeconds = 0.0;

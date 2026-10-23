@@ -1,6 +1,7 @@
 """Deferred exit, failure exit code, and capture conflict regression for the standalone app; artifacts remain under bin."""
 import argparse
 import ctypes
+import ctypes.wintypes
 import hashlib
 import json
 from pathlib import Path
@@ -93,6 +94,22 @@ def post_key(hwnd, value):
     user.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t]
     if not user.PostMessageW(hwnd, WM_KEYDOWN, value, 1) or not user.PostMessageW(hwnd, WM_KEYUP, value, 1):
         raise ctypes.WinError(ctypes.get_last_error())
+
+
+def resize_window(hwnd, width, height):
+    user = ctypes.WinDLL("user32", use_last_error=True)
+    rect = ctypes.wintypes.RECT()
+    user.GetWindowRect.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.wintypes.RECT)]
+    user.MoveWindow.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int,
+                                ctypes.c_int, ctypes.c_int, ctypes.c_bool]
+    user.GetClientRect.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.wintypes.RECT)]
+    if not user.GetWindowRect(hwnd, ctypes.byref(rect)) or \
+            not user.MoveWindow(hwnd, rect.left, rect.top, width, height, True):
+        raise ctypes.WinError(ctypes.get_last_error())
+    client = ctypes.wintypes.RECT()
+    if not user.GetClientRect(hwnd, ctypes.byref(client)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    return client.right - client.left, client.bottom - client.top
 
 
 def start(command, working_directory=ROOT):
@@ -261,10 +278,14 @@ def plan_after(directory, log, checks):
 
 def paused_close_during(child, directory, log, checks):
     hwnd = wait_for(lambda: window_for(child.pid), child)
+    before = wait_for(lambda: frames(log), child, timeout=60)
     post_key(hwnd, P_KEY)
+    time.sleep(.5)
+    checks["captureClockPaused"] = len(frames(log)) == len(before)
+    assert checks["captureClockPaused"], "fixed-step capture advanced while paused"
     post_key(hwnd, F_KEY)
-    captured = wait_for(lambda: frames(log), child, timeout=60)
-    checks["pausedFrameCaptured"] = len(captured) >= 1
+    captured = wait_for(lambda: frames(log) if len(frames(log)) > len(before) else None, child, timeout=60)
+    checks["pausedFrameCaptured"] = len(captured) == len(before) + 1
     assert checks["pausedFrameCaptured"], "no frame was captured while paused"
     post_message(hwnd, WM_CLOSE)
     checks["stillAliveWhileSaving"] = child.poll() is None
@@ -310,6 +331,48 @@ def scene_switch_during(child, directory, log, checks):
     post_message(hwnd, WM_CLOSE)
 
 
+def resize_during_capture(child, directory, log, checks):
+    hwnd = wait_for(lambda: window_for(child.pid), child)
+    wait_for(lambda: len(frames(log)) >= 1, child, timeout=60)
+    first_size = resize_window(hwnd, 1280, 800)
+    wait_for(lambda: len(frames(log)) >= 3, child, timeout=60)
+    second_size = resize_window(hwnd, 1600, 1000)
+    wait_for(lambda: len(frames(log)) >= 5, child, timeout=60)
+    checks["windowResizedWhileCaptureActive"] = first_size != second_size
+    assert checks["windowResizedWhileCaptureActive"], "client size did not change during capture"
+    checks["captureContinuedAfterResize"] = len(frames(log)) >= 5
+    assert checks["captureContinuedAfterResize"], "capture stopped while the window was resized"
+    post_message(hwnd, WM_CLOSE)
+
+
+def session_stop_restart_during(child, directory, log, checks):
+    hwnd = wait_for(lambda: window_for(child.pid), child)
+    post_key(hwnd, F8)
+    wait_for(lambda: len(frames(log)) >= 1, child, timeout=60)
+    post_key(hwnd, F8)
+    wait_for(lambda: len(re.findall(r"\[CAPTURE_SESSION_END\]", read_log(log))) >= 1, child, timeout=60)
+    first_count = len(frames(log))
+    post_key(hwnd, F8)
+    wait_for(lambda: len(frames(log)) > first_count, child, timeout=60)
+    post_key(hwnd, F8)
+    wait_for(lambda: len(re.findall(r"\[CAPTURE_SESSION_END\]", read_log(log))) >= 2, child, timeout=60)
+    checks["secondSessionStartedAfterDrain"] = True
+    post_message(hwnd, WM_CLOSE)
+
+
+def session_stop_restart_after(directory, log, checks):
+    endings = re.findall(
+        r"\[CAPTURE_SESSION_END\] state=(\w+) accepted=(\d+) saved=(\d+) dropped=(\d+)", read_log(log))
+    checks["bothSessionsCompleted"] = len(endings) == 2 and all(
+        state == "Completed" and int(accepted) == int(saved) and int(accepted) > 0
+        for state, accepted, saved, _ in endings)
+    assert checks["bothSessionsCompleted"], "both stop/restart sessions did not drain cleanly"
+    outputs = sorted((directory / "Screenshots").glob("capture_*.png"))
+    checks["restartedSessionOutputReadable"] = bool(outputs) and all(png_size(path) == (1920, 1080) for path in outputs)
+    assert checks["restartedSessionOutputReadable"], "restarted session output is missing or unreadable"
+    return dict(sessionEndings=endings, outputFiles=[path.name for path in outputs])
+
+
 def gif_after(directory, log, checks):
     captured = frames(log)
     outputs = sorted(directory.glob("*.gif"))
@@ -327,11 +390,16 @@ REQUIRED_CHECKS = {
     "restart-after-automated": {"refusedWhileAutomatedCapturePending", "startAllowedAfterCompletion", "allAcceptedFramesSaved", "outputsReadable"},
     "restart-after-failure": {"refusedWhileAutomatedCapturePending", "startAllowedAfterFailure", "allAcceptedFramesSaved", "outputsReadable"},
     "plan-reservation-conflict": {"refusedWhileReservationsRemain", "startAllowedAfterReservations", "planReservationsExecuted", "planOutputsReadable"},
-    "paused-close-without-stop": {"pausedFrameCaptured", "stillAliveWhileSaving", "closedWithoutExplicitStop", "allAcceptedFramesSaved", "outputsReadable"},
+    "paused-close-without-stop": {"captureClockPaused", "pausedFrameCaptured", "stillAliveWhileSaving",
+                                  "closedWithoutExplicitStop", "allAcceptedFramesSaved", "outputsReadable"},
     "warmup-close": {"noFrameAcceptedDuringWarmup", "stillAliveDuringWarmup", "warmupReleasedWithoutOutput"},
     "warmup-stop-close": {"noFrameAcceptedDuringWarmup", "stillAliveDuringWarmup", "warmupReleasedWithoutOutput"},
     "draining-close": {"stillAliveWhileDraining", "allAcceptedFramesSaved", "outputsReadable"},
     "scene-switch-guard": {"noNewFramesAfterSwitchRequest", "allAcceptedFramesSaved", "outputsReadable"},
+    "resize-during-capture": {"windowResizedWhileCaptureActive", "captureContinuedAfterResize",
+                              "allAcceptedFramesSaved", "outputsReadable"},
+    "session-stop-restart": {"secondSessionStartedAfterDrain", "bothSessionsCompleted",
+                              "restartedSessionOutputReadable"},
     "gif-finalize": {"frameAcceptedBeforeCloseRequest", "stillAliveAtCloseRequest", "gifFinalizedAfterClose", "gifFrameCountMatchesAccepted"},
     "exr-finalize": {"frameAcceptedBeforeCloseRequest", "stillAliveAtCloseRequest", "allAcceptedFramesSaved", "outputsReadable"},
 }
@@ -433,6 +501,12 @@ def main():
         dict(name="scene-switch-guard", command=lambda d: session_command(d, ["-CaptureSessionFrames", "100",
             "-CaptureSessionFps", "60"]), during=scene_switch_during,
             after=lambda d, l, c: check_saved_outputs(d, l, c, "frame_*.png", png_size), expectedExitCode=0),
+        dict(name="resize-during-capture", command=lambda d: session_command(d, ["-CaptureSessionFrames", "8",
+            "-CaptureSessionFps", "30"]), during=resize_during_capture,
+            after=lambda d, l, c: check_saved_outputs(d, l, c, "frame_*.png", png_size), expectedExitCode=0),
+        dict(name="session-stop-restart", command=lambda d: [str(EXECUTABLE), "-SceneFile", str(SCENE),
+            "-RenderPreset", str(PRESET)], during=session_stop_restart_during,
+            after=session_stop_restart_after, expectedExitCode=0),
         dict(name="gif-finalize", command=lambda d: session_command(d, ["-CaptureSessionFrames", "3",
             "-CaptureSessionFps", "60", "-CaptureSessionFormat", "gif"]), during=deferred_close_during,
             after=gif_after, expectedExitCode=0),

@@ -303,3 +303,15 @@ The emissive final visual check remains pending: Scene Editor currently hides
 the normal Debug window, preventing interactive NRD switching on saved scenes.
 Add a separate Saved Scenes run entry before resuming that check. This delivery
 is default-off and quality-limited; do not describe the pending check as passed.
+
+### Main Integration Gate, 2026-10-23
+
+Integrated origin/main at 6fa5bb4 in an isolated worktree for PR 101.
+Preserved NRD diagnostic fields and PT timeline tests alongside main's capture
+clock, encoder diagnostics and camera selection changes. Retained main's
+default maximum bounce count of eight; the manual Cornell check used four.
+SDK-enabled Debug x64 build passed after retrying one parallel Assets copy
+failure. CTest passed 39/39, including NRD GPU contract tests and capture tests.
+Python NRD tests ran 197 with no failures and seven skips because historical
+generated evidence is absent in the isolated worktree. No new full visual or
+long convergence campaign was performed. Emissive manual review remains pending.

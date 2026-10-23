@@ -20,6 +20,26 @@
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 HWND Win32Application::m_hwnd = nullptr;
+UINT Win32Application::m_capturedMouseButtons = 0;
+
+namespace
+{
+UINT GetMouseButtonFlag(UINT8 button)
+{
+    switch (button)
+    {
+        case VK_LBUTTON:
+            return MK_LBUTTON;
+        case VK_MBUTTON:
+            return MK_MBUTTON;
+        case VK_RBUTTON:
+            return MK_RBUTTON;
+        default:
+            return 0;
+    }
+}
+
+} // namespace
 
 int Win32Application::Run(Platform::IApplication* pApp, HINSTANCE hInstance, int nCmdShow)
 {
@@ -100,6 +120,26 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
         return true;
 
     Platform::IApplication* pApp = reinterpret_cast<Platform::IApplication*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+    const auto cancelCapturedMouseButtons = [&](bool releaseCapture)
+    {
+        const UINT capturedButtons = m_capturedMouseButtons;
+        m_capturedMouseButtons = 0;
+        if (pApp != nullptr)
+        {
+            for (UINT8 button : {static_cast<UINT8>(VK_LBUTTON), static_cast<UINT8>(VK_MBUTTON),
+                                 static_cast<UINT8>(VK_RBUTTON)})
+            {
+                if ((capturedButtons & GetMouseButtonFlag(button)) != 0)
+                {
+                    pApp->OnMouseUp(button, 0, 0);
+                }
+            }
+        }
+        if (releaseCapture && GetCapture() == hWnd)
+        {
+            ReleaseCapture();
+        }
+    };
 
     switch (message)
     {
@@ -149,7 +189,11 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
                 {
                     return 0;
                 }
-                SetCapture(hWnd);
+                if (m_capturedMouseButtons == 0)
+                {
+                    SetCapture(hWnd);
+                }
+                m_capturedMouseButtons |= MK_LBUTTON;
                 pApp->OnMouseDown(VK_LBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             }
             return 0;
@@ -157,8 +201,15 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
         case WM_LBUTTONUP:
             if (pApp)
             {
-                ReleaseCapture();
-                pApp->OnMouseUp(VK_LBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+                if ((m_capturedMouseButtons & MK_LBUTTON) != 0)
+                {
+                    m_capturedMouseButtons &= ~MK_LBUTTON;
+                    pApp->OnMouseUp(VK_LBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+                    if (m_capturedMouseButtons == 0 && GetCapture() == hWnd)
+                    {
+                        ReleaseCapture();
+                    }
+                }
             }
             return 0;
 
@@ -169,7 +220,11 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
                 {
                     return 0;
                 }
-                SetCapture(hWnd);
+                if (m_capturedMouseButtons == 0)
+                {
+                    SetCapture(hWnd);
+                }
+                m_capturedMouseButtons |= MK_MBUTTON;
                 pApp->OnMouseDown(VK_MBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             }
             return 0;
@@ -177,9 +232,58 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
         case WM_MBUTTONUP:
             if (pApp)
             {
-                ReleaseCapture();
-                pApp->OnMouseUp(VK_MBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+                if ((m_capturedMouseButtons & MK_MBUTTON) != 0)
+                {
+                    m_capturedMouseButtons &= ~MK_MBUTTON;
+                    pApp->OnMouseUp(VK_MBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+                    if (m_capturedMouseButtons == 0 && GetCapture() == hWnd)
+                    {
+                        ReleaseCapture();
+                    }
+                }
             }
+            return 0;
+
+        case WM_RBUTTONDOWN:
+            if (pApp)
+            {
+                if (ImGui::GetIO().WantCaptureMouse)
+                {
+                    return 0;
+                }
+                if (m_capturedMouseButtons == 0)
+                {
+                    SetCapture(hWnd);
+                }
+                m_capturedMouseButtons |= MK_RBUTTON;
+                pApp->OnMouseDown(VK_RBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+            }
+            return 0;
+
+        case WM_RBUTTONUP:
+            if (pApp)
+            {
+                if ((m_capturedMouseButtons & MK_RBUTTON) != 0)
+                {
+                    m_capturedMouseButtons &= ~MK_RBUTTON;
+                    pApp->OnMouseUp(VK_RBUTTON, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+                    if (m_capturedMouseButtons == 0 && GetCapture() == hWnd)
+                    {
+                        ReleaseCapture();
+                    }
+                }
+            }
+            return 0;
+
+        case WM_CAPTURECHANGED:
+            if (reinterpret_cast<HWND>(lParam) != hWnd)
+            {
+                cancelCapturedMouseButtons(false);
+            }
+            return 0;
+
+        case WM_CANCELMODE:
+            cancelCapturedMouseButtons(true);
             return 0;
 
         case WM_MOUSEMOVE:
@@ -218,6 +322,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
             return 0;
 
         case WM_DESTROY:
+            m_capturedMouseButtons = 0;
             PostQuitMessage(pApp != nullptr ? static_cast<UINT>(pApp->GetExitCode()) : 0);
             return 0;
     }

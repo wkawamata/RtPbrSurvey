@@ -20,12 +20,16 @@ namespace RtPbrSurvey
             {
                 case CaptureSessionState::Idle:
                     return "Idle";
+                case CaptureSessionState::Delaying:
+                    return "Start delay";
                 case CaptureSessionState::Warmup:
                     return "Warmup";
                 case CaptureSessionState::Recording:
                     return "Recording";
                 case CaptureSessionState::Draining:
                     return "Draining";
+                case CaptureSessionState::Finalizing:
+                    return "Finalizing";
                 case CaptureSessionState::Completed:
                     return "Completed";
                 case CaptureSessionState::Failed:
@@ -53,6 +57,7 @@ namespace RtPbrSurvey
         config.gifRepeatCount = static_cast<std::uint16_t>((std::clamp)(state.gifRepeatCount, 0, 65535));
         config.gifDisposal = static_cast<CaptureSessionGifDisposal>(state.gifDisposal);
         config.warmupFrames = static_cast<std::uint32_t>((std::max)(0, state.warmupFrames));
+        config.startDelayMilliseconds = static_cast<std::uint32_t>((std::max)(0, state.startDelayMilliseconds));
         if (state.useFrameLimit)
         {
             config.frameLimit = static_cast<std::uint64_t>((std::max)(0, state.frameLimit));
@@ -75,8 +80,9 @@ namespace RtPbrSurvey
 
     bool CaptureSessionUi::IsActive(const CaptureSessionStatus& status)
     {
-        return status.state == CaptureSessionState::Warmup || status.state == CaptureSessionState::Recording ||
-               status.state == CaptureSessionState::Draining;
+        return status.state == CaptureSessionState::Delaying || status.state == CaptureSessionState::Warmup ||
+               status.state == CaptureSessionState::Recording ||
+               status.state == CaptureSessionState::Draining || status.state == CaptureSessionState::Finalizing;
     }
 
     void CaptureSessionUi::Update(SceneRenderer& renderer, const CaptureSessionTiming& timing)
@@ -182,6 +188,7 @@ namespace RtPbrSurvey
             ImGui::Checkbox("Show ROI overlay", &state.showRegionOverlay);
         }
         ImGui::InputInt("FPS", &state.framesPerSecond);
+        ImGui::InputInt("Start delay (ms)", &state.startDelayMilliseconds);
         ImGui::InputInt("Warmup frames", &state.warmupFrames);
         ImGui::Checkbox("Frame limit", &state.useFrameLimit);
         if (state.useFrameLimit)
@@ -201,6 +208,19 @@ namespace RtPbrSurvey
                     static_cast<unsigned long long>(status.acceptedFrameCount),
                     static_cast<unsigned long long>(status.savedFrameCount),
                     static_cast<unsigned long long>(status.droppedFrameCount));
+        if (static_cast<CaptureSessionOutputFormat>(state.outputFormat) == CaptureSessionOutputFormat::Mp4)
+        {
+            ImGui::TextWrapped("Reserved/owned: %zu frames, %.1f MiB", status.encoder.outstandingFrames,
+                        static_cast<double>(status.encoder.outstandingBytes) / (1024.0 * 1024.0));
+            ImGui::TextWrapped("GPU readback: %zu pending, %.1f MiB",
+                        status.encoder.gpuPendingFrames,
+                        static_cast<double>(status.encoder.gpuReadbackBytes) / (1024.0 * 1024.0));
+            ImGui::TextWrapped("Readback allocations/reuses: %llu / %llu",
+                        static_cast<unsigned long long>(status.encoder.gpuReadbackAllocations),
+                        static_cast<unsigned long long>(status.encoder.gpuReadbackReuses));
+            ImGui::Text("Append: %.2f ms (max %.2f), finalize: %.2f ms", status.encoder.lastAppendMilliseconds,
+                        status.encoder.maxAppendMilliseconds, status.encoder.finalizeMilliseconds);
+        }
         if (!status.lastOutputPath.empty())
         {
             const std::u8string outputPathUtf8 = status.lastOutputPath.u8string();
