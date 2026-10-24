@@ -25,6 +25,10 @@ enum class PathTracingInputSignal : uint32_t
     SpecularDirection,
     DiffuseDistance,
     SpecularDistance,
+    // Actual radiance continuation, distinct from independent NRD lobe probes.
+    PrimaryContinuation,
+    SecondaryRayData,
+    SecondarySurfaceDistance,
     Count,
 };
 
@@ -63,8 +67,9 @@ struct PathTracingReconstructionFrame
     // Engine row-vector convention, row-major storage, no projection jitter.
     std::array<float, 16> worldToView = {};
     std::array<float, 16> viewToClip = {};
-    std::array<float, 16> previousWorldToView = {};
-    std::array<float, 16> previousViewToClip = {};
+    // Exact previous combined transform used by the producer's motion shader.
+    // Backend-specific separated previous matrices belong to its history state.
+    std::array<float, 16> previousViewProjection = {};
 };
 
 struct PathTracingReconstructionInputs
@@ -86,6 +91,9 @@ enum class PathTracingInputIssue
     FrameMismatch,
     SampleMismatch,
     SamplingPolicyMismatch,
+    MissingProduction,
+    ResourceIdentityMismatch,
+    InvalidResourceShape,
 };
 
 struct PathTracingInputValidation

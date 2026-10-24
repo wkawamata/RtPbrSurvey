@@ -19,6 +19,11 @@ void RtPbrSurveyEngine::BuildRenderPasses()
     m_reflectionHistoryCommitPending = false;
     m_reflectionSamplingCommitPending = false;
     m_pathTracingSampleCommitPending = false;
+    m_pathTracingProduction.Invalidate();
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    m_rrConversionRecorded = false;
+    m_rrConversionHostGate = 6;
+#endif
     m_pathTracingGeometryToken = 0;
     m_renderGraphRuntime.Graph().Clear();
     m_renderGraphRuntime.Operations().Clear();
@@ -43,6 +48,12 @@ void RtPbrSurveyEngine::BuildRenderPasses()
                 m_nrdComposedOutputValid = false;
 #endif
                 AddPass(MakePathTracingPass());
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+                if (m_rrConversionPipeline != nullptr)
+                {
+                    AddPass(MakeRrConversionPass());
+                }
+#endif
 #ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
                 if (m_nrdConversionPipeline != nullptr)
                 {
@@ -376,6 +387,17 @@ auto RtPbrSurveyEngine::MakePathTracingHistoryClearPass() -> RenderPass
 #endif
 #endif
 #endif
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideRrColor], D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideRrDiffuseAlbedo], D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideRrSpecularAlbedo], D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideRrNormal], D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideRrRoughness], D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideRrLinearDepth], D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideRrMotion], D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideRrHitDistance], D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kPathTracingGuideTextureResourceNames[PathTracingGuideRrStatus], D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+#endif
         })
         .Operation(Op::PathTracingHistoryClear, &RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass)
         .Build();
@@ -444,6 +466,31 @@ auto RtPbrSurveyEngine::MakePathTracingPass() -> RenderPass
                   D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PathTracing, &RtPbrSurveyEngine::ExecutePathTracingPass)
         .Build();
+}
+
+auto RtPbrSurveyEngine::MakeRrConversionPass() -> RenderPass
+{
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    Engine::ResourceUsages reads;
+    Engine::ResourceUsages writes;
+    for (Engine::PathTracingInputSignal signal : Engine::kPathTracingRrSignals)
+    {
+        reads.push_back({kPathTracingGuideTextureResourceNames[GetPathTracingGuideIndex(signal)],
+                         D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE});
+    }
+    for (UINT index = PathTracingGuideRrColor; index <= PathTracingGuideRrStatus; ++index)
+    {
+        writes.push_back({kPathTracingGuideTextureResourceNames[index], D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
+    }
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"PT RR Input Conversion Diagnostics")
+        .Reads(std::move(reads))
+        .Writes(std::move(writes))
+        .Operation(Op::RrConversion, &RtPbrSurveyEngine::ExecuteRrConversionPass)
+        .Build();
+#else
+    return {};
+#endif
 }
 
 auto RtPbrSurveyEngine::MakeNrdConversionPass() -> RenderPass

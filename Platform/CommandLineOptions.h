@@ -66,6 +66,8 @@ struct ReflectionCapturePlan
 struct CommandLineOptions
 {
     bool useWarpDevice = false;
+    UINT windowWidth = 0;
+    UINT windowHeight = 0;
     std::wstring logFilePath;
     UINT logFpsInterval = 0;
     bool autoSelectGltfDamagedHelmet = false;

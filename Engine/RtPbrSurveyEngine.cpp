@@ -962,6 +962,18 @@ void RtPbrSurveyEngine::RegisterDebugResourceViews()
                     DXGI_FORMAT_R32G32B32A32_FLOAT);
 #endif
 #endif
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    for (UINT index = PathTracingGuideRrColor; index <= PathTracingGuideRrStatus; ++index)
+    {
+        const DXGI_FORMAT format = index <= PathTracingGuideRrNormal ? DXGI_FORMAT_R32G32B32A32_FLOAT :
+            index == PathTracingGuideRrMotion ? DXGI_FORMAT_R32G32_FLOAT : DXGI_FORMAT_R32_FLOAT;
+        const auto semantic = index == PathTracingGuideRrNormal ? Engine::DebugTexturePreviewSemantic::Normal :
+            index == PathTracingGuideRrMotion ? Engine::DebugTexturePreviewSemantic::MotionVector :
+            index <= PathTracingGuideRrSpecularAlbedo ? Engine::DebugTexturePreviewSemantic::Color :
+                                                      Engine::DebugTexturePreviewSemantic::Scalar;
+        registerTexture(kPathTracingGuideTextureResourceNames[index], semantic, format);
+    }
+#endif
     registerTexture(kReflectionEvaluatedRadianceResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionSpecularAlbedoResourceName, Engine::DebugTexturePreviewSemantic::Color);
     registerTexture(kReflectionRoughnessResourceName, Engine::DebugTexturePreviewSemantic::Scalar);
@@ -3154,33 +3166,59 @@ void RtPbrSurveyEngine::CreatePipelineStates()
 {
     const PipelineShaderBytecode shaders = LoadPipelineShaderBytecode();
     RegisterPipelineStates(shaders);
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    {
+        CD3DX12_DESCRIPTOR_RANGE1 reads[Engine::kPathTracingRrSignals.size()], writes[9];
+        for (UINT i = 0; i < _countof(reads); ++i)
+        {
+            reads[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+                          1,
+                          i,
+                          0,
+                          D3D12_DESCRIPTOR_RANGE_FLAG_NONE,
+                          2 * GetPathTracingGuideIndex(Engine::kPathTracingRrSignals[i]));
+        }
+        for (UINT i = 0; i < _countof(writes); ++i)
+        {
+            writes[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * i);
+        }
+        CD3DX12_ROOT_PARAMETER1 parameters[3];
+        parameters[0].InitAsDescriptorTable(_countof(reads), reads);
+        parameters[1].InitAsDescriptorTable(_countof(writes), writes);
+        parameters[2].InitAsConstants(19, 0);
+        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC desc;
+        desc.Init_1_1(_countof(parameters), parameters);
+        ComPtr<ID3DBlob> signature, error;
+        ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1_0, &signature, &error));
+        ThrowIfFailed(m_graphicsDevice.Device()->CreateRootSignature(
+            0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_rrConversionRootSignature)));
+        const ShaderBytecode shader = LoadShaderBytecode(L"shaders_PathTracingRrConversion_CSMain.cso");
+        D3D12_COMPUTE_PIPELINE_STATE_DESC pipeline = {};
+        pipeline.pRootSignature = m_rrConversionRootSignature.Get();
+        pipeline.CS = CD3DX12_SHADER_BYTECODE(shader.data, shader.size);
+        ThrowIfFailed(
+            m_graphicsDevice.Device()->CreateComputePipelineState(&pipeline, IID_PPV_ARGS(&m_rrConversionPipeline)));
+    }
+#endif
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     try
     {
 #endif
 #ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
-    const UINT inputs[] = {PathTracingGuideNormalRoughness,
-                           PathTracingGuideAlbedo,
-                           PathTracingGuideMaterialF0Metallic,
-                           PathTracingGuidePhysicalDiffuse,
-                           PathTracingGuidePhysicalSpecular,
-                           PathTracingGuideDenoiserDiffuseDistance,
-                           PathTracingGuideDenoiserSpecularDistance,
-                           PathTracingGuideDenoiserPrimaryPosition,
-                           PathTracingGuideDenoiserDiffuseDirection,
-                           PathTracingGuideDenoiserSpecularDirection,
-                           PathTracingGuideViewZ};
+        const auto& inputs = Engine::kNrdRelaxConversionSignals;
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
-    constexpr UINT outputCount = 9;
+        constexpr UINT outputCount = 9;
 #elif defined(RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS)
     constexpr UINT outputCount = 7;
 #else
     constexpr UINT outputCount = 6;
 #endif
-    CD3DX12_DESCRIPTOR_RANGE1 inputRanges[11], outputRanges[outputCount], cameraRange;
-    for (UINT i = 0; i < _countof(inputs); ++i)
+    CD3DX12_DESCRIPTOR_RANGE1 inputRanges[Engine::kNrdRelaxConversionSignals.size()],
+        outputRanges[outputCount], cameraRange;
+    for (UINT i = 0; i < inputs.size(); ++i)
     {
-        inputRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 2 * inputs[i]);
+        inputRanges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, i, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE,
+                             2 * GetPathTracingGuideIndex(inputs[i]));
     }
     for (UINT i = 0; i < _countof(outputRanges); ++i)
     {
@@ -4665,6 +4703,13 @@ void RtPbrSurveyEngine::RegisterPathTracingResources()
             guide.width = (m_renderWidth + 15) / 16;
             guide.height = (m_renderHeight + 15) / 16;
             guide.format = DXGI_FORMAT_R32_FLOAT;
+        }
+#endif
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        if (i >= PathTracingGuideRrColor)
+        {
+            guide.format = i <= PathTracingGuideRrNormal ? DXGI_FORMAT_R32G32B32A32_FLOAT :
+                i == PathTracingGuideRrMotion ? DXGI_FORMAT_R32G32_FLOAT : DXGI_FORMAT_R32_FLOAT;
         }
 #endif
         guide.flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
@@ -6545,20 +6590,80 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
 #endif
 #endif
 #endif
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        L"Path Tracing RR Color Clear",
+        L"Path Tracing RR Diffuse Albedo Clear",
+        L"Path Tracing RR Specular Albedo Clear",
+        L"Path Tracing RR Normal Clear",
+        L"Path Tracing RR Roughness Clear",
+        L"Path Tracing RR Linear Depth Clear",
+        L"Path Tracing RR Motion Clear",
+        L"Path Tracing RR Hit Distance Clear",
+        L"Path Tracing RR Status Clear",
+#endif
     };
     for (UINT i = 0; i < PathTracingGuideTextureCount; ++i)
     {
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        const float rejected[] = {6, 0, 0, 0};
+        const float* guideClear = i == PathTracingGuideRrStatus ? rejected : clearColor;
+#else
+        const float* guideClear = clearColor;
+#endif
         Engine::RecordPathTracingUavClear(
             m_commandList.Get(),
             {m_pathTracingGuideTextures[i].Get(),
              m_pathTracingGuideTextureClearUavs[i],
              m_pathTracingGuideTextureUavs[i].gpu,
-             clearColor},
+             guideClear},
             kGuideClearEventNames[i]);
     }
     m_pathTracingRuntimeState.accumulatedSampleCount = 0;
     m_pathTracingRuntimeState.historyValid = false;
     m_pathTracingHistoryClearRequired = false;
+}
+
+UINT RtPbrSurveyEngine::GetPathTracingGuideIndex(Engine::PathTracingInputSignal signal)
+{
+    // Ordering matches PathTracingInputSignal, not the native guide enum.
+    static constexpr UINT guides[] = {PathTracingGuideCurrentFrameRadiance,
+                                     PathTracingGuideNormalRoughness,
+                                     PathTracingGuideViewZ,
+                                     PathTracingGuideMotionVectors,
+                                     PathTracingGuideAlbedo,
+                                     PathTracingGuideMaterialF0Metallic,
+                                     PathTracingGuidePhysicalDiffuse,
+                                     PathTracingGuidePhysicalSpecular,
+                                     PathTracingGuideStableRadiance,
+                                     PathTracingGuideBackgroundRadiance,
+                                     PathTracingGuideDenoiserPrimaryPosition,
+                                     PathTracingGuideDenoiserDiffuseDirection,
+                                     PathTracingGuideDenoiserSpecularDirection,
+                                     PathTracingGuideDenoiserDiffuseDistance,
+                                     PathTracingGuideDenoiserSpecularDistance,
+                                     PathTracingGuidePrimaryContinuation,
+                                     PathTracingGuideSecondaryRayData,
+                                     PathTracingGuideSecondarySurfaceDistance};
+    static_assert(std::size(guides) == Engine::kPathTracingInputSignalCount);
+    assert(static_cast<size_t>(signal) < std::size(guides));
+    return guides[static_cast<size_t>(signal)];
+}
+
+Engine::PathTracingInputResources RtPbrSurveyEngine::GetPathTracingReconstructionResources() const
+{
+    Engine::PathTracingInputResources resources = {};
+    for (size_t i = 0; i < resources.size(); ++i)
+    {
+        if (i >= static_cast<size_t>(Engine::PathTracingInputSignal::PrimaryPosition) &&
+            i <= static_cast<size_t>(Engine::PathTracingInputSignal::SpecularDistance) &&
+            !m_pathTracingSettings.denoiserDistanceDiagnostics)
+        {
+            continue;
+        }
+        resources[i] =
+            m_pathTracingGuideTextures[GetPathTracingGuideIndex(static_cast<Engine::PathTracingInputSignal>(i))].Get();
+    }
+    return resources;
 }
 
 void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
@@ -6631,10 +6736,68 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.width = m_renderWidth;
     passDesc.height = m_renderHeight;
     Engine::RecordPathTracingPass(m_commandList.Get(), passDesc);
+#if defined(RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS) || defined(RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS)
+    Engine::PathTracingReconstructionFrame produced;
+    produced.frameId = ++m_pathTracingProductionFrameId;
+    produced.renderWidth = passDesc.width;
+    produced.renderHeight = passDesc.height;
+    produced.outputWidth = m_width;
+    produced.outputHeight = m_height;
+    produced.sampleStartIndex = passDesc.sampleStartIndex;
+    produced.samplesPerFrame = passDesc.samplesPerFrame;
+    produced.pixelCenterPrimary = passDesc.pixelCenterPrimary;
+    produced.samplingSignature = (static_cast<uint64_t>(passDesc.randomSeed) << 32) | 1u |
+                                (passDesc.pixelCenterPrimary ? 2u : 0u) |
+                                (passDesc.denoiserDistanceDiagnostics ? 4u : 0u);
+    produced.jitterPixels = {m_jitterOffsetPixels.x, m_jitterOffsetPixels.y};
+    XMFLOAT4X4 view, projection, previousViewProjection;
+    XMStoreFloat4x4(&view, Engine::CreateCameraViewMatrix(m_scene.camera));
+    XMStoreFloat4x4(&projection, Engine::CreateCameraProjectionMatrix(m_scene.camera, m_aspectRatio));
+    XMStoreFloat4x4(&previousViewProjection, XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.prevViewProjection)));
+    memcpy(produced.worldToView.data(), &view, sizeof(view));
+    memcpy(produced.viewToClip.data(), &projection, sizeof(projection));
+    memcpy(produced.previousViewProjection.data(), &previousViewProjection, sizeof(previousViewProjection));
+    m_pathTracingProduction.Capture(produced, GetPathTracingReconstructionResources());
+#endif
     m_pathTracingGeometryToken = m_nrdGeometrySnapshot.Token();
     m_pathTracingPendingSampleCount = passDesc.samplesPerFrame;
     m_pathTracingPendingAccumulate = passDesc.accumulate;
     m_pathTracingSampleCommitPending = true;
+}
+
+void RtPbrSurveyEngine::ExecuteRrConversionPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    const bool valid =
+        m_pathTracingProduction.Validate(m_pathTracingProductionFrameId, GetPathTracingReconstructionResources())
+            .Passed() &&
+        Engine::InspectPathTracingRrMetadata(m_pathTracingProduction.Inputs()).Passed();
+    m_rrConversionHostGate = valid ? 0 : 6;
+    m_rrConversionFrameId = m_pathTracingProduction.Inputs().frame.frameId;
+    m_rrConversionSampleStartIndex = m_pathTracingProduction.Inputs().frame.sampleStartIndex;
+    m_rrConversionInputs = m_pathTracingProduction.Inputs();
+    struct Constants
+    {
+        XMFLOAT4X4 inverseViewProjection;
+        UINT width;
+        UINT height;
+        UINT hostGate;
+    } constants;
+    static_assert(sizeof(Constants) == 19 * sizeof(UINT));
+    XMStoreFloat4x4(&constants.inverseViewProjection,
+                    XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.invViewProjection)));
+    constants.width = m_renderWidth;
+    constants.height = m_renderHeight;
+    constants.hostGate = m_rrConversionHostGate;
+    m_commandList->SetComputeRootSignature(m_rrConversionRootSignature.Get());
+    m_commandList->SetPipelineState(m_rrConversionPipeline.Get());
+    m_commandList->SetComputeRootDescriptorTable(0, m_pathTracingGuideTextureSrvs[0].gpu);
+    m_commandList->SetComputeRootDescriptorTable(1, m_pathTracingGuideTextureUavs[PathTracingGuideRrColor].gpu);
+    m_commandList->SetComputeRoot32BitConstants(2, 19, &constants, 0);
+    m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
+    m_rrConversionRecorded = true;
+#endif
 }
 
 void RtPbrSurveyEngine::ExecuteNrdConversionPass(const RenderPass& pass)
@@ -6643,6 +6806,11 @@ void RtPbrSurveyEngine::ExecuteNrdConversionPass(const RenderPass& pass)
 #ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
     const Engine::NrdRelaxGpuSceneRange range = m_nrdGeometrySnapshot.ExportGpuSceneRange(m_pathTracingGeometryToken);
     UINT gate = 0;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    constexpr bool requireComposition = true;
+#else
+    constexpr bool requireComposition = false;
+#endif
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     if (m_pathTracingReferenceComponent != 0)
         gate = 8;
@@ -6660,6 +6828,16 @@ void RtPbrSurveyEngine::ExecuteNrdConversionPass(const RenderPass& pass)
     else if (!m_pathTracingSettings.denoiserDistanceDiagnostics)
     {
         gate = 10;
+    }
+    else if (!m_pathTracingProduction.Validate(m_pathTracingProductionFrameId, GetPathTracingReconstructionResources())
+                  .Passed())
+    {
+        gate = 12;
+    }
+    else if (!Engine::InspectNrdReconstructionInputs(m_pathTracingProduction.Inputs(), requireComposition)
+                  .MetadataReady())
+    {
+        gate = 13;
     }
     struct Constants
     {
@@ -7443,6 +7621,11 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                  m_scene.instances.size() == 1 ? matrixJson(m_scene.instances.front().prevWorld)
                                                : nlohmann::json(nullptr)},
             };
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+            metadata["rrConversion"] = {{"recorded", m_rrConversionRecorded},
+                {"hostGate", m_rrConversionHostGate}, {"frameId", m_rrConversionFrameId},
+                {"sampleStartIndex", m_rrConversionSampleStartIndex}, {"nativeEvaluationQualified", false}};
+#endif
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
             metadata["nrdFailure"] = m_nrdFailureReason;
             if (m_pathTracingReferenceComponent != 0)
@@ -7471,6 +7654,13 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                                              {"previousWorldToView", m_nrdPreviousFrame.previousWorldToView},
                                              {"previousViewToClip", m_nrdPreviousFrame.previousViewToClip},
                                              {"motionVectorScale", Engine::kNrdScreenMotionVectorScale}};
+#endif
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+            if (diagnosticSource == kPathTracingGuideTextureResourceNames[PathTracingGuideRrStatus])
+            {
+                capture.rrInputs = m_rrConversionInputs;
+                capture.rrConversionRecorded = m_rrConversionRecorded;
+            }
 #endif
             capture.readback.diagnosticMetadata = metadata.dump();
         }
@@ -8059,6 +8249,57 @@ void RtPbrSurveyEngine::ProcessCompletedScreenshot()
         result.height = capture.readback.height;
         try
         {
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+            // This runs only after the existing screenshot fence has completed.
+            // Use the capture-time stamp, never the engine's newer live frame.
+            if (!capture.readback.diagnosticMetadata.empty())
+            {
+                auto metadata = nlohmann::json::parse(capture.readback.diagnosticMetadata);
+                if (metadata.value("resource", "") == kPathTracingGuideTextureResourceNames[PathTracingGuideRrStatus])
+                {
+                    Engine::PathTracingRrPixelSummary pixels;
+                    pixels.completed = capture.rrConversionRecorded;
+                    pixels.frameId = capture.rrInputs.frame.frameId;
+                    pixels.samplingSignature = capture.rrInputs.frame.samplingSignature;
+                    pixels.sampleStartIndex = capture.rrInputs.frame.sampleStartIndex;
+                    pixels.width = capture.readback.width;
+                    pixels.height = capture.readback.height;
+                    if (capture.readback.format != DXGI_FORMAT_R32_FLOAT)
+                        throw std::runtime_error("RR status capture requires R32_FLOAT.");
+                    const D3D12_RANGE range = {0, SIZE_T(capture.readback.resource->GetDesc().Width)};
+                    void* mapped = nullptr;
+                    ThrowIfFailed(capture.readback.resource->Map(0, &range, &mapped));
+                    uint64_t unknown = 0;
+                    for (UINT y = 0; y < pixels.height; ++y)
+                    {
+                        const auto* row = reinterpret_cast<const float*>(
+                            static_cast<const uint8_t*>(mapped) + capture.readback.layout.Offset +
+                            SIZE_T(y) * capture.readback.layout.Footprint.RowPitch);
+                        for (UINT x = 0; x < pixels.width; ++x)
+                        {
+                            const float value = row[x];
+                            if (std::isfinite(value) && value >= 0 && value < Engine::kPathTracingRrStatusCount &&
+                                value == std::floor(value))
+                                ++pixels.counts[static_cast<size_t>(value)];
+                            else
+                                ++unknown;
+                        }
+                    }
+                    const D3D12_RANGE noWrite = {0, 0};
+                    capture.readback.resource->Unmap(0, &noWrite);
+                    const auto validation = Engine::InspectPathTracingRrFrame(capture.rrInputs, pixels);
+                    metadata["rrNumericFrame"] = {{"statusCounts", pixels.counts},
+                                                  {"unknownPixels", unknown},
+                                                  {"passed", validation.Passed() && unknown == 0},
+                                                  {"issue", static_cast<int>(validation.issue)},
+                                                  {"completed", pixels.completed},
+                                                  {"frameId", pixels.frameId},
+                                                  {"sampleStartIndex", pixels.sampleStartIndex},
+                                                  {"nativeEvaluationQualified", false}};
+                    capture.readback.diagnosticMetadata = metadata.dump();
+                }
+            }
+#endif
             if (capture.request.outputFormat == RtPbrSurvey::ScreenshotOutputFormat::Exr)
             {
                 result.succeeded = Engine::SaveExrScreenshotReadback(capture.readback, result.path, result.error);

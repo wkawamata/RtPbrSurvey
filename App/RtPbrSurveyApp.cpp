@@ -150,6 +150,12 @@ RtPbrSurveyApp::RtPbrSurveyApp(UINT width, UINT height, std::wstring name)
 _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], int argc)
 {
     m_commandLineOptions = Platform::ParseCommandLineOptions(argv, argc);
+    if (m_commandLineOptions.windowWidth != 0)
+    {
+        m_windowInfo.width = m_commandLineOptions.windowWidth;
+        m_windowInfo.height = m_commandLineOptions.windowHeight;
+        m_windowInfo.aspectRatio = static_cast<float>(m_windowInfo.width) / m_windowInfo.height;
+    }
     m_sceneRenderer.EngineForDebugTools().SetVSyncEnabled(!m_commandLineOptions.disableVSync);
     if (m_commandLineOptions.hasPathTracingObjectMotion &&
         (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.capturePath.empty()))

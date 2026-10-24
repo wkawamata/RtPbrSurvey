@@ -63,6 +63,9 @@ bool IsAllowedFormat(Engine::PathTracingInputSignal signal, DXGI_FORMAT format)
         case Signal::SpecularDirection:
         case Signal::DiffuseDistance:
         case Signal::SpecularDistance:
+        case Signal::PrimaryContinuation:
+        case Signal::SecondaryRayData:
+        case Signal::SecondarySurfaceDistance:
             return format == DXGI_FORMAT_R32G32B32A32_FLOAT;
         case Signal::Count:
             return false;
@@ -95,7 +98,7 @@ PathTracingInputValidation ValidatePathTracingReconstructionInputs(const PathTra
         return {Issue::UnsupportedExposure};
     }
     if (!IsUsableMatrix(frame.worldToView) || !IsUsableMatrix(frame.viewToClip) ||
-        !IsUsableMatrix(frame.previousWorldToView) || !IsUsableMatrix(frame.previousViewToClip))
+        !IsUsableMatrix(frame.previousViewProjection))
     {
         return {Issue::InvalidCameraMatrix};
     }

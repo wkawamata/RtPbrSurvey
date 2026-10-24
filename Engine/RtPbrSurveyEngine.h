@@ -33,6 +33,8 @@
 #include "Renderer/Material.h"
 #include "Renderer/MaterialBuffer.h"
 #include "Renderer/PathTracingPass.h"
+#include "Renderer/PathTracingReconstructionResources.h"
+#include "Renderer/PathTracingRrInputs.h"
 #include "Renderer/StagedDescriptorAllocator.h"
 #include "Renderer/PipelineFactory.h"
 #include "Renderer/AccelerationStructureResources.h"
@@ -63,6 +65,7 @@
 #include "Renderer/TemporalUpscalerSupport.h"
 #include "Renderer/StreamlineAdapter.h"
 #include "Renderer/NrdRelaxAdapter.h"
+#include "Renderer/NrdReconstructionInputs.h"
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
 #include "Renderer/NrdRelaxD3D12.h"
 #endif
@@ -642,6 +645,7 @@ private:
             static constexpr const char* PathTracingHistoryClear = "PathTracingHistoryClear";
             static constexpr const char* PathTracing = "PathTracing";
             static constexpr const char* NrdConversion = "NrdConversion";
+            static constexpr const char* RrConversion = "RrConversion";
             static constexpr const char* NrdReconstruction = "NrdReconstruction";
             static constexpr const char* NrdAdmission = "NrdAdmission";
             static constexpr const char* NrdRelax = "NrdRelax";
@@ -773,6 +777,17 @@ private:
         PathTracingGuideNrdCompositionDiagnostics,
 #endif
 #endif
+#endif
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        PathTracingGuideRrColor,
+        PathTracingGuideRrDiffuseAlbedo,
+        PathTracingGuideRrSpecularAlbedo,
+        PathTracingGuideRrNormal,
+        PathTracingGuideRrRoughness,
+        PathTracingGuideRrLinearDepth,
+        PathTracingGuideRrMotion,
+        PathTracingGuideRrHitDistance,
+        PathTracingGuideRrStatus,
 #endif
         PathTracingGuideTextureCount,
     };
@@ -1178,6 +1193,15 @@ private:
     ComPtr<ID3D12RootSignature> m_pathTracingRootSignature;
     ComPtr<ID3D12RootSignature> m_nrdConversionRootSignature;
     ComPtr<ID3D12PipelineState> m_nrdConversionPipeline;
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    ComPtr<ID3D12RootSignature> m_rrConversionRootSignature;
+    ComPtr<ID3D12PipelineState> m_rrConversionPipeline;
+    bool m_rrConversionRecorded = false;
+    UINT m_rrConversionHostGate = 6;
+    uint64_t m_rrConversionFrameId = 0;
+    uint32_t m_rrConversionSampleStartIndex = 0;
+    Engine::PathTracingReconstructionInputs m_rrConversionInputs;
+#endif
     ComPtr<ID3D12RootSignature> m_nrdReconstructionRootSignature;
     ComPtr<ID3D12PipelineState> m_nrdReconstructionPipeline;
     ComPtr<ID3D12RootSignature> m_nrdAdmissionRootSignature;
@@ -1239,6 +1263,8 @@ private:
     bool m_pathTracingHistoryClearRequired = true;
     bool m_pathTracingFrameAdvance = true;
     bool m_pathTracingSampleCommitPending = false;
+    uint64_t m_pathTracingProductionFrameId = 0;
+    Engine::PathTracingReconstructionProduction m_pathTracingProduction;
     UINT m_pathTracingPendingSampleCount = 0;
     bool m_pathTracingPendingAccumulate = false;
     bool m_temporalUpscalerHistoryReset = true;
@@ -1280,6 +1306,10 @@ private:
     std::optional<Engine::ReflectionHdrDiagnosticFrame> m_reflectionHdrDiagnosticFrame;
     struct PendingScreenshotCapture
     {
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        Engine::PathTracingReconstructionInputs rrInputs;
+        bool rrConversionRecorded = false;
+#endif
         RtPbrSurvey::ScreenshotRequest request;
         Engine::ScreenshotReadback readback;
         UINT64 fenceValue = 0;
@@ -1471,6 +1501,17 @@ private:
         "PathTracing.NrdCompositionDiagnostics",
 #endif
 #endif
+#endif
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        "PathTracing.RrColor",
+        "PathTracing.RrDiffuseAlbedo",
+        "PathTracing.RrSpecularAlbedo",
+        "PathTracing.RrNormal",
+        "PathTracing.RrRoughness",
+        "PathTracing.RrLinearDepth",
+        "PathTracing.RrMotion",
+        "PathTracing.RrHitDistance",
+        "PathTracing.RrStatus",
 #endif
     };
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
@@ -1824,6 +1865,7 @@ private:
     RenderPass MakePathTracingHistoryClearPass();
     RenderPass MakePathTracingPass();
     RenderPass MakeNrdConversionPass();
+    RenderPass MakeRrConversionPass();
     RenderPass MakeNrdReconstructionPass();
     RenderPass MakeNrdAdmissionPass();
     RenderPass MakeNrdRelaxPass();
@@ -1910,11 +1952,14 @@ private:
     void ExecuteClearPass(const RenderPass& pass);
     void ExecutePathTracingHistoryClearPass(const RenderPass& pass);
     void ExecuteNrdConversionPass(const RenderPass& pass);
+    void ExecuteRrConversionPass(const RenderPass& pass);
     void ExecuteNrdReconstructionPass(const RenderPass& pass);
     void ExecuteNrdAdmissionPass(const RenderPass& pass);
     void ExecuteNrdRelaxPass(const RenderPass& pass);
     void ExecuteNrdCompositionPass(const RenderPass& pass);
     void ExecutePathTracingPass(const RenderPass& pass);
+    Engine::PathTracingInputResources GetPathTracingReconstructionResources() const;
+    static UINT GetPathTracingGuideIndex(Engine::PathTracingInputSignal signal);
     void InvalidatePathTracingHistory(PathTracingResetReason reason, bool preserveNrdCameraHistory = false);
     void CommitPathTracingFrame();
     void ExecuteDepthPrePass(const RenderPass& pass);

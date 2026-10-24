@@ -22,8 +22,7 @@ Engine::PathTracingReconstructionInputs MakeInputs()
     const std::array<float, 16> identity = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     inputs.frame.worldToView = identity;
     inputs.frame.viewToClip = identity;
-    inputs.frame.previousWorldToView = identity;
-    inputs.frame.previousViewToClip = identity;
+    inputs.frame.previousViewProjection = identity;
     for (size_t i = 0; i < inputs.signals.size(); ++i)
     {
         auto& metadata = inputs.signals[i];
@@ -129,7 +128,7 @@ int main()
     passed &= Check(Engine::ValidatePathTracingReconstructionInputs(inputs).issue == Issue::UnsupportedExposure,
                     "unqualified exposure profile rejected");
     inputs = MakeInputs();
-    inputs.frame.previousViewToClip[5] = std::numeric_limits<float>::quiet_NaN();
+    inputs.frame.previousViewProjection[5] = std::numeric_limits<float>::quiet_NaN();
     passed &= Check(Engine::ValidatePathTracingReconstructionInputs(inputs).issue == Issue::InvalidCameraMatrix,
                     "nonfinite previous matrix rejected");
     inputs = MakeInputs();

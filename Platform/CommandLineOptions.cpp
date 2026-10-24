@@ -322,6 +322,16 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.useWarpDevice = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-WindowSize"))
+        {
+            if (i + 2 >= argc || !TryParseUint(argv[++i], false, options.windowWidth) ||
+                !TryParseUint(argv[++i], false, options.windowHeight) ||
+                options.windowWidth < 64 || options.windowHeight < 64 ||
+                options.windowWidth > 4096 || options.windowHeight > 4096)
+            {
+                throw std::invalid_argument("-WindowSize expects width height in [64, 4096].");
+            }
+        }
         else if (IsCommandLineArg(argv[i], L"-LogToFile"))
         {
             if (i + 1 < argc)

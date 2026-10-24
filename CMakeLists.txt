@@ -5,6 +5,10 @@ project(RtPbrSurvey LANGUAGES CXX)
 option(RTPBRSURVEY_BUILD_APP "Build the standalone RtPbrSurvey executable." OFF)
 option(RTPBRSURVEY_BUILD_SHADERS "Build RtPbrSurvey runtime shaders." ON)
 option(RTPBRSURVEY_BUILD_TESTS "Build RtPbrSurvey runtime tests." OFF)
+option(RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS "Run experimental live PT-to-RR input conversion diagnostics." OFF)
+if(RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS AND NOT RTPBRSURVEY_BUILD_SHADERS)
+    message(FATAL_ERROR "RR conversion diagnostics require shader builds.")
+endif()
 option(RTPBRSURVEY_TEST_NRD_PACKING "Test pinned NRD shader helpers without linking NRD runtime." OFF)
 option(RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS "Run experimental PT-to-NRD conversion diagnostics in the application." OFF)
 if(RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS AND
@@ -107,8 +111,11 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/LightingPass.cpp
     Renderer/MaterialBuffer.cpp
     Renderer/NrdRelaxAdapter.cpp
+    Renderer/NrdReconstructionInputs.cpp
     Renderer/PathTracingPass.cpp
     Renderer/PathTracingReconstructionInputs.cpp
+    Renderer/PathTracingReconstructionResources.cpp
+    Renderer/PathTracingRrInputs.cpp
     Renderer/PipelineFactory.cpp
     Renderer/RayQueryShadowPass.cpp
     Renderer/RayQueryTlasDebugPass.cpp
@@ -274,6 +281,12 @@ endfunction()
 
 if(RTPBRSURVEY_BUILD_SHADERS)
     set(RTPBRSURVEY_SHADER_OUTPUTS)
+    if(RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS)
+        target_compile_definitions(RtPbrSurvey.SceneRenderer PUBLIC RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS=1)
+        rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_PathTracingRrConversion.hlsl cs_6_0 CSMain
+            DEFINITIONS RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS=1
+            DEPENDS "${RTPBRSURVEY_ROOT}/Shaders/RayReconstructionInputConversion.hlsli")
+    endif()
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders.hlsl vs_6_0 VSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DepthOnlyVS.hlsl vs_6_0 VSMain)
@@ -467,6 +480,37 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_compile_features(RtPbrSurvey.PathTracingReconstructionInputsTests PRIVATE cxx_std_20)
     add_test(NAME RtPbrSurvey.PathTracingReconstructionInputs COMMAND RtPbrSurvey.PathTracingReconstructionInputsTests)
 
+    add_executable(RtPbrSurvey.PathTracingReconstructionResourcesTests
+        Tests/PathTracingReconstructionResourcesTests.cpp
+        Renderer/PathTracingReconstructionInputs.cpp
+        Renderer/PathTracingReconstructionResources.cpp)
+    target_include_directories(RtPbrSurvey.PathTracingReconstructionResourcesTests PRIVATE "${RTPBRSURVEY_ROOT}")
+    target_compile_features(RtPbrSurvey.PathTracingReconstructionResourcesTests PRIVATE cxx_std_20)
+    target_compile_definitions(RtPbrSurvey.PathTracingReconstructionResourcesTests PRIVATE NOMINMAX)
+    target_link_libraries(RtPbrSurvey.PathTracingReconstructionResourcesTests PRIVATE d3d12 dxgi)
+    add_test(NAME RtPbrSurvey.PathTracingReconstructionResources COMMAND RtPbrSurvey.PathTracingReconstructionResourcesTests)
+
+    add_executable(RtPbrSurvey.NrdReconstructionInputsTests
+        Tests/NrdReconstructionInputsTests.cpp
+        Renderer/PathTracingReconstructionInputs.cpp
+        Renderer/NrdReconstructionInputs.cpp)
+    target_include_directories(RtPbrSurvey.NrdReconstructionInputsTests PRIVATE "${RTPBRSURVEY_ROOT}")
+    target_compile_features(RtPbrSurvey.NrdReconstructionInputsTests PRIVATE cxx_std_20)
+    target_compile_definitions(RtPbrSurvey.NrdReconstructionInputsTests PRIVATE
+        RTPBRSURVEY_NRD_INPUT_SHADER_PATH="${RTPBRSURVEY_ROOT}/Shaders/shaders_NrdConversion.hlsl")
+    add_test(NAME RtPbrSurvey.NrdReconstructionInputs COMMAND RtPbrSurvey.NrdReconstructionInputsTests)
+
+    add_executable(RtPbrSurvey.PathTracingRrInputsTests Tests/PathTracingRrInputsTests.cpp
+        Renderer/PathTracingReconstructionInputs.cpp Renderer/PathTracingRrInputs.cpp)
+    target_include_directories(RtPbrSurvey.PathTracingRrInputsTests PRIVATE "${RTPBRSURVEY_ROOT}")
+    target_compile_features(RtPbrSurvey.PathTracingRrInputsTests PRIVATE cxx_std_20)
+    target_compile_definitions(RtPbrSurvey.PathTracingRrInputsTests PRIVATE
+        RTPBRSURVEY_RR_INPUT_SHADER_PATH="${RTPBRSURVEY_ROOT}/Shaders/shaders_PathTracingRrConversion.hlsl")
+    add_test(NAME RtPbrSurvey.PathTracingRrInputs COMMAND RtPbrSurvey.PathTracingRrInputsTests)
+    add_executable(RtPbrSurvey.RayReconstructionInputTests Tests/RayReconstructionInputTests.cpp)
+    target_link_libraries(RtPbrSurvey.RayReconstructionInputTests PRIVATE RtPbrSurvey::SceneRenderer d3d12 dxgi)
+    add_test(NAME RtPbrSurvey.RayReconstructionInputs COMMAND RtPbrSurvey.RayReconstructionInputTests)
+
     add_executable(RtPbrSurvey.NrdRelaxAdapterTests Tests/NrdRelaxAdapterTests.cpp)
     target_link_libraries(RtPbrSurvey.NrdRelaxAdapterTests PRIVATE RtPbrSurvey::SceneRenderer)
     target_compile_definitions(RtPbrSurvey.NrdRelaxAdapterTests PRIVATE
@@ -487,6 +531,37 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_compile_definitions(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE NOMINMAX)
     add_test(NAME RtPbrSurvey.PathTracingDenoiserSampling
         COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${denoiser_sampling_shader}")
+    set(rr_conversion_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrInputConversion_CSMain.cso")
+    set(rr_texture_conversion_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_PathTracingRrConversion_CSMain.cso")
+    add_custom_command(OUTPUT "${rr_conversion_shader}" "${rr_texture_conversion_shader}"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${rr_conversion_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_RrInputConversion.hlsl"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${rr_texture_conversion_shader}" "${RTPBRSURVEY_ROOT}/Shaders/shaders_PathTracingRrConversion.hlsl"
+        DEPENDS Tests/shaders_RrInputConversion.hlsl Shaders/shaders_PathTracingRrConversion.hlsl
+            Shaders/RayReconstructionInputConversion.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE
+        "${rr_conversion_shader}" "${rr_texture_conversion_shader}" Tests/RrInputConversionValidation.h)
+    add_test(NAME RtPbrSurvey.RrInputConversion
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${rr_conversion_shader}" --rr-input-conversion)
+    add_executable(RtPbrSurvey.RrTextureConversionTests Tests/RrTextureConversionTests.cpp
+        "${rr_texture_conversion_shader}")
+    target_compile_features(RtPbrSurvey.RrTextureConversionTests PRIVATE cxx_std_17)
+    target_compile_definitions(RtPbrSurvey.RrTextureConversionTests PRIVATE NOMINMAX)
+    target_link_libraries(RtPbrSurvey.RrTextureConversionTests PRIVATE d3d12 dxgi)
+    add_executable(RtPbrSurvey.RrNativeReplay Tests/RrTextureConversionTests.cpp Tests/RrNativeReplay.h
+        "${rr_texture_conversion_shader}")
+    target_compile_definitions(RtPbrSurvey.RrNativeReplay PRIVATE RTPBRSURVEY_RR_NATIVE_REPLAY=1 NOMINMAX)
+    target_link_libraries(RtPbrSurvey.RrNativeReplay PRIVATE RtPbrSurvey::SceneRenderer d3d12 dxgi)
+    if(RTPBRSURVEY_HAS_STREAMLINE_SDK)
+        foreach(rr_runtime IN ITEMS sl.interposer sl.common sl.dlss sl.dlss_d nvngx_dlss nvngx_dlssd)
+            add_custom_command(TARGET RtPbrSurvey.RrNativeReplay POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                    "${RTPBRSURVEY_STREAMLINE_SDK_DIR}/bin/x64/${rr_runtime}.dll"
+                    "$<TARGET_FILE_DIR:RtPbrSurvey.RrNativeReplay>" VERBATIM)
+        endforeach()
+    endif()
     if(RTPBRSURVEY_TEST_NRD_PACKING)
         find_package(Git REQUIRED)
         set(RTPBRSURVEY_NRD_SDK_DIR "${RTPBRSURVEY_ROOT}/third_party/nrd-sdk-4.17.3"

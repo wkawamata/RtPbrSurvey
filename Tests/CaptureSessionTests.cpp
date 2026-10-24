@@ -353,6 +353,41 @@ bool TestValidationAndLegacyCli()
     const Platform::CommandLineOptions options = Platform::ParseCommandLineOptions(argv, 3);
     passed &= Check(options.capturePath == "legacy.png", "legacy CapturePath CLI remains supported");
     passed &= Check(!options.disableD3D12DebugLayer, "D3D12 validation remains enabled by default");
+    WCHAR windowSizeOption[] = L"-WindowSize";
+    WCHAR windowWidth[] = L"256";
+    WCHAR windowHeight[] = L"144";
+    WCHAR* windowArgv[] = {executable, windowSizeOption, windowWidth, windowHeight};
+    const auto windowOptions = Platform::ParseCommandLineOptions(windowArgv, 4);
+    passed &= Check(windowOptions.windowWidth == 256 && windowOptions.windowHeight == 144 &&
+                        options.windowWidth == 0 && options.windowHeight == 0,
+                    "Capture window size is explicit and preserves the default when omitted");
+    for (const wchar_t* value : {L"0", L"63", L"4097", L"256x144"})
+    {
+        WCHAR* invalidWindowArgv[] = {executable, windowSizeOption, const_cast<WCHAR*>(value), windowHeight};
+        bool rejected = false;
+        try
+        {
+            Platform::ParseCommandLineOptions(invalidWindowArgv, 4);
+        }
+        catch (const std::invalid_argument&)
+        {
+            rejected = true;
+        }
+        passed &= Check(rejected, "Invalid window size rejected");
+    }
+    for (int count : {2, 3})
+    {
+        bool rejected = false;
+        try
+        {
+            Platform::ParseCommandLineOptions(windowArgv, count);
+        }
+        catch (const std::invalid_argument&)
+        {
+            rejected = true;
+        }
+        passed &= Check(rejected, "Incomplete window dimensions rejected");
+    }
     WCHAR disableDebugLayer[] = L"-DisableD3D12DebugLayer";
     WCHAR* disableDebugLayerArgv[] = {executable, disableDebugLayer};
     const Platform::CommandLineOptions fastOptions = Platform::ParseCommandLineOptions(disableDebugLayerArgv, 2);

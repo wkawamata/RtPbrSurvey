@@ -15,6 +15,8 @@
 #include <vector>
 #include <filesystem>
 
+#include "RrInputConversionValidation.h"
+
 using Microsoft::WRL::ComPtr;
 
 namespace
@@ -330,6 +332,7 @@ int main(int argc, char** argv)
         bool packing = false;
         bool materialFactors = false;
         bool inputConversion = false;
+        bool rrInputConversion = false;
         const char* inputPath = nullptr;
         const char* outputPath = nullptr;
         for (int index = 2; index < argc; ++index)
@@ -350,6 +353,10 @@ int main(int argc, char** argv)
             {
                 inputConversion = true;
             }
+            else if (std::strcmp(argv[index], "--rr-input-conversion") == 0)
+            {
+                rrInputConversion = true;
+            }
             else if (std::strcmp(argv[index], "--input") == 0 && index + 1 < argc)
             {
                 inputPath = argv[++index];
@@ -363,8 +370,8 @@ int main(int argc, char** argv)
                 throw std::runtime_error("Unknown test option");
             }
         }
-        if (int(packing) + int(materialFactors) + int(inputConversion) > 1)
-            throw std::runtime_error("Packing and material-factor modes are mutually exclusive");
+        if (int(packing) + int(materialFactors) + int(inputConversion) + int(rrInputConversion) > 1)
+            throw std::runtime_error("Shader validation modes are mutually exclusive");
         if ((inputPath != nullptr) != (outputPath != nullptr) || (inputPath && !inputConversion))
             throw std::runtime_error("Captured conversion requires both input and output paths");
         std::vector<char> captured;
@@ -411,7 +418,7 @@ int main(int argc, char** argv)
         pipelineDesc.CS = {shader.data(), shader.size()};
         ComPtr<ID3D12PipelineState> pipeline;
         Check(device->CreateComputePipelineState(&pipelineDesc, IID_PPV_ARGS(&pipeline)));
-        const UINT64 byteCount = UINT64(sampleCount) * 16 * sizeof(float);
+        const UINT64 byteCount = UINT64(sampleCount) * (rrInputConversion ? 24 : 16) * sizeof(float);
         ComPtr<ID3D12Resource> inputBuffer;
         if (inputPath)
         {
@@ -484,6 +491,10 @@ int main(int argc, char** argv)
             outputFile.write(static_cast<const char*>(data), byteCount);
             if (!outputFile)
                 throw std::runtime_error("Could not write converted output");
+        }
+        else if (rrInputConversion)
+        {
+            RrInputTests::ValidateRrInputConversion(static_cast<const float*>(data), sampleCount);
         }
         else if (inputConversion)
         {

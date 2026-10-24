@@ -381,4 +381,619 @@ view依存specular albedo、jitter/native解像度の実機検証はR1/R2着手�
 bundleを構築し、現行NRDの専用gateへ接続すること。metadataをconsumerで
 現在frameへ一律に付け直して、stale-resource検出を無効化しない。
 
-Status: first implementation unit validated; producer binding and backend conversions remain pending.
+## 次の実装単位: producer記録と実resource照合
+
+2026-10-24、最初の実装単位を `92edcdb` としてcommitし、次へ進んだ。
+
+- `Renderer/PathTracingReconstructionResources.h/.cpp` を追加。
+  PT dispatch記録直後に、実resourceのGetDescとframe/sample/policy情報を記録する。
+  ComPtrでallocationの同一性を保持し、consumer側でstampを書き換えない。
+- NRD変換diagnostics構成でengineから15信号を対応付け、変換直前に検査する。
+  共通metadataに加えてallocationの同一性、2D・単一array/mip/sample、SRV許可を確認。
+  不整合は新しいhost gate 12として既存の変換除外経路へ渡す。
+- 距離diagnostics無効時は、距離・方向・primary位置を未生成capabilityとして扱う。
+  既存のsampling gate 8、未生成距離gate 10等の優先順位を維持する。
+- render pass構築時にproduction記録を無効化する。pause/skip/unsupported dispatchから
+  前回のstampを引き継がない。frame IDはNative sample indexと独立して増加する。
+- 共通camera情報のprevious値を、producerがMV計算で実際に使うprevious ViewProjectionへ
+  具体化した。engineのshader用transposeを戻して保存し、前回viewとprojectionを推測して
+  分離しない。各backendの分離したprevious行列はそのbackendのhistoryが保持する。
+
+検証結果:
+
+- NRD_CONVERSION_DIAGNOSTICSを有効にしたDebug x64アプリと2つの契約test targetを
+  ビルド。warning/error 0。NRD SDK本体のdispatchはこの構成では有効にしていない。
+- CTest共通metadata/実resource契約: 2/2成功。
+  実resourceテストはD3D12 WARPでtextureを生成し、allocation差替え、削除、resize、
+  array誤用、missing production、stale frame、無効化後の再利用拒否を確認した。
+- 既存 `15-nrd-material-matrix` のSceneFileとpresetを使い、30 warm-up frames後に
+  `PathTracing.NrdConversionDiagnostics` を1920x1080でraw capture。
+  sampleStartIndex=30、全値finite、code 0が248,050画素、code 7が15,374画素、
+  primary missのcode 4が1,810,176画素。共通入力失敗gate 12は0画素。
+  code 7は再構築を必要とする候補であり、最終NRD admission成功数とは区別する。
+- D3D12 ERROR/CORRUPTION 0、既知buffer initial-state warning 2。
+  初回の非同期起動は完了captureを残さなかったため採用せず、process終了を待った
+  再実行のexit 0と完成したPTBUF/logを確認した。
+- ログ: `C:/work/RtPbrSurvey-agents/pt-common-binding-work4`。
+  capture: `build/reconstruction-input-validation/captures/common-binding-20261024`。
+- 依存は前段同様にWork3の既存vcpkgをread-only参照し、固定NRD helper sourceも
+  Work3の `third_party/nrd-sdk-4.17.3` をread-only参照した。
+
+既存NRD shaderの式、packing、sampler、履歴policyはこの単位では変更していない。
+この検証は共通入力検査とNRD変換入口までであり、RELAX dispatch/compositionの
+新しい回帰結果、画質改善、Native画像のbit一致、RR対応を主張しない。
+次はbackend追加capabilityとNRD専用変換の境界を共通bundleへ整理し、SDK有効構成で
+現行NRDの回帰を確認する。RR派生入力passはその後の独立単位とする。
+
+## NRD専用capability境界とSDK有効回帰
+
+2026-10-24、NRD用入力要件を `Renderer/NrdReconstructionInputs.h/.cpp` に追加した。
+
+- 共通metadata合格とNRD用追加capabilityを別判定にする。
+  `MetadataReady()` はSDK対応・GPU画素admission・画質の合格を表さない。
+- conversion-only profileは11信号を必須とし、SDK合成profileはstable/backgroundも要求する。
+  共通契約不整合はその理由を保持し、欠落したNRD信号は識別子付きで返す。
+- conversion shaderのt0..t10を `kNrdRelaxConversionSignals` の順序で定義し、
+  engineのroot signatureはその共通semanticからnative guide indexへ変換して結合する。
+  GetDesc検査とdescriptor layoutが同じmappingを参照する。
+- NRD固有の必須信号不足はhost gate 13。既存のpixel状態、距離再構築、packing、
+  material-factor往復、RELAX設定・dispatch・合成式は既存処理を使用する。
+- 新しいtestは実際のHLSL resource宣言を読み、registerと共通semanticを照合する。
+  必須信号ごとの欠落、合成profileの追加要件、共通provenance不整合の保持も確認する。
+
+SDK有効の独立buildで回帰した。固定NRD/MathLib/ShaderMakeはWork3のcheckoutを
+read-only参照し、生成物と実行ファイルはWork4の専用buildへ出力した。
+
+- Debug x64: appと関連testのビルド成功、error 0。
+  NrdRelaxAdapterTestsのlinkで既存のunused d3d12 delay-load警告 LNK4199が1件。
+- CTest: 共通metadata、実resource、NRD入力、既存NRD adapter、SDK planningの5/5成功。
+- GPU dispatch/history runnerのPython unit tests: 11/11成功。
+- 2つのrunnerへ `--exe` と `--shader-directory` を追加した。
+  defaultは従来のbuild配下を維持し、実際に指定したexe/27 SDK shadersのhashを記録する。
+
+既存 `nrd-step2s-material-cohort-20261013` のscene/presetをWork4のignored作業領域へcopyし、
+その固定fixtureを使用した。元のWork3 cohort、ソース、既存exeは変更していない。
+
+| 回帰 | 結果 | 範囲 |
+| --- | --- | --- |
+| RELAX GPU dispatch | 9/9 captures成功 | D/S入力・admission・出力、fresh-process再現、距離diagnostics無効時の除外 |
+| Diffuse output lifecycle | 19/19 checkpoints成功 | pause/reset/resume、sampling非互換、camera/light/material/geometry/resizeの既存timeline |
+| Specular output lifecycle | 19/19 checkpoints成功 | 同上 |
+| NRD scene-color lifecycle | 19/19 checkpoints成功 | 同上とNRD Preview/fallback状態のmetadata検査 |
+
+GPU dispatchではD/Sとも1,286,774画素のadmissionと非passthrough出力を確認。
+再実行は両出力でbit一致し、除外pixelへの書込・無効条件の残留出力は認めなかった。
+履歴timelineの全57 capturesで既存のexact comparisonと状態条件が合格した。
+全66 capturesのログでD3D12 ERROR/CORRUPTION 0。
+
+実行exe SHA256: `493de835e8814207ca43a02366cfc5188bebdd877ad5d1516b98f890e1a2abd5`。
+sourceは `92edcdb` に対する未commit差分を含む。
+raw reportsは次に保存し、exe/script/SDK shaderの実行時hashを保持した。
+
+- `build/reconstruction-input-validation/captures/nrd-common-dispatch-20261024/report.json`
+- `build/reconstruction-input-validation/captures/nrd-common-history-20261024/report.json`
+- build logs: `C:/work/RtPbrSurvey-agents/pt-common-nrd-sdk-work4`
+
+これは現行の数値・履歴契約の回帰であり、統合前exeとの新しいbit一致比較、
+glossy画質の改善、連続移動/disocclusion全般、別GPU、RR接続の合格ではない。
+Native/NRD/RRで共有するmetadataとNRD用の結合境界ができたため、次の独立単位は
+RR用派生入力passとその数値契約を実装すること。SDK実行は入力検査の後段とする。
+
+### RR用派生入力の単独変換（Work4）
+
+`Shaders/RayReconstructionInputConversion.hlsli` にSDK非依存の数値変換を追加し、
+`Shaders/shaders_PathTracingRrConversion.hlsl` にtexture入出力のcompute passを用意した。
+この段階ではengineにscheduleせず、既存Hybrid RR evaluateも変更しない。
+
+| 入力 | RR向け派生値 |
+| --- | --- |
+| FrameRadiance | 現在フレームのscene-linear RGBをそのまま保持。累積、demodulation、stable/background再加算なし |
+| BaseColor / Metallic | diffuse albedo = BaseColor * (1 - Metallic) |
+| F0 / material roughness / NdotV | Streamline 2.12.0 guideのEnvBRDFApprox2。引数alphaはr*r、roughness出力自体はr |
+| NormalRoughness | 正規化world normalと別roughness texture |
+| ViewZ | 正のLinearDepth。HW depthへ誤tagしない |
+| MotionVectors | previousNDC-currentNDCに(0.5,-0.5)を掛けてtop-down UVへ変換 |
+| SpecularDistance | TracedHitの幾何距離xを保持。query TであるzやNRDの65504 miss値に置換しない |
+
+texture passのt0..t7はFrameRadiance、NormalRoughness、ViewZ、MotionVectors、
+BaseColor、MaterialF0Metallic、PrimaryPosition、SpecularDistanceの順。
+u0..u8はcolor、diffuse albedo、specular albedo、normal、roughness、LinearDepth、
+motion、specular hit distance、uint statusの順。
+定数はrow-major inverseViewProjectionとrender width/heightであり、pixel-centerのnear/far点から
+view方向を求める。cameraPositionからの方向に固定せず、orthographicも表現できる式とした。
+このtexture bindingとcamera再構築のGPU実行は、後述する数値helper検査の対象には含まれない。
+
+statusは0=numeric candidate、1=primary不支持、2=material不正、3=geometry/depth/MV不正、
+4=radiance不正、5=distance不支持。不支持pixelの出力は全channelを0にする。
+これはRRへ0を渡してよいという規則ではなく、将来のwhole-frame fallback判定用である。
+背景、Unlitに由来するuntraced、miss、inactive、invalid distanceはcandidateにしない。
+raw TracedHitがあってもNRD用独立sampleとRR radianceの相関は未認定なので、
+status 0のみでSDK evaluateを許可してはならない。
+
+単独検証の出力はfloat32で、70000のHDR値と幾何距離を保持するケースも含む。
+runtimeのallocation、RR受け入れformat、halfへの変換とoverflow policyは別途確定する。
+texture passはfloat型UAVを宣言するだけで、そのformatを選択・保証しない。
+
+`Tests/shaders_RrInputConversion.hlsl` は共通helperを32ケースで実行し、
+`Tests/RrInputConversionValidation.h` は展開したdouble精度多項式と明示的な期待値で比較する。
+非金属・金属・部分金属・黒・粗さ0/1・grazing・normal正規化・MV符号とscale、
+NaN/Inf・不正material/normal/view/depth・距離stateの除外を検査する。
+既存D3D12 test harnessの新modeを使用し、NRDのtest modeと出力strideを分離した。
+2026-10-24の検証結果:
+
+- Debug app / 関連targetのbuild成功、warning 0、error 0。
+  logs: `C:/work/RtPbrSurvey-agents/pt-rr-input-conversion-work4`。
+- texture passとtest shaderのDXC cs_6_0 compile成功。
+- 共通入力、resource binding、NRD境界、sampler/packing/material/conversion、SDK adapterと
+  RR変換のfocused CTestは10/10合格。
+- RR数値変換32ケースはWARPとhardware GPUの両方で合格。
+  各実行は既存harnessの28,672要素に32ケースを反復し、D3D12 ERROR/CORRUPTION 0。
+- 今回はNRD runtimeのshader/dispatch式を変更していないため、直前の66-capture回帰を
+  再実行していない。RR texture passのGPU dispatchと実capture照合も今回の合格範囲に含めない。
+
+次はtexture passのresource/provenance結合、実captureでの変換照合、whole-frame gate、
+ray/radiance相関とunsupported pixel policyの認定を行う。
+その後にPT用RR adapterのoutput extent / LinearDepth tag / constants / historyを接続する。
+
+### RR texture replayと全画素判定（Work4）
+
+`Renderer/PathTracingRrInputs.h/.cpp` でt0..t7の共通semanticとRR用の必須入力を定義した。
+共通metadata不整合は元の理由を保持し、PrimaryPosition / SpecularDistanceの追加欠落も識別する。
+NRDのPhysicalDiffuse/Specular、方向、Stable/BackgroundはこのRR変換には要求しない。
+
+`InspectPathTracingRrFrame` はmetadataとは別に、GPU処理・readback完了後のstatus集計を検査する。
+frameId、samplingSignature、sampleStartIndex、render extentが一致する集計だけを受け入れる。
+全statusの合計が全画素数に一致し、全画素がstatus 0の場合のみ数値上のcandidateとする。
+合計は残数からの減算で確認し、uint64 overflowで全画素に見える値も除外する。
+未完了、古い結果、部分ROI、過剰count、不支持pixel 1個以上は失敗となる。
+この関数を呼ぶ前のresource identity / provenance照合は共通production層の責務である。
+これはSDK実行許可ではなく、engine scheduling / readback経路にはまだ接続していない。
+この集計はoffline / 診断用であり、過去frameの結果で現在frameの実行を許可してはならない。
+将来のlive接続では同一frameの結果待ちに伴う同期と通常描画のstall回避も設計する。
+
+`Tests/RrTextureConversionTests.cpp` は実際の `shaders_PathTracingRrConversion.hlsl` を
+8 SRV / 9 UAV / row-major camera constantsでdispatchし、全出力をreadbackする。
+検証用inputはfloat32に揃え、statusはR32_UINT、guideはRGBA32/RG32/R32_FLOATで実行する。
+元のraw captureに含まれるhalf値は復号した値を保ち、SRV bindingそのものはfloat32で検査する。
+runtimeのnative half SRVや最終RR formatを認定する試験ではない。
+
+`Tests/PathTracing/validate_rr_texture_conversion.py` はdouble精度の独立referenceと9出力を比較する。
+13x9の端数extentでrow pitchとdispatch端を含めて検査し、正投影、レンズシフト付き透視投影、
+不正cameraを実行する。MVは画素位置ごとに変え、縦横・scale・読み取り位置の誤りを検出する。
+実PT入力は同じscene/presetのfresh-process capture 8枚で構成し、resource/format以外のmetadataが
+完全一致するcohortだけを再生する。行列の転置規約、sample profile、formatも確認する。
+このcohortは再現性に依存するoffline照合で、同一live dispatchのresource provenanceの代用ではない。
+F0/MetallicもnativeではRGBA16_FLOATである。参照値は保存済みF0/Metallicを使用し、
+BaseColorからF0を作り直したり量子化前のmaterial値へ差し替えたりしない。
+
+単独実行の例（NumPyを使えるPython、repo rootから）:
+
+```powershell
+python -B Tests/PathTracing/validate_rr_texture_conversion.py `
+  --test-exe build/reconstruction-input-validation/Debug/RtPbrSurvey.RrTextureConversionTests.exe `
+  --shader build/reconstruction-input-validation/Tests/shaders_PathTracingRrConversion_CSMain.cso `
+  --output build/reconstruction-input-validation/captures/rr-textures-new
+```
+
+`--hardware` で実GPUに切り替える。さらに `--source <scene.json/preset.jsonを含むfolder>` と
+`--exe <RtPbrSurvey.exe>` を指定すると、fresh captureから再生まで連続実行する。
+出力folderは空の場所を指定する。reportはexe / producer shader / converter shader / script /
+raw buffer / outputのhashを記録し、実行scriptのsnapshotも出力先へ保存する。
+
+2026-10-24の検証結果:
+
+- Debug build成功、warning 0、error 0。
+  logs: `C:/work/RtPbrSurvey-agents/pt-rr-texture-replay-work4-fix`。
+- metadata / resource / NRD境界 / RR全画素判定 / sampler / NRD・RR変換のfocused CTestは7/7合格。
+  RR判定では必須信号欠落、古いframe/seed-policy/sample/extent、未完了、部分coverage、
+  count overflow、不支持status各種が1画素だけある場合も確認した。
+- 実texture passはWARPとhardwareで3 camera条件すべて合格。
+  正投影・off-axis透視投影の最大絶対誤差は6e-8未満、不正cameraは全出力の数値が0。
+- fresh capture 8枚の全metadataが一致し、sampleStartIndex=30、1920x1061の全2,037,120画素を
+  実GPUで再生した。9出力が独立referenceと合格し、最大絶対誤差は7.750593766786551e-8。
+  color、roughness、LinearDepth、motion、距離は誤差0で、albedo/normalのみfloat演算の差を認めた。
+- capture全8件とtexture dispatch全件でD3D12 ERROR/CORRUPTION 0。
+  capture起動時の既知のbuffer initial-state WARNING 2件/実行は残る。
+- 実captureのstatus集計は `[175831, 750346, 0, 0, 0, 1110943]`。
+  175,831画素だけがnumeric candidateで、750,346画素がprimary不支持、1,110,943画素がdistance不支持。
+  全画素がcandidateではないため、このframeは除外対象である。
+  この結果を理由に背景やmissを0距離としてRRへ通す変更は加えていない。
+
+raw reports:
+
+- `build/reconstruction-input-validation/captures/rr-textures-warp-20261024-final/report.json`
+- `build/reconstruction-input-validation/captures/rr-textures-captured-20261024-final/report.json`
+
+各folderの `validation-script.py` は実行時のhashに対応するsnapshot。
+最初のcapture試行では検証側がMaterialF0MetallicをRGBA32と想定して中断したため、
+実際のRGBA16 formatに修正し、上記final cohortで8枚すべてを新たに取得した。
+
+次はlive engine上のresource/provenance結合と診断captureへの接続、ray/radiance相関および
+unsupported pixel policyの認定。その後にPT用RR adapterのextent / LinearDepth / historyを接続する。
+
+### Live RR入力変換の診断接続（Work4）
+
+`RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS` を追加した。defaultはOFFで、ON時のみ
+PT dispatch直後に `PT RR Input Conversion Diagnostics` passを実行する。
+NRDのconversion / SDK optionとは独立で、shader buildを必須にしている。
+通常のNative PT表示・積算と既存Hybrid RR evaluateは変更しない。
+
+```powershell
+cmake -S . -B build/reconstruction-input-validation `
+  -DRTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS=ON
+```
+
+live passは共通semanticのt0..t7から実SRV descriptor offsetを導出する。
+PT dispatchの記録直後にGetDescとallocation identityをstampし、同じproduction frameに対して
+共通metadata検査とRR必須入力検査を行う。検査失敗時はshaderのhost gateを6にし、
+raw入力を読まずに全guideを0、statusを6へ書く。1spf / pixel-center / jitter 0 / exposure 1の
+既存v1 profileを緩和しない。camera定数はproducerが実際に使用したinvViewProjectionを
+row-majorへ戻して渡す。
+
+出力は `PathTracing.RrColor`、`RrDiffuseAlbedo`、`RrSpecularAlbedo`、`RrNormal`、
+`RrRoughness`、`RrLinearDepth`、`RrMotion`、`RrHitDistance`、`RrStatus`。
+先頭4つはRGBA32_FLOAT、motionはRG32_FLOAT、残りはR32_FLOATとし、既存debug preview / raw PTBUFで参照する。
+live版statusはR32_FLOATに整数0..6を保存し、standalone GPU試験のR32_UINTとの型の違いを明示した。
+raw PTBUF writerとPython readerにRG32_FLOATを追加した。RR SDK用の最終format認定は別工程である。
+
+BuildRenderPassesの開始で `recorded=false / hostGate=6` に戻す。
+paused frameは出力を保持しても新規変換と表示せず、history clear時はstatusを6で消去する。
+capture metadataの `rrConversion` はrecorded、host gate、production frameId、producer sampleStartIndexを記録する。
+pause時の表示sample countと、最後に変換したsampleStartIndexは別の値として保持する。
+
+RrStatusのraw captureだけは既存screenshot fenceの完了後に全画素を集計し、
+`InspectPathTracingRrFrame` へ渡す。集計に使用する入力metadataとrecorded flagはcopy command記録時に
+capture slotへsnapshotする。readback完了時の新しいlive frameへ置き換えない。
+結果の `rrNumericFrame` には7 statusのcounts、unknown count、completed、frameId、sampleStartIndex、
+numeric gateの合否とissueを保存する。Native evaluation qualificationは常にfalseである。
+通常描画の毎frame readbackや待機を追加せず、capture要求があった場合だけ既存の非同期readbackを使う。
+
+`Tests/PathTracing/validate_rr_live_conversion.py` で、raw 8入力とlive 9出力のcohort照合、
+独立referenceとの全画素比較、4spfとdistance-offのhost gate、既存19-stage timelineを検証する。
+timelineはcheckpointをpauseしてcaptureするため、新しいproductionとして認定されないことも確認する。
+2026-10-24の検証結果:
+
+- RR+NRD診断構成とRR単独構成のDebug buildに成功。ともにwarning 0、error 0。
+  RR単独はNRD関連optionとBUILD_TESTSをOFFにしても起動・変換・status captureが成功した。
+- 共通入力、resource binding、NRD境界、RR gateとshader helperのfocused CTestは11/11合格。
+- live 8入力 / 9出力の17 captureで、全metadataのcohort一致と1920x1080の全画素照合に合格。
+  最大絶対誤差はspecular albedoの7.733409745913633e-8。
+  color / diffuse albedo / roughness / LinearDepth / motion / hit distanceは誤差0。
+- statusは `[182106, 748652, 0, 0, 0, 1142842, 0]`、unknown 0。
+  CPU側のcapture完了後集計も一致し、frameId=31、sampleStartIndex=30で数値上の全画素gateは失敗する。
+  不支持pixelがあるための正しい除外であり、nativeEvaluationQualifiedはfalse。
+- 4spfのstatus全6とcolor全0、distance diagnostics OFFのstatus全6を追加3 captureで確認。
+- 19-stage timelineは全checkpointと8組のexact replay比較に合格。
+  pause中はrecorded=false / numeric gate失敗を保持し、reset-paused、4spf、3spfはstatus全6。
+  camera / light / material / geometry / resize後のfresh比較も合格した。
+- RR単独のRrStatus captureも上記status集計と一致した。
+  RR側の全39 captureとRR単独captureでD3D12 ERROR/CORRUPTION 0。
+
+build logs:
+
+- `C:/work/RtPbrSurvey-agents/pt-rr-live-conversion-work4`
+- `C:/work/RtPbrSurvey-agents/pt-rr-live-only-work4`
+
+raw reports:
+
+- `build/reconstruction-input-validation/captures/rr-live-conversion-20261024/report.json`
+- `build/rr-live-only-validation/captures/rr-only-smoke-20261024/report.json`
+
+RR+NRD exe SHA256は `98acf3d4c8bf2ef991b72eaecd3d72524d13aa82e68c0a10f2d9ae9212a1c3c2`。
+Native PT shader SHA256は従来と同じ `23e06232a1a6454ac38b6512741355b133029dfd1d2f59002b2bfd48b9b0ca0c`。
+NRD SDK、Native PT shader、推定式、sampling、NRD dispatch設定をこのlive接続で変更していない。
+
+NRD併用回帰で残った再現性課題:
+
+- D/Sとも1,324,948 pixelでadmissionと非passthrough出力を確認。
+  Diffuseのfresh-process repeatはbit一致したが、Specular repeatは580 pixelで不一致。
+  RGB最大差は0.0005791187286376953、alpha最大差は20。差の範囲はx=772..875、y=0..68。
+  このため `validate_nrd_gpu_dispatch.py` のstrict replay判定はfailedのまま保存した。
+- 追加captureのNrdInputSpecularは最初の入力とbit一致。
+  追加Specular outputは最初のoutputとは不一致で、repeat側のoutputとはbit一致した。
+- RR診断をOFFにした別Debug buildでも同じfixture / 1920x1080で比較した。
+  Specular inputはRR有効構成とbit一致したが、OFF構成内のfresh-process output 2枚にも
+  2,006 pixelの再現差があり、RGB最大差は0.0005471706390380859、alpha最大差は20。
+  RR有効化に固有の差ではないことを確認した。SDK内部と履歴入力系列の原因は未特定である。
+- distance diagnostics OFFのDiffuse / Specular出力はともに全0を確認した。
+  上記NRD captureでD3D12 ERROR/CORRUPTIONは検出していない。
+  bit一致基準の緩和や、NRDの画質・推定式への変更は行わない。
+
+関連reportsと比較build log:
+
+- `build/reconstruction-input-validation/captures/nrd-after-live-rr-20261024/report.json`（strict replay failed）
+- `build/reconstruction-input-validation/captures/nrd-rr-determinism-audit-20261024/report.json`
+- `build/nrd-rr-off-validation/captures/determinism-20261024/report.json`
+- `build/reconstruction-input-validation/captures/nrd-rr-excluded-specular-20261024/report.json`
+- `C:/work/RtPbrSurvey-agents/pt-nrd-rr-off-audit-work4`（RR OFFのDebug build成功、warning/error 0）
+
+次はRRのspecular距離とnoisy radianceの対応、背景 / miss / untraced policyを認定する。
+NRDのstrict replay問題は上記の再現資料で独立して調査する。
+PT向けRR adapterのLinearDepth tag / output extent / history / native evaluate接続は未着手である。
+
+## RR距離入力の経路対応と採用方針
+
+現行の `DenoiserSpecularDistance` はNRD診断用の独立GGX probeであり、
+noisy radianceを生成した実際のprimary continuationとは異なる乱数系列である。
+したがって、finite / positive / TracedHitを満たすstatus 0でも、RRへの採用は認定しない。
+これは変換数値の不具合ではなく、信号の意味と用途の境界である。
+
+実際の経路は既存の `PrimaryContinuation`、`SecondaryRayData`、
+`SecondarySurfaceDistance` で観測できる。
+`SecondaryRayData.y` の1/2はdiffuse/specularのproposal選択であり、物理成分の識別ではない。
+実際のsample方向でdiffuse / specularのBRDFを両方評価し、後続radianceを両成分へ配分するため、
+diffuse proposalを捨てるとphysical specularに寄与する経路も捨てる。
+単純にproposal 2の距離だけをRRへ渡す設計は採用しない。
+
+| 入力状態 | 現在の扱い | 次の認定条件 |
+| --- | --- | --- |
+| 独立NRD probeのfinite hit | 数値診断専用 | 実radianceとの対応がないため、そのまま昇格しない |
+| 実continuationのfinite hit | 次の距離候補 | surface origin補正、成分との対応、複数寄与の扱いを検証 |
+| primary background | whole-frame除外 | depth / normal / albedo / MVを含む背景契約を確立 |
+| continuation miss | whole-frame除外 | RR用のmiss表現を一次資料または公式sampleで確認 |
+| untraced / inactive / invalid direction | whole-frame除外 | missと混同せず、発生理由とfallbackを定義 |
+| specular motion vectorによる代替 | 未実装 | dense reflected geometry motionと動的物体の検証 |
+
+インストール済みStreamline 2.12.0の `ProgrammingGuideDLSS_RR.md` 4.1.8/4.1.9では、
+reflected specular MVの代わりにprimary surfaceからのworld-space hit distanceを渡せる。
+ただし背景 / miss / untracedに対するpixel sentinelの規定は当該節にない。
+NRD用の65504、RayQueryのrayTMax、診断用の0をRRの正しいsentinelとして転用しない。
+pluginの `getTaggedResource` と必須入力判定で距離/MV tagがoptionalでも、
+両方省略した場合の意味や画質が認定されるわけではない。
+
+次の実装単位は、実continuationを共通入力のoptional信号として公開し、
+初期認定profileを1spf / pixel-center / opaque / 2bounce / BSDF-only環境に限定して、
+finite hitから距離の対応を検証することとする。
+背景・missを含むframeを送るnative RR接続は、その契約の確認後に進める。
+既存のHybrid RRとNRD変換は変更しない。
+
+経路対応の実測（2026-10-24）:
+
+- `Tests/PathTracing/validate_rr_distance_lineage.py` を追加し、同一設定のfresh processで
+  実経路4信号、NRD specular direction / distance、PhysicalSpecularの計7枚をcaptureした。
+  各captureのresource / format / 全metadataのcohort一致とfinite値を確認する。
+- 比較可能な1,130,372 pixelすべてで実continuationと独立probeの方向差が1e-4を超えた。
+  diffuse proposalかつPhysicalSpecularが非zeroのpixelは744,769だった。
+- 実経路がuntracedでもprobeがhitとなるpixelは10,557、
+  実経路がmissでもprobeがhitとなるpixelは113,846だった。
+  probeのhit有無を実radianceの経路状態として流用できないことも確認した。
+- 既存 `validate_secondary_geometry.assess` の独立平面交差oracleも同じcaptureに適用した。
+  status / proposal / 単位方向 / pdf / primary validityは合格したが、
+  queryTとsurface distanceは事前固定の `1e-4 + 5e-5 * expected distance` を超えた。
+  hit 9,279 / miss 66,608のうち、最大queryT差は0.0014515573671274318、
+  最大published surface distance差は0.0014514341380174045、最大許容比は8.31928331595752。
+  原因は未特定であり、float精度だけが原因とも断定しない。
+  oracleの許容誤差を緩和せず、report全体はfailedとして保持した。
+- D3D12 ERROR/CORRUPTIONは7 captureとも0。
+  producer shader / exeは前節のlive検証と同一で、renderer変更や再buildは行っていない。
+
+raw report:
+`build/reconstruction-input-validation/captures/rr-distance-lineage-20261024/report.json`
+
+距離候補の認定前に、上記交差誤差をpixel座標・grazing角・GPU ray生成精度から切り分ける。
+このauditは独立probeの不適合を実証するものであり、actual continuationのRR採用を認定しない。
+
+## 距離差の切り分け: 一次レイ計算精度（2026-10-24）
+
+前節の距離差を `validate_rr_distance_precision.py` で切り分けた。
+元の7 captureは変更せず、同一exe / producer shader hashのfresh processから
+`DenoiserPrimaryPosition` を1枚追加captureした。
+全metadataを比較し、frame / sample / camera / size / policyが一致することを確認する。
+
+一次ヒット位置の3モデルから同じ記録済みcontinuation方向を使い、
+有限平面との二次交差をdoubleで独立計算した。
+surface distanceは、bias加算後の実origin offsetを含めた幾何距離として別途照合する。
+元のdouble oracleも同一reportに残し、過去のfailed reportは上書きしない。
+
+| 一次ヒット位置のモデル | queryT不合格数 | 最大queryT差 | 最大surface距離差 | 最大許容比 |
+| --- | ---: | ---: | ---: | ---: |
+| 従来のdouble unprojection | 70 | 0.0014515573671274318 | 0.0014514341380174045 | 8.31928331595752 |
+| float32 unprojection / normalizeモデル | 0 | 0.00006513425274690121 | 0.00006529143103950474 | 0.23674440682907744 |
+| GPU記録済み一次ヒット位置 | 0 | 0.0000033142851189049694 | 0.0000033211708667657547 | 0.024495358851696666 |
+
+3モデルとも非境界hitは9,279 pixelで、許容誤差は従来の
+`1e-4 + 5e-5 * expected distance` のままである。
+status、primary validity、単位方向、pdf、proposal等の従来チェックも合格した。
+GPU位置とdouble位置の最大成分差は0.00008273036733630335。
+GPU位置とfloat32モデルの最大成分差は0.000030517578125。
+
+例えばpixel (1192, 440) では、一次ヒット位置のz差が約0.0000544139、
+二次方向と壁面normalの内積が約-0.0374206となる。
+浅い角度の交差では、この起点差が距離へ増幅される。
+同pixelのqueryT差0.00145156はこの増幅と整合する。
+`MakePrimaryRay` はfloatのunprojection / divide / normalizeを行うのに対し、
+従来oracleはその経路をdoubleで再構成していた。
+このfixtureで観測した大きな距離差は、一次起点の数値差で説明でき、
+二次queryTやsurface距離のbias補正式の不具合を示すものではない。
+
+ただし、GPU記録位置を使うチェックは「その起点からの距離」の条件付き検証である。
+GPU一次レイ生成そのものの独立認定ではない。
+float32モデルもGPUのFMAやnormalizeをbit再現するものではない。
+これらを理由にdouble oracleの基準を緩めたり、RR native入力の認定へ昇格したりしない。
+
+検証結果:
+
+- fresh captureのD3D12 ERROR/CORRUPTIONは0。
+- queryTへ0.01を加えた異常、sampleStartIndex不一致、primary validity=0の3ケースを拒否した。
+- renderer / shader / NRD / Hybrid RRは変更せず、再buildも不要だった。
+- `git diff --check` は合格。
+
+reports:
+
+- `build/reconstruction-input-validation/captures/rr-distance-precision-20261024/report.json`
+- `build/reconstruction-input-validation/captures/rr-distance-precision-20261024/negative-checks.json`
+
+再実行例（sourceとexeのhashが一致していることが必要）:
+
+```powershell
+python -B Tests/PathTracing/validate_rr_distance_precision.py `
+  --source build/reconstruction-input-validation/captures/rr-distance-lineage-20261024 `
+  --output build/reconstruction-input-validation/captures/rr-distance-precision-repeat `
+  --exe build/reconstruction-input-validation/Debug/RtPbrSurvey.exe
+```
+
+次は実continuationの3信号を共通入力のoptional capabilityに追加する。
+NRDの独立probeとの意味の違いを保持し、既存のRR数値診断t7を自動置換しない。
+背景 / miss / untracedのRR契約と、native adapterの接続は引き続き未認定である。
+
+Status: Primary precision explains observed distance discrepancy; conditional continuation-distance checks pass, native RR qualification and NRD strict replay investigation remain.
+
+## PTからnative RRへの接続: 60分の実装プラン
+
+目標は、小さい静止fixtureでPT由来の入力をnative RRへ渡し、SDK evaluateの成功と
+GPU完了後のRR出力captureを確認することである。
+一般シーンの画質完成ではなく、実呼出しが成立する最小経路を作る。
+現在の検証exeはStreamline SDK未連携のため、冒頭でSDK有効buildを開始する。
+実施workspaceはWork4のみとし、既存の未コミット変更を引き継ぐ。
+
+| 経過 | 作業 | その時点の確認事項 |
+| --- | --- | --- |
+| 0–8分 | Work4内にRR接続用buildを作り、既存Streamline 2.12.0のinclude / lib / runtime DLLを指定。feature supportと初期化ログを確認。小解像度の閉じたopaque静止fixtureを用意 | SDK未連携ではなく実feature supportの結果が得られる。SDKはWork3にあるものをread-only参照し、build出力はWork4へ置く |
+| 8–20分 | `PrimaryContinuation` / `SecondaryRayData` / `SecondarySurfaceDistance` を共通入力へoptional追加。既存signal番号を維持。PT用RR距離候補を実continuationへ接続 | 1spf / pixel-center / 2bounce / BSDF-only環境で同一productionの信号が揃う。独立NRD probeの変換・意味は維持する |
+| 20–37分 | PT用evaluate入力をadapterへ追加し、LinearDepth tag、独立したoutput resource、行列、MV scale、exposure、resource stateを接続。renderとoutputは等倍に限定 | Hybridの既存HardwareDepth経路を保持。PTでreflection専用resourceを偽装することなくnative evaluateを記録できる |
+| 37–47分 | native opt-inの診断呼出し、初回reset、同一production保持、失敗時のraw PT fallback、結果ログとRR出力captureを接続 | 成功時だけRR出力を使用。SDK失敗 / 入力除外 / 未実行を別々に記録し、raw PTをRR成功として扱わない |
+| 47–60分 | Debug build、限定fixtureで1回以上のnative evaluateとcapture。opt-out / gate拒否 / resetの最小確認。既存Hybridの関連契約テストを実行し、結果を記録 | evaluate結果、実行回数、入力frame、output由来、D3D12 ERROR/CORRUPTION、出力finite検査を確認。時間切れ時は実際の到達点を記録 |
+
+初期profile:
+
+- 静止camera / 静止opaque geometry / 固定material / 1spf / pixel-center / jitterなし。
+- render=outputの等倍、小解像度（例256x144）、2bounce、direct / emissive / NEE無効。
+- 閉じたfixtureでprimary backgroundとcontinuation missを避ける。
+  全画素の実continuationがfinite hitであることを検証し、untraced / invalidもnativeへ送らない。
+  これはfixtureの条件であり、一般シーンのmiss sentinelを定義するものではない。
+- noisy colorにはcurrent-frame radianceを使い、PTの蓄積結果やNRD結果を渡さない。
+- albedo / normal / roughness / LinearDepth / MVは既存のRR変換を再利用し、
+  specular hit distanceのみ実continuationのsurface-origin幾何距離から生成する。
+
+最初の呼出しは診断用の二段階でよい。
+同一productionの変換textureを保持し、GPU完了後に全画素gateを確認してから、
+その保持入力に対してRRを実行する。最新frameへstampを付け替えない。
+通常の毎frame処理へCPU readback待機を導入せず、この段階では単発接続の証明を優先する。
+初回はreset=trueとし、native evaluateが成功した入力だけを履歴基準にする。
+pause / 再生成 / resize等で入力同一性が失われた場合は拒否またはresetする。
+
+60分終了時の成功条件:
+
+1. PT由来の検証済み入力に対して、実際のnative RR evaluateが少なくとも1回成功する。
+2. SDK出力resourceをGPU完了後にcaptureし、raw fallbackと区別できる証跡がある。
+3. D3D12 ERROR/CORRUPTION 0、出力finite、入力とoutputの寸法・productionが一致する。
+4. native opt-inを外した場合と入力gate失敗時にはSDKを呼ばない。
+
+SDK / driver / deviceがfeatureを提供しない場合は、8分時点で原因と失敗stageを確定する。
+入力gateが通らない場合もgateを緩めず、接続コードと失敗証跡までを到達点とする。
+どちらの場合も「native接続成功」とは報告しない。
+この60分では背景 / miss契約、動的物体、upscaling、長期history画質、NRD strict replay問題は扱わない。
+commit / push / PR mergeはこの時間枠に含めない。
+
+Status: 60-minute native RR connection plan recorded; implementation not started for this plan.
+
+## 60分枠の実装結果: PT入力からnative RRへの単発接続
+
+PT captureからのGPU入力変換、全画素の検証、native RR evaluate、
+GPU完了後のSDK出力readbackまで接続し、実機で成功した。
+通常描画のPT final colorへの差し替えや連続frameのhistory運用はまだ行っていない。
+今回の到達点は、同一productionを保持した単発の診断replayである。
+
+実装:
+
+- 共通入力へ `PrimaryContinuation` / `SecondaryRayData` / `SecondarySurfaceDistance` をoptional追加。
+  既存15信号の番号とNRD probeの意味は維持する。
+  この3信号は独立NRD distance diagnosticsをOFFにしても取得できる。
+- `RayReconstructionEvaluateInputs::pathTracingDiagnostic` を追加（default false）。
+  PT診断は独立 `scalingOutputColor` とLinearDepth tagを使用する。
+  Hybridは従来のreflection resource / HardwareDepth tag / output stateを保持する。
+- PT診断のcolor / albedo / specular albedo / normalはRGBA32_FLOAT、roughness / depth / distanceは
+  R32_FLOAT、MVはRG32_FLOAT。render=output、HDR、preExposure=exposureScale=1。
+- SDK直前の `slEvaluateFeature(kFeatureDLSS_RR)` の実呼出し回数をdiagnosticsへ記録する。
+  support確認やreadiness判定だけではカウントしない。
+- `RtPbrSurvey.RrNativeReplay` は既存texture replay harnessのGPU変換を再利用する。
+  変換完了fence後にstatus全画素0とprofile / native opt-inを確認し、
+  同じtexture allocationをRRへ渡す。NGX出力は別UAVにし、fallbackをSDK成功として使わない。
+- 出力をNaNで初期化してからRRを実行し、完了fence後に全RGBが有限になったことを確認する。
+  alphaの意味はこの診断で認定しない。
+- `Tests/PathTracing/validate_rr_native.py` はfixture生成、10信号のcapture、
+  production cohort一致、CPU double参照とGPU変換の比較、native output、拒否ケースをまとめて検証する。
+- `-WindowSize width height` を追加。整数64..4096、未指定時は従来のwindow sizeを保持する。
+  samplingやdebug layerの設定は変更しない。
+
+限定fixture:
+
+- 256x144、静止camera / geometry、opaqueの閉じたglTF box、1spf、pixel-center、2bounce。
+- 正面の金属面を反射した実continuationが発光面へ届く。
+  emissiveは有効、direct / environment / emissive NEE / Russian rouletteは無効。
+  非黒の入力を得るため、プランのemissive OFFを「BSDF経路で到達する発光のみ」に変更した。
+- glTFへ白の定数metallic-roughness / emissive textureを明示する。
+  renderer側の欠落texture fallbackへ依存せず、試験用の金属率と発光を再現するためである。
+- 実continuationのfinite hitは36,864 / 36,864 pixel。
+  背景 / miss / untracedの値を補完してgateを通す処理はない。
+- 静止cameraのcurrent / previous matrix一致を確認する。
+  world-hitの再投影に由来する微小MVは2e-6 NDC以内を要求し、その値を保持する。
+  計測された最大絶対値は約7.15e-7で、0に書き換えない。
+
+検証結果:
+
+- NVIDIA GeForce RTX 2080 Ti、Streamline 2.12.0の既存配置をread-only参照。
+  support queryは `Available / Result::eOk`。
+- 初回native evaluateは `Result::eOk`、`inputReady=true`、`outputAvailable=true`。
+  最終replayでも実呼出し回数は1、reset=true、frameId=31、sampleStartIndex=30。
+- GPU完了、全36,864 pixelのRGB有限、D3D12 ERROR/CORRUPTION 0。
+  SDK出力RGB範囲は `[0.071868896484375, 0.735595703125]`。
+  入力とのRGB差は全pixelにあり、最大絶対差0.003078937530517578。
+  これはpassthroughでないことの確認であり、画質改善の認定ではない。
+- opt-in OFFと、1 pixelの距離を負にした2ケースはexit 1で拒否。
+  両方ともnative evaluate呼出し0、native出力fileなし。
+- 共通metadata / allocation identity / NRD capability / RR capability /
+  HybridとPTのadapter境界 / CaptureSession CLIの関連CTestは6 / 6合格。
+- 最終native replay / 関連testのDebug buildはwarning / error 0。
+  `git diff --check` は合格。commit / push / mergeは行っていない。
+- SDK有効の最終アプリもcompile / linkでwarning / error 0。
+  配置済みruntimeを使い、使用中DLLの再コピーを避けて検証した。
+  `-WindowSize 256 144` のPT captureはexit 0、全値finite、D3D12 ERROR/CORRUPTION 0で、
+  SDKなしproducerのcurrent-frame radianceとbit一致した。
+  このPT起動経路のRR supportログはDeviceNotSetであり、アプリからnative RRを呼んだ検証ではない。
+  native RRのAvailable / evaluate成功は前述の専用replay exeで確認している。
+
+reports:
+
+- `build/pt-native-rr-validation/captures/native-rr-20261024-white/report.json`（fresh 10 captureと初回native成功）
+- `build/pt-native-rr-validation/captures/native-rr-20261024-final/report.json`（同一captureを再利用した最終native / 拒否確認）
+- `build/pt-native-rr-validation/captures/native-rr-20261024-final/gpu/native-result.json`
+- `build/pt-native-rr-validation/captures/native-rr-20261024-final/native-off/gpu/admission-result.json`
+- `build/pt-native-rr-validation/captures/native-rr-20261024-final/invalid-distance/gpu/admission-result.json`
+- `build/pt-native-rr-validation/captures/sdk-app-final-smoke-20261024/report.json`
+
+最終replay exe SHA256は `c3f3c3f8707ec6025499d54e74da05e94b8fc2f67e8db855ea740e6424723f33`。
+producer exeは `c61aab59ce8332ac029538d77b75a77f0dc1982fe2456d56dcfc72053d85a026`。
+native output SHA256は `253b3adcef7f0e0035daac9a32dac474c9abd69eb39af745208bddf45f7da18d`。
+raw reportにはproducer / converter shader、fixture、scriptと各captureのhashも保存する。
+
+再実行は、SDK有効のtest buildと `-WindowSize` 対応producerを使う。
+SDK model cache等の利用権限が必要な環境では通常の許可された実行環境で行う。
+
+```powershell
+python -B Tests/PathTracing/validate_rr_native.py `
+  --source build/reconstruction-input-validation/captures/rr-live-conversion-20261024 `
+  --output build/pt-native-rr-validation/captures/native-rr-repeat `
+  --exe build/rr-live-only-validation/Debug/RtPbrSurvey.exe `
+  --replay-exe build/pt-native-rr-validation/Debug/RtPbrSurvey.RrNativeReplay.exe `
+  --shader build/pt-native-rr-validation/Tests/shaders_PathTracingRrConversion_CSMain.cso
+```
+
+生成したscene / preset / glTFがhash一致する場合は、`--reuse-captures <capture-folder>` で
+同じPT入力のままnative呼出しと拒否確認を再実行できる。
+native replay用exeはSDKのruntime DLLを `copy_if_different` で配置し、不要なAssetsや
+使用中のAgility DLLを再コピーしない。
+
+初期検証で残した失敗資料:
+
+- `closed-box-20261024`: 未対応のscene JSON material項目を含むため起動できなかったfixture。
+- `native-rr-20261024/report.json`: SDK有効producerがcapture後に非0で終了した試行。
+  詳細原因は未調査。producerをSDKなしのbuildへ分離し、native replayはSDK有効で成功を確認した。
+  最終アプリの小解像度smokeでは正常終了したが、初期試行の原因を修正したとは断定しない。
+- `native-rr-20261024-small/report.json`: 静止MVのbit 0要求で失敗した試行。
+  camera matrix一致と前述のreprojection noise条件へ分離した。
+
+次は通常のPT render graphへのnative evaluate配置、出力選択、history reset / 継続処理を行う。
+背景 / miss / untraced契約、動的物体、upscaling、画質比較とNRD strict replay問題は未解決である。
+
+Status: Native RR single-production replay validated, including output and negative admission; real-time PT integration and general-scene qualification remain.
