@@ -1,7 +1,7 @@
 # 色付き薄膜透過の1日実装プラン
 
 作成日: 2026-10-23
-状態: 保存契約とNative PT薄膜描画を実装・自動検証済み。GUI・目視評価は未着手。
+状態: 保存契約・Native PT薄膜・エディタUI・3シーンを実装。GUI操作とユーザー目視確認は未完了。
 対象workspace: `C:\work\RtPbrSurvey-work-3`
 想定作業量: 実働8時間。テストシーン作成、ビルド、検証、修正を含む。
 実装ブランチ案: `codex/pt-thin-transmission`
@@ -183,7 +183,8 @@ alpha coverage、薄膜の透過、体積の屈折・吸収を区別するため
 - [x] CPU/GPU材質への伝搬、Native PTの薄膜反射・直進透過。
 - [ ] 定数glTF透過拡張の読込み。既存の未対応診断を維持している。
 - [x] 透過シーンでNRDを使わないガードとNative fallback表示。
-- [ ] Scene EditorのRGBA・IOR、Git管理の検証用3シーン。
+- [x] Scene EditorのRGBA・IOR、Git管理の検証用3シーンを追加。
+- [ ] GUI操作による即時反映・カメラ保持・蓄積リセットのユーザー確認。
 
 最初の作業単位では保存契約だけを追加し、未接続のThin材質を不透明として
 黙って表示しないためのBuilderガードを置いた。2番目の作業単位で描画を
@@ -224,5 +225,34 @@ alpha coverage、薄膜の透過、体積の屈折・吸収を区別するため
   SHA-256: `c81adbb8f4f6adb6963852c8dcfa2c023daf02840719f0bcf448ee527dfecd6f`。
 
 専用ビルド: `bin/PathTracingValidation/thin-transmission-build-20261024/Debug/RtPbrSurvey.exe`。
-次はScene EditorでのRGBA・IOR編集、定数glTFの限定読込み、Git管理の3シーンを追加する。
+次の作業単位でScene EditorのRGBA・IOR編集とGit管理の3シーンを追加した（下記）。
 色付きの影、屈折、厚み、ユーザー目視確認は依然として未完了。
+
+### エディタと検証シーン、2026-10-24
+
+- Primitiveの材質Inspectorに `Transmission Mode`、`Transmission RGBA`、`IOR`を追加。
+  Aは不透明度で、内部factorは1-A。IORのGUI編集範囲は1から10。
+- 変更したフレームで既存のRebuildSceneEditorPreview経路を呼び、
+  preserveCameraを維持する。エンジン側の既存Scene更新でPT蓄積をリセットする。
+  ドラッグ終了時のCommitEditでUndoを1操作にまとめる。
+- 17は白・赤・緑・青の板と不透明な枠、18は0/45/75度の板、19は2枚の板と
+  間の不透明Cube。共通のUnlit背景模様を17に置き、18/19から相対参照する。
+- 各scene.jsonのdescriptionとREADMEに、日本語の目的・操作・観察内容・制約を記載。
+  8バウンスのPT presetを同梱し、NRD要求時のNative fallbackも確認できる。
+- SDK有効Debugビルド成功。CTest 40/40合格。
+  セッションのUndo/Redo、材質複製、保存データ復元、3シーンのBuilder読込みを検証。
+- 3シーンの32フレームPNGキャプチャが成功し、D3D12 ERRORなし。
+  全シーンで透過を理由とするNative fallbackをログ確認した。
+  初回画像を見て背景模様を広げ、構図調整後の3キャプチャも成功。
+- レポート: `bin/PathTracingValidation/thin-review-r2-20261024/report.json`。
+  SHA-256: `9d2f72ee84c2d8643cdf148c0799ea6abc5b08239ec39fd470e5eff110832297`。
+  キャプチャ後にテキストファイルのEOLのみCRLFへ正規化するため、
+  レポート内の撮影時ファイルhashとコミット版のbyte hashは異なり得る。
+- GUI自動確認は画面取得の `0x80070057`、再取得の `0x80070005` で停止。
+  クリックによる動作確認やユーザーの画質合格とは区別する。
+
+手動確認: Scene Editorから17をLoadし、HierarchyのPaneを選択する。
+InspectorのRGBA・IORを変更し、背景色への反映、カメラ維持、蓄積のやり直しを
+確認する。Undo/Redo、Save As、再Loadも確認する。新規Planeの場合は
+Render Preset内でPath Tracing/Radianceを選び、Thin TransmissionとRGBAを設定する。
+定数glTF透過拡張の読込みと、ユーザー目視評価は引き続き未完了。

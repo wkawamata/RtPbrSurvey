@@ -196,6 +196,39 @@ bool TestNrdDisocclusionFixture()
                  "NRD disocclusion fixture contains foreground and background");
 }
 
+bool TestThinReviewFixtures()
+{
+    const std::filesystem::path root = std::filesystem::path(__FILE__).parent_path().parent_path() /
+        "Assets/Scene/PathTracingValidation";
+    for (const char* name : {"17-thin-transmission-baseline", "18-thin-transmission-angle", "19-thin-transmission-layers"})
+    {
+        RtPbrSurvey::SceneDocument document;
+        RtPbrSurvey::SceneDocumentBuilder builder;
+        std::string error;
+        const std::filesystem::path directory = root / name;
+        if (!Check(RtPbrSurvey::LoadSceneDocumentFile((directory / "scene.json").string(), document, &error),
+                   "thin review document loads") ||
+            !Check(builder.Build(document, directory, &error), "thin review scene and background asset build"))
+        {
+            std::cerr << name << ": " << error << '\n';
+            return false;
+        }
+        bool hasThin = false;
+        for (const auto& material : builder.Builder().GetMesh().materials)
+        {
+            hasThin |= material.thinTransmission && material.transmissionFactor > 0;
+        }
+        if (!Check(hasThin && !document.description.empty() &&
+                       builder.Builder().GetScene().instances.size() >= 4 &&
+                       std::filesystem::is_regular_file(directory / document.renderPresetPath),
+                   "thin fixture has active transmission, geometry, description and render preset"))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool TestTransmissionReachesRuntimeMaterial()
 {
     RtPbrSurvey::SceneDocumentBuilder builder;
@@ -251,7 +284,7 @@ bool TestGltfFailureKeepsPublishedScene()
 
 int main()
 {
-    if (!TestTransmissionReachesRuntimeMaterial() ||
+    if (!TestThinReviewFixtures() || !TestTransmissionReachesRuntimeMaterial() ||
         !TestPrimitiveBuildAndMeshReuse() || !TestGltfBuildAndMeshReuse() || !TestGltfFailureKeepsPublishedScene() ||
         !TestNrdStableRadianceFixture() || !TestNrdDisocclusionFixture())
     {

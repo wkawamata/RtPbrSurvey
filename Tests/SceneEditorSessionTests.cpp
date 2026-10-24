@@ -1,5 +1,6 @@
 #include "App/SceneEditorSession.h"
 #include "Scene/SceneGraph.h"
+#include "Scene/SceneDocumentJson.h"
 
 #include <iostream>
 
@@ -286,6 +287,54 @@ bool TestMultipleSelectionSupportsBulkDuplicateAndDelete()
     return passed;
 }
 
+bool TestTransmissionEditUndoAndPersistence()
+{
+    RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("thin-edit", "Thin Edit");
+    document.renderPresetPath = "render-preset.json";
+    App::SceneEditorSession session(std::move(document));
+    if (!Check(session.AddPrimitive(RtPbrSurvey::ScenePrimitiveKind::Plane), "thin editing starts with a plane"))
+    {
+        return false;
+    }
+    session.MarkSaved();
+    session.BeginEdit();
+    for (float opacity : {0.2f, 0.5f, 0.75f})
+    {
+        session.BeginEdit();
+        auto& transmission = session.Document().materials[0].transmission;
+        transmission.mode = RtPbrSurvey::SceneTransmissionMode::Thin;
+        transmission.factor = 1.0f - opacity;
+        transmission.tint = {0.2f, 0.4f, 0.8f};
+        transmission.ior = 1.33f;
+    }
+    session.CommitEdit();
+    bool passed = Check(session.IsModified(), "transmission edit marks the scene dirty");
+    passed &= Check(session.Undo() && !session.IsModified() &&
+                        session.Document().materials[0].transmission.mode == RtPbrSurvey::SceneTransmissionMode::Opaque &&
+                        session.Document().materials[0].transmission.factor == 0,
+                    "one undo restores the saved material before a drag");
+    passed &= Check(session.Redo() && session.Document().materials[0].transmission.factor == 0.25f &&
+                        session.Document().materials[0].transmission.tint.z == 0.8f &&
+                        session.Document().materials[0].transmission.ior == 1.33f,
+                    "redo restores the final RGBA and IOR values");
+    std::string duplicateId;
+    passed &= Check(session.DuplicateMaterialForSelectedPrimitive(&duplicateId), "thin material can be duplicated");
+    const auto& duplicate = session.Document().materials.back().transmission;
+    passed &= Check(duplicate.mode == RtPbrSurvey::SceneTransmissionMode::Thin && duplicate.factor == 0.25f &&
+                        duplicate.tint.x == 0.2f && duplicate.ior == 1.33f,
+                    "material duplicate preserves transmission");
+    std::string serialized;
+    std::string error;
+    RtPbrSurvey::SceneDocument restored;
+    passed &= Check(RtPbrSurvey::SerializeSceneDocument(session.Document(), serialized, &error) &&
+                        RtPbrSurvey::DeserializeSceneDocument(serialized, restored, &error) &&
+                        restored.materials.back().transmission.factor == 0.25f &&
+                        restored.materials.back().transmission.tint.z == 0.8f &&
+                        restored.materials.back().transmission.ior == 1.33f,
+                    "edited transmission survives document serialization");
+    return passed;
+}
+
 bool TestSceneSettingsEditIsUndoable()
 {
     RtPbrSurvey::SceneDocument document = RtPbrSurvey::CreateEmptySceneDocument("settings-test", "Settings Test");
@@ -307,7 +356,7 @@ bool TestSceneSettingsEditIsUndoable()
 
 int main()
 {
-    return TestPrimitiveAddAndSubtreeDelete() && TestUndoRedoRestoresDocumentAndDirtyState() &&
+    return TestTransmissionEditUndoAndPersistence() && TestPrimitiveAddAndSubtreeDelete() && TestUndoRedoRestoresDocumentAndDirtyState() &&
                    TestDuplicateAndReparentSelectedSubtree() && TestMaterialCreationIsUndoable() &&
                    TestGltfAssetIsSharedAcrossNodes() && TestUnusedResourcesAreRemovedAndUndoable() &&
                    TestNodeRenameIsUndoableAndRejectsEmptyNames() && TestCopyPasteSelectedSubtreeIsUndoable() &&
