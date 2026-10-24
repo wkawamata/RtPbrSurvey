@@ -20,6 +20,16 @@ void RtPbrSurveyEngine::BuildRenderPasses()
     m_reflectionSamplingCommitPending = false;
     m_pathTracingSampleCommitPending = false;
     m_pathTracingGeometryToken = 0;
+#ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
+    if (m_sceneHasThinTransmission)
+    {
+        m_nrdHistoryReset = true;
+        m_nrdComposedOutputValid = false;
+        m_nrdLastEvaluationAttempted = false;
+        m_nrdLastEvaluationRecorded = false;
+        m_nrdLastDispatchCount = 0;
+    }
+#endif
     m_renderGraphRuntime.Graph().Clear();
     m_renderGraphRuntime.Operations().Clear();
 
@@ -44,7 +54,7 @@ void RtPbrSurveyEngine::BuildRenderPasses()
 #endif
                 AddPass(MakePathTracingPass());
 #ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
-                if (m_nrdConversionPipeline != nullptr)
+                if (m_nrdConversionPipeline != nullptr && !m_sceneHasThinTransmission)
                 {
                     AddPass(MakeNrdConversionPass());
 #ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
@@ -1005,7 +1015,7 @@ auto RtPbrSurveyEngine::MakeToneMapPass() -> RenderPass
     {
         reads.push_back({kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
-        if (m_pathTracingSettings.nrdPreview)
+        if (m_pathTracingSettings.nrdPreview && !m_sceneHasThinTransmission)
         {
             reads.push_back({kPathTracingGuideTextureResourceNames[PathTracingGuideNrdSceneColor],
                              D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});

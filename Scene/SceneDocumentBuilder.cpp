@@ -169,6 +169,11 @@ bool SceneDocumentBuilder::Build(const SceneDocument& document,
             rendererMaterial.normalTexIndex = -1;
             rendererMaterial.metallicFactor = material.metallic;
             rendererMaterial.roughnessFactor = material.roughness;
+            rendererMaterial.thinTransmission = material.transmission.mode == SceneTransmissionMode::Thin;
+            rendererMaterial.transmissionFactor = material.transmission.factor;
+            rendererMaterial.transmissionTint = {
+                material.transmission.tint.x, material.transmission.tint.y, material.transmission.tint.z};
+            rendererMaterial.transmissionIor = material.transmission.ior;
             result.materialIds.emplace(material.id, m_builder.AddMaterial(rendererMaterial));
         }
 

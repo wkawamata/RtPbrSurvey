@@ -48,6 +48,8 @@ const char* NrdRelaxPresentationStatusText(NrdRelaxPresentationStatus status)
             return "Native fallback: awaiting current NRD composition";
         case NrdRelaxPresentationStatus::Relax:
             return "NRD RELAX diagnostic (per-pixel Native fallback)";
+        case NrdRelaxPresentationStatus::UnsupportedTransmission:
+            return "Native fallback: thin transmission is not supported by NRD";
     }
     return "Native fallback: unknown presentation status";
 }

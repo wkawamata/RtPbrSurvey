@@ -326,6 +326,7 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         CSMain
         "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingSampling.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/ThinTransmission.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDenoiserSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/EmissiveTriangleSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDirectLightAdapter.hlsli"
@@ -479,6 +480,16 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_compile_definitions(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE NOMINMAX)
     add_test(NAME RtPbrSurvey.PathTracingDenoiserSampling
         COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${denoiser_sampling_shader}")
+    set(thin_transmission_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_ThinTransmission_CSMain.cso")
+    add_custom_command(OUTPUT "${thin_transmission_shader}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/Tests"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${thin_transmission_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_ThinTransmission.hlsl"
+        DEPENDS Tests/shaders_ThinTransmission.hlsl Shaders/ThinTransmission.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${thin_transmission_shader}")
+    add_test(NAME RtPbrSurvey.ThinTransmission
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${thin_transmission_shader}" --thin-transmission)
     if(RTPBRSURVEY_TEST_NRD_PACKING)
         find_package(Git REQUIRED)
         set(RTPBRSURVEY_NRD_SDK_DIR "${RTPBRSURVEY_ROOT}/third_party/nrd-sdk-4.17.3"

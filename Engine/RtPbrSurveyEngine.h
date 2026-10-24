@@ -332,6 +332,7 @@ public:
         uint64_t maxRayQueriesPerFrame = 0;
         double primarySamplesPerSecond = 0.0;
         bool nrdPreviewBuilt = false;
+        bool thinTransmissionActive = false;
         Engine::NrdRelaxPresentationStatus nrdPresentationStatus = Engine::NrdRelaxPresentationStatus::Native;
         std::string nrdFailureReason;
         UINT nrdPreparedDispatches = 0;
@@ -1384,6 +1385,7 @@ private:
     UINT m_indexCountPerInstance = 0;
     bool m_usesIndexedDraw = false;
     bool m_sceneHasMaterials = false;
+    bool m_sceneHasThinTransmission = false;
     bool m_sceneResourcesAvailable = false;
 
     int m_displayInstanceCount = static_cast<int>(kMaxInstanceCount);
