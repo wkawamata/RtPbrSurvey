@@ -1,7 +1,7 @@
 # 色付き薄膜透過の1日実装プラン
 
 作成日: 2026-10-23
-状態: 保存契約・Native PT薄膜・エディタUI・3シーンを実装。GUI操作とユーザー目視確認は未完了。
+状態: 保存契約・Native PT薄膜・エディタUI・定数glTFの限定読込み・検証シーンを実装。GUI操作の確認は未完了。シーン20の静止比較は目視OK。
 対象workspace: `C:\work\RtPbrSurvey-work-3`
 想定作業量: 実働8時間。テストシーン作成、ビルド、検証、修正を含む。
 実装ブランチ案: `codex/pt-thin-transmission`
@@ -181,7 +181,7 @@ alpha coverage、薄膜の透過、体積の屈折・吸収を区別するため
 - [x] JSONの追加項目は `transmission` オブジェクトとし、不正値を拒否。
 - [x] Debug x64でSceneDocument／SceneDocumentBuilderをビルドし、関連CTest 2/2合格。
 - [x] CPU/GPU材質への伝搬、Native PTの薄膜反射・直進透過。
-- [ ] 定数glTF透過拡張の読込み。既存の未対応診断を維持している。
+- [x] 定数glTF透過拡張の限定読込み。滑らかな非金属と通常IORに限定し、未対応条件の拒否を維持。
 - [x] 透過シーンでNRDを使わないガードとNative fallback表示。
 - [x] Scene EditorのRGBA・IOR、Git管理の検証用3シーンを追加。
 - [ ] GUI操作による即時反映・カメラ保持・蓄積リセットのユーザー確認。
@@ -256,3 +256,86 @@ InspectorのRGBA・IORを変更し、背景色への反映、カメラ維持、�
 確認する。Undo/Redo、Save As、再Loadも確認する。新規Planeの場合は
 Render Preset内でPath Tracing/Radianceを選び、Thin TransmissionとRGBAを設定する。
 定数glTF透過拡張の読込みと、ユーザー目視評価は引き続き未完了。
+
+### 透過を識別しやすい比較シーン、2026-10-24
+
+シーン17の大きな色面だけでは透過を判別しづらいため、
+`20-thin-transmission-visual-comparison` を追加した。
+左から「板なし／無色透過／青色透過／不透明な青い板」を並べる。
+各セルの背後には同じ白黒格子とオレンジの球・箱を置き、
+背景が見えること、透過色が掛かること、不透明板が遮ることを区別する。
+無色のIORは1.5で反射が残るため、板なしとの完全一致は要求しない。
+透視投影による位置依存もあるので、セル間の画素一致テストには使わない。
+
+- 描画コードは変更せず、SceneDocumentBuilderのfixture検証対象に20を追加。
+- `capture_thin_visual_comparison.py` で保存済みシーンを再現し、
+  シーン名・蓄積数・バウンス数・Native PT設定・Debug Layer有効状態を確認する。
+- このキャプチャは目視確認の材料であり、主観評価の合格を自動宣言しない。
+- RGBA編集のGUI操作、定数glTF拡張の読込みは未完了のまま維持する。
+
+確認結果:
+
+- Debug x64のSceneDocumentBuilderテストを再ビルドし成功。既存LNK4199警告1件のみ。
+- CTest 40/40合格。シーン20のJSON・glTF・材質・presetの読み込みを含む。
+- 1920x1080、256 samples、8バウンスのNative PTキャプチャ成功。
+  D3D12 ERRORなし。初回のレポート確認は存在しない診断キーを要求して失敗したため、
+  実際のPTログ契約に合わせてスクリプトを修正し、別出力先で再実行した。
+- 最終レポート: `bin/PathTracingValidation/thin-visual-comparison-r2-20261024/report.json`。
+- ユーザー確認: 比較画像を閲覧し「正しい結果に見える」と回答。
+  シーン20の静止比較のみ目視OKとする。GUI編集、カメラ移動、保存復元を含む
+  全操作の合格や、色付き透過照明の完成を意味しない。
+- シーン20の画像はユーザー指定により外部へ公開していない。
+
+### glTF定数透過の限定読込み、2026-10-24
+
+- `KHR_materials_transmission.transmissionFactor` と `KHR_materials_ior.ior` を読み、
+  GltfMaterialからSceneBuilderのflattened・node・legacy経路へ伝搬する。
+- 透過色はlinearなbaseColorFactor RGBから取得する。
+  [glTF透過仕様](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_transmission)
+  のalpha coverageと透過色の区別を維持し、alphaは透過量に転用しない。
+- Activeな透過はmetallic=0、roughness=0、定数色、OPAQUE coverageに限定。
+  透過テクスチャ、baseColor/MR/normalテクスチャ、粗い透過、volumeや他の材質拡張との
+  組合せは拒否する。通常IORは1以上。特殊IOR=0も拒否する。
+- 非既定IORはfactor=1に限定。不透明・混合成分のIOR shadingは未実装なので、
+  非既定IORをそこへ黙って適用したとは扱わない。
+- 受理したActive透過には `ThinTransmissionApproximation` 警告を出す。
+  glTF拡張全体への準拠ではなく、既存の有効単一表面・直進透過モデルへの限定写像。
+  未対応の必須拡張は従来どおりエラーとする。
+- TinyGLTFが明示nullを省略する場合にも不正値を受理しないよう、拡張の原JSONを保持し、
+  構造化JSONとして数値型・範囲・未対応フィールドを検査する。
+- `21-gltf-thin-transmission-suzanne` は原版のroughnessを0.1から0へ変更し、
+  必須ライト拡張と未使用画像を除去した派生fixture。不透明／無色／青色を並べる。
+  geometryはUX3D GmbHのCC-BY 4.0モデルを468,480 bytesのまま保持し、出典・変更をREADMEに記載。
+  ローカルの原版は変更しない。閉形状でも各面を薄膜として扱い、体積ガラスの屈折ではない。
+
+検証結果:
+
+- 独立したSDK有効Debugビルドを
+  `bin/PathTracingValidation/thin-gltf-build-20261024` に作成。全体ビルド成功。
+  起動中の旧目視用アプリは停止していない。
+- 初回の全体ビルドは撮影中のD3D12 DLLをコピーできず後処理が失敗した。
+  撮影終了後に再実行し、exit code 0、warning 0、error 0で完了。
+- CTest 40/40、既存薄膜Python比較テスト3/3合格。
+  glTFのfactor/tint/IOR伝搬、既定値、不正型・null・範囲外、未対応条件の拒否を含む。
+- 原版Suzanneは未対応の必須ライト拡張とroughness=0.1で拒否されることを確認。
+  派生geometryのSHA-256は原版と一致:
+  `aab742cee2ec8e713629f157cd17502e2845fd2958c576d92a5450ed8cadd4d4`。
+- 派生シーン21の1920x1080、256 samplesの画像を作成し、背景透過・着色を確認。
+  NRD要求あり32 samplesでもNative fallback、planned/prepared dispatches=0を確認。
+  対象実行でD3D12 ERRORなし。ユーザーのシーン21目視承認とは区別する。
+- 最終全体ビルド後にも32 samplesのNRD要求ありキャプチャを再実行して合格。
+  レポート: `bin/PathTracingValidation/thin-gltf-suzanne-final-20261024/report.json`。
+  SHA-256: `59303474a5c7678be044c237563e7361a3a4234db003333860917db22e6c604a`。
+- シーン21の画像は外部公開していない。
+
+### 実装区切りと次の作業
+
+ここまでの「定数色・滑らかな薄膜透過」と「glTF定数材質の限定読込み」は、
+ビルド・自動テスト・実描画を確認した実装区切りとして完了とする。
+1日版の全受入完了、glTF透過拡張への全面対応、ステンドグラス照明の完成ではない。
+GUI編集・カメラ移動・保存復元のユーザー操作確認は未完了として引き継ぐ。
+
+次の実装は透過率・透過色のテクスチャ対応を候補とする。
+TransmissionTestの模様を段階的に受理できるようにし、未対応の粗さ・metallic・
+alpha coverage・複合材質は引き続き診断する。StainedGlassLamp原版の全面対応は、
+clearcoat・volume等も必要なため、この次の一作業で完了するとは扱わない。

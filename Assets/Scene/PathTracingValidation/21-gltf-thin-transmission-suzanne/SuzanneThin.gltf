@@ -1,0 +1,213 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "RtPbrSurvey smooth thin-surface derivative",
+    "copyright": "Model by UX3D GmbH, CC-BY 4.0. Modified material and scene; see README.md."
+  },
+  "extensionsUsed": [
+    "KHR_materials_transmission",
+    "KHR_materials_ior"
+  ],
+  "extensionsRequired": [
+    "KHR_materials_transmission",
+    "KHR_materials_ior"
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "nodes": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "Opaque Suzanne",
+      "mesh": 0,
+      "translation": [
+        -2.8,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Clear thin Suzanne",
+      "mesh": 1,
+      "translation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Blue thin Suzanne",
+      "mesh": 2,
+      "translation": [
+        2.8,
+        0,
+        0
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "name": "Opaque comparison",
+      "pbrMetallicRoughness": {
+        "metallicFactor": 0,
+        "roughnessFactor": 0,
+        "baseColorFactor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "Clear thin approximation",
+      "pbrMetallicRoughness": {
+        "metallicFactor": 0,
+        "roughnessFactor": 0,
+        "baseColorFactor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "extensions": {
+        "KHR_materials_transmission": {
+          "transmissionFactor": 1
+        }
+      }
+    },
+    {
+      "name": "Blue thin approximation",
+      "pbrMetallicRoughness": {
+        "metallicFactor": 0,
+        "roughnessFactor": 0,
+        "baseColorFactor": [
+          0.2,
+          0.65,
+          1,
+          1
+        ]
+      },
+      "extensions": {
+        "KHR_materials_transmission": {
+          "transmissionFactor": 1
+        },
+        "KHR_materials_ior": {
+          "ior": 1.33
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 2
+        }
+      ]
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 11151,
+      "max": [
+        1.3186391592025757,
+        0.9275127649307251,
+        0.8188740611076355
+      ],
+      "min": [
+        -1.3186392784118652,
+        -0.9669579863548279,
+        -0.7583317160606384
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 11151,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 11151,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 55824,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 133812,
+      "byteOffset": 0
+    },
+    {
+      "buffer": 0,
+      "byteLength": 133812,
+      "byteOffset": 133812
+    },
+    {
+      "buffer": 0,
+      "byteLength": 89208,
+      "byteOffset": 267624
+    },
+    {
+      "buffer": 0,
+      "byteLength": 111648,
+      "byteOffset": 356832
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 468480,
+      "uri": "TransmissionSuzanne.bin"
+    }
+  ]
+}

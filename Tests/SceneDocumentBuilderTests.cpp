@@ -200,7 +200,8 @@ bool TestThinReviewFixtures()
 {
     const std::filesystem::path root = std::filesystem::path(__FILE__).parent_path().parent_path() /
         "Assets/Scene/PathTracingValidation";
-    for (const char* name : {"17-thin-transmission-baseline", "18-thin-transmission-angle", "19-thin-transmission-layers"})
+    for (const char* name : {"17-thin-transmission-baseline", "18-thin-transmission-angle", "19-thin-transmission-layers",
+                            "20-thin-transmission-visual-comparison", "21-gltf-thin-transmission-suzanne"})
     {
         RtPbrSurvey::SceneDocument document;
         RtPbrSurvey::SceneDocumentBuilder builder;
@@ -218,8 +219,9 @@ bool TestThinReviewFixtures()
         {
             hasThin |= material.thinTransmission && material.transmissionFactor > 0;
         }
+        const size_t minimumInstances = std::string(name) == "21-gltf-thin-transmission-suzanne" ? 2 : 4;
         if (!Check(hasThin && !document.description.empty() &&
-                       builder.Builder().GetScene().instances.size() >= 4 &&
+                       builder.Builder().GetScene().instances.size() >= minimumInstances &&
                        std::filesystem::is_regular_file(directory / document.renderPresetPath),
                    "thin fixture has active transmission, geometry, description and render preset"))
         {
