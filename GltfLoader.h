@@ -36,6 +36,8 @@ struct GltfMaterial
     float transmissionFactor = 0.0f;
     float transmissionTint[3] = {1.0f, 1.0f, 1.0f};
     float transmissionIor = 1.5f;
+    int transmissionTexIndex = -1;
+    int transmissionTintTexIndex = -1;
 };
 
 struct GltfTextureData

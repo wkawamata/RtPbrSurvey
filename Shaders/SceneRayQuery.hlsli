@@ -208,7 +208,7 @@ HitMaterialSample LoadCommittedHitMaterialSample(uint index0, uint index1, uint 
     uint materialId = LoadCommittedHitMaterialId(index0, index1, index2, barycentric, instanceId);
     Material material = g_materialData[materialId];
     float2 uv = LoadCommittedHitUv(index0, index1, index2, barycentric) * material.uvScale + material.uvOffset;
-    float4 metallicRoughness = g_texture[material.metallicRoughnessTexIndex].SampleLevel(g_sampler, uv, 0);
+    float4 metallicRoughness = g_texture[NonUniformResourceIndex(material.metallicRoughnessTexIndex)].SampleLevel(g_sampler, uv, 0);
 
     HitMaterialSample result;
     result.albedo = SrgbToLinear(g_texture[material.albedoTexIndex].SampleLevel(g_sampler, uv, 0).rgb) * material.baseColorFactor.rgb;
@@ -222,8 +222,15 @@ HitMaterialSample LoadCommittedHitMaterialSample(uint index0, uint index1, uint 
     result.materialId = materialId;
     result.normalTextureIndex = material.normalTexIndex;
     result.normalTextureScale = material.normalTextureScale;
-    result.transmissionFactor = (material.flags & MaterialFlagThinTransmission) != 0 ? saturate(material.transmissionFactor) : 0.0;
+    result.transmissionFactor = 0.0;
     result.transmissionTint = saturate(material.transmissionTint);
+    if ((material.flags & MaterialFlagThinTransmission) != 0)
+    {
+        result.transmissionFactor = saturate(material.transmissionFactor *
+            g_texture[NonUniformResourceIndex(material.transmissionTexIndex)].SampleLevel(g_sampler, uv, 0).r);
+        result.transmissionTint *= SrgbToLinear(
+            g_texture[NonUniformResourceIndex(material.transmissionTintTexIndex)].SampleLevel(g_sampler, uv, 0).rgb);
+    }
     result.transmissionIor = material.transmissionIor;
     return result;
 }

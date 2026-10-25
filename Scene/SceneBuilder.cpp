@@ -84,6 +84,8 @@ bool SceneBuilder::LoadGltfMesh(const std::string& path)
         material.transmissionTint = {gltfMaterial.transmissionTint[0], gltfMaterial.transmissionTint[1],
                                      gltfMaterial.transmissionTint[2]};
         material.transmissionIor = gltfMaterial.transmissionIor;
+        material.transmissionTexIndex = gltfMaterial.transmissionTexIndex;
+        material.transmissionTintTexIndex = gltfMaterial.transmissionTintTexIndex;
         m_mesh.materials.push_back(material);
     }
 
@@ -200,6 +202,8 @@ std::optional<SceneMeshId> SceneBuilder::AddGltfMeshData(GltfMeshData gltfMesh)
         material.transmissionTint = {gltfMaterial.transmissionTint[0], gltfMaterial.transmissionTint[1],
                                      gltfMaterial.transmissionTint[2]};
         material.transmissionIor = gltfMaterial.transmissionIor;
+        material.transmissionTexIndex = remapTextureIndex(gltfMaterial.transmissionTexIndex);
+        material.transmissionTintTexIndex = remapTextureIndex(gltfMaterial.transmissionTintTexIndex);
         m_mesh.materials.push_back(material);
     }
 

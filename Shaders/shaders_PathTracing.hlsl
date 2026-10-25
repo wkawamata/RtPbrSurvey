@@ -463,7 +463,7 @@ float3 TracePath(uint2 pixel,
     float previousBsdfPdf = 0.0;
     float previousEnvironmentPdf = 0.0;
     bool previousEmissiveNeeActive = false;
-    bool previousDelta = false;
+    bool previousEnvironmentNeeActive = false;
     bool cameraThroughThinSheets = true;
     const bool emissiveNeeEnabled = emissiveSamplingMode >= 1 && emissiveEnabled != 0 &&
         shadowEnabled != 0 && emissiveTriangleCount != 0;
@@ -507,7 +507,7 @@ float3 TracePath(uint2 pixel,
         if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
         {
             float3 missRadiance = cameraThroughThinSheets ? SamplePrimaryMiss(ray.Direction) : SampleEnvironmentLighting(ray.Direction);
-            if (bounce > 0 && !previousDelta && environmentSamplingMode >= 2)
+            if (bounce > 0 && previousEnvironmentNeeActive && environmentSamplingMode >= 2)
             {
                 missRadiance *= environmentMisEnabled ?
                     PathTracingPowerHeuristic(previousBsdfPdf, previousEnvironmentPdf) : 0.0;
@@ -675,20 +675,34 @@ float3 TracePath(uint2 pixel,
             {
                 break;
             }
-            const ThinTransmissionSample thin = SampleThinTransmission(
-                ray.Direction, geometryNormal, hitMaterial.transmissionIor, hitMaterial.transmissionTint,
-                NextRandom(randomState));
+            const float branchRandom = NextRandom(randomState);
+            ThinTransmissionSample thin;
+            if (hitMaterial.roughness > 0.0 && hitMaterial.transmissionIor != 1.0)
+            {
+                const float2 directionRandom = float2(NextRandom(randomState), NextRandom(randomState));
+                thin = SampleRoughThinTransmission(ray.Direction, geometryNormal, hitMaterial.roughness,
+                    hitMaterial.transmissionIor, hitMaterial.transmissionTint, branchRandom, directionRandom);
+            }
+            else
+            {
+                thin = SampleThinTransmission(ray.Direction, geometryNormal, hitMaterial.transmissionIor,
+                    hitMaterial.transmissionTint, branchRandom);
+            }
+            if (!thin.valid || (dot(thin.direction, geometryNormal) > 0.0) != thin.reflected)
+            {
+                break;
+            }
             throughput *= thin.weight;
-            previousDelta = true;
+            previousEnvironmentNeeActive = false;
             previousEmissiveNeeActive = false;
-            previousBsdfPdf = 0.0;
+            previousBsdfPdf = thin.pdf;
             cameraThroughThinSheets = cameraThroughThinSheets && !thin.reflected;
             if (bounce == 0)
             {
                 primarySpecularPath = true;
                 primaryDiffuseFraction = 0.0;
                 primarySpecularFraction = 1.0;
-                primarySurface.primaryContinuation = float4(thin.direction, 0.0);
+                primarySurface.primaryContinuation = float4(thin.direction, thin.pdf);
             }
             ray.Origin = hitPosition + geometryNormal * (thin.reflected ? normalBias : -normalBias);
             if (bounce == 0)
@@ -700,7 +714,7 @@ float3 TracePath(uint2 pixel,
             ray.TMax = rayTMax;
             continue;
         }
-        previousDelta = false;
+        previousEnvironmentNeeActive = true;
         cameraThroughThinSheets = false;
 
         if (directLightingEnabled != 0)

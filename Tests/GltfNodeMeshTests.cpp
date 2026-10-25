@@ -420,6 +420,8 @@ void TestThinTransmissionImport()
     GltfMeshData mesh;
     Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].thinTransmission,
             "Raw glTF material must retain the thin marker.");
+    Require(mesh.materials[0].transmissionTexIndex == -1 && mesh.materials[0].transmissionTintTexIndex == -1,
+            "Constant transmission must keep neutral texture defaults.");
 
     Json document = baseline;
     document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionFactor"] = 1;
@@ -450,12 +452,23 @@ void TestThinTransmissionImport()
         document["materials"][0]["extensions"]["KHR_materials_ior"] = {{"ior", invalid}};
         load(document, false, "TransmissionMaterial");
     }
-    for (const char* field : {"roughnessFactor", "metallicFactor"})
+    for (double roughness : {0.1, 0.5, 1.0})
     {
         document = baseline;
-        document["materials"][0]["pbrMetallicRoughness"][field] = 0.1;
+        document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = roughness;
+        load(document, true, "ThinTransmissionApproximation");
+        Require(LoadGltfMesh(temporary.string(), mesh) && NearlyEqual(mesh.materials[0].roughnessFactor, static_cast<float>(roughness)),
+                "Rough transmission must preserve the imported roughness.");
+    }
+    for (double roughness : {-0.1, 1.1})
+    {
+        document = baseline;
+        document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = roughness;
         load(document, false, "TransmissionMaterial");
     }
+    document = baseline;
+    document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] = 0.1;
+    load(document, false, "TransmissionMaterial");
     for (const char* extension : {"KHR_materials_volume", "KHR_materials_unlit", "KHR_materials_clearcoat"})
     {
         document = baseline;
@@ -464,6 +477,83 @@ void TestThinTransmissionImport()
     }
     document = baseline;
     document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionTexture"] = {{"index", 0}};
+    document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"] = {{"index", 0}};
+    const auto textured = load(document, true, "ThinTransmissionApproximation");
+    Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].transmissionTexIndex == 0 &&
+                mesh.materials[0].transmissionTintTexIndex == 0,
+            "Transmission and color may use the same image with distinct sampling semantics.");
+    Engine::SceneBuilder remapped;
+    Require(remapped.AddGltfMesh(FixturePath().string()).has_value(), "Texture-remap prefix must load.");
+    const size_t textureBase = remapped.GetMesh().textures.size();
+    const size_t materialBase = remapped.GetMesh().materials.size();
+    Require(static_cast<bool>(remapped.AddGltfNodeMesh(textured.asset, "Scaled")), "Textured transmission node must load.");
+    const auto& texturedMaterial = remapped.GetMesh().materials[materialBase];
+    Require(texturedMaterial.transmissionTexIndex == static_cast<int>(textureBase) &&
+                texturedMaterial.transmissionTintTexIndex == static_cast<int>(textureBase),
+            "Both transmission texture indices must be globally remapped.");
+    Engine::SceneBuilder texturedLegacy;
+    Require(texturedLegacy.LoadGltfMesh(temporary.string()) &&
+                texturedLegacy.GetMesh().materials[0].transmissionTexIndex == 0 &&
+                texturedLegacy.GetMesh().materials[0].transmissionTintTexIndex == 0,
+            "Legacy scene loading must retain both texture indices.");
+    Json texturedDocument = document;
+    document = baseline;
+    document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = 0.8;
+    document["materials"][0]["pbrMetallicRoughness"]["metallicRoughnessTexture"] = {{"index", 0}};
+    const auto roughTextured = load(document, true, "ThinTransmissionApproximation");
+    Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].metallicRoughnessTexIndex == 0 &&
+                NearlyEqual(mesh.materials[0].roughnessFactor, 0.8f) && mesh.materials[0].metallicFactor == 0.0f,
+            "Nonmetallic rough transmission must retain the core roughness texture and factor.");
+    Engine::SceneBuilder roughRemapped;
+    Require(roughRemapped.AddGltfMesh(FixturePath().string()).has_value(), "Roughness remap prefix must load.");
+    const size_t roughTextureBase = roughRemapped.GetMesh().textures.size();
+    const size_t roughMaterialBase = roughRemapped.GetMesh().materials.size();
+    Require(static_cast<bool>(roughRemapped.AddGltfNodeMesh(roughTextured.asset, "Scaled")) &&
+                roughRemapped.GetMesh().materials[roughMaterialBase].metallicRoughnessTexIndex == static_cast<int>(roughTextureBase),
+            "Rough transmission texture must use the global remapped index.");
+    Engine::SceneBuilder roughLegacy;
+    Require(roughLegacy.LoadGltfMesh(temporary.string()) &&
+                roughLegacy.GetMesh().materials[0].metallicRoughnessTexIndex == 0,
+            "Legacy loading must retain the rough transmission texture.");
+    const Json roughDocument = document;
+    document["meshes"][0]["primitives"][0]["attributes"].erase("TEXCOORD_0");
+    load(document, false, "MissingTransmissionTexcoords");
+    for (const Json& invalid : {Json{{"index", 999999}}, Json{{"index", 0}, {"texCoord", 1}},
+                               Json{{"index", 0}, {"extensions", {{"KHR_texture_transform", Json::object()}}}}})
+    {
+        document = roughDocument;
+        document["materials"][0]["pbrMetallicRoughness"]["metallicRoughnessTexture"] = invalid;
+        load(document, false, "TransmissionMaterial");
+    }
+    document = roughDocument;
+    document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] = 0.5;
+    load(document, false, "TransmissionMaterial");
+    document = roughDocument;
+    document["textures"][0]["source"] = 999999;
+    load(document, false, "TransmissionMaterial");
+    document = texturedDocument;
+    document["meshes"][0]["primitives"][0]["attributes"].erase("TEXCOORD_0");
+    load(document, false, "MissingTransmissionTexcoords");
+    for (const Json& invalid : {Json(nullptr), Json(0), Json::object(), Json{{"index", nullptr}},
+                               Json{{"index", true}}, Json{{"index", 0.5}}, Json{{"index", -1}},
+                               Json{{"index", 999999}}, Json{{"index", 0}, {"texCoord", 1}},
+                               Json{{"index", 0}, {"texCoord", nullptr}},
+                               Json{{"index", 0}, {"extensions", {{"KHR_texture_transform", Json::object()}}}}})
+    {
+        document = baseline;
+        document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionTexture"] = invalid;
+        load(document, false, "TransmissionMaterial");
+    }
+    document = texturedDocument;
+    document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"]["texCoord"] = 1;
+    load(document, false, "TransmissionMaterial");
+    document = texturedDocument;
+    document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"]["extensions"] =
+        {{"KHR_texture_transform", {{"scale", {2, 2}}}}};
+    load(document, false, "TransmissionMaterial");
+    document = texturedDocument;
+    document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionFactor"] = 1;
+    document["materials"][0]["extensions"]["KHR_materials_ior"] = {{"ior", 1.33}};
     load(document, false, "TransmissionMaterial");
     document = baseline;
     document["materials"][0]["extensions"]["KHR_materials_transmission"] = 7;
@@ -473,7 +563,7 @@ void TestThinTransmissionImport()
     load(document, false, "TransmissionMaterial");
     document = baseline;
     document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"] = {{"index", 0}};
-    load(document, false, "TransmissionMaterial");
+    load(document, true, "ThinTransmissionApproximation");
     document = baseline;
     document["materials"][0]["alphaMode"] = "BLEND";
     load(document, false, "TransmissionMaterial");

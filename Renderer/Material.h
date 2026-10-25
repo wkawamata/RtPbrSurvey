@@ -31,6 +31,8 @@ struct Material
     float transmissionFactor = 0.0f;
     float transmissionTint[3] = {1.0f, 1.0f, 1.0f};
     float transmissionIor = 1.5f;
+    uint32_t transmissionTexIndex = 0;
+    uint32_t transmissionTintTexIndex = 0;
 };
 
 } // namespace Engine

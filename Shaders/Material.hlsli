@@ -19,6 +19,8 @@ struct Material
     float transmissionFactor;
     float3 transmissionTint;
     float transmissionIor;
+    uint transmissionTexIndex;
+    uint transmissionTintTexIndex;
 };
 
 static const uint MaterialFlagUnlit = 1u << 0;

@@ -375,6 +375,125 @@ void ValidateThinTransmission(const float* values)
     }
     std::cout << "Validated 28672 thin transmission GPU samples against double-precision Fresnel and energy.\n";
 }
+double ReferenceDielectricFresnel(double cosine, double ior)
+{
+    if (ior == 1)
+    {
+        return 0;
+    }
+    const double cosT = std::sqrt(1 - (1 - cosine * cosine) / (ior * ior));
+    const double s = (cosine - ior * cosT) / (cosine + ior * cosT);
+    const double p = (ior * cosine - cosT) / (ior * cosine + cosT);
+    return (s * s + p * p) * 0.5;
+}
+
+double ReferenceSmith(double cosine, double alpha)
+{
+    return 2 * cosine / (cosine + std::sqrt(alpha * alpha + (1 - alpha * alpha) * cosine * cosine));
+}
+
+void ValidateRoughThinTransmission(const float* values)
+{
+    const double roughnesses[] = {0, .1, .35, .7, 1};
+    const double cosines[] = {1, .8, .1, .0001};
+    const double tint[] = {.2, .4, .8};
+    unsigned int invalidCount = 0;
+    unsigned int roughTransmittedCount = 0;
+    for (unsigned int test = 0; test < 28; ++test)
+    {
+        const double roughness = test < 20 ? roughnesses[test / 4] : .7;
+        const double ior = test < 20 ? 1.5 : (test < 24 ? 1 : 1.33);
+        const double cosine = cosines[test % 4];
+        const Vector view = {-std::sqrt(1 - cosine * cosine), 0, cosine};
+        const double selection = ReferenceDielectricFresnel(cosine, ior);
+        for (unsigned int index = 0; index < kSamplesPerCase; ++index)
+        {
+            const float* value = values + (test * kSamplesPerCase + index) * 16;
+            for (unsigned int channel = 0; channel < 16; ++channel)
+            {
+                if (!std::isfinite(value[channel]))
+                {
+                    throw std::runtime_error("Nonfinite rough thin sample");
+                }
+            }
+            const double branchRandom = (double((index * 193u) % 1024u) + .5) / 1024;
+            const bool reflected = branchRandom < selection;
+            const bool delta = roughness == 0 || ior == 1;
+            if (value[7] != (reflected ? 1 : 0) || value[9] != (delta ? 1 : 0))
+            {
+                throw std::runtime_error("Rough thin branch or delta classification mismatch");
+            }
+            if (delta)
+            {
+                const Vector expected = {-view.x, 0, reflected ? cosine : -cosine};
+                if (value[8] != 1 || value[3] != 0 || !Near(value[0], expected.x, 1e-6, 1e-6) ||
+                    !Near(value[2], expected.z, 1e-6, 1e-6))
+                {
+                    throw std::runtime_error("Rough thin smooth limit mismatch");
+                }
+                for (unsigned int channel = 0; channel < 3; ++channel)
+                {
+                    if (!Near(value[4 + channel], reflected ? 1 : tint[channel], 1e-6, 1e-6))
+                    {
+                        throw std::runtime_error("Rough thin smooth weight mismatch");
+                    }
+                }
+                continue;
+            }
+            const double alpha = std::max(.001, roughness * roughness *
+                (reflected ? 1 : std::clamp(2 * ior - 2, 0.0, 1.0)));
+            const float phase = (float(index) + .5f) * .61803398875f;
+            const Vector half = ReferenceNormal(view, alpha, (double(index) + .5) / 1024,
+                double(phase - std::floor(phase)));
+            const Vector reflection = view * -1 + half * (2 * Dot(view, half));
+            if (reflection.z <= 0)
+            {
+                ++invalidCount;
+                if (value[8] != 0)
+                {
+                    throw std::runtime_error("Below-surface rough thin sample was not rejected");
+                }
+                continue;
+            }
+            const Vector expected = {reflection.x, reflection.y, reflected ? reflection.z : -reflection.z};
+            if (value[8] != 1 || !Near(value[0], expected.x, .0003, .001) ||
+                !Near(value[1], expected.y, .0003, .001) || !Near(value[2], expected.z, .0003, .001))
+            {
+                throw std::runtime_error("Rough thin VNDF direction mismatch");
+            }
+            roughTransmittedCount += reflected ? 0 : 1;
+            const Vector direction = {value[0], value[1], std::abs(value[2])};
+            const Vector reconstructedHalf = Normalize(view + direction);
+            const double viewDotHalf = Dot(view, reconstructedHalf);
+            const double dDenom = reconstructedHalf.x * reconstructedHalf.x + reconstructedHalf.y * reconstructedHalf.y +
+                alpha * alpha * reconstructedHalf.z * reconstructedHalf.z;
+            const double distribution = alpha * alpha / (kPi * dDenom * dDenom);
+            const double probability = reflected ? selection : 1 - selection;
+            const double pdf = probability * distribution * ReferenceSmith(cosine, alpha) / (4 * cosine);
+            const double fresnel = ReferenceDielectricFresnel(viewDotHalf, ior);
+            if (!Near(value[3], pdf, .0001, .005) || !Near(value[10], pdf, .0001, .005))
+            {
+                throw std::runtime_error("Rough thin directional PDF mismatch");
+            }
+            for (unsigned int channel = 0; channel < 3; ++channel)
+            {
+                const double attenuation = reflected ? fresnel : (1 - fresnel) * tint[channel];
+                const double bsdf = attenuation * distribution * ReferenceSmith(cosine, alpha) *
+                    ReferenceSmith(direction.z, alpha) / (4 * cosine * direction.z);
+                if (!Near(value[12 + channel], bsdf, .0001, .005) ||
+                    !Near(value[4 + channel], bsdf * direction.z / pdf, .0001, .005))
+                {
+                    throw std::runtime_error("Rough thin BSDF or throughput mismatch");
+                }
+            }
+        }
+    }
+    if (invalidCount == 0 || roughTransmittedCount == 0)
+    {
+        throw std::runtime_error("Rough thin tests did not exercise rejection and transmission");
+    }
+    std::cout << "Validated 28672 rough thin samples, GGX PDF, BSDF, throughput, grazing and smooth limits.\n";
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -398,6 +517,7 @@ int main(int argc, char** argv)
         bool materialFactors = false;
         bool inputConversion = false;
         bool thinTransmission = false;
+        bool roughThinTransmission = false;
         const char* inputPath = nullptr;
         const char* outputPath = nullptr;
         for (int index = 2; index < argc; ++index)
@@ -413,6 +533,10 @@ int main(int argc, char** argv)
             else if (std::strcmp(argv[index], "--thin-transmission") == 0)
             {
                 thinTransmission = true;
+            }
+            else if (std::strcmp(argv[index], "--rough-thin-transmission") == 0)
+            {
+                roughThinTransmission = true;
             }
             else if (std::strcmp(argv[index], "--material-factors") == 0)
             {
@@ -435,7 +559,7 @@ int main(int argc, char** argv)
                 throw std::runtime_error("Unknown test option");
             }
         }
-        if (int(packing) + int(materialFactors) + int(inputConversion) + int(thinTransmission) > 1)
+        if (int(packing) + int(materialFactors) + int(inputConversion) + int(thinTransmission) + int(roughThinTransmission) > 1)
             throw std::runtime_error("Packing and material-factor modes are mutually exclusive");
         if ((inputPath != nullptr) != (outputPath != nullptr) || (inputPath && !inputConversion))
             throw std::runtime_error("Captured conversion requires both input and output paths");
@@ -556,6 +680,10 @@ int main(int argc, char** argv)
             outputFile.write(static_cast<const char*>(data), byteCount);
             if (!outputFile)
                 throw std::runtime_error("Could not write converted output");
+        }
+        else if (roughThinTransmission)
+        {
+            ValidateRoughThinTransmission(static_cast<const float*>(data));
         }
         else if (thinTransmission)
         {

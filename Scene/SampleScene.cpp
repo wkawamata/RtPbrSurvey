@@ -88,6 +88,8 @@ SceneMesh ConvertToSceneMesh(const GltfMeshData& mesh)
         sceneMaterial.transmissionTint = {material.transmissionTint[0], material.transmissionTint[1],
                                           material.transmissionTint[2]};
         sceneMaterial.transmissionIor = material.transmissionIor;
+        sceneMaterial.transmissionTexIndex = material.transmissionTexIndex;
+        sceneMaterial.transmissionTintTexIndex = material.transmissionTintTexIndex;
         sceneMesh.materials.push_back(std::move(sceneMaterial));
     }
 
