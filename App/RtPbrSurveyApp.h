@@ -294,7 +294,9 @@ private:
     uint64_t m_rrLifecycleResets = 0;
     uint64_t m_rrLifecyclePublished = 0;
     uint64_t m_rrLifecycleCancelled = 0;
+    uint64_t m_rrLifecycleRejected = 0;
     bool m_rrLifecycleEntered = false;
+    UINT m_rrLifecycleCapture = 0;
     RtPbrSurveyEngine::CameraState m_rrLifecycleCamera;
     UINT m_pathTracingHistoryValidationStage = 0;
     UINT m_pathTracingHistoryValidationFrames = 0;

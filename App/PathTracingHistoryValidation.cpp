@@ -49,6 +49,7 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
             {"continuous", rr.rrContinuousCount},
             {"resets", rr.rrResetCount},
             {"cancelled", rr.rrCancelledCount},
+            {"inputRejected", rr.rrInputRejectionCount},
             {"publishedFrameId", rr.rrRetainedFrameId},
             {"inputFrameId", rr.rrInputFrameId},
             {"lastReset", rr.rrLastReset},
@@ -63,6 +64,7 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
         m_rrLifecycleResets = rr.rrResetCount;
         m_rrLifecyclePublished = rr.rrRetainedFrameId;
         m_rrLifecycleCancelled = rr.rrCancelledCount;
+        m_rrLifecycleRejected = rr.rrInputRejectionCount;
         ++m_rrLifecycleStage;
         m_rrLifecycleFrames = 0;
         m_rrLifecycleEntered = false;
@@ -179,26 +181,147 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
             }
             break;
         case 7:
-            if (m_rrLifecycleFrames < 6)
+        case 9:
+            if (rr.rrResetCount > m_rrLifecycleResets + rr.rrInputRejectionCount - m_rrLifecycleRejected ||
+                rr.rrCancelledCount != m_rrLifecycleCancelled)
+            {
+                fail("Camera pose change reset or cancelled continuous RR");
+                return;
+            }
+            if (ready && calls >= m_rrLifecycleCalls + 3 && !rr.rrLastReset)
+            {
+                checkpoint(m_rrLifecycleStage == 7 ? "camera-translation" : "camera-rotation");
+                m_sceneRenderer.SetPathTracingAccumulationPaused(true);
+                m_rrLifecycleCapture = 0;
+            }
+            else
             {
                 auto camera = m_rrLifecycleCamera;
-                camera.pos.x += .01f * float(m_rrLifecycleFrames + 1);
+                if (m_rrLifecycleStage == 7)
+                {
+                    camera.pos.x += .0015f * float(m_rrLifecycleFrames + 1);
+                    camera.gazePoint.x += .0015f * float(m_rrLifecycleFrames + 1);
+                }
+                else
+                    camera.gazePoint.x += .001f * float(m_rrLifecycleFrames + 1);
                 LoadedScene().GetScene().camera = camera;
                 m_sceneRenderer.SetCamera(camera);
-                if (!invalidated() || calls != m_rrLifecycleCalls)
+            }
+            break;
+        case 8:
+        case 10:
+        {
+            // Pausing at Ready pins one production for all correlated raw
+            // captures. The camera may have advanced during its GPU latency;
+            // rrRetainedInput records the actual immutable camera transforms.
+            static constexpr const char* resources[] = {"PathTracing.RrMotion",
+                                                        "PathTracing.DenoiserPrimaryPosition",
+                                                        "PathTracing.CurrentFrameRadiance",
+                                                        "PathTracing.RrColor",
+                                                        "PathTracing.RrOutputAlternate",
+                                                        "PathTracing.RrOutput"};
+            if (!ready || calls != m_rrLifecycleCalls || rr.rrRetainedFrameId != m_rrLifecyclePublished)
+            {
+                fail("Motion capture did not retain one verified production");
+                return;
+            }
+            if (!m_rrLifecycleEntered)
+            {
+                const std::string prefix = m_rrLifecycleStage == 8 ? "translation-" : "rotation-";
+                RtPbrSurvey::ScreenshotRequest request;
+                request.path =
+                    std::filesystem::absolute(m_commandLineOptions.pathTracingRrLifecycleValidationDirectory /
+                                              (prefix + std::to_string(m_rrLifecycleCapture) + ".ptbuf"));
+                request.debugResourceName = resources[m_rrLifecycleCapture];
+                // Capture both slots; raw metadata identifies the published one.
+                m_sceneRenderer.RequestScreenshot(request);
+                m_rrLifecycleEntered = true;
+            }
+            else if (const auto result = m_sceneRenderer.ConsumeScreenshotResult())
+            {
+                if (!result->succeeded)
                 {
-                    fail("Moving camera exposed static RR output");
+                    fail(result->error);
+                    return;
+                }
+                ++m_rrLifecycleCapture;
+                m_rrLifecycleEntered = false;
+                if (m_rrLifecycleCapture == std::size(resources))
+                {
+                    ++m_rrLifecycleStage;
+                    m_rrLifecycleFrames = 0;
+                    m_rrLifecycleEntered = false;
+                    m_rrLifecycleCamera = m_sceneRenderer.GetCamera();
+                    m_sceneRenderer.SetPathTracingAccumulationPaused(false);
+                }
+            }
+            break;
+        }
+        case 11:
+            if (ready && calls >= m_rrLifecycleCalls + 2 && !rr.rrLastReset)
+            {
+                if (rr.rrResetCount > m_rrLifecycleResets + rr.rrInputRejectionCount - m_rrLifecycleRejected ||
+                    rr.rrCancelledCount != m_rrLifecycleCancelled)
+                {
+                    fail("Stopping camera lost continuous RR history");
+                    return;
+                }
+                checkpoint("camera-stopped");
+            }
+            break;
+        case 12:
+            if (!m_rrLifecycleEntered)
+            {
+                m_rrLifecycleCamera = m_sceneRenderer.GetCamera();
+                auto camera = m_rrLifecycleCamera;
+                camera.gazePoint = {camera.pos.x, camera.pos.y, camera.pos.z - 1};
+                LoadedScene().GetScene().camera = camera;
+                m_sceneRenderer.SetCamera(camera);
+                m_rrLifecycleEntered = true;
+            }
+            else if (rr.rrInputRejectionCount > m_rrLifecycleRejected &&
+                     rr.reconstructionPresentation.output == Backend::Native && !rr.rrRetainedOutputVerified)
+                checkpoint("input-rejected");
+            break;
+        case 13:
+            if (!m_rrLifecycleEntered)
+            {
+                LoadedScene().GetScene().camera = m_rrLifecycleCamera;
+                m_sceneRenderer.SetCamera(m_rrLifecycleCamera);
+                m_rrLifecycleEntered = true;
+            }
+            else if (ready && calls >= m_rrLifecycleCalls + 2 && !rr.rrLastReset)
+            {
+                if (rr.rrResetCount <= m_rrLifecycleResets)
+                {
+                    fail("Input rejection did not reset SDK history before recovery");
+                    return;
+                }
+                checkpoint("input-recovered");
+            }
+            break;
+        case 14:
+            if (!m_rrLifecycleEntered)
+            {
+                auto camera = m_sceneRenderer.GetCamera();
+                camera.fov += 2;
+                LoadedScene().GetScene().camera = camera;
+                m_sceneRenderer.SetCamera(camera);
+                m_rrLifecycleEntered = true;
+                if (!invalidated())
+                {
+                    fail("Projection change exposed stale RR output");
                     return;
                 }
             }
             else if (ready && rr.rrResetCount > m_rrLifecycleResets)
-                checkpoint("camera-recovered");
+                checkpoint("projection-changed");
             break;
-        case 8:
-        case 9:
+        case 15:
+        case 16:
         {
-            const UINT width = m_rrLifecycleStage == 8 ? 320 : 256;
-            const UINT height = m_rrLifecycleStage == 8 ? 180 : 144;
+            const UINT width = m_rrLifecycleStage == 15 ? 320 : 256;
+            const UINT height = m_rrLifecycleStage == 15 ? 180 : 144;
             if (!m_rrLifecycleEntered)
             {
                 m_sceneRenderer.RequestResize(width, height);
@@ -206,10 +329,10 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
             }
             else if (ready && context.renderWidth == width && context.renderHeight == height &&
                      rr.rrResetCount > m_rrLifecycleResets)
-                checkpoint(m_rrLifecycleStage == 8 ? "resized" : "resize-restored");
+                checkpoint(m_rrLifecycleStage == 15 ? "resized" : "resize-restored");
             break;
         }
-        case 10:
+        case 17:
             if (!m_rrLifecycleEntered)
             {
                 m_sceneRenderer.SetPathTracingAccumulationPaused(true);
@@ -225,7 +348,7 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
                     fail(result->error);
                     return;
                 }
-                fprintf(m_logFile, "[PathTracingRrLifecycleComplete] stages=10\n");
+                fprintf(m_logFile, "[PathTracingRrLifecycleComplete] checkpoints=15\n");
                 fflush(m_logFile);
                 DestroyWindow(Win32Application::GetHwnd());
                 return;
@@ -239,7 +362,8 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
     if (m_d3d12InfoQueue)
         FlushD3D12DebugMessages();
     if (m_rrLifecycleFrames > 512)
-        fail("Lifecycle checkpoint timed out");
+        fail("Lifecycle checkpoint timed out: phase=" + rr.rrLivePhase + " failure=" + rr.rrLiveFailure +
+             " calls=" + std::to_string(calls) + " completed=" + std::to_string(rr.rrCompletedCount));
 }
 
 void RtPbrSurveyApp::RunPathTracingHistoryValidation()
@@ -252,11 +376,25 @@ void RtPbrSurveyApp::RunPathTracingHistoryValidation()
         return;
     }
     static constexpr const char* names[] = {
-        "baseline-16", "paused-16", "resumed-32", "reset-paused-0", "reset-repeat-16",
-        "batch-4-32", "non-accumulated-index-12", "non-accumulated-repeat-12", "fresh-32",
-        "camera-changed-16", "camera-fresh-16", "light-changed-16", "light-fresh-16",
-        "material-changed-16", "material-fresh-16", "geometry-changed-16", "geometry-fresh-16",
-        "resize-changed-16", "resize-fresh-16",
+        "baseline-16",
+        "paused-16",
+        "resumed-32",
+        "reset-paused-0",
+        "reset-repeat-16",
+        "batch-4-32",
+        "non-accumulated-index-12",
+        "non-accumulated-repeat-12",
+        "fresh-32",
+        "camera-changed-16",
+        "camera-fresh-16",
+        "light-changed-16",
+        "light-fresh-16",
+        "material-changed-16",
+        "material-fresh-16",
+        "geometry-changed-16",
+        "geometry-fresh-16",
+        "resize-changed-16",
+        "resize-fresh-16",
     };
     static constexpr uint64_t expectedCounts[] = {
         16, 16, 32, 0, 16, 32, 3, 3, 32, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
@@ -463,8 +601,8 @@ void RtPbrSurveyApp::RunPathTracingHistoryValidation()
                 return;
             }
         }
-        m_pathTracingHistoryValidationEntryResetReason = stage == 17 ? "Pending Resize" :
-            m_sceneRenderer.GetPathTracingRuntimeState().ResetReasonText();
+        m_pathTracingHistoryValidationEntryResetReason =
+            stage == 17 ? "Pending Resize" : m_sceneRenderer.GetPathTracingRuntimeState().ResetReasonText();
         m_pathTracingHistoryValidationEntered = true;
     }
 
@@ -496,7 +634,7 @@ void RtPbrSurveyApp::RunPathTracingHistoryValidation()
                 return;
             }
             ready = state.accumulatedSampleCount == expectedCounts[stage] &&
-                (stage < 9 || m_pathTracingHistoryValidationFrames > 0);
+                    (stage < 9 || m_pathTracingHistoryValidationFrames > 0);
         }
         if (ready)
         {
@@ -512,8 +650,8 @@ void RtPbrSurveyApp::RunPathTracingHistoryValidation()
             if (stage >= 9)
             {
                 const char* expectedReason = stage % 2 == 1 ? changedReasons[(stage - 9) / 2] : "Manual";
-                const bool materialTableRefresh = stage == 13 &&
-                    state.lastResetReason == RtPbrSurveyEngine::PathTracingResetReason::Scene;
+                const bool materialTableRefresh =
+                    stage == 13 && state.lastResetReason == RtPbrSurveyEngine::PathTracingResetReason::Scene;
                 if ((!materialTableRefresh && std::string(state.ResetReasonText()) != expectedReason) ||
                     (stage >= 17 && (context.renderWidth != 1280 || context.renderHeight != 720)))
                 {
@@ -521,34 +659,38 @@ void RtPbrSurveyApp::RunPathTracingHistoryValidation()
                     return;
                 }
             }
-            const auto path = std::filesystem::absolute(
-                m_commandLineOptions.pathTracingHistoryValidationDirectory /
-                (std::string(names[stage]) + ".ptbuf"));
+            const auto path = std::filesystem::absolute(m_commandLineOptions.pathTracingHistoryValidationDirectory /
+                                                        (std::string(names[stage]) + ".ptbuf"));
             const nlohmann::json record = {
-                {"case", names[stage]}, {"path", path.string()},
-                {"resource", m_commandLineOptions.debugPreviewResourceName.empty() ?
-                    "PathTracing.Accumulation" : m_commandLineOptions.debugPreviewResourceName},
+                {"case", names[stage]},
+                {"path", path.string()},
+                {"resource",
+                 m_commandLineOptions.debugPreviewResourceName.empty() ? "PathTracing.Accumulation"
+                                                                       : m_commandLineOptions.debugPreviewResourceName},
                 {"accumulatedSamples", state.accumulatedSampleCount},
-                {"frameSampleIndex", state.frameSampleIndex}, {"historyValid", state.historyValid},
-                {"paused", state.accumulationPaused}, {"resetReason", state.ResetReasonText()},
+                {"frameSampleIndex", state.frameSampleIndex},
+                {"historyValid", state.historyValid},
+                {"paused", state.accumulationPaused},
+                {"resetReason", state.ResetReasonText()},
                 {"entryResetReason", m_pathTracingHistoryValidationEntryResetReason},
-                {"renderWidth", context.renderWidth}, {"renderHeight", context.renderHeight},
+                {"renderWidth", context.renderWidth},
+                {"renderHeight", context.renderHeight},
                 {"randomSeed", m_sceneRenderer.GetPathTracingSettings().randomSeed},
                 {"samplesPerFrame", m_sceneRenderer.GetPathTracingSettings().samplesPerFrame},
             };
             fprintf(m_logFile, "[PathTracingHistory] %s\n", record.dump().c_str());
             fflush(m_logFile);
             RtPbrSurvey::ScreenshotRequest request = {path};
-            request.debugResourceName = m_commandLineOptions.debugPreviewResourceName.empty() ?
-                "PathTracing.Accumulation" : m_commandLineOptions.debugPreviewResourceName;
+            request.debugResourceName = m_commandLineOptions.debugPreviewResourceName.empty()
+                                            ? "PathTracing.Accumulation"
+                                            : m_commandLineOptions.debugPreviewResourceName;
             m_sceneRenderer.RequestScreenshot(std::move(request));
             m_pathTracingHistoryValidationCapturePending = true;
         }
     }
 
     UpdateUiFrame();
-    m_sceneRenderer.RunFrame(
-        [this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); });
+    m_sceneRenderer.RunFrame([this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); });
     ++m_pathTracingHistoryValidationFrames;
     ++m_automationFrameCounter;
     if (m_d3d12InfoQueue)

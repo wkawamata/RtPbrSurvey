@@ -69,7 +69,7 @@ const char* PathTracingRrLive::Status() const
     switch (m_phase)
     {
         case Phase::Idle:
-            return "waiting-static-production";
+            return "waiting-production";
         case Phase::InputPending:
             return "input-gpu-pending";
         case Phase::Evaluate:
@@ -115,6 +115,16 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
             input.Reset();
         return;
     }
+    if (m_phase == Phase::Rejected && m_retryInput && advanceProduction)
+    {
+        // A transient unsupported sample must not permanently disable live RR.
+        // Keep whole-frame Native fallback; only a newly admitted packet may
+        // re-enter the SDK, with history reset after the rejected production.
+        m_history.Invalidate();
+        m_phase = Phase::Idle;
+        m_failure.clear();
+        m_retryInput = false;
+    }
     if (m_phase == Phase::Ready && m_presented && advanceProduction)
     {
         m_phase = Phase::Idle;
@@ -132,7 +142,11 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
     m_fence = 0;
     if (counts[0] != 0 || counts[1] != uint64_t(m_key.renderWidth) * m_key.renderHeight)
     {
+        m_retryInput = m_phase == Phase::InputPending;
+        if (m_retryInput)
+            ++m_inputRejectionCount;
         m_failure = m_phase == Phase::InputPending ? "unsupported RR input pixels" : "incomplete/nonfinite RR output";
+        m_failure += " (mask=" + std::to_string(counts[0]) + ", pixels=" + std::to_string(counts[1]) + ")";
         m_history.Invalidate();
         m_publishedReady = false;
         m_phase = Phase::Rejected;
@@ -199,6 +213,7 @@ void PathTracingRrLive::RecordInput(ID3D12GraphicsCommandList* commands,
     if (!CanCapture())
         throw std::logic_error("RR production already retained");
     m_key = key;
+    m_retryInput = false;
     m_constants = constants;
     for (size_t i = 0; i < inputs.size(); ++i)
         m_inputs[i] = inputs[i];

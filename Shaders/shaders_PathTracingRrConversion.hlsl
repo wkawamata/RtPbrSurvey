@@ -75,7 +75,7 @@ cbuffer ConversionFrame : register(b0)
         // First live profile is the validated delta-specular continuation.
         // Do not label arbitrary diffuse proposals as specular hit distance.
         if (ray.y != 2 || g_f0Metallic[pixel].w != 1 || g_normalRoughness[pixel].w != 0 ||
-            any(abs(g_motionNdc[pixel]) > 2e-6) || any(!isfinite(surface)) || surface.y != ray.z)
+            any(!isfinite(surface)) || surface.y != ray.z)
             distance.y = 0;
     }
 #endif

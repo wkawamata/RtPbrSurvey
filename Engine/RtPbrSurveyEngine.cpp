@@ -571,6 +571,7 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
         pathTracingDiagnostics.rrContinuousCount = m_ptRrLive->ContinuousCount();
         pathTracingDiagnostics.rrResetCount = m_ptRrLive->ResetCount();
         pathTracingDiagnostics.rrCancelledCount = m_ptRrLive->CancelledCount();
+        pathTracingDiagnostics.rrInputRejectionCount = m_ptRrLive->InputRejectionCount();
         pathTracingDiagnostics.rrLastReset = m_ptRrLive->LastReset();
         pathTracingDiagnostics.rrRetainedOutputVerified =
             m_ptRrLive->OutputReady() && m_ptRrLive->Epoch() == m_pathTracingReconstructionHistory.Epoch(
@@ -1267,6 +1268,7 @@ void RtPbrSurveyEngine::SetScene(const Scene& scene)
 #endif
     const bool cameraChanged = !CameraStatesEqual(m_scene.camera, scene.camera);
     const bool sceneChanged = m_scene.mesh != scene.mesh || !SceneInstancesEqual(m_scene.instances, scene.instances);
+    const bool preserveRrCameraHistory = CanPreservePtRrCameraHistory(scene.camera);
     m_scene = scene;
     m_depthVisualizationSettings.Reset(m_scene.camera.nearZ, m_scene.camera.farZ);
     if (sceneChanged)
@@ -1275,7 +1277,7 @@ void RtPbrSurveyEngine::SetScene(const Scene& scene)
     }
     else if (cameraChanged)
     {
-        InvalidatePathTracingHistory(PathTracingResetReason::Camera, preserveNrdCameraHistory);
+        InvalidatePathTracingHistory(PathTracingResetReason::Camera, preserveNrdCameraHistory, preserveRrCameraHistory);
     }
 }
 
@@ -1287,10 +1289,11 @@ void RtPbrSurveyEngine::SetCamera(const CameraState& camera)
         m_nrdContinuousCameraHistory && Engine::NrdCameraProjectionMatches(m_scene.camera, camera);
 #endif
     const bool cameraChanged = !CameraStatesEqual(m_scene.camera, camera);
+    const bool preserveRrCameraHistory = CanPreservePtRrCameraHistory(camera);
     m_scene.camera = camera;
     if (cameraChanged)
     {
-        InvalidatePathTracingHistory(PathTracingResetReason::Camera, preserveNrdCameraHistory);
+        InvalidatePathTracingHistory(PathTracingResetReason::Camera, preserveNrdCameraHistory, preserveRrCameraHistory);
     }
 }
 
@@ -1996,11 +1999,26 @@ void RtPbrSurveyEngine::InvalidateReflectionHistory()
     m_reflectionSamplingFrameIndex = 0;
 }
 
-void RtPbrSurveyEngine::InvalidatePathTracingHistory(PathTracingResetReason reason, bool preserveNrdCameraHistory)
+bool RtPbrSurveyEngine::CanPreservePtRrCameraHistory(const CameraState& camera) const
+{
+    // Projection changes are discontinuities. Camera pose changes use dense
+    // primary motion plus hit distance for SDK specular reprojection.
+    return IsPtRrNativeRequested() && m_pathTracingSettings.rrContinuous &&
+           m_scene.camera.projection == camera.projection && m_scene.camera.fov == camera.fov &&
+           m_scene.camera.orthographicHeight == camera.orthographicHeight && m_scene.camera.nearZ == camera.nearZ &&
+           m_scene.camera.farZ == camera.farZ && m_scene.camera.lensShiftX == camera.lensShiftX &&
+           m_scene.camera.lensShiftY == camera.lensShiftY;
+}
+
+void RtPbrSurveyEngine::InvalidatePathTracingHistory(PathTracingResetReason reason,
+                                                     bool preserveNrdCameraHistory,
+                                                     bool preserveRrCameraHistory)
 {
     const bool preserveCamera = preserveNrdCameraHistory && reason == PathTracingResetReason::Camera;
-    m_pathTracingReconstructionHistory.Invalidate(preserveCamera ? Engine::PathTracingReconstructionBackend::Nrd
-                                                                 : Engine::PathTracingReconstructionBackend::Native);
+    const bool preserveRr = preserveRrCameraHistory && reason == PathTracingResetReason::Camera;
+    m_pathTracingReconstructionHistory.Invalidate(preserveRr       ? Engine::PathTracingReconstructionBackend::Rr
+                                                  : preserveCamera ? Engine::PathTracingReconstructionBackend::Nrd
+                                                                   : Engine::PathTracingReconstructionBackend::Native);
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     m_nrdComposedOutputValid = false;
     if (!preserveCamera)
@@ -2009,10 +2027,14 @@ void RtPbrSurveyEngine::InvalidatePathTracingHistory(PathTracingResetReason reas
     }
 #endif
     m_pathTracingRuntimeState.accumulatedSampleCount = 0;
-    m_pathTracingRuntimeState.frameSampleIndex = 0;
+    if (!preserveRr)
+        m_pathTracingRuntimeState.frameSampleIndex = 0;
     m_pathTracingRuntimeState.historyValid = false;
     m_pathTracingRuntimeState.lastResetReason = reason;
-    m_pathTracingHistoryClearRequired = true;
+    // Retained RR inputs/output may still be executing. Pose changes must not
+    // clear those allocations or cancel the immutable packet in flight.
+    if (!preserveRr)
+        m_pathTracingHistoryClearRequired = true;
     m_pathTracingSampleCommitPending = false;
 }
 
@@ -5610,6 +5632,27 @@ void RtPbrSurveyEngine::UpdateFrame(bool advanceFrame)
         m_jitterFreePrevViewProjection = m_jitterFreeViewProjection;
         m_previousJitterOffsetPixels = m_jitterOffsetPixels;
         UpdateCameraConstantBuffer();
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        if (IsPtRrNativeRequested() && m_ptRrLive)
+        {
+            // A production can span several display frames. Motion and SDK
+            // clip transforms must refer to the last verified RR production,
+            // never to an intervening display-only camera update.
+            const auto* previous = m_ptRrLive->PublishedKey();
+            if (previous && previous->resetToken ==
+                                m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr))
+            {
+                memcpy(&m_jitterFreePrevViewProjection, previous->viewProjection.data(), sizeof(XMFLOAT4X4));
+                XMStoreFloat4x4(&m_constantBufferData.prevViewProjection,
+                                XMMatrixTranspose(XMLoadFloat4x4(&m_jitterFreePrevViewProjection)));
+            }
+            else
+            {
+                m_constantBufferData.prevViewProjection = m_constantBufferData.viewProjection;
+                m_jitterFreePrevViewProjection = m_jitterFreeViewProjection;
+            }
+        }
+#endif
         if (IsTemporalJitterEnabled())
         {
             ++m_temporalFrameIndex;
@@ -6919,15 +6962,12 @@ void RtPbrSurveyEngine::ExecutePtRrValidationPass(const RenderPass& pass)
     XMStoreFloat4x4(&combined, XMMatrixMultiply(XMLoadFloat4x4(&view), XMLoadFloat4x4(&projection)));
     memcpy(key.viewProjection.data(), &combined, sizeof(combined));
     key.previousViewProjection = frame.previousViewProjection;
-    if (key.viewProjection != key.previousViewProjection)
-        return;
     auto constants = MakeRayReconstructionFrameConstants();
     constants.preExposure = constants.exposureScale = 1;
     constants.motionVectorScale = {1, 1};
     constants.temporal.jitterOffset = {0, 0};
     constants.temporal.cameraMotionIncluded = true;
-    const std::array<float, 16> identity = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-    constants.temporal.clipToPrevClip = constants.temporal.prevClipToClip = identity;
+    constants.motionVectorValueOffset = {0, 0};
     std::array<ID3D12Resource*, 8> inputs;
     for (size_t i = 0; i < inputs.size(); ++i)
         inputs[i] = m_pathTracingGuideTextures[PathTracingGuideRrColor + i].Get();
@@ -7838,6 +7878,22 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 {"distanceSource", IsPtRrNativeRequested() ? "actual-continuation" : "independent-probe"},
                 {"sampleStartIndex", m_rrConversionSampleStartIndex},
                 {"nativeEvaluationQualified", false}};
+            if (m_ptRrLive)
+            {
+                const auto& key = m_ptRrLive->InputKey();
+                const auto& constants = m_ptRrLive->InputConstants();
+                metadata["rrRetainedInput"] = {{"frameId", key.frameId},
+                                               {"sampleStartIndex", key.sampleStartIndex},
+                                               {"viewProjection", key.viewProjection},
+                                               {"previousViewProjection", key.previousViewProjection},
+                                               {"clipToPrevClip", constants.temporal.clipToPrevClip},
+                                               {"prevClipToClip", constants.temporal.prevClipToClip},
+                                               {"worldToView", constants.worldToCameraView},
+                                               {"viewToWorld", constants.cameraViewToWorld},
+                                               {"viewToClip", constants.temporal.cameraViewToClip},
+                                               {"publishedFrameId", m_ptRrLive->FrameId()},
+                                               {"publishedSlot", m_ptRrLive->PublishedSlot()}};
+            }
 #endif
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
             metadata["nrdFailure"] = m_nrdFailureReason;
@@ -7852,9 +7908,9 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 const auto& prepass = m_nrdGpu->Description().prepass;
                 metadata["nrdAntilagDisabled"] = m_nrdGpu->Description().antilagDisabled;
                 metadata["nrdPrepass"] = {{"profile", m_nrdPrepassProfile},
-                                           {"applied", true},
-                                           {"diffuseRadius", prepass.diffuseRadius},
-                                           {"specularRadius", prepass.specularRadius}};
+                                          {"applied", true},
+                                          {"diffuseRadius", prepass.diffuseRadius},
+                                          {"specularRadius", prepass.specularRadius}};
             }
             metadata["nrdLastEvaluation"] = {{"attempted", m_nrdLastEvaluationAttempted},
                                              {"recorded", m_nrdLastEvaluationRecorded},

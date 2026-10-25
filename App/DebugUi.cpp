@@ -1015,9 +1015,9 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             }
             if (reconstructionBackend == 2)
                 pathTracingSettingsChanged |=
-                    ImGui::Checkbox("Continuous RR (static diagnostic)", &pathTracingSettings.rrContinuous);
+                    ImGui::Checkbox("Continuous RR (camera motion)", &pathTracingSettings.rrContinuous);
             if (reconstructionBackend == 2)
-                ImGui::TextWrapped("RR retained-frame diagnostic: static camera, no accumulation, 1 spp, 2 bounces; "
+                ImGui::TextWrapped("RR retained-frame diagnostic: no accumulation, 1 spp, 2 bounces; "
                                    "native opt-in required.");
             if (reconstructionBackend == 1)
                 ImGui::TextWrapped(

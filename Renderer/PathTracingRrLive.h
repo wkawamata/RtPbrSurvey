@@ -9,7 +9,7 @@
 namespace Engine
 {
 // One immutable production at a time; a verified output stays published while
-// the next static-camera production is admitted/evaluated into the other slot.
+// the next production is admitted/evaluated into the other slot.
 // All GPU work stays on the caller's queue. No CPU fence waits or image copies.
 class PathTracingRrLive
 {
@@ -25,6 +25,18 @@ public:
     bool HoldProduction() const;
     bool CanEvaluate() const;
     bool OutputReady() const;
+    const PathTracingRrHistoryKey* PublishedKey() const
+    {
+        return OutputReady() ? &m_publishedKey : nullptr;
+    }
+    const PathTracingRrHistoryKey& InputKey() const
+    {
+        return m_key;
+    }
+    const RayReconstructionFrameConstants& InputConstants() const
+    {
+        return m_constants;
+    }
     const char* Status() const;
     const std::string& Failure() const
     {
@@ -53,6 +65,10 @@ public:
     uint64_t CancelledCount() const
     {
         return m_cancelledCount;
+    }
+    uint64_t InputRejectionCount() const
+    {
+        return m_inputRejectionCount;
     }
     bool LastReset() const
     {
@@ -104,12 +120,14 @@ private:
     bool m_presented = false;
     bool m_publishedReady = false;
     bool m_lastReset = true;
+    bool m_retryInput = false;
     unsigned int m_outputSlot = 0;
     unsigned int m_publishedSlot = 0;
     uint64_t m_completedCount = 0;
     uint64_t m_continuousCount = 0;
     uint64_t m_resetCount = 0;
     uint64_t m_cancelledCount = 0;
+    uint64_t m_inputRejectionCount = 0;
     std::string m_failure;
     PathTracingRrHistory m_history;
     PathTracingRrHistoryKey m_key;

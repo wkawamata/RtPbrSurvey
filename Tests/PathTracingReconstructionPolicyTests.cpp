@@ -65,6 +65,12 @@ int main()
               "SDK-local failure must not reset another SDK history");
         check(!history.ResetRequired(Backend::Native) && history.Epoch(Backend::Native) == 0,
               "Native has no reconstruction SDK history");
+        history.AcknowledgeReset(Backend::Rr);
+        const uint64_t preservedRr = history.Epoch(Backend::Rr);
+        history.Invalidate(Backend::Rr);
+        check(!history.ResetRequired(Backend::Rr) && history.Epoch(Backend::Rr) == preservedRr &&
+                  history.ResetRequired(Backend::Nrd),
+              "Continuous RR pose changes preserve only RR history");
 
         auto plan = Engine::PlanPathTracingReconstruction(Backend::Native, true, false, false, false);
         check(!plan.runNrd && !plan.runRrConversion && !plan.diagnosticWork, "Explicit Native overrides legacy NRD");

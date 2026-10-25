@@ -347,6 +347,7 @@ public:
         uint64_t rrContinuousCount = 0;
         uint64_t rrResetCount = 0;
         uint64_t rrCancelledCount = 0;
+        uint64_t rrInputRejectionCount = 0;
         bool rrLastReset = true;
         Engine::PathTracingReconstructionPlan completedReconstructionPlan;
         uint64_t primarySamplesPerFrame = 0;
@@ -1995,7 +1996,9 @@ private:
     void ExecutePathTracingPass(const RenderPass& pass);
     Engine::PathTracingInputResources GetPathTracingReconstructionResources() const;
     static UINT GetPathTracingGuideIndex(Engine::PathTracingInputSignal signal);
-    void InvalidatePathTracingHistory(PathTracingResetReason reason, bool preserveNrdCameraHistory = false);
+    bool CanPreservePtRrCameraHistory(const CameraState& camera) const;
+    void InvalidatePathTracingHistory(PathTracingResetReason reason, bool preserveNrdCameraHistory = false,
+                                     bool preserveRrCameraHistory = false);
     void CommitPathTracingFrame();
     void ExecuteDepthPrePass(const RenderPass& pass);
     void ExecuteGBufferPass(const RenderPass& pass);

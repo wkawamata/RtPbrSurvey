@@ -2486,6 +2486,7 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
           {"continuousCount", context.pathTracingDiagnostics.rrContinuousCount},
           {"resetCount", context.pathTracingDiagnostics.rrResetCount},
           {"cancelledCount", context.pathTracingDiagnostics.rrCancelledCount},
+          {"inputRejectedCount", context.pathTracingDiagnostics.rrInputRejectionCount},
           {"lastReset", context.pathTracingDiagnostics.rrLastReset},
           {"outputVerified", context.pathTracingDiagnostics.rrRetainedOutputVerified},
           {"nativeEvaluateCallCount", context.rayReconstructionDiagnostics.nativeEvaluateCallCount}}},

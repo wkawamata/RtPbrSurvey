@@ -1296,4 +1296,89 @@ Step 3検証結果:
 
 この段階で、検証済み静止profileの連続更新、停止再開、backend切替、cancel、camera停止後の復帰、resizeを確認した。
 移動中のRR履歴継続、一般material/background/missのRR処理、性能最適化は未完了。
-Step 3の変更は、Step 1/2のcommit `9a299e3` に続く未コミット変更である。
+この静止範囲の途中成果はcommit `df665b9`。当初のStep 3に含まれるカメラ移動中のRR継続は、
+このcommitでは未完了であり、次節で対応する。
+
+## 2026-10-25 Step 3 続き: 移動カメラのRR入力・履歴接続
+
+`rrContinuous=true` で、既存の実験用鏡面profileにカメラ平行移動と回転を接続した。
+UIは `Continuous RR (camera motion)`、CLIは既存の `-PathTracingRrContinuous`。
+別途native opt-inも必要。既定falseの保持frameモードは維持する。
+
+- CPUのcurrent VP == previous VP判定と、GPUのほぼゼロmotion限定判定を外す。
+  有限値、実際のspecular continuation、metallic=1、roughness=0、traced hitなどのpixel admissionは維持する。
+- 同じprojectionでのcamera pose変更はRR epoch、sample index、処理中の入力、published出力を保持する。
+  NRDの履歴保存設定と分離し、RR以外のbackendのresetは従来どおり要求する。
+  projection/FOV/lens shift/near/far、scene、settings、backend、手動reset、resizeは履歴を無効化する。
+- PTのprevious VPを、直前の表示frameではなく直前に検証完了したRR productionのVPへ接続する。
+  初回またはepoch変更時はcurrent VPを使用する。
+  SDK待ちの間に表示側cameraが進んでも、次のproductionのmotionが最後のRR入力を参照する。
+- motionは従来どおりprevious NDC - current NDCをPTで生成し、RR側で `(0.5, -0.5)` を掛ける。
+  RR入力はprevious UV - current UV、top-down、scale=(1,1)、offset=(0,0)、cameraMotionIncluded=true。
+- SDKへidentityを固定せず、inverse(current VP) * previous VPと逆行列を保持入力に添付する。
+  specular hit distance用のworld/view/projection行列も同じ入力時点のcameraから保持する。
+- 画像の追加copy、強制CPU GPU待ち、production同時実行数の増加は追加しない。
+  従来のsingle-flight/double-output構造のため、移動中も表示は最後の検証済みcamera時点の画像であり、
+  更新頻度と入力遅延は表示FPSとは別。毎表示frame評価の性能経路は今後の最適化対象。
+
+検証driverは模様付きemissive面を反射する閉じた鏡面sceneを生成する。
+平行移動、回転、停止、projection変更を追加し、同一プロセスで計15 checkpointを検査する。
+平行移動・回転の完了時に一旦pauseし、同じproductionのmotion、primary world position、
+PT radiance、RR color input、両RR output allocationをraw PTBUFへ保存する。
+`rrRetainedInput` metadataに実際の入力行列、production/sample ID、published slotを記録する。
+表示cameraのmetadataを保持入力のcameraとして読み替えない。
+
+Python側はprimary world positionを両VPで独立に再投影し、GPU motionの向き・単位・参照frameを確認する。
+raw motionがRG16Fであることに合わせ、最大誤差はmax(2e-6, motion最大値 * 0.001)以内とする。
+clip transformsの逆行列関係、specular camera行列、PT radianceとRR color inputのbit一致も確認する。
+移動前後で入力・検証済み出力の画素値が変わることを検査する。
+RR outputとcurrent inputのRMSEは参考値として記録し、画質や残像の合格基準には流用しない。
+
+対象範囲は1 spp / pixel-center / 非accumulation / 2 bounces / Radiance view / 距離診断ONの鏡面scene。
+一般material、background/missを含むscene、動的物体、大きなcamera移動によるdisocclusionの画質、
+残像・ちらつきの定量評価はまだ対象外。今回の検証結果をこれらの完了とは扱わない。
+
+
+入力拒否と復帰:
+
+- 再検証で、移動停止後に未trace画素が1つ発生し、その1回の拒否でRRが戻らない問題を確認した。
+  同じcameraとsample indexをNativeで再生成すると、sample 7は全36864画素がspecular traced hit、
+  sample 8は1画素だけSecondaryRayData=(0,0,0,0)だった。
+  既存GGX samplerはroughness=0でもalphaに0.001の下限を使うため、完全なdelta samplerではない。
+  そのsampleに実際の追跡距離が無いことは正しく拒否する。BSDFと距離の定義は変更していない。
+- continuousモードでは、入力拒否後に次の新しいproductionを再検査する。
+  非対応入力はSDKへ渡さず、その間はNative表示にする。有効入力を得た後の最初のSDK評価はreset=true。
+  その後は再びcontinuousになる。pause中と既定の保持frameモードでは自動retryしない。
+  SDK失敗と非有限出力はこの入力retryの対象に含めず、引き続き明示的resetを必要とする。
+- inputRejectedCountを診断へ追加する。camera変更での不要resetと、入力拒否に必要なresetを区別する。
+  検証ではcamera変更によるcancelを許容しない。resetの増加も、実際の入力拒否回数で説明できる範囲だけを許容する。
+  非対応の裏面へcameraを向けるcaseと、有効な鏡面へ戻してreset後の連続RRを再開するcaseを独立に確認する。
+- 既存8 byteのGPU summaryにstatusのbit maskを残し、failureにmaskと検査画素数を記録する。
+  bit 1..6はconversion status 1..6（primary/material/geometry/radiance/distance/host）、bit 31は範囲外status。
+  output検査は従来どおりbit 0を非有限RGBに使う。新しいreadbackやCPU待ちは追加しない。
+
+最終検証結果:
+
+- NRD 4.17.3 / Streamline 2.12.0統合Debug build成功、warning/errorとも0。
+  build log: `C:/work/RtPbrSurvey-agents/pt-rr-camera-recovery-work4`（本体）、
+  `C:/work/RtPbrSurvey-agents/pt-rr-camera-recovery-lifecycle-work4`（最終検証driver）。
+- 関連CTest 9/9成功。RRだけの履歴epoch保存を確認するpolicy testも追加した。
+- RTX 2080 Ti上で15 checkpoint成功、process code 0、D3D12 ERROR 0。
+  平行移動・回転checkpointはreset 3のまま、continuousは4→7→10へ進んだ。
+  停止後は入力拒否1回からresetしてRRへ自動復帰し、continuous=12を確認した。
+  強制した対応外入力もNativeへ退避し、鏡面へ戻すとreset後にcontinuousへ復帰した。
+- GPU motionと独立再投影との差は、平行移動で1.46e-6、回転で3.94e-6以下（UV）。
+  最大motionはそれぞれ約0.00335、0.00587 UV。SDK clip/specular cameraの行列整合も成功。
+- 移動した2つのproduction間の平均絶対画素差は、入力約0.01493、RR出力約0.01422。
+  RRが古い画像を固定表示しているだけではなく、有限の検証済み出力へ更新されることを確認した。
+  参考RMSEは約0.01437/0.01443で、画質・残像の合格を示す値ではない。
+- report: `build/reconstruction-input-validation/captures/rr-camera-recovery-20261025/report.json`。
+  executable SHA256: `c2c8ee30017b42415ca4d0c4a6eee8104c8a48515968ea05b083b4b251a052f6`。
+- 同じ最終exeで保持frameモードの5ケースも成功、全件process code 0 / D3D12 ERROR 0。
+  report: `build/reconstruction-input-validation/captures/rr-camera-recovery-retained-20261025/report.json`。
+- 途中の失敗reportはbuild配下に保持する。特に `rr-camera-motion-final-20261025` と
+  `rr-camera-mask-20261025` は未trace入力による停止を記録した失敗結果であり、成功として扱わない。
+
+移動cameraを理由に一律RRをOFFにする制限は、continuousモードで解除した。
+ただし非対応入力ではNativeへの退避と再取得が起こり、あらゆるframeでRRを維持する保証はまだない。
+一般入力への対応と、画質・性能の追求は後続作業。

@@ -78,7 +78,7 @@ def main():
             else:
                 if diagnostics['reconstructionOutput'] != 'native' or rr['nativeEvaluateCallCount'] != 0:
                     raise ValueError('Rejected/disabled input reached SDK or RR presentation')
-                if opt_in and (rr['phase'] != 'native-fallback' or rr['failure'] != 'unsupported RR input pixels'):
+                if opt_in and (rr['phase'] != 'native-fallback' or not rr['failure'].startswith('unsupported RR input pixels')):
                     raise ValueError('Unsupported profile was not rejected by whole-frame admission')
             if resource:
                 meta, values = read_buffer(capture)
