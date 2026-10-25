@@ -203,7 +203,7 @@ bool TestThinReviewFixtures()
     for (const char* name : {"17-thin-transmission-baseline", "18-thin-transmission-angle", "19-thin-transmission-layers",
                             "20-thin-transmission-visual-comparison", "21-gltf-thin-transmission-suzanne",
                             "22-thin-transmission-textures", "23-rough-thin-transmission",
-                            "24-roughness-textured-thin-transmission"})
+                            "24-roughness-textured-thin-transmission", "25-metallic-thin-transmission"})
     {
         RtPbrSurvey::SceneDocument document;
         RtPbrSurvey::SceneDocumentBuilder builder;

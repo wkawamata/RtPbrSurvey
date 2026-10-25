@@ -494,6 +494,60 @@ void ValidateRoughThinTransmission(const float* values)
     }
     std::cout << "Validated 28672 rough thin samples, GGX PDF, BSDF, throughput, grazing and smooth limits.\n";
 }
+void ValidateThinMetallicMixture(const float* values)
+{
+    const double metallics[] = {0, .1, .25, .5, .75, .9, 1};
+    const double transmissions[] = {0, .25, .5, 1};
+    for (unsigned int test = 0; test < 28; ++test)
+    {
+        const double metallic = metallics[test / 4];
+        const double transmission = transmissions[test % 4];
+        unsigned int thinCount = 0;
+        double mean = 0;
+        for (unsigned int index = 0; index < kSamplesPerCase; ++index)
+        {
+            const float* value = values + (test * kSamplesPerCase + index) * 16;
+            for (unsigned int channel = 0; channel < 16; ++channel)
+            {
+                if (!std::isfinite(value[channel]) || ((channel == 3 || channel >= 8) && value[channel] != 0))
+                {
+                    throw std::runtime_error("Invalid metallic mixture output");
+                }
+            }
+            const double random = (double(index) + .5) / kSamplesPerCase;
+            const double alpha = std::max(.001, transmission * transmission);
+            const double cosines[] = {1, .5, .1};
+            for (unsigned int cosineIndex = 0; cosineIndex < 3; ++cosineIndex)
+            {
+                const double cosine = cosines[cosineIndex];
+                const double denominator = (1 - cosine * cosine) + alpha * alpha * cosine * cosine;
+                const double distribution = alpha * alpha / (kPi * denominator * denominator);
+                if (!Near(value[4 + cosineIndex], distribution) ||
+                    (cosineIndex == 0 && !Near(value[7], distribution / 4)))
+                {
+                    throw std::runtime_error("Opaque GGX distribution/PDF mismatch at low roughness");
+                }
+            }
+            const bool thin = metallic < 1 && random < transmission * (1 - metallic);
+            const double opaqueMetallic = !thin && metallic < 1 && random < transmission ? 1 : metallic;
+            if (value[0] != (thin ? 1 : 0) || !Near(value[1], opaqueMetallic, 1e-6, 1e-6) ||
+                !Near(value[2], thin ? .9 : .2 + .4 * opaqueMetallic, 1e-6, 1e-6))
+            {
+                throw std::runtime_error("Metallic mixture selection mismatch");
+            }
+            thinCount += thin ? 1u : 0u;
+            mean += value[2] / kSamplesPerCase;
+        }
+        const double expected = (1 - transmission) * (.2 + .4 * metallic) +
+            transmission * ((1 - metallic) * .9 + metallic * .6);
+        if (std::abs(double(thinCount) / kSamplesPerCase - transmission * (1 - metallic)) > 1.0 / kSamplesPerCase ||
+            std::abs(mean - expected) > 2.0 / kSamplesPerCase)
+        {
+            throw std::runtime_error("Metallic mixture probability or expected contribution mismatch");
+        }
+    }
+    std::cout << "Validated 28672 metallic mixture selections, endpoints, contributions and low-roughness GGX PDFs.\n";
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -518,6 +572,7 @@ int main(int argc, char** argv)
         bool inputConversion = false;
         bool thinTransmission = false;
         bool roughThinTransmission = false;
+        bool thinMetallic = false;
         const char* inputPath = nullptr;
         const char* outputPath = nullptr;
         for (int index = 2; index < argc; ++index)
@@ -537,6 +592,10 @@ int main(int argc, char** argv)
             else if (std::strcmp(argv[index], "--rough-thin-transmission") == 0)
             {
                 roughThinTransmission = true;
+            }
+            else if (std::strcmp(argv[index], "--thin-metallic") == 0)
+            {
+                thinMetallic = true;
             }
             else if (std::strcmp(argv[index], "--material-factors") == 0)
             {
@@ -559,7 +618,7 @@ int main(int argc, char** argv)
                 throw std::runtime_error("Unknown test option");
             }
         }
-        if (int(packing) + int(materialFactors) + int(inputConversion) + int(thinTransmission) + int(roughThinTransmission) > 1)
+        if (int(packing) + int(materialFactors) + int(inputConversion) + int(thinTransmission) + int(roughThinTransmission) + int(thinMetallic) > 1)
             throw std::runtime_error("Packing and material-factor modes are mutually exclusive");
         if ((inputPath != nullptr) != (outputPath != nullptr) || (inputPath && !inputConversion))
             throw std::runtime_error("Captured conversion requires both input and output paths");
@@ -680,6 +739,10 @@ int main(int argc, char** argv)
             outputFile.write(static_cast<const char*>(data), byteCount);
             if (!outputFile)
                 throw std::runtime_error("Could not write converted output");
+        }
+        else if (thinMetallic)
+        {
+            ValidateThinMetallicMixture(static_cast<const float*>(data));
         }
         else if (roughThinTransmission)
         {

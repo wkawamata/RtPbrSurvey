@@ -3,6 +3,7 @@
 作成日: 2026-10-25
 状態: 実装・自動検証完了。ユーザー目視承認は未実施。
 前段: [定数Roughnessの薄膜透過](path-tracing-rough-transmission.md)。
+本メモの非金属限定は当段階の契約であり、後続の [metallic混合](path-tracing-metallic-transmission.md) で拡張する。
 
 ## 範囲
 

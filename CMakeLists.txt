@@ -502,6 +502,17 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${rough_thin_shader}")
     add_test(NAME RtPbrSurvey.RoughThinTransmission
         COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${rough_thin_shader}" --rough-thin-transmission)
+    set(thin_metallic_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_ThinMetallicMixture_CSMain.cso")
+    add_custom_command(OUTPUT "${thin_metallic_shader}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/Tests"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${thin_metallic_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_ThinMetallicMixture.hlsl"
+        DEPENDS Tests/shaders_ThinMetallicMixture.hlsl Shaders/ThinTransmission.hlsli
+            Shaders/PathTracingSampling.hlsli Shaders/PathTracingDenoiserSampling.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${thin_metallic_shader}")
+    add_test(NAME RtPbrSurvey.ThinMetallicMixture
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${thin_metallic_shader}" --thin-metallic)
     if(RTPBRSURVEY_TEST_NRD_PACKING)
         find_package(Git REQUIRED)
         set(RTPBRSURVEY_NRD_SDK_DIR "${RTPBRSURVEY_ROOT}/third_party/nrd-sdk-4.17.3"

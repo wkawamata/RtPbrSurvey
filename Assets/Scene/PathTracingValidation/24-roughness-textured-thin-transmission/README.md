@@ -8,7 +8,8 @@
 - metallicFactor=0なので、画像Bが非ゼロでも非金属。
 - UV下辺がv=0のfixture。PNGと画面の上下が異なる場合がある。
 - TEXCOORD_0、既存共有sampler、mip 0。変換や別UV集合は未対応。
-- volume、alpha mask、metallicとの透過混合、色付き透過影は未対応。
+- volume、alpha mask、色付き透過影は未対応。
+- metallicとの透過混合は後続のscene25で検証する。
 - NRD要求時はNative PTへfallback。
 
 自作geometryと小さなPNGは `Tests/PathTracing/roughness_texture_fixture.py` で生成。

@@ -4,6 +4,29 @@
 #include "PathTracingSampling.hlsli"
 #include "PathTracingDenoiserSampling.hlsli"
 
+struct ThinMetallicMixtureSample
+{
+    bool thin;
+    float opaqueMetallic;
+};
+
+ThinMetallicMixtureSample SampleThinMetallicMixture(float transmission, float metallic, float random)
+{
+    ThinMetallicMixtureSample result;
+    result.thin = false;
+    result.opaqueMetallic = metallic;
+    if (metallic >= 1.0 || transmission <= 0.0)
+    {
+        return result;
+    }
+    result.thin = random < transmission * (1.0 - metallic);
+    if (!result.thin && random < transmission)
+    {
+        result.opaqueMetallic = 1.0;
+    }
+    return result;
+}
+
 // Dielectric Fresnel equations; thin sheets keep the outgoing transmission direction unchanged.
 float ThinTransmissionFresnel(float cosine, float ior)
 {

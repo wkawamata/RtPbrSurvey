@@ -367,9 +367,9 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Model& model, c
     if (factor > 0.0)
     {
         if (!std::isfinite(pbr.roughnessFactor) || pbr.roughnessFactor < 0.0 || pbr.roughnessFactor > 1.0 ||
-            pbr.metallicFactor != 0.0)
+            !std::isfinite(pbr.metallicFactor) || pbr.metallicFactor < 0.0 || pbr.metallicFactor > 1.0)
         {
-            return "Active transmission requires finite roughness in [0, 1] and metallicFactor=0; metallic transmission is not implemented.";
+            return "Active transmission requires finite roughness and metallic factors in [0, 1].";
         }
         if (material.normalTexture.index >= 0)
         {

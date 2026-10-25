@@ -480,11 +480,14 @@ float3 TracePath(uint2 pixel,
             {
                 uint i0, i1, i2;
                 LoadPrimitiveVertexIndices(query.CandidatePrimitiveIndex(), query.CandidateInstanceID(), i0, i1, i2);
-                const uint materialId = LoadCommittedHitMaterialId(
-                    i0, i1, i2, query.CandidateTriangleBarycentrics(), query.CandidateInstanceID());
-                const Material material = g_materialData[materialId];
-                if (query.CandidateTriangleFrontFace() ||
-                    ((material.flags & MaterialFlagThinTransmission) != 0 && material.transmissionFactor > 0.0))
+                bool accept = query.CandidateTriangleFrontFace();
+                if (!accept)
+                {
+                    const HitMaterialSample candidate = LoadCommittedHitMaterialSample(
+                        i0, i1, i2, query.CandidateTriangleBarycentrics(), query.CandidateInstanceID());
+                    accept = candidate.transmissionFactor * (1.0 - candidate.metallic) > 0.0;
+                }
+                if (accept)
                 {
                     query.CommitNonOpaqueTriangleHit();
                 }
@@ -546,7 +549,7 @@ float3 TracePath(uint2 pixel,
         float3 geometryNormal = LoadCommittedHitGeometricNormal(index0, index1, index2, objectToWorld);
         float3 vertexNormal =
             LoadCommittedHitVertexNormal(index0, index1, index2, barycentric, objectToWorld);
-        const HitMaterialSample hitMaterial =
+        HitMaterialSample hitMaterial =
             LoadCommittedHitMaterialSample(index0, index1, index2, barycentric, instanceId);
         if (dot(geometryNormal, ray.Direction) > 0.0)
         {
@@ -665,9 +668,12 @@ float3 TracePath(uint2 pixel,
 
         // Select the mixture before NEE so both estimators retain the opaque component's conditional PDF.
         bool sampleThin = false;
-        if (hitMaterial.transmissionFactor > 0.0)
+        if (hitMaterial.transmissionFactor > 0.0 && hitMaterial.metallic < 1.0)
         {
-            sampleThin = NextRandom(randomState) < hitMaterial.transmissionFactor;
+            const ThinMetallicMixtureSample mixture = SampleThinMetallicMixture(
+                hitMaterial.transmissionFactor, hitMaterial.metallic, NextRandom(randomState));
+            sampleThin = mixture.thin;
+            hitMaterial.metallic = mixture.opaqueMetallic;
         }
         if (sampleThin)
         {

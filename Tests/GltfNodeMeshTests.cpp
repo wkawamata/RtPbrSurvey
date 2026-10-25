@@ -466,9 +466,20 @@ void TestThinTransmissionImport()
         document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = roughness;
         load(document, false, "TransmissionMaterial");
     }
-    document = baseline;
-    document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] = 0.1;
-    load(document, false, "TransmissionMaterial");
+    for (double metallic : {0.1, 0.5, 1.0})
+    {
+        document = baseline;
+        document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] = metallic;
+        load(document, true, "ThinTransmissionApproximation");
+        Require(LoadGltfMesh(temporary.string(), mesh) && NearlyEqual(mesh.materials[0].metallicFactor, static_cast<float>(metallic)),
+                "Thin metallic mixtures must preserve their factor.");
+    }
+    for (double metallic : {-0.1, 1.1})
+    {
+        document = baseline;
+        document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] = metallic;
+        load(document, false, "TransmissionMaterial");
+    }
     for (const char* extension : {"KHR_materials_volume", "KHR_materials_unlit", "KHR_materials_clearcoat"})
     {
         document = baseline;
@@ -527,7 +538,14 @@ void TestThinTransmissionImport()
     }
     document = roughDocument;
     document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] = 0.5;
-    load(document, false, "TransmissionMaterial");
+    load(document, true, "ThinTransmissionApproximation");
+    Require(LoadGltfMesh(temporary.string(), mesh) && NearlyEqual(mesh.materials[0].metallicFactor, 0.5f) &&
+                mesh.materials[0].metallicRoughnessTexIndex == 0,
+            "Metallic-roughness textures and metallic factors must remain coupled for thin mixtures.");
+    document["materials"][0]["pbrMetallicRoughness"].erase("metallicFactor");
+    load(document, true, "ThinTransmissionApproximation");
+    Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].metallicFactor == 1.0f,
+            "The glTF default metallic factor remains one even with transmission.");
     document = roughDocument;
     document["textures"][0]["source"] = 999999;
     load(document, false, "TransmissionMaterial");

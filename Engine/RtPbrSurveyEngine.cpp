@@ -3723,7 +3723,7 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
                     resolveTextureIndex(gltfMaterial.albedoTexIndex, Engine::TextureSemantic::BaseColor);
                 m.metallicRoughnessTexIndex =
                     resolveTextureIndex(gltfMaterial.metallicRoughnessTexIndex,
-                                        Engine::TextureSemantic::MetallicRoughness);
+                                        Engine::TextureSemantic::Occlusion);
                 m.emissiveTexIndex =
                     resolveTextureIndex(gltfMaterial.emissiveTexIndex, Engine::TextureSemantic::Emissive);
                 m.occlusionTexIndex =
