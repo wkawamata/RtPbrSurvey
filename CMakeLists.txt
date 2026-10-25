@@ -525,6 +525,17 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${alpha_mask_shader}")
     add_test(NAME RtPbrSurvey.AlphaMask
         COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${alpha_mask_shader}" --alpha-mask)
+    set(volume_transmission_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_VolumeTransmission_CSMain.cso")
+    add_custom_command(OUTPUT "${volume_transmission_shader}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/Tests"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${volume_transmission_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_VolumeTransmission.hlsl"
+        DEPENDS Tests/shaders_VolumeTransmission.hlsl Shaders/VolumeTransmission.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${volume_transmission_shader}"
+        Tests/VolumeTransmissionReference.h)
+    add_test(NAME RtPbrSurvey.VolumeTransmission
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${volume_transmission_shader}" --volume-transmission)
     if(RTPBRSURVEY_TEST_NRD_PACKING)
         find_package(Git REQUIRED)
         set(RTPBRSURVEY_NRD_SDK_DIR "${RTPBRSURVEY_ROOT}/third_party/nrd-sdk-4.17.3"

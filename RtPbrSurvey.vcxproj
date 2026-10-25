@@ -410,6 +410,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\PathTracingSampling.hlsli" />
     <None Include="Shaders\ThinTransmission.hlsli" />
     <None Include="Shaders\AlphaMaskCoverage.hlsli" />
+    <None Include="Shaders\VolumeTransmission.hlsli" />
     <None Include="Shaders\PathTracingDenoiserSampling.hlsli" />
     <None Include="Shaders\EmissiveTriangleSampling.hlsli" />
     <None Include="Shaders\ReflectionSampling.hlsli" />

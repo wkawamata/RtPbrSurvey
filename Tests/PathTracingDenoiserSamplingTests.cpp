@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include "VolumeTransmissionReference.h"
 
 using Microsoft::WRL::ComPtr;
 
@@ -607,6 +608,7 @@ int main(int argc, char** argv)
         bool roughThinTransmission = false;
         bool thinMetallic = false;
         bool alphaMask = false;
+        bool volumeTransmission = false;
         const char* inputPath = nullptr;
         const char* outputPath = nullptr;
         for (int index = 2; index < argc; ++index)
@@ -635,6 +637,10 @@ int main(int argc, char** argv)
             {
                 alphaMask = true;
             }
+            else if (std::strcmp(argv[index], "--volume-transmission") == 0)
+            {
+                volumeTransmission = true;
+            }
             else if (std::strcmp(argv[index], "--material-factors") == 0)
             {
                 materialFactors = true;
@@ -656,7 +662,7 @@ int main(int argc, char** argv)
                 throw std::runtime_error("Unknown test option");
             }
         }
-        if (int(packing) + int(materialFactors) + int(inputConversion) + int(thinTransmission) + int(roughThinTransmission) + int(thinMetallic) + int(alphaMask) > 1)
+        if (int(packing) + int(materialFactors) + int(inputConversion) + int(thinTransmission) + int(roughThinTransmission) + int(thinMetallic) + int(alphaMask) + int(volumeTransmission) > 1)
             throw std::runtime_error("Packing and material-factor modes are mutually exclusive");
         if ((inputPath != nullptr) != (outputPath != nullptr) || (inputPath && !inputConversion))
             throw std::runtime_error("Captured conversion requires both input and output paths");
@@ -777,6 +783,10 @@ int main(int argc, char** argv)
             outputFile.write(static_cast<const char*>(data), byteCount);
             if (!outputFile)
                 throw std::runtime_error("Could not write converted output");
+        }
+        else if (volumeTransmission)
+        {
+            VolumeTransmissionTests::Validate(static_cast<const float*>(data));
         }
         else if (alphaMask)
         {

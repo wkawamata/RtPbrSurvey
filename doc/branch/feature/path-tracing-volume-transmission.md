@@ -1,7 +1,7 @@
 # Native PT Volume Transmission Plan
 
 Date: 2026-10-25
-Status: design; implementation not started.
+Status: Step 1a mathematical helpers verified; scene data and runtime wiring not started.
 Branch: `codex/pt-volume-transmission`.
 Base: `e36933b`, dependent on PR #104 (not merged at plan creation).
 
@@ -110,11 +110,53 @@ Default/zero thickness remains thin. glTF integration follows after core tests.
   refracted direct-light paths; then a caustic-capable sampling strategy.
 - Volume-compatible denoising is a separate qualification task.
 
+## Step 1a Results (2026-10-26)
+
+- [x] Independent `Shaders/VolumeTransmission.hlsli`, not included by runtime PT yet.
+- [x] Smooth dielectric sampling with explicit incident/transmitted IOR, Fresnel,
+  Snell refraction, TIR, discrete event probability and radiance eta-squared weight.
+- [x] RGB Beer-Lambert absorption with zero-length and infinite-distance contracts.
+- [x] Reject invalid vectors, IOR/event inputs and attenuation parameters.
+- [x] GPU contract shader compared against an independent double-precision CPU
+  reference: 28 cases x 1024 events, including both sides of the critical angle.
+- [x] Debug build: zero warnings/errors. CTest 44/44, including WARP contract.
+- [x] Hardware run: 28,672 samples passed, no D3D12 errors.
+- [ ] Step 1b: scene/material data, serialization and layout contracts.
+- [ ] Step 2 onward: actual closed-volume boundary tracing and medium state.
+
+Normal and incident vectors must be unit length, with normal pointing into the
+incident medium. Random event input is finite in [0, 1). The sampling result's
+probability is a discrete delta-event probability, not a solid-angle density.
+Reflection weight is 1; transmission radiance weight is (incidentIOR/transmittedIOR)^2.
+The Fresnel selection factor is already divided out and must not be multiplied
+again by the caller. Thin transmission retains its existing behavior.
+
+Absorption requires finite RGB in [0,1], finite nonnegative segment length and
+positive attenuationDistance (positive infinity means no absorption). Zero length
+returns white, including zero-color channels; positive length with a zero-color
+channel returns zero for that channel when attenuationDistance is finite.
+Boundary tint, medium identity and geometry distance are not implemented here.
+
+The test uses 7 IOR pairs and 4 angle configurations, 7 absorption parameter
+sets and 4 lengths. Direction/Fresnel/PDF/weight tolerances are fixed at
+0.0002 * (1 + abs(reference)); event-frequency absolute tolerance is 0.002.
+Invalid cases, flags and discrete selections are also checked. This is not a
+rendered-glass or medium-tracking validation, and not a material import claim.
+
+```powershell
+ctest --test-dir bin/PathTracingValidation/thin-gltf-build-20261024 -C Debug --output-on-failure
+& bin/PathTracingValidation/thin-gltf-build-20261024/Debug/RtPbrSurvey.PathTracingDenoiserSamplingTests.exe bin/PathTracingValidation/thin-gltf-build-20261024/Tests/shaders_VolumeTransmission_CSMain.cso --volume-transmission --hardware
+```
+
+Build log: `C:\work\RtPbrSurvey-agents\volume-math-build-20261026\build.out.log`.
+Generated test binaries and CTest logs remain outside version control.
+
 ## References
 
 - [KHR_materials_volume](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_volume)
 - [KHR_materials_transmission](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_transmission)
 - [KHR_materials_ior](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_ior)
+- [PBRT dielectric BSDF and radiance transport](https://www.pbr-book.org/4ed/Reflection_Models/Dielectric_BSDF)
 
 The volume specification distinguishes surface tint from distance absorption,
 requires closed volume boundaries, and recommends traced internal distance for
