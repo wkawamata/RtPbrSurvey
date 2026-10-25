@@ -310,6 +310,73 @@ void ValidateInputConversion(const float* values)
     }
     std::cout << "Validated eight guarded SDK input conversion cases.\n";
 }
+void ValidateThinTransmission(const float* values)
+{
+    const double iors[] = {1, 1.1, 1.33, 1.5, 2, 4, 100};
+    const double cosines[] = {1, .8, .1, 0};
+    const double tint[] = {.2, .4, .8};
+    for (unsigned int test = 0; test < 28; ++test)
+    {
+        const double eta = iors[test / 4];
+        const double cosine = cosines[test % 4];
+        const double cosT = std::sqrt(1 - (1 - cosine * cosine) / (eta * eta));
+        double fresnel = 0;
+        if (eta != 1)
+        {
+            const double s = (cosine - eta * cosT) / (cosine + eta * cosT);
+            const double p = (eta * cosine - cosT) / (eta * cosine + cosT);
+            fresnel = (s * s + p * p) * .5;
+        }
+        unsigned int reflected = 0;
+        double mean[3] = {};
+        for (unsigned int index = 0; index < kSamplesPerCase; ++index)
+        {
+            const float* sample = values + (test * kSamplesPerCase + index) * 16;
+            for (unsigned int channel = 0; channel < 16; ++channel)
+            {
+                if (!std::isfinite(sample[channel]))
+                {
+                    throw std::runtime_error("Nonfinite thin transmission sample");
+                }
+            }
+            const bool reflection = (double(index) + .5) / kSamplesPerCase < fresnel;
+            if (!Near(sample[0], fresnel, 1e-5, 1e-5) || sample[7] != (reflection ? 1.0f : 0.0f) ||
+                !Near(sample[1], std::sqrt(1 - cosine * cosine), 1e-5, 1e-5) || sample[2] != 0 ||
+                !Near(sample[3], reflection ? cosine : -cosine, 1e-5, 1e-5))
+            {
+                throw std::runtime_error("Thin transmission Fresnel or direction mismatch");
+            }
+            reflected += reflection ? 1u : 0u;
+            for (unsigned int channel = 0; channel < 3; ++channel)
+            {
+                if (!Near(sample[4 + channel], reflection ? 1 : tint[channel], 1e-6, 1e-6))
+                {
+                    throw std::runtime_error("Thin transmission throughput weight mismatch");
+                }
+                mean[channel] += sample[4 + channel] / kSamplesPerCase;
+            }
+            for (unsigned int channel = 8; channel < 16; ++channel)
+            {
+                if (sample[channel] != 0)
+                {
+                    throw std::runtime_error("Thin transmission reserved output changed");
+                }
+            }
+        }
+        if (std::abs(double(reflected) / kSamplesPerCase - fresnel) > 1.0 / kSamplesPerCase)
+        {
+            throw std::runtime_error("Thin transmission reflection probability mismatch");
+        }
+        for (unsigned int channel = 0; channel < 3; ++channel)
+        {
+            if (std::abs(mean[channel] - (fresnel + (1 - fresnel) * tint[channel])) > 1.0 / kSamplesPerCase)
+            {
+                throw std::runtime_error("Thin transmission expected energy mismatch");
+            }
+        }
+    }
+    std::cout << "Validated 28672 thin transmission GPU samples against double-precision Fresnel and energy.\n";
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -333,6 +400,7 @@ int main(int argc, char** argv)
         bool materialFactors = false;
         bool inputConversion = false;
         bool rrInputConversion = false;
+        bool thinTransmission = false;
         const char* inputPath = nullptr;
         const char* outputPath = nullptr;
         for (int index = 2; index < argc; ++index)
@@ -344,6 +412,10 @@ int main(int argc, char** argv)
             else if (std::strcmp(argv[index], "--packing") == 0)
             {
                 packing = true;
+            }
+            else if (std::strcmp(argv[index], "--thin-transmission") == 0)
+            {
+                thinTransmission = true;
             }
             else if (std::strcmp(argv[index], "--material-factors") == 0)
             {
@@ -370,7 +442,7 @@ int main(int argc, char** argv)
                 throw std::runtime_error("Unknown test option");
             }
         }
-        if (int(packing) + int(materialFactors) + int(inputConversion) + int(rrInputConversion) > 1)
+        if (int(packing) + int(materialFactors) + int(inputConversion) + int(rrInputConversion) + int(thinTransmission) > 1)
             throw std::runtime_error("Shader validation modes are mutually exclusive");
         if ((inputPath != nullptr) != (outputPath != nullptr) || (inputPath && !inputConversion))
             throw std::runtime_error("Captured conversion requires both input and output paths");
@@ -495,6 +567,10 @@ int main(int argc, char** argv)
         else if (rrInputConversion)
         {
             RrInputTests::ValidateRrInputConversion(static_cast<const float*>(data), sampleCount);
+        }
+        else if (thinTransmission)
+        {
+            ValidateThinTransmission(static_cast<const float*>(data));
         }
         else if (inputConversion)
         {

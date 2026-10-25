@@ -97,7 +97,8 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
         desc.scene.usesIndexedDraw,
         desc.scene.vertexCount,
         desc.scene.indexCount,
-        (desc.pixelCenterPrimary ? 1u : 0u) | (desc.denoiserDistanceDiagnostics ? 2u : 0u),
+        (desc.pixelCenterPrimary ? 1u : 0u) | (desc.denoiserDistanceDiagnostics ? 2u : 0u) |
+            (desc.thinTransmissionActive ? 4u : 0u),
         desc.debugOutput,
         desc.environmentEnabled,
         desc.emissiveEnabled,

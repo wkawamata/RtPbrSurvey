@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "thin-angle",
+  "name": "PT Thin Transmission angle",
+  "renderPreset": "render-preset.json",
+  "description": "目的: 同じ薄膜材質の角度による表面反射の変化を確認する。\n構成: 左0度、中央45度、右75度のYaw。全て同じ青色、透過量1、IOR=1.5。\n確認: 斜めの板では背景への透過より反射の比率が増える。背面側へカメラを移動しても板が消えない。IOR=1にすると表面反射がなくなる。\n制約: 板を傾けると投影面積も変わる。反射像の粗さ・体積屈折は対象外。",
+  "assets": [
+    {
+      "id": "background",
+      "type": "gltf",
+      "path": "../17-thin-transmission-baseline/background.gltf"
+    }
+  ],
+  "materials": [
+    {
+      "id": "Angle Glass",
+      "name": "Angle Glass",
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.1,
+      "transmission": {
+        "mode": "thin",
+        "factor": 1,
+        "tint": [
+          0.15,
+          0.4,
+          1
+        ],
+        "ior": 1.5
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "Background Pattern",
+      "name": "Background Pattern",
+      "parentId": null,
+      "type": "gltf",
+      "translation": [
+        0,
+        0,
+        3
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "assetId": "background"
+    },
+    {
+      "id": "Pane Yaw 0",
+      "name": "Pane Yaw 0",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -2.7,
+        0,
+        0
+      ],
+      "rotation": [
+        -0.7071067811865476,
+        0,
+        0,
+        0.7071067811865476
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "materialId": "Angle Glass",
+      "primitive": {
+        "kind": "plane",
+        "width": 2,
+        "depth": 3.2
+      }
+    },
+    {
+      "id": "Pane Yaw 45",
+      "name": "Pane Yaw 45",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        -0.6532814824381883,
+        0.2705980500730985,
+        0.2705980500730985,
+        0.6532814824381883
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "materialId": "Angle Glass",
+      "primitive": {
+        "kind": "plane",
+        "width": 2,
+        "depth": 3.2
+      }
+    },
+    {
+      "id": "Pane Yaw 75",
+      "name": "Pane Yaw 75",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        2.7,
+        0,
+        0
+      ],
+      "rotation": [
+        -0.560985526796931,
+        0.43045933457687946,
+        0.43045933457687946,
+        0.560985526796931
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "materialId": "Angle Glass",
+      "primitive": {
+        "kind": "plane",
+        "width": 2,
+        "depth": 3.2
+      }
+    }
+  ],
+  "camera": {
+    "position": [
+      0,
+      0,
+      -10
+    ],
+    "target": [
+      0,
+      0,
+      1
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 40,
+    "orthographicHeight": 10,
+    "nearZ": 0.1,
+    "farZ": 1000
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      1,
+      1
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  }
+}

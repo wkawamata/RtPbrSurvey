@@ -83,6 +83,7 @@ enum class NrdRelaxPresentationStatus
     IncompatibleInputs,
     AwaitingEvaluation,
     Relax,
+    UnsupportedTransmission,
 };
 
 NrdRelaxPresentationStatus

@@ -1,0 +1,317 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "RtPbrSurvey thin transmission review fixture"
+  },
+  "extensionsUsed": [
+    "KHR_materials_unlit"
+  ],
+  "extensionsRequired": [
+    "KHR_materials_unlit"
+  ],
+  "buffers": [
+    {
+      "byteLength": 140,
+      "uri": "data:application/octet-stream;base64,MzMzv5qZmb8AAAAAMzMzP5qZmb8AAAAAMzMzP5qZmT8AAAAAMzMzv5qZmT8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAgD8AAIA/AAAAAAAAgD8AAAEAAgAAAAIAAwA="
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 48
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 48,
+      "byteLength": 48
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 96,
+      "byteLength": 32
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 128,
+      "byteLength": 12
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC3",
+      "min": [
+        -0.7,
+        -1.2,
+        0
+      ],
+      "max": [
+        0.7,
+        1.2,
+        0
+      ]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 6,
+      "type": "SCALAR"
+    }
+  ],
+  "materials": [
+    {
+      "name": "Pattern 0",
+      "extensions": {
+        "KHR_materials_unlit": {}
+      },
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.9,
+          0.9,
+          0.9,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 1
+      }
+    },
+    {
+      "name": "Pattern 1",
+      "extensions": {
+        "KHR_materials_unlit": {}
+      },
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.95,
+          0.2,
+          0.12,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 1
+      }
+    },
+    {
+      "name": "Pattern 2",
+      "extensions": {
+        "KHR_materials_unlit": {}
+      },
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.15,
+          0.7,
+          0.95,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 1
+      }
+    },
+    {
+      "name": "Pattern 3",
+      "extensions": {
+        "KHR_materials_unlit": {}
+      },
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.95,
+          0.75,
+          0.1,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 1
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 2
+        }
+      ]
+    },
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 3
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "translation": [
+        -4.5,
+        -1.25,
+        0
+      ],
+      "scale": [
+        2.142857142857143,
+        1.0416666666666667,
+        1
+      ]
+    },
+    {
+      "mesh": 1,
+      "translation": [
+        -1.5,
+        -1.25,
+        0
+      ],
+      "scale": [
+        2.142857142857143,
+        1.0416666666666667,
+        1
+      ]
+    },
+    {
+      "mesh": 2,
+      "translation": [
+        1.5,
+        -1.25,
+        0
+      ],
+      "scale": [
+        2.142857142857143,
+        1.0416666666666667,
+        1
+      ]
+    },
+    {
+      "mesh": 3,
+      "translation": [
+        4.5,
+        -1.25,
+        0
+      ],
+      "scale": [
+        2.142857142857143,
+        1.0416666666666667,
+        1
+      ]
+    },
+    {
+      "mesh": 1,
+      "translation": [
+        -4.5,
+        1.25,
+        0
+      ],
+      "scale": [
+        2.142857142857143,
+        1.0416666666666667,
+        1
+      ]
+    },
+    {
+      "mesh": 2,
+      "translation": [
+        -1.5,
+        1.25,
+        0
+      ],
+      "scale": [
+        2.142857142857143,
+        1.0416666666666667,
+        1
+      ]
+    },
+    {
+      "mesh": 3,
+      "translation": [
+        1.5,
+        1.25,
+        0
+      ],
+      "scale": [
+        2.142857142857143,
+        1.0416666666666667,
+        1
+      ]
+    },
+    {
+      "mesh": 0,
+      "translation": [
+        4.5,
+        1.25,
+        0
+      ],
+      "scale": [
+        2.142857142857143,
+        1.0416666666666667,
+        1
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "nodes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    }
+  ],
+  "scene": 0
+}

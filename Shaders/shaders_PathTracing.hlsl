@@ -82,6 +82,7 @@ cbuffer PathTracingConstants : register(b1)
 static const uint hitNormalSource = 0;
 #include "SceneRayQuery.hlsli"
 #include "PathTracingSampling.hlsli"
+#include "ThinTransmission.hlsli"
 #include "PathTracingDenoiserSampling.hlsli"
 #include "EmissiveTriangleSampling.hlsli"
 StructuredBuffer<EmissiveTriangleGpu> g_emissiveTriangles : register(t7);
@@ -462,16 +463,32 @@ float3 TracePath(uint2 pixel,
     float previousBsdfPdf = 0.0;
     float previousEnvironmentPdf = 0.0;
     bool previousEmissiveNeeActive = false;
+    bool previousDelta = false;
+    bool cameraThroughThinSheets = true;
     const bool emissiveNeeEnabled = emissiveSamplingMode >= 1 && emissiveEnabled != 0 &&
         shadowEnabled != 0 && emissiveTriangleCount != 0;
     const bool environmentMisEnabled = environmentSamplingMode >= 5 && shadowEnabled != 0;
 
     [loop] for (uint bounce = 0; bounce < max(maxBounces, 1u); ++bounce)
     {
-        RayQuery<RAY_FLAG_CULL_BACK_FACING_TRIANGLES> query;
-        query.TraceRayInline(g_tlas, 0, 0xff, ray);
+        const bool thinScene = (primarySamplingFlags & 4u) != 0;
+        RayQuery<RAY_FLAG_NONE> query;
+        query.TraceRayInline(g_tlas, thinScene ? RAY_FLAG_FORCE_NON_OPAQUE : RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xff, ray);
         while (query.Proceed())
         {
+            if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
+            {
+                uint i0, i1, i2;
+                LoadPrimitiveVertexIndices(query.CandidatePrimitiveIndex(), query.CandidateInstanceID(), i0, i1, i2);
+                const uint materialId = LoadCommittedHitMaterialId(
+                    i0, i1, i2, query.CandidateTriangleBarycentrics(), query.CandidateInstanceID());
+                const Material material = g_materialData[materialId];
+                if (query.CandidateTriangleFrontFace() ||
+                    ((material.flags & MaterialFlagThinTransmission) != 0 && material.transmissionFactor > 0.0))
+                {
+                    query.CommitNonOpaqueTriangleHit();
+                }
+            }
         }
 
         if (bounce == 1)
@@ -489,8 +506,8 @@ float3 TracePath(uint2 pixel,
 
         if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
         {
-            float3 missRadiance = bounce == 0 ? SamplePrimaryMiss(ray.Direction) : SampleEnvironmentLighting(ray.Direction);
-            if (bounce > 0 && environmentSamplingMode >= 2)
+            float3 missRadiance = cameraThroughThinSheets ? SamplePrimaryMiss(ray.Direction) : SampleEnvironmentLighting(ray.Direction);
+            if (bounce > 0 && !previousDelta && environmentSamplingMode >= 2)
             {
                 missRadiance *= environmentMisEnabled ?
                     PathTracingPowerHeuristic(previousBsdfPdf, previousEnvironmentPdf) : 0.0;
@@ -564,7 +581,7 @@ float3 TracePath(uint2 pixel,
                 lerp(float3(0.04, 0.04, 0.04), hitMaterial.albedo, hitMaterial.metallic),
                 hitMaterial.metallic);
             primarySurface.hitT = query.CommittedRayT();
-            if (captureDenoiserDistances && (primarySamplingFlags & 2u) != 0)
+            if (captureDenoiserDistances && (primarySamplingFlags & 2u) != 0 && !thinScene)
             {
                 if ((hitMaterial.flags & MaterialFlagUnlit) != 0)
                 {
@@ -645,6 +662,46 @@ float3 TracePath(uint2 pixel,
                 specularRadiance += contribution;
             }
         }
+
+        // Select the mixture before NEE so both estimators retain the opaque component's conditional PDF.
+        bool sampleThin = false;
+        if (hitMaterial.transmissionFactor > 0.0)
+        {
+            sampleThin = NextRandom(randomState) < hitMaterial.transmissionFactor;
+        }
+        if (sampleThin)
+        {
+            if (bounce + 1 >= max(maxBounces, 1u))
+            {
+                break;
+            }
+            const ThinTransmissionSample thin = SampleThinTransmission(
+                ray.Direction, geometryNormal, hitMaterial.transmissionIor, hitMaterial.transmissionTint,
+                NextRandom(randomState));
+            throughput *= thin.weight;
+            previousDelta = true;
+            previousEmissiveNeeActive = false;
+            previousBsdfPdf = 0.0;
+            cameraThroughThinSheets = cameraThroughThinSheets && !thin.reflected;
+            if (bounce == 0)
+            {
+                primarySpecularPath = true;
+                primaryDiffuseFraction = 0.0;
+                primarySpecularFraction = 1.0;
+                primarySurface.primaryContinuation = float4(thin.direction, 0.0);
+            }
+            ray.Origin = hitPosition + geometryNormal * (thin.reflected ? normalBias : -normalBias);
+            if (bounce == 0)
+            {
+                primaryContinuationOriginOffset = ray.Origin - hitPosition;
+            }
+            ray.Direction = thin.direction;
+            ray.TMin = rayTMin;
+            ray.TMax = rayTMax;
+            continue;
+        }
+        previousDelta = false;
+        cameraThroughThinSheets = false;
 
         if (directLightingEnabled != 0)
         {

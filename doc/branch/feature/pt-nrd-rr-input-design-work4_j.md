@@ -1382,3 +1382,34 @@ RR outputとcurrent inputのRMSEは参考値として記録し、画質や残像
 移動cameraを理由に一律RRをOFFにする制限は、continuousモードで解除した。
 ただし非対応入力ではNativeへの退避と再取得が起こり、あらゆるframeでRRを維持する保証はまだない。
 一般入力への対応と、画質・性能の追求は後続作業。
+
+
+## 2026-10-25 PR統合: main #103の透過材ガードとの共存
+
+移動camera対応をcommit `5705ac6` に保存し、mainの `3f80bb4`（PR #103）を取り込んだ。
+CMakeと共通GPU test harnessではRR変換・薄い透過材の両testを残す。
+
+- NRDの共通backend選択に、main側のthin transmission除外条件を合わせる。
+  legacy表示の `UnsupportedTransmission` 理由を維持し、RELAXを実行しない。
+  main側の旧reset boolは、共通history stateへのNRD reset要求へ接続する。
+- RRもthin transmissionを含むsceneをhost contractで拒否し、native SDK評価を開始しない。
+  透過sceneではcamera移動でRR履歴を保存する例外を使わず、Nativeのreset規則を維持する。
+- RR保持frame検証へKHR_materials_transmissionを使うcaseを追加した。
+  既存5 caseと合わせて6 caseで、Native出力 / incompatible-inputs / native SDK call 0を確認する。
+
+統合Debug buildはerror 0（既存link warning 4）。
+log: `C:/work/RtPbrSurvey-agents/pt-rr-main103-verified-work4`。
+関連CTest 15/15成功。従来9件にRR GPU変換・薄い透過材GPU test、scene document/builder/editor/glTFの4件を加えた。
+移動RRの15 checkpointもprocess code 0 / D3D12 ERROR 0で再確認した。
+report: `build/reconstruction-input-validation/captures/rr-main103-lifecycle-20261025/report.json`。
+統合exe SHA256: `4db16a8942ea223b8d444b0de1db0ae6d2c681026f603e376eca63c817db0a40`。
+
+統合後の追加実機結果:
+
+- RR保持/フォールバック6 case成功、全件process code 0 / D3D12 ERROR 0。
+  透過材caseはhost側でincompatible-inputs、waiting-production、SDK call 0となることを確認。
+  report: `build/reconstruction-input-validation/captures/rr-main103-retained-final-20261025/report.json`。
+- 既存thin transmission統合driverの8 captureも成功、D3D12 ERROR 0。
+  clear / tint / backface / NRD bypass / two layers / factor-zero endpointを確認。
+  NRD bypass画像はNativeとbit-exact。tint最大誤差は約2.93e-4、two layersは約3.91e-5。
+  report: `build/reconstruction-input-validation/captures/rr-main103-thin-20261025/report.json`。

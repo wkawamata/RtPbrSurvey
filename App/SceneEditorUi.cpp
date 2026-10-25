@@ -18,6 +18,7 @@
 #include <cfloat>
 #include <filesystem>
 #include <vector>
+#include <cmath>
 
 namespace
 {
@@ -674,10 +675,12 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                     editableMaterial->baseColor.y,
                     editableMaterial->baseColor.z};
                 bool materialCommitted = false;
+                bool materialChanged = false;
                 if (ImGui::ColorEdit3("Base Color", baseColor))
                 {
                     session.BeginEdit();
                     editableMaterial->baseColor = {baseColor[0], baseColor[1], baseColor[2], 1.0f};
+                    materialChanged = true;
                 }
                 materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
                 float metallic = editableMaterial->metallic;
@@ -685,6 +688,7 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                 {
                     session.BeginEdit();
                     editableMaterial->metallic = metallic;
+                    materialChanged = true;
                 }
                 materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
                 float roughness = editableMaterial->roughness;
@@ -692,11 +696,55 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                 {
                     session.BeginEdit();
                     editableMaterial->roughness = roughness;
+                    materialChanged = true;
                 }
                 materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                int transmissionMode = static_cast<int>(editableMaterial->transmission.mode);
+                if (ImGui::Combo("Transmission Mode", &transmissionMode, "Opaque\0Thin Transmission\0"))
+                {
+                    session.BeginEdit();
+                    editableMaterial->transmission.mode = static_cast<RtPbrSurvey::SceneTransmissionMode>(transmissionMode);
+                    materialChanged = true;
+                    materialCommitted = true;
+                }
+                if (editableMaterial->transmission.mode == RtPbrSurvey::SceneTransmissionMode::Thin)
+                {
+                    float rgba[] = {editableMaterial->transmission.tint.x, editableMaterial->transmission.tint.y,
+                                    editableMaterial->transmission.tint.z, 1.0f - editableMaterial->transmission.factor};
+                    if (ImGui::ColorEdit4("Transmission RGBA", rgba, ImGuiColorEditFlags_AlphaBar) &&
+                        std::all_of(std::begin(rgba), std::end(rgba), [](float value) { return std::isfinite(value); }))
+                    {
+                        session.BeginEdit();
+                        editableMaterial->transmission.tint = {std::clamp(rgba[0], 0.0f, 1.0f),
+                            std::clamp(rgba[1], 0.0f, 1.0f), std::clamp(rgba[2], 0.0f, 1.0f)};
+                        editableMaterial->transmission.factor = 1.0f - std::clamp(rgba[3], 0.0f, 1.0f);
+                        materialChanged = true;
+                    }
+                    materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                    if (ImGui::IsItemHovered())
+                    {
+                        ImGui::SetTooltip("RGB: transmission tint. A: opacity (0 = maximum transmission, 1 = opaque).");
+                    }
+                    float ior = editableMaterial->transmission.ior;
+                    if (ImGui::DragFloat("IOR", &ior, 0.01f, 1.0f, 10.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp) &&
+                        std::isfinite(ior))
+                    {
+                        session.BeginEdit();
+                        editableMaterial->transmission.ior = std::clamp(ior, 1.0f, 10.0f);
+                        materialChanged = true;
+                    }
+                    materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                    if (ImGui::IsItemHovered())
+                    {
+                        ImGui::SetTooltip("Thin sheet surface reflection only; volume refraction is not implemented.");
+                    }
+                }
                 if (materialCommitted)
                 {
                     session.CommitEdit();
+                }
+                if (materialChanged || materialCommitted)
+                {
                     rebuildPreview();
                 }
             }

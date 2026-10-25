@@ -353,6 +353,138 @@ void TestImportDiagnostics()
     run(document, "InvalidMaterial", GltfDiagnosticSeverity::Error);
 }
 
+void TestThinTransmissionImport()
+{
+    using Json = nlohmann::json;
+    std::ifstream input(FixturePath().parent_path() / "surface-transforms.gltf");
+    Json baseline = Json::parse(input);
+    baseline["materials"][0] = {
+        {"pbrMetallicRoughness", {{"baseColorFactor", {0.2, 0.4, 0.8, 1.0}},
+                                 {"metallicFactor", 0.0}, {"roughnessFactor", 0.0}}},
+        {"extensions", {{"KHR_materials_transmission", {{"transmissionFactor", 0.5}}}}}};
+    baseline["extensionsUsed"] = {"KHR_materials_transmission"};
+    baseline["extensionsRequired"] = {"KHR_materials_transmission"};
+    const auto temporary = std::filesystem::temp_directory_path() /
+        ("RtPbrSurvey-thin-import-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".gltf");
+    struct Cleanup
+    {
+        std::filesystem::path path;
+        ~Cleanup()
+        {
+            std::error_code error;
+            std::filesystem::remove(path, error);
+        }
+    } cleanup{temporary};
+    const auto load = [&](const Json& document, bool success, const char* expectedCode)
+    {
+        {
+            std::ofstream output(temporary, std::ios::binary);
+            output << document.dump(2) << "\r\n";
+            Require(static_cast<bool>(output), "Thin import fixture must be written.");
+        }
+        auto result = Engine::LoadGltfSceneAsset(temporary.string());
+        Require(static_cast<bool>(result) == success, "Thin import acceptance must match the declared subset.");
+        bool found = expectedCode == nullptr;
+        for (const auto& diagnostic : result.diagnostics)
+        {
+            found |= expectedCode != nullptr && diagnostic.code == expectedCode &&
+                diagnostic.severity == (success ? GltfDiagnosticSeverity::Warning : GltfDiagnosticSeverity::Error);
+        }
+        Require(found, "Expected a specific structured thin import diagnostic.");
+        if (!success)
+        {
+            Require(result.status == Engine::GltfSceneAssetLoadStatus::UnsupportedData && !result.asset.IsValid(),
+                    "Rejected thin data must not publish a scene asset.");
+            GltfMeshData stale;
+            stale.vertices.resize(1);
+            Require(!LoadGltfMesh(temporary.string(), stale) && stale.vertices.empty(),
+                    "Legacy loading must also reject unsupported thin data and clear stale output.");
+        }
+        return result;
+    };
+    const auto result = load(baseline, true, "ThinTransmissionApproximation");
+    const auto check = [](const Engine::SceneMaterial& material, float factor, float ior)
+    {
+        Require(material.thinTransmission && NearlyEqual(material.transmissionFactor, factor) &&
+                    NearlyEqual(material.transmissionTint.x, 0.2f) && NearlyEqual(material.transmissionTint.y, 0.4f) &&
+                    NearlyEqual(material.transmissionTint.z, 0.8f) && NearlyEqual(material.transmissionIor, ior),
+                "Constant factor, linear base-color tint and IOR must survive material conversion.");
+    };
+    Engine::SceneBuilder flattened, node, legacy;
+    Require(flattened.AddGltfMesh(temporary.string()).has_value(), "Flattened thin asset must load.");
+    Require(static_cast<bool>(node.AddGltfNodeMesh(result.asset, "Scaled")), "Thin node asset must load.");
+    Require(legacy.LoadGltfMesh(temporary.string()), "Legacy thin scene must load.");
+    check(flattened.GetMesh().materials[0], 0.5f, 1.5f);
+    check(node.GetMesh().materials[0], 0.5f, 1.5f);
+    check(legacy.GetMesh().materials[0], 0.5f, 1.5f);
+    GltfMeshData mesh;
+    Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].thinTransmission,
+            "Raw glTF material must retain the thin marker.");
+
+    Json document = baseline;
+    document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionFactor"] = 1;
+    document["materials"][0]["extensions"]["KHR_materials_ior"] = {{"ior", 1.33}};
+    document["extensionsRequired"].push_back("KHR_materials_ior");
+    const auto customIor = load(document, true, "ThinTransmissionApproximation");
+    Engine::SceneBuilder iorNode;
+    Require(static_cast<bool>(iorNode.AddGltfNodeMesh(customIor.asset, "Scaled")), "Custom IOR node must load.");
+    check(iorNode.GetMesh().materials[0], 1.0f, 1.33f);
+    document["materials"][0]["extensions"]["KHR_materials_ior"] = Json::object();
+    load(document, true, "ThinTransmissionApproximation");
+    document = baseline;
+    document["materials"][0]["extensions"]["KHR_materials_transmission"] = Json::object();
+    document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = 1;
+    load(document, true, nullptr);
+    Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].transmissionFactor == 0.0f,
+            "Omitted transmissionFactor must default to zero.");
+
+    for (const Json& invalid : {Json(-0.1), Json(1.1), Json(true), Json("1"), Json(nullptr)})
+    {
+        document = baseline;
+        document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionFactor"] = invalid;
+        load(document, false, "TransmissionMaterial");
+    }
+    for (const Json& invalid : {Json(0), Json(0.5), Json(1e300), Json(true), Json("1.5")})
+    {
+        document = baseline;
+        document["materials"][0]["extensions"]["KHR_materials_ior"] = {{"ior", invalid}};
+        load(document, false, "TransmissionMaterial");
+    }
+    for (const char* field : {"roughnessFactor", "metallicFactor"})
+    {
+        document = baseline;
+        document["materials"][0]["pbrMetallicRoughness"][field] = 0.1;
+        load(document, false, "TransmissionMaterial");
+    }
+    for (const char* extension : {"KHR_materials_volume", "KHR_materials_unlit", "KHR_materials_clearcoat"})
+    {
+        document = baseline;
+        document["materials"][0]["extensions"][extension] = Json::object();
+        load(document, false, "TransmissionMaterial");
+    }
+    document = baseline;
+    document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionTexture"] = {{"index", 0}};
+    load(document, false, "TransmissionMaterial");
+    document = baseline;
+    document["materials"][0]["extensions"]["KHR_materials_transmission"] = 7;
+    load(document, false, "TransmissionMaterial");
+    document = baseline;
+    document["materials"][0]["extensions"]["KHR_materials_ior"] = {{"ior", 1.33}};
+    load(document, false, "TransmissionMaterial");
+    document = baseline;
+    document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"] = {{"index", 0}};
+    load(document, false, "TransmissionMaterial");
+    document = baseline;
+    document["materials"][0]["alphaMode"] = "BLEND";
+    load(document, false, "TransmissionMaterial");
+    document = baseline;
+    document["materials"][0]["pbrMetallicRoughness"]["baseColorFactor"][3] = 0.5;
+    load(document, false, "TransmissionMaterial");
+    document = baseline;
+    document["extensionsRequired"].push_back("KHR_lights_punctual");
+    load(document, false, "RequiredExtension");
+}
+
 } // namespace
 
 int main(int argc, char* argv[])
@@ -379,6 +511,7 @@ int main(int argc, char* argv[])
         TestSurfaceTransforms();
         TestExistingFlattenedMeshContract();
         TestImportDiagnostics();
+        TestThinTransmissionImport();
     }
     catch (const std::exception& error)
     {

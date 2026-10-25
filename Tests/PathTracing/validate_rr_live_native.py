@@ -28,7 +28,8 @@ def main():
                  ('rr-viewport', True, '', True),
                  ('native-off', False, '', False),
                  ('background', True, '', False),
-                 ('non-mirror', True, '', False)]
+                 ('non-mirror', True, '', False),
+                 ('thin-transmission', True, '', False)]
         for name, opt_in, resource, expected_rr in cases:
             folder = output/name
             fixture(output, folder)
@@ -39,6 +40,14 @@ def main():
             elif name == 'non-mirror':
                 gltf = json.loads((folder/'box.gltf').read_text())
                 gltf['materials'][0]['pbrMetallicRoughness'].update(metallicFactor=.5, roughnessFactor=.3)
+                write_json(folder/'box.gltf', gltf)
+            elif name == 'thin-transmission':
+                gltf = json.loads((folder/'box.gltf').read_text())
+                gltf['extensionsUsed'] = ['KHR_materials_transmission']
+                gltf['materials'][0]['extensions'] = dict(KHR_materials_transmission=dict(transmissionFactor=1))
+                pbr = gltf['materials'][0]['pbrMetallicRoughness']
+                pbr['metallicFactor'] = 0
+                pbr.pop('metallicRoughnessTexture', None)
                 write_json(folder/'box.gltf', gltf)
             capture = folder/('output.ptbuf' if resource else 'viewport.png')
             log = folder/'runtime.log'
@@ -78,7 +87,10 @@ def main():
             else:
                 if diagnostics['reconstructionOutput'] != 'native' or rr['nativeEvaluateCallCount'] != 0:
                     raise ValueError('Rejected/disabled input reached SDK or RR presentation')
-                if opt_in and (rr['phase'] != 'native-fallback' or not rr['failure'].startswith('unsupported RR input pixels')):
+                if name == 'thin-transmission' and (diagnostics['reconstructionStatus'] != 'incompatible-inputs' or
+                                                     rr['phase'] != 'waiting-production' or rr['failure']):
+                    raise ValueError('Thin transmission was not rejected by the host contract')
+                if opt_in and name != 'thin-transmission' and (rr['phase'] != 'native-fallback' or not rr['failure'].startswith('unsupported RR input pixels')):
                     raise ValueError('Unsupported profile was not rejected by whole-frame admission')
             if resource:
                 meta, values = read_buffer(capture)

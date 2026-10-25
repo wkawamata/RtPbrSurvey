@@ -7,6 +7,8 @@
 #include <cmath>
 #include <filesystem>
 #include <iostream>
+#include <limits>
+#include <nlohmann/json.hpp>
 
 namespace
 {
@@ -208,12 +210,28 @@ bool TestFixtureFileLoadSaveLoad()
     bool passed = Check(RtPbrSurvey::LoadSceneDocumentFile(fixturePath.string(), loaded, &error),
                         "fixture scene document loads");
     passed &= Check(loaded.description.empty(), "legacy scene without description remains compatible");
+    if (!Check(!loaded.materials.empty(), "fixture has a material for transmission persistence"))
+    {
+        return false;
+    }
+    loaded.materials[0].transmission.mode = RtPbrSurvey::SceneTransmissionMode::Thin;
+    loaded.materials[0].transmission.factor = 0.8f;
+    loaded.materials[0].transmission.tint = {0.2f, 0.4f, 0.6f};
+    loaded.materials[0].transmission.ior = 1.4f;
     passed &= Check(RtPbrSurvey::SaveSceneDocumentFile(outputPath.string(), loaded, &error),
                     "scene document saves atomically");
     passed &= Check(RtPbrSurvey::LoadSceneDocumentFile(outputPath.string(), restored, &error),
                     "saved scene document reloads");
     passed &= Check(restored.sceneId == loaded.sceneId && restored.nodes.size() == loaded.nodes.size(),
                     "fixture load-save-load preserves document");
+    passed &= Check(!restored.materials.empty() &&
+                        restored.materials[0].transmission.mode == RtPbrSurvey::SceneTransmissionMode::Thin &&
+                        NearlyEqual(restored.materials[0].transmission.factor, 0.8f) &&
+                        NearlyEqual(restored.materials[0].transmission.tint.x, 0.2f) &&
+                        NearlyEqual(restored.materials[0].transmission.tint.y, 0.4f) &&
+                        NearlyEqual(restored.materials[0].transmission.tint.z, 0.6f) &&
+                        NearlyEqual(restored.materials[0].transmission.ior, 1.4f),
+                    "atomic save and file reload preserve thin transmission");
     std::filesystem::remove(outputPath);
     std::filesystem::remove(outputPath.string() + ".tmp");
     return passed;
@@ -329,6 +347,121 @@ bool TestReparentPreservesWorldTransform()
     return passed;
 }
 
+bool TestTransmissionContract()
+{
+    using namespace RtPbrSurvey;
+    using json = nlohmann::json;
+    SceneDocument document = CreateEmptySceneDocument("thin-contract", "Thin Contract");
+    document.renderPresetPath = "render-preset.json";
+    document.materials.push_back({"glass", "Glass"});
+    std::string serialized;
+    std::string error;
+    bool passed = Check(SerializeSceneDocument(document, serialized, &error), "default transmission serializes");
+    json legacy = json::parse(serialized);
+    passed &= Check(!legacy["materials"][0].contains("transmission"), "default materials keep legacy JSON shape");
+    SceneDocument restored;
+    passed &= Check(DeserializeSceneDocument(serialized, restored, &error) &&
+                        restored.materials[0].transmission.mode == SceneTransmissionMode::Opaque &&
+                        restored.materials[0].transmission.factor == 0 &&
+                        restored.materials[0].transmission.tint.x == 1 &&
+                        restored.materials[0].transmission.ior == 1.5f,
+                    "legacy materials retain opaque transmission defaults");
+
+    SceneTransmission& transmission = document.materials[0].transmission;
+    transmission.mode = SceneTransmissionMode::Thin;
+    transmission.factor = 0.75f;
+    transmission.tint = {0.2f, 0.6f, 1.0f};
+    transmission.ior = 1.33f;
+    passed &= Check(SerializeSceneDocument(document, serialized, &error) &&
+                        DeserializeSceneDocument(serialized, restored, &error), "thin transmission round trip");
+    passed &= Check(restored.materials[0].transmission.mode == SceneTransmissionMode::Thin &&
+                        NearlyEqual(restored.materials[0].transmission.factor, 0.75f) &&
+                        NearlyEqual(restored.materials[0].transmission.tint.x, 0.2f) &&
+                        NearlyEqual(restored.materials[0].transmission.tint.y, 0.6f) &&
+                        NearlyEqual(restored.materials[0].transmission.tint.z, 1.0f) &&
+                        NearlyEqual(restored.materials[0].transmission.ior, 1.33f),
+                    "mode, factor, tint and IOR survive independently");
+    const json valid = json::parse(serialized);
+    std::vector<json> invalid;
+    for (const json& value : {json(nullptr), json(3), json::array()})
+    {
+        json candidate = valid;
+        candidate["materials"][0]["transmission"] = value;
+        invalid.push_back(candidate);
+    }
+    for (const char* field : {"mode", "factor", "tint", "ior"})
+    {
+        json candidate = valid;
+        candidate["materials"][0]["transmission"].erase(field);
+        invalid.push_back(candidate);
+        candidate = valid;
+        candidate["materials"][0]["transmission"][field] = false;
+        invalid.push_back(candidate);
+    }
+    const std::vector<std::pair<std::string, json>> invalidFields = {
+        {"mode", "volume"}, {"mode", "Thin"}, {"factor", -0.1}, {"factor", 1.1},
+        {"ior", 0}, {"ior", 0.99}, {"tint", {-0.1, 0.5, 1}}, {"tint", {1, 1.1, 0}},
+        {"tint", {1, 1, 1.1}}, {"tint", {1, 1}}, {"tint", {1, 1, 1, 1}},
+        {"tint", {1, "bad", 1}}, {"thickness", 1}};
+    for (const auto& field : invalidFields)
+    {
+        json candidate = valid;
+        candidate["materials"][0]["transmission"][field.first] = field.second;
+        invalid.push_back(candidate);
+    }
+    for (const json& candidate : invalid)
+    {
+        SceneDocument existing = CreateEmptySceneDocument("unchanged", "Unchanged");
+        error.clear();
+        passed &= Check(!DeserializeSceneDocument(candidate.dump(), existing, &error) && !error.empty() &&
+                            existing.sceneId == "unchanged" && existing.materials.empty(),
+                        "invalid transmission is rejected transactionally");
+    }
+    for (float factor : {0.0f, 1.0f})
+    {
+        transmission.factor = factor;
+        transmission.ior = 1.0f;
+        passed &= Check(SerializeSceneDocument(document, serialized, &error) &&
+                            DeserializeSceneDocument(serialized, restored, &error) &&
+                            restored.materials[0].transmission.factor == factor &&
+                            restored.materials[0].transmission.ior == 1,
+                        "transmission endpoints and IOR one are valid");
+    }
+    const SceneTransmission validTransmission = transmission;
+    for (float value : {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()})
+    {
+        for (int field = 0; field < 5; ++field)
+        {
+            transmission = validTransmission;
+            if (field == 0)
+            {
+                transmission.factor = value;
+            }
+            if (field == 1)
+            {
+                transmission.ior = value;
+            }
+            if (field == 2)
+            {
+                transmission.tint.x = value;
+            }
+            if (field == 3)
+            {
+                transmission.tint.y = value;
+            }
+            if (field == 4)
+            {
+                transmission.tint.z = value;
+            }
+            passed &= Check(!SerializeSceneDocument(document, serialized, &error), "non-finite transmission is rejected");
+        }
+    }
+    transmission = validTransmission;
+    transmission.mode = static_cast<SceneTransmissionMode>(255);
+    passed &= Check(!SerializeSceneDocument(document, serialized, &error), "invalid transmission enum is rejected");
+    return passed;
+}
+
 bool TestSavedSceneDiscovery()
 {
     const std::filesystem::path assets = std::filesystem::path(__FILE__).parent_path().parent_path() / "Assets";
@@ -369,7 +502,7 @@ bool TestLensShiftCompatibility()
 
 int main()
 {
-    const bool passed = TestSavedSceneDiscovery() && TestLensShiftCompatibility() && TestEmptyDocumentDefaults() && TestReflectionLabFixtureData() && TestDuplicateIdsAreRejected() &&
+    const bool passed = TestTransmissionContract() && TestSavedSceneDiscovery() && TestLensShiftCompatibility() && TestEmptyDocumentDefaults() && TestReflectionLabFixtureData() && TestDuplicateIdsAreRejected() &&
                         TestJsonRoundTrip() && TestInvalidJsonDoesNotReplaceDocument() && TestInvalidDescriptionDoesNotReplaceDocument() && TestFixtureFileLoadSaveLoad() &&
                         TestSaveAsRebasesRelativePaths() &&
                         TestSceneGraphEvaluatesUnorderedThreeLevelHierarchy() &&

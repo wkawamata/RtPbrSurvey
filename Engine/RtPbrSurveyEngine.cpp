@@ -226,7 +226,7 @@ static_assert(offsetof(Engine::InstanceData, meshId) == 132,
               "CPU and HLSL InstanceData meshId layouts must match.");
 static_assert(sizeof(Engine::SceneMesh::Range) == 16,
               "Hybrid reflection reads SceneMesh::Range as four uint values.");
-static_assert(sizeof(Engine::Material) == 92, "Material.hlsli must match Engine::Material structured buffer layout.");
+static_assert(sizeof(Engine::Material) == 112, "Material.hlsli must match Engine::Material structured buffer layout.");
 static_assert(offsetof(Engine::Material, baseColorFactor) == 60,
               "CPU and HLSL base color factor offsets must match.");
 static_assert(offsetof(Engine::Material, uvScale) == 44, "Material UV scale offset must match Material.hlsli.");
@@ -234,6 +234,9 @@ static_assert(offsetof(Engine::Material, uvOffset) == 52, "Material UV offset mu
 static_assert(offsetof(Engine::Material, baseColorFactor) == 60, "Material color factor must match Material.hlsli.");
 static_assert(offsetof(Engine::Material, emissiveFactor) == 76, "Material emissive factor must match Material.hlsli.");
 static_assert(offsetof(Engine::Material, normalTextureScale) == 88, "Material normal scale must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, transmissionFactor) == 92, "Material transmission must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, transmissionTint) == 96, "Material transmission tint must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, transmissionIor) == 108, "Material IOR must match Material.hlsli.");
 
 const wchar_t* EnvironmentSourceName(Engine::EnvironmentSource source)
 {
@@ -551,6 +554,7 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
                                     m_pathTracingSettings,
                                     m_shadowSettings.enabled && m_lightingParams.directLightEnabled);
     pathTracingDiagnostics.emissiveTriangleCount = static_cast<UINT>(m_emissiveTriangles.size());
+    pathTracingDiagnostics.thinTransmissionActive = m_sceneHasThinTransmission;
     pathTracingDiagnostics.emissiveTableStatus = m_emissiveTableStatus;
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     pathTracingDiagnostics.nrdPreviewBuilt = true;
@@ -768,6 +772,9 @@ bool RtPbrSurveyEngine::ShouldRunRayReconstruction() const
 
 Engine::NrdRelaxPresentationStatus RtPbrSurveyEngine::ResolvePathTracingNrdPresentation() const
 {
+    if (MakePathTracingReconstructionPlan().backend == Engine::PathTracingReconstructionBackend::Nrd &&
+        m_sceneHasThinTransmission)
+        return Engine::NrdRelaxPresentationStatus::UnsupportedTransmission;
     const auto presentation = ResolvePathTracingReconstructionPresentation();
     return presentation.requested == Engine::PathTracingReconstructionBackend::Nrd
                ? Engine::NrdRelaxPresentationFromCommon(presentation.status)
@@ -782,7 +789,7 @@ Engine::PathTracingReconstructionPresentation RtPbrSurveyEngine::ResolvePathTrac
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
         const bool available =
             IsPtRrNativeRequested() && m_rayReconstructionSupport.IsAvailable() && m_ptRrLive != nullptr;
-        const bool compatible = m_ptRrLive != nullptr && m_ptRrLive->Failure().empty();
+        const bool compatible = !m_sceneHasThinTransmission && m_ptRrLive != nullptr && m_ptRrLive->Failure().empty();
         return Engine::ResolvePathTracingReconstructionPresentation(
             backend,
             true,
@@ -797,6 +804,7 @@ Engine::PathTracingReconstructionPresentation RtPbrSurveyEngine::ResolvePathTrac
 #endif
     }
     const bool compatible = m_renderingPath == RenderingPath::PathTracing && m_sceneResourcesAvailable &&
+                            !m_sceneHasThinTransmission &&
                             m_pathTracingSettings.debugOutput == PathTracingDebugOutput::Radiance &&
                             m_pathTracingSettings.denoiserDistanceDiagnostics &&
                             Engine::QueryNrdRelaxSamplingReadiness(m_pathTracingSettings.samplesPerFrame,
@@ -2003,7 +2011,8 @@ bool RtPbrSurveyEngine::CanPreservePtRrCameraHistory(const CameraState& camera) 
 {
     // Projection changes are discontinuities. Camera pose changes use dense
     // primary motion plus hit distance for SDK specular reprojection.
-    return IsPtRrNativeRequested() && m_pathTracingSettings.rrContinuous &&
+    return IsPtRrNativeRequested() && !m_sceneHasThinTransmission && !m_pathTracingSettings.accumulate &&
+           m_pathTracingSettings.rrContinuous &&
            m_scene.camera.projection == camera.projection && m_scene.camera.fov == camera.fov &&
            m_scene.camera.orthographicHeight == camera.orthographicHeight && m_scene.camera.nearZ == camera.nearZ &&
            m_scene.camera.farZ == camera.farZ && m_scene.camera.lensShiftX == camera.lensShiftX &&
@@ -3819,6 +3828,7 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
 
     // Generate the material data.
     m_materialData.clear();
+    m_sceneHasThinTransmission = false;
     const auto resolveTextureIndex = [this](int sceneTextureIndex, Engine::TextureSemantic fallbackSemantic) -> UINT
     {
         if (sceneTextureIndex >= 0 && sceneTextureIndex < static_cast<int>(m_sceneTextureCount))
@@ -3893,6 +3903,16 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
                 m.emissiveFactor[1] = gltfMaterial.emissiveFactor.y;
                 m.emissiveFactor[2] = gltfMaterial.emissiveFactor.z;
                 m.normalTextureScale = gltfMaterial.normalTextureScale;
+                if (gltfMaterial.thinTransmission && gltfMaterial.transmissionFactor > 0.0f)
+                {
+                    m.flags |= Engine::kMaterialFlagThinTransmission;
+                    m.transmissionFactor = gltfMaterial.transmissionFactor;
+                    m.transmissionTint[0] = gltfMaterial.transmissionTint.x;
+                    m.transmissionTint[1] = gltfMaterial.transmissionTint.y;
+                    m.transmissionTint[2] = gltfMaterial.transmissionTint.z;
+                    m.transmissionIor = gltfMaterial.transmissionIor;
+                    m_sceneHasThinTransmission = true;
+                }
                 m.uvScale[0] = gltfMaterial.uvScale.x;
                 m.uvScale[1] = gltfMaterial.uvScale.y;
                 m.uvOffset[0] = gltfMaterial.uvOffset.x;
@@ -6895,6 +6915,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.russianRouletteEnabled = m_pathTracingSettings.russianRouletteEnabled ? 1u : 0u;
     passDesc.samplesPerFrame = m_pathTracingSettings.samplesPerFrame;
     passDesc.pixelCenterPrimary = m_pathTracingSettings.pixelCenterPrimary;
+    passDesc.thinTransmissionActive = m_sceneHasThinTransmission;
     passDesc.denoiserDistanceDiagnostics = m_pathTracingSettings.denoiserDistanceDiagnostics;
     passDesc.sampleStartIndex = m_pathTracingRuntimeState.frameSampleIndex;
     passDesc.randomSeed = m_pathTracingSettings.randomSeed;
@@ -6944,7 +6965,8 @@ void RtPbrSurveyEngine::ExecutePtRrValidationPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-    if (m_rrConversionHostGate != 0 || m_pathTracingSettings.accumulate || m_pathTracingSettings.maxBounces != 2 ||
+    if (m_sceneHasThinTransmission || m_rrConversionHostGate != 0 || m_pathTracingSettings.accumulate ||
+        m_pathTracingSettings.maxBounces != 2 ||
         !m_pathTracingSettings.denoiserDistanceDiagnostics ||
         m_pathTracingSettings.debugOutput != PathTracingDebugOutput::Radiance)
         return;
@@ -7843,6 +7865,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 {"samplesPerFrame", m_pathTracingSettings.samplesPerFrame},
                 {"primarySampling", m_pathTracingSettings.pixelCenterPrimary ? "pixel-center" : "random-per-pixel"},
                 {"denoiserDistanceDiagnostics", m_pathTracingSettings.denoiserDistanceDiagnostics},
+                {"thinTransmissionActive", m_sceneHasThinTransmission},
                 {"nrdPreviewRequested", m_pathTracingSettings.nrdPreview},
                 {"reconstructionBackend",
                  Engine::PathTracingReconstructionBackendName(MakePathTracingReconstructionPlan().backend)},

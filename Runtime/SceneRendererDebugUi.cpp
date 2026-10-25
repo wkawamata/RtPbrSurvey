@@ -622,6 +622,10 @@ namespace
             ImGui::TextWrapped(
                 "PT Presentation: %s",
                 Engine::NrdRelaxPresentationStatusText(context.pathTracingDiagnostics.nrdPresentationStatus));
+            if (context.pathTracingDiagnostics.thinTransmissionActive)
+            {
+                ImGui::TextWrapped("Thin transmission: Native PT only; shadows remain opaque; no volume refraction.");
+            }
             if (!context.pathTracingDiagnostics.nrdFailureReason.empty())
             {
                 ImGui::TextWrapped("NRD Failure: %s", context.pathTracingDiagnostics.nrdFailureReason.c_str());
