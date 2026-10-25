@@ -1,7 +1,5 @@
 #include "NrdReconstructionInputs.h"
 
-#include <initializer_list>
-
 namespace Engine
 {
 
@@ -13,22 +11,19 @@ NrdInputMetadataValidation InspectNrdReconstructionInputs(const PathTracingRecon
     {
         return {NrdInputMetadataIssue::CommonContract, common, common.signal};
     }
-    for (PathTracingInputSignal signal : kNrdRelaxConversionSignals)
+    const PathTracingInputSignal missing = FindMissingPathTracingSignal(inputs, kNrdRelaxConversionSignals);
+    if (missing != PathTracingInputSignal::Count)
     {
-        if (!inputs.signals[static_cast<size_t>(signal)].present)
-        {
-            return {NrdInputMetadataIssue::MissingConversionSignal, {}, signal};
-        }
+        return {NrdInputMetadataIssue::MissingConversionSignal, {}, missing};
     }
     if (requireComposition)
     {
-        for (PathTracingInputSignal signal :
-             {PathTracingInputSignal::StableRadiance, PathTracingInputSignal::BackgroundRadiance})
+        static constexpr PathTracingInputSignal compositionSignals[] = {PathTracingInputSignal::StableRadiance,
+                                                                        PathTracingInputSignal::BackgroundRadiance};
+        const PathTracingInputSignal missingComposition = FindMissingPathTracingSignal(inputs, compositionSignals);
+        if (missingComposition != PathTracingInputSignal::Count)
         {
-            if (!inputs.signals[static_cast<size_t>(signal)].present)
-            {
-                return {NrdInputMetadataIssue::MissingCompositionSignal, {}, signal};
-            }
+            return {NrdInputMetadataIssue::MissingCompositionSignal, {}, missingComposition};
         }
     }
     return {};

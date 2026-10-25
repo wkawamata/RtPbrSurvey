@@ -153,10 +153,19 @@
     <ClInclude Include="Renderer\PathTracingReconstructionInputs.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\PathTracingReconstructionPolicy.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\PathTracingReconstructionResources.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
     <ClInclude Include="Renderer\PathTracingRrInputs.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\PathTracingRrHistory.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\PathTracingRrLive.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
     <ClInclude Include="Renderer\NrdRelaxAdapter.h">
@@ -501,10 +510,19 @@
     <ClCompile Include="Renderer\PathTracingReconstructionInputs.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\PathTracingReconstructionPolicy.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\PathTracingReconstructionResources.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\PathTracingRrInputs.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrHistory.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrLive.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp">
@@ -761,6 +779,9 @@
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="Shaders\shaders_PathTracingRrConversion.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\shaders_PathTracingRrValidation.hlsl">
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="Shaders\ReflectionSampling.hlsli">

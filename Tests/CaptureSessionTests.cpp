@@ -389,6 +389,34 @@ bool TestValidationAndLegacyCli()
         passed &= Check(rejected, "Incomplete window dimensions rejected");
     }
     WCHAR disableDebugLayer[] = L"-DisableD3D12DebugLayer";
+    WCHAR reconstructionOption[] = L"-PathTracingReconstruction";
+    WCHAR reconstructionValue[] = L"rr";
+    WCHAR* reconstructionArgv[] = {executable, reconstructionOption, reconstructionValue};
+    const auto reconstructionOptions = Platform::ParseCommandLineOptions(reconstructionArgv, 3);
+    passed &= Check(reconstructionOptions.enablePathTracing && reconstructionOptions.pathTracingReconstruction == "rr",
+                    "Explicit reconstruction CLI selects PT backend");
+    WCHAR nativeRrOption[] = L"-EnableExperimentalNativeRayReconstruction";
+    WCHAR* nativeRrArgv[] = {executable, reconstructionOption, reconstructionValue, nativeRrOption};
+    auto nativeRrOptions = Platform::ParseCommandLineOptions(nativeRrArgv, 4);
+    passed &= Check(!Platform::HasPathTracingDlssConflict(nativeRrOptions) &&
+                        nativeRrOptions.enableExperimentalNativeRayReconstruction,
+                    "PT RR selection permits native opt-in");
+    nativeRrOptions.pathTracingReconstruction = "nrd";
+    passed &= Check(Platform::HasPathTracingDlssConflict(nativeRrOptions), "NRD does not enable the Hybrid RR path");
+    nativeRrOptions.pathTracingReconstruction = "rr";
+    nativeRrOptions.enableDlssSr = true;
+    passed &=
+        Check(Platform::HasPathTracingDlssConflict(nativeRrOptions), "PT RR does not permit DLSS SR simultaneously");
+    bool reconstructionMissingRejected = false;
+    try
+    {
+        Platform::ParseCommandLineOptions(reconstructionArgv, 2);
+    }
+    catch (const std::invalid_argument&)
+    {
+        reconstructionMissingRejected = true;
+    }
+    passed &= Check(reconstructionMissingRejected, "Missing reconstruction backend rejected");
     WCHAR* disableDebugLayerArgv[] = {executable, disableDebugLayer};
     const Platform::CommandLineOptions fastOptions = Platform::ParseCommandLineOptions(disableDebugLayerArgv, 2);
     passed &= Check(fastOptions.disableD3D12DebugLayer && !fastOptions.enablePathTracing && !fastOptions.disableVSync,

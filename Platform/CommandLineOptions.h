@@ -78,6 +78,7 @@ struct CommandLineOptions
     std::filesystem::path renderPresetPath;
     bool useSceneDefaults = false;
     bool enablePathTracing = false;
+    std::string pathTracingReconstruction;
     bool disableVSync = false;
     bool disableD3D12DebugLayer = false;
     UINT pathTracingSampleTarget = 0;
@@ -156,6 +157,7 @@ struct CommandLineOptions
 };
 
 CommandLineOptions ParseCommandLineOptions(_In_reads_(argc) WCHAR* argv[], int argc);
+bool HasPathTracingDlssConflict(const CommandLineOptions& options);
 bool BuildCaptureSessionConfig(const CommandLineOptions& options,
                                RtPbrSurvey::CaptureSessionConfig& config,
                                std::string& error);

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <dxgiformat.h>
+#include <span>
 
 namespace Engine
 {
@@ -109,6 +110,23 @@ struct PathTracingInputValidation
 // Checks only the common v1 metadata contract. Backend capability/pixel-content
 // checks, distance admission and last-evaluation history matching remain separate.
 PathTracingInputValidation ValidatePathTracingReconstructionInputs(const PathTracingReconstructionInputs& inputs);
+
+// Shared metadata helpers; no resource copies or backend pixel admission.
+bool IsPathTracingCameraMatrixUsable(const std::array<float, 16>& matrix);
+PathTracingInputSignal FindMissingPathTracingSignal(const PathTracingReconstructionInputs& inputs,
+                                                    std::span<const PathTracingInputSignal> required);
+
+struct PathTracingFrameStamp
+{
+    uint64_t frameId = 0;
+    uint64_t samplingSignature = 0;
+    uint32_t sampleStartIndex = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    bool operator==(const PathTracingFrameStamp&) const = default;
+};
+
+PathTracingFrameStamp MakePathTracingFrameStamp(const PathTracingReconstructionFrame& frame);
 
 // Previous NDC minus current NDC -> previous UV minus current UV (top-down).
 std::array<float, 2> PathTracingMotionNdcToUv(const std::array<float, 2>& motion);

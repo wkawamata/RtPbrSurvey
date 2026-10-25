@@ -91,7 +91,7 @@ def main():
     scene = json.loads((source/"scene.json").read_text())
     preset = json.loads((source/"preset.json").read_text())
     preset["pathTracing"].update(accumulate=True, samplesPerFrame=1, pixelCenterPrimary=True,
-                                 denoiserDistanceDiagnostics=True)
+                                 denoiserDistanceDiagnostics=True, reconstructionDiagnostics=True)
     write_json(output/"scene.json", scene)
     write_json(output/"preset.json", preset)
     (output/"validation-script.py").write_bytes(Path(__file__).read_bytes())

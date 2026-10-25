@@ -63,6 +63,17 @@ bool Check(bool condition, const char* message)
 int main()
 {
     bool passed = true;
+    auto presence = MakeInputs();
+    presence.signals[static_cast<size_t>(Signal::SpecularDistance)].present = false;
+    presence.signals[static_cast<size_t>(Signal::DiffuseDistance)].present = false;
+    const Signal requirements[] = {Signal::SpecularDistance, Signal::DiffuseDistance};
+    passed &= Check(Engine::FindMissingPathTracingSignal(presence, requirements) == Signal::SpecularDistance,
+                    "backend requirement order determines first missing signal");
+    passed &= Check(Engine::FindMissingPathTracingSignal(presence, {}) == Signal::Count,
+                    "no additional backend signals required");
+    const auto stamp = Engine::MakePathTracingFrameStamp(presence.frame);
+    passed &= Check(stamp == Engine::PathTracingFrameStamp{42, 7, 10, 640, 360},
+                    "numeric results share the producer frame identity");
     passed &= Check(Engine::ValidatePathTracingReconstructionInputs(MakeInputs()).Passed(), "valid full inventory");
     passed &= Check(!Engine::ValidatePathTracingReconstructionInputs({}).Passed(), "default inputs fail closed");
     for (size_t i = 0; i < Engine::kPathTracingInputSignalCount; ++i)

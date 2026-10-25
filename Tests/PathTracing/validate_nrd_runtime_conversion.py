@@ -51,6 +51,7 @@ def main():
     exe = ROOT/'build/Debug/RtPbrSurvey.exe'
     write_json(output/'scene.json', json.loads((source/'scene.json').read_text()))
     preset = json.loads((source/'on.json').read_text())
+    preset['pathTracing']['reconstructionDiagnostics'] = True
     if args.ray_max is not None:
         preset['shadow']['rayTMax'] = args.ray_max
     if args.disabled_distance_diagnostics:

@@ -4,9 +4,9 @@
 #include <cmath>
 #include <limits>
 
-namespace
+namespace Engine
 {
-bool IsUsableMatrix(const std::array<float, 16>& matrix)
+bool IsPathTracingCameraMatrixUsable(const std::array<float, 16>& matrix)
 {
     if (!std::all_of(matrix.begin(), matrix.end(), [](float value) { return std::isfinite(value); }))
     {
@@ -48,7 +48,10 @@ bool IsUsableMatrix(const std::array<float, 16>& matrix)
     }
     return true;
 }
+} // namespace Engine
 
+namespace
+{
 bool IsAllowedFormat(Engine::PathTracingInputSignal signal, DXGI_FORMAT format)
 {
     using Signal = Engine::PathTracingInputSignal;
@@ -97,8 +100,8 @@ PathTracingInputValidation ValidatePathTracingReconstructionInputs(const PathTra
     {
         return {Issue::UnsupportedExposure};
     }
-    if (!IsUsableMatrix(frame.worldToView) || !IsUsableMatrix(frame.viewToClip) ||
-        !IsUsableMatrix(frame.previousViewProjection))
+    if (!IsPathTracingCameraMatrixUsable(frame.worldToView) || !IsPathTracingCameraMatrixUsable(frame.viewToClip) ||
+        !IsPathTracingCameraMatrixUsable(frame.previousViewProjection))
     {
         return {Issue::InvalidCameraMatrix};
     }
@@ -139,6 +142,25 @@ PathTracingInputValidation ValidatePathTracingReconstructionInputs(const PathTra
         }
     }
     return {};
+}
+
+PathTracingInputSignal FindMissingPathTracingSignal(const PathTracingReconstructionInputs& inputs,
+                                                    std::span<const PathTracingInputSignal> required)
+{
+    for (PathTracingInputSignal signal : required)
+    {
+        const size_t index = static_cast<size_t>(signal);
+        if (index >= inputs.signals.size() || !inputs.signals[index].present)
+        {
+            return signal;
+        }
+    }
+    return PathTracingInputSignal::Count;
+}
+
+PathTracingFrameStamp MakePathTracingFrameStamp(const PathTracingReconstructionFrame& frame)
+{
+    return {frame.frameId, frame.samplingSignature, frame.sampleStartIndex, frame.renderWidth, frame.renderHeight};
 }
 
 std::array<float, 2> PathTracingMotionNdcToUv(const std::array<float, 2>& motion)

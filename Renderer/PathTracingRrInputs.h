@@ -17,6 +17,16 @@ inline constexpr std::array<PathTracingInputSignal, 8> kPathTracingRrSignals = {
     PathTracingInputSignal::SpecularDistance,
 };
 
+inline constexpr auto kPathTracingRrLiveSignals = []()
+{
+    std::array<PathTracingInputSignal, 10> signals = {};
+    for (size_t i = 0; i < kPathTracingRrSignals.size(); ++i)
+        signals[i] = kPathTracingRrSignals[i];
+    signals[8] = PathTracingInputSignal::SecondaryRayData;
+    signals[9] = PathTracingInputSignal::SecondarySurfaceDistance;
+    return signals;
+}();
+
 inline constexpr size_t kPathTracingRrStatusCount = 7;
 
 // Fill only after completion of conversion/readback for the stamped production.
@@ -54,7 +64,8 @@ struct PathTracingRrInputValidation
     }
 };
 
-PathTracingRrInputValidation InspectPathTracingRrMetadata(const PathTracingReconstructionInputs& inputs);
+PathTracingRrInputValidation InspectPathTracingRrMetadata(const PathTracingReconstructionInputs& inputs,
+                                                          bool actualContinuation = false);
 
 // Numeric gate only. Caller must first validate resource identity/provenance.
 // Success does not qualify specular ray/radiance correlation, SDK support,

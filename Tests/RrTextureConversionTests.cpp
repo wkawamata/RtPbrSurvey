@@ -15,6 +15,7 @@
 #include <string>
 #ifdef RTPBRSURVEY_RR_NATIVE_REPLAY
 #include "Renderer/StreamlineAdapter.h"
+#include "Renderer/PathTracingRrHistory.h"
 #include <nlohmann/json.hpp>
 #include <cmath>
 #endif

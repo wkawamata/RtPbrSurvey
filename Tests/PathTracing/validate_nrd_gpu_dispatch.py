@@ -40,6 +40,7 @@ def main():
         parser.error("Output must be a separate empty directory")
     scene = json.loads((source / "scene.json").read_text())
     preset = json.loads((source / ("preset.json" if (source / "preset.json").exists() else "on.json")).read_text())
+    preset['pathTracing']['reconstructionDiagnostics'] = True
     preset["pathTracing"].update(accumulate=True, samplesPerFrame=1, pixelCenterPrimary=True, denoiserDistanceDiagnostics=True)
     write_json(folder / "scene.json", scene)
     write_json(folder / "preset.json", preset)

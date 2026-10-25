@@ -997,3 +997,255 @@ native replay用exeはSDKのruntime DLLを `copy_if_different` で配置し、�
 背景 / miss / untraced契約、動的物体、upscaling、画質比較とNRD strict replay問題は未解決である。
 
 Status: Native RR single-production replay validated, including output and negative admission; real-time PT integration and general-scene qualification remain.
+
+## 次段階: RR履歴と出力選択の状態管理
+
+共通入力 / NRD境界 / RR変換 / native診断までを `03d3ba4`
+(`Add reconstruction input boundaries and native RR diagnostic replay`) にコミットした。
+生成ログ / captures / build outputsは含めていない。
+
+続いて `Renderer/PathTracingRrHistory.h/.cpp` を追加した。
+通常PT render graphへ配置する前に、評価と表示の状態を次のように定義する。
+
+- 入力は、検証済みかつ変更されないproduction packetに限定する。
+  この部品はpixel / SDK / distance lineageの認定を代行しない。
+- keyにはproducer frame、sample start、sampling signature、reset token、render/output寸法、
+  current / previousの正確なview-projectionを保持する。
+  初期profileは引き続き1spf。reset tokenはgeometry / material / lighting等の編集やcamera cutで変更する。
+- 初回はreset=true。同じproductionと出力allocationの再表示は、SDKを呼ばずにreuseする。
+- 連続frame / sampleで、今回のprevious matrixが最後に成功したcurrent matrixと一致する場合のみ、
+  reset=falseとする。通常のcamera移動でcurrent matrixが変化すること自体は拒否しない。
+- 寸法 / sampling / reset tokenの変更、frame / sampleの欠落、camera履歴不一致ではresetする。
+  stale / 順序逆転 / 不正keyはPT fallbackとし、古いproductionを新しい履歴へ付け替えない。
+- submissionごとのticketを使う。pending中に別packetを差し替えず、古い完了通知は無視する。
+  disable / 入力拒否はpendingも無効化し、後から届いた成功でRR出力が復活しないようにする。
+- SDKが成功しただけでは、出力を表示可能にせず、履歴基準も更新しない。
+  GPU完了と出力検証が済んだ時だけ、成功keyと出力allocationをcommitする。
+  SDK失敗、明示invalidate後の次の評価はreset=true。
+- allocationとGPU fenceの所有はcallerに残す。pending / 表示可能な間はallocationを保持する。
+  GPU fence失敗や不正pixelを検出した場合は明示Invalidateする。
+  この部品のInvalidateはGPU処理のcancelやresource解放を行わない。
+
+native replayにも同じ管理を接続した。
+実際のSDK成功後からGPU完了前の段階では `historyPendingGpu=true` かつ表示不可を確認し、
+fence / finite RGB / D3D12チェック後に `historyCommitted=true`、`rrOutputSelected=true` とする。
+このreplayのreset tokenは、hash一致を確認した固定fixtureの1であり、通常描画用のscene revisionではない。
+
+検証:
+
+- Debug build成功、warning / error 0。
+- 関連CTest 7 / 7合格。新しいhistory testは、成功commit、pending、pause reuse、
+  camera移動、各reset条件、SDK失敗、stale completion、disable後の遅延完了、
+  allocation不一致、NaN / singular camera、sample / producer sequence境界を確認した。
+- 同じPT capture cohortを再利用した実機native replayも成功。
+  native evaluate 1回、`Result::eOk`、GPU完了、RGB有限、D3D12 ERROR/CORRUPTION 0。
+  GPU完了前はpending、完了後はcommit / RR出力選択を確認した。
+- opt-in OFF / 不正距離は引き続きnative呼出し0で拒否した。
+- native output SHA256は前段と同じ
+  `253b3adcef7f0e0035daac9a32dac474c9abd69eb39af745208bddf45f7da18d`。
+
+report:
+`build/pt-native-rr-validation/captures/rr-history-20261024/report.json`
+
+build log:
+`C:/work/RtPbrSurvey-agents/pt-rr-history-work4`
+
+次は、通常PTのframeごとに入力を保持するqueueとGPU検証の完了通知をこの管理へ渡し、
+render graphのnative evaluateと最終出力選択へ接続する。
+連続する実GPU frameのRR history、通常描画への差し替え、背景 / missはまだ検証していない。
+今回追加したhistory管理は未コミットである。
+
+Status: Previous diagnostic milestone committed; RR history/output state management implemented and validated in unit tests and native replay, real-time integration remains.
+
+## 2026-10-24: Backend切替と実行性能の計測基盤
+
+目標は、通常PTでNative / NRD / RRを切り替え、各backendを個別に最適化できる構成とする。
+共通入力はresource参照とframe情報の契約に留め、未選択backendのための変換を常時実行しない。
+
+今回の実装:
+
+- `pathTracing.reconstructionBackend` は `native` / `nrd` / `rr`。UI、preset保存、
+  CLI `-PathTracingReconstruction native|nrd|rr` から選択する。
+  既存presetの `nrdPreview` は新しい選択が未指定の場合に互換処理する。
+- 切替時はPT/NRD履歴と表示出力を無効化する。
+- NRD選択時はNRD変換、hit distance再構成/admission、RELAX、合成を実行する。
+  RR選択時はRR変換を実行する。Native選択時はどちらも実行しない。
+- 未選択側の通常frameの出力clearとそのresource宣言を省く。
+  履歴reset時の初期化、共通guide生成、確保済みVRAMは従来どおり。
+- inspectorでNRD/RR resourceを観察する場合と、明示的な
+  `reconstructionDiagnostics=true` は対象の診断処理を実行する。
+  そのframeは `reconstructionDiagnosticWork=true` とし、通常性能と区別する。
+- 既存のGPU timestampを再利用し、NRD変換、再構成/admission、SDK、合成、
+  RR変換、RR SDKを分けてUIとcapture logに記録する。追加の同期readbackは導入しない。
+  pass境界のresource transition時間を含む。
+- timestampを回収した同じframe resourceからbackendも回収する。
+  切替直後に旧frameの時間を新backendの時間として表示しない。
+- 未実行stageはJSON null / UI未実行表示とする。未接続のRR SDKを0msとは扱わない。
+
+RRの通常描画へのnative evaluate / 最終出力接続は未実装である。
+RR選択は現時点では入力変換までで、表示はNative PTへfallbackし、UIにも未接続を表示する。
+前節のnative replayによるSDK実行・GPU完了・出力検証とは明確に区別する。
+
+性能改善の順序:
+
+1. 同一scene、解像度、1 spp、seed、camera、warm-up条件で各stageを計測する。
+2. RRを通常render graphへ接続し、GPU fenceと履歴/output管理を統合する。
+3. RRは実際のPT continuationから距離を取得し、追加probe ray依存を外す。
+4. 数値・画質比較を維持しながら、互換resourceの直接参照、不要診断出力の除去、
+   必要箇所のFP16化、変換pass統合を検討する。
+5. NRD/RRそれぞれのSDK時間とPT+変換+SDK+合成の合計を評価する。
+   現在のRGBA32診断出力と小さいfixtureの単発測定だけで実用性能を結論しない。
+検証結果（RTX 2080 Ti、Debug / D3D12 Debug Layer ON、256x144、closed-box、1 spp、
+2 bounce、pixel-center、frame 60後の単発timestamp。平均/実用benchmarkではない）:
+
+| 選択 | NRD変換 | NRD再構成/admission | RELAX | NRD合成 | RR変換 | RR SDK |
+|---|---:|---:|---:|---:|---:|---|
+| Native | 未実行 | 未実行 | 未実行 | 未実行 | 未実行 | 未実行 |
+| NRD | 0.031456 ms | 0.028800 ms | 0.554432 ms | 0.012768 ms | 未実行 | 未実行 |
+| RR | 未実行 | 未実行 | 未実行 | 未実行 | 0.016384 ms | 未接続 |
+
+3モードの実プロセス終了code 0、D3D12 ERROR 0。
+NRD表示はRELAX diagnostic（pixel単位Native fallbackあり）、RR表示はNative PT。
+入力CurrentFrameRadianceはsampleStartIndex 60 / productionFrameId 61で3モードbit-exact。
+データ部SHA256: `1525dbd457fd48e7ec9ed1306c0bc3a7991f9f6203bce7f8c5d8c420812920bc`。
+report: `build/reconstruction-input-validation/captures/backend-selection-20261024/report.json`。
+
+CPU検証: backend選択、履歴管理、settings互換/保存、CLI/CaptureSessionを確認。
+RenderPresetStoreは既定TEMPでatomic saveが失敗したため、workspace内の専用TEMPへ切り替えて再実行し成功。
+これは初回失敗を隠さず記録し、製品側のatomic save処理は変更していない。
+
+切替と選択側だけの実行・計測の基盤は追加済み。
+RRの通常PT出力接続、および両backendの本番解像度での性能最適化は継続課題である。
+最終Debug buildはerror 0（test executableの既存LNK4199 warning 1）。上記CPUテスト5件は専用TEMPで全件成功。
+Native選択中のNRD inspectorも実機確認し、NRDのみ診断実行 / RR未実行 / diagnosticWork=trueとなった。
+数値比較用のNRD/RR capture scriptは、raw入力と変換後を同じ診断cohortで取得するため、明示的にreconstructionDiagnosticsを有効にする。通常描画の既定値はfalse。
+
+## 2026-10-24 Step 1: NRD/RR共通管理コードの整理
+
+目的は、通常描画へのRR接続に先立ち、共通の契約・管理とSDK固有の処理を分けること。
+共通のSDK基底classや統一packing形式を新設するのではなく、既存adapterの呼び出し点へ共通関数を適用する。
+
+共通化した処理:
+
+| 対象 | 共通コード | 利用箇所 |
+|---|---|---|
+| 入力の必須signal検査 | `FindMissingPathTracingSignal` | NRD/RR metadata検証。各backendはsignal一覧と固有issueを保持 |
+| カメラ行列検査 | `IsPathTracingCameraMatrixUsable` | 共通入力検証、RR履歴key検証。有限/非特異の同じ基準 |
+| production識別 | `PathTracingFrameStamp` | frame/seed-profile/sample/解像度をRRのGPU結果と照合 |
+| カメラ・解像度の取得元 | `PathTracingReconstructionProduction::Inputs().frame` | NRD SDK frameもPT記録時の情報から設定 |
+| 履歴reset要求 | `PathTracingReconstructionHistoryState` | NRDの独立reset boolを置換。NRD/RRごとにreset要求とepochを保持 |
+| 表示可否・fallback | `ResolvePathTracingReconstructionPresentation` | 実際のtone-map入力選択、UI、capture log、既存NRD API互換wrapper |
+| GPU計測項目一覧 | `kPathTracingReconstructionStages` | UI表示名とJSON keyの一覧を共有。既存timestamp集計を継続 |
+
+表示条件の優先順位は、Native選択、未build、backend利用不可、入力不適合、出力待ち、利用可能。
+NRD/RR両方に同じ判定を適用し、requested backendと実際のoutput backendを区別する。
+未接続のlive RRは `backend-unavailable` / output `native` とする。
+旧NRD presentation文字列・enumは互換wrapperで従来の意味を保つ。
+
+履歴resetは、scene/settings/backend切替などで両backendへ要求する。
+NRD固有の連続camera履歴を保持する場合はNRDのみ保持し、RR側のepochは更新する。
+NRD固有のcamera不整合やSDK失敗はNRDだけをresetする。
+reset要求のacknowledgeは、adapterがresetを受理したことを表し、GPU完了や出力表示許可ではない。
+RRのpending ticket / GPU verification / allocation照合は既存のRR履歴管理に残す。
+
+共通入力resourceは従来どおり参照する。画像コピー、追加のGPU pass、同期readbackは追加しない。
+NRDのdemodulation / reconstruction / packing、RRの入力形式・pixel admission・SDK呼び出しは変更しない。
+共通の露出契約（scene-referred / preExposure=exposureScale=1）も維持する。
+Step 1検証結果:
+
+- NRD有効 / RR変換有効のDebugアプリと関連testをbuild: error 0。
+  NRD adapter testの既存LNK4199 warning 1。build log: `C:/work/RtPbrSurvey-agents/pt-common-step1-work4`。
+- RR SDK有効 / NRD無効のnative replayをbuild: warning 0 / error 0。
+  build log: `C:/work/RtPbrSurvey-agents/pt-common-step1-rr-work4`。
+- 共通入力、NRD入力、RR入力、共通policy、RR履歴、NRD adapter、settings、CaptureSessionのCTest 8/8成功。
+- 256x144 / 1 spp / 同一sceneでNative・NRD・RRの選択側だけの実行を再確認。
+  全プロセスcode 0、D3D12 ERROR 0。追加したactual output / fallback reasonも期待どおり。
+  3モードのCurrentFrameRadianceは変更前とbit-exact。NRD last evaluationのcamera/frame metadataも完全一致。
+  report: `build/reconstruction-input-validation/captures/backend-common-step1-20261024/report.json`。
+- RR native診断replayは、hash照合済みの既存入力を再利用し、新しいbinaryで実際にSDK evaluateを実行。
+  `Result::eOk` / native call 1 / GPU完了・RGB有限 / history commit成功 / D3D12 ERROR 0。
+  native opt-in OFF / 不正distanceの2件はSDK call 0で拒否。
+  出力SHA256は変更前と同じ `253b3adcef7f0e0035daac9a32dac474c9abd69eb39af745208bddf45f7da18d`。
+  report: `build/pt-native-rr-validation/captures/rr-common-step1-20261024/report.json`。
+
+単発timestampの変動を性能改善とは解釈しない。Step 1ではshaderとSDK設定の最適化は行っていない。
+共通管理コードの整理は完了。Step 2のRR通常描画接続は未着手で、変更は未コミット。
+## 2026-10-25 Step 2: 保持したPT frameのnative RR通常表示
+
+最初のlive接続は、検証済みの静止1 frameを保持する診断profileとする。
+通常render graph内でRRを実行してtone-mapへ渡すが、連続frame denoisingではない。
+入力保持中と表示中はPTの新規dispatchを止める。camera/scene/settings/backendのresetで再取得する。
+
+実装:
+
+- `PathTracingRrLive` が入力admission待ち、SDK実行待ち、出力検証待ち、表示可能、拒否の状態を管理する。
+  8つの変換済み入力と専用RGBA32出力をComPtrで保持し、allocationとframe keyを照合する。
+- 実際のPT continuationから `SecondarySurfaceDistance.x / SecondaryRayData.z / SecondaryRayData.x` を取得する。
+  live shaderのt8/t9とmetadataの必須入力一覧を共通定義し、t0..t7の診断replay契約は維持する。
+- live profileは静止camera、pixel-center、1 spp、非accumulation、2 bounce、距離診断ON、Radiance view。
+  全画素でmetallic=1、roughness=0、実際のspecular continuation、有限traced-hit距離が必要。
+  motionの浮動小数誤差は既存replayと同じNDC絶対値2e-6以内。
+  背景、miss、非鏡面/非金属、未trace、非有限入力はnative SDKの前で拒否する。
+- 入力statusのGPU全画面集計を8 byteで回収する（拒否bit、訪問pixel数）。完了fenceを確認してからSDKを呼ぶ。
+- SDK出力はRGBをNaNで初期化し、実行後に別のGPU全画面集計でRGB有限・全pixel coverageを確認する。
+  出力検証も8 byteのみ回収し、完了後にRR履歴管理へcommitする。
+- fenceは通常frameのsubmissionへ紐付け、`CompletedFenceValue` を非同期pollする。
+  この経路からCPUのGPU強制待ちや画像readback/copyは追加しない。
+  resetでキャンセルしても、in-flightの集計/保持resourceは完了まで再利用しない。
+- 共通presentationがRR Readyを返した場合に、tone-mapの入力SRVとresource read宣言を専用RR出力へ切り替える。
+  待機・拒否・native OFF時はNative PTを表示する。
+- `-PathTracingReconstruction rr` と既存native opt-inフラグの組合せだけを許可する。
+  PTとDLSS SR / Hybrid reflection captureの排他は維持する。
+- PT起動時のStreamline初期化とdevice設定はnative opt-in時に有効にする。
+
+実行例（SDK有効・RR変換有効のbuild）:
+
+```powershell
+.\build\pt-native-rr-validation\Debug\RtPbrSurvey.exe `
+  -SceneFile <closed-box-scene.json> -RenderPreset <validated-preset.json> `
+  -WindowSize 256 144 -PathTracingReconstruction rr `
+  -EnableDlssRayReconstruction -EnableExperimentalNativeRayReconstruction `
+  -CapturePath <viewport.png> -CaptureAfterFrames 60 -ExitAfterCapture -LogToFile <runtime.log>
+```
+
+診断logには要求backend、実output backend、fallback理由に加え、`ptRr.phase`、
+`retainedFrameId`、`outputVerified`、native SDK call数を記録する。
+`PT DLSS RR Native` のtimestampは出力初期化・SDK・GPU検証を含むpass全体であり、SDK単独benchmarkではない。
+保持後のframeではSDKを再実行しないため、そのframeのSDK時間は未実行となる。
+追加GPU集計とRGBA32出力のコストを含めた性能比較はStep 5で行う。
+
+連続更新、移動cameraのRR履歴、一般material/background/missへの対応はStep 3以降に残す。
+Step 2検証結果（RTX 2080 Ti、256x144、Debug / D3D12 Debug Layer ON）:
+
+| case | SDK evaluate回数 | 最終表示 | GPU出力検証 | D3D12 ERROR |
+|---|---:|---|---|---:|
+| RR output texture | 1 | RR | 完了・全RGB有限 | 0 |
+| RR通常viewport | 1 | RR | 完了 | 0 |
+| native opt-in OFF | 0 | Native | 未実行 | 0 |
+| 背景を含む入力 | 0 | Native | 入力admissionで拒否 | 0 |
+| 非鏡面material | 0 | Native | 入力admissionで拒否 | 0 |
+
+成功2件のretainedFrameIdは1、phaseは`retained-output-ready`、`outputVerified=true`。
+SDK結果は`Result::eOk`。通常viewportのPNGも確認済み。
+`Tests/PathTracing/validate_rr_live_native.py` で5件を再現できる。
+report: `build/pt-native-rr-validation/captures/rr-live-step2-restored-20261025/report.json`。
+
+CPU検証はNRD構成9/9、RR SDK構成5/5成功（manifest、CLI、共通policy、入力、履歴など）。
+最終SDK build: warning 0 / error 0、log `C:/work/RtPbrSurvey-agents/pt-rr-state-restore-work4`。
+NRD構成の最終buildもerror 0、log `C:/work/RtPbrSurvey-agents/pt-rr-step2-final-nrd-work4`。
+NRD構成のNative/NRD/RR選択を実機で再確認し、全件process code 0 / D3D12 ERROR 0。
+CurrentFrameRadianceは変更前とbit-exact、NRD last evaluationのcamera/frame metadataも一致。
+report: `build/reconstruction-input-validation/captures/backend-step2-regression-20261025/report.json`。
+単発timestampの変動は速度改善として評価しない。
+
+実装中に検出・修正した点:
+
+- 既存CLIのPT/DLSS排他判定がnative RR指定も拒否していた。RR選択時の許可を追加し、CLIテストを追加。
+- 専用RR出力の初回clearにresource write宣言が不足し、未確保resourceを参照していた。graph宣言を修正。
+- 入力admissionがfence未接続で待機したままになった。通常frame submissionとRenderFrame冒頭のpollへ接続。
+- SDK/validation後に古いgraphics/compute descriptor状態が残り、Draw時にD3D12のdata-static違反が出た。
+  SDK前後でroot bindingを解除・復元し、上記5件でERROR 0を確認。
+
+初回失敗reportやlogはbuild配下に保持し、成功扱いにはしていない。
+Step 2の「検証済みの保持frameを通常render graphからRR表示する」接続は完了。
+連続frame / 移動camera / リサイズと切替の実機検証はStep 3。変更は未コミット。

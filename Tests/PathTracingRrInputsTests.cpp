@@ -57,7 +57,9 @@ void Bindings()
                                                     {"g_baseColor", Signal::BaseColor},
                                                     {"g_f0Metallic", Signal::MaterialF0Metallic},
                                                     {"g_primaryPosition", Signal::PrimaryPosition},
-                                                    {"g_specularDistance", Signal::SpecularDistance}};
+                                                    {"g_specularDistance", Signal::SpecularDistance},
+                                                    {"g_secondaryRayData", Signal::SecondaryRayData},
+                                                    {"g_secondarySurfaceDistance", Signal::SecondarySurfaceDistance}};
     const std::regex declaration(R"(Texture2D<[^>]+>\s+(\w+)\s*:\s*register\(t(\d+)\))");
     std::set<size_t> slots;
     for (auto entry = std::sregex_iterator(shader.begin(), shader.end(), declaration); entry != std::sregex_iterator();
@@ -65,11 +67,12 @@ void Bindings()
     {
         const size_t slot = std::stoul((*entry)[2].str());
         const auto meaning = meanings.find((*entry)[1].str());
-        Require(slot < Engine::kPathTracingRrSignals.size() && meaning != meanings.end() && slots.insert(slot).second,
+        Require(slot < Engine::kPathTracingRrLiveSignals.size() && meaning != meanings.end() &&
+                    slots.insert(slot).second,
                 "Unexpected texture input slot");
-        Require(Engine::kPathTracingRrSignals[slot] == meaning->second, "Wrong common input semantic");
+        Require(Engine::kPathTracingRrLiveSignals[slot] == meaning->second, "Wrong common input semantic");
     }
-    Require(slots.size() == 8, "Incomplete texture input inventory");
+    Require(slots.size() == Engine::kPathTracingRrLiveSignals.size(), "Incomplete texture input inventory");
 }
 } // namespace
 

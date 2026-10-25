@@ -220,9 +220,7 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
             throw std::invalid_argument(error);
         }
     }
-    if (m_commandLineOptions.enablePathTracing &&
-        (m_commandLineOptions.enableDlssSr || m_commandLineOptions.enableDlssRayReconstruction ||
-         m_commandLineOptions.captureReflectionResolvedRadiance))
+    if (Platform::HasPathTracingDlssConflict(m_commandLineOptions))
     {
         throw std::invalid_argument(
             "-EnablePathTracing is mutually exclusive with DLSS SR and reflection capture automation.");
@@ -270,7 +268,7 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
 
 void RtPbrSurveyApp::OnInit()
 {
-    if (!m_commandLineOptions.enablePathTracing)
+    if (!m_commandLineOptions.enablePathTracing || m_commandLineOptions.enableExperimentalNativeRayReconstruction)
     {
         const Engine::StreamlineAdapterInitDesc streamlineInitDesc = {L"RtPbrSurvey"};
         Engine::InitializeStreamlineAdapter(streamlineInitDesc);
@@ -286,7 +284,7 @@ void RtPbrSurveyApp::OnInit()
     deviceDesc.swapChainFormat = RtPbrSurveyEngine::kSwapChainFormat;
     deviceDesc.useWarpDevice = m_commandLineOptions.useWarpDevice;
     deviceDesc.enableDebugLayer = !m_commandLineOptions.disableD3D12DebugLayer;
-    if (!m_commandLineOptions.enablePathTracing)
+    if (!m_commandLineOptions.enablePathTracing || m_commandLineOptions.enableExperimentalNativeRayReconstruction)
     {
         deviceDesc.deviceCreatedHandler = [](ID3D12Device* device) { Engine::SetStreamlineD3DDevice(device); };
     }
@@ -2447,9 +2445,33 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
         };
     }
 
+    const auto stageTime = [](const Engine::PathTracingStageTiming& timing) -> nlohmann::json
+    { return timing.available ? nlohmann::json(timing.milliseconds) : nlohmann::json(nullptr); };
+    const auto& stages = context.pathTracingDiagnostics.reconstructionTimings;
+    const auto& completedPlan = context.pathTracingDiagnostics.completedReconstructionPlan;
+    nlohmann::json stageTimes = nlohmann::json::object();
+    for (const auto& stage : Engine::kPathTracingReconstructionStages)
+    {
+        stageTimes[stage.key] = stageTime(stages.*(stage.timing));
+    }
+    const auto& presentation = context.pathTracingDiagnostics.reconstructionPresentation;
     const nlohmann::json diagnostics = {
         {"schemaVersion", 1},
         {"scene", m_loadedScene != nullptr ? m_loadedScene->Name() : ""},
+        {"reconstructionRequested",
+         Engine::PathTracingReconstructionBackendName(
+             Engine::EffectivePathTracingBackend(settings.reconstructionBackend, settings.nrdPreview))},
+        {"reconstructionCompletedBackend", Engine::PathTracingReconstructionBackendName(completedPlan.backend)},
+        {"reconstructionDiagnosticWork", completedPlan.diagnosticWork},
+        {"reconstructionGpuMs", std::move(stageTimes)},
+        {"reconstructionOutput", Engine::PathTracingReconstructionBackendName(presentation.output)},
+        {"reconstructionStatus", Engine::PathTracingReconstructionStatusName(presentation.status)},
+        {"ptRr",
+         {{"phase", context.pathTracingDiagnostics.rrLivePhase},
+          {"failure", context.pathTracingDiagnostics.rrLiveFailure},
+          {"retainedFrameId", context.pathTracingDiagnostics.rrRetainedFrameId},
+          {"outputVerified", context.pathTracingDiagnostics.rrRetainedOutputVerified},
+          {"nativeEvaluateCallCount", context.rayReconstructionDiagnostics.nativeEvaluateCallCount}}},
         {"adapter",
          {{"name", WideToUtf8(adapter.Description)},
           {"vendorId", adapter.VendorId},
@@ -3611,6 +3633,15 @@ void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
     if (m_commandLineOptions.nrdPreview)
     {
         settings.nrdPreview = true;
+        settings.reconstructionBackend = Engine::PathTracingReconstructionBackend::Nrd;
+    }
+    if (!m_commandLineOptions.pathTracingReconstruction.empty())
+    {
+        const auto& name = m_commandLineOptions.pathTracingReconstruction;
+        settings.reconstructionBackend = name == "nrd"  ? Engine::PathTracingReconstructionBackend::Nrd
+                                         : name == "rr" ? Engine::PathTracingReconstructionBackend::Rr
+                                                        : Engine::PathTracingReconstructionBackend::Native;
+        settings.nrdPreview = name == "nrd";
     }
     if (m_commandLineOptions.pathTracingSampleTarget > 0)
     {

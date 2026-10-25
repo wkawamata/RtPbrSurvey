@@ -3,15 +3,18 @@
 namespace Engine
 {
 
-PathTracingRrInputValidation InspectPathTracingRrMetadata(const PathTracingReconstructionInputs& inputs)
+PathTracingRrInputValidation InspectPathTracingRrMetadata(const PathTracingReconstructionInputs& inputs,
+                                                          bool actualContinuation)
 {
     const PathTracingInputValidation common = ValidatePathTracingReconstructionInputs(inputs);
     if (!common.Passed())
         return {PathTracingRrInputIssue::CommonContract, common, common.signal};
-    for (PathTracingInputSignal signal : kPathTracingRrSignals)
+    const auto required = actualContinuation ? std::span<const PathTracingInputSignal>(kPathTracingRrLiveSignals)
+                                             : std::span<const PathTracingInputSignal>(kPathTracingRrSignals);
+    const PathTracingInputSignal missing = FindMissingPathTracingSignal(inputs, required);
+    if (missing != PathTracingInputSignal::Count)
     {
-        if (!inputs.signals[static_cast<size_t>(signal)].present)
-            return {PathTracingRrInputIssue::MissingConversionSignal, {}, signal};
+        return {PathTracingRrInputIssue::MissingConversionSignal, {}, missing};
     }
     return {};
 }
@@ -25,9 +28,9 @@ PathTracingRrInputValidation InspectPathTracingRrFrame(const PathTracingReconstr
     if (!pixels.completed)
         return {PathTracingRrInputIssue::PendingPixels};
     const PathTracingReconstructionFrame& frame = inputs.frame;
-    if (pixels.frameId != frame.frameId || pixels.samplingSignature != frame.samplingSignature ||
-        pixels.sampleStartIndex != frame.sampleStartIndex || pixels.width != frame.renderWidth ||
-        pixels.height != frame.renderHeight)
+    const PathTracingFrameStamp pixelStamp = {
+        pixels.frameId, pixels.samplingSignature, pixels.sampleStartIndex, pixels.width, pixels.height};
+    if (pixelStamp != MakePathTracingFrameStamp(frame))
         return {PathTracingRrInputIssue::StalePixels};
     uint64_t remaining = uint64_t(frame.renderWidth) * frame.renderHeight;
     for (uint64_t count : pixels.counts)

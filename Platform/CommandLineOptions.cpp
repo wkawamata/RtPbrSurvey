@@ -409,6 +409,17 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingReconstruction"))
+        {
+            if (i + 1 >= argc || (!IsCommandLineArg(argv[i + 1], L"native") && !IsCommandLineArg(argv[i + 1], L"nrd") &&
+                                  !IsCommandLineArg(argv[i + 1], L"rr")))
+                throw std::invalid_argument("-PathTracingReconstruction expects native, nrd, or rr.");
+            options.pathTracingReconstruction = IsCommandLineArg(argv[i + 1], L"nrd")  ? "nrd"
+                                                : IsCommandLineArg(argv[i + 1], L"rr") ? "rr"
+                                                                                       : "native";
+            ++i;
+            options.enablePathTracing = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingSamples"))
         {
             if (i + 1 >= argc || !TryParseUint(argv[++i], false, options.pathTracingSampleTarget))
@@ -1029,6 +1040,13 @@ bool BuildCaptureSessionConfig(const CommandLineOptions& options,
         };
     }
     return true;
+}
+
+bool HasPathTracingDlssConflict(const CommandLineOptions& options)
+{
+    return options.enablePathTracing &&
+           (options.enableDlssSr || options.captureReflectionResolvedRadiance ||
+            (options.enableDlssRayReconstruction && options.pathTracingReconstruction != "rr"));
 }
 
 static bool LoadCapturePlan(const std::filesystem::path& path,

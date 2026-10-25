@@ -10,6 +10,10 @@ Texture2D<float4> g_baseColor : register(t4);
 Texture2D<float4> g_f0Metallic : register(t5);
 Texture2D<float4> g_primaryPosition : register(t6);
 Texture2D<float4> g_specularDistance : register(t7);
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+Texture2D<float4> g_secondaryRayData : register(t8);
+Texture2D<float4> g_secondarySurfaceDistance : register(t9);
+#endif
 RWTexture2D<float4> g_color : register(u0);
 RWTexture2D<float4> g_diffuseAlbedo : register(u1);
 RWTexture2D<float4> g_specularAlbedo : register(u2);
@@ -30,6 +34,7 @@ cbuffer ConversionFrame : register(b0)
     uint height;
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     uint hostGate;
+    uint actualContinuation;
 #endif
 };
 
@@ -60,6 +65,20 @@ cbuffer ConversionFrame : register(b0)
     float3 view = 0;
     if (all(isfinite(nearPoint)) && all(isfinite(farPoint)) && nearPoint.w != 0 && farPoint.w != 0)
         view = normalize(nearPoint.xyz / nearPoint.w - farPoint.xyz / farPoint.w);
+    float4 distance = g_specularDistance[pixel];
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (actualContinuation != 0)
+    {
+        float4 ray = g_secondaryRayData[pixel];
+        float4 surface = g_secondarySurfaceDistance[pixel];
+        distance = float4(surface.x, ray.z, ray.x, 0);
+        // First live profile is the validated delta-specular continuation.
+        // Do not label arbitrary diffuse proposals as specular hit distance.
+        if (ray.y != 2 || g_f0Metallic[pixel].w != 1 || g_normalRoughness[pixel].w != 0 ||
+            any(abs(g_motionNdc[pixel]) > 2e-6) || any(!isfinite(surface)) || surface.y != ray.z)
+            distance.y = 0;
+    }
+#endif
     RrConvertedInputs converted = ConvertRrInputs(g_frameRadiance[pixel].xyz,
                                                   g_normalRoughness[pixel],
                                                   g_viewZ[pixel],
@@ -67,7 +86,7 @@ cbuffer ConversionFrame : register(b0)
                                                   g_baseColor[pixel],
                                                   g_f0Metallic[pixel],
                                                   g_primaryPosition[pixel],
-                                                  g_specularDistance[pixel],
+                                                  distance,
                                                   view);
     g_color[pixel] = converted.color;
     g_diffuseAlbedo[pixel] = converted.diffuseAlbedo;

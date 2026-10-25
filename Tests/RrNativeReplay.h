@@ -107,7 +107,25 @@ void NativeReplay(ID3D12Device* device,
     commands->CopyTextureRegion(&target, 0, 0, 0, &source, nullptr);
     Transition(commands, nativeOutput.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     inputs.scalingOutputColor = nativeOutput.Get();
+    Engine::PathTracingRrHistory history;
+    Engine::PathTracingRrHistoryKey key;
+    key.frameId = metadata.at("frameId");
+    key.sampleStartIndex = metadata.at("sampleStartIndex");
+    key.samplingSignature = metadata.at("samplingSignature");
+    key.resetToken = metadata.at("resetToken");
+    key.renderWidth = key.outputWidth = frame.width;
+    key.renderHeight = key.outputHeight = frame.height;
+    key.viewProjection = metadata.at("viewProjection").get<std::array<float, 16>>();
+    key.previousViewProjection = metadata.at("previousViewProjection").get<std::array<float, 16>>();
+    const auto decision = history.Begin(key, nativeOutput.Get(), true, true);
+    if (decision.action != Engine::PathTracingRrHistoryAction::Evaluate)
+        reject("RR history rejected production");
+    inputs.historyReset = decision.reset;
     const auto result = Engine::EvaluateStreamlineRayReconstruction(inputs);
+    const auto pending = history.Finish(decision.ticket, result.outputAvailable, false);
+    if (result.outputAvailable &&
+        (pending != Engine::PathTracingRrCompletion::PendingGpu || history.CanPresent(key, nativeOutput.Get())))
+        throw std::runtime_error("RR output selected before GPU verification");
     const auto diagnostics = Engine::QueryStreamlineRayReconstructionDiagnostics();
     nlohmann::json report = {{"outputAvailable", result.outputAvailable},
                              {"inputReady", result.inputReady},
@@ -116,7 +134,8 @@ void NativeReplay(ID3D12Device* device,
                              {"nativeEvaluateCallCount", diagnostics.nativeEvaluateCallCount},
                              {"frameId", metadata.at("frameId")},
                              {"sampleStartIndex", metadata.at("sampleStartIndex")},
-                             {"reset", true},
+                             {"reset", decision.reset},
+                             {"historyPendingGpu", pending == Engine::PathTracingRrCompletion::PendingGpu},
                              {"width", frame.width},
                              {"height", frame.height}};
     std::ofstream(output / "native-result.json") << report.dump(2);
@@ -180,5 +199,10 @@ void NativeReplay(ID3D12Device* device,
     report["gpuCompleted"] = true;
     report["finiteRgb"] = true;
     report["d3d12Errors"] = 0;
+    if (history.Finish(decision.ticket, true, true) != Engine::PathTracingRrCompletion::Completed ||
+        !history.CanPresent(key, nativeOutput.Get()))
+        throw std::runtime_error("RR completed output was not selected");
+    report["historyCommitted"] = true;
+    report["rrOutputSelected"] = true;
     std::ofstream(output / "native-result.json") << report.dump(2);
 }

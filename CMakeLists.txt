@@ -114,8 +114,11 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/NrdReconstructionInputs.cpp
     Renderer/PathTracingPass.cpp
     Renderer/PathTracingReconstructionInputs.cpp
+    Renderer/PathTracingReconstructionPolicy.cpp
     Renderer/PathTracingReconstructionResources.cpp
     Renderer/PathTracingRrInputs.cpp
+    Renderer/PathTracingRrHistory.cpp
+    Renderer/PathTracingRrLive.cpp
     Renderer/PipelineFactory.cpp
     Renderer/RayQueryShadowPass.cpp
     Renderer/RayQueryTlasDebugPass.cpp
@@ -283,6 +286,7 @@ if(RTPBRSURVEY_BUILD_SHADERS)
     set(RTPBRSURVEY_SHADER_OUTPUTS)
     if(RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS)
         target_compile_definitions(RtPbrSurvey.SceneRenderer PUBLIC RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS=1)
+        rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_PathTracingRrValidation.hlsl cs_6_0 CSMain)
         rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_PathTracingRrConversion.hlsl cs_6_0 CSMain
             DEFINITIONS RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS=1
             DEPENDS "${RTPBRSURVEY_ROOT}/Shaders/RayReconstructionInputConversion.hlsli")
@@ -507,6 +511,16 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_compile_definitions(RtPbrSurvey.PathTracingRrInputsTests PRIVATE
         RTPBRSURVEY_RR_INPUT_SHADER_PATH="${RTPBRSURVEY_ROOT}/Shaders/shaders_PathTracingRrConversion.hlsl")
     add_test(NAME RtPbrSurvey.PathTracingRrInputs COMMAND RtPbrSurvey.PathTracingRrInputsTests)
+    add_executable(RtPbrSurvey.PathTracingReconstructionPolicyTests Tests/PathTracingReconstructionPolicyTests.cpp
+        Renderer/PathTracingReconstructionPolicy.cpp)
+    target_include_directories(RtPbrSurvey.PathTracingReconstructionPolicyTests PRIVATE "${RTPBRSURVEY_ROOT}")
+    target_compile_features(RtPbrSurvey.PathTracingReconstructionPolicyTests PRIVATE cxx_std_20)
+    add_test(NAME RtPbrSurvey.PathTracingReconstructionPolicy COMMAND RtPbrSurvey.PathTracingReconstructionPolicyTests)
+    add_executable(RtPbrSurvey.PathTracingRrHistoryTests Tests/PathTracingRrHistoryTests.cpp
+        Renderer/PathTracingRrHistory.cpp Renderer/PathTracingReconstructionInputs.cpp)
+    target_include_directories(RtPbrSurvey.PathTracingRrHistoryTests PRIVATE "${RTPBRSURVEY_ROOT}")
+    target_compile_features(RtPbrSurvey.PathTracingRrHistoryTests PRIVATE cxx_std_20)
+    add_test(NAME RtPbrSurvey.PathTracingRrHistory COMMAND RtPbrSurvey.PathTracingRrHistoryTests)
     add_executable(RtPbrSurvey.RayReconstructionInputTests Tests/RayReconstructionInputTests.cpp)
     target_link_libraries(RtPbrSurvey.RayReconstructionInputTests PRIVATE RtPbrSurvey::SceneRenderer d3d12 dxgi)
     add_test(NAME RtPbrSurvey.RayReconstructionInputs COMMAND RtPbrSurvey.RayReconstructionInputTests)

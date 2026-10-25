@@ -13,23 +13,33 @@ namespace Engine
 NrdRelaxPresentationStatus
 ResolveNrdRelaxPresentation(bool requested, bool built, bool backendReady, bool inputsCompatible, bool outputValid)
 {
-    if (!requested)
+    const auto presentation = ResolvePathTracingReconstructionPresentation(
+        requested ? PathTracingReconstructionBackend::Nrd : PathTracingReconstructionBackend::Native,
+        built,
+        backendReady,
+        inputsCompatible,
+        outputValid);
+    return NrdRelaxPresentationFromCommon(presentation.status);
+}
+
+NrdRelaxPresentationStatus NrdRelaxPresentationFromCommon(PathTracingReconstructionStatus status)
+{
+    switch (status)
     {
-        return NrdRelaxPresentationStatus::Native;
+        case PathTracingReconstructionStatus::Native:
+            return NrdRelaxPresentationStatus::Native;
+        case PathTracingReconstructionStatus::NotBuilt:
+            return NrdRelaxPresentationStatus::NotBuilt;
+        case PathTracingReconstructionStatus::BackendUnavailable:
+            return NrdRelaxPresentationStatus::BackendUnavailable;
+        case PathTracingReconstructionStatus::IncompatibleInputs:
+            return NrdRelaxPresentationStatus::IncompatibleInputs;
+        case PathTracingReconstructionStatus::AwaitingEvaluation:
+            return NrdRelaxPresentationStatus::AwaitingEvaluation;
+        case PathTracingReconstructionStatus::Ready:
+            return NrdRelaxPresentationStatus::Relax;
     }
-    if (!built)
-    {
-        return NrdRelaxPresentationStatus::NotBuilt;
-    }
-    if (!backendReady)
-    {
-        return NrdRelaxPresentationStatus::BackendUnavailable;
-    }
-    if (!inputsCompatible)
-    {
-        return NrdRelaxPresentationStatus::IncompatibleInputs;
-    }
-    return outputValid ? NrdRelaxPresentationStatus::Relax : NrdRelaxPresentationStatus::AwaitingEvaluation;
+    return NrdRelaxPresentationStatus::BackendUnavailable;
 }
 
 const char* NrdRelaxPresentationStatusText(NrdRelaxPresentationStatus status)

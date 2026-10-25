@@ -130,7 +130,10 @@ def prepare(buffers, scene, output):
     camera = scene['camera']
     write_json(output/'native.json', dict(distanceSource='actual-continuation', nativeOptIn=True, staticCamera=True,
         samplesPerFrame=meta['samplesPerFrame'], primarySampling=meta['primarySampling'],
-        frameId=meta['rrConversion']['frameId'], sampleStartIndex=meta['sampleStartIndex'],
+        frameId=meta.get('productionFrameId', meta['rrConversion']['frameId']), sampleStartIndex=meta['sampleStartIndex'],
+        samplingSignature=meta.get('productionSamplingSignature', (int(meta['randomSeed']) << 32) | 7), resetToken=1,
+        viewProjection=np.asarray(meta['viewProjection']).T.ravel().tolist(),
+        previousViewProjection=np.asarray(meta['previousViewProjection']).T.ravel().tolist(),
         worldToView=identity.ravel().tolist(), viewToWorld=identity.ravel().tolist(),
         viewToClip=view_projection.ravel().tolist(), clipToView=inverse.ravel().tolist(),
         cameraPosition=camera['position'], cameraRight=[1, 0, 0], cameraUp=[0, 1, 0], cameraForward=[0, 0, 1],
@@ -192,6 +195,8 @@ def main():
         report['outputRgbRange'] = [float(native[..., :3].min()), float(native[..., :3].max())]
         if report['native'].get('nativeEvaluateCallCount') != 1:
             raise ValueError('Expected exactly one native RR evaluation')
+        if not all(report['native'].get(key) for key in ('historyPendingGpu', 'historyCommitted', 'rrOutputSelected')):
+            raise ValueError('RR history/output lifecycle did not complete')
         report['negativeChecks'] = []
         for case in ('native-off', 'invalid-distance'):
             folder = output/case
