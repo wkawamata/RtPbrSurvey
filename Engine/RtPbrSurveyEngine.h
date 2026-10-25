@@ -33,6 +33,10 @@
 #include "Renderer/Material.h"
 #include "Renderer/MaterialBuffer.h"
 #include "Renderer/PathTracingPass.h"
+#include "Renderer/PathTracingReconstructionResources.h"
+#include "Renderer/PathTracingRrInputs.h"
+#include "Renderer/PathTracingRrLive.h"
+#include "Renderer/PathTracingReconstructionPolicy.h"
 #include "Renderer/StagedDescriptorAllocator.h"
 #include "Renderer/PipelineFactory.h"
 #include "Renderer/AccelerationStructureResources.h"
@@ -63,6 +67,7 @@
 #include "Renderer/TemporalUpscalerSupport.h"
 #include "Renderer/StreamlineAdapter.h"
 #include "Renderer/NrdRelaxAdapter.h"
+#include "Renderer/NrdReconstructionInputs.h"
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
 #include "Renderer/NrdRelaxD3D12.h"
 #endif
@@ -286,6 +291,10 @@ public:
         bool pixelCenterPrimary = false;
         bool denoiserDistanceDiagnostics = false;
         bool nrdPreview = false;
+        Engine::PathTracingReconstructionBackend reconstructionBackend =
+            Engine::PathTracingReconstructionBackend::Legacy;
+        bool reconstructionDiagnostics = false;
+        bool rrContinuous = false;
         UINT maxBounces = 8;
         UINT randomSeed = 1;
         bool directLightingEnabled = true;
@@ -327,6 +336,20 @@ public:
         std::string emissiveTableStatus;
         bool gpuTimingAvailable = false;
         float gpuTimeMs = 0.0f;
+        Engine::PathTracingReconstructionTimings reconstructionTimings;
+        Engine::PathTracingReconstructionPresentation reconstructionPresentation;
+        std::string rrLivePhase = "not-built";
+        std::string rrLiveFailure;
+        uint64_t rrRetainedFrameId = 0;
+        bool rrRetainedOutputVerified = false;
+        uint64_t rrInputFrameId = 0;
+        uint64_t rrCompletedCount = 0;
+        uint64_t rrContinuousCount = 0;
+        uint64_t rrResetCount = 0;
+        uint64_t rrCancelledCount = 0;
+        uint64_t rrInputRejectionCount = 0;
+        bool rrLastReset = true;
+        Engine::PathTracingReconstructionPlan completedReconstructionPlan;
         uint64_t primarySamplesPerFrame = 0;
         uint64_t maxPathSegmentsPerFrame = 0;
         uint64_t maxRayQueriesPerFrame = 0;
@@ -643,6 +666,9 @@ private:
             static constexpr const char* PathTracingHistoryClear = "PathTracingHistoryClear";
             static constexpr const char* PathTracing = "PathTracing";
             static constexpr const char* NrdConversion = "NrdConversion";
+            static constexpr const char* RrConversion = "RrConversion";
+            static constexpr const char* PtRrValidation = "PtRrValidation";
+            static constexpr const char* PtRrEvaluate = "PtRrEvaluate";
             static constexpr const char* NrdReconstruction = "NrdReconstruction";
             static constexpr const char* NrdAdmission = "NrdAdmission";
             static constexpr const char* NrdRelax = "NrdRelax";
@@ -775,6 +801,19 @@ private:
 #endif
 #endif
 #endif
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        PathTracingGuideRrColor,
+        PathTracingGuideRrDiffuseAlbedo,
+        PathTracingGuideRrSpecularAlbedo,
+        PathTracingGuideRrNormal,
+        PathTracingGuideRrRoughness,
+        PathTracingGuideRrLinearDepth,
+        PathTracingGuideRrMotion,
+        PathTracingGuideRrHitDistance,
+        PathTracingGuideRrStatus,
+        PathTracingGuideRrOutput,
+        PathTracingGuideRrOutputAlternate,
+#endif
         PathTracingGuideTextureCount,
     };
     static constexpr UINT kPathTracingDescriptorCount =
@@ -878,6 +917,7 @@ private:
 #endif
         UINT64 fenceValue = 0;
         std::vector<MyDx12Util::GpuWorkMeter::CheckPoint> gpuWorkMeterCheckPoints;
+        Engine::PathTracingReconstructionPlan reconstructionPlan;
     };
 
     static constexpr UINT kSwapChainRTVCount = kFrameCount;
@@ -1179,6 +1219,16 @@ private:
     ComPtr<ID3D12RootSignature> m_pathTracingRootSignature;
     ComPtr<ID3D12RootSignature> m_nrdConversionRootSignature;
     ComPtr<ID3D12PipelineState> m_nrdConversionPipeline;
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    ComPtr<ID3D12RootSignature> m_rrConversionRootSignature;
+    ComPtr<ID3D12PipelineState> m_rrConversionPipeline;
+    bool m_rrConversionRecorded = false;
+    UINT m_rrConversionHostGate = 6;
+    uint64_t m_rrConversionFrameId = 0;
+    uint32_t m_rrConversionSampleStartIndex = 0;
+    Engine::PathTracingReconstructionInputs m_rrConversionInputs;
+    std::unique_ptr<Engine::PathTracingRrLive> m_ptRrLive;
+#endif
     ComPtr<ID3D12RootSignature> m_nrdReconstructionRootSignature;
     ComPtr<ID3D12PipelineState> m_nrdReconstructionPipeline;
     ComPtr<ID3D12RootSignature> m_nrdAdmissionRootSignature;
@@ -1186,7 +1236,6 @@ private:
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     std::unique_ptr<Engine::NrdRelaxD3D12> m_nrdGpu;
     Engine::NrdSdkFrame m_nrdPreviousFrame;
-    bool m_nrdHistoryReset = true;
     bool m_nrdContinuousCameraHistory = false;
     Engine::NrdPrepassSettings m_nrdPrepass;
     std::string m_nrdPrepassProfile = "control";
@@ -1240,6 +1289,9 @@ private:
     bool m_pathTracingHistoryClearRequired = true;
     bool m_pathTracingFrameAdvance = true;
     bool m_pathTracingSampleCommitPending = false;
+    uint64_t m_pathTracingProductionFrameId = 0;
+    Engine::PathTracingReconstructionProduction m_pathTracingProduction;
+    Engine::PathTracingReconstructionHistoryState m_pathTracingReconstructionHistory;
     UINT m_pathTracingPendingSampleCount = 0;
     bool m_pathTracingPendingAccumulate = false;
     bool m_temporalUpscalerHistoryReset = true;
@@ -1281,6 +1333,10 @@ private:
     std::optional<Engine::ReflectionHdrDiagnosticFrame> m_reflectionHdrDiagnosticFrame;
     struct PendingScreenshotCapture
     {
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        Engine::PathTracingReconstructionInputs rrInputs;
+        bool rrConversionRecorded = false;
+#endif
         RtPbrSurvey::ScreenshotRequest request;
         Engine::ScreenshotReadback readback;
         UINT64 fenceValue = 0;
@@ -1413,6 +1469,7 @@ private:
     // GPU work meter
     MyDx12Util::GpuWorkMeter m_gpuWorkMeter;
     std::vector<MyDx12Util::GpuWorkMeter::CheckPoint> m_completedGpuWorkMeterCheckPoints;
+    Engine::PathTracingReconstructionPlan m_completedReconstructionPlan;
     std::vector<Engine::RenderGraphBarrierEvent> m_renderGraphBarrierEvents;
     std::vector<Engine::RenderGraphBarrierEvent> m_completedRenderGraphBarrierEvents;
     Engine::RenderGraphDocument m_renderGraphBarrierDocument;
@@ -1473,6 +1530,19 @@ private:
         "PathTracing.NrdCompositionDiagnostics",
 #endif
 #endif
+#endif
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        "PathTracing.RrColor",
+        "PathTracing.RrDiffuseAlbedo",
+        "PathTracing.RrSpecularAlbedo",
+        "PathTracing.RrNormal",
+        "PathTracing.RrRoughness",
+        "PathTracing.RrLinearDepth",
+        "PathTracing.RrMotion",
+        "PathTracing.RrHitDistance",
+        "PathTracing.RrStatus",
+        "PathTracing.RrOutput",
+        "PathTracing.RrOutputAlternate",
 #endif
     };
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {
@@ -1811,6 +1881,8 @@ private:
     bool ShouldRunRayReconstruction() const;
     D3D12_GPU_DESCRIPTOR_HANDLE ResolveToneMapSceneColorSrv() const;
     Engine::NrdRelaxPresentationStatus ResolvePathTracingNrdPresentation() const;
+    Engine::PathTracingReconstructionPresentation ResolvePathTracingReconstructionPresentation() const;
+    Engine::PathTracingReconstructionPlan MakePathTracingReconstructionPlan() const;
 
     std::vector<UINT8> GenerateCheckerboardTextureData();
     std::vector<UINT8> GenerateSolidTextureData(UINT8 r, UINT8 g, UINT8 b, UINT8 a);
@@ -1826,6 +1898,9 @@ private:
     RenderPass MakePathTracingHistoryClearPass();
     RenderPass MakePathTracingPass();
     RenderPass MakeNrdConversionPass();
+    RenderPass MakeRrConversionPass();
+    RenderPass MakePtRrValidationPass();
+    RenderPass MakePtRrEvaluatePass();
     RenderPass MakeNrdReconstructionPass();
     RenderPass MakeNrdAdmissionPass();
     RenderPass MakeNrdRelaxPass();
@@ -1912,12 +1987,20 @@ private:
     void ExecuteClearPass(const RenderPass& pass);
     void ExecutePathTracingHistoryClearPass(const RenderPass& pass);
     void ExecuteNrdConversionPass(const RenderPass& pass);
+    void ExecuteRrConversionPass(const RenderPass& pass);
+    void ExecutePtRrValidationPass(const RenderPass& pass);
+    void ExecutePtRrEvaluatePass(const RenderPass& pass);
+    bool IsPtRrNativeRequested() const;
     void ExecuteNrdReconstructionPass(const RenderPass& pass);
     void ExecuteNrdAdmissionPass(const RenderPass& pass);
     void ExecuteNrdRelaxPass(const RenderPass& pass);
     void ExecuteNrdCompositionPass(const RenderPass& pass);
     void ExecutePathTracingPass(const RenderPass& pass);
-    void InvalidatePathTracingHistory(PathTracingResetReason reason, bool preserveNrdCameraHistory = false);
+    Engine::PathTracingInputResources GetPathTracingReconstructionResources() const;
+    static UINT GetPathTracingGuideIndex(Engine::PathTracingInputSignal signal);
+    bool CanPreservePtRrCameraHistory(const CameraState& camera) const;
+    void InvalidatePathTracingHistory(PathTracingResetReason reason, bool preserveNrdCameraHistory = false,
+                                     bool preserveRrCameraHistory = false);
     void CommitPathTracingFrame();
     void ExecuteDepthPrePass(const RenderPass& pass);
     void ExecuteGBufferPass(const RenderPass& pass);

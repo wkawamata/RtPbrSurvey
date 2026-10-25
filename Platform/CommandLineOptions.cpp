@@ -322,6 +322,16 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.useWarpDevice = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-WindowSize"))
+        {
+            if (i + 2 >= argc || !TryParseUint(argv[++i], false, options.windowWidth) ||
+                !TryParseUint(argv[++i], false, options.windowHeight) ||
+                options.windowWidth < 64 || options.windowHeight < 64 ||
+                options.windowWidth > 4096 || options.windowHeight > 4096)
+            {
+                throw std::invalid_argument("-WindowSize expects width height in [64, 4096].");
+            }
+        }
         else if (IsCommandLineArg(argv[i], L"-LogToFile"))
         {
             if (i + 1 < argc)
@@ -397,6 +407,32 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         }
         else if (IsCommandLineArg(argv[i], L"-EnablePathTracing"))
         {
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrContinuous"))
+        {
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrLifecycleValidation"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'-')
+                throw std::invalid_argument("-PathTracingRrLifecycleValidation expects an output directory.");
+            options.pathTracingRrLifecycleValidationDirectory = argv[++i];
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingReconstruction"))
+        {
+            if (i + 1 >= argc || (!IsCommandLineArg(argv[i + 1], L"native") && !IsCommandLineArg(argv[i + 1], L"nrd") &&
+                                  !IsCommandLineArg(argv[i + 1], L"rr")))
+                throw std::invalid_argument("-PathTracingReconstruction expects native, nrd, or rr.");
+            options.pathTracingReconstruction = IsCommandLineArg(argv[i + 1], L"nrd")  ? "nrd"
+                                                : IsCommandLineArg(argv[i + 1], L"rr") ? "rr"
+                                                                                       : "native";
+            ++i;
             options.enablePathTracing = true;
         }
         else if (IsCommandLineArg(argv[i], L"-PathTracingSamples"))
@@ -1019,6 +1055,13 @@ bool BuildCaptureSessionConfig(const CommandLineOptions& options,
         };
     }
     return true;
+}
+
+bool HasPathTracingDlssConflict(const CommandLineOptions& options)
+{
+    return options.enablePathTracing &&
+           (options.enableDlssSr || options.captureReflectionResolvedRadiance ||
+            (options.enableDlssRayReconstruction && options.pathTracingReconstruction != "rr"));
 }
 
 static bool LoadCapturePlan(const std::filesystem::path& path,

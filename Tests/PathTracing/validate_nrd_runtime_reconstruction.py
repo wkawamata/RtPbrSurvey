@@ -51,6 +51,7 @@ def main():
     write_json(output/'scene.json', json.loads((source/'scene.json').read_text()))
     preset_path = source/('preset.json' if (source/'preset.json').exists() else 'on.json')
     preset = json.loads(preset_path.read_text())
+    preset['pathTracing']['reconstructionDiagnostics'] = True
     if args.disabled_distance_diagnostics:
         preset['pathTracing']['denoiserDistanceDiagnostics'] = False
     write_json(output/'preset.json', preset)

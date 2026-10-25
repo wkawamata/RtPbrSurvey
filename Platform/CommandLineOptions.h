@@ -66,6 +66,8 @@ struct ReflectionCapturePlan
 struct CommandLineOptions
 {
     bool useWarpDevice = false;
+    UINT windowWidth = 0;
+    UINT windowHeight = 0;
     std::wstring logFilePath;
     UINT logFpsInterval = 0;
     bool autoSelectGltfDamagedHelmet = false;
@@ -76,6 +78,7 @@ struct CommandLineOptions
     std::filesystem::path renderPresetPath;
     bool useSceneDefaults = false;
     bool enablePathTracing = false;
+    std::string pathTracingReconstruction;
     bool disableVSync = false;
     bool disableD3D12DebugLayer = false;
     UINT pathTracingSampleTarget = 0;
@@ -86,6 +89,8 @@ struct CommandLineOptions
     bool hasPathTracingObjectMotion = false;
     bool nrdContinuousCameraHistory = false;
     bool nrdPreview = false;
+    bool pathTracingRrContinuous = false;
+    std::filesystem::path pathTracingRrLifecycleValidationDirectory;
     std::string nrdDiagnosticFailure;
     std::string nrdPrepassProfile;
     bool nrdDisableAntilag = false;
@@ -154,6 +159,7 @@ struct CommandLineOptions
 };
 
 CommandLineOptions ParseCommandLineOptions(_In_reads_(argc) WCHAR* argv[], int argc);
+bool HasPathTracingDlssConflict(const CommandLineOptions& options);
 bool BuildCaptureSessionConfig(const CommandLineOptions& options,
                                RtPbrSurvey::CaptureSessionConfig& config,
                                std::string& error);

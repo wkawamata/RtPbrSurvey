@@ -1000,13 +1000,60 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 pathTracingSettingsChanged = true;
             }
             pathTracingSettingsChanged |= ImGui::Checkbox("Accumulate", &pathTracingSettings.accumulate);
-            ImGui::BeginDisabled(!context.pathTracingDiagnostics.nrdPreviewBuilt);
-            pathTracingSettingsChanged |=
-                ImGui::Checkbox("NRD RELAX Preview (Diagnostic)", &pathTracingSettings.nrdPreview);
-            ImGui::EndDisabled();
-            ImGui::TextWrapped(
-                "PT Presentation: %s",
-                Engine::NrdRelaxPresentationStatusText(context.pathTracingDiagnostics.nrdPresentationStatus));
+            using ReconstructionBackend = Engine::PathTracingReconstructionBackend;
+            int reconstructionBackend =
+                static_cast<int>(Engine::EffectivePathTracingBackend(pathTracingSettings.reconstructionBackend,
+                                                                     pathTracingSettings.nrdPreview)) -
+                1;
+            if (ImGui::Combo("Reconstruction", &reconstructionBackend, "Native PT\0NRD RELAX\0DLSS RR\0"))
+            {
+                pathTracingSettings.reconstructionBackend =
+                    static_cast<ReconstructionBackend>(reconstructionBackend + 1);
+                pathTracingSettings.nrdPreview =
+                    pathTracingSettings.reconstructionBackend == ReconstructionBackend::Nrd;
+                pathTracingSettingsChanged = true;
+            }
+            if (reconstructionBackend == 2)
+                pathTracingSettingsChanged |=
+                    ImGui::Checkbox("Continuous RR (camera motion)", &pathTracingSettings.rrContinuous);
+            if (reconstructionBackend == 2)
+                ImGui::TextWrapped("RR retained-frame diagnostic: no accumulation, 1 spp, 2 bounces; "
+                                   "native opt-in required.");
+            if (reconstructionBackend == 1)
+                ImGui::TextWrapped(
+                    "NRD Presentation: %s",
+                    Engine::NrdRelaxPresentationStatusText(context.pathTracingDiagnostics.nrdPresentationStatus));
+            const auto& presentation = context.pathTracingDiagnostics.reconstructionPresentation;
+            ImGui::Text("Reconstruction output: %s (%s)",
+                        Engine::PathTracingReconstructionBackendName(presentation.output),
+                        Engine::PathTracingReconstructionStatusName(presentation.status));
+            if (reconstructionBackend == 2)
+            {
+                ImGui::Text("RR: %s", context.pathTracingDiagnostics.rrLivePhase.c_str());
+                ImGui::Text("RR completed: %llu, continuous: %llu, resets: %llu",
+                            static_cast<unsigned long long>(context.pathTracingDiagnostics.rrCompletedCount),
+                            static_cast<unsigned long long>(context.pathTracingDiagnostics.rrContinuousCount),
+                            static_cast<unsigned long long>(context.pathTracingDiagnostics.rrResetCount));
+                if (!context.pathTracingDiagnostics.rrLiveFailure.empty())
+                    ImGui::TextWrapped("RR fallback: %s", context.pathTracingDiagnostics.rrLiveFailure.c_str());
+            }
+            const auto& reconstructionTiming = context.pathTracingDiagnostics.reconstructionTimings;
+            ImGui::Text("Completed GPU frame: %s%s",
+                        Engine::PathTracingReconstructionBackendName(
+                            context.pathTracingDiagnostics.completedReconstructionPlan.backend),
+                        context.pathTracingDiagnostics.completedReconstructionPlan.diagnosticWork ? " (diagnostic work)"
+                                                                                                  : "");
+            const auto showStage = [](const char* name, const Engine::PathTracingStageTiming& timing)
+            {
+                if (timing.available)
+                    ImGui::Text("%s: %.3f ms", name, timing.milliseconds);
+                else
+                    ImGui::Text("%s: -- (not executed)", name);
+            };
+            for (const auto& stage : Engine::kPathTracingReconstructionStages)
+            {
+                showStage(stage.label, reconstructionTiming.*(stage.timing));
+            }
             if (!context.pathTracingDiagnostics.nrdFailureReason.empty())
             {
                 ImGui::TextWrapped("NRD Failure: %s", context.pathTracingDiagnostics.nrdFailureReason.c_str());
