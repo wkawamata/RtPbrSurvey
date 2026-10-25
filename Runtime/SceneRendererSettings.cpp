@@ -102,6 +102,7 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
         pathTracing["reconstructionBackend"] =
             Engine::PathTracingReconstructionBackendName(settings.pathTracing.reconstructionBackend);
     pathTracing["reconstructionDiagnostics"] = settings.pathTracing.reconstructionDiagnostics;
+    pathTracing["rrContinuous"] = settings.pathTracing.rrContinuous;
     pathTracing["maxBounces"] = settings.pathTracing.maxBounces;
     pathTracing["randomSeed"] = settings.pathTracing.randomSeed;
     pathTracing["directLightingEnabled"] = settings.pathTracing.directLightingEnabled;
@@ -320,6 +321,7 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
             parsed.pathTracing.nrdPreview = pathTracing.value("nrdPreview", parsed.pathTracing.nrdPreview);
             parsed.pathTracing.reconstructionDiagnostics =
                 pathTracing.value("reconstructionDiagnostics", parsed.pathTracing.reconstructionDiagnostics);
+            parsed.pathTracing.rrContinuous = pathTracing.value("rrContinuous", parsed.pathTracing.rrContinuous);
             if (pathTracing.contains("reconstructionBackend"))
             {
                 const std::string name = pathTracing.at("reconstructionBackend").get<std::string>();

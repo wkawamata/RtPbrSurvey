@@ -189,6 +189,12 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     {
         throw std::invalid_argument("-PathTracingSamples requires -CapturePath.");
     }
+    if (!m_commandLineOptions.pathTracingRrLifecycleValidationDirectory.empty() &&
+        (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
+         !m_commandLineOptions.enableExperimentalNativeRayReconstruction || !m_commandLineOptions.capturePath.empty() ||
+         !m_commandLineOptions.pathTracingHistoryValidationDirectory.empty()))
+        throw std::invalid_argument(
+            "RR lifecycle validation requires SceneFile, LogToFile, native opt-in and exclusive capture control.");
     if (!m_commandLineOptions.pathTracingHistoryValidationDirectory.empty())
     {
         if (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
@@ -926,6 +932,11 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 
 void RtPbrSurveyApp::OnIdle()
 {
+    if (!m_commandLineOptions.pathTracingRrLifecycleValidationDirectory.empty())
+    {
+        RunPathTracingRrLifecycleValidation();
+        return;
+    }
     if (!m_commandLineOptions.pathTracingHistoryValidationDirectory.empty())
     {
         RunPathTracingHistoryValidation();
@@ -2470,6 +2481,12 @@ void RtPbrSurveyApp::LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::U
          {{"phase", context.pathTracingDiagnostics.rrLivePhase},
           {"failure", context.pathTracingDiagnostics.rrLiveFailure},
           {"retainedFrameId", context.pathTracingDiagnostics.rrRetainedFrameId},
+          {"inputFrameId", context.pathTracingDiagnostics.rrInputFrameId},
+          {"completedCount", context.pathTracingDiagnostics.rrCompletedCount},
+          {"continuousCount", context.pathTracingDiagnostics.rrContinuousCount},
+          {"resetCount", context.pathTracingDiagnostics.rrResetCount},
+          {"cancelledCount", context.pathTracingDiagnostics.rrCancelledCount},
+          {"lastReset", context.pathTracingDiagnostics.rrLastReset},
           {"outputVerified", context.pathTracingDiagnostics.rrRetainedOutputVerified},
           {"nativeEvaluateCallCount", context.rayReconstructionDiagnostics.nativeEvaluateCallCount}}},
         {"adapter",
@@ -3656,6 +3673,8 @@ void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
     {
         settings.environmentSamplingMode = m_commandLineOptions.pathTracingEnvironmentMode;
     }
+    if (m_commandLineOptions.pathTracingRrContinuous)
+        settings.rrContinuous = true;
     m_sceneRenderer.SetPathTracingSettings(settings);
     m_sceneRenderer.SetPathTracingAccumulationPaused(false);
     if (m_commandLineOptions.pathTracingSampleTarget > 0)

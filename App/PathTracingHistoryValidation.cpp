@@ -5,6 +5,243 @@
 
 #include <nlohmann/json.hpp>
 
+void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
+{
+    using Backend = Engine::PathTracingReconstructionBackend;
+    const auto fail = [this](const std::string& reason)
+    {
+        if (m_logFile)
+        {
+            fprintf(m_logFile, "[PathTracingRrLifecycleFailure] stage=%u %s\n", m_rrLifecycleStage, reason.c_str());
+            fflush(m_logFile);
+        }
+        m_exitCode = 1;
+        DestroyWindow(Win32Application::GetHwnd());
+    };
+    if (!m_logFile || m_appMode != AppMode::Running || m_renderingPath != RtPbrSurveyEngine::RenderingPath::PathTracing)
+    {
+        fail("Running PT scene and log are required");
+        return;
+    }
+    const auto context = m_sceneRenderer.GetUiFrameContext();
+    const auto& rr = context.pathTracingDiagnostics;
+    const uint64_t calls = context.rayReconstructionDiagnostics.nativeEvaluateCallCount;
+    const bool ready = rr.rrLivePhase == "retained-output-ready" && rr.rrRetainedOutputVerified &&
+                       rr.reconstructionPresentation.output == Backend::Rr;
+    const auto select = [this](Backend backend)
+    {
+        auto settings = m_sceneRenderer.GetPathTracingSettings();
+        settings.reconstructionBackend = backend;
+        settings.nrdPreview = backend == Backend::Nrd;
+        m_sceneRenderer.SetPathTracingSettings(settings);
+    };
+    const auto invalidated = [this]()
+    {
+        const auto current = m_sceneRenderer.GetUiFrameContext().pathTracingDiagnostics;
+        return current.reconstructionPresentation.output == Backend::Native && !current.rrRetainedOutputVerified;
+    };
+    const auto checkpoint = [&](const char* name)
+    {
+        const nlohmann::json record = {
+            {"case", name},
+            {"nativeCalls", calls},
+            {"completed", rr.rrCompletedCount},
+            {"continuous", rr.rrContinuousCount},
+            {"resets", rr.rrResetCount},
+            {"cancelled", rr.rrCancelledCount},
+            {"publishedFrameId", rr.rrRetainedFrameId},
+            {"inputFrameId", rr.rrInputFrameId},
+            {"lastReset", rr.rrLastReset},
+            {"phase", rr.rrLivePhase},
+            {"verified", rr.rrRetainedOutputVerified},
+            {"output", Engine::PathTracingReconstructionBackendName(rr.reconstructionPresentation.output)},
+            {"width", context.renderWidth},
+            {"height", context.renderHeight}};
+        fprintf(m_logFile, "[PathTracingRrLifecycle] %s\n", record.dump().c_str());
+        fflush(m_logFile);
+        m_rrLifecycleCalls = calls;
+        m_rrLifecycleResets = rr.rrResetCount;
+        m_rrLifecyclePublished = rr.rrRetainedFrameId;
+        m_rrLifecycleCancelled = rr.rrCancelledCount;
+        ++m_rrLifecycleStage;
+        m_rrLifecycleFrames = 0;
+        m_rrLifecycleEntered = false;
+    };
+    switch (m_rrLifecycleStage)
+    {
+        case 0:
+            if (!m_rrLifecycleEntered)
+            {
+                m_rrLifecycleCamera = m_sceneRenderer.GetCamera();
+                m_rrLifecycleEntered = true;
+            }
+            if (ready && rr.rrCompletedCount >= 3 && rr.rrContinuousCount >= 2)
+            {
+                if (rr.rrResetCount != 1)
+                {
+                    fail("Continuous static frames unexpectedly reset");
+                    return;
+                }
+                checkpoint("continuous");
+                m_sceneRenderer.SetPathTracingAccumulationPaused(true);
+            }
+            break;
+        case 1:
+            if (!rr.rrRetainedOutputVerified || calls != m_rrLifecycleCalls ||
+                rr.rrRetainedFrameId != m_rrLifecyclePublished)
+            {
+                fail("Paused RR output changed or SDK re-evaluated");
+                return;
+            }
+            if (m_rrLifecycleFrames >= 8)
+            {
+                checkpoint("paused");
+                m_sceneRenderer.SetPathTracingAccumulationPaused(false);
+            }
+            break;
+        case 2:
+            if (ready && calls >= m_rrLifecycleCalls + 2)
+            {
+                if (rr.rrResetCount != m_rrLifecycleResets || rr.rrRetainedFrameId <= m_rrLifecyclePublished)
+                {
+                    fail("Resume lost history or reused stale output");
+                    return;
+                }
+                checkpoint("resumed");
+                select(Backend::Native);
+                if (!invalidated())
+                {
+                    fail("Native switch retained RR presentation");
+                    return;
+                }
+            }
+            break;
+        case 3:
+            if (rr.reconstructionPresentation.output != Backend::Native || calls != m_rrLifecycleCalls)
+            {
+                fail("Native selection executed/presented RR");
+                return;
+            }
+            if (m_rrLifecycleFrames >= 3)
+            {
+                checkpoint("native");
+                select(Backend::Nrd);
+            }
+            break;
+        case 4:
+            if (!rr.nrdPreviewBuilt)
+            {
+                fail("Lifecycle validation requires both NRD and RR SDK builds");
+                return;
+            }
+            if (calls != m_rrLifecycleCalls)
+            {
+                fail("NRD selection executed RR");
+                return;
+            }
+            if (m_rrLifecycleFrames >= 3 && rr.nrdPresentationStatus == Engine::NrdRelaxPresentationStatus::Relax)
+            {
+                checkpoint("nrd");
+                select(Backend::Rr);
+                if (!invalidated())
+                {
+                    fail("RR switch reused pre-switch output");
+                    return;
+                }
+            }
+            break;
+        case 5:
+            if (ready && rr.rrResetCount > m_rrLifecycleResets)
+                checkpoint("rr-restored");
+            break;
+        case 6:
+            if (!m_rrLifecycleEntered && rr.rrLivePhase == "input-gpu-pending")
+            {
+                m_rrLifecycleCalls = calls;
+                m_rrLifecycleResets = rr.rrResetCount;
+                m_rrLifecycleCancelled = rr.rrCancelledCount;
+                m_sceneRenderer.ResetPathTracingAccumulation();
+                m_rrLifecycleEntered = true;
+                if (!invalidated())
+                {
+                    fail("Pending reset presented stale output");
+                    return;
+                }
+            }
+            else if (m_rrLifecycleEntered && ready && rr.rrCancelledCount > m_rrLifecycleCancelled)
+            {
+                if (calls != m_rrLifecycleCalls + 1 || rr.rrResetCount <= m_rrLifecycleResets)
+                {
+                    fail("Cancelled input reached SDK or replacement did not reset");
+                    return;
+                }
+                checkpoint("pending-reset");
+            }
+            break;
+        case 7:
+            if (m_rrLifecycleFrames < 6)
+            {
+                auto camera = m_rrLifecycleCamera;
+                camera.pos.x += .01f * float(m_rrLifecycleFrames + 1);
+                LoadedScene().GetScene().camera = camera;
+                m_sceneRenderer.SetCamera(camera);
+                if (!invalidated() || calls != m_rrLifecycleCalls)
+                {
+                    fail("Moving camera exposed static RR output");
+                    return;
+                }
+            }
+            else if (ready && rr.rrResetCount > m_rrLifecycleResets)
+                checkpoint("camera-recovered");
+            break;
+        case 8:
+        case 9:
+        {
+            const UINT width = m_rrLifecycleStage == 8 ? 320 : 256;
+            const UINT height = m_rrLifecycleStage == 8 ? 180 : 144;
+            if (!m_rrLifecycleEntered)
+            {
+                m_sceneRenderer.RequestResize(width, height);
+                m_rrLifecycleEntered = true;
+            }
+            else if (ready && context.renderWidth == width && context.renderHeight == height &&
+                     rr.rrResetCount > m_rrLifecycleResets)
+                checkpoint(m_rrLifecycleStage == 8 ? "resized" : "resize-restored");
+            break;
+        }
+        case 10:
+            if (!m_rrLifecycleEntered)
+            {
+                m_sceneRenderer.SetPathTracingAccumulationPaused(true);
+                const auto path = std::filesystem::absolute(
+                    m_commandLineOptions.pathTracingRrLifecycleValidationDirectory / "viewport.png");
+                m_sceneRenderer.RequestScreenshot(RtPbrSurvey::ScreenshotRequest{path});
+                m_rrLifecycleEntered = true;
+            }
+            else if (const auto result = m_sceneRenderer.ConsumeScreenshotResult())
+            {
+                if (!result->succeeded)
+                {
+                    fail(result->error);
+                    return;
+                }
+                fprintf(m_logFile, "[PathTracingRrLifecycleComplete] stages=10\n");
+                fflush(m_logFile);
+                DestroyWindow(Win32Application::GetHwnd());
+                return;
+            }
+            break;
+    }
+    UpdateUiFrame();
+    m_sceneRenderer.RunFrame([this](ID3D12GraphicsCommandList* commands) { m_imguiSystem.Render(commands); });
+    ++m_rrLifecycleFrames;
+    ++m_automationFrameCounter;
+    if (m_d3d12InfoQueue)
+        FlushD3D12DebugMessages();
+    if (m_rrLifecycleFrames > 512)
+        fail("Lifecycle checkpoint timed out");
+}
+
 void RtPbrSurveyApp::RunPathTracingHistoryValidation()
 {
     if (m_logFile == nullptr)

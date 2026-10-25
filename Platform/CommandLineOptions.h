@@ -89,6 +89,8 @@ struct CommandLineOptions
     bool hasPathTracingObjectMotion = false;
     bool nrdContinuousCameraHistory = false;
     bool nrdPreview = false;
+    bool pathTracingRrContinuous = false;
+    std::filesystem::path pathTracingRrLifecycleValidationDirectory;
     std::string nrdDiagnosticFailure;
     std::string nrdPrepassProfile;
     bool nrdDisableAntilag = false;

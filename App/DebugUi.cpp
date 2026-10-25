@@ -1014,6 +1014,9 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 pathTracingSettingsChanged = true;
             }
             if (reconstructionBackend == 2)
+                pathTracingSettingsChanged |=
+                    ImGui::Checkbox("Continuous RR (static diagnostic)", &pathTracingSettings.rrContinuous);
+            if (reconstructionBackend == 2)
                 ImGui::TextWrapped("RR retained-frame diagnostic: static camera, no accumulation, 1 spp, 2 bounces; "
                                    "native opt-in required.");
             if (reconstructionBackend == 1)
@@ -1027,6 +1030,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             if (reconstructionBackend == 2)
             {
                 ImGui::Text("RR: %s", context.pathTracingDiagnostics.rrLivePhase.c_str());
+                ImGui::Text("RR completed: %llu, continuous: %llu, resets: %llu",
+                            static_cast<unsigned long long>(context.pathTracingDiagnostics.rrCompletedCount),
+                            static_cast<unsigned long long>(context.pathTracingDiagnostics.rrContinuousCount),
+                            static_cast<unsigned long long>(context.pathTracingDiagnostics.rrResetCount));
                 if (!context.pathTracingDiagnostics.rrLiveFailure.empty())
                     ImGui::TextWrapped("RR fallback: %s", context.pathTracingDiagnostics.rrLiveFailure.c_str());
             }

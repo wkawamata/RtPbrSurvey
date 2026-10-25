@@ -401,6 +401,13 @@ bool TestValidationAndLegacyCli()
     passed &= Check(!Platform::HasPathTracingDlssConflict(nativeRrOptions) &&
                         nativeRrOptions.enableExperimentalNativeRayReconstruction,
                     "PT RR selection permits native opt-in");
+    WCHAR continuousRrOption[] = L"-PathTracingRrContinuous";
+    WCHAR* continuousRrArgv[] = {executable, continuousRrOption, nativeRrOption};
+    const auto continuousRrOptions = Platform::ParseCommandLineOptions(continuousRrArgv, 3);
+    passed &=
+        Check(continuousRrOptions.pathTracingRrContinuous && continuousRrOptions.pathTracingReconstruction == "rr" &&
+                  !Platform::HasPathTracingDlssConflict(continuousRrOptions),
+              "Continuous RR selects the admitted PT backend and permits native opt-in");
     nativeRrOptions.pathTracingReconstruction = "nrd";
     passed &= Check(Platform::HasPathTracingDlssConflict(nativeRrOptions), "NRD does not enable the Hybrid RR path");
     nativeRrOptions.pathTracingReconstruction = "rr";

@@ -28,12 +28,8 @@ void PathTracingRrLive::Initialize(ID3D12Device* device, D3D12_SHADER_BYTECODE s
     ThrowIfFailed(device->CreateComputePipelineState(&pipeline, IID_PPV_ARGS(&m_pipeline)));
     const auto buffer = CD3DX12_RESOURCE_DESC::Buffer(8, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
     const auto defaultHeap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-    ThrowIfFailed(device->CreateCommittedResource(&defaultHeap,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &buffer,
-                                                  D3D12_RESOURCE_STATE_COMMON,
-                                                  nullptr,
-                                                  IID_PPV_ARGS(&m_summary)));
+    ThrowIfFailed(device->CreateCommittedResource(
+        &defaultHeap, D3D12_HEAP_FLAG_NONE, &buffer, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&m_summary)));
     const auto plain = CD3DX12_RESOURCE_DESC::Buffer(8);
     const auto uploadHeap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
     ThrowIfFailed(device->CreateCommittedResource(
@@ -66,7 +62,7 @@ bool PathTracingRrLive::CanEvaluate() const
 }
 bool PathTracingRrLive::OutputReady() const
 {
-    return m_phase == Phase::Ready && m_history.CanPresent(m_key, m_output.Get());
+    return m_publishedReady && m_publishedOutput != nullptr && m_publishedKey.resetToken == m_epoch;
 }
 const char* PathTracingRrLive::Status() const
 {
@@ -97,22 +93,32 @@ void PathTracingRrLive::MarkSubmitted(uint64_t fence)
     }
 }
 
-void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch)
+void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, bool advanceProduction)
 {
     // Drain cancelled work before reusing its summary/readback allocations.
     if (m_submissionPending || (m_fence != 0 && completedFence < m_fence))
         return;
     if (currentEpoch != m_epoch)
     {
+        if (m_phase == Phase::InputPending || m_phase == Phase::Evaluate || m_phase == Phase::OutputPending)
+            ++m_cancelledCount;
         m_history.Invalidate();
         m_phase = Phase::Idle;
         m_epoch = currentEpoch;
         m_failure.clear();
         m_fence = 0;
         m_output.Reset();
+        m_publishedOutput.Reset();
+        m_publishedReady = false;
+        m_presented = false;
         for (auto& input : m_inputs)
             input.Reset();
         return;
+    }
+    if (m_phase == Phase::Ready && m_presented && advanceProduction)
+    {
+        m_phase = Phase::Idle;
+        m_presented = false;
     }
     if (m_fence == 0 || (m_phase != Phase::InputPending && m_phase != Phase::OutputPending))
         return;
@@ -128,6 +134,7 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch)
     {
         m_failure = m_phase == Phase::InputPending ? "unsupported RR input pixels" : "incomplete/nonfinite RR output";
         m_history.Invalidate();
+        m_publishedReady = false;
         m_phase = Phase::Rejected;
         return;
     }
@@ -137,8 +144,22 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch)
     }
     else
     {
-        m_phase = m_history.Finish(m_ticket, true, true) == PathTracingRrCompletion::Completed ? Phase::Ready
-                                                                                               : Phase::Rejected;
+        if (m_history.Finish(m_ticket, true, true) == PathTracingRrCompletion::Completed &&
+            m_history.CanPresent(m_key, m_output.Get()))
+        {
+            m_publishedKey = m_key;
+            m_publishedOutput = m_output;
+            m_publishedSlot = m_outputSlot;
+            m_publishedReady = true;
+            m_presented = false;
+            ++m_completedCount;
+            m_phase = Phase::Ready;
+        }
+        else
+        {
+            m_publishedReady = false;
+            m_phase = Phase::Rejected;
+        }
     }
 }
 
@@ -172,7 +193,8 @@ void PathTracingRrLive::RecordInput(ID3D12GraphicsCommandList* commands,
                                     const PathTracingRrHistoryKey& key,
                                     const RayReconstructionFrameConstants& constants,
                                     const std::array<ID3D12Resource*, 8>& inputs,
-                                    ID3D12Resource* output)
+                                    ID3D12Resource* output,
+                                    unsigned int outputSlot)
 {
     if (!CanCapture())
         throw std::logic_error("RR production already retained");
@@ -181,6 +203,9 @@ void PathTracingRrLive::RecordInput(ID3D12GraphicsCommandList* commands,
     for (size_t i = 0; i < inputs.size(); ++i)
         m_inputs[i] = inputs[i];
     m_output = output;
+    m_outputSlot = outputSlot;
+    if (m_publishedReady && m_output.Get() == m_publishedOutput.Get())
+        throw std::logic_error("RR cannot overwrite its published output");
     RecordValidation(commands, statusSrv, false);
     m_phase = Phase::InputPending;
 }
@@ -193,6 +218,11 @@ void PathTracingRrLive::RecordEvaluate(ID3D12GraphicsCommandList* commands,
     if (decision.action != PathTracingRrHistoryAction::Evaluate)
         throw std::logic_error("RR retained history rejected");
     m_ticket = decision.ticket;
+    m_lastReset = decision.reset;
+    if (decision.reset)
+        ++m_resetCount;
+    else
+        ++m_continuousCount;
     RayReconstructionEvaluateInputs inputs;
     inputs.pathTracingDiagnostic = true;
     inputs.commandList = commands;
@@ -208,6 +238,7 @@ void PathTracingRrLive::RecordEvaluate(ID3D12GraphicsCommandList* commands,
     inputs.renderWidth = m_key.renderWidth;
     inputs.renderHeight = m_key.renderHeight;
     inputs.historyReset = decision.reset;
+    inputs.historyValid = !decision.reset;
     inputs.enableNativeEvaluation = true;
     inputs.frameConstants = m_constants;
     const auto result = EvaluateStreamlineRayReconstruction(inputs);
@@ -217,6 +248,7 @@ void PathTracingRrLive::RecordEvaluate(ID3D12GraphicsCommandList* commands,
     {
         m_failure = result.inputReady ? QueryStreamlineRayReconstructionDiagnostics().lastEvaluateResultName
                                       : ToString(result.inputReadinessReason);
+        m_publishedReady = false;
         m_phase = Phase::Rejected;
         return;
     }

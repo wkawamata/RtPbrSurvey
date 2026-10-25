@@ -294,6 +294,7 @@ public:
         Engine::PathTracingReconstructionBackend reconstructionBackend =
             Engine::PathTracingReconstructionBackend::Legacy;
         bool reconstructionDiagnostics = false;
+        bool rrContinuous = false;
         UINT maxBounces = 8;
         UINT randomSeed = 1;
         bool directLightingEnabled = true;
@@ -341,6 +342,12 @@ public:
         std::string rrLiveFailure;
         uint64_t rrRetainedFrameId = 0;
         bool rrRetainedOutputVerified = false;
+        uint64_t rrInputFrameId = 0;
+        uint64_t rrCompletedCount = 0;
+        uint64_t rrContinuousCount = 0;
+        uint64_t rrResetCount = 0;
+        uint64_t rrCancelledCount = 0;
+        bool rrLastReset = true;
         Engine::PathTracingReconstructionPlan completedReconstructionPlan;
         uint64_t primarySamplesPerFrame = 0;
         uint64_t maxPathSegmentsPerFrame = 0;
@@ -803,6 +810,7 @@ private:
         PathTracingGuideRrHitDistance,
         PathTracingGuideRrStatus,
         PathTracingGuideRrOutput,
+        PathTracingGuideRrOutputAlternate,
 #endif
         PathTracingGuideTextureCount,
     };
@@ -1531,6 +1539,7 @@ private:
         "PathTracing.RrHitDistance",
         "PathTracing.RrStatus",
         "PathTracing.RrOutput",
+        "PathTracing.RrOutputAlternate",
 #endif
     };
     static constexpr const char* kDebugTexturePreviewResourceNames[kMaxDebugTextureOutputCount] = {

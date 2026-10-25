@@ -1249,3 +1249,51 @@ report: `build/reconstruction-input-validation/captures/backend-step2-regression
 初回失敗reportやlogはbuild配下に保持し、成功扱いにはしていない。
 Step 2の「検証済みの保持frameを通常render graphからRR表示する」接続は完了。
 連続frame / 移動camera / リサイズと切替の実機検証はStep 3。変更は未コミット。
+## 2026-10-25 Step 3: 連続productionと切替・リサイズ検証
+
+Step 1/2をcommit `9a299e3` として保存した後の作業。
+静止cameraの検証済みprofileに、`rrContinuous`（既定false）とCLI `-PathTracingRrContinuous` を追加する。
+同じprofileの保持frameモードは継続して利用できる。
+
+- 同時に扱う未完了productionは1つとし、入力admission、SDK、GPU出力検証の所有関係を維持する。
+- RR出力を2枚に分ける。検証済みのpublished出力を表示しながら、もう片方へ次の結果を生成する。
+  画像copyは追加せず、GPU検証完了時に表示先を切り替える。published allocationへの上書きは拒否する。
+- 非accumulation時の通常clearから両出力を除外し、SDKの書込先だけを評価前に初期化する。
+  scene/settings/backend/camera/resizeのreset時はpublished出力を無効化する。
+- 連続するPT productionではframeId/sample indexが1ずつ進み、前回camera行列が一致する場合にSDK reset=falseとする。
+  display frameとPT productionの進行は別であり、この安全なsingle-flight経路の更新頻度はdisplay FPSと同じではない。
+- published frameIdと処理中input frameIdを区別し、完了数、連続評価数、reset数、cancel数を診断へ追加する。
+- pause後は新規productionを開始しない。処理中の仕事はfence完了まで保持する。
+- camera移動中は従来の静止条件を外れるためNativeへfallbackし、停止後の入力をreset=trueで再取得する。
+  移動中のRR履歴継続や一般materialへの対応は、この変更では追加しない。
+
+追加のRGBA32出力1枚は16 byte/pixel（1920x1080で約33 MB）のVRAMを使う。
+強制GPU待ちと画像readback/copyを避けるための保持領域であり、性能最適化済みとは扱わない。
+
+`-PathTracingRrLifecycleValidation <output-directory>` はSceneFile / LogToFile / native opt-inを必須とする検証経路。
+同一プロセス内で、連続RR、pause/resume、Native→NRD→RR、入力admission待ちのreset、
+camera移動後の復帰、320x180へのresizeと256x144への復帰を確認し、最終viewportを保存する。
+NRD/RRを同時に組み込んだ構成で `Tests/PathTracing/validate_rr_lifecycle.py` から実行する。
+Step 3検証結果:
+
+- NRD 4.17.3 と Streamline 2.12.0 の両SDKを有効にしたDebug buildが成功（error 0、CPU testの既存LNK4199 warning 2）。
+  build log: `C:/work/RtPbrSurvey-agents/pt-rr-continuous-sdk-work4`。
+- 関連CTestは9/9成功。CLIの連続RR指定、設定保存も検証した。
+- 同一GPUプロセスで10 checkpointが成功、process code 0、D3D12 ERROR 0。
+  初期連続評価は完了3回 / reset 1回 / continuous 2回。
+  pause後もSDK call数とpublished frameIdは不変。resume後はresetを増やさずcontinuousが4回へ進んだ。
+- Native選択時はNative、NRD選択時は実際のRELAX出力となり、その間RR SDK call数は不変。
+  RRへ戻すとreset=trueで再取得した。
+- admission待ちresetでは、キャンセルした入力がSDKへ進まず、新しいproductionで再開した。
+  camera移動中も古いRR出力を表示せず、停止後に再開した。
+- 320x180と256x144の両resize後に、新しいallocationで検証済みRR出力へ復帰した。
+  checkpoint上で完了10回、reset 6回、continuous 4回、cancel 4回を確認。
+- 最終viewport PNG（256x144）を保存した。
+  report: `build/reconstruction-input-validation/captures/rr-lifecycle-20261025/report.json`。
+  executable SHA256: `d11b02fccafae6c15356db724d5e9cf04e1bb71841faec4fe6094a89cca3b47d`。
+- 既存の保持frameモードの5ケース（RR output / viewport / opt-in OFF / background / 非鏡面）も全件成功、D3D12 ERROR 0。
+  report: `build/reconstruction-input-validation/captures/rr-retained-regression-step3-20261025/report.json`。
+
+この段階で、検証済み静止profileの連続更新、停止再開、backend切替、cancel、camera停止後の復帰、resizeを確認した。
+移動中のRR履歴継続、一般material/background/missのRR処理、性能最適化は未完了。
+Step 3の変更は、Step 1/2のcommit `9a299e3` に続く未コミット変更である。

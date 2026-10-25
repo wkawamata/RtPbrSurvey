@@ -8,14 +8,19 @@
 
 namespace Engine
 {
-// Step 2: one immutable, static production. Continuous PT history is separate.
+// One immutable production at a time; a verified output stays published while
+// the next static-camera production is admitted/evaluated into the other slot.
 // All GPU work stays on the caller's queue. No CPU fence waits or image copies.
 class PathTracingRrLive
 {
 public:
     void Initialize(ID3D12Device* device, D3D12_SHADER_BYTECODE validationShader);
-    void Poll(uint64_t completedFence, uint64_t currentEpoch);
+    void Poll(uint64_t completedFence, uint64_t currentEpoch, bool advanceProduction = false);
     void MarkSubmitted(uint64_t fence);
+    void MarkPresented()
+    {
+        m_presented = true;
+    }
     bool CanCapture() const;
     bool HoldProduction() const;
     bool CanEvaluate() const;
@@ -27,7 +32,43 @@ public:
     }
     uint64_t FrameId() const
     {
+        return m_publishedReady ? m_publishedKey.frameId : m_key.frameId;
+    }
+    uint64_t InputFrameId() const
+    {
         return m_key.frameId;
+    }
+    uint64_t CompletedCount() const
+    {
+        return m_completedCount;
+    }
+    uint64_t ContinuousCount() const
+    {
+        return m_continuousCount;
+    }
+    uint64_t ResetCount() const
+    {
+        return m_resetCount;
+    }
+    uint64_t CancelledCount() const
+    {
+        return m_cancelledCount;
+    }
+    bool LastReset() const
+    {
+        return m_lastReset;
+    }
+    unsigned int PublishedSlot() const
+    {
+        return m_publishedSlot;
+    }
+    unsigned int NextOutputSlot() const
+    {
+        return m_publishedReady ? m_publishedSlot ^ 1u : 0u;
+    }
+    unsigned int WritingSlot() const
+    {
+        return m_outputSlot;
     }
     uint64_t Epoch() const
     {
@@ -38,7 +79,8 @@ public:
                      const PathTracingRrHistoryKey& key,
                      const RayReconstructionFrameConstants& constants,
                      const std::array<ID3D12Resource*, 8>& inputs,
-                     ID3D12Resource* output);
+                     ID3D12Resource* output,
+                     unsigned int outputSlot = 0);
     void RecordEvaluate(ID3D12GraphicsCommandList* commands,
                         ID3D12DescriptorHeap* heap,
                         D3D12_GPU_DESCRIPTOR_HANDLE outputSrv);
@@ -59,12 +101,23 @@ private:
     uint64_t m_fence = 0;
     bool m_submissionPending = false;
     uint64_t m_ticket = 0;
+    bool m_presented = false;
+    bool m_publishedReady = false;
+    bool m_lastReset = true;
+    unsigned int m_outputSlot = 0;
+    unsigned int m_publishedSlot = 0;
+    uint64_t m_completedCount = 0;
+    uint64_t m_continuousCount = 0;
+    uint64_t m_resetCount = 0;
+    uint64_t m_cancelledCount = 0;
     std::string m_failure;
     PathTracingRrHistory m_history;
     PathTracingRrHistoryKey m_key;
+    PathTracingRrHistoryKey m_publishedKey;
     RayReconstructionFrameConstants m_constants;
     std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, 8> m_inputs;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_output;
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_publishedOutput;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_summary;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_zero;
     Microsoft::WRL::ComPtr<ID3D12Resource> m_readback;

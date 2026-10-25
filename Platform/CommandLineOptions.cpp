@@ -409,6 +409,21 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.enablePathTracing = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrContinuous"))
+        {
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrLifecycleValidation"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'-')
+                throw std::invalid_argument("-PathTracingRrLifecycleValidation expects an output directory.");
+            options.pathTracingRrLifecycleValidationDirectory = argv[++i];
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingReconstruction"))
         {
             if (i + 1 >= argc || (!IsCommandLineArg(argv[i + 1], L"native") && !IsCommandLineArg(argv[i + 1], L"nrd") &&

@@ -245,11 +245,12 @@ int main()
         for (const char* name : {"native", "nrd", "rr"})
         {
             const std::string text = std::string("{\"pathTracing\":{\"reconstructionBackend\":\"") + name +
-                                     "\",\"reconstructionDiagnostics\":true}}";
+                                     "\",\"reconstructionDiagnostics\":true,\"rrContinuous\":true}}";
             valid &= Check(RtPbrSurvey::DeserializeSceneRendererSettings(text, settings), "Backend selection parses");
             const auto json = RtPbrSurvey::SceneRendererSettingsToJson(settings);
             valid &= Check(json["pathTracing"]["reconstructionBackend"] == name &&
-                               settings.pathTracing.reconstructionDiagnostics,
+                               settings.pathTracing.reconstructionDiagnostics &&
+                               json["pathTracing"]["rrContinuous"] == true && settings.pathTracing.rrContinuous,
                            "Backend selection and diagnostics persist");
         }
         const auto previous = settings.pathTracing.reconstructionBackend;

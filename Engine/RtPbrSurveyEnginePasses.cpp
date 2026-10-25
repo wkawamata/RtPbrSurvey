@@ -426,6 +426,8 @@ auto RtPbrSurveyEngine::MakePathTracingHistoryClearPass() -> RenderPass
                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                 {kPathTracingGuideTextureResourceNames[PathTracingGuideRrOutput],
                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                {kPathTracingGuideTextureResourceNames[PathTracingGuideRrOutputAlternate],
+                 D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
 #endif
             })
             .Operation(Op::PathTracingHistoryClear, &RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass)
@@ -436,7 +438,8 @@ auto RtPbrSurveyEngine::MakePathTracingHistoryClearPass() -> RenderPass
         std::erase_if(pass.writes,
                       [&plan](const Engine::ResourceUsage& usage)
                       {
-                          return (!plan.runNrd && usage.name.starts_with("PathTracing.Nrd")) ||
+                          return usage.name.starts_with("PathTracing.RrOutput") ||
+                                 (!plan.runNrd && usage.name.starts_with("PathTracing.Nrd")) ||
                                  (!plan.runRrConversion && usage.name.starts_with("PathTracing.Rr"));
                       });
     }
@@ -556,8 +559,8 @@ auto RtPbrSurveyEngine::MakePtRrEvaluatePass() -> RenderPass
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"PT DLSS RR Native")
         .Reads(std::move(reads))
-        .Writes(
-            {{kPathTracingGuideTextureResourceNames[PathTracingGuideRrOutput], D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
+        .Writes({{kPathTracingGuideTextureResourceNames[PathTracingGuideRrOutput + m_ptRrLive->WritingSlot()],
+                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::PtRrEvaluate, &RtPbrSurveyEngine::ExecutePtRrEvaluatePass)
         .Build();
 #else
@@ -1125,8 +1128,9 @@ auto RtPbrSurveyEngine::MakeToneMapPass() -> RenderPass
         reads.push_back({kPathTracingSceneColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
         if (ResolvePathTracingReconstructionPresentation().output == Engine::PathTracingReconstructionBackend::Rr)
-            reads.push_back({kPathTracingGuideTextureResourceNames[PathTracingGuideRrOutput],
-                             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+            reads.push_back(
+                {kPathTracingGuideTextureResourceNames[PathTracingGuideRrOutput + m_ptRrLive->PublishedSlot()],
+                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
 #endif
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
         if (MakePathTracingReconstructionPlan().backend == Engine::PathTracingReconstructionBackend::Nrd)
