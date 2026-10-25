@@ -61,6 +61,8 @@ struct PathTracingPassDesc
     bool pixelCenterPrimary = false;
     bool denoiserDistanceDiagnostics = false;
     bool thinTransmissionActive = false;
+    bool alphaMaskActive = false;
+    bool doubleSidedActive = false;
     UINT sampleStartIndex = 0;
     UINT randomSeed = 1;
     float previousSampleCount = 0.0f;

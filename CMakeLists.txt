@@ -317,6 +317,7 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         Shaders/shaders_HybridReflection.hlsl
         cs_6_5
         CSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/AlphaMaskCoverage.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(
@@ -324,6 +325,7 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         Shaders/shaders_PathTracing.hlsl
         cs_6_5
         CSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/AlphaMaskCoverage.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/ThinTransmission.hlsli"
@@ -486,10 +488,43 @@ if(RTPBRSURVEY_BUILD_TESTS)
         COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
             "-Fo${thin_transmission_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_ThinTransmission.hlsl"
         DEPENDS Tests/shaders_ThinTransmission.hlsl Shaders/ThinTransmission.hlsli
+            Shaders/PathTracingSampling.hlsli Shaders/PathTracingDenoiserSampling.hlsli
         VERBATIM)
     target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${thin_transmission_shader}")
     add_test(NAME RtPbrSurvey.ThinTransmission
         COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${thin_transmission_shader}" --thin-transmission)
+    set(rough_thin_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RoughThinTransmission_CSMain.cso")
+    add_custom_command(OUTPUT "${rough_thin_shader}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/Tests"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${rough_thin_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_RoughThinTransmission.hlsl"
+        DEPENDS Tests/shaders_RoughThinTransmission.hlsl Shaders/ThinTransmission.hlsli
+            Shaders/PathTracingSampling.hlsli Shaders/PathTracingDenoiserSampling.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${rough_thin_shader}")
+    add_test(NAME RtPbrSurvey.RoughThinTransmission
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${rough_thin_shader}" --rough-thin-transmission)
+    set(thin_metallic_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_ThinMetallicMixture_CSMain.cso")
+    add_custom_command(OUTPUT "${thin_metallic_shader}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/Tests"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${thin_metallic_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_ThinMetallicMixture.hlsl"
+        DEPENDS Tests/shaders_ThinMetallicMixture.hlsl Shaders/ThinTransmission.hlsli
+            Shaders/PathTracingSampling.hlsli Shaders/PathTracingDenoiserSampling.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${thin_metallic_shader}")
+    add_test(NAME RtPbrSurvey.ThinMetallicMixture
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${thin_metallic_shader}" --thin-metallic)
+    set(alpha_mask_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_AlphaMask_CSMain.cso")
+    add_custom_command(OUTPUT "${alpha_mask_shader}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/Tests"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${alpha_mask_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_AlphaMask.hlsl"
+        DEPENDS Tests/shaders_AlphaMask.hlsl Shaders/AlphaMaskCoverage.hlsli Shaders/EmissiveTriangleSampling.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${alpha_mask_shader}")
+    add_test(NAME RtPbrSurvey.AlphaMask
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${alpha_mask_shader}" --alpha-mask)
     if(RTPBRSURVEY_TEST_NRD_PACKING)
         find_package(Git REQUIRED)
         set(RTPBRSURVEY_NRD_SDK_DIR "${RTPBRSURVEY_ROOT}/third_party/nrd-sdk-4.17.3"

@@ -91,8 +91,9 @@ float3 PathTracingFresnelSchlick(float cosTheta, float3 f0)
 float PathTracingGgxDistribution(float normalDotHalf, float alpha)
 {
     const float alphaSquared = alpha * alpha;
-    const float denominator = normalDotHalf * normalDotHalf * (alphaSquared - 1.0) + 1.0;
-    return alphaSquared / max(kPathTracingPi * denominator * denominator, 0.000001);
+    const float denominator = (1.0 - normalDotHalf) * (1.0 + normalDotHalf) +
+        alphaSquared * normalDotHalf * normalDotHalf;
+    return alphaSquared / (kPathTracingPi * denominator * denominator);
 }
 
 float PathTracingSmithG1(float normalDotDirection, float alpha)

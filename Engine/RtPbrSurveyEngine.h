@@ -1386,6 +1386,8 @@ private:
     bool m_usesIndexedDraw = false;
     bool m_sceneHasMaterials = false;
     bool m_sceneHasThinTransmission = false;
+    bool m_sceneHasAlphaMask = false;
+    bool m_sceneHasDoubleSided = false;
     bool m_sceneResourcesAvailable = false;
 
     int m_displayInstanceCount = static_cast<int>(kMaxInstanceCount);

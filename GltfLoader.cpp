@@ -263,7 +263,57 @@ static std::string ResolveGltfPath(const std::string& path)
     return std::filesystem::exists(runtimePath) ? runtimePath.string() : path;
 }
 
-static std::string ParseThinTransmissionMaterial(const tinygltf::Material& material, GltfMaterial& output)
+static std::string ValidateSampledMaterialTexture(const tinygltf::Model& model, int index)
+{
+    if (index == -1)
+    {
+        return {};
+    }
+    if (index < 0 || index >= static_cast<int>(model.textures.size()))
+    {
+        return "Material texture index is outside the asset.";
+    }
+    const int source = model.textures[index].source;
+    if (source < 0 || source >= static_cast<int>(model.images.size()))
+    {
+        return "Material texture has no decoded core image.";
+    }
+    const auto& image = model.images[source];
+    if (image.width <= 0 || image.height <= 0 || image.component != 4 || image.bits != 8 ||
+        image.pixel_type != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE ||
+        image.image.size() != static_cast<size_t>(image.width) * static_cast<size_t>(image.height) * 4)
+    {
+        return "Material textures require decoded RGBA8 images.";
+    }
+    return {};
+}
+
+static std::string ValidateAlphaMaskMaterial(const tinygltf::Model& model, const tinygltf::Material& material)
+{
+    if (material.alphaMode != "MASK")
+    {
+        return {};
+    }
+    if (!std::isfinite(material.alphaCutoff) || material.alphaCutoff < 0.0 ||
+        !std::isfinite(static_cast<float>(material.alphaCutoff)))
+    {
+        return "Alpha MASK cutoff must be nonnegative and representable as a finite float.";
+    }
+    const auto& pbr = material.pbrMetallicRoughness;
+    if (pbr.baseColorFactor.size() != 4 || !std::isfinite(pbr.baseColorFactor[3]) ||
+        pbr.baseColorFactor[3] < 0.0 || pbr.baseColorFactor[3] > 1.0)
+    {
+        return "Alpha MASK requires base color alpha in [0, 1].";
+    }
+    if (pbr.baseColorTexture.index >= 0 &&
+        (pbr.baseColorTexture.texCoord != 0 || !pbr.baseColorTexture.extensions.empty()))
+    {
+        return "Alpha MASK requires TEXCOORD_0 without texture-info extensions.";
+    }
+    return ValidateSampledMaterialTexture(model, pbr.baseColorTexture.index);
+}
+
+static std::string ParseThinTransmissionMaterial(const tinygltf::Model& model, const tinygltf::Material& material, GltfMaterial& output)
 {
     if (material.extensions_json_string.empty())
     {
@@ -286,6 +336,7 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Material& mater
     }
     double factor = 0.0;
     double ior = 1.5;
+    int transmissionTexture = -1;
     const auto readNumber = [](const nlohmann::json& extension, const char* field, double& value)
     {
         if (!extension.is_object())
@@ -311,9 +362,36 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Material& mater
         }
         for (const auto& field : transmission->items())
         {
-            if (field.key() != "transmissionFactor" && field.key() != "extras")
+            if (field.key() != "transmissionFactor" && field.key() != "transmissionTexture" && field.key() != "extras")
             {
-                return "Only constant transmissionFactor is supported; textures and other transmission fields are not.";
+                return "Unsupported transmission extension field.";
+            }
+        }
+        if (transmission->contains("transmissionTexture"))
+        {
+            const auto& texture = transmission->at("transmissionTexture");
+            if (!texture.is_object() || !texture.contains("index") || !texture.at("index").is_number_integer() ||
+                texture.at("index").get<double>() < 0 ||
+                texture.at("index").get<double>() >= static_cast<double>(model.textures.size()))
+            {
+                return "transmissionTexture requires a valid nonnegative integer texture index.";
+            }
+            transmissionTexture = texture.at("index").get<int>();
+            if (texture.contains("texCoord") &&
+                (!texture.at("texCoord").is_number_integer() || texture.at("texCoord") != 0))
+            {
+                return "Transmission textures require TEXCOORD_0.";
+            }
+            for (const auto& field : texture.items())
+            {
+                if (field.key() == "extensions" && field.value().is_object() && field.value().empty())
+                {
+                    continue;
+                }
+                if (field.key() != "index" && field.key() != "texCoord" && field.key() != "extras")
+                {
+                    return "Transmission texture transforms and other texture-info extensions are not implemented.";
+                }
             }
         }
     }
@@ -331,24 +409,35 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Material& mater
             }
         }
     }
-    if (ior != 1.5 && factor != 1.0)
+    if (ior != 1.5 && (factor != 1.0 || transmissionTexture >= 0))
     {
-        return "Non-default IOR currently requires fully transmissive material; opaque/mixed IOR shading is not implemented.";
+        return "Non-default IOR requires constant full transmission; opaque/mixed IOR shading is not implemented.";
     }
     const auto& pbr = material.pbrMetallicRoughness;
     if (factor > 0.0)
     {
-        if (pbr.roughnessFactor != 0.0 || pbr.metallicFactor != 0.0)
+        if (!std::isfinite(pbr.roughnessFactor) || pbr.roughnessFactor < 0.0 || pbr.roughnessFactor > 1.0 ||
+            !std::isfinite(pbr.metallicFactor) || pbr.metallicFactor < 0.0 || pbr.metallicFactor > 1.0)
         {
-            return "Active transmission requires roughnessFactor=0 and metallicFactor=0; rough or metallic transmission is not implemented.";
+            return "Active transmission requires finite roughness and metallic factors in [0, 1].";
         }
-        if (pbr.baseColorTexture.index >= 0 || pbr.metallicRoughnessTexture.index >= 0 || material.normalTexture.index >= 0)
+        if (material.normalTexture.index >= 0)
         {
-            return "Active transmission currently requires constant base color and no metallic-roughness or normal textures.";
+            return "Active transmission currently excludes normal textures.";
         }
-        if (material.alphaMode != "OPAQUE" || pbr.baseColorFactor.size() != 4 || pbr.baseColorFactor[3] != 1.0)
+        if (pbr.metallicRoughnessTexture.index >= 0 &&
+            (pbr.metallicRoughnessTexture.texCoord != 0 || !pbr.metallicRoughnessTexture.extensions.empty()))
         {
-            return "Active transmission requires OPAQUE coverage and baseColor alpha=1; alpha is not transmission.";
+            return "Transmission roughness requires TEXCOORD_0 without texture-info extensions.";
+        }
+        if (pbr.baseColorTexture.index >= 0 &&
+            (pbr.baseColorTexture.texCoord != 0 || !pbr.baseColorTexture.extensions.empty()))
+        {
+            return "Transmission base color requires TEXCOORD_0 without texture-info extensions.";
+        }
+        if ((material.alphaMode != "OPAQUE" && material.alphaMode != "MASK") || pbr.baseColorFactor.size() != 4)
+        {
+            return "Active transmission supports OPAQUE or MASK coverage, not alpha BLEND.";
         }
         for (double color : pbr.baseColorFactor)
         {
@@ -365,9 +454,20 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Material& mater
             }
         }
     }
+    for (int index : {transmissionTexture, factor > 0.0 ? pbr.baseColorTexture.index : -1,
+                     factor > 0.0 ? pbr.metallicRoughnessTexture.index : -1})
+    {
+        const std::string error = ValidateSampledMaterialTexture(model, index);
+        if (!error.empty())
+        {
+            return error;
+        }
+    }
     output.thinTransmission = transmission != extensions.end();
     output.transmissionFactor = static_cast<float>(factor);
     output.transmissionIor = static_cast<float>(ior);
+    output.transmissionTexIndex = transmissionTexture;
+    output.transmissionTintTexIndex = factor > 0.0 ? pbr.baseColorTexture.index : -1;
     for (int channel = 0; channel < 3; ++channel)
     {
         output.transmissionTint[channel] = factor > 0.0 ? static_cast<float>(pbr.baseColorFactor[channel]) : 1.0f;
@@ -475,7 +575,7 @@ static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImp
         const tinygltf::Material& material = model.materials[i];
         const std::string location = "materials[" + std::to_string(i) + "]";
         GltfMaterial thinMaterial;
-        const std::string transmissionError = ParseThinTransmissionMaterial(material, thinMaterial);
+        const std::string transmissionError = ParseThinTransmissionMaterial(model, material, thinMaterial);
         if (!transmissionError.empty())
         {
             report(GltfDiagnosticSeverity::Error, "TransmissionMaterial", location, transmissionError.c_str());
@@ -483,15 +583,24 @@ static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImp
         else if (thinMaterial.transmissionFactor > 0.0f)
         {
             warning("ThinTransmissionApproximation", location,
-                    "Native PT uses a smooth effective thin surface with straight transmission, no volume refraction or colored shadows; other rendering paths remain opaque.");
+                   "Native PT uses an effective thin surface with GGX rough transmission, no volume refraction or colored shadows; other rendering paths remain opaque.");
         }
-        if (material.alphaMode != "OPAQUE")
+        const std::string alphaError = ValidateAlphaMaskMaterial(model, material);
+        if (!alphaError.empty())
+        {
+            report(GltfDiagnosticSeverity::Error, "AlphaMaskMaterial", location, alphaError.c_str());
+        }
+        if (material.alphaMode == "MASK")
+        {
+            warning("AlphaMaskNativePtOnly", location, "Alpha MASK coverage is evaluated by Native PT; other rendering paths remain opaque.");
+        }
+        else if (material.alphaMode != "OPAQUE")
         {
             warning("AlphaModeIgnored", location, "Alpha MASK/BLEND is rendered as opaque; cutoff and blending are ignored.");
         }
         if (material.doubleSided)
         {
-            warning("DoubleSidedIgnored", location, "Material doubleSided is ignored; ray paths use back-face culling.");
+            warning("DoubleSidedNativePtOnly", location, "Material doubleSided is evaluated by Native PT; other rendering paths retain their culling policy.");
         }
         for (const auto& extension : material.extensions)
         {
@@ -604,6 +713,19 @@ static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImp
                 !primitive.attributes.contains("TEXCOORD_0"))
             {
                 const tinygltf::Material& material = model.materials[primitive.material];
+                if (material.alphaMode == "MASK" && material.pbrMetallicRoughness.baseColorTexture.index >= 0)
+                {
+                    error("MissingAlphaMaskTexcoords", location, "Textured alpha MASK requires TEXCOORD_0.");
+                }
+                GltfMaterial transmission;
+                if (ParseThinTransmissionMaterial(model, material, transmission).empty() &&
+                    transmission.transmissionFactor > 0.0f &&
+                    (transmission.transmissionTexIndex >= 0 || transmission.transmissionTintTexIndex >= 0 ||
+                     material.pbrMetallicRoughness.metallicRoughnessTexture.index >= 0))
+                {
+                    error("MissingTransmissionTexcoords", location,
+                          "Textured transmission requires a valid TEXCOORD_0 attribute.");
+                }
                 if (material.pbrMetallicRoughness.baseColorTexture.index >= 0 ||
                     material.pbrMetallicRoughness.metallicRoughnessTexture.index >= 0 ||
                     material.normalTexture.index >= 0 || material.emissiveTexture.index >= 0 || material.occlusionTexture.index >= 0)
@@ -750,7 +872,10 @@ static void CopyMaterialsAndTextures(const tinygltf::Model& model, GltfMeshData&
         const auto& material = model.materials[materialIndex];
         const auto& pbr = material.pbrMetallicRoughness;
         GltfMaterial& destination = outMesh.materials[materialIndex];
-        ParseThinTransmissionMaterial(material, destination);
+        destination.alphaMask = material.alphaMode == "MASK";
+        destination.alphaCutoff = destination.alphaMask ? static_cast<float>(material.alphaCutoff) : 0.5f;
+        destination.doubleSided = material.doubleSided;
+        ParseThinTransmissionMaterial(model, material, destination);
         destination.unlit = material.extensions.find("KHR_materials_unlit") != material.extensions.end();
         destination.albedoTexIndex = pbr.baseColorTexture.index;
         destination.metallicRoughnessTexIndex = pbr.metallicRoughnessTexture.index;
