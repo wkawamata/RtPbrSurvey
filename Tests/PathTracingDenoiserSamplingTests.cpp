@@ -548,6 +548,39 @@ void ValidateThinMetallicMixture(const float* values)
     }
     std::cout << "Validated 28672 metallic mixture selections, endpoints, contributions and low-roughness GGX PDFs.\n";
 }
+void ValidateAlphaMask(const float* values)
+{
+    const float factors[] = {0, .1f, .25f, .5f, .75f, .9f, 1};
+    const float cutoffs[] = {0, .25f, .5f, 1.1f};
+    const float alphas[] = {0, .25f, .5f, 1};
+    for (unsigned int test = 0; test < 28; ++test)
+    {
+        for (unsigned int index = 0; index < kSamplesPerCase; ++index)
+        {
+            const float* value = values + (test * kSamplesPerCase + index) * 16;
+            const float factor = factors[test / 4];
+            const float cutoff = cutoffs[test % 4];
+            const float product = alphas[index % 4] * factor;
+            if (value[0] != (product >= cutoff ? 1 : 0) || !Near(value[1], product, 1e-6, 1e-6) ||
+                value[2] != cutoff || value[3] != factor)
+            {
+                throw std::runtime_error("Alpha MASK cutoff/factor comparison mismatch");
+            }
+            if (value[4] != 8 || value[5] != 0 || value[6] != 8 || value[7] != 8)
+            {
+                throw std::runtime_error("Single/double-sided emitter PDF mismatch");
+            }
+            for (unsigned int channel = 8; channel < 16; ++channel)
+            {
+                if (value[channel] != 0)
+                {
+                    throw std::runtime_error("Alpha MASK reserved data changed");
+                }
+            }
+        }
+    }
+    std::cout << "Validated 28672 alpha MASK comparisons including equality, zero and cutoff above one.\n";
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -573,6 +606,7 @@ int main(int argc, char** argv)
         bool thinTransmission = false;
         bool roughThinTransmission = false;
         bool thinMetallic = false;
+        bool alphaMask = false;
         const char* inputPath = nullptr;
         const char* outputPath = nullptr;
         for (int index = 2; index < argc; ++index)
@@ -597,6 +631,10 @@ int main(int argc, char** argv)
             {
                 thinMetallic = true;
             }
+            else if (std::strcmp(argv[index], "--alpha-mask") == 0)
+            {
+                alphaMask = true;
+            }
             else if (std::strcmp(argv[index], "--material-factors") == 0)
             {
                 materialFactors = true;
@@ -618,7 +656,7 @@ int main(int argc, char** argv)
                 throw std::runtime_error("Unknown test option");
             }
         }
-        if (int(packing) + int(materialFactors) + int(inputConversion) + int(thinTransmission) + int(roughThinTransmission) + int(thinMetallic) > 1)
+        if (int(packing) + int(materialFactors) + int(inputConversion) + int(thinTransmission) + int(roughThinTransmission) + int(thinMetallic) + int(alphaMask) > 1)
             throw std::runtime_error("Packing and material-factor modes are mutually exclusive");
         if ((inputPath != nullptr) != (outputPath != nullptr) || (inputPath && !inputConversion))
             throw std::runtime_error("Captured conversion requires both input and output paths");
@@ -739,6 +777,10 @@ int main(int argc, char** argv)
             outputFile.write(static_cast<const char*>(data), byteCount);
             if (!outputFile)
                 throw std::runtime_error("Could not write converted output");
+        }
+        else if (alphaMask)
+        {
+            ValidateAlphaMask(static_cast<const float*>(data));
         }
         else if (thinMetallic)
         {

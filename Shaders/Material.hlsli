@@ -21,8 +21,11 @@ struct Material
     float transmissionIor;
     uint transmissionTexIndex;
     uint transmissionTintTexIndex;
+    float alphaCutoff;
 };
 
 static const uint MaterialFlagUnlit = 1u << 0;
 static const uint MaterialFlagHasNormalTexture = 1u << 1;
 static const uint MaterialFlagThinTransmission = 1u << 2;
+static const uint MaterialFlagAlphaMask = 1u << 3;
+static const uint MaterialFlagDoubleSided = 1u << 4;

@@ -50,6 +50,8 @@ const char* NrdRelaxPresentationStatusText(NrdRelaxPresentationStatus status)
             return "NRD RELAX diagnostic (per-pixel Native fallback)";
         case NrdRelaxPresentationStatus::UnsupportedTransmission:
             return "Native fallback: thin transmission is not supported by NRD";
+        case NrdRelaxPresentationStatus::UnsupportedAlphaMask:
+            return "Native fallback: alpha MASK is not qualified for NRD";
     }
     return "Native fallback: unknown presentation status";
 }

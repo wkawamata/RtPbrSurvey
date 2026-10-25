@@ -38,6 +38,9 @@ struct GltfMaterial
     float transmissionIor = 1.5f;
     int transmissionTexIndex = -1;
     int transmissionTintTexIndex = -1;
+    bool alphaMask = false;
+    bool doubleSided = false;
+    float alphaCutoff = 0.5f;
 };
 
 struct GltfTextureData

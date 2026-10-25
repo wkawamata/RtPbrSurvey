@@ -307,6 +307,35 @@ float3 SamplePrimaryMiss(float3 direction)
     return g_environmentMap.SampleLevel(g_sampler, direction, 0).rgb;
 }
 
+bool RequiresMaterialCandidates()
+{
+    return (primarySamplingFlags & 28u) != 0;
+}
+
+bool AcceptMaterialCandidate(uint instanceId, uint primitiveIndex, float2 barycentric, bool frontFace,
+    bool cullBackFaces, bool allowThinBackface)
+{
+    uint i0, i1, i2;
+    LoadPrimitiveVertexIndices(primitiveIndex, instanceId, i0, i1, i2);
+    const uint materialId = LoadCommittedHitMaterialId(i0, i1, i2, barycentric, instanceId);
+    const Material material = g_materialData[materialId];
+    const float2 uv = LoadCommittedHitUv(i0, i1, i2, barycentric) * material.uvScale + material.uvOffset;
+    if (!PassMaterialAlphaMask(material, uv))
+    {
+        return false;
+    }
+    if (frontFace || !cullBackFaces || (material.flags & MaterialFlagDoubleSided) != 0)
+    {
+        return true;
+    }
+    if (allowThinBackface && (material.flags & MaterialFlagThinTransmission) != 0)
+    {
+        const HitMaterialSample candidate = LoadCommittedHitMaterialSample(i0, i1, i2, barycentric, instanceId);
+        return candidate.transmissionFactor * (1.0 - candidate.metallic) > 0.0;
+    }
+    return false;
+}
+
 float TraceShadow(float3 worldPosition, float3 normal, PathTracingLightSample lightSample, uint rayFlags)
 {
     if (shadowEnabled == 0)
@@ -326,9 +355,19 @@ float TraceShadow(float3 worldPosition, float3 normal, PathTracingLightSample li
     }
 
     RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> query;
-    query.TraceRayInline(g_tlas, rayFlags, 0xff, shadowRay);
+    const bool materialCandidates = RequiresMaterialCandidates();
+    const uint flags = materialCandidates ?
+        (rayFlags & ~RAY_FLAG_CULL_BACK_FACING_TRIANGLES) | RAY_FLAG_FORCE_NON_OPAQUE : rayFlags;
+    query.TraceRayInline(g_tlas, flags, 0xff, shadowRay);
     while (query.Proceed())
     {
+        if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE &&
+            AcceptMaterialCandidate(query.CandidateInstanceID(), query.CandidatePrimitiveIndex(),
+                query.CandidateTriangleBarycentrics(), query.CandidateTriangleFrontFace(),
+                (rayFlags & RAY_FLAG_CULL_BACK_FACING_TRIANGLES) != 0, false))
+        {
+            query.CommitNonOpaqueTriangleHit();
+        }
     }
     return query.CommittedStatus() == COMMITTED_TRIANGLE_HIT ? 0.0 : 1.0;
 }
@@ -353,10 +392,17 @@ float TraceEmitterVisibility(float3 origin, float3 direction, float distance, Em
     shadowRay.Direction = direction;
     shadowRay.TMin = rayTMin;
     shadowRay.TMax = min(rayTMax, asfloat(asuint(distance) + 1u));
-    RayQuery<RAY_FLAG_CULL_BACK_FACING_TRIANGLES> query;
-    query.TraceRayInline(g_tlas, 0, 0xff, shadowRay);
+    RayQuery<RAY_FLAG_NONE> query;
+    query.TraceRayInline(g_tlas, RequiresMaterialCandidates() ? RAY_FLAG_FORCE_NON_OPAQUE : RAY_FLAG_CULL_BACK_FACING_TRIANGLES,
+        0xff, shadowRay);
     while (query.Proceed())
     {
+        if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE &&
+            AcceptMaterialCandidate(query.CandidateInstanceID(), query.CandidatePrimitiveIndex(),
+                query.CandidateTriangleBarycentrics(), query.CandidateTriangleFrontFace(), true, false))
+        {
+            query.CommitNonOpaqueTriangleHit();
+        }
     }
     if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
     {
@@ -382,10 +428,17 @@ float4 TraceDenoiserDistance(float3 hitPosition, float3 geometryNormal, float3 d
     distanceRay.Direction = direction;
     distanceRay.TMin = rayTMin;
     distanceRay.TMax = rayTMax;
-    RayQuery<RAY_FLAG_CULL_BACK_FACING_TRIANGLES> distanceQuery;
-    distanceQuery.TraceRayInline(g_tlas, 0, 0xff, distanceRay);
+    RayQuery<RAY_FLAG_NONE> distanceQuery;
+    distanceQuery.TraceRayInline(g_tlas,
+        RequiresMaterialCandidates() ? RAY_FLAG_FORCE_NON_OPAQUE : RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xff, distanceRay);
     while (distanceQuery.Proceed())
     {
+        if (distanceQuery.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE &&
+            AcceptMaterialCandidate(distanceQuery.CandidateInstanceID(), distanceQuery.CandidatePrimitiveIndex(),
+                distanceQuery.CandidateTriangleBarycentrics(), distanceQuery.CandidateTriangleFrontFace(), true, false))
+        {
+            distanceQuery.CommitNonOpaqueTriangleHit();
+        }
     }
     if (distanceQuery.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
     {
@@ -473,21 +526,14 @@ float3 TracePath(uint2 pixel,
     {
         const bool thinScene = (primarySamplingFlags & 4u) != 0;
         RayQuery<RAY_FLAG_NONE> query;
-        query.TraceRayInline(g_tlas, thinScene ? RAY_FLAG_FORCE_NON_OPAQUE : RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xff, ray);
+        query.TraceRayInline(g_tlas, RequiresMaterialCandidates() ? RAY_FLAG_FORCE_NON_OPAQUE : RAY_FLAG_CULL_BACK_FACING_TRIANGLES,
+            0xff, ray);
         while (query.Proceed())
         {
             if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
             {
-                uint i0, i1, i2;
-                LoadPrimitiveVertexIndices(query.CandidatePrimitiveIndex(), query.CandidateInstanceID(), i0, i1, i2);
-                bool accept = query.CandidateTriangleFrontFace();
-                if (!accept)
-                {
-                    const HitMaterialSample candidate = LoadCommittedHitMaterialSample(
-                        i0, i1, i2, query.CandidateTriangleBarycentrics(), query.CandidateInstanceID());
-                    accept = candidate.transmissionFactor * (1.0 - candidate.metallic) > 0.0;
-                }
-                if (accept)
+                if (AcceptMaterialCandidate(query.CandidateInstanceID(), query.CandidatePrimitiveIndex(),
+                    query.CandidateTriangleBarycentrics(), query.CandidateTriangleFrontFace(), true, true))
                 {
                     query.CommitNonOpaqueTriangleHit();
                 }
@@ -584,7 +630,7 @@ float3 TracePath(uint2 pixel,
                 lerp(float3(0.04, 0.04, 0.04), hitMaterial.albedo, hitMaterial.metallic),
                 hitMaterial.metallic);
             primarySurface.hitT = query.CommittedRayT();
-            if (captureDenoiserDistances && (primarySamplingFlags & 2u) != 0 && !thinScene)
+            if (captureDenoiserDistances && (primarySamplingFlags & 2u) != 0 && !thinScene && (primarySamplingFlags & 8u) == 0)
             {
                 if ((hitMaterial.flags & MaterialFlagUnlit) != 0)
                 {
@@ -643,7 +689,8 @@ float3 TracePath(uint2 pixel,
                 if (emitterIndex < emissiveTriangleCount)
                 {
                     const float lightPdf = EmissiveTriangleSolidAnglePdf(
-                        g_emissiveTriangles[emitterIndex], ray.Origin, hitPosition);
+                        g_emissiveTriangles[emitterIndex], ray.Origin, hitPosition,
+                        (hitMaterial.flags & MaterialFlagDoubleSided) != 0);
                     emissionWeight = emissiveSamplingMode == 2 ?
                         PathTracingPowerHeuristic(previousBsdfPdf, lightPdf) : 0.0;
                 }
@@ -778,14 +825,16 @@ float3 TracePath(uint2 pixel,
                 const float3 origin = hitPosition + geometryNormal * normalBias;
                 const float3 delta = samplePosition - origin;
                 const float distance = length(delta);
-                const float lightPdf = EmissiveTriangleSolidAnglePdf(emitter, origin, samplePosition);
+                const Material material = g_materialData[emitter.materialId];
+                const float lightPdf = EmissiveTriangleSolidAnglePdf(emitter, origin, samplePosition,
+                    (material.flags & MaterialFlagDoubleSided) != 0);
                 if (lightPdf > 0.0 && distance > rayTMin && distance <= rayTMax)
                 {
-                    const Material material = g_materialData[emitter.materialId];
                     const float2 uv = (emitter.uv0 * bary.x + emitter.uv1 * bary.y + emitter.uv2 * bary.z) *
                         material.uvScale + material.uvOffset;
-                    const float3 emission = SrgbToLinear(g_texture[NonUniformResourceIndex(material.emissiveTexIndex)].
-                        SampleLevel(g_sampler, uv, 0).rgb) * material.emissiveScale * material.emissiveFactor;
+                    const float3 emission = PassMaterialAlphaMask(material, uv) ?
+                        SrgbToLinear(g_texture[NonUniformResourceIndex(material.emissiveTexIndex)].
+                            SampleLevel(g_sampler, uv, 0).rgb) * material.emissiveScale * material.emissiveFactor : 0.0;
                     const PathTracingLightSample lightSample = MakePathTracingDirectionalLightSample(
                         delta / distance, emission, distance, 1.0, 0u);
                     const PathTracingDirectLightCandidate candidate = MakePathTracingDirectLightCandidate(

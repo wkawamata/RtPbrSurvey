@@ -221,7 +221,7 @@ static_assert(offsetof(Engine::InstanceData, meshId) == 132,
               "CPU and HLSL InstanceData meshId layouts must match.");
 static_assert(sizeof(Engine::SceneMesh::Range) == 16,
               "Hybrid reflection reads SceneMesh::Range as four uint values.");
-static_assert(sizeof(Engine::Material) == 120, "Material.hlsli must match Engine::Material structured buffer layout.");
+static_assert(sizeof(Engine::Material) == 124, "Material.hlsli must match Engine::Material structured buffer layout.");
 static_assert(offsetof(Engine::Material, baseColorFactor) == 60,
               "CPU and HLSL base color factor offsets must match.");
 static_assert(offsetof(Engine::Material, uvScale) == 44, "Material UV scale offset must match Material.hlsli.");
@@ -234,6 +234,7 @@ static_assert(offsetof(Engine::Material, transmissionTint) == 96, "Material tran
 static_assert(offsetof(Engine::Material, transmissionIor) == 108, "Material IOR must match Material.hlsli.");
 static_assert(offsetof(Engine::Material, transmissionTexIndex) == 112, "Material transmission texture offset must match Material.hlsli.");
 static_assert(offsetof(Engine::Material, transmissionTintTexIndex) == 116, "Material transmission tint texture offset must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, alphaCutoff) == 120, "Material alpha cutoff offset must match Material.hlsli.");
 
 const wchar_t* EnvironmentSourceName(Engine::EnvironmentSource source)
 {
@@ -741,6 +742,10 @@ bool RtPbrSurveyEngine::ShouldRunRayReconstruction() const
 
 Engine::NrdRelaxPresentationStatus RtPbrSurveyEngine::ResolvePathTracingNrdPresentation() const
 {
+    if (m_pathTracingSettings.nrdPreview && m_sceneHasAlphaMask)
+    {
+        return Engine::NrdRelaxPresentationStatus::UnsupportedAlphaMask;
+    }
     if (m_pathTracingSettings.nrdPreview && m_sceneHasThinTransmission)
     {
         return Engine::NrdRelaxPresentationStatus::UnsupportedTransmission;
@@ -3675,6 +3680,8 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
     // Generate the material data.
     m_materialData.clear();
     m_sceneHasThinTransmission = false;
+    m_sceneHasAlphaMask = false;
+    m_sceneHasDoubleSided = false;
     const auto resolveTextureIndex = [this](int sceneTextureIndex, Engine::TextureSemantic fallbackSemantic) -> UINT
     {
         if (sceneTextureIndex >= 0 && sceneTextureIndex < static_cast<int>(m_sceneTextureCount))
@@ -3751,6 +3758,17 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
                 m.emissiveFactor[1] = gltfMaterial.emissiveFactor.y;
                 m.emissiveFactor[2] = gltfMaterial.emissiveFactor.z;
                 m.normalTextureScale = gltfMaterial.normalTextureScale;
+                m.alphaCutoff = gltfMaterial.alphaCutoff;
+                if (gltfMaterial.alphaMask)
+                {
+                    m.flags |= Engine::kMaterialFlagAlphaMask;
+                    m_sceneHasAlphaMask = true;
+                }
+                if (gltfMaterial.doubleSided)
+                {
+                    m.flags |= Engine::kMaterialFlagDoubleSided;
+                    m_sceneHasDoubleSided = true;
+                }
                 if (gltfMaterial.thinTransmission && gltfMaterial.transmissionFactor > 0.0f)
                 {
                     m.flags |= Engine::kMaterialFlagThinTransmission;
@@ -6648,6 +6666,8 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.samplesPerFrame = m_pathTracingSettings.samplesPerFrame;
     passDesc.pixelCenterPrimary = m_pathTracingSettings.pixelCenterPrimary;
     passDesc.thinTransmissionActive = m_sceneHasThinTransmission;
+    passDesc.alphaMaskActive = m_sceneHasAlphaMask;
+    passDesc.doubleSidedActive = m_sceneHasDoubleSided;
     passDesc.denoiserDistanceDiagnostics = m_pathTracingSettings.denoiserDistanceDiagnostics;
     passDesc.sampleStartIndex = m_pathTracingRuntimeState.frameSampleIndex;
     passDesc.randomSeed = m_pathTracingSettings.randomSeed;
@@ -7448,6 +7468,8 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 {"primarySampling", m_pathTracingSettings.pixelCenterPrimary ? "pixel-center" : "random-per-pixel"},
                 {"denoiserDistanceDiagnostics", m_pathTracingSettings.denoiserDistanceDiagnostics},
                 {"thinTransmissionActive", m_sceneHasThinTransmission},
+                {"alphaMaskActive", m_sceneHasAlphaMask},
+                {"doubleSidedActive", m_sceneHasDoubleSided},
                 {"nrdPreviewRequested", m_pathTracingSettings.nrdPreview},
                 {"nrdPresentation", Engine::NrdRelaxPresentationStatusText(ResolvePathTracingNrdPresentation())},
                 {"rayTMin", m_shadowSettings.rayTMin},

@@ -250,12 +250,12 @@ void TestImportDiagnostics()
     Require(clean && clean.diagnostics.empty(), "Supported opaque packed-float input must remain diagnostic-free.");
     Json document = baseline;
     document["materials"][0]["alphaMode"] = "MASK";
-    run(document, "AlphaModeIgnored", GltfDiagnosticSeverity::Warning);
+    run(document, "AlphaMaskNativePtOnly", GltfDiagnosticSeverity::Warning);
     document["materials"][0]["alphaMode"] = "BLEND";
     run(document, "AlphaModeIgnored", GltfDiagnosticSeverity::Warning);
     document = baseline;
     document["materials"][0]["doubleSided"] = true;
-    run(document, "DoubleSidedIgnored", GltfDiagnosticSeverity::Warning);
+    run(document, "DoubleSidedNativePtOnly", GltfDiagnosticSeverity::Warning);
     document = baseline;
     document["materials"][0]["normalTexture"]["texCoord"] = 1;
     run(document, "TextureCoordinateIgnored", GltfDiagnosticSeverity::Warning);
@@ -587,7 +587,33 @@ void TestThinTransmissionImport()
     load(document, false, "TransmissionMaterial");
     document = baseline;
     document["materials"][0]["pbrMetallicRoughness"]["baseColorFactor"][3] = 0.5;
-    load(document, false, "TransmissionMaterial");
+    load(document, true, "ThinTransmissionApproximation");
+    document["materials"][0]["alphaMode"] = "MASK";
+    document["materials"][0]["doubleSided"] = true;
+    document["materials"][0]["alphaCutoff"] = 0.25;
+    const auto masked = load(document, true, "AlphaMaskNativePtOnly");
+    Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].alphaMask && mesh.materials[0].doubleSided &&
+                NearlyEqual(mesh.materials[0].alphaCutoff, 0.25f), "Alpha mode, cutoff and sidedness must survive raw loading.");
+    Engine::SceneBuilder maskNode, maskLegacy;
+    Require(static_cast<bool>(maskNode.AddGltfNodeMesh(masked.asset, "Scaled")) &&
+                maskNode.GetMesh().materials[0].alphaMask && maskNode.GetMesh().materials[0].doubleSided &&
+                NearlyEqual(maskNode.GetMesh().materials[0].alphaCutoff, 0.25f), "Node loading must preserve alpha coverage.");
+    Require(maskLegacy.LoadGltfMesh(temporary.string()) && maskLegacy.GetMesh().materials[0].alphaMask &&
+                NearlyEqual(maskLegacy.GetMesh().materials[0].alphaCutoff, 0.25f), "Legacy loading must preserve alpha cutoff.");
+    const Json maskDocument = document;
+    for (double invalid : {-0.1, 1e300})
+    {
+        document = maskDocument;
+        document["materials"][0]["alphaCutoff"] = invalid;
+        load(document, false, "AlphaMaskMaterial");
+    }
+    document = maskDocument;
+    document["materials"][0]["alphaCutoff"] = 2.0;
+    load(document, true, "AlphaMaskNativePtOnly");
+    document = maskDocument;
+    document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"] = {{"index", 0}};
+    document["meshes"][0]["primitives"][0]["attributes"].erase("TEXCOORD_0");
+    load(document, false, "MissingAlphaMaskTexcoords");
     document = baseline;
     document["extensionsRequired"].push_back("KHR_lights_punctual");
     load(document, false, "RequiredExtension");
