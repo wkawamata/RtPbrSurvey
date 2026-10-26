@@ -45,8 +45,19 @@ def check_motion_capture(output, prefix):
     if np.array_equal(current, previous):
         raise ValueError('Moving production used identical camera transforms')
     position = arrays[1]
-    if not (position[..., 3] == 1).all():
-        raise ValueError('Moving fixture contains unsupported primary pixels')
+    background = position[..., 3] == 0
+    height, width = position.shape[:2]
+    if background.any():
+        y, x = np.mgrid[:height, :width]
+        ndc = np.stack(((x+.5)*2/width-1, 1-(y+.5)*2/height,
+                        np.ones_like(x), np.ones_like(x)), axis=-1)
+        near = ndc.copy()
+        near[..., 2] = 0
+        inverse = np.linalg.inv(current)
+        far_world, near_world = ndc @ inverse, near @ inverse
+        direction = far_world[..., :3]/far_world[..., 3:] - near_world[..., :3]/near_world[..., 3:]
+        sky = np.concatenate((direction, np.zeros((height, width, 1))), axis=-1)
+        position = np.where(background[..., None], sky, position)
     current_clip, previous_clip = position @ current, position @ previous
     expected = (previous_clip[..., :2] / previous_clip[..., 3:] -
                 current_clip[..., :2] / current_clip[..., 3:]) * [.5, -.5]
@@ -56,6 +67,12 @@ def check_motion_capture(output, prefix):
     magnitude = float(np.abs(expected).max())
     if magnitude < 1e-4 or error > max(2e-6, magnitude * .001):
         raise ValueError(f'Motion reprojection mismatch: max={magnitude}, error={error}')
+    background_magnitude = float(np.abs(expected[background]).max()) if background.any() else 0
+    background_error = float(np.abs(motion[background]-expected[background]).max()) if background.any() else 0
+    if background.any() and ((prefix == 'translation' and background_magnitude > 1e-6) or
+                             (prefix == 'rotation' and background_magnitude < 1e-4) or
+                             background_error > max(2e-6, background_magnitude * .001)):
+        raise ValueError('Background motion lost its infinity/rotation convention')
     clip_to_previous = np.asarray(key['clipToPrevClip']).reshape(4, 4)
     previous_to_clip = np.asarray(key['prevClipToClip']).reshape(4, 4)
     if not np.allclose(clip_to_previous, np.linalg.inv(current) @ previous, atol=2e-6, rtol=2e-6):
@@ -72,7 +89,8 @@ def check_motion_capture(output, prefix):
     result = arrays[4 if key['publishedSlot'] == 1 else 5][..., :3]
     if result.max() <= 0 or float(result.std()) < .01 or float(arrays[2][..., :3].std()) < .01:
         raise ValueError('Patterned moving image is black or uniform')
-    return dict(frameId=key['frameId'], maxMotionUv=magnitude, maxMotionError=error,
+    return dict(frameId=key['frameId'], backgroundPixels=int(background.sum()), backgroundMotionUv=background_magnitude,
+                backgroundMotionError=background_error, maxMotionUv=magnitude, maxMotionError=error,
                 inputSha256=sha(output/f'{prefix}-2.ptbuf'), outputStd=float(result.std()),
                 currentInputRmse=float(np.sqrt(np.mean((result-arrays[2][..., :3])**2))))
 
@@ -96,18 +114,33 @@ def main():
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--exe', type=Path, required=True)
+    parser.add_argument('--general-background', action='store_true')
     args = parser.parse_args()
     output, source, exe = args.output.resolve(), args.source.resolve(strict=True), args.exe.resolve(strict=True)
     if output == source or source in output.parents or (output.exists() and any(output.iterdir())):
         parser.error('Output must be a separate empty directory')
     fixture(source, output)
     motion_fixture(output)
+    if args.general_background:
+        gltf = json.loads((output/'box.gltf').read_text(encoding='utf-8'))
+        gltf['scenes'][0]['nodes'] = [1]
+        gltf['nodes'][1]['scale'] = [.3, .3, 1]
+        gltf['materials'][0]['pbrMetallicRoughness'].update(metallicFactor=.5, roughnessFactor=.5)
+        gltf['materials'][0]['emissiveFactor'] = [.2, .1, .05]
+        gltf['materials'][0]['emissiveTexture'] = dict(index=1)
+        write_json(output/'box.gltf', gltf)
+        preset = json.loads((output/'preset.json').read_text(encoding='utf-8'))
+        preset['pathTracing'].update(environmentEnabled=True, environmentSamplingMode=5)
+        preset['lighting']['iblIntensity'] = 1
+        write_json(output/'preset.json', preset)
     log = output/'runtime.log'
     command = [str(exe), '-SceneFile', str(output/'scene.json'), '-RenderPreset', str(output/'preset.json'),
                '-WindowSize', '256', '144', '-EnableDlssRayReconstruction',
                '-EnableExperimentalNativeRayReconstruction', '-PathTracingRrLifecycleValidation', str(output),
                '-LogToFile', str(log)]
-    report = dict(status='running', executableSha256=sha(exe), command=command, checkpoints=[], failures=[])
+    report = dict(status='running', executableSha256=sha(exe),
+                  conversionShaderSha256=sha(exe.parent/'shaders_PathTracingRrConversion_CSMain.cso'),
+                  producerShaderSha256=sha(exe.parent/'shaders_PathTracing_CSMain.cso'), command=command, checkpoints=[], failures=[])
     write_json(output/'report.json', report)
     try:
         child = subprocess.Popen(command, cwd=Path(__file__).resolve().parents[2])
@@ -134,8 +167,12 @@ def main():
         for item in records:
             if item['case'] not in ('native', 'nrd', 'input-rejected') and (item['output'] != 'rr' or not item['verified']):
                 raise ValueError('RR checkpoint did not publish verified output')
-        if records[0]['continuous'] < 2 or records[0]['resets'] != 1:
+        if records[0]['continuous'] < 2 or records[0]['resets'] > 1 + records[0]['inputRejected']:
             raise ValueError('Continuous history was not exercised')
+        if (records[2]['resets'] > records[1]['resets'] + records[2]['inputRejected'] - records[1]['inputRejected'] or
+                records[2]['lastReset'] or records[2]['cancelled'] != records[1]['cancelled'] or
+                records[2]['publishedFrameId'] <= records[1]['publishedFrameId']):
+            raise ValueError('Resume reset without an input rejection or retained stale output')
         if records[1]['nativeCalls'] != records[0]['nativeCalls'] or records[1]['publishedFrameId'] != records[0]['publishedFrameId']:
             raise ValueError('Paused production was re-evaluated')
         if records[3]['output'] != 'native' or records[4]['output'] != 'nrd':
@@ -155,6 +192,8 @@ def main():
         if (records[13]['width'], records[13]['height']) != (320, 180) or (records[14]['width'], records[14]['height']) != (256, 144):
             raise ValueError('Resize output dimensions did not update')
         motion_results = {prefix: check_motion_capture(output, prefix) for prefix in ('translation', 'rotation')}
+        if args.general_background and not all(item['backgroundPixels'] for item in motion_results.values()):
+            raise ValueError('Moving capture did not include background pixels')
         image_change = check_image_change(output)
         image = output/'viewport.png'
         if not image.read_bytes().startswith(b'\x89PNG\r\n\x1a\n'):

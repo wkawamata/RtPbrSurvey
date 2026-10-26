@@ -35,6 +35,7 @@ cbuffer ConversionFrame : register(b0)
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     uint hostGate;
     uint actualContinuation;
+    row_major float4x4 previousViewProjection;
 #endif
 };
 
@@ -65,29 +66,53 @@ cbuffer ConversionFrame : register(b0)
     float3 view = 0;
     if (all(isfinite(nearPoint)) && all(isfinite(farPoint)) && nearPoint.w != 0 && farPoint.w != 0)
         view = normalize(nearPoint.xyz / nearPoint.w - farPoint.xyz / farPoint.w);
+    RrConvertedInputs converted;
     float4 distance = g_specularDistance[pixel];
+    bool allowTracedSpecularMiss = false;
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     if (actualContinuation != 0)
     {
         float4 ray = g_secondaryRayData[pixel];
         float4 surface = g_secondarySurfaceDistance[pixel];
-        distance = float4(surface.x, ray.z, ray.x, 0);
-        // First live profile is the validated delta-specular continuation.
-        // Do not label arbitrary diffuse proposals as specular hit distance.
-        if (ray.y != 2 || g_f0Metallic[pixel].w != 1 || g_normalRoughness[pixel].w != 0 ||
-            any(!isfinite(surface)) || surface.y != ray.z)
-            distance.y = 0;
+        float2 motion = g_motionNdc[pixel];
+        if (all(g_primaryPosition[pixel] == 0))
+        {
+            // Reproject a direction at infinity. Translation cancels (w=0).
+            // A previous behind-camera direction or orthographic background has
+            // no supported correspondence; reject locally without changing the
+            // shared raw background guides used by Native/NRD.
+            const float4 previousSky = mul(float4(-view, 0), previousViewProjection);
+            motion = inverseViewProjection[2][3] != 0 && previousSky.w > 1e-6 && all(isfinite(previousSky))
+                         ? previousSky.xy / previousSky.w - ndc
+                         : float2(asfloat(0x7fc00000), asfloat(0x7fc00000));
+        }
+        converted = ConvertRrLiveInputs(g_frameRadiance[pixel].xyz,
+                                        g_normalRoughness[pixel],
+                                        g_viewZ[pixel],
+                                        motion,
+                                        g_baseColor[pixel],
+                                        g_f0Metallic[pixel],
+                                        g_primaryPosition[pixel],
+                                        ray,
+                                        surface,
+                                        view);
+    }
+    else
+    {
+#endif
+        converted = ConvertRrInputs(g_frameRadiance[pixel].xyz,
+                                    g_normalRoughness[pixel],
+                                    g_viewZ[pixel],
+                                    g_motionNdc[pixel],
+                                    g_baseColor[pixel],
+                                    g_f0Metallic[pixel],
+                                    g_primaryPosition[pixel],
+                                    distance,
+                                    view,
+                                    allowTracedSpecularMiss);
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     }
 #endif
-    RrConvertedInputs converted = ConvertRrInputs(g_frameRadiance[pixel].xyz,
-                                                  g_normalRoughness[pixel],
-                                                  g_viewZ[pixel],
-                                                  g_motionNdc[pixel],
-                                                  g_baseColor[pixel],
-                                                  g_f0Metallic[pixel],
-                                                  g_primaryPosition[pixel],
-                                                  distance,
-                                                  view);
     g_color[pixel] = converted.color;
     g_diffuseAlbedo[pixel] = converted.diffuseAlbedo;
     g_specularAlbedo[pixel] = converted.specularAlbedo;

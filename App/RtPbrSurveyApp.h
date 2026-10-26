@@ -169,6 +169,7 @@ private:
     void LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::UiFrameContext& context);
     void RunPathTracingHistoryValidation();
     void RunPathTracingRrLifecycleValidation();
+    void RunPathTracingRrInputCapture();
     void FlushD3D12DebugMessages();
     void LogFpsToFile(float cpuFrameTimeMs);
     bool CaptureEvaluationState(RtPbrSurvey::EvaluationState& state, std::string* error = nullptr);

@@ -21,14 +21,16 @@ def main():
     if output == source or source in output.parents or (output.exists() and any(output.iterdir())):
         parser.error('Output must be a separate empty directory')
     fixture(source, output)
-    report = dict(status='running', executableSha256=sha(exe), records=[], failures=[])
+    report = dict(status='running', executableSha256=sha(exe),
+                  conversionShaderSha256=sha(exe.parent/'shaders_PathTracingRrConversion_CSMain.cso'),
+                  records=[], failures=[])
     write_json(output/'report.json', report)
     try:
         cases = [('rr-output', True, 'PathTracing.RrOutput', True),
                  ('rr-viewport', True, '', True),
                  ('native-off', False, '', False),
-                 ('background', True, '', False),
-                 ('non-mirror', True, '', False),
+                 ('background', True, '', True),
+                 ('non-mirror', True, '', True),
                  ('thin-transmission', True, '', False)]
         for name, opt_in, resource, expected_rr in cases:
             folder = output/name

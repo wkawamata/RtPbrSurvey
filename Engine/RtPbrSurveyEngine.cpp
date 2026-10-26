@@ -3311,7 +3311,7 @@ void RtPbrSurveyEngine::CreatePipelineStates()
         CD3DX12_ROOT_PARAMETER1 parameters[3];
         parameters[0].InitAsDescriptorTable(_countof(reads), reads);
         parameters[1].InitAsDescriptorTable(_countof(writes), writes);
-        parameters[2].InitAsConstants(20, 0);
+        parameters[2].InitAsConstants(36, 0);
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC desc;
         desc.Init_1_1(_countof(parameters), parameters);
         ComPtr<ID3DBlob> signature, error;
@@ -7049,19 +7049,22 @@ void RtPbrSurveyEngine::ExecuteRrConversionPass(const RenderPass& pass)
         UINT height;
         UINT hostGate;
         UINT actualContinuation;
+        XMFLOAT4X4 previousViewProjection;
     } constants;
-    static_assert(sizeof(Constants) == 20 * sizeof(UINT));
+    static_assert(sizeof(Constants) == 36 * sizeof(UINT));
     XMStoreFloat4x4(&constants.inverseViewProjection,
                     XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.invViewProjection)));
     constants.width = m_renderWidth;
     constants.height = m_renderHeight;
     constants.hostGate = m_rrConversionHostGate;
     constants.actualContinuation = IsPtRrNativeRequested() ? 1u : 0u;
+    XMStoreFloat4x4(&constants.previousViewProjection,
+                    XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.prevViewProjection)));
     m_commandList->SetComputeRootSignature(m_rrConversionRootSignature.Get());
     m_commandList->SetPipelineState(m_rrConversionPipeline.Get());
     m_commandList->SetComputeRootDescriptorTable(0, m_pathTracingGuideTextureSrvs[0].gpu);
     m_commandList->SetComputeRootDescriptorTable(1, m_pathTracingGuideTextureUavs[PathTracingGuideRrColor].gpu);
-    m_commandList->SetComputeRoot32BitConstants(2, 20, &constants, 0);
+    m_commandList->SetComputeRoot32BitConstants(2, 36, &constants, 0);
     m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
     m_rrConversionRecorded = true;
 #endif

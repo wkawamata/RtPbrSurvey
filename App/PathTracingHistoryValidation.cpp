@@ -5,6 +5,92 @@
 
 #include <nlohmann/json.hpp>
 
+void RtPbrSurveyApp::RunPathTracingRrInputCapture()
+{
+    const auto fail = [this](const std::string& reason)
+    {
+        if (m_logFile)
+        {
+            fprintf(m_logFile, "[PathTracingRrInputCaptureFailure] %s\n", reason.c_str());
+            fflush(m_logFile);
+        }
+        m_exitCode = 1;
+        DestroyWindow(Win32Application::GetHwnd());
+    };
+    if (!m_logFile || m_appMode != AppMode::Running || m_renderingPath != RtPbrSurveyEngine::RenderingPath::PathTracing)
+    {
+        fail("Running PT scene and log are required");
+        return;
+    }
+    const auto context = m_sceneRenderer.GetUiFrameContext();
+    const auto& rr = context.pathTracingDiagnostics;
+    const uint64_t calls = context.rayReconstructionDiagnostics.nativeEvaluateCallCount;
+    const bool ready = rr.rrRetainedOutputVerified && rr.rrLivePhase == "retained-output-ready" &&
+                       rr.reconstructionPresentation.output == Engine::PathTracingReconstructionBackend::Rr;
+    if (m_rrLifecycleStage == 0 && ready)
+    {
+        // Retry incomplete/unsupported startup packets, then pin the first
+        // GPU-verified production. Every source and output capture shares it.
+        m_sceneRenderer.SetPathTracingAccumulationPaused(true);
+        m_rrLifecyclePublished = rr.rrRetainedFrameId;
+        m_rrLifecycleStage = 1;
+    }
+    if (m_rrLifecycleStage == 1)
+    {
+        if (!ready || calls != 1 || rr.rrCompletedCount != 1 || rr.rrRetainedFrameId != m_rrLifecyclePublished)
+        {
+            fail("Input capture lost its first verified production");
+            return;
+        }
+        static constexpr const char* names[] = {"SecondaryRayData",
+                                                "SecondarySurfaceDistance",
+                                                "RrHitDistance",
+                                                "RrColor",
+                                                "CurrentFrameRadiance",
+                                                "DenoiserPrimaryPosition",
+                                                "RrOutput"};
+        if (!m_rrLifecycleEntered)
+        {
+            RtPbrSurvey::ScreenshotRequest request;
+            request.path = std::filesystem::absolute(m_commandLineOptions.pathTracingRrInputCaptureDirectory /
+                                                     (std::string(names[m_rrLifecycleCapture]) + ".ptbuf"));
+            request.debugResourceName = std::string("PathTracing.") + names[m_rrLifecycleCapture];
+            m_sceneRenderer.RequestScreenshot(request);
+            m_rrLifecycleEntered = true;
+        }
+        else if (const auto result = m_sceneRenderer.ConsumeScreenshotResult())
+        {
+            if (!result->succeeded)
+            {
+                fail(result->error);
+                return;
+            }
+            ++m_rrLifecycleCapture;
+            m_rrLifecycleEntered = false;
+            if (m_rrLifecycleCapture == std::size(names))
+            {
+                const nlohmann::json record = {{"frameId", rr.rrRetainedFrameId},
+                                               {"nativeCalls", calls},
+                                               {"inputRejected", rr.rrInputRejectionCount},
+                                               {"verified", ready},
+                                               {"captures", m_rrLifecycleCapture}};
+                fprintf(m_logFile, "[PathTracingRrInputCaptureComplete] %s\n", record.dump().c_str());
+                fflush(m_logFile);
+                DestroyWindow(Win32Application::GetHwnd());
+                return;
+            }
+        }
+    }
+    UpdateUiFrame();
+    m_sceneRenderer.RunFrame([this](ID3D12GraphicsCommandList* commands) { m_imguiSystem.Render(commands); });
+    ++m_rrLifecycleFrames;
+    ++m_automationFrameCounter;
+    if (m_d3d12InfoQueue)
+        FlushD3D12DebugMessages();
+    if (m_rrLifecycleFrames > 512)
+        fail("Input capture timed out: " + rr.rrLivePhase + " " + rr.rrLiveFailure);
+}
+
 void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
 {
     using Backend = Engine::PathTracingReconstructionBackend;
@@ -79,7 +165,7 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
             }
             if (ready && rr.rrCompletedCount >= 3 && rr.rrContinuousCount >= 2)
             {
-                if (rr.rrResetCount != 1)
+                if (rr.rrResetCount > 1 + rr.rrInputRejectionCount)
                 {
                     fail("Continuous static frames unexpectedly reset");
                     return;
@@ -102,11 +188,12 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
             }
             break;
         case 2:
-            if (ready && calls >= m_rrLifecycleCalls + 2)
+            if (ready && calls >= m_rrLifecycleCalls + 2 && !rr.rrLastReset)
             {
-                if (rr.rrResetCount != m_rrLifecycleResets || rr.rrRetainedFrameId <= m_rrLifecyclePublished)
+                if (rr.rrResetCount > m_rrLifecycleResets + rr.rrInputRejectionCount - m_rrLifecycleRejected ||
+                    rr.rrCancelledCount != m_rrLifecycleCancelled || rr.rrRetainedFrameId <= m_rrLifecyclePublished)
                 {
-                    fail("Resume lost history or reused stale output");
+                    fail("Resume reset history without input rejection or reused stale output");
                     return;
                 }
                 checkpoint("resumed");
@@ -274,6 +361,10 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
             {
                 m_rrLifecycleCamera = m_sceneRenderer.GetCamera();
                 auto camera = m_rrLifecycleCamera;
+                // Move outside the fixture and turn away. Background directions
+                // now lie behind the retained camera: reject undefined motion,
+                // rather than relying on the formerly unsupported rough wall.
+                camera.pos.z -= 10;
                 camera.gazePoint = {camera.pos.x, camera.pos.y, camera.pos.z - 1};
                 LoadedScene().GetScene().camera = camera;
                 m_sceneRenderer.SetCamera(camera);

@@ -189,6 +189,16 @@ _Use_decl_annotations_ void RtPbrSurveyApp::ParseCommandLineArgs(WCHAR* argv[], 
     {
         throw std::invalid_argument("-PathTracingSamples requires -CapturePath.");
     }
+    if (!m_commandLineOptions.pathTracingRrInputCaptureDirectory.empty() &&
+        (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
+         !m_commandLineOptions.enableExperimentalNativeRayReconstruction ||
+         m_commandLineOptions.pathTracingReconstruction != "rr" ||
+         !m_commandLineOptions.pathTracingRrLifecycleValidationDirectory.empty() ||
+         !m_commandLineOptions.capturePath.empty() || m_commandLineOptions.captureSessionEnabled ||
+         !m_commandLineOptions.pathTracingHistoryValidationDirectory.empty() ||
+         !m_commandLineOptions.pathTracingCapturePlanPath.empty() ||
+         !m_commandLineOptions.reflectionCapturePlanPath.empty()))
+        throw std::invalid_argument("RR input capture requires SceneFile, LogToFile, native RR and exclusive capture control.");
     if (!m_commandLineOptions.pathTracingRrLifecycleValidationDirectory.empty() &&
         (m_commandLineOptions.sceneFilePath.empty() || m_commandLineOptions.logFilePath.empty() ||
          !m_commandLineOptions.enableExperimentalNativeRayReconstruction || !m_commandLineOptions.capturePath.empty() ||
@@ -932,6 +942,11 @@ void RtPbrSurveyApp::OnWindowSizeChanged(UINT width, UINT height)
 
 void RtPbrSurveyApp::OnIdle()
 {
+    if (!m_commandLineOptions.pathTracingRrInputCaptureDirectory.empty())
+    {
+        RunPathTracingRrInputCapture();
+        return;
+    }
     if (!m_commandLineOptions.pathTracingRrLifecycleValidationDirectory.empty())
     {
         RunPathTracingRrLifecycleValidation();

@@ -1413,3 +1413,172 @@ report: `build/reconstruction-input-validation/captures/rr-main103-lifecycle-202
   clear / tint / backface / NRD bypass / two layers / factor-zero endpointを確認。
   NRD bypass画像はNativeとbit-exact。tint最大誤差は約2.93e-4、two layersは約3.91e-5。
   report: `build/reconstruction-input-validation/captures/rr-main103-thin-20261025/report.json`。
+
+
+## 2026-10-26 Step 4a: 実際の二次specular missの入力対応
+
+PR #105 merge後のmain `4c0dd42` から `codex/pt-rr-general-inputs-work4` を開始した。
+一般入力対応の最初の範囲は、opaqueな鏡面primaryから実際に追跡したspecular continuationのmiss。
+primary background、未追跡、diffuse continuation、非鏡面/非金属、透過材の許可はまだ追加しない。
+
+参照:
+
+- [Streamline 2.12.0 RR guide](https://github.com/NVIDIA-RTX/Streamline/blob/v2.12.0/docs/ProgrammingGuideDLSS_RR.md):
+  specular hit distanceはprimary surfaceからのworld-space距離とcamera行列を使う。
+- [NVIDIA vk_gltf_rendererのpath tracer](https://github.com/nvpro-samples/vk_gltf_renderer/blob/master/shaders/gltf_pathtrace.slang):
+  `captureSpecularHit` が有効な実際のenvironment missをRR guideの65504へ変換する例を確認した。
+  参照日2026-10-26。これはサンプル実装の距離規約であり、あらゆるsceneの画質を保証する仕様とは扱わない。
+
+距離policy:
+
+| producerの状態 | RR入力 | SDKへの許可 |
+| --- | --- | --- |
+| 実際のspecular traced hit | SecondarySurfaceDistance.xのworld-space実測値 | 従来どおり他の全条件を確認 |
+| 実際のspecular traced miss | RR固有のenvironment規約値65504 | 今回の追加対象 |
+| 未trace / diffuse continuation / state不一致 / 非有限 | 無効statusを保持 | Native fallback |
+
+`RrActualSpecularDistance` はrayとsurfaceのstate一致、specular branch、material profile、有限値、paddingを確認する。
+実測hitが65504を超えてもclampしない。missをhitへ書き換えず、raw state=2とphysical surface distance=0を保持し、
+RRへ渡す段階でのみ規約値へ変換する。ray.TMaxを物理hit距離として使わない。
+既存GGXの未trace sampleへ規約値を割り当てない。
+
+live actual-continuation callerだけが明示的にtraced missを許可する。
+legacyの独立probe変換とstandalone replay用の従来関数はfinite traced-hit-onlyを維持する。
+producer、NRD入力、camera履歴、通常render経路のresource数、root constants数、GPU readbackと待機方式は変更しない。
+既存native opt-inの内側で有効にし、primary背景や一般材質の対応が済んだとは扱わない。
+
+追加検証:
+
+- GPU契約test16ケース。positive hit、traced miss、legacy miss拒否、未trace拒否、
+  diffuse branch、material/state/padding不整合、NaN、primary無効、radiance無効、65504超の実測hitを含む。
+- 実機fixtureはprimaryの鏡面だけを残し、反射先をconstant environmentにする。
+  RR出力、RR距離、実際のsecondary ray、secondary surface stateを別々にcaptureし、
+  同じ保持production/frame/sample/cameraであることを照合する。
+  raw rayはspecular branch/state=miss、surfaceのphysical距離は0、RR距離だけ65504、
+  SDK call 1、finiteな検証済みRR出力を確認する。
+
+
+相関capture:
+
+`-PathTracingRrInputCapture <directory>` を診断CLIへ追加した。
+SceneFile / LogToFile / native opt-inを必須とし、他のcapture controlとは排他にする。
+入力拒否時は既存continuous経路で再取得し、最初のGPU検証済みRR出力でPTをpauseする。
+その1つのproductionからray、surface、RR距離、RR color、PT radiance、primary position、RR outputを順次PTBUFへ保存する。
+SDK評価は1回に限定し、各captureのframe/sample/cameraとpublished allocationが同じであることを確認する。
+
+初回productionが背景として拒否される実行があり、固定warm-up後の別process captureでは
+無効な保持keyと、その後に生成したNative raw guideを混在させる可能性が分かった。
+最初のsample indexを0に固定せず、実際にGPU検証されたproductionのkeyへ全captureを合わせる。
+既存保持frameモードの動作は変更しない。常時renderに画像readbackや追加待機を導入しない。
+
+静止連続・pause/resumeの検証も、既存の移動時と同様に、実際の入力拒否で説明できるresetのみ許容する。
+入力拒否がないのにresetすること、pause中の再評価、resume後の古い出力の使い回し、不要なcancelは引き続き拒否する。
+resumeのcheckpointはreset後の最初の出力で終わらせず、再びcontinuousになった後に確定する。
+
+検証記録:
+
+- 関連CTest 16/16成功。GPU16 caseに加え、従来の32 case変換testとCLI input captureのparseも確認。
+- 最終Debug buildはwarning/error 0。
+  log: `C:/work/RtPbrSurvey-agents/pt-rr-correlated-miss-capture-work4`。
+- 同一processの7 capture成功、SDK call 1、finiteな検証済みRR出力、D3D12 ERROR 0。
+  raw surface距離は0 / raw rayはspecular miss / RR guideだけ65504であることを確認した。
+  primary world positionの独立再投影も検査し、入力cameraと実際のpixelの一致を確認する。
+  report: `build/reconstruction-input-validation/captures/rr-secondary-miss-correlated-final-20261026/report.json`。
+- 従来の保持・fallback 6 caseと、移動・切替・resize等15 checkpointも成功、D3D12 ERROR 0。
+  report: `build/reconstruction-input-validation/captures/rr-secondary-miss-regression-20261026/report.json`、
+  `build/reconstruction-input-validation/captures/rr-secondary-miss-regression-lifecycle-20261026/report.json`。
+- executable SHA256: `9df3c4987067f617a425c933bcdd32d7d6f388bb241e99c181897fdd84b1c10b`。
+  RR conversion CSO SHA256: `39107576457e8b5579b4e8a218db0034cb055db9f2019f242625c4d6e4f82ed4`。
+- 途中の失敗report（`rr-secondary-miss-lifecycle-20261026`、`rr-secondary-miss-final-20261026`）もbuild配下へ保持する。
+  これらは修正前の検証条件や相関が保証されない別process captureの失敗記録で、成功扱いにしない。
+
+今回の完了範囲は鏡面primaryの実際の二次specular missと、その同一入力・出力の検証。
+一般material、primary background、未traceのRR入力対応、画質・性能の評価は未完了。変更は未コミット。
+
+
+## Step 4b: 一次背景・一般不透明材質・未追跡のlive RR入力 (2026-10-26)
+
+Step 4aの鏡面専用profileを拡張する。共通producer、Native/NRDの入力、独立probeを使う旧変換の契約は維持し、
+実continuationを使うlive RR adapterにだけ次の分類を追加した。
+
+| 実際の入力 | RR specular hit distance | その他のguide |
+|---|---|---|
+| specular branchの実hit | primary surfaceからの実距離 | 不透明材質のbaseColor/F0/metallic/roughness |
+| specular branchの実miss | 65504 | 実missの状態をraw側で保持 |
+| diffuse branchの実hit/miss | 0 | diffuseの距離をspecular距離へ流用しない |
+| secondary ray/surfaceが完全に0の未追跡 | 0 | 未追跡を環境missや実hitにしない |
+| 一次背景 | 0 | 下記の背景専用guide |
+| 不整合・非有限・不正padding/state | 拒否 | 全画面Native fallbackと履歴の再初期化 |
+
+一般材質はmetallic=1/roughness=0という制限を外し、元から共通入力に存在するF0/metallic/baseColorと
+linear roughnessを使う。specular albedoは従来と同じEnvBRDFApprox2、diffuse albedoはbaseColor*(1-metallic)。
+未追跡は両raw tupleが完全に0の場合だけ許可し、一部だけ0、state不一致、不正なbranchなどを許可しない。
+透過材質のhost guardは継続する。BSDF、ray tracing、radianceの計算は変更しない。
+
+背景はprimaryPosition/baseColor/material/secondaryの0、normal=(0,0,0,1)、viewZ=0という
+共通producerの既存miss表現をすべて照合してから変換する。RRにはcolorをそのまま渡し、
+diffuse albedo=saturate(color)、specular albedo=0、normal=0、roughness=1、linear depth=65504を使う。
+背景depthの65504は有限値のadapter規約であり、実surface距離の計測結果ではない。
+参照したNVIDIAサンプルはhardware depthの背景を扱うため、このlinear depth規約は実機での数値的接続までを検証し、
+すべての距離スケールでの画質を保証するものではない。
+
+背景motionはRR変換shader内でpixel中心の世界ray方向をinverse VPから復元し、w=0で前回の保持済みVPへ投影する。
+平行移動による視差は0、回転には対応する。共通raw motionの背景0は書き換えない。
+前回cameraの背面へ向く方向、orthographic背景、無効な投影は現段階では拒否する。
+不正値はadapterのローカル値として検出し、SDKへ渡す出力へ漏らさない。
+前回VPを渡すためRR conversion root constantsは20から36 DWORDへ増加した（64 bytes/frame）。
+追加texture、dispatch、GPU readback、CPU fence waitはない。
+
+参考一次資料:
+- Streamline v2.12.0 RR guide: https://github.com/NVIDIA-RTX/Streamline/blob/v2.12.0/docs/ProgrammingGuideDLSS_RR.md
+- NVIDIA sample: https://github.com/nvpro-samples/vk_gltf_renderer/blob/master/shaders/gltf_pathtrace.slang
+  （guideを初期化して選択されたspecular eventだけ距離を記録する構成、背景をdirectionとして投影する構成を参照。）
+SDKのversionは2.12.0のまま。
+
+検証は既存の単一productionを固定する7枚captureを継続利用し、
+`validate_rr_secondary_miss.py --profile mirror-miss|general|dielectric|untraced|mixed-background`で
+raw branch/stateとRR距離、色のbit一致、入力camera、SDK出力を照合する。
+`RrLiveDistance`は旧profileの回帰と新しい一般材質・背景・未追跡を合わせて32 GPU caseに拡張した。
+
+lifecycleの従来の拒否trigger（背面の粗い非金属壁）は今回サポート対象となるため、
+fixture外へ移動して反対方向を向き、前回cameraの背面方向となる背景motionを拒否するscenarioへ変更した。
+拒否件数・Native fallback・SDK履歴reset・RRへの復帰という検査自体は残している。
+`validate_rr_lifecycle.py --general-background`では小さな一般材質surfaceと背景を混在させ、
+両者のmotionを保持済みcamera行列から独立再計算する。背景の平行移動0、回転nonzeroも個別に検査する。
+
+最終構成の移動・pause/resume・Native/NRD/RR切替・入力拒否/復帰・projection・resizeの15 checkpointは成功した。
+report: `build/reconstruction-input-validation/captures/rr-general-background-lifecycle-final-20261026/report.json`。
+背景pixel数は平行移動17,958、回転18,082。背景motionの最大誤差はそれぞれ約1.58e-7、1.70e-7 UV。
+D3D12 ERROR 0。残像・disocclusionの画質判定や性能最適化は別途必要であり、reportのRMSEは合否基準ではない。
+
+既存のlive共通条件（1 spp、pixel center、非蓄積、2 bounce、Radiance、distance diagnostics）は維持する。
+透過・orthographic背景・大きな回転での背景再投影不能は未対応。一般シーン全体の画質・性能の完成とは扱わない。
+変更はStep 4a分と合わせてWork4の `codex/pt-rr-general-inputs-work4` 上で未コミット。
+
+
+最終binaryによる同一production captureの5 profileはすべて成功した（各1回のnative RR evaluate、7枚のcapture、D3D12 ERROR 0）。
+
+| profile | 一次背景 | 未追跡 | specular branch | diffuse branch |
+|---|---:|---:|---:|---:|
+| mirror-miss | 0 | 0 | 36,864 | 0 |
+| general (metallic=.5, roughness=.5) | 0 | 1,180 | 17,881 | 17,803 |
+| dielectric (metallic=0, roughness=.5) | 0 | 149 | 2,404 | 34,311 |
+| untraced (metallic=1, roughness=1) | 0 | 18,530 | 18,334 | 0 |
+| mixed-background | 17,820 | 588 | 9,231 | 9,225 |
+
+reports: `build/reconstruction-input-validation/captures/rr-live-{profile}-final-20261026/report.json`。
+executable SHA256: `e2603fe73b92b10650538186ae857cf476674b48a88dc4d54d240ada1e76726e`。
+RR conversion CSO SHA256: `e6cdee34ac37c696b1494b34530b3f7cf1d9b469ba26348afeda41fa9b6c348b`。
+共有producer CSO SHA256: `42bfaebe946465d4cf7471c523b1c2cf88fb15175eba141f0dfb40728d7aa18e`。
+
+背景pixelでは前回VPへの投影と入力照合の演算が追加されるため、処理時間が完全に0増分という意味ではない。
+今回の検証は正しい入力分類・数値・履歴・SDK出力の接続までで、GPU時間の比較評価は未実施。
+
+
+最終回帰: 関連CTest 16/16成功（既存RR conversion 32 caseとlive 32 caseのGPU検査を含む）。
+保持出力・viewport・native opt-in OFF・一次背景・一般材質・透過guardの6 caseも成功、D3D12 ERROR 0。
+report: `build/reconstruction-input-validation/captures/rr-live-regression-final-20261026/report.json`。
+背景・一般材質のcaseは以前の「拒否を期待」から「検証済みRR出力を期待」へ変更した。
+Debug logには既知のbuffer初期stateに関するWARNINGが存在するため、WARNING 0とはしていない。
+途中のproducer側で背景motionを計算した試作のreportもbuild配下に残すが、上記final reportはすべて
+RR adapter内へ限定した最終binaryとCSOの組み合わせによるもの。
