@@ -989,7 +989,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             bool pathTracingSettingsChanged = false;
             static constexpr const char* kPathTracingDebugOutputs[] = {
                 "Albedo + Emissive", "World Normal", "Emissive", "Radiance", "Volume Boundaries", "Volume Status",
-                "Volume Outgoing Direction", "Volume Exit Position"};
+                "Volume Outgoing Direction", "Volume Exit Position", "Volume Transmittance"};
             int debugOutput = static_cast<int>(pathTracingSettings.debugOutput);
             if (ImGui::Combo("Path Tracing Output",
                              &debugOutput,

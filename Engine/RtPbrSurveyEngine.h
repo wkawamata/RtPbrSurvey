@@ -281,6 +281,7 @@ public:
         VolumeStatus,
         VolumeOutgoingDirection,
         VolumeExitPosition,
+        VolumeTransmittance,
     };
 
     struct PathTracingSettings

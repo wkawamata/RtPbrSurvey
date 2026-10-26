@@ -4,9 +4,9 @@ Closed clear box, IOR=1.5, physical thickness 0.8 in world units.
 The checker behind the box is refracted at the entry and exit surfaces.
 This is not the existing straight-through thin-surface approximation.
 
-Initial qualification: one cube/sphere, camera outside, smooth clear dielectric.
-Distance absorption, rough volumes, nested media, glTF volume and caustics remain
-outside this step. Unsupported material combinations are rejected explicitly.
+This scene retains the Step 2 clear-medium control. Step 3 adds homogeneous
+distance absorption in scenes28-30. Rough volumes, nested media, glTF volume and
+caustics remain outside the current scope. Unsupported combinations are rejected.
 
 Debug outputs:
 
@@ -16,7 +16,7 @@ Debug outputs:
 - Volume Exit Position: last physical exit position; zero if no transmitted exit.
 
 Error codes: 1=miss while inside, 2=medium/instance mismatch, 3=bounce budget,
-4=invalid boundary sample, 5=backface while outside. Debug outputs are sample
+4=invalid boundary sample, 5=backface while outside, 6=invalid attenuation input. Debug outputs are sample
 averages when accumulation is enabled. Negative direction/position values should
 be inspected in RAW captures; the ordinary tone mapper is not a signed-data view.
 

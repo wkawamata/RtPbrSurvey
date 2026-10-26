@@ -1,7 +1,7 @@
 # Native PT Volume Transmission Plan
 
 Date: 2026-10-25
-Status: Steps 1a, 1b and the initial Step 2 boundary subset verified. Distance absorption is not active yet.
+Status: Steps 1a, 1b, 2 and 3 numerically verified. Step 3 saved-scene captures completed; user visual approval pending.
 Branch: `codex/pt-volume-transmission`.
 Base: `e36933b`, dependent on PR #104 (not merged at plan creation).
 
@@ -304,6 +304,107 @@ User visual approval is separate from numerical validation.
 
 ```powershell
 python -B Tests/PathTracing/validate_volume_boundary.py --exe bin/PathTracingValidation/thin-gltf-build-20261024/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/volume-boundary-new-run
+```
+
+## Step 3 Distance Absorption (2026-10-26)
+
+Step 2 was committed as `f66f3fb`. Step 3 removes only the finite colored-medium
+gate: one closed Cube/Sphere, camera outside, smooth dielectric, full transmission,
+white boundary tint/base color and IOR [1,4] remain the accepted runtime subset.
+The runtime material layout remains 140 bytes.
+
+The entering boundary supplies homogeneous medium absorption parameters. On every
+subsequent segment inside that medium, the renderer computes the physical
+boundary-to-boundary distance and multiplies throughput once by
+`attenuationColor^(segmentLength/attenuationDistance)`. Internal reflection retains
+the medium and contributes another segment; an exit does not apply a second
+boundary absorption factor. Invalid attenuation inputs produce diagnostic code 6.
+
+`Volume Transmittance` (saved enum 8, shader diagnostic 12) displays the product of
+absorption factors along the sampled path. It excludes Fresnel, boundary tint and
+background radiance. With accumulation its display is an average of path
+transmittances, not attenuation evaluated at the mean path length.
+
+### Quantity Contract
+
+The first integration run passed the direct absorption controls but failed the
+internal-reflection pair: an entry/exit count of 0.5 revealed that SceneColor held
+multiple accumulated path samples. Applying Beer's law to that averaged distance
+is not a valid test of the averaged transmittance. No GPU change or tolerance
+relaxation was used to make this case pass.
+
+Per-path tests now capture the existing `PathTracing.CurrentFrameRadiance`
+resource with samplesPerFrame=1, the same seed, scene and sampling settings.
+Only the diagnostic output differs between the paired distance/transmittance
+captures. Their individual pixels are compared before any spatial averaging.
+The stochastic Fresnel radiance case deliberately captures accumulated SceneColor
+after 64 warm-up frames and compares an ensemble mean, not a particular path.
+Warm-up frame counts are not used to claim an exact single-path SceneColor image.
+
+The failed evidence and pre-correction runner are preserved in
+`bin/PathTracingValidation/volume-absorption-20261026`.
+The corrected report is `bin/PathTracingValidation/volume-absorption-r2-20261026/report.json`.
+
+### Numerical Results
+
+- [x] 18 absorption runtime cases passed: thickness 1/2, oblique incidence,
+  uniform instance scaling, zero color channel, infinite attenuation distance,
+  white medium, sphere, origin bias x100, direct transmittance, reflected/TIR
+  path-length pairs and status controls, Fresnel radiance and NRD bypass.
+- [x] Double-thickness normalized transmittance versus the square of the single:
+  maximum error 0.000000240 (budget 0.002).
+- [x] Origin-bias control: maximum difference 0.000000060 (budget 0.0005).
+- [x] NRD request versus Native current-frame radiance: exact ROI equality.
+- [x] Multi-segment transmittance errors: ordinary reflection 0.000000252,
+  TIR 0.000000162 (both budget 0.002).
+- [x] Fresnel/absorbing-slab radiance mean error 0.0004394 (budget 0.015).
+- [x] CTest 44/44. Python 37/37 (17 transmission, 4 roughness texture, 5 MASK,
+  11 volume tests). Debug build passed with two existing LNK4199 warnings.
+- [x] No-absorption boundary runtime regression (12/12 cases).
+- [x] Saved-scene captures for scenes 28, 29 and 30 completed.
+- [ ] User visual approval of the saved-scene captures.
+
+Boundary regression evidence is
+`bin/PathTracingValidation/volume-absorption-boundary-regression-20261026/report.json`.
+The three screenshot smoke reports are under
+`bin/PathTracingValidation/volume-absorption-reviews-20261026`, each marked
+`passed-runtime-smoke-not-subjective-approval`. Captures show the blue absorbing
+box/sphere with refracted checker background. Sphere edge faceting and residual
+sampling noise remain visible; screenshot inspection is not a quality sign-off.
+The full thin/MASK/metallic GPU regression and NRD quality suite were not rerun
+in this step; their CPU/contract tests are included in the counts above.
+
+The independent reference uses IOR=1 to isolate absorption. The IOR=1.5 slab
+reference also sums the repeated internal-reflection series per RGB channel:
+`background * (1-F)^2 * T / (1-F^2*T^2)`, for the fixed parallel slab and disabled
+environment. Sphere length uses the analytic chord, with a declared mesh/RAW
+budget of 0.002; planar direct-color budget is 0.001. The paired-path tests require
+matching scene and sampling settings and complete exits. Unit tests reject the
+incorrect mean-distance method, missing controls and mismatched random seeds.
+
+### Saved Scenes and Limits
+
+- Scene28: absorbing box, thickness 0.8.
+- Scene29: the same material and camera, thickness 1.6.
+- Scene30: absorbing radius-1 sphere.
+
+All use white boundaries, IOR=1.5, linear absorption color (0.25,0.5,0.8), distance
+1 world unit, and the existing scene20 checker. Their descriptions record what
+to observe in Japanese. NRD continues to fall back to Native PT.
+
+This does not add alpha BLEND, rough volume BTDF, nested/overlapping media,
+camera-inside support, glTF volume import or scattering. Shadow visibility rays
+remain opaque; refracted-light connection/caustics-oriented sampling and colored
+light projection onto a receiver are not qualified by these tests. Volume material
+editing controls and glTF integration remain separate follow-up work units.
+
+The capture contract is shared in `volume_capture.py`; it requires runtime scene,
+resource, mode, sample settings, Debug Layer and NRD state rather than accepting
+an image file alone. Reports retain exact case lists, assessment results,
+relationship checks and source/binary/input/RAW/log hashes.
+
+```powershell
+python -B Tests/PathTracing/validate_volume_absorption.py --exe bin/PathTracingValidation/thin-gltf-build-20261024/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/volume-absorption-new-run
 ```
 
 ## References

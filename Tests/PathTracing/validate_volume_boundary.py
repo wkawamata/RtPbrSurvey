@@ -3,13 +3,12 @@ import argparse
 import json
 import math
 from pathlib import Path
-import subprocess
 
 import numpy as np
 
 from volume_boundary_fixture import write_volume_fixture
-from transmission_texture_fixture import ROOT, BACKGROUND, write_json
-from validate_inputs import read_buffer
+from transmission_texture_fixture import BACKGROUND, write_json
+from volume_capture import capture_volume
 from validate_part1 import sha
 
 
@@ -105,50 +104,18 @@ def main():
         ("nrd-fallback", 3, 1, False, 8, "SceneColor"), ("budget-control", 5, 1, False, 1, "SceneColor"),
         ("tir-state", 5, 1.5, False, 64, "SceneColor")]
     report = dict(status="running", executableSha256=sha(exe), shaderSha256=sha(shader), runnerSha256=sha(Path(__file__)),
-        fixtureSha256=sha(Path(__file__).with_name("volume_boundary_fixture.py")), expectedCases=[c[0] for c in cases], cases=[], failures=[])
+        fixtureSha256=sha(Path(__file__).with_name("volume_boundary_fixture.py")), expectedCases=[c[0] for c in cases], cases=[], failures=[],
+        dependencySha256={name: sha(Path(__file__).with_name(name)) for name in
+            ("volume_capture.py", "transmission_texture_fixture.py", "validate_inputs.py", "validate_part1.py")})
     write_json(output/"report.json", report)
     try:
         for name, mode, ior, sphere, frames, resource in cases:
             folder = output/name
             scene, preset = write_volume_fixture(folder, mode=mode, ior=ior, sphere=sphere,
                 bounces=2 if name == "budget-control" else 16, tir=name == "tir-state")
-            buffer, log = folder/"capture.ptbuf", folder/"debug.log"
-            command = [str(exe), "-SceneFile", str(folder/"scene.json"), "-EnablePathTracing", "-DebugPreviewResource",
-                "PathTracing."+resource, "-CapturePath", str(buffer), "-CaptureAfterFrames", str(frames),
-                "-LogToFile", str(log), "-ExitAfterCapture"]
-            if name == "nrd-fallback":
-                command.append("-NrdPreview")
-            startup = subprocess.STARTUPINFO()
-            startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            startup.wShowWindow = subprocess.SW_HIDE
-            child = subprocess.Popen(command, cwd=ROOT, startupinfo=startup, creationflags=subprocess.CREATE_NO_WINDOW)
-            try:
-                code = child.wait(timeout=180)
-            except subprocess.TimeoutExpired:
-                child.kill()
-                child.wait()
-                raise ValueError("Volume capture timeout: "+name)
-            text = log.read_text(encoding="utf-8-sig")
-            records = [json.loads(line[len("[PathTracing] "):]) for line in text.splitlines() if line.startswith("[PathTracing] ")]
-            if code or "[ERROR]" in text or "[CORRUPTION]" in text or len(records) != 1:
-                raise ValueError("Runtime/Debug Layer failure: "+name)
-            state = records[0]
-            meta, image = read_buffer(buffer)
-            if (meta.get("volumeTransmissionActive") is not True or meta.get("pathTracingDebugOutput") != mode
-                or meta.get("resource") != "PathTracing."+resource or meta.get("sampleStartIndex") != frames
-                or meta.get("primarySampling") != "pixel-center" or state.get("samplesPerFrame") != 1
-                or state.get("maxBounces") != preset["pathTracing"]["maxBounces"]
-                or state.get("accumulatedSamples") != frames or state.get("environmentEnabled") is not False
-                or state.get("d3d12DebugLayerEnabledByApp") is not True):
-                raise ValueError("Volume runtime state mismatch: "+name)
-            if name == "nrd-fallback" and (meta.get("nrdPresentation") != "Native fallback: volume transmission is not qualified for NRD"
-                or meta.get("nrdLastEvaluation", {}).get("recorded") is not False
-                or state.get("nrdPlannedDispatches") != 0 or state.get("nrdPreparedDispatches") != 0):
-                raise ValueError("Volume did not bypass NRD")
+            evidence, image = capture_volume(exe, folder, frames, resource, nrd=name == "nrd-fallback")
             assessment = assess(image, scene, name, ior)
-            report["cases"].append(dict(case=name, command=command, metadata=meta, runtime=state, assessment=assessment,
-                inputs={str(p.relative_to(folder)): sha(p) for p in folder.iterdir() if p.suffix in (".json", ".gltf", ".png")},
-                bufferSha256=sha(buffer), logSha256=sha(log)))
+            report["cases"].append(dict(case=name, assessment=assessment, **evidence))
             write_json(output/"report.json", report)
         if [c["case"] for c in report["cases"]] != report["expectedCases"] or sha(exe) != report["executableSha256"] or sha(shader) != report["shaderSha256"]:
             raise ValueError("Incomplete cases or modified binaries")

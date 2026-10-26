@@ -101,14 +101,11 @@ bool SceneDocumentBuilder::Build(const SceneDocument& document,
             (material.metallic != 0 || material.roughness != 0 || material.transmission.factor != 1 ||
              material.baseColor.x != 1 || material.baseColor.y != 1 || material.baseColor.z != 1 ||
              material.transmission.tint.x != 1 || material.transmission.tint.y != 1 || material.transmission.tint.z != 1 ||
-             material.transmission.ior > 4 ||
-             (!std::isinf(material.transmission.volume.attenuationDistance) &&
-              (material.transmission.volume.attenuationColor.x != 1 || material.transmission.volume.attenuationColor.y != 1 ||
-               material.transmission.volume.attenuationColor.z != 1))))
+             material.transmission.ior > 4))
         {
             if (error != nullptr)
             {
-                *error = "This volume combination is not connected yet (smooth, clear dielectric only): " + material.id;
+                *error = "This volume combination is not connected yet (smooth dielectric, white boundary tint only): " + material.id;
             }
             return false;
         }

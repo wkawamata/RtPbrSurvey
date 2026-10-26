@@ -299,7 +299,14 @@ bool TestQualifiedVolumeBuild()
     invalid = document;
     invalid.materials[0].transmission.volume.attenuationColor = {0.2f, 0.5f, 1};
     invalid.materials[0].transmission.volume.attenuationDistance = 1;
-    passed &= Check(!builder.Build(invalid, &error), "absorption remains gated until next step");
+    passed &= Check(builder.Build(invalid, &error), "colored volume absorption builds");
+    if (passed)
+    {
+        const auto& absorption = builder.Builder().GetMesh().materials[builder.Result().materialIds.at("metal")].volumeAbsorption;
+        passed &= Check(NearlyEqual(absorption.attenuationColor[0], 0.2f) && absorption.attenuationColor[1] == 0.5f &&
+            absorption.attenuationColor[2] == 1 && absorption.attenuationDistance == 1,
+            "absorption values reach runtime material data");
+    }
     document.nodes[0].primitive.kind = ScenePrimitiveKind::Sphere;
     passed &= Check(builder.Build(document, &error), "clear smooth volume sphere builds");
     return passed;

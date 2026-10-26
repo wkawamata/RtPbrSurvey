@@ -525,6 +525,10 @@ float3 TracePath(uint2 pixel,
     bool cameraThroughThinSheets = true;
     uint volumeInstance = 0xffffffffu;
     float volumeIor = 1.0;
+    VolumeAbsorptionParameters volumeAbsorption;
+    volumeAbsorption.attenuationColor = 1.0;
+    volumeAbsorption.attenuationDistance = asfloat(0x7f800000u);
+    float3 volumeTransmittance = 1.0;
     float3 volumeSegmentOrigin = 0.0;
     float volumeEntries = 0.0;
     float volumeExits = 0.0;
@@ -643,7 +647,17 @@ float3 TracePath(uint2 pixel,
                 volumeError = 2;
                 break;
             }
-            volumeDistance += length(hitPosition - volumeSegmentOrigin);
+            const float segmentLength = length(hitPosition - volumeSegmentOrigin);
+            const VolumeAttenuation attenuation = EvaluateVolumeAttenuation(volumeAbsorption.attenuationColor,
+                volumeAbsorption.attenuationDistance, segmentLength);
+            if (!attenuation.valid)
+            {
+                volumeError = 6;
+                break;
+            }
+            volumeDistance += segmentLength;
+            volumeTransmittance *= attenuation.transmittance;
+            throughput *= attenuation.transmittance;
         }
 
         if (bounce == 0)
@@ -722,6 +736,7 @@ float3 TracePath(uint2 pixel,
                     volumeEntries += 1.0;
                     volumeInstance = instanceId;
                     volumeIor = hitMaterial.transmissionIor;
+                    volumeAbsorption = g_materialData[hitMaterial.materialId].volumeAbsorption;
                 }
             }
             else if (inside)
@@ -1101,6 +1116,10 @@ float3 TracePath(uint2 pixel,
     if (debugOutput == 11)
     {
         return volumeExitPosition;
+    }
+    if (debugOutput == 12)
+    {
+        return volumeTransmittance;
     }
     return radiance;
 }
