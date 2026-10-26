@@ -99,7 +99,7 @@ void RecordPathTracingPass(ID3D12GraphicsCommandList* commandList, const PathTra
         desc.scene.indexCount,
         (desc.pixelCenterPrimary ? 1u : 0u) | (desc.denoiserDistanceDiagnostics ? 2u : 0u) |
             (desc.thinTransmissionActive ? 4u : 0u) | (desc.alphaMaskActive ? 8u : 0u) |
-            (desc.doubleSidedActive ? 16u : 0u),
+            (desc.doubleSidedActive ? 16u : 0u) | (desc.volumeTransmissionActive ? 32u : 0u),
         desc.debugOutput,
         desc.environmentEnabled,
         desc.emissiveEnabled,

@@ -62,6 +62,7 @@ struct PathTracingPassDesc
     bool denoiserDistanceDiagnostics = false;
     bool thinTransmissionActive = false;
     bool alphaMaskActive = false;
+    bool volumeTransmissionActive = false;
     bool doubleSidedActive = false;
     UINT sampleStartIndex = 0;
     UINT randomSeed = 1;

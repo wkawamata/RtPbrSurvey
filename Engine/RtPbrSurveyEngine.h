@@ -277,6 +277,10 @@ public:
         WorldNormal,
         Emissive,
         Radiance,
+        VolumeBoundaries,
+        VolumeStatus,
+        VolumeOutgoingDirection,
+        VolumeExitPosition,
     };
 
     struct PathTracingSettings
@@ -1387,6 +1391,7 @@ private:
     bool m_sceneHasMaterials = false;
     bool m_sceneHasThinTransmission = false;
     bool m_sceneHasAlphaMask = false;
+    bool m_sceneHasVolumeTransmission = false;
     bool m_sceneHasDoubleSided = false;
     bool m_sceneResourcesAvailable = false;
 

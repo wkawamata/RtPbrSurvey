@@ -83,6 +83,7 @@ static const uint hitNormalSource = 0;
 #include "SceneRayQuery.hlsli"
 #include "PathTracingSampling.hlsli"
 #include "ThinTransmission.hlsli"
+#include "VolumeTransmission.hlsli"
 #include "PathTracingDenoiserSampling.hlsli"
 #include "EmissiveTriangleSampling.hlsli"
 StructuredBuffer<EmissiveTriangleGpu> g_emissiveTriangles : register(t7);
@@ -309,7 +310,7 @@ float3 SamplePrimaryMiss(float3 direction)
 
 bool RequiresMaterialCandidates()
 {
-    return (primarySamplingFlags & 28u) != 0;
+    return (primarySamplingFlags & 60u) != 0;
 }
 
 bool AcceptMaterialCandidate(uint instanceId, uint primitiveIndex, float2 barycentric, bool frontFace,
@@ -332,6 +333,10 @@ bool AcceptMaterialCandidate(uint instanceId, uint primitiveIndex, float2 baryce
     {
         const HitMaterialSample candidate = LoadCommittedHitMaterialSample(i0, i1, i2, barycentric, instanceId);
         return candidate.transmissionFactor * (1.0 - candidate.metallic) > 0.0;
+    }
+    if (allowThinBackface && (material.flags & MaterialFlagVolumeTransmission) != 0)
+    {
+        return true;
     }
     return false;
 }
@@ -518,6 +523,16 @@ float3 TracePath(uint2 pixel,
     bool previousEmissiveNeeActive = false;
     bool previousEnvironmentNeeActive = false;
     bool cameraThroughThinSheets = true;
+    uint volumeInstance = 0xffffffffu;
+    float volumeIor = 1.0;
+    float3 volumeSegmentOrigin = 0.0;
+    float volumeEntries = 0.0;
+    float volumeExits = 0.0;
+    float volumeDistance = 0.0;
+    float volumeInternalReflections = 0.0;
+    uint volumeError = 0;
+    float3 volumeOutgoingDirection = 0.0;
+    float3 volumeExitPosition = 0.0;
     const bool emissiveNeeEnabled = emissiveSamplingMode >= 1 && emissiveEnabled != 0 &&
         shadowEnabled != 0 && emissiveTriangleCount != 0;
     const bool environmentMisEnabled = environmentSamplingMode >= 5 && shadowEnabled != 0;
@@ -555,6 +570,11 @@ float3 TracePath(uint2 pixel,
 
         if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
         {
+            if (volumeInstance != 0xffffffffu)
+            {
+                volumeError = 1;
+                break;
+            }
             float3 missRadiance = cameraThroughThinSheets ? SamplePrimaryMiss(ray.Direction) : SampleEnvironmentLighting(ray.Direction);
             if (bounce > 0 && previousEnvironmentNeeActive && environmentSamplingMode >= 2)
             {
@@ -593,6 +613,7 @@ float3 TracePath(uint2 pixel,
 
         const float3x4 objectToWorld = query.CommittedObjectToWorld3x4();
         float3 geometryNormal = LoadCommittedHitGeometricNormal(index0, index1, index2, objectToWorld);
+        const bool volumeEntering = dot(geometryNormal, ray.Direction) < 0.0;
         float3 vertexNormal =
             LoadCommittedHitVertexNormal(index0, index1, index2, barycentric, objectToWorld);
         HitMaterialSample hitMaterial =
@@ -614,6 +635,16 @@ float3 TracePath(uint2 pixel,
                                                          hitMaterial);
         hitNormal = dot(hitNormal, geometryNormal) >= 0.0 ? hitNormal : -hitNormal;
         const float3 hitPosition = ray.Origin + ray.Direction * query.CommittedRayT();
+        const bool volumeBoundary = (hitMaterial.flags & MaterialFlagVolumeTransmission) != 0;
+        if (volumeInstance != 0xffffffffu)
+        {
+            if (!volumeBoundary || instanceId != volumeInstance || volumeEntering)
+            {
+                volumeError = 2;
+                break;
+            }
+            volumeDistance += length(hitPosition - volumeSegmentOrigin);
+        }
 
         if (bounce == 0)
         {
@@ -630,7 +661,7 @@ float3 TracePath(uint2 pixel,
                 lerp(float3(0.04, 0.04, 0.04), hitMaterial.albedo, hitMaterial.metallic),
                 hitMaterial.metallic);
             primarySurface.hitT = query.CommittedRayT();
-            if (captureDenoiserDistances && (primarySamplingFlags & 2u) != 0 && !thinScene && (primarySamplingFlags & 8u) == 0)
+            if (captureDenoiserDistances && (primarySamplingFlags & 2u) != 0 && !thinScene && (primarySamplingFlags & 40u) == 0)
             {
                 if ((hitMaterial.flags & MaterialFlagUnlit) != 0)
                 {
@@ -655,6 +686,74 @@ float3 TracePath(uint2 pixel,
                 return hitMaterial.emissive;
             }
             return hitMaterial.albedo + (emissiveEnabled != 0 ? hitMaterial.emissive : 0.0);
+        }
+
+        if (volumeBoundary)
+        {
+            const bool inside = volumeInstance != 0xffffffffu;
+            if (!inside && !volumeEntering)
+            {
+                volumeError = 5;
+                break;
+            }
+            if (bounce + 1 >= max(maxBounces, 1u))
+            {
+                volumeError = 3;
+                break;
+            }
+            const VolumeBoundarySample boundary = SampleSmoothVolumeBoundary(ray.Direction, geometryNormal,
+                inside ? volumeIor : 1.0, inside ? 1.0 : hitMaterial.transmissionIor, NextRandom(randomState));
+            if (!boundary.valid)
+            {
+                volumeError = 4;
+                break;
+            }
+            if (!boundary.reflected)
+            {
+                if (inside)
+                {
+                    volumeExits += 1.0;
+                    volumeExitPosition = hitPosition;
+                    volumeInstance = 0xffffffffu;
+                    volumeIor = 1.0;
+                }
+                else
+                {
+                    volumeEntries += 1.0;
+                    volumeInstance = instanceId;
+                    volumeIor = hitMaterial.transmissionIor;
+                }
+            }
+            else if (inside)
+            {
+                volumeInternalReflections += 1.0;
+            }
+            volumeSegmentOrigin = hitPosition;
+            if (volumeInstance == 0xffffffffu)
+            {
+                volumeOutgoingDirection = boundary.direction;
+            }
+            throughput *= boundary.weight;
+            previousEnvironmentNeeActive = false;
+            previousEmissiveNeeActive = false;
+            previousBsdfPdf = 0.0;
+            cameraThroughThinSheets = cameraThroughThinSheets && !boundary.reflected;
+            if (bounce == 0)
+            {
+                primarySpecularPath = true;
+                primaryDiffuseFraction = 0.0;
+                primarySpecularFraction = 1.0;
+                primarySurface.primaryContinuation = float4(boundary.direction, 0.0);
+            }
+            ray.Direction = boundary.direction;
+            ray.Origin = hitPosition + ray.Direction * normalBias;
+            if (bounce == 0)
+            {
+                primaryContinuationOriginOffset = ray.Origin - hitPosition;
+            }
+            ray.TMin = rayTMin;
+            ray.TMax = rayTMax;
+            continue;
         }
 
         const bool unlit = (hitMaterial.flags & MaterialFlagUnlit) != 0;
@@ -982,6 +1081,26 @@ float3 TracePath(uint2 pixel,
         ray.Direction = bsdfSample.direction;
         ray.TMin = rayTMin;
         ray.TMax = rayTMax;
+    }
+    if (volumeInstance != 0xffffffffu && volumeError == 0)
+    {
+        volumeError = 3;
+    }
+    if (debugOutput == 8)
+    {
+        return float3(volumeEntries, volumeExits, volumeDistance);
+    }
+    if (debugOutput == 9)
+    {
+        return float3(volumeError, volumeInstance != 0xffffffffu ? 1.0 : 0.0, volumeInternalReflections);
+    }
+    if (debugOutput == 10)
+    {
+        return volumeOutgoingDirection;
+    }
+    if (debugOutput == 11)
+    {
+        return volumeExitPosition;
     }
     return radiance;
 }

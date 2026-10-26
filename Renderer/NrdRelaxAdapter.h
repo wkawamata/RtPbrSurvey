@@ -84,6 +84,7 @@ enum class NrdRelaxPresentationStatus
     Relax,
     UnsupportedTransmission,
     UnsupportedAlphaMask,
+    UnsupportedVolume,
 };
 
 NrdRelaxPresentationStatus

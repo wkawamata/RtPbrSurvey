@@ -265,6 +265,46 @@ bool TestTransmissionReachesRuntimeMaterial()
             "unsupported volume keeps the published thin scene intact");
 }
 
+bool TestQualifiedVolumeBuild()
+{
+    using namespace RtPbrSurvey;
+    SceneDocument document = CreatePrimitiveDocument();
+    document.nodes.resize(1);
+    document.materials.resize(1);
+    document.materials[0].metallic = 0;
+    document.materials[0].roughness = 0;
+    document.materials[0].baseColor = {1, 1, 1, 1};
+    document.materials[0].transmission.mode = SceneTransmissionMode::Volume;
+    document.materials[0].transmission.factor = 1;
+    SceneDocumentBuilder builder;
+    std::string error;
+    bool passed = Check(builder.Build(document, &error), "clear smooth volume cube builds");
+    if (!passed)
+    {
+        return false;
+    }
+    const auto& material = builder.Builder().GetMesh().materials[builder.Result().materialIds.at("metal")];
+    passed &= Check(material.volumeTransmission && !material.thinTransmission && material.transmissionIor == 1.5f,
+        "volume is distinct from thin in runtime data");
+    SceneDocument invalid = document;
+    invalid.nodes.push_back(invalid.nodes[0]);
+    invalid.nodes.back().id = "second";
+    passed &= Check(!builder.Build(invalid, &error), "multiple volume instances rejected");
+    invalid = document;
+    invalid.camera.position = invalid.nodes[0].transform.translation;
+    passed &= Check(!builder.Build(invalid, &error), "camera inside volume rejected");
+    invalid = document;
+    invalid.nodes[0].primitive.kind = ScenePrimitiveKind::Plane;
+    passed &= Check(!builder.Build(invalid, &error), "open volume plane rejected");
+    invalid = document;
+    invalid.materials[0].transmission.volume.attenuationColor = {0.2f, 0.5f, 1};
+    invalid.materials[0].transmission.volume.attenuationDistance = 1;
+    passed &= Check(!builder.Build(invalid, &error), "absorption remains gated until next step");
+    document.nodes[0].primitive.kind = ScenePrimitiveKind::Sphere;
+    passed &= Check(builder.Build(document, &error), "clear smooth volume sphere builds");
+    return passed;
+}
+
 bool TestGltfFailureKeepsPublishedScene()
 {
     RtPbrSurvey::SceneDocumentBuilder documentBuilder;
@@ -294,7 +334,7 @@ bool TestGltfFailureKeepsPublishedScene()
 
 int main()
 {
-    if (!TestThinReviewFixtures() || !TestTransmissionReachesRuntimeMaterial() ||
+    if (!TestQualifiedVolumeBuild() || !TestThinReviewFixtures() || !TestTransmissionReachesRuntimeMaterial() ||
         !TestPrimitiveBuildAndMeshReuse() || !TestGltfBuildAndMeshReuse() || !TestGltfFailureKeepsPublishedScene() ||
         !TestNrdStableRadianceFixture() || !TestNrdDisocclusionFixture())
     {

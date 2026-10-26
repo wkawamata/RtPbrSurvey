@@ -263,6 +263,7 @@ function(rtpbrsurvey_add_shader output_var shader_file stage entry_point)
         DEPENDS "${RTPBRSURVEY_ROOT}/${shader_file}" ${SHADER_UNPARSED_ARGUMENTS} ${SHADER_DEPENDS}
             "${RTPBRSURVEY_ROOT}/Shaders/DirectLights.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/VolumeAbsorptionParameters.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/DirectLightEvaluation.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/DirectPbrLighting.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/ReflectionSampling.hlsli"
@@ -329,6 +330,7 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/ThinTransmission.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/VolumeTransmission.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDenoiserSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/EmissiveTriangleSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDirectLightAdapter.hlsli"

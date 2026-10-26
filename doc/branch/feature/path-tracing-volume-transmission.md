@@ -1,7 +1,7 @@
 # Native PT Volume Transmission Plan
 
 Date: 2026-10-25
-Status: Steps 1a and 1b verified. Runtime volume transport wiring not started.
+Status: Steps 1a, 1b and the initial Step 2 boundary subset verified. Distance absorption is not active yet.
 Branch: `codex/pt-volume-transmission`.
 Base: `e36933b`, dependent on PR #104 (not merged at plan creation).
 
@@ -122,7 +122,8 @@ Default/zero thickness remains thin. glTF integration follows after core tests.
 - [x] Debug build: zero warnings/errors. CTest 44/44, including WARP contract.
 - [x] Hardware run: 28,672 samples passed, no D3D12 errors.
 - [x] Step 1b: scene/material data, serialization and layout contracts.
-- [ ] Step 2 onward: actual closed-volume boundary tracing and medium state.
+- [x] Step 2: closed-volume boundary tracing and medium state for the initial subset.
+- [ ] Step 3 onward: distance absorption, wider scene coverage and later material integration.
 
 Normal and incident vectors must be unit length, with normal pointing into the
 incident medium. Random event input is finite in [0, 1). The sampling result's
@@ -204,6 +205,106 @@ validation. Build logs are under `C:\work\RtPbrSurvey-agents\volume-data-build-r
 The preceding mathematical work unit was committed as `b28721a`; Step 1b is a
 separate change set. The runtime Material stride remains unchanged and the
 glTF volume extension is still rejected until a real integration is implemented.
+
+## Step 2 Boundary Transport (2026-10-26)
+
+Step 1b was committed separately as `2effeea` before starting this integration.
+The currently accepted runtime subset is a single visible Cube or Sphere
+primitive, camera outside, metallic=0, roughness=0, transmission=1, white base
+color/tint and IOR in [1,4]. A finite colored absorption setting is explicitly
+rejected until Step 3; a no-absorption setting has no optical effect to omit.
+Open primitives, multiple volume instances and an initial camera inside the
+primitive are rejected before replacing the previously built scene.
+
+The runtime Material now has 140 bytes (formerly 124), with the 16-byte absorption
+block at offset 124. Host binaries and all shaders must be rebuilt together.
+The standalone glTF volume importer still rejects the extension; this step does
+not change its accepted material combinations.
+
+The PT path keeps an instance identity and IOR while inside a volume. It classifies
+entry/exit before face-forwarding the geometric normal. Reflections retain the
+medium; transmissions alone change it. Volume backfaces remain candidates even
+when doubleSided is false. Invalid medium transitions and missing exits do not
+fabricate a successful exit.
+
+Ray origins are moved along the outgoing volume direction. Internal distance is
+measured between the physical boundary hit positions, rather than summing biased
+RayT values, and includes segments ending in internal reflections. This distance
+is diagnostic only in Step 2; Beer-Lambert multiplication follows in Step 3.
+Volume delta events disable competing opaque NEE/MIS state and use the tested
+radiance eta-squared weight. NRD conversion/evaluate and presentation are gated
+with `Native fallback: volume transmission is not qualified for NRD`.
+
+Four diagnostic outputs are available from Path Tracing Output and saved presets:
+
+- Volume Boundaries (enum 4): entry count / exit count / total internal distance.
+- Volume Status (enum 5): error code / still inside / internal reflection count.
+- Volume Outgoing Direction (enum 6): last direction returned to air, including
+  direct front-surface reflection.
+- Volume Exit Position (enum 7): last transmitted exit position, zero if absent.
+
+Error codes: 1=miss while inside, 2=medium/instance mismatch, 3=bounce budget,
+4=invalid boundary sample, 5=unexpected backface while outside. Accumulated
+diagnostics are sample averages, not per-frame global error counters. Camera
+motion into the solid remains unqualified and produces code 5, not an invented
+initial medium. Signed directions/positions require RAW inspection.
+
+The runtime suite fixes its budgets before execution. It checks Snell entry,
+parallel-slab exit direction and position, traveled slab distance, sphere chord
+length, reflection state, no-absorption radiance, NRD bypass and a deliberately
+insufficient bounce budget. A separate cube orientation forces a side-boundary
+TIR before an exit. Exact case names and runtime state are required in reports.
+
+The first capture passed its numerical test but report serialization failed on a
+NumPy integer in the ROI. ROI bounds were converted to native Python integers;
+the numerical criteria were unchanged, and a JSON serialization regression test
+was added. Original artifacts remain in `bin/PathTracingValidation/volume-boundary-20261026`.
+The rerun output is `bin/PathTracingValidation/volume-boundary-r2-20261026`.
+
+Final results:
+
+- [x] Debug x64 CMake/MSBuild build. Final incremental build: zero warnings/errors.
+  The first full rebuild had five existing Streamline delay-load LNK4199 warnings.
+- [x] CTest 44/44. Python 31/31 (17 transmission, 5 volume, 4 roughness texture,
+  5 alpha MASK tests). The original .vcxproj dependency edits were XML-checked;
+  the build used the existing CMake-generated serial ALL_BUILD project.
+- [x] Volume RAW runtime 12/12. No D3D12 ERROR/CORRUPTION in captured logs.
+- [x] Prior thin/opaque runtime regression: 9 captures passed, including exact
+  opaque equality to the old matched executable/shader pair.
+- [x] Roughness texture runtime regression: 6/6 passed.
+- [x] Scene27: 1920x1080, 256 samples, 8 bounces, screenshot captured.
+- [ ] User visual approval. Full alpha MASK/metallic runtime suites and NRD image
+  quality suites were not rerun in this step; their contract tests passed.
+
+Maximum ROI errors: slab length 0.000973; entry direction 0.00000141;
+exit position 0.000244; outgoing-direction mean 0.001911; sphere chord 0.001970;
+radiance mean 0.000999. All stayed within the predefined budgets in the runner.
+The ordinary internal-reflection control averaged 0.04111 reflections, while
+the side-boundary TIR case averaged 0.99966. Both ended outside with zero error
+in the checked ROI. The budget control returned exactly [3,1,0]. These are ROI
+results, not a guarantee that every path at all grazing angles terminates within
+an arbitrary user bounce budget.
+
+Local evidence:
+
+- `bin/PathTracingValidation/volume-boundary-r2-20261026/report.json`
+- `bin/PathTracingValidation/volume-thin-regression-20261026/report.json`
+- `bin/PathTracingValidation/volume-roughness-regression-20261026/report.json`
+- `bin/PathTracingValidation/volume-boundary-review-20261026/report.json`
+- `bin/PathTracingValidation/volume-boundary-review-20261026/27-volume-smooth-boundary.png`
+
+Numerical evidence hashes the executable, PT shader, runner, fixture and generated
+inputs/RAW/logs. Build log folder:
+`C:\work\RtPbrSurvey-agents\volume-boundary-build-r2-20261026`.
+Generated evidence and screenshots are not committed or published.
+
+Saved scene27 is `Assets/Scene/PathTracingValidation/27-volume-smooth-boundary/scene.json`.
+It provides an oblique clear box and the existing scene20 checker background.
+User visual approval is separate from numerical validation.
+
+```powershell
+python -B Tests/PathTracing/validate_volume_boundary.py --exe bin/PathTracingValidation/thin-gltf-build-20261024/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/volume-boundary-new-run
+```
 
 ## References
 

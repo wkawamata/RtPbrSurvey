@@ -702,7 +702,7 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                 int transmissionMode = static_cast<int>(editableMaterial->transmission.mode);
                 if (editableMaterial->transmission.mode == RtPbrSurvey::SceneTransmissionMode::Volume)
                 {
-                    ImGui::TextUnformatted("Volume: rendering not connected yet");
+                    ImGui::TextUnformatted("Volume: experimental smooth boundary");
                 }
                 else if (ImGui::Combo("Transmission Mode", &transmissionMode, "Opaque\0Thin Transmission\0"))
                 {
