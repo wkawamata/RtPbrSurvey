@@ -1,7 +1,7 @@
 # Native PT Volume Transmission Plan
 
 Date: 2026-10-25
-Status: Step 1a mathematical helpers verified; scene data and runtime wiring not started.
+Status: Steps 1a and 1b verified. Runtime volume transport wiring not started.
 Branch: `codex/pt-volume-transmission`.
 Base: `e36933b`, dependent on PR #104 (not merged at plan creation).
 
@@ -121,7 +121,7 @@ Default/zero thickness remains thin. glTF integration follows after core tests.
   reference: 28 cases x 1024 events, including both sides of the critical angle.
 - [x] Debug build: zero warnings/errors. CTest 44/44, including WARP contract.
 - [x] Hardware run: 28,672 samples passed, no D3D12 errors.
-- [ ] Step 1b: scene/material data, serialization and layout contracts.
+- [x] Step 1b: scene/material data, serialization and layout contracts.
 - [ ] Step 2 onward: actual closed-volume boundary tracing and medium state.
 
 Normal and incident vectors must be unit length, with normal pointing into the
@@ -150,6 +150,60 @@ ctest --test-dir bin/PathTracingValidation/thin-gltf-build-20261024 -C Debug --o
 
 Build log: `C:\work\RtPbrSurvey-agents\volume-math-build-20261026\build.out.log`.
 Generated test binaries and CTest logs remain outside version control.
+
+## Step 1b Data and Layout (2026-10-26)
+
+Scene materials now distinguish opaque / thin / volume. Volume mode requires an
+explicit absorption block; it is not a synonym for alpha blending. Old opaque
+and thin documents retain their defaults and serialized shape.
+
+```json
+"transmission": {
+  "mode": "volume",
+  "factor": 1.0,
+  "tint": [1.0, 1.0, 1.0],
+  "ior": 1.5,
+  "volume": {
+    "attenuationColor": [0.2, 0.5, 1.0],
+    "attenuationDistance": 2.0
+  }
+}
+```
+
+Absorption color is linear RGB in [0,1]. Distance is positive world-space length;
+JSON null explicitly denotes positive infinity (no absorption). Numeric values
+that overflow float are rejected rather than converted into no absorption.
+Missing/wrong-type/unknown volume fields and volume blocks in thin/opaque mode
+are rejected transactionally. Non-volume modes cannot silently discard modified
+absorption settings during save. No synthetic physical thickness field is added.
+
+`Shared/VolumeAbsorptionParameters.h` and its HLSL counterpart define a standalone
+16-byte parameter block: RGB at offset 0, distance at offset 12. CPU size/offset
+assertions and a GPU root-constant transfer test verify this contract. The GPU
+test computes absorption from the uploaded values, rather than a duplicate set
+of shader constants, for four of the existing angle/length cases.
+
+This block is not appended to the runtime Material yet: that buffer stays at
+124 bytes until Step 2 connects the actual transport path. The SceneDocument
+builder explicitly rejects volume mode before mutating a previously built scene.
+The editor labels externally loaded volume data as not connected and does not
+put its enum value through the existing two-item opaque/thin mode selector.
+There is not yet a GUI action for creating a volume material.
+
+Tests cover JSON round trips, file save/reload, infinite-distance encoding,
+malformed/range/overflow inputs, old scenes and the unsupported-runtime gate.
+Full rendered-image regression is deferred until the transport path is wired.
+
+Validation: Debug build succeeded. The initial rebuild had three existing
+LNK4199 Streamline delay-load warnings; final incremental build had zero warnings
+and errors. CTest 44/44 passed. WARP and hardware both passed 28,672 volume
+contract samples, now including absorption from the CPU-uploaded parameter block.
+No D3D12 errors were reported by the GPU test. This is not runtime volume image
+validation. Build logs are under `C:\work\RtPbrSurvey-agents\volume-data-build-r2-20261026`.
+
+The preceding mathematical work unit was committed as `b28721a`; Step 1b is a
+separate change set. The runtime Material stride remains unchanged and the
+glTF volume extension is still rejected until a real integration is implemented.
 
 ## References
 

@@ -530,10 +530,10 @@ if(RTPBRSURVEY_BUILD_TESTS)
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/Tests"
         COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
             "-Fo${volume_transmission_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_VolumeTransmission.hlsl"
-        DEPENDS Tests/shaders_VolumeTransmission.hlsl Shaders/VolumeTransmission.hlsli
+        DEPENDS Tests/shaders_VolumeTransmission.hlsl Shaders/VolumeTransmission.hlsli Shaders/VolumeAbsorptionParameters.hlsli
         VERBATIM)
     target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${volume_transmission_shader}"
-        Tests/VolumeTransmissionReference.h)
+        Tests/VolumeTransmissionReference.h Shared/VolumeAbsorptionParameters.h)
     add_test(NAME RtPbrSurvey.VolumeTransmission
         COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${volume_transmission_shader}" --volume-transmission)
     if(RTPBRSURVEY_TEST_NRD_PACKING)

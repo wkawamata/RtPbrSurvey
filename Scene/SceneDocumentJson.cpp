@@ -337,7 +337,8 @@ bool ValidateSceneDocument(const SceneDocument& document, std::string* error)
     for (const SceneMaterial& material : document.materials)
     {
         const SceneTransmission& transmission = material.transmission;
-        if ((transmission.mode != SceneTransmissionMode::Opaque && transmission.mode != SceneTransmissionMode::Thin) ||
+        if ((transmission.mode != SceneTransmissionMode::Opaque && transmission.mode != SceneTransmissionMode::Thin &&
+             transmission.mode != SceneTransmissionMode::Volume) ||
             !IsFinite(transmission.factor) || transmission.factor < 0.0f || transmission.factor > 1.0f ||
             !IsFinite(transmission.tint) || transmission.tint.x < 0.0f || transmission.tint.x > 1.0f ||
             transmission.tint.y < 0.0f || transmission.tint.y > 1.0f ||
@@ -345,6 +346,17 @@ bool ValidateSceneDocument(const SceneDocument& document, std::string* error)
             !IsFinite(transmission.ior) || transmission.ior < 1.0f)
         {
             return fail("Material transmission values are invalid: " + material.id);
+        }
+        const SceneVolume& volume = transmission.volume;
+        if (!IsFinite(volume.attenuationColor) || volume.attenuationColor.x < 0 || volume.attenuationColor.x > 1 ||
+            volume.attenuationColor.y < 0 || volume.attenuationColor.y > 1 ||
+            volume.attenuationColor.z < 0 || volume.attenuationColor.z > 1 ||
+            std::isnan(volume.attenuationDistance) || volume.attenuationDistance <= 0 ||
+            (transmission.mode != SceneTransmissionMode::Volume &&
+             (volume.attenuationColor.x != 1 || volume.attenuationColor.y != 1 || volume.attenuationColor.z != 1 ||
+              !std::isinf(volume.attenuationDistance))))
+        {
+            return fail("Material volume values are invalid: " + material.id);
         }
         if (!IsFinite(material.baseColor) || !IsFinite(material.metallic) || !IsFinite(material.roughness) ||
             material.baseColor.x < 0.0f || material.baseColor.x > 1.0f || material.baseColor.y < 0.0f ||
@@ -433,10 +445,19 @@ bool SerializeSceneDocument(const SceneDocument& document, std::string& jsonText
             transmission.tint.x != 1.0f || transmission.tint.y != 1.0f || transmission.tint.z != 1.0f ||
             transmission.ior != 1.5f)
         {
-            materials.back()["transmission"] = {{"mode", transmission.mode == SceneTransmissionMode::Thin ? "thin" : "opaque"},
+            const char* mode = transmission.mode == SceneTransmissionMode::Volume ? "volume" :
+                transmission.mode == SceneTransmissionMode::Thin ? "thin" : "opaque";
+            materials.back()["transmission"] = {{"mode", mode},
                                                  {"factor", transmission.factor},
                                                  {"tint", Float3ToJson(transmission.tint)},
                                                  {"ior", transmission.ior}};
+            if (transmission.mode == SceneTransmissionMode::Volume)
+            {
+                materials.back()["transmission"]["volume"] = {
+                    {"attenuationColor", Float3ToJson(transmission.volume.attenuationColor)},
+                    {"attenuationDistance", std::isinf(transmission.volume.attenuationDistance) ?
+                        json(nullptr) : json(transmission.volume.attenuationDistance)}};
+            }
         }
     }
     json nodes = json::array();
@@ -555,8 +576,8 @@ bool DeserializeSceneDocument(std::string_view jsonText, SceneDocument& document
             {
                 const json& transmission = materialValue.at("transmission");
                 std::string mode;
-                if (!transmission.is_object() || !IsKnownFields(transmission, {"mode", "factor", "tint", "ior"}) ||
-                    !RequireString(transmission, "mode", mode, error) || (mode != "opaque" && mode != "thin") ||
+                if (!transmission.is_object() || !IsKnownFields(transmission, {"mode", "factor", "tint", "ior", "volume"}) ||
+                    !RequireString(transmission, "mode", mode, error) || (mode != "opaque" && mode != "thin" && mode != "volume") ||
                     !transmission.contains("factor") || !transmission.at("factor").is_number() ||
                     !transmission.contains("tint") || !Float3FromJson(transmission.at("tint"), material.transmission.tint) ||
                     !transmission.contains("ior") || !transmission.at("ior").is_number())
@@ -567,9 +588,54 @@ bool DeserializeSceneDocument(std::string_view jsonText, SceneDocument& document
                     }
                     return false;
                 }
-                material.transmission.mode = mode == "thin" ? SceneTransmissionMode::Thin : SceneTransmissionMode::Opaque;
+                material.transmission.mode = mode == "volume" ? SceneTransmissionMode::Volume :
+                    mode == "thin" ? SceneTransmissionMode::Thin : SceneTransmissionMode::Opaque;
                 material.transmission.factor = transmission.at("factor").get<float>();
                 material.transmission.ior = transmission.at("ior").get<float>();
+                if (mode == "volume")
+                {
+                    if (!transmission.contains("volume") || !transmission.at("volume").is_object())
+                    {
+                        if (error != nullptr)
+                        {
+                            *error = "Volume mode requires volume parameters.";
+                        }
+                        return false;
+                    }
+                    const json& volume = transmission.at("volume");
+                    if (!IsKnownFields(volume, {"attenuationColor", "attenuationDistance"}) ||
+                        !volume.contains("attenuationColor") ||
+                        !Float3FromJson(volume.at("attenuationColor"), material.transmission.volume.attenuationColor) ||
+                        !volume.contains("attenuationDistance") ||
+                        (!volume.at("attenuationDistance").is_null() && !volume.at("attenuationDistance").is_number()))
+                    {
+                        if (error != nullptr)
+                        {
+                            *error = "Invalid volume parameters.";
+                        }
+                        return false;
+                    }
+                    if (!volume.at("attenuationDistance").is_null())
+                    {
+                        material.transmission.volume.attenuationDistance = volume.at("attenuationDistance").get<float>();
+                        if (!IsFinite(material.transmission.volume.attenuationDistance))
+                        {
+                            if (error != nullptr)
+                            {
+                                *error = "Numeric attenuation distance must be a finite float; use null for infinity.";
+                            }
+                            return false;
+                        }
+                    }
+                }
+                else if (transmission.contains("volume"))
+                {
+                    if (error != nullptr)
+                    {
+                        *error = "Volume parameters require volume mode.";
+                    }
+                    return false;
+                }
             }
             parsed.materials.push_back(std::move(material));
         }

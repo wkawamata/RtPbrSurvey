@@ -95,6 +95,17 @@ bool SceneDocumentBuilder::Build(const SceneDocument& document,
     {
         return false;
     }
+    for (const SceneMaterial& material : document.materials)
+    {
+        if (material.transmission.mode == SceneTransmissionMode::Volume)
+        {
+            if (error != nullptr)
+            {
+                *error = "Volume rendering is not connected yet: " + material.id;
+            }
+            return false;
+        }
+    }
 
     SceneGraphEvaluation graph;
     if (!EvaluateSceneGraph(document, graph, error))

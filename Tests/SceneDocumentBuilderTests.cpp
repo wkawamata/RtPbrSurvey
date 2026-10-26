@@ -253,11 +253,16 @@ bool TestTransmissionReachesRuntimeMaterial()
         return false;
     }
     const auto& material = builder.Builder().GetMesh().materials[builder.Result().materialIds.at("metal")];
-    return Check(material.thinTransmission && NearlyEqual(material.transmissionFactor, 0.5f) &&
+    const bool passed = Check(material.thinTransmission && NearlyEqual(material.transmissionFactor, 0.5f) &&
                      NearlyEqual(material.transmissionTint.x, 0.2f) && NearlyEqual(material.transmissionTint.y, 0.4f) &&
                      NearlyEqual(material.transmissionTint.z, 0.6f) && NearlyEqual(material.transmissionIor, 1.33f),
                  "thin transmission data reaches runtime material") &&
            Check(builder.Builder().GetScene().instances.size() == instanceCount, "transmission preserves geometry");
+    document.materials[0].transmission.mode = RtPbrSurvey::SceneTransmissionMode::Volume;
+    return passed && Check(!builder.Build(document, &error) && error.find("not connected") != std::string::npos,
+        "volume data is not silently rendered as opaque or thin") &&
+        Check(builder.Builder().GetScene().instances.size() == instanceCount && material.thinTransmission,
+            "unsupported volume keeps the published thin scene intact");
 }
 
 bool TestGltfFailureKeepsPublishedScene()

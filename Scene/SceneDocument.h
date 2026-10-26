@@ -6,6 +6,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <limits>
 
 namespace RtPbrSurvey
 {
@@ -71,6 +72,13 @@ enum class SceneTransmissionMode : uint8_t
 {
     Opaque,
     Thin,
+    Volume,
+};
+
+struct SceneVolume
+{
+    SceneFloat3 attenuationColor = {1.0f, 1.0f, 1.0f};
+    float attenuationDistance = std::numeric_limits<float>::infinity();
 };
 
 struct SceneTransmission
@@ -79,6 +87,7 @@ struct SceneTransmission
     float factor = 0.0f;
     SceneFloat3 tint = {1.0f, 1.0f, 1.0f};
     float ior = 1.5f;
+    SceneVolume volume;
 };
 
 struct SceneMaterial

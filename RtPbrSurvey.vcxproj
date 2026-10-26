@@ -259,6 +259,7 @@
     <ClInclude Include="Shared\Error.h" />
     <ClInclude Include="Shared\Screenshot.h" />
     <ClInclude Include="Shared\DirectLight.h" />
+    <ClInclude Include="Shared\VolumeAbsorptionParameters.h" />
     <ClInclude Include="Runtime\DirectLightJson.h" />
     <ClInclude Include="Ui\DirectLightUi.h" />
     <ClInclude Include="stdafx.h" />
@@ -411,6 +412,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\ThinTransmission.hlsli" />
     <None Include="Shaders\AlphaMaskCoverage.hlsli" />
     <None Include="Shaders\VolumeTransmission.hlsli" />
+    <None Include="Shaders\VolumeAbsorptionParameters.hlsli" />
     <None Include="Shaders\PathTracingDenoiserSampling.hlsli" />
     <None Include="Shaders\EmissiveTriangleSampling.hlsli" />
     <None Include="Shaders\ReflectionSampling.hlsli" />

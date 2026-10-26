@@ -1,4 +1,10 @@
 #include "../Shaders/VolumeTransmission.hlsli"
+#include "../Shaders/VolumeAbsorptionParameters.hlsli"
+
+cbuffer VolumeMaterialContract : register(b0)
+{
+    VolumeAbsorptionParameters g_volumeParameters;
+};
 
 struct ContractResult
 {
@@ -37,7 +43,9 @@ void CSMain(uint3 id : SV_DispatchThreadID)
         float3(0, 0.5, 1), float3(0.01, 0.1, 0.9), float3(0.999, 0.001, 0.5), float3(1, 1, 1)};
     const float distances[7] = {1, infinity, 2, 2, 0.5, 1, 1e-8};
     const float lengths[4] = {0, 0.5, 1, 2};
-    const VolumeAttenuation attenuation = EvaluateVolumeAttenuation(colors[pair], distances[pair], lengths[angle]);
+    const float3 color = pair == 3 ? g_volumeParameters.attenuationColor : colors[pair];
+    const float distance = pair == 3 ? g_volumeParameters.attenuationDistance : distances[pair];
+    const VolumeAttenuation attenuation = EvaluateVolumeAttenuation(color, distance, lengths[angle]);
     const VolumeBoundarySample entry = SampleSmoothVolumeBoundary(float3(0, 0, -1), float3(0, 0, 1),
         incidentIors[pair], transmittedIors[pair], 0.99);
     const VolumeBoundarySample exit = SampleSmoothVolumeBoundary(float3(0, 0, -1), float3(0, 0, 1),

@@ -700,7 +700,11 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                 }
                 materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
                 int transmissionMode = static_cast<int>(editableMaterial->transmission.mode);
-                if (ImGui::Combo("Transmission Mode", &transmissionMode, "Opaque\0Thin Transmission\0"))
+                if (editableMaterial->transmission.mode == RtPbrSurvey::SceneTransmissionMode::Volume)
+                {
+                    ImGui::TextUnformatted("Volume: rendering not connected yet");
+                }
+                else if (ImGui::Combo("Transmission Mode", &transmissionMode, "Opaque\0Thin Transmission\0"))
                 {
                     session.BeginEdit();
                     editableMaterial->transmission.mode = static_cast<RtPbrSurvey::SceneTransmissionMode>(transmissionMode);

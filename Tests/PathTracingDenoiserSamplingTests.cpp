@@ -15,6 +15,7 @@
 #include <vector>
 #include <filesystem>
 #include "VolumeTransmissionReference.h"
+#include "../Shared/VolumeAbsorptionParameters.h"
 
 using Microsoft::WRL::ComPtr;
 
@@ -698,8 +699,14 @@ int main(int argc, char** argv)
         parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
         parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
         parameters[2].Constants.Num32BitValues = 1;
+        if (volumeTransmission)
+        {
+            parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+            parameters[1].Constants.ShaderRegister = 0;
+            parameters[1].Constants.Num32BitValues = sizeof(Engine::VolumeAbsorptionParameters) / sizeof(float);
+        }
         D3D12_ROOT_SIGNATURE_DESC rootDesc = {};
-        rootDesc.NumParameters = inputPath ? 3 : 1;
+        rootDesc.NumParameters = inputPath ? 3 : volumeTransmission ? 2 : 1;
         rootDesc.pParameters = parameters;
         ComPtr<ID3DBlob> blob, errors;
         Check(D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &errors));
@@ -735,6 +742,11 @@ int main(int argc, char** argv)
             0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator.Get(), pipeline.Get(), IID_PPV_ARGS(&commands)));
         commands->SetComputeRootSignature(root.Get());
         commands->SetComputeRootUnorderedAccessView(0, output->GetGPUVirtualAddress());
+        if (volumeTransmission)
+        {
+            const Engine::VolumeAbsorptionParameters absorptionParameters = {{0, 0.5f, 1}, 2};
+            commands->SetComputeRoot32BitConstants(1, sizeof(absorptionParameters) / sizeof(float), &absorptionParameters, 0);
+        }
         if (inputPath)
         {
             commands->SetComputeRootShaderResourceView(1, inputBuffer->GetGPUVirtualAddress());
