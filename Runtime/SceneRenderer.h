@@ -45,6 +45,7 @@ namespace RtPbrSurvey
         void Initialize(UINT width, UINT height);
         void Shutdown();
         void RequestResize(UINT width, UINT height);
+        void SetSceneViewport(UINT x, UINT y, UINT width, UINT height);
         void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
 
         void SetScene(const Scene& scene);

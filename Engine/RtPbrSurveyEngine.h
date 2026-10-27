@@ -10,6 +10,8 @@
 //*********************************************************
 
 #pragma once
+
+#include "SceneViewport.h"
 #include "Shared/DirectLight.h"
 #include <include/d3dx12/d3dx12.h>
 #include <wrl/client.h>
@@ -376,6 +378,8 @@ public:
     RtPbrSurveyEngine(GraphicsDevice& graphicsDevice);
 
     void RequestResize(UINT width, UINT height);
+    // Restricts scene buffers and final tone mapping; (0,0,0,0) restores full-window output.
+    void SetSceneViewport(UINT x, UINT y, UINT width, UINT height);
     void Initialize(UINT width, UINT height);
     void RenderFrame(const UiRenderHandler& uiRenderHandler);
     void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
@@ -1002,6 +1006,11 @@ private:
     bool m_vSyncEnabled = true;
     UINT m_width = 0;
     UINT m_height = 0;
+    Engine::SceneViewport m_sceneViewport;
+    Engine::SceneViewport ResolvedSceneViewport() const
+    {
+        return Engine::ResolveSceneViewport(m_sceneViewport, m_width, m_height);
+    }
     UINT m_renderWidth = 0;
     UINT m_renderHeight = 0;
     float m_aspectRatio = 0.0f;
