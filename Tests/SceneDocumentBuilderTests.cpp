@@ -1,4 +1,5 @@
 #include "Scene/SceneDocumentBuilder.h"
+#include "Scene/SceneDocumentJson.h"
 
 #include <DirectXMath.h>
 
@@ -160,6 +161,102 @@ bool TestGltfBuildAndMeshReuse()
     return passed;
 }
 
+bool TestNrdStableRadianceFixture()
+{
+    const std::filesystem::path directory = std::filesystem::path(__FILE__).parent_path().parent_path() /
+        "Assets/Scene/PathTracingValidation/13-nrd-stable-radiance";
+    RtPbrSurvey::SceneDocument document;
+    RtPbrSurvey::SceneDocumentBuilder builder;
+    std::string error;
+    if (!Check(RtPbrSurvey::LoadSceneDocumentFile((directory / "scene.json").string(), document, &error),
+               "NRD stable-radiance scene schema is valid") ||
+        !Check(builder.Build(document, directory, &error), "NRD stable-radiance glTF builds"))
+    {
+        std::cerr << error << '\n';
+        return false;
+    }
+    const Engine::SceneMesh& mesh = builder.Builder().GetMesh();
+    return Check(mesh.materials.size() == 3 && mesh.indices.size() == 18,
+                 "NRD fixture contains three indexed panels") &&
+           Check(!mesh.materials[0].unlit && mesh.materials[1].unlit && !mesh.materials[2].unlit,
+                 "NRD fixture keeps only the center panel Unlit");
+}
+
+bool TestNrdDisocclusionFixture()
+{
+    const std::filesystem::path directory = std::filesystem::path(__FILE__).parent_path().parent_path() /
+        "Assets/Scene/PathTracingValidation/14-nrd-disocclusion";
+    RtPbrSurvey::SceneDocument document;
+    RtPbrSurvey::SceneDocumentBuilder builder;
+    std::string error;
+    return Check(RtPbrSurvey::LoadSceneDocumentFile((directory / "scene.json").string(), document, &error),
+                 "NRD disocclusion scene schema is valid") &&
+           Check(builder.Build(document, directory, &error), "NRD disocclusion geometry builds") &&
+           Check(builder.Builder().GetScene().instances.size() == 2 && document.materials.size() == 2,
+                 "NRD disocclusion fixture contains foreground and background");
+}
+
+bool TestThinReviewFixtures()
+{
+    const std::filesystem::path root = std::filesystem::path(__FILE__).parent_path().parent_path() /
+        "Assets/Scene/PathTracingValidation";
+    for (const char* name : {"17-thin-transmission-baseline", "18-thin-transmission-angle", "19-thin-transmission-layers",
+                            "20-thin-transmission-visual-comparison", "21-gltf-thin-transmission-suzanne"})
+    {
+        RtPbrSurvey::SceneDocument document;
+        RtPbrSurvey::SceneDocumentBuilder builder;
+        std::string error;
+        const std::filesystem::path directory = root / name;
+        if (!Check(RtPbrSurvey::LoadSceneDocumentFile((directory / "scene.json").string(), document, &error),
+                   "thin review document loads") ||
+            !Check(builder.Build(document, directory, &error), "thin review scene and background asset build"))
+        {
+            std::cerr << name << ": " << error << '\n';
+            return false;
+        }
+        bool hasThin = false;
+        for (const auto& material : builder.Builder().GetMesh().materials)
+        {
+            hasThin |= material.thinTransmission && material.transmissionFactor > 0;
+        }
+        const size_t minimumInstances = std::string(name) == "21-gltf-thin-transmission-suzanne" ? 2 : 4;
+        if (!Check(hasThin && !document.description.empty() &&
+                       builder.Builder().GetScene().instances.size() >= minimumInstances &&
+                       std::filesystem::is_regular_file(directory / document.renderPresetPath),
+                   "thin fixture has active transmission, geometry, description and render preset"))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool TestTransmissionReachesRuntimeMaterial()
+{
+    RtPbrSurvey::SceneDocumentBuilder builder;
+    std::string error;
+    RtPbrSurvey::SceneDocument document = CreatePrimitiveDocument();
+    if (!Check(builder.Build(document, &error), "opaque scene builds before transmission"))
+    {
+        return false;
+    }
+    const size_t instanceCount = builder.Builder().GetScene().instances.size();
+    document.materials[0].transmission.mode = RtPbrSurvey::SceneTransmissionMode::Thin;
+    document.materials[0].transmission.factor = 0.5f;
+    document.materials[0].transmission.tint = {0.2f, 0.4f, 0.6f};
+    document.materials[0].transmission.ior = 1.33f;
+    if (!Check(builder.Build(document, &error), "thin transmission scene builds"))
+    {
+        return false;
+    }
+    const auto& material = builder.Builder().GetMesh().materials[builder.Result().materialIds.at("metal")];
+    return Check(material.thinTransmission && NearlyEqual(material.transmissionFactor, 0.5f) &&
+                     NearlyEqual(material.transmissionTint.x, 0.2f) && NearlyEqual(material.transmissionTint.y, 0.4f) &&
+                     NearlyEqual(material.transmissionTint.z, 0.6f) && NearlyEqual(material.transmissionIor, 1.33f),
+                 "thin transmission data reaches runtime material") &&
+           Check(builder.Builder().GetScene().instances.size() == instanceCount, "transmission preserves geometry");
+}
+
 bool TestGltfFailureKeepsPublishedScene()
 {
     RtPbrSurvey::SceneDocumentBuilder documentBuilder;
@@ -189,7 +286,9 @@ bool TestGltfFailureKeepsPublishedScene()
 
 int main()
 {
-    if (!TestPrimitiveBuildAndMeshReuse() || !TestGltfBuildAndMeshReuse() || !TestGltfFailureKeepsPublishedScene())
+    if (!TestThinReviewFixtures() || !TestTransmissionReachesRuntimeMaterial() ||
+        !TestPrimitiveBuildAndMeshReuse() || !TestGltfBuildAndMeshReuse() || !TestGltfFailureKeepsPublishedScene() ||
+        !TestNrdStableRadianceFixture() || !TestNrdDisocclusionFixture())
     {
         return 1;
     }

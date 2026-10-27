@@ -25,6 +25,9 @@ struct HitMaterialSample
     uint materialId;
     uint normalTextureIndex;
     float normalTextureScale;
+    float transmissionFactor;
+    float3 transmissionTint;
+    float transmissionIor;
 };
 
 float3 LoadSceneVertexPosition(uint vertexIndex)
@@ -219,6 +222,9 @@ HitMaterialSample LoadCommittedHitMaterialSample(uint index0, uint index1, uint 
     result.materialId = materialId;
     result.normalTextureIndex = material.normalTexIndex;
     result.normalTextureScale = material.normalTextureScale;
+    result.transmissionFactor = (material.flags & MaterialFlagThinTransmission) != 0 ? saturate(material.transmissionFactor) : 0.0;
+    result.transmissionTint = saturate(material.transmissionTint);
+    result.transmissionIor = material.transmissionIor;
     return result;
 }
 

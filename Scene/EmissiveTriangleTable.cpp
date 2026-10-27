@@ -33,7 +33,7 @@ bool CanEmit(const SceneMaterial& material, const SceneMesh& mesh)
             throw std::invalid_argument("Emission factors must be finite and nonnegative.");
         }
     }
-    if (material.emissiveScale == 0.0f || material.emissiveTexIndex < 0)
+    if (material.unlit || material.emissiveScale == 0.0f || material.emissiveTexIndex < 0)
     {
         return false;
     }

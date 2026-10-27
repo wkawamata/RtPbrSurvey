@@ -9,6 +9,7 @@ bin/
 obj/
 build/
 /third_party/streamline-sdk-*/
+/third_party/nrd-sdk-*/
 # Subjective validation artifacts
 Tests/SubjectiveValidation/HybridReflection/captures/
 Tests/SubjectiveValidation/HybridReflection/reports/

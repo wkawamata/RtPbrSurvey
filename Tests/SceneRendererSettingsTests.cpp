@@ -32,6 +32,9 @@ bool TestRoundTrip()
     source.hybridReflection.contributionMaxDistance = 37.0f;
     source.pathTracing.accumulate = false;
     source.pathTracing.samplesPerFrame = 4;
+    source.pathTracing.pixelCenterPrimary = true;
+    source.pathTracing.denoiserDistanceDiagnostics = true;
+    source.pathTracing.nrdPreview = true;
     source.pathTracing.maxBounces = 7;
     source.pathTracing.randomSeed = 42;
     source.pathTracing.directLightingEnabled = false;
@@ -75,18 +78,22 @@ bool TestRoundTrip()
     passed &=
         Check(restored.hybridReflection.contributionMaxDistance == source.hybridReflection.contributionMaxDistance,
               "hybrid reflection settings round-trip");
-    passed &= Check(restored.pathTracing.accumulate == source.pathTracing.accumulate &&
-                        restored.pathTracing.samplesPerFrame == source.pathTracing.samplesPerFrame &&
-                        restored.pathTracing.maxBounces == source.pathTracing.maxBounces &&
-                        restored.pathTracing.randomSeed == source.pathTracing.randomSeed &&
-                        restored.pathTracing.directLightingEnabled == source.pathTracing.directLightingEnabled &&
-                        restored.pathTracing.environmentEnabled == source.pathTracing.environmentEnabled &&
-                        restored.pathTracing.environmentSamplingMode == source.pathTracing.environmentSamplingMode &&
-                        restored.pathTracing.emissiveSamplingMode == source.pathTracing.emissiveSamplingMode &&
-                        restored.pathTracing.emissiveEnabled == source.pathTracing.emissiveEnabled &&
-                        restored.pathTracing.russianRouletteEnabled == source.pathTracing.russianRouletteEnabled &&
-                        restored.pathTracing.debugOutput == source.pathTracing.debugOutput,
-                    "path tracing settings round-trip");
+    passed &=
+        Check(restored.pathTracing.accumulate == source.pathTracing.accumulate &&
+                  restored.pathTracing.samplesPerFrame == source.pathTracing.samplesPerFrame &&
+                  restored.pathTracing.pixelCenterPrimary == source.pathTracing.pixelCenterPrimary &&
+                  restored.pathTracing.denoiserDistanceDiagnostics == source.pathTracing.denoiserDistanceDiagnostics &&
+                  restored.pathTracing.nrdPreview == source.pathTracing.nrdPreview &&
+                  restored.pathTracing.maxBounces == source.pathTracing.maxBounces &&
+                  restored.pathTracing.randomSeed == source.pathTracing.randomSeed &&
+                  restored.pathTracing.directLightingEnabled == source.pathTracing.directLightingEnabled &&
+                  restored.pathTracing.environmentEnabled == source.pathTracing.environmentEnabled &&
+                  restored.pathTracing.environmentSamplingMode == source.pathTracing.environmentSamplingMode &&
+                  restored.pathTracing.emissiveSamplingMode == source.pathTracing.emissiveSamplingMode &&
+                  restored.pathTracing.emissiveEnabled == source.pathTracing.emissiveEnabled &&
+                  restored.pathTracing.russianRouletteEnabled == source.pathTracing.russianRouletteEnabled &&
+                  restored.pathTracing.debugOutput == source.pathTracing.debugOutput,
+              "path tracing settings round-trip");
     passed &= Check(restored.toneMap.exposure == source.toneMap.exposure, "tone mapping settings round-trip");
     passed &= Check(restored.specularDebugLines.lineLength == source.specularDebugLines.lineLength,
                     "specular debug settings round-trip");
@@ -230,8 +237,38 @@ bool TestPathTracingValuesAreBounded()
 
 int main()
 {
+    const auto reconstructionSettings = []()
+    {
+        using Backend = Engine::PathTracingReconstructionBackend;
+        RtPbrSurvey::SceneRendererSettings settings;
+        bool valid = true;
+        for (const char* name : {"native", "nrd", "rr"})
+        {
+            const std::string text = std::string("{\"pathTracing\":{\"reconstructionBackend\":\"") + name +
+                                     "\",\"reconstructionDiagnostics\":true,\"rrContinuous\":true}}";
+            valid &= Check(RtPbrSurvey::DeserializeSceneRendererSettings(text, settings), "Backend selection parses");
+            const auto json = RtPbrSurvey::SceneRendererSettingsToJson(settings);
+            valid &= Check(json["pathTracing"]["reconstructionBackend"] == name &&
+                               settings.pathTracing.reconstructionDiagnostics &&
+                               json["pathTracing"]["rrContinuous"] == true && settings.pathTracing.rrContinuous,
+                           "Backend selection and diagnostics persist");
+        }
+        const auto previous = settings.pathTracing.reconstructionBackend;
+        valid &= Check(!RtPbrSurvey::DeserializeSceneRendererSettings(
+                           R"({"pathTracing":{"reconstructionBackend":"typo"}})", settings) &&
+                           settings.pathTracing.reconstructionBackend == previous,
+                       "Unknown backend rejected without mutation");
+        settings = {};
+        valid &=
+            Check(RtPbrSurvey::DeserializeSceneRendererSettings(R"({"pathTracing":{"nrdPreview":true}})", settings) &&
+                      Engine::EffectivePathTracingBackend(settings.pathTracing.reconstructionBackend,
+                                                          settings.pathTracing.nrdPreview) == Backend::Nrd,
+                  "Legacy preview still selects NRD");
+        return valid;
+    };
     const bool passed = TestRoundTrip() && TestMissingFieldsKeepDefaults() && TestInvalidJsonIsNonDestructive() &&
-                        TestPathTracingValuesAreBounded() && TestMultipleLightsAndInvalidInputs();
+                        TestPathTracingValuesAreBounded() && TestMultipleLightsAndInvalidInputs() &&
+                        reconstructionSettings();
     if (passed)
     {
         std::cout << "SceneRendererSettings tests passed.\n";

@@ -28,6 +28,7 @@ struct GraphicsDeviceDesc
     DXGI_FORMAT swapChainFormat = DXGI_FORMAT_UNKNOWN;
     bool useWarpDevice = false;
     std::function<void(ID3D12Device*)> deviceCreatedHandler;
+    bool enableDebugLayer = true;
 };
 
 struct GraphicsDevice
@@ -37,6 +38,7 @@ struct GraphicsDevice
     UINT Width() const;
     UINT Height() const;
     ID3D12Device* Device() const;
+    bool DebugLayerEnabledByApp() const;
     const DXGI_ADAPTER_DESC1& AdapterDescription() const;
     IDXGIFactory4* DxgiFactory() const;
     IDXGISwapChain3* SwapChain() const;
@@ -61,6 +63,8 @@ private:
     HWND m_hwnd = nullptr;
     UINT m_width = 0;
     UINT m_height = 0;
+    bool m_debugLayerRequested = true;
+    bool m_debugLayerEnabledByApp = false;
     ComPtr<IDXGISwapChain3> m_swapChain;
     ComPtr<ID3D12Device> m_device;
     DXGI_ADAPTER_DESC1 m_adapterDescription = {};

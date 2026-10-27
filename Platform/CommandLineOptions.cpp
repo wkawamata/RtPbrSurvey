@@ -271,6 +271,7 @@ bool HasParentTraversal(const std::filesystem::path& path)
 bool ParseCapturePath(const std::filesystem::path& planDirectory,
                       const std::string& pathTemplate,
                       const std::string& variant,
+                      const wchar_t* requiredExtension,
                       std::filesystem::path& path,
                       std::string& error)
 {
@@ -298,9 +299,10 @@ bool ParseCapturePath(const std::filesystem::path& planDirectory,
         error = "Capture paths must remain relative to the plan directory.";
         return false;
     }
-    if (_wcsicmp(relativePath.extension().c_str(), L".png") != 0)
+    if (_wcsicmp(relativePath.extension().c_str(), requiredExtension) != 0)
     {
-        error = "Capture paths must use the .png extension.";
+        error = _wcsicmp(requiredExtension, L".png") == 0 ? "Capture paths must use the .png extension."
+                                                          : "Path Tracing capture paths must use the .ptbuf extension.";
         return false;
     }
 
@@ -319,6 +321,16 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         if (IsCommandLineArg(argv[i], L"-warp") || IsCommandLineArg(argv[i], L"/warp"))
         {
             options.useWarpDevice = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-WindowSize"))
+        {
+            if (i + 2 >= argc || !TryParseUint(argv[++i], false, options.windowWidth) ||
+                !TryParseUint(argv[++i], false, options.windowHeight) ||
+                options.windowWidth < 64 || options.windowHeight < 64 ||
+                options.windowWidth > 4096 || options.windowHeight > 4096)
+            {
+                throw std::invalid_argument("-WindowSize expects width height in [64, 4096].");
+            }
         }
         else if (IsCommandLineArg(argv[i], L"-LogToFile"))
         {
@@ -389,8 +401,38 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
         {
             options.disableVSync = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-DisableD3D12DebugLayer"))
+        {
+            options.disableD3D12DebugLayer = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-EnablePathTracing"))
         {
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrContinuous"))
+        {
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrLifecycleValidation"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'-')
+                throw std::invalid_argument("-PathTracingRrLifecycleValidation expects an output directory.");
+            options.pathTracingRrLifecycleValidationDirectory = argv[++i];
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingReconstruction"))
+        {
+            if (i + 1 >= argc || (!IsCommandLineArg(argv[i + 1], L"native") && !IsCommandLineArg(argv[i + 1], L"nrd") &&
+                                  !IsCommandLineArg(argv[i + 1], L"rr")))
+                throw std::invalid_argument("-PathTracingReconstruction expects native, nrd, or rr.");
+            options.pathTracingReconstruction = IsCommandLineArg(argv[i + 1], L"nrd")  ? "nrd"
+                                                : IsCommandLineArg(argv[i + 1], L"rr") ? "rr"
+                                                                                       : "native";
+            ++i;
             options.enablePathTracing = true;
         }
         else if (IsCommandLineArg(argv[i], L"-PathTracingSamples"))
@@ -427,6 +469,71 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 throw std::invalid_argument("-PathTracingSeed expects an integer in [0, UINT_MAX].");
             }
             options.hasPathTracingRandomSeed = true;
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-NrdDiagnosticFailure"))
+        {
+            if (i + 1 >= argc)
+                throw std::invalid_argument(
+                    "-NrdDiagnosticFailure expects initialization, last-dispatch or after-four-frames.");
+            const std::wstring value = argv[++i];
+            if (value == L"initialization")
+                options.nrdDiagnosticFailure = "initialization";
+            else if (value == L"last-dispatch")
+                options.nrdDiagnosticFailure = "last-dispatch";
+            else if (value == L"after-four-frames")
+                options.nrdDiagnosticFailure = "after-four-frames";
+            else
+                throw std::invalid_argument("Unknown -NrdDiagnosticFailure mode.");
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingReferenceComponent"))
+        {
+            if (i + 1 >= argc)
+                throw std::invalid_argument("-PathTracingReferenceComponent expects diffuse, specular, stable or background.");
+            const std::wstring value = argv[++i];
+            if (value == L"diffuse")
+                options.pathTracingReferenceComponent = "diffuse";
+            else if (value == L"specular")
+                options.pathTracingReferenceComponent = "specular";
+            else if (value == L"stable")
+                options.pathTracingReferenceComponent = "stable";
+            else if (value == L"background")
+                options.pathTracingReferenceComponent = "background";
+            else
+                throw std::invalid_argument("Unknown -PathTracingReferenceComponent.");
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-NrdPrepassProfile"))
+        {
+            if (i + 1 >= argc)
+                throw std::invalid_argument("-NrdPrepassProfile expects control, specular-10 or diffuse-5.");
+            const std::wstring value = argv[++i];
+            if (value == L"control")
+                options.nrdPrepassProfile = "control";
+            else if (value == L"specular-10")
+                options.nrdPrepassProfile = "specular-10";
+            else if (value == L"diffuse-5")
+                options.nrdPrepassProfile = "diffuse-5";
+            else
+                throw std::invalid_argument("Unknown -NrdPrepassProfile mode.");
+            options.enablePathTracing = true;
+            options.nrdPreview = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-NrdDisableAntilag"))
+        {
+            options.nrdDisableAntilag = true;
+            options.nrdPreview = true;
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-NrdPreview"))
+        {
+            options.nrdPreview = true;
+            options.enablePathTracing = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-NrdContinuousCameraHistory"))
+        {
+            options.nrdContinuousCameraHistory = true;
             options.enablePathTracing = true;
         }
         else if (IsCommandLineArg(argv[i], L"-PathTracingObjectMotionX"))
@@ -750,6 +857,15 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
                 }
             }
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingCapturePlan"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'-')
+            {
+                throw std::invalid_argument("-PathTracingCapturePlan expects a plan file.");
+            }
+            options.pathTracingCapturePlanPath = argv[++i];
+            options.enablePathTracing = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-ReflectionCapturePlan"))
         {
             if (i + 1 < argc)
@@ -941,10 +1057,18 @@ bool BuildCaptureSessionConfig(const CommandLineOptions& options,
     return true;
 }
 
-bool LoadReflectionCapturePlan(const std::filesystem::path& path,
-                               const std::string& variant,
-                               ReflectionCapturePlan& plan,
-                               std::string& error)
+bool HasPathTracingDlssConflict(const CommandLineOptions& options)
+{
+    return options.enablePathTracing &&
+           (options.enableDlssSr || options.captureReflectionResolvedRadiance ||
+            (options.enableDlssRayReconstruction && options.pathTracingReconstruction != "rr"));
+}
+
+static bool LoadCapturePlan(const std::filesystem::path& path,
+                            const std::string& variant,
+                            const wchar_t* requiredExtension,
+                            ReflectionCapturePlan& plan,
+                            std::string& error)
 {
     plan = {};
     error.clear();
@@ -1034,6 +1158,7 @@ bool LoadReflectionCapturePlan(const std::filesystem::path& path,
             if (!ParseCapturePath(planDirectory,
                                   value.at("path").get<std::string>(),
                                   variant,
+                                  requiredExtension,
                                   capture.path,
                                   error))
             {
@@ -1049,6 +1174,36 @@ bool LoadReflectionCapturePlan(const std::filesystem::path& path,
         return false;
     }
 
+    return true;
+}
+
+bool LoadReflectionCapturePlan(const std::filesystem::path& path,
+                               const std::string& variant,
+                               ReflectionCapturePlan& plan,
+                               std::string& error)
+{
+    return LoadCapturePlan(path, variant, L".png", plan, error);
+}
+
+bool LoadPathTracingCapturePlan(const std::filesystem::path& path, ReflectionCapturePlan& plan, std::string& error)
+{
+    if (!LoadCapturePlan(path, "pt", L".ptbuf", plan, error))
+    {
+        return false;
+    }
+    std::vector<std::filesystem::path> paths;
+    for (const ReflectionCaptureRequest& capture : plan.captures)
+    {
+        const std::filesystem::path normalized = capture.path.lexically_normal();
+        if (std::any_of(paths.begin(), paths.end(), [&](const std::filesystem::path& previous)
+                        { return _wcsicmp(previous.c_str(), normalized.c_str()) == 0; }))
+        {
+            error = "Path Tracing capture paths must be unique.";
+            plan = {};
+            return false;
+        }
+        paths.push_back(normalized);
+    }
     return true;
 }
 

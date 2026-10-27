@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "nrd-material-matrix",
+  "name": "PT NRD Material Matrix",
+  "description": "目的: 非金属/金属とroughness 0.6/0.1の4条件でNRD入力・材質復元・Native fallbackを確認する。\n配置: 左上=非金属0.6、右上=非金属0.1、左下=金属0.6、右下=金属0.1。\n確認: 各面の材質値、金属のdiffuse無効化、NRD合成の実行、背景のNative保持。\n限界: 一様な白い環境と静止平面による入力契約テスト。鋭い反射、高コントラスト環境、金属全般の主観画質を合格とはしない。",
+  "renderPreset": "render-preset.json",
+  "assets": [],
+  "materials": [
+    {"id": "dielectric-rough", "name": "Dielectric rough", "baseColor": [0.65, 0.2, 0.15, 1], "metallic": 0, "roughness": 0.6},
+    {"id": "dielectric-smooth", "name": "Dielectric smooth", "baseColor": [0.2, 0.4, 0.6, 1], "metallic": 0, "roughness": 0.1},
+    {"id": "metal-rough", "name": "Metal rough", "baseColor": [0.6, 0.5, 0.2, 1], "metallic": 1, "roughness": 0.6},
+    {"id": "metal-smooth", "name": "Metal smooth", "baseColor": [0.15, 0.6, 0.3, 1], "metallic": 1, "roughness": 0.1}
+  ],
+  "nodes": [
+    {"id": "dielectric-rough", "name": "Dielectric rough", "parentId": null, "type": "primitive", "translation": [-1.1, 0.85, 0], "rotation": [-0.7071067811865475, 0, 0, 0.7071067811865476], "scale": [1, 1, 1], "visible": true, "primitive": {"kind": "plane", "width": 1.7, "depth": 1.3}, "materialId": "dielectric-rough"},
+    {"id": "dielectric-smooth", "name": "Dielectric smooth", "parentId": null, "type": "primitive", "translation": [1.1, 0.85, 0], "rotation": [-0.7071067811865475, 0, 0, 0.7071067811865476], "scale": [1, 1, 1], "visible": true, "primitive": {"kind": "plane", "width": 1.7, "depth": 1.3}, "materialId": "dielectric-smooth"},
+    {"id": "metal-rough", "name": "Metal rough", "parentId": null, "type": "primitive", "translation": [-1.1, -0.85, 0], "rotation": [-0.7071067811865475, 0, 0, 0.7071067811865476], "scale": [1, 1, 1], "visible": true, "primitive": {"kind": "plane", "width": 1.7, "depth": 1.3}, "materialId": "metal-rough"},
+    {"id": "metal-smooth", "name": "Metal smooth", "parentId": null, "type": "primitive", "translation": [1.1, -0.85, 0], "rotation": [-0.7071067811865475, 0, 0, 0.7071067811865476], "scale": [1, 1, 1], "visible": true, "primitive": {"kind": "plane", "width": 1.7, "depth": 1.3}, "materialId": "metal-smooth"}
+  ],
+  "camera": {"position": [0, 0, -6], "target": [0, 0, 0], "up": [0, 1, 0], "projection": "perspective", "verticalFovDegrees": 55, "orthographicHeight": 10, "nearZ": 0.1, "farZ": 1000},
+  "environment": {"source": "procedural", "iblEnabled": true, "skyColor": [1, 1, 1], "groundColor": [1, 1, 1], "lightColor": [1, 1, 1], "lightDirection": [0.35, 0.75, 0.25], "backgroundIntensity": 1, "lightIntensity": 0, "lightSize": 0.12, "fillIntensity": 0, "colorPanelIntensity": 0, "horizonSharpness": 0.08}
+}

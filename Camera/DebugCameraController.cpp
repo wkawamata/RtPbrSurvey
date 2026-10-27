@@ -445,6 +445,10 @@ void DebugCameraController::UpdateFreeLookKeyboard(float,
                                                    bool zoomIn,
                                                    bool zoomOut)
 {
+    if (!moveLeft && !moveRight && !moveForward && !moveBackward && !moveUp && !moveDown && !zoomIn && !zoomOut)
+    {
+        return;
+    }
     Engine::CameraState* camera = Camera();
     if (camera == nullptr)
     {

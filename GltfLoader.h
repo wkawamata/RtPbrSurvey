@@ -31,6 +31,11 @@ struct GltfMaterial
     float occlusionStrength = 1.0f;
     float emissiveFactor[3] = {0, 0, 0};
     float normalTextureScale = 1.0f;
+    bool unlit = false;
+    bool thinTransmission = false;
+    float transmissionFactor = 0.0f;
+    float transmissionTint[3] = {1.0f, 1.0f, 1.0f};
+    float transmissionIor = 1.5f;
 };
 
 struct GltfTextureData

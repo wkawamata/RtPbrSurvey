@@ -95,6 +95,14 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
     json pathTracing;
     pathTracing["accumulate"] = settings.pathTracing.accumulate;
     pathTracing["samplesPerFrame"] = settings.pathTracing.samplesPerFrame;
+    pathTracing["pixelCenterPrimary"] = settings.pathTracing.pixelCenterPrimary;
+    pathTracing["denoiserDistanceDiagnostics"] = settings.pathTracing.denoiserDistanceDiagnostics;
+    pathTracing["nrdPreview"] = settings.pathTracing.nrdPreview;
+    if (settings.pathTracing.reconstructionBackend != Engine::PathTracingReconstructionBackend::Legacy)
+        pathTracing["reconstructionBackend"] =
+            Engine::PathTracingReconstructionBackendName(settings.pathTracing.reconstructionBackend);
+    pathTracing["reconstructionDiagnostics"] = settings.pathTracing.reconstructionDiagnostics;
+    pathTracing["rrContinuous"] = settings.pathTracing.rrContinuous;
     pathTracing["maxBounces"] = settings.pathTracing.maxBounces;
     pathTracing["randomSeed"] = settings.pathTracing.randomSeed;
     pathTracing["directLightingEnabled"] = settings.pathTracing.directLightingEnabled;
@@ -306,6 +314,32 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
             parsed.pathTracing.accumulate = pathTracing.value("accumulate", parsed.pathTracing.accumulate);
             parsed.pathTracing.samplesPerFrame =
                 (std::clamp)(pathTracing.value("samplesPerFrame", parsed.pathTracing.samplesPerFrame), 1u, 16u);
+            parsed.pathTracing.pixelCenterPrimary =
+                pathTracing.value("pixelCenterPrimary", parsed.pathTracing.pixelCenterPrimary);
+            parsed.pathTracing.denoiserDistanceDiagnostics =
+                pathTracing.value("denoiserDistanceDiagnostics", parsed.pathTracing.denoiserDistanceDiagnostics);
+            parsed.pathTracing.nrdPreview = pathTracing.value("nrdPreview", parsed.pathTracing.nrdPreview);
+            parsed.pathTracing.reconstructionDiagnostics =
+                pathTracing.value("reconstructionDiagnostics", parsed.pathTracing.reconstructionDiagnostics);
+            parsed.pathTracing.rrContinuous = pathTracing.value("rrContinuous", parsed.pathTracing.rrContinuous);
+            if (pathTracing.contains("reconstructionBackend"))
+            {
+                const std::string name = pathTracing.at("reconstructionBackend").get<std::string>();
+                using Backend = Engine::PathTracingReconstructionBackend;
+                if (name == "native")
+                    parsed.pathTracing.reconstructionBackend = Backend::Native;
+                else if (name == "nrd")
+                    parsed.pathTracing.reconstructionBackend = Backend::Nrd;
+                else if (name == "rr")
+                    parsed.pathTracing.reconstructionBackend = Backend::Rr;
+                else
+                {
+                    if (error)
+                        *error = "Unknown PT reconstruction backend: " + name;
+                    return false;
+                }
+                parsed.pathTracing.nrdPreview = parsed.pathTracing.reconstructionBackend == Backend::Nrd;
+            }
             parsed.pathTracing.maxBounces =
                 (std::clamp)(pathTracing.value("maxBounces", parsed.pathTracing.maxBounces), 1u, 16u);
             parsed.pathTracing.randomSeed = pathTracing.value("randomSeed", parsed.pathTracing.randomSeed);

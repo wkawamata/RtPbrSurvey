@@ -41,6 +41,7 @@ struct StreamlineAdapterState
     RayReconstructionSupportStatus lastRayReconstructionEvaluateStatus =
         RayReconstructionSupportStatus::NotIntegrated;
     const char* lastRayReconstructionEvaluateResultName = "Unavailable";
+    std::uint64_t rayReconstructionNativeEvaluateCallCount = 0;
 };
 
 StreamlineAdapterState g_streamlineAdapterState;
@@ -178,13 +179,15 @@ RayReconstructionInputReadiness ValidateRayReconstructionEvaluateInputs(
     {
         return {false, RayReconstructionReadinessReason::InvalidRenderSize};
     }
-    if (inputs.reflectionEvaluatedRadiance == nullptr)
+    if (!inputs.pathTracingDiagnostic && inputs.reflectionEvaluatedRadiance == nullptr)
     {
         return {false, RayReconstructionReadinessReason::MissingReflectionEvaluatedRadiance};
     }
-    if (inputs.reflectionResolvedRadiance == nullptr)
+    if ((inputs.pathTracingDiagnostic ? inputs.scalingOutputColor : inputs.reflectionResolvedRadiance) == nullptr)
     {
-        return {false, RayReconstructionReadinessReason::MissingReflectionResolvedRadiance};
+        return {false,
+                inputs.pathTracingDiagnostic ? RayReconstructionReadinessReason::MissingScalingOutputColor
+                                             : RayReconstructionReadinessReason::MissingReflectionResolvedRadiance};
     }
     if (inputs.scalingInputColor == nullptr)
     {
@@ -218,24 +221,30 @@ RayReconstructionInputReadiness ValidateRayReconstructionEvaluateInputs(
     {
         return {false, RayReconstructionReadinessReason::MissingSpecularHitDistance};
     }
-    if (!IsFormat(inputs.reflectionEvaluatedRadiance, DXGI_FORMAT_R16G16B16A16_FLOAT))
+    if (!inputs.pathTracingDiagnostic && !IsFormat(inputs.reflectionEvaluatedRadiance, DXGI_FORMAT_R16G16B16A16_FLOAT))
     {
         return {false, RayReconstructionReadinessReason::InvalidReflectionEvaluatedRadianceFormat};
     }
-    if (!HasRenderSize(inputs.reflectionEvaluatedRadiance, inputs.renderWidth, inputs.renderHeight))
+    if (!inputs.pathTracingDiagnostic &&
+        !HasRenderSize(inputs.reflectionEvaluatedRadiance, inputs.renderWidth, inputs.renderHeight))
     {
         return {false, RayReconstructionReadinessReason::InvalidRenderSize};
     }
-    if (!IsFormat(inputs.reflectionResolvedRadiance, DXGI_FORMAT_R16G16B16A16_FLOAT))
+    ID3D12Resource* output =
+        inputs.pathTracingDiagnostic ? inputs.scalingOutputColor : inputs.reflectionResolvedRadiance;
+    if (inputs.pathTracingDiagnostic ? !IsFormat(output, DXGI_FORMAT_R32G32B32A32_FLOAT)
+                                     : !IsFormat(output, DXGI_FORMAT_R16G16B16A16_FLOAT))
     {
-        return {false, RayReconstructionReadinessReason::InvalidReflectionResolvedRadianceFormat};
+        return {false,
+                inputs.pathTracingDiagnostic
+                    ? RayReconstructionReadinessReason::InvalidScalingOutputColorFormat
+                    : RayReconstructionReadinessReason::InvalidReflectionResolvedRadianceFormat};
     }
-    if (!HasRenderSize(inputs.reflectionResolvedRadiance, inputs.renderWidth, inputs.renderHeight))
+    if (!HasRenderSize(output, inputs.renderWidth, inputs.renderHeight))
     {
         return {false, RayReconstructionReadinessReason::InvalidRenderSize};
     }
-    if (!IsAnyFormat(inputs.scalingInputColor,
-                     {DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_R32G32B32A32_FLOAT}))
+    if (!IsAnyFormat(inputs.scalingInputColor, {DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_R32G32B32A32_FLOAT}))
     {
         return {false, RayReconstructionReadinessReason::InvalidScalingInputColorFormat};
     }
@@ -243,7 +252,9 @@ RayReconstructionInputReadiness ValidateRayReconstructionEvaluateInputs(
     {
         return {false, RayReconstructionReadinessReason::InvalidRenderSize};
     }
-    if (!IsAnyFormat(inputs.depth, {DXGI_FORMAT_R32_TYPELESS, DXGI_FORMAT_R32_FLOAT, DXGI_FORMAT_D32_FLOAT}))
+    if (inputs.pathTracingDiagnostic
+            ? !IsFormat(inputs.depth, DXGI_FORMAT_R32_FLOAT)
+            : !IsAnyFormat(inputs.depth, {DXGI_FORMAT_R32_TYPELESS, DXGI_FORMAT_R32_FLOAT, DXGI_FORMAT_D32_FLOAT}))
     {
         return {false, RayReconstructionReadinessReason::InvalidDepthFormat};
     }
@@ -275,7 +286,9 @@ RayReconstructionInputReadiness ValidateRayReconstructionEvaluateInputs(
     {
         return {false, RayReconstructionReadinessReason::InvalidRenderSize};
     }
-    if (!IsAnyFormat(inputs.albedo, {DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R16G16B16A16_FLOAT}))
+    if (inputs.pathTracingDiagnostic
+            ? !IsFormat(inputs.albedo, DXGI_FORMAT_R32G32B32A32_FLOAT)
+            : !IsAnyFormat(inputs.albedo, {DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R16G16B16A16_FLOAT}))
     {
         return {false, RayReconstructionReadinessReason::InvalidAlbedoFormat};
     }
@@ -283,7 +296,9 @@ RayReconstructionInputReadiness ValidateRayReconstructionEvaluateInputs(
     {
         return {false, RayReconstructionReadinessReason::InvalidRenderSize};
     }
-    if (!IsAnyFormat(inputs.specularAlbedo, {DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R16G16B16A16_FLOAT}))
+    if (inputs.pathTracingDiagnostic
+            ? !IsFormat(inputs.specularAlbedo, DXGI_FORMAT_R32G32B32A32_FLOAT)
+            : !IsAnyFormat(inputs.specularAlbedo, {DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R16G16B16A16_FLOAT}))
     {
         return {false, RayReconstructionReadinessReason::InvalidSpecularAlbedoFormat};
     }
@@ -801,7 +816,9 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     renderExtent.height = inputs.renderHeight;
 
     sl::Resource denoisedSpecular(
-        sl::ResourceType::eTex2d, inputs.reflectionResolvedRadiance, D3D12_RESOURCE_STATE_COPY_DEST);
+        sl::ResourceType::eTex2d,
+        inputs.pathTracingDiagnostic ? inputs.scalingOutputColor : inputs.reflectionResolvedRadiance,
+        inputs.pathTracingDiagnostic ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_COPY_DEST);
     sl::Resource scalingInputColor(
         sl::ResourceType::eTex2d, inputs.scalingInputColor, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     sl::Resource depth(sl::ResourceType::eTex2d, inputs.depth, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
@@ -817,7 +834,10 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     const sl::ResourceTag tags[] = {
         {&scalingInputColor, sl::kBufferTypeScalingInputColor, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
         {&denoisedSpecular, sl::kBufferTypeScalingOutputColor, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
-        {&depth, sl::kBufferTypeDepth, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
+        {&depth,
+         inputs.pathTracingDiagnostic ? sl::kBufferTypeLinearDepth : sl::kBufferTypeDepth,
+         sl::ResourceLifecycle::eOnlyValidNow,
+         &renderExtent},
         {&motionVectors, sl::kBufferTypeMotionVectors, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
         {&albedo, sl::kBufferTypeAlbedo, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
         {&specularAlbedo, sl::kBufferTypeSpecularAlbedo, sl::ResourceLifecycle::eOnlyValidNow, &renderExtent},
@@ -834,6 +854,7 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     }
 
     const sl::BaseStructure* evaluateInputs[] = {&viewport};
+    ++g_streamlineAdapterState.rayReconstructionNativeEvaluateCallCount;
     const sl::Result evaluateResult =
         slEvaluateFeature(sl::kFeatureDLSS_RR, *frameToken, evaluateInputs, _countof(evaluateInputs), inputs.commandList);
     if (evaluateResult != sl::Result::eOk)
@@ -943,6 +964,7 @@ RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnosticsWithSdk(
     diagnostics.lastEvaluateOutputAvailable = g_streamlineAdapterState.lastRayReconstructionEvaluateOutputAvailable;
     diagnostics.lastEvaluateStatus = g_streamlineAdapterState.lastRayReconstructionEvaluateStatus;
     diagnostics.lastEvaluateResultName = g_streamlineAdapterState.lastRayReconstructionEvaluateResultName;
+    diagnostics.nativeEvaluateCallCount = g_streamlineAdapterState.rayReconstructionNativeEvaluateCallCount;
     diagnostics.sdkMajor = SL_VERSION_MAJOR;
     diagnostics.sdkMinor = SL_VERSION_MINOR;
     diagnostics.sdkPatch = SL_VERSION_PATCH;
@@ -1024,6 +1046,7 @@ RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnosticsWithoutS
     diagnostics.lastEvaluateOutputAvailable = g_streamlineAdapterState.lastRayReconstructionEvaluateOutputAvailable;
     diagnostics.lastEvaluateStatus = g_streamlineAdapterState.lastRayReconstructionEvaluateStatus;
     diagnostics.lastEvaluateResultName = g_streamlineAdapterState.lastRayReconstructionEvaluateResultName;
+    diagnostics.nativeEvaluateCallCount = g_streamlineAdapterState.rayReconstructionNativeEvaluateCallCount;
     return diagnostics;
 }
 

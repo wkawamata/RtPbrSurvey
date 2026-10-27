@@ -107,12 +107,12 @@ private:
 
     void CreateSampleScenes();
     void LoadSceneCpuData(int sceneIndex);
-    void LoadFileSceneCpuData();
+    void LoadFileSceneCpuData(const std::filesystem::path& path = {});
     void OpenSelectedScene();
     void ExecuteOpenSelectedScene();
-    void OpenFileScene();
+    void OpenFileScene(const std::filesystem::path& savedScenePath = {});
     void OpenCommandLineDebugTexturePreview();
-    void ApplyFileSceneSettings();
+    void ApplyFileSceneSettings(bool useCommandLineOverrides = true);
     void CreateNewSceneEditorDocument();
     bool LoadSceneEditorDocument(const std::string& path, std::string* error = nullptr);
     void RequestNewSceneEditorDocument();
@@ -168,6 +168,7 @@ private:
     void AccumulatePathTracingCaptureDiagnostics();
     void LogPathTracingCaptureDiagnostics(const RtPbrSurveyEngine::UiFrameContext& context);
     void RunPathTracingHistoryValidation();
+    void RunPathTracingRrLifecycleValidation();
     void FlushD3D12DebugMessages();
     void LogFpsToFile(float cpuFrameTimeMs);
     bool CaptureEvaluationState(RtPbrSurvey::EvaluationState& state, std::string* error = nullptr);
@@ -287,6 +288,16 @@ private:
     float m_pathTracingGpuTimeMinMs = 0.0f;
     float m_pathTracingGpuTimeMaxMs = 0.0f;
     UINT64 m_pathTracingGpuTimingSampleCount = 0;
+    UINT m_rrLifecycleStage = 0;
+    UINT m_rrLifecycleFrames = 0;
+    uint64_t m_rrLifecycleCalls = 0;
+    uint64_t m_rrLifecycleResets = 0;
+    uint64_t m_rrLifecyclePublished = 0;
+    uint64_t m_rrLifecycleCancelled = 0;
+    uint64_t m_rrLifecycleRejected = 0;
+    bool m_rrLifecycleEntered = false;
+    UINT m_rrLifecycleCapture = 0;
+    RtPbrSurveyEngine::CameraState m_rrLifecycleCamera;
     UINT m_pathTracingHistoryValidationStage = 0;
     UINT m_pathTracingHistoryValidationFrames = 0;
     bool m_pathTracingHistoryValidationEntered = false;

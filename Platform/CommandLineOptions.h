@@ -66,6 +66,8 @@ struct ReflectionCapturePlan
 struct CommandLineOptions
 {
     bool useWarpDevice = false;
+    UINT windowWidth = 0;
+    UINT windowHeight = 0;
     std::wstring logFilePath;
     UINT logFpsInterval = 0;
     bool autoSelectGltfDamagedHelmet = false;
@@ -76,12 +78,23 @@ struct CommandLineOptions
     std::filesystem::path renderPresetPath;
     bool useSceneDefaults = false;
     bool enablePathTracing = false;
+    std::string pathTracingReconstruction;
     bool disableVSync = false;
+    bool disableD3D12DebugLayer = false;
     UINT pathTracingSampleTarget = 0;
     std::filesystem::path pathTracingHistoryValidationDirectory;
+    std::filesystem::path pathTracingCapturePlanPath;
     bool hasPathTracingRandomSeed = false;
     UINT pathTracingRandomSeed = 1;
     bool hasPathTracingObjectMotion = false;
+    bool nrdContinuousCameraHistory = false;
+    bool nrdPreview = false;
+    bool pathTracingRrContinuous = false;
+    std::filesystem::path pathTracingRrLifecycleValidationDirectory;
+    std::string nrdDiagnosticFailure;
+    std::string nrdPrepassProfile;
+    bool nrdDisableAntilag = false;
+    std::string pathTracingReferenceComponent;
     float pathTracingObjectMotionX = 0.0f;
     UINT pathTracingEnvironmentMode = 0;
     bool hasPathTracingEnvironmentMode = false;
@@ -146,6 +159,7 @@ struct CommandLineOptions
 };
 
 CommandLineOptions ParseCommandLineOptions(_In_reads_(argc) WCHAR* argv[], int argc);
+bool HasPathTracingDlssConflict(const CommandLineOptions& options);
 bool BuildCaptureSessionConfig(const CommandLineOptions& options,
                                RtPbrSurvey::CaptureSessionConfig& config,
                                std::string& error);
@@ -153,5 +167,6 @@ bool LoadReflectionCapturePlan(const std::filesystem::path& path,
                                const std::string& variant,
                                ReflectionCapturePlan& plan,
                                std::string& error);
+bool LoadPathTracingCapturePlan(const std::filesystem::path& path, ReflectionCapturePlan& plan, std::string& error);
 
 } // namespace Platform

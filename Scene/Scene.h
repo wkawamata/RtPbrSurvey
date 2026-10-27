@@ -99,6 +99,11 @@ struct SceneMaterial
     float normalTextureScale = 1.0f;
     DirectX::XMFLOAT2 uvScale = {1.0f, 1.0f};
     DirectX::XMFLOAT2 uvOffset = {0.0f, 0.0f};
+    bool unlit = false;
+    bool thinTransmission = false;
+    float transmissionFactor = 0.0f;
+    DirectX::XMFLOAT3 transmissionTint = {1.0f, 1.0f, 1.0f};
+    float transmissionIor = 1.5f;
 };
 
 struct SceneMesh

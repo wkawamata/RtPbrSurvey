@@ -336,6 +336,16 @@ bool ValidateSceneDocument(const SceneDocument& document, std::string* error)
     std::unordered_set<std::string> materialIds;
     for (const SceneMaterial& material : document.materials)
     {
+        const SceneTransmission& transmission = material.transmission;
+        if ((transmission.mode != SceneTransmissionMode::Opaque && transmission.mode != SceneTransmissionMode::Thin) ||
+            !IsFinite(transmission.factor) || transmission.factor < 0.0f || transmission.factor > 1.0f ||
+            !IsFinite(transmission.tint) || transmission.tint.x < 0.0f || transmission.tint.x > 1.0f ||
+            transmission.tint.y < 0.0f || transmission.tint.y > 1.0f ||
+            transmission.tint.z < 0.0f || transmission.tint.z > 1.0f ||
+            !IsFinite(transmission.ior) || transmission.ior < 1.0f)
+        {
+            return fail("Material transmission values are invalid: " + material.id);
+        }
         if (!IsFinite(material.baseColor) || !IsFinite(material.metallic) || !IsFinite(material.roughness) ||
             material.baseColor.x < 0.0f || material.baseColor.x > 1.0f || material.baseColor.y < 0.0f ||
             material.baseColor.y > 1.0f || material.baseColor.z < 0.0f || material.baseColor.z > 1.0f ||
@@ -418,6 +428,16 @@ bool SerializeSceneDocument(const SceneDocument& document, std::string& jsonText
                              {"baseColor", Float4ToJson(material.baseColor)},
                              {"metallic", material.metallic},
                              {"roughness", material.roughness}});
+        const SceneTransmission& transmission = material.transmission;
+        if (transmission.mode != SceneTransmissionMode::Opaque || transmission.factor != 0.0f ||
+            transmission.tint.x != 1.0f || transmission.tint.y != 1.0f || transmission.tint.z != 1.0f ||
+            transmission.ior != 1.5f)
+        {
+            materials.back()["transmission"] = {{"mode", transmission.mode == SceneTransmissionMode::Thin ? "thin" : "opaque"},
+                                                 {"factor", transmission.factor},
+                                                 {"tint", Float3ToJson(transmission.tint)},
+                                                 {"ior", transmission.ior}};
+        }
     }
     json nodes = json::array();
     for (const SceneNode& node : document.nodes)
@@ -517,7 +537,7 @@ bool DeserializeSceneDocument(std::string_view jsonText, SceneDocument& document
         for (const json& materialValue : root.at("materials"))
         {
             SceneMaterial material;
-            if (!IsKnownFields(materialValue, {"id", "name", "baseColor", "metallic", "roughness"}) ||
+            if (!IsKnownFields(materialValue, {"id", "name", "baseColor", "metallic", "roughness", "transmission"}) ||
                 !RequireString(materialValue, "id", material.id, error) || !RequireString(materialValue, "name", material.name, error) ||
                 !materialValue.contains("baseColor") || !Float4FromJson(materialValue.at("baseColor"), material.baseColor) ||
                 !materialValue.contains("metallic") || !materialValue.at("metallic").is_number() ||
@@ -531,6 +551,26 @@ bool DeserializeSceneDocument(std::string_view jsonText, SceneDocument& document
             }
             material.metallic = materialValue.at("metallic").get<float>();
             material.roughness = materialValue.at("roughness").get<float>();
+            if (materialValue.contains("transmission"))
+            {
+                const json& transmission = materialValue.at("transmission");
+                std::string mode;
+                if (!transmission.is_object() || !IsKnownFields(transmission, {"mode", "factor", "tint", "ior"}) ||
+                    !RequireString(transmission, "mode", mode, error) || (mode != "opaque" && mode != "thin") ||
+                    !transmission.contains("factor") || !transmission.at("factor").is_number() ||
+                    !transmission.contains("tint") || !Float3FromJson(transmission.at("tint"), material.transmission.tint) ||
+                    !transmission.contains("ior") || !transmission.at("ior").is_number())
+                {
+                    if (error != nullptr)
+                    {
+                        *error = "Invalid material transmission.";
+                    }
+                    return false;
+                }
+                material.transmission.mode = mode == "thin" ? SceneTransmissionMode::Thin : SceneTransmissionMode::Opaque;
+                material.transmission.factor = transmission.at("factor").get<float>();
+                material.transmission.ior = transmission.at("ior").get<float>();
+            }
             parsed.materials.push_back(std::move(material));
         }
         for (const json& nodeValue : root.at("nodes"))

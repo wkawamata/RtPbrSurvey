@@ -12,6 +12,7 @@
 #include <functional>
 #include <tiny_gltf.h>
 #include <cstdio>
+#include <nlohmann/json.hpp>
 
 static const unsigned char* GetAccessorData(const tinygltf::Model& model, const tinygltf::Accessor& accessor)
 {
@@ -262,6 +263,118 @@ static std::string ResolveGltfPath(const std::string& path)
     return std::filesystem::exists(runtimePath) ? runtimePath.string() : path;
 }
 
+static std::string ParseThinTransmissionMaterial(const tinygltf::Material& material, GltfMaterial& output)
+{
+    if (material.extensions_json_string.empty())
+    {
+        return {};
+    }
+    const auto extensions = nlohmann::json::parse(material.extensions_json_string, nullptr, false);
+    if (!extensions.is_object())
+    {
+        return "Material extensions must be a JSON object.";
+    }
+    const auto transmission = extensions.find("KHR_materials_transmission");
+    const auto iorExtension = extensions.find("KHR_materials_ior");
+    if (transmission == extensions.end() && iorExtension == extensions.end())
+    {
+        return {};
+    }
+    if (extensions.contains("KHR_materials_unlit"))
+    {
+        return "Transmission/IOR must not be combined with Unlit.";
+    }
+    double factor = 0.0;
+    double ior = 1.5;
+    const auto readNumber = [](const nlohmann::json& extension, const char* field, double& value)
+    {
+        if (!extension.is_object())
+        {
+            return false;
+        }
+        if (extension.contains(field))
+        {
+            const nlohmann::json& number = extension.at(field);
+            if (!number.is_number())
+            {
+                return false;
+            }
+            value = number.get<double>();
+        }
+        return std::isfinite(value) && std::isfinite(static_cast<float>(value));
+    };
+    if (transmission != extensions.end())
+    {
+        if (!readNumber(*transmission, "transmissionFactor", factor) || factor < 0.0 || factor > 1.0)
+        {
+            return "transmissionFactor must be a finite number in [0, 1].";
+        }
+        for (const auto& field : transmission->items())
+        {
+            if (field.key() != "transmissionFactor" && field.key() != "extras")
+            {
+                return "Only constant transmissionFactor is supported; textures and other transmission fields are not.";
+            }
+        }
+    }
+    if (iorExtension != extensions.end())
+    {
+        if (!readNumber(*iorExtension, "ior", ior) || ior < 1.0)
+        {
+            return "IOR must be finite and >= 1; the special IOR=0 mode is not supported.";
+        }
+        for (const auto& field : iorExtension->items())
+        {
+            if (field.key() != "ior" && field.key() != "extras")
+            {
+                return "Only a constant IOR is supported.";
+            }
+        }
+    }
+    if (ior != 1.5 && factor != 1.0)
+    {
+        return "Non-default IOR currently requires fully transmissive material; opaque/mixed IOR shading is not implemented.";
+    }
+    const auto& pbr = material.pbrMetallicRoughness;
+    if (factor > 0.0)
+    {
+        if (pbr.roughnessFactor != 0.0 || pbr.metallicFactor != 0.0)
+        {
+            return "Active transmission requires roughnessFactor=0 and metallicFactor=0; rough or metallic transmission is not implemented.";
+        }
+        if (pbr.baseColorTexture.index >= 0 || pbr.metallicRoughnessTexture.index >= 0 || material.normalTexture.index >= 0)
+        {
+            return "Active transmission currently requires constant base color and no metallic-roughness or normal textures.";
+        }
+        if (material.alphaMode != "OPAQUE" || pbr.baseColorFactor.size() != 4 || pbr.baseColorFactor[3] != 1.0)
+        {
+            return "Active transmission requires OPAQUE coverage and baseColor alpha=1; alpha is not transmission.";
+        }
+        for (double color : pbr.baseColorFactor)
+        {
+            if (!std::isfinite(color) || color < 0.0 || color > 1.0)
+            {
+                return "Transmission base color must be finite and in [0, 1].";
+            }
+        }
+        for (const auto& extension : extensions.items())
+        {
+            if (extension.key() != "KHR_materials_transmission" && extension.key() != "KHR_materials_ior")
+            {
+                return "Active transmission cannot be combined with unsupported material extensions (including volume).";
+            }
+        }
+    }
+    output.thinTransmission = transmission != extensions.end();
+    output.transmissionFactor = static_cast<float>(factor);
+    output.transmissionIor = static_cast<float>(ior);
+    for (int channel = 0; channel < 3; ++channel)
+    {
+        output.transmissionTint[channel] = factor > 0.0 ? static_cast<float>(pbr.baseColorFactor[channel]) : 1.0f;
+    }
+    return {};
+}
+
 static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImportDiagnostic>& diagnostics)
 {
     bool valid = true;
@@ -339,10 +452,18 @@ static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImp
     };
     for (const std::string& extension : model.extensionsUsed)
     {
+        if (extension == "KHR_materials_unlit" || extension == "KHR_materials_transmission" || extension == "KHR_materials_ior")
+        {
+            continue;
+        }
         warning("UnsupportedExtension", "extensionsUsed." + extension, "Extension behavior is not implemented; only core data will be imported.");
     }
     for (const std::string& extension : model.extensionsRequired)
     {
+        if (extension == "KHR_materials_unlit" || extension == "KHR_materials_transmission" || extension == "KHR_materials_ior")
+        {
+            continue;
+        }
         error("RequiredExtension", "extensionsRequired." + extension, "Required extensions are not supported.");
     }
     if (!model.animations.empty())
@@ -353,6 +474,17 @@ static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImp
     {
         const tinygltf::Material& material = model.materials[i];
         const std::string location = "materials[" + std::to_string(i) + "]";
+        GltfMaterial thinMaterial;
+        const std::string transmissionError = ParseThinTransmissionMaterial(material, thinMaterial);
+        if (!transmissionError.empty())
+        {
+            report(GltfDiagnosticSeverity::Error, "TransmissionMaterial", location, transmissionError.c_str());
+        }
+        else if (thinMaterial.transmissionFactor > 0.0f)
+        {
+            warning("ThinTransmissionApproximation", location,
+                    "Native PT uses a smooth effective thin surface with straight transmission, no volume refraction or colored shadows; other rendering paths remain opaque.");
+        }
         if (material.alphaMode != "OPAQUE")
         {
             warning("AlphaModeIgnored", location, "Alpha MASK/BLEND is rendered as opaque; cutoff and blending are ignored.");
@@ -363,6 +495,11 @@ static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImp
         }
         for (const auto& extension : material.extensions)
         {
+            if (extension.first == "KHR_materials_unlit" || extension.first == "KHR_materials_transmission" ||
+                extension.first == "KHR_materials_ior")
+            {
+                continue;
+            }
             warning("MaterialExtensionIgnored", location + ".extensions." + extension.first,
                     "Material extension behavior is not implemented; core material fields are used.");
         }
@@ -568,6 +705,7 @@ static bool LoadGltfModel(const std::string& path, tinygltf::Model& model, std::
                           std::vector<GltfImportDiagnostic>& diagnostics)
 {
     tinygltf::TinyGLTF loader;
+    loader.SetStoreOriginalJSONForExtrasAndExtensions(true);
     std::string warn;
     std::string error;
     const std::string resolvedPath = ResolveGltfPath(path);
@@ -612,6 +750,8 @@ static void CopyMaterialsAndTextures(const tinygltf::Model& model, GltfMeshData&
         const auto& material = model.materials[materialIndex];
         const auto& pbr = material.pbrMetallicRoughness;
         GltfMaterial& destination = outMesh.materials[materialIndex];
+        ParseThinTransmissionMaterial(material, destination);
+        destination.unlit = material.extensions.find("KHR_materials_unlit") != material.extensions.end();
         destination.albedoTexIndex = pbr.baseColorTexture.index;
         destination.metallicRoughnessTexIndex = pbr.metallicRoughnessTexture.index;
         destination.emissiveTexIndex = material.emissiveTexture.index;

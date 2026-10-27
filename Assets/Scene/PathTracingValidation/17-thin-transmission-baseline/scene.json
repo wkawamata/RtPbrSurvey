@@ -1,0 +1,758 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "thin-baseline",
+  "name": "PT Thin Transmission baseline",
+  "renderPreset": "render-preset.json",
+  "description": "目的: 薄膜の色・不透明度と不透明な枠を確認する。\n操作: Scene EditorのHierarchyでPaneを選択。MaterialのTransmission RGBAでRGBとAを変更する。A=0は最大透過、A=1は不透明。IORは反射率に影響する。\n確認: 背景模様が板越しに見える。RGB変更が即時反映される。白/赤/緑/青の違い、枠の遮蔽、Undoと保存・再読込みを確認。\n制約: 色付きの影、厚み、背景の屈折歪みは未実装。NRD要求時もNativeへフォールバックする。",
+  "assets": [
+    {
+      "id": "background",
+      "type": "gltf",
+      "path": "background.gltf"
+    }
+  ],
+  "materials": [
+    {
+      "id": "White Glass",
+      "name": "White Glass",
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.1,
+      "transmission": {
+        "mode": "thin",
+        "factor": 1,
+        "tint": [
+          1,
+          1,
+          1
+        ],
+        "ior": 1.5
+      }
+    },
+    {
+      "id": "Red Glass",
+      "name": "Red Glass",
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.1,
+      "transmission": {
+        "mode": "thin",
+        "factor": 0.65,
+        "tint": [
+          1,
+          0.12,
+          0.12
+        ],
+        "ior": 1.5
+      }
+    },
+    {
+      "id": "Green Glass",
+      "name": "Green Glass",
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.1,
+      "transmission": {
+        "mode": "thin",
+        "factor": 1,
+        "tint": [
+          0.12,
+          1,
+          0.2
+        ],
+        "ior": 1.5
+      }
+    },
+    {
+      "id": "Blue Glass",
+      "name": "Blue Glass",
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.1,
+      "transmission": {
+        "mode": "thin",
+        "factor": 1,
+        "tint": [
+          0.15,
+          0.3,
+          1
+        ],
+        "ior": 1.5
+      }
+    },
+    {
+      "id": "Frame",
+      "name": "Frame",
+      "baseColor": [
+        0.04,
+        0.04,
+        0.04,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.8
+    }
+  ],
+  "nodes": [
+    {
+      "id": "Background Pattern",
+      "name": "Background Pattern",
+      "parentId": null,
+      "type": "gltf",
+      "translation": [
+        0,
+        0,
+        3
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "assetId": "background"
+    },
+    {
+      "id": "Pane 1",
+      "name": "Pane 1",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -3.3,
+        0,
+        0
+      ],
+      "rotation": [
+        -0.7071067811865476,
+        0,
+        0,
+        0.7071067811865476
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "materialId": "White Glass",
+      "primitive": {
+        "kind": "plane",
+        "width": 1.9,
+        "depth": 3.2
+      }
+    },
+    {
+      "id": "Frame 0-0",
+      "name": "Frame 0-0",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -4.32,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.1,
+        3.4,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Frame 0-1",
+      "name": "Frame 0-1",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -2.28,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.1,
+        3.4,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Frame 0-2",
+      "name": "Frame 0-2",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -3.3,
+        -1.65,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        2.14,
+        0.1,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Frame 0-3",
+      "name": "Frame 0-3",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -3.3,
+        1.65,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        2.14,
+        0.1,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Pane 2",
+      "name": "Pane 2",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -1.0999999999999996,
+        0,
+        0
+      ],
+      "rotation": [
+        -0.7071067811865476,
+        0,
+        0,
+        0.7071067811865476
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "materialId": "Red Glass",
+      "primitive": {
+        "kind": "plane",
+        "width": 1.9,
+        "depth": 3.2
+      }
+    },
+    {
+      "id": "Frame 1-0",
+      "name": "Frame 1-0",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -2.1199999999999997,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.1,
+        3.4,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Frame 1-1",
+      "name": "Frame 1-1",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -0.07999999999999963,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.1,
+        3.4,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Frame 1-2",
+      "name": "Frame 1-2",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -1.0999999999999996,
+        -1.65,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        2.14,
+        0.1,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Frame 1-3",
+      "name": "Frame 1-3",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -1.0999999999999996,
+        1.65,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        2.14,
+        0.1,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Pane 3",
+      "name": "Pane 3",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        1.1000000000000005,
+        0,
+        0
+      ],
+      "rotation": [
+        -0.7071067811865476,
+        0,
+        0,
+        0.7071067811865476
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "materialId": "Green Glass",
+      "primitive": {
+        "kind": "plane",
+        "width": 1.9,
+        "depth": 3.2
+      }
+    },
+    {
+      "id": "Frame 2-0",
+      "name": "Frame 2-0",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0.08000000000000052,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.1,
+        3.4,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Frame 2-1",
+      "name": "Frame 2-1",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        2.1200000000000006,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.1,
+        3.4,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Frame 2-2",
+      "name": "Frame 2-2",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        1.1000000000000005,
+        -1.65,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        2.14,
+        0.1,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Frame 2-3",
+      "name": "Frame 2-3",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        1.1000000000000005,
+        1.65,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        2.14,
+        0.1,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Pane 4",
+      "name": "Pane 4",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        3.3000000000000007,
+        0,
+        0
+      ],
+      "rotation": [
+        -0.7071067811865476,
+        0,
+        0,
+        0.7071067811865476
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "materialId": "Blue Glass",
+      "primitive": {
+        "kind": "plane",
+        "width": 1.9,
+        "depth": 3.2
+      }
+    },
+    {
+      "id": "Frame 3-0",
+      "name": "Frame 3-0",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        2.2800000000000007,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.1,
+        3.4,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Frame 3-1",
+      "name": "Frame 3-1",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        4.32,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.1,
+        3.4,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Frame 3-2",
+      "name": "Frame 3-2",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        3.3000000000000007,
+        -1.65,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        2.14,
+        0.1,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    },
+    {
+      "id": "Frame 3-3",
+      "name": "Frame 3-3",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        3.3000000000000007,
+        1.65,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        2.14,
+        0.1,
+        0.12
+      ],
+      "visible": true,
+      "materialId": "Frame",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    }
+  ],
+  "camera": {
+    "position": [
+      0,
+      0,
+      -10
+    ],
+    "target": [
+      0,
+      0,
+      1
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 40,
+    "orthographicHeight": 10,
+    "nearZ": 0.1,
+    "farZ": 1000
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      1,
+      1
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  }
+}

@@ -52,6 +52,8 @@ enum class RayReconstructionReadinessReason
     InvalidSpecularAlbedoFormat,
     InvalidSpecularHitDistanceFormat,
     MissingCameraConstants,
+    MissingScalingOutputColor,
+    InvalidScalingOutputColorFormat,
 };
 
 struct RayReconstructionSettings
@@ -99,6 +101,7 @@ struct RayReconstructionDiagnostics
     bool lastEvaluateOutputAvailable = false;
     RayReconstructionSupportStatus lastEvaluateStatus = RayReconstructionSupportStatus::NotIntegrated;
     const char* lastEvaluateResultName = "Unavailable";
+    std::uint64_t nativeEvaluateCallCount = 0;
 
     const char* StatusText() const;
     const char* InputReadinessText() const;

@@ -33,7 +33,7 @@ struct AccelerationStructureResources
     Microsoft::WRL::ComPtr<ID3D12Resource> tlasScratch;
     DescriptorAllocation tlasSrv;
 
-    void Build(
+    bool Build(
         ID3D12Device* device,
         ID3D12GraphicsCommandList* commandList,
         ID3D12Resource* vertexBuffer,
@@ -45,7 +45,7 @@ struct AccelerationStructureResources
         ID3D12Resource* tlasInstanceBuffer,
         SimpleDescriptorHeapAllocator& descriptorHeapAllocator);
 
-    void RebuildTlas(
+    bool RebuildTlas(
         ID3D12Device* device,
         ID3D12GraphicsCommandList* commandList,
         std::span<const AccelerationStructureGeometry> geometries,
