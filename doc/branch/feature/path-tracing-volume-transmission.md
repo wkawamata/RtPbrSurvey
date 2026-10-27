@@ -430,6 +430,67 @@ Date: 2026-10-27.
   No interactive mouse/keyboard UI verification or new GPU image suite was run
   in Step 4a. Step 3 numerical evidence remains separate from this UI validation.
 
+## Step 4b-1: glTF Volume Input Contract
+
+Date: 2026-10-27.
+
+`KHR_materials_volume` is inspected before the transmission/IOR early return.
+Thickness defaults to zero, attenuation color to white, and omitted attenuation
+distance to infinity per the Khronos specification. Explicit distance must be
+positive, finite and representable in the float runtime; color must be a linear
+RGB triple in [0,1]. Malformed objects and unsupported fields/textures are rejected.
+
+Zero thickness, including an empty extension, preserves the existing thin path.
+This subset also works when the extension is declared required. Nonzero thickness
+is still rejected with a closed-mesh/medium-identity diagnostic, even without a
+transmission extension; it is never silently converted to thin transmission.
+This is input-contract groundwork, not glTF solid-volume rendering support.
+
+The next increment must qualify closed consistently oriented triangle topology,
+identify one connected medium across primitives/material boundaries, and reject
+nested/overlapping or camera-inside cases before enabling volume transport for
+imported meshes. Thickness factor is the thin/solid selector, not an extra length
+multiplier for the ray-traced absorption distance. No GPU transport changes here.
+
+Validation: Debug build succeeded with one existing LNK4199 test-link warning;
+CTest 44/44 passed. Import tests exercise empty/zero-thickness required extensions,
+thin-material preservation, malformed objects, color/type/range errors, invalid or
+float-underflow distances, unsupported thickness textures, and solid rejection
+with/without transmission. Both scene-asset and legacy loaders reject invalid
+inputs without publishing stale mesh data. No new GPU image suite was run.
+Build record: `C:/work/RtPbrSurvey-agents/volume-gltf-contract-build-20261027`.
+
+## Step 4b-2: Closed-Shell Topology Gate
+
+Date: 2026-10-27.
+
+Added a renderer-independent triangle topology validator in
+`Scene/VolumeMeshTopology.h`. It requires finite positions, valid triangle indices,
+nonzero triangle area, exactly two oppositely oriented faces per edge, one
+edge-connected shell, a connected incident-face fan at each vertex, and positive
+signed enclosed volume (outward winding in the input coordinate system).
+Signed-volume calculation uses double precision relative to an input point.
+
+Vertices at exactly equal positions are welded for topology only, allowing UV and
+normal seams without changing render vertices. No epsilon welding is performed:
+nearby but distinct boundary vertices remain a crack and are rejected. The caller
+must supply winding in the chosen renderer coordinate convention after conversion.
+
+Tests cover outward/inward tetrahedra, split seam vertices, small translated
+geometry, open boundaries, mixed winding, excess edge incidence, invalid indices,
+degenerate/partial triangles, nonfinite positions, separate shells and shells
+touching at one vertex.
+
+This gate is not yet connected to glTF volume acceptance. It does not prove the
+absence of triangle self-intersections, nor classify camera position or overlaps
+with other scene objects. Those checks and instance/medium identity remain
+required before removing the solid-volume import guard. GPU behavior is unchanged.
+
+Validation: Debug build passed (one existing LNK4199 test-link warning), CTest
+44/44 passed including the new topology cases in GltfNodeMesh. No GPU image suite
+was rerun for this CPU-only gate. Build record:
+`C:/work/RtPbrSurvey-agents/volume-topology-build-20261027`.
+
 ## References
 
 - [KHR_materials_volume](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_volume)

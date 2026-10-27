@@ -326,7 +326,8 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Model& model, c
     }
     const auto transmission = extensions.find("KHR_materials_transmission");
     const auto iorExtension = extensions.find("KHR_materials_ior");
-    if (transmission == extensions.end() && iorExtension == extensions.end())
+    const auto volume = extensions.find("KHR_materials_volume");
+    if (transmission == extensions.end() && iorExtension == extensions.end() && volume == extensions.end())
     {
         return {};
     }
@@ -354,6 +355,51 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Model& model, c
         }
         return std::isfinite(value) && std::isfinite(static_cast<float>(value));
     };
+    if (volume != extensions.end())
+    {
+        double thickness = 0.0;
+        if (!readNumber(*volume, "thicknessFactor", thickness) || thickness < 0.0)
+        {
+            return "Volume thicknessFactor must be finite and nonnegative.";
+        }
+        if (volume->contains("attenuationDistance"))
+        {
+            double distance = 0.0;
+            if (!readNumber(*volume, "attenuationDistance", distance) || distance <= 0.0 ||
+                static_cast<float>(distance) <= 0.0f)
+            {
+                return "Volume attenuationDistance must be finite and positive when specified; omit it for infinity.";
+            }
+        }
+        if (volume->contains("attenuationColor"))
+        {
+            const auto& color = volume->at("attenuationColor");
+            if (!color.is_array() || color.size() != 3)
+            {
+                return "Volume attenuationColor must contain three linear RGB numbers in [0, 1].";
+            }
+            for (const auto& channel : color)
+            {
+                if (!channel.is_number() || !std::isfinite(channel.get<double>()) ||
+                    channel.get<double>() < 0.0 || channel.get<double>() > 1.0)
+                {
+                    return "Volume attenuationColor must contain three linear RGB numbers in [0, 1].";
+                }
+            }
+        }
+        for (const auto& field : volume->items())
+        {
+            if (field.key() != "thicknessFactor" && field.key() != "attenuationDistance" &&
+                field.key() != "attenuationColor" && field.key() != "extras")
+            {
+                return "Volume thickness textures and additional extension fields are not supported yet.";
+            }
+        }
+        if (thickness > 0.0)
+        {
+            return "glTF solid volume requires closed-mesh and medium-identity validation; use a qualified scene Cube/Sphere for now.";
+        }
+    }
     if (transmission != extensions.end())
     {
         if (!readNumber(*transmission, "transmissionFactor", factor) || factor < 0.0 || factor > 1.0)
@@ -448,7 +494,8 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Model& model, c
         }
         for (const auto& extension : extensions.items())
         {
-            if (extension.key() != "KHR_materials_transmission" && extension.key() != "KHR_materials_ior")
+            if (extension.key() != "KHR_materials_transmission" && extension.key() != "KHR_materials_ior" &&
+                extension.key() != "KHR_materials_volume")
             {
                 return "Active transmission cannot be combined with unsupported material extensions (including volume).";
             }
@@ -552,7 +599,8 @@ static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImp
     };
     for (const std::string& extension : model.extensionsUsed)
     {
-        if (extension == "KHR_materials_unlit" || extension == "KHR_materials_transmission" || extension == "KHR_materials_ior")
+        if (extension == "KHR_materials_unlit" || extension == "KHR_materials_transmission" || extension == "KHR_materials_ior" ||
+            extension == "KHR_materials_volume")
         {
             continue;
         }
@@ -560,7 +608,8 @@ static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImp
     }
     for (const std::string& extension : model.extensionsRequired)
     {
-        if (extension == "KHR_materials_unlit" || extension == "KHR_materials_transmission" || extension == "KHR_materials_ior")
+        if (extension == "KHR_materials_unlit" || extension == "KHR_materials_transmission" || extension == "KHR_materials_ior" ||
+            extension == "KHR_materials_volume")
         {
             continue;
         }
@@ -605,7 +654,7 @@ static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImp
         for (const auto& extension : material.extensions)
         {
             if (extension.first == "KHR_materials_unlit" || extension.first == "KHR_materials_transmission" ||
-                extension.first == "KHR_materials_ior")
+                extension.first == "KHR_materials_ior" || extension.first == "KHR_materials_volume")
             {
                 continue;
             }

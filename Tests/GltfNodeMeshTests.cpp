@@ -1,5 +1,6 @@
 #include "GltfLoader.h"
 #include "Scene/SceneBuilder.h"
+#include "Scene/VolumeMeshTopology.h"
 
 #include <cmath>
 #include <filesystem>
@@ -10,6 +11,7 @@
 #include <chrono>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <limits>
 
 namespace
 {
@@ -30,6 +32,83 @@ void Require(bool condition, const char* message)
     {
         throw std::runtime_error(message);
     }
+}
+
+void TestVolumeMeshTopology()
+{
+    using Position = std::array<float, 3>;
+    const std::vector<Position> positions = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    const std::vector<uint32_t> indices = {0, 2, 1, 0, 1, 3, 0, 3, 2, 1, 2, 3};
+    const auto validate = RtPbrSurvey::ValidateVolumeMeshTopology;
+    Require(validate(positions, indices).empty(), "Outward closed tetrahedron must pass topology validation.");
+    std::vector<Position> seams;
+    std::vector<uint32_t> seamIndices;
+    for (uint32_t index : indices)
+    {
+        seamIndices.push_back(static_cast<uint32_t>(seams.size()));
+        seams.push_back(positions[index]);
+    }
+    Require(validate(seams, seamIndices).empty(), "Exact-position UV/normal seams must weld for topology only.");
+    auto transformed = positions;
+    for (auto& position : transformed)
+    {
+        for (float& value : position)
+        {
+            value = value * 0.001f + 10.0f;
+        }
+    }
+    Require(validate(transformed, indices).empty(), "Small translated closed meshes must not use a fixed volume threshold.");
+    auto invalid = indices;
+    invalid.resize(9);
+    Require(!validate(positions, invalid).empty(), "Open volume must be rejected.");
+    invalid = indices;
+    std::swap(invalid[0], invalid[1]);
+    Require(!validate(positions, invalid).empty(), "Mixed face winding must be rejected.");
+    invalid = indices;
+    for (size_t face = 0; face < invalid.size(); face += 3)
+    {
+        std::swap(invalid[face], invalid[face + 1]);
+    }
+    Require(!validate(positions, invalid).empty(), "Inward closed shells must be rejected.");
+    invalid = indices;
+    invalid.insert(invalid.end(), {0, 2, 1});
+    Require(!validate(positions, invalid).empty(), "Three faces sharing an edge must be rejected.");
+    invalid = indices;
+    invalid[0] = 99;
+    Require(!validate(positions, invalid).empty(), "Invalid indices must be rejected.");
+    invalid = indices;
+    invalid[0] = invalid[1];
+    Require(!validate(positions, invalid).empty(), "Zero-area triangles must be rejected.");
+    invalid = indices;
+    invalid.pop_back();
+    Require(!validate(positions, invalid).empty(), "Partial triangles must be rejected.");
+    transformed = positions;
+    transformed[0][0] = std::numeric_limits<float>::quiet_NaN();
+    Require(!validate(transformed, indices).empty(), "NaN positions must be rejected before welding.");
+    transformed[0][0] = std::numeric_limits<float>::infinity();
+    Require(!validate(transformed, indices).empty(), "Infinite positions must be rejected.");
+    transformed = positions;
+    for (const auto& position : positions)
+    {
+        transformed.push_back({position[0] + 2, position[1], position[2]});
+    }
+    invalid = indices;
+    for (uint32_t index : indices)
+    {
+        invalid.push_back(index + 4);
+    }
+    Require(!validate(transformed, invalid).empty(), "Separate shells must not be treated as one medium.");
+    transformed = positions;
+    for (const auto& position : positions)
+    {
+        transformed.push_back({-position[0], -position[1], -position[2]});
+    }
+    invalid = indices;
+    for (size_t face = 0; face < indices.size(); face += 3)
+    {
+        invalid.insert(invalid.end(), {indices[face + 1] + 4, indices[face] + 4, indices[face + 2] + 4});
+    }
+    Require(!validate(transformed, invalid).empty(), "Shells touching at a single vertex must be rejected.");
 }
 
 void TestNodeEnumerationAndFailures()
@@ -480,12 +559,54 @@ void TestThinTransmissionImport()
         document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] = metallic;
         load(document, false, "TransmissionMaterial");
     }
-    for (const char* extension : {"KHR_materials_volume", "KHR_materials_unlit", "KHR_materials_clearcoat"})
+    for (const char* extension : {"KHR_materials_unlit", "KHR_materials_clearcoat"})
     {
         document = baseline;
         document["materials"][0]["extensions"][extension] = Json::object();
         load(document, false, "TransmissionMaterial");
     }
+    document = baseline;
+    document["extensionsUsed"].push_back("KHR_materials_volume");
+    document["extensionsRequired"].push_back("KHR_materials_volume");
+    document["materials"][0]["extensions"]["KHR_materials_volume"] = Json::object();
+    load(document, true, "ThinTransmissionApproximation");
+    document["materials"][0]["extensions"]["KHR_materials_volume"] = {
+        {"thicknessFactor", 0.0}, {"attenuationColor", {0.25, 0.5, 0.8}}, {"attenuationDistance", 2.0}};
+    load(document, true, "ThinTransmissionApproximation");
+    Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].thinTransmission &&
+                NearlyEqual(mesh.materials[0].transmissionFactor, 0.5f),
+            "Zero-thickness volume must preserve the existing thin transmission path.");
+    const Json zeroVolume = document;
+    for (const Json& invalid : {Json(-1), Json(true), Json("0"), Json(nullptr), Json(1e300), Json(1)})
+    {
+        document = zeroVolume;
+        document["materials"][0]["extensions"]["KHR_materials_volume"]["thicknessFactor"] = invalid;
+        load(document, false, "TransmissionMaterial");
+    }
+    for (const Json& invalid : {Json(0), Json(-1), Json(true), Json(nullptr), Json(1e300), Json(1e-300)})
+    {
+        document = zeroVolume;
+        document["materials"][0]["extensions"]["KHR_materials_volume"]["attenuationDistance"] = invalid;
+        load(document, false, "TransmissionMaterial");
+    }
+    for (const Json& invalid : {Json::array({0, 1}), Json::array({0, 1, 2}), Json::array({true, 0, 1}),
+             Json::array({-0.1, 0, 1}), Json("white")})
+    {
+        document = zeroVolume;
+        document["materials"][0]["extensions"]["KHR_materials_volume"]["attenuationColor"] = invalid;
+        load(document, false, "TransmissionMaterial");
+    }
+    document = zeroVolume;
+    document["materials"][0]["extensions"]["KHR_materials_volume"]["thicknessTexture"] = {{"index", 0}};
+    load(document, false, "TransmissionMaterial");
+    document = zeroVolume;
+    document["materials"][0]["extensions"]["KHR_materials_volume"] = nullptr;
+    load(document, false, "TransmissionMaterial");
+    document = zeroVolume;
+    document["materials"][0]["extensions"].erase("KHR_materials_transmission");
+    load(document, true, nullptr);
+    document["materials"][0]["extensions"]["KHR_materials_volume"]["thicknessFactor"] = 1.0;
+    load(document, false, "TransmissionMaterial");
     document = baseline;
     document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionTexture"] = {{"index", 0}};
     document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"] = {{"index", 0}};
@@ -639,6 +760,7 @@ int main(int argc, char* argv[])
             return 0;
         }
 
+        TestVolumeMeshTopology();
         TestNodeEnumerationAndFailures();
         TestIndependentNodeMeshesAndLifetime();
         TestGltfRotationAndHandednessConversion();
