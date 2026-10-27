@@ -19,6 +19,7 @@
 #include <filesystem>
 #include <vector>
 #include <cmath>
+#include <limits>
 
 namespace
 {
@@ -670,6 +671,8 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                         editedMaterialName = editableMaterial->name;
                     }
                 }
+                const bool volumeMaterial = editableMaterial->transmission.mode == RtPbrSurvey::SceneTransmissionMode::Volume;
+                ImGui::BeginDisabled(volumeMaterial);
                 float baseColor[3] = {
                     editableMaterial->baseColor.x,
                     editableMaterial->baseColor.y,
@@ -699,10 +702,51 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                     materialChanged = true;
                 }
                 materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                ImGui::EndDisabled();
                 int transmissionMode = static_cast<int>(editableMaterial->transmission.mode);
                 if (editableMaterial->transmission.mode == RtPbrSurvey::SceneTransmissionMode::Volume)
                 {
                     ImGui::TextUnformatted("Volume: experimental smooth boundary");
+                    float ior = editableMaterial->transmission.ior;
+                    if (ImGui::DragFloat("Volume IOR", &ior, 0.01f, 1.0f, 4.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp) &&
+                        std::isfinite(ior))
+                    {
+                        session.BeginEdit();
+                        editableMaterial->transmission.ior = std::clamp(ior, 1.0f, 4.0f);
+                        materialChanged = true;
+                    }
+                    materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                    auto& volume = editableMaterial->transmission.volume;
+                    float color[] = {volume.attenuationColor.x, volume.attenuationColor.y, volume.attenuationColor.z};
+                    if (ImGui::ColorEdit3("Absorption Color", color) &&
+                        std::all_of(std::begin(color), std::end(color), [](float value) { return std::isfinite(value); }))
+                    {
+                        session.BeginEdit();
+                        volume.attenuationColor = {std::clamp(color[0], 0.0f, 1.0f), std::clamp(color[1], 0.0f, 1.0f),
+                            std::clamp(color[2], 0.0f, 1.0f)};
+                        materialChanged = true;
+                    }
+                    materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                    bool infiniteDistance = std::isinf(volume.attenuationDistance);
+                    if (ImGui::Checkbox("Infinite Absorption Distance", &infiniteDistance))
+                    {
+                        session.BeginEdit();
+                        volume.attenuationDistance = infiniteDistance ? std::numeric_limits<float>::infinity() : 1.0f;
+                        materialChanged = true;
+                        materialCommitted = true;
+                    }
+                    if (!infiniteDistance)
+                    {
+                        float distance = volume.attenuationDistance;
+                        if (ImGui::DragFloat("Absorption Distance", &distance, 0.01f, 0.001f, FLT_MAX, "%.3f",
+                                ImGuiSliderFlags_AlwaysClamp) && std::isfinite(distance))
+                        {
+                            session.BeginEdit();
+                            volume.attenuationDistance = std::max(distance, 0.001f);
+                            materialChanged = true;
+                        }
+                        materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                    }
                 }
                 else if (ImGui::Combo("Transmission Mode", &transmissionMode, "Opaque\0Thin Transmission\0"))
                 {
@@ -740,7 +784,7 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                     materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
                     if (ImGui::IsItemHovered())
                     {
-                        ImGui::SetTooltip("Thin sheet surface reflection only; volume refraction is not implemented.");
+                        ImGui::SetTooltip("Thin sheet surface reflection only; no solid-volume refraction in this mode.");
                     }
                 }
                 if (materialCommitted)

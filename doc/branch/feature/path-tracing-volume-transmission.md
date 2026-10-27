@@ -407,6 +407,29 @@ relationship checks and source/binary/input/RAW/log hashes.
 python -B Tests/PathTracing/validate_volume_absorption.py --exe bin/PathTracingValidation/thin-gltf-build-20261024/Debug/RtPbrSurvey.exe --output bin/PathTracingValidation/volume-absorption-new-run
 ```
 
+## Step 4a: Volume Material Editor
+
+Date: 2026-10-27.
+
+- Existing Volume materials expose IOR (1 to 4), linear Absorption Color,
+  positive Absorption Distance (world units, UI minimum 0.001), and an Infinite
+  Absorption Distance checkbox. Switching from infinite to finite initializes
+  the distance to 1; Undo restores the previous finite value.
+- Edits use the existing BeginEdit/CommitEdit and preview rebuild path, preserving
+  the current camera while refreshing material data and PT accumulation.
+- Volume Base Color, Metallic and Roughness are read-only because this milestone
+  qualifies only white, smooth, full-transmission dielectric boundaries.
+- Creating/converting a material to Volume remains outside this UI increment:
+  open saved scenes 27 to 30 and select their volume primitive to edit it.
+- Session tests cover dirty tracking, grouped Undo/Redo, finite/infinite distance
+  serialization and restoration. Interactive GUI behavior still needs user QA.
+- glTF volume import remains Step 4b; no renderer or shader changes in Step 4a.
+- Validation: Debug build succeeded (0 warnings/errors); CTest 44/44 passed,
+  including the extended SceneEditorSession finite/infinite absorption tests.
+  Build record: `C:/work/RtPbrSurvey-agents/volume-editor-build-20261027`.
+  No interactive mouse/keyboard UI verification or new GPU image suite was run
+  in Step 4a. Step 3 numerical evidence remains separate from this UI validation.
+
 ## References
 
 - [KHR_materials_volume](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_volume)
