@@ -6953,8 +6953,8 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     produced.frameId = ++m_pathTracingProductionFrameId;
     produced.renderWidth = passDesc.width;
     produced.renderHeight = passDesc.height;
-    produced.outputWidth = m_width;
-    produced.outputHeight = m_height;
+    produced.outputWidth = ResolvedSceneViewport().width;
+    produced.outputHeight = ResolvedSceneViewport().height;
     produced.sampleStartIndex = passDesc.sampleStartIndex;
     produced.samplesPerFrame = passDesc.samplesPerFrame;
     produced.pixelCenterPrimary = passDesc.pixelCenterPrimary;
