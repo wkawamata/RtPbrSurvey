@@ -363,7 +363,8 @@ void RtPbrSurveyEngine::ResolveRenderDimensions(
 
 void RtPbrSurveyEngine::UpdateRenderDimensions()
 {
-    ResolveRenderDimensions(m_width, m_height, m_renderWidth, m_renderHeight);
+    const Engine::SceneViewport output = ResolvedSceneViewport();
+    ResolveRenderDimensions(output.width, output.height, m_renderWidth, m_renderHeight);
     if (m_renderWidth == 0 || m_renderHeight == 0)
     {
         m_aspectRatio = 1.0f;
@@ -588,8 +589,8 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_cpuFrameTime,
             m_renderWidth,
             m_renderHeight,
-            m_width,
-            m_height,
+            ResolvedSceneViewport().width,
+            ResolvedSceneViewport().height,
             m_rayTracingSupport.IsSupported(),
             m_rayTracingSupport.TierName(),
             static_cast<int>(m_rayTracingSupport.Tier()),
@@ -606,8 +607,8 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_temporalUpscalerOutputAvailable,
             m_temporalUpscalerLastEvaluateResult,
             Engine::QueryStreamlineDlssDiagnostics(
-                {m_width,
-                 m_height,
+                {ResolvedSceneViewport().width,
+                 ResolvedSceneViewport().height,
                  m_temporalUpscalerSettings.qualityMode,
                  m_temporalUpscalerSettings.preset}),
             m_rayReconstructionSupport.IsAvailable(),
@@ -4540,7 +4541,7 @@ UINT RtPbrSurveyEngine::ResolveRenderTextureWidth(const Engine::RenderTextureSpe
         case Engine::RenderTextureSizeClass::RenderSize:
             return m_renderWidth;
         case Engine::RenderTextureSizeClass::OutputSize:
-            return m_width;
+            return ResolvedSceneViewport().width;
         case Engine::RenderTextureSizeClass::Fixed:
         default:
             return spec.width;
@@ -4554,7 +4555,7 @@ UINT RtPbrSurveyEngine::ResolveRenderTextureHeight(const Engine::RenderTextureSp
         case Engine::RenderTextureSizeClass::RenderSize:
             return m_renderHeight;
         case Engine::RenderTextureSizeClass::OutputSize:
-            return m_height;
+            return ResolvedSceneViewport().height;
         case Engine::RenderTextureSizeClass::Fixed:
         default:
             return spec.height;
@@ -5800,6 +5801,19 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     PIXEndEvent();
 }
 
+void RtPbrSurveyEngine::SetSceneViewport(UINT x, UINT y, UINT width, UINT height)
+{
+    const Engine::SceneViewport previous = ResolvedSceneViewport();
+    m_sceneViewport = {x, y, width, height};
+    const Engine::SceneViewport next = ResolvedSceneViewport();
+    // Moving an unchanged rectangle needs no allocation or history reset.
+    if (previous.width != next.width || previous.height != next.height)
+    {
+        RequestResize(m_pendingResize ? m_pendingResizeWidth : m_width,
+                      m_pendingResize ? m_pendingResizeHeight : m_height);
+    }
+}
+
 void RtPbrSurveyEngine::RequestResize(UINT width, UINT height)
 {
     m_pendingResize = true;
@@ -5859,7 +5873,10 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     }
 
     // GraphicsDevice owns swap chain resizing; the engine rebuilds render resources that depend on its buffers.
-    m_graphicsDevice.ResizeSwapChain(kFrameCount, m_width, m_height, m_backBufferFormat, 0);
+    if (m_graphicsDevice.Width() != m_width || m_graphicsDevice.Height() != m_height)
+    {
+        m_graphicsDevice.ResizeSwapChain(kFrameCount, m_width, m_height, m_backBufferFormat, 0);
+    }
     m_hdrOutputPolicy.ReapplyColorSpace(m_graphicsDevice.SwapChain());
 
     // Preserve the previous frame index before taking the resized swap chain index.
@@ -6699,7 +6716,13 @@ void RtPbrSurveyEngine::BeginFrame()
 
 void RtPbrSurveyEngine::ExecuteClearPass(const RenderPass& pass)
 {
-    Engine::RecordClearPass(m_commandList.Get(), ResolveRenderTargets(pass.renderTargets));
+    Engine::ResolvedRenderTargets targets = ResolveRenderTargets(pass.renderTargets);
+    static constexpr float black[4] = {0, 0, 0, 1};
+    if (m_sceneViewport.width > 0 && m_sceneViewport.height > 0)
+    {
+        targets.clearColor = black;
+    }
+    Engine::RecordClearPass(m_commandList.Get(), targets);
 }
 
 void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pass)
@@ -6930,8 +6953,8 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     produced.frameId = ++m_pathTracingProductionFrameId;
     produced.renderWidth = passDesc.width;
     produced.renderHeight = passDesc.height;
-    produced.outputWidth = m_width;
-    produced.outputHeight = m_height;
+    produced.outputWidth = ResolvedSceneViewport().width;
+    produced.outputHeight = ResolvedSceneViewport().height;
     produced.sampleStartIndex = passDesc.sampleStartIndex;
     produced.samplesPerFrame = passDesc.samplesPerFrame;
     produced.pixelCenterPrimary = passDesc.pixelCenterPrimary;
@@ -7553,8 +7576,8 @@ void RtPbrSurveyEngine::ExecuteTemporalUpscalerPass(const RenderPass& pass)
     inputs.settings = m_temporalUpscalerSettings;
     inputs.renderWidth = m_renderWidth;
     inputs.renderHeight = m_renderHeight;
-    inputs.outputWidth = m_width;
-    inputs.outputHeight = m_height;
+    inputs.outputWidth = ResolvedSceneViewport().width;
+    inputs.outputHeight = ResolvedSceneViewport().height;
     inputs.historyReset = m_temporalUpscalerHistoryReset;
     inputs.frameConstants = MakeStreamlineFrameConstants();
 
@@ -7608,8 +7631,13 @@ void RtPbrSurveyEngine::ExecuteDebugTexturePreviewPass(const RenderPass& pass)
 
 void RtPbrSurveyEngine::ExecuteToneMapPass(const RenderPass& pass)
 {
-    m_commandList->RSSetViewports(1, &m_viewport);
-    m_commandList->RSSetScissorRects(1, &m_scissorRect);
+    const Engine::SceneViewport output = ResolvedSceneViewport();
+    const CD3DX12_VIEWPORT viewport(static_cast<float>(output.x), static_cast<float>(output.y),
+                                   static_cast<float>(output.width), static_cast<float>(output.height));
+    const CD3DX12_RECT scissor(static_cast<LONG>(output.x), static_cast<LONG>(output.y),
+                              static_cast<LONG>(output.x + output.width), static_cast<LONG>(output.y + output.height));
+    m_commandList->RSSetViewports(1, &viewport);
+    m_commandList->RSSetScissorRects(1, &scissor);
     Engine::RecordToneMapPass(m_commandList.Get());
 }
 
@@ -8014,10 +8042,11 @@ void RtPbrSurveyEngine::RecordPixelPickPass()
 {
     PIXBeginEvent(m_commandList.Get(), 0, L"PixelPick");
 
-    const int clampedOutputX = (std::max)(0, (std::min)(m_pixelPickScreenX, static_cast<int>(m_width) - 1));
-    const int clampedOutputY = (std::max)(0, (std::min)(m_pixelPickScreenY, static_cast<int>(m_height) - 1));
-    const float renderXScale = static_cast<float>(m_renderWidth) / static_cast<float>(m_width);
-    const float renderYScale = static_cast<float>(m_renderHeight) / static_cast<float>(m_height);
+    const Engine::SceneViewport output = ResolvedSceneViewport();
+    const int clampedOutputX = (std::max)(0, (std::min)(m_pixelPickScreenX - static_cast<int>(output.x), static_cast<int>(output.width) - 1));
+    const int clampedOutputY = (std::max)(0, (std::min)(m_pixelPickScreenY - static_cast<int>(output.y), static_cast<int>(output.height) - 1));
+    const float renderXScale = static_cast<float>(m_renderWidth) / static_cast<float>(output.width);
+    const float renderYScale = static_cast<float>(m_renderHeight) / static_cast<float>(output.height);
     const int clampedRenderX = (std::max)(
         0, (std::min)(static_cast<int>(static_cast<float>(clampedOutputX) * renderXScale),
                       static_cast<int>(m_renderWidth) - 1));
