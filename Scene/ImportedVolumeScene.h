@@ -85,8 +85,8 @@ inline std::optional<ConvexVolumeBounds> BuildImportedVolumeSceneGuard(const Eng
                     error = "Imported volume scene has nonfinite transformed geometry.";
                     return std::nullopt;
                 }
-                aabb[0][axis] = offset == 0 ? position[axis] : std::min(aabb[0][axis], position[axis]);
-                aabb[1][axis] = offset == 0 ? position[axis] : std::max(aabb[1][axis], position[axis]);
+                aabb[0][axis] = offset == 0 ? position[axis] : (std::min)(aabb[0][axis], position[axis]);
+                aabb[1][axis] = offset == 0 ? position[axis] : (std::max)(aabb[1][axis], position[axis]);
             }
             indices.push_back(static_cast<uint32_t>(positions.size()));
             positions.push_back(position);

@@ -742,7 +742,7 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                                 ImGuiSliderFlags_AlwaysClamp) && std::isfinite(distance))
                         {
                             session.BeginEdit();
-                            volume.attenuationDistance = std::max(distance, 0.001f);
+                            volume.attenuationDistance = (std::max)(distance, 0.001f);
                             materialChanged = true;
                         }
                         materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();

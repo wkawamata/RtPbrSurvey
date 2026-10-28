@@ -55,15 +55,15 @@ public:
         {
             for (size_t axis = 0; axis < 3; ++axis)
             {
-                result.minimum[axis] = std::min(result.minimum[axis], entry.first[axis]);
-                result.maximum[axis] = std::max(result.maximum[axis], entry.first[axis]);
+                result.minimum[axis] = (std::min)(result.minimum[axis], entry.first[axis]);
+                result.maximum[axis] = (std::max)(result.maximum[axis], entry.first[axis]);
                 center[axis] += (static_cast<double>(entry.first[axis]) - origin[axis]) / unique.size();
             }
         }
         double extent = 0.0;
         for (size_t axis = 0; axis < 3; ++axis)
         {
-            extent = std::max(extent, static_cast<double>(result.maximum[axis]) - result.minimum[axis]);
+            extent = (std::max)(extent, static_cast<double>(result.maximum[axis]) - result.minimum[axis]);
             center[axis] += origin[axis];
         }
         result.tolerance = extent * 0.000001;
