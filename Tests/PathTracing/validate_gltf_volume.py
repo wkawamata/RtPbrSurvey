@@ -61,11 +61,28 @@ def assess_status(status, scene, preset):
                 offsetFloor=offset, numericalMargin=roundoff)
 
 
+def assess_thin_paths(distance, transmittance, color, attenuation_distance):
+    if (distance.shape != transmittance.shape or distance.ndim != 3 or distance.shape[-1] != 3
+            or not np.isfinite(distance).all() or not np.isfinite(transmittance).all()):
+        raise ValueError("Invalid thin-path capture arrays")
+    thin = (distance[..., 0] == 1) & (distance[..., 1] == 1) & (distance[..., 2] > 0) & (distance[..., 2] <= .001)
+    if thin.sum() < 100:
+        raise ValueError("Missing complete thin silhouette paths (<=0.001 world unit) in the fixed fixture")
+    expected = expected_transmittance(distance[..., 2][thin], color, attenuation_distance)
+    error = float(np.max(np.abs(transmittance[thin]-expected)))
+    if error > .002:
+        raise ValueError(f"Thin silhouette absorption mismatch: {error}")
+    return dict(thinCompletePixels=int(thin.sum()), thinAbsorptionError=error, thinAbsorptionTolerance=.002)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exe", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--max-grazing-pixels", type=int, default=0)
     args = parser.parse_args()
+    if args.max_grazing_pixels < 0:
+        parser.error("--max-grazing-pixels must be nonnegative")
     exe = args.exe.resolve(strict=True)
     source = ROOT/"Assets/Scene/PathTracingValidation/31-gltf-volume-tetra"
     output = args.output.resolve()
@@ -80,13 +97,15 @@ def main():
     material["KHR_materials_ior"] = dict(ior=1)
     gltf["extensionsUsed"].append("KHR_materials_ior")
     gltf["extensionsRequired"].append("KHR_materials_ior")
-    cases = [("distance", 4, False), ("transmittance", 8, False), ("status", 5, False), ("nrd-bypass", 8, True)]
+    cases = [("distance", 4, False), ("transmittance", 8, False), ("status", 5, False), ("nrd-bypass", 8, True),
+             ("high-bias-status", 5, False), ("high-bias-transmittance", 8, False)]
     dependencies = ("volume_capture.py", "validate_volume_absorption.py", "validate_volume_boundary.py",
                     "validate_inputs.py", "validate_part1.py", "transmission_texture_fixture.py")
     shader = exe.with_name("shaders_PathTracing_CSMain.cso")
     report = dict(status="running", expectedCases=[name for name, _, _ in cases], cases=[], failures=[],
                   executableSha256=sha(exe), shaderSha256=sha(shader), runnerSha256=sha(Path(__file__)),
-                  dependencySha256={name: sha(Path(__file__).with_name(name)) for name in dependencies})
+                  dependencySha256={name: sha(Path(__file__).with_name(name)) for name in dependencies},
+                  grazingPixelBudget=args.max_grazing_pixels)
     patches = {}
     try:
         for name, debug, nrd in cases:
@@ -94,6 +113,8 @@ def main():
             folder.mkdir()
             settings = copy.deepcopy(preset)
             settings["pathTracing"]["debugOutput"] = debug
+            if name.startswith("high-bias-"):
+                settings["shadow"].update(normalBias=.01, rayTMin=.01)
             write_json(folder/"scene.json", scene)
             write_json(folder/"render-preset.json", settings)
             write_json(folder/"volume.gltf", gltf)
@@ -114,19 +135,28 @@ def main():
         if mask.sum() < 100:
             raise ValueError("Missing complete imported-volume entry/exit paths")
         status_assessment = assess_status(patches["status"], scene, preset)
+        if status_assessment["grazingMissPixels"] > args.max_grazing_pixels:
+            raise ValueError("Grazing missed-exit count exceeds the declared improvement budget")
+        if np.any(patches["high-bias-status"][..., :2] != 0):
+            raise ValueError("High-bias control reported an error or unfinished medium")
+        bias_error = float(np.max(np.abs(patches["high-bias-transmittance"]-patches["transmittance"])))
+        if bias_error != 0:
+            raise ValueError("Volume absorption changed with bias/TMin x100")
         medium = material["KHR_materials_volume"]
         expected = expected_transmittance(distance[..., 2][mask], medium["attenuationColor"], medium["attenuationDistance"])
         error = float(np.max(np.abs(patches["transmittance"][mask]-expected)))
+        thin_assessment = assess_thin_paths(distance, patches["transmittance"], medium["attenuationColor"], medium["attenuationDistance"])
         bypass_error = float(np.max(np.abs(patches["nrd-bypass"]-patches["transmittance"])))
         if error > .002 or bypass_error != 0:
-            raise ValueError(f"Imported absorption/bypass mismatch: {error}, {bypass_error}")
+            raise ValueError(f"Imported absorption/bypass mismatch: interior={error}, bypass={bypass_error}")
         if [case["case"] for case in report["cases"]] != report["expectedCases"] or sha(exe) != report["executableSha256"] or sha(shader) != report["shaderSha256"]:
             raise ValueError("Missing cases or binary changed during captures")
         result = "passed-gltf-volume-with-grazing-limit" if status_assessment["grazingMissPixels"] else "passed-gltf-volume-paired-paths"
         report.update(status=result, assessment=dict(completePixels=int(mask.sum()),
                       maximumAbsorptionError=error, absorptionTolerance=.002, nrdBypassError=bypass_error,
                       geometricLengthError=reference_error, geometricLengthTolerance=.005,
-                      status=status_assessment))
+                      status=status_assessment, highBiasTransmittanceError=bias_error,
+                      **thin_assessment))
     except Exception as error:
         report["status"] = "failed"
         report["failures"].append(str(error))

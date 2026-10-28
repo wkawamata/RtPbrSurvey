@@ -524,6 +524,7 @@ float3 TracePath(uint2 pixel,
     bool previousEnvironmentNeeActive = false;
     bool cameraThroughThinSheets = true;
     uint volumeInstance = 0xffffffffu;
+    uint volumePreviousPrimitive = 0xffffffffu;
     float volumeIor = 1.0;
     VolumeAbsorptionParameters volumeAbsorption;
     volumeAbsorption.attenuationColor = 1.0;
@@ -551,7 +552,20 @@ float3 TracePath(uint2 pixel,
         {
             if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
             {
-                if (AcceptMaterialCandidate(query.CandidateInstanceID(), query.CandidatePrimitiveIndex(),
+                bool volumeSelfHit = false;
+                if (volumeInstance != 0xffffffffu && query.CandidateInstanceID() == volumeInstance)
+                {
+                    volumeSelfHit = query.CandidatePrimitiveIndex() == volumePreviousPrimitive;
+                    if (!volumeSelfHit)
+                    {
+                        uint candidate0, candidate1, candidate2;
+                        LoadPrimitiveVertexIndices(query.CandidatePrimitiveIndex(), volumeInstance, candidate0, candidate1, candidate2);
+                        const float3 candidateNormal = LoadCommittedHitGeometricNormal(candidate0, candidate1, candidate2,
+                            query.CandidateObjectToWorld3x4());
+                        volumeSelfHit = dot(candidateNormal, ray.Direction) <= 0.0;
+                    }
+                }
+                if (!volumeSelfHit && AcceptMaterialCandidate(query.CandidateInstanceID(), query.CandidatePrimitiveIndex(),
                     query.CandidateTriangleBarycentrics(), query.CandidateTriangleFrontFace(), true, true))
                 {
                     query.CommitNonOpaqueTriangleHit();
@@ -761,12 +775,15 @@ float3 TracePath(uint2 pixel,
                 primarySurface.primaryContinuation = float4(boundary.direction, 0.0);
             }
             ray.Direction = boundary.direction;
-            ray.Origin = hitPosition + ray.Direction * normalBias;
+            // Inside a qualified convex solid, reject the previous boundary instead of stepping past a thin exit.
+            const bool continuingInsideVolume = volumeInstance != 0xffffffffu;
+            volumePreviousPrimitive = primitiveIndex;
+            ray.Origin = continuingInsideVolume ? hitPosition : hitPosition + ray.Direction * normalBias;
             if (bounce == 0)
             {
                 primaryContinuationOriginOffset = ray.Origin - hitPosition;
             }
-            ray.TMin = rayTMin;
+            ray.TMin = continuingInsideVolume ? 0.0 : rayTMin;
             ray.TMax = rayTMax;
             continue;
         }

@@ -1,7 +1,7 @@
 # Native PT Volume Transmission Plan
 
 Date: 2026-10-25
-Status: Steps 1 to 3 and Step 4a verified. Single-convex glTF Volume integration verified with a recorded grazing-offset limit; user visual approval pending.
+Status: Steps 1 to 3, Step 4a and single-convex glTF Volume verified. Unbiased internal traversal removes the fixed-scene grazing misses; user visual approval pending.
 Branch: `codex/pt-volume-transmission`.
 Base: `e36933b`, dependent on PR #104 (not merged at plan creation).
 
@@ -611,6 +611,76 @@ is named `passed-gltf-volume-with-grazing-limit`, not an unqualified pass.
   visible residual sampling noise. User quality approval has not been requested
   or recorded as complete. No full thin/MASK/metallic GPU or NRD quality suite was
   rerun in this increment; their CTest contracts passed.
+
+## MSBuild Compatibility Fix
+
+Date: 2026-10-28.
+
+The regular vcxproj does not define NOMINMAX, unlike the CMake validation build.
+Windows min/max macros broke six newly added std::min/std::max call sites in the
+convex/placement headers and volume editor. Parenthesized standard function names
+now follow the repository's existing macro-safe convention without changing global
+project definitions. Regular RtPbrSurvey.vcxproj Debug x64 MSBuild succeeded:
+0 errors, one vcpkg MSB4011 duplicate-import warning. Build record:
+`C:/work/RtPbrSurvey-agents/volume-msbuild-minmax-fix-20261028`.
+This is a compile compatibility change; no new GPU image suite was run.
+
+## Step 4b-5: Preserve Thin Internal Segments
+
+Date: 2026-10-28. Numerical validation complete.
+
+For continuations still inside a qualified convex volume, start the ray at the
+unshifted boundary position with TMin=0. Exclude the previous triangle of that
+same instance, and reject same-medium candidates whose geometric normal does not
+face along the outgoing ray (entry/coplanar self-hits). Foreign-instance candidates
+are not filtered and still reach the existing unsupported-overlap diagnostics.
+Outside-volume rays retain the prior origin offset and TMin policy.
+
+This avoids stepping past a thin exit while keeping absorption measured from the
+physical boundary positions. It applies to entry transmission and internal
+reflection/TIR continuations; it is not a general nested/concave volume algorithm.
+No Fresnel, throughput, absorption equation or material ABI changes were made.
+
+The first GPU trial reduced the original 81 grazing missed-exit pixels to zero:
+`bin/PathTracingValidation/gltf-volume-unbiased-20261028/report.json`.
+The initial improvement target was <=8; after observing zero, the default final
+regression budget was tightened to zero. The runner still has an explicit
+`--max-grazing-pixels` override for historical control experiments, recorded in
+each report, but acceptance uses the default 0.
+Two added control captures multiply normalBias and rayTMin by 100 and require zero
+path errors and exact transmittance equality to the ordinary settings.
+
+The earlier 81-pixel report and its known-limit description above are historical
+evidence, not a waiver for the new strict run. Zero errors in this fixed scene do
+not certify every possible microscopic/grazing geometric configuration.
+
+Final evidence:
+
+- `bin/PathTracingValidation/gltf-volume-unbiased-final-20261028/report.json`:
+  all 6 expected cases passed with grazingPixelBudget=0 and missed-exit count 0.
+- Bias/TMin x100 transmittance difference: exactly 0; high-bias status also has
+  no path errors or unfinished medium.
+- 383 complete paths with lengths in (0,0.001] world unit: absorption maximum
+  error 0.0000000772 (unchanged budget 0.002). Missing exit evidence, wrong
+  absorption and invalid arrays are rejected by new unit tests.
+- Interior geometric length error 0.0000141870, absorption error 0.0000001592,
+  and NRD-bypass difference 0: unchanged from the original qualified interior.
+- Boundary/TIR regression: 12/12 passed, report at
+  `bin/PathTracingValidation/volume-unbiased-boundary-regression-20261028/report.json`.
+- Absorption regression: 18/18 passed without relaxing tolerances, report at
+  `bin/PathTracingValidation/volume-unbiased-absorption-regression-20261028/report.json`.
+- CTest 44/44 and volume-related Python tests 19/19 passed.
+- CMake validation Debug build succeeded (0 warnings/errors), record at
+  `C:/work/RtPbrSurvey-agents/volume-unbiased-boundary-build-20261028`.
+  No full thin/MASK/metallic GPU or NRD quality suite was rerun; their CTest
+  contracts passed. The new query filtering is active only inside a volume.
+- Regular vcxproj Debug x64 also succeeded (0 errors, one existing vcpkg MSB4011
+  duplicate-import warning), record at
+  `C:/work/RtPbrSurvey-agents/volume-unbiased-msbuild-20261028`.
+  Its updated `bin/x64/Debug` shader was exercised by a 256-sample Scene31 PNG
+  capture under `bin/PathTracingValidation/volume-unbiased-msbuild-review-20261028`.
+  Runtime/settings and D3D12 error checks passed; visual inspection shows no gross
+  regression, but user subjective approval is still separate.
 
 ## References
 

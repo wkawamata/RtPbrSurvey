@@ -11,6 +11,8 @@ objects, camera inside/on boundary, rough volume, textures, caustics qualificati
 Moving the camera inside disables PT dispatch with a runtime status message.
 glTF material values are asset-owned; the primitive material editor does not edit them.
 
-Known numerical limit: at silhouettes, a chord shorter than origin offset plus
-ray TMin can miss its exit surface. The RAW integration report counts these pixels
-and independently bounds them to the analytic grazing band; interior errors fail.
+Regression target: thin silhouette chords must not be skipped by origin offset
+or ray TMin. Internal rays now start without that offset and reject same-boundary
+self hits instead. The fixed-scene strict report requires zero missed exits and
+includes a bias/TMin x100 control. Historical baseline reported 81 missed exits.
+This does not guarantee robustness for every microscopic or grazing configuration.
