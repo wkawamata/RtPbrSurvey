@@ -137,6 +137,31 @@ int main()
         Check(invalid.Begin(bad, &allocation, true, true).reason == Reason::InvalidKey,
               "Exhausted sample sequence admitted");
 
+        History batch;
+        auto batchFirst = Frame();
+        batchFirst.samplesPerFrame = 4;
+        Complete(batch, batchFirst, &allocation);
+        auto batchNext = Frame(2);
+        batchNext.samplesPerFrame = 4;
+        batchNext.sampleStartIndex = 4;
+        batchNext.jitterPixels = {.25f, -.25f};
+        const auto batchRequest = batch.Begin(batchNext, &replacement, true, true);
+        Check(batchRequest.reason == Reason::Continuous && !batchRequest.reset, "Batch stride/jitter lost history");
+        batch.Finish(batchRequest.ticket, true, true);
+        auto changedBatch = Frame(3);
+        changedBatch.samplesPerFrame = 16;
+        changedBatch.sampleStartIndex = 8;
+        Check(batch.Begin(changedBatch, &allocation, true, true).reason == Reason::SamplingChanged,
+              "Batch size change must reset history");
+        History badBatch;
+        auto overflow = Frame();
+        overflow.samplesPerFrame = 4;
+        overflow.sampleStartIndex = std::numeric_limits<uint32_t>::max() - 2;
+        Check(badBatch.Begin(overflow, &allocation, true, true).reason == Reason::InvalidKey,
+              "Batch overflow admitted");
+        overflow = Frame();
+        overflow.jitterPixels[0] = std::numeric_limits<float>::quiet_NaN();
+        Check(badBatch.Begin(overflow, &allocation, true, true).reason == Reason::InvalidKey, "NaN jitter admitted");
         History exhausted;
         auto last = Frame();
         last.frameId = std::numeric_limits<uint64_t>::max();

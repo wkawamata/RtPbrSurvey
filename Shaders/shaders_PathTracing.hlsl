@@ -986,7 +986,10 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_G
         referenceRadiance = frameBackgroundRadianceSum;
     float3 accumulatedRadiance = referenceRadiance;
     float totalSampleCount = float(sampleCount);
-    accumulatedRadiance += g_accumulation[pixel].rgb;
+    // RR pose changes preserve retained inputs/output and can defer the history
+    // clear. A zero sample count must ignore the old native accumulation too.
+    if (previousSampleCount > 0)
+        accumulatedRadiance += g_accumulation[pixel].rgb;
     totalSampleCount += previousSampleCount;
 
     g_accumulation[pixel] = float4(accumulatedRadiance, totalSampleCount);

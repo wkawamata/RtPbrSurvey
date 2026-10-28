@@ -298,6 +298,8 @@ private:
     uint64_t m_rrLifecycleRejected = 0;
     bool m_rrLifecycleEntered = false;
     UINT m_rrLifecycleCapture = 0;
+    UINT m_rrLifecycleSamplesPerFrame = 1;
+    bool m_rrLifecyclePixelCenter = true;
     RtPbrSurveyEngine::CameraState m_rrLifecycleCamera;
     UINT m_pathTracingHistoryValidationStage = 0;
     UINT m_pathTracingHistoryValidationFrames = 0;

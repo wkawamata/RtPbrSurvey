@@ -17,6 +17,11 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--exe', type=Path, required=True)
     parser.add_argument('--profile', choices=('mirror-miss', 'general', 'dielectric', 'untraced', 'mixed-background'), default='mirror-miss')
+    parser.add_argument('--max-bounces', type=int, choices=range(1, 17), default=2)
+    parser.add_argument('--accumulate', action='store_true')
+    parser.add_argument('--russian-roulette', action='store_true')
+    parser.add_argument('--samples-per-frame', type=int, choices=range(1, 17), default=1)
+    parser.add_argument('--frame-jitter', action='store_true')
     args = parser.parse_args()
     source, output, exe = args.source.resolve(strict=True), args.output.resolve(), args.exe.resolve(strict=True)
     if output == source or source in output.parents or (output.exists() and any(output.iterdir())):
@@ -32,9 +37,14 @@ def main():
         gltf['materials'][0]['pbrMetallicRoughness'].update(
             metallicFactor=1 if args.profile == 'untraced' else 0 if args.profile == 'dielectric' else .5,
             roughnessFactor=1 if args.profile == 'untraced' else .5)
+    if args.max_bounces == 1:
+        gltf['materials'][0]['emissiveFactor'] = [.1, .05, .025]
     write_json(output/'box.gltf', gltf)
     preset = json.loads((output/'preset.json').read_text(encoding='utf-8'))
-    preset['pathTracing'].update(environmentEnabled=True, environmentSamplingMode=5)
+    preset['pathTracing'].update(environmentEnabled=True, environmentSamplingMode=5,
+                                 maxBounces=args.max_bounces, accumulate=args.accumulate,
+                                 russianRouletteEnabled=args.russian_roulette, samplesPerFrame=args.samples_per_frame,
+                                 pixelCenterPrimary=not args.frame_jitter)
     preset['lighting']['iblIntensity'] = 1
     write_json(output/'preset.json', preset)
     log = output/'runtime.log'
@@ -61,10 +71,10 @@ def main():
             raise ValueError(f'Process={code}, errors={errors}')
         prefix = '[PathTracingRrInputCaptureComplete] '
         records = [json.loads(line[len(prefix):]) for line in text.splitlines() if line.startswith(prefix)]
-        if len(records) != 1 or records[0]['nativeCalls'] != 1 or not records[0]['verified'] or records[0]['captures'] != 7:
-            raise ValueError('One verified RR evaluation and seven completed captures are required')
+        if len(records) != 1 or records[0]['nativeCalls'] != 1 or not records[0]['verified'] or records[0]['captures'] != 8:
+            raise ValueError('One verified RR evaluation and eight completed captures are required')
         names = ('SecondaryRayData', 'SecondarySurfaceDistance', 'RrHitDistance', 'RrColor',
-                 'CurrentFrameRadiance', 'DenoiserPrimaryPosition', 'RrOutput')
+                 'CurrentFrameRadiance', 'DenoiserPrimaryPosition', 'RrOutput', 'RrMotion')
         images, stamps, hashes = {}, [], {}
         for name in names:
             path = output/(name+'.ptbuf')
@@ -72,9 +82,10 @@ def main():
             key = meta['rrRetainedInput']
             if (meta['resource'] != 'PathTracing.'+name or meta['productionFrameId'] != key['frameId'] or
                     key['frameId'] != records[0]['frameId'] or key['publishedFrameId'] != key['frameId'] or
-                    key['publishedSlot'] != 0 or meta['sampleStartIndex'] != key['sampleStartIndex'] + 1 or
+                    key['publishedSlot'] != 0 or meta['sampleStartIndex'] != key['sampleStartIndex'] + args.samples_per_frame or
+                    key['samplesPerFrame'] != args.samples_per_frame or
                     (meta['width'], meta['height']) != (256, 144) or
-                    meta['format'] != (41 if name == 'RrHitDistance' else 2)):
+                    meta['format'] != (41 if name == 'RrHitDistance' else 16 if name == 'RrMotion' else 2)):
                 raise ValueError('Wrong or unverified retained capture: '+name)
             stamps.append(key)
             images[name] = values
@@ -82,6 +93,13 @@ def main():
         if any(key != stamps[0] for key in stamps[1:]):
             raise ValueError('Raw guides and output mixed productions/cameras/samples')
         ray, surface = images['SecondaryRayData'], images['SecondarySurfaceDistance']
+        if float(np.abs(images['RrMotion']).max()) > 2e-6:
+            raise ValueError('Static camera has residual projection-jitter motion')
+        jitter = np.asarray(stamps[0]['jitterPixels'])
+        if not np.array_equal(jitter, stamps[0]['sdkJitterPixels']):
+            raise ValueError('SDK jitter does not match the retained production')
+        if args.frame_jitter != bool(np.abs(jitter).max() > 0):
+            raise ValueError('Retained projection jitter does not match requested mode')
         primary = images['DenoiserPrimaryPosition']
         background = primary[..., 3] == 0
         untraced = (ray == 0).all(axis=-1) & ~background
@@ -105,18 +123,21 @@ def main():
             raise ValueError('Specular hit/miss/absent guide distance mismatch')
         counts = dict(background=int(background.sum()), untraced=int(untraced.sum()),
                       specular=int(specular.sum()), diffuse=int(diffuse.sum()))
-        if args.profile == 'mirror-miss' and not (specular & miss).all():
+        if args.max_bounces > 1 and args.profile == 'mirror-miss' and not (specular & miss).all():
             raise ValueError('Expected only actual mirror misses')
-        if args.profile in ('general', 'dielectric') and not (counts['specular'] and counts['diffuse']):
+        if args.max_bounces > 1 and args.profile in ('general', 'dielectric') and not (counts['specular'] and counts['diffuse']):
             raise ValueError('General fixture did not exercise both sampled lobes')
         if args.profile == 'untraced' and not counts['untraced']:
             raise ValueError('Fixture did not exercise actual untraced samples')
-        if args.profile == 'mixed-background' and not (counts['background'] and counts['specular'] and counts['diffuse']):
+        if args.max_bounces > 1 and args.profile == 'mixed-background' and not (counts['background'] and counts['specular'] and counts['diffuse']):
             raise ValueError('Mixed fixture lacks background or a material lobe')
+        if args.max_bounces == 1 and not untraced[~background].all():
+            raise ValueError('One-bounce input invented a traced continuation')
         clip = primary @ np.asarray(stamps[0]['viewProjection']).reshape(4, 4)
         height, width = primary.shape[:2]
         y, x = np.mgrid[:height, :width]
         expected_ndc = np.stack(((x+.5)*2/width-1, 1-(y+.5)*2/height), axis=-1)
+        expected_ndc -= jitter * [2/width, -2/height]
         surface_pixels = ~background
         projection_error = float(np.abs(clip[..., :2][surface_pixels]/clip[..., 3:][surface_pixels]-
                                         expected_ndc[surface_pixels]).max())
@@ -127,7 +148,10 @@ def main():
         if images['RrOutput'][..., :3].max() <= 0 or images['RrColor'][..., :3].max() <= 0:
             raise ValueError('Constant environment reflection is black')
         report.update(status='passed', completion=records[0], retainedInput=stamps[0], captures=hashes,
-                      profile=args.profile, classifications=counts, primaryProjectionError=projection_error, d3d12Errors=0, qualityVerdict='not-evaluated')
+                      profile=args.profile, maxBounces=args.max_bounces, accumulate=args.accumulate,
+                      samplesPerFrame=args.samples_per_frame, frameJitter=args.frame_jitter,
+                      staticMotionMaxAbs=float(np.abs(images['RrMotion']).max()),
+                      russianRoulette=args.russian_roulette, classifications=counts, primaryProjectionError=projection_error, d3d12Errors=0, qualityVerdict='not-evaluated')
     except Exception as error:
         report.update(status='failed', failures=[str(error)])
     write_json(output/'report.json', report)

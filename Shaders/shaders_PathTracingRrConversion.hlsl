@@ -36,6 +36,7 @@ cbuffer ConversionFrame : register(b0)
     uint hostGate;
     uint actualContinuation;
     row_major float4x4 previousViewProjection;
+    float2 jitterNdc;
 #endif
 };
 
@@ -74,7 +75,9 @@ cbuffer ConversionFrame : register(b0)
     {
         float4 ray = g_secondaryRayData[pixel];
         float4 surface = g_secondarySurfaceDistance[pixel];
-        float2 motion = g_motionNdc[pixel];
+        // Producer motion uses current jittered VP and previous unjittered VP.
+        // RR consumes dense motion without projection jitter.
+        float2 motion = g_motionNdc[pixel] + jitterNdc;
         if (all(g_primaryPosition[pixel] == 0))
         {
             // Reproject a direction at infinity. Translation cancels (w=0).
@@ -83,7 +86,7 @@ cbuffer ConversionFrame : register(b0)
             // shared raw background guides used by Native/NRD.
             const float4 previousSky = mul(float4(-view, 0), previousViewProjection);
             motion = inverseViewProjection[2][3] != 0 && previousSky.w > 1e-6 && all(isfinite(previousSky))
-                         ? previousSky.xy / previousSky.w - ndc
+                         ? previousSky.xy / previousSky.w - ndc + jitterNdc
                          : float2(asfloat(0x7fc00000), asfloat(0x7fc00000));
         }
         converted = ConvertRrLiveInputs(g_frameRadiance[pixel].xyz,

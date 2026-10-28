@@ -1877,6 +1877,7 @@ private:
     void ResolveRenderDimensions(UINT outputWidth, UINT outputHeight, UINT& renderWidth, UINT& renderHeight) const;
     void UpdateRenderDimensions();
     bool IsTemporalJitterEnabled() const;
+    bool IsPtRrFrameJitterEnabled() const;
     bool ShouldRunTemporalUpscaler() const;
     bool ShouldRunRayReconstruction() const;
     D3D12_GPU_DESCRIPTOR_HANDLE ResolveToneMapSceneColorSrv() const;

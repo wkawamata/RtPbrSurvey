@@ -59,6 +59,12 @@ struct PathTracingReconstructionFrame
     uint32_t sampleStartIndex = 0;
     uint32_t samplesPerFrame = 1;
     bool pixelCenterPrimary = false;
+    // Opt-in coherent batch: all samples use one primary ray. Color is the
+    // batch mean; surface/continuation guides represent its first sample.
+    bool coherentPrimaryBatch = false;
+    // The pixel-center ray is traced through a globally jittered projection,
+    // rather than using independent per-pixel random primary positions.
+    bool frameJitterPrimary = false;
     // Nonzero identity for the producer sampling policy, including seed/profile.
     uint64_t samplingSignature = 0;
     // v1 uses scene-referred radiance and no projection jitter.

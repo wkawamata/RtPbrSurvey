@@ -123,6 +123,23 @@ int main()
     passed &= Check(Engine::ValidatePathTracingReconstructionInputs(inputs).issue == Issue::UnsupportedSampling,
                     "mixed-sample boundary profile deferred");
     inputs = MakeInputs();
+    inputs.frame.coherentPrimaryBatch = true;
+    inputs.frame.samplesPerFrame = 4;
+    for (auto& signal : inputs.signals)
+        signal.samplesPerFrame = 4;
+    passed &=
+        Check(Engine::ValidatePathTracingReconstructionInputs(inputs).Passed(), "coherent primary batch accepted");
+    inputs.frame.sampleStartIndex = std::numeric_limits<uint32_t>::max() - 2;
+    passed &= Check(Engine::ValidatePathTracingReconstructionInputs(inputs).issue == Issue::UnsupportedSampling,
+                    "batch sample range overflow rejected");
+    inputs = MakeInputs();
+    inputs.frame.frameJitterPrimary = true;
+    inputs.frame.jitterPixels = {.25f, -.25f};
+    passed &= Check(Engine::ValidatePathTracingReconstructionInputs(inputs).Passed(), "explicit frame jitter accepted");
+    inputs.frame.jitterPixels[0] = .51f;
+    passed &= Check(Engine::ValidatePathTracingReconstructionInputs(inputs).issue == Issue::UnsupportedSampling,
+                    "out-of-pixel jitter rejected");
+    inputs = MakeInputs();
     inputs.frame.pixelCenterPrimary = false;
     passed &= Check(Engine::ValidatePathTracingReconstructionInputs(inputs).issue == Issue::UnsupportedSampling,
                     "stochastic guide association deferred");

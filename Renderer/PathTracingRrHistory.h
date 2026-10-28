@@ -8,13 +8,15 @@ namespace Engine
 
 // Supplied only for an admitted, immutable production. Pixel/backend admission
 // and ownership of GPU allocations/fences remain the caller's responsibility.
-// v1 is one sample per frame. Reset token changes on scene edits/camera cuts.
+// Sample stride belongs to the immutable batch. Reset tokens track discontinuities.
 struct PathTracingRrHistoryKey
 {
     uint64_t frameId = 0;
     uint64_t samplingSignature = 0;
     uint64_t resetToken = 0;
     uint32_t sampleStartIndex = 0;
+    uint32_t samplesPerFrame = 1;
+    std::array<float, 2> jitterPixels = {};
     uint32_t renderWidth = 0;
     uint32_t renderHeight = 0;
     uint32_t outputWidth = 0;

@@ -48,7 +48,8 @@ void RtPbrSurveyApp::RunPathTracingRrInputCapture()
                                                 "RrColor",
                                                 "CurrentFrameRadiance",
                                                 "DenoiserPrimaryPosition",
-                                                "RrOutput"};
+                                                "RrOutput",
+                                                "RrMotion"};
         if (!m_rrLifecycleEntered)
         {
             RtPbrSurvey::ScreenshotRequest request;
@@ -117,6 +118,20 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
     const auto select = [this](Backend backend)
     {
         auto settings = m_sceneRenderer.GetPathTracingSettings();
+        if (backend == Backend::Nrd)
+        {
+            // Test NRD with its own supported profile, then restore the RR
+            // batch/jitter settings. Do not loosen NRD's single-sample gate.
+            m_rrLifecycleSamplesPerFrame = settings.samplesPerFrame;
+            m_rrLifecyclePixelCenter = settings.pixelCenterPrimary;
+            settings.samplesPerFrame = 1;
+            settings.pixelCenterPrimary = true;
+        }
+        else if (backend == Backend::Rr)
+        {
+            settings.samplesPerFrame = m_rrLifecycleSamplesPerFrame;
+            settings.pixelCenterPrimary = m_rrLifecyclePixelCenter;
+        }
         settings.reconstructionBackend = backend;
         settings.nrdPreview = backend == Backend::Nrd;
         m_sceneRenderer.SetPathTracingSettings(settings);
@@ -143,7 +158,9 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
             {"verified", rr.rrRetainedOutputVerified},
             {"output", Engine::PathTracingReconstructionBackendName(rr.reconstructionPresentation.output)},
             {"width", context.renderWidth},
-            {"height", context.renderHeight}};
+            {"height", context.renderHeight},
+            {"samplesPerFrame", m_sceneRenderer.GetPathTracingSettings().samplesPerFrame},
+            {"pixelCenterPrimary", m_sceneRenderer.GetPathTracingSettings().pixelCenterPrimary}};
         fprintf(m_logFile, "[PathTracingRrLifecycle] %s\n", record.dump().c_str());
         fflush(m_logFile);
         m_rrLifecycleCalls = calls;
@@ -306,7 +323,8 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
                                                         "PathTracing.CurrentFrameRadiance",
                                                         "PathTracing.RrColor",
                                                         "PathTracing.RrOutputAlternate",
-                                                        "PathTracing.RrOutput"};
+                                                        "PathTracing.RrOutput",
+                                                        "PathTracing.SceneColor"};
             if (!ready || calls != m_rrLifecycleCalls || rr.rrRetainedFrameId != m_rrLifecyclePublished)
             {
                 fail("Motion capture did not retain one verified production");
@@ -410,9 +428,38 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
             break;
         case 15:
         case 16:
+        case 17:
+        case 18:
+            if (!m_rrLifecycleEntered)
+            {
+                auto settings = m_sceneRenderer.GetPathTracingSettings();
+                if (m_rrLifecycleStage == 15)
+                    settings.samplesPerFrame = m_rrLifecycleSamplesPerFrame == 16 ? 4 : 16;
+                else if (m_rrLifecycleStage == 16)
+                    settings.samplesPerFrame = m_rrLifecycleSamplesPerFrame;
+                else
+                    settings.pixelCenterPrimary = m_rrLifecycleStage == 17 ? !m_rrLifecyclePixelCenter :
+                                                                            m_rrLifecyclePixelCenter;
+                m_sceneRenderer.SetPathTracingSettings(settings);
+                m_rrLifecycleEntered = true;
+                if (!invalidated())
+                {
+                    fail("Sampling change exposed stale RR output");
+                    return;
+                }
+            }
+            else if (ready && rr.rrResetCount > m_rrLifecycleResets)
+            {
+                static constexpr const char* names[] = {"sample-batch-changed", "sample-batch-restored",
+                                                        "primary-sampling-changed", "primary-sampling-restored"};
+                checkpoint(names[m_rrLifecycleStage - 15]);
+            }
+            break;
+        case 19:
+        case 20:
         {
-            const UINT width = m_rrLifecycleStage == 15 ? 320 : 256;
-            const UINT height = m_rrLifecycleStage == 15 ? 180 : 144;
+            const UINT width = m_rrLifecycleStage == 19 ? 320 : 256;
+            const UINT height = m_rrLifecycleStage == 19 ? 180 : 144;
             if (!m_rrLifecycleEntered)
             {
                 m_sceneRenderer.RequestResize(width, height);
@@ -420,10 +467,10 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
             }
             else if (ready && context.renderWidth == width && context.renderHeight == height &&
                      rr.rrResetCount > m_rrLifecycleResets)
-                checkpoint(m_rrLifecycleStage == 15 ? "resized" : "resize-restored");
+                checkpoint(m_rrLifecycleStage == 19 ? "resized" : "resize-restored");
             break;
         }
-        case 17:
+        case 21:
             if (!m_rrLifecycleEntered)
             {
                 m_sceneRenderer.SetPathTracingAccumulationPaused(true);
@@ -439,7 +486,7 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
                     fail(result->error);
                     return;
                 }
-                fprintf(m_logFile, "[PathTracingRrLifecycleComplete] checkpoints=15\n");
+                fprintf(m_logFile, "[PathTracingRrLifecycleComplete] checkpoints=19\n");
                 fflush(m_logFile);
                 DestroyWindow(Win32Application::GetHwnd());
                 return;

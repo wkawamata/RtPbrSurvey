@@ -89,6 +89,18 @@ int main()
             const auto result = Engine::InspectPathTracingRrMetadata(inputs);
             Require(!result.Passed() && result.signal == signal, "Missing RR signal accepted or misidentified");
         }
+        auto coherent = Inputs();
+        coherent.signals[static_cast<size_t>(Signal::SecondaryRayData)] =
+            coherent.signals[static_cast<size_t>(Signal::PrimaryPosition)];
+        coherent.signals[static_cast<size_t>(Signal::SecondarySurfaceDistance)] =
+            coherent.signals[static_cast<size_t>(Signal::PrimaryPosition)];
+        coherent.frame.coherentPrimaryBatch = true;
+        coherent.frame.samplesPerFrame = 4;
+        for (auto& signal : coherent.signals)
+            signal.samplesPerFrame = 4;
+        Require(Engine::InspectPathTracingRrMetadata(coherent, true).Passed(), "Live coherent batch rejected");
+        Require(!Engine::InspectPathTracingRrMetadata(coherent, false).Passed(),
+                "Legacy probe inherited coherent batch");
         auto inputs = Inputs();
         inputs.signals[static_cast<size_t>(Signal::SpecularDistance)].frameId = 41;
         Require(Engine::InspectPathTracingRrFrame(inputs, Pixels()).common.issue ==
