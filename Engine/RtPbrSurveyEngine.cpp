@@ -374,8 +374,17 @@ void RtPbrSurveyEngine::UpdateRenderDimensions()
     m_aspectRatio = static_cast<float>(m_renderWidth) / static_cast<float>(m_renderHeight);
 }
 
+bool RtPbrSurveyEngine::IsPtRrFrameJitterEnabled() const
+{
+    return IsPtRrNativeRequested() && m_rayReconstructionSupport.IsAvailable() &&
+           !m_sceneHasThinTransmission && !m_pathTracingSettings.pixelCenterPrimary &&
+           m_renderWidth > 0 && m_renderHeight > 0;
+}
+
 bool RtPbrSurveyEngine::IsTemporalJitterEnabled() const
 {
+    if (IsPtRrFrameJitterEnabled())
+        return true;
     return m_renderingPath == RenderingPath::Deferred && m_temporalUpscalerSettings.enabled &&
         m_temporalUpscalerSettings.backend == Engine::TemporalUpscalerBackend::Streamline &&
         m_temporalUpscalerSupport.IsAvailable() && m_renderWidth > 0 && m_renderHeight > 0;
@@ -790,7 +799,11 @@ Engine::PathTracingReconstructionPresentation RtPbrSurveyEngine::ResolvePathTrac
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
         const bool available =
             IsPtRrNativeRequested() && m_rayReconstructionSupport.IsAvailable() && m_ptRrLive != nullptr;
-        const bool compatible = !m_sceneHasThinTransmission && m_ptRrLive != nullptr && m_ptRrLive->Failure().empty();
+        const bool compatible = !m_sceneHasThinTransmission && m_pathTracingSettings.samplesPerFrame >= 1 && m_pathTracingSettings.samplesPerFrame <= 16 &&
+                                (m_pathTracingSettings.pixelCenterPrimary || IsPtRrFrameJitterEnabled()) &&
+                                m_pathTracingSettings.denoiserDistanceDiagnostics &&
+                                m_pathTracingSettings.debugOutput == PathTracingDebugOutput::Radiance &&
+                                m_ptRrLive != nullptr && m_ptRrLive->Failure().empty();
         return Engine::ResolvePathTracingReconstructionPresentation(
             backend,
             true,
@@ -1959,11 +1972,14 @@ void RtPbrSurveyEngine::UpdateCameraConstantBuffer()
     XMMATRIX jitteredProjection = projection;
     if (IsTemporalJitterEnabled())
     {
-        const UINT sampleIndex = (m_temporalFrameIndex % kTemporalJitterSampleCount) + 1;
+        const UINT sampleIndex = static_cast<UINT>((IsPtRrFrameJitterEnabled() ? m_pathTracingProductionFrameId :
+                                                                                  m_temporalFrameIndex) %
+                                                   kTemporalJitterSampleCount) + 1;
         m_temporalJitterSampleIndex = sampleIndex;
         m_temporalJitterHalton.x = Halton(sampleIndex, 3) - 0.5f;
         m_temporalJitterHalton.y = Halton(sampleIndex, 2) - 0.5f;
-        const std::array<float, 2> jitterScale = m_temporalUpscalerSettings.ClampedJitterScale();
+        const std::array<float, 2> jitterScale = IsPtRrFrameJitterEnabled() ? std::array<float, 2>{1, 1} :
+                                                                          m_temporalUpscalerSettings.ClampedJitterScale();
         m_jitterOffsetPixels.x = m_temporalJitterHalton.x * jitterScale[0];
         m_jitterOffsetPixels.y = m_temporalJitterHalton.y * jitterScale[1];
         const float jitterNdcX = 2.0f * m_jitterOffsetPixels.x / static_cast<float>(m_renderWidth);
@@ -2012,7 +2028,7 @@ bool RtPbrSurveyEngine::CanPreservePtRrCameraHistory(const CameraState& camera) 
 {
     // Projection changes are discontinuities. Camera pose changes use dense
     // primary motion plus hit distance for SDK specular reprojection.
-    return IsPtRrNativeRequested() && !m_sceneHasThinTransmission && !m_pathTracingSettings.accumulate &&
+    return IsPtRrNativeRequested() && !m_sceneHasThinTransmission &&
            m_pathTracingSettings.rrContinuous &&
            m_scene.camera.projection == camera.projection && m_scene.camera.fov == camera.fov &&
            m_scene.camera.orthographicHeight == camera.orthographicHeight && m_scene.camera.nearZ == camera.nearZ &&
@@ -3312,7 +3328,7 @@ void RtPbrSurveyEngine::CreatePipelineStates()
         CD3DX12_ROOT_PARAMETER1 parameters[3];
         parameters[0].InitAsDescriptorTable(_countof(reads), reads);
         parameters[1].InitAsDescriptorTable(_countof(writes), writes);
-        parameters[2].InitAsConstants(20, 0);
+        parameters[2].InitAsConstants(38, 0);
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC desc;
         desc.Init_1_1(_countof(parameters), parameters);
         ComPtr<ID3DBlob> signature, error;
@@ -5669,8 +5685,9 @@ void RtPbrSurveyEngine::UpdateFrame(bool advanceFrame)
             }
             else
             {
-                m_constantBufferData.prevViewProjection = m_constantBufferData.viewProjection;
                 m_jitterFreePrevViewProjection = m_jitterFreeViewProjection;
+                XMStoreFloat4x4(&m_constantBufferData.prevViewProjection,
+                                XMMatrixTranspose(XMLoadFloat4x4(&m_jitterFreePrevViewProjection)));
             }
         }
 #endif
@@ -6937,7 +6954,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.shadowEnabled = m_shadowSettings.enabled ? 1u : 0u;
     passDesc.russianRouletteEnabled = m_pathTracingSettings.russianRouletteEnabled ? 1u : 0u;
     passDesc.samplesPerFrame = m_pathTracingSettings.samplesPerFrame;
-    passDesc.pixelCenterPrimary = m_pathTracingSettings.pixelCenterPrimary;
+    passDesc.pixelCenterPrimary = m_pathTracingSettings.pixelCenterPrimary || IsPtRrFrameJitterEnabled();
     passDesc.thinTransmissionActive = m_sceneHasThinTransmission;
     passDesc.denoiserDistanceDiagnostics = m_pathTracingSettings.denoiserDistanceDiagnostics;
     passDesc.sampleStartIndex = m_pathTracingRuntimeState.frameSampleIndex;
@@ -6958,9 +6975,13 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     produced.sampleStartIndex = passDesc.sampleStartIndex;
     produced.samplesPerFrame = passDesc.samplesPerFrame;
     produced.pixelCenterPrimary = passDesc.pixelCenterPrimary;
+    produced.coherentPrimaryBatch = IsPtRrNativeRequested() && passDesc.pixelCenterPrimary && passDesc.samplesPerFrame > 1;
+    produced.frameJitterPrimary = IsPtRrFrameJitterEnabled();
     produced.samplingSignature = (static_cast<uint64_t>(passDesc.randomSeed) << 32) | 1u |
                                 (passDesc.pixelCenterPrimary ? 2u : 0u) |
-                                (passDesc.denoiserDistanceDiagnostics ? 4u : 0u);
+                                (passDesc.denoiserDistanceDiagnostics ? 4u : 0u) |
+                                (produced.frameJitterPrimary ? 8u : 0u) |
+                                (produced.coherentPrimaryBatch ? uint64_t(passDesc.samplesPerFrame) << 8 : 0u);
     produced.jitterPixels = {m_jitterOffsetPixels.x, m_jitterOffsetPixels.y};
     XMFLOAT4X4 view, projection, previousViewProjection;
     XMStoreFloat4x4(&view, Engine::CreateCameraViewMatrix(m_scene.camera));
@@ -6988,8 +7009,7 @@ void RtPbrSurveyEngine::ExecutePtRrValidationPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-    if (m_sceneHasThinTransmission || m_rrConversionHostGate != 0 || m_pathTracingSettings.accumulate ||
-        m_pathTracingSettings.maxBounces != 2 ||
+    if (m_sceneHasThinTransmission || m_rrConversionHostGate != 0 ||
         !m_pathTracingSettings.denoiserDistanceDiagnostics ||
         m_pathTracingSettings.debugOutput != PathTracingDebugOutput::Radiance)
         return;
@@ -6999,6 +7019,8 @@ void RtPbrSurveyEngine::ExecutePtRrValidationPass(const RenderPass& pass)
     key.samplingSignature = frame.samplingSignature;
     key.resetToken = m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr);
     key.sampleStartIndex = frame.sampleStartIndex;
+    key.samplesPerFrame = frame.samplesPerFrame;
+    key.jitterPixels = frame.jitterPixels;
     key.renderWidth = key.outputWidth = frame.renderWidth;
     key.renderHeight = key.outputHeight = frame.renderHeight;
     XMFLOAT4X4 view, projection, combined;
@@ -7010,7 +7032,7 @@ void RtPbrSurveyEngine::ExecutePtRrValidationPass(const RenderPass& pass)
     auto constants = MakeRayReconstructionFrameConstants();
     constants.preExposure = constants.exposureScale = 1;
     constants.motionVectorScale = {1, 1};
-    constants.temporal.jitterOffset = {0, 0};
+    constants.temporal.jitterOffset = frame.jitterPixels;
     constants.temporal.cameraMotionIncluded = true;
     constants.motionVectorValueOffset = {0, 0};
     std::array<ID3D12Resource*, 8> inputs;
@@ -7072,19 +7094,25 @@ void RtPbrSurveyEngine::ExecuteRrConversionPass(const RenderPass& pass)
         UINT height;
         UINT hostGate;
         UINT actualContinuation;
+        XMFLOAT4X4 previousViewProjection;
+        XMFLOAT2 jitterNdc;
     } constants;
-    static_assert(sizeof(Constants) == 20 * sizeof(UINT));
+    static_assert(sizeof(Constants) == 38 * sizeof(UINT));
     XMStoreFloat4x4(&constants.inverseViewProjection,
                     XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.invViewProjection)));
     constants.width = m_renderWidth;
     constants.height = m_renderHeight;
     constants.hostGate = m_rrConversionHostGate;
     constants.actualContinuation = IsPtRrNativeRequested() ? 1u : 0u;
+    XMStoreFloat4x4(&constants.previousViewProjection,
+                    XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.prevViewProjection)));
+    const auto& jitter = m_rrConversionInputs.frame.jitterPixels;
+    constants.jitterNdc = {2 * jitter[0] / m_renderWidth, -2 * jitter[1] / m_renderHeight};
     m_commandList->SetComputeRootSignature(m_rrConversionRootSignature.Get());
     m_commandList->SetPipelineState(m_rrConversionPipeline.Get());
     m_commandList->SetComputeRootDescriptorTable(0, m_pathTracingGuideTextureSrvs[0].gpu);
     m_commandList->SetComputeRootDescriptorTable(1, m_pathTracingGuideTextureUavs[PathTracingGuideRrColor].gpu);
-    m_commandList->SetComputeRoot32BitConstants(2, 20, &constants, 0);
+    m_commandList->SetComputeRoot32BitConstants(2, 38, &constants, 0);
     m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
     m_rrConversionRecorded = true;
 #endif
@@ -7891,7 +7919,8 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 {"sampleStartIndex", m_pathTracingRuntimeState.frameSampleIndex},
                 {"randomSeed", m_pathTracingSettings.randomSeed},
                 {"samplesPerFrame", m_pathTracingSettings.samplesPerFrame},
-                {"primarySampling", m_pathTracingSettings.pixelCenterPrimary ? "pixel-center" : "random-per-pixel"},
+                {"primarySampling", IsPtRrFrameJitterEnabled() ? "frame-jitter" :
+                                        m_pathTracingSettings.pixelCenterPrimary ? "pixel-center" : "random-per-pixel"},
                 {"denoiserDistanceDiagnostics", m_pathTracingSettings.denoiserDistanceDiagnostics},
                 {"thinTransmissionActive", m_sceneHasThinTransmission},
                 {"nrdPreviewRequested", m_pathTracingSettings.nrdPreview},
@@ -7935,6 +7964,9 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                 const auto& constants = m_ptRrLive->InputConstants();
                 metadata["rrRetainedInput"] = {{"frameId", key.frameId},
                                                {"sampleStartIndex", key.sampleStartIndex},
+                                               {"samplesPerFrame", key.samplesPerFrame},
+                                               {"jitterPixels", key.jitterPixels},
+                                               {"sdkJitterPixels", constants.temporal.jitterOffset},
                                                {"viewProjection", key.viewProjection},
                                                {"previousViewProjection", key.previousViewProjection},
                                                {"clipToPrevClip", constants.temporal.clipToPrevClip},

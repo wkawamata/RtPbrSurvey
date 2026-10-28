@@ -408,6 +408,15 @@ bool TestValidationAndLegacyCli()
         Check(continuousRrOptions.pathTracingRrContinuous && continuousRrOptions.pathTracingReconstruction == "rr" &&
                   !Platform::HasPathTracingDlssConflict(continuousRrOptions),
               "Continuous RR selects the admitted PT backend and permits native opt-in");
+    WCHAR rrInputCaptureOption[] = L"-PathTracingRrInputCapture";
+    WCHAR rrInputCaptureDirectory[] = L"captures";
+    WCHAR* rrInputCaptureArgv[] = {executable, rrInputCaptureOption, rrInputCaptureDirectory, nativeRrOption};
+    const auto rrInputCaptureOptions = Platform::ParseCommandLineOptions(rrInputCaptureArgv, 4);
+    passed &= Check(rrInputCaptureOptions.pathTracingRrInputCaptureDirectory == L"captures" &&
+                        rrInputCaptureOptions.pathTracingRrContinuous &&
+                        rrInputCaptureOptions.pathTracingReconstruction == "rr" &&
+                        !Platform::HasPathTracingDlssConflict(rrInputCaptureOptions),
+                    "RR input capture selects live RR and retries unsupported startup inputs");
     nativeRrOptions.pathTracingReconstruction = "nrd";
     passed &= Check(Platform::HasPathTracingDlssConflict(nativeRrOptions), "NRD does not enable the Hybrid RR path");
     nativeRrOptions.pathTracingReconstruction = "rr";

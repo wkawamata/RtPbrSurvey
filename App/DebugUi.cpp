@@ -935,7 +935,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     };
 
-    if (ImGui::CollapsingHeader("Debug", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader("Rendering", ImGuiTreeNodeFlags_DefaultOpen))
     {
         int renderingPath = static_cast<int>(app.m_renderingPath);
         ImGui::RadioButton("Forward", &renderingPath, static_cast<int>(RenderingPath::Forward));
@@ -963,6 +963,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             else
             {
                 ImGui::TextDisabled("Path Tracing GPU: N/A");
+                ImGui::TextDisabled("Primary Samples / Second: N/A");
             }
             ImGui::Text("Primary Samples / Frame: %llu",
                         static_cast<unsigned long long>(context.pathTracingDiagnostics.primarySamplesPerFrame));
@@ -971,7 +972,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             ImGui::Text("Max Ray Queries / Frame: %llu",
                         static_cast<unsigned long long>(context.pathTracingDiagnostics.maxRayQueriesPerFrame));
             ImGui::TextDisabled("Progressive metallic-roughness path tracing is active.");
-            ImGui::TextDisabled("DLSS SR and RR settings are retained but inactive in this mode.");
+            ImGui::TextDisabled("DLSS SR is inactive; reconstruction uses current-frame PT inputs.");
 
             bool accumulationPaused = context.pathTracingRuntimeState.accumulationPaused;
             if (ImGui::Checkbox("Pause Accumulation", &accumulationPaused))
@@ -1000,6 +1001,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 pathTracingSettingsChanged = true;
             }
             pathTracingSettingsChanged |= ImGui::Checkbox("Accumulate", &pathTracingSettings.accumulate);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Maintains the Native PT accumulator. RR always receives the current frame, not the accumulated image.");
             using ReconstructionBackend = Engine::PathTracingReconstructionBackend;
             int reconstructionBackend =
                 static_cast<int>(Engine::EffectivePathTracingBackend(pathTracingSettings.reconstructionBackend,
@@ -1017,7 +1020,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 pathTracingSettingsChanged |=
                     ImGui::Checkbox("Continuous RR (camera motion)", &pathTracingSettings.rrContinuous);
             if (reconstructionBackend == 2)
-                ImGui::TextWrapped("RR retained-frame diagnostic: no accumulation, 1 spp, 2 bounces; "
+                ImGui::TextWrapped("RR coherent primary: 1-16 spp; first-sample guides; "
                                    "native opt-in required.");
             if (reconstructionBackend == 1)
                 ImGui::TextWrapped(
@@ -1060,6 +1063,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             }
             pathTracingSettingsChanged |=
                 ImGui::Checkbox("Pixel Center Primary", &pathTracingSettings.pixelCenterPrimary);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("OFF: Native uses per-pixel random primary; RR uses frame-wide projection jitter.");
             pathTracingSettingsChanged |=
                 ImGui::Checkbox("Denoiser Distance Diagnostics", &pathTracingSettings.denoiserDistanceDiagnostics);
             int samplesPerFrame = static_cast<int>(pathTracingSettings.samplesPerFrame);

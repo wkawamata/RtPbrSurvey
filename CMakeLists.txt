@@ -548,18 +548,24 @@ if(RTPBRSURVEY_BUILD_TESTS)
         COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${denoiser_sampling_shader}")
     set(rr_conversion_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrInputConversion_CSMain.cso")
     set(rr_texture_conversion_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_PathTracingRrConversion_CSMain.cso")
-    add_custom_command(OUTPUT "${rr_conversion_shader}" "${rr_texture_conversion_shader}"
+    set(rr_live_distance_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrLiveDistance_CSMain.cso")
+    add_custom_command(OUTPUT "${rr_conversion_shader}" "${rr_texture_conversion_shader}" "${rr_live_distance_shader}"
         COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
             "-Fo${rr_conversion_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_RrInputConversion.hlsl"
         COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
             "-Fo${rr_texture_conversion_shader}" "${RTPBRSURVEY_ROOT}/Shaders/shaders_PathTracingRrConversion.hlsl"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${rr_live_distance_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_RrLiveDistance.hlsl"
         DEPENDS Tests/shaders_RrInputConversion.hlsl Shaders/shaders_PathTracingRrConversion.hlsl
-            Shaders/RayReconstructionInputConversion.hlsli
+            Shaders/RayReconstructionInputConversion.hlsli Tests/shaders_RrLiveDistance.hlsl
         VERBATIM)
     target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE
-        "${rr_conversion_shader}" "${rr_texture_conversion_shader}" Tests/RrInputConversionValidation.h)
+        "${rr_conversion_shader}" "${rr_texture_conversion_shader}" "${rr_live_distance_shader}"
+        Tests/RrInputConversionValidation.h)
     add_test(NAME RtPbrSurvey.RrInputConversion
         COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${rr_conversion_shader}" --rr-input-conversion)
+    add_test(NAME RtPbrSurvey.RrLiveDistance
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${rr_live_distance_shader}" --rr-live-distance)
     add_executable(RtPbrSurvey.RrTextureConversionTests Tests/RrTextureConversionTests.cpp
         "${rr_texture_conversion_shader}")
     target_compile_features(RtPbrSurvey.RrTextureConversionTests PRIVATE cxx_std_17)

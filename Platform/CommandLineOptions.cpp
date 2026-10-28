@@ -415,6 +415,15 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             options.pathTracingReconstruction = "rr";
             options.pathTracingRrContinuous = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrInputCapture"))
+        {
+            if (i + 1 >= argc || argv[i + 1][0] == L'-')
+                throw std::invalid_argument("-PathTracingRrInputCapture expects an output directory.");
+            options.pathTracingRrInputCaptureDirectory = argv[++i];
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingRrLifecycleValidation"))
         {
             if (i + 1 >= argc || argv[i + 1][0] == L'-')

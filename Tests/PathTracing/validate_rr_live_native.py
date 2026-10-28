@@ -21,15 +21,21 @@ def main():
     if output == source or source in output.parents or (output.exists() and any(output.iterdir())):
         parser.error('Output must be a separate empty directory')
     fixture(source, output)
-    report = dict(status='running', executableSha256=sha(exe), records=[], failures=[])
+    report = dict(status='running', executableSha256=sha(exe),
+                  conversionShaderSha256=sha(exe.parent/'shaders_PathTracingRrConversion_CSMain.cso'),
+                  records=[], failures=[])
     write_json(output/'report.json', report)
     try:
         cases = [('rr-output', True, 'PathTracing.RrOutput', True),
                  ('rr-viewport', True, '', True),
                  ('native-off', False, '', False),
-                 ('background', True, '', False),
-                 ('non-mirror', True, '', False),
-                 ('thin-transmission', True, '', False)]
+                 ('background', True, '', True),
+                 ('non-mirror', True, '', True),
+                 ('thin-transmission', True, '', False),
+                 ('multi-spp', True, '', True),
+                 ('random-primary', True, '', True),
+                 ('no-distance-guides', True, '', False),
+                 ('debug-output', True, '', False)]
         for name, opt_in, resource, expected_rr in cases:
             folder = output/name
             fixture(output, folder)
@@ -49,6 +55,17 @@ def main():
                 pbr['metallicFactor'] = 0
                 pbr.pop('metallicRoughnessTexture', None)
                 write_json(folder/'box.gltf', gltf)
+            if name in ('multi-spp', 'random-primary', 'no-distance-guides', 'debug-output'):
+                preset = json.loads((folder/'preset.json').read_text(encoding='utf-8'))
+                if name == 'multi-spp':
+                    preset['pathTracing']['samplesPerFrame'] = 4
+                elif name == 'random-primary':
+                    preset['pathTracing']['pixelCenterPrimary'] = False
+                elif name == 'no-distance-guides':
+                    preset['pathTracing']['denoiserDistanceDiagnostics'] = False
+                else:
+                    preset['pathTracing']['debugOutput'] = 0
+                write_json(folder/'preset.json', preset)
             capture = folder/('output.ptbuf' if resource else 'viewport.png')
             log = folder/'runtime.log'
             command = [str(exe), '-SceneFile', str(folder/'scene.json'), '-RenderPreset', str(folder/'preset.json'),
@@ -87,10 +104,10 @@ def main():
             else:
                 if diagnostics['reconstructionOutput'] != 'native' or rr['nativeEvaluateCallCount'] != 0:
                     raise ValueError('Rejected/disabled input reached SDK or RR presentation')
-                if name == 'thin-transmission' and (diagnostics['reconstructionStatus'] != 'incompatible-inputs' or
+                if name in ('thin-transmission', 'no-distance-guides', 'debug-output') and (diagnostics['reconstructionStatus'] != 'incompatible-inputs' or
                                                      rr['phase'] != 'waiting-production' or rr['failure']):
-                    raise ValueError('Thin transmission was not rejected by the host contract')
-                if opt_in and name != 'thin-transmission' and (rr['phase'] != 'native-fallback' or not rr['failure'].startswith('unsupported RR input pixels')):
+                    raise ValueError('Unsupported transmission/sampling was not rejected by the host contract')
+                if opt_in and name not in ('thin-transmission', 'no-distance-guides', 'debug-output') and (rr['phase'] != 'native-fallback' or not rr['failure'].startswith('unsupported RR input pixels')):
                     raise ValueError('Unsupported profile was not rejected by whole-frame admission')
             if resource:
                 meta, values = read_buffer(capture)

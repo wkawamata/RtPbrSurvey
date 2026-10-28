@@ -9,6 +9,8 @@ PathTracingRrInputValidation InspectPathTracingRrMetadata(const PathTracingRecon
     const PathTracingInputValidation common = ValidatePathTracingReconstructionInputs(inputs);
     if (!common.Passed())
         return {PathTracingRrInputIssue::CommonContract, common, common.signal};
+    if (!actualContinuation && (inputs.frame.coherentPrimaryBatch || inputs.frame.frameJitterPrimary))
+        return {PathTracingRrInputIssue::CommonContract, {PathTracingInputIssue::UnsupportedSampling}};
     const auto required = actualContinuation ? std::span<const PathTracingInputSignal>(kPathTracingRrLiveSignals)
                                              : std::span<const PathTracingInputSignal>(kPathTracingRrSignals);
     const PathTracingInputSignal missing = FindMissingPathTracingSignal(inputs, required);

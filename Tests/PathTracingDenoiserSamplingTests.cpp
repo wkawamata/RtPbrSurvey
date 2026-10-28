@@ -400,6 +400,7 @@ int main(int argc, char** argv)
         bool materialFactors = false;
         bool inputConversion = false;
         bool rrInputConversion = false;
+        bool rrLiveDistance = false;
         bool thinTransmission = false;
         const char* inputPath = nullptr;
         const char* outputPath = nullptr;
@@ -429,6 +430,10 @@ int main(int argc, char** argv)
             {
                 rrInputConversion = true;
             }
+            else if (std::strcmp(argv[index], "--rr-live-distance") == 0)
+            {
+                rrLiveDistance = true;
+            }
             else if (std::strcmp(argv[index], "--input") == 0 && index + 1 < argc)
             {
                 inputPath = argv[++index];
@@ -442,7 +447,9 @@ int main(int argc, char** argv)
                 throw std::runtime_error("Unknown test option");
             }
         }
-        if (int(packing) + int(materialFactors) + int(inputConversion) + int(rrInputConversion) + int(thinTransmission) > 1)
+        if (int(packing) + int(materialFactors) + int(inputConversion) + int(rrInputConversion) + int(rrLiveDistance) +
+                int(thinTransmission) >
+            1)
             throw std::runtime_error("Shader validation modes are mutually exclusive");
         if ((inputPath != nullptr) != (outputPath != nullptr) || (inputPath && !inputConversion))
             throw std::runtime_error("Captured conversion requires both input and output paths");
@@ -490,7 +497,7 @@ int main(int argc, char** argv)
         pipelineDesc.CS = {shader.data(), shader.size()};
         ComPtr<ID3D12PipelineState> pipeline;
         Check(device->CreateComputePipelineState(&pipelineDesc, IID_PPV_ARGS(&pipeline)));
-        const UINT64 byteCount = UINT64(sampleCount) * (rrInputConversion ? 24 : 16) * sizeof(float);
+        const UINT64 byteCount = UINT64(sampleCount) * (rrInputConversion || rrLiveDistance ? 24 : 16) * sizeof(float);
         ComPtr<ID3D12Resource> inputBuffer;
         if (inputPath)
         {
@@ -567,6 +574,10 @@ int main(int argc, char** argv)
         else if (rrInputConversion)
         {
             RrInputTests::ValidateRrInputConversion(static_cast<const float*>(data), sampleCount);
+        }
+        else if (rrLiveDistance)
+        {
+            RrInputTests::ValidateRrLiveDistance(static_cast<const float*>(data), sampleCount);
         }
         else if (thinTransmission)
         {
