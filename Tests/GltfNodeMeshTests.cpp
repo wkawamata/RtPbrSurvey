@@ -1,6 +1,10 @@
 #include "GltfLoader.h"
 #include "Scene/SceneBuilder.h"
 #include "Scene/VolumeMeshTopology.h"
+#include "Scene/ConvexVolumeBounds.h"
+#include "Scene/ImportedVolumeScene.h"
+#include "Scene/SceneDocumentBuilder.h"
+#include "Scene/SceneDocumentJson.h"
 
 #include <cmath>
 #include <filesystem>
@@ -109,6 +113,161 @@ void TestVolumeMeshTopology()
         invalid.insert(invalid.end(), {indices[face + 1] + 4, indices[face] + 4, indices[face + 2] + 4});
     }
     Require(!validate(transformed, invalid).empty(), "Shells touching at a single vertex must be rejected.");
+}
+
+void TestConvexVolumeBounds()
+{
+    using Bounds = RtPbrSurvey::ConvexVolumeBounds;
+    using Location = RtPbrSurvey::VolumePointLocation;
+    const std::vector<Bounds::Position> positions = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    const std::vector<uint32_t> indices = {0, 2, 1, 0, 1, 3, 0, 3, 2, 1, 2, 3};
+    std::string error = "stale";
+    const auto bounds = Bounds::Build(positions, indices, &error);
+    Require(bounds.has_value() && error.empty(), "Convex outward tetrahedron must qualify and clear stale errors.");
+    Require(bounds->ClassifyPoint({0.1f, 0.1f, 0.1f}) == Location::Inside, "Interior camera must be detected.");
+    Require(bounds->ClassifyPoint({1, 1, 1}) == Location::Outside, "Exterior camera must be detected.");
+    Require(bounds->ClassifyPoint({0, 0.2f, 0.2f}) == Location::Boundary, "Camera on a face must be rejected as boundary.");
+    Require(bounds->ClassifyPoint({0, 0, 0}) == Location::Boundary, "Camera on a vertex must be boundary.");
+    Require(bounds->ClassifyPoint({-0.0000005f, 0.2f, 0.2f}) == Location::Boundary,
+        "Near-surface camera must remain in the conservative boundary band.");
+    Require(bounds->ClassifyPoint({std::numeric_limits<float>::quiet_NaN(), 0, 0}) == Location::Invalid,
+        "Nonfinite camera cannot pass the outside check.");
+    Require(!bounds->MayOverlapBounds({2, 2, 2}, {3, 3, 3}), "Clearly separated bounds must pass placement gate.");
+    Require(bounds->MayOverlapBounds({1, 0, 0}, {2, 1, 1}), "Touching bounds must fail closed.");
+    Require(bounds->MayOverlapBounds({0.8f, 0.8f, 0.8f}, {0.9f, 0.9f, 0.9f}),
+        "AABB overlap must remain conservative even outside the actual tetrahedron.");
+    Require(bounds->MayOverlapBounds({2, 0, 0}, {1, 1, 1}), "Inverted bounds must fail closed.");
+    Require(bounds->MayOverlapBounds({2, 0, 0}, {3, std::numeric_limits<float>::infinity(), 1}),
+        "Nonfinite bounds must fail closed even with another separating axis.");
+    auto transformed = positions;
+    for (auto& position : transformed)
+    {
+        for (float& value : position)
+        {
+            value = 10.0f + value * 0.001f;
+        }
+    }
+    const auto small = Bounds::Build(transformed, indices, &error);
+    Require(small.has_value() && small->ClassifyPoint({10.00025f, 10.00025f, 10.00025f}) == Location::Inside &&
+        small->ClassifyPoint({9.99f, 10, 10}) == Location::Outside,
+        "Classification must work after uniform scale and translation.");
+    transformed = positions;
+    transformed[3][2] = 0.00000001f;
+    Require(!Bounds::Build(transformed, indices, &error) && !error.empty(),
+        "Numerically thin solids must not qualify for camera classification.");
+    const std::vector<Bounds::Position> concave = {{0, 0, -0.2f}, {0, 0, -1}, {1, 0, 0},
+        {0, 1, 0}, {-1, 0, 0}, {0, -1, 0}};
+    const std::vector<uint32_t> octahedron = {0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 2,
+        1, 3, 2, 1, 4, 3, 1, 5, 4, 1, 2, 5};
+    Require(RtPbrSurvey::ValidateVolumeMeshTopology(concave, octahedron).empty(),
+        "Concave fixture must pass topology so convexity is tested independently.");
+    Require(!Bounds::Build(concave, octahedron, &error) && error.find("convex") != std::string::npos,
+        "Closed concave shell must be rejected by convexity gate.");
+    auto open = indices;
+    open.resize(9);
+    Require(!Bounds::Build(positions, open), "Convex qualification must not bypass the topology gate.");
+}
+
+void TestSolidVolumeImport()
+{
+    using Json = nlohmann::json;
+    const auto path = std::filesystem::temp_directory_path() /
+        ("RtPbrSurvey-solid-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".gltf");
+    const auto binary = std::filesystem::path(path).replace_extension(".bin");
+    struct Cleanup
+    {
+        std::filesystem::path json, bin;
+        ~Cleanup()
+        {
+            std::error_code ignored;
+            std::filesystem::remove(json, ignored);
+            std::filesystem::remove(bin, ignored);
+        }
+    } cleanup{path, binary};
+    const float positions[] = {0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1};
+    const uint16_t indices[] = {0, 2, 1, 0, 1, 3, 0, 3, 2, 1, 2, 3};
+    {
+        std::ofstream output(binary, std::ios::binary);
+        output.write(reinterpret_cast<const char*>(positions), sizeof(positions));
+        output.write(reinterpret_cast<const char*>(indices), sizeof(indices));
+    }
+    Json document = {
+        {"asset", {{"version", "2.0"}}}, {"scene", 0}, {"scenes", {{{"nodes", {0}}}}},
+        {"nodes", {{{"name", "Solid"}, {"mesh", 0}}}},
+        {"buffers", {{{"uri", binary.filename().string()}, {"byteLength", 72}}}},
+        {"bufferViews", {{{"buffer", 0}, {"byteOffset", 0}, {"byteLength", 48}},
+                          {{"buffer", 0}, {"byteOffset", 48}, {"byteLength", 24}}}},
+        {"accessors", {{{"bufferView", 0}, {"componentType", 5126}, {"count", 4}, {"type", "VEC3"}},
+                       {{"bufferView", 1}, {"componentType", 5123}, {"count", 12}, {"type", "SCALAR"}}}},
+        {"meshes", {{{"primitives", {{{"attributes", {{"POSITION", 0}}}, {"indices", 1}, {"material", 0}}}}}}},
+        {"extensionsUsed", {"KHR_materials_transmission", "KHR_materials_volume"}},
+        {"extensionsRequired", {"KHR_materials_transmission", "KHR_materials_volume"}},
+        {"materials", {{{"pbrMetallicRoughness", {{"metallicFactor", 0}, {"roughnessFactor", 0}}},
+            {"extensions", {{"KHR_materials_transmission", {{"transmissionFactor", 1}}},
+                {"KHR_materials_volume", {{"thicknessFactor", 1}, {"attenuationColor", {0.25, 0.5, 0.8}},
+                    {"attenuationDistance", 2}}}}}}}}};
+    const auto load = [&]()
+    {
+        std::ofstream output(path, std::ios::binary);
+        output << document.dump(2);
+        output.close();
+        return Engine::LoadGltfSceneAsset(path.string());
+    };
+    const auto loaded = load();
+    Require(static_cast<bool>(loaded), "Single convex volume asset must load.");
+    Engine::SceneBuilder builder;
+    const auto mesh = builder.AddGltfNodeMesh(loaded.asset, "Solid");
+    Require(static_cast<bool>(mesh), "Solid mesh node must convert.");
+    const auto& material = builder.GetMesh().materials[0];
+    Require(material.volumeTransmission && material.importedVolumeTransmission && !material.thinTransmission &&
+        material.volumeAbsorption.attenuationColor[0] == 0.25f && material.volumeAbsorption.attenuationDistance == 2.0f,
+        "Solid medium identity and absorption must survive renderer material conversion.");
+    builder.AddInstance(*mesh.meshId, DirectX::XMMatrixIdentity(), 0);
+    std::string error;
+    auto guard = RtPbrSurvey::BuildImportedVolumeSceneGuard(builder.GetScene(), error);
+    Require(guard.has_value() && error.empty(), "Single imported instance must qualify.");
+    Require(guard->ClassifyPoint({0.1f, 0.1f, -0.1f}) == RtPbrSurvey::VolumePointLocation::Inside,
+        "Camera guard must use converted engine coordinates.");
+    builder.AddInstance(*mesh.meshId, DirectX::XMMatrixTranslation(3, 0, 0), 0);
+    Require(!RtPbrSurvey::BuildImportedVolumeSceneGuard(builder.GetScene(), error) && !error.empty(),
+        "Second volume instance must fail even with the same material.");
+    builder.GetScene().instances.pop_back();
+    builder.GetScene().instances[0].world._11 = -1;
+    Require(!RtPbrSurvey::BuildImportedVolumeSceneGuard(builder.GetScene(), error),
+        "Mirrored scene placement must fail outward-winding qualification.");
+    builder.GetScene().instances[0].world._11 = 1;
+    DirectX::XMStoreFloat4x4(&builder.GetScene().instances[0].world,
+        DirectX::XMMatrixTranspose(DirectX::XMMatrixScaling(2, 2, 2) * DirectX::XMMatrixTranslation(3, 4, 5)));
+    guard = RtPbrSurvey::BuildImportedVolumeSceneGuard(builder.GetScene(), error);
+    Require(guard && guard->ClassifyPoint({3.2f, 4.2f, 4.8f}) == RtPbrSurvey::VolumePointLocation::Inside &&
+        guard->ClassifyPoint({0.1f, 0.1f, -0.1f}) == RtPbrSurvey::VolumePointLocation::Outside,
+        "Instance storage transpose, scale and translation must be applied before camera checks.");
+    const auto opaqueMaterial = builder.AddMaterial({});
+    const auto cube = builder.AddCube(0.2f);
+    builder.AddInstance(cube, DirectX::XMMatrixTranslation(3.2f, 4.2f, 4.8f), opaqueMaterial);
+    Require(!RtPbrSurvey::BuildImportedVolumeSceneGuard(builder.GetScene(), error) && !error.empty(),
+        "Opaque geometry inside imported volume must fail placement guard.");
+    builder.GetScene().instances.pop_back();
+    builder.AddInstance(cube, DirectX::XMMatrixTranslation(10, 0, 0), opaqueMaterial);
+    Require(RtPbrSurvey::BuildImportedVolumeSceneGuard(builder.GetScene(), error).has_value(),
+        "Separated opaque geometry must be allowed.");
+    Engine::SceneBuilder legacy;
+    Require(legacy.LoadGltfMesh(path.string()) && legacy.GetMesh().materials[0].volumeTransmission,
+        "Legacy importer must preserve solid metadata too.");
+    document["meshes"][0]["primitives"].push_back(document["meshes"][0]["primitives"][0]);
+    Require(!load(), "Multiple primitives must not be silently joined into one medium.");
+    document["meshes"][0]["primitives"].erase(1);
+    document["accessors"][1]["count"] = 9;
+    Require(!load(), "Open imported solid must be rejected before scene publication.");
+    const auto scenePath = std::filesystem::path(__FILE__).parent_path().parent_path() /
+        "Assets/Scene/PathTracingValidation/31-gltf-volume-tetra/scene.json";
+    RtPbrSurvey::SceneDocument saved;
+    Require(RtPbrSurvey::LoadSceneDocumentFile(scenePath.string(), saved, &error), "Saved glTF volume scene must load.");
+    RtPbrSurvey::SceneDocumentBuilder sceneBuilder;
+    Require(sceneBuilder.Build(saved, scenePath.parent_path(), &error), "Saved glTF volume scene must build.");
+    saved.camera.position = {-0.3f, -0.3f, 0.3f};
+    Require(!sceneBuilder.Build(saved, scenePath.parent_path(), &error) && error.find("Camera") != std::string::npos,
+        "Scene builder must reject a camera inside the imported solid.");
 }
 
 void TestNodeEnumerationAndFailures()
@@ -761,6 +920,8 @@ int main(int argc, char* argv[])
         }
 
         TestVolumeMeshTopology();
+        TestConvexVolumeBounds();
+        TestSolidVolumeImport();
         TestNodeEnumerationAndFailures();
         TestIndependentNodeMeshesAndLifetime();
         TestGltfRotationAndHandednessConversion();

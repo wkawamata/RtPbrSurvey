@@ -80,6 +80,9 @@ bool SceneBuilder::LoadGltfMesh(const std::string& path)
         material.normalTextureScale = gltfMaterial.normalTextureScale;
         material.unlit = gltfMaterial.unlit;
         material.thinTransmission = gltfMaterial.thinTransmission;
+        material.volumeTransmission = gltfMaterial.volumeTransmission;
+        material.importedVolumeTransmission = gltfMaterial.volumeTransmission;
+        material.volumeAbsorption = gltfMaterial.volumeAbsorption;
         material.transmissionFactor = gltfMaterial.transmissionFactor;
         material.transmissionTint = {gltfMaterial.transmissionTint[0], gltfMaterial.transmissionTint[1],
                                      gltfMaterial.transmissionTint[2]};
@@ -201,6 +204,9 @@ std::optional<SceneMeshId> SceneBuilder::AddGltfMeshData(GltfMeshData gltfMesh)
         material.normalTextureScale = gltfMaterial.normalTextureScale;
         material.unlit = gltfMaterial.unlit;
         material.thinTransmission = gltfMaterial.thinTransmission;
+        material.volumeTransmission = gltfMaterial.volumeTransmission;
+        material.importedVolumeTransmission = gltfMaterial.volumeTransmission;
+        material.volumeAbsorption = gltfMaterial.volumeAbsorption;
         material.transmissionFactor = gltfMaterial.transmissionFactor;
         material.transmissionTint = {gltfMaterial.transmissionTint[0], gltfMaterial.transmissionTint[1],
                                      gltfMaterial.transmissionTint[2]};

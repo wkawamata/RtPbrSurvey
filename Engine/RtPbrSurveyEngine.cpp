@@ -10,6 +10,7 @@
 //*********************************************************
 
 #include "stdafx.h"
+#include "Scene/ImportedVolumeScene.h"
 
 #include "RtPbrSurveyEngine.h"
 
@@ -573,7 +574,8 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_rayTracingSupport.TierName(),
             static_cast<int>(m_rayTracingSupport.Tier()),
             m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1,
-            m_pathTracingPipeline != nullptr,
+            m_pathTracingPipeline != nullptr && m_importedVolumeStatus.empty(),
+            !m_importedVolumeStatus.empty() ? m_importedVolumeStatus.c_str() :
             m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1 ?
                 "Progressive metallic-roughness path tracing" :
                 "Requires DXR 1.1",
@@ -1186,6 +1188,12 @@ void RtPbrSurveyEngine::SetScene(const Scene& scene)
     const bool cameraChanged = !CameraStatesEqual(m_scene.camera, scene.camera);
     const bool sceneChanged = m_scene.mesh != scene.mesh || !SceneInstancesEqual(m_scene.instances, scene.instances);
     m_scene = scene;
+    if (sceneChanged)
+    {
+        const auto guard = RtPbrSurvey::BuildImportedVolumeSceneGuard(m_scene, m_importedVolumeSceneError);
+        m_importedVolumeBounds = guard ? std::make_shared<RtPbrSurvey::ConvexVolumeBounds>(*guard) : nullptr;
+    }
+    RefreshImportedVolumeCameraStatus();
     m_depthVisualizationSettings.Reset(m_scene.camera.nearZ, m_scene.camera.farZ);
     if (sceneChanged)
     {
@@ -1206,9 +1214,21 @@ void RtPbrSurveyEngine::SetCamera(const CameraState& camera)
 #endif
     const bool cameraChanged = !CameraStatesEqual(m_scene.camera, camera);
     m_scene.camera = camera;
+    RefreshImportedVolumeCameraStatus();
     if (cameraChanged)
     {
         InvalidatePathTracingHistory(PathTracingResetReason::Camera, preserveNrdCameraHistory);
+    }
+}
+
+void RtPbrSurveyEngine::RefreshImportedVolumeCameraStatus()
+{
+    m_importedVolumeStatus = m_importedVolumeSceneError;
+    if (m_importedVolumeStatus.empty() && m_importedVolumeBounds &&
+        m_importedVolumeBounds->ClassifyPoint({m_scene.camera.pos.x, m_scene.camera.pos.y, m_scene.camera.pos.z}) !=
+            RtPbrSurvey::VolumePointLocation::Outside)
+    {
+        m_importedVolumeStatus = "Imported volume: camera must be outside the solid and boundary band";
     }
 }
 
@@ -1289,6 +1309,9 @@ void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
     m_temporalFrameIndex = 0;
     ReleaseSceneResources();
     SetScene(scene);
+    const auto importedGuard = RtPbrSurvey::BuildImportedVolumeSceneGuard(m_scene, m_importedVolumeSceneError);
+    m_importedVolumeBounds = importedGuard ? std::make_shared<RtPbrSurvey::ConvexVolumeBounds>(*importedGuard) : nullptr;
+    RefreshImportedVolumeCameraStatus();
     InvalidatePathTracingHistory(PathTracingResetReason::Scene);
     // Empty editor documents have no GPU geometry until a visible mesh is added.
     if (scene.mesh == nullptr || scene.mesh->vertices.empty())
@@ -6620,7 +6643,8 @@ void RtPbrSurveyEngine::ExecutePathTracingHistoryClearPass(const RenderPass& pas
 void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
-    if (m_pathTracingPipeline == nullptr || m_frameResources[m_currentFrameIndex].emissiveTriangleBuffer == nullptr)
+    if (m_pathTracingPipeline == nullptr || m_frameResources[m_currentFrameIndex].emissiveTriangleBuffer == nullptr ||
+        !m_importedVolumeStatus.empty())
     {
         Engine::RecordPathTracingUavClear(
             m_commandList.Get(),

@@ -13,6 +13,7 @@
 #include <tiny_gltf.h>
 #include <cstdio>
 #include <nlohmann/json.hpp>
+#include "Scene/ConvexVolumeBounds.h"
 
 static const unsigned char* GetAccessorData(const tinygltf::Model& model, const tinygltf::Accessor& accessor)
 {
@@ -337,6 +338,7 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Model& model, c
     }
     double factor = 0.0;
     double ior = 1.5;
+    double thickness = 0.0;
     int transmissionTexture = -1;
     const auto readNumber = [](const nlohmann::json& extension, const char* field, double& value)
     {
@@ -357,7 +359,6 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Model& model, c
     };
     if (volume != extensions.end())
     {
-        double thickness = 0.0;
         if (!readNumber(*volume, "thicknessFactor", thickness) || thickness < 0.0)
         {
             return "Volume thicknessFactor must be finite and nonnegative.";
@@ -370,6 +371,7 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Model& model, c
             {
                 return "Volume attenuationDistance must be finite and positive when specified; omit it for infinity.";
             }
+            output.volumeAbsorption.attenuationDistance = static_cast<float>(distance);
         }
         if (volume->contains("attenuationColor"))
         {
@@ -386,6 +388,10 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Model& model, c
                     return "Volume attenuationColor must contain three linear RGB numbers in [0, 1].";
                 }
             }
+            for (size_t channel = 0; channel < 3; ++channel)
+            {
+                output.volumeAbsorption.attenuationColor[channel] = color[channel].get<float>();
+            }
         }
         for (const auto& field : volume->items())
         {
@@ -394,10 +400,6 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Model& model, c
             {
                 return "Volume thickness textures and additional extension fields are not supported yet.";
             }
-        }
-        if (thickness > 0.0)
-        {
-            return "glTF solid volume requires closed-mesh and medium-identity validation; use a qualified scene Cube/Sphere for now.";
         }
     }
     if (transmission != extensions.end())
@@ -510,7 +512,18 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Model& model, c
             return error;
         }
     }
-    output.thinTransmission = transmission != extensions.end();
+    if (thickness > 0.0)
+    {
+        if (factor != 1.0 || ior > 4.0 || transmissionTexture >= 0 || pbr.baseColorTexture.index >= 0 ||
+            pbr.metallicRoughnessTexture.index >= 0 || pbr.roughnessFactor != 0.0 || pbr.metallicFactor != 0.0 ||
+            pbr.baseColorFactor != std::vector<double>({1.0, 1.0, 1.0, 1.0}) || material.alphaMode != "OPAQUE" ||
+            material.emissiveTexture.index >= 0 || material.emissiveFactor != std::vector<double>({0.0, 0.0, 0.0}))
+        {
+            return "Solid volume requires smooth white full dielectric transmission, IOR <= 4, no textures or emission.";
+        }
+        output.volumeTransmission = true;
+    }
+    output.thinTransmission = transmission != extensions.end() && !output.volumeTransmission;
     output.transmissionFactor = static_cast<float>(factor);
     output.transmissionIor = static_cast<float>(ior);
     output.transmissionTexIndex = transmissionTexture;
@@ -628,6 +641,11 @@ static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImp
         if (!transmissionError.empty())
         {
             report(GltfDiagnosticSeverity::Error, "TransmissionMaterial", location, transmissionError.c_str());
+        }
+        else if (thinMaterial.volumeTransmission)
+        {
+            warning("VolumeNativePtOnly", location,
+                "Convex solid volume uses Native PT only; scene placement and camera must pass the imported-volume guard.");
         }
         else if (thinMaterial.transmissionFactor > 0.0f)
         {
@@ -868,6 +886,51 @@ static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImp
     if (model.defaultScene < -1 || model.defaultScene >= static_cast<int>(model.scenes.size()))
     {
         error("InvalidScene", "scene", "Default scene index is outside the asset.");
+    }
+    if (valid)
+    {
+        bool hasVolume = false;
+        for (const auto& material : model.materials)
+        {
+            GltfMaterial parsed;
+            ParseThinTransmissionMaterial(model, material, parsed);
+            hasVolume = hasVolume || parsed.volumeTransmission;
+        }
+        if (hasVolume)
+        {
+            size_t meshNodes = 0;
+            for (const auto& node : model.nodes)
+            {
+                meshNodes += node.mesh >= 0 ? 1 : 0;
+            }
+            if (model.meshes.size() != 1 || model.materials.size() != 1 ||
+                model.meshes[0].primitives.size() != 1 || model.meshes[0].primitives[0].material != 0 || meshNodes != 1)
+            {
+                error("VolumeMesh", "meshes", "Volume asset requires one mesh node, one primitive and one material.");
+            }
+            else
+            {
+                GltfMeshData mesh;
+                int material = -1;
+                if (!AppendPrimitive(model, model.meshes[0].primitives[0], DirectX::XMMatrixIdentity(), mesh, material))
+                {
+                    error("VolumeMesh", "meshes[0]", "Volume mesh conversion failed.");
+                }
+                else
+                {
+                    std::vector<RtPbrSurvey::ConvexVolumeBounds::Position> positions;
+                    for (const auto& vertex : mesh.vertices)
+                    {
+                        positions.push_back({vertex.position.x, vertex.position.y, vertex.position.z});
+                    }
+                    std::string reason;
+                    if (!RtPbrSurvey::ConvexVolumeBounds::Build(positions, mesh.indices, &reason))
+                    {
+                        error("VolumeMesh", "meshes[0]", reason.c_str());
+                    }
+                }
+            }
+        }
     }
     return valid;
 }

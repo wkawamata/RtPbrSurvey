@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "Shared/VolumeAbsorptionParameters.h"
 
 static constexpr uint32_t kGltfVertexMaterialFromInstance = 0xffffffffu;
 
@@ -33,6 +34,8 @@ struct GltfMaterial
     float normalTextureScale = 1.0f;
     bool unlit = false;
     bool thinTransmission = false;
+    bool volumeTransmission = false;
+    Engine::VolumeAbsorptionParameters volumeAbsorption;
     float transmissionFactor = 0.0f;
     float transmissionTint[3] = {1.0f, 1.0f, 1.0f};
     float transmissionIor = 1.5f;

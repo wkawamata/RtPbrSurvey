@@ -2,6 +2,7 @@
 
 #include "Scene/SceneDocumentBuilder.h"
 #include "Scene/SceneDocumentJson.h"
+#include "Scene/ImportedVolumeScene.h"
 
 #include <DirectXMath.h>
 
@@ -305,6 +306,17 @@ bool SceneDocumentBuilder::Build(const SceneDocument& document,
         camera.nearZ = document.camera.nearZ;
         camera.farZ = document.camera.farZ;
         m_builder.SetCamera(camera);
+        std::string volumeError;
+        const auto importedVolume = BuildImportedVolumeSceneGuard(m_builder.GetScene(), volumeError);
+        if (!volumeError.empty() || (importedVolume && importedVolume->ClassifyPoint(
+                {camera.pos.x, camera.pos.y, camera.pos.z}) != VolumePointLocation::Outside))
+        {
+            if (error != nullptr)
+            {
+                *error = volumeError.empty() ? "Camera must be outside the imported volume and its boundary band." : volumeError;
+            }
+            return false;
+        }
         m_result = std::move(result);
         if (error != nullptr)
         {

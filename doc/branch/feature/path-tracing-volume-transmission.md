@@ -1,7 +1,7 @@
 # Native PT Volume Transmission Plan
 
 Date: 2026-10-25
-Status: Steps 1a, 1b, 2 and 3 numerically verified. Step 3 saved-scene captures completed; user visual approval pending.
+Status: Steps 1 to 3 and Step 4a verified. Single-convex glTF Volume integration verified with a recorded grazing-offset limit; user visual approval pending.
 Branch: `codex/pt-volume-transmission`.
 Base: `e36933b`, dependent on PR #104 (not merged at plan creation).
 
@@ -490,6 +490,127 @@ Validation: Debug build passed (one existing LNK4199 test-link warning), CTest
 44/44 passed including the new topology cases in GltfNodeMesh. No GPU image suite
 was rerun for this CPU-only gate. Build record:
 `C:/work/RtPbrSurvey-agents/volume-topology-build-20261027`.
+
+## Step 4b-3: Convex Shape and Placement Guards
+
+Date: 2026-10-27.
+
+The initial imported-volume target is narrowed to one convex closed shell.
+`Scene/ConvexVolumeBounds.h` builds supporting face planes only after the topology
+gate passes. All referenced vertices must be behind every outward face plane,
+within a distance tolerance of 1e-6 times the largest bounds extent. It uses double
+precision and rejects numerically thin solids whose vertex centroid is not
+strictly inside every plane beyond that tolerance. Convex plane testing has a
+16,777,216 face/unique-vertex pair budget and fails closed above it.
+
+The resulting guard classifies finite world-space camera positions as Outside,
+Inside or Boundary; invalid positions have a separate Invalid result. Only Outside
+will be acceptable at integration. Positions within the tolerance band of a face,
+edge or vertex are not considered safely outside. The caller must supply geometry
+and camera positions in the same coordinate space with outward winding; transforms
+and handedness conversion are not performed by this helper.
+
+A conservative AABB overlap query proves separation only. Touching, overlapping,
+inverted or nonfinite object bounds fail closed. This can reject some geometrically
+separate objects whose AABBs overlap; it must not be presented as an exact triangle
+intersection test. General concave/self-intersecting mesh support remains out of
+scope, and these helpers are not yet called by the loader or renderer.
+
+Tests cover exterior/interior/boundary/nonfinite cameras, scale and translation,
+closed concave input that independently passes topology, numerically thin solids,
+clear bounds separation, touching/overlapping/invalid bounds, and topology bypass.
+The next integration must assign one medium to the qualified instance, transform
+and revalidate geometry, enforce the scene/camera guards, and preserve the current
+Native fallback policy before removing the glTF solid-volume rejection.
+
+Validation: Debug build succeeded (one existing LNK4199 test-link warning), CTest
+44/44 passed including the convex/camera/bounds cases. Build record:
+`C:/work/RtPbrSurvey-agents/volume-placement-build-20261027`.
+These are CPU-only tests; no new GPU capture or user visual approval is claimed.
+
+## Step 4b-4: Single glTF Medium Integration
+
+Date: 2026-10-27. Implementation added; validation results follow below.
+
+Nonzero `KHR_materials_volume.thicknessFactor` now selects solid transport for one
+convex closed mesh node, one primitive and one material. The loader rejects mixed
+transmission, non-white boundaries, roughness/metallic, boundary textures, emission
+and IOR above 4. Volume absorption is copied through both legacy and node-mesh
+SceneBuilder conversion paths; thin and solid flags remain distinct. Thickness
+factor selects solid behavior but never scales traced world-space distance.
+
+The active draw instance is the medium identifier. An imported-volume scene guard
+revalidates transformed geometry, rejects more than one medium or mixed boundary
+material, and requires AABB separation from all other visible objects. It undoes
+InstanceData's transposed matrix storage before world-space tests. Mirrored or
+collapsed solids fail qualification rather than silently changing boundary winding.
+
+SceneDocumentBuilder rejects unsupported placement and cameras inside/on the solid.
+The engine also validates direct/legacy scene paths, rechecks the camera on camera
+updates, and skips PT dispatch with a runtime status/fallback color if the camera
+enters the unsupported region. Resource reload revalidates even same-pointer mesh
+updates. NRD remains a reasoned Native fallback; no new shader/ABI layout is needed.
+
+Scene31 is a small original embedded glTF tetrahedron with absorbing glass and a
+separated checker background. Its material is asset-owned; primitive material UI
+does not edit imported glTF values. The RAW runner captures matched distance,
+transmittance and status at IOR=1 plus NRD bypass, checking Beer-Lambert consistency
+per complete path. A separate four-halfspace tetrahedron reference also checks the
+central 32x32 ROI's world-space path length at IOR=1. This is not an unrestricted
+glTF volume/quality certification.
+
+The previous Step 4b-1 to 4b-3 notes describe their historical guard-only states;
+the single-convex subset above is the newly connected path. Concave/multi-primitive,
+multi-material, nested/overlapping volumes, rough volume, internal camera, volume
+textures and colored-shadow/caustics qualification remain outside this increment.
+
+### Ray-Offset Silhouette Limit
+
+The first integration run correctly failed its all-pixel status gate: 81 of
+2,073,600 pixels reported missed exit (status 1, inside=1). Their analytic chord
+lengths were at most 0.000202780, near the fixture's origin offset plus TMin floor
+of 0.0002. This evidence remains in
+`bin/PathTracingValidation/gltf-volume-integration-20261027/report.json`.
+No shader behavior or offset defaults were changed to hide these pixels.
+
+The revised test explicitly reports this known limitation instead of declaring
+every pixel valid. It accepts only the missed-exit status in an analytically
+bounded silhouette band: positive chord <= offset+TMin+floating-point margin,
+or a slightly negative chord within that margin. Margin is 32*float32 epsilon*
+max(1, maximum absolute camera coordinate). Any other status or missed exit on
+a path thicker than that band fails. Unit tests inject an interior missed exit
+and another status to prove they remain rejected. Interior geometric and absorption
+budgets remain unchanged. A successful qualified-interior run with such pixels
+is named `passed-gltf-volume-with-grazing-limit`, not an unqualified pass.
+
+### Integration Evidence
+
+- Final integration report:
+  `bin/PathTracingValidation/gltf-volume-integration-r3-20261027/report.json`.
+- Four GPU cases completed: distance, transmittance, status and NRD bypass.
+- 187111 complete transmitted pixels longer than 0.05 world units assessed.
+- Central ROI geometric path length maximum error: 0.0000141870 (budget 0.005).
+- Per-path absorption maximum error: 0.0000001592 (budget 0.002).
+- NRD request versus Native transmittance: exact equality.
+- Known silhouette missed-exit count: 81; maximum analytic chord 0.000202780,
+  origin-offset/TMin floor 0.0002 and explicit float margin 0.0000190735.
+- The intermediate r2 captures completed, but report serialization failed on a
+  NumPy scalar. JSON output was fixed and covered by a unit test before the r3
+  rerun. Its evidence was not promoted to a successful report.
+- Final Debug build: r3 succeeded, 0 errors and two existing LNK4199 test-link
+  warnings. Record: `C:/work/RtPbrSurvey-agents/volume-gltf-integration-build-r3-20261027`.
+  The initial incomplete-type ownership build failure was fixed before r2/r3.
+- CTest 44/44 passed in the final rerun. The first saved-scene load failed because
+  orthographicHeight was omitted; the required field was added without changing
+  schema validation. Volume-related Python tests: 16/16 passed.
+- Existing Cube/Sphere GPU boundary regression: 12/12 passed, report at
+  `bin/PathTracingValidation/gltf-volume-boundary-regression-20261027/report.json`.
+- Scene31 PNG smoke capture: 256 samples, passed runtime/settings/Debug Layer
+  checks; output under `bin/PathTracingValidation/gltf-volume-review-20261027`.
+  Image inspection shows colored glass and refracted checker background, with
+  visible residual sampling noise. User quality approval has not been requested
+  or recorded as complete. No full thin/MASK/metallic GPU or NRD quality suite was
+  rerun in this increment; their CTest contracts passed.
 
 ## References
 

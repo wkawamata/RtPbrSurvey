@@ -103,6 +103,7 @@ struct SceneMaterial
     bool unlit = false;
     bool thinTransmission = false;
     bool volumeTransmission = false;
+    bool importedVolumeTransmission = false;
     VolumeAbsorptionParameters volumeAbsorption;
     float transmissionFactor = 0.0f;
     DirectX::XMFLOAT3 transmissionTint = {1.0f, 1.0f, 1.0f};

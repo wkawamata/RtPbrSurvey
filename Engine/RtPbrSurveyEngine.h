@@ -106,6 +106,7 @@ using GBufferPipelineDefinition = Engine::GBufferPipelineDefinition;
 using DepthPrePassPipelineDefinition = Engine::DepthPrePassPipelineDefinition;
 using FullscreenPipelineDefinition = Engine::FullscreenPipelineDefinition;
 namespace RootSignatureLayout = Engine::RootSignatureLayout;
+namespace RtPbrSurvey { class ConvexVolumeBounds; }
 
 class RtPbrSurveyEngine
 {
@@ -1393,6 +1394,10 @@ private:
     bool m_sceneHasThinTransmission = false;
     bool m_sceneHasAlphaMask = false;
     bool m_sceneHasVolumeTransmission = false;
+    std::shared_ptr<RtPbrSurvey::ConvexVolumeBounds> m_importedVolumeBounds;
+    std::string m_importedVolumeSceneError;
+    std::string m_importedVolumeStatus;
+    void RefreshImportedVolumeCameraStatus();
     bool m_sceneHasDoubleSided = false;
     bool m_sceneResourcesAvailable = false;
 
