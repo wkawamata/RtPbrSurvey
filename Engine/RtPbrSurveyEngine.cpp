@@ -5727,16 +5727,17 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     UpdatePerFrameRenderSettings();
     m_activeUiRenderHandler = &uiRenderHandler;
 
-    // Record all the commands we need to render the scene into the command list.
-    PopulateCommandList();
-    m_activeUiRenderHandler = nullptr;
-
-    // Execute the command list.
-    ID3D12CommandList* ppCommandLists[] = {m_commandList.Get()};
-    m_graphicsDevice.ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
-    CommitReflectionHistoryFrame();
-    CommitReflectionSamplingFrame();
-    CommitPathTracingFrame();
+    {
+        RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::RecordSubmit);
+        // Record and submit. SDK/driver CPU work inside recording belongs to this interval.
+        PopulateCommandList();
+        m_activeUiRenderHandler = nullptr;
+        ID3D12CommandList* ppCommandLists[] = {m_commandList.Get()};
+        m_graphicsDevice.ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+        CommitReflectionHistoryFrame();
+        CommitReflectionSamplingFrame();
+        CommitPathTracingFrame();
+    }
 
     if (m_reflectionHdrDiagnosticPending)
     {
@@ -5770,7 +5771,10 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     }
 
     // Present the frame.
-    m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
+    {
+        RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::Present);
+        m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
+    }
 
     UINT64 submittedFenceValue = MoveToNextFrame();
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
@@ -5823,6 +5827,7 @@ void RtPbrSurveyEngine::RequestResize(UINT width, UINT height)
 
 void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame)
 {
+    m_cpuFrameTimer.Begin();
     if (m_pendingResize)
     {
         ApplyResize(m_pendingResizeWidth, m_pendingResizeHeight);
@@ -5837,6 +5842,7 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool ad
     RenderFrame(uiRenderHandler);
     m_workMeter.End();
     m_cpuFrameTime = m_workMeter.GetCpuFrameTimeMs();
+    m_cpuFrameTimer.End();
 }
 
 void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
@@ -8723,7 +8729,10 @@ void RtPbrSurveyEngine::WaitForGpu()
     m_graphicsDevice.SignalFence(m_frameResources[m_currentFrameIndex].fenceValue);
 
     // Wait until the fence has been processed.
-    m_graphicsDevice.WaitForFenceValue(m_frameResources[m_currentFrameIndex].fenceValue);
+    {
+        RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::GpuWait);
+        m_graphicsDevice.WaitForFenceValue(m_frameResources[m_currentFrameIndex].fenceValue);
+    }
 
     // Increment the fence value for the current frame.
     m_frameResources[m_currentFrameIndex].fenceValue++;
@@ -8740,7 +8749,10 @@ void RtPbrSurveyEngine::FlushGpu()
     }
 
     m_graphicsDevice.SignalFence(fenceValue);
-    m_graphicsDevice.WaitForFenceValue(fenceValue);
+    {
+        RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::GpuWait);
+        m_graphicsDevice.WaitForFenceValue(fenceValue);
+    }
 
     for (FrameResource& frameResource : m_frameResources)
     {
@@ -8765,7 +8777,10 @@ UINT64 RtPbrSurveyEngine::MoveToNextFrame()
     if (m_graphicsDevice.CompletedFenceValue() < m_frameResources[m_currentFrameIndex].fenceValue)
     {
         PIXBeginEvent(4, L"WaitForSingleObjectEx");
-        m_graphicsDevice.WaitForFenceValue(m_frameResources[m_currentFrameIndex].fenceValue);
+        {
+            RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::GpuWait);
+            m_graphicsDevice.WaitForFenceValue(m_frameResources[m_currentFrameIndex].fenceValue);
+        }
         PIXEndEvent();
     }
 
