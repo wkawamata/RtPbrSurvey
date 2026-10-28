@@ -80,10 +80,18 @@ bool SceneBuilder::LoadGltfMesh(const std::string& path)
         material.normalTextureScale = gltfMaterial.normalTextureScale;
         material.unlit = gltfMaterial.unlit;
         material.thinTransmission = gltfMaterial.thinTransmission;
+        material.volumeTransmission = gltfMaterial.volumeTransmission;
+        material.importedVolumeTransmission = gltfMaterial.volumeTransmission;
+        material.volumeAbsorption = gltfMaterial.volumeAbsorption;
         material.transmissionFactor = gltfMaterial.transmissionFactor;
         material.transmissionTint = {gltfMaterial.transmissionTint[0], gltfMaterial.transmissionTint[1],
                                      gltfMaterial.transmissionTint[2]};
         material.transmissionIor = gltfMaterial.transmissionIor;
+        material.transmissionTexIndex = gltfMaterial.transmissionTexIndex;
+        material.transmissionTintTexIndex = gltfMaterial.transmissionTintTexIndex;
+        material.alphaMask = gltfMaterial.alphaMask;
+        material.doubleSided = gltfMaterial.doubleSided;
+        material.alphaCutoff = gltfMaterial.alphaCutoff;
         m_mesh.materials.push_back(material);
     }
 
@@ -196,10 +204,18 @@ std::optional<SceneMeshId> SceneBuilder::AddGltfMeshData(GltfMeshData gltfMesh)
         material.normalTextureScale = gltfMaterial.normalTextureScale;
         material.unlit = gltfMaterial.unlit;
         material.thinTransmission = gltfMaterial.thinTransmission;
+        material.volumeTransmission = gltfMaterial.volumeTransmission;
+        material.importedVolumeTransmission = gltfMaterial.volumeTransmission;
+        material.volumeAbsorption = gltfMaterial.volumeAbsorption;
         material.transmissionFactor = gltfMaterial.transmissionFactor;
         material.transmissionTint = {gltfMaterial.transmissionTint[0], gltfMaterial.transmissionTint[1],
                                      gltfMaterial.transmissionTint[2]};
         material.transmissionIor = gltfMaterial.transmissionIor;
+        material.transmissionTexIndex = remapTextureIndex(gltfMaterial.transmissionTexIndex);
+        material.transmissionTintTexIndex = remapTextureIndex(gltfMaterial.transmissionTintTexIndex);
+        material.alphaMask = gltfMaterial.alphaMask;
+        material.doubleSided = gltfMaterial.doubleSided;
+        material.alphaCutoff = gltfMaterial.alphaCutoff;
         m_mesh.materials.push_back(material);
     }
 

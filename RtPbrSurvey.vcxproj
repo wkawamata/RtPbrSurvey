@@ -98,11 +98,13 @@
     </Link>
     <CustomBuildStep>
       <TreatOutputAsContent>true</TreatOutputAsContent>
+      <AdditionalInputs>$(ProjectDir)Shaders\Material.hlsli;$(ProjectDir)Shaders\VolumeAbsorptionParameters.hlsli;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuildStep>
     <CustomBuild>
       <Command>copy %(Identity) "$(OutDir)" &gt; NUL</Command>
       <Outputs>$(OutDir)\%(Identity)</Outputs>
       <TreatOutputAsContent>true</TreatOutputAsContent>
+      <AdditionalInputs>$(ProjectDir)Shaders\Material.hlsli;$(ProjectDir)Shaders\VolumeAbsorptionParameters.hlsli;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
     <FxCompile>
       <EntryPointName />
@@ -266,6 +268,7 @@
     <ClInclude Include="Shared\Error.h" />
     <ClInclude Include="Shared\Screenshot.h" />
     <ClInclude Include="Shared\DirectLight.h" />
+    <ClInclude Include="Shared\VolumeAbsorptionParameters.h" />
     <ClInclude Include="Runtime\DirectLightJson.h" />
     <ClInclude Include="Ui\DirectLightUi.h" />
     <ClInclude Include="stdafx.h" />
@@ -299,12 +302,25 @@
     <ClCompile Include="Renderer\LightingPass.cpp" />
     <ClCompile Include="Renderer\PathTracingPass.cpp" />
     <ClCompile Include="Renderer\NrdRelaxAdapter.cpp" />
-    <ClCompile Include="Renderer\NrdReconstructionInputs.cpp" />
-    <ClCompile Include="Renderer\PathTracingReconstructionInputs.cpp" />
-    <ClCompile Include="Renderer\PathTracingReconstructionPolicy.cpp" />
-    <ClCompile Include="Renderer\PathTracingReconstructionResources.cpp" />
-    <ClCompile Include="Renderer\PathTracingRrInputs.cpp" />
-    <ClCompile Include="Renderer\PathTracingRrHistory.cpp" />
+    <ClCompile Include="Renderer\NrdReconstructionInputs.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingReconstructionInputs.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingReconstructionPolicy.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingReconstructionResources.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrInputs.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrHistory.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="Renderer\PathTracingRrLive.cpp" />
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp" />
     <ClCompile Include="Renderer\TemporalReflectionPass.cpp" />
@@ -423,6 +439,9 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\DirectPbrLighting.hlsli" />
     <None Include="Shaders\PathTracingSampling.hlsli" />
     <None Include="Shaders\ThinTransmission.hlsli" />
+    <None Include="Shaders\AlphaMaskCoverage.hlsli" />
+    <None Include="Shaders\VolumeTransmission.hlsli" />
+    <None Include="Shaders\VolumeAbsorptionParameters.hlsli" />
     <None Include="Shaders\PathTracingDenoiserSampling.hlsli" />
     <None Include="Shaders\RayReconstructionInputConversion.hlsli" />
     <None Include="Shaders\shaders_PathTracingRrConversion.hlsl" />
@@ -702,7 +721,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dxc.exe -nologo -Tcs_6_5 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
-      <AdditionalInputs>$(ProjectDir)Shaders\SceneRayQuery.hlsli;$(ProjectDir)Shaders\SurfaceTransform.hlsli;$(ProjectDir)Shaders\Material.hlsli;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs>$(ProjectDir)Shaders\SceneRayQuery.hlsli;$(ProjectDir)Shaders\AlphaMaskCoverage.hlsli;$(ProjectDir)Shaders\SurfaceTransform.hlsli;$(ProjectDir)Shaders\Material.hlsli;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_PathTracing.hlsl">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
@@ -714,7 +733,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dxc.exe -nologo -Tcs_6_5 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
-      <AdditionalInputs>$(ProjectDir)Shaders\Material.hlsli;$(ProjectDir)Shaders\PathTracingSampling.hlsli;$(ProjectDir)Shaders\ThinTransmission.hlsli;$(ProjectDir)Shaders\PathTracingDenoiserSampling.hlsli;$(ProjectDir)Shaders\EmissiveTriangleSampling.hlsli;$(ProjectDir)Shaders\PathTracingDirectLightAdapter.hlsli;$(ProjectDir)Shaders\DirectLightEvaluation.hlsli;$(ProjectDir)Shaders\SceneRayQuery.hlsli;$(ProjectDir)Shaders\SurfaceTransform.hlsli;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs>$(ProjectDir)Shaders\Material.hlsli;$(ProjectDir)Shaders\PathTracingSampling.hlsli;$(ProjectDir)Shaders\ThinTransmission.hlsli;$(ProjectDir)Shaders\VolumeTransmission.hlsli;$(ProjectDir)Shaders\AlphaMaskCoverage.hlsli;$(ProjectDir)Shaders\PathTracingDenoiserSampling.hlsli;$(ProjectDir)Shaders\EmissiveTriangleSampling.hlsli;$(ProjectDir)Shaders\PathTracingDirectLightAdapter.hlsli;$(ProjectDir)Shaders\DirectLightEvaluation.hlsli;$(ProjectDir)Shaders\SceneRayQuery.hlsli;$(ProjectDir)Shaders\SurfaceTransform.hlsli;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_RayQueryTlasDebug.hlsl">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>

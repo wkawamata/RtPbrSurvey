@@ -14,6 +14,8 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include "VolumeTransmissionReference.h"
+#include "../Shared/VolumeAbsorptionParameters.h"
 
 #include "RrInputConversionValidation.h"
 
@@ -377,6 +379,212 @@ void ValidateThinTransmission(const float* values)
     }
     std::cout << "Validated 28672 thin transmission GPU samples against double-precision Fresnel and energy.\n";
 }
+double ReferenceDielectricFresnel(double cosine, double ior)
+{
+    if (ior == 1)
+    {
+        return 0;
+    }
+    const double cosT = std::sqrt(1 - (1 - cosine * cosine) / (ior * ior));
+    const double s = (cosine - ior * cosT) / (cosine + ior * cosT);
+    const double p = (ior * cosine - cosT) / (ior * cosine + cosT);
+    return (s * s + p * p) * 0.5;
+}
+
+double ReferenceSmith(double cosine, double alpha)
+{
+    return 2 * cosine / (cosine + std::sqrt(alpha * alpha + (1 - alpha * alpha) * cosine * cosine));
+}
+
+void ValidateRoughThinTransmission(const float* values)
+{
+    const double roughnesses[] = {0, .1, .35, .7, 1};
+    const double cosines[] = {1, .8, .1, .0001};
+    const double tint[] = {.2, .4, .8};
+    unsigned int invalidCount = 0;
+    unsigned int roughTransmittedCount = 0;
+    for (unsigned int test = 0; test < 28; ++test)
+    {
+        const double roughness = test < 20 ? roughnesses[test / 4] : .7;
+        const double ior = test < 20 ? 1.5 : (test < 24 ? 1 : 1.33);
+        const double cosine = cosines[test % 4];
+        const Vector view = {-std::sqrt(1 - cosine * cosine), 0, cosine};
+        const double selection = ReferenceDielectricFresnel(cosine, ior);
+        for (unsigned int index = 0; index < kSamplesPerCase; ++index)
+        {
+            const float* value = values + (test * kSamplesPerCase + index) * 16;
+            for (unsigned int channel = 0; channel < 16; ++channel)
+            {
+                if (!std::isfinite(value[channel]))
+                {
+                    throw std::runtime_error("Nonfinite rough thin sample");
+                }
+            }
+            const double branchRandom = (double((index * 193u) % 1024u) + .5) / 1024;
+            const bool reflected = branchRandom < selection;
+            const bool delta = roughness == 0 || ior == 1;
+            if (value[7] != (reflected ? 1 : 0) || value[9] != (delta ? 1 : 0))
+            {
+                throw std::runtime_error("Rough thin branch or delta classification mismatch");
+            }
+            if (delta)
+            {
+                const Vector expected = {-view.x, 0, reflected ? cosine : -cosine};
+                if (value[8] != 1 || value[3] != 0 || !Near(value[0], expected.x, 1e-6, 1e-6) ||
+                    !Near(value[2], expected.z, 1e-6, 1e-6))
+                {
+                    throw std::runtime_error("Rough thin smooth limit mismatch");
+                }
+                for (unsigned int channel = 0; channel < 3; ++channel)
+                {
+                    if (!Near(value[4 + channel], reflected ? 1 : tint[channel], 1e-6, 1e-6))
+                    {
+                        throw std::runtime_error("Rough thin smooth weight mismatch");
+                    }
+                }
+                continue;
+            }
+            const double alpha = std::max(.001, roughness * roughness *
+                (reflected ? 1 : std::clamp(2 * ior - 2, 0.0, 1.0)));
+            const float phase = (float(index) + .5f) * .61803398875f;
+            const Vector half = ReferenceNormal(view, alpha, (double(index) + .5) / 1024,
+                double(phase - std::floor(phase)));
+            const Vector reflection = view * -1 + half * (2 * Dot(view, half));
+            if (reflection.z <= 0)
+            {
+                ++invalidCount;
+                if (value[8] != 0)
+                {
+                    throw std::runtime_error("Below-surface rough thin sample was not rejected");
+                }
+                continue;
+            }
+            const Vector expected = {reflection.x, reflection.y, reflected ? reflection.z : -reflection.z};
+            if (value[8] != 1 || !Near(value[0], expected.x, .0003, .001) ||
+                !Near(value[1], expected.y, .0003, .001) || !Near(value[2], expected.z, .0003, .001))
+            {
+                throw std::runtime_error("Rough thin VNDF direction mismatch");
+            }
+            roughTransmittedCount += reflected ? 0 : 1;
+            const Vector direction = {value[0], value[1], std::abs(value[2])};
+            const Vector reconstructedHalf = Normalize(view + direction);
+            const double viewDotHalf = Dot(view, reconstructedHalf);
+            const double dDenom = reconstructedHalf.x * reconstructedHalf.x + reconstructedHalf.y * reconstructedHalf.y +
+                alpha * alpha * reconstructedHalf.z * reconstructedHalf.z;
+            const double distribution = alpha * alpha / (kPi * dDenom * dDenom);
+            const double probability = reflected ? selection : 1 - selection;
+            const double pdf = probability * distribution * ReferenceSmith(cosine, alpha) / (4 * cosine);
+            const double fresnel = ReferenceDielectricFresnel(viewDotHalf, ior);
+            if (!Near(value[3], pdf, .0001, .005) || !Near(value[10], pdf, .0001, .005))
+            {
+                throw std::runtime_error("Rough thin directional PDF mismatch");
+            }
+            for (unsigned int channel = 0; channel < 3; ++channel)
+            {
+                const double attenuation = reflected ? fresnel : (1 - fresnel) * tint[channel];
+                const double bsdf = attenuation * distribution * ReferenceSmith(cosine, alpha) *
+                    ReferenceSmith(direction.z, alpha) / (4 * cosine * direction.z);
+                if (!Near(value[12 + channel], bsdf, .0001, .005) ||
+                    !Near(value[4 + channel], bsdf * direction.z / pdf, .0001, .005))
+                {
+                    throw std::runtime_error("Rough thin BSDF or throughput mismatch");
+                }
+            }
+        }
+    }
+    if (invalidCount == 0 || roughTransmittedCount == 0)
+    {
+        throw std::runtime_error("Rough thin tests did not exercise rejection and transmission");
+    }
+    std::cout << "Validated 28672 rough thin samples, GGX PDF, BSDF, throughput, grazing and smooth limits.\n";
+}
+void ValidateThinMetallicMixture(const float* values)
+{
+    const double metallics[] = {0, .1, .25, .5, .75, .9, 1};
+    const double transmissions[] = {0, .25, .5, 1};
+    for (unsigned int test = 0; test < 28; ++test)
+    {
+        const double metallic = metallics[test / 4];
+        const double transmission = transmissions[test % 4];
+        unsigned int thinCount = 0;
+        double mean = 0;
+        for (unsigned int index = 0; index < kSamplesPerCase; ++index)
+        {
+            const float* value = values + (test * kSamplesPerCase + index) * 16;
+            for (unsigned int channel = 0; channel < 16; ++channel)
+            {
+                if (!std::isfinite(value[channel]) || ((channel == 3 || channel >= 8) && value[channel] != 0))
+                {
+                    throw std::runtime_error("Invalid metallic mixture output");
+                }
+            }
+            const double random = (double(index) + .5) / kSamplesPerCase;
+            const double alpha = std::max(.001, transmission * transmission);
+            const double cosines[] = {1, .5, .1};
+            for (unsigned int cosineIndex = 0; cosineIndex < 3; ++cosineIndex)
+            {
+                const double cosine = cosines[cosineIndex];
+                const double denominator = (1 - cosine * cosine) + alpha * alpha * cosine * cosine;
+                const double distribution = alpha * alpha / (kPi * denominator * denominator);
+                if (!Near(value[4 + cosineIndex], distribution) ||
+                    (cosineIndex == 0 && !Near(value[7], distribution / 4)))
+                {
+                    throw std::runtime_error("Opaque GGX distribution/PDF mismatch at low roughness");
+                }
+            }
+            const bool thin = metallic < 1 && random < transmission * (1 - metallic);
+            const double opaqueMetallic = !thin && metallic < 1 && random < transmission ? 1 : metallic;
+            if (value[0] != (thin ? 1 : 0) || !Near(value[1], opaqueMetallic, 1e-6, 1e-6) ||
+                !Near(value[2], thin ? .9 : .2 + .4 * opaqueMetallic, 1e-6, 1e-6))
+            {
+                throw std::runtime_error("Metallic mixture selection mismatch");
+            }
+            thinCount += thin ? 1u : 0u;
+            mean += value[2] / kSamplesPerCase;
+        }
+        const double expected = (1 - transmission) * (.2 + .4 * metallic) +
+            transmission * ((1 - metallic) * .9 + metallic * .6);
+        if (std::abs(double(thinCount) / kSamplesPerCase - transmission * (1 - metallic)) > 1.0 / kSamplesPerCase ||
+            std::abs(mean - expected) > 2.0 / kSamplesPerCase)
+        {
+            throw std::runtime_error("Metallic mixture probability or expected contribution mismatch");
+        }
+    }
+    std::cout << "Validated 28672 metallic mixture selections, endpoints, contributions and low-roughness GGX PDFs.\n";
+}
+void ValidateAlphaMask(const float* values)
+{
+    const float factors[] = {0, .1f, .25f, .5f, .75f, .9f, 1};
+    const float cutoffs[] = {0, .25f, .5f, 1.1f};
+    const float alphas[] = {0, .25f, .5f, 1};
+    for (unsigned int test = 0; test < 28; ++test)
+    {
+        for (unsigned int index = 0; index < kSamplesPerCase; ++index)
+        {
+            const float* value = values + (test * kSamplesPerCase + index) * 16;
+            const float factor = factors[test / 4];
+            const float cutoff = cutoffs[test % 4];
+            const float product = alphas[index % 4] * factor;
+            if (value[0] != (product >= cutoff ? 1 : 0) || !Near(value[1], product, 1e-6, 1e-6) ||
+                value[2] != cutoff || value[3] != factor)
+            {
+                throw std::runtime_error("Alpha MASK cutoff/factor comparison mismatch");
+            }
+            if (value[4] != 8 || value[5] != 0 || value[6] != 8 || value[7] != 8)
+            {
+                throw std::runtime_error("Single/double-sided emitter PDF mismatch");
+            }
+            for (unsigned int channel = 8; channel < 16; ++channel)
+            {
+                if (value[channel] != 0)
+                {
+                    throw std::runtime_error("Alpha MASK reserved data changed");
+                }
+            }
+        }
+    }
+    std::cout << "Validated 28672 alpha MASK comparisons including equality, zero and cutoff above one.\n";
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -402,6 +610,10 @@ int main(int argc, char** argv)
         bool rrInputConversion = false;
         bool rrLiveDistance = false;
         bool thinTransmission = false;
+        bool roughThinTransmission = false;
+        bool thinMetallic = false;
+        bool alphaMask = false;
+        bool volumeTransmission = false;
         const char* inputPath = nullptr;
         const char* outputPath = nullptr;
         for (int index = 2; index < argc; ++index)
@@ -417,6 +629,22 @@ int main(int argc, char** argv)
             else if (std::strcmp(argv[index], "--thin-transmission") == 0)
             {
                 thinTransmission = true;
+            }
+            else if (std::strcmp(argv[index], "--rough-thin-transmission") == 0)
+            {
+                roughThinTransmission = true;
+            }
+            else if (std::strcmp(argv[index], "--thin-metallic") == 0)
+            {
+                thinMetallic = true;
+            }
+            else if (std::strcmp(argv[index], "--alpha-mask") == 0)
+            {
+                alphaMask = true;
+            }
+            else if (std::strcmp(argv[index], "--volume-transmission") == 0)
+            {
+                volumeTransmission = true;
             }
             else if (std::strcmp(argv[index], "--material-factors") == 0)
             {
@@ -448,7 +676,7 @@ int main(int argc, char** argv)
             }
         }
         if (int(packing) + int(materialFactors) + int(inputConversion) + int(rrInputConversion) + int(rrLiveDistance) +
-                int(thinTransmission) >
+                int(thinTransmission) + int(roughThinTransmission) + int(thinMetallic) + int(alphaMask) + int(volumeTransmission) >
             1)
             throw std::runtime_error("Shader validation modes are mutually exclusive");
         if ((inputPath != nullptr) != (outputPath != nullptr) || (inputPath && !inputConversion))
@@ -485,8 +713,14 @@ int main(int argc, char** argv)
         parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
         parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
         parameters[2].Constants.Num32BitValues = 1;
+        if (volumeTransmission)
+        {
+            parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+            parameters[1].Constants.ShaderRegister = 0;
+            parameters[1].Constants.Num32BitValues = sizeof(Engine::VolumeAbsorptionParameters) / sizeof(float);
+        }
         D3D12_ROOT_SIGNATURE_DESC rootDesc = {};
-        rootDesc.NumParameters = inputPath ? 3 : 1;
+        rootDesc.NumParameters = inputPath ? 3 : volumeTransmission ? 2 : 1;
         rootDesc.pParameters = parameters;
         ComPtr<ID3DBlob> blob, errors;
         Check(D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &errors));
@@ -522,6 +756,11 @@ int main(int argc, char** argv)
             0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator.Get(), pipeline.Get(), IID_PPV_ARGS(&commands)));
         commands->SetComputeRootSignature(root.Get());
         commands->SetComputeRootUnorderedAccessView(0, output->GetGPUVirtualAddress());
+        if (volumeTransmission)
+        {
+            const Engine::VolumeAbsorptionParameters absorptionParameters = {{0, 0.5f, 1}, 2};
+            commands->SetComputeRoot32BitConstants(1, sizeof(absorptionParameters) / sizeof(float), &absorptionParameters, 0);
+        }
         if (inputPath)
         {
             commands->SetComputeRootShaderResourceView(1, inputBuffer->GetGPUVirtualAddress());
@@ -570,6 +809,22 @@ int main(int argc, char** argv)
             outputFile.write(static_cast<const char*>(data), byteCount);
             if (!outputFile)
                 throw std::runtime_error("Could not write converted output");
+        }
+        else if (volumeTransmission)
+        {
+            VolumeTransmissionTests::Validate(static_cast<const float*>(data));
+        }
+        else if (alphaMask)
+        {
+            ValidateAlphaMask(static_cast<const float*>(data));
+        }
+        else if (thinMetallic)
+        {
+            ValidateThinMetallicMixture(static_cast<const float*>(data));
+        }
+        else if (roughThinTransmission)
+        {
+            ValidateRoughThinTransmission(static_cast<const float*>(data));
         }
         else if (rrInputConversion)
         {

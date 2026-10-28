@@ -638,6 +638,10 @@ int main(int argc, char** argv)
     bool presentationPassed = true;
     presentationPassed &= Engine::NrdRelaxPresentationStatusText(Presentation::UnsupportedTransmission) ==
         std::string("Native fallback: thin transmission is not supported by NRD");
+    presentationPassed &= Engine::NrdRelaxPresentationStatusText(Presentation::UnsupportedAlphaMask) ==
+        std::string("Native fallback: alpha MASK is not qualified for NRD");
+    presentationPassed &= Engine::NrdRelaxPresentationStatusText(Presentation::UnsupportedVolume) ==
+        std::string("Native fallback: volume transmission is not qualified for NRD");
     for (unsigned flags = 0; flags < 32; ++flags)
     {
         const bool requested = (flags & 1) != 0;

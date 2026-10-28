@@ -201,7 +201,10 @@ bool TestThinReviewFixtures()
     const std::filesystem::path root = std::filesystem::path(__FILE__).parent_path().parent_path() /
         "Assets/Scene/PathTracingValidation";
     for (const char* name : {"17-thin-transmission-baseline", "18-thin-transmission-angle", "19-thin-transmission-layers",
-                            "20-thin-transmission-visual-comparison", "21-gltf-thin-transmission-suzanne"})
+                            "20-thin-transmission-visual-comparison", "21-gltf-thin-transmission-suzanne",
+                            "22-thin-transmission-textures", "23-rough-thin-transmission",
+                            "24-roughness-textured-thin-transmission", "25-metallic-thin-transmission",
+                            "26-alpha-mask-thin-transmission"})
     {
         RtPbrSurvey::SceneDocument document;
         RtPbrSurvey::SceneDocumentBuilder builder;
@@ -250,11 +253,63 @@ bool TestTransmissionReachesRuntimeMaterial()
         return false;
     }
     const auto& material = builder.Builder().GetMesh().materials[builder.Result().materialIds.at("metal")];
-    return Check(material.thinTransmission && NearlyEqual(material.transmissionFactor, 0.5f) &&
+    const bool passed = Check(material.thinTransmission && NearlyEqual(material.transmissionFactor, 0.5f) &&
                      NearlyEqual(material.transmissionTint.x, 0.2f) && NearlyEqual(material.transmissionTint.y, 0.4f) &&
                      NearlyEqual(material.transmissionTint.z, 0.6f) && NearlyEqual(material.transmissionIor, 1.33f),
                  "thin transmission data reaches runtime material") &&
            Check(builder.Builder().GetScene().instances.size() == instanceCount, "transmission preserves geometry");
+    document.materials[0].transmission.mode = RtPbrSurvey::SceneTransmissionMode::Volume;
+    return passed && Check(!builder.Build(document, &error) && error.find("not connected") != std::string::npos,
+        "volume data is not silently rendered as opaque or thin") &&
+        Check(builder.Builder().GetScene().instances.size() == instanceCount && material.thinTransmission,
+            "unsupported volume keeps the published thin scene intact");
+}
+
+bool TestQualifiedVolumeBuild()
+{
+    using namespace RtPbrSurvey;
+    SceneDocument document = CreatePrimitiveDocument();
+    document.nodes.resize(1);
+    document.materials.resize(1);
+    document.materials[0].metallic = 0;
+    document.materials[0].roughness = 0;
+    document.materials[0].baseColor = {1, 1, 1, 1};
+    document.materials[0].transmission.mode = SceneTransmissionMode::Volume;
+    document.materials[0].transmission.factor = 1;
+    SceneDocumentBuilder builder;
+    std::string error;
+    bool passed = Check(builder.Build(document, &error), "clear smooth volume cube builds");
+    if (!passed)
+    {
+        return false;
+    }
+    const auto& material = builder.Builder().GetMesh().materials[builder.Result().materialIds.at("metal")];
+    passed &= Check(material.volumeTransmission && !material.thinTransmission && material.transmissionIor == 1.5f,
+        "volume is distinct from thin in runtime data");
+    SceneDocument invalid = document;
+    invalid.nodes.push_back(invalid.nodes[0]);
+    invalid.nodes.back().id = "second";
+    passed &= Check(!builder.Build(invalid, &error), "multiple volume instances rejected");
+    invalid = document;
+    invalid.camera.position = invalid.nodes[0].transform.translation;
+    passed &= Check(!builder.Build(invalid, &error), "camera inside volume rejected");
+    invalid = document;
+    invalid.nodes[0].primitive.kind = ScenePrimitiveKind::Plane;
+    passed &= Check(!builder.Build(invalid, &error), "open volume plane rejected");
+    invalid = document;
+    invalid.materials[0].transmission.volume.attenuationColor = {0.2f, 0.5f, 1};
+    invalid.materials[0].transmission.volume.attenuationDistance = 1;
+    passed &= Check(builder.Build(invalid, &error), "colored volume absorption builds");
+    if (passed)
+    {
+        const auto& absorption = builder.Builder().GetMesh().materials[builder.Result().materialIds.at("metal")].volumeAbsorption;
+        passed &= Check(NearlyEqual(absorption.attenuationColor[0], 0.2f) && absorption.attenuationColor[1] == 0.5f &&
+            absorption.attenuationColor[2] == 1 && absorption.attenuationDistance == 1,
+            "absorption values reach runtime material data");
+    }
+    document.nodes[0].primitive.kind = ScenePrimitiveKind::Sphere;
+    passed &= Check(builder.Build(document, &error), "clear smooth volume sphere builds");
+    return passed;
 }
 
 bool TestGltfFailureKeepsPublishedScene()
@@ -286,7 +341,7 @@ bool TestGltfFailureKeepsPublishedScene()
 
 int main()
 {
-    if (!TestThinReviewFixtures() || !TestTransmissionReachesRuntimeMaterial() ||
+    if (!TestQualifiedVolumeBuild() || !TestThinReviewFixtures() || !TestTransmissionReachesRuntimeMaterial() ||
         !TestPrimitiveBuildAndMeshReuse() || !TestGltfBuildAndMeshReuse() || !TestGltfFailureKeepsPublishedScene() ||
         !TestNrdStableRadianceFixture() || !TestNrdDisocclusionFixture())
     {

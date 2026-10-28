@@ -10,6 +10,7 @@
 //*********************************************************
 
 #include "stdafx.h"
+#include "Scene/ImportedVolumeScene.h"
 
 #include "RtPbrSurveyEngine.h"
 
@@ -226,7 +227,7 @@ static_assert(offsetof(Engine::InstanceData, meshId) == 132,
               "CPU and HLSL InstanceData meshId layouts must match.");
 static_assert(sizeof(Engine::SceneMesh::Range) == 16,
               "Hybrid reflection reads SceneMesh::Range as four uint values.");
-static_assert(sizeof(Engine::Material) == 112, "Material.hlsli must match Engine::Material structured buffer layout.");
+static_assert(sizeof(Engine::Material) == 140, "Material.hlsli must match Engine::Material structured buffer layout.");
 static_assert(offsetof(Engine::Material, baseColorFactor) == 60,
               "CPU and HLSL base color factor offsets must match.");
 static_assert(offsetof(Engine::Material, uvScale) == 44, "Material UV scale offset must match Material.hlsli.");
@@ -237,6 +238,10 @@ static_assert(offsetof(Engine::Material, normalTextureScale) == 88, "Material no
 static_assert(offsetof(Engine::Material, transmissionFactor) == 92, "Material transmission must match Material.hlsli.");
 static_assert(offsetof(Engine::Material, transmissionTint) == 96, "Material transmission tint must match Material.hlsli.");
 static_assert(offsetof(Engine::Material, transmissionIor) == 108, "Material IOR must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, transmissionTexIndex) == 112, "Material transmission texture offset must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, transmissionTintTexIndex) == 116, "Material transmission tint texture offset must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, alphaCutoff) == 120, "Material alpha cutoff offset must match Material.hlsli.");
+static_assert(offsetof(Engine::Material, volumeAbsorption) == 124, "Volume absorption offset must match Material.hlsli.");
 
 const wchar_t* EnvironmentSourceName(Engine::EnvironmentSource source)
 {
@@ -376,8 +381,8 @@ void RtPbrSurveyEngine::UpdateRenderDimensions()
 
 bool RtPbrSurveyEngine::IsPtRrFrameJitterEnabled() const
 {
-    return IsPtRrNativeRequested() && m_rayReconstructionSupport.IsAvailable() &&
-           !m_sceneHasThinTransmission && !m_pathTracingSettings.pixelCenterPrimary &&
+    return CanRunPtRrNative() && m_rayReconstructionSupport.IsAvailable() &&
+           !m_pathTracingSettings.pixelCenterPrimary &&
            m_renderWidth > 0 && m_renderHeight > 0;
 }
 
@@ -604,7 +609,8 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
             m_rayTracingSupport.TierName(),
             static_cast<int>(m_rayTracingSupport.Tier()),
             m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1,
-            m_pathTracingPipeline != nullptr,
+            m_pathTracingPipeline != nullptr && m_importedVolumeStatus.empty(),
+            !m_importedVolumeStatus.empty() ? m_importedVolumeStatus.c_str() :
             m_rayTracingSupport.Tier() >= D3D12_RAYTRACING_TIER_1_1 ?
                 "Progressive metallic-roughness path tracing" :
                 "Requires DXR 1.1",
@@ -782,8 +788,16 @@ bool RtPbrSurveyEngine::ShouldRunRayReconstruction() const
 
 Engine::NrdRelaxPresentationStatus RtPbrSurveyEngine::ResolvePathTracingNrdPresentation() const
 {
-    if (MakePathTracingReconstructionPlan().backend == Engine::PathTracingReconstructionBackend::Nrd &&
-        m_sceneHasThinTransmission)
+    const bool nrdRequested = MakePathTracingReconstructionPlan().backend == Engine::PathTracingReconstructionBackend::Nrd;
+    if (nrdRequested && m_sceneHasVolumeTransmission)
+    {
+        return Engine::NrdRelaxPresentationStatus::UnsupportedVolume;
+    }
+    if (nrdRequested && m_sceneHasAlphaMask)
+    {
+        return Engine::NrdRelaxPresentationStatus::UnsupportedAlphaMask;
+    }
+    if (nrdRequested && m_sceneHasThinTransmission)
         return Engine::NrdRelaxPresentationStatus::UnsupportedTransmission;
     const auto presentation = ResolvePathTracingReconstructionPresentation();
     return presentation.requested == Engine::PathTracingReconstructionBackend::Nrd
@@ -799,7 +813,7 @@ Engine::PathTracingReconstructionPresentation RtPbrSurveyEngine::ResolvePathTrac
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
         const bool available =
             IsPtRrNativeRequested() && m_rayReconstructionSupport.IsAvailable() && m_ptRrLive != nullptr;
-        const bool compatible = !m_sceneHasThinTransmission && m_pathTracingSettings.samplesPerFrame >= 1 && m_pathTracingSettings.samplesPerFrame <= 16 &&
+        const bool compatible = SupportsPathTracingReconstructionSurfaces() && m_pathTracingSettings.samplesPerFrame >= 1 && m_pathTracingSettings.samplesPerFrame <= 16 &&
                                 (m_pathTracingSettings.pixelCenterPrimary || IsPtRrFrameJitterEnabled()) &&
                                 m_pathTracingSettings.denoiserDistanceDiagnostics &&
                                 m_pathTracingSettings.debugOutput == PathTracingDebugOutput::Radiance &&
@@ -818,7 +832,7 @@ Engine::PathTracingReconstructionPresentation RtPbrSurveyEngine::ResolvePathTrac
 #endif
     }
     const bool compatible = m_renderingPath == RenderingPath::PathTracing && m_sceneResourcesAvailable &&
-                            !m_sceneHasThinTransmission &&
+                            SupportsPathTracingReconstructionSurfaces() &&
                             m_pathTracingSettings.debugOutput == PathTracingDebugOutput::Radiance &&
                             m_pathTracingSettings.denoiserDistanceDiagnostics &&
                             Engine::QueryNrdRelaxSamplingReadiness(m_pathTracingSettings.samplesPerFrame,
@@ -848,11 +862,17 @@ Engine::PathTracingReconstructionPlan RtPbrSurveyEngine::MakePathTracingReconstr
         inspectNrd |= m_debugTexturePreviewSources[index].starts_with("PathTracing.Nrd");
         inspectRr |= m_debugTexturePreviewSources[index].starts_with("PathTracing.Rr");
     }
-    return Engine::PlanPathTracingReconstruction(m_pathTracingSettings.reconstructionBackend,
+    auto plan = Engine::PlanPathTracingReconstruction(m_pathTracingSettings.reconstructionBackend,
                                                  m_pathTracingSettings.nrdPreview,
                                                  m_pathTracingSettings.reconstructionDiagnostics,
                                                  inspectNrd,
                                                  inspectRr);
+    if (!SupportsPathTracingReconstructionSurfaces())
+    {
+        plan.runNrd = false;
+        plan.runRrConversion = false;
+    }
+    return plan;
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::ResolveToneMapSceneColorSrv() const
@@ -1292,6 +1312,12 @@ void RtPbrSurveyEngine::SetScene(const Scene& scene)
     const bool sceneChanged = m_scene.mesh != scene.mesh || !SceneInstancesEqual(m_scene.instances, scene.instances);
     const bool preserveRrCameraHistory = CanPreservePtRrCameraHistory(scene.camera);
     m_scene = scene;
+    if (sceneChanged)
+    {
+        const auto guard = RtPbrSurvey::BuildImportedVolumeSceneGuard(m_scene, m_importedVolumeSceneError);
+        m_importedVolumeBounds = guard ? std::make_shared<RtPbrSurvey::ConvexVolumeBounds>(*guard) : nullptr;
+    }
+    RefreshImportedVolumeCameraStatus();
     m_depthVisualizationSettings.Reset(m_scene.camera.nearZ, m_scene.camera.farZ);
     if (sceneChanged)
     {
@@ -1313,9 +1339,21 @@ void RtPbrSurveyEngine::SetCamera(const CameraState& camera)
     const bool cameraChanged = !CameraStatesEqual(m_scene.camera, camera);
     const bool preserveRrCameraHistory = CanPreservePtRrCameraHistory(camera);
     m_scene.camera = camera;
+    RefreshImportedVolumeCameraStatus();
     if (cameraChanged)
     {
         InvalidatePathTracingHistory(PathTracingResetReason::Camera, preserveNrdCameraHistory, preserveRrCameraHistory);
+    }
+}
+
+void RtPbrSurveyEngine::RefreshImportedVolumeCameraStatus()
+{
+    m_importedVolumeStatus = m_importedVolumeSceneError;
+    if (m_importedVolumeStatus.empty() && m_importedVolumeBounds &&
+        m_importedVolumeBounds->ClassifyPoint({m_scene.camera.pos.x, m_scene.camera.pos.y, m_scene.camera.pos.z}) !=
+            RtPbrSurvey::VolumePointLocation::Outside)
+    {
+        m_importedVolumeStatus = "Imported volume: camera must be outside the solid and boundary band";
     }
 }
 
@@ -1396,6 +1434,9 @@ void RtPbrSurveyEngine::ReloadSceneResources(const Scene& scene)
     m_temporalFrameIndex = 0;
     ReleaseSceneResources();
     SetScene(scene);
+    const auto importedGuard = RtPbrSurvey::BuildImportedVolumeSceneGuard(m_scene, m_importedVolumeSceneError);
+    m_importedVolumeBounds = importedGuard ? std::make_shared<RtPbrSurvey::ConvexVolumeBounds>(*importedGuard) : nullptr;
+    RefreshImportedVolumeCameraStatus();
     InvalidatePathTracingHistory(PathTracingResetReason::Scene);
     // Empty editor documents have no GPU geometry until a visible mesh is added.
     if (scene.mesh == nullptr || scene.mesh->vertices.empty())
@@ -2028,7 +2069,7 @@ bool RtPbrSurveyEngine::CanPreservePtRrCameraHistory(const CameraState& camera) 
 {
     // Projection changes are discontinuities. Camera pose changes use dense
     // primary motion plus hit distance for SDK specular reprojection.
-    return IsPtRrNativeRequested() && !m_sceneHasThinTransmission &&
+    return CanRunPtRrNative() &&
            m_pathTracingSettings.rrContinuous &&
            m_scene.camera.projection == camera.projection && m_scene.camera.fov == camera.fov &&
            m_scene.camera.orthographicHeight == camera.orthographicHeight && m_scene.camera.nearZ == camera.nearZ &&
@@ -3846,6 +3887,9 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
     // Generate the material data.
     m_materialData.clear();
     m_sceneHasThinTransmission = false;
+    m_sceneHasAlphaMask = false;
+    m_sceneHasVolumeTransmission = false;
+    m_sceneHasDoubleSided = false;
     const auto resolveTextureIndex = [this](int sceneTextureIndex, Engine::TextureSemantic fallbackSemantic) -> UINT
     {
         if (sceneTextureIndex >= 0 && sceneTextureIndex < static_cast<int>(m_sceneTextureCount))
@@ -3863,6 +3907,8 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
         m.emissiveTexIndex = resolveTextureIndex(-1, Engine::TextureSemantic::Emissive);
         m.occlusionTexIndex = resolveTextureIndex(-1, Engine::TextureSemantic::Occlusion);
         m.normalTexIndex = resolveTextureIndex(-1, Engine::TextureSemantic::Normal);
+        m.transmissionTexIndex = resolveTextureIndex(-1, Engine::TextureSemantic::Occlusion);
+        m.transmissionTintTexIndex = resolveTextureIndex(-1, Engine::TextureSemantic::BaseColor);
         m.roughnessFactor = 0.2f + 0.6f * static_cast<float>(i % 16) / 15.0f;
         m.metallicFactor = (i % 8 == 0) ? 1.0f : 0.0f;
         m.occlusionStrength = 1.0f;
@@ -3892,7 +3938,7 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
                     resolveTextureIndex(gltfMaterial.albedoTexIndex, Engine::TextureSemantic::BaseColor);
                 m.metallicRoughnessTexIndex =
                     resolveTextureIndex(gltfMaterial.metallicRoughnessTexIndex,
-                                        Engine::TextureSemantic::MetallicRoughness);
+                                        Engine::TextureSemantic::Occlusion);
                 m.emissiveTexIndex =
                     resolveTextureIndex(gltfMaterial.emissiveTexIndex, Engine::TextureSemantic::Emissive);
                 m.occlusionTexIndex =
@@ -3920,6 +3966,24 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
                 m.emissiveFactor[1] = gltfMaterial.emissiveFactor.y;
                 m.emissiveFactor[2] = gltfMaterial.emissiveFactor.z;
                 m.normalTextureScale = gltfMaterial.normalTextureScale;
+                m.alphaCutoff = gltfMaterial.alphaCutoff;
+                if (gltfMaterial.volumeTransmission)
+                {
+                    m.flags |= Engine::kMaterialFlagVolumeTransmission;
+                    m.volumeAbsorption = gltfMaterial.volumeAbsorption;
+                    m.transmissionIor = gltfMaterial.transmissionIor;
+                    m_sceneHasVolumeTransmission = true;
+                }
+                if (gltfMaterial.alphaMask)
+                {
+                    m.flags |= Engine::kMaterialFlagAlphaMask;
+                    m_sceneHasAlphaMask = true;
+                }
+                if (gltfMaterial.doubleSided)
+                {
+                    m.flags |= Engine::kMaterialFlagDoubleSided;
+                    m_sceneHasDoubleSided = true;
+                }
                 if (gltfMaterial.thinTransmission && gltfMaterial.transmissionFactor > 0.0f)
                 {
                     m.flags |= Engine::kMaterialFlagThinTransmission;
@@ -3928,6 +3992,8 @@ void RtPbrSurveyEngine::CreateSceneMaterialResources()
                     m.transmissionTint[1] = gltfMaterial.transmissionTint.y;
                     m.transmissionTint[2] = gltfMaterial.transmissionTint.z;
                     m.transmissionIor = gltfMaterial.transmissionIor;
+                    m.transmissionTexIndex = resolveTextureIndex(gltfMaterial.transmissionTexIndex, Engine::TextureSemantic::Occlusion);
+                    m.transmissionTintTexIndex = resolveTextureIndex(gltfMaterial.transmissionTintTexIndex, Engine::TextureSemantic::BaseColor);
                     m_sceneHasThinTransmission = true;
                 }
                 m.uvScale[0] = gltfMaterial.uvScale.x;
@@ -5670,7 +5736,7 @@ void RtPbrSurveyEngine::UpdateFrame(bool advanceFrame)
         m_previousJitterOffsetPixels = m_jitterOffsetPixels;
         UpdateCameraConstantBuffer();
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-        if (IsPtRrNativeRequested() && m_ptRrLive)
+        if (CanRunPtRrNative() && m_ptRrLive)
         {
             // A production can span several display frames. Motion and SDK
             // clip transforms must refer to the last verified RR production,
@@ -5793,7 +5859,7 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
     if (m_ptRrLive)
         m_ptRrLive->MarkSubmitted(submittedFenceValue);
-    if (IsPtRrNativeRequested() && m_ptRrLive &&
+    if (CanRunPtRrNative() && m_ptRrLive &&
         ResolvePathTracingReconstructionPresentation().output == Engine::PathTracingReconstructionBackend::Rr)
         m_ptRrLive->MarkPresented();
 #endif
@@ -6897,7 +6963,8 @@ Engine::PathTracingInputResources RtPbrSurveyEngine::GetPathTracingReconstructio
 void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
-    if (m_pathTracingPipeline == nullptr || m_frameResources[m_currentFrameIndex].emissiveTriangleBuffer == nullptr)
+    if (m_pathTracingPipeline == nullptr || m_frameResources[m_currentFrameIndex].emissiveTriangleBuffer == nullptr ||
+        !m_importedVolumeStatus.empty())
     {
         Engine::RecordPathTracingUavClear(
             m_commandList.Get(),
@@ -6939,6 +7006,10 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.environmentIntensity = m_lightingParams.iblIntensity;
     passDesc.backgroundColor = m_backBufferClearColor;
     passDesc.debugOutput = static_cast<UINT>(m_pathTracingSettings.debugOutput);
+    if (passDesc.debugOutput >= 4)
+    {
+        passDesc.debugOutput += 4;
+    }
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
     if (m_pathTracingReferenceComponent != 0)
         passDesc.debugOutput = 3 + m_pathTracingReferenceComponent;
@@ -6956,6 +7027,9 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.samplesPerFrame = m_pathTracingSettings.samplesPerFrame;
     passDesc.pixelCenterPrimary = m_pathTracingSettings.pixelCenterPrimary || IsPtRrFrameJitterEnabled();
     passDesc.thinTransmissionActive = m_sceneHasThinTransmission;
+    passDesc.alphaMaskActive = m_sceneHasAlphaMask;
+    passDesc.volumeTransmissionActive = m_sceneHasVolumeTransmission;
+    passDesc.doubleSidedActive = m_sceneHasDoubleSided;
     passDesc.denoiserDistanceDiagnostics = m_pathTracingSettings.denoiserDistanceDiagnostics;
     passDesc.sampleStartIndex = m_pathTracingRuntimeState.frameSampleIndex;
     passDesc.randomSeed = m_pathTracingSettings.randomSeed;
@@ -6975,7 +7049,7 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     produced.sampleStartIndex = passDesc.sampleStartIndex;
     produced.samplesPerFrame = passDesc.samplesPerFrame;
     produced.pixelCenterPrimary = passDesc.pixelCenterPrimary;
-    produced.coherentPrimaryBatch = IsPtRrNativeRequested() && passDesc.pixelCenterPrimary && passDesc.samplesPerFrame > 1;
+    produced.coherentPrimaryBatch = CanRunPtRrNative() && passDesc.pixelCenterPrimary && passDesc.samplesPerFrame > 1;
     produced.frameJitterPrimary = IsPtRrFrameJitterEnabled();
     produced.samplingSignature = (static_cast<uint64_t>(passDesc.randomSeed) << 32) | 1u |
                                 (passDesc.pixelCenterPrimary ? 2u : 0u) |
@@ -7005,11 +7079,22 @@ bool RtPbrSurveyEngine::IsPtRrNativeRequested() const
            m_rayReconstructionSettings.enabled && m_rayReconstructionSettings.experimentalNativeEvaluationEnabled;
 }
 
+bool RtPbrSurveyEngine::SupportsPathTracingReconstructionSurfaces() const
+{
+    return !m_sceneHasThinTransmission && !m_sceneHasAlphaMask && !m_sceneHasVolumeTransmission &&
+        m_importedVolumeStatus.empty();
+}
+
+bool RtPbrSurveyEngine::CanRunPtRrNative() const
+{
+    return IsPtRrNativeRequested() && SupportsPathTracingReconstructionSurfaces();
+}
+
 void RtPbrSurveyEngine::ExecutePtRrValidationPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-    if (m_sceneHasThinTransmission || m_rrConversionHostGate != 0 ||
+    if (!SupportsPathTracingReconstructionSurfaces() || m_rrConversionHostGate != 0 ||
         !m_pathTracingSettings.denoiserDistanceDiagnostics ||
         m_pathTracingSettings.debugOutput != PathTracingDebugOutput::Radiance)
         return;
@@ -7079,7 +7164,7 @@ void RtPbrSurveyEngine::ExecuteRrConversionPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-    const bool valid =
+    const bool valid = SupportsPathTracingReconstructionSurfaces() &&
         m_pathTracingProduction.Validate(m_pathTracingProductionFrameId, GetPathTracingReconstructionResources())
             .Passed() &&
         Engine::InspectPathTracingRrMetadata(m_pathTracingProduction.Inputs(), IsPtRrNativeRequested()).Passed();
@@ -7923,6 +8008,10 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                                         m_pathTracingSettings.pixelCenterPrimary ? "pixel-center" : "random-per-pixel"},
                 {"denoiserDistanceDiagnostics", m_pathTracingSettings.denoiserDistanceDiagnostics},
                 {"thinTransmissionActive", m_sceneHasThinTransmission},
+                {"alphaMaskActive", m_sceneHasAlphaMask},
+                {"volumeTransmissionActive", m_sceneHasVolumeTransmission},
+                {"pathTracingDebugOutput", static_cast<UINT>(m_pathTracingSettings.debugOutput)},
+                {"doubleSidedActive", m_sceneHasDoubleSided},
                 {"nrdPreviewRequested", m_pathTracingSettings.nrdPreview},
                 {"reconstructionBackend",
                  Engine::PathTracingReconstructionBackendName(MakePathTracingReconstructionPlan().backend)},

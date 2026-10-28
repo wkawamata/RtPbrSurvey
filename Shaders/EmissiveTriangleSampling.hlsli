@@ -43,7 +43,7 @@ uint SelectEmissiveTriangle(StructuredBuffer<EmissiveTriangleGpu> emitters, uint
     return lower;
 }
 
-float EmissiveTriangleSolidAnglePdf(EmissiveTriangleGpu emitter, float3 origin, float3 samplePosition)
+float EmissiveTriangleSolidAnglePdf(EmissiveTriangleGpu emitter, float3 origin, float3 samplePosition, bool doubleSided)
 {
     const float3 delta = samplePosition - origin;
     const float distanceSquared = dot(delta, delta);
@@ -55,7 +55,8 @@ float EmissiveTriangleSolidAnglePdf(EmissiveTriangleGpu emitter, float3 origin, 
     {
         return 0.0;
     }
-    const float cosine = dot(crossEdges * rsqrt(normalLengthSquared), -delta * rsqrt(distanceSquared));
+    const float signedCosine = dot(crossEdges * rsqrt(normalLengthSquared), -delta * rsqrt(distanceSquared));
+    const float cosine = doubleSided ? abs(signedCosine) : signedCosine;
     if (cosine <= 0.0)
     {
         return 0.0;

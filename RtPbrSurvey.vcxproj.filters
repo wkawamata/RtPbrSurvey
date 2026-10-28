@@ -775,6 +775,15 @@
     <None Include="Shaders\ThinTransmission.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
+    <None Include="Shaders\AlphaMaskCoverage.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\VolumeTransmission.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\VolumeAbsorptionParameters.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
     <None Include="Shaders\PathTracingDenoiserSampling.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
