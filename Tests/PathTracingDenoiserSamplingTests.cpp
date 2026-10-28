@@ -17,6 +17,8 @@
 #include "VolumeTransmissionReference.h"
 #include "../Shared/VolumeAbsorptionParameters.h"
 
+#include "RrInputConversionValidation.h"
+
 using Microsoft::WRL::ComPtr;
 
 namespace
@@ -605,6 +607,8 @@ int main(int argc, char** argv)
         bool packing = false;
         bool materialFactors = false;
         bool inputConversion = false;
+        bool rrInputConversion = false;
+        bool rrLiveDistance = false;
         bool thinTransmission = false;
         bool roughThinTransmission = false;
         bool thinMetallic = false;
@@ -650,6 +654,14 @@ int main(int argc, char** argv)
             {
                 inputConversion = true;
             }
+            else if (std::strcmp(argv[index], "--rr-input-conversion") == 0)
+            {
+                rrInputConversion = true;
+            }
+            else if (std::strcmp(argv[index], "--rr-live-distance") == 0)
+            {
+                rrLiveDistance = true;
+            }
             else if (std::strcmp(argv[index], "--input") == 0 && index + 1 < argc)
             {
                 inputPath = argv[++index];
@@ -663,8 +675,10 @@ int main(int argc, char** argv)
                 throw std::runtime_error("Unknown test option");
             }
         }
-        if (int(packing) + int(materialFactors) + int(inputConversion) + int(thinTransmission) + int(roughThinTransmission) + int(thinMetallic) + int(alphaMask) + int(volumeTransmission) > 1)
-            throw std::runtime_error("Packing and material-factor modes are mutually exclusive");
+        if (int(packing) + int(materialFactors) + int(inputConversion) + int(rrInputConversion) + int(rrLiveDistance) +
+                int(thinTransmission) + int(roughThinTransmission) + int(thinMetallic) + int(alphaMask) + int(volumeTransmission) >
+            1)
+            throw std::runtime_error("Shader validation modes are mutually exclusive");
         if ((inputPath != nullptr) != (outputPath != nullptr) || (inputPath && !inputConversion))
             throw std::runtime_error("Captured conversion requires both input and output paths");
         std::vector<char> captured;
@@ -717,7 +731,7 @@ int main(int argc, char** argv)
         pipelineDesc.CS = {shader.data(), shader.size()};
         ComPtr<ID3D12PipelineState> pipeline;
         Check(device->CreateComputePipelineState(&pipelineDesc, IID_PPV_ARGS(&pipeline)));
-        const UINT64 byteCount = UINT64(sampleCount) * 16 * sizeof(float);
+        const UINT64 byteCount = UINT64(sampleCount) * (rrInputConversion || rrLiveDistance ? 24 : 16) * sizeof(float);
         ComPtr<ID3D12Resource> inputBuffer;
         if (inputPath)
         {
@@ -811,6 +825,14 @@ int main(int argc, char** argv)
         else if (roughThinTransmission)
         {
             ValidateRoughThinTransmission(static_cast<const float*>(data));
+        }
+        else if (rrInputConversion)
+        {
+            RrInputTests::ValidateRrInputConversion(static_cast<const float*>(data), sampleCount);
+        }
+        else if (rrLiveDistance)
+        {
+            RrInputTests::ValidateRrLiveDistance(static_cast<const float*>(data), sampleCount);
         }
         else if (thinTransmission)
         {

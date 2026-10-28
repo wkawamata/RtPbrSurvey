@@ -4,6 +4,7 @@
 #include <memory>
 #include <span>
 #include <cstdint>
+#include "PathTracingReconstructionPolicy.h"
 
 namespace Engine
 {
@@ -89,6 +90,7 @@ enum class NrdRelaxPresentationStatus
 
 NrdRelaxPresentationStatus
 ResolveNrdRelaxPresentation(bool requested, bool built, bool backendReady, bool inputsCompatible, bool outputValid);
+NrdRelaxPresentationStatus NrdRelaxPresentationFromCommon(PathTracingReconstructionStatus status);
 const char* NrdRelaxPresentationStatusText(NrdRelaxPresentationStatus status);
 
 #ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS

@@ -86,6 +86,7 @@ def main():
     scene = json.loads((source/'scene.json').read_text())
     scene['materials'][0]['metallic'] = 1.0
     preset = json.loads((source/('preset.json' if (source/'preset.json').exists() else 'on.json')).read_text())
+    preset['pathTracing']['reconstructionDiagnostics'] = True
     preset['pathTracing']['denoiserDistanceDiagnostics'] = not args.disabled_distance_diagnostics
     write_json(output/'scene.json', scene)
     write_json(output/'preset.json', preset)

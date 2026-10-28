@@ -353,7 +353,86 @@ bool TestValidationAndLegacyCli()
     const Platform::CommandLineOptions options = Platform::ParseCommandLineOptions(argv, 3);
     passed &= Check(options.capturePath == "legacy.png", "legacy CapturePath CLI remains supported");
     passed &= Check(!options.disableD3D12DebugLayer, "D3D12 validation remains enabled by default");
+    WCHAR windowSizeOption[] = L"-WindowSize";
+    WCHAR windowWidth[] = L"256";
+    WCHAR windowHeight[] = L"144";
+    WCHAR* windowArgv[] = {executable, windowSizeOption, windowWidth, windowHeight};
+    const auto windowOptions = Platform::ParseCommandLineOptions(windowArgv, 4);
+    passed &= Check(windowOptions.windowWidth == 256 && windowOptions.windowHeight == 144 &&
+                        options.windowWidth == 0 && options.windowHeight == 0,
+                    "Capture window size is explicit and preserves the default when omitted");
+    for (const wchar_t* value : {L"0", L"63", L"4097", L"256x144"})
+    {
+        WCHAR* invalidWindowArgv[] = {executable, windowSizeOption, const_cast<WCHAR*>(value), windowHeight};
+        bool rejected = false;
+        try
+        {
+            Platform::ParseCommandLineOptions(invalidWindowArgv, 4);
+        }
+        catch (const std::invalid_argument&)
+        {
+            rejected = true;
+        }
+        passed &= Check(rejected, "Invalid window size rejected");
+    }
+    for (int count : {2, 3})
+    {
+        bool rejected = false;
+        try
+        {
+            Platform::ParseCommandLineOptions(windowArgv, count);
+        }
+        catch (const std::invalid_argument&)
+        {
+            rejected = true;
+        }
+        passed &= Check(rejected, "Incomplete window dimensions rejected");
+    }
     WCHAR disableDebugLayer[] = L"-DisableD3D12DebugLayer";
+    WCHAR reconstructionOption[] = L"-PathTracingReconstruction";
+    WCHAR reconstructionValue[] = L"rr";
+    WCHAR* reconstructionArgv[] = {executable, reconstructionOption, reconstructionValue};
+    const auto reconstructionOptions = Platform::ParseCommandLineOptions(reconstructionArgv, 3);
+    passed &= Check(reconstructionOptions.enablePathTracing && reconstructionOptions.pathTracingReconstruction == "rr",
+                    "Explicit reconstruction CLI selects PT backend");
+    WCHAR nativeRrOption[] = L"-EnableExperimentalNativeRayReconstruction";
+    WCHAR* nativeRrArgv[] = {executable, reconstructionOption, reconstructionValue, nativeRrOption};
+    auto nativeRrOptions = Platform::ParseCommandLineOptions(nativeRrArgv, 4);
+    passed &= Check(!Platform::HasPathTracingDlssConflict(nativeRrOptions) &&
+                        nativeRrOptions.enableExperimentalNativeRayReconstruction,
+                    "PT RR selection permits native opt-in");
+    WCHAR continuousRrOption[] = L"-PathTracingRrContinuous";
+    WCHAR* continuousRrArgv[] = {executable, continuousRrOption, nativeRrOption};
+    const auto continuousRrOptions = Platform::ParseCommandLineOptions(continuousRrArgv, 3);
+    passed &=
+        Check(continuousRrOptions.pathTracingRrContinuous && continuousRrOptions.pathTracingReconstruction == "rr" &&
+                  !Platform::HasPathTracingDlssConflict(continuousRrOptions),
+              "Continuous RR selects the admitted PT backend and permits native opt-in");
+    WCHAR rrInputCaptureOption[] = L"-PathTracingRrInputCapture";
+    WCHAR rrInputCaptureDirectory[] = L"captures";
+    WCHAR* rrInputCaptureArgv[] = {executable, rrInputCaptureOption, rrInputCaptureDirectory, nativeRrOption};
+    const auto rrInputCaptureOptions = Platform::ParseCommandLineOptions(rrInputCaptureArgv, 4);
+    passed &= Check(rrInputCaptureOptions.pathTracingRrInputCaptureDirectory == L"captures" &&
+                        rrInputCaptureOptions.pathTracingRrContinuous &&
+                        rrInputCaptureOptions.pathTracingReconstruction == "rr" &&
+                        !Platform::HasPathTracingDlssConflict(rrInputCaptureOptions),
+                    "RR input capture selects live RR and retries unsupported startup inputs");
+    nativeRrOptions.pathTracingReconstruction = "nrd";
+    passed &= Check(Platform::HasPathTracingDlssConflict(nativeRrOptions), "NRD does not enable the Hybrid RR path");
+    nativeRrOptions.pathTracingReconstruction = "rr";
+    nativeRrOptions.enableDlssSr = true;
+    passed &=
+        Check(Platform::HasPathTracingDlssConflict(nativeRrOptions), "PT RR does not permit DLSS SR simultaneously");
+    bool reconstructionMissingRejected = false;
+    try
+    {
+        Platform::ParseCommandLineOptions(reconstructionArgv, 2);
+    }
+    catch (const std::invalid_argument&)
+    {
+        reconstructionMissingRejected = true;
+    }
+    passed &= Check(reconstructionMissingRejected, "Missing reconstruction backend rejected");
     WCHAR* disableDebugLayerArgv[] = {executable, disableDebugLayer};
     const Platform::CommandLineOptions fastOptions = Platform::ParseCommandLineOptions(disableDebugLayerArgv, 2);
     passed &= Check(fastOptions.disableD3D12DebugLayer && !fastOptions.enablePathTracing && !fastOptions.disableVSync,

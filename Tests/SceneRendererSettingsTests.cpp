@@ -237,8 +237,38 @@ bool TestPathTracingValuesAreBounded()
 
 int main()
 {
+    const auto reconstructionSettings = []()
+    {
+        using Backend = Engine::PathTracingReconstructionBackend;
+        RtPbrSurvey::SceneRendererSettings settings;
+        bool valid = true;
+        for (const char* name : {"native", "nrd", "rr"})
+        {
+            const std::string text = std::string("{\"pathTracing\":{\"reconstructionBackend\":\"") + name +
+                                     "\",\"reconstructionDiagnostics\":true,\"rrContinuous\":true}}";
+            valid &= Check(RtPbrSurvey::DeserializeSceneRendererSettings(text, settings), "Backend selection parses");
+            const auto json = RtPbrSurvey::SceneRendererSettingsToJson(settings);
+            valid &= Check(json["pathTracing"]["reconstructionBackend"] == name &&
+                               settings.pathTracing.reconstructionDiagnostics &&
+                               json["pathTracing"]["rrContinuous"] == true && settings.pathTracing.rrContinuous,
+                           "Backend selection and diagnostics persist");
+        }
+        const auto previous = settings.pathTracing.reconstructionBackend;
+        valid &= Check(!RtPbrSurvey::DeserializeSceneRendererSettings(
+                           R"({"pathTracing":{"reconstructionBackend":"typo"}})", settings) &&
+                           settings.pathTracing.reconstructionBackend == previous,
+                       "Unknown backend rejected without mutation");
+        settings = {};
+        valid &=
+            Check(RtPbrSurvey::DeserializeSceneRendererSettings(R"({"pathTracing":{"nrdPreview":true}})", settings) &&
+                      Engine::EffectivePathTracingBackend(settings.pathTracing.reconstructionBackend,
+                                                          settings.pathTracing.nrdPreview) == Backend::Nrd,
+                  "Legacy preview still selects NRD");
+        return valid;
+    };
     const bool passed = TestRoundTrip() && TestMissingFieldsKeepDefaults() && TestInvalidJsonIsNonDestructive() &&
-                        TestPathTracingValuesAreBounded() && TestMultipleLightsAndInvalidInputs();
+                        TestPathTracingValuesAreBounded() && TestMultipleLightsAndInvalidInputs() &&
+                        reconstructionSettings();
     if (passed)
     {
         std::cout << "SceneRendererSettings tests passed.\n";

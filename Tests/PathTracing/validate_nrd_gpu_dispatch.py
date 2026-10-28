@@ -32,25 +32,29 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--exe", type=Path, default=ROOT / "build/Debug/RtPbrSurvey.exe")
+    parser.add_argument("--shader-directory", type=Path, default=ROOT / "build/shaders")
     args = parser.parse_args()
     source, folder = args.source.resolve(strict=True), args.output.resolve()
     if source == folder or source in folder.parents or (folder.exists() and any(folder.iterdir())):
         parser.error("Output must be a separate empty directory")
     scene = json.loads((source / "scene.json").read_text())
     preset = json.loads((source / ("preset.json" if (source / "preset.json").exists() else "on.json")).read_text())
+    preset['pathTracing']['reconstructionDiagnostics'] = True
     preset["pathTracing"].update(accumulate=True, samplesPerFrame=1, pixelCenterPrimary=True, denoiserDistanceDiagnostics=True)
     write_json(folder / "scene.json", scene)
     write_json(folder / "preset.json", preset)
     excluded = json.loads(json.dumps(preset))
     excluded["pathTracing"]["denoiserDistanceDiagnostics"] = False
     write_json(folder / "excluded.json", excluded)
-    exe = ROOT / "build/Debug/RtPbrSurvey.exe"
-    manifest = ROOT / "build/shaders/nrd-relax-manifest.txt"
+    exe = args.exe.resolve(strict=True)
+    shader_directory = args.shader_directory.resolve(strict=True)
+    manifest = shader_directory / "nrd-relax-manifest.txt"
     identifiers = manifest.read_text().splitlines()
     report = dict(status="running", fullIntegrationReady=False, records=[], failures=[],
         exeSha256=sha(exe), sceneSha256=sha(folder / "scene.json"), presetSha256=sha(folder / "preset.json"),
         scriptSha256=sha(Path(__file__)), manifestSha256=sha(manifest),
-        shaders=[dict(identifier=name, sha256=sha(ROOT / f"build/shaders/nrd-relax-{i}.cso"))
+        shaders=[dict(identifier=name, sha256=sha(shader_directory / f"nrd-relax-{i}.cso"))
                  for i, name in enumerate(identifiers)])
     write_json(folder / "report.json", report)
     try:

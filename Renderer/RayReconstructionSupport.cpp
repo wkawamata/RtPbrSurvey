@@ -127,6 +127,10 @@ const char* ToString(RayReconstructionReadinessReason reason)
             return "Invalid specular hit distance format";
         case RayReconstructionReadinessReason::MissingCameraConstants:
             return "Missing camera constants";
+        case RayReconstructionReadinessReason::MissingScalingOutputColor:
+            return "Missing scaling output color";
+        case RayReconstructionReadinessReason::InvalidScalingOutputColorFormat:
+            return "Invalid scaling output color format";
         default:
             return "Unknown";
     }

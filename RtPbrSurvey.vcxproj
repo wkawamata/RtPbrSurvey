@@ -172,7 +172,14 @@
     <ClInclude Include="Renderer\Material.h" />
     <ClInclude Include="Renderer\MaterialBuffer.h" />
     <ClInclude Include="Renderer\PathTracingPass.h" />
+    <ClInclude Include="Renderer\PathTracingReconstructionInputs.h" />
+    <ClInclude Include="Renderer\PathTracingReconstructionPolicy.h" />
+    <ClInclude Include="Renderer\PathTracingReconstructionResources.h" />
+    <ClInclude Include="Renderer\PathTracingRrInputs.h" />
+    <ClInclude Include="Renderer\PathTracingRrHistory.h" />
+    <ClInclude Include="Renderer\PathTracingRrLive.h" />
     <ClInclude Include="Renderer\NrdRelaxAdapter.h" />
+    <ClInclude Include="Renderer\NrdReconstructionInputs.h" />
     <ClInclude Include="Renderer\RayQuerySceneBindings.h" />
     <ClInclude Include="Renderer\PipelineFactory.h" />
     <ClInclude Include="Renderer\AccelerationStructureResources.h" />
@@ -295,6 +302,26 @@
     <ClCompile Include="Renderer\LightingPass.cpp" />
     <ClCompile Include="Renderer\PathTracingPass.cpp" />
     <ClCompile Include="Renderer\NrdRelaxAdapter.cpp" />
+    <ClCompile Include="Renderer\NrdReconstructionInputs.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingReconstructionInputs.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingReconstructionPolicy.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingReconstructionResources.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrInputs.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrHistory.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrLive.cpp" />
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp" />
     <ClCompile Include="Renderer\TemporalReflectionPass.cpp" />
     <ClCompile Include="Renderer\EdgeAwareSpatialReflectionPass.cpp" />
@@ -416,6 +443,9 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\VolumeTransmission.hlsli" />
     <None Include="Shaders\VolumeAbsorptionParameters.hlsli" />
     <None Include="Shaders\PathTracingDenoiserSampling.hlsli" />
+    <None Include="Shaders\RayReconstructionInputConversion.hlsli" />
+    <None Include="Shaders\shaders_PathTracingRrConversion.hlsl" />
+    <None Include="Shaders\shaders_PathTracingRrValidation.hlsl" />
     <None Include="Shaders\EmissiveTriangleSampling.hlsli" />
     <None Include="Shaders\ReflectionSampling.hlsli" />
     <None Include="Shaders\SceneRayQuery.hlsli" />

@@ -104,6 +104,7 @@ def main():
     scene = json.loads((source/'scene.json').read_text())
     scene['materials'][0]['metallic'] = 1.0
     preset = json.loads((source/('preset.json' if (source/'preset.json').exists() else 'on.json')).read_text())
+    preset['pathTracing']['reconstructionDiagnostics'] = True
     preset['pathTracing'].update(accumulate=True, samplesPerFrame=1, pixelCenterPrimary=True,
         denoiserDistanceDiagnostics=not args.disabled_distance_diagnostics)
     write_json(folder/'scene.json', scene)

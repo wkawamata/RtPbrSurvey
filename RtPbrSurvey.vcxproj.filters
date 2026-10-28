@@ -150,7 +150,28 @@
     <ClInclude Include="Renderer\PathTracingPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\PathTracingReconstructionInputs.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\PathTracingReconstructionPolicy.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\PathTracingReconstructionResources.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\PathTracingRrInputs.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\PathTracingRrHistory.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\PathTracingRrLive.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\NrdRelaxAdapter.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\NrdReconstructionInputs.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
     <ClInclude Include="Renderer\RayQuerySceneBindings.h">
@@ -483,6 +504,27 @@
     <ClCompile Include="Renderer\NrdRelaxAdapter.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\NrdReconstructionInputs.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingReconstructionInputs.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingReconstructionPolicy.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingReconstructionResources.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrInputs.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrHistory.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrLive.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
@@ -743,6 +785,15 @@
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="Shaders\PathTracingDenoiserSampling.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\RayReconstructionInputConversion.hlsli">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\shaders_PathTracingRrConversion.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </None>
+    <None Include="Shaders\shaders_PathTracingRrValidation.hlsl">
       <Filter>Assets\Shaders</Filter>
     </None>
     <None Include="Shaders\ReflectionSampling.hlsli">

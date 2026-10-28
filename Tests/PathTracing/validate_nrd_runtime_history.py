@@ -63,6 +63,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--exe', type=Path, default=ROOT/'build/Debug/RtPbrSurvey.exe')
+    parser.add_argument('--shader-directory', type=Path, default=ROOT/'build/shaders')
     parser.add_argument('--timeout', type=int, default=600)
     parser.add_argument('--nrd-preview', action='store_true')
     parser.add_argument('--resource', action='append', choices=RESOURCES+ADMISSION_RESOURCES+RELAX_RESOURCES+COMPOSITION_RESOURCES)
@@ -73,7 +75,8 @@ def main():
     source, output = args.source.resolve(strict=True), args.output.resolve()
     if output == source or source in output.parents or (output.exists() and any(output.iterdir())):
         parser.error('Output must be a separate empty directory')
-    exe = ROOT/'build/Debug/RtPbrSurvey.exe'
+    exe = args.exe.resolve(strict=True)
+    shader_directory = args.shader_directory.resolve(strict=True)
     scene = source/'scene.json'
     preset = source/('preset.json' if (source/'preset.json').exists() else 'on.json')
     settings = json.loads(preset.read_text())
@@ -82,18 +85,18 @@ def main():
     report = dict(schemaVersion=1, status='running', inputReady=False, resources=[], failures=[],
         exeSha256=sha(exe), sceneSha256=sha(scene), presetSha256=sha(preset),
         scriptSha256=sha(Path(__file__)),
-        runtimeShaderSha256=sha(ROOT/'build/shaders/shaders_NrdReconstruction_main.cso'))
+        runtimeShaderSha256=sha(shader_directory/'shaders_NrdReconstruction_main.cso'))
     if any(resource in ADMISSION_RESOURCES+RELAX_RESOURCES+COMPOSITION_RESOURCES for resource in resources):
-        report['admissionShaderSha256'] = sha(ROOT/'build/shaders/shaders_NrdAdmission_CSMain.cso')
+        report['admissionShaderSha256'] = sha(shader_directory/'shaders_NrdAdmission_CSMain.cso')
         report['admissionHelperSha256'] = sha(ROOT/'Shaders/NrdRelaxInputAdmission.hlsli')
-        report['conversionShaderSha256'] = sha(ROOT/'build/shaders/shaders_NrdConversion_CSMain.cso')
+        report['conversionShaderSha256'] = sha(shader_directory/'shaders_NrdConversion_CSMain.cso')
     if any(resource in RELAX_RESOURCES+COMPOSITION_RESOURCES for resource in resources):
-        manifest = ROOT/'build/shaders/nrd-relax-manifest.txt'
+        manifest = shader_directory/'nrd-relax-manifest.txt'
         report['sdkShaderManifestSha256'] = sha(manifest)
-        report['sdkShaders'] = [dict(identifier=name, sha256=sha(ROOT/f'build/shaders/nrd-relax-{i}.cso'))
+        report['sdkShaders'] = [dict(identifier=name, sha256=sha(shader_directory/f'nrd-relax-{i}.cso'))
             for i, name in enumerate(manifest.read_text().splitlines())]
     if any(resource in COMPOSITION_RESOURCES for resource in resources):
-        report['compositionShaderSha256'] = sha(ROOT/'build/shaders/shaders_NrdComposition_CSMain.cso')
+        report['compositionShaderSha256'] = sha(shader_directory/'shaders_NrdComposition_CSMain.cso')
         report['compositionHelperSha256'] = sha(ROOT/'Shaders/NrdRelaxComposition.hlsli')
     write_json(output/'report.json', report)
     try:

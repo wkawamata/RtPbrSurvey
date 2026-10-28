@@ -8,7 +8,9 @@ from validate_inputs import read_buffer
 from validate_part1 import sha
 
 
-def capture_volume(exe, folder, frames, resource="SceneColor", nrd=False):
+def capture_volume(exe, folder, frames, resource="SceneColor", nrd=False, rr=False):
+    if nrd and rr:
+        raise ValueError("Volume capture cannot request NRD and RR simultaneously")
     folder = Path(folder)
     scene = json.loads((folder/"scene.json").read_text(encoding="utf-8"))
     preset = json.loads((folder/scene["renderPreset"]).read_text(encoding="utf-8"))["pathTracing"]
@@ -18,6 +20,9 @@ def capture_volume(exe, folder, frames, resource="SceneColor", nrd=False):
         "-LogToFile", str(log), "-ExitAfterCapture"]
     if nrd:
         command.append("-NrdPreview")
+    if rr:
+        command += ["-PathTracingReconstruction", "rr", "-EnableDlssRayReconstruction",
+                    "-EnableExperimentalNativeRayReconstruction"]
     startup = subprocess.STARTUPINFO()
     startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     startup.wShowWindow = subprocess.SW_HIDE
@@ -47,6 +52,11 @@ def capture_volume(exe, folder, frames, resource="SceneColor", nrd=False):
         or meta.get("nrdLastEvaluation", {}).get("recorded") is not False
         or state.get("nrdPlannedDispatches") != 0 or state.get("nrdPreparedDispatches") != 0):
         raise ValueError("Volume did not bypass NRD")
+    if rr and (state.get("reconstructionRequested") != "rr" or state.get("reconstructionOutput") != "native"
+        or state.get("reconstructionStatus") not in ("incompatible-inputs", "backend-unavailable")
+        or state.get("ptRr", {}).get("nativeEvaluateCallCount") != 0
+        or meta.get("reconstructionBackend") != "rr" or meta.get("rrConversion", {}).get("recorded") is not False):
+        raise ValueError("Volume did not bypass RR conversion/evaluation")
     evidence = dict(command=command, metadata=meta, runtime=state,
         inputs={str(p.relative_to(folder)): sha(p) for p in folder.iterdir() if p.suffix in (".json", ".gltf", ".png")},
         bufferSha256=sha(buffer), logSha256=sha(log))

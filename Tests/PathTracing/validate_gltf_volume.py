@@ -80,6 +80,7 @@ def main():
     parser.add_argument("--exe", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--max-grazing-pixels", type=int, default=0)
+    parser.add_argument("--rr-bypass", action="store_true", help="Also verify RR refusal in an RR-enabled build")
     args = parser.parse_args()
     if args.max_grazing_pixels < 0:
         parser.error("--max-grazing-pixels must be nonnegative")
@@ -99,13 +100,15 @@ def main():
     gltf["extensionsRequired"].append("KHR_materials_ior")
     cases = [("distance", 4, False), ("transmittance", 8, False), ("status", 5, False), ("nrd-bypass", 8, True),
              ("high-bias-status", 5, False), ("high-bias-transmittance", 8, False)]
+    if args.rr_bypass:
+        cases.append(("rr-bypass", 3, False))
     dependencies = ("volume_capture.py", "validate_volume_absorption.py", "validate_volume_boundary.py",
                     "validate_inputs.py", "validate_part1.py", "transmission_texture_fixture.py")
     shader = exe.with_name("shaders_PathTracing_CSMain.cso")
     report = dict(status="running", expectedCases=[name for name, _, _ in cases], cases=[], failures=[],
                   executableSha256=sha(exe), shaderSha256=sha(shader), runnerSha256=sha(Path(__file__)),
                   dependencySha256={name: sha(Path(__file__).with_name(name)) for name in dependencies},
-                  grazingPixelBudget=args.max_grazing_pixels)
+                  grazingPixelBudget=args.max_grazing_pixels, rrBypassRequested=args.rr_bypass)
     patches = {}
     try:
         for name, debug, nrd in cases:
@@ -118,7 +121,7 @@ def main():
             write_json(folder/"scene.json", scene)
             write_json(folder/"render-preset.json", settings)
             write_json(folder/"volume.gltf", gltf)
-            evidence, image = capture_volume(exe, folder, 1, "CurrentFrameRadiance", nrd)
+            evidence, image = capture_volume(exe, folder, 1, "CurrentFrameRadiance", nrd, rr=name == "rr-bypass")
             if not np.isfinite(image).all():
                 raise ValueError("Nonfinite RAW capture")
             patches[name] = image[..., :3].astype(float)
