@@ -10,6 +10,7 @@
 #include <limits>
 #include <stdexcept>
 #include <utility>
+#include <algorithm>
 
 namespace Engine
 {
@@ -58,6 +59,7 @@ bool SceneBuilder::LoadGltfMesh(const std::string& path)
     m_mesh = {};
     m_mesh.vertices = std::move(gltfMesh.vertices);
     m_mesh.indices = std::move(gltfMesh.indices);
+    m_mesh.pathTracingCornerTangents = std::move(gltfMesh.pathTracingCornerTangents);
     m_mesh.materialIndex = gltfMesh.materialIndex;
 
     m_mesh.materials.clear();
@@ -222,6 +224,7 @@ std::optional<SceneMeshId> SceneBuilder::AddGltfMeshData(GltfMeshData gltfMesh)
     SceneMesh mesh = {};
     mesh.vertices = std::move(gltfMesh.vertices);
     mesh.indices = std::move(gltfMesh.indices);
+    mesh.pathTracingCornerTangents = std::move(gltfMesh.pathTracingCornerTangents);
     for (SceneVertex& vertex : mesh.vertices)
     {
         if (vertex.materialId != kGltfVertexMaterialFromInstance)
@@ -239,6 +242,12 @@ std::optional<SceneMeshId> SceneBuilder::AddGltfMeshData(GltfMeshData gltfMesh)
     for (uint32_t index : mesh.indices)
     {
         m_mesh.indices.push_back(range.firstVertex + index);
+    }
+    if (!m_mesh.pathTracingCornerTangents.empty() || !mesh.pathTracingCornerTangents.empty())
+    {
+        m_mesh.pathTracingCornerTangents.resize(m_mesh.indices.size());
+        std::copy(mesh.pathTracingCornerTangents.begin(), mesh.pathTracingCornerTangents.end(),
+                  m_mesh.pathTracingCornerTangents.begin() + range.firstIndex);
     }
     m_mesh.ranges.push_back(range);
     return static_cast<SceneMeshId>(m_mesh.ranges.size() - 1);

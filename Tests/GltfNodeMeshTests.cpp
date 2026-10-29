@@ -5,6 +5,7 @@
 #include "Scene/ImportedVolumeScene.h"
 #include "Scene/SceneDocumentBuilder.h"
 #include "Scene/SceneDocumentJson.h"
+#include "Scene/PathTracingTangents.h"
 
 #include <cmath>
 #include <filesystem>
@@ -23,6 +24,91 @@ namespace
 bool NearlyEqual(float left, float right)
 {
     return std::abs(left - right) < 0.0001f;
+}
+
+void Require(bool condition, const char* message);
+
+void TestPathTracingTangentGeneration()
+{
+    std::vector<GltfVertex> vertices = {
+        {{0, 0, 0}, {0, 0}, {0, 0, 1}},
+        {{1, 0, 0}, {1, 0}, {0, 0, 1}},
+        {{0, 1, 0}, {0, 1}, {0, 0, 1}},
+        {{0, -1, 0}, {0, 1}, {0, 0, 1}}};
+    const std::vector<uint32_t> indices = {0, 1, 2, 0, 3, 1};
+    const auto tangents = Engine::GeneratePathTracingCornerTangents(vertices, indices);
+    Require(tangents.size() == 6 && NearlyEqual(tangents[0].x, 1) && NearlyEqual(tangents[0].w, 1),
+            "Canonical UVs must generate the analytic tangent frame.");
+    Require(NearlyEqual(tangents[3].x, 1) && NearlyEqual(tangents[3].w, -1),
+            "A mirrored UV face must retain its own handedness at a shared vertex.");
+
+    Engine::SceneMesh mesh;
+    mesh.vertices = vertices;
+    mesh.indices = indices;
+    mesh.pathTracingCornerTangents = tangents;
+    const auto pt = Engine::BuildPathTracingTangentGeometry(mesh);
+    Require(pt.generatedCornerCount == 6 && pt.indices.size() == indices.size(),
+            "PT shading geometry must retain the triangle/corner ordering.");
+    Require(pt.indices[0] != pt.indices[3] && pt.vertices[pt.indices[0]].tangent.w == 1 &&
+                pt.vertices[pt.indices[3]].tangent.w == -1,
+            "PT duplicates must not overwrite conflicting frames through an old shared index.");
+    Require(mesh.indices == indices && mesh.vertices.size() == vertices.size() && mesh.vertices[0].tangent.w == 0,
+            "Building PT geometry must not alter raster geometry.");
+    for (size_t i = 0; i < indices.size(); ++i)
+    {
+        const auto& original = vertices[indices[i]];
+        const auto& duplicate = pt.vertices[pt.indices[i]];
+        Require(original.position.x == duplicate.position.x && original.position.y == duplicate.position.y &&
+                    original.position.z == duplicate.position.z && original.uv.x == duplicate.uv.x &&
+                    original.uv.y == duplicate.uv.y && original.materialId == duplicate.materialId,
+                "Only tangent shading data may differ from BLAS/raster corner data.");
+    }
+    for (auto& vertex : mesh.vertices)
+    {
+        vertex.tangent = {0, 1, 0, 1};
+    }
+    Require(Engine::BuildPathTracingTangentGeometry(mesh).vertices.empty(),
+            "Authored tangents must never be replaced by generated ones.");
+    for (auto& vertex : vertices)
+    {
+        vertex.uv = {0, 0};
+    }
+    size_t unavailable = 0;
+    const auto degenerate = Engine::GeneratePathTracingCornerTangents(vertices, indices, &unavailable);
+    Require(degenerate[0].w == 0 && degenerate[3].w == 0 && unavailable == 6,
+            "Degenerate UVs must not invent an arbitrary tangent frame.");
+    vertices[0].uv = {0, 0};
+    vertices[1].uv = {1, 0};
+    vertices[2].uv = {0, 1};
+    for (auto& vertex : vertices)
+    {
+        vertex.normal = {1, 0, 0};
+    }
+    const auto collapsed = Engine::GeneratePathTracingCornerTangents(
+        vertices, std::vector<uint32_t>{0, 1, 2}, &unavailable);
+    Require(unavailable == 3 && collapsed[0].w == 0,
+            "A tangent collapsed against its shading normal must retain the base-normal fallback.");
+    bool rejected = false;
+    try
+    {
+        Engine::GeneratePathTracingCornerTangents(vertices, std::vector<uint32_t>{0, 1, 9});
+    }
+    catch (const std::invalid_argument&)
+    {
+        rejected = true;
+    }
+    Require(rejected, "Invalid tangent indices must be rejected.");
+    vertices[0].normal.x = (std::numeric_limits<float>::quiet_NaN)();
+    rejected = false;
+    try
+    {
+        Engine::GeneratePathTracingCornerTangents(vertices, indices);
+    }
+    catch (const std::invalid_argument&)
+    {
+        rejected = true;
+    }
+    Require(rejected, "Nonfinite tangent inputs must be rejected.");
 }
 
 std::filesystem::path FixturePath()
@@ -379,6 +465,57 @@ void TestSurfaceTransforms()
         Require(XMVectorGetX(XMVector3Dot(tangent, expectedTangent)) > 0.9999f,
                 "Tangents must use the forward transform, not the normal inverse transpose.");
     }
+}
+
+void TestGeneratedGltfTangents()
+{
+    const auto path = FixturePath().parent_path() / "surface-transforms.gltf";
+    std::ifstream input(path);
+    nlohmann::json document;
+    input >> document;
+    document["meshes"][0]["primitives"][0]["attributes"].erase("TANGENT");
+    const auto temp = std::filesystem::temp_directory_path() /
+        ("rtpbr-generated-tangents-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".gltf");
+    {
+        std::ofstream output(temp);
+        output << document.dump();
+    }
+    const auto generated = Engine::LoadGltfSceneAsset(temp.string());
+    std::filesystem::remove(temp);
+    const auto authored = Engine::LoadGltfSceneAsset(path.string());
+    Require(static_cast<bool>(generated) && static_cast<bool>(authored), "Both tangent fixtures must load.");
+    Engine::SceneBuilder combined;
+    for (const char* name : {"Scaled", "Mirrored", "Matrix"})
+    {
+        Engine::SceneBuilder a;
+        Engine::SceneBuilder b;
+        Require(static_cast<bool>(a.AddGltfNodeMesh(generated.asset, name)) &&
+                    static_cast<bool>(b.AddGltfNodeMesh(authored.asset, name)), "Tangent fixtures must extract.");
+        const auto pt = Engine::BuildPathTracingTangentGeometry(a.GetMesh());
+        Require(pt.generatedCornerCount == 3 && b.GetMesh().pathTracingCornerTangents.empty(),
+                "Only missing tangents may receive supplemental PT data.");
+        for (size_t corner = 0; corner < 3; ++corner)
+        {
+            const auto& actual = pt.vertices[pt.indices[corner]];
+            const auto& expected = b.GetMesh().vertices[b.GetMesh().indices[corner]];
+            Require(NearlyEqual(actual.tangent.x, expected.tangent.x) &&
+                        NearlyEqual(actual.tangent.y, expected.tangent.y) &&
+                        NearlyEqual(actual.tangent.z, expected.tangent.z) &&
+                        NearlyEqual(actual.tangent.w, expected.tangent.w),
+                    "Generated frames must match authored frames after node scaling, mirroring and LH conversion.");
+            Require(a.GetMesh().vertices[a.GetMesh().indices[corner]].tangent.w == 0,
+                    "Raster vertex tangents must remain untouched.");
+        }
+        Require(static_cast<bool>(combined.AddGltfNodeMesh(generated.asset, name)), "Generated ranges must append.");
+        combined.AddCube(1.0f);
+    }
+    Require(combined.GetMesh().pathTracingCornerTangents.size() == combined.GetMesh().indices.size(),
+            "Generated tangent slots must survive interleaved glTF and procedural ranges.");
+    Require(Engine::BuildPathTracingTangentGeometry(combined.GetMesh()).generatedCornerCount == 9,
+            "Appending procedural geometry must not misalign glTF tangent corners.");
+    GltfMeshData legacy;
+    Require(LoadGltfMesh(path.string(), legacy) && legacy.pathTracingCornerTangents.empty(),
+            "The legacy authored-tangent path must remain unchanged.");
 }
 
 void TestIndependentNodeMeshesAndLifetime()
@@ -919,6 +1056,8 @@ int main(int argc, char* argv[])
             return 0;
         }
 
+        TestPathTracingTangentGeneration();
+        TestGeneratedGltfTangents();
         TestVolumeMeshTopology();
         TestConvexVolumeBounds();
         TestSolidVolumeImport();

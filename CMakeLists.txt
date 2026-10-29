@@ -157,6 +157,8 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     App/RenderPresetStore.cpp
     Scene/ProceduralSceneBuilder.cpp
     Scene/SceneBuilder.cpp
+    Scene/PathTracingTangents.cpp
+    third_party/mikktspace/mikktspace.c
     Scene/EmissiveTriangleTable.cpp
     Scene/SceneDocumentJson.cpp
     Scene/SceneDocumentBuilder.cpp
@@ -175,12 +177,15 @@ set(RTPBRSURVEY_RENDERER_SOURCES
 )
 
 set_source_files_properties(
+    Scene/PathTracingTangents.cpp
+    third_party/mikktspace/mikktspace.c
     third_party/imgui-node-editor/crude_json.cpp
     third_party/imgui-node-editor/imgui_canvas.cpp
     third_party/imgui-node-editor/imgui_node_editor.cpp
     third_party/imgui-node-editor/imgui_node_editor_api.cpp
     third_party/ImGuizmo/ImGuizmo.cpp
     PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+set_source_files_properties(third_party/mikktspace/mikktspace.c PROPERTIES LANGUAGE CXX)
 
 add_library(RtPbrSurvey.SceneRenderer STATIC ${RTPBRSURVEY_RENDERER_SOURCES})
 add_library(RtPbrSurvey::SceneRenderer ALIAS RtPbrSurvey.SceneRenderer)

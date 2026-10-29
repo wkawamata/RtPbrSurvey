@@ -23,6 +23,7 @@
 #include "Renderer/TextureMipChain.h"
 #include "Scene/CameraProjection.h"
 #include "Scene/CameraView.h"
+#include "Scene/PathTracingTangents.h"
 // Forward declaration for the staged allocator smoke test.
 
 
@@ -539,6 +540,8 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
     m_resourceDefaultStates.push_back({kSceneIndexBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
     m_resourceDefaultStates.push_back({kSceneInstanceBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
     m_resourceDefaultStates.push_back({kSceneMeshRangeBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
+    m_resourceDefaultStates.push_back({kPathTracingVertexBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
+    m_resourceDefaultStates.push_back({kPathTracingIndexBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
     m_resourceDefaultStates.push_back({kSceneCameraConstantsResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
 #ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
     m_resourceDefaultStates.push_back({kNrdReconstructionConstantsResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
@@ -3772,6 +3775,31 @@ void RtPbrSurveyEngine::CreateSceneGeometryBuffers()
     ThrowIfFailed(m_meshRangeBuffer->Map(0, &readRange, reinterpret_cast<void**>(&meshRangeData)));
     memcpy(meshRangeData, m_sceneMeshRanges.data(), meshRangeBufferSize);
     m_meshRangeBuffer->Unmap(0, nullptr);
+
+    m_pathTracingVertexBuffer.Reset();
+    m_pathTracingIndexBuffer.Reset();
+    m_pathTracingVertexCount = 0;
+    const auto ptGeometry = Engine::BuildPathTracingTangentGeometry(*m_scene.mesh);
+    if (ptGeometry.generatedCornerCount > 0)
+    {
+        const auto upload = [this](const void* data, size_t bytes, ComPtr<ID3D12Resource>& resource)
+        {
+            if (bytes > (std::numeric_limits<UINT>::max)())
+            {
+                throw std::overflow_error("PT tangent geometry exceeds upload buffer capacity.");
+            }
+            MyDx12Util::CreateUploadBuffer(m_graphicsDevice.Device(), static_cast<UINT>(bytes), resource);
+            void* mapped = nullptr;
+            CD3DX12_RANGE noRead(0, 0);
+            ThrowIfFailed(resource->Map(0, &noRead, &mapped));
+            memcpy(mapped, data, bytes);
+            resource->Unmap(0, nullptr);
+        };
+        upload(ptGeometry.vertices.data(), ptGeometry.vertices.size() * sizeof(Engine::SceneVertex),
+               m_pathTracingVertexBuffer);
+        upload(ptGeometry.indices.data(), ptGeometry.indices.size() * sizeof(uint32_t), m_pathTracingIndexBuffer);
+        m_pathTracingVertexCount = static_cast<UINT>(ptGeometry.vertices.size());
+    }
 }
 
 void RtPbrSurveyEngine::CreateSceneTextureResources(std::vector<ComPtr<ID3D12Resource>>& textureUploadHeap)
@@ -4227,6 +4255,9 @@ void RtPbrSurveyEngine::ReleaseSceneResources()
     m_vertexBuffer.Reset();
     m_indexBuffer.Reset();
     m_meshRangeBuffer.Reset();
+    m_pathTracingVertexBuffer.Reset();
+    m_pathTracingIndexBuffer.Reset();
+    m_pathTracingVertexCount = 0;
     m_vertexBufferView = {};
     m_indexBufferView = {};
     m_sceneMeshRanges.clear();
@@ -5579,6 +5610,10 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
         [this]() { return m_frameResources[m_currentFrameIndex].instanceBuffer.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kSceneMeshRangeBufferResourceName,
                                                       [this]() { return m_meshRangeBuffer.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kPathTracingVertexBufferResourceName,
+                                                      [this]() { return m_pathTracingVertexBuffer.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kPathTracingIndexBufferResourceName,
+                                                      [this]() { return m_pathTracingIndexBuffer.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(
         kSceneCameraConstantsResourceName,
         [this]() { return m_frameResources[m_currentFrameIndex].cameraCB.buffer.Get(); });
@@ -6999,6 +7034,12 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.emissiveTriangleSrv = m_frameResources[m_currentFrameIndex].emissiveTriangleBuffer->GetGPUVirtualAddress();
     passDesc.emissiveTriangleCount = static_cast<UINT>(m_emissiveTriangles.size());
     passDesc.scene = MakeRayQuerySceneBindings();
+    if (m_pathTracingVertexBuffer)
+    {
+        passDesc.scene.vertexBufferSrv = m_pathTracingVertexBuffer->GetGPUVirtualAddress();
+        passDesc.scene.indexBufferSrv = m_pathTracingIndexBuffer->GetGPUVirtualAddress();
+        passDesc.scene.vertexCount = m_pathTracingVertexCount;
+    }
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
     passDesc.normalBias = m_shadowSettings.normalBias;
@@ -8572,6 +8613,10 @@ Engine::RenderGraphDocument RtPbrSurveyEngine::CaptureRenderGraphDocument() cons
                                                   Engine::RenderGraphResourceKind::Buffer};
     metadata[kSceneMeshRangeBufferResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
                                                    Engine::RenderGraphResourceKind::Buffer};
+    metadata[kPathTracingVertexBufferResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
+                                                     Engine::RenderGraphResourceKind::Buffer};
+    metadata[kPathTracingIndexBufferResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
+                                                    Engine::RenderGraphResourceKind::Buffer};
     metadata[kSceneCameraConstantsResourceName] = {Engine::RenderGraphResourceLifetimeKind::Persistent,
                                                    Engine::RenderGraphResourceKind::Buffer};
 #ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS

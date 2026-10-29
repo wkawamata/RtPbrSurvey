@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <nlohmann/json.hpp>
 #include "Scene/ConvexVolumeBounds.h"
+#include "Scene/PathTracingTangents.h"
 
 static const unsigned char* GetAccessorData(const tinygltf::Model& model, const tinygltf::Accessor& accessor)
 {
@@ -225,10 +226,67 @@ static bool AppendPrimitive(const tinygltf::Model& model,
         return false;
     }
 
+    const bool generatePtTangents = tangents == nullptr && normals != nullptr && uvs != nullptr &&
+        prim.material >= 0 && prim.material < static_cast<int>(model.materials.size()) &&
+        model.materials[prim.material].normalTexture.index >= 0;
+    if (generatePtTangents)
+    {
+        std::vector<GltfVertex> sourceVertices(posAccessor.count);
+        for (size_t i = 0; i < sourceVertices.size(); ++i)
+        {
+            sourceVertices[i].position = {positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]};
+            sourceVertices[i].normal = {normals[i * 3], normals[i * 3 + 1], normals[i * 3 + 2]};
+            sourceVertices[i].uv = {uvs[i * 2], uvs[i * 2 + 1]};
+        }
+        std::vector<uint32_t> sourceIndices(indexAccessor.count);
+        for (size_t i = 0; i < sourceIndices.size(); ++i)
+        {
+            sourceIndices[i] = outMesh.indices[baseIndex + i] - baseVertex;
+        }
+        std::vector<XMFLOAT4> generated;
+        size_t unavailableCorners = 0;
+        try
+        {
+            generated = Engine::GeneratePathTracingCornerTangents(sourceVertices, sourceIndices, &unavailableCorners);
+        }
+        catch (const std::exception& error)
+        {
+            std::fprintf(stderr, "[glTF][ERROR][PtTangents] %s\n", error.what());
+            return false;
+        }
+        if (unavailableCorners > 0)
+        {
+            std::fprintf(stderr, "[glTF][WARNING][DegeneratePtTangents] %zu corners retain base normals.\n",
+                         unavailableCorners);
+        }
+        outMesh.pathTracingCornerTangents.resize(outMesh.indices.size());
+        for (size_t i = 0; i < generated.size(); ++i)
+        {
+            if (generated[i].w == 0.0f)
+            {
+                continue;
+            }
+            XMVECTOR tangent = XMVectorSet(generated[i].x, generated[i].y, generated[i].z, 0.0f);
+            tangent = XMVector3Normalize(XMVector3TransformNormal(tangent, nodeTransform));
+            XMFLOAT3 t = {};
+            XMStoreFloat3(&t, tangent);
+            outMesh.pathTracingCornerTangents[baseIndex + i] =
+                ConvertGltfTangentToEngineLH(t.x, t.y, t.z, generated[i].w * transformHandedness);
+        }
+    }
+    else if (!outMesh.pathTracingCornerTangents.empty())
+    {
+        outMesh.pathTracingCornerTangents.resize(outMesh.indices.size());
+    }
+
     // RH-to-LH conversion flips winding unless the baked node transform already mirrors it.
     for (size_t i = baseIndex; transformHandedness > 0.0f && i + 2 < outMesh.indices.size(); i += 3)
     {
         std::swap(outMesh.indices[i + 1], outMesh.indices[i + 2]);
+        if (!outMesh.pathTracingCornerTangents.empty())
+        {
+            std::swap(outMesh.pathTracingCornerTangents[i + 1], outMesh.pathTracingCornerTangents[i + 2]);
+        }
     }
 
     if (firstMaterialIndex < 0)
@@ -774,7 +832,7 @@ static bool ValidateGltfImport(const tinygltf::Model& model, std::vector<GltfImp
                 model.materials[primitive.material].normalTexture.index >= 0 &&
                 !primitive.attributes.contains("TANGENT"))
             {
-                warning("MissingTangents", location, "PT ignores the normal map without tangents; GBuffer uses a fallback frame.");
+                warning("MissingTangents", location, "Native PT generates missing UV tangents when normals and TEXCOORD_0 are valid; GBuffer retains its fallback frame.");
             }
             if (primitive.material >= 0 && primitive.material < static_cast<int>(model.materials.size()) &&
                 !primitive.attributes.contains("TEXCOORD_0"))

@@ -461,7 +461,8 @@ auto RtPbrSurveyEngine::MakePathTracingPass() -> RenderPass
 {
     Engine::ResourceUsages reads = {
         {kSceneTlasResourceName, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE},
-        {kSceneVertexBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
+        {m_pathTracingVertexBuffer ? kPathTracingVertexBufferResourceName : kSceneVertexBufferResourceName,
+         D3D12_RESOURCE_STATE_GENERIC_READ},
         {kSceneInstanceBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
         {kSceneMeshRangeBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
         {kSceneCameraConstantsResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
@@ -470,7 +471,8 @@ auto RtPbrSurveyEngine::MakePathTracingPass() -> RenderPass
     };
     if (m_usesIndexedDraw)
     {
-        reads.push_back({kSceneIndexBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
+        reads.push_back({m_pathTracingIndexBuffer ? kPathTracingIndexBufferResourceName : kSceneIndexBufferResourceName,
+                         D3D12_RESOURCE_STATE_GENERIC_READ});
     }
 
     return m_renderGraphRuntime.Authoring()

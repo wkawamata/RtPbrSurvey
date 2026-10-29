@@ -234,6 +234,7 @@
     <ClInclude Include="Scene\SceneBuilder.h" />
     <ClInclude Include="Scene\SceneFactory.h" />
     <ClInclude Include="Scene\Scene.h" />
+    <ClInclude Include="Scene\PathTracingTangents.h" />
     <ClInclude Include="Scene\CameraProjection.h" />
     <ClInclude Include="Scene\CameraView.h" />
     <ClInclude Include="Scene\SceneDocument.h" />
@@ -370,6 +371,13 @@
     <ClCompile Include="Scene\SceneGraph.cpp" />
     <ClCompile Include="Scene\ProceduralSceneBuilder.cpp" />
     <ClCompile Include="Scene\SceneBuilder.cpp" />
+    <ClCompile Include="Scene\PathTracingTangents.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="third_party\mikktspace\mikktspace.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsCpp</CompileAs>
+    </ClCompile>
     <ClCompile Include="Scene\EmissiveTriangleTable.cpp" />
     <ClInclude Include="Scene\EmissiveTriangleTable.h" />
     <ClCompile Include="Scene\SceneFactory.cpp" />

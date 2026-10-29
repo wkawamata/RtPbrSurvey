@@ -3,7 +3,7 @@
   "sceneId": "pt-helmet-reflection",
   "name": "PT Helmet Reflection",
   "renderPreset": "render-preset.json",
-  "description": "目的: DamagedHelmetの不透明PBR材質と映り込みをNative PTで観察する。\n条件: RR/NRDなし、直接光と発光なし、上下半球に明るさのある環境、4バウンス。\n確認: バイザー付近の反射、金属の粗さ、表面の細かな法線。蓄積が進んでから評価する。\n既知課題: 原版glTFはnormalTextureを持つがTANGENTがない。現在のPTはこの場合normalTextureを無視する。ガラス・透過材質ではない。\n自動比較: Tests/PathTracing/inspect_helmet_reflections.py。Hybridは変更しない。",
+  "description": "目的: DamagedHelmetの不透明PBR材質と映り込みをNative PTで観察する。\n条件: RR/NRDなし、直接光と発光なし、上下半球に明るさのある環境、4バウンス。\n確認: バイザー付近の反射、金属の粗さ、表面の細かな法線。蓄積が進んでから評価する。\n材質: ガラス・透過材質ではない。原版glTFにないTANGENTはMikkTSpaceでPT専用に補完する。退化フレームは警告付きで元の法線を使う。\n自動比較: Tests/PathTracing/inspect_helmet_reflections.py。Hybridは変更しない。",
   "assets": [
     {"id": "helmet", "type": "gltf", "path": "../../../Models/DamagedHelmet/glTF/DamagedHelmet.gltf"}
   ],

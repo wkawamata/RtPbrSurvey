@@ -82,9 +82,13 @@ def main():
                if "uri" in x and not x["uri"].startswith("data:")]
     report = dict(schemaVersion=1, status="running", generatedUtc=datetime.now(timezone.utc).isoformat(),
                   testedCommit=subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
+                  workingTreeModified=bool(subprocess.check_output(
+                      ["git", "status", "--porcelain"], cwd=ROOT, text=True).strip()),
                   executableSha256=sha(args.exe), inputSha256={str(p.relative_to(ROOT)): sha(p) for p in inputs},
                   sourceSha256={p: sha(ROOT / p) for p in ("GltfLoader.cpp", "Shaders/SceneRayQuery.hlsli",
-                      "Shaders/shaders_PathTracing.hlsl")},
+                      "Shaders/shaders_PathTracing.hlsl", "Engine/RtPbrSurveyEngine.cpp",
+                      "Scene/SceneBuilder.cpp", "Scene/PathTracingTangents.cpp",
+                      "third_party/mikktspace/mikktspace.c", "third_party/mikktspace/mikktspace.h")},
                   expectedCases=[c[0] for c in CASES], samples=args.samples, records=[],
                   qualityAccepted=False, comparisonDomain="full-frame linear HDR, including background",
                   scope="Native PT diagnostic; not Hybrid or RR quality qualification",
