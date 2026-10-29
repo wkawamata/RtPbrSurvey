@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "pt-helmet-reflection",
+  "name": "PT Helmet Reflection",
+  "renderPreset": "render-preset.json",
+  "description": "目的: DamagedHelmetの不透明PBR材質と映り込みをNative PTで観察する。\n条件: RR/NRDなし、直接光と発光なし、上下半球に明るさのある環境、4バウンス。\n確認: バイザー付近の反射、金属の粗さ、表面の細かな法線。蓄積が進んでから評価する。\n既知課題: 原版glTFはnormalTextureを持つがTANGENTがない。現在のPTはこの場合normalTextureを無視する。ガラス・透過材質ではない。\n自動比較: Tests/PathTracing/inspect_helmet_reflections.py。Hybridは変更しない。",
+  "assets": [
+    {"id": "helmet", "type": "gltf", "path": "../../../Models/DamagedHelmet/glTF/DamagedHelmet.gltf"}
+  ],
+  "materials": [],
+  "nodes": [
+    {"id": "helmet", "name": "DamagedHelmet", "type": "gltf", "assetId": "helmet", "parentId": null,
+     "translation": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1], "visible": true}
+  ],
+  "camera": {"position": [0, 0, -3.7], "target": [0, 0, 0], "up": [0, 1, 0], "projection": "perspective",
+             "verticalFovDegrees": 40, "orthographicHeight": 10, "nearZ": 0.1, "farZ": 1000},
+  "environment": {"source": "procedural", "iblEnabled": true, "skyColor": [0.6, 0.7, 0.9],
+                  "groundColor": [0.25, 0.25, 0.25], "lightColor": [1, 0.95, 0.85],
+                  "lightDirection": [-0.4, 0.7, -0.6], "backgroundIntensity": 1,
+                  "lightIntensity": 4, "lightSize": 0.08, "fillIntensity": 0,
+                  "colorPanelIntensity": 0, "horizonSharpness": 0.08}
+}
