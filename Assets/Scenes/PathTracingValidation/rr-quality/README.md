@@ -33,3 +33,19 @@ for this scene at the initial 1 spp, 4 bounce, Pixel Center ON, continuous RR pr
 The preview also reached verified native RR output with no captured D3D12 errors.
 This acceptance does not cover the separate 4 spp/frame-jitter profile or resolve
 the previously reported dark edge artifacts in the old three-sphere fixture.
+
+## Step 1 profiles (2026-10-29)
+
+- `render-preset-4spp-center.json`: 4 spp with fixed pixel-center primary.
+- `render-preset-4spp-jitter.json`: 4 spp with RR frame-wide jitter.
+
+Pass either file with `-RenderPreset` alongside the scene and RR flags above.
+Keep 4 bounces, accumulation and continuous RR enabled in both profiles.
+Check helmet scratches, thin bars, silhouettes and colored reflections while
+stationary, moving slowly and stopping. Record each profile independently.
+Automated rendering checks do not substitute for user visual acceptance.
+
+Automated checks on 2026-10-29 passed for both 4 spp profiles at 1280x720:
+continuous verified RR presentation, more than 10 completed outputs, and no
+captured D3D12 ERROR/CORRUPTION messages. User visual acceptance is pending.
+Local evidence: `build/reconstruction-input-validation/user-test-rr/step1-20261029/report.json`.
