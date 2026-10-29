@@ -59,3 +59,15 @@ also passed stationary inspection and slow camera movement/stop, with no reporte
 thin-edge/detail instability or reflection/silhouette trails. Step 1 is complete
 for this scene: both 4 spp center and 4 spp jitter profiles passed user inspection.
 Native-reference comparison and the remaining evaluation steps are still pending.
+
+## Step 2: same-pose Native reference comparison (2026-10-29)
+
+Use the saved scene camera, lights and 1280x720 output for both images.
+Native reference: 256 accumulated samples, pixel center, 4 bounces.
+RR: 4 spp, pixel center, 4 bounces, continuous evaluation, capture after 160 loops.
+This compares appearance against a settled reference, not equal sample count or equal time.
+Inspect dark silhouette halos, helmet scratches, thin-bar coverage, contact shadows,
+and colored reflections. A stable but blurred image is not automatically a pass.
+The old three-sphere edge issue is a separate unresolved case.
+Local captures/logs: `build/reconstruction-input-validation/user-test-rr/step2-20261029/`.
+User acceptance is pending.
