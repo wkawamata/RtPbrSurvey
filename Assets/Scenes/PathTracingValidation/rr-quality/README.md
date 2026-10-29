@@ -53,3 +53,9 @@ Local evidence: `build/reconstruction-input-validation/user-test-rr/step1-202610
 User acceptance on 2026-10-29: 4 spp, Pixel Center ON passed both stationary
 inspection (helmet detail and thin bars) and slow camera movement/stop
 (silhouettes and sphere reflections). Frame-jitter visual acceptance remains pending.
+
+User acceptance on 2026-10-29: 4 spp, Pixel Center OFF (frame-wide RR jitter)
+also passed stationary inspection and slow camera movement/stop, with no reported
+thin-edge/detail instability or reflection/silhouette trails. Step 1 is complete
+for this scene: both 4 spp center and 4 spp jitter profiles passed user inspection.
+Native-reference comparison and the remaining evaluation steps are still pending.
