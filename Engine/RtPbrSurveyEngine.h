@@ -423,6 +423,7 @@ public:
     void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
     const RtPbrSurvey::RendererCpuTiming& CpuFrameTiming() const { return m_cpuFrameTimer.Completed(); }
     void SetVSyncEnabled(bool enabled) { m_vSyncEnabled = enabled; }
+    bool VSyncEnabled() const { return m_vSyncEnabled; }
     void Shutdown();
     void SetScene(const Scene& scene);
     void SetCamera(const CameraState& camera);
