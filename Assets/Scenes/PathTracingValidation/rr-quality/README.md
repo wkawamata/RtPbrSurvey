@@ -49,3 +49,7 @@ Automated checks on 2026-10-29 passed for both 4 spp profiles at 1280x720:
 continuous verified RR presentation, more than 10 completed outputs, and no
 captured D3D12 ERROR/CORRUPTION messages. User visual acceptance is pending.
 Local evidence: `build/reconstruction-input-validation/user-test-rr/step1-20261029/report.json`.
+
+User acceptance on 2026-10-29: 4 spp, Pixel Center ON passed both stationary
+inspection (helmet detail and thin bars) and slow camera movement/stop
+(silhouettes and sphere reflections). Frame-jitter visual acceptance remains pending.
