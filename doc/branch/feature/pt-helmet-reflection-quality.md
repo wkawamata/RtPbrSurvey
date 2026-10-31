@@ -210,3 +210,164 @@ exists in the denoiser sampling helper. It is not a mismatched-PDF finding and i
 not yet established as the cause of the user's impression. Qualify its influence
 with a high-contrast reflection target before changing the floor or adding a
 near-delta path; do not trade numerical stability for a sharper screenshot.
+
+## Near-Mirror Floor Diagnostic (2026-10-30)
+
+`Tests/PathTracing/validate_near_mirror.py` adds a generated reflection target:
+a flat metallic mirror at renderer Z=0 and a 0.04m-wide, unit-radiance emissive
+stripe at Z=-6, behind the camera at Z=-5. The stripe is visible only through
+reflection. The final fixture's 6x4m mirror covers all primary rays; the clear
+color is black. There are no normal maps, textures, direct lights, IBL, RR or
+NRD. Native PT uses two bounces, pixel-center primary rays, BSDF-only emissive
+sampling, seed 7, 640x360 and 256 accumulated samples per case.
+
+Cases: roughness 0, 0.00746155 (helmet ROI median), 0.03, 0.06 and 0.15.
+The diagnostic requires exact full-array equality of the first three captures
+under the current floor, nonempty reflection and distinct above-floor controls.
+It rejects missing cases, nonfinite/negative/out-of-range radiance and runtime
+or D3D12 failures. Runtime settings and captured resource metadata are verified;
+input, source, executable, log and capture SHA256 hashes are retained. Outputs
+are ignored artifacts, not assets to commit. It is a reproduction contract for
+the current implementation, not a desired permanent material behavior.
+
+The analytic reference uses the GGX NDF half-vector distribution at normal
+incidence: P(tan(theta_h)<=t)=t^2/(alpha^2+t^2), with reflected angle 2*theta_h.
+For the helmet median, alpha=r^2=0.0000556767, versus the current 0.001 floor.
+The median reflected angular deviation is approximately 0.00638 degrees without
+the floor and 0.11459 degrees with it (about 18x). This is an unconditioned
+NDF-sampling reference, not an image-space blur ratio or a radiance-profile
+prediction: Fresnel/Smith weighting, invalid reflection directions, pixel
+footprint and finite target geometry must be considered separately.
+
+The initial pilot is retained as failed evidence at
+`bin/PathTracingValidation/near-mirror-floor-20261030/report.json`.
+Its smaller mirror exposed primary silhouettes and blue background; zero versus
+helmet-median differed at one edge pixel in G/B (maximum 0.00156212), while
+helmet-median and 0.03 were exactly equal. The cause of that edge discrepancy
+was not established. The final fixture removes this confound rather than
+relaxing equality tolerances or presenting the pilot as passed.
+
+Final evidence:
+`bin/PathTracingValidation/near-mirror-floor-fullframe-20261030/report.json`.
+All five expected captures completed at 256 spp, with native output and no
+captured D3D12 errors/corruption. Current source/input hashes match the report.
+The first three full HDR arrays are exactly equal, including alpha.
+
+| Roughness | Profile peak | Profile row sum | RMS width (pixels) |
+| --- | ---: | ---: | ---: |
+| 0 | 0.647384 | 1.949660 | 1.758908 |
+| 0.00746155 | 0.647384 | 1.949660 | 1.758908 |
+| 0.03 | 0.647384 | 1.949660 | 1.758908 |
+| 0.06 | 0.324945 | 1.958670 | 5.598787 |
+| 0.15 | 0.059902 | 1.943000 | 26.060267 |
+
+Profiles average RGB over rows [120,240), across all 640 columns. RMS width is
+the second moment about the fixed image center, so finite-sample tail events
+affect it; it is not FWHM. Row sums are descriptive, not an energy acceptance
+test or convergence proof. Three Python unit tests passed, including invalid
+quantiles, missing/nonfinite/out-of-range data and failure to reproduce the
+plateau/roughness controls. No new C++ build was needed for this test-only unit.
+
+Conclusion: this fixture confirms loss of material roughness distinctions below
+the current floor. It does not establish that the helmet reflection complaint
+is solely caused by that floor. Work unit 4 remains partial: robust low-alpha
+sampling/evaluation and physical-energy qualification are still outstanding.
+
+Run with a fresh output directory (numpy and Pillow are required):
+
+```powershell
+python Tests/PathTracing/validate_near_mirror.py --output bin/PathTracingValidation/near-mirror-new-run
+python -m unittest discover -s Tests/PathTracing -p test_near_mirror.py -v
+```
+
+The generated case folders contain editable scene.json/render-preset.json and
+target.gltf files. Open one through Scene Editor for manual inspection if needed.
+The linear.png files use a fixed [0,1] display scale without per-case normalization.
+
+No roughness floor, BSDF, Hybrid or denoiser code is changed by this diagnostic.
+Lowering alpha alone is not an accepted fix: near-normal float32 half-vector
+sampling/evaluation loses angular precision, and true delta handling must also
+preserve mixture PDFs and NEE/MIS bookkeeping. Numerical stability and energy
+checks must precede a production change. The helmet's environment content and
+final subjective reflection quality remain separate, unresolved qualifications.
+
+## GGX Numerical Foundation (2026-10-31)
+
+This is a deliberately separate implementation unit before lowering the alpha
+floor or introducing a delta event. The production alpha floor remains 0.001,
+and the denoiser VNDF helper is unchanged. Hybrid shading/IBL is not modified.
+
+`PathTracingSampling.hlsli` now constructs NDF half-vectors by normalizing
+`(alpha*sqrt(u)*cos(phi), alpha*sqrt(u)*sin(phi), sqrt(1-u))`, rather than
+recovering a tiny sine from `sqrt(1-cosTheta*cosTheta)`. Azimuth is represented
+in [-pi,pi), and precise intermediates prevent reassociation of the small height
+residual. GGX evaluation and reflection PDF both obtain the distribution's
+sin-squared term from `dot(cross(n,h),cross(n,h))`, avoiding loss through a
+rounded `dot(n,h)` near one. The scalar-cosine overload remains for existing
+direct formula tests, not the production BRDF/PDF path.
+
+The new `Tests/shaders_GgxPrecision.hlsl` and `--ggx-precision` mode of the
+existing D3D12 GPU test runner evaluate 28,672 samples: seven alpha values
+(1e-6, 1e-5, 0.0000556767, 0.001, 0.01, 0.1, 1), four normal orientations,
+and 1,024 stratified samples including 0 and 0.99999 endpoints. A double CPU
+slope-angle reference checks half-vectors; axis-frame angular magnitude checks
+specifically reject near-normal offset collapse. Distribution values are checked
+against double evaluation of the returned quantized vectors. Independent
+Fresnel/Smith cancellation checks the production BSDF weights, and a smooth
+metal normal-incidence furnace check uses F0=0.8 with absolute tolerance 0.002.
+
+Important scope: raw NDF direction/distribution probes can use alpha below the
+production floor, but production BSDF weights still use the unchanged floor.
+These tests are normal-incidence, not grazing-view, mixed dielectric, NEE/MIS,
+or full low-alpha energy certification. Rotated world-space vectors near alpha
+1e-6 remain ill-conditioned: D relative tolerances are 0.1% in axis frames,
+2% for rotated alpha>=1e-5, and 12% for the rotated alpha=1e-6 diagnostic probe.
+Those limits were specified before the first GPU run; this is not grounds to
+enable alpha=1e-6 generally.
+
+The first strict WARP test failed at alpha=0.01 / sample=0.99999 with half-vector
+error about 2.18e-6. The real GPU passed the original 1e-6 bound. Inspection
+isolated an azimuth component discrepancy consistent with WARP sin/cos precision;
+neither precise intermediates nor angle wrapping alone removed that discrepancy.
+The WARP-only direction bound was subsequently corrected to
+`1e-6 + 0.0025*sin(theta_h)`, based on the documented Direct3D sin/cos absolute
+error guarantee of 0.0008, rather than float-ULP accuracy. Hardware retains the
+original 1e-6 bound. Unit-length, radial angular-offset, D/PDF and weight checks
+were not relaxed. This contract correction is distinct from a renderer fix.
+
+References consulted: [pbrt microfacet theory](https://www.pbr-book.org/4ed/Reflection_Models/Roughness_Using_Microfacet_Theory)
+for distribution/visible-normal context and the warning about very smooth
+numerical cases; [Microsoft sincos precision](https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/sincos--sm4---asm-)
+for the software test's trigonometric error contract. This project retains its
+own roughness-to-alpha mapping; pbrt's material parameter mapping was not copied.
+
+Final validation evidence is under `bin/PathTracingValidation/ggx-stability-20261031/`:
+
+- `hardware.log`: 28,672 samples, maximum half-vector error 1.91130e-7,
+  maximum relative D error 0.0362727 (including the rotated alpha=1e-6 probe),
+  current-floor furnace/weights passed; no D3D12 errors.
+- `warp.log`: 28,672 samples, maximum half-vector error 2.29178e-6,
+  maximum relative D error 0.0728729; same D/PDF/weight checks passed and
+  the documented software trig contract passed; no D3D12 errors.
+- `ctest.log`: 54/54 passed, including existing thin-transmission, volume,
+  RR/NRD conversion and sampling contracts and the new GGX test.
+- CMake Debug x64 final build: exit 0, zero warnings/errors, task
+  `pt-ggx-stability-cmake-final-20261031` under the external agents directory.
+- Normal vcxproj Debug x64 final build: exit 0, one existing MSB4011 warning,
+  task `pt-ggx-stability-msbuild-final-20261031`.
+
+`evidence.json` indexes the final source, test executable/CSO, application CSO
+and raw log hashes; it is an evidence index, not an independent pass aggregator.
+Image rerun: `bin/PathTracingValidation/near-mirror-stable-math-20261031/report.json`.
+All five cases / 256 spp completed with no D3D12 errors/corruption; the three
+below-floor images are still exactly equal. Profile RMS widths are 1.777437,
+5.544276 and 26.060178 pixels for the below-floor plateau, 0.06 and 0.15 controls.
+The old and new arithmetic need not produce bit-identical fixed-seed images;
+this single-seed profile is not an independent energy-bias/convergence proof.
+The diagnostic runner's three Python unit tests also passed. No user subjective
+approval of the corrected helmet or the new sampling arithmetic is claimed.
+
+No full Volume image suite or live RR/NRD quality/performance requalification is
+claimed by CTest. Next, qualify grazing views and mixed-lobe/PDF/MIS energy
+before changing the production floor; retain the exact-floor reflection fixture
+as a baseline reproduction test, not as the desired final material response.

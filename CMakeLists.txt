@@ -555,6 +555,15 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_compile_definitions(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE NOMINMAX)
     add_test(NAME RtPbrSurvey.PathTracingDenoiserSampling
         COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${denoiser_sampling_shader}")
+    set(ggx_precision_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_GgxPrecision_CSMain.cso")
+    add_custom_command(OUTPUT "${ggx_precision_shader}"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${ggx_precision_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_GgxPrecision.hlsl"
+        DEPENDS Tests/shaders_GgxPrecision.hlsl Shaders/PathTracingSampling.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${ggx_precision_shader}")
+    add_test(NAME RtPbrSurvey.PathTracingGgxPrecision
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${ggx_precision_shader}" --ggx-precision)
     set(rr_conversion_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrInputConversion_CSMain.cso")
     set(rr_texture_conversion_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_PathTracingRrConversion_CSMain.cso")
     set(rr_live_distance_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrLiveDistance_CSMain.cso")

@@ -102,6 +102,100 @@ bool Near(double actual, double expected, double absolute = 0.0002, double relat
     return std::isfinite(actual) && std::abs(actual - expected) <= absolute + relative * std::abs(expected);
 }
 
+void ValidateGgxPrecision(const float* values, bool hardware)
+{
+    constexpr float alphas[] = {0.000001f, 0.00001f, 0.0000556767f, 0.001f, 0.01f, 0.1f, 1.0f};
+    double maximumHalfError = 0.0;
+    double maximumDistributionError = 0.0;
+    double energy[28] = {};
+    for (unsigned int index = 0; index < kSampleCount; ++index)
+    {
+        const float* value = values + index * 16;
+        for (unsigned int channel = 0; channel < 16; ++channel)
+        {
+            if (!std::isfinite(value[channel]))
+                throw std::runtime_error("Non-finite GGX precision output");
+        }
+        const unsigned int caseIndex = index / kSamplesPerCase;
+        const unsigned int localIndex = index % kSamplesPerCase;
+        const double alpha = alphas[caseIndex / 4];
+        const double u = localIndex == 0 ? 0.0 : localIndex == 1023 ? double(0.99999f) : (localIndex % 32 + 0.5) / 32.0;
+        const double v = localIndex == 0 ? 0.0 : localIndex == 1023 ? double(0.99999f) : (localIndex / 32 + 0.5) / 32.0;
+        const Vector normal = {value[12], value[13], value[14]};
+        const Vector normals[] = {{0, 0, 1}, {1, 0, 0}, {0, 1, 0}, {double(0.36f), double(0.48f), double(0.8f)}};
+        const Vector normalDelta = normal + Normalize(normals[caseIndex % 4]) * -1;
+        if (std::sqrt(Dot(normalDelta, normalDelta)) > 0.000001)
+            throw std::runtime_error("GGX test normal mismatch");
+        const Vector helper = std::abs(normal.y) < 0.999 ? Vector{0, 1, 0} : Vector{1, 0, 0};
+        const Vector tangent = Normalize(Cross(helper, normal));
+        const Vector bitangent = Cross(normal, tangent);
+        const double theta = std::atan(alpha * std::sqrt(v / (1.0 - v)));
+        const Vector expectedHalf =
+            Normalize(tangent * (std::cos(2 * kPi * u) * std::sin(theta)) +
+                      bitangent * (std::sin(2 * kPi * u) * std::sin(theta)) + normal * std::cos(theta));
+        const Vector half = {value[0], value[1], value[2]};
+        const double halfError = std::sqrt(Dot(half + expectedHalf * -1, half + expectedHalf * -1));
+        maximumHalfError = std::max(maximumHalfError, halfError);
+        // D3D sin/cos guarantees absolute error 0.0008, not float ULP accuracy.
+        // Keep hardware qualification strict; WARP uses the documented trig bound.
+        const double halfErrorLimit = hardware ? 0.000001 : 0.000001 + 0.0025 * std::sin(theta);
+        if (halfError > halfErrorLimit || !Near(Dot(half, half), 1.0, 0.000001, 0))
+        {
+            std::cerr << "half actual=" << half.x << ',' << half.y << ',' << half.z << " expected=" << expectedHalf.x
+                      << ',' << expectedHalf.y << ',' << expectedHalf.z << '\n';
+            throw std::runtime_error(
+                "GGX half-vector disagrees with double slope reference: case=" + std::to_string(caseIndex) +
+                " sample=" + std::to_string(localIndex) + " error=" + std::to_string(halfError));
+        }
+        const Vector sine = Cross(normal, half);
+        if (caseIndex % 4 != 3 && !Near(std::sqrt(Dot(sine, sine)), std::sin(theta), 0.0000000001, 0.001))
+            throw std::runtime_error("GGX sample lost its near-normal angular offset");
+        const double cosine = std::clamp(Dot(normal, half), 0.0, 1.0);
+        const double denominator = Dot(sine, sine) + alpha * alpha * cosine * cosine;
+        const double expectedDistribution = alpha * alpha / (kPi * denominator * denominator);
+        // World-space float cross products become ill-conditioned near parallel.
+        // Axis frames remain strict; the rotated alpha=1e-6 probe is diagnostic.
+        const double relativeLimit = caseIndex % 4 != 3 ? 0.001 : alpha < 0.000005 ? 0.12 : 0.02;
+        const double distributionError = std::abs(value[3] / expectedDistribution - 1.0);
+        maximumDistributionError = std::max(maximumDistributionError, distributionError);
+        if (distributionError > relativeLimit || !Near(value[7], value[3] * 0.25, 0, 0.00001))
+            throw std::runtime_error("GGX distribution/PDF disagrees with double quantized-vector reference: case=" +
+                                     std::to_string(caseIndex) + " sample=" + std::to_string(localIndex) +
+                                     " relative error=" + std::to_string(distributionError));
+        const Vector reflected = half * (2 * Dot(normal, half)) + normal * -1;
+        const Vector actualDirection = {value[4], value[5], value[6]};
+        const Vector delta = actualDirection + reflected * -1;
+        if (std::sqrt(Dot(delta, delta)) > 0.000002)
+            throw std::runtime_error("GGX reflected direction mismatch");
+        const double clampedAlpha = std::max(alpha, 0.001);
+        const double cosTheta = 1.0 / std::sqrt(1.0 + clampedAlpha * clampedAlpha * v / (1.0 - v));
+        const double normalDotLight = 2 * cosTheta * cosTheta - 1;
+        const bool valid = normalDotLight > 0;
+        const double g1 =
+            valid ? 2 * normalDotLight /
+                        (normalDotLight + std::sqrt(clampedAlpha * clampedAlpha + (1 - clampedAlpha * clampedAlpha) *
+                                                                                      normalDotLight * normalDotLight))
+                  : 0;
+        const double fresnel = 0.8 + 0.2 * std::pow(1 - cosTheta, 5);
+        const double expectedWeight = fresnel * g1;
+        if ((value[15] != 0) != valid || (valid && value[11] <= 0))
+            throw std::runtime_error("GGX BSDF validity/PDF mismatch");
+        for (unsigned int channel = 8; channel < 11; ++channel)
+        {
+            if (!Near(value[channel], expectedWeight, 0.0001, 0.002))
+                throw std::runtime_error("GGX BSDF weight disagrees with independent Fresnel/Smith cancellation");
+        }
+        energy[caseIndex] += value[8] / kSamplesPerCase;
+    }
+    for (unsigned int index = 0; index < 16; ++index)
+    {
+        if (std::abs(energy[index] - 0.8) > 0.002)
+            throw std::runtime_error("Current-floor smooth-metal furnace energy mismatch");
+    }
+    std::cout << "GGX precision: " << kSampleCount << " samples; max half error=" << maximumHalfError
+              << "; max relative D error=" << maximumDistributionError << "; current-floor energy checked.\n";
+}
+
 void Validate(const float* values)
 {
     constexpr double roughnesses[] = {0.0, 0.1, 0.35, 0.7, 1.0};
@@ -614,6 +708,7 @@ int main(int argc, char** argv)
         bool thinMetallic = false;
         bool alphaMask = false;
         bool volumeTransmission = false;
+        bool ggxPrecision = false;
         const char* inputPath = nullptr;
         const char* outputPath = nullptr;
         for (int index = 2; index < argc; ++index)
@@ -646,6 +741,10 @@ int main(int argc, char** argv)
             {
                 volumeTransmission = true;
             }
+            else if (std::strcmp(argv[index], "--ggx-precision") == 0)
+            {
+                ggxPrecision = true;
+            }
             else if (std::strcmp(argv[index], "--material-factors") == 0)
             {
                 materialFactors = true;
@@ -676,7 +775,7 @@ int main(int argc, char** argv)
             }
         }
         if (int(packing) + int(materialFactors) + int(inputConversion) + int(rrInputConversion) + int(rrLiveDistance) +
-                int(thinTransmission) + int(roughThinTransmission) + int(thinMetallic) + int(alphaMask) + int(volumeTransmission) >
+                int(thinTransmission) + int(roughThinTransmission) + int(thinMetallic) + int(alphaMask) + int(volumeTransmission) + int(ggxPrecision) >
             1)
             throw std::runtime_error("Shader validation modes are mutually exclusive");
         if ((inputPath != nullptr) != (outputPath != nullptr) || (inputPath && !inputConversion))
@@ -809,6 +908,10 @@ int main(int argc, char** argv)
             outputFile.write(static_cast<const char*>(data), byteCount);
             if (!outputFile)
                 throw std::runtime_error("Could not write converted output");
+        }
+        else if (ggxPrecision)
+        {
+            ValidateGgxPrecision(static_cast<const float*>(data), hardware);
         }
         else if (volumeTransmission)
         {
