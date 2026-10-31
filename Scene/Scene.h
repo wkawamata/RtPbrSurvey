@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <vector>
+#include "../Shared/VolumeAbsorptionParameters.h"
 
 namespace Engine
 {
@@ -99,6 +100,19 @@ struct SceneMaterial
     float normalTextureScale = 1.0f;
     DirectX::XMFLOAT2 uvScale = {1.0f, 1.0f};
     DirectX::XMFLOAT2 uvOffset = {0.0f, 0.0f};
+    bool unlit = false;
+    bool thinTransmission = false;
+    bool volumeTransmission = false;
+    bool importedVolumeTransmission = false;
+    VolumeAbsorptionParameters volumeAbsorption;
+    float transmissionFactor = 0.0f;
+    DirectX::XMFLOAT3 transmissionTint = {1.0f, 1.0f, 1.0f};
+    float transmissionIor = 1.5f;
+    int transmissionTexIndex = -1;
+    int transmissionTintTexIndex = -1;
+    bool alphaMask = false;
+    bool doubleSided = false;
+    float alphaCutoff = 0.5f;
 };
 
 struct SceneMesh
@@ -113,6 +127,8 @@ struct SceneMesh
 
     std::vector<SceneVertex> vertices;
     std::vector<uint32_t> indices;
+    // Optional PT-only frames aligned with index slots; zero means no override.
+    std::vector<DirectX::XMFLOAT4> pathTracingCornerTangents;
     std::vector<Range> ranges;
     std::vector<SceneMaterial> materials;
     int materialIndex = 0;

@@ -1,0 +1,236 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "thin-layers",
+  "name": "PT Thin Transmission layers",
+  "renderPreset": "render-preset.json",
+  "description": "目的: 色付き薄膜の重なりと、間の不透明物による遮蔽を確認する。\n構成: 手前は赤系、奥は青系の板。IOR=1で反射を止め、色の乗算を見やすくしている。板の間に灰色のCubeがある。\n確認: 重なりでは色が掛け合わされる。Cubeの背後にある板や模様はCubeを透過しない。カメラと板を動かして遮蔽が更新される。IOR=1.5へ変更すると反射が加わる。\n制約: 光源から床へ色が投影されるテストではない。2枚と背景までの経路に十分な8バウンスを設定。",
+  "assets": [
+    {
+      "id": "background",
+      "type": "gltf",
+      "path": "../17-thin-transmission-baseline/background.gltf"
+    }
+  ],
+  "materials": [
+    {
+      "id": "Near Red",
+      "name": "Near Red",
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.1,
+      "transmission": {
+        "mode": "thin",
+        "factor": 1,
+        "tint": [
+          1,
+          0.5,
+          0.5
+        ],
+        "ior": 1
+      }
+    },
+    {
+      "id": "Far Blue",
+      "name": "Far Blue",
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.1,
+      "transmission": {
+        "mode": "thin",
+        "factor": 1,
+        "tint": [
+          0.5,
+          0.5,
+          1
+        ],
+        "ior": 1
+      }
+    },
+    {
+      "id": "Blocker",
+      "name": "Blocker",
+      "baseColor": [
+        0.18,
+        0.18,
+        0.18,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.7
+    }
+  ],
+  "nodes": [
+    {
+      "id": "Background Pattern",
+      "name": "Background Pattern",
+      "parentId": null,
+      "type": "gltf",
+      "translation": [
+        0,
+        0,
+        3
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "assetId": "background"
+    },
+    {
+      "id": "Near Pane",
+      "name": "Near Pane",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -0.55,
+        0,
+        0
+      ],
+      "rotation": [
+        -0.7071067811865476,
+        0,
+        0,
+        0.7071067811865476
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "materialId": "Near Red",
+      "primitive": {
+        "kind": "plane",
+        "width": 4,
+        "depth": 3.2
+      }
+    },
+    {
+      "id": "Far Pane",
+      "name": "Far Pane",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0.55,
+        0,
+        1
+      ],
+      "rotation": [
+        -0.7071067811865476,
+        0,
+        0,
+        0.7071067811865476
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "materialId": "Far Blue",
+      "primitive": {
+        "kind": "plane",
+        "width": 4,
+        "depth": 3.2
+      }
+    },
+    {
+      "id": "Opaque Blocker",
+      "name": "Opaque Blocker",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        -0.65,
+        0.5
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.55,
+        1.1,
+        0.35
+      ],
+      "visible": true,
+      "materialId": "Blocker",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      }
+    }
+  ],
+  "camera": {
+    "position": [
+      0,
+      0,
+      -10
+    ],
+    "target": [
+      0,
+      0,
+      1
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 40,
+    "orthographicHeight": 10,
+    "nearZ": 0.1,
+    "farZ": 1000
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      1,
+      1
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "nrd-stable-radiance",
+  "name": "PT NRD Stable Radiance",
+  "description": "目的: 左の発光材質、中央のUnlit、右の通常材質、背景を同時に表示し、NRD合成時の欠落・二重加算・色漏れを確認する。\n確認: 中央の青いUnlitは照明や発光成分の影響を受けず、Nativeと同じ色を保つ。左の発光色と背景色がNRD ONでも保たれる。右の材質ではNRDが動作する。\n限界: 固定カメラの入力・合成契約検証。一般的な画質や移動時の安定性の合格を意味しない。",
+  "renderPreset": "render-preset.json",
+  "assets": [{"id": "panels", "type": "gltf", "path": "panels.gltf"}],
+  "materials": [],
+  "nodes": [{"id": "panels", "name": "Stable radiance panels", "type": "gltf", "assetId": "panels", "parentId": null, "translation": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1], "visible": true}],
+  "camera": {"position": [0, 0, -6], "target": [0, 0, 0], "up": [0, 1, 0], "projection": "perspective", "verticalFovDegrees": 55, "orthographicHeight": 10, "nearZ": 0.1, "farZ": 1000},
+  "environment": {"source": "procedural", "iblEnabled": true, "skyColor": [1, 1, 1], "groundColor": [1, 1, 1], "lightColor": [1, 1, 1], "lightDirection": [0.35, 0.75, 0.25], "backgroundIntensity": 1, "lightIntensity": 0, "lightSize": 0.12, "fillIntensity": 0, "colorPanelIntensity": 0, "horizonSharpness": 0.08}
+}

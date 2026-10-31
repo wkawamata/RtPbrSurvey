@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "App/SceneEditorUi.h"
+#include "App/SavedSceneFiles.h"
 
 #include "App/RtPbrSurveyApp.h"
 #include "Ui/DirectLightUi.h"
@@ -17,42 +18,11 @@
 #include <cfloat>
 #include <filesystem>
 #include <vector>
+#include <cmath>
+#include <limits>
 
 namespace
 {
-std::vector<std::filesystem::path> FindSceneEditorSceneFiles()
-{
-    const std::filesystem::path assetsRoot = std::filesystem::current_path() / "Assets";
-    const std::filesystem::path sceneRoots[] = {
-        assetsRoot / "Scenes", assetsRoot / "Scene" / "PathTracingValidation"};
-    std::vector<std::filesystem::path> sceneFiles;
-    for (const std::filesystem::path& sceneRoot : sceneRoots)
-    {
-        std::error_code error;
-        if (!std::filesystem::is_directory(sceneRoot, error))
-        {
-            continue;
-        }
-        for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(sceneRoot, error))
-        {
-            if (error)
-            {
-                break;
-            }
-            if (!entry.is_directory(error))
-            {
-                continue;
-            }
-            const std::filesystem::path scenePath = entry.path() / "scene.json";
-            if (std::filesystem::is_regular_file(scenePath, error))
-            {
-                sceneFiles.push_back(scenePath);
-            }
-        }
-    }
-    std::sort(sceneFiles.begin(), sceneFiles.end());
-    return sceneFiles;
-}
 bool SceneActionButton(const char* label, bool needsAction)
 {
     if (needsAction)
@@ -73,7 +43,7 @@ namespace App
 
 void DrawSceneEditorStartUi(RtPbrSurveyApp& app)
 {
-    static std::vector<std::filesystem::path> sceneFiles = FindSceneEditorSceneFiles();
+    static std::vector<std::filesystem::path> sceneFiles = FindSavedSceneFiles(std::filesystem::current_path() / "Assets");
     ImGui::SetNextWindowSize(ImVec2(480.0f, 250.0f), ImGuiCond_FirstUseEver);
     ImGui::Begin("Scene Editor");
     ImGui::TextUnformatted("Create or load a test scene document.");
@@ -88,7 +58,7 @@ void DrawSceneEditorStartUi(RtPbrSurveyApp& app)
     ImGui::Dummy(ImVec2(0.0f, 8.0f));
     if (ImGui::Button("Refresh Scene List"))
     {
-        sceneFiles = FindSceneEditorSceneFiles();
+        sceneFiles = FindSavedSceneFiles(std::filesystem::current_path() / "Assets");
     }
     if (ImGui::BeginListBox("Saved Scenes", ImVec2(-FLT_MIN, 80.0f)))
     {
@@ -174,7 +144,12 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     ImGui::TextDisabled(session.IsModified() ? "Modified" : "Saved");
     if (ImGui::CollapsingHeader("SubWindow"))
     {
-        ImGui::Checkbox("Transform Window", &app.m_sceneEditorShowTransformWindow);
+        if (ImGui::Checkbox("Transform Window", &app.m_sceneEditorShowTransformWindow) &&
+            app.m_sceneEditorShowTransformWindow)
+        {
+            ImGui::SetWindowCollapsed("###Transform", false);
+            ImGui::SetWindowFocus("###Transform");
+        }
     }
     ImGui::Separator();
 
@@ -696,15 +671,19 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                         editedMaterialName = editableMaterial->name;
                     }
                 }
+                const bool volumeMaterial = editableMaterial->transmission.mode == RtPbrSurvey::SceneTransmissionMode::Volume;
+                ImGui::BeginDisabled(volumeMaterial);
                 float baseColor[3] = {
                     editableMaterial->baseColor.x,
                     editableMaterial->baseColor.y,
                     editableMaterial->baseColor.z};
                 bool materialCommitted = false;
+                bool materialChanged = false;
                 if (ImGui::ColorEdit3("Base Color", baseColor))
                 {
                     session.BeginEdit();
                     editableMaterial->baseColor = {baseColor[0], baseColor[1], baseColor[2], 1.0f};
+                    materialChanged = true;
                 }
                 materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
                 float metallic = editableMaterial->metallic;
@@ -712,6 +691,7 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                 {
                     session.BeginEdit();
                     editableMaterial->metallic = metallic;
+                    materialChanged = true;
                 }
                 materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
                 float roughness = editableMaterial->roughness;
@@ -719,11 +699,100 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                 {
                     session.BeginEdit();
                     editableMaterial->roughness = roughness;
+                    materialChanged = true;
                 }
                 materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                ImGui::EndDisabled();
+                int transmissionMode = static_cast<int>(editableMaterial->transmission.mode);
+                if (editableMaterial->transmission.mode == RtPbrSurvey::SceneTransmissionMode::Volume)
+                {
+                    ImGui::TextUnformatted("Volume: experimental smooth boundary");
+                    float ior = editableMaterial->transmission.ior;
+                    if (ImGui::DragFloat("Volume IOR", &ior, 0.01f, 1.0f, 4.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp) &&
+                        std::isfinite(ior))
+                    {
+                        session.BeginEdit();
+                        editableMaterial->transmission.ior = std::clamp(ior, 1.0f, 4.0f);
+                        materialChanged = true;
+                    }
+                    materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                    auto& volume = editableMaterial->transmission.volume;
+                    float color[] = {volume.attenuationColor.x, volume.attenuationColor.y, volume.attenuationColor.z};
+                    if (ImGui::ColorEdit3("Absorption Color", color) &&
+                        std::all_of(std::begin(color), std::end(color), [](float value) { return std::isfinite(value); }))
+                    {
+                        session.BeginEdit();
+                        volume.attenuationColor = {std::clamp(color[0], 0.0f, 1.0f), std::clamp(color[1], 0.0f, 1.0f),
+                            std::clamp(color[2], 0.0f, 1.0f)};
+                        materialChanged = true;
+                    }
+                    materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                    bool infiniteDistance = std::isinf(volume.attenuationDistance);
+                    if (ImGui::Checkbox("Infinite Absorption Distance", &infiniteDistance))
+                    {
+                        session.BeginEdit();
+                        volume.attenuationDistance = infiniteDistance ? std::numeric_limits<float>::infinity() : 1.0f;
+                        materialChanged = true;
+                        materialCommitted = true;
+                    }
+                    if (!infiniteDistance)
+                    {
+                        float distance = volume.attenuationDistance;
+                        if (ImGui::DragFloat("Absorption Distance", &distance, 0.01f, 0.001f, FLT_MAX, "%.3f",
+                                ImGuiSliderFlags_AlwaysClamp) && std::isfinite(distance))
+                        {
+                            session.BeginEdit();
+                            volume.attenuationDistance = (std::max)(distance, 0.001f);
+                            materialChanged = true;
+                        }
+                        materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                    }
+                }
+                else if (ImGui::Combo("Transmission Mode", &transmissionMode, "Opaque\0Thin Transmission\0"))
+                {
+                    session.BeginEdit();
+                    editableMaterial->transmission.mode = static_cast<RtPbrSurvey::SceneTransmissionMode>(transmissionMode);
+                    materialChanged = true;
+                    materialCommitted = true;
+                }
+                if (editableMaterial->transmission.mode == RtPbrSurvey::SceneTransmissionMode::Thin)
+                {
+                    float rgba[] = {editableMaterial->transmission.tint.x, editableMaterial->transmission.tint.y,
+                                    editableMaterial->transmission.tint.z, 1.0f - editableMaterial->transmission.factor};
+                    if (ImGui::ColorEdit4("Transmission RGBA", rgba, ImGuiColorEditFlags_AlphaBar) &&
+                        std::all_of(std::begin(rgba), std::end(rgba), [](float value) { return std::isfinite(value); }))
+                    {
+                        session.BeginEdit();
+                        editableMaterial->transmission.tint = {std::clamp(rgba[0], 0.0f, 1.0f),
+                            std::clamp(rgba[1], 0.0f, 1.0f), std::clamp(rgba[2], 0.0f, 1.0f)};
+                        editableMaterial->transmission.factor = 1.0f - std::clamp(rgba[3], 0.0f, 1.0f);
+                        materialChanged = true;
+                    }
+                    materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                    if (ImGui::IsItemHovered())
+                    {
+                        ImGui::SetTooltip("RGB: transmission tint. A: opacity (0 = maximum transmission, 1 = opaque).");
+                    }
+                    float ior = editableMaterial->transmission.ior;
+                    if (ImGui::DragFloat("IOR", &ior, 0.01f, 1.0f, 10.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp) &&
+                        std::isfinite(ior))
+                    {
+                        session.BeginEdit();
+                        editableMaterial->transmission.ior = std::clamp(ior, 1.0f, 10.0f);
+                        materialChanged = true;
+                    }
+                    materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                    if (ImGui::IsItemHovered())
+                    {
+                        ImGui::SetTooltip("Thin sheet surface reflection only; no solid-volume refraction in this mode.");
+                    }
+                }
                 if (materialCommitted)
                 {
                     session.CommitEdit();
+                }
+                if (materialChanged || materialCommitted)
+                {
                     rebuildPreview();
                 }
             }
@@ -1136,6 +1205,65 @@ void DrawSceneEditorTransformUi(RtPbrSurveyApp& app)
         {
             session.CommitEdit();
             app.m_sceneEditorTransformEditPending = false;
+        }
+        if (app.m_sceneEditorShowTransformWindow)
+        {
+            ImGui::SetNextWindowSize(ImVec2(430.0f, 290.0f), ImGuiCond_FirstUseEver);
+            const ImGuiViewport* viewport = ImGui::GetMainViewport();
+            ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + (std::max)(0.0f, viewport->WorkSize.x - 450.0f),
+                                         viewport->WorkPos.y + 20.0f), ImGuiCond_FirstUseEver);
+            if (ImGui::Begin("Transform###Transform", &app.m_sceneEditorShowTransformWindow))
+            {
+                if (node == nullptr)
+                {
+                    ImGui::TextDisabled("Not Selected");
+                    ImGui::BeginDisabled();
+                    ImGui::Checkbox("Transform Gizumo", &app.m_sceneEditorTransformGizmoEnabled);
+                    ImGui::RadioButton("Move", &app.m_sceneEditorTransformTool, 0);
+                    ImGui::SameLine();
+                    ImGui::RadioButton("Rotate", &app.m_sceneEditorTransformTool, 1);
+                    ImGui::SameLine();
+                    ImGui::RadioButton("Scale", &app.m_sceneEditorTransformTool, 2);
+                    if (app.m_sceneEditorTransformTool == 0)
+                    {
+                        ImGui::DragFloat("Move Step", &app.m_sceneEditorTranslationStep, 0.01f, 0.01f, 100.0f, "%.2f");
+                    }
+                    else if (app.m_sceneEditorTransformTool == 1)
+                    {
+                        ImGui::DragFloat("Rotate Step", &app.m_sceneEditorRotationStepDegrees, 1.0f, 1.0f, 180.0f, "%.0f deg");
+                    }
+                    else
+                    {
+                        ImGui::DragFloat("Scale Step", &app.m_sceneEditorScaleStep, 0.01f, 0.01f, 100.0f, "%.2f");
+                    }
+                    const char* axisButtons[] = {"X-", "X+", "Y-", "Y+", "Z-", "Z+"};
+                    for (size_t index = 0; index < std::size(axisButtons); ++index)
+                    {
+                        if (index > 0)
+                        {
+                            ImGui::SameLine();
+                        }
+                        ImGui::Button(axisButtons[index]);
+                    }
+                    ImGui::Separator();
+                    float position[3] = {};
+                    float rotation[3] = {};
+                    float scale[3] = {1.0f, 1.0f, 1.0f};
+                    ImGui::InputFloat3("Position", position);
+                    ImGui::InputFloat3("Rotation XYZ", rotation, "%.3f deg");
+                    ImGui::InputFloat3("Scale", scale);
+                    ImGui::EndDisabled();
+                }
+                else if (!editAllowed)
+                {
+                    ImGui::TextWrapped("%s", editReason.c_str());
+                }
+                else
+                {
+                    ImGui::TextWrapped("%s", reinterpret_cast<const char*>(u8"\u30b7\u30fc\u30f3\u306e\u30d7\u30ec\u30d3\u30e5\u30fc\u3092\u6e96\u5099\u3057\u3066\u3044\u307e\u3059\u3002"));
+                }
+            }
+            ImGui::End();
         }
         return;
     }

@@ -83,6 +83,16 @@ SceneMesh ConvertToSceneMesh(const GltfMeshData& mesh)
         sceneMaterial.occlusionStrength = material.occlusionStrength;
         sceneMaterial.ambientOcclusionFactor = 1.0f;
         sceneMaterial.emissiveScale = 1.0f;
+        sceneMaterial.thinTransmission = material.thinTransmission;
+        sceneMaterial.transmissionFactor = material.transmissionFactor;
+        sceneMaterial.transmissionTint = {material.transmissionTint[0], material.transmissionTint[1],
+                                          material.transmissionTint[2]};
+        sceneMaterial.transmissionIor = material.transmissionIor;
+        sceneMaterial.transmissionTexIndex = material.transmissionTexIndex;
+        sceneMaterial.transmissionTintTexIndex = material.transmissionTintTexIndex;
+        sceneMaterial.alphaMask = material.alphaMask;
+        sceneMaterial.doubleSided = material.doubleSided;
+        sceneMaterial.alphaCutoff = material.alphaCutoff;
         sceneMesh.materials.push_back(std::move(sceneMaterial));
     }
 

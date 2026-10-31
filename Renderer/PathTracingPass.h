@@ -28,6 +28,12 @@ struct PathTracingPassDesc
     D3D12_GPU_DESCRIPTOR_HANDLE albedoUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE diffuseRadianceHitTUav = {};
     D3D12_GPU_DESCRIPTOR_HANDLE specularRadianceHitTUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE currentFrameRadianceUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE materialF0MetallicUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE stableRadianceUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE backgroundRadianceUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE secondaryRayDataUav = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE physicalSignalUavTable = {};
     D3D12_GPU_DESCRIPTOR_HANDLE environmentMapSrv = {};
     D3D12_GPU_VIRTUAL_ADDRESS emissiveTriangleSrv = 0;
     UINT emissiveTriangleCount = 0;
@@ -52,6 +58,12 @@ struct PathTracingPassDesc
     UINT shadowEnabled = 1;
     UINT russianRouletteEnabled = 0;
     UINT samplesPerFrame = 1;
+    bool pixelCenterPrimary = false;
+    bool denoiserDistanceDiagnostics = false;
+    bool thinTransmissionActive = false;
+    bool alphaMaskActive = false;
+    bool volumeTransmissionActive = false;
+    bool doubleSidedActive = false;
     UINT sampleStartIndex = 0;
     UINT randomSeed = 1;
     float previousSampleCount = 0.0f;

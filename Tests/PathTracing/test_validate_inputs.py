@@ -10,6 +10,24 @@ import validate_inputs
 
 
 class InputTests(unittest.TestCase):
+    def test_pixel_center_primary_is_frame_and_pixel_coherent(self):
+        for seed, frame in [(1, 0), (7, 30), (99, 1000)]:
+            u, v = validate_inputs.sample_positions(dict(primarySampling='pixel-center',
+                randomSeed=seed, sampleStartIndex=frame), np.array([0, 5, 99]), np.array([7, 2, 80]))
+            np.testing.assert_array_equal(u, [.5, .5, .5])
+            np.testing.assert_array_equal(v, [.5, .5, .5])
+
+    def test_primary_sampling_rejects_unknown_convention(self):
+        with self.assertRaises(ValueError):
+            validate_inputs.sample_positions(dict(primarySampling='unknown'), [0], [0])
+
+    def test_legacy_primary_sampling_is_unchanged(self):
+        meta = dict(randomSeed=7, sampleStartIndex=30)
+        old = validate_inputs.sample_positions(meta, np.array([0, 1]), np.array([1, 0]))
+        new = validate_inputs.sample_positions(dict(meta, primarySampling='random-per-pixel'),
+            np.array([0, 1]), np.array([1, 0]))
+        np.testing.assert_array_equal(old, new)
+
     def test_native_unorm_rgba(self):
         meta = dict(schemaVersion=1, rowOrder='top-down', format=28, width=1, height=1)
         with tempfile.TemporaryDirectory() as directory:

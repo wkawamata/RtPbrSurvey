@@ -77,6 +77,9 @@ void TestInstances()
     Require(Engine::BuildEmissiveTriangleTable(scene, overrides).triangles.empty());
     overrides[0].emissiveScale = 2;
     Require(Engine::BuildEmissiveTriangleTable(scene, overrides).triangles.size() == 2);
+    overrides[0].unlit = true;
+    Require(Engine::BuildEmissiveTriangleTable(scene, overrides).triangles.empty());
+    overrides[0].unlit = false;
     overrides.push_back(overrides[0]);
     Reject([&] { Engine::BuildEmissiveTriangleTable(scene, overrides); });
     mesh.materials[0].emissiveScale = 0;

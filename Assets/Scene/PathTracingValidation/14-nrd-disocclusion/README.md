@@ -1,0 +1,139 @@
+# NRD Disocclusion
+
+Two opaque diffuse panels: a narrow red foreground at z=-1 and a wide green
+background at z=1. A constant white environment illuminates both. The camera
+starts at (0,0,-6). All geometry is static.
+
+The stored description contains the Japanese visual checklist. Inspect the
+foreground silhouette while orbiting: newly revealed green background must not
+retain the old red silhouette. Ordinary GUI camera edits currently reset NRD;
+continuous NRD history is available only through the diagnostic CLI flag.
+
+```powershell
+python Tests/PathTracing/validate_nrd_disocclusion.py --output bin/PathTracingValidation/<new-empty-directory>
+```
+
+The runner uses SDK diagnostics and final-image NRD preview. It captures Albedo,
+MotionVectors, NrdSceneColor and Native SceneColor for static, +20 degree, -20
+degree and +20 degree per-frame-reset cases. Motion spans the last twenty frames
+of a thirty-frame warm-up. The reset control also restarts the SDK frame index;
+it does not isolate temporal reuse from SDK sampling changes.
+
+At a four-pixel sampling stride, independent finite-plane intersections identify
+the current first hit. The world point is projected into the previous view, and
+another ray/plane intersection checks whether the foreground previously hid it.
+Current/previous plane edges and out-of-frustum points are excluded. Moving cases
+require at least twenty sampled newly revealed points; all cases require at least
+one hundred retained background and foreground points. Material Albedo, SDK
+camera/reset state, resource/cohort identity and the existing half-format MV
+numeric bound are checked separately.
+
+Document colors are rounded to sRGB8 by SceneDocumentBuilder, then decoded on
+the GPU. Albedo is therefore checked against that independent round-trip, not
+the unquantized JSON value, with 2 ULP(decoded half) + 3e-6 allowance.
+
+Color means and differences from same-frame noisy Native are measurements only.
+The report always states qualityVerdict=not-evaluated, including when the
+geometry/MV/history gate passes. A converged target and an explicit quality
+criterion are required before judging ghosting or denoising improvements.
+
+Not covered: object motion, camera cuts, motion reversal, settling, animation,
+visual acceptance or general denoising quality. Captures/logs/report.json are
+generated evidence and are not committed.
+
+## Fixed-Fixture Numeric Quality Gate
+
+```powershell
+python Tests/PathTracing/validate_nrd_disocclusion_quality.py --source bin/PathTracingValidation/<qualified-motion-directory> --output bin/PathTracingValidation/<new-empty-directory>
+```
+
+The source must be a complete successful sixteen-capture visibility/history
+report. Capture/log, fixture, executable, helper and shader hashes are verified,
+and the geometry/MV/history checks are repeated. These historical moving captures
+are not represented as fresh execution. Four new Native references are captured:
+the exact positive/negative camera poses, each at 1,024 spp with seeds 11 and 29.
+The positive references are also used for the matching reset control.
+
+The existing sample-target CLI uses one sample/frame, pauses at exactly 1,024
+accumulated samples, and captures with the next sample index 1,024. Both runtime
+logs and raw metadata must match that contract. Reference projection must agree
+with the moving capture within the existing 2e-6 matrix allowance and 0.01 pixel
+alignment. Transport settings and render dimensions must also match.
+
+Thresholds are fixed in the runner before capture, separately for revealed and
+retained background regions:
+
+- Independent reference-pair NRMSE <= 3%, normalized by RMS of their mean image.
+- NRD RMSE must not exceed same-frame noisy Native RMSE against that mean.
+- Mean RGB bias norm <= 5% of the reference mean RGB norm.
+- Mean positive red excess <= 2% of reference mean green.
+- 95th-percentile positive red excess <= 5% of reference mean green.
+
+An inconsistent reference yields inconclusive-reference, not an NRD quality
+failure. A consistent reference permits passed-fixed-fixture or
+failed-fixed-fixture. This is a Monte Carlo high-sample consistency check, not an
+analytic ground-truth proof. Passing applies only to this numeric fixture gate;
+subjective quality, motion reversal/settling and general NRD support stay pending.
+
+## Continuous Reversal And Settling
+
+```powershell
+python Tests/PathTracing/validate_nrd_timeline.py --output bin/PathTracingValidation/<new-empty-directory>
+```
+
+The diagnostic -PathTracingCapturePlan CLI reuses the existing keyframe-plan
+schema, but only accepts .ptbuf output and requires SceneFile, LogToFile and a
+PathTracing DebugPreviewResource. It implies Path Tracing, not Hybrid Reflection.
+It cannot be combined with other camera/capture automation. Each relative output
+path must contain one {variant} token, resolved as pt; traversal and duplicate
+paths (including case/dot aliases on Windows) are rejected. Reflection plans
+retain their PNG-only contract.
+
+The runner performs one continuous run per resource, with eight checkpoints:
+warm at frame 20, forward at 36, reverse at 44, middle at 60, stop at 80, then
+settle-4/16/32 at frames 84/96/112. Keyframes hold yaw 0 through frame 20, reach
++20 at 40, reverse through 0 to -20 at 80, and remain there. Forward/reverse
+revisit yaw +16 with opposite measured motion. Captures never pause the timeline.
+
+NRD frame index must match the timeline frame without reset at all checkpoints.
+Native sample index is zero while moving and 4/16/32 after stopping. Material
+visibility, MV, camera matrices, finite composition and scheduled/completed
+capture inventory are checked. The stop frame's newly revealed/retained masks
+are reused at later stationary checkpoints to preserve region identity.
+
+This stage measures signal changes, not converged radiance error. Its report
+keeps qualityVerdict=not-evaluated; the earlier two single-orbit quality results
+must not be relabeled as reversal/settling acceptance. A separate high-sample
+reference assessment of this continuous timeline is still required.
+
+## Continuous-Timeline Numeric Quality
+
+```powershell
+python Tests/PathTracing/validate_nrd_timeline_quality.py --source bin/PathTracingValidation/<qualified-timeline-directory> --output bin/PathTracingValidation/<new-empty-directory>
+```
+
+The runner requires all thirty-two source captures, four successful continuous
+runs and eight exact checkpoints. It verifies executable, capture, log, plan,
+fixture, helper and shader hashes, then repeats the input/history checks.
+Historical timeline evidence is not represented as a new GPU execution.
+
+Six fresh Native references cover yaw 0, +16 and -20, each at 1,024 spp with
+independent seeds 11 and 29. Camera/sample/transport checks are unchanged from
+the single-orbit gate. Forward and reverse share their +16 references. Stop and
+all settling checkpoints share the -20 references, and settling uses the original
+stop-frame masks rather than an empty newly-revealed mask from a static frame.
+
+All fifteen checkpoint/region pairs must meet the existing fixed reference
+agreement, RMSE non-regression, mean RGB bias and red-excess thresholds. Quality
+result completeness and numeric/boolean consistency are checked before aggregation.
+An inconsistent reference is inconclusive, not an NRD quality failure.
+
+For both stop-frame regions, final (32-frame) NRD NRMSE may not exceed stop NRMSE
+plus one reference-pair NRMSE. This fixed uncertainty allowance avoids requiring
+strict monotonicity from stochastic sparse checkpoints. Region counts and
+reference means/consistency must match exactly across the comparison. It is a
+bounded final-regression check, not a guarantee of per-frame temporal stability.
+
+This numeric gate remains limited to the opaque two-plane fixture. Sparse
+checkpoints do not establish flicker-free playback or subjective quality;
+moving objects, camera cuts and broader scene/material coverage remain separate.

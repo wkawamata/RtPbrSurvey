@@ -90,6 +90,11 @@ ID3D12Device* GraphicsDevice::Device() const
     return m_device.Get();
 }
 
+bool GraphicsDevice::DebugLayerEnabledByApp() const
+{
+    return m_debugLayerEnabledByApp;
+}
+
 const DXGI_ADAPTER_DESC1& GraphicsDevice::AdapterDescription() const
 {
     return m_adapterDescription;
@@ -119,7 +124,10 @@ void GraphicsDevice::EnsureCurrentDxgiFactory()
 
     UINT dxgiFactoryFlags = 0;
 #if defined(_DEBUG)
-    dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
+    if (m_debugLayerRequested)
+    {
+        dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
+    }
 #endif
     ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&m_dxgiFactory)));
 }
@@ -139,15 +147,19 @@ void GraphicsDevice::Initialize(const GraphicsDeviceDesc& desc)
 {
     SetWindowHandle(desc.hwnd);
     SetSize(desc.swapChainWidth, desc.swapChainHeight);
+    m_debugLayerRequested = desc.enableDebugLayer;
+    m_debugLayerEnabledByApp = false;
 
     UINT dxgiFactoryFlags = 0;
 
 #if defined(_DEBUG)
+    if (m_debugLayerRequested)
     {
         ComPtr<ID3D12Debug> debugController;
         if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
         {
             debugController->EnableDebugLayer();
+            m_debugLayerEnabledByApp = true;
             dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
         }
     }

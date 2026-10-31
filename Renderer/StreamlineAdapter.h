@@ -53,6 +53,9 @@ struct RayReconstructionFrameConstants
 
 struct RayReconstructionEvaluateInputs
 {
+    // Opt-in PT replay profile. Hybrid keeps its existing resource contract.
+    bool pathTracingDiagnostic = false;
+    ID3D12Resource* scalingOutputColor = nullptr;
     ID3D12GraphicsCommandList* commandList = nullptr;
     ID3D12Resource* scalingInputColor = nullptr;
     ID3D12Resource* reflectionEvaluatedRadiance = nullptr;
@@ -79,8 +82,7 @@ struct RayReconstructionEvaluateResult
     bool outputAvailable = false;
     RayReconstructionSupportStatus status = RayReconstructionSupportStatus::NotIntegrated;
     bool inputReady = false;
-    RayReconstructionReadinessReason inputReadinessReason =
-        RayReconstructionReadinessReason::NativeEvaluationDisabled;
+    RayReconstructionReadinessReason inputReadinessReason = RayReconstructionReadinessReason::NativeEvaluationDisabled;
 };
 
 struct StreamlineDlssOptimalSettingsInputs
@@ -131,12 +133,11 @@ TemporalUpscalerSupportInfo SetStreamlineD3DDevice(ID3D12Device* device);
 void ShutdownStreamlineAdapter();
 TemporalUpscalerSupportInfo QueryStreamlineSupport();
 RayReconstructionSupportInfo QueryStreamlineRayReconstructionSupport();
-StreamlineDlssOptimalSettingsResult QueryStreamlineDlssOptimalSettings(
-    const StreamlineDlssOptimalSettingsInputs& inputs);
+StreamlineDlssOptimalSettingsResult
+QueryStreamlineDlssOptimalSettings(const StreamlineDlssOptimalSettingsInputs& inputs);
 StreamlineDlssDiagnostics QueryStreamlineDlssDiagnostics(const StreamlineDlssOptimalSettingsInputs& inputs);
 RayReconstructionDiagnostics QueryStreamlineRayReconstructionDiagnostics();
-RayReconstructionEvaluateResult EvaluateStreamlineRayReconstruction(
-    const RayReconstructionEvaluateInputs& inputs);
+RayReconstructionEvaluateResult EvaluateStreamlineRayReconstruction(const RayReconstructionEvaluateInputs& inputs);
 StreamlineEvaluateResult EvaluateStreamline(const StreamlineEvaluateInputs& inputs);
 
 } // namespace Engine

@@ -37,6 +37,13 @@ class SurfaceFrameTests(unittest.TestCase):
             self.assertEqual(assets[1]['materials'][0]['normalTexture']['scale'], .6)
             self.assertEqual(assets[1]['materials'][0]['pbrMetallicRoughness']['roughnessFactor'], .71)
 
+    def test_missing_tangent_fixture_keeps_normal_texture(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            _, _, asset = fixtures(Path(temporary), 'generated', True, False, False, missing_tangents=True)
+            gltf = json.loads(asset.read_text())
+            self.assertNotIn('TANGENT', gltf['meshes'][0]['primitives'][0]['attributes'])
+            self.assertIn('normalTexture', gltf['materials'][0])
+
 
 if __name__ == '__main__':
     unittest.main()

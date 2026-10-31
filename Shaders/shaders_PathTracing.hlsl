@@ -8,6 +8,20 @@ RWTexture2D<float2> g_motionVectors : register(u4);
 RWTexture2D<float4> g_albedo : register(u5);
 RWTexture2D<float4> g_diffuseRadianceHitT : register(u6);
 RWTexture2D<float4> g_specularRadianceHitT : register(u7);
+RWTexture2D<float4> g_currentFrameRadiance : register(u8);
+RWTexture2D<float4> g_materialF0Metallic : register(u9);
+RWTexture2D<float4> g_stableRadiance : register(u10);
+RWTexture2D<float4> g_backgroundRadiance : register(u11);
+RWTexture2D<float4> g_secondaryRayData : register(u12);
+RWTexture2D<float4> g_physicalDiffuse : register(u13);
+RWTexture2D<float4> g_physicalSpecular : register(u14);
+RWTexture2D<float4> g_primaryContinuation : register(u15);
+RWTexture2D<float4> g_secondarySurfaceDistance : register(u16);
+RWTexture2D<float4> g_denoiserDiffuseDirection : register(u17);
+RWTexture2D<float4> g_denoiserSpecularDirection : register(u18);
+RWTexture2D<float4> g_denoiserDiffuseDistance : register(u19);
+RWTexture2D<float4> g_denoiserSpecularDistance : register(u20);
+RWTexture2D<float4> g_denoiserPrimaryPosition : register(u21);
 RaytracingAccelerationStructure g_tlas : register(t0);
 ByteAddressBuffer g_sceneVertices : register(t1);
 ByteAddressBuffer g_sceneIndices : register(t2);
@@ -39,7 +53,7 @@ cbuffer PathTracingConstants : register(b1)
     uint usesIndexedDraw;
     uint vertexCount;
     uint indexCount;
-    uint hitNormalSource;
+    uint primarySamplingFlags;
     uint debugOutput;
     uint environmentEnabled;
     uint emissiveEnabled;
@@ -63,11 +77,14 @@ cbuffer PathTracingConstants : register(b1)
     float4 backgroundColor;
     uint emissiveTriangleCount;
     uint emissiveSamplingMode;
-    uint2 emissivePadding;
 };
 
+static const uint hitNormalSource = 0;
 #include "SceneRayQuery.hlsli"
 #include "PathTracingSampling.hlsli"
+#include "ThinTransmission.hlsli"
+#include "VolumeTransmission.hlsli"
+#include "PathTracingDenoiserSampling.hlsli"
 #include "EmissiveTriangleSampling.hlsli"
 StructuredBuffer<EmissiveTriangleGpu> g_emissiveTriangles : register(t7);
 #include "PathTracingDirectLightAdapter.hlsli"
@@ -161,6 +178,15 @@ struct PrimarySurfaceData
     float viewZ;
     float2 motionVector;
     float4 albedo;
+    float4 materialF0Metallic;
+    float4 secondaryRayData;
+    float4 primaryContinuation;
+    float4 secondarySurfaceDistance;
+    float4 denoiserDiffuseDirection;
+    float4 denoiserSpecularDirection;
+    float4 denoiserDiffuseDistance;
+    float4 denoiserSpecularDistance;
+    float4 denoiserPrimaryPosition;
     float hitT;
 };
 
@@ -171,6 +197,15 @@ PrimarySurfaceData MakeMissPrimarySurfaceData()
     result.viewZ = 0.0;
     result.motionVector = float2(0.0, 0.0);
     result.albedo = float4(0.0, 0.0, 0.0, 0.0);
+    result.materialF0Metallic = 0.0;
+    result.secondaryRayData = 0.0;
+    result.primaryContinuation = 0.0;
+    result.secondarySurfaceDistance = 0.0;
+    result.denoiserDiffuseDirection = 0.0;
+    result.denoiserSpecularDirection = 0.0;
+    result.denoiserDiffuseDistance = 0.0;
+    result.denoiserSpecularDistance = 0.0;
+    result.denoiserPrimaryPosition = 0.0;
     result.hitT = 0.0;
     return result;
 }
@@ -273,6 +308,39 @@ float3 SamplePrimaryMiss(float3 direction)
     return g_environmentMap.SampleLevel(g_sampler, direction, 0).rgb;
 }
 
+bool RequiresMaterialCandidates()
+{
+    return (primarySamplingFlags & 60u) != 0;
+}
+
+bool AcceptMaterialCandidate(uint instanceId, uint primitiveIndex, float2 barycentric, bool frontFace,
+    bool cullBackFaces, bool allowThinBackface)
+{
+    uint i0, i1, i2;
+    LoadPrimitiveVertexIndices(primitiveIndex, instanceId, i0, i1, i2);
+    const uint materialId = LoadCommittedHitMaterialId(i0, i1, i2, barycentric, instanceId);
+    const Material material = g_materialData[materialId];
+    const float2 uv = LoadCommittedHitUv(i0, i1, i2, barycentric) * material.uvScale + material.uvOffset;
+    if (!PassMaterialAlphaMask(material, uv))
+    {
+        return false;
+    }
+    if (frontFace || !cullBackFaces || (material.flags & MaterialFlagDoubleSided) != 0)
+    {
+        return true;
+    }
+    if (allowThinBackface && (material.flags & MaterialFlagThinTransmission) != 0)
+    {
+        const HitMaterialSample candidate = LoadCommittedHitMaterialSample(i0, i1, i2, barycentric, instanceId);
+        return candidate.transmissionFactor * (1.0 - candidate.metallic) > 0.0;
+    }
+    if (allowThinBackface && (material.flags & MaterialFlagVolumeTransmission) != 0)
+    {
+        return true;
+    }
+    return false;
+}
+
 float TraceShadow(float3 worldPosition, float3 normal, PathTracingLightSample lightSample, uint rayFlags)
 {
     if (shadowEnabled == 0)
@@ -292,9 +360,19 @@ float TraceShadow(float3 worldPosition, float3 normal, PathTracingLightSample li
     }
 
     RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> query;
-    query.TraceRayInline(g_tlas, rayFlags, 0xff, shadowRay);
+    const bool materialCandidates = RequiresMaterialCandidates();
+    const uint flags = materialCandidates ?
+        (rayFlags & ~RAY_FLAG_CULL_BACK_FACING_TRIANGLES) | RAY_FLAG_FORCE_NON_OPAQUE : rayFlags;
+    query.TraceRayInline(g_tlas, flags, 0xff, shadowRay);
     while (query.Proceed())
     {
+        if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE &&
+            AcceptMaterialCandidate(query.CandidateInstanceID(), query.CandidatePrimitiveIndex(),
+                query.CandidateTriangleBarycentrics(), query.CandidateTriangleFrontFace(),
+                (rayFlags & RAY_FLAG_CULL_BACK_FACING_TRIANGLES) != 0, false))
+        {
+            query.CommitNonOpaqueTriangleHit();
+        }
     }
     return query.CommittedStatus() == COMMITTED_TRIANGLE_HIT ? 0.0 : 1.0;
 }
@@ -319,10 +397,17 @@ float TraceEmitterVisibility(float3 origin, float3 direction, float distance, Em
     shadowRay.Direction = direction;
     shadowRay.TMin = rayTMin;
     shadowRay.TMax = min(rayTMax, asfloat(asuint(distance) + 1u));
-    RayQuery<RAY_FLAG_CULL_BACK_FACING_TRIANGLES> query;
-    query.TraceRayInline(g_tlas, 0, 0xff, shadowRay);
+    RayQuery<RAY_FLAG_NONE> query;
+    query.TraceRayInline(g_tlas, RequiresMaterialCandidates() ? RAY_FLAG_FORCE_NON_OPAQUE : RAY_FLAG_CULL_BACK_FACING_TRIANGLES,
+        0xff, shadowRay);
     while (query.Proceed())
     {
+        if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE &&
+            AcceptMaterialCandidate(query.CandidateInstanceID(), query.CandidatePrimitiveIndex(),
+                query.CandidateTriangleBarycentrics(), query.CandidateTriangleFrontFace(), true, false))
+        {
+            query.CommitNonOpaqueTriangleHit();
+        }
     }
     if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
     {
@@ -332,17 +417,103 @@ float TraceEmitterVisibility(float3 origin, float3 direction, float distance, Em
         query.CommittedPrimitiveIndex() == emitter.primitiveIndex ? 1.0 : 0.0;
 }
 
+float4 TraceDenoiserDistance(float3 hitPosition, float3 geometryNormal, float3 direction,
+                            float pdf, bool active)
+{
+    if (!active)
+    {
+        return float4(0.0, 4.0, 0.0, 0.0);
+    }
+    if (!isfinite(pdf) || pdf <= 0.0 || !all(isfinite(direction)) || dot(direction, geometryNormal) <= 0.0)
+    {
+        return float4(0.0, 3.0, 0.0, 0.0);
+    }
+    RayDesc distanceRay;
+    distanceRay.Origin = hitPosition + geometryNormal * normalBias;
+    distanceRay.Direction = direction;
+    distanceRay.TMin = rayTMin;
+    distanceRay.TMax = rayTMax;
+    RayQuery<RAY_FLAG_NONE> distanceQuery;
+    distanceQuery.TraceRayInline(g_tlas,
+        RequiresMaterialCandidates() ? RAY_FLAG_FORCE_NON_OPAQUE : RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xff, distanceRay);
+    while (distanceQuery.Proceed())
+    {
+        if (distanceQuery.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE &&
+            AcceptMaterialCandidate(distanceQuery.CandidateInstanceID(), distanceQuery.CandidatePrimitiveIndex(),
+                distanceQuery.CandidateTriangleBarycentrics(), distanceQuery.CandidateTriangleFrontFace(), true, false))
+        {
+            distanceQuery.CommitNonOpaqueTriangleHit();
+        }
+    }
+    if (distanceQuery.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
+    {
+        return float4(0.0, 2.0, distanceRay.TMax, 0.0);
+    }
+    const float hitT = distanceQuery.CommittedRayT();
+    const float surfaceDistance = length((distanceRay.Origin - hitPosition) + direction * hitT);
+    return float4(surfaceDistance, 1.0, hitT, 0.0);
+}
+
+void MakeDenoiserDistanceInputs(uint2 pixel, uint sampleIndex, float3 hitPosition,
+                               float3 normal, float3 geometryNormal, float3 view,
+                               HitMaterialSample material, inout PrimarySurfaceData surface)
+{
+    float3 tangent, bitangent;
+    surface.denoiserPrimaryPosition = float4(hitPosition, 1.0);
+    BuildPathTracingTangentFrame(normal, tangent, bitangent);
+    const float3 localView = float3(dot(view, tangent), dot(view, bitangent), dot(view, normal));
+    uint diffuseState = HashUint(MakeRandomState(pixel, sampleIndex) ^ 0xa511e9b3u);
+    uint specularState = HashUint(MakeRandomState(pixel, sampleIndex) ^ 0x63d83595u);
+    const float diffuseU = NextRandom(diffuseState);
+    const float diffuseV = NextRandom(diffuseState);
+    const float specularU = NextRandom(specularState);
+    const float specularV = NextRandom(specularState);
+    const float2 diffuseSample = float2(diffuseU, diffuseV);
+    const float2 specularSample = float2(specularU, specularV);
+    const float3 localDiffuse = SampleDenoiserCosineDirection(diffuseSample);
+    const float3 localHalf = SampleDenoiserGgxVisibleNormal(specularSample, material.roughness, localView);
+    const float halfPdf = DenoiserGgxVisibleNormalPdf(localHalf, material.roughness, localView);
+    const float3 localSpecular = halfPdf > 0.0 ? reflect(-localView, localHalf) : float3(0.0, 0.0, 0.0);
+    const float specularPdf = halfPdf > 0.0 && localSpecular.z > 0.0 ?
+        halfPdf / (4.0 * dot(localView, localHalf)) : 0.0;
+    const float3 diffuseDirection = normalize(tangent * localDiffuse.x + bitangent * localDiffuse.y + normal * localDiffuse.z);
+    const float3 specularDirection = halfPdf > 0.0 ?
+        normalize(tangent * localSpecular.x + bitangent * localSpecular.y + normal * localSpecular.z) : float3(0.0, 0.0, 0.0);
+    const float diffusePdf = localDiffuse.z / kDenoiserSamplingPi;
+    surface.denoiserDiffuseDirection = float4(diffuseDirection, diffusePdf);
+    surface.denoiserSpecularDirection = float4(specularDirection, specularPdf);
+    const bool diffuseActive = material.metallic < 1.0 && any(material.albedo > 0.0);
+    // Schlick Fresnel can be nonzero at grazing angles even when F0 is zero.
+    const bool specularActive = true;
+    surface.denoiserDiffuseDistance = TraceDenoiserDistance(hitPosition, geometryNormal, diffuseDirection, diffusePdf, diffuseActive);
+    surface.denoiserSpecularDistance = TraceDenoiserDistance(hitPosition, geometryNormal, specularDirection, specularPdf, specularActive);
+}
+
 float3 TracePath(uint2 pixel,
                  inout uint randomState,
                  uint2 dimensions,
+                 uint distanceSampleIndex,
+                 bool captureDenoiserDistances,
                  out PrimarySurfaceData primarySurface,
                  out float3 diffuseRadiance,
-                 out float3 specularRadiance)
+                 out float3 specularRadiance,
+                 out float3 stableRadiance,
+                 out float3 backgroundRadiance,
+                 out float3 physicalDiffuse,
+                 out float3 physicalSpecular)
 {
     primarySurface = MakeMissPrimarySurfaceData();
     diffuseRadiance = 0.0;
     specularRadiance = 0.0;
-    const float2 subpixelPosition = float2(NextRandom(randomState), NextRandom(randomState));
+    stableRadiance = 0.0;
+    backgroundRadiance = 0.0;
+    physicalDiffuse = 0.0;
+    physicalSpecular = 0.0;
+    float3 primaryDiffuseFraction = 0.0;
+    float3 primarySpecularFraction = 0.0;
+    float3 primaryContinuationOriginOffset = 0.0;
+    const float2 randomSubpixelPosition = float2(NextRandom(randomState), NextRandom(randomState));
+    const float2 subpixelPosition = (primarySamplingFlags & 1u) != 0 ? float2(0.5, 0.5) : randomSubpixelPosition;
     RayDesc ray = MakePrimaryRay(pixel, subpixelPosition, dimensions);
     float3 radiance = 0.0;
     float3 throughput = 1.0;
@@ -350,28 +521,92 @@ float3 TracePath(uint2 pixel,
     float previousBsdfPdf = 0.0;
     float previousEnvironmentPdf = 0.0;
     bool previousEmissiveNeeActive = false;
+    bool previousEnvironmentNeeActive = false;
+    bool cameraThroughThinSheets = true;
+    uint volumeInstance = 0xffffffffu;
+    uint volumePreviousPrimitive = 0xffffffffu;
+    float volumeIor = 1.0;
+    VolumeAbsorptionParameters volumeAbsorption;
+    volumeAbsorption.attenuationColor = 1.0;
+    volumeAbsorption.attenuationDistance = asfloat(0x7f800000u);
+    float3 volumeTransmittance = 1.0;
+    float3 volumeSegmentOrigin = 0.0;
+    float volumeEntries = 0.0;
+    float volumeExits = 0.0;
+    float volumeDistance = 0.0;
+    float volumeInternalReflections = 0.0;
+    uint volumeError = 0;
+    float3 volumeOutgoingDirection = 0.0;
+    float3 volumeExitPosition = 0.0;
     const bool emissiveNeeEnabled = emissiveSamplingMode >= 1 && emissiveEnabled != 0 &&
         shadowEnabled != 0 && emissiveTriangleCount != 0;
     const bool environmentMisEnabled = environmentSamplingMode >= 5 && shadowEnabled != 0;
 
     [loop] for (uint bounce = 0; bounce < max(maxBounces, 1u); ++bounce)
     {
-        RayQuery<RAY_FLAG_CULL_BACK_FACING_TRIANGLES> query;
-        query.TraceRayInline(g_tlas, 0, 0xff, ray);
+        const bool thinScene = (primarySamplingFlags & 4u) != 0;
+        RayQuery<RAY_FLAG_NONE> query;
+        query.TraceRayInline(g_tlas, RequiresMaterialCandidates() ? RAY_FLAG_FORCE_NON_OPAQUE : RAY_FLAG_CULL_BACK_FACING_TRIANGLES,
+            0xff, ray);
         while (query.Proceed())
         {
+            if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
+            {
+                bool volumeSelfHit = false;
+                if (volumeInstance != 0xffffffffu && query.CandidateInstanceID() == volumeInstance)
+                {
+                    volumeSelfHit = query.CandidatePrimitiveIndex() == volumePreviousPrimitive;
+                    if (!volumeSelfHit)
+                    {
+                        uint candidate0, candidate1, candidate2;
+                        LoadPrimitiveVertexIndices(query.CandidatePrimitiveIndex(), volumeInstance, candidate0, candidate1, candidate2);
+                        const float3 candidateNormal = LoadCommittedHitGeometricNormal(candidate0, candidate1, candidate2,
+                            query.CandidateObjectToWorld3x4());
+                        volumeSelfHit = dot(candidateNormal, ray.Direction) <= 0.0;
+                    }
+                }
+                if (!volumeSelfHit && AcceptMaterialCandidate(query.CandidateInstanceID(), query.CandidatePrimitiveIndex(),
+                    query.CandidateTriangleBarycentrics(), query.CandidateTriangleFrontFace(), true, true))
+                {
+                    query.CommitNonOpaqueTriangleHit();
+                }
+            }
+        }
+
+        if (bounce == 1)
+        {
+            const bool secondaryHit = query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
+            primarySurface.secondaryRayData = float4(
+                secondaryHit ? query.CommittedRayT() : ray.TMax,
+                primarySpecularPath ? 2.0 : 1.0,
+                secondaryHit ? 1.0 : 2.0,
+                0.0);
+            const float surfaceDistance = secondaryHit ?
+                length(primaryContinuationOriginOffset + ray.Direction * query.CommittedRayT()) : 0.0;
+            primarySurface.secondarySurfaceDistance = float4(surfaceDistance, secondaryHit ? 1.0 : 2.0, 0.0, 0.0);
         }
 
         if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
         {
-            float3 missRadiance = bounce == 0 ? SamplePrimaryMiss(ray.Direction) : SampleEnvironmentLighting(ray.Direction);
-            if (bounce > 0 && environmentSamplingMode >= 2)
+            if (volumeInstance != 0xffffffffu)
+            {
+                volumeError = 1;
+                break;
+            }
+            float3 missRadiance = cameraThroughThinSheets ? SamplePrimaryMiss(ray.Direction) : SampleEnvironmentLighting(ray.Direction);
+            if (bounce > 0 && previousEnvironmentNeeActive && environmentSamplingMode >= 2)
             {
                 missRadiance *= environmentMisEnabled ?
                     PathTracingPowerHeuristic(previousBsdfPdf, previousEnvironmentPdf) : 0.0;
             }
             const float3 contribution = throughput * missRadiance;
             radiance += contribution;
+            physicalDiffuse += primaryDiffuseFraction * contribution;
+            physicalSpecular += primarySpecularFraction * contribution;
+            if (bounce == 0)
+            {
+                backgroundRadiance = contribution;
+            }
             if (bounce > 0)
             {
                 if (primarySpecularPath)
@@ -396,9 +631,10 @@ float3 TracePath(uint2 pixel,
 
         const float3x4 objectToWorld = query.CommittedObjectToWorld3x4();
         float3 geometryNormal = LoadCommittedHitGeometricNormal(index0, index1, index2, objectToWorld);
+        const bool volumeEntering = dot(geometryNormal, ray.Direction) < 0.0;
         float3 vertexNormal =
             LoadCommittedHitVertexNormal(index0, index1, index2, barycentric, objectToWorld);
-        const HitMaterialSample hitMaterial =
+        HitMaterialSample hitMaterial =
             LoadCommittedHitMaterialSample(index0, index1, index2, barycentric, instanceId);
         if (dot(geometryNormal, ray.Direction) > 0.0)
         {
@@ -417,6 +653,26 @@ float3 TracePath(uint2 pixel,
                                                          hitMaterial);
         hitNormal = dot(hitNormal, geometryNormal) >= 0.0 ? hitNormal : -hitNormal;
         const float3 hitPosition = ray.Origin + ray.Direction * query.CommittedRayT();
+        const bool volumeBoundary = (hitMaterial.flags & MaterialFlagVolumeTransmission) != 0;
+        if (volumeInstance != 0xffffffffu)
+        {
+            if (!volumeBoundary || instanceId != volumeInstance || volumeEntering)
+            {
+                volumeError = 2;
+                break;
+            }
+            const float segmentLength = length(hitPosition - volumeSegmentOrigin);
+            const VolumeAttenuation attenuation = EvaluateVolumeAttenuation(volumeAbsorption.attenuationColor,
+                volumeAbsorption.attenuationDistance, segmentLength);
+            if (!attenuation.valid)
+            {
+                volumeError = 6;
+                break;
+            }
+            volumeDistance += segmentLength;
+            volumeTransmittance *= attenuation.transmittance;
+            throughput *= attenuation.transmittance;
+        }
 
         if (bounce == 0)
         {
@@ -429,7 +685,22 @@ float3 TracePath(uint2 pixel,
             primarySurface.viewZ = ComputePrimaryViewZ(hitPosition);
             primarySurface.motionVector = ComputePrimaryMotionVector(hitPosition, objectPosition, instanceId);
             primarySurface.albedo = float4(hitMaterial.albedo, 1.0);
+            primarySurface.materialF0Metallic = float4(
+                lerp(float3(0.04, 0.04, 0.04), hitMaterial.albedo, hitMaterial.metallic),
+                hitMaterial.metallic);
             primarySurface.hitT = query.CommittedRayT();
+            if (captureDenoiserDistances && (primarySamplingFlags & 2u) != 0 && !thinScene && (primarySamplingFlags & 40u) == 0)
+            {
+                if ((hitMaterial.flags & MaterialFlagUnlit) != 0)
+                {
+                    primarySurface.denoiserPrimaryPosition = float4(hitPosition, 1.0);
+                }
+                else
+                {
+                    MakeDenoiserDistanceInputs(pixel, distanceSampleIndex, hitPosition, hitNormal,
+                        geometryNormal, -ray.Direction, hitMaterial, primarySurface);
+                }
+            }
         }
 
         if (bounce == 0 && debugOutput < 3)
@@ -445,12 +716,90 @@ float3 TracePath(uint2 pixel,
             return hitMaterial.albedo + (emissiveEnabled != 0 ? hitMaterial.emissive : 0.0);
         }
 
+        if (volumeBoundary)
+        {
+            const bool inside = volumeInstance != 0xffffffffu;
+            if (!inside && !volumeEntering)
+            {
+                volumeError = 5;
+                break;
+            }
+            if (bounce + 1 >= max(maxBounces, 1u))
+            {
+                volumeError = 3;
+                break;
+            }
+            const VolumeBoundarySample boundary = SampleSmoothVolumeBoundary(ray.Direction, geometryNormal,
+                inside ? volumeIor : 1.0, inside ? 1.0 : hitMaterial.transmissionIor, NextRandom(randomState));
+            if (!boundary.valid)
+            {
+                volumeError = 4;
+                break;
+            }
+            if (!boundary.reflected)
+            {
+                if (inside)
+                {
+                    volumeExits += 1.0;
+                    volumeExitPosition = hitPosition;
+                    volumeInstance = 0xffffffffu;
+                    volumeIor = 1.0;
+                }
+                else
+                {
+                    volumeEntries += 1.0;
+                    volumeInstance = instanceId;
+                    volumeIor = hitMaterial.transmissionIor;
+                    volumeAbsorption = g_materialData[hitMaterial.materialId].volumeAbsorption;
+                }
+            }
+            else if (inside)
+            {
+                volumeInternalReflections += 1.0;
+            }
+            volumeSegmentOrigin = hitPosition;
+            if (volumeInstance == 0xffffffffu)
+            {
+                volumeOutgoingDirection = boundary.direction;
+            }
+            throughput *= boundary.weight;
+            previousEnvironmentNeeActive = false;
+            previousEmissiveNeeActive = false;
+            previousBsdfPdf = 0.0;
+            cameraThroughThinSheets = cameraThroughThinSheets && !boundary.reflected;
+            if (bounce == 0)
+            {
+                primarySpecularPath = true;
+                primaryDiffuseFraction = 0.0;
+                primarySpecularFraction = 1.0;
+                primarySurface.primaryContinuation = float4(boundary.direction, 0.0);
+            }
+            ray.Direction = boundary.direction;
+            // Inside a qualified convex solid, reject the previous boundary instead of stepping past a thin exit.
+            const bool continuingInsideVolume = volumeInstance != 0xffffffffu;
+            volumePreviousPrimitive = primitiveIndex;
+            ray.Origin = continuingInsideVolume ? hitPosition : hitPosition + ray.Direction * normalBias;
+            if (bounce == 0)
+            {
+                primaryContinuationOriginOffset = ray.Origin - hitPosition;
+            }
+            ray.TMin = continuingInsideVolume ? 0.0 : rayTMin;
+            ray.TMax = rayTMax;
+            continue;
+        }
+
         const bool unlit = (hitMaterial.flags & MaterialFlagUnlit) != 0;
         if (unlit)
         {
             const float3 contribution = throughput *
                 (hitMaterial.albedo + (emissiveEnabled != 0 ? hitMaterial.emissive : 0.0));
             radiance += contribution;
+            physicalDiffuse += primaryDiffuseFraction * contribution;
+            physicalSpecular += primarySpecularFraction * contribution;
+            if (bounce == 0)
+            {
+                stableRadiance += contribution;
+            }
             if (bounce == 0 || !primarySpecularPath)
             {
                 diffuseRadiance += contribution;
@@ -471,13 +820,20 @@ float3 TracePath(uint2 pixel,
                 if (emitterIndex < emissiveTriangleCount)
                 {
                     const float lightPdf = EmissiveTriangleSolidAnglePdf(
-                        g_emissiveTriangles[emitterIndex], ray.Origin, hitPosition);
+                        g_emissiveTriangles[emitterIndex], ray.Origin, hitPosition,
+                        (hitMaterial.flags & MaterialFlagDoubleSided) != 0);
                     emissionWeight = emissiveSamplingMode == 2 ?
                         PathTracingPowerHeuristic(previousBsdfPdf, lightPdf) : 0.0;
                 }
             }
             const float3 contribution = throughput * hitMaterial.emissive * emissionWeight;
             radiance += contribution;
+            physicalDiffuse += primaryDiffuseFraction * contribution;
+            physicalSpecular += primarySpecularFraction * contribution;
+            if (bounce == 0)
+            {
+                stableRadiance += contribution;
+            }
             if (bounce == 0 || !primarySpecularPath)
             {
                 diffuseRadiance += contribution;
@@ -487,6 +843,63 @@ float3 TracePath(uint2 pixel,
                 specularRadiance += contribution;
             }
         }
+
+        // Select the mixture before NEE so both estimators retain the opaque component's conditional PDF.
+        bool sampleThin = false;
+        if (hitMaterial.transmissionFactor > 0.0 && hitMaterial.metallic < 1.0)
+        {
+            const ThinMetallicMixtureSample mixture = SampleThinMetallicMixture(
+                hitMaterial.transmissionFactor, hitMaterial.metallic, NextRandom(randomState));
+            sampleThin = mixture.thin;
+            hitMaterial.metallic = mixture.opaqueMetallic;
+        }
+        if (sampleThin)
+        {
+            if (bounce + 1 >= max(maxBounces, 1u))
+            {
+                break;
+            }
+            const float branchRandom = NextRandom(randomState);
+            ThinTransmissionSample thin;
+            if (hitMaterial.roughness > 0.0 && hitMaterial.transmissionIor != 1.0)
+            {
+                const float2 directionRandom = float2(NextRandom(randomState), NextRandom(randomState));
+                thin = SampleRoughThinTransmission(ray.Direction, geometryNormal, hitMaterial.roughness,
+                    hitMaterial.transmissionIor, hitMaterial.transmissionTint, branchRandom, directionRandom);
+            }
+            else
+            {
+                thin = SampleThinTransmission(ray.Direction, geometryNormal, hitMaterial.transmissionIor,
+                    hitMaterial.transmissionTint, branchRandom);
+            }
+            if (!thin.valid || (dot(thin.direction, geometryNormal) > 0.0) != thin.reflected)
+            {
+                break;
+            }
+            throughput *= thin.weight;
+            previousEnvironmentNeeActive = false;
+            previousEmissiveNeeActive = false;
+            previousBsdfPdf = thin.pdf;
+            cameraThroughThinSheets = cameraThroughThinSheets && !thin.reflected;
+            if (bounce == 0)
+            {
+                primarySpecularPath = true;
+                primaryDiffuseFraction = 0.0;
+                primarySpecularFraction = 1.0;
+                primarySurface.primaryContinuation = float4(thin.direction, thin.pdf);
+            }
+            ray.Origin = hitPosition + geometryNormal * (thin.reflected ? normalBias : -normalBias);
+            if (bounce == 0)
+            {
+                primaryContinuationOriginOffset = ray.Origin - hitPosition;
+            }
+            ray.Direction = thin.direction;
+            ray.TMin = rayTMin;
+            ray.TMax = rayTMax;
+            continue;
+        }
+        previousEnvironmentNeeActive = true;
+        cameraThroughThinSheets = false;
 
         if (directLightingEnabled != 0)
         {
@@ -508,10 +921,14 @@ float3 TracePath(uint2 pixel,
                     (candidate.normalDotLight * visibility / candidate.lightSample.selectionPdf);
                 const float3 contribution = throughput * brdf * lighting;
                 radiance += contribution;
+                physicalDiffuse += primaryDiffuseFraction * contribution;
+                physicalSpecular += primarySpecularFraction * contribution;
                 if (bounce == 0)
                 {
                     diffuseRadiance += throughput * candidate.diffuseBrdf * lighting;
                     specularRadiance += throughput * candidate.specularBrdf * lighting;
+                    physicalDiffuse += throughput * candidate.diffuseBrdf * lighting;
+                    physicalSpecular += throughput * candidate.specularBrdf * lighting;
                 }
                 else if (primarySpecularPath)
                 {
@@ -539,14 +956,16 @@ float3 TracePath(uint2 pixel,
                 const float3 origin = hitPosition + geometryNormal * normalBias;
                 const float3 delta = samplePosition - origin;
                 const float distance = length(delta);
-                const float lightPdf = EmissiveTriangleSolidAnglePdf(emitter, origin, samplePosition);
+                const Material material = g_materialData[emitter.materialId];
+                const float lightPdf = EmissiveTriangleSolidAnglePdf(emitter, origin, samplePosition,
+                    (material.flags & MaterialFlagDoubleSided) != 0);
                 if (lightPdf > 0.0 && distance > rayTMin && distance <= rayTMax)
                 {
-                    const Material material = g_materialData[emitter.materialId];
                     const float2 uv = (emitter.uv0 * bary.x + emitter.uv1 * bary.y + emitter.uv2 * bary.z) *
                         material.uvScale + material.uvOffset;
-                    const float3 emission = SrgbToLinear(g_texture[NonUniformResourceIndex(material.emissiveTexIndex)].
-                        SampleLevel(g_sampler, uv, 0).rgb) * material.emissiveScale * material.emissiveFactor;
+                    const float3 emission = PassMaterialAlphaMask(material, uv) ?
+                        SrgbToLinear(g_texture[NonUniformResourceIndex(material.emissiveTexIndex)].
+                            SampleLevel(g_sampler, uv, 0).rgb) * material.emissiveScale * material.emissiveFactor : 0.0;
                     const PathTracingLightSample lightSample = MakePathTracingDirectionalLightSample(
                         delta / distance, emission, distance, 1.0, 0u);
                     const PathTracingDirectLightCandidate candidate = MakePathTracingDirectLightCandidate(
@@ -564,10 +983,14 @@ float3 TracePath(uint2 pixel,
                         const float3 specularContribution = throughput * candidate.specularBrdf * lighting;
                         const float3 contribution = diffuseContribution + specularContribution;
                         radiance += contribution;
+                        physicalDiffuse += primaryDiffuseFraction * contribution;
+                        physicalSpecular += primarySpecularFraction * contribution;
                         if (bounce == 0)
                         {
                             diffuseRadiance += diffuseContribution;
                             specularRadiance += specularContribution;
+                            physicalDiffuse += diffuseContribution;
+                            physicalSpecular += specularContribution;
                         }
                         else if (primarySpecularPath)
                         {
@@ -612,10 +1035,14 @@ float3 TracePath(uint2 pixel,
                 const float3 specularContribution = throughput * environmentCandidate.specularBrdf * lighting;
                 const float3 contribution = diffuseContribution + specularContribution;
                 radiance += contribution;
+                physicalDiffuse += primaryDiffuseFraction * contribution;
+                physicalSpecular += primarySpecularFraction * contribution;
                 if (bounce == 0)
                 {
                     diffuseRadiance += diffuseContribution;
                     specularRadiance += specularContribution;
+                    physicalDiffuse += diffuseContribution;
+                    physicalSpecular += specularContribution;
                 }
                 else if (primarySpecularPath)
                 {
@@ -650,6 +1077,16 @@ float3 TracePath(uint2 pixel,
         if (bounce == 0)
         {
             primarySpecularPath = bsdfSample.sampledSpecular != 0;
+            float3 diffuseBrdf, specularBrdf;
+            EvaluatePathTracingBrdfComponents(hitMaterial.albedo, hitMaterial.metallic,
+                hitMaterial.roughness, hitNormal, -ray.Direction, bsdfSample.direction,
+                diffuseBrdf, specularBrdf);
+            const float3 totalBrdf = diffuseBrdf + specularBrdf;
+            const float3 denominator = float3(totalBrdf.x > 0.0 ? totalBrdf.x : 1.0,
+                totalBrdf.y > 0.0 ? totalBrdf.y : 1.0, totalBrdf.z > 0.0 ? totalBrdf.z : 1.0);
+            primaryDiffuseFraction = diffuseBrdf / denominator;
+            primarySpecularFraction = specularBrdf / denominator;
+            primarySurface.primaryContinuation = float4(bsdfSample.direction, bsdfSample.pdf);
         }
 
         throughput *= bsdfSample.weight;
@@ -669,9 +1106,37 @@ float3 TracePath(uint2 pixel,
         }
 
         ray.Origin = hitPosition + geometryNormal * normalBias;
+        if (bounce == 0)
+        {
+            primaryContinuationOriginOffset = ray.Origin - hitPosition;
+        }
         ray.Direction = bsdfSample.direction;
         ray.TMin = rayTMin;
         ray.TMax = rayTMax;
+    }
+    if (volumeInstance != 0xffffffffu && volumeError == 0)
+    {
+        volumeError = 3;
+    }
+    if (debugOutput == 8)
+    {
+        return float3(volumeEntries, volumeExits, volumeDistance);
+    }
+    if (debugOutput == 9)
+    {
+        return float3(volumeError, volumeInstance != 0xffffffffu ? 1.0 : 0.0, volumeInternalReflections);
+    }
+    if (debugOutput == 10)
+    {
+        return volumeOutgoingDirection;
+    }
+    if (debugOutput == 11)
+    {
+        return volumeExitPosition;
+    }
+    if (debugOutput == 12)
+    {
+        return volumeTransmittance;
     }
     return radiance;
 }
@@ -696,6 +1161,10 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_G
     float3 frameRadianceSum = 0.0;
     float3 frameDiffuseRadianceSum = 0.0;
     float3 frameSpecularRadianceSum = 0.0;
+    float3 frameStableRadianceSum = 0.0;
+    float3 frameBackgroundRadianceSum = 0.0;
+    float3 framePhysicalDiffuseSum = 0.0;
+    float3 framePhysicalSpecularSum = 0.0;
     PrimarySurfaceData primarySurface = MakeMissPrimarySurfaceData();
     for (uint sampleOffset = 0; sampleOffset < sampleCount; ++sampleOffset)
     {
@@ -703,23 +1172,48 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_G
         PrimarySurfaceData samplePrimarySurface;
         float3 sampleDiffuseRadiance;
         float3 sampleSpecularRadiance;
+        float3 sampleStableRadiance;
+        float3 sampleBackgroundRadiance;
+        float3 samplePhysicalDiffuse, samplePhysicalSpecular;
         frameRadianceSum += TracePath(pixel,
                                       randomState,
                                       uint2(width, height),
+                                      sampleStartIndex + sampleOffset,
+                                      sampleOffset == 0,
                                       samplePrimarySurface,
                                       sampleDiffuseRadiance,
-                                      sampleSpecularRadiance);
+                                      sampleSpecularRadiance,
+                                      sampleStableRadiance,
+                                      sampleBackgroundRadiance,
+                                      samplePhysicalDiffuse,
+                                      samplePhysicalSpecular);
         frameDiffuseRadianceSum += sampleDiffuseRadiance;
         frameSpecularRadianceSum += sampleSpecularRadiance;
+        frameStableRadianceSum += sampleStableRadiance;
+        frameBackgroundRadianceSum += sampleBackgroundRadiance;
+        framePhysicalDiffuseSum += samplePhysicalDiffuse;
+        framePhysicalSpecularSum += samplePhysicalSpecular;
         if (sampleOffset == 0)
         {
             primarySurface = samplePrimarySurface;
         }
     }
 
-    float3 accumulatedRadiance = frameRadianceSum;
+    float3 referenceRadiance = frameRadianceSum;
+    if (debugOutput == 4)
+        referenceRadiance = framePhysicalDiffuseSum;
+    else if (debugOutput == 5)
+        referenceRadiance = framePhysicalSpecularSum;
+    else if (debugOutput == 6)
+        referenceRadiance = frameStableRadianceSum;
+    else if (debugOutput == 7)
+        referenceRadiance = frameBackgroundRadianceSum;
+    float3 accumulatedRadiance = referenceRadiance;
     float totalSampleCount = float(sampleCount);
-    accumulatedRadiance += g_accumulation[pixel].rgb;
+    // RR pose changes preserve retained inputs/output and can defer the history
+    // clear. A zero sample count must ignore the old native accumulation too.
+    if (previousSampleCount > 0)
+        accumulatedRadiance += g_accumulation[pixel].rgb;
     totalSampleCount += previousSampleCount;
 
     g_accumulation[pixel] = float4(accumulatedRadiance, totalSampleCount);
@@ -732,4 +1226,18 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID, uint groupIndex : SV_G
         float4(frameDiffuseRadianceSum / float(sampleCount), primarySurface.hitT);
     g_specularRadianceHitT[pixel] =
         float4(frameSpecularRadianceSum / float(sampleCount), primarySurface.hitT);
+    g_currentFrameRadiance[pixel] = float4(frameRadianceSum / float(sampleCount), 1.0);
+    g_materialF0Metallic[pixel] = primarySurface.materialF0Metallic;
+    g_stableRadiance[pixel] = float4(frameStableRadianceSum / float(sampleCount), 0.0);
+    g_backgroundRadiance[pixel] = float4(frameBackgroundRadianceSum / float(sampleCount), 0.0);
+    g_secondaryRayData[pixel] = primarySurface.secondaryRayData;
+    g_physicalDiffuse[pixel] = float4(framePhysicalDiffuseSum / float(sampleCount), 0.0);
+    g_physicalSpecular[pixel] = float4(framePhysicalSpecularSum / float(sampleCount), 0.0);
+    g_primaryContinuation[pixel] = primarySurface.primaryContinuation;
+    g_secondarySurfaceDistance[pixel] = primarySurface.secondarySurfaceDistance;
+    g_denoiserDiffuseDirection[pixel] = primarySurface.denoiserDiffuseDirection;
+    g_denoiserSpecularDirection[pixel] = primarySurface.denoiserSpecularDirection;
+    g_denoiserDiffuseDistance[pixel] = primarySurface.denoiserDiffuseDistance;
+    g_denoiserSpecularDistance[pixel] = primarySurface.denoiserSpecularDistance;
+    g_denoiserPrimaryPosition[pixel] = primarySurface.denoiserPrimaryPosition;
 }
