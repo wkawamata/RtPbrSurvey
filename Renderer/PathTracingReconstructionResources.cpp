@@ -30,7 +30,7 @@ void PathTracingReconstructionProduction::Capture(const PathTracingReconstructio
         }
         const D3D12_RESOURCE_DESC desc = produced[i]->GetDesc();
         if (desc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D || desc.DepthOrArraySize != 1 || desc.MipLevels != 1 ||
-            desc.SampleDesc.Count != 1 || desc.Width > std::numeric_limits<uint32_t>::max() ||
+            desc.SampleDesc.Count != 1 || desc.Width > (std::numeric_limits<uint32_t>::max)() ||
             (desc.Flags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE) != 0)
         {
             if (m_shapeValidation.Passed())
