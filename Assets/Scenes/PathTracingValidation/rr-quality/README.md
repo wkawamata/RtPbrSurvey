@@ -71,3 +71,10 @@ and colored reflections. A stable but blurred image is not automatically a pass.
 The old three-sphere edge issue is a separate unresolved case.
 Local captures/logs: `build/reconstruction-input-validation/user-test-rr/step2-20261029/`.
 User acceptance is pending.
+
+User acceptance on 2026-10-31: the same-pose Native 256-sample / RR 4 spp
+pixel-center comparison passed all five inspected categories: helmet fine detail,
+thin-bar coverage, copper reflections/highlights, silhouettes/contact edges, and
+floor/wall shadows/reflections. Step 2 appearance comparison is accepted for this
+scene and profile. The old three-sphere dark-edge report remains unresolved and
+is not covered by this acceptance. Step 3 (fast motion/disocclusion) is pending.
