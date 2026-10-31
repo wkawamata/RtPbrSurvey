@@ -299,12 +299,24 @@
     <ClCompile Include="Renderer\LightingPass.cpp" />
     <ClCompile Include="Renderer\PathTracingPass.cpp" />
     <ClCompile Include="Renderer\NrdRelaxAdapter.cpp" />
-    <ClCompile Include="Renderer\NrdReconstructionInputs.cpp" />
-    <ClCompile Include="Renderer\PathTracingReconstructionInputs.cpp" />
-    <ClCompile Include="Renderer\PathTracingReconstructionPolicy.cpp" />
-    <ClCompile Include="Renderer\PathTracingReconstructionResources.cpp" />
-    <ClCompile Include="Renderer\PathTracingRrInputs.cpp" />
-    <ClCompile Include="Renderer\PathTracingRrHistory.cpp" />
+    <ClCompile Include="Renderer\NrdReconstructionInputs.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingReconstructionInputs.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingReconstructionPolicy.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingReconstructionResources.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrInputs.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Renderer\PathTracingRrHistory.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="Renderer\PathTracingRrLive.cpp" />
     <ClCompile Include="Renderer\ReflectionEvaluatePass.cpp" />
     <ClCompile Include="Renderer\TemporalReflectionPass.cpp" />
