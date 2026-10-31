@@ -422,9 +422,64 @@ bool TestRuntimeTurntable()
     return passed;
 }
 
+bool TestRuntimeTranslation()
+{
+    const auto path = std::filesystem::path(__FILE__).parent_path().parent_path() /
+        "Assets/Scenes/RrObjectTranslation/scene.json";
+    Engine::SceneDocumentRuntimeScene scene(path);
+    std::string error;
+    if (!Check(scene.LoadFromFile(&error), "RR translation scene loads"))
+    {
+        return false;
+    }
+    size_t index = 0;
+    for (; index < scene.GetScene().instances.size(); ++index)
+    {
+        if (scene.FindNodeIdByInstanceIndex(index) == std::optional<std::string>("helmet"))
+        {
+            break;
+        }
+    }
+    if (!Check(index < scene.GetScene().instances.size(), "translation target instance found"))
+    {
+        return false;
+    }
+    const auto original = scene.GetScene().instances[index].world;
+    Engine::SampleSceneUpdateContext context;
+    context.isPlaying = true;
+    scene.Update(1.5f, context);
+    const auto moved = scene.GetScene().instances[index].world;
+    bool passed = Check(std::abs(moved._14 - original._14 - 1.4f) < 0.0001f &&
+        std::abs(moved._11 - original._11) < 0.0001f &&
+        scene.GetScene().instances[index].prevWorld._14 == original._14,
+        "quarter-period translation reaches amplitude without rotation and retains previous pose");
+    context.isPlaying = false;
+    scene.Update(1.0f, context);
+    passed &= Check(scene.GetScene().instances[index].world._14 == moved._14 &&
+        scene.GetScene().instances[index].prevWorld._14 == moved._14,
+        "translation pause freezes pose and clears previous-pose motion");
+    scene.Reset();
+    context.isPlaying = true;
+    scene.Update(1.5f, context);
+    passed &= Check(std::abs(scene.GetScene().instances[index].world._14 - moved._14) < 0.0001f,
+        "reset restarts translation phase");
+    auto document = scene.Document();
+    std::string json;
+    RtPbrSurvey::SceneDocument restored;
+    passed &= Check(RtPbrSurvey::SerializeSceneDocument(document, json, &error) &&
+        RtPbrSurvey::DeserializeSceneDocument(json, restored, &error) && restored.turntable &&
+        restored.turntable->translationAmplitude.x == 1.4f &&
+        restored.turntable->translationPeriodSeconds == 6.0f,
+        "translation parameters survive serialization");
+    document.turntable->translationPeriodSeconds = 0.0f;
+    passed &= Check(!RtPbrSurvey::SerializeSceneDocument(document, json, &error),
+        "zero translation period rejected");
+    return passed;
+}
+
 int main()
 {
-    if (!TestRuntimeTurntable() || !TestQualifiedVolumeBuild() || !TestThinReviewFixtures() || !TestTransmissionReachesRuntimeMaterial() ||
+    if (!TestRuntimeTranslation() || !TestRuntimeTurntable() || !TestQualifiedVolumeBuild() || !TestThinReviewFixtures() || !TestTransmissionReachesRuntimeMaterial() ||
         !TestPrimitiveBuildAndMeshReuse() || !TestGltfBuildAndMeshReuse() || !TestGltfFailureKeepsPublishedScene() ||
         !TestNrdStableRadianceFixture() || !TestNrdDisocclusionFixture())
     {

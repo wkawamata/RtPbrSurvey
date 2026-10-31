@@ -141,3 +141,37 @@ produced no reported stale geometry, shadows or reflections and restored normall
 Light changes, scalar-material changes and instance-count visibility changes are
 accepted for this scene/profile. Individual object translation/rotation, base-color
 editing and animated-object motion remain outside the confirmed coverage.
+
+## Object animation scenes (2026-11-01)
+
+Based on PR #111 Scene35's saved-scene `turntable` animation:
+- `Assets/Scenes/RrObjectRotation/scene.json`: textured helmet rotates around its own center at 30 degrees/s.
+- `Assets/Scenes/RrObjectTranslation/scene.json`: helmet moves left/right by 1.4 units with a six-second period,
+  with zero rotation. It reveals/occludes the bars and changes floor contact/occlusion and reflections.
+
+Both are opaque, use the same static camera/lighting and 4 spp frame-jitter preset.
+Pass either scene path to `-SceneFile` with the RR opt-in and continuous flags.
+The existing `turntable` schema now optionally accepts `translationAmplitude` (world-space)
+and `translationPeriodSeconds` (>0). Default amplitude is zero, preserving Scene35 behavior.
+The motion is sinusoidal and added after the pivot rotation; pause freezes phase and reset restarts it.
+
+Known limitation: current engine SetScene invalidates PT/RR history whenever instance transforms
+change. These scenes deliberately expose this limitation and are not recorded as RR animation
+acceptance. Check verified RR output progress, reset/cancellation counters, silhouettes,
+newly revealed pixels and reflected moving objects. Native fallback or reset-on-every-frame
+must not be mistaken for continuous RR support. Correct per-object motion across retained
+RR production frames is a separate implementation/validation task.
+
+Both appear in the Top Menu saved-scene list as RrObjectRotation and RrObjectTranslation.
+
+Playback: F1 > Material Controls > Play Animation (Pause Animation stops it).
+Saved scenes start paused, as in Scene35. Camera movement remains independent.
+
+Validation on 2026-11-01: Debug build passed; SceneDocument, SceneDocumentBuilder,
+SceneEditorSession, GltfNodeMesh and PathTracingRrHistory tests passed (5/5).
+Scene35's rotation test remains passing. New translation tests cover quarter-period
+amplitude, unchanged orientation, previous world transform, pause, reset, round-trip
+serialization and rejection of zero period. Both scenes loaded on the GPU without
+captured D3D12 ERROR/CORRUPTION and reached verified continuous RR while paused.
+These CLI captures did not start animation, so they do not qualify moving-object RR.
+Local evidence: build/reconstruction-input-validation/user-test-rr/object-motion-20261101/report.json.

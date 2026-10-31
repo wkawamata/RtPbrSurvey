@@ -163,6 +163,8 @@ struct SceneTurntable
     std::string nodeId;
     SceneFloat3 pivot = {0, 0, 0};
     float degreesPerSecond = 15.0f;
+    SceneFloat3 translationAmplitude = {0, 0, 0};
+    float translationPeriodSeconds = 4.0f;
 };
 
 struct SceneDocument

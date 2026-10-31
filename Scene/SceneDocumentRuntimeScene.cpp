@@ -40,6 +40,7 @@ bool SceneDocumentRuntimeScene::LoadFromDocument(const RtPbrSurvey::SceneDocumen
     m_displayInstanceCount = static_cast<int>(m_builder.Builder().GetScene().instances.size());
     m_turntableInstance.reset();
     m_turntableAngle = 0.0f;
+    m_turntableTime = 0.0;
     if (document.turntable)
     {
         const auto instance = m_builder.Result().nodeInstanceIndices.find(document.turntable->nodeId);
@@ -100,6 +101,7 @@ void SceneDocumentRuntimeScene::Load()
 void SceneDocumentRuntimeScene::Reset()
 {
     m_turntableAngle = 0.0f;
+    m_turntableTime = 0.0;
     if (m_turntableInstance)
     {
         auto& instance = GetScene().instances[*m_turntableInstance];
@@ -122,11 +124,18 @@ void SceneDocumentRuntimeScene::Update(float deltaTime, const SampleSceneUpdateC
     }
     const auto& animation = *m_document.turntable;
     m_turntableAngle = std::fmod(m_turntableAngle + deltaTime * animation.degreesPerSecond, 360.0f);
+    m_turntableTime = std::fmod(m_turntableTime + deltaTime, animation.translationPeriodSeconds);
+    const float translationPhase = static_cast<float>(m_turntableTime / animation.translationPeriodSeconds) *
+        DirectX::XM_2PI;
+    const float translationWeight = std::sin(translationPhase);
+    const auto& amplitude = animation.translationAmplitude;
     const auto& pivot = animation.pivot;
     const DirectX::XMMATRIX world = DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&m_turntableBaseWorld)) *
         DirectX::XMMatrixTranslation(-pivot.x, -pivot.y, -pivot.z) *
         DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(m_turntableAngle)) *
-        DirectX::XMMatrixTranslation(pivot.x, pivot.y, pivot.z);
+        DirectX::XMMatrixTranslation(pivot.x + amplitude.x * translationWeight,
+                                    pivot.y + amplitude.y * translationWeight,
+                                    pivot.z + amplitude.z * translationWeight);
     DirectX::XMStoreFloat4x4(&instance.world, DirectX::XMMatrixTranspose(world));
 }
 

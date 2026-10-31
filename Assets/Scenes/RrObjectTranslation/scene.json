@@ -1,0 +1,530 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "rr-object-translation",
+  "name": "PT RR Object Translation",
+  "renderPreset": "../PathTracingValidation/rr-quality/render-preset-4spp-jitter.json",
+  "assets": [
+    {
+      "id": "helmet",
+      "type": "gltf",
+      "path": "../../Models/DamagedHelmet/glTF/DamagedHelmet.gltf"
+    }
+  ],
+  "materials": [
+    {
+      "id": "floor",
+      "name": "floor",
+      "baseColor": [
+        0.22,
+        0.24,
+        0.27,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.48
+    },
+    {
+      "id": "wall",
+      "name": "wall",
+      "baseColor": [
+        0.42,
+        0.44,
+        0.48,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.85
+    },
+    {
+      "id": "red",
+      "name": "red",
+      "baseColor": [
+        0.55,
+        0.035,
+        0.025,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.7
+    },
+    {
+      "id": "blue",
+      "name": "blue",
+      "baseColor": [
+        0.025,
+        0.12,
+        0.5,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.65
+    },
+    {
+      "id": "copper",
+      "name": "copper",
+      "baseColor": [
+        0.9,
+        0.48,
+        0.22,
+        1
+      ],
+      "metallic": 1,
+      "roughness": 0.2
+    },
+    {
+      "id": "dark",
+      "name": "dark",
+      "baseColor": [
+        0.035,
+        0.035,
+        0.04,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.5
+    }
+  ],
+  "nodes": [
+    {
+      "id": "Floor",
+      "name": "Floor",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "plane",
+        "size": 1,
+        "radius": 0.8,
+        "height": 1,
+        "width": 12,
+        "depth": 12,
+        "stacks": 64,
+        "slices": 96,
+        "radialSegments": 64
+      },
+      "materialId": "floor"
+    },
+    {
+      "id": "Back wall",
+      "name": "Back wall",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0,
+        2.0,
+        2.6
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        7,
+        4,
+        0.12
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.8,
+        "height": 1,
+        "width": 12,
+        "depth": 12,
+        "stacks": 64,
+        "slices": 96,
+        "radialSegments": 64
+      },
+      "materialId": "wall"
+    },
+    {
+      "id": "Red panel",
+      "name": "Red panel",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        -2.5,
+        1.5,
+        2.45
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1.2,
+        2.8,
+        0.12
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.8,
+        "height": 1,
+        "width": 12,
+        "depth": 12,
+        "stacks": 64,
+        "slices": 96,
+        "radialSegments": 64
+      },
+      "materialId": "red"
+    },
+    {
+      "id": "Blue panel",
+      "name": "Blue panel",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        1.9,
+        1.5,
+        2.45
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1.2,
+        2.8,
+        0.12
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.8,
+        "height": 1,
+        "width": 12,
+        "depth": 12,
+        "stacks": 64,
+        "slices": 96,
+        "radialSegments": 64
+      },
+      "materialId": "blue"
+    },
+    {
+      "id": "Copper reflection",
+      "name": "Copper reflection",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        1.25,
+        0.8,
+        0.25
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "sphere",
+        "size": 1,
+        "radius": 0.8,
+        "height": 1,
+        "width": 12,
+        "depth": 12,
+        "stacks": 64,
+        "slices": 96,
+        "radialSegments": 64
+      },
+      "materialId": "copper"
+    },
+    {
+      "id": "helmet",
+      "name": "Textured Damaged Helmet",
+      "parentId": null,
+      "type": "gltf",
+      "assetId": "helmet",
+      "translation": [
+        -1.25,
+        1.15,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true
+    },
+    {
+      "id": "Thin bar 1",
+      "name": "Thin bar 1",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0.1,
+        1.2,
+        1.55
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.045,
+        2.4,
+        0.07
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.8,
+        "height": 1,
+        "width": 12,
+        "depth": 12,
+        "stacks": 64,
+        "slices": 96,
+        "radialSegments": 64
+      },
+      "materialId": "dark"
+    },
+    {
+      "id": "Thin bar 2",
+      "name": "Thin bar 2",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0.24000000000000002,
+        1.2,
+        1.55
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.045,
+        2.4,
+        0.07
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.8,
+        "height": 1,
+        "width": 12,
+        "depth": 12,
+        "stacks": 64,
+        "slices": 96,
+        "radialSegments": 64
+      },
+      "materialId": "dark"
+    },
+    {
+      "id": "Thin bar 3",
+      "name": "Thin bar 3",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0.38,
+        1.2,
+        1.55
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.045,
+        2.4,
+        0.07
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.8,
+        "height": 1,
+        "width": 12,
+        "depth": 12,
+        "stacks": 64,
+        "slices": 96,
+        "radialSegments": 64
+      },
+      "materialId": "dark"
+    },
+    {
+      "id": "Thin bar 4",
+      "name": "Thin bar 4",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0.52,
+        1.2,
+        1.55
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.045,
+        2.4,
+        0.07
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.8,
+        "height": 1,
+        "width": 12,
+        "depth": 12,
+        "stacks": 64,
+        "slices": 96,
+        "radialSegments": 64
+      },
+      "materialId": "dark"
+    },
+    {
+      "id": "Thin bar 5",
+      "name": "Thin bar 5",
+      "parentId": null,
+      "type": "primitive",
+      "translation": [
+        0.66,
+        1.2,
+        1.55
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        0.045,
+        2.4,
+        0.07
+      ],
+      "visible": true,
+      "primitive": {
+        "kind": "cube",
+        "size": 1,
+        "radius": 0.8,
+        "height": 1,
+        "width": 12,
+        "depth": 12,
+        "stacks": 64,
+        "slices": 96,
+        "radialSegments": 64
+      },
+      "materialId": "dark"
+    }
+  ],
+  "camera": {
+    "position": [
+      0.15,
+      2.5,
+      -7.5
+    ],
+    "target": [
+      0,
+      1.15,
+      0.65
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 44,
+    "orthographicHeight": 10,
+    "nearZ": 0.1,
+    "farZ": 1000
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      0.18,
+      0.24,
+      0.35
+    ],
+    "groundColor": [
+      0.06,
+      0.05,
+      0.04
+    ],
+    "lightColor": [
+      1,
+      0.96,
+      0.86
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 0.3,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  },
+  "turntable": {
+    "nodeId": "helmet",
+    "pivot": [
+      -1.25,
+      1.15,
+      0
+    ],
+    "degreesPerSecond": 0,
+    "translationAmplitude": [
+      1.4,
+      0,
+      0
+    ],
+    "translationPeriodSeconds": 6
+  }
+}

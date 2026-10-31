@@ -46,6 +46,7 @@ private:
     std::optional<size_t> m_turntableInstance;
     DirectX::XMFLOAT4X4 m_turntableBaseWorld = {};
     float m_turntableAngle = 0.0f;
+    double m_turntableTime = 0.0;
 };
 
 } // namespace Engine
