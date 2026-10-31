@@ -260,3 +260,93 @@ Pythonの判定器/fixture試験も4/4合格。
 次は単一凸形状の限定glTF Volumeで定数粗さを受理し、読み込んだ粗さがランタイムへ
 伝わることと、光路・吸収・境界診断を検証する。テクスチャ、金属、部分透過、複合媒体は
 この受理条件の変更へ同時に含めない。粗いVolumeの炉試験とGUI目視確認は引き続き別途必要。
+
+## Step 3: 限定glTF Volumeの定数粗さ
+
+glTFローダーのsolid Volume条件から`roughnessFactor == 0`だけを外す。
+粗さの有限値/[0,1]チェック、非金属、完全透過、白い境界、IOR上限、テクスチャ等の
+既存材質条件と、単一閉凸形状・配置・カメラのガードは変更しない。
+0.1/0.35/1.0の定数粗さとVolume識別がランタイム材質へ保持されること、
+範囲外の粗さを拒否することをC++試験へ追加した。
+
+- 保存シーン35 `35-gltf-rough-volume-tetra`を追加。粗さ0.35、IOR=1.5、
+  距離吸収はシーン31と同じ。格子像のぼけを比較する。
+- 通常Debug x64ビルド成功（既存MSB4011警告1件）、CMake Debugビルド成功
+  （テストターゲットの既存LNK4199警告3件）。CTestは最終55/55合格。
+  初回は新規拒否試験が一時ファイルを不正値のまま残したため後続試験が失敗した。
+  smooth fixtureの書戻しを追加して再ビルド・全件再実行済み。
+- `validate_gltf_rough_volume.py`でroughness=0/0.35の光路距離・透過率・状態を
+  各々取得する6キャプチャが合格。画面全体で状態コード0/3/7以外を拒否する。
+  中央64x64の完了入出射は3,935/3,721本、棄却0/202本、上限到達1/0本。
+  距離から独立計算した吸収の最大誤差は約2.88e-7/2.60e-7（許容0.002）。
+  共通完了光路177,865本で平均絶対距離差は約0.747。粗さが光路を変えることを確認。
+  証拠: `bin/PathTracingValidation/gltf-rough-volume-20261031/report.json`。
+- 滑らかなglTF Volumeの既存6件も再実行し合格。missed-exitは0、独立な幾何光路長
+  誤差約1.42e-5、Bias/TMin拡大時の透過率差0。
+  証拠: `gltf-rough-volume-smooth-regression-20261031/report.json`。
+- 保存シーン35を通常Debug版で64サンプル描画し、PNG出力と終了コード0を確認。
+  D3D12エラーなし。画像で格子像のぼけと青い着色を確認したが、ユーザー目視承認は未実施。
+  画像: `gltf-rough-volume-20261031/saved-scene.png`。
+
+任意のglTFモデル、複数Primitive、凹形状、媒体重複、粗さテクスチャのsolid Volumeを
+受理したわけではない。既存の3モデル全体やユーザーの目視承認、粗いVolume自体の
+エネルギー積分を、この限定試験の成功から保証しない。
+
+## Material ControlsでのVolume調整
+
+Volume材質にVolume IOR、Absorption Color、Absorption Distance、
+Infinite Absorption Distanceを追加。IORは[1,4]、吸収色は[0,1]、有限距離の
+スライダーは[0.001,1000] world units。無限距離へ切り替えると吸収しない。
+有限へ戻す際の初期値は1。Volumeの粗さは0まで指定可能とし、金属度は編集不可。
+表示する誘電体F0も現在のIORから計算する。
+
+変更は既存の材質バッファ更新経路で即時反映し、PT履歴をMaterial変更としてリセット。
+更新APIは明示的なVolume更新フラグを使い、既存呼出しが既定IOR/吸収値を上書きしない。
+API側でもIOR・吸収色の非有限/範囲外、距離のNaN/ゼロ以下を拒否する。
+実行中の調整のみであり、元glTFやScene Editor文書への保存は行わない。
+GUIのスライダー操作による反映・履歴リセットはユーザー目視確認が必要。
+
+通常Debug/CMake Debugビルド成功、CTest55/55合格。
+通常Debugでシーン35の起動・8サンプル描画・PNG出力が成功し、D3D12エラーなし。
+証拠は`gltf-rough-volume-20261031/material-controls-startup.log`と同名PNG。
+この起動確認はGUIを操作して値変更と履歴リセットを検証したものではない。
+
+## 保存シーンのTurntable
+
+2026-11-01: 任意の`turntable`設定をSceneDocumentへ追加。対象のルートMeshノードID、
+world-spaceのpivot、Y軸degreesPerSecondを保存する。初期対応は子を持たない単一ノード。
+既存の設定なしシーンは静止したまま。シーン35はsolidを原点周りに15度/秒で回転する。
+シーン35の四面体は正四面体ではなく、辺長1とsqrt(2)を持つ直交四面体の拡大形。
+
+通常実行のMaterial ControlsにPlay Animation/Pause Animationを表示し、既存のSpaceと
+同じ再生フラグを操作する。初期停止からPlayで開始。Pauseは角度を保持し、PT蓄積自体は
+止めない。回転中は既存のSetScene経路がScene変更としてPT蓄積をリセットする。
+停止時もprevWorldを現在行列へ揃える。Resetは元の姿勢へ戻す。
+対象ノード削除時にはTurntable参照も削除する。
+
+通常Debug/CMake Debugビルド成功、CTest55/55合格。追加CPU試験で回転・停止時の行列、
+前フレーム行列、Reset、1回転中のVolume配置ガード、設定の保存再読込、対象削除を確認。
+GUIボタン/Spaceの実操作と回転中のGPU描画の目視確認は未実施。
+
+## 静止した四面体の反射・屈折像の調査
+
+2026-11-01: ユーザーから、Pause後の透明な四面体に断片状の像が見えるとの報告。
+GUIのIOR/粗さ/吸収設定はまだ不明。見た目だけで正常・不具合とは判定しない。
+
+`validate_smooth_volume_paths.py`を追加し、独立したCPU倍精度の平面交差、
+Snell/Fresnel、全反射、内部反射の追跡とGPU診断を比較。
+共有するのは乱数列とカメラ設定であり、CPU側はHLSLサンプラを呼ばない。
+IOR=1.5、roughness=0、固定姿勢0度/60度、各1024画素・3キャプチャが合格。
+最大内部距離誤差は約1.44e-5、状態/反射回数差0、出射方向誤差は最大約1.27e-4。
+初期固定許容値は距離0.005、状態0、方向0.002で、失敗に合わせた緩和なし。
+最初の実行は診断側がサンプル番号0を仮定したため失敗し、キャプチャメタデータの
+sampleStartIndex=1を参照するよう修正。失敗記録は保持し、新規フォルダーで再実行した。
+
+証拠:
+- `smooth-volume-path-reference-20261101/report.json`: 診断側の初回失敗。
+- `smooth-volume-path-reference-final-20261101/report.json`: 固定0度合格。
+- `smooth-volume-path-reference-angle60-20261101/report.json`: 固定60度合格。
+
+これは中央ROIの光路比較であり、放射輝度画像全体、全姿勢、全IOR/粗さや、
+ユーザーが停止した姿勢・設定を直接再現した試験ではない。レンダラーの変更は未実施。
+ユーザー設定の確認と、必要ならIOR=1/粗さ0/吸収なしの直進透過対照から再現を続ける。

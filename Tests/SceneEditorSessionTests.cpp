@@ -29,6 +29,7 @@ bool TestPrimitiveAddAndSubtreeDelete()
                         cube->materialId == session.Document().materials.front().id,
                     "added primitive receives a default material");
 
+    session.Document().turntable = RtPbrSurvey::SceneTurntable{cube->id, {0, 0, 0}, 15};
     RtPbrSurvey::SceneNode child;
     child.id = "child";
     child.name = "Child";
@@ -37,6 +38,7 @@ bool TestPrimitiveAddAndSubtreeDelete()
     passed &= Check(session.DeleteSelectedNode(), "selected subtree is deleted");
     passed &= Check(session.Document().nodes.empty(), "selected node and descendants are removed");
     passed &= Check(!session.SelectedNodeId().has_value(), "selection clears after deletion");
+    passed &= Check(!session.Document().turntable, "deleting animated target removes the animation reference");
     return passed;
 }
 

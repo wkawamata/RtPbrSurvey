@@ -1,0 +1,16 @@
+{
+  "asset": {"version": "2.0", "generator": "RtPbrSurvey validation fixture"},
+  "scene": 0,
+  "scenes": [{"nodes": [0]}],
+  "nodes": [{"name": "Solid", "mesh": 0}],
+  "buffers": [{"byteLength": 72, "uri": "data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAACAAEAAAABAAMAAAADAAIAAQACAAMA"}],
+  "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 48}, {"buffer": 0, "byteOffset": 48, "byteLength": 24}],
+  "accessors": [{"bufferView": 0, "componentType": 5126, "count": 4, "type": "VEC3", "min": [0,0,0], "max": [1,1,1]},
+                {"bufferView": 1, "componentType": 5123, "count": 12, "type": "SCALAR"}],
+  "meshes": [{"primitives": [{"attributes": {"POSITION": 0}, "indices": 1, "material": 0}]}],
+  "extensionsUsed": ["KHR_materials_transmission", "KHR_materials_volume"],
+  "extensionsRequired": ["KHR_materials_transmission", "KHR_materials_volume"],
+  "materials": [{"pbrMetallicRoughness": {"metallicFactor": 0, "roughnessFactor": 0.35},
+                 "extensions": {"KHR_materials_transmission": {"transmissionFactor": 1},
+                                "KHR_materials_volume": {"thicknessFactor": 1, "attenuationColor": [0.25,0.5,0.8], "attenuationDistance": 1}}}]
+}

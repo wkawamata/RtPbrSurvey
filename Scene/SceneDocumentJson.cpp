@@ -395,6 +395,21 @@ bool ValidateSceneDocument(const SceneDocument& document, std::string* error)
             }
         }
     }
+    if (document.turntable)
+    {
+        const auto& animation = *document.turntable;
+        const auto node = std::find_if(document.nodes.begin(), document.nodes.end(),
+            [&](const SceneNode& value) { return value.id == animation.nodeId; });
+        if (node == document.nodes.end() || !node->visible || node->parentId ||
+            (node->type != SceneNodeType::Primitive && node->type != SceneNodeType::Gltf) ||
+            !IsFinite(animation.pivot) || !IsFinite(animation.degreesPerSecond) ||
+            std::abs(animation.degreesPerSecond) > 360.0f ||
+            std::any_of(document.nodes.begin(), document.nodes.end(),
+                [&](const SceneNode& child) { return child.parentId == animation.nodeId; }))
+        {
+            return fail("Turntable requires a visible root mesh node without children and finite rotation settings.");
+        }
+    }
     if (!IsFinite(document.camera.position) || !IsFinite(document.camera.target) || !IsFinite(document.camera.up) ||
         !IsFinite(document.camera.verticalFovDegrees) || !IsFinite(document.camera.orthographicHeight) ||
         !IsFinite(document.camera.lensShiftX) || !IsFinite(document.camera.lensShiftY) ||
@@ -466,7 +481,7 @@ bool SerializeSceneDocument(const SceneDocument& document, std::string& jsonText
         nodes.push_back(NodeToJson(node));
     }
 
-    const json root = {{"schemaVersion", document.schemaVersion},
+    json root = {{"schemaVersion", document.schemaVersion},
                        {"sceneId", document.sceneId},
                        {"name", document.name},
                        {"description", document.description},
@@ -498,6 +513,12 @@ bool SerializeSceneDocument(const SceneDocument& document, std::string& jsonText
                          {"fillIntensity", document.environment.fillIntensity},
                          {"colorPanelIntensity", document.environment.colorPanelIntensity},
                          {"horizonSharpness", document.environment.horizonSharpness}}}};
+    if (document.turntable)
+    {
+        root["turntable"] = {{"nodeId", document.turntable->nodeId},
+            {"pivot", Float3ToJson(document.turntable->pivot)},
+            {"degreesPerSecond", document.turntable->degreesPerSecond}};
+    }
     jsonText = root.dump(indent, ' ', false, json::error_handler_t::replace);
     if (error != nullptr)
     {
@@ -511,7 +532,7 @@ bool DeserializeSceneDocument(std::string_view jsonText, SceneDocument& document
     try
     {
         const json root = json::parse(jsonText);
-        if (!IsKnownFields(root, {"schemaVersion", "sceneId", "name", "description", "renderPreset", "assets", "materials", "nodes", "camera", "environment"}) ||
+        if (!IsKnownFields(root, {"schemaVersion", "sceneId", "name", "description", "renderPreset", "assets", "materials", "nodes", "camera", "environment", "turntable"}) ||
             !root.contains("schemaVersion") || !root.at("schemaVersion").is_number_integer() ||
             root.at("schemaVersion").get<int>() != SceneDocument::kSchemaVersion)
         {
@@ -647,6 +668,20 @@ bool DeserializeSceneDocument(std::string_view jsonText, SceneDocument& document
                 return false;
             }
             parsed.nodes.push_back(std::move(node));
+        }
+        if (root.contains("turntable"))
+        {
+            const json& value = root.at("turntable");
+            SceneTurntable turntable;
+            if (!IsKnownFields(value, {"nodeId", "pivot", "degreesPerSecond"}) ||
+                !RequireString(value, "nodeId", turntable.nodeId, error) ||
+                !value.contains("pivot") || !Float3FromJson(value.at("pivot"), turntable.pivot) ||
+                !value.contains("degreesPerSecond") || !value.at("degreesPerSecond").is_number())
+            {
+                return false;
+            }
+            turntable.degreesPerSecond = value.at("degreesPerSecond").get<float>();
+            parsed.turntable = turntable;
         }
         if (!root.contains("camera") || !IsKnownFields(root.at("camera"), {"position", "target", "up", "projection", "verticalFovDegrees", "orthographicHeight", "nearZ", "farZ", "lensShiftX", "lensShiftY"}) ||
             !root.at("camera").contains("position") || !Float3FromJson(root.at("camera").at("position"), parsed.camera.position) ||
