@@ -158,6 +158,13 @@ struct SceneEnvironment
     float horizonSharpness = 0.08f;
 };
 
+struct SceneTurntable
+{
+    std::string nodeId;
+    SceneFloat3 pivot = {0, 0, 0};
+    float degreesPerSecond = 15.0f;
+};
+
 struct SceneDocument
 {
     static constexpr int kSchemaVersion = 1;
@@ -172,6 +179,7 @@ struct SceneDocument
     std::vector<SceneNode> nodes;
     SceneCamera camera;
     SceneEnvironment environment;
+    std::optional<SceneTurntable> turntable;
 };
 
 // Creates an unsaved document. File I/O, JSON validation, and ID generation belong to later layers.

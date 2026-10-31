@@ -6,6 +6,8 @@
 #include <cmath>
 #include <filesystem>
 #include <iostream>
+#include "Scene/SceneDocumentRuntimeScene.h"
+#include "Scene/ImportedVolumeScene.h"
 
 namespace
 {
@@ -309,6 +311,29 @@ bool TestQualifiedVolumeBuild()
     }
     document.nodes[0].primitive.kind = ScenePrimitiveKind::Sphere;
     passed &= Check(builder.Build(document, &error), "clear smooth volume sphere builds");
+    document.materials[0].roughness = 0.35f;
+    passed &= Check(builder.Build(document, &error), "rough volume sphere builds");
+    if (passed)
+    {
+        passed &= Check(NearlyEqual(builder.Builder().GetMesh().materials[builder.Result().materialIds.at("metal")].roughnessFactor,
+            0.35f), "rough volume preserves runtime roughness");
+    }
+    document.nodes[0].primitive.kind = ScenePrimitiveKind::Cube;
+    passed &= Check(builder.Build(document, &error), "rough volume cube builds");
+    for (const char* name : {"33-rough-volume-cube", "34-rough-volume-sphere", "35-gltf-rough-volume-tetra"})
+    {
+        const std::filesystem::path directory = std::filesystem::path(__FILE__).parent_path().parent_path() /
+            "Assets/Scene/PathTracingValidation" / name;
+        SceneDocument saved;
+        passed &= Check(LoadSceneDocumentFile((directory / "scene.json").string(), saved, &error),
+            "rough volume saved scene schema loads");
+        if (!passed)
+        {
+            std::cerr << error << '\n';
+            return false;
+        }
+        passed &= Check(builder.Build(saved, directory, &error), "rough volume saved scene builds");
+    }
     return passed;
 }
 
@@ -339,9 +364,67 @@ bool TestGltfFailureKeepsPublishedScene()
 
 } // namespace
 
+bool TestRuntimeTurntable()
+{
+    const auto path = std::filesystem::path(__FILE__).parent_path().parent_path() /
+        "Assets/Scene/PathTracingValidation/35-gltf-rough-volume-tetra/scene.json";
+    Engine::SceneDocumentRuntimeScene scene(path);
+    std::string error;
+    if (!Check(scene.LoadFromFile(&error), "turntable saved scene loads"))
+    {
+        return false;
+    }
+    const auto same = [](const DirectX::XMFLOAT4X4& a, const DirectX::XMFLOAT4X4& b)
+    {
+        for (int row = 0; row < 4; ++row)
+        {
+            for (int col = 0; col < 4; ++col)
+            {
+                if (std::abs(a.m[row][col] - b.m[row][col]) > 0.00001f)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+    const auto original = scene.GetScene().instances[0].world;
+    Engine::SampleSceneUpdateContext context;
+    scene.Update(1, context);
+    bool passed = Check(same(original, scene.GetScene().instances[0].world), "paused turntable stays fixed");
+    context.isPlaying = true;
+    scene.Update(6, context);
+    const auto rotated = scene.GetScene().instances[0].world;
+    passed &= Check(!same(original, rotated) && same(original, scene.GetScene().instances[0].prevWorld),
+        "playing turntable rotates and preserves previous transform");
+    context.isPlaying = false;
+    scene.Update(6, context);
+    passed &= Check(same(rotated, scene.GetScene().instances[0].world) &&
+        same(rotated, scene.GetScene().instances[0].prevWorld), "pause clears motion without resetting angle");
+    scene.Reset();
+    passed &= Check(same(original, scene.GetScene().instances[0].world), "reset restores original transform");
+    context.isPlaying = true;
+    for (int step = 0; step < 24; ++step)
+    {
+        scene.Update(1, context);
+        const auto guard = RtPbrSurvey::BuildImportedVolumeSceneGuard(scene.GetScene(), error);
+        passed &= Check(guard.has_value(), "full turn preserves isolated convex volume placement");
+    }
+    auto document = scene.Document();
+    std::string json;
+    RtPbrSurvey::SceneDocument restored;
+    passed &= Check(RtPbrSurvey::SerializeSceneDocument(document, json, &error) &&
+        RtPbrSurvey::DeserializeSceneDocument(json, restored, &error) && restored.turntable &&
+        restored.turntable->nodeId == "solid" && restored.turntable->degreesPerSecond == 15,
+        "turntable settings survive serialization");
+    document.turntable->nodeId = "missing";
+    passed &= Check(!RtPbrSurvey::SerializeSceneDocument(document, json, &error), "missing animation target rejected");
+    return passed;
+}
+
 int main()
 {
-    if (!TestQualifiedVolumeBuild() || !TestThinReviewFixtures() || !TestTransmissionReachesRuntimeMaterial() ||
+    if (!TestRuntimeTurntable() || !TestQualifiedVolumeBuild() || !TestThinReviewFixtures() || !TestTransmissionReachesRuntimeMaterial() ||
         !TestPrimitiveBuildAndMeshReuse() || !TestGltfBuildAndMeshReuse() || !TestGltfFailureKeepsPublishedScene() ||
         !TestNrdStableRadianceFixture() || !TestNrdDisocclusionFixture())
     {

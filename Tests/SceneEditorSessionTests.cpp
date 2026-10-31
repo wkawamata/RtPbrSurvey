@@ -29,6 +29,7 @@ bool TestPrimitiveAddAndSubtreeDelete()
                         cube->materialId == session.Document().materials.front().id,
                     "added primitive receives a default material");
 
+    session.Document().turntable = RtPbrSurvey::SceneTurntable{cube->id, {0, 0, 0}, 15};
     RtPbrSurvey::SceneNode child;
     child.id = "child";
     child.name = "Child";
@@ -37,6 +38,7 @@ bool TestPrimitiveAddAndSubtreeDelete()
     passed &= Check(session.DeleteSelectedNode(), "selected subtree is deleted");
     passed &= Check(session.Document().nodes.empty(), "selected node and descendants are removed");
     passed &= Check(!session.SelectedNodeId().has_value(), "selection clears after deletion");
+    passed &= Check(!session.Document().turntable, "deleting animated target removes the animation reference");
     return passed;
 }
 
@@ -349,7 +351,7 @@ bool TestVolumeEditUndoAndPersistence()
     session.MarkSaved();
     session.BeginEdit();
     auto& material = session.Document().materials[0];
-    material.roughness = 0.0f;
+    material.roughness = 0.35f;
     material.transmission.mode = RtPbrSurvey::SceneTransmissionMode::Volume;
     material.transmission.factor = 1.0f;
     material.transmission.ior = 1.33f;
@@ -360,7 +362,8 @@ bool TestVolumeEditUndoAndPersistence()
     passed &= Check(session.Undo() && !session.IsModified() &&
         session.Document().materials[0].transmission.mode == RtPbrSurvey::SceneTransmissionMode::Opaque,
         "volume undo restores saved state");
-    passed &= Check(session.Redo() && session.Document().materials[0].transmission.ior == 1.33f &&
+    passed &= Check(session.Redo() && session.Document().materials[0].roughness == 0.35f &&
+        session.Document().materials[0].transmission.ior == 1.33f &&
         session.Document().materials[0].transmission.volume.attenuationDistance == 2.0f,
         "volume redo restores IOR and distance");
     std::string serialized;
@@ -368,6 +371,7 @@ bool TestVolumeEditUndoAndPersistence()
     RtPbrSurvey::SceneDocument restored;
     passed &= Check(RtPbrSurvey::SerializeSceneDocument(session.Document(), serialized, &error) &&
         RtPbrSurvey::DeserializeSceneDocument(serialized, restored, &error) &&
+        restored.materials[0].roughness == 0.35f &&
         restored.materials[0].transmission.volume.attenuationColor.z == 0.8f &&
         restored.materials[0].transmission.volume.attenuationDistance == 2.0f,
         "finite absorption survives save and load");

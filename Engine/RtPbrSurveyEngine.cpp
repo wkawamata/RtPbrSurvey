@@ -1198,8 +1198,30 @@ void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialPara
     }
 
     Engine::Material& material = m_materialData[materialIndex];
+    const bool updateVolume = params.updateVolume && (material.flags & Engine::kMaterialFlagVolumeTransmission) != 0;
+    if (updateVolume)
+    {
+        if (!std::isfinite(params.transmissionIor) || params.transmissionIor < 1.0f || params.transmissionIor > 4.0f ||
+            std::isnan(params.volumeAbsorption.attenuationDistance) || params.volumeAbsorption.attenuationDistance <= 0.0f)
+        {
+            return;
+        }
+        for (float color : params.volumeAbsorption.attenuationColor)
+        {
+            if (!std::isfinite(color) || color < 0.0f || color > 1.0f)
+            {
+                return;
+            }
+        }
+    }
+    const bool volumeChanged = updateVolume &&
+        (material.transmissionIor != params.transmissionIor ||
+         material.volumeAbsorption.attenuationDistance != params.volumeAbsorption.attenuationDistance ||
+         material.volumeAbsorption.attenuationColor[0] != params.volumeAbsorption.attenuationColor[0] ||
+         material.volumeAbsorption.attenuationColor[1] != params.volumeAbsorption.attenuationColor[1] ||
+         material.volumeAbsorption.attenuationColor[2] != params.volumeAbsorption.attenuationColor[2]);
     const float emissiveScale = (material.flags & Engine::kMaterialFlagUnlit) != 0 ? 0.0f : params.emissiveScale;
-    const bool reflectionHistoryChanged =
+    const bool reflectionHistoryChanged = volumeChanged ||
         material.roughnessFactor != params.roughnessFactor ||
         material.metallicFactor != params.metallicFactor ||
         material.emissiveScale != emissiveScale;
@@ -1209,6 +1231,11 @@ void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialPara
     material.metallicFactor = params.metallicFactor;
     material.ambientOcclusionFactor = params.ambientOcclusionFactor;
     material.emissiveScale = emissiveScale;
+    if (updateVolume)
+    {
+        material.transmissionIor = params.transmissionIor;
+        material.volumeAbsorption = params.volumeAbsorption;
+    }
     m_materialBuffer.Update(m_materialData);
     if (reflectionHistoryChanged)
     {

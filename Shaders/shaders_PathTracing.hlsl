@@ -84,6 +84,7 @@ static const uint hitNormalSource = 0;
 #include "PathTracingSampling.hlsli"
 #include "ThinTransmission.hlsli"
 #include "VolumeTransmission.hlsli"
+#include "RoughVolumeTransmission.hlsli"
 #include "PathTracingDenoiserSampling.hlsli"
 #include "EmissiveTriangleSampling.hlsli"
 StructuredBuffer<EmissiveTriangleGpu> g_emissiveTriangles : register(t7);
@@ -729,8 +730,32 @@ float3 TracePath(uint2 pixel,
                 volumeError = 3;
                 break;
             }
-            const VolumeBoundarySample boundary = SampleSmoothVolumeBoundary(ray.Direction, geometryNormal,
+            VolumeBoundarySample boundary = SampleSmoothVolumeBoundary(ray.Direction, geometryNormal,
                 inside ? volumeIor : 1.0, inside ? 1.0 : hitMaterial.transmissionIor, NextRandom(randomState));
+            if (hitMaterial.roughness > 0.0)
+            {
+                float3 tangent, bitangent;
+                BuildPathTracingTangentFrame(geometryNormal, tangent, bitangent);
+                const float3 localIncident = float3(dot(ray.Direction, tangent), dot(ray.Direction, bitangent),
+                    dot(ray.Direction, geometryNormal));
+                const float eventRandom = NextRandom(randomState);
+                const float directionRandomX = NextRandom(randomState);
+                const float directionRandomY = NextRandom(randomState);
+                const RoughVolumeBoundarySample roughBoundary = SampleRoughVolumeBoundary(localIncident,
+                    hitMaterial.roughness, inside ? volumeIor : 1.0, inside ? 1.0 : hitMaterial.transmissionIor,
+                    eventRandom, float2(directionRandomX, directionRandomY));
+                if (!roughBoundary.valid)
+                {
+                    // VNDF samples outside the macro hemisphere are zero-contribution events.
+                    volumeError = 7;
+                    break;
+                }
+                boundary.direction = normalize(tangent * roughBoundary.direction.x +
+                    bitangent * roughBoundary.direction.y + geometryNormal * roughBoundary.direction.z);
+                boundary.weight = roughBoundary.weight;
+                boundary.reflected = roughBoundary.reflected;
+                boundary.valid = true;
+            }
             if (!boundary.valid)
             {
                 volumeError = 4;

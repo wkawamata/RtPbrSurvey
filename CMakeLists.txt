@@ -354,6 +354,7 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/ThinTransmission.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/VolumeTransmission.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/RoughVolumeTransmission.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDenoiserSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/EmissiveTriangleSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDirectLightAdapter.hlsli"
@@ -564,6 +565,16 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${ggx_precision_shader}")
     add_test(NAME RtPbrSurvey.PathTracingGgxPrecision
         COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${ggx_precision_shader}" --ggx-precision)
+    set(rough_volume_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RoughVolumeTransmission_CSMain.cso")
+    add_custom_command(OUTPUT "${rough_volume_shader}"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${rough_volume_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_RoughVolumeTransmission.hlsl"
+        DEPENDS Tests/shaders_RoughVolumeTransmission.hlsl Shaders/RoughVolumeTransmission.hlsli
+            Shaders/VolumeTransmission.hlsli Shaders/PathTracingDenoiserSampling.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${rough_volume_shader}")
+    add_test(NAME RtPbrSurvey.RoughVolumeTransmission
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${rough_volume_shader}" --rough-volume)
     set(rr_conversion_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrInputConversion_CSMain.cso")
     set(rr_texture_conversion_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_PathTracingRrConversion_CSMain.cso")
     set(rr_live_distance_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrLiveDistance_CSMain.cso")

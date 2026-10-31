@@ -201,6 +201,9 @@ public:
         float metallicFactor = 1.0f;
         float ambientOcclusionFactor = 1.0f;
         float emissiveScale = 1.0f;
+        bool updateVolume = false;
+        float transmissionIor = 1.5f;
+        Engine::VolumeAbsorptionParameters volumeAbsorption;
     };
 
     using Scene = Engine::Scene;

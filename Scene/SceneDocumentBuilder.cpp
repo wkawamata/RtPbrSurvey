@@ -99,14 +99,14 @@ bool SceneDocumentBuilder::Build(const SceneDocument& document,
     for (const SceneMaterial& material : document.materials)
     {
         if (material.transmission.mode == SceneTransmissionMode::Volume &&
-            (material.metallic != 0 || material.roughness != 0 || material.transmission.factor != 1 ||
+            (material.metallic != 0 || material.transmission.factor != 1 ||
              material.baseColor.x != 1 || material.baseColor.y != 1 || material.baseColor.z != 1 ||
              material.transmission.tint.x != 1 || material.transmission.tint.y != 1 || material.transmission.tint.z != 1 ||
              material.transmission.ior > 4))
         {
             if (error != nullptr)
             {
-                *error = "This volume combination is not connected yet (smooth dielectric, white boundary tint only): " + material.id;
+                *error = "This volume combination is not connected yet (dielectric, white boundary tint only): " + material.id;
             }
             return false;
         }

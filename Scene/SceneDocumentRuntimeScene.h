@@ -43,6 +43,9 @@ private:
     RtPbrSurvey::SceneDocumentBuilder m_builder;
     std::string m_name;
     int m_displayInstanceCount = 0;
+    std::optional<size_t> m_turntableInstance;
+    DirectX::XMFLOAT4X4 m_turntableBaseWorld = {};
+    float m_turntableAngle = 0.0f;
 };
 
 } // namespace Engine
