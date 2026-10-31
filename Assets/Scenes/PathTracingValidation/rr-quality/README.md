@@ -120,3 +120,9 @@ responds before judging. Change Roughness 0.2 -> 0.8 -> 0.2, then Metallic
 1 -> 0 -> 1. Inspect for old reflection/highlight persistence after each change.
 The running UI exposes scalar material factors, not base-color editing, so this
 subtest does not claim coverage of base-color edits. Object edits remain pending.
+
+User acceptance on 2026-10-31: Step 4 material-factor checks passed for the
+copper sphere: Roughness 0.2 -> 0.8 -> 0.2 and Metallic 1 -> 0 -> 1.
+The user reported no problems following the reflection/highlight persistence checks.
+Light and scalar-material changes are now accepted for this profile. Object
+transform/visibility changes and base-color editing are not covered by this result.
