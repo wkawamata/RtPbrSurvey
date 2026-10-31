@@ -58,6 +58,8 @@ struct GltfMeshData
 {
     std::vector<GltfVertex> vertices;
     std::vector<uint32_t> indices;
+    // Optional PT-only frames aligned with index slots; zero means no override.
+    std::vector<DirectX::XMFLOAT4> pathTracingCornerTangents;
 
     std::vector<GltfMaterial> materials; // interim
     int materialIndex = 0;

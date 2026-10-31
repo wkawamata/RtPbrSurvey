@@ -96,6 +96,15 @@ float PathTracingGgxDistribution(float normalDotHalf, float alpha)
     return alphaSquared / (kPathTracingPi * denominator * denominator);
 }
 
+float PathTracingGgxDistribution(float3 normal, float3 halfVector, float alpha)
+{
+    const float3 sineVector = cross(normal, halfVector);
+    const float normalDotHalf = saturate(dot(normal, halfVector));
+    const float alphaSquared = alpha * alpha;
+    const float denominator = dot(sineVector, sineVector) + alphaSquared * normalDotHalf * normalDotHalf;
+    return alphaSquared / (kPathTracingPi * denominator * denominator);
+}
+
 float PathTracingSmithG1(float normalDotDirection, float alpha)
 {
     const float normalDotDirectionSquared = normalDotDirection * normalDotDirection;
@@ -139,10 +148,9 @@ void EvaluatePathTracingBrdfComponents(float3 albedo,
     }
 
     const float3 halfVector = normalize(viewDirection + lightDirection);
-    const float normalDotHalf = saturate(dot(normal, halfVector));
     const float viewDotHalf = saturate(dot(viewDirection, halfVector));
     const float alpha = max(roughness * roughness, 0.001);
-    const float distribution = PathTracingGgxDistribution(normalDotHalf, alpha);
+    const float distribution = PathTracingGgxDistribution(normal, halfVector, alpha);
     const float geometry = PathTracingSmithG1(normalDotView, alpha) *
         PathTracingSmithG1(normalDotLight, alpha);
     const float3 f0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
@@ -218,15 +226,20 @@ float3 SamplePathTracingCosineHemisphere(float2 randomSample, float3 normal)
     return PathTracingDirectionToWorld(localDirection, normal);
 }
 
+float3 SamplePathTracingGgxHalfVectorWithAlpha(float2 randomSample, float alpha, float3 normal)
+{
+    const float turn = randomSample.x < 0.5 ? randomSample.x : randomSample.x - 1.0;
+    const float phi = 2.0 * kPathTracingPi * turn;
+    // Normalize a slope-scaled vector instead of subtracting nearly equal cosines.
+    precise float radius = alpha * sqrt(randomSample.y);
+    precise float height = sqrt(1.0 - randomSample.y);
+    precise float3 localHalfVector = normalize(float3(cos(phi) * radius, sin(phi) * radius, height));
+    return PathTracingDirectionToWorld(localHalfVector, normal);
+}
+
 float3 SamplePathTracingGgxHalfVector(float2 randomSample, float roughness, float3 normal)
 {
-    const float alpha = max(roughness * roughness, 0.001);
-    const float phi = 2.0 * kPathTracingPi * randomSample.x;
-    const float cosTheta =
-        sqrt((1.0 - randomSample.y) / (1.0 + (alpha * alpha - 1.0) * randomSample.y));
-    const float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
-    const float3 localHalfVector = float3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
-    return PathTracingDirectionToWorld(localHalfVector, normal);
+    return SamplePathTracingGgxHalfVectorWithAlpha(randomSample, max(roughness * roughness, 0.001), normal);
 }
 
 float PathTracingSpecularPdf(float3 normal,
@@ -238,7 +251,7 @@ float PathTracingSpecularPdf(float3 normal,
     const float normalDotHalf = saturate(dot(normal, halfVector));
     const float viewDotHalf = saturate(dot(viewDirection, halfVector));
     const float alpha = max(roughness * roughness, 0.001);
-    return PathTracingGgxDistribution(normalDotHalf, alpha) * normalDotHalf /
+    return PathTracingGgxDistribution(normal, halfVector, alpha) * normalDotHalf /
         max(4.0 * viewDotHalf, 0.000001);
 }
 

@@ -1417,6 +1417,9 @@ private:
     ComPtr<ID3D12Resource> m_indexBuffer;
     D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
     ComPtr<ID3D12Resource> m_meshRangeBuffer;
+    ComPtr<ID3D12Resource> m_pathTracingVertexBuffer;
+    ComPtr<ID3D12Resource> m_pathTracingIndexBuffer;
+    UINT m_pathTracingVertexCount = 0;
     std::vector<Engine::EmissiveTriangleGpu> m_emissiveTriangles;
     std::vector<InstanceData> m_emissiveSourceInstances;
     std::vector<Engine::SceneMaterial> m_emissiveSourceMaterials;
@@ -1675,6 +1678,8 @@ private:
     static constexpr const char* kSceneIndexBufferResourceName = "Scene.IndexBuffer";
     static constexpr const char* kSceneInstanceBufferResourceName = "Scene.InstanceBuffer";
     static constexpr const char* kSceneMeshRangeBufferResourceName = "Scene.MeshRangeBuffer";
+    static constexpr const char* kPathTracingVertexBufferResourceName = "PathTracing.VertexBuffer";
+    static constexpr const char* kPathTracingIndexBufferResourceName = "PathTracing.IndexBuffer";
     static constexpr const char* kSceneCameraConstantsResourceName = "Scene.CameraConstants";
     static constexpr const char* kNrdReconstructionConstantsResourceName = "PathTracing.NrdReconstructionConstants";
     static constexpr const char* kMaterialBufferResourceName = "MaterialBuffer";
