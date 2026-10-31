@@ -107,3 +107,9 @@ Material edits (copper roughness/color) and object transform/visibility edits ar
 separate subsequent checks; light-only acceptance does not cover them.
 Do not save temporary test edits over the baseline scene/preset.
 All Step 4 user acceptance is pending.
+
+User acceptance on 2026-10-31: Step 4 light-change checks passed (Warm key
+off/on and color/intensity changes), following the light-only instructions.
+No problematic stale lighting/shadows/highlights were reported.
+Material edits and object transform/visibility changes have not yet been confirmed;
+this result does not mark the entire Step 4 complete.
