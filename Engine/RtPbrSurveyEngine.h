@@ -113,6 +113,7 @@ using GBufferPipelineDefinition = Engine::GBufferPipelineDefinition;
 using DepthPrePassPipelineDefinition = Engine::DepthPrePassPipelineDefinition;
 using FullscreenPipelineDefinition = Engine::FullscreenPipelineDefinition;
 namespace RootSignatureLayout = Engine::RootSignatureLayout;
+namespace RtPbrSurvey { class ConvexVolumeBounds; }
 
 class RtPbrSurveyEngine
 {
@@ -200,6 +201,9 @@ public:
         float metallicFactor = 1.0f;
         float ambientOcclusionFactor = 1.0f;
         float emissiveScale = 1.0f;
+        bool updateVolume = false;
+        float transmissionIor = 1.5f;
+        Engine::VolumeAbsorptionParameters volumeAbsorption;
     };
 
     using Scene = Engine::Scene;
@@ -284,6 +288,11 @@ public:
         WorldNormal,
         Emissive,
         Radiance,
+        VolumeBoundaries,
+        VolumeStatus,
+        VolumeOutgoingDirection,
+        VolumeExitPosition,
+        VolumeTransmittance,
     };
 
     struct PathTracingSettings
@@ -1411,6 +1420,9 @@ private:
     ComPtr<ID3D12Resource> m_indexBuffer;
     D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
     ComPtr<ID3D12Resource> m_meshRangeBuffer;
+    ComPtr<ID3D12Resource> m_pathTracingVertexBuffer;
+    ComPtr<ID3D12Resource> m_pathTracingIndexBuffer;
+    UINT m_pathTracingVertexCount = 0;
     std::vector<Engine::EmissiveTriangleGpu> m_emissiveTriangles;
     std::vector<InstanceData> m_emissiveSourceInstances;
     std::vector<Engine::SceneMaterial> m_emissiveSourceMaterials;
@@ -1451,6 +1463,13 @@ private:
     bool m_usesIndexedDraw = false;
     bool m_sceneHasMaterials = false;
     bool m_sceneHasThinTransmission = false;
+    bool m_sceneHasAlphaMask = false;
+    bool m_sceneHasVolumeTransmission = false;
+    std::shared_ptr<RtPbrSurvey::ConvexVolumeBounds> m_importedVolumeBounds;
+    std::string m_importedVolumeSceneError;
+    std::string m_importedVolumeStatus;
+    void RefreshImportedVolumeCameraStatus();
+    bool m_sceneHasDoubleSided = false;
     bool m_sceneResourcesAvailable = false;
 
     int m_displayInstanceCount = static_cast<int>(kMaxInstanceCount);
@@ -1662,6 +1681,8 @@ private:
     static constexpr const char* kSceneIndexBufferResourceName = "Scene.IndexBuffer";
     static constexpr const char* kSceneInstanceBufferResourceName = "Scene.InstanceBuffer";
     static constexpr const char* kSceneMeshRangeBufferResourceName = "Scene.MeshRangeBuffer";
+    static constexpr const char* kPathTracingVertexBufferResourceName = "PathTracing.VertexBuffer";
+    static constexpr const char* kPathTracingIndexBufferResourceName = "PathTracing.IndexBuffer";
     static constexpr const char* kSceneCameraConstantsResourceName = "Scene.CameraConstants";
     static constexpr const char* kNrdReconstructionConstantsResourceName = "PathTracing.NrdReconstructionConstants";
     static constexpr const char* kMaterialBufferResourceName = "MaterialBuffer";
@@ -2001,6 +2022,8 @@ private:
     void ExecutePtRrValidationPass(const RenderPass& pass);
     void ExecutePtRrEvaluatePass(const RenderPass& pass);
     bool IsPtRrNativeRequested() const;
+    bool CanRunPtRrNative() const;
+    bool SupportsPathTracingReconstructionSurfaces() const;
     void ExecuteNrdReconstructionPass(const RenderPass& pass);
     void ExecuteNrdAdmissionPass(const RenderPass& pass);
     void ExecuteNrdRelaxPass(const RenderPass& pass);

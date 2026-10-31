@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <stdexcept>
+#include <algorithm>
 
 using DirectX::XMFLOAT2;
 using DirectX::XMFLOAT3;
@@ -301,6 +302,12 @@ SceneMesh::Range AppendMesh(SceneMesh& dest, const SceneMesh& src, uint32_t mate
     {
         dest.indices.push_back(baseVertex + idx);
     }
+    if (!dest.pathTracingCornerTangents.empty() || !src.pathTracingCornerTangents.empty())
+    {
+        dest.pathTracingCornerTangents.resize(dest.indices.size());
+        std::copy(src.pathTracingCornerTangents.begin(), src.pathTracingCornerTangents.end(),
+                  dest.pathTracingCornerTangents.begin() + range.firstIndex);
+    }
     return range;
 }
 
@@ -352,6 +359,24 @@ SceneMesh::Range AppendTransformedMesh(SceneMesh& dest,
     for (uint32_t idx : src.indices)
     {
         dest.indices.push_back(baseVertex + idx);
+    }
+    if (!dest.pathTracingCornerTangents.empty() || !src.pathTracingCornerTangents.empty())
+    {
+        dest.pathTracingCornerTangents.resize(dest.indices.size());
+        const float sign = XMVectorGetX(det) < 0.0f ? -1.0f : 1.0f;
+        for (size_t i = 0; i < src.pathTracingCornerTangents.size(); ++i)
+        {
+            const auto& source = src.pathTracingCornerTangents[i];
+            if (source.w == 0.0f)
+            {
+                continue;
+            }
+            XMVECTOR tangent = XMVectorSet(source.x, source.y, source.z, 0.0f);
+            tangent = XMVector3Normalize(XMVector3TransformNormal(tangent, transform));
+            DirectX::XMFLOAT3 value = {};
+            XMStoreFloat3(&value, tangent);
+            dest.pathTracingCornerTangents[range.firstIndex + i] = {value.x, value.y, value.z, source.w * sign};
+        }
     }
     return range;
 }

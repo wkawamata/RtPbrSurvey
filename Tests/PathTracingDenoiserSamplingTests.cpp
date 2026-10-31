@@ -14,6 +14,8 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include "VolumeTransmissionReference.h"
+#include "../Shared/VolumeAbsorptionParameters.h"
 
 #include "RrInputConversionValidation.h"
 
@@ -98,6 +100,200 @@ ComPtr<ID3D12Resource> Buffer(ID3D12Device* device, UINT64 size, D3D12_HEAP_TYPE
 bool Near(double actual, double expected, double absolute = 0.0002, double relative = 0.002)
 {
     return std::isfinite(actual) && std::abs(actual - expected) <= absolute + relative * std::abs(expected);
+}
+
+void ValidateGgxPrecision(const float* values, bool hardware)
+{
+    constexpr float alphas[] = {0.000001f, 0.00001f, 0.0000556767f, 0.001f, 0.01f, 0.1f, 1.0f};
+    double maximumHalfError = 0.0;
+    double maximumDistributionError = 0.0;
+    double energy[28] = {};
+    for (unsigned int index = 0; index < kSampleCount; ++index)
+    {
+        const float* value = values + index * 16;
+        for (unsigned int channel = 0; channel < 16; ++channel)
+        {
+            if (!std::isfinite(value[channel]))
+                throw std::runtime_error("Non-finite GGX precision output");
+        }
+        const unsigned int caseIndex = index / kSamplesPerCase;
+        const unsigned int localIndex = index % kSamplesPerCase;
+        const double alpha = alphas[caseIndex / 4];
+        const double u = localIndex == 0 ? 0.0 : localIndex == 1023 ? double(0.99999f) : (localIndex % 32 + 0.5) / 32.0;
+        const double v = localIndex == 0 ? 0.0 : localIndex == 1023 ? double(0.99999f) : (localIndex / 32 + 0.5) / 32.0;
+        const Vector normal = {value[12], value[13], value[14]};
+        const Vector normals[] = {{0, 0, 1}, {1, 0, 0}, {0, 1, 0}, {double(0.36f), double(0.48f), double(0.8f)}};
+        const Vector normalDelta = normal + Normalize(normals[caseIndex % 4]) * -1;
+        if (std::sqrt(Dot(normalDelta, normalDelta)) > 0.000001)
+            throw std::runtime_error("GGX test normal mismatch");
+        const Vector helper = std::abs(normal.y) < 0.999 ? Vector{0, 1, 0} : Vector{1, 0, 0};
+        const Vector tangent = Normalize(Cross(helper, normal));
+        const Vector bitangent = Cross(normal, tangent);
+        const double theta = std::atan(alpha * std::sqrt(v / (1.0 - v)));
+        const Vector expectedHalf =
+            Normalize(tangent * (std::cos(2 * kPi * u) * std::sin(theta)) +
+                      bitangent * (std::sin(2 * kPi * u) * std::sin(theta)) + normal * std::cos(theta));
+        const Vector half = {value[0], value[1], value[2]};
+        const double halfError = std::sqrt(Dot(half + expectedHalf * -1, half + expectedHalf * -1));
+        maximumHalfError = std::max(maximumHalfError, halfError);
+        // D3D sin/cos guarantees absolute error 0.0008, not float ULP accuracy.
+        // Keep hardware qualification strict; WARP uses the documented trig bound.
+        const double halfErrorLimit = hardware ? 0.000001 : 0.000001 + 0.0025 * std::sin(theta);
+        if (halfError > halfErrorLimit || !Near(Dot(half, half), 1.0, 0.000001, 0))
+        {
+            std::cerr << "half actual=" << half.x << ',' << half.y << ',' << half.z << " expected=" << expectedHalf.x
+                      << ',' << expectedHalf.y << ',' << expectedHalf.z << '\n';
+            throw std::runtime_error(
+                "GGX half-vector disagrees with double slope reference: case=" + std::to_string(caseIndex) +
+                " sample=" + std::to_string(localIndex) + " error=" + std::to_string(halfError));
+        }
+        const Vector sine = Cross(normal, half);
+        if (caseIndex % 4 != 3 && !Near(std::sqrt(Dot(sine, sine)), std::sin(theta), 0.0000000001, 0.001))
+            throw std::runtime_error("GGX sample lost its near-normal angular offset");
+        const double cosine = std::clamp(Dot(normal, half), 0.0, 1.0);
+        const double denominator = Dot(sine, sine) + alpha * alpha * cosine * cosine;
+        const double expectedDistribution = alpha * alpha / (kPi * denominator * denominator);
+        // World-space float cross products become ill-conditioned near parallel.
+        // Axis frames remain strict; the rotated alpha=1e-6 probe is diagnostic.
+        const double relativeLimit = caseIndex % 4 != 3 ? 0.001 : alpha < 0.000005 ? 0.12 : 0.02;
+        const double distributionError = std::abs(value[3] / expectedDistribution - 1.0);
+        maximumDistributionError = std::max(maximumDistributionError, distributionError);
+        if (distributionError > relativeLimit || !Near(value[7], value[3] * 0.25, 0, 0.00001))
+            throw std::runtime_error("GGX distribution/PDF disagrees with double quantized-vector reference: case=" +
+                                     std::to_string(caseIndex) + " sample=" + std::to_string(localIndex) +
+                                     " relative error=" + std::to_string(distributionError));
+        const Vector reflected = half * (2 * Dot(normal, half)) + normal * -1;
+        const Vector actualDirection = {value[4], value[5], value[6]};
+        const Vector delta = actualDirection + reflected * -1;
+        if (std::sqrt(Dot(delta, delta)) > 0.000002)
+            throw std::runtime_error("GGX reflected direction mismatch");
+        const double clampedAlpha = std::max(alpha, 0.001);
+        const double cosTheta = 1.0 / std::sqrt(1.0 + clampedAlpha * clampedAlpha * v / (1.0 - v));
+        const double normalDotLight = 2 * cosTheta * cosTheta - 1;
+        const bool valid = normalDotLight > 0;
+        const double g1 =
+            valid ? 2 * normalDotLight /
+                        (normalDotLight + std::sqrt(clampedAlpha * clampedAlpha + (1 - clampedAlpha * clampedAlpha) *
+                                                                                      normalDotLight * normalDotLight))
+                  : 0;
+        const double fresnel = 0.8 + 0.2 * std::pow(1 - cosTheta, 5);
+        const double expectedWeight = fresnel * g1;
+        if ((value[15] != 0) != valid || (valid && value[11] <= 0))
+            throw std::runtime_error("GGX BSDF validity/PDF mismatch");
+        for (unsigned int channel = 8; channel < 11; ++channel)
+        {
+            if (!Near(value[channel], expectedWeight, 0.0001, 0.002))
+                throw std::runtime_error("GGX BSDF weight disagrees with independent Fresnel/Smith cancellation");
+        }
+        energy[caseIndex] += value[8] / kSamplesPerCase;
+    }
+    for (unsigned int index = 0; index < 16; ++index)
+    {
+        if (std::abs(energy[index] - 0.8) > 0.002)
+            throw std::runtime_error("Current-floor smooth-metal furnace energy mismatch");
+    }
+    std::cout << "GGX precision: " << kSampleCount << " samples; max half error=" << maximumHalfError
+              << "; max relative D error=" << maximumDistributionError << "; current-floor energy checked.\n";
+}
+
+void ValidateRoughVolume(const float* values)
+{
+    constexpr float roughnesses[] = {0, .1f, .35f, .7f, 1, .35f, .7f};
+    constexpr float cosines[] = {1, .8f, .6f, .1f};
+    auto fresnel = [](double cosine, double ni, double nt)
+    {
+        if (ni == nt)
+            return 0.0;
+        const double sinT2 = ni * ni / (nt * nt) * (1 - cosine * cosine);
+        if (sinT2 >= 1)
+            return 1.0;
+        const double ct = std::sqrt(1 - sinT2);
+        const double rs = (ni * cosine - nt * ct) / (ni * cosine + nt * ct);
+        const double rp = (nt * cosine - ni * ct) / (nt * cosine + ni * ct);
+        return (rs * rs + rp * rp) / 2;
+    };
+    auto smith = [](double cosine, double alpha)
+    { return 2 * cosine / (cosine + std::sqrt(alpha * alpha + (1 - alpha * alpha) * cosine * cosine)); };
+    unsigned int reflectedCount = 0, transmittedCount = 0, rejectedCount = 0;
+    for (unsigned int index = 0; index < kSampleCount; ++index)
+    {
+        const float* value = values + index * 16;
+        for (unsigned int channel = 0; channel < 16; ++channel)
+        {
+            if (!std::isfinite(value[channel]))
+                throw std::runtime_error("Nonfinite rough-volume output");
+        }
+        const unsigned int test = index / 1024, local = index % 1024, pair = test / 4;
+        const double roughness = roughnesses[pair];
+        const double ni = pair >= 5 ? 1.5 : 1, nt = pair == 5 ? 1 : 1.5, eta = ni / nt, etap = nt / ni;
+        const double z = cosines[test % 4];
+        const Vector view = {std::sqrt(1 - z * z), 0, z};
+        const bool delta = roughness == 0 || ni == nt;
+        const double alpha = std::max(roughness * roughness, 0.001);
+        const Vector half =
+            delta ? Vector{0, 0, 1} : ReferenceNormal(view, alpha, (local % 32 + .5) / 32, (local / 32 + .5) / 32);
+        const double vh = Dot(view, half);
+        const double f = fresnel(vh, ni, nt);
+        const double random = ((local * 73) % 1024 + .5) / 1024;
+        const bool reflected = random < f;
+        const double ct = std::sqrt(std::max(0.0, 1 - eta * eta * (1 - vh * vh)));
+        const Vector expectedDirection = reflected ? half * (2 * vh) + view * -1 : view * -eta + half * (eta * vh - ct);
+        const bool valid = reflected ? expectedDirection.z > 0 : expectedDirection.z < 0;
+        if (value[15] != 0 || !Near(value[12], half.x) || !Near(value[13], half.y) || !Near(value[14], half.z))
+            throw std::runtime_error("Rough-volume VNDF/invalid-input contract mismatch");
+        if ((value[7] != 0) != valid)
+            throw std::runtime_error("Rough-volume hemisphere rejection mismatch");
+        if (!valid)
+        {
+            ++rejectedCount;
+            if (value[3] != 0 || value[4] != 0 || value[8] != 0 || value[9] != 0)
+                throw std::runtime_error("Rejected rough-volume event retained energy/PDF");
+            continue;
+        }
+        if ((value[6] != 0) != reflected || (value[10] != 0) != delta || !Near(value[5], f))
+            throw std::runtime_error("Rough-volume Fresnel selection mismatch");
+        if (!Near(value[0], expectedDirection.x) || !Near(value[1], expectedDirection.y) ||
+            !Near(value[2], expectedDirection.z))
+            throw std::runtime_error("Rough-volume Snell/reflection direction mismatch");
+        const Vector direction = {value[0], value[1], value[2]};
+        const double expectedWeight = (reflected ? 1 : eta * eta) * (delta ? 1 : smith(std::abs(direction.z), alpha));
+        if (!Near(value[4], expectedWeight) || !Near(value[11], reflected ? f : 1 - f))
+            throw std::runtime_error("Rough-volume radiance weight/event probability mismatch");
+        reflectedCount += reflected;
+        transmittedCount += !reflected;
+        if (delta)
+        {
+            if (value[3] != 0 || value[8] != 0 || value[9] != 0)
+                throw std::runtime_error("Delta event used a solid-angle PDF");
+            continue;
+        }
+        Vector recoveredHalf = Normalize(view + direction * (reflected ? 1 : etap));
+        if (recoveredHalf.z < 0)
+            recoveredHalf = recoveredHalf * -1;
+        const double nh = recoveredHalf.z, oh = Dot(view, recoveredHalf), ih = Dot(direction, recoveredHalf);
+        const double d = alpha * alpha /
+                         (kPi * std::pow(recoveredHalf.x * recoveredHalf.x + recoveredHalf.y * recoveredHalf.y +
+                                             alpha * alpha * nh * nh,
+                                         2));
+        const double g = smith(view.z, alpha) * smith(std::abs(direction.z), alpha);
+        const double fRecovered = fresnel(oh, ni, nt);
+        const double halfPdf = d * smith(view.z, alpha) * oh / view.z;
+        const double denominator = std::pow(ih + oh / etap, 2);
+        const double pdf =
+            reflected ? halfPdf * fRecovered / (4 * oh) : halfPdf * (1 - fRecovered) * std::abs(ih) / denominator;
+        const double bsdf =
+            reflected ? fRecovered * d * g / (4 * view.z * direction.z)
+                      : (1 - fRecovered) * d * g * std::abs(ih * oh / (view.z * direction.z * denominator)) * eta * eta;
+        if (!Near(value[3], pdf, .0002, .005) || !Near(value[9], pdf, .0002, .005) ||
+            !Near(value[8], bsdf, .0002, .005) || value[3] <= 0 ||
+            !Near(value[8] * std::abs(direction.z) / value[3], expectedWeight, .0002, .005))
+            throw std::runtime_error("Rough-volume BSDF/PDF/Jacobian contract mismatch at case=" +
+                                     std::to_string(test) + " sample=" + std::to_string(local));
+    }
+    if (reflectedCount == 0 || transmittedCount == 0 || rejectedCount == 0)
+        throw std::runtime_error("Missing rough-volume event coverage");
+    std::cout << "Rough volume: " << kSampleCount << " samples; reflected=" << reflectedCount
+              << "; transmitted=" << transmittedCount << "; hemisphere-rejected=" << rejectedCount << ".\n";
 }
 
 void Validate(const float* values)
@@ -377,6 +573,212 @@ void ValidateThinTransmission(const float* values)
     }
     std::cout << "Validated 28672 thin transmission GPU samples against double-precision Fresnel and energy.\n";
 }
+double ReferenceDielectricFresnel(double cosine, double ior)
+{
+    if (ior == 1)
+    {
+        return 0;
+    }
+    const double cosT = std::sqrt(1 - (1 - cosine * cosine) / (ior * ior));
+    const double s = (cosine - ior * cosT) / (cosine + ior * cosT);
+    const double p = (ior * cosine - cosT) / (ior * cosine + cosT);
+    return (s * s + p * p) * 0.5;
+}
+
+double ReferenceSmith(double cosine, double alpha)
+{
+    return 2 * cosine / (cosine + std::sqrt(alpha * alpha + (1 - alpha * alpha) * cosine * cosine));
+}
+
+void ValidateRoughThinTransmission(const float* values)
+{
+    const double roughnesses[] = {0, .1, .35, .7, 1};
+    const double cosines[] = {1, .8, .1, .0001};
+    const double tint[] = {.2, .4, .8};
+    unsigned int invalidCount = 0;
+    unsigned int roughTransmittedCount = 0;
+    for (unsigned int test = 0; test < 28; ++test)
+    {
+        const double roughness = test < 20 ? roughnesses[test / 4] : .7;
+        const double ior = test < 20 ? 1.5 : (test < 24 ? 1 : 1.33);
+        const double cosine = cosines[test % 4];
+        const Vector view = {-std::sqrt(1 - cosine * cosine), 0, cosine};
+        const double selection = ReferenceDielectricFresnel(cosine, ior);
+        for (unsigned int index = 0; index < kSamplesPerCase; ++index)
+        {
+            const float* value = values + (test * kSamplesPerCase + index) * 16;
+            for (unsigned int channel = 0; channel < 16; ++channel)
+            {
+                if (!std::isfinite(value[channel]))
+                {
+                    throw std::runtime_error("Nonfinite rough thin sample");
+                }
+            }
+            const double branchRandom = (double((index * 193u) % 1024u) + .5) / 1024;
+            const bool reflected = branchRandom < selection;
+            const bool delta = roughness == 0 || ior == 1;
+            if (value[7] != (reflected ? 1 : 0) || value[9] != (delta ? 1 : 0))
+            {
+                throw std::runtime_error("Rough thin branch or delta classification mismatch");
+            }
+            if (delta)
+            {
+                const Vector expected = {-view.x, 0, reflected ? cosine : -cosine};
+                if (value[8] != 1 || value[3] != 0 || !Near(value[0], expected.x, 1e-6, 1e-6) ||
+                    !Near(value[2], expected.z, 1e-6, 1e-6))
+                {
+                    throw std::runtime_error("Rough thin smooth limit mismatch");
+                }
+                for (unsigned int channel = 0; channel < 3; ++channel)
+                {
+                    if (!Near(value[4 + channel], reflected ? 1 : tint[channel], 1e-6, 1e-6))
+                    {
+                        throw std::runtime_error("Rough thin smooth weight mismatch");
+                    }
+                }
+                continue;
+            }
+            const double alpha = std::max(.001, roughness * roughness *
+                (reflected ? 1 : std::clamp(2 * ior - 2, 0.0, 1.0)));
+            const float phase = (float(index) + .5f) * .61803398875f;
+            const Vector half = ReferenceNormal(view, alpha, (double(index) + .5) / 1024,
+                double(phase - std::floor(phase)));
+            const Vector reflection = view * -1 + half * (2 * Dot(view, half));
+            if (reflection.z <= 0)
+            {
+                ++invalidCount;
+                if (value[8] != 0)
+                {
+                    throw std::runtime_error("Below-surface rough thin sample was not rejected");
+                }
+                continue;
+            }
+            const Vector expected = {reflection.x, reflection.y, reflected ? reflection.z : -reflection.z};
+            if (value[8] != 1 || !Near(value[0], expected.x, .0003, .001) ||
+                !Near(value[1], expected.y, .0003, .001) || !Near(value[2], expected.z, .0003, .001))
+            {
+                throw std::runtime_error("Rough thin VNDF direction mismatch");
+            }
+            roughTransmittedCount += reflected ? 0 : 1;
+            const Vector direction = {value[0], value[1], std::abs(value[2])};
+            const Vector reconstructedHalf = Normalize(view + direction);
+            const double viewDotHalf = Dot(view, reconstructedHalf);
+            const double dDenom = reconstructedHalf.x * reconstructedHalf.x + reconstructedHalf.y * reconstructedHalf.y +
+                alpha * alpha * reconstructedHalf.z * reconstructedHalf.z;
+            const double distribution = alpha * alpha / (kPi * dDenom * dDenom);
+            const double probability = reflected ? selection : 1 - selection;
+            const double pdf = probability * distribution * ReferenceSmith(cosine, alpha) / (4 * cosine);
+            const double fresnel = ReferenceDielectricFresnel(viewDotHalf, ior);
+            if (!Near(value[3], pdf, .0001, .005) || !Near(value[10], pdf, .0001, .005))
+            {
+                throw std::runtime_error("Rough thin directional PDF mismatch");
+            }
+            for (unsigned int channel = 0; channel < 3; ++channel)
+            {
+                const double attenuation = reflected ? fresnel : (1 - fresnel) * tint[channel];
+                const double bsdf = attenuation * distribution * ReferenceSmith(cosine, alpha) *
+                    ReferenceSmith(direction.z, alpha) / (4 * cosine * direction.z);
+                if (!Near(value[12 + channel], bsdf, .0001, .005) ||
+                    !Near(value[4 + channel], bsdf * direction.z / pdf, .0001, .005))
+                {
+                    throw std::runtime_error("Rough thin BSDF or throughput mismatch");
+                }
+            }
+        }
+    }
+    if (invalidCount == 0 || roughTransmittedCount == 0)
+    {
+        throw std::runtime_error("Rough thin tests did not exercise rejection and transmission");
+    }
+    std::cout << "Validated 28672 rough thin samples, GGX PDF, BSDF, throughput, grazing and smooth limits.\n";
+}
+void ValidateThinMetallicMixture(const float* values)
+{
+    const double metallics[] = {0, .1, .25, .5, .75, .9, 1};
+    const double transmissions[] = {0, .25, .5, 1};
+    for (unsigned int test = 0; test < 28; ++test)
+    {
+        const double metallic = metallics[test / 4];
+        const double transmission = transmissions[test % 4];
+        unsigned int thinCount = 0;
+        double mean = 0;
+        for (unsigned int index = 0; index < kSamplesPerCase; ++index)
+        {
+            const float* value = values + (test * kSamplesPerCase + index) * 16;
+            for (unsigned int channel = 0; channel < 16; ++channel)
+            {
+                if (!std::isfinite(value[channel]) || ((channel == 3 || channel >= 8) && value[channel] != 0))
+                {
+                    throw std::runtime_error("Invalid metallic mixture output");
+                }
+            }
+            const double random = (double(index) + .5) / kSamplesPerCase;
+            const double alpha = std::max(.001, transmission * transmission);
+            const double cosines[] = {1, .5, .1};
+            for (unsigned int cosineIndex = 0; cosineIndex < 3; ++cosineIndex)
+            {
+                const double cosine = cosines[cosineIndex];
+                const double denominator = (1 - cosine * cosine) + alpha * alpha * cosine * cosine;
+                const double distribution = alpha * alpha / (kPi * denominator * denominator);
+                if (!Near(value[4 + cosineIndex], distribution) ||
+                    (cosineIndex == 0 && !Near(value[7], distribution / 4)))
+                {
+                    throw std::runtime_error("Opaque GGX distribution/PDF mismatch at low roughness");
+                }
+            }
+            const bool thin = metallic < 1 && random < transmission * (1 - metallic);
+            const double opaqueMetallic = !thin && metallic < 1 && random < transmission ? 1 : metallic;
+            if (value[0] != (thin ? 1 : 0) || !Near(value[1], opaqueMetallic, 1e-6, 1e-6) ||
+                !Near(value[2], thin ? .9 : .2 + .4 * opaqueMetallic, 1e-6, 1e-6))
+            {
+                throw std::runtime_error("Metallic mixture selection mismatch");
+            }
+            thinCount += thin ? 1u : 0u;
+            mean += value[2] / kSamplesPerCase;
+        }
+        const double expected = (1 - transmission) * (.2 + .4 * metallic) +
+            transmission * ((1 - metallic) * .9 + metallic * .6);
+        if (std::abs(double(thinCount) / kSamplesPerCase - transmission * (1 - metallic)) > 1.0 / kSamplesPerCase ||
+            std::abs(mean - expected) > 2.0 / kSamplesPerCase)
+        {
+            throw std::runtime_error("Metallic mixture probability or expected contribution mismatch");
+        }
+    }
+    std::cout << "Validated 28672 metallic mixture selections, endpoints, contributions and low-roughness GGX PDFs.\n";
+}
+void ValidateAlphaMask(const float* values)
+{
+    const float factors[] = {0, .1f, .25f, .5f, .75f, .9f, 1};
+    const float cutoffs[] = {0, .25f, .5f, 1.1f};
+    const float alphas[] = {0, .25f, .5f, 1};
+    for (unsigned int test = 0; test < 28; ++test)
+    {
+        for (unsigned int index = 0; index < kSamplesPerCase; ++index)
+        {
+            const float* value = values + (test * kSamplesPerCase + index) * 16;
+            const float factor = factors[test / 4];
+            const float cutoff = cutoffs[test % 4];
+            const float product = alphas[index % 4] * factor;
+            if (value[0] != (product >= cutoff ? 1 : 0) || !Near(value[1], product, 1e-6, 1e-6) ||
+                value[2] != cutoff || value[3] != factor)
+            {
+                throw std::runtime_error("Alpha MASK cutoff/factor comparison mismatch");
+            }
+            if (value[4] != 8 || value[5] != 0 || value[6] != 8 || value[7] != 8)
+            {
+                throw std::runtime_error("Single/double-sided emitter PDF mismatch");
+            }
+            for (unsigned int channel = 8; channel < 16; ++channel)
+            {
+                if (value[channel] != 0)
+                {
+                    throw std::runtime_error("Alpha MASK reserved data changed");
+                }
+            }
+        }
+    }
+    std::cout << "Validated 28672 alpha MASK comparisons including equality, zero and cutoff above one.\n";
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -402,6 +804,12 @@ int main(int argc, char** argv)
         bool rrInputConversion = false;
         bool rrLiveDistance = false;
         bool thinTransmission = false;
+        bool roughThinTransmission = false;
+        bool thinMetallic = false;
+        bool alphaMask = false;
+        bool volumeTransmission = false;
+        bool ggxPrecision = false;
+        bool roughVolume = false;
         const char* inputPath = nullptr;
         const char* outputPath = nullptr;
         for (int index = 2; index < argc; ++index)
@@ -417,6 +825,30 @@ int main(int argc, char** argv)
             else if (std::strcmp(argv[index], "--thin-transmission") == 0)
             {
                 thinTransmission = true;
+            }
+            else if (std::strcmp(argv[index], "--rough-thin-transmission") == 0)
+            {
+                roughThinTransmission = true;
+            }
+            else if (std::strcmp(argv[index], "--thin-metallic") == 0)
+            {
+                thinMetallic = true;
+            }
+            else if (std::strcmp(argv[index], "--alpha-mask") == 0)
+            {
+                alphaMask = true;
+            }
+            else if (std::strcmp(argv[index], "--volume-transmission") == 0)
+            {
+                volumeTransmission = true;
+            }
+            else if (std::strcmp(argv[index], "--ggx-precision") == 0)
+            {
+                ggxPrecision = true;
+            }
+            else if (std::strcmp(argv[index], "--rough-volume") == 0)
+            {
+                roughVolume = true;
             }
             else if (std::strcmp(argv[index], "--material-factors") == 0)
             {
@@ -448,7 +880,7 @@ int main(int argc, char** argv)
             }
         }
         if (int(packing) + int(materialFactors) + int(inputConversion) + int(rrInputConversion) + int(rrLiveDistance) +
-                int(thinTransmission) >
+                int(thinTransmission) + int(roughThinTransmission) + int(thinMetallic) + int(alphaMask) + int(volumeTransmission) + int(ggxPrecision) + int(roughVolume) >
             1)
             throw std::runtime_error("Shader validation modes are mutually exclusive");
         if ((inputPath != nullptr) != (outputPath != nullptr) || (inputPath && !inputConversion))
@@ -485,8 +917,14 @@ int main(int argc, char** argv)
         parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
         parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
         parameters[2].Constants.Num32BitValues = 1;
+        if (volumeTransmission)
+        {
+            parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+            parameters[1].Constants.ShaderRegister = 0;
+            parameters[1].Constants.Num32BitValues = sizeof(Engine::VolumeAbsorptionParameters) / sizeof(float);
+        }
         D3D12_ROOT_SIGNATURE_DESC rootDesc = {};
-        rootDesc.NumParameters = inputPath ? 3 : 1;
+        rootDesc.NumParameters = inputPath ? 3 : volumeTransmission ? 2 : 1;
         rootDesc.pParameters = parameters;
         ComPtr<ID3DBlob> blob, errors;
         Check(D3D12SerializeRootSignature(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &errors));
@@ -522,6 +960,11 @@ int main(int argc, char** argv)
             0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator.Get(), pipeline.Get(), IID_PPV_ARGS(&commands)));
         commands->SetComputeRootSignature(root.Get());
         commands->SetComputeRootUnorderedAccessView(0, output->GetGPUVirtualAddress());
+        if (volumeTransmission)
+        {
+            const Engine::VolumeAbsorptionParameters absorptionParameters = {{0, 0.5f, 1}, 2};
+            commands->SetComputeRoot32BitConstants(1, sizeof(absorptionParameters) / sizeof(float), &absorptionParameters, 0);
+        }
         if (inputPath)
         {
             commands->SetComputeRootShaderResourceView(1, inputBuffer->GetGPUVirtualAddress());
@@ -570,6 +1013,30 @@ int main(int argc, char** argv)
             outputFile.write(static_cast<const char*>(data), byteCount);
             if (!outputFile)
                 throw std::runtime_error("Could not write converted output");
+        }
+        else if (roughVolume)
+        {
+            ValidateRoughVolume(static_cast<const float*>(data));
+        }
+        else if (ggxPrecision)
+        {
+            ValidateGgxPrecision(static_cast<const float*>(data), hardware);
+        }
+        else if (volumeTransmission)
+        {
+            VolumeTransmissionTests::Validate(static_cast<const float*>(data));
+        }
+        else if (alphaMask)
+        {
+            ValidateAlphaMask(static_cast<const float*>(data));
+        }
+        else if (thinMetallic)
+        {
+            ValidateThinMetallicMixture(static_cast<const float*>(data));
+        }
+        else if (roughThinTransmission)
+        {
+            ValidateRoughThinTransmission(static_cast<const float*>(data));
         }
         else if (rrInputConversion)
         {

@@ -1,5 +1,11 @@
 #include "GltfLoader.h"
 #include "Scene/SceneBuilder.h"
+#include "Scene/VolumeMeshTopology.h"
+#include "Scene/ConvexVolumeBounds.h"
+#include "Scene/ImportedVolumeScene.h"
+#include "Scene/SceneDocumentBuilder.h"
+#include "Scene/SceneDocumentJson.h"
+#include "Scene/PathTracingTangents.h"
 
 #include <cmath>
 #include <filesystem>
@@ -10,6 +16,7 @@
 #include <chrono>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <limits>
 
 namespace
 {
@@ -17,6 +24,91 @@ namespace
 bool NearlyEqual(float left, float right)
 {
     return std::abs(left - right) < 0.0001f;
+}
+
+void Require(bool condition, const char* message);
+
+void TestPathTracingTangentGeneration()
+{
+    std::vector<GltfVertex> vertices = {
+        {{0, 0, 0}, {0, 0}, {0, 0, 1}},
+        {{1, 0, 0}, {1, 0}, {0, 0, 1}},
+        {{0, 1, 0}, {0, 1}, {0, 0, 1}},
+        {{0, -1, 0}, {0, 1}, {0, 0, 1}}};
+    const std::vector<uint32_t> indices = {0, 1, 2, 0, 3, 1};
+    const auto tangents = Engine::GeneratePathTracingCornerTangents(vertices, indices);
+    Require(tangents.size() == 6 && NearlyEqual(tangents[0].x, 1) && NearlyEqual(tangents[0].w, 1),
+            "Canonical UVs must generate the analytic tangent frame.");
+    Require(NearlyEqual(tangents[3].x, 1) && NearlyEqual(tangents[3].w, -1),
+            "A mirrored UV face must retain its own handedness at a shared vertex.");
+
+    Engine::SceneMesh mesh;
+    mesh.vertices = vertices;
+    mesh.indices = indices;
+    mesh.pathTracingCornerTangents = tangents;
+    const auto pt = Engine::BuildPathTracingTangentGeometry(mesh);
+    Require(pt.generatedCornerCount == 6 && pt.indices.size() == indices.size(),
+            "PT shading geometry must retain the triangle/corner ordering.");
+    Require(pt.indices[0] != pt.indices[3] && pt.vertices[pt.indices[0]].tangent.w == 1 &&
+                pt.vertices[pt.indices[3]].tangent.w == -1,
+            "PT duplicates must not overwrite conflicting frames through an old shared index.");
+    Require(mesh.indices == indices && mesh.vertices.size() == vertices.size() && mesh.vertices[0].tangent.w == 0,
+            "Building PT geometry must not alter raster geometry.");
+    for (size_t i = 0; i < indices.size(); ++i)
+    {
+        const auto& original = vertices[indices[i]];
+        const auto& duplicate = pt.vertices[pt.indices[i]];
+        Require(original.position.x == duplicate.position.x && original.position.y == duplicate.position.y &&
+                    original.position.z == duplicate.position.z && original.uv.x == duplicate.uv.x &&
+                    original.uv.y == duplicate.uv.y && original.materialId == duplicate.materialId,
+                "Only tangent shading data may differ from BLAS/raster corner data.");
+    }
+    for (auto& vertex : mesh.vertices)
+    {
+        vertex.tangent = {0, 1, 0, 1};
+    }
+    Require(Engine::BuildPathTracingTangentGeometry(mesh).vertices.empty(),
+            "Authored tangents must never be replaced by generated ones.");
+    for (auto& vertex : vertices)
+    {
+        vertex.uv = {0, 0};
+    }
+    size_t unavailable = 0;
+    const auto degenerate = Engine::GeneratePathTracingCornerTangents(vertices, indices, &unavailable);
+    Require(degenerate[0].w == 0 && degenerate[3].w == 0 && unavailable == 6,
+            "Degenerate UVs must not invent an arbitrary tangent frame.");
+    vertices[0].uv = {0, 0};
+    vertices[1].uv = {1, 0};
+    vertices[2].uv = {0, 1};
+    for (auto& vertex : vertices)
+    {
+        vertex.normal = {1, 0, 0};
+    }
+    const auto collapsed = Engine::GeneratePathTracingCornerTangents(
+        vertices, std::vector<uint32_t>{0, 1, 2}, &unavailable);
+    Require(unavailable == 3 && collapsed[0].w == 0,
+            "A tangent collapsed against its shading normal must retain the base-normal fallback.");
+    bool rejected = false;
+    try
+    {
+        Engine::GeneratePathTracingCornerTangents(vertices, std::vector<uint32_t>{0, 1, 9});
+    }
+    catch (const std::invalid_argument&)
+    {
+        rejected = true;
+    }
+    Require(rejected, "Invalid tangent indices must be rejected.");
+    vertices[0].normal.x = (std::numeric_limits<float>::quiet_NaN)();
+    rejected = false;
+    try
+    {
+        Engine::GeneratePathTracingCornerTangents(vertices, indices);
+    }
+    catch (const std::invalid_argument&)
+    {
+        rejected = true;
+    }
+    Require(rejected, "Nonfinite tangent inputs must be rejected.");
 }
 
 std::filesystem::path FixturePath()
@@ -30,6 +122,258 @@ void Require(bool condition, const char* message)
     {
         throw std::runtime_error(message);
     }
+}
+
+void TestVolumeMeshTopology()
+{
+    using Position = std::array<float, 3>;
+    const std::vector<Position> positions = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    const std::vector<uint32_t> indices = {0, 2, 1, 0, 1, 3, 0, 3, 2, 1, 2, 3};
+    const auto validate = RtPbrSurvey::ValidateVolumeMeshTopology;
+    Require(validate(positions, indices).empty(), "Outward closed tetrahedron must pass topology validation.");
+    std::vector<Position> seams;
+    std::vector<uint32_t> seamIndices;
+    for (uint32_t index : indices)
+    {
+        seamIndices.push_back(static_cast<uint32_t>(seams.size()));
+        seams.push_back(positions[index]);
+    }
+    Require(validate(seams, seamIndices).empty(), "Exact-position UV/normal seams must weld for topology only.");
+    auto transformed = positions;
+    for (auto& position : transformed)
+    {
+        for (float& value : position)
+        {
+            value = value * 0.001f + 10.0f;
+        }
+    }
+    Require(validate(transformed, indices).empty(), "Small translated closed meshes must not use a fixed volume threshold.");
+    auto invalid = indices;
+    invalid.resize(9);
+    Require(!validate(positions, invalid).empty(), "Open volume must be rejected.");
+    invalid = indices;
+    std::swap(invalid[0], invalid[1]);
+    Require(!validate(positions, invalid).empty(), "Mixed face winding must be rejected.");
+    invalid = indices;
+    for (size_t face = 0; face < invalid.size(); face += 3)
+    {
+        std::swap(invalid[face], invalid[face + 1]);
+    }
+    Require(!validate(positions, invalid).empty(), "Inward closed shells must be rejected.");
+    invalid = indices;
+    invalid.insert(invalid.end(), {0, 2, 1});
+    Require(!validate(positions, invalid).empty(), "Three faces sharing an edge must be rejected.");
+    invalid = indices;
+    invalid[0] = 99;
+    Require(!validate(positions, invalid).empty(), "Invalid indices must be rejected.");
+    invalid = indices;
+    invalid[0] = invalid[1];
+    Require(!validate(positions, invalid).empty(), "Zero-area triangles must be rejected.");
+    invalid = indices;
+    invalid.pop_back();
+    Require(!validate(positions, invalid).empty(), "Partial triangles must be rejected.");
+    transformed = positions;
+    transformed[0][0] = std::numeric_limits<float>::quiet_NaN();
+    Require(!validate(transformed, indices).empty(), "NaN positions must be rejected before welding.");
+    transformed[0][0] = std::numeric_limits<float>::infinity();
+    Require(!validate(transformed, indices).empty(), "Infinite positions must be rejected.");
+    transformed = positions;
+    for (const auto& position : positions)
+    {
+        transformed.push_back({position[0] + 2, position[1], position[2]});
+    }
+    invalid = indices;
+    for (uint32_t index : indices)
+    {
+        invalid.push_back(index + 4);
+    }
+    Require(!validate(transformed, invalid).empty(), "Separate shells must not be treated as one medium.");
+    transformed = positions;
+    for (const auto& position : positions)
+    {
+        transformed.push_back({-position[0], -position[1], -position[2]});
+    }
+    invalid = indices;
+    for (size_t face = 0; face < indices.size(); face += 3)
+    {
+        invalid.insert(invalid.end(), {indices[face + 1] + 4, indices[face] + 4, indices[face + 2] + 4});
+    }
+    Require(!validate(transformed, invalid).empty(), "Shells touching at a single vertex must be rejected.");
+}
+
+void TestConvexVolumeBounds()
+{
+    using Bounds = RtPbrSurvey::ConvexVolumeBounds;
+    using Location = RtPbrSurvey::VolumePointLocation;
+    const std::vector<Bounds::Position> positions = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    const std::vector<uint32_t> indices = {0, 2, 1, 0, 1, 3, 0, 3, 2, 1, 2, 3};
+    std::string error = "stale";
+    const auto bounds = Bounds::Build(positions, indices, &error);
+    Require(bounds.has_value() && error.empty(), "Convex outward tetrahedron must qualify and clear stale errors.");
+    Require(bounds->ClassifyPoint({0.1f, 0.1f, 0.1f}) == Location::Inside, "Interior camera must be detected.");
+    Require(bounds->ClassifyPoint({1, 1, 1}) == Location::Outside, "Exterior camera must be detected.");
+    Require(bounds->ClassifyPoint({0, 0.2f, 0.2f}) == Location::Boundary, "Camera on a face must be rejected as boundary.");
+    Require(bounds->ClassifyPoint({0, 0, 0}) == Location::Boundary, "Camera on a vertex must be boundary.");
+    Require(bounds->ClassifyPoint({-0.0000005f, 0.2f, 0.2f}) == Location::Boundary,
+        "Near-surface camera must remain in the conservative boundary band.");
+    Require(bounds->ClassifyPoint({std::numeric_limits<float>::quiet_NaN(), 0, 0}) == Location::Invalid,
+        "Nonfinite camera cannot pass the outside check.");
+    Require(!bounds->MayOverlapBounds({2, 2, 2}, {3, 3, 3}), "Clearly separated bounds must pass placement gate.");
+    Require(bounds->MayOverlapBounds({1, 0, 0}, {2, 1, 1}), "Touching bounds must fail closed.");
+    Require(bounds->MayOverlapBounds({0.8f, 0.8f, 0.8f}, {0.9f, 0.9f, 0.9f}),
+        "AABB overlap must remain conservative even outside the actual tetrahedron.");
+    Require(bounds->MayOverlapBounds({2, 0, 0}, {1, 1, 1}), "Inverted bounds must fail closed.");
+    Require(bounds->MayOverlapBounds({2, 0, 0}, {3, std::numeric_limits<float>::infinity(), 1}),
+        "Nonfinite bounds must fail closed even with another separating axis.");
+    auto transformed = positions;
+    for (auto& position : transformed)
+    {
+        for (float& value : position)
+        {
+            value = 10.0f + value * 0.001f;
+        }
+    }
+    const auto small = Bounds::Build(transformed, indices, &error);
+    Require(small.has_value() && small->ClassifyPoint({10.00025f, 10.00025f, 10.00025f}) == Location::Inside &&
+        small->ClassifyPoint({9.99f, 10, 10}) == Location::Outside,
+        "Classification must work after uniform scale and translation.");
+    transformed = positions;
+    transformed[3][2] = 0.00000001f;
+    Require(!Bounds::Build(transformed, indices, &error) && !error.empty(),
+        "Numerically thin solids must not qualify for camera classification.");
+    const std::vector<Bounds::Position> concave = {{0, 0, -0.2f}, {0, 0, -1}, {1, 0, 0},
+        {0, 1, 0}, {-1, 0, 0}, {0, -1, 0}};
+    const std::vector<uint32_t> octahedron = {0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 2,
+        1, 3, 2, 1, 4, 3, 1, 5, 4, 1, 2, 5};
+    Require(RtPbrSurvey::ValidateVolumeMeshTopology(concave, octahedron).empty(),
+        "Concave fixture must pass topology so convexity is tested independently.");
+    Require(!Bounds::Build(concave, octahedron, &error) && error.find("convex") != std::string::npos,
+        "Closed concave shell must be rejected by convexity gate.");
+    auto open = indices;
+    open.resize(9);
+    Require(!Bounds::Build(positions, open), "Convex qualification must not bypass the topology gate.");
+}
+
+void TestSolidVolumeImport()
+{
+    using Json = nlohmann::json;
+    const auto path = std::filesystem::temp_directory_path() /
+        ("RtPbrSurvey-solid-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".gltf");
+    const auto binary = std::filesystem::path(path).replace_extension(".bin");
+    struct Cleanup
+    {
+        std::filesystem::path json, bin;
+        ~Cleanup()
+        {
+            std::error_code ignored;
+            std::filesystem::remove(json, ignored);
+            std::filesystem::remove(bin, ignored);
+        }
+    } cleanup{path, binary};
+    const float positions[] = {0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1};
+    const uint16_t indices[] = {0, 2, 1, 0, 1, 3, 0, 3, 2, 1, 2, 3};
+    {
+        std::ofstream output(binary, std::ios::binary);
+        output.write(reinterpret_cast<const char*>(positions), sizeof(positions));
+        output.write(reinterpret_cast<const char*>(indices), sizeof(indices));
+    }
+    Json document = {
+        {"asset", {{"version", "2.0"}}}, {"scene", 0}, {"scenes", {{{"nodes", {0}}}}},
+        {"nodes", {{{"name", "Solid"}, {"mesh", 0}}}},
+        {"buffers", {{{"uri", binary.filename().string()}, {"byteLength", 72}}}},
+        {"bufferViews", {{{"buffer", 0}, {"byteOffset", 0}, {"byteLength", 48}},
+                          {{"buffer", 0}, {"byteOffset", 48}, {"byteLength", 24}}}},
+        {"accessors", {{{"bufferView", 0}, {"componentType", 5126}, {"count", 4}, {"type", "VEC3"}},
+                       {{"bufferView", 1}, {"componentType", 5123}, {"count", 12}, {"type", "SCALAR"}}}},
+        {"meshes", {{{"primitives", {{{"attributes", {{"POSITION", 0}}}, {"indices", 1}, {"material", 0}}}}}}},
+        {"extensionsUsed", {"KHR_materials_transmission", "KHR_materials_volume"}},
+        {"extensionsRequired", {"KHR_materials_transmission", "KHR_materials_volume"}},
+        {"materials", {{{"pbrMetallicRoughness", {{"metallicFactor", 0}, {"roughnessFactor", 0}}},
+            {"extensions", {{"KHR_materials_transmission", {{"transmissionFactor", 1}}},
+                {"KHR_materials_volume", {{"thicknessFactor", 1}, {"attenuationColor", {0.25, 0.5, 0.8}},
+                    {"attenuationDistance", 2}}}}}}}}};
+    const auto load = [&]()
+    {
+        std::ofstream output(path, std::ios::binary);
+        output << document.dump(2);
+        output.close();
+        return Engine::LoadGltfSceneAsset(path.string());
+    };
+    const auto loaded = load();
+    Require(static_cast<bool>(loaded), "Single convex volume asset must load.");
+    for (double roughness : {0.1, 0.35, 1.0})
+    {
+        document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = roughness;
+        const auto rough = load();
+        Require(static_cast<bool>(rough), "Constant roughness convex volume must load.");
+        Engine::SceneBuilder roughBuilder;
+        const auto roughMesh = roughBuilder.AddGltfNodeMesh(rough.asset, "Solid");
+        Require(static_cast<bool>(roughMesh) && roughBuilder.GetMesh().materials[0].volumeTransmission &&
+            !roughBuilder.GetMesh().materials[0].thinTransmission &&
+            NearlyEqual(roughBuilder.GetMesh().materials[0].roughnessFactor, static_cast<float>(roughness)),
+            "Rough solid must preserve roughness and solid medium identity.");
+    }
+    document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = 0;
+    for (double invalidRoughness : {-0.1, 1.1})
+    {
+        document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = invalidRoughness;
+        Require(!load(), "Out-of-range solid roughness must fail.");
+    }
+    document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = 0;
+    Require(static_cast<bool>(load()), "Smooth fixture must be restored after invalid roughness controls.");
+    Engine::SceneBuilder builder;
+    const auto mesh = builder.AddGltfNodeMesh(loaded.asset, "Solid");
+    Require(static_cast<bool>(mesh), "Solid mesh node must convert.");
+    const auto& material = builder.GetMesh().materials[0];
+    Require(material.volumeTransmission && material.importedVolumeTransmission && !material.thinTransmission &&
+        material.volumeAbsorption.attenuationColor[0] == 0.25f && material.volumeAbsorption.attenuationDistance == 2.0f,
+        "Solid medium identity and absorption must survive renderer material conversion.");
+    builder.AddInstance(*mesh.meshId, DirectX::XMMatrixIdentity(), 0);
+    std::string error;
+    auto guard = RtPbrSurvey::BuildImportedVolumeSceneGuard(builder.GetScene(), error);
+    Require(guard.has_value() && error.empty(), "Single imported instance must qualify.");
+    Require(guard->ClassifyPoint({0.1f, 0.1f, -0.1f}) == RtPbrSurvey::VolumePointLocation::Inside,
+        "Camera guard must use converted engine coordinates.");
+    builder.AddInstance(*mesh.meshId, DirectX::XMMatrixTranslation(3, 0, 0), 0);
+    Require(!RtPbrSurvey::BuildImportedVolumeSceneGuard(builder.GetScene(), error) && !error.empty(),
+        "Second volume instance must fail even with the same material.");
+    builder.GetScene().instances.pop_back();
+    builder.GetScene().instances[0].world._11 = -1;
+    Require(!RtPbrSurvey::BuildImportedVolumeSceneGuard(builder.GetScene(), error),
+        "Mirrored scene placement must fail outward-winding qualification.");
+    builder.GetScene().instances[0].world._11 = 1;
+    DirectX::XMStoreFloat4x4(&builder.GetScene().instances[0].world,
+        DirectX::XMMatrixTranspose(DirectX::XMMatrixScaling(2, 2, 2) * DirectX::XMMatrixTranslation(3, 4, 5)));
+    guard = RtPbrSurvey::BuildImportedVolumeSceneGuard(builder.GetScene(), error);
+    Require(guard && guard->ClassifyPoint({3.2f, 4.2f, 4.8f}) == RtPbrSurvey::VolumePointLocation::Inside &&
+        guard->ClassifyPoint({0.1f, 0.1f, -0.1f}) == RtPbrSurvey::VolumePointLocation::Outside,
+        "Instance storage transpose, scale and translation must be applied before camera checks.");
+    const auto opaqueMaterial = builder.AddMaterial({});
+    const auto cube = builder.AddCube(0.2f);
+    builder.AddInstance(cube, DirectX::XMMatrixTranslation(3.2f, 4.2f, 4.8f), opaqueMaterial);
+    Require(!RtPbrSurvey::BuildImportedVolumeSceneGuard(builder.GetScene(), error) && !error.empty(),
+        "Opaque geometry inside imported volume must fail placement guard.");
+    builder.GetScene().instances.pop_back();
+    builder.AddInstance(cube, DirectX::XMMatrixTranslation(10, 0, 0), opaqueMaterial);
+    Require(RtPbrSurvey::BuildImportedVolumeSceneGuard(builder.GetScene(), error).has_value(),
+        "Separated opaque geometry must be allowed.");
+    Engine::SceneBuilder legacy;
+    Require(legacy.LoadGltfMesh(path.string()) && legacy.GetMesh().materials[0].volumeTransmission,
+        "Legacy importer must preserve solid metadata too.");
+    document["meshes"][0]["primitives"].push_back(document["meshes"][0]["primitives"][0]);
+    Require(!load(), "Multiple primitives must not be silently joined into one medium.");
+    document["meshes"][0]["primitives"].erase(1);
+    document["accessors"][1]["count"] = 9;
+    Require(!load(), "Open imported solid must be rejected before scene publication.");
+    const auto scenePath = std::filesystem::path(__FILE__).parent_path().parent_path() /
+        "Assets/Scene/PathTracingValidation/31-gltf-volume-tetra/scene.json";
+    RtPbrSurvey::SceneDocument saved;
+    Require(RtPbrSurvey::LoadSceneDocumentFile(scenePath.string(), saved, &error), "Saved glTF volume scene must load.");
+    RtPbrSurvey::SceneDocumentBuilder sceneBuilder;
+    Require(sceneBuilder.Build(saved, scenePath.parent_path(), &error), "Saved glTF volume scene must build.");
+    saved.camera.position = {-0.3f, -0.3f, 0.3f};
+    Require(!sceneBuilder.Build(saved, scenePath.parent_path(), &error) && error.find("Camera") != std::string::npos,
+        "Scene builder must reject a camera inside the imported solid.");
 }
 
 void TestNodeEnumerationAndFailures()
@@ -143,6 +487,57 @@ void TestSurfaceTransforms()
     }
 }
 
+void TestGeneratedGltfTangents()
+{
+    const auto path = FixturePath().parent_path() / "surface-transforms.gltf";
+    std::ifstream input(path);
+    nlohmann::json document;
+    input >> document;
+    document["meshes"][0]["primitives"][0]["attributes"].erase("TANGENT");
+    const auto temp = std::filesystem::temp_directory_path() /
+        ("rtpbr-generated-tangents-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".gltf");
+    {
+        std::ofstream output(temp);
+        output << document.dump();
+    }
+    const auto generated = Engine::LoadGltfSceneAsset(temp.string());
+    std::filesystem::remove(temp);
+    const auto authored = Engine::LoadGltfSceneAsset(path.string());
+    Require(static_cast<bool>(generated) && static_cast<bool>(authored), "Both tangent fixtures must load.");
+    Engine::SceneBuilder combined;
+    for (const char* name : {"Scaled", "Mirrored", "Matrix"})
+    {
+        Engine::SceneBuilder a;
+        Engine::SceneBuilder b;
+        Require(static_cast<bool>(a.AddGltfNodeMesh(generated.asset, name)) &&
+                    static_cast<bool>(b.AddGltfNodeMesh(authored.asset, name)), "Tangent fixtures must extract.");
+        const auto pt = Engine::BuildPathTracingTangentGeometry(a.GetMesh());
+        Require(pt.generatedCornerCount == 3 && b.GetMesh().pathTracingCornerTangents.empty(),
+                "Only missing tangents may receive supplemental PT data.");
+        for (size_t corner = 0; corner < 3; ++corner)
+        {
+            const auto& actual = pt.vertices[pt.indices[corner]];
+            const auto& expected = b.GetMesh().vertices[b.GetMesh().indices[corner]];
+            Require(NearlyEqual(actual.tangent.x, expected.tangent.x) &&
+                        NearlyEqual(actual.tangent.y, expected.tangent.y) &&
+                        NearlyEqual(actual.tangent.z, expected.tangent.z) &&
+                        NearlyEqual(actual.tangent.w, expected.tangent.w),
+                    "Generated frames must match authored frames after node scaling, mirroring and LH conversion.");
+            Require(a.GetMesh().vertices[a.GetMesh().indices[corner]].tangent.w == 0,
+                    "Raster vertex tangents must remain untouched.");
+        }
+        Require(static_cast<bool>(combined.AddGltfNodeMesh(generated.asset, name)), "Generated ranges must append.");
+        combined.AddCube(1.0f);
+    }
+    Require(combined.GetMesh().pathTracingCornerTangents.size() == combined.GetMesh().indices.size(),
+            "Generated tangent slots must survive interleaved glTF and procedural ranges.");
+    Require(Engine::BuildPathTracingTangentGeometry(combined.GetMesh()).generatedCornerCount == 9,
+            "Appending procedural geometry must not misalign glTF tangent corners.");
+    GltfMeshData legacy;
+    Require(LoadGltfMesh(path.string(), legacy) && legacy.pathTracingCornerTangents.empty(),
+            "The legacy authored-tangent path must remain unchanged.");
+}
+
 void TestIndependentNodeMeshesAndLifetime()
 {
     Engine::SceneBuilder builder;
@@ -250,12 +645,12 @@ void TestImportDiagnostics()
     Require(clean && clean.diagnostics.empty(), "Supported opaque packed-float input must remain diagnostic-free.");
     Json document = baseline;
     document["materials"][0]["alphaMode"] = "MASK";
-    run(document, "AlphaModeIgnored", GltfDiagnosticSeverity::Warning);
+    run(document, "AlphaMaskNativePtOnly", GltfDiagnosticSeverity::Warning);
     document["materials"][0]["alphaMode"] = "BLEND";
     run(document, "AlphaModeIgnored", GltfDiagnosticSeverity::Warning);
     document = baseline;
     document["materials"][0]["doubleSided"] = true;
-    run(document, "DoubleSidedIgnored", GltfDiagnosticSeverity::Warning);
+    run(document, "DoubleSidedNativePtOnly", GltfDiagnosticSeverity::Warning);
     document = baseline;
     document["materials"][0]["normalTexture"]["texCoord"] = 1;
     run(document, "TextureCoordinateIgnored", GltfDiagnosticSeverity::Warning);
@@ -420,6 +815,8 @@ void TestThinTransmissionImport()
     GltfMeshData mesh;
     Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].thinTransmission,
             "Raw glTF material must retain the thin marker.");
+    Require(mesh.materials[0].transmissionTexIndex == -1 && mesh.materials[0].transmissionTintTexIndex == -1,
+            "Constant transmission must keep neutral texture defaults.");
 
     Json document = baseline;
     document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionFactor"] = 1;
@@ -450,20 +847,168 @@ void TestThinTransmissionImport()
         document["materials"][0]["extensions"]["KHR_materials_ior"] = {{"ior", invalid}};
         load(document, false, "TransmissionMaterial");
     }
-    for (const char* field : {"roughnessFactor", "metallicFactor"})
+    for (double roughness : {0.1, 0.5, 1.0})
     {
         document = baseline;
-        document["materials"][0]["pbrMetallicRoughness"][field] = 0.1;
+        document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = roughness;
+        load(document, true, "ThinTransmissionApproximation");
+        Require(LoadGltfMesh(temporary.string(), mesh) && NearlyEqual(mesh.materials[0].roughnessFactor, static_cast<float>(roughness)),
+                "Rough transmission must preserve the imported roughness.");
+    }
+    for (double roughness : {-0.1, 1.1})
+    {
+        document = baseline;
+        document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = roughness;
         load(document, false, "TransmissionMaterial");
     }
-    for (const char* extension : {"KHR_materials_volume", "KHR_materials_unlit", "KHR_materials_clearcoat"})
+    for (double metallic : {0.1, 0.5, 1.0})
+    {
+        document = baseline;
+        document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] = metallic;
+        load(document, true, "ThinTransmissionApproximation");
+        Require(LoadGltfMesh(temporary.string(), mesh) && NearlyEqual(mesh.materials[0].metallicFactor, static_cast<float>(metallic)),
+                "Thin metallic mixtures must preserve their factor.");
+    }
+    for (double metallic : {-0.1, 1.1})
+    {
+        document = baseline;
+        document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] = metallic;
+        load(document, false, "TransmissionMaterial");
+    }
+    for (const char* extension : {"KHR_materials_unlit", "KHR_materials_clearcoat"})
     {
         document = baseline;
         document["materials"][0]["extensions"][extension] = Json::object();
         load(document, false, "TransmissionMaterial");
     }
     document = baseline;
+    document["extensionsUsed"].push_back("KHR_materials_volume");
+    document["extensionsRequired"].push_back("KHR_materials_volume");
+    document["materials"][0]["extensions"]["KHR_materials_volume"] = Json::object();
+    load(document, true, "ThinTransmissionApproximation");
+    document["materials"][0]["extensions"]["KHR_materials_volume"] = {
+        {"thicknessFactor", 0.0}, {"attenuationColor", {0.25, 0.5, 0.8}}, {"attenuationDistance", 2.0}};
+    load(document, true, "ThinTransmissionApproximation");
+    Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].thinTransmission &&
+                NearlyEqual(mesh.materials[0].transmissionFactor, 0.5f),
+            "Zero-thickness volume must preserve the existing thin transmission path.");
+    const Json zeroVolume = document;
+    for (const Json& invalid : {Json(-1), Json(true), Json("0"), Json(nullptr), Json(1e300), Json(1)})
+    {
+        document = zeroVolume;
+        document["materials"][0]["extensions"]["KHR_materials_volume"]["thicknessFactor"] = invalid;
+        load(document, false, "TransmissionMaterial");
+    }
+    for (const Json& invalid : {Json(0), Json(-1), Json(true), Json(nullptr), Json(1e300), Json(1e-300)})
+    {
+        document = zeroVolume;
+        document["materials"][0]["extensions"]["KHR_materials_volume"]["attenuationDistance"] = invalid;
+        load(document, false, "TransmissionMaterial");
+    }
+    for (const Json& invalid : {Json::array({0, 1}), Json::array({0, 1, 2}), Json::array({true, 0, 1}),
+             Json::array({-0.1, 0, 1}), Json("white")})
+    {
+        document = zeroVolume;
+        document["materials"][0]["extensions"]["KHR_materials_volume"]["attenuationColor"] = invalid;
+        load(document, false, "TransmissionMaterial");
+    }
+    document = zeroVolume;
+    document["materials"][0]["extensions"]["KHR_materials_volume"]["thicknessTexture"] = {{"index", 0}};
+    load(document, false, "TransmissionMaterial");
+    document = zeroVolume;
+    document["materials"][0]["extensions"]["KHR_materials_volume"] = nullptr;
+    load(document, false, "TransmissionMaterial");
+    document = zeroVolume;
+    document["materials"][0]["extensions"].erase("KHR_materials_transmission");
+    load(document, true, nullptr);
+    document["materials"][0]["extensions"]["KHR_materials_volume"]["thicknessFactor"] = 1.0;
+    load(document, false, "TransmissionMaterial");
+    document = baseline;
     document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionTexture"] = {{"index", 0}};
+    document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"] = {{"index", 0}};
+    const auto textured = load(document, true, "ThinTransmissionApproximation");
+    Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].transmissionTexIndex == 0 &&
+                mesh.materials[0].transmissionTintTexIndex == 0,
+            "Transmission and color may use the same image with distinct sampling semantics.");
+    Engine::SceneBuilder remapped;
+    Require(remapped.AddGltfMesh(FixturePath().string()).has_value(), "Texture-remap prefix must load.");
+    const size_t textureBase = remapped.GetMesh().textures.size();
+    const size_t materialBase = remapped.GetMesh().materials.size();
+    Require(static_cast<bool>(remapped.AddGltfNodeMesh(textured.asset, "Scaled")), "Textured transmission node must load.");
+    const auto& texturedMaterial = remapped.GetMesh().materials[materialBase];
+    Require(texturedMaterial.transmissionTexIndex == static_cast<int>(textureBase) &&
+                texturedMaterial.transmissionTintTexIndex == static_cast<int>(textureBase),
+            "Both transmission texture indices must be globally remapped.");
+    Engine::SceneBuilder texturedLegacy;
+    Require(texturedLegacy.LoadGltfMesh(temporary.string()) &&
+                texturedLegacy.GetMesh().materials[0].transmissionTexIndex == 0 &&
+                texturedLegacy.GetMesh().materials[0].transmissionTintTexIndex == 0,
+            "Legacy scene loading must retain both texture indices.");
+    Json texturedDocument = document;
+    document = baseline;
+    document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = 0.8;
+    document["materials"][0]["pbrMetallicRoughness"]["metallicRoughnessTexture"] = {{"index", 0}};
+    const auto roughTextured = load(document, true, "ThinTransmissionApproximation");
+    Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].metallicRoughnessTexIndex == 0 &&
+                NearlyEqual(mesh.materials[0].roughnessFactor, 0.8f) && mesh.materials[0].metallicFactor == 0.0f,
+            "Nonmetallic rough transmission must retain the core roughness texture and factor.");
+    Engine::SceneBuilder roughRemapped;
+    Require(roughRemapped.AddGltfMesh(FixturePath().string()).has_value(), "Roughness remap prefix must load.");
+    const size_t roughTextureBase = roughRemapped.GetMesh().textures.size();
+    const size_t roughMaterialBase = roughRemapped.GetMesh().materials.size();
+    Require(static_cast<bool>(roughRemapped.AddGltfNodeMesh(roughTextured.asset, "Scaled")) &&
+                roughRemapped.GetMesh().materials[roughMaterialBase].metallicRoughnessTexIndex == static_cast<int>(roughTextureBase),
+            "Rough transmission texture must use the global remapped index.");
+    Engine::SceneBuilder roughLegacy;
+    Require(roughLegacy.LoadGltfMesh(temporary.string()) &&
+                roughLegacy.GetMesh().materials[0].metallicRoughnessTexIndex == 0,
+            "Legacy loading must retain the rough transmission texture.");
+    const Json roughDocument = document;
+    document["meshes"][0]["primitives"][0]["attributes"].erase("TEXCOORD_0");
+    load(document, false, "MissingTransmissionTexcoords");
+    for (const Json& invalid : {Json{{"index", 999999}}, Json{{"index", 0}, {"texCoord", 1}},
+                               Json{{"index", 0}, {"extensions", {{"KHR_texture_transform", Json::object()}}}}})
+    {
+        document = roughDocument;
+        document["materials"][0]["pbrMetallicRoughness"]["metallicRoughnessTexture"] = invalid;
+        load(document, false, "TransmissionMaterial");
+    }
+    document = roughDocument;
+    document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] = 0.5;
+    load(document, true, "ThinTransmissionApproximation");
+    Require(LoadGltfMesh(temporary.string(), mesh) && NearlyEqual(mesh.materials[0].metallicFactor, 0.5f) &&
+                mesh.materials[0].metallicRoughnessTexIndex == 0,
+            "Metallic-roughness textures and metallic factors must remain coupled for thin mixtures.");
+    document["materials"][0]["pbrMetallicRoughness"].erase("metallicFactor");
+    load(document, true, "ThinTransmissionApproximation");
+    Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].metallicFactor == 1.0f,
+            "The glTF default metallic factor remains one even with transmission.");
+    document = roughDocument;
+    document["textures"][0]["source"] = 999999;
+    load(document, false, "TransmissionMaterial");
+    document = texturedDocument;
+    document["meshes"][0]["primitives"][0]["attributes"].erase("TEXCOORD_0");
+    load(document, false, "MissingTransmissionTexcoords");
+    for (const Json& invalid : {Json(nullptr), Json(0), Json::object(), Json{{"index", nullptr}},
+                               Json{{"index", true}}, Json{{"index", 0.5}}, Json{{"index", -1}},
+                               Json{{"index", 999999}}, Json{{"index", 0}, {"texCoord", 1}},
+                               Json{{"index", 0}, {"texCoord", nullptr}},
+                               Json{{"index", 0}, {"extensions", {{"KHR_texture_transform", Json::object()}}}}})
+    {
+        document = baseline;
+        document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionTexture"] = invalid;
+        load(document, false, "TransmissionMaterial");
+    }
+    document = texturedDocument;
+    document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"]["texCoord"] = 1;
+    load(document, false, "TransmissionMaterial");
+    document = texturedDocument;
+    document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"]["extensions"] =
+        {{"KHR_texture_transform", {{"scale", {2, 2}}}}};
+    load(document, false, "TransmissionMaterial");
+    document = texturedDocument;
+    document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionFactor"] = 1;
+    document["materials"][0]["extensions"]["KHR_materials_ior"] = {{"ior", 1.33}};
     load(document, false, "TransmissionMaterial");
     document = baseline;
     document["materials"][0]["extensions"]["KHR_materials_transmission"] = 7;
@@ -473,13 +1018,39 @@ void TestThinTransmissionImport()
     load(document, false, "TransmissionMaterial");
     document = baseline;
     document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"] = {{"index", 0}};
-    load(document, false, "TransmissionMaterial");
+    load(document, true, "ThinTransmissionApproximation");
     document = baseline;
     document["materials"][0]["alphaMode"] = "BLEND";
     load(document, false, "TransmissionMaterial");
     document = baseline;
     document["materials"][0]["pbrMetallicRoughness"]["baseColorFactor"][3] = 0.5;
-    load(document, false, "TransmissionMaterial");
+    load(document, true, "ThinTransmissionApproximation");
+    document["materials"][0]["alphaMode"] = "MASK";
+    document["materials"][0]["doubleSided"] = true;
+    document["materials"][0]["alphaCutoff"] = 0.25;
+    const auto masked = load(document, true, "AlphaMaskNativePtOnly");
+    Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].alphaMask && mesh.materials[0].doubleSided &&
+                NearlyEqual(mesh.materials[0].alphaCutoff, 0.25f), "Alpha mode, cutoff and sidedness must survive raw loading.");
+    Engine::SceneBuilder maskNode, maskLegacy;
+    Require(static_cast<bool>(maskNode.AddGltfNodeMesh(masked.asset, "Scaled")) &&
+                maskNode.GetMesh().materials[0].alphaMask && maskNode.GetMesh().materials[0].doubleSided &&
+                NearlyEqual(maskNode.GetMesh().materials[0].alphaCutoff, 0.25f), "Node loading must preserve alpha coverage.");
+    Require(maskLegacy.LoadGltfMesh(temporary.string()) && maskLegacy.GetMesh().materials[0].alphaMask &&
+                NearlyEqual(maskLegacy.GetMesh().materials[0].alphaCutoff, 0.25f), "Legacy loading must preserve alpha cutoff.");
+    const Json maskDocument = document;
+    for (double invalid : {-0.1, 1e300})
+    {
+        document = maskDocument;
+        document["materials"][0]["alphaCutoff"] = invalid;
+        load(document, false, "AlphaMaskMaterial");
+    }
+    document = maskDocument;
+    document["materials"][0]["alphaCutoff"] = 2.0;
+    load(document, true, "AlphaMaskNativePtOnly");
+    document = maskDocument;
+    document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"] = {{"index", 0}};
+    document["meshes"][0]["primitives"][0]["attributes"].erase("TEXCOORD_0");
+    load(document, false, "MissingAlphaMaskTexcoords");
     document = baseline;
     document["extensionsRequired"].push_back("KHR_lights_punctual");
     load(document, false, "RequiredExtension");
@@ -505,6 +1076,11 @@ int main(int argc, char* argv[])
             return 0;
         }
 
+        TestPathTracingTangentGeneration();
+        TestGeneratedGltfTangents();
+        TestVolumeMeshTopology();
+        TestConvexVolumeBounds();
+        TestSolidVolumeImport();
         TestNodeEnumerationAndFailures();
         TestIndependentNodeMeshesAndLifetime();
         TestGltfRotationAndHandednessConversion();

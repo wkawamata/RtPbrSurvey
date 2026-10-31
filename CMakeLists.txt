@@ -157,6 +157,8 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     App/RenderPresetStore.cpp
     Scene/ProceduralSceneBuilder.cpp
     Scene/SceneBuilder.cpp
+    Scene/PathTracingTangents.cpp
+    third_party/mikktspace/mikktspace.c
     Scene/EmissiveTriangleTable.cpp
     Scene/SceneDocumentJson.cpp
     Scene/SceneDocumentBuilder.cpp
@@ -175,12 +177,15 @@ set(RTPBRSURVEY_RENDERER_SOURCES
 )
 
 set_source_files_properties(
+    Scene/PathTracingTangents.cpp
+    third_party/mikktspace/mikktspace.c
     third_party/imgui-node-editor/crude_json.cpp
     third_party/imgui-node-editor/imgui_canvas.cpp
     third_party/imgui-node-editor/imgui_node_editor.cpp
     third_party/imgui-node-editor/imgui_node_editor_api.cpp
     third_party/ImGuizmo/ImGuizmo.cpp
     PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+set_source_files_properties(third_party/mikktspace/mikktspace.c PROPERTIES LANGUAGE CXX)
 
 add_library(RtPbrSurvey.SceneRenderer STATIC ${RTPBRSURVEY_RENDERER_SOURCES})
 add_library(RtPbrSurvey::SceneRenderer ALIAS RtPbrSurvey.SceneRenderer)
@@ -274,6 +279,7 @@ function(rtpbrsurvey_add_shader output_var shader_file stage entry_point)
         DEPENDS "${RTPBRSURVEY_ROOT}/${shader_file}" ${SHADER_UNPARSED_ARGUMENTS} ${SHADER_DEPENDS}
             "${RTPBRSURVEY_ROOT}/Shaders/DirectLights.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/VolumeAbsorptionParameters.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/DirectLightEvaluation.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/DirectPbrLighting.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/ReflectionSampling.hlsli"
@@ -335,6 +341,7 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         Shaders/shaders_HybridReflection.hlsl
         cs_6_5
         CSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/AlphaMaskCoverage.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(
@@ -342,9 +349,12 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         Shaders/shaders_PathTracing.hlsl
         cs_6_5
         CSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/AlphaMaskCoverage.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/ThinTransmission.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/VolumeTransmission.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/RoughVolumeTransmission.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDenoiserSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/EmissiveTriangleSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDirectLightAdapter.hlsli"
@@ -546,6 +556,25 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_compile_definitions(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE NOMINMAX)
     add_test(NAME RtPbrSurvey.PathTracingDenoiserSampling
         COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${denoiser_sampling_shader}")
+    set(ggx_precision_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_GgxPrecision_CSMain.cso")
+    add_custom_command(OUTPUT "${ggx_precision_shader}"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${ggx_precision_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_GgxPrecision.hlsl"
+        DEPENDS Tests/shaders_GgxPrecision.hlsl Shaders/PathTracingSampling.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${ggx_precision_shader}")
+    add_test(NAME RtPbrSurvey.PathTracingGgxPrecision
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${ggx_precision_shader}" --ggx-precision)
+    set(rough_volume_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RoughVolumeTransmission_CSMain.cso")
+    add_custom_command(OUTPUT "${rough_volume_shader}"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${rough_volume_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_RoughVolumeTransmission.hlsl"
+        DEPENDS Tests/shaders_RoughVolumeTransmission.hlsl Shaders/RoughVolumeTransmission.hlsli
+            Shaders/VolumeTransmission.hlsli Shaders/PathTracingDenoiserSampling.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${rough_volume_shader}")
+    add_test(NAME RtPbrSurvey.RoughVolumeTransmission
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${rough_volume_shader}" --rough-volume)
     set(rr_conversion_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrInputConversion_CSMain.cso")
     set(rr_texture_conversion_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_PathTracingRrConversion_CSMain.cso")
     set(rr_live_distance_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrLiveDistance_CSMain.cso")
@@ -589,10 +618,54 @@ if(RTPBRSURVEY_BUILD_TESTS)
         COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
             "-Fo${thin_transmission_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_ThinTransmission.hlsl"
         DEPENDS Tests/shaders_ThinTransmission.hlsl Shaders/ThinTransmission.hlsli
+            Shaders/PathTracingSampling.hlsli Shaders/PathTracingDenoiserSampling.hlsli
         VERBATIM)
     target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${thin_transmission_shader}")
     add_test(NAME RtPbrSurvey.ThinTransmission
         COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${thin_transmission_shader}" --thin-transmission)
+    set(rough_thin_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RoughThinTransmission_CSMain.cso")
+    add_custom_command(OUTPUT "${rough_thin_shader}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/Tests"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${rough_thin_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_RoughThinTransmission.hlsl"
+        DEPENDS Tests/shaders_RoughThinTransmission.hlsl Shaders/ThinTransmission.hlsli
+            Shaders/PathTracingSampling.hlsli Shaders/PathTracingDenoiserSampling.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${rough_thin_shader}")
+    add_test(NAME RtPbrSurvey.RoughThinTransmission
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${rough_thin_shader}" --rough-thin-transmission)
+    set(thin_metallic_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_ThinMetallicMixture_CSMain.cso")
+    add_custom_command(OUTPUT "${thin_metallic_shader}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/Tests"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${thin_metallic_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_ThinMetallicMixture.hlsl"
+        DEPENDS Tests/shaders_ThinMetallicMixture.hlsl Shaders/ThinTransmission.hlsli
+            Shaders/PathTracingSampling.hlsli Shaders/PathTracingDenoiserSampling.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${thin_metallic_shader}")
+    add_test(NAME RtPbrSurvey.ThinMetallicMixture
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${thin_metallic_shader}" --thin-metallic)
+    set(alpha_mask_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_AlphaMask_CSMain.cso")
+    add_custom_command(OUTPUT "${alpha_mask_shader}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/Tests"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${alpha_mask_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_AlphaMask.hlsl"
+        DEPENDS Tests/shaders_AlphaMask.hlsl Shaders/AlphaMaskCoverage.hlsli Shaders/EmissiveTriangleSampling.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${alpha_mask_shader}")
+    add_test(NAME RtPbrSurvey.AlphaMask
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${alpha_mask_shader}" --alpha-mask)
+    set(volume_transmission_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_VolumeTransmission_CSMain.cso")
+    add_custom_command(OUTPUT "${volume_transmission_shader}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/Tests"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${volume_transmission_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_VolumeTransmission.hlsl"
+        DEPENDS Tests/shaders_VolumeTransmission.hlsl Shaders/VolumeTransmission.hlsli Shaders/VolumeAbsorptionParameters.hlsli
+        VERBATIM)
+    target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${volume_transmission_shader}"
+        Tests/VolumeTransmissionReference.h Shared/VolumeAbsorptionParameters.h)
+    add_test(NAME RtPbrSurvey.VolumeTransmission
+        COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${volume_transmission_shader}" --volume-transmission)
     if(RTPBRSURVEY_TEST_NRD_PACKING)
         find_package(Git REQUIRED)
         set(RTPBRSURVEY_NRD_SDK_DIR "${RTPBRSURVEY_ROOT}/third_party/nrd-sdk-4.17.3"

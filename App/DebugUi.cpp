@@ -16,6 +16,8 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#include <limits>
+#include "Scene/SceneDocumentRuntimeScene.h"
 
 void RunStagedAllocatorTests(ID3D12Device* device);
 
@@ -718,6 +720,14 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     {
         if (ImGui::CollapsingHeader("Material Controls", ImGuiTreeNodeFlags_DefaultOpen))
         {
+            const auto* savedScene = dynamic_cast<const Engine::SceneDocumentRuntimeScene*>(&app.LoadedScene());
+            if (savedScene != nullptr && savedScene->Document().turntable)
+            {
+                if (ImGui::Button(app.m_isPlaying ? "Pause Animation" : "Play Animation"))
+                {
+                    app.m_isPlaying = !app.m_isPlaying;
+                }
+            }
             const int materialCount = static_cast<int>(sceneMesh.materials.size());
             if (app.m_selectedMaterialIndex >= materialCount)
             {
@@ -727,17 +737,40 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
 
             Engine::SceneMaterial& material = sceneMesh.materials[app.m_selectedMaterialIndex];
             bool materialChanged = false;
-            materialChanged |= ImGuiWidgets::SliderFloatWithControls("Roughness", &material.roughnessFactor, 0.04f, 1.0f,
-                                                                       0.02f, 0.5f);
+            materialChanged |= ImGuiWidgets::SliderFloatWithControls("Roughness", &material.roughnessFactor,
+                material.volumeTransmission ? 0.0f : 0.04f, 1.0f, 0.02f, 0.5f);
+            ImGui::BeginDisabled(material.volumeTransmission);
             materialChanged |= ImGuiWidgets::SliderFloatWithControls("Metallic", &material.metallicFactor, 0.0f, 1.0f,
                                                                        0.05f, 0.0f);
+            ImGui::EndDisabled();
             materialChanged |= ImGuiWidgets::SliderFloatWithControls("Indirect Occlusion",
                                                                        &material.ambientOcclusionFactor, 0.0f, 1.0f,
                                                                        0.05f, 1.0f);
             materialChanged |= ImGuiWidgets::SliderFloatWithControls("Emissive Luminance", &material.emissiveScale, 0.0f,
                                                                        4.0f, 0.1f, 1.0f);
 
-            const float f0 = 0.04f * (1.0f - material.metallicFactor) + material.metallicFactor;
+            if (material.volumeTransmission)
+            {
+                materialChanged |= ImGuiWidgets::SliderFloatWithControls("Volume IOR", &material.transmissionIor,
+                    1.0f, 4.0f, 0.01f, 1.5f);
+                materialChanged |= ImGui::ColorEdit3("Absorption Color", material.volumeAbsorption.attenuationColor);
+                bool infiniteDistance = std::isinf(material.volumeAbsorption.attenuationDistance);
+                if (ImGui::Checkbox("Infinite Absorption Distance", &infiniteDistance))
+                {
+                    material.volumeAbsorption.attenuationDistance = infiniteDistance ?
+                        std::numeric_limits<float>::infinity() : 1.0f;
+                    materialChanged = true;
+                }
+                if (!infiniteDistance)
+                {
+                    materialChanged |= ImGuiWidgets::SliderFloatWithControls("Absorption Distance",
+                        &material.volumeAbsorption.attenuationDistance, 0.001f, 1000.0f, 0.1f, 1.0f);
+                }
+            }
+
+            const float iorRatio = (material.transmissionIor - 1.0f) / (material.transmissionIor + 1.0f);
+            const float dielectricF0 = material.volumeTransmission ? iorRatio * iorRatio : 0.04f;
+            const float f0 = dielectricF0 * (1.0f - material.metallicFactor) + material.metallicFactor;
             ImGui::Text("Specular F0: %.2f", f0);
 
             if (materialChanged)
@@ -747,6 +780,9 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 params.metallicFactor = material.metallicFactor;
                 params.ambientOcclusionFactor = material.ambientOcclusionFactor;
                 params.emissiveScale = material.emissiveScale;
+                params.updateVolume = material.volumeTransmission;
+                params.transmissionIor = material.transmissionIor;
+                params.volumeAbsorption = material.volumeAbsorption;
                 app.m_sceneRenderer.SetMaterialParams(static_cast<UINT>(app.m_selectedMaterialIndex), params);
             }
         }
@@ -989,7 +1025,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 app.m_sceneRenderer.GetPathTracingSettings();
             bool pathTracingSettingsChanged = false;
             static constexpr const char* kPathTracingDebugOutputs[] = {
-                "Albedo + Emissive", "World Normal", "Emissive", "Radiance"};
+                "Albedo + Emissive", "World Normal", "Emissive", "Radiance", "Volume Boundaries", "Volume Status",
+                "Volume Outgoing Direction", "Volume Exit Position", "Volume Transmittance"};
             int debugOutput = static_cast<int>(pathTracingSettings.debugOutput);
             if (ImGui::Combo("Path Tracing Output",
                              &debugOutput,

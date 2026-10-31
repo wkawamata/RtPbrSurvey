@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "volume-smooth-boundary",
+  "name": "PT Smooth Volume Boundary",
+  "renderPreset": "render-preset.json",
+  "description": "目的: 閉じた無色ガラスの境界屈折を確認。IOR=1.5、厚さ0.8の箱。\n確認: 斜めから見た背景格子がガラス越しに横へずれる。薄膜の直進透過とは異なる。\nDebugのVolume BoundariesはR=入射回数/G=出射回数/B=内部距離。\nVolume StatusはR=異常コード/G=内部に残った状態/B=内部反射回数。\n制約: 単一Cube/Sphere、カメラは外部、滑らかな無色材質のみ。吸収・粗いVolume・glTF Volumeは未対応。",
+  "assets": [
+    {
+      "id": "checker",
+      "type": "gltf",
+      "path": "../20-thin-transmission-visual-comparison/checker.gltf"
+    }
+  ],
+  "materials": [
+    {
+      "id": "volume",
+      "name": "Clear volume",
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0,
+      "transmission": {
+        "mode": "volume",
+        "factor": 1,
+        "tint": [
+          1,
+          1,
+          1
+        ],
+        "ior": 1.5,
+        "volume": {
+          "attenuationColor": [
+            1,
+            1,
+            1
+          ],
+          "attenuationDistance": null
+        }
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "volume",
+      "name": "Glass box",
+      "parentId": null,
+      "type": "primitive",
+      "materialId": "volume",
+      "primitive": {
+        "kind": "cube",
+        "size": 2
+      },
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1.2,
+        1,
+        0.4
+      ],
+      "visible": true
+    },
+    {
+      "id": "checker",
+      "name": "Checker",
+      "parentId": null,
+      "type": "gltf",
+      "assetId": "checker",
+      "translation": [
+        0,
+        0,
+        2
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        4,
+        2.5,
+        1
+      ],
+      "visible": true
+    }
+  ],
+  "camera": {
+    "position": [
+      2,
+      1,
+      -5
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 40,
+    "orthographicHeight": 10,
+    "nearZ": 0.1,
+    "farZ": 1000
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      1,
+      1
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  }
+}

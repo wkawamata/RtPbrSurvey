@@ -232,6 +232,15 @@ bool TestFixtureFileLoadSaveLoad()
                         NearlyEqual(restored.materials[0].transmission.tint.z, 0.6f) &&
                         NearlyEqual(restored.materials[0].transmission.ior, 1.4f),
                     "atomic save and file reload preserve thin transmission");
+    loaded.materials[0].transmission.mode = RtPbrSurvey::SceneTransmissionMode::Volume;
+    loaded.materials[0].transmission.volume.attenuationColor = {0.2f, 0.5f, 1};
+    loaded.materials[0].transmission.volume.attenuationDistance = 3;
+    passed &= Check(RtPbrSurvey::SaveSceneDocumentFile(outputPath.string(), loaded, &error) &&
+        RtPbrSurvey::LoadSceneDocumentFile(outputPath.string(), restored, &error) &&
+        restored.materials[0].transmission.mode == RtPbrSurvey::SceneTransmissionMode::Volume &&
+        restored.materials[0].transmission.volume.attenuationDistance == 3 &&
+        NearlyEqual(restored.materials[0].transmission.volume.attenuationColor.x, 0.2f),
+        "atomic save and reload preserve volume absorption");
     std::filesystem::remove(outputPath);
     std::filesystem::remove(outputPath.string() + ".tmp");
     return passed;
@@ -462,6 +471,82 @@ bool TestTransmissionContract()
     return passed;
 }
 
+bool TestVolumeContract()
+{
+    using namespace RtPbrSurvey;
+    using json = nlohmann::json;
+    SceneDocument document = CreateEmptySceneDocument("volume-contract", "Volume Contract");
+    document.renderPresetPath = "render-preset.json";
+    document.materials.push_back({"glass", "Glass"});
+    SceneTransmission& transmission = document.materials[0].transmission;
+    transmission.mode = SceneTransmissionMode::Volume;
+    transmission.factor = 1;
+    transmission.volume.attenuationColor = {0, 0.5f, 1};
+    transmission.volume.attenuationDistance = 2;
+    std::string serialized, error;
+    SceneDocument restored;
+    bool passed = Check(SerializeSceneDocument(document, serialized, &error) &&
+        DeserializeSceneDocument(serialized, restored, &error), "volume parameters round trip");
+    passed &= Check(!restored.materials.empty() &&
+        restored.materials[0].transmission.mode == SceneTransmissionMode::Volume &&
+        restored.materials[0].transmission.volume.attenuationColor.x == 0 &&
+        restored.materials[0].transmission.volume.attenuationColor.y == 0.5f &&
+        restored.materials[0].transmission.volume.attenuationColor.z == 1 &&
+        restored.materials[0].transmission.volume.attenuationDistance == 2, "volume fields are preserved");
+    const json valid = json::parse(serialized);
+    std::vector<json> invalid;
+    for (const json& distance : {json(0), json(-1), json(false), json("infinite"), json(1e300)})
+    {
+        json candidate = valid;
+        candidate["materials"][0]["transmission"]["volume"]["attenuationDistance"] = distance;
+        invalid.push_back(candidate);
+    }
+    for (const json& color : {json({-0.1, 0, 1}), json({1.1, 0, 1}), json({0, 1}), json({0, 1, 1, 1}), json(nullptr)})
+    {
+        json candidate = valid;
+        candidate["materials"][0]["transmission"]["volume"]["attenuationColor"] = color;
+        invalid.push_back(candidate);
+    }
+    for (const char* field : {"attenuationColor", "attenuationDistance"})
+    {
+        json candidate = valid;
+        candidate["materials"][0]["transmission"]["volume"].erase(field);
+        invalid.push_back(candidate);
+    }
+    json candidate = valid;
+    candidate["materials"][0]["transmission"].erase("volume");
+    invalid.push_back(candidate);
+    candidate = valid;
+    candidate["materials"][0]["transmission"]["volume"]["thickness"] = 1;
+    invalid.push_back(candidate);
+    candidate = valid;
+    candidate["materials"][0]["transmission"]["mode"] = "thin";
+    invalid.push_back(candidate);
+    for (const json& value : invalid)
+    {
+        SceneDocument unchanged = CreateEmptySceneDocument("unchanged", "Unchanged");
+        passed &= Check(!DeserializeSceneDocument(value.dump(), unchanged, &error) &&
+            unchanged.sceneId == "unchanged" && unchanged.materials.empty(), "invalid volume rejected transactionally");
+    }
+    transmission.volume.attenuationDistance = std::numeric_limits<float>::infinity();
+    passed &= Check(SerializeSceneDocument(document, serialized, &error) &&
+        json::parse(serialized)["materials"][0]["transmission"]["volume"]["attenuationDistance"].is_null() &&
+        DeserializeSceneDocument(serialized, restored, &error) &&
+        std::isinf(restored.materials[0].transmission.volume.attenuationDistance), "null preserves infinite distance");
+    for (float value : {-1.0f, 0.0f, -std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()})
+    {
+        transmission.volume.attenuationDistance = value;
+        passed &= Check(!SerializeSceneDocument(document, serialized, &error), "invalid attenuation distance cannot serialize");
+    }
+    transmission.volume.attenuationDistance = 1;
+    transmission.volume.attenuationColor.x = std::numeric_limits<float>::quiet_NaN();
+    passed &= Check(!SerializeSceneDocument(document, serialized, &error), "NaN absorption color cannot serialize");
+    transmission.volume.attenuationColor = {1, 1, 1};
+    transmission.mode = SceneTransmissionMode::Thin;
+    passed &= Check(!SerializeSceneDocument(document, serialized, &error), "thin mode cannot hide volume parameters");
+    return passed;
+}
+
 bool TestSavedSceneDiscovery()
 {
     const std::filesystem::path assets = std::filesystem::path(__FILE__).parent_path().parent_path() / "Assets";
@@ -502,7 +587,7 @@ bool TestLensShiftCompatibility()
 
 int main()
 {
-    const bool passed = TestTransmissionContract() && TestSavedSceneDiscovery() && TestLensShiftCompatibility() && TestEmptyDocumentDefaults() && TestReflectionLabFixtureData() && TestDuplicateIdsAreRejected() &&
+    const bool passed = TestTransmissionContract() && TestVolumeContract() && TestSavedSceneDiscovery() && TestLensShiftCompatibility() && TestEmptyDocumentDefaults() && TestReflectionLabFixtureData() && TestDuplicateIdsAreRejected() &&
                         TestJsonRoundTrip() && TestInvalidJsonDoesNotReplaceDocument() && TestInvalidDescriptionDoesNotReplaceDocument() && TestFixtureFileLoadSaveLoad() &&
                         TestSaveAsRebasesRelativePaths() &&
                         TestSceneGraphEvaluatesUnorderedThreeLevelHierarchy() &&

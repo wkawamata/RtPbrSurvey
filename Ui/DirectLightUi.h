@@ -18,15 +18,58 @@ template <typename LightingParams> bool DrawDirectLightControls(LightingParams& 
     const ImGuiID selectionKey = ImGui::GetID("SelectedDirectLight");
     ImGuiStorage* storage = ImGui::GetStateStorage();
     uint32_t selectedId = static_cast<uint32_t>(storage->GetInt(selectionKey, 0));
-    for (const DirectLight& light : params.lights)
+    const char* names[] = {"Directional", "Point", "Spot"};
+    const bool selectionExists = std::any_of(params.lights.begin(),
+                                             params.lights.end(),
+                                             [selectedId](const DirectLight& light) { return light.id == selectedId; });
+    if (!selectionExists)
     {
-        ImGui::PushID(static_cast<int>(light.id));
-        const std::string label = light.name + (light.enabled ? "" : " (disabled)");
-        if (ImGui::Selectable(label.c_str(), selectedId == light.id))
+        selectedId = params.lights.empty() ? 0 : params.lights.front().id;
+    }
+    const float listHeight = ImGui::GetTextLineHeightWithSpacing() * 6.0f + ImGui::GetStyle().FramePadding.y * 2.0f;
+    if (ImGui::BeginListBox("##DirectLightList", ImVec2(-1.0f, listHeight)))
+    {
+        if (params.lights.empty())
         {
-            selectedId = light.id;
+            ImGui::TextDisabled("No lights. Add a light below.");
         }
-        ImGui::PopID();
+        for (const DirectLight& light : params.lights)
+        {
+            ImGui::PushID(static_cast<int>(light.id));
+            const char* typeName = "Unknown";
+            switch (light.type)
+            {
+            case LightType::Directional:
+                typeName = names[0];
+                break;
+            case LightType::Point:
+                typeName = names[1];
+                break;
+            case LightType::Spot:
+                typeName = names[2];
+                break;
+            }
+            std::string label = light.name + "  [" + typeName + "]";
+            if (!light.enabled)
+            {
+                label += " (disabled)";
+            }
+            if (params.primaryShadowLightId == light.id)
+            {
+                label += " [Shadow]";
+            }
+            label += "###Light";
+            if (ImGui::Selectable(label.c_str(), selectedId == light.id))
+            {
+                selectedId = light.id;
+            }
+            if (selectedId == light.id)
+            {
+                ImGui::SetItemDefaultFocus();
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndListBox();
     }
     static uint64_t nextId = 2;
     nextId = (std::max)(nextId, static_cast<uint64_t>(params.primaryShadowLightId) + 1);
@@ -36,7 +79,6 @@ template <typename LightingParams> bool DrawDirectLightControls(LightingParams& 
     }
     const bool canAdd = params.lights.size() < kMaxDirectLights && nextId <= UINT32_MAX;
     ImGui::BeginDisabled(!canAdd);
-    const char* names[] = {"Directional", "Point", "Spot"};
     for (int type = 0; type < 3; ++type)
     {
         if (type != 0)
@@ -56,6 +98,41 @@ template <typename LightingParams> bool DrawDirectLightControls(LightingParams& 
         }
     }
     ImGui::EndDisabled();
+    {
+        const auto selected = std::find_if(params.lights.begin(),
+                                           params.lights.end(),
+                                           [selectedId](const DirectLight& light) { return light.id == selectedId; });
+        const bool hasSelection = selected != params.lights.end();
+        const bool canDuplicate = params.lights.size() < kMaxDirectLights && nextId <= UINT32_MAX;
+        ImGui::BeginDisabled(!hasSelection);
+        ImGui::BeginDisabled(!canDuplicate);
+        if (ImGui::Button("Duplicate Light"))
+        {
+            DirectLight copy = *selected;
+            copy.id = static_cast<uint32_t>(nextId++);
+            copy.name += " Copy";
+            selectedId = copy.id;
+            params.lights.push_back(std::move(copy));
+            changed = true;
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        if (ImGui::Button("Delete Light"))
+        {
+            if (params.primaryShadowLightId == selectedId)
+            {
+                params.primaryShadowLightId = 0;
+            }
+            params.lights.erase(std::remove_if(params.lights.begin(),
+                                               params.lights.end(),
+                                               [selectedId](const DirectLight& light)
+                                               { return light.id == selectedId; }),
+                                params.lights.end());
+            selectedId = 0;
+            changed = true;
+        }
+        ImGui::EndDisabled();
+    }
     if (!canAdd)
     {
         ImGui::TextDisabled("Light limit reached; remove a light before adding another.");
@@ -121,32 +198,7 @@ template <typename LightingParams> bool DrawDirectLightControls(LightingParams& 
             changed = true;
         }
         ImGui::EndDisabled();
-        ImGui::BeginDisabled(!canAdd);
-        if (ImGui::Button("Duplicate Light"))
-        {
-            DirectLight copy = *selected;
-            copy.id = static_cast<uint32_t>(nextId++);
-            copy.name += " Copy";
-            selectedId = copy.id;
-            params.lights.push_back(std::move(copy));
-            changed = true;
-        }
-        ImGui::EndDisabled();
-        ImGui::SameLine();
-        if (ImGui::Button("Delete Light"))
-        {
-            if (params.primaryShadowLightId == selectedId)
-            {
-                params.primaryShadowLightId = 0;
-            }
-            params.lights.erase(std::remove_if(params.lights.begin(),
-                                               params.lights.end(),
-                                               [selectedId](const DirectLight& light)
-                                               { return light.id == selectedId; }),
-                                params.lights.end());
-            selectedId = 0;
-            changed = true;
-        }
+
     }
     storage->SetInt(selectionKey, static_cast<int>(selectedId));
     ImGui::TextWrapped("Relative intensity; Point/Spot use inverse-square attenuation and a smooth range cutoff.");

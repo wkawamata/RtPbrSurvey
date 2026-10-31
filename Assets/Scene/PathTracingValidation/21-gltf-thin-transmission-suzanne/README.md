@@ -21,9 +21,10 @@
 
 ## 対応範囲
 
-定数transmissionFactorとbaseColor tint、滑らかな非金属、通常IORのみ。
-透過テクスチャ、粗い透過、volume、未対応の必須拡張は拒否する。
+このfixture自体は定数transmissionFactorとbaseColor tint、滑らかな非金属の比較である。
+透過率／透過色テクスチャは後続のscene22、Roughness factorはscene23で検証する。
+粗さテクスチャはscene24で検証する。volume、未対応の必須拡張は引き続き拒否する。
 Non-default IORはfactor=1に限定し、未実装の不透明・混合IOR shadingを受理しない。
 閉じた形状でも各表面を独立の薄膜として扱う。体積ガラスの屈折・厚み・吸収はない。
 Native PT限定。NRD要求時はNative fallbackとなる。Hybrid/Deferredは不透明のまま。
-原版はroughness=0.1と必須ライト拡張があるため、そのままの読み込みは未対応。
+原版のroughness=0.1は対応範囲になったが、必須ライト拡張があるため原版全体の読み込みは未対応。

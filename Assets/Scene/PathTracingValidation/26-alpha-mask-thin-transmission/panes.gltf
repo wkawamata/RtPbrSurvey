@@ -1,0 +1,270 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "RtPbrSurvey transmission texture fixture"
+  },
+  "extensionsUsed": [
+    "KHR_materials_transmission",
+    "KHR_materials_ior",
+    "KHR_materials_unlit"
+  ],
+  "extensionsRequired": [
+    "KHR_materials_transmission",
+    "KHR_materials_ior",
+    "KHR_materials_unlit"
+  ],
+  "buffers": [
+    {
+      "byteLength": 140,
+      "uri": "data:application/octet-stream;base64,MzOzv5qZmb8AAAAAMzOzP5qZmb8AAAAAMzOzP5qZmT8AAAAAMzOzv5qZmT8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAgD8AAIA/AAAAAAAAgD8AAAEAAgAAAAIAAwA="
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 48
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 48,
+      "byteLength": 48
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 96,
+      "byteLength": 32
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 128,
+      "byteLength": 12
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC3",
+      "min": [
+        -1.4,
+        -1.2,
+        0
+      ],
+      "max": [
+        1.4,
+        1.2,
+        0
+      ]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 6,
+      "type": "SCALAR"
+    }
+  ],
+  "images": [
+    {
+      "uri": "rate.png"
+    },
+    {
+      "uri": "tint.png"
+    },
+    {
+      "uri": "alpha.png"
+    }
+  ],
+  "textures": [
+    {
+      "source": 0
+    },
+    {
+      "source": 1
+    },
+    {
+      "source": 2
+    }
+  ],
+  "materials": [
+    {
+      "name": "OPAQUE surface",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.2,
+          0.4,
+          0.8,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0,
+        "baseColorTexture": {
+          "index": 2
+        }
+      },
+      "extensions": {
+        "KHR_materials_unlit": {}
+      },
+      "alphaMode": "OPAQUE",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "name": "MASK surface",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.2,
+          0.4,
+          0.8,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0,
+        "baseColorTexture": {
+          "index": 2
+        }
+      },
+      "extensions": {
+        "KHR_materials_unlit": {}
+      },
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "name": "MASK thin",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.2,
+          0.4,
+          0.8,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0,
+        "baseColorTexture": {
+          "index": 2
+        }
+      },
+      "extensions": {
+        "KHR_materials_transmission": {
+          "transmissionFactor": 1
+        },
+        "KHR_materials_ior": {
+          "ior": 1
+        }
+      },
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    }
+  ],
+  "meshes": [
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0
+        }
+      ]
+    },
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 1
+        }
+      ]
+    },
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 2
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "OPAQUE surface",
+      "mesh": 0,
+      "translation": [
+        -2.2,
+        0,
+        0
+      ],
+      "scale": [
+        0.6785714285714286,
+        1.3333333333333335,
+        1
+      ]
+    },
+    {
+      "name": "MASK surface",
+      "mesh": 1,
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.6785714285714286,
+        1.3333333333333335,
+        1
+      ]
+    },
+    {
+      "name": "MASK thin",
+      "mesh": 2,
+      "translation": [
+        2.2,
+        0,
+        0
+      ],
+      "scale": [
+        0.6785714285714286,
+        1.3333333333333335,
+        1
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "nodes": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
+  "scene": 0
+}

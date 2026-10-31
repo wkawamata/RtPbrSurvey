@@ -21,8 +21,8 @@ NAMES = ('SecondaryRayData', 'PrimaryContinuation', 'SecondarySurfaceDistance',
 
 
 def fixture(source, output):
-    scene = json.loads((source/'scene.json').read_text())
-    preset = json.loads((source/'preset.json').read_text())
+    scene = json.loads((source/'scene.json').read_text(encoding='utf-8'))
+    preset = json.loads((source/'preset.json').read_text(encoding='utf-8'))
     scene.update(sceneId='pt-rr-closed-box', name='PT RR closed box', renderPreset='preset.json')
     scene['camera'].update(position=[0, 0, 0], target=[0, 0, 1], verticalFovDegrees=35, nearZ=.1, farZ=100)
     # glTF carries emissive materials without extending the scene JSON schema.
