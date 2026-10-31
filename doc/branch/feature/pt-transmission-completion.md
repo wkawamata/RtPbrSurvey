@@ -212,3 +212,25 @@ NRDありCMake構成の同一バイナリを使用する。基準値は変更し
   球、内部反射・全反射、Fresnel付き放射輝度、NRD bypassを既存基準で確認。
   証拠: `rough-volume-existing-absorption-20261031/report.json`。
 - Editor試験更新後のCTestも55/55合格。
+
+### 薄膜の炉試験の再確認
+
+既存の`validate_rough_transmission.py`を128サンプルのまま実行し、4/4合格。
+滑らかな薄膜は期待値1に一致。粗さ0.5の期待値は約0.915812、実測約0.914411、
+粗さ1の期待値は約0.306853、実測約0.305165。既存の標本誤差許容は約0.018972。
+環境NEEを使わないモード間の粗さ0.5の画像も完全一致した。
+証拠: `rough-volume-existing-thin-furnace-20261031/report.json`。
+これは薄膜モデルの炉試験であり、新しい粗いVolume境界の炉試験ではない。
+
+### Alpha MASKのGPU回帰
+
+既存の`validate_alpha_mask.py`を変更せず実行し、21/21合格。
+一次レイの閾値・係数・片面/両面、薄膜/反射の継続レイ、NRD bypass、
+点光源と発光面のvisibility、マスク付き発光面、発光面の裏面条件を確認した。
+D3D12エラーなし。今回の回帰で新しい不具合は見つからず、実装修正はしていない。
+証拠: `rough-volume-existing-mask-20261031/report.json`。
+
+これで既存境界12件、吸収18件、glTF Volume6件、基本薄膜8キャプチャ、
+粗い薄膜の炉試験4件、Alpha MASK21件を再確認した。
+透過率/透過色/粗さテクスチャと金属度混合のGPU画像回帰一式、粗いVolume自体の
+炉試験、Editor粗さ操作の目視確認、粗いglTF Volumeは引き続き未完了。
