@@ -96,3 +96,14 @@ fast rotation/reversal/stop, and camera-induced occlusion/reveal of bars and pan
 The user reported no problems across these checks. This acceptance covers static
 scene geometry under camera motion; animated-object motion is not covered.
 Step 4 (light/material/object changes and history invalidation) remains pending.
+
+## Step 4: scene-change history invalidation (2026-10-31)
+
+Keep the camera stationary and use the 4 spp jitter profile.
+First inspect light changes in Debug Window > PBR Lighting: toggle Warm key off/on,
+then change its color or intensity. Old shadows/highlights must not persist after
+new lighting is presented. A brief history-reset transition is recorded separately.
+Material edits (copper roughness/color) and object transform/visibility edits are
+separate subsequent checks; light-only acceptance does not cover them.
+Do not save temporary test edits over the baseline scene/preset.
+All Step 4 user acceptance is pending.
