@@ -89,3 +89,10 @@ Use 4 spp frame-jitter preset, 4 bounces and continuous RR.
 Record transient artifacts during movement separately from artifacts persisting after stopping.
 This tests camera-induced disocclusion of static objects, not animated-object motion vectors.
 User acceptance is pending.
+
+User acceptance on 2026-10-31: Step 3 passed all three checks with 4 spp,
+frame-wide RR jitter and continuous evaluation: fast lateral camera movement/stop,
+fast rotation/reversal/stop, and camera-induced occlusion/reveal of bars and panels.
+The user reported no problems across these checks. This acceptance covers static
+scene geometry under camera motion; animated-object motion is not covered.
+Step 4 (light/material/object changes and history invalidation) remains pending.
