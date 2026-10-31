@@ -78,3 +78,14 @@ thin-bar coverage, copper reflections/highlights, silhouettes/contact edges, and
 floor/wall shadows/reflections. Step 2 appearance comparison is accepted for this
 scene and profile. The old three-sphere dark-edge report remains unresolved and
 is not covered by this acceptance. Step 3 (fast motion/disocclusion) is pending.
+
+## Step 3: fast camera motion and disocclusion (2026-10-31)
+
+Use 4 spp frame-jitter preset, 4 bounces and continuous RR.
+1. Move the camera quickly left/right, then stop. Inspect helmet edges and sphere reflections.
+2. Rotate quickly around the scene, reverse direction, then stop. Inspect thin bars for duplicated outlines.
+3. Move until the helmet/sphere occludes bars or panels, then reverse to reveal them.
+   Newly revealed regions must recover without persistent black holes, stale silhouettes or trails.
+Record transient artifacts during movement separately from artifacts persisting after stopping.
+This tests camera-induced disocclusion of static objects, not animated-object motion vectors.
+User acceptance is pending.
