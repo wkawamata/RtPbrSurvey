@@ -134,3 +134,10 @@ Also try 0 and restore N; the empty view must not retain old scene geometry.
 Count changes call InvalidatePathTracingHistory(Scene). This tests instance-count
 visibility changes, not per-object transforms or continuous object animation.
 Object-transform acceptance remains pending.
+
+User acceptance on 2026-11-01: Step 4 instance-visibility checks passed.
+Reducing Display Instance Count and restoring it, including 0 -> original count,
+produced no reported stale geometry, shadows or reflections and restored normally.
+Light changes, scalar-material changes and instance-count visibility changes are
+accepted for this scene/profile. Individual object translation/rotation, base-color
+editing and animated-object motion remain outside the confirmed coverage.
