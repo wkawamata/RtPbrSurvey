@@ -126,3 +126,11 @@ copper sphere: Roughness 0.2 -> 0.8 -> 0.2 and Metallic 1 -> 0 -> 1.
 The user reported no problems following the reflection/highlight persistence checks.
 Light and scalar-material changes are now accepted for this profile. Object
 transform/visibility changes and base-color editing are not covered by this result.
+
+Step 4 object-visibility subtest: Debug Window > Scene > Display Instance Count.
+Note the initial count N, reduce it until some objects disappear, then restore N.
+Inspect the remaining geometry for stale silhouettes, shadows and reflected objects.
+Also try 0 and restore N; the empty view must not retain old scene geometry.
+Count changes call InvalidatePathTracingHistory(Scene). This tests instance-count
+visibility changes, not per-object transforms or continuous object animation.
+Object-transform acceptance remains pending.
