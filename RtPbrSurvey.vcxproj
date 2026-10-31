@@ -449,6 +449,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\ThinTransmission.hlsli" />
     <None Include="Shaders\AlphaMaskCoverage.hlsli" />
     <None Include="Shaders\VolumeTransmission.hlsli" />
+    <None Include="Shaders\RoughVolumeTransmission.hlsli" />
     <None Include="Shaders\VolumeAbsorptionParameters.hlsli" />
     <None Include="Shaders\PathTracingDenoiserSampling.hlsli" />
     <None Include="Shaders\RayReconstructionInputConversion.hlsli" />
@@ -741,7 +742,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dxc.exe -nologo -Tcs_6_5 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
-      <AdditionalInputs>$(ProjectDir)Shaders\Material.hlsli;$(ProjectDir)Shaders\PathTracingSampling.hlsli;$(ProjectDir)Shaders\ThinTransmission.hlsli;$(ProjectDir)Shaders\VolumeTransmission.hlsli;$(ProjectDir)Shaders\AlphaMaskCoverage.hlsli;$(ProjectDir)Shaders\PathTracingDenoiserSampling.hlsli;$(ProjectDir)Shaders\EmissiveTriangleSampling.hlsli;$(ProjectDir)Shaders\PathTracingDirectLightAdapter.hlsli;$(ProjectDir)Shaders\DirectLightEvaluation.hlsli;$(ProjectDir)Shaders\SceneRayQuery.hlsli;$(ProjectDir)Shaders\SurfaceTransform.hlsli;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs>$(ProjectDir)Shaders\Material.hlsli;$(ProjectDir)Shaders\PathTracingSampling.hlsli;$(ProjectDir)Shaders\ThinTransmission.hlsli;$(ProjectDir)Shaders\VolumeTransmission.hlsli;$(ProjectDir)Shaders\RoughVolumeTransmission.hlsli;$(ProjectDir)Shaders\AlphaMaskCoverage.hlsli;$(ProjectDir)Shaders\PathTracingDenoiserSampling.hlsli;$(ProjectDir)Shaders\EmissiveTriangleSampling.hlsli;$(ProjectDir)Shaders\PathTracingDirectLightAdapter.hlsli;$(ProjectDir)Shaders\DirectLightEvaluation.hlsli;$(ProjectDir)Shaders\SceneRayQuery.hlsli;$(ProjectDir)Shaders\SurfaceTransform.hlsli;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_RayQueryTlasDebug.hlsl">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>

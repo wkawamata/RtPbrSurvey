@@ -309,6 +309,29 @@ bool TestQualifiedVolumeBuild()
     }
     document.nodes[0].primitive.kind = ScenePrimitiveKind::Sphere;
     passed &= Check(builder.Build(document, &error), "clear smooth volume sphere builds");
+    document.materials[0].roughness = 0.35f;
+    passed &= Check(builder.Build(document, &error), "rough volume sphere builds");
+    if (passed)
+    {
+        passed &= Check(NearlyEqual(builder.Builder().GetMesh().materials[builder.Result().materialIds.at("metal")].roughnessFactor,
+            0.35f), "rough volume preserves runtime roughness");
+    }
+    document.nodes[0].primitive.kind = ScenePrimitiveKind::Cube;
+    passed &= Check(builder.Build(document, &error), "rough volume cube builds");
+    for (const char* name : {"33-rough-volume-cube", "34-rough-volume-sphere"})
+    {
+        const std::filesystem::path directory = std::filesystem::path(__FILE__).parent_path().parent_path() /
+            "Assets/Scene/PathTracingValidation" / name;
+        SceneDocument saved;
+        passed &= Check(LoadSceneDocumentFile((directory / "scene.json").string(), saved, &error),
+            "rough volume saved scene schema loads");
+        if (!passed)
+        {
+            std::cerr << error << '\n';
+            return false;
+        }
+        passed &= Check(builder.Build(saved, directory, &error), "rough volume saved scene builds");
+    }
     return passed;
 }
 

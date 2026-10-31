@@ -121,3 +121,40 @@ NEE/MIS、再構成品質を検証したことは主張しない。アプリ実�
 今回は新たなVolume画像一式や通常vcxprojビルドを再実行していない。
 
 次はStep 2として、限定された単独Volumeでランタイム接続と実画像評価へ進む。
+
+## Step 2のランタイム接続
+
+- 粗さ0の既存delta経路を保持し、粗さが正の場合だけ幾何法線のローカル座標で
+  GGX VNDF境界を標本化する。媒体は屈折時のみ変更、反射時は保持する。
+- 内部の物理的な区間長、Beer-Lambert吸収、前境界の除外規則は変更しない。
+- マクロ半球による棄却はゼロ寄与の光路終了。Volume StatusのR=7で区別する。
+  これはバウンス不足(R=3)や媒体不整合とは別のサンプリング結果である。
+- SceneDocumentの単独Cube/Sphereについて粗さ制限を解除する。他の制限や
+  glTF入力のsmooth限定は維持する。Editorの粗さ操作の解放はStep 3とする。
+- 保存シーン33は粗い箱、34は粗い球。roughness=0.35、IOR=1.5、色付き距離吸収。
+  Scene 28/30の滑らかな材質と背景格子のぼけ方を比較する。
+- `validate_rough_volume_runtime.py`はCube/Sphere各々のroughness=0/0.35を
+  32サンプルで実行し、実行状態、非有限値、負値、中央の黒潰れ、画像差を確認する。
+  これはsmoke試験であり、基準画像との一致やエネルギー保存の証明ではない。
+
+保存シーンの目視承認、粗い境界の全角度・厚さ・吸収の数値比較と、薄膜/MASK/吸収/
+glTFのGPU画像回帰一式は引き続き必要。Step 2全体を完了扱いにはしない。
+
+### 接続時点の確認
+
+- 通常vcxproj Debug x64とCMake Debugのビルド成功。通常ビルドは既存のvcpkg
+  MSB4011警告1件。最終通常ビルド記録は外部の
+  `pt-rough-volume-runtime-final-20261031`フォルダー。
+- CTest 55/55合格。初回はsandbox外の一時ファイル保存に関する3試験が失敗したが、
+  書込み可能な実行で全件合格。その後追加した保存シーン33/34の構築試験も合格。
+- 診断値7追加後の実描画4ケースが合格。証拠は
+  `bin/PathTracingValidation/rough-volume-runtime-diagnostic-final-20261031/report.json`。
+- 保存シーン33/34の実行・PNG出力は終了コード0、D3D12エラーなし。
+  32サンプルの画像で格子のぼけと着色を確認。ユーザーの目視承認とは区別する。
+  出力は`rough-volume-runtime-final-20261031/33-rough-volume-cube.png`と
+  `34-rough-volume-sphere.png`。
+- 滑らかな境界回帰は先行9ケース合格後、通常ビルドのNRD設定が専用試験の
+  前提と異なり`nrd-fallback`で停止。回帰全体は未合格。
+  証拠は`rough-volume-smooth-regression-20261031/report.json`。
+- 新規保存JSONの初回確認では必須camera/environment項目の不足が判明したため修正。
+  保存シーンのスキーマ・構築回帰を追加し、修正後の実行と出力を確認した。

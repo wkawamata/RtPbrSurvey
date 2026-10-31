@@ -354,6 +354,7 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/ThinTransmission.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/VolumeTransmission.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/RoughVolumeTransmission.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDenoiserSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/EmissiveTriangleSampling.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDirectLightAdapter.hlsli"
