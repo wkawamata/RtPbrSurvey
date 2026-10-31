@@ -113,3 +113,10 @@ off/on and color/intensity changes), following the light-only instructions.
 No problematic stale lighting/shadows/highlights were reported.
 Material edits and object transform/visibility changes have not yet been confirmed;
 this result does not mark the entire Step 4 complete.
+
+Step 4 material subtest: use Debug Window > Material Controls. Document material
+index 4 is copper (initial Roughness 0.2, Metallic 1.0); verify that the sphere
+responds before judging. Change Roughness 0.2 -> 0.8 -> 0.2, then Metallic
+1 -> 0 -> 1. Inspect for old reflection/highlight persistence after each change.
+The running UI exposes scalar material factors, not base-color editing, so this
+subtest does not claim coverage of base-color edits. Object edits remain pending.
