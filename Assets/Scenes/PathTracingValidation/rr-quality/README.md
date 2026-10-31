@@ -175,3 +175,18 @@ serialization and rejection of zero period. Both scenes loaded on the GPU withou
 captured D3D12 ERROR/CORRUPTION and reached verified continuous RR while paused.
 These CLI captures did not start animation, so they do not qualify moving-object RR.
 Local evidence: build/reconstruction-input-validation/user-test-rr/object-motion-20261101/report.json.
+
+## VS2022 PT RR build support (2026-11-01)
+
+The normal RtPbrSurvey.vcxproj now enables RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+and compiles the live conversion and output-validation shaders in Debug and Release.
+Previously the CMake evaluation build enabled them but the VS project did not,
+so UI-selected PT RR reported not-built even when Streamline RR was available.
+Runtime native SDK evaluation still requires the explicit UI/CLI opt-in.
+
+Normal VS Debug x64 build passed (one vcpkg duplicate-import warning).
+GPU smoke using bin/x64/Debug/RtPbrSurvey.exe passed: verified RR output,
+16 completed evaluations, 15 continuous transitions, reset count 1, no captured
+D3D12 ERROR/CORRUPTION. The object rotation scene remained paused for this check;
+animated-object RR remains unvalidated. Evidence is local under
+build/reconstruction-input-validation/user-test-rr/vs-debug-rr-20261101/.

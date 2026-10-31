@@ -82,7 +82,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;$(RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS)%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS=1;$(RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS)%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(ProjectDir);$(RTPBRSURVEY_STREAMLINE_INCLUDE_DIRS)%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
@@ -117,7 +117,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;$(RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS)%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS=1;$(RTPBRSURVEY_STREAMLINE_PREPROCESSOR_DEFINITIONS)%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(ProjectDir);$(RTPBRSURVEY_STREAMLINE_INCLUDE_DIRS)%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
@@ -453,8 +453,20 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
     <None Include="Shaders\VolumeAbsorptionParameters.hlsli" />
     <None Include="Shaders\PathTracingDenoiserSampling.hlsli" />
     <None Include="Shaders\RayReconstructionInputConversion.hlsli" />
-    <None Include="Shaders\shaders_PathTracingRrConversion.hlsl" />
-    <None Include="Shaders\shaders_PathTracingRrValidation.hlsl" />
+    <CustomBuild Include="Shaders\shaders_PathTracingRrConversion.hlsl">
+      <FileType>Document</FileType>
+      <Message>%(Identity)</Message>
+      <Command>dxc.exe -nologo -Tcs_6_0 -E"CSMain" -Zi -Qembed_debug -D RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS=1 -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
+      <Outputs>$(OutDir)%(Filename)_CSMain.cso</Outputs>
+      <AdditionalInputs>$(ProjectDir)Shaders\RayReconstructionInputConversion.hlsli;%(AdditionalInputs)</AdditionalInputs>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_PathTracingRrValidation.hlsl">
+      <FileType>Document</FileType>
+      <Message>%(Identity)</Message>
+      <Command>dxc.exe -nologo -Tcs_6_0 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
+      <Outputs>$(OutDir)%(Filename)_CSMain.cso</Outputs>
+      <AdditionalInputs>%(AdditionalInputs)</AdditionalInputs>
+    </CustomBuild>
     <None Include="Shaders\EmissiveTriangleSampling.hlsli" />
     <None Include="Shaders\ReflectionSampling.hlsli" />
     <None Include="Shaders\SceneRayQuery.hlsli" />
