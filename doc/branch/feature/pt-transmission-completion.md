@@ -130,7 +130,7 @@ NEE/MIS、再構成品質を検証したことは主張しない。アプリ実�
 - マクロ半球による棄却はゼロ寄与の光路終了。Volume StatusのR=7で区別する。
   これはバウンス不足(R=3)や媒体不整合とは別のサンプリング結果である。
 - SceneDocumentの単独Cube/Sphereについて粗さ制限を解除する。他の制限や
-  glTF入力のsmooth限定は維持する。Editorの粗さ操作の解放はStep 3とする。
+  glTF入力のsmooth限定は維持する。Editorの粗さ操作は後述のStep 3で解放する。
 - 保存シーン33は粗い箱、34は粗い球。roughness=0.35、IOR=1.5、色付き距離吸収。
   Scene 28/30の滑らかな材質と背景格子のぼけ方を比較する。
 - `validate_rough_volume_runtime.py`はCube/Sphere各々のroughness=0/0.35を
@@ -183,3 +183,32 @@ NRDフォールバックと全反射、バウンス上限の対照も既存基�
 証拠: `bin/PathTracingValidation/rough-volume-boundary-regression-sdk-20261031/report.json`。
 通常ビルドでの先の失敗記録は保持し、この別構成の成功で上書きしない。
 既存の吸収18件・glTF6件・薄膜/MASKのGPU画像回帰一式はまだ再実行していない。
+
+## Step 3: プリミティブの粗さ編集
+
+Cube/SphereのVolume材質でRoughnessスライダーを有効にする。既存の編集通知、
+dirty表示、PT履歴リセット経路をそのまま使用し、金属度・境界色の無効化は維持。
+粗さ0.35のVolumeについて、Undo/Redoとシリアライズ再読込の回帰試験を追加した。
+SceneEditorSession試験合格、通常Debug x64ビルド成功（既存MSB4011警告1件）。
+GUIを実操作した目視確認は未実施。粗いglTF Volumeの受理条件は解除していない。
+
+### 既存材質への回帰確認
+
+NRDありCMake構成の同一バイナリを使用する。基準値は変更しない。
+
+- glTF Volume 6/6合格、grazing/missed-exitは0、独立な幾何光路長の最大誤差は
+  約1.42e-5（許容0.005）、吸収最大誤差は約1.59e-7（許容0.002）。
+  Bias/TMin拡大時の透過率差とNRD bypass差はともに0。
+  証拠: `rough-volume-existing-gltf-20261031/report.json`。
+- RR bypassは今回の6件には含めない。RRの対応範囲をこの結果から拡大しない。
+- 薄膜の基本統合は8キャプチャ合格。無色、着色、裏面、NRD bypass、二重薄膜、
+  factor=0と通常不透明材質の一致を確認。過去バイナリとの不透明画像比較用
+  `--opaque-reference-exe`は指定していない。
+  証拠: `rough-volume-existing-thin-20261031/report.json`。
+- 透過関連Python17件とAlpha MASK判定器Python5件も合格。
+  Alpha MASK GPU画像21件、粗い薄膜の炉試験、各テクスチャGPU画像回帰一式は
+  今回まだ再実行していない。これらを基本薄膜8件の成功で代用しない。
+- 既存Volume吸収18/18合格。厚さ2倍、斜入射、スケール、無限距離、黒い吸収成分、
+  球、内部反射・全反射、Fresnel付き放射輝度、NRD bypassを既存基準で確認。
+  証拠: `rough-volume-existing-absorption-20261031/report.json`。
+- Editor試験更新後のCTestも55/55合格。

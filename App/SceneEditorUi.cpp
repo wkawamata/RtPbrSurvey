@@ -694,6 +694,7 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                     materialChanged = true;
                 }
                 materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
+                ImGui::EndDisabled();
                 float roughness = editableMaterial->roughness;
                 if (ImGui::SliderFloat("Roughness", &roughness, 0.0f, 1.0f))
                 {
@@ -702,7 +703,6 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
                     materialChanged = true;
                 }
                 materialCommitted = materialCommitted || ImGui::IsItemDeactivatedAfterEdit();
-                ImGui::EndDisabled();
                 int transmissionMode = static_cast<int>(editableMaterial->transmission.mode);
                 if (editableMaterial->transmission.mode == RtPbrSurvey::SceneTransmissionMode::Volume)
                 {
