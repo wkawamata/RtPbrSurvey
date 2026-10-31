@@ -43,7 +43,7 @@
 - [x] 既存の内部光路長・吸収・輪郭対策と接続する。roughness=0は既存のdelta経路を維持。
 - [ ] 粗いCube／Sphere、入射角、厚さと吸収の比較シーンをAssetsへ保存。
 - [ ] 半球拒否・光路終了・媒体不整合を見える形で診断し、数値検証と目視確認。
-- [ ] 薄膜、MASK、不透明、滑らかなVolumeの既存回帰を基準を緩めず再実行。
+- [x] 薄膜、MASK、不透明、滑らかなVolumeの既存回帰を基準を緩めず再実行。
 
 ### 3. Scene Editorと限定glTFの拡張
 
@@ -234,3 +234,29 @@ D3D12エラーなし。今回の回帰で新しい不具合は見つからず、
 粗い薄膜の炉試験4件、Alpha MASK21件を再確認した。
 透過率/透過色/粗さテクスチャと金属度混合のGPU画像回帰一式、粗いVolume自体の
 炉試験、Editor粗さ操作の目視確認、粗いglTF Volumeは引き続き未完了。
+
+### 透過率・色テクスチャのGPU回帰
+
+`validate_transmission_textures.py`を既存の64サンプルで再実行し、6/6合格。
+色、透過率、係数との積、率と色の併用、画像共有、NRD fallbackを確認した。
+証拠: `rough-volume-existing-textures-20261031/report.json`。
+今回の回帰では透過テクスチャの実装変更や許容値変更は行っていない。
+
+### 金属度混合のGPU回帰
+
+`validate_metallic_transmission.py`を既存の128サンプルで再実行し、8/8合格。
+非金属、金属度0.5、金属、通常不透明対照、金属度テクスチャ、ガイド、金属の裏面を
+確認した。証拠: `rough-volume-existing-metallic-20261031/report.json`。
+これも薄膜側の既存対応の回帰であり、金属とsolid Volumeの混合を許可するものではない。
+
+### 粗さテクスチャのGPU回帰
+
+`validate_roughness_texture.py`を既存の128サンプルで再実行し、6/6合格。
+粗さガイドの値、係数0/0.5/1との積、空間変化、炉試験を確認した。
+Pythonの判定器/fixture試験も4/4合格。
+証拠: `rough-volume-existing-roughness-texture-20261031/report.json`。
+
+予定した既存材質のGPU回帰は一巡し、新しい不具合や基準の緩和はなし。
+次は単一凸形状の限定glTF Volumeで定数粗さを受理し、読み込んだ粗さがランタイムへ
+伝わることと、光路・吸収・境界診断を検証する。テクスチャ、金属、部分透過、複合媒体は
+この受理条件の変更へ同時に含めない。粗いVolumeの炉試験とGUI目視確認は引き続き別途必要。
