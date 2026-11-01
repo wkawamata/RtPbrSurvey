@@ -1341,6 +1341,15 @@ void RtPbrSurveyEngine::SetScene(const Scene& scene)
     const bool cameraChanged = !CameraStatesEqual(m_scene.camera, scene.camera);
     const bool sceneChanged = m_scene.mesh != scene.mesh || !SceneInstancesEqual(m_scene.instances, scene.instances);
     const bool preserveRrCameraHistory = CanPreservePtRrCameraHistory(scene.camera);
+    bool preserveRrObjectHistory = preserveRrCameraHistory && m_scene.mesh == scene.mesh &&
+        m_scene.instances.size() == scene.instances.size();
+    for (size_t i = 0; preserveRrObjectHistory && i < scene.instances.size(); ++i)
+    {
+        preserveRrObjectHistory = m_scene.instances[i].meshId == scene.instances[i].meshId &&
+            m_scene.instances[i].materialId == scene.instances[i].materialId &&
+            Engine::HasRenderableTransform(m_scene.instances[i]) &&
+            Engine::HasRenderableTransform(scene.instances[i]);
+    }
     m_scene = scene;
     if (sceneChanged)
     {
@@ -1351,7 +1360,7 @@ void RtPbrSurveyEngine::SetScene(const Scene& scene)
     m_depthVisualizationSettings.Reset(m_scene.camera.nearZ, m_scene.camera.farZ);
     if (sceneChanged)
     {
-        InvalidatePathTracingHistory(PathTracingResetReason::Scene);
+        InvalidatePathTracingHistory(PathTracingResetReason::Scene, false, preserveRrObjectHistory);
     }
     else if (cameraChanged)
     {
@@ -2112,7 +2121,8 @@ void RtPbrSurveyEngine::InvalidatePathTracingHistory(PathTracingResetReason reas
                                                      bool preserveRrCameraHistory)
 {
     const bool preserveCamera = preserveNrdCameraHistory && reason == PathTracingResetReason::Camera;
-    const bool preserveRr = preserveRrCameraHistory && reason == PathTracingResetReason::Camera;
+    const bool preserveRr = preserveRrCameraHistory &&
+        (reason == PathTracingResetReason::Camera || reason == PathTracingResetReason::Scene);
     m_pathTracingReconstructionHistory.Invalidate(preserveRr       ? Engine::PathTracingReconstructionBackend::Rr
                                                   : preserveCamera ? Engine::PathTracingReconstructionBackend::Nrd
                                                                    : Engine::PathTracingReconstructionBackend::Native);
@@ -4134,7 +4144,9 @@ void RtPbrSurveyEngine::UpdateEmissiveTriangleBuffer()
         }
         if (m_emissiveTriangleVersion != 0)
         {
-            InvalidatePathTracingHistory(PathTracingResetReason::Scene);
+            const bool preserveRr = CanPreservePtRrCameraHistory(m_scene.camera) &&
+                (!m_pathTracingSettings.emissiveEnabled || !m_lightingParams.emissiveEnabled);
+            InvalidatePathTracingHistory(PathTracingResetReason::Scene, false, preserveRr);
         }
         ++m_emissiveTriangleVersion;
     }
@@ -5784,6 +5796,22 @@ void RtPbrSurveyEngine::UpdateFrame(bool advanceFrame)
                    m_scene.instances.data(),
                    sizeof(InstanceData) * sceneInstanceCount);
         }
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+        if (CanRunPtRrNative() && m_pathTracingSettings.rrContinuous && m_ptRrLive)
+        {
+            const auto* previous = m_ptRrLive->PublishedKey();
+            const unsigned int slot = m_ptRrLive->PublishedSlot();
+            const bool hasPrevious = previous && previous->resetToken ==
+                m_pathTracingReconstructionHistory.Epoch(Engine::PathTracingReconstructionBackend::Rr) &&
+                m_rrInstancePoseFrameIds[slot] == previous->frameId &&
+                m_rrInstancePoses[slot].size() == m_scene.instances.size();
+            auto* uploaded = reinterpret_cast<InstanceData*>(m_frameResources[m_currentFrameIndex].pSrvDataBegin);
+            for (UINT i = 0; i < sceneInstanceCount; ++i)
+            {
+                uploaded[i].prevWorld = hasPrevious ? m_rrInstancePoses[slot][i].world : uploaded[i].world;
+            }
+        }
+#endif
         m_frameResources[m_currentFrameIndex].instanceBuffer->Unmap(0, nullptr);
         if (m_renderingPath == RenderingPath::PathTracing)
         {
@@ -7192,6 +7220,8 @@ void RtPbrSurveyEngine::ExecutePtRrValidationPass(const RenderPass& pass)
     for (size_t i = 0; i < inputs.size(); ++i)
         inputs[i] = m_pathTracingGuideTextures[PathTracingGuideRrColor + i].Get();
     const UINT slot = m_ptRrLive->NextOutputSlot();
+    m_rrInstancePoses[slot] = m_scene.instances;
+    m_rrInstancePoseFrameIds[slot] = key.frameId;
     m_ptRrLive->RecordInput(m_commandList.Get(),
                             m_pathTracingGuideTextureSrvs[PathTracingGuideRrStatus].gpu,
                             key,

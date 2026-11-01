@@ -190,3 +190,25 @@ GPU smoke using bin/x64/Debug/RtPbrSurvey.exe passed: verified RR output,
 D3D12 ERROR/CORRUPTION. The object rotation scene remained paused for this check;
 animated-object RR remains unvalidated. Evidence is local under
 build/reconstruction-input-validation/user-test-rr/vs-debug-rr-20261101/.
+
+## Initial RR opaque-object pose support (2026-11-01)
+
+Same-mesh/count/material instance pose changes may preserve continuous RR history
+when camera projection and supported surface conditions match. Geometry replacement,
+material/visibility changes retain the existing reset paths. Native accumulation
+still resets on moving poses. The two RR output slots each retain their producing
+instance poses; uploaded previous-world matrices reference the last verified published
+RR packet, not the immediately previous display frame. First/reset packets use current poses.
+Emitter-table updates preserve RR only while emissive lighting is disabled; moving
+emissive-object support is not claimed.
+
+A first build/run exposed a second reset in emitter-table refresh; the first run
+was stopped and is not passing evidence. After fixing that path, normal VS Debug
+built successfully. Computer Use started actual rotation with Space during a
+2000-loop run. Final counters: completed 612, continuous 611, resets 1, cancelled 0,
+verified RR output, no captured D3D12 ERROR/CORRUPTION. Rotating helmet was observed
+with denoised output after the fix. Evidence:
+build/reconstruction-input-validation/user-test-rr/moving-fix-rotation-v2/report.json.
+This is an initial rotation smoke check, not full animation quality acceptance.
+Translation, numerical per-object motion reprojection, pause/resume and full
+camera/backend/resize regression remain pending.

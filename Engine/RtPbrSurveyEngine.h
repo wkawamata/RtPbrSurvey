@@ -1246,6 +1246,8 @@ private:
     uint32_t m_rrConversionSampleStartIndex = 0;
     Engine::PathTracingReconstructionInputs m_rrConversionInputs;
     std::unique_ptr<Engine::PathTracingRrLive> m_ptRrLive;
+    std::array<std::vector<Engine::InstanceData>, 2> m_rrInstancePoses;
+    std::array<uint64_t, 2> m_rrInstancePoseFrameIds = {};
 #endif
     ComPtr<ID3D12RootSignature> m_nrdReconstructionRootSignature;
     ComPtr<ID3D12PipelineState> m_nrdReconstructionPipeline;
