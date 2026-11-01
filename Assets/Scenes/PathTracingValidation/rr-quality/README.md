@@ -235,3 +235,10 @@ checker code restricts projection to surface pixels to avoid irrelevant warnings
 Evidence: build/reconstruction-input-validation/user-test-rr/object-numeric-20261101/report.json.
 Multi-object image quality, moving reflections/disocclusion quality and full camera,
 backend, resize regression still require evaluation; this is not final RR acceptance.
+
+User visual acceptance on 2026-11-01: the full RrObjectRotation scene passed
+all four checks with the corrected RR build and a fixed camera: no return of
+strong full-frame noise during rotation, no reported silhouette trails/doubling,
+no problematic delayed/broken helmet reflection in the copper sphere, and no
+persistent trails after stopping animation. This acceptance covers rotation;
+full-scene translation visual acceptance is still pending.
