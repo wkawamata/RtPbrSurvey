@@ -11,6 +11,10 @@ NrdInputMetadataValidation InspectNrdReconstructionInputs(const PathTracingRecon
     {
         return {NrdInputMetadataIssue::CommonContract, common, common.signal};
     }
+    if (inputs.frame.samplesPerFrame != 1 || inputs.frame.coherentPrimaryBatch || inputs.frame.frameJitterPrimary)
+    {
+        return {NrdInputMetadataIssue::CommonContract, {PathTracingInputIssue::UnsupportedSampling}};
+    }
     const PathTracingInputSignal missing = FindMissingPathTracingSignal(inputs, kNrdRelaxConversionSignals);
     if (missing != PathTracingInputSignal::Count)
     {

@@ -52,3 +52,11 @@ assets available to the graphics community.
 NuGet and vcpkg dependencies are restored locally and are not committed.
 Consult the corresponding package metadata after restore for each package's
 license terms.
+
+## MikkTSpace
+
+Native PT uses Morten S. Mikkelsen's MikkTSpace implementation to generate missing
+glTF tangent frames. Source: https://github.com/mmikk/MikkTSpace, revision
+`3e895b49d05ea07e4c2133156cfa94369e19e409`.
+The license notices are preserved in `third_party/mikktspace/mikktspace.c` and
+`mikktspace.h`. See `third_party/mikktspace/README.rt-pbr.md` for integration notes.

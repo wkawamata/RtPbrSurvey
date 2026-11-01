@@ -31,7 +31,7 @@ void RtPbrSurveyEngine::BuildRenderPasses()
 #endif
     m_pathTracingGeometryToken = 0;
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
-    if (m_sceneHasThinTransmission)
+    if (m_sceneHasThinTransmission || m_sceneHasAlphaMask || m_sceneHasVolumeTransmission)
     {
         if (!m_pathTracingReconstructionHistory.ResetRequired(Engine::PathTracingReconstructionBackend::Nrd))
             m_pathTracingReconstructionHistory.RequestReset(Engine::PathTracingReconstructionBackend::Nrd);
@@ -52,9 +52,9 @@ void RtPbrSurveyEngine::BuildRenderPasses()
         {
             bool traceFrame = !m_pathTracingRuntimeState.accumulationPaused && m_pathTracingFrameAdvance;
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-            if (IsPtRrNativeRequested() && m_ptRrLive && m_ptRrLive->HoldProduction())
+            if (CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->HoldProduction())
                 traceFrame = false;
-            if (IsPtRrNativeRequested() && m_ptRrLive && m_ptRrLive->CanEvaluate())
+            if (CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->CanEvaluate())
                 AddPass(MakePtRrEvaluatePass());
 #endif
             if (m_pathTracingHistoryClearRequired || (!m_pathTracingSettings.accumulate && traceFrame))
@@ -74,13 +74,13 @@ void RtPbrSurveyEngine::BuildRenderPasses()
                 if (reconstruction.runRrConversion && m_rrConversionPipeline != nullptr)
                 {
                     AddPass(MakeRrConversionPass());
-                    if (IsPtRrNativeRequested() && m_ptRrLive && m_ptRrLive->CanCapture() &&
+                    if (CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->CanCapture() &&
                         m_rayReconstructionSupport.IsAvailable())
                         AddPass(MakePtRrValidationPass());
                 }
 #endif
 #ifdef RTPBRSURVEY_NRD_CONVERSION_DIAGNOSTICS
-                if (reconstruction.runNrd && m_nrdConversionPipeline != nullptr && !m_sceneHasThinTransmission)
+                if (reconstruction.runNrd && m_nrdConversionPipeline != nullptr && SupportsPathTracingReconstructionSurfaces())
                 {
                     AddPass(MakeNrdConversionPass());
 #ifdef RTPBRSURVEY_NRD_RECONSTRUCTION_DIAGNOSTICS
@@ -461,7 +461,8 @@ auto RtPbrSurveyEngine::MakePathTracingPass() -> RenderPass
 {
     Engine::ResourceUsages reads = {
         {kSceneTlasResourceName, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE},
-        {kSceneVertexBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
+        {m_pathTracingVertexBuffer ? kPathTracingVertexBufferResourceName : kSceneVertexBufferResourceName,
+         D3D12_RESOURCE_STATE_GENERIC_READ},
         {kSceneInstanceBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
         {kSceneMeshRangeBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
         {kSceneCameraConstantsResourceName, D3D12_RESOURCE_STATE_GENERIC_READ},
@@ -470,7 +471,8 @@ auto RtPbrSurveyEngine::MakePathTracingPass() -> RenderPass
     };
     if (m_usesIndexedDraw)
     {
-        reads.push_back({kSceneIndexBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
+        reads.push_back({m_pathTracingIndexBuffer ? kPathTracingIndexBufferResourceName : kSceneIndexBufferResourceName,
+                         D3D12_RESOURCE_STATE_GENERIC_READ});
     }
 
     return m_renderGraphRuntime.Authoring()
@@ -1145,7 +1147,7 @@ auto RtPbrSurveyEngine::MakeToneMapPass() -> RenderPass
 #endif
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
         if (MakePathTracingReconstructionPlan().backend == Engine::PathTracingReconstructionBackend::Nrd &&
-            !m_sceneHasThinTransmission)
+            SupportsPathTracingReconstructionSurfaces())
         {
             reads.push_back({kPathTracingGuideTextureResourceNames[PathTracingGuideNrdSceneColor],
                              D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});

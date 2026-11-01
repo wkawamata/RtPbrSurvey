@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 4,
+  "renderingPath": 2,
+  "renderViewMode": 0,
+  "lighting": {"lights": [], "primaryShadowLightId": 0, "iblIntensity": 1, "skyboxEnabled": true,
+               "directLightEnabled": false, "diffuseIblEnabled": true, "specularIblEnabled": true,
+               "emissiveEnabled": false},
+  "shadow": {"enabled": true, "normalBias": 0.0001, "rayTMin": 0.0001},
+  "toneMap": {"operatorIndex": 2, "exposure": 1},
+  "pathTracing": {"accumulate": true, "samplesPerFrame": 1, "maxBounces": 4, "randomSeed": 7,
+                  "directLightingEnabled": false, "environmentEnabled": true, "environmentSamplingMode": 7,
+                  "emissiveEnabled": false, "russianRouletteEnabled": false, "debugOutput": 3,
+                  "emissiveSamplingMode": 0, "pixelCenterPrimary": true,
+                  "denoiserDistanceDiagnostics": true, "nrdPreview": false}
+}

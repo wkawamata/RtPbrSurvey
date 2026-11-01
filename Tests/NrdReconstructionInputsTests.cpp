@@ -125,6 +125,20 @@ int main()
     passed &= Check(Engine::ValidatePathTracingReconstructionInputs(inputs).Passed() &&
                         !Engine::InspectNrdReconstructionInputs(inputs, false).MetadataReady(),
                     "common pass does not imply NRD conversion capability");
+    inputs = MakeInputs();
+    inputs.frame.coherentPrimaryBatch = true;
+    inputs.frame.samplesPerFrame = 4;
+    for (auto& signal : inputs.signals)
+        signal.samplesPerFrame = 4;
+    passed &= Check(Engine::ValidatePathTracingReconstructionInputs(inputs).Passed() &&
+                        !Engine::InspectNrdReconstructionInputs(inputs, true).MetadataReady(),
+                    "NRD does not inherit RR coherent-batch capability");
+    inputs = MakeInputs();
+    inputs.frame.frameJitterPrimary = true;
+    inputs.frame.jitterPixels = {.25f, .25f};
+    passed &= Check(Engine::ValidatePathTracingReconstructionInputs(inputs).Passed() &&
+                        !Engine::InspectNrdReconstructionInputs(inputs, true).MetadataReady(),
+                    "NRD does not inherit RR frame-jitter capability");
     if (passed)
     {
         std::cout << "NRD common-input capability and shader binding contract passed\n";

@@ -857,7 +857,10 @@ RayReconstructionEvaluateResult EvaluateStreamlineRayReconstructionWithSdk(
     ++g_streamlineAdapterState.rayReconstructionNativeEvaluateCallCount;
     const sl::Result evaluateResult =
         slEvaluateFeature(sl::kFeatureDLSS_RR, *frameToken, evaluateInputs, _countof(evaluateInputs), inputs.commandList);
-    if (evaluateResult != sl::Result::eOk)
+    // Streamline v2.12 commonInterface.cpp returns eWarnOutOfVRAM only
+    // after a successful evaluate. Preserve the warning in diagnostics, but
+    // let the PT GPU output validation decide whether the result can publish.
+    if (evaluateResult != sl::Result::eOk && evaluateResult != sl::Result::eWarnOutOfVRAM)
     {
         return StoreRayReconstructionEvaluateResult(
             MakeUnavailableRayReconstructionEvaluateResult(ToRayReconstructionSupportStatus(evaluateResult)),

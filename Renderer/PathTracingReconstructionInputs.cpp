@@ -90,9 +90,14 @@ PathTracingInputValidation ValidatePathTracingReconstructionInputs(const PathTra
     {
         return {Issue::InvalidDimensions};
     }
-    if (frame.samplesPerFrame != 1 || !frame.pixelCenterPrimary || frame.samplingSignature == 0 ||
-        frame.sampleStartIndex == std::numeric_limits<uint32_t>::max() || frame.jitterPixels[0] != 0.0f ||
-        frame.jitterPixels[1] != 0.0f)
+    const bool validBatch = frame.samplesPerFrame >= 1 && frame.samplesPerFrame <= 16 &&
+                            (frame.samplesPerFrame == 1 || frame.coherentPrimaryBatch);
+    const bool validJitter =
+        std::isfinite(frame.jitterPixels[0]) && std::isfinite(frame.jitterPixels[1]) &&
+        (frame.frameJitterPrimary ? std::abs(frame.jitterPixels[0]) <= .5f && std::abs(frame.jitterPixels[1]) <= .5f
+                                  : frame.jitterPixels[0] == 0 && frame.jitterPixels[1] == 0);
+    if (!validBatch || !frame.pixelCenterPrimary || frame.samplingSignature == 0 || !validJitter ||
+        uint64_t(frame.sampleStartIndex) + frame.samplesPerFrame > std::numeric_limits<uint32_t>::max())
     {
         return {Issue::UnsupportedSampling};
     }

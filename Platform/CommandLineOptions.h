@@ -91,6 +91,7 @@ struct CommandLineOptions
     bool nrdPreview = false;
     bool pathTracingRrContinuous = false;
     std::filesystem::path pathTracingRrLifecycleValidationDirectory;
+    std::filesystem::path pathTracingRrInputCaptureDirectory;
     std::string nrdDiagnosticFailure;
     std::string nrdPrepassProfile;
     bool nrdDisableAntilag = false;

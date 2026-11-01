@@ -3,6 +3,7 @@
 #include "PathTracingReconstructionInputs.h"
 
 #include <limits>
+#include <cmath>
 
 namespace Engine
 {
@@ -31,8 +32,11 @@ PathTracingRrHistoryDecision PathTracingRrHistory::Begin(const PathTracingRrHist
     if (m_pendingTicket != 0)
         return {Action::NativeFallback, Reason::PendingEvaluation};
     if (key.frameId == 0 || key.samplingSignature == 0 || key.resetToken == 0 || key.renderWidth == 0 ||
-        key.renderHeight == 0 || key.outputWidth == 0 || key.outputHeight == 0 ||
-        key.sampleStartIndex == std::numeric_limits<uint32_t>::max() || outputAllocation == nullptr ||
+        key.renderHeight == 0 || key.outputWidth == 0 || key.outputHeight == 0 || key.samplesPerFrame == 0 ||
+        key.samplesPerFrame > 16 ||
+        uint64_t(key.sampleStartIndex) + key.samplesPerFrame > std::numeric_limits<uint32_t>::max() ||
+        !std::isfinite(key.jitterPixels[0]) || !std::isfinite(key.jitterPixels[1]) ||
+        std::abs(key.jitterPixels[0]) > .5f || std::abs(key.jitterPixels[1]) > .5f || outputAllocation == nullptr ||
         !IsPathTracingCameraMatrixUsable(key.viewProjection) ||
         !IsPathTracingCameraMatrixUsable(key.previousViewProjection))
     {
@@ -56,11 +60,11 @@ PathTracingRrHistoryDecision PathTracingRrHistory::Begin(const PathTracingRrHist
         else if (key.renderWidth != previous.renderWidth || key.renderHeight != previous.renderHeight ||
                  key.outputWidth != previous.outputWidth || key.outputHeight != previous.outputHeight)
             reason = Reason::DimensionsChanged;
-        else if (key.samplingSignature != previous.samplingSignature)
+        else if (key.samplingSignature != previous.samplingSignature || key.samplesPerFrame != previous.samplesPerFrame)
             reason = Reason::SamplingChanged;
         else if (key.frameId != previous.frameId + 1)
             reason = Reason::FrameGap;
-        else if (key.sampleStartIndex != previous.sampleStartIndex + 1)
+        else if (uint64_t(key.sampleStartIndex) != uint64_t(previous.sampleStartIndex) + previous.samplesPerFrame)
             reason = Reason::SampleGap;
         else if (key.previousViewProjection != previous.viewProjection)
             reason = Reason::CameraHistoryMismatch;

@@ -106,6 +106,7 @@ def main():
             report['checks']['opaqueRegression'] = compare_rgb(opaque, previous, 0)
         thin = copy.deepcopy(scene)
         thin['nodes'].append(pane)
+        thin['materials'][0]['roughness'] = 0
         thin['materials'][0]['transmission'] = dict(mode='thin', factor=1, tint=[1, 1, 1], ior=1)
         meta, _, clear = capture('clear', thin)
         if meta.get('thinTransmissionActive') is not True:

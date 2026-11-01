@@ -46,7 +46,7 @@ def expected_normal(mapped, mirrored=False, angle=30, normal_scale=1):
     return unit(tangent*encoded[0] + bitangent*encoded[1] + normal*encoded[2])
 
 
-def fixtures(output, name, mapped, mirrored, instances, separate_meshes=False):
+def fixtures(output, name, mapped, mirrored, instances, separate_meshes=False, missing_tangents=False):
     import numpy as np
     from PIL import Image
     gltf = json.loads((ROOT/'Tests/Fixtures/Gltf/surface-transforms.gltf').read_text())
@@ -62,6 +62,8 @@ def fixtures(output, name, mapped, mirrored, instances, separate_meshes=False):
         gltf['textures'] = [dict(source=0)]
         material['normalTexture'] = dict(index=0)
     gltf['materials'] = [material]
+    if missing_tangents:
+        gltf['meshes'][0]['primitives'][0]['attributes'].pop('TANGENT', None)
     gltf['meshes'][0]['primitives'][0]['material'] = 0
     asset = output/(name+'.gltf')
     write_json(asset, gltf)
@@ -121,23 +123,31 @@ def analyze(path, mapped, mirrored, instances, separate_meshes=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT/'bin/PathTracingValidation/geometry')
+    parser.add_argument('--exe', type=Path, default=ROOT/'bin/x64/Debug/RtPbrSurvey.exe')
+    parser.add_argument('--include-generated-tangents', action='store_true')
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    exe = args.exe.resolve(strict=True)
     report = dict(schemaVersion=1, generatedUtc=datetime.now(timezone.utc).isoformat(),
         testedCommit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-        executableSha256=sha(ROOT/'bin/x64/Debug/RtPbrSurvey.exe'),
+        executableSha256=sha(exe),
         sourceSha256={p: sha(ROOT/p) for p in ['GltfLoader.cpp', 'Shaders/SurfaceTransform.hlsli',
             'Shaders/SceneRayQuery.hlsli', 'Shaders/shaders_GBuffer.hlsl', 'Tests/PathTracing/validate_geometry.py']},
         gpuDriver=subprocess.check_output(['nvidia-smi', '--query-gpu=name,driver_version', '--format=csv,noheader'], text=True).strip(),
         records=[], status='running')
-    for name, mapped, mirrored, instances in [('normal', False, False, False), ('mapped', True, False, False),
+    cases = [('normal', False, False, False), ('mapped', True, False, False),
             ('mirrored-node', True, True, False), ('instances', True, False, True),
-            ('separate-meshes', True, False, True)]:
+            ('separate-meshes', True, False, True)]
+    if args.include_generated_tangents:
+        cases += [('generated-tangents', True, False, False), ('generated-mirrored', True, True, False)]
+    report['expectedCases'] = [case[0] for case in cases]
+    for name, mapped, mirrored, instances in cases:
         separate_meshes = name == 'separate-meshes'
-        scene, preset, asset = fixtures(output, name, mapped, mirrored, instances, separate_meshes)
+        scene, preset, asset = fixtures(output, name, mapped, mirrored, instances, separate_meshes,
+                                        missing_tangents=name.startswith('generated-'))
         path, log = output/(name+'.ptbuf'), output/(name+'.log')
-        command = [str(ROOT/'bin/x64/Debug/RtPbrSurvey.exe'), '-SceneFile', str(scene), '-RenderPreset', str(preset),
+        command = [str(exe), '-SceneFile', str(scene), '-RenderPreset', str(preset),
             '-EnablePathTracing', '-PathTracingSeed', '7', '-DebugPreviewResource', 'PathTracing.NormalRoughness',
             '-CapturePath', str(path), '-CaptureAfterFrames', '30', '-LogToFile', str(log), '-ExitAfterCapture']
         record = dict(name=name, command=command, sceneSha256=sha(scene), presetSha256=sha(preset), assetSha256=sha(asset))

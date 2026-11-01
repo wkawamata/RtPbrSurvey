@@ -2,6 +2,7 @@
 
 #include "Scene/SceneDocumentBuilder.h"
 #include "Scene/SceneDocumentJson.h"
+#include "Scene/ImportedVolumeScene.h"
 
 #include <DirectXMath.h>
 
@@ -95,11 +96,64 @@ bool SceneDocumentBuilder::Build(const SceneDocument& document,
     {
         return false;
     }
+    for (const SceneMaterial& material : document.materials)
+    {
+        if (material.transmission.mode == SceneTransmissionMode::Volume &&
+            (material.metallic != 0 || material.transmission.factor != 1 ||
+             material.baseColor.x != 1 || material.baseColor.y != 1 || material.baseColor.z != 1 ||
+             material.transmission.tint.x != 1 || material.transmission.tint.y != 1 || material.transmission.tint.z != 1 ||
+             material.transmission.ior > 4))
+        {
+            if (error != nullptr)
+            {
+                *error = "This volume combination is not connected yet (dielectric, white boundary tint only): " + material.id;
+            }
+            return false;
+        }
+    }
 
     SceneGraphEvaluation graph;
     if (!EvaluateSceneGraph(document, graph, error))
     {
         return false;
+    }
+    size_t volumeCount = 0;
+    for (size_t index = 0; index < document.nodes.size(); ++index)
+    {
+        const SceneNode& node = document.nodes[index];
+        const auto material = std::find_if(document.materials.begin(), document.materials.end(),
+            [&](const SceneMaterial& value) { return value.id == node.materialId; });
+        if (!node.visible || node.type != SceneNodeType::Primitive || material == document.materials.end() ||
+            material->transmission.mode != SceneTransmissionMode::Volume)
+        {
+            continue;
+        }
+        if (++volumeCount > 1 || (node.primitive.kind != ScenePrimitiveKind::Cube && node.primitive.kind != ScenePrimitiveKind::Sphere))
+        {
+            if (error != nullptr)
+            {
+                *error = "Volume currently requires one isolated cube or sphere.";
+            }
+            return false;
+        }
+        const DirectX::XMMATRIX world = DirectX::XMLoadFloat4x4(&graph.worldTransforms[index]);
+        const DirectX::XMVECTOR camera = DirectX::XMVectorSet(document.camera.position.x, document.camera.position.y,
+            document.camera.position.z, 1);
+        DirectX::XMFLOAT3 local;
+        DirectX::XMStoreFloat3(&local, DirectX::XMVector3TransformCoord(camera, DirectX::XMMatrixInverse(nullptr, world)));
+        const float halfSize = node.primitive.size * 0.5f + 0.0001f;
+        const bool inside = node.primitive.kind == ScenePrimitiveKind::Cube ?
+            std::abs(local.x) <= halfSize && std::abs(local.y) <= halfSize && std::abs(local.z) <= halfSize :
+            local.x * local.x + local.y * local.y + local.z * local.z <=
+                node.primitive.radius * node.primitive.radius + 0.0001f;
+        if (inside)
+        {
+            if (error != nullptr)
+            {
+                *error = "Camera-inside volume rendering is not qualified yet.";
+            }
+            return false;
+        }
     }
     std::unordered_map<std::string, std::filesystem::path> gltfPaths;
     for (const SceneAsset& asset : document.assets)
@@ -170,6 +224,10 @@ bool SceneDocumentBuilder::Build(const SceneDocument& document,
             rendererMaterial.metallicFactor = material.metallic;
             rendererMaterial.roughnessFactor = material.roughness;
             rendererMaterial.thinTransmission = material.transmission.mode == SceneTransmissionMode::Thin;
+            rendererMaterial.volumeTransmission = material.transmission.mode == SceneTransmissionMode::Volume;
+            rendererMaterial.volumeAbsorption = {{material.transmission.volume.attenuationColor.x,
+                material.transmission.volume.attenuationColor.y, material.transmission.volume.attenuationColor.z},
+                material.transmission.volume.attenuationDistance};
             rendererMaterial.transmissionFactor = material.transmission.factor;
             rendererMaterial.transmissionTint = {
                 material.transmission.tint.x, material.transmission.tint.y, material.transmission.tint.z};
@@ -248,6 +306,17 @@ bool SceneDocumentBuilder::Build(const SceneDocument& document,
         camera.nearZ = document.camera.nearZ;
         camera.farZ = document.camera.farZ;
         m_builder.SetCamera(camera);
+        std::string volumeError;
+        const auto importedVolume = BuildImportedVolumeSceneGuard(m_builder.GetScene(), volumeError);
+        if (!volumeError.empty() || (importedVolume && importedVolume->ClassifyPoint(
+                {camera.pos.x, camera.pos.y, camera.pos.z}) != VolumePointLocation::Outside))
+        {
+            if (error != nullptr)
+            {
+                *error = volumeError.empty() ? "Camera must be outside the imported volume and its boundary band." : volumeError;
+            }
+            return false;
+        }
         m_result = std::move(result);
         if (error != nullptr)
         {

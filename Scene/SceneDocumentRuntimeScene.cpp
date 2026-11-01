@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <cmath>
 
 namespace Engine
 {
@@ -37,6 +38,22 @@ bool SceneDocumentRuntimeScene::LoadFromDocument(const RtPbrSurvey::SceneDocumen
     m_document = document;
     m_name = m_document.name;
     m_displayInstanceCount = static_cast<int>(m_builder.Builder().GetScene().instances.size());
+    m_turntableInstance.reset();
+    m_turntableAngle = 0.0f;
+    if (document.turntable)
+    {
+        const auto instance = m_builder.Result().nodeInstanceIndices.find(document.turntable->nodeId);
+        if (instance == m_builder.Result().nodeInstanceIndices.end())
+        {
+            if (error != nullptr)
+            {
+                *error = "Turntable node has no runtime instance.";
+            }
+            return false;
+        }
+        m_turntableInstance = instance->second;
+        m_turntableBaseWorld = GetScene().instances[*m_turntableInstance].world;
+    }
     if (error != nullptr)
     {
         error->clear();
@@ -82,10 +99,35 @@ void SceneDocumentRuntimeScene::Load()
 
 void SceneDocumentRuntimeScene::Reset()
 {
+    m_turntableAngle = 0.0f;
+    if (m_turntableInstance)
+    {
+        auto& instance = GetScene().instances[*m_turntableInstance];
+        instance.world = m_turntableBaseWorld;
+        instance.prevWorld = instance.world;
+    }
 }
 
-void SceneDocumentRuntimeScene::Update(float, const SampleSceneUpdateContext&)
+void SceneDocumentRuntimeScene::Update(float deltaTime, const SampleSceneUpdateContext& context)
 {
+    if (!m_turntableInstance || !m_document.turntable)
+    {
+        return;
+    }
+    auto& instance = GetScene().instances[*m_turntableInstance];
+    instance.prevWorld = instance.world;
+    if (!context.isPlaying || !std::isfinite(deltaTime) || deltaTime <= 0.0f)
+    {
+        return;
+    }
+    const auto& animation = *m_document.turntable;
+    m_turntableAngle = std::fmod(m_turntableAngle + deltaTime * animation.degreesPerSecond, 360.0f);
+    const auto& pivot = animation.pivot;
+    const DirectX::XMMATRIX world = DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&m_turntableBaseWorld)) *
+        DirectX::XMMatrixTranslation(-pivot.x, -pivot.y, -pivot.z) *
+        DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(m_turntableAngle)) *
+        DirectX::XMMatrixTranslation(pivot.x, pivot.y, pivot.z);
+    DirectX::XMStoreFloat4x4(&instance.world, DirectX::XMMatrixTranspose(world));
 }
 
 Scene& SceneDocumentRuntimeScene::GetScene()

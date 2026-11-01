@@ -653,6 +653,10 @@ bool SceneEditorSession::DeleteSelectedNodes(std::string* error)
         }
     }
 
+    if (m_document.turntable && removedIds.contains(m_document.turntable->nodeId))
+    {
+        m_document.turntable.reset();
+    }
     m_document.nodes.erase(std::remove_if(m_document.nodes.begin(), m_document.nodes.end(), [&removedIds](const RtPbrSurvey::SceneNode& node)
     {
         return removedIds.contains(node.id);
