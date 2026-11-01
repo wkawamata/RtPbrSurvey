@@ -12,6 +12,7 @@
 #pragma once
 
 #include "SceneViewport.h"
+#include "Runtime/RendererCpuTiming.h"
 #include "Shared/DirectLight.h"
 #include <include/d3dx12/d3dx12.h>
 #include <wrl/client.h>
@@ -204,6 +205,9 @@ public:
         float metallicFactor = 1.0f;
         float ambientOcclusionFactor = 1.0f;
         float emissiveScale = 1.0f;
+        bool updateVolume = false;
+        float transmissionIor = 1.5f;
+        Engine::VolumeAbsorptionParameters volumeAbsorption;
     };
 
     using Scene = Engine::Scene;
@@ -429,7 +433,9 @@ public:
     void Initialize(UINT width, UINT height);
     void RenderFrame(const UiRenderHandler& uiRenderHandler);
     void RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame = true);
+    const RtPbrSurvey::RendererCpuTiming& CpuFrameTiming() const { return m_cpuFrameTimer.Completed(); }
     void SetVSyncEnabled(bool enabled) { m_vSyncEnabled = enabled; }
+    bool VSyncEnabled() const { return m_vSyncEnabled; }
     void Shutdown();
     void SetScene(const Scene& scene);
     void SetCamera(const CameraState& camera);
@@ -1507,6 +1513,7 @@ private:
     // CPU work meter
     MyDx12Util::WorkMeter m_workMeter;
     float m_cpuFrameTime = 0.f;
+    RtPbrSurvey::RendererCpuTimer m_cpuFrameTimer;
 
     // GPU work meter
     MyDx12Util::GpuWorkMeter m_gpuWorkMeter;

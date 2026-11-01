@@ -47,6 +47,26 @@ bool TestOrthographicProjection()
         NearlyEqual(actual._33, expected._33) && NearlyEqual(actual._43, expected._43);
 }
 
+bool TestOffCenterOrthographicProjection()
+{
+    Engine::CameraState camera;
+    camera.projection = Engine::CameraProjection::Orthographic;
+    camera.orthographicHeight = 20.0f;
+    camera.nearZ = 0.5f;
+    camera.farZ = 500.0f;
+    camera.lensShiftY = 0.5f;
+    DirectX::XMFLOAT4X4 actual;
+    DirectX::XMStoreFloat4x4(&actual, Engine::CreateCameraProjectionMatrix(camera, 2.0f));
+    const auto center = DirectX::XMVector3TransformCoord(
+        DirectX::XMVectorSet(0.0f, 5.0f, 10.0f, 1.0f),
+        Engine::CreateCameraProjectionMatrix(camera, 2.0f));
+    if (!NearlyEqual(DirectX::XMVectorGetY(center), 0.0f) || !NearlyEqual(actual._42, -0.5f))
+        return false;
+    camera.lensShiftY = std::numeric_limits<float>::quiet_NaN();
+    DirectX::XMStoreFloat4x4(&actual, Engine::CreateCameraProjectionMatrix(camera, 2.0f));
+    return NearlyEqual(actual._42, 0.0f);
+}
+
 bool TestOffCenterPerspectiveProjection()
 {
     Engine::CameraState camera;
@@ -124,7 +144,7 @@ bool TestLegacyMatchClampCompatibility()
 
 int main()
 {
-    if (!TestPerspectiveProjection() || !TestOrthographicProjection() || !TestOffCenterPerspectiveProjection() || !TestProjectionFramingConversions() ||
+    if (!TestPerspectiveProjection() || !TestOrthographicProjection() || !TestOffCenterOrthographicProjection() || !TestOffCenterPerspectiveProjection() || !TestProjectionFramingConversions() ||
         !TestSmallFovLargeDistanceRoundTrip() || !TestStrictInvalidInputs() || !TestLegacyMatchClampCompatibility())
     {
         std::cerr << "Camera projection tests failed.\n";

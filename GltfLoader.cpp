@@ -573,11 +573,11 @@ static std::string ParseThinTransmissionMaterial(const tinygltf::Model& model, c
     if (thickness > 0.0)
     {
         if (factor != 1.0 || ior > 4.0 || transmissionTexture >= 0 || pbr.baseColorTexture.index >= 0 ||
-            pbr.metallicRoughnessTexture.index >= 0 || pbr.roughnessFactor != 0.0 || pbr.metallicFactor != 0.0 ||
+            pbr.metallicRoughnessTexture.index >= 0 || pbr.metallicFactor != 0.0 ||
             pbr.baseColorFactor != std::vector<double>({1.0, 1.0, 1.0, 1.0}) || material.alphaMode != "OPAQUE" ||
             material.emissiveTexture.index >= 0 || material.emissiveFactor != std::vector<double>({0.0, 0.0, 0.0}))
         {
-            return "Solid volume requires smooth white full dielectric transmission, IOR <= 4, no textures or emission.";
+            return "Solid volume requires white full dielectric transmission, IOR <= 4, no textures or emission.";
         }
         output.volumeTransmission = true;
     }

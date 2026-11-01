@@ -1199,8 +1199,30 @@ void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialPara
     }
 
     Engine::Material& material = m_materialData[materialIndex];
+    const bool updateVolume = params.updateVolume && (material.flags & Engine::kMaterialFlagVolumeTransmission) != 0;
+    if (updateVolume)
+    {
+        if (!std::isfinite(params.transmissionIor) || params.transmissionIor < 1.0f || params.transmissionIor > 4.0f ||
+            std::isnan(params.volumeAbsorption.attenuationDistance) || params.volumeAbsorption.attenuationDistance <= 0.0f)
+        {
+            return;
+        }
+        for (float color : params.volumeAbsorption.attenuationColor)
+        {
+            if (!std::isfinite(color) || color < 0.0f || color > 1.0f)
+            {
+                return;
+            }
+        }
+    }
+    const bool volumeChanged = updateVolume &&
+        (material.transmissionIor != params.transmissionIor ||
+         material.volumeAbsorption.attenuationDistance != params.volumeAbsorption.attenuationDistance ||
+         material.volumeAbsorption.attenuationColor[0] != params.volumeAbsorption.attenuationColor[0] ||
+         material.volumeAbsorption.attenuationColor[1] != params.volumeAbsorption.attenuationColor[1] ||
+         material.volumeAbsorption.attenuationColor[2] != params.volumeAbsorption.attenuationColor[2]);
     const float emissiveScale = (material.flags & Engine::kMaterialFlagUnlit) != 0 ? 0.0f : params.emissiveScale;
-    const bool reflectionHistoryChanged =
+    const bool reflectionHistoryChanged = volumeChanged ||
         material.roughnessFactor != params.roughnessFactor ||
         material.metallicFactor != params.metallicFactor ||
         material.emissiveScale != emissiveScale;
@@ -1210,6 +1232,11 @@ void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialPara
     material.metallicFactor = params.metallicFactor;
     material.ambientOcclusionFactor = params.ambientOcclusionFactor;
     material.emissiveScale = emissiveScale;
+    if (updateVolume)
+    {
+        material.transmissionIor = params.transmissionIor;
+        material.volumeAbsorption = params.volumeAbsorption;
+    }
     m_materialBuffer.Update(m_materialData);
     if (reflectionHistoryChanged)
     {
@@ -5938,16 +5965,17 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     UpdatePerFrameRenderSettings();
     m_activeUiRenderHandler = &uiRenderHandler;
 
-    // Record all the commands we need to render the scene into the command list.
-    PopulateCommandList();
-    m_activeUiRenderHandler = nullptr;
-
-    // Execute the command list.
-    ID3D12CommandList* ppCommandLists[] = {m_commandList.Get()};
-    m_graphicsDevice.ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
-    CommitReflectionHistoryFrame();
-    CommitReflectionSamplingFrame();
-    CommitPathTracingFrame();
+    {
+        RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::RecordSubmit);
+        // Record and submit. SDK/driver CPU work inside recording belongs to this interval.
+        PopulateCommandList();
+        m_activeUiRenderHandler = nullptr;
+        ID3D12CommandList* ppCommandLists[] = {m_commandList.Get()};
+        m_graphicsDevice.ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+        CommitReflectionHistoryFrame();
+        CommitReflectionSamplingFrame();
+        CommitPathTracingFrame();
+    }
 
     if (m_reflectionHdrDiagnosticPending)
     {
@@ -5981,7 +6009,10 @@ void RtPbrSurveyEngine::RenderFrame(const UiRenderHandler& uiRenderHandler)
     }
 
     // Present the frame.
-    m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
+    {
+        RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::Present);
+        m_graphicsDevice.Present(m_vSyncEnabled ? 1u : 0u, 0);
+    }
 
     UINT64 submittedFenceValue = MoveToNextFrame();
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
@@ -6034,6 +6065,7 @@ void RtPbrSurveyEngine::RequestResize(UINT width, UINT height)
 
 void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool advanceFrame)
 {
+    m_cpuFrameTimer.Begin();
     if (m_pendingResize)
     {
         ApplyResize(m_pendingResizeWidth, m_pendingResizeHeight);
@@ -6048,6 +6080,7 @@ void RtPbrSurveyEngine::RunFrame(const UiRenderHandler& uiRenderHandler, bool ad
     RenderFrame(uiRenderHandler);
     m_workMeter.End();
     m_cpuFrameTime = m_workMeter.GetCpuFrameTimeMs();
+    m_cpuFrameTimer.End();
 }
 
 void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
@@ -9005,7 +9038,10 @@ void RtPbrSurveyEngine::WaitForGpu()
     m_graphicsDevice.SignalFence(m_frameResources[m_currentFrameIndex].fenceValue);
 
     // Wait until the fence has been processed.
-    m_graphicsDevice.WaitForFenceValue(m_frameResources[m_currentFrameIndex].fenceValue);
+    {
+        RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::GpuWait);
+        m_graphicsDevice.WaitForFenceValue(m_frameResources[m_currentFrameIndex].fenceValue);
+    }
 
     // Increment the fence value for the current frame.
     m_frameResources[m_currentFrameIndex].fenceValue++;
@@ -9022,7 +9058,10 @@ void RtPbrSurveyEngine::FlushGpu()
     }
 
     m_graphicsDevice.SignalFence(fenceValue);
-    m_graphicsDevice.WaitForFenceValue(fenceValue);
+    {
+        RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::GpuWait);
+        m_graphicsDevice.WaitForFenceValue(fenceValue);
+    }
 
     for (FrameResource& frameResource : m_frameResources)
     {
@@ -9047,7 +9086,10 @@ UINT64 RtPbrSurveyEngine::MoveToNextFrame()
     if (m_graphicsDevice.CompletedFenceValue() < m_frameResources[m_currentFrameIndex].fenceValue)
     {
         PIXBeginEvent(4, L"WaitForSingleObjectEx");
-        m_graphicsDevice.WaitForFenceValue(m_frameResources[m_currentFrameIndex].fenceValue);
+        {
+            RtPbrSurvey::ScopedRendererCpuPhase timing(m_cpuFrameTimer, RtPbrSurvey::RendererCpuPhase::GpuWait);
+            m_graphicsDevice.WaitForFenceValue(m_frameResources[m_currentFrameIndex].fenceValue);
+        }
         PIXEndEvent();
     }
 

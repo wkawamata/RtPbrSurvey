@@ -60,6 +60,7 @@ namespace RtPbrSurvey
         void DrawToolUi();
         UiFrameContext GetUiFrameContext() const;
         float CpuFrameTimeMs() const;
+        const RendererCpuTiming& CpuFrameTiming() const;
         Engine::RenderGraphDocument CaptureRenderGraphDocument() const;
         const Engine::DebugResourceViewRegistry& GetDebugResourceViewRegistry() const;
         const std::vector<Engine::RenderGraphBarrierEvent>& GetRenderGraphBarrierEvents() const;

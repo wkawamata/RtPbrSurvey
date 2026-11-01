@@ -196,6 +196,106 @@ void ValidateGgxPrecision(const float* values, bool hardware)
               << "; max relative D error=" << maximumDistributionError << "; current-floor energy checked.\n";
 }
 
+void ValidateRoughVolume(const float* values)
+{
+    constexpr float roughnesses[] = {0, .1f, .35f, .7f, 1, .35f, .7f};
+    constexpr float cosines[] = {1, .8f, .6f, .1f};
+    auto fresnel = [](double cosine, double ni, double nt)
+    {
+        if (ni == nt)
+            return 0.0;
+        const double sinT2 = ni * ni / (nt * nt) * (1 - cosine * cosine);
+        if (sinT2 >= 1)
+            return 1.0;
+        const double ct = std::sqrt(1 - sinT2);
+        const double rs = (ni * cosine - nt * ct) / (ni * cosine + nt * ct);
+        const double rp = (nt * cosine - ni * ct) / (nt * cosine + ni * ct);
+        return (rs * rs + rp * rp) / 2;
+    };
+    auto smith = [](double cosine, double alpha)
+    { return 2 * cosine / (cosine + std::sqrt(alpha * alpha + (1 - alpha * alpha) * cosine * cosine)); };
+    unsigned int reflectedCount = 0, transmittedCount = 0, rejectedCount = 0;
+    for (unsigned int index = 0; index < kSampleCount; ++index)
+    {
+        const float* value = values + index * 16;
+        for (unsigned int channel = 0; channel < 16; ++channel)
+        {
+            if (!std::isfinite(value[channel]))
+                throw std::runtime_error("Nonfinite rough-volume output");
+        }
+        const unsigned int test = index / 1024, local = index % 1024, pair = test / 4;
+        const double roughness = roughnesses[pair];
+        const double ni = pair >= 5 ? 1.5 : 1, nt = pair == 5 ? 1 : 1.5, eta = ni / nt, etap = nt / ni;
+        const double z = cosines[test % 4];
+        const Vector view = {std::sqrt(1 - z * z), 0, z};
+        const bool delta = roughness == 0 || ni == nt;
+        const double alpha = std::max(roughness * roughness, 0.001);
+        const Vector half =
+            delta ? Vector{0, 0, 1} : ReferenceNormal(view, alpha, (local % 32 + .5) / 32, (local / 32 + .5) / 32);
+        const double vh = Dot(view, half);
+        const double f = fresnel(vh, ni, nt);
+        const double random = ((local * 73) % 1024 + .5) / 1024;
+        const bool reflected = random < f;
+        const double ct = std::sqrt(std::max(0.0, 1 - eta * eta * (1 - vh * vh)));
+        const Vector expectedDirection = reflected ? half * (2 * vh) + view * -1 : view * -eta + half * (eta * vh - ct);
+        const bool valid = reflected ? expectedDirection.z > 0 : expectedDirection.z < 0;
+        if (value[15] != 0 || !Near(value[12], half.x) || !Near(value[13], half.y) || !Near(value[14], half.z))
+            throw std::runtime_error("Rough-volume VNDF/invalid-input contract mismatch");
+        if ((value[7] != 0) != valid)
+            throw std::runtime_error("Rough-volume hemisphere rejection mismatch");
+        if (!valid)
+        {
+            ++rejectedCount;
+            if (value[3] != 0 || value[4] != 0 || value[8] != 0 || value[9] != 0)
+                throw std::runtime_error("Rejected rough-volume event retained energy/PDF");
+            continue;
+        }
+        if ((value[6] != 0) != reflected || (value[10] != 0) != delta || !Near(value[5], f))
+            throw std::runtime_error("Rough-volume Fresnel selection mismatch");
+        if (!Near(value[0], expectedDirection.x) || !Near(value[1], expectedDirection.y) ||
+            !Near(value[2], expectedDirection.z))
+            throw std::runtime_error("Rough-volume Snell/reflection direction mismatch");
+        const Vector direction = {value[0], value[1], value[2]};
+        const double expectedWeight = (reflected ? 1 : eta * eta) * (delta ? 1 : smith(std::abs(direction.z), alpha));
+        if (!Near(value[4], expectedWeight) || !Near(value[11], reflected ? f : 1 - f))
+            throw std::runtime_error("Rough-volume radiance weight/event probability mismatch");
+        reflectedCount += reflected;
+        transmittedCount += !reflected;
+        if (delta)
+        {
+            if (value[3] != 0 || value[8] != 0 || value[9] != 0)
+                throw std::runtime_error("Delta event used a solid-angle PDF");
+            continue;
+        }
+        Vector recoveredHalf = Normalize(view + direction * (reflected ? 1 : etap));
+        if (recoveredHalf.z < 0)
+            recoveredHalf = recoveredHalf * -1;
+        const double nh = recoveredHalf.z, oh = Dot(view, recoveredHalf), ih = Dot(direction, recoveredHalf);
+        const double d = alpha * alpha /
+                         (kPi * std::pow(recoveredHalf.x * recoveredHalf.x + recoveredHalf.y * recoveredHalf.y +
+                                             alpha * alpha * nh * nh,
+                                         2));
+        const double g = smith(view.z, alpha) * smith(std::abs(direction.z), alpha);
+        const double fRecovered = fresnel(oh, ni, nt);
+        const double halfPdf = d * smith(view.z, alpha) * oh / view.z;
+        const double denominator = std::pow(ih + oh / etap, 2);
+        const double pdf =
+            reflected ? halfPdf * fRecovered / (4 * oh) : halfPdf * (1 - fRecovered) * std::abs(ih) / denominator;
+        const double bsdf =
+            reflected ? fRecovered * d * g / (4 * view.z * direction.z)
+                      : (1 - fRecovered) * d * g * std::abs(ih * oh / (view.z * direction.z * denominator)) * eta * eta;
+        if (!Near(value[3], pdf, .0002, .005) || !Near(value[9], pdf, .0002, .005) ||
+            !Near(value[8], bsdf, .0002, .005) || value[3] <= 0 ||
+            !Near(value[8] * std::abs(direction.z) / value[3], expectedWeight, .0002, .005))
+            throw std::runtime_error("Rough-volume BSDF/PDF/Jacobian contract mismatch at case=" +
+                                     std::to_string(test) + " sample=" + std::to_string(local));
+    }
+    if (reflectedCount == 0 || transmittedCount == 0 || rejectedCount == 0)
+        throw std::runtime_error("Missing rough-volume event coverage");
+    std::cout << "Rough volume: " << kSampleCount << " samples; reflected=" << reflectedCount
+              << "; transmitted=" << transmittedCount << "; hemisphere-rejected=" << rejectedCount << ".\n";
+}
+
 void Validate(const float* values)
 {
     constexpr double roughnesses[] = {0.0, 0.1, 0.35, 0.7, 1.0};
@@ -709,6 +809,7 @@ int main(int argc, char** argv)
         bool alphaMask = false;
         bool volumeTransmission = false;
         bool ggxPrecision = false;
+        bool roughVolume = false;
         const char* inputPath = nullptr;
         const char* outputPath = nullptr;
         for (int index = 2; index < argc; ++index)
@@ -745,6 +846,10 @@ int main(int argc, char** argv)
             {
                 ggxPrecision = true;
             }
+            else if (std::strcmp(argv[index], "--rough-volume") == 0)
+            {
+                roughVolume = true;
+            }
             else if (std::strcmp(argv[index], "--material-factors") == 0)
             {
                 materialFactors = true;
@@ -775,7 +880,7 @@ int main(int argc, char** argv)
             }
         }
         if (int(packing) + int(materialFactors) + int(inputConversion) + int(rrInputConversion) + int(rrLiveDistance) +
-                int(thinTransmission) + int(roughThinTransmission) + int(thinMetallic) + int(alphaMask) + int(volumeTransmission) + int(ggxPrecision) >
+                int(thinTransmission) + int(roughThinTransmission) + int(thinMetallic) + int(alphaMask) + int(volumeTransmission) + int(ggxPrecision) + int(roughVolume) >
             1)
             throw std::runtime_error("Shader validation modes are mutually exclusive");
         if ((inputPath != nullptr) != (outputPath != nullptr) || (inputPath && !inputConversion))
@@ -908,6 +1013,10 @@ int main(int argc, char** argv)
             outputFile.write(static_cast<const char*>(data), byteCount);
             if (!outputFile)
                 throw std::runtime_error("Could not write converted output");
+        }
+        else if (roughVolume)
+        {
+            ValidateRoughVolume(static_cast<const float*>(data));
         }
         else if (ggxPrecision)
         {

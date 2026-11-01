@@ -301,6 +301,26 @@ void TestSolidVolumeImport()
     };
     const auto loaded = load();
     Require(static_cast<bool>(loaded), "Single convex volume asset must load.");
+    for (double roughness : {0.1, 0.35, 1.0})
+    {
+        document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = roughness;
+        const auto rough = load();
+        Require(static_cast<bool>(rough), "Constant roughness convex volume must load.");
+        Engine::SceneBuilder roughBuilder;
+        const auto roughMesh = roughBuilder.AddGltfNodeMesh(rough.asset, "Solid");
+        Require(static_cast<bool>(roughMesh) && roughBuilder.GetMesh().materials[0].volumeTransmission &&
+            !roughBuilder.GetMesh().materials[0].thinTransmission &&
+            NearlyEqual(roughBuilder.GetMesh().materials[0].roughnessFactor, static_cast<float>(roughness)),
+            "Rough solid must preserve roughness and solid medium identity.");
+    }
+    document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = 0;
+    for (double invalidRoughness : {-0.1, 1.1})
+    {
+        document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = invalidRoughness;
+        Require(!load(), "Out-of-range solid roughness must fail.");
+    }
+    document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = 0;
+    Require(static_cast<bool>(load()), "Smooth fixture must be restored after invalid roughness controls.");
     Engine::SceneBuilder builder;
     const auto mesh = builder.AddGltfNodeMesh(loaded.asset, "Solid");
     Require(static_cast<bool>(mesh), "Solid mesh node must convert.");

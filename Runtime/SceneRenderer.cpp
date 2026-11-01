@@ -114,6 +114,11 @@ namespace RtPbrSurvey
         return m_engine.GetUiFrameContext();
     }
 
+    const RendererCpuTiming& SceneRenderer::CpuFrameTiming() const
+    {
+        return m_engine.CpuFrameTiming();
+    }
+
     float SceneRenderer::CpuFrameTimeMs() const
     {
         return m_engine.CpuFrameTimeMs();
