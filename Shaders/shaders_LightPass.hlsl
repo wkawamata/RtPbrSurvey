@@ -14,6 +14,14 @@ TextureCube<float4> g_specularPrefilterMap : register(t2, space5);
 Texture2D<float2> g_brdfLut : register(t3, space5);
 SamplerState g_sampler : register(s0);
 Texture2D<float> g_shadowMask : register(t0, space4);
+Texture2D<float> g_diffuseEnvironmentVisibility : register(t0, space18);
+cbuffer DiffuseEnvironmentVisibilityBlend : register(b3)
+{
+    float diffuseEnvironmentVisibilityStrength;
+    float diffuseEnvironmentSpatialFilterEnabled;
+    float diffuseEnvironmentFilterPlaneDistance;
+    float diffuseEnvironmentFilterWorldRadius;
+};
 Texture2D<float4> g_reflectionRayHit : register(t0, space6);
 Texture2D<float4> g_reflectionRayColor : register(t0, space7);
 Texture2D<float4> g_reflectionEvaluatedRadiance : register(t0, space9);
@@ -45,6 +53,8 @@ float3 ReconstructWorldPosition(float2 uv, float depth)
     float4 worldPos = mul(clipPos, invViewProj);
     return worldPos.xyz / worldPos.w;
 }
+
+#include "DiffuseEnvironmentFilter.hlsli"
 
 float3 SampleSkybox(float2 uv)
 {
@@ -193,6 +203,11 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float3 irradiance = g_diffuseIrradianceMap.Sample(g_sampler, normal).rgb;
     float3 iblDiffuse = EvaluatePbrDiffuseIbl(irradiance, albedo, metallic, occlusion) * iblIntensity *
                         diffuseIblEnabled;
+    [branch] if (diffuseEnvironmentVisibilityStrength > 0)
+    {
+        float visibility = saturate(SampleDiffuseEnvironmentVisibility(int2(input.position.xy), normal, worldPos));
+        iblDiffuse *= lerp(1.0, visibility, diffuseEnvironmentVisibilityStrength);
+    }
     float3 reflectionDir = reflect(-viewDir, normal);
     if (lightPassDebugViewMode > 0.5 && lightPassDebugViewMode < 1.5)
     {

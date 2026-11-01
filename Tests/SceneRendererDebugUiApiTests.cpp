@@ -9,6 +9,8 @@ using DrawAuxiliaryWindowsSignature = void (*)(RtPbrSurvey::SceneRenderer&);
 
 static_assert(static_cast<DrawContentsSignature>(&RtPbrSurvey::SceneRendererDebugUi::DrawContents) != nullptr);
 static_assert(static_cast<DrawAuxiliaryWindowsSignature>(&RtPbrSurvey::SceneRendererDebugUi::DrawAuxiliaryWindows) != nullptr);
+static_assert(static_cast<DrawAuxiliaryWindowsSignature>(
+    &RtPbrSurvey::SceneRendererDebugUi::DrawDiffuseEnvironmentVisibility) != nullptr);
 }
 
 int main()

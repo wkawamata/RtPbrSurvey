@@ -121,6 +121,7 @@ set(RTPBRSURVEY_RENDERER_SOURCES
     Renderer/PathTracingRrLive.cpp
     Renderer/PipelineFactory.cpp
     Renderer/RayQueryShadowPass.cpp
+    Renderer/DiffuseEnvironmentVisibilityPass.cpp
     Renderer/RayQueryTlasDebugPass.cpp
     Renderer/RayReconstructionRoughnessPass.cpp
     Renderer/RayReconstructionSpecularAlbedoPass.cpp
@@ -283,6 +284,8 @@ function(rtpbrsurvey_add_shader output_var shader_file stage entry_point)
             "${RTPBRSURVEY_ROOT}/Shaders/DirectLightEvaluation.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/DirectPbrLighting.hlsli"
             "${RTPBRSURVEY_ROOT}/Shaders/ReflectionSampling.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/DiffuseEnvironmentSampling.hlsli"
+            "${RTPBRSURVEY_ROOT}/Shaders/DiffuseEnvironmentFilter.hlsli"
         WORKING_DIRECTORY "${RTPBRSURVEY_ROOT}"
         VERBATIM)
     set(${output_var} "${${output_var}};${output_file}" PARENT_SCOPE)
@@ -336,6 +339,9 @@ if(RTPBRSURVEY_BUILD_SHADERS)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DebugBufferPreview.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_ProceduralEnvMap.hlsl cs_6_0 CSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayQueryShadow.hlsl cs_6_5 CSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DiffuseEnvironmentVisibility.hlsl cs_6_5 CSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DiffuseEnvironmentVisibilityDebug.hlsl vs_6_0 VSMain)
+    rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_DiffuseEnvironmentVisibilityDebug.hlsl ps_6_0 PSMain)
     rtpbrsurvey_add_shader(
         RTPBRSURVEY_SHADER_OUTPUTS
         Shaders/shaders_HybridReflection.hlsl
@@ -441,6 +447,11 @@ if(RTPBRSURVEY_BUILD_APP)
 endif()
 
 if(RTPBRSURVEY_BUILD_TESTS)
+    add_executable(RtPbrSurvey.DiffuseEnvironmentVisibilityTests Tests/DiffuseEnvironmentVisibilityTests.cpp)
+    target_compile_features(RtPbrSurvey.DiffuseEnvironmentVisibilityTests PRIVATE cxx_std_17)
+    target_link_libraries(RtPbrSurvey.DiffuseEnvironmentVisibilityTests PRIVATE unofficial::tinyexr::tinyexr)
+    add_test(NAME RtPbrSurvey.DiffuseEnvironmentVisibilityReference
+        COMMAND RtPbrSurvey.DiffuseEnvironmentVisibilityTests)
     enable_testing()
 
     add_test(NAME RtPbrSurvey.RuntimeShaderManifest

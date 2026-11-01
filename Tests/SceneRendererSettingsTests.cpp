@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 
 #include <iostream>
+#include <limits>
 #include <string>
 
 namespace
@@ -26,6 +27,11 @@ bool TestRoundTrip()
     source.lighting.lights[0].intensity = 2.5f;
     source.shadow.normalBias = 0.023f;
     source.shadow.sampleCount = 13;
+    source.diffuseEnvironmentVisibility = {true, 0.6f, 32, 0.02f, 0.005f, 250.0f};
+    source.diffuseEnvironmentVisibility.sampleRotationEnabled = false;
+    source.diffuseEnvironmentVisibility.spatialFilterEnabled = false;
+    source.diffuseEnvironmentVisibility.filterPlaneDistance = 0.02f;
+    source.diffuseEnvironmentVisibility.filterWorldRadius = 0.3f;
     source.temporalUpscaler.enabled = true;
     source.temporalUpscaler.qualityMode = Engine::TemporalUpscalerQualityMode::Balanced;
     source.temporalUpscaler.renderScale = 0.67f;
@@ -62,6 +68,13 @@ bool TestRoundTrip()
     passed &= Check(RtPbrSurvey::DeserializeSceneRendererSettings(serialized, restored, &error),
                     "complete settings deserialize");
     passed &= Check(error.empty(), "successful deserialize clears error");
+    const auto& visibility = restored.diffuseEnvironmentVisibility;
+    passed &= Check(visibility.enabled && visibility.strength == 0.6f && visibility.sampleCount == 32 &&
+                        visibility.normalBias == 0.02f && visibility.rayTMin == 0.005f && visibility.traceDistance == 250,
+                    "diffuse environment visibility settings round-trip");
+    passed &= Check(!visibility.sampleRotationEnabled && !visibility.spatialFilterEnabled &&
+                        visibility.filterPlaneDistance == 0.02f && visibility.filterWorldRadius == 0.3f,
+                    "visibility sampling and filter settings round-trip");
     passed &= Check(restored.lighting.lights[0].direction.x == source.lighting.lights[0].direction.x &&
                         restored.lighting.lights[0].direction.y == source.lighting.lights[0].direction.y &&
                         restored.lighting.lights[0].direction.z == source.lighting.lights[0].direction.z,
@@ -237,6 +250,41 @@ bool TestPathTracingValuesAreBounded()
 
 int main()
 {
+    const auto visibilitySettings = []()
+    {
+        RtPbrSurvey::SceneRendererSettings settings;
+        bool valid = Check(RtPbrSurvey::DeserializeSceneRendererSettings("{}", settings) &&
+                               !settings.diffuseEnvironmentVisibility.enabled,
+                           "legacy settings default to visibility disabled");
+        for (const char* json : {
+            R"({"diffuseEnvironmentVisibility":{"sampleCount":0}})",
+            R"({"diffuseEnvironmentVisibility":{"sampleCount":65}})",
+            R"({"diffuseEnvironmentVisibility":{"strength":-1}})",
+            R"({"diffuseEnvironmentVisibility":{"strength":1.1}})",
+            R"({"diffuseEnvironmentVisibility":{"normalBias":-1}})",
+            R"({"diffuseEnvironmentVisibility":{"filterPlaneDistance":0}})",
+            R"({"diffuseEnvironmentVisibility":{"filterWorldRadius":-1}})",
+            R"({"diffuseEnvironmentVisibility":{"rayTMin":2,"traceDistance":1}})"})
+        {
+            valid &= Check(!RtPbrSurvey::DeserializeSceneRendererSettings(json, settings) &&
+                               !settings.diffuseEnvironmentVisibility.enabled &&
+                               settings.diffuseEnvironmentVisibility.sampleCount == 16,
+                           "invalid visibility settings rejected without mutation");
+        }
+        auto invalid = settings.diffuseEnvironmentVisibility;
+        invalid.strength = std::numeric_limits<float>::quiet_NaN();
+        valid &= Check(!invalid.IsValid(), "NaN visibility strength rejected");
+        invalid = settings.diffuseEnvironmentVisibility;
+        invalid.traceDistance = std::numeric_limits<float>::infinity();
+        valid &= Check(!invalid.IsValid(), "infinite trace distance rejected");
+        invalid = settings.diffuseEnvironmentVisibility;
+        invalid.filterPlaneDistance = std::numeric_limits<float>::quiet_NaN();
+        valid &= Check(!invalid.IsValid(), "NaN filter plane distance rejected");
+        invalid = settings.diffuseEnvironmentVisibility;
+        invalid.filterWorldRadius = std::numeric_limits<float>::infinity();
+        valid &= Check(!invalid.IsValid(), "infinite filter world radius rejected");
+        return valid;
+    };
     const auto reconstructionSettings = []()
     {
         using Backend = Engine::PathTracingReconstructionBackend;
@@ -268,7 +316,7 @@ int main()
     };
     const bool passed = TestRoundTrip() && TestMissingFieldsKeepDefaults() && TestInvalidJsonIsNonDestructive() &&
                         TestPathTracingValuesAreBounded() && TestMultipleLightsAndInvalidInputs() &&
-                        reconstructionSettings();
+                        reconstructionSettings() && visibilitySettings();
     if (passed)
     {
         std::cout << "SceneRendererSettings tests passed.\n";

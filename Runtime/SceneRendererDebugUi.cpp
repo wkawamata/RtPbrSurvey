@@ -60,6 +60,7 @@ namespace
         {"IBL BRDF LUT",   RtPbrSurveyEngine::RenderViewMode::IblBrdfLut,                      false, false},
         {"Shadow Mask",    RtPbrSurveyEngine::RenderViewMode::ShadowMask,                      true,  false},
         {"TLAS Debug",     RtPbrSurveyEngine::RenderViewMode::TlasDebug,                       true,  false},
+        {"Diffuse Environment Visibility", RtPbrSurveyEngine::RenderViewMode::DiffuseEnvironmentVisibility, true, false},
         {"Ray Hit",        RtPbrSurveyEngine::RenderViewMode::ReflectionRayHit,                true,  true},
         {"Ray Distance",   RtPbrSurveyEngine::RenderViewMode::ReflectionRayDistance,           true,  true},
         {"Ray Normal",     RtPbrSurveyEngine::RenderViewMode::ReflectionRayNormal,             true,  true},
@@ -702,6 +703,11 @@ namespace
             }
         }
 
+        if (renderViewMode == RtPbrSurveyEngine::RenderViewMode::DiffuseEnvironmentVisibility)
+        {
+            ImGui::TextUnformatted(renderer.EngineForDebugTools().GetDiffuseEnvironmentVisibilityStatus());
+        }
+
         const bool lightPassView = deferredRendering && renderViewMode == RtPbrSurveyEngine::RenderViewMode::LightPass;
         bool lightingPassDebugGradient = renderer.GetLightingPassDebugGradient();
         ImGui::BeginDisabled(!lightPassView);
@@ -970,6 +976,38 @@ namespace RtPbrSurvey
         DrawAuxiliaryWindows(renderer);
     }
 
+    void SceneRendererDebugUi::DrawDiffuseEnvironmentVisibility(SceneRenderer& renderer)
+    {
+        if (!ImGui::CollapsingHeader("Diffuse IBL Visibility"))
+        {
+            return;
+        }
+        ImGui::PushID("DiffuseEnvironmentVisibility");
+        auto settings = renderer.GetDiffuseEnvironmentVisibilitySettings();
+        bool changed = ImGui::Checkbox("Enabled", &settings.enabled);
+        changed |= ImGui::SliderFloat("Strength", &settings.strength, 0.0f, 1.0f);
+        changed |= ImGui::Checkbox("Per-Pixel Sample Shift", &settings.sampleRotationEnabled);
+        changed |= ImGui::Checkbox("Spatial Filter", &settings.spatialFilterEnabled);
+        changed |= ImGui::DragFloat("Filter Plane Distance", &settings.filterPlaneDistance, 0.001f, 0.000001f, 1000.0f, "%.6f");
+        changed |= ImGui::DragFloat("Filter World Radius", &settings.filterWorldRadius, 0.001f, 0.000001f, 1000.0f, "%.6f");
+        int samples = static_cast<int>(settings.sampleCount);
+        if (ImGui::SliderInt("Rays Per Pixel", &samples, 1, 64))
+        {
+            settings.sampleCount = static_cast<uint32_t>(samples);
+            changed = true;
+        }
+        changed |= ImGui::DragFloat("Normal Bias", &settings.normalBias, 0.0001f, 0.0f, 1.0f, "%.4f");
+        changed |= ImGui::DragFloat("Ray TMin", &settings.rayTMin, 0.0001f, 0.0f, 1.0f, "%.4f");
+        changed |= ImGui::DragFloat("Trace Distance", &settings.traceDistance, 1.0f, 1.001f, 100000.0f);
+        if (changed && settings.IsValid())
+        {
+            renderer.SetDiffuseEnvironmentVisibilitySettings(settings);
+        }
+        ImGui::Text("Effective: %s", renderer.IsDiffuseEnvironmentVisibilityActive() ? "ON" : "OFF");
+        ImGui::TextUnformatted(renderer.GetDiffuseEnvironmentVisibilityStatus());
+        ImGui::PopID();
+    }
+
     void SceneRendererDebugUi::DrawContents(SceneRenderer& renderer, EnvironmentMappingUiState* environment)
     {
         ImGui::PushID("RtPbrSurvey.SceneRendererDebugUi");
@@ -989,6 +1027,7 @@ namespace RtPbrSurvey
         {
             DrawLightingControls(renderer);
         }
+        DrawDiffuseEnvironmentVisibility(renderer);
 
         if (environment != nullptr &&
             ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))

@@ -63,6 +63,8 @@
 #include "Renderer/ScreenshotRequestQueue.h"
 #include "Renderer/SimpleDescriptorHeapAllocator.h"
 #include "Renderer/ShadowMaskDebugPass.h"
+#include "Renderer/DiffuseEnvironmentVisibilityPass.h"
+#include "Shared/DiffuseEnvironmentVisibility.h"
 #include "Renderer/DebugLinePass.h"
 #include "Runtime/DebugLine.h"
 #include "Renderer/RayReconstructionSupport.h"
@@ -169,6 +171,7 @@ public:
         RayReconstructionRoughness,
         RayReconstructionSpecularHitDistance,
         DlssInputColor,
+        DiffuseEnvironmentVisibility,
     };
 
     enum class RenderingPath
@@ -485,6 +488,13 @@ public:
     }
     void SetRenderViewMode(RenderViewMode mode);
     RenderViewMode GetRenderViewMode() const { return m_debugViewSettings.renderViewMode; }
+    const char* GetDiffuseEnvironmentVisibilityStatus() const;
+    bool IsDiffuseEnvironmentVisibilityActive() const;
+    void SetDiffuseEnvironmentVisibilitySettings(const RtPbrSurvey::DiffuseEnvironmentVisibilitySettings& settings);
+    const RtPbrSurvey::DiffuseEnvironmentVisibilitySettings& GetDiffuseEnvironmentVisibilitySettings() const
+    {
+        return m_diffuseEnvironmentVisibilitySettings;
+    }
     void SetDepthVisualizationSettings(const Engine::DepthVisualizationSettings& settings);
     const Engine::DepthVisualizationSettings& GetDepthVisualizationSettings() const
     {
@@ -582,6 +592,7 @@ private:
             static constexpr const char* SpecularDebugRayQuery = "SpecularDebugRayQuery";
             static constexpr const char* RayQueryTlasDebug = "RayQueryTlasDebug";
             static constexpr const char* ShadowMaskDebug = "ShadowMaskDebug";
+            static constexpr const char* DiffuseEnvironmentVisibilityDebug = "DiffuseEnvironmentVisibilityDebug";
             static constexpr const char* DebugLine = "DebugLine";
             static constexpr const char* DebugTexturePreview = "DebugTexturePreview";
             static constexpr const char* DebugBufferPreview = "DebugBufferPreview";
@@ -599,6 +610,7 @@ private:
             static constexpr const char* GBufferAlbedoSrv = "GBufferAlbedoSrv";
             static constexpr const char* ToneMapSceneColorSrv = "ToneMapSceneColorSrv";
             static constexpr const char* ShadowMaskSrv = "ShadowMaskSrv";
+            static constexpr const char* DiffuseEnvironmentVisibilitySrv = "DiffuseEnvironmentVisibilitySrv";
             static constexpr const char* ShadowMaskUav = "ShadowMaskUav";
             static constexpr const char* ReflectionRayHitSrv = "ReflectionRayHitSrv";
             static constexpr const char* ReflectionRayColorSrv = "ReflectionRayColorSrv";
@@ -756,7 +768,7 @@ private:
 
         PersistentSrvSlotCount,
     };
-    static constexpr UINT kShadowMaskDescriptorCount = 2; // SRV + UAV (dynamically allocated)
+    static constexpr UINT kShadowMaskDescriptorCount = 3; // Shadow SRV/UAV + diffuse visibility SRV table alias.
     static constexpr UINT kReflectionRayHitDescriptorCount =
         8; // Hit SRV/UAV + Color SRV/UAV + Material SRV/UAV + Emission SRV/UAV
     static constexpr UINT kReflectionEvaluatedRadianceDescriptorCount =
@@ -960,6 +972,7 @@ private:
         {
             return renderViewMode != RenderViewMode::LightPass &&
                    renderViewMode != RenderViewMode::DlssInputColor &&
+                   renderViewMode != RenderViewMode::DiffuseEnvironmentVisibility &&
                    renderViewMode != RenderViewMode::ReflectionRayHit &&
                    renderViewMode != RenderViewMode::ReflectionRayDistance &&
                    renderViewMode != RenderViewMode::ReflectionRayNormal &&
@@ -1165,6 +1178,9 @@ private:
     std::array<ComPtr<ID3D12Resource>, PathTracingGuideTextureCount> m_pathTracingGuideTextures;
     std::array<ComPtr<ID3D12Resource>, kMaxDebugTextureOutputCount> m_debugTexturePreviews;
     ComPtr<ID3D12Resource> m_shadowMask;
+    ComPtr<ID3D12Resource> m_diffuseEnvironmentVisibility;
+    Engine::DiffuseEnvironmentVisibilityPass m_diffuseEnvironmentVisibilityPass;
+    RtPbrSurvey::DiffuseEnvironmentVisibilitySettings m_diffuseEnvironmentVisibilitySettings;
     ComPtr<ID3D12Resource> m_reflectionRayHit;
     ComPtr<ID3D12Resource> m_reflectionRayColor;
     ComPtr<ID3D12Resource> m_reflectionRayMaterial;
@@ -1223,6 +1239,7 @@ private:
     DescriptorHeapHandle m_reflectionSpecularConfidenceSrv[2];
     DescriptorHeapHandle m_reflectionDenoisedRadianceSrv;
     StagedDescriptorRange m_shadowMaskRange;
+    StagedDescriptorRange m_diffuseEnvironmentVisibilityRange;
 
     StagedDescriptorAllocator m_stageAllocator;
 
@@ -1669,6 +1686,7 @@ private:
         "GBuffer.Emissive",
         "GBuffer.ObjectId"};
     static constexpr const char* kShadowMaskResourceName = "ShadowMask";
+    static constexpr const char* kDiffuseEnvironmentVisibilityResourceName = "DiffuseEnvironmentVisibility";
     static constexpr const char* kReflectionRayHitResourceName = "ReflectionRayHit";
     static constexpr const char* kReflectionRayColorResourceName = "ReflectionRayColor";
     static constexpr const char* kReflectionRayMaterialResourceName = "ReflectionRayMaterial";
@@ -1739,6 +1757,7 @@ private:
         GraphicsPipelineShaderSet gbuffer;
         GraphicsPipelineShaderSet gbufferDebug;
         GraphicsPipelineShaderSet shadowMaskDebug;
+        GraphicsPipelineShaderSet diffuseEnvironmentVisibilityDebug;
         GraphicsPipelineShaderSet reflectionRayHitDebug;
         GraphicsPipelineShaderSet lighting;
         GraphicsPipelineShaderSet lightingDebugGradient;
@@ -1866,6 +1885,7 @@ private:
                                                         D3D12_RESOURCE_STATES initialState) const;
     void CreateDepthStencilDescriptors();
     void CreateShadowMask();
+    void CreateDiffuseEnvironmentVisibility();
     void CreateShadowMaskDescriptors();
     void CreateReflectionRayHit();
     void CreateReflectionRayHitDescriptors();
@@ -1937,6 +1957,8 @@ private:
     RenderPass MakeGBufferPass();
     RenderPass MakeHybridReflectionPass();
     RenderPass MakeRayQueryShadowPass();
+    RenderPass MakeDiffuseEnvironmentVisibilityPass();
+    RenderPass MakeDiffuseEnvironmentVisibilityDebugPass();
     RenderPass MakeSpecularDebugRayQueryPass();
     RenderPass MakeRayQueryTlasDebugPass();
     RenderPass MakeForwardPass();
@@ -2036,6 +2058,7 @@ private:
     void ExecuteGBufferPass(const RenderPass& pass);
     void ExecuteHybridReflectionPass(const RenderPass& pass);
     void ExecuteRayQueryShadowPass(const RenderPass& pass);
+    void ExecuteDiffuseEnvironmentVisibilityPass(const RenderPass& pass);
     void ExecuteSpecularDebugRayQueryPass(const RenderPass& pass);
     void ExecuteRayQueryTlasDebugPass(const RenderPass& pass);
     void ExecuteForwardPass(const RenderPass& pass);

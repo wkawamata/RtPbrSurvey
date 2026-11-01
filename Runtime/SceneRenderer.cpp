@@ -149,6 +149,7 @@ namespace RtPbrSurvey
         SceneRendererSettings settings;
         settings.lighting = m_engine.GetLightingParams();
         settings.shadow = m_engine.GetShadowSettings();
+        settings.diffuseEnvironmentVisibility = m_engine.GetDiffuseEnvironmentVisibilitySettings();
         settings.temporalUpscaler = m_engine.GetTemporalUpscalerSettings();
         settings.rayReconstruction = m_engine.GetRayReconstructionSettings();
         settings.hybridReflection = m_engine.GetHybridReflectionSettings();
@@ -166,6 +167,7 @@ namespace RtPbrSurvey
     {
         m_engine.SetLightingParams(settings.lighting);
         m_engine.SetShadowSettings(settings.shadow);
+        m_engine.SetDiffuseEnvironmentVisibilitySettings(settings.diffuseEnvironmentVisibility);
         m_engine.SetTemporalUpscalerSettings(settings.temporalUpscaler);
         m_engine.SetRayReconstructionSettings(settings.rayReconstruction);
         m_engine.SetHybridReflectionSettings(settings.hybridReflection);
@@ -176,6 +178,26 @@ namespace RtPbrSurvey
         m_engine.SetRenderViewMode(settings.renderViewMode);
         m_engine.SetBackBufferClearColor(settings.backBufferClearColor);
         m_engine.SetLightingPassDebugGradient(settings.lightingPassDebugGradient);
+    }
+
+    void SceneRenderer::SetDiffuseEnvironmentVisibilitySettings(const DiffuseEnvironmentVisibilitySettings& settings)
+    {
+        m_engine.SetDiffuseEnvironmentVisibilitySettings(settings);
+    }
+
+    const DiffuseEnvironmentVisibilitySettings& SceneRenderer::GetDiffuseEnvironmentVisibilitySettings() const
+    {
+        return m_engine.GetDiffuseEnvironmentVisibilitySettings();
+    }
+
+    bool SceneRenderer::IsDiffuseEnvironmentVisibilityActive() const
+    {
+        return m_engine.IsDiffuseEnvironmentVisibilityActive();
+    }
+
+    const char* SceneRenderer::GetDiffuseEnvironmentVisibilityStatus() const
+    {
+        return m_engine.GetDiffuseEnvironmentVisibilityStatus();
     }
 
     void SceneRenderer::SetLightingParams(const RtPbrSurveyEngine::LightingParams& params)

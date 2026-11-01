@@ -130,6 +130,7 @@ static json SceneConfigToJson(const SceneConfig& cfg)
     j["environment"] = EnvironmentToJson(cfg.environment);
     j["toneMap"] = renderer.at("toneMap");
     j["shadow"] = renderer.at("shadow");
+    j["diffuseEnvironmentVisibility"] = renderer.at("diffuseEnvironmentVisibility");
     j["temporalUpscaler"] = renderer.at("temporalUpscaler");
     j["rayReconstruction"] = renderer.at("rayReconstruction");
     j["hybridReflection"] = renderer.at("hybridReflection");
@@ -159,6 +160,7 @@ static SceneConfig SceneConfigFromJson(const json& j)
     static constexpr const char* rendererKeys[] = {
         "lighting",
         "shadow",
+        "diffuseEnvironmentVisibility",
         "temporalUpscaler",
         "rayReconstruction",
         "hybridReflection",

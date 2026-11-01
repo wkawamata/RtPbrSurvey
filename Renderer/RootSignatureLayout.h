@@ -75,6 +75,7 @@ static constexpr uint32_t kReflectionResolvedSpecularEstimateHistorySrvSpace = 1
 static constexpr uint32_t kReflectionSpecularMomentsHistorySrvSpace = 15;
 static constexpr uint32_t kReflectionSpecularEstimateSrvSpace = 16;
 static constexpr uint32_t kReflectionSpecularConfidenceHistorySrvSpace = 17;
+static constexpr uint32_t kDiffuseEnvironmentVisibilitySrvSpace = 18;
 
 // Per-frame and per-pass CBVs.
 static constexpr uint32_t kCameraCbvRegister = 0;
