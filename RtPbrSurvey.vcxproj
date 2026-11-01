@@ -184,6 +184,7 @@
     <ClInclude Include="Renderer\PipelineFactory.h" />
     <ClInclude Include="Renderer\AccelerationStructureResources.h" />
     <ClInclude Include="Renderer\RayQueryShadowPass.h" />
+    <ClInclude Include="Renderer\DiffuseEnvironmentVisibilityPass.h" />
     <ClInclude Include="Renderer\SpecularDebugRayQueryPass.h" />
     <ClInclude Include="Renderer\RayQueryTlasDebugPass.h" />
     <ClInclude Include="Renderer\ReflectionRayHitDebugPass.h" />
@@ -268,6 +269,7 @@
     <ClInclude Include="Shared\D3d12Helpers.h" />
     <ClInclude Include="Shared\Error.h" />
     <ClInclude Include="Shared\Screenshot.h" />
+    <ClInclude Include="Shared\DiffuseEnvironmentVisibility.h" />
     <ClInclude Include="Shared\DirectLight.h" />
     <ClInclude Include="Shared\VolumeAbsorptionParameters.h" />
     <ClInclude Include="Runtime\DirectLightJson.h" />
@@ -330,6 +332,7 @@
     <ClCompile Include="Renderer\PipelineFactory.cpp" />
     <ClCompile Include="Renderer\AccelerationStructureResources.cpp" />
     <ClCompile Include="Renderer\RayQueryShadowPass.cpp" />
+    <ClCompile Include="Renderer\DiffuseEnvironmentVisibilityPass.cpp" />
     <ClCompile Include="Renderer\SpecularDebugRayQueryPass.cpp" />
     <ClCompile Include="Renderer\RayQueryTlasDebugPass.cpp" />
     <ClCompile Include="Renderer\ReflectionRayHitDebugPass.cpp" />
@@ -542,7 +545,7 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shaders\shaders_LightPass.hlsl">
-      <AdditionalInputs>$(ProjectDir)Shaders\Material.hlsli;$(ProjectDir)Shaders\DirectLights.hlsli;$(ProjectDir)Shaders\DirectLightEvaluation.hlsli;$(ProjectDir)Shaders\DirectPbrLighting.hlsli;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs>$(ProjectDir)Shaders\DiffuseEnvironmentFilter.hlsli;$(ProjectDir)Shaders\Material.hlsli;$(ProjectDir)Shaders\DirectLights.hlsli;$(ProjectDir)Shaders\DirectLightEvaluation.hlsli;$(ProjectDir)Shaders\DirectPbrLighting.hlsli;%(AdditionalInputs)</AdditionalInputs>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
@@ -708,6 +711,16 @@ dxc.exe -nologo -Tps_6_0 -E"PSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_P
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dxc.exe -nologo -Tcs_6_0 -E"CSMain" -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename)_CSMain.cso</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_DiffuseEnvironmentVisibility.hlsl">
+      <Command>dxc.exe -nologo -Tcs_6_5 -ECSMain -Zi -Qembed_debug -Fo"$(OutDir)%(Filename)_CSMain.cso" "%(FullPath)"</Command>
+      <Outputs>$(OutDir)%(Filename)_CSMain.cso</Outputs>
+      <AdditionalInputs>$(ProjectDir)Shaders\DiffuseEnvironmentSampling.hlsli;%(AdditionalInputs)</AdditionalInputs>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_DiffuseEnvironmentVisibilityDebug.hlsl">
+      <Command>dxc.exe -nologo -Tvs_6_0 -EVSMain -Fo"$(OutDir)%(Filename)_VSMain.cso" "%(FullPath)"
+dxc.exe -nologo -Tps_6_0 -EPSMain -Fo"$(OutDir)%(Filename)_PSMain.cso" "%(FullPath)"</Command>
+      <Outputs>$(OutDir)%(Filename)_VSMain.cso;$(OutDir)%(Filename)_PSMain.cso</Outputs>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_RayQueryShadow.hlsl">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>

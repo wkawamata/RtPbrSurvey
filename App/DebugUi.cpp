@@ -116,6 +116,9 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
             return "Ray query shadow mask. Darker pixels receive less direct light.";
         case RenderViewMode::TlasDebug:
             return "TLAS ray query debug view for acceleration-structure hit inspection.";
+        case RenderViewMode::DiffuseEnvironmentVisibility:
+            return "Opaque-only cosine hemisphere visibility. Black=blocked, white=visible, magenta=unsupported.\n"
+                   "16 fixed rays, trace distance 10000 world units. Diagnostic only; lighting is unchanged.";
         case RenderViewMode::ReflectionRayMaterial:
             return "ReflectionRayMaterial payload: R=metallic, G=roughness, B=unlit flag at the hit point.";
         case RenderViewMode::ReflectionEvaluatedRadiance:
@@ -594,6 +597,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         RtPbrSurvey::DrawDirectLightControls(app.m_lightingParams);
         ImGui::Checkbox("Emissive", &app.m_lightingParams.emissiveEnabled);
     }
+    RtPbrSurvey::SceneRendererDebugUi::DrawDiffuseEnvironmentVisibility(app.m_sceneRenderer);
     if (ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
     {
         RtPbrSurvey::EnvironmentMappingUiState environmentUi;
@@ -1181,6 +1185,12 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             ImGui::RadioButton("Shadow Mask##RenderDebug", &renderViewMode, static_cast<int>(RenderViewMode::ShadowMask));
             ImGui::SameLine();
             ImGui::RadioButton("TLAS Debug##RenderDebug", &renderViewMode, static_cast<int>(RenderViewMode::TlasDebug));
+            ImGui::RadioButton("Diffuse Environment Visibility##RenderDebug", &renderViewMode,
+                static_cast<int>(RenderViewMode::DiffuseEnvironmentVisibility));
+            if (renderViewMode == static_cast<int>(RenderViewMode::DiffuseEnvironmentVisibility))
+            {
+                ImGui::TextUnformatted(app.m_sceneRenderer.EngineForDebugTools().GetDiffuseEnvironmentVisibilityStatus());
+            }
             const bool reflectionDebugEnabled = app.m_sceneRenderer.GetHybridReflectionSettings().enabled;
             ImGui::BeginDisabled(!reflectionDebugEnabled);
             ImGui::TextUnformatted("Reflection Debug:");
@@ -1227,6 +1237,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             }
             if (!context.rayTracingSupported &&
                 (app.m_renderViewMode == RenderViewMode::ShadowMask || app.m_renderViewMode == RenderViewMode::TlasDebug ||
+                 app.m_renderViewMode == RenderViewMode::DiffuseEnvironmentVisibility ||
                  app.m_renderViewMode == RenderViewMode::ReflectionRayHit ||
                  app.m_renderViewMode == RenderViewMode::ReflectionRayDistance ||
                  app.m_renderViewMode == RenderViewMode::ReflectionRayNormal ||

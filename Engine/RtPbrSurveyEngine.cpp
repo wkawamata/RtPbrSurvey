@@ -530,6 +530,7 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
         m_resourceDefaultStates.push_back({resourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
     }
     m_resourceDefaultStates.push_back({kShadowMaskResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
+    m_resourceDefaultStates.push_back({kDiffuseEnvironmentVisibilityResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
@@ -1319,6 +1320,44 @@ void RtPbrSurveyEngine::SetRenderingPath(RenderingPath renderingPath)
 void RtPbrSurveyEngine::SetLightingPassDebugGradient(bool enabled)
 {
     m_lightingPassDebugGradientEnabled = enabled;
+}
+
+const char* RtPbrSurveyEngine::GetDiffuseEnvironmentVisibilityStatus() const
+{
+    if (m_renderingPath != RenderingPath::Deferred)
+    {
+        return "Requires Deferred rendering";
+    }
+    if (!m_rayTracingSupport.IsSupported())
+    {
+        return "Requires RayQuery support";
+    }
+    if (!m_accelerationStructures.tlasSrv.IsValid())
+    {
+        return "No scene TLAS";
+    }
+    if (m_sceneHasThinTransmission || m_sceneHasAlphaMask || m_sceneHasVolumeTransmission)
+    {
+        return "Opaque-only diagnostic: MASK/transmission/volume unsupported";
+    }
+    return "Ready";
+}
+
+bool RtPbrSurveyEngine::IsDiffuseEnvironmentVisibilityActive() const
+{
+    return m_diffuseEnvironmentVisibilitySettings.enabled &&
+        m_diffuseEnvironmentVisibilitySettings.strength > 0 && m_lightingParams.diffuseIblEnabled &&
+        m_lightingParams.iblIntensity > 0 && std::strcmp(GetDiffuseEnvironmentVisibilityStatus(), "Ready") == 0;
+}
+
+void RtPbrSurveyEngine::SetDiffuseEnvironmentVisibilitySettings(
+    const RtPbrSurvey::DiffuseEnvironmentVisibilitySettings& settings)
+{
+    if (!settings.IsValid())
+    {
+        throw std::invalid_argument("Invalid diffuse environment visibility settings");
+    }
+    m_diffuseEnvironmentVisibilitySettings = settings;
 }
 
 void RtPbrSurveyEngine::SetBackBufferClearColor(const std::array<float, 4>& color)
@@ -2240,7 +2279,7 @@ void RtPbrSurveyEngine::LoadPipeline()
             D3D12_GPU_DESCRIPTOR_HANDLE mainGpuStart = m_heap->GetGPUDescriptorHandleForHeapStart();
             m_stageAllocator.Init(m_graphicsDevice.Device(),
                                   D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-                                  4,
+                                  kShadowMaskDescriptorCount + 2,
                                   mainCpuStart,
                                   mainGpuStart,
                                   kMainHeapDescriptorCount,
@@ -2878,6 +2917,12 @@ void RtPbrSurveyEngine::LoadAssets()
     CreateHybridReflectionRootSignature();
     CreatePathTracingRootSignature();
     CreateRayQueryShadowRootSignature();
+    if (m_rayTracingSupport.IsSupported())
+    {
+        const ShaderBytecode shader = LoadShaderBytecode(L"shaders_DiffuseEnvironmentVisibility_CSMain.cso");
+        m_diffuseEnvironmentVisibilityPass.Create(m_graphicsDevice.Device(),
+            CD3DX12_SHADER_BYTECODE(shader.data, shader.size));
+    }
     CreateSpecularDebugRayQueryRootSignature();
     CreateRayQueryTlasDebugRootSignature();
     {
@@ -2892,6 +2937,7 @@ void RtPbrSurveyEngine::LoadAssets()
     CreatePipelineStates();
     CreateGBuffer();
     CreateShadowMask();
+    CreateDiffuseEnvironmentVisibility();
     CreateReflectionRayHit();
     CreateReflectionRayColor();
     CreateReflectionRayMaterial();
@@ -3334,6 +3380,9 @@ auto RtPbrSurveyEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
                             LoadShaderBytecode(L"shaders_GBufferDebug_PSMain.cso")};
     shaders.shadowMaskDebug = {LoadShaderBytecode(L"shaders_ShadowMaskDebug_VSMain.cso"),
                                LoadShaderBytecode(L"shaders_ShadowMaskDebug_PSMain.cso")};
+    shaders.diffuseEnvironmentVisibilityDebug = {
+        LoadShaderBytecode(L"shaders_DiffuseEnvironmentVisibilityDebug_VSMain.cso"),
+        LoadShaderBytecode(L"shaders_DiffuseEnvironmentVisibilityDebug_PSMain.cso")};
     shaders.reflectionRayHitDebug = {LoadShaderBytecode(L"shaders_ReflectionRayHitDebug_VSMain.cso"),
                                      LoadShaderBytecode(L"shaders_ReflectionRayHitDebug_PSMain.cso")};
     shaders.lighting = {LoadShaderBytecode(L"shaders_LightPass_VSMain.cso"),
@@ -3711,6 +3760,7 @@ void RtPbrSurveyEngine::RegisterPipelineStates(const PipelineShaderBytecode& sha
          {Pipe::GBufferDebug, shaders.gbufferDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::ReflectionRayHitDebug, shaders.reflectionRayHitDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::ShadowMaskDebug, shaders.shadowMaskDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
+         {Pipe::DiffuseEnvironmentVisibilityDebug, shaders.diffuseEnvironmentVisibilityDebug, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::DebugTexturePreview, shaders.debugTexturePreview, DXGI_FORMAT_R16G16B16A16_FLOAT},
          {Pipe::DebugBufferPreview, shaders.debugBufferPreview, DXGI_FORMAT_R16G16B16A16_FLOAT}});
 
@@ -5064,7 +5114,7 @@ void RtPbrSurveyEngine::CreateShadowMaskDescriptors()
 {
     if (!m_shadowMaskRange.IsValid())
     {
-        m_shadowMaskRange = m_stageAllocator.AllocContiguous(2);
+        m_shadowMaskRange = m_stageAllocator.AllocContiguous(kShadowMaskDescriptorCount);
     }
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -5080,6 +5130,33 @@ void RtPbrSurveyEngine::CreateShadowMaskDescriptors()
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
     m_graphicsDevice.Device()->CreateUnorderedAccessView(m_shadowMask.Get(), nullptr, &uavDesc,
                                                          m_stageAllocator.CpuHandle(m_shadowMaskRange.Start + 1));
+}
+
+void RtPbrSurveyEngine::CreateDiffuseEnvironmentVisibility()
+{
+    const Engine::RenderTextureSpec spec = MakeRenderSizeTextureSpec(kDiffuseEnvironmentVisibilityResourceName,
+        DXGI_FORMAT_R16_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    CreateCommittedRenderTexture(spec, m_diffuseEnvironmentVisibility, L"DiffuseEnvironmentVisibility");
+    if (!m_diffuseEnvironmentVisibilityRange.IsValid())
+    {
+        m_diffuseEnvironmentVisibilityRange = m_stageAllocator.AllocContiguous(2);
+    }
+    D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
+    srv.Format = DXGI_FORMAT_R16_FLOAT;
+    srv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srv.Texture2D.MipLevels = 1;
+    m_graphicsDevice.Device()->CreateShaderResourceView(m_diffuseEnvironmentVisibility.Get(), &srv,
+        m_stageAllocator.CpuHandle(m_diffuseEnvironmentVisibilityRange.Start));
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uav = {};
+    uav.Format = DXGI_FORMAT_R16_FLOAT;
+    uav.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+    m_graphicsDevice.Device()->CreateUnorderedAccessView(m_diffuseEnvironmentVisibility.Get(), nullptr, &uav,
+        m_stageAllocator.CpuHandle(m_diffuseEnvironmentVisibilityRange.Start + 1));
+    m_graphicsDevice.Device()->CopyDescriptorsSimple(1,
+        m_stageAllocator.CpuHandle(m_shadowMaskRange.Start + 2),
+        m_stageAllocator.CpuHandle(m_diffuseEnvironmentVisibilityRange.Start),
+        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
 void RtPbrSurveyEngine::CreateReflectionRayHit()
@@ -5478,6 +5555,9 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
     m_renderGraphRuntime.Bindings().RegisterDescriptor(m_renderGraphRuntime.RegisterDescriptor(Desc::ShadowMaskSrv),
                                                        [this]()
                                                        { return m_stageAllocator.GpuHandle(m_shadowMaskRange.Start); });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(
+        m_renderGraphRuntime.RegisterDescriptor(Desc::DiffuseEnvironmentVisibilitySrv),
+        [this]() { return m_stageAllocator.GpuHandle(m_diffuseEnvironmentVisibilityRange.Start); });
     m_renderGraphRuntime.Bindings().RegisterDescriptor(m_renderGraphRuntime.RegisterDescriptor(Desc::ShadowMaskUav),
                                                        [this]()
                                                        {
@@ -5523,6 +5603,17 @@ void RtPbrSurveyEngine::RegisterPassBindingResolvers()
 void RtPbrSurveyEngine::RegisterPassConstantsHandlers()
 {
     m_renderGraphRuntime.Constants().Clear();
+    m_renderGraphRuntime.Constants().Register(
+        m_renderGraphRuntime.RegisterConstants("DiffuseEnvironmentVisibilityStrength"),
+        [this](UINT rootParameterIndex)
+        {
+            const auto& settings = m_diffuseEnvironmentVisibilitySettings;
+            const float constants[] = {
+                IsDiffuseEnvironmentVisibilityActive() ? settings.strength : 0.0f,
+                settings.spatialFilterEnabled ? 1.0f : 0.0f,
+                settings.filterPlaneDistance, settings.filterWorldRadius};
+            m_commandList->SetGraphicsRoot32BitConstants(rootParameterIndex, 4, constants, 0);
+        });
     m_renderGraphRuntime.Constants().Register(
         m_renderGraphRuntime.RegisterConstants(ConstName::ToneMap),
         [this](UINT rootParameterIndex)
@@ -5705,6 +5796,8 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
                                                           [this, i]() { return m_debugTexturePreviews[i].Get(); });
     }
     m_renderGraphRuntime.Resources().RegisterResource(kShadowMaskResourceName, [this]() { return m_shadowMask.Get(); });
+    m_renderGraphRuntime.Resources().RegisterResource(kDiffuseEnvironmentVisibilityResourceName,
+        [this]() { return m_diffuseEnvironmentVisibility.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kReflectionRayHitResourceName,
                                                        [this]() { return m_reflectionRayHit.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kReflectionRayColorResourceName,
@@ -6091,6 +6184,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
         resource.Reset();
     }
     m_shadowMask.Reset();
+    m_diffuseEnvironmentVisibility.Reset();
     m_reflectionRayHit.Reset();
     m_reflectionRayColor.Reset();
     m_reflectionRayMaterial.Reset();
@@ -6154,6 +6248,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     RegisterDebugTexturePreview();
     CreateGBuffer();
     CreateShadowMask();
+    CreateDiffuseEnvironmentVisibility();
     CreateReflectionRayHit();
     CreateReflectionRayColor();
     CreateReflectionRayMaterial();
@@ -7564,6 +7659,27 @@ void RtPbrSurveyEngine::ExecuteRayQueryShadowPass(const RenderPass& pass)
     passDesc.height = m_renderHeight;
 
     Engine::RecordRayQueryShadowPass(m_commandList.Get(), passDesc);
+}
+
+void RtPbrSurveyEngine::ExecuteDiffuseEnvironmentVisibilityPass(const RenderPass& pass)
+{
+    UNREFERENCED_PARAMETER(pass);
+    Engine::DiffuseEnvironmentVisibilityPassDesc desc = {};
+    desc.maskUav = m_stageAllocator.GpuHandle(m_diffuseEnvironmentVisibilityRange.Start + 1);
+    desc.tlasSrv = m_accelerationStructures.tlasSrv.Gpu();
+    desc.depthSrv = m_depthStencilSrv.gpu;
+    desc.normalSrv = m_gbuffer.srvHandles[Engine::GBuffer::Normal].gpu;
+    desc.cameraCbv = m_frameResources[m_currentFrameIndex].cameraCB.cbv.gpu;
+    desc.width = m_renderWidth;
+    desc.height = m_renderHeight;
+    desc.constants.sampleCount = m_diffuseEnvironmentVisibilitySettings.sampleCount;
+    desc.constants.normalBias = m_diffuseEnvironmentVisibilitySettings.normalBias;
+    desc.constants.rayTMin = m_diffuseEnvironmentVisibilitySettings.rayTMin;
+    desc.constants.traceDistance = m_diffuseEnvironmentVisibilitySettings.traceDistance;
+    desc.constants.supported = std::strcmp(GetDiffuseEnvironmentVisibilityStatus(), "Ready") == 0 ? 1 : 0;
+    desc.constants.sampleRotationEnabled = m_diffuseEnvironmentVisibilitySettings.sampleRotationEnabled ? 1 : 0;
+    m_diffuseEnvironmentVisibilityPass.Record(m_commandList.Get(), desc);
+    m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Diffuse Environment Visibility");
 }
 
 void RtPbrSurveyEngine::ExecuteSpecularDebugRayQueryPass(const RenderPass& pass)

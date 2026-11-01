@@ -130,6 +130,12 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
     result["schemaVersion"] = SceneRendererSettings::kSchemaVersion;
     result["lighting"] = std::move(lighting);
     result["shadow"] = std::move(shadow);
+    const auto& visibility = settings.diffuseEnvironmentVisibility;
+    result["diffuseEnvironmentVisibility"] = {
+        {"enabled", visibility.enabled}, {"strength", visibility.strength}, {"sampleCount", visibility.sampleCount},
+        {"normalBias", visibility.normalBias}, {"rayTMin", visibility.rayTMin}, {"traceDistance", visibility.traceDistance},
+        {"sampleRotationEnabled", visibility.sampleRotationEnabled}, {"spatialFilterEnabled", visibility.spatialFilterEnabled},
+        {"filterPlaneDistance", visibility.filterPlaneDistance}, {"filterWorldRadius", visibility.filterWorldRadius}};
     result["temporalUpscaler"] = std::move(temporalUpscaler);
     result["rayReconstruction"] = std::move(rayReconstruction);
     result["hybridReflection"] = std::move(hybridReflection);
@@ -249,6 +255,26 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
             parsed.shadow.sampleCount = shadow.value("sampleCount", parsed.shadow.sampleCount);
             parsed.shadow.lightAngularRadius = shadow.value("lightAngularRadius", parsed.shadow.lightAngularRadius);
             parsed.shadow.jitterStrength = shadow.value("jitterStrength", parsed.shadow.jitterStrength);
+        }
+
+        if (value.contains("diffuseEnvironmentVisibility"))
+        {
+            const json& visibility = value.at("diffuseEnvironmentVisibility");
+            auto& config = parsed.diffuseEnvironmentVisibility;
+            config.enabled = visibility.value("enabled", config.enabled);
+            config.strength = visibility.value("strength", config.strength);
+            config.sampleCount = visibility.value("sampleCount", config.sampleCount);
+            config.normalBias = visibility.value("normalBias", config.normalBias);
+            config.rayTMin = visibility.value("rayTMin", config.rayTMin);
+            config.traceDistance = visibility.value("traceDistance", config.traceDistance);
+            config.sampleRotationEnabled = visibility.value("sampleRotationEnabled", config.sampleRotationEnabled);
+            config.spatialFilterEnabled = visibility.value("spatialFilterEnabled", config.spatialFilterEnabled);
+            config.filterPlaneDistance = visibility.value("filterPlaneDistance", config.filterPlaneDistance);
+            config.filterWorldRadius = visibility.value("filterWorldRadius", config.filterWorldRadius);
+            if (!config.IsValid())
+            {
+                throw std::invalid_argument("Invalid diffuse environment visibility settings");
+            }
         }
 
         if (value.contains("temporalUpscaler"))

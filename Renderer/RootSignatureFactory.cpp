@@ -17,7 +17,7 @@ struct DescriptorRanges
     CD3DX12_DESCRIPTOR_RANGE1 materialSrv;
     CD3DX12_DESCRIPTOR_RANGE1 gbufferAndDepthSrvs;
     CD3DX12_DESCRIPTOR_RANGE1 environmentMapSrv;
-    CD3DX12_DESCRIPTOR_RANGE1 toneMapSceneColorSrv;
+    CD3DX12_DESCRIPTOR_RANGE1 toneMapSceneColorSrvs[2];
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRayHitSrv;
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRayColorSrv;
     CD3DX12_DESCRIPTOR_RANGE1 reflectionRayMaterialSrv;
@@ -33,6 +33,11 @@ struct DescriptorRanges
     CD3DX12_DESCRIPTOR_RANGE1 cameraCbv;
     CD3DX12_DESCRIPTOR_RANGE1 lightCbv;
 };
+
+static_assert(RootSignatureLayout::Count - 5 + RootSignatureLayout::kGBufferDebugConstantsCount +
+    RootSignatureLayout::kToneMapConstantsCount + RootSignatureLayout::kTemporalReflectionConstantsCount +
+    RootSignatureLayout::kReflectionSamplingConstantsCount + RootSignatureLayout::kSceneDrawConstantsCount <= 64,
+    "Graphics root signature exceeds the D3D12 DWORD budget");
 
 D3D_ROOT_SIGNATURE_VERSION GetHighestRootSignatureVersion(ID3D12Device* device)
 {
@@ -91,11 +96,16 @@ DescriptorRanges CreateDescriptorRanges(UINT textureSrvCount, UINT gbufferSrvCou
                                       D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
     // t0 : HDR scene color SRV, space 4
-    ranges.toneMapSceneColorSrv.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+    ranges.toneMapSceneColorSrvs[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
                                      1,
                                      RootSignatureLayout::kBaseRegister,
                                      RootSignatureLayout::kToneMapSceneColorSrvSpace,
                                      D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+    // Lighting binds the staged Shadow SRV table: offset 2 is a separate visibility SRV.
+    // Other shaders use only the first range. Reusing this table keeps the root at 64 DWORDs.
+    ranges.toneMapSceneColorSrvs[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0,
+        RootSignatureLayout::kDiffuseEnvironmentVisibilitySrvSpace,
+        D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE, 2);
 
     // t0 : Reflection ray hit buffer SRV, space 6
     ranges.reflectionRayHitSrv.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
@@ -211,7 +221,7 @@ void CreateRootParameters(const DescriptorRanges& ranges,
         RootSignatureLayout::kGBufferDebugConstantsSpace,
         D3D12_SHADER_VISIBILITY_PIXEL); // GBuffer debug target
     rootParameters[RootSignatureLayout::ToneMapSceneColor].InitAsDescriptorTable(
-        1, &ranges.toneMapSceneColorSrv, D3D12_SHADER_VISIBILITY_PIXEL); // ToneMap HDR scene color
+        2, ranges.toneMapSceneColorSrvs, D3D12_SHADER_VISIBILITY_PIXEL);
     rootParameters[RootSignatureLayout::ToneMapConstants].InitAsConstants(
         RootSignatureLayout::kToneMapConstantsCount,
         RootSignatureLayout::kToneMapConstantsRegister,
