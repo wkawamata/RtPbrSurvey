@@ -19,7 +19,9 @@ def hash_uint(value):
     return value ^ (value >> 16)
 
 
-def reference(eye, direction, x, y, seed=7, sample_index=0, angle=0):
+def reference(eye, direction, x, y, seed=7, sample_index=0, angle=0, ior=1.5, scale=1., bounces=16):
+    if not np.isfinite([ior, scale, angle]).all() or not 1 <= ior <= 4 or scale <= 0 or not 2 <= bounces <= 16:
+        raise ValueError("Invalid reference configuration")
     state = hash_uint(int(x) ^ hash_uint(int(y) ^ hash_uint(sample_index) ^ hash_uint(seed + 0x9e3779b9)))
 
     def random():
@@ -38,15 +40,15 @@ def reference(eye, direction, x, y, seed=7, sample_index=0, angle=0):
     inside, previous = False, -1
     entries, exits, length, reflections = 0, 0, 0., 0
     outgoing = np.zeros(3)
-    for bounce in range(16):
+    for bounce in range(bounces):
         denom = normals @ direction
-        times = np.divide(.5 - normals @ origin, denom, out=np.full(4, np.inf), where=np.abs(denom) > 1e-12)
+        times = np.divide(.5*scale - normals @ origin, denom, out=np.full(4, np.inf), where=np.abs(denom) > 1e-12)
         hits = []
         for face, t in enumerate(times):
             if face == previous or t < -1e-9 or not np.isfinite(t):
                 continue
             point = origin + t * direction
-            if np.all(normals @ point <= .5 + 1e-8):
+            if np.all(normals @ point <= .5*scale + 1e-8):
                 hits.append((max(0., t), face))
         if not hits:
             raise ValueError("CPU reference unexpectedly missed the closed solid")
@@ -54,11 +56,11 @@ def reference(eye, direction, x, y, seed=7, sample_index=0, angle=0):
         point = origin + t * direction
         if inside:
             length += t
-        if bounce == 15:
+        if bounce == bounces-1:
             return np.array([entries, exits, length]), np.array([3, int(inside), reflections]), outgoing
         n = normals[face] / np.linalg.norm(normals[face])
         n = -n if inside else n
-        ni, nt = (1.5, 1.) if inside else (1., 1.5)
+        ni, nt = (ior, 1.) if inside else (1., ior)
         c = np.clip(-np.dot(n, direction), 0, 1)
         eta = ni / nt
         s2 = eta**2 * (1-c*c)
@@ -84,13 +86,17 @@ def reference(eye, direction, x, y, seed=7, sample_index=0, angle=0):
     raise AssertionError("Unreachable path end")
 
 
-def run(exe, output, angle=0):
+def run(exe, output, angle=0, ior=1.5, scale=1., bounces=16):
     output.mkdir(parents=True, exist_ok=False)
     source = ROOT / "Assets/Scene/PathTracingValidation/35-gltf-rough-volume-tetra"
     scene = json.loads((source / "scene.json").read_text(encoding="utf-8"))
     preset = json.loads((source / scene["renderPreset"]).read_text(encoding="utf-8"))
     gltf = json.loads((source / "volume.gltf").read_text(encoding="utf-8"))
     gltf["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = 0
+    gltf["materials"][0]["extensions"]["KHR_materials_ior"] = dict(ior=ior)
+    for name in ("extensionsUsed", "extensionsRequired"):
+        if "KHR_materials_ior" not in gltf[name]:
+            gltf[name].append("KHR_materials_ior")
     scene["nodes"], scene["assets"] = scene["nodes"][:1], scene["assets"][:1]
     scene["renderPreset"] = "render-preset.json"
     scene.pop("turntable", None)
@@ -98,7 +104,9 @@ def run(exe, output, angle=0):
     scene["nodes"][0]["rotation"] = [0, float(np.sin(radians/2)), 0, float(np.cos(radians/2))]
     scene["nodes"][0]["translation"] = [float(-.5*np.cos(radians)+.5*np.sin(radians)), -.5,
         float(.5*np.sin(radians)+.5*np.cos(radians))]
-    preset["pathTracing"].update(environmentEnabled=False, accumulate=False, maxBounces=16)
+    scene["nodes"][0]["translation"] = [value*scale for value in scene["nodes"][0]["translation"]]
+    scene["nodes"][0]["scale"] = [2*scale]*3
+    preset["pathTracing"].update(environmentEnabled=False, accumulate=False, maxBounces=bounces)
     report = dict(status="running", captures=[], runnerSha256=sha(Path(__file__)), executableSha256=sha(exe))
     write_json(output / "report.json", report)
     try:
@@ -120,7 +128,7 @@ def run(exe, output, angle=0):
         sample_index = report["captures"][0]["metadata"]["sampleStartIndex"]
         if any(capture["metadata"]["sampleStartIndex"] != sample_index for capture in report["captures"]):
             raise ValueError("Paired captures used different random sequence indices")
-        expected = [reference(eye, ray, px, py, sample_index=sample_index, angle=angle)
+        expected = [reference(eye, ray, px, py, sample_index=sample_index, angle=angle, ior=ior, scale=scale, bounces=bounces)
             for ray, px, py in zip(rays.reshape(-1, 3), x.ravel(), y.ravel())]
         errors = []
         for index, image in enumerate(images):
@@ -129,7 +137,8 @@ def run(exe, output, angle=0):
             if not np.isfinite(gpu).all():
                 raise ValueError("Non-finite GPU evidence")
             errors.append(float(np.max(np.abs(gpu-cpu))))
-        report["assessment"] = dict(pixels=x.size, sampleIndex=sample_index, angle=angle,
+        report["assessment"] = dict(pixels=x.size, sampleIndex=sample_index, angle=angle, ior=ior, scale=scale, bounces=bounces,
+            budgetTerminatedPaths=int(sum(result[1][0] == 3 for result in expected)),
             errors=errors, tolerances=[.005, 0, .002])
         if any(error > tolerance for error, tolerance in zip(errors, [.005, 0, .002])):
             raise ValueError("CPU/GPU Snell-Fresnel path mismatch: " + str(errors))
@@ -146,5 +155,10 @@ if __name__ == "__main__":
     parser.add_argument("--exe", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--angle", type=float, default=0)
+    parser.add_argument("--ior", type=float, default=1.5)
+    parser.add_argument("--scale", type=float, default=1.)
+    parser.add_argument("--bounces", type=int, default=16)
     args = parser.parse_args()
-    run(args.exe.resolve(strict=True), args.output.resolve(), args.angle)
+    if not np.isfinite([args.ior, args.scale, args.angle]).all() or not 1 <= args.ior <= 4 or args.scale <= 0 or not 2 <= args.bounces <= 16:
+        parser.error("Require finite IOR [1,4], scale > 0, angle, bounces [2,16]")
+    run(args.exe.resolve(strict=True), args.output.resolve(), args.angle, args.ior, args.scale, args.bounces)
