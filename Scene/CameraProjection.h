@@ -70,7 +70,14 @@ inline DirectX::XMMATRIX CreateCameraProjectionMatrix(const CameraState& camera,
     if (camera.projection == CameraProjection::Orthographic)
     {
         const float height = std::clamp(camera.orthographicHeight, 0.001f, 1000000.0f);
-        return DirectX::XMMatrixOrthographicLH(height * safeAspectRatio, height, nearZ, farZ);
+        const float halfHeight = height * 0.5f;
+        const float halfWidth = halfHeight * safeAspectRatio;
+        const float shiftY = std::isfinite(camera.lensShiftY)
+            ? std::clamp(camera.lensShiftY, -1.0f, 1.0f) : 0.0f;
+        return DirectX::XMMatrixOrthographicOffCenterLH(
+            -halfWidth, halfWidth,
+            -halfHeight + shiftY * halfHeight, halfHeight + shiftY * halfHeight,
+            nearZ, farZ);
     }
 
     const float fovYDegrees = std::clamp(camera.fov, 0.1f, 179.0f);
