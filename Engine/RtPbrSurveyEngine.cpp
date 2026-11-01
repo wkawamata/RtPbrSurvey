@@ -7221,6 +7221,16 @@ void RtPbrSurveyEngine::ExecutePtRrValidationPass(const RenderPass& pass)
         inputs[i] = m_pathTracingGuideTextures[PathTracingGuideRrColor + i].Get();
     const UINT slot = m_ptRrLive->NextOutputSlot();
     m_rrInstancePoses[slot] = m_scene.instances;
+    const auto* previousPoseKey = m_ptRrLive->PublishedKey();
+    const auto previousPoseSlot = m_ptRrLive->PublishedSlot();
+    const bool previousPoseValid = previousPoseKey && previousPoseKey->resetToken == key.resetToken &&
+        m_rrInstancePoseFrameIds[previousPoseSlot] == previousPoseKey->frameId &&
+        m_rrInstancePoses[previousPoseSlot].size() == m_scene.instances.size();
+    for (size_t i = 0; i < m_rrInstancePoses[slot].size(); ++i)
+    {
+        m_rrInstancePoses[slot][i].prevWorld = previousPoseValid ?
+            m_rrInstancePoses[previousPoseSlot][i].world : m_rrInstancePoses[slot][i].world;
+    }
     m_rrInstancePoseFrameIds[slot] = key.frameId;
     m_ptRrLive->RecordInput(m_commandList.Get(),
                             m_pathTracingGuideTextureSrvs[PathTracingGuideRrStatus].gpu,
@@ -8163,6 +8173,12 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
                                                {"viewToClip", constants.temporal.cameraViewToClip},
                                                {"publishedFrameId", m_ptRrLive->FrameId()},
                                                {"publishedSlot", m_ptRrLive->PublishedSlot()}};
+                const auto poseSlot = m_ptRrLive->WritingSlot();
+                if (m_rrInstancePoseFrameIds[poseSlot] == key.frameId && m_rrInstancePoses[poseSlot].size() == 1)
+                {
+                    metadata["rrRetainedInput"]["instanceWorld"] = matrixJson(m_rrInstancePoses[poseSlot][0].world);
+                    metadata["rrRetainedInput"]["instancePreviousWorld"] = matrixJson(m_rrInstancePoses[poseSlot][0].prevWorld);
+                }
             }
 #endif
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS

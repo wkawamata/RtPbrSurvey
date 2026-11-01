@@ -2,6 +2,7 @@
 
 #include "App/RtPbrSurveyApp.h"
 #include "Platform/Win32Application.h"
+#include "Scene/SceneDocumentRuntimeScene.h"
 
 #include <nlohmann/json.hpp>
 
@@ -172,6 +173,89 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
         m_rrLifecycleFrames = 0;
         m_rrLifecycleEntered = false;
     };
+    const auto* animatedScene = dynamic_cast<const Engine::SceneDocumentRuntimeScene*>(&LoadedScene());
+    if (animatedScene && animatedScene->Document().turntable)
+    {
+        if (m_rrLifecycleStage == 0 && ready && rr.rrCompletedCount >= 3)
+        {
+            checkpoint("object-static");
+            m_isPlaying = true;
+        }
+        else if (m_rrLifecycleStage == 1 && ready && calls >= m_rrLifecycleCalls + 8)
+        {
+            if (rr.rrResetCount != m_rrLifecycleResets || rr.rrCancelledCount != m_rrLifecycleCancelled)
+            {
+                fail("Object motion reset/cancelled RR");
+                return;
+            }
+            checkpoint("object-moving");
+            m_isPlaying = false;
+            m_sceneRenderer.SetPathTracingAccumulationPaused(true);
+            m_rrLifecycleCapture = 0;
+        }
+        else if (m_rrLifecycleStage == 2)
+        {
+            if (!ready || calls != m_rrLifecycleCalls)
+            {
+                fail("Object capture lost pinned output");
+                return;
+            }
+            if (!m_rrLifecycleEntered)
+            {
+                RtPbrSurvey::ScreenshotRequest request;
+                request.path = std::filesystem::absolute(m_commandLineOptions.pathTracingRrLifecycleValidationDirectory /
+                    (m_rrLifecycleCapture == 0 ? "object-motion.ptbuf" : "object-position.ptbuf"));
+                request.debugResourceName = m_rrLifecycleCapture == 0 ? "PathTracing.RrMotion" :
+                    "PathTracing.DenoiserPrimaryPosition";
+                m_sceneRenderer.RequestScreenshot(request);
+                m_rrLifecycleEntered = true;
+            }
+            else if (const auto result = m_sceneRenderer.ConsumeScreenshotResult())
+            {
+                if (!result->succeeded)
+                {
+                    fail(result->error);
+                    return;
+                }
+                m_rrLifecycleEntered = false;
+                if (++m_rrLifecycleCapture == 2)
+                    checkpoint("object-captured");
+            }
+        }
+        else if (m_rrLifecycleStage == 3 && m_rrLifecycleFrames >= 8)
+        {
+            if (calls != m_rrLifecycleCalls || !ready)
+            {
+                fail("Paused object RR changed");
+                return;
+            }
+            checkpoint("object-paused");
+            m_sceneRenderer.SetPathTracingAccumulationPaused(false);
+            m_isPlaying = true;
+        }
+        else if (m_rrLifecycleStage == 4 && ready && calls >= m_rrLifecycleCalls + 8)
+        {
+            if (rr.rrResetCount != m_rrLifecycleResets || rr.rrCancelledCount != m_rrLifecycleCancelled)
+            {
+                fail("Object resume reset/cancelled RR");
+                return;
+            }
+            checkpoint("object-resumed");
+            fprintf(m_logFile, "[PathTracingRrObjectComplete] checkpoints=5\n");
+            fflush(m_logFile);
+            DestroyWindow(Win32Application::GetHwnd());
+            return;
+        }
+        m_sceneDeltaTime = 1.0f / 60.0f;
+        UpdateUiFrame();
+        m_sceneRenderer.RunFrame([this](ID3D12GraphicsCommandList* commands) { m_imguiSystem.Render(commands); });
+        ++m_rrLifecycleFrames;
+        if (m_d3d12InfoQueue)
+            FlushD3D12DebugMessages();
+        if (m_rrLifecycleFrames > 512)
+            fail("Object validation timed out");
+        return;
+    }
     switch (m_rrLifecycleStage)
     {
         case 0:

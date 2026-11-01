@@ -212,3 +212,26 @@ build/reconstruction-input-validation/user-test-rr/moving-fix-rotation-v2/report
 This is an initial rotation smoke check, not full animation quality acceptance.
 Translation, numerical per-object motion reprojection, pause/resume and full
 camera/backend/resize regression remain pending.
+
+## Object motion numerical and pause/resume validation (2026-11-01)
+
+Added `Tests/PathTracing/validate_rr_object_motion.py`. The existing lifecycle CLI
+selects an object-animation validation path when the input document has turntable
+settings. It drives a fixed 1/60 second timestep, starts animation, pins a verified
+moving packet, captures RR motion and primary position, checks paused output stays
+fixed, then resumes and verifies continuous evaluation. Single-instance retained
+metadata records actual current/previous object matrices for that same packet.
+The numerical fixture keeps only the opaque helmet, so every surface pixel maps
+to one known animated instance; the original full scenes remain unchanged.
+
+VS Debug build succeeded. Rotation and translation both passed all five checkpoints
+(static/moving/captured/paused/resumed), with 19 completed evaluations, reset count 1,
+cancelled 0, no rejected inputs and no captured D3D12 ERROR/CORRUPTION.
+GPU motion was compared to world-position -> current-object inverse -> previous-object
+world -> previous-camera projection, against current unjittered projection.
+Max UV error: rotation 1.93070e-6; translation 3.81582e-6 (RG16F source quantization).
+The initial checker divided background zero-w coordinates before masking; subsequent
+checker code restricts projection to surface pixels to avoid irrelevant warnings.
+Evidence: build/reconstruction-input-validation/user-test-rr/object-numeric-20261101/report.json.
+Multi-object image quality, moving reflections/disocclusion quality and full camera,
+backend, resize regression still require evaluation; this is not final RR acceptance.
