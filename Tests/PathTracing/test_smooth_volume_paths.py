@@ -3,6 +3,7 @@ import numpy as np
 
 from validate_gltf_volume import reference_tetra_lengths
 from validate_smooth_volume_paths import reference
+from sphere_mesh_reference import prepare_triangles, intersect_triangles
 
 
 class SmoothVolumePathTests(unittest.TestCase):
@@ -33,6 +34,30 @@ class SmoothVolumePathTests(unittest.TestCase):
         for params in (dict(ior=0), dict(ior=float('nan')), dict(scale=0), dict(bounces=17)):
             with self.assertRaises(ValueError):
                 reference(self.eye, self.direction, 960, 540, **params)
+
+    def test_straight_slab_thickness(self):
+        distance, status, outgoing = reference(self.eye, self.direction, 960, 540, ior=1, shape="slab")
+        self.assertAlmostEqual(distance[2], .7/abs(self.direction[2]), places=10)
+        np.testing.assert_array_equal(status, [0,0,0])
+        np.testing.assert_allclose(outgoing, self.direction, atol=1e-10)
+
+    def test_straight_prism_axis(self):
+        distance, status, _ = reference(np.array([0.,0.,-5.]), np.array([0.,0.,1.]), 960, 540, ior=1, shape="prism")
+        np.testing.assert_allclose(distance, [1,1,1], atol=1e-10)
+        np.testing.assert_array_equal(status, [0,0,0])
+
+    def test_triangle_intersection(self):
+        geometry = prepare_triangles([[-1,-1,0], [1,-1,0], [0,1,0]], [0,1,2])
+        t, face = intersect_triangles(np.array([0.,0.,-1.]), np.array([0.,0.,1.]), -1, False, geometry)
+        self.assertEqual(face, 0)
+        self.assertEqual(t, 1)
+        with self.assertRaises(ValueError):
+            intersect_triangles(np.array([0.,0.,-1.]), np.array([0.,0.,1.]), 0, False, geometry)
+
+    def test_triangle_miss(self):
+        geometry = prepare_triangles([[-1,-1,0], [1,-1,0], [0,1,0]], [0,1,2])
+        with self.assertRaises(ValueError):
+            intersect_triangles(np.array([5.,0.,-1.]), np.array([0.,0.,1.]), -1, False, geometry)
 
 
 if __name__ == '__main__':
