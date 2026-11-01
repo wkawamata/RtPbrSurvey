@@ -203,10 +203,14 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
             if (!m_rrLifecycleEntered)
             {
                 RtPbrSurvey::ScreenshotRequest request;
+                static constexpr const char* files[] = {"object-motion.ptbuf", "object-position.ptbuf",
+                    "object-output.ptbuf", "object-output-alternate.ptbuf"};
                 request.path = std::filesystem::absolute(m_commandLineOptions.pathTracingRrLifecycleValidationDirectory /
-                    (m_rrLifecycleCapture == 0 ? "object-motion.ptbuf" : "object-position.ptbuf"));
+                    files[m_rrLifecycleCapture]);
                 request.debugResourceName = m_rrLifecycleCapture == 0 ? "PathTracing.RrMotion" :
-                    "PathTracing.DenoiserPrimaryPosition";
+                    m_rrLifecycleCapture == 1 ? "PathTracing.DenoiserPrimaryPosition" :
+                    m_rrLifecycleCapture == 2 ? "PathTracing.RrOutput" : "PathTracing.RrOutputAlternate";
+
                 m_sceneRenderer.RequestScreenshot(request);
                 m_rrLifecycleEntered = true;
             }
@@ -218,7 +222,7 @@ void RtPbrSurveyApp::RunPathTracingRrLifecycleValidation()
                     return;
                 }
                 m_rrLifecycleEntered = false;
-                if (++m_rrLifecycleCapture == 2)
+                if (++m_rrLifecycleCapture == 4)
                     checkpoint("object-captured");
             }
         }

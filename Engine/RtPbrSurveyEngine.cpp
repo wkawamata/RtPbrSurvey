@@ -3409,7 +3409,7 @@ void RtPbrSurveyEngine::CreatePipelineStates()
         CD3DX12_ROOT_PARAMETER1 parameters[3];
         parameters[0].InitAsDescriptorTable(_countof(reads), reads);
         parameters[1].InitAsDescriptorTable(_countof(writes), writes);
-        parameters[2].InitAsConstants(38, 0);
+        parameters[2].InitAsConstants(39, 0);
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC desc;
         desc.Init_1_1(_countof(parameters), parameters);
         ComPtr<ID3DBlob> signature, error;
@@ -7289,8 +7289,9 @@ void RtPbrSurveyEngine::ExecuteRrConversionPass(const RenderPass& pass)
         UINT actualContinuation;
         XMFLOAT4X4 previousViewProjection;
         XMFLOAT2 jitterNdc;
+        UINT stationaryCamera;
     } constants;
-    static_assert(sizeof(Constants) == 38 * sizeof(UINT));
+    static_assert(sizeof(Constants) == 39 * sizeof(UINT));
     XMStoreFloat4x4(&constants.inverseViewProjection,
                     XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.invViewProjection)));
     constants.width = m_renderWidth;
@@ -7301,11 +7302,14 @@ void RtPbrSurveyEngine::ExecuteRrConversionPass(const RenderPass& pass)
                     XMMatrixTranspose(XMLoadFloat4x4(&m_constantBufferData.prevViewProjection)));
     const auto& jitter = m_rrConversionInputs.frame.jitterPixels;
     constants.jitterNdc = {2 * jitter[0] / m_renderWidth, -2 * jitter[1] / m_renderHeight};
+    // Exact unjittered equality gives zero sky motion without inverse-projection roundoff.
+    constants.stationaryCamera =
+        memcmp(&m_jitterFreeViewProjection, &constants.previousViewProjection, sizeof(XMFLOAT4X4)) == 0 ? 1u : 0u;
     m_commandList->SetComputeRootSignature(m_rrConversionRootSignature.Get());
     m_commandList->SetPipelineState(m_rrConversionPipeline.Get());
     m_commandList->SetComputeRootDescriptorTable(0, m_pathTracingGuideTextureSrvs[0].gpu);
     m_commandList->SetComputeRootDescriptorTable(1, m_pathTracingGuideTextureUavs[PathTracingGuideRrColor].gpu);
-    m_commandList->SetComputeRoot32BitConstants(2, 38, &constants, 0);
+    m_commandList->SetComputeRoot32BitConstants(2, 39, &constants, 0);
     m_commandList->Dispatch((m_renderWidth + 7) / 8, (m_renderHeight + 7) / 8, 1);
     m_rrConversionRecorded = true;
 #endif

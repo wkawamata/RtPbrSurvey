@@ -242,3 +242,7 @@ strong full-frame noise during rotation, no reported silhouette trails/doubling,
 no problematic delayed/broken helmet reflection in the copper sphere, and no
 persistent trails after stopping animation. This acceptance covers rotation;
 full-scene translation visual acceptance is still pending.
+
+Automated full-scene rotation/translation, stationary-background correction and
+camera/backend/resize regression results are recorded in
+`doc/rr-automated-evaluation-20261101.md`. User subjective evaluation remains on hold.

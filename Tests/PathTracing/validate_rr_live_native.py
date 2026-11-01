@@ -16,6 +16,7 @@ def main():
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--exe', type=Path, required=True)
+    parser.add_argument('--cases', nargs='+', choices=('rr-output', 'rr-viewport', 'native-off', 'background', 'non-mirror', 'thin-transmission', 'multi-spp', 'random-primary', 'no-distance-guides', 'debug-output'))
     args = parser.parse_args()
     output, source, exe = args.output.resolve(), args.source.resolve(strict=True), args.exe.resolve(strict=True)
     if output == source or source in output.parents or (output.exists() and any(output.iterdir())):
@@ -36,6 +37,9 @@ def main():
                  ('random-primary', True, '', True),
                  ('no-distance-guides', True, '', False),
                  ('debug-output', True, '', False)]
+        if args.cases:
+            cases = [case for case in cases if case[0] in args.cases]
+        report['selectedCases'] = [case[0] for case in cases]
         for name, opt_in, resource, expected_rr in cases:
             folder = output/name
             fixture(output, folder)
