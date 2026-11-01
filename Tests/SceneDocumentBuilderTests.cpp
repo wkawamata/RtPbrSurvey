@@ -320,7 +320,8 @@ bool TestQualifiedVolumeBuild()
     }
     document.nodes[0].primitive.kind = ScenePrimitiveKind::Cube;
     passed &= Check(builder.Build(document, &error), "rough volume cube builds");
-    for (const char* name : {"33-rough-volume-cube", "34-rough-volume-sphere", "35-gltf-rough-volume-tetra"})
+    for (const char* name : {"33-rough-volume-cube", "34-rough-volume-sphere", "35-gltf-rough-volume-tetra",
+        "36-volume-observation-sphere", "37-volume-observation-slab", "38-volume-observation-prism"})
     {
         const std::filesystem::path directory = std::filesystem::path(__FILE__).parent_path().parent_path() /
             "Assets/Scene/PathTracingValidation" / name;
