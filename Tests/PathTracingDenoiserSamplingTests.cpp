@@ -214,6 +214,9 @@ void ValidateRoughVolume(const float* values)
     };
     auto smith = [](double cosine, double alpha)
     { return 2 * cosine / (cosine + std::sqrt(alpha * alpha + (1 - alpha * alpha) * cosine * cosine)); };
+    double boundaryEnergy[28] = {};
+    double maskingLoss[28] = {};
+    unsigned int boundaryRejected[28] = {};
     unsigned int reflectedCount = 0, transmittedCount = 0, rejectedCount = 0;
     for (unsigned int index = 0; index < kSampleCount; ++index)
     {
@@ -246,6 +249,7 @@ void ValidateRoughVolume(const float* values)
         if (!valid)
         {
             ++rejectedCount;
+            ++boundaryRejected[test];
             if (value[3] != 0 || value[4] != 0 || value[8] != 0 || value[9] != 0)
                 throw std::runtime_error("Rejected rough-volume event retained energy/PDF");
             continue;
@@ -259,6 +263,12 @@ void ValidateRoughVolume(const float* values)
         const double expectedWeight = (reflected ? 1 : eta * eta) * (delta ? 1 : smith(std::abs(direction.z), alpha));
         if (!Near(value[4], expectedWeight) || !Near(value[11], reflected ? f : 1 - f))
             throw std::runtime_error("Rough-volume radiance weight/event probability mismatch");
+        const double transportScale = reflected ? 1 : eta * eta;
+        const double energy = value[4] / transportScale;
+        if (energy < 0 || energy > 1.0002)
+            throw std::runtime_error("Rough-volume eta-normalized sample creates energy");
+        boundaryEnergy[test] += energy;
+        maskingLoss[test] += 1 - (delta ? 1 : smith(std::abs(direction.z), alpha));
         reflectedCount += reflected;
         transmittedCount += !reflected;
         if (delta)
@@ -292,6 +302,20 @@ void ValidateRoughVolume(const float* values)
     }
     if (reflectedCount == 0 || transmittedCount == 0 || rejectedCount == 0)
         throw std::runtime_error("Missing rough-volume event coverage");
+    for (unsigned int test = 0; test < 28; ++test)
+    {
+        const double energy = boundaryEnergy[test] / 1024;
+        const double rejected = boundaryRejected[test] / 1024.0;
+        const double masked = maskingLoss[test] / 1024;
+        if (energy < 0 || energy > 1.0002 || std::abs(energy + rejected + masked - 1) > .0002)
+            throw std::runtime_error("Rough-volume boundary energy accounting mismatch");
+        const unsigned int pair = test / 4;
+        if ((roughnesses[pair] == 0 || pair == 6) && std::abs(energy - 1) > .0002)
+            throw std::runtime_error("Loss in smooth or matched-IOR boundary");
+        std::cout << "Boundary energy case=" << test << " roughness=" << roughnesses[pair]
+                  << " viewZ=" << cosines[test % 4] << " etaNormalized=" << energy
+                  << " rejected=" << rejected << " maskingLoss=" << masked << "\n";
+    }
     std::cout << "Rough volume: " << kSampleCount << " samples; reflected=" << reflectedCount
               << "; transmitted=" << transmittedCount << "; hemisphere-rejected=" << rejectedCount << ".\n";
 }

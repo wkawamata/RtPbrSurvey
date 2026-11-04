@@ -483,3 +483,50 @@ IOR=1/1.5、roughness=0、姿勢0度、16バウンス、各中央1024光路・3�
 
 これで球・厚板・プリズムの代表条件で光路を照合できた。画面全体の放射輝度、
 粗い境界のエネルギー評価、動作中の品質、ユーザーの目視受入は別途必要。
+
+## Boundary Energy Accounting
+
+The rough-volume GPU contract test now reports 28 cases of eta-normalized
+boundary throughput, macro-hemisphere rejection, and Smith masking loss.
+Transmission radiance weights are divided by (incidentIOR / transmittedIOR)^2
+before accounting; raw radiance throughput is not bounded by one on exit.
+Rejected events remain zero contributions and are not renormalized away.
+Each normalized sample must be in [0, 1] within 0.0002, and throughput plus
+rejection and masking loss must sum to one within 0.0002.
+Smooth and matched-IOR boundaries must have unit normalized throughput.
+
+This is deterministic accounting of the existing 1024 samples per case, not
+an independent hemispherical BSDF integral, a confidence interval, or a closed
+Volume white-furnace acceptance test. Single-scattering masking/rejection loss
+must not automatically be classified as an integration bug or compensated by
+renormalizing the sample weights. Whole-volume energy qualification remains open.
+
+2026-11-04: Debug CMake build passed. The WARP rough-volume test passed all
+28 cases / 28,672 samples with no D3D12 errors. Smooth and matched-IOR cases
+returned unit normalized throughput. At roughness=1, viewZ=0.1, air-to-glass,
+normalized throughput was 0.400539, rejection 0.0107422, masking loss 0.588719.
+These are finite deterministic-sample measurements, not converged integrals.
+Evidence: bin/PathTracingValidation/thin-gltf-build-20261024/Testing/Temporary/LastTest.log
+(generated, not tracked; later CTest runs may overwrite it).
+
+## User Observation Acceptance (2026-11-04)
+
+- Scene 36 sphere: curved color bands confirmed at IOR=1.5. Increasing
+  roughness from 0 to 0.2 and 0.5 progressively blurred the bands without
+  observed black gaps or abrupt brightness changes.
+- Scene 36 absorption: color (64, 128, 204), finite distances 1.0/0.5/0.2,
+  and Infinite switching were confirmed OK by the user.
+- Scene 37 slab: the requested matched-IOR continuity, refracted band offset,
+  and roughness sequence were confirmed OK by the user.
+- Scene 38 prism: the requested matched-IOR continuity, face-dependent band
+  displacement, and roughness sequence were confirmed without problems.
+
+The scene 36 matched-IOR disappearance was requested, but not separately
+reported in this session; do not treat the curved-band screenshot as proof
+of that control. Numerical matched-IOR path coverage is recorded above.
+This closes the requested basic visual walkthrough, not whole-image physical
+accuracy, rough-volume energy qualification, or all glTF material support.
+
+Regression: 52/55 CTest cases passed in the restricted run; the three
+file-save tests (EvaluationState, SceneDocument, RenderPresetStore) passed
+on rerun outside the filesystem restriction. No test thresholds were changed.
