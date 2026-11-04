@@ -48,3 +48,13 @@ quality remain pending. These tests do not establish support for animated emissi
 alpha-masked or transmission/volume objects. Long-duration stability and Release
 performance evaluation are separate tasks. Normal VS NRD support is not inferred
 from the NRD-enabled CMake lifecycle run.
+
+## Resolution extension (2026-11-04)
+
+The object-motion runner now accepts --size WIDTH HEIGHT (64..4096 per axis).
+Full-scene rotation and translation passed at 640x360, four times the original
+320x180 pixel count. Both completed the five lifecycle checkpoints with verified,
+finite RR output, no reset/cancellation growth, and exactly zero stationary
+background motion. This is functional coverage at a second resolution, not a
+performance measurement or subjective image-quality acceptance.
+Evidence: build/reconstruction-input-validation/user-test-rr/auto-full-640-20261104/report.json.

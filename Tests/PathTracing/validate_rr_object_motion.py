@@ -9,7 +9,7 @@ import numpy as np
 from validate_inputs import read_buffer
 
 
-def run(exe, output, full_scene=False):
+def run(exe, output, full_scene=False, size=(320, 180)):
     root = Path(__file__).resolve().parents[2]
     output.mkdir(parents=True, exist_ok=False)
     records = []
@@ -28,7 +28,7 @@ def run(exe, output, full_scene=False):
         command = [str(exe), '-SceneFile', str(folder / 'scene.json'),
                    '-PathTracingReconstruction', 'rr', '-EnableDlssRayReconstruction',
                    '-EnableExperimentalNativeRayReconstruction', '-PathTracingRrContinuous',
-                   '-WindowSize', '320', '180', '-PathTracingRrLifecycleValidation', str(folder),
+                   '-WindowSize', str(size[0]), str(size[1]), '-PathTracingRrLifecycleValidation', str(folder),
                    '-LogToFile', str(folder / 'runtime.log')]
         code = subprocess.run(command, cwd=root, timeout=180).returncode
         text = (folder / 'runtime.log').read_text(encoding='utf-8-sig')
@@ -87,5 +87,8 @@ if __name__ == '__main__':
     parser.add_argument('--exe', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--full-scene', action='store_true')
+    parser.add_argument('--size', nargs=2, type=int, default=(320, 180), metavar=('WIDTH', 'HEIGHT'))
     args = parser.parse_args()
-    run(args.exe.resolve(strict=True), args.output.resolve(), args.full_scene)
+    if any(value < 64 or value > 4096 for value in args.size):
+        parser.error('Size must be in [64,4096]')
+    run(args.exe.resolve(strict=True), args.output.resolve(), args.full_scene, args.size)
