@@ -530,3 +530,31 @@ accuracy, rough-volume energy qualification, or all glTF material support.
 Regression: 52/55 CTest cases passed in the restricted run; the three
 file-save tests (EvaluationState, SceneDocument, RenderPresetStore) passed
 on rerun outside the filesystem restriction. No test thresholds were changed.
+
+## Independent Outgoing-Direction Integral (2026-11-05)
+
+Added double-precision midpoint integration over outgoing solid angle to the
+rough-boundary test. It does not call the GPU evaluator, VNDF sampler, or its
+PDF; it directly integrates the single-scattering dielectric BSDF times cosine.
+The physical BSDF equations are intentionally shared in meaning, so this is
+an independent integration path, not an independent material model.
+Transmission is eta-normalized as in the previous accounting test.
+
+Coverage: air-to-glass IOR 1.5, roughness 0.7/1.0, viewZ 1/0.8/0.6/0.1
+(eight cases). Integrals use uniform cosine/azimuth grids of 512x1024 and
+1024x2048 points per hemisphere. Required refinement difference <=0.003;
+GPU 1024-sample deterministic mean difference <=0.03. The latter is a finite
+sample regression allowance, not a statistical confidence interval or proof
+of unbiasedness. The unit-energy upper allowance is 0.003 for quadrature.
+
+Debug test target built successfully. WARP test passed all eight integral
+comparisons and the existing 28,672 sample contracts, with no D3D12 errors.
+Largest refinement difference was about 0.001184; largest GPU difference
+was about 0.003294. The initial 128/256 grids failed convergence; resolution
+was increased without changing the acceptance thresholds. No rendering code
+or sample-weight compensation was changed.
+
+This verifies selected broad lobes only. Low roughness, glass-to-air/TIR,
+all IORs, whole-Volume white furnace, and multiple-scattering compensation
+remain outside this acceptance. Next: whole-Volume furnace controls and
+bounce-budget convergence, distinguishing boundary-model loss from truncation.

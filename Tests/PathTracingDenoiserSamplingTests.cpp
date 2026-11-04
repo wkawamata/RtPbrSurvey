@@ -196,6 +196,53 @@ void ValidateGgxPrecision(const float* values, bool hardware)
               << "; max relative D error=" << maximumDistributionError << "; current-floor energy checked.\n";
 }
 
+double IntegrateRoughBoundary(double roughness, double viewZ, unsigned int resolution)
+{
+    const Vector view = {std::sqrt(1 - viewZ * viewZ), 0, viewZ};
+    const double eta = 1.5;
+    const double alpha2 = std::pow(roughness, 4);
+    auto smith = [alpha2](double z)
+    {
+        return 2 * z / (z + std::sqrt(alpha2 + (1 - alpha2) * z * z));
+    };
+    double integral = 0;
+    for (unsigned int azimuth = 0; azimuth < resolution * 2; ++azimuth)
+    {
+        const double phi = 2 * kPi * (azimuth + .5) / (resolution * 2);
+        for (unsigned int elevation = 0; elevation < resolution; ++elevation)
+        {
+            const double z = (elevation + .5) / resolution;
+            const double radius = std::sqrt(1 - z * z);
+            for (int hemisphere : {-1, 1})
+            {
+                const Vector outgoing = {radius * std::cos(phi), radius * std::sin(phi), hemisphere * z};
+                Vector h = Normalize(view + outgoing * (hemisphere > 0 ? 1 : eta));
+                if (h.z < 0)
+                {
+                    h = h * -1;
+                }
+                const double vh = Dot(view, h), lh = Dot(outgoing, h);
+                if (vh <= 0 || lh * outgoing.z <= 0)
+                {
+                    continue;
+                }
+                const double ct = std::sqrt(1 - (1 - vh * vh) / (eta * eta));
+                const double rs = (vh - eta * ct) / (vh + eta * ct);
+                const double rp = (eta * vh - ct) / (eta * vh + ct);
+                const double fresnel = (rs * rs + rp * rp) / 2;
+                const double d = alpha2 / (kPi * std::pow(1 - h.z * h.z + alpha2 * h.z * h.z, 2));
+                const double g = smith(viewZ) * smith(z);
+                // Transmission is eta-normalized here, not radiance throughput.
+                const double projected = hemisphere > 0 ? fresnel * d * g / (4 * viewZ) :
+                    (1 - fresnel) * d * g * std::abs(vh * lh) /
+                        (viewZ * std::pow(lh + vh / eta, 2));
+                integral += projected;
+            }
+        }
+    }
+    return integral * (2 * kPi / (resolution * 2) / resolution);
+}
+
 void ValidateRoughVolume(const float* values)
 {
     constexpr float roughnesses[] = {0, .1f, .35f, .7f, 1, .35f, .7f};
@@ -315,6 +362,21 @@ void ValidateRoughVolume(const float* values)
         std::cout << "Boundary energy case=" << test << " roughness=" << roughnesses[pair]
                   << " viewZ=" << cosines[test % 4] << " etaNormalized=" << energy
                   << " rejected=" << rejected << " maskingLoss=" << masked << "\n";
+        if (pair == 3 || pair == 4)
+        {
+            const double coarse = IntegrateRoughBoundary(roughnesses[pair], cosines[test % 4], 512);
+            const double fine = IntegrateRoughBoundary(roughnesses[pair], cosines[test % 4], 1024);
+            std::cout << "Independent integral case=" << test << " coarse=" << coarse << " fine=" << fine
+                      << " GPU difference=" << std::abs(energy - fine) << "\n";
+            if (!std::isfinite(fine) || fine < 0 || fine > 1.003 || std::abs(fine - coarse) > .003)
+            {
+                throw std::runtime_error("Independent rough-boundary integral did not converge");
+            }
+            if (std::abs(energy - fine) > .03)
+            {
+                throw std::runtime_error("GPU rough-boundary mean differs from independent integral");
+            }
+        }
     }
     std::cout << "Rough volume: " << kSampleCount << " samples; reflected=" << reflectedCount
               << "; transmitted=" << transmittedCount << "; hemisphere-rejected=" << rejectedCount << ".\n";
