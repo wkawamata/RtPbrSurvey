@@ -59,14 +59,17 @@ background motion. This is functional coverage at a second resolution, not a
 performance measurement or subjective image-quality acceptance.
 Evidence: build/reconstruction-input-validation/user-test-rr/auto-full-640-20261104/report.json.
 
-## Subjective translation failure (2026-11-05)
+## Subjective translation acceptance (2026-11-05)
 
 The user reports ghosting of the moving object's cast shadow in RrObjectTranslation.
 The initial selection mentioned silhouette trails; the subsequent clarification
 identifies the shadow. Separate helmet-silhouette failure is not established.
-Translation visual acceptance is FAILED; automatic lifecycle and reprojection
-passes above do not establish temporal shadow quality. Release performance
-measurement remains deferred while this image-quality issue is investigated.
+The user subsequently judged the visible RR shadow ghosting acceptable and
+explicitly accepted translation visual quality. Translation visual acceptance
+is PASSED WITH KNOWN SHADOW GHOSTING. This is user acceptance, not a technical
+fix or evidence that shadow ghosting is absent. Automatic lifecycle and
+reprojection passes above do not establish temporal shadow quality.
+Release performance evaluation can proceed as the next task.
 
 Current RR motion represents primary-surface correspondence. A stationary floor
 has stationary geometric motion even when an animated occluder moves its shadow.
@@ -74,7 +77,7 @@ That makes stale lighting history a plausible cause, not a proven diagnosis.
 Do not replace floor motion with occluder motion: that would break geometric
 correspondence. Do not declare success by resetting all RR history every frame.
 
-Next investigation:
+Optional follow-up investigation for the accepted limitation:
 - Capture a continuous fixed-camera translation sequence with visible floor shadow,
   including motion reversal and pause. Keep frame/packet IDs with captures.
 - Compare matching Native and RR sequences to distinguish RR history from output
@@ -84,4 +87,5 @@ Next investigation:
 - Inspect installed SDK guidance and supported lighting-change/history controls
   before adding any rejection signal; preserve static-surface motion semantics.
 - Recheck silhouette, reflected motion, static stability and camera history after
-  any correction. Human shadow-quality acceptance remains required.
+  any correction. Any claim that the shadow ghosting is fixed requires new
+  evidence and human confirmation.
