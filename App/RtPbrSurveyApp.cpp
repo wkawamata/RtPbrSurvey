@@ -2398,6 +2398,13 @@ void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
             static_cast<unsigned long long>(m_fpsLogFrameCounter), fps, cpuFrameTimeMs);
     // These timestamps belong to the latest completed GPU frame, not the CPU frame above.
     const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    const double wallSeconds = std::chrono::duration<double>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    fprintf(m_logFile, "[PT Progress] frame=%llu wall=%.9f sampleIndex=%u rrCompleted=%llu rrResets=%llu\n",
+            static_cast<unsigned long long>(m_fpsLogFrameCounter), wallSeconds,
+            context.pathTracingRuntimeState.frameSampleIndex,
+            static_cast<unsigned long long>(context.pathTracingDiagnostics.rrCompletedCount),
+            static_cast<unsigned long long>(context.pathTracingDiagnostics.rrResetCount));
     const auto& checkPoints = context.gpuCheckPoints;
     if (checkPoints.size() >= 2)
     {
