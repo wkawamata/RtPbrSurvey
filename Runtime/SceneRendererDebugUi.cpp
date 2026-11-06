@@ -380,7 +380,7 @@ namespace
         changed |= ImGui::RadioButton("Reinhard", &toneMapParams.operatorIndex, 1);
         ImGui::SameLine();
         changed |= ImGui::RadioButton("ACES", &toneMapParams.operatorIndex, 2);
-        changed |= ImGuiWidgets::SliderFloatWithControls("Exposure", &toneMapParams.exposure, 0.0f, 4.0f, 0.1f, 1.0f);
+        changed |= ImGuiWidgets::SliderFloatWithControls("Exposure", &toneMapParams.exposure, 0.0f, 1000.0f, 0.1f, 1.0f);
         changed |= ImGuiWidgets::SliderFloatWithControls("Paper White",
                                                          &toneMapParams.paperWhiteNits,
                                                          80.0f,

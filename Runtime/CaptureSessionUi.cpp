@@ -110,7 +110,8 @@ namespace RtPbrSurvey
     }
 
     CaptureSessionUiAction CaptureSessionUi::Draw(const CaptureSessionStatus& status, CaptureSessionUiState& state,
-                                                  const char* startBlockedReason)
+                                                  const char* startBlockedReason,
+                                                  bool showSingleCapture, bool singleCaptureBlocked)
     {
         CaptureSessionUiAction action = CaptureSessionUiAction::None;
         const bool active = IsActive(status);
@@ -128,7 +129,22 @@ namespace RtPbrSurvey
             action = CaptureSessionUiAction::Start;
         }
         ImGui::EndDisabled();
-        ImGui::SameLine();
+        if (showSingleCapture)
+        {
+            ImGui::SameLine();
+            ImGui::BeginDisabled(active || singleCaptureBlocked);
+            if (ImGui::Button("Capture PNG"))
+            {
+                action = CaptureSessionUiAction::CapturePng;
+            }
+            ImGui::EndDisabled();
+        }
+        const float stopButtonWidth = ImGui::CalcTextSize("Stop Capture Session").x +
+                                      ImGui::GetStyle().FramePadding.x * 2.0f;
+        if (ImGui::GetContentRegionAvail().x >= stopButtonWidth + ImGui::GetStyle().ItemSpacing.x)
+        {
+            ImGui::SameLine();
+        }
         ImGui::BeginDisabled(!active);
         if (ImGui::Button("Stop Capture Session"))
         {

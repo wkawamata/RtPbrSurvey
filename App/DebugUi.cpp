@@ -236,17 +236,6 @@ BuildRenderGraphGpuTimingSnapshot(const std::vector<MyDx12Util::GpuWorkMeter::Ch
     return snapshot;
 }
 
-std::filesystem::path MakeScreenshotPath()
-{
-    const std::time_t now = std::time(nullptr);
-    std::tm localTime = {};
-    localtime_s(&localTime, &now);
-
-    std::ostringstream filename;
-    filename << "RtPbrSurvey_" << std::put_time(&localTime, "%Y-%m-%d_%H%M%S") << ".png";
-    return std::filesystem::current_path() / "Screenshots" / filename.str();
-}
-
 void DrawRenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
 {
     const char* description = RenderViewDescription(mode);
@@ -472,28 +461,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         if (ImGui::Checkbox("Open Information Window", &debugUiPreferences.informationWindowVisible))
         {
             RtPbrSurvey::MarkDebugUiPreferencesDirty();
-        }
-    }
-
-    if (ImGui::CollapsingHeader("Screenshot"))
-    {
-        std::string captureReason;
-        const bool canCapture = app.CanStartCaptureSession(captureReason);
-        ImGui::BeginDisabled(!canCapture);
-        if (ImGui::Button("Capture PNG"))
-        {
-            const std::filesystem::path path = MakeScreenshotPath();
-            app.m_sceneRenderer.RequestScreenshot({path});
-            app.m_screenshotStatus = "Capture requested: " + path.string();
-        }
-        ImGui::EndDisabled();
-        if (!canCapture)
-        {
-            ImGui::TextWrapped("%s", captureReason.c_str());
-        }
-        if (!app.m_screenshotStatus.empty())
-        {
-            ImGui::TextWrapped("%s", app.m_screenshotStatus.c_str());
         }
     }
 
@@ -799,7 +766,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton("Reinhard", &app.m_toneMapParams.operatorIndex, 1);
         ImGui::SameLine();
         ImGui::RadioButton("ACES", &app.m_toneMapParams.operatorIndex, 2);
-        ImGuiWidgets::SliderFloatWithControls("Exposure", &app.m_toneMapParams.exposure, 0.0f, 4.0f, 0.1f, 1.0f);
+        ImGuiWidgets::SliderFloatWithControls("Exposure", &app.m_toneMapParams.exposure, 0.0f, 1000.0f, 0.1f, 1.0f);
         ImGuiWidgets::SliderFloatWithControls("Paper White", &app.m_toneMapParams.paperWhiteNits, 80.0f, 500.0f, 10.f,
                                               300.0f, "%.0f nits");
         ImGuiWidgets::SliderFloatWithControls("Display Max", &app.m_toneMapParams.maxDisplayNits, 100.0f, 4000.0f, 50.f,
