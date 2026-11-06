@@ -95,6 +95,10 @@ void PathTracingRrLive::MarkSubmitted(uint64_t fence)
 
 void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, bool advanceProduction)
 {
+    if (m_phase == Phase::InputPending)
+        ++m_packetLatency.inputPolls;
+    else if (m_phase == Phase::OutputPending)
+        ++m_packetLatency.outputPolls;
     // Drain cancelled work before reusing its summary/readback allocations.
     if (m_submissionPending || (m_fence != 0 && completedFence < m_fence))
         return;
@@ -154,6 +158,9 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
     }
     if (m_phase == Phase::InputPending)
     {
+        m_inputAdmitted = Clock::now();
+        m_packetLatency.inputWaitMs = std::chrono::duration<double, std::milli>(
+            m_inputAdmitted - m_packetStarted).count();
         m_phase = Phase::Evaluate;
     }
     else
@@ -166,6 +173,10 @@ void PathTracingRrLive::Poll(uint64_t completedFence, uint64_t currentEpoch, boo
             m_publishedSlot = m_outputSlot;
             m_publishedReady = true;
             m_presented = false;
+            const auto now = Clock::now();
+            m_packetLatency.outputWaitMs = std::chrono::duration<double, std::milli>(now - m_outputRecorded).count();
+            m_packetLatency.totalMs = std::chrono::duration<double, std::milli>(now - m_packetStarted).count();
+            m_lastPacketLatency = m_packetLatency;
             ++m_completedCount;
             m_phase = Phase::Ready;
         }
@@ -212,6 +223,9 @@ void PathTracingRrLive::RecordInput(ID3D12GraphicsCommandList* commands,
 {
     if (!CanCapture())
         throw std::logic_error("RR production already retained");
+    m_packetStarted = Clock::now();
+    m_packetLatency = {};
+    m_packetLatency.frameId = key.frameId;
     m_key = key;
     m_retryInput = false;
     m_constants = constants;
@@ -256,7 +270,12 @@ void PathTracingRrLive::RecordEvaluate(ID3D12GraphicsCommandList* commands,
     inputs.historyValid = !decision.reset;
     inputs.enableNativeEvaluation = true;
     inputs.frameConstants = m_constants;
+    const auto evaluateStarted = Clock::now();
+    m_packetLatency.admittedWaitMs = std::chrono::duration<double, std::milli>(
+        evaluateStarted - m_inputAdmitted).count();
     const auto result = EvaluateStreamlineRayReconstruction(inputs);
+    m_packetLatency.evaluateCpuMs = std::chrono::duration<double, std::milli>(
+        Clock::now() - evaluateStarted).count();
     m_history.Finish(m_ticket, result.outputAvailable, false);
     commands->SetDescriptorHeaps(1, &heap);
     if (!result.outputAvailable)
@@ -274,6 +293,7 @@ void PathTracingRrLive::RecordEvaluate(ID3D12GraphicsCommandList* commands,
     barrier = CD3DX12_RESOURCE_BARRIER::Transition(
         m_output.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     commands->ResourceBarrier(1, &barrier);
+    m_outputRecorded = Clock::now();
     m_phase = Phase::OutputPending;
 }
 } // namespace Engine

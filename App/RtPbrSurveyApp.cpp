@@ -2405,6 +2405,13 @@ void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
             context.pathTracingRuntimeState.frameSampleIndex,
             static_cast<unsigned long long>(context.pathTracingDiagnostics.rrCompletedCount),
             static_cast<unsigned long long>(context.pathTracingDiagnostics.rrResetCount));
+    const auto& rr = context.pathTracingDiagnostics;
+    fprintf(m_logFile, "[RR Packet] completed=%llu frameId=%llu inputPolls=%llu outputPolls=%llu inputWaitMs=%.6f admittedWaitMs=%.6f evaluateCpuMs=%.6f outputWaitMs=%.6f totalMs=%.6f\n",
+            static_cast<unsigned long long>(rr.rrCompletedCount),
+            static_cast<unsigned long long>(rr.rrLatencyFrameId),
+            static_cast<unsigned long long>(rr.rrInputPolls),
+            static_cast<unsigned long long>(rr.rrOutputPolls),
+            rr.rrInputWaitMs, rr.rrAdmittedWaitMs, rr.rrEvaluateCpuMs, rr.rrOutputWaitMs, rr.rrPacketMs);
     const auto& checkPoints = context.gpuCheckPoints;
     if (checkPoints.size() >= 2)
     {

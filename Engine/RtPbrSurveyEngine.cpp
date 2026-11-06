@@ -595,6 +595,15 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
         pathTracingDiagnostics.rrCancelledCount = m_ptRrLive->CancelledCount();
         pathTracingDiagnostics.rrInputRejectionCount = m_ptRrLive->InputRejectionCount();
         pathTracingDiagnostics.rrLastReset = m_ptRrLive->LastReset();
+        const auto& latency = m_ptRrLive->LastPacketLatency();
+        pathTracingDiagnostics.rrLatencyFrameId = latency.frameId;
+        pathTracingDiagnostics.rrInputPolls = latency.inputPolls;
+        pathTracingDiagnostics.rrOutputPolls = latency.outputPolls;
+        pathTracingDiagnostics.rrInputWaitMs = latency.inputWaitMs;
+        pathTracingDiagnostics.rrAdmittedWaitMs = latency.admittedWaitMs;
+        pathTracingDiagnostics.rrEvaluateCpuMs = latency.evaluateCpuMs;
+        pathTracingDiagnostics.rrOutputWaitMs = latency.outputWaitMs;
+        pathTracingDiagnostics.rrPacketMs = latency.totalMs;
         pathTracingDiagnostics.rrRetainedOutputVerified =
             m_ptRrLive->OutputReady() && m_ptRrLive->Epoch() == m_pathTracingReconstructionHistory.Epoch(
                                                                     Engine::PathTracingReconstructionBackend::Rr);

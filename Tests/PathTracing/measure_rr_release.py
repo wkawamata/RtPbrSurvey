@@ -26,6 +26,7 @@ def summarize(values):
 def parse_log(text, warmup, frames):
     observations, progress, diagnostics = [], {}, []
     current = None
+    packets = {}
     for line in text.splitlines():
         if line.startswith('[PathTracing] {'):
             diagnostics.append(json.loads(line[len('[PathTracing] '):]))
@@ -34,6 +35,13 @@ def parse_log(text, warmup, frames):
         if match:
             frame, wall, sample, completed, resets = match.groups()
             progress[int(frame)] = dict(wall=float(wall), sample=int(sample), completed=int(completed), resets=int(resets))
+        if line.startswith('[RR Packet] '):
+            packet = {key:float(value) for key,value in
+                      (item.split('=') for item in line[len('[RR Packet] '):].split())}
+            if any(not math.isfinite(value) or value < 0 for value in packet.values()):
+                raise ValueError('Invalid RR packet latency')
+            if packet['completed'] > 0:
+                packets[int(packet['completed'])] = packet
         match = re.fullmatch(r'\[GPU\] Frame (\d+): latest completed total (\S+) ms', line)
         if match:
             current = dict(frame=int(match[1]), total=float(match[2]), passes={})
@@ -48,8 +56,15 @@ def parse_log(text, warmup, frames):
     elapsed = last['wall']-first['wall']
     if elapsed <= 0 or last['resets'] != first['resets']:
         raise ValueError('Invalid elapsed time or history reset within measurement')
+    completed_packets = [packet for completed,packet in packets.items()
+                         if first['completed'] < completed <= last['completed']]
+    packet_fields = ('inputWaitMs','admittedWaitMs','evaluateCpuMs','outputWaitMs','totalMs',
+                     'inputPolls','outputPolls')
+    packet_latency = dict(count=len(completed_packets),
+                          means={field:statistics.mean(p[field] for p in completed_packets)
+                                 for field in packet_fields} if completed_packets else {})
     names = sorted({name for row in selected for name in row['passes']})
-    return dict(gpuTotal=summarize([row['total'] for row in selected]),
+    return dict(packetLatency=packet_latency, gpuTotal=summarize([row['total'] for row in selected]),
                 activePasses={name:summarize([row['passes'][name] for row in selected if name in row['passes']]) for name in names},
                 measuredSeconds=elapsed, rrCompletedDelta=last['completed']-first['completed'],
                 freshRrOutputsPerSecond=(last['completed']-first['completed'])/elapsed,
