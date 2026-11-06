@@ -715,3 +715,15 @@ An initial test incorrectly expected that fixture to load; corrected to retain
 the geometry guard. A valid textured convex fixture, material-index retention,
 factor/channel GPU comparisons and visual acceptance are still required.
 Do not treat this loader change alone as completed Volume texture support.
+
+## Valid Convex Textured Fixture
+
+Extended the closed tetrahedron loader fixture with four UV coordinates and
+an embedded PNG from the existing texture fixture. Successful asset loading
+and SceneBuilder conversion preserve Volume/imported-Volume identity,
+metallicRoughness texture index, roughnessFactor=0.7 and metallicFactor=0.
+Removing TEXCOORD_0 is rejected. Debug build and GltfNodeMesh regression pass.
+Fixture files are created temporarily by the C++ test and cleaned up; the
+test source is tracked. This establishes valid convex texture loading, not
+GPU factor/channel sampling accuracy or visual acceptance. Next: patterned
+G-channel inputs and scalar controls through Native PT radiance captures.
