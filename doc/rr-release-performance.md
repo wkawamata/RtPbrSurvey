@@ -102,3 +102,48 @@ Debug follow-up with D3D12 debug layer enabled confirmed exact 1920x1080,
 verified RR output (8 completed, 7 continuous, reset 1, cancelled 0), successful
 capture and no captured ERROR/CORRUPTION. Evidence: rr-window-debug-20261106.log
 and PNG in the same local performance folder.
+
+## Packet-latency instrumentation (2026-11-06)
+
+Commit 3a63b4e adds optional [RR Packet] records alongside -LogFPS/-LogToFile.
+No scheduling, history, validation, resource lifetime or fence-wait policy changes.
+Only successfully verified packets publish latency records. The parser deduplicates
+repeated display observations by completion count and limits records to completions
+inside the measurement interval. Parser tests pass 5/5, including deduplication and
+nonfinite rejection. Older logs without packet records remain readable.
+
+Fields use steady-clock CPU observation times, NOT GPU timestamps:
+- inputWaitMs: RecordInput entry to the Poll that admits its completed validation.
+  Includes submission/queue/GPU work and CPU polling cadence, not validation alone.
+- admittedWaitMs: admitted Poll to the native evaluate API call (including recording).
+- evaluateCpuMs: time spent inside EvaluateStreamlineRayReconstruction on the CPU.
+- outputWaitMs: output validation recorded to the Poll that publishes verified output.
+- totalMs: RecordInput entry to verified publication. It excludes PT generation
+  before RecordInput and time between that publication and the next packet.
+- inputPolls/outputPolls: Poll calls while each pending phase was active, including
+  the admitting/publishing call; these are observations, not unique GPU frames.
+
+The component durations do not exactly sum to totalMs: setup/recording between
+boundaries remains included only in totalMs. No GPU SDK-isolated duration is inferred.
+There are no new usable latency measurements yet. The diagnostic cohort
+rr-packet-latency-20261106 stopped on its first case because RR fell back to Native:
+slIsFeatureSupported returned Result::eErrorFeatureNotSupported (Unsupported adapter).
+The pre-instrumentation Debug binary returned the same result in
+rr-support-probe-20261106.log, so this is not established as a new-code regression.
+NVIDIA-SMI still reports RTX 2080 Ti and driver 616.56; cause remains unresolved.
+Do not treat the fallback run as RR timing or overwrite the accepted baseline above.
+
+Source review found a concrete next investigation target: the validation shader
+issues a global InterlockedAdd to the same counter for every pixel, in both input
+and output validation. A wave/group reduction could preserve per-pixel finite/status
+checks and exact coverage while reducing global atomic contention. Its benefit is
+not measured or implemented here. Validate rejection masks, edge dispatch groups and
+full output coverage before accepting any such change. Separate SDK GPU timing from
+poison/validation work before attributing the entire existing SDK pass cost to NGX.
+
+Instrumentation validation: Debug and Release builds succeeded (0 errors, one
+existing MSB4011 warning each). Debug telemetry smoke captured successfully with
+D3D12 debug layer ON and no captured ERROR/CORRUPTION; RR remained unavailable,
+so only fallback/logging behavior was checked, not the new live packet timings.
+All 8 prior baseline logs retain exactly the same GPU total and completion delta
+when parsed by the extended parser. New live latency values remain unverified.
