@@ -727,3 +727,28 @@ Fixture files are created temporarily by the C++ test and cleaned up; the
 test source is tracked. This establishes valid convex texture loading, not
 GPU factor/channel sampling accuracy or visual acceptance. Next: patterned
 G-channel inputs and scalar controls through Native PT radiance captures.
+
+## GPU Comparison Fixture Preparation
+
+Added volume_roughness_texture_fixture.py: derives the closed tetrahedron
+from scene 35, removes turntable/backgrounds, appends UVs to its embedded
+buffer, and emits a constant RGBA=(32,128,255,0) texture with factor=0.7.
+The paired scalar fixture uses roughness=0.7*128/255. Both use metallic=0.
+Output is VolumeOutgoingDirection (6) for a deterministic path comparison;
+this initial pair is constant-texture, not yet spatial-pattern acceptance.
+Generation and buffer/UV/scalar-control checks passed. Captures have not yet
+been executed with a rebuilt application; no GPU equality claim is made.
+
+## Constant Texture GPU Comparison
+
+Rebuilt Debug application successfully (0 errors, 4 warnings). Added
+validate_volume_roughness_texture.py with three deterministic captures:
+texture G=128 times factor 0.7, equivalent scalar 0.7*128/255, and smooth
+scalar zero. Compares finite full images within 0.002, requires nonzero
+direction coverage, and requires a difference from the smooth control.
+Two assessment unit tests passed. Runtime report completed successfully,
+with no D3D12 errors. This validates a constant texture/channel-factor case,
+not spatial interpolation, seams, all UVs or a full-image radiance result.
+Evidence: bin/PathTracingValidation/volume-roughness-texture-gpu-20261106/report.json.
+Next: patterned G texture and UV-dependent spatial controls before declaring
+Volume roughness-texture support complete.
