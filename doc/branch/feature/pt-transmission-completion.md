@@ -558,3 +558,126 @@ This verifies selected broad lobes only. Low roughness, glass-to-air/TIR,
 all IORs, whole-Volume white furnace, and multiple-scattering compensation
 remain outside this acceptance. Next: whole-Volume furnace controls and
 bounce-budget convergence, distinguishing boundary-model loss from truncation.
+
+## Whole-Volume Furnace Controls (2026-11-05)
+
+Added validate_volume_furnace.py and four assessment unit tests. The runtime
+fixture contains only one white, nonabsorbing slab, with unit constant
+environment (no environment-map asset), no direct light, no Russian roulette,
+native reconstruction and Radiance output. Existing capture contracts now
+compare environmentEnabled against the requested preset instead of hardcoding
+false; existing environment-disabled fixtures retain the same requirement.
+
+Six cases captured at 16 accumulated samples, central 32x32 ROI:
+
+| IOR | Roughness | Bounces | RGB mean (same in each channel) |
+| --- | --- | --- | --- |
+| 1 | 0 | 4 | 1.0 |
+| 1 | 0.7 | 4 | 1.0 |
+| 1.5 | 0 | 4 | 0.998673 |
+| 1.5 | 0 | 16 | 1.0 |
+| 1.5 | 0.7 | 4 | 0.704255 |
+| 1.5 | 0.7 | 16 | 0.714193 |
+
+All six captures completed without D3D12 errors; assessment tests passed 4/4.
+Evidence: bin/PathTracingValidation/volume-furnace-radiance-20261105/report.json.
+Matched-IOR controls require unit radiance within 0.002. All ROI values must
+be finite and in [-0.0001,1.002]. Rough cases are measurements, not accepted
+against a unit-radiance target. The 16-sample result does not establish
+statistical or bounce-budget convergence; more samples and intermediate
+budgets plus status diagnostics are needed before assigning all residual loss
+to the boundary model. Whole-Volume qualification remains open.
+
+The initial volume-furnace-20261105 run accidentally used Albedo (output 0),
+not Radiance (3). Its unit values are invalid as furnace evidence, regardless
+of that initial report's status. All six were rerun with Radiance into the
+separate evidence folder above. No renderer fix or weight compensation was made.
+
+## Furnace Budget Sweep (2026-11-05)
+
+Extended the runner to budgets 4/8/16, explicit optional window dimensions,
+and complete-case budget summaries (missing/duplicate/nonfinite means rejected).
+Assessment unit tests: 5/5 passed. No rendering changes.
+Eight runtime cases passed at 256x256, 128 accumulated samples, with no D3D12
+errors. Window dimensions are checked against the captured image. The central
+32x32 ROI spans a different angular area than the earlier 1920x1080 captures;
+do not interpret differences across those runs as sample convergence.
+
+| Boundary | Budget 4 | Budget 8 | Budget 16 |
+| --- | --- | --- | --- |
+| Smooth, IOR 1.5 | 0.998604 | 1.0 | 1.0 |
+| Roughness 0.7, IOR 1.5 | 0.703604 | 0.712524 | 0.712582 |
+
+Both matched-IOR controls remained 1.0. Values are linear RGB means (all
+channels equal). Rough 8-to-16 improvement is about 0.0000577 versus residual
+from unit radiance about 0.287418. This supports a small finite-budget effect
+between these two budgets in this fixture, not a proof that all remaining
+loss is correct single-scattering masking. Rejected/budget/error path counts
+and a second sample budget are still needed to qualify that explanation.
+No confidence interval, all-angle convergence, or full white-furnace acceptance
+is claimed. Existing pass status deliberately says controls passed and finite
+budgets measured, not rough energy conservation passed.
+
+Evidence: bin/PathTracingValidation/volume-furnace-budgets-20261105/report.json
+(includes budgetComparison, per-case runtime/metadata, inputs and buffer hashes).
+
+## Furnace Status Assessment Preparation
+
+Added a separate single-path Volume Status assessor for the same central
+32x32 ROI. It counts normal (0), budget termination (3), and rough hemisphere
+rejection (7), rejecting all other status codes and nonfinite evidence.
+Two synthetic status tests plus the five furnace tests pass (7/7).
+This assessor must receive CurrentFrameRadiance with debugOutput=5, not an
+accumulated or denoised status image. It has not yet been connected to a
+new runtime diagnostic sweep, so no measured path counts or root-cause
+conclusion are claimed. Existing furnace evidence remains radiance-only.
+
+## Sparse Runtime Status Probes (2026-11-06)
+
+Connected the status assessor through validate_volume_furnace_status.py.
+The runner derives inputs from the completed furnace sweep, changes only
+debugOutput to 5, and captures CurrentFrameRadiance at sample indices 1/17
+for roughness 0.7, budgets 8/16, 256x256. Each ROI has 1024 paths.
+All four captures completed, without medium/boundary errors or D3D12 errors.
+At budget 8 the normal/rejected counts were 790/234 and 783/241, respectively;
+budget termination was zero at both indices. Budget 16 produced the same
+counts at both indices. No accumulated status image was used.
+
+Evidence: bin/PathTracingValidation/volume-furnace-status-20261106/report.json.
+These sparse probes support rough-boundary rejection as a contributor and
+show no truncation in the observed paths. They do not measure all 128 sample
+indices, explain the entire radiance deficit, or exclude errors elsewhere.
+Smith weighting also loses energy without setting rejection status.
+No rendering change or ad hoc renormalization was introduced.
+
+## Second Sample Budget (2026-11-06)
+
+Repeated all eight furnace cases at 256 samples with unchanged 256x256 inputs.
+All runtime contracts passed with no D3D12 errors. Added comparison tooling
+that checks binary/shader hashes, case completeness, input hashes and ROI;
+three comparison unit tests passed. Results are deterministic nested samples,
+not independent statistical trials or confidence intervals.
+
+Roughness 0.7 means at budgets 4/8/16 were 0.703597/0.712548/0.712613.
+The largest absolute 128-to-256 mean change across all cases was 0.0000310.
+Smooth budgets 8/16 and both matched-IOR controls remained 1.0.
+The persistent deficit is not explained by the observed finite sample or
+8-to-16 budget change. Sparse status probes and the single-boundary integral
+support single-scattering model loss as a contributor, but do not independently
+prove the entire closed-volume estimator correct. No weight compensation added.
+
+Evidence: bin/PathTracingValidation/volume-furnace-256spp-20261106/report.json
+and comparison.json. Next decision: retain/document the single-scattering
+quality limit or implement a separately validated microfacet multiple-scattering
+model. Do not normalize surviving samples to unit energy: that would change
+the BSDF and potentially bias reflection/transmission balance.
+
+## Decision: Retain Single-Scattering Quality Limit
+
+User approved recording this limitation and continuing to glTF material work.
+The rough Volume energy deficit is retained as a known quality limitation,
+not declared a fully proven absence of integration bugs. Multiple-scattering
+transport is a separate future theme. Existing tests and evidence remain as
+regression controls; no normalization, relaxed thresholds or renderer changes
+are introduced to hide the deficit. Whole-volume physical qualification stays
+open while the current representative visual acceptance remains valid.
