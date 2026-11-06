@@ -575,6 +575,22 @@ if(RTPBRSURVEY_BUILD_TESTS)
     target_sources(RtPbrSurvey.PathTracingDenoiserSamplingTests PRIVATE "${rough_volume_shader}")
     add_test(NAME RtPbrSurvey.RoughVolumeTransmission
         COMMAND RtPbrSurvey.PathTracingDenoiserSamplingTests "${rough_volume_shader}" --rough-volume)
+    set(rr_validation_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrValidation_CSMain.cso")
+    set(rr_validation_reference_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrValidationReference_CSMain.cso")
+    add_custom_command(OUTPUT "${rr_validation_shader}" "${rr_validation_reference_shader}"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${rr_validation_shader}" "${RTPBRSURVEY_ROOT}/Shaders/shaders_PathTracingRrValidation.hlsl"
+        COMMAND "${RTPBRSURVEY_DXC_NATIVE_DIR}/bin/x64/dxc.exe" -nologo -Tcs_6_0 -ECSMain
+            "-Fo${rr_validation_reference_shader}" "${RTPBRSURVEY_ROOT}/Tests/shaders_RrValidationReference.hlsl"
+        DEPENDS Shaders/shaders_PathTracingRrValidation.hlsl Tests/shaders_RrValidationReference.hlsl
+        VERBATIM)
+    add_executable(RtPbrSurvey.RrValidationTests Tests/RrValidationTests.cpp
+        "${rr_validation_shader}" "${rr_validation_reference_shader}")
+    target_compile_features(RtPbrSurvey.RrValidationTests PRIVATE cxx_std_17)
+    target_compile_definitions(RtPbrSurvey.RrValidationTests PRIVATE NOMINMAX)
+    target_link_libraries(RtPbrSurvey.RrValidationTests PRIVATE d3d12 dxgi)
+    add_test(NAME RtPbrSurvey.RrValidation
+        COMMAND RtPbrSurvey.RrValidationTests "${rr_validation_shader}" "${rr_validation_reference_shader}")
     set(rr_conversion_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrInputConversion_CSMain.cso")
     set(rr_texture_conversion_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_PathTracingRrConversion_CSMain.cso")
     set(rr_live_distance_shader "${CMAKE_CURRENT_BINARY_DIR}/Tests/shaders_RrLiveDistance_CSMain.cso")

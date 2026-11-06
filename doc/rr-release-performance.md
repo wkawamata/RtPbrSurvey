@@ -147,3 +147,37 @@ D3D12 debug layer ON and no captured ERROR/CORRUPTION; RR remained unavailable,
 so only fallback/logging behavior was checked, not the new live packet timings.
 All 8 prior baseline logs retain exactly the same GPU total and completion delta
 when parsed by the extended parser. New live latency values remain unverified.
+
+## Validation reduction (2026-11-06)
+
+Implemented a groupshared tree reduction for the existing 8x8 validation dispatch.
+Each in-bounds pixel still checks the same input status or finite output RGB.
+All 64 lanes, including edge padding, participate in group barriers. Padding lanes
+contribute zero to both mask and count. Group lane zero writes the reduced error
+mask (only when nonzero) and pixel count to the unchanged 8-byte summary.
+This adds no wave-ops hardware requirement, resources, CPU waits or history changes.
+
+At full groups the global coverage additions decrease from one per pixel to one
+per 64 pixels: 921600 -> 14400 at 720p, 2073600 -> 32400 at 1080p, per validation.
+Invalid category bits are OR-reduced without losing categories. Output alpha remains
+ignored exactly as before. Input/output rejection and fence-gated publication remain.
+These are operation-count reductions, not measured end-to-end speedups.
+
+Tests/RrValidationTests.cpp compares the optimized shader and frozen scalar reference
+against independently calculated CPU summaries, with D3D12 debug layer enabled.
+Tests/shaders_RrValidationReference.hlsl matches the production shader at 56bd712
+(normalizing CRLF only). CMake target/test: RtPbrSurvey.RrValidationTests / RrValidation.
+Cases cover 1x1, 7x9, 8x8, 17x19, 65x3, 720p and 1080p; input and output modes;
+valid, mixed/all-invalid, categories 1..6, fractional/negative/out-of-range values,
+NaN and both infinities, and ignored nonfinite alpha. Large cases cover valid and
+mixed-invalid payloads. Forty-eight fixtures, two GPU implementations each, passed
+on WARP with exact mask/count equality and D3D12 errors 0. Test Release build had
+0 warnings/errors; application Debug/Release builds passed with the existing MSB4011.
+
+Hardware timing was NOT run: isolation check found another workspace's Debug app
+(PID 106312) and stopped before launching the test. It was not terminated. There
+are no new native RR throughput results or hardware timing claims. The executable
+supports --hardware once isolation is available; it prints one-dispatch diagnostic
+timestamps (debug layer ON, no clock locking/repetitions), not a complete benchmark.
+After isolated hardware equivalence, rerun the Release cohort and camera/object
+lifecycle checks with RR available before accepting a runtime performance gain.
