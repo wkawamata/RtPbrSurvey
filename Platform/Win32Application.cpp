@@ -143,6 +143,20 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
 
     switch (message)
     {
+        case WM_GETMINMAXINFO:
+        {
+            // Match the CLI client-size limit even when window decorations make
+            // the outer window larger than the desktop (for exact-size captures).
+            RECT maximumClient = {0, 0, 4096, 4096};
+            AdjustWindowRect(&maximumClient, WS_OVERLAPPEDWINDOW, FALSE);
+            MINMAXINFO* limits = reinterpret_cast<MINMAXINFO*>(lParam);
+            limits->ptMaxTrackSize.x = (std::max)(limits->ptMaxTrackSize.x,
+                                                 maximumClient.right - maximumClient.left);
+            limits->ptMaxTrackSize.y = (std::max)(limits->ptMaxTrackSize.y,
+                                                 maximumClient.bottom - maximumClient.top);
+            return 0;
+        }
+
         case WM_CREATE:
         {
             // Save the IApplication* passed in to CreateWindow.
