@@ -681,3 +681,37 @@ transport is a separate future theme. Existing tests and evidence remain as
 regression controls; no normalization, relaxed thresholds or renderer changes
 are introduced to hide the deficit. Whole-volume physical qualification stays
 open while the current representative visual acceptance remains valid.
+
+## Next Material Expansion: Inventory
+
+Code inspection of GltfLoader.cpp confirms that active solid Volume requires
+factor=1, IOR<=4, metallic=0, white baseColorFactor, OPAQUE coverage, no sampled
+base color/transmission/metallic-roughness textures, and no emission. Scalar
+roughness is allowed. Normal textures remain excluded for active transmission.
+These restrictions are not a statement that all corresponding thin-sheet
+features are missing; thin transmission already has separate texture support.
+
+Next implementation target: metallicRoughnessTexture G-channel roughness for
+solid Volume, reusing the existing texture sampling path while retaining
+dielectric metallic=0 and geometric boundary normals. Before lifting the
+loader guard, verify sampled B-channel metallic cannot silently activate a
+metallic Volume. Add accepted/rejected loader fixtures, factor-times-texture
+tests, and runtime smooth/rough spatial comparison. Do not enable partial
+transmission, tinted boundary base color, thickness textures, normal maps or
+additional media in the same change. This entry is a scoped plan, not a claim
+that Volume textures are already enabled.
+
+## Volume Roughness Texture: Initial Loader Change
+
+Removed only the metallicRoughnessTexture exclusion from the solid material
+guard. Metallic factor must remain zero; shader SceneRayQuery.hlsli already
+uses G*roughnessFactor and B*metallicFactor, preserving dielectric behavior.
+Existing TEXCOORD_0, texture-info and sampled-image validation remain active.
+No shader change. Loader regression passed after Debug build (GltfNodeMesh).
+Tests check textured material reaches the separate VolumeMesh shape guard,
+and reject nonzero metallic factor and TEXCOORD_1. The thin fixture is not a
+closed convex solid, so it cannot prove successful solid mesh conversion.
+An initial test incorrectly expected that fixture to load; corrected to retain
+the geometry guard. A valid textured convex fixture, material-index retention,
+factor/channel GPU comparisons and visual acceptance are still required.
+Do not treat this loader change alone as completed Volume texture support.

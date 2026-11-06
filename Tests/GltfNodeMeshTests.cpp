@@ -925,6 +925,23 @@ void TestThinTransmissionImport()
     load(document, false, "TransmissionMaterial");
     document = baseline;
     document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionTexture"] = {{"index", 0}};
+    {
+        Json solid = baseline;
+        auto& material = solid["materials"][0];
+        material["extensions"]["KHR_materials_transmission"] = {{"transmissionFactor", 1.0}};
+        material["extensions"]["KHR_materials_volume"] = {{"thicknessFactor", 1.0}};
+        material["pbrMetallicRoughness"] = {{"baseColorFactor", {1, 1, 1, 1}},
+            {"metallicFactor", 0.0}, {"roughnessFactor", 0.7}, {"metallicRoughnessTexture", {{"index", 0}}}};
+        document = solid;
+        load(document, false, "VolumeMesh");
+        document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] = 0.1;
+        load(document, false, "TransmissionMaterial");
+        document = solid;
+        document["materials"][0]["pbrMetallicRoughness"]["metallicRoughnessTexture"]["texCoord"] = 1;
+        load(document, false, "TransmissionMaterial");
+    }
+    document = baseline;
+    document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionTexture"] = {{"index", 0}};
     document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"] = {{"index", 0}};
     const auto textured = load(document, true, "ThinTransmissionApproximation");
     Require(LoadGltfMesh(temporary.string(), mesh) && mesh.materials[0].transmissionTexIndex == 0 &&
