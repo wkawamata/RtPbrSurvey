@@ -8,7 +8,7 @@ from validate_inputs import read_buffer
 from validate_part1 import sha
 
 
-def capture_volume(exe, folder, frames, resource="SceneColor", nrd=False, rr=False):
+def capture_volume(exe, folder, frames, resource="SceneColor", nrd=False, rr=False, window_size=None):
     if nrd and rr:
         raise ValueError("Volume capture cannot request NRD and RR simultaneously")
     folder = Path(folder)
@@ -23,6 +23,11 @@ def capture_volume(exe, folder, frames, resource="SceneColor", nrd=False, rr=Fal
     if rr:
         command += ["-PathTracingReconstruction", "rr", "-EnableDlssRayReconstruction",
                     "-EnableExperimentalNativeRayReconstruction"]
+    if window_size is not None:
+        width, height = window_size
+        if not all(isinstance(value, int) and 64 <= value <= 4096 for value in (width, height)):
+            raise ValueError("Invalid capture window size")
+        command += ["-WindowSize", str(width), str(height)]
     startup = subprocess.STARTUPINFO()
     startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     startup.wShowWindow = subprocess.SW_HIDE
@@ -39,12 +44,15 @@ def capture_volume(exe, folder, frames, resource="SceneColor", nrd=False, rr=Fal
         raise ValueError("Runtime/Debug Layer failure: "+folder.name)
     state = records[0]
     meta, image = read_buffer(buffer)
+    if window_size is not None and image.shape[:2] != (window_size[1], window_size[0]):
+        raise ValueError("Capture window dimensions mismatch")
     if (meta.get("volumeTransmissionActive") is not True or meta.get("pathTracingDebugOutput") != preset["debugOutput"]
         or meta.get("resource") != "PathTracing."+resource or meta.get("sampleStartIndex") != frames
         or meta.get("primarySampling") != "pixel-center" or meta.get("samplesPerFrame") != 1
         or state.get("scene") != scene["name"] or state.get("samplesPerFrame") != 1
         or state.get("maxBounces") != preset["maxBounces"] or state.get("accumulatedSamples") != frames
-        or state.get("pixelCenterPrimary") is not True or state.get("environmentEnabled") is not False
+        or state.get("pixelCenterPrimary") is not True
+        or state.get("environmentEnabled") is not preset.get("environmentEnabled", False)
         or state.get("nrdPreviewRequested") is not nrd or meta.get("nrdPreviewRequested") is not nrd
         or state.get("d3d12DebugLayerEnabledByApp") is not True):
         raise ValueError("Volume runtime state mismatch: "+folder.name)
