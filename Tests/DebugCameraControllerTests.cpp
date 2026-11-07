@@ -309,6 +309,29 @@ int main()
         return 1;
     }
 
+    const auto viewDirection = [&camera]()
+    {
+        return DirectX::XMFLOAT3{camera.gazePoint.x - camera.pos.x, camera.gazePoint.y - camera.pos.y,
+                                camera.gazePoint.z - camera.pos.z};
+    };
+    const auto direction = viewDirection();
+    const auto beforePan = camera.pos;
+    controller.OnMouseDown(VK_MBUTTON, 0, 0);
+    controller.OnMouseMove(30, 12);
+    controller.OnMouseUp(VK_MBUTTON, 30, 12);
+    if (NearlyEqual(camera.pos, beforePan) || !NearlyEqual(viewDirection(), direction))
+    {
+        std::cerr << "FreeLook middle drag must translate without rotating the view.\n";
+        return 1;
+    }
+    const auto beforeDolly = camera.pos;
+    controller.OnMouseWheel(WHEEL_DELTA, false);
+    if (NearlyEqual(camera.pos, beforeDolly) || !NearlyEqual(viewDirection(), direction))
+    {
+        std::cerr << "FreeLook wheel must translate without rotating the view.\n";
+        return 1;
+    }
+
     if (!TestRegularHorizontalAndVerticalOrbit() || !TestNearLimitDragDoesNotCrossPole() ||
         !TestArcballSwitchPreservesEightyEightDegreeCamera() || !TestRightPrimaryDragPreservesArcballOrbit() ||
         !TestRightPrimaryDragIgnoresSelectionAndStopsOnRelease() || !TestOrphanRightButtonReleaseDoesNotResyncArcball() ||

@@ -3,6 +3,8 @@
 #include "Runtime/CaptureSessionUi.h"
 
 #include "Runtime/SceneRenderer.h"
+#include "ImGuiWidgets.h"
+#include "Platform/OpenOutputDirectory.h"
 
 #include <imgui.h>
 #include <imgui_stdlib.h>
@@ -58,10 +60,7 @@ namespace RtPbrSurvey
         config.gifDisposal = static_cast<CaptureSessionGifDisposal>(state.gifDisposal);
         config.warmupFrames = static_cast<std::uint32_t>((std::max)(0, state.warmupFrames));
         config.startDelayMilliseconds = static_cast<std::uint32_t>((std::max)(0, state.startDelayMilliseconds));
-        if (state.useFrameLimit)
-        {
-            config.frameLimit = static_cast<std::uint64_t>((std::max)(0, state.frameLimit));
-        }
+        config.frameLimit = state.useFrameLimit ? static_cast<std::uint64_t>((std::max)(0, state.frameLimit)) : 1;
         if (state.useDurationLimit)
         {
             config.durationSeconds = static_cast<double>(state.durationSeconds);
@@ -95,7 +94,9 @@ namespace RtPbrSurvey
 
     void CaptureSessionUi::Draw(SceneRenderer& renderer, CaptureSessionUiState& state)
     {
-        const CaptureSessionUiAction action = Draw(renderer.GetCaptureSessionStatus(), state);
+        const auto frame = renderer.GetUiFrameContext();
+        const CaptureSessionUiAction action = Draw(renderer.GetCaptureSessionStatus(), state, nullptr, false, false,
+                                                   frame.outputWidth, frame.outputHeight);
         if (action == CaptureSessionUiAction::Start)
         {
             std::string error;
@@ -111,7 +112,8 @@ namespace RtPbrSurvey
 
     CaptureSessionUiAction CaptureSessionUi::Draw(const CaptureSessionStatus& status, CaptureSessionUiState& state,
                                                   const char* startBlockedReason,
-                                                  bool showSingleCapture, bool singleCaptureBlocked)
+                                                  bool showSingleCapture, bool singleCaptureBlocked,
+                                                  std::uint32_t outputWidth, std::uint32_t outputHeight)
     {
         CaptureSessionUiAction action = CaptureSessionUiAction::None;
         const bool active = IsActive(status);
@@ -172,7 +174,7 @@ namespace RtPbrSurvey
             ImGui::Combo("Repeat", &state.gifRepeatMode, repeatNames, IM_ARRAYSIZE(repeatNames));
             if (static_cast<CaptureSessionGifRepeatMode>(state.gifRepeatMode) == CaptureSessionGifRepeatMode::Count)
             {
-                ImGui::InputInt("Additional repeats", &state.gifRepeatCount);
+                ImGuiWidgets::SliderIntWithControls("Additional repeats", &state.gifRepeatCount, 0, 65535, 1, 1);
             }
             const char* disposalNames[] = {"Keep frame", "Restore background", "Restore previous"};
             int disposalIndex = state.gifDisposal - static_cast<int>(CaptureSessionGifDisposal::Keep);
@@ -184,7 +186,7 @@ namespace RtPbrSurvey
         }
         if (outputFormat == CaptureSessionOutputFormat::Mp4)
         {
-            ImGui::InputInt("Bitrate (Mbps)", &state.mp4BitrateMbps);
+            ImGuiWidgets::SliderIntWithControls("Bitrate (Mbps)", &state.mp4BitrateMbps, 1, 100, 1, 12);
             ImGui::TextDisabled("H.264, no audio. Bitrate: 1-100 Mbps; FPS: 1-240.");
             ImGui::TextWrapped("Odd ROI dimensions are padded at the right/bottom edge by one pixel.");
         }
@@ -197,24 +199,55 @@ namespace RtPbrSurvey
         }
         if (state.useRegion)
         {
-            ImGui::InputInt("ROI X", &state.regionX);
-            ImGui::InputInt("ROI Y", &state.regionY);
-            ImGui::InputInt("ROI Width", &state.regionWidth);
-            ImGui::InputInt("ROI Height", &state.regionHeight);
-            ImGui::Checkbox("Show ROI overlay", &state.showRegionOverlay);
+            const int width = (std::max)(1, static_cast<int>(outputWidth));
+            const int height = (std::max)(1, static_cast<int>(outputHeight));
+            ImGui::BeginDisabled(outputWidth == 0 || outputHeight == 0);
+            if (ImGui::BeginTable("RoiCoordinates", 2, ImGuiTableFlags_SizingStretchSame))
+            {
+                ImGui::TableNextColumn();
+                bool regionChanged = ImGuiWidgets::SliderIntWithControls("X", &state.regionX, 0, width - 1, 1, 0, "%d", 0);
+                ImGui::TableNextColumn();
+                regionChanged |= ImGuiWidgets::SliderIntWithControls("Y", &state.regionY, 0, height - 1, 1, 0, "%d", 0);
+                const int maxWidth = width - (std::clamp)(state.regionX, 0, width - 1);
+                const int maxHeight = height - (std::clamp)(state.regionY, 0, height - 1);
+                ImGui::TableNextColumn();
+                regionChanged |= ImGuiWidgets::SliderIntWithControls("W", &state.regionWidth, 1, maxWidth, 1,
+                                                                     (std::min)(640, maxWidth), "%d", 0);
+                ImGui::TableNextColumn();
+                regionChanged |= ImGuiWidgets::SliderIntWithControls("H", &state.regionHeight, 1, maxHeight, 1,
+                                                                     (std::min)(480, maxHeight), "%d", 0);
+                if (regionChanged)
+                {
+                    state.regionX = (std::clamp)(state.regionX, 0, width - 1);
+                    state.regionY = (std::clamp)(state.regionY, 0, height - 1);
+                    state.regionWidth = (std::clamp)(state.regionWidth, 1, maxWidth);
+                    state.regionHeight = (std::clamp)(state.regionHeight, 1, maxHeight);
+                }
+                ImGui::EndTable();
+            }
+            ImGui::EndDisabled();
+            if (ImGui::Checkbox("Show ROI overlay", &state.showRegionOverlay) && !state.showRegionOverlay)
+            {
+                CancelRegionSelection(state);
+            }
         }
-        ImGui::InputInt("FPS", &state.framesPerSecond);
-        ImGui::InputInt("Start delay (ms)", &state.startDelayMilliseconds);
-        ImGui::InputInt("Warmup frames", &state.warmupFrames);
+        ImGuiWidgets::SliderIntWithControls("FPS", &state.framesPerSecond, 1, 240, 1, 60);
+        ImGuiWidgets::SliderIntWithControls("Start delay (ms)", &state.startDelayMilliseconds, 0, 60000, 100, 0);
+        ImGuiWidgets::SliderIntWithControls("Warmup frames", &state.warmupFrames, 0, 10000, 1, 0);
         ImGui::Checkbox("Frame limit", &state.useFrameLimit);
         if (state.useFrameLimit)
         {
-            ImGui::InputInt("Frames", &state.frameLimit);
+            ImGuiWidgets::SliderIntWithControls("Frames", &state.frameLimit, 1, 100000, 1, 60);
+        }
+        else
+        {
+            ImGui::TextUnformatted("Frames: 1");
         }
         ImGui::Checkbox("Duration limit", &state.useDurationLimit);
         if (state.useDurationLimit)
         {
-            ImGui::InputFloat("Duration (seconds)", &state.durationSeconds, 0.1f, 1.0f, "%.2f");
+            ImGuiWidgets::SliderFloatWithControls("Duration (seconds)", &state.durationSeconds,
+                                                   0.01f, 3600.0f, 0.1f, 1.0f, "%.2f");
         }
         ImGui::Checkbox("Fixed-step clock", &state.fixedStep);
         ImGui::EndDisabled();
@@ -243,15 +276,12 @@ namespace RtPbrSurvey
             const std::string outputPath(outputPathUtf8.begin(), outputPathUtf8.end());
             ImGui::TextUnformatted("Last output:");
             ImGui::SameLine();
-            if (ImGui::Button("Copy Location Path##session"))
+            if (ImGui::Button("Open Location Path##session"))
             {
                 std::error_code error;
                 const std::filesystem::path absolutePath = std::filesystem::absolute(status.lastOutputPath, error);
-                const std::filesystem::path directory = (error ? status.lastOutputPath : absolutePath).parent_path();
-                const std::u8string locationUtf8 = directory.u8string();
-                const std::string location(locationUtf8.begin(), locationUtf8.end());
-                ImGui::SetClipboardText(location.c_str());
-                state.message = "Output location copied to clipboard.";
+                state.message = !error && OpenOutputDirectory(absolutePath.parent_path()) ?
+                    "Opened output location." : "Unable to open output location.";
             }
             ImGui::TextWrapped("%s", outputPath.c_str());
         }
@@ -271,6 +301,8 @@ namespace RtPbrSurvey
     {
         state.selectingRegion = false;
         state.draggingRegion = false;
+        state.regionLabelHovered = false;
+        state.draggingRegionLabel = false;
     }
 
     std::optional<ScreenshotRegion> CaptureSessionUi::RegionFromDrag(
@@ -303,6 +335,12 @@ namespace RtPbrSurvey
     void CaptureSessionUi::DrawRegionOverlay(const CaptureSessionStatus& status, CaptureSessionUiState& state,
                                             std::uint32_t outputWidth, std::uint32_t outputHeight)
     {
+        state.regionLabelHovered = false;
+        if (state.selectingRegion || !state.useRegion || !state.showRegionOverlay ||
+            !ImGui::IsMouseDown(ImGuiMouseButton_Left))
+        {
+            state.draggingRegionLabel = false;
+        }
         if (IsActive(status))
         {
             CancelRegionSelection(state);
@@ -357,9 +395,12 @@ namespace RtPbrSurvey
                             state.regionWidth = static_cast<int>(preview->width);
                             state.regionHeight = static_cast<int>(preview->height);
                             state.useRegion = true;
-                            state.showRegionOverlay = true;
                             state.message = "ROI selected. Use Select ROI with mouse to replace it, or edit the numbers.";
                             CancelRegionSelection(state);
+                            if (!state.showRegionOverlay)
+                            {
+                                preview.reset();
+                            }
                         }
                         else
                         {
@@ -401,18 +442,88 @@ namespace RtPbrSurvey
         {
             const float xScale = size.x / static_cast<float>(outputWidth);
             const float yScale = size.y / static_cast<float>(outputHeight);
+            const bool movable = !state.selectingRegion && preview->width <= outputWidth && preview->height <= outputHeight;
+            if (movable && state.draggingRegionLabel)
+            {
+                const ImVec2 mouse = ImGui::GetMousePos();
+                const auto moveAxis = [](float position, float grab, float scale, std::uint32_t limit)
+                {
+                    return static_cast<int>(std::lround(std::clamp((position - grab) / scale, 0.0f,
+                                                                  static_cast<float>(limit))));
+                };
+                if (state.resizingRegionFromBottomRight)
+                {
+                    const int right = moveAxis(mouse.x - origin.x, state.regionLabelGrabX, xScale, outputWidth);
+                    const int bottom = moveAxis(mouse.y - origin.y, state.regionLabelGrabY, yScale, outputHeight);
+                    state.regionWidth = (std::max)(1, right - state.regionX);
+                    state.regionHeight = (std::max)(1, bottom - state.regionY);
+                    preview->width = static_cast<std::uint32_t>(state.regionWidth);
+                    preview->height = static_cast<std::uint32_t>(state.regionHeight);
+                }
+                else
+                {
+                    state.regionX = moveAxis(mouse.x - origin.x, state.regionLabelGrabX, xScale, outputWidth - preview->width);
+                    state.regionY = moveAxis(mouse.y - origin.y, state.regionLabelGrabY, yScale, outputHeight - preview->height);
+                }
+                preview->x = static_cast<std::uint32_t>(state.regionX);
+                preview->y = static_cast<std::uint32_t>(state.regionY);
+            }
             const ImVec2 minimum(origin.x + preview->x * xScale, origin.y + preview->y * yScale);
             const ImVec2 maximum(minimum.x + preview->width * xScale, minimum.y + preview->height * yScale);
-            ImDrawList* drawList = ImGui::GetForegroundDrawList();
+            ImDrawList* drawList = state.selectingRegion ? ImGui::GetForegroundDrawList() : ImGui::GetBackgroundDrawList();
             drawList->AddRect(minimum, maximum, IM_COL32(255, 196, 0, 255), 0.0f, ImDrawFlags_None, 2.0f);
             char label[96] = {};
-            snprintf(label, sizeof(label), "%u x %u  (X %u, Y %u)", preview->width, preview->height, preview->x, preview->y);
+            snprintf(label, sizeof(label), "X %u, Y %u", preview->x, preview->y);
             const ImVec2 labelSize = ImGui::CalcTextSize(label);
-            const ImVec2 labelPosition(std::clamp(minimum.x, origin.x, origin.x + (std::max)(0.0f, size.x - labelSize.x)),
-                                       std::clamp(minimum.y - labelSize.y - 8, origin.y, origin.y + (std::max)(0.0f, size.y - labelSize.y)));
-            drawList->AddRectFilled(labelPosition, ImVec2(labelPosition.x + labelSize.x + 4, labelPosition.y + labelSize.y + 4),
+            const ImVec2 anchor(minimum.x, minimum.y - labelSize.y - 8);
+            const ImVec2 labelEnd(origin.x + (std::max)(0.0f, size.x - labelSize.x - 4),
+                                  origin.y + (std::max)(0.0f, size.y - labelSize.y - 4));
+            const auto bottomRight = [&](ImVec2 p) { return ImVec2(p.x + labelSize.x + 4, p.y + labelSize.y + 4); };
+            const ImVec2 labelPosition(std::clamp(anchor.x, origin.x, labelEnd.x),
+                                       std::clamp(anchor.y, origin.y, labelEnd.y));
+            const ImVec2 handleMin(maximum.x - 5, maximum.y - 5);
+            const ImVec2 handleMax(maximum.x + 5, maximum.y + 5);
+            const bool canResize = movable && preview->x <= outputWidth - preview->width &&
+                preview->y <= outputHeight - preview->height;
+            if (movable)
+            {
+                const bool pointerAvailable = !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) && !ImGui::IsAnyItemActive();
+                const bool resizeHovered = canResize && pointerAvailable && ImGui::IsMouseHoveringRect(handleMin, handleMax, false);
+                state.regionLabelHovered = resizeHovered || (pointerAvailable &&
+                    ImGui::IsMouseHoveringRect(labelPosition, bottomRight(labelPosition), false));
+                if (canResize)
+                {
+                    drawList->AddRectFilled(handleMin, handleMax, IM_COL32(255, 196, 0, 255));
+                }
+                if (state.regionLabelHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                {
+                    const ImVec2 mouse = ImGui::GetMousePos();
+                    state.regionLabelGrabX = mouse.x - (resizeHovered ? maximum.x : minimum.x);
+                    state.regionLabelGrabY = mouse.y - (resizeHovered ? maximum.y : minimum.y);
+                    state.resizingRegionFromBottomRight = resizeHovered;
+                    state.draggingRegionLabel = true;
+                }
+                if (state.regionLabelHovered || state.draggingRegionLabel)
+                {
+                    const bool resize = state.draggingRegionLabel ? state.resizingRegionFromBottomRight : resizeHovered;
+                    ImGui::SetMouseCursor(resize ? ImGuiMouseCursor_ResizeNWSE : ImGuiMouseCursor_ResizeAll);
+                }
+            }
+            drawList->AddRectFilled(labelPosition, bottomRight(labelPosition),
                                    IM_COL32(0, 0, 0, 210));
             drawList->AddText(labelPosition, IM_COL32(255, 196, 0, 255), label);
+            char dimensions[48] = {};
+            snprintf(dimensions, sizeof(dimensions), "%u x %u", preview->width, preview->height);
+            const ImVec2 dimensionsSize = ImGui::CalcTextSize(dimensions);
+            const ImVec2 dimensionsPosition(
+                std::clamp(maximum.x - dimensionsSize.x - 4, origin.x,
+                           origin.x + (std::max)(0.0f, size.x - dimensionsSize.x - 4)),
+                std::clamp(maximum.y + 4, origin.y,
+                           origin.y + (std::max)(0.0f, size.y - dimensionsSize.y - 4)));
+            drawList->AddRectFilled(dimensionsPosition,
+                ImVec2(dimensionsPosition.x + dimensionsSize.x + 4, dimensionsPosition.y + dimensionsSize.y + 4),
+                IM_COL32(0, 0, 0, 210));
+            drawList->AddText(dimensionsPosition, IM_COL32(255, 196, 0, 255), dimensions);
         }
     }
 } // namespace RtPbrSurvey

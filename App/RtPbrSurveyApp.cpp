@@ -36,6 +36,7 @@
 #include "../Scene/CameraView.h"
 #include "imgui.h"
 #include "ImGuiWidgets.h"
+#include "Platform/OpenOutputDirectory.h"
 
 #include <nlohmann/json.hpp>
 
@@ -831,6 +832,10 @@ bool RtPbrSurveyApp::OnCloseRequested()
 
 void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
 {
+    if (button == VK_LBUTTON && m_captureSessionUiState.regionLabelHovered)
+    {
+        return;
+    }
     if (m_appMode == AppMode::SceneEditorEdit && m_sceneEditorGizmoCapturesMouse)
     {
         return;
@@ -894,6 +899,10 @@ void RtPbrSurveyApp::OnMouseUp(UINT8 button, int x, int y)
 
 void RtPbrSurveyApp::OnMouseMove(int x, int y)
 {
+    if (m_captureSessionUiState.draggingRegionLabel)
+    {
+        return;
+    }
     if (m_appMode == AppMode::SceneEditorEdit && m_sceneEditorGizmoCapturesMouse)
     {
         return;
@@ -966,6 +975,29 @@ void RtPbrSurveyApp::OnIdle()
         return;
     }
     UpdateCaptureRequestGate();
+
+    // Restoring a case can replace the scene referenced by the Debug UI.
+    if (m_pendingEvaluationRestore.has_value())
+    {
+        const auto state = std::move(*m_pendingEvaluationRestore);
+        m_pendingEvaluationRestore.reset();
+        try
+        {
+            std::string error;
+            if (CanStartCaptureSession(error) && RestoreEvaluationState(state, &error))
+            {
+                m_evaluationStatus = "Evaluation case restored.";
+            }
+            else
+            {
+                m_evaluationStatus = "Restore failed: " + error;
+            }
+        }
+        catch (const std::exception& exception)
+        {
+            m_evaluationStatus = std::string("Restore failed: ") + exception.what();
+        }
+    }
 
     if (!m_reflectionHdrDiagnosticsComplete)
     {
@@ -1488,9 +1520,10 @@ void RtPbrSurveyApp::DrawCaptureSessionUi()
     std::string reason;
     const bool canCapture = CanStartCaptureSession(reason);
     const bool canStart = canCapture && ValidateCaptureOrbitSettings(reason);
+    const auto frame = m_sceneRenderer.GetUiFrameContext();
     const RtPbrSurvey::CaptureSessionUiAction action =
         RtPbrSurvey::CaptureSessionUi::Draw(status, m_captureSessionUiState, canStart ? nullptr : reason.c_str(),
-                                           true, !canCapture);
+                                           true, !canCapture, frame.outputWidth, frame.outputHeight);
     if (action == RtPbrSurvey::CaptureSessionUiAction::CapturePng)
     {
         const std::time_t now = std::time(nullptr);
@@ -1507,13 +1540,12 @@ void RtPbrSurveyApp::DrawCaptureSessionUi()
     {
         ImGui::TextWrapped("%s", m_screenshotStatus.c_str());
     }
-    if (!m_screenshotLocation.empty() && ImGui::Button("Copy Location Path##screenshot"))
+    if (!m_screenshotLocation.empty() && ImGui::Button("Open Location Path##screenshot"))
     {
-        std::error_code error;
-        const std::filesystem::path absolutePath = std::filesystem::absolute(m_screenshotLocation, error);
-        const std::u8string locationUtf8 = (error ? m_screenshotLocation : absolutePath).u8string();
-        const std::string location(locationUtf8.begin(), locationUtf8.end());
-        ImGui::SetClipboardText(location.c_str());
+        if (!RtPbrSurvey::OpenOutputDirectory(m_screenshotLocation))
+        {
+            m_screenshotStatus = "Unable to open screenshot location.";
+        }
     }
     ImGui::BeginDisabled(RtPbrSurvey::CaptureSessionUi::IsActive(status));
     ImGui::SeparatorText("Camera track");
@@ -1523,7 +1555,11 @@ void RtPbrSurveyApp::DrawCaptureSessionUi()
     }
     if (m_captureSessionOrbitEnabled)
     {
-        ImGui::InputDouble("Speed (deg/s)", &m_captureSessionOrbitDegreesPerSecond, 5.0, 30.0, "%.2f");
+        float speed = static_cast<float>(m_captureSessionOrbitDegreesPerSecond);
+        if (ImGuiWidgets::SliderFloatWithControls("Speed (deg/s)", &speed, -360.0f, 360.0f, 5.0f, 90.0f, "%.2f"))
+        {
+            m_captureSessionOrbitDegreesPerSecond = speed;
+        }
     }
     ImGui::EndDisabled();
     ApplyCaptureSessionUiAction(action);
@@ -3447,6 +3483,31 @@ void RtPbrSurveyApp::ExecuteOpenSelectedScene()
     m_debugUiVisible = true;
 }
 
+void RtPbrSurveyApp::ApplyEvaluationRoi(RtPbrSurvey::EvaluationRoi roi)
+{
+    roi.Sanitize();
+    m_evaluationRoi = roi;
+    auto& capture = m_captureSessionUiState;
+    RtPbrSurvey::CaptureSessionUi::CancelRegionSelection(capture);
+    const auto frame = m_sceneRenderer.GetUiFrameContext();
+    capture.useRegion = roi.enabled && roi.width > 0 && roi.height > 0 &&
+                        frame.outputWidth > 0 && frame.outputHeight > 0;
+    if (!capture.useRegion)
+    {
+        return;
+    }
+    const int width = static_cast<int>(frame.outputWidth);
+    const int height = static_cast<int>(frame.outputHeight);
+    capture.regionX = std::clamp(static_cast<int>(std::lround(roi.x * width)), 0, width - 1);
+    capture.regionY = std::clamp(static_cast<int>(std::lround(roi.y * height)), 0, height - 1);
+    const int right = std::clamp(static_cast<int>(std::lround((roi.x + roi.width) * width)),
+                                 capture.regionX + 1, width);
+    const int bottom = std::clamp(static_cast<int>(std::lround((roi.y + roi.height) * height)),
+                                  capture.regionY + 1, height);
+    capture.regionWidth = right - capture.regionX;
+    capture.regionHeight = bottom - capture.regionY;
+}
+
 bool RtPbrSurveyApp::CaptureEvaluationState(RtPbrSurvey::EvaluationState& state, std::string* error)
 {
     if (m_loadedScene == nullptr)
@@ -3468,6 +3529,15 @@ bool RtPbrSurveyApp::CaptureEvaluationState(RtPbrSurvey::EvaluationState& state,
             state.sceneReference.id = m_sceneEditorSession->Document().sceneId;
             state.sceneReference.path = m_sceneEditorDocumentPath;
         }
+        else if (m_fileScene != nullptr && m_loadedScene == m_fileScene.get() &&
+                 !m_fileScene->DocumentPath().empty())
+        {
+            const RtPbrSurvey::SceneDocument& document = m_fileScene->Document();
+            state.sceneIndex = -1;
+            state.sceneName = document.name;
+            state.sceneReference.id = document.sceneId;
+            state.sceneReference.path = m_fileScene->DocumentPath().generic_string();
+        }
         else if (m_loadedSceneIndex >= 0)
         {
             state.sceneIndex = m_loadedSceneIndex;
@@ -3485,7 +3555,24 @@ bool RtPbrSurveyApp::CaptureEvaluationState(RtPbrSurvey::EvaluationState& state,
         }
         state.sceneConfig = nlohmann::json::parse(m_sceneConfig.CaptureCurrentSceneJson(
             *this, m_sceneRenderer.EngineForDebugTools(), LoadedScene()));
-        state.roi = m_evaluationRoi;
+        state.roi = {};
+        const auto& capture = m_captureSessionUiState;
+        if (capture.useRegion)
+        {
+            const auto frame = m_sceneRenderer.GetUiFrameContext();
+            const int width = static_cast<int>(frame.outputWidth);
+            const int height = static_cast<int>(frame.outputHeight);
+            if (capture.regionX < 0 || capture.regionY < 0 || capture.regionX >= width || capture.regionY >= height ||
+                capture.regionWidth <= 0 || capture.regionHeight <= 0 ||
+                capture.regionWidth > width - capture.regionX || capture.regionHeight > height - capture.regionY)
+            {
+                throw std::runtime_error("Capture Session ROI must be inside the output buffer.");
+            }
+            state.roi = {true, static_cast<float>(capture.regionX) / width,
+                         static_cast<float>(capture.regionY) / height,
+                         static_cast<float>(capture.regionWidth) / width,
+                         static_cast<float>(capture.regionHeight) / height};
+        }
         state.roi.Sanitize();
         if (error != nullptr)
         {
@@ -3545,8 +3632,7 @@ bool RtPbrSurveyApp::RestoreEvaluationState(const RtPbrSurvey::EvaluationState& 
             return false;
         }
 
-        m_evaluationRoi = state.roi;
-        m_evaluationRoi.Sanitize();
+        ApplyEvaluationRoi(state.roi);
         m_appMode = AppMode::Running;
         m_framePaused = false;
         m_forwardStepRequested = false;
@@ -3616,8 +3702,7 @@ bool RtPbrSurveyApp::RestoreEvaluationState(const RtPbrSurvey::EvaluationState& 
         if (m_sceneConfig.ApplyCurrentSceneJson(
                 state.sceneConfig.dump(), *this, m_sceneRenderer.EngineForDebugTools(), error))
         {
-            m_evaluationRoi = state.roi;
-            m_evaluationRoi.Sanitize();
+            ApplyEvaluationRoi(state.roi);
             return true;
         }
     }
@@ -3892,7 +3977,8 @@ void RtPbrSurveyApp::UpdateUiFrame()
         }
     }
     m_sceneRenderer.DrawToolUi();
-    if (m_appMode == AppMode::Running || m_appMode == AppMode::SceneEditorEdit)
+    if ((m_appMode == AppMode::Running || m_appMode == AppMode::SceneEditorEdit) &&
+        m_sceneRenderer.IsScreenshotCaptureIdle())
     {
         const auto captureFrame = m_sceneRenderer.GetUiFrameContext();
         RtPbrSurvey::CaptureSessionUi::DrawRegionOverlay(m_sceneRenderer.GetCaptureSessionStatus(), m_captureSessionUiState,

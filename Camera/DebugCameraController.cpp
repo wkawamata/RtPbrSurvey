@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "DebugCameraController.h"
+#include "Scene/CameraView.h"
 
 #include <algorithm>
 #include <cmath>
@@ -266,17 +267,16 @@ void DebugCameraController::OnMouseMove(int x, int y)
             m_lastMouseX = x;
             m_lastMouseY = y;
 
-            const XMVECTOR localPan = XMVectorSet(static_cast<float>(dx) * kMousePanSpeed * m_speedMultiplier,
-                                                  -static_cast<float>(dy) * kMousePanSpeed * m_speedMultiplier,
-                                                  0.0f,
-                                                  0.0f);
-            const auto cameraRotation = XMMatrixRotationRollPitchYaw(camera->rot.x, camera->rot.y, camera->rot.z);
-            const XMVECTOR worldPan = XMVector3TransformNormal(localPan, cameraRotation);
+            const auto basis = Engine::ResolveCameraBasis(*camera);
+            const float scale = kMousePanSpeed * m_speedMultiplier;
+            const XMVECTOR worldPan = XMVectorAdd(DirectX::XMVectorScale(basis.right, dx * scale),
+                                                  DirectX::XMVectorScale(basis.up, -dy * scale));
             XMFLOAT3 pan = {};
             XMStoreFloat3(&pan, worldPan);
             camera->pos.x += pan.x;
             camera->pos.y += pan.y;
             camera->pos.z += pan.z;
+            XMStoreFloat3(&camera->gazePoint, XMVectorAdd(XMLoadFloat3(&camera->gazePoint), worldPan));
         }
     }
     else
@@ -358,15 +358,14 @@ void DebugCameraController::OnMouseWheel(int wheelDelta, bool fovZoom)
 
     if (m_mode == Mode::FreeLook)
     {
-        const XMVECTOR localMove =
-            XMVectorSet(0.0f, 0.0f, wheelSteps * kMouseWheelCameraSpeed * m_speedMultiplier, 0.0f);
-        const auto cameraRotation = XMMatrixRotationRollPitchYaw(camera->rot.x, camera->rot.y, camera->rot.z);
-        const XMVECTOR worldMove = XMVector3TransformNormal(localMove, cameraRotation);
+        const XMVECTOR worldMove = DirectX::XMVectorScale(Engine::ResolveCameraBasis(*camera).forward,
+            wheelSteps * kMouseWheelCameraSpeed * m_speedMultiplier);
         XMFLOAT3 move = {};
         XMStoreFloat3(&move, worldMove);
         camera->pos.x += move.x;
         camera->pos.y += move.y;
         camera->pos.z += move.z;
+        XMStoreFloat3(&camera->gazePoint, XMVectorAdd(XMLoadFloat3(&camera->gazePoint), worldMove));
     }
     else
     {
