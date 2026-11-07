@@ -100,3 +100,16 @@ Hardware verification of the current change is complete. There is no new subject
 quality claim: previously accepted moving-shadow ghosting remains a known limitation;
 transmission/refraction RR remains separate TODO. PR merge and remote synchronization
 have not been performed as part of this verification.
+
+## Pre-PR main integration
+
+Latest origin/main at 3ca4433 (PR #119) was merged without conflicts into the
+feature branch as 92c8f52. All three builds passed after integration: normal VS
+Debug/Release and NRD/RR evaluation Debug (one existing warning each). Contract,
+history, scene and settings CTest passed 14/14; measurement parser tests 5/5.
+Normal VS Debug full-scene rotation/translation at 640x360 passed five checkpoints
+each; evaluation Debug camera/backend/resize lifecycle passed 19/19 with D3D12
+errors 0. Evidence: user-test-rr/pr-integrated-object-20261107/report.json and
+user-test-rr/pr-integrated-lifecycle-20261107/report.json. Performance figures above
+belong to the pre-integration cohort and were not remeasured after main integration.
+Screenshots, raw buffers, logs and build outputs are not included in the PR.
