@@ -5,6 +5,7 @@
 
 #include <wrl/client.h>
 #include <string>
+#include <chrono>
 
 namespace Engine
 {
@@ -14,6 +15,21 @@ namespace Engine
 class PathTracingRrLive
 {
 public:
+    struct PacketLatency
+    {
+        uint64_t frameId = 0;
+        uint64_t inputPolls = 0;
+        uint64_t outputPolls = 0;
+        double inputWaitMs = 0;
+        double admittedWaitMs = 0;
+        double evaluateCpuMs = 0;
+        double outputWaitMs = 0;
+        double totalMs = 0;
+    };
+    const PacketLatency& LastPacketLatency() const
+    {
+        return m_lastPacketLatency;
+    }
     void Initialize(ID3D12Device* device, D3D12_SHADER_BYTECODE validationShader);
     void Poll(uint64_t completedFence, uint64_t currentEpoch, bool advanceProduction = false);
     void MarkSubmitted(uint64_t fence);
@@ -112,6 +128,12 @@ private:
         Rejected
     };
     void RecordValidation(ID3D12GraphicsCommandList* commands, D3D12_GPU_DESCRIPTOR_HANDLE srv, bool output);
+    using Clock = std::chrono::steady_clock;
+    Clock::time_point m_packetStarted;
+    Clock::time_point m_inputAdmitted;
+    Clock::time_point m_outputRecorded;
+    PacketLatency m_packetLatency;
+    PacketLatency m_lastPacketLatency;
     Phase m_phase = Phase::Idle;
     uint64_t m_epoch = 0;
     uint64_t m_fence = 0;

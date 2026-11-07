@@ -403,11 +403,13 @@ bool ValidateSceneDocument(const SceneDocument& document, std::string* error)
         if (node == document.nodes.end() || !node->visible || node->parentId ||
             (node->type != SceneNodeType::Primitive && node->type != SceneNodeType::Gltf) ||
             !IsFinite(animation.pivot) || !IsFinite(animation.degreesPerSecond) ||
+            !IsFinite(animation.translationAmplitude) || !IsFinite(animation.translationPeriodSeconds) ||
+            animation.translationPeriodSeconds <= 0.0f ||
             std::abs(animation.degreesPerSecond) > 360.0f ||
             std::any_of(document.nodes.begin(), document.nodes.end(),
                 [&](const SceneNode& child) { return child.parentId == animation.nodeId; }))
         {
-            return fail("Turntable requires a visible root mesh node without children and finite rotation settings.");
+            return fail("Turntable requires a visible root mesh node without children and finite rotation/translation settings and a positive translation period.");
         }
     }
     if (!IsFinite(document.camera.position) || !IsFinite(document.camera.target) || !IsFinite(document.camera.up) ||
@@ -517,7 +519,9 @@ bool SerializeSceneDocument(const SceneDocument& document, std::string& jsonText
     {
         root["turntable"] = {{"nodeId", document.turntable->nodeId},
             {"pivot", Float3ToJson(document.turntable->pivot)},
-            {"degreesPerSecond", document.turntable->degreesPerSecond}};
+            {"degreesPerSecond", document.turntable->degreesPerSecond},
+            {"translationAmplitude", Float3ToJson(document.turntable->translationAmplitude)},
+            {"translationPeriodSeconds", document.turntable->translationPeriodSeconds}};
     }
     jsonText = root.dump(indent, ' ', false, json::error_handler_t::replace);
     if (error != nullptr)
@@ -673,7 +677,7 @@ bool DeserializeSceneDocument(std::string_view jsonText, SceneDocument& document
         {
             const json& value = root.at("turntable");
             SceneTurntable turntable;
-            if (!IsKnownFields(value, {"nodeId", "pivot", "degreesPerSecond"}) ||
+            if (!IsKnownFields(value, {"nodeId", "pivot", "degreesPerSecond", "translationAmplitude", "translationPeriodSeconds"}) ||
                 !RequireString(value, "nodeId", turntable.nodeId, error) ||
                 !value.contains("pivot") || !Float3FromJson(value.at("pivot"), turntable.pivot) ||
                 !value.contains("degreesPerSecond") || !value.at("degreesPerSecond").is_number())
@@ -681,6 +685,19 @@ bool DeserializeSceneDocument(std::string_view jsonText, SceneDocument& document
                 return false;
             }
             turntable.degreesPerSecond = value.at("degreesPerSecond").get<float>();
+            if (value.contains("translationAmplitude") &&
+                !Float3FromJson(value.at("translationAmplitude"), turntable.translationAmplitude))
+            {
+                return false;
+            }
+            if (value.contains("translationPeriodSeconds"))
+            {
+                if (!value.at("translationPeriodSeconds").is_number())
+                {
+                    return false;
+                }
+                turntable.translationPeriodSeconds = value.at("translationPeriodSeconds").get<float>();
+            }
             parsed.turntable = turntable;
         }
         if (!root.contains("camera") || !IsKnownFields(root.at("camera"), {"position", "target", "up", "projection", "verticalFovDegrees", "orthographicHeight", "nearZ", "farZ", "lensShiftX", "lensShiftY"}) ||

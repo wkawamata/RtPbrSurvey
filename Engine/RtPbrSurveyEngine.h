@@ -364,6 +364,14 @@ public:
         uint64_t rrCancelledCount = 0;
         uint64_t rrInputRejectionCount = 0;
         bool rrLastReset = true;
+        uint64_t rrLatencyFrameId = 0;
+        uint64_t rrInputPolls = 0;
+        uint64_t rrOutputPolls = 0;
+        double rrInputWaitMs = 0;
+        double rrAdmittedWaitMs = 0;
+        double rrEvaluateCpuMs = 0;
+        double rrOutputWaitMs = 0;
+        double rrPacketMs = 0;
         Engine::PathTracingReconstructionPlan completedReconstructionPlan;
         uint64_t primarySamplesPerFrame = 0;
         uint64_t maxPathSegmentsPerFrame = 0;
@@ -1266,6 +1274,8 @@ private:
     uint32_t m_rrConversionSampleStartIndex = 0;
     Engine::PathTracingReconstructionInputs m_rrConversionInputs;
     std::unique_ptr<Engine::PathTracingRrLive> m_ptRrLive;
+    std::array<std::vector<Engine::InstanceData>, 2> m_rrInstancePoses;
+    std::array<uint64_t, 2> m_rrInstancePoseFrameIds = {};
 #endif
     ComPtr<ID3D12RootSignature> m_nrdReconstructionRootSignature;
     ComPtr<ID3D12PipelineState> m_nrdReconstructionPipeline;

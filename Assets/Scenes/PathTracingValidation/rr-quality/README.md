@@ -141,3 +141,108 @@ produced no reported stale geometry, shadows or reflections and restored normall
 Light changes, scalar-material changes and instance-count visibility changes are
 accepted for this scene/profile. Individual object translation/rotation, base-color
 editing and animated-object motion remain outside the confirmed coverage.
+
+## Object animation scenes (2026-11-01)
+
+Based on PR #111 Scene35's saved-scene `turntable` animation:
+- `Assets/Scenes/RrObjectRotation/scene.json`: textured helmet rotates around its own center at 30 degrees/s.
+- `Assets/Scenes/RrObjectTranslation/scene.json`: helmet moves left/right by 1.4 units with a six-second period,
+  with zero rotation. It reveals/occludes the bars and changes floor contact/occlusion and reflections.
+
+Both are opaque, use the same static camera/lighting and 4 spp frame-jitter preset.
+Pass either scene path to `-SceneFile` with the RR opt-in and continuous flags.
+The existing `turntable` schema now optionally accepts `translationAmplitude` (world-space)
+and `translationPeriodSeconds` (>0). Default amplitude is zero, preserving Scene35 behavior.
+The motion is sinusoidal and added after the pivot rotation; pause freezes phase and reset restarts it.
+
+Known limitation: current engine SetScene invalidates PT/RR history whenever instance transforms
+change. These scenes deliberately expose this limitation and are not recorded as RR animation
+acceptance. Check verified RR output progress, reset/cancellation counters, silhouettes,
+newly revealed pixels and reflected moving objects. Native fallback or reset-on-every-frame
+must not be mistaken for continuous RR support. Correct per-object motion across retained
+RR production frames is a separate implementation/validation task.
+
+Both appear in the Top Menu saved-scene list as RrObjectRotation and RrObjectTranslation.
+
+Playback: F1 > Material Controls > Play Animation (Pause Animation stops it).
+Saved scenes start paused, as in Scene35. Camera movement remains independent.
+
+Validation on 2026-11-01: Debug build passed; SceneDocument, SceneDocumentBuilder,
+SceneEditorSession, GltfNodeMesh and PathTracingRrHistory tests passed (5/5).
+Scene35's rotation test remains passing. New translation tests cover quarter-period
+amplitude, unchanged orientation, previous world transform, pause, reset, round-trip
+serialization and rejection of zero period. Both scenes loaded on the GPU without
+captured D3D12 ERROR/CORRUPTION and reached verified continuous RR while paused.
+These CLI captures did not start animation, so they do not qualify moving-object RR.
+Local evidence: build/reconstruction-input-validation/user-test-rr/object-motion-20261101/report.json.
+
+## VS2022 PT RR build support (2026-11-01)
+
+The normal RtPbrSurvey.vcxproj now enables RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+and compiles the live conversion and output-validation shaders in Debug and Release.
+Previously the CMake evaluation build enabled them but the VS project did not,
+so UI-selected PT RR reported not-built even when Streamline RR was available.
+Runtime native SDK evaluation still requires the explicit UI/CLI opt-in.
+
+Normal VS Debug x64 build passed (one vcpkg duplicate-import warning).
+GPU smoke using bin/x64/Debug/RtPbrSurvey.exe passed: verified RR output,
+16 completed evaluations, 15 continuous transitions, reset count 1, no captured
+D3D12 ERROR/CORRUPTION. The object rotation scene remained paused for this check;
+animated-object RR remains unvalidated. Evidence is local under
+build/reconstruction-input-validation/user-test-rr/vs-debug-rr-20261101/.
+
+## Initial RR opaque-object pose support (2026-11-01)
+
+Same-mesh/count/material instance pose changes may preserve continuous RR history
+when camera projection and supported surface conditions match. Geometry replacement,
+material/visibility changes retain the existing reset paths. Native accumulation
+still resets on moving poses. The two RR output slots each retain their producing
+instance poses; uploaded previous-world matrices reference the last verified published
+RR packet, not the immediately previous display frame. First/reset packets use current poses.
+Emitter-table updates preserve RR only while emissive lighting is disabled; moving
+emissive-object support is not claimed.
+
+A first build/run exposed a second reset in emitter-table refresh; the first run
+was stopped and is not passing evidence. After fixing that path, normal VS Debug
+built successfully. Computer Use started actual rotation with Space during a
+2000-loop run. Final counters: completed 612, continuous 611, resets 1, cancelled 0,
+verified RR output, no captured D3D12 ERROR/CORRUPTION. Rotating helmet was observed
+with denoised output after the fix. Evidence:
+build/reconstruction-input-validation/user-test-rr/moving-fix-rotation-v2/report.json.
+This is an initial rotation smoke check, not full animation quality acceptance.
+Translation, numerical per-object motion reprojection, pause/resume and full
+camera/backend/resize regression remain pending.
+
+## Object motion numerical and pause/resume validation (2026-11-01)
+
+Added `Tests/PathTracing/validate_rr_object_motion.py`. The existing lifecycle CLI
+selects an object-animation validation path when the input document has turntable
+settings. It drives a fixed 1/60 second timestep, starts animation, pins a verified
+moving packet, captures RR motion and primary position, checks paused output stays
+fixed, then resumes and verifies continuous evaluation. Single-instance retained
+metadata records actual current/previous object matrices for that same packet.
+The numerical fixture keeps only the opaque helmet, so every surface pixel maps
+to one known animated instance; the original full scenes remain unchanged.
+
+VS Debug build succeeded. Rotation and translation both passed all five checkpoints
+(static/moving/captured/paused/resumed), with 19 completed evaluations, reset count 1,
+cancelled 0, no rejected inputs and no captured D3D12 ERROR/CORRUPTION.
+GPU motion was compared to world-position -> current-object inverse -> previous-object
+world -> previous-camera projection, against current unjittered projection.
+Max UV error: rotation 1.93070e-6; translation 3.81582e-6 (RG16F source quantization).
+The initial checker divided background zero-w coordinates before masking; subsequent
+checker code restricts projection to surface pixels to avoid irrelevant warnings.
+Evidence: build/reconstruction-input-validation/user-test-rr/object-numeric-20261101/report.json.
+Multi-object image quality, moving reflections/disocclusion quality and full camera,
+backend, resize regression still require evaluation; this is not final RR acceptance.
+
+User visual acceptance on 2026-11-01: the full RrObjectRotation scene passed
+all four checks with the corrected RR build and a fixed camera: no return of
+strong full-frame noise during rotation, no reported silhouette trails/doubling,
+no problematic delayed/broken helmet reflection in the copper sphere, and no
+persistent trails after stopping animation. This acceptance covers rotation;
+full-scene translation visual acceptance is still pending.
+
+Automated full-scene rotation/translation, stationary-background correction and
+camera/backend/resize regression results are recorded in
+`doc/rr-automated-evaluation-20261101.md`. User subjective evaluation remains on hold.
