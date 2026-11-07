@@ -272,15 +272,17 @@ void TestSolidVolumeImport()
     } cleanup{path, binary};
     const float positions[] = {0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1};
     const uint16_t indices[] = {0, 2, 1, 0, 1, 3, 0, 3, 2, 1, 2, 3};
+    const float volumeUvs[] = {0, 0, 1, 0, 0, 1, 1, 1};
     {
         std::ofstream output(binary, std::ios::binary);
         output.write(reinterpret_cast<const char*>(positions), sizeof(positions));
         output.write(reinterpret_cast<const char*>(indices), sizeof(indices));
+        output.write(reinterpret_cast<const char*>(volumeUvs), sizeof(volumeUvs));
     }
     Json document = {
         {"asset", {{"version", "2.0"}}}, {"scene", 0}, {"scenes", {{{"nodes", {0}}}}},
         {"nodes", {{{"name", "Solid"}, {"mesh", 0}}}},
-        {"buffers", {{{"uri", binary.filename().string()}, {"byteLength", 72}}}},
+        {"buffers", {{{"uri", binary.filename().string()}, {"byteLength", 104}}}},
         {"bufferViews", {{{"buffer", 0}, {"byteOffset", 0}, {"byteLength", 48}},
                           {{"buffer", 0}, {"byteOffset", 48}, {"byteLength", 24}}}},
         {"accessors", {{{"bufferView", 0}, {"componentType", 5126}, {"count", 4}, {"type", "VEC3"}},
@@ -314,6 +316,33 @@ void TestSolidVolumeImport()
             "Rough solid must preserve roughness and solid medium identity.");
     }
     document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = 0;
+    {
+        const Json smoothDocument = document;
+        std::ifstream textureInput(FixturePath().parent_path() / "surface-transforms.gltf");
+        Json textureSource;
+        textureInput >> textureSource;
+        document["images"] = textureSource["images"];
+        document["textures"] = textureSource["textures"];
+        document["bufferViews"].push_back({{"buffer", 0}, {"byteOffset", 72}, {"byteLength", 32}});
+        document["accessors"].push_back({{"bufferView", 2}, {"componentType", 5126}, {"count", 4}, {"type", "VEC2"}});
+        document["meshes"][0]["primitives"][0]["attributes"]["TEXCOORD_0"] = 2;
+        auto& pbr = document["materials"][0]["pbrMetallicRoughness"];
+        pbr["roughnessFactor"] = 0.7;
+        pbr["metallicRoughnessTexture"] = {{"index", 0}};
+        const auto texturedSolid = load();
+        Require(static_cast<bool>(texturedSolid), "UV-mapped convex textured Volume must load.");
+        Engine::SceneBuilder texturedBuilder;
+        const auto texturedMesh = texturedBuilder.AddGltfNodeMesh(texturedSolid.asset, "Solid");
+        Require(static_cast<bool>(texturedMesh), "Textured convex Volume must convert.");
+        const auto& texturedMaterial = texturedBuilder.GetMesh().materials[0];
+        Require(texturedMaterial.volumeTransmission && texturedMaterial.importedVolumeTransmission &&
+                    texturedMaterial.metallicRoughnessTexIndex == 0 && texturedMaterial.metallicFactor == 0 &&
+                    NearlyEqual(texturedMaterial.roughnessFactor, 0.7f),
+                "Solid texture, scalar roughness and zero metallic must survive conversion.");
+        document["meshes"][0]["primitives"][0]["attributes"].erase("TEXCOORD_0");
+        Require(!load(), "Textured Volume without UVs must fail.");
+        document = smoothDocument;
+    }
     for (double invalidRoughness : {-0.1, 1.1})
     {
         document["materials"][0]["pbrMetallicRoughness"]["roughnessFactor"] = invalidRoughness;
@@ -923,6 +952,23 @@ void TestThinTransmissionImport()
     load(document, true, nullptr);
     document["materials"][0]["extensions"]["KHR_materials_volume"]["thicknessFactor"] = 1.0;
     load(document, false, "TransmissionMaterial");
+    document = baseline;
+    document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionTexture"] = {{"index", 0}};
+    {
+        Json solid = baseline;
+        auto& material = solid["materials"][0];
+        material["extensions"]["KHR_materials_transmission"] = {{"transmissionFactor", 1.0}};
+        material["extensions"]["KHR_materials_volume"] = {{"thicknessFactor", 1.0}};
+        material["pbrMetallicRoughness"] = {{"baseColorFactor", {1, 1, 1, 1}},
+            {"metallicFactor", 0.0}, {"roughnessFactor", 0.7}, {"metallicRoughnessTexture", {{"index", 0}}}};
+        document = solid;
+        load(document, false, "VolumeMesh");
+        document["materials"][0]["pbrMetallicRoughness"]["metallicFactor"] = 0.1;
+        load(document, false, "TransmissionMaterial");
+        document = solid;
+        document["materials"][0]["pbrMetallicRoughness"]["metallicRoughnessTexture"]["texCoord"] = 1;
+        load(document, false, "TransmissionMaterial");
+    }
     document = baseline;
     document["materials"][0]["extensions"]["KHR_materials_transmission"]["transmissionTexture"] = {{"index", 0}};
     document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"] = {{"index", 0}};

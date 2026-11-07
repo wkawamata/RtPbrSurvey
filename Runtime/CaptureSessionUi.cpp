@@ -110,7 +110,8 @@ namespace RtPbrSurvey
     }
 
     CaptureSessionUiAction CaptureSessionUi::Draw(const CaptureSessionStatus& status, CaptureSessionUiState& state,
-                                                  const char* startBlockedReason)
+                                                  const char* startBlockedReason,
+                                                  bool showSingleCapture, bool singleCaptureBlocked)
     {
         CaptureSessionUiAction action = CaptureSessionUiAction::None;
         const bool active = IsActive(status);
@@ -128,7 +129,22 @@ namespace RtPbrSurvey
             action = CaptureSessionUiAction::Start;
         }
         ImGui::EndDisabled();
-        ImGui::SameLine();
+        if (showSingleCapture)
+        {
+            ImGui::SameLine();
+            ImGui::BeginDisabled(active || singleCaptureBlocked);
+            if (ImGui::Button("Capture PNG"))
+            {
+                action = CaptureSessionUiAction::CapturePng;
+            }
+            ImGui::EndDisabled();
+        }
+        const float stopButtonWidth = ImGui::CalcTextSize("Stop Capture Session").x +
+                                      ImGui::GetStyle().FramePadding.x * 2.0f;
+        if (ImGui::GetContentRegionAvail().x >= stopButtonWidth + ImGui::GetStyle().ItemSpacing.x)
+        {
+            ImGui::SameLine();
+        }
         ImGui::BeginDisabled(!active);
         if (ImGui::Button("Stop Capture Session"))
         {
@@ -227,10 +243,15 @@ namespace RtPbrSurvey
             const std::string outputPath(outputPathUtf8.begin(), outputPathUtf8.end());
             ImGui::TextUnformatted("Last output:");
             ImGui::SameLine();
-            if (ImGui::Button("Copy path"))
+            if (ImGui::Button("Copy Location Path##session"))
             {
-                ImGui::SetClipboardText(outputPath.c_str());
-                state.message = "Last output path copied to clipboard.";
+                std::error_code error;
+                const std::filesystem::path absolutePath = std::filesystem::absolute(status.lastOutputPath, error);
+                const std::filesystem::path directory = (error ? status.lastOutputPath : absolutePath).parent_path();
+                const std::u8string locationUtf8 = directory.u8string();
+                const std::string location(locationUtf8.begin(), locationUtf8.end());
+                ImGui::SetClipboardText(location.c_str());
+                state.message = "Output location copied to clipboard.";
             }
             ImGui::TextWrapped("%s", outputPath.c_str());
         }

@@ -13,11 +13,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <ctime>
 #include <fcntl.h>
 #include <fstream>
+#include <iomanip>
 #include <io.h>
 #include <nlohmann/json.hpp>
 #include <share.h>
+#include <sstream>
 #include <stdexcept>
 #include <sys/stat.h>
 #include "RtPbrSurveyApp.h"
@@ -688,7 +691,8 @@ void RtPbrSurveyApp::UpdateSceneInteraction(float deltaTime)
 
     UpdateAutomatedCaptureCamera();
 
-    if (GetForegroundWindow() == Win32Application::GetHwnd())
+    if (GetForegroundWindow() == Win32Application::GetHwnd() &&
+        (!ImGui::GetCurrentContext() || !ImGui::GetIO().WantCaptureKeyboard))
     {
         const bool shiftDown = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
         const bool moveLeft = (GetAsyncKeyState('A') & 0x8000) != 0;
@@ -757,6 +761,10 @@ void RtPbrSurveyApp::OnKeyDown(UINT8 key)
         {
             RtPbrSurvey::CaptureSessionUi::CancelRegionSelection(m_captureSessionUiState);
         }
+        return;
+    }
+    if (ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureKeyboard)
+    {
         return;
     }
     if (m_appMode == AppMode::TopMenu && key == VK_ESCAPE)
@@ -1478,9 +1486,35 @@ void RtPbrSurveyApp::DrawCaptureSessionUi()
 {
     const RtPbrSurvey::CaptureSessionStatus& status = m_sceneRenderer.GetCaptureSessionStatus();
     std::string reason;
-    const bool canStart = CanStartCaptureSession(reason) && ValidateCaptureOrbitSettings(reason);
+    const bool canCapture = CanStartCaptureSession(reason);
+    const bool canStart = canCapture && ValidateCaptureOrbitSettings(reason);
     const RtPbrSurvey::CaptureSessionUiAction action =
-        RtPbrSurvey::CaptureSessionUi::Draw(status, m_captureSessionUiState, canStart ? nullptr : reason.c_str());
+        RtPbrSurvey::CaptureSessionUi::Draw(status, m_captureSessionUiState, canStart ? nullptr : reason.c_str(),
+                                           true, !canCapture);
+    if (action == RtPbrSurvey::CaptureSessionUiAction::CapturePng)
+    {
+        const std::time_t now = std::time(nullptr);
+        std::tm localTime = {};
+        localtime_s(&localTime, &now);
+        std::ostringstream filename;
+        filename << "RtPbrSurvey_" << std::put_time(&localTime, "%Y-%m-%d_%H%M%S") << ".png";
+        const std::filesystem::path path = std::filesystem::current_path() / "Screenshots" / filename.str();
+        m_sceneRenderer.RequestScreenshot({path});
+        m_screenshotLocation.clear();
+        m_screenshotStatus = "Capture requested: " + path.string();
+    }
+    if (!m_screenshotStatus.empty())
+    {
+        ImGui::TextWrapped("%s", m_screenshotStatus.c_str());
+    }
+    if (!m_screenshotLocation.empty() && ImGui::Button("Copy Location Path##screenshot"))
+    {
+        std::error_code error;
+        const std::filesystem::path absolutePath = std::filesystem::absolute(m_screenshotLocation, error);
+        const std::u8string locationUtf8 = (error ? m_screenshotLocation : absolutePath).u8string();
+        const std::string location(locationUtf8.begin(), locationUtf8.end());
+        ImGui::SetClipboardText(location.c_str());
+    }
     ImGui::BeginDisabled(RtPbrSurvey::CaptureSessionUi::IsActive(status));
     ImGui::SeparatorText("Camera track");
     if (ImGui::Checkbox("Orbit camera", &m_captureSessionOrbitEnabled) && m_captureSessionOrbitEnabled)
@@ -3847,6 +3881,15 @@ void RtPbrSurveyApp::UpdateUiFrame()
     if (m_appMode != AppMode::Running || m_debugUiVisible)
     {
         DrawDebugUi(m_sceneRenderer.GetUiFrameContext());
+        if (m_captureSessionWindowOpen && (m_appMode == AppMode::Running || m_appMode == AppMode::SceneEditorEdit))
+        {
+            ImGui::SetNextWindowSize(ImVec2(520, 650), ImGuiCond_FirstUseEver);
+            if (ImGui::Begin("Capture Session", &m_captureSessionWindowOpen))
+            {
+                DrawCaptureSessionUi();
+            }
+            ImGui::End();
+        }
     }
     m_sceneRenderer.DrawToolUi();
     if (m_appMode == AppMode::Running || m_appMode == AppMode::SceneEditorEdit)

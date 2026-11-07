@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <iostream>
 #include <stdexcept>
+#include <fstream>
+#include <nlohmann/json.hpp>
 
 namespace
 {
@@ -100,8 +102,22 @@ bool TestInstanceLayout()
 
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
+    if (argc == 3 && std::string(argv[1]) == "--export-sphere")
+    {
+        const auto mesh = Engine::Procedural::CreateSphereMesh(1.0f, 64, 128);
+        nlohmann::json positions = nlohmann::json::array();
+        for (const auto& vertex : mesh.vertices)
+        {
+            positions.push_back({vertex.position.x, vertex.position.y, vertex.position.z});
+        }
+        const nlohmann::json result = {{"radius", 1}, {"stacks", 64}, {"slices", 128},
+            {"positions", positions}, {"indices", mesh.indices}};
+        std::ofstream output(argv[2], std::ios::binary);
+        output << result.dump();
+        return output.good() ? 0 : 1;
+    }
     if (!TestCylinderTopology() || !TestCubeAndCylinderInstances() || !TestLegacyCompositeCompatibility() ||
         !TestValidation() || !TestInstanceLayout())
     {

@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "volume-observation-prism",
+  "name": "PT Volume Observation Prism",
+  "renderPreset": "render-preset.json",
+  "description": "目的: 形状ごとの反射・屈折を同一条件で比較。初期IOR=1.5、粗さ0、吸収なし。\n背面の色帯は屈折像、左右の色帯パネルは反射像の識別用。\n確認: IOR=1で形状が消える。IOR=1.5へ戻し、像のずれ・変形を観察。\n次に粗さを増やしてぼけを確認。InfiniteをOFFにして吸収色・距離を確認。\n単一Volumeの比較用。色付き透過影・コースティクス・複合媒体の受入試験ではない。",
+  "assets": [
+    {
+      "id": "target",
+      "type": "gltf",
+      "path": "../36-volume-observation-sphere/color-target.gltf"
+    },
+    {
+      "id": "solid",
+      "type": "gltf",
+      "path": "volume.gltf"
+    }
+  ],
+  "materials": [],
+  "nodes": [
+    {
+      "id": "solid",
+      "name": "Glass prism",
+      "type": "gltf",
+      "assetId": "solid",
+      "parentId": null,
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true
+    },
+    {
+      "id": "Back-target",
+      "name": "Back target",
+      "type": "gltf",
+      "assetId": "target",
+      "parentId": null,
+      "translation": [
+        0,
+        0,
+        3
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true
+    },
+    {
+      "id": "Left-reflection",
+      "name": "Left reflection",
+      "type": "gltf",
+      "assetId": "target",
+      "parentId": null,
+      "translation": [
+        -3,
+        0,
+        -1
+      ],
+      "rotation": [
+        0,
+        0.7071067811865476,
+        0,
+        0.7071067811865476
+      ],
+      "scale": [
+        0.6,
+        0.8,
+        1
+      ],
+      "visible": true
+    },
+    {
+      "id": "Right-reflection",
+      "name": "Right reflection",
+      "type": "gltf",
+      "assetId": "target",
+      "parentId": null,
+      "translation": [
+        3,
+        0,
+        -1
+      ],
+      "rotation": [
+        0,
+        -0.7071067811865476,
+        0,
+        0.7071067811865476
+      ],
+      "scale": [
+        0.6,
+        0.8,
+        1
+      ],
+      "visible": true
+    }
+  ],
+  "camera": {
+    "position": [
+      2.8,
+      1.5,
+      -6
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 40,
+    "orthographicHeight": 10,
+    "nearZ": 0.1,
+    "farZ": 1000
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      1,
+      1
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  }
+}

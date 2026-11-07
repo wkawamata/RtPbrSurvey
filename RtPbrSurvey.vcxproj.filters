@@ -183,6 +183,9 @@
     <ClInclude Include="Renderer\RayQueryShadowPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\DiffuseEnvironmentVisibilityPass.h">
+      <Filter>Source Files\Renderer</Filter>
+    </ClInclude>
     <ClInclude Include="Renderer\SpecularDebugRayQueryPass.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
@@ -400,6 +403,9 @@
     <ClInclude Include="Shared\Screenshot.h">
       <Filter>Source Files\Shared</Filter>
     </ClInclude>
+    <ClInclude Include="Shared\DiffuseEnvironmentVisibility.h">
+      <Filter>Source Files\Shared</Filter>
+    </ClInclude>
     <ClInclude Include="Shared\Error.h">
       <Filter>Source Files\Shared</Filter>
     </ClInclude>
@@ -538,6 +544,9 @@
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\RayQueryShadowPass.cpp">
+      <Filter>Source Files\Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\DiffuseEnvironmentVisibilityPass.cpp">
       <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\SpecularDebugRayQueryPass.cpp">
@@ -711,6 +720,12 @@
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_RayQueryShadow.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_DiffuseEnvironmentVisibility.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_DiffuseEnvironmentVisibilityDebug.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="Shaders\shaders_HybridReflection.hlsl">

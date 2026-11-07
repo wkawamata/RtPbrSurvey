@@ -60,6 +60,7 @@ namespace RtPbrSurvey
         void DrawToolUi();
         UiFrameContext GetUiFrameContext() const;
         float CpuFrameTimeMs() const;
+        const RendererCpuTiming& CpuFrameTiming() const;
         Engine::RenderGraphDocument CaptureRenderGraphDocument() const;
         const Engine::DebugResourceViewRegistry& GetDebugResourceViewRegistry() const;
         const std::vector<Engine::RenderGraphBarrierEvent>& GetRenderGraphBarrierEvents() const;
@@ -72,6 +73,11 @@ namespace RtPbrSurvey
         const RtPbrSurveyEngine::LightingParams& GetLightingParams() const;
         void SetShadowSettings(const RtPbrSurveyEngine::ShadowSettings& settings);
         const RtPbrSurveyEngine::ShadowSettings& GetShadowSettings() const;
+        // Invalid/nonfinite settings throw std::invalid_argument without replacing the current settings.
+        void SetDiffuseEnvironmentVisibilitySettings(const DiffuseEnvironmentVisibilitySettings& settings);
+        const DiffuseEnvironmentVisibilitySettings& GetDiffuseEnvironmentVisibilitySettings() const;
+        bool IsDiffuseEnvironmentVisibilityActive() const;
+        const char* GetDiffuseEnvironmentVisibilityStatus() const;
         void SetTemporalUpscalerSettings(const Engine::TemporalUpscalerSettings& settings);
         const Engine::TemporalUpscalerSettings& GetTemporalUpscalerSettings() const;
         void SetRayReconstructionSettings(const Engine::RayReconstructionSettings& settings);

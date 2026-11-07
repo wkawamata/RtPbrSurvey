@@ -350,3 +350,422 @@ sampleStartIndex=1を参照するよう修正。失敗記録は保持し、新�
 これは中央ROIの光路比較であり、放射輝度画像全体、全姿勢、全IOR/粗さや、
 ユーザーが停止した姿勢・設定を直接再現した試験ではない。レンダラーの変更は未実施。
 ユーザー設定の確認と、必要ならIOR=1/粗さ0/吸収なしの直進透過対照から再現を続ける。
+
+## Material Controlsのユーザー受入結果
+
+確認日: 2026-11-01。シーン35でのMaterial ControlsへのIOR・吸収色・吸収距離の
+追加は、ユーザーが動作確認し、成功として受入済み。シーン35での評価はここで区切る。
+
+- [x] Roughness=0、Infinite ONでIORを1にすると四面体が完全に見えなくなる。
+  空気と媒体のIORが一致する直進透過の対照は、期待どおりの表示になった。
+- [x] IOR=1.43、吸収色GUI表示RGB=(64,128,204)、吸収距離0.8、Infinite OFFで
+  青い着色を確認。Infinite ONにすると青い着色が消え、断片状の模様は残った。
+- [x] Animation停止後の観察であり、回転中だけの現象ではないことを確認。
+- [x] AccumulateはONで、蓄積によって粒状ノイズが減ることをユーザーが確認。
+
+受入範囲は材質パラメータの調整とその表示上の反応。吸収色GUIの0～255表示は、
+内部の0～1の透過残存率に対応する。Infinite ONは色によらず内部吸収なしとする。
+これらの確認は、全パラメータ範囲の数値精度や、設定保存、GUIの全操作を保証しない。
+
+反射・屈折で生じる断片状の像については、この四面体と格子背景では評価が難しい。
+正常とも不具合とも断定せず、反射・屈折像全体の正しさは未解決の確認事項として残す。
+IOR=1の対照と吸収切替の成功を、画像全体の正しさの証明には使わない。
+
+次は球・厚板・プリズムをそれぞれ単独Volumeとして、同条件で比較できる評価シーンを
+用意する。色付き背景と反射用の明暗パネルで像を識別しやすくし、その後にIOR・
+入射角・厚さ・バウンス上限を含む独立基準との照合を拡張する。
+
+## Step 2: 観察用の球・厚板・プリズム
+
+2026-11-01: 以下の単一Volume評価シーンを追加。Saved Scenes/Scene Editorから選択する。
+
+- 36 `PT Volume Observation Sphere`: 球。像の湾曲・反転、輪郭付近の反射を見る。
+- 37 `PT Volume Observation Slab`: 厚さ0.7の平行平板。色帯の横ずれと端面を比較する。
+- 38 `PT Volume Observation Prism`: 閉じた凸三角柱のglTF。面ごとの像の方向変化を見る。
+
+全てIOR=1.5、roughness=0、吸収距離無限、同じカメラ/露出/16バウンスで開始。
+背面に色帯ターゲット、左右に反射像識別用の色帯パネルを配置する。
+同じ色帯glTFを共有するが、render-preset.jsonは各シーンに分離し、Saveが他シーンへ
+波及しないようにする。形状は比較のため切り替え、同時に複数Volumeを配置しない。
+
+確認順序:
+1. IOR=1で背景の色帯が連続して見えること。
+2. IOR=1.5へ戻し、像のずれ/湾曲/方向変化と側面パネルの像を観察。
+3. Roughnessを増やし、像のぼけを比較。
+4. Infinite OFFで、同じ吸収色/距離による着色を比較。
+5. 静止して蓄積を進め、ノイズと持続する模様を分ける。
+
+再生成スクリプト: `Tests/PathTracing/volume_observation_fixture.py`。
+このスクリプトは対象の3シーンと共有ターゲットを上書きするため、編集済みAssetsへ
+無条件に再実行しない。生成したscene/preset/glTFはGit管理用の評価Assetsであり、
+キャプチャやログとは区別する。
+
+新規シーンのロード/配置ガードを含むCTest55/55合格。各シーン64サンプルのPNG出力は
+終了コード0、D3D12エラーなし。画像を確認し、3形状の像の違いが見えることを確認した。
+証拠: `bin/PathTracingValidation/volume-observation-20261101/`。
+ユーザー受入、独立基準との画像全体比較、全パラメータの正しさはまだ未判定。
+球は64 stacks/128 slicesの多面体近似であり、屈折像の段差を理想球の性質と混同しない。
+
+## Step 3: 光路比較のパラメータ拡張
+
+2026-11-01: `validate_smooth_volume_paths.py`へIOR、Y軸姿勢、一様スケール、
+バウンス上限を追加。四面体の独立な倍精度CPU光路とGPUの距離/状態/出射方向を照合する。
+姿勢60度は物体のY軸回転であり、面への入射角が60度であるという意味ではない。
+スケールは厚さを含む全寸法を変更する。平板の厚さだけを変える試験とは区別する。
+
+| 条件 | IOR | 姿勢 | スケール | 上限 | 打切り光路/1024 |
+| --- | --- | --- | --- | --- | --- |
+| matched-ior | 1 | 0 | 1 | 16 | 0 |
+| water-angle60 | 1.33 | 60 | 1 | 16 | 0 |
+| high-ior-half-scale | 2.4 | 0 | 0.5 | 16 | 3 |
+| thick-angle60-budget4 | 1.5 | 60 | 1.5 | 4 | 54 |
+
+全4条件・12キャプチャ合格。距離誤差は最大約5.01e-5（許容0.005）、状態/反射回数差0、
+出射方向誤差は最大約6.91e-6（許容0.002）。許容値は既存のものから緩和していない。
+打切りはCPU/GPUで一致し、境界見逃しや媒体不整合とは区別する。有限バウンスによる
+不足を含むため、この結果を収束済みの画像品質の合格とはしない。
+証拠: `bin/PathTracingValidation/volume-path-matrix-final-20261101/<条件>/report.json`。
+
+追加CPU単体試験4件は、IOR一致時の直進、独立な幾何距離とスケール、
+バウンス不足の状態、設定の不正値拒否を確認し合格。
+初回の実機試験では打切り本数のNumPy整数をJSONへ直接渡してレポート出力が失敗した。
+通常整数への変換を修正し、新規出力先で全件再実行済み。初回の
+`volume-path-matrix-20261101`の不完全なレポートは合格扱いにしない。
+
+今回の描画側変更はなし。Step 3全体としては、球/厚板/三角柱の独立光路や
+放射輝度画像の比較、エネルギー積分、ユーザー目視評価が引き続き必要。
+四面体の中央ROIの成功を、画面全体や全材質・全形状の正しさへ一般化しない。
+
+## Step 3: 厚板と三角柱の独立光路比較
+
+シーン37の厚板（半寸法1/0.9/0.35）とシーン38の三角柱をCPU参照へ追加。
+CPUはそれぞれ6/5個の解析的な境界平面との交差を解き、GPUの三角形交差実装は使わない。
+既存のIOR/姿勢/スケール/バウンス設定も形状別に指定可能とした。
+
+各IOR=1.5、roughness=0、姿勢0度、16バウンス、同一乱数サンプルで、中央1024画素の
+内部距離・状態/反射回数・出射方向を比較。2形状・6キャプチャ合格。
+
+| 形状 | 距離最大誤差 | 状態/反射回数差 | 方向最大誤差 | バウンス打切り |
+| --- | --- | --- | --- | --- |
+| 厚板 | 1.17e-6 | 0 | 2.30e-6 | 0/1024 |
+| 三角柱 | 1.12e-6 | 0 | 2.30e-6 | 0/1024 |
+
+許容値は距離0.005、状態0、方向0.002のまま。CPU単体試験は、IOR一致時の厚板の
+解析的距離と三角柱の軸方向距離を追加し、既存試験を含む6/6合格。
+証拠: `bin/PathTracingValidation/volume-shape-paths-20261101/{slab,prism}/report.json`。
+
+描画コードや材質モデルの修正はなし。球は64 stacks/128 slicesの実メッシュと
+理想球の差を扱う必要があるため、独立な光路比較は未実施。
+今回も中央ROI/固定条件の光路試験であり、画面全体の放射輝度やエネルギー保存、
+粗い境界、全姿勢・全材質の受入には一般化しない。
+
+## Step 3: 球の実メッシュとの光路比較
+
+`SceneBuilderMeshTests --export-sphere <path>`で、実際のC++球生成関数から
+半径1、64 stacks/128 slicesの8,385頂点・16,384三角形を書き出す診断オプションを追加。
+スナップショットは生成証拠としてbinに置き、Gitには含めない。
+CPUはこの頂点/インデックスを使うが、三角形交差は独立した倍精度実装を使う。
+理想球の解析的交差との比較ではなく、シーン36の実メッシュに対する比較である。
+同一頂点データの共有は意図的で、GPUと独立な形状生成まで保証する試験ではない。
+
+IOR=1/1.5、roughness=0、姿勢0度、16バウンス、各中央1024光路・3キャプチャ合格。
+
+| IOR | 距離最大誤差 | 状態/反射回数差 | 方向最大誤差 | 上限打切り |
+| --- | --- | --- | --- | --- |
+| 1 | 3.00e-6 | 0 | 2.30e-6 | 0/1024 |
+| 1.5 | 0.001096 | 0 | 0.000504 | 0/1024 |
+
+既存許容値（距離0.005、状態0、方向0.002）は変更していない。
+球の誤差は平面形状より大きく、完全一致や全入射角の精度保証とはしない。
+三角形交差/前面の除外/ミスの単体試験を追加し、Python8/8合格、CTest55/55合格。
+証拠: `bin/PathTracingValidation/sphere-path-reference-20261101/{snell,matched}/report.json`。
+各レポートは使用メッシュのSHA256も記録する。描画コードの変更はなし。
+
+これで球・厚板・プリズムの代表条件で光路を照合できた。画面全体の放射輝度、
+粗い境界のエネルギー評価、動作中の品質、ユーザーの目視受入は別途必要。
+
+## Boundary Energy Accounting
+
+The rough-volume GPU contract test now reports 28 cases of eta-normalized
+boundary throughput, macro-hemisphere rejection, and Smith masking loss.
+Transmission radiance weights are divided by (incidentIOR / transmittedIOR)^2
+before accounting; raw radiance throughput is not bounded by one on exit.
+Rejected events remain zero contributions and are not renormalized away.
+Each normalized sample must be in [0, 1] within 0.0002, and throughput plus
+rejection and masking loss must sum to one within 0.0002.
+Smooth and matched-IOR boundaries must have unit normalized throughput.
+
+This is deterministic accounting of the existing 1024 samples per case, not
+an independent hemispherical BSDF integral, a confidence interval, or a closed
+Volume white-furnace acceptance test. Single-scattering masking/rejection loss
+must not automatically be classified as an integration bug or compensated by
+renormalizing the sample weights. Whole-volume energy qualification remains open.
+
+2026-11-04: Debug CMake build passed. The WARP rough-volume test passed all
+28 cases / 28,672 samples with no D3D12 errors. Smooth and matched-IOR cases
+returned unit normalized throughput. At roughness=1, viewZ=0.1, air-to-glass,
+normalized throughput was 0.400539, rejection 0.0107422, masking loss 0.588719.
+These are finite deterministic-sample measurements, not converged integrals.
+Evidence: bin/PathTracingValidation/thin-gltf-build-20261024/Testing/Temporary/LastTest.log
+(generated, not tracked; later CTest runs may overwrite it).
+
+## User Observation Acceptance (2026-11-04)
+
+- Scene 36 sphere: curved color bands confirmed at IOR=1.5. Increasing
+  roughness from 0 to 0.2 and 0.5 progressively blurred the bands without
+  observed black gaps or abrupt brightness changes.
+- Scene 36 absorption: color (64, 128, 204), finite distances 1.0/0.5/0.2,
+  and Infinite switching were confirmed OK by the user.
+- Scene 37 slab: the requested matched-IOR continuity, refracted band offset,
+  and roughness sequence were confirmed OK by the user.
+- Scene 38 prism: the requested matched-IOR continuity, face-dependent band
+  displacement, and roughness sequence were confirmed without problems.
+
+The scene 36 matched-IOR disappearance was requested, but not separately
+reported in this session; do not treat the curved-band screenshot as proof
+of that control. Numerical matched-IOR path coverage is recorded above.
+This closes the requested basic visual walkthrough, not whole-image physical
+accuracy, rough-volume energy qualification, or all glTF material support.
+
+Regression: 52/55 CTest cases passed in the restricted run; the three
+file-save tests (EvaluationState, SceneDocument, RenderPresetStore) passed
+on rerun outside the filesystem restriction. No test thresholds were changed.
+
+## Independent Outgoing-Direction Integral (2026-11-05)
+
+Added double-precision midpoint integration over outgoing solid angle to the
+rough-boundary test. It does not call the GPU evaluator, VNDF sampler, or its
+PDF; it directly integrates the single-scattering dielectric BSDF times cosine.
+The physical BSDF equations are intentionally shared in meaning, so this is
+an independent integration path, not an independent material model.
+Transmission is eta-normalized as in the previous accounting test.
+
+Coverage: air-to-glass IOR 1.5, roughness 0.7/1.0, viewZ 1/0.8/0.6/0.1
+(eight cases). Integrals use uniform cosine/azimuth grids of 512x1024 and
+1024x2048 points per hemisphere. Required refinement difference <=0.003;
+GPU 1024-sample deterministic mean difference <=0.03. The latter is a finite
+sample regression allowance, not a statistical confidence interval or proof
+of unbiasedness. The unit-energy upper allowance is 0.003 for quadrature.
+
+Debug test target built successfully. WARP test passed all eight integral
+comparisons and the existing 28,672 sample contracts, with no D3D12 errors.
+Largest refinement difference was about 0.001184; largest GPU difference
+was about 0.003294. The initial 128/256 grids failed convergence; resolution
+was increased without changing the acceptance thresholds. No rendering code
+or sample-weight compensation was changed.
+
+This verifies selected broad lobes only. Low roughness, glass-to-air/TIR,
+all IORs, whole-Volume white furnace, and multiple-scattering compensation
+remain outside this acceptance. Next: whole-Volume furnace controls and
+bounce-budget convergence, distinguishing boundary-model loss from truncation.
+
+## Whole-Volume Furnace Controls (2026-11-05)
+
+Added validate_volume_furnace.py and four assessment unit tests. The runtime
+fixture contains only one white, nonabsorbing slab, with unit constant
+environment (no environment-map asset), no direct light, no Russian roulette,
+native reconstruction and Radiance output. Existing capture contracts now
+compare environmentEnabled against the requested preset instead of hardcoding
+false; existing environment-disabled fixtures retain the same requirement.
+
+Six cases captured at 16 accumulated samples, central 32x32 ROI:
+
+| IOR | Roughness | Bounces | RGB mean (same in each channel) |
+| --- | --- | --- | --- |
+| 1 | 0 | 4 | 1.0 |
+| 1 | 0.7 | 4 | 1.0 |
+| 1.5 | 0 | 4 | 0.998673 |
+| 1.5 | 0 | 16 | 1.0 |
+| 1.5 | 0.7 | 4 | 0.704255 |
+| 1.5 | 0.7 | 16 | 0.714193 |
+
+All six captures completed without D3D12 errors; assessment tests passed 4/4.
+Evidence: bin/PathTracingValidation/volume-furnace-radiance-20261105/report.json.
+Matched-IOR controls require unit radiance within 0.002. All ROI values must
+be finite and in [-0.0001,1.002]. Rough cases are measurements, not accepted
+against a unit-radiance target. The 16-sample result does not establish
+statistical or bounce-budget convergence; more samples and intermediate
+budgets plus status diagnostics are needed before assigning all residual loss
+to the boundary model. Whole-Volume qualification remains open.
+
+The initial volume-furnace-20261105 run accidentally used Albedo (output 0),
+not Radiance (3). Its unit values are invalid as furnace evidence, regardless
+of that initial report's status. All six were rerun with Radiance into the
+separate evidence folder above. No renderer fix or weight compensation was made.
+
+## Furnace Budget Sweep (2026-11-05)
+
+Extended the runner to budgets 4/8/16, explicit optional window dimensions,
+and complete-case budget summaries (missing/duplicate/nonfinite means rejected).
+Assessment unit tests: 5/5 passed. No rendering changes.
+Eight runtime cases passed at 256x256, 128 accumulated samples, with no D3D12
+errors. Window dimensions are checked against the captured image. The central
+32x32 ROI spans a different angular area than the earlier 1920x1080 captures;
+do not interpret differences across those runs as sample convergence.
+
+| Boundary | Budget 4 | Budget 8 | Budget 16 |
+| --- | --- | --- | --- |
+| Smooth, IOR 1.5 | 0.998604 | 1.0 | 1.0 |
+| Roughness 0.7, IOR 1.5 | 0.703604 | 0.712524 | 0.712582 |
+
+Both matched-IOR controls remained 1.0. Values are linear RGB means (all
+channels equal). Rough 8-to-16 improvement is about 0.0000577 versus residual
+from unit radiance about 0.287418. This supports a small finite-budget effect
+between these two budgets in this fixture, not a proof that all remaining
+loss is correct single-scattering masking. Rejected/budget/error path counts
+and a second sample budget are still needed to qualify that explanation.
+No confidence interval, all-angle convergence, or full white-furnace acceptance
+is claimed. Existing pass status deliberately says controls passed and finite
+budgets measured, not rough energy conservation passed.
+
+Evidence: bin/PathTracingValidation/volume-furnace-budgets-20261105/report.json
+(includes budgetComparison, per-case runtime/metadata, inputs and buffer hashes).
+
+## Furnace Status Assessment Preparation
+
+Added a separate single-path Volume Status assessor for the same central
+32x32 ROI. It counts normal (0), budget termination (3), and rough hemisphere
+rejection (7), rejecting all other status codes and nonfinite evidence.
+Two synthetic status tests plus the five furnace tests pass (7/7).
+This assessor must receive CurrentFrameRadiance with debugOutput=5, not an
+accumulated or denoised status image. It has not yet been connected to a
+new runtime diagnostic sweep, so no measured path counts or root-cause
+conclusion are claimed. Existing furnace evidence remains radiance-only.
+
+## Sparse Runtime Status Probes (2026-11-06)
+
+Connected the status assessor through validate_volume_furnace_status.py.
+The runner derives inputs from the completed furnace sweep, changes only
+debugOutput to 5, and captures CurrentFrameRadiance at sample indices 1/17
+for roughness 0.7, budgets 8/16, 256x256. Each ROI has 1024 paths.
+All four captures completed, without medium/boundary errors or D3D12 errors.
+At budget 8 the normal/rejected counts were 790/234 and 783/241, respectively;
+budget termination was zero at both indices. Budget 16 produced the same
+counts at both indices. No accumulated status image was used.
+
+Evidence: bin/PathTracingValidation/volume-furnace-status-20261106/report.json.
+These sparse probes support rough-boundary rejection as a contributor and
+show no truncation in the observed paths. They do not measure all 128 sample
+indices, explain the entire radiance deficit, or exclude errors elsewhere.
+Smith weighting also loses energy without setting rejection status.
+No rendering change or ad hoc renormalization was introduced.
+
+## Second Sample Budget (2026-11-06)
+
+Repeated all eight furnace cases at 256 samples with unchanged 256x256 inputs.
+All runtime contracts passed with no D3D12 errors. Added comparison tooling
+that checks binary/shader hashes, case completeness, input hashes and ROI;
+three comparison unit tests passed. Results are deterministic nested samples,
+not independent statistical trials or confidence intervals.
+
+Roughness 0.7 means at budgets 4/8/16 were 0.703597/0.712548/0.712613.
+The largest absolute 128-to-256 mean change across all cases was 0.0000310.
+Smooth budgets 8/16 and both matched-IOR controls remained 1.0.
+The persistent deficit is not explained by the observed finite sample or
+8-to-16 budget change. Sparse status probes and the single-boundary integral
+support single-scattering model loss as a contributor, but do not independently
+prove the entire closed-volume estimator correct. No weight compensation added.
+
+Evidence: bin/PathTracingValidation/volume-furnace-256spp-20261106/report.json
+and comparison.json. Next decision: retain/document the single-scattering
+quality limit or implement a separately validated microfacet multiple-scattering
+model. Do not normalize surviving samples to unit energy: that would change
+the BSDF and potentially bias reflection/transmission balance.
+
+## Decision: Retain Single-Scattering Quality Limit
+
+User approved recording this limitation and continuing to glTF material work.
+The rough Volume energy deficit is retained as a known quality limitation,
+not declared a fully proven absence of integration bugs. Multiple-scattering
+transport is a separate future theme. Existing tests and evidence remain as
+regression controls; no normalization, relaxed thresholds or renderer changes
+are introduced to hide the deficit. Whole-volume physical qualification stays
+open while the current representative visual acceptance remains valid.
+
+## Next Material Expansion: Inventory
+
+Code inspection of GltfLoader.cpp confirms that active solid Volume requires
+factor=1, IOR<=4, metallic=0, white baseColorFactor, OPAQUE coverage, no sampled
+base color/transmission/metallic-roughness textures, and no emission. Scalar
+roughness is allowed. Normal textures remain excluded for active transmission.
+These restrictions are not a statement that all corresponding thin-sheet
+features are missing; thin transmission already has separate texture support.
+
+Next implementation target: metallicRoughnessTexture G-channel roughness for
+solid Volume, reusing the existing texture sampling path while retaining
+dielectric metallic=0 and geometric boundary normals. Before lifting the
+loader guard, verify sampled B-channel metallic cannot silently activate a
+metallic Volume. Add accepted/rejected loader fixtures, factor-times-texture
+tests, and runtime smooth/rough spatial comparison. Do not enable partial
+transmission, tinted boundary base color, thickness textures, normal maps or
+additional media in the same change. This entry is a scoped plan, not a claim
+that Volume textures are already enabled.
+
+## Volume Roughness Texture: Initial Loader Change
+
+Removed only the metallicRoughnessTexture exclusion from the solid material
+guard. Metallic factor must remain zero; shader SceneRayQuery.hlsli already
+uses G*roughnessFactor and B*metallicFactor, preserving dielectric behavior.
+Existing TEXCOORD_0, texture-info and sampled-image validation remain active.
+No shader change. Loader regression passed after Debug build (GltfNodeMesh).
+Tests check textured material reaches the separate VolumeMesh shape guard,
+and reject nonzero metallic factor and TEXCOORD_1. The thin fixture is not a
+closed convex solid, so it cannot prove successful solid mesh conversion.
+An initial test incorrectly expected that fixture to load; corrected to retain
+the geometry guard. A valid textured convex fixture, material-index retention,
+factor/channel GPU comparisons and visual acceptance are still required.
+Do not treat this loader change alone as completed Volume texture support.
+
+## Valid Convex Textured Fixture
+
+Extended the closed tetrahedron loader fixture with four UV coordinates and
+an embedded PNG from the existing texture fixture. Successful asset loading
+and SceneBuilder conversion preserve Volume/imported-Volume identity,
+metallicRoughness texture index, roughnessFactor=0.7 and metallicFactor=0.
+Removing TEXCOORD_0 is rejected. Debug build and GltfNodeMesh regression pass.
+Fixture files are created temporarily by the C++ test and cleaned up; the
+test source is tracked. This establishes valid convex texture loading, not
+GPU factor/channel sampling accuracy or visual acceptance. Next: patterned
+G-channel inputs and scalar controls through Native PT radiance captures.
+
+## GPU Comparison Fixture Preparation
+
+Added volume_roughness_texture_fixture.py: derives the closed tetrahedron
+from scene 35, removes turntable/backgrounds, appends UVs to its embedded
+buffer, and emits a constant RGBA=(32,128,255,0) texture with factor=0.7.
+The paired scalar fixture uses roughness=0.7*128/255. Both use metallic=0.
+Output is VolumeOutgoingDirection (6) for a deterministic path comparison;
+this initial pair is constant-texture, not yet spatial-pattern acceptance.
+Generation and buffer/UV/scalar-control checks passed. Captures have not yet
+been executed with a rebuilt application; no GPU equality claim is made.
+
+## Constant Texture GPU Comparison
+
+Rebuilt Debug application successfully (0 errors, 4 warnings). Added
+validate_volume_roughness_texture.py with three deterministic captures:
+texture G=128 times factor 0.7, equivalent scalar 0.7*128/255, and smooth
+scalar zero. Compares finite full images within 0.002, requires nonzero
+direction coverage, and requires a difference from the smooth control.
+Two assessment unit tests passed. Runtime report completed successfully,
+with no D3D12 errors. This validates a constant texture/channel-factor case,
+not spatial interpolation, seams, all UVs or a full-image radiance result.
+Evidence: bin/PathTracingValidation/volume-roughness-texture-gpu-20261106/report.json.
+Next: patterned G texture and UV-dependent spatial controls before declaring
+Volume roughness-texture support complete.
+
+## Patterned G and UV Probes (2026-11-07)
+
+Extended the fixture to a two-region G pattern (16/240), alternate R/B/A
+channels, and horizontally mirrored UVs. Three Native PT captures completed
+without D3D12 errors. Keeping G unchanged while changing R/B/A produced
+exactly identical outgoing-direction images (maximum difference 0).
+Mirroring UVs changed 11,295 pixels above a 0.01 direction-image threshold;
+minimum required coverage was 128 pixels.
+Evidence: bin/PathTracingValidation/volume-roughness-pattern-20261107/report.json.
+
+Together with the constant-G/scalar comparison, these probes establish basic
+G-channel/factor use and UV-dependent paths for the selected convex fixture.
+They are not an independent per-pixel interpolation reference or validation
+of seams, all UVs, normal maps, other Volume textures, or full radiance quality.
+Next: a saved visual review scene and user acceptance of patterned roughness,
+then consolidate the scoped Volume roughness texture change for PR.

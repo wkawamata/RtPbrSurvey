@@ -149,6 +149,11 @@ void RtPbrSurveyEngine::AddSceneRenderPasses()
         if (m_renderingPath == RenderingPath::Deferred && m_rayTracingSupport.IsSupported())
         {
             AddPass(MakeRayQueryShadowPass());
+            if (m_debugViewSettings.renderViewMode == RenderViewMode::DiffuseEnvironmentVisibility ||
+                IsDiffuseEnvironmentVisibilityActive())
+            {
+                AddPass(MakeDiffuseEnvironmentVisibilityPass());
+            }
             if (m_hybridReflectionSettings.enabled)
             {
                 AddPass(MakeHybridReflectionPass());
@@ -241,6 +246,11 @@ void RtPbrSurveyEngine::AddDeferredSceneOutputPass()
          m_debugViewSettings.renderViewMode == RenderViewMode::ReflectionContributionStrength))
     {
         AddPass(MakeReflectionRayHitDebugPass());
+    }
+    else if (m_debugViewSettings.renderViewMode == RenderViewMode::DiffuseEnvironmentVisibility &&
+             m_rayTracingSupport.IsSupported())
+    {
+        AddPass(MakeDiffuseEnvironmentVisibilityDebugPass());
     }
     else if (m_debugViewSettings.renderViewMode == RenderViewMode::ShadowMask ||
         m_debugViewSettings.renderViewMode == RenderViewMode::TlasDebug)
@@ -846,6 +856,31 @@ auto RtPbrSurveyEngine::MakeRayQueryShadowPass() -> RenderPass
         .Build();
 }
 
+auto RtPbrSurveyEngine::MakeDiffuseEnvironmentVisibilityPass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"DiffuseEnvironmentVisibility")
+        .Reads({{kDepthStencilResourceName, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE},
+                {kGBufferResourceNames[Engine::GBuffer::Normal], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE},
+                {kSceneTlasResourceName, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE}})
+        .Writes({{kDiffuseEnvironmentVisibilityResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
+        .Operation("DiffuseEnvironmentVisibility", &RtPbrSurveyEngine::ExecuteDiffuseEnvironmentVisibilityPass)
+        .Build();
+}
+
+auto RtPbrSurveyEngine::MakeDiffuseEnvironmentVisibilityDebugPass() -> RenderPass
+{
+    return m_renderGraphRuntime.Authoring()
+        .CreatePass(L"DiffuseEnvironmentVisibilityDebug")
+        .Pipeline(Pipe::DiffuseEnvironmentVisibilityDebug)
+        .Reads({{kDiffuseEnvironmentVisibilityResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE}})
+        .Writes({{kLightPassRenderTargetResourceName, D3D12_RESOURCE_STATE_RENDER_TARGET}})
+        .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::DiffuseEnvironmentVisibilitySrv)
+        .Rtv(RtvName::LightPass)
+        .Operation(Op::ShadowMaskDebug, &RtPbrSurveyEngine::ExecuteShadowMaskDebugPass)
+        .Build();
+}
+
 auto RtPbrSurveyEngine::MakeSpecularDebugRayQueryPass() -> RenderPass
 {
     return m_renderGraphRuntime.Authoring()
@@ -868,6 +903,10 @@ auto RtPbrSurveyEngine::MakeRayQueryTlasDebugPass() -> RenderPass
 auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
 {
     ResourceUsages reads = MakeGBufferReadUsages();
+    if (IsDiffuseEnvironmentVisibilityActive())
+    {
+        reads.push_back({kDiffuseEnvironmentVisibilityResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+    }
     reads.push_back({kMaterialBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
     if (m_rayTracingSupport.IsSupported())
     {
@@ -908,6 +947,7 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
         .Descriptor(RootSignatureLayout::CameraConstants, Desc::CameraCbv)
         .Descriptor(RootSignatureLayout::LightConstants, Desc::LightCbv)
         .Descriptor(RootSignatureLayout::ToneMapSceneColor, Desc::ShadowMaskSrv)
+        .Constants(RootSignatureLayout::ToneMapConstants, "DiffuseEnvironmentVisibilityStrength")
         .Rtv(RtvName::LightPass)
         .Operation(Op::Lighting, &RtPbrSurveyEngine::ExecuteLightingPass);
 

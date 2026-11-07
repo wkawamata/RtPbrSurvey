@@ -116,6 +116,9 @@ const char* RenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
             return "Ray query shadow mask. Darker pixels receive less direct light.";
         case RenderViewMode::TlasDebug:
             return "TLAS ray query debug view for acceleration-structure hit inspection.";
+        case RenderViewMode::DiffuseEnvironmentVisibility:
+            return "Opaque-only cosine hemisphere visibility. Black=blocked, white=visible, magenta=unsupported.\n"
+                   "16 fixed rays, trace distance 10000 world units. Diagnostic only; lighting is unchanged.";
         case RenderViewMode::ReflectionRayMaterial:
             return "ReflectionRayMaterial payload: R=metallic, G=roughness, B=unlit flag at the hit point.";
         case RenderViewMode::ReflectionEvaluatedRadiance:
@@ -231,17 +234,6 @@ BuildRenderGraphGpuTimingSnapshot(const std::vector<MyDx12Util::GpuWorkMeter::Ch
         }
     }
     return snapshot;
-}
-
-std::filesystem::path MakeScreenshotPath()
-{
-    const std::time_t now = std::time(nullptr);
-    std::tm localTime = {};
-    localtime_s(&localTime, &now);
-
-    std::ostringstream filename;
-    filename << "RtPbrSurvey_" << std::put_time(&localTime, "%Y-%m-%d_%H%M%S") << ".png";
-    return std::filesystem::current_path() / "Screenshots" / filename.str();
 }
 
 void DrawRenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
@@ -394,6 +386,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     {
         if (const std::optional<RtPbrSurvey::ScreenshotResult> result = app.m_sceneRenderer.ConsumeScreenshotResult())
         {
+            app.m_screenshotLocation = result->succeeded ? result->path.parent_path() : std::filesystem::path{};
             app.m_screenshotStatus = result->succeeded ?
                 "Saved: " + result->path.string() :
                 "Capture failed: " + result->error;
@@ -466,37 +459,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     {
         ImGui::Checkbox("Open RenderGraph Window", &renderGraphWindowOpen);
         ImGui::Checkbox("Open Evaluation Cases Window", &evaluationCasesWindowOpen);
+        ImGui::Checkbox("Open Capture Session Window", &app.m_captureSessionWindowOpen);
         if (ImGui::Checkbox("Open Information Window", &debugUiPreferences.informationWindowVisible))
         {
             RtPbrSurvey::MarkDebugUiPreferencesDirty();
         }
-    }
-
-    if (ImGui::CollapsingHeader("Screenshot"))
-    {
-        std::string captureReason;
-        const bool canCapture = app.CanStartCaptureSession(captureReason);
-        ImGui::BeginDisabled(!canCapture);
-        if (ImGui::Button("Capture PNG"))
-        {
-            const std::filesystem::path path = MakeScreenshotPath();
-            app.m_sceneRenderer.RequestScreenshot({path});
-            app.m_screenshotStatus = "Capture requested: " + path.string();
-        }
-        ImGui::EndDisabled();
-        if (!canCapture)
-        {
-            ImGui::TextWrapped("%s", captureReason.c_str());
-        }
-        if (!app.m_screenshotStatus.empty())
-        {
-            ImGui::TextWrapped("%s", app.m_screenshotStatus.c_str());
-        }
-    }
-
-    if (ImGui::CollapsingHeader("Capture Session"))
-    {
-        app.DrawCaptureSessionUi();
     }
 
     if (ImGui::CollapsingHeader("WorkMeter"))
@@ -591,8 +558,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
     if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        RtPbrSurvey::DrawDirectLightControls(app.m_lightingParams);
+        RtPbrSurvey::DrawDirectLightControls(app.m_lightingParams,
+            app.m_renderingPath != RtPbrSurveyEngine::RenderingPath::PathTracing);
         ImGui::Checkbox("Emissive", &app.m_lightingParams.emissiveEnabled);
+    }
+    if (app.m_renderingPath != RenderingPath::PathTracing)
+    {
+        RtPbrSurvey::SceneRendererDebugUi::DrawDiffuseEnvironmentVisibility(app.m_sceneRenderer);
     }
     if (ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
     {
@@ -795,14 +767,21 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton("Reinhard", &app.m_toneMapParams.operatorIndex, 1);
         ImGui::SameLine();
         ImGui::RadioButton("ACES", &app.m_toneMapParams.operatorIndex, 2);
-        ImGuiWidgets::SliderFloatWithControls("Exposure", &app.m_toneMapParams.exposure, 0.0f, 4.0f, 0.1f, 1.0f);
+        ImGuiWidgets::SliderFloatWithControls("Exposure", &app.m_toneMapParams.exposure, 0.0f, 1000.0f, 0.1f, 1.0f);
         ImGuiWidgets::SliderFloatWithControls("Paper White", &app.m_toneMapParams.paperWhiteNits, 80.0f, 500.0f, 10.f,
                                               300.0f, "%.0f nits");
         ImGuiWidgets::SliderFloatWithControls("Display Max", &app.m_toneMapParams.maxDisplayNits, 100.0f, 4000.0f, 50.f,
                                               1000.0f, "%.0f nits");
     }
 
-    if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
+    if (app.m_renderingPath == RenderingPath::PathTracing)
+    {
+        if (ImGui::CollapsingHeader("Path Tracing Ray Settings", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            RtPbrSurvey::SceneRendererDebugUi::DrawPathTracingRaySettings(app.m_sceneRenderer);
+        }
+    }
+    else if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
     {
         auto shadowSettings = app.m_sceneRenderer.GetShadowSettings();
         bool changed = false;
@@ -1181,6 +1160,12 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             ImGui::RadioButton("Shadow Mask##RenderDebug", &renderViewMode, static_cast<int>(RenderViewMode::ShadowMask));
             ImGui::SameLine();
             ImGui::RadioButton("TLAS Debug##RenderDebug", &renderViewMode, static_cast<int>(RenderViewMode::TlasDebug));
+            ImGui::RadioButton("Diffuse Environment Visibility##RenderDebug", &renderViewMode,
+                static_cast<int>(RenderViewMode::DiffuseEnvironmentVisibility));
+            if (renderViewMode == static_cast<int>(RenderViewMode::DiffuseEnvironmentVisibility))
+            {
+                ImGui::TextUnformatted(app.m_sceneRenderer.EngineForDebugTools().GetDiffuseEnvironmentVisibilityStatus());
+            }
             const bool reflectionDebugEnabled = app.m_sceneRenderer.GetHybridReflectionSettings().enabled;
             ImGui::BeginDisabled(!reflectionDebugEnabled);
             ImGui::TextUnformatted("Reflection Debug:");
@@ -1227,6 +1212,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             }
             if (!context.rayTracingSupported &&
                 (app.m_renderViewMode == RenderViewMode::ShadowMask || app.m_renderViewMode == RenderViewMode::TlasDebug ||
+                 app.m_renderViewMode == RenderViewMode::DiffuseEnvironmentVisibility ||
                  app.m_renderViewMode == RenderViewMode::ReflectionRayHit ||
                  app.m_renderViewMode == RenderViewMode::ReflectionRayDistance ||
                  app.m_renderViewMode == RenderViewMode::ReflectionRayNormal ||
@@ -1684,7 +1670,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         drawHybridReflectionUi();
     }
 
-    if (ImGui::CollapsingHeader("Pixel Pick (Ctrl+Click)", ImGuiTreeNodeFlags_DefaultOpen))
+    if (app.m_renderingPath == RenderingPath::Deferred &&
+        ImGui::CollapsingHeader("Pixel Pick (Ctrl+Click)", ImGuiTreeNodeFlags_DefaultOpen))
     {
         const auto& pick = app.m_sceneRenderer.GetPixelPickResult();
         if (pick.valid)
@@ -1732,7 +1719,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
-    if (ImGui::CollapsingHeader("Specular Debug Lines", ImGuiTreeNodeFlags_DefaultOpen))
+    if (app.m_renderingPath != RenderingPath::PathTracing &&
+        ImGui::CollapsingHeader("Specular Debug Lines", ImGuiTreeNodeFlags_DefaultOpen))
     {
         auto debugLines = app.m_sceneRenderer.GetSpecularDebugLineSettings();
 

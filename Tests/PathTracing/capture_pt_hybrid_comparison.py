@@ -123,9 +123,9 @@ def make_pair(output, name, cornell_light="directional"):
     return scene
 
 
-def run(exe, folder, mode, samples, timeout):
+def run(exe, folder, mode, samples, timeout, size=(960, 540)):
     image, log = folder / "capture.png", folder / "debug.log"
-    command = [str(exe), "-SceneFile", str(folder / "scene.json"), "-WindowSize", "960", "540",
+    command = [str(exe), "-SceneFile", str(folder / "scene.json"), "-WindowSize", str(size[0]), str(size[1]),
                "-CapturePath", str(image), "-LogToFile", str(log), "-ExitAfterCapture"]
     command += (["-EnablePathTracing", "-PathTracingReconstruction", "native", "-PathTracingSamples", str(samples)]
                 if mode == "pt" else ["-CaptureAfterFrames", "120"])
@@ -151,7 +151,7 @@ def run(exe, folder, mode, samples, timeout):
     if mode == "hybrid" and ("effectivePath=1" not in text or states):
         raise ValueError("Hybrid rendering-path mismatch")
     with Image.open(image) as png:
-        if png.size != (960, 540):
+        if png.size != size:
             raise ValueError("Wrong capture dimensions")
     return dict(command=command, runtime=states, imageSha256=sha(image), logSha256=sha(log),
                 inputSha256={p.name: sha(p) for p in (folder / "scene.json", folder / "render-preset.json")})

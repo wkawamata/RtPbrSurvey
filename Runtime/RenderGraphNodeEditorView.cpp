@@ -1216,6 +1216,8 @@ struct RenderGraphNodeEditorView::Impl
     std::array<NodeEditor::EditorContext*, 2> contexts = {};
     std::array<std::unordered_set<uint64_t>, 2> positionedNodes;
     std::array<std::unordered_set<uint64_t>, 2> savedNodeIds;
+    std::array<bool, 2> initialFitPending = {true, true};
+    std::array<bool, 2> initialNodesSubmitted = {false, false};
     std::array<std::unordered_map<uint64_t, float>, 2> stableContentWidths;
     std::string metadataPath;
     IndexColorMap indexColors;
@@ -1580,6 +1582,10 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
 
     NodeEditor::SetCurrentEditor(m_impl->Context());
     NodeEditor::Begin("RenderGraphNodeEditor", ImVec2(0.0f, 0.0f));
+
+    const bool initialFit = m_impl->initialFitPending[m_impl->layoutMode] &&
+                            m_impl->initialNodesSubmitted[m_impl->layoutMode] &&
+                            contentSize.x > 0.0f && contentSize.y > 0.0f;
 
     std::vector<const Engine::RenderGraphDocumentNode*> layoutResources;
     for (const Engine::RenderGraphDocumentNode& node : document.nodes)
@@ -2103,14 +2109,22 @@ void RenderGraphNodeEditorView::Draw(const Engine::RenderGraphDocument& document
             m_impl->selectedNodeId.reset();
         }
     }
-    if (fitRequested || deferredFitRequested || isolateRelatedChanged || layoutChanged ||
+    if (fitRequested || deferredFitRequested || isolateRelatedChanged || layoutChanged || initialFit ||
         previousLayoutMode != m_impl->layoutMode)
     {
         NodeEditor::NavigateToContent(0.0f);
+        if (initialFit)
+        {
+            m_impl->initialFitPending[m_impl->layoutMode] = false;
+        }
     }
     else if (focusSelectedRequested)
     {
         NodeEditor::NavigateToSelection(false, 0.25f);
+    }
+    if (!document.nodes.empty() && contentSize.x > 0.0f && contentSize.y > 0.0f)
+    {
+        m_impl->initialNodesSubmitted[m_impl->layoutMode] = true;
     }
     NodeEditor::SetCurrentEditor(nullptr);
     ImGui::EndChild();
