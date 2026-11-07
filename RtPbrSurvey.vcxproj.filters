@@ -805,12 +805,12 @@
     <None Include="Shaders\RayReconstructionInputConversion.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>
-    <None Include="Shaders\shaders_PathTracingRrConversion.hlsl">
+    <CustomBuild Include="Shaders\shaders_PathTracingRrConversion.hlsl">
       <Filter>Assets\Shaders</Filter>
-    </None>
-    <None Include="Shaders\shaders_PathTracingRrValidation.hlsl">
+    </CustomBuild>
+    <CustomBuild Include="Shaders\shaders_PathTracingRrValidation.hlsl">
       <Filter>Assets\Shaders</Filter>
-    </None>
+    </CustomBuild>
     <None Include="Shaders\ReflectionSampling.hlsli">
       <Filter>Assets\Shaders</Filter>
     </None>

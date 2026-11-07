@@ -11,10 +11,13 @@
 
 ## Dynamic objects
 
-- [ ] Add opaque translation/rotation RR scenes using the Scene35 animation mechanism.
+- [x] Add opaque translation/rotation RR scenes using the Scene35 animation mechanism.
+  Saved scenes: Assets/Scenes/RrObjectRotation and Assets/Scenes/RrObjectTranslation.
 - [ ] Verify object-motion input and history behavior independently of camera motion.
 - [ ] Record whether animation resets history or supports continuous temporal reuse.
   A stable image obtained by resetting every animation frame is not proof of correct
   object motion vectors or continuous RR history.
 
 Static RR scene and user acceptance records: Assets/Scenes/PathTracingValidation/rr-quality/README.md.
+
+The new scenes are test inputs, not a claim that moving-object RR support is complete.

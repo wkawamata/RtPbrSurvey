@@ -37,6 +37,7 @@ cbuffer ConversionFrame : register(b0)
     uint actualContinuation;
     row_major float4x4 previousViewProjection;
     float2 jitterNdc;
+    uint stationaryCamera;
 #endif
 };
 
@@ -86,7 +87,7 @@ cbuffer ConversionFrame : register(b0)
             // shared raw background guides used by Native/NRD.
             const float4 previousSky = mul(float4(-view, 0), previousViewProjection);
             motion = inverseViewProjection[2][3] != 0 && previousSky.w > 1e-6 && all(isfinite(previousSky))
-                         ? previousSky.xy / previousSky.w - ndc + jitterNdc
+                         ? (stationaryCamera != 0 ? float2(0, 0) : previousSky.xy / previousSky.w - ndc + jitterNdc)
                          : float2(asfloat(0x7fc00000), asfloat(0x7fc00000));
         }
         converted = ConvertRrLiveInputs(g_frameRadiance[pixel].xyz,

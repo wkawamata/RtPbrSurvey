@@ -2432,6 +2432,20 @@ void RtPbrSurveyApp::LogFpsToFile(float cpuFrameTimeMs)
             static_cast<unsigned long long>(m_fpsLogFrameCounter), fps, cpuFrameTimeMs);
     // These timestamps belong to the latest completed GPU frame, not the CPU frame above.
     const RtPbrSurveyEngine::UiFrameContext context = m_sceneRenderer.GetUiFrameContext();
+    const double wallSeconds = std::chrono::duration<double>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    fprintf(m_logFile, "[PT Progress] frame=%llu wall=%.9f sampleIndex=%u rrCompleted=%llu rrResets=%llu\n",
+            static_cast<unsigned long long>(m_fpsLogFrameCounter), wallSeconds,
+            context.pathTracingRuntimeState.frameSampleIndex,
+            static_cast<unsigned long long>(context.pathTracingDiagnostics.rrCompletedCount),
+            static_cast<unsigned long long>(context.pathTracingDiagnostics.rrResetCount));
+    const auto& rr = context.pathTracingDiagnostics;
+    fprintf(m_logFile, "[RR Packet] completed=%llu frameId=%llu inputPolls=%llu outputPolls=%llu inputWaitMs=%.6f admittedWaitMs=%.6f evaluateCpuMs=%.6f outputWaitMs=%.6f totalMs=%.6f\n",
+            static_cast<unsigned long long>(rr.rrCompletedCount),
+            static_cast<unsigned long long>(rr.rrLatencyFrameId),
+            static_cast<unsigned long long>(rr.rrInputPolls),
+            static_cast<unsigned long long>(rr.rrOutputPolls),
+            rr.rrInputWaitMs, rr.rrAdmittedWaitMs, rr.rrEvaluateCpuMs, rr.rrOutputWaitMs, rr.rrPacketMs);
     const auto& checkPoints = context.gpuCheckPoints;
     if (checkPoints.size() >= 2)
     {
