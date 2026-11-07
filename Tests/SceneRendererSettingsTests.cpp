@@ -19,6 +19,29 @@ bool Check(bool condition, const char* message)
     return condition;
 }
 
+bool TestLightingSwitchRoundTrip()
+{
+    bool passed = true;
+    for (bool enabled : {false, true})
+    {
+        RtPbrSurvey::SceneRendererSettings source;
+        source.lighting.diffuseIblEnabled = enabled;
+        source.lighting.specularIblEnabled = !enabled;
+        source.lighting.primaryShadowLightId = enabled ? source.lighting.lights[0].id : 0;
+        source.shadow.enabled = enabled;
+        RtPbrSurvey::SceneRendererSettings restored;
+        const std::string serialized = RtPbrSurvey::SerializeSceneRendererSettings(source);
+        passed &= Check(RtPbrSurvey::DeserializeSceneRendererSettings(serialized, restored),
+                        "lighting switches deserialize");
+        passed &= Check(restored.lighting.diffuseIblEnabled == enabled &&
+                            restored.lighting.specularIblEnabled == !enabled &&
+                            restored.lighting.primaryShadowLightId == source.lighting.primaryShadowLightId &&
+                            restored.shadow.enabled == enabled,
+                        "IBL and primary directional shadow switches round-trip");
+    }
+    return passed;
+}
+
 bool TestRoundTrip()
 {
     RtPbrSurvey::SceneRendererSettings source;
@@ -29,6 +52,7 @@ bool TestRoundTrip()
     source.shadow.sampleCount = 13;
     source.diffuseEnvironmentVisibility = {true, 0.6f, 32, 0.02f, 0.005f, 250.0f};
     source.diffuseEnvironmentVisibility.sampleRotationEnabled = false;
+    source.diffuseEnvironmentVisibility.forceMaskedGeometry = true;
     source.diffuseEnvironmentVisibility.spatialFilterEnabled = false;
     source.diffuseEnvironmentVisibility.filterPlaneDistance = 0.02f;
     source.diffuseEnvironmentVisibility.filterWorldRadius = 0.3f;
@@ -69,6 +93,14 @@ bool TestRoundTrip()
                     "complete settings deserialize");
     passed &= Check(error.empty(), "successful deserialize clears error");
     const auto& visibility = restored.diffuseEnvironmentVisibility;
+    passed &= Check(visibility.forceMaskedGeometry, "forced MASK visibility round-trips");
+    nlohmann::json legacyJson = parsedJson;
+    legacyJson["diffuseEnvironmentVisibility"].erase("forceMaskedGeometry");
+    RtPbrSurvey::SceneRendererSettings legacy;
+    legacy.diffuseEnvironmentVisibility.forceMaskedGeometry = true;
+    passed &= Check(RtPbrSurvey::DeserializeSceneRendererSettings(legacyJson.dump(), legacy, &error) &&
+                        !legacy.diffuseEnvironmentVisibility.forceMaskedGeometry,
+                    "legacy visibility settings default forced MASK to off");
     passed &= Check(visibility.enabled && visibility.strength == 0.6f && visibility.sampleCount == 32 &&
                         visibility.normalBias == 0.02f && visibility.rayTMin == 0.005f && visibility.traceDistance == 250,
                     "diffuse environment visibility settings round-trip");
@@ -314,7 +346,7 @@ int main()
                   "Legacy preview still selects NRD");
         return valid;
     };
-    const bool passed = TestRoundTrip() && TestMissingFieldsKeepDefaults() && TestInvalidJsonIsNonDestructive() &&
+    const bool passed = TestLightingSwitchRoundTrip() && TestRoundTrip() && TestMissingFieldsKeepDefaults() && TestInvalidJsonIsNonDestructive() &&
                         TestPathTracingValuesAreBounded() && TestMultipleLightsAndInvalidInputs() &&
                         reconstructionSettings() && visibilitySettings();
     if (passed)

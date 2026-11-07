@@ -17,6 +17,7 @@ struct DiffuseEnvironmentVisibilitySettings
     bool spatialFilterEnabled = true;
     float filterPlaneDistance = 0.005f;
     float filterWorldRadius = 0.08f;
+    bool forceMaskedGeometry = false;
 
     bool IsValid() const
     {

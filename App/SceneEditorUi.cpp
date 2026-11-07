@@ -144,6 +144,7 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     ImGui::TextDisabled(session.IsModified() ? "Modified" : "Saved");
     if (ImGui::CollapsingHeader("SubWindow"))
     {
+        ImGui::Checkbox("Capture Session Window", &app.m_captureSessionWindowOpen);
         if (ImGui::Checkbox("Transform Window", &app.m_sceneEditorShowTransformWindow) &&
             app.m_sceneEditorShowTransformWindow)
         {
@@ -185,11 +186,6 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         app.RequestNewSceneEditorDocument();
         ImGui::End();
         return;
-    }
-
-    if (ImGui::CollapsingHeader("Capture Session"))
-    {
-        app.DrawCaptureSessionUi();
     }
 
     auto rebuildPreview = [&app]()
@@ -1070,7 +1066,8 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
         if (ImGui::TreeNode("Lights"))
         {
             RtPbrSurveyEngine::LightingParams lighting = app.m_sceneRenderer.GetLightingParams();
-            if (RtPbrSurvey::DrawDirectLightControls(lighting))
+            if (RtPbrSurvey::DrawDirectLightControls(
+                    lighting, app.m_sceneRenderer.GetRenderingPath() != RtPbrSurveyEngine::RenderingPath::PathTracing))
             {
                 app.m_sceneRenderer.SetLightingParams(lighting);
                 app.m_sceneEditorPresetDirty = true;

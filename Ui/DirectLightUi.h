@@ -11,7 +11,7 @@
 namespace RtPbrSurvey
 {
 // Shared by the running-scene controls, renderer tools, and Scene Editor preset panel.
-template <typename LightingParams> bool DrawDirectLightControls(LightingParams& params)
+template <typename LightingParams> bool DrawDirectLightControls(LightingParams& params, bool showPrimaryShadow = true)
 {
     bool changed = ImGui::Checkbox("Direct Light", &params.directLightEnabled);
     ImGui::Text("Lights: %zu / %u", params.lights.size(), kMaxDirectLights);
@@ -54,7 +54,7 @@ template <typename LightingParams> bool DrawDirectLightControls(LightingParams& 
             {
                 label += " (disabled)";
             }
-            if (params.primaryShadowLightId == light.id)
+            if (showPrimaryShadow && params.primaryShadowLightId == light.id)
             {
                 label += " [Shadow]";
             }
@@ -190,20 +190,25 @@ template <typename LightingParams> bool DrawDirectLightControls(LightingParams& 
                 ImGui::TextWrapped("%s", error.what());
             }
         }
-        bool primary = params.primaryShadowLightId == selectedId;
-        ImGui::BeginDisabled(!selected->enabled || selected->type != LightType::Directional);
-        if (ImGui::Checkbox("Primary directional shadow", &primary))
+        if (showPrimaryShadow)
         {
-            params.primaryShadowLightId = primary ? selectedId : 0;
-            changed = true;
+            bool primary = params.primaryShadowLightId == selectedId;
+            ImGui::BeginDisabled(!selected->enabled || selected->type != LightType::Directional);
+            if (ImGui::Checkbox("Primary directional shadow", &primary))
+            {
+                params.primaryShadowLightId = primary ? selectedId : 0;
+                changed = true;
+            }
+            ImGui::EndDisabled();
         }
-        ImGui::EndDisabled();
 
     }
     storage->SetInt(selectionKey, static_cast<int>(selectedId));
     ImGui::TextWrapped("Relative intensity; Point/Spot use inverse-square attenuation and a smooth range cutoff.");
-    ImGui::TextWrapped("Deferred shadows: primary Directional only. Additional lights and Forward are unshadowed.");
-    ImGui::TextWrapped("PT multi-light adapter pending: currently evaluates only the primary Directional.");
+    if (showPrimaryShadow)
+    {
+        ImGui::TextWrapped("Deferred shadows: primary Directional only. Additional lights and Forward are unshadowed.");
+    }
     return changed;
 }
 } // namespace RtPbrSurvey

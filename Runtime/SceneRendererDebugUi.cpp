@@ -19,6 +19,7 @@
 #include "Ui/DirectLightUi.h"
 
 #include <imgui.h>
+#include <cstring>
 
 namespace
 {
@@ -312,7 +313,8 @@ namespace
     void DrawLightingControls(RtPbrSurvey::SceneRenderer& renderer)
     {
         auto lightingParams = renderer.GetLightingParams();
-        const bool changed = RtPbrSurvey::DrawDirectLightControls(lightingParams);
+        const bool changed = RtPbrSurvey::DrawDirectLightControls(
+            lightingParams, renderer.GetRenderingPath() != RtPbrSurveyEngine::RenderingPath::PathTracing);
 
         if (changed)
         {
@@ -380,7 +382,7 @@ namespace
         changed |= ImGui::RadioButton("Reinhard", &toneMapParams.operatorIndex, 1);
         ImGui::SameLine();
         changed |= ImGui::RadioButton("ACES", &toneMapParams.operatorIndex, 2);
-        changed |= ImGuiWidgets::SliderFloatWithControls("Exposure", &toneMapParams.exposure, 0.0f, 4.0f, 0.1f, 1.0f);
+        changed |= ImGuiWidgets::SliderFloatWithControls("Exposure", &toneMapParams.exposure, 0.0f, 1000.0f, 0.1f, 1.0f);
         changed |= ImGuiWidgets::SliderFloatWithControls("Paper White",
                                                          &toneMapParams.paperWhiteNits,
                                                          80.0f,
@@ -730,9 +732,12 @@ namespace RtPbrSurvey
         ImGui::BeginDisabled(!state.iblEnabled);
         lightingChanged |= ImGuiWidgets::SliderFloatWithControls(
             "IBL Intensity", &state.lighting.iblIntensity, 0.0f, 2.0f, 0.05f, 0.1f);
-        lightingChanged |= ImGui::Checkbox("Diffuse IBL", &state.lighting.diffuseIblEnabled);
-        ImGui::SameLine();
-        lightingChanged |= ImGui::Checkbox("Specular IBL", &state.lighting.specularIblEnabled);
+        if (renderer.GetRenderingPath() != RtPbrSurveyEngine::RenderingPath::PathTracing)
+        {
+            lightingChanged |= ImGui::Checkbox("Diffuse IBL", &state.lighting.diffuseIblEnabled);
+            ImGui::SameLine();
+            lightingChanged |= ImGui::Checkbox("Specular IBL", &state.lighting.specularIblEnabled);
+        }
         ImGui::EndDisabled();
         lightingChanged |= ImGui::Checkbox("Show Skybox", &state.lighting.skyboxEnabled);
         lightingChanged |= ImGui::Checkbox("Skybox Preview", &state.lighting.skyboxPreview);
@@ -976,6 +981,19 @@ namespace RtPbrSurvey
         DrawAuxiliaryWindows(renderer);
     }
 
+    void SceneRendererDebugUi::DrawPathTracingRaySettings(SceneRenderer& renderer)
+    {
+        auto settings = renderer.GetShadowSettings();
+        bool changed = ImGui::Checkbox("Shadow Enable", &settings.enabled);
+        changed |= ImGuiWidgets::SliderFloatWithControls("Normal Bias", &settings.normalBias, 0.0f, 0.1f, 0.001f, 0.01f);
+        changed |= ImGuiWidgets::SliderFloatWithControls("Ray TMin", &settings.rayTMin, 0.0f, 0.1f, 0.001f, 0.001f);
+        changed |= ImGuiWidgets::SliderFloatWithControls("Ray TMax", &settings.rayTMax, 1.0f, 10000.0f, 100.0f, 10000.0f);
+        if (changed)
+        {
+            renderer.SetShadowSettings(settings);
+        }
+    }
+
     void SceneRendererDebugUi::DrawDiffuseEnvironmentVisibility(SceneRenderer& renderer)
     {
         if (!ImGui::CollapsingHeader("Diffuse IBL Visibility"))
@@ -999,12 +1017,34 @@ namespace RtPbrSurvey
         changed |= ImGui::DragFloat("Normal Bias", &settings.normalBias, 0.0001f, 0.0f, 1.0f, "%.4f");
         changed |= ImGui::DragFloat("Ray TMin", &settings.rayTMin, 0.0001f, 0.0f, 1.0f, "%.4f");
         changed |= ImGui::DragFloat("Trace Distance", &settings.traceDistance, 1.0f, 1.001f, 100000.0f);
+        const char* status = renderer.GetDiffuseEnvironmentVisibilityStatus();
+        if (std::strstr(status, "MASK") != nullptr)
+        {
+            ImGui::TextColored(ImVec4(1.0f, 0.82f, 0.2f, 1.0f),
+                               "MASK transparency is unsupported; forced rays treat it as opaque.");
+            if (ImGui::Checkbox("Force ON (MASK)", &settings.forceMaskedGeometry))
+            {
+                if (settings.forceMaskedGeometry)
+                {
+                    settings.enabled = true;
+                }
+                changed = true;
+            }
+        }
         if (changed && settings.IsValid())
         {
             renderer.SetDiffuseEnvironmentVisibilitySettings(settings);
         }
         ImGui::Text("Effective: %s", renderer.IsDiffuseEnvironmentVisibilityActive() ? "ON" : "OFF");
-        ImGui::TextUnformatted(renderer.GetDiffuseEnvironmentVisibilityStatus());
+        status = renderer.GetDiffuseEnvironmentVisibilityStatus();
+        if (std::strncmp(status, "Ready", 5) != 0 || std::strstr(status, "forced") != nullptr)
+        {
+            ImGui::TextColored(ImVec4(1.0f, 0.82f, 0.2f, 1.0f), "%s", status);
+        }
+        else
+        {
+            ImGui::TextUnformatted(status);
+        }
         ImGui::PopID();
     }
 
@@ -1027,7 +1067,10 @@ namespace RtPbrSurvey
         {
             DrawLightingControls(renderer);
         }
-        DrawDiffuseEnvironmentVisibility(renderer);
+        if (renderer.GetRenderingPath() != RtPbrSurveyEngine::RenderingPath::PathTracing)
+        {
+            DrawDiffuseEnvironmentVisibility(renderer);
+        }
 
         if (environment != nullptr &&
             ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1040,7 +1083,14 @@ namespace RtPbrSurvey
             DrawToneMapControls(renderer);
         }
 
-        if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
+        if (renderer.GetRenderingPath() == RtPbrSurveyEngine::RenderingPath::PathTracing)
+        {
+            if (ImGui::CollapsingHeader("Path Tracing Ray Settings", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawPathTracingRaySettings(renderer);
+            }
+        }
+        else if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
         {
             DrawShadowControls(renderer);
         }

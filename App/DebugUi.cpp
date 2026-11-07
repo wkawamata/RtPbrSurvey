@@ -236,17 +236,6 @@ BuildRenderGraphGpuTimingSnapshot(const std::vector<MyDx12Util::GpuWorkMeter::Ch
     return snapshot;
 }
 
-std::filesystem::path MakeScreenshotPath()
-{
-    const std::time_t now = std::time(nullptr);
-    std::tm localTime = {};
-    localtime_s(&localTime, &now);
-
-    std::ostringstream filename;
-    filename << "RtPbrSurvey_" << std::put_time(&localTime, "%Y-%m-%d_%H%M%S") << ".png";
-    return std::filesystem::current_path() / "Screenshots" / filename.str();
-}
-
 void DrawRenderViewDescription(RtPbrSurveyEngine::RenderViewMode mode)
 {
     const char* description = RenderViewDescription(mode);
@@ -397,6 +386,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     {
         if (const std::optional<RtPbrSurvey::ScreenshotResult> result = app.m_sceneRenderer.ConsumeScreenshotResult())
         {
+            app.m_screenshotLocation = result->succeeded ? result->path.parent_path() : std::filesystem::path{};
             app.m_screenshotStatus = result->succeeded ?
                 "Saved: " + result->path.string() :
                 "Capture failed: " + result->error;
@@ -469,37 +459,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     {
         ImGui::Checkbox("Open RenderGraph Window", &renderGraphWindowOpen);
         ImGui::Checkbox("Open Evaluation Cases Window", &evaluationCasesWindowOpen);
+        ImGui::Checkbox("Open Capture Session Window", &app.m_captureSessionWindowOpen);
         if (ImGui::Checkbox("Open Information Window", &debugUiPreferences.informationWindowVisible))
         {
             RtPbrSurvey::MarkDebugUiPreferencesDirty();
         }
-    }
-
-    if (ImGui::CollapsingHeader("Screenshot"))
-    {
-        std::string captureReason;
-        const bool canCapture = app.CanStartCaptureSession(captureReason);
-        ImGui::BeginDisabled(!canCapture);
-        if (ImGui::Button("Capture PNG"))
-        {
-            const std::filesystem::path path = MakeScreenshotPath();
-            app.m_sceneRenderer.RequestScreenshot({path});
-            app.m_screenshotStatus = "Capture requested: " + path.string();
-        }
-        ImGui::EndDisabled();
-        if (!canCapture)
-        {
-            ImGui::TextWrapped("%s", captureReason.c_str());
-        }
-        if (!app.m_screenshotStatus.empty())
-        {
-            ImGui::TextWrapped("%s", app.m_screenshotStatus.c_str());
-        }
-    }
-
-    if (ImGui::CollapsingHeader("Capture Session"))
-    {
-        app.DrawCaptureSessionUi();
     }
 
     if (ImGui::CollapsingHeader("WorkMeter"))
@@ -594,10 +558,14 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
     if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        RtPbrSurvey::DrawDirectLightControls(app.m_lightingParams);
+        RtPbrSurvey::DrawDirectLightControls(app.m_lightingParams,
+            app.m_renderingPath != RtPbrSurveyEngine::RenderingPath::PathTracing);
         ImGui::Checkbox("Emissive", &app.m_lightingParams.emissiveEnabled);
     }
-    RtPbrSurvey::SceneRendererDebugUi::DrawDiffuseEnvironmentVisibility(app.m_sceneRenderer);
+    if (app.m_renderingPath != RenderingPath::PathTracing)
+    {
+        RtPbrSurvey::SceneRendererDebugUi::DrawDiffuseEnvironmentVisibility(app.m_sceneRenderer);
+    }
     if (ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
     {
         RtPbrSurvey::EnvironmentMappingUiState environmentUi;
@@ -799,14 +767,21 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         ImGui::RadioButton("Reinhard", &app.m_toneMapParams.operatorIndex, 1);
         ImGui::SameLine();
         ImGui::RadioButton("ACES", &app.m_toneMapParams.operatorIndex, 2);
-        ImGuiWidgets::SliderFloatWithControls("Exposure", &app.m_toneMapParams.exposure, 0.0f, 4.0f, 0.1f, 1.0f);
+        ImGuiWidgets::SliderFloatWithControls("Exposure", &app.m_toneMapParams.exposure, 0.0f, 1000.0f, 0.1f, 1.0f);
         ImGuiWidgets::SliderFloatWithControls("Paper White", &app.m_toneMapParams.paperWhiteNits, 80.0f, 500.0f, 10.f,
                                               300.0f, "%.0f nits");
         ImGuiWidgets::SliderFloatWithControls("Display Max", &app.m_toneMapParams.maxDisplayNits, 100.0f, 4000.0f, 50.f,
                                               1000.0f, "%.0f nits");
     }
 
-    if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
+    if (app.m_renderingPath == RenderingPath::PathTracing)
+    {
+        if (ImGui::CollapsingHeader("Path Tracing Ray Settings", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            RtPbrSurvey::SceneRendererDebugUi::DrawPathTracingRaySettings(app.m_sceneRenderer);
+        }
+    }
+    else if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
     {
         auto shadowSettings = app.m_sceneRenderer.GetShadowSettings();
         bool changed = false;
@@ -1695,7 +1670,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         drawHybridReflectionUi();
     }
 
-    if (ImGui::CollapsingHeader("Pixel Pick (Ctrl+Click)", ImGuiTreeNodeFlags_DefaultOpen))
+    if (app.m_renderingPath == RenderingPath::Deferred &&
+        ImGui::CollapsingHeader("Pixel Pick (Ctrl+Click)", ImGuiTreeNodeFlags_DefaultOpen))
     {
         const auto& pick = app.m_sceneRenderer.GetPixelPickResult();
         if (pick.valid)
@@ -1743,7 +1719,8 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
-    if (ImGui::CollapsingHeader("Specular Debug Lines", ImGuiTreeNodeFlags_DefaultOpen))
+    if (app.m_renderingPath != RenderingPath::PathTracing &&
+        ImGui::CollapsingHeader("Specular Debug Lines", ImGuiTreeNodeFlags_DefaultOpen))
     {
         auto debugLines = app.m_sceneRenderer.GetSpecularDebugLineSettings();
 

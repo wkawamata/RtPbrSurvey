@@ -232,6 +232,7 @@ private:
     RtPbrSurveyEngine::RenderViewMode m_renderViewMode = RtPbrSurveyEngine::RenderViewMode::LightPass;
     bool m_requestHdrDump = false;
     std::string m_screenshotStatus;
+    std::filesystem::path m_screenshotLocation;
 
     int m_displayInstanceCount = static_cast<int>(kMaxInstanceCount);
     float m_meshScale = 0.5f;
@@ -278,6 +279,7 @@ private:
     bool m_automatedCaptureCompleted = false;
     std::chrono::steady_clock::time_point m_captureSessionStartTime;
     RtPbrSurvey::CaptureSessionUiState m_captureSessionUiState;
+    bool m_captureSessionWindowOpen = false;
     bool m_captureSessionOrbitEnabled = false;
     double m_captureSessionOrbitDegreesPerSecond = 90.0;
     RtPbrSurvey::CaptureFrameClock m_captureFrameClock;

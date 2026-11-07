@@ -135,7 +135,8 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
         {"enabled", visibility.enabled}, {"strength", visibility.strength}, {"sampleCount", visibility.sampleCount},
         {"normalBias", visibility.normalBias}, {"rayTMin", visibility.rayTMin}, {"traceDistance", visibility.traceDistance},
         {"sampleRotationEnabled", visibility.sampleRotationEnabled}, {"spatialFilterEnabled", visibility.spatialFilterEnabled},
-        {"filterPlaneDistance", visibility.filterPlaneDistance}, {"filterWorldRadius", visibility.filterWorldRadius}};
+        {"filterPlaneDistance", visibility.filterPlaneDistance}, {"filterWorldRadius", visibility.filterWorldRadius},
+        {"forceMaskedGeometry", visibility.forceMaskedGeometry}};
     result["temporalUpscaler"] = std::move(temporalUpscaler);
     result["rayReconstruction"] = std::move(rayReconstruction);
     result["hybridReflection"] = std::move(hybridReflection);
@@ -262,6 +263,7 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
             const json& visibility = value.at("diffuseEnvironmentVisibility");
             auto& config = parsed.diffuseEnvironmentVisibility;
             config.enabled = visibility.value("enabled", config.enabled);
+            config.forceMaskedGeometry = visibility.value("forceMaskedGeometry", false);
             config.strength = visibility.value("strength", config.strength);
             config.sampleCount = visibility.value("sampleCount", config.sampleCount);
             config.normalBias = visibility.value("normalBias", config.normalBias);
