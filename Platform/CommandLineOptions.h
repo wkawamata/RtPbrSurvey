@@ -90,6 +90,7 @@ struct CommandLineOptions
     bool nrdContinuousCameraHistory = false;
     bool nrdPreview = false;
     bool pathTracingRrContinuous = false;
+    bool pathTracingRrThinExperiment = false;
     std::filesystem::path pathTracingRrLifecycleValidationDirectory;
     std::filesystem::path pathTracingRrInputCaptureDirectory;
     std::string nrdDiagnosticFailure;

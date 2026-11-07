@@ -136,9 +136,10 @@ float4 RrLiveSpecularDistance(float4 ray, float4 surface)
         return invalid;
     if (all(ray == 0) && all(surface == 0))
         return 0;
-    if ((ray.y != 1 && ray.y != 2) || ray.x <= 0 || ray.w != 0 || any(surface.zw != 0) || surface.y != ray.z ||
+    if ((ray.y != 1 && ray.y != 2 && ray.y != 3) || ray.x <= 0 || ray.w != 0 || any(surface.zw != 0) || surface.y != ray.z ||
         !((ray.z == 1 && surface.x > 0) || (ray.z == 2 && surface.x == 0)))
         return invalid;
+    // Thin transmission (kind 3) contributes color without a reflection distance.
     return ray.y == 2 ? float4(surface.x, ray.z, ray.x, 0) : float4(0, 0, 0, 0);
 }
 

@@ -519,6 +519,7 @@ float3 TracePath(uint2 pixel,
     float3 radiance = 0.0;
     float3 throughput = 1.0;
     bool primarySpecularPath = false;
+    bool primaryThinTransmission = false;
     float previousBsdfPdf = 0.0;
     float previousEnvironmentPdf = 0.0;
     bool previousEmissiveNeeActive = false;
@@ -579,7 +580,7 @@ float3 TracePath(uint2 pixel,
             const bool secondaryHit = query.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
             primarySurface.secondaryRayData = float4(
                 secondaryHit ? query.CommittedRayT() : ray.TMax,
-                primarySpecularPath ? 2.0 : 1.0,
+                primaryThinTransmission ? 3.0 : (primarySpecularPath ? 2.0 : 1.0),
                 secondaryHit ? 1.0 : 2.0,
                 0.0);
             const float surfaceDistance = secondaryHit ?
@@ -690,6 +691,10 @@ float3 TracePath(uint2 pixel,
                 lerp(float3(0.04, 0.04, 0.04), hitMaterial.albedo, hitMaterial.metallic),
                 hitMaterial.metallic);
             primarySurface.hitT = query.CommittedRayT();
+            if (captureDenoiserDistances && (primarySamplingFlags & 64u) != 0)
+            {
+                primarySurface.denoiserPrimaryPosition = float4(hitPosition, 1.0);
+            }
             if (captureDenoiserDistances && (primarySamplingFlags & 2u) != 0 && !thinScene && (primarySamplingFlags & 40u) == 0)
             {
                 if ((hitMaterial.flags & MaterialFlagUnlit) != 0)
@@ -911,6 +916,7 @@ float3 TracePath(uint2 pixel,
                 primarySpecularPath = true;
                 primaryDiffuseFraction = 0.0;
                 primarySpecularFraction = 1.0;
+                primaryThinTransmission = !thin.reflected && (primarySamplingFlags & 64u) != 0;
                 primarySurface.primaryContinuation = float4(thin.direction, thin.pdf);
             }
             ray.Origin = hitPosition + geometryNormal * (thin.reflected ? normalBias : -normalBias);

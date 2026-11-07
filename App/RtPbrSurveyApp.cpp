@@ -3824,6 +3824,7 @@ void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
     }
     if (m_commandLineOptions.pathTracingRrContinuous)
         settings.rrContinuous = true;
+    settings.rrThinExperiment = m_commandLineOptions.pathTracingRrThinExperiment;
     m_sceneRenderer.SetPathTracingSettings(settings);
     m_sceneRenderer.SetPathTracingAccumulationPaused(false);
     if (m_commandLineOptions.pathTracingSampleTarget > 0)

@@ -18,7 +18,9 @@ def main():
     parser.add_argument("--exe", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--scene", type=Path)
-    parser.add_argument("--nrd-preview", action="store_true")
+    backend = parser.add_mutually_exclusive_group()
+    backend.add_argument("--nrd-preview", action="store_true")
+    backend.add_argument("--rr-thin-experiment", action="store_true")
     parser.add_argument("--frames", type=int, default=256)
     args = parser.parse_args()
     if not 1 <= args.frames <= 4096:
@@ -37,6 +39,9 @@ def main():
                "-LogToFile", str(log), "-ExitAfterCapture"]
     if args.nrd_preview:
         command.append("-NrdPreview")
+    if args.rr_thin_experiment:
+        command += ["-PathTracingRrThinExperiment", "-EnableExperimentalNativeRayReconstruction",
+                    "-WindowSize", "1920", "1080"]
     report = {"status": "running", "command": command, "frames": args.frames,
               "executableSha256": digest(exe), "runnerSha256": digest(Path(__file__)),
               "inputs": {}, "failures": []}
@@ -76,7 +81,7 @@ def main():
         presentation = ("Native fallback: thin transmission is not supported by NRD"
                         if args.nrd_preview else "Native PT")
         if (record.get("scene") != scene["name"]
-                or record.get("accumulatedSamples") != args.frames
+                or (not args.rr_thin_experiment and record.get("accumulatedSamples") != args.frames)
                 or record.get("samplesPerFrame") != 1
                 or record.get("maxBounces") != 8
                 or record.get("nrdPreviewRequested") is not args.nrd_preview
@@ -86,6 +91,12 @@ def main():
                 or record.get("nrdFailureCount") != 0
                 or record.get("d3d12DebugLayerEnabledByApp") is not True):
             raise RuntimeError("PT capture settings or scene did not match the saved fixture")
+        if args.rr_thin_experiment:
+            rr = record["ptRr"]
+            if (record.get("reconstructionOutput") != "rr" or rr.get("outputVerified") is not True
+                    or rr["completedCount"] < 3 or rr["continuousCount"] < 2
+                    or rr["resetCount"] != 1 or rr["cancelledCount"] != 0 or rr["inputRejectedCount"] != 0):
+                raise RuntimeError("Thin transmission RR did not publish continuous verified output: " + str(rr))
         with Image.open(image) as picture:
             picture.load()
             if min(picture.size) < 128 or max(ImageStat.Stat(picture.convert("RGB")).stddev) < 1:
