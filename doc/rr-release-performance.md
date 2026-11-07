@@ -118,8 +118,9 @@ Fields use steady-clock CPU observation times, NOT GPU timestamps:
 - admittedWaitMs: admitted Poll to the native evaluate API call (including recording).
 - evaluateCpuMs: time spent inside EvaluateStreamlineRayReconstruction on the CPU.
 - outputWaitMs: output validation recorded to the Poll that publishes verified output.
-- totalMs: RecordInput entry to verified publication. It excludes PT generation
-  before RecordInput and time between that publication and the next packet.
+- totalMs: RecordInput entry to verified publication. It excludes CPU work
+  before RecordInput and time between that publication and the next packet. Prior
+  queued PT GPU commands can still contribute to inputWaitMs.
 - inputPolls/outputPolls: Poll calls while each pending phase was active, including
   the admitting/publishing call; these are observations, not unique GPU frames.
 
@@ -181,3 +182,9 @@ supports --hardware once isolation is available; it prints one-dispatch diagnost
 timestamps (debug layer ON, no clock locking/repetitions), not a complete benchmark.
 After isolated hardware equivalence, rerun the Release cohort and camera/object
 lifecycle checks with RR available before accepting a runtime performance gain.
+
+## Hardware follow-up (2026-11-07)
+
+See [hardware verification](rr-hardware-validation-20261107.md) for hardware
+equivalence, a completed 24-run Release cohort and observed packet latencies.
+The earlier unavailable/pending entries above describe historical attempts.
