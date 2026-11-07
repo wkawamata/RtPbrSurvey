@@ -752,3 +752,20 @@ not spatial interpolation, seams, all UVs or a full-image radiance result.
 Evidence: bin/PathTracingValidation/volume-roughness-texture-gpu-20261106/report.json.
 Next: patterned G texture and UV-dependent spatial controls before declaring
 Volume roughness-texture support complete.
+
+## Patterned G and UV Probes (2026-11-07)
+
+Extended the fixture to a two-region G pattern (16/240), alternate R/B/A
+channels, and horizontally mirrored UVs. Three Native PT captures completed
+without D3D12 errors. Keeping G unchanged while changing R/B/A produced
+exactly identical outgoing-direction images (maximum difference 0).
+Mirroring UVs changed 11,295 pixels above a 0.01 direction-image threshold;
+minimum required coverage was 128 pixels.
+Evidence: bin/PathTracingValidation/volume-roughness-pattern-20261107/report.json.
+
+Together with the constant-G/scalar comparison, these probes establish basic
+G-channel/factor use and UV-dependent paths for the selected convex fixture.
+They are not an independent per-pixel interpolation reference or validation
+of seams, all UVs, normal maps, other Volume textures, or full radiance quality.
+Next: a saved visual review scene and user acceptance of patterned roughness,
+then consolidate the scoped Volume roughness texture change for PR.

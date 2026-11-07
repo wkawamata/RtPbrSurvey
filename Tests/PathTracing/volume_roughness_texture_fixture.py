@@ -10,7 +10,7 @@ from PIL import Image
 from transmission_texture_fixture import ROOT, write_json
 
 
-def write_fixture(folder, factor=.7, green=128, textured=True):
+def write_fixture(folder, factor=.7, green=128, textured=True, patterned=False, alternate_channels=False, flip_uv=False):
     if not 0 <= factor <= 1 or not isinstance(green, int) or not 0 <= green <= 255:
         raise ValueError("Invalid roughness fixture parameters")
     folder = Path(folder)
@@ -29,7 +29,10 @@ def write_fixture(folder, factor=.7, green=128, textured=True):
     pbr.update(metallicFactor=0, roughnessFactor=factor)
     if textured:
         blob = base64.b64decode(gltf["buffers"][0]["uri"].split(",", 1)[1])
-        uv = struct.pack("<8f", 0, 0, 1, 0, 0, 1, 1, 1)
+        coordinates = (0, 0, 1, 0, 0, 1, 1, 1)
+        if flip_uv:
+            coordinates = tuple(1-value if index % 2 == 0 else value for index, value in enumerate(coordinates))
+        uv = struct.pack("<8f", *coordinates)
         view_index = len(gltf["bufferViews"])
         accessor_index = len(gltf["accessors"])
         gltf["bufferViews"].append(dict(buffer=0, byteOffset=len(blob), byteLength=len(uv)))
@@ -41,7 +44,12 @@ def write_fixture(folder, factor=.7, green=128, textured=True):
         gltf["images"] = [dict(uri="roughness.png")]
         gltf["textures"] = [dict(source=0)]
         pbr["metallicRoughnessTexture"] = dict(index=0)
-        Image.new("RGBA", (4, 4), (32, green, 255, 0)).save(folder / "roughness.png")
+        image = Image.new("RGBA", (16, 16))
+        image.putdata([(255 if alternate_channels else 32,
+                        (16 if x < 8 else 240) if patterned else green,
+                        0 if alternate_channels else 255, 255 if alternate_channels else 0)
+                       for y in range(16) for x in range(16)])
+        image.save(folder / "roughness.png")
     write_json(folder / "volume.gltf", gltf)
     write_json(folder / "scene.json", scene)
     write_json(folder / "render-preset.json", preset)
