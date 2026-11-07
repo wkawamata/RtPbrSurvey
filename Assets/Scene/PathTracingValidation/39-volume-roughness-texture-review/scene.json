@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "volume-roughness-texture-review",
+  "name": "PT Volume Roughness Texture Review",
+  "renderPreset": "render-preset.json",
+  "description": "目的: glTF Volumeの粗さテクスチャを確認。G成分16/240の2領域、係数0.7。\n確認: 背景の色帯が比較的鮮明な部分と、粗くぼける部分が見える。\nMaterial ControlsのRoughnessを0へ下げると模様によるぼけが消え、0.7へ戻すと復帰する。\nIOR=1.5、吸収なし。単一凸Volume。粗い領域の暗さは単一散乱モデルの既知制約。\n厚み・部分透過テクスチャ、法線マップ、色付き透過照明の試験ではない。",
+  "assets": [
+    {
+      "id": "solid",
+      "type": "gltf",
+      "path": "volume.gltf"
+    },
+    {
+      "id": "target",
+      "type": "gltf",
+      "path": "../36-volume-observation-sphere/color-target.gltf"
+    }
+  ],
+  "materials": [],
+  "nodes": [
+    {
+      "id": "solid",
+      "name": "Imported rough glass tetrahedron",
+      "type": "gltf",
+      "assetId": "solid",
+      "parentId": null,
+      "translation": [
+        -0.5,
+        -0.5,
+        0.5
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        2,
+        2,
+        2
+      ],
+      "visible": true
+    },
+    {
+      "id": "Back-target",
+      "name": "Back target",
+      "type": "gltf",
+      "assetId": "target",
+      "parentId": null,
+      "translation": [
+        0,
+        0,
+        3
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true
+    },
+    {
+      "id": "Left-reflection",
+      "name": "Left reflection",
+      "type": "gltf",
+      "assetId": "target",
+      "parentId": null,
+      "translation": [
+        -3,
+        0,
+        -1
+      ],
+      "rotation": [
+        0,
+        0.7071067811865476,
+        0,
+        0.7071067811865476
+      ],
+      "scale": [
+        0.6,
+        0.8,
+        1
+      ],
+      "visible": true
+    },
+    {
+      "id": "Right-reflection",
+      "name": "Right reflection",
+      "type": "gltf",
+      "assetId": "target",
+      "parentId": null,
+      "translation": [
+        3,
+        0,
+        -1
+      ],
+      "rotation": [
+        0,
+        -0.7071067811865476,
+        0,
+        0.7071067811865476
+      ],
+      "scale": [
+        0.6,
+        0.8,
+        1
+      ],
+      "visible": true
+    }
+  ],
+  "camera": {
+    "position": [
+      3,
+      2,
+      -5
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 40,
+    "orthographicHeight": 10,
+    "nearZ": 0.1,
+    "farZ": 1000
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      1,
+      1
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  }
+}

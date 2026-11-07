@@ -48,10 +48,10 @@ inline bool SimpleDetailMode(const char* id, bool* detailed)
     return changed;
 }
 
-inline float BeginSliderControl(const char* label, float totalButtonsWidth)
+inline float BeginSliderControl(const char* label, float totalButtonsWidth, float minimumLabelWidth = kMinControlLabelWidth)
 {
     const ImGuiStyle& s = ImGui::GetStyle();
-    const float labelWidth = (std::max)(kMinControlLabelWidth, ImGui::CalcTextSize(label).x) + s.ItemSpacing.x;
+    const float labelWidth = (std::max)(minimumLabelWidth, ImGui::CalcTextSize(label).x) + s.ItemSpacing.x;
 
     ImGui::PushID(label);
 
@@ -114,11 +114,12 @@ inline bool SliderFloatWithControls(const char* label,
 }
 
 inline bool SliderIntWithControls(
-    const char* label, int* value, int min, int max, int delta, int defaultValue, const char* format = "%d")
+    const char* label, int* value, int min, int max, int delta, int defaultValue, const char* format = "%d",
+    float minimumLabelWidth = kMinControlLabelWidth)
 {
     const float btnW = CalcButtonWidth(">");
     const float totalButtons = btnW * 3.0f;
-    const float sliderWidth = BeginSliderControl(label, totalButtons);
+    const float sliderWidth = BeginSliderControl(label, totalButtons, minimumLabelWidth);
 
     ImGui::PushItemWidth(sliderWidth);
     bool changed = ImGui::SliderInt("##slider", value, min, max, format);

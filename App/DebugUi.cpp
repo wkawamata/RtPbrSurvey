@@ -963,31 +963,35 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         if (app.m_renderingPath == RenderingPath::PathTracing)
         {
             ImGui::Text("Path Tracing Support: %s", context.pathTracingSupported ? "Available" : "Unavailable");
-            ImGui::Text("Runtime Status: %s", context.pathTracingStatusText);
-            ImGui::Text("Render Resolution: %u x %u", context.renderWidth, context.renderHeight);
-            ImGui::Text("Accumulated Samples: %llu",
-                        static_cast<unsigned long long>(context.pathTracingRuntimeState.accumulatedSampleCount));
-            ImGui::Text("Next Sample Index: %u", context.pathTracingRuntimeState.frameSampleIndex);
-            ImGui::Text("Last Reset: %s", context.pathTracingRuntimeState.ResetReasonText());
-            if (context.pathTracingDiagnostics.gpuTimingAvailable)
+            if (ImGui::TreeNode("Details"))
             {
-                ImGui::Text("Path Tracing GPU: %.3f ms", context.pathTracingDiagnostics.gpuTimeMs);
-                ImGui::Text("Primary Samples / Second: %.3f M",
-                            context.pathTracingDiagnostics.primarySamplesPerSecond / 1000000.0);
+                ImGui::Text("Runtime Status: %s", context.pathTracingStatusText);
+                ImGui::Text("Render Resolution: %u x %u", context.renderWidth, context.renderHeight);
+                ImGui::Text("Accumulated Samples: %llu",
+                            static_cast<unsigned long long>(context.pathTracingRuntimeState.accumulatedSampleCount));
+                ImGui::Text("Next Sample Index: %u", context.pathTracingRuntimeState.frameSampleIndex);
+                ImGui::Text("Last Reset: %s", context.pathTracingRuntimeState.ResetReasonText());
+                if (context.pathTracingDiagnostics.gpuTimingAvailable)
+                {
+                    ImGui::Text("Path Tracing GPU: %.3f ms", context.pathTracingDiagnostics.gpuTimeMs);
+                    ImGui::Text("Primary Samples / Second: %.3f M",
+                                context.pathTracingDiagnostics.primarySamplesPerSecond / 1000000.0);
+                }
+                else
+                {
+                    ImGui::TextDisabled("Path Tracing GPU: N/A");
+                    ImGui::TextDisabled("Primary Samples / Second: N/A");
+                }
+                ImGui::Text("Primary Samples / Frame: %llu",
+                            static_cast<unsigned long long>(context.pathTracingDiagnostics.primarySamplesPerFrame));
+                ImGui::Text("Max Path Segments / Frame: %llu",
+                            static_cast<unsigned long long>(context.pathTracingDiagnostics.maxPathSegmentsPerFrame));
+                ImGui::Text("Max Ray Queries / Frame: %llu",
+                            static_cast<unsigned long long>(context.pathTracingDiagnostics.maxRayQueriesPerFrame));
+                ImGui::TextDisabled("Progressive metallic-roughness path tracing is active.");
+                ImGui::TextDisabled("DLSS SR is inactive; reconstruction uses current-frame PT inputs.");
+                ImGui::TreePop();
             }
-            else
-            {
-                ImGui::TextDisabled("Path Tracing GPU: N/A");
-                ImGui::TextDisabled("Primary Samples / Second: N/A");
-            }
-            ImGui::Text("Primary Samples / Frame: %llu",
-                        static_cast<unsigned long long>(context.pathTracingDiagnostics.primarySamplesPerFrame));
-            ImGui::Text("Max Path Segments / Frame: %llu",
-                        static_cast<unsigned long long>(context.pathTracingDiagnostics.maxPathSegmentsPerFrame));
-            ImGui::Text("Max Ray Queries / Frame: %llu",
-                        static_cast<unsigned long long>(context.pathTracingDiagnostics.maxRayQueriesPerFrame));
-            ImGui::TextDisabled("Progressive metallic-roughness path tracing is active.");
-            ImGui::TextDisabled("DLSS SR is inactive; reconstruction uses current-frame PT inputs.");
 
             bool accumulationPaused = context.pathTracingRuntimeState.accumulationPaused;
             if (ImGui::Checkbox("Pause Accumulation", &accumulationPaused))
@@ -1035,47 +1039,51 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             if (reconstructionBackend == 2)
                 pathTracingSettingsChanged |=
                     ImGui::Checkbox("Continuous RR (camera motion)", &pathTracingSettings.rrContinuous);
-            if (reconstructionBackend == 2)
-                ImGui::TextWrapped("RR coherent primary: 1-16 spp; first-sample guides; "
-                                   "native opt-in required.");
-            if (reconstructionBackend == 1)
-                ImGui::TextWrapped(
-                    "NRD Presentation: %s",
-                    Engine::NrdRelaxPresentationStatusText(context.pathTracingDiagnostics.nrdPresentationStatus));
-            const auto& presentation = context.pathTracingDiagnostics.reconstructionPresentation;
-            ImGui::Text("Reconstruction output: %s (%s)",
-                        Engine::PathTracingReconstructionBackendName(presentation.output),
-                        Engine::PathTracingReconstructionStatusName(presentation.status));
-            if (reconstructionBackend == 2)
+            if (ImGui::TreeNode("Reconstruction Details"))
             {
-                ImGui::Text("RR: %s", context.pathTracingDiagnostics.rrLivePhase.c_str());
-                ImGui::Text("RR completed: %llu, continuous: %llu, resets: %llu",
-                            static_cast<unsigned long long>(context.pathTracingDiagnostics.rrCompletedCount),
-                            static_cast<unsigned long long>(context.pathTracingDiagnostics.rrContinuousCount),
-                            static_cast<unsigned long long>(context.pathTracingDiagnostics.rrResetCount));
-                if (!context.pathTracingDiagnostics.rrLiveFailure.empty())
-                    ImGui::TextWrapped("RR fallback: %s", context.pathTracingDiagnostics.rrLiveFailure.c_str());
-            }
-            const auto& reconstructionTiming = context.pathTracingDiagnostics.reconstructionTimings;
-            ImGui::Text("Completed GPU frame: %s%s",
-                        Engine::PathTracingReconstructionBackendName(
-                            context.pathTracingDiagnostics.completedReconstructionPlan.backend),
-                        context.pathTracingDiagnostics.completedReconstructionPlan.diagnosticWork ? " (diagnostic work)"
-                                                                                                  : "");
-            const auto showStage = [](const char* name, const Engine::PathTracingStageTiming& timing)
-            {
-                if (timing.available)
-                    ImGui::Text("%s: %.3f ms", name, timing.milliseconds);
-                else
-                    ImGui::Text("%s: -- (not executed)", name);
-            };
-            for (const auto& stage : Engine::kPathTracingReconstructionStages)
-            {
-                showStage(stage.label, reconstructionTiming.*(stage.timing));
-            }
-            if (!context.pathTracingDiagnostics.nrdFailureReason.empty())
-            {
-                ImGui::TextWrapped("NRD Failure: %s", context.pathTracingDiagnostics.nrdFailureReason.c_str());
+                if (reconstructionBackend == 2)
+                    ImGui::TextWrapped("RR coherent primary: 1-16 spp; first-sample guides; "
+                                       "native opt-in required.");
+                if (reconstructionBackend == 1)
+                    ImGui::TextWrapped(
+                        "NRD Presentation: %s",
+                        Engine::NrdRelaxPresentationStatusText(context.pathTracingDiagnostics.nrdPresentationStatus));
+                const auto& presentation = context.pathTracingDiagnostics.reconstructionPresentation;
+                ImGui::Text("Reconstruction output: %s (%s)",
+                            Engine::PathTracingReconstructionBackendName(presentation.output),
+                            Engine::PathTracingReconstructionStatusName(presentation.status));
+                if (reconstructionBackend == 2)
+                {
+                    ImGui::Text("RR: %s", context.pathTracingDiagnostics.rrLivePhase.c_str());
+                    ImGui::Text("RR completed: %llu, continuous: %llu, resets: %llu",
+                                static_cast<unsigned long long>(context.pathTracingDiagnostics.rrCompletedCount),
+                                static_cast<unsigned long long>(context.pathTracingDiagnostics.rrContinuousCount),
+                                static_cast<unsigned long long>(context.pathTracingDiagnostics.rrResetCount));
+                    if (!context.pathTracingDiagnostics.rrLiveFailure.empty())
+                        ImGui::TextWrapped("RR fallback: %s", context.pathTracingDiagnostics.rrLiveFailure.c_str());
+                }
+                const auto& reconstructionTiming = context.pathTracingDiagnostics.reconstructionTimings;
+                ImGui::Text("Completed GPU frame: %s%s",
+                            Engine::PathTracingReconstructionBackendName(
+                                context.pathTracingDiagnostics.completedReconstructionPlan.backend),
+                            context.pathTracingDiagnostics.completedReconstructionPlan.diagnosticWork ? " (diagnostic work)"
+                                                                                                      : "");
+                const auto showStage = [](const char* name, const Engine::PathTracingStageTiming& timing)
+                {
+                    if (timing.available)
+                        ImGui::Text("%s: %.3f ms", name, timing.milliseconds);
+                    else
+                        ImGui::Text("%s: -- (not executed)", name);
+                };
+                for (const auto& stage : Engine::kPathTracingReconstructionStages)
+                {
+                    showStage(stage.label, reconstructionTiming.*(stage.timing));
+                }
+                if (!context.pathTracingDiagnostics.nrdFailureReason.empty())
+                {
+                    ImGui::TextWrapped("NRD Failure: %s", context.pathTracingDiagnostics.nrdFailureReason.c_str());
+                }
+                ImGui::TreePop();
             }
             pathTracingSettingsChanged |=
                 ImGui::Checkbox("Pixel Center Primary", &pathTracingSettings.pixelCenterPrimary);
@@ -1853,16 +1861,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     if (evaluationCasesWindowOpen)
     {
         App::DrawEvaluationCasesWindow(app, App::EvaluationCaseScope::CurrentScene);
-    }
-    if (app.m_evaluationRoi.enabled)
-    {
-        const ImGuiViewport* viewport = ImGui::GetMainViewport();
-        const ImVec2 roiMin(viewport->Pos.x + viewport->Size.x * app.m_evaluationRoi.x,
-                            viewport->Pos.y + viewport->Size.y * app.m_evaluationRoi.y);
-        const ImVec2 roiMax(roiMin.x + viewport->Size.x * app.m_evaluationRoi.width,
-                            roiMin.y + viewport->Size.y * app.m_evaluationRoi.height);
-        ImGui::GetForegroundDrawList()->AddRect(
-            roiMin, roiMax, ImGui::GetColorU32(ImVec4(1.0f, 0.85f, 0.15f, 1.0f)), 0.0f, 0, 2.0f);
     }
     const RtPbrSurvey::RenderGraphGpuTimingSnapshot renderGraphTiming =
         BuildRenderGraphGpuTimingSnapshot(context.gpuCheckPoints);

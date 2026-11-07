@@ -769,3 +769,21 @@ They are not an independent per-pixel interpolation reference or validation
 of seams, all UVs, normal maps, other Volume textures, or full radiance quality.
 Next: a saved visual review scene and user acceptance of patterned roughness,
 then consolidate the scoped Volume roughness texture change for PR.
+
+## Saved Visual Review Scene 39
+
+Added 39-volume-roughness-texture-review with a UV-mapped convex tetrahedron,
+two-region G roughness texture and shared color-band targets from scene 36.
+Independent render preset starts in accumulated Native PT Radiance at factor
+0.7, IOR 1.5, no absorption. Material Controls roughness zero is the smooth
+control; restore 0.7 for patterned roughness. No turntable.
+Generator refuses to overwrite an existing directory. glTF infinite attenuation
+is represented by omitting attenuationDistance, not JSON null.
+512x512/16-sample smoke capture exited 0, completed PNG, no D3D12 errors;
+image inspected for visible geometry and backgrounds. Low-sample image remains
+noisy and is not visual acceptance. User walkthrough remains pending.
+Evidence: bin/PathTracingValidation/scene39-review.png and scene39-review.log.
+
+User visual acceptance (2026-11-07): scene 39 roughness sequence
+0.7 -> 0.0 -> 0.7 completed without issues. This covers the visual roughness
+control only; Evaluation Case ROI/camera restore is a separate check.
