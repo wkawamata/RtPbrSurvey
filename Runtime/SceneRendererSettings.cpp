@@ -84,6 +84,7 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
     hybridReflection["hitOverlayIntensity"] = settings.hybridReflection.hitOverlayIntensity;
     hybridReflection["hitNormalSource"] = settings.hybridReflection.hitNormalSource;
     hybridReflection["contributionEnabled"] = settings.hybridReflection.contributionEnabled;
+    hybridReflection["mirrorEnvironmentOcclusionEnabled"] = settings.hybridReflection.mirrorEnvironmentOcclusionEnabled;
     hybridReflection["contributionIntensity"] = settings.hybridReflection.contributionIntensity;
     hybridReflection["contributionMaxDistance"] = settings.hybridReflection.contributionMaxDistance;
     hybridReflection["temporalHistoryWeight"] = settings.hybridReflection.temporalHistoryWeight;
@@ -320,6 +321,8 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
                 reflection.value("hitOverlayIntensity", parsed.hybridReflection.hitOverlayIntensity);
             parsed.hybridReflection.hitNormalSource =
                 reflection.value("hitNormalSource", parsed.hybridReflection.hitNormalSource);
+            parsed.hybridReflection.mirrorEnvironmentOcclusionEnabled =
+                reflection.value("mirrorEnvironmentOcclusionEnabled", parsed.hybridReflection.mirrorEnvironmentOcclusionEnabled);
             parsed.hybridReflection.contributionEnabled =
                 reflection.value("contributionEnabled", parsed.hybridReflection.contributionEnabled);
             parsed.hybridReflection.contributionIntensity =

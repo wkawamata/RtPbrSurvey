@@ -284,6 +284,7 @@ public:
         bool varianceGuidedTemporalEnabled = false;
         // Diagnostic-only evidence override. Changing it must preserve history for decay measurement.
         bool confidenceForceStableEvidence = false;
+        bool mirrorEnvironmentOcclusionEnabled = false;
     };
 
     enum class PathTracingDebugOutput
@@ -910,12 +911,14 @@ private:
         float reflectionRayNormalBias = 0.0f;
         uint32_t reflectionLightSamplingEnabled = 0;
         uint32_t reflectionLightSamplingFrame = 0;
+        uint32_t mirrorEnvironmentOcclusionEnabled = 0;
     };
 
     static_assert(offsetof(LightingConstants, lightCount) == 120);
     static_assert(offsetof(LightingConstants, primaryShadowLightIndex) == 124);
     static_assert(offsetof(LightingConstants, lights) == 128);
     static_assert(offsetof(LightingConstants, reflectionRayNormalBias) == 1152);
+    static_assert(offsetof(LightingConstants, mirrorEnvironmentOcclusionEnabled) == 1164);
     static_assert(sizeof(LightingConstants) == 1280);
 
     LightingConstants MakeLightingConstants() const;

@@ -58,3 +58,30 @@ establish that the PT implementation is ground truth.
   as exposure 16 inspection images to avoid hiding errors with highlight clipping.
 - Verify camera motion, D3D12 Debug Layer, standalone and host builds/tests.
 - No default-setting change based solely on the current Sponza screenshots.
+
+## Initial Mirror Diagnostic
+
+An opt-in `Mirror IBL Occlusion (diagnostic)` control is available under Hybrid
+Reflection. It defaults OFF and is saved as
+`hybridReflection.mirrorEnvironmentOcclusionEnabled`.
+
+It requires Deferred, RayQuery, Hybrid Reflection enabled, stochastic sampling
+OFF, and an opaque-only scene. For roughness <= 0.1 it suppresses prefiltered
+environment specular where the existing mirror ray has a geometry hit. Other
+pixels are unchanged. The existing material gate and ray distance/bias settings
+still apply. It does not trace a new visibility pass, filter the mask, provide
+reflected hit radiance, or change the existing additive contribution behavior.
+
+This is not rough-specular visibility: a single mirror ray cannot represent a
+broad reflection lobe. In particular it is not a solution for Sponza fabric.
+MASK, transmission and volumes remain unsupported by this diagnostic. Future
+rough-lobe visibility and replacement compositing must be validated separately.
+
+Validation: CMake Debug standalone and settings-test builds passed, including
+shader compilation and CPU/HLSL constant-buffer layout assertions. Settings
+round-trip CTest passed. Cornell ON/OFF captures (80 warmup frames, no reflection
+contribution) produced no D3D12 errors. The 10,130 changed pixels were confined to
+the mirror sphere (x=357..479, y=298..421); no pixels brightened. Open-environment
+directions remained visible while blocked directions became black. This does
+not validate rough lobes, camera motion, MASK scenes, or reflected-hit radiance.
+Local evidence: `bin/PathTracingValidation/specular-mirror-occlusion-20261107/`.

@@ -1288,6 +1288,11 @@ auto RtPbrSurveyEngine::MakeLightingConstants() const -> LightingConstants
     result.reflectionRayNormalBias = m_shadowSettings.normalBias;
     result.reflectionLightSamplingEnabled = m_hybridReflectionSettings.stochasticSamplingEnabled ? 1u : 0u;
     result.reflectionLightSamplingFrame = m_reflectionSamplingFrameIndex;
+    result.mirrorEnvironmentOcclusionEnabled =
+        m_renderingPath == RenderingPath::Deferred && m_rayTracingSupport.IsSupported() &&
+        m_hybridReflectionSettings.enabled && m_hybridReflectionSettings.mirrorEnvironmentOcclusionEnabled &&
+        !m_hybridReflectionSettings.stochasticSamplingEnabled && !m_sceneHasAlphaMask &&
+        !m_sceneHasThinTransmission && !m_sceneHasVolumeTransmission ? 1u : 0u;
     for (uint32_t i = 0; i < result.lightCount; ++i)
     {
         const RtPbrSurvey::DirectLight& light = m_lightingParams.lights[i];

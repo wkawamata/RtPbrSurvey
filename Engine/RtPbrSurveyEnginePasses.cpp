@@ -926,7 +926,8 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
             }
         }
         if (m_hybridReflectionSettings.enabled &&
-            (m_hybridReflectionSettings.contributionEnabled || m_hybridReflectionSettings.hitOverlayEnabled))
+            (m_hybridReflectionSettings.contributionEnabled || m_hybridReflectionSettings.hitOverlayEnabled ||
+             m_hybridReflectionSettings.mirrorEnvironmentOcclusionEnabled))
         {
             reads.push_back({kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
         }
@@ -960,7 +961,8 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
                                Desc::ReflectionResolvedRadianceCurrentSrv);
     }
     if (m_rayTracingSupport.IsSupported() && m_hybridReflectionSettings.enabled &&
-        (m_hybridReflectionSettings.contributionEnabled || m_hybridReflectionSettings.hitOverlayEnabled))
+        (m_hybridReflectionSettings.contributionEnabled || m_hybridReflectionSettings.hitOverlayEnabled ||
+         m_hybridReflectionSettings.mirrorEnvironmentOcclusionEnabled))
     {
         builder.Descriptor(RootSignatureLayout::ReflectionRayHit, Desc::ReflectionRayHitSrv);
     }

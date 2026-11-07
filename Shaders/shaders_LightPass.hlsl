@@ -233,6 +233,12 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float2 brdf = g_brdfLut.Sample(g_sampler, float2(ndotv, roughness)).rg;
     float3 iblSpecular = EvaluatePbrSpecularIbl(environmentSpecular, brdf, f0, roughness, ndotv, occlusion) *
                          iblIntensity * specularIblEnabled;
+    // Mirror-direction diagnostic only: rough lobes need their own visibility estimator.
+    if (mirrorEnvironmentOcclusionEnabled != 0 && roughness <= 0.1)
+    {
+        float hit = g_reflectionRayHit.Load(int3(input.position.xy, 0)).y;
+        iblSpecular *= hit > 0.5 ? 0.0 : 1.0;
+    }
     float3 color = iblDiffuse + iblSpecular + directLighting + emissive * emissiveEnabled;
     if (reflectionContributionEnabled > 0.5)
     {

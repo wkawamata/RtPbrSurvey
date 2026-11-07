@@ -60,6 +60,7 @@ bool TestRoundTrip()
     source.temporalUpscaler.qualityMode = Engine::TemporalUpscalerQualityMode::Balanced;
     source.temporalUpscaler.renderScale = 0.67f;
     source.hybridReflection.contributionMaxDistance = 37.0f;
+    source.hybridReflection.mirrorEnvironmentOcclusionEnabled = true;
     source.pathTracing.accumulate = false;
     source.pathTracing.samplesPerFrame = 4;
     source.pathTracing.pixelCenterPrimary = true;
@@ -93,6 +94,8 @@ bool TestRoundTrip()
                     "complete settings deserialize");
     passed &= Check(error.empty(), "successful deserialize clears error");
     const auto& visibility = restored.diffuseEnvironmentVisibility;
+    passed &= Check(restored.hybridReflection.mirrorEnvironmentOcclusionEnabled,
+                    "mirror environment occlusion diagnostic round-trips");
     passed &= Check(visibility.forceMaskedGeometry, "forced MASK visibility round-trips");
     nlohmann::json legacyJson = parsedJson;
     legacyJson["diffuseEnvironmentVisibility"].erase("forceMaskedGeometry");

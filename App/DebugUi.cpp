@@ -845,6 +845,11 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         {
             auto reflectionSettings = app.m_sceneRenderer.GetHybridReflectionSettings();
             bool changed = false;
+            changed |= ImGui::Checkbox("Mirror IBL Occlusion (diagnostic)", &reflectionSettings.mirrorEnvironmentOcclusionEnabled);
+            if (reflectionSettings.mirrorEnvironmentOcclusionEnabled)
+            {
+                ImGui::TextWrapped("Opaque only; roughness <= 0.1. Requires Hybrid Reflection enabled and stochastic sampling OFF. No reflected surface radiance replacement.");
+            }
 
             if (ImGuiWidgets::SimpleDetailMode(
                     "HybridReflectionMode", &debugUiPreferences.hybridReflectionDetailed))
