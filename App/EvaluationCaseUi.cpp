@@ -346,11 +346,25 @@ void DrawEvaluationCasesWindow(RtPbrSurveyApp& app, EvaluationCaseScope scope)
             }
         }
         ImGui::SameLine();
-        if (ImGui::Button("Save Changes"))
+        if (ImGui::Button(scope == EvaluationCaseScope::CurrentScene ? "Save Changes" : "Save Metadata"))
         {
+            const RtPbrSurvey::EvaluationState previousState = state;
             std::string error;
-            app.m_evaluationStatus =
-                app.m_evaluationStates.Save(&error) ? "Evaluation case changes saved." : "Save failed: " + error;
+            if (scope == EvaluationCaseScope::CurrentScene && !app.CaptureEvaluationState(state, &error))
+            {
+                state = previousState;
+                app.m_evaluationStatus = "Capture failed: " + error;
+            }
+            else if (!app.m_evaluationStates.Save(&error))
+            {
+                state = previousState;
+                app.m_evaluationStatus = "Save failed: " + error;
+            }
+            else
+            {
+                app.m_evaluationStatus = scope == EvaluationCaseScope::CurrentScene ?
+                    "Evaluation case changes and current state saved." : "Evaluation case metadata saved.";
+            }
         }
         ImGui::SameLine();
         if (ImGui::Button("Delete"))
