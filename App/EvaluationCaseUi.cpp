@@ -284,10 +284,7 @@ void DrawEvaluationCasesWindow(RtPbrSurveyApp& app, EvaluationCaseScope scope)
 
         if (restoreIndex.has_value())
         {
-            std::string error;
-            app.m_evaluationStatus = app.RestoreEvaluationState(states[*restoreIndex], &error)
-                                         ? "Evaluation case restored."
-                                         : "Restore failed: " + error;
+            app.m_pendingEvaluationRestore = states[*restoreIndex];
         }
     }
 
@@ -303,26 +300,23 @@ void DrawEvaluationCasesWindow(RtPbrSurveyApp& app, EvaluationCaseScope scope)
         ImGui::SeparatorText("Selected Case");
         ImGui::SetNextItemWidth(280.0f);
         ImGui::InputText("Name", &state.name);
+        ImGui::TextUnformatted("Comment");
         ImGui::SetNextItemWidth(-1.0f);
-        ImGui::InputTextMultiline("Comment", &state.comment, ImVec2(0.0f, 58.0f));
+        ImGui::InputTextMultiline("##Comment", &state.comment, ImVec2(0.0f, 58.0f));
         ImGui::Text("Scene: %s", state.sceneName.c_str());
 
         if (scope == EvaluationCaseScope::AllScenes)
         {
             if (ImGui::Button("Open Scene"))
             {
-                std::string error;
-                app.m_evaluationStatus = app.RestoreEvaluationState(state, &error) ? "Evaluation case restored."
-                                                                                   : "Restore failed: " + error;
+                app.m_pendingEvaluationRestore = state;
             }
         }
         else
         {
             if (ImGui::Button("Restore Case"))
             {
-                std::string error;
-                app.m_evaluationStatus = app.RestoreEvaluationState(state, &error) ? "Evaluation case restored."
-                                                                                   : "Restore failed: " + error;
+                app.m_pendingEvaluationRestore = state;
             }
             ImGui::SameLine();
             if (ImGui::Button("Update Case State"))
@@ -388,7 +382,7 @@ void DrawEvaluationCasesWindow(RtPbrSurveyApp& app, EvaluationCaseScope scope)
                 state.roi.width = roiSize[0];
                 state.roi.height = roiSize[1];
                 state.roi.Sanitize();
-                app.m_evaluationRoi = state.roi;
+                app.ApplyEvaluationRoi(state.roi);
             }
         }
 

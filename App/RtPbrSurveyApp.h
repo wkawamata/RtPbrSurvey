@@ -173,6 +173,7 @@ private:
     void FlushD3D12DebugMessages();
     void LogFpsToFile(float cpuFrameTimeMs);
     bool CaptureEvaluationState(RtPbrSurvey::EvaluationState& state, std::string* error = nullptr);
+    void ApplyEvaluationRoi(RtPbrSurvey::EvaluationRoi roi);
     bool RestoreEvaluationState(const RtPbrSurvey::EvaluationState& state, std::string* error = nullptr);
     Engine::SampleScene& LoadedScene();
     const Engine::SampleScene& LoadedScene() const;
@@ -261,6 +262,7 @@ private:
     RtPbrSurvey::DebugCameraController m_debugCamera;
     App::SceneConfigManager m_sceneConfig;
     RtPbrSurvey::EvaluationStateStore m_evaluationStates;
+    std::optional<RtPbrSurvey::EvaluationState> m_pendingEvaluationRestore;
     RtPbrSurvey::EvaluationRoi m_evaluationRoi;
     int m_selectedEvaluationStateIndex = -1;
     uint64_t m_evaluationDeleteCandidateId = 0;

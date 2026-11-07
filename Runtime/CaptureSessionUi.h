@@ -28,6 +28,11 @@ namespace RtPbrSurvey
         bool draggingRegion = false;
         float regionDragStartX = 0.0f;
         float regionDragStartY = 0.0f;
+        bool regionLabelHovered = false;
+        bool draggingRegionLabel = false;
+        bool resizingRegionFromBottomRight = false;
+        float regionLabelGrabX = 0.0f;
+        float regionLabelGrabY = 0.0f;
         int regionX = 0;
         int regionY = 0;
         int regionWidth = 640;
@@ -39,7 +44,7 @@ namespace RtPbrSurvey
         int gifDisposal = static_cast<int>(CaptureSessionGifDisposal::Keep);
         int warmupFrames = 0;
         int startDelayMilliseconds = 0;
-        bool useFrameLimit = true;
+        bool useFrameLimit = false;
         int frameLimit = 60;
         bool useDurationLimit = false;
         float durationSeconds = 1.0f;
@@ -56,7 +61,8 @@ namespace RtPbrSurvey
         static void Draw(SceneRenderer& renderer, CaptureSessionUiState& state);
         static CaptureSessionUiAction Draw(const CaptureSessionStatus& status, CaptureSessionUiState& state,
                                            const char* startBlockedReason = nullptr,
-                                           bool showSingleCapture = false, bool singleCaptureBlocked = false);
+                                           bool showSingleCapture = false, bool singleCaptureBlocked = false,
+                                           std::uint32_t outputWidth = 0, std::uint32_t outputHeight = 0);
         // Draw once at the end of the host's UI frame, even when the settings panel is hidden.
         static void DrawRegionOverlay(const CaptureSessionStatus& status, CaptureSessionUiState& state,
                                       std::uint32_t outputWidth, std::uint32_t outputHeight);
