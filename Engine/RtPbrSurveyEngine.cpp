@@ -1336,9 +1336,15 @@ const char* RtPbrSurveyEngine::GetDiffuseEnvironmentVisibilityStatus() const
     {
         return "No scene TLAS";
     }
-    if (m_sceneHasThinTransmission || m_sceneHasAlphaMask || m_sceneHasVolumeTransmission)
+    if (m_sceneHasThinTransmission || m_sceneHasVolumeTransmission)
     {
-        return "Opaque-only diagnostic: MASK/transmission/volume unsupported";
+        return "Opaque-only diagnostic: transmission/volume unsupported";
+    }
+    if (m_sceneHasAlphaMask)
+    {
+        return m_diffuseEnvironmentVisibilitySettings.forceMaskedGeometry ?
+            "Ready (forced MASK: transparent areas are treated as opaque)" :
+            "Opaque-only diagnostic: MASK unsupported";
     }
     return "Ready";
 }
@@ -1347,7 +1353,7 @@ bool RtPbrSurveyEngine::IsDiffuseEnvironmentVisibilityActive() const
 {
     return m_diffuseEnvironmentVisibilitySettings.enabled &&
         m_diffuseEnvironmentVisibilitySettings.strength > 0 && m_lightingParams.diffuseIblEnabled &&
-        m_lightingParams.iblIntensity > 0 && std::strcmp(GetDiffuseEnvironmentVisibilityStatus(), "Ready") == 0;
+        m_lightingParams.iblIntensity > 0 && std::strncmp(GetDiffuseEnvironmentVisibilityStatus(), "Ready", 5) == 0;
 }
 
 void RtPbrSurveyEngine::SetDiffuseEnvironmentVisibilitySettings(
@@ -7676,7 +7682,7 @@ void RtPbrSurveyEngine::ExecuteDiffuseEnvironmentVisibilityPass(const RenderPass
     desc.constants.normalBias = m_diffuseEnvironmentVisibilitySettings.normalBias;
     desc.constants.rayTMin = m_diffuseEnvironmentVisibilitySettings.rayTMin;
     desc.constants.traceDistance = m_diffuseEnvironmentVisibilitySettings.traceDistance;
-    desc.constants.supported = std::strcmp(GetDiffuseEnvironmentVisibilityStatus(), "Ready") == 0 ? 1 : 0;
+    desc.constants.supported = std::strncmp(GetDiffuseEnvironmentVisibilityStatus(), "Ready", 5) == 0 ? 1 : 0;
     desc.constants.sampleRotationEnabled = m_diffuseEnvironmentVisibilitySettings.sampleRotationEnabled ? 1 : 0;
     m_diffuseEnvironmentVisibilityPass.Record(m_commandList.Get(), desc);
     m_gpuWorkMeter.SetCheckPoint(m_commandList.Get(), "Diffuse Environment Visibility");

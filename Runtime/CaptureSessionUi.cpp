@@ -243,10 +243,15 @@ namespace RtPbrSurvey
             const std::string outputPath(outputPathUtf8.begin(), outputPathUtf8.end());
             ImGui::TextUnformatted("Last output:");
             ImGui::SameLine();
-            if (ImGui::Button("Copy path"))
+            if (ImGui::Button("Copy Location Path##session"))
             {
-                ImGui::SetClipboardText(outputPath.c_str());
-                state.message = "Last output path copied to clipboard.";
+                std::error_code error;
+                const std::filesystem::path absolutePath = std::filesystem::absolute(status.lastOutputPath, error);
+                const std::filesystem::path directory = (error ? status.lastOutputPath : absolutePath).parent_path();
+                const std::u8string locationUtf8 = directory.u8string();
+                const std::string location(locationUtf8.begin(), locationUtf8.end());
+                ImGui::SetClipboardText(location.c_str());
+                state.message = "Output location copied to clipboard.";
             }
             ImGui::TextWrapped("%s", outputPath.c_str());
         }

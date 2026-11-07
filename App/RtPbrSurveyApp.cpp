@@ -1500,11 +1500,20 @@ void RtPbrSurveyApp::DrawCaptureSessionUi()
         filename << "RtPbrSurvey_" << std::put_time(&localTime, "%Y-%m-%d_%H%M%S") << ".png";
         const std::filesystem::path path = std::filesystem::current_path() / "Screenshots" / filename.str();
         m_sceneRenderer.RequestScreenshot({path});
+        m_screenshotLocation.clear();
         m_screenshotStatus = "Capture requested: " + path.string();
     }
     if (!m_screenshotStatus.empty())
     {
         ImGui::TextWrapped("%s", m_screenshotStatus.c_str());
+    }
+    if (!m_screenshotLocation.empty() && ImGui::Button("Copy Location Path##screenshot"))
+    {
+        std::error_code error;
+        const std::filesystem::path absolutePath = std::filesystem::absolute(m_screenshotLocation, error);
+        const std::u8string locationUtf8 = (error ? m_screenshotLocation : absolutePath).u8string();
+        const std::string location(locationUtf8.begin(), locationUtf8.end());
+        ImGui::SetClipboardText(location.c_str());
     }
     ImGui::BeginDisabled(RtPbrSurvey::CaptureSessionUi::IsActive(status));
     ImGui::SeparatorText("Camera track");
@@ -3858,6 +3867,15 @@ void RtPbrSurveyApp::UpdateUiFrame()
     if (m_appMode != AppMode::Running || m_debugUiVisible)
     {
         DrawDebugUi(m_sceneRenderer.GetUiFrameContext());
+        if (m_captureSessionWindowOpen && (m_appMode == AppMode::Running || m_appMode == AppMode::SceneEditorEdit))
+        {
+            ImGui::SetNextWindowSize(ImVec2(520, 650), ImGuiCond_FirstUseEver);
+            if (ImGui::Begin("Capture Session", &m_captureSessionWindowOpen))
+            {
+                DrawCaptureSessionUi();
+            }
+            ImGui::End();
+        }
     }
     m_sceneRenderer.DrawToolUi();
     if (m_appMode == AppMode::Running || m_appMode == AppMode::SceneEditorEdit)
