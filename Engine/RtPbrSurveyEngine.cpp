@@ -743,7 +743,8 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
         m_pathTracingSettings.reconstructionDiagnostics != validated.reconstructionDiagnostics ||
         m_pathTracingSettings.rrContinuous != validated.rrContinuous ||
         m_pathTracingSettings.rrThinExperiment != validated.rrThinExperiment ||
-        m_pathTracingSettings.rrSmoothVolumeExperiment != validated.rrSmoothVolumeExperiment;
+        m_pathTracingSettings.rrSmoothVolumeExperiment != validated.rrSmoothVolumeExperiment ||
+        m_pathTracingSettings.rrRoughVolumeExperiment != validated.rrRoughVolumeExperiment;
     validated.environmentSamplingMode = (std::min)(validated.environmentSamplingMode, 7u);
     validated.emissiveSamplingMode = (std::min)(validated.emissiveSamplingMode, 2u);
     validated.samplesPerFrame = (std::clamp)(validated.samplesPerFrame, 1u, 16u);
@@ -7307,13 +7308,19 @@ bool RtPbrSurveyEngine::SupportsPtRrSurfaces() const
         return false;
     if (!m_sceneHasVolumeTransmission)
         return true;
-    return m_pathTracingSettings.rrSmoothVolumeExperiment &&
-        std::all_of(m_materialData.begin(), m_materialData.end(), [](const Engine::Material& material)
-        {
-            return (material.flags & Engine::kMaterialFlagVolumeTransmission) == 0 ||
-                (material.roughnessFactor == 0.0f &&
-                 material.volumeAbsorption.attenuationDistance == std::numeric_limits<float>::infinity());
-        });
+    if (!m_pathTracingSettings.rrSmoothVolumeExperiment && !m_pathTracingSettings.rrRoughVolumeExperiment)
+        return false;
+    return std::all_of(m_materialData.begin(), m_materialData.end(), [this](const Engine::Material& material)
+    {
+        if ((material.flags & Engine::kMaterialFlagVolumeTransmission) == 0)
+            return true;
+        const float roughness = material.roughnessFactor;
+        const bool eligibleRoughness = roughness == 0.0f
+            ? m_pathTracingSettings.rrSmoothVolumeExperiment
+            : m_pathTracingSettings.rrRoughVolumeExperiment && roughness > 0.0f && roughness <= 0.35f;
+        return eligibleRoughness &&
+            material.volumeAbsorption.attenuationDistance == std::numeric_limits<float>::infinity();
+    });
 }
 
 bool RtPbrSurveyEngine::CanRunPtRrNative() const

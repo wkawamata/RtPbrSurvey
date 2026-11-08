@@ -92,6 +92,7 @@ struct CommandLineOptions
     bool pathTracingRrContinuous = false;
     bool pathTracingRrThinExperiment = false;
     bool pathTracingRrSmoothVolumeExperiment = false;
+    bool pathTracingRrRoughVolumeExperiment = false;
     std::filesystem::path pathTracingRrLifecycleValidationDirectory;
     std::filesystem::path pathTracingRrInputCaptureDirectory;
     std::string nrdDiagnosticFailure;

@@ -103,6 +103,30 @@ reference positions at x=259 and x=332 (left pixels of the strongest gradients).
 The Scene 20 thin transmission RR regression also passed. Evidence is under build/rr-smooth-volume-20261108. Rough and absorbing glass
 remain separate experiments. Motion and visual acceptance remain open.
 
+
+### Scene 33 opt-in rough Volume RR (2026-11-08)
+
+Use `-PathTracingRrRoughVolumeExperiment` with
+`-EnableExperimentalNativeRayReconstruction`. Admission requires qualified
+nonabsorbing Volume with roughness greater than zero and at most 0.35.
+The experiment reuses the transmission guide policy from Scene 37.
+
+The local Scene 33 derivative sets attenuation distance to infinity to isolate
+roughness. Fixed camera, IOR 1.5, 16 bounces and 640x360. The roughness 0.35 RR
+capture published 18 verified outputs with 17 continuous evaluations, one reset,
+zero input rejections or cancellations, and zero D3D12 errors. The original
+absorbing material and the smooth-only flag on the rough scene both produced
+Native fallback with zero SDK evaluations.
+
+Compared to roughness 0.35 Native 256 spp, the glass interior display RGB RMSE
+went from 64.72 for Native 1 spp to 6.18 for RR with temporal history. Interior
+mean RGB was 200.99 in the reference and 202.93 in RR on an 8-bit scale. One
+checker transition averaged over x=250..329 had a 10-to-90 percent width of
+3.39 px in roughness 0 Native, 35.49 px in roughness 0.35 Native, and 32.81 px
+in RR. The latter two transition centers were y=144.14 and y=144.17. This
+measures a single fixed-view transition. See build/rr-rough-volume-20261108
+for captures, commands and regional metrics. Motion evaluation is pending.
+
 ## Dynamic objects
 
 - [x] Add opaque translation/rotation RR scenes using the Scene35 animation mechanism.
