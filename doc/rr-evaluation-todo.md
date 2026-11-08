@@ -187,6 +187,11 @@ output captures were finite. Logs and reports are under
 build/rr-transmission-continuous-20261109. Camera motion and subjective
 transmitted-image lag and ghosting still require separate evaluation.
 
+The user accepted slab translation in the interactive smooth Volume test.
+They observed no visible grain on the front or side, no delay or doubling of
+the refracted color bands, and no residual image after stopping. Camera-only
+motion and behind-glass object motion still await subjective checks.
+
 ## Dynamic objects
 
 - [x] Add opaque translation/rotation RR scenes using the Scene35 animation mechanism.
