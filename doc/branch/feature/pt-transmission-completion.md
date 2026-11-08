@@ -834,3 +834,29 @@ grid and orange-object silhouettes are visible through both active panes,
 while the opaque control still hides them. The fixed ROI coordinates apply.
 Evidence: bin/PathTracingValidation/scene20-smooth-rr-control/native-{1,128}.png
 and matching logs. RR quality is not evaluated by these captures.
+
+### Smooth Solid Native Control (Scene 37)
+
+Captured the unmodified slab preset at 768x432, Native 1/128 spp, max bounces
+16. Both captures completed without D3D12 errors. At 128 spp the color bands
+shift laterally inside the slab; its right side shows a different band pattern.
+Compare the refracted interior [312,151,448,278), right boundary/side
+[448,150,489,278), and rear target above the slab [312,47,448,123).
+Rectangles use [x0,y0,x1,y1) pixels for this framing only. The outside target
+is a control, not the desired image inside the slab. Compare RR to Native at
+the same location; do not interpret the expected shift as reconstruction error.
+Evidence: bin/PathTracingValidation/scene37-rr-native-{1,128}.png and logs.
+RR output has not been evaluated for this scene.
+
+### Rough Solid Native Control (Scene 33)
+
+Captured the unmodified rough cube preset at 768x432, Native 1/128 spp,
+16 bounces, with no D3D12 errors. The blue absorption tint and broad blur
+across the checker edges are present in the 128 spp Native baseline. The
+exterior checker and glass silhouette remain comparatively sharp.
+Compare glass interior [278,127,483,294), right silhouette and side
+[488,123,542,301), and exterior checker edge [550,166,670,222).
+Rectangles are [x0,y0,x1,y1) for this framing. Check tint, blur width and
+edge bleed; do not demand unblurred checker detail inside the rough glass.
+Evidence: bin/PathTracingValidation/scene33-rr-native-{1,128}.png and logs.
+RR output has not been evaluated for this scene.
