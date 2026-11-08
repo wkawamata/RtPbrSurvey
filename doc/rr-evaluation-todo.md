@@ -127,6 +127,31 @@ in RR. The latter two transition centers were y=144.14 and y=144.17. This
 measures a single fixed-view transition. See build/rr-rough-volume-20261108
 for captures, commands and regional metrics. Motion evaluation is pending.
 
+
+### Transmission motion fixtures (2026-11-08)
+
+The Saved Scenes list includes two fixed-camera motion fixtures. Use Space or
+Play Animation to start and pause the six-second translation.
+
+| Scene | Animated node | RR experiment option |
+|---|---|---|
+| PT RR Glass Translation | Scene 37 slab, amplitude 0.35 | `-PathTracingRrSmoothVolumeExperiment` |
+| PT RR Behind Glass Translation | Scene 20 Sphere 2, amplitude 0.25 | `-PathTracingRrThinExperiment` |
+
+The behind-glass fixture sets the clear panel roughness to zero so the sphere
+is easier to track. Both use the source scene presets and assets. Add
+`-EnableExperimentalNativeRayReconstruction` to enable SDK evaluation.
+
+Debug lifecycle probes at 640x360 reached the static checkpoint in both cases
+with three verified RR publications, one reset, and no input rejection or
+D3D12 errors. Both timed out at the moving checkpoint after 512 frame updates,
+so they did not satisfy the existing continuous-output requirement. The
+experiments currently invalidate RR history on transmission scene pose changes.
+The probe does not quantify moving-image ghosting or output frequency.
+Logs are under build/rr-transmission-motion-20261108. Next measure publication
+and reset counts through motion and stop, then compare paired Native/RR frames.
+The independent camera-only test remains pending.
+
 ## Dynamic objects
 
 - [x] Add opaque translation/rotation RR scenes using the Scene35 animation mechanism.
