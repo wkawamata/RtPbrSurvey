@@ -171,6 +171,22 @@ The two motion cases still fail continuous RR quality acceptance. After pausing
 slab animation, check the time until verified RR output and smooth side faces
 return. Logs are under build/rr-user-glass-clear-fix-20261109.
 
+### Opt-in transmission motion continuity (2026-11-09)
+
+Add `-PathTracingRrTransmissionMotionExperiment` alongside the applicable
+transmission experiment flag and native evaluate flag. This reuses the
+existing primary-surface motion and published-packet pose history. Empty
+emitter tables can preserve history when rebuilt successfully. The experiment
+adds no motion guide for the image behind a refracting surface.
+
+At 640x360 both saved motion scenes passed all five lifecycle checkpoints.
+Each produced three static outputs, eight additional moving outputs, and eight
+more after pause and resume. Each had one initial reset, zero cancellations or
+input rejections, and zero D3D12 errors. The retained motion and published
+output captures were finite. Logs and reports are under
+build/rr-transmission-continuous-20261109. Camera motion and subjective
+transmitted-image lag and ghosting still require separate evaluation.
+
 ## Dynamic objects
 
 - [x] Add opaque translation/rotation RR scenes using the Scene35 animation mechanism.

@@ -3827,6 +3827,7 @@ void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
     settings.rrThinExperiment = m_commandLineOptions.pathTracingRrThinExperiment;
     settings.rrSmoothVolumeExperiment = m_commandLineOptions.pathTracingRrSmoothVolumeExperiment;
     settings.rrRoughVolumeExperiment = m_commandLineOptions.pathTracingRrRoughVolumeExperiment;
+    settings.rrTransmissionMotionExperiment = m_commandLineOptions.pathTracingRrTransmissionMotionExperiment;
     m_sceneRenderer.SetPathTracingSettings(settings);
     m_sceneRenderer.SetPathTracingAccumulationPaused(false);
     if (m_commandLineOptions.pathTracingSampleTarget > 0)

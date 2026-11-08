@@ -313,6 +313,7 @@ public:
         bool rrThinExperiment = false;
         bool rrSmoothVolumeExperiment = false;
         bool rrRoughVolumeExperiment = false;
+        bool rrTransmissionMotionExperiment = false;
         UINT maxBounces = 8;
         UINT randomSeed = 1;
         bool directLightingEnabled = true;

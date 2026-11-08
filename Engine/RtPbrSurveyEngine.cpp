@@ -744,7 +744,8 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
         m_pathTracingSettings.rrContinuous != validated.rrContinuous ||
         m_pathTracingSettings.rrThinExperiment != validated.rrThinExperiment ||
         m_pathTracingSettings.rrSmoothVolumeExperiment != validated.rrSmoothVolumeExperiment ||
-        m_pathTracingSettings.rrRoughVolumeExperiment != validated.rrRoughVolumeExperiment;
+        m_pathTracingSettings.rrRoughVolumeExperiment != validated.rrRoughVolumeExperiment ||
+        m_pathTracingSettings.rrTransmissionMotionExperiment != validated.rrTransmissionMotionExperiment;
     validated.environmentSamplingMode = (std::min)(validated.environmentSamplingMode, 7u);
     validated.emissiveSamplingMode = (std::min)(validated.emissiveSamplingMode, 2u);
     validated.samplesPerFrame = (std::clamp)(validated.samplesPerFrame, 1u, 16u);
@@ -2164,7 +2165,8 @@ bool RtPbrSurveyEngine::CanPreservePtRrCameraHistory(const CameraState& camera) 
 {
     // Projection changes are discontinuities. Camera pose changes use dense
     // primary motion plus hit distance for SDK specular reprojection.
-    return CanRunPtRrNative() && !m_sceneHasThinTransmission && !m_sceneHasVolumeTransmission &&
+    const bool transmission = m_sceneHasThinTransmission || m_sceneHasVolumeTransmission;
+    return CanRunPtRrNative() && (!transmission || m_pathTracingSettings.rrTransmissionMotionExperiment) &&
            m_pathTracingSettings.rrContinuous &&
            m_scene.camera.projection == camera.projection && m_scene.camera.fov == camera.fov &&
            m_scene.camera.orthographicHeight == camera.orthographicHeight && m_scene.camera.nearZ == camera.nearZ &&
@@ -4187,6 +4189,7 @@ void RtPbrSurveyEngine::UpdateEmissiveTriangleBuffer()
     }
     if (changed)
     {
+        const bool hadEmissiveTriangles = !m_emissiveTriangles.empty();
         m_emissiveSourceMesh = mesh;
         m_emissiveSourceInstances.assign(m_scene.instances.begin(), m_scene.instances.begin() + instanceCount);
         m_emissiveSourceMaterials = std::move(effectiveMaterials);
@@ -4211,8 +4214,10 @@ void RtPbrSurveyEngine::UpdateEmissiveTriangleBuffer()
         }
         if (m_emissiveTriangleVersion != 0)
         {
+            const bool emptyEmitterTables = m_pathTracingSettings.rrTransmissionMotionExperiment &&
+                !hadEmissiveTriangles && m_emissiveTriangles.empty() && m_emissiveTableStatus == "ready";
             const bool preserveRr = CanPreservePtRrCameraHistory(m_scene.camera) &&
-                (!m_pathTracingSettings.emissiveEnabled || !m_lightingParams.emissiveEnabled);
+                (!m_pathTracingSettings.emissiveEnabled || !m_lightingParams.emissiveEnabled || emptyEmitterTables);
             InvalidatePathTracingHistory(PathTracingResetReason::Scene, false, preserveRr);
         }
         ++m_emissiveTriangleVersion;
