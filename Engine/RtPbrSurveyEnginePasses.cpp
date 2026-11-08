@@ -51,13 +51,18 @@ void RtPbrSurveyEngine::BuildRenderPasses()
         if (m_renderingPath == RenderingPath::PathTracing)
         {
             bool traceFrame = !m_pathTracingRuntimeState.accumulationPaused && m_pathTracingFrameAdvance;
+            bool holdRrProduction = false;
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-            if (CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->HoldProduction())
+            holdRrProduction = CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->HoldProduction();
+            if (holdRrProduction)
                 traceFrame = false;
             if (CanRunPtRrNative() && m_ptRrLive && m_ptRrLive->CanEvaluate())
                 AddPass(MakePtRrEvaluatePass());
 #endif
-            if (m_pathTracingHistoryClearRequired || (!m_pathTracingSettings.accumulate && traceFrame))
+            // Keep the last Native image while an invalidated RR packet drains.
+            // Clearing before the next trace would present an empty fallback frame.
+            if (!holdRrProduction &&
+                (m_pathTracingHistoryClearRequired || (!m_pathTracingSettings.accumulate && traceFrame)))
             {
 #ifdef RTPBRSURVEY_NRD_SDK_DIAGNOSTICS
                 m_nrdComposedOutputValid = false;
