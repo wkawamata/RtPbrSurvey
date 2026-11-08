@@ -78,6 +78,31 @@ that continuation. Confirm static output and compare the color bands and
 silhouette against the IOR 1.5 reference. The IOR 1.0 capture is a control for
 the position of the bands. Thick-glass RR output remains to be tested.
 
+
+### Scene 37 opt-in smooth Volume RR (2026-11-08)
+
+Enable `-PathTracingRrSmoothVolumeExperiment` and
+`-EnableExperimentalNativeRayReconstruction` for the static slab test.
+The experiment admits qualified Volume materials with zero roughness and
+infinite attenuation distance. It uses primary interface geometry and the
+original radiance. Transmitted continuations omit the reflection distance.
+Camera and scene changes reset Volume RR history.
+
+At 640x360 with the saved preset and IOR 1.5, the Debug run published 18
+verified RR outputs, 17 with continuous history. There was one initial reset,
+zero input rejections or cancellations, and zero captured D3D12 errors.
+Without the experiment flag, or with roughness 0.35 or finite attenuation
+distance 2, the output fell back to Native with zero SDK evaluations.
+
+Display RGB RMSE against the same-build Native 256 spp capture decreased from
+23.18 to 5.37 inside the slab, from 18.03 to 7.47 at the left edge, and from
+20.24 to 6.03 at the right edge. Whole-frame RMSE decreased from 7.60 to 6.83.
+The compared inputs are Native 1 spp and RR with 1 spp per production and
+temporal history. Two color band transitions in the slab matched the Native
+reference positions at x=259 and x=332 (left pixels of the strongest gradients).
+The Scene 20 thin transmission RR regression also passed. Evidence is under build/rr-smooth-volume-20261108. Rough and absorbing glass
+remain separate experiments. Motion and visual acceptance remain open.
+
 ## Dynamic objects
 
 - [x] Add opaque translation/rotation RR scenes using the Scene35 animation mechanism.

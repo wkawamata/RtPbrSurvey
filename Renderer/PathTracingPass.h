@@ -61,7 +61,7 @@ struct PathTracingPassDesc
     bool pixelCenterPrimary = false;
     bool denoiserDistanceDiagnostics = false;
     bool thinTransmissionActive = false;
-    bool rrThinPrimaryGuide = false;
+    bool rrTransmissionPrimaryGuide = false;
     bool alphaMaskActive = false;
     bool volumeTransmissionActive = false;
     bool doubleSidedActive = false;

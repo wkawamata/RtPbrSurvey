@@ -311,6 +311,7 @@ public:
         bool reconstructionDiagnostics = false;
         bool rrContinuous = false;
         bool rrThinExperiment = false;
+        bool rrSmoothVolumeExperiment = false;
         UINT maxBounces = 8;
         UINT randomSeed = 1;
         bool directLightingEnabled = true;

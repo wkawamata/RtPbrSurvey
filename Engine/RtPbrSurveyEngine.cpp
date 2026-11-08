@@ -742,7 +742,8 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
             Engine::EffectivePathTracingBackend(validated.reconstructionBackend, validated.nrdPreview) ||
         m_pathTracingSettings.reconstructionDiagnostics != validated.reconstructionDiagnostics ||
         m_pathTracingSettings.rrContinuous != validated.rrContinuous ||
-        m_pathTracingSettings.rrThinExperiment != validated.rrThinExperiment;
+        m_pathTracingSettings.rrThinExperiment != validated.rrThinExperiment ||
+        m_pathTracingSettings.rrSmoothVolumeExperiment != validated.rrSmoothVolumeExperiment;
     validated.environmentSamplingMode = (std::min)(validated.environmentSamplingMode, 7u);
     validated.emissiveSamplingMode = (std::min)(validated.emissiveSamplingMode, 2u);
     validated.samplesPerFrame = (std::clamp)(validated.samplesPerFrame, 1u, 16u);
@@ -2162,7 +2163,7 @@ bool RtPbrSurveyEngine::CanPreservePtRrCameraHistory(const CameraState& camera) 
 {
     // Projection changes are discontinuities. Camera pose changes use dense
     // primary motion plus hit distance for SDK specular reprojection.
-    return CanRunPtRrNative() && !m_sceneHasThinTransmission &&
+    return CanRunPtRrNative() && !m_sceneHasThinTransmission && !m_sceneHasVolumeTransmission &&
            m_pathTracingSettings.rrContinuous &&
            m_scene.camera.projection == camera.projection && m_scene.camera.fov == camera.fov &&
            m_scene.camera.orthographicHeight == camera.orthographicHeight && m_scene.camera.nearZ == camera.nearZ &&
@@ -7239,7 +7240,8 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.samplesPerFrame = m_pathTracingSettings.samplesPerFrame;
     passDesc.pixelCenterPrimary = m_pathTracingSettings.pixelCenterPrimary || IsPtRrFrameJitterEnabled();
     passDesc.thinTransmissionActive = m_sceneHasThinTransmission;
-    passDesc.rrThinPrimaryGuide = m_sceneHasThinTransmission && CanRunPtRrNative();
+    passDesc.rrTransmissionPrimaryGuide =
+        (m_sceneHasThinTransmission || m_sceneHasVolumeTransmission) && CanRunPtRrNative();
     passDesc.alphaMaskActive = m_sceneHasAlphaMask;
     passDesc.volumeTransmissionActive = m_sceneHasVolumeTransmission;
     passDesc.doubleSidedActive = m_sceneHasDoubleSided;
@@ -7300,8 +7302,18 @@ bool RtPbrSurveyEngine::SupportsPathTracingReconstructionSurfaces() const
 
 bool RtPbrSurveyEngine::SupportsPtRrSurfaces() const
 {
-    return (!m_sceneHasThinTransmission || m_pathTracingSettings.rrThinExperiment) &&
-           !m_sceneHasAlphaMask && !m_sceneHasVolumeTransmission && m_importedVolumeStatus.empty();
+    if (m_sceneHasAlphaMask || !m_importedVolumeStatus.empty() ||
+        (m_sceneHasThinTransmission && !m_pathTracingSettings.rrThinExperiment))
+        return false;
+    if (!m_sceneHasVolumeTransmission)
+        return true;
+    return m_pathTracingSettings.rrSmoothVolumeExperiment &&
+        std::all_of(m_materialData.begin(), m_materialData.end(), [](const Engine::Material& material)
+        {
+            return (material.flags & Engine::kMaterialFlagVolumeTransmission) == 0 ||
+                (material.roughnessFactor == 0.0f &&
+                 material.volumeAbsorption.attenuationDistance == std::numeric_limits<float>::infinity());
+        });
 }
 
 bool RtPbrSurveyEngine::CanRunPtRrNative() const

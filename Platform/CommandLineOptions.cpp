@@ -422,6 +422,13 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             options.pathTracingRrContinuous = true;
             options.pathTracingRrThinExperiment = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrSmoothVolumeExperiment"))
+        {
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+            options.pathTracingRrSmoothVolumeExperiment = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingRrInputCapture"))
         {
             if (i + 1 >= argc || argv[i + 1][0] == L'-')
