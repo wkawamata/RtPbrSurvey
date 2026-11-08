@@ -150,7 +150,11 @@ experiments currently invalidate RR history on transmission scene pose changes.
 The probe does not quantify moving-image ghosting or output frequency.
 Logs are under build/rr-transmission-motion-20261108. Next measure publication
 and reset counts through motion and stop, then compare paired Native/RR frames.
-The independent camera-only test remains pending.
+The user confirmed that the grain disappeared immediately on stopping the slab.
+The restart log under build/rr-glass-restart-20261109-023056 shows verified
+publications resume after motion resets, with the last observed interval
+continuing at reset count 10. The input release timestamp was not logged.
+Camera drag was checked visually. A paired deterministic camera test is pending.
 
 ### Glass motion visual check (2026-11-09)
 
