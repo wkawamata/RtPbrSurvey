@@ -787,3 +787,39 @@ Evidence: bin/PathTracingValidation/scene39-review.png and scene39-review.log.
 User visual acceptance (2026-11-07): scene 39 roughness sequence
 0.7 -> 0.0 -> 0.7 completed without issues. This covers the visual roughness
 control only; Evaluation Case ROI/camera restore is a separate check.
+
+## Thin Transmission RR Admission Baseline (2026-11-08)
+
+Scene 20, fixed camera, 768x432: Native reference captures at 1 and 128 spp
+completed with no D3D12 errors. Evidence: bin/PathTracingValidation/
+scene20-rr-baseline-{1,128}.png and matching logs.
+
+On the PR 121 Debug build, an explicit RR request with native opt-in
+completed the 16-frame capture but reported requested=rr, output=native,
+status=incompatible-inputs, nativeEvaluateCallCount=0, outputVerified=false.
+Evidence: scene20-rr-admission-20261108.png and matching log in the same folder.
+This is a fallback/admission check only. Do not score it as RR quality or
+remove the guard merely to obtain a capture. When the RR transmission path
+lands, verify actual RR output and compare glass interior, silhouette bands
+and outside-glass controls at the same camera, exposure and scene settings.
+
+### Fixed Image Regions for Scene 20
+
+For the existing 768x432 captures only, use pixel rectangles [x0,y0,x1,y1)
+below. Keep the window size and camera unchanged; do not reuse these pixel
+coordinates after changing framing.
+
+| Region | Rectangle | Purpose |
+| --- | --- | --- |
+| Open control | [137,132,239,300) | Background grid and orange object edges |
+| Clear pane interior | [268,130,369,301) | Native blur, color and residual detail |
+| Blue pane interior | [400,130,499,301) | Transmission tint and residual detail |
+| Opaque pane interior | [531,130,629,301) | Occlusion control; no recovered background |
+| Clear pane left edge | [248,133,269,300) | Frame silhouette and edge bleed |
+
+The current scene materials use roughness 0.5. At 128 spp the clear/blue pane
+interiors already blur the background strongly. Do not require RR to restore
+detail absent in the Native reference. For a sharp-detail retention test, use
+a separate smooth control with identical framing and regenerate both Native
+and RR captures for that control. PNG comparisons are display-space only;
+use linear SceneColor evidence for quantitative transport measurements.
