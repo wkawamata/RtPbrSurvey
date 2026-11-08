@@ -152,6 +152,21 @@ Logs are under build/rr-transmission-motion-20261108. Next measure publication
 and reset counts through motion and stop, then compare paired Native/RR frames.
 The independent camera-only test remains pending.
 
+### Glass motion visual check (2026-11-09)
+
+The user confirmed that the black frames during camera drag disappeared after
+5c1bf26. Screenshots show grain on the glass during both camera drag and slab
+translation. During the observed continuous animation, over 30,000 display
+frames elapsed with no new verified RR output. The sample index alternated
+between 0 and 1, and the SDK reset counter stayed at 108. No D3D12 errors were
+logged. This is consistent with pose changes invalidating packets before SDK
+evaluation. The reset counter measures SDK evaluations with reset, so a flat
+counter alone does not mean the history was preserved.
+
+The two motion cases still fail continuous RR quality acceptance. After pausing
+slab animation, check the time until verified RR output and smooth side faces
+return. Logs are under build/rr-user-glass-clear-fix-20261109.
+
 ## Dynamic objects
 
 - [x] Add opaque translation/rotation RR scenes using the Scene35 animation mechanism.
