@@ -192,6 +192,32 @@ They observed no visible grain on the front or side, no delay or doubling of
 the refracted color bands, and no residual image after stopping. Camera-only
 motion and behind-glass object motion still await subjective checks.
 
+### Step 6 admission decision (2026-11-09)
+
+RR uses frame-wide admission. The conversion validates pixel guides and the
+application aggregates the result before SDK evaluation. An unsupported
+material or rejected guide results in Native presentation for the frame.
+
+| Case | Evidence | Admission |
+|---|---|---|
+| Opaque, supported inputs | Normal RR regression passed | Normal RR selection |
+| Thin transmission, static | Scene 20 capture and numeric comparison | Thin experiment |
+| Smooth nonabsorbing Volume, static | Scene 37 capture and numeric comparison | Smooth Volume experiment |
+| Nonabsorbing Volume, roughness above 0 and up to 0.35 | Scene 33 derivative at 0.35 | Rough Volume experiment |
+| Smooth slab translation | Verified continuous output and user visual acceptance | Volume and transmission motion experiments |
+| Behind-glass object motion | Lifecycle passed, visual acceptance pending | Thin and transmission motion experiments |
+| Camera rotation with transmission | Continuous experiment visual acceptance pending | Material and transmission motion experiments |
+| Absorbing Volume, unsupported Volume, alpha mask | Existing admission guards | Native fallback |
+
+Keep the flags until camera and behind-glass motion quality are evaluated.
+The slab result qualifies one tested setup. This policy applies to the whole
+frame and leaves motion quality on other transmission scenes experimental.
+
+The current VS Debug build passed rr-output and thin-transmission in the
+existing static live suite. The former published verified RR output, and the
+latter used Native fallback with zero SDK calls. Report and logs are under
+build/rr-step6-regression-20261109. Performance was not remeasured in this pass.
+
 ## Dynamic objects
 
 - [x] Add opaque translation/rotation RR scenes using the Scene35 animation mechanism.
