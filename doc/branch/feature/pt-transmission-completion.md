@@ -823,3 +823,14 @@ detail absent in the Native reference. For a sharp-detail retention test, use
 a separate smooth control with identical framing and regenerate both Native
 and RR captures for that control. PNG comparisons are display-space only;
 use linear SceneColor evidence for quantitative transport measurements.
+
+### Smooth Thin Native Control
+
+Added Tests/PathTracing/thin_rr_smooth_fixture.py to generate a non-overwriting
+derivative of scene 20. Only the two active thin pane roughness values become
+zero; the camera, geometry, opaque control, tint and render preset stay fixed.
+Captured Native 1 and 128 spp at 768x432 with zero D3D12 errors. At 128 spp the
+grid and orange-object silhouettes are visible through both active panes,
+while the opaque control still hides them. The fixed ROI coordinates apply.
+Evidence: bin/PathTracingValidation/scene20-smooth-rr-control/native-{1,128}.png
+and matching logs. RR quality is not evaluated by these captures.
