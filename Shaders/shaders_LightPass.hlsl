@@ -25,6 +25,7 @@ cbuffer DiffuseEnvironmentVisibilityBlend : register(b3)
 Texture2D<float4> g_reflectionRayHit : register(t0, space6);
 Texture2D<float4> g_reflectionRayColor : register(t0, space7);
 Texture2D<float4> g_reflectionEvaluatedRadiance : register(t0, space9);
+Texture2D<float4> g_reflectionRayEmission : register(t0, space10);
 StructuredBuffer<Material> g_materialData : register(t0, space2);
 
 static const float PI = 3.14159265;
@@ -55,6 +56,47 @@ float3 ReconstructWorldPosition(float2 uv, float depth)
 }
 
 #include "DiffuseEnvironmentFilter.hlsli"
+
+float3 FilterRoughEnvironmentRgb(int2 pixel, float3 center, float3 normal, float3 worldPos, float roughness)
+{
+    uint width, height;
+    g_reflectionRayEmission.GetDimensions(width, height);
+    const uint material = g_material.Load(int3(pixel, 0));
+    const float metallic = g_pbrParams.Load(int3(pixel, 0)).r;
+    float3 sum = center;
+    float weightSum = 1.0;
+    for (int y = -2; y <= 2; ++y)
+    {
+        for (int x = -2; x <= 2; ++x)
+        {
+            const int2 tap = pixel + int2(x, y);
+            if ((x == 0 && y == 0) || any(tap < 0) || any(tap >= int2(width, height)) ||
+                g_material.Load(int3(tap, 0)) != material)
+            {
+                continue;
+            }
+            const float depth = g_depth.Load(int3(tap, 0));
+            const float2 pbr = g_pbrParams.Load(int3(tap, 0)).rg;
+            const float3 tapNormal = g_normal.Load(int3(tap, 0)).xyz;
+            if (depth >= 1.0 || pbr.y <= 0.1 || abs(pbr.y - roughness) > 0.08 ||
+                abs(pbr.x - metallic) > 0.08 || dot(tapNormal, tapNormal) < 0.0001)
+            {
+                continue;
+            }
+            const float2 uv = (float2(tap) + 0.5) / float2(width, height);
+            const float3 delta = ReconstructWorldPosition(uv, depth) - worldPos;
+            if (!all(isfinite(delta)) || abs(dot(delta, normal)) > 0.02 || dot(delta, delta) > 0.04)
+            {
+                continue;
+            }
+            const float weight = exp(-float(x * x + y * y) / 4.0) *
+                pow(saturate(dot(normal, normalize(tapNormal))), lerp(128.0, 32.0, roughness));
+            sum += g_reflectionRayEmission.Load(int3(tap, 0)).rgb * weight;
+            weightSum += weight;
+        }
+    }
+    return sum / weightSum;
+}
 
 float3 SampleSkybox(float2 uv)
 {
@@ -233,6 +275,36 @@ float4 PSMain(FullscreenVSOutput input) : SV_TARGET
     float2 brdf = g_brdfLut.Sample(g_sampler, float2(ndotv, roughness)).rg;
     float3 iblSpecular = EvaluatePbrSpecularIbl(environmentSpecular, brdf, f0, roughness, ndotv, occlusion) *
                          iblIntensity * specularIblEnabled;
+    // Mirror-direction diagnostic only: rough lobes need their own visibility estimator.
+    if (mirrorEnvironmentOcclusionEnabled != 0 && roughness <= 0.1)
+    {
+        if (mirrorEnvironmentOcclusionEnabled == 2u)
+        {
+            iblSpecular *= saturate(g_reflectionRayEmission.Load(int3(input.position.xy, 0)).a);
+        }
+        else
+        {
+            float hit = g_reflectionRayHit.Load(int3(input.position.xy, 0)).y;
+            iblSpecular *= hit > 0.5 ? 0.0 : 1.0;
+        }
+    }
+    if (roughEnvironmentOcclusionEnabled != 0 && roughness > 0.1)
+    {
+        const float4 diagnostic = g_reflectionRayEmission.Load(int3(input.position.xy, 0));
+        if (roughEnvironmentIntegrateRgb != 0)
+        {
+            float3 rgb = diagnostic.rgb;
+            [branch] if (roughEnvironmentSpatialFilter != 0)
+            {
+                rgb = FilterRoughEnvironmentRgb(int2(input.position.xy), rgb, normal, worldPos, roughness);
+            }
+            iblSpecular = rgb * ComputeSpecularOcclusion(ndotv, occlusion, roughness) * iblIntensity * specularIblEnabled;
+        }
+        else
+        {
+            iblSpecular *= saturate(diagnostic.a);
+        }
+    }
     float3 color = iblDiffuse + iblSpecular + directLighting + emissive * emissiveEnabled;
     if (reflectionContributionEnabled > 0.5)
     {

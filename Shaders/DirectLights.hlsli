@@ -36,6 +36,10 @@ cbuffer LightingConstants : register(b2)
     float reflectionRayNormalBias;
     uint reflectionLightSamplingEnabled;
     uint reflectionLightSamplingFrame;
+    uint mirrorEnvironmentOcclusionEnabled;
+    uint roughEnvironmentOcclusionEnabled;
+    uint roughEnvironmentIntegrateRgb;
+    uint roughEnvironmentSpatialFilter;
 };
 
 DirectLightSample EvaluateDirectLight(uint index, float3 worldPosition)

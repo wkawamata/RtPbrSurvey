@@ -36,6 +36,7 @@ namespace RtPbrSurvey
         static void DrawAuxiliaryWindows(SceneRenderer& renderer);
         static void DrawEnvironmentMapping(SceneRenderer& renderer, EnvironmentMappingUiState& state);
         static void DrawDiffuseEnvironmentVisibility(SceneRenderer& renderer);
+        static bool DrawSpecularIblOcclusion(RtPbrSurveyEngine::HybridReflectionSettings& settings);
         static void DrawPathTracingRaySettings(SceneRenderer& renderer);
         static void DrawRenderGraphDiagnostics(SceneRenderer& renderer,
                                                const RenderGraphGpuTimingSnapshot* timing = nullptr,

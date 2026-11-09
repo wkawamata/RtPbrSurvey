@@ -22,7 +22,12 @@ struct HybridReflectionShaderConstants
     UINT vertexCount;
     UINT indexCount;
     UINT hitNormalSource;
+    UINT roughEnvironmentOcclusionEnabled;
+    UINT roughEnvironmentRadianceWeighted;
+    UINT roughEnvironmentIntegrateRgb;
+    UINT forceMirrorEnvironmentOcclusion;
 };
+static_assert(sizeof(HybridReflectionShaderConstants) == 15 * sizeof(UINT));
 
 } // namespace
 
@@ -59,8 +64,15 @@ void RecordHybridReflectionPass(ID3D12GraphicsCommandList* commandList, const Hy
         desc.scene.usesIndexedDraw,
         desc.scene.vertexCount,
         desc.scene.indexCount,
-        desc.hitNormalSource};
-    commandList->SetComputeRoot32BitConstants(15, 11, &constants, 0);
+        desc.hitNormalSource,
+        desc.roughEnvironmentOcclusionEnabled,
+        desc.roughEnvironmentRadianceWeighted,
+        desc.roughEnvironmentIntegrateRgb,
+        desc.forceMirrorEnvironmentOcclusion};
+    commandList->SetComputeRoot32BitConstants(15, sizeof(constants) / sizeof(UINT), &constants, 0);
+    commandList->SetComputeRootDescriptorTable(16, desc.environmentSrv);
+    commandList->SetComputeRootDescriptorTable(17, desc.albedoSrv);
+    commandList->SetComputeRootDescriptorTable(18, desc.roughEnvironmentRgbUav);
 
     constexpr UINT kThreadGroupSize = 8;
     const UINT dispatchX = (desc.width + kThreadGroupSize - 1) / kThreadGroupSize;

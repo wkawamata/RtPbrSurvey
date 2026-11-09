@@ -186,7 +186,7 @@ bool TestStableStopButton()
         ImGui::Begin("Capture test", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
         const ImVec2 origin = ImGui::GetCursorScreenPos();
         const ImGuiStyle& style = ImGui::GetStyle();
-        stopPosition = ImVec2(origin.x + ImGui::CalcTextSize("Start Capture Session").x +
+        stopPosition = ImVec2(origin.x + ImGui::CalcTextSize("Start Capture [F8]").x +
                                  style.FramePadding.x * 2 + style.ItemSpacing.x + 5,
                              origin.y + ImGui::GetFrameHeight() * 0.5f);
         const auto action = RtPbrSurvey::CaptureSessionUi::Draw(status, state);

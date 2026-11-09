@@ -144,8 +144,8 @@ void DrawSceneEditorEditUi(RtPbrSurveyApp& app)
     ImGui::TextDisabled(session.IsModified() ? "Modified" : "Saved");
     if (ImGui::CollapsingHeader("SubWindow"))
     {
-        ImGui::Checkbox("Capture Session Window", &app.m_captureSessionWindowOpen);
-        if (ImGui::Checkbox("Transform Window", &app.m_sceneEditorShowTransformWindow) &&
+        ImGui::Checkbox("Capture Session", &app.m_captureSessionWindowOpen);
+        if (ImGui::Checkbox("Transform", &app.m_sceneEditorShowTransformWindow) &&
             app.m_sceneEditorShowTransformWindow)
         {
             ImGui::SetWindowCollapsed("###Transform", false);

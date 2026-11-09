@@ -38,6 +38,7 @@ public:
     void InitObjectViewerFromCamera();
     void InitObjectViewerFromCamera(const DirectX::XMFLOAT3& pivot);
     void UpdateObjectViewerCamera();
+    void PanVertical(bool moveUp, bool moveDown);
     void ResetInputState();
 
     void OnMouseDown(UINT8 button, int x, int y);
