@@ -72,7 +72,7 @@ inline void ValidateRrInputConversion(const float* values, unsigned int count)
 inline void ValidateRrLiveDistance(const float* values, unsigned int count)
 {
     const int statuses[32] = {0, 0, 5, 5, 5, 5, 5, 5, 5, 5, 3, 1, 5, 5, 0, 4,
-                              0, 0, 0, 0, 0, 5, 0, 3, 2, 3, 4, 5, 5, 5, 0, 0};
+                              0, 0, 0, 0, 0, 5, 0, 3, 2, 3, 4, 5, 5, 0, 0, 0};
     for (unsigned int index = 0; index < count; ++index)
     {
         const unsigned int test = index % 32;

@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "RrGlassTranslation",
+  "name": "PT RR Glass Translation",
+  "renderPreset": "../../Scene/PathTracingValidation/37-volume-observation-slab/render-preset.json",
+  "description": "RR motion fixture. One node translates horizontally with a fixed camera. Start or pause using Play Animation.",
+  "assets": [
+    {
+      "id": "target",
+      "type": "gltf",
+      "path": "../../Scene/PathTracingValidation/36-volume-observation-sphere/color-target.gltf"
+    }
+  ],
+  "materials": [
+    {
+      "id": "glass",
+      "name": "Observation glass",
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0,
+      "transmission": {
+        "mode": "volume",
+        "factor": 1,
+        "tint": [
+          1,
+          1,
+          1
+        ],
+        "ior": 1.5,
+        "volume": {
+          "attenuationColor": [
+            0.25,
+            0.5,
+            0.8
+          ],
+          "attenuationDistance": null
+        }
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "solid",
+      "name": "Glass slab",
+      "type": "primitive",
+      "materialId": "glass",
+      "primitive": {
+        "kind": "cube",
+        "size": 2
+      },
+      "parentId": null,
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        0.9,
+        0.35
+      ],
+      "visible": true
+    },
+    {
+      "id": "Back-target",
+      "name": "Back target",
+      "type": "gltf",
+      "assetId": "target",
+      "parentId": null,
+      "translation": [
+        0,
+        0,
+        3
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "visible": true
+    },
+    {
+      "id": "Left-reflection",
+      "name": "Left reflection",
+      "type": "gltf",
+      "assetId": "target",
+      "parentId": null,
+      "translation": [
+        -3,
+        0,
+        -1
+      ],
+      "rotation": [
+        0,
+        0.7071067811865476,
+        0,
+        0.7071067811865476
+      ],
+      "scale": [
+        0.6,
+        0.8,
+        1
+      ],
+      "visible": true
+    },
+    {
+      "id": "Right-reflection",
+      "name": "Right reflection",
+      "type": "gltf",
+      "assetId": "target",
+      "parentId": null,
+      "translation": [
+        3,
+        0,
+        -1
+      ],
+      "rotation": [
+        0,
+        -0.7071067811865476,
+        0,
+        0.7071067811865476
+      ],
+      "scale": [
+        0.6,
+        0.8,
+        1
+      ],
+      "visible": true
+    }
+  ],
+  "camera": {
+    "position": [
+      2.8,
+      1.5,
+      -6
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 40,
+    "orthographicHeight": 10,
+    "nearZ": 0.1,
+    "farZ": 1000
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      1,
+      1,
+      1
+    ],
+    "groundColor": [
+      1,
+      1,
+      1
+    ],
+    "lightColor": [
+      1,
+      1,
+      1
+    ],
+    "lightDirection": [
+      0.35,
+      0.75,
+      0.25
+    ],
+    "backgroundIntensity": 1,
+    "lightIntensity": 0,
+    "lightSize": 0.12,
+    "fillIntensity": 0,
+    "colorPanelIntensity": 0,
+    "horizonSharpness": 0.08
+  },
+  "turntable": {
+    "nodeId": "solid",
+    "pivot": [
+      0,
+      0,
+      0
+    ],
+    "degreesPerSecond": 0,
+    "translationAmplitude": [
+      0.35,
+      0,
+      0
+    ],
+    "translationPeriodSeconds": 6
+  }
+}

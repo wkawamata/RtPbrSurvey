@@ -415,6 +415,31 @@ _Use_decl_annotations_ CommandLineOptions ParseCommandLineOptions(WCHAR* argv[],
             options.pathTracingReconstruction = "rr";
             options.pathTracingRrContinuous = true;
         }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrThinExperiment"))
+        {
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+            options.pathTracingRrThinExperiment = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrSmoothVolumeExperiment"))
+        {
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+            options.pathTracingRrSmoothVolumeExperiment = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrRoughVolumeExperiment"))
+        {
+            options.enablePathTracing = true;
+            options.pathTracingReconstruction = "rr";
+            options.pathTracingRrContinuous = true;
+            options.pathTracingRrRoughVolumeExperiment = true;
+        }
+        else if (IsCommandLineArg(argv[i], L"-PathTracingRrTransmissionMotionExperiment"))
+        {
+            options.pathTracingRrTransmissionMotionExperiment = true;
+        }
         else if (IsCommandLineArg(argv[i], L"-PathTracingRrInputCapture"))
         {
             if (i + 1 >= argc || argv[i + 1][0] == L'-')

@@ -316,6 +316,10 @@ public:
             Engine::PathTracingReconstructionBackend::Legacy;
         bool reconstructionDiagnostics = false;
         bool rrContinuous = false;
+        bool rrThinExperiment = false;
+        bool rrSmoothVolumeExperiment = false;
+        bool rrRoughVolumeExperiment = false;
+        bool rrTransmissionMotionExperiment = false;
         UINT maxBounces = 8;
         UINT randomSeed = 1;
         bool directLightingEnabled = true;
@@ -2078,6 +2082,7 @@ private:
     bool IsPtRrNativeRequested() const;
     bool CanRunPtRrNative() const;
     bool SupportsPathTracingReconstructionSurfaces() const;
+    bool SupportsPtRrSurfaces() const;
     void ExecuteNrdReconstructionPass(const RenderPass& pass);
     void ExecuteNrdAdmissionPass(const RenderPass& pass);
     void ExecuteNrdRelaxPass(const RenderPass& pass);

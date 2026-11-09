@@ -742,7 +742,11 @@ void RtPbrSurveyEngine::SetPathTracingSettings(const PathTracingSettings& settin
                                             m_pathTracingSettings.nrdPreview) !=
             Engine::EffectivePathTracingBackend(validated.reconstructionBackend, validated.nrdPreview) ||
         m_pathTracingSettings.reconstructionDiagnostics != validated.reconstructionDiagnostics ||
-        m_pathTracingSettings.rrContinuous != validated.rrContinuous;
+        m_pathTracingSettings.rrContinuous != validated.rrContinuous ||
+        m_pathTracingSettings.rrThinExperiment != validated.rrThinExperiment ||
+        m_pathTracingSettings.rrSmoothVolumeExperiment != validated.rrSmoothVolumeExperiment ||
+        m_pathTracingSettings.rrRoughVolumeExperiment != validated.rrRoughVolumeExperiment ||
+        m_pathTracingSettings.rrTransmissionMotionExperiment != validated.rrTransmissionMotionExperiment;
     validated.environmentSamplingMode = (std::min)(validated.environmentSamplingMode, 7u);
     validated.emissiveSamplingMode = (std::min)(validated.emissiveSamplingMode, 2u);
     validated.samplesPerFrame = (std::clamp)(validated.samplesPerFrame, 1u, 16u);
@@ -827,7 +831,7 @@ Engine::PathTracingReconstructionPresentation RtPbrSurveyEngine::ResolvePathTrac
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
         const bool available =
             IsPtRrNativeRequested() && m_rayReconstructionSupport.IsAvailable() && m_ptRrLive != nullptr;
-        const bool compatible = SupportsPathTracingReconstructionSurfaces() && m_pathTracingSettings.samplesPerFrame >= 1 && m_pathTracingSettings.samplesPerFrame <= 16 &&
+        const bool compatible = SupportsPtRrSurfaces() && m_pathTracingSettings.samplesPerFrame >= 1 && m_pathTracingSettings.samplesPerFrame <= 16 &&
                                 (m_pathTracingSettings.pixelCenterPrimary || IsPtRrFrameJitterEnabled()) &&
                                 m_pathTracingSettings.denoiserDistanceDiagnostics &&
                                 m_pathTracingSettings.debugOutput == PathTracingDebugOutput::Radiance &&
@@ -882,10 +886,9 @@ Engine::PathTracingReconstructionPlan RtPbrSurveyEngine::MakePathTracingReconstr
                                                  inspectNrd,
                                                  inspectRr);
     if (!SupportsPathTracingReconstructionSurfaces())
-    {
         plan.runNrd = false;
+    if (!SupportsPtRrSurfaces())
         plan.runRrConversion = false;
-    }
     return plan;
 }
 
@@ -2188,7 +2191,8 @@ bool RtPbrSurveyEngine::CanPreservePtRrCameraHistory(const CameraState& camera) 
 {
     // Projection changes are discontinuities. Camera pose changes use dense
     // primary motion plus hit distance for SDK specular reprojection.
-    return CanRunPtRrNative() &&
+    const bool transmission = m_sceneHasThinTransmission || m_sceneHasVolumeTransmission;
+    return CanRunPtRrNative() && (!transmission || m_pathTracingSettings.rrTransmissionMotionExperiment) &&
            m_pathTracingSettings.rrContinuous &&
            m_scene.camera.projection == camera.projection && m_scene.camera.fov == camera.fov &&
            m_scene.camera.orthographicHeight == camera.orthographicHeight && m_scene.camera.nearZ == camera.nearZ &&
@@ -4220,6 +4224,7 @@ void RtPbrSurveyEngine::UpdateEmissiveTriangleBuffer()
     }
     if (changed)
     {
+        const bool hadEmissiveTriangles = !m_emissiveTriangles.empty();
         m_emissiveSourceMesh = mesh;
         m_emissiveSourceInstances.assign(m_scene.instances.begin(), m_scene.instances.begin() + instanceCount);
         m_emissiveSourceMaterials = std::move(effectiveMaterials);
@@ -4244,8 +4249,10 @@ void RtPbrSurveyEngine::UpdateEmissiveTriangleBuffer()
         }
         if (m_emissiveTriangleVersion != 0)
         {
+            const bool emptyEmitterTables = m_pathTracingSettings.rrTransmissionMotionExperiment &&
+                !hadEmissiveTriangles && m_emissiveTriangles.empty() && m_emissiveTableStatus == "ready";
             const bool preserveRr = CanPreservePtRrCameraHistory(m_scene.camera) &&
-                (!m_pathTracingSettings.emissiveEnabled || !m_lightingParams.emissiveEnabled);
+                (!m_pathTracingSettings.emissiveEnabled || !m_lightingParams.emissiveEnabled || emptyEmitterTables);
             InvalidatePathTracingHistory(PathTracingResetReason::Scene, false, preserveRr);
         }
         ++m_emissiveTriangleVersion;
@@ -7289,6 +7296,8 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
     passDesc.samplesPerFrame = m_pathTracingSettings.samplesPerFrame;
     passDesc.pixelCenterPrimary = m_pathTracingSettings.pixelCenterPrimary || IsPtRrFrameJitterEnabled();
     passDesc.thinTransmissionActive = m_sceneHasThinTransmission;
+    passDesc.rrTransmissionPrimaryGuide =
+        (m_sceneHasThinTransmission || m_sceneHasVolumeTransmission) && CanRunPtRrNative();
     passDesc.alphaMaskActive = m_sceneHasAlphaMask;
     passDesc.volumeTransmissionActive = m_sceneHasVolumeTransmission;
     passDesc.doubleSidedActive = m_sceneHasDoubleSided;
@@ -7347,16 +7356,38 @@ bool RtPbrSurveyEngine::SupportsPathTracingReconstructionSurfaces() const
         m_importedVolumeStatus.empty();
 }
 
+bool RtPbrSurveyEngine::SupportsPtRrSurfaces() const
+{
+    if (m_sceneHasAlphaMask || !m_importedVolumeStatus.empty() ||
+        (m_sceneHasThinTransmission && !m_pathTracingSettings.rrThinExperiment))
+        return false;
+    if (!m_sceneHasVolumeTransmission)
+        return true;
+    if (!m_pathTracingSettings.rrSmoothVolumeExperiment && !m_pathTracingSettings.rrRoughVolumeExperiment)
+        return false;
+    return std::all_of(m_materialData.begin(), m_materialData.end(), [this](const Engine::Material& material)
+    {
+        if ((material.flags & Engine::kMaterialFlagVolumeTransmission) == 0)
+            return true;
+        const float roughness = material.roughnessFactor;
+        const bool eligibleRoughness = roughness == 0.0f
+            ? m_pathTracingSettings.rrSmoothVolumeExperiment
+            : m_pathTracingSettings.rrRoughVolumeExperiment && roughness > 0.0f && roughness <= 0.35f;
+        return eligibleRoughness &&
+            material.volumeAbsorption.attenuationDistance == std::numeric_limits<float>::infinity();
+    });
+}
+
 bool RtPbrSurveyEngine::CanRunPtRrNative() const
 {
-    return IsPtRrNativeRequested() && SupportsPathTracingReconstructionSurfaces();
+    return IsPtRrNativeRequested() && SupportsPtRrSurfaces();
 }
 
 void RtPbrSurveyEngine::ExecutePtRrValidationPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-    if (!SupportsPathTracingReconstructionSurfaces() || m_rrConversionHostGate != 0 ||
+    if (!SupportsPtRrSurfaces() || m_rrConversionHostGate != 0 ||
         !m_pathTracingSettings.denoiserDistanceDiagnostics ||
         m_pathTracingSettings.debugOutput != PathTracingDebugOutput::Radiance)
         return;
@@ -7438,7 +7469,7 @@ void RtPbrSurveyEngine::ExecuteRrConversionPass(const RenderPass& pass)
 {
     UNREFERENCED_PARAMETER(pass);
 #ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
-    const bool valid = SupportsPathTracingReconstructionSurfaces() &&
+    const bool valid = SupportsPtRrSurfaces() &&
         m_pathTracingProduction.Validate(m_pathTracingProductionFrameId, GetPathTracingReconstructionResources())
             .Passed() &&
         Engine::InspectPathTracingRrMetadata(m_pathTracingProduction.Inputs(), IsPtRrNativeRequested()).Passed();
