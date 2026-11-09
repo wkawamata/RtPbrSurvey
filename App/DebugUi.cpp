@@ -369,6 +369,79 @@ void DrawInformationWindow(bool& visible,
 namespace App
 {
 
+static void DrawWireframeControls(const RtPbrSurveyEngine& engine)
+{
+    static bool enabled = false;
+    static int instanceIndex = 0;
+    static int firstTriangle = 0;
+    ImGui::Checkbox("Wireframe (X-ray)", &enabled);
+    if (!enabled)
+        return;
+
+    const auto& scene = engine.GetDebugWireframeScene();
+    const int count = static_cast<int>((std::min)(
+        scene.instances.size(), static_cast<size_t>(engine.GetDebugWireframeInstanceCount())));
+    if (scene.mesh == nullptr || count == 0)
+        return;
+
+    instanceIndex = std::clamp(instanceIndex, 0, count - 1);
+    if (ImGui::SliderInt("Wireframe instance", &instanceIndex, 0, count - 1))
+        firstTriangle = 0;
+    const auto& instance = scene.instances[instanceIndex];
+    const auto& mesh = *scene.mesh;
+    if (!Engine::HasRenderableTransform(instance) || instance.meshId >= mesh.ranges.size())
+        return;
+
+    const auto& range = mesh.ranges[instance.meshId];
+    if (range.firstIndex > mesh.indices.size() || range.indexCount > mesh.indices.size() - range.firstIndex)
+        return;
+    const int triangleCount = static_cast<int>(range.indexCount / 3);
+    if (triangleCount == 0)
+        return;
+    constexpr int maxTriangles = 2048;
+    firstTriangle = std::clamp(firstTriangle, 0, (std::max)(0, triangleCount - maxTriangles));
+    if (triangleCount > maxTriangles)
+        ImGui::SliderInt("Wireframe first triangle", &firstTriangle, 0, triangleCount - maxTriangles);
+
+    using namespace DirectX;
+    const XMMATRIX world = XMMatrixTranspose(XMLoadFloat4x4(&instance.world));
+    const XMMATRIX transform = world * XMLoadFloat4x4(&engine.GetDebugWireframeViewProjection());
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImDrawList* draw = ImGui::GetBackgroundDrawList();
+    const auto project = [&](uint32_t index, ImVec2& point)
+    {
+        if (index >= mesh.vertices.size())
+            return false;
+        XMFLOAT4 clip;
+        XMStoreFloat4(&clip, XMVector3Transform(XMLoadFloat3(&mesh.vertices[index].position), transform));
+        if (!std::isfinite(clip.w) || clip.w <= 0.0f || clip.z < 0.0f || clip.z > clip.w)
+            return false;
+        const float x = clip.x / clip.w;
+        const float y = clip.y / clip.w;
+        if (!std::isfinite(x) || !std::isfinite(y))
+            return false;
+        point = ImVec2(viewport->Pos.x + (0.5f + 0.5f * x) * viewport->Size.x,
+                       viewport->Pos.y + (0.5f - 0.5f * y) * viewport->Size.y);
+        return true;
+    };
+
+    const int end = (std::min)(triangleCount, firstTriangle + maxTriangles);
+    for (int triangle = firstTriangle; triangle < end; ++triangle)
+    {
+        const size_t index = static_cast<size_t>(range.firstIndex) + static_cast<size_t>(triangle) * 3;
+        ImVec2 points[3];
+        const bool valid[] = {project(mesh.indices[index], points[0]),
+                              project(mesh.indices[index + 1], points[1]),
+                              project(mesh.indices[index + 2], points[2])};
+        for (int edge = 0; edge < 3; ++edge)
+        {
+            const int next = (edge + 1) % 3;
+            if (valid[edge] && valid[next])
+                draw->AddLine(points[edge], points[next], IM_COL32(42, 255, 182, 200));
+        }
+    }
+}
+
 void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& context)
 {
     RtPbrSurvey::DebugUiPreferences& debugUiPreferences = RtPbrSurvey::GetDebugUiPreferences();
@@ -600,6 +673,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
     if (ImGui::CollapsingHeader("Rendering", ImGuiTreeNodeFlags_DefaultOpen))
     {
+        DrawWireframeControls(app.m_sceneRenderer.EngineForDebugTools());
         int renderingPath = static_cast<int>(app.m_renderingPath);
         ImGui::RadioButton("Forward", &renderingPath, static_cast<int>(RenderingPath::Forward));
         ImGui::SameLine();
