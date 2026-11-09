@@ -226,6 +226,26 @@ existing static live suite. The former published verified RR output, and the
 latter used Native fallback with zero SDK calls. Report and logs are under
 build/rr-step6-regression-20261109. Performance was not remeasured in this pass.
 
+### Release opaque regression (2026-11-10)
+
+Built VS Release x64 at c7cc98e, based on main c29ab59. Build passed with
+the existing MSB4011 warning. The same opaque rr-quality capture protocol as
+2026-11-07 passed 24/24 cases on RTX 2080 Ti, with three runs per condition.
+Values are means of the three run means.
+
+| Resolution | spp | Native GPU ms, prior → current | Fresh RR outputs/s, prior → current |
+|---|---:|---:|---:|
+| 720p | 1 | 4.84 → 4.81 | 31.38 → 31.08 |
+| 720p | 4 | 15.85 → 15.83 | 22.79 → 23.77 |
+| 1080p | 1 | 10.54 → 10.59 | 18.13 → 18.20 |
+| 1080p | 4 | 35.03 → 34.78 | 11.76 → 12.63 |
+
+Native GPU timing stayed within 1 percent and RR output cadence showed no
+consistent decline across the tested conditions. Session differences limit
+attribution to a particular change. This cohort covers opaque regression.
+Evidence is under build/reconstruction-input-validation/performance/
+rr-transmission-opaque-regression-20261110/report.json.
+
 ## Dynamic objects
 
 - [x] Add opaque translation/rotation RR scenes using the Scene35 animation mechanism.
