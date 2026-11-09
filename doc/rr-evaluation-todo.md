@@ -205,11 +205,11 @@ material or rejected guide results in Native presentation for the frame.
 | Smooth nonabsorbing Volume, static | Scene 37 capture and numeric comparison | Smooth Volume experiment |
 | Nonabsorbing Volume, roughness above 0 and up to 0.35 | Scene 33 derivative at 0.35 | Rough Volume experiment |
 | Smooth slab translation | Verified continuous output and user visual acceptance | Volume and transmission motion experiments |
-| Behind-glass object motion | Lifecycle passed, visual acceptance pending | Thin and transmission motion experiments |
+| Behind-glass object motion | Lifecycle and user visual acceptance passed with slight smearing | Thin and transmission motion experiments |
 | Camera rotation and translation, smooth slab | User visual acceptance | Smooth Volume and transmission motion experiments |
 | Absorbing Volume, unsupported Volume, alpha mask | Existing admission guards | Native fallback |
 
-The user accepted camera rotation and translation in the smooth slab scene. Keep the flags pending behind-glass motion evaluation.
+The user accepted camera rotation and translation in the smooth slab scene. The behind-glass sphere also passed the user review with slight visible smearing. Keep the flags for these tested configurations until default admission is qualified.
 The slab result qualifies one tested setup. This policy applies to the whole
 frame and leaves motion quality on other transmission scenes experimental.
 
