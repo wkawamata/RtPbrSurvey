@@ -376,6 +376,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     using RenderViewMode = RtPbrSurveyEngine::RenderViewMode;
     using CameraMode = RtPbrSurvey::DebugCameraController::Mode;
     static bool renderGraphWindowOpen = false;
+    static bool workMeterWindowOpen = false;
     static bool evaluationCasesWindowOpen = true;
     static bool arrangeDebugTexturePreviewsRequested = false;
     static uint64_t activeDiagnosticInspectorId = 0;
@@ -414,59 +415,79 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
 
     ImGui::SetNextWindowSize(ImVec2(400, 140), ImGuiCond_FirstUseEver);
-    ImGui::Begin("Debug");
-
+    ImGui::Begin("Debug", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     Engine::SampleScene& loadedScene = app.LoadedScene();
     Engine::SceneMesh& sceneMesh = loadedScene.GetMesh();
 
-    ImGui::TextDisabled("Current Scene");
-    const char* sceneName = loadedScene.Name();
-    const char* sceneNameBreak = strchr(sceneName, ':');
-    bool closeSceneRequested = false;
-    if (sceneNameBreak != nullptr && sceneNameBreak[1] == ' ')
+    if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGui::TextColored(ImVec4(0.65f, 0.78f, 0.95f, 1.0f), "%.*s",
-                           static_cast<int>(sceneNameBreak - sceneName),
-                           sceneName);
-        ImGui::Indent();
-        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneNameBreak + 2);
-        ImGui::SameLine(0.0f, 12.0f);
-        closeSceneRequested = ImGui::Button("Close Scene");
-        ImGui::Unindent();
+        ImGui::TextDisabled("Current Scene");
+        const char* sceneName = loadedScene.Name();
+        const char* sceneNameBreak = strchr(sceneName, ':');
+        bool closeSceneRequested = false;
+        if (sceneNameBreak != nullptr && sceneNameBreak[1] == ' ')
+        {
+            ImGui::TextColored(ImVec4(0.65f, 0.78f, 0.95f, 1.0f), "%.*s",
+                               static_cast<int>(sceneNameBreak - sceneName),
+                               sceneName);
+            ImGui::Indent();
+            ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneNameBreak + 2);
+            ImGui::SameLine(0.0f, 12.0f);
+            closeSceneRequested = ImGui::Button("Close Scene");
+            ImGui::Unindent();
+        }
+        else
+        {
+            ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneName);
+            ImGui::SameLine(0.0f, 12.0f);
+            closeSceneRequested = ImGui::Button("Close Scene");
+        }
+        if (closeSceneRequested)
+        {
+            app.RequestCloseRunningScene();
+            ImGui::End();
+            return;
+        }
+        ImGui::Separator();
+        ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
+        ImGui::Text("FrameIndex: %d", context.frameIndex);
+        ImGui::Text("Rendering Buffers (GBuffer): %u x %u", context.renderWidth, context.renderHeight);
+        ImGui::Text("Output Buffer: %u x %u", context.outputWidth, context.outputHeight);
+        ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
+                    context.rayTracingSupported ? "Supported" : "Not supported",
+                    context.rayTracingTierName,
+                    context.rayTracingTierRaw);
     }
-    else
+
+    if (ImGui::CollapsingHeader("SubWindow", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGui::TextColored(ImVec4(0.95f, 0.82f, 0.35f, 1.0f), "%s", sceneName);
-        ImGui::SameLine(0.0f, 12.0f);
-        closeSceneRequested = ImGui::Button("Close Scene");
-    }
-    if (closeSceneRequested)
-    {
-        app.RequestCloseRunningScene();
-        ImGui::End();
-        return;
-    }
-    ImGui::Separator();
-    ImGui::Text("Loaded Scene Index: %d", app.m_loadedSceneIndex);
-    ImGui::Text("FrameIndex: %d", context.frameIndex);
-    ImGui::Text("Rendering Buffers (GBuffer): %u x %u", context.renderWidth, context.renderHeight);
-    ImGui::Text("Output Buffer: %u x %u", context.outputWidth, context.outputHeight);
-    ImGui::Text("Ray Tracing: %s (Tier %ls, raw=%d)",
-                context.rayTracingSupported ? "Supported" : "Not supported",
-                context.rayTracingTierName,
-                context.rayTracingTierRaw);
-    if (ImGui::CollapsingHeader("SubWindow"))
-    {
-        ImGui::Checkbox("Open RenderGraph Window", &renderGraphWindowOpen);
-        ImGui::Checkbox("Open Evaluation Cases Window", &evaluationCasesWindowOpen);
-        ImGui::Checkbox("Open Capture Session Window", &app.m_captureSessionWindowOpen);
-        if (ImGui::Checkbox("Open Information Window", &debugUiPreferences.informationWindowVisible))
+        const auto sameLineIfFits = [](const char* label)
+        {
+            const ImGuiStyle& style = ImGui::GetStyle();
+            const float rightEdge = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+            const float width = ImGui::GetFrameHeight() + style.ItemInnerSpacing.x + ImGui::CalcTextSize(label).x;
+            if (ImGui::GetItemRectMax().x + style.ItemSpacing.x + width <= rightEdge)
+            {
+                ImGui::SameLine();
+            }
+        };
+        ImGui::Checkbox("RenderGraph", &renderGraphWindowOpen);
+        sameLineIfFits("WorkMeter");
+        ImGui::Checkbox("WorkMeter", &workMeterWindowOpen);
+        sameLineIfFits("Evaluation Cases");
+        ImGui::Checkbox("Evaluation Cases", &evaluationCasesWindowOpen);
+        ImGui::Checkbox("Capture Session", &app.m_captureSessionWindowOpen);
+        sameLineIfFits("Information");
+        if (ImGui::Checkbox("Information", &debugUiPreferences.informationWindowVisible))
         {
             RtPbrSurvey::MarkDebugUiPreferencesDirty();
         }
     }
 
-    if (ImGui::CollapsingHeader("WorkMeter"))
+    ImGui::Separator();
+    ImGui::BeginChild("DebugControls");
+
+    const auto drawWorkMeter = [&context]()
     {
         ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
 
@@ -488,8 +509,16 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 }
             }
         }
-    }
+    };
 
+    if (ImGui::CollapsingHeader("Basic Settings###Scene", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGuiWidgets::SliderIntWithControls("Display Instance Count", &app.m_displayInstanceCount, 0,
+                                             loadedScene.MaxDisplayInstanceCount(), 1, 0);
+        loadedScene.SetDisplayInstanceCount(app.m_displayInstanceCount);
+        ImGuiWidgets::SliderFloatWithControls("Mesh Scale", &app.m_meshScale, 0.1f, 2.0f, 0.05f, 0.5f);
+        ImGui::ColorEdit4("Background Color", app.m_backBufferClearColor.data());
+    }
     if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::BeginDisabled(app.IsCaptureOrbitActive());
@@ -548,25 +577,13 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
         ImGui::EndDisabled();
     }
-    if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
-    {
-        ImGuiWidgets::SliderIntWithControls("Display Instance Count", &app.m_displayInstanceCount, 0,
-                                             loadedScene.MaxDisplayInstanceCount(), 1, 0);
-        loadedScene.SetDisplayInstanceCount(app.m_displayInstanceCount);
-        ImGuiWidgets::SliderFloatWithControls("Mesh Scale", &app.m_meshScale, 0.1f, 2.0f, 0.05f, 0.5f);
-        ImGui::ColorEdit4("Background Color", app.m_backBufferClearColor.data());
-    }
-    if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader("Direct Lighting###PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
     {
         RtPbrSurvey::DrawDirectLightControls(app.m_lightingParams,
             app.m_renderingPath != RtPbrSurveyEngine::RenderingPath::PathTracing);
         ImGui::Checkbox("Emissive", &app.m_lightingParams.emissiveEnabled);
     }
-    if (app.m_renderingPath != RenderingPath::PathTracing)
-    {
-        RtPbrSurvey::SceneRendererDebugUi::DrawDiffuseEnvironmentVisibility(app.m_sceneRenderer);
-    }
-    if (ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader("Image Based Lighting (IBL)", ImGuiTreeNodeFlags_DefaultOpen))
     {
         RtPbrSurvey::EnvironmentMappingUiState environmentUi;
         environmentUi.settings = app.m_environmentSettings;
@@ -581,375 +598,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         app.m_environmentAutoUpdate = environmentUi.autoUpdate;
         app.m_environmentReloadPending = environmentUi.reloadPending;
     }
-    if (false && ImGui::CollapsingHeader("Legacy Environment Map", ImGuiTreeNodeFlags_DefaultOpen))
-    {
-        bool environmentApplyRequested = false;
-        int environmentSource = static_cast<int>(app.m_environmentSettings.source);
-        if (ImGui::Combo("Source",
-                         &environmentSource,
-                         "Asset HDR\0Procedural Studio\0Procedural Sun\0Procedural Color Panels\0Procedural Horizon\0"))
-        {
-            ApplyEnvironmentPreset(app.m_environmentSettings, static_cast<Engine::EnvironmentSource>(environmentSource));
-            environmentApplyRequested = true;
-        }
-        ImGui::SameLine();
-        ImGui::Text("%s", EnvironmentSourceLabel(app.m_environmentSettings.source));
-        if (app.m_environmentSettings.source != Engine::EnvironmentSource::AssetHdr)
-        {
-            ImGui::SameLine();
-            ImGui::Checkbox("Auto Update", &app.m_environmentAutoUpdate);
-            environmentApplyRequested |= ImGui::ColorEdit3("Sky Color", &app.m_environmentSettings.skyColor.x);
-            environmentApplyRequested |= ImGui::ColorEdit3("Ground Color", &app.m_environmentSettings.groundColor.x);
-            const bool colorPanels = app.m_environmentSettings.source == Engine::EnvironmentSource::ProceduralColorPanels;
-            if (!colorPanels)
-            {
-                environmentApplyRequested |= ImGui::ColorEdit3("Env Light Color", &app.m_environmentSettings.lightColor.x);
-                static constexpr float defaultEnvLightDir[] = {0.35f, 0.75f, 0.25f};
-                if (ImGuiWidgets::SliderFloat3WithControls("Env Light Direction", &app.m_environmentSettings.lightDirection.x,
-                                                        -1.0f, 1.0f, 0.05f, defaultEnvLightDir))
-                {
-                    environmentApplyRequested = true;
-                }
-            }
-            if (ImGuiWidgets::SliderFloatWithControls("Env Background",
-                                                      &app.m_environmentSettings.backgroundIntensity,
-                                                      0.0f,
-                                                      4.0f,
-                                                      0.05f,
-                                                      0.6f))
-            {
-                environmentApplyRequested = true;
-            }
-            if (!colorPanels)
-            {
-                if (ImGuiWidgets::SliderFloatWithControls("Env Light Intensity",
-                                                          &app.m_environmentSettings.lightIntensity,
-                                                          0.0f,
-                                                          40.0f,
-                                                          0.5f,
-                                                          6.0f))
-                {
-                    environmentApplyRequested = true;
-                }
-                if (ImGuiWidgets::SliderFloatWithControls("Env Light Size",
-                                                          &app.m_environmentSettings.lightSize,
-                                                          0.01f,
-                                                          0.8f,
-                                                          0.01f,
-                                                          0.12f))
-                {
-                    environmentApplyRequested = true;
-                }
-            }
-            if (ImGuiWidgets::SliderFloatWithControls(
-                "Env Fill", &app.m_environmentSettings.fillIntensity, 0.0f, 2.0f, 0.05f, 0.12f))
-            {
-                environmentApplyRequested = true;
-            }
-            if (colorPanels)
-            {
-                if (ImGuiWidgets::SliderFloatWithControls("Color Panel Intensity",
-                                                          &app.m_environmentSettings.colorPanelIntensity,
-                                                          0.0f,
-                                                          8.0f,
-                                                          0.1f,
-                                                          1.5f))
-                {
-                    environmentApplyRequested = true;
-                }
-            }
-            if (app.m_environmentSettings.source == Engine::EnvironmentSource::ProceduralHorizon)
-            {
-                if (ImGuiWidgets::SliderFloatWithControls("Horizon Width",
-                                                          &app.m_environmentSettings.horizonSharpness,
-                                                          0.01f,
-                                                          0.5f,
-                                                          0.01f,
-                                                          0.08f))
-                {
-                    environmentApplyRequested = true;
-                }
-            }
-        }
-        ImGui::Checkbox("Show Skybox", &app.m_lightingParams.skyboxEnabled);
-        ImGui::Checkbox("Skybox Preview", &app.m_lightingParams.skyboxPreview);
-        ImGui::BeginDisabled(!app.m_lightingParams.skyboxPreview);
-        ImGuiWidgets::SliderFloatWithControls("Skybox Preview Exposure", &app.m_lightingParams.skyboxPreviewExposure, 0.0f,
-                                              2.0f, 0.05f, 1.0f);
-        ImGui::EndDisabled();
-        if (environmentApplyRequested)
-        {
-            app.m_environmentReloadPending = true;
-        }
-        if (app.m_environmentReloadPending && app.m_environmentAutoUpdate && !ImGui::IsAnyItemActive())
-        {
-            app.m_sceneRenderer.ReloadEnvironmentResources(app.m_environmentSettings);
-            app.m_environmentReloadPending = false;
-        }
-    }
-
-    if (!sceneMesh.materials.empty())
-    {
-        if (ImGui::CollapsingHeader("Material Controls", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            const auto* savedScene = dynamic_cast<const Engine::SceneDocumentRuntimeScene*>(&app.LoadedScene());
-            if (savedScene != nullptr && savedScene->Document().turntable)
-            {
-                if (ImGui::Button(app.m_isPlaying ? "Pause Animation" : "Play Animation"))
-                {
-                    app.m_isPlaying = !app.m_isPlaying;
-                }
-            }
-            const int materialCount = static_cast<int>(sceneMesh.materials.size());
-            if (app.m_selectedMaterialIndex >= materialCount)
-            {
-                app.m_selectedMaterialIndex = materialCount - 1;
-            }
-            ImGuiWidgets::SliderIntWithControls("Material", &app.m_selectedMaterialIndex, 0, materialCount - 1, 1, 0);
-
-            Engine::SceneMaterial& material = sceneMesh.materials[app.m_selectedMaterialIndex];
-            bool materialChanged = false;
-            materialChanged |= ImGuiWidgets::SliderFloatWithControls("Roughness", &material.roughnessFactor,
-                material.volumeTransmission ? 0.0f : 0.04f, 1.0f, 0.02f, 0.5f);
-            ImGui::BeginDisabled(material.volumeTransmission);
-            materialChanged |= ImGuiWidgets::SliderFloatWithControls("Metallic", &material.metallicFactor, 0.0f, 1.0f,
-                                                                       0.05f, 0.0f);
-            ImGui::EndDisabled();
-            materialChanged |= ImGuiWidgets::SliderFloatWithControls("Indirect Occlusion",
-                                                                       &material.ambientOcclusionFactor, 0.0f, 1.0f,
-                                                                       0.05f, 1.0f);
-            materialChanged |= ImGuiWidgets::SliderFloatWithControls("Emissive Luminance", &material.emissiveScale, 0.0f,
-                                                                       4.0f, 0.1f, 1.0f);
-
-            if (material.volumeTransmission)
-            {
-                materialChanged |= ImGuiWidgets::SliderFloatWithControls("Volume IOR", &material.transmissionIor,
-                    1.0f, 4.0f, 0.01f, 1.5f);
-                materialChanged |= ImGui::ColorEdit3("Absorption Color", material.volumeAbsorption.attenuationColor);
-                bool infiniteDistance = std::isinf(material.volumeAbsorption.attenuationDistance);
-                if (ImGui::Checkbox("Infinite Absorption Distance", &infiniteDistance))
-                {
-                    material.volumeAbsorption.attenuationDistance = infiniteDistance ?
-                        std::numeric_limits<float>::infinity() : 1.0f;
-                    materialChanged = true;
-                }
-                if (!infiniteDistance)
-                {
-                    materialChanged |= ImGuiWidgets::SliderFloatWithControls("Absorption Distance",
-                        &material.volumeAbsorption.attenuationDistance, 0.001f, 1000.0f, 0.1f, 1.0f);
-                }
-            }
-
-            const float iorRatio = (material.transmissionIor - 1.0f) / (material.transmissionIor + 1.0f);
-            const float dielectricF0 = material.volumeTransmission ? iorRatio * iorRatio : 0.04f;
-            const float f0 = dielectricF0 * (1.0f - material.metallicFactor) + material.metallicFactor;
-            ImGui::Text("Specular F0: %.2f", f0);
-
-            if (materialChanged)
-            {
-                RtPbrSurveyEngine::MaterialParams params = {};
-                params.roughnessFactor = material.roughnessFactor;
-                params.metallicFactor = material.metallicFactor;
-                params.ambientOcclusionFactor = material.ambientOcclusionFactor;
-                params.emissiveScale = material.emissiveScale;
-                params.updateVolume = material.volumeTransmission;
-                params.transmissionIor = material.transmissionIor;
-                params.volumeAbsorption = material.volumeAbsorption;
-                app.m_sceneRenderer.SetMaterialParams(static_cast<UINT>(app.m_selectedMaterialIndex), params);
-            }
-        }
-    }
-
-    if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
-    {
-        ImGui::RadioButton("None", &app.m_toneMapParams.operatorIndex, 0);
-        ImGui::SameLine();
-        ImGui::RadioButton("Reinhard", &app.m_toneMapParams.operatorIndex, 1);
-        ImGui::SameLine();
-        ImGui::RadioButton("ACES", &app.m_toneMapParams.operatorIndex, 2);
-        ImGuiWidgets::SliderFloatWithControls("Exposure", &app.m_toneMapParams.exposure, 0.0f, 1000.0f, 0.1f, 1.0f);
-        ImGuiWidgets::SliderFloatWithControls("Paper White", &app.m_toneMapParams.paperWhiteNits, 80.0f, 500.0f, 10.f,
-                                              300.0f, "%.0f nits");
-        ImGuiWidgets::SliderFloatWithControls("Display Max", &app.m_toneMapParams.maxDisplayNits, 100.0f, 4000.0f, 50.f,
-                                              1000.0f, "%.0f nits");
-    }
-
-    if (app.m_renderingPath == RenderingPath::PathTracing)
-    {
-        if (ImGui::CollapsingHeader("Path Tracing Ray Settings", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            RtPbrSurvey::SceneRendererDebugUi::DrawPathTracingRaySettings(app.m_sceneRenderer);
-        }
-    }
-    else if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
-    {
-        auto shadowSettings = app.m_sceneRenderer.GetShadowSettings();
-        bool changed = false;
-
-        changed |= ImGui::Checkbox("Shadow Enable", &shadowSettings.enabled);
-
-        static constexpr ShadowPreset shadowPresets[] = {
-            {"Hard Ref",    0.01f,  0.001f, false, 1, 0.0f,   0.0f},
-            {"Low Bias",    0.002f, 0.001f, false, 1, 0.0f,   0.0f},
-            {"Soft Compare", 0.01f,  0.001f, true,  8, 0.025f, 1.0f},
-            {"Wide Soft",   0.01f,  0.001f, true, 16, 0.075f, 2.0f},
-        };
-        for (const auto& preset : shadowPresets)
-        {
-            if (ImGui::SmallButton(preset.label))
-            {
-                shadowSettings.normalBias = preset.normalBias;
-                shadowSettings.rayTMin = preset.rayTMin;
-                shadowSettings.softShadowEnabled = preset.softShadowEnabled;
-                shadowSettings.sampleCount = preset.sampleCount;
-                shadowSettings.lightAngularRadius = preset.lightAngularRadius;
-                shadowSettings.jitterStrength = preset.jitterStrength;
-                changed = true;
-            }
-            ImGui::SameLine();
-        }
-        ImGui::NewLine();
-        ImGui::TextWrapped(
-            "Use Shadow Test scenes for bias, light-size, contact, occluder, and moving-object/TLAS rebuild checks.");
-
-        changed |= ImGuiWidgets::SliderFloatWithControls(
-            "Normal Bias", &shadowSettings.normalBias, 0.0f, 0.1f, 0.001f, 0.01f);
-
-        changed |= ImGuiWidgets::SliderFloatWithControls(
-            "Ray TMin", &shadowSettings.rayTMin, 0.0f, 0.1f, 0.001f, 0.001f);
-
-        changed |= ImGuiWidgets::SliderFloatWithControls(
-            "Ray TMax", &shadowSettings.rayTMax, 1.0f, 10000.0f, 100.0f, 10000.0f);
-
-        ImGui::Separator();
-        changed |= ImGui::Checkbox("Soft Shadow Enable", &shadowSettings.softShadowEnabled);
-
-        changed |= ImGuiWidgets::SliderIntWithControls(
-            "Sample Count", &shadowSettings.sampleCount, 1, 16, 1, 8);
-
-        changed |= ImGuiWidgets::SliderFloatWithControls(
-            "Light Angular Radius", &shadowSettings.lightAngularRadius, 0.0f, 0.1f, 0.001f, 0.1f, "%.4f");
-
-        changed |= ImGuiWidgets::SliderFloatWithControls(
-            "Jitter Strength", &shadowSettings.jitterStrength, 0.0f, 2.0f, 0.1f, 2.0f);
-
-        if (changed)
-        {
-            app.m_sceneRenderer.SetShadowSettings(shadowSettings);
-        }
-    }
-
-    const auto drawHybridReflectionUi = [&]()
-    {
-        if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            auto reflectionSettings = app.m_sceneRenderer.GetHybridReflectionSettings();
-            bool changed = false;
-
-            if (ImGuiWidgets::SimpleDetailMode(
-                    "HybridReflectionMode", &debugUiPreferences.hybridReflectionDetailed))
-            {
-                RtPbrSurvey::MarkDebugUiPreferencesDirty();
-            }
-
-            if (!debugUiPreferences.hybridReflectionDetailed)
-            {
-                changed |= ImGui::Checkbox("Hybrid Reflection Enabled", &reflectionSettings.enabled);
-                ImGui::BeginDisabled(!reflectionSettings.enabled);
-                changed |= ImGui::Checkbox("Reflection Contribution", &reflectionSettings.contributionEnabled);
-                changed |=
-                    ImGui::Checkbox("Stochastic Rough Sampling", &reflectionSettings.stochasticSamplingEnabled);
-                ImGui::EndDisabled();
-            }
-            else
-            {
-
-        changed |= ImGui::Checkbox("Enabled", &reflectionSettings.enabled);
-
-        ImGui::BeginDisabled(!reflectionSettings.enabled);
-        changed |= ImGui::Checkbox("Hit Overlay", &reflectionSettings.hitOverlayEnabled);
-
-        ImGui::BeginDisabled(!reflectionSettings.hitOverlayEnabled);
-        changed |= ImGui::RadioButton("Overlay Cyan", &reflectionSettings.hitOverlayMode, 0);
-        ImGui::SameLine();
-        changed |= ImGui::RadioButton("Hit Position", &reflectionSettings.hitOverlayMode, 1);
-        ImGui::SameLine();
-        changed |= ImGui::RadioButton("Environment", &reflectionSettings.hitOverlayMode, 2);
-        ImGui::SameLine();
-        changed |= ImGui::RadioButton("Hit Attribute", &reflectionSettings.hitOverlayMode, 3);
-
-        ImGui::SameLine();
-        changed |= ImGui::RadioButton("Hit Albedo", &reflectionSettings.hitOverlayMode, 4);
-
-        changed |= ImGuiWidgets::SliderFloatWithControls(
-            "Hit Overlay Intensity", &reflectionSettings.hitOverlayIntensity, 0.0f, 1.0f, 0.05f, 0.2f);
-        ImGui::EndDisabled();
-
-        ImGui::BeginDisabled(reflectionSettings.hitOverlayMode != 3);
-        changed |= ImGui::RadioButton("Attr Vertex Normal", &reflectionSettings.hitNormalSource, 0);
-        ImGui::SameLine();
-        changed |= ImGui::RadioButton("Attr Geometric Normal", &reflectionSettings.hitNormalSource, 1);
-        ImGui::SameLine();
-        changed |= ImGui::RadioButton("Attr MaterialId", &reflectionSettings.hitNormalSource, 2);
-        changed |= ImGui::RadioButton("Attr Material Params", &reflectionSettings.hitNormalSource, 3);
-        ImGui::SameLine();
-        changed |= ImGui::RadioButton("Attr UV", &reflectionSettings.hitNormalSource, 4);
-        ImGui::SameLine();
-        changed |= ImGui::RadioButton("Attr Albedo Texture", &reflectionSettings.hitNormalSource, 5);
-        ImGui::EndDisabled();
-
-        changed |= ImGui::Checkbox("Reflection Contribution", &reflectionSettings.contributionEnabled);
-
-        ImGui::BeginDisabled(!reflectionSettings.contributionEnabled);
-        changed |= ImGuiWidgets::SliderFloatWithControls(
-            "Contribution Intensity", &reflectionSettings.contributionIntensity, 0.0f, 2.0f, 0.05f, 0.25f);
-        changed |= ImGuiWidgets::SliderFloatWithControls(
-            "Contribution Max Distance", &reflectionSettings.contributionMaxDistance, 0.1f, 100.0f, 0.5f, 20.0f);
-        ImGui::EndDisabled();
-        changed |= ImGui::Checkbox("Stochastic Rough Sampling", &reflectionSettings.stochasticSamplingEnabled);
-        ImGui::TextWrapped("Experimental default-off visible-surface rough reflection sampling.");
-        changed |= ImGuiWidgets::SliderFloatWithControls(
-            "Temporal History Weight", &reflectionSettings.temporalHistoryWeight, 0.0f, 0.98f, 0.05f, 0.0f);
-        changed |= ImGuiWidgets::SliderFloatWithControls(
-            "Temporal Debug Noise", &reflectionSettings.temporalNoiseStrength, 0.0f, 1.0f, 0.05f, 0.0f);
-        changed |= ImGui::Checkbox("Rejected Pixel Neighborhood", &reflectionSettings.rejectedPixelNeighborhoodEnabled);
-        ImGui::TextWrapped("Experimental default-off 3x3 cross-bilateral current-frame fallback for depth/normal rejected pixels.");
-        changed |= ImGui::Checkbox("Edge-Aware Spatial Filter", &reflectionSettings.surfaceVarianceFilterEnabled);
-        if (ImGui::IsItemHovered())
-        {
-            ImGui::SetTooltip("Default-off stateless 3x3 filter after temporal resolve.\n"
-                              "Uses visible depth/normal/roughness and reflection hit distance/normal gates.");
-        }
-        ImGui::TextWrapped("Experimental default-off post-temporal filter. It does not feed reflection history.");
-        ImGui::BeginDisabled(!reflectionSettings.surfaceVarianceFilterEnabled);
-        changed |= ImGui::Checkbox("Spatiotemporal Spatial Policy", &reflectionSettings.spatiotemporalSpatialPolicyEnabled);
-        ImGui::TextWrapped("Default-off bounded strength policy using temporal variance confidence and moments. "
-                           "Disabled preserves the fixed spatial-filter comparison path.");
-        ImGui::EndDisabled();
-        changed |= ImGui::Checkbox("Variance-Guided Temporal", &reflectionSettings.varianceGuidedTemporalEnabled);
-        ImGui::TextWrapped("Experimental default-off weighted-estimator history adjustment. Roughness >= 0.75 and prior relative variance >= 0.5 select a bounded 0.94 history weight.");
-        ImGui::TextWrapped("Experimental motion-reprojected blend with depth/normal rejection. Debug noise is injected before history accumulation and is disabled at zero.");
-
-        changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
-        ImGui::TextWrapped("Limits which visible surfaces cast reflection rays by roughness and metallic.");
-
-        ImGui::BeginDisabled(!reflectionSettings.enabled || !reflectionSettings.materialGateEnabled);
-        changed |= ImGuiWidgets::SliderFloatWithControls(
-            "Max Roughness", &reflectionSettings.maxRoughness, 0.0f, 1.0f, 0.05f, 0.35f);
-
-        changed |= ImGuiWidgets::SliderFloatWithControls(
-            "Min Metallic", &reflectionSettings.minMetallic, 0.0f, 1.0f, 0.05f, 0.0f);
-        ImGui::EndDisabled();
-        ImGui::EndDisabled();
-            }
-
-            if (changed)
-            {
-                app.m_sceneRenderer.SetHybridReflectionSettings(reflectionSettings);
-            }
-        }
-    };
-
     if (ImGui::CollapsingHeader("Rendering", ImGuiTreeNodeFlags_DefaultOpen))
     {
         int renderingPath = static_cast<int>(app.m_renderingPath);
@@ -1323,6 +971,371 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
+    if (app.m_renderingPath == RenderingPath::PathTracing &&
+        ImGui::CollapsingHeader("Path Tracing Ray Settings", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        RtPbrSurvey::SceneRendererDebugUi::DrawPathTracingRaySettings(app.m_sceneRenderer);
+    }
+
+    if (app.m_renderingPath != RenderingPath::PathTracing)
+    {
+        RtPbrSurvey::SceneRendererDebugUi::DrawDiffuseEnvironmentVisibility(app.m_sceneRenderer);
+    }
+
+    const auto drawHybridReflectionUi = [&]()
+    {
+        if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            auto reflectionSettings = app.m_sceneRenderer.GetHybridReflectionSettings();
+            bool changed = RtPbrSurvey::SceneRendererDebugUi::DrawSpecularIblOcclusion(reflectionSettings);
+
+            if (ImGuiWidgets::SimpleDetailMode(
+                    "HybridReflectionMode", &debugUiPreferences.hybridReflectionDetailed))
+            {
+                RtPbrSurvey::MarkDebugUiPreferencesDirty();
+            }
+
+            if (!debugUiPreferences.hybridReflectionDetailed)
+            {
+                changed |= ImGui::Checkbox("Hybrid Reflection Enabled", &reflectionSettings.enabled);
+                ImGui::BeginDisabled(!reflectionSettings.enabled);
+                changed |= ImGui::Checkbox("Reflection Contribution", &reflectionSettings.contributionEnabled);
+                changed |=
+                    ImGui::Checkbox("Stochastic Rough Sampling", &reflectionSettings.stochasticSamplingEnabled);
+                ImGui::EndDisabled();
+            }
+            else
+            {
+
+        changed |= ImGui::Checkbox("Enabled", &reflectionSettings.enabled);
+
+        ImGui::BeginDisabled(!reflectionSettings.enabled);
+        changed |= ImGui::Checkbox("Hit Overlay", &reflectionSettings.hitOverlayEnabled);
+
+        ImGui::BeginDisabled(!reflectionSettings.hitOverlayEnabled);
+        changed |= ImGui::RadioButton("Overlay Cyan", &reflectionSettings.hitOverlayMode, 0);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Hit Position", &reflectionSettings.hitOverlayMode, 1);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Environment", &reflectionSettings.hitOverlayMode, 2);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Hit Attribute", &reflectionSettings.hitOverlayMode, 3);
+
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Hit Albedo", &reflectionSettings.hitOverlayMode, 4);
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Hit Overlay Intensity", &reflectionSettings.hitOverlayIntensity, 0.0f, 1.0f, 0.05f, 0.2f);
+        ImGui::EndDisabled();
+
+        ImGui::BeginDisabled(reflectionSettings.hitOverlayMode != 3);
+        changed |= ImGui::RadioButton("Attr Vertex Normal", &reflectionSettings.hitNormalSource, 0);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Attr Geometric Normal", &reflectionSettings.hitNormalSource, 1);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Attr MaterialId", &reflectionSettings.hitNormalSource, 2);
+        changed |= ImGui::RadioButton("Attr Material Params", &reflectionSettings.hitNormalSource, 3);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Attr UV", &reflectionSettings.hitNormalSource, 4);
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Attr Albedo Texture", &reflectionSettings.hitNormalSource, 5);
+        ImGui::EndDisabled();
+
+        changed |= ImGui::Checkbox("Reflection Contribution", &reflectionSettings.contributionEnabled);
+
+        ImGui::BeginDisabled(!reflectionSettings.contributionEnabled);
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Contribution Intensity", &reflectionSettings.contributionIntensity, 0.0f, 2.0f, 0.05f, 0.25f);
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Contribution Max Distance", &reflectionSettings.contributionMaxDistance, 0.1f, 100.0f, 0.5f, 20.0f);
+        ImGui::EndDisabled();
+        changed |= ImGui::Checkbox("Stochastic Rough Sampling", &reflectionSettings.stochasticSamplingEnabled);
+        ImGui::TextWrapped("Experimental default-off visible-surface rough reflection sampling.");
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Temporal History Weight", &reflectionSettings.temporalHistoryWeight, 0.0f, 0.98f, 0.05f, 0.0f);
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Temporal Debug Noise", &reflectionSettings.temporalNoiseStrength, 0.0f, 1.0f, 0.05f, 0.0f);
+        changed |= ImGui::Checkbox("Rejected Pixel Neighborhood", &reflectionSettings.rejectedPixelNeighborhoodEnabled);
+        ImGui::TextWrapped("Experimental default-off 3x3 cross-bilateral current-frame fallback for depth/normal rejected pixels.");
+        changed |= ImGui::Checkbox("Edge-Aware Spatial Filter", &reflectionSettings.surfaceVarianceFilterEnabled);
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Default-off stateless 3x3 filter after temporal resolve.\n"
+                              "Uses visible depth/normal/roughness and reflection hit distance/normal gates.");
+        }
+        ImGui::TextWrapped("Experimental default-off post-temporal filter. It does not feed reflection history.");
+        ImGui::BeginDisabled(!reflectionSettings.surfaceVarianceFilterEnabled);
+        changed |= ImGui::Checkbox("Spatiotemporal Spatial Policy", &reflectionSettings.spatiotemporalSpatialPolicyEnabled);
+        ImGui::TextWrapped("Default-off bounded strength policy using temporal variance confidence and moments. "
+                           "Disabled preserves the fixed spatial-filter comparison path.");
+        ImGui::EndDisabled();
+        changed |= ImGui::Checkbox("Variance-Guided Temporal", &reflectionSettings.varianceGuidedTemporalEnabled);
+        ImGui::TextWrapped("Experimental default-off weighted-estimator history adjustment. Roughness >= 0.75 and prior relative variance >= 0.5 select a bounded 0.94 history weight.");
+        ImGui::TextWrapped("Experimental motion-reprojected blend with depth/normal rejection. Debug noise is injected before history accumulation and is disabled at zero.");
+
+        changed |= ImGui::Checkbox("Material Gate", &reflectionSettings.materialGateEnabled);
+        ImGui::TextWrapped("Limits which visible surfaces cast reflection rays by roughness and metallic.");
+
+        ImGui::BeginDisabled(!reflectionSettings.enabled || !reflectionSettings.materialGateEnabled);
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Max Roughness", &reflectionSettings.maxRoughness, 0.0f, 1.0f, 0.05f, 0.35f);
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Min Metallic", &reflectionSettings.minMetallic, 0.0f, 1.0f, 0.05f, 0.0f);
+        ImGui::EndDisabled();
+        ImGui::EndDisabled();
+            }
+
+            if (changed)
+            {
+                app.m_sceneRenderer.SetHybridReflectionSettings(reflectionSettings);
+            }
+        }
+    };
+
+    if (app.m_renderingPath != RenderingPath::PathTracing)
+    {
+        drawHybridReflectionUi();
+    }
+
+    if (false && ImGui::CollapsingHeader("Legacy Environment Map", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        bool environmentApplyRequested = false;
+        int environmentSource = static_cast<int>(app.m_environmentSettings.source);
+        if (ImGui::Combo("Source",
+                         &environmentSource,
+                         "Asset HDR\0Procedural Studio\0Procedural Sun\0Procedural Color Panels\0Procedural Horizon\0"))
+        {
+            ApplyEnvironmentPreset(app.m_environmentSettings, static_cast<Engine::EnvironmentSource>(environmentSource));
+            environmentApplyRequested = true;
+        }
+        ImGui::SameLine();
+        ImGui::Text("%s", EnvironmentSourceLabel(app.m_environmentSettings.source));
+        if (app.m_environmentSettings.source != Engine::EnvironmentSource::AssetHdr)
+        {
+            ImGui::SameLine();
+            ImGui::Checkbox("Auto Update", &app.m_environmentAutoUpdate);
+            environmentApplyRequested |= ImGui::ColorEdit3("Sky Color", &app.m_environmentSettings.skyColor.x);
+            environmentApplyRequested |= ImGui::ColorEdit3("Ground Color", &app.m_environmentSettings.groundColor.x);
+            const bool colorPanels = app.m_environmentSettings.source == Engine::EnvironmentSource::ProceduralColorPanels;
+            if (!colorPanels)
+            {
+                environmentApplyRequested |= ImGui::ColorEdit3("Env Light Color", &app.m_environmentSettings.lightColor.x);
+                static constexpr float defaultEnvLightDir[] = {0.35f, 0.75f, 0.25f};
+                if (ImGuiWidgets::SliderFloat3WithControls("Env Light Direction", &app.m_environmentSettings.lightDirection.x,
+                                                        -1.0f, 1.0f, 0.05f, defaultEnvLightDir))
+                {
+                    environmentApplyRequested = true;
+                }
+            }
+            if (ImGuiWidgets::SliderFloatWithControls("Env Background",
+                                                      &app.m_environmentSettings.backgroundIntensity,
+                                                      0.0f,
+                                                      4.0f,
+                                                      0.05f,
+                                                      0.6f))
+            {
+                environmentApplyRequested = true;
+            }
+            if (!colorPanels)
+            {
+                if (ImGuiWidgets::SliderFloatWithControls("Env Light Intensity",
+                                                          &app.m_environmentSettings.lightIntensity,
+                                                          0.0f,
+                                                          40.0f,
+                                                          0.5f,
+                                                          6.0f))
+                {
+                    environmentApplyRequested = true;
+                }
+                if (ImGuiWidgets::SliderFloatWithControls("Env Light Size",
+                                                          &app.m_environmentSettings.lightSize,
+                                                          0.01f,
+                                                          0.8f,
+                                                          0.01f,
+                                                          0.12f))
+                {
+                    environmentApplyRequested = true;
+                }
+            }
+            if (ImGuiWidgets::SliderFloatWithControls(
+                "Env Fill", &app.m_environmentSettings.fillIntensity, 0.0f, 2.0f, 0.05f, 0.12f))
+            {
+                environmentApplyRequested = true;
+            }
+            if (colorPanels)
+            {
+                if (ImGuiWidgets::SliderFloatWithControls("Color Panel Intensity",
+                                                          &app.m_environmentSettings.colorPanelIntensity,
+                                                          0.0f,
+                                                          8.0f,
+                                                          0.1f,
+                                                          1.5f))
+                {
+                    environmentApplyRequested = true;
+                }
+            }
+            if (app.m_environmentSettings.source == Engine::EnvironmentSource::ProceduralHorizon)
+            {
+                if (ImGuiWidgets::SliderFloatWithControls("Horizon Width",
+                                                          &app.m_environmentSettings.horizonSharpness,
+                                                          0.01f,
+                                                          0.5f,
+                                                          0.01f,
+                                                          0.08f))
+                {
+                    environmentApplyRequested = true;
+                }
+            }
+        }
+        ImGui::Checkbox("Show Skybox", &app.m_lightingParams.skyboxEnabled);
+        ImGui::Checkbox("Skybox Preview", &app.m_lightingParams.skyboxPreview);
+        ImGui::BeginDisabled(!app.m_lightingParams.skyboxPreview);
+        ImGuiWidgets::SliderFloatWithControls("Skybox Preview Exposure", &app.m_lightingParams.skyboxPreviewExposure, 0.0f,
+                                              2.0f, 0.05f, 1.0f);
+        ImGui::EndDisabled();
+        if (environmentApplyRequested)
+        {
+            app.m_environmentReloadPending = true;
+        }
+        if (app.m_environmentReloadPending && app.m_environmentAutoUpdate && !ImGui::IsAnyItemActive())
+        {
+            app.m_sceneRenderer.ReloadEnvironmentResources(app.m_environmentSettings);
+            app.m_environmentReloadPending = false;
+        }
+    }
+
+    if (!sceneMesh.materials.empty())
+    {
+        if (ImGui::CollapsingHeader("Material Controls", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            const auto* savedScene = dynamic_cast<const Engine::SceneDocumentRuntimeScene*>(&app.LoadedScene());
+            if (savedScene != nullptr && savedScene->Document().turntable)
+            {
+                if (ImGui::Button(app.m_isPlaying ? "Pause Animation" : "Play Animation"))
+                {
+                    app.m_isPlaying = !app.m_isPlaying;
+                }
+            }
+            const int materialCount = static_cast<int>(sceneMesh.materials.size());
+            if (app.m_selectedMaterialIndex >= materialCount)
+            {
+                app.m_selectedMaterialIndex = materialCount - 1;
+            }
+            ImGuiWidgets::SliderIntWithControls("Material", &app.m_selectedMaterialIndex, 0, materialCount - 1, 1, 0);
+
+            Engine::SceneMaterial& material = sceneMesh.materials[app.m_selectedMaterialIndex];
+            bool materialChanged = false;
+            materialChanged |= ImGuiWidgets::SliderFloatWithControls("Roughness", &material.roughnessFactor,
+                material.volumeTransmission ? 0.0f : 0.04f, 1.0f, 0.02f, 0.5f);
+            ImGui::BeginDisabled(material.volumeTransmission);
+            materialChanged |= ImGuiWidgets::SliderFloatWithControls("Metallic", &material.metallicFactor, 0.0f, 1.0f,
+                                                                       0.05f, 0.0f);
+            ImGui::EndDisabled();
+            materialChanged |= ImGuiWidgets::SliderFloatWithControls("Indirect Occlusion",
+                                                                       &material.ambientOcclusionFactor, 0.0f, 1.0f,
+                                                                       0.05f, 1.0f);
+            materialChanged |= ImGuiWidgets::SliderFloatWithControls("Emissive Luminance", &material.emissiveScale, 0.0f,
+                                                                       4.0f, 0.1f, 1.0f);
+
+            if (material.volumeTransmission)
+            {
+                materialChanged |= ImGuiWidgets::SliderFloatWithControls("Volume IOR", &material.transmissionIor,
+                    1.0f, 4.0f, 0.01f, 1.5f);
+                materialChanged |= ImGui::ColorEdit3("Absorption Color", material.volumeAbsorption.attenuationColor);
+                bool infiniteDistance = std::isinf(material.volumeAbsorption.attenuationDistance);
+                if (ImGui::Checkbox("Infinite Absorption Distance", &infiniteDistance))
+                {
+                    material.volumeAbsorption.attenuationDistance = infiniteDistance ?
+                        std::numeric_limits<float>::infinity() : 1.0f;
+                    materialChanged = true;
+                }
+                if (!infiniteDistance)
+                {
+                    materialChanged |= ImGuiWidgets::SliderFloatWithControls("Absorption Distance",
+                        &material.volumeAbsorption.attenuationDistance, 0.001f, 1000.0f, 0.1f, 1.0f);
+                }
+            }
+
+            const float iorRatio = (material.transmissionIor - 1.0f) / (material.transmissionIor + 1.0f);
+            const float dielectricF0 = material.volumeTransmission ? iorRatio * iorRatio : 0.04f;
+            const float f0 = dielectricF0 * (1.0f - material.metallicFactor) + material.metallicFactor;
+            ImGui::Text("Specular F0: %.2f", f0);
+
+            if (materialChanged)
+            {
+                RtPbrSurveyEngine::MaterialParams params = {};
+                params.roughnessFactor = material.roughnessFactor;
+                params.metallicFactor = material.metallicFactor;
+                params.ambientOcclusionFactor = material.ambientOcclusionFactor;
+                params.emissiveScale = material.emissiveScale;
+                params.updateVolume = material.volumeTransmission;
+                params.transmissionIor = material.transmissionIor;
+                params.volumeAbsorption = material.volumeAbsorption;
+                app.m_sceneRenderer.SetMaterialParams(static_cast<UINT>(app.m_selectedMaterialIndex), params);
+            }
+        }
+    }
+
+    if (app.m_renderingPath != RenderingPath::PathTracing &&
+        ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        auto shadowSettings = app.m_sceneRenderer.GetShadowSettings();
+        bool changed = false;
+
+        changed |= ImGui::Checkbox("Shadow Enable", &shadowSettings.enabled);
+
+        static constexpr ShadowPreset shadowPresets[] = {
+            {"Hard Ref",    0.01f,  0.001f, false, 1, 0.0f,   0.0f},
+            {"Low Bias",    0.002f, 0.001f, false, 1, 0.0f,   0.0f},
+            {"Soft Compare", 0.01f,  0.001f, true,  8, 0.025f, 1.0f},
+            {"Wide Soft",   0.01f,  0.001f, true, 16, 0.075f, 2.0f},
+        };
+        for (const auto& preset : shadowPresets)
+        {
+            if (ImGui::SmallButton(preset.label))
+            {
+                shadowSettings.normalBias = preset.normalBias;
+                shadowSettings.rayTMin = preset.rayTMin;
+                shadowSettings.softShadowEnabled = preset.softShadowEnabled;
+                shadowSettings.sampleCount = preset.sampleCount;
+                shadowSettings.lightAngularRadius = preset.lightAngularRadius;
+                shadowSettings.jitterStrength = preset.jitterStrength;
+                changed = true;
+            }
+            ImGui::SameLine();
+        }
+        ImGui::NewLine();
+        ImGui::TextWrapped(
+            "Use Shadow Test scenes for bias, light-size, contact, occluder, and moving-object/TLAS rebuild checks.");
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Normal Bias", &shadowSettings.normalBias, 0.0f, 0.1f, 0.001f, 0.01f);
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Ray TMin", &shadowSettings.rayTMin, 0.0f, 0.1f, 0.001f, 0.001f);
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Ray TMax", &shadowSettings.rayTMax, 1.0f, 10000.0f, 100.0f, 10000.0f);
+
+        ImGui::Separator();
+        changed |= ImGui::Checkbox("Soft Shadow Enable", &shadowSettings.softShadowEnabled);
+
+        changed |= ImGuiWidgets::SliderIntWithControls(
+            "Sample Count", &shadowSettings.sampleCount, 1, 16, 1, 8);
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Light Angular Radius", &shadowSettings.lightAngularRadius, 0.0f, 0.1f, 0.001f, 0.1f, "%.4f");
+
+        changed |= ImGuiWidgets::SliderFloatWithControls(
+            "Jitter Strength", &shadowSettings.jitterStrength, 0.0f, 2.0f, 0.1f, 2.0f);
+
+        if (changed)
+        {
+            app.m_sceneRenderer.SetShadowSettings(shadowSettings);
+        }
+    }
+
     if (ImGui::CollapsingHeader("DLSS", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::Text("Temporal Upscaler: %s (Backend: %s, Status: %s)",
@@ -1673,9 +1686,18 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
-    if (app.m_renderingPath != RenderingPath::PathTracing)
+    if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        drawHybridReflectionUi();
+        ImGui::RadioButton("None", &app.m_toneMapParams.operatorIndex, 0);
+        ImGui::SameLine();
+        ImGui::RadioButton("Reinhard", &app.m_toneMapParams.operatorIndex, 1);
+        ImGui::SameLine();
+        ImGui::RadioButton("ACES", &app.m_toneMapParams.operatorIndex, 2);
+        ImGuiWidgets::SliderFloatWithControls("Exposure", &app.m_toneMapParams.exposure, 0.0f, 1000.0f, 0.1f, 1.0f);
+        ImGuiWidgets::SliderFloatWithControls("Paper White", &app.m_toneMapParams.paperWhiteNits, 80.0f, 500.0f, 10.f,
+                                              300.0f, "%.0f nits");
+        ImGuiWidgets::SliderFloatWithControls("Display Max", &app.m_toneMapParams.maxDisplayNits, 100.0f, 4000.0f, 50.f,
+                                              1000.0f, "%.0f nits");
     }
 
     if (app.m_renderingPath == RenderingPath::Deferred &&
@@ -1857,7 +1879,17 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         }
     }
 
+    ImGui::EndChild();
     ImGui::End();
+    if (workMeterWindowOpen)
+    {
+        ImGui::SetNextWindowSize(ImVec2(440, 360), ImGuiCond_FirstUseEver);
+        if (ImGui::Begin("WorkMeter", &workMeterWindowOpen))
+        {
+            drawWorkMeter();
+        }
+        ImGui::End();
+    }
     if (evaluationCasesWindowOpen)
     {
         App::DrawEvaluationCasesWindow(app, App::EvaluationCaseScope::CurrentScene);

@@ -700,28 +700,27 @@ void RtPbrSurveyApp::UpdateSceneInteraction(float deltaTime)
         const bool moveRight = (GetAsyncKeyState('D') & 0x8000) != 0;
         const bool wDown = (GetAsyncKeyState('W') & 0x8000) != 0;
         const bool sDown = (GetAsyncKeyState('S') & 0x8000) != 0;
-        const bool rightMoveUp = (GetAsyncKeyState('E') & 0x8000) != 0;
-        const bool rightMoveDown = (GetAsyncKeyState('Q') & 0x8000) != 0;
+        const bool eDown = (GetAsyncKeyState('E') & 0x8000) != 0;
+        const bool qDown = (GetAsyncKeyState('Q') & 0x8000) != 0;
         const bool moveUp = wDown && shiftDown;
         const bool moveDown = sDown && shiftDown;
         const bool moveForward = wDown && !shiftDown;
         const bool moveBackward = sDown && !shiftDown;
-        const bool zoomIn = (GetAsyncKeyState('Z') & 0x8000) != 0;
-        const bool zoomOut = (GetAsyncKeyState('C') & 0x8000) != 0;
-
         if (m_debugCamera.IsRightDragging())
         {
             m_debugCamera.UpdateRightDragKeyboard(
-                moveLeft, moveRight, wDown, sDown, rightMoveUp, rightMoveDown, zoomIn, zoomOut);
+                moveLeft, moveRight, wDown, sDown, eDown, qDown, false, false);
         }
         else if (m_debugCamera.GetMode() == RtPbrSurvey::DebugCameraController::Mode::FreeLook)
         {
             m_debugCamera.UpdateFreeLookKeyboard(
-                deltaTime, moveLeft, moveRight, moveForward, moveBackward, moveUp, moveDown, zoomIn, zoomOut);
+                deltaTime, moveLeft, moveRight, moveForward, moveBackward, moveUp, moveDown, false, false);
+            m_debugCamera.PanVertical(eDown, qDown);
         }
         else
         {
             m_debugCamera.UpdateObjectViewerCamera();
+            m_debugCamera.PanVertical(eDown, qDown);
         }
     }
 }
@@ -849,6 +848,15 @@ void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
         return;
     }
 
+    if (m_appMode == AppMode::Running &&
+        ((button == VK_LBUTTON && (GetKeyState(VK_RBUTTON) & 0x8000) != 0) ||
+         (button == VK_RBUTTON && (GetKeyState(VK_LBUTTON) & 0x8000) != 0)))
+    {
+        m_debugUiVisible = !m_debugUiVisible;
+        m_debugCamera.ResetInputState();
+        return;
+    }
+
     if (button == VK_LBUTTON)
     {
         if (m_appMode == AppMode::SceneEditorEdit)
@@ -867,12 +875,6 @@ void RtPbrSurveyApp::OnMouseDown(UINT8 button, int x, int y)
             m_sceneRenderer.RequestPixelPick(x, y);
             return;
         }
-    }
-
-    if (button == VK_RBUTTON && (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0)
-    {
-        m_debugUiVisible = !m_debugUiVisible;
-        return;
     }
 
     if (!IsCaptureOrbitActive())
@@ -1564,7 +1566,7 @@ void RtPbrSurveyApp::DrawCaptureSessionUi()
     ImGui::EndDisabled();
     ApplyCaptureSessionUiAction(action);
     ImGui::TextUnformatted("F8: Start Capture Session / Stop active session");
-    ImGui::TextUnformatted("Hold Left Mouse + press Right Mouse: Toggle ImGui visibility");
+    ImGui::TextUnformatted("Left + Right Mouse: Toggle ImGui visibility");
     ImGui::TextWrapped("Fixed-step advances scene and camera by 1/FPS. P pauses the clock; F advances one step. Space pauses scene animation only.");
 }
 
@@ -3386,6 +3388,11 @@ void RtPbrSurveyApp::ApplyFileSceneSettings(bool useCommandLineOverrides)
 
 void RtPbrSurveyApp::OpenCommandLineDebugTexturePreview()
 {
+    if (m_commandLineOptions.capturePath.extension() == L".ptbuf" &&
+        m_commandLineOptions.debugPreviewResourceName == "ReflectionRayEmission")
+    {
+        return;
+    }
     if (!m_commandLineOptions.debugPreviewResourceName.empty())
     {
         const Engine::DebugResourceInspection inspection =
@@ -3981,7 +3988,7 @@ void RtPbrSurveyApp::UpdateUiFrame()
         }
     }
     m_sceneRenderer.DrawToolUi();
-    if ((m_appMode == AppMode::Running || m_appMode == AppMode::SceneEditorEdit) &&
+    if (((m_appMode == AppMode::Running && m_debugUiVisible) || m_appMode == AppMode::SceneEditorEdit) &&
         m_sceneRenderer.IsScreenshotCaptureIdle())
     {
         const auto captureFrame = m_sceneRenderer.GetUiFrameContext();

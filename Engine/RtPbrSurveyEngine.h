@@ -284,6 +284,12 @@ public:
         bool varianceGuidedTemporalEnabled = false;
         // Diagnostic-only evidence override. Changing it must preserve history for decay measurement.
         bool confidenceForceStableEvidence = false;
+        bool mirrorEnvironmentOcclusionEnabled = false;
+        bool roughEnvironmentOcclusionEnabled = false;
+        bool roughEnvironmentOcclusionForceMask = false;
+        bool roughEnvironmentRadianceWeighted = false;
+        bool roughEnvironmentIntegrateRgb = false;
+        bool roughEnvironmentSpatialFilter = false;
     };
 
     enum class PathTracingDebugOutput
@@ -634,6 +640,7 @@ private:
             static constexpr const char* ReflectionRayColorSrv = "ReflectionRayColorSrv";
             static constexpr const char* ReflectionRayMaterialSrv = "ReflectionRayMaterialSrv";
             static constexpr const char* ReflectionRayEmissionSrv = "ReflectionRayEmissionSrv";
+            static constexpr const char* RoughEnvironmentRgbSrv = "RoughEnvironmentRgbSrv";
             static constexpr const char* ReflectionEvaluatedRadianceSrv = "ReflectionEvaluatedRadianceSrv";
             static constexpr const char* ReflectionSpecularEstimateSrv = "ReflectionSpecularEstimateSrv";
             static constexpr const char* ReflectionRoughnessSrv = "ReflectionRoughnessSrv";
@@ -922,15 +929,22 @@ private:
         float reflectionRayNormalBias = 0.0f;
         uint32_t reflectionLightSamplingEnabled = 0;
         uint32_t reflectionLightSamplingFrame = 0;
+        uint32_t mirrorEnvironmentOcclusionEnabled = 0;
+        uint32_t roughEnvironmentOcclusionEnabled = 0;
+        uint32_t roughEnvironmentIntegrateRgb = 0;
+        uint32_t roughEnvironmentSpatialFilter = 0;
     };
 
     static_assert(offsetof(LightingConstants, lightCount) == 120);
     static_assert(offsetof(LightingConstants, primaryShadowLightIndex) == 124);
     static_assert(offsetof(LightingConstants, lights) == 128);
     static_assert(offsetof(LightingConstants, reflectionRayNormalBias) == 1152);
+    static_assert(offsetof(LightingConstants, mirrorEnvironmentOcclusionEnabled) == 1164);
     static_assert(sizeof(LightingConstants) == 1280);
 
     LightingConstants MakeLightingConstants() const;
+    bool IsRoughEnvironmentOcclusionActive() const;
+    bool IsForcedMirrorEnvironmentOcclusionActive() const;
 
     struct ConstantBufferResource
     {
@@ -1203,6 +1217,9 @@ private:
     ComPtr<ID3D12Resource> m_reflectionRayColor;
     ComPtr<ID3D12Resource> m_reflectionRayMaterial;
     ComPtr<ID3D12Resource> m_reflectionRayEmission;
+    ComPtr<ID3D12Resource> m_roughEnvironmentRgb;
+    DescriptorHeapHandle m_roughEnvironmentRgbSrv;
+    DescriptorHeapHandle m_roughEnvironmentRgbUav;
     DescriptorHeapHandle m_reflectionRayHitSrv;
     DescriptorHeapHandle m_reflectionRayHitUav;
     DescriptorHeapHandle m_reflectionRayColorSrv;
@@ -1712,6 +1729,7 @@ private:
     static constexpr const char* kReflectionRayColorResourceName = "ReflectionRayColor";
     static constexpr const char* kReflectionRayMaterialResourceName = "ReflectionRayMaterial";
     static constexpr const char* kReflectionRayEmissionResourceName = "ReflectionRayEmission";
+    static constexpr const char* kRoughEnvironmentRgbResourceName = "RoughEnvironmentRgb";
     static constexpr const char* kSceneTlasResourceName = "Scene.TLAS";
     static constexpr const char* kSceneVertexBufferResourceName = "Scene.VertexBuffer";
     static constexpr const char* kSceneIndexBufferResourceName = "Scene.IndexBuffer";

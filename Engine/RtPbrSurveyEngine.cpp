@@ -535,6 +535,7 @@ void RtPbrSurveyEngine::InitResourceDefaultStates()
     m_resourceDefaultStates.push_back({kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back({kReflectionRayEmissionResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
+    m_resourceDefaultStates.push_back({kRoughEnvironmentRgbResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS});
     m_resourceDefaultStates.push_back(
         {kSceneTlasResourceName, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE});
     m_resourceDefaultStates.push_back({kSceneVertexBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
@@ -1260,6 +1261,22 @@ void RtPbrSurveyEngine::SetMaterialParams(UINT materialIndex, const MaterialPara
     }
 }
 
+bool RtPbrSurveyEngine::IsRoughEnvironmentOcclusionActive() const
+{
+    return m_renderingPath == RenderingPath::Deferred && m_rayTracingSupport.IsSupported() &&
+        m_accelerationStructures.tlasSrv.IsValid() && m_hybridReflectionSettings.enabled &&
+        m_hybridReflectionSettings.roughEnvironmentOcclusionEnabled && m_lightingParams.specularIblEnabled &&
+        m_lightingParams.iblIntensity > 0 &&
+        (!m_sceneHasAlphaMask || m_hybridReflectionSettings.roughEnvironmentOcclusionForceMask) && !m_sceneHasThinTransmission &&
+        !m_sceneHasVolumeTransmission;
+}
+
+bool RtPbrSurveyEngine::IsForcedMirrorEnvironmentOcclusionActive() const
+{
+    return m_sceneHasAlphaMask && m_hybridReflectionSettings.mirrorEnvironmentOcclusionEnabled &&
+        IsRoughEnvironmentOcclusionActive();
+}
+
 auto RtPbrSurveyEngine::MakeLightingConstants() const -> LightingConstants
 {
     LightingConstants result = {
@@ -1300,6 +1317,15 @@ auto RtPbrSurveyEngine::MakeLightingConstants() const -> LightingConstants
     result.reflectionRayNormalBias = m_shadowSettings.normalBias;
     result.reflectionLightSamplingEnabled = m_hybridReflectionSettings.stochasticSamplingEnabled ? 1u : 0u;
     result.reflectionLightSamplingFrame = m_reflectionSamplingFrameIndex;
+    result.roughEnvironmentOcclusionEnabled = IsRoughEnvironmentOcclusionActive() ? 1u : 0u;
+    result.roughEnvironmentIntegrateRgb = m_hybridReflectionSettings.roughEnvironmentIntegrateRgb ? 1u : 0u;
+    result.roughEnvironmentSpatialFilter = m_hybridReflectionSettings.roughEnvironmentSpatialFilter ? 1u : 0u;
+    result.mirrorEnvironmentOcclusionEnabled =
+        IsForcedMirrorEnvironmentOcclusionActive() ? 2u :
+        (m_renderingPath == RenderingPath::Deferred && m_rayTracingSupport.IsSupported() &&
+        m_hybridReflectionSettings.enabled && m_hybridReflectionSettings.mirrorEnvironmentOcclusionEnabled &&
+        !m_hybridReflectionSettings.stochasticSamplingEnabled && !m_sceneHasAlphaMask &&
+        !m_sceneHasThinTransmission && !m_sceneHasVolumeTransmission ? 1u : 0u);
     for (uint32_t i = 0; i < result.lightCount; ++i)
     {
         const RtPbrSurvey::DirectLight& light = m_lightingParams.lights[i];
@@ -3062,7 +3088,13 @@ void RtPbrSurveyEngine::CreateHybridReflectionRootSignature()
                          D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE |
                              D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
-    CD3DX12_ROOT_PARAMETER1 rootParameters[16] = {};
+    CD3DX12_DESCRIPTOR_RANGE1 environmentSrvRange = {};
+    environmentSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 9, 0);
+    CD3DX12_DESCRIPTOR_RANGE1 albedoSrvRange = {};
+    albedoSrvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 10, 0);
+    CD3DX12_DESCRIPTOR_RANGE1 roughEnvironmentRgbUavRange = {};
+    roughEnvironmentRgbUavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 4, 0);
+    CD3DX12_ROOT_PARAMETER1 rootParameters[19] = {};
     rootParameters[0].InitAsDescriptorTable(1, &uavRange);          // g_reflectionRayHit (u0)
     rootParameters[1].InitAsDescriptorTable(1, &colorUavRange);     // g_reflectionRayColor (u1)
     rootParameters[2].InitAsDescriptorTable(1, &materialUavRange);  // g_reflectionRayMaterial (u2)
@@ -3078,7 +3110,10 @@ void RtPbrSurveyEngine::CreateHybridReflectionRootSignature()
     rootParameters[12].InitAsDescriptorTable(1, &materialSrvRange); // g_materialData (t7)
     rootParameters[13].InitAsDescriptorTable(1, &textureSrvRange);  // g_texture[] (t0, space8)
     rootParameters[14].InitAsShaderResourceView(8, 0);              // g_meshRanges (t8)
-    rootParameters[15].InitAsConstants(11, 1, 0);                   // ReflectionConstants (b1)
+    rootParameters[15].InitAsConstants(15, 1, 0);                   // ReflectionConstants (b1)
+    rootParameters[16].InitAsDescriptorTable(1, &environmentSrvRange);
+    rootParameters[17].InitAsDescriptorTable(1, &albedoSrvRange);
+    rootParameters[18].InitAsDescriptorTable(1, &roughEnvironmentRgbUavRange);
 
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
     featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
@@ -5311,6 +5346,9 @@ void RtPbrSurveyEngine::CreateReflectionRayEmission()
                                                                      D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
                                                                      D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
     CreateCommittedRenderTexture(spec, m_reflectionRayEmission, L"ReflectionRayEmission");
+    const auto rgbSpec = MakeRenderSizeTextureSpec(kRoughEnvironmentRgbResourceName, spec.format,
+        D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    CreateCommittedRenderTexture(rgbSpec, m_roughEnvironmentRgb, L"RoughEnvironmentRgb");
 
     CreateReflectionRayEmissionDescriptors();
 }
@@ -5339,6 +5377,13 @@ void RtPbrSurveyEngine::CreateReflectionRayEmissionDescriptors()
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
     m_graphicsDevice.Device()->CreateUnorderedAccessView(
         m_reflectionRayEmission.Get(), nullptr, &uavDesc, m_reflectionRayEmissionUav.cpu);
+    if (m_roughEnvironmentRgbSrv.Index == UINT_MAX)
+    {
+        m_roughEnvironmentRgbSrv = m_descriptorHeapAllocator.AllocWithHandle();
+        m_roughEnvironmentRgbUav = m_descriptorHeapAllocator.AllocWithHandle();
+    }
+    m_graphicsDevice.Device()->CreateShaderResourceView(m_roughEnvironmentRgb.Get(), &srvDesc, m_roughEnvironmentRgbSrv.cpu);
+    m_graphicsDevice.Device()->CreateUnorderedAccessView(m_roughEnvironmentRgb.Get(), nullptr, &uavDesc, m_roughEnvironmentRgbUav.cpu);
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE RtPbrSurveyEngine::GetBackBufferRtv() const
@@ -5840,6 +5885,10 @@ void RtPbrSurveyEngine::RegisterResourceResolvers()
                                                        [this]() { return m_reflectionRayMaterial.Get(); });
     m_renderGraphRuntime.Resources().RegisterResource(kReflectionRayEmissionResourceName,
                                                        [this]() { return m_reflectionRayEmission.Get(); });
+    m_renderGraphRuntime.Bindings().RegisterDescriptor(m_renderGraphRuntime.RegisterDescriptor(Desc::RoughEnvironmentRgbSrv),
+                                                       [this]() { return m_roughEnvironmentRgbSrv.gpu; });
+    m_renderGraphRuntime.Resources().RegisterResource(kRoughEnvironmentRgbResourceName,
+                                                       [this]() { return m_roughEnvironmentRgb.Get(); });
     for (UINT i = 0; i < Engine::GBuffer::kCount; ++i)
     {
         m_renderGraphRuntime.Resources().RegisterResource(kGBufferResourceNames[i],
@@ -6239,6 +6288,7 @@ void RtPbrSurveyEngine::ApplyResize(UINT width, UINT height)
     m_reflectionRayColor.Reset();
     m_reflectionRayMaterial.Reset();
     m_reflectionRayEmission.Reset();
+    m_roughEnvironmentRgb.Reset();
     m_resourceRegistry.UnregisterTransientResource(kDepthStencilResourceName);
     m_resourceRegistry.UnregisterTransientResource(kLightPassRenderTargetResourceName);
     m_resourceRegistry.UnregisterTransientResource(kReflectionEvaluatedRadianceResourceName);
@@ -7702,6 +7752,13 @@ void RtPbrSurveyEngine::ExecuteHybridReflectionPass(const RenderPass& pass)
     passDesc.rayTMin = m_shadowSettings.rayTMin;
     passDesc.rayTMax = m_shadowSettings.rayTMax;
     passDesc.hitNormalSource = static_cast<UINT>(m_hybridReflectionSettings.hitNormalSource);
+    passDesc.roughEnvironmentOcclusionEnabled = IsRoughEnvironmentOcclusionActive() ? 1u : 0u;
+    passDesc.roughEnvironmentRadianceWeighted = m_hybridReflectionSettings.roughEnvironmentRadianceWeighted ? 1u : 0u;
+    passDesc.environmentSrv = m_environmentMap.Srv().gpu;
+    passDesc.albedoSrv = m_gbuffer.srvHandles[Engine::GBuffer::Albedo].gpu;
+    passDesc.roughEnvironmentRgbUav = m_roughEnvironmentRgbUav.gpu;
+    passDesc.roughEnvironmentIntegrateRgb = m_hybridReflectionSettings.roughEnvironmentIntegrateRgb ? 1u : 0u;
+    passDesc.forceMirrorEnvironmentOcclusion = IsForcedMirrorEnvironmentOcclusionActive() ? 1u : 0u;
     passDesc.stochasticSamplingEnabled = m_hybridReflectionSettings.stochasticSamplingEnabled ? 1u : 0u;
     passDesc.samplingFrameIndex = m_reflectionSamplingFrameIndex;
     if (m_hybridReflectionSettings.materialGateEnabled)
@@ -8188,6 +8245,12 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             }
             if (m_renderingPath == RenderingPath::Deferred)
             {
+                if (capture.request.debugResourceName == kReflectionRayEmissionResourceName &&
+                    m_debugViewSettings.renderViewMode == RenderViewMode::LightPass && IsRoughEnvironmentOcclusionActive())
+                {
+                    source = m_reflectionRayEmission.Get();
+                    diagnosticSource = kReflectionRayEmissionResourceName;
+                }
                 for (const Engine::GBuffer::Target target : {Engine::GBuffer::Albedo, Engine::GBuffer::Normal,
                                                             Engine::GBuffer::PBRParams, Engine::GBuffer::Emissive})
                 {
@@ -8201,7 +8264,7 @@ void RtPbrSurveyEngine::ExecuteScreenshotPass(const RenderPass& pass)
             }
             if (source == nullptr)
             {
-                throw std::invalid_argument("Native buffer capture requires an active PT accumulation/scene color/guide or supported Deferred GBuffer resource.");
+                throw std::invalid_argument("Native buffer capture requires an active PT accumulation/scene color/guide, supported Deferred GBuffer resource, or active rough IBL diagnostic in Lit view.");
             }
             diagnosticRestoreState = GetResourceState(diagnosticSource);
             TransitionResource({diagnosticSource, D3D12_RESOURCE_STATE_COPY_SOURCE});
