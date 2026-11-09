@@ -6,6 +6,11 @@ a textured walnut tabletop. Three warm point lights serve as key, fill, and
 rim. The vertical targets and tabletop grain make transmitted distortion
 and surface reflections easy to see.
 
+The saved preset uses Procedural Studio with Environment Map / Importance MIS.
+Studio is a distant environment. Two inward-facing emissive strips sit to the
+left and right of the table, outside the saved camera view and on the table
+side of the backdrop wall. The strips appear in glass reflections.
+
 The hollow tumblers have wall widths of 0.036 and 0.132 scene units with
 different base thicknesses. Both use thin-surface optics. The thin sheet uses
 the same transmission model, and the 0.30-unit slab uses solid Volume with
@@ -20,7 +25,7 @@ To open the RR variant from the repository root:
 ```
 
 Debug verification at 960x540 produced Native and verified RR captures.
-RR completed 18 outputs with one initial reset and zero input rejections.
+With the Studio setup, RR completed 24 outputs with one initial reset and zero input rejections.
 Both runs reported zero captured D3D12 errors.
 
 [Transmission and refraction roadmap](../../../doc/warm-glass-table-roadmap.md)

@@ -19,6 +19,11 @@
       "id": "tabletop",
       "type": "gltf",
       "path": "tabletop.gltf"
+    },
+    {
+      "id": "studio-strip",
+      "type": "gltf",
+      "path": "studio-strip.gltf"
     }
   ],
   "materials": [
@@ -651,6 +656,52 @@
         "size": 1
       },
       "materialId": "stripe"
+    },
+    {
+      "id": "studio-left",
+      "name": "Studio strip left",
+      "type": "gltf",
+      "assetId": "studio-strip",
+      "translation": [
+        -4.25,
+        1.8,
+        -1.65
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1.4,
+        0.75
+      ],
+      "visible": true
+    },
+    {
+      "id": "studio-right",
+      "name": "Studio strip right",
+      "type": "gltf",
+      "assetId": "studio-strip",
+      "translation": [
+        4.25,
+        1.8,
+        -0.95
+      ],
+      "rotation": [
+        0,
+        1,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1.4,
+        0.75
+      ],
+      "visible": true
     }
   ],
   "camera": {
@@ -694,13 +745,13 @@
       0.61
     ],
     "lightDirection": [
-      -0.45,
-      0.8,
-      -0.38
+      -0.64,
+      0.56,
+      -0.52
     ],
     "backgroundIntensity": 0.4,
-    "lightIntensity": 0.7,
-    "lightSize": 0.38,
+    "lightIntensity": 3.5,
+    "lightSize": 0.14,
     "fillIntensity": 0.12,
     "colorPanelIntensity": 0.5,
     "horizonSharpness": 0.08

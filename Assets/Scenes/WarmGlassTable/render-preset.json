@@ -104,11 +104,11 @@
     "randomSeed": 7,
     "directLightingEnabled": true,
     "environmentEnabled": true,
-    "environmentSamplingMode": 5,
+    "environmentSamplingMode": 7,
     "emissiveEnabled": true,
     "russianRouletteEnabled": false,
     "debugOutput": 3,
-    "emissiveSamplingMode": 0,
+    "emissiveSamplingMode": 2,
     "pixelCenterPrimary": true,
     "denoiserDistanceDiagnostics": true,
     "nrdPreview": false
