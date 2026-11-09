@@ -1,0 +1,708 @@
+{
+  "schemaVersion": 1,
+  "sceneId": "warm-glass-table",
+  "name": "PT Warm Glass Table",
+  "renderPreset": "render-preset.json",
+  "description": "Left to right: thin-wall tumbler, thick-wall tumbler, thin sheet and thick slab. Warm key, fill and rim on a walnut tabletop. Hollow tumblers use thin-surface transmission, and the thick slab uses solid Volume.",
+  "assets": [
+    {
+      "id": "thin-tumbler",
+      "type": "gltf",
+      "path": "thin-tumbler.gltf"
+    },
+    {
+      "id": "thick-tumbler",
+      "type": "gltf",
+      "path": "thick-tumbler.gltf"
+    },
+    {
+      "id": "tabletop",
+      "type": "gltf",
+      "path": "tabletop.gltf"
+    }
+  ],
+  "materials": [
+    {
+      "id": "wood-edge",
+      "name": "Walnut edge",
+      "baseColor": [
+        0.21,
+        0.103,
+        0.051,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.52
+    },
+    {
+      "id": "wall",
+      "name": "Warm plaster",
+      "baseColor": [
+        0.21,
+        0.155,
+        0.115,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.8
+    },
+    {
+      "id": "floor",
+      "name": "Warm gray floor",
+      "baseColor": [
+        0.12,
+        0.098,
+        0.079,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.78
+    },
+    {
+      "id": "thin",
+      "name": "Thin glass sheet",
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.02,
+      "transmission": {
+        "mode": "thin",
+        "factor": 1,
+        "tint": [
+          1,
+          1,
+          1
+        ],
+        "ior": 1.5
+      }
+    },
+    {
+      "id": "solid",
+      "name": "Thick solid glass",
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0,
+      "transmission": {
+        "mode": "volume",
+        "factor": 1,
+        "tint": [
+          1,
+          1,
+          1
+        ],
+        "ior": 1.5,
+        "volume": {
+          "attenuationColor": [
+            1,
+            1,
+            1
+          ],
+          "attenuationDistance": null
+        }
+      }
+    },
+    {
+      "id": "stripe",
+      "name": "Warm ivory target",
+      "baseColor": [
+        0.69,
+        0.48,
+        0.24,
+        1
+      ],
+      "metallic": 0,
+      "roughness": 0.68
+    }
+  ],
+  "nodes": [
+    {
+      "id": "tabletop",
+      "name": "Walnut tabletop",
+      "translation": [
+        0,
+        0.001,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "visible": true,
+      "type": "gltf",
+      "assetId": "tabletop"
+    },
+    {
+      "id": "table",
+      "name": "Walnut table edge",
+      "translation": [
+        0,
+        -0.15,
+        0
+      ],
+      "scale": [
+        7.2,
+        0.3,
+        4.1
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "wood-edge"
+    },
+    {
+      "id": "floor",
+      "name": "Floor",
+      "translation": [
+        0,
+        -1.55,
+        0
+      ],
+      "scale": [
+        25,
+        0.2,
+        25
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "floor"
+    },
+    {
+      "id": "wall",
+      "name": "Warm backdrop",
+      "translation": [
+        0,
+        2.3,
+        3.55
+      ],
+      "scale": [
+        20,
+        8,
+        0.15
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "wall"
+    },
+    {
+      "id": "thin-tumbler",
+      "name": "Thin-wall tumbler",
+      "translation": [
+        -2.15,
+        0.003,
+        -0.15
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "visible": true,
+      "type": "gltf",
+      "assetId": "thin-tumbler"
+    },
+    {
+      "id": "thick-tumbler",
+      "name": "Thick-wall tumbler",
+      "translation": [
+        -0.75,
+        0.003,
+        -0.07
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "visible": true,
+      "type": "gltf",
+      "assetId": "thick-tumbler"
+    },
+    {
+      "id": "thin-sheet",
+      "name": "Thin glass sheet",
+      "translation": [
+        0.65,
+        0.912,
+        0.02
+      ],
+      "scale": [
+        1.02,
+        1.82,
+        0.026
+      ],
+      "rotation": [
+        0,
+        -0.12963414261969486,
+        0,
+        0.9915618937147881
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "thin"
+    },
+    {
+      "id": "thick-slab",
+      "name": "Thick solid glass slab",
+      "translation": [
+        2.04,
+        0.912,
+        0.1
+      ],
+      "scale": [
+        1.03,
+        1.82,
+        0.3
+      ],
+      "rotation": [
+        0,
+        -0.12963414261969486,
+        0,
+        0.9915618937147881
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "solid"
+    },
+    {
+      "id": "leg-0",
+      "name": "Table leg",
+      "translation": [
+        -3,
+        -0.88,
+        -1.55
+      ],
+      "scale": [
+        0.32,
+        1.16,
+        0.32
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "wood-edge"
+    },
+    {
+      "id": "leg-1",
+      "name": "Table leg",
+      "translation": [
+        3,
+        -0.88,
+        -1.55
+      ],
+      "scale": [
+        0.32,
+        1.16,
+        0.32
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "wood-edge"
+    },
+    {
+      "id": "leg-2",
+      "name": "Table leg",
+      "translation": [
+        -3,
+        -0.88,
+        1.55
+      ],
+      "scale": [
+        0.32,
+        1.16,
+        0.32
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "wood-edge"
+    },
+    {
+      "id": "leg-3",
+      "name": "Table leg",
+      "translation": [
+        3,
+        -0.88,
+        1.55
+      ],
+      "scale": [
+        0.32,
+        1.16,
+        0.32
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "wood-edge"
+    },
+    {
+      "id": "stripe-0",
+      "name": "Refraction target stripe",
+      "translation": [
+        -2.48,
+        1.1,
+        3.44
+      ],
+      "scale": [
+        0.095,
+        2.2,
+        0.025
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "stripe"
+    },
+    {
+      "id": "stripe-1",
+      "name": "Refraction target stripe",
+      "translation": [
+        -1.92,
+        1.1,
+        3.44
+      ],
+      "scale": [
+        0.095,
+        2.2,
+        0.025
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "stripe"
+    },
+    {
+      "id": "stripe-2",
+      "name": "Refraction target stripe",
+      "translation": [
+        -1.02,
+        1.1,
+        3.44
+      ],
+      "scale": [
+        0.095,
+        2.2,
+        0.025
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "stripe"
+    },
+    {
+      "id": "stripe-3",
+      "name": "Refraction target stripe",
+      "translation": [
+        -0.47,
+        1.1,
+        3.44
+      ],
+      "scale": [
+        0.095,
+        2.2,
+        0.025
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "stripe"
+    },
+    {
+      "id": "stripe-4",
+      "name": "Refraction target stripe",
+      "translation": [
+        0.41,
+        1.1,
+        3.44
+      ],
+      "scale": [
+        0.095,
+        2.2,
+        0.025
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "stripe"
+    },
+    {
+      "id": "stripe-5",
+      "name": "Refraction target stripe",
+      "translation": [
+        0.86,
+        1.1,
+        3.44
+      ],
+      "scale": [
+        0.095,
+        2.2,
+        0.025
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "stripe"
+    },
+    {
+      "id": "stripe-6",
+      "name": "Refraction target stripe",
+      "translation": [
+        1.81,
+        1.1,
+        3.44
+      ],
+      "scale": [
+        0.095,
+        2.2,
+        0.025
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "stripe"
+    },
+    {
+      "id": "stripe-7",
+      "name": "Refraction target stripe",
+      "translation": [
+        2.24,
+        1.1,
+        3.44
+      ],
+      "scale": [
+        0.095,
+        2.2,
+        0.025
+      ],
+      "rotation": [
+        0,
+        0.0,
+        0,
+        1.0
+      ],
+      "visible": true,
+      "type": "primitive",
+      "primitive": {
+        "kind": "cube",
+        "size": 1
+      },
+      "materialId": "stripe"
+    }
+  ],
+  "camera": {
+    "position": [
+      0.8,
+      3.1,
+      -7.8
+    ],
+    "target": [
+      0,
+      0.63,
+      0.1
+    ],
+    "up": [
+      0,
+      1,
+      0
+    ],
+    "projection": "perspective",
+    "verticalFovDegrees": 34,
+    "orthographicHeight": 6,
+    "nearZ": 0.05,
+    "farZ": 100
+  },
+  "environment": {
+    "source": "procedural",
+    "iblEnabled": true,
+    "skyColor": [
+      0.63,
+      0.47,
+      0.33
+    ],
+    "groundColor": [
+      0.29,
+      0.19,
+      0.12
+    ],
+    "lightColor": [
+      1,
+      0.83,
+      0.61
+    ],
+    "lightDirection": [
+      -0.45,
+      0.8,
+      -0.38
+    ],
+    "backgroundIntensity": 0.4,
+    "lightIntensity": 0.7,
+    "lightSize": 0.38,
+    "fillIntensity": 0.12,
+    "colorPanelIntensity": 0.5,
+    "horizonSharpness": 0.08
+  }
+}
