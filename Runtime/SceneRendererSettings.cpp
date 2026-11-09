@@ -85,6 +85,11 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
     hybridReflection["hitNormalSource"] = settings.hybridReflection.hitNormalSource;
     hybridReflection["contributionEnabled"] = settings.hybridReflection.contributionEnabled;
     hybridReflection["mirrorEnvironmentOcclusionEnabled"] = settings.hybridReflection.mirrorEnvironmentOcclusionEnabled;
+    hybridReflection["roughEnvironmentOcclusionEnabled"] = settings.hybridReflection.roughEnvironmentOcclusionEnabled;
+    hybridReflection["roughEnvironmentOcclusionForceMask"] = settings.hybridReflection.roughEnvironmentOcclusionForceMask;
+    hybridReflection["roughEnvironmentRadianceWeighted"] = settings.hybridReflection.roughEnvironmentRadianceWeighted;
+    hybridReflection["roughEnvironmentIntegrateRgb"] = settings.hybridReflection.roughEnvironmentIntegrateRgb;
+    hybridReflection["roughEnvironmentSpatialFilter"] = settings.hybridReflection.roughEnvironmentSpatialFilter;
     hybridReflection["contributionIntensity"] = settings.hybridReflection.contributionIntensity;
     hybridReflection["contributionMaxDistance"] = settings.hybridReflection.contributionMaxDistance;
     hybridReflection["temporalHistoryWeight"] = settings.hybridReflection.temporalHistoryWeight;
@@ -323,6 +328,14 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
                 reflection.value("hitNormalSource", parsed.hybridReflection.hitNormalSource);
             parsed.hybridReflection.mirrorEnvironmentOcclusionEnabled =
                 reflection.value("mirrorEnvironmentOcclusionEnabled", parsed.hybridReflection.mirrorEnvironmentOcclusionEnabled);
+            parsed.hybridReflection.roughEnvironmentOcclusionEnabled =
+                reflection.value("roughEnvironmentOcclusionEnabled", parsed.hybridReflection.roughEnvironmentOcclusionEnabled);
+            parsed.hybridReflection.roughEnvironmentOcclusionForceMask =
+                reflection.value("roughEnvironmentOcclusionForceMask", false);
+            parsed.hybridReflection.roughEnvironmentRadianceWeighted =
+                reflection.value("roughEnvironmentRadianceWeighted", false);
+            parsed.hybridReflection.roughEnvironmentIntegrateRgb = reflection.value("roughEnvironmentIntegrateRgb", false);
+            parsed.hybridReflection.roughEnvironmentSpatialFilter = reflection.value("roughEnvironmentSpatialFilter", false);
             parsed.hybridReflection.contributionEnabled =
                 reflection.value("contributionEnabled", parsed.hybridReflection.contributionEnabled);
             parsed.hybridReflection.contributionIntensity =

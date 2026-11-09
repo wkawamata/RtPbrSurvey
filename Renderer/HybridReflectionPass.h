@@ -26,6 +26,13 @@ struct HybridReflectionPassDesc
     UINT stochasticSamplingEnabled = 0;
     UINT samplingFrameIndex = 0;
     UINT hitNormalSource = 0;
+    UINT roughEnvironmentOcclusionEnabled = 0;
+    UINT roughEnvironmentRadianceWeighted = 0;
+    D3D12_GPU_DESCRIPTOR_HANDLE environmentSrv = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE albedoSrv = {};
+    D3D12_GPU_DESCRIPTOR_HANDLE roughEnvironmentRgbUav = {};
+    UINT roughEnvironmentIntegrateRgb = 0;
+    UINT forceMirrorEnvironmentOcclusion = 0;
     UINT width = 0;
     UINT height = 0;
 };

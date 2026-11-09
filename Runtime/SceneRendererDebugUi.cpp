@@ -458,12 +458,7 @@ namespace
     void DrawHybridReflectionControls(RtPbrSurvey::SceneRenderer& renderer)
     {
         auto reflectionSettings = renderer.GetHybridReflectionSettings();
-        bool changed = false;
-        changed |= ImGui::Checkbox("Mirror IBL Occlusion (diagnostic)", &reflectionSettings.mirrorEnvironmentOcclusionEnabled);
-        if (reflectionSettings.mirrorEnvironmentOcclusionEnabled)
-        {
-            ImGui::TextWrapped("Opaque only; roughness <= 0.1. Requires Hybrid Reflection enabled and stochastic sampling OFF. No reflected surface radiance replacement.");
-        }
+        bool changed = RtPbrSurvey::SceneRendererDebugUi::DrawSpecularIblOcclusion(reflectionSettings);
 
         RtPbrSurvey::DebugUiPreferences& preferences = RtPbrSurvey::GetDebugUiPreferences();
         if (ImGuiWidgets::SimpleDetailMode("HybridReflectionMode", &preferences.hybridReflectionDetailed))
@@ -728,6 +723,42 @@ namespace
 
 namespace RtPbrSurvey
 {
+    bool SceneRendererDebugUi::DrawSpecularIblOcclusion(RtPbrSurveyEngine::HybridReflectionSettings& settings)
+    {
+        bool changed = ImGui::Checkbox("Mirror IBL Occlusion (diagnostic)", &settings.mirrorEnvironmentOcclusionEnabled);
+        if (settings.mirrorEnvironmentOcclusionEnabled)
+        {
+            ImGui::TextWrapped("Roughness <= 0.1. On opaque scenes, requires stochastic sampling OFF. On MASK scenes, requires Rough IBL Occlusion and Force ON (MASK).");
+        }
+        changed |= ImGui::Checkbox("Rough IBL Occlusion (diagnostic)", &settings.roughEnvironmentOcclusionEnabled);
+        if (ImGui::Checkbox("Force ON (MASK)##RoughIblOcclusion", &settings.roughEnvironmentOcclusionForceMask))
+        {
+            if (settings.roughEnvironmentOcclusionForceMask)
+            {
+                settings.roughEnvironmentOcclusionEnabled = true;
+            }
+            changed = true;
+        }
+        if (settings.roughEnvironmentOcclusionEnabled)
+        {
+            changed |= ImGui::Checkbox("Integrate Visible Environment RGB", &settings.roughEnvironmentIntegrateRgb);
+            if (settings.roughEnvironmentIntegrateRgb)
+            {
+                changed |= ImGui::Checkbox("RGB Spatial Filter", &settings.roughEnvironmentSpatialFilter);
+            }
+            ImGui::BeginDisabled(settings.roughEnvironmentIntegrateRgb);
+            changed |= ImGui::Checkbox("Weight by Environment Radiance", &settings.roughEnvironmentRadianceWeighted);
+            ImGui::EndDisabled();
+        }
+        if (settings.roughEnvironmentOcclusionForceMask)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.82f, 0.2f, 1.0f));
+            ImGui::TextWrapped("IBL occlusion rays treat MASK transparency as opaque. Transmission and volumes remain unsupported.");
+            ImGui::PopStyleColor();
+        }
+        return changed;
+    }
+
     void SceneRendererDebugUi::DrawEnvironmentMapping(SceneRenderer& renderer, EnvironmentMappingUiState& state)
     {
         bool environmentChanged = false;
@@ -745,11 +776,14 @@ namespace RtPbrSurvey
         }
         ImGui::EndDisabled();
         lightingChanged |= ImGui::Checkbox("Show Skybox", &state.lighting.skyboxEnabled);
-        lightingChanged |= ImGui::Checkbox("Skybox Preview", &state.lighting.skyboxPreview);
-        ImGui::BeginDisabled(!state.lighting.skyboxPreview);
-        lightingChanged |= ImGuiWidgets::SliderFloatWithControls(
-            "Preview Exposure", &state.lighting.skyboxPreviewExposure, 0.0f, 2.0f, 0.05f, 1.0f);
-        ImGui::EndDisabled();
+        if (renderer.GetRenderingPath() != RtPbrSurveyEngine::RenderingPath::PathTracing)
+        {
+            lightingChanged |= ImGui::Checkbox("Skybox Preview", &state.lighting.skyboxPreview);
+            ImGui::BeginDisabled(!state.lighting.skyboxPreview);
+            lightingChanged |= ImGuiWidgets::SliderFloatWithControls(
+                "Preview Exposure", &state.lighting.skyboxPreviewExposure, 0.0f, 2.0f, 0.05f, 1.0f);
+            ImGui::EndDisabled();
+        }
 
         int source = static_cast<int>(state.settings.source);
         if (ImGui::Combo("Environment Source",
@@ -1007,21 +1041,27 @@ namespace RtPbrSurvey
         }
         ImGui::PushID("DiffuseEnvironmentVisibility");
         auto settings = renderer.GetDiffuseEnvironmentVisibilitySettings();
+        constexpr DiffuseEnvironmentVisibilitySettings defaults{};
         bool changed = ImGui::Checkbox("Enabled", &settings.enabled);
-        changed |= ImGui::SliderFloat("Strength", &settings.strength, 0.0f, 1.0f);
+        changed |= ImGuiWidgets::SliderFloatWithControls("Strength", &settings.strength, 0.0f, 1.0f, 0.05f, defaults.strength);
         changed |= ImGui::Checkbox("Per-Pixel Sample Shift", &settings.sampleRotationEnabled);
         changed |= ImGui::Checkbox("Spatial Filter", &settings.spatialFilterEnabled);
-        changed |= ImGui::DragFloat("Filter Plane Distance", &settings.filterPlaneDistance, 0.001f, 0.000001f, 1000.0f, "%.6f");
-        changed |= ImGui::DragFloat("Filter World Radius", &settings.filterWorldRadius, 0.001f, 0.000001f, 1000.0f, "%.6f");
+        changed |= ImGuiWidgets::SliderFloatWithControls("Filter Plane Distance", &settings.filterPlaneDistance,
+            0.000001f, 1000.0f, 0.001f, defaults.filterPlaneDistance, "%.6f", ImGuiSliderFlags_Logarithmic);
+        changed |= ImGuiWidgets::SliderFloatWithControls("Filter World Radius", &settings.filterWorldRadius,
+            0.000001f, 1000.0f, 0.001f, defaults.filterWorldRadius, "%.6f", ImGuiSliderFlags_Logarithmic);
         int samples = static_cast<int>(settings.sampleCount);
-        if (ImGui::SliderInt("Rays Per Pixel", &samples, 1, 64))
+        if (ImGuiWidgets::SliderIntWithControls("Rays Per Pixel", &samples, 1, 64, 1, static_cast<int>(defaults.sampleCount)))
         {
             settings.sampleCount = static_cast<uint32_t>(samples);
             changed = true;
         }
-        changed |= ImGui::DragFloat("Normal Bias", &settings.normalBias, 0.0001f, 0.0f, 1.0f, "%.4f");
-        changed |= ImGui::DragFloat("Ray TMin", &settings.rayTMin, 0.0001f, 0.0f, 1.0f, "%.4f");
-        changed |= ImGui::DragFloat("Trace Distance", &settings.traceDistance, 1.0f, 1.001f, 100000.0f);
+        changed |= ImGuiWidgets::SliderFloatWithControls("Normal Bias", &settings.normalBias,
+            0.0f, 1.0f, 0.0001f, defaults.normalBias, "%.4f", ImGuiSliderFlags_Logarithmic);
+        changed |= ImGuiWidgets::SliderFloatWithControls("Ray TMin", &settings.rayTMin,
+            0.0f, 1.0f, 0.0001f, defaults.rayTMin, "%.4f", ImGuiSliderFlags_Logarithmic);
+        changed |= ImGuiWidgets::SliderFloatWithControls("Trace Distance", &settings.traceDistance,
+            1.001f, 100000.0f, 1.0f, defaults.traceDistance, "%.3f", ImGuiSliderFlags_Logarithmic);
         const char* status = renderer.GetDiffuseEnvironmentVisibilityStatus();
         if (std::strstr(status, "MASK") != nullptr)
         {
@@ -1061,6 +1101,10 @@ namespace RtPbrSurvey
         {
             DrawTemporalUpscalerControls(renderer);
         }
+        if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            DrawToneMapControls(renderer);
+        }
         ImGui::Separator();
 
         if (ImGui::CollapsingHeader("Back Buffer", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1068,24 +1112,23 @@ namespace RtPbrSurvey
             DrawBackBufferControls(renderer);
         }
 
-        if (ImGui::CollapsingHeader("PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader("Direct Lighting###PBR Lighting", ImGuiTreeNodeFlags_DefaultOpen))
         {
             DrawLightingControls(renderer);
         }
-        if (renderer.GetRenderingPath() != RtPbrSurveyEngine::RenderingPath::PathTracing)
-        {
-            DrawDiffuseEnvironmentVisibility(renderer);
-        }
-
         if (environment != nullptr &&
-            ImGui::CollapsingHeader("Environment Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+            ImGui::CollapsingHeader("Image Based Lighting (IBL)", ImGuiTreeNodeFlags_DefaultOpen))
         {
             DrawEnvironmentMapping(renderer, *environment);
         }
 
-        if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+        if (renderer.GetRenderingPath() != RtPbrSurveyEngine::RenderingPath::PathTracing)
         {
-            DrawToneMapControls(renderer);
+            DrawDiffuseEnvironmentVisibility(renderer);
+            if (ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                DrawHybridReflectionControls(renderer);
+            }
         }
 
         if (renderer.GetRenderingPath() == RtPbrSurveyEngine::RenderingPath::PathTracing)
@@ -1098,12 +1141,6 @@ namespace RtPbrSurvey
         else if (ImGui::CollapsingHeader("RayQuery Shadow", ImGuiTreeNodeFlags_DefaultOpen))
         {
             DrawShadowControls(renderer);
-        }
-
-        if (renderer.GetRenderingPath() != RtPbrSurveyEngine::RenderingPath::PathTracing &&
-            ImGui::CollapsingHeader("Hybrid Reflection", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            DrawHybridReflectionControls(renderer);
         }
 
         if (ImGui::CollapsingHeader("Render View", ImGuiTreeNodeFlags_DefaultOpen))

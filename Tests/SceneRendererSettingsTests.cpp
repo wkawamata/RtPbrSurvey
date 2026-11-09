@@ -61,6 +61,11 @@ bool TestRoundTrip()
     source.temporalUpscaler.renderScale = 0.67f;
     source.hybridReflection.contributionMaxDistance = 37.0f;
     source.hybridReflection.mirrorEnvironmentOcclusionEnabled = true;
+    source.hybridReflection.roughEnvironmentOcclusionEnabled = true;
+    source.hybridReflection.roughEnvironmentOcclusionForceMask = true;
+    source.hybridReflection.roughEnvironmentRadianceWeighted = true;
+    source.hybridReflection.roughEnvironmentIntegrateRgb = true;
+    source.hybridReflection.roughEnvironmentSpatialFilter = true;
     source.pathTracing.accumulate = false;
     source.pathTracing.samplesPerFrame = 4;
     source.pathTracing.pixelCenterPrimary = true;
@@ -96,6 +101,12 @@ bool TestRoundTrip()
     const auto& visibility = restored.diffuseEnvironmentVisibility;
     passed &= Check(restored.hybridReflection.mirrorEnvironmentOcclusionEnabled,
                     "mirror environment occlusion diagnostic round-trips");
+    passed &= Check(restored.hybridReflection.roughEnvironmentOcclusionEnabled &&
+                        restored.hybridReflection.roughEnvironmentOcclusionForceMask &&
+                        restored.hybridReflection.roughEnvironmentRadianceWeighted &&
+                        restored.hybridReflection.roughEnvironmentIntegrateRgb &&
+                        restored.hybridReflection.roughEnvironmentSpatialFilter,
+                    "rough environment occlusion diagnostic round-trips");
     passed &= Check(visibility.forceMaskedGeometry, "forced MASK visibility round-trips");
     nlohmann::json legacyJson = parsedJson;
     legacyJson["diffuseEnvironmentVisibility"].erase("forceMaskedGeometry");

@@ -165,6 +165,27 @@ void DebugCameraController::UpdateObjectViewerCamera()
     camera->gazePoint = m_objectViewerPivot;
 }
 
+void DebugCameraController::PanVertical(bool moveUp, bool moveDown)
+{
+    if (moveUp == moveDown)
+    {
+        return;
+    }
+    Engine::CameraState* camera = Camera();
+    if (camera == nullptr)
+    {
+        return;
+    }
+
+    const float offset = (moveUp ? 1.0f : -1.0f) * kCameraVerticalSpeed * m_speedMultiplier;
+    if (m_mode == Mode::Arcball)
+    {
+        m_objectViewerPivot.y += offset;
+    }
+    camera->pos.y += offset;
+    camera->gazePoint.y += offset;
+}
+
 void DebugCameraController::ResetInputState()
 {
     m_isDragging = false;

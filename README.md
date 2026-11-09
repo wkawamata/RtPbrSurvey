@@ -50,8 +50,10 @@ incomplete.
 | Pan | Middle mouse drag |
 | Dolly | Mouse wheel |
 | Zoom (FOV) | Ctrl + Mouse wheel |
-| Move (FreeLook) | W/A/S/D, Shift for up/down |
+| Move (FreeLook) | W/A/S/D; Shift+W/S also moves up/down |
+| Vertical pan | E (up) / Q (down) |
 | Toggle camera mode | Tab |
+| Toggle ImGui (running scene) | Left + right mouse buttons, in either order |
 | Pixel inspect (deferred) | Ctrl + Left Click |
 | Pause animation | Space |
 | Return to scene select | Escape |

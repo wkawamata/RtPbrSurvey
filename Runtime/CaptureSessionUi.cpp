@@ -126,7 +126,7 @@ namespace RtPbrSurvey
 
         // Keep commands ahead of all variable-height settings and status output.
         ImGui::BeginDisabled(active || startBlockedReason != nullptr);
-        if (ImGui::Button("Start Capture Session"))
+        if (ImGui::Button("Start Capture [F8]"))
         {
             action = CaptureSessionUiAction::Start;
         }

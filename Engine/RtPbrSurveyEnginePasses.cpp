@@ -814,13 +814,17 @@ auto RtPbrSurveyEngine::MakeHybridReflectionPass() -> RenderPass
         reads.push_back({kSceneIndexBufferResourceName, D3D12_RESOURCE_STATE_GENERIC_READ});
     }
 
+    reads.push_back({kEnvironmentMapResourceName,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE});
+    reads.push_back({kGBufferResourceNames[Engine::GBuffer::Albedo], D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE});
     return m_renderGraphRuntime.Authoring()
         .CreatePass(L"HybridReflectionPass")
         .Reads(std::move(reads))
         .Writes({{kReflectionRayHitResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
                  {kReflectionRayMaterialResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
-                 {kReflectionRayEmissionResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
+                 {kReflectionRayEmissionResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS},
+                 {kRoughEnvironmentRgbResourceName, D3D12_RESOURCE_STATE_UNORDERED_ACCESS}})
         .Operation(Op::HybridReflection, &RtPbrSurveyEngine::ExecuteHybridReflectionPass)
         .Build();
 }
@@ -935,6 +939,11 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
         {
             reads.push_back({kReflectionRayColorResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
         }
+        if (IsRoughEnvironmentOcclusionActive())
+        {
+            reads.push_back({m_hybridReflectionSettings.roughEnvironmentIntegrateRgb ?
+                kRoughEnvironmentRgbResourceName : kReflectionRayEmissionResourceName, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE});
+        }
     }
 
     auto builder = m_renderGraphRuntime.Authoring()
@@ -970,6 +979,11 @@ auto RtPbrSurveyEngine::MakeLightingPass() -> RenderPass
         m_hybridReflectionSettings.hitOverlayEnabled)
     {
         builder.Descriptor(RootSignatureLayout::ReflectionRayColor, Desc::ReflectionRayColorSrv);
+    }
+    if (IsRoughEnvironmentOcclusionActive())
+    {
+        builder.Descriptor(RootSignatureLayout::ReflectionRayEmission, m_hybridReflectionSettings.roughEnvironmentIntegrateRgb ?
+            Desc::RoughEnvironmentRgbSrv : Desc::ReflectionRayEmissionSrv);
     }
 
     return builder.Build();

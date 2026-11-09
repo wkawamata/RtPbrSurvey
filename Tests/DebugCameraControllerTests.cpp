@@ -332,6 +332,27 @@ int main()
         return 1;
     }
 
+    for (const auto mode : {RtPbrSurvey::DebugCameraController::Mode::FreeLook,
+                            RtPbrSurvey::DebugCameraController::Mode::Arcball})
+    {
+        controller.SetMode(mode);
+        const auto before = camera.pos;
+        const auto beforeDirection = viewDirection();
+        controller.PanVertical(true, false);
+        if (!(camera.pos.y > before.y) || !NearlyEqual(camera.pos.x, before.x) ||
+            !NearlyEqual(camera.pos.z, before.z) || !NearlyEqual(viewDirection(), beforeDirection))
+        {
+            std::cerr << "Vertical pan must move up in world Y without changing the view direction.\n";
+            return 1;
+        }
+        controller.PanVertical(false, true);
+        if (!NearlyEqual(camera.pos, before))
+        {
+            std::cerr << "Downward pan must reverse upward pan.\n";
+            return 1;
+        }
+    }
+
     if (!TestRegularHorizontalAndVerticalOrbit() || !TestNearLimitDragDoesNotCrossPole() ||
         !TestArcballSwitchPreservesEightyEightDegreeCamera() || !TestRightPrimaryDragPreservesArcballOrbit() ||
         !TestRightPrimaryDragIgnoresSelectionAndStopsOnRelease() || !TestOrphanRightButtonReleaseDoesNotResyncArcball() ||
