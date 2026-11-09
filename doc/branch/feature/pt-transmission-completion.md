@@ -860,3 +860,63 @@ Rectangles are [x0,y0,x1,y1) for this framing. Check tint, blur width and
 edge bleed; do not demand unblurred checker detail inside the rough glass.
 Evidence: bin/PathTracingValidation/scene33-rr-native-{1,128}.png and logs.
 RR output has not been evaluated for this scene.
+
+### Isolated Thin Motion Controls
+
+Added Tests/PathTracing/thin_rr_motion_fixtures.py. It generates three
+matched-framing derivatives of the smooth scene 20 control: camera orbit
+only (3 deg/s, no animated node), Clear Pane translation only, and Sphere 2
+behind the Clear Pane translation only. Both object tracks use X amplitude
+0.2 and period 4 s. Generated motion-plan.json specifies 768x432 and 30 fps.
+Generation succeeded and both animation targets passed root/visibility/type
+checks. No tracked scene asset was modified.
+
+Use fixed-step and matching start poses/frame indices. Camera-only uses
+Capture Session orbit; object-only uses the scene animation (Space to play),
+with camera orbit disabled. Evaluate silhouette, background through the
+pane, disocclusion and recovery after stopping separately. Do not use the
+opaque RR lifecycle runner as proof of transmission RR output. Motion
+captures and backend comparisons are not yet run.
+
+### Camera-Only Native Motion Smoke (2026-11-09)
+
+Ran the camera-only control with Native PT, 768x432, fixed-step 30 fps,
+3 degrees/sec orbit, 16 PNGs. All 16 saved, zero dropped, exit 0, no D3D12
+errors. Camera records match indices 0-15 and t=index/30; at t=0.5 s the
+camera has orbited 1.5 degrees. No scene node animation is present.
+Evidence: bin/PathTracingValidation/thin-rr-motion-controls-20261108/
+camera-native/ and camera-native.log. This is a low-sample timeline smoke,
+not a converged moving reference or an RR quality result. The glass-only
+and behind-glass object motion captures remain pending.
+
+### Object-Only Native Pose Smoke (2026-11-10)
+
+Added --pose-seconds to the motion fixture generator for static snapshots
+of the existing translation track. Compared t=0 and t=1 s (X offset 0.2)
+for Clear Pane and Sphere 2 separately. Scene JSON comparison confirmed the
+camera was identical and only the designated node changed. Four Native
+768x432/16 spp captures completed with no D3D12 errors.
+
+At an 8/255 maximum-channel display difference threshold, the clear-pane
+region [250,105,386,327) changed in 1042 pixels for glass motion and 2237
+for sphere motion. The open control ROI changed in 0 and 33 pixels,
+respectively; this is not an assertion of zero indirect image differences.
+Evidence: bin/PathTracingValidation/thin-rr-static-pose-{0,1}-20261110/.
+These are independent stills, not continuous motion, history or RR results.
+
+### Upstream RR Handoff (2026-11-10)
+
+Origin main 30c083a (PR 123) delivers opt-in thin, smooth nonabsorbing
+Volume, and rough nonabsorbing Volume RR (tested roughness 0.35). Its
+doc/rr-evaluation-todo.md records verified continuous smooth slab and
+behind-thin-glass object motion with the additional motion experiment flag.
+The latter was visually accepted with slight smearing; the guide still
+tracks the primary surface, not the image behind it. Absorbing Volume and
+ordinary RR selection remain Native fallback by design. Scene 33's original
+absorbing material is therefore a Native baseline, not an admitted RR case.
+
+This branch's baseline and motion fixtures are supplemental controls; do
+not repeat upstream admission work or claim a local RR rerun. A trial merge
+found conflicts due to the pre-squash PR 121 history. No merge or source
+change was made. For a subsequent local RR comparison use a branch based
+on current origin/main and carry only the post-PR-121 evaluation material.
