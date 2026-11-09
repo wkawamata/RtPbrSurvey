@@ -167,9 +167,8 @@ logged. This is consistent with pose changes invalidating packets before SDK
 evaluation. The reset counter measures SDK evaluations with reset, so a flat
 counter alone does not mean the history was preserved.
 
-The two motion cases still fail continuous RR quality acceptance. After pausing
-slab animation, check the time until verified RR output and smooth side faces
-return. Logs are under build/rr-user-glass-clear-fix-20261109.
+Both motion cases failed continuous RR quality acceptance before the opt-in
+motion experiment below. The later user review covers that experiment. Logs are under build/rr-user-glass-clear-fix-20261109.
 
 ### Opt-in transmission motion continuity (2026-11-09)
 
@@ -184,13 +183,13 @@ Each produced three static outputs, eight additional moving outputs, and eight
 more after pause and resume. Each had one initial reset, zero cancellations or
 input rejections, and zero D3D12 errors. The retained motion and published
 output captures were finite. Logs and reports are under
-build/rr-transmission-continuous-20261109. Camera motion and subjective
-transmitted-image lag and ghosting still require separate evaluation.
+build/rr-transmission-continuous-20261109. The subsequent visual checks are listed in the admission decision below.
 
 The user accepted slab translation in the interactive smooth Volume test.
 They observed no visible grain on the front or side, no delay or doubling of
-the refracted color bands, and no residual image after stopping. Camera-only
-motion and behind-glass object motion still await subjective checks.
+the refracted color bands, and no residual image after stopping. The user later accepted camera rotation
+and translation in the same scene and accepted the behind-glass sphere with
+slight visible smearing.
 
 ### Step 6 admission decision (2026-11-09)
 
@@ -209,9 +208,18 @@ material or rejected guide results in Native presentation for the frame.
 | Camera rotation and translation, smooth slab | User visual acceptance | Smooth Volume and transmission motion experiments |
 | Absorbing Volume, unsupported Volume, alpha mask | Existing admission guards | Native fallback |
 
-The user accepted camera rotation and translation in the smooth slab scene. The behind-glass sphere also passed the user review with slight visible smearing. Keep the flags for these tested configurations until default admission is qualified.
-The slab result qualifies one tested setup. This policy applies to the whole
-frame and leaves motion quality on other transmission scenes experimental.
+Deliver the tested transmission paths as opt-in experiments. The visual motion
+results apply to a smooth nonabsorbing slab and one sphere behind a thin clear
+panel. The material predicate covers more scenes than those fixtures, and the
+motion guide tracks the primary surface. Keep the material-specific experiment
+flags and the separate motion flag. Normal RR selection keeps its existing
+transmission fallback. This policy applies to the whole frame.
+
+Use the thin, smooth Volume, or rough Volume option in the corresponding
+capture section together with `-EnableExperimentalNativeRayReconstruction`.
+Add `-PathTracingRrTransmissionMotionExperiment` for the tested moving cases.
+The rough Volume result covers a fixed view. Absorbing Volume and broader
+motion qualification remain follow-up work.
 
 The current VS Debug build passed rr-output and thin-transmission in the
 existing static live suite. The former published verified RR output, and the
