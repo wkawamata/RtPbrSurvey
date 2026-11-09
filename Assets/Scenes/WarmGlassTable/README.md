@@ -16,9 +16,11 @@ inspect thin-surface reconstruction on meshes of different thicknesses.
 To open the RR variant from the repository root:
 
 ```powershell
-.ind\Debug\RtPbrSurvey.exe -SceneFile Assets/Scenes/WarmGlassTable/scene.json -PathTracingRrThinExperiment -PathTracingRrSmoothVolumeExperiment -EnableExperimentalNativeRayReconstruction
+.\bin\x64\Debug\RtPbrSurvey.exe -SceneFile Assets/Scenes/WarmGlassTable/scene.json -PathTracingRrThinExperiment -PathTracingRrSmoothVolumeExperiment -EnableExperimentalNativeRayReconstruction
 ```
 
 Debug verification at 960x540 produced Native and verified RR captures.
 RR completed 18 outputs with one initial reset and zero input rejections.
 Both runs reported zero captured D3D12 errors.
+
+[Transmission and refraction roadmap](../../../doc/warm-glass-table-roadmap.md)
