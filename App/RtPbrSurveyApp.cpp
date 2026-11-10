@@ -693,6 +693,7 @@ void RtPbrSurveyApp::UpdateSceneInteraction(float deltaTime)
     UpdateAutomatedCaptureCamera();
 
     if (GetForegroundWindow() == Win32Application::GetHwnd() &&
+        (GetAsyncKeyState(VK_LWIN) & 0x8000) == 0 && (GetAsyncKeyState(VK_RWIN) & 0x8000) == 0 &&
         (!ImGui::GetCurrentContext() || !ImGui::GetIO().WantCaptureKeyboard))
     {
         const bool shiftDown = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
