@@ -430,6 +430,7 @@ struct WireframeSelection
 void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
 {
     static int instanceIndex = 0;
+    static bool showCurrent = false;
     static const Engine::SceneMesh* selectedMesh = nullptr;
     static std::vector<WireframeSelection> selections;
 
@@ -447,9 +448,9 @@ void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
         return;
 
     const auto& mesh = *scene.mesh;
+    instanceIndex = std::clamp(instanceIndex, 0, count - 1);
     if (showControls)
     {
-        instanceIndex = std::clamp(instanceIndex, 0, count - 1);
         ImGuiWidgets::SliderIntWithControls("Wireframe Instance Id", &instanceIndex, 0, count - 1, 1, 0);
         auto& selection = selections[instanceIndex];
         ImGui::Checkbox("Wireframe (X-ray)", &selection.enabled);
@@ -458,7 +459,8 @@ void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
             std::fill(selections.begin(), selections.end(), WireframeSelection{});
 
         const auto& instance = scene.instances[instanceIndex];
-        if (selection.enabled && instance.meshId < mesh.ranges.size())
+        ImGui::Checkbox("Show Current Id Wireframe", &showCurrent);
+        if ((selection.enabled || showCurrent) && instance.meshId < mesh.ranges.size())
         {
             const int triangles = static_cast<int>(mesh.ranges[instance.meshId].indexCount / 3);
             if (triangles > kWireframeMaxTriangles)
@@ -472,7 +474,7 @@ void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
 
     for (int index = 0; index < count; ++index)
     {
-        if (!selections[index].enabled)
+        if (!selections[index].enabled && !(showCurrent && index == instanceIndex))
             continue;
         const auto& instance = scene.instances[index];
         if (!Engine::HasRenderableTransform(instance) || instance.meshId >= mesh.ranges.size())
