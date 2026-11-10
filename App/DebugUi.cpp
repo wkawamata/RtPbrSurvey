@@ -369,45 +369,18 @@ void DrawInformationWindow(bool& visible,
 namespace App
 {
 
-void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
+namespace
 {
-    static bool enabled = false;
-    static int instanceIndex = 0;
-    static int firstTriangle = 0;
-    if (showControls)
-        ImGui::Checkbox("Wireframe (X-ray)", &enabled);
-    if (!enabled)
-        return;
+constexpr int kWireframeMaxTriangles = 2048;
 
-    const auto& scene = engine.GetDebugWireframeScene();
-    const int count = static_cast<int>((std::min)(
-        scene.instances.size(), static_cast<size_t>(engine.GetDebugWireframeInstanceCount())));
-    if (scene.mesh == nullptr || count == 0)
-        return;
-
-    instanceIndex = std::clamp(instanceIndex, 0, count - 1);
-    if (showControls && ImGuiWidgets::SliderIntWithControls("Wireframe instance", &instanceIndex, 0, count - 1, 1, 0))
-        firstTriangle = 0;
-    const auto& instance = scene.instances[instanceIndex];
-    const auto& mesh = *scene.mesh;
-    if (!Engine::HasRenderableTransform(instance) || instance.meshId >= mesh.ranges.size())
-        return;
-
-    const auto& range = mesh.ranges[instance.meshId];
-    if (range.firstIndex > mesh.indices.size() || range.indexCount > mesh.indices.size() - range.firstIndex)
-        return;
+void DrawWireframeInstance(const RtPbrSurveyEngine& engine,
+                           const Engine::SceneMesh& mesh,
+                           const Engine::InstanceData& instance,
+                           const Engine::SceneMesh::Range& range,
+                           int firstTriangle)
+{
     const int triangleCount = static_cast<int>(range.indexCount / 3);
-    if (triangleCount == 0)
-        return;
-    constexpr int maxTriangles = 2048;
-    firstTriangle = std::clamp(firstTriangle, 0, (std::max)(0, triangleCount - maxTriangles));
-    if (showControls)
-    {
-        if (triangleCount > maxTriangles)
-            ImGui::SliderInt("Wireframe first triangle", &firstTriangle, 0, triangleCount - maxTriangles);
-        return;
-    }
-
+    firstTriangle = std::clamp(firstTriangle, 0, (std::max)(0, triangleCount - kWireframeMaxTriangles));
     using namespace DirectX;
     const XMMATRIX world = XMMatrixTranspose(XMLoadFloat4x4(&instance.world));
     const XMMATRIX transform = world * XMLoadFloat4x4(&engine.GetDebugWireframeViewProjection());
@@ -430,7 +403,7 @@ void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
         return true;
     };
 
-    const int end = (std::min)(triangleCount, firstTriangle + maxTriangles);
+    const int end = (std::min)(triangleCount, firstTriangle + kWireframeMaxTriangles);
     for (int triangle = firstTriangle; triangle < end; ++triangle)
     {
         const size_t index = static_cast<size_t>(range.firstIndex) + static_cast<size_t>(triangle) * 3;
@@ -444,6 +417,70 @@ void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
             if (valid[edge] && valid[next])
                 draw->AddLine(points[edge], points[next], IM_COL32(42, 255, 182, 200));
         }
+    }
+}
+
+struct WireframeSelection
+{
+    bool enabled = false;
+    int firstTriangle = 0;
+};
+} // namespace
+
+void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
+{
+    static int instanceIndex = 0;
+    static const Engine::SceneMesh* selectedMesh = nullptr;
+    static std::vector<WireframeSelection> selections;
+
+    const auto& scene = engine.GetDebugWireframeScene();
+    if (selectedMesh != scene.mesh)
+    {
+        selections.clear();
+        instanceIndex = 0;
+        selectedMesh = scene.mesh;
+    }
+    selections.resize(scene.instances.size());
+    const int count = static_cast<int>((std::min)(
+        scene.instances.size(), static_cast<size_t>(engine.GetDebugWireframeInstanceCount())));
+    if (scene.mesh == nullptr || count == 0)
+        return;
+
+    const auto& mesh = *scene.mesh;
+    if (showControls)
+    {
+        instanceIndex = std::clamp(instanceIndex, 0, count - 1);
+        ImGuiWidgets::SliderIntWithControls("Wireframe Instance Id", &instanceIndex, 0, count - 1, 1, 0);
+        auto& selection = selections[instanceIndex];
+        ImGui::Checkbox("Wireframe (X-ray)", &selection.enabled);
+        ImGui::SameLine();
+        if (ImGui::Button("All Clear##Wireframe"))
+            std::fill(selections.begin(), selections.end(), WireframeSelection{});
+
+        const auto& instance = scene.instances[instanceIndex];
+        if (selection.enabled && instance.meshId < mesh.ranges.size())
+        {
+            const int triangles = static_cast<int>(mesh.ranges[instance.meshId].indexCount / 3);
+            if (triangles > kWireframeMaxTriangles)
+            {
+                ImGui::SliderInt("Wireframe first triangle", &selection.firstTriangle, 0,
+                                 triangles - kWireframeMaxTriangles);
+            }
+        }
+        return;
+    }
+
+    for (int index = 0; index < count; ++index)
+    {
+        if (!selections[index].enabled)
+            continue;
+        const auto& instance = scene.instances[index];
+        if (!Engine::HasRenderableTransform(instance) || instance.meshId >= mesh.ranges.size())
+            continue;
+        const auto& range = mesh.ranges[instance.meshId];
+        if (range.firstIndex > mesh.indices.size() || range.indexCount > mesh.indices.size() - range.firstIndex)
+            continue;
+        DrawWireframeInstance(engine, mesh, instance, range, selections[index].firstTriangle);
     }
 }
 
