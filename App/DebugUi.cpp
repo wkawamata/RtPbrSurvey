@@ -369,12 +369,13 @@ void DrawInformationWindow(bool& visible,
 namespace App
 {
 
-static void DrawWireframeControls(const RtPbrSurveyEngine& engine)
+void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
 {
     static bool enabled = false;
     static int instanceIndex = 0;
     static int firstTriangle = 0;
-    ImGui::Checkbox("Wireframe (X-ray)", &enabled);
+    if (showControls)
+        ImGui::Checkbox("Wireframe (X-ray)", &enabled);
     if (!enabled)
         return;
 
@@ -385,7 +386,7 @@ static void DrawWireframeControls(const RtPbrSurveyEngine& engine)
         return;
 
     instanceIndex = std::clamp(instanceIndex, 0, count - 1);
-    if (ImGuiWidgets::SliderIntWithControls("Wireframe instance", &instanceIndex, 0, count - 1, 1, 0))
+    if (showControls && ImGuiWidgets::SliderIntWithControls("Wireframe instance", &instanceIndex, 0, count - 1, 1, 0))
         firstTriangle = 0;
     const auto& instance = scene.instances[instanceIndex];
     const auto& mesh = *scene.mesh;
@@ -400,8 +401,12 @@ static void DrawWireframeControls(const RtPbrSurveyEngine& engine)
         return;
     constexpr int maxTriangles = 2048;
     firstTriangle = std::clamp(firstTriangle, 0, (std::max)(0, triangleCount - maxTriangles));
-    if (triangleCount > maxTriangles)
-        ImGui::SliderInt("Wireframe first triangle", &firstTriangle, 0, triangleCount - maxTriangles);
+    if (showControls)
+    {
+        if (triangleCount > maxTriangles)
+            ImGui::SliderInt("Wireframe first triangle", &firstTriangle, 0, triangleCount - maxTriangles);
+        return;
+    }
 
     using namespace DirectX;
     const XMMATRIX world = XMMatrixTranspose(XMLoadFloat4x4(&instance.world));
@@ -673,7 +678,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
     if (ImGui::CollapsingHeader("Rendering", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        DrawWireframeControls(app.m_sceneRenderer.EngineForDebugTools());
+        DrawWireframeOverlay(app.m_sceneRenderer.EngineForDebugTools(), true);
         int renderingPath = static_cast<int>(app.m_renderingPath);
         ImGui::RadioButton("Forward", &renderingPath, static_cast<int>(RenderingPath::Forward));
         ImGui::SameLine();

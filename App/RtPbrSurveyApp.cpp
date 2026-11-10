@@ -3987,6 +3987,10 @@ void RtPbrSurveyApp::UpdateUiFrame()
             ImGui::End();
         }
     }
+    if (m_appMode == AppMode::Running || m_appMode == AppMode::SceneEditorEdit)
+    {
+        App::DrawWireframeOverlay(m_sceneRenderer.EngineForDebugTools(), false);
+    }
     m_sceneRenderer.DrawToolUi();
     if (((m_appMode == AppMode::Running && m_debugUiVisible) || m_appMode == AppMode::SceneEditorEdit) &&
         m_sceneRenderer.IsScreenshotCaptureIdle())
