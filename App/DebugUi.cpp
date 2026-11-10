@@ -385,7 +385,7 @@ static void DrawWireframeControls(const RtPbrSurveyEngine& engine)
         return;
 
     instanceIndex = std::clamp(instanceIndex, 0, count - 1);
-    if (ImGui::SliderInt("Wireframe instance", &instanceIndex, 0, count - 1))
+    if (ImGuiWidgets::SliderIntWithControls("Wireframe instance", &instanceIndex, 0, count - 1, 1, 0))
         firstTriangle = 0;
     const auto& instance = scene.instances[instanceIndex];
     const auto& mesh = *scene.mesh;
