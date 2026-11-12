@@ -763,17 +763,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 ImGui::TreePop();
             }
 
-            bool accumulationPaused = context.pathTracingRuntimeState.accumulationPaused;
-            if (ImGui::Checkbox("Pause Accumulation", &accumulationPaused))
-            {
-                app.m_sceneRenderer.SetPathTracingAccumulationPaused(accumulationPaused);
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Reset Accumulation"))
-            {
-                app.m_sceneRenderer.ResetPathTracingAccumulation();
-            }
-
             RtPbrSurveyEngine::PathTracingSettings pathTracingSettings =
                 app.m_sceneRenderer.GetPathTracingSettings();
             bool pathTracingSettingsChanged = false;
@@ -793,6 +782,20 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             pathTracingSettingsChanged |= ImGui::Checkbox("Accumulate", &pathTracingSettings.accumulate);
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Maintains the Native PT accumulator. RR always receives the current frame, not the accumulated image.");
+            ImGui::SameLine();
+            const bool accumulationPaused = context.pathTracingRuntimeState.accumulationPaused;
+            ImGui::PushStyleColor(ImGuiCol_Text, accumulationPaused ? ImVec4(1.0f, 0.2f, 0.2f, 1.0f)
+                                                                  : ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+            if (ImGui::Button(accumulationPaused ? "Pausing...##Acuumlation" : "Pause##Acuumlation"))
+            {
+                app.m_sceneRenderer.SetPathTracingAccumulationPaused(!accumulationPaused);
+            }
+            ImGui::PopStyleColor();
+            ImGui::SameLine();
+            if (ImGui::Button("Reset##Acuumlation"))
+            {
+                app.m_sceneRenderer.ResetPathTracingAccumulation();
+            }
             using ReconstructionBackend = Engine::PathTracingReconstructionBackend;
             int reconstructionBackend =
                 static_cast<int>(Engine::EffectivePathTracingBackend(pathTracingSettings.reconstructionBackend,
