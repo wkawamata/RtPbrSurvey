@@ -803,8 +803,26 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 pathTracingSettingsChanged = true;
             }
             if (reconstructionBackend == 2)
+            {
                 pathTracingSettingsChanged |=
                     ImGui::Checkbox("Continuous RR (camera motion)", &pathTracingSettings.rrContinuous);
+                if (!pathTracingSettings.rrTransmissionMotionExperiment)
+                    ImGui::TextWrapped("Glass camera/object motion resets RR history: transmission motion experiment is OFF.");
+                if (ImGui::TreeNode("RR Transmission Experiments"))
+                {
+                    pathTracingSettingsChanged |=
+                        ImGui::Checkbox("Thin glass RR", &pathTracingSettings.rrThinExperiment);
+                    pathTracingSettingsChanged |=
+                        ImGui::Checkbox("Smooth volume glass RR", &pathTracingSettings.rrSmoothVolumeExperiment);
+                    pathTracingSettingsChanged |=
+                        ImGui::Checkbox("Rough volume glass RR", &pathTracingSettings.rrRoughVolumeExperiment);
+                    pathTracingSettingsChanged |=
+                        ImGui::Checkbox("Preserve RR during transmission motion", &pathTracingSettings.rrTransmissionMotionExperiment);
+                    ImGui::TextWrapped("Experimental. Warm Glass Table needs thin glass, smooth volume glass, "
+                                       "and transmission motion enabled. Continuous RR must also be ON.");
+                    ImGui::TreePop();
+                }
+            }
             if (ImGui::TreeNode("Reconstruction Details"))
             {
                 if (reconstructionBackend == 2)
@@ -825,6 +843,9 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                                 static_cast<unsigned long long>(context.pathTracingDiagnostics.rrCompletedCount),
                                 static_cast<unsigned long long>(context.pathTracingDiagnostics.rrContinuousCount),
                                 static_cast<unsigned long long>(context.pathTracingDiagnostics.rrResetCount));
+                    ImGui::Text("RR cancelled: %llu, input rejected: %llu",
+                                static_cast<unsigned long long>(context.pathTracingDiagnostics.rrCancelledCount),
+                                static_cast<unsigned long long>(context.pathTracingDiagnostics.rrInputRejectionCount));
                     if (!context.pathTracingDiagnostics.rrLiveFailure.empty())
                         ImGui::TextWrapped("RR fallback: %s", context.pathTracingDiagnostics.rrLiveFailure.c_str());
                 }

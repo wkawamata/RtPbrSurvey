@@ -21,7 +21,7 @@ inspect thin-surface reconstruction on meshes of different thicknesses.
 To open the RR variant from the repository root:
 
 ```powershell
-.\bin\x64\Debug\RtPbrSurvey.exe -SceneFile Assets/Scenes/WarmGlassTable/scene.json -PathTracingRrThinExperiment -PathTracingRrSmoothVolumeExperiment -EnableExperimentalNativeRayReconstruction
+.\bin\x64\Debug\RtPbrSurvey.exe -SceneFile Assets/Scenes/WarmGlassTable/scene.json -PathTracingRrThinExperiment -PathTracingRrSmoothVolumeExperiment -PathTracingRrTransmissionMotionExperiment -EnableExperimentalNativeRayReconstruction
 ```
 
 Debug verification at 960x540 produced Native and verified RR captures.
@@ -29,3 +29,13 @@ With the Studio setup, RR completed 24 outputs with one initial reset and zero i
 Both runs reported zero captured D3D12 errors.
 
 [Transmission and refraction roadmap](../../../doc/warm-glass-table-roadmap.md)
+
+For interactive camera motion, keep Continuous RR ON. In Debug > Rendering,
+expand RR Transmission Experiments and enable Thin glass RR, Smooth volume
+glass RR, and Preserve RR during transmission motion. These are session-only
+experimental settings; the command above applies them on startup.
+
+During motion, Reconstruction output should remain rr after initial publication.
+Completed should advance, while resets and cancelled stay stable unless inputs
+are rejected or the camera projection/settings change. Per-frame conversion/SDK
+timings can show not executed between evaluations; this alone is not a failure.

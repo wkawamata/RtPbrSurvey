@@ -258,3 +258,24 @@ rr-transmission-opaque-regression-20261110/report.json.
 Static RR scene and user acceptance records: Assets/Scenes/PathTracingValidation/rr-quality/README.md.
 
 The new scenes are test inputs, not a claim that moving-object RR support is complete.
+
+### Warm Glass Table camera-motion diagnosis (2026-11-13)
+
+A 640x360 Debug run used a 20-degree deterministic orbit over the final 240
+frames of a 300-frame capture. Thin and smooth-volume RR admission and native
+SDK evaluation were enabled in both runs. With transmission motion OFF, static
+startup completed 12 RR outputs, but motion cancelled 120 packets and the final
+image used Native (awaiting-evaluation), with full-frame grain. The SDK reset
+counter remained 1; it cannot diagnose cancellation starvation by itself.
+
+With transmission motion ON, the same run completed 60 RR outputs (59 continuous),
+with one initial reset, zero cancellations, zero input rejections, and verified RR
+presentation at capture. The captured image did not show the full-frame grain.
+Both runs captured zero D3D12 errors. Artifacts remain local under
+build/rr-glass-camera-20261113/{motion-off,motion-on}; this comparison does not
+qualify every interactive camera path or transmission material.
+
+Rendering now exposes session-only RR Transmission Experiments controls and
+reports cancelled/rejected counts. The Warm Glass Table startup command now
+includes the transmission-motion opt-in. No material-admission guard or
+experimental default was relaxed.
