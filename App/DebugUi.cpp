@@ -451,23 +451,27 @@ void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
     instanceIndex = std::clamp(instanceIndex, 0, count - 1);
     if (showControls)
     {
-        ImGuiWidgets::SliderIntWithControls("Wireframe Instance Id", &instanceIndex, 0, count - 1, 1, 0);
-        auto& selection = selections[instanceIndex];
-        ImGui::Checkbox("Wireframe (X-ray)", &selection.enabled);
-        ImGui::SameLine();
-        if (ImGui::Button("All Clear##Wireframe"))
-            std::fill(selections.begin(), selections.end(), WireframeSelection{});
-
-        const auto& instance = scene.instances[instanceIndex];
-        ImGui::Checkbox("Show Current Id Wireframe", &showCurrent);
-        if ((selection.enabled || showCurrent) && instance.meshId < mesh.ranges.size())
+        if (ImGui::TreeNode("Wireframe"))
         {
-            const int triangles = static_cast<int>(mesh.ranges[instance.meshId].indexCount / 3);
-            if (triangles > kWireframeMaxTriangles)
+            ImGuiWidgets::SliderIntWithControls("Wireframe Instance Id", &instanceIndex, 0, count - 1, 1, 0);
+            auto& selection = selections[instanceIndex];
+            ImGui::Checkbox("Wireframe (X-ray)", &selection.enabled);
+            ImGui::SameLine();
+            if (ImGui::Button("All Clear##Wireframe"))
+                std::fill(selections.begin(), selections.end(), WireframeSelection{});
+
+            const auto& instance = scene.instances[instanceIndex];
+            ImGui::Checkbox("Show Current Id Wireframe", &showCurrent);
+            if ((selection.enabled || showCurrent) && instance.meshId < mesh.ranges.size())
             {
-                ImGui::SliderInt("Wireframe first triangle", &selection.firstTriangle, 0,
-                                 triangles - kWireframeMaxTriangles);
+                const int triangles = static_cast<int>(mesh.ranges[instance.meshId].indexCount / 3);
+                if (triangles > kWireframeMaxTriangles)
+                {
+                    ImGui::SliderInt("Wireframe first triangle", &selection.firstTriangle, 0,
+                                     triangles - kWireframeMaxTriangles);
+                }
             }
+            ImGui::TreePop();
         }
         return;
     }
