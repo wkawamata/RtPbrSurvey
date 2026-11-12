@@ -32,8 +32,8 @@ Both runs reported zero captured D3D12 errors.
 
 For interactive camera motion, keep Continuous RR ON. In Debug > Rendering,
 expand RR Transmission Experiments and enable Thin glass RR, Smooth volume
-glass RR, and Preserve RR during transmission motion. These are session-only
-experimental settings; the command above applies them on startup.
+glass RR, and Preserve RR during transmission motion. These experimental settings are included in Evaluation Cases Save/Apply.
+The command above also applies them on startup.
 
 During motion, Reconstruction output should remain rr after initial publication.
 Completed should advance, while resets and cancelled stay stable unless inputs

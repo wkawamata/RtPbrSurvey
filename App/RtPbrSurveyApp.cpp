@@ -3831,10 +3831,14 @@ void RtPbrSurveyApp::ApplyPathTracingCommandLineOptions()
     }
     if (m_commandLineOptions.pathTracingRrContinuous)
         settings.rrContinuous = true;
-    settings.rrThinExperiment = m_commandLineOptions.pathTracingRrThinExperiment;
-    settings.rrSmoothVolumeExperiment = m_commandLineOptions.pathTracingRrSmoothVolumeExperiment;
-    settings.rrRoughVolumeExperiment = m_commandLineOptions.pathTracingRrRoughVolumeExperiment;
-    settings.rrTransmissionMotionExperiment = m_commandLineOptions.pathTracingRrTransmissionMotionExperiment;
+    if (m_commandLineOptions.pathTracingRrThinExperiment)
+        settings.rrThinExperiment = true;
+    if (m_commandLineOptions.pathTracingRrSmoothVolumeExperiment)
+        settings.rrSmoothVolumeExperiment = true;
+    if (m_commandLineOptions.pathTracingRrRoughVolumeExperiment)
+        settings.rrRoughVolumeExperiment = true;
+    if (m_commandLineOptions.pathTracingRrTransmissionMotionExperiment)
+        settings.rrTransmissionMotionExperiment = true;
     m_sceneRenderer.SetPathTracingSettings(settings);
     m_sceneRenderer.SetPathTracingAccumulationPaused(false);
     if (m_commandLineOptions.pathTracingSampleTarget > 0)
