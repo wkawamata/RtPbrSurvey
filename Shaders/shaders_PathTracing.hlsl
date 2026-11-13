@@ -618,6 +618,7 @@ float3 TracePath(uint2 pixel,
     float3 throughput = 1.0;
     bool primarySpecularPath = false;
     bool primaryTransmission = false;
+    float primaryTransmissionFraction = 0.0;
     float previousBsdfPdf = 0.0;
     float previousEnvironmentPdf = 0.0;
     bool previousEmissiveNeeActive = false;
@@ -685,7 +686,7 @@ float3 TracePath(uint2 pixel,
                 secondaryHit ? query.CommittedRayT() : ray.TMax,
                 primaryTransmission ? 3.0 : (primarySpecularPath ? 2.0 : 1.0),
                 secondaryHit ? 1.0 : 2.0,
-                0.0);
+                primaryTransmissionFraction);
             const float surfaceDistance = secondaryHit ?
                 length(primaryContinuationOriginOffset + ray.Direction * query.CommittedRayT()) : 0.0;
             primarySurface.secondarySurfaceDistance = float4(surfaceDistance, secondaryHit ? 1.0 : 2.0, 0.0, 0.0);
@@ -786,13 +787,26 @@ float3 TracePath(uint2 pixel,
                 LoadSceneVertexPosition(index0) * barycentric0 +
                 LoadSceneVertexPosition(index1) * barycentric.x +
                 LoadSceneVertexPosition(index2) * barycentric.y;
-            primarySurface.normalRoughness = float4(hitNormal, hitMaterial.roughness);
+            const bool pureGlass = (primarySamplingFlags & 64u) != 0 && hitMaterial.metallic == 0.0 &&
+                (volumeBoundary || ((hitMaterial.flags & MaterialFlagThinTransmission) != 0 &&
+                                    hitMaterial.transmissionFactor == 1.0));
+            // Glass transport samples the geometric normal, including at the rim.
+            // The RR guide must describe that same lobe, not an interpolated normal.
+            primarySurface.normalRoughness = float4(pureGlass ? geometryNormal : hitNormal, hitMaterial.roughness);
+            if ((primarySamplingFlags & 64u) != 0)
+                primaryTransmissionFraction = volumeBoundary ? 1.0 :
+                    ((hitMaterial.flags & MaterialFlagThinTransmission) != 0 ? saturate(hitMaterial.transmissionFactor) : 0.0);
             primarySurface.viewZ = ComputePrimaryViewZ(hitPosition);
             primarySurface.motionVector = ComputePrimaryMotionVector(hitPosition, objectPosition, instanceId);
             primarySurface.albedo = float4(hitMaterial.albedo, 1.0);
             primarySurface.materialF0Metallic = float4(
                 lerp(float3(0.04, 0.04, 0.04), hitMaterial.albedo, hitMaterial.metallic),
                 hitMaterial.metallic);
+            if (pureGlass)
+            {
+                const float reflectance = (hitMaterial.transmissionIor - 1.0) / (hitMaterial.transmissionIor + 1.0);
+                primarySurface.materialF0Metallic.xyz = (reflectance * reflectance).xxx;
+            }
             primarySurface.hitT = query.CommittedRayT();
             if (captureDenoiserDistances && (primarySamplingFlags & 64u) != 0)
             {
