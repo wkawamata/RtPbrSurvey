@@ -279,3 +279,24 @@ Rendering now exposes session-only RR Transmission Experiments controls and
 reports cancelled/rejected counts. The Warm Glass Table startup command now
 includes the transmission-motion opt-in. No material-admission guard or
 experimental default was relaxed.
+
+
+### Warm Glass Table integration review (2026-11-13)
+
+The user confirmed that enabling the transmission experiment controls and native
+SDK evaluation resolved camera-motion grain; Accumulate was not the cause.
+The four transmission controls now round-trip through Evaluation Cases presets,
+and absent command-line flags no longer overwrite restored values with false.
+All 16 ON/OFF combinations passed settings serialization tests.
+
+After incorporating main PRs #124 and #125, the Debug application built with zero
+errors (one existing MSB4011 warning). A 640x360 automatic 20-degree orbit over
+120 of 180 frames completed 36 verified RR outputs, 35 continuous evaluations,
+one initial reset, zero cancelled packets, zero rejected inputs, and zero
+captured D3D12 errors. The final presentation was rr (ready). Logs and the image
+remain local under build/warm-glass-pr-validation-20261113.
+
+The scene assets, X-ray wireframe tools, stable WorkMeter rows and collapsed
+graphs, accumulation buttons, and transmission settings persistence are ready
+for integration. This review does not qualify colored transmission shadows,
+hollow Volume glasses, caustics, or RR output update-rate performance.
