@@ -695,7 +695,10 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         };
         static std::vector<GpuTimingRow> gpuRows;
         for (auto& row : gpuRows)
+        {
             row.available = false;
+            row.milliseconds = 0.0f;
+        }
         const auto& gpuCheckPoints = context.gpuCheckPoints;
         for (size_t i = 1; i + 1 < gpuCheckPoints.size(); ++i)
         {
@@ -716,15 +719,12 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
         for (size_t i = 0; i < gpuRows.size(); ++i)
         {
             const auto& row = gpuRows[i];
-            if (row.available)
-                ImGui::Text("GPU[%d] %s: %.6f ms", static_cast<int>(i + 1), row.name.c_str(), row.milliseconds);
-            else
-                ImGui::Text("GPU[%d] %s: -- (not executed)", static_cast<int>(i + 1), row.name.c_str());
+            ImGui::Text("GPU[%d] %s: %.6f ms", static_cast<int>(i + 1), row.name.c_str(), row.milliseconds);
         }
         if (gpuCheckPoints.size() >= 2)
             ImGui::Text("GPU Total: %.6f ms", gpuCheckPoints.back().timeStamp);
         else
-            ImGui::TextUnformatted("GPU Total: -- (not executed)");
+            ImGui::TextUnformatted("GPU Total: 0.000000 ms");
     };
 
     if (ImGui::CollapsingHeader("Basic Settings###Scene", ImGuiTreeNodeFlags_DefaultOpen))
