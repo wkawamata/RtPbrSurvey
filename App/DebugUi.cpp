@@ -645,44 +645,48 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     const auto drawWorkMeter = [&context]()
     {
         auto& history = workMeterHistory;
-        if (ImGui::Checkbox("Freeze graphs", &history.frozen) && !history.frozen)
-            history.count = history.next = 0;
-        ImGui::SameLine();
-        if (ImGui::Button("Clear##WorkMeter"))
-            history.count = history.next = 0;
-        ImGui::Checkbox("RR stage graphs", &history.showRr);
-        ImGui::SliderFloat("Time range (ms)", &history.timeRange, 1.0f, 200.0f, "%.1f");
-        ImGui::SliderFloat("FPS range", &history.fpsRange, 10.0f, 500.0f, "%.0f");
-        ImGui::Text("X: Frame (last %d of %d), Y: ms / FPS", history.count, WorkMeterHistory::Capacity);
-        ImGui::TextWrapped("Raw samples, no smoothing. GPU values are the latest completed GPU frame "
-                           "at each UI frame; readback is delayed. Missing GPU/RR timings plot as zero.");
-        const auto plot = [&history](const char* label, const auto& values, float maximum)
+        if (ImGui::TreeNode("Graphs##WorkMeter"))
         {
-            ImGui::TextUnformatted(label);
-            if (history.count == 0)
-                return;
-            const int offset = history.count == WorkMeterHistory::Capacity ? history.next : 0;
-            const float latest = values[(history.next + WorkMeterHistory::Capacity - 1) % WorkMeterHistory::Capacity];
-            char overlay[64];
-            snprintf(overlay, sizeof(overlay), "Latest: %.2f", latest);
-            ImGui::PushID(label);
-            ImGui::PlotLines("##Frames", values.data(), history.count, offset, overlay, 0.0f, maximum,
-                             ImVec2(ImGui::GetContentRegionAvail().x, 72.0f));
-            ImGui::PopID();
-        };
-        plot("FPS (wall-clock frame interval)", history.frameFps, history.fpsRange);
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("1 / elapsed time between UI frames, including waits. This is not the RR output update rate.");
-        plot("CPU Frame Time (ms)", history.cpu, history.timeRange);
-        plot("GPU Total Time (ms)", history.gpu, history.timeRange);
-        plot("CPU FPS (1000 / CPU Frame Time)", history.fps, history.fpsRange);
-        if (history.showRr)
-        {
-            plot("RR SDK (ms; zero when not executed)", history.rrSdk, history.timeRange);
-            plot("RR Input Conversion (ms; zero when not executed)", history.rrConversion, history.timeRange);
+            if (ImGui::Checkbox("Freeze graphs", &history.frozen) && !history.frozen)
+                history.count = history.next = 0;
+            ImGui::SameLine();
+            if (ImGui::Button("Clear##WorkMeter"))
+                history.count = history.next = 0;
+            ImGui::Checkbox("RR stage graphs", &history.showRr);
+            ImGui::SliderFloat("Time range (ms)", &history.timeRange, 1.0f, 200.0f, "%.1f");
+            ImGui::SliderFloat("FPS range", &history.fpsRange, 10.0f, 500.0f, "%.0f");
+            ImGui::Text("X: Frame (last %d of %d), Y: ms / FPS", history.count, WorkMeterHistory::Capacity);
+            ImGui::TextWrapped("Raw samples, no smoothing. GPU values are the latest completed GPU frame "
+                               "at each UI frame; readback is delayed. Missing GPU/RR timings plot as zero.");
+            const auto plot = [&history](const char* label, const auto& values, float maximum)
+            {
+                ImGui::TextUnformatted(label);
+                if (history.count == 0)
+                    return;
+                const int offset = history.count == WorkMeterHistory::Capacity ? history.next : 0;
+                const float latest = values[(history.next + WorkMeterHistory::Capacity - 1) % WorkMeterHistory::Capacity];
+                char overlay[64];
+                snprintf(overlay, sizeof(overlay), "Latest: %.2f", latest);
+                ImGui::PushID(label);
+                ImGui::PlotLines("##Frames", values.data(), history.count, offset, overlay, 0.0f, maximum,
+                                 ImVec2(ImGui::GetContentRegionAvail().x, 72.0f));
+                ImGui::PopID();
+            };
+            plot("FPS (wall-clock frame interval)", history.frameFps, history.fpsRange);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("1 / elapsed time between UI frames, including waits. This is not the RR output update rate.");
+            plot("CPU Frame Time (ms)", history.cpu, history.timeRange);
+            plot("GPU Total Time (ms)", history.gpu, history.timeRange);
+            plot("CPU FPS (1000 / CPU Frame Time)", history.fps, history.fpsRange);
+            if (history.showRr)
+            {
+                plot("RR SDK (ms; zero when not executed)", history.rrSdk, history.timeRange);
+                plot("RR Input Conversion (ms; zero when not executed)", history.rrConversion, history.timeRange);
+            }
+            ImGui::Text("Frame: %d -> %d (left -> right)", history.count > 0 ? history.lastFrame - history.count + 1 : 0,
+                        history.count > 0 ? history.lastFrame : 0);
+            ImGui::TreePop();
         }
-        ImGui::Text("Frame: %d -> %d (left -> right)", history.count > 0 ? history.lastFrame - history.count + 1 : 0,
-                    history.count > 0 ? history.lastFrame : 0);
         ImGui::Separator();
         ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime,
                     context.cpuFrameTime > 0.0f ? 1000.0f / context.cpuFrameTime : 0.0f);
@@ -2124,7 +2128,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     ImGui::End();
     if (workMeterWindowOpen)
     {
-        ImGui::SetNextWindowSize(ImVec2(600, 720), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(600, 360), ImGuiCond_FirstUseEver);
         if (ImGui::Begin("WorkMeter", &workMeterWindowOpen))
         {
             drawWorkMeter();
