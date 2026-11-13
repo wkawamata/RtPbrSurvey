@@ -984,20 +984,24 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 ImGui::SetTooltip("OFF: Native uses per-pixel random primary; RR uses frame-wide projection jitter.");
             pathTracingSettingsChanged |=
                 ImGui::Checkbox("Denoiser Distance Diagnostics", &pathTracingSettings.denoiserDistanceDiagnostics);
+            const RtPbrSurveyEngine::PathTracingSettings defaults;
             int samplesPerFrame = static_cast<int>(pathTracingSettings.samplesPerFrame);
-            if (ImGui::SliderInt("Samples / Frame", &samplesPerFrame, 1, 16))
+            if (ImGuiWidgets::SliderIntWithControls("Samples / Frame", &samplesPerFrame, 1, 16, 1,
+                    static_cast<int>(defaults.samplesPerFrame)))
             {
                 pathTracingSettings.samplesPerFrame = static_cast<UINT>(samplesPerFrame);
                 pathTracingSettingsChanged = true;
             }
             int maxBounces = static_cast<int>(pathTracingSettings.maxBounces);
-            if (ImGui::SliderInt("Max Bounces", &maxBounces, 1, 16))
+            if (ImGuiWidgets::SliderIntWithControls("Max Bounces", &maxBounces, 1, 16, 1,
+                    static_cast<int>(defaults.maxBounces)))
             {
                 pathTracingSettings.maxBounces = static_cast<UINT>(maxBounces);
                 pathTracingSettingsChanged = true;
             }
             pathTracingSettingsChanged |=
-                ImGui::InputScalar("Random Seed", ImGuiDataType_U32, &pathTracingSettings.randomSeed);
+                ImGuiWidgets::SliderUintWithControls("Random Seed", &pathTracingSettings.randomSeed, 0,
+                    (std::numeric_limits<UINT>::max)(), defaults.randomSeed);
             pathTracingSettingsChanged |=
                 ImGui::Checkbox("Direct Lighting", &pathTracingSettings.directLightingEnabled);
             ImGui::SameLine();

@@ -151,6 +151,45 @@ inline bool SliderIntWithControls(
     return changed;
 }
 
+inline bool SliderUintWithControls(
+    const char* label, ImU32* value, ImU32 min, ImU32 max, ImU32 defaultValue)
+{
+    const float btnW = CalcButtonWidth(">");
+    const float sliderWidth = BeginSliderControl(label, btnW * 3.0f, kMinControlLabelWidth);
+    // U64 keeps the full U32 range within ImGui's supported slider bounds.
+    ImU64 sliderValue = *value;
+    const ImU64 sliderMin = min;
+    const ImU64 sliderMax = max;
+    ImGui::PushItemWidth(sliderWidth);
+    bool changed = ImGui::SliderScalar("##slider", ImGuiDataType_U64, &sliderValue, &sliderMin, &sliderMax);
+    ImGui::PopItemWidth();
+    if (changed)
+    {
+        *value = static_cast<ImU32>(sliderValue);
+    }
+    ImGui::SameLine(0.0f, 0.0f);
+    if (ImGui::Button("<", ImVec2(btnW, 0.0f)))
+    {
+        *value = *value > min ? *value - 1 : min;
+        changed = true;
+    }
+    ImGui::SameLine(0.0f, 0.0f);
+    if (ImGui::Button(">", ImVec2(btnW, 0.0f)))
+    {
+        *value = *value < max ? *value + 1 : max;
+        changed = true;
+    }
+    ImGui::SameLine(0.0f, 0.0f);
+    if (ImGui::Button("|", ImVec2(btnW, 0.0f)))
+    {
+        *value = std::clamp(defaultValue, min, max);
+        changed = true;
+    }
+    DrawSliderControlLabel(label);
+    EndSliderControl();
+    return changed;
+}
+
 inline bool IntStepperWithControls(const char* label, int* value, int min, int max, int delta, int defaultValue)
 {
     const float btnW = CalcButtonWidth(">");
