@@ -460,7 +460,7 @@ void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
         {
             ImGuiWidgets::SliderIntWithControls("Wireframe Instance Id", &instanceIndex, 0, count - 1, 1, 0);
             auto& selection = selections[instanceIndex];
-            ImGui::Checkbox("Wireframe (X-ray)", &selection.enabled);
+            ImGui::Checkbox("Wireframe Enable", &selection.enabled);
             ImGui::SameLine();
             if (ImGui::Button("All Clear##Wireframe"))
                 std::fill(selections.begin(), selections.end(), WireframeSelection{});
