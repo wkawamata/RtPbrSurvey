@@ -109,6 +109,10 @@ nlohmann::json SceneRendererSettingsToJson(const SceneRendererSettings& settings
             Engine::PathTracingReconstructionBackendName(settings.pathTracing.reconstructionBackend);
     pathTracing["reconstructionDiagnostics"] = settings.pathTracing.reconstructionDiagnostics;
     pathTracing["rrContinuous"] = settings.pathTracing.rrContinuous;
+    pathTracing["rrThinExperiment"] = settings.pathTracing.rrThinExperiment;
+    pathTracing["rrSmoothVolumeExperiment"] = settings.pathTracing.rrSmoothVolumeExperiment;
+    pathTracing["rrRoughVolumeExperiment"] = settings.pathTracing.rrRoughVolumeExperiment;
+    pathTracing["rrTransmissionMotionExperiment"] = settings.pathTracing.rrTransmissionMotionExperiment;
     pathTracing["maxBounces"] = settings.pathTracing.maxBounces;
     pathTracing["randomSeed"] = settings.pathTracing.randomSeed;
     pathTracing["directLightingEnabled"] = settings.pathTracing.directLightingEnabled;
@@ -366,6 +370,14 @@ bool SceneRendererSettingsFromJson(const nlohmann::json& value,
             parsed.pathTracing.reconstructionDiagnostics =
                 pathTracing.value("reconstructionDiagnostics", parsed.pathTracing.reconstructionDiagnostics);
             parsed.pathTracing.rrContinuous = pathTracing.value("rrContinuous", parsed.pathTracing.rrContinuous);
+            parsed.pathTracing.rrThinExperiment =
+                pathTracing.value("rrThinExperiment", parsed.pathTracing.rrThinExperiment);
+            parsed.pathTracing.rrSmoothVolumeExperiment =
+                pathTracing.value("rrSmoothVolumeExperiment", parsed.pathTracing.rrSmoothVolumeExperiment);
+            parsed.pathTracing.rrRoughVolumeExperiment =
+                pathTracing.value("rrRoughVolumeExperiment", parsed.pathTracing.rrRoughVolumeExperiment);
+            parsed.pathTracing.rrTransmissionMotionExperiment =
+                pathTracing.value("rrTransmissionMotionExperiment", parsed.pathTracing.rrTransmissionMotionExperiment);
             if (pathTracing.contains("reconstructionBackend"))
             {
                 const std::string name = pathTracing.at("reconstructionBackend").get<std::string>();

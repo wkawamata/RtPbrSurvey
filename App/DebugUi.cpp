@@ -369,6 +369,127 @@ void DrawInformationWindow(bool& visible,
 namespace App
 {
 
+namespace
+{
+constexpr int kWireframeMaxTriangles = 2048;
+
+void DrawWireframeInstance(const RtPbrSurveyEngine& engine,
+                           const Engine::SceneMesh& mesh,
+                           const Engine::InstanceData& instance,
+                           const Engine::SceneMesh::Range& range,
+                           int firstTriangle)
+{
+    const int triangleCount = static_cast<int>(range.indexCount / 3);
+    firstTriangle = std::clamp(firstTriangle, 0, (std::max)(0, triangleCount - kWireframeMaxTriangles));
+    using namespace DirectX;
+    const XMMATRIX world = XMMatrixTranspose(XMLoadFloat4x4(&instance.world));
+    const XMMATRIX transform = world * XMLoadFloat4x4(&engine.GetDebugWireframeViewProjection());
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImDrawList* draw = ImGui::GetBackgroundDrawList();
+    const auto project = [&](uint32_t index, ImVec2& point)
+    {
+        if (index >= mesh.vertices.size())
+            return false;
+        XMFLOAT4 clip;
+        XMStoreFloat4(&clip, XMVector3Transform(XMLoadFloat3(&mesh.vertices[index].position), transform));
+        if (!std::isfinite(clip.w) || clip.w <= 0.0f || clip.z < 0.0f || clip.z > clip.w)
+            return false;
+        const float x = clip.x / clip.w;
+        const float y = clip.y / clip.w;
+        if (!std::isfinite(x) || !std::isfinite(y))
+            return false;
+        point = ImVec2(viewport->Pos.x + (0.5f + 0.5f * x) * viewport->Size.x,
+                       viewport->Pos.y + (0.5f - 0.5f * y) * viewport->Size.y);
+        return true;
+    };
+
+    const int end = (std::min)(triangleCount, firstTriangle + kWireframeMaxTriangles);
+    for (int triangle = firstTriangle; triangle < end; ++triangle)
+    {
+        const size_t index = static_cast<size_t>(range.firstIndex) + static_cast<size_t>(triangle) * 3;
+        ImVec2 points[3];
+        const bool valid[] = {project(mesh.indices[index], points[0]),
+                              project(mesh.indices[index + 1], points[1]),
+                              project(mesh.indices[index + 2], points[2])};
+        for (int edge = 0; edge < 3; ++edge)
+        {
+            const int next = (edge + 1) % 3;
+            if (valid[edge] && valid[next])
+                draw->AddLine(points[edge], points[next], IM_COL32(42, 255, 182, 200));
+        }
+    }
+}
+
+struct WireframeSelection
+{
+    bool enabled = false;
+    int firstTriangle = 0;
+};
+} // namespace
+
+void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
+{
+    static int instanceIndex = 0;
+    static bool showCurrent = false;
+    static const Engine::SceneMesh* selectedMesh = nullptr;
+    static std::vector<WireframeSelection> selections;
+
+    const auto& scene = engine.GetDebugWireframeScene();
+    if (selectedMesh != scene.mesh)
+    {
+        selections.clear();
+        instanceIndex = 0;
+        selectedMesh = scene.mesh;
+    }
+    selections.resize(scene.instances.size());
+    const int count = static_cast<int>((std::min)(
+        scene.instances.size(), static_cast<size_t>(engine.GetDebugWireframeInstanceCount())));
+    if (scene.mesh == nullptr || count == 0)
+        return;
+
+    const auto& mesh = *scene.mesh;
+    instanceIndex = std::clamp(instanceIndex, 0, count - 1);
+    if (showControls)
+    {
+        if (ImGui::TreeNode("Wireframe"))
+        {
+            ImGuiWidgets::SliderIntWithControls("Wireframe Instance Id", &instanceIndex, 0, count - 1, 1, 0);
+            auto& selection = selections[instanceIndex];
+            ImGui::Checkbox("Wireframe (X-ray)", &selection.enabled);
+            ImGui::SameLine();
+            if (ImGui::Button("All Clear##Wireframe"))
+                std::fill(selections.begin(), selections.end(), WireframeSelection{});
+
+            const auto& instance = scene.instances[instanceIndex];
+            ImGui::Checkbox("Show Current Id Wireframe", &showCurrent);
+            if ((selection.enabled || showCurrent) && instance.meshId < mesh.ranges.size())
+            {
+                const int triangles = static_cast<int>(mesh.ranges[instance.meshId].indexCount / 3);
+                if (triangles > kWireframeMaxTriangles)
+                {
+                    ImGui::SliderInt("Wireframe first triangle", &selection.firstTriangle, 0,
+                                     triangles - kWireframeMaxTriangles);
+                }
+            }
+            ImGui::TreePop();
+        }
+        return;
+    }
+
+    for (int index = 0; index < count; ++index)
+    {
+        if (!selections[index].enabled && !(showCurrent && index == instanceIndex))
+            continue;
+        const auto& instance = scene.instances[index];
+        if (!Engine::HasRenderableTransform(instance) || instance.meshId >= mesh.ranges.size())
+            continue;
+        const auto& range = mesh.ranges[instance.meshId];
+        if (range.firstIndex > mesh.indices.size() || range.indexCount > mesh.indices.size() - range.firstIndex)
+            continue;
+        DrawWireframeInstance(engine, mesh, instance, range, selections[index].firstTriangle);
+    }
+}
+
 void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& context)
 {
     RtPbrSurvey::DebugUiPreferences& debugUiPreferences = RtPbrSurvey::GetDebugUiPreferences();
@@ -487,28 +608,127 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     ImGui::Separator();
     ImGui::BeginChild("DebugControls");
 
+    struct WorkMeterHistory
+    {
+        enum { Capacity = 240 };
+        std::array<float, Capacity> cpu{}, gpu{}, fps{}, frameFps{}, rrSdk{}, rrConversion{};
+        int count = 0;
+        int next = 0;
+        int lastFrame = -1;
+        bool frozen = false;
+        bool showRr = true;
+        float timeRange = 50.0f;
+        float fpsRange = 120.0f;
+    };
+    static WorkMeterHistory workMeterHistory;
+    const int workMeterFrame = ImGui::GetFrameCount();
+    if (!workMeterHistory.frozen && workMeterHistory.lastFrame != workMeterFrame)
+    {
+        auto& history = workMeterHistory;
+        if (history.lastFrame >= 0 && workMeterFrame != history.lastFrame + 1)
+            history.count = history.next = 0;
+        const int index = history.next;
+        history.cpu[index] = std::isfinite(context.cpuFrameTime) ? (std::max)(context.cpuFrameTime, 0.0f) : 0.0f;
+        history.fps[index] = history.cpu[index] > 0.0f ? 1000.0f / history.cpu[index] : 0.0f;
+        // Win32 NewFrame measures wall-clock time, including frame waits.
+        // This is independent of scene simulation time and CPU work duration.
+        const float frameSeconds = ImGui::GetIO().DeltaTime;
+        history.frameFps[index] = std::isfinite(frameSeconds) && frameSeconds > 0.0f ? 1.0f / frameSeconds : 0.0f;
+        history.gpu[index] = context.gpuCheckPoints.size() >= 2 ? context.gpuCheckPoints.back().timeStamp : 0.0f;
+        const auto& timing = context.pathTracingDiagnostics.reconstructionTimings;
+        history.rrSdk[index] = timing.rrSdk.available ? timing.rrSdk.milliseconds : 0.0f;
+        history.rrConversion[index] = timing.rrConversion.available ? timing.rrConversion.milliseconds : 0.0f;
+        history.next = (index + 1) % WorkMeterHistory::Capacity;
+        history.count = (std::min)(history.count + 1, static_cast<int>(WorkMeterHistory::Capacity));
+        history.lastFrame = workMeterFrame;
+    }
     const auto drawWorkMeter = [&context]()
     {
-        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime, 1000.0f / context.cpuFrameTime);
-
-        const auto& gpuCheckPoints = context.gpuCheckPoints;
-        const size_t gpuCheckPointCount = gpuCheckPoints.size();
-        if (gpuCheckPointCount >= 2)
+        auto& history = workMeterHistory;
+        if (ImGui::TreeNode("Graphs##WorkMeter"))
         {
-            for (int i = 1; i < static_cast<int>(gpuCheckPointCount); i++)
+            if (ImGui::Checkbox("Freeze graphs", &history.frozen) && !history.frozen)
+                history.count = history.next = 0;
+            ImGui::SameLine();
+            if (ImGui::Button("Clear##WorkMeter"))
+                history.count = history.next = 0;
+            ImGui::Checkbox("RR stage graphs", &history.showRr);
+            ImGui::SliderFloat("Time range (ms)", &history.timeRange, 1.0f, 200.0f, "%.1f");
+            ImGui::SliderFloat("FPS range", &history.fpsRange, 10.0f, 500.0f, "%.0f");
+            ImGui::Text("X: Frame (last %d of %d), Y: ms / FPS", history.count, WorkMeterHistory::Capacity);
+            ImGui::TextWrapped("Raw samples, no smoothing. GPU values are the latest completed GPU frame "
+                               "at each UI frame; readback is delayed. Missing GPU/RR timings plot as zero.");
+            const auto plot = [&history](const char* label, const auto& values, float maximum)
             {
-                const auto& checkPoint = gpuCheckPoints[i];
-                if (i < static_cast<int>(gpuCheckPointCount) - 1)
-                {
-                    const float timeFromPrevious = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
-                    ImGui::Text("GPU[%d] %s: %f ms", i, checkPoint.name.c_str(), timeFromPrevious);
-                }
-                else
-                {
-                    ImGui::Text("GPU[%d] Total: %f ms", i, checkPoint.timeStamp);
-                }
+                ImGui::TextUnformatted(label);
+                if (history.count == 0)
+                    return;
+                const int offset = history.count == WorkMeterHistory::Capacity ? history.next : 0;
+                const float latest = values[(history.next + WorkMeterHistory::Capacity - 1) % WorkMeterHistory::Capacity];
+                char overlay[64];
+                snprintf(overlay, sizeof(overlay), "Latest: %.2f", latest);
+                ImGui::PushID(label);
+                ImGui::PlotLines("##Frames", values.data(), history.count, offset, overlay, 0.0f, maximum,
+                                 ImVec2(ImGui::GetContentRegionAvail().x, 72.0f));
+                ImGui::PopID();
+            };
+            plot("FPS (wall-clock frame interval)", history.frameFps, history.fpsRange);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("1 / elapsed time between UI frames, including waits. This is not the RR output update rate.");
+            plot("CPU Frame Time (ms)", history.cpu, history.timeRange);
+            plot("GPU Total Time (ms)", history.gpu, history.timeRange);
+            plot("CPU FPS (1000 / CPU Frame Time)", history.fps, history.fpsRange);
+            if (history.showRr)
+            {
+                plot("RR SDK (ms; zero when not executed)", history.rrSdk, history.timeRange);
+                plot("RR Input Conversion (ms; zero when not executed)", history.rrConversion, history.timeRange);
             }
+            ImGui::Text("Frame: %d -> %d (left -> right)", history.count > 0 ? history.lastFrame - history.count + 1 : 0,
+                        history.count > 0 ? history.lastFrame : 0);
+            ImGui::TreePop();
         }
+        ImGui::Separator();
+        ImGui::Text("CPU Frame: %.2f ms (%.1f FPS)", context.cpuFrameTime,
+                    context.cpuFrameTime > 0.0f ? 1000.0f / context.cpuFrameTime : 0.0f);
+
+        struct GpuTimingRow
+        {
+            std::string name;
+            float milliseconds = 0.0f;
+            bool available = false;
+        };
+        static std::vector<GpuTimingRow> gpuRows;
+        for (auto& row : gpuRows)
+        {
+            row.available = false;
+            row.milliseconds = 0.0f;
+        }
+        const auto& gpuCheckPoints = context.gpuCheckPoints;
+        for (size_t i = 1; i + 1 < gpuCheckPoints.size(); ++i)
+        {
+            const auto& checkPoint = gpuCheckPoints[i];
+            // Match each occurrence separately when a pass name is repeated.
+            auto row = std::find_if(gpuRows.begin(), gpuRows.end(), [&checkPoint](const GpuTimingRow& candidate)
+            {
+                return !candidate.available && candidate.name == checkPoint.name;
+            });
+            if (row == gpuRows.end())
+            {
+                gpuRows.push_back({checkPoint.name});
+                row = gpuRows.end() - 1;
+            }
+            row->milliseconds = checkPoint.timeStamp - gpuCheckPoints[i - 1].timeStamp;
+            row->available = true;
+        }
+        for (size_t i = 0; i < gpuRows.size(); ++i)
+        {
+            const auto& row = gpuRows[i];
+            ImGui::Text("GPU[%d] %s: %.6f ms", static_cast<int>(i + 1), row.name.c_str(), row.milliseconds);
+        }
+        if (gpuCheckPoints.size() >= 2)
+            ImGui::Text("GPU Total: %.6f ms", gpuCheckPoints.back().timeStamp);
+        else
+            ImGui::TextUnformatted("GPU Total: 0.000000 ms");
     };
 
     if (ImGui::CollapsingHeader("Basic Settings###Scene", ImGuiTreeNodeFlags_DefaultOpen))
@@ -600,6 +820,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     }
     if (ImGui::CollapsingHeader("Rendering", ImGuiTreeNodeFlags_DefaultOpen))
     {
+        DrawWireframeOverlay(app.m_sceneRenderer.EngineForDebugTools(), true);
         int renderingPath = static_cast<int>(app.m_renderingPath);
         ImGui::RadioButton("Forward", &renderingPath, static_cast<int>(RenderingPath::Forward));
         ImGui::SameLine();
@@ -641,17 +862,6 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 ImGui::TreePop();
             }
 
-            bool accumulationPaused = context.pathTracingRuntimeState.accumulationPaused;
-            if (ImGui::Checkbox("Pause Accumulation", &accumulationPaused))
-            {
-                app.m_sceneRenderer.SetPathTracingAccumulationPaused(accumulationPaused);
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Reset Accumulation"))
-            {
-                app.m_sceneRenderer.ResetPathTracingAccumulation();
-            }
-
             RtPbrSurveyEngine::PathTracingSettings pathTracingSettings =
                 app.m_sceneRenderer.GetPathTracingSettings();
             bool pathTracingSettingsChanged = false;
@@ -671,6 +881,20 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             pathTracingSettingsChanged |= ImGui::Checkbox("Accumulate", &pathTracingSettings.accumulate);
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Maintains the Native PT accumulator. RR always receives the current frame, not the accumulated image.");
+            ImGui::SameLine();
+            const bool accumulationPaused = context.pathTracingRuntimeState.accumulationPaused;
+            ImGui::PushStyleColor(ImGuiCol_Text, accumulationPaused ? ImVec4(1.0f, 0.2f, 0.2f, 1.0f)
+                                                                  : ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+            if (ImGui::Button(accumulationPaused ? "Pausing...##Acuumlation" : "Pause##Acuumlation"))
+            {
+                app.m_sceneRenderer.SetPathTracingAccumulationPaused(!accumulationPaused);
+            }
+            ImGui::PopStyleColor();
+            ImGui::SameLine();
+            if (ImGui::Button("Reset##Acuumlation"))
+            {
+                app.m_sceneRenderer.ResetPathTracingAccumulation();
+            }
             using ReconstructionBackend = Engine::PathTracingReconstructionBackend;
             int reconstructionBackend =
                 static_cast<int>(Engine::EffectivePathTracingBackend(pathTracingSettings.reconstructionBackend,
@@ -685,8 +909,26 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 pathTracingSettingsChanged = true;
             }
             if (reconstructionBackend == 2)
+            {
                 pathTracingSettingsChanged |=
                     ImGui::Checkbox("Continuous RR (camera motion)", &pathTracingSettings.rrContinuous);
+                if (!pathTracingSettings.rrTransmissionMotionExperiment)
+                    ImGui::TextWrapped("Glass camera/object motion resets RR history: transmission motion experiment is OFF.");
+                if (ImGui::TreeNode("RR Transmission Experiments"))
+                {
+                    pathTracingSettingsChanged |=
+                        ImGui::Checkbox("Thin glass RR", &pathTracingSettings.rrThinExperiment);
+                    pathTracingSettingsChanged |=
+                        ImGui::Checkbox("Smooth volume glass RR", &pathTracingSettings.rrSmoothVolumeExperiment);
+                    pathTracingSettingsChanged |=
+                        ImGui::Checkbox("Rough volume glass RR", &pathTracingSettings.rrRoughVolumeExperiment);
+                    pathTracingSettingsChanged |=
+                        ImGui::Checkbox("Preserve RR during transmission motion", &pathTracingSettings.rrTransmissionMotionExperiment);
+                    ImGui::TextWrapped("Experimental. Warm Glass Table needs thin glass, smooth volume glass, "
+                                       "and transmission motion enabled. Continuous RR must also be ON.");
+                    ImGui::TreePop();
+                }
+            }
             if (ImGui::TreeNode("Reconstruction Details"))
             {
                 if (reconstructionBackend == 2)
@@ -707,6 +949,9 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                                 static_cast<unsigned long long>(context.pathTracingDiagnostics.rrCompletedCount),
                                 static_cast<unsigned long long>(context.pathTracingDiagnostics.rrContinuousCount),
                                 static_cast<unsigned long long>(context.pathTracingDiagnostics.rrResetCount));
+                    ImGui::Text("RR cancelled: %llu, input rejected: %llu",
+                                static_cast<unsigned long long>(context.pathTracingDiagnostics.rrCancelledCount),
+                                static_cast<unsigned long long>(context.pathTracingDiagnostics.rrInputRejectionCount));
                     if (!context.pathTracingDiagnostics.rrLiveFailure.empty())
                         ImGui::TextWrapped("RR fallback: %s", context.pathTracingDiagnostics.rrLiveFailure.c_str());
                 }
@@ -1883,7 +2128,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
     ImGui::End();
     if (workMeterWindowOpen)
     {
-        ImGui::SetNextWindowSize(ImVec2(440, 360), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(600, 360), ImGuiCond_FirstUseEver);
         if (ImGui::Begin("WorkMeter", &workMeterWindowOpen))
         {
             drawWorkMeter();

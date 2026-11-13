@@ -7,6 +7,7 @@ class RtPbrSurveyApp;
 namespace App
 {
 
+void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls);
 void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& context);
 
 } // namespace App

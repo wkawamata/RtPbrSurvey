@@ -347,6 +347,34 @@ int main()
                                json["pathTracing"]["rrContinuous"] == true && settings.pathTracing.rrContinuous,
                            "Backend selection and diagnostics persist");
         }
+        // Exercise independent ON/OFF combinations and legacy missing keys.
+        for (unsigned int mask = 0; mask < 16; ++mask)
+        {
+            RtPbrSurvey::SceneRendererSettings source;
+            source.pathTracing.rrThinExperiment = (mask & 1u) != 0;
+            source.pathTracing.rrSmoothVolumeExperiment = (mask & 2u) != 0;
+            source.pathTracing.rrRoughVolumeExperiment = (mask & 4u) != 0;
+            source.pathTracing.rrTransmissionMotionExperiment = (mask & 8u) != 0;
+            settings.pathTracing = source.pathTracing;
+            valid &= Check(RtPbrSurvey::DeserializeSceneRendererSettings(
+                               R"({"pathTracing":{"rrContinuous":true}})", settings),
+                           "Legacy RR preset parses");
+            valid &= Check(settings.pathTracing.rrThinExperiment == source.pathTracing.rrThinExperiment, "Missing rrThinExperiment preserved");
+            valid &= Check(settings.pathTracing.rrSmoothVolumeExperiment == source.pathTracing.rrSmoothVolumeExperiment, "Missing rrSmoothVolumeExperiment preserved");
+            valid &= Check(settings.pathTracing.rrRoughVolumeExperiment == source.pathTracing.rrRoughVolumeExperiment, "Missing rrRoughVolumeExperiment preserved");
+            valid &= Check(settings.pathTracing.rrTransmissionMotionExperiment == source.pathTracing.rrTransmissionMotionExperiment, "Missing rrTransmissionMotionExperiment preserved");
+            const std::string text = RtPbrSurvey::SerializeSceneRendererSettings(source);
+            settings.pathTracing.rrThinExperiment = !source.pathTracing.rrThinExperiment;
+            settings.pathTracing.rrSmoothVolumeExperiment = !source.pathTracing.rrSmoothVolumeExperiment;
+            settings.pathTracing.rrRoughVolumeExperiment = !source.pathTracing.rrRoughVolumeExperiment;
+            settings.pathTracing.rrTransmissionMotionExperiment = !source.pathTracing.rrTransmissionMotionExperiment;
+            valid &= Check(RtPbrSurvey::DeserializeSceneRendererSettings(text, settings),
+                           "Transmission RR preset parses");
+            valid &= Check(settings.pathTracing.rrThinExperiment == source.pathTracing.rrThinExperiment, "rrThinExperiment round-trip");
+            valid &= Check(settings.pathTracing.rrSmoothVolumeExperiment == source.pathTracing.rrSmoothVolumeExperiment, "rrSmoothVolumeExperiment round-trip");
+            valid &= Check(settings.pathTracing.rrRoughVolumeExperiment == source.pathTracing.rrRoughVolumeExperiment, "rrRoughVolumeExperiment round-trip");
+            valid &= Check(settings.pathTracing.rrTransmissionMotionExperiment == source.pathTracing.rrTransmissionMotionExperiment, "rrTransmissionMotionExperiment round-trip");
+        }
         const auto previous = settings.pathTracing.reconstructionBackend;
         valid &= Check(!RtPbrSurvey::DeserializeSceneRendererSettings(
                            R"({"pathTracing":{"reconstructionBackend":"typo"}})", settings) &&
