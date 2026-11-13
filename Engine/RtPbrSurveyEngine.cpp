@@ -2117,6 +2117,39 @@ void RtPbrSurveyEngine::ReloadEnvironmentResources(const Engine::ProceduralEnvir
     }
 }
 
+XMFLOAT4X4 RtPbrSurveyEngine::GetDebugWireframeViewProjection() const
+{
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (m_renderingPath == RenderingPath::PathTracing && m_ptRrLive &&
+        ResolvePathTracingReconstructionPresentation().output == Engine::PathTracingReconstructionBackend::Rr)
+    {
+        if (const auto* key = m_ptRrLive->PublishedKey())
+        {
+            XMFLOAT4X4 viewProjection;
+            memcpy(&viewProjection, key->viewProjection.data(), sizeof(viewProjection));
+            return viewProjection;
+        }
+    }
+#endif
+    return m_jitterFreeViewProjection;
+}
+
+const std::vector<RtPbrSurveyEngine::InstanceData>& RtPbrSurveyEngine::GetDebugWireframeInstances() const
+{
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (m_renderingPath == RenderingPath::PathTracing && m_ptRrLive &&
+        ResolvePathTracingReconstructionPresentation().output == Engine::PathTracingReconstructionBackend::Rr)
+    {
+        const auto* key = m_ptRrLive->PublishedKey();
+        const unsigned int slot = m_ptRrLive->PublishedSlot();
+        if (key && m_rrInstancePoseFrameIds[slot] == key->frameId &&
+            m_rrInstancePoses[slot].size() == m_scene.instances.size())
+            return m_rrInstancePoses[slot];
+    }
+#endif
+    return m_scene.instances;
+}
+
 void RtPbrSurveyEngine::UpdateCameraConstantBuffer()
 {
     m_scene.camera.fov = std::clamp(m_scene.camera.fov, 0.1f, 179.0f);

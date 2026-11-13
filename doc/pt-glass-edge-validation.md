@@ -55,3 +55,22 @@ first, then RR. Inspect the mouths, panel edge reflections, camera orbit and sto
 User visual acceptance is pending. Hollow Volume transport, Volume transmission
 shadows, rough transmission shadows, absorption and caustics remain separate
 roadmap items. No performance acceptance or optimal tessellation claim is made.
+
+## Wireframe frame synchronization
+
+The overlay was generated in UpdateUiFrame before RunFrame updated camera and
+animation. ImGui finalization and wireframe projection now occur in the ImGui
+render callback, after frame update and RR publication. Graphs without an ImGui
+pass still finalize the open UI frame after RunFrame. Controls retain their
+original input order.
+
+When the displayed source is verified RR, wireframe projection uses its published
+camera key and matching stored instance poses; it does not combine the latest
+camera with an older retained image. Native uses the prepared frame camera.
+This removes a frame-order mismatch; RR image publication itself remains delayed.
+
+Debug build passed with zero warnings/errors. Native and verified RR automated
+orbit captures with the Debug window enabled completed without ERROR/CORRUPTION.
+Evidence: build/wireframe-frame-sync/report.json and native/rr logs/PNGs (local).
+These smoke checks cover UI frame lifecycle and backend execution; full-mesh
+wireframe alignment during interactive camera motion still requires visual review.

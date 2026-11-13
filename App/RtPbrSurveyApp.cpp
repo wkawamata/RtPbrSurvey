@@ -1249,8 +1249,25 @@ void RtPbrSurveyApp::OnIdle()
         // Poll/save without advancing the scene pose or its fixed-step clock.
         UpdateCaptureSessionTiming();
     }
-    m_sceneRenderer.RunFrame([this](ID3D12GraphicsCommandList* commandList) { m_imguiSystem.Render(commandList); },
-                             advanceFrame);
+    bool uiFrameFinalized = false;
+    m_sceneRenderer.RunFrame([this, &uiFrameFinalized](ID3D12GraphicsCommandList* commandList)
+    {
+        if (!uiFrameFinalized)
+        {
+            // Camera/animation update and RR publication have completed. Project
+            // the overlay against the image selected for this display frame.
+            if (m_appMode == AppMode::Running || m_appMode == AppMode::SceneEditorEdit)
+                App::DrawWireframeOverlay(m_sceneRenderer.EngineForDebugTools(), false);
+            m_imguiSystem.EndFrame();
+            uiFrameFinalized = true;
+        }
+        m_imguiSystem.Render(commandList);
+    }, advanceFrame);
+    if (!uiFrameFinalized)
+    {
+        // A custom graph may omit the ImGui pass; still finish its UI frame.
+        m_imguiSystem.EndFrame();
+    }
     if (logCapturePt)
     {
         const auto& pt = m_sceneRenderer.GetPathTracingRuntimeState();
@@ -3992,10 +4009,6 @@ void RtPbrSurveyApp::UpdateUiFrame()
             ImGui::End();
         }
     }
-    if (m_appMode == AppMode::Running || m_appMode == AppMode::SceneEditorEdit)
-    {
-        App::DrawWireframeOverlay(m_sceneRenderer.EngineForDebugTools(), false);
-    }
     m_sceneRenderer.DrawToolUi();
     if (((m_appMode == AppMode::Running && m_debugUiVisible) || m_appMode == AppMode::SceneEditorEdit) &&
         m_sceneRenderer.IsScreenshotCaptureIdle())
@@ -4008,7 +4021,6 @@ void RtPbrSurveyApp::UpdateUiFrame()
     {
         RtPbrSurvey::CaptureSessionUi::CancelRegionSelection(m_captureSessionUiState);
     }
-    m_imguiSystem.EndFrame();
 }
 
 UINT RtPbrSurveyApp::SyncDebugTextureInspectorToEngine()

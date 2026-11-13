@@ -378,7 +378,8 @@ void DrawWireframeInstance(const RtPbrSurveyEngine& engine,
 {
     using namespace DirectX;
     const XMMATRIX world = XMMatrixTranspose(XMLoadFloat4x4(&instance.world));
-    const XMMATRIX transform = world * XMLoadFloat4x4(&engine.GetDebugWireframeViewProjection());
+    const XMFLOAT4X4 viewProjection = engine.GetDebugWireframeViewProjection();
+    const XMMATRIX transform = world * XMLoadFloat4x4(&viewProjection);
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImDrawList* draw = ImGui::GetBackgroundDrawList();
     const auto project = [&](uint32_t index, ImVec2& point)
@@ -480,7 +481,7 @@ void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
     {
         if (!selections[index].enabled && !(showCurrent && index == instanceIndex))
             continue;
-        const auto& instance = scene.instances[index];
+        const auto& instance = engine.GetDebugWireframeInstances()[index];
         if (!Engine::HasRenderableTransform(instance) || instance.meshId >= mesh.ranges.size())
             continue;
         const auto& range = mesh.ranges[instance.meshId];

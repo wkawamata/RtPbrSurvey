@@ -468,7 +468,8 @@ public:
     const CameraState& GetCamera() const;
     const Scene& GetDebugWireframeScene() const { return m_scene; }
     UINT GetDebugWireframeInstanceCount() const { return GetVisibleCubeCount(); }
-    const XMFLOAT4X4& GetDebugWireframeViewProjection() const { return m_jitterFreeViewProjection; }
+    XMFLOAT4X4 GetDebugWireframeViewProjection() const;
+    const std::vector<InstanceData>& GetDebugWireframeInstances() const;
     void ReloadSceneResources(const Scene& scene);
     void CloseSceneResources();
     UiFrameContext GetUiFrameContext() const;
