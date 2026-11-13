@@ -1,3 +1,7 @@
+#ifndef RTPBRSURVEY_THIN_DIRECT_SHADOWS
+#define RTPBRSURVEY_THIN_DIRECT_SHADOWS 0
+#endif
+
 #include "Material.hlsli"
 
 RWTexture2D<float4> g_sceneColor : register(u0);
@@ -378,6 +382,100 @@ float TraceShadow(float3 worldPosition, float3 normal, PathTracingLightSample li
     return query.CommittedStatus() == COMMITTED_TRIANGLE_HIT ? 0.0 : 1.0;
 }
 
+#if RTPBRSURVEY_THIN_DIRECT_SHADOWS
+struct ThinShadowResult
+{
+    float3 transmittance;
+    uint status; // 1: interface budget; 2: unsupported rough/volume; 4: invalid data/advance.
+    uint interfaces;
+    uint queries;
+};
+
+ThinShadowResult TraceThinDirectShadow(float3 worldPosition, float3 normal, PathTracingLightSample lightSample)
+{
+    ThinShadowResult result = (ThinShadowResult)0;
+    result.transmittance = 1.0;
+    if (shadowEnabled == 0)
+        return result;
+    if ((primarySamplingFlags & 4u) == 0)
+    {
+        result.transmittance = TraceShadow(worldPosition, normal, lightSample, 0).xxx;
+        result.queries = 1;
+        return result;
+    }
+    RayDesc ray;
+    ray.Origin = worldPosition + normal * normalBias;
+    ray.Direction = lightSample.direction;
+    ray.TMin = rayTMin;
+    ray.TMax = lightSample.distance;
+    ResolvePathTracingShadowRay(lightSample, ray.Origin, ray.Direction, ray.TMax);
+    if (ray.TMax <= ray.TMin)
+        return result;
+    // Sixteen transparent interfaces plus one final query to distinguish a miss
+    // from an over-budget seventeenth interface. Candidates are not traversal ordered.
+    [loop] for (uint step = 0; step <= 16u; ++step)
+    {
+        RayQuery<RAY_FLAG_NONE> query;
+        query.TraceRayInline(g_tlas, RAY_FLAG_FORCE_NON_OPAQUE, 0xff, ray);
+        ++result.queries;
+        while (query.Proceed())
+        {
+            if (query.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE &&
+                AcceptMaterialCandidate(query.CandidateInstanceID(), query.CandidatePrimitiveIndex(),
+                    query.CandidateTriangleBarycentrics(), query.CandidateTriangleFrontFace(), false, true))
+                query.CommitNonOpaqueTriangleHit();
+        }
+        if (query.CommittedStatus() != COMMITTED_TRIANGLE_HIT)
+            return result;
+        uint i0, i1, i2;
+        LoadPrimitiveVertexIndices(query.CommittedPrimitiveIndex(), query.CommittedInstanceID(), i0, i1, i2);
+        const HitMaterialSample material = LoadCommittedHitMaterialSample(i0, i1, i2,
+            query.CommittedTriangleBarycentrics(), query.CommittedInstanceID());
+        if ((material.flags & MaterialFlagVolumeTransmission) != 0 ||
+            ((material.flags & MaterialFlagThinTransmission) != 0 &&
+             material.roughness > 0.0 && material.transmissionIor != 1.0))
+        {
+            result.status = 2;
+            result.transmittance = 0.0;
+            return result;
+        }
+        if ((material.flags & MaterialFlagThinTransmission) == 0 ||
+            material.transmissionFactor <= 0.0 || material.metallic >= 1.0)
+        {
+            result.transmittance = 0.0;
+            return result;
+        }
+        if (result.interfaces == 16u)
+        {
+            result.status = 1;
+            result.transmittance = 0.0;
+            return result;
+        }
+        const float3 geometryNormal = LoadCommittedHitGeometricNormal(i0, i1, i2, query.CommittedObjectToWorld3x4());
+        result.transmittance *= EvaluateSmoothThinShadowTransmission(dot(-ray.Direction, geometryNormal),
+            material.transmissionIor, material.transmissionTint, material.transmissionFactor, material.metallic);
+        ++result.interfaces;
+        const float hitT = query.CommittedRayT();
+        const float nextT = asfloat(asuint(hitT) + 1u);
+        if (!all(isfinite(result.transmittance)) || !isfinite(nextT) || nextT <= hitT)
+        {
+            result.status = 4;
+            result.transmittance = 0.0;
+            return result;
+        }
+        // Advance along the original segment by one representable distance. Do
+        // not offset the origin and accidentally skip closely spaced interfaces.
+        ray.TMin = nextT;
+        if (ray.TMin > ray.TMax || all(result.transmittance == 0.0))
+            return result;
+    }
+    result.status = 1;
+    result.transmittance = 0.0;
+    return result;
+}
+
+#endif
+
 uint FindSampledEmitter(uint instanceId, uint primitiveIndex)
 {
     for (uint i = 0; i < emissiveTriangleCount; ++i)
@@ -538,6 +636,11 @@ float3 TracePath(uint2 pixel,
     float volumeDistance = 0.0;
     float volumeInternalReflections = 0.0;
     uint volumeError = 0;
+#if RTPBRSURVEY_THIN_DIRECT_SHADOWS
+    uint thinShadowStatus = 0;
+    uint thinShadowInterfaces = 0;
+    uint thinShadowQueries = 0;
+#endif
     float3 volumeOutgoingDirection = 0.0;
     float3 volumeExitPosition = 0.0;
     const bool emissiveNeeEnabled = emissiveSamplingMode >= 1 && emissiveEnabled != 0 &&
@@ -947,7 +1050,15 @@ float3 TracePath(uint2 pixel,
                 {
                     continue;
                 }
+#if RTPBRSURVEY_THIN_DIRECT_SHADOWS
+                const ThinShadowResult shadow = TraceThinDirectShadow(hitPosition, geometryNormal, candidate.lightSample);
+                thinShadowStatus |= shadow.status;
+                thinShadowInterfaces = max(thinShadowInterfaces, shadow.interfaces);
+                thinShadowQueries += shadow.queries;
+                const float3 visibility = shadow.transmittance;
+#else
                 const float visibility = TraceShadow(hitPosition, geometryNormal, candidate.lightSample, 0);
+#endif
                 const float3 brdf = candidate.diffuseBrdf + candidate.specularBrdf;
                 const float3 lighting = candidate.lightSample.radiance *
                     (candidate.normalDotLight * visibility / candidate.lightSample.selectionPdf);
@@ -1170,6 +1281,12 @@ float3 TracePath(uint2 pixel,
     {
         return volumeTransmittance;
     }
+#if RTPBRSURVEY_THIN_DIRECT_SHADOWS
+    if (debugOutput == 13)
+    {
+        return float3(thinShadowStatus, thinShadowInterfaces, thinShadowQueries);
+    }
+#endif
     return radiance;
 }
 

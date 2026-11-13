@@ -303,6 +303,7 @@ public:
         VolumeOutgoingDirection,
         VolumeExitPosition,
         VolumeTransmittance,
+        ThinShadowStatus,
     };
 
     struct PathTracingSettings
@@ -467,7 +468,8 @@ public:
     const CameraState& GetCamera() const;
     const Scene& GetDebugWireframeScene() const { return m_scene; }
     UINT GetDebugWireframeInstanceCount() const { return GetVisibleCubeCount(); }
-    const XMFLOAT4X4& GetDebugWireframeViewProjection() const { return m_jitterFreeViewProjection; }
+    XMFLOAT4X4 GetDebugWireframeViewProjection() const;
+    const std::vector<InstanceData>& GetDebugWireframeInstances() const;
     void ReloadSceneResources(const Scene& scene);
     void CloseSceneResources();
     UiFrameContext GetUiFrameContext() const;
@@ -1336,6 +1338,7 @@ private:
     ComPtr<ID3D12PipelineState> m_proceduralEnvPipeline;
     ComPtr<ID3D12PipelineState> m_hybridReflectionPipeline;
     ComPtr<ID3D12PipelineState> m_pathTracingPipeline;
+    ComPtr<ID3D12PipelineState> m_pathTracingThinShadowPipeline;
     ComPtr<ID3D12PipelineState> m_rayQueryShadowPipeline;
     ComPtr<ID3D12PipelineState> m_specularDebugRayQueryPipeline;
     ComPtr<ID3D12PipelineState> m_rayQueryTlasDebugPipeline;
@@ -1814,6 +1817,7 @@ private:
         GraphicsPipelineShaderSet debugBufferPreview;
         ShaderBytecode hybridReflection;
         ShaderBytecode pathTracing;
+        ShaderBytecode pathTracingThinShadows;
         ShaderBytecode proceduralEnv;
         ShaderBytecode rayQueryShadow;
         ShaderBytecode specularDebugRayQuery;

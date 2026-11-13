@@ -371,19 +371,15 @@ namespace App
 
 namespace
 {
-constexpr int kWireframeMaxTriangles = 2048;
-
 void DrawWireframeInstance(const RtPbrSurveyEngine& engine,
                            const Engine::SceneMesh& mesh,
                            const Engine::InstanceData& instance,
-                           const Engine::SceneMesh::Range& range,
-                           int firstTriangle)
+                           const Engine::SceneMesh::Range& range)
 {
-    const int triangleCount = static_cast<int>(range.indexCount / 3);
-    firstTriangle = std::clamp(firstTriangle, 0, (std::max)(0, triangleCount - kWireframeMaxTriangles));
     using namespace DirectX;
     const XMMATRIX world = XMMatrixTranspose(XMLoadFloat4x4(&instance.world));
-    const XMMATRIX transform = world * XMLoadFloat4x4(&engine.GetDebugWireframeViewProjection());
+    const XMFLOAT4X4 viewProjection = engine.GetDebugWireframeViewProjection();
+    const XMMATRIX transform = world * XMLoadFloat4x4(&viewProjection);
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImDrawList* draw = ImGui::GetBackgroundDrawList();
     const auto project = [&](uint32_t index, ImVec2& point)
@@ -403,27 +399,37 @@ void DrawWireframeInstance(const RtPbrSurveyEngine& engine,
         return true;
     };
 
-    const int end = (std::min)(triangleCount, firstTriangle + kWireframeMaxTriangles);
-    for (int triangle = firstTriangle; triangle < end; ++triangle)
+    // Draw every triangle, but submit an indexed edge only once. In particular,
+    // dense glass meshes must not silently show only their first few rings.
+    std::vector<uint64_t> edges;
+    edges.reserve(range.indexCount);
+    for (size_t offset = 0; offset + 2 < range.indexCount; offset += 3)
     {
-        const size_t index = static_cast<size_t>(range.firstIndex) + static_cast<size_t>(triangle) * 3;
-        ImVec2 points[3];
-        const bool valid[] = {project(mesh.indices[index], points[0]),
-                              project(mesh.indices[index + 1], points[1]),
-                              project(mesh.indices[index + 2], points[2])};
-        for (int edge = 0; edge < 3; ++edge)
+        const size_t index = static_cast<size_t>(range.firstIndex) + offset;
+        for (size_t edge = 0; edge < 3; ++edge)
         {
-            const int next = (edge + 1) % 3;
-            if (valid[edge] && valid[next])
-                draw->AddLine(points[edge], points[next], IM_COL32(42, 255, 182, 200));
+            uint32_t a = mesh.indices[index + edge];
+            uint32_t b = mesh.indices[index + (edge + 1) % 3];
+            if (a == b || a >= mesh.vertices.size() || b >= mesh.vertices.size())
+                continue;
+            if (a > b)
+                std::swap(a, b);
+            edges.push_back((static_cast<uint64_t>(a) << 32) | b);
         }
+    }
+    std::sort(edges.begin(), edges.end());
+    edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
+    for (uint64_t edge : edges)
+    {
+        ImVec2 a, b;
+        if (project(static_cast<uint32_t>(edge >> 32), a) && project(static_cast<uint32_t>(edge), b))
+            draw->AddLine(a, b, IM_COL32(42, 255, 182, 200));
     }
 }
 
 struct WireframeSelection
 {
     bool enabled = false;
-    int firstTriangle = 0;
 };
 } // namespace
 
@@ -455,7 +461,7 @@ void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
         {
             ImGuiWidgets::SliderIntWithControls("Wireframe Instance Id", &instanceIndex, 0, count - 1, 1, 0);
             auto& selection = selections[instanceIndex];
-            ImGui::Checkbox("Wireframe (X-ray)", &selection.enabled);
+            ImGui::Checkbox("Wireframe Enable", &selection.enabled);
             ImGui::SameLine();
             if (ImGui::Button("All Clear##Wireframe"))
                 std::fill(selections.begin(), selections.end(), WireframeSelection{});
@@ -464,12 +470,7 @@ void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
             ImGui::Checkbox("Show Current Id Wireframe", &showCurrent);
             if ((selection.enabled || showCurrent) && instance.meshId < mesh.ranges.size())
             {
-                const int triangles = static_cast<int>(mesh.ranges[instance.meshId].indexCount / 3);
-                if (triangles > kWireframeMaxTriangles)
-                {
-                    ImGui::SliderInt("Wireframe first triangle", &selection.firstTriangle, 0,
-                                     triangles - kWireframeMaxTriangles);
-                }
+                ImGui::Text("Wireframe: all %u triangles", mesh.ranges[instance.meshId].indexCount / 3);
             }
             ImGui::TreePop();
         }
@@ -480,13 +481,13 @@ void DrawWireframeOverlay(const RtPbrSurveyEngine& engine, bool showControls)
     {
         if (!selections[index].enabled && !(showCurrent && index == instanceIndex))
             continue;
-        const auto& instance = scene.instances[index];
+        const auto& instance = engine.GetDebugWireframeInstances()[index];
         if (!Engine::HasRenderableTransform(instance) || instance.meshId >= mesh.ranges.size())
             continue;
         const auto& range = mesh.ranges[instance.meshId];
         if (range.firstIndex > mesh.indices.size() || range.indexCount > mesh.indices.size() - range.firstIndex)
             continue;
-        DrawWireframeInstance(engine, mesh, instance, range, selections[index].firstTriangle);
+        DrawWireframeInstance(engine, mesh, instance, range);
     }
 }
 
@@ -867,7 +868,7 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
             bool pathTracingSettingsChanged = false;
             static constexpr const char* kPathTracingDebugOutputs[] = {
                 "Albedo + Emissive", "World Normal", "Emissive", "Radiance", "Volume Boundaries", "Volume Status",
-                "Volume Outgoing Direction", "Volume Exit Position", "Volume Transmittance"};
+                "Volume Outgoing Direction", "Volume Exit Position", "Volume Transmittance", "Thin Shadow Status"};
             int debugOutput = static_cast<int>(pathTracingSettings.debugOutput);
             if (ImGui::Combo("Path Tracing Output",
                              &debugOutput,
@@ -984,20 +985,24 @@ void DrawDebugUi(RtPbrSurveyApp& app, const RtPbrSurveyEngine::UiFrameContext& c
                 ImGui::SetTooltip("OFF: Native uses per-pixel random primary; RR uses frame-wide projection jitter.");
             pathTracingSettingsChanged |=
                 ImGui::Checkbox("Denoiser Distance Diagnostics", &pathTracingSettings.denoiserDistanceDiagnostics);
+            const RtPbrSurveyEngine::PathTracingSettings defaults;
             int samplesPerFrame = static_cast<int>(pathTracingSettings.samplesPerFrame);
-            if (ImGui::SliderInt("Samples / Frame", &samplesPerFrame, 1, 16))
+            if (ImGuiWidgets::SliderIntWithControls("Samples / Frame", &samplesPerFrame, 1, 16, 1,
+                    static_cast<int>(defaults.samplesPerFrame)))
             {
                 pathTracingSettings.samplesPerFrame = static_cast<UINT>(samplesPerFrame);
                 pathTracingSettingsChanged = true;
             }
             int maxBounces = static_cast<int>(pathTracingSettings.maxBounces);
-            if (ImGui::SliderInt("Max Bounces", &maxBounces, 1, 16))
+            if (ImGuiWidgets::SliderIntWithControls("Max Bounces", &maxBounces, 1, 16, 1,
+                    static_cast<int>(defaults.maxBounces)))
             {
                 pathTracingSettings.maxBounces = static_cast<UINT>(maxBounces);
                 pathTracingSettingsChanged = true;
             }
             pathTracingSettingsChanged |=
-                ImGui::InputScalar("Random Seed", ImGuiDataType_U32, &pathTracingSettings.randomSeed);
+                ImGuiWidgets::SliderUintWithControls("Random Seed", &pathTracingSettings.randomSeed, 0,
+                    (std::numeric_limits<UINT>::max)(), defaults.randomSeed);
             pathTracingSettingsChanged |=
                 ImGui::Checkbox("Direct Lighting", &pathTracingSettings.directLightingEnabled);
             ImGui::SameLine();

@@ -375,6 +375,11 @@ int main()
             valid &= Check(settings.pathTracing.rrRoughVolumeExperiment == source.pathTracing.rrRoughVolumeExperiment, "rrRoughVolumeExperiment round-trip");
             valid &= Check(settings.pathTracing.rrTransmissionMotionExperiment == source.pathTracing.rrTransmissionMotionExperiment, "rrTransmissionMotionExperiment round-trip");
         }
+        valid &= Check(RtPbrSurvey::DeserializeSceneRendererSettings(
+                           R"({"pathTracing":{"debugOutput":9}})", settings) &&
+                           settings.pathTracing.debugOutput == RtPbrSurveyEngine::PathTracingDebugOutput::ThinShadowStatus &&
+                           RtPbrSurvey::SceneRendererSettingsToJson(settings)["pathTracing"]["debugOutput"] == 9,
+                       "Thin shadow status selection persists");
         const auto previous = settings.pathTracing.reconstructionBackend;
         valid &= Check(!RtPbrSurvey::DeserializeSceneRendererSettings(
                            R"({"pathTracing":{"reconstructionBackend":"typo"}})", settings) &&

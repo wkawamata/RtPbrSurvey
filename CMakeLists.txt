@@ -366,6 +366,23 @@ if(RTPBRSURVEY_BUILD_SHADERS)
         "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDirectLightAdapter.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli"
         "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
+    rtpbrsurvey_add_shader(
+        RTPBRSURVEY_SHADER_OUTPUTS
+        Shaders/shaders_PathTracingThinShadows.hlsl
+        cs_6_5
+        CSMain
+        "${RTPBRSURVEY_ROOT}/Shaders/shaders_PathTracing.hlsl"
+        "${RTPBRSURVEY_ROOT}/Shaders/AlphaMaskCoverage.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/Material.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/PathTracingSampling.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/ThinTransmission.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/VolumeTransmission.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/RoughVolumeTransmission.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDenoiserSampling.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/EmissiveTriangleSampling.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/PathTracingDirectLightAdapter.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/SceneRayQuery.hlsli"
+        "${RTPBRSURVEY_ROOT}/Shaders/SurfaceTransform.hlsli")
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_RayQueryTlasDebug.hlsl cs_6_5 CSMain)
     rtpbrsurvey_add_shader(RTPBRSURVEY_SHADER_OUTPUTS Shaders/shaders_SpecularDebugRayQuery.hlsl cs_6_5 CSMain)
 

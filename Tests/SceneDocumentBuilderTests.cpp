@@ -478,8 +478,20 @@ bool TestRuntimeTranslation()
     return passed;
 }
 
-int main()
+int main(int argc, char* argv[])
 {
+    if (argc == 2)
+    {
+        Engine::SceneDocumentRuntimeScene scene(argv[1]);
+        std::string error;
+        if (!scene.LoadFromFile(&error))
+        {
+            std::cerr << "Scene load failed: " << error << '\n';
+            return 1;
+        }
+        std::cout << scene.Name() << ": " << scene.GetScene().instances.size() << " instances\n";
+        return 0;
+    }
     if (!TestRuntimeTranslation() || !TestRuntimeTurntable() || !TestQualifiedVolumeBuild() || !TestThinReviewFixtures() || !TestTransmissionReachesRuntimeMaterial() ||
         !TestPrimitiveBuildAndMeshReuse() || !TestGltfBuildAndMeshReuse() || !TestGltfFailureKeepsPublishedScene() ||
         !TestNrdStableRadianceFixture() || !TestNrdDisocclusionFixture())

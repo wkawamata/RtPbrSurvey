@@ -172,7 +172,11 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     UINT renderWidth,
     UINT renderHeight,
     const RtPbrSurveyEngine::PathTracingSettings& settings,
-    bool shadowRayEnabled)
+    bool shadowRayEnabled,
+    bool directLightEnabled,
+    UINT lightCount,
+    bool thinTransmission,
+    bool emissiveNeeActive)
 {
     RtPbrSurveyEngine::PathTracingDiagnostics diagnostics;
     for (size_t i = 1; i < checkPoints.size(); ++i)
@@ -188,9 +192,16 @@ RtPbrSurveyEngine::PathTracingDiagnostics BuildPathTracingDiagnostics(
     {
         diagnostics.maxRayQueriesPerFrame += 2ull * renderWidth * renderHeight;
     }
-    if (settings.directLightingEnabled && shadowRayEnabled)
+    if (settings.directLightingEnabled && directLightEnabled && shadowRayEnabled)
     {
-        diagnostics.maxRayQueriesPerFrame += diagnostics.maxPathSegmentsPerFrame;
+        // Thin direct shadows use up to sixteen interfaces and a final miss query.
+        diagnostics.maxRayQueriesPerFrame += diagnostics.maxPathSegmentsPerFrame *
+            (std::min)(lightCount, 16u) * (thinTransmission ? 17ull : 1ull);
+    }
+    if (emissiveNeeActive)
+    {
+        diagnostics.maxRayQueriesPerFrame += diagnostics.primarySamplesPerFrame *
+            ((std::max)(settings.maxBounces, 1u) - 1u);
     }
     if (settings.environmentEnabled && settings.environmentSamplingMode >= 2 && shadowRayEnabled)
     {
@@ -572,7 +583,13 @@ RtPbrSurveyEngine::UiFrameContext RtPbrSurveyEngine::GetUiFrameContext() const
                                     m_renderWidth,
                                     m_renderHeight,
                                     m_pathTracingSettings,
-                                    m_shadowSettings.enabled && m_lightingParams.directLightEnabled);
+                                    m_shadowSettings.enabled,
+                                    m_lightingParams.directLightEnabled,
+                                    static_cast<UINT>(m_lightingParams.lights.size()),
+                                    m_sceneHasThinTransmission,
+                                    m_shadowSettings.enabled && m_pathTracingSettings.emissiveEnabled &&
+                                        m_lightingParams.emissiveEnabled && m_pathTracingSettings.emissiveSamplingMode >= 1 &&
+                                        !m_emissiveTriangles.empty());
     pathTracingDiagnostics.emissiveTriangleCount = static_cast<UINT>(m_emissiveTriangles.size());
     pathTracingDiagnostics.thinTransmissionActive = m_sceneHasThinTransmission;
     pathTracingDiagnostics.emissiveTableStatus = m_emissiveTableStatus;
@@ -2100,6 +2117,39 @@ void RtPbrSurveyEngine::ReloadEnvironmentResources(const Engine::ProceduralEnvir
     }
 }
 
+XMFLOAT4X4 RtPbrSurveyEngine::GetDebugWireframeViewProjection() const
+{
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (m_renderingPath == RenderingPath::PathTracing && m_ptRrLive &&
+        ResolvePathTracingReconstructionPresentation().output == Engine::PathTracingReconstructionBackend::Rr)
+    {
+        if (const auto* key = m_ptRrLive->PublishedKey())
+        {
+            XMFLOAT4X4 viewProjection;
+            memcpy(&viewProjection, key->viewProjection.data(), sizeof(viewProjection));
+            return viewProjection;
+        }
+    }
+#endif
+    return m_jitterFreeViewProjection;
+}
+
+const std::vector<RtPbrSurveyEngine::InstanceData>& RtPbrSurveyEngine::GetDebugWireframeInstances() const
+{
+#ifdef RTPBRSURVEY_RR_CONVERSION_DIAGNOSTICS
+    if (m_renderingPath == RenderingPath::PathTracing && m_ptRrLive &&
+        ResolvePathTracingReconstructionPresentation().output == Engine::PathTracingReconstructionBackend::Rr)
+    {
+        const auto* key = m_ptRrLive->PublishedKey();
+        const unsigned int slot = m_ptRrLive->PublishedSlot();
+        if (key && m_rrInstancePoseFrameIds[slot] == key->frameId &&
+            m_rrInstancePoses[slot].size() == m_scene.instances.size())
+            return m_rrInstancePoses[slot];
+    }
+#endif
+    return m_scene.instances;
+}
+
 void RtPbrSurveyEngine::UpdateCameraConstantBuffer()
 {
     m_scene.camera.fov = std::clamp(m_scene.camera.fov, 0.1f, 179.0f);
@@ -3477,6 +3527,7 @@ auto RtPbrSurveyEngine::LoadPipelineShaderBytecode() -> PipelineShaderBytecode
                                   LoadShaderBytecode(L"shaders_DebugBufferPreview_PSMain.cso")};
     shaders.hybridReflection = LoadShaderBytecode(L"shaders_HybridReflection_CSMain.cso");
     shaders.pathTracing = LoadShaderBytecode(L"shaders_PathTracing_CSMain.cso");
+    shaders.pathTracingThinShadows = LoadShaderBytecode(L"shaders_PathTracingThinShadows_CSMain.cso");
     shaders.proceduralEnv = LoadShaderBytecode(L"shaders_ProceduralEnvMap_CSMain.cso");
     shaders.rayQueryShadow = LoadShaderBytecode(L"shaders_RayQueryShadow_CSMain.cso");
     shaders.specularDebugRayQuery = LoadShaderBytecode(L"shaders_SpecularDebugRayQuery_CSMain.cso");
@@ -3740,6 +3791,9 @@ void RtPbrSurveyEngine::CreatePipelineStates()
         pathTracingDesc.CS = CD3DX12_SHADER_BYTECODE(shaders.pathTracing.data, shaders.pathTracing.size);
         ThrowIfFailed(m_graphicsDevice.Device()->CreateComputePipelineState(
             &pathTracingDesc, IID_PPV_ARGS(&m_pathTracingPipeline)));
+        pathTracingDesc.CS = CD3DX12_SHADER_BYTECODE(shaders.pathTracingThinShadows.data, shaders.pathTracingThinShadows.size);
+        ThrowIfFailed(m_graphicsDevice.Device()->CreateComputePipelineState(
+            &pathTracingDesc, IID_PPV_ARGS(&m_pathTracingThinShadowPipeline)));
     }
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC rayQueryShadowDesc = {};
@@ -7241,7 +7295,9 @@ void RtPbrSurveyEngine::ExecutePathTracingPass(const RenderPass& pass)
 
     Engine::PathTracingPassDesc passDesc = {};
     passDesc.rootSignature = m_pathTracingRootSignature.Get();
-    passDesc.pipelineState = m_pathTracingPipeline.Get();
+    passDesc.pipelineState =
+        (m_sceneHasThinTransmission || m_pathTracingSettings.debugOutput == PathTracingDebugOutput::ThinShadowStatus)
+            ? m_pathTracingThinShadowPipeline.Get() : m_pathTracingPipeline.Get();
     passDesc.sceneColorUav = m_pathTracingSceneColorUav.gpu;
     passDesc.accumulationUav = m_pathTracingAccumulationUav.gpu;
     passDesc.normalRoughnessUav = m_pathTracingGuideTextureUavs[PathTracingGuideNormalRoughness].gpu;
